@@ -1,62 +1,39 @@
-From: Juergen Kreileder <jk@blackdown.de>
+From: "Michael Chan" <mchan@broadcom.com>
 Subject: Re: tg3 timeouts with 2.6.17-rc6
-Date: Fri, 16 Jun 2006 23:20:30 +0200
-Message-ID: <87k67glrvl.fsf@blackdown.de>
+Date: Fri, 16 Jun 2006 14:42:41 -0700
+Message-ID: <1150494161.26368.39.camel@rh4>
 References: <1551EAE59135BE47B544934E30FC4FC041BD16@NT-IRVA-0751.brcm.ad.broadcom.com>
+ <87k67glrvl.fsf@blackdown.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.blackdown.de ([213.239.206.42]:57558 "EHLO
-	smtp.blackdown.de") by vger.kernel.org with ESMTP id S1751449AbWFPVUf
+Received: from mms2.broadcom.com ([216.31.210.18]:62725 "EHLO
+	mms2.broadcom.com") by vger.kernel.org with ESMTP id S1751495AbWFPVlu
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jun 2006 17:20:35 -0400
-To: "Michael Chan" <mchan@broadcom.com>
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC041BD16@NT-IRVA-0751.brcm.ad.broadcom.com>
-	(Michael Chan's message of "Fri, 16 Jun 2006 10:02:32 -0700")
+	Fri, 16 Jun 2006 17:41:50 -0400
+To: "Juergen Kreileder" <jk@blackdown.de>
+In-Reply-To: <87k67glrvl.fsf@blackdown.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Chan <mchan@broadcom.com> writes:
+On Fri, 2006-06-16 at 23:20 +0200, Juergen Kreileder wrote:
+> Michael Chan <mchan@broadcom.com> writes:
+> 
+> >
+> > Did this use to work with an older kernel or older tg3 driver? If
+> > yes, what version?
+> 
+> Works fine with 2.6.16 and earlier.
+> 
+> > Please also provide the full tg3 probing output during modprobe and
+> > ifconfig up. Thanks.
+> 
+Looking at the patch history since 2.6.16, the only patch that could
+have an impact is the one that enables TSO by default.
 
-> Juergen Kreileder
->
->> I'm seeing frequent network timeouts on my PowerMac G5 Quad with
->> 2.6.17-rc6.  The timeouts are easily reproducible with moderate
->> network traffic, e.g. by using bittorrent.
->>
->
-> Did this use to work with an older kernel or older tg3 driver? If
-> yes, what version?
+Please try turning TSO off to see if it makes a difference:
 
-Works fine with 2.6.16 and earlier.
+ethtool -K eth0 tso off
 
-> Please also provide the full tg3 probing output during modprobe and
-> ifconfig up. Thanks.
-
-,----
-| tg3.c:v3.58 (May 22, 2006)
-| eth0: Tigon3 [partno(BCM95780) rev 8003 PHY(5780)] (PCIX:133MHz:64-bit) 10/100/1000BaseT Ethernet 00:14:51:66:ff:b2
-| eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] Split[0] WireSpeed[1] TSOcap[1] 
-| eth0: dma_rwctrl[76144000] dma_mask[40-bit]
-| eth1: Tigon3 [partno(BCM95780) rev 8003 PHY(5780)] (PCIX:133MHz:64-bit) 10/100/1000BaseT Ethernet 00:14:51:66:ff:b3
-| eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] Split[0] WireSpeed[1] TSOcap[1] 
-| eth1: dma_rwctrl[76144000] dma_mask[40-bit]
-| [...]
-| tg3: lan0: Link is up at 1000 Mbps, full duplex.
-| tg3: lan0: Flow control is on for TX and on for RX.
-`----
-
-eth0 and eth1 get renamed to lan0 and lan1 by udev.  eth0/lan0 is
-connected to a Gigabit switch eth1/lan1 is not connected.
-Both interface are controlled by ifplugd (using SIOCETHTOOL for link
-beat detection).
-
-Let me know if you need more debugging output.
-
-
-        Juergen
-
--- 
-Juergen Kreileder, Blackdown Java-Linux Team
-http://blog.blackdown.de/
