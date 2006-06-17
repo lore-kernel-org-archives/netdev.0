@@ -1,55 +1,78 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: Linux 2.6 Vs linux 2.4 routing
-Date: Sat, 17 Jun 2006 12:33:04 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0606171230490.19616@bizon.gios.gov.pl>
-References: <d096a3ee0606161141n3c481ed9kfcbf70af7393affa@mail.gmail.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH 2.6.17 fix] bcm43xx: workaround init_board vs. IRQ race
+Date: Sat, 17 Jun 2006 15:19:05 +0200
+Message-ID: <200606171519.05893.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-476483786-1150540384=:19616"
-Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Mayuresh Chitale <mchitale@gmail.com>
-In-Reply-To: <d096a3ee0606161141n3c481ed9kfcbf70af7393affa@mail.gmail.com>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:50106
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751577AbWFQNV0
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Jun 2006 09:21:26 -0400
+To: linville@tuxdriver.com
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi John,
 
----187430788-476483786-1150540384=:19616
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Please try to push this for 2.6.17, as it is a crash fix.
 
+--
 
+Place the Init-vs-IRQ workaround before any card register
+access, because we might not have the wireless core mapped
+at all times in init. So this will result in a Machine Check
+caused by a bus error.
 
-On Sat, 17 Jun 2006, Mayuresh Chitale wrote:
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-> Hi All,
-Hi,
-
-> I am doing a routing test using linux 2.4 and linux 2.6 kernel on our
-> board. I am using 2.4.31 and 2.6.16.17 for comparison.
->
-> I have ported the bsp and drivers from 2.4 to 2.6 and am using a
-> smartbits tester which pumps traffic at high rates and at varying
-> packet sizes.
->
-> On 2.4, the test goes fine ie I get meaningful values. But on 2.6
-> kernel, routing begins and continues for sometime before it completely
-> stops. The smartbits configuration is identical in both the cases.
->
-> I have noticed same problem with dlink and 3com cards which is causing
-> me to suspect that there is some probem with 2.6 routing.
->
-> Has anyone seen a similar problem ?
-> Any inputs on this would be appreciated.
-
-Did you enable IRQBALANCE in 2.6?
-
-$ zcat /proc/config.gz |grep IRQBALANCE
-
-If so, please try to disable it.
-
-Best regards,
-
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-476483786-1150540384=:19616--
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-06-17 15:06:38.000000000 +0200
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-06-17 15:17:49.000000000 +0200
+@@ -1885,6 +1885,15 @@
+ 
+ 	spin_lock(&bcm->irq_lock);
+ 
++	/* Only accept IRQs, if we are initialized properly.
++	 * This avoids an RX race while initializing.
++	 * We should probably not enable IRQs before we are initialized
++	 * completely, but some careful work is needed to fix this. I think it
++	 * is best to stay with this cheap workaround for now... .
++	 */
++	if (unlikely(bcm43xx_status(bcm) != BCM43xx_STAT_INITIALIZED))
++		goto out;
++
+ 	reason = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+ 	if (reason == 0xffffffff) {
+ 		/* irq not for us (shared irq) */
+@@ -1906,19 +1915,11 @@
+ 
+ 	bcm43xx_interrupt_ack(bcm, reason);
+ 
+-	/* Only accept IRQs, if we are initialized properly.
+-	 * This avoids an RX race while initializing.
+-	 * We should probably not enable IRQs before we are initialized
+-	 * completely, but some careful work is needed to fix this. I think it
+-	 * is best to stay with this cheap workaround for now... .
+-	 */
+-	if (likely(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED)) {
+-		/* disable all IRQs. They are enabled again in the bottom half. */
+-		bcm->irq_savedstate = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+-		/* save the reason code and call our bottom half. */
+-		bcm->irq_reason = reason;
+-		tasklet_schedule(&bcm->isr_tasklet);
+-	}
++	/* disable all IRQs. They are enabled again in the bottom half. */
++	bcm->irq_savedstate = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
++	/* save the reason code and call our bottom half. */
++	bcm->irq_reason = reason;
++	tasklet_schedule(&bcm->isr_tasklet);
+ 
+ out:
+ 	mmiowb();
