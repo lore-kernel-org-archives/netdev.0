@@ -1,49 +1,36 @@
-From: Juergen Kreileder <jk@blackdown.de>
+From: "Michael Chan" <mchan@broadcom.com>
 Subject: Re: tg3 timeouts with 2.6.17-rc6
-Date: Sat, 17 Jun 2006 02:05:01 +0200
-Message-ID: <87bqsslk9e.fsf@blackdown.de>
+Date: Fri, 16 Jun 2006 18:27:32 -0700
+Message-ID: <1150507652.26368.46.camel@rh4>
 References: <1551EAE59135BE47B544934E30FC4FC041BD16@NT-IRVA-0751.brcm.ad.broadcom.com>
-	<87k67glrvl.fsf@blackdown.de> <1150494161.26368.39.camel@rh4>
+ <87k67glrvl.fsf@blackdown.de> <1150494161.26368.39.camel@rh4>
+ <87bqsslk9e.fsf@blackdown.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.blackdown.de ([213.239.206.42]:64404 "EHLO
-	smtp.blackdown.de") by vger.kernel.org with ESMTP id S932486AbWFQAFI
+Received: from mms1.broadcom.com ([216.31.210.17]:49170 "EHLO
+	mms1.broadcom.com") by vger.kernel.org with ESMTP id S1751251AbWFQB0l
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jun 2006 20:05:08 -0400
-To: "Michael Chan" <mchan@broadcom.com>
-In-Reply-To: <1150494161.26368.39.camel@rh4> (Michael Chan's message of "Fri,
-	16 Jun 2006 14:42:41 -0700")
+	Fri, 16 Jun 2006 21:26:41 -0400
+To: "Juergen Kreileder" <jk@blackdown.de>
+In-Reply-To: <87bqsslk9e.fsf@blackdown.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Chan <mchan@broadcom.com> writes:
+On Sat, 2006-06-17 at 02:05 +0200, Juergen Kreileder wrote:
+> Michael Chan <mchan@broadcom.com> writes:
+> > Please try turning TSO off to see if it makes a difference:
+> >
+> > ethtool -K eth0 tso off
+> 
+> Seems to work fine with TSO disabled.
+> 
+Thanks for the information. We'll look into it. If possible, please send
+me (using private email) an ethereal trace of a sample of the packets
+sent by the tg3 chip right before the NETDEV_WATCHDOG timeout.
 
-> On Fri, 2006-06-16 at 23:20 +0200, Juergen Kreileder wrote:
->> Michael Chan <mchan@broadcom.com> writes:
->>
->>>
->>> Did this use to work with an older kernel or older tg3 driver? If
->>> yes, what version?
->>
->> Works fine with 2.6.16 and earlier.
->>
->>> Please also provide the full tg3 probing output during modprobe
->>> and ifconfig up. Thanks.
->>
-> Looking at the patch history since 2.6.16, the only patch that could
-> have an impact is the one that enables TSO by default.
->
-> Please try turning TSO off to see if it makes a difference:
->
-> ethtool -K eth0 tso off
+In the meantime, I wonder if we should disable TSO by default on the
+5780 chip for 2.6.17.
 
-Seems to work fine with TSO disabled.
-
-
-        Juergen
-
--- 
-Juergen Kreileder, Blackdown Java-Linux Team
-http://blog.blackdown.de/
