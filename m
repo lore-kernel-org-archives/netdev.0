@@ -1,30 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [ETHTOOL]: Fix UFO typo
-Date: Fri, 16 Jun 2006 19:53:37 -0700 (PDT)
-Message-ID: <20060616.195337.15807471.davem@davemloft.net>
-References: <20060616063905.GA32669@gondor.apana.org.au>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: tg3 timeouts with 2.6.17-rc6
+Date: Fri, 16 Jun 2006 20:37:17 -0700
+Message-ID: <1551EAE59135BE47B544934E30FC4FC041BD1E@NT-IRVA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: jk@blackdown.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:12457
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751588AbWFQCxO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Jun 2006 22:53:14 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060616063905.GA32669@gondor.apana.org.au>
+Received: from mms1.broadcom.com ([216.31.210.17]:35080 "EHLO
+	mms1.broadcom.com") by vger.kernel.org with ESMTP id S1751586AbWFQDh3 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Jun 2006 23:37:29 -0400
+Content-class: urn:content-classes:message
+To: "David Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 16 Jun 2006 16:39:05 +1000
+David Miller wrote:
 
-> [ETHTOOL]: Fix UFO typo
+> From: "Michael Chan" <mchan@broadcom.com>
+> Date: Fri, 16 Jun 2006 18:27:32 -0700
 > 
-> The function ethtool_get_ufo was referring to ETHTOOL_GTSO instead of
-> ETHTOOL_GUFO.
+> > In the meantime, I wonder if we should disable TSO by default on the
+> > 5780 chip for 2.6.17.
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Sounds reasonable.  Would we disable it for all chips that set
+> TG3_FLG2_5780_CLASS or a specific variant?
+> 
+Yes, let's disable it for all TG3_FLG2_5780_CLASS chips for now
+until we figure out what's going on.
 
-Good catch Herbert, I'll apply this as soon as I get a chance.
