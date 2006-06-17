@@ -1,78 +1,36 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH 2.6.17 fix] bcm43xx: workaround init_board vs. IRQ race
-Date: Sat, 17 Jun 2006 15:19:05 +0200
-Message-ID: <200606171519.05893.mb@bu3sch.de>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: "Benny Higgins" <lwbnogbvdzuwi@megr.com>
+Subject: Fwd: Your letter
+Date: Sat, 17 Jun 2006 21:45:48 +0600
+Message-ID: <E3A4nm6-1522Yt-00@mail.nitros8.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:50106
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751577AbWFQNV0
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Jun 2006 09:21:26 -0400
-To: linville@tuxdriver.com
-Content-Disposition: inline
+Received: from [222.96.106.117] ([222.96.106.117]:64772 "HELO 209.132.176.167")
+	by vger.kernel.org with SMTP id S1751338AbWFQOyp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2006 10:54:45 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi John,
+-S''ensationall r'evoolution in m''edicine!
 
-Please try to push this for 2.6.17, as it is a crash fix.
+-E'n'l'a'r'g'e your p''e'n'i's up to 10 cm or up to 4 i'nches!
 
---
+-It's h'e'r'b'a'l solution what hasn't side e'ffect, but has 100% g'uaranted results!
 
-Place the Init-vs-IRQ workaround before any card register
-access, because we might not have the wireless core mapped
-at all times in init. So this will result in a Machine Check
-caused by a bus error.
+-Don't lose your chance and but know wihtout d'oubts, you will be i'mpressed with results!
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+ Clisk here: http://posmonsters.info
 
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-06-17 15:06:38.000000000 +0200
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-06-17 15:17:49.000000000 +0200
-@@ -1885,6 +1885,15 @@
- 
- 	spin_lock(&bcm->irq_lock);
- 
-+	/* Only accept IRQs, if we are initialized properly.
-+	 * This avoids an RX race while initializing.
-+	 * We should probably not enable IRQs before we are initialized
-+	 * completely, but some careful work is needed to fix this. I think it
-+	 * is best to stay with this cheap workaround for now... .
-+	 */
-+	if (unlikely(bcm43xx_status(bcm) != BCM43xx_STAT_INITIALIZED))
-+		goto out;
-+
- 	reason = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
- 	if (reason == 0xffffffff) {
- 		/* irq not for us (shared irq) */
-@@ -1906,19 +1915,11 @@
- 
- 	bcm43xx_interrupt_ack(bcm, reason);
- 
--	/* Only accept IRQs, if we are initialized properly.
--	 * This avoids an RX race while initializing.
--	 * We should probably not enable IRQs before we are initialized
--	 * completely, but some careful work is needed to fix this. I think it
--	 * is best to stay with this cheap workaround for now... .
--	 */
--	if (likely(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED)) {
--		/* disable all IRQs. They are enabled again in the bottom half. */
--		bcm->irq_savedstate = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
--		/* save the reason code and call our bottom half. */
--		bcm->irq_reason = reason;
--		tasklet_schedule(&bcm->isr_tasklet);
--	}
-+	/* disable all IRQs. They are enabled again in the bottom half. */
-+	bcm->irq_savedstate = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
-+	/* save the reason code and call our bottom half. */
-+	bcm->irq_reason = reason;
-+	tasklet_schedule(&bcm->isr_tasklet);
- 
- out:
- 	mmiowb();
+
+
+
+
+
+
+
+
+liturgy simon funeral chaparral slug cutlet jot strike alcoholism ritual
+syntax aerobacter electorate error cruel airway codify micronesia shire
+daly bristle condemnatory betrothal dyke fibrin kleenex condensate paginate ambiguity phone
+liquid nicotinamide circulate the curvature heckle squawbush enunciable
+cowherd copernicus axle numinous run copy moist paradigm
+shimmy copter barnett wolcott drier mode scandinavia caliper
