@@ -1,41 +1,46 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: recommend a network card
-Date: Sat, 17 Jun 2006 23:23:01 +0200
-Message-ID: <200606172323.01781.mb@bu3sch.de>
-References: <BAY101-F7A407E434F2393EB259C6C8800@phx.gbl>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: Sat, 17 Jun 2006 15:35:11 -0700
+Message-ID: <20060617153511.53a129a3.akpm@osdl.org>
+References: <4492D5D3.4000303@atmos.washington.edu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:24978
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750926AbWFQVX0
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Jun 2006 17:23:26 -0400
-To: "bastard operater" <bofh1234@hotmail.com>
-In-Reply-To: <BAY101-F7A407E434F2393EB259C6C8800@phx.gbl>
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:48584 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751017AbWFQWfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2006 18:35:18 -0400
+To: Harry Edmon <harry@atmos.washington.edu>
+In-Reply-To: <4492D5D3.4000303@atmos.washington.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 17 June 2006 23:12, bastard operater wrote:
-                                ^^^^^^^^^^^^^^^^
-People on this list like Real Names and are more
-motivated to help, if they know your name.
+On Fri, 16 Jun 2006 09:01:23 -0700
+Harry Edmon <harry@atmos.washington.edu> wrote:
 
-> My 3Com 3C905B-TX is starting to malfunction and it is getting worse.  So I 
+> I have a system with a strange network performance degradation from 
+> 2.6.11.12 to most recent kernels including 2.6.16.20 and 2.6.17-rc6.   
+> The system is has Dual single core Xeons with hyperthreading on.   The 
+> application is the LDM system from UCAR/Unidata 
+> (http://www.unidata.ucar.edu/software/ldm).   This system requests 
+> weather data from a variety of systems using RPC calls over a reserved 
+> TCP port (388), puts them into a memory mapped queue file, and then 
+> sends the data out to a variety of downstream requesting systems, again 
+> using RPC calls.  When the load is heavy, the 2.6.16.20 kernel falls way 
+> behind with the data ingestion.  The 2.6.11.12 kernel does not.   I have 
+> tried an experiment with a 2.6.17-rc6 system where it just does the 
+> ingestion, and not the downstream distribution, and it is able to keep 
+> up.   I would really appreciate any pointers as to where the problem may 
+> be and how to diagnose it.  I have attached the config files from both 
+> kernels and the sysctl.conf file I am using.   I have also included the 
+> output from "netstat -s" on the 2.6.16.20 system during a time when it 
+> was having problems.
+> 
 
-I never had a malfunctioning NIC. What does it look like?
-Broken packages?
+(added netdev)
 
-> am in the market for a new NIC.  The card has to work on Linux (natively) 
-> and windows.  I thought I would ask the experts if you have any 
-> recommendations for a good 100MB PCI card?
+A quick grep indicates that it isn't using TCP_NODELAY - we've had problems
+with that in the past.
 
-I have mostly RTL based cards (ranging from 10 to 1000 mbit).
-No problems so far. (But also no problem with my 3c905 since
-quite some time ;) )
-
--- 
-Greetings Michael.
+Perhaps a tcpdump of the net traffic will help to determine what's going on.
