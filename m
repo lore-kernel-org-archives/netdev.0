@@ -1,78 +1,92 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: tg3 timeouts with 2.6.17-rc6
-Date: Sat, 17 Jun 2006 11:23:28 -0700
-Message-ID: <1150568608.26368.49.camel@rh4>
-References: <1551EAE59135BE47B544934E30FC4FC041BD1E@NT-IRVA-0751.brcm.ad.broadcom.com>
+From: Duoala Mbale <duoalambale@katamail.com>
+Subject: Dear Friend
+Date: Sat, 17 Jun 2006 21:03:26 +0200 (CEST)
+Message-ID: <20060617190326.0AB973490A5@donald.isd-holland.nl>
+Reply-To: duoala@box.az
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jk@blackdown.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:18438 "EHLO
-	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1750778AbWFQSWk
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Jun 2006 14:22:40 -0400
-To: "David Miller" <davem@davemloft.net>
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC041BD1E@NT-IRVA-0751.brcm.ad.broadcom.com>
+Received: from donald.isd-holland.nl ([62.221.254.36]:25763 "EHLO
+	donald.isd-holland.nl") by vger.kernel.org with ESMTP
+	id S1750752AbWFQTDs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Jun 2006 15:03:48 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-06-16 at 20:37 -0700, Michael Chan wrote:
-> David Miller wrote:
-> 
-> > From: "Michael Chan" <mchan@broadcom.com>
-> > Date: Fri, 16 Jun 2006 18:27:32 -0700
-> > 
-> > > In the meantime, I wonder if we should disable TSO by default on the
-> > > 5780 chip for 2.6.17.
-> > 
-> > Sounds reasonable.  Would we disable it for all chips that set
-> > TG3_FLG2_5780_CLASS or a specific variant?
-> > 
-> Yes, let's disable it for all TG3_FLG2_5780_CLASS chips for now
-> until we figure out what's going on.
-
-David, Here's the patch if you haven't already made one:
-
-[TG3]: Disable TSO by default on 5780 class chips.
-
-Disable TSO by default on 5780, 5714, and 5715 chips for now while we
-investigate the reported tx timeouts by Juergen Kreileder.  Thanks to
-Juergen for reporting the problem.
-
-Update version to 3.60.
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 862c226..607d87e 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -69,8 +69,8 @@
+My Dear Friend, 
+
  
- #define DRV_MODULE_NAME		"tg3"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"3.59"
--#define DRV_MODULE_RELDATE	"June 8, 2006"
-+#define DRV_MODULE_VERSION	"3.60"
-+#define DRV_MODULE_RELDATE	"June 17, 2006"
+
+ I am interested in a partnership investment programme with your 
+
+self/corporation. 
+
  
- #define TG3_DEF_MAC_MODE	0
- #define TG3_DEF_RX_MODE		0
-@@ -11385,7 +11385,11 @@ static int __devinit tg3_init_one(struct
- 	 * Firmware TSO on older chips gives lower performance, so it
- 	 * is off by default, but can be enabled using ethtool.
- 	 */
--	if (tp->tg3_flags2 & TG3_FLG2_HW_TSO)
-+	/* Disable TSO by default on all 5780 class chips because
-+	 * of reported tx timeouts.
-+	 */
-+	if ((tp->tg3_flags2 & TG3_FLG2_HW_TSO) &&
-+	   !(tp->tg3_flags2 & TG3_FLG2_5780_CLASS))
- 		dev->features |= NETIF_F_TSO;
+
  
- #endif
+
+ There is this huge amount of Five million Seven hundred and fifthy 
+
+thousand U.S dollars($5,750,000.00)which my late father kept in a 
+
+security/financial company before he was assasinated by unknown persons, 
+
+during a political crisis in my country. 
+
+My father deposited it as a family treasure and that was before his 
+
+death. 
+
+ 
+
+Now I and mother left Angola to Senegal,through the help of my late 
+
+father's good friend.Right now we are in refugee camp and 
+
+wehave  decided to invest these money in your country or anywhere safe enough outside my country Angola and the whole of Africa for security and political reasons. 
+
+We would want you to assist us to transfer this fund to your country 
+
+for safty and investment purposes on the followings below: 
+
+ 
+
+ 1).Telecommunication 
+
+ 2).Manufacturing 
+
+ 3).Real Estate Business 
+
+ 
+
+ If you  will be able of rendering an assistance to us we will 
+
+adequately compensate you 25% Of the total fund. 
+
+ 
+
+ We will arrange all the necessary procedures in ensuring a smooth 
+
+process for the funds to get to you.We will also appreciate if you contact 
+
+me once you receive this mail to enable me give you more details.This 
+
+matter requires your urgent attention ,confidentiality and discretion no 
+
+matter what your decision maybe. 
+
+ 
+
+ Thank you and God bless you. 
+
+ Your's Sincerely, 
+
+ Duoala Mbale 
+
+
 
 
