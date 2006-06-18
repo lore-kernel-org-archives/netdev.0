@@ -1,41 +1,35 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: Re: [RFC] [patch 3/6] [Network namespace] Network devices isolation
-Date: Sun, 18 Jun 2006 19:57:21 +0100
-Message-ID: <20060618185721.GD27946@ftp.linux.org.uk>
-References: <20060609210202.215291000@localhost.localdomain> <20060609210627.064168000@localhost.localdomain>
+From: Harry Edmon <harry@atmos.washington.edu>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: Sun, 18 Jun 2006 16:23:03 -0700
+Message-ID: <4495E057.5000803@atmos.washington.edu>
+References: <4492D5D3.4000303@atmos.washington.edu>	<20060617153511.53a129a3.akpm@osdl.org>	<44948EF6.1060201@atmos.washington.edu> <20060617165611.2c478723.akpm@osdl.org> <4494C592.6090601@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:45546 "EHLO
-	ZenIV.linux.org.uk") by vger.kernel.org with ESMTP id S932286AbWFRS5W
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Jun 2006 14:57:22 -0400
-To: dlezcano@fr.ibm.com
-Content-Disposition: inline
-In-Reply-To: <20060609210627.064168000@localhost.localdomain>
+Received: from dew1.atmos.washington.edu ([128.95.89.41]:35791 "EHLO
+	dew1.atmos.washington.edu") by vger.kernel.org with ESMTP
+	id S1751175AbWFRXXR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Jun 2006 19:23:17 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <4494C592.6090601@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 09, 2006 at 11:02:05PM +0200, dlezcano@fr.ibm.com wrote:
->  struct net_device *dev_get_by_name(const char *name)
->  {
-> +	struct net_ns_dev_list *dev_list = &(net_ns()->dev_list);
->  	struct net_device *dev;
->  
-> -	read_lock(&dev_base_lock);
-> +	read_lock(&dev_list->lock);
->  	dev = __dev_get_by_name(name);
->  	if (dev)
->  		dev_hold(dev);
-> -	read_unlock(&dev_base_lock);
-> +	read_unlock(&dev_list->lock);
->  	return dev;
+Stephen Hemminger wrote:
 
-And what would stop renames done via different lists from creating a
-conflict?  Incidentally, WTF protects the device name while we are
-doing that lookup?
+>>   
+> Does this fix it?
+>    # sysctl -w net.ipv4.tcp_abc=0
 
-While we are at it, what are you going to do with sysfs?
-ls /sys/class/net and watch the fun...
+Thanks for the suggestion.  I will give it a try later tonight.  Also Andrew - 
+sorry for the incorrect placement of my follow-up comments.  I do appreciate 
+everyone's help in figuring this out.
+
+-- 
+  Dr. Harry Edmon			E-MAIL: harry@atmos.washington.edu
+  206-543-0547				harry@u.washington.edu
+  Dept of Atmospheric Sciences		FAX:	206-543-0308
+  University of Washington, Box 351640, Seattle, WA 98195-1640
