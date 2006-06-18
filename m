@@ -1,90 +1,31 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Sat, 17 Jun 2006 20:16:34 -0700
-Message-ID: <4494C592.6090601@osdl.org>
-References: <4492D5D3.4000303@atmos.washington.edu>	<20060617153511.53a129a3.akpm@osdl.org>	<44948EF6.1060201@atmos.washington.edu> <20060617165611.2c478723.akpm@osdl.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: tg3 timeouts with 2.6.17-rc6
+Date: Sat, 17 Jun 2006 21:08:18 -0700 (PDT)
+Message-ID: <20060617.210818.65908721.davem@davemloft.net>
+References: <1551EAE59135BE47B544934E30FC4FC041BD1E@NT-IRVA-0751.brcm.ad.broadcom.com>
+	<1150568608.26368.49.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Harry Edmon <harry@atmos.washington.edu>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: jk@blackdown.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:65426 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751076AbWFRDQw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Jun 2006 23:16:52 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060617165611.2c478723.akpm@osdl.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:4551
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932082AbWFREHr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Jun 2006 00:07:47 -0400
+To: mchan@broadcom.com
+In-Reply-To: <1150568608.26368.49.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> On Sat, 17 Jun 2006 16:23:34 -0700
-> Harry Edmon <harry@atmos.washington.edu> wrote:
->
->   
->> Andrew Morton wrote:
->>     
->>> On Fri, 16 Jun 2006 09:01:23 -0700
->>> Harry Edmon <harry@atmos.washington.edu> wrote:
->>>
->>>       
->>>> I have a system with a strange network performance degradation from 
->>>> 2.6.11.12 to most recent kernels including 2.6.16.20 and 2.6.17-rc6.   
->>>> The system is has Dual single core Xeons with hyperthreading on.   The 
->>>> application is the LDM system from UCAR/Unidata 
->>>> (http://www.unidata.ucar.edu/software/ldm).   This system requests 
->>>> weather data from a variety of systems using RPC calls over a reserved 
->>>> TCP port (388), puts them into a memory mapped queue file, and then 
->>>> sends the data out to a variety of downstream requesting systems, again 
->>>> using RPC calls.  When the load is heavy, the 2.6.16.20 kernel falls way 
->>>> behind with the data ingestion.  The 2.6.11.12 kernel does not.   I have 
->>>> tried an experiment with a 2.6.17-rc6 system where it just does the 
->>>> ingestion, and not the downstream distribution, and it is able to keep 
->>>> up.   I would really appreciate any pointers as to where the problem may 
->>>> be and how to diagnose it.  I have attached the config files from both 
->>>> kernels and the sysctl.conf file I am using.   I have also included the 
->>>> output from "netstat -s" on the 2.6.16.20 system during a time when it 
->>>> was having problems.
->>>>
->>>>         
->>> (added netdev)
->>>
->>> A quick grep indicates that it isn't using TCP_NODELAY - we've had problems
->>> with that in the past.
->>>
->>> Perhaps a tcpdump of the net traffic will help to determine what's going on.
->>>       
->
-> [ edit, edit - please don't top-post ]
->
->   
->> I assume you are talking about using TCP_NODELAY as a socket option within the 
->> LDM software.  I could give that a try.
->>     
->
-> The use of TCP_NODELAY caused problems with the JVM debugger.  I'm not
-> suggesting that enabling it will fix anything here.
->
->   
->> There is a lot of traffic on this node, on the order of 2000 packets in and out 
->> per second, so the tcpdump output will grow pretty fast.  How long a tcpdump 
->> would be useful, and what options would you suggest?
->>     
->
-> I don't know, frankly - first one needs to develop some sort of theory,
-> then use the diagnostic tools to prove or disprove that theory.  And I
-> don't have a theory.
->
-> I guess a simple one-second bare `tcpdump -i eth0' would be a starting
-> point.  Perhaps compare the output of that with the output from a
-> correctly-operating kernel, see if anything suggests itself.  That might
-> also give us something which the networking developers can use.
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->   
-Does this fix it?
-    # sysctl -w net.ipv4.tcp_abc=0
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Sat, 17 Jun 2006 11:23:28 -0700
 
+> David, Here's the patch if you haven't already made one:
+> 
+> [TG3]: Disable TSO by default on 5780 class chips.
+
+Sorry, I didn't get a chance to push this into 2.6.17
+in time.  I will push it into the first 2.6.17.x -stable
+release.
