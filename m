@@ -1,144 +1,82 @@
 From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH, RFT] bcm43xx: AccessPoint mode
-Date: Mon, 19 Jun 2006 11:07:34 +0200
-Message-ID: <200606191107.34602.mb@bu3sch.de>
+Subject: Re: [PATCH] AP (master) mode fixed (resubmit)
+Date: Mon, 19 Jun 2006 11:43:33 +0200
+Message-ID: <200606191143.33969.mb@bu3sch.de>
+References: <tRXgqSXY.1150142497.5818310.ndl@192.168.0.1> <200606181625.17213.mb@bu3sch.de> <fd8d0180606190237vdd4cfa8s1d4178ea1fdcf78b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_WlmlEnwFH/ImmIo"
-Cc: netdev@vger.kernel.org,
-	"Alexander Tsvyashchenko" <lists@ndl.kiev.ua>,
-	"Francois Barre" <francois.barre@gmail.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Alexander Tsvyashchenko" <lists@ndl.kiev.ua>,
+	bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:57513
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750951AbWFSJKZ
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:52661
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932284AbWFSJpW
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Jun 2006 05:10:25 -0400
-To: bcm43xx-dev@lists.berlios.de
+	Mon, 19 Jun 2006 05:45:22 -0400
+To: "Francois Barre" <francois.barre@gmail.com>
+In-Reply-To: <fd8d0180606190237vdd4cfa8s1d4178ea1fdcf78b@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_WlmlEnwFH/ImmIo
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Monday 19 June 2006 11:37, Francois Barre wrote:
+> 2006/6/18, Michael Buesch <mb@bu3sch.de>:
+> > Ok, I got my Airport to generate Beacons on this BE machine.
+> 
+> Hurray, I'm not alone running BE stuff here...
+> 
+> > There was a bug hiding in bcm43xx_ram_write().
+> [..]
+> Could you provide a small patch just for this issue please ? It's not
+> that I'm too lasy to re-apply your whole patches again, but... Well,
+> if you have it...
 
-Hi,
+It is not an issue without the AP mode patch, because all callers
+of bcm43xx_ram_write() are buggy, too.
+So, caller buggy, callee buggy, result OK. ;)
 
-This patch enables the usage of a bcm43xx card as AP with
-the Devicescape 802.11 stack.
+> > But I can not associate to the bcm43xx-AP.
+> > But it seems like a dscape problem. The authentication packet
+> > arrives at the machine (I can capture it with the new cool virtual
+> > monitor interface), but it is not processed. So the STA does
+> > not receive a response.
+> 
+> Funny, I did have no problem associating with the AP. What happens
+> exactly on the STA ? Did you manage to trace anything on ?
+> What exactly is your hardware, Michael ?
 
-Well, it does not work 100%, but at least it's very promising.
-We are able to create a bssid and correctly send beacon frames out.
+I think I did something wrong while bringing the device up.
+It works now.
 
-This patch is tested on BE and LE machines.
+But attached is a fixed patch, already.
+We had an off-by-two bug in common template write.
 
-There seem to be issues with Devicescape and/or hostap.
-Trying to authenticate from a STA to the AP does not work. The
-packet is simply not processed. I was able to catch the auth
-request on the AP (using the wonderful dscape virtual interfaces).
-So the AP receives the packet, but loses it somewhere in the
-stack or hostapd.
+> Also, Alexander, did you have the opportunity to heavily test your AP
+> code ? I mean, finding the maximum bandwidth a bcm43xx could provide
+> while being an AP, the way it behaves with multiple STA associated,
 
-Well, thanks to Alexander Tsvyashchenko and the OpenWRT team for
-the hard work to figure out how this all works.
-My part on this patch is mainly endianess fixes.
-
-Please give it a testrun.
-Final note about hostapd:
-"hostapd snapshot 0.5-2006-06-10" seems to "work" in the sense
-that it is able to bring up the device.
-"hostapd snapshot 0.5-2006-06-11" seems to fail.
-
-I did not look into this more close, yet.
-
-
-
-Important notes from Alexander Tsvyashchenko's initial mail follow:
-------
-
-1) This version deals with TIM in cleaner way (though, PS mode is still
-not supported) - instead of patching dscape stack to skip TIM
-generation, it strips TIM when writing probe response template and
-leaves it when writing beacon template.
-
-2) As in current dscape stack management interface seems to be no longer
-passed to the driver, all interface handling is left as it is, no
-changes there should be made anymore.
-
-...
-
-Known limitations:
-
-1) PS mode is not supported.
-
-Testing instructions:
-
-Although my previous patch to hostapd to make it interoperable with
-bcm43xx & dscape has been merged already in their CVS version, due to
-the subsequent changes in dscape stack current hostapd is again
-incompartible :-( So, to test this patch, the patch to hostapd should be
-applied.
-I used hostapd snapshot 0.5-2006-06-10, patch for it is attached.
-The patch is very hacky and requires tricky way to bring everything up,
-but as dscape stack is changed quite constantly, I just do not want to
-waste time fixing it in "proper" way only to find a week later that
-dscape handling of master interface was changed completely once more and
-everything is broken again ;-)
-
-The patch for dscape stack that is attached is not 100% necessary, but it
-seems to allow operating clients that request PS mode to be enabled at
-AP (verified with PDA client), the only thing it contains is disabling
-actual PS handling in dscape.
-
-So, the following sequence should be used to test AP mode:
-
-1) take hostapd snapshot 0.5-2006-06-10 (other recent versions should
-work OK also, though), apply the hostapd patch attached.
-
-2) Insert modules (80211, rate_control and bcm43xx-d80211)
-
-3) "iwconfig wlan0 mode master"
-
-4) "ifconfig wlan0 up" (this should be done by hostapd actually, but
-its operation with current dscape stack seems to be broken)
-
-5) Start hostapd (f.e. "hostapd -B /etc/hostapd.conf"), config file can
-look like:
-=====
-interface=wlan0
-driver=devicescape
-ssid=OpenWrt
-channel=1
-send_probe_response=0
-logger_syslog=-1
-logger_syslog_level=2
-logger_stdout=-1
-logger_stdout_level=2
-debug=4
-=====
-
-6) "iwconfig wlan0 essid <your-SSID-name>" (this also should not be
-required, but current combination of hostapd + dscape doesn't seem to
-generate config_interface callback when setting beacon, so this is
-required just to force call of config_interface).
-
+I was able to associate now, but could not transmit ping packets, yet.
+Dunno what the problem is. Maybe the STA is broken, too. Let's see.
 
 
 Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
 ===================================================================
 --- wireless-dev-dscapeports.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c	2006-06-17 21:26:10.000000000 +0200
-+++ wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c	2006-06-18 23:36:31.000000000 +0200
-@@ -152,7 +152,7 @@
++++ wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c	2006-06-19 11:25:02.000000000 +0200
+@@ -151,8 +151,10 @@
+ {
  	u32 status;
  
++	assert(offset % 4 == 0);
++
  	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
 -	if (!(status & BCM43xx_SBF_XFER_REG_BYTESWAP))
 +	if (status & BCM43xx_SBF_XFER_REG_BYTESWAP)
  		val = swab32(val);
  
  	bcm43xx_write32(bcm, BCM43xx_MMIO_RAM_CONTROL, offset);
-@@ -312,7 +312,7 @@
+@@ -312,7 +314,7 @@
  	}
  }
  
@@ -147,7 +85,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
  {
  	u32 status;
  
-@@ -320,7 +320,19 @@
+@@ -320,7 +322,19 @@
  	status |= BCM43xx_SBF_TIME_UPDATE;
  	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
  	mmiowb();
@@ -167,7 +105,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
  	/* Be careful with the in-progress timer.
  	 * First zero out the low register, so we have a full
  	 * register-overflow duration to complete the operation.
-@@ -350,10 +362,13 @@
+@@ -350,10 +364,13 @@
  		mmiowb();
  		bcm43xx_write16(bcm, BCM43xx_MMIO_TSF_0, v0);
  	}
@@ -184,7 +122,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
  }
  
  static void bcm43xx_measure_channel_change_time(struct bcm43xx_private *bcm)
-@@ -415,10 +430,11 @@
+@@ -415,10 +432,11 @@
  static void bcm43xx_write_mac_bssid_templates(struct bcm43xx_private *bcm)
  {
  	static const u8 zero_addr[ETH_ALEN] = { 0 };
@@ -198,7 +136,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
  
  	bssid = bcm->interface.bssid;
  	if (!bssid)
-@@ -431,12 +447,13 @@
+@@ -431,12 +449,13 @@
  	memcpy(mac_bssid + ETH_ALEN, bssid, ETH_ALEN);
  
  	/* Write our MAC address and BSSID to template ram */
@@ -218,7 +156,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
  }
  
  static void bcm43xx_set_slot_time(struct bcm43xx_private *bcm, u16 slot_time)
-@@ -460,49 +477,6 @@
+@@ -460,49 +479,6 @@
  	bcm->short_slot = 0;
  }
  
@@ -268,7 +206,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
  /* Enable a Generic IRQ. "mask" is the mask of which IRQs to enable.
   * Returns the _previously_ enabled IRQ mask.
   */
-@@ -758,12 +732,29 @@
+@@ -758,12 +734,29 @@
  	return -ENODEV;
  }
  
@@ -299,7 +237,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
  #endif
  
  	sprom = kzalloc(BCM43xx_SPROM_SIZE * sizeof(u16),
-@@ -772,27 +763,46 @@
+@@ -772,27 +765,46 @@
  		printk(KERN_ERR PFX "sprom_extract OOM\n");
  		return -ENOMEM;
  	}
@@ -316,11 +254,11 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
 -	sprom[BCM43xx_SPROM_PA0B0] = atoi(nvram_get("pa0b0"));
 -	sprom[BCM43xx_SPROM_PA0B1] = atoi(nvram_get("pa0b1"));
 -	sprom[BCM43xx_SPROM_PA0B2] = atoi(nvram_get("pa0b2"));
--
+ 
 -	sprom[BCM43xx_SPROM_PA1B0] = atoi(nvram_get("pa1b0"));
 -	sprom[BCM43xx_SPROM_PA1B1] = atoi(nvram_get("pa1b1"));
 -	sprom[BCM43xx_SPROM_PA1B2] = atoi(nvram_get("pa1b2"));
- 
+-
 -	sprom[BCM43xx_SPROM_BOARDREV] = atoi(nvram_get("boardrev"));
 -#else
  	bcm43xx_sprom_read(bcm, sprom);
@@ -365,7 +303,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
  #endif
  
  	/* boardflags2 */
-@@ -914,21 +924,21 @@
+@@ -914,21 +926,21 @@
  	u16 value = 0;
  	u32 buffer[5] = {
  		0x00000000,
@@ -391,7 +329,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
  		break;
  	default:
  		assert(0);
-@@ -1521,48 +1531,274 @@
+@@ -1521,48 +1533,274 @@
  	bcm43xx_write16(bcm, BCM43xx_MMIO_PS_STATUS, 0x0002);
  }
  
@@ -422,7 +360,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
 +			tmp |= (u32)(data[i + 2]) << 16;
 +		if (i + 3 < size)
 +			tmp |= (u32)(data[i + 3]) << 24;
-+		bcm43xx_ram_write(bcm, ram_offset + i, tmp);
++		bcm43xx_ram_write(bcm, ram_offset + i - 2, tmp);
 +	}
 +	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, shm_size_offset,
 +			    size + sizeof(struct bcm43xx_plcp_hdr6));
@@ -523,8 +461,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
 +			       elem_size);
 +			dest_pos += elem_size;
 +		}
- 	}
--	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, shm_size_offset, size);
++	}
 +	*dest_size = dest_pos;
 +
 +	/* Set the frame control. */
@@ -658,7 +595,8 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
 +	} else {
 +		bcm43xx_write16(bcm, 0x606, (beacon_int >> 6));
 +		bcm43xx_write16(bcm, 0x610, beacon_int);
-+	}
+ 	}
+-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, shm_size_offset, size);
 +	bcm43xx_time_unlock(bcm);
  }
  
@@ -689,7 +627,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
  	}
  
  	if ((status & 0x1) && (status & 0x2)) {
-@@ -1571,18 +1807,20 @@
+@@ -1571,18 +1809,20 @@
  		bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON,
  				BCM43xx_IRQ_BEACON);
  		bcm->irq_savedstate |= BCM43xx_IRQ_BEACON;
@@ -713,7 +651,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
  		status |= 0x2;
  		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD, status);
  	}
-@@ -4114,6 +4352,17 @@
+@@ -4114,6 +4354,17 @@
  		radio->power_level = conf->power_level;
  		bcm43xx_phy_xmitpower(bcm);
  	}
@@ -731,7 +669,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
  //FIXME: This does not seem to wake up:
  #if 0
  	if (conf->power_level == 0) {
-@@ -4128,6 +4377,11 @@
+@@ -4128,6 +4379,11 @@
  	//TODO: phymode
  	//TODO: antennas
  
@@ -743,7 +681,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
  	bcm43xx_unlock_irqonly(bcm, flags);
  
  	return 0;
-@@ -4293,8 +4547,11 @@
+@@ -4293,8 +4549,11 @@
  		bcm->interface.mac_addr = conf->mac_addr;
  		bcm->interface.type = conf->type;
  	}
@@ -756,7 +694,7 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
  	err = 0;
  
  	dprintk(KERN_INFO PFX "Virtual interface added "
-@@ -4343,6 +4600,11 @@
+@@ -4343,6 +4602,11 @@
  	if (conf->type != IEEE80211_IF_TYPE_MNTR) {
  		assert(bcm->interface.if_id == if_id);
  		bcm->interface.bssid = conf->bssid;
@@ -876,64 +814,3 @@ Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main
 
 -- 
 Greetings Michael.
-
---Boundary-00=_WlmlEnwFH/ImmIo
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="hostapd-dscape.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="hostapd-dscape.patch"
-
-diff -urN hostapd-0.5-2006-06-10/driver_devicescape.c hostapd.new/driver_devicescape.c
---- hostapd-0.5-2006-06-10/driver_devicescape.c	2006-05-03 03:04:24.000000000 +0000
-+++ hostapd.new/driver_devicescape.c	2006-06-12 21:17:10.000000000 +0000
-@@ -1338,8 +1338,12 @@
- 		return -1;
- 	}
- 
--        memset(&ifr, 0, sizeof(ifr));
--        snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", drv->mgmt_iface);
-+	/* Enable management interface */
-+	hostap_ioctl_prism2param(drv, PRISM2_PARAM_MGMT_IF, 1);
-+	strcpy(drv->mgmt_iface, "wmgmt0");
-+	
-+	memset(&ifr, 0, sizeof(ifr));
-+	snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", drv->mgmt_iface);
-         if (ioctl(drv->ioctl_sock, SIOCGIFINDEX, &ifr) != 0) {
- 		perror("ioctl(SIOCGIFINDEX)");
- 		return -1;
-@@ -1747,6 +1751,9 @@
- 	/* Disable the radio. */
- 	(void) hostap_ioctl_prism2param(drv, PRISM2_PARAM_RADIO_ENABLED, 0);
- 
-+	/* Disable management interface */
-+	hostap_ioctl_prism2param(drv, PRISM2_PARAM_MGMT_IF, 0);
-+
- 	drv->hapd->driver = NULL;
- 
- 	(void) hostapd_set_iface_flags(drv, 0);
-Files hostapd-0.5-2006-06-10/hostapd and hostapd.new/hostapd differ
-
---Boundary-00=_WlmlEnwFH/ImmIo
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="d80211-ap-mode.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="d80211-ap-mode.patch"
-
-diff -urN d80211.orig/ieee80211.c d80211/ieee80211.c
---- d80211.orig/ieee80211.c	2006-05-29 10:30:12.000000000 +0000
-+++ d80211/ieee80211.c	2006-06-12 20:39:47.000000000 +0000
-@@ -2534,7 +2534,7 @@
- 
- 	if (sdata->bss)
- 		atomic_inc(&sdata->bss->num_sta_ps);
--	sta->flags |= WLAN_STA_PS;
-+	/* sta->flags |= WLAN_STA_PS; */
- 	sta->pspoll = 0;
- #ifdef IEEE80211_VERBOSE_DEBUG_PS
- 	printk(KERN_DEBUG "%s: STA " MACSTR " aid %d enters power "
-
---Boundary-00=_WlmlEnwFH/ImmIo--
