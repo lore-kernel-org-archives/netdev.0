@@ -1,53 +1,30 @@
-From: Harry Edmon <harry@atmos.washington.edu>
+From: "Chris Friesen" <cfriesen@nortel.com>
 Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Mon, 19 Jun 2006 09:40:29 -0700
-Message-ID: <4496D37D.7090400@atmos.washington.edu>
-References: <4492D5D3.4000303@atmos.washington.edu> <20060617153511.53a129a3.akpm@osdl.org> <44948EF6.1060201@atmos.washington.edu> <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk>
+Date: Mon, 19 Jun 2006 11:34:57 -0600
+Message-ID: <4496E041.5070501@nortel.com>
+References: <4492D5D3.4000303@atmos.washington.edu> <44948EF6.1060201@atmos.washington.edu> <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk> <200606191724.31305.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	Harry Edmon <harry@atmos.washington.edu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dew1.atmos.washington.edu ([128.95.89.41]:47070 "EHLO
-	dew1.atmos.washington.edu") by vger.kernel.org with ESMTP
-	id S964792AbWFSQkk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Jun 2006 12:40:40 -0400
-To: Jesper Dangaard Brouer <hawk@diku.dk>
-In-Reply-To: <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk>
+Received: from zcars04e.nortel.com ([47.129.242.56]:11486 "EHLO
+	zcars04e.nortel.com") by vger.kernel.org with ESMTP
+	id S1751071AbWFSRfL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jun 2006 13:35:11 -0400
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <200606191724.31305.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Andi Kleen wrote:
 
+> Incoming packets are only time stamped
+> when someone asks for the timestamps.
 
-Jesper Dangaard Brouer wrote:
->
->>> Harry Edmon <harry@atmos.washington.edu> wrote:
->>>
->>>> I have a system with a strange network performance degradation from 
->>>> 2.6.11.12 to most recent kernels including 2.6.16.20 and 
->>>> 2.6.17-rc6. The system is has Dual single core Xeons with 
->>>> hyperthreading on.
-> <cut>
->
-> Hi Harry
->
-> Can you check which "high-res timesource" you are using?
->
-> In the kernel log look for:
->  kernel: Using tsc for high-res timesource
->  kernel: Using pmtmr for high-res timesource
->
-> I have experinced some network performance degradation when using the 
-> "pmtmr" timesource, on a Opteron AMD system.  It seems that the 
-> default timesource change between 2.6.15 to 2.6.16.
->
-> If you use "pmtmr" try to reboot with kernel option "clock=tsc".
->
-> On my Opteron AMD system i normally can route 400 kpps, but with 
-> timesource "pmtmr" i could only route around 83 kpps.  (I found the 
-> timer to be the issue by using oprofile).
->
->
-We have CONFIG_HPET_TIMER=y, so we do not see these messages.
+Doesn't that add scheduling latency to the timestamps?  Or is is a flag 
+that gets set to trigger timestamping at packet arrival?
 
-
+Chris
