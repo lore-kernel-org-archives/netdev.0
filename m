@@ -1,111 +1,112 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/1] connector: export cn_already_initialized.
-Date: Mon, 19 Jun 2006 09:30:35 +0400
-Message-ID: <20060619053031.GA17406@2ka.mipt.ru>
-References: <20060504122421.GA8576@2ka.mipt.ru> <20060505.171646.65488074.davem@davemloft.net> <20060506084045.GA16558@2ka.mipt.ru> <20060516.161406.23276754.davem@davemloft.net>
+From: Shuya MAEDA <maeda-sxb@necst.nec.co.jp>
+Subject: [PATCH] [PKT_SCHED]: PSCHED_TADD() and PSCHED_TADD2() can result,tv_usec
+ >= 1000000
+Date: Mon, 19 Jun 2006 16:05:05 +0900
+Message-ID: <44964CA1.8020505@necst.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:20205 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1750726AbWFSFap (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2006 01:30:45 -0400
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060516.161406.23276754.davem@davemloft.net>
+Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:32203 "EHLO
+	tyo202.gate.nec.co.jp") by vger.kernel.org with ESMTP
+	id S932206AbWFSHFH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jun 2006 03:05:07 -0400
+Received: from mailgate3.nec.co.jp (mailgate54.nec.co.jp [10.7.69.193])
+	by tyo202.gate.nec.co.jp (8.13.7/8.13.4) with ESMTP id k5J756pf001395
+	for <netdev@vger.kernel.org>; Mon, 19 Jun 2006 16:05:06 +0900 (JST)
+Received: (from root@localhost) by mailgate3.nec.co.jp (8.11.7/3.7W-MAILGATE-NEC)
+	id k5J756C04436 for netdev@vger.kernel.org; Mon, 19 Jun 2006 16:05:06 +0900 (JST)
+Received: from togyo.jp.nec.com (togyo.jp.nec.com [10.26.220.4]) by mailsv3.nec.co.jp (8.11.7/3.7W-MAILSV4-NEC) with ESMTP
+	id k5J755G13555 for <netdev@vger.kernel.org>; Mon, 19 Jun 2006 16:05:05 +0900 (JST)
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 16, 2006 at 04:14:06PM -0700, David S. Miller (davem@davemloft.net) wrote:
-> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> Date: Sat, 6 May 2006 12:40:45 +0400
-> 
-> > Some external patches, which can be built both as static build and as
-> > module just check that value, and thus will fail with unresolved symbol
-> > when cn and module are built as modules.
-> > 
-> > The right set of operations should be following:
-> > If external module is loaded and cn is not loaded or compiled into the
-> > kernel, insmod will just fail with unresolved symbol (cn_add_callback and others),
-> > if cn is already loaded or was built into the tree, then it has been 
-> > initialized already and there is no need to check that value, external
-> > module should be just loaded.
-> > 
-> > I think the right solution is to call external init functions after cn
-> > init function, but it's ordering is not always known.
-> 
-> In-kernel build of connector subsystem can be handled by
-> making cn_init a "subsystem_init()", it will then be setup
-> before any possible static or modular reference as long as
-> those modules use module_init().
-> 
-> For modular case of connector, dependency of module on connector
-> module should handle all ordering issues, making any ordering
-> issue take care of itself.
+I found two problems in PSCHED_TADD() and PSCHED_TADD2().
 
-Attached patch declares connector init function as subsys_init()
-and returns -EAGAIN in case connector is not initialized yet.
+1) These function increment tv_sec if tv_usec > 1000000.
+   But I think it should "if tv_usec >= 1000000".
 
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+2) tv_usec became 1200000 or more when I used CBQ and
+   experimented it. It is not correct to exceed 1000000
+   because tv_usec is micro seconds.
+   To fix 2), I think that it should do "delta / 1000000",
+   add the quotient to tv_sec, and add the remainder to
+   tv_usec.
 
-diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
-index 505677f..d1d964f 100644
---- a/drivers/connector/connector.c
-+++ b/drivers/connector/connector.c
-@@ -306,6 +306,9 @@ int cn_add_callback(struct cb_id *id, ch
- 	int err;
- 	struct cn_dev *dev = &cdev;
- 
-+	if (!cn_already_initialized)
-+		return -EAGAIN;
-+
- 	err = cn_queue_add_callback(dev->cbdev, name, id, callback);
- 	if (err)
- 		return err;
-@@ -433,7 +436,7 @@ static void cn_callback(void *data)
- 	up(&notify_lock);
- }
- 
--static int __init cn_init(void)
-+static int __devinit cn_init(void)
- {
- 	struct cn_dev *dev = &cdev;
- 	int err;
-@@ -454,21 +458,22 @@ static int __init cn_init(void)
- 			sock_release(dev->nls->sk_socket);
- 		return -EINVAL;
- 	}
-+	
-+	cn_already_initialized = 1;
- 
- 	err = cn_add_callback(&dev->id, "connector", &cn_callback);
- 	if (err) {
-+		cn_already_initialized = 0;
- 		cn_queue_free_dev(dev->cbdev);
- 		if (dev->nls->sk_socket)
- 			sock_release(dev->nls->sk_socket);
- 		return -EINVAL;
- 	}
- 
--	cn_already_initialized = 1;
--
- 	return 0;
- }
- 
--static void __exit cn_fini(void)
-+static void __devexit cn_fini(void)
- {
- 	struct cn_dev *dev = &cdev;
- 
-@@ -480,7 +485,7 @@ static void __exit cn_fini(void)
- 		sock_release(dev->nls->sk_socket);
- }
- 
--module_init(cn_init);
-+subsys_initcall(cn_init);
- module_exit(cn_fini);
- 
- EXPORT_SYMBOL_GPL(cn_add_callback);
+In both cases, because time when the transmission is restarted
+reaches an illegal value, it is not possible to communicate at
+the set rate.
 
+To fix these problem I create following patch.
+Are there any comments?
+
+[Experiment]
+  * kernel: linux-2.6.15.5
+  * CBQ settings
+   ----------------------------------------------------------
+   tc qdisc add dev $IF root handle 1:0 cbq bandwidth 100Mbit \
+	avpkt 1000 mpu 64 ewma 5 cell 8
+   tc class add dev $IF parent 1:0 classid 1:10 cbq rate 32Kbit \
+	prio 1 ewma 5 cell 8 avpkt 138 mpu 64 bandwidth 100Mbit \
+	minburst 25 maxburst 50 bounded isolated
+   tc filter add dev $IF parent 1:0 protocol ip prio 16 u32 match \
+	ip dport 4952 0xffff flowid 1:10
+   -----------------------------------------------------------
+  * Traffic
+    dst port 4952: 138byte per 20msec.
+
+[Result]
+  * In cbq_ovl_classic():
+    cl->undertime = { tv_sec = 1150368540, tv_usec = 1208301 }
+                                           ~~~~~~~~~~~~~~~~~~
+    q->now        = { tv_sec = 1150368539, tv_usec = 878917 }
+    delay         = 1329384
+    cl->avgidle   = -14781
+    cl->offtime   = 1295394
+
+[Patch]
+diff -Nur linux-2.6.17-rc6.orig/include/net/pkt_sched.h linux-2.6.17-rc6.mypatch/include/net/pkt_sched.h
+--- linux-2.6.17-rc6.orig/include/net/pkt_sched.h       2006-06-06 09:57:02.000000000 +0900
++++ linux-2.6.17-rc6.mypatch/include/net/pkt_sched.h    2006-06-16 11:29:08.000000000 +0900
+@@ -169,17 +169,31 @@
+
+ #define PSCHED_TADD2(tv, delta, tv_res) \
+ ({ \
+-          int __delta = (tv).tv_usec + (delta); \
+-          (tv_res).tv_sec = (tv).tv_sec; \
+-          if (__delta > USEC_PER_SEC) { (tv_res).tv_sec++; __delta -= USEC_PER_SEC; } \
+-          (tv_res).tv_usec = __delta; \
++          int __delta = (delta); \
++          (tv_res) = (tv); \
++          if((delta) > USEC_PER_SEC) { \
++                (tv_res).tv_sec += (delta) / USEC_PER_SEC; \
++                __delta -= (delta) % USEC_PER_SEC; \
++          } \
++          (tv_res).tv_usec += __delta; \
++          if((tv_res).tv_usec >= USEC_PER_SEC) { \
++                (tv_res).tv_sec++; \
++                (tv_res).tv_usec -= USEC_PER_SEC; \
++          } \
+ })
+
+ #define PSCHED_TADD(tv, delta) \
+ ({ \
+-          (tv).tv_usec += (delta); \
+-          if ((tv).tv_usec > USEC_PER_SEC) { (tv).tv_sec++; \
+-                (tv).tv_usec -= USEC_PER_SEC; } \
++          int __delta = (delta); \
++          if((delta) > USEC_PER_SEC) { \
++                (tv).tv_sec += (delta) / USEC_PER_SEC; \
++                __delta -= (delta) % USEC_PER_SEC; \
++          } \
++          (tv).tv_usec += __delta; \
++          if((tv).tv_usec >= USEC_PER_SEC) { \
++                (tv).tv_sec++; \
++                (tv).tv_usec -= USEC_PER_SEC; \
++          } \
+ })
+
+ /* Set/check that time is in the "past perfect";
 -- 
-	Evgeniy Polyakov
+Shuya Maeda
