@@ -1,71 +1,53 @@
-From: Xiaolan Zhang <cxzhang@us.ibm.com>
-Subject: Re: [Patch 1/1] AF_UNIX Datagram getpeersec (with minor fix)
-Date: Mon, 19 Jun 2006 12:39:43 -0400
-Message-ID: <OF40F3515E.23FE0F1D-ON85257192.005262A3-85257192.005B8764@us.ibm.com>
-References: <Pine.LNX.4.64.0606180313320.22401@d.namei>
+From: Harry Edmon <harry@atmos.washington.edu>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: Mon, 19 Jun 2006 09:40:29 -0700
+Message-ID: <4496D37D.7090400@atmos.washington.edu>
+References: <4492D5D3.4000303@atmos.washington.edu> <20060617153511.53a129a3.akpm@osdl.org> <44948EF6.1060201@atmos.washington.edu> <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: akpm@osdl.org, chrisw@osdl.org,
-	Catherine Zhang <cxzhang@watson.ibm.com>, czhang.us@gmail.com,
-	davem@davemloft.net, George Wilson <gcwilson@us.ibm.com>,
-	herbert@gondor.apana.org.au, jmorris@redhat.com,
-	latten@austin.ibm.com, netdev@vger.kernel.org, sds@tycho.nsa.gov,
-	Serge E Hallyn <sergeh@us.ibm.com>, tjaeger@cse.psu.edu
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:5003 "EHLO e3.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S964789AbWFSQjr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2006 12:39:47 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e3.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5JGdkSs016807
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 19 Jun 2006 12:39:47 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5JGdkwF262340
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 19 Jun 2006 12:39:46 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5JGdjkK015351
-	for <netdev@vger.kernel.org>; Mon, 19 Jun 2006 12:39:46 -0400
-In-Reply-To: <Pine.LNX.4.64.0606180313320.22401@d.namei>
-To: James Morris <jmorris@namei.org>
+Received: from dew1.atmos.washington.edu ([128.95.89.41]:47070 "EHLO
+	dew1.atmos.washington.edu") by vger.kernel.org with ESMTP
+	id S964792AbWFSQkk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jun 2006 12:40:40 -0400
+To: Jesper Dangaard Brouer <hawk@diku.dk>
+In-Reply-To: <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Morris <jmorris@namei.org> wrote on 06/18/2006 04:04:06 AM:
-
-> On Sun, 18 Jun 2006, Catherine Zhang wrote:
-> 
-> I'd also mention here that this is to complement the SO_PEERSEC option 
-for 
-> stream sockets.
-> 
-
-OK.
 
 
-> There's an implementation issue, which I'm sure has been mentioned 
-> previously.  This code should not be calling SELinux API functions.
-> 
-> > @@ -62,6 +70,12 @@ static __inline__ void scm_recv(struct s
-> >       if (test_bit(SOCK_PASSCRED, &sock->flags))
-> >               put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, 
-> sizeof(scm->creds), &scm->creds);
-> > 
-> > +     if (test_bit(SOCK_PASSSEC, &sock->flags)) {
-> > +             err = selinux_ctxid_to_string(scm->sid, &scontext, 
-> &scontext_len);
-> 
-> 
+Jesper Dangaard Brouer wrote:
+>
+>>> Harry Edmon <harry@atmos.washington.edu> wrote:
+>>>
+>>>> I have a system with a strange network performance degradation from 
+>>>> 2.6.11.12 to most recent kernels including 2.6.16.20 and 
+>>>> 2.6.17-rc6. The system is has Dual single core Xeons with 
+>>>> hyperthreading on.
+> <cut>
+>
+> Hi Harry
+>
+> Can you check which "high-res timesource" you are using?
+>
+> In the kernel log look for:
+>  kernel: Using tsc for high-res timesource
+>  kernel: Using pmtmr for high-res timesource
+>
+> I have experinced some network performance degradation when using the 
+> "pmtmr" timesource, on a Opteron AMD system.  It seems that the 
+> default timesource change between 2.6.15 to 2.6.16.
+>
+> If you use "pmtmr" try to reboot with kernel option "clock=tsc".
+>
+> On my Opteron AMD system i normally can route 400 kpps, but with 
+> timesource "pmtmr" i could only route around 83 kpps.  (I found the 
+> timer to be the issue by using oprofile).
+>
+>
+We have CONFIG_HPET_TIMER=y, so we do not see these messages.
 
-I remember this issue being discussed, but no conclusion was made.  The 
-reason that we cannot use socket_getpeersec_dgram directly is that it 
-passes skb as the argument, instead of socket.  If we want to reuse the 
-same hook for UNIX, then we have to make change to the interface.  I was 
-debating on whether I should add another hook for the UNIX domain...
-
-Let me check whether it'll be possible to reuse socket_getpeersec_dgram 
-without too much disruption/complicaiton and I will repost.
-
-thanks,
-Catherine
 
