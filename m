@@ -1,50 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [NET]: Prevent multiple qdisc runs
-Date: Mon, 19 Jun 2006 23:42:27 +1000
-Message-ID: <20060619134227.GA16662@gondor.apana.org.au>
-References: <20060619121519.GA16031@gondor.apana.org.au> <1150724031.5815.39.camel@jzny2>
+From: Harry Edmon <harry@atmos.washington.edu>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: Mon, 19 Jun 2006 06:54:46 -0700
+Message-ID: <4496ACA6.7090305@atmos.washington.edu>
+References: <4492D5D3.4000303@atmos.washington.edu>	<20060617153511.53a129a3.akpm@osdl.org>	<44948EF6.1060201@atmos.washington.edu> <20060617165611.2c478723.akpm@osdl.org> <4494C592.6090601@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:517 "EHLO arnor.apana.org.au")
-	by vger.kernel.org with ESMTP id S932446AbWFSNme (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2006 09:42:34 -0400
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1150724031.5815.39.camel@jzny2>
+Received: from dew1.atmos.washington.edu ([128.95.89.41]:21717 "EHLO
+	dew1.atmos.washington.edu") by vger.kernel.org with ESMTP
+	id S932211AbWFSNy7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jun 2006 09:54:59 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <4494C592.6090601@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jamal:
+Stephen Hemminger wrote:
 
-On Mon, Jun 19, 2006 at 09:33:51AM -0400, jamal wrote:
-> 
-> I take it you saw a lot of requeues happening that prompted this? What
-> were the circumstances? The _only_ times i have seen it happen is when
-> the (PCI) bus couldnt handle the incoming rate or there was a bug in the
-> driver. 
+> Does this fix it?
+>    # sysctl -w net.ipv4.tcp_abc=0
 
-Actually I discovered the problem only because the generic segmentation
-offload stuff that I'm working on needs to deal with the situation where
-a super-packet is partially transmitted.  Requeueing causes all sorts of
-nasty problems so I chose to keep it within the net_device structure.
+That did not help.  I have 1 minute outputs from tcpdump under both 2.6.11.12 
+and 2.6.16.20.  You will see a large size difference between the files.  Since 
+the 2.6.11.12 one is 2 MBytes, I thought I would post them via the web instead 
+of via attachments.   Look at:
 
-To do so requires qdisc_run to be serialised against each other.  I then
-found out that we want this anyway because otherwise the requeued packets
-could be reordered.
+http://www.atmos.washington.edu/~harry/linux/2.6.11.12.out.1min
+http://www.atmos.washington.edu/~harry/linux/2.6.16.20.out.1min
 
-> Also: what happens to the packet that comes in from either local or is
-> being forwarded and finds the qdisc_is_running flag is set? I couldnt
-> tell if the intent was to drop it or not. The answer for TCP is probably
-> simpler than for packets being forwarded.
+And again, thank to all of you for looking into this.
 
-The qdisc_is_running only prevents qdisc_run from occuring (because it's
-already running), it does not impact on the queueing of the packet.
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+  Dr. Harry Edmon			E-MAIL: harry@atmos.washington.edu
+  206-543-0547				harry@u.washington.edu
+  Dept of Atmospheric Sciences		FAX:	206-543-0308
+  University of Washington, Box 351640, Seattle, WA 98195-1640
