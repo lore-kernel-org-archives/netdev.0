@@ -1,163 +1,118 @@
 From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Bugme-new] [Bug 6682] New: BUG: soft lockup detected on CPU#0!
- / ksoftirqd takse 100% CPU
-Date: Mon, 19 Jun 2006 15:20:10 -0700
-Message-ID: <20060619152010.5c648b97.akpm@osdl.org>
-References: <200606122311.k5CNBMEx007518@fire-2.osdl.org>
+Subject: Re: [Bugme-new] [Bug 6681] New: TC crash and rule freeze
+Date: Mon, 19 Jun 2006 15:21:45 -0700
+Message-ID: <20060619152145.3defd8f0.akpm@osdl.org>
+References: <200606121733.k5CHX9rn022476@fire-2.osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Dipankar Sarma <dipankar@in.ibm.com>,
-	"Paul E. McKenney" <paulmck@us.ibm.com>,
+Cc: slavon@bigtelecom.ru,
 	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, alchemyx@uznam.net.pl
+	<bugme-daemon@bugzilla.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:9410 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964950AbWFSWR2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2006 18:17:28 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:20418 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S964954AbWFSWSo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2006 18:18:44 -0400
 To: netdev@vger.kernel.org
-In-Reply-To: <200606122311.k5CNBMEx007518@fire-2.osdl.org>
+In-Reply-To: <200606121733.k5CHX9rn022476@fire-2.osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 bugme-daemon@bugzilla.kernel.org wrote:
 >
-> http://bugzilla.kernel.org/show_bug.cgi?id=6682
+> http://bugzilla.kernel.org/show_bug.cgi?id=6681
 > 
->            Summary: BUG: soft lockup detected on CPU#0! / ksoftirqd takse
->                     100% CPU
->     Kernel Version: 2.6.15.6
+>            Summary: TC crash and rule freeze
+>     Kernel Version: 2.6.16-gentoo-r6
 >             Status: NEW
 >           Severity: normal
->              Owner: acme@conectiva.com.br
->          Submitter: alchemyx@uznam.net.pl
+>              Owner: shemminger@osdl.org
+>          Submitter: slavon@bigtelecom.ru
 > 
 > 
-> Most recent kernel where this bug did not occur: (unknown)
-> Distribution: Gentoo
-> Hardware Environment: 2x Xeon 2.66, 1 GB RAM, NICS: 2 x e1000, and one double
-> port e100. Based on Intel E7501 architecture (2U rack Intel chassis).
-> Software Environment: quagga 0.98.6
-> Problem Description: ksoftirqd/0 takes 100% of CPU. further investigation shows
-> no sing of network flood or something (and also 2 of 3 NICs are e1000 with
-> NAPI). Ocassionaly there are "BUG: soft lockup detected on CPU#0!".
+> Most recent kernel where this bug did not occur:
+> 2.6.16-gentoo-r6
+> Distribution:
+> Gentoo
+> Hardware Environment:
+> 00:00.0 Host bridge: Intel Corporation 82865G/PE/P DRAM Controller/Host-Hub
+> Interface (rev 02)
+> 00:02.0 VGA compatible controller: Intel Corporation 82865G Integrated Graphics
+> Controller (rev 02)
+> 00:1d.0 USB Controller: Intel Corporation 82801EB/ER (ICH5/ICH5R) USB UHCI
+> Controller #1 (rev 02)
+> 00:1d.1 USB Controller: Intel Corporation 82801EB/ER (ICH5/ICH5R) USB UHCI
+> Controller #2 (rev 02)
+> 00:1d.2 USB Controller: Intel Corporation 82801EB/ER (ICH5/ICH5R) USB UHCI
+> Controller #3 (rev 02)
+> 00:1d.3 USB Controller: Intel Corporation 82801EB/ER (ICH5/ICH5R) USB UHCI
+> Controller #4 (rev 02)
+> 00:1d.7 USB Controller: Intel Corporation 82801EB/ER (ICH5/ICH5R) USB2 EHCI
+> Controller (rev 02)
+> 00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev c2)
+> 00:1f.0 ISA bridge: Intel Corporation 82801EB/ER (ICH5/ICH5R) LPC Interface
+> Bridge (rev 02)
+> 00:1f.1 IDE interface: Intel Corporation 82801EB/ER (ICH5/ICH5R) IDE Controller
+> (rev 02)
+> 01:09.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 100] (rev 05)
+> 01:0a.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 100] (rev 05)
+> 01:0b.0 SCSI storage controller: Adaptec ASC-39320 U320 (rev 03)
+> 01:0b.1 SCSI storage controller: Adaptec ASC-39320 U320 (rev 03)
+> Software Environment:
+> sys-apps/iproute2-2.6.16.20060323
+> Problem Description:
+> #cat dmeseg
+> Unable to handle kernel NULL pointer dereference at virtual address 0000000c
+> printing eip:
+> c0217c26
+> *pde = 00000000
+> Oops: 0000 [#1]
+> SMP
+> Modules linked in: sch_sfq cls_u32 sch_red sch_htb iptable_filter ip_tables
+> x_tables uhci_hcd ehci_hcd usbcore
+> CPU:    0
+> EIP:    0060:[<c0217c26>]    Not tainted VLI
+> EFLAGS: 00010287   (2.6.16-gentoo-r6 #2)
+> EIP is at __rb_erase_color+0x94/0x1ad
+> eax: f55f4954   ebx: f724bb54   ecx: f724bb54   edx: 00000000
+> esi: 00000000   edi: f7679468   ebp: f7679468   esp: f676bbbc
+> ds: 007b   es: 007b   ss: 0068
+> Process tc (pid: 24294, threadinfo=f676a000 task=f7d7da90)
+> Stack: <0>f724bb54 f7679468 00000000 e6bbf154 00000000 c0217e36 00000000 f724bb54
+> f7679468 e6bbf000 e6bbf06c f7679000 f7679080 f8903366 e6bbf154 f7679468
+> 00000004 000000d0 00000000 00010006 000103c9 f7679000 c0311ffa f7679000
+> Call Trace:
+> [<c0217e36>] rb_erase+0xf7/0x12d
+> [<f8903366>] htb_destroy_class+0xec/0x15d [sch_htb]
+> [<c0311ffa>] tc_ctl_tclass+0x1b1/0x288
+> [<c030d69e>] rtnetlink_dump_ifinfo+0x6c/0x89
+> [<c030dcef>] rtnetlink_rcv_msg+0x171/0x233
+> [<c031759f>] netlink_dump+0x94/0x1e2
+> [<c030db7e>] rtnetlink_rcv_msg+0x0/0x233
+> [<c0317a45>] netlink_rcv_skb+0x46/0xad
+> [<c030db7e>] rtnetlink_rcv_msg+0x0/0x233
+> [<c0317aec>] netlink_run_queue+0x40/0xd0
+> [<c030db7e>] rtnetlink_rcv_msg+0x0/0x233
+> [<c030db5e>] rtnetlink_rcv+0x2e/0x4e
+> [<c030db7e>] rtnetlink_rcv_msg+0x0/0x233
+> [<c031735c>] netlink_data_ready+0x60/0x62
+> [<c03164ed>] netlink_sendskb+0x32/0x61
+> [<c031704d>] netlink_sendmsg+0x291/0x304
+> [<c02f9b0d>] sock_sendmsg+0xeb/0x10d
+> [<c02f9b0d>] sock_sendmsg+0xeb/0x10d
+> [<c0131fa6>] autoremove_wake_function+0x0/0x57
+> [<c021a084>] copy_from_user+0x46/0x7e
+> [<c0300ae4>] verify_iovec+0x44/0x9e
+> [<c02fb525>] sys_sendmsg+0x15a/0x272
+> [<c0140ca6>] filemap_nopage+0x30d/0x38a
+> [<c0152e83>] page_add_file_rmap+0x2a/0x2e
+> [<c014e014>] do_no_page+0x219/0x278
+> [<c021a084>] copy_from_user+0x46/0x7e
+> [<c02fbaf7>] sys_socketcall+0x28d/0x294
+> [<c0102ca7>] sysenter_past_esp+0x54/0x75
+> Code: 04 01 00 00 00 c7 43 04 00 00 00 00 89 7c 24 04 89 1c 24 e8 6b fe ff ff 8b
+> 53 0c eb 8e 8b 53 08 8b 72 04 85 f6 0f 84 82 00 00 00  <8b> 4a 0c 85 c9 74 0a 83
+> 79 04 01 0f 85 00 01 00 00 8b 72 08 85
 > 
-> 
-> Steps to reproduce:
-> 
-> There is no simple way to reproduce. I think that everythint started when we
-> attached second provider with BGP support. We are using quagga which injects
-> about 186 000 routes into kernel. When running for a while (at least few hours,
-> sometimes a day) we get 100% usage on ksoftirqd/0 and following messages in logs:
-> 
-> BUG: soft lockup detected on CPU#0!
-> 
-> Pid: 6506, comm:                zebra
-> EIP: 0060:[<c027f6fd>] CPU: 0
-> EIP is at _spin_lock+0x7/0xf
->  EFLAGS: 00000286    Not tainted  (2.6.15.6)
-> EAX: f6203180 EBX: e6fbf000 ECX: 00000000 EDX: f6bec000
-> ESI: f6203000 EDI: eddb4b80 EBP: fffffff4 DS: 007b ES: 007b
-> CR0: 8005003b CR2: aca6dff0 CR3: 361ad000 CR4: 000006d0
->  [<c02396f9>] dev_queue_xmit+0xe0/0x203
->  [<c0250de8>] ip_output+0x1e1/0x237
->  [<c024f3f5>] ip_forward+0x181/0x1df
->  [<c024e21a>] ip_rcv+0x40c/0x485
->  [<c0239bd0>] netif_receive_skb+0x12f/0x165
->  [<f885aa4c>] e1000_clean_rx_irq+0x389/0x410 [e1000]
->  [<f885a1ca>] e1000_clean+0x94/0x12f [e1000]
->  [<c0239d5a>] net_rx_action+0x69/0xf0
->  [<c011a305>] __do_softirq+0x55/0xbd
->  [<c011a39a>] do_softirq+0x2d/0x31
->  [<c011a3f8>] local_bh_enable+0x5a/0x65
->  [<c024a0a1>] rt_run_flush+0x5f/0x80
->  [<c027623f>] fn_hash_insert+0x352/0x39f
->  [<c027364c>] inet_rtm_newroute+0x57/0x62
->  [<c02413ed>] rtnetlink_rcv_msg+0x1a8/0x1cb
->  [<c0241245>] rtnetlink_rcv_msg+0x0/0x1cb
->  [<c0247c1e>] netlink_rcv_skb+0x3a/0x8b
->  [<c0247cb1>] netlink_run_queue+0x42/0xc3
->  [<c0241245>] rtnetlink_rcv_msg+0x0/0x1cb
->  [<c0241245>] rtnetlink_rcv_msg+0x0/0x1cb
->  [<c0241227>] rtnetlink_rcv+0x22/0x40
->  [<c0241245>] rtnetlink_rcv_msg+0x0/0x1cb
->  [<c024764c>] netlink_data_ready+0x17/0x54
->  [<c0246a99>] netlink_sendskb+0x1f/0x39
->  [<c0247449>] netlink_sendmsg+0x27b/0x28c
->  [<c0231467>] sock_sendmsg+0xce/0xe9
->  [<c0112b36>] __wake_up+0x27/0x3b
->  [<c01a6216>] copy_to_user+0x38/0x42
->  [<c01a625a>] copy_from_user+0x3a/0x60
->  [<c01a625a>] copy_from_user+0x3a/0x60
->  [<c0126be2>] autoremove_wake_function+0x0/0x3a
->  [<c0236bcd>] verify_iovec+0x49/0x7f
->  [<c02327f2>] sys_sendmsg+0x152/0x1a8
->  [<c0147a62>] do_sync_read+0xb8/0xeb
->  [<c01a6216>] copy_to_user+0x38/0x42
->  [<c0126be2>] autoremove_wake_function+0x0/0x3a
->  [<c0122b7a>] getrusage+0x34/0x43
->  [<c0168504>] inotify_dentry_parent_queue_event+0x29/0x7c
->  [<c01a625a>] copy_from_user+0x3a/0x60
->  [<c0232b6b>] sys_socketcall+0x167/0x180
->  [<c0102433>] sysenter_past_esp+0x54/0x75
-> 
-> BUG: soft lockup detected on CPU#0!
-> 
-> Pid: 6506, comm:                zebra
-> EIP: 0060:[<f8952052>] CPU: 0
-> EIP is at u32_classify+0x52/0x170 [cls_u32]
->  EFLAGS: 00000206    Not tainted  (2.6.15.6)
-> EAX: e2fbd020 EBX: f48649c0 ECX: 00000010 EDX: 29b09d5a
-> ESI: f48649ec EDI: 00000001 EBP: e2fbd020 DS: 007b ES: 007b
-> CR0: 8005003b CR2: 08154004 CR3: 361ad000 CR4: 000006d0
->  [<f88462fa>] ipt_do_table+0x2de/0x2fd [ip_tables]
->  [<f883b523>] ip_nat_fn+0x177/0x185 [iptable_nat]
->  [<f88e159f>] ip_refrag+0x23/0x5f [ip_conntrack]
->  [<c0244d82>] tc_classify+0x2c/0x3f
->  [<f895514b>] htb_classify+0x14b/0x1dd [sch_htb]
->  [<f8955638>] htb_enqueue+0x1d/0x13a [sch_htb]
->  [<c02396fd>] dev_queue_xmit+0xe4/0x203
->  [<c0250de8>] ip_output+0x1e1/0x237
->  [<c024f3f5>] ip_forward+0x181/0x1df
->  [<c024e21a>] ip_rcv+0x40c/0x485
->  [<c0239bd0>] netif_receive_skb+0x12f/0x165
->  [<f885aa4c>] e1000_clean_rx_irq+0x389/0x410 [e1000]
->  [<f885a1ca>] e1000_clean+0x94/0x12f [e1000]
->  [<c0239d5a>] net_rx_action+0x69/0xf0
->  [<c011a305>] __do_softirq+0x55/0xbd
->  [<c011a39a>] do_softirq+0x2d/0x31
->  [<c011a3f8>] local_bh_enable+0x5a/0x65
->  [<c024a0a1>] rt_run_flush+0x5f/0x80
->  [<c027623f>] fn_hash_insert+0x352/0x39f
->  [<c027364c>] inet_rtm_newroute+0x57/0x62
->  [<c02413ed>] rtnetlink_rcv_msg+0x1a8/0x1cb
->  [<c0241245>] rtnetlink_rcv_msg+0x0/0x1cb
->  [<c0247c1e>] netlink_rcv_skb+0x3a/0x8b
->  [<c0247cb1>] netlink_run_queue+0x42/0xc3
->  [<c0241245>] rtnetlink_rcv_msg+0x0/0x1cb
->  [<c0241245>] rtnetlink_rcv_msg+0x0/0x1cb
->  [<c0241227>] rtnetlink_rcv+0x22/0x40
->  [<c0241245>] rtnetlink_rcv_msg+0x0/0x1cb
->  [<c024764c>] netlink_data_ready+0x17/0x54
->  [<c0246a99>] netlink_sendskb+0x1f/0x39
->  [<c0247449>] netlink_sendmsg+0x27b/0x28c
->  [<c0231467>] sock_sendmsg+0xce/0xe9
->  [<c0112b36>] __wake_up+0x27/0x3b
->  [<c01a625a>] copy_from_user+0x3a/0x60
->  [<c01a625a>] copy_from_user+0x3a/0x60
->  [<c0126be2>] autoremove_wake_function+0x0/0x3a
->  [<c0236bcd>] verify_iovec+0x49/0x7f
->  [<c02327f2>] sys_sendmsg+0x152/0x1a8
->  [<c0147a62>] do_sync_read+0xb8/0xeb
->  [<c0122b7a>] getrusage+0x34/0x43
->  [<c011d72f>] update_wall_time+0xa/0x32
->  [<c011d9e5>] do_timer+0x33/0xa9
->  [<c01a625a>] copy_from_user+0x3a/0x60
->  [<c0232b6b>] sys_socketcall+0x167/0x180
->  [<c0102433>] sysenter_past_esp+0x54/0x75
-> 
-> It happens on 2.6.15.6. Tonight I will try 2.6.16.16 with FIB_TRIE instead of
-> FIB_HASH. I am submitting that bug under network but I am not completly sure if
-> it belongs here.
 
-This also happens on 2.6.16.6.
+It crashed in net/sched/somewhere.
