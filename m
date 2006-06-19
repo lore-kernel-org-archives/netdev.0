@@ -1,43 +1,33 @@
-From: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Subject: Re: [RFT] pcnet32 NAPI changes
-Date: Mon, 19 Jun 2006 16:49:33 -0400
-Message-ID: <20060619204933.GH26952@csclub.uwaterloo.ca>
-References: <20060616191154.GA6227@us.ibm.com> <20060619204140.GC10036@us.ibm.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: Mon, 19 Jun 2006 22:39:37 +0200
+Message-ID: <200606192239.37533.ak@suse.de>
+References: <4492D5D3.4000303@atmos.washington.edu> <200606191724.31305.ak@suse.de> <4496E041.5070501@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	Harry Edmon <harry@atmos.washington.edu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:7845 "EHLO
-	caffeine.csclub.uwaterloo.ca") by vger.kernel.org with ESMTP
-	id S932293AbWFSUte (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Jun 2006 16:49:34 -0400
-To: Don Fry <brazilnut@us.ibm.com>, netdev@vger.kernel.org
+Received: from ns1.suse.de ([195.135.220.2]:15256 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S932221AbWFSUul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2006 16:50:41 -0400
+To: "Chris Friesen" <cfriesen@nortel.com>
+In-Reply-To: <4496E041.5070501@nortel.com>
 Content-Disposition: inline
-In-Reply-To: <20060619204140.GC10036@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 19, 2006 at 03:41:40PM -0500, Jon Mason wrote:
-> I believe it is preferred to be a compile option for non-gigabit
-> drivers, given that it will be eating a lot of cycles for infrequent
-> packets (especially for the 10Mb).  I believe there was a thread about
-> this last year when e100 was having NAPI problems.
+On Monday 19 June 2006 19:34, Chris Friesen wrote:
+> Andi Kleen wrote:
+> > Incoming packets are only time stamped
+> > when someone asks for the timestamps.
+>
+> Doesn't that add scheduling latency to the timestamps?  Or is is a flag
+> that gets set to trigger timestamping at packet arrival?
 
-How does NAPI eat cycles?  It goes back to interrupt mode when the queue
-is empty, and only on RX interrupt does it turn on polling again.
+It's a flag (or more precise a global counter) 
 
-It is certainly possible that there are bugs in a NAPI conversion, which
-I guess could be a reason to have the option to stick with the old
-method, although then again not having the option ensures the bugs get
-found sooner.
-
-> A general nit.  There are ALOT of magic numbers in the code, most
-> existing prior to this patch.  The driver would benefit from a little
-> clean-up.
-> 
-> Also nothing to do with this patch, but I noticed it when the code was
-> moved.  A comment about why the following is necessary might be nice:
-> lp->rx_ring[i].buf_length = le16_to_cpu(2 - PKT_BUF_SZ);
-
-I suspect many drivers are in need of some cleanup.
-
-Len Sorensen
+-Andi
