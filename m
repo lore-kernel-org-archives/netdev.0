@@ -1,40 +1,66 @@
-From: Harry Edmon <harry@atmos.washington.edu>
-Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Mon, 19 Jun 2006 06:54:46 -0700
-Message-ID: <4496ACA6.7090305@atmos.washington.edu>
-References: <4492D5D3.4000303@atmos.washington.edu>	<20060617153511.53a129a3.akpm@osdl.org>	<44948EF6.1060201@atmos.washington.edu> <20060617165611.2c478723.akpm@osdl.org> <4494C592.6090601@osdl.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [NET]: Prevent multiple qdisc runs
+Date: Mon, 19 Jun 2006 10:23:29 -0400
+Message-ID: <1150727009.5815.72.camel@jzny2>
+References: <20060619121519.GA16031@gondor.apana.org.au>
+	 <1150724031.5815.39.camel@jzny2>
+	 <20060619134227.GA16662@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dew1.atmos.washington.edu ([128.95.89.41]:21717 "EHLO
-	dew1.atmos.washington.edu") by vger.kernel.org with ESMTP
-	id S932211AbWFSNy7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Jun 2006 09:54:59 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <4494C592.6090601@osdl.org>
+Received: from mx02.cybersurf.com ([209.197.145.105]:59320 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932463AbWFSOXd
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jun 2006 10:23:33 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1FsKfA-0000JK-84
+	for netdev@vger.kernel.org; Mon, 19 Jun 2006 10:23:36 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060619134227.GA16662@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
+Herbert,
 
-> Does this fix it?
->    # sysctl -w net.ipv4.tcp_abc=0
+On Mon, 2006-19-06 at 23:42 +1000, Herbert Xu wrote:
+> Hi Jamal:
+> 
+> On Mon, Jun 19, 2006 at 09:33:51AM -0400, jamal wrote:
+[..]
+> 
+> Actually I discovered the problem only because the generic segmentation
+> offload stuff that I'm working on needs to deal with the situation where
+> a super-packet is partially transmitted.  Requeueing causes all sorts of
+> nasty problems so I chose to keep it within the net_device structure.
+>
+> To do so requires qdisc_run to be serialised against each other.  I then
+> found out that we want this anyway because otherwise the requeued packets
+> could be reordered.
+> 
 
-That did not help.  I have 1 minute outputs from tcpdump under both 2.6.11.12 
-and 2.6.16.20.  You will see a large size difference between the files.  Since 
-the 2.6.11.12 one is 2 MBytes, I thought I would post them via the web instead 
-of via attachments.   Look at:
+Ok, I am trying to visualize but having a hard time:
+Re-queueing is done at the front of the queue to maintain ordering
+whereas queueing is done at the front (i.e it is a FIFO). i,e
+even if p2 comes in and gets queued while p1 is being processed,
+requeueing of p1 will put it infront of p2.
+Your super-packet issue may be different though ..
 
-http://www.atmos.washington.edu/~harry/linux/2.6.11.12.out.1min
-http://www.atmos.washington.edu/~harry/linux/2.6.16.20.out.1min
+> > Also: what happens to the packet that comes in from either local or is
+> > being forwarded and finds the qdisc_is_running flag is set? I couldnt
+> > tell if the intent was to drop it or not. The answer for TCP is probably
+> > simpler than for packets being forwarded.
+> 
+> The qdisc_is_running only prevents qdisc_run from occuring (because it's
+> already running), it does not impact on the queueing of the packet.
+> 
 
-And again, thank to all of you for looking into this.
+I will wait for your answer on the other part before responding to this.
 
--- 
-  Dr. Harry Edmon			E-MAIL: harry@atmos.washington.edu
-  206-543-0547				harry@u.washington.edu
-  Dept of Atmospheric Sciences		FAX:	206-543-0308
-  University of Washington, Box 351640, Seattle, WA 98195-1640
+cheers,
+jamal
+
+
