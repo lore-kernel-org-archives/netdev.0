@@ -1,51 +1,60 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Mon, 19 Jun 2006 16:47:49 +0200 (CEST)
-Message-ID: <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk>
-References: <4492D5D3.4000303@atmos.washington.edu> <20060617153511.53a129a3.akpm@osdl.org>
- <44948EF6.1060201@atmos.washington.edu>
+From: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Subject: Re: [RFT] pcnet32 NAPI changes
+Date: Mon, 19 Jun 2006 10:58:36 -0400
+Message-ID: <20060619145836.GF26952@csclub.uwaterloo.ca>
+References: <20060616191154.GA6227@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932507AbWFSOrw@vger.kernel.org>
-To: Harry Edmon <harry@atmos.washington.edu>
-In-Reply-To: <44948EF6.1060201@atmos.washington.edu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from caffeine.uwaterloo.ca ([129.97.134.17]:63141 "EHLO
+	caffeine.csclub.uwaterloo.ca") by vger.kernel.org with ESMTP
+	id S932453AbWFSO6h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jun 2006 10:58:37 -0400
+To: Don Fry <brazilnut@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20060616191154.GA6227@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Jun 16, 2006 at 12:11:54PM -0700, Don Fry wrote:
+> This patch is a collection of changes to pcnet32 which does the
+> following: 
+> 
+> - Fix section mismatch warning.
+> - fix set_ringparam to correctly handle memory allocation failures
+> - fix off-by-one in get_ringparam.
+> - cleanup at end of loopback_test when not up.
+> - Add NAPI to driver, fixing set_ringparam and loopback_test to work
+>   correctly with poll.
+> - for multicast, do not reset the chip unless cannot enter suspend mode
+>   to avoid race with poll.
+> 
+> The set_ringparam code is larger than I would prefer, but it will not
+> leave null pointers around for the code to stumble over when memory
+> allocation fails.  If anyone has a better idea, please let me know.
+> 
+> Some complexity could be avoided by allocating memory for the maximum
+> number of tx and rx buffers at probe time.  Requiring 14k for the tx
+> ring and arrays, and another 14k for rx; instead of about 10k total for
+> the default sizes.
 
->> Harry Edmon <harry@atmos.washington.edu> wrote:
->> 
->>> I have a system with a strange network performance degradation from 
->>> 2.6.11.12 to most recent kernels including 2.6.16.20 and 2.6.17-rc6. 
->>> The system is has Dual single core Xeons with hyperthreading on.
-<cut>
+So 28k vs 10k?  Why are these adjustable if it makes that little
+difference?  Is there any advantage to making them smaller?
 
-Hi Harry
+> It is NAPI only, unlike Len Sorensen's version which allows for compile
+> time selection.  Some drivers are NAPI only, others have compile
+> options.  Which is preferred?
 
-Can you check which "high-res timesource" you are using?
+I just figured making it an option was less intrusive, although I can't
+imagine a good reason for not wanting to use the NAPI version at all
+times.  I certainly know I intend to use it that way.
 
-In the kernel log look for:
-  kernel: Using tsc for high-res timesource
-  kernel: Using pmtmr for high-res timesource
+> I have tested these changes with a 79C971, 973, 976, and 978 on a ppc64
+> machine, and 970A, 972, 973, 975, and 976 on an x86 machine.
+> 
+> I have not tested these changes with VMware or Xen.
 
-I have experinced some network performance degradation when using the 
-"pmtmr" timesource, on a Opteron AMD system.  It seems that the default 
-timesource change between 2.6.15 to 2.6.16.
+I will give it a try with our system and see how it runs.
 
-If you use "pmtmr" try to reboot with kernel option "clock=tsc".
-
-On my Opteron AMD system i normally can route 400 kpps, but with 
-timesource "pmtmr" i could only route around 83 kpps.  (I found the timer 
-to be the issue by using oprofile).
-
-
-Cheers,
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
+Len Sorensen
