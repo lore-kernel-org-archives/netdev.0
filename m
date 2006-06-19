@@ -1,55 +1,190 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Mon, 19 Jun 2006 20:24:08 +0200 (CEST)
-Message-ID: <Pine.LNX.4.61.0606192017370.31662@ask.diku.dk>
-References: <4492D5D3.4000303@atmos.washington.edu> <44948EF6.1060201@atmos.washington.edu>
- <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk> <200606191724.31305.ak@suse.de>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH 2/2] update sunrpc to use in-kernel sockets API - ver2
+Date: Mon, 19 Jun 2006 12:15:09 -0700
+Message-ID: <1150744509.2816.25.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Harry Edmon <harry@atmos.washington.edu>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:60572 "EHLO mgw1.diku.dk")
-	by vger.kernel.org with ESMTP id S1751284AbWFSSYL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2006 14:24:11 -0400
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <200606191724.31305.ak@suse.de>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:56214 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S932532AbWFSTQD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2006 15:16:03 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e2.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5JJFxoi011899
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Mon, 19 Jun 2006 15:16:00 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5JJFxow262102
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 19 Jun 2006 15:15:59 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5JJFxQ3004064
+	for <netdev@vger.kernel.org>; Mon, 19 Jun 2006 15:15:59 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This patch updates sunrpc to use in-kernel sockets API.
 
-On Mon, 19 Jun 2006, Andi Kleen wrote:
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+Acked-by: James Morris <jmorris@namei.org>
 
->> If you use "pmtmr" try to reboot with kernel option "clock=tsc".
->
-> That's dangerous advice - when the system choses not to use
-> TSC it often has a reason.
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -388,7 +388,7 @@ svc_sendto(struct svc_rqst *rqstp, struc
+ 	/* send head */
+ 	if (slen == xdr->head[0].iov_len)
+ 		flags = 0;
+-	len = sock->ops->sendpage(sock, rqstp->rq_respages[0], 0, xdr->head[0].iov_len, flags);
++	len = kernel_sendpage(sock, rqstp->rq_respages[0], 0, xdr->head[0].iov_len, flags);
+ 	if (len != xdr->head[0].iov_len)
+ 		goto out;
+ 	slen -= xdr->head[0].iov_len;
+@@ -400,7 +400,7 @@ svc_sendto(struct svc_rqst *rqstp, struc
+ 	while (pglen > 0) {
+ 		if (slen == size)
+ 			flags = 0;
+-		result = sock->ops->sendpage(sock, *ppage, base, size, flags);
++		result = kernel_sendpage(sock, *ppage, base, size, flags);
+ 		if (result > 0)
+ 			len += result;
+ 		if (result != size)
+@@ -413,7 +413,7 @@ svc_sendto(struct svc_rqst *rqstp, struc
+ 	}
+ 	/* send tail */
+ 	if (xdr->tail[0].iov_len) {
+-		result = sock->ops->sendpage(sock, rqstp->rq_respages[rqstp->rq_restailpage], 
++		result = kernel_sendpage(sock, rqstp->rq_respages[rqstp->rq_restailpage],
+ 					     ((unsigned long)xdr->tail[0].iov_base)& (PAGE_SIZE-1),
+ 					     xdr->tail[0].iov_len, 0);
+ 
+@@ -434,13 +434,10 @@ out:
+ static int
+ svc_recv_available(struct svc_sock *svsk)
+ {
+-	mm_segment_t	oldfs;
+ 	struct socket	*sock = svsk->sk_sock;
+ 	int		avail, err;
+ 
+-	oldfs = get_fs(); set_fs(KERNEL_DS);
+-	err = sock->ops->ioctl(sock, TIOCINQ, (unsigned long) &avail);
+-	set_fs(oldfs);
++	err = kernel_sock_ioctl(sock, TIOCINQ, (unsigned long) &avail);
+ 
+ 	return (err >= 0)? avail : err;
+ }
+@@ -472,7 +469,7 @@ svc_recvfrom(struct svc_rqst *rqstp, str
+ 	 * at accept time. FIXME
+ 	 */
+ 	alen = sizeof(rqstp->rq_addr);
+-	sock->ops->getname(sock, (struct sockaddr *)&rqstp->rq_addr, &alen, 1);
++	kernel_getpeername(sock, (struct sockaddr *)&rqstp->rq_addr, &alen);
+ 
+ 	dprintk("svc: socket %p recvfrom(%p, %Zu) = %d\n",
+ 		rqstp->rq_sock, iov[0].iov_base, iov[0].iov_len, len);
+@@ -758,7 +755,6 @@ svc_tcp_accept(struct svc_sock *svsk)
+ 	struct svc_serv	*serv = svsk->sk_server;
+ 	struct socket	*sock = svsk->sk_sock;
+ 	struct socket	*newsock;
+-	const struct proto_ops *ops;
+ 	struct svc_sock	*newsvsk;
+ 	int		err, slen;
+ 
+@@ -766,29 +762,23 @@ svc_tcp_accept(struct svc_sock *svsk)
+ 	if (!sock)
+ 		return;
+ 
+-	err = sock_create_lite(PF_INET, SOCK_STREAM, IPPROTO_TCP, &newsock);
+-	if (err) {
++	clear_bit(SK_CONN, &svsk->sk_flags);
++	err = kernel_accept(sock, &newsock, O_NONBLOCK);
++	if (err < 0) {
+ 		if (err == -ENOMEM)
+ 			printk(KERN_WARNING "%s: no more sockets!\n",
+ 			       serv->sv_name);
+-		return;
+-	}
+-
+-	dprintk("svc: tcp_accept %p allocated\n", newsock);
+-	newsock->ops = ops = sock->ops;
+-
+-	clear_bit(SK_CONN, &svsk->sk_flags);
+-	if ((err = ops->accept(sock, newsock, O_NONBLOCK)) < 0) {
+-		if (err != -EAGAIN && net_ratelimit())
++		else if (err != -EAGAIN && net_ratelimit())
+ 			printk(KERN_WARNING "%s: accept failed (err %d)!\n",
+ 				   serv->sv_name, -err);
+-		goto failed;		/* aborted connection or whatever */
++		return;
+ 	}
++
+ 	set_bit(SK_CONN, &svsk->sk_flags);
+ 	svc_sock_enqueue(svsk);
+ 
+ 	slen = sizeof(sin);
+-	err = ops->getname(newsock, (struct sockaddr *) &sin, &slen, 1);
++	err = kernel_getpeername(newsock, (struct sockaddr *) &sin, &slen);
+ 	if (err < 0) {
+ 		if (net_ratelimit())
+ 			printk(KERN_WARNING "%s: peername failed (err %d)!\n",
+@@ -1407,14 +1397,14 @@ svc_create_socket(struct svc_serv *serv,
+ 	if (sin != NULL) {
+ 		if (type == SOCK_STREAM)
+ 			sock->sk->sk_reuse = 1; /* allow address reuse */
+-		error = sock->ops->bind(sock, (struct sockaddr *) sin,
++		error = kernel_bind(sock, (struct sockaddr *) sin,
+ 						sizeof(*sin));
+ 		if (error < 0)
+ 			goto bummer;
+ 	}
+ 
+ 	if (protocol == IPPROTO_TCP) {
+-		if ((error = sock->ops->listen(sock, 64)) < 0)
++		if ((error = kernel_listen(sock, 64)) < 0)
+ 			goto bummer;
+ 	}
+ 
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -207,7 +207,7 @@ static inline int xs_sendpages(struct so
+ 		base &= ~PAGE_CACHE_MASK;
+ 	}
+ 
+-	sendpage = sock->ops->sendpage ? : sock_no_sendpage;
++	sendpage = kernel_sendpage;
+ 	do {
+ 		int flags = XS_SENDMSG_FLAGS;
+ 
+@@ -952,7 +952,7 @@ static int xs_bindresvport(struct rpc_xp
+ 
+ 	do {
+ 		myaddr.sin_port = htons(port);
+-		err = sock->ops->bind(sock, (struct sockaddr *) &myaddr,
++		err = kernel_bind(sock, (struct sockaddr *) &myaddr,
+ 						sizeof(myaddr));
+ 		if (err == 0) {
+ 			xprt->port = port;
+@@ -1047,7 +1047,7 @@ static void xs_tcp_reuse_connection(stru
+ 	 */
+ 	memset(&any, 0, sizeof(any));
+ 	any.sa_family = AF_UNSPEC;
+-	result = sock->ops->connect(sock, &any, sizeof(any), 0);
++	result = kernel_connect(sock, &any, sizeof(any), 0);
+ 	if (result)
+ 		dprintk("RPC:      AF_UNSPEC connect return code %d\n",
+ 				result);
+@@ -1117,7 +1117,7 @@ static void xs_tcp_connect_worker(void *
+ 	/* Tell the socket layer to start connecting... */
+ 	xprt->stat.connect_count++;
+ 	xprt->stat.connect_start = jiffies;
+-	status = sock->ops->connect(sock, (struct sockaddr *) &xprt->addr,
++	status = kernel_connect(sock, (struct sockaddr *) &xprt->addr,
+ 			sizeof(xprt->addr), O_NONBLOCK);
+ 	dprintk("RPC: %p  connect status %d connected %d sock state %d\n",
+ 			xprt, -status, xprt_connected(xprt), sock->sk->sk_state);
 
-Sorry, it was not a general advice, just something to try out.  It really 
-solved my network performance issue...
 
 
->> On my Opteron AMD system i normally can route 400 kpps, but with
->> timesource "pmtmr" i could only route around 83 kpps.  (I found the timer
->> to be the issue by using oprofile).
->
-> Unless you're using packet sniffing or any other application
-> that requests time stamps on a socket then the timer shouldn't
-> make much difference. Incoming packets are only time stamped
-> when someone asks for the timestamps.
-
-I do not know what caused the issue on my machine, but I can look into it 
-if you like to know?
-
-I do have VLAN interfaces on the machine and it seems that eth1 runs in 
-PROMISC mode (eth1.xxx does not).  Could it be caused by that?
-
-Hilsen
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
