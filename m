@@ -1,38 +1,65 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Mon, 19 Jun 2006 17:24:31 +0200
-Message-ID: <200606191724.31305.ak@suse.de>
-References: <4492D5D3.4000303@atmos.washington.edu> <44948EF6.1060201@atmos.washington.edu> <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [DOC]: generic netlink
+Date: Mon, 19 Jun 2006 11:28:04 -0400
+Message-ID: <1150730884.5384.10.camel@jzny2>
+References: <1150724482.5815.48.camel@jzny2>
+	 <Pine.LNX.4.64.0606191057420.21114@d.namei>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Harry Edmon <harry@atmos.washington.edu>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: Per Liden <per.liden@ericsson.com>,
+	Shailabh Nagar <nagar@watson.ibm.com>,
+	Jay Lan <jlan@engr.sgi.com>, Thomas Graf <tgraf@suug.ch>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:62860 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S932513AbWFSPYk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Jun 2006 11:24:40 -0400
-To: Jesper Dangaard Brouer <hawk@diku.dk>
-In-Reply-To: <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk>
-Content-Disposition: inline
+Received: from mx02.cybersurf.com ([209.197.145.105]:147 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932474AbWFSP2L
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Jun 2006 11:28:11 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1FsLfi-0003u3-O6
+	for netdev@vger.kernel.org; Mon, 19 Jun 2006 11:28:14 -0400
+To: James Morris <jmorris@namei.org>
+In-Reply-To: <Pine.LNX.4.64.0606191057420.21114@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-> If you use "pmtmr" try to reboot with kernel option "clock=tsc".
-
-That's dangerous advice - when the system choses not to use
-TSC it often has a reason.
+On Mon, 2006-19-06 at 11:13 -0400, James Morris wrote:
 
 > 
-> On my Opteron AMD system i normally can route 400 kpps, but with 
-> timesource "pmtmr" i could only route around 83 kpps.  (I found the timer 
-> to be the issue by using oprofile).
+> It seems that TIPC is multiplexing all of it's commands through  
+> TIPC_GENL_CMD.
 
-Unless you're using packet sniffing or any other application
-that requests time stamps on a socket then the timer shouldn't 
-make much difference. Incoming packets are only time stamped
-when someone asks for the timestamps.
 
--Andi
+TIPC is a deviation; they had the 100 ioctls and therefore did a direct
+one-to-one mapping.
+
+> I wonder, if this is how other protocols are likely to utilize genl, then 
+> we could possibly drop the command registration code completely and one 
+> command op can be registered by the protocol during 
+> genl_register_family().
+> 
+
+The intent is to have a handful of commands as in classical netlink
+(eg route or qdisc etc) where you are controlling data that sits in the
+kernel; i.e when you have an attribute or a vector of attributes, then
+the commands will be of the semantics: ADD/DEL/GET/DUMP only. 
+Other that TIPC the two other users i have seen use it in this manner.
+But, you are right if usage tends to lean in some other way we could get
+rid of it (I think TIPC is a bad example).
+
+> This would both simplify the genl code and API, and help ensure 
+> consistency of users.
+> 
+
+You are talking from an SELinux perspective i take it?
+My view: If you want to have ACLs against such commands
+then it becomes easier to say "can only do ADD but not DEL" for example
+(We need to resolve genl_rcv_msg() check on commands to be in sync with
+SELinux as was pointed by Thomas)
+
+cheers,
+jamal
+
