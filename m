@@ -1,65 +1,54 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
-Date: Tue, 20 Jun 2006 09:33:25 +0200
-Message-ID: <1150788805.3480.31.camel@localhost.localdomain>
-References: <1150278004.26181.35.camel@localhost.localdomain>
-	 <20060620053536.GA10311@tuatara.stupidest.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [DOC]: generic netlink
+Date: Tue, 20 Jun 2006 10:02:50 +0200
+Message-ID: <20060620080250.GM1376@postel.suug.ch>
+References: <1150724482.5815.48.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-3gsW3VxIo49i4V0m7YvI"
-Cc: netdev <netdev@vger.kernel.org>, russell-tcatm@stuart.id.au
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jay Lan <jlan@engr.sgi.com>,
+	Shailabh Nagar <nagar@watson.ibm.com>,
+	Per Liden <per.liden@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ex001a.cxnet.dk ([195.135.216.13]:11121 "EHLO
-	comxexch01.comx.local") by vger.kernel.org with ESMTP
-	id S965127AbWFTHd1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 03:33:27 -0400
-To: Chris Wedgwood <cw@f00f.org>
-In-Reply-To: <20060620053536.GA10311@tuatara.stupidest.org>
+Received: from postel.suug.ch ([194.88.212.233]:20677 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S964995AbWFTICa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2006 04:02:30 -0400
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1150724482.5815.48.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+* jamal <hadi@cyberus.ca> 2006-06-19 09:41
+> // the attributes you want to own
+> 
+> enum {
+>         FOOBAR_ATTR_UNSPEC,
+>         FOOBAR_ATTR_TYPE,
+>         FOOBAR_ATTR_TYPEID,
+>         FOOBAR_ATTR_TYPENAME,
+>         FOOBAR_ATTR_OPER,
+> 	/* add future attributes here */
+>         __FOOBAR_ATTR_MAX,
+> };
+> 
+> #define FOOBAR_ATTR_MAX (__FOOBAR_ATTR_MAX - 1)
 
---=-3gsW3VxIo49i4V0m7YvI
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-
-On Mon, 2006-06-19 at 22:35 -0700, Chris Wedgwood wrote:
-> On Wed, Jun 14, 2006 at 11:40:04AM +0200, Jesper Dangaard Brouer wrote:
->=20
-> > The Linux traffic's control engine inaccurately calculates
-> > transmission times for packets sent over ADSL links.  For some
-> > packet sizes the error rises to over 50%.  This occurs because ADSL
-> > uses ATM as its link layer transport, and ATM transmits packets in
-> > fixed sized 53 byte cells.
->=20
-> What if AAL5 is used?  The cell-alignment math is going to be wrong
-> there surely?
-
-Actually it _is_ AAL5 which is accounted for.
-
-See Chapter 5 "ADSL link layer overhead" (page 48-54).
-http://www.adsl-optimizer.dk/thesis/main_final_hyper.pdf
-
---=20
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
+One important point about attributes in generic netlink is that
+their scope is per command instead of per family as in netlink.
+It's not forbidden to use the same set of attribute identifiers
+for two separete commands but it should be avoided to have a
+single large list of attributes and have every command pick out
+the attributes it needs.
 
 
---=-3gsW3VxIo49i4V0m7YvI
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+> TODO:
+> a) Add a more complete compiling kernel module with events.
+> Have Thomas put his Mashimaro example and point to it.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
+I guess we have a legal issue here ;)
 
-iD8DBQBEl6TFwuVH+NB3fZkRAvrlAJ9Is5CDyMSjd/bcC77e7UNPG1vEhACfdIDc
-rclEWoWa2fiePYrPVONrOIk=
-=nXhD
------END PGP SIGNATURE-----
+> b) Describe some details on how user space -> kernel works
+> probably using libnl??
 
---=-3gsW3VxIo49i4V0m7YvI--
-
+I'll take care of that.
