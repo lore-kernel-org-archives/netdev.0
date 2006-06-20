@@ -1,63 +1,62 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [DOC]: generic netlink
-Date: Tue, 20 Jun 2006 11:01:37 -0400
-Message-ID: <1150815697.5270.86.camel@jzny2>
-References: <1150724482.5815.48.camel@jzny2>
-	 <20060620080250.GM1376@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
+Date: Tue, 20 Jun 2006 17:09:23 +0200
+Message-ID: <44980FA3.1000009@trash.net>
+References: <1150278004.26181.35.camel@localhost.localdomain>	 <1150286766.5233.15.camel@jzny2>  <4497474C.4050706@trash.net> <1150815375.5270.78.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Per Liden <per.liden@ericsson.com>,
-	Shailabh Nagar <nagar@watson.ibm.com>,
-	Jay Lan <jlan@engr.sgi.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org,
+	lartc@mailman.ds9a.nl, russell-tcatm@stuart.id.au, hawk@diku.dk,
+	Jesper Dangaard Brouer <hawk@comx.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:47535 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1751291AbWFTPBj
+Received: from stinky.trash.net ([213.144.137.162]:41406 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751301AbWFTPJ0
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 11:01:39 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1FshjZ-0006Xo-Ma
-	for netdev@vger.kernel.org; Tue, 20 Jun 2006 11:01:41 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060620080250.GM1376@postel.suug.ch>
+	Tue, 20 Jun 2006 11:09:26 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1150815375.5270.78.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-20-06 at 10:02 +0200, Thomas Graf wrote:
-> * jamal <hadi@cyberus.ca> 2006-06-19 09:41
-
-> One important point about attributes in generic netlink is that
-> their scope is per command instead of per family as in netlink.
-> It's not forbidden to use the same set of attribute identifiers
-> for two separete commands but it should be avoided to have a
-> single large list of attributes and have every command pick out
-> the attributes it needs.
+jamal wrote:
+> On Tue, 2006-20-06 at 02:54 +0200, Patrick McHardy wrote:
 > 
-
-Thanks - I will add this to the doc. Additionally the commands are 
-scoped per registered family (as opposed of needing them to be 
-encapsulated in the nlmsg_type).
-
+>>jamal wrote:
+>>
+>>>- For further reflection: Have you considered the case where the rate
+>>>table has already been considered on some link speed in user space and
+>>>then somewhere post-config the physical link speed changes? This would
+>>>happen in the case where ethernet AN is involved and the partner makes
+>>>some changes (use ethtool). 
+>>>
 > 
-> > TODO:
-> > a) Add a more complete compiling kernel module with events.
-> > Have Thomas put his Mashimaro example and point to it.
+> [..]
 > 
-> I guess we have a legal issue here ;)
+>>I've thought about this a couple of times, scaling the virtual clock
+>>rate should be enough for "simple" qdiscs like TBF or HTB, which have
+>>a linear relation between time and bandwidth. I haven't really thought
+>>about the effects on HFSC yet, on a small scale the relation is
+>>non-linear. 
 > 
-
-change the name ;->
-
-> > b) Describe some details on how user space -> kernel works
-> > probably using libnl??
 > 
-> I'll take care of that.
+> Does HFSC not depend on bandwith? How is rate control achieved?
 
-Whats the plan? To add to this doc or separate doc?
+"Depend on bandwidth" is not the right term. All of TBF, HTB and HFSC
+provide bandwidth per time, but with TBF and HTB the relation between
+the amount of bandwidth is linear to the amount of time, with HFSC
+it is only on a linear on larger scale since it uses service curves,
+which are represented as two linear pieces. So you have bandwidth b1
+for time t1, bandwidth b2 after that until eternity. By scaling the
+clock rate you alter after how much time b2 kicks in, which affects
+the guaranteed delays. The end result should be that both bandwidth
+and delay scale up or down proportionally, but I'm not sure that this
+is what HFSC would do in all cases (on small scale). But it should
+be easy to answer with a bit more time for visualizing it.
 
-cheers,
-jamal
+The thing I'm not sure about is whether this wouldn't be handled better
+by userspace, if the link layer speed changes you might not want
+proportional scaling but prefer to still give a fixed amount of that
+bandwidth to some class, for example VoIP traffic. Do we have netlink
+notifications for link speed changes?
 
