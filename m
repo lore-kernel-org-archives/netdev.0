@@ -1,58 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PKT_SCHED]: PSCHED_TADD() and PSCHED_TADD2() can
- result,tv_usec >= 1000000
-Date: Mon, 19 Jun 2006 23:51:05 -0700 (PDT)
-Message-ID: <20060619.235105.82052619.davem@davemloft.net>
-References: <449637EE.4020608@necst.nec.co.jp>
+Subject: Re: [NET]: Prevent multiple qdisc runs
+Date: Mon, 19 Jun 2006 23:57:19 -0700 (PDT)
+Message-ID: <20060619.235719.58454931.davem@davemloft.net>
+References: <20060619121519.GA16031@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:29621
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:58058
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965099AbWFTGvB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 02:51:01 -0400
-To: maeda-sxb@necst.nec.co.jp
-In-Reply-To: <449637EE.4020608@necst.nec.co.jp>
+	id S965104AbWFTG5N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jun 2006 02:57:13 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060619121519.GA16031@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Shuya MAEDA <maeda-sxb@necst.nec.co.jp>
-Date: Mon, 19 Jun 2006 14:36:46 +0900
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 19 Jun 2006 22:15:19 +1000
 
->  #define PSCHED_TADD2(tv, delta, tv_res) \
->  ({ \
-> -          int __delta = (tv).tv_usec + (delta); \
-> -          (tv_res).tv_sec = (tv).tv_sec; \
-> -          if (__delta > USEC_PER_SEC) { (tv_res).tv_sec++; __delta -= USEC_PER_SEC; } \
-> -          (tv_res).tv_usec = __delta; \
-> +          int __delta = (delta); \
-> +          (tv_res) = (tv); \
-> +          if((delta) > USEC_PER_SEC) { \
-> +                (tv_res).tv_sec += (delta) / USEC_PER_SEC; \
-> +                __delta -= (delta) % USEC_PER_SEC; \
-> +          } \
-> +          (tv_res).tv_usec += __delta; \
-> +          if((tv_res).tv_usec >= USEC_PER_SEC) { \
-> +                (tv_res).tv_sec++; \
-> +                (tv_res).tv_usec -= USEC_PER_SEC; \
-> +          } \
->  })
+> [NET]: Prevent multiple qdisc runs
 
-Divide and modulus can be extremely expensive on some systems, so
-let's try to avoid using them.
+I have no real objection to this semantically.
 
-It is probably sufficient to adjust the passed in delta only once if
-it is >= USEC_PER_SEC, but if you feel that is an unsafe assumption
-then please use a simply loop like this:
+But this is yet another atomic operation on the transmit
+path :-(  This problem, however, is inevitable because of
+how we do things and thus isn't the fault of your change.
 
-	while (__delta >= USEC_PER_SEC) {
-		(tv_res).tv_sec++;
-		__delta -= USEC_PER_SEC;
-	}
+I'm going to apply this patch to 2.6.18, however...  we should split
+up the dev->state handling into seperate cacheline synchronizers.
+Sharing RX and TX locking bits in the same word is not all that
+efficient.
 
-And please provide a proper "Signed-off-by: " line in your next
-patch submission.
-
-Thank you very much.
+Thanks.
