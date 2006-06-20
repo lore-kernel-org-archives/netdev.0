@@ -1,55 +1,72 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Intel ixgb driver bug in linux-2.6.17-rc6-mm2
-Date: Tue, 20 Jun 2006 14:35:35 -0500
-Message-ID: <20060620193535.GG9200@austin.ibm.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: [PATCH] Require CAP_NET_ADMIN to create tuntap devices.
+Date: Tue, 20 Jun 2006 20:36:50 +0100
+Message-ID: <1150832210.3176.487.camel@pmac.infradead.org>
+References: <1150817723.17609.81.camel@hades.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-pci@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:19363 "EHLO
-	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750813AbWFTTfk
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 15:35:40 -0400
-Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
-	by e33.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5KJZdYt016921
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Tue, 20 Jun 2006 15:35:40 -0400
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by westrelay02.boulder.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5KJZGv6266504
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 20 Jun 2006 13:35:16 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5KJZavS011489
-	for <netdev@vger.kernel.org>; Tue, 20 Jun 2006 13:35:37 -0600
-To: jeffrey.t.kirsher@intel.com, ayyappan.veeraiyan@intel.com,
-	john.ronciak@intel.com, jesse.brandeburg@intel.com,
-	auke-jan.h.kok@intel.com
-Content-Disposition: inline
+Received: from canuck.infradead.org ([205.233.218.70]:22209 "EHLO
+	canuck.infradead.org") by vger.kernel.org with ESMTP
+	id S1750814AbWFTTgz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jun 2006 15:36:55 -0400
+Received: from pmac.infradead.org ([81.187.2.168])
+	by canuck.infradead.org with esmtpsa (Exim 4.62 #1 (Red Hat Linux))
+	id 1Fsm1s-0001I7-NZ
+	for netdev@vger.kernel.org; Tue, 20 Jun 2006 15:36:54 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <1150817723.17609.81.camel@hades.cambridge.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The tuntap driver allows an admin to create persistent devices and
+assign ownership of them to individual users. Unfortunately, relaxing
+the permissions on the /dev/net/tun device node so that they can
+actually use those devices will _also_ allow those users to create
+arbitrary new devices of their own. This patch corrects that, and
+adjusts the recommended permissions for the device node accordingly.
 
-Hi,
+Signed-Off-By: David Woodhouse <dwmw2@infradead.org>
 
-I sat down to do some testing of the ixgb driver a few days ago, and
-get failures within seconds.  From what I can tell, I'm getting either a
-DMA to a bad address or some other PCI bus error, not sure which. 
-The problem appears to happen only for the driver that's in
-2.6.17-rc6-mm2. As a sanity check, I'm testing the SuSE SLES10 beta,
-which is 2.6.16 based, and it doesn't seem to have any problems.
+diff --git a/Documentation/networking/tuntap.txt b/Documentation/networking/tuntap.txt
+index 76750fb..839cbb7 100644
+--- a/Documentation/networking/tuntap.txt
++++ b/Documentation/networking/tuntap.txt
+@@ -39,10 +39,13 @@ Copyright (C) 1999-2000 Maxim Krasnyansk
+      mknod /dev/net/tun c 10 200
+   
+   Set permissions:
+-     e.g. chmod 0700 /dev/net/tun
+-     if you want the device only accessible by root. Giving regular users the
+-     right to assign network devices is NOT a good idea. Users could assign
+-     bogus network interfaces to trick firewalls or administrators.
++     e.g. chmod 0666 /dev/net/tun
++     There's no harm in allowing the device to be accessible by non-root users,
++     since CAP_NET_ADMIN is required for creating network devices or for 
++     connecting to network devices which aren't owned by the user in question.
++     If you want to create persistent devices and give ownership of them to 
++     unprivileged users, then you need the /dev/net/tun device to be usable by
++     those users.
+ 
+   Driver module autoloading
+ 
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index a1ed2d9..6c62d5c 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -490,6 +490,9 @@ static int tun_set_iff(struct file *file
+ 
+ 		err = -EINVAL;
+ 
++		if (!capable(CAP_NET_ADMIN))
++			return -EPERM;
++
+ 		/* Set dev type */
+ 		if (ifr->ifr_flags & IFF_TUN) {
+ 			/* TUN device */
 
-My test is dirt-simple: telnet to the chargen port.  After an eyeblink,
-I get the pci bus error, that's that. "eyeblink" is after about 300MBytes
-transfered.  That was with a driver with NAPI enabled. I tried again
-with NAPI disabled, and got to about 1.8 GB transfered in two eyeblinks.
 
-To make sure that I'm not dealing with faulty hardware, I tried the same
-thing w/ SLES10 2.6.16.18-1.8  and have gotten to RX bytes:20889480686
-(19921.7 Mb) so far, with no problems. I don't have easy access to a PCI
-bus analyzer, otherwise, I'd tell you more. Ideas? Suggestions? 
+-- 
+dwmw2
 
-I could try taking the diff between these two driver versions, and
-seeing what change caused the problem, but thought I should email first,
-before doing that.
-
---linas
