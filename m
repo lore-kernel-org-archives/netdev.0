@@ -1,38 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [0/5] GSO: Generic Segmentation Offload
-Date: Tue, 20 Jun 2006 03:40:11 -0700 (PDT)
-Message-ID: <20060620.034011.104035301.davem@davemloft.net>
-References: <20060620090919.GA31613@gondor.apana.org.au>
-	<20060620093219.GF31854@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 6682] New: BUG: soft lockup detected on CPU#0! / ksoftirqd takse 100% CPU
+Date: Tue, 20 Jun 2006 22:32:53 +1000
+Message-ID: <20060620123253.GA26122@gondor.apana.org.au>
+References: <200606122311.k5CNBMEx007518@fire-2.osdl.org> <20060619152010.5c648b97.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Dipankar Sarma <dipankar@in.ibm.com>,
+	"Paul E. McKenney" <paulmck@us.ibm.com>,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, alchemyx@uznam.net.pl,
+	Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:14811
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932558AbWFTKkE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 06:40:04 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060620093219.GF31854@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:57869 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S965067AbWFTMdG
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jun 2006 08:33:06 -0400
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060619152010.5c648b97.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 20 Jun 2006 19:32:19 +1000
+On Mon, Jun 19, 2006 at 10:20:10PM +0000, Andrew Morton wrote:
+>
+> >  [<c02396f9>] dev_queue_xmit+0xe0/0x203
+> >  [<c0250de8>] ip_output+0x1e1/0x237
+> >  [<c024f3f5>] ip_forward+0x181/0x1df
+> >  [<c024e21a>] ip_rcv+0x40c/0x485
+> >  [<c0239bd0>] netif_receive_skb+0x12f/0x165
+> >  [<f885aa4c>] e1000_clean_rx_irq+0x389/0x410 [e1000]
+> >  [<f885a1ca>] e1000_clean+0x94/0x12f [e1000]
+> >  [<c0239d5a>] net_rx_action+0x69/0xf0
+> >  [<c011a305>] __do_softirq+0x55/0xbd
+> >  [<c011a39a>] do_softirq+0x2d/0x31
+> >  [<c011a3f8>] local_bh_enable+0x5a/0x65
+> >  [<c024a0a1>] rt_run_flush+0x5f/0x80
 
-> On Tue, Jun 20, 2006 at 07:09:19PM +1000, herbert wrote:
-> >
-> > I've attached some numbers to demonstrate the savings brought on by
-> > doing this.  The best scenario is obviously the case where the underlying
-> > NIC supports SG.  This means that we simply have to manipulate the SG
-> > entries and place them into individual skb's before passing them to the
-> > driver.  The attached file lo-res shows this.
-> 
-> Obviously I forgot to attach them :)
+Could you tell us the frequency of route updates on this machine?
+Route updates are pretty expensive especially when a large number
+of flows hits your machine right afterwards.
 
-:-)
+You can monitor this by running ip mon.  You might just be getting
+bogus route updates causing unnecessary flushes to the routing cache.
 
-The changes look good on first scan, I'll look more deeply and
-meanwhile we'll let the patches ferment for a few days so others
-can comment too :-)
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
