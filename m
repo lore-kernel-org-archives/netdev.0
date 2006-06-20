@@ -1,99 +1,45 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/2] NET: Accurate packet scheduling for ATM/ADSL
-	(userspace)
-Date: Tue, 20 Jun 2006 10:06:10 -0400
-Message-ID: <1150812370.5270.27.camel@jzny2>
-References: <1150278040.26181.37.camel@localhost.localdomain>
-	 <1150282625.3490.23.camel@localhost.localdomain>
-	 <1150332449.8605.40.camel@ras.pc.brisbane.lube>
-	 <1150376591.5116.36.camel@jzny2>
-	 <Pine.LNX.4.61.0606192048270.31662@ask.diku.dk>
-Reply-To: hadi@cyberus.ca
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] 2.6.17 missing a call to ieee80211softmac_capabilities from
+ ieee80211softmac_assoc_req
+Date: Tue, 20 Jun 2006 09:19:18 -0500
+Message-ID: <449803E6.5020404@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Russell Stuart <russell-tcatm@stuart.id.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:15323 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1750824AbWFTOGO
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 10:06:14 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1Fsgrw-0004PX-Bl
-	for netdev@vger.kernel.org; Tue, 20 Jun 2006 10:06:16 -0400
-To: Jesper Dangaard Brouer <hawk@diku.dk>
-In-Reply-To: <Pine.LNX.4.61.0606192048270.31662@ask.diku.dk>
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:4794 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1751035AbWFTOTU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jun 2006 10:19:20 -0400
+To: netdev@vger.kernel.org, John Linville <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+In commit ba9b28d19a3251bb1dfe6a6f8cc89b96fb85f683, routine ieee80211softmac_capabilities was added 
+to net/ieee80211/softmac/ieee80211softmac_io.c. As denoted by its name, it completes the 
+capabilities IE that is needed in the associate and reassociate requests sent to the AP. For at 
+least one AP, the Linksys WRT54G V5, the capabilities field must set the 'short preamble' bit or the 
+AP refuses to associate. In the commit noted above, there is a call to the new routine from 
+ieee80211softmac_reassoc_req, but not from ieee80211softmac_assoc_req. This patch fixes that oversight.
 
-took off lartc off the list because it doesnt allow me to post
-and i refuse to subscribe.
+As noted in the subject, v2.6.17 is affected. My bcm43xx card had been unable to associate since I 
+was forced to buy a new AP. I finally was able to get a packet dump and traced the problem to the 
+capabilities info. Although I had heard that a patch was "floating around", I had not seen it before 
+2.6.17 was released. As this bug does not affect security and I seem to have the only AP affected by 
+it, there should be no problem in leaving it for 2.6.18.
 
-On Mon, 2006-19-06 at 21:31 +0200, Jesper Dangaard Brouer wrote:
-> 
-> On Thu, 15 Jun 2006, jamal wrote:
-> > It is probably doable by just looking at netdevice->type and figuring
-> > the link layer technology. Totally in user space and building the
-> > compensated for tables there before telling the kernel (advantage is no
-> > kernel changes and therefore it would work with older kernels as well).
-> 
-> I think you have got the setup all wrong.
-> 
-> The linux middlebox/router has two ethernet interfaces, one of the 
-> ethernet interfaces is connected to the ADSL modem.  Thus, the linux 
-> ethernet card cannot determine that it is connected to an ADSL line.
-> 
+Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
 
-Actually you may be making my point for me.
+index 0954161..8cc8b20 100644
+--- a/net/ieee80211/softmac/ieee80211softmac_io.c
++++ b/net/ieee80211/softmac/ieee80211softmac_io.c
+@@ -229,6 +229,9 @@ ieee80211softmac_assoc_req(struct ieee8
+		return 0;
+	ieee80211softmac_hdr_3addr(mac, &((*pkt)->header), IEEE80211_STYPE_ASSOC_REQ, net->bssid, net->bssid);
 
-Heres the standard setup as i understand it(at least in north america, I
-know Europeans love their ATM with a little gravy on top):
-
-                                                                       
-|Linux| --ethernet-- |Modem| --DSL-- |DSLAM| --ATM-- |BRAS| 
-
-    
-What this means is that Linux computes based on ethernet
-headers. Somewhere downstream ATM (refer to above) comes in and that
-causes mismatch in what Linux expects to be the bandwidth and what
-your service provider who doesnt account for the ATM overhead when
-they sell you "1.5Mbps".
-Reminds me of hard disk vendors who define 1K to be 1000 to show
-how large their drives are.
-Yes, Linux cant tell if your service provider is lying to you.
-
-> 
-> The patch is the solution to the classical problem people 
-> have when tryng to configure traffic control on an ADSL link?
-> 
-> Q: The packet scheduling does not work all the time?
-> A: Try to decrease to bandwidth.
-> 
->
-> The issue here is, that ATM does not have fixed overhead (due to alignment 
-> and padding).  This means that a fixed reduction of the bandwidth is not 
-> the solution.  We could reduce the bandwidth to the worst-case overhead, 
-> which is 62%, I do not think that is a good solution...
-> 
-
-I dont see it as wrong to be honest with you. Your mileage may vary.
-
-> With the patch, you can now simply configure HTB to use the rate that was 
-> specified by the ISP.
-> 
-
-
-Dont have time to read your doc and dont get me wrong, there is a
-"quark" practical problem: As practical as the hard disk manufacturer
-who claims that they have 11G drive when it is 10G. It needs to be
-resolved - but not in an intrusive way in my opinion.
-
-cheers,
-jamal
-
-
++	/* Fill in the capabilities */
++	(*pkt)->capability = ieee80211softmac_capabilities(mac, net);
++
+	/* Fill in Listen Interval (?) */
+	(*pkt)->listen_interval = cpu_to_le16(10);
 
