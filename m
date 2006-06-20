@@ -1,32 +1,65 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Bug 6688] Memory allocation problem
-Date: Tue, 20 Jun 2006 00:24:33 -0700
-Message-ID: <20060620002433.28115714.akpm@osdl.org>
-References: <200606200646.k5K6k8Z3009667@fire-2.osdl.org>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
+Date: Tue, 20 Jun 2006 09:33:25 +0200
+Message-ID: <1150788805.3480.31.camel@localhost.localdomain>
+References: <1150278004.26181.35.camel@localhost.localdomain>
+	 <20060620053536.GA10311@tuatara.stupidest.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-3gsW3VxIo49i4V0m7YvI"
+Cc: netdev <netdev@vger.kernel.org>, russell-tcatm@stuart.id.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:2178 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965115AbWFTHYf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2006 03:24:35 -0400
-Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
-	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id k5K7OXgt012036
-	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 20 Jun 2006 00:24:34 -0700
-Received: from box (shell0.pdx.osdl.net [10.9.0.31])
-	by shell0.pdx.osdl.net (8.13.1/8.11.6) with SMTP id k5K7OX4a032198
-	for <netdev@vger.kernel.org>; Tue, 20 Jun 2006 00:24:33 -0700
-To: netdev@vger.kernel.org
-In-Reply-To: <200606200646.k5K6k8Z3009667@fire-2.osdl.org>
+Received: from ex001a.cxnet.dk ([195.135.216.13]:11121 "EHLO
+	comxexch01.comx.local") by vger.kernel.org with ESMTP
+	id S965127AbWFTHd1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jun 2006 03:33:27 -0400
+To: Chris Wedgwood <cw@f00f.org>
+In-Reply-To: <20060620053536.GA10311@tuatara.stupidest.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 19 Jun 2006 23:46:08 -0700
-bugme-daemon@bugzilla.kernel.org wrote:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=6688
+--=-3gsW3VxIo49i4V0m7YvI
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-This is looking like a net memory leak in 2.6.16.  1/3rd is in ip_fib_alias
-and 2/3rds is in size-64.  I've asked the reporter to apply the leak
-detector patch so we can find out who is using the size-64 part.
+
+On Mon, 2006-06-19 at 22:35 -0700, Chris Wedgwood wrote:
+> On Wed, Jun 14, 2006 at 11:40:04AM +0200, Jesper Dangaard Brouer wrote:
+>=20
+> > The Linux traffic's control engine inaccurately calculates
+> > transmission times for packets sent over ADSL links.  For some
+> > packet sizes the error rises to over 50%.  This occurs because ADSL
+> > uses ATM as its link layer transport, and ATM transmits packets in
+> > fixed sized 53 byte cells.
+>=20
+> What if AAL5 is used?  The cell-alignment math is going to be wrong
+> there surely?
+
+Actually it _is_ AAL5 which is accounted for.
+
+See Chapter 5 "ADSL link layer overhead" (page 48-54).
+http://www.adsl-optimizer.dk/thesis/main_final_hyper.pdf
+
+--=20
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
+
+
+--=-3gsW3VxIo49i4V0m7YvI
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQBEl6TFwuVH+NB3fZkRAvrlAJ9Is5CDyMSjd/bcC77e7UNPG1vEhACfdIDc
+rclEWoWa2fiePYrPVONrOIk=
+=nXhD
+-----END PGP SIGNATURE-----
+
+--=-3gsW3VxIo49i4V0m7YvI--
+
