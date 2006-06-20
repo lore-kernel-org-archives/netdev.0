@@ -1,278 +1,59 @@
-From: "Massimiliano Poletto" <max.poletto+usenet@gmail.com>
-Subject: Fwd: soft lockup detected with 2.6.16 kernel + e1000 driver under load
-Date: Tue, 20 Jun 2006 17:11:04 -0400
-Message-ID: <d166fa5e0606201411h22247490g6074b56fd8b0f9d8@mail.gmail.com>
-References: <d166fa5e0606061200x690a064fv4988dedaf0204c0e@mail.gmail.com>
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Subject: Re: Intel ixgb driver bug in linux-2.6.17-rc6-mm2
+Date: Tue, 20 Jun 2006 14:13:45 -0700
+Message-ID: <4807377b0606201413hf77cc1bse70841a52fd08fcb@mail.gmail.com>
+References: <20060620193535.GG9200@austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, ayyappan.veeraiyan@intel.com,
+	john.ronciak@intel.com, jesse.brandeburg@intel.com,
+	auke-jan.h.kok@intel.com, linux-pci@atrey.karlin.mff.cuni.cz,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.225]:12135 "EHLO
-	wr-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S1751082AbWFTVLF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 17:11:05 -0400
-Received: by wr-out-0506.google.com with SMTP id i3so10799wra
-        for <netdev@vger.kernel.org>; Tue, 20 Jun 2006 14:11:04 -0700 (PDT)
-To: netdev@vger.kernel.org
-In-Reply-To: <d166fa5e0606061200x690a064fv4988dedaf0204c0e@mail.gmail.com>
+Received: from nz-out-0102.google.com ([64.233.162.198]:7377 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S1751096AbWFTVNp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jun 2006 17:13:45 -0400
+Received: by nz-out-0102.google.com with SMTP id 9so6372nzo
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2006 14:13:45 -0700 (PDT)
+To: "Linas Vepstas" <linas@austin.ibm.com>
+In-Reply-To: <20060620193535.GG9200@austin.ibm.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Shaw Vrana asked me to resend the message below (originally posted to
-lkml) to this list.
+On 6/20/06, Linas Vepstas <linas@austin.ibm.com> wrote:
+>
+> Hi,
+>
+> I sat down to do some testing of the ixgb driver a few days ago, and
+> get failures within seconds.  From what I can tell, I'm getting either a
+> DMA to a bad address or some other PCI bus error, not sure which.
+> The problem appears to happen only for the driver that's in
+> 2.6.17-rc6-mm2. As a sanity check, I'm testing the SuSE SLES10 beta,
+> which is 2.6.16 based, and it doesn't seem to have any problems.
+>
+> My test is dirt-simple: telnet to the chargen port.  After an eyeblink,
+> I get the pci bus error, that's that. "eyeblink" is after about 300MBytes
+> transfered.  That was with a driver with NAPI enabled. I tried again
+> with NAPI disabled, and got to about 1.8 GB transfered in two eyeblinks.
+>
+> To make sure that I'm not dealing with faulty hardware, I tried the same
+> thing w/ SLES10 2.6.16.18-1.8  and have gotten to RX bytes:20889480686
+> (19921.7 Mb) so far, with no problems. I don't have easy access to a PCI
+> bus analyzer, otherwise, I'd tell you more. Ideas? Suggestions?
+>
+> I could try taking the diff between these two driver versions, and
+> seeing what change caused the problem, but thought I should email first,
+> before doing that.
 
-Note that I managed to make the problem go away by adding the boot
-options "pci=usepirqmask acpi=noirq".  I got the hint by reading dmesg
-output and Documentation/kernel-parameters.txt.  Still, maybe the
-information below and my apparent solution will be of use to someone
-more knowledgeable in this matter than I am.
+For some reason I didn't get your mail at intel yet.  anyway, please
+try disabling TSO using ethtool and see if that helps any.
 
-Regards,
-max
+you're running 1.0.109, correct?
+what does cat /proc/interrupts say (are you running MSI?)
 
----------- Forwarded message ----------
-
-Summary: running tcpdump on an e1000 gig-e interface under heavy load
-(line rate, minimum-size packets) causes "soft lockup detected" error
-messages on the console.  The machine becomes unresponsive (no ping,
-console freezes), but after the traffic stops it usually comes back.
-The same experiment with a Broadcom gig-e card and a tg3 driver
-succeeded: there were no lockups, and the machine continued to be
-reachable and somewhat responsive even under load.
-
-I would appreciate any help or advice.  Details are below.
-
-Thanks,
-max
-
-
-- Hardware: IBM x346 dual-Xeon server with dual on-board Broadcom
-NetXtreme (95721) 100/1000 interfaces (tg3 driver) and one dual-port
-Intel e1000 card.
-
-- Linux  kernel versions: several versions of 2.6.16, including the
-latest 2.6.16.19.
-
-- Intel e1000 driver versions: several, including 6.3.9-k4 (which is in
-the kernel.org sources) and the latest 7.0.41 from sourceforge.  NAPI
-disabled.
-
-- Test traffic: random 64-byte TCP packets at 1.4Mpps from an Ixia
-device.
-
-- Kernel config: see http://maxp.net/linux/config-2.6.16.19-1
-
-- Ring buffer output (dmesg): see http://maxp.net/linux/dmesg-11541-1
-
-- Sample error messages (driver 7.0.41):
-
-BUG: soft lockup detected on CPU#0!
-
-Pid: 0, comm:              swapper
-EIP: 0060:[<c0158b9f>] CPU: 0
-EIP is at kfree+0x4f/0x61
- EFLAGS: 00000286    Not tainted  (2.6.16.19 #1)
-EAX: 00000004 EBX: f7ff8380 ECX: f7d08188 EDX: f7d08188
-ESI: f7fff880 EDI: f5483600 EBP: 00000286 DS: 007b ES: 007b
-CR0: 8005003b CR2: 081df780 CR3: 042b2ce0 CR4: 000006f0
- [<c0356573>] kfree_skbmem+0x8/0x73
- [<c035b40e>] netif_rx+0x149/0x18b
- [<f88cf3a2>] e1000_clean_rx_irq+0x1c3/0x555 [e1000]
- [<f88cf841>] e1000_intr+0x10d/0x3c9 [e1000]
- [<c010d81e>] mark_offset_tsc+0x1a7/0x2c9
- [<c01245a8>] do_timer+0x3b/0x439
- [<c013c64d>] handle_IRQ_event+0x2e/0x5a
- [<c013c70a>] __do_IRQ+0x91/0xe7
- [<c01058d0>] do_IRQ+0x4e/0x86
- =======================
- [<c0104286>] common_interrupt+0x1a/0x20
- [<c01e2462>] _raw_spin_unlock+0x3b/0x74
- [<c03b22df>] packet_rcv+0xb8/0x3a9
- [<c0104286>] common_interrupt+0x1a/0x20
- [<c0106880>] do_gettimeofday+0x20/0xd1
- [<c035b688>] netif_receive_skb+0x206/0x291
- [<c035b795>] process_backlog+0x82/0x107
- [<c03597a7>] net_rx_action+0x74/0x107
- [<c0121472>] __do_softirq+0x70/0xda
- [<c0105953>] do_softirq+0x4b/0x4f
- =======================
- [<c01058d7>] do_IRQ+0x55/0x86
- [<c0104286>] common_interrupt+0x1a/0x20
- [<c01026e7>] mwait_idle+0x2a/0x34
- [<c01026a8>] cpu_idle+0x61/0x76
- [<c04cb49d>] start_kernel+0x2db/0x387
- [<c04cb549>] unknown_bootoption+0x0/0x257
-BUG: soft lockup detected on CPU#0!
-
-Pid: 0, comm:              swapper
-EIP: 0060:[<f88cbed2>] CPU: 0
-EIP is at e1000_alloc_rx_buffers+0x12e/0x461 [e1000]
- EFLAGS: 00000282    Not tainted  (2.6.16.19 #1)
-EAX: 00000000 EBX: 35c80812 ECX: 0000008e EDX: f7d16ac0
-ESI: 0000008e EDI: f6138380 EBP: 000005ee DS: 007b ES: 007b
-CR0: 8005003b CR2: 081df780 CR3: 042b2ce0 CR4: 000006f0
- [<f88cf613>] e1000_clean_rx_irq+0x434/0x555 [e1000]
- [<f88cf841>] e1000_intr+0x10d/0x3c9 [e1000]
- [<c010d81e>] mark_offset_tsc+0x1a7/0x2c9
- [<c01245a8>] do_timer+0x3b/0x439
- [<c013c64d>] handle_IRQ_event+0x2e/0x5a
- [<c013c70a>] __do_IRQ+0x91/0xe7
- [<c01058d0>] do_IRQ+0x4e/0x86
- =======================
- [<c0104286>] common_interrupt+0x1a/0x20
- [<f881d623>] tg3_poll+0x5d4/0x93d [tg3]
- [<c03b525d>] _spin_unlock_irqrestore+0xa/0xc
- [<c0104286>] common_interrupt+0x1a/0x20
- [<c03597a7>] net_rx_action+0x74/0x107
- [<c0121472>] __do_softirq+0x70/0xda
- [<c0105953>] do_softirq+0x4b/0x4f
- =======================
- [<c01058d7>] do_IRQ+0x55/0x86
- [<c0104286>] common_interrupt+0x1a/0x20
- [<c01026e7>] mwait_idle+0x2a/0x34
- [<c01026a8>] cpu_idle+0x61/0x76
- [<c04cb49d>] start_kernel+0x2db/0x387
- [<c04cb549>] unknown_bootoption+0x0/0x257
-
-BUG: soft lockup detected on CPU#0!
-
-Pid: 0, comm:              swapper
-EIP: 0060:[<c035b3f6>] CPU: 0
-EIP is at netif_rx+0x131/0x18b
- EFLAGS: 00000246    Not tainted  (2.6.16.19 #1)
-EAX: 00000000 EBX: f210cc80 ECX: c0514680 EDX: c3fa4560
-ESI: c3fa45e0 EDI: c051a000 EBP: 00000246 DS: 007b ES: 007b
-CR0: 8005003b CR2: 080f5d20 CR3: 37ec2fc0 CR4: 000006f0
- [<f88bd9ea>] e1000_clean_rx_irq+0x214/0x63b [e1000]
- [<f88c116c>] e1000_intr+0x13f/0x47d [e1000]
- [<c0110447>] smp_apic_timer_interrupt+0x55/0x5e
- [<c0104314>] apic_timer_interrupt+0x1c/0x24
- [<c01245a8>] do_timer+0x3b/0x439
- [<c013c64d>] handle_IRQ_event+0x2e/0x5a
- [<c013c70a>] __do_IRQ+0x91/0xe7
- [<c01058d0>] do_IRQ+0x4e/0x86
- =======================
- [<c0104286>] common_interrupt+0x1a/0x20
- [<c01026e7>] mwait_idle+0x2a/0x34
- [<c01026a8>] cpu_idle+0x61/0x76
- [<c04cb49d>] start_kernel+0x2db/0x387
- [<c04cb549>] unknown_bootoption+0x0/0x257
-BUG: soft lockup detected on CPU#0!
-
-Pid: 0, comm:              swapper
-EIP: 0060:[<c01586b6>] CPU: 0
-EIP is at kmem_cache_free+0x29/0x3a
- EFLAGS: 00000246    Not tainted  (2.6.16.19 #1)
-EAX: 0000000d EBX: f7fdee00 ECX: f7eec9c0 EDX: f210cc80
-ESI: 00000246 EDI: f210cc80 EBP: 00000246 DS: 007b ES: 007b
-CR0: 8005003b CR2: 080f5d20 CR3: 37ec2fc0 CR4: 000006f0
- [<c035b40e>] netif_rx+0x149/0x18b
- [<f88bd9ea>] e1000_clean_rx_irq+0x214/0x63b [e1000]
- [<f88c116c>] e1000_intr+0x13f/0x47d [e1000]
- [<c0110447>] smp_apic_timer_interrupt+0x55/0x5e
- [<c0104314>] apic_timer_interrupt+0x1c/0x24
- [<c01245a8>] do_timer+0x3b/0x439
- [<c013c64d>] handle_IRQ_event+0x2e/0x5a
- [<c013c70a>] __do_IRQ+0x91/0xe7
- [<c01058d0>] do_IRQ+0x4e/0x86
- =======================
- [<c0104286>] common_interrupt+0x1a/0x20
- [<c01026e7>] mwait_idle+0x2a/0x34
- [<c01026a8>] cpu_idle+0x61/0x76
- [<c04cb49d>] start_kernel+0x2db/0x387
- [<c04cb549>] unknown_bootoption+0x0/0x257
-
-- Sample error messages (driver 6.3.9-k4):
-
-BUG: soft lockup detected on CPU#0!
-
-Pid: 0, comm:              swapper
-EIP: 0060:[<c0158b9f>] CPU: 0
-EIP is at kfree+0x4f/0x61
- EFLAGS: 00000286    Not tainted  (2.6.16.19 #1)
-EAX: 00000004 EBX: f7ff8380 ECX: c0438270 EDX: c0438270
-ESI: f7fff880 EDI: f1a5b600 EBP: 00000286 DS: 007b ES: 007b
-CR0: 8005003b CR2: 435eef86 CR3: 37ec2fc0 CR4: 000006f0
- [<c0356573>] kfree_skbmem+0x8/0x73
- [<c035b40e>] netif_rx+0x149/0x18b
- [<f88bd9ea>] e1000_clean_rx_irq+0x214/0x63b [e1000]
- [<f88c116c>] e1000_intr+0x13f/0x47d [e1000]
- [<c0110447>] smp_apic_timer_interrupt+0x55/0x5e
- [<c01245a8>] do_timer+0x3b/0x439
- [<c013c64d>] handle_IRQ_event+0x2e/0x5a
- [<c013c70a>] __do_IRQ+0x91/0xe7
- [<c01058d0>] do_IRQ+0x4e/0x86
- =======================
- [<c0104286>] common_interrupt+0x1a/0x20
- [<c01026e7>] mwait_idle+0x2a/0x34
- [<c01026a8>] cpu_idle+0x61/0x76
- [<c04cb49d>] start_kernel+0x2db/0x387
- [<c04cb549>] unknown_bootoption+0x0/0x257
-
-BUG: soft lockup detected on CPU#0!
-
-Pid: 1581, comm:                klogd
-EIP: 0060:[<f88bd8a6>] CPU: 0
-EIP is at e1000_clean_rx_irq+0xd0/0x63b [e1000]
- EFLAGS: 00010282    Not tainted  (2.6.16.19 #1)
-EAX: f2628000 EBX: f28f0d80 ECX: 00000003 EDX: f62b7c80
-ESI: f288f040 EDI: f1bdf640 EBP: 0000003e DS: 007b ES: 007b
-CR0: 8005003b CR2: 081ed000 CR3: 04356da0 CR4: 000006f0
- [<f88c116c>] e1000_intr+0x13f/0x47d [e1000]
- [<c0110447>] smp_apic_timer_interrupt+0x55/0x5e
- [<c0104314>] apic_timer_interrupt+0x1c/0x24
- [<c01245a8>] do_timer+0x3b/0x439
- [<c013c64d>] handle_IRQ_event+0x2e/0x5a
- [<c013c70a>] __do_IRQ+0x91/0xe7
- [<c01058d0>] do_IRQ+0x4e/0x86
- =======================
- [<c0104286>] common_interrupt+0x1a/0x20
-BUG: soft lockup detected on CPU#0!
-
-Pid: 0, comm:              swapper
-EIP: 0060:[<f88c03e1>] CPU: 0
-EIP is at e1000_alloc_rx_buffers+0x102/0x4ad [e1000]
- EFLAGS: 00000283    Not tainted  (2.6.16.19 #1)
-EAX: 00000089 EBX: f88d7aa0 ECX: f2f5f880 EDX: 00000000
-ESI: f2b8eb40 EDI: f1949480 EBP: 00000800 DS: 007b ES: 007b
-CR0: 8005003b CR2: 081ed000 CR3: 04356da0 CR4: 000006f0
- [<f88bdccf>] e1000_clean_rx_irq+0x4f9/0x63b [e1000]
- [<f88c116c>] e1000_intr+0x13f/0x47d [e1000]
- [<c02d5ad4>] ips_next+0x4ec/0xdf8
- [<c03b521e>] _spin_lock_irqsave+0x9/0xd
- [<c0221932>] __add_entropy_words+0x62/0x192
- [<c01245a8>] do_timer+0x3b/0x439
- [<c013c64d>] handle_IRQ_event+0x2e/0x5a
- [<c013c70a>] __do_IRQ+0x91/0xe7
- [<c01058d0>] do_IRQ+0x4e/0x86
- =======================
- [<c0104286>] common_interrupt+0x1a/0x20
- [<c01026e7>] mwait_idle+0x2a/0x34
- [<c01026a8>] cpu_idle+0x61/0x76
- [<c04cb49d>] start_kernel+0x2db/0x387
- [<c04cb549>] unknown_bootoption+0x0/0x257
-BUG: soft lockup detected on CPU#0!
-
-Pid: 0, comm:              swapper
-EIP: 0060:[<c035b3f6>] CPU: 0
-EIP is at netif_rx+0x131/0x18b
- EFLAGS: 00000282    Not tainted  (2.6.16.19 #1)
-EAX: 00000000 EBX: f2781a80 ECX: c0514680 EDX: c3fa4560
-ESI: c3fa45e0 EDI: c051a000 EBP: 00000282 DS: 007b ES: 007b
-CR0: 8005003b CR2: 081ed000 CR3: 04356da0 CR4: 000006f0
- [<f88bd9ea>] e1000_clean_rx_irq+0x214/0x63b [e1000]
- [<f88c116c>] e1000_intr+0x13f/0x47d [e1000]
- [<c02d5ad4>] ips_next+0x4ec/0xdf8
- [<c03b521e>] _spin_lock_irqsave+0x9/0xd
- [<c0221932>] __add_entropy_words+0x62/0x192
- [<c01245a8>] do_timer+0x3b/0x439
- [<c013c64d>] handle_IRQ_event+0x2e/0x5a
- [<c013c70a>] __do_IRQ+0x91/0xe7
- [<c01058d0>] do_IRQ+0x4e/0x86
- =======================
- [<c0104286>] common_interrupt+0x1a/0x20
- [<c01026e7>] mwait_idle+0x2a/0x34
- [<c01026a8>] cpu_idle+0x61/0x76
- [<c04cb49d>] start_kernel+0x2db/0x387
- [<c04cb549>] unknown_bootoption+0x0/0x257
+I'd also like to know if LLTX support (recently added) is causing you
+the issue.  What hardware platform? pSeries?  does it EEH? what does
+the dump say?
