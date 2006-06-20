@@ -1,220 +1,278 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [PATCH v3 2/7] AMSO1100 WR / Event Definitions.
-Date: Tue, 20 Jun 2006 16:00:45 -0500
-Message-ID: <1150837245.16189.9.camel@stevo-desktop>
-References: <20060620203050.31536.5341.stgit@stevo-desktop>
+From: "Massimiliano Poletto" <max.poletto+usenet@gmail.com>
+Subject: Fwd: soft lockup detected with 2.6.16 kernel + e1000 driver under load
+Date: Tue, 20 Jun 2006 17:11:04 -0400
+Message-ID: <d166fa5e0606201411h22247490g6074b56fd8b0f9d8@mail.gmail.com>
+References: <d166fa5e0606061200x690a064fv4988dedaf0204c0e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-7L373tEjk8QH2f3l10e0"
-Cc: mshefty@ichips.intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:22313 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S1751052AbWFTVAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2006 17:00:48 -0400
-To: rdreier@cisco.com
-In-Reply-To: <20060620203050.31536.5341.stgit@stevo-desktop>
+Received: from wr-out-0506.google.com ([64.233.184.225]:12135 "EHLO
+	wr-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1751082AbWFTVLF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jun 2006 17:11:05 -0400
+Received: by wr-out-0506.google.com with SMTP id i3so10799wra
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2006 14:11:04 -0700 (PDT)
+To: netdev@vger.kernel.org
+In-Reply-To: <d166fa5e0606061200x690a064fv4988dedaf0204c0e@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Shaw Vrana asked me to resend the message below (originally posted to
+lkml) to this list.
 
---=-7L373tEjk8QH2f3l10e0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Note that I managed to make the problem go away by adding the boot
+options "pci=usepirqmask acpi=noirq".  I got the hint by reading dmesg
+output and Documentation/kernel-parameters.txt.  Still, maybe the
+information below and my apparent solution will be of use to someone
+more knowledgeable in this matter than I am.
 
-2/7 gzipped & attached cuz it it gets dropped by lklm and netdev
-lists...
+Regards,
+max
 
+---------- Forwarded message ----------
 
-Steve.
+Summary: running tcpdump on an e1000 gig-e interface under heavy load
+(line rate, minimum-size packets) causes "soft lockup detected" error
+messages on the console.  The machine becomes unresponsive (no ping,
+console freezes), but after the traffic stops it usually comes back.
+The same experiment with a Broadcom gig-e card and a tg3 driver
+succeeded: there were no lockups, and the machine continued to be
+reachable and somewhat responsive even under load.
 
---=-7L373tEjk8QH2f3l10e0
-Content-Disposition: attachment; filename=amso1100_wr.gz
-Content-Type: application/x-gzip; name=amso1100_wr.gz
-Content-Transfer-Encoding: base64
+I would appreciate any help or advice.  Details are below.
 
-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
+Thanks,
+max
 
 
---=-7L373tEjk8QH2f3l10e0--
+- Hardware: IBM x346 dual-Xeon server with dual on-board Broadcom
+NetXtreme (95721) 100/1000 interfaces (tg3 driver) and one dual-port
+Intel e1000 card.
 
+- Linux  kernel versions: several versions of 2.6.16, including the
+latest 2.6.16.19.
+
+- Intel e1000 driver versions: several, including 6.3.9-k4 (which is in
+the kernel.org sources) and the latest 7.0.41 from sourceforge.  NAPI
+disabled.
+
+- Test traffic: random 64-byte TCP packets at 1.4Mpps from an Ixia
+device.
+
+- Kernel config: see http://maxp.net/linux/config-2.6.16.19-1
+
+- Ring buffer output (dmesg): see http://maxp.net/linux/dmesg-11541-1
+
+- Sample error messages (driver 7.0.41):
+
+BUG: soft lockup detected on CPU#0!
+
+Pid: 0, comm:              swapper
+EIP: 0060:[<c0158b9f>] CPU: 0
+EIP is at kfree+0x4f/0x61
+ EFLAGS: 00000286    Not tainted  (2.6.16.19 #1)
+EAX: 00000004 EBX: f7ff8380 ECX: f7d08188 EDX: f7d08188
+ESI: f7fff880 EDI: f5483600 EBP: 00000286 DS: 007b ES: 007b
+CR0: 8005003b CR2: 081df780 CR3: 042b2ce0 CR4: 000006f0
+ [<c0356573>] kfree_skbmem+0x8/0x73
+ [<c035b40e>] netif_rx+0x149/0x18b
+ [<f88cf3a2>] e1000_clean_rx_irq+0x1c3/0x555 [e1000]
+ [<f88cf841>] e1000_intr+0x10d/0x3c9 [e1000]
+ [<c010d81e>] mark_offset_tsc+0x1a7/0x2c9
+ [<c01245a8>] do_timer+0x3b/0x439
+ [<c013c64d>] handle_IRQ_event+0x2e/0x5a
+ [<c013c70a>] __do_IRQ+0x91/0xe7
+ [<c01058d0>] do_IRQ+0x4e/0x86
+ =======================
+ [<c0104286>] common_interrupt+0x1a/0x20
+ [<c01e2462>] _raw_spin_unlock+0x3b/0x74
+ [<c03b22df>] packet_rcv+0xb8/0x3a9
+ [<c0104286>] common_interrupt+0x1a/0x20
+ [<c0106880>] do_gettimeofday+0x20/0xd1
+ [<c035b688>] netif_receive_skb+0x206/0x291
+ [<c035b795>] process_backlog+0x82/0x107
+ [<c03597a7>] net_rx_action+0x74/0x107
+ [<c0121472>] __do_softirq+0x70/0xda
+ [<c0105953>] do_softirq+0x4b/0x4f
+ =======================
+ [<c01058d7>] do_IRQ+0x55/0x86
+ [<c0104286>] common_interrupt+0x1a/0x20
+ [<c01026e7>] mwait_idle+0x2a/0x34
+ [<c01026a8>] cpu_idle+0x61/0x76
+ [<c04cb49d>] start_kernel+0x2db/0x387
+ [<c04cb549>] unknown_bootoption+0x0/0x257
+BUG: soft lockup detected on CPU#0!
+
+Pid: 0, comm:              swapper
+EIP: 0060:[<f88cbed2>] CPU: 0
+EIP is at e1000_alloc_rx_buffers+0x12e/0x461 [e1000]
+ EFLAGS: 00000282    Not tainted  (2.6.16.19 #1)
+EAX: 00000000 EBX: 35c80812 ECX: 0000008e EDX: f7d16ac0
+ESI: 0000008e EDI: f6138380 EBP: 000005ee DS: 007b ES: 007b
+CR0: 8005003b CR2: 081df780 CR3: 042b2ce0 CR4: 000006f0
+ [<f88cf613>] e1000_clean_rx_irq+0x434/0x555 [e1000]
+ [<f88cf841>] e1000_intr+0x10d/0x3c9 [e1000]
+ [<c010d81e>] mark_offset_tsc+0x1a7/0x2c9
+ [<c01245a8>] do_timer+0x3b/0x439
+ [<c013c64d>] handle_IRQ_event+0x2e/0x5a
+ [<c013c70a>] __do_IRQ+0x91/0xe7
+ [<c01058d0>] do_IRQ+0x4e/0x86
+ =======================
+ [<c0104286>] common_interrupt+0x1a/0x20
+ [<f881d623>] tg3_poll+0x5d4/0x93d [tg3]
+ [<c03b525d>] _spin_unlock_irqrestore+0xa/0xc
+ [<c0104286>] common_interrupt+0x1a/0x20
+ [<c03597a7>] net_rx_action+0x74/0x107
+ [<c0121472>] __do_softirq+0x70/0xda
+ [<c0105953>] do_softirq+0x4b/0x4f
+ =======================
+ [<c01058d7>] do_IRQ+0x55/0x86
+ [<c0104286>] common_interrupt+0x1a/0x20
+ [<c01026e7>] mwait_idle+0x2a/0x34
+ [<c01026a8>] cpu_idle+0x61/0x76
+ [<c04cb49d>] start_kernel+0x2db/0x387
+ [<c04cb549>] unknown_bootoption+0x0/0x257
+
+BUG: soft lockup detected on CPU#0!
+
+Pid: 0, comm:              swapper
+EIP: 0060:[<c035b3f6>] CPU: 0
+EIP is at netif_rx+0x131/0x18b
+ EFLAGS: 00000246    Not tainted  (2.6.16.19 #1)
+EAX: 00000000 EBX: f210cc80 ECX: c0514680 EDX: c3fa4560
+ESI: c3fa45e0 EDI: c051a000 EBP: 00000246 DS: 007b ES: 007b
+CR0: 8005003b CR2: 080f5d20 CR3: 37ec2fc0 CR4: 000006f0
+ [<f88bd9ea>] e1000_clean_rx_irq+0x214/0x63b [e1000]
+ [<f88c116c>] e1000_intr+0x13f/0x47d [e1000]
+ [<c0110447>] smp_apic_timer_interrupt+0x55/0x5e
+ [<c0104314>] apic_timer_interrupt+0x1c/0x24
+ [<c01245a8>] do_timer+0x3b/0x439
+ [<c013c64d>] handle_IRQ_event+0x2e/0x5a
+ [<c013c70a>] __do_IRQ+0x91/0xe7
+ [<c01058d0>] do_IRQ+0x4e/0x86
+ =======================
+ [<c0104286>] common_interrupt+0x1a/0x20
+ [<c01026e7>] mwait_idle+0x2a/0x34
+ [<c01026a8>] cpu_idle+0x61/0x76
+ [<c04cb49d>] start_kernel+0x2db/0x387
+ [<c04cb549>] unknown_bootoption+0x0/0x257
+BUG: soft lockup detected on CPU#0!
+
+Pid: 0, comm:              swapper
+EIP: 0060:[<c01586b6>] CPU: 0
+EIP is at kmem_cache_free+0x29/0x3a
+ EFLAGS: 00000246    Not tainted  (2.6.16.19 #1)
+EAX: 0000000d EBX: f7fdee00 ECX: f7eec9c0 EDX: f210cc80
+ESI: 00000246 EDI: f210cc80 EBP: 00000246 DS: 007b ES: 007b
+CR0: 8005003b CR2: 080f5d20 CR3: 37ec2fc0 CR4: 000006f0
+ [<c035b40e>] netif_rx+0x149/0x18b
+ [<f88bd9ea>] e1000_clean_rx_irq+0x214/0x63b [e1000]
+ [<f88c116c>] e1000_intr+0x13f/0x47d [e1000]
+ [<c0110447>] smp_apic_timer_interrupt+0x55/0x5e
+ [<c0104314>] apic_timer_interrupt+0x1c/0x24
+ [<c01245a8>] do_timer+0x3b/0x439
+ [<c013c64d>] handle_IRQ_event+0x2e/0x5a
+ [<c013c70a>] __do_IRQ+0x91/0xe7
+ [<c01058d0>] do_IRQ+0x4e/0x86
+ =======================
+ [<c0104286>] common_interrupt+0x1a/0x20
+ [<c01026e7>] mwait_idle+0x2a/0x34
+ [<c01026a8>] cpu_idle+0x61/0x76
+ [<c04cb49d>] start_kernel+0x2db/0x387
+ [<c04cb549>] unknown_bootoption+0x0/0x257
+
+- Sample error messages (driver 6.3.9-k4):
+
+BUG: soft lockup detected on CPU#0!
+
+Pid: 0, comm:              swapper
+EIP: 0060:[<c0158b9f>] CPU: 0
+EIP is at kfree+0x4f/0x61
+ EFLAGS: 00000286    Not tainted  (2.6.16.19 #1)
+EAX: 00000004 EBX: f7ff8380 ECX: c0438270 EDX: c0438270
+ESI: f7fff880 EDI: f1a5b600 EBP: 00000286 DS: 007b ES: 007b
+CR0: 8005003b CR2: 435eef86 CR3: 37ec2fc0 CR4: 000006f0
+ [<c0356573>] kfree_skbmem+0x8/0x73
+ [<c035b40e>] netif_rx+0x149/0x18b
+ [<f88bd9ea>] e1000_clean_rx_irq+0x214/0x63b [e1000]
+ [<f88c116c>] e1000_intr+0x13f/0x47d [e1000]
+ [<c0110447>] smp_apic_timer_interrupt+0x55/0x5e
+ [<c01245a8>] do_timer+0x3b/0x439
+ [<c013c64d>] handle_IRQ_event+0x2e/0x5a
+ [<c013c70a>] __do_IRQ+0x91/0xe7
+ [<c01058d0>] do_IRQ+0x4e/0x86
+ =======================
+ [<c0104286>] common_interrupt+0x1a/0x20
+ [<c01026e7>] mwait_idle+0x2a/0x34
+ [<c01026a8>] cpu_idle+0x61/0x76
+ [<c04cb49d>] start_kernel+0x2db/0x387
+ [<c04cb549>] unknown_bootoption+0x0/0x257
+
+BUG: soft lockup detected on CPU#0!
+
+Pid: 1581, comm:                klogd
+EIP: 0060:[<f88bd8a6>] CPU: 0
+EIP is at e1000_clean_rx_irq+0xd0/0x63b [e1000]
+ EFLAGS: 00010282    Not tainted  (2.6.16.19 #1)
+EAX: f2628000 EBX: f28f0d80 ECX: 00000003 EDX: f62b7c80
+ESI: f288f040 EDI: f1bdf640 EBP: 0000003e DS: 007b ES: 007b
+CR0: 8005003b CR2: 081ed000 CR3: 04356da0 CR4: 000006f0
+ [<f88c116c>] e1000_intr+0x13f/0x47d [e1000]
+ [<c0110447>] smp_apic_timer_interrupt+0x55/0x5e
+ [<c0104314>] apic_timer_interrupt+0x1c/0x24
+ [<c01245a8>] do_timer+0x3b/0x439
+ [<c013c64d>] handle_IRQ_event+0x2e/0x5a
+ [<c013c70a>] __do_IRQ+0x91/0xe7
+ [<c01058d0>] do_IRQ+0x4e/0x86
+ =======================
+ [<c0104286>] common_interrupt+0x1a/0x20
+BUG: soft lockup detected on CPU#0!
+
+Pid: 0, comm:              swapper
+EIP: 0060:[<f88c03e1>] CPU: 0
+EIP is at e1000_alloc_rx_buffers+0x102/0x4ad [e1000]
+ EFLAGS: 00000283    Not tainted  (2.6.16.19 #1)
+EAX: 00000089 EBX: f88d7aa0 ECX: f2f5f880 EDX: 00000000
+ESI: f2b8eb40 EDI: f1949480 EBP: 00000800 DS: 007b ES: 007b
+CR0: 8005003b CR2: 081ed000 CR3: 04356da0 CR4: 000006f0
+ [<f88bdccf>] e1000_clean_rx_irq+0x4f9/0x63b [e1000]
+ [<f88c116c>] e1000_intr+0x13f/0x47d [e1000]
+ [<c02d5ad4>] ips_next+0x4ec/0xdf8
+ [<c03b521e>] _spin_lock_irqsave+0x9/0xd
+ [<c0221932>] __add_entropy_words+0x62/0x192
+ [<c01245a8>] do_timer+0x3b/0x439
+ [<c013c64d>] handle_IRQ_event+0x2e/0x5a
+ [<c013c70a>] __do_IRQ+0x91/0xe7
+ [<c01058d0>] do_IRQ+0x4e/0x86
+ =======================
+ [<c0104286>] common_interrupt+0x1a/0x20
+ [<c01026e7>] mwait_idle+0x2a/0x34
+ [<c01026a8>] cpu_idle+0x61/0x76
+ [<c04cb49d>] start_kernel+0x2db/0x387
+ [<c04cb549>] unknown_bootoption+0x0/0x257
+BUG: soft lockup detected on CPU#0!
+
+Pid: 0, comm:              swapper
+EIP: 0060:[<c035b3f6>] CPU: 0
+EIP is at netif_rx+0x131/0x18b
+ EFLAGS: 00000282    Not tainted  (2.6.16.19 #1)
+EAX: 00000000 EBX: f2781a80 ECX: c0514680 EDX: c3fa4560
+ESI: c3fa45e0 EDI: c051a000 EBP: 00000282 DS: 007b ES: 007b
+CR0: 8005003b CR2: 081ed000 CR3: 04356da0 CR4: 000006f0
+ [<f88bd9ea>] e1000_clean_rx_irq+0x214/0x63b [e1000]
+ [<f88c116c>] e1000_intr+0x13f/0x47d [e1000]
+ [<c02d5ad4>] ips_next+0x4ec/0xdf8
+ [<c03b521e>] _spin_lock_irqsave+0x9/0xd
+ [<c0221932>] __add_entropy_words+0x62/0x192
+ [<c01245a8>] do_timer+0x3b/0x439
+ [<c013c64d>] handle_IRQ_event+0x2e/0x5a
+ [<c013c70a>] __do_IRQ+0x91/0xe7
+ [<c01058d0>] do_IRQ+0x4e/0x86
+ =======================
+ [<c0104286>] common_interrupt+0x1a/0x20
+ [<c01026e7>] mwait_idle+0x2a/0x34
+ [<c01026a8>] cpu_idle+0x61/0x76
+ [<c04cb49d>] start_kernel+0x2db/0x387
+ [<c04cb549>] unknown_bootoption+0x0/0x257
