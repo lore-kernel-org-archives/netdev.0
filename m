@@ -1,56 +1,87 @@
-From: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Subject: Re: [RFT] pcnet32 NAPI changes
-Date: Tue, 20 Jun 2006 10:48:07 -0400
-Message-ID: <20060620144724.GL26952@csclub.uwaterloo.ca>
-References: <20060616191154.GA6227@us.ibm.com> <20060619204140.GC10036@us.ibm.com> <20060619204933.GH26952@csclub.uwaterloo.ca> <20060620135355.GB7922@us.ibm.com>
+From: Per Liden <per.liden@ericsson.com>
+Subject: [GIT PATCH] TIPC updates
+Date: Tue, 20 Jun 2006 16:48:54 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0606201637050.29502@ulinpc219.uab.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Don Fry <brazilnut@us.ibm.com>, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:65464 "EHLO
-	caffeine.csclub.uwaterloo.ca") by vger.kernel.org with ESMTP
-	id S1751157AbWFTOsL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 10:48:11 -0400
-To: Jon Mason <jdmason@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <20060620135355.GB7922@us.ibm.com>
+Received: from mailgw3.ericsson.se ([193.180.251.60]:10440 "EHLO
+	mailgw3.ericsson.se") by vger.kernel.org with ESMTP
+	id S1751177AbWFTOs6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jun 2006 10:48:58 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 20, 2006 at 08:53:55AM -0500, Jon Mason wrote:
-> The amount of polls per received packet is very low, thus removing the
-> benefit of NAPI.  A compile time option would allow those users who know
-> better to DTRT.
+Hi Dave,
 
-Well I know on the slow poke system I run on, with the napi polling, the
-system can process packets, and get work done, and not fall over and die
-from handling interrupts.  Without it, even 70Mbit of data on a single
-port will flood the system with packet overruns to the point the
-watchdog times out and the system reboots.  So I don't know if polling
-is slightly more inefficient with little traffic, it is certainly a lot
-more efficient and safer when there is suddenly a lot more traffic.
-Maybe it should be a module option, so that you can pick what you want.
-Heck it could be a per port option even. :)
+Here are the latest TIPC updates.
 
-> Yup, but the "everyone else is doing it" argument never worked with my
-> parents. All it takes is one brave soul to determine the reasoning
-> behind the magic numbers and convert them into #define's.  Shouldn't be
-> more than one day's work.
+Please pull from:
 
-Is this a magic number in your opinion?
+	git://tipc.cslab.ericsson.net/pub/git/tipc.git
 
-lp->a.write_csr(ioaddr, 0, 0x0002);          /* Set STRT bit */
+Thanks
+/Per
 
-I guess one could do
-#define CSR0_RST 0x0001
-#define CSR0_STRT 0x0002
-#define CSR0_STOP 0x0004
-etc...
+ include/net/tipc/tipc_bearer.h |   12 ++
+ net/tipc/bcast.c               |   79 ++++++++-------
+ net/tipc/bcast.h               |    2 
+ net/tipc/bearer.c              |   70 +++++++------
+ net/tipc/cluster.c             |   22 ++--
+ net/tipc/config.c              |   85 +++++++---------
+ net/tipc/core.c                |    7 +
+ net/tipc/core.h                |   21 +++-
+ net/tipc/discover.c            |    7 -
+ net/tipc/eth_media.c           |    9 +-
+ net/tipc/link.c                |  217 +++++++++++++++++++++++++++++++---------
+ net/tipc/name_distr.c          |   30 ++++--
+ net/tipc/name_table.c          |  203 ++++++++++++++++++++-----------------
+ net/tipc/node.c                |   78 ++++++++------
+ net/tipc/node.h                |    2 
+ net/tipc/node_subscr.c         |   15 +--
+ net/tipc/port.c                |   41 ++++----
+ net/tipc/ref.c                 |   31 +++++-
+ net/tipc/socket.c              |  100 +++++++++++-------
+ net/tipc/subscr.c              |   18 ++-
+ net/tipc/zone.c                |   19 ++--
+ 21 files changed, 647 insertions(+), 421 deletions(-)
 
-and then
-lp->a.write_csr(ioaddr, 0, CSR0_STRT);         /* Set STRT bit */
+Allan Stephens:
+      [TIPC] Prevent name table corruption if no room for new publication
+      [TIPC] Use correct upper bound when validating network zone number.
+      [TIPC] Corrected potential misuse of tipc_media_addr structure.
+      [TIPC] Allow ports to receive multicast messages through native API.
+      [TIPC] Links now validate destination node specified by incoming messages.
+      [TIPC] Multicast link failure now resets all links to "nacking" node.
+      [TIPC] Allow compilation when CONFIG_TIPC_DEBUG is not set.
+      [TIPC] Fixed privilege checking typo in dest_name_check().
+      [TIPC] Fix misleading comment in buf_discard() routine.
+      [TIPC] Added support for MODULE_VERSION capability.
+      [TIPC] Validate entire interface name when locating bearer to enable.
+      [TIPC] Non-operation-affecting corrections to comments & function definitions.
+      [TIPC] Fixed connect() to detect a dest address that is missing or too short.
+      [TIPC] Implied connect now saves dest name for retrieval as ancillary data.
+      [TIPC] Can now return destination name of form {0,x,y} via ancillary data.
+      [TIPC] Connected send now checks socket state when retrying congested send.
+      [TIPC] Stream socket send indicates partial success if data partially sent.
+      [TIPC] Improved performance of error checking during socket creation.
+      [TIPC] recvmsg() now returns TIPC ancillary data using correct level (SOL_TIPC)
+      [TIPC] Simplify code for returning partial success of stream send request.
+      [TIPC] Optimized argument validation done by connect().
+      [TIPC] Withdrawing all names from nameless port now returns success, not error
+      [TIPC] Added missing warning for out-of-memory condition
+      [TIPC] Fixed memory leak in tipc_link_send() when destination is unreachable
+      [TIPC] Disallow config operations that aren't supported in certain modes.
+      [TIPC] First phase of assert() cleanup
+      [TIPC] Enhanced & cleaned up system messages; fixed 2 obscure memory leaks.
+      [TIPC] Fixed link switchover bugs
+      [TIPC] Get rid of dynamically allocated arrays in broadcast code.
 
-Does that help?  I am not sure.  I think the comment behind it is
-plenty.
+Eric Sesterhenn:
+      [TIPC] Fix for NULL pointer dereference
 
-Len Sorensen
+Per Liden:
+      [TIPC] Fixed incorrect access permissions
+
