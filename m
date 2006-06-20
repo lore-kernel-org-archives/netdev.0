@@ -1,89 +1,56 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/2] NET: Accurate packet scheduling for ATM/ADSL	(userspace)
-Date: Tue, 20 Jun 2006 16:45:27 +0200
-Message-ID: <44980A07.4050106@trash.net>
-References: <1150278040.26181.37.camel@localhost.localdomain>	 <1150282625.3490.23.camel@localhost.localdomain>	 <1150332449.8605.40.camel@ras.pc.brisbane.lube>	 <1150376591.5116.36.camel@jzny2>	 <Pine.LNX.4.61.0606192048270.31662@ask.diku.dk> <1150812370.5270.27.camel@jzny2>
+From: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Subject: Re: [RFT] pcnet32 NAPI changes
+Date: Tue, 20 Jun 2006 10:48:07 -0400
+Message-ID: <20060620144724.GL26952@csclub.uwaterloo.ca>
+References: <20060616191154.GA6227@us.ibm.com> <20060619204140.GC10036@us.ibm.com> <20060619204933.GH26952@csclub.uwaterloo.ca> <20060620135355.GB7922@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@osdl.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Russell Stuart <russell-tcatm@stuart.id.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Don Fry <brazilnut@us.ibm.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42684 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1751166AbWFTOpa
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 10:45:30 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1150812370.5270.27.camel@jzny2>
+Received: from caffeine.uwaterloo.ca ([129.97.134.17]:65464 "EHLO
+	caffeine.csclub.uwaterloo.ca") by vger.kernel.org with ESMTP
+	id S1751157AbWFTOsL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jun 2006 10:48:11 -0400
+To: Jon Mason <jdmason@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20060620135355.GB7922@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Heres the standard setup as i understand it(at least in north america, I
-> know Europeans love their ATM with a little gravy on top):
-> 
->                                                                        
-> |Linux| --ethernet-- |Modem| --DSL-- |DSLAM| --ATM-- |BRAS| 
-> 
->     
-> What this means is that Linux computes based on ethernet
-> headers. Somewhere downstream ATM (refer to above) comes in and that
-> causes mismatch in what Linux expects to be the bandwidth and what
-> your service provider who doesnt account for the ATM overhead when
-> they sell you "1.5Mbps".
+On Tue, Jun 20, 2006 at 08:53:55AM -0500, Jon Mason wrote:
+> The amount of polls per received packet is very low, thus removing the
+> benefit of NAPI.  A compile time option would allow those users who know
+> better to DTRT.
 
-Actually in the PPPoE case Linux doesn't know about ethernet
-headers either, since shaping is usually done on the PPP device.
-But that doesn't really matter since the ethernet link is not
-the bottleneck - although it does add some delay for packetization.
+Well I know on the slow poke system I run on, with the napi polling, the
+system can process packets, and get work done, and not fall over and die
+from handling interrupts.  Without it, even 70Mbit of data on a single
+port will flood the system with packet overruns to the point the
+watchdog times out and the system reboots.  So I don't know if polling
+is slightly more inefficient with little traffic, it is certainly a lot
+more efficient and safer when there is suddenly a lot more traffic.
+Maybe it should be a module option, so that you can pick what you want.
+Heck it could be a per port option even. :)
 
-> Yes, Linux cant tell if your service provider is lying to you.
+> Yup, but the "everyone else is doing it" argument never worked with my
+> parents. All it takes is one brave soul to determine the reasoning
+> behind the magic numbers and convert them into #define's.  Shouldn't be
+> more than one day's work.
 
-I wouldn't call it lying as long as they don't say "1.5mbps IP
-layer throughput". Ethernet doesn't provide 100mbit IP layer
-throughput either, and with minimum sized IP packets its actually
-well below that.
+Is this a magic number in your opinion?
 
->>The patch is the solution to the classical problem people 
->>have when tryng to configure traffic control on an ADSL link?
->>
->>Q: The packet scheduling does not work all the time?
->>A: Try to decrease to bandwidth.
->>
->>
->>The issue here is, that ATM does not have fixed overhead (due to alignment 
->>and padding).  This means that a fixed reduction of the bandwidth is not 
->>the solution.  We could reduce the bandwidth to the worst-case overhead, 
->>which is 62%, I do not think that is a good solution...
->>
-> 
-> I dont see it as wrong to be honest with you. Your mileage may vary.
+lp->a.write_csr(ioaddr, 0, 0x0002);          /* Set STRT bit */
 
-Its wasteful, and it can be avoided.
+I guess one could do
+#define CSR0_RST 0x0001
+#define CSR0_STRT 0x0002
+#define CSR0_STOP 0x0004
+etc...
 
-> Dont have time to read your doc and dont get me wrong, there is a
-> "quark" practical problem: As practical as the hard disk manufacturer
-> who claims that they have 11G drive when it is 10G. It needs to be
-> resolved - but not in an intrusive way in my opinion.
+and then
+lp->a.write_csr(ioaddr, 0, CSR0_STRT);         /* Set STRT bit */
 
-Not sure what a "quark" problem is .. but I think you're focusing
-too much on the aspect of "somebody is lying, not our fault".
-This is a real problem for any medium that adds link-layer headers.
-ATM is not even very special, the only thing special about it is
-that it has multiple "steps". But maybe I'm misunderstanding you,
-it has happened before :)
+Does that help?  I am not sure.  I think the comment behind it is
+plenty.
 
-A non intrusive way is prefered of course, but I can't really see
-one if you want more than just a special-case solution that only
-covers qdiscs using rate-tables and even ignores inner qdiscs.
-HFSC and SFQ for example both need to calculate the wire length
-at runtime.
-
-Handling all qdiscs would mean adding a pointer to a mapping table
-to struct net_device and using something like "skb_wire_len(skb, dev)"
-instead of skb->len in the queueing layer. That of course doesn't
-mean that we can't still provide pre-adjusted ratetables for qdiscs
-that use them.
-
+Len Sorensen
