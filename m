@@ -1,373 +1,103 @@
-From: "Steve Wise" <swise@opengridcomputing.com>
-Subject: [PATCH v3 6/7] AMSO1100: Privileged Verbs
- Queues.
-Date: Tue, 20 Jun 2006 15:31:21 -0500
-Message-ID: <20060620203121.31536.73315.stgit@stevo-desktop>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [PATCH v3 1/7] AMSO1100 Low Level Driver.
+Date: Tue, 20 Jun 2006 22:43:46 +0200
+Message-ID: <1150836226.2891.231.camel@laptopd505.fenrus.org>
 References: <20060620203050.31536.5341.stgit@stevo-desktop>
+	 <20060620203055.31536.15131.stgit@stevo-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
+Cc: rdreier@cisco.com, mshefty@ichips.intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: rdreier@cisco.com,
-	mshefty@ichips.intel.com
-In-Reply-To: <20060620203050.31536.5341.stgit@stevo-desktop>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:27336 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1750870AbWFTUn6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jun 2006 16:43:58 -0400
+To: Steve Wise <swise@opengridcomputing.com>
+In-Reply-To: <20060620203055.31536.15131.stgit@stevo-desktop>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 2006-06-20 at 15:30 -0500, Steve Wise wrote:
 
-Review Changes:
+> +/*
+> + * Allocate TX ring elements and chain them together.
+> + * One-to-one association of adapter descriptors with ring elements.
+> + */
+> +static int c2_tx_ring_alloc(struct c2_ring *tx_ring, void *vaddr,
+> +			    dma_addr_t base, void __iomem * mmio_txp_ring)
+> +{
+> +	struct c2_tx_desc *tx_desc;
+> +	struct c2_txp_desc __iomem *txp_desc;
+> +	struct c2_element *elem;
+> +	int i;
+> +
+> +	tx_ring->start = kmalloc(sizeof(*elem) * tx_ring->count, GFP_KERNEL);
 
-dprintk() -> pr_debug()
----
+I would think this needs a dma_alloc_coherent() rather than a kmalloc...
 
- drivers/infiniband/hw/amso1100/c2_vq.c |  260 ++++++++++++++++++++++++++++++++
- drivers/infiniband/hw/amso1100/c2_vq.h |   63 ++++++++
- 2 files changed, 323 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/infiniband/hw/amso1100/c2_vq.c b/drivers/infiniband/hw/amso1100/c2_vq.c
-new file mode 100644
-index 0000000..445b1ed
---- /dev/null
-+++ b/drivers/infiniband/hw/amso1100/c2_vq.c
-@@ -0,0 +1,260 @@
-+/*
-+ * Copyright (c) 2005 Ammasso, Inc. All rights reserved.
-+ * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+
-+#include "c2_vq.h"
-+#include "c2_provider.h"
-+
-+/*
-+ * Verbs Request Objects:
-+ *
-+ * VQ Request Objects are allocated by the kernel verbs handlers.
-+ * They contain a wait object, a refcnt, an atomic bool indicating that the
-+ * adapter has replied, and a copy of the verb reply work request.
-+ * A pointer to the VQ Request Object is passed down in the context
-+ * field of the work request message, and reflected back by the adapter
-+ * in the verbs reply message.  The function handle_vq() in the interrupt
-+ * path will use this pointer to:
-+ * 	1) append a copy of the verbs reply message
-+ * 	2) mark that the reply is ready
-+ * 	3) wake up the kernel verbs handler blocked awaiting the reply.
-+ *
-+ *
-+ * The kernel verbs handlers do a "get" to put a 2nd reference on the 
-+ * VQ Request object.  If the kernel verbs handler exits before the adapter
-+ * can respond, this extra reference will keep the VQ Request object around
-+ * until the adapter's reply can be processed.  The reason we need this is
-+ * because a pointer to this object is stuffed into the context field of
-+ * the verbs work request message, and reflected back in the reply message.
-+ * It is used in the interrupt handler (handle_vq()) to wake up the appropriate
-+ * kernel verb handler that is blocked awaiting the verb reply.  
-+ * So handle_vq() will do a "put" on the object when it's done accessing it.
-+ * NOTE:  If we guarantee that the kernel verb handler will never bail before 
-+ *        getting the reply, then we don't need these refcnts.
-+ *
-+ *
-+ * VQ Request objects are freed by the kernel verbs handlers only 
-+ * after the verb has been processed, or when the adapter fails and
-+ * does not reply.  
-+ *
-+ *
-+ * Verbs Reply Buffers:
-+ *
-+ * VQ Reply bufs are local host memory copies of a 
-+ * outstanding Verb Request reply
-+ * message.  The are always allocated by the kernel verbs handlers, and _may_ be
-+ * freed by either the kernel verbs handler -or- the interrupt handler.  The
-+ * kernel verbs handler _must_ free the repbuf, then free the vq request object
-+ * in that order.
-+ */
-+
-+int vq_init(struct c2_dev *c2dev)
-+{
-+	sprintf(c2dev->vq_cache_name, "c2-vq:dev%c",
-+		(char) ('0' + c2dev->devnum));
-+	c2dev->host_msg_cache =
-+	    kmem_cache_create(c2dev->vq_cache_name, c2dev->rep_vq.msg_size, 0,
-+			      SLAB_HWCACHE_ALIGN, NULL, NULL);
-+	if (c2dev->host_msg_cache == NULL) {
-+		return -ENOMEM;
-+	}
-+	return 0;
-+}
-+
-+void vq_term(struct c2_dev *c2dev)
-+{
-+	kmem_cache_destroy(c2dev->host_msg_cache);
-+}
-+
-+/* vq_req_alloc - allocate a VQ Request Object and initialize it.
-+ * The refcnt is set to 1.
-+ */
-+struct c2_vq_req *vq_req_alloc(struct c2_dev *c2dev)
-+{
-+	struct c2_vq_req *r;
-+
-+	r = kmalloc(sizeof(struct c2_vq_req), GFP_KERNEL);
-+	if (r) {
-+		init_waitqueue_head(&r->wait_object);
-+		r->reply_msg = (u64) NULL;
-+		r->event = 0;
-+		r->cm_id = NULL;
-+		r->qp = NULL;
-+		atomic_set(&r->refcnt, 1);
-+		atomic_set(&r->reply_ready, 0);
-+	}
-+	return r;
-+}
-+
-+
-+/* vq_req_free - free the VQ Request Object.  It is assumed the verbs handler
-+ * has already free the VQ Reply Buffer if it existed.
-+ */
-+void vq_req_free(struct c2_dev *c2dev, struct c2_vq_req *r)
-+{
-+	r->reply_msg = (u64) NULL;
-+	if (atomic_dec_and_test(&r->refcnt)) {
-+		kfree(r);
-+	}
-+}
-+
-+/* vq_req_get - reference a VQ Request Object.  Done 
-+ * only in the kernel verbs handlers.
-+ */
-+void vq_req_get(struct c2_dev *c2dev, struct c2_vq_req *r)
-+{
-+	atomic_inc(&r->refcnt);
-+}
-+
-+
-+/* vq_req_put - dereference and potentially free a VQ Request Object.
-+ *
-+ * This is only called by handle_vq() on the 
-+ * interrupt when it is done processing
-+ * a verb reply message.  If the associated 
-+ * kernel verbs handler has already bailed,
-+ * then this put will actually free the VQ 
-+ * Request object _and_ the VQ Reply Buffer
-+ * if it exists.
-+ */
-+void vq_req_put(struct c2_dev *c2dev, struct c2_vq_req *r)
-+{
-+	if (atomic_dec_and_test(&r->refcnt)) {
-+		if (r->reply_msg != (u64) NULL)
-+			vq_repbuf_free(c2dev,
-+				       (void *) (unsigned long) r->reply_msg);
-+		kfree(r);
-+	}
-+}
-+
-+
-+/*
-+ * vq_repbuf_alloc - allocate a VQ Reply Buffer.
-+ */
-+void *vq_repbuf_alloc(struct c2_dev *c2dev)
-+{
-+	return kmem_cache_alloc(c2dev->host_msg_cache, SLAB_ATOMIC);
-+}
-+
-+/*
-+ * vq_send_wr - post a verbs request message to the Verbs Request Queue.
-+ * If a message is not available in the MQ, then block until one is available.
-+ * NOTE: handle_mq() on the interrupt context will wake up threads blocked here.
-+ * When the adapter drains the Verbs Request Queue, 
-+ * it inserts MQ index 0 in to the
-+ * adapter->host activity fifo and interrupts the host.
-+ */
-+int vq_send_wr(struct c2_dev *c2dev, union c2wr *wr)
-+{
-+	void *msg;
-+	wait_queue_t __wait;
-+
-+	/*
-+	 * grab adapter vq lock
-+	 */
-+	spin_lock(&c2dev->vqlock);
-+
-+	/*
-+	 * allocate msg
-+	 */
-+	msg = c2_mq_alloc(&c2dev->req_vq);
-+
-+	/*
-+	 * If we cannot get a msg, then we'll wait
-+	 * When a messages are available, the int handler will wake_up() 
-+	 * any waiters.
-+	 */
-+	while (msg == NULL) {
-+		pr_debug("%s:%d no available msg in VQ, waiting...\n",
-+		       __FUNCTION__, __LINE__);
-+		init_waitqueue_entry(&__wait, current);
-+		add_wait_queue(&c2dev->req_vq_wo, &__wait);
-+		spin_unlock(&c2dev->vqlock);
-+		for (;;) {
-+			set_current_state(TASK_INTERRUPTIBLE);
-+			if (!c2_mq_full(&c2dev->req_vq)) {
-+				break;
-+			}
-+			if (!signal_pending(current)) {
-+				schedule_timeout(1 * HZ);	/* 1 second... */
-+				continue;
-+			}
-+			set_current_state(TASK_RUNNING);
-+			remove_wait_queue(&c2dev->req_vq_wo, &__wait);
-+			return -EINTR;
-+		}
-+		set_current_state(TASK_RUNNING);
-+		remove_wait_queue(&c2dev->req_vq_wo, &__wait);
-+		spin_lock(&c2dev->vqlock);
-+		msg = c2_mq_alloc(&c2dev->req_vq);
-+	}
-+
-+	/*
-+	 * copy wr into adapter msg
-+	 */
-+	memcpy(msg, wr, c2dev->req_vq.msg_size);
-+
-+	/*
-+	 * post msg
-+	 */
-+	c2_mq_produce(&c2dev->req_vq);
-+
-+	/*
-+	 * release adapter vq lock
-+	 */
-+	spin_unlock(&c2dev->vqlock);
-+	return 0;
-+}
-+
-+
-+/*
-+ * vq_wait_for_reply - block until the adapter posts a Verb Reply Message.  
-+ */
-+int vq_wait_for_reply(struct c2_dev *c2dev, struct c2_vq_req *req)
-+{
-+	if (!wait_event_timeout(req->wait_object,
-+				atomic_read(&req->reply_ready),
-+				60*HZ))
-+		return -ETIMEDOUT;
-+
-+	return 0;
-+}
-+
-+/*
-+ * vq_repbuf_free - Free a Verbs Reply Buffer.
-+ */
-+void vq_repbuf_free(struct c2_dev *c2dev, void *reply)
-+{
-+	kmem_cache_free(c2dev->host_msg_cache, reply);
-+}
-diff --git a/drivers/infiniband/hw/amso1100/c2_vq.h b/drivers/infiniband/hw/amso1100/c2_vq.h
-new file mode 100644
-index 0000000..3380562
---- /dev/null
-+++ b/drivers/infiniband/hw/amso1100/c2_vq.h
-@@ -0,0 +1,63 @@
-+/*
-+ * Copyright (c) 2005 Ammasso, Inc. All rights reserved.
-+ * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#ifndef _C2_VQ_H_
-+#define _C2_VQ_H_
-+#include <linux/sched.h>
-+#include "c2.h"
-+#include "c2_wr.h"
-+#include "c2_provider.h"
-+
-+struct c2_vq_req {
-+	u64 reply_msg;		/* ptr to reply msg */
-+	wait_queue_head_t wait_object;	/* wait object for vq reqs */
-+	atomic_t reply_ready;	/* set when reply is ready */
-+	atomic_t refcnt;	/* used to cancel WRs... */
-+	int event;
-+	struct iw_cm_id *cm_id;
-+	struct c2_qp *qp;
-+};
-+
-+extern int vq_init(struct c2_dev *c2dev);
-+extern void vq_term(struct c2_dev *c2dev);
-+
-+extern struct c2_vq_req *vq_req_alloc(struct c2_dev *c2dev);
-+extern void vq_req_free(struct c2_dev *c2dev, struct c2_vq_req *req);
-+extern void vq_req_get(struct c2_dev *c2dev, struct c2_vq_req *req);
-+extern void vq_req_put(struct c2_dev *c2dev, struct c2_vq_req *req);
-+extern int vq_send_wr(struct c2_dev *c2dev, union c2wr * wr);
-+
-+extern void *vq_repbuf_alloc(struct c2_dev *c2dev);
-+extern void vq_repbuf_free(struct c2_dev *c2dev, void *reply);
-+
-+extern int vq_wait_for_reply(struct c2_dev *c2dev, struct c2_vq_req *req);
-+#endif				/* _C2_VQ_H_ */
+> +
+> +/* Free all buffers in RX ring, assumes receiver stopped */
+> +static void c2_rx_clean(struct c2_port *c2_port)
+> +{
+> +	struct c2_dev *c2dev = c2_port->c2dev;
+> +	struct c2_ring *rx_ring = &c2_port->rx_ring;
+> +	struct c2_element *elem;
+> +	struct c2_rx_desc *rx_desc;
+> +
+> +	elem = rx_ring->start;
+> +	do {
+> +		rx_desc = elem->ht_desc;
+> +		rx_desc->len = 0;
+> +
+> +		__raw_writew(0, elem->hw_desc + C2_RXP_STATUS);
+> +		__raw_writew(0, elem->hw_desc + C2_RXP_COUNT);
+> +		__raw_writew(0, elem->hw_desc + C2_RXP_LEN);
+
+you seem to be a fan of the __raw_write() functions... any reason why?
+__raw_ is not a magic "go faster" prefix....
+
+Also on a related note, have you checked the driver for the needed PCI
+posting flushes?
+
+> +
+> +	/* Disable IRQs by clearing the interrupt mask */
+> +	writel(1, c2dev->regs + C2_IDIS);
+> +	writel(0, c2dev->regs + C2_NIMR0);
+
+like here...
+> +
+> +	elem = tx_ring->to_use;
+> +	elem->skb = skb;
+> +	elem->mapaddr = mapaddr;
+> +	elem->maplen = maplen;
+> +
+> +	/* Tell HW to xmit */
+> +	__raw_writeq(cpu_to_be64(mapaddr), elem->hw_desc + C2_TXP_ADDR);
+> +	__raw_writew(cpu_to_be16(maplen), elem->hw_desc + C2_TXP_LEN);
+> +	__raw_writew(cpu_to_be16(TXP_HTXD_READY), elem->hw_desc + C2_TXP_FLAGS);
+
+or here
+
+> +static int c2_change_mtu(struct net_device *netdev, int new_mtu)
+> +{
+> +	int ret = 0;
+> +
+> +	if (new_mtu < ETH_ZLEN || new_mtu > ETH_JUMBO_MTU)
+> +		return -EINVAL;
+> +
+> +	netdev->mtu = new_mtu;
+> +
+> +	if (netif_running(netdev)) {
+> +		c2_down(netdev);
+> +
+> +		c2_up(netdev);
+> +	}
+
+this looks odd...
+
+
+
