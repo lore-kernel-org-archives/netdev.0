@@ -1,36 +1,44 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Pull request for 'upstream' branch
-Date: Tue, 20 Jun 2006 04:45:31 -0400
-Message-ID: <4497B5AB.5010604@garzik.org>
-References: <20060615212109.GA6817@electric-eye.fr.zoreil.com>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Tue, 20 Jun 2006 04:46:17 -0400
+Message-ID: <4497B5D9.3000203@garzik.org>
+References: <20060615200257.GB32582@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jeff@garik.org, netdev@vger.kernel.org, palopezv@gmail.com,
-	nacc@us.ibm.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:44487 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S965173AbWFTIpf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2006 04:45:35 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060615212109.GA6817@electric-eye.fr.zoreil.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:50375 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S965181AbWFTIqT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2006 04:46:19 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060615200257.GB32582@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rancois Romieu wrote:
-> Please pull from branch 'upstream' to get the change below:
->=20
-> git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
->=20
-> Patch applies both to jeff#upstream and jeff#upstream-fixes
->=20
-> Shortlog
-> --------
->=20
-> Pedro Alejandro L=F3pez-Valencia:
->       sundance: PCI ID for ip100a
+John W. Linville wrote:
+> The following changes since commit 76df73ff90e99681a99e457aec4cfe0a240b7982:
+>   John W. Linville:
+>         Merge branch 'from-linus' into upstream
+> 
+> are found in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
+> 
+> Jiri Slaby:
+>       pci: bcm43xx avoid pci_find_device
+> 
+> Larry Finger:
+>       wireless: Changes to ieee80211.h for user space regulatory daemon
+>       wireless: correct dump of WPA IE
+> 
+> Michael Buesch:
+>       bcm43xx: redesign locking
+>       bcm43xx: preemptible periodic work
+> 
+> Zhu Yi:
+>       ipw2200 locking fix
 
-pulled, thanks
+pulled
 
 
