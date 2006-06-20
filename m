@@ -1,52 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PATCH] TIPC updates
-Date: Tue, 20 Jun 2006 14:28:13 -0700 (PDT)
-Message-ID: <20060620.142813.74565140.davem@davemloft.net>
-References: <Pine.LNX.4.64.0606201637050.29502@ulinpc219.uab.ericsson.se>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [DOC]: generic netlink
+Date: Tue, 20 Jun 2006 23:34:35 +0200
+Message-ID: <20060620213435.GN1376@postel.suug.ch>
+References: <1150724482.5815.48.camel@jzny2> <20060620080250.GM1376@postel.suug.ch> <1150815697.5270.86.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Per Liden <per.liden@ericsson.com>,
+	Shailabh Nagar <nagar@watson.ibm.com>,
+	Jay Lan <jlan@engr.sgi.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30105
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751146AbWFTV2D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 17:28:03 -0400
-To: per.liden@ericsson.com
-In-Reply-To: <Pine.LNX.4.64.0606201637050.29502@ulinpc219.uab.ericsson.se>
+Received: from postel.suug.ch ([194.88.212.233]:45526 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1751199AbWFTVeP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2006 17:34:15 -0400
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1150815697.5270.86.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Per Liden <per.liden@ericsson.com>
-Date: Tue, 20 Jun 2006 16:48:54 +0200 (CEST)
+Hello
 
-> Please pull from:
+> > > TODO:
+> > > a) Add a more complete compiling kernel module with events.
+> > > Have Thomas put his Mashimaro example and point to it.
+> > 
+> > I guess we have a legal issue here ;)
+> > 
 > 
-> 	git://tipc.cslab.ericsson.net/pub/git/tipc.git
+> change the name ;->
 
-Hi Per.
+Ask Mr. Mashimaro has become my replacement for 8ball. Renaming
+it would lead to a serious loss of coolness ;-)
 
-I agree with James, you should post the patches so that people
-can review them.
+> > > b) Describe some details on how user space -> kernel works
+> > > probably using libnl??
+> > 
+> > I'll take care of that.
+> 
+> Whats the plan? To add to this doc or separate doc?
 
-But not all in one posting! :-)
+The status is that the code is there including userspace tools
+to query the controller. Documentation is written as part of
+the API reference (coming up with -pre6), no architectural notes
+yet though. I think it's best to keep it separated and refer to
+it both ways.
 
-Look at how other contributors submit their work.  They make a set of
-postings to the list, one for each patch, and each posting has
-a subject that begins with something like "[PATCH 1/N] " where
-the "1" increases for each patch and the "N" is the total number
-of patches you are submitting for review.
-
-People typically also give an initial "[PATCH 0/N] " posting
-where the location of the GIT tree containing the patches lives
-and also a general summary of what the upcoming set of patches
-do.
-
-There are automated scripts which can take a GIT tree and a given
-range of changesets and prebuild the list postings for you.  So
-the amount of work you need to do for this is minimal.
-
-For example, "git format-patch" and "git send-email" can help you a
-lot here.
-
-Thanks!
