@@ -1,62 +1,47 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
-Date: Tue, 20 Jun 2006 17:09:23 +0200
-Message-ID: <44980FA3.1000009@trash.net>
-References: <1150278004.26181.35.camel@localhost.localdomain>	 <1150286766.5233.15.camel@jzny2>  <4497474C.4050706@trash.net> <1150815375.5270.78.camel@jzny2>
+Date: Tue, 20 Jun 2006 17:16:31 +0200
+Message-ID: <4498114F.8090700@trash.net>
+References: <1150278004.26181.35.camel@localhost.localdomain>	 <1150286766.5233.15.camel@jzny2>	 <1150289724.26181.74.camel@localhost.localdomain>	 <1150377383.5116.38.camel@jzny2>  <4497499F.8040507@trash.net> <1150815544.5270.82.camel@jzny2>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org,
-	lartc@mailman.ds9a.nl, russell-tcatm@stuart.id.au, hawk@diku.dk,
+Cc: hawk@diku.dk, russell-tcatm@stuart.id.au, lartc@mailman.ds9a.nl,
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>,
 	Jesper Dangaard Brouer <hawk@comx.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:41406 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1751301AbWFTPJ0
+Received: from stinky.trash.net ([213.144.137.162]:23231 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751306AbWFTPQc
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 11:09:26 -0400
+	Tue, 20 Jun 2006 11:16:32 -0400
 To: hadi@cyberus.ca
-In-Reply-To: <1150815375.5270.78.camel@jzny2>
+In-Reply-To: <1150815544.5270.82.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 jamal wrote:
-> On Tue, 2006-20-06 at 02:54 +0200, Patrick McHardy wrote:
+> On Tue, 2006-20-06 at 03:04 +0200, Patrick McHardy wrote:
 > 
->>jamal wrote:
->>
->>>- For further reflection: Have you considered the case where the rate
->>>table has already been considered on some link speed in user space and
->>>then somewhere post-config the physical link speed changes? This would
->>>happen in the case where ethernet AN is involved and the partner makes
->>>some changes (use ethtool). 
->>>
-> 
-> [..]
-> 
->>I've thought about this a couple of times, scaling the virtual clock
->>rate should be enough for "simple" qdiscs like TBF or HTB, which have
->>a linear relation between time and bandwidth. I haven't really thought
->>about the effects on HFSC yet, on a small scale the relation is
->>non-linear. 
+>>It would be nice to have support for HFSC as well, which unfortunately
+>>needs to be done in the kernel since it doesn't use rate tables.
+>>What about qdiscs like SFQ (which uses the packet size in quantum
+>>calculations)? I guess it would make sense to use the wire-length
+>>there as well.
 > 
 > 
-> Does HFSC not depend on bandwith? How is rate control achieved?
+> Didnt even think of that ;-> 
+> Is it getting too complicated? 
 
-"Depend on bandwidth" is not the right term. All of TBF, HTB and HFSC
-provide bandwidth per time, but with TBF and HTB the relation between
-the amount of bandwidth is linear to the amount of time, with HFSC
-it is only on a linear on larger scale since it uses service curves,
-which are represented as two linear pieces. So you have bandwidth b1
-for time t1, bandwidth b2 after that until eternity. By scaling the
-clock rate you alter after how much time b2 kicks in, which affects
-the guaranteed delays. The end result should be that both bandwidth
-and delay scale up or down proportionally, but I'm not sure that this
-is what HFSC would do in all cases (on small scale). But it should
-be easy to answer with a bit more time for visualizing it.
+The code wouldn't be very complicated, it just adds some overhead. If
+you do something like I described in my previous mail the overhead for
+people not using it would be an additional pointer test before reading
+skb->len. I guess we could also make it a compile time option.
+I personally think this is something that really improves our quality
+of implementation, after all, its "wire" resources qdiscs are meant
+to manage.
 
-The thing I'm not sure about is whether this wouldn't be handled better
-by userspace, if the link layer speed changes you might not want
-proportional scaling but prefer to still give a fixed amount of that
-bandwidth to some class, for example VoIP traffic. Do we have netlink
-notifications for link speed changes?
+> BTW, I forgot to mention one thing on the bandwidth issue is we could do
+> is send netlink events on link speed changes too; some listener
+> somewhere would then do the adjustment.
 
+See the mail I just wrote :)
