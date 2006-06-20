@@ -1,36 +1,34 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
-Date: Tue, 20 Jun 2006 03:04:31 +0200
-Message-ID: <4497499F.8040507@trash.net>
-References: <1150278004.26181.35.camel@localhost.localdomain>	 <1150286766.5233.15.camel@jzny2>	 <1150289724.26181.74.camel@localhost.localdomain> <1150377383.5116.38.camel@jzny2>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	netdev@vger.kernel.org, lartc@mailman.ds9a.nl,
-	russell-tcatm@stuart.id.au, hawk@diku.dk
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
+Date: Tue, 20 Jun 2006 12:11:27 +1000
+Message-ID: <E1FsViB-0006Qq-00@gondolin.me.apana.org.au>
+References: <4496ACA6.7090305@atmos.washington.edu>
+Cc: shemminger@osdl.org, akpm@osdl.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61688 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S965029AbWFTBFT
+Received: from rhun.apana.org.au ([64.62.148.172]:6404 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S964859AbWFTCLh
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Jun 2006 21:05:19 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1150377383.5116.38.camel@jzny2>
+	Mon, 19 Jun 2006 22:11:37 -0400
+To: harry@atmos.washington.edu (Harry Edmon)
+In-Reply-To: <4496ACA6.7090305@atmos.washington.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> You are still speaking ATM (and the above may still be valid), but: 
-> Could you for example look at the netdevice->type and from that figure
-> out the link layer overhead and compensate for it.
-> Obviously a lot more useful if such activity is doable in user space
-> without any knowledge of the kernel? and therefore zero change to the
-> kernel and everything then becomes forward and backward compatible.
+Harry Edmon <harry@atmos.washington.edu> wrote:
+> 
+> That did not help.  I have 1 minute outputs from tcpdump under both 2.6.11.12 
+> and 2.6.16.20.  You will see a large size difference between the files.  Since 
+> the 2.6.11.12 one is 2 MBytes, I thought I would post them via the web instead 
+> of via attachments.   Look at:
+> 
+> http://www.atmos.washington.edu/~harry/linux/2.6.11.12.out.1min
+> http://www.atmos.washington.edu/~harry/linux/2.6.16.20.out.1min
 
-It would be nice to have support for HFSC as well, which unfortunately
-needs to be done in the kernel since it doesn't use rate tables.
-What about qdiscs like SFQ (which uses the packet size in quantum
-calculations)? I guess it would make sense to use the wire-length
-there as well.
-
+The latter shows that it took 40ms to generate an ACK.  What does
+'vmstat 1' show while this is happneing?
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
