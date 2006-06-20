@@ -1,47 +1,73 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
-Date: Tue, 20 Jun 2006 17:16:31 +0200
-Message-ID: <4498114F.8090700@trash.net>
-References: <1150278004.26181.35.camel@localhost.localdomain>	 <1150286766.5233.15.camel@jzny2>	 <1150289724.26181.74.camel@localhost.localdomain>	 <1150377383.5116.38.camel@jzny2>  <4497499F.8040507@trash.net> <1150815544.5270.82.camel@jzny2>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [Bugme-new] [Bug 6682] New: BUG: soft lockup detected on CPU#0! / ksoftirqd takse 100% CPU
+Date: Tue, 20 Jun 2006 17:28:35 +0200
+Message-ID: <17560.5155.562715.635409@robur.slu.se>
+References: <200606122311.k5CNBMEx007518@fire-2.osdl.org>
+	<20060619152010.5c648b97.akpm@osdl.org>
+	<20060620123253.GA26122@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hawk@diku.dk, russell-tcatm@stuart.id.au, lartc@mailman.ds9a.nl,
-	netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>,
-	Jesper Dangaard Brouer <hawk@comx.dk>
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	Dipankar Sarma <dipankar@in.ibm.com>,
+	"Paul E. McKenney" <paulmck@us.ibm.com>,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>, alchemyx@uznam.net.pl,
+	Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:23231 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1751306AbWFTPQc
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 11:16:32 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1150815544.5270.82.camel@jzny2>
+Received: from mx1.slu.se ([130.238.96.70]:3220 "EHLO mx1.slu.se")
+	by vger.kernel.org with ESMTP id S1751316AbWFTP2p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2006 11:28:45 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060620123253.GA26122@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Tue, 2006-20-06 at 03:04 +0200, Patrick McHardy wrote:
-> 
->>It would be nice to have support for HFSC as well, which unfortunately
->>needs to be done in the kernel since it doesn't use rate tables.
->>What about qdiscs like SFQ (which uses the packet size in quantum
->>calculations)? I guess it would make sense to use the wire-length
->>there as well.
-> 
-> 
-> Didnt even think of that ;-> 
-> Is it getting too complicated? 
 
-The code wouldn't be very complicated, it just adds some overhead. If
-you do something like I described in my previous mail the overhead for
-people not using it would be an additional pointer test before reading
-skb->len. I guess we could also make it a compile time option.
-I personally think this is something that really improves our quality
-of implementation, after all, its "wire" resources qdiscs are meant
-to manage.
+Hello!
 
-> BTW, I forgot to mention one thing on the bandwidth issue is we could do
-> is send netlink events on link speed changes too; some listener
-> somewhere would then do the adjustment.
+Yes seems the system is very loaded for some reason 
 
-See the mail I just wrote :)
+> > sometimes a day) we get 100% usage on ksoftirqd/0 and following messages 
+   in logs:
+
+as all softirq's are run via ksoftirqd. That's still OK but why don't the 
+watchdog get any CPU share at all? Mismatch in priorities? 
+
+Herbert Xu writes:
+> On Mon, Jun 19, 2006 at 10:20:10PM +0000, Andrew Morton wrote:
+ > >
+ > > >  [<c02396f9>] dev_queue_xmit+0xe0/0x203
+ > > >  [<c0250de8>] ip_output+0x1e1/0x237
+ > > >  [<c024f3f5>] ip_forward+0x181/0x1df
+ > > >  [<c024e21a>] ip_rcv+0x40c/0x485
+ > > >  [<c0239bd0>] netif_receive_skb+0x12f/0x165
+ > > >  [<f885aa4c>] e1000_clean_rx_irq+0x389/0x410 [e1000]
+ > > >  [<f885a1ca>] e1000_clean+0x94/0x12f [e1000]
+ > > >  [<c0239d5a>] net_rx_action+0x69/0xf0
+ > > >  [<c011a305>] __do_softirq+0x55/0xbd
+ > > >  [<c011a39a>] do_softirq+0x2d/0x31
+ > > >  [<c011a3f8>] local_bh_enable+0x5a/0x65
+ > > >  [<c024a0a1>] rt_run_flush+0x5f/0x80
+
+Normal for a router...
+
+ > Could you tell us the frequency of route updates on this machine?
+ > Route updates are pretty expensive especially when a large number
+ > of flows hits your machine right afterwards.
+
+Yes flush is costly an unfortunly hard to avoid. We discussed this a
+bit before...
+
+ > You can monitor this by running ip mon.  You might just be getting
+ > bogus route updates causing unnecessary flushes to the routing cache.
+
+Just sampled 10 min in one of routers with full 2 * (Full BGP). Well
+remember Zebra/Quagga has just one set in kernel. Anyway during the 
+10 minutes I looked I got 4 (insertion/deletions)/second in average.
+
+Cheers.
+					--ro
+
+ 
+ 
