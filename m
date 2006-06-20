@@ -1,66 +1,50 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [PATCH v3 1/7] AMSO1100 Low Level Driver.
-Date: Tue, 20 Jun 2006 15:30:55 -0500
-Message-ID: <20060620203055.31536.15131.stgit@stevo-desktop>
+From: "Steve Wise" <swise@opengridcomputing.com>
+Subject: [PATCH v3 2/7] AMSO1100 WR / Event
+ Definitions.
+Date: Tue, 20 Jun 2006 15:31:00 -0500
+Message-ID: <20060620203100.31536.50860.stgit@stevo-desktop>
 References: <20060620203050.31536.5341.stgit@stevo-desktop>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
 	openib-general@openib.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-227-247-53.sw.biz.rr.com ([24.227.247.53]:462 "EHLO
-	linux.local") by vger.kernel.org with ESMTP id S1750937AbWFTUa5
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 16:30:57 -0400
-To: rdreier@cisco.com, mshefty@ichips.intel.com
+Return-path: <openib-general-bounces@openib.org>
+To: rdreier@cisco.com,
+	mshefty@ichips.intel.com
 In-Reply-To: <20060620203050.31536.5341.stgit@stevo-desktop>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
 
-This is the core of the driver and includes the hardware probe, low-level
-device interfaces and native Ethernet support.
-
-V2 Review Changes:
-
-- fixed private data memory leak incoming connect requests.  No longer
-  need to copy the private data.  The IWCM will.
-
-- correctly map host memory for DMA (don't use __pa()).
-
-V1 Review Changes
-
-- sizeof -> sizeof()
-
-- dprintk() -> pr_debug()
-
-- removed useless asserts
-
-- assert() -> BUG_ON()
+Review Changes:
 
 - C2_DEBUG -> DEBUG
 
-- removed debug netevent code
-
-- removed arp request squelch code from intr handler, replacing it
-  with setting arp_ignore when the c2 netdev is brought up.
-
-- removed c2_set_mac_addr().
+- removed useless comments
 ---
 
- drivers/infiniband/hw/amso1100/c2.c      | 1255 ++++++++++++++++++++++++++++++
- drivers/infiniband/hw/amso1100/c2.h      |  552 +++++++++++++
- drivers/infiniband/hw/amso1100/c2_ae.c   |  321 ++++++++
- drivers/infiniband/hw/amso1100/c2_intr.c |  209 +++++
- drivers/infiniband/hw/amso1100/c2_rnic.c |  664 ++++++++++++++++
- 5 files changed, 3001 insertions(+), 0 deletions(-)
+ drivers/infiniband/hw/amso1100/c2_ae.h     |  108 ++
+ drivers/infiniband/hw/amso1100/c2_status.h |  158 +++
+ drivers/infiniband/hw/amso1100/c2_wr.h     | 1520 ++++++++++++++++++++++++++++
+ 3 files changed, 1786 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/infiniband/hw/amso1100/c2.c b/drivers/infiniband/hw/amso1100/c2.c
+diff --git a/drivers/infiniband/hw/amso1100/c2_ae.h b/drivers/infiniband/hw/amso1100/c2_ae.h
 new file mode 100644
-index 0000000..4fdbd80
+index 0000000..3a065c3
 --- /dev/null
-+++ b/drivers/infiniband/hw/amso1100/c2.c
-@@ -0,0 +1,1255 @@
++++ b/drivers/infiniband/hw/amso1100/c2_ae.h
+@@ -0,0 +1,108 @@
 +/*
 + * Copyright (c) 2005 Ammasso, Inc. All rights reserved.
 + * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
@@ -93,2996 +77,1769 @@ index 0000000..4fdbd80
 + * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 + * SOFTWARE.
 + */
-+#include <linux/module.h>
-+#include <linux/moduleparam.h>
-+#include <linux/pci.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/inetdevice.h>
-+#include <linux/delay.h>
-+#include <linux/ethtool.h>
-+#include <linux/mii.h>
-+#include <linux/if_vlan.h>
-+#include <linux/crc32.h>
-+#include <linux/in.h>
-+#include <linux/ip.h>
-+#include <linux/tcp.h>
-+#include <linux/init.h>
-+#include <linux/dma-mapping.h>
++#ifndef _C2_AE_H_
++#define _C2_AE_H_
 +
-+#include <asm/io.h>
-+#include <asm/irq.h>
-+#include <asm/byteorder.h>
++/*
++ * WARNING: If you change this file, also bump C2_IVN_BASE
++ * in common/include/clustercore/c2_ivn.h.
++ */
 +
-+#include <rdma/ib_smi.h>
-+#include "c2.h"
-+#include "c2_provider.h"
-+
-+MODULE_AUTHOR("Tom Tucker <tom@opengridcomputing.com>");
-+MODULE_DESCRIPTION("Ammasso AMSO1100 Low-level iWARP Driver");
-+MODULE_LICENSE("Dual BSD/GPL");
-+MODULE_VERSION(DRV_VERSION);
-+
-+static const u32 default_msg = NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK
-+    | NETIF_MSG_IFUP | NETIF_MSG_IFDOWN;
-+
-+static int debug = -1;		/* defaults above */
-+module_param(debug, int, 0);
-+MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
-+
-+static int c2_up(struct net_device *netdev);
-+static int c2_down(struct net_device *netdev);
-+static int c2_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
-+static void c2_tx_interrupt(struct net_device *netdev);
-+static void c2_rx_interrupt(struct net_device *netdev);
-+static irqreturn_t c2_interrupt(int irq, void *dev_id, struct pt_regs *regs);
-+static void c2_tx_timeout(struct net_device *netdev);
-+static int c2_change_mtu(struct net_device *netdev, int new_mtu);
-+static void c2_reset(struct c2_port *c2_port);
-+static struct net_device_stats *c2_get_stats(struct net_device *netdev);
-+
-+static struct pci_device_id c2_pci_table[] = {
-+	{0x18b8, 0xb001, PCI_ANY_ID, PCI_ANY_ID},
-+	{0}
++/*
++ * Asynchronous Event Identifiers
++ *
++ * These start at 0x80 only so it's obvious from inspection that
++ * they are not work-request statuses.  This isn't critical.
++ *
++ * NOTE: these event id's must fit in eight bits.
++ */
++enum c2_event_id {
++	CCAE_REMOTE_SHUTDOWN = 0x80,
++	CCAE_ACTIVE_CONNECT_RESULTS,
++	CCAE_CONNECTION_REQUEST,
++	CCAE_LLP_CLOSE_COMPLETE,
++	CCAE_TERMINATE_MESSAGE_RECEIVED,
++	CCAE_LLP_CONNECTION_RESET,
++	CCAE_LLP_CONNECTION_LOST,
++	CCAE_LLP_SEGMENT_SIZE_INVALID,
++	CCAE_LLP_INVALID_CRC,
++	CCAE_LLP_BAD_FPDU,
++	CCAE_INVALID_DDP_VERSION,
++	CCAE_INVALID_RDMA_VERSION,
++	CCAE_UNEXPECTED_OPCODE,
++	CCAE_INVALID_DDP_QUEUE_NUMBER,
++	CCAE_RDMA_READ_NOT_ENABLED,
++	CCAE_RDMA_WRITE_NOT_ENABLED,
++	CCAE_RDMA_READ_TOO_SMALL,
++	CCAE_NO_L_BIT,
++	CCAE_TAGGED_INVALID_STAG,
++	CCAE_TAGGED_BASE_BOUNDS_VIOLATION,
++	CCAE_TAGGED_ACCESS_RIGHTS_VIOLATION,
++	CCAE_TAGGED_INVALID_PD,
++	CCAE_WRAP_ERROR,
++	CCAE_BAD_CLOSE,
++	CCAE_BAD_LLP_CLOSE,
++	CCAE_INVALID_MSN_RANGE,
++	CCAE_INVALID_MSN_GAP,
++	CCAE_IRRQ_OVERFLOW,
++	CCAE_IRRQ_MSN_GAP,
++	CCAE_IRRQ_MSN_RANGE,
++	CCAE_IRRQ_INVALID_STAG,
++	CCAE_IRRQ_BASE_BOUNDS_VIOLATION,
++	CCAE_IRRQ_ACCESS_RIGHTS_VIOLATION,
++	CCAE_IRRQ_INVALID_PD,
++	CCAE_IRRQ_WRAP_ERROR,
++	CCAE_CQ_SQ_COMPLETION_OVERFLOW,
++	CCAE_CQ_RQ_COMPLETION_ERROR,
++	CCAE_QP_SRQ_WQE_ERROR,
++	CCAE_QP_LOCAL_CATASTROPHIC_ERROR,
++	CCAE_CQ_OVERFLOW,
++	CCAE_CQ_OPERATION_ERROR,
++	CCAE_SRQ_LIMIT_REACHED,
++	CCAE_QP_RQ_LIMIT_REACHED,
++	CCAE_SRQ_CATASTROPHIC_ERROR,
++	CCAE_RNIC_CATASTROPHIC_ERROR
++/* WARNING If you add more id's, make sure their values fit in eight bits. */
 +};
 +
-+MODULE_DEVICE_TABLE(pci, c2_pci_table);
++/*
++ * Resource Indicators and Identifiers
++ */
++enum c2_resource_indicator {
++	C2_RES_IND_QP = 1,
++	C2_RES_IND_EP,
++	C2_RES_IND_CQ,
++	C2_RES_IND_SRQ,
++};
 +
-+static void c2_print_macaddr(struct net_device *netdev)
-+{
-+	pr_debug("%s: MAC %02X:%02X:%02X:%02X:%02X:%02X, "
-+		"IRQ %u\n", netdev->name,
-+		netdev->dev_addr[0], netdev->dev_addr[1], netdev->dev_addr[2],
-+		netdev->dev_addr[3], netdev->dev_addr[4], netdev->dev_addr[5],
-+		netdev->irq);
-+}
-+
-+static void c2_set_rxbufsize(struct c2_port *c2_port)
-+{
-+	struct net_device *netdev = c2_port->netdev;
-+
-+	if (netdev->mtu > RX_BUF_SIZE)
-+		c2_port->rx_buf_size =
-+		    netdev->mtu + ETH_HLEN + sizeof(struct c2_rxp_hdr) +
-+		    NET_IP_ALIGN;
-+	else
-+		c2_port->rx_buf_size = sizeof(struct c2_rxp_hdr) + RX_BUF_SIZE;
-+}
++#endif /* _C2_AE_H_ */
+diff --git a/drivers/infiniband/hw/amso1100/c2_status.h b/drivers/infiniband/hw/amso1100/c2_status.h
+new file mode 100644
+index 0000000..6ee4aa9
+--- /dev/null
++++ b/drivers/infiniband/hw/amso1100/c2_status.h
+@@ -0,0 +1,158 @@
++/*
++ * Copyright (c) 2005 Ammasso, Inc. All rights reserved.
++ * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++#ifndef	_C2_STATUS_H_
++#define _C2_STATUS_H_
 +
 +/*
-+ * Allocate TX ring elements and chain them together.
-+ * One-to-one association of adapter descriptors with ring elements.
++ * Verbs Status Codes
 + */
-+static int c2_tx_ring_alloc(struct c2_ring *tx_ring, void *vaddr,
-+			    dma_addr_t base, void __iomem * mmio_txp_ring)
-+{
-+	struct c2_tx_desc *tx_desc;
-+	struct c2_txp_desc __iomem *txp_desc;
-+	struct c2_element *elem;
-+	int i;
++enum c2_status {
++	C2_OK = 0,		/* This must be zero */
++	CCERR_INSUFFICIENT_RESOURCES = 1,
++	CCERR_INVALID_MODIFIER = 2,
++	CCERR_INVALID_MODE = 3,
++	CCERR_IN_USE = 4,
++	CCERR_INVALID_RNIC = 5,
++	CCERR_INTERRUPTED_OPERATION = 6,
++	CCERR_INVALID_EH = 7,
++	CCERR_INVALID_CQ = 8,
++	CCERR_CQ_EMPTY = 9,
++	CCERR_NOT_IMPLEMENTED = 10,
++	CCERR_CQ_DEPTH_TOO_SMALL = 11,
++	CCERR_PD_IN_USE = 12,
++	CCERR_INVALID_PD = 13,
++	CCERR_INVALID_SRQ = 14,
++	CCERR_INVALID_ADDRESS = 15,
++	CCERR_INVALID_NETMASK = 16,
++	CCERR_INVALID_QP = 17,
++	CCERR_INVALID_QP_STATE = 18,
++	CCERR_TOO_MANY_WRS_POSTED = 19,
++	CCERR_INVALID_WR_TYPE = 20,
++	CCERR_INVALID_SGL_LENGTH = 21,
++	CCERR_INVALID_SQ_DEPTH = 22,
++	CCERR_INVALID_RQ_DEPTH = 23,
++	CCERR_INVALID_ORD = 24,
++	CCERR_INVALID_IRD = 25,
++	CCERR_QP_ATTR_CANNOT_CHANGE = 26,
++	CCERR_INVALID_STAG = 27,
++	CCERR_QP_IN_USE = 28,
++	CCERR_OUTSTANDING_WRS = 29,
++	CCERR_STAG_IN_USE = 30,
++	CCERR_INVALID_STAG_INDEX = 31,
++	CCERR_INVALID_SGL_FORMAT = 32,
++	CCERR_ADAPTER_TIMEOUT = 33,
++	CCERR_INVALID_CQ_DEPTH = 34,
++	CCERR_INVALID_PRIVATE_DATA_LENGTH = 35,
++	CCERR_INVALID_EP = 36,
++	CCERR_MR_IN_USE = CCERR_STAG_IN_USE,
++	CCERR_FLUSHED = 38,
++	CCERR_INVALID_WQE = 39,
++	CCERR_LOCAL_QP_CATASTROPHIC_ERROR = 40,
++	CCERR_REMOTE_TERMINATION_ERROR = 41,
++	CCERR_BASE_AND_BOUNDS_VIOLATION = 42,
++	CCERR_ACCESS_VIOLATION = 43,
++	CCERR_INVALID_PD_ID = 44,
++	CCERR_WRAP_ERROR = 45,
++	CCERR_INV_STAG_ACCESS_ERROR = 46,
++	CCERR_ZERO_RDMA_READ_RESOURCES = 47,
++	CCERR_QP_NOT_PRIVILEGED = 48,
++	CCERR_STAG_STATE_NOT_INVALID = 49,
++	CCERR_INVALID_PAGE_SIZE = 50,
++	CCERR_INVALID_BUFFER_SIZE = 51,
++	CCERR_INVALID_PBE = 52,
++	CCERR_INVALID_FBO = 53,
++	CCERR_INVALID_LENGTH = 54,
++	CCERR_INVALID_ACCESS_RIGHTS = 55,
++	CCERR_PBL_TOO_BIG = 56,
++	CCERR_INVALID_VA = 57,
++	CCERR_INVALID_REGION = 58,
++	CCERR_INVALID_WINDOW = 59,
++	CCERR_TOTAL_LENGTH_TOO_BIG = 60,
++	CCERR_INVALID_QP_ID = 61,
++	CCERR_ADDR_IN_USE = 62,
++	CCERR_ADDR_NOT_AVAIL = 63,
++	CCERR_NET_DOWN = 64,
++	CCERR_NET_UNREACHABLE = 65,
++	CCERR_CONN_ABORTED = 66,
++	CCERR_CONN_RESET = 67,
++	CCERR_NO_BUFS = 68,
++	CCERR_CONN_TIMEDOUT = 69,
++	CCERR_CONN_REFUSED = 70,
++	CCERR_HOST_UNREACHABLE = 71,
++	CCERR_INVALID_SEND_SGL_DEPTH = 72,
++	CCERR_INVALID_RECV_SGL_DEPTH = 73,
++	CCERR_INVALID_RDMA_WRITE_SGL_DEPTH = 74,
++	CCERR_INSUFFICIENT_PRIVILEGES = 75,
++	CCERR_STACK_ERROR = 76,
++	CCERR_INVALID_VERSION = 77,
++	CCERR_INVALID_MTU = 78,
++	CCERR_INVALID_IMAGE = 79,
++	CCERR_PENDING = 98,	/* not an error; user internally by adapter */
++	CCERR_DEFER = 99,	/* not an error; used internally by adapter */
++	CCERR_FAILED_WRITE = 100,
++	CCERR_FAILED_ERASE = 101,
++	CCERR_FAILED_VERIFICATION = 102,
++	CCERR_NOT_FOUND = 103,
 +
-+	tx_ring->start = kmalloc(sizeof(*elem) * tx_ring->count, GFP_KERNEL);
-+	if (!tx_ring->start)
-+		return -ENOMEM;
-+
-+	elem = tx_ring->start;
-+	tx_desc = vaddr;
-+	txp_desc = mmio_txp_ring;
-+	for (i = 0; i < tx_ring->count; i++, elem++, tx_desc++, txp_desc++) {
-+		tx_desc->len = 0;
-+		tx_desc->status = 0;
-+
-+		/* Set TXP_HTXD_UNINIT */
-+		__raw_writeq(cpu_to_be64(0x1122334455667788ULL),
-+			     (void __iomem *) txp_desc + C2_TXP_ADDR);
-+		__raw_writew(0, (void __iomem *) txp_desc + C2_TXP_LEN);
-+		__raw_writew(cpu_to_be16(TXP_HTXD_UNINIT),
-+			     (void __iomem *) txp_desc + C2_TXP_FLAGS);
-+
-+		elem->skb = NULL;
-+		elem->ht_desc = tx_desc;
-+		elem->hw_desc = txp_desc;
-+
-+		if (i == tx_ring->count - 1) {
-+			elem->next = tx_ring->start;
-+			tx_desc->next_offset = base;
-+		} else {
-+			elem->next = elem + 1;
-+			tx_desc->next_offset =
-+			    base + (i + 1) * sizeof(*tx_desc);
-+		}
-+	}
-+
-+	tx_ring->to_use = tx_ring->to_clean = tx_ring->start;
-+
-+	return 0;
-+}
++};
 +
 +/*
-+ * Allocate RX ring elements and chain them together.
-+ * One-to-one association of adapter descriptors with ring elements.
++ * CCAE_ACTIVE_CONNECT_RESULTS status result codes.
 + */
-+static int c2_rx_ring_alloc(struct c2_ring *rx_ring, void *vaddr,
-+			    dma_addr_t base, void __iomem * mmio_rxp_ring)
-+{
-+	struct c2_rx_desc *rx_desc;
-+	struct c2_rxp_desc __iomem *rxp_desc;
-+	struct c2_element *elem;
-+	int i;
-+
-+	rx_ring->start = kmalloc(sizeof(*elem) * rx_ring->count, GFP_KERNEL);
-+	if (!rx_ring->start)
-+		return -ENOMEM;
-+
-+	elem = rx_ring->start;
-+	rx_desc = vaddr;
-+	rxp_desc = mmio_rxp_ring;
-+	for (i = 0; i < rx_ring->count; i++, elem++, rx_desc++, rxp_desc++) {
-+		rx_desc->len = 0;
-+		rx_desc->status = 0;
-+
-+		/* Set RXP_HRXD_UNINIT */
-+		__raw_writew(cpu_to_be16(RXP_HRXD_OK),
-+		       (void __iomem *) rxp_desc + C2_RXP_STATUS);
-+		__raw_writew(0, (void __iomem *) rxp_desc + C2_RXP_COUNT);
-+		__raw_writew(0, (void __iomem *) rxp_desc + C2_RXP_LEN);
-+		__raw_writeq(cpu_to_be64(0x99aabbccddeeffULL),
-+			     (void __iomem *) rxp_desc + C2_RXP_ADDR);
-+		__raw_writew(cpu_to_be16(RXP_HRXD_UNINIT),
-+			     (void __iomem *) rxp_desc + C2_RXP_FLAGS);
-+
-+		elem->skb = NULL;
-+		elem->ht_desc = rx_desc;
-+		elem->hw_desc = rxp_desc;
-+
-+		if (i == rx_ring->count - 1) {
-+			elem->next = rx_ring->start;
-+			rx_desc->next_offset = base;
-+		} else {
-+			elem->next = elem + 1;
-+			rx_desc->next_offset =
-+			    base + (i + 1) * sizeof(*rx_desc);
-+		}
-+	}
-+
-+	rx_ring->to_use = rx_ring->to_clean = rx_ring->start;
-+
-+	return 0;
-+}
-+
-+/* Setup buffer for receiving */
-+static inline int c2_rx_alloc(struct c2_port *c2_port, struct c2_element *elem)
-+{
-+	struct c2_dev *c2dev = c2_port->c2dev;
-+	struct c2_rx_desc *rx_desc = elem->ht_desc;
-+	struct sk_buff *skb;
-+	dma_addr_t mapaddr;
-+	u32 maplen;
-+	struct c2_rxp_hdr *rxp_hdr;
-+
-+	skb = dev_alloc_skb(c2_port->rx_buf_size);
-+	if (unlikely(!skb)) {
-+		pr_debug("%s: out of memory for receive\n",
-+			c2_port->netdev->name);
-+		return -ENOMEM;
-+	}
-+
-+	/* Zero out the rxp hdr in the sk_buff */
-+	memset(skb->data, 0, sizeof(*rxp_hdr));
-+
-+	skb->dev = c2_port->netdev;
-+
-+	maplen = c2_port->rx_buf_size;
-+	mapaddr =
-+	    pci_map_single(c2dev->pcidev, skb->data, maplen,
-+			   PCI_DMA_FROMDEVICE);
-+
-+	/* Set the sk_buff RXP_header to RXP_HRXD_READY */
-+	rxp_hdr = (struct c2_rxp_hdr *) skb->data;
-+	rxp_hdr->flags = RXP_HRXD_READY;
-+
-+	__raw_writew(0, elem->hw_desc + C2_RXP_STATUS);
-+	__raw_writew(cpu_to_be16((u16) maplen - sizeof(*rxp_hdr)),
-+		     elem->hw_desc + C2_RXP_LEN);
-+	__raw_writeq(cpu_to_be64(mapaddr), elem->hw_desc + C2_RXP_ADDR);
-+	__raw_writew(cpu_to_be16(RXP_HRXD_READY), elem->hw_desc + C2_RXP_FLAGS);
-+
-+	elem->skb = skb;
-+	elem->mapaddr = mapaddr;
-+	elem->maplen = maplen;
-+	rx_desc->len = maplen;
-+
-+	return 0;
-+}
++enum c2_connect_status {
++	C2_CONN_STATUS_SUCCESS = C2_OK,
++	C2_CONN_STATUS_NO_MEM = CCERR_INSUFFICIENT_RESOURCES,
++	C2_CONN_STATUS_TIMEDOUT = CCERR_CONN_TIMEDOUT,
++	C2_CONN_STATUS_REFUSED = CCERR_CONN_REFUSED,
++	C2_CONN_STATUS_NETUNREACH = CCERR_NET_UNREACHABLE,
++	C2_CONN_STATUS_HOSTUNREACH = CCERR_HOST_UNREACHABLE,
++	C2_CONN_STATUS_INVALID_RNIC = CCERR_INVALID_RNIC,
++	C2_CONN_STATUS_INVALID_QP = CCERR_INVALID_QP,
++	C2_CONN_STATUS_INVALID_QP_STATE = CCERR_INVALID_QP_STATE,
++	C2_CONN_STATUS_REJECTED = CCERR_CONN_RESET,
++	C2_CONN_STATUS_ADDR_NOT_AVAIL = CCERR_ADDR_NOT_AVAIL,
++};
 +
 +/*
-+ * Allocate buffers for the Rx ring
-+ * For receive:  rx_ring.to_clean is next received frame
++ * Flash programming status codes.
 + */
-+static int c2_rx_fill(struct c2_port *c2_port)
-+{
-+	struct c2_ring *rx_ring = &c2_port->rx_ring;
-+	struct c2_element *elem;
-+	int ret = 0;
++enum c2_flash_status {
++	C2_FLASH_STATUS_SUCCESS = 0x0000,
++	C2_FLASH_STATUS_VERIFY_ERR = 0x0002,
++	C2_FLASH_STATUS_IMAGE_ERR = 0x0004,
++	C2_FLASH_STATUS_ECLBS = 0x0400,
++	C2_FLASH_STATUS_PSLBS = 0x0800,
++	C2_FLASH_STATUS_VPENS = 0x1000,
++};
 +
-+	elem = rx_ring->start;
-+	do {
-+		if (c2_rx_alloc(c2_port, elem)) {
-+			ret = 1;
-+			break;
-+		}
-+	} while ((elem = elem->next) != rx_ring->start);
++#endif				/* _C2_STATUS_H_ */
+diff --git a/drivers/infiniband/hw/amso1100/c2_wr.h b/drivers/infiniband/hw/amso1100/c2_wr.h
+new file mode 100644
+index 0000000..bd9905b
+--- /dev/null
++++ b/drivers/infiniband/hw/amso1100/c2_wr.h
+@@ -0,0 +1,1520 @@
++/*
++ * Copyright (c) 2005 Ammasso, Inc. All rights reserved.
++ * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++#ifndef _C2_WR_H_
++#define _C2_WR_H_
 +
-+	rx_ring->to_clean = rx_ring->start;
-+	return ret;
-+}
++#ifdef CCDEBUG
++#define CCWR_MAGIC		0xb07700b0
++#endif
 +
-+/* Free all buffers in RX ring, assumes receiver stopped */
-+static void c2_rx_clean(struct c2_port *c2_port)
-+{
-+	struct c2_dev *c2dev = c2_port->c2dev;
-+	struct c2_ring *rx_ring = &c2_port->rx_ring;
-+	struct c2_element *elem;
-+	struct c2_rx_desc *rx_desc;
++#define C2_QP_NO_ATTR_CHANGE 0xFFFFFFFF
 +
-+	elem = rx_ring->start;
-+	do {
-+		rx_desc = elem->ht_desc;
-+		rx_desc->len = 0;
-+
-+		__raw_writew(0, elem->hw_desc + C2_RXP_STATUS);
-+		__raw_writew(0, elem->hw_desc + C2_RXP_COUNT);
-+		__raw_writew(0, elem->hw_desc + C2_RXP_LEN);
-+		__raw_writeq(cpu_to_be64(0x99aabbccddeeffULL),
-+			     elem->hw_desc + C2_RXP_ADDR);
-+		__raw_writew(cpu_to_be16(RXP_HRXD_UNINIT),
-+			     elem->hw_desc + C2_RXP_FLAGS);
-+
-+		if (elem->skb) {
-+			pci_unmap_single(c2dev->pcidev, elem->mapaddr,
-+					 elem->maplen, PCI_DMA_FROMDEVICE);
-+			dev_kfree_skb(elem->skb);
-+			elem->skb = NULL;
-+		}
-+	} while ((elem = elem->next) != rx_ring->start);
-+}
-+
-+static inline int c2_tx_free(struct c2_dev *c2dev, struct c2_element *elem)
-+{
-+	struct c2_tx_desc *tx_desc = elem->ht_desc;
-+
-+	tx_desc->len = 0;
-+
-+	pci_unmap_single(c2dev->pcidev, elem->mapaddr, elem->maplen,
-+			 PCI_DMA_TODEVICE);
-+
-+	if (elem->skb) {
-+		dev_kfree_skb_any(elem->skb);
-+		elem->skb = NULL;
-+	}
-+
-+	return 0;
-+}
-+
-+/* Free all buffers in TX ring, assumes transmitter stopped */
-+static void c2_tx_clean(struct c2_port *c2_port)
-+{
-+	struct c2_ring *tx_ring = &c2_port->tx_ring;
-+	struct c2_element *elem;
-+	struct c2_txp_desc txp_htxd;
-+	int retry;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&c2_port->tx_lock, flags);
-+
-+	elem = tx_ring->start;
-+
-+	do {
-+		retry = 0;
-+		do {
-+			txp_htxd.flags =
-+			    readw(elem->hw_desc + C2_TXP_FLAGS);
-+
-+			if (txp_htxd.flags == TXP_HTXD_READY) {
-+				retry = 1;
-+				__raw_writew(0,
-+					     elem->hw_desc + C2_TXP_LEN);
-+				__raw_writeq(0,
-+					     elem->hw_desc + C2_TXP_ADDR);
-+				__raw_writew(cpu_to_be16(TXP_HTXD_DONE),
-+					     elem->hw_desc + C2_TXP_FLAGS);
-+				c2_port->netstats.tx_dropped++;
-+				break;
-+			} else {
-+				__raw_writew(0,
-+					     elem->hw_desc + C2_TXP_LEN);
-+				__raw_writeq(cpu_to_be64(0x1122334455667788ULL),
-+					     elem->hw_desc + C2_TXP_ADDR);
-+				__raw_writew(cpu_to_be16(TXP_HTXD_UNINIT),
-+					     elem->hw_desc + C2_TXP_FLAGS);
-+			}
-+
-+			c2_tx_free(c2_port->c2dev, elem);
-+
-+		} while ((elem = elem->next) != tx_ring->start);
-+	} while (retry);
-+
-+	c2_port->tx_avail = c2_port->tx_ring.count - 1;
-+	c2_port->c2dev->cur_tx = tx_ring->to_use - tx_ring->start;
-+
-+	if (c2_port->tx_avail > MAX_SKB_FRAGS + 1)
-+		netif_wake_queue(c2_port->netdev);
-+
-+	spin_unlock_irqrestore(&c2_port->tx_lock, flags);
-+}
++/* Maximum allowed size in bytes of private_data exchange
++ * on connect.
++ */
++#define C2_MAX_PRIVATE_DATA_SIZE 200
 +
 +/*
-+ * Process transmit descriptors marked 'DONE' by the firmware,
-+ * freeing up their unneeded sk_buffs.
++ * These types are shared among the adapter, host, and CCIL consumer.  
 + */
-+static void c2_tx_interrupt(struct net_device *netdev)
-+{
-+	struct c2_port *c2_port = netdev_priv(netdev);
-+	struct c2_dev *c2dev = c2_port->c2dev;
-+	struct c2_ring *tx_ring = &c2_port->tx_ring;
-+	struct c2_element *elem;
-+	struct c2_txp_desc txp_htxd;
++enum c2_cq_notification_type {
++	C2_CQ_NOTIFICATION_TYPE_NONE = 1,
++	C2_CQ_NOTIFICATION_TYPE_NEXT,
++	C2_CQ_NOTIFICATION_TYPE_NEXT_SE
++};
 +
-+	spin_lock(&c2_port->tx_lock);
++enum c2_setconfig_cmd {
++	C2_CFG_ADD_ADDR = 1,
++	C2_CFG_DEL_ADDR = 2,
++	C2_CFG_ADD_ROUTE = 3,
++	C2_CFG_DEL_ROUTE = 4
++};
 +
-+	for (elem = tx_ring->to_clean; elem != tx_ring->to_use;
-+	     elem = elem->next) {
-+		txp_htxd.flags =
-+		    be16_to_cpu(readw(elem->hw_desc + C2_TXP_FLAGS));
-+
-+		if (txp_htxd.flags != TXP_HTXD_DONE)
-+			break;
-+
-+		if (netif_msg_tx_done(c2_port)) {
-+			/* PCI reads are expensive in fast path */
-+			txp_htxd.len =
-+			    be16_to_cpu(readw(elem->hw_desc + C2_TXP_LEN));
-+			pr_debug("%s: tx done slot %3Zu status 0x%x len "
-+				"%5u bytes\n",
-+				netdev->name, elem - tx_ring->start,
-+				txp_htxd.flags, txp_htxd.len);
-+		}
-+
-+		c2_tx_free(c2dev, elem);
-+		++(c2_port->tx_avail);
-+	}
-+
-+	tx_ring->to_clean = elem;
-+
-+	if (netif_queue_stopped(netdev)
-+	    && c2_port->tx_avail > MAX_SKB_FRAGS + 1)
-+		netif_wake_queue(netdev);
-+
-+	spin_unlock(&c2_port->tx_lock);
-+}
-+
-+static void c2_rx_error(struct c2_port *c2_port, struct c2_element *elem)
-+{
-+	struct c2_rx_desc *rx_desc = elem->ht_desc;
-+	struct c2_rxp_hdr *rxp_hdr = (struct c2_rxp_hdr *) elem->skb->data;
-+
-+	if (rxp_hdr->status != RXP_HRXD_OK ||
-+	    rxp_hdr->len > (rx_desc->len - sizeof(*rxp_hdr))) {
-+		pr_debug("BAD RXP_HRXD\n");
-+		pr_debug("  rx_desc : %p\n", rx_desc);
-+		pr_debug("    index : %Zu\n",
-+			elem - c2_port->rx_ring.start);
-+		pr_debug("    len   : %u\n", rx_desc->len);
-+		pr_debug("  rxp_hdr : %p [PA %p]\n", rxp_hdr,
-+			(void *) __pa((unsigned long) rxp_hdr));
-+		pr_debug("    flags : 0x%x\n", rxp_hdr->flags);
-+		pr_debug("    status: 0x%x\n", rxp_hdr->status);
-+		pr_debug("    len   : %u\n", rxp_hdr->len);
-+		pr_debug("    rsvd  : 0x%x\n", rxp_hdr->rsvd);
-+	}
-+
-+	/* Setup the skb for reuse since we're dropping this pkt */
-+	elem->skb->tail = elem->skb->data = elem->skb->head;
-+
-+	/* Zero out the rxp hdr in the sk_buff */
-+	memset(elem->skb->data, 0, sizeof(*rxp_hdr));
-+
-+	/* Write the descriptor to the adapter's rx ring */
-+	__raw_writew(0, elem->hw_desc + C2_RXP_STATUS);
-+	__raw_writew(0, elem->hw_desc + C2_RXP_COUNT);
-+	__raw_writew(cpu_to_be16((u16) elem->maplen - sizeof(*rxp_hdr)),
-+		     elem->hw_desc + C2_RXP_LEN);
-+	__raw_writeq(cpu_to_be64(elem->mapaddr), elem->hw_desc + C2_RXP_ADDR);
-+	__raw_writew(cpu_to_be16(RXP_HRXD_READY), elem->hw_desc + C2_RXP_FLAGS);
-+
-+	pr_debug("packet dropped\n");
-+	c2_port->netstats.rx_dropped++;
-+}
-+
-+static void c2_rx_interrupt(struct net_device *netdev)
-+{
-+	struct c2_port *c2_port = netdev_priv(netdev);
-+	struct c2_dev *c2dev = c2_port->c2dev;
-+	struct c2_ring *rx_ring = &c2_port->rx_ring;
-+	struct c2_element *elem;
-+	struct c2_rx_desc *rx_desc;
-+	struct c2_rxp_hdr *rxp_hdr;
-+	struct sk_buff *skb;
-+	dma_addr_t mapaddr;
-+	u32 maplen, buflen;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&c2dev->lock, flags);
-+
-+	/* Begin where we left off */
-+	rx_ring->to_clean = rx_ring->start + c2dev->cur_rx;
-+
-+	for (elem = rx_ring->to_clean; elem->next != rx_ring->to_clean;
-+	     elem = elem->next) {
-+		rx_desc = elem->ht_desc;
-+		mapaddr = elem->mapaddr;
-+		maplen = elem->maplen;
-+		skb = elem->skb;
-+		rxp_hdr = (struct c2_rxp_hdr *) skb->data;
-+
-+		if (rxp_hdr->flags != RXP_HRXD_DONE)
-+			break;
-+		buflen = rxp_hdr->len;
-+
-+		/* Sanity check the RXP header */
-+		if (rxp_hdr->status != RXP_HRXD_OK ||
-+		    buflen > (rx_desc->len - sizeof(*rxp_hdr))) {
-+			c2_rx_error(c2_port, elem);
-+			continue;
-+		}
-+
-+		/* 
-+		 * Allocate and map a new skb for replenishing the host 
-+		 * RX desc 
-+		 */
-+		if (c2_rx_alloc(c2_port, elem)) {
-+			c2_rx_error(c2_port, elem);
-+			continue;
-+		}
-+
-+		/* Unmap the old skb */
-+		pci_unmap_single(c2dev->pcidev, mapaddr, maplen,
-+				 PCI_DMA_FROMDEVICE);
-+
-+		prefetch(skb->data);
-+
-+		/*
-+		 * Skip past the leading 8 bytes comprising of the 
-+		 * "struct c2_rxp_hdr", prepended by the adapter 
-+		 * to the usual Ethernet header ("struct ethhdr"), 
-+		 * to the start of the raw Ethernet packet.
-+		 * 
-+		 * Fix up the various fields in the sk_buff before 
-+		 * passing it up to netif_rx(). The transfer size 
-+		 * (in bytes) specified by the adapter len field of 
-+		 * the "struct rxp_hdr_t" does NOT include the 
-+		 * "sizeof(struct c2_rxp_hdr)".
-+		 */
-+		skb->data += sizeof(*rxp_hdr);
-+		skb->tail = skb->data + buflen;
-+		skb->len = buflen;
-+		skb->dev = netdev;
-+		skb->protocol = eth_type_trans(skb, netdev);
-+
-+		netif_rx(skb);
-+
-+		netdev->last_rx = jiffies;
-+		c2_port->netstats.rx_packets++;
-+		c2_port->netstats.rx_bytes += buflen;
-+	}
-+
-+	/* Save where we left off */
-+	rx_ring->to_clean = elem;
-+	c2dev->cur_rx = elem - rx_ring->start;
-+	C2_SET_CUR_RX(c2dev, c2dev->cur_rx);
-+
-+	spin_unlock_irqrestore(&c2dev->lock, flags);
-+}
++enum c2_getconfig_cmd {
++	C2_GETCONFIG_ROUTES = 1,
++	C2_GETCONFIG_ADDRS
++};
 +
 +/*
-+ * Handle netisr0 TX & RX interrupts.
++ *  CCIL Work Request Identifiers
 + */
-+static irqreturn_t c2_interrupt(int irq, void *dev_id, struct pt_regs *regs)
-+{
-+	unsigned int netisr0, dmaisr;
-+	int handled = 0;
-+	struct c2_dev *c2dev = (struct c2_dev *) dev_id;
++enum c2wr_ids {
++	CCWR_RNIC_OPEN = 1,
++	CCWR_RNIC_QUERY,
++	CCWR_RNIC_SETCONFIG,
++	CCWR_RNIC_GETCONFIG,
++	CCWR_RNIC_CLOSE,
++	CCWR_CQ_CREATE,
++	CCWR_CQ_QUERY,
++	CCWR_CQ_MODIFY,
++	CCWR_CQ_DESTROY,
++	CCWR_QP_CONNECT,
++	CCWR_PD_ALLOC,
++	CCWR_PD_DEALLOC,
++	CCWR_SRQ_CREATE,
++	CCWR_SRQ_QUERY,
++	CCWR_SRQ_MODIFY,
++	CCWR_SRQ_DESTROY,
++	CCWR_QP_CREATE,
++	CCWR_QP_QUERY,
++	CCWR_QP_MODIFY,
++	CCWR_QP_DESTROY,
++	CCWR_NSMR_STAG_ALLOC,
++	CCWR_NSMR_REGISTER,
++	CCWR_NSMR_PBL,
++	CCWR_STAG_DEALLOC,
++	CCWR_NSMR_REREGISTER,
++	CCWR_SMR_REGISTER,
++	CCWR_MR_QUERY,
++	CCWR_MW_ALLOC,
++	CCWR_MW_QUERY,
++	CCWR_EP_CREATE,
++	CCWR_EP_GETOPT,
++	CCWR_EP_SETOPT,
++	CCWR_EP_DESTROY,
++	CCWR_EP_BIND,
++	CCWR_EP_CONNECT,
++	CCWR_EP_LISTEN,
++	CCWR_EP_SHUTDOWN,
++	CCWR_EP_LISTEN_CREATE,
++	CCWR_EP_LISTEN_DESTROY,
++	CCWR_EP_QUERY,
++	CCWR_CR_ACCEPT,
++	CCWR_CR_REJECT,
++	CCWR_CONSOLE,
++	CCWR_TERM,
++	CCWR_FLASH_INIT,
++	CCWR_FLASH,
++	CCWR_BUF_ALLOC,
++	CCWR_BUF_FREE,
++	CCWR_FLASH_WRITE,
++	CCWR_INIT,		/* WARNING: Don't move this ever again! */
 +
-+	/* Process CCILNET interrupts */
-+	netisr0 = readl(c2dev->regs + C2_NISR0);
-+	if (netisr0) {
 +
-+		/*
-+		 * There is an issue with the firmware that always
-+		 * provides the status of RX for both TX & RX 
-+		 * interrupts.  So process both queues here.
-+		 */
-+		c2_rx_interrupt(c2dev->netdev);
-+		c2_tx_interrupt(c2dev->netdev);
 +
-+		/* Clear the interrupt */
-+		writel(netisr0, c2dev->regs + C2_NISR0);
-+		handled++;
-+	}
++	/* Add new IDs here */
 +
-+	/* Process RNIC interrupts */
-+	dmaisr = readl(c2dev->regs + C2_DISR);
-+	if (dmaisr) {
-+		writel(dmaisr, c2dev->regs + C2_DISR);
-+		c2_rnic_interrupt(c2dev);
-+		handled++;
-+	}
 +
-+	if (handled) {
-+		return IRQ_HANDLED;
-+	} else {
-+		return IRQ_NONE;
-+	}
-+}
 +
-+static int c2_up(struct net_device *netdev)
-+{
-+	struct c2_port *c2_port = netdev_priv(netdev);
-+	struct c2_dev *c2dev = c2_port->c2dev;
-+	struct c2_element *elem;
-+	struct c2_rxp_hdr *rxp_hdr;
-+	struct in_device *in_dev;
-+	size_t rx_size, tx_size;
-+	int ret, i;
-+	unsigned int netimr0;
-+
-+	if (netif_msg_ifup(c2_port))
-+		pr_debug("%s: enabling interface\n", netdev->name);
-+
-+	/* Set the Rx buffer size based on MTU */
-+	c2_set_rxbufsize(c2_port);
-+
-+	/* Allocate DMA'able memory for Tx/Rx host descriptor rings */
-+	rx_size = c2_port->rx_ring.count * sizeof(struct c2_rx_desc);
-+	tx_size = c2_port->tx_ring.count * sizeof(struct c2_tx_desc);
-+
-+	c2_port->mem_size = tx_size + rx_size;
-+	c2_port->mem = pci_alloc_consistent(c2dev->pcidev, c2_port->mem_size,
-+					    &c2_port->dma);
-+	if (c2_port->mem == NULL) {
-+		pr_debug("Unable to allocate memory for "
-+			"host descriptor rings\n");
-+		return -ENOMEM;
-+	}
-+
-+	memset(c2_port->mem, 0, c2_port->mem_size);
-+
-+	/* Create the Rx host descriptor ring */
-+	if ((ret =
-+	     c2_rx_ring_alloc(&c2_port->rx_ring, c2_port->mem, c2_port->dma,
-+			      c2dev->mmio_rxp_ring))) {
-+		pr_debug("Unable to create RX ring\n");
-+		goto bail0;
-+	}
-+
-+	/* Allocate Rx buffers for the host descriptor ring */
-+	if (c2_rx_fill(c2_port)) {
-+		pr_debug("Unable to fill RX ring\n");
-+		goto bail1;
-+	}
-+
-+	/* Create the Tx host descriptor ring */
-+	if ((ret = c2_tx_ring_alloc(&c2_port->tx_ring, c2_port->mem + rx_size,
-+				    c2_port->dma + rx_size,
-+				    c2dev->mmio_txp_ring))) {
-+		pr_debug("Unable to create TX ring\n");
-+		goto bail1;
-+	}
-+
-+	/* Set the TX pointer to where we left off */
-+	c2_port->tx_avail = c2_port->tx_ring.count - 1;
-+	c2_port->tx_ring.to_use = c2_port->tx_ring.to_clean =
-+	    c2_port->tx_ring.start + c2dev->cur_tx;
-+
-+	/* missing: Initialize MAC */
-+
-+	BUG_ON(c2_port->tx_ring.to_use != c2_port->tx_ring.to_clean);
-+
-+	/* Reset the adapter, ensures the driver is in sync with the RXP */
-+	c2_reset(c2_port);
-+
-+	/* Reset the READY bit in the sk_buff RXP headers & adapter HRXDQ */
-+	for (i = 0, elem = c2_port->rx_ring.start; i < c2_port->rx_ring.count;
-+	     i++, elem++) {
-+		rxp_hdr = (struct c2_rxp_hdr *) elem->skb->data;
-+		rxp_hdr->flags = 0;
-+		__raw_writew(cpu_to_be16(RXP_HRXD_READY),
-+			     elem->hw_desc + C2_RXP_FLAGS);
-+	}
-+
-+	/* Enable network packets */
-+	netif_start_queue(netdev);
-+
-+	/* Enable IRQ */
-+	writel(0, c2dev->regs + C2_IDIS);
-+	netimr0 = readl(c2dev->regs + C2_NIMR0);
-+	netimr0 &= ~(C2_PCI_HTX_INT | C2_PCI_HRX_INT);
-+	writel(netimr0, c2dev->regs + C2_NIMR0);
-+
-+	/* Tell the stack to ignore arp requests for ipaddrs bound to 
-+	 * other interfaces.  This is needed to prevent the host stack
-+	 * from responding to arp requests to the ipaddr bound on the
-+	 * rdma interface.
++	/* 
++	 * WARNING: CCWR_LAST must always be the last verbs id defined! 
++	 *          All the preceding IDs are fixed, and must not change.
++	 *          You can add new IDs, but must not remove or reorder
++	 *          any IDs. If you do, YOU will ruin any hope of
++	 *          compatability between versions.
 +	 */
-+	in_dev = in_dev_get(netdev);
-+	in_dev->cnf.arp_ignore = 1;
-+	in_dev_put(in_dev);
-+
-+	return 0;
-+
-+      bail1:
-+	c2_rx_clean(c2_port);
-+	kfree(c2_port->rx_ring.start);
-+
-+      bail0:
-+	pci_free_consistent(c2dev->pcidev, c2_port->mem_size, c2_port->mem,
-+			    c2_port->dma);
-+
-+	return ret;
-+}
-+
-+static int c2_down(struct net_device *netdev)
-+{
-+	struct c2_port *c2_port = netdev_priv(netdev);
-+	struct c2_dev *c2dev = c2_port->c2dev;
-+
-+	if (netif_msg_ifdown(c2_port))
-+		pr_debug("%s: disabling interface\n",
-+			netdev->name);
-+
-+	/* Wait for all the queued packets to get sent */
-+	c2_tx_interrupt(netdev);
-+
-+	/* Disable network packets */
-+	netif_stop_queue(netdev);
-+
-+	/* Disable IRQs by clearing the interrupt mask */
-+	writel(1, c2dev->regs + C2_IDIS);
-+	writel(0, c2dev->regs + C2_NIMR0);
-+
-+	/* missing: Stop transmitter */
-+
-+	/* missing: Stop receiver */
-+
-+	/* Reset the adapter, ensures the driver is in sync with the RXP */
-+	c2_reset(c2_port);
-+
-+	/* missing: Turn off LEDs here */
-+
-+	/* Free all buffers in the host descriptor rings */
-+	c2_tx_clean(c2_port);
-+	c2_rx_clean(c2_port);
-+
-+	/* Free the host descriptor rings */
-+	kfree(c2_port->rx_ring.start);
-+	kfree(c2_port->tx_ring.start);
-+	pci_free_consistent(c2dev->pcidev, c2_port->mem_size, c2_port->mem,
-+			    c2_port->dma);
-+
-+	return 0;
-+}
-+
-+static void c2_reset(struct c2_port *c2_port)
-+{
-+	struct c2_dev *c2dev = c2_port->c2dev;
-+	unsigned int cur_rx = c2dev->cur_rx;
-+
-+	/* Tell the hardware to quiesce */
-+	C2_SET_CUR_RX(c2dev, cur_rx | C2_PCI_HRX_QUI);
++	CCWR_LAST,
 +
 +	/*
-+	 * The hardware will reset the C2_PCI_HRX_QUI bit once
-+	 * the RXP is quiesced.  Wait 2 seconds for this.
++	 * Start over at 1 so that arrays indexed by user wr id's
++	 * begin at 1.  This is OK since the verbs and user wr id's
++	 * are always used on disjoint sets of queues.
 +	 */
-+	ssleep(2);
-+
-+	cur_rx = C2_GET_CUR_RX(c2dev);
-+
-+	if (cur_rx & C2_PCI_HRX_QUI)
-+		pr_debug("c2_reset: failed to quiesce the hardware!\n");
-+
-+	cur_rx &= ~C2_PCI_HRX_QUI;
-+
-+	c2dev->cur_rx = cur_rx;
-+
-+	pr_debug("Current RX: %u\n", c2dev->cur_rx);
-+}
-+
-+static int c2_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
-+{
-+	struct c2_port *c2_port = netdev_priv(netdev);
-+	struct c2_dev *c2dev = c2_port->c2dev;
-+	struct c2_ring *tx_ring = &c2_port->tx_ring;
-+	struct c2_element *elem;
-+	dma_addr_t mapaddr;
-+	u32 maplen;
-+	unsigned long flags;
-+	unsigned int i;
-+
-+	spin_lock_irqsave(&c2_port->tx_lock, flags);
-+
-+	if (unlikely(c2_port->tx_avail < (skb_shinfo(skb)->nr_frags + 1))) {
-+		netif_stop_queue(netdev);
-+		spin_unlock_irqrestore(&c2_port->tx_lock, flags);
-+
-+		pr_debug("%s: Tx ring full when queue awake!\n",
-+			netdev->name);
-+		return NETDEV_TX_BUSY;
-+	}
-+
-+	maplen = skb_headlen(skb);
-+	mapaddr =
-+	    pci_map_single(c2dev->pcidev, skb->data, maplen, PCI_DMA_TODEVICE);
-+
-+	elem = tx_ring->to_use;
-+	elem->skb = skb;
-+	elem->mapaddr = mapaddr;
-+	elem->maplen = maplen;
-+
-+	/* Tell HW to xmit */
-+	__raw_writeq(cpu_to_be64(mapaddr), elem->hw_desc + C2_TXP_ADDR);
-+	__raw_writew(cpu_to_be16(maplen), elem->hw_desc + C2_TXP_LEN);
-+	__raw_writew(cpu_to_be16(TXP_HTXD_READY), elem->hw_desc + C2_TXP_FLAGS);
-+
-+	c2_port->netstats.tx_packets++;
-+	c2_port->netstats.tx_bytes += maplen;
-+
-+	/* Loop thru additional data fragments and queue them */
-+	if (skb_shinfo(skb)->nr_frags) {
-+		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+			maplen = frag->size;
-+			mapaddr =
-+			    pci_map_page(c2dev->pcidev, frag->page,
-+					 frag->page_offset, maplen,
-+					 PCI_DMA_TODEVICE);
-+
-+			elem = elem->next;
-+			elem->skb = NULL;
-+			elem->mapaddr = mapaddr;
-+			elem->maplen = maplen;
-+
-+			/* Tell HW to xmit */
-+			__raw_writeq(cpu_to_be64(mapaddr),
-+				     elem->hw_desc + C2_TXP_ADDR);
-+			__raw_writew(cpu_to_be16(maplen),
-+				     elem->hw_desc + C2_TXP_LEN);
-+			__raw_writew(cpu_to_be16(TXP_HTXD_READY),
-+				     elem->hw_desc + C2_TXP_FLAGS);
-+
-+			c2_port->netstats.tx_packets++;
-+			c2_port->netstats.tx_bytes += maplen;
-+		}
-+	}
-+
-+	tx_ring->to_use = elem->next;
-+	c2_port->tx_avail -= (skb_shinfo(skb)->nr_frags + 1);
-+
-+	if (c2_port->tx_avail <= MAX_SKB_FRAGS + 1) {
-+		netif_stop_queue(netdev);
-+		if (netif_msg_tx_queued(c2_port))
-+			pr_debug("%s: transmit queue full\n",
-+				netdev->name);
-+	}
-+
-+	spin_unlock_irqrestore(&c2_port->tx_lock, flags);
-+
-+	netdev->trans_start = jiffies;
-+
-+	return NETDEV_TX_OK;
-+}
-+
-+static struct net_device_stats *c2_get_stats(struct net_device *netdev)
-+{
-+	struct c2_port *c2_port = netdev_priv(netdev);
-+
-+	return &c2_port->netstats;
-+}
-+
-+static void c2_tx_timeout(struct net_device *netdev)
-+{
-+	struct c2_port *c2_port = netdev_priv(netdev);
-+
-+	if (netif_msg_timer(c2_port))
-+		pr_debug("%s: tx timeout\n", netdev->name);
-+
-+	c2_tx_clean(c2_port);
-+}
-+
-+static int c2_change_mtu(struct net_device *netdev, int new_mtu)
-+{
-+	int ret = 0;
-+
-+	if (new_mtu < ETH_ZLEN || new_mtu > ETH_JUMBO_MTU)
-+		return -EINVAL;
-+
-+	netdev->mtu = new_mtu;
-+
-+	if (netif_running(netdev)) {
-+		c2_down(netdev);
-+
-+		c2_up(netdev);
-+	}
-+
-+	return ret;
-+}
-+
-+/* Initialize network device */
-+static struct net_device *c2_devinit(struct c2_dev *c2dev,
-+				     void __iomem * mmio_addr)
-+{
-+	struct c2_port *c2_port = NULL;
-+	struct net_device *netdev = alloc_etherdev(sizeof(*c2_port));
-+
-+	if (!netdev) {
-+		pr_debug("c2_port etherdev alloc failed");
-+		return NULL;
-+	}
-+
-+	SET_MODULE_OWNER(netdev);
-+	SET_NETDEV_DEV(netdev, &c2dev->pcidev->dev);
-+
-+	netdev->open = c2_up;
-+	netdev->stop = c2_down;
-+	netdev->hard_start_xmit = c2_xmit_frame;
-+	netdev->get_stats = c2_get_stats;
-+	netdev->tx_timeout = c2_tx_timeout;
-+	netdev->change_mtu = c2_change_mtu;
-+	netdev->watchdog_timeo = C2_TX_TIMEOUT;
-+	netdev->irq = c2dev->pcidev->irq;
-+
-+	c2_port = netdev_priv(netdev);
-+	c2_port->netdev = netdev;
-+	c2_port->c2dev = c2dev;
-+	c2_port->msg_enable = netif_msg_init(debug, default_msg);
-+	c2_port->tx_ring.count = C2_NUM_TX_DESC;
-+	c2_port->rx_ring.count = C2_NUM_RX_DESC;
-+
-+	spin_lock_init(&c2_port->tx_lock);
-+
-+	/* Copy our 48-bit ethernet hardware address */
-+	memcpy_fromio(netdev->dev_addr, mmio_addr + C2_REGS_ENADDR, 6);
-+
-+	/* Validate the MAC address */
-+	if (!is_valid_ether_addr(netdev->dev_addr)) {
-+		pr_debug("Invalid MAC Address\n");
-+		c2_print_macaddr(netdev);
-+		free_netdev(netdev);
-+		return NULL;
-+	}
-+
-+	c2dev->netdev = netdev;
-+
-+	return netdev;
-+}
-+
-+static int __devinit c2_probe(struct pci_dev *pcidev,
-+			      const struct pci_device_id *ent)
-+{
-+	int ret = 0, i;
-+	unsigned long reg0_start, reg0_flags, reg0_len;
-+	unsigned long reg2_start, reg2_flags, reg2_len;
-+	unsigned long reg4_start, reg4_flags, reg4_len;
-+	unsigned kva_map_size;
-+	struct net_device *netdev = NULL;
-+	struct c2_dev *c2dev = NULL;
-+	void __iomem *mmio_regs = NULL;
-+
-+	printk(KERN_INFO PFX "AMSO1100 Gigabit Ethernet driver v%s loaded\n",
-+		DRV_VERSION);
-+
-+	/* Enable PCI device */
-+	ret = pci_enable_device(pcidev);
-+	if (ret) {
-+		printk(KERN_ERR PFX "%s: Unable to enable PCI device\n",
-+			pci_name(pcidev));
-+		goto bail0;
-+	}
-+
-+	reg0_start = pci_resource_start(pcidev, BAR_0);
-+	reg0_len = pci_resource_len(pcidev, BAR_0);
-+	reg0_flags = pci_resource_flags(pcidev, BAR_0);
-+
-+	reg2_start = pci_resource_start(pcidev, BAR_2);
-+	reg2_len = pci_resource_len(pcidev, BAR_2);
-+	reg2_flags = pci_resource_flags(pcidev, BAR_2);
-+
-+	reg4_start = pci_resource_start(pcidev, BAR_4);
-+	reg4_len = pci_resource_len(pcidev, BAR_4);
-+	reg4_flags = pci_resource_flags(pcidev, BAR_4);
-+
-+	pr_debug("BAR0 size = 0x%lX bytes\n", reg0_len);
-+	pr_debug("BAR2 size = 0x%lX bytes\n", reg2_len);
-+	pr_debug("BAR4 size = 0x%lX bytes\n", reg4_len);
-+
-+	/* Make sure PCI base addr are MMIO */
-+	if (!(reg0_flags & IORESOURCE_MEM) ||
-+	    !(reg2_flags & IORESOURCE_MEM) || !(reg4_flags & IORESOURCE_MEM)) {
-+		printk(KERN_ERR PFX "PCI regions not an MMIO resource\n");
-+		ret = -ENODEV;
-+		goto bail1;
-+	}
-+
-+	/* Check for weird/broken PCI region reporting */
-+	if ((reg0_len < C2_REG0_SIZE) ||
-+	    (reg2_len < C2_REG2_SIZE) || (reg4_len < C2_REG4_SIZE)) {
-+		printk(KERN_ERR PFX "Invalid PCI region sizes\n");
-+		ret = -ENODEV;
-+		goto bail1;
-+	}
-+
-+	/* Reserve PCI I/O and memory resources */
-+	ret = pci_request_regions(pcidev, DRV_NAME);
-+	if (ret) {
-+		printk(KERN_ERR PFX "%s: Unable to request regions\n",
-+			pci_name(pcidev));
-+		goto bail1;
-+	}
-+
-+	if ((sizeof(dma_addr_t) > 4)) {
-+		ret = pci_set_dma_mask(pcidev, DMA_64BIT_MASK);
-+		if (ret < 0) {
-+			printk(KERN_ERR PFX "64b DMA configuration failed\n");
-+			goto bail2;
-+		}
-+	} else {
-+		ret = pci_set_dma_mask(pcidev, DMA_32BIT_MASK);
-+		if (ret < 0) {
-+			printk(KERN_ERR PFX "32b DMA configuration failed\n");
-+			goto bail2;
-+		}
-+	}
-+
-+	/* Enables bus-mastering on the device */
-+	pci_set_master(pcidev);
-+
-+	/* Remap the adapter PCI registers in BAR4 */
-+	mmio_regs = ioremap_nocache(reg4_start + C2_PCI_REGS_OFFSET,
-+				    sizeof(struct c2_adapter_pci_regs));
-+	if (mmio_regs == 0UL) {
-+		printk(KERN_ERR PFX
-+			"Unable to remap adapter PCI registers in BAR4\n");
-+		ret = -EIO;
-+		goto bail2;
-+	}
-+
-+	/* Validate PCI regs magic */
-+	for (i = 0; i < sizeof(c2_magic); i++) {
-+		if (c2_magic[i] != readb(mmio_regs + C2_REGS_MAGIC + i)) {
-+			printk(KERN_ERR PFX "Downlevel Firmware boot loader "
-+				"[%d/%Zd: got 0x%x, exp 0x%x]. Use the cc_flash "
-+			       "utility to update your boot loader\n",
-+				i + 1, sizeof(c2_magic),
-+				readb(mmio_regs + C2_REGS_MAGIC + i),
-+				c2_magic[i]);
-+			printk(KERN_ERR PFX "Adapter not claimed\n");
-+			iounmap(mmio_regs);
-+			ret = -EIO;
-+			goto bail2;
-+		}
-+	}
-+
-+	/* Validate the adapter version */
-+	if (be32_to_cpu(readl(mmio_regs + C2_REGS_VERS)) != C2_VERSION) {
-+		printk(KERN_ERR PFX "Version mismatch "
-+			"[fw=%u, c2=%u], Adapter not claimed\n",
-+			be32_to_cpu(readl(mmio_regs + C2_REGS_VERS)),
-+			C2_VERSION);
-+		ret = -EINVAL;
-+		iounmap(mmio_regs);
-+		goto bail2;
-+	}
-+
-+	/* Validate the adapter IVN */
-+	if (be32_to_cpu(readl(mmio_regs + C2_REGS_IVN)) != C2_IVN) {
-+		printk(KERN_ERR PFX "Downlevel FIrmware level. You should be using "
-+		       "the OpenIB device support kit. "
-+		       "[fw=0x%x, c2=0x%x], Adapter not claimed\n",
-+			be32_to_cpu(readl(mmio_regs + C2_REGS_IVN)),
-+			C2_IVN);
-+		ret = -EINVAL;
-+		iounmap(mmio_regs);
-+		goto bail2;
-+	}
-+
-+	/* Allocate hardware structure */
-+	c2dev = (struct c2_dev *) ib_alloc_device(sizeof(*c2dev));
-+	if (!c2dev) {
-+		printk(KERN_ERR PFX "%s: Unable to alloc hardware struct\n",
-+			pci_name(pcidev));
-+		ret = -ENOMEM;
-+		iounmap(mmio_regs);
-+		goto bail2;
-+	}
-+
-+	memset(c2dev, 0, sizeof(*c2dev));
-+	spin_lock_init(&c2dev->lock);
-+	c2dev->pcidev = pcidev;
-+	c2dev->cur_tx = 0;
-+
-+	/* Get the last RX index */
-+	c2dev->cur_rx =
-+	    (be32_to_cpu(readl(mmio_regs + C2_REGS_HRX_CUR)) -
-+	     0xffffc000) / sizeof(struct c2_rxp_desc);
-+
-+	/* Request an interrupt line for the driver */
-+	ret = request_irq(pcidev->irq, c2_interrupt, SA_SHIRQ, DRV_NAME, c2dev);
-+	if (ret) {
-+		printk(KERN_ERR PFX "%s: requested IRQ %u is busy\n",
-+			pci_name(pcidev), pcidev->irq);
-+		iounmap(mmio_regs);
-+		goto bail3;
-+	}
-+
-+	/* Set driver specific data */
-+	pci_set_drvdata(pcidev, c2dev);
-+
-+	/* Initialize network device */
-+	if ((netdev = c2_devinit(c2dev, mmio_regs)) == NULL) {
-+		iounmap(mmio_regs);
-+		goto bail4;
-+	}
-+
-+	/* Save off the actual size prior to unmapping mmio_regs */
-+	kva_map_size = be32_to_cpu(readl(mmio_regs + C2_REGS_PCI_WINSIZE));
-+
-+	/* Unmap the adapter PCI registers in BAR4 */
-+	iounmap(mmio_regs);
-+
-+	/* Register network device */
-+	ret = register_netdev(netdev);
-+	if (ret) {
-+		printk(KERN_ERR PFX "Unable to register netdev, ret = %d\n",
-+			ret);
-+		goto bail5;
-+	}
-+
-+	/* Disable network packets */
-+	netif_stop_queue(netdev);
-+
-+	/* Remap the adapter HRXDQ PA space to kernel VA space */
-+	c2dev->mmio_rxp_ring = ioremap_nocache(reg4_start + C2_RXP_HRXDQ_OFFSET,
-+					       C2_RXP_HRXDQ_SIZE);
-+	if (c2dev->mmio_rxp_ring == 0UL) {
-+		printk(KERN_ERR PFX "Unable to remap MMIO HRXDQ region\n");
-+		ret = -EIO;
-+		goto bail6;
-+	}
-+
-+	/* Remap the adapter HTXDQ PA space to kernel VA space */
-+	c2dev->mmio_txp_ring = ioremap_nocache(reg4_start + C2_TXP_HTXDQ_OFFSET,
-+					       C2_TXP_HTXDQ_SIZE);
-+	if (c2dev->mmio_txp_ring == 0UL) {
-+		printk(KERN_ERR PFX "Unable to remap MMIO HTXDQ region\n");
-+		ret = -EIO;
-+		goto bail7;
-+	}
-+
-+	/* Save off the current RX index in the last 4 bytes of the TXP Ring */
-+	C2_SET_CUR_RX(c2dev, c2dev->cur_rx);
-+
-+	/* Remap the PCI registers in adapter BAR0 to kernel VA space */
-+	c2dev->regs = ioremap_nocache(reg0_start, reg0_len);
-+	if (c2dev->regs == 0UL) {
-+		printk(KERN_ERR PFX "Unable to remap BAR0\n");
-+		ret = -EIO;
-+		goto bail8;
-+	}
-+
-+	/* Remap the PCI registers in adapter BAR4 to kernel VA space */
-+	c2dev->pa = reg4_start + C2_PCI_REGS_OFFSET;
-+	c2dev->kva = ioremap_nocache(reg4_start + C2_PCI_REGS_OFFSET, 
-+				     kva_map_size);
-+	if (c2dev->kva == 0UL) {
-+		printk(KERN_ERR PFX "Unable to remap BAR4\n");
-+		ret = -EIO;
-+		goto bail9;
-+	}
-+
-+	/* Print out the MAC address */
-+	c2_print_macaddr(netdev);
-+
-+	ret = c2_rnic_init(c2dev);
-+	if (ret) {
-+		printk(KERN_ERR PFX "c2_rnic_init failed: %d\n", ret);
-+		goto bail10;
-+	}
-+
-+	c2_register_device(c2dev);
-+
-+	return 0;
-+
-+ bail10:
-+	iounmap(c2dev->kva);
-+
-+ bail9:
-+	iounmap(c2dev->regs);
-+
-+ bail8:
-+	iounmap(c2dev->mmio_txp_ring);
-+
-+ bail7:
-+	iounmap(c2dev->mmio_rxp_ring);
-+
-+ bail6:
-+	unregister_netdev(netdev);
-+
-+ bail5:
-+	free_netdev(netdev);
-+
-+ bail4:
-+	free_irq(pcidev->irq, c2dev);
-+
-+ bail3:
-+	ib_dealloc_device(&c2dev->ibdev);
-+
-+ bail2:
-+	pci_release_regions(pcidev);
-+
-+ bail1:
-+	pci_disable_device(pcidev);
-+
-+ bail0:
-+	return ret;
-+}
-+
-+static void __devexit c2_remove(struct pci_dev *pcidev)
-+{
-+	struct c2_dev *c2dev = pci_get_drvdata(pcidev);
-+	struct net_device *netdev = c2dev->netdev;
-+
-+	/* Unregister with OpenIB */
-+	c2_unregister_device(c2dev);
-+
-+	/* Clean up the RNIC resources */
-+	c2_rnic_term(c2dev);
-+
-+	/* Remove network device from the kernel */
-+	unregister_netdev(netdev);
-+
-+	/* Free network device */
-+	free_netdev(netdev);
-+
-+	/* Free the interrupt line */
-+	free_irq(pcidev->irq, c2dev);
-+
-+	/* missing: Turn LEDs off here */
-+
-+	/* Unmap adapter PA space */
-+	iounmap(c2dev->kva);
-+	iounmap(c2dev->regs);
-+	iounmap(c2dev->mmio_txp_ring);
-+	iounmap(c2dev->mmio_rxp_ring);
-+
-+	/* Free the hardware structure */
-+	ib_dealloc_device(&c2dev->ibdev);
-+
-+	/* Release reserved PCI I/O and memory resources */
-+	pci_release_regions(pcidev);
-+
-+	/* Disable PCI device */
-+	pci_disable_device(pcidev);
-+
-+	/* Clear driver specific data */
-+	pci_set_drvdata(pcidev, NULL);
-+}
-+
-+static struct pci_driver c2_pci_driver = {
-+	.name = DRV_NAME,
-+	.id_table = c2_pci_table,
-+	.probe = c2_probe,
-+	.remove = __devexit_p(c2_remove),
++	/* 
++	 * The order of the CCWR_SEND_XX verbs must 
++	 * match the order of the RDMA_OPs 
++	 */
++	CCWR_SEND = 1,
++	CCWR_SEND_INV,
++	CCWR_SEND_SE,
++	CCWR_SEND_SE_INV,
++	CCWR_RDMA_WRITE,
++	CCWR_RDMA_READ,
++	CCWR_RDMA_READ_INV,
++	CCWR_MW_BIND,
++	CCWR_NSMR_FASTREG,
++	CCWR_STAG_INVALIDATE,
++	CCWR_RECV,
++	CCWR_NOP,
++	CCWR_UNIMPL,		
++/* WARNING: This must always be the last user wr id defined! */
++};
++#define RDMA_SEND_OPCODE_FROM_WR_ID(x)   (x+2)
++
++/*
++ * SQ/RQ Work Request Types
++ */
++enum c2_wr_type {
++	C2_WR_TYPE_SEND = CCWR_SEND,
++	C2_WR_TYPE_SEND_SE = CCWR_SEND_SE,
++	C2_WR_TYPE_SEND_INV = CCWR_SEND_INV,
++	C2_WR_TYPE_SEND_SE_INV = CCWR_SEND_SE_INV,
++	C2_WR_TYPE_RDMA_WRITE = CCWR_RDMA_WRITE,
++	C2_WR_TYPE_RDMA_READ = CCWR_RDMA_READ,
++	C2_WR_TYPE_RDMA_READ_INV_STAG = CCWR_RDMA_READ_INV,
++	C2_WR_TYPE_BIND_MW = CCWR_MW_BIND,
++	C2_WR_TYPE_FASTREG_NSMR = CCWR_NSMR_FASTREG,
++	C2_WR_TYPE_INV_STAG = CCWR_STAG_INVALIDATE,
++	C2_WR_TYPE_RECV = CCWR_RECV,
++	C2_WR_TYPE_NOP = CCWR_NOP,
 +};
 +
-+static int __init c2_init_module(void)
-+{
-+	return pci_module_init(&c2_pci_driver);
-+}
++struct c2_netaddr {
++	u32 ip_addr;
++	u32 netmask;
++	u32 mtu;
++};
 +
-+static void __exit c2_exit_module(void)
-+{
-+	pci_unregister_driver(&c2_pci_driver);
-+}
++struct c2_route {
++	u32 ip_addr;		/* 0 indicates the default route */
++	u32 netmask;		/* netmask associated with dst */
++	u32 flags;
++	union {
++		u32 ipaddr;	/* address of the nexthop interface */
++		u8 enaddr[6];
++	} nexthop;
++};
 +
-+module_init(c2_init_module);
-+module_exit(c2_exit_module);
-diff --git a/drivers/infiniband/hw/amso1100/c2.h b/drivers/infiniband/hw/amso1100/c2.h
-new file mode 100644
-index 0000000..3b17530
---- /dev/null
-+++ b/drivers/infiniband/hw/amso1100/c2.h
-@@ -0,0 +1,552 @@
 +/*
-+ * Copyright (c) 2005 Ammasso, Inc. All rights reserved.
-+ * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
++ * A Scatter Gather Entry.
++ */
++struct c2_data_addr {
++	u32 stag;
++	u32 length;
++	u64 to;
++};
++
++/*
++ * MR and MW flags used by the consumer, RI, and RNIC.
++ */
++enum c2_mm_flags {
++	MEM_REMOTE = 0x0001,	/* allow mw binds with remote access. */
++	MEM_VA_BASED = 0x0002,	/* Not Zero-based */
++	MEM_PBL_COMPLETE = 0x0004,	/* PBL array is complete in this msg */
++	MEM_LOCAL_READ = 0x0008,	/* allow local reads */
++	MEM_LOCAL_WRITE = 0x0010,	/* allow local writes */
++	MEM_REMOTE_READ = 0x0020,	/* allow remote reads */
++	MEM_REMOTE_WRITE = 0x0040,	/* allow remote writes */
++	MEM_WINDOW_BIND = 0x0080,	/* binds allowed */
++	MEM_SHARED = 0x0100,	/* set if MR is shared */
++	MEM_STAG_VALID = 0x0200	/* set if STAG is in valid state */
++};
++
++/*
++ * CCIL API ACF flags defined in terms of the low level mem flags.
++ * This minimizes translation needed in the user API
++ */
++enum c2_acf {
++	C2_ACF_LOCAL_READ = MEM_LOCAL_READ,
++	C2_ACF_LOCAL_WRITE = MEM_LOCAL_WRITE,
++	C2_ACF_REMOTE_READ = MEM_REMOTE_READ,
++	C2_ACF_REMOTE_WRITE = MEM_REMOTE_WRITE,
++	C2_ACF_WINDOW_BIND = MEM_WINDOW_BIND
++};
++
++/*
++ * Image types of objects written to flash
++ */
++#define C2_FLASH_IMG_BITFILE 1
++#define C2_FLASH_IMG_OPTION_ROM 2
++#define C2_FLASH_IMG_VPD 3
++
++/*
++ *  to fix bug 1815 we define the max size allowable of the
++ *  terminate message (per the IETF spec).Refer to the IETF
++ *  protocal specification, section 12.1.6, page 64)
++ *  The message is prefixed by 20 types of DDP info.
 + *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
++ *  Then the message has 6 bytes for the terminate control 
++ *  and DDP segment length info plus a DDP header (either
++ *  14 or 18 byts) plus 28 bytes for the RDMA header.
++ *  Thus the max size in:
++ *  20 + (6 + 18 + 28) = 72
++ */
++#define C2_MAX_TERMINATE_MESSAGE_SIZE (72)
++
++/*
++ * Build String Length.  It must be the same as C2_BUILD_STR_LEN in ccil_api.h
++ */
++#define WR_BUILD_STR_LEN 64
++
++/*
++ * WARNING:  All of these structs need to align any 64bit types on   
++ * 64 bit boundaries!  64bit types include u64 and u64.
 + */
 +
-+#ifndef __C2_H
-+#define __C2_H
++/*
++ * Clustercore Work Request Header.  Be sensitive to field layout
++ * and alignment.
++ */
++struct c2wr_hdr {
++	/* wqe_count is part of the cqe.  It is put here so the
++	 * adapter can write to it while the wr is pending without
++	 * clobbering part of the wr.  This word need not be dma'd
++	 * from the host to adapter by libccil, but we copy it anyway
++	 * to make the memcpy to the adapter better aligned.
++	 */
++	u32 wqe_count;
 +
-+#include <linux/netdevice.h>
-+#include <linux/spinlock.h>
-+#include <linux/kernel.h>
-+#include <linux/pci.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/idr.h>
-+#include <asm/semaphore.h>
++	/* Put these fields next so that later 32- and 64-bit
++	 * quantities are naturally aligned.
++	 */
++	u8 id;
++	u8 result;		/* adapter -> host */
++	u8 sge_count;		/* host -> adapter */
++	u8 flags;		/* host -> adapter */
 +
-+#include "c2_provider.h"
-+#include "c2_mq.h"
-+#include "c2_status.h"
++	u64 context;
++#ifdef CCMSGMAGIC
++	u32 magic;
++	u32 pad;
++#endif
++} __attribute__((packed));
 +
-+#define DRV_NAME     "c2"
-+#define DRV_VERSION  "1.1"
-+#define PFX          DRV_NAME ": "
++/*
++ *------------------------ RNIC ------------------------
++ */
 +
-+#define BAR_0                0
-+#define BAR_2                2
-+#define BAR_4                4
++/*
++ * WR_RNIC_OPEN
++ */
 +
-+#define RX_BUF_SIZE         (1536 + 8)
-+#define ETH_JUMBO_MTU        9000
-+#define C2_MAGIC            "CEPHEUS"
-+#define C2_VERSION           4
-+#define C2_IVN              (18 & 0x7fffffff)
-+
-+#define C2_REG0_SIZE        (16 * 1024)
-+#define C2_REG2_SIZE        (2 * 1024 * 1024)
-+#define C2_REG4_SIZE        (256 * 1024 * 1024)
-+#define C2_NUM_TX_DESC       341
-+#define C2_NUM_RX_DESC       256
-+#define C2_PCI_REGS_OFFSET  (0x10000)
-+#define C2_RXP_HRXDQ_OFFSET (((C2_REG4_SIZE)/2))
-+#define C2_RXP_HRXDQ_SIZE   (4096)
-+#define C2_TXP_HTXDQ_OFFSET (((C2_REG4_SIZE)/2) + C2_RXP_HRXDQ_SIZE)
-+#define C2_TXP_HTXDQ_SIZE   (4096)
-+#define C2_TX_TIMEOUT	    (6*HZ)
-+
-+/* CEPHEUS */
-+static const u8 c2_magic[] = {
-+	0x43, 0x45, 0x50, 0x48, 0x45, 0x55, 0x53
++/*
++ * Flags for the RNIC WRs
++ */
++enum c2_rnic_flags {
++	RNIC_IRD_STATIC = 0x0001,
++	RNIC_ORD_STATIC = 0x0002,
++	RNIC_QP_STATIC = 0x0004,
++	RNIC_SRQ_SUPPORTED = 0x0008,
++	RNIC_PBL_BLOCK_MODE = 0x0010,
++	RNIC_SRQ_MODEL_ARRIVAL = 0x0020,
++	RNIC_CQ_OVF_DETECTED = 0x0040,
++	RNIC_PRIV_MODE = 0x0080
 +};
 +
-+enum adapter_pci_regs {
-+	C2_REGS_MAGIC = 0x0000,
-+	C2_REGS_VERS = 0x0008,
-+	C2_REGS_IVN = 0x000C,
-+	C2_REGS_PCI_WINSIZE = 0x0010,
-+	C2_REGS_Q0_QSIZE = 0x0014,
-+	C2_REGS_Q0_MSGSIZE = 0x0018,
-+	C2_REGS_Q0_POOLSTART = 0x001C,
-+	C2_REGS_Q0_SHARED = 0x0020,
-+	C2_REGS_Q1_QSIZE = 0x0024,
-+	C2_REGS_Q1_MSGSIZE = 0x0028,
-+	C2_REGS_Q1_SHARED = 0x0030,
-+	C2_REGS_Q2_QSIZE = 0x0034,
-+	C2_REGS_Q2_MSGSIZE = 0x0038,
-+	C2_REGS_Q2_SHARED = 0x0040,
-+	C2_REGS_ENADDR = 0x004C,
-+	C2_REGS_RDMA_ENADDR = 0x0054,
-+	C2_REGS_HRX_CUR = 0x006C,
++struct c2wr_rnic_open_req {
++	struct c2wr_hdr hdr;
++	u64 user_context;
++	u16 flags;		/* See enum c2_rnic_flags */
++	u16 port_num;
++} __attribute__((packed));
++
++struct c2wr_rnic_open_rep {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++} __attribute__((packed));
++
++union c2wr_rnic_open {
++	struct c2wr_rnic_open_req req;
++	struct c2wr_rnic_open_rep rep;
++} __attribute__((packed));
++
++struct c2wr_rnic_query_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++} __attribute__((packed));
++
++/*
++ * WR_RNIC_QUERY
++ */
++struct c2wr_rnic_query_rep {
++	struct c2wr_hdr hdr;
++	u64 user_context;
++	u32 vendor_id;
++	u32 part_number;
++	u32 hw_version;
++	u32 fw_ver_major;
++	u32 fw_ver_minor;
++	u32 fw_ver_patch;
++	char fw_ver_build_str[WR_BUILD_STR_LEN];
++	u32 max_qps;
++	u32 max_qp_depth;
++	u32 max_srq_depth;
++	u32 max_send_sgl_depth;
++	u32 max_rdma_sgl_depth;
++	u32 max_cqs;
++	u32 max_cq_depth;
++	u32 max_cq_event_handlers;
++	u32 max_mrs;
++	u32 max_pbl_depth;
++	u32 max_pds;
++	u32 max_global_ird;
++	u32 max_global_ord;
++	u32 max_qp_ird;
++	u32 max_qp_ord;
++	u32 flags;		
++	u32 max_mws;
++	u32 pbe_range_low;
++	u32 pbe_range_high;
++	u32 max_srqs;
++	u32 page_size;
++} __attribute__((packed));
++
++union c2wr_rnic_query {
++	struct c2wr_rnic_query_req req;
++	struct c2wr_rnic_query_rep rep;
++} __attribute__((packed));
++
++/*
++ * WR_RNIC_GETCONFIG
++ */
++
++struct c2wr_rnic_getconfig_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 option;		/* see c2_getconfig_cmd_t */
++	u64 reply_buf;
++	u32 reply_buf_len;
++} __attribute__((packed)) ;
++
++struct c2wr_rnic_getconfig_rep {
++	struct c2wr_hdr hdr;
++	u32 option;		/* see c2_getconfig_cmd_t */
++	u32 count_len;		/* length of the number of addresses configured */
++} __attribute__((packed)) ;
++
++union c2wr_rnic_getconfig {
++	struct c2wr_rnic_getconfig_req req;
++	struct c2wr_rnic_getconfig_rep rep;
++} __attribute__((packed)) ;
++
++/*
++ * WR_RNIC_SETCONFIG
++ */
++struct c2wr_rnic_setconfig_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 option;		/* See c2_setconfig_cmd_t */
++	/* variable data and pad. See c2_netaddr and c2_route */
++	u8 data[0];
++} __attribute__((packed)) ;
++
++struct c2wr_rnic_setconfig_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed)) ;
++
++union c2wr_rnic_setconfig {
++	struct c2wr_rnic_setconfig_req req;
++	struct c2wr_rnic_setconfig_rep rep;
++} __attribute__((packed)) ;
++
++/*
++ * WR_RNIC_CLOSE
++ */
++struct c2wr_rnic_close_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++} __attribute__((packed)) ;
++
++struct c2wr_rnic_close_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed)) ;
++
++union c2wr_rnic_close {
++	struct c2wr_rnic_close_req req;
++	struct c2wr_rnic_close_rep rep;
++} __attribute__((packed)) ;
++
++/*
++ *------------------------ CQ ------------------------
++ */
++struct c2wr_cq_create_req {
++	struct c2wr_hdr hdr;
++	u64 shared_ht;
++	u64 user_context;
++	u64 msg_pool;
++	u32 rnic_handle;
++	u32 msg_size;
++	u32 depth;
++} __attribute__((packed)) ;
++
++struct c2wr_cq_create_rep {
++	struct c2wr_hdr hdr;
++	u32 mq_index;
++	u32 adapter_shared;
++	u32 cq_handle;
++} __attribute__((packed)) ;
++
++union c2wr_cq_create {
++	struct c2wr_cq_create_req req;
++	struct c2wr_cq_create_rep rep;
++} __attribute__((packed)) ;
++
++struct c2wr_cq_modify_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 cq_handle;
++	u32 new_depth;
++	u64 new_msg_pool;
++} __attribute__((packed)) ;
++
++struct c2wr_cq_modify_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed)) ;
++
++union c2wr_cq_modify {
++	struct c2wr_cq_modify_req req;
++	struct c2wr_cq_modify_rep rep;
++} __attribute__((packed)) ;
++
++struct c2wr_cq_destroy_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 cq_handle;
++} __attribute__((packed)) ;
++
++struct c2wr_cq_destroy_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed)) ;
++
++union c2wr_cq_destroy {
++	struct c2wr_cq_destroy_req req;
++	struct c2wr_cq_destroy_rep rep;
++} __attribute__((packed)) ;
++
++/*
++ *------------------------ PD ------------------------
++ */
++struct c2wr_pd_alloc_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 pd_id;
++} __attribute__((packed)) ;
++
++struct c2wr_pd_alloc_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed)) ;
++
++union c2wr_pd_alloc {
++	struct c2wr_pd_alloc_req req;
++	struct c2wr_pd_alloc_rep rep;
++} __attribute__((packed)) ;
++
++struct c2wr_pd_dealloc_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 pd_id;
++} __attribute__((packed)) ;
++
++struct c2wr_pd_dealloc_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed)) ;
++
++union c2wr_pd_dealloc {
++	struct c2wr_pd_dealloc_req req;
++	struct c2wr_pd_dealloc_rep rep;
++} __attribute__((packed)) ;
++
++/*
++ *------------------------ SRQ ------------------------
++ */
++struct c2wr_srq_create_req {
++	struct c2wr_hdr hdr;
++	u64 shared_ht;
++	u64 user_context;
++	u32 rnic_handle;
++	u32 srq_depth;
++	u32 srq_limit;
++	u32 sgl_depth;
++	u32 pd_id;
++} __attribute__((packed)) ;
++
++struct c2wr_srq_create_rep {
++	struct c2wr_hdr hdr;
++	u32 srq_depth;
++	u32 sgl_depth;
++	u32 msg_size;
++	u32 mq_index;
++	u32 mq_start;
++	u32 srq_handle;
++} __attribute__((packed)) ;
++
++union c2wr_srq_create {
++	struct c2wr_srq_create_req req;
++	struct c2wr_srq_create_rep rep;
++} __attribute__((packed)) ;
++
++struct c2wr_srq_destroy_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 srq_handle;
++} __attribute__((packed)) ;
++
++struct c2wr_srq_destroy_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed)) ;
++
++union c2wr_srq_destroy {
++	struct c2wr_srq_destroy_req req;
++	struct c2wr_srq_destroy_rep rep;
++} __attribute__((packed)) ;
++
++/*
++ *------------------------ QP ------------------------
++ */
++enum c2wr_qp_flags {
++	QP_RDMA_READ = 0x00000001,	/* RDMA read enabled? */
++	QP_RDMA_WRITE = 0x00000002,	/* RDMA write enabled? */
++	QP_MW_BIND = 0x00000004,	/* MWs enabled */
++	QP_ZERO_STAG = 0x00000008,	/* enabled? */
++	QP_REMOTE_TERMINATION = 0x00000010,	/* remote end terminated */
++	QP_RDMA_READ_RESPONSE = 0x00000020	/* Remote RDMA read  */
++	    /* enabled? */
 +};
 +
-+struct c2_adapter_pci_regs {
-+	char reg_magic[8];
-+	u32 version;
-+	u32 ivn;
-+	u32 pci_window_size;
-+	u32 q0_q_size;
-+	u32 q0_msg_size;
-+	u32 q0_pool_start;
-+	u32 q0_shared;
-+	u32 q1_q_size;
-+	u32 q1_msg_size;
-+	u32 q1_pool_start;
-+	u32 q1_shared;
-+	u32 q2_q_size;
-+	u32 q2_msg_size;
-+	u32 q2_pool_start;
-+	u32 q2_shared;
-+	u32 log_start;
-+	u32 log_size;
-+	u8 host_enaddr[8];
-+	u8 rdma_enaddr[8];
-+	u32 crash_entry;
-+	u32 crash_ready[2];
-+	u32 fw_txd_cur;
-+	u32 fw_hrxd_cur;
-+	u32 fw_rxd_cur;
++struct c2wr_qp_create_req {
++	struct c2wr_hdr hdr;
++	u64 shared_sq_ht;
++	u64 shared_rq_ht;
++	u64 user_context;
++	u32 rnic_handle;
++	u32 sq_cq_handle;
++	u32 rq_cq_handle;
++	u32 sq_depth;
++	u32 rq_depth;
++	u32 srq_handle;
++	u32 srq_limit;
++	u32 flags;		/* see enum c2wr_qp_flags */
++	u32 send_sgl_depth;
++	u32 recv_sgl_depth;
++	u32 rdma_write_sgl_depth;
++	u32 ord;
++	u32 ird;
++	u32 pd_id;
++} __attribute__((packed)) ;
++
++struct c2wr_qp_create_rep {
++	struct c2wr_hdr hdr;
++	u32 sq_depth;
++	u32 rq_depth;
++	u32 send_sgl_depth;
++	u32 recv_sgl_depth;
++	u32 rdma_write_sgl_depth;
++	u32 ord;
++	u32 ird;
++	u32 sq_msg_size;
++	u32 sq_mq_index;
++	u32 sq_mq_start;
++	u32 rq_msg_size;
++	u32 rq_mq_index;
++	u32 rq_mq_start;
++	u32 qp_handle;
++} __attribute__((packed)) ;
++
++union c2wr_qp_create {
++	struct c2wr_qp_create_req req;
++	struct c2wr_qp_create_rep rep;
++} __attribute__((packed)) ;
++
++struct c2wr_qp_query_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 qp_handle;
++} __attribute__((packed)) ;
++
++struct c2wr_qp_query_rep {
++	struct c2wr_hdr hdr;
++	u64 user_context;
++	u32 rnic_handle;
++	u32 sq_depth;
++	u32 rq_depth;
++	u32 send_sgl_depth;
++	u32 rdma_write_sgl_depth;
++	u32 recv_sgl_depth;
++	u32 ord;
++	u32 ird;
++	u16 qp_state;
++	u16 flags;		/* see c2wr_qp_flags_t */
++	u32 qp_id;
++	u32 local_addr;
++	u32 remote_addr;
++	u16 local_port;
++	u16 remote_port;
++	u32 terminate_msg_length;	/* 0 if not present */
++	u8 data[0];
++	/* Terminate Message in-line here. */
++} __attribute__((packed)) ;
++
++union c2wr_qp_query {
++	struct c2wr_qp_query_req req;
++	struct c2wr_qp_query_rep rep;
++} __attribute__((packed)) ;
++
++struct c2wr_qp_modify_req {
++	struct c2wr_hdr hdr;
++	u64 stream_msg;
++	u32 stream_msg_length;
++	u32 rnic_handle;
++	u32 qp_handle;
++	u32 next_qp_state;
++	u32 ord;
++	u32 ird;
++	u32 sq_depth;
++	u32 rq_depth;
++	u32 llp_ep_handle;
++} __attribute__((packed)) ;
++
++struct c2wr_qp_modify_rep {
++	struct c2wr_hdr hdr;
++	u32 ord;
++	u32 ird;
++	u32 sq_depth;
++	u32 rq_depth;
++	u32 sq_msg_size;
++	u32 sq_mq_index;
++	u32 sq_mq_start;
++	u32 rq_msg_size;
++	u32 rq_mq_index;
++	u32 rq_mq_start;
++} __attribute__((packed)) ;
++
++union c2wr_qp_modify {
++	struct c2wr_qp_modify_req req;
++	struct c2wr_qp_modify_rep rep;
++} __attribute__((packed)) ;
++
++struct c2wr_qp_destroy_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 qp_handle;
++} __attribute__((packed)) ;
++
++struct c2wr_qp_destroy_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed)) ;
++
++union c2wr_qp_destroy {
++	struct c2wr_qp_destroy_req req;
++	struct c2wr_qp_destroy_rep rep;
++} __attribute__((packed)) ;
++
++/*
++ * The CCWR_QP_CONNECT msg is posted on the verbs request queue.  It can
++ * only be posted when a QP is in IDLE state.  After the connect request is
++ * submitted to the LLP, the adapter moves the QP to CONNECT_PENDING state.
++ * No synchronous reply from adapter to this WR.  The results of
++ * connection are passed back in an async event CCAE_ACTIVE_CONNECT_RESULTS
++ * See c2wr_ae_active_connect_results_t
++ */
++struct c2wr_qp_connect_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 qp_handle;
++	u32 remote_addr;
++	u16 remote_port;
++	u16 pad;
++	u32 private_data_length;
++	u8 private_data[0];	/* Private data in-line. */
++} __attribute__((packed)) ;
++
++struct c2wr_qp_connect {
++	struct c2wr_qp_connect_req req;
++	/* no synchronous reply.         */
++} __attribute__((packed)) ;
++
++
++/*
++ *------------------------ MM ------------------------
++ */
++
++struct c2wr_nsmr_stag_alloc_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 pbl_depth;
++	u32 pd_id;
++	u32 flags;
++} __attribute__((packed)) ;
++
++struct c2wr_nsmr_stag_alloc_rep {
++	struct c2wr_hdr hdr;
++	u32 pbl_depth;
++	u32 stag_index;
++} __attribute__((packed)) ;
++
++union c2wr_nsmr_stag_alloc {
++	struct c2wr_nsmr_stag_alloc_req req;
++	struct c2wr_nsmr_stag_alloc_rep rep;
++} __attribute__((packed)) ;
++
++struct c2wr_nsmr_register_req {
++	struct c2wr_hdr hdr;
++	u64 va;
++	u32 rnic_handle;
++	u16 flags;
++	u8 stag_key;
++	u8 pad;
++	u32 pd_id;
++	u32 pbl_depth;
++	u32 pbe_size;
++	u32 fbo;
++	u32 length;
++	u32 addrs_length;
++	/* array of paddrs (must be aligned on a 64bit boundary) */
++	u64 paddrs[0];
++} __attribute__((packed)) ;
++
++struct c2wr_nsmr_register_rep {
++	struct c2wr_hdr hdr;
++	u32 pbl_depth;
++	u32 stag_index;
++} __attribute__((packed)) ;
++
++union c2wr_nsmr_register {
++	struct c2wr_nsmr_register_req req;
++	struct c2wr_nsmr_register_rep rep;
++} __attribute__((packed)) ;
++
++struct c2wr_nsmr_pbl_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 flags;
++	u32 stag_index;
++	u32 addrs_length;
++	/* array of paddrs (must be aligned on a 64bit boundary) */
++	u64 paddrs[0];
++} __attribute__((packed)) ;
++
++struct c2wr_nsmr_pbl_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed)) ;
++
++union c2wr_nsmr_pbl {
++	struct c2wr_nsmr_pbl_req req;
++	struct c2wr_nsmr_pbl_rep rep;
++} __attribute__((packed)) ;
++
++struct c2wr_mr_query_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 stag_index;
++} __attribute__((packed)) ;
++
++struct c2wr_mr_query_rep {
++	struct c2wr_hdr hdr;
++	u8 stag_key;
++	u8 pad[3];
++	u32 pd_id;
++	u32 flags;
++	u32 pbl_depth;
++} __attribute__((packed)) ;
++
++union c2wr_mr_query {
++	struct c2wr_mr_query_req req;
++	struct c2wr_mr_query_rep rep;
++} __attribute__((packed)) ;
++
++struct c2wr_mw_query_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 stag_index;
++} __attribute__((packed)) ;
++
++struct c2wr_mw_query_rep {
++	struct c2wr_hdr hdr;
++	u8 stag_key;
++	u8 pad[3];
++	u32 pd_id;
++	u32 flags;
++} __attribute__((packed)) ;
++
++union c2wr_mw_query {
++	struct c2wr_mw_query_req req;
++	struct c2wr_mw_query_rep rep;
++} __attribute__((packed)) ;
++
++
++struct c2wr_stag_dealloc_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 stag_index;
++} __attribute__((packed)) ;
++
++struct c2wr_stag_dealloc_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed)) ;
++
++union c2wr_stag_dealloc {
++	struct c2wr_stag_dealloc_req req;
++	struct c2wr_stag_dealloc_rep rep;
++} __attribute__((packed)) ;
++
++struct c2wr_nsmr_reregister_req {
++	struct c2wr_hdr hdr;
++	u64 va;
++	u32 rnic_handle;
++	u16 flags;
++	u8 stag_key;
++	u8 pad;
++	u32 stag_index;
++	u32 pd_id;
++	u32 pbl_depth;
++	u32 pbe_size;
++	u32 fbo;
++	u32 length;
++	u32 addrs_length;
++	u32 pad1;
++	/* array of paddrs (must be aligned on a 64bit boundary) */
++	u64 paddrs[0];
++} __attribute__((packed)) ;
++
++struct c2wr_nsmr_reregister_rep {
++	struct c2wr_hdr hdr;
++	u32 pbl_depth;
++	u32 stag_index;
++} __attribute__((packed)) ;
++
++union c2wr_nsmr_reregister {
++	struct c2wr_nsmr_reregister_req req;
++	struct c2wr_nsmr_reregister_rep rep;
++} __attribute__((packed)) ;
++
++struct c2wr_smr_register_req {
++	struct c2wr_hdr hdr;
++	u64 va;
++	u32 rnic_handle;
++	u16 flags;
++	u8 stag_key;
++	u8 pad;
++	u32 stag_index;
++	u32 pd_id;
++} __attribute__((packed)) ;
++
++struct c2wr_smr_register_rep {
++	struct c2wr_hdr hdr;
++	u32 stag_index;
++} __attribute__((packed)) ;
++
++union c2wr_smr_register {
++	struct c2wr_smr_register_req req;
++	struct c2wr_smr_register_rep rep;
++} __attribute__((packed)) ;
++
++struct c2wr_mw_alloc_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 pd_id;
++} __attribute__((packed)) ;
++
++struct c2wr_mw_alloc_rep {
++	struct c2wr_hdr hdr;
++	u32 stag_index;
++} __attribute__((packed)) ;
++
++union c2wr_mw_alloc {
++	struct c2wr_mw_alloc_req req;
++	struct c2wr_mw_alloc_rep rep;
++} __attribute__((packed)) ;
++
++/*
++ *------------------------ WRs -----------------------
++ */
++
++struct c2wr_user_hdr {
++	struct c2wr_hdr hdr;		/* Has status and WR Type */
++} __attribute__((packed)) ;
++
++enum c2_qp_state {
++	C2_QP_STATE_IDLE = 0x01,
++	C2_QP_STATE_CONNECTING = 0x02,
++	C2_QP_STATE_RTS = 0x04,
++	C2_QP_STATE_CLOSING = 0x08,
++	C2_QP_STATE_TERMINATE = 0x10,
++	C2_QP_STATE_ERROR = 0x20,
 +};
 +
-+enum pci_regs {
-+	C2_HISR = 0x0000,
-+	C2_DISR = 0x0004,
-+	C2_HIMR = 0x0008,
-+	C2_DIMR = 0x000C,
-+	C2_NISR0 = 0x0010,
-+	C2_NISR1 = 0x0014,
-+	C2_NIMR0 = 0x0018,
-+	C2_NIMR1 = 0x001C,
-+	C2_IDIS = 0x0020,
-+};
++/* Completion queue entry. */
++struct c2wr_ce {
++	struct c2wr_hdr hdr;		/* Has status and WR Type */
++	u64 qp_user_context;	/* c2_user_qp_t * */
++	u32 qp_state;		/* Current QP State */
++	u32 handle;		/* QPID or EP Handle */
++	u32 bytes_rcvd;		/* valid for RECV WCs */
++	u32 stag;
++} __attribute__((packed)) ;
 +
++
++/*
++ * Flags used for all post-sq WRs.  These must fit in the flags
++ * field of the struct c2wr_hdr (eight bits).
++ */
 +enum {
-+	C2_PCI_HRX_INT = 1 << 8,
-+	C2_PCI_HTX_INT = 1 << 17,
-+	C2_PCI_HRX_QUI = 1 << 31,
++	SQ_SIGNALED = 0x01,
++	SQ_READ_FENCE = 0x02,
++	SQ_FENCE = 0x04,
 +};
 +
 +/*
-+ * Cepheus registers in BAR0.
++ * Common fields for all post-sq WRs.  Namely the standard header and a 
++ * secondary header with fields common to all post-sq WRs.
 + */
-+struct c2_pci_regs {
-+	u32 hostisr;
-+	u32 dmaisr;
-+	u32 hostimr;
-+	u32 dmaimr;
-+	u32 netisr0;
-+	u32 netisr1;
-+	u32 netimr0;
-+	u32 netimr1;
-+	u32 int_disable;
-+};
++struct c2_sq_hdr {
++	struct c2wr_user_hdr user_hdr;
++} __attribute__((packed));
 +
-+/* TXP flags */
-+enum c2_txp_flags {
-+	TXP_HTXD_DONE = 0,
-+	TXP_HTXD_READY = 1 << 0,
-+	TXP_HTXD_UNINIT = 1 << 1,
-+};
++/*
++ * Same as above but for post-rq WRs.
++ */
++struct c2_rq_hdr {
++	struct c2wr_user_hdr user_hdr;
++} __attribute__((packed));
 +
-+/* RXP flags */
-+enum c2_rxp_flags {
-+	RXP_HRXD_UNINIT = 0,
-+	RXP_HRXD_READY = 1 << 0,
-+	RXP_HRXD_DONE = 1 << 1,
-+};
++/*
++ * use the same struct for all sends.
++ */
++struct c2wr_send_req {
++	struct c2_sq_hdr sq_hdr;
++	u32 sge_len;
++	u32 remote_stag;
++	u8 data[0];		/* SGE array */
++} __attribute__((packed));
 +
-+/* RXP status */
-+enum c2_rxp_status {
-+	RXP_HRXD_ZERO = 0,
-+	RXP_HRXD_OK = 1 << 0,
-+	RXP_HRXD_BUF_OV = 1 << 1,
-+};
++union c2wr_send {
++	struct c2wr_send_req req;
++	struct c2wr_ce rep;
++} __attribute__((packed));
 +
-+/* TXP descriptor fields */
-+enum txp_desc {
-+	C2_TXP_FLAGS = 0x0000,
-+	C2_TXP_LEN = 0x0002,
-+	C2_TXP_ADDR = 0x0004,
-+};
++struct c2wr_rdma_write_req {
++	struct c2_sq_hdr sq_hdr;
++	u64 remote_to;
++	u32 remote_stag;
++	u32 sge_len;
++	u8 data[0];		/* SGE array */
++} __attribute__((packed));
 +
-+/* RXP descriptor fields */
-+enum rxp_desc {
-+	C2_RXP_FLAGS = 0x0000,
-+	C2_RXP_STATUS = 0x0002,
-+	C2_RXP_COUNT = 0x0004,
-+	C2_RXP_LEN = 0x0006,
-+	C2_RXP_ADDR = 0x0008,
-+};
++union c2wr_rdma_write {
++	struct c2wr_rdma_write_req req;
++	struct c2wr_ce rep;
++} __attribute__((packed));
 +
-+struct c2_txp_desc {
-+	u16 flags;
-+	u16 len;
-+	u64 addr;
-+} __attribute__ ((packed));
++struct c2wr_rdma_read_req {
++	struct c2_sq_hdr sq_hdr;
++	u64 local_to;
++	u64 remote_to;
++	u32 local_stag;
++	u32 remote_stag;
++	u32 length;
++} __attribute__((packed));
 +
-+struct c2_rxp_desc {
-+	u16 flags;
-+	u16 status;
-+	u16 count;
-+	u16 len;
-+	u64 addr;
-+} __attribute__ ((packed));
++union c2wr_rdma_read {
++	struct c2wr_rdma_read_req req;
++	struct c2wr_ce rep;
++} __attribute__((packed));
 +
-+struct c2_rxp_hdr {
-+	u16 flags;
-+	u16 status;
-+	u16 len;
-+	u16 rsvd;
-+} __attribute__ ((packed));
++struct c2wr_mw_bind_req {
++	struct c2_sq_hdr sq_hdr;
++	u64 va;
++	u8 stag_key;
++	u8 pad[3];
++	u32 mw_stag_index;
++	u32 mr_stag_index;
++	u32 length;
++	u32 flags;
++} __attribute__((packed));
 +
-+struct c2_tx_desc {
++union c2wr_mw_bind {
++	struct c2wr_mw_bind_req req;
++	struct c2wr_ce rep;
++} __attribute__((packed));
++
++struct c2wr_nsmr_fastreg_req {
++	struct c2_sq_hdr sq_hdr;
++	u64 va;
++	u8 stag_key;
++	u8 pad[3];
++	u32 stag_index;
++	u32 pbe_size;
++	u32 fbo;
++	u32 length;
++	u32 addrs_length;
++	/* array of paddrs (must be aligned on a 64bit boundary) */
++	u64 paddrs[0];
++} __attribute__((packed));
++
++union c2wr_nsmr_fastreg {
++	struct c2wr_nsmr_fastreg_req req;
++	struct c2wr_ce rep;
++} __attribute__((packed));
++
++struct c2wr_stag_invalidate_req {
++	struct c2_sq_hdr sq_hdr;
++	u8 stag_key;
++	u8 pad[3];
++	u32 stag_index;
++} __attribute__((packed));
++
++union c2wr_stag_invalidate {
++	struct c2wr_stag_invalidate_req req;
++	struct c2wr_ce rep;
++} __attribute__((packed));
++
++union c2wr_sqwr {
++	struct c2_sq_hdr sq_hdr;
++	struct c2wr_send_req send;
++	struct c2wr_send_req send_se;
++	struct c2wr_send_req send_inv;
++	struct c2wr_send_req send_se_inv;
++	struct c2wr_rdma_write_req rdma_write;
++	struct c2wr_rdma_read_req rdma_read;
++	struct c2wr_mw_bind_req mw_bind;
++	struct c2wr_nsmr_fastreg_req nsmr_fastreg;
++	struct c2wr_stag_invalidate_req stag_inv;
++} __attribute__((packed));
++
++
++/*
++ * RQ WRs
++ */
++struct c2wr_rqwr {
++	struct c2_rq_hdr rq_hdr;
++	u8 data[0];		/* array of SGEs */
++} __attribute__((packed));
++
++union c2wr_recv {
++	struct c2wr_rqwr req;
++	struct c2wr_ce rep;
++} __attribute__((packed));
++
++/*
++ * All AEs start with this header.  Most AEs only need to convey the
++ * information in the header.  Some, like LLP connection events, need
++ * more info.  The union typdef c2wr_ae_t has all the possible AEs.
++ *
++ * hdr.context is the user_context from the rnic_open WR.  NULL If this 
++ * is not affiliated with an rnic
++ *
++ * hdr.id is the AE identifier (eg;  CCAE_REMOTE_SHUTDOWN, 
++ * CCAE_LLP_CLOSE_COMPLETE)
++ *
++ * resource_type is one of:  C2_RES_IND_QP, C2_RES_IND_CQ, C2_RES_IND_SRQ
++ *
++ * user_context is the context passed down when the host created the resource.
++ */
++struct c2wr_ae_hdr {
++	struct c2wr_hdr hdr;
++	u64 user_context;	/* user context for this res. */
++	u32 resource_type;	/* see enum c2_resource_indicator */
++	u32 resource;		/* handle for resource */
++	u32 qp_state;		/* current QP State */
++} __attribute__((packed));
++
++/*
++ * After submitting the CCAE_ACTIVE_CONNECT_RESULTS message on the AEQ, 
++ * the adapter moves the QP into RTS state
++ */
++struct c2wr_ae_active_connect_results {
++	struct c2wr_ae_hdr ae_hdr;
++	u32 laddr;
++	u32 raddr;
++	u16 lport;
++	u16 rport;
++	u32 private_data_length;
++	u8 private_data[0];	/* data is in-line in the msg. */
++} __attribute__((packed));
++
++/*
++ * When connections are established by the stack (and the private data
++ * MPA frame is received), the adapter will generate an event to the host.
++ * The details of the connection, any private data, and the new connection
++ * request handle is passed up via the CCAE_CONNECTION_REQUEST msg on the
++ * AE queue:
++ */
++struct c2wr_ae_connection_request {
++	struct c2wr_ae_hdr ae_hdr;
++	u32 cr_handle;		/* connreq handle (sock ptr) */
++	u32 laddr;
++	u32 raddr;
++	u16 lport;
++	u16 rport;
++	u32 private_data_length;
++	u8 private_data[0];	/* data is in-line in the msg. */
++} __attribute__((packed));
++
++union c2wr_ae {
++	struct c2wr_ae_hdr ae_generic;
++	struct c2wr_ae_active_connect_results ae_active_connect_results;
++	struct c2wr_ae_connection_request ae_connection_request;
++} __attribute__((packed));
++
++struct c2wr_init_req {
++	struct c2wr_hdr hdr;
++	u64 hint_count;
++	u64 q0_host_shared;
++	u64 q1_host_shared;
++	u64 q1_host_msg_pool;
++	u64 q2_host_shared;
++	u64 q2_host_msg_pool;
++} __attribute__((packed));
++
++struct c2wr_init_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed));
++
++union c2wr_init {
++	struct c2wr_init_req req;
++	struct c2wr_init_rep rep;
++} __attribute__((packed));
++
++/*
++ * For upgrading flash.
++ */
++
++struct c2wr_flash_init_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++} __attribute__((packed));
++
++struct c2wr_flash_init_rep {
++	struct c2wr_hdr hdr;
++	u32 adapter_flash_buf_offset;
++	u32 adapter_flash_len;
++} __attribute__((packed));
++
++union c2wr_flash_init {
++	struct c2wr_flash_init_req req;
++	struct c2wr_flash_init_rep rep;
++} __attribute__((packed));
++
++struct c2wr_flash_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
 +	u32 len;
++} __attribute__((packed));
++
++struct c2wr_flash_rep {
++	struct c2wr_hdr hdr;
 +	u32 status;
-+	dma_addr_t next_offset;
-+};
++} __attribute__((packed));
 +
-+struct c2_rx_desc {
-+	u32 len;
++union c2wr_flash {
++	struct c2wr_flash_req req;
++	struct c2wr_flash_rep rep;
++} __attribute__((packed));
++
++struct c2wr_buf_alloc_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 size;
++} __attribute__((packed));
++
++struct c2wr_buf_alloc_rep {
++	struct c2wr_hdr hdr;
++	u32 offset;		/* 0 if mem not available */
++	u32 size;		/* 0 if mem not available */
++} __attribute__((packed));
++
++union c2wr_buf_alloc {
++	struct c2wr_buf_alloc_req req;
++	struct c2wr_buf_alloc_rep rep;
++} __attribute__((packed));
++
++struct c2wr_buf_free_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 offset;		/* Must match value from alloc */
++	u32 size;		/* Must match value from alloc */
++} __attribute__((packed));
++
++struct c2wr_buf_free_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed));
++
++union c2wr_buf_free {
++	struct c2wr_buf_free_req req;
++	struct c2wr_ce rep;
++} __attribute__((packed));
++
++struct c2wr_flash_write_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 offset;
++	u32 size;
++	u32 type;
++	u32 flags;
++} __attribute__((packed));
++
++struct c2wr_flash_write_rep {
++	struct c2wr_hdr hdr;
 +	u32 status;
-+	dma_addr_t next_offset;
-+};
++} __attribute__((packed));
 +
-+struct c2_alloc {
-+	u32 last;
-+	u32 max;
-+	spinlock_t lock;
-+	unsigned long *table;
-+};
-+
-+struct c2_array {
-+	struct {
-+		void **page;
-+		int used;
-+	} *page_list;
-+};
++union c2wr_flash_write {
++	struct c2wr_flash_write_req req;
++	struct c2wr_flash_write_rep rep;
++} __attribute__((packed));
 +
 +/*
-+ * The MQ shared pointer pool is organized as a linked list of
-+ * chunks. Each chunk contains a linked list of free shared pointers
-+ * that can be allocated to a given user mode client.
-+ *
++ * Messages for LLP connection setup. 
 + */
-+struct sp_chunk {
-+	struct sp_chunk *next;
-+	dma_addr_t dma_addr;
-+	DECLARE_PCI_UNMAP_ADDR(mapping);
-+	u16 head;
-+	u16 shared_ptr[0];
-+};
-+
-+struct c2_pd_table {
-+	u32 last;
-+	u32 max;
-+	spinlock_t lock;
-+	unsigned long *table;
-+};
-+
-+struct c2_qp_table {
-+	struct idr idr;
-+	spinlock_t lock;
-+	int last;
-+};
-+
-+struct c2_element {
-+	struct c2_element *next;
-+	void *ht_desc;		/* host     descriptor */
-+	void __iomem *hw_desc;	/* hardware descriptor */
-+	struct sk_buff *skb;
-+	dma_addr_t mapaddr;
-+	u32 maplen;
-+};
-+
-+struct c2_ring {
-+	struct c2_element *to_clean;
-+	struct c2_element *to_use;
-+	struct c2_element *start;
-+	unsigned long count;
-+};
-+
-+struct c2_dev {
-+	struct ib_device ibdev;
-+	void __iomem *regs;
-+	void __iomem *mmio_txp_ring; /* remapped adapter memory for hw rings */
-+	void __iomem *mmio_rxp_ring;
-+	spinlock_t lock;
-+	struct pci_dev *pcidev;
-+	struct net_device *netdev;
-+	struct net_device *pseudo_netdev;
-+	unsigned int cur_tx;
-+	unsigned int cur_rx;
-+	u32 adapter_handle;
-+	int device_cap_flags;
-+	void __iomem *kva;	/* KVA device memory */
-+	unsigned long pa;	/* PA device memory */
-+	void **qptr_array;
-+
-+	kmem_cache_t *host_msg_cache;
-+
-+	struct list_head cca_link;		/* adapter list */
-+	struct list_head eh_wakeup_list;	/* event wakeup list */
-+	wait_queue_head_t req_vq_wo;
-+
-+	/* Cached RNIC properties */
-+	struct ib_device_attr props;
-+
-+	struct c2_pd_table pd_table;
-+	struct c2_qp_table qp_table;
-+	int ports;		/* num of GigE ports */
-+	int devnum;
-+	spinlock_t vqlock;	/* sync vbs req MQ */
-+
-+	/* Verbs Queues */
-+	struct c2_mq req_vq;	/* Verbs Request MQ */
-+	struct c2_mq rep_vq;	/* Verbs Reply MQ */
-+	struct c2_mq aeq;	/* Async Events MQ */
-+
-+	/* Kernel client MQs */
-+	struct sp_chunk *kern_mqsp_pool;
-+
-+	/* Device updates these values when posting messages to a host
-+	 * target queue */
-+	u16 req_vq_shared;
-+	u16 rep_vq_shared;
-+	u16 aeq_shared;
-+	u16 irq_claimed;
-+
-+	/*
-+	 * Shared host target pages for user-accessible MQs.
-+	 */
-+	int hthead;		/* index of first free entry */
-+	void *htpages;		/* kernel vaddr */
-+	int htlen;		/* length of htpages memory */
-+	void *htuva;		/* user mapped vaddr */
-+	spinlock_t htlock;	/* serialize allocation */
-+
-+	u64 adapter_hint_uva;	/* access to the activity FIFO */
-+
-+	//	spinlock_t aeq_lock;
-+	//	spinlock_t rnic_lock;
-+
-+	u16 *hint_count;
-+	dma_addr_t hint_count_dma;
-+	u16 hints_read;
-+
-+	int init;		/* TRUE if it's ready */
-+	char ae_cache_name[16];
-+	char vq_cache_name[16];
-+};
-+
-+struct c2_port {
-+	u32 msg_enable;
-+	struct c2_dev *c2dev;
-+	struct net_device *netdev;
-+
-+	spinlock_t tx_lock;
-+	u32 tx_avail;
-+	struct c2_ring tx_ring;
-+	struct c2_ring rx_ring;
-+
-+	void *mem;		/* PCI memory for host rings */
-+	dma_addr_t dma;
-+	unsigned long mem_size;
-+
-+	u32 rx_buf_size;
-+
-+	struct net_device_stats netstats;
-+};
 +
 +/*
-+ * Activity FIFO registers in BAR0.
++ * Listen Request.  This allocates a listening endpoint to allow passive
++ * connection setup.  Newly established LLP connections are passed up
++ * via an AE.  See c2wr_ae_connection_request_t
 + */
-+#define PCI_BAR0_HOST_HINT	0x100
-+#define PCI_BAR0_ADAPTER_HINT	0x2000
++struct c2wr_ep_listen_create_req {
++	struct c2wr_hdr hdr;
++	u64 user_context;	/* returned in AEs. */
++	u32 rnic_handle;
++	u32 local_addr;		/* local addr, or 0  */
++	u16 local_port;		/* 0 means "pick one" */
++	u16 pad;
++	u32 backlog;		/* tradional tcp listen bl */
++} __attribute__((packed));
 +
-+/*
-+ * Ammasso PCI vendor id and Cepheus PCI device id.
-+ */
-+#define CQ_ARMED 	0x01
-+#define CQ_WAIT_FOR_DMA	0x80
++struct c2wr_ep_listen_create_rep {
++	struct c2wr_hdr hdr;
++	u32 ep_handle;		/* handle to new listening ep */
++	u16 local_port;		/* resulting port... */
++	u16 pad;
++} __attribute__((packed));
 +
-+/*
-+ * The format of a hint is as follows:
-+ * Lower 16 bits are the count of hints for the queue.
-+ * Next 15 bits are the qp_index
-+ * Upper most bit depends on who reads it:
-+ *    If read by producer, then it means Full (1) or Not-Full (0)
-+ *    If read by consumer, then it means Empty (1) or Not-Empty (0)
-+ */
-+#define C2_HINT_MAKE(q_index, hint_count) (((q_index) << 16) | hint_count)
-+#define C2_HINT_GET_INDEX(hint) (((hint) & 0x7FFF0000) >> 16)
-+#define C2_HINT_GET_COUNT(hint) ((hint) & 0x0000FFFF)
++union c2wr_ep_listen_create {
++	struct c2wr_ep_listen_create_req req;
++	struct c2wr_ep_listen_create_rep rep;
++} __attribute__((packed));
++
++struct c2wr_ep_listen_destroy_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 ep_handle;
++} __attribute__((packed));
++
++struct c2wr_ep_listen_destroy_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed));
++
++union c2wr_ep_listen_destroy {
++	struct c2wr_ep_listen_destroy_req req;
++	struct c2wr_ep_listen_destroy_rep rep;
++} __attribute__((packed));
++
++struct c2wr_ep_query_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 ep_handle;
++} __attribute__((packed));
++
++struct c2wr_ep_query_rep {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 local_addr;
++	u32 remote_addr;
++	u16 local_port;
++	u16 remote_port;
++} __attribute__((packed));
++
++union c2wr_ep_query {
++	struct c2wr_ep_query_req req;
++	struct c2wr_ep_query_rep rep;
++} __attribute__((packed));
 +
 +
 +/*
-+ * The following defines the offset in SDRAM for the c2_adapter_pci_regs_t
-+ * struct. 
++ * The host passes this down to indicate acceptance of a pending iWARP
++ * connection.  The cr_handle was obtained from the CONNECTION_REQUEST
++ * AE passed up by the adapter.  See c2wr_ae_connection_request_t.
 + */
-+#define C2_ADAPTER_PCI_REGS_OFFSET 0x10000
-+
-+#ifndef readq
-+static inline u64 readq(const void __iomem * addr)
-+{
-+	u64 ret = readl(addr + 4);
-+	ret <<= 32;
-+	ret |= readl(addr);
-+
-+	return ret;
-+}
-+#endif
-+
-+#ifndef __raw_writeq
-+static inline void __raw_writeq(u64 val, void __iomem * addr)
-+{
-+	__raw_writel((u32) (val), addr);
-+	__raw_writel((u32) (val >> 32), (addr + 4));
-+}
-+#endif
-+
-+#define C2_SET_CUR_RX(c2dev, cur_rx) \
-+	__raw_writel(cpu_to_be32(cur_rx), c2dev->mmio_txp_ring + 4092)
-+
-+#define C2_GET_CUR_RX(c2dev) \
-+	be32_to_cpu(readl(c2dev->mmio_txp_ring + 4092))
-+
-+static inline struct c2_dev *to_c2dev(struct ib_device *ibdev)
-+{
-+	return container_of(ibdev, struct c2_dev, ibdev);
-+}
-+
-+static inline int c2_errno(void *reply)
-+{
-+	switch (c2_wr_get_result(reply)) {
-+	case C2_OK:
-+		return 0;
-+	case CCERR_NO_BUFS:
-+	case CCERR_INSUFFICIENT_RESOURCES:
-+	case CCERR_ZERO_RDMA_READ_RESOURCES:
-+		return -ENOMEM;
-+	case CCERR_MR_IN_USE:
-+	case CCERR_QP_IN_USE:
-+		return -EBUSY;
-+	case CCERR_ADDR_IN_USE:
-+		return -EADDRINUSE;
-+	case CCERR_ADDR_NOT_AVAIL:
-+		return -EADDRNOTAVAIL;
-+	case CCERR_CONN_RESET:
-+		return -ECONNRESET;
-+	case CCERR_NOT_IMPLEMENTED:
-+	case CCERR_INVALID_WQE:
-+		return -ENOSYS;
-+	case CCERR_QP_NOT_PRIVILEGED:
-+		return -EPERM;
-+	case CCERR_STACK_ERROR:
-+		return -EPROTO;
-+	case CCERR_ACCESS_VIOLATION:
-+	case CCERR_BASE_AND_BOUNDS_VIOLATION:
-+		return -EFAULT;
-+	case CCERR_STAG_STATE_NOT_INVALID:
-+	case CCERR_INVALID_ADDRESS:
-+	case CCERR_INVALID_CQ:
-+	case CCERR_INVALID_EP:
-+	case CCERR_INVALID_MODIFIER:
-+	case CCERR_INVALID_MTU:
-+	case CCERR_INVALID_PD_ID:
-+	case CCERR_INVALID_QP:
-+	case CCERR_INVALID_RNIC:
-+	case CCERR_INVALID_STAG:
-+		return -EINVAL;
-+	default:
-+		return -EAGAIN;
-+	}
-+}
-+
-+/* Device */
-+extern int c2_register_device(struct c2_dev *c2dev);
-+extern void c2_unregister_device(struct c2_dev *c2dev);
-+extern int c2_rnic_init(struct c2_dev *c2dev);
-+extern void c2_rnic_term(struct c2_dev *c2dev);
-+extern void c2_rnic_interrupt(struct c2_dev *c2dev);
-+extern int c2_rnic_query(struct c2_dev *c2dev, struct ib_device_attr *props);
-+extern int c2_del_addr(struct c2_dev *c2dev, u32 inaddr, u32 inmask);
-+extern int c2_add_addr(struct c2_dev *c2dev, u32 inaddr, u32 inmask);
-+
-+/* QPs */
-+extern int c2_alloc_qp(struct c2_dev *c2dev, struct c2_pd *pd,
-+		       struct ib_qp_init_attr *qp_attrs, struct c2_qp *qp);
-+extern void c2_free_qp(struct c2_dev *c2dev, struct c2_qp *qp);
-+extern struct ib_qp *c2_get_qp(struct ib_device *device, int qpn);
-+extern int c2_qp_modify(struct c2_dev *c2dev, struct c2_qp *qp,
-+			struct ib_qp_attr *attr, int attr_mask);
-+extern int c2_qp_set_read_limits(struct c2_dev *c2dev, struct c2_qp *qp, 
-+				 int ord, int ird);
-+extern int c2_post_send(struct ib_qp *ibqp, struct ib_send_wr *ib_wr,
-+			struct ib_send_wr **bad_wr);
-+extern int c2_post_receive(struct ib_qp *ibqp, struct ib_recv_wr *ib_wr,
-+			   struct ib_recv_wr **bad_wr);
-+extern void __devinit c2_init_qp_table(struct c2_dev *c2dev);
-+extern void __devexit c2_cleanup_qp_table(struct c2_dev *c2dev);
-+extern void c2_set_qp_state(struct c2_qp *, int);
-+extern struct c2_qp *c2_find_qpn(struct c2_dev *c2dev, int qpn);
-+
-+/* PDs */
-+extern int c2_pd_alloc(struct c2_dev *c2dev, int privileged, struct c2_pd *pd);
-+extern void c2_pd_free(struct c2_dev *c2dev, struct c2_pd *pd);
-+extern int __devinit c2_init_pd_table(struct c2_dev *c2dev);
-+extern void __devexit c2_cleanup_pd_table(struct c2_dev *c2dev);
-+
-+/* CQs */
-+extern int c2_init_cq(struct c2_dev *c2dev, int entries,
-+		      struct c2_ucontext *ctx, struct c2_cq *cq);
-+extern void c2_free_cq(struct c2_dev *c2dev, struct c2_cq *cq);
-+extern void c2_cq_event(struct c2_dev *c2dev, u32 mq_index);
-+extern void c2_cq_clean(struct c2_dev *c2dev, struct c2_qp *qp, u32 mq_index);
-+extern int c2_poll_cq(struct ib_cq *ibcq, int num_entries, struct ib_wc *entry);
-+extern int c2_arm_cq(struct ib_cq *ibcq, enum ib_cq_notify notify);
-+
-+/* CM */
-+extern int c2_llp_connect(struct iw_cm_id *cm_id, 
-+			  struct iw_cm_conn_param *iw_param);
-+extern int c2_llp_accept(struct iw_cm_id *cm_id, 
-+			 struct iw_cm_conn_param *iw_param);
-+extern int c2_llp_reject(struct iw_cm_id *cm_id, const void *pdata,
-+			 u8 pdata_len);
-+extern int c2_llp_service_create(struct iw_cm_id *cm_id, int backlog);
-+extern int c2_llp_service_destroy(struct iw_cm_id *cm_id);
-+
-+/* MM */
-+extern int c2_nsmr_register_phys_kern(struct c2_dev *c2dev, u64 *addr_list,
-+ 				      int page_size, int pbl_depth, u32 length, 
-+ 				      u32 off, u64 *va, enum c2_acf acf, 
-+				      struct c2_mr *mr);
-+extern int c2_stag_dealloc(struct c2_dev *c2dev, u32 stag_index);
-+
-+/* AE */
-+extern void c2_ae_event(struct c2_dev *c2dev, u32 mq_index);
-+
-+/* MQSP Allocator */
-+extern int c2_init_mqsp_pool(struct c2_dev *c2dev, gfp_t gfp_mask, 
-+			     struct sp_chunk **root);
-+extern void c2_free_mqsp_pool(struct c2_dev *c2dev, struct sp_chunk *root);
-+extern u16 *c2_alloc_mqsp(struct c2_dev *c2dev, struct sp_chunk *head, 
-+			  dma_addr_t *dma_addr, gfp_t gfp_mask);
-+extern void c2_free_mqsp(u16 * mqsp);
-+#endif
-diff --git a/drivers/infiniband/hw/amso1100/c2_ae.c b/drivers/infiniband/hw/amso1100/c2_ae.c
-new file mode 100644
-index 0000000..495e614
---- /dev/null
-+++ b/drivers/infiniband/hw/amso1100/c2_ae.c
-@@ -0,0 +1,321 @@
-+/*
-+ * Copyright (c) 2005 Ammasso, Inc. All rights reserved.
-+ * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#include "c2.h"
-+#include <rdma/iw_cm.h>
-+#include "c2_status.h"
-+#include "c2_ae.h"
-+
-+static int c2_convert_cm_status(u32 c2_status)
-+{
-+	switch (c2_status) {
-+	case C2_CONN_STATUS_SUCCESS:
-+		return 0;
-+	case C2_CONN_STATUS_REJECTED:
-+		return -ENETRESET;
-+	case C2_CONN_STATUS_REFUSED:
-+		return -ECONNREFUSED;
-+	case C2_CONN_STATUS_TIMEDOUT:
-+		return -ETIMEDOUT;
-+	case C2_CONN_STATUS_NETUNREACH:
-+		return -ENETUNREACH;
-+	case C2_CONN_STATUS_HOSTUNREACH:
-+		return -EHOSTUNREACH;
-+	case C2_CONN_STATUS_INVALID_RNIC:
-+		return -EINVAL;
-+	case C2_CONN_STATUS_INVALID_QP:
-+		return -EINVAL;
-+	case C2_CONN_STATUS_INVALID_QP_STATE:
-+		return -EINVAL;
-+	case C2_CONN_STATUS_ADDR_NOT_AVAIL:
-+		return -EADDRNOTAVAIL;
-+	default:
-+		printk(KERN_ERR PFX
-+		       "%s - Unable to convert CM status: %d\n",
-+		       __FUNCTION__, c2_status);
-+		return -EIO;
-+	}
-+}
-+
-+#ifdef DEBUG
-+static const char* to_event_str(int event)
-+{
-+	static const char* event_str[] = {
-+		"CCAE_REMOTE_SHUTDOWN",
-+		"CCAE_ACTIVE_CONNECT_RESULTS",
-+		"CCAE_CONNECTION_REQUEST",
-+		"CCAE_LLP_CLOSE_COMPLETE",
-+		"CCAE_TERMINATE_MESSAGE_RECEIVED",
-+		"CCAE_LLP_CONNECTION_RESET",
-+		"CCAE_LLP_CONNECTION_LOST",
-+		"CCAE_LLP_SEGMENT_SIZE_INVALID",
-+		"CCAE_LLP_INVALID_CRC",
-+		"CCAE_LLP_BAD_FPDU",
-+		"CCAE_INVALID_DDP_VERSION",
-+		"CCAE_INVALID_RDMA_VERSION",
-+		"CCAE_UNEXPECTED_OPCODE",
-+		"CCAE_INVALID_DDP_QUEUE_NUMBER",
-+		"CCAE_RDMA_READ_NOT_ENABLED",
-+		"CCAE_RDMA_WRITE_NOT_ENABLED",
-+		"CCAE_RDMA_READ_TOO_SMALL",
-+		"CCAE_NO_L_BIT",
-+		"CCAE_TAGGED_INVALID_STAG",
-+		"CCAE_TAGGED_BASE_BOUNDS_VIOLATION",
-+		"CCAE_TAGGED_ACCESS_RIGHTS_VIOLATION",
-+		"CCAE_TAGGED_INVALID_PD",
-+		"CCAE_WRAP_ERROR",
-+		"CCAE_BAD_CLOSE",
-+		"CCAE_BAD_LLP_CLOSE",
-+		"CCAE_INVALID_MSN_RANGE",
-+		"CCAE_INVALID_MSN_GAP",
-+		"CCAE_IRRQ_OVERFLOW",
-+		"CCAE_IRRQ_MSN_GAP",
-+		"CCAE_IRRQ_MSN_RANGE",
-+		"CCAE_IRRQ_INVALID_STAG",
-+		"CCAE_IRRQ_BASE_BOUNDS_VIOLATION",
-+		"CCAE_IRRQ_ACCESS_RIGHTS_VIOLATION",
-+		"CCAE_IRRQ_INVALID_PD",
-+		"CCAE_IRRQ_WRAP_ERROR",
-+		"CCAE_CQ_SQ_COMPLETION_OVERFLOW",
-+		"CCAE_CQ_RQ_COMPLETION_ERROR",
-+		"CCAE_QP_SRQ_WQE_ERROR",
-+		"CCAE_QP_LOCAL_CATASTROPHIC_ERROR",
-+		"CCAE_CQ_OVERFLOW",
-+		"CCAE_CQ_OPERATION_ERROR",
-+		"CCAE_SRQ_LIMIT_REACHED",
-+		"CCAE_QP_RQ_LIMIT_REACHED",
-+		"CCAE_SRQ_CATASTROPHIC_ERROR",
-+		"CCAE_RNIC_CATASTROPHIC_ERROR"
-+	};
-+
-+	if (event < CCAE_REMOTE_SHUTDOWN || 
-+	    event > CCAE_RNIC_CATASTROPHIC_ERROR)
-+		return "<invalid event>";
-+
-+	event -= CCAE_REMOTE_SHUTDOWN;
-+	return event_str[event];
-+}
-+
-+const char *to_qp_state_str(int state)
-+{
-+	switch (state) {
-+	case C2_QP_STATE_IDLE:
-+		return "C2_QP_STATE_IDLE";
-+	case C2_QP_STATE_CONNECTING:
-+		return "C2_QP_STATE_CONNECTING";
-+	case C2_QP_STATE_RTS:
-+		return "C2_QP_STATE_RTS";
-+	case C2_QP_STATE_CLOSING:
-+		return "C2_QP_STATE_CLOSING";
-+	case C2_QP_STATE_TERMINATE:
-+		return "C2_QP_STATE_TERMINATE";
-+	case C2_QP_STATE_ERROR:
-+		return "C2_QP_STATE_ERROR";
-+	default:
-+		return "<invalid QP state>";
-+	};
-+}
-+#endif
-+
-+void c2_ae_event(struct c2_dev *c2dev, u32 mq_index)
-+{
-+	struct c2_mq *mq = c2dev->qptr_array[mq_index];
-+	union c2wr *wr;
-+	void *resource_user_context;
-+	struct iw_cm_event cm_event;
-+	struct ib_event ib_event;
-+	enum c2_resource_indicator resource_indicator;
-+	enum c2_event_id event_id;
-+	unsigned long flags;
-+	int status;
-+
-+	/*
-+	 * retreive the message
-+	 */
-+	wr = c2_mq_consume(mq);
-+	if (!wr)
-+		return;
-+
-+	memset(&ib_event, 0, sizeof(ib_event));
-+	memset(&cm_event, 0, sizeof(cm_event));
-+
-+	event_id = c2_wr_get_id(wr);
-+	resource_indicator = be32_to_cpu(wr->ae.ae_generic.resource_type);
-+	resource_user_context =
-+	    (void *) (unsigned long) wr->ae.ae_generic.user_context;
-+
-+	status = cm_event.status = c2_convert_cm_status(c2_wr_get_result(wr));
-+
-+	pr_debug("event received c2_dev=%p, event_id=%d, "
-+		"resource_indicator=%d, user_context=%p, status = %d\n",
-+		c2dev, event_id, resource_indicator, resource_user_context, 
-+		status);
-+
-+	switch (resource_indicator) {
-+	case C2_RES_IND_QP:{
-+
-+		struct c2_qp *qp = (struct c2_qp *)resource_user_context;
-+		struct iw_cm_id *cm_id = qp->cm_id;
-+		struct c2wr_ae_active_connect_results *res;
-+
-+		if (!cm_id) {
-+			pr_debug("event received, but cm_id is <nul>, qp=%p!\n",
-+				qp);
-+			goto ignore_it;
-+		}
-+		pr_debug("%s: event = %s, user_context=%llx, "
-+			"resource_type=%x, "
-+			"resource=%x, qp_state=%s\n",
-+			__FUNCTION__,
-+			to_event_str(event_id),
-+			be64_to_cpu(wr->ae.ae_generic.user_context),
-+			be32_to_cpu(wr->ae.ae_generic.resource_type),
-+			be32_to_cpu(wr->ae.ae_generic.resource),
-+			to_qp_state_str(be32_to_cpu(wr->ae.ae_generic.qp_state)));
-+			
-+		c2_set_qp_state(qp, be32_to_cpu(wr->ae.ae_generic.qp_state));
-+
-+		switch (event_id) {
-+		case CCAE_ACTIVE_CONNECT_RESULTS:
-+			res = &wr->ae.ae_active_connect_results;
-+			cm_event.event = IW_CM_EVENT_CONNECT_REPLY;
-+			cm_event.local_addr.sin_addr.s_addr = res->laddr;
-+			cm_event.remote_addr.sin_addr.s_addr = res->raddr;
-+			cm_event.local_addr.sin_port = res->lport;
-+			cm_event.remote_addr.sin_port =	res->rport;
-+			if (status == 0) {
-+				cm_event.private_data_len = 
-+					be32_to_cpu(res->private_data_length);
-+				cm_event.private_data = res->private_data;
-+			} else {
-+				spin_lock_irqsave(&qp->lock, flags);
-+				if (qp->cm_id) {
-+					qp->cm_id->rem_ref(qp->cm_id);
-+					qp->cm_id = NULL;
-+				}
-+				spin_unlock_irqrestore(&qp->lock, flags);
-+				cm_event.private_data_len = 0;
-+				cm_event.private_data = NULL;
-+			}
-+			if (cm_id->event_handler)
-+				cm_id->event_handler(cm_id, &cm_event);
-+			break;
-+		case CCAE_TERMINATE_MESSAGE_RECEIVED:
-+		case CCAE_CQ_SQ_COMPLETION_OVERFLOW:
-+			ib_event.device = &c2dev->ibdev;
-+			ib_event.element.qp = &qp->ibqp;
-+			ib_event.event = IB_EVENT_QP_REQ_ERR;
-+
-+			if (qp->ibqp.event_handler)
-+				qp->ibqp.event_handler(&ib_event,
-+						       qp->ibqp.
-+						       qp_context);
-+			break;
-+		case CCAE_BAD_CLOSE:
-+		case CCAE_LLP_CLOSE_COMPLETE:
-+		case CCAE_LLP_CONNECTION_RESET:
-+		case CCAE_LLP_CONNECTION_LOST:
-+			BUG_ON(cm_id->event_handler==(void*)0x6b6b6b6b);
-+
-+			spin_lock_irqsave(&qp->lock, flags);
-+			if (qp->cm_id) {
-+				qp->cm_id->rem_ref(qp->cm_id);
-+				qp->cm_id = NULL;
-+			}
-+			spin_unlock_irqrestore(&qp->lock, flags);
-+			cm_event.event = IW_CM_EVENT_CLOSE;
-+			cm_event.status = 0;
-+			if (cm_id->event_handler)
-+				cm_id->event_handler(cm_id, &cm_event);
-+			break;
-+		default:
-+			BUG_ON(1);
-+			pr_debug("%s:%d Unexpected event_id=%d on QP=%p, "
-+				"CM_ID=%p\n",
-+				__FUNCTION__, __LINE__,
-+				event_id, qp, cm_id);
-+			break;
-+		}
-+		break;
-+	}
-+
-+	case C2_RES_IND_EP:{
-+
-+		struct c2wr_ae_connection_request *req = 
-+			&wr->ae.ae_connection_request;
-+		struct iw_cm_id *cm_id = 
-+			(struct iw_cm_id *)resource_user_context;
-+
-+		pr_debug("C2_RES_IND_EP event_id=%d\n", event_id);
-+		if (event_id != CCAE_CONNECTION_REQUEST) {
-+			pr_debug("%s: Invalid event_id: %d\n",
-+				__FUNCTION__, event_id);
-+			break;
-+		}
-+		cm_event.event = IW_CM_EVENT_CONNECT_REQUEST;
-+		cm_event.provider_data = (void*)(unsigned long)req->cr_handle;
-+		cm_event.local_addr.sin_addr.s_addr = req->laddr;
-+		cm_event.remote_addr.sin_addr.s_addr = req->raddr;
-+		cm_event.local_addr.sin_port = req->lport;
-+		cm_event.remote_addr.sin_port = req->rport;
-+		cm_event.private_data_len = 
-+			be32_to_cpu(req->private_data_length);
-+		cm_event.private_data = req->private_data;
-+
-+		if (cm_id->event_handler)
-+			cm_id->event_handler(cm_id, &cm_event);
-+		break;
-+	}
-+
-+	case C2_RES_IND_CQ:{
-+		struct c2_cq *cq =
-+		    (struct c2_cq *) resource_user_context;
-+
-+		pr_debug("IB_EVENT_CQ_ERR\n");
-+		ib_event.device = &c2dev->ibdev;
-+		ib_event.element.cq = &cq->ibcq;
-+		ib_event.event = IB_EVENT_CQ_ERR;
-+
-+		if (cq->ibcq.event_handler)
-+			cq->ibcq.event_handler(&ib_event,
-+					       cq->ibcq.cq_context);
-+	}
-+
-+	default:
-+		printk("Bad resource indicator = %d\n",
-+		       resource_indicator);
-+		break;
-+	}
-+
-+ ignore_it:
-+	c2_mq_free(mq);
-+}
-diff --git a/drivers/infiniband/hw/amso1100/c2_intr.c b/drivers/infiniband/hw/amso1100/c2_intr.c
-new file mode 100644
-index 0000000..454e3e0
---- /dev/null
-+++ b/drivers/infiniband/hw/amso1100/c2_intr.c
-@@ -0,0 +1,209 @@
-+/*
-+ * Copyright (c) 2005 Ammasso, Inc. All rights reserved.
-+ * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#include "c2.h"
-+#include <rdma/iw_cm.h>
-+#include "c2_vq.h"
-+
-+static void handle_mq(struct c2_dev *c2dev, u32 index);
-+static void handle_vq(struct c2_dev *c2dev, u32 mq_index);
++struct c2wr_cr_accept_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 qp_handle;		/* QP to bind to this LLP conn */
++	u32 ep_handle;		/* LLP  handle to accept */
++	u32 private_data_length;
++	u8 private_data[0];	/* data in-line in msg. */
++} __attribute__((packed));
 +
 +/*
-+ * Handle RNIC interrupts
++ * adapter sends reply when private data is successfully submitted to 
++ * the LLP.
 + */
-+void c2_rnic_interrupt(struct c2_dev *c2dev)
-+{
-+	unsigned int mq_index;
++struct c2wr_cr_accept_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed));
 +
-+	while (c2dev->hints_read != be16_to_cpu(*c2dev->hint_count)) {
-+		mq_index = readl(c2dev->regs + PCI_BAR0_HOST_HINT);
-+		if (mq_index & 0x80000000) {
-+			break;
-+		}
-+
-+		c2dev->hints_read++;
-+		handle_mq(c2dev, mq_index);
-+	}
-+
-+}
++union c2wr_cr_accept {
++	struct c2wr_cr_accept_req req;
++	struct c2wr_cr_accept_rep rep;
++} __attribute__((packed));
 +
 +/*
-+ * Top level MQ handler 
++ * The host sends this down if a given iWARP connection request was 
++ * rejected by the consumer.  The cr_handle was obtained from a 
++ * previous c2wr_ae_connection_request_t AE sent by the adapter.
 + */
-+static void handle_mq(struct c2_dev *c2dev, u32 mq_index)
-+{
-+	if (c2dev->qptr_array[mq_index] == NULL) {
-+		pr_debug(KERN_INFO "handle_mq: stray activity for mq_index=%d\n",
-+			mq_index);
-+		return;
-+	}
-+
-+	switch (mq_index) {
-+	case (0):
-+		/*
-+		 * An index of 0 in the activity queue
-+		 * indicates the req vq now has messages
-+		 * available...
-+		 *
-+		 * Wake up any waiters waiting on req VQ 
-+		 * message availability.  
-+		 */
-+		wake_up(&c2dev->req_vq_wo);
-+		break;
-+	case (1):
-+		handle_vq(c2dev, mq_index);
-+		break;
-+	case (2):
-+		/* We have to purge the VQ in case there are pending
-+		 * accept reply requests that would result in the
-+		 * generation of an ESTABLISHED event. If we don't
-+		 * generate these first, a CLOSE event could end up
-+		 * being delivered before the ESTABLISHED event.
-+		 */
-+		handle_vq(c2dev, 1);
-+
-+		c2_ae_event(c2dev, mq_index);
-+		break;
-+	default:
-+		/* There is no event synchronization between CQ events
-+		 * and AE or CM events. In fact, CQE could be
-+		 * delivered for all of the I/O up to and including the
-+		 * FLUSH for a peer disconenct prior to the ESTABLISHED
-+		 * event being delivered to the app. The reason for this
-+		 * is that CM events are delivered on a thread, while AE
-+		 * and CM events are delivered on interrupt context. 
-+		 */
-+		c2_cq_event(c2dev, mq_index);
-+		break;
-+	}
-+
-+	return;
-+}
++struct  c2wr_cr_reject_req {
++	struct c2wr_hdr hdr;
++	u32 rnic_handle;
++	u32 ep_handle;		/* LLP handle to reject */
++} __attribute__((packed));
 +
 +/*
-+ * Handles verbs WR replies.
++ * Dunno if this is needed, but we'll add it for now.  The adapter will
++ * send the reject_reply after the LLP endpoint has been destroyed.
 + */
-+static void handle_vq(struct c2_dev *c2dev, u32 mq_index)
-+{
-+	void *adapter_msg, *reply_msg;
-+	struct c2wr_hdr *host_msg;
-+	struct c2wr_hdr tmp;
-+	struct c2_mq *reply_vq;
-+	struct c2_vq_req *req;
-+	struct iw_cm_event cm_event;
-+	int err;
++struct  c2wr_cr_reject_rep {
++	struct c2wr_hdr hdr;
++} __attribute__((packed));
 +
-+	reply_vq = (struct c2_mq *) c2dev->qptr_array[mq_index];
-+
-+	/*
-+	 * get next msg from mq_index into adapter_msg.
-+	 * don't free it yet.
-+	 */
-+	adapter_msg = c2_mq_consume(reply_vq);
-+	if (adapter_msg == NULL) {
-+		return;
-+	}
-+
-+	host_msg = vq_repbuf_alloc(c2dev);
-+
-+	/*
-+	 * If we can't get a host buffer, then we'll still 
-+	 * wakeup the waiter, we just won't give him the msg.
-+	 * It is assumed the waiter will deal with this...
-+	 */
-+	if (!host_msg) {
-+		pr_debug("handle_vq: no repbufs!\n");
-+
-+		/*      
-+		 * just copy the WR header into a local variable.
-+		 * this allows us to still demux on the context
-+		 */
-+		host_msg = &tmp;
-+		memcpy(host_msg, adapter_msg, sizeof(tmp));
-+		reply_msg = NULL;
-+	} else {
-+		memcpy(host_msg, adapter_msg, reply_vq->msg_size);
-+		reply_msg = host_msg;
-+	}
-+
-+	/*
-+	 * consume the msg from the MQ
-+	 */
-+	c2_mq_free(reply_vq);
-+
-+	/*
-+	 * wakeup the waiter.
-+	 */
-+	req = (struct c2_vq_req *) (unsigned long) host_msg->context;
-+	if (req == NULL) {
-+		/*
-+		 * We should never get here, as the adapter should
-+		 * never send us a reply that we're not expecting.
-+		 */
-+		vq_repbuf_free(c2dev, host_msg);
-+		pr_debug("handle_vq: UNEXPECTEDLY got NULL req\n");
-+		return;
-+	}
-+
-+	err = c2_errno(reply_msg);
-+	if (!err) switch (req->event) {
-+	case IW_CM_EVENT_ESTABLISHED:
-+		c2_set_qp_state(req->qp,
-+				C2_QP_STATE_RTS);
-+	case IW_CM_EVENT_CLOSE:
-+
-+		/* 
-+		 * Move the QP to RTS if this is 
-+		 * the established event 
-+		 */
-+		cm_event.event = req->event;
-+		cm_event.status = 0;
-+		cm_event.local_addr = req->cm_id->local_addr;
-+		cm_event.remote_addr = req->cm_id->remote_addr;
-+		cm_event.private_data = NULL;
-+		cm_event.private_data_len = 0;
-+		req->cm_id->event_handler(req->cm_id, &cm_event);
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	req->reply_msg = (u64) (unsigned long) (reply_msg);
-+	atomic_set(&req->reply_ready, 1);
-+	wake_up(&req->wait_object);
-+
-+	/*
-+	 * If the request was cancelled, then this put will
-+	 * free the vq_req memory...and reply_msg!!!
-+	 */
-+	vq_req_put(c2dev, req);
-+}
-diff --git a/drivers/infiniband/hw/amso1100/c2_rnic.c b/drivers/infiniband/hw/amso1100/c2_rnic.c
-new file mode 100644
-index 0000000..4d9cc57
---- /dev/null
-+++ b/drivers/infiniband/hw/amso1100/c2_rnic.c
-@@ -0,0 +1,664 @@
-+/*
-+ * Copyright (c) 2005 Ammasso, Inc. All rights reserved.
-+ * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+
-+
-+#include <linux/module.h>
-+#include <linux/moduleparam.h>
-+#include <linux/pci.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/delay.h>
-+#include <linux/ethtool.h>
-+#include <linux/mii.h>
-+#include <linux/if_vlan.h>
-+#include <linux/crc32.h>
-+#include <linux/in.h>
-+#include <linux/ip.h>
-+#include <linux/tcp.h>
-+#include <linux/init.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/mm.h>
-+#include <linux/inet.h>
-+
-+#include <linux/route.h>
-+
-+#include <asm/io.h>
-+#include <asm/irq.h>
-+#include <asm/byteorder.h>
-+#include <rdma/ib_smi.h>
-+#include "c2.h"
-+#include "c2_vq.h"
-+
-+/* Device capabilities */
-+#define C2_MIN_PAGESIZE  1024
-+
-+#define C2_MAX_MRS       32768
-+#define C2_MAX_QPS       16000
-+#define C2_MAX_WQE_SZ    256
-+#define C2_MAX_QP_WR     ((128*1024)/C2_MAX_WQE_SZ)
-+#define C2_MAX_SGES      4
-+#define C2_MAX_SGE_RD    1
-+#define C2_MAX_CQS       32768
-+#define C2_MAX_CQES      4096
-+#define C2_MAX_PDS       16384
++union c2wr_cr_reject {
++	struct c2wr_cr_reject_req req;
++	struct c2wr_cr_reject_rep rep;
++} __attribute__((packed));
 +
 +/*
-+ * Send the adapter INIT message to the amso1100
++ * console command.  Used to implement a debug console over the verbs
++ * request and reply queues.  
 + */
-+static int c2_adapter_init(struct c2_dev *c2dev)
-+{
-+	struct c2wr_init_req wr;
-+	int err;
-+
-+	memset(&wr, 0, sizeof(wr));
-+	c2_wr_set_id(&wr, CCWR_INIT);
-+	wr.hdr.context = 0;
-+	wr.hint_count = cpu_to_be64(c2dev->hint_count_dma);
-+	wr.q0_host_shared = cpu_to_be64(c2dev->req_vq.shared_dma);
-+	wr.q1_host_shared = cpu_to_be64(c2dev->rep_vq.shared_dma);
-+	wr.q1_host_msg_pool = cpu_to_be64(c2dev->rep_vq.host_dma);
-+	wr.q2_host_shared = cpu_to_be64(c2dev->aeq.shared_dma);
-+	wr.q2_host_msg_pool = cpu_to_be64(c2dev->aeq.host_dma);
-+
-+	/* Post the init message */
-+	err = vq_send_wr(c2dev, (union c2wr *) & wr);
-+
-+	return err;
-+}
 +
 +/*
-+ * Send the adapter TERM message to the amso1100
++ * Console request message.  It contains:
++ *	- message hdr with id = CCWR_CONSOLE
++ *	- the physaddr/len of host memory to be used for the reply. 
++ *	- the command string.  eg:  "netstat -s" or "zoneinfo"
 + */
-+static void c2_adapter_term(struct c2_dev *c2dev)
-+{
-+	struct c2wr_init_req wr;
-+
-+	memset(&wr, 0, sizeof(wr));
-+	c2_wr_set_id(&wr, CCWR_TERM);
-+	wr.hdr.context = 0;
-+
-+	/* Post the init message */
-+	vq_send_wr(c2dev, (union c2wr *) & wr);
-+	c2dev->init = 0;
-+
-+	return;
-+}
++struct c2wr_console_req {
++	struct c2wr_hdr hdr;		/* id = CCWR_CONSOLE */
++	u64 reply_buf;		/* pinned host buf for reply */
++	u32 reply_buf_len;	/* length of reply buffer */
++	u8 command[0];		/* NUL terminated ascii string */
++	/* containing the command req */
++} __attribute__((packed));
 +
 +/*
-+ * Query the adapter
++ * flags used in the console reply.
 + */
-+int c2_rnic_query(struct c2_dev *c2dev,
-+		  struct ib_device_attr *props)
-+{
-+	struct c2_vq_req *vq_req;
-+	struct c2wr_rnic_query_req wr;
-+	struct c2wr_rnic_query_rep *reply;
-+	int err;
-+
-+	vq_req = vq_req_alloc(c2dev);
-+	if (!vq_req)
-+		return -ENOMEM;
-+
-+	c2_wr_set_id(&wr, CCWR_RNIC_QUERY);
-+	wr.hdr.context = (unsigned long) vq_req;
-+	wr.rnic_handle = c2dev->adapter_handle;
-+
-+	vq_req_get(c2dev, vq_req);
-+
-+	err = vq_send_wr(c2dev, (union c2wr *) &wr);
-+	if (err) {
-+		vq_req_put(c2dev, vq_req);
-+		goto bail1;
-+	}
-+
-+	err = vq_wait_for_reply(c2dev, vq_req);
-+	if (err)
-+		goto bail1;
-+
-+	reply =
-+	    (struct c2wr_rnic_query_rep *) (unsigned long) (vq_req->reply_msg);
-+	if (!reply)
-+		err = -ENOMEM;
-+
-+	err = c2_errno(reply);
-+	if (err)
-+		goto bail2;
-+
-+	props->fw_ver = 
-+		((u64)be32_to_cpu(reply->fw_ver_major) << 32) |
-+		((be32_to_cpu(reply->fw_ver_minor) && 0xFFFF) << 16) |
-+		(be32_to_cpu(reply->fw_ver_patch) && 0xFFFF);
-+	memcpy(&props->sys_image_guid, c2dev->netdev->dev_addr, 6);
-+	props->max_mr_size         = 0xFFFFFFFF;
-+	props->page_size_cap       = ~(C2_MIN_PAGESIZE-1);
-+	props->vendor_id           = be32_to_cpu(reply->vendor_id);
-+	props->vendor_part_id      = be32_to_cpu(reply->part_number);
-+	props->hw_ver              = be32_to_cpu(reply->hw_version);
-+	props->max_qp              = be32_to_cpu(reply->max_qps);
-+	props->max_qp_wr           = be32_to_cpu(reply->max_qp_depth);
-+	props->device_cap_flags    = c2dev->device_cap_flags;
-+	props->max_sge             = C2_MAX_SGES;
-+	props->max_sge_rd          = C2_MAX_SGE_RD;
-+	props->max_cq              = be32_to_cpu(reply->max_cqs);
-+	props->max_cqe             = be32_to_cpu(reply->max_cq_depth);
-+	props->max_mr              = be32_to_cpu(reply->max_mrs);
-+	props->max_pd              = be32_to_cpu(reply->max_pds);
-+	props->max_qp_rd_atom      = be32_to_cpu(reply->max_qp_ird);
-+	props->max_ee_rd_atom      = 0;
-+	props->max_res_rd_atom     = be32_to_cpu(reply->max_global_ird);
-+	props->max_qp_init_rd_atom = be32_to_cpu(reply->max_qp_ord);
-+	props->max_ee_init_rd_atom = 0;
-+	props->atomic_cap          = IB_ATOMIC_NONE;
-+	props->max_ee              = 0;
-+	props->max_rdd             = 0;
-+	props->max_mw              = be32_to_cpu(reply->max_mws);
-+	props->max_raw_ipv6_qp     = 0;
-+	props->max_raw_ethy_qp     = 0;
-+	props->max_mcast_grp       = 0;
-+	props->max_mcast_qp_attach = 0;
-+	props->max_total_mcast_qp_attach = 0;
-+	props->max_ah              = 0;
-+	props->max_fmr             = 0;
-+	props->max_map_per_fmr     = 0;
-+	props->max_srq             = 0;
-+	props->max_srq_wr          = 0;
-+	props->max_srq_sge         = 0;
-+	props->max_pkeys           = 0;
-+	props->local_ca_ack_delay  = 0;
-+
-+ bail2:
-+	vq_repbuf_free(c2dev, reply);
-+
-+ bail1:
-+	vq_req_free(c2dev, vq_req);
-+	return err;
-+}
++enum c2_console_flags {
++	CONS_REPLY_TRUNCATED = 0x00000001	/* reply was truncated */
++} __attribute__((packed));
 +
 +/*
-+ * Add an IP address to the RNIC interface
++ * Console reply message.  
++ * hdr.result contains the c2_status_t error if the reply was _not_ generated, 
++ * or C2_OK if the reply was generated.
 + */
-+int c2_add_addr(struct c2_dev *c2dev, u32 inaddr, u32 inmask)
-+{
-+	struct c2_vq_req *vq_req;
-+	struct c2wr_rnic_setconfig_req *wr;
-+	struct c2wr_rnic_setconfig_rep *reply;
-+	struct c2_netaddr netaddr;
-+	int err, len;
++struct c2wr_console_rep {
++	struct c2wr_hdr hdr;		/* id = CCWR_CONSOLE */
++	u32 flags;
++} __attribute__((packed));
 +
-+	vq_req = vq_req_alloc(c2dev);
-+	if (!vq_req)
-+		return -ENOMEM;
++union c2wr_console {
++	struct c2wr_console_req req;
++	struct c2wr_console_rep rep;
++} __attribute__((packed));
 +
-+	len = sizeof(struct c2_netaddr);
-+	wr = kmalloc(c2dev->req_vq.msg_size, GFP_KERNEL);
-+	if (!wr) {
-+		err = -ENOMEM;
-+		goto bail0;
-+	}
-+
-+	c2_wr_set_id(wr, CCWR_RNIC_SETCONFIG);
-+	wr->hdr.context = (unsigned long) vq_req;
-+	wr->rnic_handle = c2dev->adapter_handle;
-+	wr->option = cpu_to_be32(C2_CFG_ADD_ADDR);
-+
-+	netaddr.ip_addr = inaddr;
-+	netaddr.netmask = inmask;
-+	netaddr.mtu = 0;
-+
-+	memcpy(wr->data, &netaddr, len);
-+
-+	vq_req_get(c2dev, vq_req);
-+
-+	err = vq_send_wr(c2dev, (union c2wr *) wr);
-+	if (err) {
-+		vq_req_put(c2dev, vq_req);
-+		goto bail1;
-+	}
-+
-+	err = vq_wait_for_reply(c2dev, vq_req);
-+	if (err)
-+		goto bail1;
-+
-+	reply =
-+	    (struct c2wr_rnic_setconfig_rep *) (unsigned long) (vq_req->reply_msg);
-+	if (!reply) {
-+		err = -ENOMEM;
-+		goto bail1;
-+	}
-+
-+	err = c2_errno(reply);
-+	vq_repbuf_free(c2dev, reply);
-+
-+      bail1:
-+	kfree(wr);
-+      bail0:
-+	vq_req_free(c2dev, vq_req);
-+	return err;
-+}
 +
 +/*
-+ * Delete an IP address from the RNIC interface
++ * Giant union with all WRs.  Makes life easier...
 + */
-+int c2_del_addr(struct c2_dev *c2dev, u32 inaddr, u32 inmask)
-+{
-+	struct c2_vq_req *vq_req;
-+	struct c2wr_rnic_setconfig_req *wr;
-+	struct c2wr_rnic_setconfig_rep *reply;
-+	struct c2_netaddr netaddr;
-+	int err, len;
++union c2wr {
++	struct c2wr_hdr hdr;
++	struct c2wr_user_hdr user_hdr;
++	union c2wr_rnic_open rnic_open;
++	union c2wr_rnic_query rnic_query;
++	union c2wr_rnic_getconfig rnic_getconfig;
++	union c2wr_rnic_setconfig rnic_setconfig;
++	union c2wr_rnic_close rnic_close;
++	union c2wr_cq_create cq_create;
++	union c2wr_cq_modify cq_modify;
++	union c2wr_cq_destroy cq_destroy;
++	union c2wr_pd_alloc pd_alloc;
++	union c2wr_pd_dealloc pd_dealloc;
++	union c2wr_srq_create srq_create;
++	union c2wr_srq_destroy srq_destroy;
++	union c2wr_qp_create qp_create;
++	union c2wr_qp_query qp_query;
++	union c2wr_qp_modify qp_modify;
++	union c2wr_qp_destroy qp_destroy;
++	struct c2wr_qp_connect qp_connect;
++	union c2wr_nsmr_stag_alloc nsmr_stag_alloc;
++	union c2wr_nsmr_register nsmr_register;
++	union c2wr_nsmr_pbl nsmr_pbl;
++	union c2wr_mr_query mr_query;
++	union c2wr_mw_query mw_query;
++	union c2wr_stag_dealloc stag_dealloc;
++	union c2wr_sqwr sqwr;
++	struct c2wr_rqwr rqwr;
++	struct c2wr_ce ce;
++	union c2wr_ae ae;
++	union c2wr_init init;
++	union c2wr_ep_listen_create ep_listen_create;
++	union c2wr_ep_listen_destroy ep_listen_destroy;
++	union c2wr_cr_accept cr_accept;
++	union c2wr_cr_reject cr_reject;
++	union c2wr_console console;
++	union c2wr_flash_init flash_init;
++	union c2wr_flash flash;
++	union c2wr_buf_alloc buf_alloc;
++	union c2wr_buf_free buf_free;
++	union c2wr_flash_write flash_write;
++} __attribute__((packed));
 +
-+	vq_req = vq_req_alloc(c2dev);
-+	if (!vq_req)
-+		return -ENOMEM;
-+
-+	len = sizeof(struct c2_netaddr);
-+	wr = kmalloc(c2dev->req_vq.msg_size, GFP_KERNEL);
-+	if (!wr) {
-+		err = -ENOMEM;
-+		goto bail0;
-+	}
-+
-+	c2_wr_set_id(wr, CCWR_RNIC_SETCONFIG);
-+	wr->hdr.context = (unsigned long) vq_req;
-+	wr->rnic_handle = c2dev->adapter_handle;
-+	wr->option = cpu_to_be32(C2_CFG_DEL_ADDR);
-+
-+	netaddr.ip_addr = inaddr;
-+	netaddr.netmask = inmask;
-+	netaddr.mtu = 0;
-+
-+	memcpy(wr->data, &netaddr, len);
-+
-+	vq_req_get(c2dev, vq_req);
-+
-+	err = vq_send_wr(c2dev, (union c2wr *) wr);
-+	if (err) {
-+		vq_req_put(c2dev, vq_req);
-+		goto bail1;
-+	}
-+
-+	err = vq_wait_for_reply(c2dev, vq_req);
-+	if (err)
-+		goto bail1;
-+
-+	reply =
-+	    (struct c2wr_rnic_setconfig_rep *) (unsigned long) (vq_req->reply_msg);
-+	if (!reply) {
-+		err = -ENOMEM;
-+		goto bail1;
-+	}
-+
-+	err = c2_errno(reply);
-+	vq_repbuf_free(c2dev, reply);
-+
-+      bail1:
-+	kfree(wr);
-+      bail0:
-+	vq_req_free(c2dev, vq_req);
-+	return err;
-+}
 +
 +/*
-+ * Open a single RNIC instance to use with all
-+ * low level openib calls
++ * Accessors for the wr fields that are packed together tightly to
++ * reduce the wr message size.  The wr arguments are void* so that
++ * either a struct c2wr*, a struct c2wr_hdr*, or a pointer to any of the types
++ * in the struct c2wr union can be passed in.
 + */
-+static int c2_rnic_open(struct c2_dev *c2dev)
++static __inline__ u8 c2_wr_get_id(void *wr)
 +{
-+	struct c2_vq_req *vq_req;
-+	union c2wr wr;
-+	struct c2wr_rnic_open_rep *reply;
-+	int err;
-+
-+	vq_req = vq_req_alloc(c2dev);
-+	if (vq_req == NULL) {
-+		return -ENOMEM;
-+	}
-+
-+	memset(&wr, 0, sizeof(wr));
-+	c2_wr_set_id(&wr, CCWR_RNIC_OPEN);
-+	wr.rnic_open.req.hdr.context = (unsigned long) (vq_req);
-+	wr.rnic_open.req.flags = cpu_to_be16(RNIC_PRIV_MODE);
-+	wr.rnic_open.req.port_num = cpu_to_be16(0);
-+	wr.rnic_open.req.user_context = (unsigned long) c2dev;
-+
-+	vq_req_get(c2dev, vq_req);
-+
-+	err = vq_send_wr(c2dev, &wr);
-+	if (err) {
-+		vq_req_put(c2dev, vq_req);
-+		goto bail0;
-+	}
-+
-+	err = vq_wait_for_reply(c2dev, vq_req);
-+	if (err) {
-+		goto bail0;
-+	}
-+
-+	reply = (struct c2wr_rnic_open_rep *) (unsigned long) (vq_req->reply_msg);
-+	if (!reply) {
-+		err = -ENOMEM;
-+		goto bail0;
-+	}
-+
-+	if ((err = c2_errno(reply)) != 0) {
-+		goto bail1;
-+	}
-+
-+	c2dev->adapter_handle = reply->rnic_handle;
-+
-+      bail1:
-+	vq_repbuf_free(c2dev, reply);
-+      bail0:
-+	vq_req_free(c2dev, vq_req);
-+	return err;
++	return ((struct c2wr_hdr *) wr)->id;
++}
++static __inline__ void c2_wr_set_id(void *wr, u8 id)
++{
++	((struct c2wr_hdr *) wr)->id = id;
++}
++static __inline__ u8 c2_wr_get_result(void *wr)
++{
++	return ((struct c2wr_hdr *) wr)->result;
++}
++static __inline__ void c2_wr_set_result(void *wr, u8 result)
++{
++	((struct c2wr_hdr *) wr)->result = result;
++}
++static __inline__ u8 c2_wr_get_flags(void *wr)
++{
++	return ((struct c2wr_hdr *) wr)->flags;
++}
++static __inline__ void c2_wr_set_flags(void *wr, u8 flags)
++{
++	((struct c2wr_hdr *) wr)->flags = flags;
++}
++static __inline__ u8 c2_wr_get_sge_count(void *wr)
++{
++	return ((struct c2wr_hdr *) wr)->sge_count;
++}
++static __inline__ void c2_wr_set_sge_count(void *wr, u8 sge_count)
++{
++	((struct c2wr_hdr *) wr)->sge_count = sge_count;
++}
++static __inline__ u32 c2_wr_get_wqe_count(void *wr)
++{
++	return ((struct c2wr_hdr *) wr)->wqe_count;
++}
++static __inline__ void c2_wr_set_wqe_count(void *wr, u32 wqe_count)
++{
++	((struct c2wr_hdr *) wr)->wqe_count = wqe_count;
 +}
 +
-+/*
-+ * Close the RNIC instance
-+ */
-+static int c2_rnic_close(struct c2_dev *c2dev)
-+{
-+	struct c2_vq_req *vq_req;
-+	union c2wr wr;
-+	struct c2wr_rnic_close_rep *reply;
-+	int err;
-+
-+	vq_req = vq_req_alloc(c2dev);
-+	if (vq_req == NULL) {
-+		return -ENOMEM;
-+	}
-+
-+	memset(&wr, 0, sizeof(wr));
-+	c2_wr_set_id(&wr, CCWR_RNIC_CLOSE);
-+	wr.rnic_close.req.hdr.context = (unsigned long) vq_req;
-+	wr.rnic_close.req.rnic_handle = c2dev->adapter_handle;
-+
-+	vq_req_get(c2dev, vq_req);
-+
-+	err = vq_send_wr(c2dev, &wr);
-+	if (err) {
-+		vq_req_put(c2dev, vq_req);
-+		goto bail0;
-+	}
-+
-+	err = vq_wait_for_reply(c2dev, vq_req);
-+	if (err) {
-+		goto bail0;
-+	}
-+
-+	reply = (struct c2wr_rnic_close_rep *) (unsigned long) (vq_req->reply_msg);
-+	if (!reply) {
-+		err = -ENOMEM;
-+		goto bail0;
-+	}
-+
-+	if ((err = c2_errno(reply)) != 0) {
-+		goto bail1;
-+	}
-+
-+	c2dev->adapter_handle = 0;
-+
-+      bail1:
-+	vq_repbuf_free(c2dev, reply);
-+      bail0:
-+	vq_req_free(c2dev, vq_req);
-+	return err;
-+}
-+
-+/*
-+ * Called by c2_probe to initialize the RNIC. This principally
-+ * involves initalizing the various limits and resouce pools that
-+ * comprise the RNIC instance.
-+ */
-+int c2_rnic_init(struct c2_dev *c2dev)
-+{
-+	int err;
-+	u32 qsize, msgsize;
-+	void *q1_pages;
-+	void *q2_pages;
-+	void __iomem *mmio_regs;
-+
-+	/* Device capabilities */
-+	c2dev->device_cap_flags =
-+	    (IB_DEVICE_RESIZE_MAX_WR |
-+	     IB_DEVICE_CURR_QP_STATE_MOD |
-+	     IB_DEVICE_SYS_IMAGE_GUID |
-+	     IB_DEVICE_ZERO_STAG |
-+	     IB_DEVICE_SEND_W_INV | IB_DEVICE_MEM_WINDOW);
-+
-+	/* Allocate the qptr_array */
-+	c2dev->qptr_array = vmalloc(C2_MAX_CQS * sizeof(void *));
-+	if (!c2dev->qptr_array) {
-+		return -ENOMEM;
-+	}
-+
-+	/* Inialize the qptr_array */
-+	memset(c2dev->qptr_array, 0, C2_MAX_CQS * sizeof(void *));
-+	c2dev->qptr_array[0] = (void *) &c2dev->req_vq;
-+	c2dev->qptr_array[1] = (void *) &c2dev->rep_vq;
-+	c2dev->qptr_array[2] = (void *) &c2dev->aeq;
-+
-+	/* Initialize data structures */
-+	init_waitqueue_head(&c2dev->req_vq_wo);
-+	spin_lock_init(&c2dev->vqlock);
-+	spin_lock_init(&c2dev->lock);
-+
-+	/* Allocate MQ shared pointer pool for kernel clients. User
-+	 * mode client pools are hung off the user context
-+	 */
-+	err = c2_init_mqsp_pool(c2dev, GFP_KERNEL, &c2dev->kern_mqsp_pool);
-+	if (err) {
-+		goto bail0;
-+	}
-+
-+	/* Allocate shared pointers for Q0, Q1, and Q2 from
-+	 * the shared pointer pool.
-+	 */
-+
-+	c2dev->hint_count = c2_alloc_mqsp(c2dev, c2dev->kern_mqsp_pool, 
-+					     &c2dev->hint_count_dma, 
-+					     GFP_KERNEL);
-+	c2dev->req_vq.shared = c2_alloc_mqsp(c2dev, c2dev->kern_mqsp_pool, 
-+					     &c2dev->req_vq.shared_dma, 
-+					     GFP_KERNEL);
-+	c2dev->rep_vq.shared = c2_alloc_mqsp(c2dev, c2dev->kern_mqsp_pool,
-+					     &c2dev->rep_vq.shared_dma, 
-+					     GFP_KERNEL);
-+	c2dev->aeq.shared = c2_alloc_mqsp(c2dev, c2dev->kern_mqsp_pool,
-+					  &c2dev->aeq.shared_dma, GFP_KERNEL);
-+	if (!c2dev->hint_count || !c2dev->req_vq.shared || 
-+	    !c2dev->rep_vq.shared || !c2dev->aeq.shared) {
-+		err = -ENOMEM;
-+		goto bail1;
-+	}
-+
-+	mmio_regs = c2dev->kva;
-+	/* Initialize the Verbs Request Queue */
-+	c2_mq_req_init(&c2dev->req_vq, 0,
-+		       be32_to_cpu(readl(mmio_regs + C2_REGS_Q0_QSIZE)),
-+		       be32_to_cpu(readl(mmio_regs + C2_REGS_Q0_MSGSIZE)),
-+		       mmio_regs +
-+		       be32_to_cpu(readl(mmio_regs + C2_REGS_Q0_POOLSTART)),
-+		       mmio_regs +
-+		       be32_to_cpu(readl(mmio_regs + C2_REGS_Q0_SHARED)),
-+		       C2_MQ_ADAPTER_TARGET);
-+
-+	/* Initialize the Verbs Reply Queue */
-+	qsize = be32_to_cpu(readl(mmio_regs + C2_REGS_Q1_QSIZE));
-+	msgsize = be32_to_cpu(readl(mmio_regs + C2_REGS_Q1_MSGSIZE));
-+	q1_pages = kmalloc(qsize * msgsize, GFP_KERNEL);
-+	if (!q1_pages) {
-+		err = -ENOMEM;
-+		goto bail1;
-+	}
-+	c2dev->rep_vq.host_dma = dma_map_single(c2dev->ibdev.dma_device, 
-+					        (void *)q1_pages, qsize * msgsize, 
-+				      		DMA_FROM_DEVICE);
-+	pci_unmap_addr_set(&c2dev->rep_vq, mapping, c2dev->rep_vq.host_dma);
-+	pr_debug("%s rep_vq va %p dma %llx\n", __FUNCTION__, q1_pages, 
-+		 (u64)c2dev->rep_vq.host_dma);
-+	c2_mq_rep_init(&c2dev->rep_vq,
-+		   1,
-+		   qsize,
-+		   msgsize,
-+		   q1_pages,
-+		   mmio_regs +
-+		   be32_to_cpu(readl(mmio_regs + C2_REGS_Q1_SHARED)),
-+		   C2_MQ_HOST_TARGET);
-+
-+	/* Initialize the Asynchronus Event Queue */
-+	qsize = be32_to_cpu(readl(mmio_regs + C2_REGS_Q2_QSIZE));
-+	msgsize = be32_to_cpu(readl(mmio_regs + C2_REGS_Q2_MSGSIZE));
-+	q2_pages = kmalloc(qsize * msgsize, GFP_KERNEL);
-+	if (!q2_pages) {
-+		err = -ENOMEM;
-+		goto bail2;
-+	}
-+	c2dev->aeq.host_dma = dma_map_single(c2dev->ibdev.dma_device, 
-+					        (void *)q2_pages, qsize * msgsize, 
-+				      		DMA_FROM_DEVICE);
-+	pci_unmap_addr_set(&c2dev->aeq, mapping, c2dev->aeq.host_dma);
-+	pr_debug("%s aeq va %p dma %llx\n", __FUNCTION__, q1_pages, 
-+		 (u64)c2dev->rep_vq.host_dma);
-+	c2_mq_rep_init(&c2dev->aeq,
-+		       2,
-+		       qsize,
-+		       msgsize,
-+		       q2_pages,
-+		       mmio_regs +
-+		       be32_to_cpu(readl(mmio_regs + C2_REGS_Q2_SHARED)),
-+		       C2_MQ_HOST_TARGET);
-+
-+	/* Initialize the verbs request allocator */
-+	err = vq_init(c2dev);
-+	if (err)
-+		goto bail3;
-+
-+	/* Enable interrupts on the adapter */
-+	writel(0, c2dev->regs + C2_IDIS);
-+
-+	/* create the WR init message */
-+	err = c2_adapter_init(c2dev);
-+	if (err)
-+		goto bail4;
-+	c2dev->init++;
-+
-+	/* open an adapter instance */
-+	err = c2_rnic_open(c2dev);
-+	if (err)
-+		goto bail4;
-+
-+	/* Initialize cached the adapter limits */
-+	if (c2_rnic_query(c2dev, &c2dev->props))
-+		goto bail5;
-+
-+	/* Initialize the PD pool */
-+	err = c2_init_pd_table(c2dev);
-+	if (err)
-+		goto bail5;
-+
-+	/* Initialize the QP pool */
-+	c2_init_qp_table(c2dev);
-+	return 0;
-+
-+      bail5:
-+	c2_rnic_close(c2dev);
-+      bail4:
-+	vq_term(c2dev);
-+      bail3:
-+	dma_unmap_single(c2dev->ibdev.dma_device, 
-+			 pci_unmap_addr(&c2dev->aeq, mapping), 
-+			 c2dev->aeq.q_size * c2dev->aeq.msg_size, 
-+		  	 DMA_FROM_DEVICE);
-+	kfree(q2_pages);
-+      bail2:
-+	dma_unmap_single(c2dev->ibdev.dma_device, 
-+			 pci_unmap_addr(&c2dev->rep_vq, mapping), 
-+			 c2dev->rep_vq.q_size * c2dev->rep_vq.msg_size, 
-+		  	 DMA_FROM_DEVICE);
-+	kfree(q1_pages);
-+      bail1:
-+	c2_free_mqsp_pool(c2dev, c2dev->kern_mqsp_pool);
-+      bail0:
-+	vfree(c2dev->qptr_array);
-+
-+	return err;
-+}
-+
-+/*
-+ * Called by c2_remove to cleanup the RNIC resources. 
-+ */
-+void c2_rnic_term(struct c2_dev *c2dev)
-+{
-+
-+	/* Close the open adapter instance */
-+	c2_rnic_close(c2dev);
-+
-+	/* Send the TERM message to the adapter */
-+	c2_adapter_term(c2dev);
-+
-+	/* Disable interrupts on the adapter */
-+	writel(1, c2dev->regs + C2_IDIS);
-+
-+	/* Free the QP pool */
-+	c2_cleanup_qp_table(c2dev);
-+
-+	/* Free the PD pool */
-+	c2_cleanup_pd_table(c2dev);
-+
-+	/* Free the verbs request allocator */
-+	vq_term(c2dev);
-+
-+	/* Unmap and free the asynchronus event queue */
-+	dma_unmap_single(c2dev->ibdev.dma_device, 
-+			 pci_unmap_addr(&c2dev->aeq, mapping), 
-+			 c2dev->aeq.q_size * c2dev->aeq.msg_size, 
-+		  	 DMA_FROM_DEVICE);
-+	kfree(c2dev->aeq.msg_pool.host);
-+
-+	/* Unmap and free the verbs reply queue */
-+	dma_unmap_single(c2dev->ibdev.dma_device, 
-+			 pci_unmap_addr(&c2dev->rep_vq, mapping), 
-+			 c2dev->rep_vq.q_size * c2dev->rep_vq.msg_size, 
-+		  	 DMA_FROM_DEVICE);
-+	kfree(c2dev->rep_vq.msg_pool.host);
-+
-+	/* Free the MQ shared pointer pool */
-+	c2_free_mqsp_pool(c2dev, c2dev->kern_mqsp_pool);
-+
-+	/* Free the qptr_array */
-+	vfree(c2dev->qptr_array);
-+
-+	return;
-+}
++#endif				/* _C2_WR_H_ */
