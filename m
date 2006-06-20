@@ -1,94 +1,89 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [NET]: Prevent multiple qdisc runs
-Date: Tue, 20 Jun 2006 10:42:06 -0400
-Message-ID: <1150814526.5270.64.camel@jzny2>
-References: <20060619121519.GA16031@gondor.apana.org.au>
-	 <1150724031.5815.39.camel@jzny2>
-	 <20060619134227.GA16662@gondor.apana.org.au>
-	 <1150727009.5815.72.camel@jzny2>
-	 <20060619142928.GA17191@gondor.apana.org.au>
-	 <1150727810.5815.78.camel@jzny2>
-	 <20060619223326.GA20354@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/2] NET: Accurate packet scheduling for ATM/ADSL	(userspace)
+Date: Tue, 20 Jun 2006 16:45:27 +0200
+Message-ID: <44980A07.4050106@trash.net>
+References: <1150278040.26181.37.camel@localhost.localdomain>	 <1150282625.3490.23.camel@localhost.localdomain>	 <1150332449.8605.40.camel@ras.pc.brisbane.lube>	 <1150376591.5116.36.camel@jzny2>	 <Pine.LNX.4.61.0606192048270.31662@ask.diku.dk> <1150812370.5270.27.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Russell Stuart <russell-tcatm@stuart.id.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:54168 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1751153AbWFTOmJ
+Received: from stinky.trash.net ([213.144.137.162]:42684 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751166AbWFTOpa
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 10:42:09 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1FshQi-00010H-Ie
-	for netdev@vger.kernel.org; Tue, 20 Jun 2006 10:42:12 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060619223326.GA20354@gondor.apana.org.au>
+	Tue, 20 Jun 2006 10:45:30 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1150812370.5270.27.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert,
-Thanks for your patience.
+jamal wrote:
+> Heres the standard setup as i understand it(at least in north america, I
+> know Europeans love their ATM with a little gravy on top):
+> 
+>                                                                        
+> |Linux| --ethernet-- |Modem| --DSL-- |DSLAM| --ATM-- |BRAS| 
+> 
+>     
+> What this means is that Linux computes based on ethernet
+> headers. Somewhere downstream ATM (refer to above) comes in and that
+> causes mismatch in what Linux expects to be the bandwidth and what
+> your service provider who doesnt account for the ATM overhead when
+> they sell you "1.5Mbps".
 
-On Tue, 2006-20-06 at 08:33 +1000, Herbert Xu wrote:
+Actually in the PPPoE case Linux doesn't know about ethernet
+headers either, since shaping is usually done on the PPP device.
+But that doesn't really matter since the ethernet link is not
+the bottleneck - although it does add some delay for packetization.
 
-> First of all you could receive an IRQ in between dropping xmit_lock
-> and regaining the queue lock.  
+> Yes, Linux cant tell if your service provider is lying to you.
 
-Indeed you could. Sorry, I overlooked that in my earlier email. This
-issue has been there forever though - and i dont mean to dilute its
-existence by saying the chances of it happening are very very slim. I
-claim though that you will be _unable to reproduce this in an
-experimental setup_ i.e thats how complex it is. 
+I wouldn't call it lying as long as they don't say "1.5mbps IP
+layer throughput". Ethernet doesn't provide 100mbit IP layer
+throughput either, and with minimum sized IP packets its actually
+well below that.
 
-> Secondly we now have lockless drivers where this assumption also 
-> does not hold.
+>>The patch is the solution to the classical problem people 
+>>have when tryng to configure traffic control on an ADSL link?
+>>
+>>Q: The packet scheduling does not work all the time?
+>>A: Try to decrease to bandwidth.
+>>
+>>
+>>The issue here is, that ATM does not have fixed overhead (due to alignment 
+>>and padding).  This means that a fixed reduction of the bandwidth is not 
+>>the solution.  We could reduce the bandwidth to the worst-case overhead, 
+>>which is 62%, I do not think that is a good solution...
+>>
+> 
+> I dont see it as wrong to be honest with you. Your mileage may vary.
 
-Ok, forgot about lockless drivers;
-The chances are certainly much higher with lockless driver for a very
-simple reason. We used to have lock ordering that is now changed for
-lockless drivers. i.e we had:
+Its wasteful, and it can be avoided.
 
-1) grab qlock, 
-2)  dq
-3)  grab txlock, 
-4) release qlock, 
-5)    transmit, 
-6) release txlock
+> Dont have time to read your doc and dont get me wrong, there is a
+> "quark" practical problem: As practical as the hard disk manufacturer
+> who claims that they have 11G drive when it is 10G. It needs to be
+> resolved - but not in an intrusive way in my opinion.
 
-to the new sequence #1,#2,#4,#3,#5,#6
-and at times that same replacement txlock being also used in the rx path
-to guard the tx DMA. 
-A possible solution is to alias the tx lock to be dev->txlock
-(DaveM had pointed out he didnt like this approach, I cant remember the
-details.)
+Not sure what a "quark" problem is .. but I think you're focusing
+too much on the aspect of "somebody is lying, not our fault".
+This is a real problem for any medium that adds link-layer headers.
+ATM is not even very special, the only thing special about it is
+that it has multiple "steps". But maybe I'm misunderstanding you,
+it has happened before :)
 
-Heres where i am coming from (you may have suspected it already):
-My concern is i am not sure what the performance implications are on 
-this change (yes, there goes that soup^Wperformance nazi again) or what
-the impact on how good the qos granularity is any longer[1].
-If it is to make lock-less drivers happy, then someone oughta validate
-if this performance benefit that lockless drivers give still exists. I
-almost feel like we gained the 5% from lockless driving and lost 10% for
-everyone else trying to fix the sins of lockless driving. So i am unsure
-of the net gain. 
+A non intrusive way is prefered of course, but I can't really see
+one if you want more than just a special-case solution that only
+covers qdiscs using rate-tables and even ignores inner qdiscs.
+HFSC and SFQ for example both need to calculate the wire length
+at runtime.
 
-I apologize for hand-waving with % numbers above and using gut feeling
-instead of experimental facts - I dont have time to chase it. I have
-CCed Robert who may have time to see if this impacts forwarding
-performance for one. I will have more peace of mind to find out there is
-no impact.
-
-cheers,
-jamal
-
-[1] By having both the forwarding path and tx softirq from multiple CPUs
-enter this qdiscrun path, the chances that a packet will be dequeued
-successfully and sent out within reasonable time are higher.
-The tx_collision vs tx success are a good measure of how lucky you get.
-This improves timeliness and granularity of qos for one. What your patch
-does is reduce the granularity/possibility that we may enter
-that region sooner.
+Handling all qdiscs would mean adding a pointer to a mapping table
+to struct net_device and using something like "skb_wire_len(skb, dev)"
+instead of skb->len in the queueing layer. That of course doesn't
+mean that we can't still provide pre-adjusted ratetables for qdiscs
+that use them.
 
