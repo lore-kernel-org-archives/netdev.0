@@ -1,67 +1,69 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [DOC]: generic netlink
-Date: Tue, 20 Jun 2006 09:19:12 -0400
-Message-ID: <1150809552.5270.5.camel@jzny2>
-References: <1150724482.5815.48.camel@jzny2>
-	 <Pine.LNX.4.64.0606191057420.21114@d.namei>
-	 <1150730884.5384.10.camel@jzny2>  <4496C98E.8030407@watson.ibm.com>
-Reply-To: hadi@cyberus.ca
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: Re: [RFT] pcnet32 NAPI changes
+Date: Tue, 20 Jun 2006 08:53:55 -0500
+Message-ID: <20060620135355.GB7922@us.ibm.com>
+References: <20060616191154.GA6227@us.ibm.com> <20060619204140.GC10036@us.ibm.com> <20060619204933.GH26952@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: James Morris <jmorris@namei.org>,
-	Per Liden <per.liden@ericsson.com>,
-	Jay Lan <jlan@engr.sgi.com>, Thomas Graf <tgraf@suug.ch>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Don Fry <brazilnut@us.ibm.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:28063 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1750768AbWFTNTQ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 09:19:16 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1Fsg8U-0004cJ-69
-	for netdev@vger.kernel.org; Tue, 20 Jun 2006 09:19:18 -0400
-To: Shailabh Nagar <nagar@watson.ibm.com>
-In-Reply-To: <4496C98E.8030407@watson.ibm.com>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:26273 "EHLO e4.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1750862AbWFTNth (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2006 09:49:37 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5KDnaO5028753
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Tue, 20 Jun 2006 09:49:36 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5KDnawm256136
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 20 Jun 2006 09:49:36 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5KDnZrB002311
+	for <netdev@vger.kernel.org>; Tue, 20 Jun 2006 09:49:36 -0400
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Content-Disposition: inline
+In-Reply-To: <20060619204933.GH26952@csclub.uwaterloo.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-19-06 at 11:58 -0400, Shailabh Nagar wrote: 
-> jamal wrote:
-[..]
-
-> But I'm not too clear about what are the advantages of trying to limit the
-> number of commands registered by a given exploiter of genetlink (say TIPC or taskstats),
-> other than the conventional usage of netlink.
+On Mon, Jun 19, 2006 at 04:49:33PM -0400, Lennart Sorensen wrote:
+> On Mon, Jun 19, 2006 at 03:41:40PM -0500, Jon Mason wrote:
+> > I believe it is preferred to be a compile option for non-gigabit
+> > drivers, given that it will be eating a lot of cycles for infrequent
+> > packets (especially for the 10Mb).  I believe there was a thread about
+> > this last year when e100 was having NAPI problems.
 > 
-> e.g in the taskstats code, userspace needs to GET data on a per-pid and per-tgid basis
-> from the kernel and supplies the specific pid or tgid. We could either have registered
-> two commands (say GET_PID and GET_TGID) and then the parsing of the supplied uint32 would
-> be implicit in the command. But we went with the model where we have only one GET command
-> and the type of the parameter is specified via netlink attributes.
+> How does NAPI eat cycles?  It goes back to interrupt mode when the queue
+> is empty, and only on RX interrupt does it turn on polling again.
 
-The idea is for fine grain access control(ACL) of what user process can
-do (as managed by SELinux not genetlink). As an example even in your
-case, you may wanna allow user program "shailab1" to be able to get
-information on a groupid but not pid. We should be able to add that
-level of granularity easily since we have flags per command.
+The amount of polls per received packet is very low, thus removing the
+benefit of NAPI.  A compile time option would allow those users who know
+better to DTRT.
 
-> In our case, it didn't matter and since the type of data returned is very similar and so is
-> the parameter supplied (pid/tgid), one GET suffices. But I'm wondering if userspace should
-> consciously try and limit the commands or would it be better from a performance standpoint,
-> to permit a reasonably larger "fan-out" to happen at the genetlink command level (for each exploiter).
-> I guess this introduces more overhead for in-kernel structures (the linked list of command structures
-> that needs to be kept around) while saving time on doing a second level of parsing within the
-> exploiter-defined function that services the GET command.
+> It is certainly possible that there are bugs in a NAPI conversion, which
+> I guess could be a reason to have the option to stick with the old
+> method, although then again not having the option ensures the bugs get
+> found sooner.
 > 
-> The "small" set model looks like a good compromise. Reducing number of commands to one is not a good
-> idea IMHO....for reasons similar to why ioctl type syscalls aren't encouraged...since the genetlink
-> layer anyway has code for demultiplexing, might as well use it and avoid an extra level of indirection.
+> > A general nit.  There are ALOT of magic numbers in the code, most
+> > existing prior to this patch.  The driver would benefit from a little
+> > clean-up.
+> > 
+> > Also nothing to do with this patch, but I noticed it when the code was
+> > moved.  A comment about why the following is necessary might be nice:
+> > lp->rx_ring[i].buf_length = le16_to_cpu(2 - PKT_BUF_SZ);
 > 
+> I suspect many drivers are in need of some cleanup.
 
-indeed.
+Yup, but the "everyone else is doing it" argument never worked with my
+parents. All it takes is one brave soul to determine the reasoning
+behind the magic numbers and convert them into #define's.  Shouldn't be
+more than one day's work.
 
-cheers,
-jamal
-
+> 
+> Len Sorensen
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
