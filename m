@@ -1,48 +1,48 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [IOC3] IP27: Really set PCI64_ATTR_VIRTUAL, not PCI64_ATTR_PREC.
-Date: Tue, 20 Jun 2006 10:15:01 +0200
-Message-ID: <200606201015.01323.netdev@axxeo.de>
-References: <20060617175738.GA4346@linux-mips.org>
+From: "Andrew Grover" <andy.grover@gmail.com>
+Subject: Re: [PATCH 1/2] e1000: fix netpoll with NAPI
+Date: Tue, 20 Jun 2006 01:28:25 -0700
+Message-ID: <c0a09e5c0606200128m2c468ce8w51feada2700c1930@mail.gmail.com>
+References: <20060607164801.GX24227@waste.org>
+	 <1149787174.2928.3.camel@strongmad> <x49ac8nwo83.fsf@redhat.com>
+	 <20060612001356.GA5112@localhost.localdomain>
+	 <1150130534.2879.9.camel@strongmad>
+	 <20060612180600.GB3790@hmsreliant.homelinux.net>
+	 <20060614204158.GA3967@hmsreliant.homelinux.net>
+	 <Pine.CYG.4.58.0606141635440.2888@mawilli1-desk2.amr.corp.intel.com>
+	 <20060615124355.GA32582@tuxdriver.com>
+	 <Pine.CYG.4.58.0606151344120.928@mawilli1-desk2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:989 "EHLO mail.axxeo.de")
-	by vger.kernel.org with ESMTP id S965152AbWFTIPX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2006 04:15:23 -0400
-To: Ralf Baechle <ralf@linux-mips.org>
-In-Reply-To: <20060617175738.GA4346@linux-mips.org>
+Received: from wx-out-0102.google.com ([66.249.82.206]:29862 "EHLO
+	wx-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S965015AbWFTI20 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jun 2006 04:28:26 -0400
+Received: by wx-out-0102.google.com with SMTP id h28so908637wxd
+        for <netdev@vger.kernel.org>; Tue, 20 Jun 2006 01:28:25 -0700 (PDT)
+To: linville@tuxdriver.com
+In-Reply-To: <Pine.CYG.4.58.0606151344120.928@mawilli1-desk2.amr.corp.intel.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Ralf,
+(trimmed CC to just netdev)
 
-Ralf Baechle :
-> IOC3's homegrown DMA mapping functions that are used to optimize things
-> a little on IP27 set the wrong bit.
+> > > One of our engineers (on the I/O AT team) has been tasked with modifying
+> > > the Linux kernel to properly support multiple hardware queues (both TX and
+> > > RX).  We'll make sure that he looks at the netpoll interface as part of
+> > > that process.
+> >
+> > Might I ask who this is?  I might like to ping him/her on this topic.
+> > There is potentially some overlap with wireless, at least on the
+> > transmit side.
+> > John W. Linville
 
-What about using a symbol instead of magic numbers?
-That way one at least sees the intention of the coder.
- 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
-> 
-> diff --git a/drivers/net/ioc3-eth.c b/drivers/net/ioc3-eth.c
-> index ae71ed5..e76e6e7 100644
-> --- a/drivers/net/ioc3-eth.c
-> +++ b/drivers/net/ioc3-eth.c
-> @@ -145,7 +145,7 @@ static inline struct sk_buff * ioc3_allo
->  static inline unsigned long ioc3_map(void *ptr, unsigned long vdev)
->  {
->  #ifdef CONFIG_SGI_IP27
-> -	vdev <<= 58;   /* Shift to PCI64_ATTR_VIRTUAL */
-> +	vdev <<= 57;   /* Shift to PCI64_ATTR_VIRTUAL */
+Hi John, so yeah we want multiple TX queues on wired ethernet for QoS,
+same as wireless. Also for SMP scaling (maybe not needed until 10G+).
+Did wireless people settle on a design since the email thread in
+January?
 
-So please use a symbolic value here.
-  
-
-Regards
-
-Ingo Oeser
+Regards -- Andy
