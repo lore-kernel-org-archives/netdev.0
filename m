@@ -1,68 +1,73 @@
 From: Venkat Yekkirala <vyekkirala@trustedcs.com>
-Subject: FOR REFERENCE ONLY: MLSXFRM: Add support to serefpolicy
-Date: Tue, 20 Jun 2006 13:24:23 -0500
-Message-ID: <44983D57.4050704@trustedcs.com>
+Subject: [PATCH 06/06] MLSXFRM: Add security context to acquire messages using
+ PF_KEY
+Date: Tue, 20 Jun 2006 13:24:16 -0500
+Message-ID: <44983D50.4080204@trustedcs.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:59254 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1750792AbWFTSYc
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:59657 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1750791AbWFTSYc
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 20 Jun 2006 14:24:32 -0400
 To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch has been included here just for reference. It will be submitted
-to the serefpolicy list later.
+This includes the security context of a security association created for use by IKE
+in the acquire messages sent to IKE daemons using PF_KEY. This would allow
+the daemons to include the security context in the negotiation, so that the resultant
+association is unique to that security context.
 
-This patch adds a polmatch avperm to arbitrate flow/state's access to
-a xfrm policy. It also defines MLS policy for association { sendto,
-recvfrom, polmatch }.
+Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+---
 
-NOTE: When an inbound packet is not using an IPSec SA, a check is performed
-between the socket label and the unlabeled sid (SYSTEM_HIGH MLS label). For
-MLS purposes however, the target of the check should be the MLS label taken
-from the node sid (or secmark in the new secmark world). This would present
-a severe performance overhead (to make a new sid based on the unlabeled sid
-with the MLS taken from the node sid or secmark and then using this sid as
-the target). While discussions are ongoing on fine tuning the networking
-design in the context of secmark, IPSec, netlabel, etc., I have chosen to
-currently make an exception for unlabeled_t SAs if TE policy allowed it. A
-similar problem exists for the outbound case and it has been similarly
-handled in the policy below (by making an exception for unlabeled_t).
+ net/key/af_key.c |   22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
 
-
-
---- serefpolicy-2.2.34/policy/mls       2006-04-20 07:18:44.000000000 -0500
-+++ serefpolicy-2.2.34.ipsec/policy/mls 2006-05-11 10:04:29.000000000 -0500
-@@ -671,4 +671,18 @@
- # these access vectors have no MLS restrictions
- # association *
-
-+mlsconstrain association { recvfrom }
-+        ((( l1 dom l2 ) and ( l1 domby h2 )) or
-+         (( t1 == mlsnetreadtoclr ) and ( h1 dom l2 )) or
-+         ( t1 == mlsnetread ) or
-+         ( t2 == unlabeled_t ));
+--- linux-2.6.16.vanilla/net/key/af_key.c	2006-06-12 17:49:42.000000000 -0500
++++ linux-2.6.16/net/key/af_key.c	2006-06-19 19:48:24.000000000 -0500
+@@ -2709,6 +2709,9 @@ static int pfkey_send_acquire(struct xfr
+ #endif
+ 	int sockaddr_size;
+ 	int size;
++	struct sadb_x_sec_ctx *sec_ctx;
++	struct xfrm_sec_ctx *xfrm_ctx;
++	int ctx_size = 0;
+ 	
+ 	sockaddr_size = pfkey_sockaddr_size(x->props.family);
+ 	if (!sockaddr_size)
+@@ -2724,6 +2727,11 @@ static int pfkey_send_acquire(struct xfr
+ 	else if (x->id.proto == IPPROTO_ESP)
+ 		size += count_esp_combs(t);
+ 
++	if ((xfrm_ctx = x->security)) {
++		ctx_size = PFKEY_ALIGN8(xfrm_ctx->ctx_len);
++		size +=  sizeof(struct sadb_x_sec_ctx) + ctx_size;
++	}
 +
-+mlsconstrain association { sendto }
-+        ((( l1 dom l2 ) and ( l1 domby h2 )) or
-+         ( t2 == unlabeled_t ));
+ 	skb =  alloc_skb(size + 16, GFP_ATOMIC);
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+@@ -2819,6 +2827,20 @@ static int pfkey_send_acquire(struct xfr
+ 	else if (x->id.proto == IPPROTO_ESP)
+ 		dump_esp_combs(skb, t);
+ 
++	/* security context */
++	if (xfrm_ctx) {
++		sec_ctx = (struct sadb_x_sec_ctx *) skb_put(skb,
++				sizeof(struct sadb_x_sec_ctx) + ctx_size);
++		sec_ctx->sadb_x_sec_len =
++		  (sizeof(struct sadb_x_sec_ctx) + ctx_size) / sizeof(uint64_t);
++		sec_ctx->sadb_x_sec_exttype = SADB_X_EXT_SEC_CTX;
++		sec_ctx->sadb_x_ctx_doi = xfrm_ctx->ctx_doi;
++		sec_ctx->sadb_x_ctx_alg = xfrm_ctx->ctx_alg;
++		sec_ctx->sadb_x_ctx_len = xfrm_ctx->ctx_len;
++		memcpy(sec_ctx + 1, xfrm_ctx->ctx_str,
++		       xfrm_ctx->ctx_len);
++	}
 +
-+mlsconstrain association { polmatch }
-+         (( l1 dom l2 ) and ( h1 domby h2 ));
-+
-+
- ') dnl end enable_mls
---- serefpolicy-2.2.34/policy/flask/access_vectors      2006-04-20 07:18:44.000000000 -0500
-+++ serefpolicy-2.2.34.ipsec/policy/flask/access_vectors        2006-04-27 10:34:44.000000000 -0500
-@@ -602,6 +602,7 @@
-        sendto
-        recvfrom
-        setcontext
-+       polmatch
+ 	return pfkey_broadcast(skb, GFP_ATOMIC, BROADCAST_REGISTERED, NULL);
  }
-
- # Updated Netlink class for KOBJECT_UEVENT family.
+ 
