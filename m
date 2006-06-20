@@ -1,58 +1,72 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [IOC3] IP27: Really set PCI64_ATTR_VIRTUAL, not PCI64_ATTR_PREC.
-Date: Tue, 20 Jun 2006 11:02:36 +0100
-Message-ID: <20060620100236.GA4288@linux-mips.org>
-References: <20060617175738.GA4346@linux-mips.org> <200606201015.01323.netdev@axxeo.de>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: rtl8150 usb driver, needs more vendor ids?
+Date: Tue, 20 Jun 2006 13:13:58 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0606201308130.6281@localhost.localdomain>
+References: <449799BA.1050303@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: NetDev <netdev@vger.kernel.org>, petkan@users.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:29327 "EHLO
-	ftp.linux-mips.org") by vger.kernel.org with ESMTP id S932564AbWFTKEC
+Received: from gate.nucleusys.com ([217.79.38.164]:2185 "EHLO
+	zztop.nucleusys.com") by vger.kernel.org with ESMTP id S932548AbWFTKNe
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 06:04:02 -0400
-Received: from localhost.localdomain ([127.0.0.1]:41360 "EHLO bacchus.dhis.org")
-	by ftp.linux-mips.org with ESMTP id S8133456AbWFTKD7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2006 11:03:59 +0100
-To: Ingo Oeser <netdev@axxeo.de>
-Content-Disposition: inline
-In-Reply-To: <200606201015.01323.netdev@axxeo.de>
+	Tue, 20 Jun 2006 06:13:34 -0400
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <449799BA.1050303@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 20, 2006 at 10:15:01AM +0200, Ingo Oeser wrote:
-> From:	Ingo Oeser <netdev@axxeo.de>
-> To:	Ralf Baechle <ralf@linux-mips.org>
-> Subject: Re: [IOC3] IP27: Really set PCI64_ATTR_VIRTUAL, not PCI64_ATTR_PREC.
-> Date:	Tue, 20 Jun 2006 10:15:01 +0200
-> Cc:	netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>
-> Content-Type: text/plain;
->   charset="iso-8859-1"
-> 
-> Hi Ralf,
-> 
-> Ralf Baechle :
-> > IOC3's homegrown DMA mapping functions that are used to optimize things
-> > a little on IP27 set the wrong bit.
-> 
-> What about using a symbol instead of magic numbers?
-> That way one at least sees the intention of the coder.
->  
-> > Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
-> > 
-> > diff --git a/drivers/net/ioc3-eth.c b/drivers/net/ioc3-eth.c
-> > index ae71ed5..e76e6e7 100644
-> > --- a/drivers/net/ioc3-eth.c
-> > +++ b/drivers/net/ioc3-eth.c
-> > @@ -145,7 +145,7 @@ static inline struct sk_buff * ioc3_allo
-> >  static inline unsigned long ioc3_map(void *ptr, unsigned long vdev)
-> >  {
-> >  #ifdef CONFIG_SGI_IP27
-> > -	vdev <<= 58;   /* Shift to PCI64_ATTR_VIRTUAL */
-> > +	vdev <<= 57;   /* Shift to PCI64_ATTR_VIRTUAL */
-> 
-> So please use a symbolic value here.
+ 	Hi Ben,
 
-It is a hack and meant to look like one, loudly marked with #ifdef.
+What you have sent me is a bit of a puzzle.
 
-  Ralf
+Looking at the device's details i can see it is not RTL8150 based device, 
+but ADMtek's ADM8511.  Both vendor and device IDs have been listed in 
+pegasus.c for a long long time.
+
+Using rtl8150.c will not help at all since it talks to a different device. 
+I suggest using pegasus.c ...
+
+
+ 		Petko
+
+
+
+On Mon, 19 Jun 2006, Ben Greear wrote:
+
+> Someone put a wired usb-to-ethernet adapter into a system running
+> the 2.6.13.5 kernel.  The driver is evidently the rtl8150, and this
+> person sent me what appeared to be a modified version of the rtl8150
+> that is in the kernel.  The kernel driver does not appear to even attempt
+> to use this device.
+>
+> Here is the output from /proc/bus/usb/devices:
+>
+> T:  Bus=01 Lev=01 Prnt=01 Port=00 Cnt=01 Dev#=  4 Spd=12  MxCh= 0
+> D:  Ver= 1.10 Cls=00(>ifc ) Sub=00 Prot=00 MxPS= 8 #Cfgs=  1
+> P:  Vendor=07a6 ProdID=8511 Rev= 1.01
+> S:  Manufacturer=ADMtek
+> S:  Product=USB To LAN Converter
+> S:  SerialNumber=0001
+> C:* #Ifs= 1 Cfg#= 1 Atr=a0 MxPwr=160mA
+> I:  If#= 0 Alt= 0 #EPs= 3 Cls=00(>ifc ) Sub=00 Prot=00 Driver=(none)
+> E:  Ad=81(I) Atr=02(Bulk) MxPS=  64 Ivl=0ms
+> E:  Ad=02(O) Atr=02(Bulk) MxPS=  64 Ivl=0ms
+> E:  Ad=83(I) Atr=03(Int.) MxPS=   8 Ivl=1ms
+>
+> The vendor driver (GPL) I received is available here:
+> http://www.candelatech.com/oss/RTL8150.C
+>
+> When I get a chance later this week, I plan to add this vendor id
+> and see if it works.  Since the physical equipment is half a world
+> away, I'd welcome any conjecture as to whether simply adding the
+> device ID will work or not...
+>
+> Thanks,
+> Ben
+>
+> -- 
+> Ben Greear <greearb@candelatech.com>
+> Candela Technologies Inc  http://www.candelatech.com
+>
+>
