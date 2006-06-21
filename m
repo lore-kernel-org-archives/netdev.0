@@ -1,46 +1,35 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [IPV6] ADDRCONF: Fix default source address selection without
- CONFIG_IPV6_PRIVACY
-Date: Thu, 22 Jun 2006 00:23:41 +0900 (JST)
-Message-ID: <20060622.002341.04738770.yoshfuji@linux-ipv6.org>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 2/6] ehea: pHYP interface
+Date: Wed, 21 Jun 2006 08:36:05 -0700
+Message-ID: <ada4pyemsgq.fsf@cisco.com>
+References: <44993E48.8060600@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, meder@de.ibm.com,
+	raisch@de.ibm.com, schickhj@de.ibm.com, themann@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:8200 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S932170AbWFUPWt
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jun 2006 11:22:49 -0400
-To: davem@davemloft.net
+Received: from sj-iport-4.cisco.com ([171.68.10.86]:29781 "EHLO
+	sj-iport-4.cisco.com") by vger.kernel.org with ESMTP
+	id S932193AbWFUPgK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jun 2006 11:36:10 -0400
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
+In-Reply-To: <44993E48.8060600@de.ibm.com> (Jan-Bernd Themann's message of "Wed, 21 Jun 2006 14:40:40 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We need to update hiscore.rule even if we don't enable CONFIG_IPV6_PRIVACY,
-because we have more less significant rule; longest match.
+I think this code needs to be refactored so that it can share with the
+ehca InfiniBand driver (which should be merged upstream soon).  For
+example, you have ehea_hcall_7arg_7ret() and the ehca driver has an
+identical ehca_hcall_7arg_7ret().
 
-I think it is suitable for -stable as well.
+Also:
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/ipv6/addrconf.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ > +++ kernel/drivers/net/ehea/ehea_hcall.h	2006-06-21 04:44:50.158485520 -0700
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1069,6 +1069,9 @@ #ifdef CONFIG_IPV6_PRIVACY
- 				if (hiscore.attrs & IPV6_SADDR_SCORE_PRIVACY)
- 					continue;
- 			}
-+#else
-+			if (hiscore.rule < 7)
-+				hiscore.rule++;
- #endif
- 			/* Rule 8: Use longest matching prefix */
- 			if (hiscore.rule < 8) {
+ > +/**
+ > + * This file contains HCALL defines that are to be included in the appropriate
+ > + * kernel files later
+ > + */
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+this stuff should go in <asm-powerpc/hvcall.h> with the other
+constants, right?
