@@ -1,57 +1,161 @@
 From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: Suspending 802.11 drivers
-Date: Wed, 21 Jun 2006 22:41:55 +0200
-Message-ID: <200606212241.56208.mb@bu3sch.de>
-References: <200606152158.10079.mb@bu3sch.de> <200606162036.26518.stefan@loplof.de> <43e72e890606210808n187771e6k2f58789cf1fcf680@mail.gmail.com>
+Subject: Re: [PATCH 1/3] PAL: Support of the fixed PHY
+Date: Wed, 21 Jun 2006 22:48:27 +0200
+Message-ID: <200606212248.27836.mb@bu3sch.de>
+References: <20060621160950.4860.92979.stgit@vitb.ru.mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="utf-8"
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: "Stefan Rompf" <stefan@loplof.de>, "Jiri Benc" <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linuxppc-embedded@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:6785
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751113AbWFUUmi
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:5765
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932278AbWFUUtA
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jun 2006 16:42:38 -0400
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-In-Reply-To: <43e72e890606210808n187771e6k2f58789cf1fcf680@mail.gmail.com>
+	Wed, 21 Jun 2006 16:49:00 -0400
+To: Vitaly Bordug <vbordug@ru.mvista.com>
+In-Reply-To: <20060621160950.4860.92979.stgit@vitb.ru.mvista.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 21 June 2006 17:08, Luis R. Rodriguez wrote:
-> On 6/16/06, Stefan Rompf <stefan@loplof.de> wrote:
-> > Am Donnerstag 15 Juni 2006 21:58 schrieb Michael Buesch:
-> >
-> > I think the most important question is how a suspend/resume action should be
-> > translated. For the managed case, it is clearly an association loss, normally
-> > signalled by netif_carrier_on/off() and a corresponding SIOCGIWAP event.
-> > Supplicants can act on this. In AP mode, suspend is equal to disassociating
-> > all stations. Ad-hoc... dunno.
-> >
-> > For a softmac stack like devicescape, it makes sense to have a function that
-> > abstracts these scenarios as it is the stack anyway that handles association
-> > stuff. However, I'd rather extend the existing function
-> > ieee80211_netif_oper().
-> 
-> Since d80211 is already being patched for sysfs how about we use sysfs
-> (and kobjects) to maintain the state at suspend() and resume(). This
-> would allow userspace tools like supplicant running in the background
-> to pick up from sysfs where it left off and for our drivers to save
-> where we left off. ieee80211_hw can then just refer to their suspend()
-> and resume() routines from its respective struct pci_driver or struct
-> usb_device.
+On Wednesday 21 June 2006 18:09, Vitaly Bordug wrote:
 
-Ok, so you mean we remove the full responsibility to recover a connection
-from the driver resume() handler and let a userspace daemon keep
-track of this?
-So basically stay with the current implementation of suspend() and
-resume() in the drivers and assume userspace does the right thing
-and detects a resume and recovers connections and so on?
-Did I understand that right? If yes, I think that's a very nice idea, too.
-Probably the best.
+> +static int fixed_mdio_update_regs(struct fixed_info *fixed)
+> +{
+> +	u16 *regs = fixed->regs;
+> +	u16 bmsr = 0;
+> +	u16 bmcr = 0;
+> +
+> +	if(!regs) {
+> +		printk(KERN_ERR "%s: regs not set up", __FUNCTION__);
+> +		return -1;
+
+-EINVAL perhaps?
+
+> +static int fixed_mdio_register_device(int number, int speed, int duplex)
+> +{
+> +	struct mii_bus *new_bus;
+> +	struct fixed_info *fixed;
+> +	struct phy_device *phydev;
+> +	int err = 0;
+> +
+> +	struct device* dev = kzalloc(sizeof(struct device), GFP_KERNEL);
+> +
+> +	if (NULL == dev)
+> +		return -EINVAL;
+
+-ENOMEM here.
+
+> +	new_bus = kzalloc(sizeof(struct mii_bus), GFP_KERNEL);
+> +
+> +	if (NULL == new_bus) {
+> +		kfree(dev);
+> +		return -ENOMEM;
+> +	}
+> +	fixed = fixed_ptr = kzalloc(sizeof(struct fixed_info), GFP_KERNEL);
+> +
+> +	if (NULL == fixed) {
+> +		kfree(dev);
+> +		kfree(new_bus);
+> +		return -ENOMEM;
+> +	}
+> +
+> +	fixed->regs = kzalloc(MII_REGS_NUM*sizeof(int), GFP_KERNEL);
+> +
+> +	if (NULL == fixed->regs) {
+> +		kfree(dev);
+> +		kfree(new_bus);
+> +		kfree (fixed);
+> +		return -ENOMEM;
+> +	}
+> +
+> +	fixed->regs_num = MII_REGS_NUM;
+> +	fixed->phy_status.speed = speed;
+> +	fixed->phy_status.duplex = duplex;
+> +	fixed->phy_status.link = 1;
+> +
+> +	new_bus->name = "Fixed MII Bus",
+> +	new_bus->read = &fixed_mii_read,
+> +	new_bus->write = &fixed_mii_write,
+> +	new_bus->reset = &fixed_mii_reset,
+> +
+> +	/*set up workspace*/
+> +	fixed_mdio_update_regs(fixed);
+> +	new_bus->priv = fixed;
+> +
+> +	new_bus->dev = dev;
+> +	dev_set_drvdata(dev, new_bus);
+> +
+> +	/* create phy_device and register it on the mdio bus */
+> +	phydev = phy_device_create(new_bus, 0, 0);
+> +
+> +	/*
+> +	 Put the phydev pointer into the fixed pack so that bus read/write code could be able
+> +	 to access for instance attached netdev. Well it doesn't have  to do so, only in case
+> +	 of utilizing user-specified link-update...
+> +	 */
+> +	fixed->phydev = phydev;
+> +
+> +	if (IS_ERR(phydev)) {
+> +		err = PTR_ERR(-ENOMEM);
+> +		goto bus_register_fail;
+> +	}
+> +
+> +	phydev->irq = -1;
+> +	phydev->dev.bus = &mdio_bus_type;
+> +
+> +	if(number)
+> +		snprintf(phydev->dev.bus_id, BUS_ID_SIZE,
+> +				"fixed_%d@%d:%d", number, speed, duplex);
+> +	else
+> +		snprintf(phydev->dev.bus_id, BUS_ID_SIZE,
+> +				"fixed@%d:%d", speed, duplex);
+> +	phydev->bus = new_bus;
+> +
+> +	err = device_register(&phydev->dev);
+> +	if(err) {
+> +		printk(KERN_ERR "Phy %s failed to register\n",
+> +				phydev->dev.bus_id);
+> +		goto bus_register_fail;
+> +	}
+> +
+> +	/*
+> +	   the mdio bus has phy_id match... In order not to do it
+> +	   artificially, we are binding the driver here by hand;
+> +	   it will be the same
+> +	   for all the fixed phys anyway.
+> +	 */
+> +	down_write(&phydev->dev.bus->subsys.rwsem);
+> +
+> +	phydev->dev.driver = &fixed_mdio_driver.driver;
+> +
+> +	err = phydev->dev.driver->probe(&phydev->dev);
+> +	if(err < 0) {
+> +		printk(KERN_ERR "Phy %s: problems with fixed driver\n",
+> +				phydev->dev.bus_id);
+> +		up_write(&phydev->dev.bus->subsys.rwsem);
+> +		goto bus_register_fail;
+
+Probably need some additional error unwinding code.
+Of doesn't device_register() have to be reverted?
+What about phy_device_create()?
+
+> +	}
+> +
+> +	device_bind_driver(&phydev->dev);
+> +	up_write(&phydev->dev.bus->subsys.rwsem);
+> +
+> +	return 0;
+> +
+> +bus_register_fail:
+> +	kfree(dev);
+> +	kfree (fixed);
+> +	kfree(new_bus);
+> +
+> +	return err;
+> +}
 
 -- 
 Greetings Michael.
