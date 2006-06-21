@@ -1,33 +1,37 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/irda/mcs7780.c: make struct mcs_driver static
-Date: Thu, 22 Jun 2006 01:20:10 +0200
-Message-ID: <20060621232010.GS9111@stusta.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [1/5] [NET]: Merge TSO/UFO fields in sk_buff
+Date: Thu, 22 Jun 2006 09:27:41 +1000
+Message-ID: <20060621232741.GA21559@gondor.apana.org.au>
+References: <20060620090919.GA31613@gondor.apana.org.au> <20060620091050.GA31854@gondor.apana.org.au> <1150926495.3475.5.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:38411 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1030456AbWFUXUL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jun 2006 19:20:11 -0400
-To: Samuel Ortiz <samuel@sortiz.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:13323 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751484AbWFUX2P
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jun 2006 19:28:15 -0400
+To: Michael Chan <mchan@broadcom.com>
 Content-Disposition: inline
+In-Reply-To: <1150926495.3475.5.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes a needlessly global struct static.
+Hi Michael:
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+On Wed, Jun 21, 2006 at 02:48:15PM -0700, Michael Chan wrote:
+> 
+> We have some hardware that supports TSO and ECN.  Is something like the
+> patch below what you had in mind to support NETIF_F_TSO_ECN?  Or are you
+> thinking about something more generic that works with or without
+> hardware support?
 
---- linux-2.6.17-mm1-full/drivers/net/irda/mcs7780.c.old	2006-06-22 00:38:41.000000000 +0200
-+++ linux-2.6.17-mm1-full/drivers/net/irda/mcs7780.c	2006-06-22 00:38:50.000000000 +0200
-@@ -101,7 +101,7 @@
- module_param(transceiver_type, int, 0444);
- MODULE_PARM_DESC(transceiver_type, "IR transceiver type, see mcs7780.h.");
- 
--struct usb_driver mcs_driver = {
-+static struct usb_driver mcs_driver = {
- 	.name = "mcs7780",
- 	.probe = mcs_probe,
- 	.disconnect = mcs_disconnect,
+Yeah I was thinking of something more generic because packets with CWR
+set should be rare.
 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
