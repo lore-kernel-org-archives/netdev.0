@@ -1,51 +1,38 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Sanitise ethtool.h and mii.h for userspace.
-Date: Tue, 20 Jun 2006 21:18:27 -0400
-Message-ID: <44989E63.9010300@garzik.org>
-References: <200606202308.k5KN83bT013398@hera.kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Netdev List <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Linus Torvalds <torvalds@osdl.org>
+From: Philip Craig <philipc@snapgear.com>
+Subject: [PATCH 1/2 resend] 8139cp: fix eeprom read command length
+Date: Wed, 21 Jun 2006 11:33:26 +1000
+Message-ID: <20060621013337.789014000@snapgear.com>
+References: <4497B73A.4080804@pobox.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:8835 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1750834AbWFUBSa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Jun 2006 21:18:30 -0400
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <200606202308.k5KN83bT013398@hera.kernel.org>
+Received: from rex.snapgear.com ([203.143.235.140]:16349 "EHLO
+	cyberguard.com.au") by vger.kernel.org with ESMTP id S1750746AbWFUBwP
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jun 2006 21:52:15 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline; filename=8139cp-read-eeprom.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linux Kernel Mailing List wrote:
-> commit c3ce7e203af5d8eab7c3390fc991a1fcb152f741
-> tree 43b0837c42a1deb5b0f87800bf6a5ed8eea2eafe
-> parent 56142536868a2be34f261ed8fdca1610f8a73fbd
-> author David Woodhouse <dwmw2@shinybook.infradead.org> Sat, 29 Apr 2006 01:53:47 +0100
-> committer David Woodhouse <dwmw2@infradead.org> Sat, 29 Apr 2006 01:53:47 +0100
-> 
-> Sanitise ethtool.h and mii.h for userspace.
-> 
-> They shouldn't be using 'u32' et al in structures which are used for
-> communication with userspace. Switch to the proper types (__u32 etc).
-> 
-> Signed-off-by: David Woodhouse <dwmw2@infradead.org>
+The read command for the 93C46/93C56 EEPROMS should be 3 bits plus
+the address.  This doesn't appear to affect the operation of the
+read command, but similar errors for write commands do cause failures.
 
-How can reviewers make an informed decision, when you completely failed 
-to note:
+Signed-off-by: Philip Craig <philipc@snapgear.com>
 
-* This breaks the primary userspace user of this header, ethtool(8)
-* The patch was NAK'd (and I don't even get a "Naked-by:" header :))
-* Despite knowing all this for quite some time, no associated userspace 
-fix patch has ever appeared.
+Index: linux-2.6.17-rc6/drivers/net/8139cp.c
+===================================================================
+--- linux-2.6.17-rc6.orig/drivers/net/8139cp.c	2006-06-14 16:02:00.000000000 +1000
++++ linux-2.6.17-rc6/drivers/net/8139cp.c	2006-06-14 16:03:29.000000000 +1000
+@@ -1628,7 +1628,7 @@ static int read_eeprom (void __iomem *io
+ 	eeprom_delay ();
+ 
+ 	/* Shift the read command bits out. */
+-	for (i = 4 + addr_len; i >= 0; i--) {
++	for (i = 3 + addr_len - 1; i >= 0; i--) {
+ 		int dataval = (read_cmd & (1 << i)) ? EE_DATA_WRITE : 0;
+ 		writeb (EE_ENB | dataval, ee_addr);
+ 		eeprom_delay ();
 
-If you are going to break stuff, AT LEAST TELL PEOPLE IN ALL CAPS ABOUT 
-IT, rather than providing the highly deceptive description as above. 
-And be courteous enough to help fix the breakage, if you please.
-
-	Jeff, ethtool maintainer
-
-
+--
 
