@@ -1,161 +1,85 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 1/3] PAL: Support of the fixed PHY
-Date: Wed, 21 Jun 2006 22:48:27 +0200
-Message-ID: <200606212248.27836.mb@bu3sch.de>
-References: <20060621160950.4860.92979.stgit@vitb.ru.mvista.com>
+From: "Ron Mercer" <ron.mercer@qlogic.com>
+Subject: RE: New Qlogic qla3xxx NIC Driver v2.02.00k31 for upstream inclusion
+Date: Wed, 21 Jun 2006 14:24:27 -0700
+Message-ID: <0BB3E5E7462EEA4295BC02D49691DC07176751@AVEXCH1.qlogic.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linuxppc-embedded@ozlabs.org
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-driver@qlogic.com>, <netdev@vger.kernel.org>,
+	<akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:5765
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932278AbWFUUtA
+Received: from pat.qlogic.com ([198.70.193.2]:14719 "EHLO avexch1.qlogic.com")
+	by vger.kernel.org with ESMTP id S1751399AbWFUVY2 convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jun 2006 16:49:00 -0400
-To: Vitaly Bordug <vbordug@ru.mvista.com>
-In-Reply-To: <20060621160950.4860.92979.stgit@vitb.ru.mvista.com>
-Content-Disposition: inline
+	Wed, 21 Jun 2006 17:24:28 -0400
+Content-class: urn:content-classes:message
+To: <jeff@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 21 June 2006 18:09, Vitaly Bordug wrote:
+Jeff,
 
-> +static int fixed_mdio_update_regs(struct fixed_info *fixed)
-> +{
-> +	u16 *regs = fixed->regs;
-> +	u16 bmsr = 0;
-> +	u16 bmcr = 0;
-> +
-> +	if(!regs) {
-> +		printk(KERN_ERR "%s: regs not set up", __FUNCTION__);
-> +		return -1;
+Please add the qla3xxx NIC driver to the next netdev-2.6 GIT tree. 
 
--EINVAL perhaps?
+Regards,
+Ron Mercer
 
-> +static int fixed_mdio_register_device(int number, int speed, int duplex)
-> +{
-> +	struct mii_bus *new_bus;
-> +	struct fixed_info *fixed;
-> +	struct phy_device *phydev;
-> +	int err = 0;
-> +
-> +	struct device* dev = kzalloc(sizeof(struct device), GFP_KERNEL);
-> +
-> +	if (NULL == dev)
-> +		return -EINVAL;
-
--ENOMEM here.
-
-> +	new_bus = kzalloc(sizeof(struct mii_bus), GFP_KERNEL);
-> +
-> +	if (NULL == new_bus) {
-> +		kfree(dev);
-> +		return -ENOMEM;
-> +	}
-> +	fixed = fixed_ptr = kzalloc(sizeof(struct fixed_info), GFP_KERNEL);
-> +
-> +	if (NULL == fixed) {
-> +		kfree(dev);
-> +		kfree(new_bus);
-> +		return -ENOMEM;
-> +	}
-> +
-> +	fixed->regs = kzalloc(MII_REGS_NUM*sizeof(int), GFP_KERNEL);
-> +
-> +	if (NULL == fixed->regs) {
-> +		kfree(dev);
-> +		kfree(new_bus);
-> +		kfree (fixed);
-> +		return -ENOMEM;
-> +	}
-> +
-> +	fixed->regs_num = MII_REGS_NUM;
-> +	fixed->phy_status.speed = speed;
-> +	fixed->phy_status.duplex = duplex;
-> +	fixed->phy_status.link = 1;
-> +
-> +	new_bus->name = "Fixed MII Bus",
-> +	new_bus->read = &fixed_mii_read,
-> +	new_bus->write = &fixed_mii_write,
-> +	new_bus->reset = &fixed_mii_reset,
-> +
-> +	/*set up workspace*/
-> +	fixed_mdio_update_regs(fixed);
-> +	new_bus->priv = fixed;
-> +
-> +	new_bus->dev = dev;
-> +	dev_set_drvdata(dev, new_bus);
-> +
-> +	/* create phy_device and register it on the mdio bus */
-> +	phydev = phy_device_create(new_bus, 0, 0);
-> +
-> +	/*
-> +	 Put the phydev pointer into the fixed pack so that bus read/write code could be able
-> +	 to access for instance attached netdev. Well it doesn't have  to do so, only in case
-> +	 of utilizing user-specified link-update...
-> +	 */
-> +	fixed->phydev = phydev;
-> +
-> +	if (IS_ERR(phydev)) {
-> +		err = PTR_ERR(-ENOMEM);
-> +		goto bus_register_fail;
-> +	}
-> +
-> +	phydev->irq = -1;
-> +	phydev->dev.bus = &mdio_bus_type;
-> +
-> +	if(number)
-> +		snprintf(phydev->dev.bus_id, BUS_ID_SIZE,
-> +				"fixed_%d@%d:%d", number, speed, duplex);
-> +	else
-> +		snprintf(phydev->dev.bus_id, BUS_ID_SIZE,
-> +				"fixed@%d:%d", speed, duplex);
-> +	phydev->bus = new_bus;
-> +
-> +	err = device_register(&phydev->dev);
-> +	if(err) {
-> +		printk(KERN_ERR "Phy %s failed to register\n",
-> +				phydev->dev.bus_id);
-> +		goto bus_register_fail;
-> +	}
-> +
-> +	/*
-> +	   the mdio bus has phy_id match... In order not to do it
-> +	   artificially, we are binding the driver here by hand;
-> +	   it will be the same
-> +	   for all the fixed phys anyway.
-> +	 */
-> +	down_write(&phydev->dev.bus->subsys.rwsem);
-> +
-> +	phydev->dev.driver = &fixed_mdio_driver.driver;
-> +
-> +	err = phydev->dev.driver->probe(&phydev->dev);
-> +	if(err < 0) {
-> +		printk(KERN_ERR "Phy %s: problems with fixed driver\n",
-> +				phydev->dev.bus_id);
-> +		up_write(&phydev->dev.bus->subsys.rwsem);
-> +		goto bus_register_fail;
-
-Probably need some additional error unwinding code.
-Of doesn't device_register() have to be reverted?
-What about phy_device_create()?
-
-> +	}
-> +
-> +	device_bind_driver(&phydev->dev);
-> +	up_write(&phydev->dev.bus->subsys.rwsem);
-> +
-> +	return 0;
-> +
-> +bus_register_fail:
-> +	kfree(dev);
-> +	kfree (fixed);
-> +	kfree(new_bus);
-> +
-> +	return err;
-> +}
-
--- 
-Greetings Michael.
+> -----Original Message-----
+> From: Ron Mercer 
+> Sent: Monday, June 12, 2006 1:33 PM
+> To: 'jeff@garzik.org'
+> Cc: 'linux-driver@qlogic.com'; 'netdev@vger.kernel.org'
+> Subject: New Qlogic qla3xxx NIC Driver v2.02.00k31 for 
+> upstream inclusion
+> 
+> Jeff,
+> 
+> Please find the Qlogic qla3xxx Ethernet driver posted at the 
+> URL below. This is a complementary network driver for our 
+> ISP4XXX parts.
+> There is a concurrent effort underway to get the iSCSI driver 
+> (qla4xxx) integrated upstream as well.
+> 
+> I have been through several iterations with the linux-netdev 
+> list and have had much response from Stephen Hemminger. In 
+> his last response he suggested I submit the driver to you.
+> 
+> This submission is contained in a patch file that does the following:
+> 
+> Adds:
+> drivers/net/qla3xxx.c
+> drivers/net/qla3xxx.h
+> 
+> Modifies:
+> MAINTAINERS
+> drivers/net/Makefile
+> drivers/net/Kconfig
+> 
+> Patch file qla3xxxpatch1-v2.02.00-k31.txt is at the following link:
+> 
+>
+ftp://ftp.qlogic.com/outgoing/linux/network/upstream/2.02.00k31/qla3xxxp
+atch1-v2.02.00-k31.txt
+> 
+> 
+> Some notes on the driver/hardware:
+> 
+> - Built and tested using kernel 2.6.17-rc4.
+> - The chip supports two ethernet and two iSCSI functions.
+> - The functions ql_sem_lock, ql_sem_spinlock, ql_sem_unlock, 
+> and ql_wait_for_drvr_lock are used to protect resources that 
+> are shared across the network and iSCSI functions.  This 
+> protection is mostly during chip initialization and resets, 
+> but also include link management.
+> - The PHY/MII are not exported through ethtool due to the 
+> fact that the iSCSI function will control the common link at 
+> least 50% of the time.
+> 
+> 
+> 
+> Regards,
+> 
+> Ron Mercer
+> Qlogic Corporation
+> 
