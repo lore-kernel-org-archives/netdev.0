@@ -1,63 +1,68 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: Locking validator output on DCCP
-Date: Wed, 21 Jun 2006 12:52:56 +0200
-Message-ID: <20060621105256.GA21015@elte.hu>
-References: <5640c7e00606201640wa1ad17fl46a32ceb49513867@mail.gmail.com> <20060621003413.GA31915@gondor.apana.org.au>
+From: Brice Goglin <brice@myri.com>
+Subject: Re: + myri10ge-build-fix.patch added to -mm tree
+Date: Wed, 21 Jun 2006 08:09:51 -0400
+Message-ID: <4499370F.2020101@myri.com>
+References: <200606210433.k5L4XgmP008626@shell0.pdx.osdl.net> <20060621044107.GB899@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ian McDonald <ian.mcdonald@jandi.co.nz>,
-	netdev <netdev@vger.kernel.org>,
-	DCCP Mailing List <dccp@vger.kernel.org>,
-	Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, mm-commits@vger.kernel.org, davem@davemloft.net,
+	jeff@garzik.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:32710 "EHLO mx2.mail.elte.hu")
-	by vger.kernel.org with ESMTP id S1751296AbWFUK5z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2006 06:57:55 -0400
+Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:56481 "EHLO
+	myri.com") by vger.kernel.org with ESMTP id S1751515AbWFUMKk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2006 08:10:40 -0400
 To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <20060621003413.GA31915@gondor.apana.org.au>
+In-Reply-To: <20060621044107.GB899@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Herbert Xu wrote:
+> On Tue, Jun 20, 2006 at 09:33:42PM -0700, akpm@osdl.org wrote:
+>> diff -puN drivers/net/myri10ge/myri10ge.c~myri10ge-build-fix
+>> drivers/net/myri10ge/myri10ge.c
+>> --- a/drivers/net/myri10ge/myri10ge.c~myri10ge-build-fix
+>> +++ a/drivers/net/myri10ge/myri10ge.c
+>> @@ -2120,7 +2120,7 @@ abort_linearize:
+>> goto drop;
+>> }
+>>
+>> - if (skb_linearize(skb, GFP_ATOMIC))
+>> + if (skb_linearize(skb))
+>> goto drop;
+>
+> Actually I think this driver (in conjunction with TSO) is buggy.
+> It has a maximum segment count of 12. However TSO can send 13 pages
+> or more of data on i386. If this happens it looks like this driver
+> will go into an infinite loop forever trying to linearize the skb.
+>
+> Cheers,
 
-* Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Actually, we use 64 segments when TSO in enabled
+(MYRI10GE_MAX_SEND_DESC_TSO):
 
-> > Can someone tell me whether I am correct in my thinking or not? If I 
-> > am then I will work out how to tell the lock validator not to worry 
-> > about it.
-> 
-> I agree, this looks bogus.  Ingo, could you please take a look?
+#define MYRI10GE_MAX_SEND_DESC_TSO ((65536 / 2048) * 2)
 
-sure - Ian, could you try Arjan's fix below?
+<.....>
 
-	Ingo
+    max_segments = MXGEFW_MAX_SEND_DESC;
 
-------------------------------------------------------------
-Subject: lock validator: annotate vlan "master" device locks
-From: Arjan van de Ven <arjan@linux.intel.com>
+#ifdef NETIF_F_TSO
+if (skb->len > (dev->mtu + ETH_HLEN)) {
+    mss = skb_shinfo(skb)->tso_size;
+    if (mss != 0)
+        max_segments = MYRI10GE_MAX_SEND_DESC_TSO;
+}
+#endif /*NETIF_F_TSO */
 
-vlan devices are "masters" of normal "slave" devices and thus need their 
-own lock key. (this will be switched to the reinit_key APIs once they 
-are available)
 
-Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
+And we never try to linearize a TSO frame:
 
----
- net/8021q/vlan.c |    2 ++
- 1 file changed, 2 insertions(+)
+if (skb_shinfo(skb)->tso_size) {
+    printk(KERN_ERR "myri10ge: %s: TSO but wanted to linearize?!?!?\n",
+        mgp->dev->name);
+    goto drop;
+}
 
-Index: linux-2.6.17-rc6-mm2/net/8021q/vlan.c
-===================================================================
---- linux-2.6.17-rc6-mm2.orig/net/8021q/vlan.c
-+++ linux-2.6.17-rc6-mm2/net/8021q/vlan.c
-@@ -463,6 +463,8 @@ static struct net_device *register_vlan_
- 	if (new_dev == NULL)
- 		goto out_unlock;
- 
-+	spin_lock_init(&dev->xmit_lock);
-+
- #ifdef VLAN_DEBUG
- 	printk(VLAN_DBG "Allocated new name -:%s:-\n", new_dev->name);
- #endif
+Brice
 
