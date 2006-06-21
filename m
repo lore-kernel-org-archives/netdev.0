@@ -1,65 +1,48 @@
-From: Krzysztof Matusik <kyf@arterm.pl>
-Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
-Date: Wed, 21 Jun 2006 16:33:07 +0200
-Message-ID: <200606211633.08198.kyf@arterm.pl>
-References: <1150278004.26181.35.camel@localhost.localdomain> <200606211421.05606.kyf@arterm.pl> <44994192.5050807@trash.net>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: Suspending 802.11 drivers
+Date: Wed, 21 Jun 2006 11:08:47 -0400
+Message-ID: <43e72e890606210808n187771e6k2f58789cf1fcf680@mail.gmail.com>
+References: <200606152158.10079.mb@bu3sch.de>
+	 <200606162036.26518.stefan@loplof.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Michael Buesch" <mb@bu3sch.de>, "Jiri Benc" <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from b162.lepiej.pl ([217.153.189.162]:52419 "EHLO b02.lepiej.pl")
-	by vger.kernel.org with ESMTP id S1751582AbWFUOdO convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jun 2006 10:33:14 -0400
-Received: from [10.0.0.25] ([213.199.219.69])
-	(authenticated bits=0)
-	by b02.lepiej.pl (8.13.7/8.13.7/Debian-1) with ESMTP id k5LEXAOB025441
-	(version=TLSv1/SSLv3 cipher=EXP1024-RC4-SHA bits=56 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 21 Jun 2006 16:33:12 +0200
-To: netdev@vger.kernel.org
-In-Reply-To: <44994192.5050807@trash.net>
+Received: from ug-out-1314.google.com ([66.249.92.172]:29170 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1751638AbWFUPIt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jun 2006 11:08:49 -0400
+Received: by ug-out-1314.google.com with SMTP id a2so2849178ugf
+        for <netdev@vger.kernel.org>; Wed, 21 Jun 2006 08:08:47 -0700 (PDT)
+To: "Stefan Rompf" <stefan@loplof.de>
+In-Reply-To: <200606162036.26518.stefan@loplof.de>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dnia =C5=9Broda, 21 czerwca 2006 14:54, Patrick McHardy napisa=C5=82:
-> > I'd love to see this one implemented. I'm using HFSC more than a ye=
-ar and
-> > it never provides proper QoS on ATM/ADSL links; low delays can neve=
-r be
-> > achieved even with significant throttling below the h/w link bandwi=
-dth.
+On 6/16/06, Stefan Rompf <stefan@loplof.de> wrote:
+> Am Donnerstag 15 Juni 2006 21:58 schrieb Michael Buesch:
 >
-> Mhh .. I trust you picked a proper clocksource and timer frequency?
+> I think the most important question is how a suspend/resume action should be
+> translated. For the managed case, it is clearly an association loss, normally
+> signalled by netif_carrier_on/off() and a corresponding SIOCGIWAP event.
+> Supplicants can act on this. In AP mode, suspend is equal to disassociating
+> all stations. Ad-hoc... dunno.
+>
+> For a softmac stack like devicescape, it makes sense to have a function that
+> abstracts these scenarios as it is the stack anyway that handles association
+> stuff. However, I'd rather extend the existing function
+> ieee80211_netif_oper().
 
-250Hz or 1000Hz and jiffies (for a SMP machine)
-I don't mean I've got big delays though and those are lowest with HFSC,=
- when=20
-link is satiated.
+Since d80211 is already being patched for sysfs how about we use sysfs
+(and kobjects) to maintain the state at suspend() and resume(). This
+would allow userspace tools like supplicant running in the background
+to pick up from sysfs where it left off and for our drivers to save
+where we left off. ieee80211_hw can then just refer to their suspend()
+and resume() routines from its respective struct pci_driver or struct
+usb_device.
 
-IMHO since ATM is sending small packets constantly thorough its link (A=
-TM=20
-specific) encapsulated data defragmentation cannot simply be achieved (=
-or it=20
-simply isn't done by modems). As a result one can't simply throttle qdi=
-sc=20
-basing on computations like=20
-UpperLimit =3D ( bandwidth*(1 - header_bits/frame_size )
-having bandwidth specified by ATM link speed rate, as it can be reporte=
-d by=20
-modem, and expect it won't ever be congested.
-This seems to be main problem. Link asymmetry, window size etc don't af=
-fect=20
-line congestion and so delays that much I suppose.
-The same with incorrect timer :-).
-
-> I hacked up a patch yesterday. I want to do a bit more testing before
-> posting it, but its hard to really test the effectiveness because eve=
-n
-> without this patch my DSL line already delivers higher throughput and
-> much better delay than it should (its a throttled SDSL line sold as
-> ADSL). I'll try to do some testing on an ethernet link now.
-
-I'll follow this thread then.
-
-regards
+  Luis
