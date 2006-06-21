@@ -1,81 +1,57 @@
-From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-Subject: RE: [PATCH 01/06] MLSXFRM: Granular IPSec associations for use in
-	 MLS environments
-Date: Wed, 21 Jun 2006 16:36:12 -0400
-Message-ID: <36282A1733C57546BE392885C06185920132419A@chaos.tcs.tcs-sec.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: Suspending 802.11 drivers
+Date: Wed, 21 Jun 2006 22:41:55 +0200
+Message-ID: <200606212241.56208.mb@bu3sch.de>
+References: <200606152158.10079.mb@bu3sch.de> <200606162036.26518.stefan@loplof.de> <43e72e890606210808n187771e6k2f58789cf1fcf680@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="iso-8859-1"
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Stefan Rompf" <stefan@loplof.de>, "Jiri Benc" <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:36707 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1030267AbWFUUgm
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:6785
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751113AbWFUUmi
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jun 2006 16:36:42 -0400
-To: James Morris <jmorris@namei.org>
+	Wed, 21 Jun 2006 16:42:38 -0400
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>
+In-Reply-To: <43e72e890606210808n187771e6k2f58789cf1fcf680@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Can you clarify whether, with this patch, Linux will then 
-> have a complete 
-> labeled network implementation in terms of both LSPP 
-> compliance and common 
-> user requirements?
-
-I can't comment on the LSPP compliance issue since the specific/proprietary
-security target being used might really decide what's needed.
-
-As for common user requirements, at least as I understand them, I would
-look for the following in addition to this patch:
-
-- Auto-labelling of child sockets for TCP (I am planning on sending a
-separate
-  patch out in the next few days).
-- Using the label from the incoming packet while sending timewait
-acknowledgements
-  and other packets sent on behalf of kernel sockets.
-- sid prioritization among the current mix of secmark, ipsec, and the
-upcoming netlabel
-- Replacing secmark on output with an access check in postrouting.
-- localhost traffic handling with regard to labelling.
-
+On Wednesday 21 June 2006 17:08, Luis R. Rodriguez wrote:
+> On 6/16/06, Stefan Rompf <stefan@loplof.de> wrote:
+> > Am Donnerstag 15 Juni 2006 21:58 schrieb Michael Buesch:
+> >
+> > I think the most important question is how a suspend/resume action should be
+> > translated. For the managed case, it is clearly an association loss, normally
+> > signalled by netif_carrier_on/off() and a corresponding SIOCGIWAP event.
+> > Supplicants can act on this. In AP mode, suspend is equal to disassociating
+> > all stations. Ad-hoc... dunno.
+> >
+> > For a softmac stack like devicescape, it makes sense to have a function that
+> > abstracts these scenarios as it is the stack anyway that handles association
+> > stuff. However, I'd rather extend the existing function
+> > ieee80211_netif_oper().
 > 
-> > Outstanding items/issues: 
-> > - Timewait acknowledgements and such are generated in the 
-> > current/upstream implementation using a NULL socket 
-> resulting in the 
-> > any_socket sid (SYSTEM_HIGH) to be used. This problem is 
-> not addressed 
-> > by this patch set.
-> 
-> This needs to be resolved, along with labeling for all kernel owned 
-> socket/tw objects.
+> Since d80211 is already being patched for sysfs how about we use sysfs
+> (and kobjects) to maintain the state at suspend() and resume(). This
+> would allow userspace tools like supplicant running in the background
+> to pick up from sysfs where it left off and for our drivers to save
+> where we left off. ieee80211_hw can then just refer to their suspend()
+> and resume() routines from its respective struct pci_driver or struct
+> usb_device.
 
-Resolved these should be, but given the fact that this patch doesn't
-introduce this problem in the first place, and given the value it adds to
-the
-xfrm stuff, my hope would be for this patch to be treated separately. I am
-hoping
-for 2.6.18 if possible.
+Ok, so you mean we remove the full responsibility to recover a connection
+from the driver resume() handler and let a userspace daemon keep
+track of this?
+So basically stay with the current implementation of suspend() and
+resume() in the drivers and assume userspace does the right thing
+and detects a resume and recovers connections and so on?
+Did I understand that right? If yes, I think that's a very nice idea, too.
+Probably the best.
 
->  I'm not entirely clear on why this 
-> doesn't already 
-> work, as it is using IPsec, which should certainly be able to 
-> encapsulate 
-> all of this traffic.
-
-Sans label-based checks, no problem. But with label-enhanced checks in
-place,
-we need to have the label to use, which we don't since there's no real
-socket present which normally provided the label. One way to handle
-this would be to use the label on the incoming packet for the response
-as mentioned earlier.
-
-> 
-> It would also be interesting to know what kind of testing 
-> this code as 
-> had.
-
-Primarily functional testing. Joy Latten at IBM is planning
-on further testing this using the framework built for the original
-work I believe.
+-- 
+Greetings Michael.
