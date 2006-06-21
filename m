@@ -1,91 +1,82 @@
-From: Gerhard Jaeger <g.jaeger@sysgo.com>
+From: Vitaly Bordug <vbordug@ru.mvista.com>
 Subject: Re: [PATCH 2/3] FS_ENET: use PAL for mii management
-Date: Wed, 21 Jun 2006 09:20:36 +0200
-Message-ID: <200606210920.37295.g.jaeger@sysgo.com>
-References: <20060620145825.24807.310.stgit@vitb.ru.mvista.com> <20060620145840.24807.30296.stgit@vitb.ru.mvista.com>
+Date: Wed, 21 Jun 2006 11:38:43 +0400
+Message-ID: <20060621113843.7d33bad3@localhost.localdomain>
+References: <20060620145825.24807.310.stgit@vitb.ru.mvista.com>
+	<20060620145840.24807.30296.stgit@vitb.ru.mvista.com>
+	<200606210920.37295.g.jaeger@sysgo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Vitaly Bordug <vbordug@ru.mvista.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751256AbWFUHUw@vger.kernel.org>
-To: linuxppc-embedded@ozlabs.org
-In-Reply-To: <20060620145840.24807.30296.stgit@vitb.ru.mvista.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-embedded@ozlabs.org
+Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+To: Gerhard Jaeger <g.jaeger@sysgo.com>
+In-Reply-To: <200606210920.37295.g.jaeger@sysgo.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-On Tuesday 20 June 2006 16:58, Vitaly Bordug wrote:
-> 
-> This patch should update the fs_enet infrastructure to utilize
-> Phy Abstraction Layer subsystem. Inside there are generic driver rehaul,
-> board-specific portion to respect driver changes (for 8272ads and 866ads).
-> 
-> Signed-off-by: Vitaly Bordug <vbordug@ru.mvista.com>
-> ---
-> 
->  arch/ppc/platforms/mpc8272ads_setup.c |  154 ++++++----
->  arch/ppc/platforms/mpc866ads_setup.c  |  192 ++++++------
->  arch/ppc/platforms/mpc885ads_setup.c  |  179 ++++--------
->  arch/ppc/syslib/mpc8xx_devices.c      |    8 +
->  arch/ppc/syslib/mpc8xx_sys.c          |    6 
->  arch/ppc/syslib/pq2_devices.c         |    5 
->  arch/ppc/syslib/pq2_sys.c             |    3 
->  drivers/net/fs_enet/Makefile          |    6 
->  drivers/net/fs_enet/fec.h             |   42 +++
->  drivers/net/fs_enet/fs_enet-main.c    |  207 ++++++++-----
->  drivers/net/fs_enet/fs_enet-mii.c     |  507 ---------------------------------
->  drivers/net/fs_enet/fs_enet.h         |   40 ++-
->  drivers/net/fs_enet/mac-fcc.c         |   10 -
->  drivers/net/fs_enet/mac-fec.c         |  132 +--------
->  drivers/net/fs_enet/mac-scc.c         |    4 
->  drivers/net/fs_enet/mii-bitbang.c     |  384 +++++++++++++++----------
->  drivers/net/fs_enet/mii-fec.c         |  243 ++++++++++++++++
->  drivers/net/fs_enet/mii-fixed.c       |   92 ------
->  include/asm-ppc/mpc8260.h             |    1 
->  include/asm-ppc/mpc8xx.h              |    1 
->  include/linux/fs_enet_pd.h            |   50 +--
->  21 files changed, 983 insertions(+), 1283 deletions(-)
-
-[SNIPSNAP]
-> diff --git a/drivers/net/fs_enet/mii-bitbang.c b/drivers/net/fs_enet/mii-bitbang.c
-> index 24a5e2e..145bf4c 100644
-> --- a/drivers/net/fs_enet/mii-bitbang.c
-> +++ b/drivers/net/fs_enet/mii-bitbang.c
-> @@ -34,6 +34,7 @@
->  #include <linux/mii.h>
->  #include <linux/ethtool.h>
->  #include <linux/bitops.h>
-> +#include <linux/platform_device.h>
->  
->  #include <asm/pgtable.h>
->  #include <asm/irq.h>
-> @@ -41,6 +42,7 @@
->  
->  #include "fs_enet.h"
->  
-> +
->  #ifdef CONFIG_8xx
->  static int bitbang_prep_bit(u8 **dirp, u8 **datp, u8 *mskp, int port, int bit)
->  {
-> @@ -106,64 +108,25 @@ static int bitbang_prep_bit(u8 **dirp, u
->  }
->  #endif
->  
-> -#ifdef CONFIG_8260
-> -static int bitbang_prep_bit(u8 **dirp, u8 **datp, u8 *mskp, int port, int bit)
-> +static int bitbang_prep_bit(u8 **datp, u8 *mskp,
-> +		struct fs_mii_bit *mii_bit)
-
-is it possible, that in case of CONFIG_8xx you'll have two times this 
-bitbang_prep_bit() function? 
-
-Gerhard
-
--- 
-Gerhard Jaeger <gjaeger@sysgo.com>            
-SYSGO AG                      Embedded and Real-Time Software
-www.sysgo.com | www.elinos.com | www.pikeos.com | www.osek.de 
+0J3QsCBXZWQsIDIxIEp1biAyMDA2IDA5OjIwOjM2ICswMjAwCkdlcmhhcmQgSmFlZ2VyIDxnLmph
+ZWdlckBzeXNnby5jb20+INC30LDQv9C40YHQsNC90L46Cgo+IEhpLAo+IAo+IE9uIFR1ZXNkYXkg
+MjAgSnVuZSAyMDA2IDE2OjU4LCBWaXRhbHkgQm9yZHVnIHdyb3RlOgo+ID4gCj4gPiBUaGlzIHBh
+dGNoIHNob3VsZCB1cGRhdGUgdGhlIGZzX2VuZXQgaW5mcmFzdHJ1Y3R1cmUgdG8gdXRpbGl6ZQo+
+ID4gUGh5IEFic3RyYWN0aW9uIExheWVyIHN1YnN5c3RlbS4gSW5zaWRlIHRoZXJlIGFyZSBnZW5l
+cmljIGRyaXZlcgo+ID4gcmVoYXVsLCBib2FyZC1zcGVjaWZpYyBwb3J0aW9uIHRvIHJlc3BlY3Qg
+ZHJpdmVyIGNoYW5nZXMgKGZvcgo+ID4gODI3MmFkcyBhbmQgODY2YWRzKS4KPiA+IAo+ID4gU2ln
+bmVkLW9mZi1ieTogVml0YWx5IEJvcmR1ZyA8dmJvcmR1Z0BydS5tdmlzdGEuY29tPgo+ID4gLS0t
+Cj4gPiAKPiA+ICBhcmNoL3BwYy9wbGF0Zm9ybXMvbXBjODI3MmFkc19zZXR1cC5jIHwgIDE1NCAr
+KysrKystLS0tCj4gPiAgYXJjaC9wcGMvcGxhdGZvcm1zL21wYzg2NmFkc19zZXR1cC5jICB8ICAx
+OTIgKysrKysrLS0tLS0tCj4gPiAgYXJjaC9wcGMvcGxhdGZvcm1zL21wYzg4NWFkc19zZXR1cC5j
+ICB8ICAxNzkgKysrKy0tLS0tLS0tCj4gPiAgYXJjaC9wcGMvc3lzbGliL21wYzh4eF9kZXZpY2Vz
+LmMgICAgICB8ICAgIDggKwo+ID4gIGFyY2gvcHBjL3N5c2xpYi9tcGM4eHhfc3lzLmMgICAgICAg
+ICAgfCAgICA2IAo+ID4gIGFyY2gvcHBjL3N5c2xpYi9wcTJfZGV2aWNlcy5jICAgICAgICAgfCAg
+ICA1IAo+ID4gIGFyY2gvcHBjL3N5c2xpYi9wcTJfc3lzLmMgICAgICAgICAgICAgfCAgICAzIAo+
+ID4gIGRyaXZlcnMvbmV0L2ZzX2VuZXQvTWFrZWZpbGUgICAgICAgICAgfCAgICA2IAo+ID4gIGRy
+aXZlcnMvbmV0L2ZzX2VuZXQvZmVjLmggICAgICAgICAgICAgfCAgIDQyICsrKwo+ID4gIGRyaXZl
+cnMvbmV0L2ZzX2VuZXQvZnNfZW5ldC1tYWluLmMgICAgfCAgMjA3ICsrKysrKysrLS0tLS0KPiA+
+ICBkcml2ZXJzL25ldC9mc19lbmV0L2ZzX2VuZXQtbWlpLmMgICAgIHwgIDUwNwo+ID4gLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCj4gPiBkcml2ZXJzL25ldC9mc19lbmV0L2ZzX2Vu
+ZXQuaCAgICAgICAgIHwgICA0MCArKy0KPiA+IGRyaXZlcnMvbmV0L2ZzX2VuZXQvbWFjLWZjYy5j
+ICAgICAgICAgfCAgIDEwIC0KPiA+IGRyaXZlcnMvbmV0L2ZzX2VuZXQvbWFjLWZlYy5jICAgICAg
+ICAgfCAgMTMyICstLS0tLS0tLQo+ID4gZHJpdmVycy9uZXQvZnNfZW5ldC9tYWMtc2NjLmMgICAg
+ICAgICB8ICAgIDQKPiA+IGRyaXZlcnMvbmV0L2ZzX2VuZXQvbWlpLWJpdGJhbmcuYyAgICAgfCAg
+Mzg0Cj4gPiArKysrKysrKysrKysrKystLS0tLS0tLS0tIGRyaXZlcnMvbmV0L2ZzX2VuZXQvbWlp
+LWZlYy5jICAgICAgICAgfAo+ID4gMjQzICsrKysrKysrKysrKysrKysgZHJpdmVycy9uZXQvZnNf
+ZW5ldC9taWktZml4ZWQuYyAgICAgICB8ICAgOTIKPiA+IC0tLS0tLSBpbmNsdWRlL2FzbS1wcGMv
+bXBjODI2MC5oICAgICAgICAgICAgIHwgICAgMQo+ID4gaW5jbHVkZS9hc20tcHBjL21wYzh4eC5o
+ICAgICAgICAgICAgICB8ICAgIDEKPiA+IGluY2x1ZGUvbGludXgvZnNfZW5ldF9wZC5oICAgICAg
+ICAgICAgfCAgIDUwICstLSAyMSBmaWxlcyBjaGFuZ2VkLAo+ID4gOTgzIGluc2VydGlvbnMoKyks
+IDEyODMgZGVsZXRpb25zKC0pCj4gCj4gW1NOSVBTTkFQXQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvbmV0L2ZzX2VuZXQvbWlpLWJpdGJhbmcuYwo+ID4gYi9kcml2ZXJzL25ldC9mc19lbmV0L21p
+aS1iaXRiYW5nLmMgaW5kZXggMjRhNWUyZS4uMTQ1YmY0YyAxMDA2NDQKPiA+IC0tLSBhL2RyaXZl
+cnMvbmV0L2ZzX2VuZXQvbWlpLWJpdGJhbmcuYwo+ID4gKysrIGIvZHJpdmVycy9uZXQvZnNfZW5l
+dC9taWktYml0YmFuZy5jCj4gPiBAQCAtMzQsNiArMzQsNyBAQAo+ID4gICNpbmNsdWRlIDxsaW51
+eC9taWkuaD4KPiA+ICAjaW5jbHVkZSA8bGludXgvZXRodG9vbC5oPgo+ID4gICNpbmNsdWRlIDxs
+aW51eC9iaXRvcHMuaD4KPiA+ICsjaW5jbHVkZSA8bGludXgvcGxhdGZvcm1fZGV2aWNlLmg+Cj4g
+PiAgCj4gPiAgI2luY2x1ZGUgPGFzbS9wZ3RhYmxlLmg+Cj4gPiAgI2luY2x1ZGUgPGFzbS9pcnEu
+aD4KPiA+IEBAIC00MSw2ICs0Miw3IEBACj4gPiAgCj4gPiAgI2luY2x1ZGUgImZzX2VuZXQuaCIK
+PiA+ICAKPiA+ICsKPiA+ICAjaWZkZWYgQ09ORklHXzh4eAo+ID4gIHN0YXRpYyBpbnQgYml0YmFu
+Z19wcmVwX2JpdCh1OCAqKmRpcnAsIHU4ICoqZGF0cCwgdTggKm1za3AsIGludAo+ID4gcG9ydCwg
+aW50IGJpdCkgewo+ID4gQEAgLTEwNiw2NCArMTA4LDI1IEBAIHN0YXRpYyBpbnQgYml0YmFuZ19w
+cmVwX2JpdCh1OCAqKmRpcnAsIHUKPiA+ICB9Cj4gPiAgI2VuZGlmCj4gPiAgCj4gPiAtI2lmZGVm
+IENPTkZJR184MjYwCj4gPiAtc3RhdGljIGludCBiaXRiYW5nX3ByZXBfYml0KHU4ICoqZGlycCwg
+dTggKipkYXRwLCB1OCAqbXNrcCwgaW50Cj4gPiBwb3J0LCBpbnQgYml0KSArc3RhdGljIGludCBi
+aXRiYW5nX3ByZXBfYml0KHU4ICoqZGF0cCwgdTggKm1za3AsCj4gPiArCQlzdHJ1Y3QgZnNfbWlp
+X2JpdCAqbWlpX2JpdCkKPiAKPiBpcyBpdCBwb3NzaWJsZSwgdGhhdCBpbiBjYXNlIG9mIENPTkZJ
+R184eHggeW91J2xsIGhhdmUgdHdvIHRpbWVzIHRoaXMgCj4gYml0YmFuZ19wcmVwX2JpdCgpIGZ1
+bmN0aW9uPyAKPiAKSG1tLCB5ZXMsIHRoYW5rcyBmb3IgcG9pbnRpbmcgdGhhdCBvdXQuIFRoZSBw
+cm9ibGVtIGlzIGluIG90aGVyCnRoaW5nIHRob3VnaCAtIHRoZSBiaXRiYW5nIHN0dWZmIGdvdCB1
+bmlmaWVkIHNvIHRoZXJlIHNob3VsZCBiZSBubwpib2FyZC1zcGVjaWZpYyBpZmRlZnMgbGlrZSB0
+aG9zZS4KClRoaXMgaXNzdWUgbXVzdCBoYXZlIG1pc3NlZCB0aGUgY2xlYW51cCwgSSdsbCBmaXgg
+YW5kIHJlZG8gdGhlIHBhdGNoZXMuCgotLQpTaW5jZXJlbHksIFZpdGFseQpfX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1lbWJlZGRlZCBtYWls
+aW5nIGxpc3QKTGludXhwcGMtZW1iZWRkZWRAb3psYWJzLm9yZwpodHRwczovL296bGFicy5vcmcv
+bWFpbG1hbi9saXN0aW5mby9saW51eHBwYy1lbWJlZGRlZA==
