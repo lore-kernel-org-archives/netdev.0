@@ -1,82 +1,68 @@
-From: Vitaly Bordug <vbordug@ru.mvista.com>
-Subject: Re: [PATCH 2/3] FS_ENET: use PAL for mii management
-Date: Wed, 21 Jun 2006 11:38:43 +0400
-Message-ID: <20060621113843.7d33bad3@localhost.localdomain>
-References: <20060620145825.24807.310.stgit@vitb.ru.mvista.com>
-	<20060620145840.24807.30296.stgit@vitb.ru.mvista.com>
-	<200606210920.37295.g.jaeger@sysgo.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: Sanitise ethtool.h and mii.h for userspace.
+Date: Wed, 21 Jun 2006 09:23:03 +0100
+Message-ID: <1150878183.3176.551.camel@pmac.infradead.org>
+References: <200606202308.k5KN83bT013398@hera.kernel.org>
+	 <44989E63.9010300@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-embedded@ozlabs.org
-Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-To: Gerhard Jaeger <g.jaeger@sysgo.com>
-In-Reply-To: <200606210920.37295.g.jaeger@sysgo.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Netdev List <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Linus Torvalds <torvalds@osdl.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canuck.infradead.org ([205.233.218.70]:18837 "EHLO
+	canuck.infradead.org") by vger.kernel.org with ESMTP
+	id S932485AbWFUIXK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jun 2006 04:23:10 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <44989E63.9010300@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-0J3QsCBXZWQsIDIxIEp1biAyMDA2IDA5OjIwOjM2ICswMjAwCkdlcmhhcmQgSmFlZ2VyIDxnLmph
-ZWdlckBzeXNnby5jb20+INC30LDQv9C40YHQsNC90L46Cgo+IEhpLAo+IAo+IE9uIFR1ZXNkYXkg
-MjAgSnVuZSAyMDA2IDE2OjU4LCBWaXRhbHkgQm9yZHVnIHdyb3RlOgo+ID4gCj4gPiBUaGlzIHBh
-dGNoIHNob3VsZCB1cGRhdGUgdGhlIGZzX2VuZXQgaW5mcmFzdHJ1Y3R1cmUgdG8gdXRpbGl6ZQo+
-ID4gUGh5IEFic3RyYWN0aW9uIExheWVyIHN1YnN5c3RlbS4gSW5zaWRlIHRoZXJlIGFyZSBnZW5l
-cmljIGRyaXZlcgo+ID4gcmVoYXVsLCBib2FyZC1zcGVjaWZpYyBwb3J0aW9uIHRvIHJlc3BlY3Qg
-ZHJpdmVyIGNoYW5nZXMgKGZvcgo+ID4gODI3MmFkcyBhbmQgODY2YWRzKS4KPiA+IAo+ID4gU2ln
-bmVkLW9mZi1ieTogVml0YWx5IEJvcmR1ZyA8dmJvcmR1Z0BydS5tdmlzdGEuY29tPgo+ID4gLS0t
-Cj4gPiAKPiA+ICBhcmNoL3BwYy9wbGF0Zm9ybXMvbXBjODI3MmFkc19zZXR1cC5jIHwgIDE1NCAr
-KysrKystLS0tCj4gPiAgYXJjaC9wcGMvcGxhdGZvcm1zL21wYzg2NmFkc19zZXR1cC5jICB8ICAx
-OTIgKysrKysrLS0tLS0tCj4gPiAgYXJjaC9wcGMvcGxhdGZvcm1zL21wYzg4NWFkc19zZXR1cC5j
-ICB8ICAxNzkgKysrKy0tLS0tLS0tCj4gPiAgYXJjaC9wcGMvc3lzbGliL21wYzh4eF9kZXZpY2Vz
-LmMgICAgICB8ICAgIDggKwo+ID4gIGFyY2gvcHBjL3N5c2xpYi9tcGM4eHhfc3lzLmMgICAgICAg
-ICAgfCAgICA2IAo+ID4gIGFyY2gvcHBjL3N5c2xpYi9wcTJfZGV2aWNlcy5jICAgICAgICAgfCAg
-ICA1IAo+ID4gIGFyY2gvcHBjL3N5c2xpYi9wcTJfc3lzLmMgICAgICAgICAgICAgfCAgICAzIAo+
-ID4gIGRyaXZlcnMvbmV0L2ZzX2VuZXQvTWFrZWZpbGUgICAgICAgICAgfCAgICA2IAo+ID4gIGRy
-aXZlcnMvbmV0L2ZzX2VuZXQvZmVjLmggICAgICAgICAgICAgfCAgIDQyICsrKwo+ID4gIGRyaXZl
-cnMvbmV0L2ZzX2VuZXQvZnNfZW5ldC1tYWluLmMgICAgfCAgMjA3ICsrKysrKysrLS0tLS0KPiA+
-ICBkcml2ZXJzL25ldC9mc19lbmV0L2ZzX2VuZXQtbWlpLmMgICAgIHwgIDUwNwo+ID4gLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCj4gPiBkcml2ZXJzL25ldC9mc19lbmV0L2ZzX2Vu
-ZXQuaCAgICAgICAgIHwgICA0MCArKy0KPiA+IGRyaXZlcnMvbmV0L2ZzX2VuZXQvbWFjLWZjYy5j
-ICAgICAgICAgfCAgIDEwIC0KPiA+IGRyaXZlcnMvbmV0L2ZzX2VuZXQvbWFjLWZlYy5jICAgICAg
-ICAgfCAgMTMyICstLS0tLS0tLQo+ID4gZHJpdmVycy9uZXQvZnNfZW5ldC9tYWMtc2NjLmMgICAg
-ICAgICB8ICAgIDQKPiA+IGRyaXZlcnMvbmV0L2ZzX2VuZXQvbWlpLWJpdGJhbmcuYyAgICAgfCAg
-Mzg0Cj4gPiArKysrKysrKysrKysrKystLS0tLS0tLS0tIGRyaXZlcnMvbmV0L2ZzX2VuZXQvbWlp
-LWZlYy5jICAgICAgICAgfAo+ID4gMjQzICsrKysrKysrKysrKysrKysgZHJpdmVycy9uZXQvZnNf
-ZW5ldC9taWktZml4ZWQuYyAgICAgICB8ICAgOTIKPiA+IC0tLS0tLSBpbmNsdWRlL2FzbS1wcGMv
-bXBjODI2MC5oICAgICAgICAgICAgIHwgICAgMQo+ID4gaW5jbHVkZS9hc20tcHBjL21wYzh4eC5o
-ICAgICAgICAgICAgICB8ICAgIDEKPiA+IGluY2x1ZGUvbGludXgvZnNfZW5ldF9wZC5oICAgICAg
-ICAgICAgfCAgIDUwICstLSAyMSBmaWxlcyBjaGFuZ2VkLAo+ID4gOTgzIGluc2VydGlvbnMoKyks
-IDEyODMgZGVsZXRpb25zKC0pCj4gCj4gW1NOSVBTTkFQXQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvbmV0L2ZzX2VuZXQvbWlpLWJpdGJhbmcuYwo+ID4gYi9kcml2ZXJzL25ldC9mc19lbmV0L21p
-aS1iaXRiYW5nLmMgaW5kZXggMjRhNWUyZS4uMTQ1YmY0YyAxMDA2NDQKPiA+IC0tLSBhL2RyaXZl
-cnMvbmV0L2ZzX2VuZXQvbWlpLWJpdGJhbmcuYwo+ID4gKysrIGIvZHJpdmVycy9uZXQvZnNfZW5l
-dC9taWktYml0YmFuZy5jCj4gPiBAQCAtMzQsNiArMzQsNyBAQAo+ID4gICNpbmNsdWRlIDxsaW51
-eC9taWkuaD4KPiA+ICAjaW5jbHVkZSA8bGludXgvZXRodG9vbC5oPgo+ID4gICNpbmNsdWRlIDxs
-aW51eC9iaXRvcHMuaD4KPiA+ICsjaW5jbHVkZSA8bGludXgvcGxhdGZvcm1fZGV2aWNlLmg+Cj4g
-PiAgCj4gPiAgI2luY2x1ZGUgPGFzbS9wZ3RhYmxlLmg+Cj4gPiAgI2luY2x1ZGUgPGFzbS9pcnEu
-aD4KPiA+IEBAIC00MSw2ICs0Miw3IEBACj4gPiAgCj4gPiAgI2luY2x1ZGUgImZzX2VuZXQuaCIK
-PiA+ICAKPiA+ICsKPiA+ICAjaWZkZWYgQ09ORklHXzh4eAo+ID4gIHN0YXRpYyBpbnQgYml0YmFu
-Z19wcmVwX2JpdCh1OCAqKmRpcnAsIHU4ICoqZGF0cCwgdTggKm1za3AsIGludAo+ID4gcG9ydCwg
-aW50IGJpdCkgewo+ID4gQEAgLTEwNiw2NCArMTA4LDI1IEBAIHN0YXRpYyBpbnQgYml0YmFuZ19w
-cmVwX2JpdCh1OCAqKmRpcnAsIHUKPiA+ICB9Cj4gPiAgI2VuZGlmCj4gPiAgCj4gPiAtI2lmZGVm
-IENPTkZJR184MjYwCj4gPiAtc3RhdGljIGludCBiaXRiYW5nX3ByZXBfYml0KHU4ICoqZGlycCwg
-dTggKipkYXRwLCB1OCAqbXNrcCwgaW50Cj4gPiBwb3J0LCBpbnQgYml0KSArc3RhdGljIGludCBi
-aXRiYW5nX3ByZXBfYml0KHU4ICoqZGF0cCwgdTggKm1za3AsCj4gPiArCQlzdHJ1Y3QgZnNfbWlp
-X2JpdCAqbWlpX2JpdCkKPiAKPiBpcyBpdCBwb3NzaWJsZSwgdGhhdCBpbiBjYXNlIG9mIENPTkZJ
-R184eHggeW91J2xsIGhhdmUgdHdvIHRpbWVzIHRoaXMgCj4gYml0YmFuZ19wcmVwX2JpdCgpIGZ1
-bmN0aW9uPyAKPiAKSG1tLCB5ZXMsIHRoYW5rcyBmb3IgcG9pbnRpbmcgdGhhdCBvdXQuIFRoZSBw
-cm9ibGVtIGlzIGluIG90aGVyCnRoaW5nIHRob3VnaCAtIHRoZSBiaXRiYW5nIHN0dWZmIGdvdCB1
-bmlmaWVkIHNvIHRoZXJlIHNob3VsZCBiZSBubwpib2FyZC1zcGVjaWZpYyBpZmRlZnMgbGlrZSB0
-aG9zZS4KClRoaXMgaXNzdWUgbXVzdCBoYXZlIG1pc3NlZCB0aGUgY2xlYW51cCwgSSdsbCBmaXgg
-YW5kIHJlZG8gdGhlIHBhdGNoZXMuCgotLQpTaW5jZXJlbHksIFZpdGFseQpfX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1lbWJlZGRlZCBtYWls
-aW5nIGxpc3QKTGludXhwcGMtZW1iZWRkZWRAb3psYWJzLm9yZwpodHRwczovL296bGFicy5vcmcv
-bWFpbG1hbi9saXN0aW5mby9saW51eHBwYy1lbWJlZGRlZA==
+On Tue, 2006-06-20 at 21:18 -0400, Jeff Garzik wrote:
+> How can reviewers make an informed decision, when you completely failed 
+> to note:
+> 
+> * This breaks the primary userspace user of this header, ethtool(8)
+
+I cannot reproduce with either an ethtool-3 tarball or a fresh checkout
+from your git tree. Can you show me the error?
+
+It's a somewhat surprising allegation, because ethtool doesn't even
+_use_ the header directly from the kernel. It has its own copy, and
+currently includes it like this...
+
+typedef unsigned long long u64;         /* hack, so we may include kernel's ethtool.h */
+typedef __uint32_t u32;         /* ditto */
+typedef __uint16_t u16;         /* ditto */
+typedef __uint8_t u8;           /* ditto */
+#include "ethtool-copy.h"
+
+> * The patch was NAK'd (and I don't even get a "Naked-by:" header :))
+
+Sorry, my recollection was that you backed down after everyone turned on
+you and declared that "but I _want_ to use 'u32' for userspace stuff
+because underscores hurt my eyes" was too silly for words. You didn't
+get a mention in the commit comment because I'd already committed it by
+the time we had the discussion. But I did mention it to Andrew at the
+time I asked him to put the hdrcleanup tree into -mm, and he seemed
+perfectly happy with the change.
+
+> * Despite knowing all this for quite some time, no associated userspace 
+> fix patch has ever appeared.
+
+That's because to the best of my knowledge, userspace doesn't _need_ any
+fix at the moment. We've built the whole of the Fedora Core 6 test 1
+release against (a subset of) these headers, and that includes ethtool.
+
+> If you are going to break stuff, AT LEAST TELL PEOPLE IN ALL CAPS ABOUT 
+> IT, rather than providing the highly deceptive description as above. 
+> And be courteous enough to help fix the breakage, if you please. 
+
+If I break stuff, I promise I'll bear that in mind.
+
+-- 
+dwmw2
+
