@@ -1,25 +1,32 @@
-From: Beschorner Daniel <Daniel.Beschorner@facton.com>
-Subject: skge 1.6
-Date: Wed, 21 Jun 2006 10:46:14 +0200
-Message-ID: <BB1F4EFD574E9F409035BDA71C961250024222@exchange.i-bn>
+From: Stefan Rompf <stefan@loplof.de>
+Subject: Re: Suspending 802.11 drivers
+Date: Wed, 21 Jun 2006 11:42:12 +0200
+Message-ID: <200606211142.12790.stefan@loplof.de>
+References: <200606152158.10079.mb@bu3sch.de> <200606162036.26518.stefan@loplof.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "'david@mantara.com'" <david@mantara.com>,
-	"'Krzysztof Oledzki'" <olel@ans.pl>, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from loewe.unit-netz.de ([212.202.148.42]:9661 "EHLO
-	loewe.unit-netz.de") by vger.kernel.org with ESMTP id S1751267AbWFUIqS
+Received: from natlemon.rzone.de ([81.169.145.170]:27373 "EHLO
+	natlemon.rzone.de") by vger.kernel.org with ESMTP id S932497AbWFUJks
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jun 2006 04:46:18 -0400
-To: "'Stephen Hemminger'" <shemminger@osdl.org>
+	Wed, 21 Jun 2006 05:40:48 -0400
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200606162036.26518.stefan@loplof.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Crashing keeps on, but I want to emphasize that it crashes during excessive
-Rx not Tx.
-I can copy a 1GB file smoothly from the server, but in the other direction
-after some seconds the box hangs.
+Am Freitag 16 Juni 2006 20:36 schrieb Stefan Rompf:
 
-Sorry, couldn't test other then SMB yet on our production system.
+> (But that's an interesting point. Will sniff whether ipw2200 hardware sends
+> a final packet on suspend.)
 
-Daniel
+neither on suspend to RAM nor on suspend to disk a disassociation is sent by 
+ipw2200 - for the AP, the client just vanishes.
+
+Stefan
