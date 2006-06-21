@@ -1,444 +1,83 @@
-From: Ananda Raju <Ananda.Raju@neterion.com>
-Subject: [patch 2.6.17] s2io driver irq fix
-Date: Wed, 21 Jun 2006 15:50:49 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.10606211537540.23949-100000@guinness>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: Intel ixgb driver bug in linux-2.6.17-rc6-mm2
+Date: Wed, 21 Jun 2006 15:18:50 -0500
+Message-ID: <20060621201850.GH8866@austin.ibm.com>
+References: <20060620193535.GG9200@austin.ibm.com> <4807377b0606201413hf77cc1bse70841a52fd08fcb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: dgc@sgi.com, balbir@in.ibm.com, viro@zeniv.linux.org.uk,
-	neilb@suse.de, jblunck@suse.de, tglx@linutronix.de,
-	ananda.raju@neterion.com, leonid.grossman@neterion.com,
-	ravinandan.arakali@neterion.com, alicia.pena@neterion.com
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-To: netdev@vger.kernel.org, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jeffrey.t.kirsher@intel.com, ayyappan.veeraiyan@intel.com,
+	john.ronciak@intel.com, jesse.brandeburg@intel.com,
+	auke-jan.h.kok@intel.com, linux-pci@atrey.karlin.mff.cuni.cz,
+	netdev@vger.kernel.org, wenxiong@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:17301 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1751377AbWFUUSx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2006 16:18:53 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e2.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5LKIpD1005987
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Wed, 21 Jun 2006 16:18:52 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay02.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5LKIpCp260478
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 21 Jun 2006 16:18:51 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5LKIp3C014560
+	for <netdev@vger.kernel.org>; Wed, 21 Jun 2006 16:18:51 -0400
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <4807377b0606201413hf77cc1bse70841a52fd08fcb@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hi,
-	This patch contains the modification and bug fixes with respect to 
-	irq registration. Following is brief description of the changes.
+On Tue, Jun 20, 2006 at 02:13:45PM -0700, Jesse Brandeburg wrote:
+> On 6/20/06, Linas Vepstas <linas@austin.ibm.com> wrote:
+> >
+> >I sat down to do some testing of the ixgb driver a few days ago, and
+> >get failures within seconds.  From what I can tell, I'm getting either a
+> >DMA to a bad address or some other PCI bus error, not sure which.
+> >The problem appears to happen only for the driver that's in
+> >2.6.17-rc6-mm2. As a sanity check, I'm testing the SuSE SLES10 beta,
+> >which is 2.6.16 based, and it doesn't seem to have any problems.
+> >
+> >My test is dirt-simple: telnet to the chargen port.  After an eyeblink,
+> >I get the pci bus error, that's that. "eyeblink" is after about 300MBytes
+> >transfered.  That was with a driver with NAPI enabled. I tried again
+> >with NAPI disabled, and got to about 1.8 GB transfered in two eyeblinks.
+> >
+> >To make sure that I'm not dealing with faulty hardware, I tried the same
+> >thing w/ SLES10 2.6.16.18-1.8  and have gotten to RX bytes:20889480686
+> >(19921.7 Mb) so far, with no problems. I don't have easy access to a PCI
+> >bus analyzer, otherwise, I'd tell you more. Ideas? Suggestions?
+> >
+> >I could try taking the diff between these two driver versions, and
+> >seeing what change caused the problem, but thought I should email first,
+> >before doing that.
 
-	1. Enable interrupts after request_irq
-	2. Restored MSI data register value at driver unload time
+> try disabling TSO using ethtool and see if that helps any.
 
-Signed-off-by: Ananda Raju <ananda.raju@neterion.com>
----
-diff -upNr netdev/drivers/net/s2io.c irq_fix/drivers/net/s2io.c
---- netdev/drivers/net/s2io.c	2006-06-20 04:27:54.000000000 -0700
-+++ irq_fix/drivers/net/s2io.c	2006-06-20 05:11:49.000000000 -0700
-@@ -1977,7 +1977,6 @@ static int start_nic(struct s2io_nic *ni
- 	XENA_dev_config_t __iomem *bar0 = nic->bar0;
- 	struct net_device *dev = nic->dev;
- 	register u64 val64 = 0;
--	u16 interruptible;
- 	u16 subid, i;
- 	mac_info_t *mac_control;
- 	struct config_param *config;
-@@ -2048,16 +2047,6 @@ static int start_nic(struct s2io_nic *ni
- 		return FAILURE;
- 	}
- 
--	/*  Enable select interrupts */
--	if (nic->intr_type != INTA)
--		en_dis_able_nic_intrs(nic, ENA_ALL_INTRS, DISABLE_INTRS);
--	else {
--		interruptible = TX_TRAFFIC_INTR | RX_TRAFFIC_INTR;
--		interruptible |= TX_PIC_INTR | RX_PIC_INTR;
--		interruptible |= TX_MAC_INTR | RX_MAC_INTR;
--		en_dis_able_nic_intrs(nic, interruptible, ENABLE_INTRS);
--	}
--
- 	/*
- 	 * With some switches, link might be already up at this point.
- 	 * Because of this weird behavior, when we enable laser,
-@@ -3706,101 +3695,19 @@ static int s2io_open(struct net_device *
- 	if (err) {
- 		DBG_PRINT(ERR_DBG, "%s: H/W initialization failed\n",
- 			  dev->name);
--		if (err == -ENODEV)
--			goto hw_init_failed;
--		else
--			goto hw_enable_failed;
--	}
--
--	/* Store the values of the MSIX table in the nic_t structure */
--	store_xmsi_data(sp);
--
--	/* After proper initialization of H/W, register ISR */
--	if (sp->intr_type == MSI) {
--		err = request_irq((int) sp->pdev->irq, s2io_msi_handle, 
--			SA_SHIRQ, sp->name, dev);
--		if (err) {
--			DBG_PRINT(ERR_DBG, "%s: MSI registration \
--failed\n", dev->name);
--			goto isr_registration_failed;
--		}
--	}
--	if (sp->intr_type == MSI_X) {
--		int i;
--
--		for (i=1; (sp->s2io_entries[i].in_use == MSIX_FLG); i++) {
--			if (sp->s2io_entries[i].type == MSIX_FIFO_TYPE) {
--				sprintf(sp->desc1, "%s:MSI-X-%d-TX",
--					dev->name, i);
--				err = request_irq(sp->entries[i].vector,
--					  s2io_msix_fifo_handle, 0, sp->desc1,
--					  sp->s2io_entries[i].arg);
--				DBG_PRINT(ERR_DBG, "%s @ 0x%llx\n", sp->desc1, 
--				    (unsigned long long)sp->msix_info[i].addr);
--			} else {
--				sprintf(sp->desc2, "%s:MSI-X-%d-RX",
--					dev->name, i);
--				err = request_irq(sp->entries[i].vector,
--					  s2io_msix_ring_handle, 0, sp->desc2,
--					  sp->s2io_entries[i].arg);
--				DBG_PRINT(ERR_DBG, "%s @ 0x%llx\n", sp->desc2, 
--				     (unsigned long long)sp->msix_info[i].addr);
--			}
--			if (err) {
--				DBG_PRINT(ERR_DBG, "%s: MSI-X-%d registration \
--failed\n", dev->name, i);
--				DBG_PRINT(ERR_DBG, "Returned: %d\n", err);
--				goto isr_registration_failed;
--			}
--			sp->s2io_entries[i].in_use = MSIX_REGISTERED_SUCCESS;
--		}
--	}
--	if (sp->intr_type == INTA) {
--		err = request_irq((int) sp->pdev->irq, s2io_isr, SA_SHIRQ,
--				sp->name, dev);
--		if (err) {
--			DBG_PRINT(ERR_DBG, "%s: ISR registration failed\n",
--				  dev->name);
--			goto isr_registration_failed;
--		}
-+		goto hw_init_failed;
- 	}
- 
- 	if (s2io_set_mac_addr(dev, dev->dev_addr) == FAILURE) {
- 		DBG_PRINT(ERR_DBG, "Set Mac Address Failed\n");
-+		s2io_card_down(sp);
- 		err = -ENODEV;
--		goto setting_mac_address_failed;
-+		goto hw_init_failed;
- 	}
- 
- 	netif_start_queue(dev);
- 	return 0;
- 
--setting_mac_address_failed:
--	if (sp->intr_type != MSI_X)
--		free_irq(sp->pdev->irq, dev);
--isr_registration_failed:
--	del_timer_sync(&sp->alarm_timer);
--	if (sp->intr_type == MSI_X) {
--		int i;
--		u16 msi_control; /* Temp variable */
--
--		for (i=1; (sp->s2io_entries[i].in_use == 
--				MSIX_REGISTERED_SUCCESS); i++) {
--			int vector = sp->entries[i].vector;
--			void *arg = sp->s2io_entries[i].arg;
--
--			free_irq(vector, arg);
--		}
--		pci_disable_msix(sp->pdev);
--
--		/* Temp */
--		pci_read_config_word(sp->pdev, 0x42, &msi_control);
--		msi_control &= 0xFFFE; /* Disable MSI */
--		pci_write_config_word(sp->pdev, 0x42, msi_control);
--	}
--	else if (sp->intr_type == MSI)
--		pci_disable_msi(sp->pdev);
--hw_enable_failed:
--	s2io_reset(sp);
- hw_init_failed:
- 	if (sp->intr_type == MSI_X) {
- 		if (sp->entries)
-@@ -3831,7 +3738,7 @@ static int s2io_close(struct net_device 
- 	flush_scheduled_work();
- 	netif_stop_queue(dev);
- 	/* Reset card, kill tasklet and free Tx and Rx buffers. */
--	s2io_card_down(sp, 1);
-+	s2io_card_down(sp);
- 
- 	sp->device_close_flag = TRUE;	/* Device is shut down. */
- 	return 0;
-@@ -5876,7 +5783,7 @@ static int s2io_change_mtu(struct net_de
- 
- 	dev->mtu = new_mtu;
- 	if (netif_running(dev)) {
--		s2io_card_down(sp, 0);
-+		s2io_card_down(sp);
- 		netif_stop_queue(dev);
- 		if (s2io_card_up(sp)) {
- 			DBG_PRINT(ERR_DBG, "%s: Device bring up failed\n",
-@@ -6173,43 +6080,106 @@ static  int rxd_owner_bit_reset(nic_t *s
- 
- }
- 
--static void s2io_card_down(nic_t * sp, int flag)
-+static int s2io_add_isr(nic_t * sp)
- {
--	int cnt = 0;
--	XENA_dev_config_t __iomem *bar0 = sp->bar0;
--	unsigned long flags;
--	register u64 val64 = 0;
--	struct net_device *dev = sp->dev;
-+	int ret = 0;
-+	struct net_device *dev = (struct net_device *) sp->dev;
-+	int err = 0;
- 
--	del_timer_sync(&sp->alarm_timer);
--	/* If s2io_set_link task is executing, wait till it completes. */
--	while (test_and_set_bit(0, &(sp->link_state))) {
--		msleep(50);
-+	if (sp->intr_type == MSI)
-+		ret = s2io_enable_msi(sp);
-+	else if (sp->intr_type == MSI_X)
-+		ret = s2io_enable_msi_x(sp);
-+	if (ret) {
-+		DBG_PRINT(ERR_DBG, "%s: Defaulting to INTA\n", dev->name);
-+		sp->intr_type = INTA;
- 	}
--	atomic_set(&sp->card_state, CARD_DOWN);
- 
--	/* disable Tx and Rx traffic on the NIC */
--	stop_nic(sp);
--	if (flag) {
--		if (sp->intr_type == MSI_X) {
--			int i;
--			u16 msi_control;
--
--			for (i=1; (sp->s2io_entries[i].in_use ==
--				MSIX_REGISTERED_SUCCESS); i++) {
--				int vector = sp->entries[i].vector;
--				void *arg = sp->s2io_entries[i].arg;
-+	/* Store the values of the MSIX table in the nic_t structure */
-+	store_xmsi_data(sp);
-+
-+	/* After proper initialization of H/W, register ISR */
-+	if (sp->intr_type == MSI) {
-+		err = request_irq((int) sp->pdev->irq, s2io_msi_handle,
-+			SA_SHIRQ, sp->name, dev);
-+		if (err) {
-+			pci_disable_msi(sp->pdev);
-+			DBG_PRINT(ERR_DBG, "%s: MSI registration failed\n",
-+				  dev->name);
-+			return -1;
-+		}
-+	}
-+	if (sp->intr_type == MSI_X) {
-+		int i;
- 
--				free_irq(vector, arg);
-+		for (i=1; (sp->s2io_entries[i].in_use == MSIX_FLG); i++) {
-+			if (sp->s2io_entries[i].type == MSIX_FIFO_TYPE) {
-+				sprintf(sp->desc[i], "%s:MSI-X-%d-TX",
-+					dev->name, i);
-+				err = request_irq(sp->entries[i].vector,
-+					  s2io_msix_fifo_handle, 0, sp->desc[i],
-+						  sp->s2io_entries[i].arg);
-+				DBG_PRINT(ERR_DBG, "%s @ 0x%llx\n", sp->desc[i],
-+				(unsigned long long)sp->msix_info[i].addr);
-+			} else {
-+				sprintf(sp->desc[i], "%s:MSI-X-%d-RX",
-+					dev->name, i);
-+				err = request_irq(sp->entries[i].vector,
-+					  s2io_msix_ring_handle, 0, sp->desc[i],
-+						  sp->s2io_entries[i].arg);
-+				DBG_PRINT(ERR_DBG, "%s @ 0x%llx\n", sp->desc[i],
-+				(unsigned long long)sp->msix_info[i].addr);
- 			}
--			pci_read_config_word(sp->pdev, 0x42, &msi_control);
--			msi_control &= 0xFFFE; /* Disable MSI */
--			pci_write_config_word(sp->pdev, 0x42, msi_control);
--			pci_disable_msix(sp->pdev);
--		} else {
--			free_irq(sp->pdev->irq, dev);
--			if (sp->intr_type == MSI)
--				pci_disable_msi(sp->pdev);
-+			if (err) {
-+				DBG_PRINT(ERR_DBG,"%s:MSI-X-%d registration "
-+					  "failed\n", dev->name, i);
-+				DBG_PRINT(ERR_DBG, "Returned: %d\n", err);
-+				return -1;
-+			}
-+			sp->s2io_entries[i].in_use = MSIX_REGISTERED_SUCCESS;
-+		}
-+	}
-+	if (sp->intr_type == INTA) {
-+		err = request_irq((int) sp->pdev->irq, s2io_isr, SA_SHIRQ,
-+				sp->name, dev);
-+		if (err) {
-+			DBG_PRINT(ERR_DBG, "%s: ISR registration failed\n",
-+				  dev->name);
-+			return -1;
-+		}
-+	}
-+	return 0;
-+}
-+static void s2io_rem_isr(nic_t * sp)
-+{
-+	int cnt = 0;
-+	struct net_device *dev = sp->dev;
-+
-+	if (sp->intr_type == MSI_X) {
-+		int i;
-+		u16 msi_control;
-+
-+		for (i=1; (sp->s2io_entries[i].in_use ==
-+			MSIX_REGISTERED_SUCCESS); i++) {
-+			int vector = sp->entries[i].vector;
-+			void *arg = sp->s2io_entries[i].arg;
-+
-+			free_irq(vector, arg);
-+		}
-+		pci_read_config_word(sp->pdev, 0x42, &msi_control);
-+		msi_control &= 0xFFFE; /* Disable MSI */
-+		pci_write_config_word(sp->pdev, 0x42, msi_control);
-+
-+		pci_disable_msix(sp->pdev);
-+	} else {
-+		free_irq(sp->pdev->irq, dev);
-+		if (sp->intr_type == MSI) {
-+			u16 val;
-+
-+			pci_disable_msi(sp->pdev);
-+			pci_read_config_word(sp->pdev, 0x4c, &val);
-+			val ^= 0x1;
-+			pci_write_config_word(sp->pdev, 0x4c, val);
- 		}
- 	}
- 	/* Waiting till all Interrupt handlers are complete */
-@@ -6220,6 +6190,26 @@ static void s2io_card_down(nic_t * sp, i
- 			break;
- 		cnt++;
- 	} while(cnt < 5);
-+}
-+
-+static void s2io_card_down(nic_t * sp)
-+{
-+	int cnt = 0;
-+	XENA_dev_config_t __iomem *bar0 = sp->bar0;
-+	unsigned long flags;
-+	register u64 val64 = 0;
-+
-+	del_timer_sync(&sp->alarm_timer);
-+	/* If s2io_set_link task is executing, wait till it completes. */
-+	while (test_and_set_bit(0, &(sp->link_state))) {
-+		msleep(50);
-+	}
-+	atomic_set(&sp->card_state, CARD_DOWN);
-+
-+	/* disable Tx and Rx traffic on the NIC */
-+	stop_nic(sp);
-+
-+	s2io_rem_isr(sp);
- 
- 	/* Kill tasklet. */
- 	tasklet_kill(&sp->task);
-@@ -6271,23 +6261,16 @@ static int s2io_card_up(nic_t * sp)
- 	mac_info_t *mac_control;
- 	struct config_param *config;
- 	struct net_device *dev = (struct net_device *) sp->dev;
-+	u16 interruptible;
- 
- 	/* Initialize the H/W I/O registers */
- 	if (init_nic(sp) != 0) {
- 		DBG_PRINT(ERR_DBG, "%s: H/W initialization failed\n",
- 			  dev->name);
-+		s2io_reset(sp);
- 		return -ENODEV;
- 	}
- 
--	if (sp->intr_type == MSI)
--		ret = s2io_enable_msi(sp);
--	else if (sp->intr_type == MSI_X)
--		ret = s2io_enable_msi_x(sp);
--	if (ret) {
--		DBG_PRINT(ERR_DBG, "%s: Defaulting to INTA\n", dev->name);
--		sp->intr_type = INTA;
--	}
--
- 	/*
- 	 * Initializing the Rx buffers. For now we are considering only 1
- 	 * Rx ring and initializing buffers into 30 Rx blocks
-@@ -6318,21 +6301,39 @@ static int s2io_card_up(nic_t * sp)
- 			sp->lro_max_aggr_per_sess = lro_max_pkts;
- 	}
- 
--	/* Enable tasklet for the device */
--	tasklet_init(&sp->task, s2io_tasklet, (unsigned long) dev);
--
- 	/* Enable Rx Traffic and interrupts on the NIC */
- 	if (start_nic(sp)) {
- 		DBG_PRINT(ERR_DBG, "%s: Starting NIC failed\n", dev->name);
--		tasklet_kill(&sp->task);
- 		s2io_reset(sp);
--		free_irq(dev->irq, dev);
-+		free_rx_buffers(sp);
-+		return -ENODEV;
-+	}
-+
-+	/* Add interrupt service routine */
-+	if (s2io_add_isr(sp) != 0) {
-+		if (sp->intr_type == MSI_X)
-+			s2io_rem_isr(sp);
-+		s2io_reset(sp);
- 		free_rx_buffers(sp);
- 		return -ENODEV;
- 	}
- 
- 	S2IO_TIMER_CONF(sp->alarm_timer, s2io_alarm_handle, sp, (HZ/2));
- 
-+	/* Enable tasklet for the device */
-+	tasklet_init(&sp->task, s2io_tasklet, (unsigned long) dev);
-+
-+	/*  Enable select interrupts */
-+	if (sp->intr_type != INTA)
-+		en_dis_able_nic_intrs(sp, ENA_ALL_INTRS, DISABLE_INTRS);
-+	else {
-+		interruptible = TX_TRAFFIC_INTR | RX_TRAFFIC_INTR;
-+		interruptible |= TX_PIC_INTR | RX_PIC_INTR;
-+		interruptible |= TX_MAC_INTR | RX_MAC_INTR;
-+		en_dis_able_nic_intrs(sp, interruptible, ENABLE_INTRS);
-+	}
-+
-+
- 	atomic_set(&sp->card_state, CARD_UP);
- 	return 0;
- }
-@@ -6352,7 +6353,7 @@ static void s2io_restart_nic(unsigned lo
- 	struct net_device *dev = (struct net_device *) data;
- 	nic_t *sp = dev->priv;
- 
--	s2io_card_down(sp, 0);
-+	s2io_card_down(sp);
- 	if (s2io_card_up(sp)) {
- 		DBG_PRINT(ERR_DBG, "%s: Device bring up failed\n",
- 			  dev->name);
-diff -upNr netdev/drivers/net/s2io.h irq_fix/drivers/net/s2io.h
---- netdev/drivers/net/s2io.h	2006-06-20 04:27:54.000000000 -0700
-+++ irq_fix/drivers/net/s2io.h	2006-06-20 05:51:07.000000000 -0700
-@@ -829,8 +829,7 @@ struct s2io_nic {
- #define MSIX_FLG                0xA5
- 	struct msix_entry *entries;
- 	struct s2io_msix_entry *s2io_entries;
--	char desc1[35];
--	char desc2[35];
-+	char desc[MAX_REQUESTED_MSI_X][25];
- 
- 	int avail_msix_vectors; /* No. of MSI-X vectors granted by system */
- 
-@@ -1002,7 +1001,7 @@ static int verify_xena_quiescence(nic_t 
- static struct ethtool_ops netdev_ethtool_ops;
- static void s2io_set_link(unsigned long data);
- static int s2io_set_swapper(nic_t * sp);
--static void s2io_card_down(nic_t *nic, int flag);
-+static void s2io_card_down(nic_t *nic);
- static int s2io_card_up(nic_t *nic);
- static int get_xena_rev_id(struct pci_dev *pdev);
- static void restore_xmsi_data(nic_t *nic);
+Bing!  That appears to have fixed it !
 
+> you're running 1.0.109, correct?
+
+Yes.  DRV_VERSION     "1.0.109-k2"
+
+> what does cat /proc/interrupts say (are you running MSI?)
+
+No MSI, this is on older hardware.  
+163:       3769     450130      14983     439113   XICS      Edge nic5
+
+> I'd also like to know if LLTX support (recently added) is causing you
+> the issue.  What hardware platform? pSeries?  does it EEH? what does
+> the dump say?
+
+Yes, its pseries; yes, I see this as EEH errors. However, the EEH error
+detection is asynchronous, and so the Linux tack trace is throughly
+boring: the error is first noticed when the watchdog runs, typically.
+
+--linas
+
+p.s. version 1.0.100-k2 works gret with NAPI on, and the defal TSO.
+I haven't yet tried 1.0.109 with NAPI on and TSO off.
+
+--linas
