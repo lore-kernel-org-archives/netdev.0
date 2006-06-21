@@ -1,60 +1,38 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH v3 1/7] AMSO1100 Low Level Driver.
-Date: Wed, 21 Jun 2006 13:47:45 -0500
-Message-ID: <1150915665.20327.0.camel@stevo-desktop>
-References: <20060620203050.31536.5341.stgit@stevo-desktop>
-	 <20060620203055.31536.15131.stgit@stevo-desktop>
-	 <1150836226.2891.231.camel@laptopd505.fenrus.org>
-	 <1150907571.31600.31.camel@stevo-desktop>
-	 <1150910013.3057.59.camel@laptopd505.fenrus.org>
+From: Eric Sesterhenn <snakebyte@gmx.de>
+Subject: [Patch] skb used after passing to netif_rx in
+	net/ieee80211/ieee80211_rx.c
+Date: Wed, 21 Jun 2006 21:05:58 +0200
+Message-ID: <1150916758.23715.1.camel@alice>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, mshefty@ichips.intel.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:10088 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S932316AbWFUSrq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2006 14:47:46 -0400
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1150910013.3057.59.camel@laptopd505.fenrus.org>
+Received: from mail.gmx.net ([213.165.64.21]:41908 "HELO mail.gmx.net")
+	by vger.kernel.org with SMTP id S932669AbWFUTGA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2006 15:06:00 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+hi,
 
-> ok pci posting...
-> 
-> basically, if you use writel() and co, the PCI bridges in the middle are
-> allowed (and the more fancy ones do) cache the write, to see if more
-> writes follow, so that the bridge can do the writes as a single burst to
-> the device, rather than as individual writes. This is of course great...
-> ... except when you really want the write to hit the device before the
-> driver continues with other actions. 
-> 
-> Now the PCI spec is set up such that any traffic in the other direction
-> (basically readl() and co) will first flush the write through the system
-> before the read is actually sent to the device, so doing a dummy readl()
-> is a good way to flush any pending posted writes.
-> 
-> Where does this matter? 
-> it matters most at places such as irq enabling/disabling, IO submission
-> and possibly IRQ acking, but also often in eeprom-like read/write logic
-> (where you do manual clocking and need to do delays between the
-> write()'s). But in general... any place where you do writel() without
-> doing any readl() before doing nothing to the card for a long time, or
-> where you are waiting for the card to do something (or want it done NOW,
-> such as IRQ disabling) you need to issue a (dummy) readl() to flush
-> pending writes out to the hardware.
-> 
-> 
-> does this explanation make any sense? if not please feel free to ask any
-> questions, I know I'm not always very good at explaining things.
+this patch fixes coverity id #913. ieee80211_monitor_rx() passes the skb
+to netif_rx() and we should not reference it any longer.
 
-Yep.  I get it.  I believe we're ok in this respect, but I'll review the
-code again with an eye for this issue...
+Signed-off-by: Eric Sesterhenn <snakebyte@gmx.de>
 
-Steve.
-
+--- linux-2.6/net/ieee80211/ieee80211_rx.c.orig	2006-06-21 21:02:16.000000000 +0200
++++ linux-2.6/net/ieee80211/ieee80211_rx.c	2006-06-21 21:02:59.000000000 +0200
+@@ -403,9 +403,9 @@ int ieee80211_rx(struct ieee80211_device
+ #endif
+ 
+ 	if (ieee->iw_mode == IW_MODE_MONITOR) {
+-		ieee80211_monitor_rx(ieee, skb, rx_stats);
+ 		stats->rx_packets++;
+ 		stats->rx_bytes += skb->len;
++		ieee80211_monitor_rx(ieee, skb, rx_stats);
+ 		return 1;
+ 	}
+ 
 
 
