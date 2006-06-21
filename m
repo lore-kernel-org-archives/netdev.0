@@ -1,83 +1,81 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: Intel ixgb driver bug in linux-2.6.17-rc6-mm2
-Date: Wed, 21 Jun 2006 15:18:50 -0500
-Message-ID: <20060621201850.GH8866@austin.ibm.com>
-References: <20060620193535.GG9200@austin.ibm.com> <4807377b0606201413hf77cc1bse70841a52fd08fcb@mail.gmail.com>
+From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+Subject: RE: [PATCH 01/06] MLSXFRM: Granular IPSec associations for use in
+	 MLS environments
+Date: Wed, 21 Jun 2006 16:36:12 -0400
+Message-ID: <36282A1733C57546BE392885C06185920132419A@chaos.tcs.tcs-sec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeffrey.t.kirsher@intel.com, ayyappan.veeraiyan@intel.com,
-	john.ronciak@intel.com, jesse.brandeburg@intel.com,
-	auke-jan.h.kok@intel.com, linux-pci@atrey.karlin.mff.cuni.cz,
-	netdev@vger.kernel.org, wenxiong@us.ibm.com
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:17301 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1751377AbWFUUSx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2006 16:18:53 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e2.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5LKIpD1005987
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Wed, 21 Jun 2006 16:18:52 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5LKIpCp260478
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 21 Jun 2006 16:18:51 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5LKIp3C014560
-	for <netdev@vger.kernel.org>; Wed, 21 Jun 2006 16:18:51 -0400
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <4807377b0606201413hf77cc1bse70841a52fd08fcb@mail.gmail.com>
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:36707 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1030267AbWFUUgm
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jun 2006 16:36:42 -0400
+To: James Morris <jmorris@namei.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 20, 2006 at 02:13:45PM -0700, Jesse Brandeburg wrote:
-> On 6/20/06, Linas Vepstas <linas@austin.ibm.com> wrote:
-> >
-> >I sat down to do some testing of the ixgb driver a few days ago, and
-> >get failures within seconds.  From what I can tell, I'm getting either a
-> >DMA to a bad address or some other PCI bus error, not sure which.
-> >The problem appears to happen only for the driver that's in
-> >2.6.17-rc6-mm2. As a sanity check, I'm testing the SuSE SLES10 beta,
-> >which is 2.6.16 based, and it doesn't seem to have any problems.
-> >
-> >My test is dirt-simple: telnet to the chargen port.  After an eyeblink,
-> >I get the pci bus error, that's that. "eyeblink" is after about 300MBytes
-> >transfered.  That was with a driver with NAPI enabled. I tried again
-> >with NAPI disabled, and got to about 1.8 GB transfered in two eyeblinks.
-> >
-> >To make sure that I'm not dealing with faulty hardware, I tried the same
-> >thing w/ SLES10 2.6.16.18-1.8  and have gotten to RX bytes:20889480686
-> >(19921.7 Mb) so far, with no problems. I don't have easy access to a PCI
-> >bus analyzer, otherwise, I'd tell you more. Ideas? Suggestions?
-> >
-> >I could try taking the diff between these two driver versions, and
-> >seeing what change caused the problem, but thought I should email first,
-> >before doing that.
+> Can you clarify whether, with this patch, Linux will then 
+> have a complete 
+> labeled network implementation in terms of both LSPP 
+> compliance and common 
+> user requirements?
 
-> try disabling TSO using ethtool and see if that helps any.
+I can't comment on the LSPP compliance issue since the specific/proprietary
+security target being used might really decide what's needed.
 
-Bing!  That appears to have fixed it !
+As for common user requirements, at least as I understand them, I would
+look for the following in addition to this patch:
 
-> you're running 1.0.109, correct?
+- Auto-labelling of child sockets for TCP (I am planning on sending a
+separate
+  patch out in the next few days).
+- Using the label from the incoming packet while sending timewait
+acknowledgements
+  and other packets sent on behalf of kernel sockets.
+- sid prioritization among the current mix of secmark, ipsec, and the
+upcoming netlabel
+- Replacing secmark on output with an access check in postrouting.
+- localhost traffic handling with regard to labelling.
 
-Yes.  DRV_VERSION     "1.0.109-k2"
+> 
+> > Outstanding items/issues: 
+> > - Timewait acknowledgements and such are generated in the 
+> > current/upstream implementation using a NULL socket 
+> resulting in the 
+> > any_socket sid (SYSTEM_HIGH) to be used. This problem is 
+> not addressed 
+> > by this patch set.
+> 
+> This needs to be resolved, along with labeling for all kernel owned 
+> socket/tw objects.
 
-> what does cat /proc/interrupts say (are you running MSI?)
+Resolved these should be, but given the fact that this patch doesn't
+introduce this problem in the first place, and given the value it adds to
+the
+xfrm stuff, my hope would be for this patch to be treated separately. I am
+hoping
+for 2.6.18 if possible.
 
-No MSI, this is on older hardware.  
-163:       3769     450130      14983     439113   XICS      Edge nic5
+>  I'm not entirely clear on why this 
+> doesn't already 
+> work, as it is using IPsec, which should certainly be able to 
+> encapsulate 
+> all of this traffic.
 
-> I'd also like to know if LLTX support (recently added) is causing you
-> the issue.  What hardware platform? pSeries?  does it EEH? what does
-> the dump say?
+Sans label-based checks, no problem. But with label-enhanced checks in
+place,
+we need to have the label to use, which we don't since there's no real
+socket present which normally provided the label. One way to handle
+this would be to use the label on the incoming packet for the response
+as mentioned earlier.
 
-Yes, its pseries; yes, I see this as EEH errors. However, the EEH error
-detection is asynchronous, and so the Linux tack trace is throughly
-boring: the error is first noticed when the watchdog runs, typically.
+> 
+> It would also be interesting to know what kind of testing 
+> this code as 
+> had.
 
---linas
-
-p.s. version 1.0.100-k2 works gret with NAPI on, and the defal TSO.
-I haven't yet tried 1.0.109 with NAPI on and TSO off.
-
---linas
+Primarily functional testing. Joy Latten at IBM is planning
+on further testing this using the framework built for the original
+work I believe.
