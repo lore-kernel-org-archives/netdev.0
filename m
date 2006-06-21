@@ -1,32 +1,62 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: Suspending 802.11 drivers
-Date: Wed, 21 Jun 2006 11:42:12 +0200
-Message-ID: <200606211142.12790.stefan@loplof.de>
-References: <200606152158.10079.mb@bu3sch.de> <200606162036.26518.stefan@loplof.de>
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Re: Locking validator output on DCCP
+Date: Wed, 21 Jun 2006 12:18:11 +0200
+Message-ID: <1150885091.3057.30.camel@laptopd505.fenrus.org>
+References: <5640c7e00606201640wa1ad17fl46a32ceb49513867@mail.gmail.com>
+	 <20060621003413.GA31915@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
+Cc: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>,
+	DCCP Mailing List <dccp@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>,
+	Ian McDonald <ian.mcdonald@jandi.co.nz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from natlemon.rzone.de ([81.169.145.170]:27373 "EHLO
-	natlemon.rzone.de") by vger.kernel.org with ESMTP id S932497AbWFUJks
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jun 2006 05:40:48 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200606162036.26518.stefan@loplof.de>
-Content-Disposition: inline
+Received: from a222036.upc-a.chello.nl ([62.163.222.36]:35565 "EHLO
+	laptopd505.fenrus.org") by vger.kernel.org with ESMTP
+	id S1751341AbWFUKSq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jun 2006 06:18:46 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060621003413.GA31915@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Freitag 16 Juni 2006 20:36 schrieb Stefan Rompf:
+On Wed, 2006-06-21 at 10:34 +1000, Herbert Xu wrote:
+> > As I read this it is not a recursive lock as sk_clone is occurring
+> > second and is actually creating a new socket so they are trying to
+> > lock on different sockets.
+> > 
+> > Can someone tell me whether I am correct in my thinking or not? If I
+> > am then I will work out how to tell the lock validator not to worry
+> > about it.
+> 
+> I agree, this looks bogus.  Ingo, could you please take a look?
 
-> (But that's an interesting point. Will sniff whether ipw2200 hardware sends
-> a final packet on suspend.)
+Fix is relatively easy:
 
-neither on suspend to RAM nor on suspend to disk a disassociation is sent by 
-ipw2200 - for the AP, the client just vanishes.
 
-Stefan
+sk_clone creates a new socket, and thus can never deadlock, and in fact
+can be called with the original socket locked. This therefore is a
+legitimate nesting case; mark it as such.
+
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+
+
+---
+ net/core/sock.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: linux-2.6.17-rc6-mm2/net/core/sock.c
+===================================================================
+--- linux-2.6.17-rc6-mm2.orig/net/core/sock.c
++++ linux-2.6.17-rc6-mm2/net/core/sock.c
+@@ -846,7 +846,7 @@ struct sock *sk_clone(const struct sock 
+ 		/* SANITY */
+ 		sk_node_init(&newsk->sk_node);
+ 		sock_lock_init(newsk);
+-		bh_lock_sock(newsk);
++		bh_lock_sock_nested(newsk);
+ 
+ 		atomic_set(&newsk->sk_rmem_alloc, 0);
+ 		atomic_set(&newsk->sk_wmem_alloc, 0);
+
