@@ -1,42 +1,102 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [NET]: Prevent multiple qdisc runs
-Date: Wed, 21 Jun 2006 09:52:07 +1000
-Message-ID: <20060620235207.GA31493@gondor.apana.org.au>
-References: <20060619121519.GA16031@gondor.apana.org.au> <1150724031.5815.39.camel@jzny2> <20060619134227.GA16662@gondor.apana.org.au> <1150727009.5815.72.camel@jzny2> <20060619142928.GA17191@gondor.apana.org.au> <1150727810.5815.78.camel@jzny2> <20060619223326.GA20354@gondor.apana.org.au> <1150814526.5270.64.camel@jzny2>
+From: Shuya MAEDA <maeda-sxb@necst.nec.co.jp>
+Subject: Re: [PKT_SCHED]: PSCHED_TADD() and PSCHED_TADD2() can result,tv_usec
+ >= 1000000
+Date: Wed, 21 Jun 2006 09:16:03 +0900
+Message-ID: <44988FC3.5030300@necst.nec.co.jp>
+References: <449637EE.4020608@necst.nec.co.jp> <20060619.235105.82052619.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:11788 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750990AbWFTXwV
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Jun 2006 19:52:21 -0400
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1150814526.5270.64.camel@jzny2>
+Received: from TYO202.gate.nec.co.jp ([202.32.8.206]:14297 "EHLO
+	tyo202.gate.nec.co.jp") by vger.kernel.org with ESMTP
+	id S1751153AbWFUAQJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Jun 2006 20:16:09 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060619.235105.82052619.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 20, 2006 at 10:42:06AM -0400, jamal wrote:
+Thank you for the comment.
+I made the patch that used the loop instead of the divide and modulus.
+Are there any comments?
+
+David Miller wrote:
+> From: Shuya MAEDA <maeda-sxb@necst.nec.co.jp>
+> Date: Mon, 19 Jun 2006 14:36:46 +0900
 > 
-> I apologize for hand-waving with % numbers above and using gut feeling
-> instead of experimental facts - I dont have time to chase it. I have
-> CCed Robert who may have time to see if this impacts forwarding
-> performance for one. I will have more peace of mind to find out there is
-> no impact.
+>>  #define PSCHED_TADD2(tv, delta, tv_res) \
+>>  ({ \
+>> -          int __delta = (tv).tv_usec + (delta); \
+>> -          (tv_res).tv_sec = (tv).tv_sec; \
+>> -          if (__delta > USEC_PER_SEC) { (tv_res).tv_sec++; __delta -= USEC_PER_SEC; } \
+>> -          (tv_res).tv_usec = __delta; \
+>> +          int __delta = (delta); \
+>> +          (tv_res) = (tv); \
+>> +          if((delta) > USEC_PER_SEC) { \
+>> +                (tv_res).tv_sec += (delta) / USEC_PER_SEC; \
+>> +                __delta -= (delta) % USEC_PER_SEC; \
+>> +          } \
+>> +          (tv_res).tv_usec += __delta; \
+>> +          if((tv_res).tv_usec >= USEC_PER_SEC) { \
+>> +                (tv_res).tv_sec++; \
+>> +                (tv_res).tv_usec -= USEC_PER_SEC; \
+>> +          } \
+>>  })
+> 
+> Divide and modulus can be extremely expensive on some systems, so
+> let's try to avoid using them.
+> 
+> It is probably sufficient to adjust the passed in delta only once if
+> it is >= USEC_PER_SEC, but if you feel that is an unsafe assumption
+> then please use a simply loop like this:
+> 
+> 	while (__delta >= USEC_PER_SEC) {
+> 		(tv_res).tv_sec++;
+> 		__delta -= USEC_PER_SEC;
+> 	}
+> 
+> And please provide a proper "Signed-off-by: " line in your next
+> patch submission.
+> 
+> Thank you very much.
 
-Well my gut feeling is that multiple qdisc_run's on the same dev can't
-be good for perfomance.  The reason is that SMP is only good when the
-CPUs work on different tasks.  If you get two or more CPUs to work on
-qdisc_run at the same time they can still only supply one skb to the
-device at any time.  What's worse is that they will now have to fight
-over the two spin locks involved which means that their cache lines
-will bounce back and forth.
+Signed-off-by: Shuya MAEDA <maeda-sxb@necst.nec.co.jp>
 
-Cheers,
+diff -Nur linux-2.6.17.orig/include/net/pkt_sched.h linux-2.6.17.mypatch/include/net/pkt_sched.h
+--- linux-2.6.17.orig/include/net/pkt_sched.h   2006-06-18 10:49:35.000000000 +0900
++++ linux-2.6.17.mypatch/include/net/pkt_sched.h        2006-06-20 17:17:34.000000000 +0900
+@@ -169,17 +169,23 @@
+
+  #define PSCHED_TADD2(tv, delta, tv_res) \
+  ({ \
+-          int __delta = (tv).tv_usec + (delta); \
+-          (tv_res).tv_sec = (tv).tv_sec; \
+-          if (__delta > USEC_PER_SEC) { (tv_res).tv_sec++; __delta -= USEC_PER_SEC; } \
++          int __delta = (delta); \
++          (tv_res) = (tv); \
++          while(__delta >= USEC_PER_SEC){ \
++                (tv_res).tv_sec++; \
++                __delta -= USEC_PER_SEC; \
++          } \
+            (tv_res).tv_usec = __delta; \
+  })
+
+  #define PSCHED_TADD(tv, delta) \
+  ({ \
+-          (tv).tv_usec += (delta); \
+-          if ((tv).tv_usec > USEC_PER_SEC) { (tv).tv_sec++; \
+-                (tv).tv_usec -= USEC_PER_SEC; } \
++          int __delta = (delta); \
++          while(__delta >= USEC_PER_SEC){ \
++                (tv).tv_sec++; \
++                __delta -= USEC_PER_SEC; \
++          } \
++          (tv).tv_usec = __delta; \
+  })
+
+  /* Set/check that time is in the "past perfect";
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Shuya MAEDA
