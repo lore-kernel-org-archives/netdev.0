@@ -1,48 +1,60 @@
 From: Steve Wise <swise@opengridcomputing.com>
-Subject: [PATCH 0/2][RFC] Network Event Notifier Mechanism
-Date: Wed, 21 Jun 2006 13:45:19 -0500
-Message-ID: <20060621184519.10425.69175.stgit@stevo-desktop>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
+Subject: Re: [PATCH v3 1/7] AMSO1100 Low Level Driver.
+Date: Wed, 21 Jun 2006 13:47:45 -0500
+Message-ID: <1150915665.20327.0.camel@stevo-desktop>
+References: <20060620203050.31536.5341.stgit@stevo-desktop>
+	 <20060620203055.31536.15131.stgit@stevo-desktop>
+	 <1150836226.2891.231.camel@laptopd505.fenrus.org>
+	 <1150907571.31600.31.camel@stevo-desktop>
+	 <1150910013.3057.59.camel@laptopd505.fenrus.org>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: rdreier@cisco.com, mshefty@ichips.intel.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-227-247-53.sw.biz.rr.com ([24.227.247.53]:42212 "EHLO
-	linux.local") by vger.kernel.org with ESMTP id S1751146AbWFUSpU
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jun 2006 14:45:20 -0400
-Received: from [127.0.0.2] (localhost [127.0.0.1])
-	by linux.local (Postfix) with ESMTP id 725E249018
-	for <netdev@vger.kernel.org>; Wed, 21 Jun 2006 13:45:19 -0500 (CDT)
-To: netdev@vger.kernel.org
+Received: from es335.com ([67.65.19.105]:10088 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S932316AbWFUSrq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Jun 2006 14:47:46 -0400
+To: Arjan van de Ven <arjan@infradead.org>
+In-Reply-To: <1150910013.3057.59.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-This patch implements a mechanism that allows interested clients to
-register for notification of certain network events. The intended use
-is to allow RDMA devices (linux/drivers/infiniband) to be notified of
-neighbour updates, ICMP redirects, path MTU changes, and route changes.
+> ok pci posting...
+> 
+> basically, if you use writel() and co, the PCI bridges in the middle are
+> allowed (and the more fancy ones do) cache the write, to see if more
+> writes follow, so that the bridge can do the writes as a single burst to
+> the device, rather than as individual writes. This is of course great...
+> ... except when you really want the write to hit the device before the
+> driver continues with other actions. 
+> 
+> Now the PCI spec is set up such that any traffic in the other direction
+> (basically readl() and co) will first flush the write through the system
+> before the read is actually sent to the device, so doing a dummy readl()
+> is a good way to flush any pending posted writes.
+> 
+> Where does this matter? 
+> it matters most at places such as irq enabling/disabling, IO submission
+> and possibly IRQ acking, but also often in eeprom-like read/write logic
+> (where you do manual clocking and need to do delays between the
+> write()'s). But in general... any place where you do writel() without
+> doing any readl() before doing nothing to the card for a long time, or
+> where you are waiting for the card to do something (or want it done NOW,
+> such as IRQ disabling) you need to issue a (dummy) readl() to flush
+> pending writes out to the hardware.
+> 
+> 
+> does this explanation make any sense? if not please feel free to ask any
+> questions, I know I'm not always very good at explaining things.
 
-The reason these devices need update events is because they typically
-cache this information in hardware and need to be notified when this
-information has been updated.
+Yep.  I get it.  I believe we're ok in this respect, but I'll review the
+code again with an eye for this issue...
 
-This approach is one of many possibilities and may be preferred because it
-uses an existing notification mechanism that has precedent in the stack.
-An alternative would be to add a netdev method to notify affect devices
-of these events.
+Steve.
 
-This code does not yet implement path MTU change because the number of
-places in which this value is updated is large and if this mechanism
-seems reasonable, it would be probably be best to funnel these updates
-through a single function.
 
-We would like to get this or similar functionality included in 2.6.19
-and request comments.
 
-This patchset consists of 2 patches:
-
-1) New files implementing the Network Event Notifier
-2) Core network changes to generate network event notifications
-
-Signed-off-by: Tom Tucker <tom@opengridcomputing.com>
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
