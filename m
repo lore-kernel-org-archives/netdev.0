@@ -1,44 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: + myri10ge-build-fix.patch added to -mm tree
-Date: Wed, 21 Jun 2006 14:41:07 +1000
-Message-ID: <20060621044107.GB899@gondor.apana.org.au>
-References: <200606210433.k5L4XgmP008626@shell0.pdx.osdl.net>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 03/06] MLSXFRM: Add security sid to sock
+Date: Wed, 21 Jun 2006 01:12:43 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0606210111570.5693@d.namei>
+References: <36282A1733C57546BE392885C06185920132401F@chaos.tcs.tcs-sec.com>
+ <20060621043502.GA899@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mm-commits@vger.kernel.org, bgoglin@myri.com, davem@davemloft.net,
-	jeff@garzik.org, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Venkat Yekkirala <vyekkirala@TrustedCS.com>,
+	netdev@vger.kernel.org, selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:20241 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932283AbWFUElj
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jun 2006 00:41:39 -0400
-To: akpm@osdl.org
-Content-Disposition: inline
-In-Reply-To: <200606210433.k5L4XgmP008626@shell0.pdx.osdl.net>
+Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:25305 "EHLO
+	mail3.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1750864AbWFUFMq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jun 2006 01:12:46 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060621043502.GA899@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 20, 2006 at 09:33:42PM -0700, akpm@osdl.org wrote:
->
-> diff -puN drivers/net/myri10ge/myri10ge.c~myri10ge-build-fix drivers/net/myri10ge/myri10ge.c
-> --- a/drivers/net/myri10ge/myri10ge.c~myri10ge-build-fix
-> +++ a/drivers/net/myri10ge/myri10ge.c
-> @@ -2120,7 +2120,7 @@ abort_linearize:
->  		goto drop;
->  	}
->  
-> -	if (skb_linearize(skb, GFP_ATOMIC))
-> +	if (skb_linearize(skb))
->  		goto drop;
+On Wed, 21 Jun 2006, Herbert Xu wrote:
 
-Actually I think this driver (in conjunction with TSO) is buggy.
-It has a maximum segment count of 12.  However TSO can send 13 pages
-or more of data on i386.  If this happens it looks like this driver
-will go into an infinite loop forever trying to linearize the skb.
+> On Tue, Jun 20, 2006 at 08:50:55PM -0400, Venkat Yekkirala wrote:
+> >
+> > Nope. It would actually overwrite the pointer, so we put it away before
+> > memcpy
+> > and set it back after memcpy.
+> 
+> Right, I misread it as sptr = osk->sk_security.  Still, it'd be nice to
+> optimise it away for the !SECURITY case.
 
-Cheers,
+Indeed, there should be zero overhead for core networking code when LSM is 
+not configured.
+
+
+- James
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+James Morris
+<jmorris@namei.org>
