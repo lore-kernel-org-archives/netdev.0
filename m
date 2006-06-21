@@ -1,40 +1,36 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: Suspending 802.11 drivers
-Date: Thu, 22 Jun 2006 00:07:03 +0200
-Message-ID: <200606220007.07467.stefan@loplof.de>
-References: <200606152158.10079.mb@bu3sch.de> <200606162036.26518.stefan@loplof.de> <43e72e890606210808n187771e6k2f58789cf1fcf680@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: New Qlogic qla3xxx NIC Driver v2.02.00k31 for upstream inclusion
+Date: Thu, 22 Jun 2006 00:06:11 +0200
+Message-ID: <20060621220611.GA31353@electric-eye.fr.zoreil.com>
+References: <0BB3E5E7462EEA4295BC02D49691DC07176751@AVEXCH1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael Buesch" <mb@bu3sch.de>, "Jiri Benc" <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, linux-driver@qlogic.com, netdev@vger.kernel.org,
+	akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from natklopstock.rzone.de ([81.169.145.174]:28111 "EHLO
-	natklopstock.rzone.de") by vger.kernel.org with ESMTP
-	id S1030315AbWFUWF4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jun 2006 18:05:56 -0400
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-In-Reply-To: <43e72e890606210808n187771e6k2f58789cf1fcf680@mail.gmail.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:56739 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1030337AbWFUWKi
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jun 2006 18:10:38 -0400
+To: Ron Mercer <ron.mercer@qlogic.com>
 Content-Disposition: inline
+In-Reply-To: <0BB3E5E7462EEA4295BC02D49691DC07176751@AVEXCH1.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Mittwoch 21 Juni 2006 17:08 schrieb Luis R. Rodriguez:
+Ron Mercer <ron.mercer@qlogic.com> :
+[...]
+> Please add the qla3xxx NIC driver to the next netdev-2.6 GIT tree. 
 
-> Since d80211 is already being patched for sysfs how about we use sysfs
-> (and kobjects) to maintain the state at suspend() and resume(). This
-> would allow userspace tools like supplicant running in the background
-> to pick up from sysfs where it left off and for our drivers to save
-> where we left off.
+$ less qla3xxxpatch1-v2.02.00-k31.txt
+[...]
++ * See LICENSE.qla3xxx for copyright and licensing details.
 
-Forgive me that I'm so insistant on this question, but this is important: What 
-state that goes beyond the data settable with wireless ioctls/iwconfig (that 
-is kept anyway) needs to be saved by the stack? Last association info is 
-worthless, the assocation can be restored using the ESSID/BSSID/channel set 
-with iwconfig or by wpa_supplicant. Important is that userspace is notified 
-about the connection loss. Is there _any_ other information not recreatable 
-from iwconfig settings that needs to be kept?
+1 - The patch contains no such file (though the file is MODULE_LICENSE("GPL")).
+    Please fix it.
 
-Stefan
+2 - The description of the patch contains no Signed-off-by: attribute
+    as per Documentation/SubmittingPatches. Can you send one ?
+
+-- 
+Ueimor
