@@ -1,68 +1,25 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: Sanitise ethtool.h and mii.h for userspace.
-Date: Wed, 21 Jun 2006 09:23:03 +0100
-Message-ID: <1150878183.3176.551.camel@pmac.infradead.org>
-References: <200606202308.k5KN83bT013398@hera.kernel.org>
-	 <44989E63.9010300@garzik.org>
+From: Beschorner Daniel <Daniel.Beschorner@facton.com>
+Subject: skge 1.6
+Date: Wed, 21 Jun 2006 10:46:14 +0200
+Message-ID: <BB1F4EFD574E9F409035BDA71C961250024222@exchange.i-bn>
 Mime-Version: 1.0
 Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Netdev List <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Linus Torvalds <torvalds@osdl.org>
+Cc: "'david@mantara.com'" <david@mantara.com>,
+	"'Krzysztof Oledzki'" <olel@ans.pl>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([205.233.218.70]:18837 "EHLO
-	canuck.infradead.org") by vger.kernel.org with ESMTP
-	id S932485AbWFUIXK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Jun 2006 04:23:10 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <44989E63.9010300@garzik.org>
+Received: from loewe.unit-netz.de ([212.202.148.42]:9661 "EHLO
+	loewe.unit-netz.de") by vger.kernel.org with ESMTP id S1751267AbWFUIqS
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Jun 2006 04:46:18 -0400
+To: "'Stephen Hemminger'" <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-06-20 at 21:18 -0400, Jeff Garzik wrote:
-> How can reviewers make an informed decision, when you completely failed 
-> to note:
-> 
-> * This breaks the primary userspace user of this header, ethtool(8)
+Crashing keeps on, but I want to emphasize that it crashes during excessive
+Rx not Tx.
+I can copy a 1GB file smoothly from the server, but in the other direction
+after some seconds the box hangs.
 
-I cannot reproduce with either an ethtool-3 tarball or a fresh checkout
-from your git tree. Can you show me the error?
+Sorry, couldn't test other then SMB yet on our production system.
 
-It's a somewhat surprising allegation, because ethtool doesn't even
-_use_ the header directly from the kernel. It has its own copy, and
-currently includes it like this...
-
-typedef unsigned long long u64;         /* hack, so we may include kernel's ethtool.h */
-typedef __uint32_t u32;         /* ditto */
-typedef __uint16_t u16;         /* ditto */
-typedef __uint8_t u8;           /* ditto */
-#include "ethtool-copy.h"
-
-> * The patch was NAK'd (and I don't even get a "Naked-by:" header :))
-
-Sorry, my recollection was that you backed down after everyone turned on
-you and declared that "but I _want_ to use 'u32' for userspace stuff
-because underscores hurt my eyes" was too silly for words. You didn't
-get a mention in the commit comment because I'd already committed it by
-the time we had the discussion. But I did mention it to Andrew at the
-time I asked him to put the hdrcleanup tree into -mm, and he seemed
-perfectly happy with the change.
-
-> * Despite knowing all this for quite some time, no associated userspace 
-> fix patch has ever appeared.
-
-That's because to the best of my knowledge, userspace doesn't _need_ any
-fix at the moment. We've built the whole of the Fedora Core 6 test 1
-release against (a subset of) these headers, and that includes ethtool.
-
-> If you are going to break stuff, AT LEAST TELL PEOPLE IN ALL CAPS ABOUT 
-> IT, rather than providing the highly deceptive description as above. 
-> And be courteous enough to help fix the breakage, if you please. 
-
-If I break stuff, I promise I'll bear that in mind.
-
--- 
-dwmw2
-
+Daniel
