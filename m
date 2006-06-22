@@ -1,39 +1,82 @@
-From: Erik Mouw <erik@harddisk-recovery.com>
-Subject: Re: Memory corruption in 8390.c ?
-Date: Thu, 22 Jun 2006 14:00:14 +0200
-Message-ID: <20060622120014.GA13681@harddisk-recovery.com>
-References: <20060622023029.GA6156@gondor.apana.org.au> <20060622.012609.25474139.davem@davemloft.net> <20060622083037.GB26083@gondor.apana.org.au> <20060622.013440.97293561.davem@davemloft.net> <1150976063.15275.146.camel@localhost.localdomain> <1150976016.3120.19.camel@laptopd505.fenrus.org>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: [RFC] sysfs + configfs on 802.11 wireless drivers
+Date: Thu, 22 Jun 2006 08:12:24 -0400
+Message-ID: <43e72e890606220512h5197d473s5f7da9e734814005@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	David Miller <davem@davemloft.net>,
-	herbert@gondor.apana.org.au, snakebyte@gmx.de,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"Greg KH" <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dtp.xs4all.nl ([80.126.206.180]:45614 "HELO abra2.bitwizard.nl")
-	by vger.kernel.org with SMTP id S1161103AbWFVMAQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 08:00:16 -0400
-To: Arjan van de Ven <arjan@infradead.org>
+Received: from ug-out-1314.google.com ([66.249.92.168]:1591 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1030627AbWFVMMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 08:12:25 -0400
+Received: by ug-out-1314.google.com with SMTP id a2so447288ugf
+        for <netdev@vger.kernel.org>; Thu, 22 Jun 2006 05:12:24 -0700 (PDT)
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <1150976016.3120.19.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 22, 2006 at 01:33:36PM +0200, Arjan van de Ven wrote:
-> On Thu, 2006-06-22 at 12:34 +0100, Alan Cox wrote:
-> > The 8390 change (corrected version) also makes 8390.c faster so should
-> > be applied anyway, 
-> 
-> 8390 is such a race monster that a few cycles matter a lot! :-)
+Rebel fleet of wireless developers,
 
-It sure is. Back in the old days I could saturate a 10 Mbit ethernet
-segment using a Western Digital 8003 (the 8 bit ISA card) in a 386DX40
-(running Linux 1.0, 1.2, and 1.3).
+Here's some changes which I think our current wireless stacks could
+use to assist cleaning up WEs, private ioctls, and provide userspace a
+cleaner framework to interact with our wireless drivers.
 
+Kernel level:
 
-Erik
+(1) Use the new *configfs* for all user-specific attributes
+(2) Use *sysfs* read-only kobjects for device-specific attributes like
+values which can be saved for suspend() and collected for resume().
+IEEE 802.11 capabilities, features (for example radiotap), and what is
+currently settable/gettable from private ioctl realm along with its
+restrictions can also be exported via sysfs.
+(3) On resume() talk to userspace via netlink to read our sysfs and configfs us
 
--- 
-+-- Erik Mouw -- www.harddisk-recovery.com -- +31 70 370 12 90 --
-| Lab address: Delftechpark 26, 2628 XH, Delft, The Netherlands
+Userspace applications can then:
+
+(1) Interact with configfs for configuring wireless devices, including
+what used to be set by private ioctls
+(2) Retrieve attributes saved from sysfs and set them onto configfs
+after resume(). Sysfs will also tell us this card's capabilities,
+features and private data along with their respective restrictions we
+can work with so -- userspace can modify the available options which
+can be gettable/settable.
+(3) Respond to netlink communication from driver after resume() to set
+data through configfs
+
+---
+
+I know we recently moved WE to netlink but I figured celebrating the
+happy marriage of Mr. sysfs and Mrs. configfs on 2.6.16 by giving them
+offspring would be nice and more appropriate. Here's an example
+run-through of how this would work:
+
+(1) A wireless device comes up and spits out device-specific default
+settings on sysfs
+
+(2) If a user wants to change essid, channel, power-save-mode (this is
+not suspend()), rate, and so forth userspace writes the settings into
+configfs, these would in turn get updated on sysfs by the driver.
+
+(3) Should the device go into suspend() the driver can then update its
+necessary attributes on sysfs required to recover from suspend() which
+may not have been updated yet (whatever they may be)
+
+(4) At resume() we could just have our driver read our sysfs
+attributes and try to set all of them back exactly how they were
+before but to reduce bloat on our drivers and since our state is
+already exported we could just have userspace do it for us so... we
+use netlink to communicate to userspace to go ahead and ask it to
+resume() us. Advantages of this would be userspace would always
+consistantly handle the assoc/desassoc and WPA in a consistent manner
+and as mentioned above, driver bloatness killing.
+
+(5) At resume() userspace reads sysfs and sets us back up through configfs
+
+Comments are appreciated, if this is something that seems desirable I
+can start cranking up some code.
+
+  Luis
