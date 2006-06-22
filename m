@@ -1,82 +1,101 @@
 From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [PATCH] WAN: register_hdlc_device() doesn't need dev_alloc_name()
-Date: Thu, 22 Jun 2006 22:20:19 +0200
-Message-ID: <m3psh1vt6k.fsf@defiant.localdomain>
+Subject: [PATCH] WAN: ioremap() failure checks in drivers
+Date: Thu, 22 Jun 2006 22:29:28 +0200
+Message-ID: <m3odwlvsrb.fsf@defiant.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:24022 "EHLO khc.piap.pl")
-	by vger.kernel.org with ESMTP id S1030391AbWFVUUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 16:20:25 -0400
+Received: from khc.piap.pl ([195.187.100.11]:57309 "EHLO khc.piap.pl")
+	by vger.kernel.org with ESMTP id S1161334AbWFVU3a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 16:29:30 -0400
 To: Jeff Garzik <jeff@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Boggs noticed that register_hdlc_device() no longer needs
-to call dev_alloc_name() as it's called by register_netdev().
-register_hdlc_device() is currently equivalent to register_netdev().
-
-hdlc_setup() is now EXPORTed as per David's request.
+Eric Sesterhenn found that pci200syn initialization lacks return
+statement in ioremap() error path (coverity bug id #195). It looks
+like more WAN drivers have problems with ioremap().
 
 Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
 
---- a/include/linux/hdlc.h
-+++ b/include/linux/hdlc.h
-@@ -188,7 +188,7 @@ int hdlc_x25_ioctl(struct net_device *de
- int hdlc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
- 
- /* Must be used by hardware driver on module startup/exit */
--int register_hdlc_device(struct net_device *dev);
-+#define register_hdlc_device(dev)	register_netdev(dev)
- void unregister_hdlc_device(struct net_device *dev);
- 
- struct net_device *alloc_hdlcdev(void *priv);
---- a/drivers/net/wan/hdlc_generic.c
-+++ b/drivers/net/wan/hdlc_generic.c
-@@ -259,7 +259,7 @@ int hdlc_ioctl(struct net_device *dev, s
+--- a/drivers/net/wan/c101.c
++++ b/drivers/net/wan/c101.c
+@@ -326,21 +326,21 @@ static int __init c101_run(unsigned long
+ 	if (request_irq(irq, sca_intr, 0, devname, card)) {
+ 		printk(KERN_ERR "c101: could not allocate IRQ\n");
+ 		c101_destroy_card(card);
+-		return(-EBUSY);
++		return -EBUSY;
  	}
- }
+ 	card->irq = irq;
  
--static void hdlc_setup(struct net_device *dev)
-+void hdlc_setup(struct net_device *dev)
- {
- 	hdlc_device *hdlc = dev_to_hdlc(dev);
+ 	if (!request_mem_region(winbase, C101_MAPPED_RAM_SIZE, devname)) {
+ 		printk(KERN_ERR "c101: could not request RAM window\n");
+ 		c101_destroy_card(card);
+-		return(-EBUSY);
++		return -EBUSY;
+ 	}
+ 	card->phy_winbase = winbase;
+ 	card->win0base = ioremap(winbase, C101_MAPPED_RAM_SIZE);
+ 	if (!card->win0base) {
+ 		printk(KERN_ERR "c101: could not map I/O address\n");
+ 		c101_destroy_card(card);
+-		return -EBUSY;
++		return -EFAULT;
+ 	}
  
-@@ -288,26 +288,6 @@ struct net_device *alloc_hdlcdev(void *p
- 	return dev;
- }
+ 	card->tx_ring_buffers = TX_RING_BUFFERS;
+--- a/drivers/net/wan/n2.c
++++ b/drivers/net/wan/n2.c
+@@ -387,6 +387,11 @@ static int __init n2_run(unsigned long i
+ 	}
+ 	card->phy_winbase = winbase;
+ 	card->winbase = ioremap(winbase, USE_WINDOWSIZE);
++	if (!card->winbase) {
++		printk(KERN_ERR "n2: ioremap() failed\n");
++		n2_destroy_card(card);
++		return -EFAULT;
++	}
  
--int register_hdlc_device(struct net_device *dev)
--{
--	int result = dev_alloc_name(dev, "hdlc%d");
--	if (result < 0)
--		return result;
--
--	result = register_netdev(dev);
--	if (result != 0)
--		return -EIO;
--
--#if 0
--	if (netif_carrier_ok(dev))
--		netif_carrier_off(dev); /* no carrier until DCD goes up */
--#endif
--
--	return 0;
--}
--
--
--
- void unregister_hdlc_device(struct net_device *dev)
- {
- 	rtnl_lock();
-@@ -326,8 +306,8 @@ EXPORT_SYMBOL(hdlc_open);
- EXPORT_SYMBOL(hdlc_close);
- EXPORT_SYMBOL(hdlc_set_carrier);
- EXPORT_SYMBOL(hdlc_ioctl);
-+EXPORT_SYMBOL(hdlc_setup);
- EXPORT_SYMBOL(alloc_hdlcdev);
--EXPORT_SYMBOL(register_hdlc_device);
- EXPORT_SYMBOL(unregister_hdlc_device);
+ 	outb(0, io + N2_PCR);
+ 	outb(winbase >> 12, io + N2_BAR);
+--- a/drivers/net/wan/pci200syn.c
++++ b/drivers/net/wan/pci200syn.c
+@@ -358,6 +358,7 @@ #endif
+ 	    card->rambase == NULL) {
+ 		printk(KERN_ERR "pci200syn: ioremap() failed\n");
+ 		pci200_pci_remove_one(pdev);
++		return -EFAULT;
+ 	}
  
- static struct packet_type hdlc_packet_type = {
+ 	/* Reset PLX */
+--- a/drivers/net/wan/wanxl.c
++++ b/drivers/net/wan/wanxl.c
+@@ -634,7 +634,13 @@ #endif
+ 
+ 	/* set up PLX mapping */
+ 	plx_phy = pci_resource_start(pdev, 0);
++
+ 	card->plx = ioremap_nocache(plx_phy, 0x70);
++	if (!card->plx) {
++		printk(KERN_ERR "wanxl: ioremap() failed\n");
++ 		wanxl_pci_remove_one(pdev);
++		return -EFAULT;
++	}
+ 
+ #if RESET_WHILE_LOADING
+ 	wanxl_reset(card);
+@@ -700,6 +706,12 @@ #endif
+ 	}
+ 
+ 	mem = ioremap_nocache(mem_phy, PDM_OFFSET + sizeof(firmware));
++	if (!mem) {
++		printk(KERN_ERR "wanxl: ioremap() failed\n");
++ 		wanxl_pci_remove_one(pdev);
++		return -EFAULT;
++	}
++
+ 	for (i = 0; i < sizeof(firmware); i += 4)
+ 		writel(htonl(*(u32*)(firmware + i)), mem + PDM_OFFSET + i);
+ 
