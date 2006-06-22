@@ -1,15 +1,15 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [4/5] [NET]: Added GSO toggle
-Date: Thu, 22 Jun 2006 18:14:23 +1000
-Message-ID: <20060622081423.GD22671@gondor.apana.org.au>
+Subject: [5/5] [IPSEC]: Handle GSO packets
+Date: Thu, 22 Jun 2006 18:14:44 +1000
+Message-ID: <20060622081444.GE22671@gondor.apana.org.au>
 References: <20060622081211.GA22505@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="llIrKcgUOe3dCx0c"
+Content-Type: multipart/mixed; boundary="Uwl7UQhJk99r8jnw"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:17668 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932841AbWFVIOZ
+Received: from rhun.apana.org.au ([64.62.148.172]:19716 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932840AbWFVIOq
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 04:14:25 -0400
+	Thu, 22 Jun 2006 04:14:46 -0400
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Content-Disposition: inline
 In-Reply-To: <20060622081211.GA22505@gondor.apana.org.au>
@@ -17,16 +17,24 @@ Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---llIrKcgUOe3dCx0c
+--Uwl7UQhJk99r8jnw
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
 Hi:
 
-[NET]: Added GSO toggle
+[IPSEC]: Handle GSO packets
 
-This patch adds a generic segmentation offload toggle that can be turned
-on/off for each net device.  For now it only supports in TCPv4.
+This patch segments GSO packets received by the IPsec stack.  This can
+happen when a NIC driver injects GSO packets into the stack which are
+then forwarded to another host.
+
+The primary application of this is going to be Xen where its backend
+driver may inject GSO packets into dom0.
+
+Of course this also can be used by other virtualisation schemes such as
+VMWare or UML since the tap device could be modified to inject GSO packets
+received through splice.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
@@ -37,125 +45,160 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---llIrKcgUOe3dCx0c
+--Uwl7UQhJk99r8jnw
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="p4.patch"
+Content-Disposition: attachment; filename="p5.patch"
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -408,6 +408,8 @@ struct ethtool_ops {
- #define ETHTOOL_GPERMADDR	0x00000020 /* Get permanent hardware address */
- #define ETHTOOL_GUFO		0x00000021 /* Get UFO enable (ethtool_value) */
- #define ETHTOOL_SUFO		0x00000022 /* Set UFO enable (ethtool_value) */
-+#define ETHTOOL_GGSO		0x00000023 /* Get GSO enable (ethtool_value) */
-+#define ETHTOOL_SGSO		0x00000024 /* Set GSO enable (ethtool_value) */
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -9,6 +9,8 @@
+  */
  
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -309,6 +309,7 @@ struct net_device
- #define NETIF_F_HW_VLAN_RX	256	/* Receive VLAN hw acceleration */
- #define NETIF_F_HW_VLAN_FILTER	512	/* Receive filtering on VLAN */
- #define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN packets */
-+#define NETIF_F_GSO		2048	/* Enable software GSO. */
- #define NETIF_F_LLTX		4096	/* LockLess TX */
+ #include <linux/compiler.h>
++#include <linux/if_ether.h>
++#include <linux/kernel.h>
+ #include <linux/skbuff.h>
+ #include <linux/spinlock.h>
+ #include <linux/netfilter_ipv4.h>
+@@ -97,16 +99,10 @@ error_nolock:
+ 	goto out_exit;
+ }
  
- 	/* Segmentation offload features */
-diff --git a/include/net/sock.h b/include/net/sock.h
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1031,9 +1031,13 @@ static inline void sk_setup_caps(struct 
+-static int xfrm4_output_finish(struct sk_buff *skb)
++static int xfrm4_output_finish2(struct sk_buff *skb)
  {
- 	__sk_dst_set(sk, dst);
- 	sk->sk_route_caps = dst->dev->features;
-+	if (sk->sk_route_caps & NETIF_F_GSO)
-+		sk->sk_route_caps |= NETIF_F_TSO;
- 	if (sk->sk_route_caps & NETIF_F_TSO) {
- 		if (sock_flag(sk, SOCK_NO_LARGESEND) || dst->header_len)
- 			sk->sk_route_caps &= ~NETIF_F_TSO;
-+		else 
-+			sk->sk_route_caps |= NETIF_F_SG | NETIF_F_HW_CSUM;
+ 	int err;
+ 
+-#ifdef CONFIG_NETFILTER
+-	if (!skb->dst->xfrm) {
+-		IPCB(skb)->flags |= IPSKB_REROUTED;
+-		return dst_output(skb);
+-	}
+-#endif
+ 	while (likely((err = xfrm4_output_one(skb)) == 0)) {
+ 		nf_reset(skb);
+ 
+@@ -119,7 +115,7 @@ static int xfrm4_output_finish(struct sk
+ 			return dst_output(skb);
+ 
+ 		err = nf_hook(PF_INET, NF_IP_POST_ROUTING, &skb, NULL,
+-			      skb->dst->dev, xfrm4_output_finish);
++			      skb->dst->dev, xfrm4_output_finish2);
+ 		if (unlikely(err != 1))
+ 			break;
  	}
+@@ -127,6 +123,48 @@ static int xfrm4_output_finish(struct sk
+ 	return err;
  }
  
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -376,15 +376,20 @@ void br_features_recompute(struct net_br
- 	features = br->feature_mask & ~NETIF_F_ALL_CSUM;
- 
- 	list_for_each_entry(p, &br->port_list, list) {
--		if (checksum & NETIF_F_NO_CSUM &&
--		    !(p->dev->features & NETIF_F_NO_CSUM))
-+		unsigned long feature = p->dev->features;
-+
-+		if (checksum & NETIF_F_NO_CSUM && !(feature & NETIF_F_NO_CSUM))
- 			checksum ^= NETIF_F_NO_CSUM | NETIF_F_HW_CSUM;
--		if (checksum & NETIF_F_HW_CSUM &&
--		    !(p->dev->features & NETIF_F_HW_CSUM))
-+		if (checksum & NETIF_F_HW_CSUM && !(feature & NETIF_F_HW_CSUM))
- 			checksum ^= NETIF_F_HW_CSUM | NETIF_F_IP_CSUM;
--		if (!(p->dev->features & NETIF_F_IP_CSUM))
-+		if (!(feature & NETIF_F_IP_CSUM))
- 			checksum = 0;
--		features &= p->dev->features;
-+
-+		if (feature & NETIF_F_GSO)
-+			feature |= NETIF_F_TSO;
-+		feature |= NETIF_F_GSO;
-+
-+		features &= feature;
- 	}
- 
- 	br->dev->features = features | checksum | NETIF_F_LLTX;
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -614,6 +614,29 @@ static int ethtool_set_ufo(struct net_de
- 	return dev->ethtool_ops->set_ufo(dev, edata.data);
- }
- 
-+static int ethtool_get_gso(struct net_device *dev, char __user *useraddr)
++static int xfrm4_output_finish(struct sk_buff *skb)
 +{
-+	struct ethtool_value edata = { ETHTOOL_GGSO };
++	struct sk_buff *segs;
 +
-+	edata.data = dev->features & NETIF_F_GSO;
-+	if (copy_to_user(useraddr, &edata, sizeof(edata)))
-+		 return -EFAULT;
++#ifdef CONFIG_NETFILTER
++	if (!skb->dst->xfrm) {
++		IPCB(skb)->flags |= IPSKB_REROUTED;
++		return dst_output(skb);
++	}
++#endif
++
++	if (!skb_shinfo(skb)->gso_size)
++		return xfrm4_output_finish2(skb);
++
++	skb->protocol = htons(ETH_P_IP);
++	segs = skb_gso_segment(skb, 0);
++	kfree_skb(skb);
++	if (unlikely(IS_ERR(segs)))
++		return PTR_ERR(segs);
++
++	do {
++		struct sk_buff *nskb = segs->next;
++		int err;
++
++		segs->next = NULL;
++		err = xfrm4_output_finish2(segs);
++
++		if (unlikely(err)) {
++			while ((segs = nskb)) {
++				nskb = segs->next;
++				segs->next = NULL;
++				kfree_skb(segs);
++			}
++			return err;
++		}
++
++		segs = nskb;
++	} while (segs);
++
 +	return 0;
 +}
 +
-+static int ethtool_set_gso(struct net_device *dev, char __user *useraddr)
+ int xfrm4_output(struct sk_buff *skb)
+ {
+ 	return NF_HOOK_COND(PF_INET, NF_IP_POST_ROUTING, skb, NULL, skb->dst->dev,
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -94,7 +94,7 @@ error_nolock:
+ 	goto out_exit;
+ }
+ 
+-static int xfrm6_output_finish(struct sk_buff *skb)
++static int xfrm6_output_finish2(struct sk_buff *skb)
+ {
+ 	int err;
+ 
+@@ -110,7 +110,7 @@ static int xfrm6_output_finish(struct sk
+ 			return dst_output(skb);
+ 
+ 		err = nf_hook(PF_INET6, NF_IP6_POST_ROUTING, &skb, NULL,
+-			      skb->dst->dev, xfrm6_output_finish);
++			      skb->dst->dev, xfrm6_output_finish2);
+ 		if (unlikely(err != 1))
+ 			break;
+ 	}
+@@ -118,6 +118,41 @@ static int xfrm6_output_finish(struct sk
+ 	return err;
+ }
+ 
++static int xfrm6_output_finish(struct sk_buff *skb)
 +{
-+	struct ethtool_value edata;
++	struct sk_buff *segs;
 +
-+	if (copy_from_user(&edata, useraddr, sizeof(edata)))
-+		return -EFAULT;
-+	if (edata.data)
-+		dev->features |= NETIF_F_GSO;
-+	else
-+		dev->features &= ~NETIF_F_GSO;
++	if (!skb_shinfo(skb)->gso_size)
++		return xfrm6_output_finish2(skb);
++
++	skb->protocol = htons(ETH_P_IP);
++	segs = skb_gso_segment(skb, 0);
++	kfree_skb(skb);
++	if (unlikely(IS_ERR(segs)))
++		return PTR_ERR(segs);
++
++	do {
++		struct sk_buff *nskb = segs->next;
++		int err;
++
++		segs->next = NULL;
++		err = xfrm6_output_finish2(segs);
++
++		if (unlikely(err)) {
++			while ((segs = nskb)) {
++				nskb = segs->next;
++				segs->next = NULL;
++				kfree_skb(segs);
++			}
++			return err;
++		}
++
++		segs = nskb;
++	} while (segs);
++
 +	return 0;
 +}
 +
- static int ethtool_self_test(struct net_device *dev, char __user *useraddr)
+ int xfrm6_output(struct sk_buff *skb)
  {
- 	struct ethtool_test test;
-@@ -905,6 +928,12 @@ int dev_ethtool(struct ifreq *ifr)
- 	case ETHTOOL_SUFO:
- 		rc = ethtool_set_ufo(dev, useraddr);
- 		break;
-+	case ETHTOOL_GGSO:
-+		rc = ethtool_get_gso(dev, useraddr);
-+		break;
-+	case ETHTOOL_SGSO:
-+		rc = ethtool_set_gso(dev, useraddr);
-+		break;
- 	default:
- 		rc =  -EOPNOTSUPP;
- 	}
+ 	return NF_HOOK(PF_INET6, NF_IP6_POST_ROUTING, skb, NULL, skb->dst->dev,
 
---llIrKcgUOe3dCx0c--
+--Uwl7UQhJk99r8jnw--
