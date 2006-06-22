@@ -1,68 +1,67 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: [PATCH] fix net-core kernel-doc
-Date: Thu, 22 Jun 2006 15:14:43 -0700
-Message-ID: <20060622151443.24dd8d9e.rdunlap@xenotime.net>
+From: "Ron Mercer" <ron.mercer@qlogic.com>
+Subject: New Qlogic qla3xxx NIC Driver v2.02.00k34 for upstream inclusion
+Date: Thu, 22 Jun 2006 15:37:17 -0700
+Message-ID: <0BB3E5E7462EEA4295BC02D49691DC0717688F@AVEXCH1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-driver@qlogic.com>,
+	"Francois Romieu" <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:57565 "HELO xenotime.net")
-	by vger.kernel.org with SMTP id S1030426AbWFVWWZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 18:22:25 -0400
-Received: from midway.site ([71.245.102.105]) by xenotime.net for <netdev@vger.kernel.org>; Thu, 22 Jun 2006 15:22:19 -0700
-To: netdev <netdev@vger.kernel.org>
+Received: from pat.qlogic.com ([198.70.193.2]:55154 "EHLO avexch1.qlogic.com")
+	by vger.kernel.org with ESMTP id S1030429AbWFVWhU convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 18:37:20 -0400
+Content-class: urn:content-classes:message
+To: <jeff@garzik.org>, "Andrew Morton" <akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <rdunlap@xenotime.net>
 
-Warning(/var/linsrc/linux-2617-g4//include/linux/skbuff.h:304): No description found for parameter 'dma_cookie'
-Warning(/var/linsrc/linux-2617-g4//include/net/sock.h:1274): No description found for parameter 'copied_early'
-Warning(/var/linsrc/linux-2617-g4//net/core/dev.c:3309): No description found for parameter 'chan'
-Warning(/var/linsrc/linux-2617-g4//net/core/dev.c:3309): No description found for parameter 'event'
+Jeff/Andrew,
 
-Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
----
- include/linux/skbuff.h |    2 ++
- include/net/sock.h     |    1 +
- net/core/dev.c         |    4 ++--
- 3 files changed, 5 insertions(+), 2 deletions(-)
+Please find the Qlogic qla3xxx Ethernet driver posted at the URL below.
+This is a complementary network driver for our ISP4XXX parts.
+There is a concurrent effort underway to get the iSCSI driver (qla4xxx)
+integrated upstream as well.
 
---- linux-2617-g4.orig/include/linux/skbuff.h
-+++ linux-2617-g4/include/linux/skbuff.h
-@@ -209,6 +209,8 @@ enum {
-  *	@nf_bridge: Saved data about a bridged frame - see br_netfilter.c
-  *	@tc_index: Traffic control index
-  *	@tc_verd: traffic control verdict
-+ *	@dma_cookie: a cookie to one of several possible DMA operations
-+ *		done by skb DMA functions
-  *	@secmark: security marking
-  */
- 
---- linux-2617-g4.orig/include/net/sock.h
-+++ linux-2617-g4/include/net/sock.h
-@@ -1265,6 +1265,7 @@ sock_recv_timestamp(struct msghdr *msg, 
-  * sk_eat_skb - Release a skb if it is no longer needed
-  * @sk: socket to eat this skb from
-  * @skb: socket buffer to eat
-+ * @copied_early: flag indicating whether DMA operations copied this data early
-  *
-  * This routine must be called with interrupts disabled or with the socket
-  * locked so that the sk_buff queue operation is ok.
---- linux-2617-g4.orig/net/core/dev.c
-+++ linux-2617-g4/net/core/dev.c
-@@ -3301,8 +3301,8 @@ static void net_dma_rebalance(void)
- /**
-  * netdev_dma_event - event callback for the net_dma_client
-  * @client: should always be net_dma_client
-- * @chan:
-- * @event:
-+ * @chan: DMA channel for the event
-+ * @event: event type
-  */
- static void netdev_dma_event(struct dma_client *client, struct dma_chan *chan,
- 	enum dma_event event)
+I have added the missing license that Francois pointed out, plus
+Andrew's patch and suggestions from yesterday.
+
+This submission is contained in a patch file that does the following:
+
+Adds:
+drivers/net/qla3xxx.c
+drivers/net/qla3xxx.h
+Documentation/networking/LICENSE.qla3xxx
+
+Modifies:
+MAINTAINERS
+drivers/net/Makefile
+drivers/net/Kconfig
+
+Patch file qla3xxxpatch1-v2.02.00-k34.txt is at the following link:
+
+ftp://ftp.qlogic.com/outgoing/linux/network/upstream/2.02.00k34/qla3xxxp
+atch1-v2.02.00-k34.txt
+
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+
+Some notes on the driver/hardware:
+
+- Built and tested using kernel 2.6.17-rc4.
+- The chip supports two ethernet and two iSCSI functions.
+- The functions ql_sem_lock, ql_sem_spinlock, ql_sem_unlock, and
+ql_wait_for_drvr_lock are used to protect resources that are shared
+across the network and iSCSI functions.  This protection is mostly
+during chip initialization and resets, but also include link management.
+- The PHY/MII are not exported through ethtool due to the fact that the
+iSCSI function will control the common link at least 50% of the time.
 
 
----
+
+Regards,
+
+Ron Mercer
+Qlogic Corporation
