@@ -1,59 +1,61 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 20/21] e1000: add ich8lan device ID's
-Date: Wed, 21 Jun 2006 22:20:51 -0700
-Message-ID: <20060622052051.25497.17123.stgit@gitlost.site>
-References: <20060622051815.25497.89192.stgit@gitlost.site>
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: Suspending 802.11 drivers
+Date: Thu, 22 Jun 2006 01:15:14 -0400
+Message-ID: <43e72e890606212215y7fa64884sed718957c6ee890d@mail.gmail.com>
+References: <200606152158.10079.mb@bu3sch.de>
+	 <200606162036.26518.stefan@loplof.de>
+	 <43e72e890606210808n187771e6k2f58789cf1fcf680@mail.gmail.com>
+	 <200606212241.56208.mb@bu3sch.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Stefan Rompf" <stefan@loplof.de>, "Jiri Benc" <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:65288 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S932814AbWFVFOx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 01:14:53 -0400
-To: "Garzik, Jeff" <jgarzik@pobox.com>
-In-Reply-To: <20060622051815.25497.89192.stgit@gitlost.site>
+Received: from ug-out-1314.google.com ([66.249.92.169]:44398 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1030601AbWFVFPQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 01:15:16 -0400
+Received: by ug-out-1314.google.com with SMTP id a2so292220ugf
+        for <netdev@vger.kernel.org>; Wed, 21 Jun 2006 22:15:15 -0700 (PDT)
+To: "Michael Buesch" <mb@bu3sch.de>
+In-Reply-To: <200606212241.56208.mb@bu3sch.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 6/21/06, Michael Buesch <mb@bu3sch.de> wrote:
+> On Wednesday 21 June 2006 17:08, Luis R. Rodriguez wrote:
+> > On 6/16/06, Stefan Rompf <stefan@loplof.de> wrote:
+> > > Am Donnerstag 15 Juni 2006 21:58 schrieb Michael Buesch:
+> > >
+> > > I think the most important question is how a suspend/resume action should be
+> > > translated. For the managed case, it is clearly an association loss, normally
+> > > signalled by netif_carrier_on/off() and a corresponding SIOCGIWAP event.
+> > > Supplicants can act on this. In AP mode, suspend is equal to disassociating
+> > > all stations. Ad-hoc... dunno.
+> > >
+> > > For a softmac stack like devicescape, it makes sense to have a function that
+> > > abstracts these scenarios as it is the stack anyway that handles association
+> > > stuff. However, I'd rather extend the existing function
+> > > ieee80211_netif_oper().
+> >
+> > Since d80211 is already being patched for sysfs how about we use sysfs
+> > (and kobjects) to maintain the state at suspend() and resume(). This
+> > would allow userspace tools like supplicant running in the background
+> > to pick up from sysfs where it left off and for our drivers to save
+> > where we left off. ieee80211_hw can then just refer to their suspend()
+> > and resume() routines from its respective struct pci_driver or struct
+> > usb_device.
+>
+> Ok, so you mean we remove the full responsibility to recover a connection
+> from the driver resume() handler and let a userspace daemon keep
+> track of this?
+> So basically stay with the current implementation of suspend() and
+> resume() in the drivers and assume userspace does the right thing
+> and detects a resume and recovers connections and so on?
+> Did I understand that right? If yes, I think that's a very nice idea, too.
+> Probably the best.
 
-Add the device ID's of the supported ICH8 LAN devices.
-
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
-
- drivers/net/e1000/e1000_main.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 95f4435..4fdc564 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -73,6 +73,11 @@ static struct pci_device_id e1000_pci_tb
- 	INTEL_E1000_ETHERNET_DEVICE(0x1026),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1027),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1028),
-+	INTEL_E1000_ETHERNET_DEVICE(0x1049),
-+	INTEL_E1000_ETHERNET_DEVICE(0x104A),
-+	INTEL_E1000_ETHERNET_DEVICE(0x104B),
-+	INTEL_E1000_ETHERNET_DEVICE(0x104C),
-+	INTEL_E1000_ETHERNET_DEVICE(0x104D),
- 	INTEL_E1000_ETHERNET_DEVICE(0x105E),
- 	INTEL_E1000_ETHERNET_DEVICE(0x105F),
- 	INTEL_E1000_ETHERNET_DEVICE(0x1060),
-@@ -96,6 +101,8 @@ static struct pci_device_id e1000_pci_tb
- 	INTEL_E1000_ETHERNET_DEVICE(0x109A),
- 	INTEL_E1000_ETHERNET_DEVICE(0x10B5),
- 	INTEL_E1000_ETHERNET_DEVICE(0x10B9),
-+	INTEL_E1000_ETHERNET_DEVICE(0x10BA),
-+	INTEL_E1000_ETHERNET_DEVICE(0x10BB),
- 	/* required last entry */
- 	{0,}
- };
-
-
-
---
-Auke Kok <auke-jan.h.kok@intel.com>
+Michael, yes that was what I meant.
