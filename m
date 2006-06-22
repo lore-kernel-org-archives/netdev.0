@@ -1,36 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 2/7] NetLabel: core network changes
-Date: Thu, 22 Jun 2006 14:32:55 -0700 (PDT)
-Message-ID: <20060622.143255.63999137.davem@davemloft.net>
-References: <20060621200030.880930000@flek.zko.hp.com>
-	<20060622.020055.115910616.davem@davemloft.net>
-	<200606221105.00331.sgrubb@redhat.com>
+Subject: Re: [3/5] [NET]: Add software TSOv4
+Date: Thu, 22 Jun 2006 14:32:06 -0700 (PDT)
+Message-ID: <20060622.143206.111203586.davem@davemloft.net>
+References: <20060622081211.GA22505@gondor.apana.org.au>
+	<20060622081400.GC22671@gondor.apana.org.au>
+	<20060623.000403.47759894.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@redhat.com, paul.moore@hp.com, sds@epoch.ncsc.mil,
-	redhat-lspp@redhat.com, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, netdev@vger.kernel.org
-Return-path: <redhat-lspp-bounces@redhat.com>
-To: sgrubb@redhat.com
-In-Reply-To: <200606221105.00331.sgrubb@redhat.com>
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/redhat-lspp>,
-	<mailto:redhat-lspp-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/redhat-lspp>
-List-Post: <mailto:redhat-lspp@redhat.com>
-List-Help: <mailto:redhat-lspp-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/redhat-lspp>,
-	<mailto:redhat-lspp-request@redhat.com?subject=subscribe>
-Sender: redhat-lspp-bounces@redhat.com
-Errors-To: redhat-lspp-bounces@redhat.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:49857
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932659AbWFVVcN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 17:32:13 -0400
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20060623.000403.47759894.yoshfuji@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Steve Grubb <sgrubb@redhat.com>
-Date: Thu, 22 Jun 2006 11:05:00 -0400
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Fri, 23 Jun 2006 00:04:03 +0900 (JST)
 
-> If moving this over to generic is a must, then I think SE Linux will
-> have to clip into generic to control its packet flow.
+> In article <20060622081400.GC22671@gondor.apana.org.au> (at Thu, 22 Jun 2006 18:14:00 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
+> 
+> > [NET]: Add software TSOv4
+> > 
+> > This patch adds the GSO implementation for IPv4 TCP.
+> > 
+> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> I'd appreciate if you code up IPv6 TCP as well. :-)
 
-James Morris has already started discussions on this.
-It's great that there will be another reason why that work
-needs to be done :)
+To my understanding doing IPV6 TCP TSO is a non-trivial task, even in
+software.
+
+The header editing is a lot more complicated because things like
+routing and other extension headers can sit between IPV6 and TCP
+header.
+
+It is probably why IPV6 TSO hardware does not exist yet :)
+
+Do not take this to mean I think it should not be implemented, I think
+it should.
