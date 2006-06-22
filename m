@@ -1,112 +1,54 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: [PATCH 0/2][RFC] Network Event Notifier Mechanism
-Date: Thu, 22 Jun 2006 15:39:19 -0700
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F15F55EE@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [NET]: Prevent multiple qdisc runs
+Date: Fri, 23 Jun 2006 08:43:02 +1000
+Message-ID: <20060622224302.GA10136@gondor.apana.org.au>
+References: <20060619121519.GA16031@gondor.apana.org.au> <1150724031.5815.39.camel@jzny2> <20060619134227.GA16662@gondor.apana.org.au> <1150727009.5815.72.camel@jzny2> <20060619142928.GA17191@gondor.apana.org.au> <1150727810.5815.78.camel@jzny2> <20060619223326.GA20354@gondor.apana.org.au> <1150814526.5270.64.camel@jzny2> <20060620235207.GA31493@gondor.apana.org.au> <1151004682.5392.97.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:41230 "EHLO
-	mms2.broadcom.com") by vger.kernel.org with ESMTP id S932663AbWFVWjj convert rfc822-to-8bit
+Received: from rhun.apana.org.au ([64.62.148.172]:14603 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750769AbWFVWnX
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 18:39:39 -0400
-Content-class: urn:content-classes:message
-To: hadi@cyberus.ca, "Steve Wise" <swise@opengridcomputing.com>
+	Thu, 22 Jun 2006 18:43:23 -0400
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1151004682.5392.97.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netdev-owner@vger.kernel.org wrote:
-> On Thu, 2006-22-06 at 15:58 -0500, Steve Wise wrote:
->> On Thu, 2006-06-22 at 16:36 -0400, jamal wrote:
+On Thu, Jun 22, 2006 at 03:31:22PM -0400, jamal wrote:
 > 
->> I created a new notifier block in my patch for these network events.
->> I guess I thought I was using the existing infrastructure to provide
->> this notification service. (I thought my patch was lovely :)  But I
->> didn't integrate with netlink for user space notification. Mainly cuz
->> I didn't think these events should be propagated up to users unless
->> there was a need.
-> 
-> I think they will be useful in user space. Typically you only
-> propagate them if there's a user space program subscribed to
-> listening (there are hooks which will tell you if there's
-> anyone listening).
-> The netdevice events tend to be a lot more usable in a few
-> other blocks because they are lower in the hierachy (i.e
-> routing depends on ip addresses which depend on netdevices)
-> within the kernel unlike in this case where you are the only
-> consumer; so it does sound logical to me to do it in user
-> space; however, not totally unreasonable to do it in the kernel.
-> 
+> Your gut feeling is for #1 and my worry is for #2 ;->
+> I actually think your change is obviously valuable for scenarios where
+> the bus is slower and therefore transmits take longer - my feeling is it
+> may not be beneficial for fast buses like PCI-E or high speed PCI/X
+> where the possibility of getting access tx collision is lower.
 
+Sure.  However, I still don't see the point of transmitting in parallel
+even there.  The reason is that there is no work being done here by the
+CPU between dequeueing the packet and obtaining the TX lock.  As such
+the cost of doing it in parallel is going to be dominated by the cache
+bouncing.
 
-These services are relevant to any RDMA connection. The user-space
-consumer of RDMA services is no more interested in tracking the
-routing of the remote IP address than the consumer of socket
-services is.
+Obviously it is a little different for lockless drivers where we do
+dev_queue_xmit_nit (and now GSO) without any locks.  However, you don't
+want parallelism there because it breaks packet ordering.
 
+> The other reason I mentioned earlier as justification to leave the
+> granularity at the level where it was is for good qos clocking. i.e
+> to allow incoming packets to be used to clock the tx path - otherwise
+> you will be dependent on HZ for your egress rate accuracy. I am not sure
+> if this later point made sense - I could elaborate.
 
->> 
->> 
->> Another issue I see with netlink is that the event notifications
->> aren't reliable.  Especially the CONFIG_ARPD stuff because it allocs
->> an sk_buff with ATOMIC.  A lost neighbour macaddr change is perhaps
->> fatal for an RDMA connection...
->> 
-> 
-> This would happen in the cases where you are short on memory;
-> i would suspect you will need to allocate memory in your
-> driver as well to update something in the hardware as well -
-> so same problem.
-> You can however work around issues like these in netlink.
->
+I don't understand where HZ comes in.  If you find that qdisc_run is
+already running, then the packet you've just queued will most likely
+be processed by that qdisc_run immediately unless the device is full.
 
-A direct notification call to the driver makes the driver responsible
-for providing whatever buffering it requires to save the information.
-And if there is insufficient memory available at least the driver
-is aware of the failure.
-
-Allowing a third component to fail to relay information means that
-the driver can no longer be responsible for maintaining its own
-consistency with kernel routing, ARP and neighbor tables.
-
-Maintaining that consistency is a matter of correct network
-behaviour, not doing status reports. obviously we cannot have
-hardware looking at and interpreting these tables directly.
-So a *reliable* subscription would seem to be the only option.
-
-If the only subscribers who require reliable notifications are
-kernel drivers, does it really mamke sense to make those changes
-in code that also supports user space?
- 
-
-> 
-> I am still unclear:
-> You have destination IP address, the dstMAC of the nexthop to
-> get the packet to this IP address and i suspect some srcMAC
-> address you will use sending out as well as the pathMTU to
-> get there correct?
-> Because of the IP address it sounds to me like you are
-> populating an L3 table How is this info used in hardware? Can
-> you explain how an arriving packet would be used by the RDMA
-> in conjunction with this info once it is in the hardware?
->
-
-Some packets are associated with established RDMA (or iSCSI)
-connections, and are processed on the RDMA (or iSCSI) device.
-These packets will also pass through other packets to the
-host stack for processing (non-matched Ethernet frames for
-IP networks, and IPoIB tunneled frames for IB networks).
-
-The device provides L5 services (RDMA and/or iSCSI) in addition
-to L2 services (as an Ethernet device). The rest of the network
-rightfully demands that the left hand knows what the right hand
-is doing. So information that is provided to a host, ARP/ICMP,
-should affect the behaviour of *all* connections from that host.
-
-Do you agree that having the device subsribe to the kernel
-maintained tables is a better solution than having it attempt
-to guess the correct values in parallel?
- 
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
