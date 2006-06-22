@@ -1,69 +1,52 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 11/21] e1000: disable CRC stripping workaround
-Date: Thu, 22 Jun 2006 08:55:25 -0700
-Message-ID: <449ABD6D.9090808@candelatech.com>
-References: <20060622051815.25497.89192.stgit@gitlost.site>	 <20060622052029.25497.67575.stgit@gitlost.site>	 <449A2B20.2020006@candelatech.com> <4807377b0606220839i5de14797ocb9e404fd21540e3@mail.gmail.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [RFC PATCH 1/2] Hardware button support for Wireless cards:
+ radiobtn
+Date: Thu, 22 Jun 2006 17:55:46 +0200
+Message-ID: <20060622175546.7eebebb4@griffin.suse.cz>
+References: <200605251716.00742.IvDoorn@gmail.com>
+	<200606041002.33696.IvDoorn@gmail.com>
+	<200606041214.45999.stefan@loplof.de>
+	<200606171705.59498.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	"Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Cc: Stefan Rompf <stefan@loplof.de>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+	Vojtech Pavlik <vojtech@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:48275 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1751830AbWFVPzk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 11:55:40 -0400
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-In-Reply-To: <4807377b0606220839i5de14797ocb9e404fd21540e3@mail.gmail.com>
+Received: from styx.suse.cz ([82.119.242.94]:58810 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751829AbWFVPzs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 11:55:48 -0400
+To: Ivo van Doorn <ivdoorn@gmail.com>
+In-Reply-To: <200606171705.59498.IvDoorn@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesse Brandeburg wrote:
-> On 6/21/06, Ben Greear <greearb@candelatech.com> wrote:
-> 
->> Kok, Auke wrote:
->> > CRC stripping is breaking SMBUS-connected BMC's. We disable this
->> > feature to make it work. This fixes related bugs regarding SOL.
->>
->> Shouldn't you also have to subtract 4 bytes when setting the skb len
->> in the receive logic?  Perhaps when setting the rx-bytes counter as well?
-> 
-> 
-> we thought about this, but most drivers don't strip the CRC, and we
-> couldn't find any tests including bridging that cared if the CRC was
-> there in the indicated packet.
-> 
-> If you can find me a failing case I'll fix it.  It was much simpler to
-> leave it out, especially when we add back in the multiple descriptor
-> receive code in the future (think about the case when subtracting the
-> CRC makes the last descriptor disappear)
-> 
-> Once again, let me know if you have info I don't :-)
+On Sat, 17 Jun 2006 17:05:55 +0200, Ivo van Doorn wrote:
+> With this approach more buttons can be registered,
+> it includes the optional field to report an update of the key status
+> to the driver that registered it, and it supports for non-polling keys.
 
-It should only be a problem if skb->len includes the extra 4 bytes for 
-the crc.  Then, if I transmit that skb to another interface, I am afraid 
-that the crc will be seen as data in the packet.  In the 2.6.13 days, 
-the e1000 did not strip the CRC, but it subtracted 4 before it did the 
-skb_put.  So, the crc was correctly stripped/ignored.  The e100 
-functioned similarly I believe.
+I think this is not specific to networking anymore, so it should go to
+lkml. Please be sure to Cc: input devices maintainer, Dmitry Torokhov.
 
-If you skb_put the extra 4 bytes, I believe this will break my 
-(proprietary) app because on transmit it will append the extra 4 crc 
-bytes, but that isn't your problem..and I can work around it.  If the 
-receiving NIC can handle pkts 4 bytes bigger than normal, it will 
-probably still receive the packet w/out problem, but in truth, the frame 
-will not be exactly correct.
+Regarding rfkill button, I talked about that with Vojtech Pavlik (Cc:ed)
+and he suggests this solution:
 
-When you did your bridging tests, did you sniff the packets on the far 
-side of the bridge to see if they were the right size?
+- driver is responsible for turning on/off radio when the input device
+  is not opened;
+- when something opens the input device, it receives input events and 
+  gets responsible to turn on/off the radio (by ioctl or putting the 
+  network interfaces up/down).
+
+This is of course not possible for all hardware, but it gives the most
+flexibility while keeping the possibility to switch of the radio without
+userspace support.
 
 Thanks,
-Ben
 
-> 
-> Thanks for the review,
->  Jesse
-> 
+ Jiri
 
+-- 
+Jiri Benc
+SUSE Labs
