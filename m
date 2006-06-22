@@ -1,99 +1,74 @@
 From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC 2/7] NetLabel: core network changes
-Date: Thu, 22 Jun 2006 09:20:33 -0400
-Message-ID: <200606220920.34136.paul.moore@hp.com>
-References: <20060621194234.979661000@flek.zko.hp.com>
-	<20060621200030.880930000@flek.zko.hp.com>
-	<20060622.020748.85685000.davem@davemloft.net>
+Subject: Re: [RFC 3/7] NetLabel: CIPSOv4 engine
+Date: Thu, 22 Jun 2006 09:43:10 -0400
+Message-ID: <200606220943.11185.paul.moore@hp.com>
+References: <20060621194234.979661000@flek.zko.hp.com> <20060621200031.589235000@flek.zko.hp.com> <20060622.021223.125894633.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@redhat.com, sds@epoch.ncsc.mil, redhat-lspp@redhat.com,
-	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov,
-	netdev@vger.kernel.org, sgrubb@redhat.com
-Return-path: <redhat-lspp-bounces@redhat.com>
+Cc: redhat-lspp@redhat.com, selinux@tycho.nsa.gov,
+	linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+	sds@epoch.ncsc.mil, jmorris@redhat.com, sgrubb@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.cce.hp.com ([161.114.21.24]:56076 "EHLO
+	ccerelrim03.cce.hp.com") by vger.kernel.org with ESMTP
+	id S1161126AbWFVNnY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 09:43:24 -0400
 To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060622.020748.85685000.davem@davemloft.net>
+In-Reply-To: <20060622.021223.125894633.davem@davemloft.net>
 Content-Disposition: inline
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/redhat-lspp>,
-	<mailto:redhat-lspp-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/redhat-lspp>
-List-Post: <mailto:redhat-lspp@redhat.com>
-List-Help: <mailto:redhat-lspp-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/redhat-lspp>,
-	<mailto:redhat-lspp-request@redhat.com?subject=subscribe>
-Sender: redhat-lspp-bounces@redhat.com
-Errors-To: redhat-lspp-bounces@redhat.com
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 22 June 2006 5:07 am, David Miller wrote:
+On Thursday 22 June 2006 5:12 am, David Miller wrote:
 > From: paul.moore@hp.com
-> Date: Wed, 21 Jun 2006 15:42:37 -0400
+> Date: Wed, 21 Jun 2006 15:42:38 -0400
 >
-> > Index: linux-2.6.17.i686-quilt/net/ipv4/Makefile
-> > ===================================================================
-> > --- linux-2.6.17.i686-quilt.orig/net/ipv4/Makefile
-> > +++ linux-2.6.17.i686-quilt/net/ipv4/Makefile
-> > @@ -42,6 +42,9 @@ obj-$(CONFIG_TCP_CONG_HYBLA) += tcp_hybl
-> >  obj-$(CONFIG_TCP_CONG_HTCP) += tcp_htcp.o
-> >  obj-$(CONFIG_TCP_CONG_VEGAS) += tcp_vegas.o
-> >  obj-$(CONFIG_TCP_CONG_SCALABLE) += tcp_scalable.o
-> > +ifeq ($(CONFIG_NETLABEL_CIPSOV4),y)
-> > +obj-y += cipso_ipv4.o
-> > +endif
+> > Add support for the Commercial IP Security Option (CIPSO) to the
+> > IPv4 network stack.  CIPSO has become a de-facto standard for
+> > trusted/labeled networking amongst existing Trusted Operating
+> > Systems such as Trusted Solaris, HP-UX CMW, etc.  This
+> > implementation is designed to be used with the NetLabel subsystem to
+> > provide explicit packet labeling to LSM developers.
 >
-> Why not "obj-$CONFIG_NETLABEL_CIPSOV4 += cipso_ipv4.o"?
+> The thing that concerns me most about CIPSO is that even once users
+> migrate to a more SELINUX native approach from this CIPSO stuff, the
+> CIPSO code, it's bloat, and it's maintainence burdon will remain.
 >
-> The whole idea behind the obj-$CONFIG_OPTION technique is
-> to avoid conditionals all over the makefile.
+> It's easy to put stuff it, it's impossible to take stuff out even
+> once it's largely unused by even it's original target audience.
+>
+> And that's what I see happening here.
+>
+> This is why, to be perfectly honest with you, I'd much rather
+> something like this stay out-of-tree and people are strongly
+> encouraged to use the more native stuff under Linux.
 
-Because it's not supported as a module and I thought I saw some similar 
-examples in other Makefiles.  No matter, I'll make the change.
+Well, not exactly the response I was hoping for, but let me plead my case one 
+more time :)
 
-> > Index: linux-2.6.17.i686-quilt/net/ipv4/af_inet.c
-> > ===================================================================
-> > --- linux-2.6.17.i686-quilt.orig/net/ipv4/af_inet.c
-> > +++ linux-2.6.17.i686-quilt/net/ipv4/af_inet.c
-> > @@ -114,6 +114,7 @@
-> >  #ifdef CONFIG_IP_MROUTE
-> >  #include <linux/mroute.h>
-> >  #endif
-> > +#include <net/netlabel.h>
-> >
-> >  DEFINE_SNMP_STAT(struct linux_mib, net_statistics) __read_mostly;
-> >
-> > @@ -616,6 +617,8 @@ int inet_accept(struct socket *sock, str
-> >
-> >  	sock_graft(sk2, newsock);
-> >
-> > +	netlbl_socket_inet_accept(sock, newsock);
-> > +
-> >  	newsock->state = SS_CONNECTED;
-> >  	err = 0;
-> >  	release_sock(sk2);
->
-> Neither the netlabel.h header not the implementation of
-> the netlbl_socket_inet_accept() function exist at this
-> point in your patch set.
->
-> At each patch point, the tree must build and function
-> properly.
->
-> This means you have to split up and order your changes
-> correctly, gradually building up the infrastructure and
-> then finally plugging it in and making use of it.
->
-> Nobody can test your work in an incremental fashion, and
-> thus it's not possible to determine if a bug or behavior
-> gets introduced at patch 2, 3 or 4, for example.
+Traditional MLS CIPSO is a niche "protocol", I won't try to argue that point, 
+and I also won't try to argue that the NetLabel patch is late to the party, 
+the IPsec/XFRM labeling approach has already been accepted as "the" SELinux 
+packet labeling mechanism.  However, the XFRM labeling mechanism in not 
+currently supported by any OS other than Linux/SELinux.  I have spoken with 
+users that need CIPSO to interoperate with their other trusted systems, the 
+XFRM approach is simply not a viable solution for them.  I strongly believe 
+that failure to support an interoperable packet labeling mechanism on Linux 
+will seriously restrict Linux's deployment in trusted networks.
 
-I intended the entire patch set to be digested as a whole, the only reason I 
-split it up into several different patches was to get around size limitations 
-in the mailing list.  I'll go ahead and rearrange things so they build 
-incrementally.
+It's all about compatibility and enabling Linux to be used in places it can't 
+be used now.  True, other OS vendors might support the SELinux/IPsec packet 
+labeling approach, but I see very little in the way of motivation for them to 
+do the work.
 
-Thanks for your patience.
+If it makes you feel any better I do intend to support the Selopt approach (or 
+at least something very similar) for CIPSO as envisioned by James Morris for 
+the SELinux networking hooks of long ago.  This will allow CIPSO to carry the 
+full SELinux context making it a more "SELINUX native approach" than 
+traditional MLS CIPSO.  I just wanted to keep this initial patch set as small 
+as possible (you can see how well that worked out) ... :)
 
 -- 
 paul moore
