@@ -1,58 +1,31 @@
-From: Vitaly Bordug <vbordug@ru.mvista.com>
-Subject: Re: [PATCH 1/3] PAL: Support of the fixed PHY
-Date: Thu, 22 Jun 2006 12:39:44 +0400
-Message-ID: <20060622123944.445629ad@localhost.localdomain>
-References: <20060621160950.4860.92979.stgit@vitb.ru.mvista.com>
-	<200606212248.27836.mb@bu3sch.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [IPV6] ADDRCONF: Fix default source address selection without
+ CONFIG_IPV6_PRIVACY
+Date: Thu, 22 Jun 2006 01:42:45 -0700 (PDT)
+Message-ID: <20060622.014245.106265721.davem@davemloft.net>
+References: <20060622.002341.04738770.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>, linuxppc-embedded@ozlabs.org
-Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200606212248.27836.mb@bu3sch.de>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:54173
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751226AbWFVImp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 04:42:45 -0400
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20060622.002341.04738770.yoshfuji@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-0J3QsCBXZWQsIDIxIEp1biAyMDA2IDIyOjQ4OjI3ICswMjAwCk1pY2hhZWwgQnVlc2NoIDxtYkBi
-dTNzY2guZGU+INC30LDQv9C40YHQsNC90L46Cgo+IE9uIFdlZG5lc2RheSAyMSBKdW5lIDIwMDYg
-MTg6MDksIFZpdGFseSBCb3JkdWcgd3JvdGU6Cj4gCj4gPiArc3RhdGljIGludCBmaXhlZF9tZGlv
-X3VwZGF0ZV9yZWdzKHN0cnVjdCBmaXhlZF9pbmZvICpmaXhlZCkKPiA+ICt7Cj4gPiArCXUxNiAq
-cmVncyA9IGZpeGVkLT5yZWdzOwo+ID4gKwl1MTYgYm1zciA9IDA7Cj4gPiArCXUxNiBibWNyID0g
-MDsKPiA+ICsKPiA+ICsJaWYoIXJlZ3MpIHsKPiA+ICsJCXByaW50ayhLRVJOX0VSUiAiJXM6IHJl
-Z3Mgbm90IHNldCB1cCIsCj4gPiBfX0ZVTkNUSU9OX18pOwo+ID4gKwkJcmV0dXJuIC0xOwo+IAo+
-IC1FSU5WQUwgcGVyaGFwcz8KPiAKT0sKPiA+ICtzdGF0aWMgaW50IGZpeGVkX21kaW9fcmVnaXN0
-ZXJfZGV2aWNlKGludCBudW1iZXIsIGludCBzcGVlZCwgaW50Cj4gPiBkdXBsZXgpICt7Cj4gPiAr
-CXN0cnVjdCBtaWlfYnVzICpuZXdfYnVzOwo+ID4gKwlzdHJ1Y3QgZml4ZWRfaW5mbyAqZml4ZWQ7
-Cj4gPiArCXN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXY7Cj4gPiArCWludCBlcnIgPSAwOwo+ID4g
-Kwo+ID4gKwlzdHJ1Y3QgZGV2aWNlKiBkZXYgPSBremFsbG9jKHNpemVvZihzdHJ1Y3QgZGV2aWNl
-KSwKPiA+IEdGUF9LRVJORUwpOyArCj4gPiArCWlmIChOVUxMID09IGRldikKPiA+ICsJCXJldHVy
-biAtRUlOVkFMOwo+IAo+IC1FTk9NRU0gaGVyZS4KT0sKCltzbmlwXQo+ID4gKwkvKgo+ID4gKwkg
-ICB0aGUgbWRpbyBidXMgaGFzIHBoeV9pZCBtYXRjaC4uLiBJbiBvcmRlciBub3QgdG8gZG8gaXQK
-PiA+ICsJICAgYXJ0aWZpY2lhbGx5LCB3ZSBhcmUgYmluZGluZyB0aGUgZHJpdmVyIGhlcmUgYnkg
-aGFuZDsKPiA+ICsJICAgaXQgd2lsbCBiZSB0aGUgc2FtZQo+ID4gKwkgICBmb3IgYWxsIHRoZSBm
-aXhlZCBwaHlzIGFueXdheS4KPiA+ICsJICovCj4gPiArCWRvd25fd3JpdGUoJnBoeWRldi0+ZGV2
-LmJ1cy0+c3Vic3lzLnJ3c2VtKTsKPiA+ICsKPiA+ICsJcGh5ZGV2LT5kZXYuZHJpdmVyID0gJmZp
-eGVkX21kaW9fZHJpdmVyLmRyaXZlcjsKPiA+ICsKPiA+ICsJZXJyID0gcGh5ZGV2LT5kZXYuZHJp
-dmVyLT5wcm9iZSgmcGh5ZGV2LT5kZXYpOwo+ID4gKwlpZihlcnIgPCAwKSB7Cj4gPiArCQlwcmlu
-dGsoS0VSTl9FUlIgIlBoeSAlczogcHJvYmxlbXMgd2l0aCBmaXhlZAo+ID4gZHJpdmVyXG4iLAo+
-ID4gKwkJCQlwaHlkZXYtPmRldi5idXNfaWQpOwo+ID4gKwkJdXBfd3JpdGUoJnBoeWRldi0+ZGV2
-LmJ1cy0+c3Vic3lzLnJ3c2VtKTsKPiA+ICsJCWdvdG8gYnVzX3JlZ2lzdGVyX2ZhaWw7Cj4gCj4g
-UHJvYmFibHkgbmVlZCBzb21lIGFkZGl0aW9uYWwgZXJyb3IgdW53aW5kaW5nIGNvZGUuCj4gT2Yg
-ZG9lc24ndCBkZXZpY2VfcmVnaXN0ZXIoKSBoYXZlIHRvIGJlIHJldmVydGVkPwo+IFdoYXQgYWJv
-dXQgcGh5X2RldmljZV9jcmVhdGUoKT8KPiAKRGVmaW5pdGVseS4gTW9yZW92ZXIsIGFzIEkgbm90
-aWNlZCBub3csIHBoeV9kcml2ZXJfcmVnaXN0ZXIgYWxzbyBoYXMgdG8KYmUgZXJyb3ItaGFuZGxl
-ZCBhbmQgc3VjaC4gV2lsbCBmaXgvdXBkYXRlIGFuZCByZXN1Ym1pdC4KClRoYW5rcyBmb3IgdGhl
-IGZlZWRiYWNrLgotLQoKU2luY2VyZWx5LCBWaXRhbHkKCl9fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWVtYmVkZGVkIG1haWxpbmcgbGlzdApM
-aW51eHBwYy1lbWJlZGRlZEBvemxhYnMub3JnCmh0dHBzOi8vb3psYWJzLm9yZy9tYWlsbWFuL2xp
-c3RpbmZvL2xpbnV4cHBjLWVtYmVkZGVk
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Thu, 22 Jun 2006 00:23:41 +0900 (JST)
+
+> We need to update hiscore.rule even if we don't enable CONFIG_IPV6_PRIVACY,
+> because we have more less significant rule; longest match.
+
+Applied, thank you.
+
+> I think it is suitable for -stable as well.
+
+Agreed, I have pushed it to -stable.
