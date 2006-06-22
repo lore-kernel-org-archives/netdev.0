@@ -1,57 +1,93 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: Suspending 802.11 drivers
-Date: Thu, 22 Jun 2006 06:56:18 -0400
-Message-ID: <43e72e890606220356u7b3a5act572697ee4a284a2a@mail.gmail.com>
-References: <200606152158.10079.mb@bu3sch.de>
-	 <200606162036.26518.stefan@loplof.de>
-	 <43e72e890606210808n187771e6k2f58789cf1fcf680@mail.gmail.com>
-	 <200606220007.07467.stefan@loplof.de>
+From: Lukasz Stelmach <stlman@poczta.fm>
+Subject: Re: ipv6 source address selection in addrconf.c (2.6.17)
+Date: Thu, 22 Jun 2006 13:04:17 +0200
+Message-ID: <449A7931.7090304@poczta.fm>
+References: <44986AE6.6090102@poczta.fm>	<44994CB3.6070302@poczta.fm>	<4499CEF4.2050308@poczta.fm> <20060622.092659.76693840.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Michael Buesch" <mb@bu3sch.de>, "Jiri Benc" <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigAB7DE8C61555FC562BF19CB8"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:51832 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1751527AbWFVK4T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 06:56:19 -0400
-Received: by ug-out-1314.google.com with SMTP id a2so417085ugf
-        for <netdev@vger.kernel.org>; Thu, 22 Jun 2006 03:56:18 -0700 (PDT)
-To: "Stefan Rompf" <stefan@loplof.de>
-In-Reply-To: <200606220007.07467.stefan@loplof.de>
-Content-Disposition: inline
+Received: from smtp4.poczta.interia.pl ([80.48.65.8]:64343 "EHLO
+	smtp.poczta.interia.pl") by vger.kernel.org with ESMTP
+	id S1030624AbWFVLEp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 07:04:45 -0400
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
+In-Reply-To: <20060622.092659.76693840.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/21/06, Stefan Rompf <stefan@loplof.de> wrote:
-> Am Mittwoch 21 Juni 2006 17:08 schrieb Luis R. Rodriguez:
->
-> > Since d80211 is already being patched for sysfs how about we use sysfs
-> > (and kobjects) to maintain the state at suspend() and resume(). This
-> > would allow userspace tools like supplicant running in the background
-> > to pick up from sysfs where it left off and for our drivers to save
-> > where we left off.
->
-> Forgive me that I'm so insistant on this question, but this is important: What
-> state that goes beyond the data settable with wireless ioctls/iwconfig (that
-> is kept anyway) needs to be saved by the stack? Last association info is
-> worthless, the assocation can be restored using the ESSID/BSSID/channel set
-> with iwconfig or by wpa_supplicant. Important is that userspace is notified
-> about the connection loss. Is there _any_ other information not recreatable
-> from iwconfig settings that needs to be kept?
->
-> Stefan
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigAB7DE8C61555FC562BF19CB8
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Stefan, this is an excellent and valid question. Let me elaborate --
-Its exactly those settings you mention I'm suggesting get saved onto
-sysfs by the driver and later get picked up by userspace. There are,
-however, other settings which could get saved when suspending too
-though, settings for example, which otherwise would get set by current
-private wireless ioctls. There are too many here to describe really,
-each device has their own set of of private attributes.
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> In article <4499CEF4.2050308@poczta.fm> (at Thu, 22 Jun 2006 00:57:56 +=
+0200), Lukasz Stelmach <stlman@poczta.fm> says:
+>=20
+>> Lukasz Stelmach wrote:
+>>> Lukasz Stelmach wrote:
+[....]
+>>
+>> fd24:6f44:46bd:face:EUI64 fd24:6f44:46bd:face:RANDOM
+>> and
+>> 2002:531f:d667:face:EUI64 2002:531f:d667:face::RANDOM
+>>
+>> there seem to be no way to prefere 2002:: over fc00:: in rule 7 and it=
+ will be
+>> selected as long as it is before 2002:: on the list. I can see here th=
+at an
+>> implicit assumption has been made that an interface either is multihom=
+ed or
+>> "private". The seventh rule should not IMHO break the whole process of=
 
-More on this in another e-mail I'm about to send to netdev.
+>> selection but rather mark as selectable all "private" (random) address=
+es. And
+>> it should rather be done before rule 6.
+>=20
+> Hmm? We do not have such intention.
+> In above case, when you connect to 2001:200:0:8002:203:47ff:fea5:3085,
+> either 2002:531f:d667:face:EUI64 or 2002:531f:d667:face::RANDOM
+> should be selected (depending on if use_tempaddr >=3D 2),
+> by the longest matching rule (Rule 8).
 
-  Luis
+I've chewd the code line by line and it tastes like it should work the wa=
+y you
+say... OK I see the problem. I've used ifconfig which doesn't show
+"deprecated" flag and "valid"/"prefered" times which, combined with "priv=
+acy",
+*seem* to cause some problems . I don't know yet if it is a problem of pr=
+oper
+intervals in radvd.conf or is there still a bug in kernel. I'll let you k=
+now
+when I learn it.
+
+OK. That's enough for now. Let me get back to the real work ;-)
+
+
+Best regards.
+--=20
+By=C5=82o mi bardzo mi=C5=82o.                    Czwarta pospolita kl=C4=
+=99ska, [...]
+>=C5=81ukasz<                      Ju=C5=BC nie katolicka lecz z=C5=82odz=
+iejska.  (c)PP
+
+
+--------------enigAB7DE8C61555FC562BF19CB8
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2.2 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFEmnk9NdzY8sm9K9wRAjiiAJ99Oe5uJ3x52L83qSOw7ZAljRsK8ACeN15P
+0rU7bHcEci9koQyWApOpbyk=
+=CvgD
+-----END PGP SIGNATURE-----
+
+--------------enigAB7DE8C61555FC562BF19CB8--
