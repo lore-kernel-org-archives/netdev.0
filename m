@@ -1,7 +1,7 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 12/21] e1000: fix adapter led blinking inconsistency
-Date: Wed, 21 Jun 2006 22:20:32 -0700
-Message-ID: <20060622052032.25497.4540.stgit@gitlost.site>
+Subject: [PATCH 09/21] e1000: rework module param code with uninitialized values
+Date: Wed, 21 Jun 2006 22:20:25 -0700
+Message-ID: <20060622052025.25497.98226.stgit@gitlost.site>
 References: <20060622051815.25497.89192.stgit@gitlost.site>
 Cc: netdev@vger.kernel.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
@@ -9,115 +9,331 @@ Cc: netdev@vger.kernel.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:55048 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S932806AbWFVFOe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 01:14:34 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:51208 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S932804AbWFVFO1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 01:14:27 -0400
 To: "Garzik, Jeff" <jgarzik@pobox.com>
 In-Reply-To: <20060622051815.25497.89192.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Several e1000 adapters were not blinking correctly or inconsistently. This
-patch cleans this up and makes them all behave the same as far as possible.
+We can take uninitialized values into account which minimizes code
+and allows us to simplify the parameter checking code greatly.
 
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000/e1000_ethtool.c |   15 +--------------
- drivers/net/e1000/e1000_hw.c      |   38 +++++++++++++++++++++++++++++++++++++
- drivers/net/e1000/e1000_hw.h      |    1 +
- 3 files changed, 40 insertions(+), 14 deletions(-)
+ drivers/net/e1000/e1000_param.c |  167 ++++++++++++++-------------------------
+ 1 files changed, 61 insertions(+), 106 deletions(-)
 
-diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e1000_ethtool.c
-index cf5c5f4..0609155 100644
---- a/drivers/net/e1000/e1000_ethtool.c
-+++ b/drivers/net/e1000/e1000_ethtool.c
-@@ -1786,21 +1786,8 @@ e1000_phys_id(struct net_device *netdev,
- 		mod_timer(&adapter->blink_timer, jiffies);
- 		msleep_interruptible(data * 1000);
- 		del_timer_sync(&adapter->blink_timer);
--	} else if (adapter->hw.mac_type < e1000_82573) {
--		E1000_WRITE_REG(&adapter->hw, LEDCTL,
--			(E1000_LEDCTL_LED2_BLINK_RATE |
--			 E1000_LEDCTL_LED0_BLINK | E1000_LEDCTL_LED2_BLINK |
--			 (E1000_LEDCTL_MODE_LED_ON << E1000_LEDCTL_LED2_MODE_SHIFT) |
--			 (E1000_LEDCTL_MODE_LINK_ACTIVITY << E1000_LEDCTL_LED0_MODE_SHIFT) |
--			 (E1000_LEDCTL_MODE_LED_OFF << E1000_LEDCTL_LED1_MODE_SHIFT)));
--		msleep_interruptible(data * 1000);
- 	} else {
--		E1000_WRITE_REG(&adapter->hw, LEDCTL,
--			(E1000_LEDCTL_LED2_BLINK_RATE |
--			 E1000_LEDCTL_LED1_BLINK | E1000_LEDCTL_LED2_BLINK |
--			 (E1000_LEDCTL_MODE_LED_ON << E1000_LEDCTL_LED2_MODE_SHIFT) |
--			 (E1000_LEDCTL_MODE_LINK_ACTIVITY << E1000_LEDCTL_LED1_MODE_SHIFT) |
--			 (E1000_LEDCTL_MODE_LED_OFF << E1000_LEDCTL_LED0_MODE_SHIFT)));
-+		e1000_blink_led_start(&adapter->hw);
- 		msleep_interruptible(data * 1000);
+diff --git a/drivers/net/e1000/e1000_param.c b/drivers/net/e1000/e1000_param.c
+index a8d9295..bd6c040 100644
+--- a/drivers/net/e1000/e1000_param.c
++++ b/drivers/net/e1000/e1000_param.c
+@@ -45,6 +45,16 @@
+  */
+ 
+ #define E1000_PARAM_INIT { [0 ... E1000_MAX_NIC] = OPTION_UNSET }
++/* Module Parameters are always initialized to -1, so that the driver
++ * can tell the difference between no user specified value or the
++ * user asking for the default value.
++ * The true default values are loaded in when e1000_check_options is called.
++ *
++ * This is a GCC extension to ANSI C.
++ * See the item "Labeled Elements in Initializers" in the section
++ * "Extensions to the C Language Family" of the GCC documentation.
++ */
++
+ #define E1000_PARAM(X, desc) \
+ 	static int __devinitdata X[E1000_MAX_NIC+1] = E1000_PARAM_INIT; \
+ 	static int num_##X = 0; \
+@@ -305,6 +315,7 @@ e1000_check_options(struct e1000_adapter
+ 		DPRINTK(PROBE, NOTICE,
+ 		       "Warning: no configuration for board #%i\n", bd);
+ 		DPRINTK(PROBE, NOTICE, "Using defaults for all values\n");
++		bd = E1000_MAX_NIC;
  	}
  
-diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
-index 749d621..1c5b184 100644
---- a/drivers/net/e1000/e1000_hw.c
-+++ b/drivers/net/e1000/e1000_hw.c
-@@ -5537,6 +5537,44 @@ e1000_setup_led(struct e1000_hw *hw)
- }
+ 	{ /* Transmit Descriptor Count */
+@@ -322,14 +333,9 @@ e1000_check_options(struct e1000_adapter
+ 		opt.arg.r.max = mac_type < e1000_82544 ?
+ 			E1000_MAX_TXD : E1000_MAX_82544_TXD;
  
- /******************************************************************************
-+ * Used on 82571 and later Si that has LED blink bits.
-+ * Callers must use their own timer and should have already called
-+ * e1000_id_led_init()
-+ * Call e1000_cleanup led() to stop blinking
-+ *
-+ * hw - Struct containing variables accessed by shared code
-+ *****************************************************************************/
-+int32_t
-+e1000_blink_led_start(struct e1000_hw *hw)
-+{
-+    int16_t  i;
-+    uint32_t ledctl_blink = 0;
-+
-+    DEBUGFUNC("e1000_id_led_blink_on");
-+
-+    if (hw->mac_type < e1000_82571) {
-+        /* Nothing to do */
-+        return E1000_SUCCESS;
-+    }
-+    if (hw->media_type == e1000_media_type_fiber) {
-+        /* always blink LED0 for PCI-E fiber */
-+        ledctl_blink = E1000_LEDCTL_LED0_BLINK |
-+                     (E1000_LEDCTL_MODE_LED_ON << E1000_LEDCTL_LED0_MODE_SHIFT);
-+    } else {
-+        /* set the blink bit for each LED that's "on" (0x0E) in ledctl_mode2 */
-+        ledctl_blink = hw->ledctl_mode2;
-+        for (i=0; i < 4; i++)
-+            if (((hw->ledctl_mode2 >> (i * 8)) & 0xFF) ==
-+                E1000_LEDCTL_MODE_LED_ON)
-+                ledctl_blink |= (E1000_LEDCTL_LED0_BLINK << (i * 8));
-+    }
-+
-+    E1000_WRITE_REG(hw, LEDCTL, ledctl_blink);
-+
-+    return E1000_SUCCESS;
-+}
-+
-+/******************************************************************************
-  * Restores the saved state of the SW controlable LED.
-  *
-  * hw - Struct containing variables accessed by shared code
-diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
-index 467c9ed..941b47d 100644
---- a/drivers/net/e1000/e1000_hw.h
-+++ b/drivers/net/e1000/e1000_hw.h
-@@ -401,6 +401,7 @@ int32_t e1000_setup_led(struct e1000_hw 
- int32_t e1000_cleanup_led(struct e1000_hw *hw);
- int32_t e1000_led_on(struct e1000_hw *hw);
- int32_t e1000_led_off(struct e1000_hw *hw);
-+int32_t e1000_blink_led_start(struct e1000_hw *hw);
+-		if (num_TxDescriptors > bd) {
+-			tx_ring->count = TxDescriptors[bd];
+-			e1000_validate_option(&tx_ring->count, &opt, adapter);
+-			E1000_ROUNDUP(tx_ring->count,
+-						REQ_TX_DESCRIPTOR_MULTIPLE);
+-		} else {
+-			tx_ring->count = opt.def;
+-		}
++		tx_ring->count = TxDescriptors[bd];
++		e1000_validate_option(&tx_ring->count, &opt, adapter);
++		E1000_ROUNDUP(tx_ring->count, REQ_TX_DESCRIPTOR_MULTIPLE);
+ 		for (i = 0; i < adapter->num_tx_queues; i++)
+ 			tx_ring[i].count = tx_ring->count;
+ 	}
+@@ -348,14 +354,9 @@ e1000_check_options(struct e1000_adapter
+ 		opt.arg.r.max = mac_type < e1000_82544 ? E1000_MAX_RXD :
+ 			E1000_MAX_82544_RXD;
  
- /* Adaptive IFS Functions */
+-		if (num_RxDescriptors > bd) {
+-			rx_ring->count = RxDescriptors[bd];
+-			e1000_validate_option(&rx_ring->count, &opt, adapter);
+-			E1000_ROUNDUP(rx_ring->count,
+-						REQ_RX_DESCRIPTOR_MULTIPLE);
+-		} else {
+-			rx_ring->count = opt.def;
+-		}
++		rx_ring->count = RxDescriptors[bd];
++		e1000_validate_option(&rx_ring->count, &opt, adapter);
++		E1000_ROUNDUP(rx_ring->count, REQ_RX_DESCRIPTOR_MULTIPLE);
+ 		for (i = 0; i < adapter->num_rx_queues; i++)
+ 			rx_ring[i].count = rx_ring->count;
+ 	}
+@@ -367,13 +368,9 @@ e1000_check_options(struct e1000_adapter
+ 			.def  = OPTION_ENABLED
+ 		};
  
+-		if (num_XsumRX > bd) {
+-			int rx_csum = XsumRX[bd];
+-			e1000_validate_option(&rx_csum, &opt, adapter);
+-			adapter->rx_csum = rx_csum;
+-		} else {
+-			adapter->rx_csum = opt.def;
+-		}
++		int rx_csum = XsumRX[bd];
++		e1000_validate_option(&rx_csum, &opt, adapter);
++		adapter->rx_csum = rx_csum;
+ 	}
+ 	{ /* Flow Control */
+ 
+@@ -393,13 +390,9 @@ e1000_check_options(struct e1000_adapter
+ 					 .p = fc_list }}
+ 		};
+ 
+-		if (num_FlowControl > bd) {
+-			int fc = FlowControl[bd];
+-			e1000_validate_option(&fc, &opt, adapter);
+-			adapter->hw.fc = adapter->hw.original_fc = fc;
+-		} else {
+-			adapter->hw.fc = adapter->hw.original_fc = opt.def;
+-		}
++		int fc = FlowControl[bd];
++		e1000_validate_option(&fc, &opt, adapter);
++		adapter->hw.fc = adapter->hw.original_fc = fc;
+ 	}
+ 	{ /* Transmit Interrupt Delay */
+ 		struct e1000_option opt = {
+@@ -411,13 +404,8 @@ e1000_check_options(struct e1000_adapter
+ 					 .max = MAX_TXDELAY }}
+ 		};
+ 
+-		if (num_TxIntDelay > bd) {
+-			adapter->tx_int_delay = TxIntDelay[bd];
+-			e1000_validate_option(&adapter->tx_int_delay, &opt,
+-								adapter);
+-		} else {
+-			adapter->tx_int_delay = opt.def;
+-		}
++		adapter->tx_int_delay = TxIntDelay[bd];
++		e1000_validate_option(&adapter->tx_int_delay, &opt, adapter);
+ 	}
+ 	{ /* Transmit Absolute Interrupt Delay */
+ 		struct e1000_option opt = {
+@@ -429,13 +417,9 @@ e1000_check_options(struct e1000_adapter
+ 					 .max = MAX_TXABSDELAY }}
+ 		};
+ 
+-		if (num_TxAbsIntDelay > bd) {
+-			adapter->tx_abs_int_delay = TxAbsIntDelay[bd];
+-			e1000_validate_option(&adapter->tx_abs_int_delay, &opt,
+-								adapter);
+-		} else {
+-			adapter->tx_abs_int_delay = opt.def;
+-		}
++		adapter->tx_abs_int_delay = TxAbsIntDelay[bd];
++		e1000_validate_option(&adapter->tx_abs_int_delay, &opt,
++		                      adapter);
+ 	}
+ 	{ /* Receive Interrupt Delay */
+ 		struct e1000_option opt = {
+@@ -447,13 +431,8 @@ e1000_check_options(struct e1000_adapter
+ 					 .max = MAX_RXDELAY }}
+ 		};
+ 
+-		if (num_RxIntDelay > bd) {
+-			adapter->rx_int_delay = RxIntDelay[bd];
+-			e1000_validate_option(&adapter->rx_int_delay, &opt,
+-								adapter);
+-		} else {
+-			adapter->rx_int_delay = opt.def;
+-		}
++		adapter->rx_int_delay = RxIntDelay[bd];
++		e1000_validate_option(&adapter->rx_int_delay, &opt, adapter);
+ 	}
+ 	{ /* Receive Absolute Interrupt Delay */
+ 		struct e1000_option opt = {
+@@ -465,13 +444,9 @@ e1000_check_options(struct e1000_adapter
+ 					 .max = MAX_RXABSDELAY }}
+ 		};
+ 
+-		if (num_RxAbsIntDelay > bd) {
+-			adapter->rx_abs_int_delay = RxAbsIntDelay[bd];
+-			e1000_validate_option(&adapter->rx_abs_int_delay, &opt,
+-								adapter);
+-		} else {
+-			adapter->rx_abs_int_delay = opt.def;
+-		}
++		adapter->rx_abs_int_delay = RxAbsIntDelay[bd];
++		e1000_validate_option(&adapter->rx_abs_int_delay, &opt,
++		                      adapter);
+ 	}
+ 	{ /* Interrupt Throttling Rate */
+ 		struct e1000_option opt = {
+@@ -483,24 +458,18 @@ e1000_check_options(struct e1000_adapter
+ 					 .max = MAX_ITR }}
+ 		};
+ 
+-		if (num_InterruptThrottleRate > bd) {
+-			adapter->itr = InterruptThrottleRate[bd];
+-			switch (adapter->itr) {
+-			case 0:
+-				DPRINTK(PROBE, INFO, "%s turned off\n",
+-					opt.name);
+-				break;
+-			case 1:
+-				DPRINTK(PROBE, INFO, "%s set to dynamic mode\n",
+-					opt.name);
+-				break;
+-			default:
+-				e1000_validate_option(&adapter->itr, &opt,
+-					adapter);
+-				break;
+-			}
+-		} else {
+-			adapter->itr = opt.def;
++		adapter->itr = InterruptThrottleRate[bd];
++		switch (adapter->itr) {
++		case 0:
++			DPRINTK(PROBE, INFO, "%s turned off\n", opt.name);
++			break;
++		case 1:
++			DPRINTK(PROBE, INFO, "%s set to dynamic mode\n",
++				opt.name);
++			break;
++		default:
++			e1000_validate_option(&adapter->itr, &opt, adapter);
++			break;
+ 		}
+ 	}
+ 	{ /* Smart Power Down */
+@@ -511,13 +480,9 @@ e1000_check_options(struct e1000_adapter
+ 			.def  = OPTION_DISABLED
+ 		};
+ 
+-		if (num_SmartPowerDownEnable > bd) {
+-			int spd = SmartPowerDownEnable[bd];
+-			e1000_validate_option(&spd, &opt, adapter);
+-			adapter->smart_power_down = spd;
+-		} else {
+-			adapter->smart_power_down = opt.def;
+-		}
++		int spd = SmartPowerDownEnable[bd];
++		e1000_validate_option(&spd, &opt, adapter);
++		adapter->smart_power_down = spd;
+ 	}
+ 
+ 	switch (adapter->hw.media_type) {
+@@ -544,17 +509,18 @@ static void __devinit
+ e1000_check_fiber_options(struct e1000_adapter *adapter)
+ {
+ 	int bd = adapter->bd_number;
+-	if (num_Speed > bd) {
++	bd = bd > E1000_MAX_NIC ? E1000_MAX_NIC : bd;
++	if ((Speed[bd] != OPTION_UNSET)) {
+ 		DPRINTK(PROBE, INFO, "Speed not valid for fiber adapters, "
+ 		       "parameter ignored\n");
+ 	}
+ 
+-	if (num_Duplex > bd) {
++	if ((Duplex[bd] != OPTION_UNSET)) {
+ 		DPRINTK(PROBE, INFO, "Duplex not valid for fiber adapters, "
+ 		       "parameter ignored\n");
+ 	}
+ 
+-	if ((num_AutoNeg > bd) && (AutoNeg[bd] != 0x20)) {
++	if ((AutoNeg[bd] != OPTION_UNSET) && (AutoNeg[bd] != 0x20)) {
+ 		DPRINTK(PROBE, INFO, "AutoNeg other than 1000/Full is "
+ 				 "not valid for fiber adapters, "
+ 				 "parameter ignored\n");
+@@ -573,6 +539,7 @@ e1000_check_copper_options(struct e1000_
+ {
+ 	int speed, dplx, an;
+ 	int bd = adapter->bd_number;
++	bd = bd > E1000_MAX_NIC ? E1000_MAX_NIC : bd;
+ 
+ 	{ /* Speed */
+ 		struct e1000_opt_list speed_list[] = {{          0, "" },
+@@ -589,12 +556,8 @@ e1000_check_copper_options(struct e1000_
+ 					 .p = speed_list }}
+ 		};
+ 
+-		if (num_Speed > bd) {
+-			speed = Speed[bd];
+-			e1000_validate_option(&speed, &opt, adapter);
+-		} else {
+-			speed = opt.def;
+-		}
++		speed = Speed[bd];
++		e1000_validate_option(&speed, &opt, adapter);
+ 	}
+ 	{ /* Duplex */
+ 		struct e1000_opt_list dplx_list[] = {{           0, "" },
+@@ -616,15 +579,11 @@ e1000_check_copper_options(struct e1000_
+ 			        "Speed/Duplex/AutoNeg parameter ignored.\n");
+ 			return;
+ 		}
+-		if (num_Duplex > bd) {
+-			dplx = Duplex[bd];
+-			e1000_validate_option(&dplx, &opt, adapter);
+-		} else {
+-			dplx = opt.def;
+-		}
++		dplx = Duplex[bd];
++		e1000_validate_option(&dplx, &opt, adapter);
+ 	}
+ 
+-	if ((num_AutoNeg > bd) && (speed != 0 || dplx != 0)) {
++	if (AutoNeg[bd] != OPTION_UNSET && (speed != 0 || dplx != 0)) {
+ 		DPRINTK(PROBE, INFO,
+ 		       "AutoNeg specified along with Speed or Duplex, "
+ 		       "parameter ignored\n");
+@@ -673,19 +632,15 @@ e1000_check_copper_options(struct e1000_
+ 					 .p = an_list }}
+ 		};
+ 
+-		if (num_AutoNeg > bd) {
+-			an = AutoNeg[bd];
+-			e1000_validate_option(&an, &opt, adapter);
+-		} else {
+-			an = opt.def;
+-		}
++		an = AutoNeg[bd];
++		e1000_validate_option(&an, &opt, adapter);
+ 		adapter->hw.autoneg_advertised = an;
+ 	}
+ 
+ 	switch (speed + dplx) {
+ 	case 0:
+ 		adapter->hw.autoneg = adapter->fc_autoneg = 1;
+-		if ((num_Speed > bd) && (speed != 0 || dplx != 0))
++		if (Speed[bd] != OPTION_UNSET || Duplex[bd] != OPTION_UNSET)
+ 			DPRINTK(PROBE, INFO,
+ 			       "Speed and duplex autonegotiation enabled\n");
+ 		break;
 
 
 
