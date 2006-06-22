@@ -1,35 +1,56 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [3/5] [NET]: Add software TSOv4
-Date: Fri, 23 Jun 2006 00:04:03 +0900 (JST)
-Message-ID: <20060623.000403.47759894.yoshfuji@linux-ipv6.org>
-References: <20060622081211.GA22505@gondor.apana.org.au>
-	<20060622081400.GC22671@gondor.apana.org.au>
+From: Steve Grubb <sgrubb@redhat.com>
+Subject: Re: [RFC 2/7] NetLabel: core network changes
+Date: Thu, 22 Jun 2006 11:05:00 -0400
+Message-ID: <200606221105.00331.sgrubb@redhat.com>
+References: <20060621194234.979661000@flek.zko.hp.com>
+	<20060621200030.880930000@flek.zko.hp.com>
+	<20060622.020055.115910616.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:21000 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751809AbWFVPDJ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 11:03:09 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060622081400.GC22671@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: jmorris@redhat.com, paul.moore@hp.com, sds@epoch.ncsc.mil,
+	redhat-lspp@redhat.com, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, netdev@vger.kernel.org
+Return-path: <redhat-lspp-bounces@redhat.com>
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060622.020055.115910616.davem@davemloft.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/redhat-lspp>,
+	<mailto:redhat-lspp-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/redhat-lspp>
+List-Post: <mailto:redhat-lspp@redhat.com>
+List-Help: <mailto:redhat-lspp-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/redhat-lspp>,
+	<mailto:redhat-lspp-request@redhat.com?subject=subscribe>
+Sender: redhat-lspp-bounces@redhat.com
+Errors-To: redhat-lspp-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-In article <20060622081400.GC22671@gondor.apana.org.au> (at Thu, 22 Jun 2006 18:14:00 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
+On Thursday 22 June 2006 05:00, David Miller wrote:
+> > =A0#define NETLINK_GENERIC=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A01=
+6
+> > +#define NETLINK_NETLABEL=A0=A0=A0=A0=A017=A0=A0=A0=A0=A0=A0/* Networ=
+k packet labeling */
+> > =A0
+> > =A0#define MAX_LINKS 32=A0=A0=A0=A0=A0=A0=A0=A0=A0
+>
+> Please use generic netlink.
 
-> [NET]: Add software TSOv4
-> 
-> This patch adds the GSO implementation for IPv4 TCP.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Since this is a security interface, shouldn't it be its own protocol so t=
+hat=20
+SE Linux can control commands being sent? Paul's patches do include a net=
+link=20
+table in security/selinux/nlmsgtab.c. But I do not see any hooks to contr=
+ol=20
+generic netlink messages. (There seems to be several protocols that SE Li=
+nux=20
+is not controlling.) I could see that someone in secadm role should be ab=
+le=20
+to issue these commands, but someone at sysadm or auditadm would not.
 
-I'd appreciate if you code up IPv6 TCP as well. :-)
+If moving this over to generic is a must, then I think SE Linux will have=
+ to=20
+clip into generic to control its packet flow.
 
-Regards,
-
---yoshfuji
+-Steve
