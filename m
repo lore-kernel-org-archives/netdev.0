@@ -1,15 +1,15 @@
 From: Per Liden <per.liden@ericsson.com>
-Subject: [PATCH 22/32] [TIPC] Simplify code for returning partial success of stream send request.
-Date: Thu, 22 Jun 2006 15:59:35 +0200
-Message-ID: <11509847872289-git-send-email-per.liden@ericsson.com>
+Subject: [PATCH 25/32] [TIPC] Added missing warning for out-of-memory condition
+Date: Thu, 22 Jun 2006 15:59:38 +0200
+Message-ID: <11509847871687-git-send-email-per.liden@ericsson.com>
 References: <Pine.LNX.4.64.0606221233570.15853@ulinpc219.uab.ericsson.se>
 Reply-To: Per Liden <per.liden@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Allan Stephens <allan.stephens@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw3.ericsson.se ([193.180.251.60]:53690 "EHLO
-	mailgw3.ericsson.se") by vger.kernel.org with ESMTP
-	id S1030659AbWFVN7w (ORCPT <rfc822;netdev@vger.kernel.org>);
+Received: from mailgw4.ericsson.se ([193.180.251.62]:37782 "EHLO
+	mailgw4.ericsson.se") by vger.kernel.org with ESMTP
+	id S1030660AbWFVN7w (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 22 Jun 2006 09:59:52 -0400
 To: David Miller <davem@davemloft.net>
 In-Reply-To: <Pine.LNX.4.64.0606221233570.15853@ulinpc219.uab.ericsson.se>
@@ -21,31 +21,21 @@ From: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Per Liden <per.liden@ericsson.com>
 ---
- net/tipc/socket.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/tipc/port.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index abecf2d..6d4d2b0 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -969,7 +969,7 @@ static int recv_stream(struct kiocb *ioc
- restart:
- 	if (unlikely((skb_queue_len(&sock->sk->sk_receive_queue) == 0) &&
- 		     (flags & MSG_DONTWAIT))) {
--		res = (sz_copied == 0) ? -EWOULDBLOCK : 0;
-+		res = -EWOULDBLOCK;
- 		goto exit;
+diff --git a/net/tipc/port.c b/net/tipc/port.c
+index 899e08e..99846a1 100644
+--- a/net/tipc/port.c
++++ b/net/tipc/port.c
+@@ -1061,6 +1061,7 @@ int tipc_createport(u32 user_ref, 
+ 
+ 	up_ptr = (struct user_port *)kmalloc(sizeof(*up_ptr), GFP_ATOMIC);
+ 	if (up_ptr == NULL) {
++		warn("Port creation failed, no memory\n");
+ 		return -ENOMEM;
  	}
- 
-@@ -1060,7 +1060,7 @@ restart:
- 
- exit:
- 	up(&tsock->sem);
--	return res ? res : sz_copied;
-+	return sz_copied ? sz_copied : res;
- }
- 
- /**
+ 	ref = tipc_createport_raw(NULL, port_dispatcher, port_wakeup, importance);
 -- 
 1.4.0
 
