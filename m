@@ -1,40 +1,89 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Binding a packet socket to interface down
-Date: Thu, 22 Jun 2006 19:51:50 +0400
-Message-ID: <20060622155150.GB10335@2ka.mipt.ru>
-References: <7e63f56c0606220832i6b00f77bk352482c4a7c638cb@mail.gmail.com>
+From: Ryan Pratt <pratt@argus-systems.com>
+Subject: Re: [RFC 3/7] NetLabel: CIPSOv4 engine
+Date: Thu, 22 Jun 2006 10:57:14 -0500
+Message-ID: <449ABDDA.2070606@argus-systems.com>
+References: <20060621194234.979661000@flek.zko.hp.com> <20060621200031.589235000@flek.zko.hp.com> <20060622.021223.125894633.davem@davemloft.net> <200606220943.11185.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, redhat-lspp@redhat.com,
+	selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
+	netdev@vger.kernel.org, sds@epoch.ncsc.mil, jmorris@redhat.com,
+	sgrubb@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:64232 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751619AbWFVPvw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 11:51:52 -0400
-To: Robert Iakobashvili <coroberti@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <7e63f56c0606220832i6b00f77bk352482c4a7c638cb@mail.gmail.com>
+Received: from mail.argus-systems.com ([66.209.209.162]:29834 "EHLO
+	ranger.argus-systems.com") by vger.kernel.org with ESMTP
+	id S1751377AbWFVPxH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 11:53:07 -0400
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <200606220943.11185.paul.moore@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 22, 2006 at 06:32:29PM +0300, Robert Iakobashvili (coroberti@gmail.com) wrote:
-> Hi,
-> 
-> When packet socket (PF_SOCKET) is attempted in syscall bind () to the
-> network interface, which is down (no IF_UPP flag), packet_do_bind ()
-> sets error to the socket, but bind () does not fail.
-> 
-> When datagram, stream or raw socket fail to bind to some local
-> ip-port/ip, bind () fails.
-> 
-> Is this behavior of bind () for packet socket done deliberately, or
-> better to correct it so that bind will fail and return errno, e.g. ENODEV?
-> Thanks.
+Paul Moore wrote:
 
-man page says that packet socket does not handle any errors.
-And actually packet socket binds to the device, but you can not read
-data. When device will be turned on, packet socket should start
-to function (packet_notifier() -> NETDEV_UP)..
+>On Thursday 22 June 2006 5:12 am, David Miller wrote:
+>  
+>
+>>From: paul.moore@hp.com
+>>Date: Wed, 21 Jun 2006 15:42:38 -0400
+>>
+>>    
+>>
+>>The thing that concerns me most about CIPSO is that even once users
+>>migrate to a more SELINUX native approach from this CIPSO stuff, the
+>>CIPSO code, it's bloat, and it's maintainence burdon will remain.
+>>
+>>It's easy to put stuff it, it's impossible to take stuff out even
+>>once it's largely unused by even it's original target audience.
+>>
+>>And that's what I see happening here.
+>>
+>>This is why, to be perfectly honest with you, I'd much rather
+>>something like this stay out-of-tree and people are strongly
+>>encouraged to use the more native stuff under Linux.
+>>    
+>>
+>
+>Well, not exactly the response I was hoping for, but let me plead my case one 
+>more time :)
+>
+>Traditional MLS CIPSO is a niche "protocol", I won't try to argue that point, 
+>and I also won't try to argue that the NetLabel patch is late to the party, 
+>the IPsec/XFRM labeling approach has already been accepted as "the" SELinux 
+>packet labeling mechanism.  However, the XFRM labeling mechanism in not 
+>currently supported by any OS other than Linux/SELinux.  I have spoken with 
+>users that need CIPSO to interoperate with their other trusted systems, the 
+>XFRM approach is simply not a viable solution for them.  I strongly believe 
+>that failure to support an interoperable packet labeling mechanism on Linux 
+>will seriously restrict Linux's deployment in trusted networks.
+>
+The PitBull product uses the CIPSO/RIPSO labeling protocol in order to 
+do interop packet labeling with other trusted systems and for passing 
+labels between our own systems.  Because it is the standard, it is the 
+protocol that government agencies use to do packet labeling across 
+networks.  Not having CIPSO in the mainline would mean that government 
+agencies would either a) only use SELinux from a distro that supports 
+the CIPSO patch (by maintaining it in their kernel themselves), if such 
+a distro exists, b) have to patch the kernels themselves (unlikely), or 
+c) not use SELinux at all.
 
+Also, the port of PitBull to Linux that I'm working on is currently 
+using the netlabel patch to handle the CIPSO/RIPSO labeling.  Since the 
+actual protocol for reading and writing out the IPSec option is 
+independent from the security enforcment module it makes a lot of sense 
+to have a generic handler in the kernel that LSM modules can use.  So, 
+in short, it makes my life a lot easier to have all that work already 
+done :)
 
 -- 
-	Evgeniy Polyakov
+Ryan Pratt
+Chief Solaris Engineer
+Innovative Security Systems, Inc.
+(dba Argus Systems Group)
+1809 Woodfield Dr.
+Savoy IL 61874
+(217) 355-6308
+www.argus-systems.com
+
+
