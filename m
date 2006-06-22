@@ -1,101 +1,72 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [PATCH] WAN: ioremap() failure checks in drivers
-Date: Thu, 22 Jun 2006 22:29:28 +0200
-Message-ID: <m3odwlvsrb.fsf@defiant.localdomain>
+From: "Stephens, Allan" <allan.stephens@windriver.com>
+Subject: RE: [PATCH 7/32] [TIPC] Multicast link failure now resets all links to "nacking" node.
+Date: Thu, 22 Jun 2006 13:33:41 -0700
+Message-ID: <3A30AD378ECC6F41A4AC64F18E8B3F7F48EA08@ala-mail04.corp.ad.wrs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:57309 "EHLO khc.piap.pl")
-	by vger.kernel.org with ESMTP id S1161334AbWFVU3a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 16:29:30 -0400
-To: Jeff Garzik <jeff@garzik.org>
+Received: from mail.windriver.com ([147.11.1.11]:1485 "EHLO mail.wrs.com")
+	by vger.kernel.org with ESMTP id S1161335AbWFVUeO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 16:34:14 -0400
+Content-class: urn:content-classes:message
+To: "James Morris" <jmorris@namei.org>,
+	"Per Liden" <per.liden@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Sesterhenn found that pci200syn initialization lacks return
-statement in ioremap() error path (coverity bug id #195). It looks
-like more WAN drivers have problems with ioremap().
+Nice observation, James.  As a relative newcomer to the official Linux
+kernel development world, I'm impressed that non-TIPC folks are looking
+at TIPC changes closely enough to see things like this!
 
-Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+Per, I'll leave it to you to decide if you want to address James's
+concern.  But be aware that the link_reset_all() routine is only called
+to handle emergency situations when TIPC's multicast link has run into
+serious problems and is trying to recover.  Most systems will never
+follow this path, so the cost of the unnecessary
+local_bh_disable()/local_bh_enable() pairing shouldn't have any real
+impact on the overall performance of TIPC.
 
---- a/drivers/net/wan/c101.c
-+++ b/drivers/net/wan/c101.c
-@@ -326,21 +326,21 @@ static int __init c101_run(unsigned long
- 	if (request_irq(irq, sca_intr, 0, devname, card)) {
- 		printk(KERN_ERR "c101: could not allocate IRQ\n");
- 		c101_destroy_card(card);
--		return(-EBUSY);
-+		return -EBUSY;
- 	}
- 	card->irq = irq;
- 
- 	if (!request_mem_region(winbase, C101_MAPPED_RAM_SIZE, devname)) {
- 		printk(KERN_ERR "c101: could not request RAM window\n");
- 		c101_destroy_card(card);
--		return(-EBUSY);
-+		return -EBUSY;
- 	}
- 	card->phy_winbase = winbase;
- 	card->win0base = ioremap(winbase, C101_MAPPED_RAM_SIZE);
- 	if (!card->win0base) {
- 		printk(KERN_ERR "c101: could not map I/O address\n");
- 		c101_destroy_card(card);
--		return -EBUSY;
-+		return -EFAULT;
- 	}
- 
- 	card->tx_ring_buffers = TX_RING_BUFFERS;
---- a/drivers/net/wan/n2.c
-+++ b/drivers/net/wan/n2.c
-@@ -387,6 +387,11 @@ static int __init n2_run(unsigned long i
- 	}
- 	card->phy_winbase = winbase;
- 	card->winbase = ioremap(winbase, USE_WINDOWSIZE);
-+	if (!card->winbase) {
-+		printk(KERN_ERR "n2: ioremap() failed\n");
-+		n2_destroy_card(card);
-+		return -EFAULT;
-+	}
- 
- 	outb(0, io + N2_PCR);
- 	outb(winbase >> 12, io + N2_BAR);
---- a/drivers/net/wan/pci200syn.c
-+++ b/drivers/net/wan/pci200syn.c
-@@ -358,6 +358,7 @@ #endif
- 	    card->rambase == NULL) {
- 		printk(KERN_ERR "pci200syn: ioremap() failed\n");
- 		pci200_pci_remove_one(pdev);
-+		return -EFAULT;
- 	}
- 
- 	/* Reset PLX */
---- a/drivers/net/wan/wanxl.c
-+++ b/drivers/net/wan/wanxl.c
-@@ -634,7 +634,13 @@ #endif
- 
- 	/* set up PLX mapping */
- 	plx_phy = pci_resource_start(pdev, 0);
-+
- 	card->plx = ioremap_nocache(plx_phy, 0x70);
-+	if (!card->plx) {
-+		printk(KERN_ERR "wanxl: ioremap() failed\n");
-+ 		wanxl_pci_remove_one(pdev);
-+		return -EFAULT;
-+	}
- 
- #if RESET_WHILE_LOADING
- 	wanxl_reset(card);
-@@ -700,6 +706,12 @@ #endif
- 	}
- 
- 	mem = ioremap_nocache(mem_phy, PDM_OFFSET + sizeof(firmware));
-+	if (!mem) {
-+		printk(KERN_ERR "wanxl: ioremap() failed\n");
-+ 		wanxl_pci_remove_one(pdev);
-+		return -EFAULT;
-+	}
-+
- 	for (i = 0; i < sizeof(firmware); i += 4)
- 		writel(htonl(*(u32*)(firmware + i)), mem + PDM_OFFSET + i);
- 
+Regards,
+Al Stephens
+
+> -----Original Message-----
+> From: James Morris [mailto:jmorris@namei.org] 
+> Sent: Thursday, June 22, 2006 2:51 PM
+> To: Per Liden
+> Cc: David Miller; netdev@vger.kernel.org; Stephens, Allan
+> Subject: Re: [PATCH 7/32] [TIPC] Multicast link failure now 
+> resets all links to "nacking" node.
+> 
+> On Thu, 22 Jun 2006, Per Liden wrote:
+> 
+> > +static void link_reset_all(unsigned long addr) {
+> > +	struct node *n_ptr;
+> > +	char addr_string[16];
+> > +	u32 i;
+> > +
+> > +	read_lock_bh(&tipc_net_lock);
+> > +	n_ptr = tipc_node_find((u32)addr);
+> > +	if (!n_ptr) {
+> > +		read_unlock_bh(&tipc_net_lock);
+> > +		return;	/* node no longer exists */
+> > +	}
+> > +
+> > +	tipc_node_lock(n_ptr);
+> 
+> You already have bh's disabled here, and tipc_node_lock() 
+> also disables them.
+> 
+> Not sure if it's really worth worrying about but if so, you 
+> could perhaps implement tipc_node_lock_bh() and tipc_node_lock().
+> 
+> 
+> 
+> - James
+> -- 
+> James Morris
+> <jmorris@namei.org>
+> 
