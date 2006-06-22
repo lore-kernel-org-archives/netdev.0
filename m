@@ -1,89 +1,69 @@
-From: Ryan Pratt <pratt@argus-systems.com>
-Subject: Re: [RFC 3/7] NetLabel: CIPSOv4 engine
-Date: Thu, 22 Jun 2006 10:57:14 -0500
-Message-ID: <449ABDDA.2070606@argus-systems.com>
-References: <20060621194234.979661000@flek.zko.hp.com> <20060621200031.589235000@flek.zko.hp.com> <20060622.021223.125894633.davem@davemloft.net> <200606220943.11185.paul.moore@hp.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 11/21] e1000: disable CRC stripping workaround
+Date: Thu, 22 Jun 2006 08:55:25 -0700
+Message-ID: <449ABD6D.9090808@candelatech.com>
+References: <20060622051815.25497.89192.stgit@gitlost.site>	 <20060622052029.25497.67575.stgit@gitlost.site>	 <449A2B20.2020006@candelatech.com> <4807377b0606220839i5de14797ocb9e404fd21540e3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, redhat-lspp@redhat.com,
-	selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org, sds@epoch.ncsc.mil, jmorris@redhat.com,
-	sgrubb@redhat.com
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	"Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.argus-systems.com ([66.209.209.162]:29834 "EHLO
-	ranger.argus-systems.com") by vger.kernel.org with ESMTP
-	id S1751377AbWFVPxH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 11:53:07 -0400
-To: Paul Moore <paul.moore@hp.com>
-In-Reply-To: <200606220943.11185.paul.moore@hp.com>
+Received: from ns2.lanforge.com ([66.165.47.211]:48275 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S1751830AbWFVPzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 11:55:40 -0400
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+In-Reply-To: <4807377b0606220839i5de14797ocb9e404fd21540e3@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Paul Moore wrote:
+Jesse Brandeburg wrote:
+> On 6/21/06, Ben Greear <greearb@candelatech.com> wrote:
+> 
+>> Kok, Auke wrote:
+>> > CRC stripping is breaking SMBUS-connected BMC's. We disable this
+>> > feature to make it work. This fixes related bugs regarding SOL.
+>>
+>> Shouldn't you also have to subtract 4 bytes when setting the skb len
+>> in the receive logic?  Perhaps when setting the rx-bytes counter as well?
+> 
+> 
+> we thought about this, but most drivers don't strip the CRC, and we
+> couldn't find any tests including bridging that cared if the CRC was
+> there in the indicated packet.
+> 
+> If you can find me a failing case I'll fix it.  It was much simpler to
+> leave it out, especially when we add back in the multiple descriptor
+> receive code in the future (think about the case when subtracting the
+> CRC makes the last descriptor disappear)
+> 
+> Once again, let me know if you have info I don't :-)
 
->On Thursday 22 June 2006 5:12 am, David Miller wrote:
->  
->
->>From: paul.moore@hp.com
->>Date: Wed, 21 Jun 2006 15:42:38 -0400
->>
->>    
->>
->>The thing that concerns me most about CIPSO is that even once users
->>migrate to a more SELINUX native approach from this CIPSO stuff, the
->>CIPSO code, it's bloat, and it's maintainence burdon will remain.
->>
->>It's easy to put stuff it, it's impossible to take stuff out even
->>once it's largely unused by even it's original target audience.
->>
->>And that's what I see happening here.
->>
->>This is why, to be perfectly honest with you, I'd much rather
->>something like this stay out-of-tree and people are strongly
->>encouraged to use the more native stuff under Linux.
->>    
->>
->
->Well, not exactly the response I was hoping for, but let me plead my case one 
->more time :)
->
->Traditional MLS CIPSO is a niche "protocol", I won't try to argue that point, 
->and I also won't try to argue that the NetLabel patch is late to the party, 
->the IPsec/XFRM labeling approach has already been accepted as "the" SELinux 
->packet labeling mechanism.  However, the XFRM labeling mechanism in not 
->currently supported by any OS other than Linux/SELinux.  I have spoken with 
->users that need CIPSO to interoperate with their other trusted systems, the 
->XFRM approach is simply not a viable solution for them.  I strongly believe 
->that failure to support an interoperable packet labeling mechanism on Linux 
->will seriously restrict Linux's deployment in trusted networks.
->
-The PitBull product uses the CIPSO/RIPSO labeling protocol in order to 
-do interop packet labeling with other trusted systems and for passing 
-labels between our own systems.  Because it is the standard, it is the 
-protocol that government agencies use to do packet labeling across 
-networks.  Not having CIPSO in the mainline would mean that government 
-agencies would either a) only use SELinux from a distro that supports 
-the CIPSO patch (by maintaining it in their kernel themselves), if such 
-a distro exists, b) have to patch the kernels themselves (unlikely), or 
-c) not use SELinux at all.
+It should only be a problem if skb->len includes the extra 4 bytes for 
+the crc.  Then, if I transmit that skb to another interface, I am afraid 
+that the crc will be seen as data in the packet.  In the 2.6.13 days, 
+the e1000 did not strip the CRC, but it subtracted 4 before it did the 
+skb_put.  So, the crc was correctly stripped/ignored.  The e100 
+functioned similarly I believe.
 
-Also, the port of PitBull to Linux that I'm working on is currently 
-using the netlabel patch to handle the CIPSO/RIPSO labeling.  Since the 
-actual protocol for reading and writing out the IPSec option is 
-independent from the security enforcment module it makes a lot of sense 
-to have a generic handler in the kernel that LSM modules can use.  So, 
-in short, it makes my life a lot easier to have all that work already 
-done :)
+If you skb_put the extra 4 bytes, I believe this will break my 
+(proprietary) app because on transmit it will append the extra 4 crc 
+bytes, but that isn't your problem..and I can work around it.  If the 
+receiving NIC can handle pkts 4 bytes bigger than normal, it will 
+probably still receive the packet w/out problem, but in truth, the frame 
+will not be exactly correct.
 
--- 
-Ryan Pratt
-Chief Solaris Engineer
-Innovative Security Systems, Inc.
-(dba Argus Systems Group)
-1809 Woodfield Dr.
-Savoy IL 61874
-(217) 355-6308
-www.argus-systems.com
+When you did your bridging tests, did you sniff the packets on the far 
+side of the bridge to see if they were the right size?
 
+Thanks,
+Ben
+
+> 
+> Thanks for the review,
+>  Jesse
+> 
 
