@@ -1,32 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix net-core kernel-doc
-Date: Thu, 22 Jun 2006 16:00:35 -0700 (PDT)
-Message-ID: <20060622.160035.51841776.davem@davemloft.net>
-References: <20060622151443.24dd8d9e.rdunlap@xenotime.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Pull request for 'upstream' branch
+Date: Fri, 23 Jun 2006 01:20:48 +0200
+Message-ID: <20060622232048.GA9790@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Roy Marples <uberlord@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:22506
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1161377AbWFVXAw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 19:00:52 -0400
-To: rdunlap@xenotime.net
-In-Reply-To: <20060622151443.24dd8d9e.rdunlap@xenotime.net>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:15299 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1750779AbWFVXV5
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 19:21:57 -0400
+To: jeff@garzik.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Date: Thu, 22 Jun 2006 15:14:43 -0700
+Please pull from branch 'upstream' to get the change below:
 
-> From: Randy Dunlap <rdunlap@xenotime.net>
-> 
-> Warning(/var/linsrc/linux-2617-g4//include/linux/skbuff.h:304): No description found for parameter 'dma_cookie'
-> Warning(/var/linsrc/linux-2617-g4//include/net/sock.h:1274): No description found for parameter 'copied_early'
-> Warning(/var/linsrc/linux-2617-g4//net/core/dev.c:3309): No description found for parameter 'chan'
-> Warning(/var/linsrc/linux-2617-g4//net/core/dev.c:3309): No description found for parameter 'event'
-> 
-> Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
 
-Applied, thanks a lot Randy.
+Patch applies to jeff#upstream, jeff#upstream-fixes and jeff#upstream-linus.
+
+Shortlog
+--------
+
+Roy Marples:
+      via-velocity: the link is not correctly detected when the device starts
+    
+Patch
+-----
+
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index 2eb6b5f..09e05fe 100644
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -248,6 +248,7 @@ static void velocity_free_rd_ring(struct
+ static void velocity_free_tx_buf(struct velocity_info *vptr, struct velocity_td_info *);
+ static int velocity_soft_reset(struct velocity_info *vptr);
+ static void mii_init(struct velocity_info *vptr, u32 mii_status);
++static u32 velocity_get_link(struct net_device *dev);
+ static u32 velocity_get_opt_media_mode(struct velocity_info *vptr);
+ static void velocity_print_link_status(struct velocity_info *vptr);
+ static void safe_disable_mii_autopoll(struct mac_regs __iomem * regs);
+@@ -798,6 +799,9 @@ #endif
+ 	if (ret < 0)
+ 		goto err_iounmap;
+ 
++	if (velocity_get_link(dev))
++		netif_carrier_off(dev);
++
+ 	velocity_print_info(vptr);
+ 	pci_set_drvdata(pdev, dev);
+ 	
+@@ -1653,8 +1657,10 @@ static void velocity_error(struct veloci
+ 
+ 		if (linked) {
+ 			vptr->mii_status &= ~VELOCITY_LINK_FAIL;
++			netif_carrier_on(vptr->dev);
+ 		} else {
+ 			vptr->mii_status |= VELOCITY_LINK_FAIL;
++			netif_carrier_off(vptr->dev);
+ 		}
+ 
+ 		velocity_print_link_status(vptr);
