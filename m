@@ -1,135 +1,78 @@
-From: "Alexander Tsvyashchenko" <lists@ndl.kiev.ua>
-Subject: Re: [PATCH, RFT] bcm43xx: AccessPoint mode
-Date: Thu, 22 Jun 2006 23:08:10 +0400
-Message-ID: <C9znQUHw.1151003290.8819920.ndl@192.168.0.1>
-References: <20060622173013.28e61873@griffin.suse.cz>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [NET]: Prevent multiple qdisc runs
+Date: Thu, 22 Jun 2006 15:31:22 -0400
+Message-ID: <1151004682.5392.97.camel@jzny2>
+References: <20060619121519.GA16031@gondor.apana.org.au>
+	 <1150724031.5815.39.camel@jzny2>
+	 <20060619134227.GA16662@gondor.apana.org.au>
+	 <1150727009.5815.72.camel@jzny2>
+	 <20060619142928.GA17191@gondor.apana.org.au>
+	 <1150727810.5815.78.camel@jzny2>
+	 <20060619223326.GA20354@gondor.apana.org.au>
+	 <1150814526.5270.64.camel@jzny2>
+	 <20060620235207.GA31493@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "bcm43xx-dev" <bcm43xx-dev@lists.berlios.de>,
-	"netdev" <netdev@vger.kernel.org>,
-	"Alexander Tsvyashchenko" <lists@ndl.kiev.ua>,
-	"Francois Barre" <francois.barre@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orb.fasty.net ([195.140.176.3]:33287 "EHLO orb.fasty.net")
-	by vger.kernel.org with ESMTP id S1751816AbWFVTIs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 15:08:48 -0400
-To: "Jiri Benc" <jbenc@suse.cz>, "Michael Buesch" <mb@bu3sch.de>
-In-Reply-To: <20060622173013.28e61873@griffin.suse.cz>
+Received: from mx02.cybersurf.com ([209.197.145.105]:40612 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932288AbWFVTb1
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 15:31:27 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1FtUtk-00006t-PA
+	for netdev@vger.kernel.org; Thu, 22 Jun 2006 15:31:28 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060620235207.GA31493@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Jiri,
+On Wed, 2006-21-06 at 09:52 +1000, Herbert Xu wrote:
 
-On 6/22/2006, "Jiri Benc" <jbenc@suse.cz> wrote:
+> Well my gut feeling is that multiple qdisc_run's on the same dev can't
+> be good for perfomance.  The reason is that SMP is only good when the
+> CPUs work on different tasks.  If you get two or more CPUs to work on
+> qdisc_run at the same time they can still only supply one skb to the
+> device at any time.  What's worse is that they will now have to fight
+> over the two spin locks involved which means that their cache lines
+> will bounce back and forth.
 
->Great work! I was even able to ping. (Tried only open system
->authentication for now, it seems it works quite well.)
+1) If the CPUs collide all the time it is without a doubt
+it is a bad thing (you can tell from tx_collission stats).
+ 
+2) If on the other hand, the iota that a CPU enters that path in the
+softirq it gets the txlock then there is benefit to not serialize
+at the level you have done with that patch - you are enlarging the
+granularity of the serialization so much so that the CPU wont even
+get the opportunity to try and grab tx lock because it finds qdisc is
+already running.
 
-Well, I use first version of this patch from the end of April, and had no
-problems so far, so,
-while it's probably cannot be really called "stable" yet, it's at
-least 'working somehow" ;-)
+Your gut feeling is for #1 and my worry is for #2 ;->
+I actually think your change is obviously valuable for scenarios where
+the bus is slower and therefore transmits take longer - my feeling is it
+may not be beneficial for fast buses like PCI-E or high speed PCI/X
+where the possibility of getting access tx collision is lower.
 
->Or, if you don't want to patch hostapd (untested, but should work):
->
->iwpriv wlan0 param 1046 1
->ip link set wmgmt0 name wmaster0ap
->hostapd /path/to/hostapd.conf
->iwpriv wlan0 param 1046 0
+The other reason I mentioned earlier as justification to leave the
+granularity at the level where it was is for good qos clocking. i.e
+to allow incoming packets to be used to clock the tx path - otherwise
+you will be dependent on HZ for your egress rate accuracy. I am not sure
+if this later point made sense - I could elaborate.
 
-Thanks for the information! This is easier way indeed ;-)
+The experiment needed to prove things is not hard: one needs to get a 2
+or 4way machine and create a "funneling" effect to one NIC. 
+For forwarding, the best setup will be to have 3 NICs. packets coming in
+on 2 NICs are forwarded to a third. The incoming-packet NICS are tied to
+different CPUs. In a 4way, the outgoing as well is tied to its own CPU.
+You then pummel the two incoming CPUs with pktgen or otherwise
+at something like 1Mpps (which is higher than the wire rate the third
+nic can handle).
 
->Hopefully we will convert the whole hostapd<->stack communication to
->netlink in some near future ;-)
 
-Yes, it would be nice if things get a bit more settled & stable there ;-)
+cheers,
+jamal
 
->> 2) Insert modules (80211, rate_control and bcm43xx-d80211)
->
->modprobe bcm43xx-d80211 is enough, other modules will load
->automatically.
-
-I just had no modprobe on my test system, that's why I listed all of
-them separately ;-)
-But yes, for "normal" usage modprobe is easier.
-
->> 6) "iwconfig wlan0 essid <your-SSID-name>" (this also should not be
->> required, but current combination of hostapd + dscape doesn't seem to
->> generate config_interface callback when setting beacon, so this is
->> required just to force call of config_interface).
->
->The stack currently has very limited support for cards with "beacon
->templates". ieee80211_beacon_get function is not designed in a way it is
->used in bcm43xx. Although this seems to be easy to fix now, we will run
->into other problems later (with TIM elements mainly).
->I need to look how PS mode works in bcm chipsets to find a correct
->solution for this. Do you have any ideas?
-
-Well, current use of  ieee80211_beacon_get in bcm43xx is plain wrong
-indeed,
-it just happens that it seems to work anyway ;-)
-
-As for the PS, the main problem currently seems to be the lack of hardware
-specifications: quite some things that are needed to make it work are
-unknown.
-
-The information/speculations I have so far
-(please note my understanding of 802.11 specs is very limited!!!):
-
-1) TIM seems to be generated by software (I think it was confirmed by smb
-from specs group).
-
-2) DTIM counter in beacons sent is updated by hardware (confirmed by
-specs group).
-
-3) There is PS interrupt that in my experiments seemed to correlate with
-the beacon interval
-(one PS interrupt for one beacon sent?)
-
-My original idea was that it could be used to update beacon template, but
-specs group seemed
-to be sceptical about this idea saying that in original driver the beacon
-template was not updated
-in PS interrupt handler.
-
-Now I think that it's, probably, not necessary to update beacon template
-exactly before/after current
-beacon is sent, as the reason to update beacon is only change in TIM, and
-we can just update
-template as soon as TIM is changed (so, some sort of callback from dscape
-to the driver is needed).
-
-However, this PS interrupt could be used for sending broadcast packets
-(which, as far as I understood
-from 802.11 specs, should be sent after DTIM beacon). To use it for this
-purpose, we need the following information:
-
-  a) Confirmation that PS interrupt is invoked exactly after current
-beacon is sent.
-  b) The way to know whether current beacon was DTIM or not.
-
-I do not have answers to these questions so far :-(
-
-Yet another idea (which still should be checked) is that probably, PS
-interrupt is invoked not for every beacon,
-but for DTIM beacons only (I'm not sure that in my experiments I had
-DTIM interval larger than beacon interval,
-so it's possible every TIM was DTIM, that's why PS interrupt was called
-for every beacon).
-
-There's yet another interrupt that I currently don't fully understand -
-beacon update interrupt, I did not see it called at all
-so far, so I don't know where/how it could be used.
-
-All other PS things seem to be relatively OK - there's also some support
-in hardware for processing entering/exiting
-PS mode for STAs, but these packets seem to be passed to dscape layer
-also, and as they are already processed
-in dscape, it looks like there's no need to bother with using hardware
-for that.
-
-Currently I just have not enough time to finish the experiments with PS,
-and anyway I'm afraid some of these
-things can be a bit hard to find out by experimenting only :-(
-
-Good luck!                                              Alexander
