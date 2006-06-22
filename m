@@ -1,107 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [0/5] GSO: Generic Segmentation Offload
-Date: Thu, 22 Jun 2006 18:15:43 +1000
-Message-ID: <20060622081543.GF22671@gondor.apana.org.au>
-References: <20060622081211.GA22505@gondor.apana.org.au>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Memory corruption in 8390.c ? (was Re: Possible leaks in network
+ drivers)
+Date: Thu, 22 Jun 2006 04:22:22 -0400
+Message-ID: <449A533E.4090201@pobox.com>
+References: <1150909982.15275.100.camel@localhost.localdomain> <E1FtDU0-0005nd-00@gondolin.me.apana.org.au> <20060622023029.GA6156@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, snakebyte@gmx.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:22532 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1161009AbWFVIPp
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 04:15:45 -0400
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20060622081211.GA22505@gondor.apana.org.au>
+Received: from srv5.dvmed.net ([207.36.208.214]:24773 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S964789AbWFVIWc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 04:22:32 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060622023029.GA6156@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi:
+Herbert Xu wrote:
+> This patch uses pskb_expand_head to expand the existing skb and linearize
 
-If anyone is interested here is the incremental patch against the previous
-series.
+Seems sane to me.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 9c68ab8..d293e0f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1415,7 +1415,7 @@ gso:
- 	/* Disable soft irqs for various locks below. Also 
- 	 * stops preemption for RCU. 
- 	 */
--	local_bh_disable(); 
-+	rcu_read_lock_bh(); 
- 
- 	/* Updates of qdisc are serialized by queue_lock. 
- 	 * The struct Qdisc which is pointed to by qdisc is now a 
-@@ -1486,13 +1486,13 @@ #endif
- 	}
- 
- 	rc = -ENETDOWN;
--	local_bh_enable();
-+	rcu_read_unlock_bh();
- 
- out_kfree_skb:
- 	kfree_skb(skb);
- 	return rc;
- out:
--	local_bh_enable();
-+	rcu_read_unlock_bh();
- 	return rc;
- }
- 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 472cb5a..4cdd6ca 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -185,9 +185,13 @@ requeue:
- 
- void __qdisc_run(struct net_device *dev)
- {
-+	if (unlikely(dev->qdisc == &noop_qdisc))
-+		goto out;
-+
- 	while (qdisc_restart(dev) < 0 && !netif_queue_stopped(dev))
- 		/* NOTHING */;
- 
-+out:
- 	clear_bit(__LINK_STATE_QDISC_RUNNING, &dev->state);
- }
- 
-@@ -581,20 +585,24 @@ void dev_deactivate(struct net_device *d
- 	spin_lock_bh(&dev->queue_lock);
- 	qdisc = dev->qdisc;
- 	dev->qdisc = &noop_qdisc;
--	skb = dev->gso_skb;
--	dev->gso_skb = NULL;
- 
- 	qdisc_reset(qdisc);
- 
- 	spin_unlock_bh(&dev->queue_lock);
- 
--	kfree_skb(skb);
- 	dev_watchdog_down(dev);
- 
--	while (test_bit(__LINK_STATE_SCHED, &dev->state))
-+	/* Wait for outstanding dev_queue_xmit calls. */
-+	synchronize_rcu();
-+
-+	/* Wait for outstanding qdisc_run calls. */
-+	while (test_bit(__LINK_STATE_QDISC_RUNNING, &dev->state))
- 		yield();
- 
--	spin_unlock_wait(&dev->_xmit_lock);
-+	if (dev->gso_skb) {
-+		kfree_skb(dev->gso_skb);
-+		dev->gso_skb = NULL;
-+	}
- }
- 
- void dev_init_scheduler(struct net_device *dev)
+
+> it if needed.  Actually, someone should sift through every instance of
+> skb_pad on a non-linear skb as they do not fit the reasons why this was
+> originally created.
+
+Non-linear skbs smaller than ETH_ZLEN seem unlikely.
+
+Overall, the skb_pad() changes were made over a short span of time, 
+often to older and under-used drivers, so I would not be surprised to 
+find rough edges or the occasional bug.
+
+	Jeff
+
+
