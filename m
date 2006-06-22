@@ -1,28 +1,36 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: New Qlogic qla3xxx NIC Driver v2.02.00k31 for upstream
- inclusion
-Date: Thu, 22 Jun 2006 14:22:17 -0700
-Message-ID: <20060622142217.0abfe030.akpm@osdl.org>
-References: <0BB3E5E7462EEA4295BC02D49691DC07176862@AVEXCH1.qlogic.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC 2/7] NetLabel: core network changes
+Date: Thu, 22 Jun 2006 14:32:55 -0700 (PDT)
+Message-ID: <20060622.143255.63999137.davem@davemloft.net>
+References: <20060621200030.880930000@flek.zko.hp.com>
+	<20060622.020055.115910616.davem@davemloft.net>
+	<200606221105.00331.sgrubb@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, Linux-Driver@qlogic.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:27289 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932601AbWFVVTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 17:19:10 -0400
-To: "Ron Mercer" <ron.mercer@qlogic.com>
-In-Reply-To: <0BB3E5E7462EEA4295BC02D49691DC07176862@AVEXCH1.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: jmorris@redhat.com, paul.moore@hp.com, sds@epoch.ncsc.mil,
+	redhat-lspp@redhat.com, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, netdev@vger.kernel.org
+Return-path: <redhat-lspp-bounces@redhat.com>
+To: sgrubb@redhat.com
+In-Reply-To: <200606221105.00331.sgrubb@redhat.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/redhat-lspp>,
+	<mailto:redhat-lspp-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/redhat-lspp>
+List-Post: <mailto:redhat-lspp@redhat.com>
+List-Help: <mailto:redhat-lspp-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/redhat-lspp>,
+	<mailto:redhat-lspp-request@redhat.com?subject=subscribe>
+Sender: redhat-lspp-bounces@redhat.com
+Errors-To: redhat-lspp-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-"Ron Mercer" <ron.mercer@qlogic.com> wrote:
->
-> Thanks for your feedback.  I've fixed everything you mentioned with the
-> exception of the code below.  I need to swap every other byte pair of my
-> nvram mac address for big endian systems.  Everything else I tried was
-> more messy.  Did you have anything specific in mind?
+From: Steve Grubb <sgrubb@redhat.com>
+Date: Thu, 22 Jun 2006 11:05:00 -0400
 
-Nope, it was more a question for the other netdev developers.  If nobody
-can point at a library function or something then fine, leave it as-is.
+> If moving this over to generic is a must, then I think SE Linux will
+> have to clip into generic to control its packet flow.
+
+James Morris has already started discussions on this.
+It's great that there will be another reason why that work
+needs to be done :)
