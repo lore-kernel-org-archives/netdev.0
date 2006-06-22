@@ -1,40 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 3/7] NetLabel: CIPSOv4 engine
-Date: Thu, 22 Jun 2006 02:12:23 -0700 (PDT)
-Message-ID: <20060622.021223.125894633.davem@davemloft.net>
-References: <20060621194234.979661000@flek.zko.hp.com>
-	<20060621200031.589235000@flek.zko.hp.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Memory corruption in 8390.c ? (was Re: Possible leaks in network drivers)
+Date: Thu, 22 Jun 2006 19:12:29 +1000
+Message-ID: <20060622091229.GA28488@gondor.apana.org.au>
+References: <1150909982.15275.100.camel@localhost.localdomain> <E1FtDU0-0005nd-00@gondolin.me.apana.org.au> <20060622023029.GA6156@gondor.apana.org.au> <449A533E.4090201@pobox.com> <20060622082931.GA26083@gondor.apana.org.au> <449A5B83.4090104@pobox.com> <20060622090227.GA28367@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: redhat-lspp@redhat.com, selinux@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-	sds@epoch.ncsc.mil, jmorris@redhat.com, sgrubb@redhat.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-To: paul.moore@hp.com
-In-Reply-To: <20060621200031.589235000@flek.zko.hp.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, snakebyte@gmx.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:32262 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1161015AbWFVJMo
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 05:12:44 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <20060622090227.GA28367@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: paul.moore@hp.com
-Date: Wed, 21 Jun 2006 15:42:38 -0400
+On Thu, Jun 22, 2006 at 07:02:27PM +1000, herbert wrote:
+>
+> > >cassini.c
+> > >starfire.c
+> > >yellowfin.c
+> > 
+> > That doesn't really invalidate the point :)  These drivers are still 
+> > only padding very small packets.
+> 
+> Hmm, at least cassini pads it to 255 for gigabit...
 
-> Add support for the Commercial IP Security Option (CIPSO) to the
-> IPv4 network stack.  CIPSO has become a de-facto standard for
-> trusted/labeled networking amongst existing Trusted Operating
-> Systems such as Trusted Solaris, HP-UX CMW, etc.  This
-> implementation is designed to be used with the NetLabel subsystem to
-> provide explicit packet labeling to LSM developers.
+The one in starfire looks especially dodgy.  It supports SG and also
+requires the whole length to be a multiple of 4 if the firmware is
+broken.  The question is do they really intend this or do they want
+each fragment to terminate on a 4-byte boundary.
 
-The thing that concerns me most about CIPSO is that even once users
-migrate to a more SELINUX native approach from this CIPSO stuff, the
-CIPSO code, it's bloat, and it's maintainence burdon will remain.
-
-It's easy to put stuff it, it's impossible to take stuff out even
-once it's largely unused by even it's original target audience.
-
-And that's what I see happening here.
-
-This is why, to be perfectly honest with you, I'd much rather
-something like this stay out-of-tree and people are strongly
-encouraged to use the more native stuff under Linux.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
