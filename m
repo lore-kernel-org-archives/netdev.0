@@ -1,93 +1,91 @@
-From: Lukasz Stelmach <stlman@poczta.fm>
-Subject: Re: ipv6 source address selection in addrconf.c (2.6.17)
-Date: Thu, 22 Jun 2006 13:04:17 +0200
-Message-ID: <449A7931.7090304@poczta.fm>
-References: <44986AE6.6090102@poczta.fm>	<44994CB3.6070302@poczta.fm>	<4499CEF4.2050308@poczta.fm> <20060622.092659.76693840.yoshfuji@linux-ipv6.org>
+From: Per Liden <per.liden@ericsson.com>
+Subject: [PATCH 0/32] TIPC updates
+Date: Thu, 22 Jun 2006 13:14:46 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0606221233570.15853@ulinpc219.uab.ericsson.se>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigAB7DE8C61555FC562BF19CB8"
-Cc: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, per.liden@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.poczta.interia.pl ([80.48.65.8]:64343 "EHLO
-	smtp.poczta.interia.pl") by vger.kernel.org with ESMTP
-	id S1030624AbWFVLEp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 07:04:45 -0400
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>
-In-Reply-To: <20060622.092659.76693840.yoshfuji@linux-ipv6.org>
+Received: from mailgw3.ericsson.se ([193.180.251.60]:228 "EHLO
+	mailgw3.ericsson.se") by vger.kernel.org with ESMTP
+	id S1161041AbWFVLOv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 07:14:51 -0400
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigAB7DE8C61555FC562BF19CB8
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Here's a resend of the latest TIPC updates. I apologize for not properly 
+submitting the patches for review the first time around.
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
-> In article <4499CEF4.2050308@poczta.fm> (at Thu, 22 Jun 2006 00:57:56 +=
-0200), Lukasz Stelmach <stlman@poczta.fm> says:
->=20
->> Lukasz Stelmach wrote:
->>> Lukasz Stelmach wrote:
-[....]
->>
->> fd24:6f44:46bd:face:EUI64 fd24:6f44:46bd:face:RANDOM
->> and
->> 2002:531f:d667:face:EUI64 2002:531f:d667:face::RANDOM
->>
->> there seem to be no way to prefere 2002:: over fc00:: in rule 7 and it=
- will be
->> selected as long as it is before 2002:: on the list. I can see here th=
-at an
->> implicit assumption has been made that an interface either is multihom=
-ed or
->> "private". The seventh rule should not IMHO break the whole process of=
+This patch set includes several minor bugfixes. Most of them ported over 
+from an older TIPC 1.5.x branch maintained on sourceforge (that branch is 
+being phased).
 
->> selection but rather mark as selectable all "private" (random) address=
-es. And
->> it should rather be done before rule 6.
->=20
-> Hmm? We do not have such intention.
-> In above case, when you connect to 2001:200:0:8002:203:47ff:fea5:3085,
-> either 2002:531f:d667:face:EUI64 or 2002:531f:d667:face::RANDOM
-> should be selected (depending on if use_tempaddr >=3D 2),
-> by the longest matching rule (Rule 8).
+Patches can be pulled from:
 
-I've chewd the code line by line and it tastes like it should work the wa=
-y you
-say... OK I see the problem. I've used ifconfig which doesn't show
-"deprecated" flag and "valid"/"prefered" times which, combined with "priv=
-acy",
-*seem* to cause some problems . I don't know yet if it is a problem of pr=
-oper
-intervals in radvd.conf or is there still a bug in kernel. I'll let you k=
-now
-when I learn it.
+	git://tipc.cslab.ericsson.net/pub/git/tipc.git
 
-OK. That's enough for now. Let me get back to the real work ;-)
+Summary:
 
+ include/net/tipc/tipc_bearer.h |   12 ++
+ net/tipc/bcast.c               |   79 ++++++++-------
+ net/tipc/bcast.h               |    2 
+ net/tipc/bearer.c              |   70 +++++++------
+ net/tipc/cluster.c             |   22 ++--
+ net/tipc/config.c              |   85 +++++++---------
+ net/tipc/core.c                |    7 +
+ net/tipc/core.h                |   21 +++-
+ net/tipc/discover.c            |   13 +-
+ net/tipc/eth_media.c           |   29 +++--
+ net/tipc/link.c                |  217 +++++++++++++++++++++++++++++++---------
+ net/tipc/name_distr.c          |   30 ++++--
+ net/tipc/name_table.c          |  203 ++++++++++++++++++++-----------------
+ net/tipc/node.c                |   78 ++++++++------
+ net/tipc/node.h                |    2 
+ net/tipc/node_subscr.c         |   15 +--
+ net/tipc/port.c                |   41 ++++----
+ net/tipc/ref.c                 |   31 +++++-
+ net/tipc/socket.c              |  100 +++++++++++-------
+ net/tipc/subscr.c              |   18 ++-
+ net/tipc/zone.c                |   19 ++--
+ 21 files changed, 661 insertions(+), 433 deletions(-)
 
-Best regards.
---=20
-By=C5=82o mi bardzo mi=C5=82o.                    Czwarta pospolita kl=C4=
-=99ska, [...]
->=C5=81ukasz<                      Ju=C5=BC nie katolicka lecz z=C5=82odz=
-iejska.  (c)PP
+Allan Stephens:
+      [TIPC] Prevent name table corruption if no room for new publication
+      [TIPC] Use correct upper bound when validating network zone number.
+      [TIPC] Corrected potential misuse of tipc_media_addr structure.
+      [TIPC] Allow ports to receive multicast messages through native API.
+      [TIPC] Links now validate destination node specified by incoming messages.
+      [TIPC] Multicast link failure now resets all links to "nacking" node.
+      [TIPC] Allow compilation when CONFIG_TIPC_DEBUG is not set.
+      [TIPC] Fixed privilege checking typo in dest_name_check().
+      [TIPC] Fix misleading comment in buf_discard() routine.
+      [TIPC] Added support for MODULE_VERSION capability.
+      [TIPC] Validate entire interface name when locating bearer to enable.
+      [TIPC] Non-operation-affecting corrections to comments & function definitions.
+      [TIPC] Fixed connect() to detect a dest address that is missing or too short.
+      [TIPC] Implied connect now saves dest name for retrieval as ancillary data.
+      [TIPC] Can now return destination name of form {0,x,y} via ancillary data.
+      [TIPC] Connected send now checks socket state when retrying congested send.
+      [TIPC] Stream socket send indicates partial success if data partially sent.
+      [TIPC] Improved performance of error checking during socket creation.
+      [TIPC] recvmsg() now returns TIPC ancillary data using correct level (SOL_TIPC)
+      [TIPC] Simplify code for returning partial success of stream send request.
+      [TIPC] Optimized argument validation done by connect().
+      [TIPC] Withdrawing all names from nameless port now returns success, not error
+      [TIPC] Added missing warning for out-of-memory condition
+      [TIPC] Fixed memory leak in tipc_link_send() when destination is unreachable
+      [TIPC] Disallow config operations that aren't supported in certain modes.
+      [TIPC] First phase of assert() cleanup
+      [TIPC] Enhanced & cleaned up system messages; fixed 2 obscure memory leaks.
+      [TIPC] Fixed link switchover bugs
+      [TIPC] Get rid of dynamically allocated arrays in broadcast code.
+      [TIPC] Fix incorrect correction to discovery timer frequency computation.
 
+Eric Sesterhenn:
+      [TIPC] Fix for NULL pointer dereference
 
---------------enigAB7DE8C61555FC562BF19CB8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Jon Maloy:
+      [TIPC] Improved tolerance to promiscuous mode interface
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.2 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iD8DBQFEmnk9NdzY8sm9K9wRAjiiAJ99Oe5uJ3x52L83qSOw7ZAljRsK8ACeN15P
-0rU7bHcEci9koQyWApOpbyk=
-=CvgD
------END PGP SIGNATURE-----
-
---------------enigAB7DE8C61555FC562BF19CB8--
+/Per
