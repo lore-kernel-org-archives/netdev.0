@@ -1,50 +1,57 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Bugme-new] [Bug 6730] New: pptp connection hang on heavy
- network load.
-Date: Thu, 22 Jun 2006 03:15:10 -0700
-Message-ID: <20060622031510.79d725e7.akpm@osdl.org>
-References: <200606221006.k5MA60v2020594@fire-2.osdl.org>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: Suspending 802.11 drivers
+Date: Thu, 22 Jun 2006 06:56:18 -0400
+Message-ID: <43e72e890606220356u7b3a5act572697ee4a284a2a@mail.gmail.com>
+References: <200606152158.10079.mb@bu3sch.de>
+	 <200606162036.26518.stefan@loplof.de>
+	 <43e72e890606210808n187771e6k2f58789cf1fcf680@mail.gmail.com>
+	 <200606220007.07467.stefan@loplof.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: "Michael Buesch" <mb@bu3sch.de>, "Jiri Benc" <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:1984 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751559AbWFVKPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 06:15:44 -0400
-To: "bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>, netdev@vger.kernel.org,
-	wizard580@gmail.com
-In-Reply-To: <200606221006.k5MA60v2020594@fire-2.osdl.org>
+Received: from ug-out-1314.google.com ([66.249.92.171]:51832 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1751527AbWFVK4T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 06:56:19 -0400
+Received: by ug-out-1314.google.com with SMTP id a2so417085ugf
+        for <netdev@vger.kernel.org>; Thu, 22 Jun 2006 03:56:18 -0700 (PDT)
+To: "Stefan Rompf" <stefan@loplof.de>
+In-Reply-To: <200606220007.07467.stefan@loplof.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 22 Jun 2006 03:06:00 -0700
-bugme-daemon@bugzilla.kernel.org wrote:
+On 6/21/06, Stefan Rompf <stefan@loplof.de> wrote:
+> Am Mittwoch 21 Juni 2006 17:08 schrieb Luis R. Rodriguez:
+>
+> > Since d80211 is already being patched for sysfs how about we use sysfs
+> > (and kobjects) to maintain the state at suspend() and resume(). This
+> > would allow userspace tools like supplicant running in the background
+> > to pick up from sysfs where it left off and for our drivers to save
+> > where we left off.
+>
+> Forgive me that I'm so insistant on this question, but this is important: What
+> state that goes beyond the data settable with wireless ioctls/iwconfig (that
+> is kept anyway) needs to be saved by the stack? Last association info is
+> worthless, the assocation can be restored using the ESSID/BSSID/channel set
+> with iwconfig or by wpa_supplicant. Important is that userspace is notified
+> about the connection loss. Is there _any_ other information not recreatable
+> from iwconfig settings that needs to be kept?
+>
+> Stefan
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=6730
-> 
->            Summary: pptp connection hang on heavy network load.
->     Kernel Version: 2.6.17
->             Status: NEW
->           Severity: blocking
->              Owner: acme@conectiva.com.br
->          Submitter: wizard580@gmail.com
-> 
-> 
-> Most recent kernel where this bug did not occur: 2.6.17
-> Distribution: debian
-> Hardware Environment: NVidia nForce2 GF6600 forcedeth driver.
-> Software Environment: latest debian sid dist-upgrade on 22 june 2006
-> Problem Description: when I make a many files (about 500 files near 1 Gb of total size, 
-> *.deb from last and previous upgrade for example ) upload to a server via ssh/scp, my vpn 
-> pptp connection hangs till i restart ppp connection. This problem persist not only a latest 
-> kernel. I don't remember when it begin to hangs. It very-very annoying and makes me 
-> difficult to make my daily job. If I do not make such "heavy" network vpn traffic, I can 
-> work for a weeks without reboots and any problems
-> 
-> Steps to reproduce:
-> Start to copy big amount of data over pptp connection from a client linux machine. Ex. via 
-> ssh/scp.
-> 
+Stefan, this is an excellent and valid question. Let me elaborate --
+Its exactly those settings you mention I'm suggesting get saved onto
+sysfs by the driver and later get picked up by userspace. There are,
+however, other settings which could get saved when suspending too
+though, settings for example, which otherwise would get set by current
+private wireless ioctls. There are too many here to describe really,
+each device has their own set of of private attributes.
 
-We thought we'd fixed this :(
+More on this in another e-mail I'm about to send to netdev.
+
+  Luis
