@@ -1,53 +1,50 @@
 From: Per Liden <per.liden@ericsson.com>
-Subject: [PATCH 32/32] [TIPC] Fix incorrect correction to discovery timer frequency computation.
-Date: Thu, 22 Jun 2006 15:59:45 +0200
-Message-ID: <11509847881839-git-send-email-per.liden@ericsson.com>
+Subject: [PATCH 9/32] [TIPC] Fix for NULL pointer dereference
+Date: Thu, 22 Jun 2006 15:59:22 +0200
+Message-ID: <1150984785979-git-send-email-per.liden@ericsson.com>
 References: <Pine.LNX.4.64.0606221233570.15853@ulinpc219.uab.ericsson.se>
 Reply-To: Per Liden <per.liden@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Allan Stephens <allan.stephens@windriver.com>
+Cc: netdev@vger.kernel.org, Eric Sesterhenn <snakebyte@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw4.ericsson.se ([193.180.251.62]:45206 "EHLO
+Received: from mailgw4.ericsson.se ([193.180.251.62]:27030 "EHLO
 	mailgw4.ericsson.se") by vger.kernel.org with ESMTP
-	id S1030664AbWFVN7y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 09:59:54 -0400
+	id S1030642AbWFVN7v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 09:59:51 -0400
 To: David Miller <davem@davemloft.net>
 In-Reply-To: <Pine.LNX.4.64.0606221233570.15853@ulinpc219.uab.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Allan Stephens <allan.stephens@windriver.com>
+From: Eric Sesterhenn <snakebyte@gmx.de>
 
-Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+This fixes a bug spotted by the coverity checker, bug id #366. If
+(mod(seqno - prev) != 1) we set buf to NULL, dereference it in the for
+case, and set it to whatever value happes to be at adress 0+next, if it
+happens to be non-zero, we even stay in the loop. It seems that the author
+intended to break there.
+
+Signed-off-by: Eric Sesterhenn <snakebyte@gmx.de>
 Signed-off-by: Per Liden <per.liden@ericsson.com>
 ---
- net/tipc/discover.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ net/tipc/bcast.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index ee9b448..2b84412 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
-@@ -2,7 +2,7 @@
-  * net/tipc/discover.c
-  * 
-  * Copyright (c) 2003-2006, Ericsson AB
-- * Copyright (c) 2005, Wind River Systems
-+ * Copyright (c) 2005-2006, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -267,8 +267,8 @@ static void disc_timeout(struct link_req
- 		/* leave timer interval "as is" if already at a "normal" rate */
- 	} else {
- 		req->timer_intv *= 2;
--		if (req->timer_intv > TIPC_LINK_REQ_SLOW)
--			req->timer_intv = TIPC_LINK_REQ_SLOW;
-+		if (req->timer_intv > TIPC_LINK_REQ_FAST)
-+			req->timer_intv = TIPC_LINK_REQ_FAST;
- 		if ((req->timer_intv == TIPC_LINK_REQ_FAST) && 
- 		    (req->bearer->nodes.count))
- 			req->timer_intv = TIPC_LINK_REQ_SLOW;
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 00691b7..44645f5 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -349,8 +349,10 @@ static void tipc_bclink_peek_nack(u32 de
+ 		for (; buf; buf = buf->next) {
+ 			u32 seqno = buf_seqno(buf);
+ 
+-			if (mod(seqno - prev) != 1)
++			if (mod(seqno - prev) != 1) {
+ 				buf = NULL;
++				break;
++			}
+ 			if (seqno == gap_after)
+ 				break;
+ 			prev = seqno;
 -- 
 1.4.0
 
