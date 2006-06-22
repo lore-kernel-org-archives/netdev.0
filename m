@@ -1,64 +1,135 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [DOC]: generic netlink
-Date: Thu, 22 Jun 2006 15:07:20 -0400
-Message-ID: <1151003240.5392.74.camel@jzny2>
-References: <1150724482.5815.48.camel@jzny2>
-	 <20060620080250.GM1376@postel.suug.ch> <1150815697.5270.86.camel@jzny2>
-	 <20060620213435.GN1376@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: "Alexander Tsvyashchenko" <lists@ndl.kiev.ua>
+Subject: Re: [PATCH, RFT] bcm43xx: AccessPoint mode
+Date: Thu, 22 Jun 2006 23:08:10 +0400
+Message-ID: <C9znQUHw.1151003290.8819920.ndl@192.168.0.1>
+References: <20060622173013.28e61873@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Jay Lan <jlan@engr.sgi.com>,
-	Shailabh Nagar <nagar@watson.ibm.com>,
-	Per Liden <per.liden@ericsson.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "bcm43xx-dev" <bcm43xx-dev@lists.berlios.de>,
+	"netdev" <netdev@vger.kernel.org>,
+	"Alexander Tsvyashchenko" <lists@ndl.kiev.ua>,
+	"Francois Barre" <francois.barre@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:14556 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1751272AbWFVTH2
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 15:07:28 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1FtUWa-0002Sk-Df
-	for netdev@vger.kernel.org; Thu, 22 Jun 2006 15:07:32 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060620213435.GN1376@postel.suug.ch>
+Received: from orb.fasty.net ([195.140.176.3]:33287 "EHLO orb.fasty.net")
+	by vger.kernel.org with ESMTP id S1751816AbWFVTIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Jun 2006 15:08:48 -0400
+To: "Jiri Benc" <jbenc@suse.cz>, "Michael Buesch" <mb@bu3sch.de>
+In-Reply-To: <20060622173013.28e61873@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-20-06 at 23:34 +0200, Thomas Graf wrote:
+Hello Jiri,
 
-> Ask Mr. Mashimaro has become my replacement for 8ball. Renaming
-> it would lead to a serious loss of coolness ;-)
-> 
+On 6/22/2006, "Jiri Benc" <jbenc@suse.cz> wrote:
 
-;-> Blame Dave for that ;->
-I think if you put it in some website, I will just add a url to point to
-it. Shailabh has sent me an extension to the example, but i think it is
-still not encompassing.
+>Great work! I was even able to ping. (Tried only open system
+>authentication for now, it seems it works quite well.)
 
-> > > > b) Describe some details on how user space -> kernel works
-> > > > probably using libnl??
-> > > 
-> > > I'll take care of that.
-> > 
-> > Whats the plan? To add to this doc or separate doc?
-> 
-> The status is that the code is there including userspace tools
-> to query the controller. 
+Well, I use first version of this patch from the end of April, and had no
+problems so far, so,
+while it's probably cannot be really called "stable" yet, it's at
+least 'working somehow" ;-)
 
-I have a patch for the controller for iproute2 that i would like to
-submit as well - but that is separate from this i think.
+>Or, if you don't want to patch hostapd (untested, but should work):
+>
+>iwpriv wlan0 param 1046 1
+>ip link set wmgmt0 name wmaster0ap
+>hostapd /path/to/hostapd.conf
+>iwpriv wlan0 param 1046 0
 
-> Documentation is written as part of
-> the API reference (coming up with -pre6), no architectural notes
-> yet though. I think it's best to keep it separated and refer to
-> it both ways.
-> 
+Thanks for the information! This is easier way indeed ;-)
 
-So you mean just refer to the one in the kernel headers?
+>Hopefully we will convert the whole hostapd<->stack communication to
+>netlink in some near future ;-)
 
-cheers,
-jamal
+Yes, it would be nice if things get a bit more settled & stable there ;-)
 
+>> 2) Insert modules (80211, rate_control and bcm43xx-d80211)
+>
+>modprobe bcm43xx-d80211 is enough, other modules will load
+>automatically.
+
+I just had no modprobe on my test system, that's why I listed all of
+them separately ;-)
+But yes, for "normal" usage modprobe is easier.
+
+>> 6) "iwconfig wlan0 essid <your-SSID-name>" (this also should not be
+>> required, but current combination of hostapd + dscape doesn't seem to
+>> generate config_interface callback when setting beacon, so this is
+>> required just to force call of config_interface).
+>
+>The stack currently has very limited support for cards with "beacon
+>templates". ieee80211_beacon_get function is not designed in a way it is
+>used in bcm43xx. Although this seems to be easy to fix now, we will run
+>into other problems later (with TIM elements mainly).
+>I need to look how PS mode works in bcm chipsets to find a correct
+>solution for this. Do you have any ideas?
+
+Well, current use of  ieee80211_beacon_get in bcm43xx is plain wrong
+indeed,
+it just happens that it seems to work anyway ;-)
+
+As for the PS, the main problem currently seems to be the lack of hardware
+specifications: quite some things that are needed to make it work are
+unknown.
+
+The information/speculations I have so far
+(please note my understanding of 802.11 specs is very limited!!!):
+
+1) TIM seems to be generated by software (I think it was confirmed by smb
+from specs group).
+
+2) DTIM counter in beacons sent is updated by hardware (confirmed by
+specs group).
+
+3) There is PS interrupt that in my experiments seemed to correlate with
+the beacon interval
+(one PS interrupt for one beacon sent?)
+
+My original idea was that it could be used to update beacon template, but
+specs group seemed
+to be sceptical about this idea saying that in original driver the beacon
+template was not updated
+in PS interrupt handler.
+
+Now I think that it's, probably, not necessary to update beacon template
+exactly before/after current
+beacon is sent, as the reason to update beacon is only change in TIM, and
+we can just update
+template as soon as TIM is changed (so, some sort of callback from dscape
+to the driver is needed).
+
+However, this PS interrupt could be used for sending broadcast packets
+(which, as far as I understood
+from 802.11 specs, should be sent after DTIM beacon). To use it for this
+purpose, we need the following information:
+
+  a) Confirmation that PS interrupt is invoked exactly after current
+beacon is sent.
+  b) The way to know whether current beacon was DTIM or not.
+
+I do not have answers to these questions so far :-(
+
+Yet another idea (which still should be checked) is that probably, PS
+interrupt is invoked not for every beacon,
+but for DTIM beacons only (I'm not sure that in my experiments I had
+DTIM interval larger than beacon interval,
+so it's possible every TIM was DTIM, that's why PS interrupt was called
+for every beacon).
+
+There's yet another interrupt that I currently don't fully understand -
+beacon update interrupt, I did not see it called at all
+so far, so I don't know where/how it could be used.
+
+All other PS things seem to be relatively OK - there's also some support
+in hardware for processing entering/exiting
+PS mode for STAs, but these packets seem to be passed to dscape layer
+also, and as they are already processed
+in dscape, it looks like there's no need to bother with using hardware
+for that.
+
+Currently I just have not enough time to finish the experiments with PS,
+and anyway I'm afraid some of these
+things can be a bit hard to find out by experimenting only :-(
+
+Good luck!                                              Alexander
