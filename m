@@ -1,15 +1,15 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [3/5] [NET]: Add software TSOv4
-Date: Thu, 22 Jun 2006 18:14:00 +1000
-Message-ID: <20060622081400.GC22671@gondor.apana.org.au>
+Subject: [4/5] [NET]: Added GSO toggle
+Date: Thu, 22 Jun 2006 18:14:23 +1000
+Message-ID: <20060622081423.GD22671@gondor.apana.org.au>
 References: <20060622081211.GA22505@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Fig2xvG2VGoz8o/s"
+Content-Type: multipart/mixed; boundary="llIrKcgUOe3dCx0c"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:16388 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932840AbWFVIOC
+Received: from rhun.apana.org.au ([64.62.148.172]:17668 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932841AbWFVIOZ
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 04:14:02 -0400
+	Thu, 22 Jun 2006 04:14:25 -0400
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Content-Disposition: inline
 In-Reply-To: <20060622081211.GA22505@gondor.apana.org.au>
@@ -17,15 +17,16 @@ Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---Fig2xvG2VGoz8o/s
+--llIrKcgUOe3dCx0c
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
 Hi:
 
-[NET]: Add software TSOv4
+[NET]: Added GSO toggle
 
-This patch adds the GSO implementation for IPv4 TCP.
+This patch adds a generic segmentation offload toggle that can be turned
+on/off for each net device.  For now it only supports in TCPv4.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
@@ -36,340 +37,125 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---Fig2xvG2VGoz8o/s
+--llIrKcgUOe3dCx0c
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="p3.patch"
+Content-Disposition: attachment; filename="p4.patch"
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1299,6 +1299,7 @@ extern void	       skb_split(struct sk_b
- 				 struct sk_buff *skb1, const u32 len);
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -408,6 +408,8 @@ struct ethtool_ops {
+ #define ETHTOOL_GPERMADDR	0x00000020 /* Get permanent hardware address */
+ #define ETHTOOL_GUFO		0x00000021 /* Get UFO enable (ethtool_value) */
+ #define ETHTOOL_SUFO		0x00000022 /* Set UFO enable (ethtool_value) */
++#define ETHTOOL_GGSO		0x00000023 /* Get GSO enable (ethtool_value) */
++#define ETHTOOL_SGSO		0x00000024 /* Set GSO enable (ethtool_value) */
  
- extern void	       skb_release_data(struct sk_buff *skb);
-+extern struct sk_buff *skb_segment(struct sk_buff *skb, int sg);
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -309,6 +309,7 @@ struct net_device
+ #define NETIF_F_HW_VLAN_RX	256	/* Receive VLAN hw acceleration */
+ #define NETIF_F_HW_VLAN_FILTER	512	/* Receive filtering on VLAN */
+ #define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN packets */
++#define NETIF_F_GSO		2048	/* Enable software GSO. */
+ #define NETIF_F_LLTX		4096	/* LockLess TX */
  
- static inline void *skb_header_pointer(const struct sk_buff *skb, int offset,
- 				       int len, void *buffer)
-diff --git a/include/net/protocol.h b/include/net/protocol.h
---- a/include/net/protocol.h
-+++ b/include/net/protocol.h
-@@ -37,6 +37,7 @@
- struct net_protocol {
- 	int			(*handler)(struct sk_buff *skb);
- 	void			(*err_handler)(struct sk_buff *skb, u32 info);
-+	struct sk_buff	       *(*gso_segment)(struct sk_buff *skb, int sg);
- 	int			no_policy;
- };
- 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1087,6 +1087,8 @@ extern struct request_sock_ops tcp_reque
- 
- extern int tcp_v4_destroy_sock(struct sock *sk);
- 
-+extern struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int sg);
-+
- #ifdef CONFIG_PROC_FS
- extern int  tcp4_proc_init(void);
- extern void tcp4_proc_exit(void);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1826,6 +1826,132 @@ unsigned char *skb_pull_rcsum(struct sk_
- 
- EXPORT_SYMBOL_GPL(skb_pull_rcsum);
- 
-+/**
-+ *	skb_segment - Perform protocol segmentation on skb.
-+ *	@skb: buffer to segment
-+ *	@sg: whether scatter-gather can be used for generated segments
-+ *
-+ *	This function performs segmentation on the given skb.  It returns
-+ *	the segment at the given position.  It returns NULL if there are
-+ *	no more segments to generate, or when an error is encountered.
-+ */
-+struct sk_buff *skb_segment(struct sk_buff *skb, int sg)
-+{
-+	struct sk_buff *segs = NULL;
-+	struct sk_buff *tail = NULL;
-+	unsigned int mss = skb_shinfo(skb)->gso_size;
-+	unsigned int doffset = skb->data - skb->mac.raw;
-+	unsigned int offset = doffset;
-+	unsigned int headroom;
-+	unsigned int len;
-+	int nfrags = skb_shinfo(skb)->nr_frags;
-+	int err = -ENOMEM;
-+	int i = 0;
-+	int pos;
-+
-+	__skb_push(skb, doffset);
-+	headroom = skb_headroom(skb);
-+	pos = skb_headlen(skb);
-+
-+	do {
-+		struct sk_buff *nskb;
-+		skb_frag_t *frag;
-+		int hsize, nsize;
-+		int k;
-+		int size;
-+
-+		len = skb->len - offset;
-+		if (len > mss)
-+			len = mss;
-+
-+		hsize = skb_headlen(skb) - offset;
-+		if (hsize < 0)
-+			hsize = 0;
-+		nsize = hsize + doffset;
-+		if (nsize > len + doffset || !sg)
-+			nsize = len + doffset;
-+
-+		nskb = alloc_skb(nsize + headroom, GFP_ATOMIC);
-+		if (unlikely(!nskb))
-+			goto err;
-+
-+		if (segs)
-+			tail->next = nskb;
-+		else
-+			segs = nskb;
-+		tail = nskb;
-+
-+		nskb->dev = skb->dev;
-+		nskb->priority = skb->priority;
-+		nskb->protocol = skb->protocol;
-+		nskb->dst = dst_clone(skb->dst);
-+		memcpy(nskb->cb, skb->cb, sizeof(skb->cb));
-+		nskb->pkt_type = skb->pkt_type;
-+		nskb->mac_len = skb->mac_len;
-+
-+		skb_reserve(nskb, headroom);
-+		nskb->mac.raw = nskb->data;
-+		nskb->nh.raw = nskb->data + skb->mac_len;
-+		nskb->h.raw = nskb->nh.raw + (skb->h.raw - skb->nh.raw);
-+		memcpy(skb_put(nskb, doffset), skb->data, doffset);
-+
-+		if (!sg) {
-+			nskb->csum = skb_copy_and_csum_bits(skb, offset,
-+							    skb_put(nskb, len),
-+							    len, 0);
-+			continue;
-+		}
-+
-+		frag = skb_shinfo(nskb)->frags;
-+		k = 0;
-+
-+		nskb->ip_summed = CHECKSUM_HW;
-+		nskb->csum = skb->csum;
-+		memcpy(skb_put(nskb, hsize), skb->data + offset, hsize);
-+
-+		while (pos < offset + len) {
-+			BUG_ON(i >= nfrags);
-+
-+			*frag = skb_shinfo(skb)->frags[i];
-+			get_page(frag->page);
-+			size = frag->size;
-+
-+			if (pos < offset) {
-+				frag->page_offset += offset - pos;
-+				frag->size -= offset - pos;
-+			}
-+
-+			k++;
-+
-+			if (pos + size <= offset + len) {
-+				i++;
-+				pos += size;
-+			} else {
-+				frag->size -= pos + size - (offset + len);
-+				break;
-+			}
-+
-+			frag++;
-+		}
-+
-+		skb_shinfo(nskb)->nr_frags = k;
-+		nskb->data_len = len - hsize;
-+		nskb->len += nskb->data_len;
-+		nskb->truesize += nskb->data_len;
-+	} while ((offset += len) < skb->len);
-+
-+	return segs;
-+
-+err:
-+	while ((skb = segs)) {
-+		segs = skb->next;
-+		kfree(skb);
-+	}
-+	return ERR_PTR(err);
-+}
-+
-+EXPORT_SYMBOL_GPL(skb_segment);
-+
- void __init skb_init(void)
+ 	/* Segmentation offload features */
+diff --git a/include/net/sock.h b/include/net/sock.h
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1031,9 +1031,13 @@ static inline void sk_setup_caps(struct 
  {
- 	skbuff_head_cache = kmem_cache_create("skbuff_head_cache",
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -68,6 +68,7 @@
-  */
+ 	__sk_dst_set(sk, dst);
+ 	sk->sk_route_caps = dst->dev->features;
++	if (sk->sk_route_caps & NETIF_F_GSO)
++		sk->sk_route_caps |= NETIF_F_TSO;
+ 	if (sk->sk_route_caps & NETIF_F_TSO) {
+ 		if (sock_flag(sk, SOCK_NO_LARGESEND) || dst->header_len)
+ 			sk->sk_route_caps &= ~NETIF_F_TSO;
++		else 
++			sk->sk_route_caps |= NETIF_F_SG | NETIF_F_HW_CSUM;
+ 	}
+ }
  
- #include <linux/config.h>
-+#include <linux/err.h>
- #include <linux/errno.h>
- #include <linux/types.h>
- #include <linux/socket.h>
-@@ -1096,6 +1097,54 @@ int inet_sk_rebuild_header(struct sock *
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -376,15 +376,20 @@ void br_features_recompute(struct net_br
+ 	features = br->feature_mask & ~NETIF_F_ALL_CSUM;
  
- EXPORT_SYMBOL(inet_sk_rebuild_header);
+ 	list_for_each_entry(p, &br->port_list, list) {
+-		if (checksum & NETIF_F_NO_CSUM &&
+-		    !(p->dev->features & NETIF_F_NO_CSUM))
++		unsigned long feature = p->dev->features;
++
++		if (checksum & NETIF_F_NO_CSUM && !(feature & NETIF_F_NO_CSUM))
+ 			checksum ^= NETIF_F_NO_CSUM | NETIF_F_HW_CSUM;
+-		if (checksum & NETIF_F_HW_CSUM &&
+-		    !(p->dev->features & NETIF_F_HW_CSUM))
++		if (checksum & NETIF_F_HW_CSUM && !(feature & NETIF_F_HW_CSUM))
+ 			checksum ^= NETIF_F_HW_CSUM | NETIF_F_IP_CSUM;
+-		if (!(p->dev->features & NETIF_F_IP_CSUM))
++		if (!(feature & NETIF_F_IP_CSUM))
+ 			checksum = 0;
+-		features &= p->dev->features;
++
++		if (feature & NETIF_F_GSO)
++			feature |= NETIF_F_TSO;
++		feature |= NETIF_F_GSO;
++
++		features &= feature;
+ 	}
  
-+static struct sk_buff *inet_gso_segment(struct sk_buff *skb, int sg)
+ 	br->dev->features = features | checksum | NETIF_F_LLTX;
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -614,6 +614,29 @@ static int ethtool_set_ufo(struct net_de
+ 	return dev->ethtool_ops->set_ufo(dev, edata.data);
+ }
+ 
++static int ethtool_get_gso(struct net_device *dev, char __user *useraddr)
 +{
-+	struct sk_buff *segs = ERR_PTR(-EINVAL);
-+	struct iphdr *iph;
-+	struct net_protocol *ops;
-+	int proto;
-+	int ihl;
-+	int id;
++	struct ethtool_value edata = { ETHTOOL_GGSO };
 +
-+	if (!pskb_may_pull(skb, sizeof(*iph)))
-+		goto out;
-+
-+	iph = skb->nh.iph;
-+	ihl = iph->ihl * 4;
-+	if (ihl < sizeof(*iph))
-+		goto out;
-+
-+	if (!pskb_may_pull(skb, ihl))
-+		goto out;
-+
-+	skb->h.raw = __skb_pull(skb, ihl);
-+	iph = skb->nh.iph;
-+	id = ntohs(iph->id);
-+	proto = iph->protocol & (MAX_INET_PROTOS - 1);
-+	segs = ERR_PTR(-EPROTONOSUPPORT);
-+
-+	rcu_read_lock();
-+	ops = rcu_dereference(inet_protos[proto]);
-+	if (ops && ops->gso_segment)
-+		segs = ops->gso_segment(skb, sg);
-+	rcu_read_unlock();
-+
-+	if (IS_ERR(segs))
-+		goto out;
-+
-+	skb = segs;
-+	do {
-+		iph = skb->nh.iph;
-+		iph->id = htons(id++);
-+		iph->tot_len = htons(skb->len - skb->mac_len);
-+		iph->check = 0;
-+		iph->check = ip_fast_csum(skb->nh.raw, iph->ihl);
-+	} while ((skb = skb->next));
-+
-+out:
-+	return segs;
++	edata.data = dev->features & NETIF_F_GSO;
++	if (copy_to_user(useraddr, &edata, sizeof(edata)))
++		 return -EFAULT;
++	return 0;
 +}
 +
- #ifdef CONFIG_IP_MULTICAST
- static struct net_protocol igmp_protocol = {
- 	.handler =	igmp_rcv,
-@@ -1105,6 +1154,7 @@ static struct net_protocol igmp_protocol
- static struct net_protocol tcp_protocol = {
- 	.handler =	tcp_v4_rcv,
- 	.err_handler =	tcp_v4_err,
-+	.gso_segment =	tcp_tso_segment,
- 	.no_policy =	1,
- };
- 
-@@ -1150,6 +1200,7 @@ static int ipv4_proc_init(void);
- static struct packet_type ip_packet_type = {
- 	.type = __constant_htons(ETH_P_IP),
- 	.func = ip_rcv,
-+	.gso_segment = inet_gso_segment,
- };
- 
- static int __init inet_init(void)
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -258,6 +258,7 @@
- #include <linux/random.h>
- #include <linux/bootmem.h>
- #include <linux/cache.h>
-+#include <linux/err.h>
- 
- #include <net/icmp.h>
- #include <net/tcp.h>
-@@ -2144,6 +2145,67 @@ int compat_tcp_getsockopt(struct sock *s
- EXPORT_SYMBOL(compat_tcp_getsockopt);
- #endif
- 
-+struct sk_buff *tcp_tso_segment(struct sk_buff *skb, int sg)
++static int ethtool_set_gso(struct net_device *dev, char __user *useraddr)
 +{
-+	struct sk_buff *segs = ERR_PTR(-EINVAL);
-+	struct tcphdr *th;
-+	unsigned thlen;
-+	unsigned int seq;
-+	unsigned int delta;
-+	unsigned int oldlen;
-+	unsigned int len;
++	struct ethtool_value edata;
 +
-+	if (!pskb_may_pull(skb, sizeof(*th)))
-+		goto out;
-+
-+	th = skb->h.th;
-+	thlen = th->doff * 4;
-+	if (thlen < sizeof(*th))
-+		goto out;
-+
-+	if (!pskb_may_pull(skb, thlen))
-+		goto out;
-+
-+	oldlen = ~htonl(skb->len);
-+	__skb_pull(skb, thlen);
-+
-+	segs = skb_segment(skb, sg);
-+	if (IS_ERR(segs))
-+		goto out;
-+
-+	len = skb_shinfo(skb)->gso_size;
-+	delta = csum_add(oldlen, htonl(thlen + len));
-+
-+	skb = segs;
-+	th = skb->h.th;
-+	seq = ntohl(th->seq);
-+
-+	do {
-+		th->fin = th->psh = 0;
-+
-+		if (skb->ip_summed == CHECKSUM_NONE) {
-+			th->check = csum_fold(csum_partial(
-+				skb->h.raw, thlen, csum_add(skb->csum, delta)));
-+		}
-+
-+		seq += len;
-+		skb = skb->next;
-+		th = skb->h.th;
-+
-+		th->seq = htonl(seq);
-+		th->cwr = 0;
-+	} while (skb->next);
-+
-+	if (skb->ip_summed == CHECKSUM_NONE) {
-+		delta = csum_add(oldlen, htonl(skb->tail - skb->h.raw));
-+		th->check = csum_fold(csum_partial(
-+			skb->h.raw, thlen, csum_add(skb->csum, delta)));
-+	}
-+
-+out:
-+	return segs;
++	if (copy_from_user(&edata, useraddr, sizeof(edata)))
++		return -EFAULT;
++	if (edata.data)
++		dev->features |= NETIF_F_GSO;
++	else
++		dev->features &= ~NETIF_F_GSO;
++	return 0;
 +}
 +
- extern void __skb_cb_too_small_for_tcp(int, int);
- extern struct tcp_congestion_ops tcp_reno;
- 
+ static int ethtool_self_test(struct net_device *dev, char __user *useraddr)
+ {
+ 	struct ethtool_test test;
+@@ -905,6 +928,12 @@ int dev_ethtool(struct ifreq *ifr)
+ 	case ETHTOOL_SUFO:
+ 		rc = ethtool_set_ufo(dev, useraddr);
+ 		break;
++	case ETHTOOL_GGSO:
++		rc = ethtool_get_gso(dev, useraddr);
++		break;
++	case ETHTOOL_SGSO:
++		rc = ethtool_set_gso(dev, useraddr);
++		break;
+ 	default:
+ 		rc =  -EOPNOTSUPP;
+ 	}
 
---Fig2xvG2VGoz8o/s--
+--llIrKcgUOe3dCx0c--
