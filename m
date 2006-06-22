@@ -1,38 +1,36 @@
-From: "Robert Iakobashvili" <coroberti@gmail.com>
-Subject: Binding a packet socket to interface down
-Date: Thu, 22 Jun 2006 18:32:29 +0300
-Message-ID: <7e63f56c0606220832i6b00f77bk352482c4a7c638cb@mail.gmail.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 11/21] e1000: disable CRC stripping workaround
+Date: Thu, 22 Jun 2006 08:36:45 -0700
+Message-ID: <449AB90D.2070605@intel.com>
+References: <20060622051815.25497.89192.stgit@gitlost.site> <20060622052029.25497.67575.stgit@gitlost.site> <449A2B20.2020006@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: "Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:63514 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1751153AbWFVPcc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 11:32:32 -0400
-Received: by nf-out-0910.google.com with SMTP id o60so275532nfa
-        for <netdev@vger.kernel.org>; Thu, 22 Jun 2006 08:32:30 -0700 (PDT)
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from mga03.intel.com ([143.182.124.21]:9655 "EHLO
+	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
+	id S1751153AbWFVPh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 11:37:27 -0400
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <449A2B20.2020006@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Ben Greear wrote:
+> Kok, Auke wrote:
+>> CRC stripping is breaking SMBUS-connected BMC's. We disable this
+>> feature to make it work. This fixes related bugs regarding SOL.
+> 
+> Shouldn't you also have to subtract 4 bytes when setting the skb len
+> in the receive logic?  Perhaps when setting the rx-bytes counter as well?
 
-When packet socket (PF_SOCKET) is attempted in syscall bind () to the
-network interface, which is down (no IF_UPP flag), packet_do_bind ()
-sets error to the socket, but bind () does not fail.
+the hardware corrects for the size properly when we disable CRC stripping. The 
+end result is the same.
 
-When datagram, stream or raw socket fail to bind to some local
-ip-port/ip, bind () fails.
+Cheers,
 
-Is this behavior of bind () for packet socket done deliberately, or
-better to correct it so that bind will fail and return errno, e.g. ENODEV?
-Thanks.
-
--- 
-Sincerely,
-------------------------------------------------------------------
-Robert Iakobashvili, coroberti at gmail dot com
-Navigare necesse est, vivere non est necesse.
-------------------------------------------------------------------
+Auke
