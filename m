@@ -1,91 +1,43 @@
-From: Per Liden <per.liden@ericsson.com>
-Subject: [PATCH 0/32] TIPC updates
-Date: Thu, 22 Jun 2006 13:14:46 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0606221233570.15853@ulinpc219.uab.ericsson.se>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: Memory corruption in 8390.c ?
+Date: Thu, 22 Jun 2006 12:34:23 +0100
+Message-ID: <1150976063.15275.146.camel@localhost.localdomain>
+References: <20060622023029.GA6156@gondor.apana.org.au>
+	 <20060622.012609.25474139.davem@davemloft.net>
+	 <20060622083037.GB26083@gondor.apana.org.au>
+	 <20060622.013440.97293561.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, per.liden@ericsson.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, snakebyte@gmx.de,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw3.ericsson.se ([193.180.251.60]:228 "EHLO
-	mailgw3.ericsson.se") by vger.kernel.org with ESMTP
-	id S1161041AbWFVLOv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 07:14:51 -0400
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:16822 "EHLO
+	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP
+	id S1161067AbWFVLT7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 07:19:59 -0400
 To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060622.013440.97293561.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Here's a resend of the latest TIPC updates. I apologize for not properly 
-submitting the patches for review the first time around.
+Ar Iau, 2006-06-22 am 01:34 -0700, ysgrifennodd David Miller:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Thu, 22 Jun 2006 18:30:37 +1000
+> 
+> > On Thu, Jun 22, 2006 at 01:26:09AM -0700, David Miller wrote:
+> > >
+> > > Want me to let this cook in 2.6.18 for a while before sending
+> > > it off to -stable?
+> > 
+> > You know I'm never one to push anything quickly so absolutely yes :)
+> 
+> Ok, applied to net-2.6.18 for now :)
 
-This patch set includes several minor bugfixes. Most of them ported over 
-from an older TIPC 1.5.x branch maintained on sourceforge (that branch is 
-being phased).
+The 8390 change (corrected version) also makes 8390.c faster so should
+be applied anyway, and the orinoco one fixes some code that isn't even
+needed and someone forgot to remove long ago. Otherwise the skb_padto
+behaviour change with the newer skb style makes a lot more sense I
+agree.
 
-Patches can be pulled from:
-
-	git://tipc.cslab.ericsson.net/pub/git/tipc.git
-
-Summary:
-
- include/net/tipc/tipc_bearer.h |   12 ++
- net/tipc/bcast.c               |   79 ++++++++-------
- net/tipc/bcast.h               |    2 
- net/tipc/bearer.c              |   70 +++++++------
- net/tipc/cluster.c             |   22 ++--
- net/tipc/config.c              |   85 +++++++---------
- net/tipc/core.c                |    7 +
- net/tipc/core.h                |   21 +++-
- net/tipc/discover.c            |   13 +-
- net/tipc/eth_media.c           |   29 +++--
- net/tipc/link.c                |  217 +++++++++++++++++++++++++++++++---------
- net/tipc/name_distr.c          |   30 ++++--
- net/tipc/name_table.c          |  203 ++++++++++++++++++++-----------------
- net/tipc/node.c                |   78 ++++++++------
- net/tipc/node.h                |    2 
- net/tipc/node_subscr.c         |   15 +--
- net/tipc/port.c                |   41 ++++----
- net/tipc/ref.c                 |   31 +++++-
- net/tipc/socket.c              |  100 +++++++++++-------
- net/tipc/subscr.c              |   18 ++-
- net/tipc/zone.c                |   19 ++--
- 21 files changed, 661 insertions(+), 433 deletions(-)
-
-Allan Stephens:
-      [TIPC] Prevent name table corruption if no room for new publication
-      [TIPC] Use correct upper bound when validating network zone number.
-      [TIPC] Corrected potential misuse of tipc_media_addr structure.
-      [TIPC] Allow ports to receive multicast messages through native API.
-      [TIPC] Links now validate destination node specified by incoming messages.
-      [TIPC] Multicast link failure now resets all links to "nacking" node.
-      [TIPC] Allow compilation when CONFIG_TIPC_DEBUG is not set.
-      [TIPC] Fixed privilege checking typo in dest_name_check().
-      [TIPC] Fix misleading comment in buf_discard() routine.
-      [TIPC] Added support for MODULE_VERSION capability.
-      [TIPC] Validate entire interface name when locating bearer to enable.
-      [TIPC] Non-operation-affecting corrections to comments & function definitions.
-      [TIPC] Fixed connect() to detect a dest address that is missing or too short.
-      [TIPC] Implied connect now saves dest name for retrieval as ancillary data.
-      [TIPC] Can now return destination name of form {0,x,y} via ancillary data.
-      [TIPC] Connected send now checks socket state when retrying congested send.
-      [TIPC] Stream socket send indicates partial success if data partially sent.
-      [TIPC] Improved performance of error checking during socket creation.
-      [TIPC] recvmsg() now returns TIPC ancillary data using correct level (SOL_TIPC)
-      [TIPC] Simplify code for returning partial success of stream send request.
-      [TIPC] Optimized argument validation done by connect().
-      [TIPC] Withdrawing all names from nameless port now returns success, not error
-      [TIPC] Added missing warning for out-of-memory condition
-      [TIPC] Fixed memory leak in tipc_link_send() when destination is unreachable
-      [TIPC] Disallow config operations that aren't supported in certain modes.
-      [TIPC] First phase of assert() cleanup
-      [TIPC] Enhanced & cleaned up system messages; fixed 2 obscure memory leaks.
-      [TIPC] Fixed link switchover bugs
-      [TIPC] Get rid of dynamically allocated arrays in broadcast code.
-      [TIPC] Fix incorrect correction to discovery timer frequency computation.
-
-Eric Sesterhenn:
-      [TIPC] Fix for NULL pointer dereference
-
-Jon Maloy:
-      [TIPC] Improved tolerance to promiscuous mode interface
-
-/Per
