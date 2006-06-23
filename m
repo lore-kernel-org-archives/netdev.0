@@ -1,46 +1,69 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/4] kevent: core files.
-Date: Sat, 24 Jun 2006 01:43:34 +0400
-Message-ID: <20060623214334.GA25799@2ka.mipt.ru>
-References: <20060622171436.GA26161@2ka.mipt.ru> <20060623070933.GA20291@2ka.mipt.ru> <20060623184457.GA13617@kvack.org> <20060623192422.GA11508@2ka.mipt.ru> <20060623195513.GC14126@kvack.org> <20060623201716.GA26168@2ka.mipt.ru> <20060623204442.GE14126@kvack.org> <20060623210826.GC26168@2ka.mipt.ru> <20060623213144.GF14126@kvack.org>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [NETROM] Fix possible null pointer dereference.
+Date: Fri, 23 Jun 2006 22:44:37 +0100
+Message-ID: <20060623214437.GA8463@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:38060 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1752097AbWFWVnd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 17:43:33 -0400
-To: Benjamin LaHaise <bcrl@kvack.org>
+Received: from ftp.linux-mips.org ([194.74.144.162]:5584 "EHLO
+	ftp.linux-mips.org") by vger.kernel.org with ESMTP id S1752112AbWFWVol
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 17:44:41 -0400
+Received: from localhost.localdomain ([127.0.0.1]:39345 "EHLO bacchus.dhis.org")
+	by ftp.linux-mips.org with ESMTP id S8133768AbWFWVoj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 22:44:39 +0100
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20060623213144.GF14126@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 23, 2006 at 05:31:44PM -0400, Benjamin LaHaise (bcrl@kvack.org) wrote:
-> On Sat, Jun 24, 2006 at 01:08:27AM +0400, Evgeniy Polyakov wrote:
-> > On Fri, Jun 23, 2006 at 04:44:42PM -0400, Benjamin LaHaise (bcrl@kvack.org) wrote:
-> > > > AIO completion approach was designed to be used with process context VFS
-> > > > update. read/write approach can not cover other types of notifications,
-> > > > like inode updates or timers.
-> > > 
-> > > The completion event is 100% generic and does not need to come from process 
-> > > context.  Calling aio_complete() from irq context is entirely valid.
-> > 
-> > put_ioctx() can sleep.
-> 
-> Err, no, that should definately not be the case.  If it can, someone has 
-> completely broken aio.
+If in nr_link_failed the neighbour list is non-empty but the node list
+is empty we'll end dereferencing a  in a NULL pointer.
 
-When reference counter hits zero it flushes aio workqueue, which can
-sleep.
-put_ioctx() -> __put_ioctx() -> cancel_delayed_work()/flush_workqueue().
+This fixes coverity 362.
 
-It is there at least from 2.6.15 days (it is the oldest tree I can
-access using my extremely slow GPRS link).
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-Hang the looter!
+ net/netrom/nr_route.c |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-> 		-ben
-
--- 
-	Evgeniy Polyakov
+Index: linux-net/net/netrom/nr_route.c
+===================================================================
+--- linux-net.orig/net/netrom/nr_route.c	2006-06-23 22:40:27.000000000 +0100
++++ linux-net/net/netrom/nr_route.c	2006-06-23 22:42:52.000000000 +0100
+@@ -725,15 +725,17 @@ void nr_link_failed(ax25_cb *ax25, int r
+ 	struct nr_node  *nr_node = NULL;
+ 
+ 	spin_lock_bh(&nr_neigh_list_lock);
+-	nr_neigh_for_each(s, node, &nr_neigh_list)
++	nr_neigh_for_each(s, node, &nr_neigh_list) {
+ 		if (s->ax25 == ax25) {
+ 			nr_neigh_hold(s);
+ 			nr_neigh = s;
+ 			break;
+ 		}
++	}
+ 	spin_unlock_bh(&nr_neigh_list_lock);
+ 
+-	if (nr_neigh == NULL) return;
++	if (nr_neigh == NULL)
++		return;
+ 
+ 	nr_neigh->ax25 = NULL;
+ 	ax25_cb_put(ax25);
+@@ -743,11 +745,13 @@ void nr_link_failed(ax25_cb *ax25, int r
+ 		return;
+ 	}
+ 	spin_lock_bh(&nr_node_list_lock);
+-	nr_node_for_each(nr_node, node, &nr_node_list)
++	nr_node_for_each(nr_node, node, &nr_node_list) {
+ 		nr_node_lock(nr_node);
+-		if (nr_node->which < nr_node->count && nr_node->routes[nr_node->which].neighbour == nr_neigh)
++		if (nr_node->which < nr_node->count &&
++		    nr_node->routes[nr_node->which].neighbour == nr_neigh)
+ 			nr_node->which++;
+ 		nr_node_unlock(nr_node);
++	}
+ 	spin_unlock_bh(&nr_node_list_lock);
+ 	nr_neigh_put(nr_neigh);
+ }
