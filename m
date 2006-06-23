@@ -1,82 +1,119 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [RFC] sysfs + configfs on 802.11 wireless drivers
-Date: Fri, 23 Jun 2006 10:37:58 -0400
-Message-ID: <1151073478.2462.26.camel@localhost.localdomain>
-References: <43e72e890606220512h5197d473s5f7da9e734814005@mail.gmail.com>
-	 <1151063447.2473.6.camel@localhost.localdomain>
-	 <20060623124657.GA3256@tuxdriver.com>
-	 <43e72e890606230720ta1dc2cm6c9871a71f3872f0@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/2] NET: Accurate packet scheduling	for	ATM/ADSL	(userspace)
+Date: Fri, 23 Jun 2006 17:05:36 +0200
+Message-ID: <449C0340.7040302@trash.net>
+References: <1150278040.26181.37.camel@localhost.localdomain>	 <1150282625.3490.23.camel@localhost.localdomain>	 <1150332449.8605.40.camel@ras.pc.brisbane.lube>	 <1150376591.5116.36.camel@jzny2>	 <Pine.LNX.4.61.0606192048270.31662@ask.diku.dk>	 <1150812370.5270.27.camel@jzny2>  <44980A07.4050106@trash.net>	 <1150817922.5270.125.camel@jzny2>  <44982781.8030301@trash.net> <1151002931.5392.69.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, Greg KH <greg@kroah.com>
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Russell Stuart <russell-tcatm@stuart.id.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:63168 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1750794AbWFWOhj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 10:37:39 -0400
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-In-Reply-To: <43e72e890606230720ta1dc2cm6c9871a71f3872f0@mail.gmail.com>
+Received: from stinky.trash.net ([213.144.137.162]:51366 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751422AbWFWPFi
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 11:05:38 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1151002931.5392.69.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-06-23 at 10:20 -0400, Luis R. Rodriguez wrote:
-> On 6/23/06, John W. Linville <linville@tuxdriver.com> wrote:
-> > On Fri, Jun 23, 2006 at 07:50:47AM -0400, Dan Williams wrote:
-> >
-> > > Our effort is probably better spent elsewhere, especially since many
-> > > popular userspace tools already handle resume for us just fine.  More
-> > > useful to have drivers just come back from resume in an initialized
-> > > state similar to system boot.
-> >
-> > I think Dan makes a lot of sense here.  Does anyone disagree?
+jamal wrote:
+> On Tue, 2006-20-06 at 18:51 +0200, Patrick McHardy wrote:
 > 
-> How would we handle resume() when using WPA, for example? Dan are you
-> suggesting we just bring up the driver clean and expect userspace to
-> have handled recovery from anything we were doing? This is important.
+>> [..]
+>>
+>>contrary to a local link that would be best managed
+>>in work-conserving mode. And I think for better accuracy it is
+>>necessary to manage effective throughput, especially if you're
+>>interested in guaranteed delays.
+>>
+> 
+> 
+> Indeed - but "fixing" the scheduler to achieve such management is not
+> the first choice (would be fine if it is generic and non-intrusive)
 
-Well, for WPA you pretty much need a tool like wpa_supplicant to handle
-connections for you, otherwise there wouldn't be a reason for
-wpa_supplicant to exist.  I don't think we really want a bunch of code
-in the driver to handle the reconnect cases, because this is exactly
-what wpa_supplicant already does and does well.
+I have a patch that introduces "sizetables" similar to ratetables
+and performs the mapping once and stores the calculated size in the
+cb. The schedulers take the size from the cb. Its not very large and
+only has minimum overhead. I got distracted during testing by
+inaccuracies in the 100mbit range with small packets caused by the
+clock source resolution, so I've added a ktime() clocksource and am
+currently busy auditing for integer overflows caused by the increased
+clock rate. I'll clean up the patch once I'm done with that and post it.
 
-I'm suggesting that instead of trying to stuff more logic in the drivers
-to handle reconnect on resume, that the drivers just come back from
-resume in the same state as system boot.  They are initialized with
-default values and default state.  They allow userspace tools that
-already know about policy and security to configure them, as these tools
-would do right after a system boot.  We can't assume that policy and
-security are exactly the same as before sleep.
+>> [..]
+>>
+>>I think that point can be used to argue in favour of that Linux should
+>>be able to manage effective throughput :)
+>>
+> 
+> I think you have convinced me this is valuable I even suggest probes
+> above to discover goodput;-). I hope i have convinced you how rude it
+> would be to make extensive changes to compensate for goodput;->
 
-> Or should we just expect the driver to re-set all settings again and
-> expect wpa_supplicant to pick up well where it left off? If sysfs will
-> get cleared after resume then there is no point in using it, but if
-> its stateful after suspend then this is where I suspected
-> wpa_supplicant could make use of sysfs. Perhaps there is a better way
-> -- what I suggested was just an idea while we discussed resume/suspend
-> in another thread. The reason I started a new thread was I figured
-> configfs/sysfs could be used for other things as well.
+Sure :) So far I haven't been able to measure any improvement by
+accounting for link layer overhead, but probably because my test
+scenario was chosen badly (very small overhead, large speed) and the
+differences were lost in the noise.
 
-I don't know that you can really "pick up where it left off" in many
-cases.  Again, the system can be moved, access points can go away, more
-networks can appear, and WPA is just more complicated than WEP.  You
-simply cannot expect a driver to return to its exact pre-sleep state
-when using stuff like 802.1x/WPA[12] Enterprise.  What if your session
-keys expired while you were sleeping, for example?
+>>>I am saying that #2 is the choice to go with hence my assertion earlier,
+>>>it should be fine to tell the scheduler all it has is 1Mbps and nobody
+>>>gets hurt. #1 if i could do it with minimal intrusion and still get to
+>>>use it when i have 802.11g. 
+>>>
+>>>Not sure i made sense.
+>>
+>>HFSC is actually capable of handling this quite well. If you use it
+>>in work-conserving mode (and the card doesn't do (much) internal
+>>queueing) it will get clocked by successful transmissions. Using
+>>link-sharing classes you can define proportions for use of available
+>>bandwidth, possibly with upper limits. No hacks required :)
+>>
+> 
+> 
+> HFSC sounds very interesting - I should go and study it a little more.
+> My understanding is though that it is a bit of a CPU pig, true?
 
-Besides, userspace tools like NetworkManager and wpa_supplicant are just
-going to overwrite the config settings the driver restores anyway, since
-you need to do another scan, check results, and set the connection back
-up after accounting for stuff that may have changed.  Blindly attempting
-to connect with all the old settings doesn't make much sense.
+It does more calculations at runtime than token-bucket based schedulers,
+but it does perform comparable to HTB with a large number of classes,
+in which case the constant overhead is probably not visible anymore
+because much more time is spent searching, walking lists and trees and
+so on. I didn't do any comparisons of constant costs.
 
-It's an optimization to have the driver restore settings, and it might
-make things a second or three quicker in some cases, but in many other
-cases it's completely useless to do this, possibly detrimental.  I don't
-see the overall benefit right now.  We've got better things to do with
-drivers at the moment.
+>>Anyway, this again goes more in the direction of handling link speed
+>>changes.
+>>
+> 
+> 
+> The more we discuss this, the more i think they are the same thing ;->
 
-Dan
+Not really. Link speed changes can be expressed by constant factors
+that apply to bandwidth and delay (bandwidth *= f, delay /= f). Link
+layer overhead usually can't be expressed this way.
 
+>>>ip dev add compensate_header 100 bytes
+>>
+>>[...]
+>>
+>>Unforunately I can't think of a way to handle the ATM case without
+>>a division .. or iteration.
+>
+> 
+> I am not thinking straight right now but it does not sound like a big
+> change to me i.e within reason.
+
+I also got rid of the division ..
+
+> Note, it may be valuable to think of
+> this as related to the speed changing daemon as i stated earlier.
+> Only in this case it is "static" discovery of link layer
+> goodput/throughput vs some other way to dynamically discover things. 
+
+I still think these are two quite different things. Link speed
+changes also can't be handled very well by scaling packet sizes
+since TBF-based qdiscs have configured maxima for the packet sizes
+they can handle.
 
