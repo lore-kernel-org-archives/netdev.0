@@ -1,110 +1,80 @@
-From: Vojtech Pavlik <vojtech@suse.cz>
-Subject: Re: [RFC PATCH 1/2] Hardware button support for Wireless cards: radiobtn
-Date: Fri, 23 Jun 2006 21:32:46 +0200
-Message-ID: <20060623193246.GC6270@suse.cz>
-References: <200605251716.00742.IvDoorn@gmail.com> <20060622175546.7eebebb4@griffin.suse.cz> <20060623110819.GA29574@suse.cz> <200606232051.37518.IvDoorn@gmail.com>
+From: Alex Davis <alex14641@yahoo.com>
+Subject: Re: System hangs after running 2.6.17rc6 with broadcom 4309 and device scape stack
+Date: Fri, 23 Jun 2006 12:38:21 -0700 (PDT)
+Message-ID: <20060623193821.14053.qmail@web50206.mail.yahoo.com>
+References: <20060623141325.0de4970e@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Benc <jbenc@suse.cz>, Stefan Rompf <stefan@loplof.de>,
-	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:43697 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751957AbWFWTdP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 15:33:15 -0400
-To: Ivo van Doorn <ivdoorn@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <200606232051.37518.IvDoorn@gmail.com>
+Received: from web50206.mail.yahoo.com ([206.190.38.47]:35669 "HELO
+	web50206.mail.yahoo.com") by vger.kernel.org with SMTP
+	id S1751959AbWFWTiW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 15:38:22 -0400
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20060623141325.0de4970e@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 23, 2006 at 08:51:33PM +0200, Ivo van Doorn wrote:
+--- Jiri Benc <jbenc@suse.cz> wrote:
 
-> > > This is of course not possible for all hardware, but it gives the most
-> > > flexibility while keeping the possibility to switch of the radio without
-> > > userspace support.
-> >  
-> > Let me elaborate a little bit on the possible implementation:
-> > 
-> > 	1) 802.11 card drivers will implement an input device for each card in
-> > 	the system that has a user-controlled RF-Kill button or switch.
+> On Sun, 18 Jun 2006 18:25:54 -0700 (PDT), Alex Davis wrote:
+> > Here is dmesg output for module loading.
+> > [...]
+> > Jun 16 20:04:06 siafu kernel: [4294720.505000] bcm43xx_d80211: Virtual interface added (type:
+> > 0x00000002, ID: 4, MAC: 00:90:96:ba:32:20)
+> > Jun 16 20:04:06 siafu kernel: [4294720.511000] bcm43xx_d80211: PHY connected
+> > Jun 16 20:04:07 siafu kernel: [4294720.779000] bcm43xx_d80211: Radio turned on
+> > Jun 16 20:04:07 siafu kernel: [4294720.971000] bcm43xx_d80211: Chip initialized
+> > Jun 16 20:04:07 siafu kernel: [4294720.972000] bcm43xx_d80211: DMA initialized
+> > Jun 16 20:04:07 siafu kernel: [4294720.972000] bcm43xx_d80211: 80211 cores initialized
+> > Jun 16 20:04:07 siafu kernel: [4294720.972000] bcm43xx_d80211: Keys cleared
+> > Jun 16 20:04:07 siafu kernel: [4294720.988000] wmaster0: Does not support passive scan,
+> disabled
+> > Jun 16 20:04:09 siafu kernel: [4294723.027000] bcm43xx_d80211: ASSERTION FAILED
+> > (bcm->interface.if_id == if_id) at:
+> > drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c:4344:bcm43xx_config_interface()
 > 
-> So basicly 1 input device for every single wireless driver that implements
-> the RF-Kill button?
+> This is really strange. Is this reproducible with latest wireless-dev?
+I was using the latest: John Linville's git development release (2.6.17rc6).
+I cloned it from git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-dev.git
+on 6/15/2006 21:00 EDT. As of today (6/23), there have been no changes.
 
-Yes.
+> There was ifconfig up (or similar) command at 20:04:06 but
+> wpa_supplicant was started at 20:04:14. What happened in-between?
+Nothing. I start everything up by hand, hence the delay.
 
-> Is there any particular reason for not using 1 input device shared by all?
+I use the following commands:
+modprobe bcm43xx-d80211
+wpa_supplicant -i wlan0 ....
+dmesg  # to make sure I'm associated with the access point, and see any debugging info.
+dhcpcd wlan0
+ping ....
+login as non-root user and start x.
 
-Yes.
 
-In the unlikely case where there are two devices which implement a
-rfkill button in the system, the input core doesn't have a way how to
-express the state of these two different buttons with the same meaning
-(and hence the same code - KEY_RFKILL) in a single input device.
+> Most important, what happened between 20:04:07 and 20:04:09? (I.e. what
+> commands were invoked?) 
+No commands were invoked during that period.
 
-You'd have to assign a range of codes to the shared device, which goes
-agains the design of the Linux inpu layer.
 
-Anyway, for the most common case, where you have a single RF-Kill key in
-the whole system, there will not be any difference to using the shared
-device.
+I'm currently using the rc5 version with no problems.
 
-What do you consider the benefits of using a shared input device?
 
-> > 	2) 802.11 card drivers will implement an interface to enable/disable the
-> > 	radio, be it through a call, ioctl, or whatever, that is accessible from
-> > 	both the kernel and userspace.
+> Thanks,
 > 
-> Userspace could switch off the radio by using the txpower ioctl of
-> ifdown/ifup. Or should an approach call be implemented?
-
-I'm an input guy, the details of how to disable the radio I'll leave up
-to you - the WiFi folks on netdev.
-
-You may want to consider that the radio chip usually synthesizes a
-frequency that it mixes with the incoming signal to frequency-shift it
-to a low frequency which then can be demodulated. Because of that, even
-the receiver, when working, can affect devices nearby. This is why FM
-radio receivers are not allowed on airplanes.
-
-Hardware RF-Kill disables both RX and TX, by stopping the radio chip.
-Setting TX power to an extremely low value might not be the same.
-
-On the other hand, you may define in the API that setting TX power to
-zero also disables the receiver.
-
-> > 	3) ACPI buttons drivers, and keyboard drivers will generate KEY_RFKILL
-> > 	on machines where RF-Kill keys are reported using ACPI events or
-> > 	keyboard scancodes.
+>  Jiri
 > 
-> Why both an input and ACPI event?
-> With ACPI restricted to x86 only, wouldn't a more generic approach be desired?
+> -- 
+> Jiri Benc
+> SUSE Labs
+> 
 
-I was talking about the ACPI EC sending us an event. This is how are
-ACPI buttons implemented in certain notebooks. I definitely don't want
-to use the acpi events as received by acpid now as the interface. Sorry
-for the confusion.
 
-> > 	3) A rfkill.ko input handler module will be implemented, that listens to
-> > 	the SW_RFKILL and KEY_RFKILL events from all devices in the system, and
-> > 	will enable/disable radios on all 802.11 devices in the system.
-> >
-> > The above will make the RF-Kill button work under all real scenarios as
-> > user expects - it will enable/disable the radio. In the case where a
-> > user has an additional PCMCIA card, both the radios will be disabled by
-> > presing the RF-Kill button, which is arguably what the user expects.
-> > Even BlueTooth or other RF technologies (CDMA, EDGE) can hook into this
-> > mechanism.
-> > 
-> > 	4) When userspace wants to take over the control over RF-Kill, and start
-> > 	additional services based on that, it can open the input devices to get
-> > 	the state of the buttons/switches, AND it can issue the EVIOCGRAB
-> > 	ioctl() to prevent the rfkill.ko and any other handlers from getting the
-> > 	events.
-> >
-> > This allows simple implementation of dbus notifications and
-> > NetworkManager-style configuration of network interfaces.
+I code, therefore I am
 
--- 
-Vojtech Pavlik
-Director SuSE Labs
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
