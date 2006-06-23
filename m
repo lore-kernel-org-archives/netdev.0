@@ -1,55 +1,48 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH]: e1000: Janitor: Use #defined values for literals
-Date: Fri, 23 Jun 2006 13:07:21 -0700
-Message-ID: <449C49F9.6090005@intel.com>
-References: <20060623163624.GM8866@austin.ibm.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH 0/2][RFC] Network Event Notifier Mechanism
+Date: Fri, 23 Jun 2006 15:12:37 -0500
+Message-ID: <1151093557.7808.71.camel@stevo-desktop>
+References: <20060622.155805.35017169.davem@davemloft.net>
+	 <1151024186.5099.46.camel@jzny2> <1151069083.7808.19.camel@stevo-desktop>
+	 <20060623.125758.30182159.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.ronciak@intel.com,
-	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
-	"Zhang, Yanmin" <yanmin.zhang@intel.com>,
-	Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org, caitlinb@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:54311 "EHLO
-	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
-	id S1751974AbWFWUHy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jun 2006 16:07:54 -0400
-To: Linas Vepstas <linas@austin.ibm.com>
-In-Reply-To: <20060623163624.GM8866@austin.ibm.com>
+Received: from es335.com ([67.65.19.105]:41838 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S1752014AbWFWUMj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 16:12:39 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060623.125758.30182159.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linas Vepstas wrote:
-> Minor janitorial patch: use #defines for literal values.
+On Fri, 2006-06-23 at 12:57 -0700, David Miller wrote:
+> From: Steve Wise <swise@opengridcomputing.com>
+> Date: Fri, 23 Jun 2006 08:24:43 -0500
 > 
-> Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+> > On Thu, 2006-06-22 at 20:56 -0400, jamal wrote:
+> > > On Thu, 2006-22-06 at 15:58 -0700, David Miller wrote:
+> > > 
+> > > > Anyways, we can create normal notifiers for neighbour and route
+> > > > events just like we have for network device stuff.
+> > > >
+> > 
+> > So did you agree with a new notifier head for these events as in my
+> > original patch?  Or do you think I should add these to the netdev
+> > notifier?  
 > 
-> ----
->  drivers/net/e1000/e1000_main.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
+> Pretty much.  I may not agree with the details of your implementation.
 > 
-> Index: linux-2.6.17-rc6-mm2/drivers/net/e1000/e1000_main.c
-> ===================================================================
-> --- linux-2.6.17-rc6-mm2.orig/drivers/net/e1000/e1000_main.c	2006-06-13 18:13:30.000000000 -0500
-> +++ linux-2.6.17-rc6-mm2/drivers/net/e1000/e1000_main.c	2006-06-23 11:27:47.000000000 -0500
-> @@ -4663,8 +4663,8 @@ static pci_ers_result_t e1000_io_slot_re
->  	}
->  	pci_set_master(pdev);
->  
-> -	pci_enable_wake(pdev, 3, 0);
-> -	pci_enable_wake(pdev, 4, 0); /* 4 == D3 cold */
-> +	pci_enable_wake(pdev, PCI_D3hot, 0);
-> +	pci_enable_wake(pdev, PCI_D3cold, 0);
->  
->  	/* Perform card reset only on one instance of the card */
->  	if (PCI_FUNC (pdev->devfn) != 0)
+> So let's start by you doing a repost of the first patch and let's
+> review that, ok?
 
-I Acked this but that's silly - the patches sent yesterday already change the 
-code above and this patch is no longer needed (thanks Jesse for spotting this).
+Ok.  Stay tuned.
 
-This patch would conflict with them so please don't apply.
+Steve.
 
-Cheers,
 
-AUke
+
+
+
