@@ -1,63 +1,50 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: Locking validator output on DCCP
-Date: Fri, 23 Jun 2006 09:45:49 +0200
-Message-ID: <20060623074549.GA30155@elte.hu>
-References: <5640c7e00606201640wa1ad17fl46a32ceb49513867@mail.gmail.com> <20060621003413.GA31915@gondor.apana.org.au> <1150885091.3057.30.camel@laptopd505.fenrus.org> <5640c7e00606212151y213c0bfap5e02a77d9363ebb7@mail.gmail.com> <5640c7e00606221938g17516d08yf6733fc35f866d01@mail.gmail.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] make net/core/skbuff.c:skb_release_data() static
+Date: Fri, 23 Jun 2006 12:56:23 +0200
+Message-ID: <20060623105623.GT9111@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@linux.intel.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>,
-	DCCP Mailing List <dccp@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:32440 "EHLO mx2.mail.elte.hu")
-	by vger.kernel.org with ESMTP id S932924AbWFWHuv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 03:50:51 -0400
-To: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:11020 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S933019AbWFWK4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 06:56:24 -0400
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <5640c7e00606221938g17516d08yf6733fc35f866d01@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+skb_release_data() no longer has any users in other files.
 
-* Ian McDonald <ian.mcdonald@jandi.co.nz> wrote:
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-> OK. This is in net/ipv4/tcp_ipv4.c tcp_v4_rcv with the 
-> bh_lock_sock_nested which I presume is clashing with the nested of 
-> skb_clone....
+---
 
-yeah, that's exactly what happens.
+ include/linux/skbuff.h |    2 --
+ net/core/skbuff.c      |    2 +-
+ 2 files changed, 1 insertion(+), 3 deletions(-)
 
-> Can we not do two levels nested?
+--- linux-2.6.17-mm1-full/include/linux/skbuff.h.old	2006-06-23 00:45:40.000000000 +0200
++++ linux-2.6.17-mm1-full/include/linux/skbuff.h	2006-06-23 00:46:37.000000000 +0200
+@@ -1289,8 +1289,6 @@
+ extern void	       skb_split(struct sk_buff *skb,
+ 				 struct sk_buff *skb1, const u32 len);
+ 
+-extern void	       skb_release_data(struct sk_buff *skb);
+-
+ static inline void *skb_header_pointer(const struct sk_buff *skb, int offset,
+ 				       int len, void *buffer)
+ {
+--- linux-2.6.17-mm1-full/net/core/skbuff.c.old	2006-06-23 00:46:44.000000000 +0200
++++ linux-2.6.17-mm1-full/net/core/skbuff.c	2006-06-23 00:46:50.000000000 +0200
+@@ -292,7 +292,7 @@
+ 		skb_get(list);
+ }
+ 
+-void skb_release_data(struct sk_buff *skb)
++static void skb_release_data(struct sk_buff *skb)
+ {
+ 	if (!skb->cloned ||
+ 	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
 
-we can - but it needs to be thought through (and needs to be tested). 
-But an initial glance seems to suggest that two levels, one used for 
-clone and another one used for tcp_v4_rcv nesting ought to do the trick.
-
-> Is there extra documentation for the locking validation suite so that 
-> I can stop asking stupid questions? If not I'll just read more of the 
-> source code.
-
-i'd suggest to start with: Documentation/lockdep-design.txt, then with 
-include/linux/lockdep.h and also look at some of the existing patches 
-that introduce multiple nesting levels, such as:
-
-    http://kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.17/2.6.17-mm1/broken-out/lock-validator-special-locking-dcache.patch
-
-the best method is to find the proper central header for the level enum, 
-and then make use of it. The enum should have a descriptive name, and 
-the enum values too.
-
-If one particular lock has multiple levels then SINGLE_DEPTH_NESTING 
-should not be used. (to keep the levels architecture clean) I.e. 
-possibly the best idea would be to extend bh_lock_sock_nested() with a 
-'subtype' parameter, and to pass that into spin_lock_nested().
-
-Or even better: define bh_lock_sock_nested() as an inline function with 
-the right enum parameter, which will make sure only the right type of 
-enum will be used. [if it's possible to do it as an inline there - it's 
-a macro right now and i'm not sure all the types necessary for the 
-inline are declared up to that point in the sock.h include file]
-
-	Ingo
