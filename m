@@ -1,25 +1,23 @@
-From: "Roland" <Rolandcorkscrew@mad.scientist.com>
-Subject: Just out Onlline Casino. Go and  Play It
-Date: Fri, 23 Jun 2006 04:32:42 -0700
-Message-ID: <32681824668877.3C1F0122BF@BXJ1A0B>
+From: "Jimmy" <Jimmycreep@moscowmail.com>
+Subject: Just published Onlinee Casino. Go and Play Itt
+Date: Fri, 23 Jun 2006 17:11:03 +0500
+Message-ID: <32946114064788.2AF84B5649@8Z7B4Z>
 Mime-Version: 1.0
 Content-Type: text/plain;
         charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [89.136.139.12] ([89.136.139.12]:42248 "EHLO
-	frr1ihu.e56oafru.comcast.net") by vger.kernel.org with ESMTP
-	id S933044AbWFWLd2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jun 2006 07:33:28 -0400
+Received: from zeus1.kernel.org ([204.152.191.4]:59787 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1751278AbWFWLmK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 07:42:10 -0400
 To: <newbie-owner@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-He who lives by the sword shall die by the sword  Dont make love at the garden gate, love is blind but the neighbours aint 
+Never too old to learn Age is a very high price to pay for maturity 
 
 
-   Online Casino with 85+ games. Play It Now!  http://tdvid.com/d1/check 
+  Online Casino with 85+ games. PPlay It Now!  http://ewcnss.com/d1/check 
 
-
- His own iniquities shall take the wicked himself, and he shall be holden with the cords of his sins. Modulation in all things.
+ The most beautiful women are made for lovers who lack imagination Doubt is the beginning not the end of wisdom
 
