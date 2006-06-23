@@ -1,40 +1,141 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH]: e1000: Janitor: Use #defined values for literals
-Date: Fri, 23 Jun 2006 16:12:42 -0500
-Message-ID: <20060623211242.GQ8866@austin.ibm.com>
-References: <20060623163624.GM8866@austin.ibm.com> <449C49F9.6090005@intel.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH 3/3] bcm43xx-d80211: use host_gen_beacon_template
+Date: Fri, 23 Jun 2006 23:12:15 +0200
+Message-ID: <200606232312.16289.mb@bu3sch.de>
+References: <20060623181636.6DC1C483AD@silver.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, john.ronciak@intel.com,
-	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
-	"Zhang, Yanmin" <yanmin.zhang@intel.com>,
-	Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Alexander Tsvyashchenko <lists@ndl.kiev.ua>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:34994 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1752065AbWFWVMp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 17:12:45 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:956
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1752066AbWFWVNM
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 17:13:12 -0400
+To: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060623181636.6DC1C483AD@silver.suse.cz>
 Content-Disposition: inline
-In-Reply-To: <449C49F9.6090005@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 23, 2006 at 01:07:21PM -0700, Auke Kok wrote:
-> Linas Vepstas wrote:
-> >Minor janitorial patch: use #defines for literal values.
-> >
-> >-	pci_enable_wake(pdev, 3, 0);
-> >-	pci_enable_wake(pdev, 4, 0); /* 4 == D3 cold */
-> >+	pci_enable_wake(pdev, PCI_D3hot, 0);
-> >+	pci_enable_wake(pdev, PCI_D3cold, 0);
-> > 
-> I Acked this but that's silly - the patches sent yesterday already change 
-> the code above and this patch is no longer needed (thanks Jesse for 
-> spotting this).
+On Friday 23 June 2006 20:16, Jiri Benc wrote:
+> Use new host_gen_beacon_template flag. This also means workaround with
+> "iwconfig essid" after hostapd is run is not necessary anymore.
 > 
-> This patch would conflict with them so please don't apply.
+> Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
-Oh, OK, I didn't see the patches sent yesterday, I tripped over this
-on an unrelated code walk.
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
---linas
+John, please apply.
+
+> ---
+> 
+>  drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |   36 ++++++---------------
+>  1 files changed, 11 insertions(+), 25 deletions(-)
+> 
+> --- dscape.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+> +++ dscape/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+> @@ -1710,17 +1710,12 @@ static void bcm43xx_write_probe_resp_tem
+>  	kfree(probe_resp_data);
+>  }
+>  
+> -static int bcm43xx_refresh_cached_beacon(struct bcm43xx_private *bcm)
+> +static int bcm43xx_refresh_cached_beacon(struct bcm43xx_private *bcm,
+> +					 struct sk_buff *beacon)
+>  {
+> -	struct ieee80211_tx_control control;
+> -
+>  	if (bcm->cached_beacon)
+>  		kfree_skb(bcm->cached_beacon);
+> -	bcm->cached_beacon = ieee80211_beacon_get(bcm->net_dev,
+> -						  bcm->interface.if_id,
+> -						  &control);
+> -	if (unlikely(!bcm->cached_beacon))
+> -		return -ENOMEM;
+> +	bcm->cached_beacon = beacon;
+>  
+>  	return 0;
+>  }
+> @@ -1743,16 +1738,15 @@ static void bcm43xx_update_templates(str
+>  	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD, status);
+>  }
+>  
+> -static void bcm43xx_refresh_templates(struct bcm43xx_private *bcm)
+> +static void bcm43xx_refresh_templates(struct bcm43xx_private *bcm,
+> +				      struct sk_buff *beacon)
+>  {
+>  	int err;
+>  
+> -	err = bcm43xx_refresh_cached_beacon(bcm);
+> +	err = bcm43xx_refresh_cached_beacon(bcm, beacon);
+>  	if (unlikely(err))
+>  		return;
+>  	bcm43xx_update_templates(bcm);
+> -	kfree_skb(bcm->cached_beacon);
+> -	bcm->cached_beacon = NULL;
+>  }
+>  
+>  static void bcm43xx_set_ssid(struct bcm43xx_private *bcm,
+> @@ -1792,19 +1786,11 @@ static void bcm43xx_set_beacon_int(struc
+>  static void handle_irq_beacon(struct bcm43xx_private *bcm)
+>  {
+>  	u32 status;
+> -	int err;
+>  
+>  	bcm->irq_savedstate &= ~BCM43xx_IRQ_BEACON;
+>  	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD);
+>  
+> -	if (!bcm->cached_beacon) {
+> -		err = bcm43xx_refresh_cached_beacon(bcm);
+> -		if (unlikely(err))
+> -			goto ack;
+> -	}
+> -
+> -	if ((status & 0x1) && (status & 0x2)) {
+> -ack:
+> +	if (!bcm->cached_beacon || ((status & 0x1) && (status & 0x2))) {
+>  		/* ACK beacon IRQ. */
+>  		bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON,
+>  				BCM43xx_IRQ_BEACON);
+> @@ -4382,7 +4368,6 @@ static int bcm43xx_net_config(struct net
+>  
+>  	if (bcm43xx_is_mode(bcm, IEEE80211_IF_TYPE_AP)) {
+>  		bcm43xx_set_beacon_int(bcm, conf->beacon_int);
+> -		bcm43xx_refresh_templates(bcm);
+>  	}
+>  
+>  	bcm43xx_unlock_irqonly(bcm, flags);
+> @@ -4553,7 +4538,7 @@ static int bcm43xx_add_interface(struct 
+>  	if (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED) {
+>  		bcm43xx_select_opmode(bcm);
+>  		if (bcm43xx_is_mode(bcm, IEEE80211_IF_TYPE_AP))
+> -			bcm43xx_refresh_templates(bcm);
+> +			bcm43xx_refresh_templates(bcm, NULL);
+>  	}
+>  	err = 0;
+>  
+> @@ -4606,7 +4591,8 @@ static int bcm43xx_config_interface(stru
+>  		if (bcm43xx_is_mode(bcm, IEEE80211_IF_TYPE_AP)) {
+>  			assert(conf->type == IEEE80211_IF_TYPE_AP);
+>  			bcm43xx_set_ssid(bcm, conf->ssid, conf->ssid_len);
+> -			bcm43xx_refresh_templates(bcm);
+> +			if (conf->beacon)
+> +				bcm43xx_refresh_templates(bcm, conf->beacon);
+>  		}
+>  	}
+>  	bcm43xx_unlock_irqsafe(bcm, flags);
+> @@ -4701,7 +4687,7 @@ static int __devinit bcm43xx_init_one(st
+>  		goto out;
+>  	ieee->version = IEEE80211_VERSION;
+>  	ieee->name = KBUILD_MODNAME;
+> -	ieee->host_gen_beacon = 1;
+> +	ieee->host_gen_beacon_template = 1;
+>  	ieee->rx_includes_fcs = 1;
+>  	ieee->monitor_during_oper = 1;
+>  	ieee->tx = bcm43xx_net_hard_start_xmit;
+> 
+
+-- 
+Greetings Michael.
