@@ -1,41 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [1/4] kevent: core files.
-Date: Fri, 23 Jun 2006 15:12:06 -0700 (PDT)
-Message-ID: <20060623.151206.125894969.davem@davemloft.net>
-References: <20060623203114.GD14126@kvack.org>
-	<20060623.135423.115910361.davem@davemloft.net>
-	<20060623215314.GG14126@kvack.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: Streamline testing of 802.11 drivers
+Date: Fri, 23 Jun 2006 17:48:05 -0500
+Message-ID: <449C6FA5.4060300@lwfinger.net>
+References: <43e72e890606231333kd0fc534x5d08dad955d13bf5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:14012
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1752115AbWFWWMF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jun 2006 18:12:05 -0400
-To: bcrl@kvack.org
-In-Reply-To: <20060623215314.GG14126@kvack.org>
+Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:22688 "EHLO
+	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1752150AbWFWWsJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 18:48:09 -0400
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>, netdev@vger.kernel.org
+In-Reply-To: <43e72e890606231333kd0fc534x5d08dad955d13bf5@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Benjamin LaHaise <bcrl@kvack.org>
-Date: Fri, 23 Jun 2006 17:53:14 -0400
+Luis R. Rodriguez wrote:
+> 
+> Right now we have zome zd1211s so we'll start with that (I'll start
+> working on a port to d80211) but will try to accomodate other nodes as
+> we get more wireless cards. We will need some help too though, to
+> streamline the testing. If you have ideas or would like to contribute
+> please let me know. We can purchase wireless cards but if you already
+> have reliable confirmed wireless cards which can be used for putting
+> into the testbed let me know.
 
-> The effect of doing all processing in user context creates issues 
-> with delayed acks (due to context switching to other tasks in the system), 
+I have a spare Linksys WPC54G Cardbus adapter with an early Broadcom BCM4306 chip in it. The LEDS do 
+not work, but everything else is OK.
 
-The Linux TCP stack does this today.
+Larry
 
-Full TCP input protocol processing is done in the user process
-context.
 
-What you are not understanding is that process scheduling helps TCP,
-it does not hinder it.  If the system is loaded, we want the senders
-to pace themselves to the rate at which the kernel can schedule the
-abundance of receiver work it has.  And this happens naturally when
-the TCP protocol input processing operates in process context.
-
-Your fear of cpu overcommit in interrupt handlers is also heavily
-flawed.  Net channels do a socket demux, and a queue entail plus
-ring a doorbell if necessary, nothing more.
