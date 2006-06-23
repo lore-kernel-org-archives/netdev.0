@@ -1,94 +1,115 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [IPROUTE 01/05]: Use tc_calc_xmittime where appropriate
-Date: Fri, 23 Jun 2006 20:06:44 +0200 (MEST)
-Message-ID: <20060623180644.13183.98204.sendpatchset@localhost.localdomain>
+Subject: [IPROUTE 05/05]: Add sprint_ticks() function and use in CBQ
+Date: Fri, 23 Jun 2006 20:06:52 +0200 (MEST)
+Message-ID: <20060623180652.13183.31422.sendpatchset@localhost.localdomain>
 References: <20060623180642.13183.74864.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43189 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1751839AbWFWSGq
+Received: from stinky.trash.net ([213.144.137.162]:47285 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751846AbWFWSGy
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jun 2006 14:06:46 -0400
+	Fri, 23 Jun 2006 14:06:54 -0400
 To: hemminger@osdl.org
 In-Reply-To: <20060623180642.13183.74864.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPROUTE]: Use tc_calc_xmittime where appropriate
+[IPROUTE]: Add sprint_ticks() function and use in CBQ
 
-Replace expressions of the form "1000000 * size/rate" by tc_calc_xmittime().
-The CBQ case deserves an extra comment: when called with bnwd=rate
-tc_cbq_calc_maxidle behaves identical to tc_calc_xmittime, so use it
-for clarity.
+Add helper function to print ticks to avoid assumptions about clock
+resolution in CBQ.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit c25b0a7730d72f266e46fee3cfd53ce9f2a15c2f
-tree 39c6fbd3395e8a41170739d6cff8d3a00d31a915
-parent 8f8a36487119a3cd1afe86a9649704aca088567b
-author Patrick McHardy <kaber@trash.net> Fri, 23 Jun 2006 19:02:46 +0200
-committer Patrick McHardy <kaber@trash.net> Fri, 23 Jun 2006 19:02:46 +0200
+commit 182666ac89f3089a1771564620998fb4f315bd87
+tree ce7c3109b7e8ff9a4665e175490a62f8c300ea33
+parent 67edfb2c86323a1c52a60538f677310f6c75efdf
+author Patrick McHardy <kaber@trash.net> Fri, 23 Jun 2006 19:52:11 +0200
+committer Patrick McHardy <kaber@trash.net> Fri, 23 Jun 2006 19:52:11 +0200
 
- tc/q_cbq.c   |    2 +-
- tc/q_tbf.c   |    4 ++--
- tc/tc_core.c |    2 +-
- tc/tc_red.c  |    2 +-
- 4 files changed, 5 insertions(+), 5 deletions(-)
+ tc/q_cbq.c   |    7 ++++---
+ tc/q_netem.c |    6 ------
+ tc/tc_util.c |    5 +++++
+ tc/tc_util.h |    1 +
+ 4 files changed, 10 insertions(+), 9 deletions(-)
 
 diff --git a/tc/q_cbq.c b/tc/q_cbq.c
-index a456eda..045c377 100644
+index 648acd0..abf0468 100644
 --- a/tc/q_cbq.c
 +++ b/tc/q_cbq.c
-@@ -147,7 +147,7 @@ static int cbq_parse_opt(struct qdisc_ut
- 	if (ewma_log < 0)
- 		ewma_log = TC_CBQ_DEF_EWMA;
- 	lss.ewma_log = ewma_log;
--	lss.maxidle = tc_cbq_calc_maxidle(r.rate, r.rate, avpkt, lss.ewma_log, 0);
-+	lss.maxidle = tc_calc_xmittime(r.rate, avpkt);
- 	lss.change = TCF_CBQ_LSS_MAXIDLE|TCF_CBQ_LSS_EWMA|TCF_CBQ_LSS_AVPKT;
- 	lss.avpkt = avpkt;
+@@ -418,6 +418,7 @@ static int cbq_print_opt(struct qdisc_ut
+ 	struct tc_cbq_wrropt *wrr = NULL;
+ 	struct tc_cbq_fopt *fopt = NULL;
+ 	struct tc_cbq_ovl *ovl = NULL;
++	SPRINT_BUF(b1);
  
-diff --git a/tc/q_tbf.c b/tc/q_tbf.c
-index 6ed5e0b..87b1b29 100644
---- a/tc/q_tbf.c
-+++ b/tc/q_tbf.c
-@@ -245,9 +245,9 @@ static int tbf_print_opt(struct qdisc_ut
- 	if (show_raw)
- 		fprintf(f, "limit %s ", sprint_size(qopt->limit, b1));
- 
--	latency = 1000000*(qopt->limit/(double)qopt->rate.rate) - tc_core_tick2usec(qopt->buffer);
-+	latency = tc_calc_xmittime(qopt->rate.rate, qopt->limit) - tc_core_tick2usec(qopt->buffer);
- 	if (qopt->peakrate.rate) {
--		double lat2 = 1000000*(qopt->limit/(double)qopt->peakrate.rate) - tc_core_tick2usec(qopt->mtu);
-+		double lat2 = tc_calc_xmittime(qopt->peakrate.rate, qopt->limit) - tc_core_tick2usec(qopt->mtu);
- 		if (lat2 > latency)
- 			latency = lat2;
- 	}
-diff --git a/tc/tc_core.c b/tc/tc_core.c
-index 07cf2fa..8688b63 100644
---- a/tc/tc_core.c
-+++ b/tc/tc_core.c
-@@ -67,7 +67,7 @@ int tc_calc_rtable(unsigned bps, __u32 *
- 			sz += overhead;
- 		if (sz < mpu)
- 			sz = mpu;
--		rtab[i] = tc_core_usec2tick(1000000*((double)sz/bps));
-+		rtab[i] = tc_calc_xmittime(bps, sz);
- 	}
- 	return cell_log;
+ 	if (opt == NULL)
+ 		return 0;
+@@ -500,17 +501,17 @@ static int cbq_print_opt(struct qdisc_ut
+ 	if (lss && show_details) {
+ 		fprintf(f, "\nlevel %u ewma %u avpkt %ub ", lss->level, lss->ewma_log, lss->avpkt);
+ 		if (lss->maxidle) {
+-			fprintf(f, "maxidle %luus ", tc_core_tick2time(lss->maxidle>>lss->ewma_log));
++			fprintf(f, "maxidle %s ", sprint_ticks(lss->maxidle>>lss->ewma_log, b1));
+ 			if (show_raw)
+ 				fprintf(f, "[%08x] ", lss->maxidle);
+ 		}
+ 		if (lss->minidle!=0x7fffffff) {
+-			fprintf(f, "minidle %luus ", tc_core_tick2time(lss->minidle>>lss->ewma_log));
++			fprintf(f, "minidle %s ", sprint_ticks(lss->minidle>>lss->ewma_log, b1));
+ 			if (show_raw)
+ 				fprintf(f, "[%08x] ", lss->minidle);
+ 		}
+ 		if (lss->offtime) {
+-			fprintf(f, "offtime %luus ", tc_core_tick2time(lss->offtime));
++			fprintf(f, "offtime %s ", sprint_ticks(lss->offtime, b1));
+ 			if (show_raw)
+ 				fprintf(f, "[%08x] ", lss->offtime);
+ 		}
+diff --git a/tc/q_netem.c b/tc/q_netem.c
+index cc16a28..0d7f4d5 100644
+--- a/tc/q_netem.c
++++ b/tc/q_netem.c
+@@ -115,12 +115,6 @@ static int get_ticks(__u32 *ticks, const
+ 	return 0;
  }
-diff --git a/tc/tc_red.c b/tc/tc_red.c
-index 385e7af..8f9bde0 100644
---- a/tc/tc_red.c
-+++ b/tc/tc_red.c
-@@ -71,7 +71,7 @@ int tc_red_eval_ewma(unsigned qmin, unsi
  
- int tc_red_eval_idle_damping(int Wlog, unsigned avpkt, unsigned bps, __u8 *sbuf)
+-static char *sprint_ticks(__u32 ticks, char *buf)
+-{
+-	return sprint_time(tc_core_tick2time(ticks), buf);
+-}
+-
+-
+ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv, 
+ 			   struct nlmsghdr *n)
  {
--	double xmit_time = tc_core_usec2tick(1000000*(double)avpkt/bps);
-+	double xmit_time = tc_calc_xmittime(bps, avpkt);
- 	double lW = -log(1.0 - 1.0/(1<<Wlog))/xmit_time;
- 	double maxtime = 31/lW;
- 	int clog;
+diff --git a/tc/tc_util.c b/tc/tc_util.c
+index 321bac0..c1e02f4 100644
+--- a/tc/tc_util.c
++++ b/tc/tc_util.c
+@@ -255,6 +255,11 @@ char * sprint_time(__u32 time, char *buf
+ 	return buf;
+ }
+ 
++char * sprint_ticks(__u32 ticks, char *buf)
++{
++	return sprint_time(tc_core_tick2time(ticks), buf);
++}
++
+ int get_size(unsigned *size, const char *str)
+ {
+ 	double sz;
+diff --git a/tc/tc_util.h b/tc/tc_util.h
+index aba4adb..17e7b99 100644
+--- a/tc/tc_util.h
++++ b/tc/tc_util.h
+@@ -57,6 +57,7 @@ extern char * sprint_size(__u32 size, ch
+ extern char * sprint_qdisc_handle(__u32 h, char *buf);
+ extern char * sprint_tc_classid(__u32 h, char *buf);
+ extern char * sprint_time(__u32 time, char *buf);
++extern char * sprint_ticks(__u32 ticks, char *buf);
+ extern char * sprint_percent(__u32 percent, char *buf);
+ 
+ extern void print_tcstats_attr(FILE *fp, struct rtattr *tb[], char *prefix, struct rtattr **xstats);
