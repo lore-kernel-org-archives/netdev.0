@@ -1,43 +1,41 @@
-From: "Ron Mercer" <ron.mercer@qlogic.com>
-Subject: RE: New Qlogic qla3xxx NIC Driver v2.02.00k34 for upstream inclusion
-Date: Fri, 23 Jun 2006 15:08:35 -0700
-Message-ID: <0BB3E5E7462EEA4295BC02D49691DC071769C3@AVEXCH1.qlogic.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [1/4] kevent: core files.
+Date: Fri, 23 Jun 2006 15:12:06 -0700 (PDT)
+Message-ID: <20060623.151206.125894969.davem@davemloft.net>
+References: <20060623203114.GD14126@kvack.org>
+	<20060623.135423.115910361.davem@davemloft.net>
+	<20060623215314.GG14126@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, "Linux Driver" <Linux-Driver@qlogic.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johnpol@2ka.mipt.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pat.qlogic.com ([198.70.193.2]:39587 "EHLO avexch1.qlogic.com")
-	by vger.kernel.org with ESMTP id S1752113AbWFWWIg convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jun 2006 18:08:36 -0400
-Content-class: urn:content-classes:message
-To: "Jeff Garzik" <jeff@garzik.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:14012
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1752115AbWFWWMF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 18:12:05 -0400
+To: bcrl@kvack.org
+In-Reply-To: <20060623215314.GG14126@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- 
+From: Benjamin LaHaise <bcrl@kvack.org>
+Date: Fri, 23 Jun 2006 17:53:14 -0400
 
-> Ron Mercer wrote:
-> >> 9) [minor] "N/A" appears to be an inaccurate value for 
-> fw_version in
-> >> ql_get_drvinfo()
-> > 
-> > Does anyone know what would be appropriate for this ethtool 
-> command?  
-> > My device does not use firmware.  I took the "N/A" idea 
-> from e1000 and 
-> > skge.
-> 
-> It does both ethernet and iSCSI entirely in silicon?
-> 
-> Is there an easy way to get silicon rev?
+> The effect of doing all processing in user context creates issues 
+> with delayed acks (due to context switching to other tasks in the system), 
 
-There is firmware to support iSCSI.  It is not used by the ethernet
-function.
+The Linux TCP stack does this today.
 
-There is no way to get the iSCSI firmware version from the ethernet
-function, but there is a way to get silicon rev.
+Full TCP input protocol processing is done in the user process
+context.
 
+What you are not understanding is that process scheduling helps TCP,
+it does not hinder it.  If the system is loaded, we want the senders
+to pace themselves to the rate at which the kernel can schedule the
+abundance of receiver work it has.  And this happens naturally when
+the TCP protocol input processing operates in process context.
 
+Your fear of cpu overcommit in interrupt handlers is also heavily
+flawed.  Net channels do a socket demux, and a queue entail plus
+ring a doorbell if necessary, nothing more.
