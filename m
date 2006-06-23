@@ -1,59 +1,65 @@
-From: Auke Kok <sofar@foo-projects.org>
-Subject: Re: [PATCH]: e1000: Janitor: Use #defined values for literals
-Date: Fri, 23 Jun 2006 11:07:28 -0700
-Message-ID: <449C2DE0.4000907@foo-projects.org>
-References: <20060623163624.GM8866@austin.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC IPROUTE 00/05]: Time cleanups
+Date: Fri, 23 Jun 2006 20:09:18 +0200
+Message-ID: <449C2E4E.7050301@trash.net>
+References: <20060623180642.13183.74864.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.ronciak@intel.com,
-	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
-	"Zhang, Yanmin" <yanmin.zhang@intel.com>,
-	Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:43162 "EHLO
-	fmsmga101.fm.intel.com") by vger.kernel.org with ESMTP
-	id S1751848AbWFWSIG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jun 2006 14:08:06 -0400
-To: Linas Vepstas <linas@austin.ibm.com>
-In-Reply-To: <20060623163624.GM8866@austin.ibm.com>
+Received: from stinky.trash.net ([213.144.137.162]:58549 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751851AbWFWSJU
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 14:09:20 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060623180642.13183.74864.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linas Vepstas wrote:
-> Minor janitorial patch: use #defines for literal values.
+D'oh, got Stephen's address wrong. Please fix it (add 's' in front) in
+replies to this thread.
+
+Patrick McHardy wrote:
+> I'm currently adding support for ktime as clocksource to the qdisc layer and
+> in the course of doing that cleaned up the iproute time handling a bit to
+> make it easier to use a different internal clock resultion and audit for
+> integer overflows.
 > 
-> Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-
-Ack! I thought we had gotten these out already.
-
-Cheers,
-
-Auke
-
-
-
+> Increasing iproutes internal clock resolution is necessary for all token bucket
+> based schedulers to take advantage of a higher kernel clock resolution because
+> the kernel only does lookups and additions/subtractions, which can never result
+> in values that have a higher precision that those passed from userspace.
 > 
-> ----
->  drivers/net/e1000/e1000_main.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
+> The way I imagine it we have to keep the old clock sources around for userspace
+> compatibility since they can't deal with the higher precision values. iproute is
+> changed to use nsec internally and reads the kernel clock resulution from
+> /proc/net/psched (third value, currently assumed to always be 10^6) to convert
+> it's internal resolution to that of the kernel. With ktime as clocksource the
+> kernel will report a resulution of 10^9. The downside is that distributors can't
+> enable ktime unless they want to break compatibility with old iproute versions.
+> Any better suggestions are welcome of course.
 > 
-> Index: linux-2.6.17-rc6-mm2/drivers/net/e1000/e1000_main.c
-> ===================================================================
-> --- linux-2.6.17-rc6-mm2.orig/drivers/net/e1000/e1000_main.c	2006-06-13 18:13:30.000000000 -0500
-> +++ linux-2.6.17-rc6-mm2/drivers/net/e1000/e1000_main.c	2006-06-23 11:27:47.000000000 -0500
-> @@ -4663,8 +4663,8 @@ static pci_ers_result_t e1000_io_slot_re
->  	}
->  	pci_set_master(pdev);
->  
-> -	pci_enable_wake(pdev, 3, 0);
-> -	pci_enable_wake(pdev, 4, 0); /* 4 == D3 cold */
-> +	pci_enable_wake(pdev, PCI_D3hot, 0);
-> +	pci_enable_wake(pdev, PCI_D3cold, 0);
->  
->  	/* Perform card reset only on one instance of the card */
->  	if (PCI_FUNC (pdev->devfn) != 0)
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+>  tc/m_estimator.c  |    4 ++--
+>  tc/m_police.c     |    2 +-
+>  tc/q_cbq.c        |   15 ++++++++-------
+>  tc/q_hfsc.c       |   18 +++++++++---------
+>  tc/q_htb.c        |    4 ++--
+>  tc/q_netem.c      |   12 +++---------
+>  tc/q_tbf.c        |   20 ++++++++++----------
+>  tc/tc_cbq.c       |    8 ++++----
+>  tc/tc_core.c      |   31 +++++++++++++++++++++++--------
+>  tc/tc_core.h      |    9 +++++++--
+>  tc/tc_estimator.c |    2 +-
+>  tc/tc_red.c       |    2 +-
+>  tc/tc_util.c      |   33 +++++++++++++++++++--------------
+>  tc/tc_util.h      |    7 ++++---
+>  14 files changed, 94 insertions(+), 73 deletions(-)
+> 
+> Patrick McHardy:
+>       [IPROUTE]: Use tc_calc_xmittime where appropriate
+>       [IPROUTE]: Introduce tc_calc_xmitsize and use where appropriate
+>       [IPROUTE]: Introduce TIME_UNITS_PER_SEC to represent internal clock resulution
+>       [IPROUTE]: Replace "usec" by "time" in function names
+>       [IPROUTE]: Add sprint_ticks() function and use in CBQ
