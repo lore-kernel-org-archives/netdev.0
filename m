@@ -1,34 +1,38 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC 3/7] NetLabel: CIPSOv4 engine
-Date: Fri, 23 Jun 2006 19:45:50 -0400
-Message-ID: <449C7D2E.8000101@hp.com>
-References: <20060621200031.589235000@flek.zko.hp.com>  <20060622.021223.125894633.davem@davemloft.net>  <1151088481.2669.25.camel@localhost.localdomain>  <20060623.131512.21593290.davem@davemloft.net> <1151094857.2669.51.camel@localhost.localdomain> <Pine.LNX.4.64.0606231906380.6209@d.namei>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Ted <txtoth@gmail.com>, netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Kernel Janitor TODO: dev_kfree_skb
+Date: Sat, 24 Jun 2006 09:47:08 +1000
+Message-ID: <E1FtvMi-0001gp-00@gondolin.me.apana.org.au>
+References: <449C2679.6020501@osdl.org>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:59625 "EHLO atlrel9.hp.com")
-	by vger.kernel.org with ESMTP id S1752175AbWFWXpw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 19:45:52 -0400
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <Pine.LNX.4.64.0606231906380.6209@d.namei>
+Received: from rhun.apana.org.au ([64.62.148.172]:57097 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1752177AbWFWXrW
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 19:47:22 -0400
+To: jdaiker@osdl.org (John Daiker)
+In-Reply-To: <449C2679.6020501@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Morris wrote:
+John Daiker <jdaiker@osdl.org> wrote:
 > 
-> Support for interoperability with legacy CIPSO systems is something that I 
-> think would be nice to have, if it can be done in a way which doesn't 
-> impact deeply on core kernel code, and plays nicely with native Linux 
-> infrastructure.
-> 
+> The "Balancing Function" header suggests that all net_device interrupt 
+> functions should use dev_kfree_skb_irq as opposed to dev_kfree_skb.
+> Should we ever be calling dev_kfree_skb directly, or would the better 
+> practice be to always call dev_kfree_skb_any (thus letting the kernel 
+> decide to call dev_kfree_skb or dev_kfree_skb_irq)?
 
-I'm not sure if you have had a chance to look at the new patch set yet
-but I know you have seen earlier versions and are at least familiar with
-the approach I am taking ... in your opinion is the NetLabel patch
-acceptable in its approach?
+It's best if you write code in a way so that you always know whether it's
+IRQ context or not.  You should only use dev_kfree_skb_any when you fail
+to write code like that.
 
+Now once you've achieved that, then the next objective is to strive to
+not have to call kfree_skb in IRQ context at all.  Have a look at the TG3
+driver for an example where IRQ context is kept to a minimum.
+
+Cheers,
 -- 
-paul moore
-linux security @ hp
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
