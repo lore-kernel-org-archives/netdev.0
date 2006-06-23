@@ -1,61 +1,53 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [1/4] kevent: core files.
-Date: Fri, 23 Jun 2006 16:31:14 -0400
-Message-ID: <20060623203114.GD14126@kvack.org>
-References: <20060623070933.GA20291@2ka.mipt.ru> <20060623184457.GA13617@kvack.org> <20060623192422.GA11508@2ka.mipt.ru> <20060623.131940.48806210.davem@davemloft.net>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Streamline testing of 802.11 drivers
+Date: Fri, 23 Jun 2006 16:33:45 -0400
+Message-ID: <43e72e890606231333kd0fc534x5d08dad955d13bf5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johnpol@2ka.mipt.ru, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:15791 "EHLO kanga.kvack.org")
-	by vger.kernel.org with ESMTP id S1750752AbWFWUbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 16:31:34 -0400
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Kishore Ramachandran <kishore@winlab.rutgers.edu>,
+	Ivan Seskar <Seskar@winlab.rutgers.edu>
+Return-path: <zd1211-devs-bounces@lists.sourceforge.net>
+To: netdev@vger.kernel.org, zd1211-devs@lists.sourceforge.net
 Content-Disposition: inline
-In-Reply-To: <20060623.131940.48806210.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/zd1211-devs>,
+	<mailto:zd1211-devs-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=zd1211-devs>
+List-Post: <mailto:zd1211-devs@lists.sourceforge.net>
+List-Help: <mailto:zd1211-devs-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/zd1211-devs>,
+	<mailto:zd1211-devs-request@lists.sourceforge.net?subject=subscribe>
+Sender: zd1211-devs-bounces@lists.sourceforge.net
+Errors-To: zd1211-devs-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 23, 2006 at 01:19:40PM -0700, David Miller wrote:
-> I completely agree with Evgeniy here.
-> 
-> There is nothing in the kernel today that provides integrated event
-> handling.  Nothing.  So when someone says to use the "existing" stuff,
-> they need to have their head examined.
+I've mentioned this to a few but here it is out to everyone. So as you
+know we have a lot of work ahead of us for linux wireless development.
+To help speed this up, we at Winlab, would like to start hosting a
+testbed for linux wireless development, open to the public. Short term
+goals would be to start off a couple of nodes for each driver
+currently under development like bcm43xx, zd1211, rt2x00, ipw3945,
+ipw2200 and the like, and a provide a set streamlined tests we can use
+to really put to test the drivers and stacks.
 
-The existing AIO events are *events*, with the syscalls providing the 
-reading of events.
+This wouldn't be easy if we didn't have infrastructure but we already
+do. Our grid consists of 400 nodes with 2 wireless cards each and 3
+ethernet ports (one for control) --
+http://orbit-lab.org/wiki/Tutorial/Testbed. 90% of our nodes use the
+atheros 5213 chipset and the rest ipw2200s. We'd like to expand this
+with the more wireless cards currently being worked on for linux.
 
-> The existing AIO stuff stinks as a set of interfaces.  It was designed
-> by a standards committee, not by people truly interested in a good
-> performing event processing design.  It is especially poorly suited
-> for networking, and any networking developer understands this.
+Right now we have zome zd1211s so we'll start with that (I'll start
+working on a port to d80211) but will try to accomodate other nodes as
+we get more wireless cards. We will need some help too though, to
+streamline the testing. If you have ideas or would like to contribute
+please let me know. We can purchase wireless cards but if you already
+have reliable confirmed wireless cards which can be used for putting
+into the testbed let me know.
 
-I disagree.  Stuffing an event that a read or write is complete/ready is a 
-good way of handling things, even more so with hardware that will perform 
-the memory copies to/from user buffers.
+  Luis
 
-> It is pretty much a foregone conclusion that we will need new
-> APIs to get good networking performance.  Every existing interface
-> has one limitation or another.
-
-Eh?  Nobody has posted any numbers comparing the approaches yet, so this 
-is pure handwaving, unless you have real concrete results?
-
-> So we should be happy people like Evgeniy try to work on this stuff,
-> instead of discouraging them.
-
-I would like to encourage him, but at the same time I don't want to see 
-creating APIs that essentially duplicate existing work and needlessly 
-break compatibility.  I completely agree that the in-kernel APIs are not 
-as encompassing as they should be, and within the kernel Evgeniy's work 
-may well be the way to go.  What I do not agree is that we need new 
-syscalls at this point.  I'm perfectly willing to accept proof that change 
-is needed if we do a proper comparision between any new syscall API and the 
-use of the existing syscall API, but the pain of introducing a new API is 
-sufficiently large that I think it is worth looking at the numbers.
-
-		-ben
--- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <dont@kvack.org>.
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
