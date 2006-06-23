@@ -1,57 +1,39 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [1/4] kevent: core files.
-Date: Fri, 23 Jun 2006 15:55:13 -0400
-Message-ID: <20060623195513.GC14126@kvack.org>
-References: <20060622171436.GA26161@2ka.mipt.ru> <20060623070933.GA20291@2ka.mipt.ru> <20060623184457.GA13617@kvack.org> <20060623192422.GA11508@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2][RFC] Network Event Notifier Mechanism
+Date: Fri, 23 Jun 2006 12:57:58 -0700 (PDT)
+Message-ID: <20060623.125758.30182159.davem@davemloft.net>
+References: <20060622.155805.35017169.davem@davemloft.net>
+	<1151024186.5099.46.camel@jzny2>
+	<1151069083.7808.19.camel@stevo-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org, caitlinb@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:24238 "EHLO kanga.kvack.org")
-	by vger.kernel.org with ESMTP id S1751981AbWFWTzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 15:55:19 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20060623192422.GA11508@2ka.mipt.ru>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:14809
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1752005AbWFWT57 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 15:57:59 -0400
+To: swise@opengridcomputing.com
+In-Reply-To: <1151069083.7808.19.camel@stevo-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 23, 2006 at 11:24:29PM +0400, Evgeniy Polyakov wrote:
-> What API are you talking about?
-> There is only epoll(), which is 40% slower than kevent, and AIO, which
-> works not as state machine, but as repeated call for the same work.
-> There is also inotify, which allocates new message each time event
-> occurs, which is not a good solution for every situation.
+From: Steve Wise <swise@opengridcomputing.com>
+Date: Fri, 23 Jun 2006 08:24:43 -0500
 
-AIO can be implemented as a state machine.  Nothing in the API stops 
-you from doing that, and in fact there was code which was implemented as 
-a state machine used on 2.4 kernels.
+> On Thu, 2006-06-22 at 20:56 -0400, jamal wrote:
+> > On Thu, 2006-22-06 at 15:58 -0700, David Miller wrote:
+> > 
+> > > Anyways, we can create normal notifiers for neighbour and route
+> > > events just like we have for network device stuff.
+> > >
+> 
+> So did you agree with a new notifier head for these events as in my
+> original patch?  Or do you think I should add these to the netdev
+> notifier?  
 
-> Linux just does not have unified event processing mechanism, which was
-> pointed to many times in AIO mail list and when epoll() was only
-> introduced. I would even say, that Linux does not have such mechanism at
-> all, since every potential user implements it's own, which can not be
-> used with others.
+Pretty much.  I may not agree with the details of your implementation.
 
-The epoll event API doesn't have space in the event fields for result codes 
-as needed for AIO.  The AIO API does -- how is it lacking in this regard?
-
-> Kevent fixes that. Although implementation itself can be suboptimal for
-> some cases or even unacceptible at all, but it is really needed
-> functionality.
-
-At the expense of adding another API?  How is this a good thing?  Why 
-not spit out events in the existing format?
-
-> Every existing notification can be built on top of kevent. One can find
-> how easy it was to implement generic poll/select notifications (what
-> epoll() does) or socket notifications (which are similar to epoll(), but
-> are called from inside socket state machine, thus improving processing
-> performance).
-
-So far your code is adding a lot without unifying anything.
-
-		-ben
--- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <dont@kvack.org>.
+So let's start by you doing a repost of the first patch and let's
+review that, ok?
