@@ -1,145 +1,116 @@
-From: "Michael Krause" <krause@cup.hp.com>
-Subject: Re: [PATCH v3 1/7] AMSO1100 Low Level Driver.
-Date: Fri, 23 Jun 2006 11:02:31 -0700
-Message-ID: <6.2.0.14.2.20060623105755.0201e650@esmail.cup.hp.com>
-References: <20060620203050.31536.5341.stgit@stevo-desktop>
- <20060620203055.31536.15131.stgit@stevo-desktop>
- <1150836226.2891.231.camel@laptopd505.fenrus.org>
- <1151070290.7808.33.camel@stevo-desktop>
- <1151070532.3204.10.camel@laptopd505.fenrus.org>
- <1151071005.7808.39.camel@stevo-desktop>
- <1151071471.3204.12.camel@laptopd505.fenrus.org>
- <20060623171457.GA3610@esmail.cup.hp.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [IPROUTE 01/05]: Use tc_calc_xmittime where appropriate
+Date: Fri, 23 Jun 2006 20:28:12 +0200
+Message-ID: <449C32BC.5040006@trash.net>
+References: <20060623180642.13183.74864.sendpatchset@localhost.localdomain> <20060623180644.13183.98204.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="===============0544514426=="
-Cc: netdev@vger.kernel.org,
-	rdreier@cisco.com,
-	linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "Grant Grundler" <iod00d@hp.com>,
-	"Arjan van de Ven" <arjan@infradead.org>
-In-Reply-To: <20060623171457.GA3610@esmail.cup.hp.com>
-References: <20060620203050.31536.5341.stgit@stevo-desktop>
- <20060620203055.31536.15131.stgit@stevo-desktop>
- <1150836226.2891.231.camel@laptopd505.fenrus.org>
- <1151070290.7808.33.camel@stevo-desktop>
- <1151070532.3204.10.camel@laptopd505.fenrus.org>
- <1151071005.7808.39.camel@stevo-desktop>
- <1151071471.3204.12.camel@laptopd505.fenrus.org>
- <20060623171457.GA3610@esmail.cup.hp.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+ boundary="------------060406080802050907090009"
+Cc: netdev@vger.kernel.org, hadi@cyberus.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:439 "EHLO stinky.trash.net")
+	by vger.kernel.org with ESMTP id S1751894AbWFWS2O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 14:28:14 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060623180644.13183.98204.sendpatchset@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---===============0544514426==
-Content-Type: multipart/alternative;
- boundary="=====================_171097435==.ALT"
+This is a multi-part message in MIME format.
+--------------060406080802050907090009
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 
+Patrick McHardy wrote:
+> [IPROUTE]: Use tc_calc_xmittime where appropriate
+> 
+> diff --git a/tc/q_tbf.c b/tc/q_tbf.c
+> index 6ed5e0b..87b1b29 100644
+> --- a/tc/q_tbf.c
+> +++ b/tc/q_tbf.c
+> @@ -245,9 +245,9 @@ static int tbf_print_opt(struct qdisc_ut
+>  	if (show_raw)
+>  		fprintf(f, "limit %s ", sprint_size(qopt->limit, b1));
+>  
+> -	latency = 1000000*(qopt->limit/(double)qopt->rate.rate) - tc_core_tick2usec(qopt->buffer);
+> +	latency = tc_calc_xmittime(qopt->rate.rate, qopt->limit) - tc_core_tick2usec(qopt->buffer);
+>  	if (qopt->peakrate.rate) {
+> -		double lat2 = 1000000*(qopt->limit/(double)qopt->peakrate.rate) - tc_core_tick2usec(qopt->mtu);
+> +		double lat2 = tc_calc_xmittime(qopt->peakrate.rate, qopt->limit) - tc_core_tick2usec(qopt->mtu);
+>  		if (lat2 > latency)
 
---=====================_171097435==.ALT
+
+I think I should start reviewing my own patches in a mail client :)
+The two cases above are wrong, tc_calc_xmittime does an additional
+tc_core_usec2tick(). Corrected patch attached.
+
+--------------060406080802050907090009
 Content-Type: text/plain;
- charset=us-ascii;
- format=flowed
+ name="01.diff"
 Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
 
-At 10:14 AM 6/23/2006, Grant Grundler wrote:
->On Fri, Jun 23, 2006 at 04:04:31PM +0200, Arjan van de Ven wrote:
-> > > I thought the posted write WILL eventually get to adapter memory.  Not
-> > > stall forever cached in a bridge.  I'm wrong?
-> >
-> > I'm not sure there is a theoretical upper bound....
->
->I'm not aware of one either since MMIO writes can travel
->across many other chips that are not constrained by
->PCI ordering rules (I'm thinking of SGI Altix...)
+[IPROUTE]: Use tc_calc_xmittime where appropriate
 
-It is processor / coherency backplane technology specific as to the number 
-of outstanding writes.  There is also no guarantee that such writes will 
-hit the top of the PCI hierarchy in the order they were posted in a 
-multi-core / processor system.  Hence, it is up to software to guarantee 
-that ordering is preserved and to not assume anything about ordering from a 
-hardware perspective.  Once a transaction hits the PCI hierarchy, then the 
-PCI ordering rules apply and depending upon the transaction type and other 
-rules, what is guaranteed is deterministic in nature.
+Replace expressions of the form "1000000 * size/rate" by tc_calc_xmittime().
+The CBQ case deserves an extra comment: when called with bnwd=rate
+tc_cbq_calc_maxidle behaves identical to tc_calc_xmittime, so use it
+for clarity.
 
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-> > (and if it's several msec per bridge, then you have a lot of latency
-> > anyway)
->
->That's what my original concern was when I saw you point this out.
->But MMIO reads here would be expensive and many drivers tolerate
->this latency in exchange for avoiding the MMIO read in the
->performance path.
+---
+commit c25b0a7730d72f266e46fee3cfd53ce9f2a15c2f
+tree 39c6fbd3395e8a41170739d6cff8d3a00d31a915
+parent 8f8a36487119a3cd1afe86a9649704aca088567b
+author Patrick McHardy <kaber@trash.net> Fri, 23 Jun 2006 19:02:46 +0200
+committer Patrick McHardy <kaber@trash.net> Fri, 23 Jun 2006 19:02:46 +0200
 
-As the saying goes, MMIO Reads are "pure evil" and should be avoided at all 
-costs if performance is the goal.   Even in a relatively flat I/O 
-hierarchy, the additional latency is non-trivial and can lead to a 
-significant loss in performance for the system.
+ tc/q_cbq.c   |    2 +-
+ tc/q_tbf.c   |    4 ++--
+ tc/tc_core.c |    2 +-
+ tc/tc_red.c  |    2 +-
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
-Mike 
---=====================_171097435==.ALT
-Content-Type: text/html;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
+diff --git a/tc/q_cbq.c b/tc/q_cbq.c
+index a456eda..045c377 100644
+--- a/tc/q_cbq.c
++++ b/tc/q_cbq.c
+@@ -147,7 +147,7 @@ static int cbq_parse_opt(struct qdisc_ut
+ 	if (ewma_log < 0)
+ 		ewma_log = TC_CBQ_DEF_EWMA;
+ 	lss.ewma_log = ewma_log;
+-	lss.maxidle = tc_cbq_calc_maxidle(r.rate, r.rate, avpkt, lss.ewma_log, 0);
++	lss.maxidle = tc_calc_xmittime(r.rate, avpkt);
+ 	lss.change = TCF_CBQ_LSS_MAXIDLE|TCF_CBQ_LSS_EWMA|TCF_CBQ_LSS_AVPKT;
+ 	lss.avpkt = avpkt;
+ 
+diff --git a/tc/tc_core.c b/tc/tc_core.c
+index 07cf2fa..8688b63 100644
+--- a/tc/tc_core.c
++++ b/tc/tc_core.c
+@@ -67,7 +67,7 @@ int tc_calc_rtable(unsigned bps, __u32 *
+ 			sz += overhead;
+ 		if (sz < mpu)
+ 			sz = mpu;
+-		rtab[i] = tc_core_usec2tick(1000000*((double)sz/bps));
++		rtab[i] = tc_calc_xmittime(bps, sz);
+ 	}
+ 	return cell_log;
+ }
+diff --git a/tc/tc_red.c b/tc/tc_red.c
+index 385e7af..8f9bde0 100644
+--- a/tc/tc_red.c
++++ b/tc/tc_red.c
+@@ -71,7 +71,7 @@ int tc_red_eval_ewma(unsigned qmin, unsi
+ 
+ int tc_red_eval_idle_damping(int Wlog, unsigned avpkt, unsigned bps, __u8 *sbuf)
+ {
+-	double xmit_time = tc_core_usec2tick(1000000*(double)avpkt/bps);
++	double xmit_time = tc_calc_xmittime(bps, avpkt);
+ 	double lW = -log(1.0 - 1.0/(1<<Wlog))/xmit_time;
+ 	double maxtime = 31/lW;
+ 	int clog;
 
-<html>
-<body>
-<font size=3>At 10:14 AM 6/23/2006, Grant Grundler wrote:<br>
-<blockquote type=cite class=cite cite="">On Fri, Jun 23, 2006 at
-04:04:31PM +0200, Arjan van de Ven wrote:<br>
-&gt; &gt; I thought the posted write WILL eventually get to adapter
-memory.&nbsp; Not<br>
-&gt; &gt; stall forever cached in a bridge.&nbsp; I'm wrong?<br>
-&gt; <br>
-&gt; I'm not sure there is a theoretical upper bound.... <br><br>
-I'm not aware of one either since MMIO writes can travel<br>
-across many other chips that are not constrained by<br>
-PCI ordering rules (I'm thinking of SGI
-Altix...)</font></blockquote><br>
-It is processor / coherency backplane technology specific as to the
-number of outstanding writes.&nbsp; There is also no guarantee that such
-writes will hit the top of the PCI hierarchy in the order they were
-posted in a multi-core / processor system.&nbsp; Hence, it is up to
-software to guarantee that ordering is preserved and to not assume
-anything about ordering from a hardware perspective.&nbsp; Once a
-transaction hits the PCI hierarchy, then the PCI ordering rules apply and
-depending upon the transaction type and other rules, what is guaranteed
-is deterministic in nature.<br><br>
-<br>
-<blockquote type=cite class=cite cite=""><font size=3>&gt; (and if it's
-several msec per bridge, then you have a lot of latency<br>
-&gt; anyway)<br><br>
-That's what my original concern was when I saw you point this out.<br>
-But MMIO reads here would be expensive and many drivers tolerate<br>
-this latency in exchange for avoiding the MMIO read in the<br>
-performance path.</blockquote><br>
-As the saying goes, MMIO Reads are &quot;pure evil&quot; and should be
-avoided at all costs if performance is the goal.&nbsp;&nbsp; Even in a
-relatively flat I/O hierarchy, the additional latency is non-trivial and
-can lead to a significant loss in performance for the system.&nbsp;
-<br><br>
-Mike</font></body>
-</html>
-
---=====================_171097435==.ALT--
-
---===============0544514426==
-MIME-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-
---===============0544514426==--
+--------------060406080802050907090009--
