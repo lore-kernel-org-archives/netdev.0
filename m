@@ -1,58 +1,82 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/4] kevent: core files.
-Date: Fri, 23 Jun 2006 23:24:29 +0400
-Message-ID: <20060623192422.GA11508@2ka.mipt.ru>
-References: <20060622171436.GA26161@2ka.mipt.ru> <20060623070933.GA20291@2ka.mipt.ru> <20060623184457.GA13617@kvack.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [3/5] [NET]: Add software TSOv4
+Date: Fri, 23 Jun 2006 12:33:50 -0700
+Message-ID: <1151091230.6498.4.camel@rh4>
+References: <20060622081211.GA22505@gondor.apana.org.au>
+ <20060622081400.GC22671@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:19841 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751951AbWFWTYa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 15:24:30 -0400
-To: Benjamin LaHaise <bcrl@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20060623184457.GA13617@kvack.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:9488 "EHLO MMS3.broadcom.com")
+	by vger.kernel.org with ESMTP id S1751938AbWFWTcy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 15:32:54 -0400
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
+In-Reply-To: <20060622081400.GC22671@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 23, 2006 at 02:44:57PM -0400, Benjamin LaHaise (bcrl@kvack.org) wrote:
-> On Fri, Jun 23, 2006 at 11:09:34AM +0400, Evgeniy Polyakov wrote:
-> > This patch includes core kevent files:
-> >  - userspace controlling
-> >  - kernelspace interfaces
-> >  - initialisation
-> >  - notification state machines
+On Thu, 2006-06-22 at 18:14 +1000, Herbert Xu wrote:
+> [NET]: Add software TSOv4
 > 
-> We don't need yet another event mechanism in the kernel, so I don't see 
-> why the new syscalls should be added when they don't interoperate with 
-> existing solutions.  If your results are enough to sway akpm that it is 
-> worth taking the patches, then it would make sense to merge the code with 
-> the already in-tree APIs.
+> This patch adds the GSO implementation for IPv4 TCP.
 
-What API are you talking about?
-There is only epoll(), which is 40% slower than kevent, and AIO, which
-works not as state machine, but as repeated call for the same work.
-There is also inotify, which allocates new message each time event
-occurs, which is not a good solution for every situation.
+Herbert, Looks like there were some problems in the CHECKSUM_HW case.
+This patch should fix it.  Please double-check my checksum math.
 
-Linux just does not have unified event processing mechanism, which was
-pointed to many times in AIO mail list and when epoll() was only
-introduced. I would even say, that Linux does not have such mechanism at
-all, since every potential user implements it's own, which can not be
-used with others.
+[NET]: Fix CHECKSUM_HW GSO problems.
 
-Kevent fixes that. Although implementation itself can be suboptimal for
-some cases or even unacceptible at all, but it is really needed
-functionality.
+Fix the following 2 problems in the GSO code path for CHECKSUM_HW
+packets:
 
-Every existing notification can be built on top of kevent. One can find
-how easy it was to implement generic poll/select notifications (what
-epoll() does) or socket notifications (which are similar to epoll(), but
-are called from inside socket state machine, thus improving processing
-performance).
+1. Adjust ipv4 TCP pseudo header checksum.
 
-> 		-ben
+2. Initialize skb->tail.
 
--- 
-	Evgeniy Polyakov
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 8e5044b..3f19b3d 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1954,6 +1954,7 @@ struct sk_buff *skb_segment(struct sk_bu
+ 		nskb->data_len = len - hsize;
+ 		nskb->len += nskb->data_len;
+ 		nskb->truesize += nskb->data_len;
++		nskb->tail += nskb->data_len;
+ 	} while ((offset += len) < skb->len);
+ 
+ 	return segs;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 0e029c4..3399110 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2186,7 +2186,8 @@ struct sk_buff *tcp_tso_segment(struct s
+ 		if (skb->ip_summed == CHECKSUM_NONE) {
+ 			th->check = csum_fold(csum_partial(
+ 				skb->h.raw, thlen, csum_add(skb->csum, delta)));
+-		}
++		} else if (skb->ip_summed == CHECKSUM_HW)
++			th->check = ~csum_fold(csum_add(th->check, delta));
+ 
+ 		seq += len;
+ 		skb = skb->next;
+@@ -2196,11 +2197,12 @@ struct sk_buff *tcp_tso_segment(struct s
+ 		th->cwr = 0;
+ 	} while (skb->next);
+ 
++	delta = csum_add(oldlen, htonl(skb->tail - skb->h.raw));
+ 	if (skb->ip_summed == CHECKSUM_NONE) {
+-		delta = csum_add(oldlen, htonl(skb->tail - skb->h.raw));
+ 		th->check = csum_fold(csum_partial(
+ 			skb->h.raw, thlen, csum_add(skb->csum, delta)));
+-	}
++	} else if (skb->ip_summed == CHECKSUM_HW)
++		th->check = ~csum_fold(csum_add(th->check, delta));
+ 
+ out:
+ 	return segs;
+
+
