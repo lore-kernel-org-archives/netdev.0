@@ -1,53 +1,74 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Streamline testing of 802.11 drivers
-Date: Fri, 23 Jun 2006 16:33:45 -0400
-Message-ID: <43e72e890606231333kd0fc534x5d08dad955d13bf5@mail.gmail.com>
+From: Ted <txtoth@gmail.com>
+Subject: Re: [RFC 3/7] NetLabel: CIPSOv4 engine
+Date: Fri, 23 Jun 2006 15:34:17 -0500
+Message-ID: <1151094857.2669.51.camel@localhost.localdomain>
+References: <20060621200031.589235000@flek.zko.hp.com>
+	 <20060622.021223.125894633.davem@davemloft.net>
+	 <1151088481.2669.25.camel@localhost.localdomain>
+	 <20060623.131512.21593290.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Kishore Ramachandran <kishore@winlab.rutgers.edu>,
-	Ivan Seskar <Seskar@winlab.rutgers.edu>
-Return-path: <zd1211-devs-bounces@lists.sourceforge.net>
-To: netdev@vger.kernel.org, zd1211-devs@lists.sourceforge.net
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/zd1211-devs>,
-	<mailto:zd1211-devs-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=zd1211-devs>
-List-Post: <mailto:zd1211-devs@lists.sourceforge.net>
-List-Help: <mailto:zd1211-devs-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/zd1211-devs>,
-	<mailto:zd1211-devs-request@lists.sourceforge.net?subject=subscribe>
-Sender: zd1211-devs-bounces@lists.sourceforge.net
-Errors-To: zd1211-devs-bounces@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wx-out-0102.google.com ([66.249.82.198]:57162 "EHLO
+	wx-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S1752033AbWFWUeU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 16:34:20 -0400
+Received: by wx-out-0102.google.com with SMTP id s17so554754wxc
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2006 13:34:19 -0700 (PDT)
+To: netdev@vger.kernel.org
+In-Reply-To: <20060623.131512.21593290.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I've mentioned this to a few but here it is out to everyone. So as you
-know we have a lot of work ahead of us for linux wireless development.
-To help speed this up, we at Winlab, would like to start hosting a
-testbed for linux wireless development, open to the public. Short term
-goals would be to start off a couple of nodes for each driver
-currently under development like bcm43xx, zd1211, rt2x00, ipw3945,
-ipw2200 and the like, and a provide a set streamlined tests we can use
-to really put to test the drivers and stacks.
+On Fri, 2006-06-23 at 13:15 -0700, David Miller wrote:
+> From: Ted <txtoth@gmail.com>
+> Date: Fri, 23 Jun 2006 13:48:01 -0500
+> 
+> > Realistically customers most likely to adopt use of SELinux are
+> > going to be ones that currently use other trusted OSs such as TSOL
+> > and HP-UX CMW.
+> 
+> Every single user who installs a modern distribution these days likely
+> gets SELINUX enabled by default, and are therefore adopters of
+> SELINUX.  That's a lot of people.
+> 
+> The number of people with existing CIPSO infrastructure are miniscule
+> in comparison.
+> 
 
-This wouldn't be easy if we didn't have infrastructure but we already
-do. Our grid consists of 400 nodes with 2 wireless cards each and 3
-ethernet ports (one for control) --
-http://orbit-lab.org/wiki/Tutorial/Testbed. 90% of our nodes use the
-atheros 5213 chipset and the rest ipw2200s. We'd like to expand this
-with the more wireless cards currently being worked on for linux.
+I think that except those who currently use and understand trusted OSs
+users will change SELinux to permissive mode because they won't have the
+expertise to deal with policy issues. 
 
-Right now we have zome zd1211s so we'll start with that (I'll start
-working on a port to d80211) but will try to accomodate other nodes as
-we get more wireless cards. We will need some help too though, to
-streamline the testing. If you have ideas or would like to contribute
-please let me know. We can purchase wireless cards but if you already
-have reliable confirmed wireless cards which can be used for putting
-into the testbed let me know.
+> Please do not even imply that CIPSO use is anything but fringe in the
+> grand scheme of things.  It most certainly is.  And it will be
+> replaced by IPSEC based labelling, that is a fact.  If people cannot
+> move over to IPSEC labelling simply because their HPUX/TSOL doesn't
+> support it, I'm perfectly happy for those users to stick with HPUX and
+> TSOL.  A lot of people think Linux should try to be everything for
+> everybody, I'm not one of those people :-)
+> 
 
-  Luis
+I can guarantee that initially SELinux adoption will be by those running
+trusted OSs and they will want their systems to be able to interoperate
+at level. The idea that IPSEC will fill this need in the near term is
+just not realistic.
 
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+> For CIPSO we eat a non-trivial maintainence and bloat cost in order to
+> support legacy stuff for this relatively tiny group of potential
+> users.
+> 
+> I'd rather pay the bloat and development costs on something forward
+> thinking like IPSEC labelling.  Something people will actually be
+> using years from now, rather than a dying technology that few people
+> (relatively speaking) use as it is.
+> 
+> Finally, even if CIPSO is something we want to put in, don't worry
+> about it as there's still time to discuss things.  A couple days
+> before the merge window of 2.6.18 development closes is not the time
+> to be submitting half-finished work and expecting it to be integrated.
+> If 2.6.18 integration is what the submitter desires, they should have
+> finished their work and started this review process weeks if not
+> months ago.
+
