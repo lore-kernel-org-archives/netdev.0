@@ -1,26 +1,43 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: New Qlogic qla3xxx NIC Driver v2.02.00k34 for upstream inclusion
-Date: Thu, 22 Jun 2006 17:05:22 -0700
-Message-ID: <adapsh0losd.fsf@cisco.com>
-References: <0BB3E5E7462EEA4295BC02D49691DC0717688F@AVEXCH1.qlogic.org>
-	<449B2621.7080607@garzik.org>
+From: "Gary Zambrano" <zambrano@broadcom.com>
+Subject: [PATCH 1/1] add b44 to maintainers
+Date: Thu, 22 Jun 2006 17:26:20 -0700
+Message-ID: <1151022380.20563.14.camel@dhcp-10-7-81-7.broadcom.com>
+References: <1151021430.20563.10.camel@dhcp-10-7-81-7.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ron Mercer <ron.mercer@qlogic.com>, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, linux-driver@qlogic.com,
-	Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-4.cisco.com ([171.68.10.86]:34315 "EHLO
-	sj-iport-4.cisco.com") by vger.kernel.org with ESMTP
-	id S1750779AbWFWAF0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 20:05:26 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <449B2621.7080607@garzik.org> (Jeff Garzik's message of "Thu, 22 Jun 2006 19:22:09 -0400")
+Received: from mms2.broadcom.com ([216.31.210.18]:46853 "EHLO
+	mms2.broadcom.com") by vger.kernel.org with ESMTP id S1161459AbWFWA07
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Jun 2006 20:26:59 -0400
+To: "Jeff Garzik" <jeff@garzik.org>
+In-Reply-To: <1151021430.20563.10.camel@dhcp-10-7-81-7.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > 15) I wonder if SA_SHIRQ needs to be set, for MSI?
 
-Why would it?  MSI vectors are always unique, aren't they?
+Add b44 to the MAINTAINERS file.
 
- - R.
+Signed-off-by: Gary Zambrano <zambrano@broadcom.com>
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 1421f74..a52e9c0 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -568,6 +568,12 @@ L:	linuxppc-dev@ozlabs.org
+ W:	http://www.penguinppc.org/ppc64/
+ S:	Supported
+ 
++BROADCOM B44 10/100 ETHERNET DRIVER
++P:	Gary Zambrano
++M:	zambrano@broadcom.com
++L:	netdev@vger.kernel.org
++S:	Supported
++
+ BROADCOM BNX2 GIGABIT ETHERNET DRIVER
+ P:	Michael Chan
+ M:	mchan@broadcom.com
+
+
