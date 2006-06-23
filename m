@@ -1,116 +1,62 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [IPROUTE 01/05]: Use tc_calc_xmittime where appropriate
-Date: Fri, 23 Jun 2006 20:28:12 +0200
-Message-ID: <449C32BC.5040006@trash.net>
-References: <20060623180642.13183.74864.sendpatchset@localhost.localdomain> <20060623180644.13183.98204.sendpatchset@localhost.localdomain>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: [PATCH] 2.6.17 missing a call to ieee80211softmac_capabilities from ieee80211softmac_assoc_req
+Date: Fri, 23 Jun 2006 14:38:24 -0400
+Message-ID: <43e72e890606231138yd26c186tc22b346491fccdcf@mail.gmail.com>
+References: <449803E6.5020404@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060406080802050907090009"
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "John Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:439 "EHLO stinky.trash.net")
-	by vger.kernel.org with ESMTP id S1751894AbWFWS2O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 14:28:14 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060623180644.13183.98204.sendpatchset@localhost.localdomain>
+Received: from ug-out-1314.google.com ([66.249.92.175]:24288 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1751907AbWFWSi0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 14:38:26 -0400
+Received: by ug-out-1314.google.com with SMTP id a2so1169097ugf
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2006 11:38:24 -0700 (PDT)
+To: "Larry Finger" <Larry.Finger@lwfinger.net>
+In-Reply-To: <449803E6.5020404@lwfinger.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060406080802050907090009
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+This fixes Assoc with Cisco Aironet 1200 series Wireless Access Points
+as well. Tested with zd1211. Without this the zd1211 was not able to
+complete assoc. Nice catch.
 
-Patrick McHardy wrote:
-> [IPROUTE]: Use tc_calc_xmittime where appropriate
-> 
-> diff --git a/tc/q_tbf.c b/tc/q_tbf.c
-> index 6ed5e0b..87b1b29 100644
-> --- a/tc/q_tbf.c
-> +++ b/tc/q_tbf.c
-> @@ -245,9 +245,9 @@ static int tbf_print_opt(struct qdisc_ut
->  	if (show_raw)
->  		fprintf(f, "limit %s ", sprint_size(qopt->limit, b1));
->  
-> -	latency = 1000000*(qopt->limit/(double)qopt->rate.rate) - tc_core_tick2usec(qopt->buffer);
-> +	latency = tc_calc_xmittime(qopt->rate.rate, qopt->limit) - tc_core_tick2usec(qopt->buffer);
->  	if (qopt->peakrate.rate) {
-> -		double lat2 = 1000000*(qopt->limit/(double)qopt->peakrate.rate) - tc_core_tick2usec(qopt->mtu);
-> +		double lat2 = tc_calc_xmittime(qopt->peakrate.rate, qopt->limit) - tc_core_tick2usec(qopt->mtu);
->  		if (lat2 > latency)
+  Luis
 
-
-I think I should start reviewing my own patches in a mail client :)
-The two cases above are wrong, tc_calc_xmittime does an additional
-tc_core_usec2tick(). Corrected patch attached.
-
---------------060406080802050907090009
-Content-Type: text/plain;
- name="01.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="01.diff"
-
-[IPROUTE]: Use tc_calc_xmittime where appropriate
-
-Replace expressions of the form "1000000 * size/rate" by tc_calc_xmittime().
-The CBQ case deserves an extra comment: when called with bnwd=rate
-tc_cbq_calc_maxidle behaves identical to tc_calc_xmittime, so use it
-for clarity.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit c25b0a7730d72f266e46fee3cfd53ce9f2a15c2f
-tree 39c6fbd3395e8a41170739d6cff8d3a00d31a915
-parent 8f8a36487119a3cd1afe86a9649704aca088567b
-author Patrick McHardy <kaber@trash.net> Fri, 23 Jun 2006 19:02:46 +0200
-committer Patrick McHardy <kaber@trash.net> Fri, 23 Jun 2006 19:02:46 +0200
-
- tc/q_cbq.c   |    2 +-
- tc/q_tbf.c   |    4 ++--
- tc/tc_core.c |    2 +-
- tc/tc_red.c  |    2 +-
- 4 files changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/tc/q_cbq.c b/tc/q_cbq.c
-index a456eda..045c377 100644
---- a/tc/q_cbq.c
-+++ b/tc/q_cbq.c
-@@ -147,7 +147,7 @@ static int cbq_parse_opt(struct qdisc_ut
- 	if (ewma_log < 0)
- 		ewma_log = TC_CBQ_DEF_EWMA;
- 	lss.ewma_log = ewma_log;
--	lss.maxidle = tc_cbq_calc_maxidle(r.rate, r.rate, avpkt, lss.ewma_log, 0);
-+	lss.maxidle = tc_calc_xmittime(r.rate, avpkt);
- 	lss.change = TCF_CBQ_LSS_MAXIDLE|TCF_CBQ_LSS_EWMA|TCF_CBQ_LSS_AVPKT;
- 	lss.avpkt = avpkt;
- 
-diff --git a/tc/tc_core.c b/tc/tc_core.c
-index 07cf2fa..8688b63 100644
---- a/tc/tc_core.c
-+++ b/tc/tc_core.c
-@@ -67,7 +67,7 @@ int tc_calc_rtable(unsigned bps, __u32 *
- 			sz += overhead;
- 		if (sz < mpu)
- 			sz = mpu;
--		rtab[i] = tc_core_usec2tick(1000000*((double)sz/bps));
-+		rtab[i] = tc_calc_xmittime(bps, sz);
- 	}
- 	return cell_log;
- }
-diff --git a/tc/tc_red.c b/tc/tc_red.c
-index 385e7af..8f9bde0 100644
---- a/tc/tc_red.c
-+++ b/tc/tc_red.c
-@@ -71,7 +71,7 @@ int tc_red_eval_ewma(unsigned qmin, unsi
- 
- int tc_red_eval_idle_damping(int Wlog, unsigned avpkt, unsigned bps, __u8 *sbuf)
- {
--	double xmit_time = tc_core_usec2tick(1000000*(double)avpkt/bps);
-+	double xmit_time = tc_calc_xmittime(bps, avpkt);
- 	double lW = -log(1.0 - 1.0/(1<<Wlog))/xmit_time;
- 	double maxtime = 31/lW;
- 	int clog;
-
---------------060406080802050907090009--
+On 6/20/06, Larry Finger <Larry.Finger@lwfinger.net> wrote:
+> In commit ba9b28d19a3251bb1dfe6a6f8cc89b96fb85f683, routine ieee80211softmac_capabilities was added
+> to net/ieee80211/softmac/ieee80211softmac_io.c. As denoted by its name, it completes the
+> capabilities IE that is needed in the associate and reassociate requests sent to the AP. For at
+> least one AP, the Linksys WRT54G V5, the capabilities field must set the 'short preamble' bit or the
+> AP refuses to associate. In the commit noted above, there is a call to the new routine from
+> ieee80211softmac_reassoc_req, but not from ieee80211softmac_assoc_req. This patch fixes that oversight.
+>
+> As noted in the subject, v2.6.17 is affected. My bcm43xx card had been unable to associate since I
+> was forced to buy a new AP. I finally was able to get a packet dump and traced the problem to the
+> capabilities info. Although I had heard that a patch was "floating around", I had not seen it before
+> 2.6.17 was released. As this bug does not affect security and I seem to have the only AP affected by
+> it, there should be no problem in leaving it for 2.6.18.
+>
+> Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
+>
+> index 0954161..8cc8b20 100644
+> --- a/net/ieee80211/softmac/ieee80211softmac_io.c
+> +++ b/net/ieee80211/softmac/ieee80211softmac_io.c
+> @@ -229,6 +229,9 @@ ieee80211softmac_assoc_req(struct ieee8
+>                 return 0;
+>         ieee80211softmac_hdr_3addr(mac, &((*pkt)->header), IEEE80211_STYPE_ASSOC_REQ, net->bssid, net->bssid);
+>
+> +       /* Fill in the capabilities */
+> +       (*pkt)->capability = ieee80211softmac_capabilities(mac, net);
+> +
+>         /* Fill in Listen Interval (?) */
+>         (*pkt)->listen_interval = cpu_to_le16(10);
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
