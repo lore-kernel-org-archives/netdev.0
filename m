@@ -1,97 +1,53 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/4] kevent: core files.
-Date: Sat, 24 Jun 2006 00:17:17 +0400
-Message-ID: <20060623201716.GA26168@2ka.mipt.ru>
-References: <20060622171436.GA26161@2ka.mipt.ru> <20060623070933.GA20291@2ka.mipt.ru> <20060623184457.GA13617@kvack.org> <20060623192422.GA11508@2ka.mipt.ru> <20060623195513.GC14126@kvack.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [PATCH REPOST 0/2][RFC] Network Event Notifier Mechanism
+Date: Fri, 23 Jun 2006 15:19:18 -0500
+Message-ID: <20060623201918.32482.89765.stgit@stevo-desktop>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:61662 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751964AbWFWURP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 16:17:15 -0400
-To: Benjamin LaHaise <bcrl@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20060623195513.GC14126@kvack.org>
+Received: from rrcs-24-227-247-53.sw.biz.rr.com ([24.227.247.53]:52133 "EHLO
+	linux.local") by vger.kernel.org with ESMTP id S1752026AbWFWUTT
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 16:19:19 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 23, 2006 at 03:55:13PM -0400, Benjamin LaHaise (bcrl@kvack.org) wrote:
-> On Fri, Jun 23, 2006 at 11:24:29PM +0400, Evgeniy Polyakov wrote:
-> > What API are you talking about?
-> > There is only epoll(), which is 40% slower than kevent, and AIO, which
-> > works not as state machine, but as repeated call for the same work.
-> > There is also inotify, which allocates new message each time event
-> > occurs, which is not a good solution for every situation.
-> 
-> AIO can be implemented as a state machine.  Nothing in the API stops 
-> you from doing that, and in fact there was code which was implemented as 
-> a state machine used on 2.4 kernels.
 
-But now it is implemented as repeated call for the same work, which does
-not look like it can be used for any other types of work.
-And repeated work introduce latencies.
-As far as I recall, it is you who wanted to remove thread based approach
-from AIO subsystem.
+This patch implements a mechanism that allows interested clients to
+register for notification of certain network events. The intended use
+is to allow RDMA devices (linux/drivers/infiniband) to be notified of
+neighbour updates, ICMP redirects, path MTU changes, and route changes.
 
-> > Linux just does not have unified event processing mechanism, which was
-> > pointed to many times in AIO mail list and when epoll() was only
-> > introduced. I would even say, that Linux does not have such mechanism at
-> > all, since every potential user implements it's own, which can not be
-> > used with others.
-> 
-> The epoll event API doesn't have space in the event fields for result codes 
-> as needed for AIO.  The AIO API does -- how is it lacking in this regard?
+The reason these devices need update events is because they typically
+cache this information in hardware and need to be notified when this
+information has been updated.
 
-AIO completion approach was designed to be used with process context VFS
-update. read/write approach can not cover other types of notifications,
-like inode updates or timers.
+The key events of interest are:
 
-> > Kevent fixes that. Although implementation itself can be suboptimal for
-> > some cases or even unacceptible at all, but it is really needed
-> > functionality.
-> 
-> At the expense of adding another API?  How is this a good thing?  Why 
-> not spit out events in the existing format?
+- neighbour mac address change 
+- routing redirect (the next hop neighbour changes for a dst_entry)
+- path mtu change (the patch mtu for a dst_entry changes).
+- route add/deletes
 
-Format of the structure transferred between the objects does not matter
-at all. We can create a wrapper on kevent structures or kevent can
-transform data from AIO objects.
-The main design goal of kevent is to provide easy connected hooks into
-any state machine, which might be used by kernelspace to notify about
-any kind of events without any knowledge of it's background nature.
-Kevent can be used for example as notification blocks for address
-changes or it can replace netlink completely (it can even emulate
-event multicasting).
+This approach is one of many possibilities and may be preferred because it
+uses an existing notification mechanism that has precedent in the stack.
+An alternative would be to add a netdev method to notify affect devices
+of these events.
 
-Kevent is queue of events, which can be transferred from any object to
-any destination.
+This code does not yet implement path MTU change because the number of
+places in which this value is updated is large and if this mechanism
+seems reasonable, it would be probably be best to funnel these updates
+through a single function.
 
-> > Every existing notification can be built on top of kevent. One can find
-> > how easy it was to implement generic poll/select notifications (what
-> > epoll() does) or socket notifications (which are similar to epoll(), but
-> > are called from inside socket state machine, thus improving processing
-> > performance).
-> 
-> So far your code is adding a lot without unifying anything.
+We would like to get this or similar functionality included in 2.6.19
+and request comments.
 
-Not at all!
-Kevent is a mechanism, which allows to impleement AIO, network AIO, poll
-and select, timer control, adaptive readhead (as example of AIO VFS
-update). All the code I present shows how to use kevent, it is not part
-of the kevent. One can find Makefile in kevent dir to check what is the
-core of the subsystem, which allows to be used as a transport for
-events.
+This patchset consists of 2 patches:
 
-AIO, NAIO, poll/select, socket and timer notifications are just users.
-One can add it's own usage as easy as to call kevent_storage
-initialization function and event generation function. All other pieces
-are hidded in the implementation.
+1) New files implementing the Network Event Notifier
+2) Core network changes to generate network event notifications
 
-> 		-ben
-> -- 
-> "Time is of no importance, Mr. President, only life is important."
-> Don't Email: <dont@kvack.org>.
-
--- 
-	Evgeniy Polyakov
+Signed-off-by: Tom Tucker <tom@opengridcomputing.com>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
