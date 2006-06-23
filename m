@@ -1,72 +1,76 @@
 From: Steve Wise <swise@opengridcomputing.com>
 Subject: Re: [PATCH 0/2][RFC] Network Event Notifier Mechanism
-Date: Fri, 23 Jun 2006 08:11:51 -0500
-Message-ID: <1151068311.7808.8.camel@stevo-desktop>
+Date: Fri, 23 Jun 2006 08:17:01 -0500
+Message-ID: <1151068621.7808.13.camel@stevo-desktop>
 References: <20060621184519.10425.69175.stgit@stevo-desktop>
 	 <20060622.015728.59653992.davem@davemloft.net>
 	 <1150984380.27156.4.camel@stevo-desktop>
 	 <1150990041.3040.6.camel@stevo-desktop>  <1151005381.5392.108.camel@jzny2>
-	 <1151007524.3040.48.camel@stevo-desktop>  <1151008597.5392.118.camel@jzny2>
-	 <1151009932.3040.80.camel@stevo-desktop>  <1151014488.5099.23.camel@jzny2>
+	 <1151008816.3040.60.camel@stevo-desktop>  <1151009762.5392.126.camel@jzny2>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:44610 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S964816AbWFWNLx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 09:11:53 -0400
+Received: from es335.com ([67.65.19.105]:10784 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S964819AbWFWNRD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 09:17:03 -0400
 To: hadi@cyberus.ca
-In-Reply-To: <1151014488.5099.23.camel@jzny2>
+In-Reply-To: <1151009762.5392.126.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-> > 
-> > > Out of curiosity - what does RDMA NIC have that would need these events?
-> > > a route table or L2 table etc? Can you elucidate a little?
+On Thu, 2006-06-22 at 16:56 -0400, jamal wrote:
+> On Thu, 2006-22-06 at 15:40 -0500, Steve Wise wrote:
+> > On Thu, 2006-06-22 at 15:43 -0400, jamal wrote:
 > > > 
+> > > No - what these 2 gents are saying was these events and infrastructure
+> > > already exist. 
 > > 
-> > Mainly the L2 table, next hop ip addr, and the path mtu.  RDMA NICs
-> > implement the entire RDMA stack in HW.  How they deal with L2 and L3
-> > changes vary to some degree, but what seems to be emerging is that they
-> > get this information from the native stack because ARP and ICMP, for
-> > example, are always passed up to the native stack.
+> > Notification of the exact events needed does not exist today.   
 > > 
 > 
-> I am still unclear: 
-> You have destination IP address, the dstMAC of the nexthop to get the
-> packet to this IP address and i suspect some srcMAC address you will use
-> sending out as well as the pathMTU to get there correct?
-> Because of the IP address it sounds to me like you are populating an L3
-> table
+> Ok, so you cant event make use of anything that already exists?
+> Or is a subset of what you need already there?
+> 
+> > The key events, again, are:
+> > 
+> > - the neighbour entry mac address has changed.
+> > 
+> >
+> > - the next hop ip address (ie the neighbour) for a given dst_entry has
+> > changed.
+> 
+> 
+> I dont see a difference for the above two from an L2 perspective.
+> Are you keeping track of IP addresses?
 
-I mispoke.  The HW I'm using really only maintains a table of next hop
-mac addrs and a table of src mac addrs.  Each active RDMA connection in
-HW keeps an index into each table for building the ethernet header. 
+There is no difference from an L2 perspective, but the RDMA driver needs
+notification of each so it can correctly manipulate the L2 table in HW
+and/or control block for the affected active connections.
 
-The _driver_ needs to know when the next hop mac addr changes, or when
-the next hop itself changes for a given destination so that it can
-update the active connections and/or the L2T table accordingly.   Same
-deal with the path mtu...
-
-> How is this info used in hardware? Can you explain how an arriving
-> packet would be used by the RDMA in conjunction with this info once it
-> is in the hardware?
+> You didn't answer my question in the previous email as to what RDMA
+> needs to keep track of in hardware.
 > 
 
-I think my stuff above explains this, eh?
+See my previous email.  To reiterate: The HW I'm working on maintains a
+L2 table, and each active RDMA connection keeps an index into this
+table .  If the mac addr of the next hop changes, then the L2 Table gets
+updated.  If the next hop itself changes, then each active connection
+must be kicked to update its index into the L2 table.
 
-> > These devices also act a standard Ethernet NIC btw...
+
+> > 
+> > - the path mtu for a given dst_entry has changed.
 > > 
 > 
-> Meaning there is no funky hardware processing?
+> Same with this.
 > 
 
-If an incoming packet is not for one of the active RDMA connections (or
-a listening RDMA endpoint), then the packet is passed up to the native
-stack via the device's netdev driver.
+The RDMA HW needs the path mtu for each connection in order to do
+segmentation.
 
-Stevo.
 
+
+Steve.
 
