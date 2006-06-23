@@ -1,45 +1,58 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: Streamline testing of 802.11 drivers
-Date: Fri, 23 Jun 2006 18:56:05 -0400
-Message-ID: <43e72e890606231556o57f1590fve91a98b5adfa5379@mail.gmail.com>
-References: <43e72e890606231333kd0fc534x5d08dad955d13bf5@mail.gmail.com>
-	 <449C6FA5.4060300@lwfinger.net>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC 3/7] NetLabel: CIPSOv4 engine
+Date: Fri, 23 Jun 2006 19:24:36 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0606231906380.6209@d.namei>
+References: <20060621200031.589235000@flek.zko.hp.com>
+ <20060622.021223.125894633.davem@davemloft.net>  <1151088481.2669.25.camel@localhost.localdomain>
+  <20060623.131512.21593290.davem@davemloft.net> <1151094857.2669.51.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:51187 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1752154AbWFWW4G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jun 2006 18:56:06 -0400
-Received: by ug-out-1314.google.com with SMTP id a2so1262973ugf
-        for <netdev@vger.kernel.org>; Fri, 23 Jun 2006 15:56:05 -0700 (PDT)
-To: "Larry Finger" <Larry.Finger@lwfinger.net>
-In-Reply-To: <449C6FA5.4060300@lwfinger.net>
-Content-Disposition: inline
+Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:10909 "EHLO
+	mail7.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1750779AbWFWXYi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 19:24:38 -0400
+To: Ted <txtoth@gmail.com>
+In-Reply-To: <1151094857.2669.51.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/23/06, Larry Finger <Larry.Finger@lwfinger.net> wrote:
-> Luis R. Rodriguez wrote:
-> >
-> > Right now we have zome zd1211s so we'll start with that (I'll start
-> > working on a port to d80211) but will try to accomodate other nodes as
-> > we get more wireless cards. We will need some help too though, to
-> > streamline the testing. If you have ideas or would like to contribute
-> > please let me know. We can purchase wireless cards but if you already
-> > have reliable confirmed wireless cards which can be used for putting
-> > into the testbed let me know.
->
-> I have a spare Linksys WPC54G Cardbus adapter with an early Broadcom BCM4306 chip in it. The LEDS do
-> not work, but everything else is OK.
+On Fri, 23 Jun 2006, Ted wrote:
 
-Thanks Larry -- I'm sorry for not mentioning in the original thread
-but basically miniPCI and USB is what we can slap onto our nodes so
-far. We'll have to figure something out for Cardbus..  I searched and
-it seems there some miniPCI bcm4306. I'll see if we can come up with a
-cardbus solution though as I'm sure there's gotta be some card which
-don't ship in other form factors. Will get back to you on that.
+> I can guarantee that initially SELinux adoption will be by those running
+> trusted OSs and they will want their systems to be able to interoperate
+> at level. The idea that IPSEC will fill this need in the near term is
+> just not realistic.
 
-  Luis
+SELinux is already being adopted for all kinds of needs.
+
+In many cases, people have been using MLS because that's all there is in 
+terms of MAC operating systems, and would actually be much better off with 
+Type Enforcement for new deployments.
+
+MLS solves a very narrow (albeit important) case, whereas TE is designed 
+to be generic.  Typically, MLS is indicated when you have a very large 
+number of domains to separate (e.g. many hundreds or thousands of 
+compartments with hierarchical properites).  
+
+SELinux provides MLS support, and has a generic labeled networking 
+framework ("xfrm labeling").  Some further work is needed for xfrm 
+labeling to provide a complete MLS solution, which TCS and co have been 
+working on.
+
+The general idea is that we're working on new, inherently flexible 
+security schemes for Linux, which will meet a wider range of requirements 
+and be available as standard features of mainstream distros.
+
+Support for interoperability with legacy CIPSO systems is something that I 
+think would be nice to have, if it can be done in a way which doesn't 
+impact deeply on core kernel code, and plays nicely with native Linux 
+infrastructure.
+
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
