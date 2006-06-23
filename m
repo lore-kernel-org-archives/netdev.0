@@ -1,65 +1,39 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: ixgb EEH/PCI errors on reset
-Date: Fri, 23 Jun 2006 12:09:58 -0500
-Message-ID: <20060623170958.GN8866@austin.ibm.com>
+From: Grant Grundler <iod00d@hp.com>
+Subject: Re: [openib-general] [PATCH v3 1/7] AMSO1100 Low Level Driver.
+Date: Fri, 23 Jun 2006 10:14:57 -0700
+Message-ID: <20060623171457.GA3610@esmail.cup.hp.com>
+References: <20060620203050.31536.5341.stgit@stevo-desktop> <20060620203055.31536.15131.stgit@stevo-desktop> <1150836226.2891.231.camel@laptopd505.fenrus.org> <1151070290.7808.33.camel@stevo-desktop> <1151070532.3204.10.camel@laptopd505.fenrus.org> <1151071005.7808.39.camel@stevo-desktop> <1151071471.3204.12.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: Steve Wise <swise@opengridcomputing.com>, rdreier@cisco.com,
+	linux-kernel@vger.kernel.org, openib-general@openib.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:45987 "EHLO e5.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1751781AbWFWRKD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 13:10:03 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e5.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5NHA0Ff017541
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Fri, 23 Jun 2006 13:10:01 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay02.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5NH9xgq284092
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 23 Jun 2006 13:10:00 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5NH9xi5026061
-	for <netdev@vger.kernel.org>; Fri, 23 Jun 2006 13:09:59 -0400
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>, cramerj@intel.com,
-	jeffrey.t.kirsher@intel.com, auke-jan.h.kok@intel.com,
-	ayyappan.veeraiyan@intel.com
+Received: from palrel10.hp.com ([156.153.255.245]:50573 "EHLO palrel10.hp.com")
+	by vger.kernel.org with ESMTP id S1751793AbWFWRN1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 13:13:27 -0400
+To: Arjan van de Ven <arjan@infradead.org>
 Content-Disposition: inline
+In-Reply-To: <1151071471.3204.12.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Jun 23, 2006 at 04:04:31PM +0200, Arjan van de Ven wrote:
+> > I thought the posted write WILL eventually get to adapter memory.  Not
+> > stall forever cached in a bridge.  I'm wrong?
+> 
+> I'm not sure there is a theoretical upper bound.... 
 
+I'm not aware of one either since MMIO writes can travel
+across many other chips that are not constrained by
+PCI ordering rules (I'm thinking of SGI Altix...)
 
-Hi,
+> (and if it's several msec per bridge, then you have a lot of latency
+> anyway)
 
-I've got another ixgb driver bug I'm struggling with; clues or hints
-appreciated.
+That's what my original concern was when I saw you point this out.
+But MMIO reads here would be expensive and many drivers tolerate
+this latency in exchange for avoiding the MMIO read in the
+performance path.
 
-I've got a patch for PCI error recovery for the ixgb, which works on 
-many older kernels but seems to be broken on linux-2.6.17-rc6-mm2
-(which is ixgb version 1.0.109).  After performing a PCI reset on the 
-card, I try to re-initialize the cad and the driver, with the following
-sequence:
-
-   pci_set_master(pdev);
-   netif_carrier_off(netdev);
-   netif_stop_queue(netdev);
-   ixgb_check_options(adapter);
-   ixgb_reset(adapter);
-
-This is only a subset of the ixgb_probe code, since I don't need to 
-request regions or do any of the other setup.  However, this code 
-fails in an unexpected way.  The last call invokes ixgb_mac_reset()
-which writes a reset bit, delays a few millisecs, and reads the reset
-bit.  The problem I'm seeing is that the read 
-
-  ctrl_reg = IXGB_READ_REG(hw, CTRL0);
-
-triggers some PCI bus error that off-lines the device. Any hints
-about where to look? This doesn't occur on other driver versions,
-and doesn't occur on this driver during the ordinary probe() sequence.
-Increasing the dealy doesn't seem to help. 
-
---linas
-
-
+grant
