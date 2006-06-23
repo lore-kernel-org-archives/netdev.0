@@ -1,52 +1,49 @@
-From: Dan Williams <dcbw@redhat.com>
+From: Jiri Benc <jbenc@suse.cz>
 Subject: Re: [RFC] sysfs + configfs on 802.11 wireless drivers
-Date: Fri, 23 Jun 2006 07:50:47 -0400
-Message-ID: <1151063447.2473.6.camel@localhost.localdomain>
+Date: Fri, 23 Jun 2006 13:52:33 +0200
+Message-ID: <20060623135233.724a8e51@griffin.suse.cz>
 References: <43e72e890606220512h5197d473s5f7da9e734814005@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org,
 	"John W. Linville" <linville@tuxdriver.com>,
-	Greg KH <greg@kroah.com>
+	"Greg KH" <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:58286 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S933071AbWFWLu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 07:50:29 -0400
+Received: from styx.suse.cz ([82.119.242.94]:63885 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S933077AbWFWLwf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 07:52:35 -0400
 To: "Luis R. Rodriguez" <mcgrof@gmail.com>
 In-Reply-To: <43e72e890606220512h5197d473s5f7da9e734814005@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-06-22 at 08:12 -0400, Luis R. Rodriguez wrote:
-> (4) At resume() we could just have our driver read our sysfs
-> attributes and try to set all of them back exactly how they were
-> before but to reduce bloat on our drivers and since our state is
-> already exported we could just have userspace do it for us so... we
-> use netlink to communicate to userspace to go ahead and ask it to
-> resume() us. Advantages of this would be userspace would always
-> consistantly handle the assoc/desassoc and WPA in a consistent manner
-> and as mentioned above, driver bloatness killing.
+On Thu, 22 Jun 2006 08:12:24 -0400, Luis R. Rodriguez wrote:
+> Kernel level:
+> 
+> (1) Use the new *configfs* for all user-specific attributes
+> (2) Use *sysfs* read-only kobjects for device-specific attributes like
+> values which can be saved for suspend() and collected for resume().
+> IEEE 802.11 capabilities, features (for example radiotap), and what is
+> currently settable/gettable from private ioctl realm along with its
+> restrictions can also be exported via sysfs.
+> (3) On resume() talk to userspace via netlink to read our sysfs and configfs us
 
-I think having the driver try to set all its state back is pretty much
-useless in a large number of cases.  While definitely useful for some
-cases, consider:
+We need a new hostapd<->stack communication protocol. It definitely
+cannot be configfs as we need asynchronous events; netlink seems to be
+the best solution for this. Why should be a part of 802.11
+userspace<->kernel communication done by netlink and part by
+configfs/sysfs?
 
-a) suspend, drive to work, resume
-b) WPA-related stuff, which takes much more than simply setting SSID and
-encryption key back on the card
+Second, all new network stuff is configured via netlink (or by ioctls,
+but that doesn't count). Why should be 802.11 different?
 
-Neither of these instances allows the driver to just stick its fingers
-in its ears, hum loudly, and pretend nothing happened between suspend
-and resume.  Essentially, drivers would be doing all this work for
-unencrypted and WEP cases, and then only those cases where the machine
-hasn't physically moved.
+I'd rather choose the way of extending current WE-netlink.
 
-Our effort is probably better spent elsewhere, especially since many
-popular userspace tools already handle resume for us just fine.  More
-useful to have drivers just come back from resume in an initialized
-state similar to system boot.
+Thanks,
 
-Dan
+ Jiri
 
-
+-- 
+Jiri Benc
+SUSE Labs
