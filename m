@@ -1,175 +1,97 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: ixgb EEH/PCI errors on reset
-Date: Fri, 23 Jun 2006 13:15:53 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.63.0606231258110.3548@jbrandeb-desk.amr.corp.intel.com>
-References: <20060623170958.GN8866@austin.ibm.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [1/4] kevent: core files.
+Date: Sat, 24 Jun 2006 00:17:17 +0400
+Message-ID: <20060623201716.GA26168@2ka.mipt.ru>
+References: <20060622171436.GA26161@2ka.mipt.ru> <20060623070933.GA20291@2ka.mipt.ru> <20060623184457.GA13617@kvack.org> <20060623192422.GA11508@2ka.mipt.ru> <20060623195513.GC14126@kvack.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	cramerj <cramerj@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr17.intel.com ([134.134.136.16]:15569 "EHLO
-	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1752019AbWFWUP4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jun 2006 16:15:56 -0400
-To: Linas Vepstas <linas@austin.ibm.com>
-In-Reply-To: <20060623170958.GN8866@austin.ibm.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:61662 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751964AbWFWURP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 16:17:15 -0400
+To: Benjamin LaHaise <bcrl@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20060623195513.GC14126@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Jun 2006, Linas Vepstas wrote:
-> I've got another ixgb driver bug I'm struggling with; clues or hints
-> appreciated.
+On Fri, Jun 23, 2006 at 03:55:13PM -0400, Benjamin LaHaise (bcrl@kvack.org) wrote:
+> On Fri, Jun 23, 2006 at 11:24:29PM +0400, Evgeniy Polyakov wrote:
+> > What API are you talking about?
+> > There is only epoll(), which is 40% slower than kevent, and AIO, which
+> > works not as state machine, but as repeated call for the same work.
+> > There is also inotify, which allocates new message each time event
+> > occurs, which is not a good solution for every situation.
 > 
-> I've got a patch for PCI error recovery for the ixgb, which works on
-> many older kernels but seems to be broken on linux-2.6.17-rc6-mm2
-> (which is ixgb version 1.0.109).  After performing a PCI reset on the
-> card, I try to re-initialize the cad and the driver, with the following
-> sequence:
+> AIO can be implemented as a state machine.  Nothing in the API stops 
+> you from doing that, and in fact there was code which was implemented as 
+> a state machine used on 2.4 kernels.
+
+But now it is implemented as repeated call for the same work, which does
+not look like it can be used for any other types of work.
+And repeated work introduce latencies.
+As far as I recall, it is you who wanted to remove thread based approach
+from AIO subsystem.
+
+> > Linux just does not have unified event processing mechanism, which was
+> > pointed to many times in AIO mail list and when epoll() was only
+> > introduced. I would even say, that Linux does not have such mechanism at
+> > all, since every potential user implements it's own, which can not be
+> > used with others.
 > 
->    pci_set_master(pdev);
->    netif_carrier_off(netdev);
->    netif_stop_queue(netdev);
->    ixgb_check_options(adapter);
->    ixgb_reset(adapter);
+> The epoll event API doesn't have space in the event fields for result codes 
+> as needed for AIO.  The AIO API does -- how is it lacking in this regard?
+
+AIO completion approach was designed to be used with process context VFS
+update. read/write approach can not cover other types of notifications,
+like inode updates or timers.
+
+> > Kevent fixes that. Although implementation itself can be suboptimal for
+> > some cases or even unacceptible at all, but it is really needed
+> > functionality.
 > 
-> This is only a subset of the ixgb_probe code, since I don't need to
-> request regions or do any of the other setup.  However, this code
-> fails in an unexpected way.  The last call invokes ixgb_mac_reset()
-> which writes a reset bit, delays a few millisecs, and reads the reset
-> bit.  The problem I'm seeing is that the read
+> At the expense of adding another API?  How is this a good thing?  Why 
+> not spit out events in the existing format?
+
+Format of the structure transferred between the objects does not matter
+at all. We can create a wrapper on kevent structures or kevent can
+transform data from AIO objects.
+The main design goal of kevent is to provide easy connected hooks into
+any state machine, which might be used by kernelspace to notify about
+any kind of events without any knowledge of it's background nature.
+Kevent can be used for example as notification blocks for address
+changes or it can replace netlink completely (it can even emulate
+event multicasting).
+
+Kevent is queue of events, which can be transferred from any object to
+any destination.
+
+> > Every existing notification can be built on top of kevent. One can find
+> > how easy it was to implement generic poll/select notifications (what
+> > epoll() does) or socket notifications (which are similar to epoll(), but
+> > are called from inside socket state machine, thus improving processing
+> > performance).
 > 
->   ctrl_reg = IXGB_READ_REG(hw, CTRL0);
-> 
-> triggers some PCI bus error that off-lines the device. Any hints
-> about where to look? This doesn't occur on other driver versions,
-> and doesn't occur on this driver during the ordinary probe() sequence.
-> Increasing the dealy doesn't seem to help.
+> So far your code is adding a lot without unifying anything.
 
-you probably need to do something similar to stopping the transmitter and 
-receiver using the TCTL and RCTL registers, and then waiting for any 
-pending master requests to finish.
+Not at all!
+Kevent is a mechanism, which allows to impleement AIO, network AIO, poll
+and select, timer control, adaptive readhead (as example of AIO VFS
+update). All the code I present shows how to use kevent, it is not part
+of the kevent. One can find Makefile in kevent dir to check what is the
+core of the subsystem, which allows to be used as a transport for
+events.
 
-Ah, it appears the code in ixgb_adapter_stop is missing a IXGB_WRITE_FLUSH 
-before the msec_delay.
+AIO, NAIO, poll/select, socket and timer notifications are just users.
+One can add it's own usage as easy as to call kevent_storage
+initialization function and event generation function. All other pieces
+are hidded in the implementation.
 
-try this patch?  it is compile tested.
+> 		-ben
+> -- 
+> "Time is of no importance, Mr. President, only life is important."
+> Don't Email: <dont@kvack.org>.
 
-
-<snip>
-
-[PATCH] ixgb: make sure to flush writes before waiting
-ixgb is missing some write flushes when issuing the reset, and a few 
-others for that matter.
-
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-
----
-
- drivers/net/ixgb/ixgb_ee.c |    9 +++++++++
- drivers/net/ixgb/ixgb_hw.c |    5 +++--
- 2 files changed, 12 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ixgb/ixgb_ee.c b/drivers/net/ixgb/ixgb_ee.c
-index 8357c55..2359973 100644
---- a/drivers/net/ixgb/ixgb_ee.c
-+++ b/drivers/net/ixgb/ixgb_ee.c
-@@ -55,6 +55,7 @@ ixgb_raise_clock(struct ixgb_hw *hw,
- 	 */
- 	*eecd_reg = *eecd_reg | IXGB_EECD_SK;
- 	IXGB_WRITE_REG(hw, EECD, *eecd_reg);
-+	IXGB_WRITE_FLUSH(hw);
- 	udelay(50);
- 	return;
- }
-@@ -74,6 +75,7 @@ ixgb_lower_clock(struct ixgb_hw *hw,
- 	 */
- 	*eecd_reg = *eecd_reg & ~IXGB_EECD_SK;
- 	IXGB_WRITE_REG(hw, EECD, *eecd_reg);
-+	IXGB_WRITE_FLUSH(hw);
- 	udelay(50);
- 	return;
- }
-@@ -112,6 +114,7 @@ ixgb_shift_out_bits(struct ixgb_hw *hw,
- 			eecd_reg |= IXGB_EECD_DI;
- 
- 		IXGB_WRITE_REG(hw, EECD, eecd_reg);
-+		IXGB_WRITE_FLUSH(hw);
- 
- 		udelay(50);
- 
-@@ -208,21 +211,25 @@ ixgb_standby_eeprom(struct ixgb_hw *hw)
- 	/*  Deselct EEPROM  */
- 	eecd_reg &= ~(IXGB_EECD_CS | IXGB_EECD_SK);
- 	IXGB_WRITE_REG(hw, EECD, eecd_reg);
-+	IXGB_WRITE_FLUSH(hw);
- 	udelay(50);
- 
- 	/*  Clock high  */
- 	eecd_reg |= IXGB_EECD_SK;
- 	IXGB_WRITE_REG(hw, EECD, eecd_reg);
-+	IXGB_WRITE_FLUSH(hw);
- 	udelay(50);
- 
- 	/*  Select EEPROM  */
- 	eecd_reg |= IXGB_EECD_CS;
- 	IXGB_WRITE_REG(hw, EECD, eecd_reg);
-+	IXGB_WRITE_FLUSH(hw);
- 	udelay(50);
- 
- 	/*  Clock low  */
- 	eecd_reg &= ~IXGB_EECD_SK;
- 	IXGB_WRITE_REG(hw, EECD, eecd_reg);
-+	IXGB_WRITE_FLUSH(hw);
- 	udelay(50);
- 	return;
- }
-@@ -242,11 +249,13 @@ ixgb_clock_eeprom(struct ixgb_hw *hw)
- 	/*  Rising edge of clock  */
- 	eecd_reg |= IXGB_EECD_SK;
- 	IXGB_WRITE_REG(hw, EECD, eecd_reg);
-+	IXGB_WRITE_FLUSH(hw);
- 	udelay(50);
- 
- 	/*  Falling edge of clock  */
- 	eecd_reg &= ~IXGB_EECD_SK;
- 	IXGB_WRITE_REG(hw, EECD, eecd_reg);
-+	IXGB_WRITE_FLUSH(hw);
- 	udelay(50);
- 	return;
- }
-diff --git a/drivers/net/ixgb/ixgb_hw.c b/drivers/net/ixgb/ixgb_hw.c
-index f7fa10e..3e08ba8 100644
---- a/drivers/net/ixgb/ixgb_hw.c
-+++ b/drivers/net/ixgb/ixgb_hw.c
-@@ -81,7 +81,7 @@ static uint32_t ixgb_mac_reset(struct ix
- #else
- 	IXGB_WRITE_REG(hw, CTRL0, ctrl_reg);
- #endif
--
-+	IXGB_WRITE_FLUSH(hw);
- 	/* Delay a few ms just to allow the reset to complete */
- 	msec_delay(IXGB_DELAY_AFTER_RESET);
- 	ctrl_reg = IXGB_READ_REG(hw, CTRL0);
-@@ -133,6 +133,7 @@ ixgb_adapter_stop(struct ixgb_hw *hw)
- 	 */
- 	IXGB_WRITE_REG(hw, RCTL, IXGB_READ_REG(hw, RCTL) & ~IXGB_RCTL_RXEN);
- 	IXGB_WRITE_REG(hw, TCTL, IXGB_READ_REG(hw, TCTL) & ~IXGB_TCTL_TXEN);
-+	IXGB_WRITE_FLUSH(hw);
- 	msec_delay(IXGB_DELAY_BEFORE_RESET);
- 
- 	/* Issue a global reset to the MAC.  This will reset the chip's
-@@ -287,7 +288,7 @@ ixgb_init_hw(struct ixgb_hw *hw)
- #else
- 	IXGB_WRITE_REG(hw, CTRL1, IXGB_CTRL1_EE_RST);
- #endif
--
-+	IXGB_WRITE_FLUSH(hw);
- 	/* Delay a few ms just to allow the reset to complete */
- 	msec_delay(IXGB_DELAY_AFTER_EE_RESET);
- 
+-- 
+	Evgeniy Polyakov
