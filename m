@@ -1,97 +1,59 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: PATCHv3 2.6.17-rc5 tulip free_irq() called too late
-Date: Thu, 22 Jun 2006 23:00:29 -0600
-Message-ID: <20060623050029.GB23383@colo.lackof.org>
-References: <20060531195234.GA4967@colo.lackof.org> <44883778.8000209@pobox.com> <20060608170120.GI8246@colo.lackof.org> <20060613235531.GA4191@colo.lackof.org> <20060622004339.GO19196@goober>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [1/1] Kevent subsystem.
+Date: Fri, 23 Jun 2006 09:50:23 +0400
+Message-ID: <20060623055019.GA7771@2ka.mipt.ru>
+References: <20060622171436.GA26161@2ka.mipt.ru> <7e63f56c0606221253k7e3d28eejc75bf1be4304c389@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from colo.lackof.org ([198.49.126.79]:32657 "EHLO colo.lackof.org")
-	by vger.kernel.org with ESMTP id S932310AbWFWFAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 01:00:32 -0400
-To: Valerie Henson <val_henson@linux.intel.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:16512 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932319AbWFWFug (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 01:50:36 -0400
+To: Robert Iakobashvili <coroberti@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20060622004339.GO19196@goober>
+In-Reply-To: <7e63f56c0606221253k7e3d28eejc75bf1be4304c389@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[ sorry, for the record I'm not trimming Val's comments - mine are much below]
-
-On Wed, Jun 21, 2006 at 05:43:40PM -0700, Valerie Henson wrote:
-...
-> Hi folks,
+On Thu, Jun 22, 2006 at 09:53:38PM +0200, Robert Iakobashvili (coroberti@gmail.com) wrote:
+> Evgeniy,
 > 
-> The quick summary of my thoughts on this patch is that it isn't the
-> ideal patch, but it works and it's well-tested.  Doing my preferred
-> fix (adding a shutdown flag) would be invasive and take many weeks to
-> reach the level of stability of Grant's patch.  So I'm taking this
-> patch but adding a comment describing my preferred fix.
+> On 6/22/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 > 
-> Here's the long version.  The obvious ordering of bringing up the card
-> is:
+> >Kevent subsystem incorporates several AIO/kqueue design notes and ideas.
+> >Kevent can be used both for edge and level notifications. It supports
+> >socket notifications, network AIO (aio_send(), aio_recv() and
+> >aio_sendfile()), inode notifications (create/remove),
+> >generic poll()/select() notifications and timer notifications.
 > 
-> request_irq()
-> setup DMA resources
-> enable interrupts
-> start DMA engine
-
-The problem here is request_irq() enables interrupts.
-SO the third step happens as part of the first step.
-
-And if an IRQ happens to be pending, it will blow up.
-But since we reset the chip at init time, that should
-never happen.
-
+> Great job!
+> Smooth integration with userland asynch POSIX frameworks
+> (e.g. ACE POSIX_Proactor) may require syscalls (or their emulation)
+> with POSIX interface:
 > 
-> And the obvious ordering of shutting it down is:
+> * POSIX_API
+> * aio_read
+> * aio_write
+> * aio_suspend
+> * aio_error
+> * aio_return
+> * aio_cancel
 > 
-> stop DMA engine
-> disable interrupts
-> remove DMA resources
-> free_irq()
+> where aio_suspend is very important.
 
-This attempts to be symetrical with the init sequence and 
-I like that approach where possible. It's not symetrical
-in practice because the interrupt code restarts DMA.
-(which is what you've noted below)
+I've designed network AIO differently as how posix declared it's
+functions. POSIX AIO is like rocket science - while one tries to
+implement them all there is no time to do the real work.
+Although all of them including suspend can be emulated on top of
+existing calls to kevent.
 
-> The problem with the above shutdown order is that we can receive an
-> interrupt in between stopping DMA and disabling interrupts, and the
-> tulip irq handler will reenable DMA =><= Boom!  The solution I prefer
-> is to make the irq handler aware of whether we are shutting down or
-> not, and not reenable DMA in that case.
+> -- 
+> Sincerely,
+> ------------------------------------------------------------------
+> Robert Iakobashvili, coroberti at gmail dot com
+> Navigare necesse est, vivere non est necesse.
+> ------------------------------------------------------------------
 
-While I believe this will work too, I don't advocate this approach
-because I don't like to add code to interrupt handlers unless
-it's the _only_ way to fix a problem. 
-
->   However, it is a non-trivial
-> patch to get right, and I would rather have the bug fixed short-term
-> with the ordering Grant uses:
-> 
-> disable interrupts
-> free_irq()
-> stop rxtx
-> remove DMA resources
-> 
-> Make sense to everyone?  I'll redo the patch with the comment and get
-> Grant's sign-off.
-
-Yes. I'm ok with anything similar to what you posted above:
-
-    Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
-
-
-And Val, thanks for accepting the patch and taking the time to
-explain where you want to go next with the code in this case.
-I'll be happy to setup remote access to my test environment when
-you are ready to test that next step.
-
-thanks,
-grant
-
-> 
-> -VAL
+-- 
+	Evgeniy Polyakov
