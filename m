@@ -1,43 +1,52 @@
-From: "Gary Zambrano" <zambrano@broadcom.com>
-Subject: [PATCH 1/1] add b44 to maintainers
-Date: Thu, 22 Jun 2006 17:26:20 -0700
-Message-ID: <1151022380.20563.14.camel@dhcp-10-7-81-7.broadcom.com>
-References: <1151021430.20563.10.camel@dhcp-10-7-81-7.broadcom.com>
+From: Philip Craig <philipc@snapgear.com>
+Subject: Re: New Qlogic qla3xxx NIC Driver v2.02.00k31 for upstream inclusion
+Date: Fri, 23 Jun 2006 10:51:03 +1000
+Message-ID: <449B3AF7.70801@snapgear.com>
+References: <0BB3E5E7462EEA4295BC02D49691DC07176751@AVEXCH1.qlogic.org> <20060621215531.14812d7c.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>, jeff@garzik.org,
+	linux-driver@qlogic.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:46853 "EHLO
-	mms2.broadcom.com") by vger.kernel.org with ESMTP id S1161459AbWFWA07
+Received: from rex.snapgear.com ([203.143.235.140]:30685 "EHLO
+	cyberguard.com.au") by vger.kernel.org with ESMTP id S1751057AbWFWAvH
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Jun 2006 20:26:59 -0400
-To: "Jeff Garzik" <jeff@garzik.org>
-In-Reply-To: <1151021430.20563.10.camel@dhcp-10-7-81-7.broadcom.com>
+	Thu, 22 Jun 2006 20:51:07 -0400
+To: Ron Mercer <ron.mercer@qlogic.com>
+In-Reply-To: <20060621215531.14812d7c.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 06/22/2006 02:55 PM, Andrew Morton wrote:
+> - Is there a better way of doing this?
+>
+> static void ql_swap_mac_addr(u8 * macAddress)
+> {
+> #ifdef __BIG_ENDIAN
+> 	u8 temp;
+> 	temp = macAddress[0];
+> 	macAddress[0] = macAddress[1];
+> 	macAddress[1] = temp;
+> 	temp = macAddress[2];
+> 	macAddress[2] = macAddress[3];
+> 	macAddress[3] = temp;
+> 	temp = macAddress[4];
+> 	macAddress[4] = macAddress[5];
+> 	macAddress[5] = temp;
+> #endif
+> }
 
-Add b44 to the MAINTAINERS file.
+Perhaps something like:
 
-Signed-off-by: Gary Zambrano <zambrano@broadcom.com>
+static void ql_swap_mac_addr(u8 * macAddress)
+{
+	u16 *p = (u16 *)macAddress;
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 1421f74..a52e9c0 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -568,6 +568,12 @@ L:	linuxppc-dev@ozlabs.org
- W:	http://www.penguinppc.org/ppc64/
- S:	Supported
- 
-+BROADCOM B44 10/100 ETHERNET DRIVER
-+P:	Gary Zambrano
-+M:	zambrano@broadcom.com
-+L:	netdev@vger.kernel.org
-+S:	Supported
-+
- BROADCOM BNX2 GIGABIT ETHERNET DRIVER
- P:	Michael Chan
- M:	mchan@broadcom.com
+	cpu_to_le16s(p);
+	cpu_to_le16s(p+1);
+	cpu_to_le16s(p+2);
+}
 
+You could use cpu_to_le16s for the version/numPorts conversion too.
 
