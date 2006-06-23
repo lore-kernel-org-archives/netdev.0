@@ -1,58 +1,77 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: ixgb EEH/PCI errors on reset
-Date: Fri, 23 Jun 2006 16:33:39 -0500
-Message-ID: <20060623213339.GR8866@austin.ibm.com>
-References: <20060623170958.GN8866@austin.ibm.com> <Pine.WNT.4.63.0606231258110.3548@jbrandeb-desk.amr.corp.intel.com>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: Streamline testing of 802.11 drivers
+Date: Fri, 23 Jun 2006 23:38:26 +0200
+Message-ID: <200606232338.26801.IvDoorn@gmail.com>
+References: <43e72e890606231333kd0fc534x5d08dad955d13bf5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Ronciak, John" <john.ronciak@intel.com>,
-	cramerj <cramerj@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>,
-	netdev@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart6262131.lEPzy2ipX4";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, zd1211-devs@lists.sourceforge.net,
+	"Ivan Seskar" <Seskar@winlab.rutgers.edu>,
+	"Kishore Ramachandran" <kishore@winlab.rutgers.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:41915 "EHLO
-	e35.co.us.ibm.com") by vger.kernel.org with ESMTP id S1752081AbWFWVdo
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jun 2006 17:33:44 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5NLXehh023586
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Fri, 23 Jun 2006 17:33:40 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5NLXr8Y130506
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Fri, 23 Jun 2006 15:33:53 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5NLXeW1008342
-	for <netdev@vger.kernel.org>; Fri, 23 Jun 2006 15:33:40 -0600
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.WNT.4.63.0606231258110.3548@jbrandeb-desk.amr.corp.intel.com>
+Received: from nf-out-0910.google.com ([64.233.182.191]:65443 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1752089AbWFWVeO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 17:34:14 -0400
+Received: by nf-out-0910.google.com with SMTP id m19so271819nfc
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2006 14:34:12 -0700 (PDT)
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>
+In-Reply-To: <43e72e890606231333kd0fc534x5d08dad955d13bf5@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 23, 2006 at 01:15:53PM -0700, Brandeburg, Jesse wrote:
-> > fails in an unexpected way.  The last call invokes ixgb_mac_reset()
-> > which writes a reset bit, delays a few millisecs, and reads the reset
-> > bit.  The problem I'm seeing is that the read
-> > 
-> >   ctrl_reg = IXGB_READ_REG(hw, CTRL0);
-> > 
-> > triggers some PCI bus error that off-lines the device. Any hints
-> 
-> try this patch?  it is compile tested.
+--nextPart6262131.lEPzy2ipX4
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-[...]
+Hi,
 
->  	IXGB_WRITE_REG(hw, EECD, *eecd_reg);
-> +	IXGB_WRITE_FLUSH(hw);
->  	udelay(50);
+> I've mentioned this to a few but here it is out to everyone. So as you
+> know we have a lot of work ahead of us for linux wireless development.
+> To help speed this up, we at Winlab, would like to start hosting a
+> testbed for linux wireless development, open to the public. Short term
+> goals would be to start off a couple of nodes for each driver
+> currently under development like bcm43xx, zd1211, rt2x00, ipw3945,
+> ipw2200 and the like, and a provide a set streamlined tests we can use
+> to really put to test the drivers and stacks.
 
-With such a response, I had high hopes that the patch would work. 
-Alas, it didn't help. I am in the process of rolling back to 
-the driver v 1.0.100, which doesn'thave the problem, to see 
-if I can isolate what changed.
+This would be really interesting. :)
 
---linas
+> This wouldn't be easy if we didn't have infrastructure but we already
+> do. Our grid consists of 400 nodes with 2 wireless cards each and 3
+> ethernet ports (one for control) --
+> http://orbit-lab.org/wiki/Tutorial/Testbed. 90% of our nodes use the
+> atheros 5213 chipset and the rest ipw2200s. We'd like to expand this
+> with the more wireless cards currently being worked on for linux.
+>=20
+> Right now we have zome zd1211s so we'll start with that (I'll start
+> working on a port to d80211) but will try to accomodate other nodes as
+> we get more wireless cards. We will need some help too though, to
+> streamline the testing. If you have ideas or would like to contribute
+> please let me know. We can purchase wireless cards but if you already
+> have reliable confirmed wireless cards which can be used for putting
+> into the testbed let me know.
+
+I'll discuss this in the rt2x00 team, and see if we can donate some
+hardware.
+
+Ivo
+
+--nextPart6262131.lEPzy2ipX4
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBEnF9SaqndE37Em0gRAo2aAJ9MUZ5AaWXxr1neAV9tLWErKU5eqwCg5Aee
+/2SeoskPofkQ7Z6Hm3P8t8s=
+=8kXN
+-----END PGP SIGNATURE-----
+
+--nextPart6262131.lEPzy2ipX4--
