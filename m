@@ -1,44 +1,45 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [RFC] sysfs + configfs on 802.11 wireless drivers
-Date: Fri, 23 Jun 2006 13:52:33 +0200
-Message-ID: <20060623135233.724a8e51@griffin.suse.cz>
-References: <43e72e890606220512h5197d473s5f7da9e734814005@mail.gmail.com>
+Subject: Re: System hangs after running 2.6.17rc6 with broadcom 4309 and
+ device scape stack
+Date: Fri, 23 Jun 2006 14:13:25 +0200
+Message-ID: <20060623141325.0de4970e@griffin.suse.cz>
+References: <20060619012554.5438.qmail@web50207.mail.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"Greg KH" <greg@kroah.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:63885 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S933077AbWFWLwf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 07:52:35 -0400
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-In-Reply-To: <43e72e890606220512h5197d473s5f7da9e734814005@mail.gmail.com>
+Received: from styx.suse.cz ([82.119.242.94]:10127 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S933085AbWFWMN3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 08:13:29 -0400
+To: Alex Davis <alex14641@yahoo.com>
+In-Reply-To: <20060619012554.5438.qmail@web50207.mail.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 22 Jun 2006 08:12:24 -0400, Luis R. Rodriguez wrote:
-> Kernel level:
-> 
-> (1) Use the new *configfs* for all user-specific attributes
-> (2) Use *sysfs* read-only kobjects for device-specific attributes like
-> values which can be saved for suspend() and collected for resume().
-> IEEE 802.11 capabilities, features (for example radiotap), and what is
-> currently settable/gettable from private ioctl realm along with its
-> restrictions can also be exported via sysfs.
-> (3) On resume() talk to userspace via netlink to read our sysfs and configfs us
+On Sun, 18 Jun 2006 18:25:54 -0700 (PDT), Alex Davis wrote:
+> Here is dmesg output for module loading.
+> [...]
+> Jun 16 20:04:06 siafu kernel: [4294720.505000] bcm43xx_d80211: Virtual interface added (type:
+> 0x00000002, ID: 4, MAC: 00:90:96:ba:32:20)
+> Jun 16 20:04:06 siafu kernel: [4294720.511000] bcm43xx_d80211: PHY connected
+> Jun 16 20:04:07 siafu kernel: [4294720.779000] bcm43xx_d80211: Radio turned on
+> Jun 16 20:04:07 siafu kernel: [4294720.971000] bcm43xx_d80211: Chip initialized
+> Jun 16 20:04:07 siafu kernel: [4294720.972000] bcm43xx_d80211: DMA initialized
+> Jun 16 20:04:07 siafu kernel: [4294720.972000] bcm43xx_d80211: 80211 cores initialized
+> Jun 16 20:04:07 siafu kernel: [4294720.972000] bcm43xx_d80211: Keys cleared
+> Jun 16 20:04:07 siafu kernel: [4294720.988000] wmaster0: Does not support passive scan, disabled
+> Jun 16 20:04:09 siafu kernel: [4294723.027000] bcm43xx_d80211: ASSERTION FAILED
+> (bcm->interface.if_id == if_id) at:
+> drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c:4344:bcm43xx_config_interface()
 
-We need a new hostapd<->stack communication protocol. It definitely
-cannot be configfs as we need asynchronous events; netlink seems to be
-the best solution for this. Why should be a part of 802.11
-userspace<->kernel communication done by netlink and part by
-configfs/sysfs?
+This is really strange. Is this reproducible with latest wireless-dev?
 
-Second, all new network stuff is configured via netlink (or by ioctls,
-but that doesn't count). Why should be 802.11 different?
+There was ifconfig up (or similar) command at 20:04:06 but
+wpa_supplicant was started at 20:04:14. What happened in-between?
 
-I'd rather choose the way of extending current WE-netlink.
+Most important, what happened between 20:04:07 and 20:04:09? (I.e. what
+commands were invoked?) 
 
 Thanks,
 
