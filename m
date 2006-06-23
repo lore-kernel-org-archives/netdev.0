@@ -1,140 +1,189 @@
 From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 3/3] bcm43xx-d80211: use host_gen_beacon_template
-Date: Fri, 23 Jun 2006 23:12:15 +0200
-Message-ID: <200606232312.16289.mb@bu3sch.de>
-References: <20060623181636.6DC1C483AD@silver.suse.cz>
+Subject: Re: hostapd patch for d80211
+Date: Fri, 23 Jun 2006 23:13:43 +0200
+Message-ID: <200606232313.43621.mb@bu3sch.de>
+References: <200606191107.34602.mb@bu3sch.de> <20060623201933.59578ecc@griffin.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-15"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Alexander Tsvyashchenko <lists@ndl.kiev.ua>
+Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
+	"Alexander Tsvyashchenko" <lists@ndl.kiev.ua>,
+	"Francois Barre" <francois.barre@gmail.com>,
+	Jouni Malinen <jkmaline@cc.hut.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:956
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1752066AbWFWVNM
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:28348
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1752069AbWFWVOU
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jun 2006 17:13:12 -0400
-To: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060623181636.6DC1C483AD@silver.suse.cz>
+	Fri, 23 Jun 2006 17:14:20 -0400
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20060623201933.59578ecc@griffin.suse.cz>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 23 June 2006 20:16, Jiri Benc wrote:
-> Use new host_gen_beacon_template flag. This also means workaround with
-> "iwconfig essid" after hostapd is run is not necessary anymore.
+On Friday 23 June 2006 20:19, Jiri Benc wrote:
+> On Mon, 19 Jun 2006 11:07:34 +0200, Michael Buesch wrote:
+> > Important notes from Alexander Tsvyashchenko's initial mail follow:
+> > [...]
+> > Although my previous patch to hostapd to make it interoperable with
+> > bcm43xx & dscape has been merged already in their CVS version, due to
+> > the subsequent changes in dscape stack current hostapd is again
+> > incompartible :-(
+> 
+> This patch allows devicescape driver in hostapd to work with recent d80211.
+> No manipulation with network interfaces is needed anymore - hostapd even
+> switches the interface to AP mode automatically now. Just modprobe
+> bcm43xx-d80211, run hostapd and enjoy :-)
 > 
 > Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
-
-John, please apply.
+Well, if it works.... Jouni, please apply.
+I did not test it. But I trust Jiri. If he says it works, then
+it does work :)
 
 > ---
 > 
->  drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |   36 ++++++---------------
->  1 files changed, 11 insertions(+), 25 deletions(-)
+>  driver_devicescape.c |   77 ++++++++++++++++++++++++++++++++++++++++++---------
+>  1 files changed, 64 insertions(+), 13 deletions(-)
 > 
-> --- dscape.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-> +++ dscape/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-> @@ -1710,17 +1710,12 @@ static void bcm43xx_write_probe_resp_tem
->  	kfree(probe_resp_data);
->  }
+> --- hostapd-0.5-2006-06-19.orig/driver_devicescape.c
+> +++ hostapd-0.5-2006-06-19/driver_devicescape.c
+> @@ -73,6 +73,7 @@ struct i802_driver_data {
 >  
-> -static int bcm43xx_refresh_cached_beacon(struct bcm43xx_private *bcm)
-> +static int bcm43xx_refresh_cached_beacon(struct bcm43xx_private *bcm,
-> +					 struct sk_buff *beacon)
+>  	char iface[IFNAMSIZ + 1];
+>  	char mgmt_iface[IFNAMSIZ + 1];
+> +	int mgmt_ifindex;
+>  	int sock; /* raw packet socket for driver access */
+>  	int ioctl_sock; /* socket for ioctl() use */
+>  	int wext_sock; /* socket for wireless events */
+> @@ -88,6 +89,21 @@ static const struct driver_ops devicesca
+>  static int i802_sta_set_flags(void *priv, const u8 *addr,
+>  			      int flags_or, int flags_and);
+>  
+> +static int i802_set_ap_mode(struct i802_driver_data *drv)
+> +{
+> +	struct iwreq iwr;
+> +
+> +	memset(&iwr, 0, sizeof(iwr));
+> +	strncpy(iwr.ifr_name, drv->iface, IFNAMSIZ);
+> +	iwr.u.mode = IW_MODE_MASTER;
+> +
+> +	if (ioctl(drv->ioctl_sock, SIOCSIWMODE, &iwr) < 0) {
+> +		perror("ioctl[SIOCSIWMODE]");
+> +		return -1;
+> +	}
+> +
+> +	return 0;
+> +}
+>  
+>  static int hostapd_set_iface_flags(struct i802_driver_data *drv, int dev_up)
 >  {
-> -	struct ieee80211_tx_control control;
-> -
->  	if (bcm->cached_beacon)
->  		kfree_skb(bcm->cached_beacon);
-> -	bcm->cached_beacon = ieee80211_beacon_get(bcm->net_dev,
-> -						  bcm->interface.if_id,
-> -						  &control);
-> -	if (unlikely(!bcm->cached_beacon))
-> -		return -ENOMEM;
-> +	bcm->cached_beacon = beacon;
+> @@ -96,13 +112,16 @@ static int hostapd_set_iface_flags(struc
+>  	if (drv->ioctl_sock < 0)
+>  		return -1;
 >  
->  	return 0;
->  }
-> @@ -1743,16 +1738,15 @@ static void bcm43xx_update_templates(str
->  	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD, status);
+> +	if (dev_up)
+> +		i802_set_ap_mode(drv);
+> +
+>  	memset(&ifr, 0, sizeof(ifr));
+> -	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", drv->mgmt_iface);
+> +	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", drv->iface);
+>  
+>  	if (ioctl(drv->ioctl_sock, SIOCGIFFLAGS, &ifr) != 0) {
+>  		perror("ioctl[SIOCGIFFLAGS]");
+>  		wpa_printf(MSG_DEBUG, "Could not read interface flags (%s)",
+> -			   drv->mgmt_iface);
+> +			   drv->iface);
+>  		return -1;
+>  	}
+>  
+> @@ -303,7 +322,35 @@ static int hostap_ioctl_prism2param(stru
+>  	return hostap_ioctl_prism2param_iface(drv->iface, drv, param, value);
 >  }
 >  
-> -static void bcm43xx_refresh_templates(struct bcm43xx_private *bcm)
-> +static void bcm43xx_refresh_templates(struct bcm43xx_private *bcm,
-> +				      struct sk_buff *beacon)
+> - 
+> +static int hostap_ioctl_get_prism2param_iface(const char *iface,
+> +					      struct i802_driver_data *drv,
+> +					      int param)
+> +{
+> +	struct iwreq iwr;
+> +	int *i;
+> +
+> +	memset(&iwr, 0, sizeof(iwr));
+> +	strncpy(iwr.ifr_name, iface, IFNAMSIZ);
+> +	i = (int *) iwr.u.name;
+> +	*i = param;
+> +
+> +	if (ioctl(drv->ioctl_sock, PRISM2_IOCTL_GET_PRISM2_PARAM, &iwr) < 0) {
+> +		char buf[128];
+> +		snprintf(buf, sizeof(buf),
+> +			 "%s: ioctl[PRISM2_IOCTL_GET_PRISM2_PARAM]", iface);
+> +		perror(buf);
+> +		return -1;
+> +	}
+> +
+> +	return *i;
+> +}
+> +
+> +static int hostap_ioctl_get_prism2param(struct i802_driver_data *drv,
+> +					int param)
+> +{
+> +	return hostap_ioctl_get_prism2param_iface(drv->iface, drv, param);
+> +}
+> +
+>  static int i802_set_ssid(void *priv, const u8 *buf, int len)
 >  {
->  	int err;
+>  	struct i802_driver_data *drv = priv;
+> @@ -1338,12 +1385,20 @@ static int i802_init_sockets(struct i802
+>  		return -1;
+>  	}
 >  
-> -	err = bcm43xx_refresh_cached_beacon(bcm);
-> +	err = bcm43xx_refresh_cached_beacon(bcm, beacon);
->  	if (unlikely(err))
->  		return;
->  	bcm43xx_update_templates(bcm);
-> -	kfree_skb(bcm->cached_beacon);
-> -	bcm->cached_beacon = NULL;
->  }
+> +	/* Enable management interface */
+> +	if (hostap_ioctl_prism2param(drv, PRISM2_PARAM_MGMT_IF, 1) < 0)
+> +		return -1;
+> +	drv->mgmt_ifindex =
+> +		hostap_ioctl_get_prism2param(drv, PRISM2_PARAM_MGMT_IF);
+> +	if (drv->mgmt_ifindex < 0)
+> +		return -1;
+>          memset(&ifr, 0, sizeof(ifr));
+> -        snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", drv->mgmt_iface);
+> -        if (ioctl(drv->ioctl_sock, SIOCGIFINDEX, &ifr) != 0) {
+> -		perror("ioctl(SIOCGIFINDEX)");
+> +	ifr.ifr_ifindex = drv->mgmt_ifindex;
+> +	if (ioctl(drv->ioctl_sock, SIOCGIFNAME, &ifr) != 0) {
+> +		perror("ioctl(SIOCGIFNAME)");
+>  		return -1;
+>          }
+> +	snprintf(drv->mgmt_iface, sizeof(drv->mgmt_iface), "%s", ifr.ifr_name);
 >  
->  static void bcm43xx_set_ssid(struct bcm43xx_private *bcm,
-> @@ -1792,19 +1786,11 @@ static void bcm43xx_set_beacon_int(struc
->  static void handle_irq_beacon(struct bcm43xx_private *bcm)
->  {
->  	u32 status;
-> -	int err;
->  
->  	bcm->irq_savedstate &= ~BCM43xx_IRQ_BEACON;
->  	status = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD);
->  
-> -	if (!bcm->cached_beacon) {
-> -		err = bcm43xx_refresh_cached_beacon(bcm);
-> -		if (unlikely(err))
-> -			goto ack;
+>  	if (hostapd_set_iface_flags(drv, 1))
+>  		return -1;
+> @@ -1716,13 +1771,6 @@ static int i802_init(struct hostapd_data
+>  	drv->ops = devicescape_driver_ops;
+>  	drv->hapd = hapd;
+>  	memcpy(drv->iface, hapd->conf->iface, sizeof(drv->iface));
+> -	if (strncmp(hapd->conf->iface, "wlan", 4) == 0) {
+> -		snprintf(drv->mgmt_iface, sizeof(drv->mgmt_iface),
+> -			 "wmaster%sap", hapd->conf->iface + 4);
+> -	} else {
+> -		snprintf(drv->mgmt_iface, sizeof(drv->mgmt_iface),
+> -			 "%sap", hapd->conf->iface);
 > -	}
-> -
-> -	if ((status & 0x1) && (status & 0x2)) {
-> -ack:
-> +	if (!bcm->cached_beacon || ((status & 0x1) && (status & 0x2))) {
->  		/* ACK beacon IRQ. */
->  		bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON,
->  				BCM43xx_IRQ_BEACON);
-> @@ -4382,7 +4368,6 @@ static int bcm43xx_net_config(struct net
 >  
->  	if (bcm43xx_is_mode(bcm, IEEE80211_IF_TYPE_AP)) {
->  		bcm43xx_set_beacon_int(bcm, conf->beacon_int);
-> -		bcm43xx_refresh_templates(bcm);
->  	}
+>  	if (i802_init_sockets(drv))
+>  		goto failed;
+> @@ -1751,6 +1799,9 @@ static void i802_deinit(void *priv)
 >  
->  	bcm43xx_unlock_irqonly(bcm, flags);
-> @@ -4553,7 +4538,7 @@ static int bcm43xx_add_interface(struct 
->  	if (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED) {
->  		bcm43xx_select_opmode(bcm);
->  		if (bcm43xx_is_mode(bcm, IEEE80211_IF_TYPE_AP))
-> -			bcm43xx_refresh_templates(bcm);
-> +			bcm43xx_refresh_templates(bcm, NULL);
->  	}
->  	err = 0;
+>  	(void) hostapd_set_iface_flags(drv, 0);
 >  
-> @@ -4606,7 +4591,8 @@ static int bcm43xx_config_interface(stru
->  		if (bcm43xx_is_mode(bcm, IEEE80211_IF_TYPE_AP)) {
->  			assert(conf->type == IEEE80211_IF_TYPE_AP);
->  			bcm43xx_set_ssid(bcm, conf->ssid, conf->ssid_len);
-> -			bcm43xx_refresh_templates(bcm);
-> +			if (conf->beacon)
-> +				bcm43xx_refresh_templates(bcm, conf->beacon);
->  		}
->  	}
->  	bcm43xx_unlock_irqsafe(bcm, flags);
-> @@ -4701,7 +4687,7 @@ static int __devinit bcm43xx_init_one(st
->  		goto out;
->  	ieee->version = IEEE80211_VERSION;
->  	ieee->name = KBUILD_MODNAME;
-> -	ieee->host_gen_beacon = 1;
-> +	ieee->host_gen_beacon_template = 1;
->  	ieee->rx_includes_fcs = 1;
->  	ieee->monitor_during_oper = 1;
->  	ieee->tx = bcm43xx_net_hard_start_xmit;
+> +	/* Disable management interface */
+> +	hostap_ioctl_prism2param(drv, PRISM2_PARAM_MGMT_IF, 0);
+> +
+>  	if (drv->sock >= 0)
+>  		close(drv->sock);
+>  	if (drv->ioctl_sock >= 0)
+> 
 > 
 
 -- 
