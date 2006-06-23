@@ -1,61 +1,60 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [1/4] kevent: core files.
-Date: Fri, 23 Jun 2006 17:53:14 -0400
-Message-ID: <20060623215314.GG14126@kvack.org>
-References: <20060623192422.GA11508@2ka.mipt.ru> <20060623.131940.48806210.davem@davemloft.net> <20060623203114.GD14126@kvack.org> <20060623.135423.115910361.davem@davemloft.net>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: Streamline testing of 802.11 drivers
+Date: Fri, 23 Jun 2006 18:07:30 -0400
+Message-ID: <43e72e890606231507v606eab65l5810a78d6d148194@mail.gmail.com>
+References: <43e72e890606231333kd0fc534x5d08dad955d13bf5@mail.gmail.com>
+	 <200606232338.26801.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johnpol@2ka.mipt.ru, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, zd1211-devs@lists.sourceforge.net,
+	"Ivan Seskar" <Seskar@winlab.rutgers.edu>,
+	"Kishore Ramachandran" <kishore@winlab.rutgers.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:14001 "EHLO kanga.kvack.org")
-	by vger.kernel.org with ESMTP id S1752100AbWFWVx1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 17:53:27 -0400
-To: David Miller <davem@davemloft.net>
+Received: from ug-out-1314.google.com ([66.249.92.170]:11690 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1752091AbWFWWHb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 18:07:31 -0400
+Received: by ug-out-1314.google.com with SMTP id a2so1249327ugf
+        for <netdev@vger.kernel.org>; Fri, 23 Jun 2006 15:07:30 -0700 (PDT)
+To: "Ivo van Doorn" <ivdoorn@gmail.com>
+In-Reply-To: <200606232338.26801.IvDoorn@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20060623.135423.115910361.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 23, 2006 at 01:54:23PM -0700, David Miller wrote:
-> From: Benjamin LaHaise <bcrl@kvack.org>
-> Date: Fri, 23 Jun 2006 16:31:14 -0400
-> 
-> > Eh?  Nobody has posted any numbers comparing the approaches yet, so this 
-> > is pure handwaving, unless you have real concrete results?
-> 
-> Evgeniy posts numbers and performance graphs on his kevent work all
-> the time.
+On 6/23/06, Ivo van Doorn <ivdoorn@gmail.com> wrote:
+> Hi,
+>
+> > I've mentioned this to a few but here it is out to everyone. So as you
+> > know we have a lot of work ahead of us for linux wireless development.
+> > To help speed this up, we at Winlab, would like to start hosting a
+> > testbed for linux wireless development, open to the public. Short term
+> > goals would be to start off a couple of nodes for each driver
+> > currently under development like bcm43xx, zd1211, rt2x00, ipw3945,
+> > ipw2200 and the like, and a provide a set streamlined tests we can use
+> > to really put to test the drivers and stacks.
+>
+> This would be really interesting. :)
+>
+> > This wouldn't be easy if we didn't have infrastructure but we already
+> > do. Our grid consists of 400 nodes with 2 wireless cards each and 3
+> > ethernet ports (one for control) --
+> > http://orbit-lab.org/wiki/Tutorial/Testbed. 90% of our nodes use the
+> > atheros 5213 chipset and the rest ipw2200s. We'd like to expand this
+> > with the more wireless cards currently being worked on for linux.
+> >
+> > Right now we have zome zd1211s so we'll start with that (I'll start
+> > working on a port to d80211) but will try to accomodate other nodes as
+> > we get more wireless cards. We will need some help too though, to
+> > streamline the testing. If you have ideas or would like to contribute
+> > please let me know. We can purchase wireless cards but if you already
+> > have reliable confirmed wireless cards which can be used for putting
+> > into the testbed let me know.
+>
+> I'll discuss this in the rt2x00 team, and see if we can donate some
+> hardware.
 
-But you're argueing that the performance of something that hasn't been 
-tested is worse simply by nature of it not having been tested.  That's a 
-fallacy of omission, iiuc.
+Great just let me know. MiniPCI would be fit best.
 
-> Van Jacobson did in his LCA2006 net channel slides too, perhaps you
-> missed that.
-
-I have yet to be convinced that the layering violation known as net channels 
-is the right way to go, mostly because it breaks horribly in a few cases -- 
-think what happens during periods of CPU overcommit, in which case doing too 
-much in interrupt context will kill a system (which is why softirqs are 
-needed).  The effect of doing all processing in user context creates issues 
-with delayed acks (due to context switching to other tasks in the system), 
-which will cause excess retransmits.  The hard problems associated with 
-packet filtering and security are also still unresolved, which is okay for 
-a paper, but a concern in real life.
-
-There are also a number of performance flaws in the current stack that 
-show up under profiling, some of which I posted fixes for, some of which 
-have yet to be fixed.  The pushf/popf pipeline stall was one of the bigger 
-instances of CPU wastage that Van Jacobson noticed (it shows up as bottom 
-halves using lots of CPU).  Iirc, Ingo's real time patches may avoid that 
-by way of reworking the irq disable/enable mechanism, which would mean the 
-results need retesting.  Using the cr8 register to enable/disable 
-interrupts on x86-64 might also improve things, as that would eliminate the 
-flags dependancy of cli/sti...
-
-In short, there's a lot of work that still has to be done.
-
-		-ben
--- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <dont@kvack.org>.
+  Luis
