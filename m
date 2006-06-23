@@ -1,64 +1,58 @@
-From: Ted <txtoth@gmail.com>
-Subject: Re: [RFC 3/7] NetLabel: CIPSOv4 engine
-Date: Fri, 23 Jun 2006 13:48:01 -0500
-Message-ID: <1151088481.2669.25.camel@localhost.localdomain>
-References: <20060621194234.979661000@flek.zko.hp.com>
-	 <20060621200031.589235000@flek.zko.hp.com>
-	 <20060622.021223.125894633.davem@davemloft.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [1/4] kevent: core files.
+Date: Fri, 23 Jun 2006 23:24:29 +0400
+Message-ID: <20060623192422.GA11508@2ka.mipt.ru>
+References: <20060622171436.GA26161@2ka.mipt.ru> <20060623070933.GA20291@2ka.mipt.ru> <20060623184457.GA13617@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0102.google.com ([66.249.82.200]:40722 "EHLO
-	wx-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1751917AbWFWSsE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Jun 2006 14:48:04 -0400
-Received: by wx-out-0102.google.com with SMTP id s17so534547wxc
-        for <netdev@vger.kernel.org>; Fri, 23 Jun 2006 11:48:03 -0700 (PDT)
-To: netdev@vger.kernel.org
-In-Reply-To: <20060622.021223.125894633.davem@davemloft.net>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:19841 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751951AbWFWTYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 15:24:30 -0400
+To: Benjamin LaHaise <bcrl@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20060623184457.GA13617@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-06-22 at 02:12 -0700, David Miller wrote:
-> From: paul.moore@hp.com
-> Date: Wed, 21 Jun 2006 15:42:38 -0400
+On Fri, Jun 23, 2006 at 02:44:57PM -0400, Benjamin LaHaise (bcrl@kvack.org) wrote:
+> On Fri, Jun 23, 2006 at 11:09:34AM +0400, Evgeniy Polyakov wrote:
+> > This patch includes core kevent files:
+> >  - userspace controlling
+> >  - kernelspace interfaces
+> >  - initialisation
+> >  - notification state machines
 > 
-> > Add support for the Commercial IP Security Option (CIPSO) to the
-> > IPv4 network stack.  CIPSO has become a de-facto standard for
-> > trusted/labeled networking amongst existing Trusted Operating
-> > Systems such as Trusted Solaris, HP-UX CMW, etc.  This
-> > implementation is designed to be used with the NetLabel subsystem to
-> > provide explicit packet labeling to LSM developers.
-> 
-> The thing that concerns me most about CIPSO is that even once users
-> migrate to a more SELINUX native approach from this CIPSO stuff, the
-> CIPSO code, it's bloat, and it's maintainence burdon will remain.
-> 
-> It's easy to put stuff it, it's impossible to take stuff out even
-> once it's largely unused by even it's original target audience.
-> 
-> And that's what I see happening here.
-> 
-> This is why, to be perfectly honest with you, I'd much rather
-> something like this stay out-of-tree and people are strongly
-> encouraged to use the more native stuff under Linux.
-> 
+> We don't need yet another event mechanism in the kernel, so I don't see 
+> why the new syscalls should be added when they don't interoperate with 
+> existing solutions.  If your results are enough to sway akpm that it is 
+> worth taking the patches, then it would make sense to merge the code with 
+> the already in-tree APIs.
 
-Realistically customers most likely to adopt use of SELinux are going to
-be ones that currently use other trusted OSs such as TSOL and HP-UX CMW.
-These users are unlikely to take an all (SELinux) or nothing approach.
-Also they are more than likely customers who will want a fully
-configured and supported distribution as opposed to one they'd have to
-patch themselves.  With these points in mind I think CIPSO as a
-integrated interoperability mechanism is critical. FYI, over the last
-couple of weeks I've validated the interoperability of the CIPSO
-inplementation with TSOL and HP-UX CMW.
+What API are you talking about?
+There is only epoll(), which is 40% slower than kevent, and AIO, which
+works not as state machine, but as repeated call for the same work.
+There is also inotify, which allocates new message each time event
+occurs, which is not a good solution for every situation.
 
-Ted
+Linux just does not have unified event processing mechanism, which was
+pointed to many times in AIO mail list and when epoll() was only
+introduced. I would even say, that Linux does not have such mechanism at
+all, since every potential user implements it's own, which can not be
+used with others.
 
-> --
-> redhat-lspp mailing list
-> redhat-lspp@redhat.com
-> https://www.redhat.com/mailman/listinfo/redhat-lspp
+Kevent fixes that. Although implementation itself can be suboptimal for
+some cases or even unacceptible at all, but it is really needed
+functionality.
 
+Every existing notification can be built on top of kevent. One can find
+how easy it was to implement generic poll/select notifications (what
+epoll() does) or socket notifications (which are similar to epoll(), but
+are called from inside socket state machine, thus improving processing
+performance).
+
+> 		-ben
+
+-- 
+	Evgeniy Polyakov
