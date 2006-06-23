@@ -1,182 +1,145 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: hostapd patch for d80211
-Date: Fri, 23 Jun 2006 20:19:33 +0200
-Message-ID: <20060623201933.59578ecc@griffin.suse.cz>
-References: <200606191107.34602.mb@bu3sch.de>
+From: "Michael Krause" <krause@cup.hp.com>
+Subject: Re: [PATCH v3 1/7] AMSO1100 Low Level Driver.
+Date: Fri, 23 Jun 2006 11:02:31 -0700
+Message-ID: <6.2.0.14.2.20060623105755.0201e650@esmail.cup.hp.com>
+References: <20060620203050.31536.5341.stgit@stevo-desktop>
+ <20060620203055.31536.15131.stgit@stevo-desktop>
+ <1150836226.2891.231.camel@laptopd505.fenrus.org>
+ <1151070290.7808.33.camel@stevo-desktop>
+ <1151070532.3204.10.camel@laptopd505.fenrus.org>
+ <1151071005.7808.39.camel@stevo-desktop>
+ <1151071471.3204.12.camel@laptopd505.fenrus.org>
+ <20060623171457.GA3610@esmail.cup.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	"Alexander Tsvyashchenko" <lists@ndl.kiev.ua>,
-	"Francois Barre" <francois.barre@gmail.com>,
-	Jouni Malinen <jkmaline@cc.hut.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:37805 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751875AbWFWSTf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 14:19:35 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200606191107.34602.mb@bu3sch.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="===============0544514426=="
+Cc: netdev@vger.kernel.org,
+	rdreier@cisco.com,
+	linux-kernel@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: "Grant Grundler" <iod00d@hp.com>,
+	"Arjan van de Ven" <arjan@infradead.org>
+In-Reply-To: <20060623171457.GA3610@esmail.cup.hp.com>
+References: <20060620203050.31536.5341.stgit@stevo-desktop>
+ <20060620203055.31536.15131.stgit@stevo-desktop>
+ <1150836226.2891.231.camel@laptopd505.fenrus.org>
+ <1151070290.7808.33.camel@stevo-desktop>
+ <1151070532.3204.10.camel@laptopd505.fenrus.org>
+ <1151071005.7808.39.camel@stevo-desktop>
+ <1151071471.3204.12.camel@laptopd505.fenrus.org>
+ <20060623171457.GA3610@esmail.cup.hp.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 19 Jun 2006 11:07:34 +0200, Michael Buesch wrote:
-> Important notes from Alexander Tsvyashchenko's initial mail follow:
-> [...]
-> Although my previous patch to hostapd to make it interoperable with
-> bcm43xx & dscape has been merged already in their CVS version, due to
-> the subsequent changes in dscape stack current hostapd is again
-> incompartible :-(
 
-This patch allows devicescape driver in hostapd to work with recent d80211.
-No manipulation with network interfaces is needed anymore - hostapd even
-switches the interface to AP mode automatically now. Just modprobe
-bcm43xx-d80211, run hostapd and enjoy :-)
-
-Signed-off-by: Jiri Benc <jbenc@suse.cz>
-
----
-
- driver_devicescape.c |   77 ++++++++++++++++++++++++++++++++++++++++++---------
- 1 files changed, 64 insertions(+), 13 deletions(-)
-
---- hostapd-0.5-2006-06-19.orig/driver_devicescape.c
-+++ hostapd-0.5-2006-06-19/driver_devicescape.c
-@@ -73,6 +73,7 @@ struct i802_driver_data {
- 
- 	char iface[IFNAMSIZ + 1];
- 	char mgmt_iface[IFNAMSIZ + 1];
-+	int mgmt_ifindex;
- 	int sock; /* raw packet socket for driver access */
- 	int ioctl_sock; /* socket for ioctl() use */
- 	int wext_sock; /* socket for wireless events */
-@@ -88,6 +89,21 @@ static const struct driver_ops devicesca
- static int i802_sta_set_flags(void *priv, const u8 *addr,
- 			      int flags_or, int flags_and);
- 
-+static int i802_set_ap_mode(struct i802_driver_data *drv)
-+{
-+	struct iwreq iwr;
-+
-+	memset(&iwr, 0, sizeof(iwr));
-+	strncpy(iwr.ifr_name, drv->iface, IFNAMSIZ);
-+	iwr.u.mode = IW_MODE_MASTER;
-+
-+	if (ioctl(drv->ioctl_sock, SIOCSIWMODE, &iwr) < 0) {
-+		perror("ioctl[SIOCSIWMODE]");
-+		return -1;
-+	}
-+
-+	return 0;
-+}
- 
- static int hostapd_set_iface_flags(struct i802_driver_data *drv, int dev_up)
- {
-@@ -96,13 +112,16 @@ static int hostapd_set_iface_flags(struc
- 	if (drv->ioctl_sock < 0)
- 		return -1;
- 
-+	if (dev_up)
-+		i802_set_ap_mode(drv);
-+
- 	memset(&ifr, 0, sizeof(ifr));
--	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", drv->mgmt_iface);
-+	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", drv->iface);
- 
- 	if (ioctl(drv->ioctl_sock, SIOCGIFFLAGS, &ifr) != 0) {
- 		perror("ioctl[SIOCGIFFLAGS]");
- 		wpa_printf(MSG_DEBUG, "Could not read interface flags (%s)",
--			   drv->mgmt_iface);
-+			   drv->iface);
- 		return -1;
- 	}
- 
-@@ -303,7 +322,35 @@ static int hostap_ioctl_prism2param(stru
- 	return hostap_ioctl_prism2param_iface(drv->iface, drv, param, value);
- }
- 
-- 
-+static int hostap_ioctl_get_prism2param_iface(const char *iface,
-+					      struct i802_driver_data *drv,
-+					      int param)
-+{
-+	struct iwreq iwr;
-+	int *i;
-+
-+	memset(&iwr, 0, sizeof(iwr));
-+	strncpy(iwr.ifr_name, iface, IFNAMSIZ);
-+	i = (int *) iwr.u.name;
-+	*i = param;
-+
-+	if (ioctl(drv->ioctl_sock, PRISM2_IOCTL_GET_PRISM2_PARAM, &iwr) < 0) {
-+		char buf[128];
-+		snprintf(buf, sizeof(buf),
-+			 "%s: ioctl[PRISM2_IOCTL_GET_PRISM2_PARAM]", iface);
-+		perror(buf);
-+		return -1;
-+	}
-+
-+	return *i;
-+}
-+
-+static int hostap_ioctl_get_prism2param(struct i802_driver_data *drv,
-+					int param)
-+{
-+	return hostap_ioctl_get_prism2param_iface(drv->iface, drv, param);
-+}
-+
- static int i802_set_ssid(void *priv, const u8 *buf, int len)
- {
- 	struct i802_driver_data *drv = priv;
-@@ -1338,12 +1385,20 @@ static int i802_init_sockets(struct i802
- 		return -1;
- 	}
- 
-+	/* Enable management interface */
-+	if (hostap_ioctl_prism2param(drv, PRISM2_PARAM_MGMT_IF, 1) < 0)
-+		return -1;
-+	drv->mgmt_ifindex =
-+		hostap_ioctl_get_prism2param(drv, PRISM2_PARAM_MGMT_IF);
-+	if (drv->mgmt_ifindex < 0)
-+		return -1;
-         memset(&ifr, 0, sizeof(ifr));
--        snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", drv->mgmt_iface);
--        if (ioctl(drv->ioctl_sock, SIOCGIFINDEX, &ifr) != 0) {
--		perror("ioctl(SIOCGIFINDEX)");
-+	ifr.ifr_ifindex = drv->mgmt_ifindex;
-+	if (ioctl(drv->ioctl_sock, SIOCGIFNAME, &ifr) != 0) {
-+		perror("ioctl(SIOCGIFNAME)");
- 		return -1;
-         }
-+	snprintf(drv->mgmt_iface, sizeof(drv->mgmt_iface), "%s", ifr.ifr_name);
- 
- 	if (hostapd_set_iface_flags(drv, 1))
- 		return -1;
-@@ -1716,13 +1771,6 @@ static int i802_init(struct hostapd_data
- 	drv->ops = devicescape_driver_ops;
- 	drv->hapd = hapd;
- 	memcpy(drv->iface, hapd->conf->iface, sizeof(drv->iface));
--	if (strncmp(hapd->conf->iface, "wlan", 4) == 0) {
--		snprintf(drv->mgmt_iface, sizeof(drv->mgmt_iface),
--			 "wmaster%sap", hapd->conf->iface + 4);
--	} else {
--		snprintf(drv->mgmt_iface, sizeof(drv->mgmt_iface),
--			 "%sap", hapd->conf->iface);
--	}
- 
- 	if (i802_init_sockets(drv))
- 		goto failed;
-@@ -1751,6 +1799,9 @@ static void i802_deinit(void *priv)
- 
- 	(void) hostapd_set_iface_flags(drv, 0);
- 
-+	/* Disable management interface */
-+	hostap_ioctl_prism2param(drv, PRISM2_PARAM_MGMT_IF, 0);
-+
- 	if (drv->sock >= 0)
- 		close(drv->sock);
- 	if (drv->ioctl_sock >= 0)
+--===============0544514426==
+Content-Type: multipart/alternative;
+ boundary="=====================_171097435==.ALT"
+Content-Transfer-Encoding: 7bit
 
 
--- 
-Jiri Benc
-SUSE Labs
+--=====================_171097435==.ALT
+Content-Type: text/plain;
+ charset=us-ascii;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+
+At 10:14 AM 6/23/2006, Grant Grundler wrote:
+>On Fri, Jun 23, 2006 at 04:04:31PM +0200, Arjan van de Ven wrote:
+> > > I thought the posted write WILL eventually get to adapter memory.  Not
+> > > stall forever cached in a bridge.  I'm wrong?
+> >
+> > I'm not sure there is a theoretical upper bound....
+>
+>I'm not aware of one either since MMIO writes can travel
+>across many other chips that are not constrained by
+>PCI ordering rules (I'm thinking of SGI Altix...)
+
+It is processor / coherency backplane technology specific as to the number 
+of outstanding writes.  There is also no guarantee that such writes will 
+hit the top of the PCI hierarchy in the order they were posted in a 
+multi-core / processor system.  Hence, it is up to software to guarantee 
+that ordering is preserved and to not assume anything about ordering from a 
+hardware perspective.  Once a transaction hits the PCI hierarchy, then the 
+PCI ordering rules apply and depending upon the transaction type and other 
+rules, what is guaranteed is deterministic in nature.
+
+
+> > (and if it's several msec per bridge, then you have a lot of latency
+> > anyway)
+>
+>That's what my original concern was when I saw you point this out.
+>But MMIO reads here would be expensive and many drivers tolerate
+>this latency in exchange for avoiding the MMIO read in the
+>performance path.
+
+As the saying goes, MMIO Reads are "pure evil" and should be avoided at all 
+costs if performance is the goal.   Even in a relatively flat I/O 
+hierarchy, the additional latency is non-trivial and can lead to a 
+significant loss in performance for the system.
+
+Mike 
+--=====================_171097435==.ALT
+Content-Type: text/html;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+<html>
+<body>
+<font size=3>At 10:14 AM 6/23/2006, Grant Grundler wrote:<br>
+<blockquote type=cite class=cite cite="">On Fri, Jun 23, 2006 at
+04:04:31PM +0200, Arjan van de Ven wrote:<br>
+&gt; &gt; I thought the posted write WILL eventually get to adapter
+memory.&nbsp; Not<br>
+&gt; &gt; stall forever cached in a bridge.&nbsp; I'm wrong?<br>
+&gt; <br>
+&gt; I'm not sure there is a theoretical upper bound.... <br><br>
+I'm not aware of one either since MMIO writes can travel<br>
+across many other chips that are not constrained by<br>
+PCI ordering rules (I'm thinking of SGI
+Altix...)</font></blockquote><br>
+It is processor / coherency backplane technology specific as to the
+number of outstanding writes.&nbsp; There is also no guarantee that such
+writes will hit the top of the PCI hierarchy in the order they were
+posted in a multi-core / processor system.&nbsp; Hence, it is up to
+software to guarantee that ordering is preserved and to not assume
+anything about ordering from a hardware perspective.&nbsp; Once a
+transaction hits the PCI hierarchy, then the PCI ordering rules apply and
+depending upon the transaction type and other rules, what is guaranteed
+is deterministic in nature.<br><br>
+<br>
+<blockquote type=cite class=cite cite=""><font size=3>&gt; (and if it's
+several msec per bridge, then you have a lot of latency<br>
+&gt; anyway)<br><br>
+That's what my original concern was when I saw you point this out.<br>
+But MMIO reads here would be expensive and many drivers tolerate<br>
+this latency in exchange for avoiding the MMIO read in the<br>
+performance path.</blockquote><br>
+As the saying goes, MMIO Reads are &quot;pure evil&quot; and should be
+avoided at all costs if performance is the goal.&nbsp;&nbsp; Even in a
+relatively flat I/O hierarchy, the additional latency is non-trivial and
+can lead to a significant loss in performance for the system.&nbsp;
+<br><br>
+Mike</font></body>
+</html>
+
+--=====================_171097435==.ALT--
+
+--===============0544514426==
+MIME-Version: 1.0
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+
+--===============0544514426==--
