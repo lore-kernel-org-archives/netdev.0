@@ -1,79 +1,52 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: [1/4] kevent: core files.
-Date: Fri, 23 Jun 2006 16:44:42 -0400
-Message-ID: <20060623204442.GE14126@kvack.org>
-References: <20060622171436.GA26161@2ka.mipt.ru> <20060623070933.GA20291@2ka.mipt.ru> <20060623184457.GA13617@kvack.org> <20060623192422.GA11508@2ka.mipt.ru> <20060623195513.GC14126@kvack.org> <20060623201716.GA26168@2ka.mipt.ru>
+Date: Sat, 24 Jun 2006 00:54:02 +0400
+Message-ID: <20060623205401.GB26168@2ka.mipt.ru>
+References: <20060623070933.GA20291@2ka.mipt.ru> <20060623184457.GA13617@kvack.org> <20060623192422.GA11508@2ka.mipt.ru> <20060623.131940.48806210.davem@davemloft.net> <20060623203114.GD14126@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=koi8-r
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:31663 "EHLO kanga.kvack.org")
-	by vger.kernel.org with ESMTP id S1752036AbWFWUos (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 16:44:48 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:11660 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751900AbWFWUyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 16:54:07 -0400
+To: Benjamin LaHaise <bcrl@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20060623201716.GA26168@2ka.mipt.ru>
+In-Reply-To: <20060623203114.GD14126@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 24, 2006 at 12:17:17AM +0400, Evgeniy Polyakov wrote:
-> But now it is implemented as repeated call for the same work, which does
-> not look like it can be used for any other types of work.
+On Fri, Jun 23, 2006 at 04:31:14PM -0400, Benjamin LaHaise (bcrl@kvack.org) wrote:
+> may well be the way to go.  What I do not agree is that we need new 
+> syscalls at this point.  I'm perfectly willing to accept proof that change 
+> is needed if we do a proper comparision between any new syscall API and the 
+> use of the existing syscall API, but the pain of introducing a new API is 
+> sufficiently large that I think it is worth looking at the numbers.
 
-Given an iocb, you do not have to return -EIOCBRETRY, instead return 
--EIOCBQUEUED and then from whatever context do an aio_complete() with the 
-result for that iocb.
+New syscall is just an interface. Originally kevent (and it still can)
+use char device and it's ioctl method.
+It is perfectly possible to create wrappers for posix aio_* calls,
+although I do not see why it is needed.
+No need to concentrate on end-users interface at this point - it can be
+changed at any time since design allows it, we should think about
+overall design and if it is ok, move forward in implementation.
 
-> And repeated work introduce latencies.
-> As far as I recall, it is you who wanted to remove thread based approach
-> from AIO subsystem.
+Btw, new API adds only one syscall for userspace kevent processing (and
+three for send/recv/sendfile for network AIO).
 
-I have essentially given up on trying to get the filesystem AIO patches 
-in given that the concerns against them are "woe complexity" with no real 
-recourse for inclusion being open.  If David is open to changes in the 
-networking area, I'd love to see it built on top of your code.
+According to numbers: kevent compared to epoll resulted in the
+folllowing numbers:
+kevent: more than 2600 requests per second (trivial web server)
+epoll: about 1600-1800 requests.
+Number of errors for 3k bursts of connections with 30K connections total
+in 10seconds:
+kevent: about 2k errors.
+epoll: upto 15k errors.
 
-> AIO completion approach was designed to be used with process context VFS
-> update. read/write approach can not cover other types of notifications,
-> like inode updates or timers.
+More detailed results can be found on project's homepage at:
+tservice.net.ru/~s0mbre/old/?section=projects&item=kevent
 
-The completion event is 100% generic and does not need to come from process 
-context.  Calling aio_complete() from irq context is entirely valid.
+> 		-ben
 
-> Format of the structure transferred between the objects does not matter
-> at all. We can create a wrapper on kevent structures or kevent can
-> transform data from AIO objects.
-
-> The main design goal of kevent is to provide easy connected hooks into
-> any state machine, which might be used by kernelspace to notify about
-> any kind of events without any knowledge of it's background nature.
-> Kevent can be used for example as notification blocks for address
-> changes or it can replace netlink completely (it can even emulate
-> event multicasting).
-> 
-> Kevent is queue of events, which can be transferred from any object to
-> any destination.
-
-And io_getevents() reads a queue of events, so I'm not sure why you need 
-a new syscall.
-
-> Not at all!
-> Kevent is a mechanism, which allows to impleement AIO, network AIO, poll
-> and select, timer control, adaptive readhead (as example of AIO VFS
-> update). All the code I present shows how to use kevent, it is not part
-> of the kevent. One can find Makefile in kevent dir to check what is the
-> core of the subsystem, which allows to be used as a transport for
-> events.
-> 
-> AIO, NAIO, poll/select, socket and timer notifications are just users.
-> One can add it's own usage as easy as to call kevent_storage
-> initialization function and event generation function. All other pieces
-> are hidded in the implementation.
-
-I'll look at adapting your code to use the existing syscalls.  Maybe code 
-will be better at expressing my concerns.
-
-		-ben
 -- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <dont@kvack.org>.
+	Evgeniy Polyakov
