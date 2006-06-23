@@ -1,32 +1,36 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [RFC] sysfs + configfs on 802.11 wireless drivers
-Date: Fri, 23 Jun 2006 08:47:02 -0400
-Message-ID: <20060623124657.GA3256@tuxdriver.com>
-References: <43e72e890606220512h5197d473s5f7da9e734814005@mail.gmail.com> <1151063447.2473.6.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@gmail.com>, netdev@vger.kernel.org,
-	Greg KH <greg@kroah.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: [PATCH 0/5] d80211: pull request - fragmentation, fixes
+Date: Fri, 23 Jun 2006 15:01:17 +0200 (CEST)
+Message-ID: <20060623150047.368594000.midnight@suse.cz>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:17166 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S932565AbWFWMrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 08:47:24 -0400
-To: Dan Williams <dcbw@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <1151063447.2473.6.camel@localhost.localdomain>
+Received: from styx.suse.cz ([82.119.242.94]:10375 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S964797AbWFWM74 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 08:59:56 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 23, 2006 at 07:50:47AM -0400, Dan Williams wrote:
+Please pull from
+git://git.kernel.org/pub/scm/linux/kernel/git/jbenc/dscape.git master
+to obtain following patches:
 
-> Our effort is probably better spent elsewhere, especially since many
-> popular userspace tools already handle resume for us just fine.  More
-> useful to have drivers just come back from resume in an initialized
-> state similar to system boot.
+Jiri Benc:
+      d80211: update tx.skb after TX handler calls
+      d80211: per-queue TX flow control
+      d80211: handle full queue when sending fragments
+      d80211: add first_fragment flag to ieee80211_tx_control
 
-I think Dan makes a lot of sense here.  Does anyone disagree?
+Michael Buesch:
+      d80211: allow NULL for control in beacon_get
 
-John
+ include/net/d80211.h     |   32 +++++
+ net/d80211/ieee80211.c   |  293 ++++++++++++++++++++++++++++++++++++----------
+ net/d80211/ieee80211_i.h |   20 +++
+ net/d80211/wme.c         |    9 +
+ 4 files changed, 285 insertions(+), 69 deletions(-)
+
+
 -- 
-John W. Linville
-linville@tuxdriver.com
+Jiri Benc
+SUSE Labs
