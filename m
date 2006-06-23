@@ -1,52 +1,32 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [1/4] kevent: core files.
-Date: Sat, 24 Jun 2006 00:54:02 +0400
-Message-ID: <20060623205401.GB26168@2ka.mipt.ru>
-References: <20060623070933.GA20291@2ka.mipt.ru> <20060623184457.GA13617@kvack.org> <20060623192422.GA11508@2ka.mipt.ru> <20060623.131940.48806210.davem@davemloft.net> <20060623203114.GD14126@kvack.org>
+Date: Fri, 23 Jun 2006 13:54:23 -0700 (PDT)
+Message-ID: <20060623.135423.115910361.davem@davemloft.net>
+References: <20060623192422.GA11508@2ka.mipt.ru>
+	<20060623.131940.48806210.davem@davemloft.net>
+	<20060623203114.GD14126@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johnpol@2ka.mipt.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:11660 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751900AbWFWUyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Jun 2006 16:54:07 -0400
-To: Benjamin LaHaise <bcrl@kvack.org>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:43930
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1752048AbWFWUyZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Jun 2006 16:54:25 -0400
+To: bcrl@kvack.org
 In-Reply-To: <20060623203114.GD14126@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 23, 2006 at 04:31:14PM -0400, Benjamin LaHaise (bcrl@kvack.org) wrote:
-> may well be the way to go.  What I do not agree is that we need new 
-> syscalls at this point.  I'm perfectly willing to accept proof that change 
-> is needed if we do a proper comparision between any new syscall API and the 
-> use of the existing syscall API, but the pain of introducing a new API is 
-> sufficiently large that I think it is worth looking at the numbers.
+From: Benjamin LaHaise <bcrl@kvack.org>
+Date: Fri, 23 Jun 2006 16:31:14 -0400
 
-New syscall is just an interface. Originally kevent (and it still can)
-use char device and it's ioctl method.
-It is perfectly possible to create wrappers for posix aio_* calls,
-although I do not see why it is needed.
-No need to concentrate on end-users interface at this point - it can be
-changed at any time since design allows it, we should think about
-overall design and if it is ok, move forward in implementation.
+> Eh?  Nobody has posted any numbers comparing the approaches yet, so this 
+> is pure handwaving, unless you have real concrete results?
 
-Btw, new API adds only one syscall for userspace kevent processing (and
-three for send/recv/sendfile for network AIO).
+Evgeniy posts numbers and performance graphs on his kevent work all
+the time.
 
-According to numbers: kevent compared to epoll resulted in the
-folllowing numbers:
-kevent: more than 2600 requests per second (trivial web server)
-epoll: about 1600-1800 requests.
-Number of errors for 3k bursts of connections with 30K connections total
-in 10seconds:
-kevent: about 2k errors.
-epoll: upto 15k errors.
-
-More detailed results can be found on project's homepage at:
-tservice.net.ru/~s0mbre/old/?section=projects&item=kevent
-
-> 		-ben
-
--- 
-	Evgeniy Polyakov
+Van Jacobson did in his LCA2006 net channel slides too, perhaps you
+missed that.
