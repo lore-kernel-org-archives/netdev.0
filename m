@@ -1,59 +1,37 @@
-From: "Robert Iakobashvili" <coroberti@gmail.com>
-Subject: Re: [1/4] kevent: core files.
-Date: Sat, 24 Jun 2006 11:14:13 +0200
-Message-ID: <7e63f56c0606240214g1b67539ajf0eb99ecd832c9fc@mail.gmail.com>
-References: <20060623070933.GA20291@2ka.mipt.ru>
-	 <20060623184457.GA13617@kvack.org>
-	 <20060623192422.GA11508@2ka.mipt.ru>
-	 <20060623.131940.48806210.davem@davemloft.net>
-	 <20060623203114.GD14126@kvack.org>
-	 <20060623205401.GB26168@2ka.mipt.ru>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 3/3] bcm43xx-d80211: use host_gen_beacon_template
+Date: Sat, 24 Jun 2006 13:17:45 +0200
+Message-ID: <20060624131745.42cfb187@logostar.upir.cz>
+References: <20060623181636.6DC1C483AD@silver.suse.cz>
+	<200606232312.16289.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Benjamin LaHaise" <bcrl@kvack.org>,
-	"David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	Alexander Tsvyashchenko <lists@ndl.kiev.ua>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.185]:4620 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S932998AbWFXJOO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Jun 2006 05:14:14 -0400
-Received: by nf-out-0910.google.com with SMTP id h2so286293nfe
-        for <netdev@vger.kernel.org>; Sat, 24 Jun 2006 02:14:13 -0700 (PDT)
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060623205401.GB26168@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from r2u241.chello.upc.cz ([62.245.84.241]:48785 "EHLO cela.cz")
+	by vger.kernel.org with ESMTP id S1752212AbWFXLRx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jun 2006 07:17:53 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <200606232312.16289.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Fri, 23 Jun 2006 23:12:15 +0200, Michael Buesch wrote:
+> John, please apply.
 
-> According to numbers: kevent compared to epoll resulted in the
-> folllowing numbers:
-> kevent: more than 2600 requests per second (trivial web server)
-> epoll: about 1600-1800 requests.
-> Number of errors for 3k bursts of connections with 30K connections total
-> in 10seconds:
-> kevent: about 2k errors.
-> epoll: upto 15k errors.
+Please do not apply the whole series yet, it is experimental and not well
+tested (I wrote it in the introduction e-mail but will ensure I put it also
+in subjects next time).
 
-If it beats the great epoll, it means a real business case for kevent.
+For example, I just realized that the first patch breaks scanning in STA
+mode.
 
-All previous attempts in kernel as well as by glibc and other userland
-emulations to provide some real AIO infrastructure and API for server
-applications with performance benefits, were not too much successful.
-Heavy load networking servers are normally not using AIOs on linux due
-to low performance.
+Thanks,
 
->From another side Windows have a very strong I/O completion ports API,
-which are widely used for the most heavy load applications.
-
-Kevent may take linux servers productivity forward in general as well as
-encourage moving aio-applications from windows to linux.
+ Jiri
 
 -- 
-Sincerely,
-------------------------------------------------------------------
-Robert Iakobashvili, coroberti at gmail dot com
-Navigare necesse est, vivere non est necesse.
-------------------------------------------------------------------
+Jiri Benc
+SUSE Labs
