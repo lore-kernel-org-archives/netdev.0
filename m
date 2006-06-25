@@ -1,72 +1,50 @@
 From: akpm@osdl.org
-Subject: [patch 2/2] tulip: NatSemi DP83840A PHY fix
-Date: Sun, 25 Jun 2006 01:45:03 -0700
-Message-ID: <200606250845.k5P8j3GU020832@shell0.pdx.osdl.net>
-Cc: jeff@garzik.org, netdev@vger.kernel.org, akpm@osdl.org,
-	T-Bone@parisc-linux.org, grundler@parisc-linux.org,
-	jgarzik@pobox.com, varenet@parisc-linux.org
+Subject: [patch 4/6] IRDA: add some IBM think pads
+Date: Sun, 25 Jun 2006 01:47:31 -0700
+Message-ID: <200606250847.k5P8lVUm020906@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, bcollins@ubuntu.com,
+	randy.dunlap@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:35474 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751125AbWFYIqA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2006 04:46:00 -0400
-To: val_henson@linux.intel.com
+Received: from smtp.osdl.org ([65.172.181.4]:15507 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751169AbWFYIrh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2006 04:47:37 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Thibaut VARENE <T-Bone@parisc-linux.org>
+From: Ben Collins <bcollins@ubuntu.com>
 
-Fix a problem with Tulip 21142 HP branded PCI cards (PN#: B5509-66001),
-which feature a NatSemi DP83840A PHY.
+[UBUNTU:nsc-ircc] Add some IBM think pads
+Add Thinkpad T60/X60/Z60/T43/R52 Infrared driver support.
 
-Without that patch, it is impossible to properly initialize the card's PHY,
-and it's thus impossible to monitor/configure it.
+http://www.kernel.org/git/?p=linux/kernel/git/bcollins/ubuntu-dapper.git;a=commitdiff;h=7b8d2713435a9fb69719a282ba75e117f3f76a5b
 
-It's a timing/posting problem, and it is solved exactly the same way Grant
-fixed it elsewhere already.
-
-Signed-off-by: Thibaut VARENE <varenet@parisc-linux.org>
-Cc: Jeff Garzik <jgarzik@pobox.com>
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
-Cc: Valerie Henson <val_henson@linux.intel.com>
-
-[akpm: this is a previously-nacked patch, but the problem is real]
+Cc: Randy Dunlap <randy.dunlap@oracle.com>
+Signed-off-by: Ben Collins <bcollins@ubuntu.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/tulip/media.c |   18 +++++++++++++++++-
- 1 file changed, 17 insertions(+), 1 deletion(-)
+ drivers/net/irda/nsc-ircc.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/tulip/media.c~tulip-natsemi-dp83840a-phy-fix drivers/net/tulip/media.c
---- a/drivers/net/tulip/media.c~tulip-natsemi-dp83840a-phy-fix
-+++ a/drivers/net/tulip/media.c
-@@ -263,11 +263,27 @@ void tulip_select_media(struct net_devic
- 				u16 *reset_sequence = &((u16*)(p+3))[init_length];
- 				int reset_length = p[2 + init_length*2];
- 				misc_info = reset_sequence + reset_length;
--				if (startup)
-+				if (startup) {
-+					int timeout = 10;	/* max 1 ms */
- 					for (i = 0; i < reset_length; i++)
- 						iowrite32(get_u16(&reset_sequence[i]) << 16, ioaddr + CSR15);
-+
-+					/* flush posted writes */
-+					ioread32(ioaddr + CSR15);
-+
-+					/* Sect 3.10.3 in DP83840A.pdf (p39) */
-+					udelay(500);
-+
-+					/* Section 4.2 in DP83840A.pdf (p43) */
-+					/* and IEEE 802.3 "22.2.4.1.1 Reset" */
-+					while (timeout-- &&
-+						(tulip_mdio_read (dev, phy_num, MII_BMCR) & BMCR_RESET))
-+						udelay(100);
-+				}
- 				for (i = 0; i < init_length; i++)
- 					iowrite32(get_u16(&init_sequence[i]) << 16, ioaddr + CSR15);
-+
-+				ioread32(ioaddr + CSR15);	/* flush posted writes */
- 			} else {
- 				u8 *init_sequence = p + 2;
- 				u8 *reset_sequence = p + 3 + init_length;
+diff -puN drivers/net/irda/nsc-ircc.c~irda-add-some-ibm-think-pads drivers/net/irda/nsc-ircc.c
+--- a/drivers/net/irda/nsc-ircc.c~irda-add-some-ibm-think-pads
++++ a/drivers/net/irda/nsc-ircc.c
+@@ -115,8 +115,12 @@ static nsc_chip_t chips[] = {
+ 	/* Contributed by Jan Frey - IBM A30/A31 */
+ 	{ "PC8739x", { 0x2e, 0x4e, 0x0 }, 0x20, 0xea, 0xff, 
+ 	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
+-	{ "IBM", { 0x2e, 0x4e, 0x0 }, 0x20, 0xf4, 0xff,
+- 	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
++	/* IBM ThinkPads using PC8738x (T60/X60/Z60) */
++	{ "IBM-PC8738x", { 0x2e, 0x4e, 0x0 }, 0x20, 0xf4, 0xff,
++	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
++	/* IBM ThinkPads using PC8394T (T43/R52/?) */
++	{ "IBM-PC8394T", { 0x2e, 0x4e, 0x0 }, 0x20, 0xf9, 0xff,
++	  nsc_ircc_probe_39x, nsc_ircc_init_39x },
+ 	{ NULL }
+ };
+ 
 _
