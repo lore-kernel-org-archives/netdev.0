@@ -1,216 +1,266 @@
 From: akpm@osdl.org
-Subject: [patch 1/3] natsemi: Add quirks for Aculab E1/T1 PMXc cPCI carrier cards
-Date: Sun, 25 Jun 2006 01:44:35 -0700
-Message-ID: <200606250844.k5P8iZkg020788@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, broonie@sirena.org.uk,
-	jgarzik@pobox.com, thockin@hockin.org
+Subject: [patch 2/3] drivers/net/ns83820.c: add paramter to disable autonegotiation
+Date: Sun, 25 Jun 2006 01:44:36 -0700
+Message-ID: <200606250844.k5P8iasE020794@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, dan@scannet.dk,
+	bcrl@kvack.org, dan@hacker.dk, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:16018 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751091AbWFYIpD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2006 04:45:03 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:21906 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751086AbWFYIpP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2006 04:45:15 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: Mark Brown <broonie@sirena.org.uk>
+From: Dan Faerch <dan@scannet.dk>
 
-Aculab E1/T1 PMXc cPCI carrier card cards present a natsemi on the cPCI bus
-wired up in a non-standard fashion.  This patch provides support in the
-natsemi driver for these cards by implementing a quirk mechanism and using
-that to configure appropriate settings for the card: forcing 100M full duplex,
-having a large EEPROM and using the MII port while ignoring PHYs.
+Adds "ethtool command" support to driver.  Initially 2 commands are
+implemented: force fullduplex and toggle autoneg.
 
-Signed-off-by: Mark Brown <broonie@sirena.org.uk>
-Cc: Tim Hockin <thockin@hockin.org>
+Also added a "disable_autoneg" module argument to completely disable
+autoneg on all cards using this driver.
+
+Signed-off-by: Dan Faerch <dan@hacker.dk>
+Cc: Benjamin LaHaise <bcrl@kvack.org>
 Cc: Jeff Garzik <jgarzik@pobox.com>
 
 [akpm: this is a previously-nacked patch, but the problem is real]
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/natsemi.c   |   94 ++++++++++++++++++++++++--------------
- include/linux/pci_ids.h |    3 +
- 2 files changed, 63 insertions(+), 34 deletions(-)
+ drivers/net/ns83820.c |  183 +++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 172 insertions(+), 11 deletions(-)
 
-diff -puN drivers/net/natsemi.c~natsemi-add-quirks-for-aculab-e1-t1-pmxc-cpci-carrier-cards drivers/net/natsemi.c
---- a/drivers/net/natsemi.c~natsemi-add-quirks-for-aculab-e1-t1-pmxc-cpci-carrier-cards
-+++ a/drivers/net/natsemi.c
-@@ -226,7 +226,6 @@ static int full_duplex[MAX_UNITS];
- 				 NATSEMI_PG1_NREGS)
- #define NATSEMI_REGS_VER	1 /* v1 added RFDR registers */
- #define NATSEMI_REGS_SIZE	(NATSEMI_NREGS * sizeof(u32))
--#define NATSEMI_DEF_EEPROM_SIZE	24 /* 12 16-bit values */
+diff -puN drivers/net/ns83820.c~drivers-net-ns83820c-add-paramter-to-disable-auto drivers/net/ns83820.c
+--- a/drivers/net/ns83820.c~drivers-net-ns83820c-add-paramter-to-disable-auto
++++ a/drivers/net/ns83820.c
+@@ -1,4 +1,4 @@
+-#define VERSION "0.22"
++#define VERSION "0.23"
+ /* ns83820.c by Benjamin LaHaise with contributions.
+  *
+  * Questions/comments/discussion to linux-ns83820@kvack.org.
+@@ -68,6 +68,9 @@
+  *	20050406	0.22 -	improved DAC ifdefs from Andi Kleen	
+  *			     -	removal of dead code from Adrian Bunk
+  *			     -	fix half duplex collision behaviour
++ *	20060213        0.23 -	Basic skeleton for adding ethtool commands.
++ *				Setting of autoneg & full-duplex via ethtool
++ *				by Dan Faerch <dan@hacker.dk>
+  * Driver Overview
+  * ===============
+  *
+@@ -126,8 +129,9 @@
  
- /* Buffer sizes:
-  * The nic writes 32-bit values, even if the upper bytes of
-@@ -344,12 +343,14 @@ None characterised.
+ /* Global parameters.  See module_param near the bottom. */
+ static int ihr = 2;
+-static int reset_phy = 0;
+-static int lnksts = 0;		/* CFG_LNKSTS bit polarity */
++static int reset_phy;
++static int lnksts;		/* CFG_LNKSTS bit polarity */
++static int disable_autoneg;
  
- 
- 
--enum pcistuff {
-+enum natsemi_quirks {
- 	PCI_USES_IO = 0x01,
- 	PCI_USES_MEM = 0x02,
- 	PCI_USES_MASTER = 0x04,
- 	PCI_ADDR0 = 0x08,
- 	PCI_ADDR1 = 0x10,
-+	MEDIA_FORCE_100FD = 0x20,
-+	MEDIA_IGNORE_PHY = 0x40,
- };
- 
- /* MMIO operations required */
-@@ -367,17 +368,21 @@ enum pcistuff {
- #define MII_FX_SEL	0x0001	/* 100BASE-FX (fiber) */
- #define MII_EN_SCRM	0x0004	/* enable scrambler (tp) */
- 
-- 
- /* array of board data directly indexed by pci_tbl[x].driver_data */
- static const struct {
- 	const char *name;
- 	unsigned long flags;
-+	int quirks;
-+	int eeprom_size;
- } natsemi_pci_info[] __devinitdata = {
--	{ "NatSemi DP8381[56]", PCI_IOTYPE },
-+	{ "NatSemi DP8381[56]", PCI_IOTYPE, 0, 24 },
-+	{ "Aculab E1/T1 PMXc cPCI carrier card", PCI_IOTYPE,
-+	                          MEDIA_FORCE_100FD | MEDIA_IGNORE_PHY, 128 },
- };
- 
- static struct pci_device_id natsemi_pci_tbl[] = {
--	{ PCI_VENDOR_ID_NS, PCI_DEVICE_ID_NS_83815, PCI_ANY_ID, PCI_ANY_ID, },
-+	{ PCI_VENDOR_ID_NS, PCI_DEVICE_ID_NS_83815, PCI_VENDOR_ID_ACULAB, PCI_SUBDEVICE_ID_ACULAB_174, 0, 0, 1 },
-+	{ PCI_VENDOR_ID_NS, PCI_DEVICE_ID_NS_83815, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
- 	{ 0, },
- };
- MODULE_DEVICE_TABLE(pci, natsemi_pci_tbl);
-@@ -815,6 +820,39 @@ static void move_int_phy(struct net_devi
- 	udelay(1);
+ /* Dprintk is used for more interesting debug events */
+ #undef Dprintk
+@@ -1259,6 +1263,154 @@ static struct net_device_stats *ns83820_
+ 	return &dev->stats;
  }
  
-+static void __devinit natsemi_init_media (struct net_device *dev)
++/* Let ethtool retrieve info */
++static int ns83820_get_settings(struct net_device *ndev,
++				struct ethtool_cmd *cmd)
 +{
-+	struct netdev_private *np = netdev_priv(dev);
-+	u32 tmp;
++	struct ns83820 *dev = PRIV(ndev);
++	u32 cfg, tanar, tbicr;
++	int have_optical = 0;
++	int fullduplex   = 0;
 +
-+	tmp            = mdio_read(dev, MII_BMCR);
-+	np->speed      = (tmp & BMCR_SPEED100)? SPEED_100     : SPEED_10;
-+	np->duplex     = (tmp & BMCR_FULLDPLX)? DUPLEX_FULL   : DUPLEX_HALF;
-+	np->autoneg    = (tmp & BMCR_ANENABLE)? AUTONEG_ENABLE: AUTONEG_DISABLE;
-+	np->advertising= mdio_read(dev, MII_ADVERTISE);
++	/*
++	 * Here's the list of available ethtool commands from other drivers:
++	 *	cmd->advertising =
++	 *	cmd->speed =
++	 *	cmd->duplex =
++	 *	cmd->port = 0;
++	 *	cmd->phy_address =
++	 *	cmd->transceiver = 0;
++	 *	cmd->autoneg =
++	 *	cmd->maxtxpkt = 0;
++	 *	cmd->maxrxpkt = 0;
++	 */
 +
-+	if ((np->advertising & ADVERTISE_ALL) != ADVERTISE_ALL
-+	 && netif_msg_probe(np)) {
-+		printk(KERN_INFO "natsemi %s: Transceiver default autonegotiation %s "
-+			"10%s %s duplex.\n",
-+			pci_name(np->pci_dev),
-+			(mdio_read(dev, MII_BMCR) & BMCR_ANENABLE)?
-+			  "enabled, advertise" : "disabled, force",
-+			(np->advertising &
-+			  (ADVERTISE_100FULL|ADVERTISE_100HALF))?
-+			    "0" : "",
-+			(np->advertising &
-+			  (ADVERTISE_100FULL|ADVERTISE_10FULL))?
-+			    "full" : "half");
++	/* read current configuration */
++	cfg   = readl(dev->base + CFG) ^ SPDSTS_POLARITY;
++	tanar = readl(dev->base + TANAR);
++	tbicr = readl(dev->base + TBICR);
++
++	if (dev->CFG_cache & CFG_TBI_EN) {
++		/* we have an optical interface */
++		have_optical = 1;
++		fullduplex = (cfg & CFG_DUPSTS) ? 1 : 0;
++
++	} else {
++		/* We have copper */
++		fullduplex = (cfg & CFG_DUPSTS) ? 1 : 0;
++        }
++
++	cmd->supported = SUPPORTED_Autoneg;
++
++	/* we have optical interface */
++	if (dev->CFG_cache & CFG_TBI_EN) {
++		cmd->supported |= SUPPORTED_1000baseT_Half |
++					SUPPORTED_1000baseT_Full |
++					SUPPORTED_FIBRE;
++		cmd->port       = PORT_FIBRE;
++	} /* TODO: else copper related  support */
++
++	cmd->duplex = fullduplex ? DUPLEX_FULL : DUPLEX_HALF;
++	switch (cfg / CFG_SPDSTS0 & 3) {
++	case 2:
++		cmd->speed = SPEED_1000;
++		break;
++	case 1:
++		cmd->speed = SPEED_100;
++		break;
++	default:
++		cmd->speed = SPEED_10;
++		break;
 +	}
-+	if (netif_msg_probe(np))
-+		printk(KERN_INFO
-+			"natsemi %s: Transceiver status %#04x advertising %#04x.\n",
-+			pci_name(np->pci_dev), mdio_read(dev, MII_BMSR),
-+			np->advertising);
-+
++	cmd->autoneg = (tbicr & TBICR_MR_AN_ENABLE) ? 1: 0;
++	return 0;
 +}
 +
- static int __devinit natsemi_probe1 (struct pci_dev *pdev,
- 	const struct pci_device_id *ent)
- {
-@@ -894,17 +932,21 @@ static int __devinit natsemi_probe1 (str
- 	np->msg_enable = (debug >= 0) ? (1<<debug)-1 : NATSEMI_DEF_MSG;
- 	np->hands_off = 0;
- 	np->intr_status = 0;
--	np->eeprom_size = NATSEMI_DEF_EEPROM_SIZE;
-+	np->eeprom_size = natsemi_pci_info[chip_idx].eeprom_size;
- 
- 	option = find_cnt < MAX_UNITS ? options[find_cnt] : 0;
- 	if (dev->mem_start)
- 		option = dev->mem_start;
- 
- 	/* Ignore the PHY status? */
--	if (option & 0x400) {
-+	if (natsemi_pci_info[chip_idx].quirks & MEDIA_IGNORE_PHY) {
- 		np->ignore_phy = 1;
- 	} else {
--		np->ignore_phy = 0;
-+		if (option & 0x400) {
-+			np->ignore_phy = 1;
-+		} else {
-+			np->ignore_phy = 0;
-+		}
- 	}
- 
- 	/* Initial port:
-@@ -936,6 +978,12 @@ static int __devinit natsemi_probe1 (str
- 		np->phy_addr_external = PHY_ADDR_INTERNAL;
- 	}
- 
-+	/* Apply any speed quirks. */
-+	if (natsemi_pci_info[chip_idx].quirks & MEDIA_FORCE_100FD) {
-+		np->speed = 100;
-+		np->duplex = 1;
++/* Let ethool change settings*/
++static int ns83820_set_settings(struct net_device *ndev,
++				struct ethtool_cmd *cmd)
++{
++	struct ns83820 *dev = PRIV(ndev);
++	u32 cfg, tanar;
++	int have_optical = 0;
++	int fullduplex   = 0;
++
++	/* read current configuration */
++	cfg = readl(dev->base + CFG) ^ SPDSTS_POLARITY;
++	tanar = readl(dev->base + TANAR);
++
++	if (dev->CFG_cache & CFG_TBI_EN) {
++		/* we have optical */
++		have_optical = 1;
++		fullduplex   = (tanar & TANAR_FULL_DUP);
++
++	} else {
++		/* we have copper */
++		fullduplex = cfg & CFG_DUPSTS;
 +	}
 +
- 	/* The lower four bits are the media type. */
- 	if (option) {
- 		if (option & 0x200)
-@@ -974,32 +1022,10 @@ static int __devinit natsemi_probe1 (str
- 	else
- 		netif_carrier_off(dev);
- 
--	/* get the initial settings from hardware */
--	tmp            = mdio_read(dev, MII_BMCR);
--	np->speed      = (tmp & BMCR_SPEED100)? SPEED_100     : SPEED_10;
--	np->duplex     = (tmp & BMCR_FULLDPLX)? DUPLEX_FULL   : DUPLEX_HALF;
--	np->autoneg    = (tmp & BMCR_ANENABLE)? AUTONEG_ENABLE: AUTONEG_DISABLE;
--	np->advertising= mdio_read(dev, MII_ADVERTISE);
--
--	if ((np->advertising & ADVERTISE_ALL) != ADVERTISE_ALL
--	 && netif_msg_probe(np)) {
--		printk(KERN_INFO "natsemi %s: Transceiver default autonegotiation %s "
--			"10%s %s duplex.\n",
--			pci_name(np->pci_dev),
--			(mdio_read(dev, MII_BMCR) & BMCR_ANENABLE)?
--			  "enabled, advertise" : "disabled, force",
--			(np->advertising &
--			  (ADVERTISE_100FULL|ADVERTISE_100HALF))?
--			    "0" : "",
--			(np->advertising &
--			  (ADVERTISE_100FULL|ADVERTISE_10FULL))?
--			    "full" : "half");
--	}
--	if (netif_msg_probe(np))
--		printk(KERN_INFO
--			"natsemi %s: Transceiver status %#04x advertising %#04x.\n",
--			pci_name(np->pci_dev), mdio_read(dev, MII_BMSR),
--			np->advertising);
-+	/* get the initial settings from hardware if we don't have any
-+ 	 * already */
-+	if (!np->speed)
-+		natsemi_init_media(dev);
- 
- 	/* save the silicon revision for later querying */
- 	np->srr = readl(ioaddr + SiliconRev);
-diff -puN include/linux/pci_ids.h~natsemi-add-quirks-for-aculab-e1-t1-pmxc-cpci-carrier-cards include/linux/pci_ids.h
---- a/include/linux/pci_ids.h~natsemi-add-quirks-for-aculab-e1-t1-pmxc-cpci-carrier-cards
-+++ a/include/linux/pci_ids.h
-@@ -1656,6 +1656,9 @@
- #define PCI_VENDOR_ID_NVIDIA_SGS	0x12d2
- #define PCI_DEVICE_ID_NVIDIA_SGS_RIVA128 0x0018
- 
-+#define PCI_VENDOR_ID_ACULAB 0x12d9
-+#define PCI_SUBDEVICE_ID_ACULAB_174      0x000c
++	spin_lock_irq(&dev->misc_lock);
++	spin_lock(&dev->tx_lock);
 +
- #define PCI_SUBVENDOR_ID_CHASE_PCIFAST		0x12E0
- #define PCI_SUBDEVICE_ID_CHASE_PCIFAST4		0x0031
- #define PCI_SUBDEVICE_ID_CHASE_PCIFAST8		0x0021
++	/* Set duplex */
++	if (cmd->duplex != fullduplex) {
++		if (have_optical) {
++			/*set full duplex*/
++			if (cmd->duplex == DUPLEX_FULL) {
++				/* force full duplex */
++				writel(readl(dev->base + TXCFG)
++					| TXCFG_CSI | TXCFG_HBI | TXCFG_ATP,
++					dev->base + TXCFG);
++				writel(readl(dev->base + RXCFG) | RXCFG_RX_FD,
++					dev->base + RXCFG);
++				/* Light up full duplex LED */
++				writel(readl(dev->base + GPIOR) | GPIOR_GP1_OUT,
++					dev->base + GPIOR);
++			} else {
++				/*TODO: set half duplex */
++			}
++
++           	} else {
++			/*we have copper*/
++			/* TODO: Set duplex for copper cards */
++		}
++		printk(KERN_INFO "%s: Duplex set via ethtool\n",
++		ndev->name);
++	}
++
++	/* Set autonegotiation */
++	if ((disable_autoneg && cmd->autoneg != AUTONEG_DISABLE) ||
++			(!disable_autoneg && cmd->autoneg != AUTONEG_ENABLE)) {
++		if (cmd->autoneg == AUTONEG_ENABLE) {
++			disable_autoneg = 0;
++
++			/* restart auto negotiation */
++			writel(TBICR_MR_AN_ENABLE | TBICR_MR_RESTART_AN,
++				dev->base + TBICR);
++			writel(TBICR_MR_AN_ENABLE, dev->base + TBICR);
++				dev->linkstate = LINK_AUTONEGOTIATE;
++
++			printk(KERN_INFO "%s: autoneg enabled via ethtool\n",
++				ndev->name);
++		} else {
++			disable_autoneg = 1;
++
++			/* disable auto negotiation */
++			writel(0x00000000, dev->base + TBICR);
++		}
++
++		printk(KERN_INFO "%s: autoneg %s via ethtool\n", ndev->name,
++				cmd->autoneg ? "ENABLED" : "DISABLED");
++	}
++
++	phy_intr(ndev);
++	spin_unlock(&dev->tx_lock);
++	spin_unlock_irq(&dev->misc_lock);
++
++	return 0;
++}
++/* end ethtool get/set support -df */
++
+ static void ns83820_get_drvinfo(struct net_device *ndev, struct ethtool_drvinfo *info)
+ {
+ 	struct ns83820 *dev = PRIV(ndev);
+@@ -1275,8 +1427,10 @@ static u32 ns83820_get_link(struct net_d
+ }
+ 
+ static struct ethtool_ops ops = {
+-	.get_drvinfo = ns83820_get_drvinfo,
+-	.get_link = ns83820_get_link
++        .get_settings    = ns83820_get_settings,
++        .set_settings    = ns83820_set_settings,
++	.get_drvinfo     = ns83820_get_drvinfo,
++	.get_link        = ns83820_get_link
+ };
+ 
+ /* this function is called in irq context from the ISR */
+@@ -1976,12 +2130,16 @@ static int __devinit ns83820_init_one(st
+ 		       | TANAR_HALF_DUP | TANAR_FULL_DUP,
+ 		       dev->base + TANAR);
+ 
+-		/* start auto negotiation */
+-		writel(TBICR_MR_AN_ENABLE | TBICR_MR_RESTART_AN,
+-		       dev->base + TBICR);
+-		writel(TBICR_MR_AN_ENABLE, dev->base + TBICR);
+-		dev->linkstate = LINK_AUTONEGOTIATE;
+-
++		if (!disable_autoneg) {
++		       /* start auto negotiation */
++			writel(TBICR_MR_AN_ENABLE | TBICR_MR_RESTART_AN,
++				dev->base + TBICR);
++			writel(TBICR_MR_AN_ENABLE, dev->base + TBICR);
++			dev->linkstate = LINK_AUTONEGOTIATE;
++		} else {
++			 printk(KERN_INFO "%s: Skipping autonegotiation\n",
++				 ndev->name);
++		}
+ 		dev->CFG_cache |= CFG_MODE_1000;
+ 	}
+ 
+@@ -2202,5 +2360,8 @@ MODULE_PARM_DESC(ihr, "Time in 100 us in
+ module_param(reset_phy, int, 0);
+ MODULE_PARM_DESC(reset_phy, "Set to 1 to reset the PHY on startup");
+ 
++module_param(disable_autoneg, int, 0);
++MODULE_PARM_DESC(disable_autoneg, "Set to 1 to disable autoneg");
++
+ module_init(ns83820_init);
+ module_exit(ns83820_exit);
 _
