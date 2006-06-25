@@ -1,47 +1,49 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH]NET: Fix GSO problems in dev_hard_start_xmit()
-Date: Sun, 25 Jun 2006 15:38:05 -0700
-Message-ID: <1151275085.4468.2.camel@rh4>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] make net/core/dev.c:netdev_nit static
+Date: Mon, 26 Jun 2006 01:13:27 +0200
+Message-ID: <20060625231327.GL23314@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:58634 "EHLO
-	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S932404AbWFYWhK
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Jun 2006 18:37:10 -0400
-To: herbert@gondor.apana.org.au, davem@davemloft.net
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:16915 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S932443AbWFYXN2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Jun 2006 19:13:28 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix 2 problems in dev_hard_start_xmit():
+netdev_nit can now become static.
 
-1. nskb->next needs to link back to skb->next if hard_start_xmit()
-returns non-zero.
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-2. Since the total number of GSO fragments may exceed MAX_SKB_FRAGS + 1,
-it needs to stop transmitting if the netif_queue is stopped.
+---
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+ include/linux/netdevice.h |    1 -
+ net/core/dev.c            |    2 +-
+ 2 files changed, 1 insertion(+), 2 deletions(-)
 
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d293e0f..84e06ae 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1325,9 +1325,12 @@ int dev_hard_start_xmit(struct sk_buff *
- 		nskb->next = NULL;
- 		rc = dev->hard_start_xmit(nskb, dev);
- 		if (unlikely(rc)) {
-+			nskb->next = skb->next;
- 			skb->next = nskb;
- 			return rc;
- 		}
-+		if (unlikely(netif_queue_stopped(dev) && skb->next))
-+			return NETDEV_TX_BUSY;
- 	} while (skb->next);
- 	
- 	skb->destructor = DEV_GSO_CB(skb)->destructor;
-
+--- linux-2.6.17-mm2-full/include/linux/netdevice.h.old	2006-06-25 23:30:55.000000000 +0200
++++ linux-2.6.17-mm2-full/include/linux/netdevice.h	2006-06-25 23:31:02.000000000 +0200
+@@ -699,7 +699,6 @@
+ 
+ extern void		dev_init(void);
+ 
+-extern int		netdev_nit;
+ extern int		netdev_budget;
+ 
+ /* Called by rtnetlink.c:rtnl_unlock() */
+--- linux-2.6.17-mm2-full/net/core/dev.c.old	2006-06-25 23:31:08.000000000 +0200
++++ linux-2.6.17-mm2-full/net/core/dev.c	2006-06-25 23:31:19.000000000 +0200
+@@ -230,7 +230,7 @@
+  *	For efficiency
+  */
+ 
+-int netdev_nit;
++static int netdev_nit;
+ 
+ /*
+  *	Add a protocol ID to the list. Now that the input handler is
 
