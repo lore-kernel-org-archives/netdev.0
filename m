@@ -1,39 +1,42 @@
-From: Martin Michlmayr <tbm@cyrius.com>
-Subject: Re: [patch 1/2] tulip: fix for 64-bit mips
-Date: Sun, 25 Jun 2006 10:31:08 +0100
-Message-ID: <20060625093108.GA29132@unjust.cyrius.com>
-References: <200606250845.k5P8j1Tt020829@shell0.pdx.osdl.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [patch 3/3] Fix phy id for LXT971A/LXT972A
+Date: Sun, 25 Jun 2006 02:44:23 -0700
+Message-ID: <20060625024423.1bc26186.akpm@osdl.org>
+References: <200606250844.k5P8ichl020797@shell0.pdx.osdl.net>
+	<449E5431.3020904@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: val_henson@linux.intel.com, jeff@garzik.org,
-	netdev@vger.kernel.org, maillist@jg555.com,
-	grundler@parisc-linux.org, pdh@colonel-panic.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Uwe_Zeisberger@digi.com,
+	afleming@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sorrow.cyrius.com ([65.19.161.204]:40456 "EHLO
-	sorrow.cyrius.com") by vger.kernel.org with ESMTP id S932181AbWFYJbV
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Jun 2006 05:31:21 -0400
-To: akpm@osdl.org
-Content-Disposition: inline
-In-Reply-To: <200606250845.k5P8j1Tt020829@shell0.pdx.osdl.net>
+Received: from smtp.osdl.org ([65.172.181.4]:21916 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932187AbWFYJob (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2006 05:44:31 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <449E5431.3020904@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* akpm@osdl.org <akpm@osdl.org> [2006-06-25 01:45]:
-> Cc: Valerie Henson <val_henson@linux.intel.com>
+On Sun, 25 Jun 2006 05:15:29 -0400
+Jeff Garzik <jeff@garzik.org> wrote:
+
+> akpm@osdl.org wrote:
+> > From: Uwe Zeisberger <Uwe_Zeisberger@digi.com>
+> > 
+> > The phy ids used are taken from an driver that used a right shift of 4 to chop
+> > off the revision number.  This driver does not shift, so the id and mask
+> > values are wrong and must be left shifted by 4 to actually detect the chips.
+> > 
+> > Signed-off-by: Uwe Zeisberger <Uwe_Zeisberger@digi.com>
+> > Acked-by: Andy Fleming <afleming@freescale.com>
+> > 
+> > [akpm: this is a previously-nacked patch, but the problem is real]
+> > Signed-off-by: Andrew Morton <akpm@osdl.org>
 > 
-> [akpm: this is a previously-nacked patch, but the problem is real]
+> This was nak'd?  Does anyone recall why?
+> 
 
-And, for the record, Jeff's suggestion as to how to rework the patch:
+No, it was not nacked - I'd simply misfiled it (actually, failed to refile
+it after we got a changelog).
 
-| Answer hasn't changed since this was last discussed:  sleep, rather than
-| delay for an extra-long time.  That's the only hurdle for the tulip
-| patches you keep resending.
-
-| Francois Romieu even had an untested patch that attempted this,
-| somewhere.
-
-Now we just need someone to complete this work...
--- 
-Martin Michlmayr
-tbm@cyrius.com
