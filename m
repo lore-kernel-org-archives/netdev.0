@@ -1,43 +1,38 @@
-From: akpm@osdl.org
-Subject: [patch 5/6] atm/mpc.c warning fix
-Date: Sun, 25 Jun 2006 01:47:32 -0700
-Message-ID: <200606250847.k5P8lWQq020909@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, chas@cmf.nrl.navy.mil
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 3/3] Fix phy id for LXT971A/LXT972A
+Date: Sun, 25 Jun 2006 05:15:29 -0400
+Message-ID: <449E5431.3020904@garzik.org>
+References: <200606250844.k5P8ichl020797@shell0.pdx.osdl.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Uwe_Zeisberger@digi.com,
+	afleming@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:21651 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751195AbWFYIrv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2006 04:47:51 -0400
-To: davem@davemloft.net
+Received: from srv5.dvmed.net ([207.36.208.214]:12265 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932142AbWFYJPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2006 05:15:33 -0400
+To: akpm@osdl.org
+In-Reply-To: <200606250844.k5P8ichl020797@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+akpm@osdl.org wrote:
+> From: Uwe Zeisberger <Uwe_Zeisberger@digi.com>
+> 
+> The phy ids used are taken from an driver that used a right shift of 4 to chop
+> off the revision number.  This driver does not shift, so the id and mask
+> values are wrong and must be left shifted by 4 to actually detect the chips.
+> 
+> Signed-off-by: Uwe Zeisberger <Uwe_Zeisberger@digi.com>
+> Acked-by: Andy Fleming <afleming@freescale.com>
+> 
+> [akpm: this is a previously-nacked patch, but the problem is real]
+> Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-From: Andrew Morton <akpm@osdl.org>
+This was nak'd?  Does anyone recall why?
 
-net/atm/mpc.c: In function 'MPOA_res_reply_rcvd':
-net/atm/mpc.c:1116: warning: unused variable 'ip'
+	Jeff
 
-Cc: chas williams <chas@cmf.nrl.navy.mil>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
 
- net/atm/mpc.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff -puN net/atm/mpc.c~atm-mpcc-warning-fix net/atm/mpc.c
---- a/net/atm/mpc.c~atm-mpcc-warning-fix
-+++ a/net/atm/mpc.c
-@@ -1113,10 +1113,9 @@ static void check_qos_and_open_shortcut(
- 
- static void MPOA_res_reply_rcvd(struct k_message *msg, struct mpoa_client *mpc)
- {
--	unsigned char *ip;
--
- 	uint32_t dst_ip = msg->content.in_info.in_dst_ip;
- 	in_cache_entry *entry = mpc->in_ops->get(dst_ip, mpc);
-+
- 	dprintk("mpoa: (%s) MPOA_res_reply_rcvd: ip %u.%u.%u.%u\n", mpc->dev->name, NIPQUAD(dst_ip));
- 	ddprintk("mpoa: (%s) MPOA_res_reply_rcvd() entry = %p", mpc->dev->name, entry);
- 	if(entry == NULL){
-_
