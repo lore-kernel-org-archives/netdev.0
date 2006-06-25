@@ -1,42 +1,36 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch 3/3] Fix phy id for LXT971A/LXT972A
-Date: Sun, 25 Jun 2006 02:44:23 -0700
-Message-ID: <20060625024423.1bc26186.akpm@osdl.org>
-References: <200606250844.k5P8ichl020797@shell0.pdx.osdl.net>
-	<449E5431.3020904@garzik.org>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: [patch 1/6] ppp_async hang fix
+Date: Sun, 25 Jun 2006 21:44:09 +1000
+Message-ID: <17566.30473.399299.975192@cargo.ozlabs.ibm.com>
+References: <200606250847.k5P8lS0L020897@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Uwe_Zeisberger@digi.com,
-	afleming@freescale.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org, xeb@mail.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:21916 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932187AbWFYJob (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2006 05:44:31 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <449E5431.3020904@garzik.org>
+Received: from ozlabs.org ([203.10.76.45]:41401 "EHLO ozlabs.org")
+	by vger.kernel.org with ESMTP id S932390AbWFYLpb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2006 07:45:31 -0400
+To: akpm@osdl.org
+In-Reply-To: <200606250847.k5P8lS0L020897@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 25 Jun 2006 05:15:29 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
+akpm@osdl.org writes:
 
-> akpm@osdl.org wrote:
-> > From: Uwe Zeisberger <Uwe_Zeisberger@digi.com>
-> > 
-> > The phy ids used are taken from an driver that used a right shift of 4 to chop
-> > off the revision number.  This driver does not shift, so the id and mask
-> > values are wrong and must be left shifted by 4 to actually detect the chips.
-> > 
-> > Signed-off-by: Uwe Zeisberger <Uwe_Zeisberger@digi.com>
-> > Acked-by: Andy Fleming <afleming@freescale.com>
-> > 
-> > [akpm: this is a previously-nacked patch, but the problem is real]
-> > Signed-off-by: Andrew Morton <akpm@osdl.org>
+> From: <xeb@mail.ru>
 > 
-> This was nak'd?  Does anyone recall why?
+> Adapted from  http://bugzilla.kernel.org/show_bug.cgi?id=6530
 > 
+> Reschedule the async Tx tasklet if the transmit queue was full.
+> 
+> Cc: Paul Mackerras <paulus@samba.org>
+> 
+> [akpm: submitted before, discussion petered off inconclusively]
 
-No, it was not nacked - I'd simply misfiled it (actually, failed to refile
-it after we got a changelog).
+NACK.
 
+This "fix" is inefficient and also unnecessary now that I have found
+and fixed the real problem, which was in n_tty.c.  
+
+Paul.
