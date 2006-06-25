@@ -1,40 +1,28 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: 2.6.17-mm2
-Date: Sat, 24 Jun 2006 14:43:21 -0700
-Message-ID: <20060624144321.e41cf408.akpm@osdl.org>
-References: <20060624061914.202fbfb5.akpm@osdl.org>
-	<200606242141.41055.dominik.karall@gmx.net>
+From: "Rudy" <RudyRansom@artlover.com>
+Subject: Get the freshest Now you have chance to do it Enjoy
+Date: Sat, 24 Jun 2006 23:26:48 -0400
+Message-ID: <64872469665064.EA175D2779@7USVL>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+        charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:42981 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751107AbWFXVno (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Jun 2006 17:43:44 -0400
-To: Dominik Karall <dominik.karall@gmx.net>
-In-Reply-To: <200606242141.41055.dominik.karall@gmx.net>
+Received: from cpe-24-59-112-45.twcny.res.rr.com ([24.59.112.45]:36620 "EHLO
+	PIE-Z7DWC2CI1E6.0a9v4.net") by vger.kernel.org with ESMTP
+	id S1751372AbWFYD0d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Jun 2006 23:26:33 -0400
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 24 Jun 2006 21:41:41 +0200
-Dominik Karall <dominik.karall@gmx.net> wrote:
+Good day dear Sir,
 
-> On Saturday, 24. June 2006 15:19, Andrew Morton wrote:
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.1
-> >7/2.6.17-mm2/
-> 
-> hi!
-> 
-> I get this warning on make modules_install:
-> 
-> WARNING: /lib/modules/2.6.17-mm2/kernel/net/ieee80211/ieee80211.ko 
-> needs unknown symbol wireless_spy_update
-> 
+Make other men envy you and girls worship you Most efficient products for men 
 
-Someone removed the `#ifdef CONFIG_WIRELESS_EXT' from around the callsite
-in net/ieee80211/ieee80211_rx.c and didn't update Kconfig appropriately.
+Enjoy secure ordering, lowest possible prices and almost instant shipment.
+ Millions of people enjoy goods from these brands, and they are more than happy
 
-Presumably, setting CONFIG_WIRELESS_EXT will get you going again.
+ Find what you need here: http://www.sluggishcl.com 
+ We offer reliable service and 5 years expirience on the marcket!
+
+
