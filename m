@@ -1,49 +1,55 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] make net/core/dev.c:netdev_nit static
-Date: Mon, 26 Jun 2006 01:13:27 +0200
-Message-ID: <20060625231327.GL23314@stusta.de>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: [patch 1/2] tulip: fix for 64-bit mips
+Date: Sun, 25 Jun 2006 17:44:00 -0600
+Message-ID: <20060625234400.GB29506@colo.lackof.org>
+References: <200606250845.k5P8j1Tt020829@shell0.pdx.osdl.net> <20060625093108.GA29132@unjust.cyrius.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: akpm@osdl.org, val_henson@linux.intel.com, jeff@garzik.org,
+	netdev@vger.kernel.org, maillist@jg555.com,
+	grundler@parisc-linux.org, pdh@colonel-panic.org,
+	Kyle McMartin <kyle@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:16915 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S932443AbWFYXN2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Jun 2006 19:13:28 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Received: from colo.lackof.org ([198.49.126.79]:27824 "EHLO colo.lackof.org")
+	by vger.kernel.org with ESMTP id S964903AbWFYXoD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2006 19:44:03 -0400
+To: Martin Michlmayr <tbm@cyrius.com>
 Content-Disposition: inline
+In-Reply-To: <20060625093108.GA29132@unjust.cyrius.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netdev_nit can now become static.
+On Sun, Jun 25, 2006 at 10:31:08AM +0100, Martin Michlmayr wrote:
+> * akpm@osdl.org <akpm@osdl.org> [2006-06-25 01:45]:
+> > Cc: Valerie Henson <val_henson@linux.intel.com>
+> > 
+> > [akpm: this is a previously-nacked patch, but the problem is real]
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+ia64 and parisc need the changes to tulip_select_media() too.
 
----
 
- include/linux/netdevice.h |    1 -
- net/core/dev.c            |    2 +-
- 2 files changed, 1 insertion(+), 2 deletions(-)
+> And, for the record, Jeff's suggestion as to how to rework the patch:
+> 
+> | Answer hasn't changed since this was last discussed:  sleep, rather than
+> | delay for an extra-long time.  That's the only hurdle for the tulip
+> | patches you keep resending.
+> 
+> | Francois Romieu even had an untested patch that attempted this,
+> | somewhere.
+> 
+> Now we just need someone to complete this work...
 
---- linux-2.6.17-mm2-full/include/linux/netdevice.h.old	2006-06-25 23:30:55.000000000 +0200
-+++ linux-2.6.17-mm2-full/include/linux/netdevice.h	2006-06-25 23:31:02.000000000 +0200
-@@ -699,7 +699,6 @@
- 
- extern void		dev_init(void);
- 
--extern int		netdev_nit;
- extern int		netdev_budget;
- 
- /* Called by rtnetlink.c:rtnl_unlock() */
---- linux-2.6.17-mm2-full/net/core/dev.c.old	2006-06-25 23:31:08.000000000 +0200
-+++ linux-2.6.17-mm2-full/net/core/dev.c	2006-06-25 23:31:19.000000000 +0200
-@@ -230,7 +230,7 @@
-  *	For efficiency
-  */
- 
--int netdev_nit;
-+static int netdev_nit;
- 
- /*
-  *	Add a protocol ID to the list. Now that the input handler is
+Kyle McMartin has the work queue patch merged into the cvs.parisc-linux.org
+CVS tree. It would be easiest to accept this patch and then add the
+tulip work queue patch next.
 
+Note that the work queue does NOT solve all of the "spin delay with
+interrupts blocked" problems. tulip_stop_rxtx() polls for nearly as long
+and tulip_select_media().
+
+thanks,
+grant
+
+> -- 
+> Martin Michlmayr
+> tbm@cyrius.com
