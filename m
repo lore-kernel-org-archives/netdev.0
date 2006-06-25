@@ -1,44 +1,45 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: Streamline testing of 802.11 drivers
-Date: Sun, 25 Jun 2006 11:22:40 -0400
-Message-ID: <43e72e890606250822p99384ceu27822acae7484f67@mail.gmail.com>
-References: <43e72e890606231333kd0fc534x5d08dad955d13bf5@mail.gmail.com>
-	 <449C6FA5.4060300@lwfinger.net>
-	 <43e72e890606231556o57f1590fve91a98b5adfa5379@mail.gmail.com>
-	 <1151239341.7608.63.camel@localhost>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: 2.6.17-mm2: no QLA3YYY_NAPI help text
+Date: Sun, 25 Jun 2006 18:47:41 +0200
+Message-ID: <20060625164741.GB23314@stusta.de>
+References: <20060624061914.202fbfb5.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Larry Finger" <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:30374 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1751442AbWFYPWl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Jun 2006 11:22:41 -0400
-Received: by ug-out-1314.google.com with SMTP id a2so1710481ugf
-        for <netdev@vger.kernel.org>; Sun, 25 Jun 2006 08:22:40 -0700 (PDT)
-To: "Johannes Berg" <johannes@sipsolutions.net>
-In-Reply-To: <1151239341.7608.63.camel@localhost>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:63759 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S1751167AbWFYQrn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Jun 2006 12:47:43 -0400
+To: Andrew Morton <akpm@osdl.org>, Ron Mercer <ron.mercer@qlogic.com>
 Content-Disposition: inline
+In-Reply-To: <20060624061914.202fbfb5.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/25/06, Johannes Berg <johannes@sipsolutions.net> wrote:
-> On Fri, 2006-06-23 at 18:56 -0400, Luis R. Rodriguez wrote:
->
-> > Thanks Larry -- I'm sorry for not mentioning in the original thread
-> > but basically miniPCI and USB is what we can slap onto our nodes so
-> > far. We'll have to figure something out for Cardbus..  I searched and
-> > it seems there some miniPCI bcm4306. I'll see if we can come up with a
-> > cardbus solution though as I'm sure there's gotta be some card which
-> > don't ship in other form factors. Will get back to you on that.
->
-> I'd say most cards come at least in USB or miniPCI as they are/were
-> mostly for use in laptops. bcm43xx certainly does, we still have some
-> funds that were donated so we could probably fund a few bcm43xx cards
-> for the testbed.
->
+[ resent with a subject adapted to vger mail filter... ]
 
-Excellent, will make arrangements with you off the list.
+On Sat, Jun 24, 2006 at 06:19:14AM -0700, Andrew Morton wrote:
+>...
+> Changes since 2.6.17-mm1:
+>...
+> +qla3xxx-NIC-driver.patch
+>...
+>  Net driver updates.  Includes a new driver from qlogic which almost compiles.
+>...
 
-  Luis
+The QLA3XXX_NAPI option lacks a help text.
+
+Please add a help text.
+
+TIA
+Adrian
+
+--
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
