@@ -1,27 +1,54 @@
-From: Harry Edmon <harry@atmos.washington.edu>
+From: Willy Tarreau <w@1wt.eu>
 Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Sun, 25 Jun 2006 14:51:44 -0700
-Message-ID: <449F0570.2090001@atmos.washington.edu>
-References: <4492D5D3.4000303@atmos.washington.edu> <44948EF6.1060201@atmos.washington.edu> <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk> <200606191724.31305.ak@suse.de> <Pine.LNX.4.61.0606192017370.31662@ask.diku.dk>
+Date: Mon, 26 Jun 2006 00:22:43 +0200
+Message-ID: <20060625222243.GJ13255@w.ods.org>
+References: <4492D5D3.4000303@atmos.washington.edu> <44948EF6.1060201@atmos.washington.edu> <Pine.LNX.4.61.0606191638550.23553@ask.diku.dk> <200606191724.31305.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	Harry Edmon <harry@atmos.washington.edu>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dew1.atmos.washington.edu ([128.95.89.41]:14572 "EHLO
-	dew1.atmos.washington.edu") by vger.kernel.org with ESMTP
-	id S932336AbWFYVvt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Jun 2006 17:51:49 -0400
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-In-Reply-To: <Pine.LNX.4.61.0606192017370.31662@ask.diku.dk>
+Received: from 1wt.eu ([62.212.114.60]:19209 "EHLO 1wt.eu")
+	by vger.kernel.org with ESMTP id S1750766AbWFYWeV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2006 18:34:21 -0400
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <200606191724.31305.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I understand the saying "beggars can't be choosers", but I have heard nothing on 
-this issue since June 19th.  Does anyone have any ideas on what is going on?  Is 
-there more information I can collect that would help diagnose this problem?  And 
-again, thanks for any and all help!
--- 
-  Dr. Harry Edmon			E-MAIL: harry@atmos.washington.edu
-  206-543-0547				harry@u.washington.edu
-  Dept of Atmospheric Sciences		FAX:	206-543-0308
-  University of Washington, Box 351640, Seattle, WA 98195-1640
+Hi Andi,
+
+On Mon, Jun 19, 2006 at 05:24:31PM +0200, Andi Kleen wrote:
+> 
+> > If you use "pmtmr" try to reboot with kernel option "clock=tsc".
+> 
+> That's dangerous advice - when the system choses not to use
+> TSC it often has a reason.
+> 
+> > 
+> > On my Opteron AMD system i normally can route 400 kpps, but with 
+> > timesource "pmtmr" i could only route around 83 kpps.  (I found the timer 
+> > to be the issue by using oprofile).
+> 
+> Unless you're using packet sniffing or any other application
+> that requests time stamps on a socket then the timer shouldn't 
+> make much difference. Incoming packets are only time stamped
+> when someone asks for the timestamps.
+
+I encountered the same problem on a dual core opteron equipped with a
+broadcom NIC (tg3) under 2.4. It could receive 1 Mpps when using TSC
+as the clock source, but the time jumped back and forth, so I changed
+it to 'notsc', then the performance dropped dramatically to around the
+same value as above with one CPU saturated. I suspect that the clock
+precision is needed by the tg3 driver to correctly decide to switch to
+polling mode, but unfortunately, the performance drop rendered the
+solution so much unusable that I finally decided to use it only in
+uniprocessor with TSC enabled.
+
+> -Andi
+
+Regards,
+Willy
+
