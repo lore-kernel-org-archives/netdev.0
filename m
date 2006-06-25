@@ -1,43 +1,50 @@
 From: akpm@osdl.org
-Subject: [patch 1/6] ppp_async hang fix
-Date: Sun, 25 Jun 2006 01:47:28 -0700
-Message-ID: <200606250847.k5P8lS0L020897@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, xeb@mail.ru,
-	paulus@samba.org
+Subject: [patch 2/6] netpoll: don't spin forever sending to stopped queues
+Date: Sun, 25 Jun 2006 01:47:29 -0700
+Message-ID: <200606250847.k5P8lThc020900@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, jeremy@goop.org,
+	mpm@selenic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:15251 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751151AbWFYIrg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2006 04:47:36 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:16275 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751179AbWFYIrj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Jun 2006 04:47:39 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-From: <xeb@mail.ru>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
 
-Adapted from  http://bugzilla.kernel.org/show_bug.cgi?id=6530
+When transmitting a skb in netpoll_send_skb(), only retry a limited number
+of times if the device queue is stopped.
 
-Reschedule the async Tx tasklet if the transmit queue was full.
-
-Cc: Paul Mackerras <paulus@samba.org>
-
-[akpm: submitted before, discussion petered off inconclusively]
+Signed-off-by: Jeremy Fitzhardinge <jeremy@goop.org>
+Acked-by: Matt Mackall <mpm@selenic.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/ppp_async.c |    2 ++
- 1 file changed, 2 insertions(+)
+ net/core/netpoll.c |   10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
 
-diff -puN drivers/net/ppp_async.c~ppp_async-hang-fix drivers/net/ppp_async.c
---- a/drivers/net/ppp_async.c~ppp_async-hang-fix
-+++ a/drivers/net/ppp_async.c
-@@ -516,6 +516,8 @@ static void ppp_async_process(unsigned l
- 	/* try to push more stuff out */
- 	if (test_bit(XMIT_WAKEUP, &ap->xmit_flags) && ppp_async_push(ap))
- 		ppp_output_wakeup(&ap->chan);
-+	else if (test_bit(XMIT_FULL, &ap->xmit_flags))
-+		ppp_asynctty_wakeup(ap->tty);
- }
+diff -puN net/core/netpoll.c~netpoll-dont-spin-forever-sending-to-blocked-queues net/core/netpoll.c
+--- a/net/core/netpoll.c~netpoll-dont-spin-forever-sending-to-blocked-queues
++++ a/net/core/netpoll.c
+@@ -279,14 +279,10 @@ static void netpoll_send_skb(struct netp
+ 		 * network drivers do not expect to be called if the queue is
+ 		 * stopped.
+ 		 */
+-		if (netif_queue_stopped(np->dev)) {
+-			netif_tx_unlock(np->dev);
+-			netpoll_poll(np);
+-			udelay(50);
+-			continue;
+-		}
++		status = NETDEV_TX_BUSY;
++		if (!netif_queue_stopped(np->dev))
++			status = np->dev->hard_start_xmit(skb, np->dev);
  
- /*
+-		status = np->dev->hard_start_xmit(skb, np->dev);
+ 		netif_tx_unlock(np->dev);
+ 
+ 		/* success */
 _
