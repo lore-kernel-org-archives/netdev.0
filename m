@@ -1,89 +1,71 @@
-From: Andrey Savochkin <saw@swsoft.com>
-Subject: Re: [patch 1/4] Network namespaces: cleanup of dev_base list use
-Date: Tue, 27 Jun 2006 00:14:37 +0400
-Message-ID: <20060627001437.A5285@castle.nmd.msu.ru>
-References: <20060626134945.A28942@castle.nmd.msu.ru> <m1odwguez3.fsf@ebiederm.dsl.xmission.com> <20060626194205.C989@castle.nmd.msu.ru> <m1u067ubm8.fsf@ebiederm.dsl.xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dlezcano@fr.ibm.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
-	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
-	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
-	viro@ftp.linux.org.uk, Alexey Kuznetsov <alexey@sw.ru>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [PATCH Round 2 0/2][RFC] Network Event Notifier Mechanism
+Date: Mon, 26 Jun 2006 15:36:38 -0500
+Message-ID: <20060626203638.19083.71231.stgit@stevo-desktop>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.nmd.msu.ru ([193.232.112.53]:53773 "HELO
-	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S933016AbWFZUOi
+Received: from rrcs-24-227-247-53.sw.biz.rr.com ([24.227.247.53]:29586 "EHLO
+	linux.local") by vger.kernel.org with ESMTP id S932090AbWFZUgj
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jun 2006 16:14:38 -0400
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m1u067ubm8.fsf@ebiederm.dsl.xmission.com>; from "Eric W. Biederman" on Mon, Jun 26, 2006 at 10:26:23AM
+	Mon, 26 Jun 2006 16:36:39 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric,
 
-On Mon, Jun 26, 2006 at 10:26:23AM -0600, Eric W. Biederman wrote:
-> Andrey Savochkin <saw@swsoft.com> writes:
-> 
-> > On Mon, Jun 26, 2006 at 09:13:52AM -0600, Eric W. Biederman wrote:
-> >> 
-> >> There is another topic for discussion in this patch as well.
-> >> How much of the context should be implicit and how much
-> >> should be explicit.
-> >> 
-> >> If the changes from netchannels had already been implemented, and all of
-> >> the network processing was happening in a process context then I would
-> >> trivially agree that implicit would be the way to go.
-> >
-> 
-[snip]
-> It is a big enough problem that I don't think we want to gate on
-> that development but we need to be ready to take advantage of it when
-> it happens.
+Round 2 Changes:
 
-Well, ok, implicit namespace reference will take advantage of it
-if it happens.
+- cleaned up event structures per review feedback.
+- began integration with netlink (see neighbour changes in patch 2).
+- added IPv6 support.
 
-> 
-> >> However short of always having code always execute in the proper
-> >> context I'm not comfortable with implicit parameters to functions.
-> >> Not that this the contents of this patch should address this but the
-> >> later patches should.
-> >
-> > We just have too many layers in networking code, and FIB/routing
-> > illustrates it well.
-> 
-> I don't follow this comment.  How does a lot of layers affect
-> the choice of implicit or explicit parameters?  If you are maintaining
-> a patch outside the kernel I could see how there could be a win for
-> touching the least amount of code possible but for merged code that
-> you only have to go through once I don't see how the number of layers
-> affects things.
+STILL TODO:
 
-I agree that implicit vs explicit parameters is a topic for discussion.
->From what you see from my patch, I vote for implicit ones in this case :)
+- PMTU events/netlink
+- Redirect netlink (need to define a new netlink message for this).
 
-I was talking about layers because they imply changing more code,
-and usually imply adding more parameters to functions and passing these
-additional parameters to next layers.
-In "routing" code it goes from routing entry points, to routing cache, to
-general FIB functions, to table-specific code (FIB hash).
+Questions:
 
-These additional parameters bloat the code to some extent.
-Sometimes it's possible to save here and there by fetching the parameter
-(namespace pointer) indirectly from structures you already have at hand,
-but it can't be done universally.
+- this patch is enabling some of the functionality that was under
+  CONFIG_ARPD.  Should I remove the CONFIG_ARPD stuff, leave it as-is
+  or what?
 
-One of the properties of implicit argument which I especially like
-is that both input and output paths are absolutely symmetric in how
-the namespace pointer is extracted.
+- what about support for other afs?  Should I hook AF_DECnet?  IPX? Or is
+  AF_INET and AF_INET6 sufficient?
 
-> 
-> As I recall for most of the FIB/routing code once you have removed
-> the global variable accesses and introduce namespace checks in
-> the hash table (because allocating hash tables at runtime isn't sane)
-> the rest of the code was agnostic about what was going on.  So I think
-> you have touched everything that needs touching.  So I don't see
-> a code size or complexity argument there.
+- I added a new RTM type in rtnetlink.h for neighbour change netlink
+  messages.  I suspect I did it wrong...
 
-	Andrey
+
+------
+
+This patch implements a mechanism that allows interested clients to
+register for notification of certain network events. The intended use
+is to allow RDMA devices (linux/drivers/infiniband) to be notified of
+neighbour updates, ICMP redirects, path MTU changes, and route changes.
+
+The reason these devices need update events is because they typically
+cache this information in hardware and need to be notified when this
+information has been updated.
+
+The key events of interest are:
+
+- neighbour mac address change 
+- routing redirect (the next hop neighbour changes for a dst_entry)
+- path mtu change (the patch mtu for a dst_entry changes).
+- route add/deletes
+
+NOTE: Network events are also passed up to user space via netlink.
+
+We would like to get this or similar functionality included in 2.6.19
+and request comments.
+
+This patchset consists of 2 patches:
+
+1) New files implementing the Network Event Notifier
+2) Core network changes to generate network event notifications
+
+Signed-off-by: Tom Tucker <tom@opengridcomputing.com>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
