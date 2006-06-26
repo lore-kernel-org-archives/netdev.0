@@ -1,74 +1,54 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Mon, 26 Jun 2006 09:21:19 -0600
-Message-ID: <m1k674uemo.fsf@ebiederm.dsl.xmission.com>
-References: <20060609210202.215291000@localhost.localdomain>
-	<20060609210625.144158000@localhost.localdomain>
-	<20060626134711.A28729@castle.nmd.msu.ru>
-	<449FF5A0.2000403@fr.ibm.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH REPOST 1/2] Network Event Notifier Mechanism.
+Date: Mon, 26 Jun 2006 10:26:11 -0500
+Message-ID: <1151335571.2398.37.camel@stevo-desktop>
+References: <20060623201918.32482.89765.stgit@stevo-desktop>
+	 <20060623201928.32482.69191.stgit@stevo-desktop>
+	 <20060623.132647.39159829.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Savochkin <saw@sw.ru>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
-	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
-	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
-	viro@ftp.linux.org.uk
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:62165 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1030295AbWFZPWb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jun 2006 11:22:31 -0400
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-In-Reply-To: <449FF5A0.2000403@fr.ibm.com> (Daniel Lezcano's message of "Mon,
-	26 Jun 2006 16:56:32 +0200")
+Received: from es335.com ([67.65.19.105]:100 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S1751035AbWFZP0N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 11:26:13 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060623.132647.39159829.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniel Lezcano <dlezcano@fr.ibm.com> writes:
+On Fri, 2006-06-23 at 13:26 -0700, David Miller wrote:
+> From: Steve Wise <swise@opengridcomputing.com>
+> Date: Fri, 23 Jun 2006 15:19:28 -0500
+> 
+> > +struct netevent_route_change {
+> > +        int event;
+> > +        struct fib_info *fib_info;
+> > +};
+> 
+> It's not generic if you're putting ipv4 FIB route objects
+> in the datastructure.
+> 
 
-> Andrey Savochkin wrote:
->> Hi Daniel,
->
-> Hi Andrey,
->
->> It's good that you kicked off network namespace discussion.
->> Although I wish you'd Cc'ed someone at OpenVZ so I could notice it earlier :).
->
-> devel@openvz.org ?
->
->> When a device presents an skb to the protocol layer, it needs to know to which
->> namespace this skb belongs.
->> Otherwise you would never get rid of problems with bind: what to do if device
->> eth1 is visible in namespace1, namespace2, and root namespace, and each
->> namespace has a socket bound to 0.0.0.0:80?
->
-> Exact. But, the idea was to retrieve the namespace from the routes.
+True. 
 
-The problem is that if you start at the routes you have to do things
-at layer 3 and you can't do anything at layer 2.  (i.e. You can't use DHCP).
-You loose a whole lot of flexibility and power when you make it a
-layer 3 only mechanism.
+I guess what I think we should do is pass the fib_info * when its a IPv4
+route add/del, and a rt6_info * when its a IPv6 add/del.  This avoids
+having to create some new family independent struct.  What I'll have to
+do, however, is have specific notifier event enums for each: 
 
-> IMHO, I think there are roughly 2 network isolation implementation:
->
-> 	- make all network ressources private to the namespace
->
-> 	- keep a "flat" model where network ressources have a new identifier
-> which is the network namespace pointer. The idea is to move only some network
-> informations private to the namespace (eg port range, stats, ...)
+NETEVENT_IPV4_ROUTE_ADD
+NETEVENT_IPV4_ROUTE_DEL
+NETEVENT_IPV6_ROUTE_ADD
+NETEVENT_IPV6_ROUTE_DEL
 
-The problem is that you have to add a lot of new logic which is very
-hard to get right and has some really weird corner cases that are very
-hard to understand.  
+This keeps it simple IMO...
 
-- That makes the patches hard to review.  
-- It makes it hard for the implementors to get it right.
-- It means that there will be corner cases that the users don't
-  understand.
-- It is less flexible/powerful in what you can express?
+Does that sound reasonable to you?
 
-I've been down that route it sucks.  Anything more than the simple
-filter at bind time is asking for real trouble until you do the whole
-thing.
+Steve.
 
-Eric
+
+
+
