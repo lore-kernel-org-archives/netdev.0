@@ -1,69 +1,49 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] bcm43xx: enable shared key authentication
-Date: Mon, 26 Jun 2006 14:38:29 -0400
-Message-ID: <20060626183821.GB30706@tuxdriver.com>
-References: <20060616195022.E73CD8A3591@zog.reactivated.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Mon, 26 Jun 2006 20:44:25 +0200
+Message-ID: <20060626184424.GT1376@postel.suug.ch>
+References: <20060626145446.948105000@postel.suug.ch> <20060626145515.769648000@postel.suug.ch> <44A0138F.8050208@trash.net> <20060626.104654.98552111.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, mb@bu3sch.de
+Cc: kaber@trash.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3845 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S932638AbWFZSiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 14:38:52 -0400
-To: Daniel Drake <dsd@gentoo.org>
+Received: from postel.suug.ch ([194.88.212.233]:19632 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932641AbWFZSoF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 14:44:05 -0400
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20060616195022.E73CD8A3591@zog.reactivated.net>
+In-Reply-To: <20060626.104654.98552111.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 16, 2006 at 08:50:22PM +0100, Daniel Drake wrote:
-> I recently patched softmac to enable shared key authentication. This small patch
-> will enable crazy or unfortunate bcm43xx users to use this new capability.
+* David Miller <davem@davemloft.net> 2006-06-26 10:46
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Mon, 26 Jun 2006 19:04:15 +0200
 > 
-> Signed-off-by: Daniel Drake <dsd@gentoo.org>
+> > I know this was discussed before, but I can't remember the
+> > exact outcome. Why don't we just unconditionally update iif
+> > in netif_receive_skb()?
 > 
-> Index: linux/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> ===================================================================
-> --- linux.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> +++ linux/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> @@ -3599,6 +3599,10 @@ static void bcm43xx_ieee80211_set_securi
->  		secinfo->encrypt = sec->encrypt;
->  		dprintk(KERN_INFO PFX "   .encrypt = %d\n", sec->encrypt);
->  	}
-> +	if (sec->flags & SEC_AUTH_MODE) {
-> +		secinfo->auth_mode = sec->auth_mode;
-> +		dprintk(KERN_INFO PFX "   .auth_mode = %d\n", sec->auth_mode);
-> +	}
->  	if (bcm->initialized && !bcm->ieee->host_encrypt) {
->  		if (secinfo->enabled) {
->  			/* upload WEP keys to hardware */
+> Software devices might have interesting semantics that would
+> make not setting iif desirable.
+> 
+> Once you set iif, you can't just undo it because the information
+> is lost.
+> 
+> I also would really prefer to set it unconditionally in
+> netif_receive_skb(), but Jamal's concerns in this area are real.
+> We really need to evaluate this on a case-by-case basis.
 
-I had problems applying this one.  I recall having a similar problem w/
-a patch in the last round of merging as well.
+I'm playing with a FIFO device based on Jamal's previous
+work to replace the broken IMQ device and provide real
+queueing at ingress. A set of VLAN devices could be redirected
+to such a FIFO device and let applications bind to it in order
+to implement trivial bind(INADDR_ANY) namespaces based on anything
+that can be selected by classifiers. This example would benefit
+from a conditional iif update (given that the mirred action is
+extended to take a flag to steer this) so applications like a
+dhcp daemon could use a raw socket on the FIFO device and thus
+benefit from the bind namespace but still access the original
+interface the packet was received from using pktinfo cmsg.
 
-The version of bcm43xx_main.c in wireless-2.6 looks like this
-(post patch):
-
-
-		secinfo->encrypt = sec->encrypt;
-		dprintk(", .encrypt = %d", sec->encrypt);
-	}
-	if (sec->flags & SEC_AUTH_MODE) {
-		secinfo->auth_mode = sec->auth_mode;
-		dprintk(", .auth_mode = %d\n", sec->auth_mode);
-	}
-	dprintk("\n");
-	if (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED &&
-	    !bcm->ieee->host_encrypt) {
-
-Am I missing a patch?
-
-Please make sure I get any patches that are missing from wireless-2.6
--- it is obviously better if we are all on the same page! :-)
-
-Thanks,
-
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+Maybe silly but the best I could come up with :-)
