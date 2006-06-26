@@ -1,51 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH REPOST 1/2] Network Event Notifier Mechanism.
-Date: Mon, 26 Jun 2006 10:43:11 -0700 (PDT)
-Message-ID: <20060626.104311.111204162.davem@davemloft.net>
-References: <20060623201928.32482.69191.stgit@stevo-desktop>
-	<20060623.132647.39159829.davem@davemloft.net>
-	<1151335571.2398.37.camel@stevo-desktop>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Mon, 26 Jun 2006 10:46:54 -0700 (PDT)
+Message-ID: <20060626.104654.98552111.davem@davemloft.net>
+References: <20060626145446.948105000@postel.suug.ch>
+	<20060626145515.769648000@postel.suug.ch>
+	<44A0138F.8050208@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:4254
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5534
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751201AbWFZRnL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jun 2006 13:43:11 -0400
-To: swise@opengridcomputing.com
-In-Reply-To: <1151335571.2398.37.camel@stevo-desktop>
+	id S932079AbWFZRqz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jun 2006 13:46:55 -0400
+To: kaber@trash.net
+In-Reply-To: <44A0138F.8050208@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Steve Wise <swise@opengridcomputing.com>
-Date: Mon, 26 Jun 2006 10:26:11 -0500
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 26 Jun 2006 19:04:15 +0200
 
-> I guess what I think we should do is pass the fib_info * when its a IPv4
-> route add/del, and a rt6_info * when its a IPv6 add/del.  This avoids
-> having to create some new family independent struct.  What I'll have to
-> do, however, is have specific notifier event enums for each: 
-> 
-> NETEVENT_IPV4_ROUTE_ADD
-> NETEVENT_IPV4_ROUTE_DEL
-> NETEVENT_IPV6_ROUTE_ADD
-> NETEVENT_IPV6_ROUTE_DEL
-> 
-> This keeps it simple IMO...
-> 
-> Does that sound reasonable to you?
+> I know this was discussed before, but I can't remember the
+> exact outcome. Why don't we just unconditionally update iif
+> in netif_receive_skb()?
 
-You can avoid creating an event per address family by defining your
-data as:
+Software devices might have interesting semantics that would
+make not setting iif desirable.
 
-	struct netevent_route_info {
-		u16 family;
-		void *data;
-	};
+Once you set iif, you can't just undo it because the information
+is lost.
 
-and passing that through the notifier.
-
-Then you just need NETEVENT_ROUTE_{ADD,DEL}
-
-Just an idea...
+I also would really prefer to set it unconditionally in
+netif_receive_skb(), but Jamal's concerns in this area are real.
+We really need to evaluate this on a case-by-case basis.
