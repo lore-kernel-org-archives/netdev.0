@@ -1,166 +1,143 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [PATCH Round 2 1/2] Network Event Notifier Mechanism.
-Date: Mon, 26 Jun 2006 15:36:49 -0500
-Message-ID: <20060626203648.19083.28051.stgit@stevo-desktop>
-References: <20060626203638.19083.71231.stgit@stevo-desktop>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Mon, 26 Jun 2006 14:37:15 -0600
+Message-ID: <m1u067psas.fsf@ebiederm.dsl.xmission.com>
+References: <20060609210202.215291000@localhost.localdomain>
+	<20060609210625.144158000@localhost.localdomain>
+	<20060626134711.A28729@castle.nmd.msu.ru>
+	<449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru>
+	<44A00215.2040608@fr.ibm.com>
+	<m1hd27uaxw.fsf@ebiederm.dsl.xmission.com>
+	<20060626183649.GB3368@MAIL.13thfloor.at>
+	<m1u067r9qk.fsf@ebiederm.dsl.xmission.com>
+	<20060626200225.GA5330@MAIL.13thfloor.at>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Andrey Savochkin <saw@swsoft.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
+	sam@vilain.net, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-227-247-53.sw.biz.rr.com ([24.227.247.53]:30354 "EHLO
-	linux.local") by vger.kernel.org with ESMTP id S932090AbWFZUgt
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jun 2006 16:36:49 -0400
-To: davem@davemloft.net
-In-Reply-To: <20060626203638.19083.71231.stgit@stevo-desktop>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:60371 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S932093AbWFZUik (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jun 2006 16:38:40 -0400
+To: Herbert Poetzl <herbert@13thfloor.at>
+In-Reply-To: <20060626200225.GA5330@MAIL.13thfloor.at> (Herbert Poetzl's
+	message of "Mon, 26 Jun 2006 22:02:25 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Herbert Poetzl <herbert@13thfloor.at> writes:
 
-This patch uses notifier blocks to implement a network event
-notifier mechanism.
+> On Mon, Jun 26, 2006 at 01:35:15PM -0600, Eric W. Biederman wrote:
+>> Herbert Poetzl <herbert@13thfloor.at> writes:
+>> 
+>
+> yes, but you will not be able to apply policy on
+> the parent, restricting the child networking in a
+> proper way without jumping through hoops ...
 
-Clients register their callback function by calling
-register_netevent_notifier() like this:
+?  I don't understand where you are coming from.
+There is no restriction on where you can apply policy.
 
-static struct notifier_block nb = {
-        .notifier_call = my_callback_func
-};
+>> I really do not believe we have a hotpath issue, if this
+>> is implemented properly. Benchmarks of course need to be taken,
+>> to prove this.
+>
+> I'm fine with proper testing and good numbers here
+> but until then, I can only consider it a prototype
 
-...
+We are taking the first steps to get this all sorted out.
+I think what we have is more than a prototype but less then
+the final implementation.  Call it the very first draft version.
 
-register_netevent_notifier(&nb);
----
+>> There are only two places a sane implementation should show issues.
+>> - When the access to a pointer goes through a pointer to find
+>>   that global variable.
+>> - When doing a lookup in a hash table we need to look at an additional
+>>   field to verify a hash match.  Because having a completely separate
+>>   hash table is likely too expensive.
+>> 
+>> If that can be shown to really slow down packets on the hot path I am
+>> willing to consider other possibilities. Until then I think we are on
+>> path to the simplest and most powerful version of building a network
+>> namespace usable by containers.
+>
+> keep in mind that you actually have three kinds
+> of network traffic on a typical host/guest system:
+>
+>  - traffic between unit and outside
+>    - host traffic should be quite minimal
+>    - guest traffic will be quite high
+>
+>  - traffic between host and guest
+>    probably minimal too (only for shared services)
+>
+>  - traffic between guests
+>    can be as high (or even higher) than the
+>    outbound traffic, just think web guest and
+>    database guest
 
- include/net/netevent.h |   49 +++++++++++++++++++++++++++++++++++
- net/core/netevent.c    |   67 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 116 insertions(+), 0 deletions(-)
+Interesting.
 
-diff --git a/include/net/netevent.h b/include/net/netevent.h
-new file mode 100644
-index 0000000..22214c8
---- /dev/null
-+++ b/include/net/netevent.h
-@@ -0,0 +1,49 @@
-+#ifndef _NET_EVENT_H
-+#define _NET_EVENT_H
-+
-+/*
-+ *	Generic netevent notifiers
-+ *
-+ *	Authors:
-+ *      Tom Tucker              <tom@opengridcomputing.com>
-+ *
-+ * 	Changes:
-+ */
-+
-+#ifdef __KERNEL__
-+
-+#include <net/dst.h>
-+
-+/* 
-+ * Generic route info structure.
-+ *
-+ * Family	  Data ptr type
-+ * --------------------------------
-+ * AF_INET 	- struct fib_info *
-+ * AF_INET6	- struct rt6_info *
-+ * AF_DECnet	- struct dn_route *
-+ */
-+struct netevent_route_info {
-+	u16 family;
-+	void *data;	
-+};
-+
-+struct netevent_redirect {
-+	struct dst_entry *old;
-+	struct dst_entry *new;
-+};
-+
-+enum netevent_notif_type {
-+	NETEVENT_NEIGH_UPDATE = 1, /* arg is struct neighbour ptr */
-+	NETEVENT_ROUTE_ADD,   	   /* arg is struct netevent_route_info ptr */
-+	NETEVENT_ROUTE_DEL,   	   /* arg is struct netevent_route_info ptr */
-+	NETEVENT_PMTU_UPDATE,	   /* arg is struct dst_entry ptr */
-+	NETEVENT_REDIRECT,	   /* arg is struct netevent_redirect ptr */
-+};
-+
-+extern int register_netevent_notifier(struct notifier_block *nb);
-+extern int unregister_netevent_notifier(struct notifier_block *nb);
-+extern int call_netevent_notifiers(unsigned long val, void *v);
-+
-+#endif
-+#endif
-diff --git a/net/core/netevent.c b/net/core/netevent.c
-new file mode 100644
-index 0000000..8f3e0a6
---- /dev/null
-+++ b/net/core/netevent.c
-@@ -0,0 +1,67 @@
-+/*
-+ *	Network event notifiers
-+ *
-+ *	Authors:
-+ *      Tom Tucker             <tom@opengridcomputing.com>
-+ *
-+ *	This program is free software; you can redistribute it and/or
-+ *      modify it under the terms of the GNU General Public License
-+ *      as published by the Free Software Foundation; either version
-+ *      2 of the License, or (at your option) any later version.
-+ *
-+ *	Fixes:
-+ */
-+
-+#include <linux/rtnetlink.h>
-+#include <linux/notifier.h>
-+
-+static ATOMIC_NOTIFIER_HEAD(netevent_notif_chain);
-+
-+/**
-+ *	register_netevent_notifier - register a netevent notifier block
-+ *	@nb: notifier
-+ *
-+ *	Register a notifier to be called when a netevent occurs.
-+ *	The notifier passed is linked into the kernel structures and must
-+ *	not be reused until it has been unregistered. A negative errno code
-+ *	is returned on a failure.
-+ */
-+int register_netevent_notifier(struct notifier_block *nb)
-+{
-+	int err;
-+
-+	err = atomic_notifier_chain_register(&netevent_notif_chain, nb);
-+	return err;
-+}
-+
-+/**
-+ *	netevent_unregister_notifier - unregister a netevent notifier block
-+ *	@nb: notifier
-+ *
-+ *	Unregister a notifier previously registered by
-+ *	register_neigh_notifier(). The notifier is unlinked into the
-+ *	kernel structures and may then be reused. A negative errno code
-+ *	is returned on a failure.
-+ */
-+
-+int unregister_netevent_notifier(struct notifier_block *nb)
-+{
-+	return atomic_notifier_chain_unregister(&netevent_notif_chain, nb);
-+}
-+
-+/**
-+ *	call_netevent_notifiers - call all netevent notifier blocks
-+ *      @val: value passed unmodified to notifier function
-+ *      @v:   pointer passed unmodified to notifier function
-+ *
-+ *	Call all neighbour notifier blocks.  Parameters and return value
-+ *	are as for notifier_call_chain().
-+ */
-+
-+int call_netevent_notifiers(unsigned long val, void *v)
-+{
-+	return atomic_notifier_call_chain(&netevent_notif_chain, val, v);
-+}
-+
-+EXPORT_SYMBOL_GPL(register_netevent_notifier);
-+EXPORT_SYMBOL_GPL(unregister_netevent_notifier);
+>> The routing between network namespaces does have the potential to be
+>> more expensive than just a packet trivially coming off the wire into a
+>> socket.
+>
+> IMHO the routing between network namespaces should
+> not require more than the current local traffic
+> does (i.e. you should be able to achieve loopback
+> speed within an insignificant tolerance) and not
+> nearly the time required for on-wire stuff ...
+
+That assumes on the wire stuff is noticeably slower.
+You can achieve over 1GB/s on some networks.
+
+But I agree that the cost should resemble the current
+loopback device.  I have seen nothing that suggests
+it is not.
+
+>> However that is fundamentally from a lack of hardware. If the
+>> rest works smarter filters in the drivers should enable to remove the
+>> cost.
+>> 
+>> Basically it is just a matter of:
+>> if (dest_mac == my_mac1) it is for device 1.
+>> If (dest_mac == my_mac2) it is for device 2.
+>> etc.
+>
+> hmm, so you plan on providing a different MAC for
+> each guest? how should that be handled from the
+> user PoV? you cannot simply make up MACs as you
+> go, and, depending on the network card, operation
+> in promisc mode might be slower than for a given
+> set (maybe only one) MAC, no?
+
+The speed is a factor certainly.  As for making up
+macs.  There is a local assignment bit that you can set.
+With that set it is just a matter of using a decent random
+number generator.  The kernel already does this is some places.
+
+>> At a small count of macs it is trivial to understand it will go
+>> fast for a larger count of macs it only works with a good data
+>> structure.  We don't hit any extra cache lines of the packet,
+>> and the above test can be collapsed with other routing lookup tests.
+>
+> well, I'm absolutely not against flexibility or
+> full virtualization, but the proposed 'routing'
+> on the host effectively doubles the time the
+> packet spends in the network stack(s), so I can
+> not believe that this approach would not add
+> (significant) overhead to the hot path ...
+
+It might, but I am pretty certain it won't double
+the cost, as you don't do 2 full network stack traversals.
+And even at a full doubling I doubt it will affect bandwith
+or latency very much.  If it does we have a lot more to optimize
+in the network stack than just this code.
+
+Eric
