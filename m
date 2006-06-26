@@ -1,47 +1,67 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-Subject: RE: [3/5] [NET]: Add software TSOv4
-Date: Mon, 26 Jun 2006 11:33:32 -0700
-Message-ID: <002d01c6994f$0782b330$4710100a@pc.s2io.com>
-References: <20060624.103237.74578678.yoshfuji@linux-ipv6.org>
-Reply-To: <ravinandan.arakali@neterion.com>
+From: Herbert Poetzl <herbert@13thfloor.at>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Mon, 26 Jun 2006 20:36:49 +0200
+Message-ID: <20060626183649.GB3368@MAIL.13thfloor.at>
+References: <20060609210202.215291000@localhost.localdomain> <20060609210625.144158000@localhost.localdomain> <20060626134711.A28729@castle.nmd.msu.ru> <449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru> <44A00215.2040608@fr.ibm.com> <m1hd27uaxw.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <herbert@gondor.apana.org.au>,
-	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:20702 "EHLO
-	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
-	id S932631AbWFZSea (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jun 2006 14:34:30 -0400
-To: =?us-ascii?B?J1lPU0hJRlVKSSBIaWRlYWtpIC8gPGciIT9wLT8n?=
-	<yoshfuji@linux-ipv6.org>
-In-Reply-To: <20060624.103237.74578678.yoshfuji@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Andrey Savochkin <saw@swsoft.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
+	sam@vilain.net, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932633AbWFZSgw@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Disposition: inline
+In-Reply-To: <m1hd27uaxw.fsf@ebiederm.dsl.xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We are working on it.
+On Mon, Jun 26, 2006 at 10:40:59AM -0600, Eric W. Biederman wrote:
+> Daniel Lezcano <dlezcano@fr.ibm.com> writes:
+> 
+> >> Then you lose the ability for each namespace to have its own
+> >> routing entries. Which implies that you'll have difficulties with
+> >> devices that should exist and be visible in one namespace only
+> >> (like tunnels), as they require IP addresses and route.
+> >
+> > I mean instead of having the route tables private to the namespace, the routes
+> > have the information to which namespace they are associated.
+> 
+> Is this an implementation difference or is this a user visible
+> difference? As an implementation difference this is sensible, as it is
+> pretty insane to allocate hash tables at run time.
+>
+> As a user visible difference that affects semantics of the operations
+> this is not something we want to do.
 
-Ravi
+well, I guess there are even more options here, for
+example I'd like to propose the following idea, which
+might be a viable solution for the policy/isolation
+problem, with the actual overhead on the setup part
+not the hot pathes for packet and connection handling
 
------Original Message-----
-From: YOSHIFUJI Hideaki / <g"!?p-? [mailto:yoshfuji@linux-ipv6.org]
-Sent: Friday, June 23, 2006 6:33 PM
-To: ravinandan.arakali@neterion.com
-Cc: davem@davemloft.net; herbert@gondor.apana.org.au;
-netdev@vger.kernel.org; yoshfuji@linux-ipv6.org
-Subject: Re: [3/5] [NET]: Add software TSOv4
+we could use the multiple routing tables to provide
+a single routing table for each guest, which could
+be used inside the guest to add arbitrary routes, but
+would allow to keep the 'main' policy on the host, by
+selecting the proper table based on IPs and guest tags
 
+similar we could allow to have a separate iptables
+chain for each guest (or several chains), which are
+once again directed by the host system (applying the
+required prolicy) which can be managed and configured
+via normal iptable interfaces (both on the guest and
+host) but actually provide at least to layers
 
-In article <004201c69725$14123700$4110100a@pc.s2io.com> (at Fri, 23 Jun 2006
-17:28:12 -0700), "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-says:
+note: this does not work for hierarchical network
+contexts, but I do not see that the yet proposed
+implementations would do, so I do not think that
+is of concern here ...
 
-> Neterion's Xframe adapter supports TSO over IPv6.
+best,
+Herbert
 
-I remember you posted some patches.
-Would you post revised version reflecting Stephen's comment, please?
-
---yoshfuji
-
+> Eric
