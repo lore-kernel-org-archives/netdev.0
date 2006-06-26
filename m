@@ -1,46 +1,42 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Mon, 26 Jun 2006 10:40:59 -0600
-Message-ID: <m1hd27uaxw.fsf@ebiederm.dsl.xmission.com>
-References: <20060609210202.215291000@localhost.localdomain>
-	<20060609210625.144158000@localhost.localdomain>
-	<20060626134711.A28729@castle.nmd.msu.ru>
-	<449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru>
-	<44A00215.2040608@fr.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Mon, 26 Jun 2006 19:04:15 +0200
+Message-ID: <44A0138F.8050208@trash.net>
+References: <20060626145446.948105000@postel.suug.ch> <20060626145515.769648000@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Savochkin <saw@swsoft.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
-	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
-	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
-	ebiederm@xmission.com, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:25999 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1750770AbWFZQmQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jun 2006 12:42:16 -0400
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-In-Reply-To: <44A00215.2040608@fr.ibm.com> (Daniel Lezcano's message of "Mon,
-	26 Jun 2006 17:49:41 +0200")
+Received: from stinky.trash.net ([213.144.137.162]:37040 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1750816AbWFZRER
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jun 2006 13:04:17 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060626145515.769648000@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniel Lezcano <dlezcano@fr.ibm.com> writes:
+Thomas Graf wrote:
+> Updating iif to the VLAN device helps keeping routing
+> namespaces defined in case packets from multiple VLANs
+> collapse on a single device again.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> 
+> Index: net-2.6.git/net/8021q/vlan_dev.c
+> ===================================================================
+> --- net-2.6.git.orig/net/8021q/vlan_dev.c
+> +++ net-2.6.git/net/8021q/vlan_dev.c
+> @@ -156,6 +156,8 @@ int vlan_skb_recv(struct sk_buff *skb, s
+>  		return -1;
+>  	}
+>  
+> +	/* Make packets look like they have been received on the VLAN device */
+> +	skb->iif = skb->dev->ifindex;
+>  	skb->dev->last_rx = jiffies;
 
->> Then you lose the ability for each namespace to have its own routing entries.
->> Which implies that you'll have difficulties with devices that should exist
->> and be visible in one namespace only (like tunnels), as they require IP
->> addresses and route.
->
-> I mean instead of having the route tables private to the namespace, the routes
-> have the information to which namespace they are associated.
+I know this was discussed before, but I can't remember the
+exact outcome. Why don't we just unconditionally update iif
+in netif_receive_skb()?
 
-Is this an implementation difference or is this a user visible difference?
-As an implementation difference this is sensible, as it is pretty insane
-to allocate hash tables at run time.
-
-As a user visible difference that affects semantics of the operations
-this is not something we want to do.
-
-Eric
