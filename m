@@ -1,105 +1,32 @@
-From: Andrey Savochkin <saw@swsoft.com>
-Subject: [patch 4/4] Network namespaces: playing and debugging
-Date: Mon, 26 Jun 2006 13:55:37 +0400
-Message-ID: <20060626135537.D28942@castle.nmd.msu.ru>
-References: <20060626134945.A28942@castle.nmd.msu.ru> <20060626135250.B28942@castle.nmd.msu.ru> <20060626135427.C28942@castle.nmd.msu.ru>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] drivers/net/hamradio/dmascc.c: fix section mismatch
+Date: Mon, 26 Jun 2006 12:31:46 +0200
+Message-ID: <20060626103146.GP23314@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
-	devel@openvz.org, sam@vilain.net, ebiederm@xmission.com,
-	viro@ftp.linux.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.nmd.msu.ru ([193.232.112.53]:16388 "HELO
-	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S964947AbWFZJzn
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jun 2006 05:55:43 -0400
-To: dlezcano@fr.ibm.com
-In-Reply-To: <20060626135427.C28942@castle.nmd.msu.ru>; from "Andrey Savochkin" on Mon, Jun 26, 2006 at 01:54:27PM
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932445AbWFZKbt@vger.kernel.org>
+To: jgarzik@pobox.com
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Temporary code to play with network namespaces in the simplest way.
-Do
-	exec 7< /proc/net/net_ns
-in your bash shell and you'll get a brand new network namespace.
-There you can, for example, do
-	ip link set lo up
-	ip addr list
-	ip addr add 1.2.3.4 dev lo
-	ping -n 1.2.3.4
+dev_setup() is using the __initdata variables ax25_broadcast and 
+ax25_test.
 
-Signed-off-by: Andrey Savochkin <saw@swsoft.com>
----
- dev.c |   27 ++++++++++++++++++++++++++-
- 1 files changed, 26 insertions, 1 deletion
+Since the only caller of dev_setup() (setup_adapter()) is already 
+__init, the solution is to make dev_setup() __init, too.
 
---- ./net/core/dev.c.vensdbg	Fri Jun 23 11:50:16 2006
-+++ ./net/core/dev.c	Fri Jun 23 11:50:40 2006
-@@ -3444,6 +3444,8 @@ int net_ns_start(void)
- 	if (err)
- 		goto out_register;
- 	put_net_ns(orig_ns);
-+	printk(KERN_DEBUG "NET_NS: created new netcontext %p for %s (pid=%d)\n",
-+			ns, task->comm, task->tgid);
- 	return 0;
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.17-mm2-full/drivers/net/hamradio/dmascc.c.old	2006-06-26 01:56:37.000000000 +0200
++++ linux-2.6.17-mm2-full/drivers/net/hamradio/dmascc.c	2006-06-26 01:56:55.000000000 +0200
+@@ -436,7 +436,7 @@
+ module_init(dmascc_init);
+ module_exit(dmascc_exit);
  
- out_register:
-@@ -3461,6 +3463,7 @@ EXPORT_SYMBOL(net_ns_start);
- 
- void net_ns_free(struct net_namespace *ns)
+-static void dev_setup(struct net_device *dev)
++static void __init dev_setup(struct net_device *dev)
  {
-+	printk(KERN_DEBUG "NET_NS: netcontext %p freed\n", ns);
- 	kfree(ns);
- }
- EXPORT_SYMBOL(net_ns_free);
-@@ -3473,8 +3476,13 @@ static void net_ns_destroy(void *data)
- 	ns = data;
- 	push_net_ns(ns, orig_ns);
- 	unregister_netdev(ns->loopback);
-+	if (!list_empty(&ns->dev_base)) {
-+		printk("NET_NS: BUG: context %p has devices! ref %d\n",
-+				ns, atomic_read(&ns->active_ref));
-+		pop_net_ns(orig_ns);
-+		return;
-+	}
- 	ip_fib_struct_fini();
--	BUG_ON(!list_empty(&ns->dev_base));
- 	pop_net_ns(orig_ns);
- 
- 	/* drop (hopefully) final reference */
-@@ -3483,9 +3491,23 @@ static void net_ns_destroy(void *data)
- 
- void net_ns_stop(struct net_namespace *ns)
- {
-+	printk(KERN_DEBUG "NET_NS: netcontext %p scheduled for stop\n", ns);
- 	execute_in_process_context(net_ns_destroy, ns, &ns->destroy_work);
- }
- EXPORT_SYMBOL(net_ns_stop);
-+
-+static int net_ns_open(struct inode *i, struct file *f)
-+{
-+	return net_ns_start();
-+}
-+static struct file_operations net_ns_fops = {
-+	.open	= net_ns_open,
-+};
-+static int net_ns_init(void)
-+{
-+	return proc_net_fops_create("net_ns", S_IRWXU, &net_ns_fops)
-+			? 0 : -ENOMEM;
-+}
- #endif
- 
- /*
-@@ -3550,6 +3572,9 @@ static int __init net_dev_init(void)
- 	hotcpu_notifier(dev_cpu_callback, 0);
- 	dst_init();
- 	dev_mcast_init();
-+#ifdef CONFIG_NET_NS
-+	net_ns_init();
-+#endif
- 	rc = 0;
- out:
- 	return rc;
+ 	dev->type = ARPHRD_AX25;
+ 	dev->hard_header_len = AX25_MAX_HEADER_LEN;
