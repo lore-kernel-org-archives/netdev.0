@@ -1,63 +1,45 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Mon, 26 Jun 2006 15:13:17 -0700
-Message-ID: <44A05BFD.6030402@candelatech.com>
-References: <20060609210202.215291000@localhost.localdomain>	<20060609210625.144158000@localhost.localdomain>	<20060626134711.A28729@castle.nmd.msu.ru>	<449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru>	<44A00215.2040608@fr.ibm.com>	<m1hd27uaxw.fsf@ebiederm.dsl.xmission.com>	<20060626183649.GB3368@MAIL.13thfloor.at> <m1u067r9qk.fsf@ebiederm.dsl.xmission.com>
+From: Chad Hanson <chanson@TrustedCS.com>
+Subject: RE: [PATCH 01/06] MLSXFRM: Granular IPSec associations for use in
+	  MLS environments
+Date: Mon, 26 Jun 2006 18:24:28 -0400
+Message-ID: <36282A1733C57546BE392885C0618592013246F8@chaos.tcs.tcs-sec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Poetzl <herbert@13thfloor.at>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Andrey Savochkin <saw@swsoft.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
-	sam@vilain.net, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Smalley <sds@tycho.nsa.gov>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:12713 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S933084AbWFZWOB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 18:14:01 -0400
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m1u067r9qk.fsf@ebiederm.dsl.xmission.com>
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:15876 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S933078AbWFZWY4
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jun 2006 18:24:56 -0400
+To: James Morris <jmorris@namei.org>,
+	Venkat Yekkirala <vyekkirala@TrustedCS.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
+ 
+> There's also the question of ongoing maintenance in the
+> mainline kernel.  Unfortunately, there's been an increasing
+> trend recently for companies to drop code over the wall.  For 
+> example, once they get it to some basic level of completeness,
+> and the initial patches are merged, their developers are 
+> reassigned to other projects and the upstream maintainers 
+> are left with code that's not yet up to Linux kernel quality
+> and also something they may not understand very well.  So, we
+> need to know whether TCS or anyone else with expert knowledge
+> of MLS will be helping months or years down the track, once this
+> code has been merged.
 
-> Basically it is just a matter of:
-> if (dest_mac == my_mac1) it is for device 1.
-> If (dest_mac == my_mac2) it is for device 2.
-> etc.
-> 
-> At a small count of macs it is trivial to understand it will go
-> fast for a larger count of macs it only works with a good data
-> structure.  We don't hit any extra cache lines of the packet,
-> and the above test can be collapsed with other routing lookup tests.
+We are prepared to help with ongoing support for maintenance and 
+improvement of the code accepted into the kernel. We like having
+the benefit of providing guidance for the OS security development,
+which is needed for our solutions, even though there is some added
+cost. This is one the reasons we are porting our solutions to Linux.
+The bottom line is the security functionality is a necessary 
+component for our applications, and we don't want to be dependent
+on others to make sure the functionality is being maintained
+correctly. 
 
-I think you should do this at the layer-2 level, well before you get
-to routing.  That will make the virtual mac-vlan work with arbitrary
-protocols and appear very much like a regular ethernet interface.  This
-approach worked well with .1q vlans, and with my version of the mac-vlan
-module.
-
-Using the mac-vlan and source-based routing tables, I can give a unique
-'interface' to each process and have each process able to bind to the
-same IP port, for instance.  Using source-based routing (by binding to a local
-IP explicitly and adding a route table for that source IP), I can give unique
-default routes to each interface as well.  Since we cannot have more than 256
-routing tables, this approach is currently limitted to around 250 virtual
-interfaces, but that is still a substantial amount.
-
-My mac-vlan patch, redirect-device patch, and other hackings are consolidated
-in this patch:
-
-http://www.candelatech.com/oss/candela_2.6.16.patch
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+-Chad
