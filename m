@@ -1,62 +1,54 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH 0/2][RFC] Network Event Notifier Mechanism
-Date: Mon, 26 Jun 2006 09:34:46 -0500
-Message-ID: <1151332486.2398.20.camel@stevo-desktop>
-References: <54AD0F12E08D1541B826BE97C98F99F15F55E2@NT-SJCA-0751.brcm.ad.broadcom.com>
-	 <20060622.155805.35017169.davem@davemloft.net>
-	 <1151024186.5099.46.camel@jzny2>  <1151069083.7808.19.camel@stevo-desktop>
-	 <1151159405.6716.106.camel@jzny2>
+From: "Ian Brown" <ianbrn@gmail.com>
+Subject: netfilter and packets which are created locally
+Date: Mon, 26 Jun 2006 17:39:47 +0300
+Message-ID: <d0383f90606260739t20c69a9fneb0a0693f67a898d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: caitlinb@broadcom.com, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:64568 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S1030231AbWFZOes (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 10:34:48 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1151159405.6716.106.camel@jzny2>
+Received: from nz-out-0102.google.com ([64.233.162.203]:26711 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S1030266AbWFZOjs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jun 2006 10:39:48 -0400
+Received: by nz-out-0102.google.com with SMTP id o37so819261nzf
+        for <netdev@vger.kernel.org>; Mon, 26 Jun 2006 07:39:47 -0700 (PDT)
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2006-06-24 at 10:30 -0400, jamal wrote:
-> On Fri, 2006-23-06 at 08:24 -0500, Steve Wise wrote:
-> 
-> > 
-> > > PS:- I do think what they need is to hear route cache generation
-> > > as opposed to ARP+FIB updates; but lets wait and see how clever 
-> > > the patches would look.
-> > > 
-> 
-> > Can you expand on your statement above?  If hooking route cache
-> > generation gets all the events I described, then I'd like to use that.
-> > I'm still learning the Linux routing subsystem.  Any help would be
-> > GREAT!
-> > 
-> 
-> If my understanding is correct of what you are trying to do is:
-> for a destination IP you are going to figure the source and destination
-> MAC address. Most of that info is available at the route + hh cache. 
-> There can be only one destination mac per device and so you only need to
-> watch the device changes for that. The dst MAC per IP and any changes
-> you can glean from the route cache created.
-> But this is based on my understanding of what you are trying to do and
-> so far i cant say i am 100% clear.
+Hello,
+  I had looked at the diagrams and read the explanations
+about netfilter in Netfilter Architecture page:
+http://netfilter.org/documentation/HOWTO/netfilter-hacking-HOWTO-3.html
 
-The route/hh cache insertions might work for the initial dst MAC per
-next-hop IP.  But this dst MAC can _change_ for various reasons (even
-though the next-hop IP remains the same).   Such a change, I think,
-doesn't generate a new route + hh cache insertion, just a change to the
-hh entry.
+I want to make sure wheter I undestood something regarding
+packets which are created locally (as opposed
+to packets that are received on the network interface).
 
-Also, I think the route cache entry is created _before_ the MAC addr is
-known. So we really need to know when the neighbour entry is updated
-with the MAC address as a result of ARP/ND.  Hooking the correct spot in
-the neighbour code where the mac address gets stored also gets us the
-change event I described above.
+My question is: Do I understand the follwing 2 sceanrios right?
+For local packets which are sent out of the machine
+it seems to me to be the case. (Am I right?):
+Such packets , that are created locally on
+the machine, first reach the NF_IP_LOCAL_OUT [5] hook.
+Than they go to the routing stage, and than they go to
+NF_IP_POST_ROUTING [4]. And then they go out ?
+Such packets, which are created locally,  don't pass at all
+at the [1] stage, NF_IP_PRE_ROUTING [1] , and not
+in NF_IP_LOCAL_IN [2] stage and not in NF_IP_FORWARD [3] .
 
-Does this make sense?
+Is it true?
 
-Steve.
 
+Suppose I create locally packets which are destined to
+myself (like ping myself). I assume that they will go first to the
+NF_IP_LOCAL_OUT [5] , than to the routing stage, but will they go
+to the NF_IP_POST_ROUTING [4].?
+
+And again,such packets, which are created locally,  don't pass at all
+at the [1] stage, NF_IP_PRE_ROUTING [1] , and not
+in NF_IP_LOCAL_IN [2] stage and not in NF_IP_FORWARD [3] .
+
+Is it true?
+
+IB
