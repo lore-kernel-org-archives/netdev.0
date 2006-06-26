@@ -1,52 +1,59 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Mon, 26 Jun 2006 20:24:04 +0200
-Message-ID: <44A02644.6020200@trash.net>
-References: <20060626145446.948105000@postel.suug.ch>	<20060626145515.769648000@postel.suug.ch>	<44A0138F.8050208@trash.net> <20060626.104654.98552111.davem@davemloft.net>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH REPOST 1/2] Network Event Notifier Mechanism.
+Date: Mon, 26 Jun 2006 13:28:42 -0500
+Message-ID: <1151346522.2398.46.camel@stevo-desktop>
+References: <20060623201928.32482.69191.stgit@stevo-desktop>
+	 <20060623.132647.39159829.davem@davemloft.net>
+	 <1151335571.2398.37.camel@stevo-desktop>
+	 <20060626.104311.111204162.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48052 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932616AbWFZSYG
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jun 2006 14:24:06 -0400
+Received: from es335.com ([67.65.19.105]:38220 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S932622AbWFZS2n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 14:28:43 -0400
 To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060626.104654.98552111.davem@davemloft.net>
+In-Reply-To: <20060626.104311.111204162.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Mon, 26 Jun 2006 19:04:15 +0200
+On Mon, 2006-06-26 at 10:43 -0700, David Miller wrote:
+> From: Steve Wise <swise@opengridcomputing.com>
+> Date: Mon, 26 Jun 2006 10:26:11 -0500
 > 
+> > I guess what I think we should do is pass the fib_info * when its a IPv4
+> > route add/del, and a rt6_info * when its a IPv6 add/del.  This avoids
+> > having to create some new family independent struct.  What I'll have to
+> > do, however, is have specific notifier event enums for each: 
+> > 
+> > NETEVENT_IPV4_ROUTE_ADD
+> > NETEVENT_IPV4_ROUTE_DEL
+> > NETEVENT_IPV6_ROUTE_ADD
+> > NETEVENT_IPV6_ROUTE_DEL
+> > 
+> > This keeps it simple IMO...
+> > 
+> > Does that sound reasonable to you?
 > 
->>I know this was discussed before, but I can't remember the
->>exact outcome. Why don't we just unconditionally update iif
->>in netif_receive_skb()?
+> You can avoid creating an event per address family by defining your
+> data as:
 > 
+> 	struct netevent_route_info {
+> 		u16 family;
+> 		void *data;
+> 	};
 > 
-> Software devices might have interesting semantics that would
-> make not setting iif desirable.
+> and passing that through the notifier.
+> 
+> Then you just need NETEVENT_ROUTE_{ADD,DEL}
+> 
+> Just an idea...
 
-Right, I remember now.
+Seems reasonable.   
 
-> Once you set iif, you can't just undo it because the information
-> is lost.
-> 
-> I also would really prefer to set it unconditionally in
-> netif_receive_skb(), but Jamal's concerns in this area are real.
-> We really need to evaluate this on a case-by-case basis.
+Thanks,
 
-I still have a hard time imagining a case where this wouldn't fit,
-netfilter is perfectly happy with just using skb->dev as input
-device on the input path so far. I also think it will be confusing
-to the user to have different notions of what constitutes the input
-device. If anyone can think of an example where the user would
-really expect the input device to be something different than
-skb->dev I'd be really interested to hear it.
-
-BTW, this is not meant to be an objection to Thomas's patch, just
-me still wondering ..
+Steve.
 
