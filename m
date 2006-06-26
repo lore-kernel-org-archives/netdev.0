@@ -1,61 +1,260 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Mon, 26 Jun 2006 16:08:23 -0700
-Message-ID: <44A068E7.6080403@candelatech.com>
-References: <20060609210202.215291000@localhost.localdomain> <20060609210625.144158000@localhost.localdomain> <20060626134711.A28729@castle.nmd.msu.ru> <449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru> <44A00215.2040608@fr.ibm.com> <m1hd27uaxw.fsf@ebiederm.dsl.xmission.com> <20060626183649.GB3368@MAIL.13thfloor.at> <m1u067r9qk.fsf@ebiederm.dsl.xmission.com> <44A05BFD.6030402@candelatech.com> <20060626225440.GA7425@MAIL.13thfloor.at>
+From: Venkat Yekkirala <vyekkirala@trustedcs.com>
+Subject: Labeled Networking Requirements and Design (formerly RE: [PATCH 01/06]
+ MLSXFRM: Granular IPSec associations for use in  MLS environments)
+Date: Mon, 26 Jun 2006 18:05:49 -0500
+Message-ID: <44A0684D.9080904@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Andrey Savochkin <saw@swsoft.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
-	sam@vilain.net, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, davem@davemloft.net,
+	sds@tycho.nsa.gov, paul.moore@hp.com, eparis@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:48039 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S933244AbWFZXJ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 19:09:29 -0400
-To: Herbert Poetzl <herbert@13thfloor.at>
-In-Reply-To: <20060626225440.GA7425@MAIL.13thfloor.at>
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:40883 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S933256AbWFZXOZ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jun 2006 19:14:25 -0400
+To: jmorris@namei.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Poetzl wrote:
-> On Mon, Jun 26, 2006 at 03:13:17PM -0700, Ben Greear wrote:
+> What we need is a design rationale, some kind of detailed=20
+> discussion of=20
+> what the user requirements are and what the plan is for implementing=20
+> features to meet these requirements.
 
-> yes, that sounds good to me, any numbers how that
-> affects networking in general (performance wise and
-> memory wise, i.e. caches and hashes) ...
+The following is not extensive in a formal/theoretical sense, but hopef=
+ully
+addresses the need here.
 
-I'll run some tests later today.  Based on my previous tests,
-I don't remember any significant overhead.
+Needless to say, it is hoped MLS experts and others out there would joi=
+n this
+discussion.
 
->>Using the mac-vlan and source-based routing tables, I can give a
->>unique 'interface' to each process and have each process able to bind
->>to the same IP port, for instance. Using source-based routing (by
->>binding to a local IP explicitly and adding a route table for that
->>source IP), I can give unique default routes to each interface as
->>well. Since we cannot have more than 256 routing tables, this approach
->>is currently limitted to around 250 virtual interfaces, but that is
->>still a substantial amount.
-> 
-> 
-> an typically that would be sufficient IMHO, but
-> of course, a more 'general' hash tag would be
-> better in the long run ...
+USER REQUIREMENTS:
 
-I'm willing to offer a bounty (hardware, beer, money, ...)
-if someone will 'fix' this so we can have 1000 or more routes....
+The broad user requirements for labeled networking would be that of inf=
+ormation
+labeling and flow control. Specifically,
 
-Being able to select these routes at a more global level (without
-having to specifically bind to a local IP would be nice as well.)
+1. Data labeling:
+	a. data must be labeled where it originates.
+	b. data must retain that label (or its interpretation in a given domai=
+n)
+	   when conveyed in a trustworthy manner.
 
-Ben
+2. Flow control:
+	a. data must be flow controlled at the point it is consumed.
+	b. data must be flow controlled at the point it simply flows thru.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+3. Data processing support:
+	a. Multi-level processes: provision for a sufficiently privileged/trus=
+ted
+	   process (e.g. Multi-level server) to read/write data labeled at
+	   different levels (specifically any/all levels within a given range)=
+=2E
 
+	   Such trusted/privileged processes would usually operate at a given
+	   level but would be able to read/write data at levels other than the
+	   level they are operating at, as allowed by policy.
+
+	b. Multiple single-level processes: provision for a process (usually a
+	   legacy, unmodified, untrusted) to be multi-instantiated, with each
+	   process binding to the same port but running at a different level.
+
+	   One way to support this is by providing for port polyinstantiation.
+
+	c. Multiple multi-level processes: provision for a process to be multi=
+-
+	   instantiated, with each process binding to the same port but runnin=
+g
+	   at a different range (specifically all the levels in the range).
+
+	   3(b) is a special case of this.
+
+NOTE: We (TCS) have products that currently use 3(a) but not 3(b) or 3(=
+c). As
+such our thrust here is geared toward the former along with 1 and 2. Th=
+ere is
+currently an ongoing discussion about using network namespaces for port
+polyinstantiation at
+http://www.redhat.com/archives/redhat-lspp/2006-June/msg00156.html.
+
+PROPOSED DESIGN:
+
+Given the above requirements the following design is proposed:
+
+Socket labeling (SOCK):
+
+1. Label socket to be at the same level as the creating process unless =
+the
+   process is privileged and has specified a different label (R3a).
+
+2. Create TCP child sockets with the MLS level taken from the peer
+   context, relying on the existing process-to-socket sendmsg, recvmsg
+   controls to protect the sockets (R3a).
+
+On the inbound (INBND):
+
+The following applies to traffic destined for local sockets (INPUT) as =
+well as
+forwarded traffic (FORWARD).
+
+
+1.	Set the packet's secmark to the iptables context (R1a).
+
+2.	If it is an ipsec packet,
+	Check that data with the ipsec label can "come thru" the "pipe" as
+	represented by the current secmark (iptables context) (R2b). That is,
+	check to make sure the ipsec MLS label falls WITHIN the MLS range of
+	the "pipe", and that the ipsec TE context can "come thru" the TE conte=
+xt
+	of the "pipe" per TE policy.
+		Yes: Set the secmark to ipsec label (replacing iptables context
+		     set in step 1) (R1b).
+		No:  Drop packet.
+
+3.	If it=92s a CIPSO packet (NetLabel),
+	Check that data with the CIPSO label can "come thru" the "pipe" as
+	represented by current secmark (ipsec or iptables context) (R2b).
+		Yes: Set the secmark to CIPSO label (R1b).
+		No:  Drop packet.
+
+4.	INPUT ONLY: Check socket can receive the packet. That is, check to
+	make sure the packet has MLS and TE read access to the packet per
+	SELinux policy (R1a, R3a, R3b).
+
+5.	FORWARD ONLY: Jump to OTBND2 below.
+
+On the outbound (OTBND):
+
+The following applies to locally-generated (OUTPUT) as well as forwarde=
+d
+(FORWARD) traffic.
+
+1.	OUTPUT ONLY:
+	a. Set secmark of the packet to the label of the socket unless its a
+	   datagram, the process is privileged and is allowed to specify
+	   a different label for the datagram per policy (R1a, R3a, R3c).
+
+	b. If there's no real socket to take the label from, and this packet i=
+s
+	   in response to a received packet, use the level from the received
+	   packet, taking the TE portion of the context from the pseudo-socket
+	   on whose behalf the packet is being sent.
+
+2.	If using CIPSO, set the option derived from Secmark (R1a). Drop pack=
+et
+	if a valid CIPSO option can't be derived.
+
+3.	If using IPSec (packet secmark must fall within the range of a xfrm
+	policy rule), choose a matching SA (again packet label must fall withi=
+n
+	the range for the security association) (R2b, R1b). Set the secmark to
+	ipsec label (replacing the label it was set to in step 1).
+
+4.	In the POSTROUTING chain of the mangle table:
+	a. Determine the iptables context per the iptables POSTROUTING
+	   policy chain in the mangle table. But it WON=92T go into the secmar=
+k
+	   of the packet like it currently does.
+	b. Check that the packet can "pass thru" the "pipe" as represented by
+	   the iptables context (R2b). That is, the secmark's MLS label must
+	   fall WITHIN the MLS range of the "pipe", and the secmark's TE conte=
+xt
+	   can "pass thru" the TE context of the "pipe" per TE policy.
+
+		NOTE: This means that data may not necessarily have the
+		ability to go out by itself, just that it can go in an ipsec
+		pipe and that pipe can go out.  You can have traffic that is
+	        only allowed to leave via ipsec this way. data_t can not go ou=
+t
+ 		of iface_t, but it can go into ipsec_pipe_t, which can go out
+		of iface_t.
+=09
+
+User API (UAPI):
+
+1. IPSec xfrms:
+	a. Specify labels with xfrm policy, association rules.
+	b. Specify label as part of acquire messages to IKE daemons
+	   so the label can be made a part of the negotiation process.
+
+2. Socket labeling:
+	a. Specify label to be used for sockets to be created.
+
+3. Datagram labeling:
+	a. Specify label for a datagram being written.
+
+
+OUTSTANDING ITEMS (ITEM):
+
+1. Support for granular IPSec associations (INBND2, OTBND3).
+
+2. Use level from incoming packet for outgoing packet when no real sock=
+et
+   present (OTBND1b).
+
+3. TCP child sockets (SOCK2).
+
+4. Checks against iptables context on outbound (OTBND4).
+
+5. Socket labeling (UAPI2).
+
+6. CIPSO (NetLabel) and other legacy labeling mechanisms.
+
+7. Datagram labeling (UAPI3).
+
+8. Port polyinstantiation (INBND4a).
+
+
+
+ARCHITECTURAL DIRECTIONS:
+
+Interaction with containers/network namespaces:
+
+I have only cursorily glanced at containers and network namespaces, but
+intuitively speaking, they could be defined to operate at different MLS
+ranges and meet the above requirements in terms of handling data
+that falls within those ranges.
+
+Example:
+
+Container/namespace A: Unclassified to Confidential
+Container/namespace B: Secret to Top Secret
+
+If a packet were to arrive with the label Confidential, it would need t=
+o be
+"routed" to container A. Similarly, a packet labeled Secret would be ro=
+uted
+to namespace B. This would be satisfy Requirement 3c (R3c for short) .
+
+Also, a packet labeled Secret must NOT be allowed to be sent from Conta=
+iner A,
+but must be allowed from B, meeting Requirement 2.b (R2b for short).
+
+
+GAME PLAN FOR PATCHES:
+
+1. Patch for ITEM1, ITEM2, ITEM3 (being worked by TCS) should be out in=
+ a few
+   days.
+
+2. Patch for ITEM4.
+
+3. Patch for ITEM5 has already been done by Eric Paris and is being con=
+sidered
+   for upstreaming.
+
+4. Patch for ITEM6: Paul Moore has done a "NetLabel" patch for this and=
+ the
+   patch is currently under review upstream.
+
+5. Patch for ITEM7: TCS currently have no plans to design and implement=
+ this.
+
+6. Patch for ITEM8: There's currently an ongoing discussion about possi=
+bly
+   using network namespaces for this purpose. TCS have no plans to work=
+ on this
+   at the current time.
