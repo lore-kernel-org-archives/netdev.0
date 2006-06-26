@@ -1,42 +1,50 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [patch 2/3] drivers/net/ns83820.c: add paramter to disable autonegotiation
-Date: Mon, 26 Jun 2006 12:29:28 -0400
-Message-ID: <20060626162928.GA22614@kvack.org>
-References: <200606250844.k5P8iasE020794@shell0.pdx.osdl.net>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] s2io: netpoll support
+Date: Mon, 26 Jun 2006 12:33:46 -0400
+Message-ID: <44A00C6A.9020602@hp.com>
+References: <001801c69634$6d3b33a0$4110100a@pc.s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, dan@scannet.dk,
-	dan@hacker.dk, jgarzik@pobox.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com,
+	"'Ananda. Raju (E-mail)'" <ananda.raju@neterion.com>,
+	"'Leonid. Grossman (E-mail)'" <leonid.grossman@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:3998 "EHLO kanga.kvack.org")
-	by vger.kernel.org with ESMTP id S1750757AbWFZQ3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 12:29:36 -0400
-To: akpm@osdl.org
-Content-Disposition: inline
-In-Reply-To: <200606250844.k5P8iasE020794@shell0.pdx.osdl.net>
+Received: from atlrel6.hp.com ([156.153.255.205]:41442 "EHLO atlrel6.hp.com")
+	by vger.kernel.org with ESMTP id S1750765AbWFZQds (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 12:33:48 -0400
+To: ravinandan.arakali@neterion.com
+In-Reply-To: <001801c69634$6d3b33a0$4110100a@pc.s2io.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 25, 2006 at 01:44:36AM -0700, akpm@osdl.org wrote:
+Ravinandan Arakali wrote:
+> Since the poll_controller entry point will be used by utilities such as
+> netdump, I am thinking we need to clear Tx interrupts as well here.
+> Did you get a chance to test this patch with netdump ?
+
+No, I've only been testing Kgdb over Ethernet on Debian, I think netdump 
+is a Red Hat thing.  I can test any changes you'd want to make with this 
+patch if you post the diffs.
+
+-Brian
+
+
+> -----Original Message-----
+> From: Brian Haley [mailto:brian.haley@hp.com]
+> Sent: Thursday, June 15, 2006 11:37 AM
+> To: netdev@vger.kernel.org
+> Cc: ravinandan.arakali@neterion.com; jgarzik@pobox.com; Ananda. Raju
+> (E-mail); Leonid. Grossman (E-mail)
+> Subject: Re: [PATCH] s2io: netpoll support
 > 
-> From: Dan Faerch <dan@scannet.dk>
 > 
-> Adds "ethtool command" support to driver.  Initially 2 commands are
-> implemented: force fullduplex and toggle autoneg.
-
-This part is good, although doing something for copper cards needs doing, 
-which probably means poking around to support the phy properly.
-
-> Also added a "disable_autoneg" module argument to completely disable
-> autoneg on all cards using this driver.
-
-This is the part I disagree with.  Are you sure it isn't a bug in the 
-link autonegotiation state machine for fibre cards?  It should be defaulting 
-to 1Gbit/full duplex if no autonegotiation is happening, and if it isn't 
-then that should be fixed instead of papering over things with a config 
-option.
-
-		-ben
--- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <dont@kvack.org>.
+> This adds netpoll support for things like netconsole/kgdboe to the s2io
+> 10GbE driver.
+> 
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
