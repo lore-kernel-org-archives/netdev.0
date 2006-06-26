@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] skb_find_text ignores to argument
-Date: Mon, 26 Jun 2006 00:01:09 -0700 (PDT)
-Message-ID: <20060626.000109.55508339.davem@davemloft.net>
-References: <20060625145200.GA32074@linuxace.com>
+Subject: Re: [patch 5/6] atm/mpc.c warning fix
+Date: Mon, 26 Jun 2006 00:02:11 -0700 (PDT)
+Message-ID: <20060626.000211.21593943.davem@davemloft.net>
+References: <200606250847.k5P8lWQq020909@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:21403
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:22427
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751286AbWFZHBL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jun 2006 03:01:11 -0400
-To: kernel@linuxace.com
-In-Reply-To: <20060625145200.GA32074@linuxace.com>
+	id S1751286AbWFZHCM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jun 2006 03:02:12 -0400
+To: akpm@osdl.org
+In-Reply-To: <200606250847.k5P8lWQq020909@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Phil Oester <kernel@linuxace.com>
-Date: Sun, 25 Jun 2006 07:52:00 -0700
+From: akpm@osdl.org
+Date: Sun, 25 Jun 2006 01:47:32 -0700
 
-> skb_find_text takes a "to" argument which is supposed to limit how
-> far into the skb it will search for the given text.  At present,
-> it seems to ignore that argument on the first skb, and instead
-> return a match even if the text occurs beyond the limit.
+> net/atm/mpc.c: In function 'MPOA_res_reply_rcvd':
+> net/atm/mpc.c:1116: warning: unused variable 'ip'
 > 
-> Patch below fixes this, after adjusting for the "from" starting
-> point.  This consequently fixes the netfilter string match's "--to"
-> handling, which currently is broken.
-> 
-> Signed-off-by: Phil Oester <kernel@linuxace.com>
+> Cc: chas williams <chas@cmf.nrl.navy.mil>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-Looks good, applied.
-
-Thanks Phil.
+Applied, thanks Andrew.
