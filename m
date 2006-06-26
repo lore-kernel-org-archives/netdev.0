@@ -1,36 +1,28 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Mon, 26 Jun 2006 07:23:42 +0200
-Message-ID: <200606260723.43209.ak@suse.de>
-References: <4492D5D3.4000303@atmos.washington.edu> <200606191724.31305.ak@suse.de> <20060625222243.GJ13255@w.ods.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	Harry Edmon <harry@atmos.washington.edu>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932389AbWFZFXw@vger.kernel.org>
-To: Willy Tarreau <w@1wt.eu>
-In-Reply-To: <20060625222243.GJ13255@w.ods.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Boggs <boggs@boggs.palo-alto.ca.us>
+Subject: Re: -git: Why is drivers/net/wan/hdlc_generic.c:hdlc_setup() exported?
+Date: Sun, 25 Jun 2006 23:11:30 -0700
+Message-ID: <200606260611.k5Q6BUSO017145@gw.wa3dbj.vix.com>
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from djb-pa.isc.org ([192.5.4.166]:32453 "EHLO gw.wa3dbj.vix.com")
+	by vger.kernel.org with ESMTP id S1751067AbWFZGMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 02:12:52 -0400
+To: Adrian Bunk <bunk@stusta.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+[Resent because I forgot to copy netdev on my answer]
 
-> I encountered the same problem on a dual core opteron equipped with a
-> broadcom NIC (tg3) under 2.4. It could receive 1 Mpps when using TSC
-> as the clock source, but the time jumped back and forth, so I changed
-> it to 'notsc', then the performance dropped dramatically to around the
-> same value as above with one CPU saturated. I suspect that the clock
-> precision is needed by the tg3 driver to correctly decide to switch to
-> polling mode, but unfortunately, the performance drop rendered the
-> solution so much unusable that I finally decided to use it only in
-> uniprocessor with TSC enabled.
+I asked Krzysztof to export that so that I could use it
+in a re-written driver for LMC WAN cards which I put out
+for comments on netdev in March.
 
-2.6 is more clever at this than 2.4. In particular it does the timestamp
-for each packet only when actually needed, which is relativelt rare.
+I have incorporated the comments from the March posting and
+intend to repost the new driver very soon.  If you delete
+the export then I will have to write some nasty code to work
+around it.
 
-Old experiences do not always apply to new kernels.
+	/David Boggs
 
--Andi
+
+
