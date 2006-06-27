@@ -1,331 +1,141 @@
-From: Kiran Thota <Kiran_Thota@pmc-sierra.com>
-Subject: RE: [Repost PATCH 6/6] PMC MSP85x0 gigabit ethernet driver
-Date: Tue, 27 Jun 2006 00:15:46 -0700
-Message-ID: <C28979E4F697C249ABDA83AC0C33CDF80B6BCE@sjc1exm07.pmc_nt.nt.pmc-sierra.bc.ca>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [Patch 1/1] AF_UNIX Datagram getpeersec [Updated #2]
+Date: Tue, 27 Jun 2006 03:16:37 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0606270315130.30073@d.namei>
+References: <20060627052255.GA1311@jiayuguan.watson.ibm.com>
+ <Pine.LNX.4.64.0606270311210.30073@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "'Yoichi Yuasa'" <yoichi_yuasa@tripeaks.co.jp>,
-	linux-mips@linux-mips.org, netdev@vger.kernel.org,
-	Raj Palani <Rajesh_Palani@pmc-sierra.com>, ralf@linux-mips.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	jmorris@redhat.com, chrisw@osdl.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Stephen Smalley <sds@tycho.nsa.gov>, tjaeger@cse.psu.edu,
+	Andrew Morton <akpm@osdl.org>, latten@austin.ibm.com,
+	sergeh@us.ibm.com, gcwilson@us.ibm.com, czhang.us@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from father.pmc-sierra.com ([216.241.224.13]:62850 "HELO
-	father.pmc-sierra.bc.ca") by vger.kernel.org with SMTP
-	id S932593AbWF0HQB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 03:16:01 -0400
-To: "'Francois Romieu'" <romieu@fr.zoreil.com>
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:65475 "EHLO
+	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1030684AbWF0HQk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 03:16:40 -0400
+To: Catherine Zhang <cxzhang@watson.ibm.com>
+In-Reply-To: <Pine.LNX.4.64.0606270311210.30073@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois,
- Thanks for your comments. I have absorbed almost all of your suggestions. You skimmed through 33% of the file before you dozed off... Waiting for the rest!
+On Tue, 27 Jun 2006, James Morris wrote:
 
-Kiran 
-
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Francois Romieu
-Sent: Monday, June 26, 2006 3:31 PM
-To: Kiran Thota
-Cc: 'Yoichi Yuasa'; linux-mips@linux-mips.org; netdev@vger.kernel.org; Raj Palani; ralf@linux-mips.org
-Subject: Re: [Repost PATCH 6/6] PMC MSP85x0 gigabit ethernet driver
-
-Kiran Thota <Kiran_Thota@pmc-sierra.com> :
-[...]
->  - Based on linux-2.6.12 from
->  
-> http://www.linux-mips.org/pub/linux/mips/kernel/v2.6/linux-2.6.12.tar.
-> gz
-
-Is there a reason why the patch is not diffed against a more recent version of the mips tree ?
-
-The patch includes ~130 lines ending with a tab or space delimiter.
-They could be removed.
-
-[...]
-> diff -Naur a/drivers/net/msp85x0_ge.c b/drivers/net/msp85x0_ge.c
-> --- a/drivers/net/msp85x0_ge.c	1969-12-31 16:00:00.000000000 -0800
-> +++ b/drivers/net/msp85x0_ge.c	2006-06-26 12:12:39.000000000 -0700
-[...]
-> +/* Static Function Declarations	 */
-> +static int msp85x0_ge_eth_open(struct net_device *); static int 
-> +msp85x0_ge_eth_reopen(struct net_device *netdev); static void 
-> +msp85x0_ge_eth_stop(struct net_device *); static struct 
-> +net_device_stats *msp85x0_ge_get_stats(struct net_device *); static 
-> +int msp85x0_ge_init_rx_desc_ring(msp85x0_ge_port_info *, int, int,
-> +				      unsigned long, unsigned long,
-> +				      unsigned long);
-> +static int msp85x0_ge_init_tx_desc_ring(msp85x0_ge_port_info *, int,
-> +				      unsigned long, unsigned long);
-> +
-> +static int msp85x0_ge_open(struct net_device *); static int 
-> +msp85x0_ge_start_xmit(struct sk_buff *, struct net_device *); static 
-> +int msp85x0_ge_stop(struct net_device *);
-> +
-> +static unsigned int msp85x0_ge_tx_coal(int);
-> +
-> +static void msp85x0_ge_port_reset(unsigned int); static int 
-> +msp85x0_ge_free_tx_queue(struct net_device *); static int 
-> +msp85x0_ge_rx_task(struct net_device *, msp85x0_ge_port_info *); 
-> +static int msp85x0_ge_port_start(struct net_device *); static int 
-> +msp85x0_eth_setup_tx_rx_fifo(struct net_device *dev); static int 
-> +msp85x0_ge_xdma_reset(void);
-
-You should be able to remove the forward declarations by correctly reordering the code.
-
-[...]
-> +static struct platform_device *msp85x0_ge_device[NO_PORTS]; static 
-> +struct net_device *msp85x0_eth[NO_PORTS]; static unsigned int 
-> +msp85x0_ge_sram; static unsigned int port_number;
-
-The way it is used, port_number should be a local variable.
-
-> +
-> +/*
-> + * The MSP85x0 GE has two alignment requirements:
-> + * -> skb->data to be cacheline aligned (32 byte)
-> + * -> IP header alignment to 16 bytes
-> + *
-> + * The latter is not implemented. So, that results in an extra copy 
-> +on
-> + * the Rx. This is a big performance hog. For the former case, the
-> + * dev_alloc_skb() has been replaced with msp85x0_ge_alloc_skb(). The 
-> +size
-> + * requested is calculated:
-> + *
-> + * Ethernet Frame Size : 1518
-> + * Ethernet Header     : 14
-> + * Future MSP85x0 change for IP header alignment : 2
-> + *
-> + * Hence, we allocate (1518 + 14 + 2+ 64) = 1580 bytes.  For IP 
-> +header
-> + * alignment, we use skb_reserve().
-> + */
-> +#define ALIGNED_RX_SKB_ADDR(addr) \
-> +	((((unsigned long)(addr) + (32UL - 1UL)) \
-> +	& ~(32UL - 1UL)) - (unsigned long)(addr)) #define 
-> +msp85x0_ge_alloc_skb(__length, __gfp_flags) \
-> +({      struct sk_buff *__skb; \
-> +	__skb = alloc_skb((__length),(__gfp_flags)); \
-> +	if(__skb){ \
-> +		int __offset = (int) ALIGNED_RX_SKB_ADDR(__skb->data); \
-> +		if(__offset) \
-> +			skb_reserve(__skb, __offset); \
-> +	} \
-> +	__skb; \
-> +})
-
-Please use a function for msp85x0_ge_alloc_skb.
-
-> +
-> +int increment_tx_pkt_count(unsigned int port)
-
-static
-
-> +{
-> +	unsigned int flags;
-> +	spin_lock_irqsave(&msp85x0_lock,flags);
-> +	if(port==0){
-
-CodingStyle: if (port == 0) {
-(or 'if (!port)')
-
-> +		port0_pkt_count++;
-> +	}
-> +	else{
-
-	} else {
-
-> +		port1_pkt_count++;	
-> +	}
-> +	spin_unlock_irqrestore(&msp85x0_lock,flags);
-
-increment_tx_pkt_count() is only issued from msp85x0_ge_tx_queue(), itself only issued from msp85x0_ge_start_xmit and xmit handlers run with irq enabled. The save/restore is not needed.
-
-> +	return 0;
-
-Useless return.
-
-> +}
-> +
-> +unsigned int get_tx_pkt_count(unsigned int port)
-
-static
-
-> +{
-> +	unsigned int flags,pktCount,tx_pending_pkt;
-
-Mixed case can be avoided here.
-
-> +	spin_lock_irqsave(&msp85x0_lock,flags);
-
-See above.
-
-> +	tx_pending_pkt=MSP85x0_GE_READ(MSP85x0_GE_CHANNEL0_TX_DMA_STS + (port << XDMA_PORT_OFFSET));
-> +	if(port==0){
-> +		pktCount=port0_pkt_count - tx_pending_pkt;
-> +	}
-> +	else{
-
-Sic.
-
-> +		pktCount=port1_pkt_count - tx_pending_pkt;	
-> +	}
-> +	spin_unlock_irqrestore(&msp85x0_lock,flags);
-> +	return pktCount;	
-> +}
-> +
-> +unsigned int decrement_tx_pkt_count(unsigned int port)
-
-static
-
-[...]
-> +void msp85x0_bringup_sequence(int port)
-
-static
-
-> +{
-> +   	unsigned int reg_data;
-> +
-> +	/* SDQPF */
-> +	reg_data=MSP85x0_GE_READ(MSP85x0_GE_SDQPF_RXFIFO_CTL + (port << 8));
-
-reg_data = MSP85x0_GE_READ(MSP85x0_GE_...
+> I'll address that in a patch to follow.  Could you please test these 
+> updated patches?  Thanks.
+> 
 
 
-[...]
-> +static void msp85x0_ge_gmii_config(int port_num) {
-[...]
-> +	if (phy_reg & 0x8000) {
-> +		if (phy_reg & 0x2000) {
-> +			/* Full Duplex and 1000 Mbps */
-> +			MSP85x0_GE_WRITE((MSP85x0_GE_GMII_CONFIG_MODE +
-> +					(port_num << MII_PORT_OFFSET)), 0x201);
-> +		}  else {
-> +			/* Half Duplex and 1000 Mbps */
-> +			MSP85x0_GE_WRITE((MSP85x0_GE_GMII_CONFIG_MODE +
-> +					(port_num << MII_PORT_OFFSET)), 0x2201);
-> +			}
-> +	}
+Below is a relative patch which only compiles this stuff into the core 
+networking code when appropriate kernel config is selected.
 
-:o(
-		mode = (phy_reg & 0x2000) ? 0x0201 : 0x2201;
-		MSP85x0_GE_WRITE((MSP85x0_GE_GMII_CONFIG_MODE +
-				 (port_num << MII_PORT_OFFSET)), mode);
-> +	if (phy_reg & 0x4000) {
-> +		if (phy_reg & 0x2000) {
-> +			/* Full Duplex and 100 Mbps */
-> +			MSP85x0_GE_WRITE((MSP85x0_GE_GMII_CONFIG_MODE +
-> +					(port_num << MII_PORT_OFFSET)), 0x100);
-> +		} else {
-> +			/* Half Duplex and 100 Mbps */
-> +			MSP85x0_GE_WRITE((MSP85x0_GE_GMII_CONFIG_MODE +
-> +					(port_num << MII_PORT_OFFSET)), 0x2100);
-> +		}
-> +	}
-
-I'd bet you could make a single MSP85x0_GE_WRITE for this one and the two above.
-
-[...]
-> +static void msp85x0_ge_update_afx(msp85x0_ge_port_info * 
-> +msp85x0_ge_eth) {
-> +	int port = msp85x0_ge_eth->port_num;
-> +	unsigned int i;
-> +	volatile unsigned long reg_data = 0;
-
-Mantra: volatile is not the answer.
-
-Now, what's the question ? :o)
+Please review.
 
 
-[...]
-> +static void msp85x0_ge_tx_timeout_task(struct net_device *netdev) {
-> +	msp85x0_ge_port_info *msp85x0_ge_eth = netdev_priv(netdev);
-> +	int port = msp85x0_ge_eth->port_num;
-> +
-> +	printk("MSP85x0 GE: Transmit timed out. Resetting ... \n");
+---
 
-Missing KERN_xyz
-
-[...]
-> +static int msp85x0_ge_change_mtu(struct net_device *netdev, int 
-> +new_mtu) {
-[...]
-> +	if (netif_running(netdev)) {
-> +		msp85x0_ge_eth_stop(netdev);
-> +            	MSP85x0_GE_WRITE((MSP85x0_GE_RMAC_MAX_FRAME_LEN + 
-> +(msp85x0_ge_eth->port_num << MAC_PORT_OFFSET)), new_mtu + 2); // for 
-> +the padded bytes
-> +
-> +		if (msp85x0_ge_eth_reopen(netdev) != 0) {
-> +			printk(KERN_ERR
-> +			       "%s: Fatal error on opening device\n",
-> +			       netdev->name);
-> +			spin_unlock_irqrestore(&msp85x0_ge_eth->lock, flags);
-> +			return -1;
-
-Please use -Esomething.
-
-You may consider goto to balance spin_{lock/unlock}.
-
-[...]
-> +static irqreturn_t msp85x0_ge_sequoia_int_handler(int irq, void *dev_id,
-> +	struct pt_regs *regs)
-> +{
-> +	struct net_device *netdev = (struct net_device *) dev_id;
-
-Useless cast from void *.
-
-[...]
-> +        /* Handle the Rx next */
-> +        if (eth_int_cause1 & (RX_INT << (port_num * 16))) {
-> +	      clear_xdma_interrupts(port_num,RX_INT);
-> +              if (netif_rx_schedule_prep(netdev)) {
-> +		   msp85x0_ge_disable_rx_int(port_num);	
-> +                   __netif_rx_schedule(netdev);			       		
-
-The indentation went badly wrong.
-
-[...]
-> +static int msp85x0_ge_open(struct net_device *netdev) {
-> +	msp85x0_ge_port_info *msp85x0_ge_eth = netdev_priv(netdev);
-> +	unsigned int port_num = msp85x0_ge_eth->port_num;
-> +	unsigned int irq;
-> +	int retval;       
-> +
-> +	spin_lock_irq(&(msp85x0_ge_eth->lock));
-> +
-> +	if (msp85x0_ge_eth_open(netdev) != MSP85x0_OK) {
-> +		spin_unlock_irq(&(msp85x0_ge_eth->lock));
-> +		printk("%s: Error opening interface \n", netdev->name);
-
-Missing KERN_xyz
-
-> +		free_irq(netdev->irq, netdev);
-
-request_irq() comes later.
-
-> +		return -EBUSY;
-
-Why not propagate an usual return status code from msp85x0_ge_eth_open ?
-
-> +	}
-> +
-> +	spin_unlock_irq(&(msp85x0_ge_eth->lock));
-> +
-> +        irq = MSP85x0_ETH_PORT_IRQ;
-> +
-> +	retval = request_irq(irq, INTERRUPT_HANDLER,
-> +		     SA_SAMPLE_RANDOM | SA_SHIRQ, netdev->name, netdev);
-> +
-> +	if (retval != 0) {
-> +		printk(KERN_ERR "Cannot assign IRQ number to MSP85x0 GE \n");
-> +		return -1;
-
-- msp85x0_ge_eth_open() should be balanced a bit (stop queuing for instance) ;
-- no need to throw away retval.
-
-(some sleep needed here, sorry)
-
---
-Ueimor
--
-To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff -purN -X dontdiff linux-2.6.p/include/net/scm.h linux-2.6.w/include/net/scm.h
+--- linux-2.6.p/include/net/scm.h	2006-06-27 02:26:02.000000000 -0400
++++ linux-2.6.w/include/net/scm.h	2006-06-27 03:03:30.000000000 -0400
+@@ -19,7 +19,9 @@ struct scm_cookie
+ {
+ 	struct ucred		creds;		/* Skb credentials	*/
+ 	struct scm_fp_list	*fp;		/* Passed files		*/
++#ifdef CONFIG_SECURITY_NETWORK	
+ 	char			*secdata;	/* Security context	*/
++#endif	
+ 	unsigned long		seq;		/* Connection seqno	*/
+ };
+ 
+@@ -49,6 +51,17 @@ static __inline__ int scm_send(struct so
+ 	return __scm_send(sock, msg, scm);
+ }
+ 
++#ifdef CONFIG_SECURITY_NETWORK
++static inline void scm_passec(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm)
++{
++	if (test_bit(SOCK_PASSSEC, &sock->flags) && scm->secdata != NULL)
++		put_cmsg(msg, SOL_SOCKET, SCM_SECURITY, strlen(scm->secdata)+1, scm->secdata);
++}
++#else
++static inline void scm_passec(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm)
++{ }
++#endif	/* CONFIG_SECURITY_NETWORK */
++
+ static __inline__ void scm_recv(struct socket *sock, struct msghdr *msg,
+ 				struct scm_cookie *scm, int flags)
+ {
+@@ -63,8 +76,7 @@ static __inline__ void scm_recv(struct s
+ 	if (test_bit(SOCK_PASSCRED, &sock->flags))
+ 		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(scm->creds), &scm->creds);
+ 
+-	if (test_bit(SOCK_PASSSEC, &sock->flags) && scm->secdata != NULL)
+-		put_cmsg(msg, SOL_SOCKET, SCM_SECURITY, strlen(scm->secdata)+1, scm->secdata);
++	scm_passec(sock, msg, scm);
+ 
+ 	if (!scm->fp)
+ 		return;
+diff -purN -X dontdiff linux-2.6.p/net/unix/af_unix.c linux-2.6.w/net/unix/af_unix.c
+--- linux-2.6.p/net/unix/af_unix.c	2006-06-27 02:26:02.000000000 -0400
++++ linux-2.6.w/net/unix/af_unix.c	2006-06-27 03:03:29.000000000 -0400
+@@ -128,6 +128,28 @@ static atomic_t unix_nr_socks = ATOMIC_I
+ 
+ #define UNIX_ABSTRACT(sk)	(unix_sk(sk)->addr->hash != UNIX_HASH_SIZE)
+ 
++#ifdef CONFIG_SECURITY_NETWORKING
++static void unix_get_peersec_dgram(struct sk_buff *skb)
++{
++	int tmp = 0;
++	
++	err = security_socket_getpeersec_dgram(skb, UNIXSEC(skb), &tmp);
++	if (err)
++		*(UNIXSEC(skb)) = NULL;
++}
++
++static inline void unix_set_secdata(struct scm_cookie *scm, struct sk_buff *skb)
++{
++	scm->secdata = *UNIXSEC(skb);
++}
++#else
++static void unix_get_peersec_dgram(struct sk_buff *skb)
++{ }
++
++static inline void unix_set_secdata(struct scm_cookie *scm, struct sk_buff *skb)
++{ }
++#endif /* CONFIG_SECURITY_NETWORKING */
++
+ /*
+  *  SMP locking strategy:
+  *    hash table is protected with spinlock unix_table_lock
+@@ -1251,7 +1273,6 @@ static int unix_dgram_sendmsg(struct kio
+ 	struct sk_buff *skb;
+ 	long timeo;
+ 	struct scm_cookie tmp_scm;
+-	int seclen = 0;
+ 
+ 	if (NULL == siocb->scm)
+ 		siocb->scm = &tmp_scm;
+@@ -1291,9 +1312,8 @@ static int unix_dgram_sendmsg(struct kio
+ 	memcpy(UNIXCREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
+ 	if (siocb->scm->fp)
+ 		unix_attach_fds(siocb->scm, skb);
+-	err = security_socket_getpeersec_dgram(skb, UNIXSEC(skb), &seclen);
+-	if (err)
+-		*(UNIXSEC(skb)) = NULL;
++
++	unix_get_peersec_dgram(skb);
+ 
+ 	skb->h.raw = skb->data;
+ 	err = memcpy_fromiovec(skb_put(skb,len), msg->msg_iov, len);
+@@ -1574,7 +1594,7 @@ static int unix_dgram_recvmsg(struct kio
+ 		memset(&tmp_scm, 0, sizeof(tmp_scm));
+ 	}
+ 	siocb->scm->creds = *UNIXCREDS(skb);
+-	siocb->scm->secdata = *UNIXSEC(skb);
++	unix_set_secdata(siocb->scm, skb);
+ 
+ 	if (!(flags & MSG_PEEK))
+ 	{
