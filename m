@@ -1,46 +1,57 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 1/3] natsemi: Add quirks for Aculab E1/T1 PMXc cPCI carrier
- cards
-Date: Mon, 26 Jun 2006 23:49:22 -0400
-Message-ID: <44A0AAC2.5060509@garzik.org>
-References: <200606250844.k5P8iZkg020788@shell0.pdx.osdl.net>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Mon, 26 Jun 2006 23:50:44 -0400
+Message-ID: <44A0AB14.1010605@garzik.org>
+References: <20060626212547.GE30706@tuxdriver.com> <44A09289.4040200@garzik.org> <44A097AA.6080809@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, broonie@sirena.org.uk, jgarzik@pobox.com,
-	thockin@hockin.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, Bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:26585 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1030622AbWF0Dt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 23:49:28 -0400
-To: akpm@osdl.org
-In-Reply-To: <200606250844.k5P8iZkg020788@shell0.pdx.osdl.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:32217 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1030626AbWF0Dur (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 23:50:47 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <44A097AA.6080809@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@osdl.org wrote:
-> From: Mark Brown <broonie@sirena.org.uk>
+Larry Finger wrote:
+> Jeff Garzik wrote:
+>> John W. Linville wrote:
+>>> +    assert(bcm->mac_suspended >= 0);
+>>> +    if (bcm->mac_suspended == 0) {
+>>> +        bcm43xx_power_saving_ctl_bits(bcm, -1, 1);
+>>> +        bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
+>>> +                        bcm43xx_read32(bcm, 
+>>> BCM43xx_MMIO_STATUS_BITFIELD)
+>>> +                & ~BCM43xx_SBF_MAC_ENABLED);
+>>> +        bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy 
+>>> read */
+>>> +        for (i = 100000; i; i--) {
+>>> +            tmp = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+>>> +            if (tmp & BCM43xx_IRQ_READY)
+>>> +                goto out;
+>>> +            udelay(10);
+>>> +        }
+>>> +        printkl(KERN_ERR PFX "MAC suspend failed\n");
+>>>      }
+>>
+>>
+>> NAK this super-long delay...  should be done in a workqueue, looks like?
+>>
+>> ACK everything else.
+>>
 > 
-> Aculab E1/T1 PMXc cPCI carrier card cards present a natsemi on the cPCI bus
-> wired up in a non-standard fashion.  This patch provides support in the
-> natsemi driver for these cards by implementing a quirk mechanism and using
-> that to configure appropriate settings for the card: forcing 100M full duplex,
-> having a large EEPROM and using the MII port while ignoring PHYs.
-> 
-> Signed-off-by: Mark Brown <broonie@sirena.org.uk>
-> Cc: Tim Hockin <thockin@hockin.org>
-> Cc: Jeff Garzik <jgarzik@pobox.com>
-> 
-> [akpm: this is a previously-nacked patch, but the problem is real]
-> Signed-off-by: Andrew Morton <akpm@osdl.org>
-> ---
-> 
->  drivers/net/natsemi.c   |   94 ++++++++++++++++++++++++--------------
->  include/linux/pci_ids.h |    3 +
->  2 files changed, 63 insertions(+), 34 deletions(-)
+> That delay was set to try to accommodate my interface when it refused to 
+> suspend the MAC, which resulted in transmit errors. That problem has 
+> since been cured by reworking the periodic work handlers - thus such a 
+> long delay should not be needed. The original spec from the clean-room 
+> group was a delay loop of 1000. I'm currently testing that value now. If 
+> it passes the test, would a for (i=1000; i; i--) be acceptable?
 
-I checked in a couple patches in preparation for merging this.  Please 
-rediff and resend, and I'll apply.
+That's acceptable, yes, but it sounds like the problem has since been cured?
 
 	Jeff
 
