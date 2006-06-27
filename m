@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH Round 2 0/2][RFC] Network Event Notifier Mechanism
-Date: Tue, 27 Jun 2006 13:21:32 -0700 (PDT)
-Message-ID: <20060627.132132.21596632.davem@davemloft.net>
-References: <1151420539.3207.29.camel@stevo-desktop>
-	<20060627.131443.104035750.davem@davemloft.net>
-	<1151439548.20252.2.camel@stevo-desktop>
+Subject: Re: [NET]: Added GSO header verification
+Date: Tue, 27 Jun 2006 13:22:57 -0700 (PDT)
+Message-ID: <20060627.132257.48805004.davem@davemloft.net>
+References: <20060627120714.GA15270@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:8364
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:8876
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030341AbWF0UVc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 16:21:32 -0400
-To: swise@opengridcomputing.com
-In-Reply-To: <1151439548.20252.2.camel@stevo-desktop>
+	id S1030348AbWF0UW5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 16:22:57 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060627120714.GA15270@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Steve Wise <swise@opengridcomputing.com>
-Date: Tue, 27 Jun 2006 15:19:08 -0500
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 27 Jun 2006 22:07:14 +1000
 
-> For an RDMA NIC, all this logic is in HW, which is why we need the event
-> notification; to tell the HW to change its next hop information.
+> This feature is only needed by Xen but most of the code here is useful
+> for other things like TCPv4 ECN support.
+> 
+> [NET]: Added GSO header verification
 
-Back to the route change notification, I still think you can
-get what you need by just looking for the route delete.
+Looks sane, applied.
 
-You can match if any RDMA connection is using the deleted
-route, mark it "update pending" or something like that,
-and when the you get the "new route" event you can walk the
-"pending" list and try to relookup the route for those
-connections.
+Thanks Herbert.
