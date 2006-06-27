@@ -1,44 +1,43 @@
-From: Kirill Korotaev <dev@sw.ru>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Tue, 27 Jun 2006 13:54:51 +0400
-Message-ID: <44A1006B.3040700@sw.ru>
-References: <20060609210202.215291000@localhost.localdomain> <20060609210625.144158000@localhost.localdomain> <20060626134711.A28729@castle.nmd.msu.ru> <449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru> <44A00215.2040608@fr.ibm.com> <20060627131136.B13959@castle.nmd.msu.ru> <44A0FBAC.7020107@fr.ibm.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Tue, 27 Jun 2006 12:03:09 +0200
+Message-ID: <20060627100309.GU1376@postel.suug.ch>
+References: <20060626.104654.98552111.davem@davemloft.net> <20060626184424.GT1376@postel.suug.ch> <44A05FE0.7070203@trash.net> <44A0647A.1070209@trash.net> <20060626145446.948105000@postel.suug.ch> <20060626145515.769648000@postel.suug.ch> <44A0138F.8050208@trash.net> <20060626.104654.98552111.davem@davemloft.net> <20060626184424.GT1376@postel.suug.ch> <44A05FE0.7070203@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrey Savochkin <saw@swsoft.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
-	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>,
-	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
-	ebiederm@xmission.com, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:1581 "EHLO relay.sw.ru")
-	by vger.kernel.org with ESMTP id S964858AbWF0JzV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 05:55:21 -0400
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-In-Reply-To: <44A0FBAC.7020107@fr.ibm.com>
+Received: from postel.suug.ch ([194.88.212.233]:49347 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932588AbWF0KCs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 06:02:48 -0400
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <44A0647A.1070209@trash.net> <44A05FE0.7070203@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> My point is that if you make namespace tagging at routing time, and
->> your packets are being routed only once, you lose the ability
->> to have separate routing tables in each namespace.
-> 
-> 
-> Right. What is the advantage of having separate the routing tables ?
-it is impossible to have bridged networking, tun/tap and many other 
-features without it. I even doubt that it is possible to introduce 
-private netfilter rules w/o virtualization of routing.
+* Patrick McHardy <kaber@trash.net> 2006-06-27 00:29
+> Doesn't sound too silly (actually quite nifty in my opinion),
+> but I'm not sure I understand correctly, binding to ifb doesn't
+> work since it changes both skb->dev and skb->input_dev.
 
-The question is do we want to have fully featured namespaces which allow 
-to create isolated virtual environments with semantics and behaviour of 
-standalone linux box or do we want to introduce some hacks with new 
-rules/restrictions to meet ones goals only?
+I don't understand this concern. So far the mirred action
+updates iif but that can be made configurable.
 
- From my POV, fully virtualized namespaces are the future. It is what 
-makes virtualization solution usable (w/o apps modifications), provides 
-all the features and doesn't require much efforts from people to be used.
+* Patrick McHardy <kaber@trash.net> 2006-06-27 00:49
+> Small clarification: with queueing at ingress I mean queueing after
+> the bottleneck. It might work if you introduce a virtual bottleneck,
+> but in that case in my experience the bandwidth limit you have to use
+> is dependant on the number of TCP flows, so usually you can't specify
+> a limit that will always work, and its wasteful if there is a smaller
+> number of TCP flows. The reason why you would do it, limiting or
+> prioritizing incoming traffic on the _real_ bottleneck, is not
+> achievable of course. Also noteworthy is that policers don't behave
+> any better, and any other schemes I've tried (I also experienced a
+> lot of with TCP rate control) have similar or related problems.
 
-Thanks,
-Kirill
+My interest in ingress queueing is mainly on a local delivery
+case where skb->tstamp can be modified to control tcp metrics.
+I agree that a lot of wrong expectations have developed with
+IMQ and similiar devices.
+
