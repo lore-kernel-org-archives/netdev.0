@@ -1,67 +1,47 @@
-From: David Boggs <boggs@boggs.palo-alto.ca.us>
-Subject: Re: -git: Why is drivers/net/wan/hdlc_generic.c:hdlc_setup() exported?
-Date: Tue, 27 Jun 2006 04:09:11 -0700
-Message-ID: <200606271109.k5RB9CSO019247@gw.wa3dbj.vix.com>
-Cc: Krzysztof Halasa <khc@pm.waw.pl>, netdev@vger.kernel.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][patch 1/4] Network namespaces: cleanup of dev_base list use
+Date: Tue, 27 Jun 2006 05:13:28 -0600
+Message-ID: <m11wtaonqf.fsf@ebiederm.dsl.xmission.com>
+References: <20060626134945.A28942@castle.nmd.msu.ru>
+	<m1odwguez3.fsf@ebiederm.dsl.xmission.com> <44A0D755.5090204@sw.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, herbert@13thfloor.at,
+	devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from djb-pa.isc.org ([192.5.4.166]:18886 "EHLO gw.wa3dbj.vix.com")
-	by vger.kernel.org with ESMTP id S933396AbWF0LJw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 07:09:52 -0400
-To: Christoph Hellwig <hch@infradead.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:15235 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S933398AbWF0LOu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 07:14:50 -0400
+To: Kirill Korotaev <dev@sw.ru>
+In-Reply-To: <44A0D755.5090204@sw.ru> (Kirill Korotaev's message of "Tue, 27
+	Jun 2006 10:59:33 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In March I posted a request for comments on a rewrite of
-the LMC wan driver (see ftp.isc.org/pub/other/lmc).
-I designed the LMC wan cards.
+Kirill Korotaev <dev@sw.ru> writes:
 
-The new driver works with Linux, FreeBSD, NetBSD, OpenBSD
-and BSD/OS.  FreeBSD and NetBSD have adopted it; OpenBSD is
-still thinking about it (their principal comments mirrored
-the Linux comments: remove the code for other OSs and adopt
-their kernel coding style).  Before I resubmit the new driver
-for more Linux comments I will do this.  BTW: FreeBSD and
-NetBSD did not insist on this  -- an interesting policy
-contrast.  Nobody objected to the code for other OSs and
-only one person cleared his throat about coding style.
+>>>Cleanup of dev_base list use, with the aim to make device list per-namespace.
+>>>In almost every occasion, use of dev_base variable and dev->next pointer
+>>>could be easily replaced by for_each_netdev loop.
+>>>A few most complicated places were converted to using
+>>>first_netdev()/next_netdev().
+>> As a proof of concept patch this is ok.
+>> As a real world patch this is much too big, which prevents review.
+>> Plus it takes a few actions that are more than replace just
+>> iterators through the device list.
+> Mmm, actually it is a whole changeset and should go as a one patch. I didn't
+> find it to be big and my review took only 5-10mins..
+> I also don't think that mailing each driver maintainer is a good idea.
+> Only if we want to make some buzz :)
 
-Anyway, the new driver deals with FIVE line protocol stacks:
-Generic-HDLC and SyncPPP (Linux), SPPP (FreeBSD, NetBSD, OpenBSD)
-Netgraph (FreeBSD), and P2P (BSD/OS).  Linux's SyncPPP stack is
-a renamed version of SPPP, with different interfaces to drivers
-and the kernel.  SyncPPP implements PPP and Cisco-HDLC.
-Generic-HDLC uses the PPP part but implements its own version
-of Cisco-HDLC.
+Thanks for supporting my case.  You reviewed it and missed the obvious typo.
+I do agree that a patchset doing it all should happen at once.
 
-The Linux version of my driver, can be configured to use
-Generic-HDLC or SyncPPP, or both with the choice made at
-run-time.  Configuring only SyncPPP avoids loading the
-Generic-HDLC module if all you need is PPP or Cisco-HDLC.
-The driver can switch from one line protocol stack to another
-at run time.  This requires detaching from the current stack
-and attaching to another.  There is a way to detach Generic-HDLC
-but there is no way to reattach it because the initialization
-code is called from within alloc_hdlcdev() and is not exported.
+As for not mailing the maintainers of the code we are changing.  That
+would just be irresponsible.
 
-I have been working around this by duplicating the code in
-hdlc_setup() in my driver.  This is ugly and requires that
-the driver know "private" things about Generic-HDLC.  While
-studying Generic-HDLC, I noticed that register_hdlc_device() had
-some redundant code which had been subsumed by register_netdev().
-I pointed this out to Krzysztof Halasa, the maintainer of
-Generic-HDLC, and at the same time I asked him to export
-hdlc_setup() so that I could remove the duplicate code in
-my driver, which he graciously did recently.
-
-I've subscribed to the netdev list since March and I've
-read the archives back a year or two.  Whenever I see
-something relevant to my new driver, I change it to conform.
-Right now I'm busy booting Linux on a PPC inside a Xilinx chip
-so I haven't done the final testing and documentation updates
-necessary before resubmitting the driver to Linux, but I
-promise I will do so Real Soon Now -- before mid-August.
-
-	/David Boggs
-
-
-
+Eric
