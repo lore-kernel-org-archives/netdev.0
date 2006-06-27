@@ -1,32 +1,43 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] smc91x: disable DMA mode on the logicpd pxa270
-Date: Mon, 26 Jun 2006 22:02:52 -0400
-Message-ID: <44A091CC.90607@pobox.com>
-References: <20060623212436.GB4843@xi.wantstofly.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Mon, 26 Jun 2006 22:06:01 -0400
+Message-ID: <44A09289.4040200@garzik.org>
+References: <20060626212547.GE30706@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nico@cam.org, mikee@logicpd.com,
-	peterb@logicpd.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:18133 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932946AbWF0CC5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 22:02:57 -0400
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20060623212436.GB4843@xi.wantstofly.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:31701 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1030597AbWF0CGD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 22:06:03 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060626212547.GE30706@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek wrote:
-> Enabling PXA DMA for the smc91x on the logicpd pxa270 produces
-> unacceptable interference with the TFT panel, so disable it.  Also
-> delete the lpd270 versions of the SMC_{in,out}[bl]() macros, as they
-> aren't used, since the board only supports 16bit accesses.
-> 
-> Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
-> 
-> Index: linux-2.6.17-git5/drivers/net/smc91x.h
+John W. Linville wrote:
+> +	assert(bcm->mac_suspended >= 0);
+> +	if (bcm->mac_suspended == 0) {
+> +		bcm43xx_power_saving_ctl_bits(bcm, -1, 1);
+> +		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
+> +		                bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD)
+> +				& ~BCM43xx_SBF_MAC_ENABLED);
+> +		bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy read */
+> +		for (i = 100000; i; i--) {
+> +			tmp = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+> +			if (tmp & BCM43xx_IRQ_READY)
+> +				goto out;
+> +			udelay(10);
+> +		}
+> +		printkl(KERN_ERR PFX "MAC suspend failed\n");
+>  	}
 
-ACK, but git-applymbox claims the patch is corrupt
+
+NAK this super-long delay...  should be done in a workqueue, looks like?
+
+ACK everything else.
+
+	Jeff
 
 
