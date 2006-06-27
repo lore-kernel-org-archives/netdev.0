@@ -1,93 +1,73 @@
-From: Sam Vilain <sam@vilain.net>
-Subject: Re: Network namespaces a path to mergable code.
-Date: Wed, 28 Jun 2006 10:20:39 +1200
-Message-ID: <44A1AF37.3070100@vilain.net>
-References: <20060626134945.A28942@castle.nmd.msu.ru> <m14py6ldlj.fsf@ebiederm.dsl.xmission.com> <20060627215859.A20679@castle.nmd.msu.ru>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [NET]: Added GSO header verification
+Date: Wed, 28 Jun 2006 08:31:20 +1000
+Message-ID: <20060627223120.GA19026@gondor.apana.org.au>
+References: <20060627120714.GA15270@gondor.apana.org.au> <1151441195.3543.3.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>, dlezcano@fr.ibm.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
-	devel@openvz.org, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>,
-	Mark Huang <mlhuang@CS.Princeton.EDU>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from watts.utsl.gen.nz ([202.78.240.73]:19119 "EHLO
-	watts.utsl.gen.nz") by vger.kernel.org with ESMTP id S1422677AbWF0WUR
+Received: from rhun.apana.org.au ([64.62.148.172]:55301 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1422679AbWF0WcD
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 18:20:17 -0400
-To: Andrey Savochkin <saw@swsoft.com>
-In-Reply-To: <20060627215859.A20679@castle.nmd.msu.ru>
+	Tue, 27 Jun 2006 18:32:03 -0400
+To: Michael Chan <mchan@broadcom.com>
+Content-Disposition: inline
+In-Reply-To: <1151441195.3543.3.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrey Savochkin wrote:
-> On Tue, Jun 27, 2006 at 11:20:40AM -0600, Eric W. Biederman wrote:
->   
->> Thinking about this I am going to suggest a slightly different direction
->> for get a patchset we can merge.
->>
->> First we concentrate on the fundamentals.
->> - How we mark a device as belonging to a specific network namespace.
->> - How we mark a socket as belonging to a specific network namespace.
->>     
->
-> I agree with the direction of your thoughts.
-> I was trying to do a similar thing, define clear steps in network
-> namespace merging.
->
-> My first patchset covers devices but not sockets.
-> The only difference from what you're suggesting is ipv4 routing.
-> For me, it is not less important than devices and sockets.  May be even
-> more important, since routing exposes design deficiencies less obvious at
-> socket level.
->   
+On Tue, Jun 27, 2006 at 01:46:35PM -0700, Michael Chan wrote:
+> On Tue, 2006-06-27 at 22:07 +1000, Herbert Xu wrote:
+> 
+> > [NET]: Added GSO header verification
+> >
+> > @@ -2166,10 +2166,14 @@ struct sk_buff *tcp_tso_segment(struct s
+> >         if (!pskb_may_pull(skb, thlen))
+> >                 goto out;
+> >  
+> > +       segs = NULL;
+> > +       if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST))
+> > +               goto out;
+> > +
+> 
+> This logic doesn't look right to me.  Perhaps it's backwards and should
+> be:
+> 
+> if (!skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST))
 
-It sounds then like it would be a good start to have general socket
-namespaces, if it would merge more easily - perhaps then network device
-namespaces would fall into place more easily.
+Oops, you're absolutely right.  Here is the fix.
 
-AIUI socket namespaces are also necessary for situations where you want
-containers to share IP addresses. AIUI, PlanetLab do something like this
-with a module atop of VServer already (but read
-http://openvz.org/pipermail/devel/2006-June/000666.html for a proper
-explanation from Mark Huang)
+[NET]: Fix logical error in skb_gso_ok
 
->> As part of the fundamentals we add a patch to the generic socket code
->> that by default will disable it for protocol families that do not indicate
->> support for handling network namespaces, on a non-default network namespace.
->>     
->
-> Fine
->
-> Can you summarize you objections against my way of handling devices, please?
->   
-There were many objections, the major one being the patch was too large for certainty of adequate review.
+The test in skb_gso_ok is backwards.  Noticed by Michael Chan
+<mchan@broadcom.com>.
 
-Quoting what I perceived as a summary from Eric:
-> When I went through this, my patchset just added an explicit
-> continue if the devices was not in the appropriate namespace.
-> I actually prefer the multiple list implementation but at
-> the same time I think it is harder to get a clean implementation
-> out of it.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-
-You offered to re-do the patch without separate lists - I suggest that
-this go ahead. No-one should really care; splitting it out into separate
-lists can then be considered a performance optimization for later.
-
-> And what was the typo you referred to in your letter to Kirill Korotaev?
->   
-I think this is the comment he refers to:
-> These hunks should use for_each_netdev(ifp);
-
-
-Both quotes are from http://lkml.org/lkml/2006/6/26/147
-
-Though, in Kirill's defense, it seems a bit strange to expect him to
-raise a fault that was just raised by Eric, in a reply to the message
-where he raised it.
-
-Sam.
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 84b0f0d..efd1e2a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -994,12 +994,12 @@ static inline int skb_gso_ok(struct sk_b
+ {
+ 	int feature = skb_shinfo(skb)->gso_size ?
+ 		      skb_shinfo(skb)->gso_type << NETIF_F_GSO_SHIFT : 0;
+-	return (features & feature) != feature;
++	return (features & feature) == feature;
+ }
+ 
+ static inline int netif_needs_gso(struct net_device *dev, struct sk_buff *skb)
+ {
+-	return skb_gso_ok(skb, dev->features);
++	return !skb_gso_ok(skb, dev->features);
+ }
+ 
+ #endif /* __KERNEL__ */
