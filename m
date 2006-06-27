@@ -1,55 +1,54 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [RFC][patch 1/4] Network namespaces: cleanup of dev_base list use
-Date: Tue, 27 Jun 2006 10:26:33 -0500
-Message-ID: <20060627152633.GF24045@sergelap.austin.ibm.com>
-References: <20060626134945.A28942@castle.nmd.msu.ru> <m1odwguez3.fsf@ebiederm.dsl.xmission.com> <44A0D755.5090204@sw.ru> <m11wtaonqf.fsf@ebiederm.dsl.xmission.com> <44A149F5.2060204@sw.ru>
+From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+Subject: RE: Labeled Networking Requirements and Design (formerly RE: [PAT
+	CH 01/06] MLSXFRM: Granular IPSec associations for use in  MLS environmen
+	ts)
+Date: Tue, 27 Jun 2006 11:29:12 -0400
+Message-ID: <36282A1733C57546BE392885C061859201324767@chaos.tcs.tcs-sec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, herbert@13thfloor.at,
-	devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, davem@davemloft.net,
+	sds@tycho.nsa.gov, paul.moore@hp.com, eparis@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:30856 "EHLO
-	e32.co.us.ibm.com") by vger.kernel.org with ESMTP id S1161097AbWF0P1b
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:15628 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1161104AbWF0PaA
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 11:27:31 -0400
-To: Kirill Korotaev <dev@sw.ru>
-Content-Disposition: inline
-In-Reply-To: <44A149F5.2060204@sw.ru>
+	Tue, 27 Jun 2006 11:30:00 -0400
+To: James Morris <jmorris@namei.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Kirill Korotaev (dev@sw.ru):
-> >>>>Cleanup of dev_base list use, with the aim to make device list 
-> >>>>per-namespace.
-> >>>>In almost every occasion, use of dev_base variable and dev->next pointer
-> >>>>could be easily replaced by for_each_netdev loop.
-> >>>>A few most complicated places were converted to using
-> >>>>first_netdev()/next_netdev().
-> >>>
-> >>>As a proof of concept patch this is ok.
-> >>>As a real world patch this is much too big, which prevents review.
-> >>>Plus it takes a few actions that are more than replace just
-> >>>iterators through the device list.
-> >>
-> >>Mmm, actually it is a whole changeset and should go as a one patch. I 
-> >>didn't
-> >>find it to be big and my review took only 5-10mins..
-> >>I also don't think that mailing each driver maintainer is a good idea.
-> >>Only if we want to make some buzz :)
-> >
-> >
-> >Thanks for supporting my case.  You reviewed it and missed the obvious 
-> >typo.
-> >I do agree that a patchset doing it all should happen at once.
-> This doesn't support anything. e.g. I caught quite a lot of bugs after 
-> Ingo Molnar, but this doesn't make his code "poor". People are people.
+> > 5. Patch for ITEM7: TCS currently have no plans to design 
+> and implement this.
+> > 
+> 
+> (Datagram labeling)
+> 
+> I guess we'd probably use SCM_SECURITY for this (similar to 
+> IP_CMSG_PASSEC for receiving the label).
 
-Exactly - people are people, and they will do a better review of a
-well-constructed set of small patches than of one large patch.  Eyes
-glaze over, it just happens.
+Seems like a logical way to do it.
+> 
+> Is this enough support for user API support at the kernel 
+> level in terms 
+> of setting and getting labels?
 
--serge
+Actually I missed mentioning the following under User API:
+
+4. iptables contexts
+   a. Specify labels with iptables rules.
+
+Can't think of anything else being needed at this point in time.
+
+Also, for the sake of the discussion, one "requirement" that some
+may have is "Label-based routing", which would basically be a
+polyinstantiated routing table. This is something TCS is currently
+not interested in pursuing.
+
+So, under USER REQUIREMENTS:
+
+4. Routing support
+
+	a. provision for a label-based routing mechanism (aka
+polyinstantiated
+	   routing table).
