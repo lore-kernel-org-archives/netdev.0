@@ -1,34 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH Round 2 0/2][RFC] Network Event Notifier Mechanism
-Date: Tue, 27 Jun 2006 13:37:52 -0700 (PDT)
-Message-ID: <20060627.133752.21929335.davem@davemloft.net>
-References: <1151439548.20252.2.camel@stevo-desktop>
-	<20060627.132132.21596632.davem@davemloft.net>
-	<1151440399.20252.9.camel@stevo-desktop>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [NET]: Added GSO header verification
+Date: Tue, 27 Jun 2006 13:46:35 -0700
+Message-ID: <1151441195.3543.3.camel@rh4>
+References: <20060627120714.GA15270@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:15825
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1161296AbWF0Uhx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 16:37:53 -0400
-To: swise@opengridcomputing.com
-In-Reply-To: <1151440399.20252.9.camel@stevo-desktop>
+Received: from mms3.broadcom.com ([216.31.210.19]:53004 "EHLO
+	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1161299AbWF0Upi
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 16:45:38 -0400
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
+In-Reply-To: <20060627120714.GA15270@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Steve Wise <swise@opengridcomputing.com>
-Date: Tue, 27 Jun 2006 15:33:19 -0500
+On Tue, 2006-06-27 at 22:07 +1000, Herbert Xu wrote:
 
-> From my experimentation with netlink, RTM_NEWROUTE and RTM_DELROUTE
-> messages do not get sent up for redirect events.  I have, in fact, added
-> this with the new patch I'll send out soon.  So either way I need to
-> change the IPv[46] code to generate a notification for redirects.  With
-> the single NETEVENT_REDIRECT call, the RDMA driver can, in one sweep,
-> update all the connections.  It seems more efficient.  At the place
-> where I've hooked redirect, both the old route and the new route are
-> already created.
+> [NET]: Added GSO header verification
+>
+> @@ -2166,10 +2166,14 @@ struct sk_buff *tcp_tso_segment(struct s
+>         if (!pskb_may_pull(skb, thlen))
+>                 goto out;
+>  
+> +       segs = NULL;
+> +       if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST))
+> +               goto out;
+> +
 
-Ok, let's see what it looks like.
+This logic doesn't look right to me.  Perhaps it's backwards and should
+be:
+
+if (!skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST))
+
