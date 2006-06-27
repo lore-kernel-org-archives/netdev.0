@@ -1,43 +1,106 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC][patch 1/4] Network namespaces: cleanup of dev_base list use
-Date: Tue, 27 Jun 2006 10:54:45 -0600
-Message-ID: <m1hd26lesq.fsf@ebiederm.dsl.xmission.com>
-References: <20060626134945.A28942@castle.nmd.msu.ru>
-	<m1odwguez3.fsf@ebiederm.dsl.xmission.com> <44A0D755.5090204@sw.ru>
-	<m11wtaonqf.fsf@ebiederm.dsl.xmission.com> <44A149F5.2060204@sw.ru>
+From: "Chris A. Icide" <chris@netgeeks.net>
+Subject: tg3 driver and interrupt coalescence questions
+Date: Tue, 27 Jun 2006 10:16:27 -0700
+Message-ID: <44A167EB.8000805@netgeeks.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, herbert@13thfloor.at,
-	devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:5560 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1161208AbWF0Qz4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 12:55:56 -0400
-To: Kirill Korotaev <dev@sw.ru>
-In-Reply-To: <44A149F5.2060204@sw.ru> (Kirill Korotaev's message of "Tue, 27
-	Jun 2006 19:08:37 +0400")
+Received: from 68-185-24-3.static.mdfd.or.charter.com ([68.185.24.3]:53477
+	"EHLO pbx.netgeeks.net") by vger.kernel.org with ESMTP
+	id S932495AbWF0RSc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 13:18:32 -0400
+Received: from [127.0.0.1] (68-185-24-2.static.mdfd.or.charter.com [68.185.24.2])
+	by pbx.netgeeks.net (8.12.8/8.12.8) with ESMTP id k5RHITN4002822
+	for <netdev@vger.kernel.org>; Tue, 27 Jun 2006 10:18:30 -0700
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kirill Korotaev <dev@sw.ru> writes:
+I've been digging around trying to get some information on the current status of interrupt mitigation features for a Braodcom 5704 interface.
 
-> This doesn't support anything. e.g. I caught quite a lot of bugs after Ingo
-> Molnar, but this doesn't make his code "poor". People are people.
-> Anyway, I would be happy to see the typo.
+Specifically I'm sending and receiving lots of VoIP packets (50 pps per stream, many streams).
 
-Look up thread.  You replied to the message where I commented on it.
+What I can't seem to determine is this:
 
-There are two ways to argue this.
-- It is the linux kernel development style to do small simple
-  obviously patches that copy the maintainer of the code you are
-  changing.
-- Explain why that is the style.
+What version of the linux kernel & tg3 drivers are required to support both rx and tx mitigation?
+What do the ethtool coalescence settings actually do (I've not been able to find actual descriptions of the different parameters in the -C section)
+Is there anything special that needs to be done when compiling a kernel to enable this feature for both the kernel and the tg3 driver.
 
-The basic idea is that on a simple patch that is well described, it is
-trivial to check and trivial to verify.
+Just a warning, I'm not a C coder, so I've not had much luck digging around the code and looking for answers.
 
-Eric
+I've currently got a blade server with 10 blades I'm using 9 blades to generate this small packet high rate traffic to the 10th blade and trying to improve the ability of a blade to handle VoIP traffic.  I made some guesses at settings for the -C options in ethtool on both the test blade and the traffic generators.  Interestingly it seems to have had a very good effect on the test blade (%cpu for interrupt down from 99.9% to ~20%), but the same settings on the traffic generation servers seems to have had no effect.
+
+Hardware is identical, kernel is identical.
+
+Any help is GREATLY appreciated.
+
+-Chris
+
+05:01.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5704S
+Gigabit Ethernet (rev 10)
+        Subsystem: IBM: Unknown device 02e8
+        Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 201
+        Memory at dcfe0000 (64-bit, non-prefetchable) [size=64K]
+        Capabilities: [40] PCI-X non-bridge device.
+        Capabilities: [48] Power Management version 2
+        Capabilities: [50] Vital Product Data
+        Capabilities: [58] Message Signalled Interrupts: 64bit+
+Queue=0/3 Enable-
+
+Linux version 2.6.9-34.ELsmp (buildcentos@nasha.karan.org) (gcc version
+3.4.5 20051201 (Red Hat 3.4.5-2)) #1 SMP Thu Mar 9 06:23:23 GMT 2006
+
+[root@db2 ~]# ethtool -c eth1
+Coalesce parameters for eth1:
+Adaptive RX: off  TX: off
+stats-block-usecs: 1000000
+sample-interval: 0
+pkt-rate-low: 0
+pkt-rate-high: 0
+
+rx-usecs: 500
+rx-frames: 30
+rx-usecs-irq: 500
+rx-frames-irq: 20
+
+tx-usecs: 400
+tx-frames: 53
+tx-usecs-irq: 490
+tx-frames-irq: 5
+
+rx-usecs-low: 0
+rx-frame-low: 0
+tx-usecs-low: 0
+tx-frame-low: 0
+
+rx-usecs-high: 0
+rx-frame-high: 0
+tx-usecs-high: 0
+tx-frame-high: 0
+
+[root@db2 ~]# ethtool -i eth1
+driver: tg3
+version: 3.43-rh
+firmware-version:
+bus-info: 0000:05:01.1
+
+[root@db2 ~]# ethtool eth1
+Settings for eth1:
+        Supported ports: [ FIBRE ]
+        Supported link modes:   1000baseT/Half 1000baseT/Full
+        Supports auto-negotiation: Yes
+        Advertised link modes:  1000baseT/Half 1000baseT/Full
+        Advertised auto-negotiation: Yes
+        Speed: 1000Mb/s
+        Duplex: Full
+        Port: Twisted Pair
+        PHYAD: 1
+        Transceiver: internal
+        Auto-negotiation: on
+        Supports Wake-on: g
+        Wake-on: d
+        Current message level: 0x000000ff (255)
+        Link detected: yes
+
+
