@@ -1,30 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Added GSO header verification
-Date: Tue, 27 Jun 2006 13:22:57 -0700 (PDT)
-Message-ID: <20060627.132257.48805004.davem@davemloft.net>
-References: <20060627120714.GA15270@gondor.apana.org.au>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Tue, 27 Jun 2006 22:23:19 +0200
+Message-ID: <200606272223.19928.mb@bu3sch.de>
+References: <20060626212547.GE30706@tuxdriver.com> <200606272147.04477.mb@bu3sch.de> <44A18FE3.1080403@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:8876
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030348AbWF0UW5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 16:22:57 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060627120714.GA15270@gondor.apana.org.au>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:61159
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1030341AbWF0UXx
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 16:23:53 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <44A18FE3.1080403@lwfinger.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 27 Jun 2006 22:07:14 +1000
-
-> This feature is only needed by Xen but most of the code here is useful
-> for other things like TCPv4 ECN support.
+On Tuesday 27 June 2006 22:06, Larry Finger wrote:
+> John,
 > 
-> [NET]: Added GSO header verification
+> I would like to find a diplomatic solution to this impasse between Michael and Jeff, which is why 
+> I'm writing to you privately. Michael is correct in that the loop in question will not usually delay 
 
-Looks sane, applied.
+private?
 
-Thanks Herbert.
+> long; however, on some hardware it takes longer than on his. On mine, I have seen delays as long as 
+> 550 usec.
+
+What's the chip?
+
+> In any case, I think that the following code fragment would work and pass Jeff's criticism: 
+> 
+> for (i=5000; i; i--) {
+> 	..........
+> 	usleep(1);
+
+usleep? Can't find that in my kernel tree.
+In fact, I think the lowest possible sleep time
+depends on HZ and is 1msec on 1000HZ.
+
+Additionally, we are holding a spinlock at this time, so it is
+not as easy as simply replacing udelay() by some sleeping function.
+
+> This would make the worst-case delay be 5 msec, but would provide a cushion of 10X the longest I 
+> have seen and should be safe.
+> 
+> Do you have any suggestions on what should be done next?
+
+Leave it as is and find out why it takes so long for your strange card. ;)
+
+-- 
+Greetings Michael.
