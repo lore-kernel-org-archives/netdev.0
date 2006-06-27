@@ -1,8 +1,8 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 13/21] e1000: add E1000_BIG_ENDIAN symbol
-Date: Tue, 27 Jun 2006 07:25:16 -0700
-Message-ID: <44A13FCC.5080801@intel.com>
-References: <20060622051815.25497.89192.stgit@gitlost.site> <20060622052034.25497.81683.stgit@gitlost.site> <44A08EBE.7030104@pobox.com>
+Subject: Re: [PATCH 11/21] e1000: disable CRC stripping workaround
+Date: Tue, 27 Jun 2006 07:29:03 -0700
+Message-ID: <44A140AF.5080003@intel.com>
+References: <20060622051815.25497.89192.stgit@gitlost.site> <20060622052029.25497.67575.stgit@gitlost.site> <44A08E84.1000902@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -11,58 +11,86 @@ Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:4225 "EHLO
-	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
-	id S932428AbWF0OZR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 10:25:17 -0400
+Received: from mga02.intel.com ([134.134.136.20]:10765 "EHLO
+	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1161069AbWF0O3V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 10:29:21 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <44A08EBE.7030104@pobox.com>
+In-Reply-To: <44A08E84.1000902@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Jeff Garzik wrote:
 > Kok, Auke wrote:
->> This adds a private symbol to signify endianess in our driver.
+>> CRC stripping is breaking SMBUS-connected BMC's. We disable this
+>> feature to make it work. This fixes related bugs regarding SOL.
 >>
 >> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 >> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 >> ---
 >>
->>  drivers/net/e1000/e1000_hw.h    |    2 +-
->>  drivers/net/e1000/e1000_osdep.h |    3 +++
->>  2 files changed, 4 insertions(+), 1 deletions(-)
+>>  drivers/net/e1000/e1000_main.c |    7 ++++++-
+>>  1 files changed, 6 insertions(+), 1 deletions(-)
 >>
->> diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
->> index 941b47d..376a2ef 100644
->> --- a/drivers/net/e1000/e1000_hw.h
->> +++ b/drivers/net/e1000/e1000_hw.h
->> @@ -351,7 +351,7 @@ struct e1000_host_mng_command_info {
->>      struct e1000_host_mng_command_header command_header;  /* Command 
->> Head/Command Result Head has 4 bytes */
->>      uint8_t command_data[E1000_HI_MAX_MNG_DATA_LENGTH];   /* Command 
->> data can length 0..0x658*/
->>  };
->> -#ifdef __BIG_ENDIAN
->> +#ifdef E1000_BIG_ENDIAN
->>  struct e1000_host_mng_dhcp_cookie{
->>      uint32_t signature;
->>      uint16_t vlan_id;
->> diff --git a/drivers/net/e1000/e1000_osdep.h 
->> b/drivers/net/e1000/e1000_osdep.h
->> index 048d052..6130a42 100644
->> --- a/drivers/net/e1000/e1000_osdep.h
->> +++ b/drivers/net/e1000/e1000_osdep.h
->> @@ -83,6 +83,9 @@ typedef enum {
->>  #define DEBUGOUT3 DEBUGOUT2
->>  #define DEBUGOUT7 DEBUGOUT3
+>> diff --git a/drivers/net/e1000/e1000_main.c 
+>> b/drivers/net/e1000/e1000_main.c
+>> index c44ed6f..7787299 100644
+>> --- a/drivers/net/e1000/e1000_main.c
+>> +++ b/drivers/net/e1000/e1000_main.c
+>> @@ -1628,8 +1628,11 @@ e1000_setup_rctl(struct e1000_adapter *a
+>>          E1000_RCTL_LBM_NO | E1000_RCTL_RDMTS_HALF |
+>>          (adapter->hw.mc_filter_type << E1000_RCTL_MO_SHIFT);
 >>  
->> +#ifdef __BIG_ENDIAN
->> +#define E1000_BIG_ENDIAN __BIG_ENDIAN
->> +#endif
+>> +    /* disable hardware stripping of CRC because it breaks
+>> +     * BMC firmware connected over SMBUS
+>>      if (adapter->hw.mac_type > e1000_82543)
+>>          rctl |= E1000_RCTL_SECRC;
+>> +     */
+>>  
+>>      if (adapter->hw.tbi_compatibility_on == 1)
+>>          rctl |= E1000_RCTL_SBP;
+>> @@ -1696,7 +1699,9 @@ e1000_setup_rctl(struct e1000_adapter *a
+>>          rfctl |= E1000_RFCTL_IPV6_DIS;
+>>          E1000_WRITE_REG(&adapter->hw, RFCTL, rfctl);
+>>  
+>> -        rctl |= E1000_RCTL_DTYP_PS | E1000_RCTL_SECRC;
+>> +        /* disable the stripping of CRC because it breaks
+>> +         * BMC firmware connected over SMBUS */
+>> +        rctl |= E1000_RCTL_DTYP_PS /* | E1000_RCTL_SECRC */;
 > 
-> NAK.  This is backwards:  We don't need wrappers for symbols that the 
-> kernel already provides.
+> This is quite ugly.  You are basically bloating the code with historic, 
+> dead code, no different than filling the e1000/*.c with '#if 0' regions.
+> 
+> Just delete it, and explain why in the patch description.
 
-Agreed, I deleted it from our git server.
+
+Adjusted the patch on our git server to this:
+
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index c44ed6f..a9e55dc 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -1628,9 +1628,6 @@ e1000_setup_rctl(struct e1000_adapter *a
+                 E1000_RCTL_LBM_NO | E1000_RCTL_RDMTS_HALF |
+                 (adapter->hw.mc_filter_type << E1000_RCTL_MO_SHIFT);
+
+-       if (adapter->hw.mac_type > e1000_82543)
+-               rctl |= E1000_RCTL_SECRC;
+-
+         if (adapter->hw.tbi_compatibility_on == 1)
+                 rctl |= E1000_RCTL_SBP;
+         else
+@@ -1696,7 +1693,7 @@ e1000_setup_rctl(struct e1000_adapter *a
+                 rfctl |= E1000_RFCTL_IPV6_DIS;
+                 E1000_WRITE_REG(&adapter->hw, RFCTL, rfctl);
+
+-               rctl |= E1000_RCTL_DTYP_PS | E1000_RCTL_SECRC;
++               rctl |= E1000_RCTL_DTYP_PS;
+
+                 psrctl |= adapter->rx_ps_bsize0 >>
+                         E1000_PSRCTL_BSIZE0_SHIFT;
+
+Cheers,
 
 Auke
