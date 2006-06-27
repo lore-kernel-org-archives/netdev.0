@@ -1,50 +1,36 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Tue, 27 Jun 2006 20:49:09 +0400
-Message-ID: <20060627164909.GA20230@ms2.inr.ac.ru>
-References: <20060626134711.A28729@castle.nmd.msu.ru> <449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru> <44A00215.2040608@fr.ibm.com> <20060627131136.B13959@castle.nmd.msu.ru> <44A0FBAC.7020107@fr.ibm.com> <20060627133849.E13959@castle.nmd.msu.ru> <44A1149E.6060802@fr.ibm.com> <m1sllqn7cb.fsf@ebiederm.dsl.xmission.com> <20060627160241.GB28984@MAIL.13thfloor.at>
+From: Joseph Jezak <josejx@gentoo.org>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Tue, 27 Jun 2006 12:52:17 -0400
+Message-ID: <44A16241.9000009@gentoo.org>
+References: <20060626212547.GE30706@tuxdriver.com> <200606271530.06749.mb@bu3sch.de> <44A13C81.2050503@garzik.org> <200606271725.26037.mb@bu3sch.de> <44A158EB.90406@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161202AbWF0Que@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Andrey Savochkin <saw@swsoft.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
-	sam@vilain.net, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
-Content-Disposition: inline
-In-Reply-To: <20060627160241.GB28984@MAIL.13thfloor.at>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from oscar.berkshire.net ([12.111.80.68]:11950 "EHLO
+	oscar.berkshire.net") by vger.kernel.org with ESMTP
+	id S1161200AbWF0Qw0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 12:52:26 -0400
+Received: from [192.168.1.220] (mdm231-229.arc12.atlnga1.dasdial.com [199.232.231.229])
+	by oscar.berkshire.net (8.12.8+Sun/8.12.2) with ESMTP id k5RGpxpJ003620
+	for <netdev@vger.kernel.org>; Tue, 27 Jun 2006 12:52:00 -0400 (EDT)
+To: NetDev <netdev@vger.kernel.org>
+In-Reply-To: <44A158EB.90406@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 27, 2006 at 06:02:42PM +0200, Herbert Poetzl wrote:
-
->  - loopback traffic inside a guest is insignificantly
->    slower than on a normal system
+> No, that totally avoids my point.  Your "otherwise idle machine" test is
+> probably nowhere near worst case in the field, for loops that can
+> potentially lock the CPU for a long time upon hardware fault.  And then
+> there are the huge delays in specific functions that I pointed out...
 > 
->  - loopback traffic on the host is insignificantly
->    slower than on a normal system
-> 
->  - inter guest traffic is faster than on-wire traffic,
->    and should be withing a small tolerance of the
->    loopback case (as it really isn't different)
+>     Jeff
 
-I do not follow what are you people arguing about?
+The problem is that these are the delays used in the original driver
+that we've been writing the specs from.  We don't know what they're
+for or why they're so long.  We don't know if reducing the delay
+will cause issues on some hardware and work fine on others.  Without
+the actual specs from Broadcom, it's hard to say what's excessive
+and what's not and whether changing it will break the driver.
 
-Intra-guest, guest-guest and host-guest paths have _no_ differences
-from host-host loopback. Only the device is different:
-* virtual loopback for intra-guest
-* virtual interface for guest-guest and host-guest
-
-But the work is exactly the same, only the place where packets
-looped back is different. How could this be issue to break a lance over? :-)
-
-Alexey
-
-
-PS. The only thing, which I can imagine is "optimized" out ip_route_input()
-in the case of loopback. But this optimization was an obvious design mistake
-(mine, sorry) and apparently will die together with removal of current
-deficiences of routing cache. Actually, it is one of deficiences.
+-Joe
