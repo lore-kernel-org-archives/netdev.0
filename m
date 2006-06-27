@@ -1,88 +1,83 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: [Patch 1/1] AF_UNIX Datagram getpeersec [Updated #2]
-Date: Tue, 27 Jun 2006 09:14:29 -0400
-Message-ID: <1151414069.20419.37.camel@moss-spartans.epoch.ncsc.mil>
-References: <20060627052255.GA1311@jiayuguan.watson.ibm.com>
-	 <Pine.LNX.4.64.0606270311210.30073@d.namei>
-	 <Pine.LNX.4.64.0606270315130.30073@d.namei>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Problem with redirecting traffic via ifb device
+Date: Tue, 27 Jun 2006 09:21:25 -0400
+Message-ID: <1151414485.6516.70.camel@jzny2>
+References: <449FBB60.2000600@corpit.ru>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Catherine Zhang <cxzhang@watson.ibm.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, jmorris@redhat.com,
-	chrisw@osdl.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	tjaeger@cse.psu.edu, Andrew Morton <akpm@osdl.org>,
-	latten@austin.ibm.com, sergeh@us.ibm.com, gcwilson@us.ibm.com,
-	czhang.us@gmail.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zombie.ncsc.mil ([144.51.88.131]:9431 "EHLO jazzdrum.ncsc.mil")
-	by vger.kernel.org with ESMTP id S932257AbWF0NNV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 09:13:21 -0400
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <Pine.LNX.4.64.0606270315130.30073@d.namei>
+Received: from mx02.cybersurf.com ([209.197.145.105]:18867 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932240AbWF0NV1
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 09:21:27 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1FvDVQ-0002om-O0
+	for netdev@vger.kernel.org; Tue, 27 Jun 2006 09:21:28 -0400
+To: Egor Duda <deo@corpit.ru>
+In-Reply-To: <449FBB60.2000600@corpit.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-06-27 at 03:16 -0400, James Morris wrote:
-> On Tue, 27 Jun 2006, James Morris wrote:
+On Mon, 2006-26-06 at 14:48 +0400, Egor Duda wrote:
+> I have a linux router which is connected via pppoe to my ISP. My
+> provider limits aggregate upload+download rate to some fixed amount of
+> kbps, so to perform shaping on my router i'm trying to do the same on my
+> router (to "own the queue", so to say). Since standard tbf accounts to
+> the packets going only one way, i wanted to create virtual ifb
+> interface, which will gather all incoming and outgoing packets, and then
+> perform appropriate shaping on it.
 > 
-> > I'll address that in a patch to follow.  Could you please test these 
-> > updated patches?  Thanks.
-> > 
+> I'm doing it roughly in the following way:
 > 
+> -------------------------------------------------------------------------
+> tc qdisc add dev $iface ingress
+> tc qdisc add dev $iface parent ffff: handle 1: prio
 > 
-> Below is a relative patch which only compiles this stuff into the core 
-> networking code when appropriate kernel config is selected.
-> 
-> Please review.
-> 
-> 
-> ---
-> 
-> diff -purN -X dontdiff linux-2.6.p/include/net/scm.h linux-2.6.w/include/net/scm.h
-> --- linux-2.6.p/include/net/scm.h	2006-06-27 02:26:02.000000000 -0400
-> +++ linux-2.6.w/include/net/scm.h	2006-06-27 03:03:30.000000000 -0400
-> @@ -19,7 +19,9 @@ struct scm_cookie
->  {
->  	struct ucred		creds;		/* Skb credentials	*/
->  	struct scm_fp_list	*fp;		/* Passed files		*/
-> +#ifdef CONFIG_SECURITY_NETWORK	
->  	char			*secdata;	/* Security context	*/
 
-What about saving the u32 seclen with the secdata, and using it later
-rather than recomputing strlen(secdata)?  That also avoids encoding an
-assumption in the af_unix code about the content of the data (i.e.
-NUL-terminated string), leaving that to the security module.
+The above line doesnt seem to make a lot of sense and maybe the cause of
+your problems. You cant have queues on ingress.
 
-> +#endif	
->  	unsigned long		seq;		/* Connection seqno	*/
->  };
->  
-> @@ -49,6 +51,17 @@ static __inline__ int scm_send(struct so
->  	return __scm_send(sock, msg, scm);
->  }
->  
-> +#ifdef CONFIG_SECURITY_NETWORK
-> +static inline void scm_passec(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm)
-> +{
-> +	if (test_bit(SOCK_PASSSEC, &sock->flags) && scm->secdata != NULL)
-> +		put_cmsg(msg, SOL_SOCKET, SCM_SECURITY, strlen(scm->secdata)+1, scm->secdata);
-> +}
+You probably want:
+tc qdisc add dev $iface root handle 1: prio
+?
+> tc filter add dev $iface parent 1: protocol ip prio 10 \
+> u32   match u32 0 0 flowid 1:1 \
+> action ipt -j MARK --set-mark 1  \
+> action mirred egress redirect dev ifb0
+> 
 
-It would be cleaner if we had a scm->seclen to use above.
+Above will mark all packets arriving on 1:0 (egress??) and mark them
+with fwmark 1 and then redirect to ifb0.
+If you are trying to do ingress do "parent ffff:"
 
-> +#ifdef CONFIG_SECURITY_NETWORKING
-> +static void unix_get_peersec_dgram(struct sk_buff *skb)
-> +{
-> +	int tmp = 0;
-> +	
-> +	err = security_socket_getpeersec_dgram(skb, UNIXSEC(skb), &tmp);
+> tc qdisc add dev $iface root handle 2: prio
+> 
 
-tmp should actually be u32 not int (also wrong in the original patch),
-and it seems odd to throw it away rather than saving it and using it for
-the put_cmsg.
+wtf? is this the egress?
 
--- 
-Stephen Smalley
-National Security Agency
+> tc filter add dev $iface parent 2: protocol ip prio 10 \
+> u32   match u32 0 0 flowid 2:1 \
+> action ipt -j MARK --set-mark 1 \
+> action mirred egress redirect dev ifb0
+> -------------------------------------------------------------------------
+> 
+
+I think you need to get you scripts intent correct first. I am sorry, my
+limited time would be more valuable if you narrow things down a little.
+Ask questions in the user list and then come back if you have found a
+bug. You definitely have bugs in the script and if you can help reducing
+the variables i can help.
+Some other ideas to try in narrowing down the issue:
+--> Just do ingress alone first and see if that works
+--> Just do egress alone and see if that works
+---> do both.
+--> dont use ipt - i dont trust it; the netfilter folks changed things
+on me again. Pablo is helping me out resolving things. 
+
+cheers,
+jamal
 
