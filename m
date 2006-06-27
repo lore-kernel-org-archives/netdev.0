@@ -1,37 +1,68 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [NET]: Added GSO header verification
-Date: Tue, 27 Jun 2006 13:46:35 -0700
-Message-ID: <1151441195.3543.3.camel@rh4>
-References: <20060627120714.GA15270@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [PATCH Round 3 0/2][RFC] Network Event Notifier Mechanism
+Date: Tue, 27 Jun 2006 15:50:50 -0500
+Message-ID: <20060627205050.30723.25753.stgit@stevo-desktop>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:53004 "EHLO
-	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1161299AbWF0Upi
+Received: from rrcs-24-227-247-53.sw.biz.rr.com ([24.227.247.53]:47792 "EHLO
+	linux.local") by vger.kernel.org with ESMTP id S1030346AbWF0Uuv
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 16:45:38 -0400
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
-In-Reply-To: <20060627120714.GA15270@gondor.apana.org.au>
+	Tue, 27 Jun 2006 16:50:51 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-06-27 at 22:07 +1000, Herbert Xu wrote:
 
-> [NET]: Added GSO header verification
->
-> @@ -2166,10 +2166,14 @@ struct sk_buff *tcp_tso_segment(struct s
->         if (!pskb_may_pull(skb, thlen))
->                 goto out;
->  
-> +       segs = NULL;
-> +       if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST))
-> +               goto out;
-> +
+Round 3 Changes:
 
-This logic doesn't look right to me.  Perhaps it's backwards and should
-be:
+- changed netlink msg for neighbour change to (RTM_NEIGHUPD)
+- added netlink msg for PMTU change events (RTM_ROUTEUPD)
+- added netlink messages for redirect (RTM_DELROUTE + RTM_NEWROUTE)
+- tested neighbour change events via netlink for ipv4 and ipv6.
+- tested redirect change events via netlink for ipv4.
 
-if (!skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST))
+Round 2 Changes:
 
+- cleaned up event structures per review feedback.
+- began integration with netlink (see neighbour changes in patch 2).
+- added IPv6 support.
+
+TODO: 
+
+- review feedback changes, if any
+- more testing
+- retest with RDMA NIC
+
+------
+
+This patch implements a mechanism that allows interested clients to
+register for notification of certain network events. The intended use
+is to allow RDMA devices (linux/drivers/infiniband) to be notified of
+neighbour updates, ICMP redirects, path MTU changes, and route changes.
+
+The reason these devices need update events is because they typically
+cache this information in hardware and need to be notified when this
+information has been updated.  For information on RDMA protocols, see:
+http://www.ietf.org/html.charters/rddp-charter.html.
+
+The key events of interest are:
+
+- neighbour mac address change 
+- routing redirect (the next hop neighbour changes for a dst_entry)
+- path mtu change (the path mtu for a dst_entry changes).
+- route add/deletes
+
+NOTE: These new netevents are also passed up to user space via netlink.
+
+We would like to get this or similar functionality included in 2.6.19
+and request comments.
+
+This patchset consists of 2 patches:
+
+1) New files implementing the Network Event Notifier
+2) Core network changes to generate network event notifications
+
+Signed-off-by: Tom Tucker <tom@opengridcomputing.com>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
