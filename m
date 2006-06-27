@@ -1,72 +1,55 @@
-From: Herbert Poetzl <herbert@13thfloor.at>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Tue, 27 Jun 2006 18:09:08 +0200
-Message-ID: <20060627160908.GC28984@MAIL.13thfloor.at>
-References: <20060609210202.215291000@localhost.localdomain> <20060609210625.144158000@localhost.localdomain> <20060626134711.A28729@castle.nmd.msu.ru> <449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru> <44A00215.2040608@fr.ibm.com> <20060627131136.B13959@castle.nmd.msu.ru> <44A0FBAC.7020107@fr.ibm.com> <44A1006B.3040700@sw.ru>
+From: Nathaniel Case <ncase@xes-inc.com>
+Subject: Re: [PATCH 1/3] mv643xx fixes - Disable interrupts on all ports
+	during initialization
+Date: Tue, 27 Jun 2006 11:09:04 -0500
+Message-ID: <1151424544.31020.12.camel@localhost.localdomain>
+References: <200606270951.59024.bcook@bpointsys.com>
+	 <44A14BCC.5060708@lucent.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Andrey Savochkin <saw@swsoft.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, devel@openvz.org,
-	sam@vilain.net, ebiederm@xmission.com, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Brent Cook <bcook@bpointsys.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MAIL.13thfloor.at ([212.16.62.50]:43996 "EHLO mail.13thfloor.at")
-	by vger.kernel.org with ESMTP id S1161138AbWF0QJJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 12:09:09 -0400
-To: Kirill Korotaev <dev@sw.ru>
-Content-Disposition: inline
-In-Reply-To: <44A1006B.3040700@sw.ru>
+Received: from xes-mad.com ([216.165.139.214]:18338 "EHLO xes-mad.com")
+	by vger.kernel.org with ESMTP id S1161139AbWF0QJK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 12:09:10 -0400
+To: John Haller <jhaller@lucent.com>
+In-Reply-To: <44A14BCC.5060708@lucent.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 27, 2006 at 01:54:51PM +0400, Kirill Korotaev wrote:
-> >>My point is that if you make namespace tagging at routing time, and
-> >>your packets are being routed only once, you lose the ability
-> >>to have separate routing tables in each namespace.
-> >
-> >
-> >Right. What is the advantage of having separate the routing tables ?
+On Tue, 2006-06-27 at 10:16 -0500, John Haller wrote:
+> Brent Cook wrote:
+> > This patch disable interrupts on all ports during initialization. The current 
+> > assumes that the firmware has already disabled all interrupts on all ports. 
+> > We have encountered some boards that do not always disable interrupts (XES 
+> > XPedite 6200 for instance) on a soft reset. This patch prevents a kernel 
+> > panic if a packet is received before the DMA ring buffers are setup for a 
+> > port on which interrupts are left enabled by the firmware.
+> You probably have bigger problems than the interrupt being left
+> enabled.  If the interrupt is left enabled, the DMA engine
+> is probably left enabled, and if a packet happens
+> to come in before the driver can properly configure them,
+> some random part of memory will get overwritten.
+> The firmware needs to disable this device before transferring
+> control to the kernel, both the interrupts and the DMA,
+> there is no way to fix this in the kernel.
 
-> it is impossible to have bridged networking, tun/tap and many other 
-> features without it. I even doubt that it is possible to introduce 
-> private netfilter rules w/o virtualization of routing.
+I agree that the patch isn't the best fix for this problem.
 
-why? iptables work quite fine on a typical linux
-system when you 'delegate' certain functionality
-to certain chains (i.e. doesn't require access to
-_all_ of them)
+Brent, for this particular case, I believe there's chip errata for the
+Discovery bridge preventing it from resetting itself when the board
+resets itself in non-monarch mode.  That's why interrupts are left
+enabled.  This issue should never crop up if the board is monarch on the
+PCI bus.
 
-> The question is do we want to have fully featured namespaces which
-> allow to create isolated virtual environments with semantics and
-> behaviour of standalone linux box or do we want to introduce some
-> hacks with new rules/restrictions to meet ones goals only?
+So the proper workaround would be for our firmware to account for this
+case and disable interrupts, ethernet, etc. on a soft non-monarch reset.
+We could also do this in the boot wrapper code as a safety measure.
 
-well, soemtimes 'hacks' are not only simpler but also 
-a much better solution for a given problem than the
-straight forward approach ... 
+Also, note that the firmware _will_ already explicitly disable ethernet
+before transferring control over to the OS _if_ you're booting over
+ethernet instead of flash.
 
-for example, you won't have multiple routing tables
-in a kernel where this feature is disabled, no?
-so why should it affect a guest, or require modified
-apps inside a guest when we would decide to provide
-only a single routing table?
+- Nate Case <ncase@xes-inc.com>
 
-> From my POV, fully virtualized namespaces are the future. 
-
-the future is already there, it's called Xen or UML, or QEMU :)
-
-> It is what makes virtualization solution usable (w/o apps
-> modifications), provides all the features and doesn't require much
-> efforts from people to be used.
-
-and what if they want to use virtualization inside
-their guests? where do you draw the line?
-
-best,
-Herbert
-
-> Thanks,
-> Kirill
