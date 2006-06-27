@@ -1,70 +1,27 @@
-From: Herbert Poetzl <herbert@13thfloor.at>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Wed, 28 Jun 2006 00:52:13 +0200
-Message-ID: <20060627225213.GB2612@MAIL.13thfloor.at>
-References: <20060626192751.A989@castle.nmd.msu.ru> <44A00215.2040608@fr.ibm.com> <20060627131136.B13959@castle.nmd.msu.ru> <44A0FBAC.7020107@fr.ibm.com> <20060627133849.E13959@castle.nmd.msu.ru> <44A1149E.6060802@fr.ibm.com> <m1sllqn7cb.fsf@ebiederm.dsl.xmission.com> <20060627160241.GB28984@MAIL.13thfloor.at> <m1psgulf4u.fsf@ebiederm.dsl.xmission.com> <44A1689B.7060809@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Andrey Savochkin <saw@swsoft.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
-	sam@vilain.net, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
+From: paul.moore@hp.com
+Subject: [RFC 0/8] NetLabel: updated to use generic netlink
+Date: Tue, 27 Jun 2006 18:56:31 -0400
+Message-ID: <20060627225631.538814000@flek.zko.hp.com>
+Cc: sgrubb@redhat.com, pratt@argus-systems.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MAIL.13thfloor.at ([212.16.62.50]:28894 "EHLO mail.13thfloor.at")
-	by vger.kernel.org with ESMTP id S1161212AbWF0WwP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 18:52:15 -0400
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <44A1689B.7060809@candelatech.com>
+Received: from atlrel6.hp.com ([156.153.255.205]:35990 "EHLO atlrel6.hp.com")
+	by vger.kernel.org with ESMTP id S932574AbWF0XAw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 19:00:52 -0400
+To: redhat-lspp@redhat.com, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 27, 2006 at 10:19:23AM -0700, Ben Greear wrote:
-> Eric W. Biederman wrote:
-> >Herbert Poetzl <herbert@13thfloor.at> writes:
-> >
-> >
-> >>On Tue, Jun 27, 2006 at 05:52:52AM -0600, Eric W. Biederman wrote:
-> >>
-> >>>Inside the containers I want all network devices named eth0!
-> >>
-> >>huh? even if there are two of them? also tun?
-> >>
-> >>I think you meant, you want to be able to have eth0 in
-> >>_more_ than one guest where eth0 in a guest can also
-> >>be/use/relate to eth1 on the host, right?
-> >
-> >
-> >Right I want to have an eth0 in each guest where eth0 is
-> >it's own network device and need have no relationship to
-> >eth0 on the host.
-> 
-> How does that help anything?  Do you envision programs
-> that make special decisions on whether the interface is
-> called eth0 v/s eth151?
+An updated patch set with some small changes as well as one big one - NetLabel
+now uses the generic netlink interface for it's kernel-userland communication
+as opposed to it's own dedicated netlink type.  Needless to say this requires
+an updated userland configuration tool, so for those of you running this patch
+please grab version 0.14 (or later) of the netlabel_tools which can be found
+here:
 
-well, those poor folks who do not have ethernet
-devices for networking :)
+ * http://free.linux.hp.com/~pmoore/projects/linux_cipso
 
-seriously, what I think Eric meant was that it
-might be nice (especially for migration purposes)
-to keep the device namespace completely virtualized
-and not just isolated ...
+Thanks.
 
-I'm fine with that, as long as it does not add
-overhead or complicate handling, and as far as I
-can tell, it should not do that ...
-
-best,
-Herbert
-
-> Ben
-> 
-> 
-> -- 
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc  http://www.candelatech.com
+--
+paul moore
+linux security @ hp
