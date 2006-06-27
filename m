@@ -1,72 +1,73 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Tue, 27 Jun 2006 12:10:12 -0400
-Message-ID: <44A15864.6000408@garzik.org>
-References: <20060626212547.GE30706@tuxdriver.com> <200606271530.06749.mb@bu3sch.de> <44A13C81.2050503@garzik.org> <200606271636.08473.mb@bu3sch.de>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Tue, 27 Jun 2006 09:07:38 -0700
+Message-ID: <44A157CA.70204@candelatech.com>
+References: <20060609210202.215291000@localhost.localdomain> <20060609210625.144158000@localhost.localdomain> <20060626134711.A28729@castle.nmd.msu.ru> <449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru> <44A00215.2040608@fr.ibm.com> <m1hd27uaxw.fsf@ebiederm.dsl.xmission.com> <20060626183649.GB3368@MAIL.13thfloor.at> <m1u067r9qk.fsf@ebiederm.dsl.xmission.com> <44A05BFD.6030402@candelatech.com> <20060626225440.GA7425@MAIL.13thfloor.at> <44A068E7.6080403@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev@lists.berlios.de,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Cc: Herbert Poetzl <herbert@13thfloor.at>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Andrey Savochkin <saw@swsoft.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
+	sam@vilain.net, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:38792 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1161137AbWF0QKT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 12:10:19 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200606271636.08473.mb@bu3sch.de>
+Received: from ns2.lanforge.com ([66.165.47.211]:63905 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S1161141AbWF0QKs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 12:10:48 -0400
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <44A068E7.6080403@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> On Tuesday 27 June 2006 16:11, Jeff Garzik wrote:
->> Overall, bcm43xx is _really really bad_ about this sort of thing.  Just 
->> grepping for udelay in bcm43xx_radio.c shows some of the worst 
->> offenders.  bcm43xx_radio_init2060() and bcm43xx_radio_selectchannel() 
->> both look like candidates for using msleep() rather than udelay().
+Ben Greear wrote:
+> Herbert Poetzl wrote:
 > 
-> This is _all_ at initialization time.
-> select_channel.... How often do you select a channel?
-
-That question is irrelevant, because you have no idea what -else- is 
-going on in the system, at the point when bcm43xx chooses to spin the 
-CPU heavily.
-
-Initialization time means you are definitely not in a hot path, and can 
-therefore sleep.
-
-
-> I recently reworked the periodically exectuted workhandlers,
-> so that they are preemptible.
-
-Major classes of users run their kernels without preempt.  Please don't 
-depend on that to avoid bad behavior.
-
-
-> mac_suspend():
-> It is always called in atomic context with IRQs disabled.
-> We need to wait for the device here to signal "OK, MAC is down
-> now and you can count on it". This takes a few usecs. I guess
-> it sends out all queued packets, or whatever. We don't know
-> really.
-> I can actually measure how long it takes, if you really desire
-> it.
-> We _need_ to wait there. It is something like synchronize_irq(), or
-> whatever. It is a synchronizing function and we need it to be
-> synchronizing.
-> And I don't think it is worth the pain to insert a preemption
-> point there (or doing even fancier things with workqueues and
-> completions).
+>> On Mon, Jun 26, 2006 at 03:13:17PM -0700, Ben Greear wrote:
 > 
-> Overall, I don't think bcm43xx is still so bad at
-> wasting CPU. Maybe we should still insert some voluntary
-> preemption points, if the bcm43xx user does not run a fully
-> preemptible kernel. But if a fully preemptible kernel is run,
-> I think it is all OK.
+> 
+>> yes, that sounds good to me, any numbers how that
+>> affects networking in general (performance wise and
+>> memory wise, i.e. caches and hashes) ...
+> 
+> 
+> I'll run some tests later today.  Based on my previous tests,
+> I don't remember any significant overhead.
 
-Never assume a preemptible kernel will clean up problems for you :)
+Here's a quick benchmark using my redirect devices (RDD).  Each
+RDD comes in a pair...when you tx on one, the pkt is rx'd on the peer.
+The idea is that it is exactly like two physical ethernet interfaces
+connected by a cross-over cable.
 
-	Jeff
+My test system is a 64-bit dual-core Intel system, 3.013 Ghz processor with 1GB RAM.
+Fairly standard stuff..it's one of the Shuttle XPC systems.
+Kernel is 2.6.16.16 (64-bit).
 
 
+Test setup is:  rdd1 -- rdd2   [bridge]   rdd3 -- rdd4
+
+I am using my proprietary module for the bridge logic...and the default
+bridge should be at least this fast.  I am injecting 1514 byte packets
+on rdd1 and rdd4 with pktgen (bi-directional flow).  My pktgen is also
+receiving the pkts and gathering stats.
+
+This setup sustains 1.7Gbps of generated and received traffic between
+rdd1 and rdd4.
+
+Running only the [bridge] between two 10/100/1000 ports on an Intel PCI-E
+NIC will sustain about 870Mbps (bi-directional) on this system, so the
+virtual devices are quite efficient, as suspected.
+
+I have not yet had time to benchmark the mac-vlans...hopefully later today.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
