@@ -1,39 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Export accept queue len of a TCP listening socket via
- rx_queue
-Date: Tue, 27 Jun 2006 13:29:15 -0700 (PDT)
-Message-ID: <20060627.132915.85418118.davem@davemloft.net>
-References: <E1FtDPD-0005mc-00@gondolin.me.apana.org.au>
-	<1150997897.8365.11.camel@w-sridhar2.beaverton.ibm.com>
+Subject: Re: [PKT_SCHED]: PSCHED_TADD() and PSCHED_TADD2() can
+ result,tv_usec >= 1000000
+Date: Tue, 27 Jun 2006 13:32:39 -0700 (PDT)
+Message-ID: <20060627.133239.85688004.davem@davemloft.net>
+References: <449637EE.4020608@necst.nec.co.jp>
+	<20060619.235105.82052619.davem@davemloft.net>
+	<44988FC3.5030300@necst.nec.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:4049
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30178
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1161282AbWF0U3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 16:29:16 -0400
-To: sri@us.ibm.com
-In-Reply-To: <1150997897.8365.11.camel@w-sridhar2.beaverton.ibm.com>
+	id S1161291AbWF0Uck (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 16:32:40 -0400
+To: maeda-sxb@necst.nec.co.jp
+In-Reply-To: <44988FC3.5030300@necst.nec.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Thu, 22 Jun 2006 10:38:17 -0700
+From: Shuya MAEDA <maeda-sxb@necst.nec.co.jp>
+Date: Wed, 21 Jun 2006 09:16:03 +0900
 
-> On Thu, 2006-06-22 at 10:50 +1000, Herbert Xu wrote:
-> > Sridhar Samudrala <sri@us.ibm.com> wrote:
-> > >> 
-> > >> What about using the same fields (rqueue/wqueue) as you did for /proc?
-> > > 
-> > > I meant extending tcp_info structure to add new fields. I think the user
-> > > space also uses this structure.
-> > 
-> > What about putting it into inet_idiag_msg.idiag_[rw]queue instead?
-> 
-> OK. I was under the mistaken assumption that [rw]queue fields are exported
-> via tcp_info. This makes it pretty simple to support netlink users also. 
-> Here is the updated patch.
+> Thank you for the comment.
+> I made the patch that used the loop instead of the divide and modulus.
+> Are there any comments?
 
-This looks fine.  Applied, thanks a lot Sridhar.
+Your email client has corrupted the patch, turning tab characters
+into spaces, and also turning lines containing only spaces into
+empty lines.
+
+Therefore, I cannot apply your patch, please send your patch properly
+so that I may apply it.
+
+Thank you.
