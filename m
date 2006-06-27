@@ -1,77 +1,638 @@
-From: Andrey Savochkin <saw@saw.sw.com.sg>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Tue, 27 Jun 2006 20:19:01 +0400
-Message-ID: <20060627201901.B18563@castle.nmd.msu.ru>
-References: <20060626134711.A28729@castle.nmd.msu.ru> <449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru> <44A00215.2040608@fr.ibm.com> <m1hd27uaxw.fsf@ebiederm.dsl.xmission.com> <20060626183649.GB3368@MAIL.13thfloor.at> <m1u067r9qk.fsf@ebiederm.dsl.xmission.com> <20060626200225.GA5330@MAIL.13thfloor.at> <20060627130911.A13959@castle.nmd.msu.ru> <20060627154818.GA28984@MAIL.13thfloor.at>
+From: Xiaolan Zhang <cxzhang@us.ibm.com>
+Subject: Re: [Patch 1/1] AF_UNIX Datagram getpeersec [Updated #2]
+Date: Tue, 27 Jun 2006 12:22:20 -0400
+Message-ID: <OF981E5121.C9DD8000-ON8525719A.0059E7FE-8525719A.0059EF58@us.ibm.com>
+References: <Pine.LNX.4.64.0606270954080.804@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
-	sam@vilain.net, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Andrew Morton <akpm@osdl.org>, chrisw@osdl.org,
+	Catherine Zhang <cxzhang@watson.ibm.com>, czhang.us@gmail.com,
+	"David S. Miller" <davem@davemloft.net>,
+	George Wilson <gcwilson@us.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, jmorris@redhat.com,
+	latten@austin.ibm.com, netdev@vger.kernel.org,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Serge E Hallyn <sergeh@us.ibm.com>, tjaeger@cse.psu.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.nmd.msu.ru ([193.232.112.53]:8719 "HELO
-	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1161155AbWF0QTD
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 12:19:03 -0400
-To: Herbert Poetzl <herbert@13thfloor.at>
-In-Reply-To: <20060627154818.GA28984@MAIL.13thfloor.at>; from "Herbert Poetzl" on Tue, Jun 27, 2006 at 05:48:19PM
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:64180 "EHLO e1.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1161156AbWF0QWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 12:22:25 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e1.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5RGMNb1024508
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Tue, 27 Jun 2006 12:22:24 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5RGMNYc252110
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 27 Jun 2006 12:22:23 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5RGMMep015556
+	for <netdev@vger.kernel.org>; Tue, 27 Jun 2006 12:22:23 -0400
+In-Reply-To: <Pine.LNX.4.64.0606270954080.804@d.namei>
+To: James Morris <jmorris@namei.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert,
+Hi,
 
-On Tue, Jun 27, 2006 at 05:48:19PM +0200, Herbert Poetzl wrote:
-> On Tue, Jun 27, 2006 at 01:09:11PM +0400, Andrey Savochkin wrote:
-> > 
-> > On Mon, Jun 26, 2006 at 10:02:25PM +0200, Herbert Poetzl wrote:
-> > > 
-> > >  - traffic between guests
-> > >    can be as high (or even higher) than the
-> > >    outbound traffic, just think web guest and
-> > >    database guest
-> > 
-> > My experience with host-guest systems tells me the opposite: outside
-> > traffic is a way higher than traffic between guests. People put web
-> > server and database in different guests not more frequent than they
-> > put them on separate physical server. Unless people are building a
-> > really huge system when 1 server can't take the whole load, web and
-> > database live together and benefit from communications over UNIX
-> > sockets.
+Thanks for the updates.  I am testing the code now.  Some minor fixes (so 
+far):
+
+changed all
+
+#ifdef CONFIG_SECURITY_NETWORKING
+
+to
+
+#ifdef CONFIG_SECURITY_NETWORK
+
+cheers,
+Catherine
+
+
+James Morris <jmorris@namei.org> wrote on 06/27/2006 09:57:15 AM:
+
+> On Tue, 27 Jun 2006, Stephen Smalley wrote:
 > 
-> well, that's probably because you (or your company)
-> focuses on providers which simply (re)sell the entities
-> to their customers, in which case it would be more
-> expensive to put e.g. the database into a separate
-> guest. but let me state here that this is not the only
-> application for this technology
-
-I'm just sharing my experience.
-You have one experience, I have another, and your classification of traffic
-importance is not the universal one.
-My point was that we shouldn't overestimate the use of INET sockets vs. UNIX
-ones in configurations where communications but not web/db operations play a
-big role in overall performance.
-And indeed I've talked with many different people, from universities to
-large enterprises.
-
+> > What about saving the u32 seclen with the secdata, and using it later
+> > rather than recomputing strlen(secdata)?  That also avoids encoding an
+> > assumption in the af_unix code about the content of the data (i.e.
+> > NUL-terminated string), leaving that to the security module.
 > 
-[snip]
-> > I'd like to caution about over-optimizing communications between
-> > different network namespaces. Many optimizations of local traffic
-> > (such as high MTU) don't look so appealing when you start to think
-> > about live migration of namespaces.
+> Ok, this and other issues are addressed in the patch below, which is now 
+
+> back to a single patch.
 > 
-> I think the 'optimization' (or to be precise: desire
-> not to sacrifice local/loopback traffic for some use
-> case as you describe it) does not interfere with live
-> migration at all, we still will have 'local' and 'remote'
-> traffic, and personally I doubt that the live migration
-> is a feature for the masses ...
+> I also #ifdef'd the security fields in struct unix_skb_parms.
+> 
+> Please review and test.
+> 
+> ---
+> 
+>  include/asm-alpha/socket.h   |    1 +
+>  include/asm-arm/socket.h     |    1 +
+>  include/asm-arm26/socket.h   |    1 +
+>  include/asm-cris/socket.h    |    1 +
+>  include/asm-frv/socket.h     |    1 +
+>  include/asm-h8300/socket.h   |    1 +
+>  include/asm-i386/socket.h    |    1 +
+>  include/asm-ia64/socket.h    |    1 +
+>  include/asm-m32r/socket.h    |    1 +
+>  include/asm-m68k/socket.h    |    1 +
+>  include/asm-mips/socket.h    |    1 +
+>  include/asm-parisc/socket.h  |    1 +
+>  include/asm-powerpc/socket.h |    1 +
+>  include/asm-s390/socket.h    |    1 +
+>  include/asm-sh/socket.h      |    1 +
+>  include/asm-sparc/socket.h   |    1 +
+>  include/asm-sparc64/socket.h |    1 +
+>  include/asm-v850/socket.h    |    1 +
+>  include/asm-x86_64/socket.h  |    1 +
+>  include/asm-xtensa/socket.h  |    1 +
+>  include/linux/net.h          |    1 +
+>  include/linux/selinux.h      |   15 +++++++++++++++
+>  include/net/af_unix.h        |    7 +++++++
+>  include/net/scm.h            |   17 +++++++++++++++++
+>  net/core/sock.c              |   11 +++++++++++
+>  net/unix/af_unix.c           |   25 +++++++++++++++++++++++++
+>  security/selinux/exports.c   |   11 +++++++++++
+>  security/selinux/hooks.c     |    8 +++++++-
+>  28 files changed, 114 insertions(+), 1 deletion(-)
+> 
+> diff -purN -X dontdiff linux-2.6.o/include/asm-alpha/socket.h 
+> linux-2.6.w/include/asm-alpha/socket.h
+> --- linux-2.6.o/include/asm-alpha/socket.h   2006-06-21 00:02:08.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-alpha/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -51,6 +51,7 @@
+>  #define SCM_TIMESTAMP      SO_TIMESTAMP
+> 
+>  #define SO_PEERSEC      30
+> +#define SO_PASSSEC      34
+> 
+>  /* Security levels - as per NRL IPv6 - don't actually do anything */
+>  #define SO_SECURITY_AUTHENTICATION      19
+> diff -purN -X dontdiff linux-2.6.o/include/asm-arm/socket.h linux-2.
+> 6.w/include/asm-arm/socket.h
+> --- linux-2.6.o/include/asm-arm/socket.h   2006-06-21 00:02:10.000000000 
+-0400
+> +++ linux-2.6.w/include/asm-arm/socket.h   2006-06-27 02:08:49.000000000 
+-0400
+> @@ -48,5 +48,6 @@
+>  #define SO_ACCEPTCONN      30
+> 
+>  #define SO_PEERSEC      31
+> +#define SO_PASSSEC      34
+> 
+>  #endif /* _ASM_SOCKET_H */
+> diff -purN -X dontdiff linux-2.6.o/include/asm-arm26/socket.h 
+> linux-2.6.w/include/asm-arm26/socket.h
+> --- linux-2.6.o/include/asm-arm26/socket.h   2006-06-21 00:02:10.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-arm26/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -48,5 +48,6 @@
+>  #define SO_ACCEPTCONN      30
+> 
+>  #define SO_PEERSEC      31
+> +#define SO_PASSSEC      34
+> 
+>  #endif /* _ASM_SOCKET_H */
+> diff -purN -X dontdiff linux-2.6.o/include/asm-cris/socket.h 
+> linux-2.6.w/include/asm-cris/socket.h
+> --- linux-2.6.o/include/asm-cris/socket.h   2006-06-21 00:02:11.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-cris/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -50,6 +50,7 @@
+>  #define SO_ACCEPTCONN          30
+> 
+>  #define SO_PEERSEC             31
+> +#define SO_PASSSEC      34
+> 
+>  #endif /* _ASM_SOCKET_H */
+> 
+> diff -purN -X dontdiff linux-2.6.o/include/asm-frv/socket.h linux-2.
+> 6.w/include/asm-frv/socket.h
+> --- linux-2.6.o/include/asm-frv/socket.h   2006-06-21 00:02:11.000000000 
+-0400
+> +++ linux-2.6.w/include/asm-frv/socket.h   2006-06-27 02:08:49.000000000 
+-0400
+> @@ -48,6 +48,7 @@
+>  #define SO_ACCEPTCONN      30
+> 
+>  #define SO_PEERSEC      31
+> +#define SO_PASSSEC      34
+> 
+>  #endif /* _ASM_SOCKET_H */
+> 
+> diff -purN -X dontdiff linux-2.6.o/include/asm-h8300/socket.h 
+> linux-2.6.w/include/asm-h8300/socket.h
+> --- linux-2.6.o/include/asm-h8300/socket.h   2006-06-21 00:02:11.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-h8300/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -48,5 +48,6 @@
+>  #define SO_ACCEPTCONN      30
+> 
+>  #define SO_PEERSEC      31
+> +#define SO_PASSSEC      34
+> 
+>  #endif /* _ASM_SOCKET_H */
+> diff -purN -X dontdiff linux-2.6.o/include/asm-i386/socket.h 
+> linux-2.6.w/include/asm-i386/socket.h
+> --- linux-2.6.o/include/asm-i386/socket.h   2006-06-21 00:02:12.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-i386/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -48,5 +48,6 @@
+>  #define SO_ACCEPTCONN      30
+> 
+>  #define SO_PEERSEC      31
+> +#define SO_PASSSEC      34
+> 
+>  #endif /* _ASM_SOCKET_H */
+> diff -purN -X dontdiff linux-2.6.o/include/asm-ia64/socket.h 
+> linux-2.6.w/include/asm-ia64/socket.h
+> --- linux-2.6.o/include/asm-ia64/socket.h   2006-06-21 00:02:12.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-ia64/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -57,5 +57,6 @@
+>  #define SO_ACCEPTCONN      30
+> 
+>  #define SO_PEERSEC             31
+> +#define SO_PASSSEC      34
+> 
+>  #endif /* _ASM_IA64_SOCKET_H */
+> diff -purN -X dontdiff linux-2.6.o/include/asm-m32r/socket.h 
+> linux-2.6.w/include/asm-m32r/socket.h
+> --- linux-2.6.o/include/asm-m32r/socket.h   2006-06-21 00:02:13.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-m32r/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -48,5 +48,6 @@
+>  #define SO_ACCEPTCONN      30
+> 
+>  #define SO_PEERSEC      31
+> +#define SO_PASSSEC      34
+> 
+>  #endif /* _ASM_M32R_SOCKET_H */
+> diff -purN -X dontdiff linux-2.6.o/include/asm-m68k/socket.h 
+> linux-2.6.w/include/asm-m68k/socket.h
+> --- linux-2.6.o/include/asm-m68k/socket.h   2006-06-21 00:02:13.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-m68k/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -48,5 +48,6 @@
+>  #define SO_ACCEPTCONN      30
+> 
+>  #define SO_PEERSEC             31
+> +#define SO_PASSSEC      34
+> 
+>  #endif /* _ASM_SOCKET_H */
+> diff -purN -X dontdiff linux-2.6.o/include/asm-mips/socket.h 
+> linux-2.6.w/include/asm-mips/socket.h
+> --- linux-2.6.o/include/asm-mips/socket.h   2006-06-21 00:02:15.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-mips/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -69,6 +69,7 @@ To add: #define SO_REUSEPORT 0x0200   /* A
+>  #define SO_PEERSEC      30
+>  #define SO_SNDBUFFORCE      31
+>  #define SO_RCVBUFFORCE      33
+> +#define SO_PASSSEC      34
+> 
+>  #ifdef __KERNEL__
+> 
+> diff -purN -X dontdiff linux-2.6.o/include/asm-parisc/socket.h 
+> linux-2.6.w/include/asm-parisc/socket.h
+> --- linux-2.6.o/include/asm-parisc/socket.h   2006-06-21 00:02:15.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-parisc/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -48,5 +48,6 @@
+>  #define SO_ACCEPTCONN      0x401c
+> 
+>  #define SO_PEERSEC      0x401d
+> +#define SO_PASSSEC      0x401e
+> 
+>  #endif /* _ASM_SOCKET_H */
+> diff -purN -X dontdiff linux-2.6.o/include/asm-powerpc/socket.h 
+> linux-2.6.w/include/asm-powerpc/socket.h
+> --- linux-2.6.o/include/asm-powerpc/socket.h   2006-06-21 00:02:16.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-powerpc/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -55,5 +55,6 @@
+>  #define SO_ACCEPTCONN      30
+> 
+>  #define SO_PEERSEC      31
+> +#define SO_PASSSEC      34
+> 
+>  #endif   /* _ASM_POWERPC_SOCKET_H */
+> diff -purN -X dontdiff linux-2.6.o/include/asm-s390/socket.h 
+> linux-2.6.w/include/asm-s390/socket.h
+> --- linux-2.6.o/include/asm-s390/socket.h   2006-06-21 00:02:17.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-s390/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -56,5 +56,6 @@
+>  #define SO_ACCEPTCONN      30
+> 
+>  #define SO_PEERSEC      31
+> +#define SO_PASSSEC      34
+> 
+>  #endif /* _ASM_SOCKET_H */
+> diff -purN -X dontdiff linux-2.6.o/include/asm-sh/socket.h linux-2.
+> 6.w/include/asm-sh/socket.h
+> --- linux-2.6.o/include/asm-sh/socket.h   2006-06-21 00:02:17.000000000 
+-0400
+> +++ linux-2.6.w/include/asm-sh/socket.h   2006-06-27 02:08:49.000000000 
+-0400
+> @@ -48,5 +48,6 @@
+>  #define SO_ACCEPTCONN      30
+> 
+>  #define SO_PEERSEC      31
+> +#define SO_PASSSEC      34
+> 
+>  #endif /* __ASM_SH_SOCKET_H */
+> diff -purN -X dontdiff linux-2.6.o/include/asm-sparc/socket.h 
+> linux-2.6.w/include/asm-sparc/socket.h
+> --- linux-2.6.o/include/asm-sparc/socket.h   2006-06-21 00:02:18.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-sparc/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -48,6 +48,7 @@
+>  #define SCM_TIMESTAMP      SO_TIMESTAMP
+> 
+>  #define SO_PEERSEC      0x001e
+> +#define SO_PASSSEC      0x001f
+> 
+>  /* Security levels - as per NRL IPv6 - don't actually do anything */
+>  #define SO_SECURITY_AUTHENTICATION      0x5001
+> diff -purN -X dontdiff linux-2.6.o/include/asm-sparc64/socket.h 
+> linux-2.6.w/include/asm-sparc64/socket.h
+> --- linux-2.6.o/include/asm-sparc64/socket.h   2006-06-21 00:02:19.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-sparc64/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -48,6 +48,7 @@
+>  #define SCM_TIMESTAMP      SO_TIMESTAMP
+> 
+>  #define SO_PEERSEC      0x001e
+> +#define SO_PASSSEC      0x001f
+> 
+>  /* Security levels - as per NRL IPv6 - don't actually do anything */
+>  #define SO_SECURITY_AUTHENTICATION      0x5001
+> diff -purN -X dontdiff linux-2.6.o/include/asm-v850/socket.h 
+> linux-2.6.w/include/asm-v850/socket.h
+> --- linux-2.6.o/include/asm-v850/socket.h   2006-06-21 00:02:20.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-v850/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -48,5 +48,6 @@
+>  #define SO_ACCEPTCONN      30
+> 
+>  #define SO_PEERSEC      31
+> +#define SO_PASSSEC      34
+> 
+>  #endif /* __V850_SOCKET_H__ */
+> diff -purN -X dontdiff linux-2.6.o/include/asm-x86_64/socket.h 
+> linux-2.6.w/include/asm-x86_64/socket.h
+> --- linux-2.6.o/include/asm-x86_64/socket.h   2006-06-21 00:02:20.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-x86_64/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -48,5 +48,6 @@
+>  #define SO_ACCEPTCONN      30
+> 
+>  #define SO_PEERSEC             31
+> +#define SO_PASSSEC      34
+> 
+>  #endif /* _ASM_SOCKET_H */
+> diff -purN -X dontdiff linux-2.6.o/include/asm-xtensa/socket.h 
+> linux-2.6.w/include/asm-xtensa/socket.h
+> --- linux-2.6.o/include/asm-xtensa/socket.h   2006-06-21 00:02:21.
+> 000000000 -0400
+> +++ linux-2.6.w/include/asm-xtensa/socket.h   2006-06-27 02:08:49.
+> 000000000 -0400
+> @@ -59,5 +59,6 @@
+> 
+>  #define SO_ACCEPTCONN      30
+>  #define SO_PEERSEC      31
+> +#define SO_PASSSEC      34
+> 
+>  #endif   /* _XTENSA_SOCKET_H */
+> diff -purN -X dontdiff linux-2.6.o/include/linux/net.h linux-2.6.
+> w/include/linux/net.h
+> --- linux-2.6.o/include/linux/net.h   2006-06-21 00:02:23.000000000 
+-0400
+> +++ linux-2.6.w/include/linux/net.h   2006-06-27 02:08:49.000000000 
+-0400
+> @@ -61,6 +61,7 @@ typedef enum {
+>  #define SOCK_ASYNC_WAITDATA   1
+>  #define SOCK_NOSPACE      2
+>  #define SOCK_PASSCRED      3
+> +#define SOCK_PASSSEC      4
+> 
+>  #ifndef ARCH_HAS_SOCKET_TYPES
+>  /**
+> diff -purN -X dontdiff linux-2.6.o/include/linux/selinux.h linux-2.
+> 6.w/include/linux/selinux.h
+> --- linux-2.6.o/include/linux/selinux.h   2006-06-21 00:02:23.000000000 
+-0400
+> +++ linux-2.6.w/include/linux/selinux.h   2006-06-27 02:18:47.000000000 
+-0400
+> @@ -18,6 +18,7 @@ struct selinux_audit_rule;
+>  struct audit_context;
+>  struct inode;
+>  struct kern_ipc_perm;
+> +struct socket;
+> 
+>  #ifdef CONFIG_SECURITY_SELINUX
+> 
+> @@ -119,6 +120,15 @@ void selinux_get_ipc_sid(const struct ke
+>  void selinux_get_task_sid(struct task_struct *tsk, u32 *sid);
+> 
+>  /**
+> + *     selinux_get_sock_sid - return the SID of socket
+> + *     @sock: the socket whose SID will be returned
+> + *     @sid: pointer to security context ID to be filled in.
+> + *
+> + *     Returns nothing
+> + */
+> +void selinux_get_sock_sid(struct socket *sock, u32 *sid);
+> +
+> +/**
+>   *     selinux_string_to_sid - map a security context string to a 
+security ID
+>   *     @str: the security context string to be mapped
+>   *     @sid: ID value returned via this.
+> @@ -193,6 +203,11 @@ static inline void selinux_get_task_sid(
+>     *sid = 0;
+>  }
+> 
+> +static inline void selinux_get_sock_sid(struct socket *sock, u32 *sid)
+> +{
+> +   *sid = 0;
+> +}
+> +
+>  static inline int selinux_string_to_sid(const char *str, u32 *sid)
+>  {
+>         *sid = 0;
+> diff -purN -X dontdiff linux-2.6.o/include/net/af_unix.h linux-2.6.
+> w/include/net/af_unix.h
+> --- linux-2.6.o/include/net/af_unix.h   2006-06-21 00:02:24.000000000 
+-0400
+> +++ linux-2.6.w/include/net/af_unix.h   2006-06-27 09:28:04.000000000 
+-0400
+> @@ -53,10 +53,17 @@ struct unix_address {
+>  struct unix_skb_parms {
+>     struct ucred      creds;      /* Skb credentials   */
+>     struct scm_fp_list   *fp;      /* Passed files      */
+> +#ifdef CONFIG_SECURITY_NETWORKING
+> +   char         *secdata;   /* Security context   */
+> +   u32         seclen;      /* Security length   */
+> +#endif
+> + 
+>  };
+> 
+>  #define UNIXCB(skb)    (*(struct unix_skb_parms*)&((skb)->cb))
+>  #define UNIXCREDS(skb)   (&UNIXCB((skb)).creds)
+> +#define UNIXSECDATA(skb)   (&UNIXCB((skb)).secdata)
+> +#define UNIXSECLEN(skb)      (&UNIXCB((skb)).seclen)
+> 
+>  #define unix_state_rlock(s)   spin_lock(&unix_sk(s)->lock)
+>  #define unix_state_runlock(s)   spin_unlock(&unix_sk(s)->lock)
+> diff -purN -X dontdiff linux-2.6.o/include/net/scm.h linux-2.6.
+> w/include/net/scm.h
+> --- linux-2.6.o/include/net/scm.h   2006-06-21 00:02:24.000000000 -0400
+> +++ linux-2.6.w/include/net/scm.h   2006-06-27 09:32:27.000000000 -0400
+> @@ -19,6 +19,10 @@ struct scm_cookie
+>  {
+>     struct ucred      creds;      /* Skb credentials   */
+>     struct scm_fp_list   *fp;      /* Passed files      */
+> +#ifdef CONFIG_SECURITY_NETWORK 
+> +   char         *secdata;   /* Security context   */
+> +   u32         seclen;      /* Security length   */
+> +#endif 
+>     unsigned long      seq;      /* Connection seqno   */
+>  };
+> 
+> @@ -48,6 +52,17 @@ static __inline__ int scm_send(struct so
+>     return __scm_send(sock, msg, scm);
+>  }
+> 
+> +#ifdef CONFIG_SECURITY_NETWORK
+> +static inline void scm_passec(struct socket *sock, struct msghdr 
+> *msg, struct scm_cookie *scm)
+> +{
+> +   if (test_bit(SOCK_PASSSEC, &sock->flags) && scm->secdata != NULL)
+> +      put_cmsg(msg, SOL_SOCKET, SCM_SECURITY, scm->seclen, 
+scm->secdata);
+> +}
+> +#else
+> +static inline void scm_passec(struct socket *sock, struct msghdr 
+> *msg, struct scm_cookie *scm)
+> +{ }
+> +#endif   /* CONFIG_SECURITY_NETWORK */
+> +
+>  static __inline__ void scm_recv(struct socket *sock, struct msghdr 
+*msg,
+>              struct scm_cookie *scm, int flags)
+>  {
+> @@ -62,6 +77,8 @@ static __inline__ void scm_recv(struct s
+>     if (test_bit(SOCK_PASSCRED, &sock->flags))
+>        put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, 
+> sizeof(scm->creds), &scm->creds);
+> 
+> +   scm_passec(sock, msg, scm);
+> +
+>     if (!scm->fp)
+>        return;
+> 
+> diff -purN -X dontdiff linux-2.6.o/net/core/sock.c 
+linux-2.6.w/net/core/sock.c
+> --- linux-2.6.o/net/core/sock.c   2006-06-21 00:02:27.000000000 -0400
+> +++ linux-2.6.w/net/core/sock.c   2006-06-27 02:08:49.000000000 -0400
+> @@ -565,6 +565,13 @@ set_rcvbuf:
+>           ret = -ENONET;
+>           break;
+> 
+> +      case SO_PASSSEC:
+> +         if (valbool)
+> +            set_bit(SOCK_PASSSEC, &sock->flags);
+> +         else
+> +            clear_bit(SOCK_PASSSEC, &sock->flags);
+> +         break;
+> +
+>        /* We implement the SO_SNDLOWAT etc to
+>           not be settable (1003.1g 5.3) */
+>        default:
+> @@ -723,6 +730,10 @@ int sock_getsockopt(struct socket *sock,
+>           v.val = sk->sk_state == TCP_LISTEN;
+>           break;
+> 
+> +      case SO_PASSSEC:
+> +         v.val = test_bit(SOCK_PASSSEC, &sock->flags) ? 1 : 0;
+> +         break;
+> +
+>        case SO_PEERSEC:
+>           return security_socket_getpeersec_stream(sock, optval, optlen, 
+len);
+> 
+> diff -purN -X dontdiff linux-2.6.o/net/unix/af_unix.c linux-2.6.
+> w/net/unix/af_unix.c
+> --- linux-2.6.o/net/unix/af_unix.c   2006-06-21 00:02:30.000000000 -0400
+> +++ linux-2.6.w/net/unix/af_unix.c   2006-06-27 09:30:12.000000000 -0400
+> @@ -128,6 +128,28 @@ static atomic_t unix_nr_socks = ATOMIC_I
+> 
+>  #define UNIX_ABSTRACT(sk)   (unix_sk(sk)->addr->hash != UNIX_HASH_SIZE)
+> 
+> +#ifdef CONFIG_SECURITY_NETWORKING
+> +static void unix_get_peersec_dgram(struct sk_buff *skb)
+> +{
+> +   err = security_socket_getpeersec_dgram(skb, UNIXSECDATA(skb),
+> +                      UNIXSECLEN(skb));
+> +   if (err)
+> +      *(UNIXSEC(skb)) = NULL;
+> +}
+> +
+> +static inline void unix_set_secdata(struct scm_cookie *scm, struct 
+> sk_buff *skb)
+> +{
+> +   scm->secdata = *UNIXSECDATA(skb);
+> +   scm->seclen = UNIXSECLEN(skb);
+> +}
+> +#else
+> +static void unix_get_peersec_dgram(struct sk_buff *skb)
+> +{ }
+> +
+> +static inline void unix_set_secdata(struct scm_cookie *scm, struct 
+> sk_buff *skb)
+> +{ }
+> +#endif /* CONFIG_SECURITY_NETWORKING */
+> +
+>  /*
+>   *  SMP locking strategy:
+>   *    hash table is protected with spinlock unix_table_lock
+> @@ -1291,6 +1313,8 @@ static int unix_dgram_sendmsg(struct kio
+>     if (siocb->scm->fp)
+>        unix_attach_fds(siocb->scm, skb);
+> 
+> +   unix_get_peersec_dgram(skb);
+> +
+>     skb->h.raw = skb->data;
+>     err = memcpy_fromiovec(skb_put(skb,len), msg->msg_iov, len);
+>     if (err)
+> @@ -1570,6 +1594,7 @@ static int unix_dgram_recvmsg(struct kio
+>        memset(&tmp_scm, 0, sizeof(tmp_scm));
+>     }
+>     siocb->scm->creds = *UNIXCREDS(skb);
+> +   unix_set_secdata(siocb->scm, skb);
+> 
+>     if (!(flags & MSG_PEEK))
+>     {
+> diff -purN -X dontdiff linux-2.6.o/security/selinux/exports.c 
+> linux-2.6.w/security/selinux/exports.c
+> --- linux-2.6.o/security/selinux/exports.c   2006-06-21 00:02:31.
+> 000000000 -0400
+> +++ linux-2.6.w/security/selinux/exports.c   2006-06-27 02:19:16.
+> 000000000 -0400
+> @@ -17,6 +17,7 @@
+>  #include <linux/selinux.h>
+>  #include <linux/fs.h>
+>  #include <linux/ipc.h>
+> +#include <net/sock.h>
+> 
+>  #include "security.h"
+>  #include "objsec.h"
+> @@ -72,6 +73,16 @@ void selinux_get_task_sid(struct task_st
+>     *sid = 0;
+>  }
+> 
+> +void selinux_get_sock_sid(struct socket *sock, u32 *sid)
+> +{
+> +   if (selinux_enabled) {
+> +      const struct inode *inode = SOCK_INODE(sock);
+> +      selinux_get_inode_sid(inode, sid);
+> +      return;
+> +   }
+> +   *sid = 0;
+> +}
+> +
+>  int selinux_string_to_sid(char *str, u32 *sid)
+>  {
+>     if (selinux_enabled)
+> diff -purN -X dontdiff linux-2.6.o/security/selinux/hooks.c linux-2.
+> 6.w/security/selinux/hooks.c
+> --- linux-2.6.o/security/selinux/hooks.c   2006-06-26 14:47:31.000000000 
+-0400
+> +++ linux-2.6.w/security/selinux/hooks.c   2006-06-27 02:08:49.000000000 
+-0400
+> @@ -69,6 +69,7 @@
+>  #include <linux/sysctl.h>
+>  #include <linux/audit.h>
+>  #include <linux/string.h>
+> +#include <linux/selinux.h>
+> 
+>  #include "avc.h"
+>  #include "objsec.h"
+> @@ -3418,7 +3419,12 @@ out: 
+>  static int selinux_socket_getpeersec_dgram(struct sk_buff *skb, 
+> char **secdata, u32 *seclen)
+>  {
+>     int err = 0;
+> -   u32 peer_sid = selinux_socket_getpeer_dgram(skb);
+> +   u32 peer_sid;
+> +
+> +   if (skb->sk->sk_family == PF_UNIX)
+> +      selinux_get_sock_sid(skb->sk->sk_socket, &peer_sid);
+> +   else
+> +      peer_sid = selinux_socket_getpeer_dgram(skb);
+> 
+>     if (peer_sid == SECSID_NULL)
+>        return -EINVAL;
 
-Why not for the masses?
-
-	Andrey
