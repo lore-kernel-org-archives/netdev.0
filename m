@@ -1,51 +1,53 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] smc91x: disable DMA mode on the logicpd pxa270
-Date: Tue, 27 Jun 2006 04:14:42 +0200
-Message-ID: <20060627021442.GA20421@xi.wantstofly.org>
-References: <20060623212436.GB4843@xi.wantstofly.org> <44A091CC.90607@pobox.com> <20060627020831.GA20393@xi.wantstofly.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Mon, 26 Jun 2006 21:27:54 -0500
+Message-ID: <44A097AA.6080809@lwfinger.net>
+References: <20060626212547.GE30706@tuxdriver.com> <44A09289.4040200@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nico@cam.org, mikee@logicpd.com,
-	peterb@logicpd.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, Bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:4288 "EHLO
-	xi.wantstofly.org") by vger.kernel.org with ESMTP id S933236AbWF0COn
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Jun 2006 22:14:43 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <20060627020831.GA20393@xi.wantstofly.org>
+Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:54247 "EHLO
+	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S933299AbWF0C2I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Jun 2006 22:28:08 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <44A09289.4040200@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 27, 2006 at 04:08:31AM +0200, Lennert Buytenhek wrote:
+Jeff Garzik wrote:
+> John W. Linville wrote:
+>> +    assert(bcm->mac_suspended >= 0);
+>> +    if (bcm->mac_suspended == 0) {
+>> +        bcm43xx_power_saving_ctl_bits(bcm, -1, 1);
+>> +        bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
+>> +                        bcm43xx_read32(bcm, 
+>> BCM43xx_MMIO_STATUS_BITFIELD)
+>> +                & ~BCM43xx_SBF_MAC_ENABLED);
+>> +        bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy 
+>> read */
+>> +        for (i = 100000; i; i--) {
+>> +            tmp = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+>> +            if (tmp & BCM43xx_IRQ_READY)
+>> +                goto out;
+>> +            udelay(10);
+>> +        }
+>> +        printkl(KERN_ERR PFX "MAC suspend failed\n");
+>>      }
+> 
+> 
+> NAK this super-long delay...  should be done in a workqueue, looks like?
+> 
+> ACK everything else.
+> 
 
-> Hmmm, non-quilt style patch better?
+That delay was set to try to accommodate my interface when it refused to suspend the MAC, which 
+resulted in transmit errors. That problem has since been cured by reworking the periodic work 
+handlers - thus such a long delay should not be needed. The original spec from the clean-room group 
+was a delay loop of 1000. I'm currently testing that value now. If it passes the test, would a for 
+(i=1000; i; i--) be acceptable?
 
-I might have an idea what's happening -- the last context line in the
-patch should have been a blank line, but it's being eaten somewhere in
-transit.
-
-> -#define SMC_inb(a, r)		readb((a) + (r))
->  #define SMC_inw(a, r)		readw((a) + (r))
-> -#define SMC_inl(a, r)		readl((a) + (r))
-> -#define SMC_outb(v, a, r)	writeb(v, (a) + (r))
->  #define SMC_outw(v, a, r)	writew(v, (a) + (r))
-> -#define SMC_outl(v, a, r)	writel(v, (a) + (r))
->  #define SMC_insw(a, r, p, l)	readsw((a) + (r), p, l)
->  #define SMC_outsw(a, r, p, l)	writesw((a) + (r), p, l)
-
-<=== there should have been a blank line here
-
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-Not sure what is causing this.  Can you take it from here?
-
-	http://www.wantstofly.org/~buytenh/smc91-diff-lpd.diff
-
-
-thanks,
-Lennert
+Larry
