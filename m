@@ -1,9 +1,8 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 10/21] e1000: force register write flushes to circumvent
- broken platforms
-Date: Mon, 26 Jun 2006 21:47:31 -0400
-Message-ID: <44A08E33.3020501@pobox.com>
-References: <20060622051815.25497.89192.stgit@gitlost.site> <20060622052027.25497.51513.stgit@gitlost.site>
+Subject: Re: [PATCH 11/21] e1000: disable CRC stripping workaround
+Date: Mon, 26 Jun 2006 21:48:52 -0400
+Message-ID: <44A08E84.1000902@pobox.com>
+References: <20060622051815.25497.89192.stgit@gitlost.site> <20060622052029.25497.67575.stgit@gitlost.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -12,48 +11,54 @@ Cc: netdev@vger.kernel.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:32980 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1030581AbWF0Bre (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 21:47:34 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:38868 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1030598AbWF0Bsy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 21:48:54 -0400
 To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-In-Reply-To: <20060622052027.25497.51513.stgit@gitlost.site>
+In-Reply-To: <20060622052029.25497.67575.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Kok, Auke wrote:
-> A certain AMD64 bridge (8132) has an option to turn on write combining
-> which breaks our adapter. To circumvent this we need to flush every write.
+> CRC stripping is breaking SMBUS-connected BMC's. We disable this
+> feature to make it work. This fixes related bugs regarding SOL.
 > 
 > Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 > ---
 > 
->  drivers/net/e1000/e1000_hw.c   |   24 ++++++++++++++++++++++--
->  drivers/net/e1000/e1000_main.c |   18 +++++++++++-------
->  2 files changed, 33 insertions(+), 9 deletions(-)
+>  drivers/net/e1000/e1000_main.c |    7 ++++++-
+>  1 files changed, 6 insertions(+), 1 deletions(-)
 > 
-> diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
-> index 3959039..749d621 100644
-> --- a/drivers/net/e1000/e1000_hw.c
-> +++ b/drivers/net/e1000/e1000_hw.c
-> @@ -705,8 +705,12 @@ e1000_init_hw(struct e1000_hw *hw)
->      /* Zero out the Multicast HASH table */
->      DEBUGOUT("Zeroing the MTA\n");
->      mta_size = E1000_MC_TBL_SIZE;
-> -    for(i = 0; i < mta_size; i++)
-> +    for(i = 0; i < mta_size; i++) {
->          E1000_WRITE_REG_ARRAY(hw, MTA, i, 0);
-> +        /* use write flush to prevent Memory Write Block (MWB) from
-> +         * occuring when accessing our register space */
-> +        E1000_WRITE_FLUSH(hw);
-> +    }
+> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+> index c44ed6f..7787299 100644
+> --- a/drivers/net/e1000/e1000_main.c
+> +++ b/drivers/net/e1000/e1000_main.c
+> @@ -1628,8 +1628,11 @@ e1000_setup_rctl(struct e1000_adapter *a
+>  		E1000_RCTL_LBM_NO | E1000_RCTL_RDMTS_HALF |
+>  		(adapter->hw.mc_filter_type << E1000_RCTL_MO_SHIFT);
+>  
+> +	/* disable hardware stripping of CRC because it breaks
+> +	 * BMC firmware connected over SMBUS
+>  	if (adapter->hw.mac_type > e1000_82543)
+>  		rctl |= E1000_RCTL_SECRC;
+> +	 */
+>  
+>  	if (adapter->hw.tbi_compatibility_on == 1)
+>  		rctl |= E1000_RCTL_SBP;
+> @@ -1696,7 +1699,9 @@ e1000_setup_rctl(struct e1000_adapter *a
+>  		rfctl |= E1000_RFCTL_IPV6_DIS;
+>  		E1000_WRITE_REG(&adapter->hw, RFCTL, rfctl);
+>  
+> -		rctl |= E1000_RCTL_DTYP_PS | E1000_RCTL_SECRC;
+> +		/* disable the stripping of CRC because it breaks
+> +		 * BMC firmware connected over SMBUS */
+> +		rctl |= E1000_RCTL_DTYP_PS /* | E1000_RCTL_SECRC */;
 
-NAK.  We can't crap up every driver just for one weird piece of hardware.
+This is quite ugly.  You are basically bloating the code with historic, 
+dead code, no different than filling the e1000/*.c with '#if 0' regions.
 
-If this problem falls outside the grounds of mmiowb() [see 
-Documentation/memory-barriers.txt], then other solutions need to be 
-looked into... ioremap_nocache() ?  Tweaking the MTRR for this region? 
-Chipset quirk?  ...
+Just delete it, and explain why in the patch description.
 
 	Jeff
 
