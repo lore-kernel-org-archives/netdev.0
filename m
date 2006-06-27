@@ -1,36 +1,43 @@
-From: Joseph Jezak <josejx@gentoo.org>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Tue, 27 Jun 2006 12:52:17 -0400
-Message-ID: <44A16241.9000009@gentoo.org>
-References: <20060626212547.GE30706@tuxdriver.com> <200606271530.06749.mb@bu3sch.de> <44A13C81.2050503@garzik.org> <200606271725.26037.mb@bu3sch.de> <44A158EB.90406@garzik.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC][patch 1/4] Network namespaces: cleanup of dev_base list use
+Date: Tue, 27 Jun 2006 10:54:45 -0600
+Message-ID: <m1hd26lesq.fsf@ebiederm.dsl.xmission.com>
+References: <20060626134945.A28942@castle.nmd.msu.ru>
+	<m1odwguez3.fsf@ebiederm.dsl.xmission.com> <44A0D755.5090204@sw.ru>
+	<m11wtaonqf.fsf@ebiederm.dsl.xmission.com> <44A149F5.2060204@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, herbert@13thfloor.at,
+	devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oscar.berkshire.net ([12.111.80.68]:11950 "EHLO
-	oscar.berkshire.net") by vger.kernel.org with ESMTP
-	id S1161200AbWF0Qw0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 12:52:26 -0400
-Received: from [192.168.1.220] (mdm231-229.arc12.atlnga1.dasdial.com [199.232.231.229])
-	by oscar.berkshire.net (8.12.8+Sun/8.12.2) with ESMTP id k5RGpxpJ003620
-	for <netdev@vger.kernel.org>; Tue, 27 Jun 2006 12:52:00 -0400 (EDT)
-To: NetDev <netdev@vger.kernel.org>
-In-Reply-To: <44A158EB.90406@garzik.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:5560 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S1161208AbWF0Qz4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 12:55:56 -0400
+To: Kirill Korotaev <dev@sw.ru>
+In-Reply-To: <44A149F5.2060204@sw.ru> (Kirill Korotaev's message of "Tue, 27
+	Jun 2006 19:08:37 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> No, that totally avoids my point.  Your "otherwise idle machine" test is
-> probably nowhere near worst case in the field, for loops that can
-> potentially lock the CPU for a long time upon hardware fault.  And then
-> there are the huge delays in specific functions that I pointed out...
-> 
->     Jeff
+Kirill Korotaev <dev@sw.ru> writes:
 
-The problem is that these are the delays used in the original driver
-that we've been writing the specs from.  We don't know what they're
-for or why they're so long.  We don't know if reducing the delay
-will cause issues on some hardware and work fine on others.  Without
-the actual specs from Broadcom, it's hard to say what's excessive
-and what's not and whether changing it will break the driver.
+> This doesn't support anything. e.g. I caught quite a lot of bugs after Ingo
+> Molnar, but this doesn't make his code "poor". People are people.
+> Anyway, I would be happy to see the typo.
 
--Joe
+Look up thread.  You replied to the message where I commented on it.
+
+There are two ways to argue this.
+- It is the linux kernel development style to do small simple
+  obviously patches that copy the maintainer of the code you are
+  changing.
+- Explain why that is the style.
+
+The basic idea is that on a simple patch that is well described, it is
+trivial to check and trivial to verify.
+
+Eric
