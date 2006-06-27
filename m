@@ -1,32 +1,59 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Tue, 27 Jun 2006 12:12:27 -0400
-Message-ID: <44A158EB.90406@garzik.org>
-References: <20060626212547.GE30706@tuxdriver.com> <200606271530.06749.mb@bu3sch.de> <44A13C81.2050503@garzik.org> <200606271725.26037.mb@bu3sch.de>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 17/21] e1000: add ich8lan core functions
+Date: Tue, 27 Jun 2006 09:12:09 -0700
+Message-ID: <44A158D9.6070601@intel.com>
+References: <20060622051815.25497.89192.stgit@gitlost.site> <20060622052043.25497.85145.stgit@gitlost.site> <44A08F59.6030700@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev@lists.berlios.de,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:53384 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1161142AbWF0QMa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 12:12:30 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200606271725.26037.mb@bu3sch.de>
+Received: from mga02.intel.com ([134.134.136.20]:13075 "EHLO
+	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1161153AbWF0QNv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 12:13:51 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <44A08F59.6030700@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> So, I will submit a patch to lower the udelay(10) to udelay(1)
-> and we can close the discussion? ;)
+Jeff Garzik wrote:
+> Kok, Auke wrote:
+>> This implements the core new functions needed for ich8's internal
+>> NIC. This includes:
+>>
+>> * ich8 specific read/write code
+>> * flash/nvm access code
+>> * software semaphore flag functions
+>> * 10/100 PHY (fe - no gigabit speed) support for low-end versions
+>> * A workaround for a powerdown sequence problem discovered that
+>> affects a small number of motherboard.
+>>
+>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+>> ---
+>>
+>>  drivers/net/e1000/e1000_hw.c    | 1000 
+>> +++++++++++++++++++++++++++++++++++++++
+>>  drivers/net/e1000/e1000_hw.h    |  386 +++++++++++++++
+>>  drivers/net/e1000/e1000_osdep.h |   13 +
+>>  3 files changed, 1392 insertions(+), 7 deletions(-)
+> 
+> If it takes this much code to support ICH8, it seems like a e1000-ich8.c 
+> would be warranted...
 
-No, that totally avoids my point.  Your "otherwise idle machine" test is 
-probably nowhere near worst case in the field, for loops that can 
-potentially lock the CPU for a long time upon hardware fault.  And then 
-there are the huge delays in specific functions that I pointed out...
+that's work in progress - Jeb Cramer has been working on this for a while now 
+but unfortunately it's not ready, and getting ich8 supported in a way that we 
+know that doesn't introduce new bugs is more important. This patch adds tested 
+and validated support for these chipsets that has been hammered by our test team.
 
-	Jeff
+We are planning (working) on cleaning it all up (including whitespace!) - but 
+getting the ich8 support out is more important - people can buy the hardware 
+today.
 
+Cheers,
 
+Auke
