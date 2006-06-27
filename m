@@ -1,53 +1,44 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 0/2][RFC] Network Event Notifier Mechanism
-Date: Tue, 27 Jun 2006 08:44:40 -0400
-Message-ID: <1151412280.6516.35.camel@jzny2>
-References: <54AD0F12E08D1541B826BE97C98F99F15F55E2@NT-SJCA-0751.brcm.ad.broadcom.com>
-	 <20060622.155805.35017169.davem@davemloft.net>
-	 <1151024186.5099.46.camel@jzny2>  <1151069083.7808.19.camel@stevo-desktop>
-	 <1151159405.6716.106.camel@jzny2>  <1151332486.2398.20.camel@stevo-desktop>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	caitlinb@broadcom.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH REPOST 0/2][RFC] Network Event Notifier Mechanism
+Date: Tue, 27 Jun 2006 22:50:33 +1000
+Message-ID: <E1FvD1V-00043F-00@gondolin.me.apana.org.au>
+References: <20060623201918.32482.89765.stgit@stevo-desktop>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:32673 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932209AbWF0Mon
+Received: from rhun.apana.org.au ([64.62.148.172]:16403 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932223AbWF0Muz
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 08:44:43 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1FvCvt-00025e-9Q
-	for netdev@vger.kernel.org; Tue, 27 Jun 2006 08:44:45 -0400
-To: Steve Wise <swise@opengridcomputing.com>
-In-Reply-To: <1151332486.2398.20.camel@stevo-desktop>
+	Tue, 27 Jun 2006 08:50:55 -0400
+To: swise@opengridcomputing.com (Steve Wise)
+In-Reply-To: <20060623201918.32482.89765.stgit@stevo-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-26-06 at 09:34 -0500, Steve Wise wrote:
-> On Sat, 2006-06-24 at 10:30 -0400, jamal wrote:
-
-> The route/hh cache insertions might work for the initial dst MAC per
-> next-hop IP.  But this dst MAC can _change_ for various reasons (even
-> though the next-hop IP remains the same).   Such a change, I think,
-> doesn't generate a new route + hh cache insertion, just a change to the
-> hh entry.
+Steve Wise <swise@opengridcomputing.com> wrote:
 > 
-> Also, I think the route cache entry is created _before_ the MAC addr is
-> known. So we really need to know when the neighbour entry is updated
-> with the MAC address as a result of ARP/ND.  Hooking the correct spot in
-> the neighbour code where the mac address gets stored also gets us the
-> change event I described above.
+> This patch implements a mechanism that allows interested clients to
+> register for notification of certain network events. The intended use
+> is to allow RDMA devices (linux/drivers/infiniband) to be notified of
+> neighbour updates, ICMP redirects, path MTU changes, and route changes.
 > 
-> Does this make sense?
+> The reason these devices need update events is because they typically
+> cache this information in hardware and need to be notified when this
+> information has been updated.
 > 
+> The key events of interest are:
+> 
+> - neighbour mac address change 
+> - routing redirect (the next hop neighbour changes for a dst_entry)
+> - path mtu change (the patch mtu for a dst_entry changes).
+> - route add/deletes
 
-no - but as long as you solve the problem it should be fine. 
-[My goal was to help -factoring in some experiences- it seems you have
-it under control though].
+I'd like to know more about what the RDMA device is going to do with this
+information.  I thought RDMA was for receiving packets? Most of the info
+here pertains to transmission.
 
-cheers,
-jamal
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
