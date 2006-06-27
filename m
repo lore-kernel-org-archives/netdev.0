@@ -1,451 +1,331 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [Patch 1/1] AF_UNIX Datagram getpeersec [Updated]
-Date: Tue, 27 Jun 2006 03:14:59 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0606270311210.30073@d.namei>
-References: <20060627052255.GA1311@jiayuguan.watson.ibm.com>
+From: Kiran Thota <Kiran_Thota@pmc-sierra.com>
+Subject: RE: [Repost PATCH 6/6] PMC MSP85x0 gigabit ethernet driver
+Date: Tue, 27 Jun 2006 00:15:46 -0700
+Message-ID: <C28979E4F697C249ABDA83AC0C33CDF80B6BCE@sjc1exm07.pmc_nt.nt.pmc-sierra.bc.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	jmorris@redhat.com, chrisw@osdl.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Stephen Smalley <sds@tycho.nsa.gov>, tjaeger@cse.psu.edu,
-	Andrew Morton <akpm@osdl.org>, latten@austin.ibm.com,
-	sergeh@us.ibm.com, gcwilson@us.ibm.com, czhang.us@gmail.com
+Content-Type: text/plain
+Cc: "'Yoichi Yuasa'" <yoichi_yuasa@tripeaks.co.jp>,
+	linux-mips@linux-mips.org, netdev@vger.kernel.org,
+	Raj Palani <Rajesh_Palani@pmc-sierra.com>, ralf@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:47548 "EHLO
-	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932549AbWF0HPD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 03:15:03 -0400
-To: Catherine Zhang <cxzhang@watson.ibm.com>
-In-Reply-To: <20060627052255.GA1311@jiayuguan.watson.ibm.com>
+Received: from father.pmc-sierra.com ([216.241.224.13]:62850 "HELO
+	father.pmc-sierra.bc.ca") by vger.kernel.org with SMTP
+	id S932593AbWF0HQB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 03:16:01 -0400
+To: "'Francois Romieu'" <romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 27 Jun 2006, Catherine Zhang wrote:
+Francois,
+ Thanks for your comments. I have absorbed almost all of your suggestions. You skimmed through 33% of the file before you dozed off... Waiting for the rest!
 
-> Again, comments are welcome!
+Kiran 
 
-Got this warning while compiling.
+-----Original Message-----
+From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Francois Romieu
+Sent: Monday, June 26, 2006 3:31 PM
+To: Kiran Thota
+Cc: 'Yoichi Yuasa'; linux-mips@linux-mips.org; netdev@vger.kernel.org; Raj Palani; ralf@linux-mips.org
+Subject: Re: [Repost PATCH 6/6] PMC MSP85x0 gigabit ethernet driver
 
-security/selinux/exports.c: In function #selinux_get_sock_sid#:
-security/selinux/exports.c:79: warning: passing argument 1 of #SOCK_INODE# discards qualifiers from pointer target type
+Kiran Thota <Kiran_Thota@pmc-sierra.com> :
+[...]
+>  - Based on linux-2.6.12 from
+>  
+> http://www.linux-mips.org/pub/linux/mips/kernel/v2.6/linux-2.6.12.tar.
+> gz
 
-In the interests of time, I've fixed that warning in an updated version of 
-your patch below.
+Is there a reason why the patch is not diffed against a more recent version of the mips tree ?
 
-Also, you've added a security field to a core kernel structure with no 
-#ifdefs and also added unconditional security related code to core 
-networking code.
+The patch includes ~130 lines ending with a tab or space delimiter.
+They could be removed.
 
-I'll address that in a patch to follow.  Could you please test these 
-updated patches?  Thanks.
+[...]
+> diff -Naur a/drivers/net/msp85x0_ge.c b/drivers/net/msp85x0_ge.c
+> --- a/drivers/net/msp85x0_ge.c	1969-12-31 16:00:00.000000000 -0800
+> +++ b/drivers/net/msp85x0_ge.c	2006-06-26 12:12:39.000000000 -0700
+[...]
+> +/* Static Function Declarations	 */
+> +static int msp85x0_ge_eth_open(struct net_device *); static int 
+> +msp85x0_ge_eth_reopen(struct net_device *netdev); static void 
+> +msp85x0_ge_eth_stop(struct net_device *); static struct 
+> +net_device_stats *msp85x0_ge_get_stats(struct net_device *); static 
+> +int msp85x0_ge_init_rx_desc_ring(msp85x0_ge_port_info *, int, int,
+> +				      unsigned long, unsigned long,
+> +				      unsigned long);
+> +static int msp85x0_ge_init_tx_desc_ring(msp85x0_ge_port_info *, int,
+> +				      unsigned long, unsigned long);
+> +
+> +static int msp85x0_ge_open(struct net_device *); static int 
+> +msp85x0_ge_start_xmit(struct sk_buff *, struct net_device *); static 
+> +int msp85x0_ge_stop(struct net_device *);
+> +
+> +static unsigned int msp85x0_ge_tx_coal(int);
+> +
+> +static void msp85x0_ge_port_reset(unsigned int); static int 
+> +msp85x0_ge_free_tx_queue(struct net_device *); static int 
+> +msp85x0_ge_rx_task(struct net_device *, msp85x0_ge_port_info *); 
+> +static int msp85x0_ge_port_start(struct net_device *); static int 
+> +msp85x0_eth_setup_tx_rx_fifo(struct net_device *dev); static int 
+> +msp85x0_ge_xdma_reset(void);
 
-If they look ok to everyone and pass your testing, I'll submit them to 
-DaveM.
+You should be able to remove the forward declarations by correctly reordering the code.
 
----
+[...]
+> +static struct platform_device *msp85x0_ge_device[NO_PORTS]; static 
+> +struct net_device *msp85x0_eth[NO_PORTS]; static unsigned int 
+> +msp85x0_ge_sram; static unsigned int port_number;
+
+The way it is used, port_number should be a local variable.
+
+> +
+> +/*
+> + * The MSP85x0 GE has two alignment requirements:
+> + * -> skb->data to be cacheline aligned (32 byte)
+> + * -> IP header alignment to 16 bytes
+> + *
+> + * The latter is not implemented. So, that results in an extra copy 
+> +on
+> + * the Rx. This is a big performance hog. For the former case, the
+> + * dev_alloc_skb() has been replaced with msp85x0_ge_alloc_skb(). The 
+> +size
+> + * requested is calculated:
+> + *
+> + * Ethernet Frame Size : 1518
+> + * Ethernet Header     : 14
+> + * Future MSP85x0 change for IP header alignment : 2
+> + *
+> + * Hence, we allocate (1518 + 14 + 2+ 64) = 1580 bytes.  For IP 
+> +header
+> + * alignment, we use skb_reserve().
+> + */
+> +#define ALIGNED_RX_SKB_ADDR(addr) \
+> +	((((unsigned long)(addr) + (32UL - 1UL)) \
+> +	& ~(32UL - 1UL)) - (unsigned long)(addr)) #define 
+> +msp85x0_ge_alloc_skb(__length, __gfp_flags) \
+> +({      struct sk_buff *__skb; \
+> +	__skb = alloc_skb((__length),(__gfp_flags)); \
+> +	if(__skb){ \
+> +		int __offset = (int) ALIGNED_RX_SKB_ADDR(__skb->data); \
+> +		if(__offset) \
+> +			skb_reserve(__skb, __offset); \
+> +	} \
+> +	__skb; \
+> +})
+
+Please use a function for msp85x0_ge_alloc_skb.
+
+> +
+> +int increment_tx_pkt_count(unsigned int port)
+
+static
+
+> +{
+> +	unsigned int flags;
+> +	spin_lock_irqsave(&msp85x0_lock,flags);
+> +	if(port==0){
+
+CodingStyle: if (port == 0) {
+(or 'if (!port)')
+
+> +		port0_pkt_count++;
+> +	}
+> +	else{
+
+	} else {
+
+> +		port1_pkt_count++;	
+> +	}
+> +	spin_unlock_irqrestore(&msp85x0_lock,flags);
+
+increment_tx_pkt_count() is only issued from msp85x0_ge_tx_queue(), itself only issued from msp85x0_ge_start_xmit and xmit handlers run with irq enabled. The save/restore is not needed.
+
+> +	return 0;
+
+Useless return.
+
+> +}
+> +
+> +unsigned int get_tx_pkt_count(unsigned int port)
+
+static
+
+> +{
+> +	unsigned int flags,pktCount,tx_pending_pkt;
+
+Mixed case can be avoided here.
+
+> +	spin_lock_irqsave(&msp85x0_lock,flags);
+
+See above.
+
+> +	tx_pending_pkt=MSP85x0_GE_READ(MSP85x0_GE_CHANNEL0_TX_DMA_STS + (port << XDMA_PORT_OFFSET));
+> +	if(port==0){
+> +		pktCount=port0_pkt_count - tx_pending_pkt;
+> +	}
+> +	else{
+
+Sic.
+
+> +		pktCount=port1_pkt_count - tx_pending_pkt;	
+> +	}
+> +	spin_unlock_irqrestore(&msp85x0_lock,flags);
+> +	return pktCount;	
+> +}
+> +
+> +unsigned int decrement_tx_pkt_count(unsigned int port)
+
+static
+
+[...]
+> +void msp85x0_bringup_sequence(int port)
+
+static
+
+> +{
+> +   	unsigned int reg_data;
+> +
+> +	/* SDQPF */
+> +	reg_data=MSP85x0_GE_READ(MSP85x0_GE_SDQPF_RXFIFO_CTL + (port << 8));
+
+reg_data = MSP85x0_GE_READ(MSP85x0_GE_...
 
 
-diff -purN -X dontdiff linux-2.6.p/include/asm-alpha/socket.h linux-2.6.w/include/asm-alpha/socket.h
---- linux-2.6.p/include/asm-alpha/socket.h	2006-06-21 00:02:08.000000000 -0400
-+++ linux-2.6.w/include/asm-alpha/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -51,6 +51,7 @@
- #define SCM_TIMESTAMP		SO_TIMESTAMP
- 
- #define SO_PEERSEC		30
-+#define SO_PASSSEC		34
- 
- /* Security levels - as per NRL IPv6 - don't actually do anything */
- #define SO_SECURITY_AUTHENTICATION		19
-diff -purN -X dontdiff linux-2.6.p/include/asm-arm/socket.h linux-2.6.w/include/asm-arm/socket.h
---- linux-2.6.p/include/asm-arm/socket.h	2006-06-21 00:02:10.000000000 -0400
-+++ linux-2.6.w/include/asm-arm/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -48,5 +48,6 @@
- #define SO_ACCEPTCONN		30
- 
- #define SO_PEERSEC		31
-+#define SO_PASSSEC		34
- 
- #endif /* _ASM_SOCKET_H */
-diff -purN -X dontdiff linux-2.6.p/include/asm-arm26/socket.h linux-2.6.w/include/asm-arm26/socket.h
---- linux-2.6.p/include/asm-arm26/socket.h	2006-06-21 00:02:10.000000000 -0400
-+++ linux-2.6.w/include/asm-arm26/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -48,5 +48,6 @@
- #define SO_ACCEPTCONN		30
- 
- #define SO_PEERSEC		31
-+#define SO_PASSSEC		34
- 
- #endif /* _ASM_SOCKET_H */
-diff -purN -X dontdiff linux-2.6.p/include/asm-cris/socket.h linux-2.6.w/include/asm-cris/socket.h
---- linux-2.6.p/include/asm-cris/socket.h	2006-06-21 00:02:11.000000000 -0400
-+++ linux-2.6.w/include/asm-cris/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -50,6 +50,7 @@
- #define SO_ACCEPTCONN          30
- 
- #define SO_PEERSEC             31
-+#define SO_PASSSEC		34
- 
- #endif /* _ASM_SOCKET_H */
- 
-diff -purN -X dontdiff linux-2.6.p/include/asm-frv/socket.h linux-2.6.w/include/asm-frv/socket.h
---- linux-2.6.p/include/asm-frv/socket.h	2006-06-21 00:02:11.000000000 -0400
-+++ linux-2.6.w/include/asm-frv/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -48,6 +48,7 @@
- #define SO_ACCEPTCONN		30
- 
- #define SO_PEERSEC		31
-+#define SO_PASSSEC		34
- 
- #endif /* _ASM_SOCKET_H */
- 
-diff -purN -X dontdiff linux-2.6.p/include/asm-h8300/socket.h linux-2.6.w/include/asm-h8300/socket.h
---- linux-2.6.p/include/asm-h8300/socket.h	2006-06-21 00:02:11.000000000 -0400
-+++ linux-2.6.w/include/asm-h8300/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -48,5 +48,6 @@
- #define SO_ACCEPTCONN		30
- 
- #define SO_PEERSEC		31
-+#define SO_PASSSEC		34
- 
- #endif /* _ASM_SOCKET_H */
-diff -purN -X dontdiff linux-2.6.p/include/asm-i386/socket.h linux-2.6.w/include/asm-i386/socket.h
---- linux-2.6.p/include/asm-i386/socket.h	2006-06-21 00:02:12.000000000 -0400
-+++ linux-2.6.w/include/asm-i386/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -48,5 +48,6 @@
- #define SO_ACCEPTCONN		30
- 
- #define SO_PEERSEC		31
-+#define SO_PASSSEC		34
- 
- #endif /* _ASM_SOCKET_H */
-diff -purN -X dontdiff linux-2.6.p/include/asm-ia64/socket.h linux-2.6.w/include/asm-ia64/socket.h
---- linux-2.6.p/include/asm-ia64/socket.h	2006-06-21 00:02:12.000000000 -0400
-+++ linux-2.6.w/include/asm-ia64/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -57,5 +57,6 @@
- #define SO_ACCEPTCONN		30
- 
- #define SO_PEERSEC             31
-+#define SO_PASSSEC		34
- 
- #endif /* _ASM_IA64_SOCKET_H */
-diff -purN -X dontdiff linux-2.6.p/include/asm-m32r/socket.h linux-2.6.w/include/asm-m32r/socket.h
---- linux-2.6.p/include/asm-m32r/socket.h	2006-06-21 00:02:13.000000000 -0400
-+++ linux-2.6.w/include/asm-m32r/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -48,5 +48,6 @@
- #define SO_ACCEPTCONN		30
- 
- #define SO_PEERSEC		31
-+#define SO_PASSSEC		34
- 
- #endif /* _ASM_M32R_SOCKET_H */
-diff -purN -X dontdiff linux-2.6.p/include/asm-m68k/socket.h linux-2.6.w/include/asm-m68k/socket.h
---- linux-2.6.p/include/asm-m68k/socket.h	2006-06-21 00:02:13.000000000 -0400
-+++ linux-2.6.w/include/asm-m68k/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -48,5 +48,6 @@
- #define SO_ACCEPTCONN		30
- 
- #define SO_PEERSEC             31
-+#define SO_PASSSEC		34
- 
- #endif /* _ASM_SOCKET_H */
-diff -purN -X dontdiff linux-2.6.p/include/asm-mips/socket.h linux-2.6.w/include/asm-mips/socket.h
---- linux-2.6.p/include/asm-mips/socket.h	2006-06-21 00:02:15.000000000 -0400
-+++ linux-2.6.w/include/asm-mips/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -69,6 +69,7 @@ To add: #define SO_REUSEPORT 0x0200	/* A
- #define SO_PEERSEC		30
- #define SO_SNDBUFFORCE		31
- #define SO_RCVBUFFORCE		33
-+#define SO_PASSSEC		34
- 
- #ifdef __KERNEL__
- 
-diff -purN -X dontdiff linux-2.6.p/include/asm-parisc/socket.h linux-2.6.w/include/asm-parisc/socket.h
---- linux-2.6.p/include/asm-parisc/socket.h	2006-06-21 00:02:15.000000000 -0400
-+++ linux-2.6.w/include/asm-parisc/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -48,5 +48,6 @@
- #define SO_ACCEPTCONN		0x401c
- 
- #define SO_PEERSEC		0x401d
-+#define SO_PASSSEC		0x401e
- 
- #endif /* _ASM_SOCKET_H */
-diff -purN -X dontdiff linux-2.6.p/include/asm-powerpc/socket.h linux-2.6.w/include/asm-powerpc/socket.h
---- linux-2.6.p/include/asm-powerpc/socket.h	2006-06-21 00:02:16.000000000 -0400
-+++ linux-2.6.w/include/asm-powerpc/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -55,5 +55,6 @@
- #define SO_ACCEPTCONN		30
- 
- #define SO_PEERSEC		31
-+#define SO_PASSSEC		34
- 
- #endif	/* _ASM_POWERPC_SOCKET_H */
-diff -purN -X dontdiff linux-2.6.p/include/asm-s390/socket.h linux-2.6.w/include/asm-s390/socket.h
---- linux-2.6.p/include/asm-s390/socket.h	2006-06-21 00:02:17.000000000 -0400
-+++ linux-2.6.w/include/asm-s390/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -56,5 +56,6 @@
- #define SO_ACCEPTCONN		30
- 
- #define SO_PEERSEC		31
-+#define SO_PASSSEC		34
- 
- #endif /* _ASM_SOCKET_H */
-diff -purN -X dontdiff linux-2.6.p/include/asm-sh/socket.h linux-2.6.w/include/asm-sh/socket.h
---- linux-2.6.p/include/asm-sh/socket.h	2006-06-21 00:02:17.000000000 -0400
-+++ linux-2.6.w/include/asm-sh/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -48,5 +48,6 @@
- #define SO_ACCEPTCONN		30
- 
- #define SO_PEERSEC		31
-+#define SO_PASSSEC		34
- 
- #endif /* __ASM_SH_SOCKET_H */
-diff -purN -X dontdiff linux-2.6.p/include/asm-sparc/socket.h linux-2.6.w/include/asm-sparc/socket.h
---- linux-2.6.p/include/asm-sparc/socket.h	2006-06-21 00:02:18.000000000 -0400
-+++ linux-2.6.w/include/asm-sparc/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -48,6 +48,7 @@
- #define SCM_TIMESTAMP		SO_TIMESTAMP
- 
- #define SO_PEERSEC		0x001e
-+#define SO_PASSSEC		0x001f
- 
- /* Security levels - as per NRL IPv6 - don't actually do anything */
- #define SO_SECURITY_AUTHENTICATION		0x5001
-diff -purN -X dontdiff linux-2.6.p/include/asm-sparc64/socket.h linux-2.6.w/include/asm-sparc64/socket.h
---- linux-2.6.p/include/asm-sparc64/socket.h	2006-06-21 00:02:19.000000000 -0400
-+++ linux-2.6.w/include/asm-sparc64/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -48,6 +48,7 @@
- #define SCM_TIMESTAMP		SO_TIMESTAMP
- 
- #define SO_PEERSEC		0x001e
-+#define SO_PASSSEC		0x001f
- 
- /* Security levels - as per NRL IPv6 - don't actually do anything */
- #define SO_SECURITY_AUTHENTICATION		0x5001
-diff -purN -X dontdiff linux-2.6.p/include/asm-v850/socket.h linux-2.6.w/include/asm-v850/socket.h
---- linux-2.6.p/include/asm-v850/socket.h	2006-06-21 00:02:20.000000000 -0400
-+++ linux-2.6.w/include/asm-v850/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -48,5 +48,6 @@
- #define SO_ACCEPTCONN		30
- 
- #define SO_PEERSEC		31
-+#define SO_PASSSEC		34
- 
- #endif /* __V850_SOCKET_H__ */
-diff -purN -X dontdiff linux-2.6.p/include/asm-x86_64/socket.h linux-2.6.w/include/asm-x86_64/socket.h
---- linux-2.6.p/include/asm-x86_64/socket.h	2006-06-21 00:02:20.000000000 -0400
-+++ linux-2.6.w/include/asm-x86_64/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -48,5 +48,6 @@
- #define SO_ACCEPTCONN		30
- 
- #define SO_PEERSEC             31
-+#define SO_PASSSEC		34
- 
- #endif /* _ASM_SOCKET_H */
-diff -purN -X dontdiff linux-2.6.p/include/asm-xtensa/socket.h linux-2.6.w/include/asm-xtensa/socket.h
---- linux-2.6.p/include/asm-xtensa/socket.h	2006-06-21 00:02:21.000000000 -0400
-+++ linux-2.6.w/include/asm-xtensa/socket.h	2006-06-27 02:08:49.000000000 -0400
-@@ -59,5 +59,6 @@
- 
- #define SO_ACCEPTCONN		30
- #define SO_PEERSEC		31
-+#define SO_PASSSEC		34
- 
- #endif	/* _XTENSA_SOCKET_H */
-diff -purN -X dontdiff linux-2.6.p/include/linux/net.h linux-2.6.w/include/linux/net.h
---- linux-2.6.p/include/linux/net.h	2006-06-21 00:02:23.000000000 -0400
-+++ linux-2.6.w/include/linux/net.h	2006-06-27 02:08:49.000000000 -0400
-@@ -61,6 +61,7 @@ typedef enum {
- #define SOCK_ASYNC_WAITDATA	1
- #define SOCK_NOSPACE		2
- #define SOCK_PASSCRED		3
-+#define SOCK_PASSSEC		4
- 
- #ifndef ARCH_HAS_SOCKET_TYPES
- /**
-diff -purN -X dontdiff linux-2.6.p/include/linux/selinux.h linux-2.6.w/include/linux/selinux.h
---- linux-2.6.p/include/linux/selinux.h	2006-06-21 00:02:23.000000000 -0400
-+++ linux-2.6.w/include/linux/selinux.h	2006-06-27 02:18:47.000000000 -0400
-@@ -18,6 +18,7 @@ struct selinux_audit_rule;
- struct audit_context;
- struct inode;
- struct kern_ipc_perm;
-+struct socket;
- 
- #ifdef CONFIG_SECURITY_SELINUX
- 
-@@ -119,6 +120,15 @@ void selinux_get_ipc_sid(const struct ke
- void selinux_get_task_sid(struct task_struct *tsk, u32 *sid);
- 
- /**
-+ *     selinux_get_sock_sid - return the SID of socket
-+ *     @sock: the socket whose SID will be returned
-+ *     @sid: pointer to security context ID to be filled in.
-+ *
-+ *     Returns nothing
-+ */
-+void selinux_get_sock_sid(struct socket *sock, u32 *sid);
-+
-+/**
-  *     selinux_string_to_sid - map a security context string to a security ID
-  *     @str: the security context string to be mapped
-  *     @sid: ID value returned via this.
-@@ -193,6 +203,11 @@ static inline void selinux_get_task_sid(
- 	*sid = 0;
- }
- 
-+static inline void selinux_get_sock_sid(struct socket *sock, u32 *sid)
-+{
-+	*sid = 0;
-+}
-+
- static inline int selinux_string_to_sid(const char *str, u32 *sid)
- {
-        *sid = 0;
-diff -purN -X dontdiff linux-2.6.p/include/net/af_unix.h linux-2.6.w/include/net/af_unix.h
---- linux-2.6.p/include/net/af_unix.h	2006-06-21 00:02:24.000000000 -0400
-+++ linux-2.6.w/include/net/af_unix.h	2006-06-27 02:08:49.000000000 -0400
-@@ -53,10 +53,12 @@ struct unix_address {
- struct unix_skb_parms {
- 	struct ucred		creds;		/* Skb credentials	*/
- 	struct scm_fp_list	*fp;		/* Passed files		*/
-+	char			*secdata;	/* Security context	*/
- };
- 
- #define UNIXCB(skb) 	(*(struct unix_skb_parms*)&((skb)->cb))
- #define UNIXCREDS(skb)	(&UNIXCB((skb)).creds)
-+#define UNIXSEC(skb)	(&UNIXCB((skb)).secdata)
- 
- #define unix_state_rlock(s)	spin_lock(&unix_sk(s)->lock)
- #define unix_state_runlock(s)	spin_unlock(&unix_sk(s)->lock)
-diff -purN -X dontdiff linux-2.6.p/include/net/scm.h linux-2.6.w/include/net/scm.h
---- linux-2.6.p/include/net/scm.h	2006-06-21 00:02:24.000000000 -0400
-+++ linux-2.6.w/include/net/scm.h	2006-06-27 02:08:49.000000000 -0400
-@@ -19,6 +19,7 @@ struct scm_cookie
- {
- 	struct ucred		creds;		/* Skb credentials	*/
- 	struct scm_fp_list	*fp;		/* Passed files		*/
-+	char			*secdata;	/* Security context	*/
- 	unsigned long		seq;		/* Connection seqno	*/
- };
- 
-@@ -62,6 +63,9 @@ static __inline__ void scm_recv(struct s
- 	if (test_bit(SOCK_PASSCRED, &sock->flags))
- 		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(scm->creds), &scm->creds);
- 
-+	if (test_bit(SOCK_PASSSEC, &sock->flags) && scm->secdata != NULL)
-+		put_cmsg(msg, SOL_SOCKET, SCM_SECURITY, strlen(scm->secdata)+1, scm->secdata);
-+
- 	if (!scm->fp)
- 		return;
- 	
-diff -purN -X dontdiff linux-2.6.p/net/core/sock.c linux-2.6.w/net/core/sock.c
---- linux-2.6.p/net/core/sock.c	2006-06-21 00:02:27.000000000 -0400
-+++ linux-2.6.w/net/core/sock.c	2006-06-27 02:08:49.000000000 -0400
-@@ -565,6 +565,13 @@ set_rcvbuf:
- 			ret = -ENONET;
- 			break;
- 
-+		case SO_PASSSEC:
-+			if (valbool)
-+				set_bit(SOCK_PASSSEC, &sock->flags);
-+			else
-+				clear_bit(SOCK_PASSSEC, &sock->flags);
-+			break;
-+
- 		/* We implement the SO_SNDLOWAT etc to
- 		   not be settable (1003.1g 5.3) */
- 		default:
-@@ -723,6 +730,10 @@ int sock_getsockopt(struct socket *sock,
- 			v.val = sk->sk_state == TCP_LISTEN;
- 			break;
- 
-+		case SO_PASSSEC:
-+			v.val = test_bit(SOCK_PASSSEC, &sock->flags) ? 1 : 0;
-+			break;
-+
- 		case SO_PEERSEC:
- 			return security_socket_getpeersec_stream(sock, optval, optlen, len);
- 
-diff -purN -X dontdiff linux-2.6.p/net/unix/af_unix.c linux-2.6.w/net/unix/af_unix.c
---- linux-2.6.p/net/unix/af_unix.c	2006-06-21 00:02:30.000000000 -0400
-+++ linux-2.6.w/net/unix/af_unix.c	2006-06-27 02:08:49.000000000 -0400
-@@ -1251,6 +1251,7 @@ static int unix_dgram_sendmsg(struct kio
- 	struct sk_buff *skb;
- 	long timeo;
- 	struct scm_cookie tmp_scm;
-+	int seclen = 0;
- 
- 	if (NULL == siocb->scm)
- 		siocb->scm = &tmp_scm;
-@@ -1290,6 +1291,9 @@ static int unix_dgram_sendmsg(struct kio
- 	memcpy(UNIXCREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
- 	if (siocb->scm->fp)
- 		unix_attach_fds(siocb->scm, skb);
-+	err = security_socket_getpeersec_dgram(skb, UNIXSEC(skb), &seclen);
-+	if (err)
-+		*(UNIXSEC(skb)) = NULL;
- 
- 	skb->h.raw = skb->data;
- 	err = memcpy_fromiovec(skb_put(skb,len), msg->msg_iov, len);
-@@ -1570,6 +1574,7 @@ static int unix_dgram_recvmsg(struct kio
- 		memset(&tmp_scm, 0, sizeof(tmp_scm));
- 	}
- 	siocb->scm->creds = *UNIXCREDS(skb);
-+	siocb->scm->secdata = *UNIXSEC(skb);
- 
- 	if (!(flags & MSG_PEEK))
- 	{
-diff -purN -X dontdiff linux-2.6.p/security/selinux/exports.c linux-2.6.w/security/selinux/exports.c
---- linux-2.6.p/security/selinux/exports.c	2006-06-21 00:02:31.000000000 -0400
-+++ linux-2.6.w/security/selinux/exports.c	2006-06-27 02:19:16.000000000 -0400
-@@ -17,6 +17,7 @@
- #include <linux/selinux.h>
- #include <linux/fs.h>
- #include <linux/ipc.h>
-+#include <net/sock.h>
- 
- #include "security.h"
- #include "objsec.h"
-@@ -72,6 +73,16 @@ void selinux_get_task_sid(struct task_st
- 	*sid = 0;
- }
- 
-+void selinux_get_sock_sid(struct socket *sock, u32 *sid)
-+{
-+	if (selinux_enabled) {
-+		const struct inode *inode = SOCK_INODE(sock);
-+		selinux_get_inode_sid(inode, sid);
-+		return;
-+	}
-+	*sid = 0;
-+}
-+
- int selinux_string_to_sid(char *str, u32 *sid)
- {
- 	if (selinux_enabled)
-diff -purN -X dontdiff linux-2.6.p/security/selinux/hooks.c linux-2.6.w/security/selinux/hooks.c
---- linux-2.6.p/security/selinux/hooks.c	2006-06-26 14:47:31.000000000 -0400
-+++ linux-2.6.w/security/selinux/hooks.c	2006-06-27 02:08:49.000000000 -0400
-@@ -69,6 +69,7 @@
- #include <linux/sysctl.h>
- #include <linux/audit.h>
- #include <linux/string.h>
-+#include <linux/selinux.h>
- 
- #include "avc.h"
- #include "objsec.h"
-@@ -3418,7 +3419,12 @@ out:	
- static int selinux_socket_getpeersec_dgram(struct sk_buff *skb, char **secdata, u32 *seclen)
- {
- 	int err = 0;
--	u32 peer_sid = selinux_socket_getpeer_dgram(skb);
-+	u32 peer_sid;
-+
-+	if (skb->sk->sk_family == PF_UNIX)
-+		selinux_get_sock_sid(skb->sk->sk_socket, &peer_sid);
-+	else
-+		peer_sid = selinux_socket_getpeer_dgram(skb);
- 
- 	if (peer_sid == SECSID_NULL)
- 		return -EINVAL;
+[...]
+> +static void msp85x0_ge_gmii_config(int port_num) {
+[...]
+> +	if (phy_reg & 0x8000) {
+> +		if (phy_reg & 0x2000) {
+> +			/* Full Duplex and 1000 Mbps */
+> +			MSP85x0_GE_WRITE((MSP85x0_GE_GMII_CONFIG_MODE +
+> +					(port_num << MII_PORT_OFFSET)), 0x201);
+> +		}  else {
+> +			/* Half Duplex and 1000 Mbps */
+> +			MSP85x0_GE_WRITE((MSP85x0_GE_GMII_CONFIG_MODE +
+> +					(port_num << MII_PORT_OFFSET)), 0x2201);
+> +			}
+> +	}
+
+:o(
+		mode = (phy_reg & 0x2000) ? 0x0201 : 0x2201;
+		MSP85x0_GE_WRITE((MSP85x0_GE_GMII_CONFIG_MODE +
+				 (port_num << MII_PORT_OFFSET)), mode);
+> +	if (phy_reg & 0x4000) {
+> +		if (phy_reg & 0x2000) {
+> +			/* Full Duplex and 100 Mbps */
+> +			MSP85x0_GE_WRITE((MSP85x0_GE_GMII_CONFIG_MODE +
+> +					(port_num << MII_PORT_OFFSET)), 0x100);
+> +		} else {
+> +			/* Half Duplex and 100 Mbps */
+> +			MSP85x0_GE_WRITE((MSP85x0_GE_GMII_CONFIG_MODE +
+> +					(port_num << MII_PORT_OFFSET)), 0x2100);
+> +		}
+> +	}
+
+I'd bet you could make a single MSP85x0_GE_WRITE for this one and the two above.
+
+[...]
+> +static void msp85x0_ge_update_afx(msp85x0_ge_port_info * 
+> +msp85x0_ge_eth) {
+> +	int port = msp85x0_ge_eth->port_num;
+> +	unsigned int i;
+> +	volatile unsigned long reg_data = 0;
+
+Mantra: volatile is not the answer.
+
+Now, what's the question ? :o)
+
+
+[...]
+> +static void msp85x0_ge_tx_timeout_task(struct net_device *netdev) {
+> +	msp85x0_ge_port_info *msp85x0_ge_eth = netdev_priv(netdev);
+> +	int port = msp85x0_ge_eth->port_num;
+> +
+> +	printk("MSP85x0 GE: Transmit timed out. Resetting ... \n");
+
+Missing KERN_xyz
+
+[...]
+> +static int msp85x0_ge_change_mtu(struct net_device *netdev, int 
+> +new_mtu) {
+[...]
+> +	if (netif_running(netdev)) {
+> +		msp85x0_ge_eth_stop(netdev);
+> +            	MSP85x0_GE_WRITE((MSP85x0_GE_RMAC_MAX_FRAME_LEN + 
+> +(msp85x0_ge_eth->port_num << MAC_PORT_OFFSET)), new_mtu + 2); // for 
+> +the padded bytes
+> +
+> +		if (msp85x0_ge_eth_reopen(netdev) != 0) {
+> +			printk(KERN_ERR
+> +			       "%s: Fatal error on opening device\n",
+> +			       netdev->name);
+> +			spin_unlock_irqrestore(&msp85x0_ge_eth->lock, flags);
+> +			return -1;
+
+Please use -Esomething.
+
+You may consider goto to balance spin_{lock/unlock}.
+
+[...]
+> +static irqreturn_t msp85x0_ge_sequoia_int_handler(int irq, void *dev_id,
+> +	struct pt_regs *regs)
+> +{
+> +	struct net_device *netdev = (struct net_device *) dev_id;
+
+Useless cast from void *.
+
+[...]
+> +        /* Handle the Rx next */
+> +        if (eth_int_cause1 & (RX_INT << (port_num * 16))) {
+> +	      clear_xdma_interrupts(port_num,RX_INT);
+> +              if (netif_rx_schedule_prep(netdev)) {
+> +		   msp85x0_ge_disable_rx_int(port_num);	
+> +                   __netif_rx_schedule(netdev);			       		
+
+The indentation went badly wrong.
+
+[...]
+> +static int msp85x0_ge_open(struct net_device *netdev) {
+> +	msp85x0_ge_port_info *msp85x0_ge_eth = netdev_priv(netdev);
+> +	unsigned int port_num = msp85x0_ge_eth->port_num;
+> +	unsigned int irq;
+> +	int retval;       
+> +
+> +	spin_lock_irq(&(msp85x0_ge_eth->lock));
+> +
+> +	if (msp85x0_ge_eth_open(netdev) != MSP85x0_OK) {
+> +		spin_unlock_irq(&(msp85x0_ge_eth->lock));
+> +		printk("%s: Error opening interface \n", netdev->name);
+
+Missing KERN_xyz
+
+> +		free_irq(netdev->irq, netdev);
+
+request_irq() comes later.
+
+> +		return -EBUSY;
+
+Why not propagate an usual return status code from msp85x0_ge_eth_open ?
+
+> +	}
+> +
+> +	spin_unlock_irq(&(msp85x0_ge_eth->lock));
+> +
+> +        irq = MSP85x0_ETH_PORT_IRQ;
+> +
+> +	retval = request_irq(irq, INTERRUPT_HANDLER,
+> +		     SA_SAMPLE_RANDOM | SA_SHIRQ, netdev->name, netdev);
+> +
+> +	if (retval != 0) {
+> +		printk(KERN_ERR "Cannot assign IRQ number to MSP85x0 GE \n");
+> +		return -1;
+
+- msp85x0_ge_eth_open() should be balanced a bit (stop queuing for instance) ;
+- no need to throw away retval.
+
+(some sleep needed here, sorry)
+
+--
+Ueimor
+-
+To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
