@@ -1,211 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [Repost PATCH 6/6] PMC MSP85x0 gigabit ethernet driver
-Date: Wed, 28 Jun 2006 01:20:21 +0200
-Message-ID: <20060627232021.GA9592@electric-eye.fr.zoreil.com>
-References: <C28979E4F697C249ABDA83AC0C33CDF80B6BC8@sjc1exm07.pmc_nt.nt.pmc-sierra.bc.ca>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Wed, 28 Jun 2006 03:42:10 +0400
+Message-ID: <20060627234210.GA1598@ms2.inr.ac.ru>
+References: <20060627131136.B13959@castle.nmd.msu.ru> <44A0FBAC.7020107@fr.ibm.com> <20060627133849.E13959@castle.nmd.msu.ru> <44A1149E.6060802@fr.ibm.com> <m1sllqn7cb.fsf@ebiederm.dsl.xmission.com> <20060627160241.GB28984@MAIL.13thfloor.at> <m1psgulf4u.fsf@ebiederm.dsl.xmission.com> <44A1689B.7060809@candelatech.com> <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "'Yoichi Yuasa'" <yoichi_yuasa@tripeaks.co.jp>,
-	linux-mips@linux-mips.org, netdev@vger.kernel.org,
-	Raj Palani <Rajesh_Palani@pmc-sierra.com>, ralf@linux-mips.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:54406 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1422723AbWF0XWI
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 19:22:08 -0400
-To: Kiran Thota <Kiran_Thota@pmc-sierra.com>
+Cc: Herbert Poetzl <herbert@13thfloor.at>,
+	Ben Greear <greearb@candelatech.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Andrey Savochkin <saw@swsoft.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>,
+	dev@sw.ru, devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422739AbWF0XnZ@vger.kernel.org>
+To: Dave Hansen <haveblue@us.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <C28979E4F697C249ABDA83AC0C33CDF80B6BC8@sjc1exm07.pmc_nt.nt.pmc-sierra.bc.ca>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <1151449973.24103.51.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
-Kiran Thota <Kiran_Thota@pmc-sierra.com> :
-[...]
-> +/*
-> + * Allocate the SKBs for the Rx ring. Also used
-> + * for refilling the queue
-> + */
-> +
-> +static int msp85x0_ge_rx_task(struct net_device *netdev,
-> +				msp85x0_ge_port_info *msp85x0_ge_eth)
-> +{
-> +	struct device *device = &msp85x0_ge_device[msp85x0_ge_eth->port_num]->dev;
-> +	volatile msp85x0_ge_rx_desc *rx_desc;
-> +	struct sk_buff *skb;
-> +	int rx_used_desc;
-> +	int count = 0;
-> +	oom_flag=0;
+> It may look weird, but do application really *need* to see eth0 rather
+> than eth858354?
 
-Global variable.
+Applications do not care, humans do. :-)
 
-[...]
-> +		if((rx_used_desc + 1) == MSP85x0_GE_RX_QUEUE)
-> +			msp85x0_ge_eth->rx_used_desc_q =0;
-> +		else
-> +			msp85x0_ge_eth->rx_used_desc_q = (rx_used_desc + 1);	
+What's about applications they just need to see exactly the same device
+after migration. Not only name, but f.e. also its ifindex. If you do not
+create a separate namespace for netdevices, you will inevitably end up
+with some strange hack sort of VPIDs to translate (or to partition) ifindices
+or to tell that "ping -I eth858354 xxx" is too coimplicated application
+to survive migration.
 
-Consider greping drivers/net for NEXT_TX or RING_NEXT.
-
-[...]
-> +static void msp85x0_port_init(struct net_device *netdev,
-> +			    msp85x0_ge_port_info * msp85x0_ge_eth)
-> +{
-> +	unsigned long reg_data;
-> +	unsigned int port_num;	
-> +
-> +	port_num = msp85x0_ge_eth->port_num;
-> +	for (port_num = 0; port_num < NO_PORTS; port_num++)
-
-There is something strange with port_num here.
-
-[...]
-> +static int start_tx_and_rx_activity(struct net_device *netdev)
-> +{
-
-The returned value is not used.
-
-[...]
-> +static int trtg_block_enable(struct net_device *netdev)
-> +{
-
-The returned value is not used.
-
-[...]
-> +static int enable_tx_and_rx_interrupts(struct net_device *netdev)
-> +{
-
-The returned value is not used.
-
-[...]
-> +static int xdma_config(struct net_device *netdev)
-> +{
-
-The indentation of this function is mostly broken.
-
-[...]
-> +static int msp85x0_ge_port_start(struct net_device *netdev)
-> +{
-
-The returned value is not used.
-
-[...]
-> +static int msp85x0_eth_setup_tx_rx_fifo(struct net_device *dev)
-> +{
-
-The returned value is not used.
-
-[...]
-> +static int msp85x0_ge_eth_open(struct net_device *netdev)
-> +{
-[...]
-> +	/* Fill the Rx ring with the SKBs */
-> +	msp85x0_ge_port_start(netdev);
-[...]
-> +	if (!(phy_reg & 0x0400)) {
-> +		netif_carrier_off(netdev);
-> +		netif_stop_queue(netdev);
-> +		return MSP85x0_ERROR;
-
-skb leak
-
-[...]
-> +int msp85x0_ge_start_xmit(struct sk_buff *skb, struct net_device *netdev)
-> +{
-
-static
-
-This function ought to use NETDEV_TX_OK/NETDEV_TX_BUSY (should not happen).
-
-[...]
-> +static int msp85x0_ge_free_tx_queue(struct net_device *netdev)
-> +{
-> +	msp85x0_ge_port_info *msp85x0_ge_eth = netdev_priv(netdev);
-> +	int pkts,port_num = msp85x0_ge_eth->port_num;
-> +	int tx_desc_used;
-> +	struct sk_buff *skb;
-> +
-> +	/* Take the lock */
-> +	pkts=get_tx_pkt_count(port_num);
-> +	while(pkts)
-> +	{
-> +		pkts--;
-> +		tx_desc_used = msp85x0_ge_eth->tx_used_desc_q;
-> +
-> +		/* return right away */
-> +		if (tx_desc_used == msp85x0_ge_eth->tx_curr_desc_q)
-> +			break;
-> +	
-> +		skb = msp85x0_ge_eth->tx_skb[tx_desc_used];
-> +		dev_kfree_skb_irq(skb);
-
-msp85x0_ge_free_tx_queue() is issued in msp85x0_ge_start_xmit(), thus
-not in irq context.
-
-[...]
-> +static int msp85x0_ge_receive_queue(struct net_device *netdev)
-> +{
-
-Indentation needs to fixed in this function.
-
-[...]
-> +		if (packet.cmd_sts & (MSP85x0_GE_RX_PERR | MSP85x0_GE_RX_OVERFLOW_ERROR | MSP85x0_GE_RX_TRUNC | MSP85x0_GE_RX_CRC_ERROR))
-> +		{
-> +			if(packet.cmd_sts & MSP85x0_GE_RX_OVERFLOW_ERROR)
-> +				stats->rx_over_errors++; 
-> +			else if(packet.cmd_sts & MSP85x0_GE_RX_TRUNC)
-> +				stats->rx_frame_errors++;
-> +			else
-> +				stats->rx_errors++;
-> +			dev_kfree_skb_any(skb);
-
-It's called in ->poll(), outside of in_irq().
-
-dev->last_rx should be updated after netif_receive_skb().
-
-[...]
-> +static int msp85x0_ge_poll(struct net_device *netdev, int *budget)
-> +{
-[...]
-> +	spin_lock_irqsave(&msp85x0_ge_eth->lock,flags);
-
-Afaik poll takes place with irq enabled: no need to save/restore.
-
-[...]
-> +/* Don't Re-Initialize the port, Just start from where it stops */ 
-> +static int msp85x0_ge_eth_reopen(struct net_device *netdev)	
-> +{
-> +	msp85x0_ge_port_info *msp85x0_ge_eth = netdev_priv(netdev);
-> +	unsigned int reg_data,irq;
-> +	int retval;
-> +
-> +        irq = MSP85x0_ETH_PORT_IRQ;
-> +
-> +	retval = request_irq(irq, INTERRUPT_HANDLER,
-> +		     SA_INTERRUPT | SA_SAMPLE_RANDOM | SA_SHIRQ, netdev->name, netdev);
-
-/me scratches head...
-
-msp85x0_ge_change_mtu() does _not_ free_irqv and it issues
-msp85x0_ge_eth_reopen().
-
-I noticed this comment in msp85x0_ge_eth_stop():
-
-/* This to work around to solve the msp85x0 shutdown and bringup sequence */
-
-Can you elaborate ?
-
-Random remarks:
-- drivers/net/msp85x0_ge.h includes a lot of
-  #define MSP85x0_GE_MSTATX_SOMETHING
-
-  Your customers would surely appreciate extended stats through ethtool.
-  grep for get_ethtool_stats in drivers/net
-
-- You should be able to sprinkle a few NET_IP_ALIGN here and there.
-
-- I won't complain if you feel an urge to remove the _ge_ part in
-  msp85x0_ge_whatever
-
--- 
-Ueimor
+Alexey
