@@ -1,43 +1,56 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: ipsec tunnel asymmetrical mtu
-Date: Tue, 27 Jun 2006 18:37:55 +1000
-Message-ID: <20060627083755.GA26037@gondor.apana.org.au>
-References: <BAY103-F5BDFFFFDAB4CFB03007D9B2A60@phx.gbl> <BAY103-F48CEDE1C901D0DF661A82B27E0@phx.gbl>
+From: Andrey Savochkin <saw@swsoft.com>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Tue, 27 Jun 2006 13:38:49 +0400
+Message-ID: <20060627133849.E13959@castle.nmd.msu.ru>
+References: <20060609210202.215291000@localhost.localdomain> <20060609210625.144158000@localhost.localdomain> <20060626134711.A28729@castle.nmd.msu.ru> <449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru> <44A00215.2040608@fr.ibm.com> <20060627131136.B13959@castle.nmd.msu.ru> <44A0FBAC.7020107@fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
+	devel@openvz.org, sam@vilain.net, ebiederm@xmission.com,
+	viro@ftp.linux.org.uk, Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35087 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932892AbWF0JiF
+Received: from castle.nmd.msu.ru ([193.232.112.53]:9225 "HELO
+	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S932812AbWF0Jiu
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 05:38:05 -0400
-To: Marco Berizzi <pupilla@hotmail.com>
-Content-Disposition: inline
-In-Reply-To: <BAY103-F48CEDE1C901D0DF661A82B27E0@phx.gbl>
+	Tue, 27 Jun 2006 05:38:50 -0400
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
+In-Reply-To: <44A0FBAC.7020107@fr.ibm.com>; from "Daniel Lezcano" on Tue, Jun 27, 2006 at 11:34:36AM
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 27, 2006 at 08:45:52AM +0200, Marco Berizzi wrote:
-> 
-> >>Herbert Xu wrote:
+On Tue, Jun 27, 2006 at 11:34:36AM +0200, Daniel Lezcano wrote:
+> Andrey Savochkin wrote:
+> > Daniel,
+> > 
+> > On Mon, Jun 26, 2006 at 05:49:41PM +0200, Daniel Lezcano wrote:
+> > 
+> >>>Then you lose the ability for each namespace to have its own routing entries.
+> >>>Which implies that you'll have difficulties with devices that should exist
+> >>>and be visible in one namespace only (like tunnels), as they require IP
+> >>>addresses and route.
 > >>
-> >>>However, the fact that the tcpdump causes more chunky packets to
-> >>>make it through could be an indication that there is a bug somewhere
-> >>>in our NAT/IPsec code or at least a suboptimal memory allocation
-> >>>strategy that's somehow avoided when AF_PACKET pins the skb down.
+> >>I mean instead of having the route tables private to the namespace, the 
+> >>routes have the information to which namespace they are associated.
+> > 
+> > 
+> > I think I understand what you're talking about: you want to make routing
+> > responsible for determining destination namespace ID in addition to route
+> > type (local, unicast etc), nexthop information, and so on.  Right?
 > 
-> JFYI: same problem with 2.6.17-git10 (tcpdump 'resolves' the
-> problem)
+> Yes.
+> 
+> > 
+> > My point is that if you make namespace tagging at routing time, and
+> > your packets are being routed only once, you lose the ability
+> > to have separate routing tables in each namespace.
+> 
+> Right. What is the advantage of having separate the routing tables ?
 
-Hey I thought your problem went away because your hardware is gone!
-Just kidding :)
+Routing is everything.
+For example, I want namespaces to have their private tunnel devices.
+It means that namespaces should be allowed have private routes of local type,
+private default routes, and so on...
 
-Seriously, I should have some time to spend on this soon once I push out
-the current batch of Xen and crypto patches.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	Andrey
