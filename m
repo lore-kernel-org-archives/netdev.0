@@ -1,55 +1,41 @@
-From: Andrey Savochkin <saw@swsoft.com>
-Subject: Re: Network namespaces a path to mergable code.
-Date: Tue, 27 Jun 2006 21:58:59 +0400
-Message-ID: <20060627215859.A20679@castle.nmd.msu.ru>
-References: <20060626134945.A28942@castle.nmd.msu.ru> <m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH]: e1000: Janitor: Use #defined values for literals
+Date: Tue, 27 Jun 2006 11:03:17 -0700
+Message-ID: <44A172E5.1030905@intel.com>
+References: <20060623163624.GM8866@austin.ibm.com> <449C49F9.6090005@intel.com> <20060627173224.GA31770@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dlezcano@fr.ibm.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
-	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
-	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
-	viro@ftp.linux.org.uk, Alexey Kuznetsov <alexey@sw.ru>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, john.ronciak@intel.com,
+	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
+	"Zhang, Yanmin" <yanmin.zhang@intel.com>,
+	Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.nmd.msu.ru ([193.232.112.53]:29712 "HELO
-	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1161241AbWF0R7A
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 13:59:00 -0400
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m14py6ldlj.fsf@ebiederm.dsl.xmission.com>; from "Eric W. Biederman" on Tue, Jun 27, 2006 at 11:20:40AM
+Received: from mga03.intel.com ([143.182.124.21]:42810 "EHLO
+	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
+	id S932508AbWF0SEA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 14:04:00 -0400
+To: Linas Vepstas <linas@austin.ibm.com>
+In-Reply-To: <20060627173224.GA31770@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric,
-
-On Tue, Jun 27, 2006 at 11:20:40AM -0600, Eric W. Biederman wrote:
+Linas Vepstas wrote:
+> On Fri, Jun 23, 2006 at 01:07:21PM -0700, Auke Kok wrote:
+>> Linas Vepstas wrote:
+>>> Minor janitorial patch: use #defines for literal values.
+>>> +	pci_enable_wake(pdev, PCI_D3hot, 0);
+>>> +	pci_enable_wake(pdev, PCI_D3cold, 0);
+>> I Acked this but that's silly - the patches sent yesterday already change 
+>> the code above and this patch is no longer needed (thanks Jesse for 
+>> spotting this).
+>>
+>> This patch would conflict with them so please don't apply.
 > 
-> Thinking about this I am going to suggest a slightly different direction
-> for get a patchset we can merge.
-> 
-> First we concentrate on the fundamentals.
-> - How we mark a device as belonging to a specific network namespace.
-> - How we mark a socket as belonging to a specific network namespace.
+> Maybe there's a backlog in the queue, but I not this is not 
+> yet in 2.6.17-mm3 
 
-I agree with the direction of your thoughts.
-I was trying to do a similar thing, define clear steps in network
-namespace merging.
+It's part of the submission for 2.6.18 I sent to jgarzik on friday, which 
+cleans up this section in the way.
 
-My first patchset covers devices but not sockets.
-The only difference from what you're suggesting is ipv4 routing.
-For me, it is not less important than devices and sockets.  May be even
-more important, since routing exposes design deficiencies less obvious at
-socket level.
-
-> 
-> As part of the fundamentals we add a patch to the generic socket code
-> that by default will disable it for protocol families that do not indicate
-> support for handling network namespaces, on a non-default network namespace.
-
-Fine
-
-Can you summarize you objections against my way of handling devices, please?
-And what was the typo you referred to in your letter to Kirill Korotaev?
-
-Regards
-	Andrey
+Auke
