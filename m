@@ -1,53 +1,27 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH Round 2 0/2][RFC] Network Event Notifier Mechanism
-Date: Tue, 27 Jun 2006 10:02:19 -0500
-Message-ID: <1151420539.3207.29.camel@stevo-desktop>
-References: <20060626203638.19083.71231.stgit@stevo-desktop>
-	 <20060627.030920.108743110.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCHSET] Towards accurate incoming interface information
+Date: Tue, 27 Jun 2006 17:07:27 +0200
+Message-ID: <20060627150727.GV1376@postel.suug.ch>
+References: <20060626145446.948105000@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:23562 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S1161077AbWF0PCV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 11:02:21 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060627.030920.108743110.davem@davemloft.net>
+Received: from postel.suug.ch ([194.88.212.233]:13002 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1161081AbWF0PHG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 11:07:06 -0400
+To: davem@davemloft.net
+Content-Disposition: inline
+In-Reply-To: <20060626145446.948105000@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-06-27 at 03:09 -0700, David Miller wrote:
-> From: Steve Wise <swise@opengridcomputing.com>
-> Date: Mon, 26 Jun 2006 15:36:38 -0500
-> 
-> > Round 2 Changes:
-> > 
-> > - cleaned up event structures per review feedback.
-> > - began integration with netlink (see neighbour changes in patch 2).
-> > - added IPv6 support.
-> 
-> Yes, ipv6 support is the main think I saw lacking.
-> Especially the neighbour stuff.
-> 
-> How will you interpret the neighbour object properly, by
-> looking at neigh->ops->family?
-> 
+* Thomas Graf <tgraf@suug.ch> 2006-06-26 16:54
+> This patchset transforms skb->input_dev based on a device
+> reference to skb->iif based on an interface index moving
+> towards accurate iif information for routing and classification
+> through the following changesets:
 
-Yea.
-
-Also:  WRT a netlink message for REDIRECT events.  After thinking more
-about this, it seems like users will already get notification of a
-REDIRECT in the form of 2 messages, a RTM_DELROUTE for the old route and
-a RTM_NEWROUTE message with the RTPROT_REDIRECT protocol type.  I think
-this is perhaps sufficient for user mode notifications.  What do you
-think?
-
-For the RDMA kernel subsystem, however, we still need a specific event.
-We need both the old and new dst_entry struct ptrs to figure out which
-active connections were using the old dst_entry and should be updated to
-use the new dst_entry.
-
-Steve.
-
-
+Hold on with this, I haven't noticed this ifb device
+go in and thus missed to update it. I'll post an
+updated patch shortly
