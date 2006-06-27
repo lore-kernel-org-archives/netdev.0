@@ -1,59 +1,77 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 17/21] e1000: add ich8lan core functions
-Date: Tue, 27 Jun 2006 09:12:09 -0700
-Message-ID: <44A158D9.6070601@intel.com>
-References: <20060622051815.25497.89192.stgit@gitlost.site> <20060622052043.25497.85145.stgit@gitlost.site> <44A08F59.6030700@pobox.com>
+From: Andrey Savochkin <saw@saw.sw.com.sg>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Tue, 27 Jun 2006 20:19:01 +0400
+Message-ID: <20060627201901.B18563@castle.nmd.msu.ru>
+References: <20060626134711.A28729@castle.nmd.msu.ru> <449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru> <44A00215.2040608@fr.ibm.com> <m1hd27uaxw.fsf@ebiederm.dsl.xmission.com> <20060626183649.GB3368@MAIL.13thfloor.at> <m1u067r9qk.fsf@ebiederm.dsl.xmission.com> <20060626200225.GA5330@MAIL.13thfloor.at> <20060627130911.A13959@castle.nmd.msu.ru> <20060627154818.GA28984@MAIL.13thfloor.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
+	sam@vilain.net, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:13075 "EHLO
-	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1161153AbWF0QNv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 12:13:51 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <44A08F59.6030700@pobox.com>
+Received: from castle.nmd.msu.ru ([193.232.112.53]:8719 "HELO
+	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1161155AbWF0QTD
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 12:19:03 -0400
+To: Herbert Poetzl <herbert@13thfloor.at>
+In-Reply-To: <20060627154818.GA28984@MAIL.13thfloor.at>; from "Herbert Poetzl" on Tue, Jun 27, 2006 at 05:48:19PM
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Kok, Auke wrote:
->> This implements the core new functions needed for ich8's internal
->> NIC. This includes:
->>
->> * ich8 specific read/write code
->> * flash/nvm access code
->> * software semaphore flag functions
->> * 10/100 PHY (fe - no gigabit speed) support for low-end versions
->> * A workaround for a powerdown sequence problem discovered that
->> affects a small number of motherboard.
->>
->> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->> ---
->>
->>  drivers/net/e1000/e1000_hw.c    | 1000 
->> +++++++++++++++++++++++++++++++++++++++
->>  drivers/net/e1000/e1000_hw.h    |  386 +++++++++++++++
->>  drivers/net/e1000/e1000_osdep.h |   13 +
->>  3 files changed, 1392 insertions(+), 7 deletions(-)
+Herbert,
+
+On Tue, Jun 27, 2006 at 05:48:19PM +0200, Herbert Poetzl wrote:
+> On Tue, Jun 27, 2006 at 01:09:11PM +0400, Andrey Savochkin wrote:
+> > 
+> > On Mon, Jun 26, 2006 at 10:02:25PM +0200, Herbert Poetzl wrote:
+> > > 
+> > >  - traffic between guests
+> > >    can be as high (or even higher) than the
+> > >    outbound traffic, just think web guest and
+> > >    database guest
+> > 
+> > My experience with host-guest systems tells me the opposite: outside
+> > traffic is a way higher than traffic between guests. People put web
+> > server and database in different guests not more frequent than they
+> > put them on separate physical server. Unless people are building a
+> > really huge system when 1 server can't take the whole load, web and
+> > database live together and benefit from communications over UNIX
+> > sockets.
 > 
-> If it takes this much code to support ICH8, it seems like a e1000-ich8.c 
-> would be warranted...
+> well, that's probably because you (or your company)
+> focuses on providers which simply (re)sell the entities
+> to their customers, in which case it would be more
+> expensive to put e.g. the database into a separate
+> guest. but let me state here that this is not the only
+> application for this technology
 
-that's work in progress - Jeb Cramer has been working on this for a while now 
-but unfortunately it's not ready, and getting ich8 supported in a way that we 
-know that doesn't introduce new bugs is more important. This patch adds tested 
-and validated support for these chipsets that has been hammered by our test team.
+I'm just sharing my experience.
+You have one experience, I have another, and your classification of traffic
+importance is not the universal one.
+My point was that we shouldn't overestimate the use of INET sockets vs. UNIX
+ones in configurations where communications but not web/db operations play a
+big role in overall performance.
+And indeed I've talked with many different people, from universities to
+large enterprises.
 
-We are planning (working) on cleaning it all up (including whitespace!) - but 
-getting the ich8 support out is more important - people can buy the hardware 
-today.
+> 
+[snip]
+> > I'd like to caution about over-optimizing communications between
+> > different network namespaces. Many optimizations of local traffic
+> > (such as high MTU) don't look so appealing when you start to think
+> > about live migration of namespaces.
+> 
+> I think the 'optimization' (or to be precise: desire
+> not to sacrifice local/loopback traffic for some use
+> case as you describe it) does not interfere with live
+> migration at all, we still will have 'local' and 'remote'
+> traffic, and personally I doubt that the live migration
+> is a feature for the masses ...
 
-Cheers,
+Why not for the masses?
 
-Auke
+	Andrey
