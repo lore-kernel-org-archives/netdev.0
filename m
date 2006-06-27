@@ -1,35 +1,53 @@
-From: Brent Cook <bcook@bpointsys.com>
-Subject: [PATCH 2/3] mv643xx fixes - Increment TX bytes statistics counter
-Date: Tue, 27 Jun 2006 09:52:05 -0500
-Message-ID: <200606270952.05191.bcook@bpointsys.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH Round 2 0/2][RFC] Network Event Notifier Mechanism
+Date: Tue, 27 Jun 2006 10:02:19 -0500
+Message-ID: <1151420539.3207.29.camel@stevo-desktop>
+References: <20060626203638.19083.71231.stgit@stevo-desktop>
+	 <20060627.030920.108743110.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 70-253-197-251.ded.swbell.net ([70.253.197.251]:9237 "EHLO
-	bpointsys.com") by vger.kernel.org with ESMTP id S1030268AbWF0Ovw
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 10:51:52 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from es335.com ([67.65.19.105]:23562 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S1161077AbWF0PCV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 11:02:21 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060627.030920.108743110.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This fixes a simple typo from the last set of driver simplifications patches. 
-Now TX bytes stats are actually incremented rather than just containing the 
-size of the last packet sent.
+On Tue, 2006-06-27 at 03:09 -0700, David Miller wrote:
+> From: Steve Wise <swise@opengridcomputing.com>
+> Date: Mon, 26 Jun 2006 15:36:38 -0500
+> 
+> > Round 2 Changes:
+> > 
+> > - cleaned up event structures per review feedback.
+> > - began integration with netlink (see neighbour changes in patch 2).
+> > - added IPv6 support.
+> 
+> Yes, ipv6 support is the main think I saw lacking.
+> Especially the neighbour stuff.
+> 
+> How will you interpret the neighbour object properly, by
+> looking at neigh->ops->family?
+> 
 
-Signed-off-by: Brent Cook <bcook@bpointsys.com>
+Yea.
 
---- a/drivers/net/mv643xx_eth.c	2006-05-04 00:51:47.000000000 -0500
-+++ b/drivers/net/mv643xx_eth.c	2006-06-27 09:20:58.000000000 -0500
-@@ -1211,7 +1218,7 @@
- 	spin_lock_irqsave(&mp->lock, flags);
- 
- 	eth_tx_submit_descs_for_skb(mp, skb);
--	stats->tx_bytes = skb->len;
-+	stats->tx_bytes += skb->len;
- 	stats->tx_packets++;
- 	dev->trans_start = jiffies;
- 
+Also:  WRT a netlink message for REDIRECT events.  After thinking more
+about this, it seems like users will already get notification of a
+REDIRECT in the form of 2 messages, a RTM_DELROUTE for the old route and
+a RTM_NEWROUTE message with the RTPROT_REDIRECT protocol type.  I think
+this is perhaps sufficient for user mode notifications.  What do you
+think?
+
+For the RDMA kernel subsystem, however, we still need a specific event.
+We need both the old and new dst_entry struct ptrs to figure out which
+active connections were using the old dst_entry and should be updated to
+use the new dst_entry.
+
+Steve.
+
+
