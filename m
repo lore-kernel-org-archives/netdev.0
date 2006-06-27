@@ -1,90 +1,81 @@
-From: Auke Kok <sofar@foo-projects.org>
-Subject: Re: [PATCH 00/21] e1000: driver update to 7.1.9-k2
-Date: Tue, 27 Jun 2006 15:48:18 -0700
-Message-ID: <44A1B5B2.1000808@foo-projects.org>
-References: <20060622051815.25497.89192.stgit@gitlost.site>
+From: Herbert Poetzl <herbert@13thfloor.at>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Wed, 28 Jun 2006 00:48:37 +0200
+Message-ID: <20060627224836.GA2612@MAIL.13thfloor.at>
+References: <449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru> <44A00215.2040608@fr.ibm.com> <m1hd27uaxw.fsf@ebiederm.dsl.xmission.com> <20060626183649.GB3368@MAIL.13thfloor.at> <m1u067r9qk.fsf@ebiederm.dsl.xmission.com> <44A05BFD.6030402@candelatech.com> <20060626225440.GA7425@MAIL.13thfloor.at> <44A068E7.6080403@candelatech.com> <44A157CA.70204@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Andrey Savochkin <saw@swsoft.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
+	sam@vilain.net, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:35908 "EHLO
-	orsmga101.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1422702AbWF0WsV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 18:48:21 -0400
-To: "Garzik, Jeff" <jgarzik@pobox.com>
-In-Reply-To: <20060622051815.25497.89192.stgit@gitlost.site>
+Received: from MAIL.13thfloor.at ([212.16.62.50]:24798 "EHLO mail.13thfloor.at")
+	by vger.kernel.org with ESMTP id S1422703AbWF0Wsi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 18:48:38 -0400
+To: Ben Greear <greearb@candelatech.com>
+Content-Disposition: inline
+In-Reply-To: <44A157CA.70204@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-Jeff,
-
-after comments I've made some adjustments. I'll list them below against the 
-old summary. The changes are available from our git-server:
-
-Please pull from:
-
-git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream
-
-These patches are against
-     netdev-2.6#upstream 612eff0e3715a6faff5ba1b74873b99e036c59fe
-(Brian Haley <brian.haley@hp.com> / [PATCH] s2io: netpoll support)
-
-
-> Summary of patches:
+On Tue, Jun 27, 2006 at 09:07:38AM -0700, Ben Greear wrote:
+> Ben Greear wrote:
+> >Herbert Poetzl wrote:
+> >
+> >>On Mon, Jun 26, 2006 at 03:13:17PM -0700, Ben Greear wrote:
+> >
+> >>yes, that sounds good to me, any numbers how that
+> >>affects networking in general (performance wise and
+> >>memory wise, i.e. caches and hashes) ...
+> >
+> >I'll run some tests later today.  Based on my previous tests,
+> >I don't remember any significant overhead.
 > 
-> [01]: fix loopback ethtool test
-> [02]: rework driver hardware reset locking
-> [03]: Make PHY powerup/down a function
-> [04]: fix CONFIG_PM blocks
-> [05]: small performance tweak by removing double code
-> [06]: add smart power down code
-> [07]: change printk into DPRINTK
-> [08]: recycle skb
-> [09]: rework module param code with uninitialized values
-> [10]: force register write flushes to circumvent broken platforms
+> Here's a quick benchmark using my redirect devices (RDD). Each RDD
+> comes in a pair...when you tx on one, the pkt is rx'd on the peer.
+> The idea is that it is exactly like two physical ethernet interfaces
+> connected by a cross-over cable.
+>
+> My test system is a 64-bit dual-core Intel system, 3.013 Ghz processor
+> with 1GB RAM. Fairly standard stuff..it's one of the Shuttle XPC
+> systems. Kernel is 2.6.16.16 (64-bit).
+> 
+> 
+> Test setup is:  rdd1 -- rdd2   [bridge]   rdd3 -- rdd4
+> 
+> I am using my proprietary module for the bridge logic...and the
+> default bridge should be at least this fast. I am injecting 1514 byte
+> packets on rdd1 and rdd4 with pktgen (bi-directional flow). My pktgen
+> is also receiving the pkts and gathering stats.
+>
+> This setup sustains 1.7Gbps of generated and received traffic between
+> rdd1 and rdd4.
+>
+> Running only the [bridge] between two 10/100/1000 ports on an Intel
+> PCI-E NIC will sustain about 870Mbps (bi-directional) on this system,
+> so the virtual devices are quite efficient, as suspected.
+>
+> I have not yet had time to benchmark the mac-vlans...hopefully later
+> today.
 
-Unmodified. See comments here:
-http://marc.theaimsgroup.com/?l=linux-netdev&m=115142459725123&w=2 [1]
+hmm, maybe you could also benchmark loopback connections
+(and their throughput) on your system?
 
-> [11]: disable CRC stripping workaround
+my (not so fancy) PIII, 32bit, 2.6.17.1 seems to do
+roughly 2Gbs on the loopback device (tested with dd
+and netcat)
 
-Removed all references to SECRC (crc stripping) instead of leaving it commented.
+best,
+Herbert
 
-> [12]: fix adapter led blinking inconsistency
-> [13]: add E1000_BIG_ENDIAN symbol
-
-Dropped this patch entirely
-
-> [14]: M88 PHY workaround
-> [15]: check return value of _get_speed_and_duplex
-> [16]: disable ERT
-> [17]: add ich8lan core functions
-> [18]: integrate ich8 support into driver
-> [19]: allow user to disable ich8 lock loss workaround
-> [20]: add ich8lan device ID's
-> [21]: increase version to 7.1.9-k2
-
-
-[1] I can drop #11 in case someone throws a fit ;) - as everyone I'd really 
-like to see patches 17->20 queued for 2.6.18 for obvious reasons - this is the 
-most important section of these patches!
-
-Cheers,
-
-Auke
-
-
----
-  drivers/net/e1000/e1000.h         |   10
-  drivers/net/e1000/e1000_ethtool.c |  143 +--
-  drivers/net/e1000/e1000_hw.c      | 1770 +++++++++++++++++++++++++++++++++++---
-  drivers/net/e1000/e1000_hw.h      |  398 ++++++++
-  drivers/net/e1000/e1000_main.c    |  384 +++++---
-  drivers/net/e1000/e1000_osdep.h   |   13
-  drivers/net/e1000/e1000_param.c   |  213 ++--
-  7 files changed, 2530 insertions(+), 401 deletions(-)
+> Thanks,
+> Ben
+> 
+> -- 
+> Ben Greear <greearb@candelatech.com>
+> Candela Technologies Inc  http://www.candelatech.com
