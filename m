@@ -1,53 +1,88 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Tue, 27 Jun 2006 09:07:50 -0400
-Message-ID: <1151413670.6516.57.camel@jzny2>
-References: <20060626.104654.98552111.davem@davemloft.net>
-	 <20060626184424.GT1376@postel.suug.ch> <44A05FE0.7070203@trash.net>
-	 <44A0647A.1070209@trash.net> <20060626145446.948105000@postel.suug.ch>
-	 <20060626145515.769648000@postel.suug.ch> <44A0138F.8050208@trash.net>
-	 <20060626.104654.98552111.davem@davemloft.net>
-	 <20060626184424.GT1376@postel.suug.ch> <44A05FE0.7070203@trash.net>
-	 <20060627100309.GU1376@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: [Patch 1/1] AF_UNIX Datagram getpeersec [Updated #2]
+Date: Tue, 27 Jun 2006 09:14:29 -0400
+Message-ID: <1151414069.20419.37.camel@moss-spartans.epoch.ncsc.mil>
+References: <20060627052255.GA1311@jiayuguan.watson.ibm.com>
+	 <Pine.LNX.4.64.0606270311210.30073@d.namei>
+	 <Pine.LNX.4.64.0606270315130.30073@d.namei>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Catherine Zhang <cxzhang@watson.ibm.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, jmorris@redhat.com,
+	chrisw@osdl.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	tjaeger@cse.psu.edu, Andrew Morton <akpm@osdl.org>,
+	latten@austin.ibm.com, sergeh@us.ibm.com, gcwilson@us.ibm.com,
+	czhang.us@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:59328 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932111AbWF0NHx
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 09:07:53 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1FvDIJ-0001zs-NW
-	for netdev@vger.kernel.org; Tue, 27 Jun 2006 09:07:55 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060627100309.GU1376@postel.suug.ch>
+Received: from zombie.ncsc.mil ([144.51.88.131]:9431 "EHLO jazzdrum.ncsc.mil")
+	by vger.kernel.org with ESMTP id S932257AbWF0NNV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 09:13:21 -0400
+To: James Morris <jmorris@namei.org>
+In-Reply-To: <Pine.LNX.4.64.0606270315130.30073@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-27-06 at 12:03 +0200, Thomas Graf wrote:
-> * Patrick McHardy <kaber@trash.net> 2006-06-27 00:29
-> > Doesn't sound too silly (actually quite nifty in my opinion),
-> > but I'm not sure I understand correctly, binding to ifb doesn't
-> > work since it changes both skb->dev and skb->input_dev.
+On Tue, 2006-06-27 at 03:16 -0400, James Morris wrote:
+> On Tue, 27 Jun 2006, James Morris wrote:
 > 
-> I don't understand this concern. So far the mirred action
-> updates iif but that can be made configurable.
+> > I'll address that in a patch to follow.  Could you please test these 
+> > updated patches?  Thanks.
+> > 
 > 
+> 
+> Below is a relative patch which only compiles this stuff into the core 
+> networking code when appropriate kernel config is selected.
+> 
+> Please review.
+> 
+> 
+> ---
+> 
+> diff -purN -X dontdiff linux-2.6.p/include/net/scm.h linux-2.6.w/include/net/scm.h
+> --- linux-2.6.p/include/net/scm.h	2006-06-27 02:26:02.000000000 -0400
+> +++ linux-2.6.w/include/net/scm.h	2006-06-27 03:03:30.000000000 -0400
+> @@ -19,7 +19,9 @@ struct scm_cookie
+>  {
+>  	struct ucred		creds;		/* Skb credentials	*/
+>  	struct scm_fp_list	*fp;		/* Passed files		*/
+> +#ifdef CONFIG_SECURITY_NETWORK	
+>  	char			*secdata;	/* Security context	*/
 
-I am reading the thread backwards, so i may miss some of the obvious.
-I also dont remember the exact discussion we had - but the consensus was
-to leave the field setting as is.
-Note the meta-setter (been sitting on it for too long) also set the
-input_dev.
+What about saving the u32 seclen with the secdata, and using it later
+rather than recomputing strlen(secdata)?  That also avoids encoding an
+assumption in the af_unix code about the content of the data (i.e.
+NUL-terminated string), leaving that to the security module.
 
-BTW, in regards to the VLANs, what is wrong with using the
-netdev->iflink to figure the real device? 
+> +#endif	
+>  	unsigned long		seq;		/* Connection seqno	*/
+>  };
+>  
+> @@ -49,6 +51,17 @@ static __inline__ int scm_send(struct so
+>  	return __scm_send(sock, msg, scm);
+>  }
+>  
+> +#ifdef CONFIG_SECURITY_NETWORK
+> +static inline void scm_passec(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm)
+> +{
+> +	if (test_bit(SOCK_PASSSEC, &sock->flags) && scm->secdata != NULL)
+> +		put_cmsg(msg, SOL_SOCKET, SCM_SECURITY, strlen(scm->secdata)+1, scm->secdata);
+> +}
 
-cheers,
-jamal
+It would be cleaner if we had a scm->seclen to use above.
+
+> +#ifdef CONFIG_SECURITY_NETWORKING
+> +static void unix_get_peersec_dgram(struct sk_buff *skb)
+> +{
+> +	int tmp = 0;
+> +	
+> +	err = security_socket_getpeersec_dgram(skb, UNIXSEC(skb), &tmp);
+
+tmp should actually be u32 not int (also wrong in the original patch),
+and it seems odd to throw it away rather than saving it and using it for
+the put_cmsg.
+
+-- 
+Stephen Smalley
+National Security Agency
 
