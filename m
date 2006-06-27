@@ -1,100 +1,99 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Tue, 27 Jun 2006 10:29:39 -0600
-Message-ID: <m1y7vilfyk.fsf@ebiederm.dsl.xmission.com>
-References: <20060609210202.215291000@localhost.localdomain>
-	<20060609210625.144158000@localhost.localdomain>
-	<20060626134711.A28729@castle.nmd.msu.ru>
-	<449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru>
-	<44A00215.2040608@fr.ibm.com>
-	<20060627131136.B13959@castle.nmd.msu.ru>
-	<44A0FBAC.7020107@fr.ibm.com> <44A1006B.3040700@sw.ru>
-	<20060627160908.GC28984@MAIL.13thfloor.at>
+From: Xiaolan Zhang <cxzhang@us.ibm.com>
+Subject: Re: [Patch 1/1] AF_UNIX Datagram getpeersec [Updated #2]
+Date: Tue, 27 Jun 2006 12:33:31 -0400
+Message-ID: <OF25503D9D.7472F189-ON8525719A.005A800A-8525719A.005AF5A3@us.ibm.com>
+References: <Pine.LNX.4.64.0606270954080.804@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kirill Korotaev <dev@sw.ru>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Andrew Morton <akpm@osdl.org>, chrisw@osdl.org,
+	Catherine Zhang <cxzhang@watson.ibm.com>, czhang.us@gmail.com,
+	"David S. Miller" <davem@davemloft.net>,
+	George Wilson <gcwilson@us.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, jmorris@redhat.com,
+	latten@austin.ibm.com, netdev@vger.kernel.org,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Serge E Hallyn <sergeh@us.ibm.com>, tjaeger@cse.psu.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:12198 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1161157AbWF0QbJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 12:31:09 -0400
-To: Herbert Poetzl <herbert@13thfloor.at>
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Andrey Savochkin <saw@swsoft.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, devel@openvz.org,
-	sam@vilain.net, ebiederm@xmission.com, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
-In-Reply-To: <20060627160908.GC28984@MAIL.13thfloor.at> (Herbert Poetzl's
-	message of "Tue, 27 Jun 2006 18:09:08 +0200")
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:40164 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1161160AbWF0Qdh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 12:33:37 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e2.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5RGXZXe010307
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Tue, 27 Jun 2006 12:33:36 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay04.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5RGXZEG211394
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 27 Jun 2006 12:33:35 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5RGXYFE022671
+	for <netdev@vger.kernel.org>; Tue, 27 Jun 2006 12:33:35 -0400
+In-Reply-To: <Pine.LNX.4.64.0606270954080.804@d.namei>
+To: James Morris <jmorris@namei.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Poetzl <herbert@13thfloor.at> writes:
+Some more fixes:
+ 
+> diff -purN -X dontdiff linux-2.6.o/net/unix/af_unix.c linux-2.6.
+> w/net/unix/af_unix.c
+> --- linux-2.6.o/net/unix/af_unix.c   2006-06-21 00:02:30.000000000 -0400
+> +++ linux-2.6.w/net/unix/af_unix.c   2006-06-27 09:30:12.000000000 -0400
+> @@ -128,6 +128,28 @@ static atomic_t unix_nr_socks = ATOMIC_I
+> 
+>  #define UNIX_ABSTRACT(sk)   (unix_sk(sk)->addr->hash != UNIX_HASH_SIZE)
+> 
+> +#ifdef CONFIG_SECURITY_NETWORK
+> +static void unix_get_peersec_dgram(struct sk_buff *skb)
+> +{
 
-> On Tue, Jun 27, 2006 at 01:54:51PM +0400, Kirill Korotaev wrote:
->> >>My point is that if you make namespace tagging at routing time, and
->> >>your packets are being routed only once, you lose the ability
->> >>to have separate routing tables in each namespace.
->> >
->> >
->> >Right. What is the advantage of having separate the routing tables ?
->
->> it is impossible to have bridged networking, tun/tap and many other 
->> features without it. I even doubt that it is possible to introduce 
->> private netfilter rules w/o virtualization of routing.
->
-> why? iptables work quite fine on a typical linux
-> system when you 'delegate' certain functionality
-> to certain chains (i.e. doesn't require access to
-> _all_ of them)
->
->> The question is do we want to have fully featured namespaces which
->> allow to create isolated virtual environments with semantics and
->> behaviour of standalone linux box or do we want to introduce some
->> hacks with new rules/restrictions to meet ones goals only?
->
-> well, soemtimes 'hacks' are not only simpler but also 
-> a much better solution for a given problem than the
-> straight forward approach ... 
+add int err;
 
-Well I would like to see a hack that qualifies.  I watched the
-linux-vserver irc channel for a while and almost every network problem
-was caused by the change in semantics vserver provides.
+> +   err = security_socket_getpeersec_dgram(skb, UNIXSECDATA(skb),
+> +                      UNIXSECLEN(skb));
+> +   if (err)
+> +      *(UNIXSEC(skb)) = NULL;
 
-In this case when you allow a guest more than one IP your hack while
-easy to maintain becomes much more complex.  Especially as you address
-each case people care about one at a time.
+change to *(UNIXSECDATA(skb)) = NULL;
 
-In one shot this goes the entire way.  Given how many people miss
-that you do the work at layer 2 than at layer 3 I would not call this
-the straight forward approach.  The straight forward implementation yes,
-but not the straight forward approach.
+> +}
+> +
+> +static inline void unix_set_secdata(struct scm_cookie *scm, struct 
+> sk_buff *skb)
+> +{
+> +   scm->secdata = *UNIXSECDATA(skb);
+> +   scm->seclen = UNIXSECLEN(skb);
 
-> for example, you won't have multiple routing tables
-> in a kernel where this feature is disabled, no?
-> so why should it affect a guest, or require modified
-> apps inside a guest when we would decide to provide
-> only a single routing table?
->
->> From my POV, fully virtualized namespaces are the future. 
->
-> the future is already there, it's called Xen or UML, or QEMU :)
+change to scm->seclen = *UNIXSECLEN(skb);
 
-Yep.  And now we need it to run fast.
+> +}
+> +#else
+> +static void unix_get_peersec_dgram(struct sk_buff *skb)
+> +{ }
+> +
+> +static inline void unix_set_secdata(struct scm_cookie *scm, struct 
+> sk_buff *skb)
+> +{ }
+> +#endif /* CONFIG_SECURITY_NETWORKING */
+> +
+>  /*
+>   *  SMP locking strategy:
+>   *    hash table is protected with spinlock unix_table_lock
+> @@ -1291,6 +1313,8 @@ static int unix_dgram_sendmsg(struct kio
+>     if (siocb->scm->fp)
+>        unix_attach_fds(siocb->scm, skb);
+> 
+> +   unix_get_peersec_dgram(skb);
+> +
+>     skb->h.raw = skb->data;
+>     err = memcpy_fromiovec(skb_put(skb,len), msg->msg_iov, len);
+>     if (err)
+> @@ -1570,6 +1594,7 @@ static int unix_dgram_recvmsg(struct kio
+>        memset(&tmp_scm, 0, sizeof(tmp_scm));
+>     }
+>     siocb->scm->creds = *UNIXCREDS(skb);
+> +   unix_set_secdata(siocb->scm, skb);
+> 
+>     if (!(flags & MSG_PEEK))
+>     {
 
->> It is what makes virtualization solution usable (w/o apps
->> modifications), provides all the features and doesn't require much
->> efforts from people to be used.
->
-> and what if they want to use virtualization inside
-> their guests? where do you draw the line?
-
-The implementation doesn't have any problems with guests inside
-of guests.
-
-The only reason to restrict guests inside of guests is because
-the we aren't certain which permissions make sense.
-
-Eric
