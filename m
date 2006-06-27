@@ -1,29 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
-Date: Tue, 27 Jun 2006 19:18:57 +0200
-Message-ID: <44A16881.9040807@trash.net>
-References: <1150278004.26181.35.camel@localhost.localdomain>	 <1150286766.5233.15.camel@jzny2>	 <1150287983.3246.27.camel@ras.pc.brisbane.lube>	 <1150292693.5197.1.camel@jzny2>	 <1150843471.17455.2.camel@ras.pc.brisbane.lube>	 <15653CE98281AD4FBD7F70BCEE3666E53CD54A@comxexch01.comx.local>	 <1151000966.5392.34.camel@jzny2>	 <1151066247.4217.254.camel@ras.pc.brisbane.lube>	 <449C06E3.3090406@trash.net> <1151282720.4210.46.camel@ras.pc.brisbane.lube> <449FC0AF.1050904@trash.net> <44A0CE01.4010109@stuart.id.au>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Tue, 27 Jun 2006 10:19:23 -0700
+Message-ID: <44A1689B.7060809@candelatech.com>
+References: <20060609210625.144158000@localhost.localdomain>	<20060626134711.A28729@castle.nmd.msu.ru>	<449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru>	<44A00215.2040608@fr.ibm.com>	<20060627131136.B13959@castle.nmd.msu.ru>	<44A0FBAC.7020107@fr.ibm.com>	<20060627133849.E13959@castle.nmd.msu.ru>	<44A1149E.6060802@fr.ibm.com>	<m1sllqn7cb.fsf@ebiederm.dsl.xmission.com>	<20060627160241.GB28984@MAIL.13thfloor.at> <m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Russell Stuart <russell-tcatm@stuart.id.au>, hadi@cyberus.ca,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	netdev@vger.kernel.org, Jesper Dangaard Brouer <hawk@diku.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40324 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932488AbWF0RS7
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 13:18:59 -0400
-To: Russell Stuart <russell@stuart.id.au>
-In-Reply-To: <44A0CE01.4010109@stuart.id.au>
-Sender: netdev-owner@vger.kernel.org
+Cc: Herbert Poetzl <herbert@13thfloor.at>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Andrey Savochkin <saw@swsoft.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
+	sam@vilain.net, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161170AbWF0RU2@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Russell Stuart wrote:
-> Without seeing your actual proposal it is difficult to
-> judge whether this is a reasonable trade-off or not.
-> Hopefully we will see your code soon.  Do you have any
-> idea when?
+Eric W. Biederman wrote:
+> Herbert Poetzl <herbert@13thfloor.at> writes:
+> 
+> 
+>>On Tue, Jun 27, 2006 at 05:52:52AM -0600, Eric W. Biederman wrote:
+>>
+>>>Inside the containers I want all network devices named eth0!
+>>
+>>huh? even if there are two of them? also tun?
+>>
+>>I think you meant, you want to be able to have eth0 in
+>>_more_ than one guest where eth0 in a guest can also
+>>be/use/relate to eth1 on the host, right?
+> 
+> 
+> Right I want to have an eth0 in each guest where eth0 is
+> it's own network device and need have no relationship to
+> eth0 on the host.
 
-Probably not today, I'll try to get it into shape until tomomorrow.
+How does that help anything?  Do you envision programs
+that make special decisions on whether the interface is
+called eth0 v/s eth151?
+
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
