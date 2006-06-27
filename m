@@ -1,38 +1,32 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [redhat-lspp] Re: [RFC 3/7] NetLabel: CIPSOv4 engine
-Date: Mon, 26 Jun 2006 20:33:57 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0606262031010.26545@d.namei>
-References: <20060621194234.979661000@flek.zko.hp.com>
- <20060621200031.589235000@flek.zko.hp.com> <20060622.021223.125894633.davem@davemloft.net>
- <F5329247-1566-4989-954B-A199240DC89F@nall.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 02/21] e1000: rework driver hardware reset locking
+Date: Mon, 26 Jun 2006 21:42:04 -0400
+Message-ID: <44A08CEC.1080108@pobox.com>
+References: <20060622051815.25497.89192.stgit@gitlost.site> <20060622052009.25497.46358.stgit@gitlost.site>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, Paul Moore <paul.moore@hp.com>,
-	jmorris@redhat.com, Stephen Smalley <sds@epoch.ncsc.mil>,
-	RedHat LSPP <redhat-lspp@redhat.com>,
-	linux-security-module@vger.kernel.org,
-	SELinux List <selinux@tycho.nsa.gov>, netdev@vger.kernel.org,
-	Steve Grubb <sgrubb@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-To: Joe Nall <joe@nall.com>
-In-Reply-To: <F5329247-1566-4989-954B-A199240DC89F@nall.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:12500 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1030589AbWF0BmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 21:42:07 -0400
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+In-Reply-To: <20060622052009.25497.46358.stgit@gitlost.site>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 26 Jun 2006, Joe Nall wrote:
+Kok, Auke wrote:
+> @@ -631,6 +627,9 @@ e1000_set_ringparam(struct net_device *n
+>  	tx_ring_size = sizeof(struct e1000_tx_ring) * adapter->num_tx_queues;
+>  	rx_ring_size = sizeof(struct e1000_rx_ring) * adapter->num_rx_queues;
+>  
+> +	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
+> +		msleep(1);
 
-> For all of the EAL4 LSPP Linux evaluation work is being done by Red
-> Hat/IBM/HP/atsec and others to be useful to integrators, there has to be basic
-> (e.g. CIPSO) multilevel network interoperability with existing multilevel
-> systems and good (e.g IPSec) multilevel networking between SELinux systems.
+This is a bit worrying, but no outright objection.  We don't want to see 
+these accumulate.
 
-Just to be clear, my understanding is that the native xfrm labeling is 
-suitable for LSPP evaluation, as distinct from CIPSO being desired by 
-system integrators from an interoperability point of view.
-
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
