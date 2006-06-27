@@ -1,56 +1,34 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Tue, 27 Jun 2006 22:23:19 +0200
-Message-ID: <200606272223.19928.mb@bu3sch.de>
-References: <20060626212547.GE30706@tuxdriver.com> <200606272147.04477.mb@bu3sch.de> <44A18FE3.1080403@lwfinger.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHSET] Towards accurate incoming interface information
+Date: Tue, 27 Jun 2006 13:24:11 -0700 (PDT)
+Message-ID: <20060627.132411.27951532.davem@davemloft.net>
+References: <20060626145446.948105000@postel.suug.ch>
+	<20060627150727.GV1376@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:61159
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1030341AbWF0UXx
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 16:23:53 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <44A18FE3.1080403@lwfinger.net>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:9900
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1161277AbWF0UYM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 16:24:12 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20060627150727.GV1376@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 27 June 2006 22:06, Larry Finger wrote:
-> John,
+From: Thomas Graf <tgraf@suug.ch>
+Date: Tue, 27 Jun 2006 17:07:27 +0200
+
+> * Thomas Graf <tgraf@suug.ch> 2006-06-26 16:54
+> > This patchset transforms skb->input_dev based on a device
+> > reference to skb->iif based on an interface index moving
+> > towards accurate iif information for routing and classification
+> > through the following changesets:
 > 
-> I would like to find a diplomatic solution to this impasse between Michael and Jeff, which is why 
-> I'm writing to you privately. Michael is correct in that the loop in question will not usually delay 
+> Hold on with this, I haven't noticed this ifb device
+> go in and thus missed to update it. I'll post an
+> updated patch shortly
 
-private?
-
-> long; however, on some hardware it takes longer than on his. On mine, I have seen delays as long as 
-> 550 usec.
-
-What's the chip?
-
-> In any case, I think that the following code fragment would work and pass Jeff's criticism: 
-> 
-> for (i=5000; i; i--) {
-> 	..........
-> 	usleep(1);
-
-usleep? Can't find that in my kernel tree.
-In fact, I think the lowest possible sleep time
-depends on HZ and is 1msec on 1000HZ.
-
-Additionally, we are holding a spinlock at this time, so it is
-not as easy as simply replacing udelay() by some sleeping function.
-
-> This would make the worst-case delay be 5 msec, but would provide a cushion of 10X the longest I 
-> have seen and should be safe.
-> 
-> Do you have any suggestions on what should be done next?
-
-Leave it as is and find out why it takes so long for your strange card. ;)
-
--- 
-Greetings Michael.
+Ok.
