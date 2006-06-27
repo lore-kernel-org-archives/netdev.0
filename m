@@ -1,48 +1,64 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 17/21] e1000: add ich8lan core functions
-Date: Mon, 26 Jun 2006 21:52:25 -0400
-Message-ID: <44A08F59.6030700@pobox.com>
-References: <20060622051815.25497.89192.stgit@gitlost.site> <20060622052043.25497.85145.stgit@gitlost.site>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: Labeled Networking Requirements and Design (formerly RE: [PATCH 01/06] MLSXFRM: Granular IPSec associations for use in  MLS environments)
+Date: Mon, 26 Jun 2006 21:53:47 -0400
+Message-ID: <200606262153.48251.paul.moore@hp.com>
+References: <44A0684D.9080904@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Cc: jmorris@namei.org, netdev@vger.kernel.org, selinux@tycho.nsa.gov,
+	davem@davemloft.net, sds@tycho.nsa.gov, eparis@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48852 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1030601AbWF0Bw1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 21:52:27 -0400
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-In-Reply-To: <20060622052043.25497.85145.stgit@gitlost.site>
+Received: from mailhub.hp.com ([192.151.27.10]:54229 "EHLO mailhub.hp.com")
+	by vger.kernel.org with ESMTP id S1030604AbWF0Bx7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Jun 2006 21:53:59 -0400
+To: Venkat Yekkirala <vyekkirala@trustedcs.com>
+In-Reply-To: <44A0684D.9080904@trustedcs.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> This implements the core new functions needed for ich8's internal
-> NIC. This includes:
-> 
-> * ich8 specific read/write code
-> * flash/nvm access code
-> * software semaphore flag functions
-> * 10/100 PHY (fe - no gigabit speed) support for low-end versions
-> * A workaround for a powerdown sequence problem discovered that
-> affects a small number of motherboard.
-> 
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> ---
-> 
->  drivers/net/e1000/e1000_hw.c    | 1000 +++++++++++++++++++++++++++++++++++++++
->  drivers/net/e1000/e1000_hw.h    |  386 +++++++++++++++
->  drivers/net/e1000/e1000_osdep.h |   13 +
->  3 files changed, 1392 insertions(+), 7 deletions(-)
+On Monday 26 June 2006 7:05 pm, Venkat Yekkirala wrote:
+> USER REQUIREMENTS:
+>
+> The broad user requirements for labeled networking would be that of
+> information labeling and flow control. Specifically,
+>
+> 1. Data labeling:
+> 	a. data must be labeled where it originates.
+> 	b. data must retain that label (or its interpretation in a given domain)
+> 	   when conveyed in a trustworthy manner.
 
-If it takes this much code to support ICH8, it seems like a e1000-ich8.c 
-would be warranted...
+{snip}
 
-	Jeff
+> PROPOSED DESIGN:
+>
+> Given the above requirements the following design is proposed:
+>
+> On the outbound (OTBND):
+>
+> The following applies to locally-generated (OUTPUT) as well as forwarded
+> (FORWARD) traffic.
+>
+> 1.	OUTPUT ONLY:
+> 	a. Set secmark of the packet to the label of the socket unless its a
+> 	   datagram, the process is privileged and is allowed to specify
+> 	   a different label for the datagram per policy (R1a, R3a, R3c).
+>
+> 	b. If there's no real socket to take the label from, and this packet is
+> 	   in response to a received packet, use the level from the received
+> 	   packet, taking the TE portion of the context from the pseudo-socket
+> 	   on whose behalf the packet is being sent.
+>
 
+Keeping in mind (R1a), I wonder if it makes more sense for (OTBND1a) to take 
+the label of the process/domain which sends the data to the socket?  After 
+all, the process/domain is the "origin" of the data.  This seems to be 
+particularly important in the case of fork()-then-exec() where you could have 
+a socket created at a different context from the domain currently writing to 
+it.
 
-
+-- 
+paul moore
+linux security @ hp
