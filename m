@@ -1,79 +1,50 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: [PATCH] use dev_printk() in some net drivers
-Date: Tue, 27 Jun 2006 17:10:23 +0200
-Message-ID: <44A14A5F.3090607@gmail.com>
-References: <20060627145145.GA30053@havoc.gtf.org>
+From: Kirill Korotaev <dev@sw.ru>
+Subject: Re: [RFC][patch 1/4] Network namespaces: cleanup of dev_base list
+ use
+Date: Tue, 27 Jun 2006 19:08:37 +0400
+Message-ID: <44A149F5.2060204@sw.ru>
+References: <20060626134945.A28942@castle.nmd.msu.ru>	<m1odwguez3.fsf@ebiederm.dsl.xmission.com> <44A0D755.5090204@sw.ru> <m11wtaonqf.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, herbert@13thfloor.at,
+	devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:65229 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1161085AbWF0PJN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 11:09:13 -0400
-Received: by nf-out-0910.google.com with SMTP id m19so743189nfc
-        for <netdev@vger.kernel.org>; Tue, 27 Jun 2006 08:09:12 -0700 (PDT)
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <20060627145145.GA30053@havoc.gtf.org>
+Received: from mailhub.sw.ru ([195.214.233.200]:50267 "EHLO relay.sw.ru")
+	by vger.kernel.org with ESMTP id S1161079AbWF0PKY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 11:10:24 -0400
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m11wtaonqf.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik napsal(a):
-> commit 25a0324ef1c1b181c9d00f09837e8757875ee2a4
-> Author: Jeff Garzik <jeff@garzik.org>
-> Date:   Tue Jun 27 10:47:51 2006 -0400
+>>>>Cleanup of dev_base list use, with the aim to make device list per-namespace.
+>>>>In almost every occasion, use of dev_base variable and dev->next pointer
+>>>>could be easily replaced by for_each_netdev loop.
+>>>>A few most complicated places were converted to using
+>>>>first_netdev()/next_netdev().
+>>>
+>>>As a proof of concept patch this is ok.
+>>>As a real world patch this is much too big, which prevents review.
+>>>Plus it takes a few actions that are more than replace just
+>>>iterators through the device list.
+>>
+>>Mmm, actually it is a whole changeset and should go as a one patch. I didn't
+>>find it to be big and my review took only 5-10mins..
+>>I also don't think that mailing each driver maintainer is a good idea.
+>>Only if we want to make some buzz :)
 > 
->     [netdrvr] Use dev_printk() when ethernet interface isn't available
 > 
->     For messages prior to register_netdev(), prefer dev_printk() because
->     that prints out both our driver name and our [PCI | whatever] bus id.
-> 
->     Updates: 8139{cp,too}, b44, bnx2, cassini, {eepro,epic}100, fealnx,
->          hamachi, ne2k-pci, ns83820, pci-skeleton, r8169.
-> 
->     Signed-off-by: Jeff Garzik <jeff@garzik.org>
-> 
->  drivers/net/8139cp.c       |   36 +++++++++++++++++++++---------------
->  drivers/net/8139too.c      |   41 +++++++++++++++++++++++++----------------
->  drivers/net/b44.c          |   28 +++++++++++++++-------------
->  drivers/net/bnx2.c         |   37 ++++++++++++++++++++++---------------
->  drivers/net/cassini.c      |   20 ++++++++++----------
->  drivers/net/eepro100.c     |    8 +++++---
->  drivers/net/epic100.c      |   23 ++++++++++++-----------
->  drivers/net/fealnx.c       |   17 +++++++++--------
->  drivers/net/hamachi.c      |    3 ++-
->  drivers/net/ne2k-pci.c     |   12 ++++++++----
->  drivers/net/ns83820.c      |   14 +++++++++-----
->  drivers/net/pci-skeleton.c |   24 +++++++++++++++---------
->  drivers/net/r8169.c        |   43 +++++++++++++++++++------------------------
->  13 files changed, 172 insertions(+), 134 deletions(-)
-> 
-> 25a0324ef1c1b181c9d00f09837e8757875ee2a4
-> diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
-> index 0cdc830..c38e352 100644
-> --- a/drivers/net/8139cp.c
-> +++ b/drivers/net/8139cp.c
-> @@ -1837,9 +1837,11 @@ #endif
->  
->  	if (pdev->vendor == PCI_VENDOR_ID_REALTEK &&
->  	    pdev->device == PCI_DEVICE_ID_REALTEK_8139 && pci_rev < 0x20) {
-> -		printk(KERN_ERR PFX "pci dev %s (id %04x:%04x rev %02x) is not an 8139C+ compatible chip\n",
-> -		       pci_name(pdev), pdev->vendor, pdev->device, pci_rev);
-> -		printk(KERN_ERR PFX "Try the \"8139too\" driver instead.\n");
-> +		dev_printk(KERN_ERR, &pdev->dev,
-> +			   "This (id %04x:%04x rev %02x) is not an 8139C+ compatible chip\n",
-> +		           pdev->vendor, pdev->device, pci_rev);
-> +		dev_printk(KERN_ERR, &pdev->dev,
-> +			   "Try the \"8139too\" driver instead.\n");
->  		return -ENODEV;
->  	}
->  
+> Thanks for supporting my case.  You reviewed it and missed the obvious typo.
+> I do agree that a patchset doing it all should happen at once.
+This doesn't support anything. e.g. I caught quite a lot of bugs after 
+Ingo Molnar, but this doesn't make his code "poor". People are people.
+Anyway, I would be happy to see the typo.
 
-Don't you consider to use s#dev_printk(KERN_ERR, #dev_err(# macro?
+> As for not mailing the maintainers of the code we are changing.  That
+> would just be irresponsible.
 
-regards,
--- 
-Jiri Slaby         www.fi.muni.cz/~xslaby
-~\-/~      jirislaby@gmail.com      ~\-/~
-B67499670407CE62ACC8 22A032CC55C339D47A7E
+Kirill
