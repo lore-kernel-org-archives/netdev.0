@@ -1,54 +1,47 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Network namespaces a path to mergable code.
-Date: Wed, 28 Jun 2006 08:56:26 -0600
-Message-ID: <m1irmlgwh1.fsf@ebiederm.dsl.xmission.com>
-References: <20060626134945.A28942@castle.nmd.msu.ru>
-	<m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
-	<20060627215859.A20679@castle.nmd.msu.ru>
-	<44A1AF37.3070100@vilain.net>
-	<m1ac7xkifn.fsf@ebiederm.dsl.xmission.com>
-	<44A21F7A.5030807@vilain.net>
-	<m1r719ixb6.fsf@ebiederm.dsl.xmission.com> <44A251F2.70707@fr.ibm.com>
-	<m1bqsdidhe.fsf@ebiederm.dsl.xmission.com>
-	<20060628141539.GA32736@sergelap.austin.ibm.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: RDMA will be reverted
+Date: Wed, 28 Jun 2006 10:01:43 -0500
+Message-ID: <1151506903.14895.58.camel@stevo-desktop>
+References: <20060628.000715.95062023.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cedric Le Goater <clg@fr.ibm.com>, Sam Vilain <sam@vilain.net>,
-	Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	haveblue@us.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
-	herbert@13thfloor.at, devel@openvz.org, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>,
-	Mark Huang <mlhuang@CS.Princeton.EDU>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: rolandd@cisco.com, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:38378 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S932285AbWF1O5q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 10:57:46 -0400
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-In-Reply-To: <20060628141539.GA32736@sergelap.austin.ibm.com> (Serge
-	E. Hallyn's message of "Wed, 28 Jun 2006 09:15:39 -0500")
+Received: from es335.com ([67.65.19.105]:21604 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S1751205AbWF1PBo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 11:01:44 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060628.000715.95062023.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Serge E. Hallyn" <serue@us.ibm.com> writes:
+On Wed, 2006-06-28 at 00:07 -0700, David Miller wrote:
+> Roland, there is no way in the world we would have let support for
+> RDMA into the kernel tree had we seen and reviewed it on netdev.  I've
+> discussed this with Andrew Morton, and we'd like you to please revert
+> all of the RDMA code from Linus's tree immedialtely.
+> 
+> Folks are well aware how against RDMA and TOE type schemes the Linux
+> networking developers are.  So the fact that none of these RDMA
+> changes went up for review on netdev strikes me as just a little bit
+> more than suspicious.
+> 
+> Please do not do this again, thank you.
 
-> Quoting Eric W. Biederman (ebiederm@xmission.com):
->> > I think we're reaching the limits of namespaces. It would be much easier
->> > with a container id in each kernel object we want to isolate.
->> 
->> Nope.  Except for the fact that names are peculiar (sockets, network
->> device names, IP address, routes...) the network stack splits quite cleanly.
->> 
->> I did all of this in a proof of concept mode several months ago and
->> the code is still sitting in my git tree on kernel.org.  I even got
->> the generic stack reference counting fixed.
->> 
->> Eric
->
-> Which branch?
+Dave,
 
-It should be the proof-of-concept branch.  It is a development branch so the
-history is ugly but the result was fairly decent.
+There is no support for RDMA/TCP in linux today, nor in Roland's git
+tree for that matter.  I have posted a patch series for RDMA/TCP core
+support to lklm and netdev over the last few weeks and gone through 3
+review cycles. (see "iWARP Core Changes" threads).  In addition, I
+posted the Ammasso RDMA driver for review as well.  It also went through
+3 review cycles.  
 
-Eric
+Based on review feedback and lack of any serious issues, it was my
+understanding that everyone was comfortable with RDMA/TCP.  Nothing
+underhand was going on here.  
+
+
+Steve.
+
