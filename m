@@ -1,56 +1,89 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: TOE, etc.
-Date: Wed, 28 Jun 2006 09:41:59 -0500
-Message-ID: <1151505719.14895.43.camel@stevo-desktop>
-References: <20060628033708.GA4922@gondor.apana.org.au>
-	 <44A20311.5050301@pobox.com> <20060628042959.GA5561@gondor.apana.org.au>
-	 <20060627.214323.92582051.davem@davemloft.net>
-	 <20060628053554.GA5928@gondor.apana.org.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Wed, 28 Jun 2006 08:39:38 -0600
+Message-ID: <m1veqlgx91.fsf@ebiederm.dsl.xmission.com>
+References: <20060627133849.E13959@castle.nmd.msu.ru>
+	<44A1149E.6060802@fr.ibm.com>
+	<m1sllqn7cb.fsf@ebiederm.dsl.xmission.com>
+	<20060627160241.GB28984@MAIL.13thfloor.at>
+	<m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
+	<44A1689B.7060809@candelatech.com>
+	<20060627225213.GB2612@MAIL.13thfloor.at>
+	<1151449973.24103.51.camel@localhost.localdomain>
+	<20060627234210.GA1598@ms2.inr.ac.ru>
+	<m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>
+	<20060628133640.GB5088@MAIL.13thfloor.at>
+	<1151502803.5203.101.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jgarzik@pobox.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Poetzl <herbert@13thfloor.at>,
+	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
+	sam@vilain.net, devel@openvz.org, dev@sw.ru,
+	Andrew Morton <akpm@osdl.org>, clg@fr.ibm.com,
+	serue@us.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Andrey Savochkin <saw@swsoft.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Dave Hansen <haveblue@us.ibm.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:48676 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S932468AbWF1OmB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 10:42:01 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060628053554.GA5928@gondor.apana.org.au>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:44484 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S932811AbWF1Omk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 10:42:40 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1151502803.5203.101.camel@jzny2> (hadi@cyberus.ca's message of
+	"Wed, 28 Jun 2006 09:53:23 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-06-28 at 15:35 +1000, Herbert Xu wrote:
-> On Tue, Jun 27, 2006 at 09:43:23PM -0700, David Miller wrote:
-> > 
-> > Socket state, and that is one thing I don't see them doing yet.
-> 
-> I wonder what happens when the Linux TCP stack attempts to open a
-> connection to a remote host when that connection is already open
-> in the RDMA NIC?  For that matter what happens if a Linux application
-> decides to listen on a TCP port already listened on by the RDMA
-> NIC?
-> 
-> The only saving grace is that they're only doing RDMA rather than
-> arbitrary TCP.  However, exactly the same infrastructure can be used
-> to do arbitrary TCP should they wish to.
->  
-> > But we have to realize they've already been given %95 of the
-> > interfaces they need to speak IP using our routes and our neighbour
-> > entries.
-> > 
-> > Right?
-> 
-> Yes, however I think the same argument could be applied to TOE.
-> 
-> With their RDMA NIC, we'll have TCP/SCTP connections that bypass
-> netfilter, tc, IPsec, AF_PACKET/tcpdump and the rest of our stack
-> while at the same time it is using the same IP address as us and
-> deciding what packets we will or won't see.
-> 
+jamal <hadi@cyberus.ca> writes:
 
-Doesn't iSCSI have the same issue?  No netfilter, IPsec, tcpdump, etc...
+> On Wed, 2006-28-06 at 15:36 +0200, Herbert Poetzl wrote:
+>
+>> note: personally I'm absolutely not against virtualizing
+>> the device names so that each guest can have a separate
+>> name space for devices, but there should be a way to
+>> 'see' _and_ 'identify' the interfaces from outside
+>> (i.e. host or spectator context)
+>> 
+>
+> Makes sense for the host side to have naming convention tied
+> to the guest. Example as a prefix: guest0-eth0. Would it not
+> be interesting to have the host also manage these interfaces
+> via standard tools like ip or ifconfig etc? i.e if i admin up
+> guest0-eth0, then the user in guest0 will see its eth0 going
+> up.
+>
+> Anyways, interesting discussion.
 
+Please no.
 
+We really want the fundamental rule that a network device
+is tied to a single namespace, and that a socket is tied
+to a single namespace.  If those two conditions are met
+we don't have to tag packets with a namespace identifier.
 
+We only have to modify hash table lookups in the networking
+code to look at a namespace tag in addition to the rest because
+that is less expensive than allocating new hash tables.
 
+Currently with a network device only being usable in one
+network namespace we have the situation where we can
+fairly safely give a guest CAP_NET_ADMIN without problems.
+
+In addition currently nothing in the implementation knows about
+the hierarchical structure of how the network namespace will be
+used.  To allow ifconfig guest0-eth0 to work would require
+understanding the hierarchical structure and places serious questions
+on how safe we can make CAP_NET_ADMIN.
+
+Now I am open to radically different designs if they allow the
+implementation cost to be lower and they have clean semantics,
+and don't wind up being an ugly unmaintainable wart on the linux
+networking stack.  The only route I could imagine such a thing coming
+from is something like tagging flows, in some netfiler like way.
+Which might allow ifconfig guest-eth0 from the host without problems.
+But I have not seen such a design.
+
+Eric
