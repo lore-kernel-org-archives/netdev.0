@@ -1,47 +1,54 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: RDMA will be reverted
-Date: Wed, 28 Jun 2006 10:01:43 -0500
-Message-ID: <1151506903.14895.58.camel@stevo-desktop>
-References: <20060628.000715.95062023.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [patch 3/4] Network namespaces: IPv4 FIB/routing in namespaces
+Date: Wed, 28 Jun 2006 09:05:50 -0600
+Message-ID: <m1ejx9gw1d.fsf@ebiederm.dsl.xmission.com>
+References: <20060626134945.A28942@castle.nmd.msu.ru>
+	<20060626135250.B28942@castle.nmd.msu.ru>
+	<20060626135427.C28942@castle.nmd.msu.ru>
+	<449FF5AE.2040201@fr.ibm.com> <44A28964.2090006@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: rolandd@cisco.com, netdev@vger.kernel.org, akpm@osdl.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Savochkin <saw@swsoft.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
+	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
+	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
+	viro@ftp.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:21604 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S1751205AbWF1PBo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 11:01:44 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060628.000715.95062023.davem@davemloft.net>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:45734 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S1751165AbWF1PHE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 11:07:04 -0400
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
+In-Reply-To: <44A28964.2090006@fr.ibm.com> (Daniel Lezcano's message of "Wed,
+	28 Jun 2006 15:51:32 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-06-28 at 00:07 -0700, David Miller wrote:
-> Roland, there is no way in the world we would have let support for
-> RDMA into the kernel tree had we seen and reviewed it on netdev.  I've
-> discussed this with Andrew Morton, and we'd like you to please revert
-> all of the RDMA code from Linus's tree immedialtely.
-> 
-> Folks are well aware how against RDMA and TOE type schemes the Linux
-> networking developers are.  So the fact that none of these RDMA
-> changes went up for review on netdev strikes me as just a little bit
-> more than suspicious.
-> 
-> Please do not do this again, thank you.
+Daniel Lezcano <dlezcano@fr.ibm.com> writes:
 
-Dave,
+> Daniel Lezcano wrote:
+>> Andrey Savochkin wrote:
+>>
+>>> Structures related to IPv4 rounting (FIB and routing cache)
+>>> are made per-namespace.
+>
+> Hi Andrey,
+>
+> if the ressources are private to the namespace, how do you will handle NFS
+> mounted before creating the network namespace ? 
 
-There is no support for RDMA/TCP in linux today, nor in Roland's git
-tree for that matter.  I have posted a patch series for RDMA/TCP core
-support to lklm and netdev over the last few weeks and gone through 3
-review cycles. (see "iWARP Core Changes" threads).  In addition, I
-posted the Ammasso RDMA driver for review as well.  It also went through
-3 review cycles.  
+Through the filesystem namespace.  It is a weird case but it works :)
 
-Based on review feedback and lack of any serious issues, it was my
-understanding that everyone was comfortable with RDMA/TCP.  Nothing
-underhand was going on here.  
+> Do you take care of that or simply assume you can't access NFS anymore ?
 
+It is actually a noop.  Unless I goofed this is basically handled by
+looking at which socket NFS is using to communicate, and plucking the 
+namespace from there.
 
-Steve.
+As I recall NFS gets the socket at mount time when it still has user
+space context available.
 
+So regardless if I implemented it correctly you can implement it that way
+and always get the namespace context from whoever implemented it.
+
+Eric
