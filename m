@@ -1,70 +1,75 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2/2] bnx2: Turn off link during shutdown
-Date: Wed, 28 Jun 2006 10:59:20 -0700
-Message-ID: <1151517560.3502.20.camel@rh4>
+Subject: [PATCH 1/2] bnx2: Use dev_kfree_skb() instead of the _irq
+ version
+Date: Wed, 28 Jun 2006 10:59:14 -0700
+Message-ID: <1151517555.3502.19.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:6160 "EHLO mms1.broadcom.com")
-	by vger.kernel.org with ESMTP id S1751516AbWF1R6R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 13:58:17 -0400
+Received: from mms2.broadcom.com ([216.31.210.18]:15887 "EHLO
+	mms2.broadcom.com") by vger.kernel.org with ESMTP id S1751515AbWF1R6L
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 13:58:11 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Minor change in shutdown logic to effect a link down.
-
-Update version to 1.4.43.
+Change all dev_kfree_skb_irq() and dev_kfree_skb_any() to
+dev_kfree_skb().  These calls are never used in irq context.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 
 diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index e59cb59..d55b0f7 100644
+index e89d5df..e59cb59 100644
 --- a/drivers/net/bnx2.c
 +++ b/drivers/net/bnx2.c
-@@ -57,8 +57,8 @@
+@@ -1676,7 +1676,7 @@ bnx2_tx_int(struct bnx2 *bp)
  
- #define DRV_MODULE_NAME		"bnx2"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"1.4.42"
--#define DRV_MODULE_RELDATE	"June 12, 2006"
-+#define DRV_MODULE_VERSION	"1.4.43"
-+#define DRV_MODULE_RELDATE	"June 28, 2006"
+ 		tx_free_bd += last + 1;
  
- #define RUN_AT(x) (jiffies + (x))
+-		dev_kfree_skb_irq(skb);
++		dev_kfree_skb(skb);
  
-@@ -4541,7 +4541,7 @@ bnx2_close(struct net_device *dev)
- 	bnx2_netif_stop(bp);
- 	del_timer_sync(&bp->timer);
- 	if (bp->flags & NO_WOL_FLAG)
--		reset_code = BNX2_DRV_MSG_CODE_UNLOAD;
-+		reset_code = BNX2_DRV_MSG_CODE_UNLOAD_LNK_DN;
- 	else if (bp->wol)
- 		reset_code = BNX2_DRV_MSG_CODE_SUSPEND_WOL;
- 	else
-@@ -5978,7 +5978,7 @@ bnx2_suspend(struct pci_dev *pdev, pm_me
- 	netif_device_detach(dev);
- 	del_timer_sync(&bp->timer);
- 	if (bp->flags & NO_WOL_FLAG)
--		reset_code = BNX2_DRV_MSG_CODE_UNLOAD;
-+		reset_code = BNX2_DRV_MSG_CODE_UNLOAD_LNK_DN;
- 	else if (bp->wol)
- 		reset_code = BNX2_DRV_MSG_CODE_SUSPEND_WOL;
- 	else
-diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
-index 5845e33..658c5ee 100644
---- a/drivers/net/bnx2.h
-+++ b/drivers/net/bnx2.h
-@@ -4174,6 +4174,7 @@ struct fw_info {
- #define BNX2_DRV_MSG_CODE_PULSE			 0x06000000
- #define BNX2_DRV_MSG_CODE_DIAG			 0x07000000
- #define BNX2_DRV_MSG_CODE_SUSPEND_NO_WOL	 0x09000000
-+#define BNX2_DRV_MSG_CODE_UNLOAD_LNK_DN		 0x0b000000
+ 		hw_cons = bp->hw_tx_cons =
+ 			sblk->status_tx_quick_consumer_index0;
+@@ -1824,7 +1824,7 @@ reuse_rx:
+ 		if ((len > (bp->dev->mtu + ETH_HLEN)) &&
+ 			(ntohs(skb->protocol) != 0x8100)) {
  
- #define BNX2_DRV_MSG_DATA			 0x00ff0000
- #define BNX2_DRV_MSG_DATA_WAIT0			 0x00010000
+-			dev_kfree_skb_irq(skb);
++			dev_kfree_skb(skb);
+ 			goto next_rx;
+ 
+ 		}
+@@ -3643,7 +3643,7 @@ bnx2_free_tx_skbs(struct bnx2 *bp)
+ 				skb_shinfo(skb)->frags[j].size,
+ 				PCI_DMA_TODEVICE);
+ 		}
+-		dev_kfree_skb_any(skb);
++		dev_kfree_skb(skb);
+ 		i += j + 1;
+ 	}
+ 
+@@ -3669,7 +3669,7 @@ bnx2_free_rx_skbs(struct bnx2 *bp)
+ 
+ 		rx_buf->skb = NULL;
+ 
+-		dev_kfree_skb_any(skb);
++		dev_kfree_skb(skb);
+ 	}
+ }
+ 
+@@ -3999,7 +3999,7 @@ bnx2_run_loopback(struct bnx2 *bp, int l
+ 	udelay(5);
+ 
+ 	pci_unmap_single(bp->pdev, map, pkt_size, PCI_DMA_TODEVICE);
+-	dev_kfree_skb_irq(skb);
++	dev_kfree_skb(skb);
+ 
+ 	if (bp->status_blk->status_tx_quick_consumer_index0 != bp->tx_prod) {
+ 		goto loopback_test_done;
 
 
