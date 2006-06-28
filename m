@@ -1,56 +1,147 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Network namespaces a path to mergable code.
-Date: Wed, 28 Jun 2006 12:14:41 -0600
-Message-ID: <m1mzbxdu5q.fsf@ebiederm.dsl.xmission.com>
-References: <20060626134945.A28942@castle.nmd.msu.ru>
-	<m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
-	<20060627215859.A20679@castle.nmd.msu.ru>
-	<m1ejx9kj1r.fsf@ebiederm.dsl.xmission.com>
-	<20060628150605.A29274@castle.nmd.msu.ru>
-	<m1sllpfckx.fsf@ebiederm.dsl.xmission.com>
-	<20060628212240.A1833@castle.nmd.msu.ru>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] bcm43xx: voluntary preemtion in the calibration loops
+Date: Wed, 28 Jun 2006 20:17:57 +0200
+Message-ID: <200606282017.57295.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dlezcano@fr.ibm.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
-	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
-	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
-	viro@ftp.linux.org.uk, Alexey Kuznetsov <alexey@sw.ru>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:39560 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1750763AbWF1SQG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 14:16:06 -0400
-To: Andrey Savochkin <saw@swsoft.com>
-In-Reply-To: <20060628212240.A1833@castle.nmd.msu.ru> (Andrey Savochkin's
-	message of "Wed, 28 Jun 2006 21:22:40 +0400")
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:15252
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750793AbWF1SSV
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 14:18:21 -0400
+To: linville@tuxdriver.com
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrey Savochkin <saw@swsoft.com> writes:
+This patch adds voluntary preemption points into the
+PHY calibration loops to allow non-CONFIG_PREEMPT machines
+to not suffer from huge delays.
+CONFIG_PREEMPT machines are already fine, because all this
+code is run in non-atomic process context.
 
-> Hi Eric,
->
-> On Wed, Jun 28, 2006 at 10:51:26AM -0600, Eric W. Biederman wrote:
->> Andrey Savochkin <saw@swsoft.com> writes:
->> 
->> > One possible option to resolve this question is to show 2 relatively short
->> > patches just introducing namespaces for sockets in 2 ways: with explicit
->> > function parameters and using implicit current context.
->> > Then people can compare them and vote.
->> > Do you think it's worth the effort?
->> 
->> Given that we have two strong opinions in different directions I think it
->> is worth the effort to resolve this.
->
-> Do you have time to extract necessary parts of your old patch?
-> Or you aren't afraid of letting me draft an alternative version of socket
-> namespaces basing on your code? :)
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-I'm not terribly afraid.  I can always say you did it wrong. :)
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_phy.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_phy.c	2006-06-24 22:13:44.000000000 +0200
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_phy.c	2006-06-28 18:24:59.000000000 +0200
+@@ -81,6 +81,16 @@
+ static void bcm43xx_phy_initg(struct bcm43xx_private *bcm);
+ 
+ 
++static inline
++void bcm43xx_voluntary_preempt(void)
++{
++	assert(!in_atomic() && !in_irq() &&
++	       !in_interrupt() && !irqs_disabled());
++#ifndef CONFIG_PREEMPT
++	cond_resched();
++#endif /* CONFIG_PREEMPT */
++}
++
+ void bcm43xx_raw_phy_lock(struct bcm43xx_private *bcm)
+ {
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+@@ -133,22 +143,14 @@
+ void bcm43xx_phy_calibrate(struct bcm43xx_private *bcm)
+ {
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+-	unsigned long flags;
+ 
+ 	bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD); /* Dummy read. */
+ 	if (phy->calibrated)
+ 		return;
+ 	if (phy->type == BCM43xx_PHYTYPE_G && phy->rev == 1) {
+-		/* We do not want to be preempted while calibrating
+-		 * the hardware.
+-		 */
+-		local_irq_save(flags);
+-
+ 		bcm43xx_wireless_core_reset(bcm, 0);
+ 		bcm43xx_phy_initg(bcm);
+ 		bcm43xx_wireless_core_reset(bcm, 1);
+-
+-		local_irq_restore(flags);
+ 	}
+ 	phy->calibrated = 1;
+ }
+@@ -1299,7 +1301,9 @@
+ {
+ 	int i;
+ 	u16 ret = 0;
++	unsigned long flags;
+ 
++	local_irq_save(flags);
+ 	for (i = 0; i < 10; i++){
+ 		bcm43xx_phy_write(bcm, 0x0015, 0xAFA0);
+ 		udelay(1);
+@@ -1309,6 +1313,8 @@
+ 		udelay(40);
+ 		ret += bcm43xx_phy_read(bcm, 0x002C);
+ 	}
++	local_irq_restore(flags);
++	bcm43xx_voluntary_preempt();
+ 
+ 	return ret;
+ }
+@@ -1435,6 +1441,7 @@
+ 	}
+ 	ret = bcm43xx_phy_read(bcm, 0x002D);
+ 	local_irq_restore(flags);
++	bcm43xx_voluntary_preempt();
+ 
+ 	return ret;
+ }
+@@ -1760,6 +1767,7 @@
+ 			bcm43xx_radio_write16(bcm, 0x43, i);
+ 			bcm43xx_radio_write16(bcm, 0x52, radio->txctl2);
+ 			udelay(10);
++			bcm43xx_voluntary_preempt();
+ 
+ 			bcm43xx_phy_set_baseband_attenuation(bcm, j * 2);
+ 
+@@ -1803,6 +1811,7 @@
+ 					      radio->txctl2
+ 					      | (3/*txctl1*/ << 4));//FIXME: shouldn't txctl1 be zero here and 3 in the loop above?
+ 			udelay(10);
++			bcm43xx_voluntary_preempt();
+ 
+ 			bcm43xx_phy_set_baseband_attenuation(bcm, j * 2);
+ 
+@@ -1824,6 +1833,7 @@
+ 		bcm43xx_phy_write(bcm, 0x0812, (r27 << 8) | 0xA2);
+ 		udelay(2);
+ 		bcm43xx_phy_write(bcm, 0x0812, (r27 << 8) | 0xA3);
++		bcm43xx_voluntary_preempt();
+ 	} else
+ 		bcm43xx_phy_write(bcm, 0x0015, r27 | 0xEFA0);
+ 	bcm43xx_phy_lo_adjust(bcm, is_initializing);
+@@ -2188,12 +2198,6 @@
+ {
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	int err = -ENODEV;
+-	unsigned long flags;
+-
+-	/* We do not want to be preempted while calibrating
+-	 * the hardware.
+-	 */
+-	local_irq_save(flags);
+ 
+ 	switch (phy->type) {
+ 	case BCM43xx_PHYTYPE_A:
+@@ -2227,7 +2231,6 @@
+ 		err = 0;
+ 		break;
+ 	}
+-	local_irq_restore(flags);
+ 	if (err)
+ 		printk(KERN_WARNING PFX "Unknown PHYTYPE found!\n");
+ 
 
-I don't think I am going to have time today.  But since this conversation
-is slowing down and we are to getting into the technical details.  
-I will try and find some time.
 
-Eric
+-- 
+Greetings Michael.
