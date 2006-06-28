@@ -1,65 +1,45 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Tue, 27 Jun 2006 21:38:14 -0600
-Message-ID: <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>
-References: <20060627131136.B13959@castle.nmd.msu.ru>
-	<44A0FBAC.7020107@fr.ibm.com>
-	<20060627133849.E13959@castle.nmd.msu.ru>
-	<44A1149E.6060802@fr.ibm.com>
-	<m1sllqn7cb.fsf@ebiederm.dsl.xmission.com>
-	<20060627160241.GB28984@MAIL.13thfloor.at>
-	<m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
-	<44A1689B.7060809@candelatech.com>
-	<20060627225213.GB2612@MAIL.13thfloor.at>
-	<1151449973.24103.51.camel@localhost.localdomain>
-	<20060627234210.GA1598@ms2.inr.ac.ru>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH]NET: Add ECN support for TSO
+Date: Tue, 27 Jun 2006 20:40:34 -0700
+Message-ID: <1151466034.5124.18.camel@rh4>
+References: <1151464007.5124.13.camel@rh4>
+ <20060628031052.GA4570@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dave Hansen <haveblue@us.ibm.com>,
-	Herbert Poetzl <herbert@13thfloor.at>,
-	Ben Greear <greearb@candelatech.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Andrey Savochkin <saw@swsoft.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>,
-	dev@sw.ru, devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:15249 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1751070AbWF1DkT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 23:40:19 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20060627234210.GA1598@ms2.inr.ac.ru> (Alexey Kuznetsov's message
-	of "Wed, 28 Jun 2006 03:42:10 +0400")
+Received: from mms3.broadcom.com ([216.31.210.19]:53010 "EHLO
+	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1751082AbWF1Dnx
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 23:43:53 -0400
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
+In-Reply-To: <20060628031052.GA4570@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> writes:
+On Wed, 2006-06-28 at 13:10 +1000, Herbert Xu wrote:
+> On Tue, Jun 27, 2006 at 08:06:47PM -0700, Michael Chan wrote:
+> >
+> > diff --git a/include/net/sock.h b/include/net/sock.h
+> > index 2d8d6ad..2c75172 100644
+> > --- a/include/net/sock.h
+> > +++ b/include/net/sock.h
+> > @@ -1033,7 +1033,8 @@ static inline void sk_setup_caps(struct 
+> >  	if (sk->sk_route_caps & NETIF_F_GSO)
+> >  		sk->sk_route_caps |= NETIF_F_TSO;
+> >  	if (sk->sk_route_caps & NETIF_F_TSO) {
+> > -		if (sock_flag(sk, SOCK_NO_LARGESEND) || dst->header_len)
+> > +		if ((sock_flag(sk, SOCK_NO_LARGESEND) &&
+> > +		    !tso_ecn_capable(sk->sk_route_caps)) || dst->header_len)
+> >  			sk->sk_route_caps &= ~NETIF_F_TSO;
+> 
+> Why turn it off? With GSO in place the stack will handle it just fine
+> (even your description says so :)  We should instead remove all code
+> that turns off TSO/ECN when the other is present.
+> 
+We need to turn off NETIF_F_TSO for a connection that has negotiated to
+turn on ECN if the output device cannot handle TSO and ECN.  In other
+words, if the output device does not have either GSO or TSO_ECN feature
+set.
 
-> Hello!
->
->> It may look weird, but do application really *need* to see eth0 rather
->> than eth858354?
->
-> Applications do not care, humans do. :-)
->
-> What's about applications they just need to see exactly the same device
-> after migration. Not only name, but f.e. also its ifindex. If you do not
-> create a separate namespace for netdevices, you will inevitably end up
-> with some strange hack sort of VPIDs to translate (or to partition) ifindices
-> or to tell that "ping -I eth858354 xxx" is too coimplicated application
-> to survive migration.
-
-
-Actually there are applications with peculiar licensing practices that
-do look at devices like eth0 to verify you have the appropriate mac, and
-do really weird things if you don't have an eth0.
-
-Plus there are other cases where it can be simpler to hard code things
-if it is allowable. (The human factor)  Otherwise your configuration
-must be done through hotplug scripts.
-
-But yes there are misguided applications that care.
-
-Eric
