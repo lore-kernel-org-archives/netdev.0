@@ -1,53 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: TOE, etc.
-Date: Wed, 28 Jun 2006 15:35:54 +1000
-Message-ID: <20060628053554.GA5928@gondor.apana.org.au>
-References: <20060628033708.GA4922@gondor.apana.org.au> <44A20311.5050301@pobox.com> <20060628042959.GA5561@gondor.apana.org.au> <20060627.214323.92582051.davem@davemloft.net>
+From: abdallah.chatila@ericsson.com (Abdallah Chatila)
+Subject: Re: Network namespaces a path to mergable code.
+Date: Wed, 28 Jun 2006 01:59:18 -0400
+Message-ID: <20060628055918.GA5614@dolphin.dyn.rnet.lmc.ericsson.se>
+References: <20060626134945.A28942@castle.nmd.msu.ru> <m14py6ldlj.fsf@ebiederm.dsl.xmission.com> <20060627215859.A20679@castle.nmd.msu.ru> <44A1AF37.3070100@vilain.net> <m1ac7xkifn.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, swise@opengridcomputing.com,
-	netdev@vger.kernel.org
+Cc: Sam Vilain <sam@vilain.net>, Andrey Savochkin <saw@swsoft.com>,
+	dlezcano@fr.ibm.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
+	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
+	herbert@13thfloor.at, devel@openvz.org, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>,
+	Mark Huang <mlhuang@CS.Princeton.EDU>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43787 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1030184AbWF1FgN
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 01:36:13 -0400
-To: David Miller <davem@davemloft.net>
+Received: from mailgw3.ericsson.se ([193.180.251.60]:64397 "EHLO
+	mailgw3.ericsson.se") by vger.kernel.org with ESMTP
+	id S1161139AbWF1F6L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 01:58:11 -0400
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Content-Disposition: inline
-In-Reply-To: <20060627.214323.92582051.davem@davemloft.net>
+In-Reply-To: <m1ac7xkifn.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 27, 2006 at 09:43:23PM -0700, David Miller wrote:
+On Tue, Jun 27, 2006 at 10:33:48PM -0600, Eric W. Biederman wrote:
 > 
-> Socket state, and that is one thing I don't see them doing yet.
+> Something to examine here is that if both network devices and sockets
+> are tagged does that still allow implicit network namespace passing.
 
-I wonder what happens when the Linux TCP stack attempts to open a
-connection to a remote host when that connection is already open
-in the RDMA NIC?  For that matter what happens if a Linux application
-decides to listen on a TCP port already listened on by the RDMA
-NIC?
+I think avoiding implicit network namespace passing expresses more
+power/flexibility plus it would make things clearer to what
+container/namespace a given network resource belongs too.
 
-The only saving grace is that they're only doing RDMA rather than
-arbitrary TCP.  However, exactly the same infrastructure can be used
-to do arbitrary TCP should they wish to.
- 
-> But we have to realize they've already been given %95 of the
-> interfaces they need to speak IP using our routes and our neighbour
-> entries.
+>From our experience with an implementation of network containers [Virtual
+Routing for ipv4/ipv6, with a complete isolation between containers where ip
+addresses can overlap...], there is some problem domain in which you cannot
+afford to duplicate a process/daemon in each container [a big process for
+instance, scalability w.r.t. number of containers etc]
+
+By having a proper namespace tag per socket, this can be solved by allowing
+a process running in the host context to create sockets in that namespace
+than moving them to the target guest namespaces [via a special setsockopt
+for instance or unix domain socket as you said].
+
+
+Regards
+
 > 
-> Right?
-
-Yes, however I think the same argument could be applied to TOE.
-
-With their RDMA NIC, we'll have TCP/SCTP connections that bypass
-netfilter, tc, IPsec, AF_PACKET/tcpdump and the rest of our stack
-while at the same time it is using the same IP address as us and
-deciding what packets we will or won't see.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Eric
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
