@@ -1,32 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TOE, etc.
-Date: Tue, 27 Jun 2006 23:31:01 -0700 (PDT)
-Message-ID: <20060627.233101.71091373.davem@davemloft.net>
-References: <20060628042959.GA5561@gondor.apana.org.au>
-	<20060627.214323.92582051.davem@davemloft.net>
-	<20060628053554.GA5928@gondor.apana.org.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Network namespaces a path to mergable code.
+Date: Wed, 28 Jun 2006 00:55:25 -0600
+Message-ID: <m1r719ixb6.fsf@ebiederm.dsl.xmission.com>
+References: <20060626134945.A28942@castle.nmd.msu.ru>
+	<m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
+	<20060627215859.A20679@castle.nmd.msu.ru>
+	<44A1AF37.3070100@vilain.net>
+	<m1ac7xkifn.fsf@ebiederm.dsl.xmission.com>
+	<44A21F7A.5030807@vilain.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, swise@opengridcomputing.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
+	devel@openvz.org, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>,
+	Mark Huang <mlhuang@CS.Princeton.EDU>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:44947
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932748AbWF1GbC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 02:31:02 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060628053554.GA5928@gondor.apana.org.au>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:18612 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S932749AbWF1G5D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 02:57:03 -0400
+To: Sam Vilain <sam@vilain.net>
+In-Reply-To: <44A21F7A.5030807@vilain.net> (Sam Vilain's message of "Wed, 28
+	Jun 2006 18:19:38 +1200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 28 Jun 2006 15:35:54 +1000
+Sam Vilain <sam@vilain.net> writes:
 
-> With their RDMA NIC, we'll have TCP/SCTP connections that bypass
-> netfilter, tc, IPsec, AF_PACKET/tcpdump and the rest of our stack
-> while at the same time it is using the same IP address as us and
-> deciding what packets we will or won't see.
+> Eric W. Biederman wrote:
+>> In general it is possible to get file descriptors opened by someone
+>> else because unix domain sockets allow file descriptor passing.  Similarly
+>> I think there are cases in both unshare and fork that allows you to sockets
+>> open before you entered a namespace.
+>>   
+>
+> This is an interesting point; it is known to be possible to do this on a
+> traditional system, because with a Unix Domain socket, the other end is
+> always in the same Unix Domain.
+>
+> However what we're doing is saying that, well, the other end of the
+> socket might not be in the same Unix Domain. In fact, we've already
+> smashed to pieces this monolithic concept of a Unix Domain, to the point
+> where the other end might be in a different network domain, but is in
+> the same filesystem domain, for instance. Does it get to pass file
+> descriptors through?
 
-That's true.  I don't think we should really add any more
-help for these kinds of things then.
+Despite what it might look like unix domain sockets do not live in the
+filesystem.  They store a cookie in the filesystem that roughly
+corresponds to the port number of an AF_INET socket.  When you open a
+socket the lookup is done by the cookie retrieved from the filesystem.
+So except for their cookies unix domain sockets are always in the
+network stack.
+
+Which means it is a royal pain to create a unix domain socket between
+namespaces.  Which is the generally desired behavior.
+
+> We would appear to be stretching the definition of "Unix Domain"
+> somewhat if we allow these sockets to exist between network namespaces.
+> Maybe it doesn't matter; this is just a VFS namespace feature/caveat.
+
+Unless I am mistaken this is something that can only be created (given
+my describe semantics) when you create the container.  So if you want
+it you got it but you can't create it if you never had it.
+
+Eric
