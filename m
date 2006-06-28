@@ -1,53 +1,58 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Wed, 28 Jun 2006 12:18:32 +0200
-Message-ID: <20060628101832.GW1376@postel.suug.ch>
-References: <44A05FE0.7070203@trash.net> <44A0647A.1070209@trash.net> <20060626145446.948105000@postel.suug.ch> <20060626145515.769648000@postel.suug.ch> <44A0138F.8050208@trash.net> <20060626.104654.98552111.davem@davemloft.net> <20060626184424.GT1376@postel.suug.ch> <44A05FE0.7070203@trash.net> <20060627100309.GU1376@postel.suug.ch> <1151413670.6516.57.camel@jzny2>
+From: Cedric Le Goater <clg@fr.ibm.com>
+Subject: Re: [RFC] Network namespaces a path to mergable code.
+Date: Wed, 28 Jun 2006 12:20:50 +0200
+Message-ID: <44A25802.3030006@fr.ibm.com>
+References: <20060626134945.A28942@castle.nmd.msu.ru> <m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
+	devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:52962 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S932764AbWF1KSL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 06:18:11 -0400
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1151413670.6516.57.camel@jzny2>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:26295 "EHLO e3.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1422641AbWF1KVA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 06:21:00 -0400
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* jamal <hadi@cyberus.ca> 2006-06-27 09:07
-> I am reading the thread backwards, so i may miss some of the obvious.
-> I also dont remember the exact discussion we had - but the consensus was
-> to leave the field setting as is.
-> Note the meta-setter (been sitting on it for too long) also set the
-> input_dev.
+Hello,
 
-Could you share that piece of code so I don't have to duplicate
-that effort?
+Eric W. Biederman wrote:
+> Thinking about this I am going to suggest a slightly different direction
+> for get a patchset we can merge.
+> 
+> First we concentrate on the fundamentals.
+> - How we mark a device as belonging to a specific network namespace.
+> - How we mark a socket as belonging to a specific network namespace.
+> 
+> As part of the fundamentals we add a patch to the generic socket code
+> that by default will disable it for protocol families that do not indicate
+> support for handling network namespaces, on a non-default network namespace.
+> 
+> I think that gives us a path that will allow us to convert the network stack
+> one protocol family at a time instead of in one big lump.
+> 
+> Stubbing off the sysfs and sysctl interfaces in the first round for the
+> non-default namespaces as you have done should be good enough.
+> 
+> The reason for the suggestion is that most of the work for the protocol
+> stacks ipv4 ipv6 af_packet af_unix is largely noise, and simple
+> replacement without real design work happening.  Mostly it is just
+> tweaking the code to remove global variables, and doing a couple
+> lookups.
 
-> BTW, in regards to the VLANs, what is wrong with using the
-> netdev->iflink to figure the real device? 
+How that proposal differs from the initial Daniel's patchset ? how far was
+that patchset to reach a similar agreement ?
 
+OK, i wear blue socks :), but I'm not advocating a patchset more than
+another i'm just looking for a shorter path.
 
-vlan1
-          ifb1
-vlan2
-vlan3
-          ifb2
-vlan4
+thanks,
 
-dhcp daemon would bind to ifb1 and use pktinfo cmsg to figure
-out whether the packet was received on vlan1 or vlan2, the
-actual physical device is of no interest anymore.
+C.
 
-Looking at your ifb code I see that you set skb->dev based on
-iif and update iif unconditionally. I see a lot of problems
-with this, firstly iif is already updated in the mirred action,
-secondly iif doesn't necessarily point to the device the packet
-was last seen on. Could you maybe explain the policy of iif
-you have in mind, it doesn't seem very consistent.
-
-BTW, why does ifb have a hard header length? The resulting
-push and pull only slows things down.
