@@ -1,71 +1,53 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Wed, 28 Jun 2006 20:02:26 +0200
-Message-ID: <200606282002.26522.mb@bu3sch.de>
-References: <20060626212547.GE30706@tuxdriver.com> <200606281832.01108.mb@bu3sch.de> <44A2BD36.3010601@lwfinger.net>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Re: [2.6 patch] net/dccp/: possible cleanups
+Date: Thu, 29 Jun 2006 06:11:45 +1200
+Message-ID: <5640c7e00606281111y2b4e6d4at611d0195847377cc@mail.gmail.com>
+References: <20060628165430.GM13915@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:12942
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750714AbWF1SC7
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 14:02:59 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <44A2BD36.3010601@lwfinger.net>
+Cc: acme@mandriva.com, dccp@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750743AbWF1SLr@vger.kernel.org>
+To: "Adrian Bunk" <bunk@stusta.de>
+In-Reply-To: <20060628165430.GM13915@stusta.de>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 28 June 2006 19:32, Larry Finger wrote:
-> Michael Buesch wrote:
-> > On Wednesday 28 June 2006 18:04, Larry Finger wrote:
-> > 
-> > Oh, well. Forget it all.
-> > I remembered the code wrong.
-> > At the moment I looked at the code and it has the opposite semantics.
-> > It loops to wait for the READY bit to appear.
-> > 
-> > Well, I would say your old device simply takes this long
-> > to disable and there is no bug.
-> > 
-> > Oh, well...
-> 
-> So the conclusion is that my card is really slow. As mine is likely to be the worst of the lot, I 
-> propose the following structure for the loop in question:
-> 
->                  for (i = 10000; i; i--) {
->                          tmp = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
->                          if (tmp & BCM43xx_IRQ_READY) {
->                                  if (i < 9998)
->                                          printkl(KERN_INFO PFX "MAC suspend delay %d usec, IRQ_REASON "
->                                                  "0x%08x\n", 10000-i, tmp & ~BCM43xx_IRQ_READY);
->                                  goto out;
->                          }
->                          udelay(1);
->                  }
->                  printkl(KERN_ERR PFX "MAC suspend failed\n");
-> 
-> My maximum delay (so far) is 796 usec, thus this loop gives me a safety factor of more than 10, but 
-> it should satisfy Jeff and let this patch in question be accepted.
+Comments below:
 
-Ok, I will send a patch to lower the limit to 10000 usec.
-This won't do _any_ good (or bad), but well... If everybody likes
-placebos, I will add it to the driver.
+On 6/29/06, Adrian Bunk <bunk@stusta.de> wrote:
+> This patch contains the following possible cleanups:
+> - sysctl.c: the Kconfig rules already disallow CONFIG_SYSCTL=n,
+>             there's no need for an additional check
+Agree
 
-It's a bit complicated for me to say why your card takes 800usec
-to suspend MAC. And additionally it is not really possible for
-me to try to find a way making the card respond earlier (if possible)
-remotely through you. ;)
+> - proper extern declarations for some variables in dccp.h
+NAK - have sent another patch to shift these to feat.h. Arnaldo is
+reviewing patches next week.
 
-How problematic might a 800usec delay with IRQs disabled be?
+> - make the following needlessly global function static:
+>   - ipv4.c: dccp_v4_checksum()
+Agree
 
-> Of course, the 'if (i < 9998)'  
-> statement with the printkl is optional.
+> - #if 0 the following unused functions:
+>   - ackvec.c: dccp_ackvector_print()
+>   - ackvec.c: dccp_ackvec_print()
+>   - output.c: dccp_send_delayed_ack()
 
-It is to be removed. ;)
+NAK on the first two. These are for debugging and DCCP still needs
+improving so I think worthwhile having there in short term so we can
+quickly call them if needed.
 
+I will leave Arnaldo or Andrea to comment on last one...
+
+Ian
 -- 
-Greetings Michael.
+Ian McDonald
+Web: http://wand.net.nz/~iam4
+Blog: http://imcdnzl.blogspot.com
+WAND Network Research Group
+Department of Computer Science
+University of Waikato
+New Zealand
