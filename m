@@ -1,31 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PKT_SCHED]: PSCHED_TADD() and PSCHED_TADD2() can
- result,tv_usec >= 1000000
-Date: Wed, 28 Jun 2006 01:41:18 -0700 (PDT)
-Message-ID: <20060628.014118.108742583.davem@davemloft.net>
-References: <44988FC3.5030300@necst.nec.co.jp>
-	<20060627.133239.85688004.davem@davemloft.net>
-	<44A24020.7030409@necst.nec.co.jp>
+From: Cedric Le Goater <clg@fr.ibm.com>
+Subject: Re: Network namespaces a path to mergable code.
+Date: Wed, 28 Jun 2006 11:54:58 +0200
+Message-ID: <44A251F2.70707@fr.ibm.com>
+References: <20060626134945.A28942@castle.nmd.msu.ru>	<m14py6ldlj.fsf@ebiederm.dsl.xmission.com>	<20060627215859.A20679@castle.nmd.msu.ru>	<44A1AF37.3070100@vilain.net>	<m1ac7xkifn.fsf@ebiederm.dsl.xmission.com>	<44A21F7A.5030807@vilain.net> <m1r719ixb6.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Sam Vilain <sam@vilain.net>, Andrey Savochkin <saw@swsoft.com>,
+	dlezcano@fr.ibm.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
+	devel@openvz.org, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>,
+	Mark Huang <mlhuang@CS.Princeton.EDU>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:6825
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030484AbWF1IlU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 04:41:20 -0400
-To: maeda-sxb@necst.nec.co.jp
-In-Reply-To: <44A24020.7030409@necst.nec.co.jp>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:23522 "EHLO
+	e34.co.us.ibm.com") by vger.kernel.org with ESMTP id S1423247AbWF1JzI
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 05:55:08 -0400
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m1r719ixb6.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Shuya MAEDA <maeda-sxb@necst.nec.co.jp>
-Date: Wed, 28 Jun 2006 17:38:56 +0900
+Eric W. Biederman wrote:
 
-> Excuse me for the corrupted patch.  I will send the patch as an
-> attachment this time.
-> 
-> Thank you very much.
+> Despite what it might look like unix domain sockets do not live in the
+> filesystem.  They store a cookie in the filesystem that roughly
+> corresponds to the port number of an AF_INET socket.  When you open a
+> socket the lookup is done by the cookie retrieved from the filesystem.
 
-Patch applied, thanks a lot.
+unix domain socket lookup uses a path_lookup for sockets in the filesystem
+namespace and a find_by_name for socket in the abstract namespace.
+
+> So except for their cookies unix domain sockets are always in the
+> network stack.
+
+what is that cookie ? the file dentry and mnt ref ?
+
+so, ok, the resulting struct sock is part of the network namespace but
+there is a bridge with the filesystem namespace which does not prevent
+other namespaces to do a lookup. the lookup routine needs to be changed,
+this is any way necessary for the abstract namespace.
+
+I think we're reaching the limits of namespaces. It would be much easier
+with a container id in each kernel object we want to isolate.
+
+C.
