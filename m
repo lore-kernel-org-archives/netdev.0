@@ -1,32 +1,44 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [NET]: Added GSO header verification
-Date: Tue, 27 Jun 2006 19:07:24 -0700
-Message-ID: <1151460444.5124.2.camel@rh4>
-References: <20060627120714.GA15270@gondor.apana.org.au>
- <1151441195.3543.3.camel@rh4>
- <20060627223120.GA19026@gondor.apana.org.au>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [Patch 1/1] AF_UNIX Datagram getpeersec (with latest updates)
+Date: Tue, 27 Jun 2006 22:13:48 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0606272213240.7100@d.namei>
+References: <OF5E332833.A2E43B52-ON8525719B.0009D441-8525719B.000A510A@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@osdl.org>, chrisw@osdl.org,
+	Catherine Zhang <cxzhang@watson.ibm.com>, czhang.us@gmail.com,
+	"David S. Miller" <davem@davemloft.net>,
+	George Wilson <gcwilson@us.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	latten@austin.ibm.com, netdev@vger.kernel.org,
+	Stephen Smalley <sds@tycho.nsa.gov>,
+	Serge E Hallyn <sergeh@us.ibm.com>, tjaeger@cse.psu.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:54799 "EHLO
-	mms1.broadcom.com") by vger.kernel.org with ESMTP id S1030245AbWF1CGZ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Jun 2006 22:06:25 -0400
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
-In-Reply-To: <20060627223120.GA19026@gondor.apana.org.au>
+Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:30671 "EHLO
+	mail3.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1030284AbWF1CNx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 22:13:53 -0400
+To: Xiaolan Zhang <cxzhang@us.ibm.com>
+In-Reply-To: <OF5E332833.A2E43B52-ON8525719B.0009D441-8525719B.000A510A@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-06-28 at 08:31 +1000, Herbert Xu wrote:
+On Tue, 27 Jun 2006, Xiaolan Zhang wrote:
 
-> [NET]: Fix logical error in skb_gso_ok
+> > Just one more thing, we don't need to export this function now.
 > 
-> The test in skb_gso_ok is backwards.  Noticed by Michael Chan
-> <mchan@broadcom.com>.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> You mean moving it to security/selinux/hooks.c and making it static?
 
-Acked-by: Michael Chan <mchan@broadcom.com>
+Yep.
 
+> I think conceptually this is where it should reside -- auditing system 
+> might need it in the future, for example.
+
+We can export it then.
+
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
