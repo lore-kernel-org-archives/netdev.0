@@ -1,46 +1,41 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: Network namespaces a path to mergable code.
-Date: Wed, 28 Jun 2006 18:54:22 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0606281851300.16528@d.namei>
-References: <20060626134945.A28942@castle.nmd.msu.ru> <m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
- <20060627215859.A20679@castle.nmd.msu.ru> <m1ejx9kj1r.fsf@ebiederm.dsl.xmission.com>
- <20060628150605.A29274@castle.nmd.msu.ru> <44A2FA66.5070303@fr.ibm.com>
+From: "Ron Mercer" <ron.mercer@qlogic.com>
+Subject: RE: FW: + qla3xxx-is-bust.patch added to -mm tree
+Date: Wed, 28 Jun 2006 16:07:22 -0700
+Message-ID: <0BB3E5E7462EEA4295BC02D49691DC07176D31@AVEXCH1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrey Savochkin <saw@swsoft.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
-	devel@openvz.org, sam@vilain.net, Al Viro <viro@ftp.linux.org.uk>,
-	Alexey Kuznetsov <alexey@sw.ru>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, "Linux Driver" <Linux-Driver@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:32913 "EHLO
-	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751655AbWF1WyZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 18:54:25 -0400
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-In-Reply-To: <44A2FA66.5070303@fr.ibm.com>
+Received: from pat.qlogic.com ([198.70.193.2]:15607 "EHLO avexch1.qlogic.com")
+	by vger.kernel.org with ESMTP id S1751436AbWF1XHX convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 19:07:23 -0400
+Content-class: urn:content-classes:message
+To: "Andrew Morton" <akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Jun 2006, Daniel Lezcano wrote:
+> 
+> Is the device hotpluggable?   If so, this:
+> 
+> 	qdev->index = cards_found;
+> 
+> in the probe() handler might do odd things - it'll just keep 
+> increasing as the card is removed and re-added.
+> 
+> iirc, that's a common problem with net drivers.  AFAICT it'll 
+> cause only cosmetic oddities here.
+> 
+>
 
-> The attached patch can have some part interesting for you for the socket
-> tagging. It is in the IPV4 isolation (part 5/6). With this and the private
-> routing table you will probably have a good IPV4 isolation.
+Not sure if the device supports hotplug.  I'm looking into it.  Either
+way, I will be removing qdev->index.  It's not needed. 
 
-Please send patches inline, do not attach them.
+I am working on the remaining items that Jeff pointed out when he
+reviewed my driver.  I will forward a patch built against what you
+currently have when I'm done.
 
-(Perhaps we should have a filter on vger which drops emails with 
-attachements).
-
-All of this needs to be done in a way where it can be entirely disabled at 
-compile time, so there is zero overhead for people who don't want 
-network namespaces.
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+Now that the driver is in mm tree, is there anything I need to do to get
+it into Linus' tree?
