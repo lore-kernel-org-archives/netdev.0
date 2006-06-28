@@ -1,60 +1,36 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Wed, 28 Jun 2006 09:53:23 -0400
-Message-ID: <1151502803.5203.101.camel@jzny2>
-References: <20060627133849.E13959@castle.nmd.msu.ru>
-	 <44A1149E.6060802@fr.ibm.com> <m1sllqn7cb.fsf@ebiederm.dsl.xmission.com>
-	 <20060627160241.GB28984@MAIL.13thfloor.at>
-	 <m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
-	 <44A1689B.7060809@candelatech.com>
-	 <20060627225213.GB2612@MAIL.13thfloor.at>
-	 <1151449973.24103.51.camel@localhost.localdomain>
-	 <20060627234210.GA1598@ms2.inr.ac.ru>
-	 <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>
-	 <20060628133640.GB5088@MAIL.13thfloor.at>
-Reply-To: hadi@cyberus.ca
+From: James Morris <jmorris@namei.org>
+Subject: Re: [Patch 1/1] AF_UNIX Datagram getpeersec (minor fix)
+Date: Wed, 28 Jun 2006 10:00:48 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0606281000150.12544@d.namei>
+References: <20060628053432.GA27226@jiayuguan.watson.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
-	sam@vilain.net, devel@openvz.org, dev@sw.ru,
-	Andrew Morton <akpm@osdl.org>, clg@fr.ibm.com,
-	serue@us.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Andrey Savochkin <saw@swsoft.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jmorris@redhat.com,
+	chrisw@osdl.org, herbert@gondor.apana.org.au, sds@tycho.nsa.gov,
+	tjaeger@cse.psu.edu, akpm@osdl.org, latten@austin.ibm.com,
+	sergeh@us.ibm.com, gcwilson@us.ibm.com, czhang.us@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:42915 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1750749AbWF1Nxm
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 09:53:42 -0400
-To: Herbert Poetzl <herbert@13thfloor.at>
-In-Reply-To: <20060628133640.GB5088@MAIL.13thfloor.at>
+Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:64680 "EHLO
+	mail7.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1423333AbWF1OAv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 10:00:51 -0400
+To: Catherine Zhang <cxzhang@watson.ibm.com>
+In-Reply-To: <20060628053432.GA27226@jiayuguan.watson.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 28 Jun 2006, Catherine Zhang wrote:
 
-On Wed, 2006-28-06 at 15:36 +0200, Herbert Poetzl wrote:
-
-> note: personally I'm absolutely not against virtualizing
-> the device names so that each guest can have a separate
-> name space for devices, but there should be a way to
-> 'see' _and_ 'identify' the interfaces from outside
-> (i.e. host or spectator context)
+> Hi,
 > 
+> Minor fix (un-export selinux_get_sock_sid()).
 
-Makes sense for the host side to have naming convention tied
-to the guest. Example as a prefix: guest0-eth0. Would it not
-be interesting to have the host also manage these interfaces
-via standard tools like ip or ifconfig etc? i.e if i admin up
-guest0-eth0, then the user in guest0 will see its eth0 going
-up.
+Thanks, looks ok to me.
 
-Anyways, interesting discussion.
+Acked-by: James Morris <jmorris@namei.org>
 
-cheers,
-jamal
 
+
+-- 
+James Morris
+<jmorris@namei.org>
