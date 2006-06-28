@@ -1,54 +1,52 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch 3/4] Network namespaces: IPv4 FIB/routing in namespaces
-Date: Wed, 28 Jun 2006 09:05:50 -0600
-Message-ID: <m1ejx9gw1d.fsf@ebiederm.dsl.xmission.com>
+Subject: Re: [RFC] Network namespaces a path to mergable code.
+Date: Wed, 28 Jun 2006 09:20:26 -0600
+Message-ID: <m164ilgvd1.fsf@ebiederm.dsl.xmission.com>
 References: <20060626134945.A28942@castle.nmd.msu.ru>
-	<20060626135250.B28942@castle.nmd.msu.ru>
-	<20060626135427.C28942@castle.nmd.msu.ru>
-	<449FF5AE.2040201@fr.ibm.com> <44A28964.2090006@fr.ibm.com>
+	<m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
+	<44A25802.3030006@fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Savochkin <saw@swsoft.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
-	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
-	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
-	viro@ftp.linux.org.uk
+Cc: Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
+	devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:45734 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:26275 "EHLO
 	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1751165AbWF1PHE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 11:07:04 -0400
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-In-Reply-To: <44A28964.2090006@fr.ibm.com> (Daniel Lezcano's message of "Wed,
-	28 Jun 2006 15:51:32 +0200")
+	id S932830AbWF1PVk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 11:21:40 -0400
+To: Cedric Le Goater <clg@fr.ibm.com>
+In-Reply-To: <44A25802.3030006@fr.ibm.com> (Cedric Le Goater's message of
+	"Wed, 28 Jun 2006 12:20:50 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniel Lezcano <dlezcano@fr.ibm.com> writes:
+Cedric Le Goater <clg@fr.ibm.com> writes:
 
-> Daniel Lezcano wrote:
->> Andrey Savochkin wrote:
->>
->>> Structures related to IPv4 rounting (FIB and routing cache)
->>> are made per-namespace.
->
-> Hi Andrey,
->
-> if the ressources are private to the namespace, how do you will handle NFS
-> mounted before creating the network namespace ? 
+> How that proposal differs from the initial Daniel's patchset ? how far was
+> that patchset to reach a similar agreement ?
 
-Through the filesystem namespace.  It is a weird case but it works :)
+My impression is as follows.  The OpenVz implementation and mine work
+on the same basic principles of handling the network stack at layer 2.
 
-> Do you take care of that or simply assume you can't access NFS anymore ?
+We have our implementation differences but the core ideas are about the
+same.
 
-It is actually a noop.  Unless I goofed this is basically handled by
-looking at which socket NFS is using to communicate, and plucking the 
-namespace from there.
+Daniels patch still had elements of layer 3 handling as I recall
+and that has problems.
 
-As I recall NFS gets the socket at mount time when it still has user
-space context available.
+> OK, i wear blue socks :), but I'm not advocating a patchset more than
+> another i'm just looking for a shorter path.
 
-So regardless if I implemented it correctly you can implement it that way
-and always get the namespace context from whoever implemented it.
+Besides laying the foundations.  The current conversation seems to be
+about understanding the implications of the network stack when
+we implement a network namespace.
+
+There is a lot to the networking stack so it takes a while.
+In addition this is one part of the problem that everyone has implemented,
+so we have several more opinions on how it should be done and what
+needs to happen.
 
 Eric
