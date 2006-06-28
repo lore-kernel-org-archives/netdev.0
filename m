@@ -1,73 +1,73 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Wed, 28 Jun 2006 08:51:33 -0600
-Message-ID: <m1mzbxgwp6.fsf@ebiederm.dsl.xmission.com>
-References: <20060626192751.A989@castle.nmd.msu.ru>
-	<44A00215.2040608@fr.ibm.com>
-	<20060627131136.B13959@castle.nmd.msu.ru>
-	<44A0FBAC.7020107@fr.ibm.com>
-	<20060627133849.E13959@castle.nmd.msu.ru>
-	<44A1149E.6060802@fr.ibm.com>
-	<m1sllqn7cb.fsf@ebiederm.dsl.xmission.com>
-	<20060627160241.GB28984@MAIL.13thfloor.at>
-	<m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
-	<44A1689B.7060809@candelatech.com>
-	<20060627225213.GB2612@MAIL.13thfloor.at>
-	<1151449973.24103.51.camel@localhost.localdomain>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: TOE, etc.
+Date: Wed, 28 Jun 2006 09:54:57 -0500
+Message-ID: <1151506497.14895.51.camel@stevo-desktop>
+References: <20060628033708.GA4922@gondor.apana.org.au>
+	 <44A20311.5050301@pobox.com> <20060628042959.GA5561@gondor.apana.org.au>
+	 <20060627.214323.92582051.davem@davemloft.net>
+	 <20060628053554.GA5928@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Poetzl <herbert@13thfloor.at>,
-	Ben Greear <greearb@candelatech.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Andrey Savochkin <saw@swsoft.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>,
-	dev@sw.ru, devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jgarzik@pobox.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:43982 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S932809AbWF1Owu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 10:52:50 -0400
-To: Dave Hansen <haveblue@us.ibm.com>
-In-Reply-To: <1151449973.24103.51.camel@localhost.localdomain> (Dave Hansen's
-	message of "Tue, 27 Jun 2006 16:12:52 -0700")
+Received: from es335.com ([67.65.19.105]:35432 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S932813AbWF1Oy7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 10:54:59 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060628053554.GA5928@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave Hansen <haveblue@us.ibm.com> writes:
+On Wed, 2006-06-28 at 15:35 +1000, Herbert Xu wrote:
+> On Tue, Jun 27, 2006 at 09:43:23PM -0700, David Miller wrote:
+> > 
+> > Socket state, and that is one thing I don't see them doing yet.
+> 
+> I wonder what happens when the Linux TCP stack attempts to open a
+> connection to a remote host when that connection is already open
+> in the RDMA NIC?  For that matter what happens if a Linux application
+> decides to listen on a TCP port already listened on by the RDMA
+> NIC?
+> 
 
-> On Wed, 2006-06-28 at 00:52 +0200, Herbert Poetzl wrote:
->> seriously, what I think Eric meant was that it
->> might be nice (especially for migration purposes)
->> to keep the device namespace completely virtualized
->> and not just isolated ...
->
-> It might be nice, but it is probably unneeded for an initial
-> implementation.  In practice, a cluster doing
-> checkpoint/restart/migration will already have a system in place for
-> assigning unique IPs or other identifiers to each container.  It could
-> just as easily make sure to assign unique network device names to
-> containers.
->
-> The issues really only come into play when you have an unstructured set
-> of machines and you want to migrate between them without having prepared
-> them with any kind of unique net device names beforehand.
->
-> It may look weird, but do application really *need* to see eth0 rather
-> than eth858354?
+This issue would have to be handled by using seperate IP addresses for
+RDMA connections vs native stack TCP.
 
-Actually there is a very practical reason we don't need to preserve device
-names across a migration event between machines, is the only sane thing
-to do is to generate a hotplug event that says you have removed the old
-interface and added a new interface.
+Consider NFS-RDMA server.  Through administration, it would be
+configured to listen on the specific rdma ip addresses, and the native
+stack tcp ip addresses and thus support both TCP and RDMA NFS
+connections.
 
-My expectation is that during migration you will wind up with add and
-remove events for all of your hardware devices.  But most applications
-because they do not access hardware devices directly will not care.
+There are definitely issues with this that could be resolved via tighter
+integration, but that seems to not be a goal of the linux community at
+this time...
 
-I haven't looked closely but I suspect this is one area where a container
-style approach will be noticeably different from a Xen or Vmware style
-approach.
 
-Eric
+> The only saving grace is that they're only doing RDMA rather than
+> arbitrary TCP.  However, exactly the same infrastructure can be used
+> to do arbitrary TCP should they wish to.
+>  
+> > But we have to realize they've already been given %95 of the
+> > interfaces they need to speak IP using our routes and our neighbour
+> > entries.
+> > 
+> > Right?
+> 
+> Yes, however I think the same argument could be applied to TOE.
+> 
+> With their RDMA NIC, we'll have TCP/SCTP connections that bypass
+> netfilter, tc, IPsec, AF_PACKET/tcpdump and the rest of our stack
+> while at the same time it is using the same IP address as us and
+> deciding what packets we will or won't see.
+> 
+
+
+Doesn't iSCSI have this same issue?
+
+Steve.
+
+
+
+
