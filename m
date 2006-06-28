@@ -1,70 +1,57 @@
-From: Herbert Poetzl <herbert@13thfloor.at>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Wed, 28 Jun 2006 15:36:40 +0200
-Message-ID: <20060628133640.GB5088@MAIL.13thfloor.at>
-References: <20060627133849.E13959@castle.nmd.msu.ru> <44A1149E.6060802@fr.ibm.com> <m1sllqn7cb.fsf@ebiederm.dsl.xmission.com> <20060627160241.GB28984@MAIL.13thfloor.at> <m1psgulf4u.fsf@ebiederm.dsl.xmission.com> <44A1689B.7060809@candelatech.com> <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Andrey Savochkin <saw@swsoft.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>,
-	dev@sw.ru, devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH 1/4][ATM]: [idt77105] should be __devinit not __init
+Date: Wed, 28 Jun 2006 09:44:27 -0400
+Message-ID: <200606281344.k5SDiR0D008917@relax.cmf.nrl.navy.mil>
+Cc: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MAIL.13thfloor.at ([212.16.62.50]:43243 "EHLO mail.13thfloor.at")
-	by vger.kernel.org with ESMTP id S932795AbWF1Ngl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 09:36:41 -0400
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Content-Disposition: inline
-In-Reply-To: <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>
+Received: from ginger.cmf.nrl.navy.mil ([134.207.10.161]:14305 "EHLO
+	ginger.cmf.nrl.navy.mil") by vger.kernel.org with ESMTP
+	id S1423322AbWF1Nok (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 09:44:40 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 27, 2006 at 09:38:14PM -0600, Eric W. Biederman wrote:
-> Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> writes:
-> 
-> > Hello!
-> >
-> >> It may look weird, but do application really *need* to see eth0 rather
-> >> than eth858354?
-> >
-> > Applications do not care, humans do. :-)
-> >
-> > What's about applications they just need to see exactly the same
-> > device after migration. Not only name, but f.e. also its ifindex.
-> > If you do not create a separate namespace for netdevices, you will
-> > inevitably end up with some strange hack sort of VPIDs to translate
-> > (or to partition) ifindices or to tell that "ping -I eth858354 xxx"
-> > is too coimplicated application to survive migration.
-> 
-> 
-> Actually there are applications with peculiar licensing practices that
-> do look at devices like eth0 to verify you have the appropriate mac, and
-> do really weird things if you don't have an eth0.
-> 
-> Plus there are other cases where it can be simpler to hard code things
-> if it is allowable. (The human factor)  Otherwise your configuration
-> must be done through hotplug scripts.
-> 
-> But yes there are misguided applications that care.
+please consider for 2.6.18 -- thanks!
 
-last time I pointed to such 'misguided' apps which 
-made assumptions that are not necessarily true
-inside a virtual environment (e.g. pstree, initpid)
-the general? position was that those apps should
-be fixed instead adding a 'workaround'
+[ATM]: [idt77105] should be __devinit not __init
 
-note: personally I'm absolutely not against virtualizing
-the device names so that each guest can have a separate
-name space for devices, but there should be a way to
-'see' _and_ 'identify' the interfaces from outside
-(i.e. host or spectator context)
+Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-best,
-Herbert
+---
+commit 51403ade3cedfc85f1f41d81cb3a227f9ce2366f
+tree f9cf0143466de92eda0080e27240d4b53c130c18
+parent 982703b5b38b314081d79ebc657fc06b1b6fe6b6
+author chas williams <chas@relax.cmf.nrl.navy.mil> Sun, 28 May 2006 22:14:23 -0400
+committer chas williams <chas@relax.cmf.nrl.navy.mil> Sun, 28 May 2006 22:14:23 -0400
 
-> Eric
+ drivers/atm/idt77105.c |    2 +-
+ drivers/atm/idt77105.h |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/atm/idt77105.c b/drivers/atm/idt77105.c
+index 0aabfc2..325325a 100644
+--- a/drivers/atm/idt77105.c
++++ b/drivers/atm/idt77105.c
+@@ -358,7 +358,7 @@ static const struct atmphy_ops idt77105_
+ };
+ 
+ 
+-int idt77105_init(struct atm_dev *dev)
++int __devinit idt77105_init(struct atm_dev *dev)
+ {
+ 	dev->phy = &idt77105_ops;
+ 	return 0;
+diff --git a/drivers/atm/idt77105.h b/drivers/atm/idt77105.h
+index 8ba8218..3fd2bc8 100644
+--- a/drivers/atm/idt77105.h
++++ b/drivers/atm/idt77105.h
+@@ -76,7 +76,7 @@ #define IDT77105_CTRSEL_RCC	0x02	/* W, R
+ #define IDT77105_CTRSEL_RHEC	0x01	/* W, Rx HEC Error Counter */
+ 
+ #ifdef __KERNEL__
+-int idt77105_init(struct atm_dev *dev) __init;
++int idt77105_init(struct atm_dev *dev);
+ #endif
+ 
+ /*
