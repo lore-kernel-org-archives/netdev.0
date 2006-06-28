@@ -1,76 +1,81 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: TOE, etc. (was Re: [PATCH Round 3 0/2][RFC] Network Event
-	Notifier Mechanism)
-Date: Wed, 28 Jun 2006 09:31:43 -0500
-Message-ID: <1151505103.14895.31.camel@stevo-desktop>
-References: <20060627205050.30723.25753.stgit@stevo-desktop>
-	 <E1FvQBu-00018u-00@gondolin.me.apana.org.au>
-	 <20060628030400.GA4474@gondor.apana.org.au> <44A1F669.8070606@pobox.com>
-	 <20060628033708.GA4922@gondor.apana.org.au> <44A20311.5050301@pobox.com>
-	 <20060628042959.GA5561@gondor.apana.org.au>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6
+Date: Wed, 28 Jun 2006 16:34:23 +0200
+Message-ID: <200606281634.24160.mb@bu3sch.de>
+References: <20060626212547.GE30706@tuxdriver.com> <200606272223.19928.mb@bu3sch.de> <44A19712.40702@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:19524 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S1423362AbWF1Obp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 10:31:45 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060628042959.GA5561@gondor.apana.org.au>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:39098
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1423364AbWF1Oeu
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 10:34:50 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <44A19712.40702@lwfinger.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-06-28 at 14:29 +1000, Herbert Xu wrote:
-> On Wed, Jun 28, 2006 at 12:18:25AM -0400, Jeff Garzik wrote:
+On Tuesday 27 June 2006 22:37, Larry Finger wrote:
+> Michael Buesch wrote:
+> > On Tuesday 27 June 2006 22:06, Larry Finger wrote:
+> >> John,
+> >>
+> >> I would like to find a diplomatic solution to this impasse between Michael and Jeff, which is why 
+> >> I'm writing to you privately. Michael is correct in that the loop in question will not usually delay 
 > > 
-> > A PCI device that presents itself as a SCSI controller, but under the 
-> > hood is really iSCSI-over-TCP smells like TOE.  Running a virtualized 
-> > Linux guest on top of a proprietary stack [which provides networking 
-> > services to guests] also smells like TOE.  :)
+> > private?
 > 
-> Agreed.  However, when they start adding hooks to the ARP table, the
-> routing table, and PMTU management, it begs the question what more is
-> there to add for TOE (well, user-space driven TOE at least)?
->  
-> > Unfortunately I don't have more details, so you just get a generalized 
-> > rant :)
+> I meant it to be private, but screwed up.
 > 
-> OK, the patch under discussion here adds hooks to all the stuff in the
-> previous paragraph for the purpose of RDMA over TCP (well I must say
-> that the exact RDMA application/hardware has never been clearly given
-> but this is what I can gather from the previous posts).
-
-There are Ammasso and Chelsio RDMA/Ethernet drivers in the openib.org
-svn iwarp branch today.  The goal is to submit them for review and
-inclusion into linux.  The Ammasso driver has been through 3 review
-cycles on lkml and netdev.  There are other vendors with drivers, but
-they're currently not disclosing any information to me about their
-status.
-
-Applications: 
-
-kernel: NFS-RDMA, iSER, RDP.  
-user:  MPI, uDAPL (both middle ware).
-
-The Ammasso driver is a different model.  It actually has a full
-TCP/ARP/ICMP stack and doesn't require these hooks.  But the RDMA/TCP
-model defined and implemented, I think, by most vendors is a model where
-the HW is doing a limited TCP offload, relying on the native stack for
-L2 and L3 integration (as described in the netevent patch).
-
-
-> Put it another way, I think the dividing line between TOE and iSCSI or
-> virtualisation is exactly the interface between them and the Linux kernel.
-> If the interface is an existing one such as SCSI or standard IP then it's
-> OK.  However, when it starts poking in the guts of the Linux stack I'd say
-> that it has crossed the line.
+> >> long; however, on some hardware it takes longer than on his. On mine, I have seen delays as long as 
+> >> 550 usec.
+> > 
+> > What's the chip?
 > 
+> bcm43xx: Chip ID 0x4306, rev 0x2
+> bcm43xx: Number of cores: 6
+> bcm43xx: Core 0: ID 0x800, rev 0x2, vendor 0x4243, enabled
+> bcm43xx: Core 1: ID 0x812, rev 0x4, vendor 0x4243, disabled
+> bcm43xx: Core 2: ID 0x80d, rev 0x1, vendor 0x4243, enabled
+> bcm43xx: Core 3: ID 0x807, rev 0x1, vendor 0x4243, disabled
+> bcm43xx: Core 4: ID 0x804, rev 0x7, vendor 0x4243, enabled
+> bcm43xx: Core 5: ID 0x812, rev 0x4, vendor 0x4243, disabled
+> bcm43xx: Ignoring additional 802.11 core.
+> bcm43xx: Detected PHY: Version: 1, Type 2, Revision 1
+> bcm43xx: Detected Radio: ID: 2205017f (Manuf: 17f Ver: 2050 Rev: 2)
 
-Don't these netevent hooks have utility for other purposes?  IE:  Should
-we really shoot changes to linux _just because_ they might possibly
-enable TOE? 
+It appears to be an older card. There are quite some
+special codepaths for this, I think.
 
-Steve.
+> >> This would make the worst-case delay be 5 msec, but would provide a cushion of 10X the longest I 
+> >> have seen and should be safe.
+> >>
+> >> Do you have any suggestions on what should be done next?
+> > 
+> > Leave it as is and find out why it takes so long for your strange card. ;)
+> 
+> I once offered you my second, duplicate card for testing, but never heard back. Do you have any 
+> ideas regarding diagnostics to see why it takes so long? Remember, this card used to time-out on the 
+> 1 second delay before the periodic work was restructured.
 
+Well, we did not want to have the card, because at this point
+it did not make sense. We all have 4306 cards.
+But now it appears that this card seems to have some special
+things (because it is older than ours).
+
+Well, how to debug.
+We are waiting for the IRQ Reason register there.
+Actually, we are waiting for the "no IRQ pending, but READY signal"
+state. Your card does not completely (?) clear the bits after MAC
+shutdown. So very helpful would be to print out in the loop the
+value. We know, that the card generates silly IRQs, that we did
+not ask for. That may happen here, too. So it _may_ help to
+mask out unwanted IRQs before the if-check. But I would first
+like to see a log of the reason-value on each iteration until it succeeds.
+
+-- 
+Greetings Michael.
