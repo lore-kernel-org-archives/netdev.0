@@ -1,49 +1,58 @@
 From: Cedric Le Goater <clg@fr.ibm.com>
-Subject: Re: Network namespaces a path to mergable code.
-Date: Wed, 28 Jun 2006 11:54:58 +0200
-Message-ID: <44A251F2.70707@fr.ibm.com>
-References: <20060626134945.A28942@castle.nmd.msu.ru>	<m14py6ldlj.fsf@ebiederm.dsl.xmission.com>	<20060627215859.A20679@castle.nmd.msu.ru>	<44A1AF37.3070100@vilain.net>	<m1ac7xkifn.fsf@ebiederm.dsl.xmission.com>	<44A21F7A.5030807@vilain.net> <m1r719ixb6.fsf@ebiederm.dsl.xmission.com>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Wed, 28 Jun 2006 12:14:28 +0200
+Message-ID: <44A25684.3070105@fr.ibm.com>
+References: <20060609210625.144158000@localhost.localdomain>	<20060626134711.A28729@castle.nmd.msu.ru>	<449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru>	<44A00215.2040608@fr.ibm.com>	<20060627131136.B13959@castle.nmd.msu.ru>	<44A0FBAC.7020107@fr.ibm.com> <44A1006B.3040700@sw.ru>	<20060627160908.GC28984@MAIL.13thfloor.at>	<m1y7vilfyk.fsf@ebiederm.dsl.xmission.com>	<20060627230723.GC2612@MAIL.13thfloor.at> <m1irmlkjni.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Sam Vilain <sam@vilain.net>, Andrey Savochkin <saw@swsoft.com>,
-	dlezcano@fr.ibm.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
-	devel@openvz.org, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>,
-	Mark Huang <mlhuang@CS.Princeton.EDU>
+Cc: Herbert Poetzl <herbert@13thfloor.at>, Kirill Korotaev <dev@sw.ru>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Andrey Savochkin <saw@swsoft.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com,
+	Andrew Morton <akpm@osdl.org>, devel@openvz.org,
+	sam@vilain.net, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:23522 "EHLO
-	e34.co.us.ibm.com") by vger.kernel.org with ESMTP id S1423247AbWF1JzI
+Received: from e36.co.us.ibm.com ([32.97.110.154]:24026 "EHLO
+	e36.co.us.ibm.com") by vger.kernel.org with ESMTP id S932538AbWF1KOi
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 05:55:08 -0400
+	Wed, 28 Jun 2006 06:14:38 -0400
 To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m1r719ixb6.fsf@ebiederm.dsl.xmission.com>
+In-Reply-To: <m1irmlkjni.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi !
+
 Eric W. Biederman wrote:
 
-> Despite what it might look like unix domain sockets do not live in the
-> filesystem.  They store a cookie in the filesystem that roughly
-> corresponds to the port number of an AF_INET socket.  When you open a
-> socket the lookup is done by the cookie retrieved from the filesystem.
+[ ... ]
 
-unix domain socket lookup uses a path_lookup for sockets in the filesystem
-namespace and a find_by_name for socket in the abstract namespace.
+> So just to sink one additional nail in the coffin of the silly
+> guest to guest communication issue.  For any two guests where
+> fast communication between them is really important I can run
+> an additional interface pair that requires no routing or bridging.
+> Given that the implementation of the tunnel device is essentially
+> the same as the loopback interface and that I make only one
+> trip through the network stack there will be no performance overhead.
+> Similarly for any critical guest communication to the outside world
+> I can give the guest a real network adapter.
+> 
+> That said I don't think those things will be necessary and that if
+> they are it is an optimization opportunity to make various bits
+> of the network stack faster.
 
-> So except for their cookies unix domain sockets are always in the
-> network stack.
+just one comment on the 'guest to guest communication' topic :
 
-what is that cookie ? the file dentry and mnt ref ?
+guest to guest communication is an important factor in consolidation
+scenarios, where containers are packed on one server. This for maintenance
+issues or priority issues on a HPC cluster for example. This case of
+container migration is problably the most interesting and the performance
+should be more than acceptable. May be not a top priority for the moment.
 
-so, ok, the resulting struct sock is part of the network namespace but
-there is a bridge with the filesystem namespace which does not prevent
-other namespaces to do a lookup. the lookup routine needs to be changed,
-this is any way necessary for the abstract namespace.
 
-I think we're reaching the limits of namespaces. It would be much easier
-with a container id in each kernel object we want to isolate.
+thanks,
 
 C.
