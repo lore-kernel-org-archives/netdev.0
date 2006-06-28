@@ -1,44 +1,46 @@
-From: Samuel Ortiz <samuel@sortiz.org>
-Subject: [PATCH] [IrDA] MCS7780 usb_driver struct should be static
-Date: Thu, 29 Jun 2006 08:12:36 +0300
-Message-ID: <20060629051236.GA31100@sortiz.org>
-Reply-To: Samuel Ortiz <samuel@sortiz.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: Network namespaces a path to mergable code.
+Date: Wed, 28 Jun 2006 18:54:22 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0606281851300.16528@d.namei>
+References: <20060626134945.A28942@castle.nmd.msu.ru> <m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
+ <20060627215859.A20679@castle.nmd.msu.ru> <m1ejx9kj1r.fsf@ebiederm.dsl.xmission.com>
+ <20060628150605.A29274@castle.nmd.msu.ru> <44A2FA66.5070303@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
-	bunk@stusta.de
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrey Savochkin <saw@swsoft.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
+	devel@openvz.org, sam@vilain.net, Al Viro <viro@ftp.linux.org.uk>,
+	Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.pp.htv.fi ([213.243.153.35]:28602 "EHLO smtp2.pp.htv.fi")
-	by vger.kernel.org with ESMTP id S1751580AbWF1WBT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 18:01:19 -0400
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
+Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:32913 "EHLO
+	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751655AbWF1WyZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 18:54:25 -0400
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
+In-Reply-To: <44A2FA66.5070303@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Wed, 28 Jun 2006, Daniel Lezcano wrote:
 
-This patch makes a needlessly global struct static.
+> The attached patch can have some part interesting for you for the socket
+> tagging. It is in the IPV4 isolation (part 5/6). With this and the private
+> routing table you will probably have a good IPV4 isolation.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
----
- drivers/net/irda/mcs7780.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Please send patches inline, do not attach them.
 
-diff --git a/drivers/net/irda/mcs7780.c b/drivers/net/irda/mcs7780.c
-index 754297f..47f6f64 100644
---- a/drivers/net/irda/mcs7780.c
-+++ b/drivers/net/irda/mcs7780.c
-@@ -101,7 +101,7 @@ static int transceiver_type = MCS_TSC_VI
- module_param(transceiver_type, int, 0444);
- MODULE_PARM_DESC(transceiver_type, "IR transceiver type, see mcs7780.h.");
- 
--struct usb_driver mcs_driver = {
-+static struct usb_driver mcs_driver = {
- 	.name = "mcs7780",
- 	.probe = mcs_probe,
- 	.disconnect = mcs_disconnect,
+(Perhaps we should have a filter on vger which drops emails with 
+attachements).
+
+All of this needs to be done in a way where it can be entirely disabled at 
+compile time, so there is zero overhead for people who don't want 
+network namespaces.
+
+
+- James
 -- 
-1.4.0
-
+James Morris
+<jmorris@namei.org>
