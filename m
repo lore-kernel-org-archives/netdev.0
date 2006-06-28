@@ -1,42 +1,73 @@
-From: Tom Tucker <tom@opengridcomputing.com>
-Subject: Re: RDMA will be reverted
-Date: Wed, 28 Jun 2006 09:56:00 -0500
-Message-ID: <1151506560.13315.3.camel@trinity.ogc.int>
-References: <20060628.000715.95062023.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Wed, 28 Jun 2006 08:51:33 -0600
+Message-ID: <m1mzbxgwp6.fsf@ebiederm.dsl.xmission.com>
+References: <20060626192751.A989@castle.nmd.msu.ru>
+	<44A00215.2040608@fr.ibm.com>
+	<20060627131136.B13959@castle.nmd.msu.ru>
+	<44A0FBAC.7020107@fr.ibm.com>
+	<20060627133849.E13959@castle.nmd.msu.ru>
+	<44A1149E.6060802@fr.ibm.com>
+	<m1sllqn7cb.fsf@ebiederm.dsl.xmission.com>
+	<20060627160241.GB28984@MAIL.13thfloor.at>
+	<m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
+	<44A1689B.7060809@candelatech.com>
+	<20060627225213.GB2612@MAIL.13thfloor.at>
+	<1151449973.24103.51.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: rolandd@cisco.com, netdev@vger.kernel.org, akpm@osdl.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Poetzl <herbert@13thfloor.at>,
+	Ben Greear <greearb@candelatech.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Andrey Savochkin <saw@swsoft.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>,
+	dev@sw.ru, devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:3894 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S932559AbWF1OuC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 10:50:02 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060628.000715.95062023.davem@davemloft.net>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:43982 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S932809AbWF1Owu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 10:52:50 -0400
+To: Dave Hansen <haveblue@us.ibm.com>
+In-Reply-To: <1151449973.24103.51.camel@localhost.localdomain> (Dave Hansen's
+	message of "Tue, 27 Jun 2006 16:12:52 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-06-28 at 00:07 -0700, David Miller wrote:
-> Roland, there is no way in the world we would have let support for
-> RDMA into the kernel tree had we seen and reviewed it on netdev.  I've
-> discussed this with Andrew Morton, and we'd like you to please revert
-> all of the RDMA code from Linus's tree immedialtely.
-> 
-> Folks are well aware how against RDMA and TOE type schemes the Linux
-> networking developers are.  So the fact that none of these RDMA
-> changes went up for review on netdev strikes me as just a little bit
-> more than suspicious.
-> 
-> Please do not do this again, thank you.
+Dave Hansen <haveblue@us.ibm.com> writes:
 
-I believe Roland is on vacation (they just had a baby..). 
+> On Wed, 2006-06-28 at 00:52 +0200, Herbert Poetzl wrote:
+>> seriously, what I think Eric meant was that it
+>> might be nice (especially for migration purposes)
+>> to keep the device namespace completely virtualized
+>> and not just isolated ...
+>
+> It might be nice, but it is probably unneeded for an initial
+> implementation.  In practice, a cluster doing
+> checkpoint/restart/migration will already have a system in place for
+> assigning unique IPs or other identifiers to each container.  It could
+> just as easily make sure to assign unique network device names to
+> containers.
+>
+> The issues really only come into play when you have an unstructured set
+> of machines and you want to migrate between them without having prepared
+> them with any kind of unique net device names beforehand.
+>
+> It may look weird, but do application really *need* to see eth0 rather
+> than eth858354?
 
-It is my belief that everything that Roland submitted went through both
-netdev and lklm reviews. 
+Actually there is a very practical reason we don't need to preserve device
+names across a migration event between machines, is the only sane thing
+to do is to generate a hotplug event that says you have removed the old
+interface and added a new interface.
 
+My expectation is that during migration you will wind up with add and
+remove events for all of your hardware devices.  But most applications
+because they do not access hardware devices directly will not care.
 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I haven't looked closely but I suspect this is one area where a container
+style approach will be noticeably different from a Xen or Vmware style
+approach.
 
+Eric
