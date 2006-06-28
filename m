@@ -1,171 +1,58 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Tue, 27 Jun 2006 22:07:29 -0600
-Message-ID: <m1irmlkjni.fsf@ebiederm.dsl.xmission.com>
-References: <20060609210625.144158000@localhost.localdomain>
-	<20060626134711.A28729@castle.nmd.msu.ru>
-	<449FF5A0.2000403@fr.ibm.com> <20060626192751.A989@castle.nmd.msu.ru>
-	<44A00215.2040608@fr.ibm.com>
-	<20060627131136.B13959@castle.nmd.msu.ru>
-	<44A0FBAC.7020107@fr.ibm.com> <44A1006B.3040700@sw.ru>
-	<20060627160908.GC28984@MAIL.13thfloor.at>
-	<m1y7vilfyk.fsf@ebiederm.dsl.xmission.com>
-	<20060627230723.GC2612@MAIL.13thfloor.at>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: TOE, etc. (was Re: [PATCH Round 3 0/2][RFC] Network Event Notifier
+ Mechanism)
+Date: Wed, 28 Jun 2006 00:18:25 -0400
+Message-ID: <44A20311.5050301@pobox.com>
+References: <20060627205050.30723.25753.stgit@stevo-desktop> <E1FvQBu-00018u-00@gondolin.me.apana.org.au> <20060628030400.GA4474@gondor.apana.org.au> <44A1F669.8070606@pobox.com> <20060628033708.GA4922@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kirill Korotaev <dev@sw.ru>, Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Andrey Savochkin <saw@swsoft.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, devel@openvz.org,
-	sam@vilain.net, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932720AbWF1EIv@vger.kernel.org>
-To: Herbert Poetzl <herbert@13thfloor.at>
-In-Reply-To: <20060627230723.GC2612@MAIL.13thfloor.at> (Herbert Poetzl's
-	message of "Wed, 28 Jun 2006 01:07:23 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Steve Wise <swise@opengridcomputing.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:30895 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932718AbWF1ESf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 00:18:35 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net
+In-Reply-To: <20060628033708.GA4922@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Poetzl <herbert@13thfloor.at> writes:
+Herbert Xu wrote:
+> On Tue, Jun 27, 2006 at 11:24:25PM -0400, Jeff Garzik wrote:
+>> I don't see how that position has changed?
+>>
+>> http://linux-net.osdl.org/index.php/TOE
+> 
+> Well I must say that RDMA over TCP smells very much like TOE.  They've
+> got an ARP table, a routing table, and presumably a TCP stack.
 
-> On Tue, Jun 27, 2006 at 10:29:39AM -0600, Eric W. Biederman wrote:
->> Herbert Poetzl <herbert@13thfloor.at> writes:
->
->> I watched the linux-vserver irc channel for a while and almost
->> every network problem was caused by the change in semantics 
->> vserver provides.
->
-> the problem here is not the change in semantics compared
-> to a real linux system (as there basically is none) but
-> compared to _other_ technologies like UML or QEMU, which
-> add the need for bridging and additional interfaces, while
-> Linux-VServer only focuses on the IP layer ...
+A PCI device that presents itself as a SCSI controller, but under the 
+hood is really iSCSI-over-TCP smells like TOE.  Running a virtualized 
+Linux guest on top of a proprietary stack [which provides networking 
+services to guests] also smells like TOE.  :)
 
-Not being able to bind to INADDR_ANY is a huge semantic change.
-Unless things have changed recently you get that change when
-you have two IP addresses in Linux-Vserver.
+If a TOE vendors wants to do TOE in a way that is transparent to the 
+kernel, more power to them.  Such non-Linux TCP stack solutions still 
+suffer many of the problems listed at the web page above, but at least 
+they impose no burden on kernel maintenance.
 
-Talking to the outsider world through the loop back interface
-is a noticeable semantics change.
+i.e. we really _do not_ want to get into the habit of co-managing arp 
+tables, routing tables, filtering rules, and dozens of other such 
+resources with multiple remote, independent TCP stack.  We have enough 
+complexity as it is today, coordinating between the random variations of 
+SMP, uniprocessor, and NUMA machines out there.  Not to mention 
+competing with under-the-hood firmware actions (ASF) on NICs.
 
-Having to be careful of who uses INADDR_ANY on the host
-when you have guests is essentially a semantics change.
+As an aside, RDMA over TCP just seems silly.  TCP was _not_ meant to do 
+the things that RDMA users want.  The infiniband/RDMA programming model 
+is an ultra-low-latency polling model where one or two apps are allowed 
+to completely consume the machine, either busy-waiting or processing 
+messages.
 
-Being able to talk to the outside world with a server
-bound only to the loopback IP is a weird semantic
-change.
+Unfortunately I don't have more details, so you just get a generalized 
+rant :)
 
-And I suspect I missed something, it is weird peculiar and
-I don't care to remember all of the exceptions.
-
-Have a few more network interfaces for a layer 2 solution
-is fundamental.  Believing without proof and after arguments
-to the contrary that you have not contradicted that a layer 2
-solution is inherently slower is non-productive.  Arguing
-that a layer 2 only solution most prove itself on guest to guest
-communication is also non-productive.
-
-So just to sink one additional nail in the coffin of the silly
-guest to guest communication issue.  For any two guests where
-fast communication between them is really important I can run
-an additional interface pair that requires no routing or bridging.
-Given that the implementation of the tunnel device is essentially
-the same as the loopback interface and that I make only one
-trip through the network stack there will be no performance overhead.
-Similarly for any critical guest communication to the outside world
-I can give the guest a real network adapter.
-
-That said I don't think those things will be necessary and that if
-they are it is an optimization opportunity to make various bits
-of the network stack faster.
-
-Bridging or routing between guests is an exercise in simplicity
-and control not a requirement.
-
->> In this case when you allow a guest more than one IP your hack 
->> while easy to maintain becomes much more complex. 
->
-> why? a set of IPs is quite similar to a single IP (which
-> is actually a subset), so no real change there, only
-> IP_ANY means something different for a guest ...
-
-Which simply filtering at bind time makes impossible.
-
-With a guest with 4 IPs 
-10.0.0.1 192.168.0.1 172.16.0.1 127.0.0.1
-How do you make INADDR_ANY work with just filtering at bind time?
-
-The host has at least the additional IPs.
-10.0.0.2 192.168.0.2 172.16.0.2 127.0.0.1
-
-Herbert I suspect we are talking about completely different
-implementations otherwise I can't possibly see how we have
-such different perceptions of their capabilities.
-
-I am talking precisely about filter IP addresses at connect
-or bind time that a guest can use.  Which as I recall is
-what vserver implements.  If you are thinking of your ngnet
-implementation that would explain things.
-
->> Especially as you address each case people care about one at a time.
->
-> hmm?
-
-Multiple IPs, IPv6, additional protocols, firewalls. etc.
-
->> In one shot this goes the entire way. Given how many people miss that
->> you do the work at layer 2 than at layer 3 I would not call this the
->> straight forward approach. The straight forward implementation yes,
->> but not the straight forward approach.
->
-> seems I lost you here ...
+	Jeff
 
 
->> > for example, you won't have multiple routing tables
->> > in a kernel where this feature is disabled, no?
->> > so why should it affect a guest, or require modified
->> > apps inside a guest when we would decide to provide
->> > only a single routing table?
->> >
->> >> From my POV, fully virtualized namespaces are the future. 
->> >
->> > the future is already there, it's called Xen or UML, or QEMU :)
->> 
->> Yep.  And now we need it to run fast.
->
-> hmm, maybe you should try to optimize linux for Xen then,
-> as I'm sure it will provide the optimal virtualization
-> and has all the features folks are looking for (regarding
-> virtualization)
->
-> I thought we are trying to figure a light-weight subset
-> of isolation and virtualization technologies and methods
-> which make sense to have in mainline ...
 
-And you presume doing things at layer 2 is more expensive than
-layer 3.
-
->From what I have seen of layer 3 solutions it is a 
-bloody maintenance nightmare, and an inflexible mess.
-
->> >> It is what makes virtualization solution usable (w/o apps
->> >> modifications), provides all the features and doesn't require much
->> >> efforts from people to be used.
->> >
->> > and what if they want to use virtualization inside
->> > their guests? where do you draw the line?
->> 
->> The implementation doesn't have any problems with guests inside
->> of guests.
->> 
->> The only reason to restrict guests inside of guests is because
->> the we aren't certain which permissions make sense.
->
-> well, we have not even touched the permission issues yet
-
-Agreed, permissions have not discussed but the point is that is the only
-reason to keep from nesting the networking stack the way I have described
-it.
-
-Eric
