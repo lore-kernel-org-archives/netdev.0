@@ -1,55 +1,89 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Wed, 28 Jun 2006 18:32:00 +0200
-Message-ID: <200606281832.01108.mb@bu3sch.de>
-References: <20060626212547.GE30706@tuxdriver.com> <200606281634.24160.mb@bu3sch.de> <44A2A872.3050905@lwfinger.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Network namespaces a path to mergable code.
+Date: Wed, 28 Jun 2006 10:51:26 -0600
+Message-ID: <m1sllpfckx.fsf@ebiederm.dsl.xmission.com>
+References: <20060626134945.A28942@castle.nmd.msu.ru>
+	<m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
+	<20060627215859.A20679@castle.nmd.msu.ru>
+	<m1ejx9kj1r.fsf@ebiederm.dsl.xmission.com>
+	<20060628150605.A29274@castle.nmd.msu.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dlezcano@fr.ibm.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
+	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
+	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
+	viro@ftp.linux.org.uk, Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:7391
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751350AbWF1QcK
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 12:32:10 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <44A2A872.3050905@lwfinger.net>
-Content-Disposition: inline
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:27520 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S1751402AbWF1Qwu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 12:52:50 -0400
+To: Andrey Savochkin <saw@swsoft.com>
+In-Reply-To: <20060628150605.A29274@castle.nmd.msu.ru> (Andrey Savochkin's
+	message of "Wed, 28 Jun 2006 15:06:05 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 28 June 2006 18:04, Larry Finger wrote:
-> Michael Buesch wrote:
-> > 
-> > It appears to be an older card. There are quite some
-> > special codepaths for this, I think.
-> 
-> Yes, I bought this card before the G specifications were finalized.
+Andrey Savochkin <saw@swsoft.com> writes:
 
-Oh, very interresting. I did not know that these old cards
-were pre-standard.
+> Ok, fine.
+> Now I'm working on socket code.
+>
+> We still have a question about implicit vs explicit function parameters.
+> This question becomes more important for sockets: if we want to allow to use
+> sockets belonging to namespaces other than the current one, we need to do
+> something about it.
 
-> For the past 12 hours, I have been printing the delay time for the cases where it took more  
-> than 2 passes through the loop. There have been single instances of 3 and 4 usec; otherwise the 
-> delay is much longer, with the largest delay at 750 usec. The long delays are always found during 
-> scanning, associating, and authenticating. I use WPA with wpa_supplicant.
+There seems to be some real benefit to that.  Especially for things like NFS,
+that captures the context at mount time. It might as well keep the namespace
+in it's socket.
 
-Oh, well. Forget it all.
-I remembered the code wrong.
-At the moment I looked at the code and it has the opposite semantics.
-It loops to wait for the READY bit to appear.
+> One possible option to resolve this question is to show 2 relatively short    
+> patches just introducing namespaces for sockets in 2 ways: with explicit
+> function parameters and using implicit current context.
+> Then people can compare them and vote.
+> Do you think it's worth the effort?
 
-Well, I would say your old device simply takes this long
-to disable and there is no bug.
+Given that we have two strong opinions in different directions I think it
+is worth the effort to resolve this.
 
-Oh, well...
+In a slightly different vein your second patch introduced a lot
+of #ifdef CONFIG_NET_NS in C files.  That is something we need to look closely
+at.
 
-> One other little problem. If I do an ifdown/ifup sequence without unloading the bcm43xx module, I 
-> get a failure of the assert(bcm->mac_suspended >= 0) at the beginning of bcm43xx_mac_suspend.
+So I think the abstraction that we use to access per network namespace
+variables needs some work if we are going to allow the ability to compile
+out all of the namespace code.  The explicit versus implicit lookup is just
+one dimension of that problem.
 
-Unrelated known bug.
-I will do a patch, soon.
+>> All minor things.  The typo I was referring to was a section where the
+>> original iteration was on an ifp variable and you called it dev
+>> without changing the rest of the code in that section.  
+>> 
+>> The only big issue was that the patch too big, and should be split
+>> into a patchset for better review.  One patch for the new functions,
+>> and the an additional patch for each driver/subsystem hunk describing
+>> why that chunk needed to be changed.
+>
+> I'll split the patch.
 
--- 
-Greetings Michael.
+Thanks.
+
+>> I'm still curious why many of those chunks can't use existing helper
+>> functions, to be cleaned up.
+>
+> What helper functions are you referring to?
+
+Basically most of the device list walker functions live in.
+net/core/dev.c 
+
+I don't know if the cases you fixed could have used any of those
+helper functions but it certainly has me asking that question.
+
+A general pattern that happens in cleanups is the discovery
+that code using an old interface in a problematic way really
+could be done much better another way.  I didn't dig enough
+to see if that was the case in any of the code that you changed.
+
+Eric
