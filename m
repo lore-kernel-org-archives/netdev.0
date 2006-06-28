@@ -1,34 +1,98 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/irda/mcs7780.c: make struct mcs_driver static
-Date: Wed, 28 Jun 2006 18:54:50 +0200
-Message-ID: <20060628165450.GS13915@stusta.de>
+From: Andrey Savochkin <saw@swsoft.com>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Wed, 28 Jun 2006 20:58:48 +0400
+Message-ID: <20060628205848.A1217@castle.nmd.msu.ru>
+References: <m1psgulf4u.fsf@ebiederm.dsl.xmission.com> <44A1689B.7060809@candelatech.com> <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <20060628181900.A31885@castle.nmd.msu.ru> <1151511455.5160.48.camel@jzny2>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751482AbWF1RBI@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Dave Hansen <haveblue@us.ibm.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>,
+	dev@sw.ru, devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>,
+	Herbert Poetzl <herbert@13thfloor.at>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751451AbWF1RBJ@vger.kernel.org>
+To: hadi@cyberus.ca
+In-Reply-To: <1151511455.5160.48.camel@jzny2>; from "jamal" on Wed, Jun 28, 2006 at 12:17:35PM
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes a needlessly global struct static.
+On Wed, Jun 28, 2006 at 12:17:35PM -0400, jamal wrote:
+> 
+> On Wed, 2006-28-06 at 18:19 +0400, Andrey Savochkin wrote:
+> > 
+> > Seeing guestXX-eth0 interfaces by standard tools has certain attractive
+> > sides.  But it creates a lot of undesired side effects.
+> > 
+> 
+> I apologize because i butted into the discussion without perhaps reading
+> the full thread. 
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Your comments are quite welcome
 
----
+> 
+> > For example, ntpd queries all network devices by the same ioctls as ifconfig,
+> > and creates separate sockets bound to IP addresses of each device, which is
+> > certainly not desired with namespaces.
+> > 
+> 
+> Ok, so the problem is that ntp in this case runs on the host side as
 
-This patch was already sent on:
-- 22 Jun 2006
+yes
 
---- linux-2.6.17-mm1-full/drivers/net/irda/mcs7780.c.old	2006-06-22 00:38:41.000000000 +0200
-+++ linux-2.6.17-mm1-full/drivers/net/irda/mcs7780.c	2006-06-22 00:38:50.000000000 +0200
-@@ -101,7 +101,7 @@
- module_param(transceiver_type, int, 0444);
- MODULE_PARM_DESC(transceiver_type, "IR transceiver type, see mcs7780.h.");
- 
--struct usb_driver mcs_driver = {
-+static struct usb_driver mcs_driver = {
- 	.name = "mcs7780",
- 	.probe = mcs_probe,
- 	.disconnect = mcs_disconnect,
+> opposed to the guest? This would explain why Eric is reacting vehemently
+> to the suggestion.
+
+:)
+
+And I actually do not want to distinguish host and guest sides much.
+They are namespaces in the first place.
+Parent namespace may have some capabilities to manipulate its child
+namespaces, like donate its own device to one of its children.
+
+But it comes secondary to having namespace isolation borders.
+In particular, because most cases of cross-namespace interaction lead to
+failures of formal security models and inability to migrate
+namespaces between computers.
+
+> 
+> > Or more subtle question: do you want hotplug events to be generated when
+> > guest0-eth0 interface comes up in the root namespace, and standard scripts
+> > to try to set some IP address on this interface?..
+> > 
+> 
+> yes, thats what i was thinking. Even go further and actually create
+> guestxx-eth0 on the host (which results in creating eth0 on the guest)
+> and other things.
+
+This actually goes in the opposite direction to what I keep in mind.
+I want to offload as much as possible of network administration work to
+guests.  Delegation of management is one of the motivating factors
+behind covering not only sockets but devices, routes, and so on by the
+namespace patches.
+
+> 
+> > In my opinion, the downside of this scheme overweights possible advantages,
+> > and I'm personally quite happy with running commands with switched namespace,
+> > like
+> > vzctl exec guest0 ip addr list
+> > vzctl exec guest0 ip link set eth0 up
+> > and so on.
+> 
+> Ok, above may be good enough and doesnt require any state it seems on
+> the host side. 
+> I got motivated when the word "migration" was mentioned. I understood it
+> to be meaning that a guest may become inoperative for some reason and
+> that its info will be transfered to another guest which may be local or
+> even remote. In such a case, clearly one would need a protocol and the
+> state of all guests sitting at the host. Maybe i am over-reaching. 
+
+Migration will work inside the kernel, so it has full access
+to whatever state information it needs.
+
+Best regards
+
+Andrey
