@@ -1,89 +1,42 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Wed, 28 Jun 2006 08:39:38 -0600
-Message-ID: <m1veqlgx91.fsf@ebiederm.dsl.xmission.com>
-References: <20060627133849.E13959@castle.nmd.msu.ru>
-	<44A1149E.6060802@fr.ibm.com>
-	<m1sllqn7cb.fsf@ebiederm.dsl.xmission.com>
-	<20060627160241.GB28984@MAIL.13thfloor.at>
-	<m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
-	<44A1689B.7060809@candelatech.com>
-	<20060627225213.GB2612@MAIL.13thfloor.at>
-	<1151449973.24103.51.camel@localhost.localdomain>
-	<20060627234210.GA1598@ms2.inr.ac.ru>
-	<m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>
-	<20060628133640.GB5088@MAIL.13thfloor.at>
-	<1151502803.5203.101.camel@jzny2>
+From: Tom Tucker <tom@opengridcomputing.com>
+Subject: Re: RDMA will be reverted
+Date: Wed, 28 Jun 2006 09:56:00 -0500
+Message-ID: <1151506560.13315.3.camel@trinity.ogc.int>
+References: <20060628.000715.95062023.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Poetzl <herbert@13thfloor.at>,
-	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
-	sam@vilain.net, devel@openvz.org, dev@sw.ru,
-	Andrew Morton <akpm@osdl.org>, clg@fr.ibm.com,
-	serue@us.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Andrey Savochkin <saw@swsoft.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: rolandd@cisco.com, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:44484 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S932811AbWF1Omk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 10:42:40 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1151502803.5203.101.camel@jzny2> (hadi@cyberus.ca's message of
-	"Wed, 28 Jun 2006 09:53:23 -0400")
+Received: from es335.com ([67.65.19.105]:3894 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S932559AbWF1OuC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 10:50:02 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060628.000715.95062023.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal <hadi@cyberus.ca> writes:
+On Wed, 2006-06-28 at 00:07 -0700, David Miller wrote:
+> Roland, there is no way in the world we would have let support for
+> RDMA into the kernel tree had we seen and reviewed it on netdev.  I've
+> discussed this with Andrew Morton, and we'd like you to please revert
+> all of the RDMA code from Linus's tree immedialtely.
+> 
+> Folks are well aware how against RDMA and TOE type schemes the Linux
+> networking developers are.  So the fact that none of these RDMA
+> changes went up for review on netdev strikes me as just a little bit
+> more than suspicious.
+> 
+> Please do not do this again, thank you.
 
-> On Wed, 2006-28-06 at 15:36 +0200, Herbert Poetzl wrote:
->
->> note: personally I'm absolutely not against virtualizing
->> the device names so that each guest can have a separate
->> name space for devices, but there should be a way to
->> 'see' _and_ 'identify' the interfaces from outside
->> (i.e. host or spectator context)
->> 
->
-> Makes sense for the host side to have naming convention tied
-> to the guest. Example as a prefix: guest0-eth0. Would it not
-> be interesting to have the host also manage these interfaces
-> via standard tools like ip or ifconfig etc? i.e if i admin up
-> guest0-eth0, then the user in guest0 will see its eth0 going
-> up.
->
-> Anyways, interesting discussion.
+I believe Roland is on vacation (they just had a baby..). 
 
-Please no.
+It is my belief that everything that Roland submitted went through both
+netdev and lklm reviews. 
 
-We really want the fundamental rule that a network device
-is tied to a single namespace, and that a socket is tied
-to a single namespace.  If those two conditions are met
-we don't have to tag packets with a namespace identifier.
 
-We only have to modify hash table lookups in the networking
-code to look at a namespace tag in addition to the rest because
-that is less expensive than allocating new hash tables.
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Currently with a network device only being usable in one
-network namespace we have the situation where we can
-fairly safely give a guest CAP_NET_ADMIN without problems.
-
-In addition currently nothing in the implementation knows about
-the hierarchical structure of how the network namespace will be
-used.  To allow ifconfig guest0-eth0 to work would require
-understanding the hierarchical structure and places serious questions
-on how safe we can make CAP_NET_ADMIN.
-
-Now I am open to radically different designs if they allow the
-implementation cost to be lower and they have clean semantics,
-and don't wind up being an ugly unmaintainable wart on the linux
-networking stack.  The only route I could imagine such a thing coming
-from is something like tagging flows, in some netfiler like way.
-Which might allow ifconfig guest-eth0 from the host without problems.
-But I have not seen such a design.
-
-Eric
