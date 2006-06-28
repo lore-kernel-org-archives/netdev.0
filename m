@@ -1,264 +1,539 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH 6/7] net: Add QE UCC Gigabit Ethernet driver
-Date: Wed, 28 Jun 2006 14:51:24 -0700
-Message-ID: <20060628145124.0c400df9.akpm@osdl.org>
-References: <9FCDBA58F226D911B202000BDBAD467306E04FD7@zch01exm40.ap.freescale.net>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: Network namespaces a path to mergable code.
+Date: Wed, 28 Jun 2006 23:53:42 +0200
+Message-ID: <44A2FA66.5070303@fr.ibm.com>
+References: <20060626134945.A28942@castle.nmd.msu.ru> <m14py6ldlj.fsf@ebiederm.dsl.xmission.com> <20060627215859.A20679@castle.nmd.msu.ru> <m1ejx9kj1r.fsf@ebiederm.dsl.xmission.com> <20060628150605.A29274@castle.nmd.msu.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	linux-kernel@vger.kernel.org, Hanjin.Chu@freescale.com,
-	gridish@freescale.com
+Content-Type: multipart/mixed;
+ boundary="------------020608020308010406000005"
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
+	devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:62122 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751567AbWF1VsJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 17:48:09 -0400
-To: Li Yang-r58472 <LeoLi@freescale.com>
-In-Reply-To: <9FCDBA58F226D911B202000BDBAD467306E04FD7@zch01exm40.ap.freescale.net>
+Received: from mtagate6.uk.ibm.com ([195.212.29.139]:28850 "EHLO
+	mtagate6.uk.ibm.com") by vger.kernel.org with ESMTP
+	id S1751571AbWF1Vxr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 17:53:47 -0400
+To: Andrey Savochkin <saw@swsoft.com>
+In-Reply-To: <20060628150605.A29274@castle.nmd.msu.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Li Yang-r58472 <LeoLi@freescale.com> wrote:
->
-> This is a gigabit Ethernet driver for Freescale QE(QUICC ENGINE) SOC.  QE can be found on PowerQUICC II pro family.
+This is a multi-part message in MIME format.
+--------------020608020308010406000005
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Andrey Savochkin wrote:
+
+> Ok, fine.
+> Now I'm working on socket code.
 > 
->
->
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index bdaaad8..ebbb218 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -2189,6 +2189,33 @@ config GFAR_NAPI
->  	bool "NAPI Support"
->  	depends on GIANFAR
->  
-> +config UCC_GETH
-> +	tristate "Freescale QE UCC GETH"
-> +	depends on QUICC_ENGINE
+> We still have a question about implicit vs explicit function parameters.
+> This question becomes more important for sockets: if we want to allow to use
+> sockets belonging to namespaces other than the current one, we need to do
+> something about it.
+> 
+> One possible option to resolve this question is to show 2 relatively short
+> patches just introducing namespaces for sockets in 2 ways: with explicit
+> function parameters and using implicit current context.
+> Then people can compare them and vote.
+> Do you think it's worth the effort?
+> 
 
-Opinions vary, but it can be useful if drivers such as this are compilable
-on common architectures (ie: x86).  That way, lots of people end up
-compiling it and problems (generally simple ones) can be fixed for you. 
-Plus it's much less likely that someone will break your driver by accident.
+The attached patch can have some part interesting for you for the socket 
+tagging. It is in the IPV4 isolation (part 5/6). With this and the 
+private routing table you will probably have a good IPV4 isolation.
 
-Then again, it'll cause people to build a driver which they cannot possibly
-use..
+--------------020608020308010406000005
+Content-Type: text/x-patch;
+ name="inet_isolation.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="inet_isolation.patch"
 
->  # link order important here
->  #
-> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-> new file mode 100644
-> index 0000000..a7be2eb
-> --- /dev/null
-> +++ b/drivers/net/ucc_geth.c
->
-> ...
->
-> +#include <asm/uaccess.h>
-> +#include <asm/irq.h>
-> +#include <asm/io.h>
-> +#include <asm/immap_qe.h>
-> +#include <asm/qe.h>
-> +
-> +#include <asm/ucc.h>
-> +#include <asm/ucc_fast.h>
+This patch partially isolates ipv4 by adding the network namespace
+structure in the structure sock, bind bucket and skbuf. When a socket
+is created, the pointer to the network namespace is stored in the
+struct sock and the socket belongs to the namespace by this way. That
+allows to identify sockets related to a namespace for lookup and
+procfs. 
 
-Well that rather rules out the x86 option.
+The lookup is extended with a network namespace pointer, in
+order to identify listen points binded to the same port. That allows
+to have several applications binded to INADDR_ANY:port in different
+network namespace without conflicting. The bind is checked against
+port and network namespace.
 
-> +
-> +static ucc_geth_info_t ugeth_primary_info = {
-> +	.uf_info = {
-> +		    .bd_mem_part = MEM_PART_SYSTEM,
-> +		    .brkpt_support = 0,
-> +		    .grant_support = 0,
-> +		    .tsa = 0,
-> +		    .cdp = 0,
-> +		    .cds = 0,
-> +		    .ctsp = 0,
-> +		    .ctss = 0,
-> +		    .tci = 0,
-> +		    .txsy = 0,
-> +		    .rtsm = UCC_FAST_SEND_IDLES_BETWEEN_FRAMES,
-> +		    .revd = 0,
-> +		    .rsyn = 0,
+When an outgoing packet has the loopback destination addres, the
+skbuff is filled with the network namespace. So the loopback packets
+never go outside the namespace. This approach facilitate the migration
+of loopback because identification is done by network namespace and
+not by address. The loopback has been benchmarked by tbench and the
+overhead is roughly 1.5 %
 
-Note that all the `.foo = 0' lines aren't needed.
+Replace-Subject: [Network namespace] ipv4 isolation
+Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com> 
+--
+ include/linux/skbuff.h           |    2 ++
+ include/net/inet_hashtables.h    |   34 ++++++++++++++++++++++++----------
+ include/net/inet_timewait_sock.h |    1 +
+ include/net/sock.h               |    4 ++++
+ net/dccp/ipv4.c                  |    7 ++++---
+ net/ipv4/af_inet.c               |    2 ++
+ net/ipv4/inet_connection_sock.c  |    3 ++-
+ net/ipv4/inet_diag.c             |    3 ++-
+ net/ipv4/inet_hashtables.c       |    6 +++++-
+ net/ipv4/inet_timewait_sock.c    |    1 +
+ net/ipv4/ip_output.c             |    4 ++++
+ net/ipv4/tcp_ipv4.c              |   25 ++++++++++++++++---------
+ net/ipv4/udp.c                   |    7 +++++--
+ 13 files changed, 72 insertions(+), 27 deletions(-)
 
-> +	.l2qt = {0, 0, 0, 0, 0, 0, 0, 0},
-> +	.l3qt = {0, 0, 0, 0, 0, 0, 0, 0,
-> +		 0, 0, 0, 0, 0, 0, 0, 0,
-> +		 0, 0, 0, 0, 0, 0, 0, 0,
-> +		 0, 0, 0, 0, 0, 0, 0, 0,
-> +		 0, 0, 0, 0, 0, 0, 0, 0,
-> +		 0, 0, 0, 0, 0, 0, 0, 0,
-> +		 0, 0, 0, 0, 0, 0, 0, 0,
-> +		 0, 0, 0, 0, 0, 0, 0, 0},
-> +	.vtagtable = {0, 0, 0, 0, 0, 0, 0, 0},
-> +	.iphoffset = {0, 0, 0, 0, 0, 0, 0, 0},
+Index: 2.6-mm/include/linux/skbuff.h
+===================================================================
+--- 2.6-mm.orig/include/linux/skbuff.h
++++ 2.6-mm/include/linux/skbuff.h
+@@ -27,6 +27,7 @@
+ #include <linux/poll.h>
+ #include <linux/net.h>
+ #include <linux/textsearch.h>
++#include <linux/net_ns.h>
+ #include <net/checksum.h>
+ #include <linux/dmaengine.h>
+ 
+@@ -301,6 +302,7 @@
+ 				*data,
+ 				*tail,
+ 				*end;
++	struct net_namespace    *net_ns;
+ };
+ 
+ #ifdef __KERNEL__
+Index: 2.6-mm/include/net/inet_hashtables.h
+===================================================================
+--- 2.6-mm.orig/include/net/inet_hashtables.h
++++ 2.6-mm/include/net/inet_hashtables.h
+@@ -23,6 +23,8 @@
+ #include <linux/spinlock.h>
+ #include <linux/types.h>
+ #include <linux/wait.h>
++#include <linux/in.h>
++#include <linux/net_ns.h>
+ 
+ #include <net/inet_connection_sock.h>
+ #include <net/inet_sock.h>
+@@ -78,6 +80,7 @@
+ 	signed short		fastreuse;
+ 	struct hlist_node	node;
+ 	struct hlist_head	owners;
++	struct net_namespace    *net_ns;
+ };
+ 
+ #define inet_bind_bucket_for_each(tb, node, head) \
+@@ -274,13 +277,15 @@
+ extern struct sock *__inet_lookup_listener(const struct hlist_head *head,
+ 					   const u32 daddr,
+ 					   const unsigned short hnum,
+-					   const int dif);
++					   const int dif,
++					   const struct net_namespace *net_ns);
+ 
+ /* Optimize the common listener case. */
+ static inline struct sock *
+ 		inet_lookup_listener(struct inet_hashinfo *hashinfo,
+ 				     const u32 daddr,
+-				     const unsigned short hnum, const int dif)
++				     const unsigned short hnum, const int dif,
++				     const struct net_namespace *net_ns)
+ {
+ 	struct sock *sk = NULL;
+ 	const struct hlist_head *head;
+@@ -294,8 +299,9 @@
+ 		    (!inet->rcv_saddr || inet->rcv_saddr == daddr) &&
+ 		    (sk->sk_family == PF_INET || !ipv6_only_sock(sk)) &&
+ 		    !sk->sk_bound_dev_if)
+-			goto sherry_cache;
+-		sk = __inet_lookup_listener(head, daddr, hnum, dif);
++			if (sk->sk_net_ns == net_ns && LOOPBACK(daddr))
++				goto sherry_cache;
++		sk = __inet_lookup_listener(head, daddr, hnum, dif, net_ns);
+ 	}
+ 	if (sk) {
+ sherry_cache:
+@@ -358,7 +364,8 @@
+ 	__inet_lookup_established(struct inet_hashinfo *hashinfo,
+ 				  const u32 saddr, const u16 sport,
+ 				  const u32 daddr, const u16 hnum,
+-				  const int dif)
++				  const int dif,
++				  const struct net_namespace *net_ns)
+ {
+ 	INET_ADDR_COOKIE(acookie, saddr, daddr)
+ 	const __u32 ports = INET_COMBINED_PORTS(sport, hnum);
+@@ -373,12 +380,16 @@
+ 	prefetch(head->chain.first);
+ 	read_lock(&head->lock);
+ 	sk_for_each(sk, node, &head->chain) {
++		if (sk->sk_net_ns != net_ns && LOOPBACK(daddr))
++			continue;
+ 		if (INET_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
+ 			goto hit; /* You sunk my battleship! */
+ 	}
+ 
+ 	/* Must check for a TIME_WAIT'er before going to listener hash. */
+ 	sk_for_each(sk, node, &(head + hashinfo->ehash_size)->chain) {
++		if (sk->sk_net_ns != net_ns && LOOPBACK(daddr))
++			continue;
+ 		if (INET_TW_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
+ 			goto hit;
+ 	}
+@@ -394,22 +405,25 @@
+ static inline struct sock *__inet_lookup(struct inet_hashinfo *hashinfo,
+ 					 const u32 saddr, const u16 sport,
+ 					 const u32 daddr, const u16 hnum,
+-					 const int dif)
++					 const int dif,
++					 const struct net_namespace *net_ns)
+ {
+ 	struct sock *sk = __inet_lookup_established(hashinfo, saddr, sport, daddr,
+-						    hnum, dif);
+-	return sk ? : inet_lookup_listener(hashinfo, daddr, hnum, dif);
++						    hnum, dif, net_ns);
++	return sk ? : inet_lookup_listener(hashinfo, daddr, hnum, dif, net_ns);
+ }
+ 
+ static inline struct sock *inet_lookup(struct inet_hashinfo *hashinfo,
+ 				       const u32 saddr, const u16 sport,
+ 				       const u32 daddr, const u16 dport,
+-				       const int dif)
++				       const int dif,
++				       const struct net_namespace *net_ns)
+ {
+ 	struct sock *sk;
+ 
+ 	local_bh_disable();
+-	sk = __inet_lookup(hashinfo, saddr, sport, daddr, ntohs(dport), dif);
++	sk = __inet_lookup(hashinfo, saddr, sport, daddr, ntohs(dport),
++			   dif, net_ns);
+ 	local_bh_enable();
+ 
+ 	return sk;
+Index: 2.6-mm/include/net/inet_timewait_sock.h
+===================================================================
+--- 2.6-mm.orig/include/net/inet_timewait_sock.h
++++ 2.6-mm/include/net/inet_timewait_sock.h
+@@ -115,6 +115,7 @@
+ #define tw_refcnt		__tw_common.skc_refcnt
+ #define tw_hash			__tw_common.skc_hash
+ #define tw_prot			__tw_common.skc_prot
++#define tw_net_ns               __tw_common.skc_net_ns
+ 	volatile unsigned char	tw_substate;
+ 	/* 3 bits hole, try to pack */
+ 	unsigned char		tw_rcv_wscale;
+Index: 2.6-mm/include/net/sock.h
+===================================================================
+--- 2.6-mm.orig/include/net/sock.h
++++ 2.6-mm/include/net/sock.h
+@@ -47,6 +47,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>	/* struct sk_buff */
+ #include <linux/security.h>
++#include <linux/net_ns.h>
+ 
+ #include <linux/filter.h>
+ 
+@@ -94,6 +95,7 @@
+  *	@skc_refcnt: reference count
+  *	@skc_hash: hash value used with various protocol lookup tables
+  *	@skc_prot: protocol handlers inside a network family
++ *      @skc_net_ns: network namespace owning the socket
+  *
+  *	This is the minimal network layer representation of sockets, the header
+  *	for struct sock and struct inet_timewait_sock.
+@@ -108,6 +110,7 @@
+ 	atomic_t		skc_refcnt;
+ 	unsigned int		skc_hash;
+ 	struct proto		*skc_prot;
++	struct net_namespace    *skc_net_ns;
+ };
+ 
+ /**
+@@ -183,6 +186,7 @@
+ #define sk_refcnt		__sk_common.skc_refcnt
+ #define sk_hash			__sk_common.skc_hash
+ #define sk_prot			__sk_common.skc_prot
++#define sk_net_ns               __sk_common.skc_net_ns
+ 	unsigned char		sk_shutdown : 2,
+ 				sk_no_check : 2,
+ 				sk_userlocks : 4;
+Index: 2.6-mm/net/dccp/ipv4.c
+===================================================================
+--- 2.6-mm.orig/net/dccp/ipv4.c
++++ 2.6-mm/net/dccp/ipv4.c
+@@ -308,7 +308,8 @@
+ 	}
+ 
+ 	sk = inet_lookup(&dccp_hashinfo, iph->daddr, dh->dccph_dport,
+-			 iph->saddr, dh->dccph_sport, inet_iif(skb));
++			 iph->saddr, dh->dccph_sport, inet_iif(skb),
++			 skb->net_ns);
+ 	if (sk == NULL) {
+ 		ICMP_INC_STATS_BH(ICMP_MIB_INERRORS);
+ 		return;
+@@ -610,7 +611,7 @@
+ 	nsk = __inet_lookup_established(&dccp_hashinfo,
+ 					iph->saddr, dh->dccph_sport,
+ 					iph->daddr, ntohs(dh->dccph_dport),
+-					inet_iif(skb));
++					inet_iif(skb), skb->net_ns);
+ 	if (nsk != NULL) {
+ 		if (nsk->sk_state != DCCP_TIME_WAIT) {
+ 			bh_lock_sock(nsk);
+@@ -924,7 +925,7 @@
+ 	sk = __inet_lookup(&dccp_hashinfo,
+ 			   skb->nh.iph->saddr, dh->dccph_sport,
+ 			   skb->nh.iph->daddr, ntohs(dh->dccph_dport),
+-			   inet_iif(skb));
++			   inet_iif(skb), skb->net_ns);
+ 
+ 	/* 
+ 	 * Step 2:
+Index: 2.6-mm/net/ipv4/af_inet.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/af_inet.c
++++ 2.6-mm/net/ipv4/af_inet.c
+@@ -325,6 +325,7 @@
+ 	sk->sk_family	   = PF_INET;
+ 	sk->sk_protocol	   = protocol;
+ 	sk->sk_backlog_rcv = sk->sk_prot->backlog_rcv;
++	sk->sk_net_ns      = net_ns();
+ 
+ 	inet->uc_ttl	= -1;
+ 	inet->mc_loop	= 1;
+@@ -616,6 +617,7 @@
+ 
+ 	sock_graft(sk2, newsock);
+ 
++	sk2->sk_net_ns = net_ns();
+ 	newsock->state = SS_CONNECTED;
+ 	err = 0;
+ 	release_sock(sk2);
+Index: 2.6-mm/net/ipv4/inet_connection_sock.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/inet_connection_sock.c
++++ 2.6-mm/net/ipv4/inet_connection_sock.c
+@@ -116,7 +116,7 @@
+ 		head = &hashinfo->bhash[inet_bhashfn(snum, hashinfo->bhash_size)];
+ 		spin_lock(&head->lock);
+ 		inet_bind_bucket_for_each(tb, node, &head->chain)
+-			if (tb->port == snum)
++			if (tb->port == snum && tb->net_ns == net_ns())
+ 				goto tb_found;
+ 	}
+ 	tb = NULL;
+@@ -146,6 +146,7 @@
+ 	} else if (tb->fastreuse &&
+ 		   (!sk->sk_reuse || sk->sk_state == TCP_LISTEN))
+ 		tb->fastreuse = 0;
++	tb->net_ns = net_ns();
+ success:
+ 	if (!inet_csk(sk)->icsk_bind_hash)
+ 		inet_bind_hash(sk, tb, snum);
+Index: 2.6-mm/net/ipv4/inet_diag.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/inet_diag.c
++++ 2.6-mm/net/ipv4/inet_diag.c
+@@ -241,7 +241,8 @@
+ 	if (req->idiag_family == AF_INET) {
+ 		sk = inet_lookup(hashinfo, req->id.idiag_dst[0],
+ 				 req->id.idiag_dport, req->id.idiag_src[0],
+-				 req->id.idiag_sport, req->id.idiag_if);
++				 req->id.idiag_sport, req->id.idiag_if,
++				 in_skb->net_ns);
+ 	}
+ #if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
+ 	else if (req->idiag_family == AF_INET6) {
+Index: 2.6-mm/net/ipv4/inet_hashtables.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/inet_hashtables.c
++++ 2.6-mm/net/ipv4/inet_hashtables.c
+@@ -126,7 +126,8 @@
+  * wildcarded during the search since they can never be otherwise.
+  */
+ struct sock *__inet_lookup_listener(const struct hlist_head *head, const u32 daddr,
+-				    const unsigned short hnum, const int dif)
++				    const unsigned short hnum, const int dif,
++				    const struct net_namespace *net_ns)
+ {
+ 	struct sock *result = NULL, *sk;
+ 	const struct hlist_node *node;
+@@ -139,6 +140,9 @@
+ 			const __u32 rcv_saddr = inet->rcv_saddr;
+ 			int score = sk->sk_family == PF_INET ? 1 : 0;
+ 
++			if (sk->sk_net_ns != net_ns && LOOPBACK(daddr))
++				continue;
++
+ 			if (rcv_saddr) {
+ 				if (rcv_saddr != daddr)
+ 					continue;
+Index: 2.6-mm/net/ipv4/inet_timewait_sock.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/inet_timewait_sock.c
++++ 2.6-mm/net/ipv4/inet_timewait_sock.c
+@@ -110,6 +110,7 @@
+ 		tw->tw_hash	    = sk->sk_hash;
+ 		tw->tw_ipv6only	    = 0;
+ 		tw->tw_prot	    = sk->sk_prot_creator;
++		tw->tw_net_ns       = sk->sk_net_ns;
+ 		atomic_set(&tw->tw_refcnt, 1);
+ 		inet_twsk_dead_node_init(tw);
+ 		__module_get(tw->tw_prot->owner);
+Index: 2.6-mm/net/ipv4/ip_output.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/ip_output.c
++++ 2.6-mm/net/ipv4/ip_output.c
+@@ -284,6 +284,10 @@
+ 
+ 	skb->dev = dev;
+ 	skb->protocol = htons(ETH_P_IP);
++	if ((skb->nh.iph->protocol == IPPROTO_TCP ||
++	     skb->nh.iph->protocol == IPPROTO_UDP) &&
++	    LOOPBACK(skb->nh.iph->daddr))
++			skb->net_ns = skb->sk->sk_net_ns;
+ 
+ 	return NF_HOOK_COND(PF_INET, NF_IP_POST_ROUTING, skb, NULL, dev,
+ 		            ip_finish_output,
+Index: 2.6-mm/net/ipv4/tcp_ipv4.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/tcp_ipv4.c
++++ 2.6-mm/net/ipv4/tcp_ipv4.c
+@@ -349,7 +349,7 @@
+ 	}
+ 
+ 	sk = inet_lookup(&tcp_hashinfo, iph->daddr, th->dest, iph->saddr,
+-			 th->source, inet_iif(skb));
++			 th->source, inet_iif(skb), skb->net_ns);
+ 	if (!sk) {
+ 		ICMP_INC_STATS_BH(ICMP_MIB_INERRORS);
+ 		return;
+@@ -933,7 +933,8 @@
+ 
+ 	nsk = __inet_lookup_established(&tcp_hashinfo, skb->nh.iph->saddr,
+ 					th->source, skb->nh.iph->daddr,
+-					ntohs(th->dest), inet_iif(skb));
++					ntohs(th->dest), inet_iif(skb),
++					skb->net_ns);
+ 
+ 	if (nsk) {
+ 		if (nsk->sk_state != TCP_TIME_WAIT) {
+@@ -1071,7 +1072,7 @@
+ 
+ 	sk = __inet_lookup(&tcp_hashinfo, skb->nh.iph->saddr, th->source,
+ 			   skb->nh.iph->daddr, ntohs(th->dest),
+-			   inet_iif(skb));
++			   inet_iif(skb), skb->net_ns);
+ 
+ 	if (!sk)
+ 		goto no_tcp_socket;
+@@ -1149,7 +1150,8 @@
+ 		struct sock *sk2 = inet_lookup_listener(&tcp_hashinfo,
+ 							skb->nh.iph->daddr,
+ 							ntohs(th->dest),
+-							inet_iif(skb));
++							inet_iif(skb),
++							skb->net_ns);
+ 		if (sk2) {
+ 			inet_twsk_deschedule((struct inet_timewait_sock *)sk,
+ 					     &tcp_death_row);
+@@ -1395,7 +1397,8 @@
+ 	}
+ get_sk:
+ 	sk_for_each_from(sk, node) {
+-		if (sk->sk_family == st->family) {
++		if (sk->sk_family == st->family &&
++		    sk->sk_net_ns == net_ns()) {
+ 			cur = sk;
+ 			goto out;
+ 		}
+@@ -1446,7 +1449,8 @@
+ 
+ 		read_lock(&tcp_hashinfo.ehash[st->bucket].lock);
+ 		sk_for_each(sk, node, &tcp_hashinfo.ehash[st->bucket].chain) {
+-			if (sk->sk_family != st->family) {
++			if (sk->sk_family != st->family ||
++			    sk->sk_net_ns != net_ns()) {
+ 				continue;
+ 			}
+ 			rc = sk;
+@@ -1455,7 +1459,8 @@
+ 		st->state = TCP_SEQ_STATE_TIME_WAIT;
+ 		inet_twsk_for_each(tw, node,
+ 				   &tcp_hashinfo.ehash[st->bucket + tcp_hashinfo.ehash_size].chain) {
+-			if (tw->tw_family != st->family) {
++			if (tw->tw_family != st->family ||
++			    tw->tw_net_ns != net_ns()) {
+ 				continue;
+ 			}
+ 			rc = tw;
+@@ -1481,7 +1486,8 @@
+ 		tw = cur;
+ 		tw = tw_next(tw);
+ get_tw:
+-		while (tw && tw->tw_family != st->family) {
++		while (tw && (tw->tw_family != st->family ||
++			      tw->tw_net_ns != net_ns())) {
+ 			tw = tw_next(tw);
+ 		}
+ 		if (tw) {
+@@ -1505,7 +1511,8 @@
+ 		sk = sk_next(sk);
+ 
+ 	sk_for_each_from(sk, node) {
+-		if (sk->sk_family == st->family)
++		if (sk->sk_family == st->family &&
++		    sk->sk_net_ns == net_ns())
+ 			goto found;
+ 	}
+ 
+Index: 2.6-mm/net/ipv4/udp.c
+===================================================================
+--- 2.6-mm.orig/net/ipv4/udp.c
++++ 2.6-mm/net/ipv4/udp.c
+@@ -184,6 +184,7 @@
+ 			    (!inet2->rcv_saddr ||
+ 			     !inet->rcv_saddr ||
+ 			     inet2->rcv_saddr == inet->rcv_saddr) &&
++			    sk2->sk_net_ns == sk->sk_net_ns &&
+ 			    (!sk2->sk_reuse || !sk->sk_reuse))
+ 				goto fail;
+ 		}
+@@ -1404,7 +1405,8 @@
+ 	for (state->bucket = 0; state->bucket < UDP_HTABLE_SIZE; ++state->bucket) {
+ 		struct hlist_node *node;
+ 		sk_for_each(sk, node, &udp_hash[state->bucket]) {
+-			if (sk->sk_family == state->family)
++			if (sk->sk_family == state->family &&
++			    sk->sk_net_ns == net_ns())
+ 				goto found;
+ 		}
+ 	}
+@@ -1421,7 +1423,8 @@
+ 		sk = sk_next(sk);
+ try_again:
+ 		;
+-	} while (sk && sk->sk_family != state->family);
++	} while (sk && (sk->sk_family != state->family ||
++			sk->sk_net_ns != net_ns()));
+ 
+ 	if (!sk && ++state->bucket < UDP_HTABLE_SIZE) {
+ 		sk = sk_head(&udp_hash[state->bucket]);
 
-In fact I'd be inclined to remove them - the chances of keeping this table
-in sync with the actual struct definition seem low.
+--
 
-> +
-> +#ifdef DEBUG
-> +static void mem_disp(u8 * addr, int size)
-> +{
-> +	u8 *i;
-> +	int size16Aling = (size >> 4) << 4;
-> +	int size4Aling = (size >> 2) << 2;
-> +	int notAlign = 0;
-> +	if (size % 16)
-> +		notAlign = 1;
-> +
-> +	for (i = addr; (u32) i < (u32) addr + size16Aling; i += 16)
-> +		printk("0x%08x: %08x %08x %08x %08x\r\n",
-> +		       (u32) i,
-> +		       *((u32 *) (i)),
-> +		       *((u32 *) (i + 4)),
-> +		       *((u32 *) (i + 8)), *((u32 *) (i + 12)));
-> +	if (notAlign == 1)
-> +		printk("0x%08x: ", (u32) i);
-> +	for (; (u32) i < (u32) addr + size4Aling; i += 4)
-> +		printk("%08x ", *((u32 *) (i)));
-> +	for (; (u32) i < (u32) addr + size; i++)
-> +		printk("%02x", *((u8 *) (i)));
-> +	if (notAlign == 1)
-> +		printk("\r\n");
-> +}
-> +#endif /* DEBUG */
 
-This is very non-64-bit.
-
-> +#ifdef CONFIG_UGETH_FILTERING
-> +static void enqueue(struct list_head *node, struct list_head *lh)
-> +{
-> +	unsigned long flags;
-> +
-> +	local_irq_save(flags);
-> +	list_add_tail(node, lh);
-> +	local_irq_restore(flags);
-> +}
-> +#endif /* CONFIG_UGETH_FILTERING */
-
-And local_irq_save() is very non-SMP (isn't it?)
-
-> +static struct list_head *dequeue(struct list_head *lh)
-> +{
-> +	unsigned long flags;
-> +
-> +	local_irq_save(flags);
-> +	if (!list_empty(lh)) {
-> +		struct list_head *node = lh->next;
-> +		list_del(node);
-> +		local_irq_restore(flags);
-> +		return node;
-> +	} else {
-> +		local_irq_restore(flags);
-> +		return NULL;
-> +	}
-> +}
-
-Unless this really really really never will run on SMP, it'd be better to
-use spin_lock_irqsave() here.  That's equivalent on !SMP.
-
-> +static struct sk_buff *get_new_skb(ucc_geth_private_t * ugeth, u8 * bd)
-
-Preferred coding style is
-
-static struct sk_buff *get_new_skb(ucc_geth_private_t *ugeth, u8 *bd)
-
-> +{
-> +	struct sk_buff *skb = NULL;
-> +	unsigned int timeout = SKB_ALLOC_TIMEOUT;
-> +
-> +	/* We have to allocate the skb, so keep trying till we succeed */
-> +	while ((!skb) && timeout--)
-> +		skb =
-> +		    dev_alloc_skb(ugeth->ug_info->uf_info.max_rx_buf_length +
-> +				  UCC_GETH_RX_DATA_BUF_ALIGNMENT);
-
-This is pretty pointless.  If the first allocation attempt failed then
-for-sure the rest of them will fail too.  All it does is waste CPU.
-
-> +
-> +static int rx_bd_buffer_set(ucc_geth_private_t * ugeth, u8 rxQ)
-> +{
-> +	u8 *bd;
-> +	u32 bd_status;
-> +	struct sk_buff *skb;
-> +	int i;
-> +
-> +	if (!ugeth) {
-> +		ugeth_err("%s: No handle passed.", __FUNCTION__);
-> +		return -EINVAL;
-> +	}
-
-Presumably, this can't happen.  Suggest you remove this code and let the
-thing oops if it does happen.
-
-> +static int fill_init_enet_entries(ucc_geth_private_t * ugeth,
-> +				  volatile u32 * p_start,
-> +				  u8 num_entries,
-> +				  u32 thread_size,
-> +				  u32 thread_alignment,
-> +				  qe_risc_allocation_e risc,
-> +				  int skip_page_for_first_entry)
-> +{
-> +	u32 init_enet_offset;
-> +	u8 i;
-> +	int snum;
-> +
-> +	if (!ugeth || !ugeth->uccf) {
-> +		ugeth_err("%s: No handle passed.", __FUNCTION__);
-> +		return -EINVAL;
-> +	}
-
-Ditto.
-
-> +#ifdef CONFIG_UGETH_FILTERING
-> +static enet_addr_container_t *get_enet_addr_container(void)
-> +{
-> +	enet_addr_container_t *enet_addr_cont;
-> +
-> +	/* allocate memory */
-> +	enet_addr_cont =
-> +	    (enet_addr_container_t *) kmalloc(sizeof(enet_addr_container_t),
-
-Unneeded typecast.
-
-> +
-> +static inline int compare_addr(enet_addr_t * addr1, enet_addr_t * addr2)
-> +{
-> +	return strncmp((char *)addr1, (char *)addr2,
-> +		       ENET_NUM_OCTETS_PER_ADDRESS);
-> +}
-
-Shouldn't this use memcmp()?  strncmp() will stop at 0x00.
-
-> +			mem_disp((u8 *) & ugeth->p_thread_data_tx[i],
-> +				 sizeof(ucc_geth_thread_data_tx_t));
-
-We should have a kernel-wide printk-a-block-of-memory-out library function,
-but we don't.
-
-> +static int init_check_frame_length_mode(int length_check,
-> +					volatile u32 * maccfg2_register)
-> +{
-> +	u32 value = 0;
-
-Unneeded initialisation (lots of places).
-
-> +	value = in_be32(maccfg2_register);
-
-> +/* Called every time the controller might need to be made
-> + * aware of new link state.  The PHY code conveys this
-> + * information through variables in the ugeth structure, and this
-> + * function converts those variables into the appropriate
-> + * register values, and can bring down the device if needed.
-> + */
-> +#include <linux/mii.h>
-
-This is a funny place to be including a header file.  Better to put it at
-the top of the .c file.
-
-[remainder skipped - it's a big driver]
+--------------020608020308010406000005--
