@@ -1,104 +1,47 @@
-From: Herbert Poetzl <herbert@13thfloor.at>
+From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: Network namespaces a path to mergable code.
-Date: Wed, 28 Jun 2006 19:40:06 +0200
-Message-ID: <20060628174005.GE6440@MAIL.13thfloor.at>
-References: <20060626134945.A28942@castle.nmd.msu.ru> <m14py6ldlj.fsf@ebiederm.dsl.xmission.com> <20060627215859.A20679@castle.nmd.msu.ru> <m1ejx9kj1r.fsf@ebiederm.dsl.xmission.com> <20060628150605.A29274@castle.nmd.msu.ru> <m1sllpfckx.fsf@ebiederm.dsl.xmission.com> <20060628212240.A1833@castle.nmd.msu.ru>
+Date: Wed, 28 Jun 2006 11:50:00 -0600
+Message-ID: <m1veqldvav.fsf@ebiederm.dsl.xmission.com>
+References: <20060626134945.A28942@castle.nmd.msu.ru>
+	<m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
+	<20060627215859.A20679@castle.nmd.msu.ru>
+	<m1ejx9kj1r.fsf@ebiederm.dsl.xmission.com>
+	<20060628150605.A29274@castle.nmd.msu.ru>
+	<m1sllpfckx.fsf@ebiederm.dsl.xmission.com>
+	<20060628212240.A1833@castle.nmd.msu.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>, dlezcano@fr.ibm.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
-	sam@vilain.net, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
+Cc: dlezcano@fr.ibm.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
+	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
+	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
+	viro@ftp.linux.org.uk, Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MAIL.13thfloor.at ([212.16.62.50]:51692 "EHLO mail.13thfloor.at")
-	by vger.kernel.org with ESMTP id S1751437AbWF1RkH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 13:40:07 -0400
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:47004 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S1751507AbWF1RvY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 13:51:24 -0400
 To: Andrey Savochkin <saw@swsoft.com>
-Content-Disposition: inline
-In-Reply-To: <20060628212240.A1833@castle.nmd.msu.ru>
+In-Reply-To: <20060628212240.A1833@castle.nmd.msu.ru> (Andrey Savochkin's
+	message of "Wed, 28 Jun 2006 21:22:40 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 28, 2006 at 09:22:40PM +0400, Andrey Savochkin wrote:
-> Hi Eric,
-> 
-> On Wed, Jun 28, 2006 at 10:51:26AM -0600, Eric W. Biederman wrote:
-> > Andrey Savochkin <saw@swsoft.com> writes:
-> > 
-> > > One possible option to resolve this question is to show 2
-> > > relatively short patches just introducing namespaces for sockets
-> > > in 2 ways: with explicit function parameters and using implicit
-> > > current context. Then people can compare them and vote. Do you
-> > > think it's worth the effort?
-> >
-> > Given that we have two strong opinions in different directions I
-> > think it is worth the effort to resolve this.
+Andrey Savochkin <saw@swsoft.com> writes:
+
+>> A general pattern that happens in cleanups is the discovery
+>> that code using an old interface in a problematic way really
+>> could be done much better another way.  I didn't dig enough
+>> to see if that was the case in any of the code that you changed.
 >
-> Do you have time to extract necessary parts of your old patch? Or you
-> aren't afraid of letting me draft an alternative version of socket
-> namespaces basing on your code? :)
->
-> > In a slightly different vein your second patch introduced a lot of
-> > #ifdef CONFIG_NET_NS in C files. That is something we need to look
-> > closely at.
-> >
-> > So I think the abstraction that we use to access per network
-> > namespace variables needs some work if we are going to allow the
-> > ability to compile out all of the namespace code. The explicit
-> > versus implicit lookup is just one dimension of that problem.
-> This is a good comment.
-> 
-> Those ifdef's mostly correspond to places where we walk over lists and
-> need to filter-out entities not belonging to a specific namespace.
-> Those places about the same in your and my implementation. We can
-> think what we can do with them. One trick that I used on several
-> occasions is net_ns_same macro which doesn't evalute its arguments if
-> CONFIG_NET_NS not defined, and thus can be used without ifdef's.
-
-yes, I think almost all of those cases can be avoided
-while making the code even more readable by using
-proper preprocessor (or even inline) mechanisms
-
-> Returning to implicit vs explicit function arguments, I belive that
-> implicit arguments are more promising in having zero impact on the
-> code when CONFIG_NET_NS is disabled. Functions like inet_addr_type
-> will translate into exactly the same code as they did without net
-> namespace patches.
-
-maybe a preprocessor wrapper can help here too ...
-
-> > >> I'm still curious why many of those chunks can't use existing helper
-> > >> functions, to be cleaned up.
-> > >
-> > > What helper functions are you referring to?
-> > 
-> > Basically most of the device list walker functions live in.
-> > net/core/dev.c 
-> > 
-> > I don't know if the cases you fixed could have used any of those
-> > helper functions but it certainly has me asking that question.
-> > 
-> > A general pattern that happens in cleanups is the discovery
-> > that code using an old interface in a problematic way really
-> > could be done much better another way.  I didn't dig enough
-> > to see if that was the case in any of the code that you changed.
-> 
-> Well, there is obvious improvement of this kind: many protocols walk
-> over device list to find devices with non-NULL protocol specific
-> pointers. For example, IPv6, decnet and others do it on module
-> unloading to clean up. Those places just ask for some simpler standard
-> way of doing it, but I wasn't bold enough for such radical change.
-
+> Well, there is obvious improvement of this kind: many protocols walk over
+> device list to find devices with non-NULL protocol specific pointers.
+> For example, IPv6, decnet and others do it on module unloading to clean up.
+> Those places just ask for some simpler standard way of doing it, but I wasn't
+> bold enough for such radical change.
 > Do you think I should try?
 
-IMHO it could not hurt to have some kind of protocol
-helper library functions or macros ...
+It probably makes sense to asses that after the patches are split up.
+Unless you run into something obvious.
 
-best,
-Herbert
-
-> Best regards
-> 
-> Andrey
+Eric
