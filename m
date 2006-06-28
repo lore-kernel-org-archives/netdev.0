@@ -1,51 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: TOE, etc. (was Re: [PATCH Round 3 0/2][RFC] Network Event Notifier Mechanism)
-Date: Wed, 28 Jun 2006 14:29:59 +1000
-Message-ID: <20060628042959.GA5561@gondor.apana.org.au>
-References: <20060627205050.30723.25753.stgit@stevo-desktop> <E1FvQBu-00018u-00@gondolin.me.apana.org.au> <20060628030400.GA4474@gondor.apana.org.au> <44A1F669.8070606@pobox.com> <20060628033708.GA4922@gondor.apana.org.au> <44A20311.5050301@pobox.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Network namespaces a path to mergable code.
+Date: Tue, 27 Jun 2006 22:33:48 -0600
+Message-ID: <m1ac7xkifn.fsf@ebiederm.dsl.xmission.com>
+References: <20060626134945.A28942@castle.nmd.msu.ru>
+	<m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
+	<20060627215859.A20679@castle.nmd.msu.ru>
+	<44A1AF37.3070100@vilain.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Steve Wise <swise@opengridcomputing.com>,
-	netdev@vger.kernel.org
+Cc: Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
+	devel@openvz.org, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>,
+	Mark Huang <mlhuang@CS.Princeton.EDU>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1035 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1030324AbWF1EaR
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 00:30:17 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <44A20311.5050301@pobox.com>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:16333 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S1030371AbWF1EfY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 00:35:24 -0400
+To: Sam Vilain <sam@vilain.net>
+In-Reply-To: <44A1AF37.3070100@vilain.net> (Sam Vilain's message of "Wed, 28
+	Jun 2006 10:20:39 +1200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 28, 2006 at 12:18:25AM -0400, Jeff Garzik wrote:
-> 
-> A PCI device that presents itself as a SCSI controller, but under the 
-> hood is really iSCSI-over-TCP smells like TOE.  Running a virtualized 
-> Linux guest on top of a proprietary stack [which provides networking 
-> services to guests] also smells like TOE.  :)
+Sam Vilain <sam@vilain.net> writes:
 
-Agreed.  However, when they start adding hooks to the ARP table, the
-routing table, and PMTU management, it begs the question what more is
-there to add for TOE (well, user-space driven TOE at least)?
- 
-> Unfortunately I don't have more details, so you just get a generalized 
-> rant :)
+> It sounds then like it would be a good start to have general socket
+> namespaces, if it would merge more easily - perhaps then network device
+> namespaces would fall into place more easily.
 
-OK, the patch under discussion here adds hooks to all the stuff in the
-previous paragraph for the purpose of RDMA over TCP (well I must say
-that the exact RDMA application/hardware has never been clearly given
-but this is what I can gather from the previous posts).
 
-Put it another way, I think the dividing line between TOE and iSCSI or
-virtualisation is exactly the interface between them and the Linux kernel.
-If the interface is an existing one such as SCSI or standard IP then it's
-OK.  However, when it starts poking in the guts of the Linux stack I'd say
-that it has crossed the line.
+I guess I really see both sockets and devices as the fundamental
+entities of a network namespace.  Sockets need to be tagged because
+in the general case there is no guarantee that a socket that you are
+using was created in the network namespace of your current process.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+In general it is possible to get file descriptors opened by someone
+else because unix domain sockets allow file descriptor passing.  Similarly
+I think there are cases in both unshare and fork that allows you to sockets
+open before you entered a namespace.
+
+Since you can't create a new socket in a different network namespace
+I can't see any real problems with allowing them to be used, but they
+are something to be careful about in container creation code.
+
+Something to examine here is that if both network devices and sockets
+are tagged does that still allow implicit network namespace passing.
+
+Eric
