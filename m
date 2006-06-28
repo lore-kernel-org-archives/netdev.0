@@ -1,39 +1,67 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: Network namespaces a path to mergable code.
-Date: Wed, 28 Jun 2006 09:15:39 -0500
-Message-ID: <20060628141539.GA32736@sergelap.austin.ibm.com>
-References: <20060626134945.A28942@castle.nmd.msu.ru> <m14py6ldlj.fsf@ebiederm.dsl.xmission.com> <20060627215859.A20679@castle.nmd.msu.ru> <44A1AF37.3070100@vilain.net> <m1ac7xkifn.fsf@ebiederm.dsl.xmission.com> <44A21F7A.5030807@vilain.net> <m1r719ixb6.fsf@ebiederm.dsl.xmission.com> <44A251F2.70707@fr.ibm.com> <m1bqsdidhe.fsf@ebiederm.dsl.xmission.com>
+From: Andrey Savochkin <saw@swsoft.com>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Wed, 28 Jun 2006 18:19:00 +0400
+Message-ID: <20060628181900.A31885@castle.nmd.msu.ru>
+References: <m1sllqn7cb.fsf@ebiederm.dsl.xmission.com> <20060627160241.GB28984@MAIL.13thfloor.at> <m1psgulf4u.fsf@ebiederm.dsl.xmission.com> <44A1689B.7060809@candelatech.com> <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Cedric Le Goater <clg@fr.ibm.com>, Sam Vilain <sam@vilain.net>,
-	Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
-	devel@openvz.org, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>,
-	Mark Huang <mlhuang@CS.Princeton.EDU>
+Cc: Herbert Poetzl <herbert@13thfloor.at>,
+	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
+	sam@vilain.net, devel@openvz.org, dev@sw.ru,
+	Andrew Morton <akpm@osdl.org>, clg@fr.ibm.com,
+	serue@us.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Dave Hansen <haveblue@us.ibm.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:4770 "EHLO e36.co.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1030507AbWF1OQh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 10:16:37 -0400
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Content-Disposition: inline
-In-Reply-To: <m1bqsdidhe.fsf@ebiederm.dsl.xmission.com>
+Received: from castle.nmd.msu.ru ([193.232.112.53]:6926 "HELO
+	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1423350AbWF1OTC
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 10:19:02 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1151502803.5203.101.camel@jzny2>; from "jamal" on Wed, Jun 28, 2006 at 09:53:23AM
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Eric W. Biederman (ebiederm@xmission.com):
-> > I think we're reaching the limits of namespaces. It would be much easier
-> > with a container id in each kernel object we want to isolate.
-> 
-> Nope.  Except for the fact that names are peculiar (sockets, network
-> device names, IP address, routes...) the network stack splits quite cleanly.
-> 
-> I did all of this in a proof of concept mode several months ago and
-> the code is still sitting in my git tree on kernel.org.  I even got
-> the generic stack reference counting fixed.
-> 
-> Eric
+Hi Jamal,
 
-Which branch?
+On Wed, Jun 28, 2006 at 09:53:23AM -0400, jamal wrote:
+> 
+> On Wed, 2006-28-06 at 15:36 +0200, Herbert Poetzl wrote:
+> 
+> > note: personally I'm absolutely not against virtualizing
+> > the device names so that each guest can have a separate
+> > name space for devices, but there should be a way to
+> > 'see' _and_ 'identify' the interfaces from outside
+> > (i.e. host or spectator context)
+> > 
+> 
+> Makes sense for the host side to have naming convention tied
+> to the guest. Example as a prefix: guest0-eth0. Would it not
+> be interesting to have the host also manage these interfaces
+> via standard tools like ip or ifconfig etc? i.e if i admin up
+> guest0-eth0, then the user in guest0 will see its eth0 going
+> up.
+
+Seeing guestXX-eth0 interfaces by standard tools has certain attractive
+sides.  But it creates a lot of undesired side effects.
+
+For example, ntpd queries all network devices by the same ioctls as ifconfig,
+and creates separate sockets bound to IP addresses of each device, which is
+certainly not desired with namespaces.
+
+Or more subtle question: do you want hotplug events to be generated when
+guest0-eth0 interface comes up in the root namespace, and standard scripts
+to try to set some IP address on this interface?..
+
+In my opinion, the downside of this scheme overweights possible advantages,
+and I'm personally quite happy with running commands with switched namespace,
+like
+vzctl exec guest0 ip addr list
+vzctl exec guest0 ip link set eth0 up
+and so on.
+
+Best regards
+
+Andrey
