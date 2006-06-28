@@ -1,58 +1,95 @@
-From: Cedric Le Goater <clg@fr.ibm.com>
-Subject: Re: [RFC] Network namespaces a path to mergable code.
-Date: Wed, 28 Jun 2006 12:20:50 +0200
-Message-ID: <44A25802.3030006@fr.ibm.com>
-References: <20060626134945.A28942@castle.nmd.msu.ru> <m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
+From: Andrey Savochkin <saw@swsoft.com>
+Subject: Re: Network namespaces a path to mergable code.
+Date: Wed, 28 Jun 2006 15:06:05 +0400
+Message-ID: <20060628150605.A29274@castle.nmd.msu.ru>
+References: <20060626134945.A28942@castle.nmd.msu.ru> <m14py6ldlj.fsf@ebiederm.dsl.xmission.com> <20060627215859.A20679@castle.nmd.msu.ru> <m1ejx9kj1r.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
-	devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk
+Content-Type: text/plain; charset=us-ascii
+Cc: dlezcano@fr.ibm.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
+	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
+	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
+	viro@ftp.linux.org.uk, Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:26295 "EHLO e3.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1422641AbWF1KVA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 06:21:00 -0400
+Received: from castle.nmd.msu.ru ([193.232.112.53]:3595 "HELO
+	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S932505AbWF1LGH
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 07:06:07 -0400
 To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
+In-Reply-To: <m1ejx9kj1r.fsf@ebiederm.dsl.xmission.com>; from "Eric W. Biederman" on Tue, Jun 27, 2006 at 10:20:32PM
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Hi Eric,
 
-Eric W. Biederman wrote:
-> Thinking about this I am going to suggest a slightly different direction
-> for get a patchset we can merge.
+On Tue, Jun 27, 2006 at 10:20:32PM -0600, Eric W. Biederman wrote:
+> Andrey Savochkin <saw@swsoft.com> writes:
+[snip]
+> > My first patchset covers devices but not sockets.
+> > The only difference from what you're suggesting is ipv4 routing.
+> > For me, it is not less important than devices and sockets.  May be even
+> > more important, since routing exposes design deficiencies less obvious at
+> > socket level.
 > 
-> First we concentrate on the fundamentals.
-> - How we mark a device as belonging to a specific network namespace.
-> - How we mark a socket as belonging to a specific network namespace.
+> I agree we need to do it.  I mostly want a base that allows us to 
+> not need to convert the whole network stack at once and still be able
+> to merge code all the way to the stable kernel.
 > 
-> As part of the fundamentals we add a patch to the generic socket code
-> that by default will disable it for protocol families that do not indicate
-> support for handling network namespaces, on a non-default network namespace.
+> The routing code is important for understanding design choices.  It
+> isn't important for merging if that makes sense.   
+
+Ok, fine.
+Now I'm working on socket code.
+
+We still have a question about implicit vs explicit function parameters.
+This question becomes more important for sockets: if we want to allow to use
+sockets belonging to namespaces other than the current one, we need to do
+something about it.
+
+One possible option to resolve this question is to show 2 relatively short
+patches just introducing namespaces for sockets in 2 ways: with explicit
+function parameters and using implicit current context.
+Then people can compare them and vote.
+Do you think it's worth the effort?
+
 > 
-> I think that gives us a path that will allow us to convert the network stack
-> one protocol family at a time instead of in one big lump.
+> For everyone looking at routing choices the IPv6 routing table is
+> interesting because it does not use a hash table, and seems quite
+> possibly to be an equally fast structure that scales better.
 > 
-> Stubbing off the sysfs and sysctl interfaces in the first round for the
-> non-default namespaces as you have done should be good enough.
+> There is something to think about there.
+
+Sure
+
+[snip]
+> >
+> > Can you summarize you objections against my way of handling devices, please?
+> > And what was the typo you referred to in your letter to Kirill Korotaev?
 > 
-> The reason for the suggestion is that most of the work for the protocol
-> stacks ipv4 ipv6 af_packet af_unix is largely noise, and simple
-> replacement without real design work happening.  Mostly it is just
-> tweaking the code to remove global variables, and doing a couple
-> lookups.
+> I have no fundamental objects to the content I have seen so far.
+> 
+> Please read the first email Kirill responded too.  I quoted a couple
+> of sections of code and described the bugs I saw with the patch.
 
-How that proposal differs from the initial Daniel's patchset ? how far was
-that patchset to reach a similar agreement ?
+I found your comments, thank you!
 
-OK, i wear blue socks :), but I'm not advocating a patchset more than
-another i'm just looking for a shorter path.
+> 
+> All minor things.  The typo I was referring to was a section where the
+> original iteration was on an ifp variable and you called it dev
+> without changing the rest of the code in that section.  
+> 
+> The only big issue was that the patch too big, and should be split
+> into a patchset for better review.  One patch for the new functions,
+> and the an additional patch for each driver/subsystem hunk describing
+> why that chunk needed to be changed.
 
-thanks,
+I'll split the patch.
 
-C.
+> I'm still curious why many of those chunks can't use existing helper
+> functions, to be cleaned up.
 
+What helper functions are you referring to?
+
+Best regards
+
+Andrey
