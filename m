@@ -1,52 +1,56 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: FW: + qla3xxx-is-bust.patch added to -mm tree
-Date: Wed, 28 Jun 2006 16:24:00 -0700
-Message-ID: <20060628162400.4e7b73ac.akpm@osdl.org>
-References: <0BB3E5E7462EEA4295BC02D49691DC07176D31@AVEXCH1.qlogic.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: TOE, etc.
+Date: Wed, 28 Jun 2006 19:43:06 -0400
+Message-ID: <44A3140A.1040901@pobox.com>
+References: <54AD0F12E08D1541B826BE97C98F99F15F5BA4@NT-SJCA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Linux-Driver@qlogic.com
+Cc: David Miller <davem@davemloft.net>, swise@opengridcomputing.com,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:20934 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751764AbWF1XUs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 19:20:48 -0400
-To: "Ron Mercer" <ron.mercer@qlogic.com>
-In-Reply-To: <0BB3E5E7462EEA4295BC02D49691DC07176D31@AVEXCH1.qlogic.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:61146 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1750901AbWF1XnP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 19:43:15 -0400
+To: Caitlin Bestler <caitlinb@broadcom.com>
+In-Reply-To: <54AD0F12E08D1541B826BE97C98F99F15F5BA4@NT-SJCA-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Ron Mercer" <ron.mercer@qlogic.com> wrote:
->
-> > 
-> > Is the device hotpluggable?   If so, this:
-> > 
-> > 	qdev->index = cards_found;
-> > 
-> > in the probe() handler might do odd things - it'll just keep 
-> > increasing as the card is removed and re-added.
-> > 
-> > iirc, that's a common problem with net drivers.  AFAICT it'll 
-> > cause only cosmetic oddities here.
-> > 
-> >
+Caitlin Bestler wrote:
+> Jeff Garzik wrote:
+>> Caitlin Bestler wrote:
+>>> But hardware iSCSI implementations, which already exist, do not work
+>>> through normal sockets.
+
+>> No, they work through normal SCSI stack...
+
+> Correct.
 > 
-> Not sure if the device supports hotplug.  I'm looking into it.  Either
-> way, I will be removing qdev->index.  It's not needed. 
-> 
-> I am working on the remaining items that Jeff pointed out when he
-> reviewed my driver.  I will forward a patch built against what you
-> currently have when I'm done.
+> But they then interface to the network using none of the network stack.
+> The normal SCSI stack does not control that it any way.
 
-OK.
+Correct.  And the network stack is completely unaware of whatever IP 
+addresses, ARP tables, routing tables, etc. it is using.
 
-> Now that the driver is in mm tree, is there anything I need to do to get
-> it into Linus' tree?
 
-It should go via Jeff.  I added it to -mm just to get it a bit of
-attention, more reviewers, extra compile coverage testing, etc.
+> NFS over RDMA is part of the file system. That doesn't change the fact
+> that it's use of IP Addresses needs to be co-ordinated with the network
+> stack, and indeed that address based authentication *assumes* that this
+> is the case. (and yes, there are preferable means of authentication, but
+> authenticating based on IP address is already supported).
 
-If you want to consider the patch in -mm to be the reference copy then
-that's fine.  You should do maintenance work against that patch and I'll
-add it to the patches which I send to Jeff on Thursdays until he merges it
-or rejects it.
+Sounds quite broken to me.
+
+
+> But back on the main point, if implementing SCSI services over a
+> TCP connection is acceptable even though it does not use a kernel
+> socket, why would it not be acceptable to implement RDMA services
+> over a TCP connection without using a kernel socket?
+
+Because SCSI doesn't force nasty hooks into the net stack to allow for 
+sharing of resources with a proprietary black box of unknown quality.
+
+	Jeff
+
+
