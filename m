@@ -1,72 +1,46 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Wed, 28 Jun 2006 08:21:38 -0600
-Message-ID: <m1zmfxgy31.fsf@ebiederm.dsl.xmission.com>
-References: <20060627133849.E13959@castle.nmd.msu.ru>
-	<44A1149E.6060802@fr.ibm.com>
-	<m1sllqn7cb.fsf@ebiederm.dsl.xmission.com>
-	<20060627160241.GB28984@MAIL.13thfloor.at>
-	<m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
-	<44A1689B.7060809@candelatech.com>
-	<20060627225213.GB2612@MAIL.13thfloor.at>
-	<1151449973.24103.51.camel@localhost.localdomain>
-	<20060627234210.GA1598@ms2.inr.ac.ru>
-	<m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>
-	<20060628133640.GB5088@MAIL.13thfloor.at>
+From: Andrey Savochkin <saw@swsoft.com>
+Subject: Re: [patch 3/4] Network namespaces: IPv4 FIB/routing in namespaces
+Date: Wed, 28 Jun 2006 18:30:15 +0400
+Message-ID: <20060628183015.B31885@castle.nmd.msu.ru>
+References: <20060626134945.A28942@castle.nmd.msu.ru> <20060626135250.B28942@castle.nmd.msu.ru> <20060626135427.C28942@castle.nmd.msu.ru> <449FF5AE.2040201@fr.ibm.com> <44A28964.2090006@fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Andrey Savochkin <saw@swsoft.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>,
-	dev@sw.ru, devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
+	devel@openvz.org, sam@vilain.net, ebiederm@xmission.com,
+	viro@ftp.linux.org.uk, alexey@sw.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:33425 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1423356AbWF1OXK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 10:23:10 -0400
-To: Herbert Poetzl <herbert@13thfloor.at>
-In-Reply-To: <20060628133640.GB5088@MAIL.13thfloor.at> (Herbert Poetzl's
-	message of "Wed, 28 Jun 2006 15:36:40 +0200")
+Received: from castle.nmd.msu.ru ([193.232.112.53]:17422 "HELO
+	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1423361AbWF1OaQ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 10:30:16 -0400
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
+In-Reply-To: <44A28964.2090006@fr.ibm.com>; from "Daniel Lezcano" on Wed, Jun 28, 2006 at 03:51:32PM
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Poetzl <herbert@13thfloor.at> writes:
+Daniel,
 
-> last time I pointed to such 'misguided' apps which 
-> made assumptions that are not necessarily true
-> inside a virtual environment (e.g. pstree, initpid)
-> the general? position was that those apps should
-> be fixed instead adding a 'workaround'
+On Wed, Jun 28, 2006 at 03:51:32PM +0200, Daniel Lezcano wrote:
+> Daniel Lezcano wrote:
+> > Andrey Savochkin wrote:
+> > 
+> >> Structures related to IPv4 rounting (FIB and routing cache)
+> >> are made per-namespace.
+> 
+> Hi Andrey,
+> 
+> if the ressources are private to the namespace, how do you will handle 
+> NFS mounted before creating the network namespace ? Do you take care of 
+> that or simply assume you can't access NFS anymore ?
 
-I agree that if it was solely misguided apps.  There would be
-no justification.
+This is a question that brings up another level of interaction between
+networking and the rest of kernel code.
+Solution that I use now makes the NFS communication part always run in
+the root namespace.  This is discussable, of course, but it's a far more
+complicated matter than just device lists or routing :)
 
-One of the standard applications interfaces we support is renaming
-a network interface.  So supporting those misguided apps is a actually
-a side effect of supporting one the standard operations on a network interface.
+Best regards
 
-Another way of looking at it is that the names of networking devices like the
-names of devices in /dev are a user space policy (today).  In the
-configuration of the networking stack historically we had those identifiers
-hard coded.  It isn't until just recently that user space has been able to
-cope with dynamically added/removed network devices.
-
-As for initpid and friends.  In the context where you are simply isolating
-pids and not doing a full pid namespaces it was felt that changing the few
-user space applications that care was easier and probably worth doing anyway.
-
-> note: personally I'm absolutely not against virtualizing
-> the device names so that each guest can have a separate
-> name space for devices, but there should be a way to
-> 'see' _and_ 'identify' the interfaces from outside
-> (i.e. host or spectator context)
-
-Yep.  Basically that interface comes when we fix the sysfs support,
-to support per namespace reporting.
-
-Eric
+Andrey
