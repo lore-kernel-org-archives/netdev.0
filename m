@@ -1,29 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: RDMA will be reverted
-Date: Wed, 28 Jun 2006 00:07:15 -0700 (PDT)
-Message-ID: <20060628.000715.95062023.davem@davemloft.net>
+From: <Administrator@vger.kernel.org>
+Subject: [MailServer Notification]Security Notification
+Date: Wed, 28 Jun 2006 09:12:28 +0200
+Message-ID: <26dbe01c69a82$36eac7a0$1168a8c0@itmaster.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:56254
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1423193AbWF1HHX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 03:07:23 -0400
-To: rolandd@cisco.com
+Received: from [193.43.104.17] ([193.43.104.17]:44199 "EHLO
+	mail1relay.itmaster.local") by vger.kernel.org with ESMTP
+	id S932752AbWF1HMa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 03:12:30 -0400
+To: <netdev@vger.kernel.org>
+Content-Class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-Roland, there is no way in the world we would have let support for
-RDMA into the kernel tree had we seen and reviewed it on netdev.  I've
-discussed this with Andrew Morton, and we'd like you to please revert
-all of the RDMA code from Linus's tree immedialtely.
-
-Folks are well aware how against RDMA and TOE type schemes the Linux
-networking developers are.  So the fact that none of these RDMA
-changes went up for review on netdev strikes me as just a little bit
-more than suspicious.
-
-Please do not do this again, thank you.
+WORM_NETSKY.DAM has been detected,and Replace has been taken on 28/06/2006 9.12.01.
