@@ -1,64 +1,125 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [patch 3/4] Network namespaces: IPv4 FIB/routing in namespaces
-Date: Wed, 28 Jun 2006 10:10:14 -0700
-Message-ID: <44A2B7F6.8090702@candelatech.com>
-References: <20060626134945.A28942@castle.nmd.msu.ru> <20060626135250.B28942@castle.nmd.msu.ru> <20060626135427.C28942@castle.nmd.msu.ru> <449FF5AE.2040201@fr.ibm.com> <44A28964.2090006@fr.ibm.com> <20060628183015.B31885@castle.nmd.msu.ru> <44A29379.6060609@sw.ru> <44A2B4D7.9080007@fr.ibm.com>
+From: Herbert Poetzl <herbert@13thfloor.at>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Wed, 28 Jun 2006 19:18:37 +0200
+Message-ID: <20060628171836.GD6440@MAIL.13thfloor.at>
+References: <20060627131136.B13959@castle.nmd.msu.ru> <44A0FBAC.7020107@fr.ibm.com> <44A1006B.3040700@sw.ru> <20060627160908.GC28984@MAIL.13thfloor.at> <m1y7vilfyk.fsf@ebiederm.dsl.xmission.com> <20060627230723.GC2612@MAIL.13thfloor.at> <m1irmlkjni.fsf@ebiederm.dsl.xmission.com> <44A22229.2090404@vilain.net> <20060628141548.GB5572@MAIL.13thfloor.at> <m11wt9gulz.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kirill Korotaev <dev@sw.ru>, Andrey Savochkin <saw@swsoft.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Sam Vilain <sam@vilain.net>, Kirill Korotaev <dev@sw.ru>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Andrey Savochkin <saw@swsoft.com>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, herbert@13thfloor.at,
-	devel@openvz.org, sam@vilain.net, ebiederm@xmission.com,
-	viro@ftp.linux.org.uk, alexey@sw.ru
+	Andrew Morton <akpm@osdl.org>, devel@openvz.org,
+	viro@ftp.linux.org.uk, Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:38788 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S932856AbWF1RNW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 13:13:22 -0400
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-In-Reply-To: <44A2B4D7.9080007@fr.ibm.com>
+Received: from MAIL.13thfloor.at ([212.16.62.50]:45036 "EHLO mail.13thfloor.at")
+	by vger.kernel.org with ESMTP id S1751438AbWF1RSi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 13:18:38 -0400
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Disposition: inline
+In-Reply-To: <m11wt9gulz.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniel Lezcano wrote:
-> Kirill Korotaev wrote:
+On Wed, Jun 28, 2006 at 09:36:40AM -0600, Eric W. Biederman wrote:
+> Herbert Poetzl <herbert@13thfloor.at> writes:
 > 
->>>>>> Structures related to IPv4 rounting (FIB and routing cache)
->>>>>> are made per-namespace.
->>>>
->>>>
->>>>
->>>> Hi Andrey,
->>>>
->>>> if the ressources are private to the namespace, how do you will 
->>>> handle NFS mounted before creating the network namespace ? Do you 
->>>> take care of that or simply assume you can't access NFS anymore ?
->>>
->>>
->>>
->>>
->>> This is a question that brings up another level of interaction between
->>> networking and the rest of kernel code.
->>> Solution that I use now makes the NFS communication part always run in
->>> the root namespace.  This is discussable, of course, but it's a far more
->>> complicated matter than just device lists or routing :)
->>
->>
->> if we had containers (not namespaces) then it would be also possible 
->> to run NFS in context of the appropriate container and thus each user 
->> could  mount NFS itself with correct networking context.
+> > On Wed, Jun 28, 2006 at 06:31:05PM +1200, Sam Vilain wrote:
+> >> Eric W. Biederman wrote:
+> >> > Have a few more network interfaces for a layer 2 solution
+> >> > is fundamental.  Believing without proof and after arguments
+> >> > to the contrary that you have not contradicted that a layer 2
+> >> > solution is inherently slower is non-productive.  Arguing
+> >> > that a layer 2 only solution most prove itself on guest to guest
+> >> > communication is also non-productive.
+> >> >   
+> >> 
+> >> Yes, it does break what some people consider to be a sanity
+> >> condition when you don't have loopback anymore within a guest. I
+> >> once experimented with using 127.* addresses for per-guest loopback
+> >> devices with vserver to fix this, but that couldn't work without
+> >> fixing glibc to not make assumptions deep in the bowels of the
+> >> resolver. I logged a fault with gnu.org and you can guess where it
+> >> went :-).
+> >
+> > this is what the lo* patches address, by providing
+> > the required loopback isolation and providing lo
+> > inside a guest (i.e. it looks and feels like a
+> > normal system, except that you cannot modify the
+> > interfaces from inside)
+> 
+> Ok.  This is new.  How do you talk between guests now?
 
-With a relatively small patch, I was able to make NFS bind to a particular
-local IP (poor man's namespace with existing code).  I also changed it so
-that multiple mounts to the same destination (and with unique local mount
-points) are treated as unique mounts.  This patch was done so that I could
-stress test NFS servers, but similar logic might work for namespace isolation
-as well...
+> Before those patches it was through IP addresses on the loopback
+> interface as I recall.
 
-Ben
+no, that was probably your assumption, the IPs are
+assigned (in a perfectly normal way) to the interfaces
+(e.g. eth0 carries some IPs for guest A and B, eth1
+carries others for guest C). the way the linux network
+stack works, local addresses (i.e. those of A,B and C)
+will automatically communicate via loopback (as they
+are local) while outbound traffic will use the proper
+interface (nothing is changed here)
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+the difference in the lo patches is, that we allow to
+use the 'localhost' ip range (127.x.x.x) by isolating
+traffic (in this range) on the loopback interface
+(which typically allows to have 127.0.0.1 and lo
+visible inside a guest)
 
+> >> > With a guest with 4 IPs 
+> >> > 10.0.0.1 192.168.0.1 172.16.0.1 127.0.0.1
+> >> > How do you make INADDR_ANY work with just filtering at bind time?
+> >> >   
+> >> 
+> >> It used to just bind to the first one. Don't know if it still does.
+> >
+> > no, it _alway_ binds to INADDR_ANY and checks
+> > against other sockets (in the same context)
+> > comparing the lists of assigned IPs (the subset)
+> >
+> > so all checks happen at bind/connect time and
+> > always against the set of IPs, only exception is
+> > a performance optimization we do for single IP
+> > guests (where INADDR_ANY gets rewritten to the
+> > single IP)
+> 
+> What is the mechanism there?
+> 
+> My rough extrapolation says this mechanism causes problems when
+> migrating between machines. 
+
+that might be, as we do not consider migration such
+important as other folks do :)
+
+> In particular it sounds like only one process can bind to *:80, even
+> if it is only allowed to accept connections from a subset of those
+> IPs.
+
+no, guest A,B and C can all bind to *:80 and coexist
+quite fine, given that they do not have any IP in
+the intersection of their subsets (which is checked
+at bind time)
+
+> So if on another machine I bound something to *:80 and only allowed to
+> use a different set of IPs and then attempted to migrate it, the
+> migration would fail because I could not restart the application,
+> with all of it's layer 3 resources.
+
+actually I do not see why, unless the destination
+has a conflict on the ip subset, in which case you
+would end up with a migrated, but not working guest :)
+
+> To be clear I assume when I migrate I always take my IP address or
+> addresses with me.
+
+that's fine, the only requirement would be that the
+host has a superset of the IP addresses used by the
+guests ...
+
+HTC,
+Herbert
+
+> Eric
