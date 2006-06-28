@@ -1,33 +1,53 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: TOE, etc.
-Date: Wed, 28 Jun 2006 11:49:56 -0700
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F15F5B6D@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: Andrey Savochkin <saw@swsoft.com>
+Subject: Re: Network namespaces a path to mergable code.
+Date: Wed, 28 Jun 2006 22:51:36 +0400
+Message-ID: <20060628225136.A2844@castle.nmd.msu.ru>
+References: <20060626134945.A28942@castle.nmd.msu.ru> <m14py6ldlj.fsf@ebiederm.dsl.xmission.com> <20060627215859.A20679@castle.nmd.msu.ru> <m1ejx9kj1r.fsf@ebiederm.dsl.xmission.com> <20060628150605.A29274@castle.nmd.msu.ru> <m1sllpfckx.fsf@ebiederm.dsl.xmission.com> <20060628212240.A1833@castle.nmd.msu.ru> <m1mzbxdu5q.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: herbert@gondor.apana.org.au, jgarzik@pobox.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dlezcano@fr.ibm.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
+	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
+	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
+	viro@ftp.linux.org.uk, Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:23052 "EHLO
-	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1750975AbWF1SuF convert rfc822-to-8bit
+Received: from castle.nmd.msu.ru ([193.232.112.53]:37393 "HELO
+	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1750984AbWF1Svi
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 14:50:05 -0400
-Content-class: urn:content-classes:message
-To: "David Miller" <davem@davemloft.net>, swise@opengridcomputing.com
+	Wed, 28 Jun 2006 14:51:38 -0400
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m1mzbxdu5q.fsf@ebiederm.dsl.xmission.com>; from "Eric W. Biederman" on Wed, Jun 28, 2006 at 12:14:41PM
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netdev-owner@vger.kernel.org wrote:
-> From: Steve Wise <swise@opengridcomputing.com>
-> Date: Wed, 28 Jun 2006 09:54:57 -0500
+On Wed, Jun 28, 2006 at 12:14:41PM -0600, Eric W. Biederman wrote:
+> Andrey Savochkin <saw@swsoft.com> writes:
 > 
->> Doesn't iSCSI have this same issue?
+> > On Wed, Jun 28, 2006 at 10:51:26AM -0600, Eric W. Biederman wrote:
+> >> Andrey Savochkin <saw@swsoft.com> writes:
+> >> 
+> >> > One possible option to resolve this question is to show 2 relatively short
+> >> > patches just introducing namespaces for sockets in 2 ways: with explicit
+> >> > function parameters and using implicit current context.
+> >> > Then people can compare them and vote.
+> >> > Do you think it's worth the effort?
+> >> 
+> >> Given that we have two strong opinions in different directions I think it
+> >> is worth the effort to resolve this.
+> >
+> > Do you have time to extract necessary parts of your old patch?
+> > Or you aren't afraid of letting me draft an alternative version of socket
+> > namespaces basing on your code? :)
 > 
-> Software iSCSI implementations don't have the issue because
-> they go through the stack using normal sockets and normal
-> device send and receive.
+> I'm not terribly afraid.  I can always say you did it wrong. :)
 
-But hardware iSCSI implementations, which already exist,
-do not work through normal sockets.
+:)
 
+> I don't think I am going to have time today.  But since this conversation
+> is slowing down and we are to getting into the technical details.  
+> I will try and find some time.
+
+Good.
+I'll focus on my part then.
+
+	Andrey
