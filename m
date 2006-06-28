@@ -1,52 +1,95 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC] Network namespaces a path to mergable code.
-Date: Wed, 28 Jun 2006 09:20:26 -0600
-Message-ID: <m164ilgvd1.fsf@ebiederm.dsl.xmission.com>
-References: <20060626134945.A28942@castle.nmd.msu.ru>
-	<m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
-	<44A25802.3030006@fr.ibm.com>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Wed, 28 Jun 2006 09:36:40 -0600
+Message-ID: <m11wt9gulz.fsf@ebiederm.dsl.xmission.com>
+References: <20060626192751.A989@castle.nmd.msu.ru>
+	<44A00215.2040608@fr.ibm.com>
+	<20060627131136.B13959@castle.nmd.msu.ru>
+	<44A0FBAC.7020107@fr.ibm.com> <44A1006B.3040700@sw.ru>
+	<20060627160908.GC28984@MAIL.13thfloor.at>
+	<m1y7vilfyk.fsf@ebiederm.dsl.xmission.com>
+	<20060627230723.GC2612@MAIL.13thfloor.at>
+	<m1irmlkjni.fsf@ebiederm.dsl.xmission.com>
+	<44A22229.2090404@vilain.net>
+	<20060628141548.GB5572@MAIL.13thfloor.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
+Cc: Kirill Korotaev <dev@sw.ru>, Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Andrey Savochkin <saw@swsoft.com>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
-	devel@openvz.org, sam@vilain.net, viro@ftp.linux.org.uk
+	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	Andrew Morton <akpm@osdl.org>, devel@openvz.org,
+	viro@ftp.linux.org.uk, Alexey Kuznetsov <alexey@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:26275 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:24731 "EHLO
 	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S932830AbWF1PVk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 11:21:40 -0400
-To: Cedric Le Goater <clg@fr.ibm.com>
-In-Reply-To: <44A25802.3030006@fr.ibm.com> (Cedric Le Goater's message of
-	"Wed, 28 Jun 2006 12:20:50 +0200")
+	id S932840AbWF1Ph6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 11:37:58 -0400
+To: Sam Vilain <sam@vilain.net>, Herbert Poetzl <herbert@13thfloor.at>
+In-Reply-To: <20060628141548.GB5572@MAIL.13thfloor.at> (Herbert Poetzl's
+	message of "Wed, 28 Jun 2006 16:15:48 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cedric Le Goater <clg@fr.ibm.com> writes:
+Herbert Poetzl <herbert@13thfloor.at> writes:
 
-> How that proposal differs from the initial Daniel's patchset ? how far was
-> that patchset to reach a similar agreement ?
+> On Wed, Jun 28, 2006 at 06:31:05PM +1200, Sam Vilain wrote:
+>> Eric W. Biederman wrote:
+>> > Have a few more network interfaces for a layer 2 solution
+>> > is fundamental.  Believing without proof and after arguments
+>> > to the contrary that you have not contradicted that a layer 2
+>> > solution is inherently slower is non-productive.  Arguing
+>> > that a layer 2 only solution most prove itself on guest to guest
+>> > communication is also non-productive.
+>> >   
+>> 
+>> Yes, it does break what some people consider to be a sanity condition
+>> when you don't have loopback anymore within a guest. I once experimented
+>> with using 127.* addresses for per-guest loopback devices with vserver
+>> to fix this, but that couldn't work without fixing glibc to not make
+>> assumptions deep in the bowels of the resolver. I logged a fault with
+>> gnu.org and you can guess where it went :-).
+>
+> this is what the lo* patches address, by providing
+> the required loopback isolation and providing lo
+> inside a guest (i.e. it looks and feels like a
+> normal system, except that you cannot modify the
+> interfaces from inside)
 
-My impression is as follows.  The OpenVz implementation and mine work
-on the same basic principles of handling the network stack at layer 2.
+Ok.  This is new.  How do you talk between guests now?
+Before those patches it was through IP addresses on the loopback interface
+as I recall.
 
-We have our implementation differences but the core ideas are about the
-same.
+>> > With a guest with 4 IPs 
+>> > 10.0.0.1 192.168.0.1 172.16.0.1 127.0.0.1
+>> > How do you make INADDR_ANY work with just filtering at bind time?
+>> >   
+>> 
+>> It used to just bind to the first one. Don't know if it still does.
+>
+> no, it _alway_ binds to INADDR_ANY and checks
+> against other sockets (in the same context)
+> comparing the lists of assigned IPs (the subset)
+>
+> so all checks happen at bind/connect time and
+> always against the set of IPs, only exception is
+> a performance optimization we do for single IP
+> guests (where INADDR_ANY gets rewritten to the
+> single IP)
 
-Daniels patch still had elements of layer 3 handling as I recall
-and that has problems.
+What is the mechanism there?
 
-> OK, i wear blue socks :), but I'm not advocating a patchset more than
-> another i'm just looking for a shorter path.
+My rough extrapolation says this mechanism causes problems when
+migrating between machines.  In particular it sounds like
+only one process can bind to *:80, even if it is only allowed
+to accept connections from a subset of those IPs.
 
-Besides laying the foundations.  The current conversation seems to be
-about understanding the implications of the network stack when
-we implement a network namespace.
+So if on another machine I bound something to *:80 and only allowed to
+use a different set of IPs and then attempted to migrate it, the
+migration would fail because I could not restart the application,
+with all of it's layer 3 resources.
 
-There is a lot to the networking stack so it takes a while.
-In addition this is one part of the problem that everyone has implemented,
-so we have several more opinions on how it should be done and what
-needs to happen.
+To be clear I assume when I migrate I always take my IP address or
+addresses with me.
 
 Eric
