@@ -1,64 +1,57 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: Re: [RFT PATCH] pcnet32:  NAPI support
-Date: Wed, 28 Jun 2006 09:55:41 -0700
-Message-ID: <20060628165541.GA16601@us.ibm.com>
-References: <20060623213212.GA24388@us.ibm.com> <20060628144010.GA1446@csclub.uwaterloo.ca>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [patch 3/4] Network namespaces: IPv4 FIB/routing in namespaces
+Date: Wed, 28 Jun 2006 18:56:55 +0200
+Message-ID: <44A2B4D7.9080007@fr.ibm.com>
+References: <20060626134945.A28942@castle.nmd.msu.ru> <20060626135250.B28942@castle.nmd.msu.ru> <20060626135427.C28942@castle.nmd.msu.ru> <449FF5AE.2040201@fr.ibm.com> <44A28964.2090006@fr.ibm.com> <20060628183015.B31885@castle.nmd.msu.ru> <44A29379.6060609@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrey Savochkin <saw@swsoft.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
+	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>,
+	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
+	ebiederm@xmission.com, viro@ftp.linux.org.uk, alexey@sw.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:61075 "EHLO
-	e34.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751454AbWF1Q4t
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 12:56:49 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e34.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5SGumsR003229
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Wed, 28 Jun 2006 12:56:49 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5SGv5UT188112
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 28 Jun 2006 10:57:05 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5SGulA1030831
-	for <netdev@vger.kernel.org>; Wed, 28 Jun 2006 10:56:48 -0600
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Content-Disposition: inline
-In-Reply-To: <20060628144010.GA1446@csclub.uwaterloo.ca>
+Received: from mtagate2.de.ibm.com ([195.212.29.151]:61741 "EHLO
+	mtagate2.de.ibm.com") by vger.kernel.org with ESMTP
+	id S1751474AbWF1Q5H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 12:57:07 -0400
+To: Kirill Korotaev <dev@sw.ru>
+In-Reply-To: <44A29379.6060609@sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 28, 2006 at 10:40:10AM -0400, Lennart Sorensen wrote:
-> On Fri, Jun 23, 2006 at 02:32:12PM -0700, Don Fry wrote:
-> > This set of changes combines the work done by Len Sorensen and myself to
-> > add compile time support for NAPI for the pcnet32 driver.  I have tested
-> > it on ia32 and ppc64 hardware with various versions of the pcnet32
-> > adapter.  I have also made a few changes requested by Jon Mason, but the
-> > substitution of the many magic numbers in the driver is not yet done.
-> > 
-> > If no-one encounters any problems when testing this, I will break up the
-> > several changes, into proper patches and submit them next week.
+Kirill Korotaev wrote:
+>>>>> Structures related to IPv4 rounting (FIB and routing cache)
+>>>>> are made per-namespace.
+>>>
+>>>
+>>> Hi Andrey,
+>>>
+>>> if the ressources are private to the namespace, how do you will 
+>>> handle NFS mounted before creating the network namespace ? Do you 
+>>> take care of that or simply assume you can't access NFS anymore ?
+>>
+>>
+>>
+>> This is a question that brings up another level of interaction between
+>> networking and the rest of kernel code.
+>> Solution that I use now makes the NFS communication part always run in
+>> the root namespace.  This is discussable, of course, but it's a far more
+>> complicated matter than just device lists or routing :)
 > 
-> Well so far this is working for me.  It is a somewhat different layout
-> of the interrupt handler so it took me a bit of work to get the features
-> I need patched in, but in the end I ended up with simpler code as a
-> reesult, so I am quite happy with the new layout.  The driver works on
-> everything I have to try it on so far.
-> 
+> if we had containers (not namespaces) then it would be also possible to 
+> run NFS in context of the appropriate container and thus each user could 
+>  mount NFS itself with correct networking context.
 
-<snip>
+I was asking the question because in some case, we want a lightweight 
+container for running applications (aka application container) who need 
+to share the filesystem and it will be too bad to have a network 
+namespace which brings isolation and prevents to implement application 
+containers. By the way, I agree from a point of view of a system 
+container, a complete network isolation is perfect.
 
-Yes, I saw the debug statements when creating the email and was too lazy
-to remove them and create a new patch.  The patch needs to be broken up
-into functional pieces anyway, so since it has passed all of my testing
-as well, I will start on that...
+Regards.
 
-> 
-> So yep, looks pretty good to me.  Those two debug statements are my only
-> comments on it.
-> 
-> Len Sorensen
+Daniel.
 
--- 
-Don Fry
-brazilnut@us.ibm.com
