@@ -1,62 +1,46 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH]bnx2: Add NETIF_F_TSO_ECN
-Date: Tue, 27 Jun 2006 20:07:04 -0700
-Message-ID: <1151464024.5124.14.camel@rh4>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH]NET: Add ECN support for TSO
+Date: Wed, 28 Jun 2006 13:10:52 +1000
+Message-ID: <20060628031052.GA4570@gondor.apana.org.au>
+References: <1151464007.5124.13.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:6152 "EHLO mms2.broadcom.com")
-	by vger.kernel.org with ESMTP id S1423001AbWF1DF7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Jun 2006 23:05:59 -0400
-To: davem@davemloft.net, herbert@gondor.apana.org.au
+Received: from rhun.apana.org.au ([64.62.148.172]:7946 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1423006AbWF1DLG
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Jun 2006 23:11:06 -0400
+To: Michael Chan <mchan@broadcom.com>
+Content-Disposition: inline
+In-Reply-To: <1151464007.5124.13.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add NETIF_F_TSO_ECN feature for all bnx2 hardware.
+On Tue, Jun 27, 2006 at 08:06:47PM -0700, Michael Chan wrote:
+>
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 2d8d6ad..2c75172 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -1033,7 +1033,8 @@ static inline void sk_setup_caps(struct 
+>  	if (sk->sk_route_caps & NETIF_F_GSO)
+>  		sk->sk_route_caps |= NETIF_F_TSO;
+>  	if (sk->sk_route_caps & NETIF_F_TSO) {
+> -		if (sock_flag(sk, SOCK_NO_LARGESEND) || dst->header_len)
+> +		if ((sock_flag(sk, SOCK_NO_LARGESEND) &&
+> +		    !tso_ecn_capable(sk->sk_route_caps)) || dst->header_len)
+>  			sk->sk_route_caps &= ~NETIF_F_TSO;
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Why turn it off? With GSO in place the stack will handle it just fine
+(even your description says so :)  We should instead remove all code
+that turns off TSO/ECN when the other is present.
 
+Otherwise the patch looks good.
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 7635736..e89d5df 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -5128,6 +5128,16 @@ bnx2_set_rx_csum(struct net_device *dev,
- 	return 0;
- }
- 
-+static int
-+bnx2_set_tso(struct net_device *dev, u32 data)
-+{
-+	if (data)
-+		dev->features |= NETIF_F_TSO | NETIF_F_TSO_ECN;
-+	else
-+		dev->features &= ~(NETIF_F_TSO | NETIF_F_TSO_ECN);
-+	return 0;
-+}
-+
- #define BNX2_NUM_STATS 46
- 
- static struct {
-@@ -5445,7 +5455,7 @@ static struct ethtool_ops bnx2_ethtool_o
- 	.set_sg			= ethtool_op_set_sg,
- #ifdef BCM_TSO
- 	.get_tso		= ethtool_op_get_tso,
--	.set_tso		= ethtool_op_set_tso,
-+	.set_tso		= bnx2_set_tso,
- #endif
- 	.self_test_count	= bnx2_self_test_count,
- 	.self_test		= bnx2_self_test,
-@@ -5926,7 +5936,7 @@ bnx2_init_one(struct pci_dev *pdev, cons
- 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
- #endif
- #ifdef BCM_TSO
--	dev->features |= NETIF_F_TSO;
-+	dev->features |= NETIF_F_TSO | NETIF_F_TSO_ECN;
- #endif
- 
- 	netif_carrier_off(bp->dev);
-
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
