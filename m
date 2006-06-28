@@ -1,19 +1,31 @@
-From: <Administrator@vger.kernel.org>
-Subject: [MailServer Notification]Security Notification
-Date: Wed, 28 Jun 2006 09:12:28 +0200
-Message-ID: <26dbe01c69a82$36eac7a0$1168a8c0@itmaster.local>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: RDMA will be reverted
+Date: Wed, 28 Jun 2006 11:41:41 +0400
+Message-ID: <20060628074140.GA20172@2ka.mipt.ru>
+References: <20060628.000715.95062023.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=koi8-r
+Cc: rolandd@cisco.com, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.43.104.17] ([193.43.104.17]:44199 "EHLO
-	mail1relay.itmaster.local") by vger.kernel.org with ESMTP
-	id S932752AbWF1HMa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 03:12:30 -0400
-To: <netdev@vger.kernel.org>
-Content-Class: urn:content-classes:message
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:25057 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932757AbWF1HmD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 03:42:03 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060628.000715.95062023.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-WORM_NETSKY.DAM has been detected,and Replace has been taken on 28/06/2006 9.12.01.
+On Wed, Jun 28, 2006 at 12:07:15AM -0700, David Miller (davem@davemloft.net) wrote:
+> Roland, there is no way in the world we would have let support for
+> RDMA into the kernel tree had we seen and reviewed it on netdev.  I've
+> discussed this with Andrew Morton, and we'd like you to please revert
+> all of the RDMA code from Linus's tree immedialtely.
+
+May I suggest to not revert it. RDMA and RDDP can be considered as
+tun/tap or packet socket devices until they start to change internal
+network structures. As far as I can see they do not, only use existing
+like userspace can.
+
+-- 
+	Evgeniy Polyakov
