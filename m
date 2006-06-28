@@ -1,39 +1,74 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: TOE, etc.
-Date: Wed, 28 Jun 2006 13:56:32 -0500
-Message-ID: <1151520992.13399.15.camel@stevo-desktop>
-References: <20060627.214323.92582051.davem@davemloft.net>
-	 <20060628053554.GA5928@gondor.apana.org.au>
-	 <1151506497.14895.51.camel@stevo-desktop>
-	 <20060628.113646.85408870.davem@davemloft.net>
+From: "Francois Barre" <francois.barre@gmail.com>
+Subject: Re: [PATCH, RFT] bcm43xx: AccessPoint mode
+Date: Wed, 28 Jun 2006 21:27:16 +0200
+Message-ID: <fd8d0180606281227m309b0fcr94bc42c4c5247000@mail.gmail.com>
+References: <200606191107.34602.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, jgarzik@pobox.com,
-	netdev@vger.kernel.org
+Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
+	"Alexander Tsvyashchenko" <lists@ndl.kiev.ua>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:8002 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S1750998AbWF1S4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 14:56:34 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060628.113646.85408870.davem@davemloft.net>
+Received: from wr-out-0506.google.com ([64.233.184.233]:6972 "EHLO
+	wr-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1751058AbWF1T1R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 15:27:17 -0400
+Received: by wr-out-0506.google.com with SMTP id i24so455570wra
+        for <netdev@vger.kernel.org>; Wed, 28 Jun 2006 12:27:17 -0700 (PDT)
+To: "Michael Buesch" <mb@bu3sch.de>
+In-Reply-To: <200606191107.34602.mb@bu3sch.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-06-28 at 11:36 -0700, David Miller wrote:
-> From: Steve Wise <swise@opengridcomputing.com>
-> Date: Wed, 28 Jun 2006 09:54:57 -0500
-> 
-> > Doesn't iSCSI have this same issue?
-> 
-> Software iSCSI implementations don't have the issue because
-> they go through the stack using normal sockets and normal
-> device send and receive.
-> -
+Hi all,
 
-Right.  I was assuming, in this thread we were talking about iSCSI
-devices where the TCP stack is in HW/FW on the adapter...
+Sorry for answering years after the patch post, I didn't have time to
+test this take2 patch before. I had a first look at it a couple of
+days ago, but... you know, that was not my day.
 
-Steve.
+> Well, it does not work 100%, but at least it's very promising.
+> We are able to create a bssid and correctly send beacon frames out.
+[...]
 
+For my very own situation, that is :
+- Apple Mini with a BCM 4306 (BigEndian)
+- Linux/Win32 boxes with USB and PCMCIA wifi cards (mostly 802.11b usb
+at the moment)
 
+Current status is this one :
+- master mode functionnal
+- dhcp serving, good uptime
+- no encryption, WEP or WPA of any kind tested yet
+- a nice 1.2MB/s bandwidth (I'm testing with a 802.11b at client side,
+and AFAIK, bcm43xx does not handle 802.11g yet, does it ?)
+
+*BUT* a big issue : I got a per-connection hang-up at client side on
+strong workloads, for both win32 and linux client side, with my usb
+dongle (which is running ndiswrapper on *nux, sorry for that, I'm
+ashamed of it, silly me, I know, but well... No choice, and the device
+was given me free of charge so...).
+Typical scenario is a ssh session on one hand and a ftp transfer on
+the other. The ftp hangs, while the ssh session stays up and going.
+
+I got no problem with the PCMCIA card (a rock-solid WG511T), on both
+linux and win32.
+
+Of course, the bcm43xx does not say anything about this (if it had
+said so, I would have posted logs along with this complain), so my
+conclusion would be :
+
+Why on earth is this a per-connection issue ? where do I miss
+something ? if I'm really missing packets on one connection, why is
+the other one continuing to live ? I may have forgotten a subtle
+detail of the TCP/IP behaviour here... Or may that be all about window
+scaling and fragmentation ? I can not see anything else... I would at
+least like to know what to test, as I'm a little bit confused here.
+Yes, I'll try to dig around the ip window and timeout stuff by tonight...
+
+Anyway, I would like to thank again and again Alexander and Michael
+for the work done, that is really impressive. Great work !
+
+Best regards,
+
+F. B.
