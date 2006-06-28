@@ -1,73 +1,54 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: TOE, etc.
-Date: Wed, 28 Jun 2006 09:54:57 -0500
-Message-ID: <1151506497.14895.51.camel@stevo-desktop>
-References: <20060628033708.GA4922@gondor.apana.org.au>
-	 <44A20311.5050301@pobox.com> <20060628042959.GA5561@gondor.apana.org.au>
-	 <20060627.214323.92582051.davem@davemloft.net>
-	 <20060628053554.GA5928@gondor.apana.org.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Network namespaces a path to mergable code.
+Date: Wed, 28 Jun 2006 08:56:26 -0600
+Message-ID: <m1irmlgwh1.fsf@ebiederm.dsl.xmission.com>
+References: <20060626134945.A28942@castle.nmd.msu.ru>
+	<m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
+	<20060627215859.A20679@castle.nmd.msu.ru>
+	<44A1AF37.3070100@vilain.net>
+	<m1ac7xkifn.fsf@ebiederm.dsl.xmission.com>
+	<44A21F7A.5030807@vilain.net>
+	<m1r719ixb6.fsf@ebiederm.dsl.xmission.com> <44A251F2.70707@fr.ibm.com>
+	<m1bqsdidhe.fsf@ebiederm.dsl.xmission.com>
+	<20060628141539.GA32736@sergelap.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jgarzik@pobox.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Cedric Le Goater <clg@fr.ibm.com>, Sam Vilain <sam@vilain.net>,
+	Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	haveblue@us.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
+	herbert@13thfloor.at, devel@openvz.org, viro@ftp.linux.org.uk,
+	Alexey Kuznetsov <alexey@sw.ru>,
+	Mark Huang <mlhuang@CS.Princeton.EDU>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:35432 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S932813AbWF1Oy7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 10:54:59 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060628053554.GA5928@gondor.apana.org.au>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:38378 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S932285AbWF1O5q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 10:57:46 -0400
+To: "Serge E. Hallyn" <serue@us.ibm.com>
+In-Reply-To: <20060628141539.GA32736@sergelap.austin.ibm.com> (Serge
+	E. Hallyn's message of "Wed, 28 Jun 2006 09:15:39 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-06-28 at 15:35 +1000, Herbert Xu wrote:
-> On Tue, Jun 27, 2006 at 09:43:23PM -0700, David Miller wrote:
-> > 
-> > Socket state, and that is one thing I don't see them doing yet.
-> 
-> I wonder what happens when the Linux TCP stack attempts to open a
-> connection to a remote host when that connection is already open
-> in the RDMA NIC?  For that matter what happens if a Linux application
-> decides to listen on a TCP port already listened on by the RDMA
-> NIC?
-> 
+"Serge E. Hallyn" <serue@us.ibm.com> writes:
 
-This issue would have to be handled by using seperate IP addresses for
-RDMA connections vs native stack TCP.
+> Quoting Eric W. Biederman (ebiederm@xmission.com):
+>> > I think we're reaching the limits of namespaces. It would be much easier
+>> > with a container id in each kernel object we want to isolate.
+>> 
+>> Nope.  Except for the fact that names are peculiar (sockets, network
+>> device names, IP address, routes...) the network stack splits quite cleanly.
+>> 
+>> I did all of this in a proof of concept mode several months ago and
+>> the code is still sitting in my git tree on kernel.org.  I even got
+>> the generic stack reference counting fixed.
+>> 
+>> Eric
+>
+> Which branch?
 
-Consider NFS-RDMA server.  Through administration, it would be
-configured to listen on the specific rdma ip addresses, and the native
-stack tcp ip addresses and thus support both TCP and RDMA NFS
-connections.
+It should be the proof-of-concept branch.  It is a development branch so the
+history is ugly but the result was fairly decent.
 
-There are definitely issues with this that could be resolved via tighter
-integration, but that seems to not be a goal of the linux community at
-this time...
-
-
-> The only saving grace is that they're only doing RDMA rather than
-> arbitrary TCP.  However, exactly the same infrastructure can be used
-> to do arbitrary TCP should they wish to.
->  
-> > But we have to realize they've already been given %95 of the
-> > interfaces they need to speak IP using our routes and our neighbour
-> > entries.
-> > 
-> > Right?
-> 
-> Yes, however I think the same argument could be applied to TOE.
-> 
-> With their RDMA NIC, we'll have TCP/SCTP connections that bypass
-> netfilter, tc, IPsec, AF_PACKET/tcpdump and the rest of our stack
-> while at the same time it is using the same IP address as us and
-> deciding what packets we will or won't see.
-> 
-
-
-Doesn't iSCSI have this same issue?
-
-Steve.
-
-
-
-
+Eric
