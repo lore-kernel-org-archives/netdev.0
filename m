@@ -1,69 +1,29 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Network namespaces a path to mergable code.
-Date: Wed, 28 Jun 2006 00:55:25 -0600
-Message-ID: <m1r719ixb6.fsf@ebiederm.dsl.xmission.com>
-References: <20060626134945.A28942@castle.nmd.msu.ru>
-	<m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
-	<20060627215859.A20679@castle.nmd.msu.ru>
-	<44A1AF37.3070100@vilain.net>
-	<m1ac7xkifn.fsf@ebiederm.dsl.xmission.com>
-	<44A21F7A.5030807@vilain.net>
+From: David Miller <davem@davemloft.net>
+Subject: RDMA will be reverted
+Date: Wed, 28 Jun 2006 00:07:15 -0700 (PDT)
+Message-ID: <20060628.000715.95062023.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Savochkin <saw@swsoft.com>, dlezcano@fr.ibm.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, herbert@13thfloor.at,
-	devel@openvz.org, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>,
-	Mark Huang <mlhuang@CS.Princeton.EDU>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:18612 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S932749AbWF1G5D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 02:57:03 -0400
-To: Sam Vilain <sam@vilain.net>
-In-Reply-To: <44A21F7A.5030807@vilain.net> (Sam Vilain's message of "Wed, 28
-	Jun 2006 18:19:38 +1200")
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:56254
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1423193AbWF1HHX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 03:07:23 -0400
+To: rolandd@cisco.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sam Vilain <sam@vilain.net> writes:
 
-> Eric W. Biederman wrote:
->> In general it is possible to get file descriptors opened by someone
->> else because unix domain sockets allow file descriptor passing.  Similarly
->> I think there are cases in both unshare and fork that allows you to sockets
->> open before you entered a namespace.
->>   
->
-> This is an interesting point; it is known to be possible to do this on a
-> traditional system, because with a Unix Domain socket, the other end is
-> always in the same Unix Domain.
->
-> However what we're doing is saying that, well, the other end of the
-> socket might not be in the same Unix Domain. In fact, we've already
-> smashed to pieces this monolithic concept of a Unix Domain, to the point
-> where the other end might be in a different network domain, but is in
-> the same filesystem domain, for instance. Does it get to pass file
-> descriptors through?
+Roland, there is no way in the world we would have let support for
+RDMA into the kernel tree had we seen and reviewed it on netdev.  I've
+discussed this with Andrew Morton, and we'd like you to please revert
+all of the RDMA code from Linus's tree immedialtely.
 
-Despite what it might look like unix domain sockets do not live in the
-filesystem.  They store a cookie in the filesystem that roughly
-corresponds to the port number of an AF_INET socket.  When you open a
-socket the lookup is done by the cookie retrieved from the filesystem.
-So except for their cookies unix domain sockets are always in the
-network stack.
+Folks are well aware how against RDMA and TOE type schemes the Linux
+networking developers are.  So the fact that none of these RDMA
+changes went up for review on netdev strikes me as just a little bit
+more than suspicious.
 
-Which means it is a royal pain to create a unix domain socket between
-namespaces.  Which is the generally desired behavior.
-
-> We would appear to be stretching the definition of "Unix Domain"
-> somewhat if we allow these sockets to exist between network namespaces.
-> Maybe it doesn't matter; this is just a VFS namespace feature/caveat.
-
-Unless I am mistaken this is something that can only be created (given
-my describe semantics) when you create the container.  So if you want
-it you got it but you can't create it if you never had it.
-
-Eric
+Please do not do this again, thank you.
