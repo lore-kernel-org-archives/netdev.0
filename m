@@ -1,95 +1,39 @@
-From: Andrey Savochkin <saw@swsoft.com>
-Subject: Re: Network namespaces a path to mergable code.
-Date: Wed, 28 Jun 2006 15:06:05 +0400
-Message-ID: <20060628150605.A29274@castle.nmd.msu.ru>
-References: <20060626134945.A28942@castle.nmd.msu.ru> <m14py6ldlj.fsf@ebiederm.dsl.xmission.com> <20060627215859.A20679@castle.nmd.msu.ru> <m1ejx9kj1r.fsf@ebiederm.dsl.xmission.com>
+From: Per Liden <per.liden@ericsson.com>
+Subject: [PATCH 0/3] TIPC updates
+Date: Wed, 28 Jun 2006 14:07:01 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0606281358100.6341@ulinpc219.uab.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dlezcano@fr.ibm.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
-	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
-	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
-	viro@ftp.linux.org.uk, Alexey Kuznetsov <alexey@sw.ru>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, per.liden@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.nmd.msu.ru ([193.232.112.53]:3595 "HELO
-	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S932505AbWF1LGH
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 07:06:07 -0400
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m1ejx9kj1r.fsf@ebiederm.dsl.xmission.com>; from "Eric W. Biederman" on Tue, Jun 27, 2006 at 10:20:32PM
+Received: from mailgw4.ericsson.se ([193.180.251.62]:42126 "EHLO
+	mailgw4.ericsson.se") by vger.kernel.org with ESMTP
+	id S1423300AbWF1MHF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 08:07:05 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+This patch set includes three fixes/cleanups. Please see each individual 
+patch for further description.
 
-On Tue, Jun 27, 2006 at 10:20:32PM -0600, Eric W. Biederman wrote:
-> Andrey Savochkin <saw@swsoft.com> writes:
-[snip]
-> > My first patchset covers devices but not sockets.
-> > The only difference from what you're suggesting is ipv4 routing.
-> > For me, it is not less important than devices and sockets.  May be even
-> > more important, since routing exposes design deficiencies less obvious at
-> > socket level.
-> 
-> I agree we need to do it.  I mostly want a base that allows us to 
-> not need to convert the whole network stack at once and still be able
-> to merge code all the way to the stable kernel.
-> 
-> The routing code is important for understanding design choices.  It
-> isn't important for merging if that makes sense.   
+Please pull from:
 
-Ok, fine.
-Now I'm working on socket code.
+ git://tipc.cslab.ericsson.net/pub/git/tipc.git
 
-We still have a question about implicit vs explicit function parameters.
-This question becomes more important for sockets: if we want to allow to use
-sockets belonging to namespaces other than the current one, we need to do
-something about it.
+ (rebased on linux/kernel/git/davem/net-2.6.git)
 
-One possible option to resolve this question is to show 2 relatively short
-patches just introducing namespaces for sockets in 2 ways: with explicit
-function parameters and using implicit current context.
-Then people can compare them and vote.
-Do you think it's worth the effort?
+Summary:
 
-> 
-> For everyone looking at routing choices the IPv6 routing table is
-> interesting because it does not use a hash table, and seems quite
-> possibly to be an equally fast structure that scales better.
-> 
-> There is something to think about there.
+ net/tipc/core.c |    3 ++-
+ net/tipc/link.c |   11 ++++++-----
+ net/tipc/node.c |   26 +++++++++++++++++---------
+ net/tipc/zone.h |    4 ++--
+ 4 files changed, 27 insertions(+), 17 deletions(-)
 
-Sure
+Allan Stephens:
+      [TIPC] Fixed skb_under_panic caused by tipc_link_bundle_buf
+      [TIPC] Improve response to requests for node/link information
+      [TIPC] Initial activation message now includes TIPC version number
 
-[snip]
-> >
-> > Can you summarize you objections against my way of handling devices, please?
-> > And what was the typo you referred to in your letter to Kirill Korotaev?
-> 
-> I have no fundamental objects to the content I have seen so far.
-> 
-> Please read the first email Kirill responded too.  I quoted a couple
-> of sections of code and described the bugs I saw with the patch.
-
-I found your comments, thank you!
-
-> 
-> All minor things.  The typo I was referring to was a section where the
-> original iteration was on an ifp variable and you called it dev
-> without changing the rest of the code in that section.  
-> 
-> The only big issue was that the patch too big, and should be split
-> into a patchset for better review.  One patch for the new functions,
-> and the an additional patch for each driver/subsystem hunk describing
-> why that chunk needed to be changed.
-
-I'll split the patch.
-
-> I'm still curious why many of those chunks can't use existing helper
-> functions, to be cleaned up.
-
-What helper functions are you referring to?
-
-Best regards
-
-Andrey
+/Per
