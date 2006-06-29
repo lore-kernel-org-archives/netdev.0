@@ -1,39 +1,55 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: bcm43xx: "transmit timed out" and apparent hang with "preemptible
- periodic work" patches
-Date: Thu, 29 Jun 2006 11:16:05 -0500
-Message-ID: <44A3FCC5.1070305@lwfinger.net>
-References: <87ac80ps5o.fsf@briny.internal.ondioline.org> <200606291707.55172.mb@bu3sch.de> <44A3F052.7030905@lwfinger.net> <200606291731.50598.mb@bu3sch.de>
+From: CaT <cat@zip.com.au>
+Subject: Re: 2.6.17.1: fails to fully get webpage
+Date: Fri, 30 Jun 2006 08:50:39 +1000
+Message-ID: <20060629225039.GO2149@zip.com.au>
+References: <20060629015915.GH2149@zip.com.au> <20060628.194627.74748190.davem@davemloft.net> <20060629030923.GI2149@zip.com.au> <20060628.204709.41634813.davem@davemloft.net> <20060629041827.GJ2149@zip.com.au> <44A3E898.1020202@tmr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <bcm43xx-dev-admin-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-In-Reply-To: <200606291731.50598.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Sender: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-Errors-To: bcm43xx-dev-admin-tdrK/OAtAx2ELgA04lAiVw@public.gmane.org
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Subscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-List-Unsubscribe: <http://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.berlios.de/pipermail/bcm43xx-dev/>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nessie.weebeastie.net ([220.233.7.36]:40970 "EHLO
+	bunyip.lochness.weebeastie.net") by vger.kernel.org with ESMTP
+	id S933072AbWF2Wtb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 18:49:31 -0400
+To: Bill Davidsen <davidsen@tmr.com>
+Content-Disposition: inline
+In-Reply-To: <44A3E898.1020202@tmr.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> On Thursday 29 June 2006 17:22, Larry Finger wrote:
->> Jun 29 01:22:08 larrylap kernel: bcm43xx: Controller restarted
->> Jun 29 01:23:08 larrylap kernel: bcm43xx: ASSERTION FAILED (channel >= 1 && channel <= 14) at: 
->> drivers/net/wireless/bcm43xx/bcm43xx_radio.c:79:channel2freq_bg()
-> 
-> WTF is that???
-> How is that possible to happen?
-> Are you sure you have an unmodified tree?
+On Thu, Jun 29, 2006 at 10:50:00AM -0400, Bill Davidsen wrote:
+> >Basically the mostlikely end-result is I don't know what there is a
+> >problem and my customer doesn't know that there is a problem but they're
+> >just not getting as many hits to their site that they otherwise would.
+> >
+> >Ofcourse, this all depends if such a situation is possible. If it is
+> >possible would it affect dns and mail in a similar manner too?
+> >
+> I'm glad David Miller clarified this, because I was about to send a 
+> "don't do that" followup ;-)
 
-No, the tree is modified. It appears that something has messed up the bcm->ieee data. I am currently 
-in the process of re basing my copy of Linville's tree and will try with an unmodified version.
+:) I don't know how I got the wrong config option to modify but there
+you go. :)
 
-Larry
+> But your example is misleading, or at least doesn't reflect customers I 
+> know. While a few clients with broken network connections may be 
+> unhappy, disabling scaling will make your web server really, really, 
+> slow, and that will make everyone unhappy. Particularly if the web 
+> content is flash or 2MB jpegs, or other ill-chosen stuff. You don't want 
+> people to think you are running at dial-up speeds.
+
+Which would be why I wont move from 2.6.16.x for my servers unless I
+really, really, really have to. I don't know how many broken sites are
+out there and I cannot tell.
+
+Another datapoint to this is that I've had this my netcat web test
+running since 8:42pm yesterday. It's 8:37am now. It hasn't progressed
+in any way. It hasn't quit. It hasn't timed out. It just sits there,
+hung. This leads me to consider the possibility of a DOS, either
+intentional or accidental (think about 2.6.17.x running on a mail server
+and someone mails/spams from a broken place).
+
+-- 
+    "To the extent that we overreact, we proffer the terrorists the
+    greatest tribute."
+    	- High Court Judge Michael Kirby
