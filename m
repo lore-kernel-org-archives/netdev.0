@@ -1,131 +1,171 @@
-From: Bryan O'Sullivan <bos@pathscale.com>
-Subject: [PATCH 31 of 39] IB/ipath - drop the "stats" sysfs attribute group
-Date: Thu, 29 Jun 2006 14:41:22 -0700
-Message-ID: <21378f21e091f6fc81fc.1151617282@eng-12.pathscale.com>
+From: "Bryan O'Sullivan" <bos@pathscale.com>
+Subject: [PATCH 12 of 39] IB/ipath - report correct
+ device identification information in /sys
+Date: Thu, 29 Jun 2006 14:41:03 -0700
+Message-ID: <21d5d64750acfd45f537.1151617263@eng-12.pathscale.com>
 References: <patchbomb.1151617251@eng-12.pathscale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: openib-general@openib.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.pathscale.com ([64.160.42.68]:38799 "EHLO mx.pathscale.com")
-	by vger.kernel.org with ESMTP id S932908AbWF2VoK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 17:44:10 -0400
+Cc: netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
 In-Reply-To: <patchbomb.1151617251@eng-12.pathscale.com>
-To: akpm@osdl.org, rdreier@cisco.com, mst@mellanox.co.il
-Sender: netdev-owner@vger.kernel.org
+To: akpm@osdl.org,
+	rdreier@cisco.com,
+	mst@mellanox.co.il
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+ <mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-This attribute group made it into the original driver, but should
-not have.
-
+Signed-off-by: Robert Walsh <robert.walsh@qlogic.com>
 Signed-off-by: Bryan O'Sullivan <bryan.osullivan@qlogic.com>
 
-diff -r 3ceb73f8bde0 -r 21378f21e091 drivers/infiniband/hw/ipath/ipath_sysfs.c
---- a/drivers/infiniband/hw/ipath/ipath_sysfs.c	Thu Jun 29 14:33:26 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_sysfs.c	Thu Jun 29 14:33:26 2006 -0700
-@@ -84,81 +84,6 @@ static ssize_t show_num_units(struct dev
- 	return scnprintf(buf, PAGE_SIZE, "%d\n",
- 			 ipath_count_units(NULL, NULL, NULL));
- }
--
--#define DRIVER_STAT(name, attr) \
--	static ssize_t show_stat_##name(struct device_driver *dev, \
--					char *buf) \
--	{ \
--		return scnprintf( \
--			buf, PAGE_SIZE, "%llu\n", \
--			(unsigned long long) ipath_stats.sps_ ##attr); \
--	} \
--	static DRIVER_ATTR(name, S_IRUGO, show_stat_##name, NULL)
--
--DRIVER_STAT(intrs, ints);
--DRIVER_STAT(err_intrs, errints);
--DRIVER_STAT(errs, errs);
--DRIVER_STAT(pkt_errs, pkterrs);
--DRIVER_STAT(crc_errs, crcerrs);
--DRIVER_STAT(hw_errs, hwerrs);
--DRIVER_STAT(ib_link, iblink);
--DRIVER_STAT(port0_pkts, port0pkts);
--DRIVER_STAT(ether_spkts, ether_spkts);
--DRIVER_STAT(ether_rpkts, ether_rpkts);
--DRIVER_STAT(sma_spkts, sma_spkts);
--DRIVER_STAT(sma_rpkts, sma_rpkts);
--DRIVER_STAT(hdrq_full, hdrqfull);
--DRIVER_STAT(etid_full, etidfull);
--DRIVER_STAT(no_piobufs, nopiobufs);
--DRIVER_STAT(ports, ports);
--DRIVER_STAT(pkey0, pkeys[0]);
--DRIVER_STAT(pkey1, pkeys[1]);
--DRIVER_STAT(pkey2, pkeys[2]);
--DRIVER_STAT(pkey3, pkeys[3]);
--
--DRIVER_STAT(nports, nports);
--DRIVER_STAT(null_intr, nullintr);
--DRIVER_STAT(max_pkts_call, maxpkts_call);
--DRIVER_STAT(avg_pkts_call, avgpkts_call);
--DRIVER_STAT(page_locks, pagelocks);
--DRIVER_STAT(page_unlocks, pageunlocks);
--DRIVER_STAT(krdrops, krdrops);
--
--static struct attribute *driver_stat_attributes[] = {
--	&driver_attr_intrs.attr,
--	&driver_attr_err_intrs.attr,
--	&driver_attr_errs.attr,
--	&driver_attr_pkt_errs.attr,
--	&driver_attr_crc_errs.attr,
--	&driver_attr_hw_errs.attr,
--	&driver_attr_ib_link.attr,
--	&driver_attr_port0_pkts.attr,
--	&driver_attr_ether_spkts.attr,
--	&driver_attr_ether_rpkts.attr,
--	&driver_attr_sma_spkts.attr,
--	&driver_attr_sma_rpkts.attr,
--	&driver_attr_hdrq_full.attr,
--	&driver_attr_etid_full.attr,
--	&driver_attr_no_piobufs.attr,
--	&driver_attr_ports.attr,
--	&driver_attr_pkey0.attr,
--	&driver_attr_pkey1.attr,
--	&driver_attr_pkey2.attr,
--	&driver_attr_pkey3.attr,
--	&driver_attr_nports.attr,
--	&driver_attr_null_intr.attr,
--	&driver_attr_max_pkts_call.attr,
--	&driver_attr_avg_pkts_call.attr,
--	&driver_attr_page_locks.attr,
--	&driver_attr_page_unlocks.attr,
--	&driver_attr_krdrops.attr,
--	NULL
--};
--
--static struct attribute_group driver_stat_attr_group = {
--	.name = "stats",
--	.attrs = driver_stat_attributes
--};
+diff -r 1e1f3da0e78d -r 21d5d64750ac drivers/infiniband/hw/ipath/ipath_layer.c
+--- a/drivers/infiniband/hw/ipath/ipath_layer.c	Thu Jun 29 14:33:25 2006 -0700
++++ b/drivers/infiniband/hw/ipath/ipath_layer.c	Thu Jun 29 14:33:25 2006 -0700
+@@ -341,18 +341,26 @@ u32 ipath_layer_get_nguid(struct ipath_d
  
- static ssize_t show_status(struct device *dev,
- 			   struct device_attribute *attr,
-@@ -716,20 +641,12 @@ int ipath_driver_create_group(struct dev
- 	int ret;
+ EXPORT_SYMBOL_GPL(ipath_layer_get_nguid);
  
- 	ret = sysfs_create_group(&drv->kobj, &driver_attr_group);
--	if (ret)
--		goto bail;
+-int ipath_layer_query_device(struct ipath_devdata *dd, u32 * vendor,
+-			     u32 * boardrev, u32 * majrev, u32 * minrev)
+-{
+-	*vendor = dd->ipath_vendorid;
+-	*boardrev = dd->ipath_boardrev;
+-	*majrev = dd->ipath_majrev;
+-	*minrev = dd->ipath_minrev;
 -
--	ret = sysfs_create_group(&drv->kobj, &driver_stat_attr_group);
--	if (ret)
--		sysfs_remove_group(&drv->kobj, &driver_attr_group);
+-	return 0;
+-}
 -
--bail:
+-EXPORT_SYMBOL_GPL(ipath_layer_query_device);
++u32 ipath_layer_get_majrev(struct ipath_devdata *dd)
++{
++	return dd->ipath_majrev;
++}
 +
- 	return ret;
- }
++EXPORT_SYMBOL_GPL(ipath_layer_get_majrev);
++
++u32 ipath_layer_get_minrev(struct ipath_devdata *dd)
++{
++	return dd->ipath_minrev;
++}
++
++EXPORT_SYMBOL_GPL(ipath_layer_get_minrev);
++
++u32 ipath_layer_get_pcirev(struct ipath_devdata *dd)
++{
++	return dd->ipath_pcirev;
++}
++
++EXPORT_SYMBOL_GPL(ipath_layer_get_pcirev);
  
- void ipath_driver_remove_group(struct device_driver *drv)
+ u32 ipath_layer_get_flags(struct ipath_devdata *dd)
  {
--	sysfs_remove_group(&drv->kobj, &driver_stat_attr_group);
- 	sysfs_remove_group(&drv->kobj, &driver_attr_group);
+@@ -374,6 +382,13 @@ u16 ipath_layer_get_deviceid(struct ipat
  }
  
+ EXPORT_SYMBOL_GPL(ipath_layer_get_deviceid);
++
++u32 ipath_layer_get_vendorid(struct ipath_devdata *dd)
++{
++	return dd->ipath_vendorid;
++}
++
++EXPORT_SYMBOL_GPL(ipath_layer_get_vendorid);
+ 
+ u64 ipath_layer_get_lastibcstat(struct ipath_devdata *dd)
+ {
+diff -r 1e1f3da0e78d -r 21d5d64750ac drivers/infiniband/hw/ipath/ipath_layer.h
+--- a/drivers/infiniband/hw/ipath/ipath_layer.h	Thu Jun 29 14:33:25 2006 -0700
++++ b/drivers/infiniband/hw/ipath/ipath_layer.h	Thu Jun 29 14:33:25 2006 -0700
+@@ -144,11 +144,13 @@ int ipath_layer_set_guid(struct ipath_de
+ int ipath_layer_set_guid(struct ipath_devdata *, __be64 guid);
+ __be64 ipath_layer_get_guid(struct ipath_devdata *);
+ u32 ipath_layer_get_nguid(struct ipath_devdata *);
+-int ipath_layer_query_device(struct ipath_devdata *, u32 * vendor,
+-			     u32 * boardrev, u32 * majrev, u32 * minrev);
++u32 ipath_layer_get_majrev(struct ipath_devdata *);
++u32 ipath_layer_get_minrev(struct ipath_devdata *);
++u32 ipath_layer_get_pcirev(struct ipath_devdata *);
+ u32 ipath_layer_get_flags(struct ipath_devdata *dd);
+ struct device *ipath_layer_get_device(struct ipath_devdata *dd);
+ u16 ipath_layer_get_deviceid(struct ipath_devdata *dd);
++u32 ipath_layer_get_vendorid(struct ipath_devdata *);
+ u64 ipath_layer_get_lastibcstat(struct ipath_devdata *dd);
+ u32 ipath_layer_get_ibmtu(struct ipath_devdata *dd);
+ int ipath_layer_enable_timer(struct ipath_devdata *dd);
+diff -r 1e1f3da0e78d -r 21d5d64750ac drivers/infiniband/hw/ipath/ipath_mad.c
+--- a/drivers/infiniband/hw/ipath/ipath_mad.c	Thu Jun 29 14:33:25 2006 -0700
++++ b/drivers/infiniband/hw/ipath/ipath_mad.c	Thu Jun 29 14:33:25 2006 -0700
+@@ -85,7 +85,7 @@ static int recv_subn_get_nodeinfo(struct
+ {
+ 	struct nodeinfo *nip = (struct nodeinfo *)&smp->data;
+ 	struct ipath_devdata *dd = to_idev(ibdev)->dd;
+-	u32 vendor, boardid, majrev, minrev;
++	u32 vendor, majrev, minrev;
+ 
+ 	if (smp->attr_mod)
+ 		smp->status |= IB_SMP_INVALID_FIELD;
+@@ -105,9 +105,11 @@ static int recv_subn_get_nodeinfo(struct
+ 	nip->port_guid = nip->sys_guid;
+ 	nip->partition_cap = cpu_to_be16(ipath_layer_get_npkeys(dd));
+ 	nip->device_id = cpu_to_be16(ipath_layer_get_deviceid(dd));
+-	ipath_layer_query_device(dd, &vendor, &boardid, &majrev, &minrev);
++	majrev = ipath_layer_get_majrev(dd);
++	minrev = ipath_layer_get_minrev(dd);
+ 	nip->revision = cpu_to_be32((majrev << 16) | minrev);
+ 	nip->local_port_num = port;
++	vendor = ipath_layer_get_vendorid(dd);
+ 	nip->vendor_id[0] = 0;
+ 	nip->vendor_id[1] = vendor >> 8;
+ 	nip->vendor_id[2] = vendor;
+diff -r 1e1f3da0e78d -r 21d5d64750ac drivers/infiniband/hw/ipath/ipath_verbs.c
+--- a/drivers/infiniband/hw/ipath/ipath_verbs.c	Thu Jun 29 14:33:25 2006 -0700
++++ b/drivers/infiniband/hw/ipath/ipath_verbs.c	Thu Jun 29 14:33:25 2006 -0700
+@@ -568,18 +568,15 @@ static int ipath_query_device(struct ib_
+ 			      struct ib_device_attr *props)
+ {
+ 	struct ipath_ibdev *dev = to_idev(ibdev);
+-	u32 vendor, boardrev, majrev, minrev;
+ 
+ 	memset(props, 0, sizeof(*props));
+ 
+ 	props->device_cap_flags = IB_DEVICE_BAD_PKEY_CNTR |
+ 		IB_DEVICE_BAD_QKEY_CNTR | IB_DEVICE_SHUTDOWN_PORT |
+ 		IB_DEVICE_SYS_IMAGE_GUID;
+-	ipath_layer_query_device(dev->dd, &vendor, &boardrev,
+-				 &majrev, &minrev);
+-	props->vendor_id = vendor;
+-	props->vendor_part_id = boardrev;
+-	props->hw_ver = boardrev << 16 | majrev << 8 | minrev;
++	props->vendor_id = ipath_layer_get_vendorid(dev->dd);
++	props->vendor_part_id = ipath_layer_get_deviceid(dev->dd);
++	props->hw_ver = ipath_layer_get_pcirev(dev->dd);
+ 
+ 	props->sys_image_guid = dev->sys_image_guid;
+ 
+@@ -1121,11 +1118,8 @@ static ssize_t show_rev(struct class_dev
+ {
+ 	struct ipath_ibdev *dev =
+ 		container_of(cdev, struct ipath_ibdev, ibdev.class_dev);
+-	int vendor, boardrev, majrev, minrev;
+-
+-	ipath_layer_query_device(dev->dd, &vendor, &boardrev,
+-				 &majrev, &minrev);
+-	return sprintf(buf, "%d.%d\n", majrev, minrev);
++
++	return sprintf(buf, "%x\n", ipath_layer_get_pcirev(dev->dd));
+ }
+ 
+ static ssize_t show_hca(struct class_device *cdev, char *buf)
