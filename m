@@ -1,32 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 38 of 39] IB/ipath - More changes to support InfiniPath
- on PowerPC 970 systems
-Date: Thu, 29 Jun 2006 14:53:19 -0700 (PDT)
-Message-ID: <20060629.145319.71091846.davem@davemloft.net>
+From: Bryan O'Sullivan <bos@pathscale.com>
+Subject: Re: [PATCH 39 of 39] IB/ipath - use streaming copy in RDMA
+	interrupt handler to reduce packet loss
+Date: Thu, 29 Jun 2006 14:59:37 -0700
+Message-ID: <1151618377.10886.23.camel@chalcedony.pathscale.com>
 References: <patchbomb.1151617251@eng-12.pathscale.com>
-	<c22b6c244d5db77f7b1d.1151617289@eng-12.pathscale.com>
+	 <1b00209ef20a0e7893d8.1151617290@eng-12.pathscale.com>
+	 <20060629.145027.41636491.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: akpm@osdl.org, rdreier@cisco.com, mst@mellanox.co.il,
 	openib-general@openib.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61134
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932967AbWF2VyG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 17:54:06 -0400
-To: bos@pathscale.com
-In-Reply-To: <c22b6c244d5db77f7b1d.1151617289@eng-12.pathscale.com>
+Received: from mx.pathscale.com ([64.160.42.68]:62865 "EHLO mx.pathscale.com")
+	by vger.kernel.org with ESMTP id S933006AbWF2V7j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 17:59:39 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060629.145027.41636491.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bryan O'Sullivan <bos@pathscale.com>
-Date: Thu, 29 Jun 2006 14:41:29 -0700
+On Thu, 2006-06-29 at 14:50 -0700, David Miller wrote:
 
->  ipath_core-$(CONFIG_X86_64) += ipath_wc_x86_64.o
-> +ipath_core-$(CONFIG_PPC64) += ipath_wc_ppc64.o
+> A facility like this doesn't belong in some arbitrary driver layer.
+> It belongs as a generic facility the whole kernel could make use
+> of.
 
-Again, don't put these kinds of cpu specific functions
-into the infiniband driver.  They are potentially globally
-useful, not something only Infiniband might want to do.
+It could, indeed.  In fact, we had that discussion here before I sent
+this patch in.  It presumably wants to live in lib/, and acquire a more
+generic name.  What name will capture the uncached-read-but-cached-write
+semantics in a useful fashion?  memcpy_nc?
+
+	<b
+
