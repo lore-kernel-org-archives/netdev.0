@@ -1,33 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 38 of 39] IB/ipath - More changes to support InfiniPath
- on PowerPC 970 systems
-Date: Thu, 29 Jun 2006 15:04:17 -0700 (PDT)
-Message-ID: <20060629.150417.78710870.davem@davemloft.net>
-References: <c22b6c244d5db77f7b1d.1151617289@eng-12.pathscale.com>
-	<20060629.145319.71091846.davem@davemloft.net>
-	<1151618499.10886.26.camel@chalcedony.pathscale.com>
+From: Shailabh Nagar <nagar@watson.ibm.com>
+Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
+Date: Thu, 29 Jun 2006 18:13:53 -0400
+Message-ID: <44A450A1.4090202@watson.ibm.com>
+References: <44892610.6040001@watson.ibm.com>	<44999F5A.2080809@watson.ibm.com>	<4499D7CD.1020303@engr.sgi.com>	<449C2181.6000007@watson.ibm.com>	<20060623141926.b28a5fc0.akpm@osdl.org>	<449C6620.1020203@engr.sgi.com>	<20060623164743.c894c314.akpm@osdl.org>	<449CAA78.4080902@watson.ibm.com>	<20060623213912.96056b02.akpm@osdl.org>	<449CD4B3.8020300@watson.ibm.com>	<44A01A50.1050403@sgi.com>	<20060626105548.edef4c64.akpm@osdl.org>	<44A020CD.30903@watson.ibm.com>	<20060626111249.7aece36e.akpm@osdl.org>	<44A026ED.8080903@sgi.com>	<20060626113959.839d72bc.akpm@osdl.org>	<44A2F50D.8030306@engr.sgi.com>	<20060628145341.529a61ab.akpm@osdl.org>	<44A2FC72.9090407@engr.sgi.com>	<20060629014050.d3bf0be4.pj@sgi.com>	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>	<20060629094408.360ac157.pj@sgi.com>	<20060629110107.2e56310b.akpm@osdl.org>	<44A425A7.2060900@watson.ibm.com>	<20060629123338.0d3552
+ 97.akpm@osdl.org>	<44A42D6D.6060108@watson.ibm.com> <20060629130046.c695c6c5.akpm@osdl.or!
+ g>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, rdreier@cisco.com, mst@mellanox.co.il,
-	openib-general@openib.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:49888
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932829AbWF2WFD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 18:05:03 -0400
-To: bos@pathscale.com
-In-Reply-To: <1151618499.10886.26.camel@chalcedony.pathscale.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: pj@sgi.com, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
+	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
+	hadi@cyberus.ca, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933039AbWF2WOs@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060629130046.c695c6c5.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bryan O'Sullivan <bos@pathscale.com>
-Date: Thu, 29 Jun 2006 15:01:39 -0700
+Andrew Morton wrote:
 
-> The support for write combining in the kernel is not in a state where
-> that makes any sense at the moment.
+>>Yup...the per-cpu, high speed requirements are up relayfs' alley, unless 
+>>Jamal or netlink folks
+>>are planning something (or can shed light on) how large flows can be 
+>>managed over netlink. I suspect
+>>this discussion has happened before :-)
+> 
+> 
+> yeah.
 
-Please fix the generic code if it doesn't provide the facility
-you need at the moment.  Don't shoe horn it into your driver
-just to make up for that.
+And now I remember why I didn't go down that path earlier. Relayfs is one-way
+kernel->user and lacks the ability to send query commands from user space
+that we need. Either we would need to send commands up through a separate interface
+(even a syscall) or try and ensure that the exiting genetlink interface can
+scale better with message volume (including throttling).
+
+--Shailabh
