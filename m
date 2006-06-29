@@ -1,62 +1,66 @@
 From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 1/9] pcnet32: Fix Section mismatch error
-Date: Thu, 29 Jun 2006 13:52:29 -0700
-Message-ID: <20060629205229.GA21991@us.ibm.com>
+Subject: [PATCH 2/9] pcnet32: Use PCI_DEVICE macro
+Date: Thu, 29 Jun 2006 13:52:58 -0700
+Message-ID: <20060629205258.GA21996@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:21707 "EHLO e5.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1751300AbWF2UwO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 16:52:14 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e5.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5TKqDEo013691
+Received: from e32.co.us.ibm.com ([32.97.110.150]:26763 "EHLO
+	e32.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750983AbWF2Uwn
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 16:52:43 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e32.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5TKqhLc004305
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Thu, 29 Jun 2006 16:52:13 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5TKqDN6284692
+	for <netdev@vger.kernel.org>; Thu, 29 Jun 2006 16:52:43 -0400
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay04.boulder.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5TKr0DF115274
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 29 Jun 2006 16:52:13 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5TKqDr9003129
-	for <netdev@vger.kernel.org>; Thu, 29 Jun 2006 16:52:13 -0400
+	for <netdev@vger.kernel.org>; Thu, 29 Jun 2006 14:53:00 -0600
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5TKqgbU009980
+	for <netdev@vger.kernel.org>; Thu, 29 Jun 2006 14:52:42 -0600
 To: tsbogend@alpha.franken.de, jgarzik@pobox.com,
 	netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix Section mismatch error.  Tested ia32 and ppc64.
+Jon Mason wrote on Thu, 12 Jan 2006 17:07:49 -0600:
+This patch adds the PCI_DEVICE macro to the pcnet32 driver.
 
-Signed-off-by:  Don Fry <brazilnut@us.ibm.com>
+This has been tested on my opteron with my "trident" adapter.
 
---- linux-2.6.17-git13/drivers/net/orig.pcnet32.c	Wed Jun 28 10:38:46 2006
-+++ linux-2.6.17-git13/drivers/net/pcnet32.c	Wed Jun 28 11:03:38 2006
-@@ -277,7 +277,6 @@ struct pcnet32_private {
- 	u32			phymask;
+Don Fry modified it slightly and tested on ia32 and ppc64.
+
+Signed-off-by: Jon Mason <jdmason@us.ibm.com>
+Signed-off-by: Don Fry <brazilnut@us.ibm.com>
+
+--- linux-2.6.17-git13/drivers/net/mismatch.pcnet32.c	Wed Jun 28 11:03:38 2006
++++ linux-2.6.17-git13/drivers/net/pcnet32.c	Wed Jun 28 11:11:37 2006
+@@ -58,18 +58,15 @@ static const char *const version =
+  * PCI device identifiers for "new style" Linux PCI Device Drivers
+  */
+ static struct pci_device_id pcnet32_pci_tbl[] = {
+-	{ PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_LANCE_HOME,
+-	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+-	{ PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_LANCE,
+-	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
++	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_LANCE_HOME), },
++	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_LANCE), },
+ 
+ 	/*
+ 	 * Adapters that were sold with IBM's RS/6000 or pSeries hardware have
+ 	 * the incorrect vendor id.
+ 	 */
+-	{ PCI_VENDOR_ID_TRIDENT, PCI_DEVICE_ID_AMD_LANCE,
+-	  PCI_ANY_ID, PCI_ANY_ID,
+-	  PCI_CLASS_NETWORK_ETHERNET << 8, 0xffff00, 0},
++	{ PCI_DEVICE(PCI_VENDOR_ID_TRIDENT, PCI_DEVICE_ID_AMD_LANCE),
++	  .class = (PCI_CLASS_NETWORK_ETHERNET << 8), .class_mask = 0xffff00, },
+ 
+ 	{ }	/* terminate list */
  };
- 
--static void pcnet32_probe_vlbus(void);
- static int pcnet32_probe_pci(struct pci_dev *, const struct pci_device_id *);
- static int pcnet32_probe1(unsigned long, int, struct pci_dev *);
- static int pcnet32_open(struct net_device *);
-@@ -952,7 +951,7 @@ static struct ethtool_ops pcnet32_ethtoo
- /* only probes for non-PCI devices, the rest are handled by
-  * pci_register_driver via pcnet32_probe_pci */
- 
--static void __devinit pcnet32_probe_vlbus(void)
-+static void __devinit pcnet32_probe_vlbus(unsigned int *pcnet32_portlist)
- {
- 	unsigned int *port, ioaddr;
- 
-@@ -2730,7 +2729,7 @@ static int __init pcnet32_init_module(vo
- 
- 	/* should we find any remaining VLbus devices ? */
- 	if (pcnet32vlb)
--		pcnet32_probe_vlbus();
-+		pcnet32_probe_vlbus(pcnet32_portlist);
- 
- 	if (cards_found && (pcnet32_debug & NETIF_MSG_PROBE))
- 		printk(KERN_INFO PFX "%d cards_found.\n", cards_found);
 -- 
 Don Fry
 brazilnut@us.ibm.com
