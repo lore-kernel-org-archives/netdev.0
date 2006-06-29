@@ -1,84 +1,267 @@
-From: Cedric Le Goater <clg@fr.ibm.com>
-Subject: strict isolation of net interfaces
-Date: Fri, 30 Jun 2006 00:14:41 +0200
-Message-ID: <44A450D1.2030405@fr.ibm.com>
-References: <20060627133849.E13959@castle.nmd.msu.ru>	 <44A1149E.6060802@fr.ibm.com> <m1sllqn7cb.fsf@ebiederm.dsl.xmission.com>	 <20060627160241.GB28984@MAIL.13thfloor.at>	 <m1psgulf4u.fsf@ebiederm.dsl.xmission.com>	 <44A1689B.7060809@candelatech.com>	 <20060627225213.GB2612@MAIL.13thfloor.at>	 <1151449973.24103.51.camel@localhost.localdomain>	 <20060627234210.GA1598@ms2.inr.ac.ru>	 <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>	 <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net>
+From: Ananda Raju <Ananda.Raju@neterion.com>
+Subject: [PATCH 2.6.17] support for TSO over IPv6
+Date: Thu, 29 Jun 2006 18:18:10 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.10606291810490.12773-100000@guinness>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, Herbert Poetzl <herbert@13thfloor.at>,
-	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
-	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
-	serue@us.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Andrey Savochkin <saw@swsoft.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933047AbWF2WPT@vger.kernel.org>
-To: Sam Vilain <sam@vilain.net>
-In-Reply-To: <44A44124.5010602@vilain.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Leonid.Grossman@neterion.com, Ravinandan.Arakali@neterion.com,
+	Ananda.Raju@neterion.com, sivakumar.subramani@neterion.com,
+	Sriram.Rapuru@neterion.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from barracuda.s2io.com ([72.1.205.138]:58827 "EHLO
+	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
+	id S933054AbWF2WSO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 18:18:14 -0400
+To: netdev@vger.kernel.org, jgarzik@pobox.com, shemminger@osdl.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sam Vilain wrote:
-> jamal wrote:
->>> note: personally I'm absolutely not against virtualizing
->>> the device names so that each guest can have a separate
->>> name space for devices, but there should be a way to
->>> 'see' _and_ 'identify' the interfaces from outside
->>> (i.e. host or spectator context)
->>>
->>>     
->> Makes sense for the host side to have naming convention tied
->> to the guest. Example as a prefix: guest0-eth0. Would it not
->> be interesting to have the host also manage these interfaces
->> via standard tools like ip or ifconfig etc? i.e if i admin up
->> guest0-eth0, then the user in guest0 will see its eth0 going
->> up.
-> 
-> That particular convention only works if you have network namespaces and
-> UTS namespaces tightly bound.  We plan to have them separate - so for
-> that to work, each network namespace could have an arbitrary "prefix"
-> that determines what the interface name will look like from the outside
-> when combined.  We'd have to be careful about length limits.
-> 
-> And guest0-eth0 doesn't necessarily make sense; it's not really an
-> ethernet interface, more like a tun or something.
-> 
-> So, an equally good convention might be to use sequential prefixes on
-> the host, like "tun", "dummy", or a new prefix - then a property of that
-> is what the name of the interface is perceived to be to those who are in
-> the corresponding network namespace.
-> 
-> Then the pragmatic question becomes how to correlate what you see from
-> `ip addr list' to guests.
+Hi, 
+	This patch enables TSO over IPv6. Currently Linux network stacks
+	restricts TSO over IPv6 by clearing of the NETIF_F_TSO bit from
+	"dev->features". This patch will remove this restriction.
 
+	This patch will introduce a new flag NETIF_F_TSO6 which will be used 
+	to check whether device supports TSO over IPv6. If device support TSO
+	over IPv6 then we don't clear of NETIF_F_TSO and which will make the 
+	TCP layer to create TSO packets. Any device supporting TSO over IPv6 
+	will set NETIF_F_TSO6 flag in "dev->features" along with NETIF_F_TSO.
 
-we could work on virtualizing the net interfaces in the host, map them to
-eth0 or something in the guest and let the guest handle upper network layers ?
+	In case when user disables TSO using ethtool, NETIF_F_TSO will get
+	cleared from "dev->features". So even if we have NETIF_F_TSO6 we don't
+	get TSO packets created by TCP layer. 
 
-lo0 would just be exposed relying on skbuff tagging to discriminate traffic
-between guests.
+	SKB_GSO_TCPV4 renamed to SKB_GSO_TCP to make it generic GSO packet.
+	SKB_GSO_UDPV4 renamed to SKB_GSO_UDP as UFO is not a IPv4 feature.
+	UFO is supported over IPv6 also
 
+	The following table shows there is significant improvement in
+	throughput with normal frames and CPU usage for both normal and jumbo.
 
+        --------------------------------------------------
+        |          |     1500        |      9600         |
+        |          ------------------|-------------------|
+        |          | thru     CPU    |  thru     CPU     |
+        --------------------------------------------------
+        | TSO OFF  | 2.00   5.5% id  |  5.66   20.0% id   |
+        --------------------------------------------------
+        | TSO ON   | 2.63   78.0 id  |  5.67   39.0% id  |
+        --------------------------------------------------
 
-host                  |  guest 0  |  guest 1  |  guest2
-----------------------+-----------+-----------+--------------
-  |                   |           |           |
-  |-> l0      <-------+-> lo0 ... | lo0       | lo0
-  |                   |           |           |
-  |-> bar0   <--------+-> eth0    |           |
-  |                   |           |           |
-  |-> foo0   <--------+-----------+-----------+-> eth0
-  |                   |           |           |
-  `-> foo0:1  <-------+-----------+-> eth0    |
-                      |           |           |
+Please review the patch.
+Signed-off-by: Ananda Raju <ananda.raju@neterion.com>
+---
+diff -upNr netdev.org/drivers/net/s2io.c netdev.ipv6_tso/drivers/net/s2io.c
+--- netdev.org/drivers/net/s2io.c	2006-06-27 07:30:36.000000000 -0700
++++ netdev.ipv6_tso/drivers/net/s2io.c	2006-06-27 07:38:48.000000000 -0700
+@@ -3960,7 +3960,7 @@ static int s2io_xmit(struct sk_buff *skb
+ 	txdp->Control_2 = 0;
+ #ifdef NETIF_F_TSO
+ 	mss = skb_shinfo(skb)->gso_size;
+-	if (skb_shinfo(skb)->gso_type == SKB_GSO_TCPV4) {
++	if (skb_shinfo(skb)->gso_type == SKB_GSO_TCP) {
+ 		txdp->Control_1 |= TXD_TCP_LSO_EN;
+ 		txdp->Control_1 |= TXD_TCP_LSO_MSS(mss);
+ 	}
+@@ -3980,7 +3980,7 @@ static int s2io_xmit(struct sk_buff *skb
+ 	}
+ 
+ 	frg_len = skb->len - skb->data_len;
+-	if (skb_shinfo(skb)->gso_type == SKB_GSO_UDPV4) {
++	if (skb_shinfo(skb)->gso_type == SKB_GSO_UDP) {
+ 		int ufo_size;
+ 
+ 		ufo_size = skb_shinfo(skb)->gso_size;
+@@ -4009,7 +4009,7 @@ static int s2io_xmit(struct sk_buff *skb
+ 	txdp->Host_Control = (unsigned long) skb;
+ 	txdp->Control_1 |= TXD_BUFFER0_SIZE(frg_len);
+ 
+-	if (skb_shinfo(skb)->gso_type == SKB_GSO_UDPV4)
++	if (skb_shinfo(skb)->gso_type == SKB_GSO_UDP)
+ 		txdp->Control_1 |= TXD_UFO_EN;
+ 
+ 	frg_cnt = skb_shinfo(skb)->nr_frags;
+@@ -4024,12 +4024,12 @@ static int s2io_xmit(struct sk_buff *skb
+ 		    (sp->pdev, frag->page, frag->page_offset,
+ 		     frag->size, PCI_DMA_TODEVICE);
+ 		txdp->Control_1 = TXD_BUFFER0_SIZE(frag->size);
+-		if (skb_shinfo(skb)->gso_type == SKB_GSO_UDPV4)
++		if (skb_shinfo(skb)->gso_type == SKB_GSO_UDP)
+ 			txdp->Control_1 |= TXD_UFO_EN;
+ 	}
+ 	txdp->Control_1 |= TXD_GATHER_CODE_LAST;
+ 
+-	if (skb_shinfo(skb)->gso_type == SKB_GSO_UDPV4)
++	if (skb_shinfo(skb)->gso_type == SKB_GSO_UDP)
+ 		frg_cnt++; /* as Txd0 was used for inband header */
+ 
+ 	tx_fifo = mac_control->tx_FIFO_start[queue];
+@@ -4043,7 +4043,7 @@ static int s2io_xmit(struct sk_buff *skb
+ 	if (mss)
+ 		val64 |= TX_FIFO_SPECIAL_FUNC;
+ #endif
+-	if (skb_shinfo(skb)->gso_type == SKB_GSO_UDPV4)
++	if (skb_shinfo(skb)->gso_type == SKB_GSO_UDP)
+ 		val64 |= TX_FIFO_SPECIAL_FUNC;
+ 	writeq(val64, &tx_fifo->List_Control);
+ 
+@@ -7021,6 +7021,9 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ #ifdef NETIF_F_TSO
+ 	dev->features |= NETIF_F_TSO;
+ #endif
++#ifdef NETIF_F_TSO6
++	dev->features |= NETIF_F_TSO6;
++#endif
+ 	if (sp->device_type & XFRAME_II_DEVICE) {
+ 		dev->features |= NETIF_F_UFO;
+ 		dev->features |= NETIF_F_HW_CSUM;
+diff -upNr netdev.org/include/linux/netdevice.h netdev.ipv6_tso/include/linux/netdevice.h
+--- netdev.org/include/linux/netdevice.h	2006-06-27 07:30:36.000000000 -0700
++++ netdev.ipv6_tso/include/linux/netdevice.h	2006-06-27 07:38:48.000000000 -0700
+@@ -313,8 +313,9 @@ struct net_device
+ 
+ 	/* Segmentation offload features */
+ #define NETIF_F_GSO_SHIFT	16
+-#define NETIF_F_TSO		(SKB_GSO_TCPV4 << NETIF_F_GSO_SHIFT)
+-#define NETIF_F_UFO		(SKB_GSO_UDPV4 << NETIF_F_GSO_SHIFT)
++#define NETIF_F_TSO		(SKB_GSO_TCP << NETIF_F_GSO_SHIFT)
++#define NETIF_F_UFO		(SKB_GSO_UDP << NETIF_F_GSO_SHIFT)
++#define NETIF_F_TSO6		(SKB_GSO_TCPV6 << NETIF_F_GSO_SHIFT)
+ 
+ #define NETIF_F_GEN_CSUM	(NETIF_F_NO_CSUM | NETIF_F_HW_CSUM)
+ #define NETIF_F_ALL_CSUM	(NETIF_F_IP_CSUM | NETIF_F_GEN_CSUM)
+diff -upNr netdev.org/include/linux/skbuff.h netdev.ipv6_tso/include/linux/skbuff.h
+--- netdev.org/include/linux/skbuff.h	2006-06-27 07:30:36.000000000 -0700
++++ netdev.ipv6_tso/include/linux/skbuff.h	2006-06-27 07:38:48.000000000 -0700
+@@ -170,8 +170,9 @@ enum {
+ };
+ 
+ enum {
+-	SKB_GSO_TCPV4 = 1 << 0,
+-	SKB_GSO_UDPV4 = 1 << 1,
++	SKB_GSO_TCP = 1 << 0,
++	SKB_GSO_UDP = 1 << 1,
++	SKB_GSO_TCPV6 = 1 << 2,
+ };
+ 
+ /** 
+diff -upNr netdev.org/net/ipv4/ip_output.c netdev.ipv6_tso/net/ipv4/ip_output.c
+--- netdev.org/net/ipv4/ip_output.c	2006-06-27 07:30:36.000000000 -0700
++++ netdev.ipv6_tso/net/ipv4/ip_output.c	2006-06-27 07:38:48.000000000 -0700
+@@ -744,7 +744,7 @@ static inline int ip_ufo_append_data(str
+ 	if (!err) {
+ 		/* specify the length of each IP datagram fragment*/
+ 		skb_shinfo(skb)->gso_size = mtu - fragheaderlen;
+-		skb_shinfo(skb)->gso_type = SKB_GSO_UDPV4;
++		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+ 		__skb_queue_tail(&sk->sk_write_queue, skb);
+ 
+ 		return 0;
+@@ -1089,7 +1089,7 @@ ssize_t	ip_append_page(struct sock *sk, 
+ 	if ((sk->sk_protocol == IPPROTO_UDP) &&
+ 	    (rt->u.dst.dev->features & NETIF_F_UFO)) {
+ 		skb_shinfo(skb)->gso_size = mtu - fragheaderlen;
+-		skb_shinfo(skb)->gso_type = SKB_GSO_UDPV4;
++		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+ 	}
+ 
+ 
+diff -upNr netdev.org/net/ipv4/tcp_output.c netdev.ipv6_tso/net/ipv4/tcp_output.c
+--- netdev.org/net/ipv4/tcp_output.c	2006-06-27 07:30:36.000000000 -0700
++++ netdev.ipv6_tso/net/ipv4/tcp_output.c	2006-06-27 07:38:48.000000000 -0700
+@@ -525,7 +525,7 @@ static void tcp_set_skb_tso_segs(struct 
+ 		factor /= mss_now;
+ 		skb_shinfo(skb)->gso_segs = factor;
+ 		skb_shinfo(skb)->gso_size = mss_now;
+-		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
++		skb_shinfo(skb)->gso_type = SKB_GSO_TCP;
+ 	}
+ }
+ 
+diff -upNr netdev.org/net/ipv6/af_inet6.c netdev.ipv6_tso/net/ipv6/af_inet6.c
+--- netdev.org/net/ipv6/af_inet6.c	2006-06-27 07:30:36.000000000 -0700
++++ netdev.ipv6_tso/net/ipv6/af_inet6.c	2006-06-27 07:38:48.000000000 -0700
+@@ -660,8 +660,11 @@ int inet6_sk_rebuild_header(struct sock 
+ 		}
+ 
+ 		ip6_dst_store(sk, dst, NULL);
+-		sk->sk_route_caps = dst->dev->features &
+-			~(NETIF_F_IP_CSUM | NETIF_F_TSO);
++		if (dst->dev->features & NETIF_F_TSO6)
++			sk->sk_route_caps = dst->dev->features;
++		else
++			sk->sk_route_caps = dst->dev->features &
++					~(NETIF_F_IP_CSUM | NETIF_F_TSO);
+ 	}
+ 
+ 	return 0;
+diff -upNr netdev.org/net/ipv6/inet6_connection_sock.c netdev.ipv6_tso/net/ipv6/inet6_connection_sock.c
+--- netdev.org/net/ipv6/inet6_connection_sock.c	2006-06-27 07:30:36.000000000 -0700
++++ netdev.ipv6_tso/net/ipv6/inet6_connection_sock.c	2006-06-27 07:38:48.000000000 -0700
+@@ -187,8 +187,11 @@ int inet6_csk_xmit(struct sk_buff *skb, 
+ 		}
+ 
+ 		ip6_dst_store(sk, dst, NULL);
+-		sk->sk_route_caps = dst->dev->features &
+-			~(NETIF_F_IP_CSUM | NETIF_F_TSO);
++		if (dst->dev->features & NETIF_F_TSO6)
++			sk->sk_route_caps = dst->dev->features;
++		else
++			sk->sk_route_caps = dst->dev->features &
++				~(NETIF_F_IP_CSUM | NETIF_F_TSO);
+ 	}
+ 
+ 	skb->dst = dst_clone(dst);
+diff -upNr netdev.org/net/ipv6/ip6_output.c netdev.ipv6_tso/net/ipv6/ip6_output.c
+--- netdev.org/net/ipv6/ip6_output.c	2006-06-27 07:30:36.000000000 -0700
++++ netdev.ipv6_tso/net/ipv6/ip6_output.c	2006-06-27 07:38:48.000000000 -0700
+@@ -230,7 +230,7 @@ int ip6_xmit(struct sock *sk, struct sk_
+ 	skb->priority = sk->sk_priority;
+ 
+ 	mtu = dst_mtu(dst);
+-	if ((skb->len <= mtu) || ipfragok) {
++	if ((skb->len <= mtu) || ipfragok || skb_shinfo(skb)->gso_size) {
+ 		IP6_INC_STATS(IPSTATS_MIB_OUTREQUESTS);
+ 		return NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev,
+ 				dst_output);
+@@ -835,7 +835,7 @@ static inline int ip6_ufo_append_data(st
+ 		/* specify the length of each IP datagram fragment*/
+ 		skb_shinfo(skb)->gso_size = mtu - fragheaderlen - 
+ 					    sizeof(struct frag_hdr);
+-		skb_shinfo(skb)->gso_type = SKB_GSO_UDPV4;
++		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+ 		ipv6_select_ident(skb, &fhdr);
+ 		skb_shinfo(skb)->ip6_frag_id = fhdr.identification;
+ 		__skb_queue_tail(&sk->sk_write_queue, skb);
+diff -upNr netdev.org/net/ipv6/tcp_ipv6.c netdev.ipv6_tso/net/ipv6/tcp_ipv6.c
+--- netdev.org/net/ipv6/tcp_ipv6.c	2006-06-27 07:30:36.000000000 -0700
++++ netdev.ipv6_tso/net/ipv6/tcp_ipv6.c	2006-06-27 07:38:48.000000000 -0700
+@@ -271,8 +271,11 @@ static int tcp_v6_connect(struct sock *s
+ 	inet->rcv_saddr = LOOPBACK4_IPV6;
+ 
+ 	ip6_dst_store(sk, dst, NULL);
+-	sk->sk_route_caps = dst->dev->features &
+-		~(NETIF_F_IP_CSUM | NETIF_F_TSO);
++	if (dst->dev->features & NETIF_F_TSO6)
++		sk->sk_route_caps = dst->dev->features;
++	else
++		sk->sk_route_caps = dst->dev->features &
++				~(NETIF_F_IP_CSUM | NETIF_F_TSO);
+ 
+ 	icsk->icsk_ext_hdr_len = 0;
+ 	if (np->opt)
+@@ -931,8 +934,11 @@ static struct sock * tcp_v6_syn_recv_soc
+ 	 */
+ 
+ 	ip6_dst_store(newsk, dst, NULL);
+-	newsk->sk_route_caps = dst->dev->features &
+-		~(NETIF_F_IP_CSUM | NETIF_F_TSO);
++	if (dst->dev->features & NETIF_F_TSO6)
++		sk->sk_route_caps = dst->dev->features;
++	else
++		newsk->sk_route_caps = dst->dev->features &
++				~(NETIF_F_IP_CSUM | NETIF_F_TSO);
+ 
+ 	newtcp6sk = (struct tcp6_sock *)newsk;
+ 	inet_sk(newsk)->pinet6 = &newtcp6sk->inet6;
 
-
-is that clear ? stupid ? reinventing the wheel ?
-
-thanks,
-
-C.
