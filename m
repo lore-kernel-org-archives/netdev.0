@@ -1,7 +1,7 @@
 From: Bryan O'Sullivan <bos@pathscale.com>
-Subject: [PATCH 32 of 39] IB/ipath - support more models of InfiniPath hardware
-Date: Thu, 29 Jun 2006 14:41:23 -0700
-Message-ID: <8fbb5d71823abafe963a.1151617283@eng-12.pathscale.com>
+Subject: [PATCH 31 of 39] IB/ipath - drop the "stats" sysfs attribute group
+Date: Thu, 29 Jun 2006 14:41:22 -0700
+Message-ID: <21378f21e091f6fc81fc.1151617282@eng-12.pathscale.com>
 References: <patchbomb.1151617251@eng-12.pathscale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -9,131 +9,123 @@ Content-Transfer-Encoding: 7bit
 Cc: openib-general@openib.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.pathscale.com ([64.160.42.68]:39055 "EHLO mx.pathscale.com")
-	by vger.kernel.org with ESMTP id S932909AbWF2VoK (ORCPT
+Received: from mx.pathscale.com ([64.160.42.68]:38799 "EHLO mx.pathscale.com")
+	by vger.kernel.org with ESMTP id S932908AbWF2VoK (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 17:44:10 -0400
 In-Reply-To: <patchbomb.1151617251@eng-12.pathscale.com>
 To: akpm@osdl.org, rdreier@cisco.com, mst@mellanox.co.il
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We do a few more explicit checks for specific models, and now also
-support the old PathScale serial number style, or new QLogic style.
+This attribute group made it into the original driver, but should
+not have.
 
-This is backwards compatible with previous versions of software and
-hardware.  That is, older software will see a plausible serial number
-and correct GUID when used with a new board, while newer software will
-correctly handle an older board.
-
-Signed-off-by: Mike Albaugh <mike.albaugh@qlogic.com>
-Signed-off-by: Dave Olson <dave.olson@qlogic.com>
 Signed-off-by: Bryan O'Sullivan <bryan.osullivan@qlogic.com>
 
-diff -r 21378f21e091 -r 8fbb5d71823a drivers/infiniband/hw/ipath/ipath_common.h
---- a/drivers/infiniband/hw/ipath/ipath_common.h	Thu Jun 29 14:33:26 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_common.h	Thu Jun 29 14:33:26 2006 -0700
-@@ -476,7 +476,7 @@ struct ipath_sma_pkt
-  * Data layout in I2C flash (for GUID, etc.)
-  * All fields are little-endian binary unless otherwise stated
-  */
--#define IPATH_FLASH_VERSION 1
-+#define IPATH_FLASH_VERSION 2
- struct ipath_flash {
- 	/* flash layout version (IPATH_FLASH_VERSION) */
- 	__u8 if_fversion;
-@@ -484,14 +484,14 @@ struct ipath_flash {
- 	__u8 if_csum;
- 	/*
- 	 * valid length (in use, protected by if_csum), including
--	 * if_fversion and if_sum themselves)
-+	 * if_fversion and if_csum themselves)
- 	 */
- 	__u8 if_length;
- 	/* the GUID, in network order */
- 	__u8 if_guid[8];
- 	/* number of GUIDs to use, starting from if_guid */
- 	__u8 if_numguid;
--	/* the board serial number, in ASCII */
-+	/* the (last 10 characters of) board serial number, in ASCII */
- 	char if_serial[12];
- 	/* board mfg date (YYYYMMDD ASCII) */
- 	char if_mfgdate[8];
-@@ -503,8 +503,10 @@ struct ipath_flash {
- 	__u8 if_powerhour[2];
- 	/* ASCII free-form comment field */
- 	char if_comment[32];
--	/* 78 bytes used, min flash size is 128 bytes */
--	__u8 if_future[50];
-+	/* Backwards compatible prefix for longer QLogic Serial Numbers */
-+	char if_sprefix[4];
-+	/* 82 bytes used, min flash size is 128 bytes */
-+	__u8 if_future[46];
- };
+diff -r 3ceb73f8bde0 -r 21378f21e091 drivers/infiniband/hw/ipath/ipath_sysfs.c
+--- a/drivers/infiniband/hw/ipath/ipath_sysfs.c	Thu Jun 29 14:33:26 2006 -0700
++++ b/drivers/infiniband/hw/ipath/ipath_sysfs.c	Thu Jun 29 14:33:26 2006 -0700
+@@ -84,81 +84,6 @@ static ssize_t show_num_units(struct dev
+ 	return scnprintf(buf, PAGE_SIZE, "%d\n",
+ 			 ipath_count_units(NULL, NULL, NULL));
+ }
+-
+-#define DRIVER_STAT(name, attr) \
+-	static ssize_t show_stat_##name(struct device_driver *dev, \
+-					char *buf) \
+-	{ \
+-		return scnprintf( \
+-			buf, PAGE_SIZE, "%llu\n", \
+-			(unsigned long long) ipath_stats.sps_ ##attr); \
+-	} \
+-	static DRIVER_ATTR(name, S_IRUGO, show_stat_##name, NULL)
+-
+-DRIVER_STAT(intrs, ints);
+-DRIVER_STAT(err_intrs, errints);
+-DRIVER_STAT(errs, errs);
+-DRIVER_STAT(pkt_errs, pkterrs);
+-DRIVER_STAT(crc_errs, crcerrs);
+-DRIVER_STAT(hw_errs, hwerrs);
+-DRIVER_STAT(ib_link, iblink);
+-DRIVER_STAT(port0_pkts, port0pkts);
+-DRIVER_STAT(ether_spkts, ether_spkts);
+-DRIVER_STAT(ether_rpkts, ether_rpkts);
+-DRIVER_STAT(sma_spkts, sma_spkts);
+-DRIVER_STAT(sma_rpkts, sma_rpkts);
+-DRIVER_STAT(hdrq_full, hdrqfull);
+-DRIVER_STAT(etid_full, etidfull);
+-DRIVER_STAT(no_piobufs, nopiobufs);
+-DRIVER_STAT(ports, ports);
+-DRIVER_STAT(pkey0, pkeys[0]);
+-DRIVER_STAT(pkey1, pkeys[1]);
+-DRIVER_STAT(pkey2, pkeys[2]);
+-DRIVER_STAT(pkey3, pkeys[3]);
+-
+-DRIVER_STAT(nports, nports);
+-DRIVER_STAT(null_intr, nullintr);
+-DRIVER_STAT(max_pkts_call, maxpkts_call);
+-DRIVER_STAT(avg_pkts_call, avgpkts_call);
+-DRIVER_STAT(page_locks, pagelocks);
+-DRIVER_STAT(page_unlocks, pageunlocks);
+-DRIVER_STAT(krdrops, krdrops);
+-
+-static struct attribute *driver_stat_attributes[] = {
+-	&driver_attr_intrs.attr,
+-	&driver_attr_err_intrs.attr,
+-	&driver_attr_errs.attr,
+-	&driver_attr_pkt_errs.attr,
+-	&driver_attr_crc_errs.attr,
+-	&driver_attr_hw_errs.attr,
+-	&driver_attr_ib_link.attr,
+-	&driver_attr_port0_pkts.attr,
+-	&driver_attr_ether_spkts.attr,
+-	&driver_attr_ether_rpkts.attr,
+-	&driver_attr_sma_spkts.attr,
+-	&driver_attr_sma_rpkts.attr,
+-	&driver_attr_hdrq_full.attr,
+-	&driver_attr_etid_full.attr,
+-	&driver_attr_no_piobufs.attr,
+-	&driver_attr_ports.attr,
+-	&driver_attr_pkey0.attr,
+-	&driver_attr_pkey1.attr,
+-	&driver_attr_pkey2.attr,
+-	&driver_attr_pkey3.attr,
+-	&driver_attr_nports.attr,
+-	&driver_attr_null_intr.attr,
+-	&driver_attr_max_pkts_call.attr,
+-	&driver_attr_avg_pkts_call.attr,
+-	&driver_attr_page_locks.attr,
+-	&driver_attr_page_unlocks.attr,
+-	&driver_attr_krdrops.attr,
+-	NULL
+-};
+-
+-static struct attribute_group driver_stat_attr_group = {
+-	.name = "stats",
+-	.attrs = driver_stat_attributes
+-};
  
- /*
-diff -r 21378f21e091 -r 8fbb5d71823a drivers/infiniband/hw/ipath/ipath_eeprom.c
---- a/drivers/infiniband/hw/ipath/ipath_eeprom.c	Thu Jun 29 14:33:26 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_eeprom.c	Thu Jun 29 14:33:26 2006 -0700
-@@ -602,8 +602,31 @@ void ipath_get_eeprom_info(struct ipath_
- 		guid = *(__be64 *) ifp->if_guid;
- 	dd->ipath_guid = guid;
- 	dd->ipath_nguid = ifp->if_numguid;
--	memcpy(dd->ipath_serial, ifp->if_serial,
--	       sizeof(ifp->if_serial));
-+	/*
-+	 * Things are slightly complicated by the desire to transparently
-+	 * support both the Pathscale 10-digit serial number and the QLogic
-+	 * 13-character version.
-+	 */
-+	if ((ifp->if_fversion > 1) && ifp->if_sprefix[0]
-+		&& ((u8 *)ifp->if_sprefix)[0] != 0xFF) {
-+		/* This board has a Serial-prefix, which is stored
-+		 * elsewhere for backward-compatibility.
-+		 */
-+		char *snp = dd->ipath_serial;
-+		int len;
-+		memcpy(snp, ifp->if_sprefix, sizeof ifp->if_sprefix);
-+		snp[sizeof ifp->if_sprefix] = '\0';
-+		len = strlen(snp);
-+		snp += len;
-+		len = (sizeof dd->ipath_serial) - len;
-+		if (len > sizeof ifp->if_serial) {
-+			len = sizeof ifp->if_serial; 
-+		}
-+		memcpy(snp, ifp->if_serial, len);
-+	} else
-+		memcpy(dd->ipath_serial, ifp->if_serial,
-+		       sizeof ifp->if_serial);
-+	
- 	ipath_cdbg(VERBOSE, "Initted GUID to %llx from eeprom\n",
- 		   (unsigned long long) be64_to_cpu(dd->ipath_guid));
+ static ssize_t show_status(struct device *dev,
+ 			   struct device_attribute *attr,
+@@ -716,20 +641,12 @@ int ipath_driver_create_group(struct dev
+ 	int ret;
  
-diff -r 21378f21e091 -r 8fbb5d71823a drivers/infiniband/hw/ipath/ipath_kernel.h
---- a/drivers/infiniband/hw/ipath/ipath_kernel.h	Thu Jun 29 14:33:26 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_kernel.h	Thu Jun 29 14:33:26 2006 -0700
-@@ -491,8 +491,11 @@ struct ipath_devdata {
- 	u16 ipath_lid;
- 	/* list of pkeys programmed; 0 if not set */
- 	u16 ipath_pkeys[4];
--	/* ASCII serial number, from flash */
--	u8 ipath_serial[12];
-+	/*
-+	 * ASCII serial number, from flash, large enough for original
-+	 * all digit strings, and longer QLogic serial number format
-+	 */
-+	u8 ipath_serial[16];
- 	/* human readable board version */
- 	u8 ipath_boardversion[80];
- 	/* chip major rev, from ipath_revision */
-diff -r 21378f21e091 -r 8fbb5d71823a drivers/infiniband/hw/ipath/ipath_pe800.c
---- a/drivers/infiniband/hw/ipath/ipath_pe800.c	Thu Jun 29 14:33:26 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_pe800.c	Thu Jun 29 14:33:26 2006 -0700
-@@ -533,7 +533,7 @@ static int ipath_pe_boardname(struct ipa
- 	if (n)
- 		snprintf(name, namelen, "%s", n);
+ 	ret = sysfs_create_group(&drv->kobj, &driver_attr_group);
+-	if (ret)
+-		goto bail;
+-
+-	ret = sysfs_create_group(&drv->kobj, &driver_stat_attr_group);
+-	if (ret)
+-		sysfs_remove_group(&drv->kobj, &driver_attr_group);
+-
+-bail:
++
+ 	return ret;
+ }
  
--	if (dd->ipath_majrev != 4 || dd->ipath_minrev != 1) {
-+	if (dd->ipath_majrev != 4 || !dd->ipath_minrev || dd->ipath_minrev>2) {
- 		ipath_dev_err(dd, "Unsupported PE-800 revision %u.%u!\n",
- 			      dd->ipath_majrev, dd->ipath_minrev);
- 		ret = 1;
+ void ipath_driver_remove_group(struct device_driver *drv)
+ {
+-	sysfs_remove_group(&drv->kobj, &driver_stat_attr_group);
+ 	sysfs_remove_group(&drv->kobj, &driver_attr_group);
+ }
+ 
