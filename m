@@ -1,8 +1,8 @@
 From: "Bryan O'Sullivan" <bos@pathscale.com>
-Subject: [PATCH 14 of 39] IB/ipath - removed unused
- field ipath_kregvirt from struct ipath_devdata
-Date: Thu, 29 Jun 2006 14:41:05 -0700
-Message-ID: <e43b4df874a97ae8bfc9.1151617265@eng-12.pathscale.com>
+Subject: [PATCH 7 of 39] IB/ipath - update some
+ comments and fix typos
+Date: Thu, 29 Jun 2006 14:40:58 -0700
+Message-ID: <8f08597cacd2a9dcea28.1151617258@eng-12.pathscale.com>
 References: <patchbomb.1151617251@eng-12.pathscale.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -27,45 +27,37 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Dave Olson <dave.olson@qlogic.com>
+Signed-off-by: Robert Walsh <robert.walsh@qlogic.com>
 Signed-off-by: Bryan O'Sullivan <bryan.osullivan@qlogic.com>
 
-diff -r a94e9f9c9c23 -r e43b4df874a9 drivers/infiniband/hw/ipath/ipath_driver.c
---- a/drivers/infiniband/hw/ipath/ipath_driver.c	Thu Jun 29 14:33:25 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_driver.c	Thu Jun 29 14:33:25 2006 -0700
-@@ -496,10 +496,8 @@ static int __devinit ipath_init_one(stru
- 		((void __iomem *)dd->ipath_kregbase + len);
- 	dd->ipath_physaddr = addr;	/* used for io_remap, etc. */
- 	/* for user mmap */
--	dd->ipath_kregvirt = (u64 __iomem *) phys_to_virt(addr);
--	ipath_cdbg(VERBOSE, "mapped io addr %llx to kregbase %p "
--		   "kregvirt %p\n", addr, dd->ipath_kregbase,
--		   dd->ipath_kregvirt);
-+	ipath_cdbg(VERBOSE, "mapped io addr %llx to kregbase %p\n",
-+		   addr, dd->ipath_kregbase);
- 
- 	/*
- 	 * clear ipath_flags here instead of in ipath_init_chip as it is set
-@@ -1809,7 +1807,6 @@ static void cleanup_device(struct ipath_
- 			 * re-init
- 			 */
- 			dd->ipath_kregbase = NULL;
--			dd->ipath_kregvirt = NULL;
- 			dd->ipath_uregbase = 0;
- 			dd->ipath_sregbase = 0;
- 			dd->ipath_cregbase = 0;
-diff -r a94e9f9c9c23 -r e43b4df874a9 drivers/infiniband/hw/ipath/ipath_kernel.h
+diff -r 600ceb6aeb8c -r 8f08597cacd2 drivers/infiniband/hw/ipath/ipath_kernel.h
 --- a/drivers/infiniband/hw/ipath/ipath_kernel.h	Thu Jun 29 14:33:25 2006 -0700
 +++ b/drivers/infiniband/hw/ipath/ipath_kernel.h	Thu Jun 29 14:33:25 2006 -0700
-@@ -158,11 +158,6 @@ struct ipath_devdata {
- 	unsigned long ipath_physaddr;
- 	/* base of memory alloced for ipath_kregbase, for free */
- 	u64 *ipath_kregalloc;
--	/*
--	 * version of kregbase that doesn't have high bits set (for 32 bit
--	 * programs, so mmap64 44 bit works)
--	 */
--	u64 __iomem *ipath_kregvirt;
- 	/*
- 	 * virtual address where port0 rcvhdrqtail updated for this unit.
- 	 * only written to by the chip, not the driver.
+@@ -723,13 +723,8 @@ u64 ipath_read_kreg64_port(const struct 
+  * @port: port number
+  *
+  * Return the contents of a register that is virtualized to be per port.
+- * Prints a debug message and returns -1 on errors (not distinguishable from
+- * valid contents at runtime; we may add a separate error variable at some
+- * point).
+- *
+- * This is normally not used by the kernel, but may be for debugging, and
+- * has a different implementation than user mode, which is why it's not in
+- * _common.h.
++ * Returns -1 on errors (not distinguishable from valid contents at
++ * runtime; we may add a separate error variable at some point).
+  */
+ static inline u32 ipath_read_ureg32(const struct ipath_devdata *dd,
+ 				    ipath_ureg regno, int port)
+diff -r 600ceb6aeb8c -r 8f08597cacd2 drivers/infiniband/hw/ipath/ipath_layer.c
+--- a/drivers/infiniband/hw/ipath/ipath_layer.c	Thu Jun 29 14:33:25 2006 -0700
++++ b/drivers/infiniband/hw/ipath/ipath_layer.c	Thu Jun 29 14:33:25 2006 -0700
+@@ -885,7 +885,7 @@ static void copy_io(u32 __iomem *piobuf,
+ /**
+  * ipath_verbs_send - send a packet from the verbs layer
+  * @dd: the infinipath device
+- * @hdrwords: the number of works in the header
++ * @hdrwords: the number of words in the header
+  * @hdr: the packet header
+  * @len: the length of the packet in bytes
+  * @ss: the SGE to send
