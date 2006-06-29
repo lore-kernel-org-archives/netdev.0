@@ -1,47 +1,46 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: RDMA will be reverted
-Date: Thu, 29 Jun 2006 16:42:35 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0606291642010.26501@d.namei>
-References: <20060628.000715.95062023.davem@davemloft.net>  <adawtazgawi.fsf@cisco.com>
-  <20060629.124628.88476747.davem@davemloft.net> <1151611866.11739.57.camel@trinity.ogc.int>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: 2.6.17-mm4
+Date: Thu, 29 Jun 2006 16:43:30 -0400
+Message-ID: <20060629204330.GC13619@redhat.com>
+References: <20060629013643.4b47e8bd.akpm@osdl.org> <6bffcb0e0606291339s69a16bc5ie108c0b8d4e29ed6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, rdreier@cisco.com,
-	netdev@vger.kernel.org, akpm@osdl.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:4771 "EHLO
-	mail7.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932462AbWF2Umi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 16:42:38 -0400
-To: Tom Tucker <tom@opengridcomputing.com>
-In-Reply-To: <1151611866.11739.57.camel@trinity.ogc.int>
+Received: from mx1.redhat.com ([66.187.233.31]:36821 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S932470AbWF2Unh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 16:43:37 -0400
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <6bffcb0e0606291339s69a16bc5ie108c0b8d4e29ed6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 29 Jun 2006, Tom Tucker wrote:
+On Thu, Jun 29, 2006 at 10:39:33PM +0200, Michal Piotrowski wrote:
 
-> On Thu, 2006-06-29 at 12:46 -0700, David Miller wrote:
-> > From: Roland Dreier <rdreier@cisco.com>
-> > Date: Thu, 29 Jun 2006 09:54:37 -0700
-> > 
-> > > In any case I think we need to find a way for Linux to support iWARP
-> > > hardware, since there are users that want this, and (some of) the
-> > > vendors are working hard to do things the right way (including cc'ing
-> > > netdev on the conversation).  I don't think it's good for Linux for
-> > > the answer to just be, "sorry, you're wrong to want to use that hardware."
-> > 
-> > We give the same response for TOE stuff.
-> 
-> What does the word "we" represent in this context? Is it the Linux
-> community at large, Linux and Andrew, you? I'm not trying to be
-> argumentative, I just want to understand how carefully and by whom iWARP
-> technology has been considered.
+ > This looks very strange.
+ > 
+ > BUG: unable to handle kernel paging request at virtual address 6b6b6c07
 
-$ grep -ri davem /usr/src/linux
+Looks like a use after free.
 
+ > printing eip:
+ > c0138594
+ > *pde=00000000
+ > Oops: 0002 [#1]
+ > 4K_STACK PREEMPT SMP
+ > last sysfs file /class/net/eth0/address
+ > Modules linked in: ipv6 af_packet ipt_REJECT xt_tcpudp x_tables
+ > p4_clockmod speedstep_lib binfmt_misc
+ > 
+ > (gdb) list *0xc0138594
+ > 0xc0138594 is in __lock_acquire (include2/asm/atomic.h:96).
+ > warning: Source file is more recent than executable.
 
+got a backtrace ?
 
-- James
+		Dave
+
 -- 
-James Morris
-<jmorris@namei.org>
+http://www.codemonkey.org.uk
