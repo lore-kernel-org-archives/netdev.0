@@ -1,45 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RDMA will be reverted
-Date: Thu, 29 Jun 2006 12:46:28 -0700 (PDT)
-Message-ID: <20060629.124628.88476747.davem@davemloft.net>
-References: <20060628.000715.95062023.davem@davemloft.net>
-	<adawtazgawi.fsf@cisco.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [Ubuntu PATCH] Broadcom wireless patch, PCIE/Mactel support
+Date: Thu, 29 Jun 2006 15:55:02 -0400
+Message-ID: <20060629195456.GG24463@tuxdriver.com>
+References: <44909A3F.4090905@oracle.com> <20060615133220.57d8dd26@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@osdl.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, mb@bu3sch.de,
+	akpm <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:34233
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932346AbWF2Tq3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 15:46:29 -0400
-To: rdreier@cisco.com
-In-Reply-To: <adawtazgawi.fsf@cisco.com>
+Received: from ra.tuxdriver.com ([70.61.120.52]:2316 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S932365AbWF2Tzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 15:55:31 -0400
+To: Stefano Brivio <stefano.brivio@polimi.it>
+Content-Disposition: inline
+In-Reply-To: <20060615133220.57d8dd26@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Thu, 29 Jun 2006 09:54:37 -0700
+On Thu, Jun 15, 2006 at 01:32:20PM +0200, Stefano Brivio wrote:
+> On Wed, 14 Jun 2006 16:22:39 -0700
+> Randy Dunlap <randy.dunlap@oracle.com> wrote:
+> 
+> > From: Matthew Garrett <mjg59@srcf.ucam.org>
+> > 
+> > Broadcom wireless patch, PCIE/Mactel support
+> > 
+> > http://www.kernel.org/git/?p=linux/kernel/git/bcollins/ubuntu-dapper.git;a=commitdiff;h=1373a8487e911b5ee204f4422ddea00929c8a4cc
+> > 
+> > This patch adds support for PCIE cores to the bcm43xx driver. This is
+> > needed for wireless to work on the Intel imacs. I've submitted it to
+> > bcm43xx upstream.
+> 
+> NACK.
+> This has been superseded by my patchset:
+> http://www.mail-archive.com/bcm43xx-dev@lists.berlios.de/msg01267.html
+> 
+> I'm still waiting for more testing so I didn't request merging to mainline
 
-> In any case I think we need to find a way for Linux to support iWARP
-> hardware, since there are users that want this, and (some of) the
-> vendors are working hard to do things the right way (including cc'ing
-> netdev on the conversation).  I don't think it's good for Linux for
-> the answer to just be, "sorry, you're wrong to want to use that hardware."
+Are these patches coming soon?
 
-We give the same response for TOE stuff.
-
-The integration of iWARP with the Linux networking, while much better
-than TOE, is still heavily flawed.
-
-What most people might not realize when using this stuff is that:
-
-1) None of their firewall rules will apply to the iWARP communications.
-2) None of their packet scheduling configurations can be applied to
-   the iWARP communications.
-3) It is not possible to encapsulate iWARP traffic in IPSEC
-
-And the list goes on and on.
-
-This is what we don't like about technologies that implement their own
-networking stack in the card firmware.
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
