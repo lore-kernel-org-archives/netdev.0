@@ -1,235 +1,197 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 7/9] pcnet32: Cleanup rx buffers after loopback test.
-Date: Thu, 29 Jun 2006 13:55:27 -0700
-Message-ID: <20060629205527.GA22026@us.ibm.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Thu, 29 Jun 2006 22:55:43 +0200
+Message-ID: <20060629205543.GA14627@postel.suug.ch>
+References: <20060626.104654.98552111.davem@davemloft.net> <20060626184424.GT1376@postel.suug.ch> <44A05FE0.7070203@trash.net> <20060627100309.GU1376@postel.suug.ch> <1151413670.6516.57.camel@jzny2> <20060628101832.GW1376@postel.suug.ch> <1151497363.5203.47.camel@jzny2> <20060628130124.GX1376@postel.suug.ch> <1151502408.5203.94.camel@jzny2> <20060629085111.GY1376@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:17337 "EHLO
-	e34.co.us.ibm.com") by vger.kernel.org with ESMTP id S932530AbWF2UzM
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 16:55:12 -0400
-Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
-	by e34.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k5TKtCKi016503
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Thu, 29 Jun 2006 16:55:12 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by westrelay02.boulder.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k5TKscb3304014
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 29 Jun 2006 14:54:38 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k5TKtB0w013438
-	for <netdev@vger.kernel.org>; Thu, 29 Jun 2006 14:55:12 -0600
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com,
-	netdev@vger.kernel.org
+Received: from postel.suug.ch ([194.88.212.233]:22431 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932530AbWF2UzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 16:55:23 -0400
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
+In-Reply-To: <20060629085111.GY1376@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+* Thomas Graf <tgraf@suug.ch> 2006-06-29 10:51
+> If a packet is to be redirected, the mirred action
+> shall take care of providing this information to the next netdevice.
+> My additional request is to provide a flag to disable this for special
+> purposes not hurting anyone.
 
-More cleanup to pcnet32_loopback_test to release receive buffers if
-device is not up.  Created common routine to free rx buffers.
+[NET]: Use interface index to keep input device information
 
-Tested ia32 and ppc64
+Using the interface index instead of a direct reference
+allows a safe usage beyond the scope where an interface
+could disappear.
 
-Signed-off-by:  Don Fry <brazilnut@us.ibm.com>
+The old input_dev field was incorrectly made dependant
+on CONFIG_NET_CLS_ACT in skb_copy().
 
---- linux-2.6.17-git13/drivers/net/mcast.pcnet32.c	Wed Jun 28 15:16:58 2006
-+++ linux-2.6.17-git13/drivers/net/pcnet32.c	Thu Jun 29 13:09:40 2006
-@@ -645,6 +645,25 @@ static void pcnet32_realloc_rx_ring(stru
- 	return;
+The ifb device is changed to not update iif since the only
+feeder is mirred which already takes care of this.
+
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+
+Index: net-2.6.git/include/linux/skbuff.h
+===================================================================
+--- net-2.6.git.orig/include/linux/skbuff.h
++++ net-2.6.git/include/linux/skbuff.h
+@@ -181,7 +181,6 @@ enum {
+  *	@sk: Socket we are owned by
+  *	@tstamp: Time we arrived
+  *	@dev: Device we arrived on/are leaving by
+- *	@input_dev: Device we arrived on
+  *	@h: Transport layer header
+  *	@nh: Network layer header
+  *	@mac: Link layer header
+@@ -192,6 +191,7 @@ enum {
+  *	@data_len: Data length
+  *	@mac_len: Length of link layer header
+  *	@csum: Checksum
++ *	@iif: Device we arrived on
+  *	@local_df: allow local fragmentation
+  *	@cloned: Head may be cloned (check refcnt to be sure)
+  *	@nohdr: Payload reference only, must not modify header
+@@ -228,7 +228,6 @@ struct sk_buff {
+ 	struct sock		*sk;
+ 	struct skb_timeval	tstamp;
+ 	struct net_device	*dev;
+-	struct net_device	*input_dev;
+ 
+ 	union {
+ 		struct tcphdr	*th;
+@@ -266,6 +265,7 @@ struct sk_buff {
+ 				data_len,
+ 				mac_len,
+ 				csum;
++	int			iif;
+ 	__u32			priority;
+ 	__u8			local_df:1,
+ 				cloned:1,
+Index: net-2.6.git/include/net/pkt_cls.h
+===================================================================
+--- net-2.6.git.orig/include/net/pkt_cls.h
++++ net-2.6.git/include/net/pkt_cls.h
+@@ -352,14 +352,19 @@ tcf_change_indev(struct tcf_proto *tp, c
+ static inline int
+ tcf_match_indev(struct sk_buff *skb, char *indev)
+ {
++	int ret = 1;
++
+ 	if (indev[0]) {
+-		if  (!skb->input_dev)
+-			return 0;
+-		if (strcmp(indev, skb->input_dev->name))
++		struct net_device *dev;
++
++		dev = dev_get_by_index(skb->iif);
++		if  (!dev)
+ 			return 0;
++		ret = !strcmp(indev, dev->name);
++		dev_put(dev);
+ 	}
+ 
+-	return 1;
++	return ret;
  }
+ #endif /* CONFIG_NET_CLS_IND */
  
-+static void pcnet32_purge_rx_ring(struct net_device *dev)
-+{
-+	struct pcnet32_private *lp = dev->priv;
-+	int i;
-+
-+	/* free all allocated skbuffs */
-+	for (i = 0; i < lp->rx_ring_size; i++) {
-+		lp->rx_ring[i].status = 0;	/* CPU owns buffer */
-+		wmb();		/* Make sure adapter sees owner change */
-+		if (lp->rx_skbuff[i]) {
-+			pci_unmap_single(lp->pci_dev, lp->rx_dma_addr[i],
-+					 PKT_BUF_SZ - 2, PCI_DMA_FROMDEVICE);
-+			dev_kfree_skb_any(lp->rx_skbuff[i]);
-+		}
-+		lp->rx_skbuff[i] = NULL;
-+		lp->rx_dma_addr[i] = 0;
-+	}
-+}
-+
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void pcnet32_poll_controller(struct net_device *dev)
- {
-@@ -856,29 +875,27 @@ static int pcnet32_loopback_test(struct 
- 	unsigned long flags;
- 	unsigned long ticks;
- 
--	*data1 = 1;		/* status of test, default to fail */
- 	rc = 1;			/* default to fail */
- 
- 	if (netif_running(dev))
- 		pcnet32_close(dev);
- 
- 	spin_lock_irqsave(&lp->lock, flags);
-+	lp->a.write_csr(ioaddr, CSR0, CSR0_STOP);	/* stop the chip */
-+
-+	numbuffs = min(numbuffs, (int)min(lp->rx_ring_size, lp->tx_ring_size));
- 
- 	/* Reset the PCNET32 */
- 	lp->a.reset(ioaddr);
-+	lp->a.write_csr(ioaddr, CSR4, 0x0915);
- 
- 	/* switch pcnet32 to 32bit mode */
- 	lp->a.write_bcr(ioaddr, 20, 2);
- 
--	lp->init_block.mode =
--	    le16_to_cpu((lp->options & PCNET32_PORT_PORTSEL) << 7);
--	lp->init_block.filter[0] = 0;
--	lp->init_block.filter[1] = 0;
--
- 	/* purge & init rings but don't actually restart */
- 	pcnet32_restart(dev, 0x0000);
- 
--	lp->a.write_csr(ioaddr, 0, 0x0004);	/* Set STOP bit */
-+	lp->a.write_csr(ioaddr, CSR0, CSR0_STOP);	/* Set STOP bit */
- 
- 	/* Initialize Transmit buffers. */
- 	size = data_len + 15;
-@@ -920,14 +937,15 @@ static int pcnet32_loopback_test(struct 
+Index: net-2.6.git/net/core/dev.c
+===================================================================
+--- net-2.6.git.orig/net/core/dev.c
++++ net-2.6.git/net/core/dev.c
+@@ -1715,8 +1715,8 @@ static int ing_filter(struct sk_buff *sk
+ 	if (dev->qdisc_ingress) {
+ 		__u32 ttl = (__u32) G_TC_RTTL(skb->tc_verd);
+ 		if (MAX_RED_LOOP < ttl++) {
+-			printk("Redir loop detected Dropping packet (%s->%s)\n",
+-				skb->input_dev->name, skb->dev->name);
++			printk("Redir loop detected Dropping packet (%d->%s)\n",
++				skb->iif, skb->dev->name);
+ 			return TC_ACT_SHOT;
  		}
+ 
+@@ -1749,8 +1749,8 @@ int netif_receive_skb(struct sk_buff *sk
+ 	if (!skb->tstamp.off_sec)
+ 		net_timestamp(skb);
+ 
+-	if (!skb->input_dev)
+-		skb->input_dev = skb->dev;
++	if (!skb->iif)
++		skb->iif = skb->dev->ifindex;
+ 
+ 	orig_dev = skb_bond(skb);
+ 
+Index: net-2.6.git/net/core/skbuff.c
+===================================================================
+--- net-2.6.git.orig/net/core/skbuff.c
++++ net-2.6.git/net/core/skbuff.c
+@@ -463,10 +463,10 @@ struct sk_buff *skb_clone(struct sk_buff
+ 	n->tc_verd = SET_TC_VERD(skb->tc_verd,0);
+ 	n->tc_verd = CLR_TC_OK2MUNGE(n->tc_verd);
+ 	n->tc_verd = CLR_TC_MUNGED(n->tc_verd);
+-	C(input_dev);
+ #endif
+ 	skb_copy_secmark(n, skb);
+ #endif
++	C(iif);
+ 	C(truesize);
+ 	atomic_set(&n->users, 1);
+ 	C(head);
+Index: net-2.6.git/net/sched/act_api.c
+===================================================================
+--- net-2.6.git.orig/net/sched/act_api.c
++++ net-2.6.git/net/sched/act_api.c
+@@ -156,9 +156,8 @@ int tcf_action_exec(struct sk_buff *skb,
+ 
+ 	if (skb->tc_verd & TC_NCLS) {
+ 		skb->tc_verd = CLR_TC_NCLS(skb->tc_verd);
+-		D2PRINTK("(%p)tcf_action_exec: cleared TC_NCLS in %s out %s\n",
+-		         skb, skb->input_dev ? skb->input_dev->name : "xxx",
+-		         skb->dev->name);
++		D2PRINTK("(%p)tcf_action_exec: cleared TC_NCLS in %d out %s\n",
++		         skb, skb->iif, skb->dev->name);
+ 		ret = TC_ACT_OK;
+ 		goto exec_done;
  	}
+Index: net-2.6.git/net/sched/act_mirred.c
+===================================================================
+--- net-2.6.git.orig/net/sched/act_mirred.c
++++ net-2.6.git/net/sched/act_mirred.c
+@@ -207,7 +207,7 @@ bad_mirred:
+ 		skb2->tc_verd = SET_TC_FROM(skb2->tc_verd, at);
  
--	x = a->read_bcr(ioaddr, 32);	/* set internal loopback in BSR32 */
--	x = x | 0x0002;
--	a->write_bcr(ioaddr, 32, x);
-+	x = a->read_bcr(ioaddr, 32);	/* set internal loopback in BCR32 */
-+	a->write_bcr(ioaddr, 32, x | 0x0002);
+ 	skb2->dev = dev;
+-	skb2->input_dev = skb->dev;
++	skb2->iif = skb->dev->ifindex;
+ 	dev_queue_xmit(skb2);
+ 	spin_unlock(&p->lock);
+ 	return p->action;
+Index: net-2.6.git/drivers/net/ifb.c
+===================================================================
+--- net-2.6.git.orig/drivers/net/ifb.c
++++ net-2.6.git/drivers/net/ifb.c
+@@ -158,7 +158,7 @@ static int ifb_xmit(struct sk_buff *skb,
+ 	stats->tx_packets++;
+ 	stats->tx_bytes+=skb->len;
  
--	lp->a.write_csr(ioaddr, 15, 0x0044);	/* set int loopback in CSR15 */
-+	/* set int loopback in CSR15 */
-+	x = a->read_csr(ioaddr, CSR15) & 0xfffc;
-+	lp->a.write_csr(ioaddr, CSR15, x | 0x0044);
- 
- 	teststatus = le16_to_cpu(0x8000);
--	lp->a.write_csr(ioaddr, 0, 0x0002);	/* Set STRT bit */
-+	lp->a.write_csr(ioaddr, CSR0, CSR0_START);	/* Set STRT bit */
- 
- 	/* Check status of descriptors */
- 	for (x = 0; x < numbuffs; x++) {
-@@ -935,7 +953,7 @@ static int pcnet32_loopback_test(struct 
- 		rmb();
- 		while ((lp->rx_ring[x].status & teststatus) && (ticks < 200)) {
- 			spin_unlock_irqrestore(&lp->lock, flags);
--			mdelay(1);
-+			msleep(1);
- 			spin_lock_irqsave(&lp->lock, flags);
- 			rmb();
- 			ticks++;
-@@ -948,7 +966,7 @@ static int pcnet32_loopback_test(struct 
- 		}
- 	}
- 
--	lp->a.write_csr(ioaddr, 0, 0x0004);	/* Set STOP bit */
-+	lp->a.write_csr(ioaddr, CSR0, CSR0_STOP);	/* Set STOP bit */
- 	wmb();
- 	if (netif_msg_hw(lp) && netif_msg_pktdata(lp)) {
- 		printk(KERN_DEBUG "%s: RX loopback packets:\n", dev->name);
-@@ -981,25 +999,24 @@ static int pcnet32_loopback_test(struct 
- 		}
- 		x++;
- 	}
--	if (!rc) {
--		*data1 = 0;
--	}
- 
-       clean_up:
-+	*data1 = rc;
- 	pcnet32_purge_tx_ring(dev);
--	x = a->read_csr(ioaddr, 15) & 0xFFFF;
--	a->write_csr(ioaddr, 15, (x & ~0x0044));	/* reset bits 6 and 2 */
- 
--	x = a->read_bcr(ioaddr, 32);	/* reset internal loopback */
--	x = x & ~0x0002;
--	a->write_bcr(ioaddr, 32, x);
-+	x = a->read_csr(ioaddr, CSR15);
-+	a->write_csr(ioaddr, CSR15, (x & ~0x0044));	/* reset bits 6 and 2 */
- 
--	spin_unlock_irqrestore(&lp->lock, flags);
-+	x = a->read_bcr(ioaddr, 32);	/* reset internal loopback */
-+	a->write_bcr(ioaddr, 32, (x & ~0x0002));
- 
- 	if (netif_running(dev)) {
-+		spin_unlock_irqrestore(&lp->lock, flags);
- 		pcnet32_open(dev);
- 	} else {
-+		pcnet32_purge_rx_ring(dev);
- 		lp->a.write_bcr(ioaddr, 20, 4);	/* return to 16bit mode */
-+		spin_unlock_irqrestore(&lp->lock, flags);
- 	}
- 
- 	return (rc);
-@@ -1997,16 +2014,7 @@ static int pcnet32_open(struct net_devic
- 
-       err_free_ring:
- 	/* free any allocated skbuffs */
--	for (i = 0; i < lp->rx_ring_size; i++) {
--		lp->rx_ring[i].status = 0;
--		if (lp->rx_skbuff[i]) {
--			pci_unmap_single(lp->pci_dev, lp->rx_dma_addr[i],
--					 PKT_BUF_SZ - 2, PCI_DMA_FROMDEVICE);
--			dev_kfree_skb(lp->rx_skbuff[i]);
--		}
--		lp->rx_skbuff[i] = NULL;
--		lp->rx_dma_addr[i] = 0;
--	}
-+	pcnet32_purge_rx_ring(dev);
- 
- 	/*
- 	 * Switch back to 16bit mode to avoid problems with dumb
-@@ -2588,7 +2596,6 @@ static int pcnet32_close(struct net_devi
- {
- 	unsigned long ioaddr = dev->base_addr;
- 	struct pcnet32_private *lp = dev->priv;
--	int i;
- 	unsigned long flags;
- 
- 	del_timer_sync(&lp->watchdog_timer);
-@@ -2619,31 +2626,8 @@ static int pcnet32_close(struct net_devi
- 
- 	spin_lock_irqsave(&lp->lock, flags);
- 
--	/* free all allocated skbuffs */
--	for (i = 0; i < lp->rx_ring_size; i++) {
--		lp->rx_ring[i].status = 0;
--		wmb();		/* Make sure adapter sees owner change */
--		if (lp->rx_skbuff[i]) {
--			pci_unmap_single(lp->pci_dev, lp->rx_dma_addr[i],
--					 PKT_BUF_SZ - 2, PCI_DMA_FROMDEVICE);
--			dev_kfree_skb(lp->rx_skbuff[i]);
--		}
--		lp->rx_skbuff[i] = NULL;
--		lp->rx_dma_addr[i] = 0;
--	}
--
--	for (i = 0; i < lp->tx_ring_size; i++) {
--		lp->tx_ring[i].status = 0;	/* CPU owns buffer */
--		wmb();		/* Make sure adapter sees owner change */
--		if (lp->tx_skbuff[i]) {
--			pci_unmap_single(lp->pci_dev, lp->tx_dma_addr[i],
--					 lp->tx_skbuff[i]->len,
--					 PCI_DMA_TODEVICE);
--			dev_kfree_skb(lp->tx_skbuff[i]);
--		}
--		lp->tx_skbuff[i] = NULL;
--		lp->tx_dma_addr[i] = 0;
--	}
-+	pcnet32_purge_rx_ring(dev);
-+	pcnet32_purge_tx_ring(dev);
- 
- 	spin_unlock_irqrestore(&lp->lock, flags);
- 
--- 
-Don Fry
-brazilnut@us.ibm.com
+-	if (!from || !skb->input_dev) {
++	if (!from || !skb->iif) {
+ dropped:
+ 		dev_kfree_skb(skb);
+ 		stats->rx_dropped++;
+@@ -169,8 +169,7 @@ dropped:
+ 		 * ingress -> egress or
+ 		 * egress -> ingress
+ 		*/
+-		skb->dev = skb->input_dev;
+-		skb->input_dev = dev;
++		skb->dev = dev;
+ 		if (from & AT_INGRESS) {
+ 			skb_pull(skb, skb->dev->hard_header_len);
+ 		} else {
