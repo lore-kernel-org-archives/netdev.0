@@ -1,53 +1,56 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: RDMA will be reverted
-Date: Thu, 29 Jun 2006 09:54:37 -0700
-Message-ID: <adawtazgawi.fsf@cisco.com>
-References: <20060628.000715.95062023.davem@davemloft.net>
+From: "Mark E Mason" <mark.e.mason@broadcom.com>
+Subject: RE: PATCH SB1250 NAPI support
+Date: Thu, 29 Jun 2006 10:15:03 -0700
+Message-ID: <7E000E7F06B05C49BDBB769ADAF44D07CEB37F@NT-SJCA-0750.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, akpm@osdl.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Tom Rix" <trix@specifix.com>,
+	"Mark E Mason" <mark.e.mason@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:18768 "EHLO
-	sj-iport-6.cisco.com") by vger.kernel.org with ESMTP
-	id S1750964AbWF2Qyl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 12:54:41 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060628.000715.95062023.davem@davemloft.net> (David Miller's message of "Wed, 28 Jun 2006 00:07:15 -0700 (PDT)")
+Received: from mms1.broadcom.com ([216.31.210.17]:267 "EHLO mms1.broadcom.com")
+	by vger.kernel.org with ESMTP id S1751032AbWF2RPZ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 13:15:25 -0400
+Content-class: urn:content-classes:message
+To: "Martin Michlmayr" <tbm@cyrius.com>, jgarzik@pobox.com,
+	netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-    David> Roland, there is no way in the world we would have let
-    David> support for RDMA into the kernel tree had we seen and
-    David> reviewed it on netdev.  I've discussed this with Andrew
-    David> Morton, and we'd like you to please revert all of the RDMA
-    David> code from Linus's tree immedialtely.
+Hello,
 
-    David> Folks are well aware how against RDMA and TOE type schemes
-    David> the Linux networking developers are.  So the fact that none
-    David> of these RDMA changes went up for review on netdev strikes
-    David> me as just a little bit more than suspicious.
+We've done some further work on the bcm1250/bcm1480 MAC driver since
+then, primarily in the area of performance improvements, but we've not
+quite ready to submit the patch for those changes yet.
 
-[I'm really on paternity leave, but this was brought to my attention
-and seems important enough to respond to]
+In the meantime, Tom's patch fixes all of the really bad problems, and
+we'd really appreciate it if it could be merged in.
 
-Dave, you're going to have to be more specific.  What do you mean by
-RDMA?  The whole drivers/infiniband infrastructure, which handles RDMA
-over IB, has been upstream for a year and a half, and was in fact
-originally merged by you, so I'm guessing that's not what you mean.
+Thx,
+Mark Mason
+Broadcom
 
-If you're talking about the "RDMA CM" (drivers/infiniband/core/cma.c
-et al) that was just merged, then you should be aware that that was
-posted by Sean Hefty to netdev for review, multiple times (eg a quick
-search finds <http://lwn.net/Articles/170202/>).  It is true that the
-intention of the abstraction is to provide a common mechanism for
-handling IB and iWARP (RDMA/TCP) connections, but at the moment no
-iWARP code is upstream.  Right now all it does is allow IP addressing
-to be used for IB connections.
+> -----Original Message-----
+> From: Martin Michlmayr [mailto:tbm@cyrius.com] 
+> Sent: Thursday, June 29, 2006 1:22 AM
+> To: jgarzik@pobox.com; netdev@vger.kernel.org
+> Cc: Tom Rix; Mark E Mason
+> Subject: Re: PATCH SB1250 NAPI support
+> 
+> * Tom Rix <trix@specifix.com> [2006-06-04 11:45]:
+> > A while ago I submitted this patch for NAPI support for 
+> SB1250 / SB1480.
+> > I have tested it again on the recent (6/3/06) linux-mips kernel.
+> 
+> Are there any comments regarding this patch (apart from the fact that
+> Tom forgot to include a Signed-off-by line).  Can it go in when it's
+> resent with a Signed-off-by line or does the patch have any other
+> problems?
+> -- 
+> Martin Michlmayr
+> tbm@cyrius.com
+> 
+> 
 
-In any case I think we need to find a way for Linux to support iWARP
-hardware, since there are users that want this, and (some of) the
-vendors are working hard to do things the right way (including cc'ing
-netdev on the conversation).  I don't think it's good for Linux for
-the answer to just be, "sorry, you're wrong to want to use that hardware."
-
- - Roland
