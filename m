@@ -1,80 +1,54 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Network namespaces a path to mergable code.
-Date: Wed, 28 Jun 2006 18:25:40 -0600
-Message-ID: <m11wt8erjv.fsf@ebiederm.dsl.xmission.com>
-References: <20060626134945.A28942@castle.nmd.msu.ru>
-	<m14py6ldlj.fsf@ebiederm.dsl.xmission.com>
-	<20060627215859.A20679@castle.nmd.msu.ru>
-	<m1ejx9kj1r.fsf@ebiederm.dsl.xmission.com>
-	<20060628150605.A29274@castle.nmd.msu.ru>
-	<44A2FA66.5070303@fr.ibm.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: FW: + qla3xxx-is-bust.patch added to -mm tree
+Date: Wed, 28 Jun 2006 21:37:47 -0400
+Message-ID: <44A32EEB.3080503@garzik.org>
+References: <0BB3E5E7462EEA4295BC02D49691DC07176D31@AVEXCH1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Savochkin <saw@swsoft.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
-	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
-	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
-	viro@ftp.linux.org.uk, Alexey Kuznetsov <alexey@sw.ru>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	Linux Driver <Linux-Driver@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:61616 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S1751835AbWF2A1J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 20:27:09 -0400
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-In-Reply-To: <44A2FA66.5070303@fr.ibm.com> (Daniel Lezcano's message of "Wed,
-	28 Jun 2006 23:53:42 +0200")
+Received: from srv5.dvmed.net ([207.36.208.214]:47582 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751170AbWF2Bhw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 21:37:52 -0400
+To: Ron Mercer <ron.mercer@qlogic.com>
+In-Reply-To: <0BB3E5E7462EEA4295BC02D49691DC07176D31@AVEXCH1.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniel Lezcano <dlezcano@fr.ibm.com> writes:
-
-> Andrey Savochkin wrote:
->
->> Ok, fine.
->> Now I'm working on socket code.
->> We still have a question about implicit vs explicit function parameters.
->> This question becomes more important for sockets: if we want to allow to use
->> sockets belonging to namespaces other than the current one, we need to do
->> something about it.
->> One possible option to resolve this question is to show 2 relatively short
->> patches just introducing namespaces for sockets in 2 ways: with explicit
->> function parameters and using implicit current context.
->> Then people can compare them and vote.
->> Do you think it's worth the effort?
+Ron Mercer wrote:
+>> Is the device hotpluggable?   If so, this:
 >>
->
-> The attached patch can have some part interesting for you for the socket
-> tagging. It is in the IPV4 isolation (part 5/6). With this and the private
-> routing table you will probably have a good IPV4 isolation.
-> This patch partially isolates ipv4 by adding the network namespace
-> structure in the structure sock, bind bucket and skbuf.
+>> 	qdev->index = cards_found;
+>>
+>> in the probe() handler might do odd things - it'll just keep 
+>> increasing as the card is removed and re-added.
+>>
+>> iirc, that's a common problem with net drivers.  AFAICT it'll 
+>> cause only cosmetic oddities here.
+>>
+>>
+> 
+> Not sure if the device supports hotplug.  I'm looking into it.  Either
 
-Ugh.  skbuf sounds very wrong.  Per packet overhead?
+If its a PCI device, it does...  depends more on the bus than the device.
 
-> When a socket
-> is created, the pointer to the network namespace is stored in the
-> struct sock and the socket belongs to the namespace by this way. That
-> allows to identify sockets related to a namespace for lookup and
-> procfs. 
->
-> The lookup is extended with a network namespace pointer, in
-> order to identify listen points binded to the same port. That allows
-> to have several applications binded to INADDR_ANY:port in different
-> network namespace without conflicting. The bind is checked against
-> port and network namespace.
 
-Yes.  If we don't duplicate the hash table we need to extend the lookup.
+> way, I will be removing qdev->index.  It's not needed. 
 
-> When an outgoing packet has the loopback destination addres, the
-> skbuff is filled with the network namespace. So the loopback packets
-> never go outside the namespace. This approach facilitate the migration
-> of loopback because identification is done by network namespace and
-> not by address. The loopback has been benchmarked by tbench and the
-> overhead is roughly 1.5 %
+Sounds good.
 
-Ugh.  1.5% is noticeable.
 
-I think it is cheaper to have one loopback device per namespace.
-Which removes the need for a skbuff tag.
+> I am working on the remaining items that Jeff pointed out when he
+> reviewed my driver.  I will forward a patch built against what you
+> currently have when I'm done.
+> 
+> Now that the driver is in mm tree, is there anything I need to do to get
+> it into Linus' tree?
 
-Eric
+Fix the stuff I pointed out...
+
+	Jeff
+
+
