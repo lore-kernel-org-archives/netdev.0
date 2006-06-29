@@ -1,40 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 39 of 39] IB/ipath - use streaming copy in RDMA
- interrupt handler to reduce packet loss
-Date: Thu, 29 Jun 2006 16:46:23 -0700 (PDT)
-Message-ID: <20060629.164623.59469884.davem@davemloft.net>
-References: <1151618377.10886.23.camel@chalcedony.pathscale.com>
-	<20060629.150319.104035601.davem@davemloft.net>
-	<1151624063.10886.34.camel@chalcedony.pathscale.com>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Thu, 29 Jun 2006 16:47:32 -0700 (PDT)
+Message-ID: <20060629.164732.41636454.davem@davemloft.net>
+References: <20060629085111.GY1376@postel.suug.ch>
+	<1151623394.8922.27.camel@jzny2>
+	<20060629233933.GB14627@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, rdreier@cisco.com, mst@mellanox.co.il,
-	openib-general@openib.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: hadi@cyberus.ca, kaber@trash.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:26762
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28554
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S933108AbWF2Xq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 19:46:26 -0400
-To: bos@pathscale.com
-In-Reply-To: <1151624063.10886.34.camel@chalcedony.pathscale.com>
+	id S932659AbWF2Xre (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 19:47:34 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20060629233933.GB14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bryan O'Sullivan <bos@pathscale.com>
-Date: Thu, 29 Jun 2006 16:34:23 -0700
+From: Thomas Graf <tgraf@suug.ch>
+Date: Fri, 30 Jun 2006 01:39:33 +0200
 
-> I'm not quite following you, though I assume you're referring to Niagara
-> or Rock :-)  Are you saying a memcpy_nc would do worse than plain
-> memcpy, or worse than some other memcpy-like routine?
+> * jamal <hadi@cyberus.ca> 2006-06-29 19:23
+> > I know your intent is noble in trying to save the 32 bits on 64 bit
+> > machines (at least thats where your patch seems to have started) but the
+> > cost:benefit ratio as i have pointed out is unreasonable. 
+> 
+> Did I ever claim this? You made this up right now. As of now
+> it doesn't save a single bit.
 
-It would do worse than memcpy.
+Right.
 
-If you bypass the L2 cache, it's pointless because the next
-agent (PCI controller, CPU thread, etc.) is going to need the
-data in the L2 cache.
-
-It's better in that kind of setup to eat the L2 cache miss overhead in
-memcpy since memcpy can usually prefetch and store buffer in order to
-absorb some of the L2 miss costs.
+>From what I can see Thomas's work allows to do correct
+reference counting on the input_dev, something which is
+not possible right now and is a bug.
