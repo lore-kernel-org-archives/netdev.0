@@ -1,8 +1,8 @@
 From: "Bryan O'Sullivan" <bos@pathscale.com>
-Subject: [PATCH 15 of 39] IB/ipath - print better debug
- info when handling 32/64-bit DMA mask problems
-Date: Thu, 29 Jun 2006 14:41:06 -0700
-Message-ID: <125471ee6c6863fbfa35.1151617266@eng-12.pathscale.com>
+Subject: [PATCH 24 of 39] IB/ipath - don't confuse the
+ max message size with the MTU
+Date: Thu, 29 Jun 2006 14:41:15 -0700
+Message-ID: <e952aedb0e94b4f8ccc1.1151617275@eng-12.pathscale.com>
 References: <patchbomb.1151617251@eng-12.pathscale.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -27,42 +27,18 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Dave Olson <dave.olson@qlogic.com>
+Signed-off-by: Ralph Campbell <ralph.campbell@qlogic.com>
 Signed-off-by: Bryan O'Sullivan <bryan.osullivan@qlogic.com>
 
-diff -r e43b4df874a9 -r 125471ee6c68 drivers/infiniband/hw/ipath/ipath_driver.c
---- a/drivers/infiniband/hw/ipath/ipath_driver.c	Thu Jun 29 14:33:25 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_driver.c	Thu Jun 29 14:33:25 2006 -0700
-@@ -425,12 +425,29 @@ static int __devinit ipath_init_one(stru
- 		 */
- 		ret = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
- 		if (ret) {
--			dev_info(&pdev->dev, "pci_set_dma_mask unit %u "
--				 "fails: %d\n", dd->ipath_unit, ret);
-+			dev_info(&pdev->dev,
-+				"Unable to set DMA mask for unit %u: %d\n",
-+				dd->ipath_unit, ret);
- 			goto bail_regions;
- 		}
--		else
-+		else {
- 			ipath_dbg("No 64bit DMA mask, used 32 bit mask\n");
-+			ret = pci_set_consistent_dma_mask(pdev, DMA_32BIT_MASK);
-+			if (ret)
-+				dev_info(&pdev->dev,
-+					"Unable to set DMA consistent mask "
-+					"for unit %u: %d\n",
-+					dd->ipath_unit, ret);
-+
-+		}
-+	}
-+	else {
-+		ret = pci_set_consistent_dma_mask(pdev, DMA_64BIT_MASK);
-+		if (ret)
-+			dev_info(&pdev->dev,
-+				"Unable to set DMA consistent mask "
-+				"for unit %u: %d\n",
-+				dd->ipath_unit, ret);
- 	}
- 
- 	pci_set_master(pdev);
+diff -r 8e39364c2402 -r e952aedb0e94 drivers/infiniband/hw/ipath/ipath_verbs.c
+--- a/drivers/infiniband/hw/ipath/ipath_verbs.c	Thu Jun 29 14:33:26 2006 -0700
++++ b/drivers/infiniband/hw/ipath/ipath_verbs.c	Thu Jun 29 14:33:26 2006 -0700
+@@ -695,7 +695,7 @@ static int ipath_query_port(struct ib_de
+ 		ipath_layer_get_lastibcstat(dev->dd) & 0xf];
+ 	props->port_cap_flags = dev->port_cap_flags;
+ 	props->gid_tbl_len = 1;
+-	props->max_msg_sz = 4096;
++	props->max_msg_sz = 0x80000000;
+ 	props->pkey_tbl_len = ipath_layer_get_npkeys(dev->dd);
+ 	props->bad_pkey_cntr = ipath_layer_get_cr_errpkey(dev->dd) -
+ 		dev->z_pkey_violations;
