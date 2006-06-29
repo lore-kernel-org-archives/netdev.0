@@ -1,75 +1,62 @@
-From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
-Subject: Re: 2.6.17-mm4
-Date: Thu, 29 Jun 2006 22:57:40 +0200
-Message-ID: <6bffcb0e0606291357n7b228035leb5af94833e3a68c@mail.gmail.com>
-References: <20060629013643.4b47e8bd.akpm@osdl.org>
-	 <6bffcb0e0606291339s69a16bc5ie108c0b8d4e29ed6@mail.gmail.com>
-	 <20060629204330.GC13619@redhat.com>
-	 <6bffcb0e0606291346s64530db4g1c9c33da9cf34e73@mail.gmail.com>
-	 <20060629204905.GF13619@redhat.com>
+From: Sam Vilain <sam@vilain.net>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Fri, 30 Jun 2006 09:07:48 +1200
+Message-ID: <44A44124.5010602@vilain.net>
+References: <20060627133849.E13959@castle.nmd.msu.ru>	 <44A1149E.6060802@fr.ibm.com> <m1sllqn7cb.fsf@ebiederm.dsl.xmission.com>	 <20060627160241.GB28984@MAIL.13thfloor.at>	 <m1psgulf4u.fsf@ebiederm.dsl.xmission.com>	 <44A1689B.7060809@candelatech.com>	 <20060627225213.GB2612@MAIL.13thfloor.at>	 <1151449973.24103.51.camel@localhost.localdomain>	 <20060627234210.GA1598@ms2.inr.ac.ru>	 <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>	 <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: Herbert Poetzl <herbert@13thfloor.at>,
+	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
+	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
+	clg@fr.ibm.com, serue@us.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Andrey Savochkin <saw@swsoft.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Dave Hansen <haveblue@us.ibm.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.181]:29973 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S932552AbWF2U5l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 16:57:41 -0400
-Received: by py-out-1112.google.com with SMTP id b36so426548pyb
-        for <netdev@vger.kernel.org>; Thu, 29 Jun 2006 13:57:40 -0700 (PDT)
-To: "Dave Jones" <davej@redhat.com>,
-	"Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>,
-	"Andrew Morton" <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-In-Reply-To: <20060629204905.GF13619@redhat.com>
-Content-Disposition: inline
+Received: from watts.utsl.gen.nz ([202.78.240.73]:63664 "EHLO
+	watts.utsl.gen.nz") by vger.kernel.org with ESMTP id S932551AbWF2VHT
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 17:07:19 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1151502803.5203.101.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 29/06/06, Dave Jones <davej@redhat.com> wrote:
-> On Thu, Jun 29, 2006 at 10:46:24PM +0200, Michal Piotrowski wrote:
->  > On 29/06/06, Dave Jones <davej@redhat.com> wrote:
->  > >On Thu, Jun 29, 2006 at 10:39:33PM +0200, Michal Piotrowski wrote:
->  > >
->  > > > This looks very strange.
->  > > >
->  > > > BUG: unable to handle kernel paging request at virtual address 6b6b6c07
->  > >
->  > >Looks like a use after free.
->  > >
->  > > > printing eip:
->  > > > c0138594
->  > > > *pde=00000000
->  > > > Oops: 0002 [#1]
->  > > > 4K_STACK PREEMPT SMP
->  > > > last sysfs file /class/net/eth0/address
->  > > > Modules linked in: ipv6 af_packet ipt_REJECT xt_tcpudp x_tables
->  > > > p4_clockmod speedstep_lib binfmt_misc
->  > > >
->  > > > (gdb) list *0xc0138594
->  > > > 0xc0138594 is in __lock_acquire (include2/asm/atomic.h:96).
->  > > > warning: Source file is more recent than executable.
->  > >
->  > >got a backtrace ?
->  >
->  > Unfortunately no.
+jamal wrote:
+>> note: personally I'm absolutely not against virtualizing
+>> the device names so that each guest can have a separate
+>> name space for devices, but there should be a way to
+>> 'see' _and_ 'identify' the interfaces from outside
+>> (i.e. host or spectator context)
+>>
+>>     
 >
-> nothing useful from 'bt' from that gdb prompt ?
+> Makes sense for the host side to have naming convention tied
+> to the guest. Example as a prefix: guest0-eth0. Would it not
+> be interesting to have the host also manage these interfaces
+> via standard tools like ip or ifconfig etc? i.e if i admin up
+> guest0-eth0, then the user in guest0 will see its eth0 going
+> up.
 
-(gdb) bt
-No stack.
+That particular convention only works if you have network namespaces and
+UTS namespaces tightly bound.  We plan to have them separate - so for
+that to work, each network namespace could have an arbitrary "prefix"
+that determines what the interface name will look like from the outside
+when combined.  We'd have to be careful about length limits.
 
->
->                 Dave
->
-> --
-> http://www.codemonkey.org.uk
->
+And guest0-eth0 doesn't necessarily make sense; it's not really an
+ethernet interface, more like a tun or something.
 
-Regards,
-Michal
+So, an equally good convention might be to use sequential prefixes on
+the host, like "tun", "dummy", or a new prefix - then a property of that
+is what the name of the interface is perceived to be to those who are in
+the corresponding network namespace.
 
--- 
-Michal K. K. Piotrowski
-LTG - Linux Testers Group
-(http://www.stardust.webpages.pl/ltg/wiki/)
+Then the pragmatic question becomes how to correlate what you see from
+`ip addr list' to guests.
+
+Sam.
