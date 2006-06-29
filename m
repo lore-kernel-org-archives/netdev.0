@@ -1,120 +1,110 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: 2.6.17-mm3 -- BUG: illegal lock usage -- illegal {softirq-on-W}
- -> {in-softirq-R} usage.
-Date: Thu, 29 Jun 2006 12:56:40 -0700
-Message-ID: <20060629125640.d828a0b3.akpm@osdl.org>
-References: <a44ae5cd0606291201v659b4235sfa9941aa3b18e766@mail.gmail.com>
-	<20060629122608.440d474c.akpm@osdl.org>
-	<1151610155.3122.65.camel@laptopd505.fenrus.org>
+From: Shailabh Nagar <nagar@watson.ibm.com>
+Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
+Date: Thu, 29 Jun 2006 16:01:11 -0400
+Message-ID: <44A43187.3090307@watson.ibm.com>
+References: <44892610.6040001@watson.ibm.com>	<449999D1.7000403@engr.sgi.com>	<44999A98.8030406@engr.sgi.com>	<44999F5A.2080809@watson.ibm.com>	<4499D7CD.1020303@engr.sgi.com>	<449C2181.6000007@watson.ibm.com>	<20060623141926.b28a5fc0.akpm@osdl.org>	<449C6620.1020203@engr.sgi.com>	<20060623164743.c894c314.akpm@osdl.org>	<449CAA78.4080902@watson.ibm.com>	<20060623213912.96056b02.akpm@osdl.org>	<449CD4B3.8020300@watson.ibm.com>	<44A01A50.1050403@sgi.com>	<20060626105548.edef4c64.akpm@osdl.org>	<44A020CD.30903@watson.ibm.com>	<20060626111249.7aece36e.akpm@osdl.org>	<44A026ED.8080903@sgi.com>	<20060626113959.839d72bc.akpm@osdl.org>	<44A2F50D.8030306@engr.sgi.com>	<20060628145341.529a61ab.akpm@osdl.org>	<44A2FC72.9090407@engr.sgi.com>	<20060629014050.d3bf0be4.pj@sgi.com>	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>	<20060629094408.360ac157.pj@sgi.com>	<20060629110107.2e56310b.akpm@os
+ dl.org>	<44A425A7.2060900@watson.ibm.com> <20060629123338.0d355297.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: miles.lane@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: pj@sgi.com, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
+	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
+	hadi@cyberus.ca, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:41350 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932262AbWF2T4s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 15:56:48 -0400
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1151610155.3122.65.camel@laptopd505.fenrus.org>
+Received: from mtagate1.uk.ibm.com ([195.212.29.134]:5355 "EHLO
+	mtagate1.uk.ibm.com") by vger.kernel.org with ESMTP id S932360AbWF2UBQ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 16:01:16 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060629123338.0d355297.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 29 Jun 2006 21:42:34 +0200
-Arjan van de Ven <arjan@infradead.org> wrote:
+Andrew Morton wrote:
 
-> On Thu, 2006-06-29 at 12:26 -0700, Andrew Morton wrote:
-> > On Thu, 29 Jun 2006 12:01:06 -0700
-> > "Miles Lane" <miles.lane@gmail.com> wrote:
-> > 
-> > > [ BUG: illegal lock usage! ]
-> > > ----------------------------
-> > 
-> > This is claiming that we're taking sk->sk_dst_lock in a deadlockable manner.
-> > 
-> > > illegal {softirq-on-W} -> {in-softirq-R} usage.
-> > 
-> > It found someone doing write_lock(sk_dst_lock) with softirqs enabled, but
-> > someone else takes read_lock(dst_lock) inside softirqs.
-> > 
-> > > java_vm/4418 [HC0[0]:SC1[1]:HE1:SE0] takes:
-> > >  (&sk->sk_dst_lock){---?}, at: [<c119d0a9>] sk_dst_check+0x1b/0xe6
-> > > {softirq-on-W} state was registered at:
-> > >   [<c102d1c8>] lock_acquire+0x60/0x80
-> > >   [<c12012d7>] _write_lock+0x23/0x32
-> > >   [<c11ddbe7>] inet_bind+0x16c/0x1cc
-> > >   [<c119ae58>] sys_bind+0x61/0x80
-> > >   [<c119b465>] sys_socketcall+0x7d/0x186
-> > >   [<c1002d6d>] sysenter_past_esp+0x56/0x8d
-> > 
-> > 	inet_bind()
-> > 	->sk_dst_get
-> > 	  ->read_lock(&sk->sk_dst_lock)
-> 
-> actually write_lock() not read_lock()
-> 
+>On Thu, 29 Jun 2006 15:10:31 -0400
+>Shailabh Nagar <nagar@watson.ibm.com> wrote:
+>
+>  
+>
+>>>I agree, and I'm viewing this as blocking the taskstats merge.  Because if
+>>>this _is_ a problem then it's a big one because fixing it will be
+>>>intrusive, and might well involve userspace-visible changes.
+>>> 
+>>>
+>>>      
+>>>
+>>First off, just a reminder that this is inherently a netlink flow 
+>>control issue...which was being exacerbated
+>>earlier by taskstats decision to send per-tgid data (no longer the case).
+>>
+>>But I'd like to know whats our target here ? How many messages per 
+>>second do we want to be able to be sent
+>>and received without risking any loss of data ? Netlink will lose 
+>>messages at a high enough rate so the design point
+>>will need to be known a bit.
+>>
+>>For statistics type usage of the genetlink/netlink, I would have thought 
+>>that userspace, provided it is reliably informed
+>>about the loss of data through ENOBUFS, could take measures to just 
+>>account for the missing data and carry on ?
+>>    
+>>
+>
+>Could be so.  But we need to understand how significant the impact of this
+>will be in practice.
+>
+>We could find, once this is deployed is real production environments on
+>large machines that the data loss is sufficiently common and sufficiently
+>serious that the feature needs a lot of rework.
+>
+>Now there's always a risk of that sort of thing happening with all
+>features, but it's usually not this evident so early in the development
+>process.  We need to get a better understanding of the risk before
+>proceeding too far.
+>  
+>
+Ok.
 
-static inline struct dst_entry *
-sk_dst_get(struct sock *sk)
-{
-	struct dst_entry *dst;
+I suppose we should first determine what number of tasks can be 
+forked/exited at a sustained rate
+on these m/c's and that would be one upper bound.
 
-	read_lock(&sk->sk_dst_lock);
+Paul, Chris, Jay,
+What total exit rate would be a good upper bound ? How much memory do 
+these 1024 CPU machines
+have (in high end configurations, not just based on 64-bit 
+addressability) and how many tasks can actually be
+forked/exited in such a machine ?
 
-> > 
-> > > irq event stamp: 11052
-> > > hardirqs last  enabled at (11052): [<c105d454>] kmem_cache_alloc+0x89/0xa6
-> > > hardirqs last disabled at (11051): [<c105d405>] kmem_cache_alloc+0x3a/0xa6
-> > > softirqs last  enabled at (11040): [<c11a506d>] dev_queue_xmit+0x224/0x24b
-> > > softirqs last disabled at (11041): [<c1004a64>] do_softirq+0x58/0xbd
-> > > 
-> > > other info that might help us debug this:
-> > > 1 lock held by java_vm/4418:
-> > >  #0:  (af_family_keys + (sk)->sk_family#4){-+..}, at: [<f93c9281>]
-> > > tcp_v6_rcv+0x308/0x7b7 [ipv6]
-> > 
-> > 	softirq
-> > 	->ip6_dst_lookup
-> > 	  ->sk_dst_check
-> > 	    ->sk_dst_reset
-> > 	      ->write_lock(&sk->sk_dst_lock);
-> 
-> write_lock.. or read_lock() ? 
+>And there's always a 100% reliable fix for this: throttling.  Make the
+>sender of the messages block until the consumer can catch up.  In some
+>situations, that is what people will want to be able to do.  
+>
+Is this really an option for taskstats ? Allowing exits to get throttled 
+? I suppose its one way
+but seems like overkill for something like stats.
 
-static inline void
-sk_dst_reset(struct sock *sk)
-{
-	write_lock(&sk->sk_dst_lock);
+>I suspect a
+>good implementation would be to run a collection daemon on each CPU and
+>make the delivery be cpu-local.  That's sounding more like relayfs than
+>netlink.
+>  
+>
+Yup...per-cpu, high speed delivery is looking like relayfs alright.
 
-> > 
-> > > stack backtrace:
-> > >  [<c1003502>] show_trace_log_lvl+0x54/0xfd
-> > >  [<c1003b6a>] show_trace+0xd/0x10
-> > >  [<c1003c0e>] dump_stack+0x19/0x1b
-> > >  [<c102b833>] print_usage_bug+0x1cc/0x1d9
-> > >  [<c102bd34>] mark_lock+0x193/0x360
-> > >  [<c102c94a>] __lock_acquire+0x3b7/0x970
-> > >  [<c102d1c8>] lock_acquire+0x60/0x80
-> > >  [<c12013eb>] _read_lock+0x23/0x32
-> 
-> backtrace says read lock to me ...
-> > >  [<c119d0a9>] sk_dst_check+0x1b/0xe6
-> > >  [<f93ae479>] ip6_dst_lookup+0x31/0x172 [ipv6]
-> > >  [<f93c7065>] tcp_v6_send_synack+0x10f/0x238 [ipv6]
-> > >  [<f93c7dc5>] tcp_v6_conn_request+0x281/0x2c7 [ipv6]
-> > >  [<c11cca33>] tcp_rcv_state_process+0x5d/0xbde
-> 
-> 
-> > So the allegation is that if a softirq runs sk_dst_reset() while
-> > process-context code is running sk_dst_set(), we'll do write_lock() while
-> > holding read_lock().  
-> 
-> hmm or...
-> 
-> we're doing a write_lock(), then an interrupt can happen that triggers
-> the softirq that triggers the read_lock(), which will deadlock because
-> we interrupted the writer...
-> 
+One option that we've not explored in detail is the "dump" functionality 
+of genetlink which allows
+kernel space to keep getting called with skb's to fill until its done. 
+How much buffering that affords us
+in the face of a slow user is not known. But if we're discussing large 
+exit rates happening in a burst, not
+a sustained way, that may be one way out.
 
-either way ain't good ;)
+Jamal,
+any thoughts on the flow control capabilities of netlink that apply here 
+? Usage of the connection is to
+supply statistics data to userspace.
+
+--Shailabh
 
