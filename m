@@ -1,27 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]bnx2: Add NETIF_F_TSO_ECN
-Date: Thu, 29 Jun 2006 12:31:31 -0700 (PDT)
-Message-ID: <20060629.123131.97292207.davem@davemloft.net>
-References: <1151464024.5124.14.camel@rh4>
+Subject: Re: [PATCH 1/3] [TIPC] Fixed skb_under_panic caused by
+ tipc_link_bundle_buf
+Date: Thu, 29 Jun 2006 12:34:10 -0700 (PDT)
+Message-ID: <20060629.123410.122616489.davem@davemloft.net>
+References: <Pine.LNX.4.64.0606281358100.6341@ulinpc219.uab.ericsson.se>
+	<11514964722073-git-send-email-per.liden@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:9684
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:10964
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932316AbWF2Tbb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 15:31:31 -0400
-To: mchan@broadcom.com
-In-Reply-To: <1151464024.5124.14.camel@rh4>
+	id S932317AbWF2TeN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 15:34:13 -0400
+To: per.liden@ericsson.com
+In-Reply-To: <11514964722073-git-send-email-per.liden@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Tue, 27 Jun 2006 20:07:04 -0700
+From: Per Liden <per.liden@ericsson.com>
+Date: Wed, 28 Jun 2006 14:07:50 +0200
 
-> Add NETIF_F_TSO_ECN feature for all bnx2 hardware.
+> From: Allan Stephens <allan.stephens@windriver.com>
 > 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Now determines tailroom of bundle buffer by directly inspection of buffer.
+> Previously, buffer was assumed to have a max capacity equal to the link MTU,
+> but the addition of link MTU negotiation means that the link MTU can increase
+> after the bundle buffer is allocated.
+> 
+> Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+> Signed-off-by: Per Liden <per.liden@ericsson.com>
 
-Applied, thanks a lot.
+Applied, thanks.
