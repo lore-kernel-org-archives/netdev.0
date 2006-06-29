@@ -1,34 +1,104 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] [TIPC] Fixed skb_under_panic caused by
- tipc_link_bundle_buf
-Date: Thu, 29 Jun 2006 12:41:42 -0700 (PDT)
-Message-ID: <20060629.124142.102573938.davem@davemloft.net>
-References: <Pine.LNX.4.64.0606281358100.6341@ulinpc219.uab.ericsson.se>
-	<11514964722073-git-send-email-per.liden@ericsson.com>
-	<Pine.LNX.4.64.0606291703270.1695@ulinpc219.uab.ericsson.se>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: 2.6.17-mm3 -- BUG: illegal lock usage -- illegal
+	{softirq-on-W} -> {in-softirq-R} usage.
+Date: Thu, 29 Jun 2006 21:42:34 +0200
+Message-ID: <1151610155.3122.65.camel@laptopd505.fenrus.org>
+References: <a44ae5cd0606291201v659b4235sfa9941aa3b18e766@mail.gmail.com>
+	 <20060629122608.440d474c.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
+Cc: Miles Lane <miles.lane@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:33721
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751252AbWF2Tln (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 15:41:43 -0400
-To: per.liden@ericsson.com
-In-Reply-To: <Pine.LNX.4.64.0606291703270.1695@ulinpc219.uab.ericsson.se>
+Received: from pentafluge.infradead.org ([213.146.154.40]:58808 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S932343AbWF2Tmj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 15:42:39 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060629122608.440d474c.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Per Liden <per.liden@ericsson.com>
-Date: Thu, 29 Jun 2006 17:17:20 +0200 (CEST)
-
-> A problem was found with this patch. The direct inspection of bundle 
-> buffer tailroom did not account for the possiblity of unrequested tailroom 
-> added by skb_alloc(), thereby allowing a bundle to be created that exceeds 
-> the current link MTU.
+On Thu, 2006-06-29 at 12:26 -0700, Andrew Morton wrote:
+> On Thu, 29 Jun 2006 12:01:06 -0700
+> "Miles Lane" <miles.lane@gmail.com> wrote:
 > 
-> I'll resend this patch set with this issue resolved.
+> > [ BUG: illegal lock usage! ]
+> > ----------------------------
+> 
+> This is claiming that we're taking sk->sk_dst_lock in a deadlockable manner.
+> 
+> > illegal {softirq-on-W} -> {in-softirq-R} usage.
+> 
+> It found someone doing write_lock(sk_dst_lock) with softirqs enabled, but
+> someone else takes read_lock(dst_lock) inside softirqs.
+> 
+> > java_vm/4418 [HC0[0]:SC1[1]:HE1:SE0] takes:
+> >  (&sk->sk_dst_lock){---?}, at: [<c119d0a9>] sk_dst_check+0x1b/0xe6
+> > {softirq-on-W} state was registered at:
+> >   [<c102d1c8>] lock_acquire+0x60/0x80
+> >   [<c12012d7>] _write_lock+0x23/0x32
+> >   [<c11ddbe7>] inet_bind+0x16c/0x1cc
+> >   [<c119ae58>] sys_bind+0x61/0x80
+> >   [<c119b465>] sys_socketcall+0x7d/0x186
+> >   [<c1002d6d>] sysenter_past_esp+0x56/0x8d
+> 
+> 	inet_bind()
+> 	->sk_dst_get
+> 	  ->read_lock(&sk->sk_dst_lock)
 
-I've applied the patch already, please send a relative fix.
-Thanks.
+actually write_lock() not read_lock()
+
+
+> 
+> > irq event stamp: 11052
+> > hardirqs last  enabled at (11052): [<c105d454>] kmem_cache_alloc+0x89/0xa6
+> > hardirqs last disabled at (11051): [<c105d405>] kmem_cache_alloc+0x3a/0xa6
+> > softirqs last  enabled at (11040): [<c11a506d>] dev_queue_xmit+0x224/0x24b
+> > softirqs last disabled at (11041): [<c1004a64>] do_softirq+0x58/0xbd
+> > 
+> > other info that might help us debug this:
+> > 1 lock held by java_vm/4418:
+> >  #0:  (af_family_keys + (sk)->sk_family#4){-+..}, at: [<f93c9281>]
+> > tcp_v6_rcv+0x308/0x7b7 [ipv6]
+> 
+> 	softirq
+> 	->ip6_dst_lookup
+> 	  ->sk_dst_check
+> 	    ->sk_dst_reset
+> 	      ->write_lock(&sk->sk_dst_lock);
+
+write_lock.. or read_lock() ? 
+
+> 
+> > stack backtrace:
+> >  [<c1003502>] show_trace_log_lvl+0x54/0xfd
+> >  [<c1003b6a>] show_trace+0xd/0x10
+> >  [<c1003c0e>] dump_stack+0x19/0x1b
+> >  [<c102b833>] print_usage_bug+0x1cc/0x1d9
+> >  [<c102bd34>] mark_lock+0x193/0x360
+> >  [<c102c94a>] __lock_acquire+0x3b7/0x970
+> >  [<c102d1c8>] lock_acquire+0x60/0x80
+> >  [<c12013eb>] _read_lock+0x23/0x32
+
+backtrace says read lock to me ...
+> >  [<c119d0a9>] sk_dst_check+0x1b/0xe6
+> >  [<f93ae479>] ip6_dst_lookup+0x31/0x172 [ipv6]
+> >  [<f93c7065>] tcp_v6_send_synack+0x10f/0x238 [ipv6]
+> >  [<f93c7dc5>] tcp_v6_conn_request+0x281/0x2c7 [ipv6]
+> >  [<c11cca33>] tcp_rcv_state_process+0x5d/0xbde
+
+
+> So the allegation is that if a softirq runs sk_dst_reset() while
+> process-context code is running sk_dst_set(), we'll do write_lock() while
+> holding read_lock().  
+
+hmm or...
+
+we're doing a write_lock(), then an interrupt can happen that triggers
+the softirq that triggers the read_lock(), which will deadlock because
+we interrupted the writer...
+
+
+
