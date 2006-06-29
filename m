@@ -1,97 +1,65 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: 2.6.17-mm4
-Date: Thu, 29 Jun 2006 23:09:50 +0200
-Message-ID: <20060629210950.GA300@elte.hu>
-References: <20060629013643.4b47e8bd.akpm@osdl.org> <6bffcb0e0606291339s69a16bc5ie108c0b8d4e29ed6@mail.gmail.com> <20060629204330.GC13619@redhat.com>
+From: Paul Jackson <pj@sgi.com>
+Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
+Date: Thu, 29 Jun 2006 14:22:27 -0700
+Message-ID: <20060629142227.bca8143b.pj@sgi.com>
+References: <44892610.6040001@watson.ibm.com>
+	<44999F5A.2080809@watson.ibm.com>
+	<4499D7CD.1020303@engr.sgi.com>
+	<449C2181.6000007@watson.ibm.com>
+	<20060623141926.b28a5fc0.akpm@osdl.org>
+	<449C6620.1020203@engr.sgi.com>
+	<20060623164743.c894c314.akpm@osdl.org>
+	<449CAA78.4080902@watson.ibm.com>
+	<20060623213912.96056b02.akpm@osdl.org>
+	<449CD4B3.8020300@watson.ibm.com>
+	<44A01A50.1050403@sgi.com>
+	<20060626105548.edef4c64.akpm@osdl.org>
+	<44A020CD.30903@watson.ibm.com>
+	<20060626111249.7aece36e.akpm@osdl.org>
+	<44A026ED.8080903@sgi.com>
+	<20060626113959.839d72bc.akpm@osdl.org>
+	<44A2F50D.8030306@engr.sgi.com>
+	<20060628145341.529a61ab.akpm@osdl.org>
+	<44A2FC72.9090407@engr.sgi.com>
+	<20060629014050.d3bf0be4.pj@sgi.com>
+	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
+	<20060629094408.360ac157.pj@sgi.com>
+	<20060629110107.2e56310b.akpm@osdl.org>
+	<44A425A7.2060900@watson.ibm.com>
+	<20060629123338.0d355297.akpm@osdl.org>
+	<44A43187.3090307@watson.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
+	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
+	hadi@cyberus.ca, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:17621 "EHLO mx3.mail.elte.hu")
-	by vger.kernel.org with ESMTP id S932464AbWF2VOe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 17:14:34 -0400
-To: Dave Jones <davej@redhat.com>,
-	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20060629204330.GC13619@redhat.com>
+Received: from omx2-ext.sgi.com ([192.48.171.19]:30379 "EHLO omx2.sgi.com")
+	by vger.kernel.org with ESMTP id S932716AbWF2VWz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 17:22:55 -0400
+To: Shailabh Nagar <nagar@watson.ibm.com>
+In-Reply-To: <44A43187.3090307@watson.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Shailabh wrote:
+>  How much memory do these 1024 CPU machines have 
 
-* Dave Jones <davej@redhat.com> wrote:
+From:
 
-> On Thu, Jun 29, 2006 at 10:39:33PM +0200, Michal Piotrowski wrote:
-> 
->  > This looks very strange.
->  > 
->  > BUG: unable to handle kernel paging request at virtual address 6b6b6c07
-> 
-> Looks like a use after free.
+    http://www.hpcwire.com/hpc/653963.html (May 12, 2006)
 
-i'm too hunting use-after-free bugs - the ones fixed below fix certain 
-crashes, but i'm still seeing a nasty one.
+    SGI has already shipped more than a dozen SGI systems with
+    over a terabyte of memory and about a hundred systems of half
+    a terabyte or larger. But the new Altix will have much larger
+    memory capacities. The systems SGI has in mind will scale to tens
+    of terabytes and beyond. In fact, a few SGI customers are already
+    testing with systems in the 10-terabyte range. "The largest we
+    have shipped is a 13-terabyte memory system for the Japan Atomic
+    Energy Agency," said [SGI CTO Dr. Eng Lim] Goh.
 
-the crash is independent on lockdep enabled or disabled. See:
-
-  http://redhat.com/~mingo/misc/
-
-for the config and the crash.log.
-
-	Ingo
-
------------------
-Subject: fix platform_device_put/del mishaps
-From: Ingo Molnar <mingo@elte.hu>
-
-this fixes drivers/char/pc8736x_gpio.c and drivers/char/scx200_gpio.c
-to use the platform_device_del/put ops correctly.
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
----
- drivers/char/pc8736x_gpio.c |    5 +++--
- drivers/char/scx200_gpio.c  |    6 +++---
- 2 files changed, 6 insertions(+), 5 deletions(-)
-
-Index: linux/drivers/char/pc8736x_gpio.c
-===================================================================
---- linux.orig/drivers/char/pc8736x_gpio.c
-+++ linux/drivers/char/pc8736x_gpio.c
-@@ -319,9 +319,10 @@ static int __init pc8736x_gpio_init(void
- 	return 0;
- 
- undo_platform_dev_add:
--	platform_device_put(pdev);
-+	platform_device_del(pdev);
- undo_platform_dev_alloc:
--	kfree(pdev);
-+	platform_device_put(pdev);
-+
- 	return rc;
- }
- 
-Index: linux/drivers/char/scx200_gpio.c
-===================================================================
---- linux.orig/drivers/char/scx200_gpio.c
-+++ linux/drivers/char/scx200_gpio.c
-@@ -126,9 +126,10 @@ static int __init scx200_gpio_init(void)
- undo_chrdev_region:
- 	unregister_chrdev_region(dev, num_pins);
- undo_platform_device_add:
--	platform_device_put(pdev);
-+	platform_device_del(pdev);
- undo_malloc:
--	kfree(pdev);
-+	platform_device_put(pdev);
-+
- 	return rc;
- }
- 
-@@ -136,7 +137,6 @@ static void __exit scx200_gpio_cleanup(v
- {
- 	kfree(scx200_devices);
- 	unregister_chrdev_region(MKDEV(major, 0), num_pins);
--	platform_device_put(pdev);
- 	platform_device_unregister(pdev);
- 	/* kfree(pdev); */
- }
+-- 
+                  I won't rest till it's the best ...
+                  Programmer, Linux Scalability
+                  Paul Jackson <pj@sgi.com> 1.925.600.0401
