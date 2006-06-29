@@ -1,62 +1,97 @@
-From: Sam Vilain <sam@vilain.net>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Fri, 30 Jun 2006 09:07:48 +1200
-Message-ID: <44A44124.5010602@vilain.net>
-References: <20060627133849.E13959@castle.nmd.msu.ru>	 <44A1149E.6060802@fr.ibm.com> <m1sllqn7cb.fsf@ebiederm.dsl.xmission.com>	 <20060627160241.GB28984@MAIL.13thfloor.at>	 <m1psgulf4u.fsf@ebiederm.dsl.xmission.com>	 <44A1689B.7060809@candelatech.com>	 <20060627225213.GB2612@MAIL.13thfloor.at>	 <1151449973.24103.51.camel@localhost.localdomain>	 <20060627234210.GA1598@ms2.inr.ac.ru>	 <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>	 <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: 2.6.17-mm4
+Date: Thu, 29 Jun 2006 23:09:50 +0200
+Message-ID: <20060629210950.GA300@elte.hu>
+References: <20060629013643.4b47e8bd.akpm@osdl.org> <6bffcb0e0606291339s69a16bc5ie108c0b8d4e29ed6@mail.gmail.com> <20060629204330.GC13619@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Poetzl <herbert@13thfloor.at>,
-	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
-	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
-	clg@fr.ibm.com, serue@us.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Andrey Savochkin <saw@swsoft.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from watts.utsl.gen.nz ([202.78.240.73]:63664 "EHLO
-	watts.utsl.gen.nz") by vger.kernel.org with ESMTP id S932551AbWF2VHT
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 17:07:19 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1151502803.5203.101.camel@jzny2>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:17621 "EHLO mx3.mail.elte.hu")
+	by vger.kernel.org with ESMTP id S932464AbWF2VOe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 17:14:34 -0400
+To: Dave Jones <davej@redhat.com>,
+	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20060629204330.GC13619@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
->> note: personally I'm absolutely not against virtualizing
->> the device names so that each guest can have a separate
->> name space for devices, but there should be a way to
->> 'see' _and_ 'identify' the interfaces from outside
->> (i.e. host or spectator context)
->>
->>     
->
-> Makes sense for the host side to have naming convention tied
-> to the guest. Example as a prefix: guest0-eth0. Would it not
-> be interesting to have the host also manage these interfaces
-> via standard tools like ip or ifconfig etc? i.e if i admin up
-> guest0-eth0, then the user in guest0 will see its eth0 going
-> up.
 
-That particular convention only works if you have network namespaces and
-UTS namespaces tightly bound.  We plan to have them separate - so for
-that to work, each network namespace could have an arbitrary "prefix"
-that determines what the interface name will look like from the outside
-when combined.  We'd have to be careful about length limits.
+* Dave Jones <davej@redhat.com> wrote:
 
-And guest0-eth0 doesn't necessarily make sense; it's not really an
-ethernet interface, more like a tun or something.
+> On Thu, Jun 29, 2006 at 10:39:33PM +0200, Michal Piotrowski wrote:
+> 
+>  > This looks very strange.
+>  > 
+>  > BUG: unable to handle kernel paging request at virtual address 6b6b6c07
+> 
+> Looks like a use after free.
 
-So, an equally good convention might be to use sequential prefixes on
-the host, like "tun", "dummy", or a new prefix - then a property of that
-is what the name of the interface is perceived to be to those who are in
-the corresponding network namespace.
+i'm too hunting use-after-free bugs - the ones fixed below fix certain 
+crashes, but i'm still seeing a nasty one.
 
-Then the pragmatic question becomes how to correlate what you see from
-`ip addr list' to guests.
+the crash is independent on lockdep enabled or disabled. See:
 
-Sam.
+  http://redhat.com/~mingo/misc/
+
+for the config and the crash.log.
+
+	Ingo
+
+-----------------
+Subject: fix platform_device_put/del mishaps
+From: Ingo Molnar <mingo@elte.hu>
+
+this fixes drivers/char/pc8736x_gpio.c and drivers/char/scx200_gpio.c
+to use the platform_device_del/put ops correctly.
+
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+ drivers/char/pc8736x_gpio.c |    5 +++--
+ drivers/char/scx200_gpio.c  |    6 +++---
+ 2 files changed, 6 insertions(+), 5 deletions(-)
+
+Index: linux/drivers/char/pc8736x_gpio.c
+===================================================================
+--- linux.orig/drivers/char/pc8736x_gpio.c
++++ linux/drivers/char/pc8736x_gpio.c
+@@ -319,9 +319,10 @@ static int __init pc8736x_gpio_init(void
+ 	return 0;
+ 
+ undo_platform_dev_add:
+-	platform_device_put(pdev);
++	platform_device_del(pdev);
+ undo_platform_dev_alloc:
+-	kfree(pdev);
++	platform_device_put(pdev);
++
+ 	return rc;
+ }
+ 
+Index: linux/drivers/char/scx200_gpio.c
+===================================================================
+--- linux.orig/drivers/char/scx200_gpio.c
++++ linux/drivers/char/scx200_gpio.c
+@@ -126,9 +126,10 @@ static int __init scx200_gpio_init(void)
+ undo_chrdev_region:
+ 	unregister_chrdev_region(dev, num_pins);
+ undo_platform_device_add:
+-	platform_device_put(pdev);
++	platform_device_del(pdev);
+ undo_malloc:
+-	kfree(pdev);
++	platform_device_put(pdev);
++
+ 	return rc;
+ }
+ 
+@@ -136,7 +137,6 @@ static void __exit scx200_gpio_cleanup(v
+ {
+ 	kfree(scx200_devices);
+ 	unregister_chrdev_region(MKDEV(major, 0), num_pins);
+-	platform_device_put(pdev);
+ 	platform_device_unregister(pdev);
+ 	/* kfree(pdev); */
+ }
