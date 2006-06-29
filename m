@@ -1,32 +1,45 @@
-From: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Subject: Re: [RFT PATCH] pcnet32:  NAPI support
-Date: Thu, 29 Jun 2006 08:58:16 -0400
-Message-ID: <20060629125816.GB1443@csclub.uwaterloo.ca>
-References: <20060623213212.GA24388@us.ibm.com> <20060628144010.GA1446@csclub.uwaterloo.ca> <20060628165541.GA16601@us.ibm.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: TOE, etc.
+Date: Thu, 29 Jun 2006 09:09:11 -0500
+Message-ID: <1151590151.6424.10.camel@stevo-desktop>
+References: <54AD0F12E08D1541B826BE97C98F99F15F5BA4@NT-SJCA-0751.brcm.ad.broadcom.com>
+	 <44A3140A.1040901@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Caitlin Bestler <caitlinb@broadcom.com>,
+	David Miller <davem@davemloft.net>,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.uwaterloo.ca ([129.97.134.17]:20143 "EHLO
-	caffeine.csclub.uwaterloo.ca") by vger.kernel.org with ESMTP
-	id S1750741AbWF2M6R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 08:58:17 -0400
-To: Don Fry <brazilnut@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <20060628165541.GA16601@us.ibm.com>
+Received: from es335.com ([67.65.19.105]:26887 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S1750724AbWF2OJR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 10:09:17 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <44A3140A.1040901@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 28, 2006 at 09:55:41AM -0700, Don Fry wrote:
-> Yes, I saw the debug statements when creating the email and was too lazy
-> to remove them and create a new patch.  The patch needs to be broken up
-> into functional pieces anyway, so since it has passed all of my testing
-> as well, I will start on that...
 
-So it might make 2.6.18 then? :)
+> 
+> > But back on the main point, if implementing SCSI services over a
+> > TCP connection is acceptable even though it does not use a kernel
+> > socket, why would it not be acceptable to implement RDMA services
+> > over a TCP connection without using a kernel socket?
+> 
+> Because SCSI doesn't force nasty hooks into the net stack to allow for 
+> sharing of resources with a proprietary black box of unknown quality.
+> 
+> 	Jeff
+> 
 
-I just updated the driver in my 2.6.16 kernel to the 2.6.17 version and
-applied your patch, and then added my own weird stuff that no one else
-will want.
+The netevent notifier patch in question seemed to be reasonable hooks
+for notifying kernel and user mode modules of certain network events.
+In fact, it went through 3 review cycles and was improved by feedback
+from Dave and others.  eg: It was integrated with netlink to provide
+user mode notifications.  
 
-Len Sorensen
+Then someone says 'TOE' and suddenly the hooks are nasty?
+
+
+Steve.
+
