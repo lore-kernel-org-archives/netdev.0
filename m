@@ -1,85 +1,45 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Thu, 29 Jun 2006 15:43:41 -0400
-Message-ID: <44A42D6D.6060108@watson.ibm.com>
-References: <44892610.6040001@watson.ibm.com>	<449999D1.7000403@engr.sgi.com>	<44999A98.8030406@engr.sgi.com>	<44999F5A.2080809@watson.ibm.com>	<4499D7CD.1020303@engr.sgi.com>	<449C2181.6000007@watson.ibm.com>	<20060623141926.b28a5fc0.akpm@osdl.org>	<449C6620.1020203@engr.sgi.com>	<20060623164743.c894c314.akpm@osdl.org>	<449CAA78.4080902@watson.ibm.com>	<20060623213912.96056b02.akpm@osdl.org>	<449CD4B3.8020300@watson.ibm.com>	<44A01A50.1050403@sgi.com>	<20060626105548.edef4c64.akpm@osdl.org>	<44A020CD.30903@watson.ibm.com>	<20060626111249.7aece36e.akpm@osdl.org>	<44A026ED.8080903@sgi.com>	<20060626113959.839d72bc.akpm@osdl.org>	<44A2F50D.8030306@engr.sgi.com>	<20060628145341.529a61ab.akpm@osdl.org>	<44A2FC72.9090407@engr.sgi.com>	<20060629014050.d3bf0be4.pj@sgi.com>	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>	<20060629094408.360ac157.pj@sgi.com>	<20060629110107.2e56310b.akpm@os
- dl.org>	<44A425A7.2060900@watson.ibm.com> <20060629123338.0d355297.akpm@osdl.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RDMA will be reverted
+Date: Thu, 29 Jun 2006 12:46:28 -0700 (PDT)
+Message-ID: <20060629.124628.88476747.davem@davemloft.net>
+References: <20060628.000715.95062023.davem@davemloft.net>
+	<adawtazgawi.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pj@sgi.com, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
-	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
-	hadi@cyberus.ca, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:26035 "EHLO e5.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S932346AbWF2Tno (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 15:43:44 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060629123338.0d355297.akpm@osdl.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:34233
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932346AbWF2Tq3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 15:46:29 -0400
+To: rdreier@cisco.com
+In-Reply-To: <adawtazgawi.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
+From: Roland Dreier <rdreier@cisco.com>
+Date: Thu, 29 Jun 2006 09:54:37 -0700
 
->On Thu, 29 Jun 2006 15:10:31 -0400
->Shailabh Nagar <nagar@watson.ibm.com> wrote:
->
->  
->
->>>I agree, and I'm viewing this as blocking the taskstats merge.  Because if
->>>this _is_ a problem then it's a big one because fixing it will be
->>>intrusive, and might well involve userspace-visible changes.
->>> 
->>>
->>>      
->>>
->>First off, just a reminder that this is inherently a netlink flow 
->>control issue...which was being exacerbated
->>earlier by taskstats decision to send per-tgid data (no longer the case).
->>
->>But I'd like to know whats our target here ? How many messages per 
->>second do we want to be able to be sent
->>and received without risking any loss of data ? Netlink will lose 
->>messages at a high enough rate so the design point
->>will need to be known a bit.
->>
->>For statistics type usage of the genetlink/netlink, I would have thought 
->>that userspace, provided it is reliably informed
->>about the loss of data through ENOBUFS, could take measures to just 
->>account for the missing data and carry on ?
->>    
->>
->
->Could be so.  But we need to understand how significant the impact of this
->will be in practice.
->
->We could find, once this is deployed is real production environments on
->large machines that the data loss is sufficiently common and sufficiently
->serious that the feature needs a lot of rework.
->
->Now there's always a risk of that sort of thing happening with all
->features, but it's usually not this evident so early in the development
->process.  We need to get a better understanding of the risk before
->proceeding too far.
->  
->
+> In any case I think we need to find a way for Linux to support iWARP
+> hardware, since there are users that want this, and (some of) the
+> vendors are working hard to do things the right way (including cc'ing
+> netdev on the conversation).  I don't think it's good for Linux for
+> the answer to just be, "sorry, you're wrong to want to use that hardware."
 
->And there's always a 100% reliable fix for this: throttling.  Make the
->sender of the messages block until the consumer can catch up. 
->
-Is blocking exits an option ?
+We give the same response for TOE stuff.
 
-> In some
->situations, that is what people will want to be able to do.  I suspect a
->good implementation would be to run a collection daemon on each CPU and
->make the delivery be cpu-local.  That's sounding more like relayfs than
->netlink.
->  
->
-Yup...the per-cpu, high speed requirements are up relayfs' alley, unless 
-Jamal or netlink folks
-are planning something (or can shed light on) how large flows can be 
-managed over netlink. I suspect
-this discussion has happened before :-)
+The integration of iWARP with the Linux networking, while much better
+than TOE, is still heavily flawed.
 
+What most people might not realize when using this stuff is that:
 
+1) None of their firewall rules will apply to the iWARP communications.
+2) None of their packet scheduling configurations can be applied to
+   the iWARP communications.
+3) It is not possible to encapsulate iWARP traffic in IPSEC
+
+And the list goes on and on.
+
+This is what we don't like about technologies that implement their own
+networking stack in the card firmware.
