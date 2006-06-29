@@ -1,35 +1,43 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Netchannels: progress report.
-Date: Thu, 29 Jun 2006 22:15:30 +0400
-Message-ID: <20060629181529.GA2336@2ka.mipt.ru>
-References: <20060608171555.GA10273@2ka.mipt.ru> <20060613173321.GA648@2ka.mipt.ru> <20060629093801.GA6049@2ka.mipt.ru> <Pine.LNX.4.64.0606291318420.24645@d.namei>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: jumbo frames and memory fragmentation
+Date: Thu, 29 Jun 2006 12:54:15 -0600
+Message-ID: <44A421D7.2030609@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:43401 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751239AbWF2SPa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 14:15:30 -0400
-To: James Morris <jmorris@namei.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0606291318420.24645@d.namei>
+Received: from zrtps0kn.nortel.com ([47.140.192.55]:38544 "EHLO
+	zrtps0kn.nortel.com") by vger.kernel.org with ESMTP
+	id S1751267AbWF2SyX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 14:54:23 -0400
+Received: from zcarhxs1.corp.nortel.com (zcarhxs1.corp.nort...s0.corp.nortel.com [47.129.230.89])
+	by zrtps0kn.nortel.com (Switch-2.2.6/Switch-2.2.0) with ESMTP id k5TIsK813805
+	for <netdev@vger.kernel.org>; Thu, 29 Jun 2006 14:54:20 -0400 (EDT)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 29, 2006 at 01:19:29PM -0400, James Morris (jmorris@namei.org) wrote:
-> On Thu, 29 Jun 2006, Evgeniy Polyakov wrote:
-> 
-> > +#define __NR_netchannel_control	279
-> > +__SYSCALL(__NR_vmsplice, sys_netchannel_control)
-> 
-> This looks wrong.
- 
-Ugh, it's my hand merge for x86_64.
-Thank you for spotting this, James.
- 
-> -- 
-> James Morris
-> <jmorris@namei.org>
 
--- 
-	Evgeniy Polyakov
+I'm running a system with multiple e1000 devices, using 9KB jumbo 
+frames.  I'm running a modified 2.6.10 with e1000 driver 5.5.4-k2.
+
+I'm a bit concerned about the behaviour of this driver with jumbo 
+frames.  We ask for 9KB.  The driver then bumps that up to a 
+power-of-two, so it calls dev_alloc_skb(16384).  That then bumps it up a 
+bit to allow for its own overhead, so it appears that we end up asking 
+for 32KB of physically contiguous memory for every packet coming in.  Ouch.
+
+Add to that the fact that this version of the driver doesn't do 
+copybreak, and it means that after we're up for a few days it starts 
+complaining about not being able to allocate buffers.
+
+Anyone have any suggestions on how to improve this?  Upgrading kernels 
+isn't an option.  I could port back the copybreak stuff fairly easily.
+
+Back in 2.4 some of the drivers used to retry buffer allocations using 
+GFP_KERNEL once interrupts were reenabled.  I don't see many of them 
+doing that anymore--would there be any benefit to that?
+
+Thanks,
+
+Chris
