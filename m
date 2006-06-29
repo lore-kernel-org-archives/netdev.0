@@ -1,62 +1,40 @@
-From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 2/2] [IrDA] Fix the AU1000 FIR dependencies
-Date: Fri, 30 Jun 2006 09:56:07 +0300
-Message-ID: <20060630065607.GB4729@sortiz.org>
-References: <20060629154148.GA19712@stusta.de>
-Reply-To: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 39 of 39] IB/ipath - use streaming copy in RDMA
+ interrupt handler to reduce packet loss
+Date: Thu, 29 Jun 2006 16:46:23 -0700 (PDT)
+Message-ID: <20060629.164623.59469884.davem@davemloft.net>
+References: <1151618377.10886.23.camel@chalcedony.pathscale.com>
+	<20060629.150319.104035601.davem@davemloft.net>
+	<1151624063.10886.34.camel@chalcedony.pathscale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Jean-Luc Leger <reiga-dF3JGIbHi9Ffir3NkZym1w@public.gmane.org>
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20060629154148.GA19712-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: akpm@osdl.org, rdreier@cisco.com, mst@mellanox.co.il,
+	openib-general@openib.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:26762
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S933108AbWF2Xq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 19:46:26 -0400
+To: bos@pathscale.com
+In-Reply-To: <1151624063.10886.34.camel@chalcedony.pathscale.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+From: Bryan O'Sullivan <bos@pathscale.com>
+Date: Thu, 29 Jun 2006 16:34:23 -0700
 
-AU1000 FIR is broken, it should depend on SOC_AU1000.
+> I'm not quite following you, though I assume you're referring to Niagara
+> or Rock :-)  Are you saying a memcpy_nc would do worse than plain
+> memcpy, or worse than some other memcpy-like routine?
 
-Spotted by Jean-Luc Leger.
+It would do worse than memcpy.
 
-Signed-off-by: Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
-Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
----
- drivers/net/irda/Kconfig |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+If you bypass the L2 cache, it's pointless because the next
+agent (PCI controller, CPU thread, etc.) is going to need the
+data in the L2 cache.
 
-diff --git a/drivers/net/irda/Kconfig b/drivers/net/irda/Kconfig
-index d2ce489..e9e6d99 100644
---- a/drivers/net/irda/Kconfig
-+++ b/drivers/net/irda/Kconfig
-@@ -350,7 +350,7 @@ config TOSHIBA_FIR
- 
- config AU1000_FIR
- 	tristate "Alchemy Au1000 SIR/FIR"
--	depends on MIPS_AU1000 && IRDA
-+	depends on SOC_AU1000 && IRDA
- 
- config SMC_IRCC_FIR
- 	tristate "SMSC IrCC (EXPERIMENTAL)"
--- 
-1.4.0
-
-
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+It's better in that kind of setup to eat the L2 cache miss overhead in
+memcpy since memcpy can usually prefetch and store buffer in order to
+absorb some of the L2 miss costs.
