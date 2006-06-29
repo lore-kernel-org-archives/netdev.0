@@ -1,54 +1,67 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Thu, 29 Jun 2006 19:00:38 -0400
-Message-ID: <1151622038.8922.9.camel@jzny2>
-References: <44892610.6040001@watson.ibm.com>
-	 <44999F5A.2080809@watson.ibm.com>	<4499D7CD.1020303@engr.sgi.com>
-	 <449C2181.6000007@watson.ibm.com>	<20060623141926.b28a5fc0.akpm@osdl.org>
-	 <449C6620.1020203@engr.sgi.com>	<20060623164743.c894c314.akpm@osdl.org>
-	 <449CAA78.4080902@watson.ibm.com>	<20060623213912.96056b02.akpm@osdl.org>
-	 <449CD4B3.8020300@watson.ibm.com>	<44A01A50.1050403@sgi.com>
-	 <20060626105548.edef4c64.akpm@osdl.org>	<44A020CD.30903@watson.ibm.com>
-	 <20060626111249.7aece36e.akpm@osdl.org>	<44A026ED.8080903@sgi.com>
-	 <20060626113959.839d72bc.akpm@osdl.org>	<44A2F50D.8030306@engr.sgi.com>
-	 <20060628145341.529a61ab.akpm@osdl.org>	<44A2FC72.9090407@engr.sgi.com>
-	 <20060629014050.d3bf0be4.pj@sgi.com>
-	 <200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
-	 <20060629094408.360ac157.pj@sgi.com>
-	 <20060629110107.2e56310b.akpm@osdl.org>	<44A425A7.2060900@watson.ibm.com>
-	 <20060629123338.0d355297.akpm@osdl.org>	<44A42D6D.6060108@watson.ibm.com>
-	 <20060629130046.c695c6c5.akpm@osdl.or! g> <44A450A1.4090202@watson.ibm.com>
-Reply-To: hadi@cyberus.ca
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: 2.6.17-mm4
+Date: Fri, 30 Jun 2006 01:05:17 +0200
+Message-ID: <20060629230517.GA18838@elte.hu>
+References: <20060629013643.4b47e8bd.akpm@osdl.org> <6bffcb0e0606291339s69a16bc5ie108c0b8d4e29ed6@mail.gmail.com> <20060629204330.GC13619@redhat.com> <20060629210950.GA300@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, pj@sgi.com, Valdis.Kletnieks@vt.edu,
-	jlan@engr.sgi.com, balbir@in.ibm.com, csturtiv@sgi.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:45532 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S933064AbWF2XAm
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 19:00:42 -0400
-To: Shailabh Nagar <nagar@watson.ibm.com>
-In-Reply-To: <44A450A1.4090202@watson.ibm.com>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:63129 "EHLO mx3.mail.elte.hu")
+	by vger.kernel.org with ESMTP id S933081AbWF2XKE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 19:10:04 -0400
+To: Dave Jones <davej@redhat.com>,
+	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20060629210950.GA300@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-29-06 at 18:13 -0400, Shailabh Nagar wrote:
 
+* Ingo Molnar <mingo@elte.hu> wrote:
+
+> i'm too hunting use-after-free bugs - the ones fixed below fix certain 
+> crashes, but i'm still seeing a nasty one.
 > 
-> And now I remember why I didn't go down that path earlier. Relayfs is one-way
-> kernel->user and lacks the ability to send query commands from user space
-> that we need. Either we would need to send commands up through a separate interface
-> (even a syscall) or try and ensure that the exiting genetlink interface can
-> scale better with message volume (including throttling).
+> the crash is independent on lockdep enabled or disabled. See:
+> 
+>   http://redhat.com/~mingo/misc/
+> 
+> for the config and the crash.log.
 
-Refer to my other email - whatever it takes to store "bulk" data in the
-kernel is subject to the constraint of the fact memory is finite.
-You can send messages from the kernel in sizes constrained by the memory
-socket size. You can tune the socket size.
+ok, managed to debug the reason for this crash via .config bisecting, 
+it's caused by:
 
-cheers,
-jamal
+   CONFIG_SCSI_PATA_QDI=y
 
+which is a new option in -mm4. Disabling it makes the -mm4 allyesconfig 
+bzImage work again.
+
+and running qdi_init() either causes memory corruption, or it causes 
+something to be misprogrammed on the motherboard (something wrt. irq 
+routing perhaps), which crashes the box afterwards. (but that happens 
+dozens of initcalls later, so the breakage is subtle)
+
+it does things like:
+
+        static const unsigned long qd_port[2] = { 0x30, 0xB0 };
+        static const unsigned long ide_port[2] = { 0x170, 0x1F0 };
+
+        [...]
+                unsigned long port = qd_port[i];
+        [...]
+                        r = inb_p(port);
+                        outb_p(0x19, port);
+                        res = inb_p(port);
+                        outb_p(r, port);
+
+so it reads/writes port 0x30 and 0xb0. Are those used by something else 
+on modern hardware?
+
+i know, i shouldnt be running an ancient Vesa Local Bus driver's init 
+routine, but still, the allyesconfig bzImage is quite useful in finding 
+various bugs ...
+
+	Ingo
