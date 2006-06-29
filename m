@@ -1,8 +1,8 @@
 From: "Bryan O'Sullivan" <bos@pathscale.com>
-Subject: [PATCH 7 of 39] IB/ipath - update some
- comments and fix typos
-Date: Thu, 29 Jun 2006 14:40:58 -0700
-Message-ID: <8f08597cacd2a9dcea28.1151617258@eng-12.pathscale.com>
+Subject: [PATCH 11 of 39] IB/ipath - return an error
+ for unknown multicast GID
+Date: Thu, 29 Jun 2006 14:41:02 -0700
+Message-ID: <1e1f3da0e78d32f2a733.1151617262@eng-12.pathscale.com>
 References: <patchbomb.1151617251@eng-12.pathscale.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -30,34 +30,15 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: Robert Walsh <robert.walsh@qlogic.com>
 Signed-off-by: Bryan O'Sullivan <bryan.osullivan@qlogic.com>
 
-diff -r 600ceb6aeb8c -r 8f08597cacd2 drivers/infiniband/hw/ipath/ipath_kernel.h
---- a/drivers/infiniband/hw/ipath/ipath_kernel.h	Thu Jun 29 14:33:25 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_kernel.h	Thu Jun 29 14:33:25 2006 -0700
-@@ -723,13 +723,8 @@ u64 ipath_read_kreg64_port(const struct 
-  * @port: port number
-  *
-  * Return the contents of a register that is virtualized to be per port.
-- * Prints a debug message and returns -1 on errors (not distinguishable from
-- * valid contents at runtime; we may add a separate error variable at some
-- * point).
-- *
-- * This is normally not used by the kernel, but may be for debugging, and
-- * has a different implementation than user mode, which is why it's not in
-- * _common.h.
-+ * Returns -1 on errors (not distinguishable from valid contents at
-+ * runtime; we may add a separate error variable at some point).
-  */
- static inline u32 ipath_read_ureg32(const struct ipath_devdata *dd,
- 				    ipath_ureg regno, int port)
-diff -r 600ceb6aeb8c -r 8f08597cacd2 drivers/infiniband/hw/ipath/ipath_layer.c
---- a/drivers/infiniband/hw/ipath/ipath_layer.c	Thu Jun 29 14:33:25 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_layer.c	Thu Jun 29 14:33:25 2006 -0700
-@@ -885,7 +885,7 @@ static void copy_io(u32 __iomem *piobuf,
- /**
-  * ipath_verbs_send - send a packet from the verbs layer
-  * @dd: the infinipath device
-- * @hdrwords: the number of works in the header
-+ * @hdrwords: the number of words in the header
-  * @hdr: the packet header
-  * @len: the length of the packet in bytes
-  * @ss: the SGE to send
+diff -r 160e5cf91761 -r 1e1f3da0e78d drivers/infiniband/hw/ipath/ipath_verbs_mcast.c
+--- a/drivers/infiniband/hw/ipath/ipath_verbs_mcast.c	Thu Jun 29 14:33:25 2006 -0700
++++ b/drivers/infiniband/hw/ipath/ipath_verbs_mcast.c	Thu Jun 29 14:33:25 2006 -0700
+@@ -273,7 +273,7 @@ int ipath_multicast_detach(struct ib_qp 
+ 	while (1) {
+ 		if (n == NULL) {
+ 			spin_unlock_irqrestore(&mcast_lock, flags);
+-			ret = 0;
++			ret = -EINVAL;
+ 			goto bail;
+ 		}
+ 
