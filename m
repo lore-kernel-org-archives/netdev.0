@@ -1,45 +1,50 @@
-From: Bryan O'Sullivan <bos@pathscale.com>
-Subject: Re: [PATCH 39 of 39] IB/ipath - use streaming copy in RDMA
-	interrupt handler to reduce packet loss
-Date: Thu, 29 Jun 2006 16:34:23 -0700
-Message-ID: <1151624063.10886.34.camel@chalcedony.pathscale.com>
-References: <1b00209ef20a0e7893d8.1151617290@eng-12.pathscale.com>
-	 <20060629.145027.41636491.davem@davemloft.net>
-	 <1151618377.10886.23.camel@chalcedony.pathscale.com>
-	 <20060629.150319.104035601.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Fri, 30 Jun 2006 01:39:33 +0200
+Message-ID: <20060629233933.GB14627@postel.suug.ch>
+References: <20060626184424.GT1376@postel.suug.ch> <44A05FE0.7070203@trash.net> <20060627100309.GU1376@postel.suug.ch> <1151413670.6516.57.camel@jzny2> <20060628101832.GW1376@postel.suug.ch> <1151497363.5203.47.camel@jzny2> <20060628130124.GX1376@postel.suug.ch> <1151502408.5203.94.camel@jzny2> <20060629085111.GY1376@postel.suug.ch> <1151623394.8922.27.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, rdreier@cisco.com, mst@mellanox.co.il,
-	openib-general@openib.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.pathscale.com ([64.160.42.68]:64409 "EHLO mx.pathscale.com")
-	by vger.kernel.org with ESMTP id S932645AbWF2XeY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 19:34:24 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060629.150319.104035601.davem@davemloft.net>
+Received: from postel.suug.ch ([194.88.212.233]:25763 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1751315AbWF2XjN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 19:39:13 -0400
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1151623394.8922.27.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-06-29 at 15:03 -0700, David Miller wrote:
+* jamal <hadi@cyberus.ca> 2006-06-29 19:23
+> > What's currently
+> > done in ifb:
+> > 
+> > 	skb->dev = skb->input_dev;
+> > 	skb->input_dev = dev;
+> > 
+> > Confusing, isn't it? 
+> 
+> not at all. Let me explain the design intent further below.
 
-> I'm not good with names :-)
+Then let me show you what your code does:
 
-Heh.  I'll call it memcpy_nc for now, then, and people can retch all
-over the name as they please when I submit a more suitably generic
-patch.
+ [mirred attached to filter on eth0 redirecting to ifb0]
 
-> Note that there also might be cases where using such a memcpy
-> variant might be the wrong thing to do.  For example, for a very
-> tightly coupled CMT cpu implementation which has the memory controller,
-> L2 cache, PCI controller, etc. all on the same die and the PCI controller
-> makes use of the L2 cache just like the cpu threads do, using this
-> kind of memcpy would always be the wrong thing to do.
+tcf_mirred():    skb2->input_dev = skb->dev; (skb2->input_dev=eth0)
+ifb_xmit():      skb->dev = skb->input_dev; (skb->dev=eth0)
+                 skb->input_dev = dev; (skb->input_dev=ifb0)
 
-I'm not quite following you, though I assume you're referring to Niagara
-or Rock :-)  Are you saying a memcpy_nc would do worse than plain
-memcpy, or worse than some other memcpy-like routine?
+So when reentering the stack the skb looks like it would be
+on eth0 coming from ifb0. Is that what you wanted? Shouldn't
+it be skb->dev=ifb0 skb->input_dev=eth0? That's what my patch
+would change it to.
 
-	<b
+> I know your intent is noble in trying to save the 32 bits on 64 bit
+> machines (at least thats where your patch seems to have started) but the
+> cost:benefit ratio as i have pointed out is unreasonable. 
+
+Did I ever claim this? You made this up right now. As of now
+it doesn't save a single bit.
 
