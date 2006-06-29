@@ -1,45 +1,42 @@
-From: Doug Maxey <dwm@enoyolf.org>
-Subject: Re: FW: + qla3xxx-is-bust.patch added to -mm tree
-Date: Wed, 28 Jun 2006 22:41:56 -0500
-Message-ID: <20060629034156.567594@bebe.enoyolf.org>
-References: <0BB3E5E7462EEA4295BC02D49691DC07176D31@AVEXCH1.qlogic.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.17.1: fails to fully get webpage
+Date: Wed, 28 Jun 2006 20:47:09 -0700 (PDT)
+Message-ID: <20060628.204709.41634813.davem@davemloft.net>
+References: <20060629015915.GH2149@zip.com.au>
+	<20060628.194627.74748190.davem@davemloft.net>
+	<20060629030923.GI2149@zip.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Andrew Morton" <akpm@osdl.org>, netdev@vger.kernel.org,
-	"Linux Driver" <Linux-Driver@qlogic.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from falcon30.maxeymade.com ([24.173.215.190]:11990 "EHLO
-	bebe.enoyolf.org") by vger.kernel.org with ESMTP id S932110AbWF2DmL
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 23:42:11 -0400
-In-reply-to: <0BB3E5E7462EEA4295BC02D49691DC07176D31@AVEXCH1.qlogic.org>
-To: "Ron Mercer" <ron.mercer@qlogic.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:65491
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751156AbWF2DrK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Jun 2006 23:47:10 -0400
+To: cat@zip.com.au
+In-Reply-To: <20060629030923.GI2149@zip.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: CaT <cat@zip.com.au>
+Date: Thu, 29 Jun 2006 13:09:23 +1000
 
-On Wed, 28 Jun 2006 16:07:22 PDT, "Ron Mercer" wrote:
-> > 
-> > Is the device hotpluggable?   If so, this:
-> > 
-> > 	qdev->index = cards_found;
-> > 
-> > in the probe() handler might do odd things - it'll just keep 
-> > increasing as the card is removed and re-added.
-> > 
-> > iirc, that's a common problem with net drivers.  AFAICT it'll 
-> > cause only cosmetic oddities here.
-> > 
-> >
+> Yup. Must've. Just tried it now and setting tcp_window_scaling to 0
+> makes the site load. Sorry about that. Looks like I'll have to remember
+> to make sure that gets set to zero on any servers I wind up having to
+> upgrade to 2.6.17 and beyond.
 > 
-> Not sure if the device supports hotplug.  I'm looking into it.  Either
-> way, I will be removing qdev->index.  It's not needed. 
-> 
+> Bugger. :/
 
-Oh indeed it will on System p, the new name for the power series.
+You can save yourself that hassle by informing the site admin
+of the affected site that they have a firewall that misinterprets
+the RFC standard window scaling field of the TCP headers.  These
+devices assume it is zero because they don't remember the window
+scale negotiated at the beginning of the TCP connection.
 
-Both it and the qla4xxx on a single adapter can (and will) be moved
-between partitions, preceded by a hot-unplug in the DLPAR environment.
+Your TCP performance will suffer greatly if you disable window
+scaling across the board.  It means that only a 64K window will
+be usable by TCP, and you'll not be able to fill the pipe.
 
-++doug
-
+Please don't use a screwdriver to pound in a nail :)
