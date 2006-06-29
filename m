@@ -1,37 +1,36 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/xfrm/xfrm_state: unexport xfrm_state_mtu
-Date: Thu, 29 Jun 2006 21:20:35 +0200
-Message-ID: <20060629192035.GT19712@stusta.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET]: Added GSO header verification
+Date: Thu, 29 Jun 2006 12:26:10 -0700 (PDT)
+Message-ID: <20060629.122610.07637917.davem@davemloft.net>
+References: <1151441195.3543.3.camel@rh4>
+	<20060627223120.GA19026@gondor.apana.org.au>
+	<1151460444.5124.2.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [141.84.69.5] ([141.84.69.5]:30224 "HELO mailout.stusta.mhn.de")
-	by vger.kernel.org with SMTP id S932266AbWF2TVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 15:21:32 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:23208
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932298AbWF2T0L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 15:26:11 -0400
+To: mchan@broadcom.com
+In-Reply-To: <1151460444.5124.2.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes the unused EXPORT_SYMBOL(xfrm_state_mtu).
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Tue, 27 Jun 2006 19:07:24 -0700
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> On Wed, 2006-06-28 at 08:31 +1000, Herbert Xu wrote:
+> 
+> > [NET]: Fix logical error in skb_gso_ok
+> > 
+> > The test in skb_gso_ok is backwards.  Noticed by Michael Chan
+> > <mchan@broadcom.com>.
+> > 
+> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Acked-by: Michael Chan <mchan@broadcom.com>
 
----
-
-This patch was already sent on:
-- 12 Apr 2006
-
---- linux-2.6.17-rc1-mm2-full/net/xfrm/xfrm_state.c.old	2006-04-12 22:38:57.000000000 +0200
-+++ linux-2.6.17-rc1-mm2-full/net/xfrm/xfrm_state.c	2006-04-12 22:39:03.000000000 +0200
-@@ -1152,8 +1152,6 @@
- 	return res;
- }
- 
--EXPORT_SYMBOL(xfrm_state_mtu);
--
- int xfrm_init_state(struct xfrm_state *x)
- {
- 	struct xfrm_state_afinfo *afinfo;
-
-
+Applied, thanks a lot guys.
