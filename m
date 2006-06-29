@@ -1,7 +1,7 @@
 From: Bryan O'Sullivan <bos@pathscale.com>
-Subject: [PATCH 8 of 39] IB/ipath - remove some duplicate code
-Date: Thu, 29 Jun 2006 14:40:59 -0700
-Message-ID: <08114201137114764a83.1151617259@eng-12.pathscale.com>
+Subject: [PATCH 17 of 39] IB/ipath - use more appropriate gfp flags
+Date: Thu, 29 Jun 2006 14:41:08 -0700
+Message-ID: <9d943b828776136a2bb7.1151617268@eng-12.pathscale.com>
 References: <patchbomb.1151617251@eng-12.pathscale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -9,27 +9,74 @@ Content-Transfer-Encoding: 7bit
 Cc: openib-general@openib.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.pathscale.com ([64.160.42.68]:32911 "EHLO mx.pathscale.com")
-	by vger.kernel.org with ESMTP id S932862AbWF2VoJ (ORCPT
+Received: from mx.pathscale.com ([64.160.42.68]:35215 "EHLO mx.pathscale.com")
+	by vger.kernel.org with ESMTP id S932882AbWF2VoJ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 17:44:09 -0400
 In-Reply-To: <patchbomb.1151617251@eng-12.pathscale.com>
 To: akpm@osdl.org, rdreier@cisco.com, mst@mellanox.co.il
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Robert Walsh <robert.walsh@qlogic.com>
+This helps us to survive better when memory is fragmented.
+
+Signed-off-by: Dave Olson <dave.olson@qlogic.com>
 Signed-off-by: Bryan O'Sullivan <bryan.osullivan@qlogic.com>
 
-diff -r 8f08597cacd2 -r 081142011371 drivers/infiniband/hw/ipath/ipath_qp.c
---- a/drivers/infiniband/hw/ipath/ipath_qp.c	Thu Jun 29 14:33:25 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_qp.c	Thu Jun 29 14:33:25 2006 -0700
-@@ -511,9 +511,6 @@ int ipath_modify_qp(struct ib_qp *ibqp, 
- 	if (attr_mask & IB_QP_QKEY)
- 		qp->qkey = attr->qkey;
+diff -r fd5e733f02ac -r 9d943b828776 drivers/infiniband/hw/ipath/ipath_file_ops.c
+--- a/drivers/infiniband/hw/ipath/ipath_file_ops.c	Thu Jun 29 14:33:25 2006 -0700
++++ b/drivers/infiniband/hw/ipath/ipath_file_ops.c	Thu Jun 29 14:33:25 2006 -0700
+@@ -705,6 +705,15 @@ static int ipath_create_user_egr(struct 
+ 	unsigned e, egrcnt, alloced, egrperchunk, chunk, egrsize, egroff;
+ 	size_t size;
+ 	int ret;
++	gfp_t gfp_flags;
++
++	/*
++	 * GFP_USER, but without GFP_FS, so buffer cache can be
++	 * coalesced (we hope); otherwise, even at order 4,
++	 * heavy filesystem activity makes these fail, and we can
++	 * use compound pages.
++	 */
++	gfp_flags = __GFP_WAIT | __GFP_IO | __GFP_COMP;
  
--	if (attr_mask & IB_QP_PKEY_INDEX)
--		qp->s_pkey_index = attr->pkey_index;
--
- 	qp->state = new_state;
- 	spin_unlock(&qp->s_lock);
- 	spin_unlock_irqrestore(&qp->r_rq.lock, flags);
+ 	egrcnt = dd->ipath_rcvegrcnt;
+ 	/* TID number offset for this port */
+@@ -721,10 +730,8 @@ static int ipath_create_user_egr(struct 
+ 	 * memory pressure (creating large files and then copying them over
+ 	 * NFS while doing lots of MPI jobs), we hit some allocation
+ 	 * failures, even though we can sleep...  (2.6.10) Still get
+-	 * failures at 64K.  32K is the lowest we can go without waiting
+-	 * more memory again.  It seems likely that the coalescing in
+-	 * free_pages, etc. still has issues (as it has had previously
+-	 * during 2.6.x development).
++	 * failures at 64K.  32K is the lowest we can go without wasting
++	 * additional memory.
+ 	 */
+ 	size = 0x8000;
+ 	alloced = ALIGN(egrsize * egrcnt, size);
+@@ -745,12 +752,6 @@ static int ipath_create_user_egr(struct 
+ 		goto bail_rcvegrbuf;
+ 	}
+ 	for (e = 0; e < pd->port_rcvegrbuf_chunks; e++) {
+-		/*
+-		 * GFP_USER, but without GFP_FS, so buffer cache can be
+-		 * coalesced (we hope); otherwise, even at order 4,
+-		 * heavy filesystem activity makes these fail
+-		 */
+-		gfp_t gfp_flags = __GFP_WAIT | __GFP_IO | __GFP_COMP;
+ 
+ 		pd->port_rcvegrbuf[e] = dma_alloc_coherent(
+ 			&dd->pcidev->dev, size, &pd->port_rcvegrbuf_phys[e],
+@@ -1167,9 +1168,10 @@ static int ipath_mmap(struct file *fp, s
+ 
+ 	ureg = dd->ipath_uregbase + dd->ipath_palign * pd->port_port;
+ 
+-	ipath_cdbg(MM, "ushare: pgaddr %llx vm_start=%lx, vmlen %lx\n",
++	ipath_cdbg(MM, "pgaddr %llx vm_start=%lx len %lx port %u:%u\n",
+ 		   (unsigned long long) pgaddr, vma->vm_start,
+-		   vma->vm_end - vma->vm_start);
++		   vma->vm_end - vma->vm_start, dd->ipath_unit,
++		   pd->port_port);
+ 
+ 	if (pgaddr == ureg)
+ 		ret = mmap_ureg(vma, dd, ureg);
