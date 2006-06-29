@@ -1,118 +1,75 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Thu, 29 Jun 2006 19:23:14 -0400
-Message-ID: <1151623394.8922.27.camel@jzny2>
-References: <44A0138F.8050208@trash.net>
-	 <20060626.104654.98552111.davem@davemloft.net>
-	 <20060626184424.GT1376@postel.suug.ch> <44A05FE0.7070203@trash.net>
-	 <20060627100309.GU1376@postel.suug.ch> <1151413670.6516.57.camel@jzny2>
-	 <20060628101832.GW1376@postel.suug.ch> <1151497363.5203.47.camel@jzny2>
-	 <20060628130124.GX1376@postel.suug.ch> <1151502408.5203.94.camel@jzny2>
-	 <20060629085111.GY1376@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2.6.17] support for TSO over IPv6
+Date: Fri, 30 Jun 2006 09:32:44 +1000
+Message-ID: <E1Fw604-0006yP-00@gondolin.me.apana.org.au>
+References: <Pine.GSO.4.10.10606291810490.12773-100000@guinness>
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, shemminger@osdl.org,
+	Leonid.Grossman@neterion.com, Ravinandan.Arakali@neterion.com,
+	Ananda.Raju@neterion.com, sivakumar.subramani@neterion.com,
+	Sriram.Rapuru@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:59310 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S933091AbWF2XXS
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 19:23:18 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1Fw5r1-0003L1-JC
-	for netdev@vger.kernel.org; Thu, 29 Jun 2006 19:23:23 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060629085111.GY1376@postel.suug.ch>
+Received: from [64.62.148.172] ([64.62.148.172]:37138 "EHLO arnor.apana.org.au")
+	by vger.kernel.org with ESMTP id S1751308AbWF2Xds (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 19:33:48 -0400
+To: Ananda.Raju@neterion.com (Ananda Raju)
+In-Reply-To: <Pine.GSO.4.10.10606291810490.12773-100000@guinness>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Ananda Raju <Ananda.Raju@neterion.com> wrote:
+>        This patch enables TSO over IPv6. Currently Linux network stacks
+>        restricts TSO over IPv6 by clearing of the NETIF_F_TSO bit from
+>        "dev->features". This patch will remove this restriction.
 
-I noticed the other email carrying a patch. Let me respond to this email
-and hopefully that will address the patch.
-
-On Thu, 2006-29-06 at 10:51 +0200, Thomas Graf wrote: 
-> * jamal <hadi@cyberus.ca> 2006-06-28 09:46
-[..] 
-> I disagree, iflink information is bogus once we start redirecting.
-
-After redirecting, iflink is "available" i.e it doesnt make any
-more sense and therefore it should be (ab)usable to carry other info.
-But the more i think about it, using skb->dev is just fine for 
-finding the device you are looking for even when it gets redirected.
+Thanks, looks good over all.
  
-I am assuming you still want to find out - in the case of a topology
-which constitutes more than one netdevice - the second last netdevice,
-correct?
+>        SKB_GSO_TCPV4 renamed to SKB_GSO_TCP to make it generic GSO packet.
+>        SKB_GSO_UDPV4 renamed to SKB_GSO_UDP as UFO is not a IPv4 feature.
+>        UFO is supported over IPv6 also
 
-> > 
-> > Can you achieve the same by binding to any arbitrary netdevice? If you
-> > can then i would agree.
+This bit is wrong though.  TCPv4 and TCPv6 packets can't share the same
+GSO feature bit.  The reason is that GSO/TSO is no longer just activated
+by dev->features.  Bridges can forward GSO/TSO packets through at any time.
+This is why it is crucial that each packet specficies exactly the features
+that it requires from the hardware.
+
+For UFO, it's OK to have just SKB_GSO_UDP since IIRC your card is the only
+one that supports it and it supports both protocols anyway.
+
+> diff -upNr netdev.org/include/linux/skbuff.h netdev.ipv6_tso/include/linux/skbuff.h
+> --- netdev.org/include/linux/skbuff.h   2006-06-27 07:30:36.000000000 -0700
+> +++ netdev.ipv6_tso/include/linux/skbuff.h      2006-06-27 07:38:48.000000000 -0700
+> @@ -170,8 +170,9 @@ enum {
+> };
 > 
-> It was your request to not update input_dev in netif_receive_skb()
-> but rather have each netdevice handle it manually. 
+> enum {
+> -       SKB_GSO_TCPV4 = 1 << 0,
+> -       SKB_GSO_UDPV4 = 1 << 1,
+> +       SKB_GSO_TCP = 1 << 0,
+> +       SKB_GSO_UDP = 1 << 1,
+> +       SKB_GSO_TCPV6 = 1 << 2,
+> };
 
-For good reasons of course.
+BTW, you should rediff against Dave's current tree which has a few
+extra bits there.
 
-note: you didnt answer the question i asked, but probably the answer
-doesnt matter.
+You should also leave TCPV4 as is and just add the TCPV6 bit.
+ 
+> diff -upNr netdev.org/net/ipv4/tcp_output.c netdev.ipv6_tso/net/ipv4/tcp_output.c
+> --- netdev.org/net/ipv4/tcp_output.c    2006-06-27 07:30:36.000000000 -0700
+> +++ netdev.ipv6_tso/net/ipv4/tcp_output.c       2006-06-27 07:38:48.000000000 -0700
+> @@ -525,7 +525,7 @@ static void tcp_set_skb_tso_segs(struct 
+>                factor /= mss_now;
+>                skb_shinfo(skb)->gso_segs = factor;
+>                skb_shinfo(skb)->gso_size = mss_now;
+> -               skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
+> +               skb_shinfo(skb)->gso_type = SKB_GSO_TCP;
 
-> What's currently
-> done in ifb:
-> 
-> 	skb->dev = skb->input_dev;
-> 	skb->input_dev = dev;
-> 
-> Confusing, isn't it? 
+You need to set SKB_GSO_TCPV6 for IPv6 packets here.
 
-not at all. Let me explain the design intent further below.
-
-> I really don't get input_dev/iif is supposed to
-> be updated in ifb. If a packet is to be redirected, the mirred action
-> shall take care of providing this information to the next netdevice.
-
-ifb is a special purpose device.
-Think of it as a redirector, or injector if you want a better noun. If
-you are going to inject packets back to the stack at arbitrary points,
-then you need to reflect that in the packet metadata implying where it
-came from. Likewise if you are going to redirect packets into arbitrary
-points in the stack (as mirred does), you need to do the same. 
-I dont know if that makes sense. 
-
-> My additional request is to provide a flag to disable this for special
-> purposes not hurting anyone.
-
-I am failing to see the purpose. 
-With all due respect, you are changing the design intent, Thomas.
-
-I know your intent is noble in trying to save the 32 bits on 64 bit
-machines (at least thats where your patch seems to have started) but the
-cost:benefit ratio as i have pointed out is unreasonable. 
-If you can meet the requirements i have specified (I am leaving them
-below) i will be a happy camper.
-
-> > The challenge is this, and if you can solve it we would be fine:
-> > - I need to access both the input_dev and dev and their metadata.
-> > I could clearly find them by their ifindices and then reference them
-> > after that. For performance reasons that is not optimal in the fast
-> > path.  
-> 
-
-So just we are clear: I have strong desire to save compute rather than
-than saving 32 bits per skb on 64 bit machine. 
-
-> Nice, you forget that while redirecting the device pointed to by
-> input_dev can disappear leaving behind an illegal reference. 
-
-We have had this discussion before - that is resolvable via
-dev_put/hold.
-
-> The purpose of this patch is to fix this.
-
-Appreciated - but can you do it without replacing the input_dev?
-
-cheers,
-jamal
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
