@@ -1,40 +1,35 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: RDMA will be reverted
-Date: Fri, 30 Jun 2006 02:40:51 +0900 (JST)
-Message-ID: <20060630.024051.59274107.yoshfuji@linux-ipv6.org>
-References: <adawtazgawi.fsf@cisco.com>
-	<20060630.023258.83835473.yoshfuji@linux-ipv6.org>
-	<adasllng8zn.fsf@cisco.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Netchannels: progress report.
+Date: Thu, 29 Jun 2006 22:15:30 +0400
+Message-ID: <20060629181529.GA2336@2ka.mipt.ru>
+References: <20060608171555.GA10273@2ka.mipt.ru> <20060613173321.GA648@2ka.mipt.ru> <20060629093801.GA6049@2ka.mipt.ru> <Pine.LNX.4.64.0606291318420.24645@d.namei>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, akpm@osdl.org,
-	yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=koi8-r
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:14092 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751026AbWF2Rjw
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 13:39:52 -0400
-To: rdreier@cisco.com
-In-Reply-To: <adasllng8zn.fsf@cisco.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:43401 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751239AbWF2SPa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 14:15:30 -0400
+To: James Morris <jmorris@namei.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0606291318420.24645@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <adasllng8zn.fsf@cisco.com> (at Thu, 29 Jun 2006 10:35:56 -0700), Roland Dreier <rdreier@cisco.com> says:
-
->  > > Dave, you're going to have to be more specific.  What do you mean by
->  > > RDMA?  The whole drivers/infiniband infrastructure, which handles RDMA
->  > > over IB, has been upstream for a year and a half, and was in fact
->  > > originally merged by you, so I'm guessing that's not what you mean.
->  > 
->  > NET_DMA things.
+On Thu, Jun 29, 2006 at 01:19:29PM -0400, James Morris (jmorris@namei.org) wrote:
+> On Thu, 29 Jun 2006, Evgeniy Polyakov wrote:
 > 
-> But NET_DMA seems to be for the new DMA engine support (I/OAT really I
-> guess?).  I had nothing to do with merging any of that, and as far as
-> I can tell, Dave signed off on all of those changes, so I don't think
-> that's what he's complaining about either.
+> > +#define __NR_netchannel_control	279
+> > +__SYSCALL(__NR_vmsplice, sys_netchannel_control)
+> 
+> This looks wrong.
+ 
+Ugh, it's my hand merge for x86_64.
+Thank you for spotting this, James.
+ 
+> -- 
+> James Morris
+> <jmorris@namei.org>
 
-Oops, sorry, you're right...
-
---yoshfuji
+-- 
+	Evgeniy Polyakov
