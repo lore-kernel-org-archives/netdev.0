@@ -1,54 +1,51 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [Ubuntu PATCH] Broadcom wireless patch, PCIE/Mactel support
-Date: Thu, 29 Jun 2006 22:04:57 +0200
-Message-ID: <200606292204.58103.mb@bu3sch.de>
-References: <44909A3F.4090905@oracle.com> <20060615133220.57d8dd26@localhost> <20060629195456.GG24463@tuxdriver.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Subject: [PATCH 1/2]: e100 disable device on PCI error
+Date: Thu, 29 Jun 2006 15:06:44 -0500
+Message-ID: <20060629200644.GA29526@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Stefano Brivio <stefano.brivio@polimi.it>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, mb@bu3sch.de,
-	akpm <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz,
+	netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:33164
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932382AbWF2UF2
+Received: from e33.co.us.ibm.com ([32.97.110.151]:51592 "EHLO
+	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S932385AbWF2UGr
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 16:05:28 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060629195456.GG24463@tuxdriver.com>
+	Thu, 29 Jun 2006 16:06:47 -0400
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Rajesh Shah <rajesh.shah@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Grant Grundler <grundler@parisc-linux.org>,
+	"bibo,mao" <bibo.mao@intel.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 29 June 2006 21:55, John W. Linville wrote:
-> On Thu, Jun 15, 2006 at 01:32:20PM +0200, Stefano Brivio wrote:
-> > On Wed, 14 Jun 2006 16:22:39 -0700
-> > Randy Dunlap <randy.dunlap@oracle.com> wrote:
-> > 
-> > > From: Matthew Garrett <mjg59@srcf.ucam.org>
-> > > 
-> > > Broadcom wireless patch, PCIE/Mactel support
-> > > 
-> > > http://www.kernel.org/git/?p=linux/kernel/git/bcollins/ubuntu-dapper.git;a=commitdiff;h=1373a8487e911b5ee204f4422ddea00929c8a4cc
-> > > 
-> > > This patch adds support for PCIE cores to the bcm43xx driver. This is
-> > > needed for wireless to work on the Intel imacs. I've submitted it to
-> > > bcm43xx upstream.
-> > 
-> > NACK.
-> > This has been superseded by my patchset:
-> > http://www.mail-archive.com/bcm43xx-dev@lists.berlios.de/msg01267.html
-> > 
-> > I'm still waiting for more testing so I didn't request merging to mainline
-> 
-> Are these patches coming soon?
 
-No, we don't have hardware to test it.
+A recent patch in -mm3 titled 
+  "gregkh-pci-pci-don-t-enable-device-if-already-enabled.patch"
+causes pci_enable_device() to be a no-op if the kernel thinks
+that the device is already enabled.  This change breaks the
+PCI error recovery mechanism in the e100 device driver, since, 
+after PCI slot reset, the card is no longer enabled. This is 
+a trivial fix for this problem. Tested.
 
-So if someone knows a PCIe Broadcom WLAN card... ;)
+Please submit uptream.
 
--- 
-Greetings Michael.
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+
+----
+ drivers/net/e100.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+Index: linux-2.6.17-mm3/drivers/net/e100.c
+===================================================================
+--- linux-2.6.17-mm3.orig/drivers/net/e100.c	2006-06-27 11:39:08.000000000 -0500
++++ linux-2.6.17-mm3/drivers/net/e100.c	2006-06-29 14:18:40.000000000 -0500
+@@ -2742,6 +2742,7 @@ static pci_ers_result_t e100_io_error_de
+ 	/* Detach; put netif into state similar to hotplug unplug. */
+ 	netif_poll_enable(netdev);
+ 	netif_device_detach(netdev);
++	pci_disable_device(pdev);
+ 
+ 	/* Request a slot reset. */
+ 	return PCI_ERS_RESULT_NEED_RESET;
