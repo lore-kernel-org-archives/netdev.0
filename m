@@ -1,43 +1,99 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: jumbo frames and memory fragmentation
-Date: Thu, 29 Jun 2006 12:54:15 -0600
-Message-ID: <44A421D7.2030609@nortel.com>
+From: Shailabh Nagar <nagar@watson.ibm.com>
+Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
+Date: Thu, 29 Jun 2006 15:10:31 -0400
+Message-ID: <44A425A7.2060900@watson.ibm.com>
+References: <44892610.6040001@watson.ibm.com>	<20060609042129.ae97018c.akpm@osdl.org>	<4489EE7C.3080007@watson.ibm.com>	<449999D1.7000403@engr.sgi.com>	<44999A98.8030406@engr.sgi.com>	<44999F5A.2080809@watson.ibm.com>	<4499D7CD.1020303@engr.sgi.com>	<449C2181.6000007@watson.ibm.com>	<20060623141926.b28a5fc0.akpm@osdl.org>	<449C6620.1020203@engr.sgi.com>	<20060623164743.c894c314.akpm@osdl.org>	<449CAA78.4080902@watson.ibm.com>	<20060623213912.96056b02.akpm@osdl.org>	<449CD4B3.8020300@watson.ibm.com>	<44A01A50.1050403@sgi.com>	<20060626105548.edef4c64.akpm@osdl.org>	<44A020CD.30903@watson.ibm.com>	<20060626111249.7aece36e.akpm@osdl.org>	<44A026ED.8080903@sgi.com>	<20060626113959.839d72bc.akpm@osdl.org>	<44A2F50D.8030306@engr.sgi.com>	<20060628145341.529a61ab.akpm@osdl.org>	<44A2FC72.9090407@engr.sgi.com>	<20060629014050.d3bf0be4.pj@sgi.com>	<200606291230.k5TCUg45030710@turing-police.cc.vt.
+ edu>	<20060629094408.360ac157.pj@sgi.com> <20060629110107.2e56310b.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: Paul Jackson <pj@sgi.com>, Valdis.Kletnieks@vt.edu,
+	jlan@engr.sgi.com, balbir@in.ibm.com, csturtiv@sgi.com,
+	linux-kernel@vger.kernel.org, Jamal <hadi@cyberus.ca>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zrtps0kn.nortel.com ([47.140.192.55]:38544 "EHLO
-	zrtps0kn.nortel.com") by vger.kernel.org with ESMTP
-	id S1751267AbWF2SyX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 14:54:23 -0400
-Received: from zcarhxs1.corp.nortel.com (zcarhxs1.corp.nort...s0.corp.nortel.com [47.129.230.89])
-	by zrtps0kn.nortel.com (Switch-2.2.6/Switch-2.2.0) with ESMTP id k5TIsK813805
-	for <netdev@vger.kernel.org>; Thu, 29 Jun 2006 14:54:20 -0400 (EDT)
-To: netdev@vger.kernel.org
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:6613 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S932251AbWF2TKe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 15:10:34 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060629110107.2e56310b.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Andrew Morton wrote:
 
-I'm running a system with multiple e1000 devices, using 9KB jumbo 
-frames.  I'm running a modified 2.6.10 with e1000 driver 5.5.4-k2.
+>On Thu, 29 Jun 2006 09:44:08 -0700
+>Paul Jackson <pj@sgi.com> wrote:
+>
+>  
+>
+>>>You're probably correct on that model. However, it all depends on the actual
+>>>workload. Are people who actually have large-CPU (>256) systems actually
+>>>running fork()-heavy things like webservers on them, or are they running things
+>>>like database servers and computations, which tend to have persistent
+>>>processes?
+>>>      
+>>>
+>>It may well be mostly as you say - the large-CPU systems not running
+>>the fork() heavy jobs.
+>>
+>>Sooner or later, someone will want to run a fork()-heavy job on a
+>>large-CPU system.  On a 1024 CPU system, it would apparently take
+>>just 14 exits/sec/CPU to hit this bottleneck, if Jay's number of
+>>14000 applied.
+>>
+>>Chris Sturdivant's reply is reasonable -- we'll hit it sooner or later,
+>>and deal with it then.
+>>
+>>    
+>>
+>
+>I agree, and I'm viewing this as blocking the taskstats merge.  Because if
+>this _is_ a problem then it's a big one because fixing it will be
+>intrusive, and might well involve userspace-visible changes.
+>  
+>
+First off, just a reminder that this is inherently a netlink flow 
+control issue...which was being exacerbated
+earlier by taskstats decision to send per-tgid data (no longer the case).
 
-I'm a bit concerned about the behaviour of this driver with jumbo 
-frames.  We ask for 9KB.  The driver then bumps that up to a 
-power-of-two, so it calls dev_alloc_skb(16384).  That then bumps it up a 
-bit to allow for its own overhead, so it appears that we end up asking 
-for 32KB of physically contiguous memory for every packet coming in.  Ouch.
+But I'd like to know whats our target here ? How many messages per 
+second do we want to be able to be sent
+and received without risking any loss of data ? Netlink will lose 
+messages at a high enough rate so the design point
+will need to be known a bit.
 
-Add to that the fact that this version of the driver doesn't do 
-copybreak, and it means that after we're up for a few days it starts 
-complaining about not being able to allocate buffers.
+For statistics type usage of the genetlink/netlink, I would have thought 
+that userspace, provided it is reliably informed
+about the loss of data through ENOBUFS, could take measures to just 
+account for the missing data and carry on ?
 
-Anyone have any suggestions on how to improve this?  Upgrading kernels 
-isn't an option.  I could port back the copybreak stuff fairly easily.
 
-Back in 2.4 some of the drivers used to retry buffer allocations using 
-GFP_KERNEL once interrupts were reenabled.  I don't see many of them 
-doing that anymore--would there be any benefit to that?
 
-Thanks,
 
-Chris
+>The only ways I can see of fixing the problem generally are to either
+>
+>a) throw more CPU(s) at stats collection: allow userspace to register for
+>   "stats generated by CPU N", then run a stats collection daemon on each
+>   CPU or
+>  
+>
+>b) make the kernel recognise when it's getting overloaded and switch to
+>   some degraded mode where it stops trying to send all the data to
+>   userspace - just send a summary, or a "we goofed" message or something.
+>  
+>
+One of the unused features of genetlink that's meant for high volume 
+data output from the kernel is
+the "dump" callback of a genetlink connection. Essentially kernel space 
+keeps getting provided sk_buffs
+to fill which the netlink layer then supplies to user space (over time I 
+guess ?)
+
+But whatever we do, there's going to be some limit so its useful to 
+decide what the design point should be ?
+
+Adding Jamal for his thoughts on netlink's flow control in the context 
+of genetlink.
+
+--Shailabh
