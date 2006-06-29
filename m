@@ -1,84 +1,66 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: TOE, etc.
-Date: Wed, 28 Jun 2006 16:54:03 -0700
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F15F5BDE@NT-SJCA-0751.brcm.ad.broadcom.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.17-mm3 -- NULL pointer dereference at virtual address
+ 00000020 / EIP is at prism2_registers_proc_read+0x22/0x2ff [hostap_cs]
+Date: Wed, 28 Jun 2006 17:08:09 -0700
+Message-ID: <20060628170809.374cafcf.akpm@osdl.org>
+References: <a44ae5cd0606281634o45795e89y8789e670448f52e3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>, swise@opengridcomputing.com,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:49924 "EHLO
-	mms1.broadcom.com") by vger.kernel.org with ESMTP id S1750889AbWF1XzR convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Jun 2006 19:55:17 -0400
-Content-class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>
+Received: from smtp.osdl.org ([65.172.181.4]:17106 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751822AbWF2AE6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Jun 2006 20:04:58 -0400
+To: "Miles Lane" <miles.lane@gmail.com>
+In-Reply-To: <a44ae5cd0606281634o45795e89y8789e670448f52e3@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Caitlin Bestler wrote:
->> Jeff Garzik wrote:
->>> Caitlin Bestler wrote:
->>>> But hardware iSCSI implementations, which already exist, do not
->>>> work through normal sockets.
-> 
->>> No, they work through normal SCSI stack...
-> 
->> Correct.
->> 
->> But they then interface to the network using none of the network
->> stack. The normal SCSI stack does not control that it any way.
-> 
-> Correct.  And the network stack is completely unaware of
-> whatever IP addresses, ARP tables, routing tables, etc. it is using.
-> 
-> 
->> NFS over RDMA is part of the file system. That doesn't change the
->> fact that it's use of IP Addresses needs to be co-ordinated with the
->> network stack, and indeed that address based authentication
->> *assumes* that this is the case. (and yes, there are preferable
->> means of authentication, but authenticating based on IP address is
->> already supported). 
-> 
-> Sounds quite broken to me.
-> 
-> 
->> But back on the main point, if implementing SCSI services over a
->> TCP connection is acceptable even though it does not use a kernel
->> socket, why would it not be acceptable to implement RDMA services
->> over a TCP connection without using a kernel socket?
-> 
-> Because SCSI doesn't force nasty hooks into the net stack to
-> allow for
-> sharing of resources with a proprietary black box of unknown quality.
-> 
-> 	Jeff
+"Miles Lane" <miles.lane@gmail.com> wrote:
+>
+> BUG: unable to handle kernel NULL pointer dereference at virtual
+> address 00000020
+>  printing eip:
+> f8d21f6e
+> *pde = 00000000
+> Oops: 0000 [#1]
+> 4K_STACKS PREEMPT
+> last sysfs file: /devices/system/cpu/cpu0/cpufreq/scaling_setspeed
+> Modules linked in: sg sd_mod usb_storage libusual pcnet_cs 8390
+> aha152x_cs scsi_transport_spi ohci_hcd hostap_cs hostap binfmt_misc
+> i915 drm ipv6 speedstep_centrino cpufreq_powersave cpufreq_performance
+> cpufreq_conservative video thermal button nls_ascii nls_cp437 vfat fat
+> nls_utf8 ntfs nls_base md_mod sr_mod sbp2 scsi_mod parport_pc lp
+> parport snd_intel8x0 snd_ac97_codec snd_ac97_bus snd_pcm_oss
+> snd_mixer_oss snd_pcm snd_timer ehci_hcd pcspkr evdev iTCO_wdt sdhci
+> mmc_core uhci_hcd usbcore psmouse snd ipw2200 rtc intel_agp agpgart
+> ohci1394 ieee1394 soundcore snd_page_alloc 8139too
+> CPU:    0
+> EIP:    0060:[<f8d21f6e>]    Not tainted VLI
+> EFLAGS: 00210246   (2.6.17-mm3miles #15)
+> EIP is at prism2_registers_proc_read+0x22/0x2ff [hostap_cs]
+> eax: 00000000   ebx: f8d21f4c   ecx: 00000000   edx: e884ef64
+> esi: d5bd04e4   edi: db8ce000   ebp: e884ef38   esp: e884ef2c
+> ds: 007b   es: 007b   ss: 0068
+> Process cat (pid: 2219, ti=e884e000 task=cdd3e870 task.ti=e884e000)
+> Stack: f8d21f4c 00000400 db8ce000 e884ef78 c1090c8b 00000400 e884ef68 d5bd04e4
+>        00000400 0806c000 cac1123c 00000000 00000400 f7b6b838 00000000 00000000
+>        dc8ff844 c1090b8c 0806c000 e884ef94 c105fe38 e884efa0 00000400 dc8ff844
+> Call Trace:
+>  [<c1090c8b>] proc_file_read+0xff/0x218
+>  [<c105fe38>] vfs_read+0xa9/0x158
+>  [<c1060207>] sys_read+0x3b/0x60
+>  [<c1002d6d>] sysenter_past_esp+0x56/0x8d
+> Code: c8 8d 65 f4 5b 5e 5f 5d c3 55 89 e5 57 56 53 89 c7 8b 75 10 85
+> c9 74 10 8b 45 0c c7 00 01 00 00 00 31 c0 e9 d8 02 00 00 8b 46 14 <8b>
+> 50 20 66 ed 0f b7 c0 50 68 03 4a d2 f8 57 e8 42 46 3d c8 8d
+> EIP: [<f8d21f6e>] prism2_registers_proc_read+0x22/0x2ff [hostap_cs]
+> SS:ESP 0068:e884ef2c
 
-RDMA can also solve all of these problems on its own. Complete with
-giving the network administrator *no* conventional controls over the
-IP address being used for RDMA services.
+local_info_t.dev is NULL in prism2_registers_proc_read().
 
-That means no standard ability to monitor connections, no standard
-ability to control which connections are made with whom.
-
-That is better? 
-
-You seem to be practically demanding that RDMA build an entire
-parallel stack.
-
-Worse, that *each* RDMA vendor build an entire parallel stack.
-
-Open source being what it is, that is not terribly difficult.
-But exactly how does this benefit Linux users?
-
-The proposed subscriptions are not about sharing *resources*, they
-share *information* with device drivers. The quality of each
-RDMA device driver will be just as known as for a SCSI driver,
-an InfiniBand HCA driver, a graphics driver or a plain Ethernet
-driver.
-
-
+Can you please provide a step-by-step means by which others can reproduce
+this?
 
