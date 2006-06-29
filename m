@@ -1,172 +1,67 @@
 From: Bryan O'Sullivan <bos@pathscale.com>
-Subject: [PATCH 34 of 39] IB/ipath - fix a bug that results in addresses near
-	0 being written via DMA
-Date: Thu, 29 Jun 2006 14:41:25 -0700
-Message-ID: <b6ebaf2dd2fddbd384f1.1151617285@eng-12.pathscale.com>
+Subject: [PATCH 36 of 39] IB/ipath - Ignore receive queue size if SRQ is
+	specified
+Date: Thu, 29 Jun 2006 14:41:27 -0700
+Message-ID: <31c382d8210a80c37278.1151617287@eng-12.pathscale.com>
 References: <patchbomb.1151617251@eng-12.pathscale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: openib-general@openib.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.pathscale.com ([64.160.42.68]:39567 "EHLO mx.pathscale.com")
-	by vger.kernel.org with ESMTP id S932910AbWF2VoK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 17:44:10 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932913AbWF2Vrn@vger.kernel.org>
 In-Reply-To: <patchbomb.1151617251@eng-12.pathscale.com>
 To: akpm@osdl.org, rdreier@cisco.com, mst@mellanox.co.il
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We can't tell for sure if any packets are in the infinipath receive buffer
-when we shut down a chip port.   Normally this is taken care of by orderly
-shutdown, but when processes are terminated, or sending process has a bug,
-we can continue to receive packets.   So rather than writing zero to the
-address registers for the closing port, we point it at a dummy memory.
+The receive work queue size should be ignored if the QP is created
+to use a shared receive queue according to the IB spec.
 
-Signed-off-by: Dave Olson <dave.olson@qlogic.com>
+Signed-off-by: Ralph Campbell <ralph.campbell@qlogic.com>
 Signed-off-by: Bryan O'Sullivan <bryan.osullivan@qlogic.com>
 
-diff -r a7c1ad1e090b -r b6ebaf2dd2fd drivers/infiniband/hw/ipath/ipath_driver.c
---- a/drivers/infiniband/hw/ipath/ipath_driver.c	Thu Jun 29 14:33:26 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_driver.c	Thu Jun 29 14:33:26 2006 -0700
-@@ -1824,6 +1824,12 @@ static void cleanup_device(struct ipath_
- 				  dd->ipath_pioavailregs_phys);
- 		dd->ipath_pioavailregs_dma = NULL;
- 	}
-+	if (dd->ipath_dummy_hdrq) {
-+		dma_free_coherent(&dd->pcidev->dev,
-+			dd->ipath_pd[0]->port_rcvhdrq_size,
-+			dd->ipath_dummy_hdrq, dd->ipath_dummy_hdrq_phys);
-+		dd->ipath_dummy_hdrq = NULL;
-+	}
+diff -r 9b423c45af8b -r 31c382d8210a drivers/infiniband/hw/ipath/ipath_qp.c
+--- a/drivers/infiniband/hw/ipath/ipath_qp.c	Thu Jun 29 14:33:26 2006 -0700
++++ b/drivers/infiniband/hw/ipath/ipath_qp.c	Thu Jun 29 14:33:26 2006 -0700
+@@ -685,16 +685,22 @@ struct ib_qp *ipath_create_qp(struct ib_
+ 			ret = ERR_PTR(-ENOMEM);
+ 			goto bail;
+ 		}
+-		qp->r_rq.size = init_attr->cap.max_recv_wr + 1;
+-		sz = sizeof(struct ipath_sge) *
+-			init_attr->cap.max_recv_sge +
+-			sizeof(struct ipath_rwqe);
+-		qp->r_rq.wq = vmalloc(qp->r_rq.size * sz);
+-		if (!qp->r_rq.wq) {
+-			kfree(qp);
+-			vfree(swq);
+-			ret = ERR_PTR(-ENOMEM);
+-			goto bail;
++		if (init_attr->srq) {
++			qp->r_rq.size = 0;
++			qp->r_rq.max_sge = 0;
++			qp->r_rq.wq = NULL;
++		} else {
++			qp->r_rq.size = init_attr->cap.max_recv_wr + 1;
++			qp->r_rq.max_sge = init_attr->cap.max_recv_sge;
++			sz = (sizeof(struct ipath_sge) * qp->r_rq.max_sge) +
++				sizeof(struct ipath_rwqe);
++			qp->r_rq.wq = vmalloc(qp->r_rq.size * sz);
++			if (!qp->r_rq.wq) {
++				kfree(qp);
++				vfree(swq);
++				ret = ERR_PTR(-ENOMEM);
++				goto bail;
++			}
+ 		}
  
- 	if (dd->ipath_pageshadow) {
- 		struct page **tmpp = dd->ipath_pageshadow;
-diff -r a7c1ad1e090b -r b6ebaf2dd2fd drivers/infiniband/hw/ipath/ipath_file_ops.c
---- a/drivers/infiniband/hw/ipath/ipath_file_ops.c	Thu Jun 29 14:33:26 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_file_ops.c	Thu Jun 29 14:33:26 2006 -0700
-@@ -1486,41 +1486,50 @@ static int ipath_close(struct inode *in,
- 	}
- 
- 	if (dd->ipath_kregbase) {
--		ipath_write_kreg_port(
--			dd, dd->ipath_kregs->kr_rcvhdrtailaddr,
--			port, 0ULL);
--		ipath_write_kreg_port(
--			dd, dd->ipath_kregs->kr_rcvhdraddr,
--			pd->port_port, 0);
-+		int i;
-+		/* atomically clear receive enable port. */
-+		clear_bit(INFINIPATH_R_PORTENABLE_SHIFT + port,
-+			  &dd->ipath_rcvctrl);
-+		ipath_write_kreg( dd, dd->ipath_kregs->kr_rcvctrl,
-+			dd->ipath_rcvctrl);
-+		/* and read back from chip to be sure that nothing
-+		 * else is in flight when we do the rest */
-+		(void)ipath_read_kreg64(dd, dd->ipath_kregs->kr_scratch);
- 
- 		/* clean up the pkeys for this port user */
- 		ipath_clean_part_key(pd, dd);
- 
--		if (port < dd->ipath_cfgports) {
--			int i = dd->ipath_pbufsport * (port - 1);
--			ipath_disarm_piobufs(dd, i, dd->ipath_pbufsport);
--
--			/* atomically clear receive enable port. */
--			clear_bit(INFINIPATH_R_PORTENABLE_SHIFT + port,
--				  &dd->ipath_rcvctrl);
--			ipath_write_kreg(
--				dd,
--				dd->ipath_kregs->kr_rcvctrl,
--				dd->ipath_rcvctrl);
--
--			if (dd->ipath_pageshadow)
--				unlock_expected_tids(pd);
--			ipath_stats.sps_ports--;
--			ipath_cdbg(PROC, "%s[%u] closed port %u:%u\n",
--				   pd->port_comm, pd->port_pid,
--				   dd->ipath_unit, port);
--		}
-+
-+		/*
-+		 * be paranoid, and never write 0's to these, just use an
-+		 * unused part of the port 0 tail page.  Of course,
-+		 * rcvhdraddr points to a large chunk of memory, so this
-+		 * could still trash things, but at least it won't trash
-+		 * page 0, and by disabling the port, it should stop "soon",
-+		 * even if a packet or two is in already in flight after we
-+		 * disabled the port.
-+		 */
-+		ipath_write_kreg_port(dd,
-+		        dd->ipath_kregs->kr_rcvhdrtailaddr, port,
-+			dd->ipath_dummy_hdrq_phys);
-+		ipath_write_kreg_port(dd, dd->ipath_kregs->kr_rcvhdraddr,
-+			pd->port_port, dd->ipath_dummy_hdrq_phys);
-+
-+		i = dd->ipath_pbufsport * (port - 1);
-+		ipath_disarm_piobufs(dd, i, dd->ipath_pbufsport);
-+
-+		if (dd->ipath_pageshadow)
-+			unlock_expected_tids(pd);
-+		ipath_stats.sps_ports--;
-+		ipath_cdbg(PROC, "%s[%u] closed port %u:%u\n",
-+			   pd->port_comm, pd->port_pid,
-+			   dd->ipath_unit, port);
-+
-+		dd->ipath_f_clear_tids(dd, pd->port_port);
- 	}
- 
- 	pd->port_cnt = 0;
- 	pd->port_pid = 0;
--
--	dd->ipath_f_clear_tids(dd, pd->port_port);
- 
- 	dd->ipath_pd[pd->port_port] = NULL; /* before releasing mutex */
- 	mutex_unlock(&ipath_mutex);
-diff -r a7c1ad1e090b -r b6ebaf2dd2fd drivers/infiniband/hw/ipath/ipath_init_chip.c
---- a/drivers/infiniband/hw/ipath/ipath_init_chip.c	Thu Jun 29 14:33:26 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_init_chip.c	Thu Jun 29 14:33:26 2006 -0700
-@@ -647,6 +647,7 @@ int ipath_init_chip(struct ipath_devdata
- 	u32 val32, kpiobufs;
- 	u64 val;
- 	struct ipath_portdata *pd = NULL; /* keep gcc4 happy */
-+	gfp_t gfp_flags = GFP_USER | __GFP_COMP;
- 
- 	ret = init_housekeeping(dd, &pd, reinit);
- 	if (ret)
-@@ -833,6 +834,22 @@ int ipath_init_chip(struct ipath_devdata
- 			      "rcvhdrq and/or egr bufs\n");
- 	else
- 		enable_chip(dd, pd, reinit);
-+
-+
-+	if (!ret && !reinit) {
-+	    /* used when we close a port, for DMA already in flight at close */
-+		dd->ipath_dummy_hdrq = dma_alloc_coherent(
-+			&dd->pcidev->dev, pd->port_rcvhdrq_size,
-+			&dd->ipath_dummy_hdrq_phys,
-+			gfp_flags);
-+		if (!dd->ipath_dummy_hdrq ) {
-+			dev_info(&dd->pcidev->dev,
-+				"Couldn't allocate 0x%lx bytes for dummy hdrq\n",
-+				pd->port_rcvhdrq_size);
-+			/* fallback to just 0'ing */
-+			dd->ipath_dummy_hdrq_phys = 0UL;
-+		}
-+	}
- 
- 	/*
- 	 * cause retrigger of pending interrupts ignored during init,
-diff -r a7c1ad1e090b -r b6ebaf2dd2fd drivers/infiniband/hw/ipath/ipath_kernel.h
---- a/drivers/infiniband/hw/ipath/ipath_kernel.h	Thu Jun 29 14:33:26 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_kernel.h	Thu Jun 29 14:33:26 2006 -0700
-@@ -352,6 +352,8 @@ struct ipath_devdata {
- 	/* check for stale messages in rcv queue */
- 	/* only allow one intr at a time. */
- 	unsigned long ipath_rcv_pending;
-+	void *ipath_dummy_hdrq;	/* used after port close */
-+	dma_addr_t ipath_dummy_hdrq_phys;
- 
- 	/*
- 	 * Shadow copies of registers; size indicates read access size.
+ 		/*
+@@ -713,7 +719,6 @@ struct ib_qp *ipath_create_qp(struct ib_
+ 		qp->s_wq = swq;
+ 		qp->s_size = init_attr->cap.max_send_wr + 1;
+ 		qp->s_max_sge = init_attr->cap.max_send_sge;
+-		qp->r_rq.max_sge = init_attr->cap.max_recv_sge;
+ 		qp->s_flags = init_attr->sq_sig_type == IB_SIGNAL_REQ_WR ?
+ 			1 << IPATH_S_SIGNAL_REQ_WR : 0;
+ 		dev = to_idev(ibpd->device);
