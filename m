@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] bnx2: Use dev_kfree_skb() instead of the _irq
- version
-Date: Thu, 29 Jun 2006 12:37:52 -0700 (PDT)
-Message-ID: <20060629.123752.75430912.davem@davemloft.net>
-References: <1151517555.3502.19.camel@rh4>
+Subject: Re: [PATCH 2/2] bnx2: Turn off link during shutdown
+Date: Thu, 29 Jun 2006 12:38:30 -0700 (PDT)
+Message-ID: <20060629.123830.89035656.davem@davemloft.net>
+References: <1151517560.3502.20.camel@rh4>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:64450
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:65474
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932330AbWF2Thz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 15:37:55 -0400
+	id S932336AbWF2Tib (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 15:38:31 -0400
 To: mchan@broadcom.com
-In-Reply-To: <1151517555.3502.19.camel@rh4>
+In-Reply-To: <1151517560.3502.20.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 28 Jun 2006 10:59:14 -0700
+Date: Wed, 28 Jun 2006 10:59:20 -0700
 
-> Change all dev_kfree_skb_irq() and dev_kfree_skb_any() to
-> dev_kfree_skb().  These calls are never used in irq context.
+> Minor change in shutdown logic to effect a link down.
+> 
+> Update version to 1.4.43.
 > 
 > Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Applied, thanks.
+Also applied, thanks a lot.
