@@ -1,53 +1,37 @@
-From: "Bryan O'Sullivan" <bos@pathscale.com>
-Subject: [PATCH 26 of 39] IB/ipath - check for valid
- LID and multicast LIDs
-Date: Thu, 29 Jun 2006 14:41:17 -0700
-Message-ID: <eef7f80215004f4cf854.1151617277@eng-12.pathscale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 39 of 39] IB/ipath - use streaming copy in RDMA
+ interrupt handler to reduce packet loss
+Date: Thu, 29 Jun 2006 14:50:27 -0700 (PDT)
+Message-ID: <20060629.145027.41636491.davem@davemloft.net>
 References: <patchbomb.1151617251@eng-12.pathscale.com>
+	<1b00209ef20a0e7893d8.1151617290@eng-12.pathscale.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-In-Reply-To: <patchbomb.1151617251@eng-12.pathscale.com>
-To: akpm@osdl.org,
-	rdreier@cisco.com,
-	mst@mellanox.co.il
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
- <mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Cc: akpm@osdl.org, rdreier@cisco.com, mst@mellanox.co.il,
+	openib-general@openib.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932908AbWF2VwK@vger.kernel.org>
+To: bos@pathscale.com
+In-Reply-To: <1b00209ef20a0e7893d8.1151617290@eng-12.pathscale.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ralph Campbell <ralph.campbell@qlogic.com>
-Signed-off-by: Bryan O'Sullivan <bryan.osullivan@qlogic.com>
+From: Bryan O'Sullivan <bos@pathscale.com>
+Date: Thu, 29 Jun 2006 14:41:30 -0700
 
-diff -r 4c581c37bb95 -r eef7f8021500 drivers/infiniband/hw/ipath/ipath_sysfs.c
---- a/drivers/infiniband/hw/ipath/ipath_sysfs.c	Thu Jun 29 14:33:26 2006 -0700
-+++ b/drivers/infiniband/hw/ipath/ipath_sysfs.c	Thu Jun 29 14:33:26 2006 -0700
-@@ -280,7 +280,7 @@ static ssize_t store_lid(struct device *
- 	if (ret < 0)
- 		goto invalid;
- 
--	if (lid == 0 || lid >= 0xc000) {
-+	if (lid == 0 || lid >= IPS_MULTICAST_LID_BASE) {
- 		ret = -EINVAL;
- 		goto invalid;
- 	}
-@@ -314,7 +314,7 @@ static ssize_t store_mlid(struct device 
- 	int ret;
- 
- 	ret = ipath_parse_ushort(buf, &mlid);
--	if (ret < 0)
-+	if (ret < 0 || mlid < IPS_MULTICAST_LID_BASE)
- 		goto invalid;
- 
- 	unit = dd->ipath_unit;
+> +/*
+> + * Copy data.  Try not to pollute the dcache with the source data,
+> + * because we won't be reading it again.
+> + */
+> +#if defined(CONFIG_X86_64)
+> +void *ipath_memcpy_nc(void *dest, const void *src, size_t n);
+> +#else
+> +#define ipath_memcpy_nc(dest, src, n) memcpy(dest, src, n)
+> +#endif
+
+A facility like this doesn't belong in some arbitrary driver layer.
+It belongs as a generic facility the whole kernel could make use
+of.
+
+Please stop polluting the infiniband drivers with Opteron crap.
