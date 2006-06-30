@@ -1,50 +1,50 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 39 of 39] IB/ipath - use streaming copy in RDMA	interrupt
- handler to reduce packet loss
-Date: Thu, 29 Jun 2006 17:44:05 -0700
-Message-ID: <44A473D5.70809@hp.com>
-References: <1151624063.10886.34.camel@chalcedony.pathscale.com>	<20060629.164623.59469884.davem@davemloft.net>	<44A47042.8060203@hp.com> <20060629.173206.48800902.davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Thu, 29 Jun 2006 17:44:41 -0700
+Message-ID: <44A473F9.7030601@candelatech.com>
+References: <1151626099.8922.64.camel@jzny2>	<20060629.171215.112621072.davem@davemloft.net>	<1151627180.8922.81.camel@jzny2> <20060629.172948.59656719.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bos@pathscale.com, akpm@osdl.org, rdreier@cisco.com,
-	mst@mellanox.co.il, openib-general@openib.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: hadi@cyberus.ca, tgraf@suug.ch, kaber@trash.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:43981 "EHLO palrel12.hp.com")
-	by vger.kernel.org with ESMTP id S1751338AbWF3AoH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 20:44:07 -0400
+Received: from ns2.lanforge.com ([66.165.47.211]:60122 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S1751364AbWF3ApX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 20:45:23 -0400
 To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060629.173206.48800902.davem@davemloft.net>
+In-Reply-To: <20060629.172948.59656719.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 David Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Thu, 29 Jun 2006 17:28:50 -0700
-> 
-> 
->>I thought that most PCI controllers (that is to say the things bridging 
->>PCI to the rest of the system) could do prefetching and/or that PCI-X 
->>(if not PCI, no idea about PCI-e) cards could issue multiple 
->>transactions anyway?
-> 
-> 
-> People doing deep CMT chips have found out that all of that
-> prefetching and store buffering is unnecessary when everything is so
-> tightly integrated.
 
-Then is prefetching in memcpy really that important to them (BTW besides 
-  Sun/Niagra who are doing "deep CMT"?)
-
-> All of the previous UltraSPARC boxes before Niagara had a
-> streaming cache sitting on the PCI controller.  It basically
-> prefetched for reads and collected writes from PCI devices
-> into cacheline sized chunks.
+> I'm saying that, we don't need the refcount, just setting
+> the skb->input_index thing, unless someone actually cares
+> about the input device.
 > 
-> The PCI controller in the current Niagara systems has none of that
-> stuff.
+> As long as the packet hits not paths that care about the
+> SKB input device, no atomic refcounts are taken.  It's
+> just an integer sitting there in the SKB.
 
-Relying on PCI-X devices to issue multiple requests then?
+Also, if this lookup is to be done multiple times per skb, we could
+do the lookup once and grab the ref at that time and store the
+pointer in the skb.  If you wanted to be truly horible about it..could
+use a 64-bit input_index and copy the pointer there (and set a flag somewhere
+noting it is no longer an index but a pointer) so save the extra
+64-bits.
 
-rick jones
+Ben
+
+
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
