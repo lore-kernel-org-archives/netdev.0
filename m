@@ -1,137 +1,98 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: [PATCH] IOAT: fix header file kernel-doc
-Date: Fri, 30 Jun 2006 16:28:30 -0700
-Message-ID: <20060630162830.f6c72a5a.rdunlap@xenotime.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH] tg3: Add ipv6 TSO feature
+Date: Fri, 30 Jun 2006 16:35:12 -0700
+Message-ID: <1151710512.3645.5.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, akpm <akpm@osdl.org>,
-	christopher.leech@intel.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:56220 "HELO xenotime.net")
-	by vger.kernel.org with SMTP id S932289AbWF3XZp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 19:25:45 -0400
-Received: from midway.site ([71.245.108.25]) by xenotime.net for <netdev@vger.kernel.org>; Fri, 30 Jun 2006 16:25:43 -0700
-To: netdev <netdev@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:27154 "EHLO
+	mms1.broadcom.com") by vger.kernel.org with ESMTP id S932233AbWF3XeG
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jun 2006 19:34:06 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <rdunlap@xenotime.net>
+Enable ipv6 TSO feature on chips that support it.
 
-Fix kernel-doc problems in include/linux/dmaengine.h:
-- add some fields/parameters
-- expand some descriptions
-- fix typos
+Update version to 3.61.
 
-Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
----
- include/linux/dmaengine.h |   43 +++++++++++++++++++++++++------------------
- 1 files changed, 25 insertions(+), 18 deletions(-)
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
---- linux-2617-g13.orig/include/linux/dmaengine.h
-+++ linux-2617-g13/include/linux/dmaengine.h
-@@ -44,7 +44,7 @@ enum dma_event {
- };
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 47c96fc..b992c0a 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -69,8 +69,8 @@
  
- /**
-- * typedef dma_cookie_t
-+ * typedef dma_cookie_t - an opaque DMA cookie
-  *
-  * if dma_cookie_t is >0 it's a DMA request cookie, <0 it's an error code
-  */
-@@ -80,14 +80,14 @@ struct dma_chan_percpu {
+ #define DRV_MODULE_NAME		"tg3"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"3.61"
+-#define DRV_MODULE_RELDATE	"June 29, 2006"
++#define DRV_MODULE_VERSION	"3.62"
++#define DRV_MODULE_RELDATE	"June 30, 2006"
  
- /**
-  * struct dma_chan - devices supply DMA channels, clients use them
-- * @client: ptr to the client user of this chan, will be NULL when unused
-- * @device: ptr to the dma device who supplies this channel, always !NULL
-+ * @client: ptr to the client user of this chan, will be %NULL when unused
-+ * @device: ptr to the dma device who supplies this channel, always !%NULL
-  * @cookie: last cookie value returned to client
-- * @chan_id:
-- * @class_dev:
-+ * @chan_id: channel ID for sysfs
-+ * @class_dev: class device for sysfs
-  * @refcount: kref, used in "bigref" slow-mode
-- * @slow_ref:
-- * @rcu:
-+ * @slow_ref: indicates that the DMA channel is free
-+ * @rcu: the DMA channel's RCU head
-  * @client_node: used to add this to the client chan list
-  * @device_node: used to add this to the device chan list
-  * @local: per-cpu pointer to a struct dma_chan_percpu
-@@ -162,10 +162,17 @@ struct dma_client {
-  * @chancnt: how many DMA channels are supported
-  * @channels: the list of struct dma_chan
-  * @global_node: list_head for global dma_device_list
-- * @refcount:
-- * @done:
-- * @dev_id:
-- * Other func ptrs: used to make use of this device's capabilities
-+ * @refcount: reference count
-+ * @done: IO completion struct
-+ * @dev_id: unique device ID
-+ * @device_alloc_chan_resources: allocate resources and return the
-+ *	number of allocated descriptors
-+ * @device_free_chan_resources: release DMA channel's resources
-+ * @device_memcpy_buf_to_buf: memcpy buf pointer to buf pointer
-+ * @device_memcpy_buf_to_pg: memcpy buf pointer to struct page
-+ * @device_memcpy_pg_to_pg: memcpy struct page/offset to struct page/offset
-+ * @device_memcpy_complete: poll the status of an IOAT DMA transaction
-+ * @device_memcpy_issue_pending: push appended descriptors to hardware
-  */
- struct dma_device {
+ #define TG3_DEF_MAC_MODE	0
+ #define TG3_DEF_RX_MODE		0
+@@ -3799,18 +3799,24 @@ static int tg3_start_xmit(struct sk_buff
+ 			goto out_unlock;
+ 		}
  
-@@ -211,7 +218,7 @@ void dma_async_client_chan_request(struc
-  * Both @dest and @src must be mappable to a bus address according to the
-  * DMA mapping API rules for streaming mappings.
-  * Both @dest and @src must stay memory resident (kernel memory or locked
-- * user space pages)
-+ * user space pages).
-  */
- static inline dma_cookie_t dma_async_memcpy_buf_to_buf(struct dma_chan *chan,
- 	void *dest, void *src, size_t len)
-@@ -225,7 +232,7 @@ static inline dma_cookie_t dma_async_mem
+-		tcp_opt_len = ((skb->h.th->doff - 5) * 4);
+-		ip_tcp_len = (skb->nh.iph->ihl * 4) + sizeof(struct tcphdr);
++		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
++			mss |= (skb_headlen(skb) - ETH_HLEN) << 9;
++		else {
++			tcp_opt_len = ((skb->h.th->doff - 5) * 4);
++			ip_tcp_len = (skb->nh.iph->ihl * 4) +
++				     sizeof(struct tcphdr);
++
++			skb->nh.iph->check = 0;
++			skb->nh.iph->tot_len = htons(mss + ip_tcp_len +
++						     tcp_opt_len);
++			mss |= (ip_tcp_len + tcp_opt_len) << 9;
++		}
+ 
+ 		base_flags |= (TXD_FLAG_CPU_PRE_DMA |
+ 			       TXD_FLAG_CPU_POST_DMA);
+ 
+-		skb->nh.iph->check = 0;
+-		skb->nh.iph->tot_len = htons(mss + ip_tcp_len + tcp_opt_len);
+-
+ 		skb->h.th->check = 0;
+ 
+-		mss |= (ip_tcp_len + tcp_opt_len) << 9;
+ 	}
+ 	else if (skb->ip_summed == CHECKSUM_HW)
+ 		base_flags |= TXD_FLAG_TCPUDP_CSUM;
+@@ -7888,6 +7894,12 @@ static int tg3_set_tso(struct net_device
+ 			return -EINVAL;
+ 		return 0;
+ 	}
++	if (tp->tg3_flags2 & TG3_FLG2_HW_TSO_2) {
++		if (value)
++			dev->features |= NETIF_F_TSO6;
++		else
++			dev->features &= ~NETIF_F_TSO6;
++	}
+ 	return ethtool_op_set_tso(dev, value);
  }
+ #endif
+@@ -11508,8 +11520,11 @@ static int __devinit tg3_init_one(struct
+ 	 * Firmware TSO on older chips gives lower performance, so it
+ 	 * is off by default, but can be enabled using ethtool.
+ 	 */
+-	if (tp->tg3_flags2 & TG3_FLG2_HW_TSO)
++	if (tp->tg3_flags2 & TG3_FLG2_HW_TSO) {
+ 		dev->features |= NETIF_F_TSO;
++		if (tp->tg3_flags2 & TG3_FLG2_HW_TSO_2)
++			dev->features |= NETIF_F_TSO6;
++	}
  
- /**
-- * dma_async_memcpy_buf_to_pg - offloaded copy
-+ * dma_async_memcpy_buf_to_pg - offloaded copy from address to page
-  * @chan: DMA channel to offload copy to
-  * @page: destination page
-  * @offset: offset in page to copy to
-@@ -250,18 +257,18 @@ static inline dma_cookie_t dma_async_mem
- }
+ #endif
  
- /**
-- * dma_async_memcpy_buf_to_pg - offloaded copy
-+ * dma_async_memcpy_pg_to_pg - offloaded copy from page to page
-  * @chan: DMA channel to offload copy to
-- * @dest_page: destination page
-+ * @dest_pg: destination page
-  * @dest_off: offset in page to copy to
-- * @src_page: source page
-+ * @src_pg: source page
-  * @src_off: offset in page to copy from
-  * @len: length
-  *
-  * Both @dest_page/@dest_off and @src_page/@src_off must be mappable to a bus
-  * address according to the DMA mapping API rules for streaming mappings.
-  * Both @dest_page/@dest_off and @src_page/@src_off must stay memory resident
-- * (kernel memory or locked user space pages)
-+ * (kernel memory or locked user space pages).
-  */
- static inline dma_cookie_t dma_async_memcpy_pg_to_pg(struct dma_chan *chan,
- 	struct page *dest_pg, unsigned int dest_off, struct page *src_pg,
-@@ -278,7 +285,7 @@ static inline dma_cookie_t dma_async_mem
- 
- /**
-  * dma_async_memcpy_issue_pending - flush pending copies to HW
-- * @chan:
-+ * @chan: target DMA channel
-  *
-  * This allows drivers to push copies to HW in batches,
-  * reducing MMIO writes where possible.
 
 
----
