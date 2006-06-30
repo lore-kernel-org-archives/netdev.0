@@ -1,83 +1,48 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: strict isolation of net interfaces
-Date: Fri, 30 Jun 2006 11:41:59 -0600
-Message-ID: <m1k66ybkwo.fsf@ebiederm.dsl.xmission.com>
-References: <1151449973.24103.51.camel@localhost.localdomain>
-	<20060627234210.GA1598@ms2.inr.ac.ru>
-	<m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>
-	<20060628133640.GB5088@MAIL.13thfloor.at>
-	<1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net>
-	<44A450D1.2030405@fr.ibm.com>
-	<20060630023947.GA24726@sergelap.austin.ibm.com>
-	<44A517B4.4010500@fr.ibm.com>
-	<m1veqibu8n.fsf@ebiederm.dsl.xmission.com>
-	<20060630161442.GA27210@sergelap.austin.ibm.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Fri, 30 Jun 2006 19:42:51 +0200
+Message-ID: <20060630174251.GK14627@postel.suug.ch>
+References: <20060630004640.GC14627@postel.suug.ch> <1151629890.8922.121.camel@jzny2> <20060630130811.GE14627@postel.suug.ch> <1151675843.5270.18.camel@jzny2> <20060630141531.GG14627@postel.suug.ch> <1151678118.5270.45.camel@jzny2> <20060630163229.GH14627@postel.suug.ch> <20060630171348.GI14627@postel.suug.ch> <44A55CF8.2040509@trash.net> <1151688732.5270.101.camel@jzny2>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Cedric Le Goater <clg@fr.ibm.com>,
-	Sam Vilain <sam@vilain.net>, hadi@cyberus.ca,
-	Herbert Poetzl <herbert@13thfloor.at>,
-	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
-	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrey Savochkin <saw@swsoft.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:60550 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S932899AbWF3Rnh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 13:43:37 -0400
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-In-Reply-To: <20060630161442.GA27210@sergelap.austin.ibm.com> (Serge
-	E. Hallyn's message of "Fri, 30 Jun 2006 11:14:42 -0500")
+Received: from postel.suug.ch ([194.88.212.233]:9146 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932909AbWF3Rma (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 13:42:30 -0400
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1151688732.5270.101.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Serge E. Hallyn" <serue@us.ibm.com> writes:
+* jamal <hadi@cyberus.ca> 2006-06-30 13:32
+> I will summarize what the outstanding issues are, the rest of the "bugs"
+> just ignore otherwise the discussion is a waste of time and may
+> get out of control.
+> 
+> 1) ifb references skb->input_dev
+> 2) mirred sets the skb->input_dev which is used in #1
+> 
+> It is possible that when #1 happens infact input_dev is gone because no
+> ref count is incremented. Ok, Thomas is that sufficient to discuss the
+> crux of the matter?
 
-> Quoting Eric W. Biederman (ebiederm@xmission.com):
->> This whole debate on network devices show up in multiple network namespaces
->> is just silly.  The only reason for wanting that appears to be better
-> management.
+Sure, that's the most obvious bug.
+
+> At one point many months ago, the logic was for now the likelihood this
+> will happen is low but we need to cover for by at least figuring the
+> existence of input_dev when referencing it.
 >
-> A damned good reason.  
+> Thomas makes the claim, this can be achieved only by using an ifindex.
+> And i havent been able to see how. I have a small performance problem if
+> i just use ifindex. Using ifindex will eventually save 32 bits on the
+> 64 bit machines. I posed the question as to which was more beneficial
+> as a solution that hasnt been addressed.
 
-Better management is a good reason.  But constructing the management in 
-a way that hampers the implementation and confuses existing applications is
-a problem.
-
-Things are much easier if namespaces are completely independent.
-
-Among other things the semantics are clear and obvious.
-
-> Clearly we want the parent namespace to be able
-> to control what the child can do.  So whatever interface a child gets,
-> the parent should be able to somehow address.  Simple iptables rules
-> controlling traffic between it's own netdevice and the one it hands it's
-> children seem a good option.
-
-That or we setup the child and then drop CAP_NET_ADMIN.
-
->> We have deeper issues like can we do a reasonable implementation without a
->> network device showing up in multiple namespaces.
->
-> Isn't that the same issue?
-
-I guess I was thinking from the performance and cleanliness point of
-view.
-
->> If we can get layer 2 level isolation working without measurable overhead
->> with one namespace per device it may be worth revisiting things.  Until
->> then it is a side issue at best.
->
-> Ok, and in the meantime we can all use the network part of the bsdjail
-> lsm?  :)
-
-If necessary.  But mostly we concentrate on the fundamentals and figure
-out what it takes to take the level 2 stuff working.
-
-Eric
-
+I'd appreciate if you'd stop sperading lies. I claimed it to be the
+best solution, not the only one. Everyone agrees that it's possible
+to use a pointer and take a reference in netif_receive_skb() while
+it also seems obvious to most that it's not a good idea to take two
+additional atomic operations in the fast path for this purpose.
