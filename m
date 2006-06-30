@@ -1,36 +1,46 @@
-From: Horms <horms@verge.net.au>
-Subject: IPVS Sysctl Variables
-Date: Fri, 30 Jun 2006 15:19:41 +0900
-Message-ID: <20060630061940.GA31956@verge.net.au>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 8/9] pcnet32: NAPI implementation.
+Date: Fri, 30 Jun 2006 09:15:51 +0200
+Message-ID: <20060630071551.GA26908@electric-eye.fr.zoreil.com>
+References: <20060629205551.GA22031@us.ibm.com> <20060629222438.GB8122@electric-eye.fr.zoreil.com> <20060629234104.GA22583@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
+Cc: tsbogend@alpha.franken.de, jgarzik@pobox.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:52716 "EHLO koto.vergenet.net")
-	by vger.kernel.org with ESMTP id S1751145AbWF3HPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 03:15:32 -0400
-To: NetDev <netdev@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:61599 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751194AbWF3HUI
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jun 2006 03:20:08 -0400
+To: Don Fry <brazilnut@us.ibm.com>
 Content-Disposition: inline
+In-Reply-To: <20060629234104.GA22583@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Don Fry <brazilnut@us.ibm.com> :
+[...]
+> > No need to save/restore (it's true in pcnet32_{get_regs/suspend} too).
+> 
+> This lock is taken by the interrupt handler and my reading of
+> spinlocks.txt says I do need to use spin_lock_irqsave unless I
+> misunderstand.  The only spin_lock() is in the interrupt handler itself,
+> all others are spin_lock_irqsave.
 
-there are quite a number of entries under /proc/sys/net/ipv4/vs,
-I swear that they were documented in Documentation/networking/
-at some stage, but perhaps I am dreaming.
+The poll() function is issued in an irq enabled context. The state to be
+saved (in flags) is known thus the code can simply disable and enable the
+irq.
 
-In any case, if I clean up the information at the following URL (which a
-probably complete list of what the options are and what they do, you don't
-have to check if you don't want to), is it appropriate for inclusion in
-Documentation/networking/, and if so, should it be in ip-sysctl.txt, or
-elsewhere?
+[...]
+> > Insert mmiowb():
+> 
+> Is this required in addition to the two outw() in write_csr?  There are
+> rmb() and wmb() in the places that need them, but no mmiowb() anywhere.
+> What are the factors for when mmiowb needs to be inserted?
 
-http://www.linuxvirtualserver.org/docs/sysctl.html
+They are explained in Documentation/memory-barriers.txt.
+
+I doubt that many user would be hurt if the mmiowb() are not added :o)
 
 -- 
-Horms                                           
-H: http://www.vergenet.net/~horms/          W: http://www.valinux.co.jp/en/
-
+Ueimor
