@@ -1,56 +1,42 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Fri, 30 Jun 2006 18:32:29 +0200
-Message-ID: <20060630163229.GH14627@postel.suug.ch>
-References: <20060629085111.GY1376@postel.suug.ch> <1151623394.8922.27.camel@jzny2> <20060629233933.GB14627@postel.suug.ch> <1151625826.8922.58.camel@jzny2> <20060630004640.GC14627@postel.suug.ch> <1151629890.8922.121.camel@jzny2> <20060630130811.GE14627@postel.suug.ch> <1151675843.5270.18.camel@jzny2> <20060630141531.GG14627@postel.suug.ch> <1151678118.5270.45.camel@jzny2>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Subject: Re: [PATCH 0 of 39] ipath - bug fixes, performance enhancements,and portability improvements
+Date: Fri, 30 Jun 2006 19:31:08 +0300
+Message-ID: <20060630163108.GA24882@mellanox.co.il>
+References: <patchbomb.1151617251@eng-12.pathscale.com>
+Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: akpm@osdl.org, Roland Dreier <rdreier@cisco.com>,
+	openib-general@openib.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:34232 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S932790AbWF3QcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 12:32:08 -0400
-To: jamal <hadi@cyberus.ca>
+Received: from mxl145v64.mxlogic.net ([208.65.145.64]:4570 "EHLO
+	p02c11o141.mxlogic.net") by vger.kernel.org with ESMTP
+	id S1750767AbWF3Qhc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jun 2006 12:37:32 -0400
+To: Bryan O'Sullivan <bos@pathscale.com>
 Content-Disposition: inline
-In-Reply-To: <1151678118.5270.45.camel@jzny2>
+In-Reply-To: <patchbomb.1151617251@eng-12.pathscale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* jamal <hadi@cyberus.ca> 2006-06-30 10:35
-> On Fri, 2006-30-06 at 16:15 +0200, Thomas Graf wrote:
-> > eth0::tcf_mirred()     skb->dev = ifb0, input_dev = eth0
-> > ifb0::tcf_mirred()     skb->dev = ifb1, input_dev = ifb0
-> > ifb1::ifb_xmit()       skb->dev = ifb0, input_dev = ifb1, set ncls bit
-> > ifb0::ifb_xmit()       skb->dev = ifb1, input_dev = ifb0
-> > ifb1::ifb_xmit()       skb->dev = ifb0, input_dev = ifb1
-> > ...
-> > 
-> > Oh dear... and we don't even have a ttl to catch this.
-> > 
+Quoting r. Bryan O'Sullivan <bos@pathscale.com>:
+> Subject: [PATCH 0 of 39] ipath - bug fixes, performance enhancements,and portability improvements
 > 
-> Did you actually try to run this before you reached this conclusion?
+> Hi, Andrew -
+> 
+> These patches bring the ipath driver up to date with a number of bug fixes,
+> performance improvements, and better PowerPC support.  There are a few
+> whitespace and formatting patches in the series, but they're all self-
+> contained.  The patches have been tested internally, and shouldn't contain
+> anything controversial.
+> 
+> My hope is that they'll sit in -mm for a little bit, and make it into
+> an early 2.6.18 -rc kernel.
 
-I did, fortunately some other bug prevents this from happening,
-packets are simply dropped somewhere.
+OK, next week I'll put these into my tree, too.
+Bryan, as far as I can see there were some comments with regard to patches 38
+and 39 in the series. Will you be sending updated revisions of these?
 
-> With all due respect, the architecture works. I have invested many many
-> hours testing and verifying. There may be coding bugs - and those need
-> fixing. Kill the bugs.
-
-Right, just run this
-
-tc filter add dev eth0 parent 1: protocol ip prio 10
-              u32 match ip tos 0 0 flowid 1:1
-	      action mirred egress redirect dev ifb1
-tc filter add dev ifb1 parent 1: protocol ip prio 10
-              u32 match ip tos 0 0 flowid 1:1
-	      action mirred egress redirect dev ifb0
-
-
-Anyways, I give up. Last time I've been running after you trying
-to fix the many bugs you leave behind. Ever noticed that whenever
-you add some new code it's someone else following up with tons of
-small bugfix patches having a hard time trying to figure out the
-actual intent. I'll just duplicate the code for my purpose, so
-much easier.
+-- 
+MST
