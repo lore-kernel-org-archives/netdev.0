@@ -1,46 +1,55 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH 28 of 39] IB/ipath - Fixes a bug where our delay for
- EEPROM no longer works due to compiler reordering
-Date: Thu, 29 Jun 2006 17:07:11 -0700
-Message-ID: <20060629170711.757a97d2.akpm@osdl.org>
-References: <patchbomb.1151617251@eng-12.pathscale.com>
-	<5f3c0b2d446d78e3327f.1151617279@eng-12.pathscale.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Thu, 29 Jun 2006 20:08:19 -0400
+Message-ID: <1151626099.8922.64.camel@jzny2>
+References: <20060629085111.GY1376@postel.suug.ch>
+	 <1151623394.8922.27.camel@jzny2> <20060629233933.GB14627@postel.suug.ch>
+	 <20060629.164732.41636454.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, mst@mellanox.co.il, openib-general@openib.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, kaber@trash.net, tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:8674 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751339AbWF3AHM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 20:07:12 -0400
-To: "Bryan O'Sullivan" <bos@pathscale.com>
-In-Reply-To: <5f3c0b2d446d78e3327f.1151617279@eng-12.pathscale.com>
+Received: from mx02.cybersurf.com ([209.197.145.105]:49622 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S933118AbWF3AIW
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 20:08:22 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1Fw6Yd-00089g-QZ
+	for netdev@vger.kernel.org; Thu, 29 Jun 2006 20:08:27 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060629.164732.41636454.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Bryan O'Sullivan" <bos@pathscale.com> wrote:
->
-> The mb() prevents the compiler from reordering on this function, with some versions
-> of gcc and -Os optimization.   The result is random failures in the EEPROM read
-> without this change.
+On Thu, 2006-29-06 at 16:47 -0700, David Miller wrote:
+> From: Thomas Graf <tgraf@suug.ch>
+> Date: Fri, 30 Jun 2006 01:39:33 +0200
 > 
+> > * jamal <hadi@cyberus.ca> 2006-06-29 19:23
+> > > I know your intent is noble in trying to save the 32 bits on 64 bit
+> > > machines (at least thats where your patch seems to have started) but the
+> > > cost:benefit ratio as i have pointed out is unreasonable. 
+> > 
+> > Did I ever claim this? You made this up right now. As of now
+> > it doesn't save a single bit.
 > 
-> Signed-off-by: Dave Olson <dave.olson@qlogic.com>
-> Signed-off-by: Bryan O'Sullivan <bryan.osullivan@qlogic.com>
+> Right.
 > 
-> diff -r 7d22a8963bda -r 5f3c0b2d446d drivers/infiniband/hw/ipath/ipath_eeprom.c
-> --- a/drivers/infiniband/hw/ipath/ipath_eeprom.c	Thu Jun 29 14:33:26 2006 -0700
-> +++ b/drivers/infiniband/hw/ipath/ipath_eeprom.c	Thu Jun 29 14:33:26 2006 -0700
-> @@ -186,6 +186,7 @@ bail:
->   */
->  static void i2c_wait_for_writes(struct ipath_devdata *dd)
->  {
-> +	mb();
->  	(void)ipath_read_kreg32(dd, dd->ipath_kregs->kr_scratch);
->  }
->  
 
-That's a bit weird.  I wouldn't have expected the compiler to muck around
-with a readl().
+What am i missing?
+on 64bit machine, does it not save 32 bits to use an ifindex as opposed
+to the pointer?
+
+> From what I can see Thomas's work allows to do correct
+> reference counting on the input_dev, something which is
+> not possible right now and is a bug.
+
+Yes, it is a bug, but:
+dev_hold/put dont work anymore? why do you need an ifindex instead?
+
+cheers,
+jamal
 
