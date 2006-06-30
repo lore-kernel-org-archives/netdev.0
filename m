@@ -1,49 +1,71 @@
-From: Sam Vilain <sam@vilain.net>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Fri, 30 Jun 2006 13:41:20 +1200
-Message-ID: <44A48140.1040702@vilain.net>
-References: <20060627133849.E13959@castle.nmd.msu.ru>	<44A1149E.6060802@fr.ibm.com>	<m1sllqn7cb.fsf@ebiederm.dsl.xmission.com>	<20060627160241.GB28984@MAIL.13thfloor.at>	<m1psgulf4u.fsf@ebiederm.dsl.xmission.com>	<44A1689B.7060809@candelatech.com>	<20060627225213.GB2612@MAIL.13thfloor.at>	<1151449973.24103.51.camel@localhost.localdomain>	<20060627234210.GA1598@ms2.inr.ac.ru>	<m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>	<20060628133640.GB5088@MAIL.13thfloor.at>	<1151502803.5203.101.camel@jzny2> <m1veqlgx91.fsf@ebiederm.dsl.xmission.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [TCP]: Reset gso_segs if packet is dodgy
+Date: Fri, 30 Jun 2006 12:00:44 +1000
+Message-ID: <20060630020044.GA28317@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, Herbert Poetzl <herbert@13thfloor.at>,
-	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
-	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
-	clg@fr.ibm.com, serue@us.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Andrey Savochkin <saw@swsoft.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from watts.utsl.gen.nz ([202.78.240.73]:22193 "EHLO
-	watts.utsl.gen.nz") by vger.kernel.org with ESMTP id S1750938AbWF3Bkp
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 21:40:45 -0400
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m1veqlgx91.fsf@ebiederm.dsl.xmission.com>
+Received: from [64.62.148.172] ([64.62.148.172]:35589 "EHLO arnor.apana.org.au")
+	by vger.kernel.org with ESMTP id S1750724AbWF3CBa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 22:01:30 -0400
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
->> Makes sense for the host side to have naming convention tied
->> to the guest. Example as a prefix: guest0-eth0. Would it not
->> be interesting to have the host also manage these interfaces
->> via standard tools like ip or ifconfig etc? i.e if i admin up
->> guest0-eth0, then the user in guest0 will see its eth0 going
->> up.
->>     
-> Please no.
-> [...]
-> Now I am open to radically different designs if they allow the
-> implementation cost to be lower and they have clean semantics,
-> and don't wind up being an ugly unmaintainable wart on the linux
-> networking stack.  The only route I could imagine such a thing coming
-> from is something like tagging flows, in some netfiler like way.
-> Which might allow ifconfig guest-eth0 from the host without problems.
-> But I have not seen such a design.
->   
+Hi Dave:
 
-Right.  New tools to support new features would probably be tidier, anyway.
+I forgot to verify gso_segs on packets from untrusted sources.  In fact
+looking around it seems that gso_segs is used by exactly one driver outside
+of the TCP stack.  In fact it also happens to be a virtual driver: s390/qeth.
 
-Sam.
+Since the only other GSO user we have at the moment -- UFO, doesn't even set
+gso_segs, I'd like to move it to skb->cb and get rid of this.  However, for
+now let's simply reset it in tcp_tso_segment.
+
+[TCP]: Reset gso_segs if packet is dodgy
+
+I wasn't paranoid enough in verifying GSO information.  A bogus gso_segs
+could upset drivers as much as a bogus header would.  Let's reset it in
+the per-protocol gso_segment functions.
+
+I didn't verify gso_size because that can be verified by the source of
+the dodgy packets.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 0336422..0bb0ac9 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2166,13 +2166,19 @@ struct sk_buff *tcp_tso_segment(struct s
+ 	if (!pskb_may_pull(skb, thlen))
+ 		goto out;
+ 
+-	segs = NULL;
+-	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST))
+-		goto out;
+-
+ 	oldlen = (u16)~skb->len;
+ 	__skb_pull(skb, thlen);
+ 
++	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
++		/* Packet is from an untrusted source, reset gso_segs. */
++		int mss = skb_shinfo(skb)->gso_size;
++
++		skb_shinfo(skb)->gso_segs = (skb->len + mss - 1) / mss;
++
++		segs = NULL;
++		goto out;
++	}
++
+ 	segs = skb_segment(skb, features);
+ 	if (IS_ERR(segs))
+ 		goto out;
