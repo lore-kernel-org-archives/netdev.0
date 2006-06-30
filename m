@@ -1,57 +1,56 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6 (revised)
-Date: Fri, 30 Jun 2006 12:31:00 -0400
-Message-ID: <44A551C4.8090208@garzik.org>
-References: <20060626212547.GE30706@tuxdriver.com> <20060628004838.GA15906@tuxdriver.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Fri, 30 Jun 2006 18:32:29 +0200
+Message-ID: <20060630163229.GH14627@postel.suug.ch>
+References: <20060629085111.GY1376@postel.suug.ch> <1151623394.8922.27.camel@jzny2> <20060629233933.GB14627@postel.suug.ch> <1151625826.8922.58.camel@jzny2> <20060630004640.GC14627@postel.suug.ch> <1151629890.8922.121.camel@jzny2> <20060630130811.GE14627@postel.suug.ch> <1151675843.5270.18.camel@jzny2> <20060630141531.GG14627@postel.suug.ch> <1151678118.5270.45.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:14779 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932630AbWF3QbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 12:31:04 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060628004838.GA15906@tuxdriver.com>
+Received: from postel.suug.ch ([194.88.212.233]:34232 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932790AbWF3QcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 12:32:08 -0400
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1151678118.5270.45.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> On Mon, Jun 26, 2006 at 05:25:52PM -0400, John W. Linville wrote:
+* jamal <hadi@cyberus.ca> 2006-06-30 10:35
+> On Fri, 2006-30-06 at 16:15 +0200, Thomas Graf wrote:
+> > eth0::tcf_mirred()     skb->dev = ifb0, input_dev = eth0
+> > ifb0::tcf_mirred()     skb->dev = ifb1, input_dev = ifb0
+> > ifb1::ifb_xmit()       skb->dev = ifb0, input_dev = ifb1, set ncls bit
+> > ifb0::ifb_xmit()       skb->dev = ifb1, input_dev = ifb0
+> > ifb1::ifb_xmit()       skb->dev = ifb0, input_dev = ifb1
+> > ...
+> > 
+> > Oh dear... and we don't even have a ttl to catch this.
+> > 
 > 
->> Michael Buesch:
->>       bcm43xx: suspend MAC while executing long pwork
-> 
-> The above patch ruffled some feathers on netdev.  In the interest of
-> moving things along, I have pulled that patch out of wireless-2.6.
-> I expect it will be back soon, probably with some additional changes
-> to satisfy concerns raised on the mailing list.
-> 
-> NOTE: While I was mucking around, I pulled a bunch of patches from
-> the master branch out into driver-specific branches for adm8211,
-> prism54usb, tiacx, and zd1211rw.  Then I rebuilt the master branch
-> by pulling from the driver branches.  This is intended to ease the
-> merging of individual drivers upstream (e.g. zd1211rw and maybe tiacx
-> in the near future).
-> 
-> Those working off my upstream branch or off Linus' tree should be
-> unaffected.  Anyone who works off my master branch may need to rebase,
-> especially if they want me to be able to pull from them (due to dirty
-> history).  I apologize for the hassle and appreciate your cooperation!
-> 
-> Thanks,
-> 
-> John
-> ---
-> 
-> The following changes since commit fcc18e83e1f6fd9fa6b333735bf0fcd530655511:
->   Malcolm Parsons:
->         uclinux: use PER_LINUX_32BIT in binfmt_flat
-> 
-> are found in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
+> Did you actually try to run this before you reached this conclusion?
 
-nothing pulled?
+I did, fortunately some other bug prevents this from happening,
+packets are simply dropped somewhere.
+
+> With all due respect, the architecture works. I have invested many many
+> hours testing and verifying. There may be coding bugs - and those need
+> fixing. Kill the bugs.
+
+Right, just run this
+
+tc filter add dev eth0 parent 1: protocol ip prio 10
+              u32 match ip tos 0 0 flowid 1:1
+	      action mirred egress redirect dev ifb1
+tc filter add dev ifb1 parent 1: protocol ip prio 10
+              u32 match ip tos 0 0 flowid 1:1
+	      action mirred egress redirect dev ifb0
 
 
+Anyways, I give up. Last time I've been running after you trying
+to fix the many bugs you leave behind. Ever noticed that whenever
+you add some new code it's someone else following up with tons of
+small bugfix patches having a hard time trying to figure out the
+actual intent. I'll just duplicate the code for my purpose, so
+much easier.
