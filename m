@@ -1,159 +1,39 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Fri, 30 Jun 2006 15:19:51 -0400
-Message-ID: <44A57957.60005@watson.ibm.com>
-References: <44892610.6040001@watson.ibm.com>	<449999D1.7000403@engr.sgi.com>	<44999A98.8030406@engr.sgi.com>	<44999F5A.2080809@watson.ibm.com>	<4499D7CD.1020303@engr.sgi.com>	<449C2181.6000007@watson.ibm.com>	<20060623141926.b28a5fc0.akpm@osdl.org>	<449C6620.1020203@engr.sgi.com>	<20060623164743.c894c314.akpm@osdl.org>	<449CAA78.4080902@watson.ibm.com>	<20060623213912.96056b02.akpm@osdl.org>	<449CD4B3.8020300@watson.ibm.com>	<44A01A50.1050403@sgi.com>	<20060626105548.edef4c64.akpm@osdl.org>	<44A020CD.30903@watson.ibm.com>	<20060626111249.7aece36e.akpm@osdl.org>	<44A026ED.8080903@sgi.com>	<20060626113959.839d72bc.akpm@osdl.org>	<44A2F50D.8030306@engr.sgi.com>	<20060628145341.529a61ab.akpm@osdl.org>	<44A2FC72.9090407@engr.sgi.com>	<20060629014050.d3bf0be4.pj@sgi.com>	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>	<20060629094408.360ac157.pj@sgi.com> <20060629110107.2e56310b.akpm@os
- dl.org> <44A57310.3010208@watson.ibm.com> <44A5770F.3080206@watson.ibm.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6 (revised)
+Date: Fri, 30 Jun 2006 15:27:02 -0400
+Message-ID: <20060630192658.GB4359@tuxdriver.com>
+References: <20060626212547.GE30706@tuxdriver.com> <20060628004838.GA15906@tuxdriver.com> <44A551C4.8090208@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Paul Jackson <pj@sgi.com>,
-	Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com, balbir@in.ibm.com,
-	csturtiv@sgi.com, linux-kernel@vger.kernel.org,
-	Jamal <hadi@cyberus.ca>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:7357 "EHLO e33.co.us.ibm.com")
-	by vger.kernel.org with ESMTP id S933116AbWF3TUq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 15:20:46 -0400
-To: Shailabh Nagar <nagar@watson.ibm.com>
-In-Reply-To: <44A5770F.3080206@watson.ibm.com>
+Received: from ra.tuxdriver.com ([70.61.120.52]:44293 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S933102AbWF3T1h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 15:27:37 -0400
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <44A551C4.8090208@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Shailabh Nagar wrote:
-> Shailabh Nagar wrote:
-> 
-> 
-<snip>
+On Fri, Jun 30, 2006 at 12:31:00PM -0400, Jeff Garzik wrote:
 
-> Index: linux-2.6.17-mm3equiv/kernel/taskstats.c
-> ===================================================================
-> --- linux-2.6.17-mm3equiv.orig/kernel/taskstats.c	2006-06-30 11:57:14.000000000 -0400
-> +++ linux-2.6.17-mm3equiv/kernel/taskstats.c	2006-06-30 13:58:36.000000000 -0400
-> @@ -266,7 +266,7 @@ void taskstats_exit_send(struct task_str
->  	struct sk_buff *rep_skb;
->  	void *reply;
->  	size_t size;
-> -	int is_thread_group;
-> +	int is_thread_group, setid;
->  	struct nlattr *na;
+> >The following changes since commit 
+> >fcc18e83e1f6fd9fa6b333735bf0fcd530655511:
+> >  Malcolm Parsons:
+> >        uclinux: use PER_LINUX_32BIT in binfmt_flat
+> >
+> >are found in the git repository at:
+> >
+> >  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git 
+> >  upstream
 > 
->  	if (!family_registered || !tidstats)
-> @@ -320,7 +320,8 @@ void taskstats_exit_send(struct task_str
->  	nla_nest_end(rep_skb, na);
-> 
->  send:
-> -	send_reply(rep_skb, 0, TASKSTATS_MSG_MULTICAST);
-> +	setid = (smp_processor_id()%TASKSTATS_CPUS_PER_SET)+1;
-> +	send_reply(rep_skb, setid, TASKSTATS_MSG_MULTICAST);
+> nothing pulled?
 
-This should be
-	send_reply(rep_skb, setid, TASKSTATS_MSG_UNICAST);
+Odd, the changes seem to be there...did you happen to pull zd1211rw
+first?  I based that branch off the HEAD of the upstream branch.
 
->  	return;
-> 
->  nla_put_failure:
-> Index: linux-2.6.17-mm3equiv/Documentation/accounting/getdelays.c
-> ===================================================================
-> --- linux-2.6.17-mm3equiv.orig/Documentation/accounting/getdelays.c	2006-06-28 16:08:56.000000000 -0400
-> +++ linux-2.6.17-mm3equiv/Documentation/accounting/getdelays.c	2006-06-30 14:09:28.000000000 -0400
-> @@ -40,7 +40,7 @@ int done = 0;
->  /*
->   * Create a raw netlink socket and bind
->   */
-> -static int create_nl_socket(int protocol, int groups)
-> +static int create_nl_socket(int protocol, int cpugroup)
->  {
->      socklen_t addr_len;
->      int fd;
-> @@ -52,7 +52,8 @@ static int create_nl_socket(int protocol
-> 
->      memset(&local, 0, sizeof(local));
->      local.nl_family = AF_NETLINK;
-> -    local.nl_groups = groups;
-> +    local.nl_groups = TASKSTATS_LISTEN_GROUP;
-> +    local.nl_pid = cpugroup;
-> 
->      if (bind(fd, (struct sockaddr *) &local, sizeof(local)) < 0)
->  	goto error;
-> @@ -203,7 +204,7 @@ int main(int argc, char *argv[])
->      pid_t rtid = 0;
->      int cmd_type = TASKSTATS_TYPE_TGID;
->      int c, status;
-> -    int forking = 0;
-> +    int forking = 0, cpugroup = 0;
->      struct sigaction act = {
->  	.sa_handler = SIG_IGN,
->  	.sa_mask = SA_NOMASK,
-> @@ -222,7 +223,7 @@ int main(int argc, char *argv[])
-> 
->      while (1) {
-> 
-> -	c = getopt(argc, argv, "t:p:c:");
-> +	c = getopt(argc, argv, "t:p:c:g:l");
->  	if (c < 0)
->  	    break;
-> 
-> @@ -252,8 +253,14 @@ int main(int argc, char *argv[])
->  	    }
->  	    forking = 1;
->  	    break;
-> +	case 'g':
-> +		cpugroup = atoi(optarg);
-> +		break;
-> +	case 'l':
-> +		loop = 1;
-> +		break;
->  	default:
-> -	    printf("usage %s [-t tgid][-p pid][-c cmd]\n", argv[0]);
-> +	    printf("usage %s [-t tgid][-p pid][-c cmd][-g cpugroup][-l]\n", argv[0]);
->  	    exit(-1);
->  	    break;
->  	}
-> @@ -266,7 +273,7 @@ int main(int argc, char *argv[])
->      /* Send Netlink request message & get reply */
-> 
->      if ((nl_sd =
-> -	 create_nl_socket(NETLINK_GENERIC, TASKSTATS_LISTEN_GROUP)) < 0)
-> +	 create_nl_socket(NETLINK_GENERIC, cpugroup)) < 0)
->  	err(1, "error creating Netlink socket\n");
-> 
-> 
-> @@ -287,10 +294,10 @@ int main(int argc, char *argv[])
-> 
-> 
->      if (!forking && sendto_fd(nl_sd, (char *) &req, req.n.nlmsg_len) < 0)
-> +    if ((!forking && !loop) &&
-> +	sendto_fd(nl_sd, (char *) &req, req.n.nlmsg_len) < 0)
->  	err(1, "error sending message via Netlink\n");
-> 
-> -    act.sa_handler = SIG_IGN;
-> -    sigemptyset(&act.sa_mask);
->      if (sigaction(SIGINT, &act, NULL) < 0)
->  	err(1, "sigaction failed for SIGINT\n");
-> 
-> @@ -349,10 +356,11 @@ int main(int argc, char *argv[])
->  			rtid = *(int *) NLA_DATA(na);
->  			break;
->  		    case TASKSTATS_TYPE_STATS:
-> -			if (rtid == tid) {
-> +			if (rtid == tid || loop) {
->  			    print_taskstats((struct taskstats *)
->  					    NLA_DATA(na));
-> -			    done = 1;
-> +			    if (!loop)
-> +				    done = 1;
->  			}
->  			break;
->  		    }
-> @@ -369,7 +377,7 @@ int main(int argc, char *argv[])
->  	if (done)
->  	    break;
->      }
-> -    while (1);
-> +    while (loop);
-> 
->      close(nl_sd);
->      return 0;
-> 
-
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
