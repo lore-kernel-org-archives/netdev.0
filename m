@@ -1,121 +1,129 @@
-From: Andrey Savochkin <saw@swsoft.com>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Fri, 30 Jun 2006 19:01:55 +0400
-Message-ID: <20060630190155.A24609@castle.nmd.msu.ru>
-References: <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net> <1151626552.8922.70.camel@jzny2> <20060630114551.A20191@castle.nmd.msu.ru> <1151675452.5270.10.camel@jzny2>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: strict isolation of net interfaces
+Date: Fri, 30 Jun 2006 17:22:51 +0200
+Message-ID: <44A541CB.9080102@fr.ibm.com>
+References: <m1psgulf4u.fsf@ebiederm.dsl.xmission.com>	<44A1689B.7060809@candelatech.com>	<20060627225213.GB2612@MAIL.13thfloor.at>	<1151449973.24103.51.camel@localhost.localdomain>	<20060627234210.GA1598@ms2.inr.ac.ru>	<m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>	<20060628133640.GB5088@MAIL.13thfloor.at>	<1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net>	<44A450D1.2030405@fr.ibm.com>	<20060630023947.GA24726@sergelap.austin.ibm.com>	<44A517B4.4010500@fr.ibm.com> <m1veqibu8n.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	serue@us.ibm.com, clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>,
-	dev@sw.ru, devel@openvz.org, viro@ftp.linux.org.uk,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	Cedric Le Goater <clg@fr.ibm.com>,
+	Sam Vilain <sam@vilain.net>, hadi@cyberus.ca,
 	Herbert Poetzl <herbert@13thfloor.at>,
-	Sam Vilain <sam@vilain.net>
+	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
+	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Andrey Savochkin <saw@swsoft.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Dave Hansen <haveblue@us.ibm.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.nmd.msu.ru ([193.232.112.53]:4875 "HELO
-	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S932135AbWF3PB5
+Received: from mtagate5.uk.ibm.com ([195.212.29.138]:35724 "EHLO
+	mtagate5.uk.ibm.com") by vger.kernel.org with ESMTP id S932393AbWF3PWx
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 11:01:57 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1151675452.5270.10.camel@jzny2>; from "jamal" on Fri, Jun 30, 2006 at 09:50:52AM
+	Fri, 30 Jun 2006 11:22:53 -0400
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m1veqibu8n.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jamal,
-
-On Fri, Jun 30, 2006 at 09:50:52AM -0400, jamal wrote:
+Eric W. Biederman wrote:
+> Daniel Lezcano <dlezcano@fr.ibm.com> writes:
 > 
-> BTW - I was just looking at openvz, very impressive. To the other folks,
-
-Thanks!
-
-> I am not putting down any of your approaches - just havent
-> had time to study them. Andrey, this is the same thing you guys have
-> been working on for a few years now, you just changed the name, correct?
-
-The relations are more complicated than just the change of name,
-but yes, OpenVZ represents the result of our work for a few years.
-
 > 
-> Ok, since you guys are encouraging me to speak, here goes ;->
-> Hopefully this addresses the other email from Herbert et al.
+>>Serge E. Hallyn wrote:
+>>
+>>>Quoting Cedric Le Goater (clg@fr.ibm.com):
+>>>
+>>>
+>>>>we could work on virtualizing the net interfaces in the host, map them to
+>>>>eth0 or something in the guest and let the guest handle upper network layers ?
+>>>>
+>>>>lo0 would just be exposed relying on skbuff tagging to discriminate traffic
+>>>>between guests.
+>>>
+>>>This seems to me the preferable way.  We create a full virtual net
+>>>device for each new container, and fully virtualize the device
+>>>namespace.
+>>
+>>I have a few questions about all the network isolation stuff:
 > 
-[snip]
-> // create the guest
-> [host-node]# vzctl create 101 --ostemplate fedora-core-5-minimal 
-> // create guest101::eth0, seems to only create config to boot up with 
-> [host-node]# vzctl create 101 --netdev eth0
-> // bootup guest101
-> [host-node]# vzctl start 101
-> 
-> As soon as bootup of guest101 happens, creating guest101::eth0 should activate 
-> creation of the host side netdevice. This could be triggered for example by
-> the netlink event message seen on host whic- which is a result of creating guest101::eth0 
-> Which means control sits purely in user space.
 
-I'd like to clarify you idea: whether this host-side device is a real
-device capable of receiving and transmitting packets (by moving them between
-namespaces), or it's a fake device creating only a view of other namespace's
-devices?
-
-[snip]
-> > However, I oppose the idea of automatic mirroring of _all_ devices appearing
-> > inside some namespaces ("guests") to another namespace (the "host").
-> > This clearly goes against the concept of namespaces as independent realms,
-> > and creates a lot of problems with applications running in the host, hotplug
-> > scripts and so on.
-> > 
-> 
-> I was thinking that the host side is the master i.e you can peek at
-> namespaces in the guest from the host.
-
-"Host(master)-guest" relations is a valid and useful scheme.
-However, I'm thinking about broader application of network namespaces,
-when they can form an arbitrary tree and may not be in "host-guest" relations.
-
-> Also note that having the pass through device allows for guests to be
-> connected via standard linux schemes in the host side (bridge, point
-> routes, tc redirect etc); so you dont need a speacial device to hook
-> them together.
-
-What do you mean under pass through device?
-Do you mean using guest1-tun0 as a backdoor to talk to the guest?
+It seems these questions are not important.
 
 > 
-> > > > Then the pragmatic question becomes how to correlate what you see from
-> > > > `ip addr list' to guests.
-> > > 
-> > > on the host ip addr and the one seen on the guest side are the same.
-> > > Except one is seen (on the host) on guest0-eth0 and another is seen 
-> > > on eth0 (on guest).
-> > 
-> > Then what to do if the host system has 10.0.0.1 as a private address on eth3,
-> > and then interfaces guest1-tun0 and guest2-tun0 both get address 10.0.0.1
-> > when each guest has added 10.0.0.1 to their tun0 device?
-> > 
+> So far I have seen two viable possibilities on the table,
+> neither of them involve multiple names for a network device.
 > 
-> Yes, that would be a conflict that needs to be resolved. If you look at
-> ip addresses as also belonging to namespaces, then it should work, no?
-> i am assuming a tag at the ifa table level.
+> layer 3 (filtering the allowed ip addresses at bind time roughly the current vserver).
+>   - implementable as a security hook.
+>   - Benefit no measurable performance impact.
+>   - Downside not many things we can do.
 
-I'm not sure, it's complicated.
-You wouldn't want automatic local routes to be added for IP addresses on
-the host-side interfaces, right?
-Do you expect these IP addresses to act as local addresses in other places,
-like answering to arp requests about these IP on all physical devices?
+What things ? Can you develop please ? Can you give some examples ?
 
-But anyway, you'll have conflicts on the application level.
-Many programs like ntpd, bind, and others fetch the device list using the
-same ioctls as ifconfig, and make (un)intelligent decisions basing on what
-they see.
-Mirroring may have some advantages if I am both host and guest administrator.
-But if I create a namespace for my friend Joe to play with IPv6 and sit
-tunnels, why should I face inconveniences because of what he does there?
+> 
+> layer 2 (What appears to applications a separate instance of the network stack).
+>   - Implementable as a namespace.
 
-Best regards
+what about accessing a NFS mounted outside the container ?
 
-Andrey
+>   - Each network namespace would have dedicated network devices.
+>   - Benefit extremely flexible.
+
+For what ? For who ? Do you have examples ?
+
+>   - Downside since at least the slow path must examine the packet
+>     it has the possibility of slowing down the networking stack.
+
+What is/are the slow path(s) you identified ?
+
+> For me the important characteristics.
+> - Allows for application migration, when we take our ip address with us.
+>   In particular it allows for importation of addresses assignments
+>   mad on other machines.
+
+Ok for the two methods no ?
+
+> - No measurable impact on the existing networking when the code
+>   is compiled in.
+
+You contradict ...
+
+> - Clean predictable semantics.
+
+What that means ? Can you explain, please ?
+
+> This whole debate on network devices show up in multiple network namespaces
+> is just silly.  
+
+The debate is not on the network device show up. The debate is can we 
+have a network isolation ___usable for everybody___ not only for the 
+beauty of having namespaces and for a system container like.
+
+I am not against the network device virtualization or against the 
+namespaces. I am just asking if the namespace is the solution for all 
+the network isolation. Should we nest layer 2 and layer 3 vitualization 
+into namespaces or separate them in order to have the flexibility to 
+choose isolation/performance.
+
+> The only reason for wanting that appears to be better management.
+> We have deeper issues like can we do a reasonable implementation without a
+> network device showing up in multiple namespaces.
+
+Again, I am not against having the network device virtualization. It is 
+a good idea.
+
+> I think the reason the debate exists at all is that it is a very approachable
+> topic, as opposed to the fundamentals here.
+> 
+> If we can get layer 2 level isolation working without measurable overhead
+> with one namespace per device it may be worth revisiting things.  Until
+> then it is a side issue at best.
+
+I agree, so where are the answers of the questions I asked in my 
+previous email ? You said you did some implementation of network 
+isolation with and without namespaces, so you should be able to answer...
+
+
+   -- Daniel
