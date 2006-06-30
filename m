@@ -1,60 +1,80 @@
-From: Paul Jackson <pj@sgi.com>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Thu, 29 Jun 2006 19:43:44 -0700
-Message-ID: <20060629194344.6a29dba7.pj@sgi.com>
-References: <44892610.6040001@watson.ibm.com>
-	<449CAA78.4080902@watson.ibm.com>
-	<20060623213912.96056b02.akpm@osdl.org>
-	<449CD4B3.8020300@watson.ibm.com>
-	<44A01A50.1050403@sgi.com>
-	<20060626105548.edef4c64.akpm@osdl.org>
-	<44A020CD.30903@watson.ibm.com>
-	<20060626111249.7aece36e.akpm@osdl.org>
-	<44A026ED.8080903@sgi.com>
-	<20060626113959.839d72bc.akpm@osdl.org>
-	<44A2F50D.8030306@engr.sgi.com>
-	<20060628145341.529a61ab.akpm@osdl.org>
-	<44A2FC72.9090407@engr.sgi.com>
-	<20060629014050.d3bf0be4.pj@sgi.com>
-	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
-	<20060629094408.360ac157.pj@sgi.com>
-	<20060629110107.2e56310b.akpm@osdl.org>
-	<44A425A7.2060900@watson.ibm.com>
-	<20060629123338.0d355297.akpm@osdl.org>
-	<44A43187.3090307@watson.ibm.com>
-	<1151621692.8922.4.camel@jzny2>
-	<44A47285.6060307@watson.ibm.com>
-	<20060629180502.3987a98e.akpm@osdl.org>
-	<20060629192526.360aa579.pj@sgi.com>
-	<20060629193500.d4676f13.akpm@osdl.org>
+From: Sam Vilain <sam@vilain.net>
+Subject: Re: strict isolation of net interfaces
+Date: Fri, 30 Jun 2006 14:49:05 +1200
+Message-ID: <44A49121.4050004@vilain.net>
+References: <m1psgulf4u.fsf@ebiederm.dsl.xmission.com> <44A1689B.7060809@candelatech.com> <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net> <44A450D1.2030405@fr.ibm.com> <20060630023947.GA24726@sergelap.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nagar@watson.ibm.com, hadi@cyberus.ca, Valdis.Kletnieks@vt.edu,
-	jlan@engr.sgi.com, balbir@in.ibm.com, csturtiv@sgi.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: Cedric Le Goater <clg@fr.ibm.com>, hadi@cyberus.ca,
+	Herbert Poetzl <herbert@13thfloor.at>,
+	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
+	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Andrey Savochkin <saw@swsoft.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Dave Hansen <haveblue@us.ibm.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omx1-ext.sgi.com ([192.48.179.11]:42191 "EHLO
-	omx1.americas.sgi.com") by vger.kernel.org with ESMTP
-	id S1751431AbWF3CoN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 22:44:13 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060629193500.d4676f13.akpm@osdl.org>
+Received: from watts.utsl.gen.nz ([202.78.240.73]:30385 "EHLO
+	watts.utsl.gen.nz") by vger.kernel.org with ESMTP id S1750810AbWF3Csk
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 22:48:40 -0400
+To: "Serge E. Hallyn" <serue@us.ibm.com>
+In-Reply-To: <20060630023947.GA24726@sergelap.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew wrote:
-> Nah.  Stick it in the same cacheline as tasklist_lock (I'm amazed that
-> we've continued to get away with a global lock for that).
+Serge E. Hallyn wrote:
+> The last one in your diagram confuses me - why foo0:1?  I would
+> have thought it'd be
+>
+> host                  |  guest 0  |  guest 1  |  guest2
+> ----------------------+-----------+-----------+--------------
+>   |                   |           |           |
+>   |-> l0      <-------+-> lo0 ... | lo0       | lo0
+>   |                   |           |           |
+>   |-> eth0            |           |           |
+>   |                   |           |           |
+>   |-> veth0  <--------+-> eth0    |           |
+>   |                   |           |           |
+>   |-> veth1  <--------+-----------+-----------+-> eth0
+>   |                   |           |           |
+>   |-> veth2   <-------+-----------+-> eth0    |
+>
+> [...]
+>
+> So conceptually using a full virtual net device per container
+> certainly seems cleaner to me, and it seems like it should be
+> simpler by way of statistics gathering etc, but are there actually
+> any real gains?  Or is the support for multiple IPs per device
+> actually enough?
+>   
 
-Yes - a bit amazing.  But no sense compounding the problem now.
+Why special case loopback?
 
-We shouldn't be adding global locks/modifiable data in the
-fork/exit code path if we can help it, without at least
-providing some simple way to ameliorate the problem when
-folks do start hitting it.
+Why not:
 
--- 
-                  I won't rest till it's the best ...
-                  Programmer, Linux Scalability
-                  Paul Jackson <pj@sgi.com> 1.925.600.0401
+host                  |  guest 0  |  guest 1  |  guest2
+----------------------+-----------+-----------+--------------
+  |                   |           |           |
+  |-> lo              |           |           |
+  |                   |           |           |
+  |-> vlo0  <---------+-> lo      |           |
+  |                   |           |           |
+  |-> vlo1  <---------+-----------+-----------+-> lo
+  |                   |           |           |
+  |-> vlo2   <--------+-----------+-> lo      |
+  |                   |           |           |
+  |-> eth0            |           |           |
+  |                   |           |           |
+  |-> veth0  <--------+-> eth0    |           |
+  |                   |           |           |
+  |-> veth1  <--------+-----------+-----------+-> eth0
+  |                   |           |           |
+  |-> veth2   <-------+-----------+-> eth0    |
+
+
+Sam.
