@@ -1,52 +1,36 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Fri, 30 Jun 2006 16:19:55 -0400
-Message-ID: <1151698795.5270.247.camel@jzny2>
-References: <44892610.6040001@watson.ibm.com>
-	 <4489EE7C.3080007@watson.ibm.com>	<449999D1.7000403@engr.sgi.com>
-	 <44999A98.8030406@engr.sgi.com>	<44999F5A.2080809@watson.ibm.com>
-	 <4499D7CD.1020303@engr.sgi.com>	<449C2181.6000007@watson.ibm.com>
-	 <20060623141926.b28a5fc0.akpm@osdl.org>	<449C6620.1020203@engr.sgi.com>
-	 <20060623164743.c894c314.akpm@osdl.org>	<449CAA78.4080902@watson.ibm.com>
-	 <20060623213912.96056b02.akpm@osdl.org>	<449CD4B3.8020300@watson.ibm.com>
-	 <44A01A50.1050403@sgi.com>	<20060626105548.edef4c64.akpm@osdl.org>
-	 <44A020CD.30903@watson.ibm.com>	<20060626111249.7aece36e.akpm@osdl.org>
-	 <44A026ED.8080903@sgi.com>	<20060626113959.839d72bc.akpm@osdl.org>
-	 <44A2F50D.8030306@engr.sgi.com>	<20060628145341.529a61ab.akpm@osdl.org>
-	 <44A2FC72.9090407@engr.sgi.com>	<20060629014050.d3bf0be4.pj@sgi.com>
-	 <200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
-	 <20060629094408.360ac157.pj@sgi.com>
-	 <20060629110107.2e56310b.akpm@osdl.org> <44A57310.3010208@watson.ibm.com>
-	 <44A5770F.3080206@watson.ibm.com>
-Reply-To: hadi@cyberus.ca
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Fri, 30 Jun 2006 22:30:34 +0200
+Message-ID: <20060630203034.GN14627@postel.suug.ch>
+References: <20060630004640.GC14627@postel.suug.ch> <1151629890.8922.121.camel@jzny2> <20060630130811.GE14627@postel.suug.ch> <1151675843.5270.18.camel@jzny2> <20060630141531.GG14627@postel.suug.ch> <1151678118.5270.45.camel@jzny2> <20060630163229.GH14627@postel.suug.ch> <1151687977.5270.91.camel@jzny2> <44A5606B.5080003@trash.net> <1151697554.5270.241.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	csturtiv@sgi.com, balbir@in.ibm.com, jlan@engr.sgi.com,
-	Valdis.Kletnieks@vt.edu, Paul Jackson <pj@sgi.com>,
-	Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:52205 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1751125AbWF3UT7
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 16:19:59 -0400
-To: Shailabh Nagar <nagar@watson.ibm.com>
-In-Reply-To: <44A5770F.3080206@watson.ibm.com>
+Received: from postel.suug.ch ([194.88.212.233]:53693 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1751154AbWF3UaP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 16:30:15 -0400
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1151697554.5270.241.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-30-06 at 15:10 -0400, Shailabh Nagar wrote:
+* jamal <hadi@cyberus.ca> 2006-06-30 15:59
+> One thing is clear in my mind at least (and i have said it several
+> times): I am not as good at the semantics as either yourself or Thomas
+> or Dave or Acme etc but i have tons of other things that compensate for.
+> Probably "not as good" is not the best  description  - rather my brain
+> cells put less respect on the stylistic commas than they do on the
+> message. Perhaps it's dylexsia or me trying to subconsciouly maximize my
+> time. If you push me hard, however, i will get close to do just as a
+> good job as you;->  Still, cant live without you guys! 
 
-> 
-> Also to get feedback on this kind of usage of the nl_pid field, the
-> approach etc.
-> 
-
-It does not look unreasonable. I think you may have issues when you have
-multiple such sockets opened within a single process. But 
-do some testing and see how it goes.
-
-cheers,
-jamal
-
+Lack of stylistic commas is less of a concern, rather the lack of
+comments and notes where absolutely essential. You explained to me
+that stacking ifb devices is not supported in order to avoid tx lock
+deadlocks. There is not a single note or hint anywhere that would
+remotely imply this. When questioned about things like that you often
+refer to notes you have somewhere on paper, promising to get back once
+looked up, eventually that happens, in this thread it didn't.
