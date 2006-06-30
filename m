@@ -1,46 +1,121 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [NETROM] Use socket helpers instead of direct fiddling with struct sock
-Date: Fri, 30 Jun 2006 14:46:48 +0100
-Message-ID: <20060630134648.GA12586@linux-mips.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Fri, 30 Jun 2006 09:50:52 -0400
+Message-ID: <1151675452.5270.10.camel@jzny2>
+References: <m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
+	 <44A1689B.7060809@candelatech.com>
+	 <20060627225213.GB2612@MAIL.13thfloor.at>
+	 <1151449973.24103.51.camel@localhost.localdomain>
+	 <20060627234210.GA1598@ms2.inr.ac.ru>
+	 <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>
+	 <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2>
+	 <44A44124.5010602@vilain.net> <1151626552.8922.70.camel@jzny2>
+	 <20060630114551.A20191@castle.nmd.msu.ru>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Dave Hansen <haveblue@us.ibm.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	serue@us.ibm.com, clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>,
+	dev@sw.ru, devel@openvz.org, viro@ftp.linux.org.uk,
+	Herbert Poetzl <herbert@13thfloor.at>,
+	Sam Vilain <sam@vilain.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:16614 "EHLO
-	ftp.linux-mips.org") by vger.kernel.org with ESMTP id S932624AbWF3Nqu
+Received: from mx02.cybersurf.com ([209.197.145.105]:33002 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932677AbWF3NvE
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 09:46:50 -0400
-Received: from localhost.localdomain ([127.0.0.1]:59318 "EHLO bacchus.dhis.org")
-	by ftp.linux-mips.org with ESMTP id S3686805AbWF3Nqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 14:46:49 +0100
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Content-Disposition: inline
+	Fri, 30 Jun 2006 09:51:04 -0400
+To: Andrey Savochkin <saw@swsoft.com>
+In-Reply-To: <20060630114551.A20191@castle.nmd.msu.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
+Hi Andrey,
 
- net/netrom/af_netrom.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+BTW - I was just looking at openvz, very impressive. To the other folks,
+I am not putting down any of your approaches - just havent
+had time to study them. Andrey, this is the same thing you guys have
+been working on for a few years now, you just changed the name, correct?
 
-Index: linux-net/net/netrom/af_netrom.c
-===================================================================
---- linux-net.orig/net/netrom/af_netrom.c	2006-06-23 22:40:26.000000000 +0100
-+++ linux-net/net/netrom/af_netrom.c	2006-06-23 22:43:14.000000000 +0100
-@@ -801,7 +801,7 @@ static int nr_accept(struct socket *sock
- 
- 	/* Now attach up the new socket */
- 	kfree_skb(skb);
--	sk->sk_ack_backlog--;
-+	sk_acceptq_removed(sk);
- 	newsock->sk = newsk;
- 
- out:
-@@ -986,7 +986,7 @@ int nr_rx_frame(struct sk_buff *skb, str
- 	nr_make->vr        = 0;
- 	nr_make->vl        = 0;
- 	nr_make->state     = NR_STATE_3;
--	sk->sk_ack_backlog++;
-+	sk_acceptq_added(sk);
- 
- 	nr_insert_socket(make);
- 
+Ok, since you guys are encouraging me to speak, here goes ;->
+Hopefully this addresses the other email from Herbert et al.
+
+On Fri, 2006-30-06 at 11:45 +0400, Andrey Savochkin wrote: 
+> Hi Jamal,
+> 
+> On Thu, Jun 29, 2006 at 08:15:52PM -0400, jamal wrote:
+> > On Fri, 2006-30-06 at 09:07 +1200, Sam Vilain wrote:
+> [snip]
+
+> 
+> I do not have anything against guest-eth0 - eth0 pairs _if_ they are set up
+> by the host administrators explicitly for some purpose.
+> For example, if these guest-eth0 and eth0 devices stay as pure virtual ones,
+> i.e. they don't have any physical NIC, host administrator may route traffic
+> to guestXX-eth0 interfaces to pass it to the guests.
+> 
+
+Well there will be purely virtual of course.  Something along the lines
+for openvz:
+
+// create the guest
+[host-node]# vzctl create 101 --ostemplate fedora-core-5-minimal 
+// create guest101::eth0, seems to only create config to boot up with 
+[host-node]# vzctl create 101 --netdev eth0
+// bootup guest101
+[host-node]# vzctl start 101
+
+As soon as bootup of guest101 happens, creating guest101::eth0 should activate 
+creation of the host side netdevice. This could be triggered for example by
+the netlink event message seen on host whic- which is a result of creating guest101::eth0 
+Which means control sits purely in user space.
+
+at that point if i do ifconfig on host i see g101-eth0
+on guest101 i see just name eth0.
+
+My earlier suggestion was that instead of:
+host-node]# vzctl set 101 --ipadd 10.1.2.3
+
+you do:
+host-node]# ip addr add g101-eth0 10.1.2.3/32
+you should still use vzctl to save config for next bootup
+
+> However, I oppose the idea of automatic mirroring of _all_ devices appearing
+> inside some namespaces ("guests") to another namespace (the "host").
+> This clearly goes against the concept of namespaces as independent realms,
+> and creates a lot of problems with applications running in the host, hotplug
+> scripts and so on.
+> 
+
+I was thinking that the host side is the master i.e you can peek at
+namespaces in the guest from the host.
+Also note that having the pass through device allows for guests to be
+connected via standard linux schemes in the host side (bridge, point
+routes, tc redirect etc); so you dont need a speacial device to hook
+them together.
+
+> > > Then the pragmatic question becomes how to correlate what you see from
+> > > `ip addr list' to guests.
+> > 
+> > on the host ip addr and the one seen on the guest side are the same.
+> > Except one is seen (on the host) on guest0-eth0 and another is seen 
+> > on eth0 (on guest).
+> 
+> Then what to do if the host system has 10.0.0.1 as a private address on eth3,
+> and then interfaces guest1-tun0 and guest2-tun0 both get address 10.0.0.1
+> when each guest has added 10.0.0.1 to their tun0 device?
+> 
+
+Yes, that would be a conflict that needs to be resolved. If you look at
+ip addresses as also belonging to namespaces, then it should work, no?
+i am assuming a tag at the ifa table level.
+
+cheers,
+jamal
+
+
