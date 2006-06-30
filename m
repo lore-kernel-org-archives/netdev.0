@@ -1,44 +1,38 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Fri, 30 Jun 2006 19:33:31 +0200
-Message-ID: <44A5606B.5080003@trash.net>
-References: <20060629085111.GY1376@postel.suug.ch>	 <1151623394.8922.27.camel@jzny2> <20060629233933.GB14627@postel.suug.ch>	 <1151625826.8922.58.camel@jzny2> <20060630004640.GC14627@postel.suug.ch>	 <1151629890.8922.121.camel@jzny2> <20060630130811.GE14627@postel.suug.ch>	 <1151675843.5270.18.camel@jzny2> <20060630141531.GG14627@postel.suug.ch>	 <1151678118.5270.45.camel@jzny2>  <20060630163229.GH14627@postel.suug.ch> <1151687977.5270.91.camel@jzny2>
+Date: Fri, 30 Jun 2006 19:34:38 +0200
+Message-ID: <20060630173438.GJ14627@postel.suug.ch>
+References: <20060629233933.GB14627@postel.suug.ch> <1151625826.8922.58.camel@jzny2> <20060630004640.GC14627@postel.suug.ch> <1151629890.8922.121.camel@jzny2> <20060630130811.GE14627@postel.suug.ch> <1151675843.5270.18.camel@jzny2> <20060630141531.GG14627@postel.suug.ch> <1151678118.5270.45.camel@jzny2> <20060630163229.GH14627@postel.suug.ch> <1151687977.5270.91.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61058 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932798AbWF3Rdd
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 13:33:33 -0400
-To: hadi@cyberus.ca
+Received: from postel.suug.ch ([194.88.212.233]:60345 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932828AbWF3ReR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 13:34:17 -0400
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
 In-Reply-To: <1151687977.5270.91.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> You are attempting to change architecture (which works just fine) in the way you 
-> think it should work - and then point to something as a bug because it 
-> doesnt work the way you think it should work. 
-> This is a problem not just with you BTW, but with Patrick as well (although he has 
-> gotten better lately). There is a huge difference for example when dealing with 
-> Herbert. My approach in situations like this, which you dont have to follow, is 
-> to ask first what the intent was then if i dont like the intent try to convince the
-> owner that there maybe better ways. Or why they are wrong. 
+* jamal <hadi@cyberus.ca> 2006-06-30 13:19
+> On Fri, 2006-30-06 at 18:32 +0200, Thomas Graf wrote:
+> > * jamal <hadi@cyberus.ca> 2006-06-30 10:35
+>  
+> > > Did you actually try to run this before you reached this conclusion?
+> > 
+> > I did, fortunately some other bug prevents this from happening,
+> > packets are simply dropped somewhere.
+> > 
+> 
+> It is not a bug, Thomas! I am getting a little frustrated now.
+> The packets will be dropped because we set the at field to zero which is
+> invalid. That is done on purpose. It is only meaningful for ifb. The
+> challenge is much bigger than it appears. You could end up deadlocking
+> on the tx lock. So this was the choice i had to make.
 
-Well, I thought I stay out of this, but since you mention me ..
-
-I also had the feeling it has gotten easier working with you lately,
-but I can understand Thomas's pain, I had the same thoughts more than
-once. Your code often does have an enormous amount of bugs and
-whitespace and other stylistic problems and working with you can be
-challenging for multiple reasons, for example having to go to endless,
-often entirely pointless discussions for obvious fixes, especially if
-you're already pissed by noticing 50 bugs at once. The reason why you
-might be able to work better with Herbert is IMO that he usually
-doesn't touch what you seem to feel is "your area". Besides that, I
-never changed anything in your architecture, only fixed massive
-amounts of bugs.
-
+Please explain, tc_verd is reset in the tasklet after dequeueing and set
+again in dev_queue_xmit(). ifb_xmit will always see a valid tc_verd
+at egress.
