@@ -1,51 +1,39 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Fri, 30 Jun 2006 16:54:44 -0400
-Message-ID: <1151700884.5270.278.camel@jzny2>
-References: <44A5606B.5080003@trash.net> <1151697554.5270.241.camel@jzny2>
-	 <20060630203034.GN14627@postel.suug.ch>
-	 <20060630.133348.68039806.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 28 of 39] IB/ipath - Fixes a bug where our delay for EEPROM no longer works due to compiler reordering
+Date: Fri, 30 Jun 2006 14:08:19 -0700
+Message-ID: <adar716e4ho.fsf@cisco.com>
+References: <patchbomb.1151617251@eng-12.pathscale.com>
+	<5f3c0b2d446d78e3327f.1151617279@eng-12.pathscale.com>
+	<20060629170711.757a97d2.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, tgraf@suug.ch
+Content-Type: text/plain; charset=us-ascii
+Cc: "Bryan O'Sullivan" <bos@pathscale.com>, mst@mellanox.co.il,
+	openib-general@openib.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:14754 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932369AbWF3Uyr
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 16:54:47 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1FwQ0p-0007zF-RG
-	for netdev@vger.kernel.org; Fri, 30 Jun 2006 16:54:51 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060630.133348.68039806.davem@davemloft.net>
+Received: from sj-iport-1-in.cisco.com ([171.71.176.70]:4631 "EHLO
+	sj-iport-1.cisco.com") by vger.kernel.org with ESMTP
+	id S932420AbWF3VIV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jun 2006 17:08:21 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060629170711.757a97d2.akpm@osdl.org> (Andrew Morton's message of "Thu, 29 Jun 2006 17:07:11 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-30-06 at 13:33 -0700, David Miller wrote:
-> From: Thomas Graf <tgraf@suug.ch>
-> Date: Fri, 30 Jun 2006 22:30:34 +0200
-> 
-> > Lack of stylistic commas is less of a concern, rather the lack of
-> > comments and notes where absolutely essential.
-> 
-> Yes, intent is very important to document when it is not
-> obvious.
-> 
+ > >  static void i2c_wait_for_writes(struct ipath_devdata *dd)
+ > >  {
+ > > +	mb();
+ > >  	(void)ipath_read_kreg32(dd, dd->ipath_kregs->kr_scratch);
+ > >  }
 
-I agree - and i try hard to document but at times there's too much
-and a line needs to be drawn.
-As an example:
-the eth->ifb->ifb case though is a very corner case. All the IMQ types
-need to only redirect to one ifb; while i test it ive always seen the
-test as more of a boundary check than a useful setup.
+ > That's a bit weird.  I wouldn't have expected the compiler to muck around
+ > with a readl().
 
-And Thomas: I do keep notebooks ;-> I doodle about everything, they dont
-all fit in my knapsack anymore so sometimes when i say i will go and
-refer to my notes, it is real.
+I never liked this patch.  The last time it came up there were
+conflicting answers about whether it was a code generation bug or a
+real issue talking to hardware or what.  At the least I think this
+merits a big comment explain what's going on -- and even better would
+be really understanding the bug that's being fixed so that we're
+confident it is indeed a real fix.
 
-cheers,
-jamal
-
+ - R.
