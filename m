@@ -1,55 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2.6.17] support for TSO over IPv6
-Date: Fri, 30 Jun 2006 10:39:06 +1000
-Message-ID: <20060630003906.GA27200@gondor.apana.org.au>
-References: <Pine.GSO.4.10.10606291810490.12773-100000@guinness> <E1Fw604-0006yP-00@gondolin.me.apana.org.au>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH 39 of 39] IB/ipath - use streaming copy in RDMA	interrupt
+ handler to reduce packet loss
+Date: Thu, 29 Jun 2006 17:44:05 -0700
+Message-ID: <44A473D5.70809@hp.com>
+References: <1151624063.10886.34.camel@chalcedony.pathscale.com>	<20060629.164623.59469884.davem@davemloft.net>	<44A47042.8060203@hp.com> <20060629.173206.48800902.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, shemminger@osdl.org,
-	Leonid.Grossman@neterion.com, Ravinandan.Arakali@neterion.com,
-	sivakumar.subramani@neterion.com, Sriram.Rapuru@neterion.com,
-	Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bos@pathscale.com, akpm@osdl.org, rdreier@cisco.com,
+	mst@mellanox.co.il, openib-general@openib.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.62.148.172] ([64.62.148.172]:23556 "EHLO arnor.apana.org.au")
-	by vger.kernel.org with ESMTP id S1751352AbWF3Ajz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 20:39:55 -0400
-To: Ananda Raju <Ananda.Raju@neterion.com>
-Content-Disposition: inline
-In-Reply-To: <E1Fw604-0006yP-00@gondolin.me.apana.org.au>
+Received: from palrel12.hp.com ([156.153.255.237]:43981 "EHLO palrel12.hp.com")
+	by vger.kernel.org with ESMTP id S1751338AbWF3AoH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 20:44:07 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060629.173206.48800902.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 30, 2006 at 09:32:44AM +1000, Herbert Xu wrote:
+David Miller wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Thu, 29 Jun 2006 17:28:50 -0700
 > 
-> > diff -upNr netdev.org/include/linux/skbuff.h netdev.ipv6_tso/include/linux/skbuff.h
-> > --- netdev.org/include/linux/skbuff.h   2006-06-27 07:30:36.000000000 -0700
-> > +++ netdev.ipv6_tso/include/linux/skbuff.h      2006-06-27 07:38:48.000000000 -0700
-> > @@ -170,8 +170,9 @@ enum {
-> > };
-> > 
-> > enum {
-> > -       SKB_GSO_TCPV4 = 1 << 0,
-> > -       SKB_GSO_UDPV4 = 1 << 1,
-> > +       SKB_GSO_TCP = 1 << 0,
-> > +       SKB_GSO_UDP = 1 << 1,
-> > +       SKB_GSO_TCPV6 = 1 << 2,
-> > };
 > 
-> BTW, you should rediff against Dave's current tree which has a few
-> extra bits there.
+>>I thought that most PCI controllers (that is to say the things bridging 
+>>PCI to the rest of the system) could do prefetching and/or that PCI-X 
+>>(if not PCI, no idea about PCI-e) cards could issue multiple 
+>>transactions anyway?
 > 
-> You should also leave TCPV4 as is and just add the TCPV6 bit.
+> 
+> People doing deep CMT chips have found out that all of that
+> prefetching and store buffering is unnecessary when everything is so
+> tightly integrated.
 
-BTW, does your card handle ECN correctly? If not then we should change
-the new ECN bit to apply to both TCPv4 and TCPv6 since
+Then is prefetching in memcpy really that important to them (BTW besides 
+  Sun/Niagra who are doing "deep CMT"?)
 
-1) We now have a piece of hardware that handles TSO6 and it doesn't do ECN.
-2) It's quite likely that if the NIC can handle ECN in TCPv4 then it can do
-   it in TCPv6.
+> All of the previous UltraSPARC boxes before Niagara had a
+> streaming cache sitting on the PCI controller.  It basically
+> prefetched for reads and collected writes from PCI devices
+> into cacheline sized chunks.
+> 
+> The PCI controller in the current Niagara systems has none of that
+> stuff.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Relying on PCI-X devices to issue multiple requests then?
+
+rick jones
