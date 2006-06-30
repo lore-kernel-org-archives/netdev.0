@@ -1,52 +1,95 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Fri, 30 Jun 2006 16:15:31 +0200
-Message-ID: <20060630141531.GG14627@postel.suug.ch>
-References: <20060628130124.GX1376@postel.suug.ch> <1151502408.5203.94.camel@jzny2> <20060629085111.GY1376@postel.suug.ch> <1151623394.8922.27.camel@jzny2> <20060629233933.GB14627@postel.suug.ch> <1151625826.8922.58.camel@jzny2> <20060630004640.GC14627@postel.suug.ch> <1151629890.8922.121.camel@jzny2> <20060630130811.GE14627@postel.suug.ch> <1151675843.5270.18.camel@jzny2>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: strict isolation of net interfaces
+Date: Fri, 30 Jun 2006 08:20:24 -0600
+Message-ID: <m1veqibu8n.fsf@ebiederm.dsl.xmission.com>
+References: <m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
+	<44A1689B.7060809@candelatech.com>
+	<20060627225213.GB2612@MAIL.13thfloor.at>
+	<1151449973.24103.51.camel@localhost.localdomain>
+	<20060627234210.GA1598@ms2.inr.ac.ru>
+	<m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>
+	<20060628133640.GB5088@MAIL.13thfloor.at>
+	<1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net>
+	<44A450D1.2030405@fr.ibm.com>
+	<20060630023947.GA24726@sergelap.austin.ibm.com>
+	<44A517B4.4010500@fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
+	Cedric Le Goater <clg@fr.ibm.com>,
+	Sam Vilain <sam@vilain.net>, hadi@cyberus.ca,
+	Herbert Poetzl <herbert@13thfloor.at>,
+	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
+	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Andrey Savochkin <saw@swsoft.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Dave Hansen <haveblue@us.ibm.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:34997 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S932486AbWF3OPL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 10:15:11 -0400
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1151675843.5270.18.camel@jzny2>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:43178 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S932702AbWF3OX1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jun 2006 10:23:27 -0400
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
+In-Reply-To: <44A517B4.4010500@fr.ibm.com> (Daniel Lezcano's message of "Fri,
+	30 Jun 2006 14:23:16 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* jamal <hadi@cyberus.ca> 2006-06-30 09:57
-> On Fri, 2006-30-06 at 15:08 +0200, Thomas Graf wrote:
-> > That creates a nice loop on ingress. Upon reentering the
-> > stack with skb->dev set to eth0 again we'll go through the
-> > same ingress filters as the first time and we'll hit ifb0
-> > again over and over. 
-> 
-> loops are taken care of by other metadata. 
+Daniel Lezcano <dlezcano@fr.ibm.com> writes:
 
-Not really, assuming a simple setup such as:
+> Serge E. Hallyn wrote:
+>> Quoting Cedric Le Goater (clg@fr.ibm.com):
+>>
+>>>we could work on virtualizing the net interfaces in the host, map them to
+>>>eth0 or something in the guest and let the guest handle upper network layers ?
+>>>
+>>>lo0 would just be exposed relying on skbuff tagging to discriminate traffic
+>>>between guests.
+>> This seems to me the preferable way.  We create a full virtual net
+>> device for each new container, and fully virtualize the device
+>> namespace.
+>
+> I have a few questions about all the network isolation stuff:
 
-	mirred attached to eth0 redirecting to ifb0
-	mirred attached to ifb0 redirecting to ifb1
+So far I have seen two viable possibilities on the table,
+neither of them involve multiple names for a network device.
 
-will result in:
+layer 3 (filtering the allowed ip addresses at bind time roughly the current vserver).
+  - implementable as a security hook.
+  - Benefit no measurable performance impact.
+  - Downside not many things we can do.
 
-eth0::tcf_mirred()     skb->dev = ifb0, input_dev = eth0
-ifb0::tcf_mirred()     skb->dev = ifb1, input_dev = ifb0
-ifb1::ifb_xmit()       skb->dev = ifb0, input_dev = ifb1, set ncls bit
-ifb0::ifb_xmit()       skb->dev = ifb1, input_dev = ifb0
-ifb1::ifb_xmit()       skb->dev = ifb0, input_dev = ifb1
-...
+layer 2 (What appears to applications a separate instance of the network stack).
+  - Implementable as a namespace.
+  - Each network namespace would have dedicated network devices.
+  - Benefit extremely flexible.
+  - Downside since at least the slow path must examine the packet
+    it has the possibility of slowing down the networking stack.
 
-Oh dear... and we don't even have a ttl to catch this.
 
-> I am going to ignore the patch until we resolve the issue of iif vs
-> input_dev. Why dont we discuss that?
+For me the important characteristics.
+- Allows for application migration, when we take our ip address with us.
+  In particular it allows for importation of addresses assignments
+  mad on other machines.
 
-It's starting to get useless to discuss with you. You agreed in
-your last posting that the 3rd option, being that not caring about
-whether a device might disappear but having a way to check for it,
-is what we agreed on and what makes most sense, yet you fail to see
-that using ifindex is exactly what reflects this descision.
+- No measurable impact on the existing networking when the code
+  is compiled in.
+
+- Clean predictable semantics.
+
+
+This whole debate on network devices show up in multiple network namespaces
+is just silly.  The only reason for wanting that appears to be better management.
+We have deeper issues like can we do a reasonable implementation without a
+network device showing up in multiple namespaces.
+
+I think the reason the debate exists at all is that it is a very approachable
+topic, as opposed to the fundamentals here.
+
+If we can get layer 2 level isolation working without measurable overhead
+with one namespace per device it may be worth revisiting things.  Until
+then it is a side issue at best.
+
+Eric
