@@ -1,129 +1,60 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: strict isolation of net interfaces
-Date: Fri, 30 Jun 2006 17:22:51 +0200
-Message-ID: <44A541CB.9080102@fr.ibm.com>
-References: <m1psgulf4u.fsf@ebiederm.dsl.xmission.com>	<44A1689B.7060809@candelatech.com>	<20060627225213.GB2612@MAIL.13thfloor.at>	<1151449973.24103.51.camel@localhost.localdomain>	<20060627234210.GA1598@ms2.inr.ac.ru>	<m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>	<20060628133640.GB5088@MAIL.13thfloor.at>	<1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net>	<44A450D1.2030405@fr.ibm.com>	<20060630023947.GA24726@sergelap.austin.ibm.com>	<44A517B4.4010500@fr.ibm.com> <m1veqibu8n.fsf@ebiederm.dsl.xmission.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Fri, 30 Jun 2006 08:40:00 -0700
+Message-ID: <44A545D0.6060504@candelatech.com>
+References: <20060628130124.GX1376@postel.suug.ch>	 <1151502408.5203.94.camel@jzny2> <20060629085111.GY1376@postel.suug.ch>	 <1151623394.8922.27.camel@jzny2> <20060629233933.GB14627@postel.suug.ch>	 <1151625826.8922.58.camel@jzny2> <20060630004640.GC14627@postel.suug.ch>	 <1151629890.8922.121.camel@jzny2> <20060630130811.GE14627@postel.suug.ch>	 <1151675843.5270.18.camel@jzny2>  <20060630141531.GG14627@postel.suug.ch> <1151678118.5270.45.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
-	Cedric Le Goater <clg@fr.ibm.com>,
-	Sam Vilain <sam@vilain.net>, hadi@cyberus.ca,
-	Herbert Poetzl <herbert@13thfloor.at>,
-	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
-	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrey Savochkin <saw@swsoft.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: Thomas Graf <tgraf@suug.ch>, Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.uk.ibm.com ([195.212.29.138]:35724 "EHLO
-	mtagate5.uk.ibm.com") by vger.kernel.org with ESMTP id S932393AbWF3PWx
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 11:22:53 -0400
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m1veqibu8n.fsf@ebiederm.dsl.xmission.com>
+Received: from ns2.lanforge.com ([66.165.47.211]:32997 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S1750804AbWF3Pkn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 11:40:43 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1151678118.5270.45.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> Daniel Lezcano <dlezcano@fr.ibm.com> writes:
+jamal wrote:
+> On Fri, 2006-30-06 at 16:15 +0200, Thomas Graf wrote:
+
+>>You agreed in
+>>your last posting that the 3rd option, being that not caring about
+>>whether a device might disappear but having a way to check for it,
+>>is what we agreed on and what makes most sense, 
 > 
 > 
->>Serge E. Hallyn wrote:
+> yes, i recalled that as the last discussion we had.
+> 
+> 
+>>yet you fail to see
+>>that using ifindex is exactly what reflects this descision.
 >>
->>>Quoting Cedric Le Goater (clg@fr.ibm.com):
->>>
->>>
->>>>we could work on virtualizing the net interfaces in the host, map them to
->>>>eth0 or something in the guest and let the guest handle upper network layers ?
->>>>
->>>>lo0 would just be exposed relying on skbuff tagging to discriminate traffic
->>>>between guests.
->>>
->>>This seems to me the preferable way.  We create a full virtual net
->>>device for each new container, and fully virtualize the device
->>>namespace.
->>
->>I have a few questions about all the network isolation stuff:
 > 
-
-It seems these questions are not important.
-
 > 
-> So far I have seen two viable possibilities on the table,
-> neither of them involve multiple names for a network device.
-> 
-> layer 3 (filtering the allowed ip addresses at bind time roughly the current vserver).
->   - implementable as a security hook.
->   - Benefit no measurable performance impact.
->   - Downside not many things we can do.
+> The choice is between using an ifindex and a pointer to the device. 
+> Why is it solvable via an ifindex but not a device pointer?
+> I may have misunderstood you, so look at this as a fresh opportunity to
+> enlighten me. Forget about all the discussion weve had thus far.
 
-What things ? Can you develop please ? Can you give some examples ?
+If you use a pointer, without taking it's reference, then that device
+can go away, and leave you with a stale memory access, ie kernel crash
+or worse.
 
-> 
-> layer 2 (What appears to applications a separate instance of the network stack).
->   - Implementable as a namespace.
+If you take a reference for every packet (which means an atomic op), then
+you slow down every packet, even those that will never use the reference.
 
-what about accessing a NFS mounted outside the container ?
+If you instead use the if-index, then you do not need to take a reference
+for every packet, but only when you actually want to look at that device.
+If the device has since disappeared, then you get a null when trying to find
+by reference, and the code can take appropriate action.  No chance for
+access of stale memory.
 
->   - Each network namespace would have dedicated network devices.
->   - Benefit extremely flexible.
+Ben
 
-For what ? For who ? Do you have examples ?
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
->   - Downside since at least the slow path must examine the packet
->     it has the possibility of slowing down the networking stack.
-
-What is/are the slow path(s) you identified ?
-
-> For me the important characteristics.
-> - Allows for application migration, when we take our ip address with us.
->   In particular it allows for importation of addresses assignments
->   mad on other machines.
-
-Ok for the two methods no ?
-
-> - No measurable impact on the existing networking when the code
->   is compiled in.
-
-You contradict ...
-
-> - Clean predictable semantics.
-
-What that means ? Can you explain, please ?
-
-> This whole debate on network devices show up in multiple network namespaces
-> is just silly.  
-
-The debate is not on the network device show up. The debate is can we 
-have a network isolation ___usable for everybody___ not only for the 
-beauty of having namespaces and for a system container like.
-
-I am not against the network device virtualization or against the 
-namespaces. I am just asking if the namespace is the solution for all 
-the network isolation. Should we nest layer 2 and layer 3 vitualization 
-into namespaces or separate them in order to have the flexibility to 
-choose isolation/performance.
-
-> The only reason for wanting that appears to be better management.
-> We have deeper issues like can we do a reasonable implementation without a
-> network device showing up in multiple namespaces.
-
-Again, I am not against having the network device virtualization. It is 
-a good idea.
-
-> I think the reason the debate exists at all is that it is a very approachable
-> topic, as opposed to the fundamentals here.
-> 
-> If we can get layer 2 level isolation working without measurable overhead
-> with one namespace per device it may be worth revisiting things.  Until
-> then it is a side issue at best.
-
-I agree, so where are the answers of the questions I asked in my 
-previous email ? You said you did some implementation of network 
-isolation with and without namespaces, so you should be able to answer...
-
-
-   -- Daniel
