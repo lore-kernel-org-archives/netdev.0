@@ -1,36 +1,29 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 1/5] remove dead entry in net wan Kconfig
-Date: Fri, 30 Jun 2006 08:57:05 -0400
-Message-ID: <44A51FA1.1080107@garzik.org>
-References: <200606300927.k5U9RJRj001455@shell0.pdx.osdl.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, paulkf@microgate.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: jumbo frames and memory fragmentation
+Date: Fri, 30 Jun 2006 23:01:42 +1000
+Message-ID: <E1FwIcw-00068x-00@gondolin.me.apana.org.au>
+References: <44A421D7.2030609@nortel.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:29365 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932600AbWF3M5M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 08:57:12 -0400
-To: akpm@osdl.org
-In-Reply-To: <200606300927.k5U9RJRj001455@shell0.pdx.osdl.net>
+Received: from [64.62.148.172] ([64.62.148.172]:15876 "EHLO arnor.apana.org.au")
+	by vger.kernel.org with ESMTP id S932068AbWF3NCb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 09:02:31 -0400
+To: cfriesen@nortel.com (Chris Friesen)
+In-Reply-To: <44A421D7.2030609@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@osdl.org wrote:
-> From: Paul Fulghum <paulkf@microgate.com>
+Chris Friesen <cfriesen@nortel.com> wrote:
 > 
-> Remove dead entry from net wan Kconfig and net wan Makefile..  This entry is
-> left over from 2.4 where synclink used syncppp driver directly.  synclink
-> drivers now use generic HDLC
-> 
-> Signed-off-by: Paul Fulghum <paulkf@microgate.com>
-> Signed-off-by: Andrew Morton <akpm@osdl.org>
-> ---
-> 
->  drivers/net/wan/Kconfig  |   12 ------------
->  drivers/net/wan/Makefile |    1 -
->  2 files changed, 13 deletions(-)
+> Anyone have any suggestions on how to improve this?  Upgrading kernels 
+> isn't an option.  I could port back the copybreak stuff fairly easily.
 
-queued this in my stack...
+Either upgrade your kernel or backport the page-splitting code in the
+current tree.  That's really the only sane solution for jumbo packets.
 
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
