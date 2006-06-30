@@ -1,77 +1,57 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull 'zd1211rw' branch of wireless-2.6 (new driver)
-Date: Fri, 30 Jun 2006 12:29:30 -0400
-Message-ID: <44A5516A.3000602@garzik.org>
-References: <20060626212547.GE30706@tuxdriver.com> <20060628004838.GA15906@tuxdriver.com> <20060628173613.GC18914@tuxdriver.com>
+Subject: Re: Please pull 'upstream' branch of wireless-2.6 (revised)
+Date: Fri, 30 Jun 2006 12:31:00 -0400
+Message-ID: <44A551C4.8090208@garzik.org>
+References: <20060626212547.GE30706@tuxdriver.com> <20060628004838.GA15906@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:13499 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932100AbWF3Q3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 12:29:36 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:14779 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932630AbWF3QbE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 12:31:04 -0400
 To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060628173613.GC18914@tuxdriver.com>
+In-Reply-To: <20060628004838.GA15906@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 John W. Linville wrote:
-> For easier review, a tarball of drivers/net/wireless/zd1211rw is available here:
+> On Mon, Jun 26, 2006 at 05:25:52PM -0400, John W. Linville wrote:
 > 
-> 	http://www.kernel.org/pub/linux/kernel/people/linville/zd1211rw.tar.gz
+>> Michael Buesch:
+>>       bcm43xx: suspend MAC while executing long pwork
 > 
->>From Daniel's initial zd1211rw changelog:
+> The above patch ruffled some feathers on netdev.  In the interest of
+> moving things along, I have pulled that patch out of wireless-2.6.
+> I expect it will be back soon, probably with some additional changes
+> to satisfy concerns raised on the mailing list.
 > 
->     [PATCH] ZyDAS ZD1211 USB-WLAN driver
+> NOTE: While I was mucking around, I pulled a bunch of patches from
+> the master branch out into driver-specific branches for adm8211,
+> prism54usb, tiacx, and zd1211rw.  Then I rebuilt the master branch
+> by pulling from the driver branches.  This is intended to ease the
+> merging of individual drivers upstream (e.g. zd1211rw and maybe tiacx
+> in the near future).
 > 
->     There are 60+ USB wifi adapters available on the market based on the ZyDAS
->     ZD1211 chip.
-> 
->     Unlike the predecessor (ZD1201), ZD1211 does not have a hardware MAC, so most
->     data operations are coordinated by the device driver. The ZD1211 chip sits
->     alongside an RF transceiver which is also controlled by the driver. Our driver
->     currently supports 2 RF types, we know of one other available in a few marketed
->     products which we will be supporting soon.
-> 
->     Our driver also supports the newer revision of ZD1211, called ZD1211B. The
->     initialization and RF operations are slightly different for the new revision,
->     but the main difference is 802.11e support. Our driver does not support the
->     QoS features yet, but we think we know how to use them.
-> 
->     This driver is based on ZyDAS's own GPL driver available from www.zydas.com.tw.
->     ZyDAS engineers have been responsive and supportive of our efforts, so thumbs
->     up to them. Additionally, the firmware is redistributable and they have
->     provided device specs.
-> 
->     This driver has been written primarily by Ulrich Kunitz and myself. Graham
->     Gower, Greg KH, Remco and Bryan Rittmeyer have also contributed. The
->     developers of ieee80211 and softmac have made our lives so much easier- thanks
-> 
->     We maintain a small info-page: http://zd1211.ath.cx/wiki/DriverRewrite
-> 
->     If there is enough time for review, we would like to aim for inclusion in
->     2.6.18. The driver works nicely as a STA, and can connect to both open and
->     encrypted networks (we are using software-based encryption for now). We will
->     work towards supporting more advanced features in the future (ad-hoc, master
->     mode, 802.11a, ...).
-> 
-> Please review!
+> Those working off my upstream branch or off Linus' tree should be
+> unaffected.  Anyone who works off my master branch may need to rebase,
+> especially if they want me to be able to pull from them (due to dirty
+> history).  I apologize for the hassle and appreciate your cooperation!
 > 
 > Thanks,
 > 
 > John
-> 
 > ---
 > 
-> The following changes since commit 70a332b048e4d90635dfa47fc5d91cf87b5cc3a5:
->   John W. Linville:
->         softmac: fix build-break from 881ee6999d66c8fc903b429b73bbe6045b38c549
+> The following changes since commit fcc18e83e1f6fd9fa6b333735bf0fcd530655511:
+>   Malcolm Parsons:
+>         uclinux: use PER_LINUX_32BIT in binfmt_flat
 > 
 > are found in the git repository at:
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git zd1211rw
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
 
-pulled, though I would like to see the debug facilities cleaned up
+nothing pulled?
 
 
