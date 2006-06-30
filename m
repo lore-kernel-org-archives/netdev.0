@@ -1,71 +1,114 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Thu, 29 Jun 2006 21:11:26 -0400
-Message-ID: <44A47A3E.5070809@watson.ibm.com>
-References: <44892610.6040001@watson.ibm.com>	<449C2181.6000007@watson.ibm.com>	<20060623141926.b28a5fc0.akpm@osdl.org>	<449C6620.1020203@engr.sgi.com>	<20060623164743.c894c314.akpm@osdl.org>	<449CAA78.4080902@watson.ibm.com>	<20060623213912.96056b02.akpm@osdl.org>	<449CD4B3.8020300@watson.ibm.com>	<44A01A50.1050403@sgi.com>	<20060626105548.edef4c64.akpm@osdl.org>	<44A020CD.30903@watson.ibm.com>	<20060626111249.7aece36e.akpm@osdl.org>	<44A026ED.8080903@sgi.com>	<20060626113959.839d72bc.akpm@osdl.org>	<44A2F50D.8030306@engr.sgi.com>	<20060628145341.529a61ab.akpm@osdl.org>	<44A2FC72.9090407@engr.sgi.com>	<20060629014050.d3bf0be4.pj@sgi.com>	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>	<20060629094408.360ac157.pj@sgi.com>	<20060629110107.2e56310b.akpm@osdl.org>	<44A425A7.2060900@watson.ibm.com>	<20060629123338.0d355297.akpm@osdl.org>	<44A43187.3090307@watson.ibm.com>	<1151621692.89
- 22.4.camel@jzny2>	<44A47285.6060307@watson.ibm.com> <20060629180502.3987a98e.akpm@osdl.or!
- g>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Thu, 29 Jun 2006 21:11:30 -0400
+Message-ID: <1151629890.8922.121.camel@jzny2>
+References: <20060627100309.GU1376@postel.suug.ch>
+	 <1151413670.6516.57.camel@jzny2> <20060628101832.GW1376@postel.suug.ch>
+	 <1151497363.5203.47.camel@jzny2> <20060628130124.GX1376@postel.suug.ch>
+	 <1151502408.5203.94.camel@jzny2> <20060629085111.GY1376@postel.suug.ch>
+	 <1151623394.8922.27.camel@jzny2> <20060629233933.GB14627@postel.suug.ch>
+	 <1151625826.8922.58.camel@jzny2>  <20060630004640.GC14627@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, pj@sgi.com, Valdis.Kletnieks@vt.edu,
-	jlan@engr.sgi.com, balbir@in.ibm.com, csturtiv@sgi.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([195.212.29.135]:60698 "EHLO
-	mtagate2.uk.ibm.com") by vger.kernel.org with ESMTP
-	id S1751372AbWF3BL3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 21:11:29 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060629180502.3987a98e.akpm@osdl.org>
+Received: from mx03.cybersurf.com ([209.197.145.106]:15328 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1751373AbWF3BLd
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 21:11:33 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1Fw7Xn-0001xT-CR
+	for netdev@vger.kernel.org; Thu, 29 Jun 2006 21:11:39 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060630004640.GC14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
+On Fri, 2006-30-06 at 02:46 +0200, Thomas Graf wrote:
+> * jamal <hadi@cyberus.ca> 2006-06-29 20:03
+> > On Fri, 2006-30-06 at 01:39 +0200, Thomas Graf wrote:
+> > > * jamal <hadi@cyberus.ca> 2006-06-29 19:23
+> > 
+> > > > not at all. Let me explain the design intent further below.
+> > > 
+> > > Then let me show you what your code does:
+> > > 
+> > >  [mirred attached to filter on eth0 redirecting to ifb0]
+> > > 
+> > > tcf_mirred():    skb2->input_dev = skb->dev; (skb2->input_dev=eth0)
+> > > ifb_xmit():      skb->dev = skb->input_dev; (skb->dev=eth0)
+> > >                  skb->input_dev = dev; (skb->input_dev=ifb0)
+> > > 
+> > > So when reentering the stack the skb looks like it would be
+> > > on eth0 coming from ifb0. Is that what you wanted? 
+> > 
+> > ok, that looks like egress side of the stack, correct?
+> 
+> No, that's the ingress side leaving ifb again via netif_rx()
+>
+> skb->dev should represent the from/at= and not to=. 
+> 
 
->Shailabh Nagar <nagar@watson.ibm.com> wrote:
->  
->
->>The rates (or upper bounds) that are being discussed here, as of now, 
->>are 1000 exits/sec/CPU for
->>1024 CPU systems. That would be roughly 1M exits/system * 
->>248Bytes/message  = 248 MB/sec.
->>    
->>
->
->I think it's worth differentiating between burst rates and sustained rates
->here.
->
->One could easily imagine 10,000 threads all exiting at once, and the user
->being interested in reliably collecting the results.
->
->But if the machine is _sustaining_ such a high rate then that means that
->these exiting tasks all have a teeny runtime and the user isn't going to be
->interested in the per-thread statistics.
->
->So if we can detect the silly sustained-high-exit-rate scenario then it
->seems to me quite legitimate to do some aggressive data reduction on that. 
->Like, a single message which says "20,000 sub-millisecond-runtime tasks
->exited in the past second" or something.
->  
->
-The "buffering within taskstats" might be a way out then.
-As long as the user is willing to pay the price in terms of memory, we 
-can collect the exiting task's
-taskstats data but not send it immediately (taskstats_cache would grow) 
-unless a high water mark had
-been crossed. Otherwise a timer event would do the sends of accumalated 
-taskstats (not all at once but
-iteratively if necessary).
+Heres what it would look at ingress:
 
-At task exit, despite doing a few rounds of sending of pending data, if 
-netlink were still reporting errors
-then it would be a sign of unsustainable rate and the pending queue 
-could be dropped and a message
-like you suggest could be sent.
+step 0: coming from wire via eth0,
+dev=eth0, input_dev=eth0
 
-Thoughts ?
+step 1: redirect to ifb0, leaving redirect
+dev=ifb0, input_dev=eth0
+
+step 2: leaving ifb0, coming back to ingress side of stack
+
+dev= eth0, input_dev=ifb0
+
+Again, it gets interesting when you have redirection multiple times
+and create loops. It will get more interesting when i submit the code
+for redirecting to ingress.
+The good news is there is very strong consistency.
+I dont know if "at" is the correct description. I visualize it as
+hitting the stack just "at" the point.
+
+when the packet first comes in both from/to point to eth0.
+So the semantics are the same as in egress.
+
+> For egress your code is correct although impossible to guess
+> right due to total lack of a comment where it would make sense
+> and naming that doesn't give any implications.
+> 
+
+There are some simple comments and  I have been trying very hard to
+explain this for a long time.
+Patrick was the last person who tortured me ;-> Perhaps i need to
+write a document. 
+
+> When leaving ifb0 you want for...
+> ... egress:
+>    skb->dev=to (eth0) skb->iif=from (ifb0)
+> ... ingress:
+>    skb->dev=at (ifb0) skb->iif=from (eth0)
+> 
+
+Yes, this is correct. I described the flow of the first one in the
+earlier email and the ingress side.
+Although lets not talk about iif yet. I posed a question earlier on
+which scheme would be better.
+
+> So we move the update to the tasklet and set skb->dev to
+> skb->iif before dev_queue_xmit() and skb->dev = dev (ifb)
+> before calling netif_rx()
+> 
+> Does that fullfil your requirements?
+
+You lost me on what you are trying to achieve. Just restore the line you
+removed in ifb and things would be fine. Lets then settle the issue of
+iif vs input_dev.
+
+cheers,
+jamal
 
 
---Shailabh
 
