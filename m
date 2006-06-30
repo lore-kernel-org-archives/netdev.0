@@ -1,50 +1,55 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Fri, 30 Jun 2006 17:35:05 -0400
-Message-ID: <1151703305.5270.311.camel@jzny2>
-References: <1151625826.8922.58.camel@jzny2>
-	 <20060630004640.GC14627@postel.suug.ch> <1151629890.8922.121.camel@jzny2>
-	 <20060630130811.GE14627@postel.suug.ch> <1151675843.5270.18.camel@jzny2>
-	 <20060630141531.GG14627@postel.suug.ch> <1151678118.5270.45.camel@jzny2>
-	 <20060630163229.GH14627@postel.suug.ch>
-	 <20060630171348.GI14627@postel.suug.ch> <1151701767.5270.289.camel@jzny2>
-	 <20060630212047.GP14627@postel.suug.ch>
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Fri, 30 Jun 2006 17:51:58 -0400
+Message-ID: <1151704319.5270.317.camel@jzny2>
+References: <m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
+	 <44A1689B.7060809@candelatech.com>
+	 <20060627225213.GB2612@MAIL.13thfloor.at>
+	 <1151449973.24103.51.camel@localhost.localdomain>
+	 <20060627234210.GA1598@ms2.inr.ac.ru>
+	 <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>
+	 <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2>
+	 <44A44124.5010602@vilain.net> <1151626552.8922.70.camel@jzny2>
+	 <20060630114551.A20191@castle.nmd.msu.ru> <1151675452.5270.10.camel@jzny2>
+	 <m13bdmbj1b.fsf@ebiederm.dsl.xmission.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Sam Vilain <sam@vilain.net>, Herbert Poetzl <herbert@13thfloor.at>,
+	viro@ftp.linux.org.uk, devel@openvz.org, dev@sw.ru,
+	Andrew Morton <akpm@osdl.org>, clg@fr.ibm.com,
+	serue@us.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Dave Hansen <haveblue@us.ibm.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Andrey Savochkin <saw@swsoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:22987 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S933140AbWF3VfK
+Received: from mx02.cybersurf.com ([209.197.145.105]:34013 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1751206AbWF3VwH
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 17:35:10 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1FwQdt-0007FC-4T
-	for netdev@vger.kernel.org; Fri, 30 Jun 2006 17:35:13 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060630212047.GP14627@postel.suug.ch>
+	Fri, 30 Jun 2006 17:52:07 -0400
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m13bdmbj1b.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-30-06 at 23:20 +0200, Thomas Graf wrote:
-> * jamal <hadi@cyberus.ca> 2006-06-30 17:09
-> > the ref inside the else below after changing input_dev 
+On Fri, 2006-30-06 at 12:22 -0600, Eric W. Biederman wrote:
+
 > 
-> A non-existant iif is already equivalent to !iif since it jumps
-> into the same branch. 
+> Anyway Jamal can you see the problem the aliases present to the implementation?
+> 
 
-I thought 0 was a valid iif as Ben G was pointing - if it is not, you
-are right. 
+I think more than anything i may have a different view of things and no
+code ;-> And you are trying to restore order in the discussion - so my
+wild ideas dont help. If you guys have a meeting somewhere like this
+coming OLS I will come over and disrupt your meeting ;-> I actually have
+attempted to implement things like virtual routers but you guys seem way
+ahead of anywhere i was.
 
-> Grabing a reference is completely pointless,
-> the netdevice represented by skb->iif is at this point until the
-> packet gets queued covered by a reference taken in netif_rx().
-
-You have to consider that this could happen at both ingress and egress.
 
 cheers,
 jamal
+
 
