@@ -1,94 +1,73 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Thu, 29 Jun 2006 20:15:52 -0400
-Message-ID: <1151626552.8922.70.camel@jzny2>
-References: <20060627133849.E13959@castle.nmd.msu.ru>
-	 <44A1149E.6060802@fr.ibm.com> <m1sllqn7cb.fsf@ebiederm.dsl.xmission.com>
-	 <20060627160241.GB28984@MAIL.13thfloor.at>
-	 <m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
-	 <44A1689B.7060809@candelatech.com>
-	 <20060627225213.GB2612@MAIL.13thfloor.at>
-	 <1151449973.24103.51.camel@localhost.localdomain>
-	 <20060627234210.GA1598@ms2.inr.ac.ru>
-	 <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>
-	 <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2>
-	 <44A44124.5010602@vilain.net>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Thu, 29 Jun 2006 20:26:20 -0400
+Message-ID: <1151627180.8922.81.camel@jzny2>
+References: <20060629233933.GB14627@postel.suug.ch>
+	 <20060629.164732.41636454.davem@davemloft.net>
+	 <1151626099.8922.64.camel@jzny2>
+	 <20060629.171215.112621072.davem@davemloft.net>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Poetzl <herbert@13thfloor.at>,
-	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
-	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
-	clg@fr.ibm.com, serue@us.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Andrey Savochkin <saw@swsoft.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+Cc: tgraf@suug.ch, kaber@trash.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:4786 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1750789AbWF3AQD
+Received: from mx02.cybersurf.com ([209.197.145.105]:37348 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S964809AbWF3A0X
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 20:16:03 -0400
-To: Sam Vilain <sam@vilain.net>
-In-Reply-To: <44A44124.5010602@vilain.net>
+	Thu, 29 Jun 2006 20:26:23 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1Fw6q4-0003vx-P0
+	for netdev@vger.kernel.org; Thu, 29 Jun 2006 20:26:28 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060629.171215.112621072.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-30-06 at 09:07 +1200, Sam Vilain wrote:
-> jamal wrote:
-
-> > Makes sense for the host side to have naming convention tied
-> > to the guest. Example as a prefix: guest0-eth0. Would it not
-> > be interesting to have the host also manage these interfaces
-> > via standard tools like ip or ifconfig etc? i.e if i admin up
-> > guest0-eth0, then the user in guest0 will see its eth0 going
-> > up.
+On Thu, 2006-29-06 at 17:12 -0700, David Miller wrote:
+> From: jamal <hadi@cyberus.ca>
+> Date: Thu, 29 Jun 2006 20:08:19 -0400
 > 
-> That particular convention only works if you have network namespaces and
-> UTS namespaces tightly bound. 
-
-that would be one approach. Another less sophisticated approach is to
-have no binding whatsoever, rather some translation table to map two
-unrelated devices. 
-
->  We plan to have them separate - so for
-> that to work, each network namespace could have an arbitrary "prefix"
-> that determines what the interface name will look like from the outside
-> when combined.  We'd have to be careful about length limits.
+> > What am i missing?
+> > on 64bit machine, does it not save 32 bits to use an ifindex as opposed
+> > to the pointer?
 > 
-> And guest0-eth0 doesn't necessarily make sense; it's not really an
-> ethernet interface, more like a tun or something.
+> The objects around it are pointers, which are 64-bit, and thus
+> the 32-bit object gets padded out to 64-bits in the layout of
+> the struct so that the next pointer member can be properly
+> aligned.
+> 
+> It does not change the size of sk_buff at all.
 > 
 
-it wouldnt quiet fit as a tun device. More like a mirror side of the 
-guest eth0 created on the host side 
-i.e a sort of passthrough device with one side visible on the host (send
-from guest0-eth0 is received on eth0 in the guest and vice-versa).
+I see; i take it if things were moved around that may change?
 
-Note this is radically different from what i have heard Andrey and co
-talk about and i dont wanna disturb any shit because there seems to be
-some agreement. But if you address me i respond because it is very
-interesting a topic;->
+> > Yes, it is a bug, but:
+> > dev_hold/put dont work anymore? why do you need an ifindex instead?
+> 
+> You sure you want to do that atomic operation on every single
+> input packet, regardless of whether egress operations are
+> using it or not?
+> 
 
-> So, an equally good convention might be to use sequential prefixes on
-> the host, like "tun", "dummy", or a new prefix - then a property of that
-> is what the name of the interface is perceived to be to those who are in
-> the corresponding network namespace.
->
-> Then the pragmatic question becomes how to correlate what you see from
-> `ip addr list' to guests.
+Can you avoid doing the refcount?
+Note Thomas is doing dev_get_by_index (which will do the atomic ref
+count).
 
-on the host ip addr and the one seen on the guest side are the same.
-Except one is seen (on the host) on guest0-eth0 and another is seen 
-on eth0 (on guest).
-Anyways, ignore what i am saying if it is disrupting the discussion.
+For me the choice is between having the iif and:
+- __get device from ifindex
+- reference dev->something
+
+vs getting the input_dev and
+- reference dev->something
+
+> We should put the cost of features at the actual users, and not
+> impose it upon everyone.
+
+I didnt quiet follow, the ref count seems only needed in the
+redirection, no?
 
 cheers,
-jamal 
-
-
-
+jamal
 
