@@ -1,40 +1,67 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Fri, 30 Jun 2006 02:55:35 +0200
-Message-ID: <20060630005535.GD14627@postel.suug.ch>
-References: <1151626099.8922.64.camel@jzny2> <20060629.171215.112621072.davem@davemloft.net> <1151627180.8922.81.camel@jzny2> <20060629.172948.59656719.davem@davemloft.net> <1151628520.8922.99.camel@jzny2>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
+Date: Thu, 29 Jun 2006 18:05:02 -0700
+Message-ID: <20060629180502.3987a98e.akpm@osdl.org>
+References: <44892610.6040001@watson.ibm.com>
+	<449C2181.6000007@watson.ibm.com>
+	<20060623141926.b28a5fc0.akpm@osdl.org>
+	<449C6620.1020203@engr.sgi.com>
+	<20060623164743.c894c314.akpm@osdl.org>
+	<449CAA78.4080902@watson.ibm.com>
+	<20060623213912.96056b02.akpm@osdl.org>
+	<449CD4B3.8020300@watson.ibm.com>
+	<44A01A50.1050403@sgi.com>
+	<20060626105548.edef4c64.akpm@osdl.org>
+	<44A020CD.30903@watson.ibm.com>
+	<20060626111249.7aece36e.akpm@osdl.org>
+	<44A026ED.8080903@sgi.com>
+	<20060626113959.839d72bc.akpm@osdl.org>
+	<44A2F50D.8030306@engr.sgi.com>
+	<20060628145341.529a61ab.akpm@osdl.org>
+	<44A2FC72.9090407@engr.sgi.com>
+	<20060629014050.d3bf0be4.pj@sgi.com>
+	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
+	<20060629094408.360ac157.pj@sgi.com>
+	<20060629110107.2e56310b.akpm@osdl.org>
+	<44A425A7.2060900@watson.ibm.com>
+	<20060629123338.0d355297.akpm@osdl.org>
+	<44A43187.3090307@watson.ibm.com>
+	<1151621692.8922.4.camel@jzny2>
+	<44A47285.6060307@watson.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kaber@trash.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, pj@sgi.com, Valdis.Kletnieks@vt.edu,
+	jlan@engr.sgi.com, balbir@in.ibm.com, csturtiv@sgi.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:6053 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S964832AbWF3AzP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 20:55:15 -0400
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1151628520.8922.99.camel@jzny2>
+Received: from smtp.osdl.org ([65.172.181.4]:20356 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750704AbWF3BC1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 21:02:27 -0400
+To: Shailabh Nagar <nagar@watson.ibm.com>
+In-Reply-To: <44A47285.6060307@watson.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* jamal <hadi@cyberus.ca> 2006-06-29 20:48
-> the ifb references it; only mirred redirects to the ifb at the moment.
-> You would need to increment in mirred, no?
-> Why do i feel i am missing something? ;->
+Shailabh Nagar <nagar@watson.ibm.com> wrote:
+>
+> The rates (or upper bounds) that are being discussed here, as of now, 
+> are 1000 exits/sec/CPU for
+> 1024 CPU systems. That would be roughly 1M exits/system * 
+> 248Bytes/message  = 248 MB/sec.
 
-The point is to avoid having an atomic operation for every packet
-when setting iif in netif_receive_skb(). If it was only for
-mirred nobody would complain I guess.
+I think it's worth differentiating between burst rates and sustained rates
+here.
 
-> I think whether it becomes ifindex or pointer you need to increment the
-> refcounter. and decrement somewhere.
-> The challenge for me is a choice to use more cycles if you use ifindex
-> vs less cycles with a pointer. The advantage for going with ifindex
-> would be to save those bits(if you rearrange). The question is which is
-> reasonable?;->
+One could easily imagine 10,000 threads all exiting at once, and the user
+being interested in reliably collecting the results.
 
-The third choice is to just don't care if the interface goes away
-but have a chance to figure it out and just assume as if it would
-have never been set. The number of devices that can disappear w/o
-user control is very very limited and not worth an atomic operation
-for every single packet.
+But if the machine is _sustaining_ such a high rate then that means that
+these exiting tasks all have a teeny runtime and the user isn't going to be
+interested in the per-thread statistics.
+
+So if we can detect the silly sustained-high-exit-rate scenario then it
+seems to me quite legitimate to do some aggressive data reduction on that. 
+Like, a single message which says "20,000 sub-millisecond-runtime tasks
+exited in the past second" or something.
+
