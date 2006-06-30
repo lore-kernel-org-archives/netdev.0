@@ -1,120 +1,81 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Thu, 29 Jun 2006 23:01:44 -0400
-Message-ID: <44A49418.5080103@watson.ibm.com>
-References: <44892610.6040001@watson.ibm.com>	 <20060623164743.c894c314.akpm@osdl.org>	 <449CAA78.4080902@watson.ibm.com>	<20060623213912.96056b02.akpm@osdl.org>	 <449CD4B3.8020300@watson.ibm.com>	<44A01A50.1050403@sgi.com>	 <20060626105548.edef4c64.akpm@osdl.org>	<44A020CD.30903@watson.ibm.com>	 <20060626111249.7aece36e.akpm@osdl.org>	<44A026ED.8080903@sgi.com>	 <20060626113959.839d72bc.akpm@osdl.org>	<44A2F50D.8030306@engr.sgi.com>	 <20060628145341.529a61ab.akpm@osdl.org>	<44A2FC72.9090407@engr.sgi.com>	 <20060629014050.d3bf0be4.pj@sgi.com>	 <200606291230.k5TCUg45030710@turing-police.cc.vt.edu>	 <20060629094408.360ac157.pj@sgi.com>	 <20060629110107.2e56310b.akpm@osdl.org>	<44A425A7.2060900@watson.ibm.com>	 <20060629123338.0d355297.akpm@osdl.org>	<44A43187.3090307@watson.ibm.com>	 <1151621692.8922.4.camel@jzny2>	<44A47285.6060307@watson.ibm.com>	 <20060629180502.3987a98e.akpm@osdl.or! g
- > <44A47A3E.5070809@watson.ibm.com> <1151631048.8922.139.camel@jzny2>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] improved statistics for bcm43xx-softmac
+Date: Thu, 29 Jun 2006 22:07:58 -0500
+Message-ID: <44A4958E.6040701@lwfinger.net>
+References: <44A3524C.40704@lwfinger.net> <1151614610.15090.30.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	csturtiv@sgi.com, balbir@in.ibm.com, jlan@engr.sgi.com,
-	Valdis.Kletnieks@vt.edu, pj@sgi.com, Andrew Morton <akpm@osdl.org>
+Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([195.212.29.139]:60621 "EHLO
-	mtagate6.uk.ibm.com") by vger.kernel.org with ESMTP id S964933AbWF3DBs
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 23:01:48 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1151631048.8922.139.camel@jzny2>
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:34793 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S964938AbWF3DID (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 23:08:03 -0400
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1151614610.15090.30.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
+Dan Williams wrote:
 
->On Thu, 2006-29-06 at 21:11 -0400, Shailabh Nagar wrote:
->  
->
->>Andrew Morton wrote:
->>
->>    
->>
->>>Shailabh Nagar <nagar@watson.ibm.com> wrote:
->>>      
->>>
->[..]
->  
->
->>>So if we can detect the silly sustained-high-exit-rate scenario then it
->>>seems to me quite legitimate to do some aggressive data reduction on that. 
->>>Like, a single message which says "20,000 sub-millisecond-runtime tasks
->>>exited in the past second" or something.
->>> 
->>>
->>>      
->>>
->>The "buffering within taskstats" might be a way out then.
->>    
->>
->
->Thats what it looks like.
->
->  
->
->>As long as the user is willing to pay the price in terms of memory,
->>    
->>
->
->You may wanna draw a line to the upper limit - maybe even allocate slab
->space.
->  
->
-Didn't quite understand...could you please elaborate ?
-Today we have a slab cache from which the taskstats structure gets 
-allocated at the beginning
-of the exit() path.
-The upper limit to which you refer is the amount of slab memory the user 
-is willing to be used
-to store the bursty traffic ?
-
-
->> we can collect the exiting task's taskstats data but not send it 
->>immediately (taskstats_cache would grow) 
->>unless a high water mark had been crossed. Otherwise a timer event would do the 
->>sends of accumalated  taskstats (not all at once but
->>iteratively if necessary).
->>
->>    
->>
->
->Sounds reasonable. Thats what xfrm events do. 
->
-
->Try to have those
->parameters settable because different machines or users may have
->different view as to what is proper - maybe even as simple as sysctl.
->  
->
-Sounds good.
-
->  
->
->>At task exit, despite doing a few rounds of sending of pending data, if 
->>netlink were still reporting errors
->>then it would be a sign of unsustainable rate and the pending queue 
->>could be dropped and a message like you suggest could be sent.
->>
->>    
->>
->
->When you send inside the kernel - you will get an error if there's
->problems sending to the socket queue. So you may wanna use that info
->to release the kernel allocated entries or keep them for a little
->longer.
->
->Hopefully that helps.
->  
->
-Yes it does. Thanks for the tips.
-
-Will code up something and send out so this can become more concrete.
-
---Shailabh
-
->cheers,
->jamal
+> To me, it looks like you're trying to use dBm rather than RSSI here.  In
+> that case, you have to set range->max_qual.level to 0, because the upper
+> bound of dBm is indeed 0.  If you are using negative values _anywhere_
+> in your code for quality, you're almost certainly using dBm, not RSSI,
+> or something is very wrong.
+> Print out the value of 'average' from handle_irq_noise() both when close
+> and far away from the AP.  It looks to me like the final calculations
+> there come out in dBm given the fact that (a) average is negative, and
+> (b) that average is in the range of acceptable dBm numbers.  So:
 > 
->
->  
->
+> 1. set your stats->max_qual.level = 0
+> 2. set bcm->stats.link_quality = average
+> 3. Do link quality calculation on signal and noise; you can't just be
+> linear here though, since a noise floor of -100 with a signal of -90 is
+> in reality better than 10% signal; it's actually pretty OK.  Each -1 dBm
+> step near the noise floor counts for more % than a -1 dBm increase near
+> the best signal level.  You have to weight the bottom of the scale WRT
+> percentage to get values that make sense.
+
+Thanks for explaining how to get dBm into these fields. The comments in include/linux/wireless.h are 
+confusing.
+
+The quantity listed in stats.rssi has been processed into a dBm value in a routine called 
+bcm43xx_rssi_postprocess, which I need to mention in the comments. The calculation is more black 
+magic from the clean-room group's reverse engineering of the Mips driver. I changed the name of the 
+constant from RSSI_MAX to RX_POWER_MAX, which I estimate to be -10 dBm (see below).
+
+As I move away from the AP, I get the following results:
+
+Dist.	"rssi"	"average"	Link Quality	Notes
+
+.3 m	-14	-64		96/100		Nearly on top of AP
+  2 m	-27	-62		83/100		Direct line of sight
+15 m	-55	-65		55/100		Bounce down hallway and/or through wall
+20 m	-66	-66		44/100		Like 15m point, but through plate glass window
+						 - 35% packet loss with ping
+
+The "Link Quality" above comes from 100 - "rssi" - RX_POWER_MAX, where RX_POWER_MAX is -10.
+
+As "average" does not change, clearly the link quality cannot be derived from that value. It seems 
+to me that the processed value in the stats.rssi field is not too bad an estimate of the qual.level 
+(in dBm). The value from "average" is also not a good estimate of the noise, but it is the best I 
+have at the moment. Clearly, the reported value of qual.qual (Link quality) needs to be adjusted
+
+> ipw2200 for example reports -53 dBm near the AP, with noise floor of -83
+> dBm in a fairly spectrum-crowded area.  That translates into what
+> ipw2200 reports as a 75% signal, which seems a bit off, but gives you an
+> idea.  You'll never get near 0 dBm, since there's already 10s of dBm
+> loss when the signal has to cross any air at all.
+
+I'm now getting a similar result with an 85% signal at 2 m. The main difference is that both signal 
+and noise seem to be shifted up by about 20 dBm. As these are logarithmic quantities, S/N is 
+preserved through this offset. My feeling is that these statistics have no absolute meaning, but are 
+good as relative indicators. When the left-most bar in the Wireless Network Information applet in 
+the KDE taskbar changes from green to yellow, I know that the signal is degraded.
+
+Thanks for your comments. They made me dig a lot deeper into the numbers.
+
+Larry
 
