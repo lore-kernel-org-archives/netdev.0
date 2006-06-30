@@ -1,129 +1,137 @@
-From: Herbert Poetzl <herbert@13thfloor.at>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Fri, 30 Jun 2006 05:35:55 +0200
-Message-ID: <20060630033555.GA18974@MAIL.13thfloor.at>
-References: <m1psgulf4u.fsf@ebiederm.dsl.xmission.com> <44A1689B.7060809@candelatech.com> <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net> <1151626552.8922.70.camel@jzny2>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] (revised) improved statistics for bcm43xx-softmac
+Date: Thu, 29 Jun 2006 22:48:59 -0500
+Message-ID: <44A49F2B.30609@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sam Vilain <sam@vilain.net>, Alexey Kuznetsov <alexey@sw.ru>,
-	viro@ftp.linux.org.uk, devel@openvz.org, dev@sw.ru,
-	Andrew Morton <akpm@osdl.org>, clg@fr.ibm.com,
-	serue@us.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Andrey Savochkin <saw@swsoft.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MAIL.13thfloor.at ([212.16.62.50]:24258 "EHLO mail.13thfloor.at")
-	by vger.kernel.org with ESMTP id S1750806AbWF3Df6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 23:35:58 -0400
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1151626552.8922.70.camel@jzny2>
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:56238 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1750838AbWF3DtE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 23:49:04 -0400
+To: netdev@vger.kernel.org, John Linville <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 29, 2006 at 08:15:52PM -0400, jamal wrote:
-> On Fri, 2006-30-06 at 09:07 +1200, Sam Vilain wrote:
-> > jamal wrote:
-> 
-> > > Makes sense for the host side to have naming convention tied
-> > > to the guest. Example as a prefix: guest0-eth0. Would it not
-> > > be interesting to have the host also manage these interfaces
-> > > via standard tools like ip or ifconfig etc? i.e if i admin up
-> > > guest0-eth0, then the user in guest0 will see its eth0 going
-> > > up.
-> > 
-> > That particular convention only works if you have network namespaces
-> > and UTS namespaces tightly bound.
-> 
-> that would be one approach. Another less sophisticated approach is to
-> have no binding whatsoever, rather some translation table to map two
-> unrelated devices. 
-> 
-> >  We plan to have them separate - so for
-> > that to work, each network namespace could have an arbitrary
-> > "prefix" that determines what the interface name will look like from
-> > the outside when combined. We'd have to be careful about length
-> > limits.
-> >
-> > And guest0-eth0 doesn't necessarily make sense; it's not really an
-> > ethernet interface, more like a tun or something.
-> 
-> it wouldnt quiet fit as a tun device. More like a mirror side of the 
-> guest eth0 created on the host side 
-> i.e a sort of passthrough device with one side visible on the host (send
-> from guest0-eth0 is received on eth0 in the guest and vice-versa).
-> 
-> Note this is radically different from what i have heard Andrey and co
-> talk about and i dont wanna disturb any shit because there seems to be
-> some agreement. But if you address me i respond because it is very
-> interesting a topic;->
+This patch improves the statistics returned from bcm43xx_get_wireless_stats. The signal level comes
+from smoothing the "rssi" value returned by the firmware after it is converted into a dBm value by 
+the driver. The quality value is a hack derived from the smoothed level and an assumed RX_POWER_MAX 
+of -10 dBM. The noise value is still the one calculated from the clean-room formula. On my system, 
+this is roughly -65 dBm, which seems too high.
 
-thing is, we have several things we should care about
-and some of them 'look' or 'sound' similar, although
-they are not really ... I'll try to clarify
+The revised version uses the ieee80211 spinlock to protect traversing of the network list.
 
- first, we want to have 'per guest' interfaces, which
- do not clash with any interfaces on the host or in
- other guests
+Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
 
- then, we want to 'connect' them, implicitely or 
- explicetly with 'other' interfaces or devices inside
- other guests or on the host, here we have the following
- cases (some are a little special):
+=======================================================
 
- - lo interface, guest and host private (by default)
- - tap/tun interfaces, again host/guest private
- - tun like interfaces between host and guests
- - tun like interfaces between guests
- - 'normal' interfaces mapped into guests
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+index 1cd47c5..4c55c2c 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -1581,17 +1581,9 @@ static void handle_irq_noise(struct bcm4
+  		else
+  			average -= 48;
 
- on the traffic side we have the following cases:
+-/* FIXME: This is wrong, but people want fancy stats. well... */
+-bcm->stats.noise = average;
+-		if (average > -65)
+-			bcm->stats.link_quality = 0;
+-		else if (average > -75)
+-			bcm->stats.link_quality = 1;
+-		else if (average > -85)
+-			bcm->stats.link_quality = 2;
+-		else
+-			bcm->stats.link_quality = 3;
+-//		dprintk(KERN_INFO PFX "Link Quality: %u (avg was %d)\n", bcm->stats.link_quality, average);
++/* FIXME: This matches the formula from http://bcm-specs.sipsolutions.net/LinkQuality,
++          but yields a value that is probably too large. */
++		bcm->stats.noise = average;
+  drop_calculation:
+  		bcm->noisecalc.calculation_running = 0;
+  		return;
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+index 5c36e29..66bfeee 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+@@ -47,6 +47,8 @@ #include "bcm43xx_phy.h"
+  #define BCM43xx_WX_VERSION	18
 
- - local traffic on the host
- - local traffic on the guest
- - local traffic between host and guest
- - local traffic between guests
- - routed traffic from guest via host
- - bridged traffic from guest via host
+  #define MAX_WX_STRING		80
++/* FIXME: the next line is a guess as to what the maximum value of RX power (in dBm) might be */
++#define RX_POWER_MAX		-10
 
- special cases here would be tun/tap traffic inside
- a guest, but that can be considered local too
 
-> > So, an equally good convention might be to use sequential prefixes
-> > on the host, like "tun", "dummy", or a new prefix - then a property
-> > of that is what the name of the interface is perceived to be to
-> > those who are in the corresponding network namespace.
-> >
-> > Then the pragmatic question becomes how to correlate what you see
-> > from `ip addr list' to guests.
-> 
-> on the host ip addr and the one seen on the guest side are the same.
-> Except one is seen (on the host) on guest0-eth0 and another is seen 
-> on eth0 (on guest).
+  static int bcm43xx_wx_get_name(struct net_device *net_dev,
+@@ -227,15 +229,15 @@ static int bcm43xx_wx_get_rangeparams(st
 
-this depends on the way the interfaces are handled
-and how they actually work, means:
+  	range->max_qual.qual = 100;
+  	/* TODO: Real max RSSI */
+-	range->max_qual.level = 3;
+-	range->max_qual.noise = 100;
+-	range->max_qual.updated = 7;
+-
+-	range->avg_qual.qual = 70;
+-	range->avg_qual.level = 2;
+-	range->avg_qual.noise = 40;
+-	range->avg_qual.updated = 7;
+-
++	range->max_qual.level = 0;
++	range->max_qual.noise = 0;
++	range->max_qual.updated = IW_QUAL_ALL_UPDATED;
++
++	range->avg_qual.qual = 50;
++	range->avg_qual.level = 0;
++	range->avg_qual.noise = 0;
++	range->avg_qual.updated = IW_QUAL_ALL_UPDATED;
++
+  	range->min_rts = BCM43xx_MIN_RTS_THRESHOLD;
+  	range->max_rts = BCM43xx_MAX_RTS_THRESHOLD;
+  	range->min_frag = MIN_FRAG_THRESHOLD;
+@@ -827,6 +829,9 @@ static struct iw_statistics *bcm43xx_get
+  	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+  	struct ieee80211softmac_device *mac = ieee80211_priv(net_dev);
+  	struct iw_statistics *wstats;
++	struct ieee80211_network *network = NULL;
++	static int tmp_level = 0;
++	unsigned long flags;
 
- if the interfaces _solely_ work via routing or
- bridging, then the 'host' end has to exist and be
- visible similar to 'normal' interfaces
+  	wstats = &bcm->stats.wstats;
+  	if (!mac->associated) {
+@@ -844,16 +849,25 @@ static struct iw_statistics *bcm43xx_get
+  		wstats->qual.level = 0;
+  		wstats->qual.noise = 0;
+  		wstats->qual.updated = 7;
+-		wstats->qual.updated |= IW_QUAL_NOISE_INVALID |
+-			IW_QUAL_QUAL_INVALID | IW_QUAL_LEVEL_INVALID;
++		wstats->qual.updated |= IW_QUAL_ALL_UPDATED;
+  		return wstats;
+  	}
+  	/* fill in the real statistics when iface associated */
+-	wstats->qual.qual = 100;     // TODO: get the real signal quality
+-	wstats->qual.level = 3 - bcm->stats.link_quality;
++	spin_lock_irqsave(&mac->ieee->lock, flags);
++	list_for_each_entry(network, &mac->ieee->network_list, list) {
++		if (!memcmp(mac->associnfo.bssid, network->bssid, ETH_ALEN)) {
++			if (!tmp_level)		/* get initial value */
++				tmp_level = network->stats.rssi;
++			else			/* smooth results */
++				tmp_level = (7 * tmp_level + network->stats.rssi)/8;
++			break;
++		}
++	}
++	spin_unlock_irqrestore(&mac->ieee->lock, flags);
++	wstats->qual.level = tmp_level;
++	wstats->qual.qual = 100 + tmp_level - RX_POWER_MAX; // TODO: get the real signal quality
+  	wstats->qual.noise = bcm->stats.noise;
+-	wstats->qual.updated = IW_QUAL_QUAL_UPDATED | IW_QUAL_LEVEL_UPDATED |
+-			IW_QUAL_NOISE_UPDATED;
++	wstats->qual.updated = IW_QUAL_ALL_UPDATED;
+  	wstats->discard.code = bcm->ieee->ieee_stats.rx_discards_undecryptable;
+  	wstats->discard.retries = bcm->ieee->ieee_stats.tx_retry_limit_exceeded;
+  	wstats->discard.nwid = bcm->ieee->ieee_stats.tx_discards_wrong_sa;
 
- if the traffic is (magically) mapped from guest
- interfaces to real (outside) host interfaces, we
- might want the same view as the guest has 
- (i.e. basically a 'copy' which is not real)
 
-> Anyways, ignore what i am saying if it is disrupting the discussion.
 
-IMHO input is always welcome .. helps the folks to
-do better thinking :)
-
-> cheers,
-> jamal 
-> 
-> 
-> 
+=======================
