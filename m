@@ -1,93 +1,50 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Fri, 30 Jun 2006 10:35:18 -0400
-Message-ID: <1151678118.5270.45.camel@jzny2>
-References: <20060628130124.GX1376@postel.suug.ch>
-	 <1151502408.5203.94.camel@jzny2> <20060629085111.GY1376@postel.suug.ch>
-	 <1151623394.8922.27.camel@jzny2> <20060629233933.GB14627@postel.suug.ch>
-	 <1151625826.8922.58.camel@jzny2> <20060630004640.GC14627@postel.suug.ch>
-	 <1151629890.8922.121.camel@jzny2> <20060630130811.GE14627@postel.suug.ch>
-	 <1151675843.5270.18.camel@jzny2>  <20060630141531.GG14627@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Arjan van de Ven <arjan@linux.intel.com>
+Subject: Re: [patch] work around/fix deadlock in the bcm43xx driver by making
+ netlink irq safe
+Date: Fri, 30 Jun 2006 16:45:44 +0200
+Message-ID: <44A53918.2020700@linux.intel.com>
+References: <1151677494.11434.47.camel@laptopd505.fenrus.org> <44A536BE.6020209@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:12977 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932787AbWF3Ofc
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 10:35:32 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1FwK5k-00026l-IN
-	for netdev@vger.kernel.org; Fri, 30 Jun 2006 10:35:32 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060630141531.GG14627@postel.suug.ch>
+Received: from fmr17.intel.com ([134.134.136.16]:6343 "EHLO
+	orsfmr002.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1751268AbWF3OqL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jun 2006 10:46:11 -0400
+To: Joseph Jezak <josejx@gentoo.org>
+In-Reply-To: <44A536BE.6020209@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-30-06 at 16:15 +0200, Thomas Graf wrote:
-> * jamal <hadi@cyberus.ca> 2006-06-30 09:57
-> > On Fri, 2006-30-06 at 15:08 +0200, Thomas Graf wrote:
-> > > That creates a nice loop on ingress. Upon reentering the
-> > > stack with skb->dev set to eth0 again we'll go through the
-> > > same ingress filters as the first time and we'll hit ifb0
-> > > again over and over. 
-> > 
-> > loops are taken care of by other metadata. 
-> 
-> Not really, assuming a simple setup such as:
-> 
-> 	mirred attached to eth0 redirecting to ifb0
-> 	mirred attached to ifb0 redirecting to ifb1
-> 
-> will result in:
-> 
-> eth0::tcf_mirred()     skb->dev = ifb0, input_dev = eth0
-> ifb0::tcf_mirred()     skb->dev = ifb1, input_dev = ifb0
-> ifb1::ifb_xmit()       skb->dev = ifb0, input_dev = ifb1, set ncls bit
-> ifb0::ifb_xmit()       skb->dev = ifb1, input_dev = ifb0
-> ifb1::ifb_xmit()       skb->dev = ifb0, input_dev = ifb1
-> ...
-> 
-> Oh dear... and we don't even have a ttl to catch this.
+Joseph Jezak wrote:
+> Can you provide the details to the list?  I'll look into getting
+> SoftMAC fixed if you do.
 > 
 
-Did you actually try to run this before you reached this conclusion?
+sure
+the basic issue is that bcm43xx does it's rx processing in a softirq, and 
+holds the bcm->irq_lock during that time. The rx processing calls into the 
+softmac layer, which in turn calls into netlink.
 
-> > I am going to ignore the patch until we resolve the issue of iif vs
-> > input_dev. Why dont we discuss that?
-> 
-> It's starting to get useless to discuss with you. 
+With this you can get a deadlock that looks like this
+  cpu 0: user context                           |cpu1: softirq context
+     netlink_table_grab takes nl_table_lock as  |take bcm->irq_lock in
+     write_lock_bh, but leaves irqs enabled     |bcm43xx_interrupt_tasklet()
+                                                |which then in a few steps
+                                                |leads to a call to
+                                                |bcm43xx_rx
 
-sigh.
-ok, why dont you take a deep breath or a break because i think we are
-not going to make any progress this way. I know you may be feeling
-frustrated but i am equally if not more frustrated as well.
-Our conflict comes in the fact that you are trying to change the
-architecture in the name of fixing bugs. 
-With all due respect, the architecture works. I have invested many many
-hours testing and verifying. There may be coding bugs - and those need
-fixing. Kill the bugs.
 
-> You agreed in
-> your last posting that the 3rd option, being that not caring about
-> whether a device might disappear but having a way to check for it,
-> is what we agreed on and what makes most sense, 
+     hardirq comes in and the isr tries to take |in bcm43xx_rx, call
+     bcm->irq_lock but has to wait on cpu 1     |ieee80211_rx_mgt which
+                                                |leads to a call to
+                                                |wireless_send_event which
+                                                |tries to take nl_table_lock
+                                                |for read but has to wait
+                                                |for cpu0
 
-yes, i recalled that as the last discussion we had.
-
-> yet you fail to see
-> that using ifindex is exactly what reflects this descision.
-> 
-
-The choice is between using an ifindex and a pointer to the device. 
-Why is it solvable via an ifindex but not a device pointer?
-I may have misunderstood you, so look at this as a fresh opportunity to
-enlighten me. Forget about all the discussion weve had thus far.
-
-cheers,
-jamal
-
+according to Michael Buesch, the softmac layer should queue the packet 
+internally for another softirq, similar to what DeviceScape does, so that 
+the rx softirq can just drop all packets quickly and drop its locks.
