@@ -1,40 +1,46 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Fri, 30 Jun 2006 15:43:38 +0200
-Message-ID: <44A52A8A.2000507@6wind.com>
-References: <20060628130124.GX1376@postel.suug.ch> <1151502408.5203.94.camel@jzny2> <20060629085111.GY1376@postel.suug.ch> <1151623394.8922.27.camel@jzny2> <20060629233933.GB14627@postel.suug.ch> <1151625826.8922.58.camel@jzny2> <20060630004640.GC14627@postel.suug.ch> <1151629890.8922.121.camel@jzny2> <20060630130811.GE14627@postel.suug.ch> <44A52435.20909@6wind.com> <20060630133658.GF14627@postel.suug.ch>
-Reply-To: nicolas.dichtel@6wind.com
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [NETROM] Use socket helpers instead of direct fiddling with struct sock
+Date: Fri, 30 Jun 2006 14:46:48 +0100
+Message-ID: <20060630134648.GA12586@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jamal <hadi@cyberus.ca>, Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:10258 "EHLO
-	proxy.6wind.com") by vger.kernel.org with ESMTP id S1751001AbWF3Nnk
+Received: from ftp.linux-mips.org ([194.74.144.162]:16614 "EHLO
+	ftp.linux-mips.org") by vger.kernel.org with ESMTP id S932624AbWF3Nqu
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 09:43:40 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060630133658.GF14627@postel.suug.ch>
+	Fri, 30 Jun 2006 09:46:50 -0400
+Received: from localhost.localdomain ([127.0.0.1]:59318 "EHLO bacchus.dhis.org")
+	by ftp.linux-mips.org with ESMTP id S3686805AbWF3Nqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 14:46:49 +0100
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf a =E9crit :
-> * Nicolas Dichtel <nicolas.dichtel@6wind.com> 2006-06-30 15:16
->>> That creates a nice loop on ingress. Upon reentering the
->>> stack with skb->dev set to eth0 again we'll go through the
->>> same ingress filters as the first time and we'll hit ifb0
->>> again over and over. Are you suggesting everyone has to
->>> insert a pass action matching input_dev in order to escape
->>> the loop when using ifb?
->> Bit 8 of skb->tc_verd is set by IFB, so packet isn't reclassify.
->> This bit avoid the loop.
->
-> Right, my mistake. Just making classification impossible after
-> going through an ifb device certainly seems like a perfect
-> idea, nice!
-Classification has already be done on the first pass. Mirror
-action must be the last classifier.
+Signed-off-by: Ralf Baechle DL5RB <ralf@linux-mips.org>
 
-Nicolas
+ net/netrom/af_netrom.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+Index: linux-net/net/netrom/af_netrom.c
+===================================================================
+--- linux-net.orig/net/netrom/af_netrom.c	2006-06-23 22:40:26.000000000 +0100
++++ linux-net/net/netrom/af_netrom.c	2006-06-23 22:43:14.000000000 +0100
+@@ -801,7 +801,7 @@ static int nr_accept(struct socket *sock
+ 
+ 	/* Now attach up the new socket */
+ 	kfree_skb(skb);
+-	sk->sk_ack_backlog--;
++	sk_acceptq_removed(sk);
+ 	newsock->sk = newsk;
+ 
+ out:
+@@ -986,7 +986,7 @@ int nr_rx_frame(struct sk_buff *skb, str
+ 	nr_make->vr        = 0;
+ 	nr_make->vl        = 0;
+ 	nr_make->state     = NR_STATE_3;
+-	sk->sk_ack_backlog++;
++	sk_acceptq_added(sk);
+ 
+ 	nr_insert_socket(make);
+ 
