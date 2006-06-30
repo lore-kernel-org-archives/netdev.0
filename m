@@ -1,43 +1,137 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Sat, 1 Jul 2006 01:22:14 +0200
-Message-ID: <20060630232214.GQ14627@postel.suug.ch>
-References: <1151629890.8922.121.camel@jzny2> <20060630130811.GE14627@postel.suug.ch> <1151675843.5270.18.camel@jzny2> <20060630141531.GG14627@postel.suug.ch> <1151678118.5270.45.camel@jzny2> <20060630163229.GH14627@postel.suug.ch> <20060630171348.GI14627@postel.suug.ch> <1151701767.5270.289.camel@jzny2> <20060630212047.GP14627@postel.suug.ch> <1151703305.5270.311.camel@jzny2>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: [PATCH] IOAT: fix header file kernel-doc
+Date: Fri, 30 Jun 2006 16:28:30 -0700
+Message-ID: <20060630162830.f6c72a5a.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, akpm <akpm@osdl.org>,
+	christopher.leech@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:24769 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S932289AbWF3XVx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 19:21:53 -0400
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1151703305.5270.311.camel@jzny2>
+Received: from xenotime.net ([66.160.160.81]:56220 "HELO xenotime.net")
+	by vger.kernel.org with SMTP id S932289AbWF3XZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 19:25:45 -0400
+Received: from midway.site ([71.245.108.25]) by xenotime.net for <netdev@vger.kernel.org>; Fri, 30 Jun 2006 16:25:43 -0700
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is boring, I reversed everything to not change any semantics and
-you still complain.
+From: Randy Dunlap <rdunlap@xenotime.net>
 
-* jamal <hadi@cyberus.ca> 2006-06-30 17:35
-> On Fri, 2006-30-06 at 23:20 +0200, Thomas Graf wrote:
-> > * jamal <hadi@cyberus.ca> 2006-06-30 17:09
-> > > the ref inside the else below after changing input_dev 
-> > 
-> > A non-existant iif is already equivalent to !iif since it jumps
-> > into the same branch. 
-> 
-> I thought 0 was a valid iif as Ben G was pointing - if it is not, you
-> are right. 
+Fix kernel-doc problems in include/linux/dmaengine.h:
+- add some fields/parameters
+- expand some descriptions
+- fix typos
 
-No, 1 ist the first valid ifindex, see dev_new_index().
+Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+---
+ include/linux/dmaengine.h |   43 +++++++++++++++++++++++++------------------
+ 1 files changed, 25 insertions(+), 18 deletions(-)
 
-> > Grabing a reference is completely pointless,
-> > the netdevice represented by skb->iif is at this point until the
-> > packet gets queued covered by a reference taken in netif_rx().
-> 
-> You have to consider that this could happen at both ingress and egress.
+--- linux-2617-g13.orig/include/linux/dmaengine.h
++++ linux-2617-g13/include/linux/dmaengine.h
+@@ -44,7 +44,7 @@ enum dma_event {
+ };
+ 
+ /**
+- * typedef dma_cookie_t
++ * typedef dma_cookie_t - an opaque DMA cookie
+  *
+  * if dma_cookie_t is >0 it's a DMA request cookie, <0 it's an error code
+  */
+@@ -80,14 +80,14 @@ struct dma_chan_percpu {
+ 
+ /**
+  * struct dma_chan - devices supply DMA channels, clients use them
+- * @client: ptr to the client user of this chan, will be NULL when unused
+- * @device: ptr to the dma device who supplies this channel, always !NULL
++ * @client: ptr to the client user of this chan, will be %NULL when unused
++ * @device: ptr to the dma device who supplies this channel, always !%NULL
+  * @cookie: last cookie value returned to client
+- * @chan_id:
+- * @class_dev:
++ * @chan_id: channel ID for sysfs
++ * @class_dev: class device for sysfs
+  * @refcount: kref, used in "bigref" slow-mode
+- * @slow_ref:
+- * @rcu:
++ * @slow_ref: indicates that the DMA channel is free
++ * @rcu: the DMA channel's RCU head
+  * @client_node: used to add this to the client chan list
+  * @device_node: used to add this to the device chan list
+  * @local: per-cpu pointer to a struct dma_chan_percpu
+@@ -162,10 +162,17 @@ struct dma_client {
+  * @chancnt: how many DMA channels are supported
+  * @channels: the list of struct dma_chan
+  * @global_node: list_head for global dma_device_list
+- * @refcount:
+- * @done:
+- * @dev_id:
+- * Other func ptrs: used to make use of this device's capabilities
++ * @refcount: reference count
++ * @done: IO completion struct
++ * @dev_id: unique device ID
++ * @device_alloc_chan_resources: allocate resources and return the
++ *	number of allocated descriptors
++ * @device_free_chan_resources: release DMA channel's resources
++ * @device_memcpy_buf_to_buf: memcpy buf pointer to buf pointer
++ * @device_memcpy_buf_to_pg: memcpy buf pointer to struct page
++ * @device_memcpy_pg_to_pg: memcpy struct page/offset to struct page/offset
++ * @device_memcpy_complete: poll the status of an IOAT DMA transaction
++ * @device_memcpy_issue_pending: push appended descriptors to hardware
+  */
+ struct dma_device {
+ 
+@@ -211,7 +218,7 @@ void dma_async_client_chan_request(struc
+  * Both @dest and @src must be mappable to a bus address according to the
+  * DMA mapping API rules for streaming mappings.
+  * Both @dest and @src must stay memory resident (kernel memory or locked
+- * user space pages)
++ * user space pages).
+  */
+ static inline dma_cookie_t dma_async_memcpy_buf_to_buf(struct dma_chan *chan,
+ 	void *dest, void *src, size_t len)
+@@ -225,7 +232,7 @@ static inline dma_cookie_t dma_async_mem
+ }
+ 
+ /**
+- * dma_async_memcpy_buf_to_pg - offloaded copy
++ * dma_async_memcpy_buf_to_pg - offloaded copy from address to page
+  * @chan: DMA channel to offload copy to
+  * @page: destination page
+  * @offset: offset in page to copy to
+@@ -250,18 +257,18 @@ static inline dma_cookie_t dma_async_mem
+ }
+ 
+ /**
+- * dma_async_memcpy_buf_to_pg - offloaded copy
++ * dma_async_memcpy_pg_to_pg - offloaded copy from page to page
+  * @chan: DMA channel to offload copy to
+- * @dest_page: destination page
++ * @dest_pg: destination page
+  * @dest_off: offset in page to copy to
+- * @src_page: source page
++ * @src_pg: source page
+  * @src_off: offset in page to copy from
+  * @len: length
+  *
+  * Both @dest_page/@dest_off and @src_page/@src_off must be mappable to a bus
+  * address according to the DMA mapping API rules for streaming mappings.
+  * Both @dest_page/@dest_off and @src_page/@src_off must stay memory resident
+- * (kernel memory or locked user space pages)
++ * (kernel memory or locked user space pages).
+  */
+ static inline dma_cookie_t dma_async_memcpy_pg_to_pg(struct dma_chan *chan,
+ 	struct page *dest_pg, unsigned int dest_off, struct page *src_pg,
+@@ -278,7 +285,7 @@ static inline dma_cookie_t dma_async_mem
+ 
+ /**
+  * dma_async_memcpy_issue_pending - flush pending copies to HW
+- * @chan:
++ * @chan: target DMA channel
+  *
+  * This allows drivers to push copies to HW in batches,
+  * reducing MMIO writes where possible.
 
-Just think for a second, do you expect the device the packet will
-be leaving at to disappear?
+
+---
