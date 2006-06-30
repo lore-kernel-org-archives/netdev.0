@@ -1,49 +1,63 @@
-From: Dominik Brodowski <linux@dominikbrodowski.net>
-Subject: [PATCH 9/15] pcmcia: hostap_cs.c - 0xc00f,0x0000 conflicts with pcnet_cs
-Date: Fri, 30 Jun 2006 21:59:20 +0200
-Message-ID: <20060630195920.GJ9095@dominikbrodowski.de>
-References: <20060630195107.GA9095@dominikbrodowski.de> <20060630195217.GB9095@dominikbrodowski.de> <20060630195255.GC9095@dominikbrodowski.de> <20060630195358.GD9095@dominikbrodowski.de> <20060630195439.GE9095@dominikbrodowski.de> <20060630195501.GF9095@dominikbrodowski.de> <20060630195600.GG9095@dominikbrodowski.de> <20060630195657.GH9095@dominikbrodowski.de> <20060630195753.GI9095@dominikbrodowski.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Fri, 30 Jun 2006 13:17:45 -0700 (PDT)
+Message-ID: <20060630.131745.15264335.davem@davemloft.net>
+References: <1151688732.5270.101.camel@jzny2>
+	<44A56294.7030309@trash.net>
+	<1151696426.5270.224.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jkmaline@cc.hut.fi, hostap@shmoo.com, netdev@vger.kernel.org,
-	linville@tuxdriver.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, tgraf@suug.ch, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isilmar.linta.de ([213.239.214.66]:32955 "EHLO linta.de")
-	by vger.kernel.org with ESMTP id S1750841AbWF3UMi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 16:12:38 -0400
-To: linux-pcmcia@lists.infradead.org
-Content-Disposition: inline
-In-Reply-To: <20060630195753.GI9095@dominikbrodowski.de>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:7066
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750914AbWF3URn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jun 2006 16:17:43 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1151696426.5270.224.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: jamal <hadi@cyberus.ca>
+Date: Fri, 30 Jun 2006 15:40:26 -0400
 
-From: Komuro <komurojun-mbn@nifty.com>
-Date: Mon, 17 Apr 2006 21:41:21 +0900
-Subject: [PATCH] pcmcia: hostap_cs.c - 0xc00f,0x0000 conflicts with pcnet_cs
+> My arguement was:
+> dev get by index per device will involve a a) lookup + b) incrementing
+> the refcount. 
+> if i use the dev pointer in that path then it becomes only #b
+> 
+> in both cases, you need to increment the counter and then somewhere
+> decrement it.
 
-Comment out the ID 0xc00f,0x0000 in hostap_cs.c, as it conflicts with the
-pcnet_cs driver.
+The position is that ->input_dev usage is not fast path.
 
-Signed-off-by: komurojun-mbn@nifty.com
-Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
----
- drivers/net/wireless/hostap/hostap_cs.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+It may be a fast path in your mirred and ifb devices, but for the rest
+of the networking and %99 of users it is totally unused.  We have a
+lot of bits of state that sit in the sk_buff but which are used by
+a tiny minority, yet the space consumption is eaten by everyone.
 
-diff --git a/drivers/net/wireless/hostap/hostap_cs.c b/drivers/net/wireless/hostap/hostap_cs.c
-index db03dc2..fbb4189 100644
---- a/drivers/net/wireless/hostap/hostap_cs.c
-+++ b/drivers/net/wireless/hostap/hostap_cs.c
-@@ -844,7 +844,7 @@ static struct pcmcia_device_id hostap_cs
- 	PCMCIA_DEVICE_MANF_CARD(0x02d2, 0x0001),
- 	PCMCIA_DEVICE_MANF_CARD(0x50c2, 0x0001),
- 	PCMCIA_DEVICE_MANF_CARD(0x50c2, 0x7300),
--	PCMCIA_DEVICE_MANF_CARD(0xc00f, 0x0000),
-+/*	PCMCIA_DEVICE_MANF_CARD(0xc00f, 0x0000),    conflict with pcnet_cs */
- 	PCMCIA_DEVICE_MANF_CARD(0xd601, 0x0002),
- 	PCMCIA_DEVICE_MANF_CARD(0xd601, 0x0005),
- 	PCMCIA_DEVICE_MANF_CARD(0xd601, 0x0010),
--- 
-1.4.0
+Maybe when the IFB and mirred are in more widespread use we can
+investigate a different approach.
 
+But at this time any change that makes fringe sk_buff state objects
+shrink or disappear will be seriously considered.
+
+Another part of this issue is that if you use a pointer there is no
+clean place to clean up the input_dev reference within the scope it is
+actually used.  The only reliable place is kfree_skb() which is far
+beyond the scope that this ->input_dev thing is used.  We have a lot
+of problems in some parts of the networking because object references
+are held for too long.  One example is all the awful side effects of
+the way the bridge netfilter code holds onto object references for
+long periods of time in the netfilter call chains.
+
+And we know the refcounting is broken.  And one way we know to fix
+the refcounting without incurring the cost upon everyone is to
+use an interface index and only make the input_dev users eat the
+atomic operation incurred by grabbing the reference.
+
+And even for the input_dev users, it isn't such a big deal, there
+are other costs already associated with hitting these actions and
+devices that use input_dev, the atomic reference grab there should
+be lost in the noise I think.
