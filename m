@@ -1,27 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] tg3: Update version and reldate
-Date: Thu, 29 Jun 2006 20:16:40 -0700 (PDT)
-Message-ID: <20060629.201640.03111979.davem@davemloft.net>
-References: <1151630976.21798.21.camel@rh4>
+Subject: away for 1 week
+Date: Thu, 29 Jun 2006 20:23:51 -0700 (PDT)
+Message-ID: <20060629.202351.35664101.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:9186
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:37085
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750847AbWF3DQl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 23:16:41 -0400
-To: mchan@broadcom.com
-In-Reply-To: <1151630976.21798.21.camel@rh4>
+	id S1750765AbWF3DXx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 23:23:53 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 7E7AEAE42C4
+	for <netdev@vger.kernel.org>; Thu, 29 Jun 2006 20:23:51 -0700 (PDT)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 29 Jun 2006 18:29:36 -0700
 
-> Update version to 3.61.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+Starting friday afternoon I'll be away until next Thursday
+evening.  I'll read email and merge patches intermittantly,
+so please be patient during this time :)
 
-Applied.
+I'll try to merge up as much as I can this evening and do
+one final networking push to Linus for 2.6.18
+
+This pretty much means all the major features have to be
+in already, as the merge window is likely to close over
+the weekend.
+
+I would have really liked to have gotten the ipv6 hw TSO
+support bits in.  If someone could put that into a mergable
+form real fast I might still be able to get that one in.
+
+Otherwise things look pretty good.
