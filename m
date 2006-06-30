@@ -1,55 +1,81 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Fri, 30 Jun 2006 17:51:58 -0400
-Message-ID: <1151704319.5270.317.camel@jzny2>
-References: <m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
-	 <44A1689B.7060809@candelatech.com>
-	 <20060627225213.GB2612@MAIL.13thfloor.at>
-	 <1151449973.24103.51.camel@localhost.localdomain>
-	 <20060627234210.GA1598@ms2.inr.ac.ru>
-	 <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>
-	 <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2>
-	 <44A44124.5010602@vilain.net> <1151626552.8922.70.camel@jzny2>
-	 <20060630114551.A20191@castle.nmd.msu.ru> <1151675452.5270.10.camel@jzny2>
-	 <m13bdmbj1b.fsf@ebiederm.dsl.xmission.com>
-Reply-To: hadi@cyberus.ca
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
+Date: Fri, 30 Jun 2006 15:50:30 -0700
+Message-ID: <20060630155030.5ea1faba.akpm@osdl.org>
+References: <44892610.6040001@watson.ibm.com>
+	<44999A98.8030406@engr.sgi.com>
+	<44999F5A.2080809@watson.ibm.com>
+	<4499D7CD.1020303@engr.sgi.com>
+	<449C2181.6000007@watson.ibm.com>
+	<20060623141926.b28a5fc0.akpm@osdl.org>
+	<449C6620.1020203@engr.sgi.com>
+	<20060623164743.c894c314.akpm@osdl.org>
+	<449CAA78.4080902@watson.ibm.com>
+	<20060623213912.96056b02.akpm@osdl.org>
+	<449CD4B3.8020300@watson.ibm.com>
+	<44A01A50.1050403@sgi.com>
+	<20060626105548.edef4c64.akpm@osdl.org>
+	<44A020CD.30903@watson.ibm.com>
+	<20060626111249.7aece36e.akpm@osdl.org>
+	<44A026ED.8080903@sgi.com>
+	<20060626113959.839d72bc.akpm@osdl.org>
+	<44A2F50D.8030306@engr.sgi.com>
+	<20060628145341.529a61ab.akpm@osdl.org>
+	<44A2FC72.9090407@engr.sgi.com>
+	<20060629014050.d3bf0be4.pj@sgi.com>
+	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
+	<20060629094408.360ac157.pj@sgi.com>
+	<20060629110107.2e56310b.akpm@osdl.org>
+	<44A57310.3010208@watson.ibm.com>
+	<44A5770F.3080206@watson.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Sam Vilain <sam@vilain.net>, Herbert Poetzl <herbert@13thfloor.at>,
-	viro@ftp.linux.org.uk, devel@openvz.org, dev@sw.ru,
-	Andrew Morton <akpm@osdl.org>, clg@fr.ibm.com,
-	serue@us.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Andrey Savochkin <saw@swsoft.com>
+Cc: nagar@watson.ibm.com, pj@sgi.com, Valdis.Kletnieks@vt.edu,
+	jlan@engr.sgi.com, balbir@in.ibm.com, csturtiv@sgi.com,
+	linux-kernel@vger.kernel.org, hadi@cyberus.ca,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:34013 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1751206AbWF3VwH
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 17:52:07 -0400
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m13bdmbj1b.fsf@ebiederm.dsl.xmission.com>
+Received: from smtp.osdl.org ([65.172.181.4]:65178 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751002AbWF3WsE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 18:48:04 -0400
+To: Shailabh Nagar <nagar@watson.ibm.com>
+In-Reply-To: <44A5770F.3080206@watson.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-30-06 at 12:22 -0600, Eric W. Biederman wrote:
+Shailabh Nagar <nagar@watson.ibm.com> wrote:
+>
+> +/*
+> + * Per-task exit data sent from the kernel to user space
+> + * is tagged by an id based on grouping of cpus.
+> + *
+> + * If userspace specifies a non-zero P as the nl_pid field of
+> + * the sockaddr_nl structure while binding to a netlink socket,
+> + * it will receive exit data from threads that exited on cpus in the range
+> + *
+> + *    [(P-1)*Y, P*Y-1]
+> + *
+> + *  where Y = TASKSTATS_CPUS_PER_SET
+> + *  i.e. if TASKSTATS_CPUS_PER_SET is 16,
+> + *  to listen to data from cpus 0..15, specify P=1
+> + *  for cpus 16..32, specify P=2 etc.
+> + *
+> + *  To listen to data from all cpus, userspace should use P=0
+> + */
+> +
+> +#define TASKSTATS_CPUS_PER_SET	16
 
-> 
-> Anyway Jamal can you see the problem the aliases present to the implementation?
-> 
+The constant is unpleasant.
 
-I think more than anything i may have a different view of things and no
-code ;-> And you are trying to restore order in the discussion - so my
-wild ideas dont help. If you guys have a meeting somewhere like this
-coming OLS I will come over and disrupt your meeting ;-> I actually have
-attempted to implement things like virtual routers but you guys seem way
-ahead of anywhere i was.
+If we're going to abuse nl_pid then how about we design things so that
+nl_pid is treated as two 16-bit words - one word is the start CPU and the
+other word is the end cpu?
 
+Or, if a 65536-CPU limit is too scary, make the bottom 8 bits of nl_pid be
+the number of CPUS (ie: TASKSTATS_CPUS_PER_SET) and the top 24 bits is the
+starting CPU.  
 
-cheers,
-jamal
+<avoids mentioning nl_pad>
 
-
+It'd be better to use a cpumask, of course..
