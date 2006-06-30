@@ -1,82 +1,44 @@
-From: Andrey Savochkin <saw@swsoft.com>
-Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
-Date: Fri, 30 Jun 2006 11:45:51 +0400
-Message-ID: <20060630114551.A20191@castle.nmd.msu.ru>
-References: <m1psgulf4u.fsf@ebiederm.dsl.xmission.com> <44A1689B.7060809@candelatech.com> <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net> <1151626552.8922.70.camel@jzny2>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Sockets inside the kernel or userspace ?
+Date: Fri, 30 Jun 2006 11:57:49 +0400
+Message-ID: <20060630075749.GA30936@2ka.mipt.ru>
+References: <e1e1d5f40606300032t7162e165qaa915658e0a71386@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sam Vilain <sam@vilain.net>, Herbert Poetzl <herbert@13thfloor.at>,
-	viro@ftp.linux.org.uk, devel@openvz.org, dev@sw.ru,
-	Andrew Morton <akpm@osdl.org>, clg@fr.ibm.com,
-	serue@us.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.nmd.msu.ru ([193.232.112.53]:38918 "HELO
-	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1751280AbWF3Hpy
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 03:45:54 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1151626552.8922.70.camel@jzny2>; from "jamal" on Thu, Jun 29, 2006 at 08:15:52PM
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:42155 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751448AbWF3H5m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 03:57:42 -0400
+To: Daniel Bonekeeper <thehazard@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <e1e1d5f40606300032t7162e165qaa915658e0a71386@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jamal,
+On Fri, Jun 30, 2006 at 03:32:28AM -0400, Daniel Bonekeeper (thehazard@gmail.com) wrote:
+> Let's suppose that I'm writing a experimental distributed filesystem
+> that needs to open a TCP socket to another machines on the LAN, keep a
+> pool of connections and be always aware of new data arriving (like a
+> userspace select()). What's the best approach to implement this ? Is
+> it better to keep all the TCP socket stuff in userspace and use an
+> interface like netlink to talk with it ? Or, since we're talking about
+> a filesystem (where performance is a must), is it better to keep it in
+> kernel mode ?
 
-On Thu, Jun 29, 2006 at 08:15:52PM -0400, jamal wrote:
-> On Fri, 2006-30-06 at 09:07 +1200, Sam Vilain wrote:
-[snip]
-> >  We plan to have them separate - so for
-> > that to work, each network namespace could have an arbitrary "prefix"
-> > that determines what the interface name will look like from the outside
-> > when combined.  We'd have to be careful about length limits.
-> > 
-> > And guest0-eth0 doesn't necessarily make sense; it's not really an
-> > ethernet interface, more like a tun or something.
-> > 
-> 
-> it wouldnt quiet fit as a tun device. More like a mirror side of the 
-> guest eth0 created on the host side 
-> i.e a sort of passthrough device with one side visible on the host (send
-> from guest0-eth0 is received on eth0 in the guest and vice-versa).
-> 
-> Note this is radically different from what i have heard Andrey and co
-> talk about and i dont wanna disturb any shit because there seems to be
-> some agreement. But if you address me i respond because it is very
-> interesting a topic;->
+It depends on your design.
+NFS uses in-kernel sockets, but userspace can easily fill 1Gbit link too.
+FS must eliminate as much coping as possible, but without deep digging 
+into the socket code you will get copy both in kernelspace (one copy 
+from socket queue into you buffer) and userspace (the same copy, but 
+using slower copy_to_user(), depending on the size of each copy it can 
+make noticeble difference), but with kernel socket you get your data 
+in the fs/vfs cache already, but with userspace you must copy it back 
+into the kernel using slow copy_from_user(), but if data is supposed to
+be somehow (heavily) processed before reaching the harddrive (for
+example compressed or encrypted), cost of processing can fully hide cost
+of the copy itself, so userspace is much more preferable in that
+situation due to it's much more convenient development process.
 
-I do not have anything against guest-eth0 - eth0 pairs _if_ they are set up
-by the host administrators explicitly for some purpose.
-For example, if these guest-eth0 and eth0 devices stay as pure virtual ones,
-i.e. they don't have any physical NIC, host administrator may route traffic
-to guestXX-eth0 interfaces to pass it to the guests.
-
-However, I oppose the idea of automatic mirroring of _all_ devices appearing
-inside some namespaces ("guests") to another namespace (the "host").
-This clearly goes against the concept of namespaces as independent realms,
-and creates a lot of problems with applications running in the host, hotplug
-scripts and so on.
-
-> 
-> > So, an equally good convention might be to use sequential prefixes on
-> > the host, like "tun", "dummy", or a new prefix - then a property of that
-> > is what the name of the interface is perceived to be to those who are in
-> > the corresponding network namespace.
-> >
-> > Then the pragmatic question becomes how to correlate what you see from
-> > `ip addr list' to guests.
-> 
-> on the host ip addr and the one seen on the guest side are the same.
-> Except one is seen (on the host) on guest0-eth0 and another is seen 
-> on eth0 (on guest).
-
-Then what to do if the host system has 10.0.0.1 as a private address on eth3,
-and then interfaces guest1-tun0 and guest2-tun0 both get address 10.0.0.1
-when each guest has added 10.0.0.1 to their tun0 device?
-
-Regards,
-
-Andrey
+-- 
+	Evgeniy Polyakov
