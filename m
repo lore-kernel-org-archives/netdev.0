@@ -1,8 +1,9 @@
 From: Andrew Morton <akpm@osdl.org>
 Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Fri, 30 Jun 2006 15:50:30 -0700
-Message-ID: <20060630155030.5ea1faba.akpm@osdl.org>
+Date: Fri, 30 Jun 2006 15:56:12 -0700
+Message-ID: <20060630155612.36189ced.akpm@osdl.org>
 References: <44892610.6040001@watson.ibm.com>
+	<449999D1.7000403@engr.sgi.com>
 	<44999A98.8030406@engr.sgi.com>
 	<44999F5A.2080809@watson.ibm.com>
 	<4499D7CD.1020303@engr.sgi.com>
@@ -27,55 +28,57 @@ References: <44892610.6040001@watson.ibm.com>
 	<20060629094408.360ac157.pj@sgi.com>
 	<20060629110107.2e56310b.akpm@osdl.org>
 	<44A57310.3010208@watson.ibm.com>
-	<44A5770F.3080206@watson.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: nagar@watson.ibm.com, pj@sgi.com, Valdis.Kletnieks@vt.edu,
-	jlan@engr.sgi.com, balbir@in.ibm.com, csturtiv@sgi.com,
-	linux-kernel@vger.kernel.org, hadi@cyberus.ca,
-	netdev@vger.kernel.org
+Cc: pj@sgi.com, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
+	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
+	hadi@cyberus.ca, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:65178 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751002AbWF3WsE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 18:48:04 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:22684 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932106AbWF3Wxc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 18:53:32 -0400
 To: Shailabh Nagar <nagar@watson.ibm.com>
-In-Reply-To: <44A5770F.3080206@watson.ibm.com>
+In-Reply-To: <44A57310.3010208@watson.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Shailabh Nagar <nagar@watson.ibm.com> wrote:
 >
-> +/*
-> + * Per-task exit data sent from the kernel to user space
-> + * is tagged by an id based on grouping of cpus.
-> + *
-> + * If userspace specifies a non-zero P as the nl_pid field of
-> + * the sockaddr_nl structure while binding to a netlink socket,
-> + * it will receive exit data from threads that exited on cpus in the range
-> + *
-> + *    [(P-1)*Y, P*Y-1]
-> + *
-> + *  where Y = TASKSTATS_CPUS_PER_SET
-> + *  i.e. if TASKSTATS_CPUS_PER_SET is 16,
-> + *  to listen to data from cpus 0..15, specify P=1
-> + *  for cpus 16..32, specify P=2 etc.
-> + *
-> + *  To listen to data from all cpus, userspace should use P=0
-> + */
-> +
-> +#define TASKSTATS_CPUS_PER_SET	16
+> Based on previous discussions, the above solutions can be expanded/modified to:
+> 
+> a) allow userspace to listen to a group of cpus instead of all. Multiple
+> collection daemons can distribute the load as you pointed out. Doing collection
+> by cpu groups rather than individual cpus reduces the aggregation burden on
+> userspace (and scales better with NR_CPUS)
+> 
+> b) do flow control on the kernel send side. This can involve buffering and sending
+> later (to handle bursty case) or dropping (to handle sustained load) as pointed out
+> by you, Jamal in other threads.
+> 
+> c) increase receiver's socket buffer. This can and should always be done but no
+> involvement needed.
+> 
+> 
+> With regards to taskstats changes to handle the problem and its impact on userspace
+> visible changes,
+> 
+> a) will change userspace
+> b) will be transparent.
+> c) is immaterial going forward (except perhaps as a change in Documentation)
+> 
+> 
+> I'm sending a patch that demonstrates how a) can be done quite simply
+> and a patch for b) is in progress.
+> 
+> If the approach suggested in patch a) is acceptable (and I'll provide the testing, stability
+> results once comments on it are largely over), could taskstats acceptance in 2.6.18 go ahead
+> and patch b) be added later (solution outline has already been provided and a prelim patch should
+> be out by eod)
 
-The constant is unpleasant.
+Throwing more CPUs at the problem makes heaps of sense.
 
-If we're going to abuse nl_pid then how about we design things so that
-nl_pid is treated as two 16-bit words - one word is the start CPU and the
-other word is the end cpu?
-
-Or, if a 65536-CPU limit is too scary, make the bottom 8 bits of nl_pid be
-the number of CPUS (ie: TASKSTATS_CPUS_PER_SET) and the top 24 bits is the
-starting CPU.  
-
-<avoids mentioning nl_pad>
-
-It'd be better to use a cpumask, of course..
+It's not necessarily a userspace-incompatible change.  As long as userspace
+sets nl_pid to 0x00000000, future kernel revisions can treat that as "all
+CPUs".  Or userspace can be forward-compatible by setting nl_pid to
+0xffff0000, or whatever.
