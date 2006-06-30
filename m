@@ -1,80 +1,45 @@
-From: Sam Vilain <sam@vilain.net>
-Subject: Re: strict isolation of net interfaces
-Date: Fri, 30 Jun 2006 14:49:05 +1200
-Message-ID: <44A49121.4050004@vilain.net>
-References: <m1psgulf4u.fsf@ebiederm.dsl.xmission.com> <44A1689B.7060809@candelatech.com> <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net> <44A450D1.2030405@fr.ibm.com> <20060630023947.GA24726@sergelap.austin.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Cedric Le Goater <clg@fr.ibm.com>, hadi@cyberus.ca,
-	Herbert Poetzl <herbert@13thfloor.at>,
-	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
-	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrey Savochkin <saw@swsoft.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.17-mm3 -- BUG: illegal lock usage -- illegal {softirq-on-W} -> {in-softirq-R} usage.
+Date: Fri, 30 Jun 2006 12:57:32 +1000
+Message-ID: <E1Fw9CG-0007e6-00@gondolin.me.apana.org.au>
+References: <20060629125640.d828a0b3.akpm@osdl.org>
+Cc: arjan@infradead.org, miles.lane@gmail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from watts.utsl.gen.nz ([202.78.240.73]:30385 "EHLO
-	watts.utsl.gen.nz") by vger.kernel.org with ESMTP id S1750810AbWF3Csk
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 22:48:40 -0400
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-In-Reply-To: <20060630023947.GA24726@sergelap.austin.ibm.com>
+Received: from [64.62.148.172] ([64.62.148.172]:37894 "EHLO arnor.apana.org.au")
+	by vger.kernel.org with ESMTP id S964931AbWF3C7q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 22:59:46 -0400
+To: akpm@osdl.org (Andrew Morton)
+In-Reply-To: <20060629125640.d828a0b3.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Serge E. Hallyn wrote:
-> The last one in your diagram confuses me - why foo0:1?  I would
-> have thought it'd be
+Andrew Morton <akpm@osdl.org> wrote:
 >
-> host                  |  guest 0  |  guest 1  |  guest2
-> ----------------------+-----------+-----------+--------------
->   |                   |           |           |
->   |-> l0      <-------+-> lo0 ... | lo0       | lo0
->   |                   |           |           |
->   |-> eth0            |           |           |
->   |                   |           |           |
->   |-> veth0  <--------+-> eth0    |           |
->   |                   |           |           |
->   |-> veth1  <--------+-----------+-----------+-> eth0
->   |                   |           |           |
->   |-> veth2   <-------+-----------+-> eth0    |
->
-> [...]
->
-> So conceptually using a full virtual net device per container
-> certainly seems cleaner to me, and it seems like it should be
-> simpler by way of statistics gathering etc, but are there actually
-> any real gains?  Or is the support for multiple IPs per device
-> actually enough?
->   
+>> >     inet_bind()
+>> >     ->sk_dst_get
+>> >       ->read_lock(&sk->sk_dst_lock)
 
-Why special case loopback?
+We are still holding the sock lock when doing sk_dst_get.
 
-Why not:
+>> > > 1 lock held by java_vm/4418:
+>> > >  #0:  (af_family_keys + (sk)->sk_family#4){-+..}, at: [<f93c9281>]
+>> > > tcp_v6_rcv+0x308/0x7b7 [ipv6]
+>> > 
+>> >     softirq
+>> >     ->ip6_dst_lookup
+>> >       ->sk_dst_check
+>> >         ->sk_dst_reset
+>> >           ->write_lock(&sk->sk_dst_lock);
 
-host                  |  guest 0  |  guest 1  |  guest2
-----------------------+-----------+-----------+--------------
-  |                   |           |           |
-  |-> lo              |           |           |
-  |                   |           |           |
-  |-> vlo0  <---------+-> lo      |           |
-  |                   |           |           |
-  |-> vlo1  <---------+-----------+-----------+-> lo
-  |                   |           |           |
-  |-> vlo2   <--------+-----------+-> lo      |
-  |                   |           |           |
-  |-> eth0            |           |           |
-  |                   |           |           |
-  |-> veth0  <--------+-> eth0    |           |
-  |                   |           |           |
-  |-> veth1  <--------+-----------+-----------+-> eth0
-  |                   |           |           |
-  |-> veth2   <-------+-----------+-> eth0    |
+The sock lock prevents this path from being entered.  Instead the
+received TCP packet is queued and replayed when the sock lock is
+released.
 
-
-Sam.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
