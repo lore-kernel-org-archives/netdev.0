@@ -1,230 +1,225 @@
 From: akpm@osdl.org
-Subject: [patch 1/5] natsemi: Add support for using MII port with no PHY
-Date: Fri, 30 Jun 2006 02:25:03 -0700
-Message-ID: <200606300925.k5U9P3qC001383@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, broonie@sirena.org.uk,
-	jgarzik@pobox.com, thockin@hockin.org
+Subject: [patch 4/5] NI5010 netcard cleanup
+Date: Fri, 30 Jun 2006 02:25:07 -0700
+Message-ID: <200606300925.k5U9P7AI001395@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org,
+	andi@rhlx01.fht-esslingen.de, andi@lisas.de, bunk@stusta.de,
+	jvbest@qv3pluto.leidenuniv.nl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:55439 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751657AbWF3JZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 05:25:28 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:26512 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751682AbWF3J1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 05:27:23 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mark Brown <broonie@sirena.org.uk>
+From: Andreas Mohr <andi@rhlx01.fht-esslingen.de>
 
-Provide a module option which configures the natsemi driver to use the
-external MII port on the chip but ignore any PHYs that may be attached to it. 
-The link state will be left as it was when the driver started and can be
-configured via ethtool.  Any PHYs that are present can be accessed via the MII
-ioctl()s.
+- updated MAINTAINERS entry to new format
+- updated Jan-Pascal's (ACKed) and my email address
+- driver cleanup/modernization (runtime-, not hardware-tested)
 
-This is useful for systems where the device is connected without a PHY or
-where either information or actions outside the scope of the driver are
-required in order to use the PHYs.
-
-Jeff sez:
-
- NAK.
-
- The proper way to do this is via the force_media boolean flag found in 
- several net drivers.
-
- In general I agree with the motivation to do something like this...
-
-Signed-off-by: Mark Brown <broonie@sirena.org.uk>
-Cc: Tim Hockin <thockin@hockin.org>
-Cc: Jeff Garzik <jgarzik@pobox.com>
+[bunk@stusta.de: build fix]
+Signed-off-by: Andreas Mohr <andi@lisas.de>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Jan-Pascal van Best <jvbest@qv3pluto.leidenuniv.nl>
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/natsemi.c |  105 +++++++++++++++++++++++++---------------
- 1 file changed, 67 insertions(+), 38 deletions(-)
+ MAINTAINERS          |    7 +++--
+ drivers/net/ni5010.c |   52 ++++++++++++++++++-----------------------
+ 2 files changed, 28 insertions(+), 31 deletions(-)
 
-diff -puN drivers/net/natsemi.c~natsemi-add-support-for-using-mii-port-with-no-phy drivers/net/natsemi.c
---- a/drivers/net/natsemi.c~natsemi-add-support-for-using-mii-port-with-no-phy
-+++ a/drivers/net/natsemi.c
-@@ -147,7 +147,7 @@ MODULE_PARM_DESC(debug, "DP8381x default
- MODULE_PARM_DESC(rx_copybreak, 
- 	"DP8381x copy breakpoint for copy-only-tiny-frames");
- MODULE_PARM_DESC(options, 
--	"DP8381x: Bits 0-3: media type, bit 17: full duplex");
-+	"DP8381x: Bits 0-3: media type, bit 17: full duplex, bit 18: ignore PHY");
- MODULE_PARM_DESC(full_duplex, "DP8381x full duplex setting(s) (1)");
+diff -puN drivers/net/ni5010.c~ni5010-netcard-cleanup drivers/net/ni5010.c
+--- a/drivers/net/ni5010.c~ni5010-netcard-cleanup
++++ a/drivers/net/ni5010.c
+@@ -1,17 +1,12 @@
+ /*	ni5010.c: A network driver for the MiCom-Interlan NI5010 ethercard.
+  *
+- *	Copyright 1996,1997 Jan-Pascal van Best and Andreas Mohr.
++ *	Copyright 1996,1997,2006 Jan-Pascal van Best and Andreas Mohr.
+  *
+  *	This software may be used and distributed according to the terms
+  *	of the GNU General Public License, incorporated herein by reference.
+  *
+  * 	The authors may be reached as:
+- *		jvbest@wi.leidenuniv.nl		a.mohr@mailto.de
+- * 	or by snail mail as
+- * 		Jan-Pascal van Best		Andreas Mohr
+- *		Klikspaanweg 58-4		Stauferstr. 6
+- *		2324 LZ  Leiden			D-71272 Renningen
+- *		The Netherlands			Germany
++ *		janpascal@vanbest.org		andi@lisas.de
+  *
+  *	Sources:
+  * 	 	Donald Becker's "skeleton.c"
+@@ -27,8 +22,9 @@
+  *	970503	v0.93: Fixed auto-irq failure on warm reboot (JB)
+  *	970623	v1.00: First kernel version (AM)
+  *	970814	v1.01: Added detection of onboard receive buffer size (AM)
++ *	060611	v1.02: slight cleanup: email addresses, driver modernization.
+  *	Bugs:
+- *		- None known...
++ *		- not SMP-safe (no locking of I/O accesses)
+  *		- Note that you have to patch ifconfig for the new /proc/net/dev
+  *		format. It gives incorrect stats otherwise.
+  *
+@@ -39,7 +35,7 @@
+  *		Complete merge with Andreas' driver
+  *		Implement ring buffers (Is this useful? You can't squeeze
+  *			too many packet in a 2k buffer!)
+- *		Implement DMA (Again, is this useful? Some docs says DMA is
++ *		Implement DMA (Again, is this useful? Some docs say DMA is
+  *			slower than programmed I/O)
+  *
+  *	Compile with:
+@@ -47,7 +43,7 @@
+  *			-DMODULE -c ni5010.c 
+  *
+  *	Insert with e.g.:
+- *		insmod ni5010.o io=0x300 irq=5 	
++ *		insmod ni5010.ko io=0x300 irq=5
+  */
  
- /*
-@@ -569,6 +569,8 @@ struct netdev_private {
- 	u32 intr_status;
- 	/* Do not touch the nic registers */
- 	int hands_off;
-+	/* Don't pay attention to the reported link state. */
-+	int ignore_phy;
- 	/* external phy that is used: only valid if dev->if_port != PORT_TP */
- 	int mii;
- 	int phy_addr_external;
-@@ -697,7 +699,10 @@ static void __devinit natsemi_init_media
- 	struct netdev_private *np = netdev_priv(dev);
- 	u32 tmp;
+ #include <linux/module.h>
+@@ -69,15 +65,15 @@
  
--	netif_carrier_off(dev);
-+	if (np->ignore_phy)
-+		netif_carrier_on(dev);
-+	else
-+		netif_carrier_off(dev);
+ #include "ni5010.h"
  
- 	/* get the initial settings from hardware */
- 	tmp            = mdio_read(dev, MII_BMCR);
-@@ -808,7 +813,19 @@ static int __devinit natsemi_probe1 (str
- 	np->intr_status = 0;
- 	np->eeprom_size = natsemi_pci_info[chip_idx].eeprom_size;
+-static const char *boardname = "NI5010";
+-static char *version =
+-	"ni5010.c: v1.00 06/23/97 Jan-Pascal van Best and Andreas Mohr\n";
++static const char boardname[] = "NI5010";
++static char version[] __initdata =
++	"ni5010.c: v1.02 20060611 Jan-Pascal van Best and Andreas Mohr\n";
+ 	
+ /* bufsize_rcv == 0 means autoprobing */
+ static unsigned int bufsize_rcv;
  
-+	option = find_cnt < MAX_UNITS ? options[find_cnt] : 0;
-+	if (dev->mem_start)
-+		option = dev->mem_start;
-+
-+	/* Ignore the PHY status? */
-+	if (option & 0x400) {
-+		np->ignore_phy = 1;
-+	} else {
-+		np->ignore_phy = 0;
-+	}
-+
- 	/* Initial port:
-+	 * - If configured to ignore the PHY set up for external.
- 	 * - If the nic was configured to use an external phy and if find_mii
- 	 *   finds a phy: use external port, first phy that replies.
- 	 * - Otherwise: internal port.
-@@ -816,7 +833,7 @@ static int __devinit natsemi_probe1 (str
- 	 * The address would be used to access a phy over the mii bus, but
- 	 * the internal phy is accessed through mapped registers.
- 	 */
--	if (readl(ioaddr + ChipConfig) & CfgExtPhy)
-+	if (np->ignore_phy || readl(ioaddr + ChipConfig) & CfgExtPhy)
- 		dev->if_port = PORT_MII;
- 	else
- 		dev->if_port = PORT_TP;
-@@ -826,7 +843,9 @@ static int __devinit natsemi_probe1 (str
+-#define jumpered_interrupts	/* IRQ line jumpered on board */
+-#undef jumpered_dma		/* No DMA used */
++#define JUMPERED_INTERRUPTS	/* IRQ line jumpered on board */
++#undef JUMPERED_DMA		/* No DMA used */
+ #undef FULL_IODETECT		/* Only detect in portlist */
  
- 	if (dev->if_port != PORT_TP) {
- 		np->phy_addr_external = find_mii(dev);
--		if (np->phy_addr_external == PHY_ADDR_NONE) {
-+		/* If we're ignoring the PHY it doesn't matter if we can't
-+		 * find one. */
-+		if (!np->ignore_phy && np->phy_addr_external == PHY_ADDR_NONE) {
- 			dev->if_port = PORT_TP;
- 			np->phy_addr_external = PHY_ADDR_INTERNAL;
- 		}
-@@ -834,10 +853,6 @@ static int __devinit natsemi_probe1 (str
- 		np->phy_addr_external = PHY_ADDR_INTERNAL;
+ #ifndef FULL_IODETECT
+@@ -281,7 +277,7 @@ static int __init ni5010_probe1(struct n
+ 
+ 	PRINTK2((KERN_DEBUG "%s: I/O #4 passed!\n", dev->name));
+ 
+-#ifdef jumpered_interrupts
++#ifdef JUMPERED_INTERRUPTS
+ 	if (dev->irq == 0xff)
+ 		;
+ 	else if (dev->irq < 2) {
+@@ -305,7 +301,7 @@ static int __init ni5010_probe1(struct n
+ 	} else if (dev->irq == 2) {
+ 		dev->irq = 9;
  	}
+-#endif	/* jumpered_irq */
++#endif	/* JUMPERED_INTERRUPTS */
+ 	PRINTK2((KERN_DEBUG "%s: I/O #9 passed!\n", dev->name));
  
--	option = find_cnt < MAX_UNITS ? options[find_cnt] : 0;
--	if (dev->mem_start)
--		option = dev->mem_start;
+ 	/* DMA is not supported (yet?), so no use detecting it */
+@@ -334,7 +330,7 @@ static int __init ni5010_probe1(struct n
+         	outw(0, IE_GP);		/* Point GP at start of packet */
+         	outb(0, IE_RBUF);	/* set buffer byte 0 to 0 again */
+ 	}
+-        printk("// bufsize rcv/xmt=%d/%d\n", bufsize_rcv, NI5010_BUFSIZE);
++        printk("-> bufsize rcv/xmt=%d/%d\n", bufsize_rcv, NI5010_BUFSIZE);
+ 	memset(dev->priv, 0, sizeof(struct ni5010_local));
+ 	
+ 	dev->open		= ni5010_open;
+@@ -354,11 +350,9 @@ static int __init ni5010_probe1(struct n
+ 	outb(0xff, EDLC_XCLR); 	/* Kill all pending xmt interrupts */
+ 
+ 	printk(KERN_INFO "%s: NI5010 found at 0x%x, using IRQ %d", dev->name, ioaddr, dev->irq);
+-	if (dev->dma) printk(" & DMA %d", dev->dma);
++	if (dev->dma)
++		printk(" & DMA %d", dev->dma);
+ 	printk(".\n");
 -
- 	/* The lower four bits are the media type. */
- 	if (option) {
- 		if (option & 0x200)
-@@ -892,6 +907,8 @@ static int __devinit natsemi_probe1 (str
- 		printk("%02x, IRQ %d", dev->dev_addr[i], irq);
- 		if (dev->if_port == PORT_TP)
- 			printk(", port TP.\n");
-+		else if (np->ignore_phy)
-+			printk(", port MII, ignoring PHY\n");
- 		else
- 			printk(", port MII, phy ad %d.\n", np->phy_addr_external);
- 	}
-@@ -1572,42 +1589,44 @@ static void check_link(struct net_device
+-	printk(KERN_INFO "Join the NI5010 driver development team!\n");
+-	printk(KERN_INFO "Mail to a.mohr@mailto.de or jvbest@wi.leidenuniv.nl\n");
+ 	return 0;
+ out:
+ 	release_region(dev->base_addr, NI5010_IO_EXTENT);
+@@ -371,7 +365,7 @@ out:
+  *
+  * This routine should set everything up anew at each open, even
+  * registers that "should" only need to be set once at boot, so that
+- * there is non-reboot way to recover if something goes wrong.
++ * there is a non-reboot way to recover if something goes wrong.
+  */
+    
+ static int ni5010_open(struct net_device *dev)
+@@ -390,13 +384,13 @@ static int ni5010_open(struct net_device
+          * Always allocate the DMA channel after the IRQ,
+          * and clean up on failure.
+          */
+-#ifdef jumpered_dma
++#ifdef JUMPERED_DMA
+         if (request_dma(dev->dma, cardname)) {
+ 		printk(KERN_WARNING "%s: Cannot get dma %#2x\n", dev->name, dev->dma);
+                 free_irq(dev->irq, NULL);
+                 return -EAGAIN;
+         }
+-#endif	/* jumpered_dma */
++#endif	/* JUMPERED_DMA */
+ 
+ 	PRINTK3((KERN_DEBUG "%s: passed open() #2\n", dev->name));
+ 	/* Reset the hardware here.  Don't forget to set the station address. */
+@@ -633,7 +627,7 @@ static int ni5010_close(struct net_devic
+ 	int ioaddr = dev->base_addr;
+ 
+ 	PRINTK2((KERN_DEBUG "%s: entering ni5010_close\n", dev->name));
+-#ifdef jumpered_interrupts	
++#ifdef JUMPERED_INTERRUPTS
+ 	free_irq(dev->irq, NULL);
+ #endif
+ 	/* Put card in held-RESET state */
+@@ -771,7 +765,7 @@ module_param(irq, int, 0);
+ MODULE_PARM_DESC(io, "ni5010 I/O base address");
+ MODULE_PARM_DESC(irq, "ni5010 IRQ number");
+ 
+-int init_module(void)
++static int __init ni5010_init_module(void)
  {
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem * ioaddr = ns_ioaddr(dev);
--	int duplex;
-+	int duplex = np->full_duplex;
- 	u16 bmsr;
--       
--	/* The link status field is latched: it remains low after a temporary
--	 * link failure until it's read. We need the current link status,
--	 * thus read twice.
--	 */
--	mdio_read(dev, MII_BMSR);
--	bmsr = mdio_read(dev, MII_BMSR);
- 
--	if (!(bmsr & BMSR_LSTATUS)) {
--		if (netif_carrier_ok(dev)) {
-+	/* If we're not paying attention to the PHY status then don't check. */
-+	if (!np->ignore_phy) {
-+		/* The link status field is latched: it remains low
-+		 * after a temporary link failure until it's read. We
-+		 * need the current link status, thus read twice.
-+		 */
-+		mdio_read(dev, MII_BMSR);
-+		bmsr = mdio_read(dev, MII_BMSR);
-+
-+		if (!(bmsr & BMSR_LSTATUS)) {
-+			if (netif_carrier_ok(dev)) {
-+				if (netif_msg_link(np))
-+					printk(KERN_NOTICE "%s: link down.\n",
-+					       dev->name);
-+				netif_carrier_off(dev);
-+				undo_cable_magic(dev);
-+			}
-+			return;
-+		}
-+		if (!netif_carrier_ok(dev)) {
- 			if (netif_msg_link(np))
--				printk(KERN_NOTICE "%s: link down.\n",
--					dev->name);
--			netif_carrier_off(dev);
--			undo_cable_magic(dev);
-+				printk(KERN_NOTICE "%s: link up.\n", dev->name);
-+			netif_carrier_on(dev);
-+			do_cable_magic(dev);
- 		}
--		return;
--	}
--	if (!netif_carrier_ok(dev)) {
--		if (netif_msg_link(np))
--			printk(KERN_NOTICE "%s: link up.\n", dev->name);
--		netif_carrier_on(dev);
--		do_cable_magic(dev);
--	}
- 
--	duplex = np->full_duplex;
--	if (!duplex) {
--		if (bmsr & BMSR_ANEGCOMPLETE) {
--			int tmp = mii_nway_result(
--				np->advertising & mdio_read(dev, MII_LPA));
--			if (tmp == LPA_100FULL || tmp == LPA_10FULL)
-+		if (!duplex) {
-+			if (bmsr & BMSR_ANEGCOMPLETE) {
-+				int tmp = mii_nway_result(
-+					np->advertising & mdio_read(dev, MII_LPA));
-+				if (tmp == LPA_100FULL || tmp == LPA_10FULL)
-+					duplex = 1;
-+			} else if (mdio_read(dev, MII_BMCR) & BMCR_FULLDPLX)
- 				duplex = 1;
--		} else if (mdio_read(dev, MII_BMCR) & BMCR_FULLDPLX)
--			duplex = 1;
-+		}
- 	}
- 
- 	/* if duplex is set then bit 28 must be set, too */
-@@ -2823,6 +2842,16 @@ static int netdev_set_ecmd(struct net_de
- 	}
- 
+ 	PRINTK2((KERN_DEBUG "%s: entering init_module\n", boardname));
  	/*
-+	 * If we're ignoring the PHY then autoneg and the internal
-+	 * transciever are really not going to work so don't let the
-+	 * user select them.
-+	 */
-+	if (np->ignore_phy && (ecmd->autoneg == AUTONEG_ENABLE ||
-+			       ecmd->port == PORT_TP)) {
-+		return -EINVAL;
-+	}
-+
-+	/*
- 	 * maxtxpkt, maxrxpkt: ignored for now.
- 	 *
- 	 * transceiver:
+@@ -792,13 +786,15 @@ int init_module(void)
+         return 0;
+ }
+ 
+-void cleanup_module(void)
++static void __exit ni5010_cleanup_module(void)
+ {
+ 	PRINTK2((KERN_DEBUG "%s: entering cleanup_module\n", boardname));
+ 	unregister_netdev(dev_ni5010);
+ 	release_region(dev_ni5010->base_addr, NI5010_IO_EXTENT);
+ 	free_netdev(dev_ni5010);
+ }
++module_init(ni5010_init_module);
++module_exit(ni5010_cleanup_module);
+ #endif /* MODULE */
+ MODULE_LICENSE("GPL");
+ 
+diff -puN MAINTAINERS~ni5010-netcard-cleanup MAINTAINERS
+--- a/MAINTAINERS~ni5010-netcard-cleanup
++++ a/MAINTAINERS
+@@ -2062,9 +2062,10 @@ L:	linux-kernel@vger.kernel.org
+ S:	Maintained
+ 
+ NI5010 NETWORK DRIVER
+-P:	Jan-Pascal van Best and Andreas Mohr
+-M:	Jan-Pascal van Best <jvbest@qv3pluto.leidenuniv.nl>
+-M:	Andreas Mohr <100.30936@germany.net>
++P:	Jan-Pascal van Best
++M:	janpascal@vanbest.org
++P:	Andreas Mohr
++M:	andi@lisas.de
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+ 
 _
