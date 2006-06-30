@@ -1,9 +1,8 @@
-From: Paul Jackson <pj@sgi.com>
+From: Andrew Morton <akpm@osdl.org>
 Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Thu, 29 Jun 2006 19:25:26 -0700
-Message-ID: <20060629192526.360aa579.pj@sgi.com>
+Date: Thu, 29 Jun 2006 19:35:00 -0700
+Message-ID: <20060629193500.d4676f13.akpm@osdl.org>
 References: <44892610.6040001@watson.ibm.com>
-	<20060623141926.b28a5fc0.akpm@osdl.org>
 	<449C6620.1020203@engr.sgi.com>
 	<20060623164743.c894c314.akpm@osdl.org>
 	<449CAA78.4080902@watson.ibm.com>
@@ -28,6 +27,7 @@ References: <44892610.6040001@watson.ibm.com>
 	<1151621692.8922.4.camel@jzny2>
 	<44A47285.6060307@watson.ibm.com>
 	<20060629180502.3987a98e.akpm@osdl.org>
+	<20060629192526.360aa579.pj@sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -35,26 +35,24 @@ Cc: nagar@watson.ibm.com, hadi@cyberus.ca, Valdis.Kletnieks@vt.edu,
 	jlan@engr.sgi.com, balbir@in.ibm.com, csturtiv@sgi.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omx2-ext.sgi.com ([192.48.171.19]:56508 "EHLO omx2.sgi.com")
-	by vger.kernel.org with ESMTP id S1750785AbWF3CZ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 22:25:58 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060629180502.3987a98e.akpm@osdl.org>
+Received: from smtp.osdl.org ([65.172.181.4]:21912 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751422AbWF3Cfq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Jun 2006 22:35:46 -0400
+To: Paul Jackson <pj@sgi.com>
+In-Reply-To: <20060629192526.360aa579.pj@sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew wrote:
-> Like, a single message which says "20,000 sub-millisecond-runtime tasks
-> exited in the past second" or something.
+On Thu, 29 Jun 2006 19:25:26 -0700
+Paul Jackson <pj@sgi.com> wrote:
 
-System wide accumulation of such data in the exit() code path still
-risks being a bottleneck, just a bit later on.
+> Andrew wrote:
+> > Like, a single message which says "20,000 sub-millisecond-runtime tasks
+> > exited in the past second" or something.
+> 
+> System wide accumulation of such data in the exit() code path still
+> risks being a bottleneck, just a bit later on.
 
-I'm more inclined now to look for ways to disable collection on some
-CPUs, and/or to allow for multiple streams in the future, as need be,
-along the lines of Shailabh's multiple TASKSTATS_LISTEN_GROUPs.
+Nah.  Stick it in the same cacheline as tasklist_lock (I'm amazed that
+we've continued to get away with a global lock for that).
 
--- 
-                  I won't rest till it's the best ...
-                  Programmer, Linux Scalability
-                  Paul Jackson <pj@sgi.com> 1.925.600.0401
