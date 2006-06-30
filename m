@@ -1,49 +1,62 @@
-From: Dave Olson <olson@unixfolk.com>
-Subject: Re: [PATCH 38 of 39] IB/ipath - More changes to support InfiniPath
- on PowerPC 970 systems
-Date: Thu, 29 Jun 2006 17:28:51 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0606291725020.16720@osa.unixfolk.com>
-References: <fa.KkJLjFz0MBUMS9nMlAyiBMrqx1g@ifi.uio.no>
- <fa./e2EfI5SsRLt5d/gFrBSOnDZpZ0@ifi.uio.no>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Thu, 29 Jun 2006 17:29:48 -0700 (PDT)
+Message-ID: <20060629.172948.59656719.davem@davemloft.net>
+References: <1151626099.8922.64.camel@jzny2>
+	<20060629.171215.112621072.davem@davemloft.net>
+	<1151627180.8922.81.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: bos@pathscale.com, akpm@osdl.org, rdreier@cisco.com,
-	mst@mellanox.co.il, openib-general@openib.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, kaber@trash.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from osa.unixfolk.com ([209.204.179.118]:51115 "EHLO
-	osa.unixfolk.com") by vger.kernel.org with ESMTP id S964818AbWF3A3I
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 20:29:08 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <fa./e2EfI5SsRLt5d/gFrBSOnDZpZ0@ifi.uio.no>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:10180
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S964826AbWF3A3u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 20:29:50 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1151627180.8922.81.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 29 Jun 2006, David Miller wrote:
+From: jamal <hadi@cyberus.ca>
+Date: Thu, 29 Jun 2006 20:26:20 -0400
 
-| From: Bryan O'Sullivan <bos@pathscale.com>
-| Date: Thu, 29 Jun 2006 14:41:29 -0700
-| 
-| >  ipath_core-$(CONFIG_X86_64) += ipath_wc_x86_64.o
-| > +ipath_core-$(CONFIG_PPC64) += ipath_wc_ppc64.o
-| 
-| Again, don't put these kinds of cpu specific functions
-| into the infiniband driver.  They are potentially globally
-| useful, not something only Infiniband might want to do.
+> On Thu, 2006-29-06 at 17:12 -0700, David Miller wrote:
+> > The objects around it are pointers, which are 64-bit, and thus
+> > the 32-bit object gets padded out to 64-bits in the layout of
+> > the struct so that the next pointer member can be properly
+> > aligned.
+> > 
+> > It does not change the size of sk_buff at all.
+> > 
+> 
+> I see; i take it if things were moved around that may change?
 
-The new code simply sets a flag as to whether instruction level
-write barriers need to be used or not, it doesn't contain actual
-code.
+Yes.
 
-The older file (already accepted) does have some setup code, as well as
-code setting flags, due to the fact that Bryan mentioned in his reply,
-that this stuff simply doesn't yet exist in a generic form.   It's not
-clear to me that it can ever be made to exist in a generic form that will
-actually work on multiple architectures (or that there are enough users
-to be worth trying).   We can make the attempt, but so far it's pretty
-non-generic, in it's very nature.
+> > > Yes, it is a bug, but:
+> > > dev_hold/put dont work anymore? why do you need an ifindex instead?
+> > 
+> > You sure you want to do that atomic operation on every single
+> > input packet, regardless of whether egress operations are
+> > using it or not?
+> > 
+> 
+> Can you avoid doing the refcount?
+> Note Thomas is doing dev_get_by_index (which will do the atomic ref
+> count).
 
-Dave Olson
-olson@unixfolk.com
-http://www.unixfolk.com/dave
+He is doing that where skb->input_device is needed, which is
+what we want.
+
+> I didnt quiet follow, the ref count seems only needed in the
+> redirection, no?
+
+I'm saying that, we don't need the refcount, just setting
+the skb->input_index thing, unless someone actually cares
+about the input device.
+
+As long as the packet hits not paths that care about the
+SKB input device, no atomic refcounts are taken.  It's
+just an integer sitting there in the SKB.
