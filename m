@@ -1,27 +1,34 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [2/4] [IPV6]: Added GSO support for TCPv6
-Date: Fri, 30 Jun 2006 15:43:00 +1000
-Message-ID: <20060630054300.GA30149@gondor.apana.org.au>
-References: <20060630054209.GA28558@gondor.apana.org.au>
+Subject: [3/4] [NET]: Generalise TSO-specific bits from skb_setup_caps
+Date: Fri, 30 Jun 2006 15:45:42 +1000
+Message-ID: <20060630054542.GB30149@gondor.apana.org.au>
+References: <20060630054209.GA28558@gondor.apana.org.au> <20060630054300.GA30149@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.62.148.172] ([64.62.148.172]:60938 "EHLO arnor.apana.org.au")
-	by vger.kernel.org with ESMTP id S1751119AbWF3Foi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 01:44:38 -0400
+Received: from [64.62.148.172] ([64.62.148.172]:1291 "EHLO arnor.apana.org.au")
+	by vger.kernel.org with ESMTP id S1751132AbWF3FrN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 01:47:13 -0400
 To: "David S. Miller" <davem@davemloft.net>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	Ananda Raju <Ananda.Raju@neterion.com>, netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20060630054209.GA28558@gondor.apana.org.au>
+In-Reply-To: <20060630054300.GA30149@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi:
 
-[IPV6]: Added GSO support for TCPv6
+[NET]: Generalise TSO-specific bits from skb_setup_caps
 
-This patch adds GSO support for IPv6 and TCPv6.
+This patch generalises the TSO-specific bits from sk_setup_caps by adding
+the sk_gso_type member to struct sock.  This makes sk_setup_caps generic
+so that it can be used by TCPv6 or UFO.
+
+The only catch is that whoever uses this must provide a GSO implementation
+for their protocol which I think is a fair deal :) For now UFO continues to
+live without a GSO implementation which is OK since it doesn't use the sock
+caps field at the moment.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
@@ -32,142 +39,155 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 --
-diff --git a/include/net/protocol.h b/include/net/protocol.h
---- a/include/net/protocol.h
-+++ b/include/net/protocol.h
-@@ -50,11 +50,17 @@ struct inet6_protocol 
- 			       struct inet6_skb_parm *opt,
- 			       int type, int code, int offset,
- 			       __u32 info);
-+
-+	struct sk_buff *(*gso_segment)(struct sk_buff *skb,
-+				       int features);
-+
- 	unsigned int	flags;	/* INET6_PROTO_xxx */
- };
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -313,6 +313,7 @@ struct net_device
  
- #define INET6_PROTO_NOPOLICY	0x1
- #define INET6_PROTO_FINAL	0x2
-+/* This should be set for any extension header which is compatible with GSO. */
-+#define INET6_PROTO_GSO_EXTHDR	0x4
- #endif
+ 	/* Segmentation offload features */
+ #define NETIF_F_GSO_SHIFT	16
++#define NETIF_F_GSO_MASK	0xffff0000
+ #define NETIF_F_TSO		(SKB_GSO_TCPV4 << NETIF_F_GSO_SHIFT)
+ #define NETIF_F_UFO		(SKB_GSO_UDPV4 << NETIF_F_GSO_SHIFT)
+ #define NETIF_F_GSO_ROBUST	(SKB_GSO_DODGY << NETIF_F_GSO_SHIFT)
+@@ -991,13 +992,18 @@ extern void dev_seq_stop(struct seq_file
  
- /* This is used to register socket interfaces for IP protocols.  */
+ extern void linkwatch_run_queue(void);
+ 
+-static inline int skb_gso_ok(struct sk_buff *skb, int features)
++static inline int net_gso_ok(int features, int gso_type)
+ {
+-	int feature = skb_shinfo(skb)->gso_size ?
+-		      skb_shinfo(skb)->gso_type << NETIF_F_GSO_SHIFT : 0;
++	int feature = gso_type << NETIF_F_GSO_SHIFT;
+ 	return (features & feature) == feature;
+ }
+ 
++static inline int skb_gso_ok(struct sk_buff *skb, int features)
++{
++	return net_gso_ok(features, skb_shinfo(skb)->gso_size ?
++				    skb_shinfo(skb)->gso_type : 0);
++}
++
+ static inline int netif_needs_gso(struct net_device *dev, struct sk_buff *skb)
+ {
+ 	return !skb_gso_ok(skb, dev->features);
+diff --git a/include/net/sock.h b/include/net/sock.h
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -140,6 +140,7 @@ struct sock_common {
+   *	@sk_flags: %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE, %SO_OOBINLINE settings
+   *	@sk_no_check: %SO_NO_CHECK setting, wether or not checkup packets
+   *	@sk_route_caps: route capabilities (e.g. %NETIF_F_TSO)
++  *	@sk_gso_type: GSO type (e.g. %SKB_GSO_TCPV4)
+   *	@sk_lingertime: %SO_LINGER l_linger setting
+   *	@sk_backlog: always used with the per-socket spinlock held
+   *	@sk_callback_lock: used with the callbacks in the end of this struct
+@@ -211,6 +212,7 @@ struct sock {
+ 	gfp_t			sk_allocation;
+ 	int			sk_sndbuf;
+ 	int			sk_route_caps;
++	int			sk_gso_type;
+ 	int			sk_rcvlowat;
+ 	unsigned long 		sk_flags;
+ 	unsigned long	        sk_lingertime;
+@@ -1025,15 +1027,20 @@ extern struct dst_entry *__sk_dst_check(
+ 
+ extern struct dst_entry *sk_dst_check(struct sock *sk, u32 cookie);
+ 
++static inline int sk_can_gso(const struct sock *sk)
++{
++	return net_gso_ok(sk->sk_route_caps, sk->sk_gso_type);
++}
++
+ static inline void sk_setup_caps(struct sock *sk, struct dst_entry *dst)
+ {
+ 	__sk_dst_set(sk, dst);
+ 	sk->sk_route_caps = dst->dev->features;
+ 	if (sk->sk_route_caps & NETIF_F_GSO)
+-		sk->sk_route_caps |= NETIF_F_TSO;
+-	if (sk->sk_route_caps & NETIF_F_TSO) {
++		sk->sk_route_caps |= NETIF_F_GSO_MASK;
++	if (sk_can_gso(sk)) {
+ 		if (dst->header_len)
+-			sk->sk_route_caps &= ~NETIF_F_TSO;
++			sk->sk_route_caps &= ~NETIF_F_GSO_MASK;
+ 		else 
+ 			sk->sk_route_caps |= NETIF_F_SG | NETIF_F_HW_CSUM;
+ 	}
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -751,7 +751,7 @@ static inline int tcp_is_cwnd_limited(co
+ 	if (in_flight >= tp->snd_cwnd)
+ 		return 1;
+ 
+-	if (!(sk->sk_route_caps & NETIF_F_TSO))
++	if (!sk_can_gso(sk))
+ 		return 0;
+ 
+ 	left = tp->snd_cwnd - in_flight;
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
-@@ -2215,6 +2215,7 @@ struct sk_buff *tcp_tso_segment(struct s
- out:
- 	return segs;
+@@ -643,7 +643,7 @@ static inline int select_size(struct soc
+ 	int tmp = tp->mss_cache;
+ 
+ 	if (sk->sk_route_caps & NETIF_F_SG) {
+-		if (sk->sk_route_caps & NETIF_F_TSO)
++		if (sk_can_gso(sk))
+ 			tmp = 0;
+ 		else {
+ 			int pgbreak = SKB_MAX_HEAD(MAX_TCP_HEADER);
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -242,6 +242,7 @@ int tcp_v4_connect(struct sock *sk, stru
+ 		goto failure;
+ 
+ 	/* OK, now commit destination to socket.  */
++	sk->sk_gso_type = SKB_GSO_TCPV4;
+ 	sk_setup_caps(sk, &rt->u.dst);
+ 
+ 	if (!tp->write_seq)
+@@ -884,6 +885,7 @@ struct sock *tcp_v4_syn_recv_sock(struct
+ 	if (!newsk)
+ 		goto exit;
+ 
++	newsk->sk_gso_type = SKB_GSO_TCPV4;
+ 	sk_setup_caps(newsk, dst);
+ 
+ 	newtp		      = tcp_sk(newsk);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -510,8 +510,7 @@ static void tcp_queue_skb(struct sock *s
+ 
+ static void tcp_set_skb_tso_segs(struct sock *sk, struct sk_buff *skb, unsigned int mss_now)
+ {
+-	if (skb->len <= mss_now ||
+-	    !(sk->sk_route_caps & NETIF_F_TSO)) {
++	if (skb->len <= mss_now || !sk_can_gso(sk)) {
+ 		/* Avoid the costly divide in the normal
+ 		 * non-TSO case.
+ 		 */
+@@ -525,7 +524,7 @@ static void tcp_set_skb_tso_segs(struct 
+ 		factor /= mss_now;
+ 		skb_shinfo(skb)->gso_segs = factor;
+ 		skb_shinfo(skb)->gso_size = mss_now;
+-		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
++		skb_shinfo(skb)->gso_type = sk->sk_gso_type;
+ 	}
  }
-+EXPORT_SYMBOL(tcp_tso_segment);
  
- extern void __skb_cb_too_small_for_tcp(int, int);
- extern struct tcp_congestion_ops tcp_reno;
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -179,7 +179,7 @@ static int ipv6_destopt_rcv(struct sk_bu
+@@ -824,9 +823,7 @@ unsigned int tcp_current_mss(struct sock
  
- static struct inet6_protocol destopt_protocol = {
- 	.handler	=	ipv6_destopt_rcv,
--	.flags		=	INET6_PROTO_NOPOLICY,
-+	.flags		=	INET6_PROTO_NOPOLICY | INET6_PROTO_GSO_EXTHDR,
- };
+ 	mss_now = tp->mss_cache;
  
- void __init ipv6_destopt_init(void)
-@@ -340,7 +340,7 @@ looped_back:
+-	if (large_allowed &&
+-	    (sk->sk_route_caps & NETIF_F_TSO) &&
+-	    !tp->urg_mode)
++	if (large_allowed && sk_can_gso(sk) && !tp->urg_mode)
+ 		doing_tso = 1;
  
- static struct inet6_protocol rthdr_protocol = {
- 	.handler	=	ipv6_rthdr_rcv,
--	.flags		=	INET6_PROTO_NOPOLICY,
-+	.flags		=	INET6_PROTO_NOPOLICY | INET6_PROTO_GSO_EXTHDR,
- };
- 
- void __init ipv6_rthdr_init(void)
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -58,9 +58,71 @@
- 
- DEFINE_SNMP_STAT(struct ipstats_mib, ipv6_statistics) __read_mostly;
- 
-+static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb, int features)
-+{
-+	struct sk_buff *segs = ERR_PTR(-EINVAL);
-+	struct ipv6hdr *ipv6h;
-+	struct inet6_protocol *ops;
-+	int proto;
-+
-+	if (unlikely(!pskb_may_pull(skb, sizeof(*ipv6h))))
-+		goto out;
-+
-+	ipv6h = skb->nh.ipv6h;
-+	proto = ipv6h->nexthdr;
-+	__skb_pull(skb, sizeof(*ipv6h));
-+
-+	rcu_read_lock();
-+	for (;;) {
-+		struct ipv6_opt_hdr *opth;
-+		int len;
-+
-+		if (proto != NEXTHDR_HOP) {
-+			ops = rcu_dereference(inet6_protos[proto]);
-+
-+			if (unlikely(!ops))
-+				goto unlock;
-+
-+			if (!(ops->flags & INET6_PROTO_GSO_EXTHDR))
-+				break;
-+		}
-+
-+		if (unlikely(!pskb_may_pull(skb, 8)))
-+			goto unlock;
-+
-+		opth = (void *)skb->data;
-+		len = opth->hdrlen * 8 + 8;
-+
-+		if (unlikely(!pskb_may_pull(skb, len)))
-+			goto unlock;
-+
-+		proto = opth->nexthdr;
-+		__skb_pull(skb, len);
-+	}
-+
-+	skb->h.raw = skb->data;
-+	if (likely(ops->gso_segment))
-+		segs = ops->gso_segment(skb, features);
-+
-+unlock:
-+	rcu_read_unlock();
-+
-+	if (unlikely(IS_ERR(segs)))
-+		goto out;
-+
-+	for (skb = segs; skb; skb = skb->next) {
-+		ipv6h = skb->nh.ipv6h;
-+		ipv6h->payload_len = htons(skb->len - skb->mac_len);
-+	}
-+
-+out:
-+	return segs;
-+}
-+
- static struct packet_type ipv6_packet_type = {
- 	.type = __constant_htons(ETH_P_IPV6), 
- 	.func = ipv6_rcv,
-+	.gso_segment = ipv6_gso_segment,
- };
- 
- struct ip6_ra_chain *ip6_ra_chain;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1605,6 +1605,7 @@ struct proto tcpv6_prot = {
- static struct inet6_protocol tcpv6_protocol = {
- 	.handler	=	tcp_v6_rcv,
- 	.err_handler	=	tcp_v6_err,
-+	.gso_segment	=	tcp_tso_segment,
- 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
- };
- 
+ 	if (dst) {
