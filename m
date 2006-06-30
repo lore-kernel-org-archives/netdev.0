@@ -1,45 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Thu, 29 Jun 2006 17:12:15 -0700 (PDT)
-Message-ID: <20060629.171215.112621072.davem@davemloft.net>
-References: <20060629233933.GB14627@postel.suug.ch>
-	<20060629.164732.41636454.davem@davemloft.net>
-	<1151626099.8922.64.camel@jzny2>
+Subject: Re: [PATCH 2.6.17] support for TSO over IPv6
+Date: Thu, 29 Jun 2006 17:12:47 -0700 (PDT)
+Message-ID: <20060629.171247.85410715.davem@davemloft.net>
+References: <Pine.GSO.4.10.10606291810490.12773-100000@guinness>
+	<E1Fw604-0006yP-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, tgraf@suug.ch
+Cc: Ananda.Raju@neterion.com, netdev@vger.kernel.org,
+	jgarzik@pobox.com, shemminger@osdl.org,
+	Leonid.Grossman@neterion.com, Ravinandan.Arakali@neterion.com,
+	sivakumar.subramani@neterion.com, Sriram.Rapuru@neterion.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:60085
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61365
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S933158AbWF3AMS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Jun 2006 20:12:18 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1151626099.8922.64.camel@jzny2>
+	id S933161AbWF3AMu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Jun 2006 20:12:50 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <E1Fw604-0006yP-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 29 Jun 2006 20:08:19 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 30 Jun 2006 09:32:44 +1000
 
-> What am i missing?
-> on 64bit machine, does it not save 32 bits to use an ifindex as opposed
-> to the pointer?
+> BTW, you should rediff against Dave's current tree which has a few
+> extra bits there.
 
-The objects around it are pointers, which are 64-bit, and thus
-the 32-bit object gets padded out to 64-bits in the layout of
-the struct so that the next pointer member can be properly
-aligned.
-
-It does not change the size of sk_buff at all.
-
-> Yes, it is a bug, but:
-> dev_hold/put dont work anymore? why do you need an ifindex instead?
-
-You sure you want to do that atomic operation on every single
-input packet, regardless of whether egresss operations are
-using it or not?
-
-We should put the cost of features at the actual users, and not
-impose it upon everyone.
-
+I just rebased that, so feel free to use it as the base for
+the patch now.
