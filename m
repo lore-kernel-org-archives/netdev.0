@@ -1,39 +1,42 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH 0 of 39] ipath - bug fixes, performanceenhancements,and
- portability improvements
-Date: Sat, 1 Jul 2006 15:35:42 -0700
-Message-ID: <20060701153542.73ac101e.akpm@osdl.org>
-References: <1151686831.2194.7.camel@localhost.localdomain>
-	<20060701194323.GB10904@mellanox.co.il>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: rtl8139: NETDEV WATCHDOG: eth0: transmit timed out
+Date: Fri, 30 Jun 2006 23:16:04 +0200
+Message-ID: <20060630211604.GA5302@electric-eye.fr.zoreil.com>
+References: <e82qhq$4v0$1@sea.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bos@pathscale.com, rdreier@cisco.com, openib-general@openib.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:51603 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751202AbWGAWjM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2006 18:39:12 -0400
-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
-In-Reply-To: <20060701194323.GB10904@mellanox.co.il>
+Received: from zeus1.kernel.org ([204.152.191.4]:25819 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S964891AbWGBAsC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2006 20:48:02 -0400
+Received: from fr.zoreil.com (electric-eye.fr.zoreil.com [213.41.134.224])
+	by zeus1.kernel.org (8.13.1/8.13.1) with ESMTP id k5ULK3Be022812
+	for <netdev@vger.kernel.org>; Fri, 30 Jun 2006 21:20:20 GMT
+To: Marcus Better <marcus@better.se>
+Content-Disposition: inline
+In-Reply-To: <e82qhq$4v0$1@sea.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 1 Jul 2006 22:43:23 +0300
-"Michael S. Tsirkin" <mst@mellanox.co.il> wrote:
+Marcus Better <marcus@better.se> :
+> I'm seeing this problem on my Acer Travelmate 223X laptop with built-in
+> Realtek 8139: The ethernet stops working, usually after at most a few
+> minutes operation. The problem appears in kernel 2.6.16 and 2.6.17, but not
+> in 2.6.15.
 
-> Quoting r. Bryan O'Sullivan <bos@pathscale.com>:
-> > Subject: Re: [PATCH 0 of 39] ipath - bug fixes, performanceenhancements,and portability improvements
-> > 
-> > On Fri, 2006-06-30 at 19:31 +0300, Michael S. Tsirkin wrote:
-> > 
-> > > OK, next week I'll put these into my tree, too.
-> > 
-> > Thanks.  The first 37 are in -mm; the last two you can drop until I sort
-> > them out.
-> 
-> What about patch 28?
-> 
+Broken again :o(
 
-I sent 1-27,29-37 to Linus and he has merged them.  But I held #28 back based on
-Roland's concerns.
+In a better world, you would narrow the suspect with a git bissect [1]
+between v2.6.15 and v2.6.16.
+
+As an alternate solution, you may try the patches available at
+http://www.fr.zoreil.com/people/francois/misc/8139 against v2.6.15,
+starting from 0001 and going to 0006 (of course you can revert the
+patches against v2.6.16 from 0006 to 0001 too). I can't claim that
+each step will compile though.
+
+[1] http://www.kernel.org/pub/software/scm/git/docs/git-bisect.html
+
+-- 
+Ueimor
