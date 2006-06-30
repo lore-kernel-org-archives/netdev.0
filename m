@@ -1,84 +1,41 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Fri, 30 Jun 2006 15:56:12 -0700
-Message-ID: <20060630155612.36189ced.akpm@osdl.org>
-References: <44892610.6040001@watson.ibm.com>
-	<449999D1.7000403@engr.sgi.com>
-	<44999A98.8030406@engr.sgi.com>
-	<44999F5A.2080809@watson.ibm.com>
-	<4499D7CD.1020303@engr.sgi.com>
-	<449C2181.6000007@watson.ibm.com>
-	<20060623141926.b28a5fc0.akpm@osdl.org>
-	<449C6620.1020203@engr.sgi.com>
-	<20060623164743.c894c314.akpm@osdl.org>
-	<449CAA78.4080902@watson.ibm.com>
-	<20060623213912.96056b02.akpm@osdl.org>
-	<449CD4B3.8020300@watson.ibm.com>
-	<44A01A50.1050403@sgi.com>
-	<20060626105548.edef4c64.akpm@osdl.org>
-	<44A020CD.30903@watson.ibm.com>
-	<20060626111249.7aece36e.akpm@osdl.org>
-	<44A026ED.8080903@sgi.com>
-	<20060626113959.839d72bc.akpm@osdl.org>
-	<44A2F50D.8030306@engr.sgi.com>
-	<20060628145341.529a61ab.akpm@osdl.org>
-	<44A2FC72.9090407@engr.sgi.com>
-	<20060629014050.d3bf0be4.pj@sgi.com>
-	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
-	<20060629094408.360ac157.pj@sgi.com>
-	<20060629110107.2e56310b.akpm@osdl.org>
-	<44A57310.3010208@watson.ibm.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH] NET: Fix ipv6 GSO payload length
+Date: Fri, 30 Jun 2006 15:56:47 -0700
+Message-ID: <1151708208.3645.2.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: pj@sgi.com, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
-	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
-	hadi@cyberus.ca, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:22684 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932106AbWF3Wxc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 18:53:32 -0400
-To: Shailabh Nagar <nagar@watson.ibm.com>
-In-Reply-To: <44A57310.3010208@watson.ibm.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:35849 "EHLO
+	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S932125AbWF3Wzi
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jun 2006 18:55:38 -0400
+To: davem@davemloft.net, herbert@gondor.apana.org.au
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Shailabh Nagar <nagar@watson.ibm.com> wrote:
->
-> Based on previous discussions, the above solutions can be expanded/modified to:
-> 
-> a) allow userspace to listen to a group of cpus instead of all. Multiple
-> collection daemons can distribute the load as you pointed out. Doing collection
-> by cpu groups rather than individual cpus reduces the aggregation burden on
-> userspace (and scales better with NR_CPUS)
-> 
-> b) do flow control on the kernel send side. This can involve buffering and sending
-> later (to handle bursty case) or dropping (to handle sustained load) as pointed out
-> by you, Jamal in other threads.
-> 
-> c) increase receiver's socket buffer. This can and should always be done but no
-> involvement needed.
-> 
-> 
-> With regards to taskstats changes to handle the problem and its impact on userspace
-> visible changes,
-> 
-> a) will change userspace
-> b) will be transparent.
-> c) is immaterial going forward (except perhaps as a change in Documentation)
-> 
-> 
-> I'm sending a patch that demonstrates how a) can be done quite simply
-> and a patch for b) is in progress.
-> 
-> If the approach suggested in patch a) is acceptable (and I'll provide the testing, stability
-> results once comments on it are largely over), could taskstats acceptance in 2.6.18 go ahead
-> and patch b) be added later (solution outline has already been provided and a prelim patch should
-> be out by eod)
+Fix ipv6 GSO payload length calculation.
 
-Throwing more CPUs at the problem makes heaps of sense.
+The ipv6 payload length excludes the ipv6 base header length and so
+must be subtracted.
 
-It's not necessarily a userspace-incompatible change.  As long as userspace
-sets nl_pid to 0x00000000, future kernel revisions can treat that as "all
-CPUs".  Or userspace can be forward-compatible by setting nl_pid to
-0xffff0000, or whatever.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 25f8bf8..2d622d1 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -112,7 +112,8 @@ unlock:
+ 
+ 	for (skb = segs; skb; skb = skb->next) {
+ 		ipv6h = skb->nh.ipv6h;
+-		ipv6h->payload_len = htons(skb->len - skb->mac_len);
++		ipv6h->payload_len = htons(skb->len - skb->mac_len -
++					   sizeof(*ipv6h));
+ 	}
+ 
+ out:
+
+
