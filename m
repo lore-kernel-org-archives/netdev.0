@@ -1,56 +1,51 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: RDMA will be reverted
-Date: Fri, 30 Jun 2006 13:51:19 -0700
-Message-ID: <ada3bdmfjug.fsf@cisco.com>
-References: <20060628.000715.95062023.davem@davemloft.net>
-	<adawtazgawi.fsf@cisco.com>
-	<20060629.124628.88476747.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Fri, 30 Jun 2006 16:54:44 -0400
+Message-ID: <1151700884.5270.278.camel@jzny2>
+References: <44A5606B.5080003@trash.net> <1151697554.5270.241.camel@jzny2>
+	 <20060630203034.GN14627@postel.suug.ch>
+	 <20060630.133348.68039806.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, akpm@osdl.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net, tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-3-in.cisco.com ([171.71.176.72]:44809 "EHLO
-	sj-iport-3.cisco.com") by vger.kernel.org with ESMTP
-	id S932231AbWF3UvY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 16:51:24 -0400
+Received: from mx03.cybersurf.com ([209.197.145.106]:14754 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932369AbWF3Uyr
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jun 2006 16:54:47 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1FwQ0p-0007zF-RG
+	for netdev@vger.kernel.org; Fri, 30 Jun 2006 16:54:51 -0400
 To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060629.124628.88476747.davem@davemloft.net> (David Miller's message of "Thu, 29 Jun 2006 12:46:28 -0700 (PDT)")
+In-Reply-To: <20060630.133348.68039806.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-You snipped my question about what specifically you wanted reverted,
-so I'm going to assume that after cooling down and understanding the
-situation, you're OK with everything that's in Linus's tree...
+On Fri, 2006-30-06 at 13:33 -0700, David Miller wrote:
+> From: Thomas Graf <tgraf@suug.ch>
+> Date: Fri, 30 Jun 2006 22:30:34 +0200
+> 
+> > Lack of stylistic commas is less of a concern, rather the lack of
+> > comments and notes where absolutely essential.
+> 
+> Yes, intent is very important to document when it is not
+> obvious.
+> 
 
- > The integration of iWARP with the Linux networking, while much better
- > than TOE, is still heavily flawed.
- > 
- > What most people might not realize when using this stuff is that:
- > 
- > 1) None of their firewall rules will apply to the iWARP communications.
- > 2) None of their packet scheduling configurations can be applied to
- >    the iWARP communications.
- > 3) It is not possible to encapsulate iWARP traffic in IPSEC
+I agree - and i try hard to document but at times there's too much
+and a line needs to be drawn.
+As an example:
+the eth->ifb->ifb case though is a very corner case. All the IMQ types
+need to only redirect to one ifb; while i test it ive always seen the
+test as more of a boundary check than a useful setup.
 
-Yes, there are tradeoffs with iWARP.  However, there seem to be users
-who are willing to make those tradeoffs.  And I can't think of a
-single other example of a case where we refused to merge a driver, not
-because of any issues with the driver code, but because we don't like
-the hardware it drives and think that people shouldn't be able to use
-the HW with Linux.  And it makes me sad that we're doing that here.
+And Thomas: I do keep notebooks ;-> I doodle about everything, they dont
+all fit in my knapsack anymore so sometimes when i say i will go and
+refer to my notes, it is real.
 
-Don't get me wrong, I'm all for rejecting patches that make the core
-networking stack worse or harder to maintain or are bad patches for
-whatever reason.  I know that the present is science fiction, but I
-always thought that the forbidden technologies would be stuff like
-nanotech or human cloning -- I never would have guessed that iWARP
-would be in that category.
+cheers,
+jamal
 
-Anyway, what is your feeling about changes strictly under
-drivers/infiniband that add low-level driver support for iWARP
-devices?  The changes that Steve Wise proposed aren't strictly
-necessary for iWARP support -- they just make things work better when
-routes change.
-
-Thanks,
-  Roland
