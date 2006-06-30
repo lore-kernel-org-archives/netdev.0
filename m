@@ -1,63 +1,75 @@
-From: Cedric Le Goater <clg@fr.ibm.com>
-Subject: Re: strict isolation of net interfaces
-Date: Fri, 30 Jun 2006 10:56:13 +0200
-Message-ID: <44A4E72D.2060105@fr.ibm.com>
-References: <m1psgulf4u.fsf@ebiederm.dsl.xmission.com> <44A1689B.7060809@candelatech.com> <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net> <44A450D1.2030405@fr.ibm.com> <20060630023947.GA24726@sergelap.austin.ibm.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Sockets inside the kernel or userspace ?
+Date: Fri, 30 Jun 2006 13:12:44 +0400
+Message-ID: <20060630091244.GA3606@2ka.mipt.ru>
+References: <e1e1d5f40606300032t7162e165qaa915658e0a71386@mail.gmail.com> <20060630075749.GA30936@2ka.mipt.ru> <e1e1d5f40606300145j36878666ga28c35526f6519ef@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Sam Vilain <sam@vilain.net>, hadi@cyberus.ca,
-	Herbert Poetzl <herbert@13thfloor.at>,
-	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
-	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrey Savochkin <saw@swsoft.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:13489 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S932141AbWF3I4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 04:56:31 -0400
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-In-Reply-To: <20060630023947.GA24726@sergelap.austin.ibm.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:40355 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751539AbWF3JMi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 05:12:38 -0400
+To: Daniel Bonekeeper <thehazard@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <e1e1d5f40606300145j36878666ga28c35526f6519ef@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Serge E. Hallyn wrote:
-> 
-> The last one in your diagram confuses me - why foo0:1?  I would
-> have thought it'd be
+On Fri, Jun 30, 2006 at 04:45:54AM -0400, Daniel Bonekeeper (thehazard@gmail.com) wrote:
+> 1) Inside a gigabit LAN there will be, let's say, 10 machines, that
+> are meant to be used as filesystem nodes. Those machines have a daemon
+> running in userspace ( "dfsd" ) and have one or more partitions of
+> physical(s) HD(s) dedicated to the "filesystem cluster". So, let's
+> suppose that on every node we have a /dev/hdb5 with 20GB unused,
+> dedicated to the cluster ( "/usr/bin/dfsd -p /dev/hda5" ). This is to
+> keep things simple (since we can have raw access to the partition),
+> but we could use files on the local filesystem too.
+>
+> 2) On the master machine, the DFS kernel module (which declares a
+> block device like /dev/dfs1) uses broadcast packages (something like
+> DHCP) to retrieve the list of active nodes on the LAN. So, with 10
+> machines with 20GB each, we have 200GB of distributed storage over the
+> network. To keep things simple, let's say that they are addressed in a
+> serial fashion (requests from 0-20GB goes to the node1, 20-40GB to
+> node2, etc). The module is responsible for keeping a pool of TCP
+> connections with the nodes' daemons, for sending, receiving and
+> parsing the data, etc. At this point, no security measures are taken
+> (encryption, etc).
 
-just thinking aloud. I thought that any kind/type of interface could be
-mapped from host to guest.
+At this point you can mount all remote nodes on one master and export it
+over NFS. It is not distributed FS.
 
-> host                  |  guest 0  |  guest 1  |  guest2
-> ----------------------+-----------+-----------+--------------
->   |                   |           |           |
->   |-> l0      <-------+-> lo0 ... | lo0       | lo0
->   |                   |           |           |
->   |-> eth0            |           |           |
->   |                   |           |           |
->   |-> veth0  <--------+-> eth0    |           |
->   |                   |           |           |
->   |-> veth1  <--------+-----------+-----------+-> eth0
->   |                   |           |           |
->   |-> veth2   <-------+-----------+-> eth0    |
+> At this point, I think that we should be able to create a reiserfs fs
+> on the device and get it running (even if far slower than a local
+> disk). The second part of the project, which would involve more
+> serious stuff, could be:
 > 
-> I think we should avoid using device aliases, as trying to do
-> something like giving eth0:1 to guest1 and eth0:2 to guest2
-> while hiding eth0:1 from guest2 requires some uglier code (as
-> I recall) than working with full devices.  In other words,
-> if a namespace can see eth0, and eth0:2 exists, it should always
-> see eth0:2.
-> 
-> So conceptually using a full virtual net device per container
-> certainly seems cleaner to me, and it seems like it should be
-> simpler by way of statistics gathering etc, but are there actually
-> any real gains?  Or is the support for multiple IPs per device
-> actually enough?
-> 
-> Herbert, is this basically how ngnet is supposed to work?
+> 3) Redundancy - minimizing the storage capacity, but being able to
+> safely continue to work if one of the nodes are down. Actually I don't
+> have any clue on how to achieve this without drastically diminish the
+> storage capacity, but probably there is some clever way out there =]
+
+Several nodes have the same data, so if one of them has failed, one can
+continue data processing. That means either tree-like strucrure where
+local master replicate data between the nodes, or fully distributed fs
+(below).
+
+> 4) No masters - each node can have access to the filesystem (the block
+> device) as if it was a NFS mountpoint (this could be useful somehow
+> tlly o
+> actual clusters, where you could not only share the processor, but
+> also the HD of the nodes as a single huge / mountpoint). In this
+> model, there would be no userspace stuff at all.
+
+Fully distributed mode does not even suppose some "master node"
+existense, since it will quickly became a bottleneck.
+Each node might have some list of nodes it synchronizes with, so if one
+of the node is turned off, others still have valid data and machine
+which requested the data can "reconnect" to another node and get it's
+data. This involves interesting CS thoughts about interconnects (trees,
+rings, multidimentional torus and so on) and other components of the
+system.
+
+-- 
+	Evgeniy Polyakov
