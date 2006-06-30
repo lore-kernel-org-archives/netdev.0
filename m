@@ -1,53 +1,38 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: strict isolation of net interfaces
-Date: Fri, 30 Jun 2006 11:14:42 -0500
-Message-ID: <20060630161442.GA27210@sergelap.austin.ibm.com>
-References: <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net> <44A450D1.2030405@fr.ibm.com> <20060630023947.GA24726@sergelap.austin.ibm.com> <44A517B4.4010500@fr.ibm.com> <m1veqibu8n.fsf@ebiederm.dsl.xmission.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/3] mv643xx fixes - Disable interrupts on all ports during
+ initialization
+Date: Fri, 30 Jun 2006 12:20:43 -0400
+Message-ID: <44A54F5B.4030902@garzik.org>
+References: <200606270951.59024.bcook@bpointsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"Serge E. Hallyn" <serue@us.ibm.com>,
-	Cedric Le Goater <clg@fr.ibm.com>,
-	Sam Vilain <sam@vilain.net>, hadi@cyberus.ca,
-	Herbert Poetzl <herbert@13thfloor.at>,
-	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
-	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrey Savochkin <saw@swsoft.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:25578 "EHLO
-	e35.co.us.ibm.com") by vger.kernel.org with ESMTP id S932273AbWF3QOz
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 12:14:55 -0400
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Content-Disposition: inline
-In-Reply-To: <m1veqibu8n.fsf@ebiederm.dsl.xmission.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:57786 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932386AbWF3QUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 12:20:46 -0400
+To: Brent Cook <bcook@bpointsys.com>
+In-Reply-To: <200606270951.59024.bcook@bpointsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting Eric W. Biederman (ebiederm@xmission.com):
-> This whole debate on network devices show up in multiple network namespaces
-> is just silly.  The only reason for wanting that appears to be better management.
+Brent Cook wrote:
+> This patch disable interrupts on all ports during initialization. The current 
+> assumes that the firmware has already disabled all interrupts on all ports. 
+> We have encountered some boards that do not always disable interrupts (XES 
+> XPedite 6200 for instance) on a soft reset. This patch prevents a kernel 
+> panic if a packet is received before the DMA ring buffers are setup for a 
+> port on which interrupts are left enabled by the firmware.
+> 
+> Signed-off-by: Brent Cook <bcook@bpointsys.com>
 
-A damned good reason.  Clearly we want the parent namespace to be able
-to control what the child can do.  So whatever interface a child gets,
-the parent should be able to somehow address.  Simple iptables rules
-controlling traffic between it's own netdevice and the one it hands it's
-children seem a good option.
+ACK patches 1-3, but:
 
-> We have deeper issues like can we do a reasonable implementation without a
-> network device showing up in multiple namespaces.
 
-Isn't that the same issue?
+[jgarzik@pretzel netdev-2.6]$ git-applymbox /g/tmp/mbox ~/info/signoff.txt
+3 patch(es) to process.
 
-> If we can get layer 2 level isolation working without measurable overhead
-> with one namespace per device it may be worth revisiting things.  Until
-> then it is a side issue at best.
-
-Ok, and in the meantime we can all use the network part of the bsdjail
-lsm?  :)
-
--serge
+Applying 'mv643xx fixes - Disable interrupts on all ports during 
+initialization'
+fatal: corrupt patch at line 19
