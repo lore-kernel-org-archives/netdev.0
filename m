@@ -1,40 +1,61 @@
 From: akpm@osdl.org
-Subject: [patch 5/5] Fix a warning in ioatdma
-Date: Fri, 30 Jun 2006 02:27:23 -0700
-Message-ID: <200606300927.k5U9RN8m001468@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, bboissin@gmail.com,
-	benoit.boissinot@ens-lyon.org, christopher.leech@intel.com
+Subject: [patch 1/5] remove dead entry in net wan Kconfig
+Date: Fri, 30 Jun 2006 02:27:19 -0700
+Message-ID: <200606300927.k5U9RJRj001455@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, paulkf@microgate.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:34960 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751692AbWF3J1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 05:27:34 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:35472 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751699AbWF3J1i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 05:27:38 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Benoit Boissinot" <bboissin@gmail.com>
+From: Paul Fulghum <paulkf@microgate.com>
 
-drivers/dma/ioatdma.c: In function 'ioat_init_module':
-drivers/dma/ioatdma.c:830: warning: control reaches end of non-void function
+Remove dead entry from net wan Kconfig and net wan Makefile..  This entry is
+left over from 2.4 where synclink used syncppp driver directly.  synclink
+drivers now use generic HDLC
 
-Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
-Cc: "Chris Leech" <christopher.leech@intel.com>
+Signed-off-by: Paul Fulghum <paulkf@microgate.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/dma/ioatdma.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wan/Kconfig  |   12 ------------
+ drivers/net/wan/Makefile |    1 -
+ 2 files changed, 13 deletions(-)
 
-diff -puN drivers/dma/ioatdma.c~fix-a-warning-in-ioatdma drivers/dma/ioatdma.c
---- a/drivers/dma/ioatdma.c~fix-a-warning-in-ioatdma
-+++ a/drivers/dma/ioatdma.c
-@@ -826,7 +826,7 @@ static int __init ioat_init_module(void)
- 	/* if forced, worst case is that rmmod hangs */
- 	__unsafe(THIS_MODULE);
+diff -puN drivers/net/wan/Kconfig~remove-dead-entry-in-net-wan-kconfig drivers/net/wan/Kconfig
+--- a/drivers/net/wan/Kconfig~remove-dead-entry-in-net-wan-kconfig
++++ a/drivers/net/wan/Kconfig
+@@ -134,18 +134,6 @@ config SEALEVEL_4021
+ 	  The driver will be compiled as a module: the
+ 	  module will be called sealevel.
  
--	pci_module_init(&ioat_pci_drv);
-+	return pci_module_init(&ioat_pci_drv);
- }
+-config SYNCLINK_SYNCPPP
+-	tristate "SyncLink HDLC/SYNCPPP support"
+-	depends on WAN
+-	help
+-	  Enables HDLC/SYNCPPP support for the SyncLink WAN driver.
+-
+-	  Normally the SyncLink WAN driver works with the main PPP driver
+-	  <file:drivers/net/ppp_generic.c> and pppd program.
+-	  HDLC/SYNCPPP support allows use of the Cisco HDLC/PPP driver
+-	  <file:drivers/net/wan/syncppp.c>. The SyncLink WAN driver (in
+-	  character devices) must also be enabled.
+-
+ # Generic HDLC
+ config HDLC
+ 	tristate "Generic HDLC layer"
+diff -puN drivers/net/wan/Makefile~remove-dead-entry-in-net-wan-kconfig drivers/net/wan/Makefile
+--- a/drivers/net/wan/Makefile~remove-dead-entry-in-net-wan-kconfig
++++ a/drivers/net/wan/Makefile
+@@ -28,7 +28,6 @@ obj-$(CONFIG_COSA)		+=		syncppp.o	cosa.o
+ obj-$(CONFIG_FARSYNC)		+=		syncppp.o	farsync.o
+ obj-$(CONFIG_DSCC4)             +=				dscc4.o
+ obj-$(CONFIG_LANMEDIA)		+=		syncppp.o
+-obj-$(CONFIG_SYNCLINK_SYNCPPP)	+=		syncppp.o
+ obj-$(CONFIG_X25_ASY)		+= x25_asy.o
  
- module_init(ioat_init_module);
+ obj-$(CONFIG_LANMEDIA)		+= lmc/
 _
