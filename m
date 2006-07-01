@@ -1,34 +1,25 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: RDMA will be reverted
-Date: Sat, 1 Jul 2006 16:26:04 +0200
-Message-ID: <200607011626.04539.ak@suse.de>
-References: <adawtazgawi.fsf@cisco.com> <20060630.141658.34759102.davem@davemloft.net> <1151708503.11835.8.camel@trinity.ogc.int>
+From: =?ISO-8859-1?Q?=20=22=CE=EB=E5=E3?=
+	  =?ISO-8859-1?Q?=20=C1=EE=E9=EA=EE=22?=
+	 <ForestWhalen@arsenal.co.uk>
+Subject: =?ISO-8859-1?Q?=20=EF=EE=F0=ED=EE?=  =?ISO-8859-1?Q?=20=F4=EE=F2=EE?=
+Date: Sat, 01 Jul 2006 19:48:49 +0400
+Message-ID: <PGTLLDQRIFQVMJNRMCOMXMYDA@codec.ro>
+Reply-To: =?ISO-8859-1?Q?=20=22=D3=F0=E0=EB?=
+	    =?ISO-8859-1?Q?=20=D0=E0=F5=E8=EC=EE=E2=22?=
+	   <ForestWhalen@arsenal.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rdreier@cisco.com,
-	netdev@vger.kernel.org, akpm@osdl.org
+Content-Type: text/plain; charset=Windows-1251;
+	boundary="--713357179374237"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:400 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1750753AbWGAO0Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2006 10:26:25 -0400
-To: Tom Tucker <tom@opengridcomputing.com>
-In-Reply-To: <1151708503.11835.8.camel@trinity.ogc.int>
-Content-Disposition: inline
+Received: from 190-48-14-236.speedy.com.ar ([190.48.14.236]:12050 "HELO
+	190-48-14-236.speedy.com.ar") by vger.kernel.org with SMTP
+	id S1751363AbWGAOuy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Jul 2006 10:50:54 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 01 July 2006 01:01, Tom Tucker wrote:
-> On Fri, 2006-06-30 at 14:16 -0700, David Miller wrote:
-> 
-> > The TOE folks have tried to submit their hooks and drivers
-> > on several occaisions, and we've rejected it every time.
-> 
-> iWARP != TOE
 
-Perhaps a good start of that discussion David asked for would 
-be if you could give us an overview of the differences
-and how you avoid the TOE problems.
+На сайте порно фото девочек:
 
--Andi
+http://vigovo.by.ru
