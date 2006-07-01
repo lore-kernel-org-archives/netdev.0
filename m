@@ -1,91 +1,100 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Fri, 30 Jun 2006 19:43:53 -0700
-Message-ID: <20060630194353.1cc96ce4.akpm@osdl.org>
-References: <44892610.6040001@watson.ibm.com>
-	<4499D7CD.1020303@engr.sgi.com>
-	<449C2181.6000007@watson.ibm.com>
-	<20060623141926.b28a5fc0.akpm@osdl.org>
-	<449C6620.1020203@engr.sgi.com>
-	<20060623164743.c894c314.akpm@osdl.org>
-	<449CAA78.4080902@watson.ibm.com>
-	<20060623213912.96056b02.akpm@osdl.org>
-	<449CD4B3.8020300@watson.ibm.com>
-	<44A01A50.1050403@sgi.com>
-	<20060626105548.edef4c64.akpm@osdl.org>
-	<44A020CD.30903@watson.ibm.com>
-	<20060626111249.7aece36e.akpm@osdl.org>
-	<44A026ED.8080903@sgi.com>
-	<20060626113959.839d72bc.akpm@osdl.org>
-	<44A2F50D.8030306@engr.sgi.com>
-	<20060628145341.529a61ab.akpm@osdl.org>
-	<44A2FC72.9090407@engr.sgi.com>
-	<20060629014050.d3bf0be4.pj@sgi.com>
-	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
-	<20060629094408.360ac157.pj@sgi.com>
-	<20060629110107.2e56310b.akpm@osdl.org>
-	<44A57310.3010208@watson.ibm.com>
-	<44A5770F.3080206@watson.ibm.com>
-	<20060630155030.5ea1faba.akpm@osdl.org>
-	<44A5DBE7.2020704@watson.ibm.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Fri, 30 Jun 2006 22:59:45 -0400
+Message-ID: <1151722785.5093.51.camel@jzny2>
+References: <44A5606B.5080003@trash.net> <1151697554.5270.241.camel@jzny2>
+	 <20060630203034.GN14627@postel.suug.ch>
+	 <20060630.133348.68039806.davem@davemloft.net>
+	 <1151700884.5270.278.camel@jzny2> <20060630211043.GO14627@postel.suug.ch>
+	 <1151703097.5270.307.camel@jzny2>  <20060630234512.GR14627@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: pj@sgi.com, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
-	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
-	hadi@cyberus.ca, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:32733 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751214AbWGAC6l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 22:58:41 -0400
-To: Shailabh Nagar <nagar@watson.ibm.com>
-In-Reply-To: <44A5DBE7.2020704@watson.ibm.com>
+Received: from mx02.cybersurf.com ([209.197.145.105]:19408 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1751420AbWGAC7s
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jun 2006 22:59:48 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1FwVi5-0001TJ-V0
+	for netdev@vger.kernel.org; Fri, 30 Jun 2006 22:59:53 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060630234512.GR14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 30 Jun 2006 22:20:23 -0400
-Shailabh Nagar <nagar@watson.ibm.com> wrote:
-
-> >If we're going to abuse nl_pid then how about we design things so that
-> >nl_pid is treated as two 16-bit words - one word is the start CPU and the
-> >other word is the end cpu?
-> >
-> >Or, if a 65536-CPU limit is too scary, make the bottom 8 bits of nl_pid be
-> >the number of CPUS (ie: TASKSTATS_CPUS_PER_SET) and the top 24 bits is the
-> >starting CPU.  
-> >
-> ><avoids mentioning nl_pad>
-> >
-> >It'd be better to use a cpumask, of course..
-> >  
-> >
-> All these options mean each listener gets to pick a "custom" range of 
-> cpus to listen on, 
-> rather than choose one of pre-defined ranges (even if the pre-defined 
-> ranges can change
-> by a configurable TASKSTATS_CPUS_PER_SET). Which means the kernel side 
-> has to
-> figure out which of the listeners cpu range includes the currently 
-> exiting task's cpu. To do
-> this, we'll need a callback from the binding of the netlink socket (so 
-> taskstats can maintain
-> the cpu -> nl_pid mappings at any exit).
-> The current genetlink interface doesn't have that kind of flexibility 
-> (though it can be added
-> I'm sure).
+On Sat, 2006-01-07 at 01:45 +0200, Thomas Graf wrote:
+> * jamal <hadi@cyberus.ca> 2006-06-30 17:31
+> > Better to explain the reason for ifb first:
+> > ifb exists initially as a replacement for IMQ. 
+> > 1) qdiscs/policies that are per device as opposed to system wide.
+> > This now allows for sharing.
+> > 
+> > 2) Allows for queueing incoming traffic for shaping instead of
+> > dropping.
+> > 
+> > In other wise, the main use is for multiple devices to redirect to it.
+> > Main desire is not for it to redirect to any other ifb device or eth
+> > devices. I actually tried to get it to do that, but run into issues
+> > of complexity and and came up with decision to drop instead of killing
+> > the machine.
+> > Other than that, it can redirect to any other devices - but may still
+> > not be meaningful.
 > 
-> Seems a bit involved if the primary aim is to restrict the number of 
-> cpus that one listener
->  wants to listen, rather than be able to pick which ones.
+> Last time I'm asking.
+
+Then please listen carefully - because if you read my message with a
+reasonable openness the answer is there. 
+
+>  Why are packets dropped? 
+
+When looping happens the only sane thing to do is to drop packets.
+
+I mentioned this was a very tricky thing to achieve in all cases since
+there are many behaviors and netdevices that have to be considered. As
+an example i ended not submitting the code for looping from egress to
+ingress because i felt it needed more testing. And i am certain i have
+missed some other device combinations.
+Loops could happen within ingress or egress. They could mostly happen
+because of mirred or ifb. And some i have discovered via testing.
+
+> You mentioned tc_verd is set to 0 leading to a invalid from verdict. 
+
+yes, for ifb.
+
+> Fact is that the from verdict is set to a meaningful value again at 
+> dev_queue_xmit() or ing_filter() so ifb_xmit() only sees valid values. 
+
+Ok, Thomas this is one of those places where we end up colliding for no
+good reason - your statement above is accusatory. And sometimes i say 3
+things and you pick one and use that as context. The ifb does clear the
+field. So if you get redirected again, it will be 0.
+
+> tx locks of individual ifb devices are independant, why would it deadlock? 
+
+different instances of the same device do not deadlock. If however, you
+have a series of devices in which A->B->C->D->A then you will have a
+possible deadlock. In the case of the ifb i dissallowed it because it
+was obvious from the testing. 
+
+> Where is the packet exactly dropped?
 > 
-> A configurable range won't suffice ?
+
+For the above in the ifb when they come in with from=0.
+
+> > I have been thinking of Herberts change of qdisc_is_running and this may
+> > help actually.
 > 
+> Help on what?
 
-Set aside the implementation details and ask "what is a good design"?
+In the case of deadlocks. Now that it is impossible to contend for the
+txlock twice (with that patch), a second redirect will end up just
+enqueueing.
 
-A kernel-wide constant, whether determined at build-time or by a /proc poke
-isn't a nice design.
-
-Can we permit userspace to send in a netlink message describing a cpumask? 
-That's back-compatible.
+cheers,
+jamal
 
