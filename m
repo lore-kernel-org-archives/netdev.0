@@ -1,47 +1,44 @@
-From: Gertjan van Wingerde <gwingerde@kpnplanet.nl>
-Subject: [PATCH] d80211: Take lowlevel driver's channel change time into account
- during scanning.
-Date: Sat, 01 Jul 2006 22:40:38 +0200
-Message-ID: <44A6DDC6.1040005@kpnplanet.nl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RDMA will be reverted
+Date: Sat, 01 Jul 2006 14:45:06 -0700 (PDT)
+Message-ID: <20060701.144506.74722126.davem@davemloft.net>
+References: <ada3bdmfjug.fsf@cisco.com>
+	<20060630.141658.34759102.davem@davemloft.net>
+	<1151708503.11835.8.camel@trinity.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, jkmaline@cc.hut.fi,
-	linville@tuxdriver.com
+Cc: rdreier@cisco.com, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from CPEXFE-VOIP04.KPNplanet.nl ([194.151.105.222]:56167 "EHLO
-	cpexfe-voip04.KPNplanet.nl") by vger.kernel.org with ESMTP
-	id S1751924AbWGAUiG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Jul 2006 16:38:06 -0400
-To: netdev@vger.kernel.org
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5289
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751243AbWGAVpD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Jul 2006 17:45:03 -0400
+To: tom@opengridcomputing.com
+In-Reply-To: <1151708503.11835.8.camel@trinity.ogc.int>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make the dscape stack take the driver-supplied channel change time into 
-account when actively scanning for networks.
-This particularly has been a problem in the rt2x00 driver, where 
-configuration changes are done via a work-queue, and
-the subsequent channel changes failed due to the dscape stack scheduling 
-a channel update while the previous one had not
-been performed yet, resulting in failed scans.
+From: Tom Tucker <tom@opengridcomputing.com>
+Date: Fri, 30 Jun 2006 18:01:43 -0500
 
-Signed-off-by: Gertjan van Wingerde <gwingerde@kpnplanet.nl>
+> On Fri, 2006-06-30 at 14:16 -0700, David Miller wrote:
+> 
+> > The TOE folks have tried to submit their hooks and drivers
+> > on several occaisions, and we've rejected it every time.
+> 
+> iWARP != TOE
 
-diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index 37d40aa..9f8653d 100644
---- a/net/d80211/ieee80211_sta.c
-+++ b/net/d80211/ieee80211_sta.c
-@@ -2503,7 +2503,8 @@ #endif
-                        break;
-                }
+You are taking my comment out of context.  And the fact
+that you removed the comment I am respond to, shows
+that you really aren't following the conversation.
 
--               local->scan_timer.expires = jiffies + IEEE80211_PROBE_DELAY;
-+               local->scan_timer.expires = jiffies + IEEE80211_PROBE_DELAY +
-+                             usecs_to_jiffies(local->hw->channel_change_time);
-                local->scan_state = SCAN_SEND_PROBE;
-                break;
-        case SCAN_SEND_PROBE:
+Roland stated that it has never been the case that we have
+rejected adding support for a certain class of devices on the
+kinds of merits being discussed in this thread.  And I'm saying
+that TOE is such a case where we have emphatically done so.
 
+So I am not saying iWARP or RDMA is equal to TOE, and if you had
+actually read this thread you would have understood that.
 
-
-
+You're just looking for cannon fodder in my emails.
