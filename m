@@ -1,45 +1,59 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] pcmcia: hostap_cs.c - 0xc00f,0x0000 conflicts with pcnet_cs
-Date: Fri, 30 Jun 2006 20:34:04 -0400
-Message-ID: <44A5C2FC.9000908@garzik.org>
-References: <200607010001.k610165k008843@hera.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [patch 2/6] [Network namespace] Network device sharing by view
+Date: Fri, 30 Jun 2006 18:50:20 -0600
+Message-ID: <m1u0629mib.fsf@ebiederm.dsl.xmission.com>
+References: <m1psgulf4u.fsf@ebiederm.dsl.xmission.com>
+	<44A1689B.7060809@candelatech.com>
+	<20060627225213.GB2612@MAIL.13thfloor.at>
+	<1151449973.24103.51.camel@localhost.localdomain>
+	<20060627234210.GA1598@ms2.inr.ac.ru>
+	<m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com>
+	<20060628133640.GB5088@MAIL.13thfloor.at>
+	<1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net>
+	<1151626552.8922.70.camel@jzny2>
+	<20060630114551.A20191@castle.nmd.msu.ru>
+	<1151675452.5270.10.camel@jzny2>
+	<m13bdmbj1b.fsf@ebiederm.dsl.xmission.com>
+	<1151704319.5270.317.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, linux@dominikbrodowski.net,
-	Netdev List <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sam Vilain <sam@vilain.net>, Herbert Poetzl <herbert@13thfloor.at>,
+	viro@ftp.linux.org.uk, devel@openvz.org, dev@sw.ru,
+	Andrew Morton <akpm@osdl.org>, clg@fr.ibm.com,
+	serue@us.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Dave Hansen <haveblue@us.ibm.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Andrey Savochkin <saw@swsoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:25802 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932083AbWGAAeI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 20:34:08 -0400
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-In-Reply-To: <200607010001.k610165k008843@hera.kernel.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:54938 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S1751884AbWGAAwd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Jun 2006 20:52:33 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1151704319.5270.317.camel@jzny2> (hadi@cyberus.ca's message of
+	"Fri, 30 Jun 2006 17:51:58 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linux Kernel Mailing List wrote:
-> commit fd99ddd0701385344eadaf2daa6abbc5fb086750
-> tree 013d75048f086edfa7a89ac3f3301dde13017817
-> parent 0db6095d4ff8918350797dfe299d572980e82fa0
-> author Komuro <komurojun-mbn@nifty.com> Mon, 17 Apr 2006 21:41:21 +0900
-> committer Dominik Brodowski <linux@dominikbrodowski.net> Fri, 30 Jun 2006 22:09:12 +0200
-> 
-> [PATCH] pcmcia: hostap_cs.c - 0xc00f,0x0000 conflicts with pcnet_cs
-> 
-> Comment out the ID 0xc00f,0x0000 in hostap_cs.c, as it conflicts with the
-> pcnet_cs driver.
-> 
-> Signed-off-by: komurojun-mbn@nifty.com
-> Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
-> 
->  drivers/net/wireless/hostap/hostap_cs.c |    2 +-
->  1 files changed, 1 insertion(+), 1 deletion(-)
+jamal <hadi@cyberus.ca> writes:
 
-drivers/net/wireless stuff should go through netdev and John Linville.
+> On Fri, 2006-30-06 at 12:22 -0600, Eric W. Biederman wrote:
+>
+>> 
+>> Anyway Jamal can you see the problem the aliases present to the
+> implementation?
+>> 
+>
+> I think more than anything i may have a different view of things and no
+> code ;-> And you are trying to restore order in the discussion - so my
+> wild ideas dont help. If you guys have a meeting somewhere like this
+> coming OLS I will come over and disrupt your meeting ;-> I actually have
+> attempted to implement things like virtual routers but you guys seem way
+> ahead of anywhere i was.
 
-I'm going to go out on a limb, and guess that Linville never saw this patch?
+Currently I think we have both a talk, and a BOFH at OLS plus probably
+a little time at kernel summit.
 
-	Jeff
-
-
+Eric
