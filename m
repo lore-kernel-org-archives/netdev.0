@@ -1,90 +1,65 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Fri, 30 Jun 2006 22:20:23 -0400
-Message-ID: <44A5DBE7.2020704@watson.ibm.com>
-References: <44892610.6040001@watson.ibm.com>	<44999A98.8030406@engr.sgi.com>	<44999F5A.2080809@watson.ibm.com>	<4499D7CD.1020303@engr.sgi.com>	<449C2181.6000007@watson.ibm.com>	<20060623141926.b28a5fc0.akpm@osdl.org>	<449C6620.1020203@engr.sgi.com>	<20060623164743.c894c314.akpm@osdl.org>	<449CAA78.4080902@watson.ibm.com>	<20060623213912.96056b02.akpm@osdl.org>	<449CD4B3.8020300@watson.ibm.com>	<44A01A50.1050403@sgi.com>	<20060626105548.edef4c64.akpm@osdl.org>	<44A020CD.30903@watson.ibm.com>	<20060626111249.7aece36e.akpm@osdl.org>	<44A026ED.8080903@sgi.com>	<20060626113959.839d72bc.akpm@osdl.org>	<44A2F50D.8030306@engr.sgi.com>	<20060628145341.529a61ab.akpm@osdl.org>	<44A2FC72.9090407@engr.sgi.com>	<20060629014050.d3bf0be4.pj@sgi.com>	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>	<20060629094408.360ac157.pj@sgi.com>	<20060629110107.2e56310b.akpm@osdl.org>	<44A57310.3010208@watson
- .ibm.com>	<44A5770F.3080206@watson.ibm.com> <20060630155030.5ea1faba.akpm@osdl.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Fri, 30 Jun 2006 22:23:55 -0400
+Message-ID: <1151720635.5093.15.camel@jzny2>
+References: <1151629890.8922.121.camel@jzny2>
+	 <20060630130811.GE14627@postel.suug.ch> <1151675843.5270.18.camel@jzny2>
+	 <20060630141531.GG14627@postel.suug.ch> <1151678118.5270.45.camel@jzny2>
+	 <20060630163229.GH14627@postel.suug.ch>
+	 <20060630171348.GI14627@postel.suug.ch> <1151701767.5270.289.camel@jzny2>
+	 <20060630212047.GP14627@postel.suug.ch> <1151703305.5270.311.camel@jzny2>
+	 <20060630232214.GQ14627@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: pj@sgi.com, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
-	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
-	hadi@cyberus.ca, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([195.212.29.137]:31246 "EHLO
-	mtagate4.uk.ibm.com") by vger.kernel.org with ESMTP id S932117AbWGACUd
+Received: from mx03.cybersurf.com ([209.197.145.106]:15790 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1750889AbWGACX7
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Jun 2006 22:20:33 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060630155030.5ea1faba.akpm@osdl.org>
+	Fri, 30 Jun 2006 22:23:59 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1FwV9R-0002Ln-L5
+	for netdev@vger.kernel.org; Fri, 30 Jun 2006 22:24:05 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060630232214.GQ14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
+On Sat, 2006-01-07 at 01:22 +0200, Thomas Graf wrote:
+> This is boring, I reversed everything to not change any semantics and
+> you still complain.
+> 
 
->Shailabh Nagar <nagar@watson.ibm.com> wrote:
->  
->
->>+/*
->>+ * Per-task exit data sent from the kernel to user space
->>+ * is tagged by an id based on grouping of cpus.
->>+ *
->>+ * If userspace specifies a non-zero P as the nl_pid field of
->>+ * the sockaddr_nl structure while binding to a netlink socket,
->>+ * it will receive exit data from threads that exited on cpus in the range
->>+ *
->>+ *    [(P-1)*Y, P*Y-1]
->>+ *
->>+ *  where Y = TASKSTATS_CPUS_PER_SET
->>+ *  i.e. if TASKSTATS_CPUS_PER_SET is 16,
->>+ *  to listen to data from cpus 0..15, specify P=1
->>+ *  for cpus 16..32, specify P=2 etc.
->>+ *
->>+ *  To listen to data from all cpus, userspace should use P=0
->>+ */
->>+
->>+#define TASKSTATS_CPUS_PER_SET	16
->>    
->>
->
->The constant is unpleasant.
->  
->
-I was planning to make it configurable. But that would still not be as 
-flexible as below...
+You reversed a bug that you had introduced. Do you want me to review
+this patch or not now? Be a little reasonable please.
 
->If we're going to abuse nl_pid then how about we design things so that
->nl_pid is treated as two 16-bit words - one word is the start CPU and the
->other word is the end cpu?
->
->Or, if a 65536-CPU limit is too scary, make the bottom 8 bits of nl_pid be
->the number of CPUS (ie: TASKSTATS_CPUS_PER_SET) and the top 24 bits is the
->starting CPU.  
->
-><avoids mentioning nl_pad>
->
->It'd be better to use a cpumask, of course..
->  
->
-All these options mean each listener gets to pick a "custom" range of 
-cpus to listen on, 
-rather than choose one of pre-defined ranges (even if the pre-defined 
-ranges can change
-by a configurable TASKSTATS_CPUS_PER_SET). Which means the kernel side 
-has to
-figure out which of the listeners cpu range includes the currently 
-exiting task's cpu. To do
-this, we'll need a callback from the binding of the netlink socket (so 
-taskstats can maintain
-the cpu -> nl_pid mappings at any exit).
-The current genetlink interface doesn't have that kind of flexibility 
-(though it can be added
-I'm sure).
+> * jamal <hadi@cyberus.ca> 2006-06-30 17:35
 
-Seems a bit involved if the primary aim is to restrict the number of 
-cpus that one listener
- wants to listen, rather than be able to pick which ones.
+> > > Grabing a reference is completely pointless,
+> > > the netdevice represented by skb->iif is at this point until the
+> > > packet gets queued covered by a reference taken in netif_rx().
+> > 
+> > You have to consider that this could happen at both ingress and egress.
+> 
+> Just think for a second, do you expect the device the packet will
+> be leaving at to disappear?
 
-A configurable range won't suffice ?
+I am  not certain i understood then: Are we in the mode where the
+refcount is not needed because chances are small that a device will
+disappear? It seems to me after all this trouble that it may not be so
+bad to refcount (I guess i meant refcount the device on input to the ifb
+and decrement on the output).
 
---Shailabh
+As a note - and i am sure you know this: 
+The packet comes to the ifb and gets queued. It gets dequeued at a later
+time and is sent off either to the ingress or egress. At any point
+during the enq/deq the other device being referenced could 
+disappear. This is a lesser sin on ingress than it is on egress.
+
+cheers,
+jamal
+
