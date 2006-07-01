@@ -1,82 +1,60 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Fri, 30 Jun 2006 20:51:48 -0700
-Message-ID: <20060630205148.4f66b125.akpm@osdl.org>
-References: <44892610.6040001@watson.ibm.com>
-	<449C6620.1020203@engr.sgi.com>
-	<20060623164743.c894c314.akpm@osdl.org>
-	<449CAA78.4080902@watson.ibm.com>
-	<20060623213912.96056b02.akpm@osdl.org>
-	<449CD4B3.8020300@watson.ibm.com>
-	<44A01A50.1050403@sgi.com>
-	<20060626105548.edef4c64.akpm@osdl.org>
-	<44A020CD.30903@watson.ibm.com>
-	<20060626111249.7aece36e.akpm@osdl.org>
-	<44A026ED.8080903@sgi.com>
-	<20060626113959.839d72bc.akpm@osdl.org>
-	<44A2F50D.8030306@engr.sgi.com>
-	<20060628145341.529a61ab.akpm@osdl.org>
-	<44A2FC72.9090407@engr.sgi.com>
-	<20060629014050.d3bf0be4.pj@sgi.com>
-	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
-	<20060629094408.360ac157.pj@sgi.com>
-	<20060629110107.2e56310b.akpm@osdl.org>
-	<44A57310.3010208@watson.ibm.com>
-	<44A5770F.3080206@watson.ibm.com>
-	<20060630155030.5ea1faba.akpm@osdl.org>
-	<44A5DBE7.2020704@watson.ibm.com>
-	<20060630194353.1cc96ce4.akpm@osdl.or!
- g>
-	<44A5EDE6.3010605@watson.ibm.com>
+From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
+Subject: RE: [PATCH 2.6.17] support for TSO over IPv6
+Date: Sat, 1 Jul 2006 00:01:32 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7793A4E5@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: pj@sgi.com, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
-	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
-	hadi@cyberus.ca, netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Ananda Raju" <Ananda.Raju@neterion.com>, <netdev@vger.kernel.org>,
+	<jgarzik@pobox.com>, <shemminger@osdl.org>,
+	"Ravinandan Arakali" <Ravinandan.Arakali@neterion.com>,
+	<sivakumar.subramani@neterion.com>,
+	"Sriram Rapuru" <Sriram.Rapuru@neterion.com>,
+	"Michael Chan" <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:21482 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932354AbWGADw1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 23:52:27 -0400
-To: Shailabh Nagar <nagar@watson.ibm.com>
-In-Reply-To: <44A5EDE6.3010605@watson.ibm.com>
+Received: from barracuda.s2io.com ([72.1.205.138]:38375 "EHLO
+	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
+	id S1751893AbWGAEBs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2006 00:01:48 -0400
+Received: from owa.neterion.com (unknown [72.1.205.142])
+	by barracuda.mail.s2io.com (Spam Firewall) with ESMTP id BAAEC2014AC5
+	for <netdev@vger.kernel.org>; Sat,  1 Jul 2006 00:01:47 -0400 (EDT)
+Content-class: urn:content-classes:message
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 30 Jun 2006 23:37:10 -0400
-Shailabh Nagar <nagar@watson.ibm.com> wrote:
+Thanks Herbert!
+We'll fix this.
 
-> >Set aside the implementation details and ask "what is a good design"?
-> >
-> >A kernel-wide constant, whether determined at build-time or by a /proc poke
-> >isn't a nice design.
-> >
-> >Can we permit userspace to send in a netlink message describing a cpumask? 
-> >That's back-compatible.
-> >  
-> >
-> Yes, that should be doable. And passing in a cpumask is much better 
-> since we no longer
-> have to maintain mappings.
+Leonid 
+
+> -----Original Message-----
+> From: Herbert Xu [mailto:herbert@gondor.apana.org.au] 
+> Sent: Friday, June 30, 2006 8:38 PM
+> To: Leonid Grossman
+> Cc: Ananda Raju; netdev@vger.kernel.org; jgarzik@pobox.com; 
+> shemminger@osdl.org; Ravinandan Arakali; 
+> sivakumar.subramani@neterion.com; Sriram Rapuru; Michael Chan
+> Subject: Re: [PATCH 2.6.17] support for TSO over IPv6
 > 
-> So the strawman is:
-> Listener bind()s to genetlink using its real pid.
-> Sends a separate "registration" message with cpumask to listen to. 
-> Kernel stores (real) pid and cpumask.
-> During task exit, kernel goes through each registered listener (small 
-> list) and decides which
-> one needs to get this exit data and calls a genetlink_unicast to each 
-> one that does need it.
+> Hi Leonid:
 > 
-> If number of listeners is small, the lookups should be swift enough. If 
-> it grows large, we
-> can consider a fancier lookup (but there I go again, delving into 
-> implementation too early :-)
+> On Fri, Jun 30, 2006 at 04:46:56PM -0400, Leonid Grossman wrote:
+> > 
+> > If ECE == 1, then set it to one for all datagrams.
+> > If CWR == 1, then set it to one for the first datagram, and 
+> set it to 
+> > zero for the rest?
+> 
+> Exactly.
+> 
+> Cheers,
+> --
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au> 
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 
 
-We'll need a map.
-
-1024 CPUs, 1024 listeners, 1000 exits/sec/CPU and we're up to a million
-operations per second per CPU.  Meltdown.
-
-But it's a pretty simple map.  A per-cpu array of pointers to the head of a
-linked list.  One lock for each CPU's list.
