@@ -1,42 +1,26 @@
-From: "Ananda Raju" <Ananda.Raju@neterion.com>
-Subject: RE: [1/4] [IPV6]: Remove redundant length check on input
-Date: Fri, 30 Jun 2006 20:08:25 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7793A4D1@nekter>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] com20020_cs: more device support
+Date: Fri, 30 Jun 2006 20:32:41 -0400
+Message-ID: <44A5C2A9.8070709@garzik.org>
+References: <200607010001.k6101HI9009640@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>,
-	<herbert@gondor.apana.org.au>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, linux@dominikbrodowski.net,
+	Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:56036 "EHLO
-	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
-	id S933054AbWGAAIm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 20:08:42 -0400
-Received: from owa.neterion.com (unknown [72.1.205.142])
-	by barracuda.mail.s2io.com (Spam Firewall) with ESMTP id AB4652014A94
-	for <netdev@vger.kernel.org>; Fri, 30 Jun 2006 20:08:41 -0400 (EDT)
-Content-class: urn:content-classes:message
-To: "Michael Chan" <mchan@broadcom.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:20426 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751879AbWGAAcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 20:32:43 -0400
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+In-Reply-To: <200607010001.k6101HI9009640@hera.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sure, we will do that. 
+For the nth time, drivers/net patches should at least be CC'd to netdev 
+and me.
 
------Original Message-----
-From: Michael Chan [mailto:mchan@broadcom.com] 
-Sent: Friday, June 30, 2006 5:08 PM
-To: Ananda Raju
-Cc: David Miller; herbert@gondor.apana.org.au; netdev@vger.kernel.org
-Subject: RE: [1/4] [IPV6]: Remove redundant length check on input
+	Jeff
 
-On Fri, 2006-06-30 at 19:55 -0400, Ananda Raju wrote:
-> True, I am referring to "ethtool -K ethX tso off"
-> ethtool_op_set_tso() won't clear NETIF_F_TSO6 for ethtool -K ethX tso
-> off
-> 
-Instead of using ethtool_op_set_tso() in your ethtool_ops structure, you
-can use a private function to set or clear any new bits such as
-NETIF_F_TSO6 or NETIF_F_TSO_ECN.
 
 
