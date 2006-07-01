@@ -1,60 +1,49 @@
-From: "Leonid Grossman" <Leonid.Grossman@neterion.com>
-Subject: RE: [PATCH 2.6.17] support for TSO over IPv6
-Date: Sat, 1 Jul 2006 00:01:32 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7793A4E5@nekter>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] pcmcia: hostap_cs.c - 0xc00f,0x0000 conflicts with pcnet_cs
+Date: Sat, 1 Jul 2006 01:23:01 -0400
+Message-ID: <20060701052256.GA8749@tuxdriver.com>
+References: <200607010001.k610165k008843@hera.kernel.org> <44A5C2FC.9000908@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Ananda Raju" <Ananda.Raju@neterion.com>, <netdev@vger.kernel.org>,
-	<jgarzik@pobox.com>, <shemminger@osdl.org>,
-	"Ravinandan Arakali" <Ravinandan.Arakali@neterion.com>,
-	<sivakumar.subramani@neterion.com>,
-	"Sriram Rapuru" <Sriram.Rapuru@neterion.com>,
-	"Michael Chan" <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:38375 "EHLO
-	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
-	id S1751893AbWGAEBs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2006 00:01:48 -0400
-Received: from owa.neterion.com (unknown [72.1.205.142])
-	by barracuda.mail.s2io.com (Spam Firewall) with ESMTP id BAAEC2014AC5
-	for <netdev@vger.kernel.org>; Sat,  1 Jul 2006 00:01:47 -0400 (EDT)
-Content-class: urn:content-classes:message
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>, linux@dominikbrodowski.net,
+	Netdev List <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964775AbWGAFXp@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <44A5C2FC.9000908@garzik.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks Herbert!
-We'll fix this.
+On Fri, Jun 30, 2006 at 08:34:04PM -0400, Jeff Garzik wrote:
+> Linux Kernel Mailing List wrote:
+> >commit fd99ddd0701385344eadaf2daa6abbc5fb086750
+> >tree 013d75048f086edfa7a89ac3f3301dde13017817
+> >parent 0db6095d4ff8918350797dfe299d572980e82fa0
+> >author Komuro <komurojun-mbn@nifty.com> Mon, 17 Apr 2006 21:41:21 +0900
+> >committer Dominik Brodowski <linux@dominikbrodowski.net> Fri, 30 Jun 2006 
+> >22:09:12 +0200
+> >
+> >[PATCH] pcmcia: hostap_cs.c - 0xc00f,0x0000 conflicts with pcnet_cs
+> >
+> >Comment out the ID 0xc00f,0x0000 in hostap_cs.c, as it conflicts with the
+> >pcnet_cs driver.
+> >
+> >Signed-off-by: komurojun-mbn@nifty.com
+> >Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
+> >
+> > drivers/net/wireless/hostap/hostap_cs.c |    2 +-
+> > 1 files changed, 1 insertion(+), 1 deletion(-)
+> 
+> drivers/net/wireless stuff should go through netdev and John Linville.
+> 
+> I'm going to go out on a limb, and guess that Linville never saw this patch?
 
-Leonid 
+Actually, I did get a copy.  I also saw a comment from Pavel
+Roskin, but it wasn't sure if it was an ACK, a NACK, or something
+in between...?
 
-> -----Original Message-----
-> From: Herbert Xu [mailto:herbert@gondor.apana.org.au] 
-> Sent: Friday, June 30, 2006 8:38 PM
-> To: Leonid Grossman
-> Cc: Ananda Raju; netdev@vger.kernel.org; jgarzik@pobox.com; 
-> shemminger@osdl.org; Ravinandan Arakali; 
-> sivakumar.subramani@neterion.com; Sriram Rapuru; Michael Chan
-> Subject: Re: [PATCH 2.6.17] support for TSO over IPv6
-> 
-> Hi Leonid:
-> 
-> On Fri, Jun 30, 2006 at 04:46:56PM -0400, Leonid Grossman wrote:
-> > 
-> > If ECE == 1, then set it to one for all datagrams.
-> > If CWR == 1, then set it to one for the first datagram, and 
-> set it to 
-> > zero for the rest?
-> 
-> Exactly.
-> 
-> Cheers,
-> --
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au> 
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> 
-
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
