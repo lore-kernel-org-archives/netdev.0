@@ -1,44 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RDMA will be reverted
-Date: Sat, 01 Jul 2006 14:45:06 -0700 (PDT)
-Message-ID: <20060701.144506.74722126.davem@davemloft.net>
-References: <ada3bdmfjug.fsf@cisco.com>
-	<20060630.141658.34759102.davem@davemloft.net>
-	<1151708503.11835.8.camel@trinity.ogc.int>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH 0 of 39] ipath - bug fixes, performanceenhancements,and
+ portability improvements
+Date: Sat, 1 Jul 2006 15:35:42 -0700
+Message-ID: <20060701153542.73ac101e.akpm@osdl.org>
+References: <1151686831.2194.7.camel@localhost.localdomain>
+	<20060701194323.GB10904@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, netdev@vger.kernel.org, akpm@osdl.org
+Cc: bos@pathscale.com, rdreier@cisco.com, openib-general@openib.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5289
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751243AbWGAVpD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Jul 2006 17:45:03 -0400
-To: tom@opengridcomputing.com
-In-Reply-To: <1151708503.11835.8.camel@trinity.ogc.int>
+Received: from smtp.osdl.org ([65.172.181.4]:51603 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751202AbWGAWjM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jul 2006 18:39:12 -0400
+To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+In-Reply-To: <20060701194323.GB10904@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tom Tucker <tom@opengridcomputing.com>
-Date: Fri, 30 Jun 2006 18:01:43 -0500
+On Sat, 1 Jul 2006 22:43:23 +0300
+"Michael S. Tsirkin" <mst@mellanox.co.il> wrote:
 
-> On Fri, 2006-06-30 at 14:16 -0700, David Miller wrote:
+> Quoting r. Bryan O'Sullivan <bos@pathscale.com>:
+> > Subject: Re: [PATCH 0 of 39] ipath - bug fixes, performanceenhancements,and portability improvements
+> > 
+> > On Fri, 2006-06-30 at 19:31 +0300, Michael S. Tsirkin wrote:
+> > 
+> > > OK, next week I'll put these into my tree, too.
+> > 
+> > Thanks.  The first 37 are in -mm; the last two you can drop until I sort
+> > them out.
 > 
-> > The TOE folks have tried to submit their hooks and drivers
-> > on several occaisions, and we've rejected it every time.
+> What about patch 28?
 > 
-> iWARP != TOE
 
-You are taking my comment out of context.  And the fact
-that you removed the comment I am respond to, shows
-that you really aren't following the conversation.
-
-Roland stated that it has never been the case that we have
-rejected adding support for a certain class of devices on the
-kinds of merits being discussed in this thread.  And I'm saying
-that TOE is such a case where we have emphatically done so.
-
-So I am not saying iWARP or RDMA is equal to TOE, and if you had
-actually read this thread you would have understood that.
-
-You're just looking for cannon fodder in my emails.
+I sent 1-27,29-37 to Linus and he has merged them.  But I held #28 back based on
+Roland's concerns.
