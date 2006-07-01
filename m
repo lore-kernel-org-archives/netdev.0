@@ -1,32 +1,30 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [1/4] [IPV6]: Remove redundant length check on input
-Date: Sat, 1 Jul 2006 13:39:39 +1000
-Message-ID: <20060701033939.GC29803@gondor.apana.org.au>
-References: <78C9135A3D2ECE4B8162EBDCE82CAD7793A4C8@nekter>
+Subject: Re: [PATCH] NET: Fix ipv6 GSO payload length
+Date: Sat, 1 Jul 2006 13:44:46 +1000
+Message-ID: <20060701034446.GA30258@gondor.apana.org.au>
+References: <1151708208.3645.2.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [64.62.148.172] ([64.62.148.172]:59654 "EHLO arnor.apana.org.au")
-	by vger.kernel.org with ESMTP id S964814AbWGADkt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 23:40:49 -0400
-To: Ananda Raju <Ananda.Raju@neterion.com>
+Received: from [64.62.148.172] ([64.62.148.172]:775 "EHLO arnor.apana.org.au")
+	by vger.kernel.org with ESMTP id S964814AbWGADp2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Jun 2006 23:45:28 -0400
+To: Michael Chan <mchan@broadcom.com>
 Content-Disposition: inline
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7793A4C8@nekter>
+In-Reply-To: <1151708208.3645.2.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 30, 2006 at 07:44:49PM -0400, Ananda Raju wrote:
+On Fri, Jun 30, 2006 at 03:56:47PM -0700, Michael Chan wrote:
+> Fix ipv6 GSO payload length calculation.
 > 
-> I tested the patch, and TSO over ipv6 is working fine. But TSO disable
-> not working for IPv6. 
+> The ipv6 payload length excludes the ipv6 base header length and so
+> must be subtracted.
 > 
-> I tried the from tree /pub/scm/linux/kernel/git/davem/net-2.6
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-I think we need some new ethtool helper functions that sets/clears both
-TSO/TSO6.
-
-Cheers,
+Looks good to me.  Thanks for cathcing this!
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
