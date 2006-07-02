@@ -1,79 +1,49 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
-Date: Sun, 02 Jul 2006 06:23:32 +0200
-Message-ID: <44A74A44.4000304@trash.net>
-References: <1150278004.26181.35.camel@localhost.localdomain>	 <1150286766.5233.15.camel@jzny2>  <4497474C.4050706@trash.net>	 <1150815375.5270.78.camel@jzny2>  <44980FA3.1000009@trash.net>	 <1151001712.5392.47.camel@jzny2>  <449BFB82.9000008@trash.net>	 <1151159997.6716.116.camel@jzny2>  <449FC329.7080609@trash.net> <1151413263.6516.51.camel@jzny2>
+From: "John Que" <qwejohn@gmail.com>
+Subject: Two I/O memory regions in /proc/iomem for a NIC
+Date: Sun, 2 Jul 2006 10:24:10 +0300
+Message-ID: <ada605fb0607020024o15c8e4b4j83f37102492e8932@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org,
-	russell-tcatm@stuart.id.au, hawk@diku.dk,
-	Jesper Dangaard Brouer <hawk@comx.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:65518 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932228AbWGBEXf
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Jul 2006 00:23:35 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1151413263.6516.51.camel@jzny2>
+Received: from nf-out-0910.google.com ([64.233.182.188]:37761 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1751087AbWGBHYQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Jul 2006 03:24:16 -0400
+Received: by nf-out-0910.google.com with SMTP id k26so199081nfc
+        for <netdev@vger.kernel.org>; Sun, 02 Jul 2006 00:24:10 -0700 (PDT)
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry, missed your reply so far.
+Hello,
 
->>Then what is the intent, it doesn't carry any other information?
-> 
-> 
-> Generally it is a filter to what the ifi_flags reflect.
->>From an event architecture scalability perspective, it is useful to be
-> able to look at what changed without having to query the source. That is
-> what ifi_change provides.  So it is not "Lazy userspace" rather it is an
-> effective optimization.
-> You keep less state and you have less message exchanges between user and
-> kernel.
+I had noticed that there are machines where
+if I ran cat /proc/iomem I see one I/O memory region for the NIC
+I am using; while there are other machines where
+I see 2 regions for the NIC I/O memory.
 
-It might have been, but the situation is a bit more complicated today,
-and special case solutions (aka hacks) don't work very well for the
-huge diversity of interest in update messages. Besides that, it is
-flawed.
+For example, on a machine with e1000 NIC adapter,
+I see the following 2 I/O memory regions for the NIC:
+fc9a0000-fc9bffff : 0000:03:04.0
+    fc9a0000-fc9bffff : e1000
+fc9c0000-fc9dffff : 0000:03:03.0
+    fc9c0000-fc9dffff : e1000
 
->>It includes information that are not available any other way from
->>the kernel, yet the information is not transmitted reliably. How
->>could a program that relies on this possibly work reliable?
-> 
-> 
-> Ok, so first lets separate them as two different issues:
-> 
-> - Any message to user space may be lost whether it has ifi_change or
-> not. You need some way to figure out a message was lost and declare your
-> state may be invalid. The -ENOBUFs is one way to discover stale state.
+while on a machine with realtek 8139too NIC I see only one region:
+ec103000-ec1030ff : 0000:00:0a.0
+  ec103000-ec1030ff : 8139too
 
-Thats not the point. ifi_change doesn't inform you about updates, it
-informs you about specific changes. And you can't determine those in
-the case of lost notifications without keeping the old state yourself.
-It may save you some time _comparing_ (not searching) in case it wasn't
-lost, but it only contains a very limited set of information and nothing
-saves you from searching the entry a message refers to based on the
-primary keys (which unfortunately aren't even defined for every message
-type, which means they're not even clearly defined inside the kernel.
-routing rules are one example). Its a hack for some specific usage case,
-and since you're defending this so hard, I'm naturally wondering if
-you introduced it?
+But when looking at the code of both NICs, there
+is only one call to pci_request_regions(), which seems
+quite similiar in both cases and is called only once;
 
-> - by looking at ifi_change i can tell what changed from about 10 
-> other things reflected in the flags. If you get an ENOBUFS in this case
-> (or any other), it means your state is not consistent and to have
-> reliable info you need to query the kernel.
+see the call to pci_request_regions() in drivers/net/e1000/e1000_main.c
+and in drivers/net/8139too.c.
 
-The flags only reflect a single piece of information, one that userspace
-needs to be able to reconstruct anyway. Once again the point: netlink
-notifications are _update_ messages, not state change messages. This is
-a fundamental difference, misleading userspace (see tc monitor) to
-believing it is something different for very limited usage cases does
-nothing good. I hereby state my believe that 99% of netlink users
-are broken.
+Any idea why is this so ? can anybody say 3-4 sentences
+about this ?
 
-> Hope that makes sense.
-
-Me too :)
-
+TIA,
+-- John
