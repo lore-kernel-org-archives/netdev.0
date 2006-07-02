@@ -1,121 +1,600 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: Belkin F5D7001de locks up my Athlon64 system
-Date: Sun, 2 Jul 2006 20:28:39 +0200
-Message-ID: <200607022028.39852.mb@bu3sch.de>
-References: <20060701092313.225240@gmx.net> <200607011828.37874.mb@bu3sch.de> <20060702113205.16230@gmx.net>
+From: jamal <hadi@cyberus.ca>
+Subject: [IPROUTE2] Generic netlink interface
+Date: Sun, 02 Jul 2006 16:54:17 -0400
+Message-ID: <1151873657.5093.270.camel@jzny2>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	linville@tuxdriver.com, Daniel Drake <dsd@gentoo.org>
+Content-Type: multipart/mixed; boundary="=-uyadWekLJMSmTJ74bACi"
+Cc: Shailabh Nagar <nagar@watson.ibm.com>, Thomas Graf <tgraf@suug.ch>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:3814
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S964877AbWGBS2K
+Received: from mx03.cybersurf.com ([209.197.145.106]:7656 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1750794AbWGBUyY
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Jul 2006 14:28:10 -0400
-To: "Johann Uhrmann" <Johann.Uhrmann@gmx.de>
-In-Reply-To: <20060702113205.16230@gmx.net>
-Content-Disposition: inline
+	Sun, 2 Jul 2006 16:54:24 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1Fx8xY-00017p-LD
+	for netdev@vger.kernel.org; Sun, 02 Jul 2006 16:54:28 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 02 July 2006 13:32, Johann Uhrmann wrote:
-> here is another log from the 2.6.17-mm4 kernel. This oops was the only
-> one since reboot:
-> 
-> bcm43xx: ASSERTION FAILED (radio_attenuation < 10) at: drivers/net/wireless/bcm43xx/bcm43xx_phy.c:1490:bc)[   87.484118] bcm43xx: ASSERTION FAILED (radio_attenuation < 10) at: drivers/net/wireless/bcm43xx/bcm43xx_phy.c:1490:bcm43xx_find_lopair()
-> [   87.559086] bcm43xx: ASSERTION FAILED (radio_attenuation < 10) at: drivers/net/wireless/bcm43xx/bcm43xx_phy.c:1490:bcm43xx_find_lopair()
-> [   87.641350] bcm43xx: ASSERTION FAILED (radio_attenuation < 10) at: drivers/net/wireless/bcm43xx/bcm43xx_phy.c:1490:bcm43xx_find_lopair()
-> [ ok ]
->  * Configuring network interfaces...       [   88.126654] BUG: spinlock recursion on CPU#0, sh/9441
-> [   88.161695]  lock: ffff81003acd93f0, .magic: dead4ead, .owner: sh/9441, .owner_cpu: 0
-> [   88.208502]
-> [   88.208503] Call Trace:
-> [   88.232081]  [<ffffffff8026fbde>] show_trace+0xae/0x280
-> [   88.263329]  [<ffffffff8026fff5>] dump_stack+0x15/0x20
-> [   88.294085]  [<ffffffff80213db4>] spin_bug+0xb4/0xd0
-> [   88.324030]  [<ffffffff80207651>] _raw_spin_lock+0x51/0x180
-> [   88.357591]  [<ffffffff8026bd99>] _spin_lock_irqsave+0x39/0x50
-> [   88.392575]  [<ffffffff885a86a5>] :bcm43xx:bcm43xx_ieee80211_hard_start_xmit+0x35/0xc0
-> [   88.439931]  [<ffffffff80439d1b>] ieee80211_tx_frame+0x23b/0x2b0
-> [   88.476307]  [<ffffffff80441764>] ieee80211softmac_send_mgt_frame+0x3f4/0x420
-> [   88.519427]  [<ffffffff8044204f>] ieee80211softmac_auth_resp+0x30f/0x4c0
-> [   88.559954]  [<ffffffff8043e3b9>] ieee80211_rx_mgt+0x759/0x830
-> [   88.595291]  [<ffffffff885c00e5>] :bcm43xx:bcm43xx_rx+0x7f5/0x870
-> [   88.631757]  [<ffffffff885c3601>] :bcm43xx:bcm43xx_dma_rx+0x581/0x680
-> [   88.670306]  [<ffffffff885aba35>] :bcm43xx:bcm43xx_interrupt_tasklet+0x765/0xa80
-> [   88.714562]  [<ffffffff80290e33>] tasklet_action+0x73/0xd0
-> [   88.747394]  [<ffffffff802127c7>] __do_softirq+0x67/0xe0
-> [   88.779187]  [<ffffffff80266c36>] call_softirq+0x1e/0x28
 
-The following patch is supposed to fix this.
-I did only compile-test it. Please runtime-test it.
+--=-uyadWekLJMSmTJ74bACi
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Thanks.
 
---
+very quiet today ..
 
-Softmac Shared Key Auth:
-Fix recursive call into the driver by doing schedule_work.
-recursive calls may result in a driver lock recursion.
+Stephen,
+I've been sitting on this for a while now; just tested against latest
+kernels. 
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+Another one on top of the other i.e against iproute2-git.
 
-Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_auth.c
-===================================================================
---- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_auth.c	2006-07-02 19:37:26.000000000 +0200
-+++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_auth.c	2006-07-02 20:19:12.000000000 +0200
-@@ -116,6 +116,16 @@
- 	kfree(auth);
- }
+Shailabh, if you have time can you try just listing things, monitoring
+etc; I dont think your tool fits here - but if you could try and use the
+framework (cutnpaste from ctrl.c) and provide feedback i would
+appreciate it.
+
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+cheers,
+jamal
+
+--=-uyadWekLJMSmTJ74bACi
+Content-Disposition: attachment; filename=gnl-ctrl-p
+Content-Type: text/plain; name=gnl-ctrl-p; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+This patch adds a generic netlink controller interface.
+The controller is the only module using this at the moment.
+Thomas has a sample user of genetlink that would fit here; bug him
+for it.
+
+---
+commit 9cd6ca6d2a2b1b27fc3c98ecb8e081b19aa64019
+tree ff513f5484e1dbe27ef8fbb6f2e31d82ffbdcb3b
+parent 00f2ad46f0040769f0d4e4541fe0731f20164664
+author Jamal Hadi Salim <hadi@jzny2.(none)> Sun, 02 Jul 2006 16:40:18 -0400
+committer Jamal Hadi Salim <hadi@jzny2.(none)> Sun, 02 Jul 2006 16:40:18 -0400
+
+ Makefile          |    2 
+ genl/Makefile     |   22 ++++
+ genl/ctrl.c       |  284 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ genl/genl.c       |  162 ++++++++++++++++++++++++++++++
+ genl/genl_utils.h |   22 ++++
+ 5 files changed, 491 insertions(+), 1 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index ac58cd9..3fc3a15 100644
+--- a/Makefile
++++ b/Makefile
+@@ -27,7 +27,7 @@ YACCFLAGS = -d -t -v
  
-+/* Sends an auth challenge. */
-+static void
-+ieee80211softmac_auth_challenge(void *_aq)
-+{
-+	struct ieee80211softmac_auth_queue_item *aq = _aq;
+ LDLIBS += -L../lib -lnetlink -lutil
+ 
+-SUBDIRS=lib ip tc misc netem
++SUBDIRS=lib ip tc misc netem genl
+ 
+ LIBNETLINK=../lib/libnetlink.a ../lib/libutil.a
+ 
+diff --git a/genl/Makefile b/genl/Makefile
+new file mode 100644
+index 0000000..4436508
+--- /dev/null
++++ b/genl/Makefile
+@@ -0,0 +1,22 @@
++GENLOBJ=genl.o
 +
-+	/* Send our response */
-+	ieee80211softmac_send_mgt_frame(aq->mac, aq->net, IEEE80211_STYPE_AUTH, aq->state);
++include ../Config
++
++GENLMODULES :=
++GENLMODULES += ctrl.o
++
++GENLOBJ += $(GENLMODULES)
++
++GENLLIB :=
++
++LDFLAGS += -Wl,-export-dynamic -lm -ldl
++
++all: genl
++
++genl: $(GENLOBJ) $(LIBNETLINK) $(LIBUTIL) $(GENLLIB)
++
++install: all
++	install -m 0755 -s genl $(DESTDIR)$(SBINDIR)
++
++clean:
++	rm -f $(GENLOBJ) $(GENLLIB) genl
+diff --git a/genl/ctrl.c b/genl/ctrl.c
+new file mode 100644
+index 0000000..0d4750d
+--- /dev/null
++++ b/genl/ctrl.c
+@@ -0,0 +1,284 @@
++/*
++ * ctrl.c	generic netlink controller
++ *
++ *		This program is free software; you can distribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:  J Hadi Salim (hadi@cyberus.ca)
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <syslog.h>
++#include <fcntl.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <string.h>
++
++#include "utils.h"
++#include "genl_utils.h"
++
++static int usage(void)
++{
++	fprintf(stderr,"Usage: ctrl <CMD>\n" \
++		       "CMD   := get <PARMS> | list | monitor\n" \
++		       "PARMS := name <name> | id <id>\n" \
++		       "Examples:\n" \
++		       "\tctrl ls\n" \
++		       "\tctrl monitor\n" \
++		       "\tctrl get name foobar\n" \
++		       "\tctrl get id 0xF\n");
++	return -1;
 +}
 +
- /* Handle the auth response from the AP
-  * This should be registered with ieee80211 as handle_auth 
-  */
-@@ -197,24 +207,25 @@
- 		case IEEE80211SOFTMAC_AUTH_SHARED_CHALLENGE:
- 			/* Check to make sure we have a challenge IE */
- 			data = (u8 *)auth->info_element;
--			if(*data++ != MFIE_TYPE_CHALLENGE){
-+			if (*data++ != MFIE_TYPE_CHALLENGE) {
- 				printkl(KERN_NOTICE PFX "Shared Key Authentication failed due to a missing challenge.\n");
- 				break;	
- 			}
- 			/* Save the challenge */
- 			spin_lock_irqsave(&mac->lock, flags);
- 			net->challenge_len = *data++; 	
--			if(net->challenge_len > WLAN_AUTH_CHALLENGE_LEN)
-+			if (net->challenge_len > WLAN_AUTH_CHALLENGE_LEN)
- 				net->challenge_len = WLAN_AUTH_CHALLENGE_LEN;
--			if(net->challenge != NULL)
-+			if (net->challenge != NULL)
- 				kfree(net->challenge);
- 			net->challenge = kmalloc(net->challenge_len, GFP_ATOMIC);
- 			memcpy(net->challenge, data, net->challenge_len);
- 			aq->state = IEEE80211SOFTMAC_AUTH_SHARED_RESPONSE; 
--			spin_unlock_irqrestore(&mac->lock, flags);
- 
--			/* Send our response */
--			ieee80211softmac_send_mgt_frame(mac, aq->net, IEEE80211_STYPE_AUTH, aq->state);
-+			cancel_delayed_work(&aq->work);
-+			INIT_WORK(&aq->work, &ieee80211softmac_auth_challenge, (void *)aq);
-+			schedule_work(&aq->work);
-+			spin_unlock_irqrestore(&mac->lock, flags);
- 			return 0;
- 		case IEEE80211SOFTMAC_AUTH_SHARED_PASS:
- 			kfree(net->challenge);
++int genl_ctrl_resolve_family(const char *family)
++{
++	struct rtnl_handle rth;
++	struct nlmsghdr *nlh;
++	struct genlmsghdr *ghdr;
++	int ret = 0;
++	struct {
++		struct nlmsghdr         n;
++		char                    buf[4096];
++	} req;
++
++	memset(&req, 0, sizeof(req));
++
++	nlh = &req.n;
++	nlh->nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
++	nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
++	nlh->nlmsg_type = GENL_ID_CTRL;
++
++	ghdr = NLMSG_DATA(&req.n);
++	ghdr->cmd = CTRL_CMD_GETFAMILY;
++
++	if (rtnl_open_byproto(&rth, 0, NETLINK_GENERIC) < 0) {
++		fprintf(stderr, "Cannot open generic netlink socket\n");
++		exit(1);
++	}
++
++	addattr_l(nlh, 128, CTRL_ATTR_FAMILY_NAME, family, strlen(family) + 1);
++
++	if (rtnl_talk(&rth, nlh, 0, 0, nlh, NULL, NULL) < 0) {
++		fprintf(stderr, "Error talking to the kernel\n");
++		goto errout;
++	}
++
++	{
++		struct rtattr *tb[CTRL_ATTR_MAX + 1];
++		struct genlmsghdr *ghdr = NLMSG_DATA(nlh);
++		int len = nlh->nlmsg_len;
++		struct rtattr *attrs;
++
++		if (nlh->nlmsg_type !=  GENL_ID_CTRL) {
++			fprintf(stderr, "Not a controller message, nlmsg_len=%d "
++				"nlmsg_type=0x%x\n", nlh->nlmsg_len, nlh->nlmsg_type);
++			goto errout;
++		}
++
++		if (ghdr->cmd != CTRL_CMD_NEWFAMILY) {
++			fprintf(stderr, "Unkown controller command %d\n", ghdr->cmd);
++			goto errout;
++		}
++
++		len -= NLMSG_LENGTH(GENL_HDRLEN);
++
++		if (len < 0) {
++			fprintf(stderr, "wrong controller message len %d\n", len);
++			return -1;
++		}
++
++		attrs = (struct rtattr *) ((char *) ghdr + GENL_HDRLEN);
++		parse_rtattr(tb, CTRL_ATTR_MAX, attrs, len);
++
++		if (tb[CTRL_ATTR_FAMILY_ID] == NULL) {
++			fprintf(stderr, "Missing family id TLV\n");
++			goto errout;
++		}
++
++		ret = *(__u16 *) RTA_DATA(tb[CTRL_ATTR_FAMILY_ID]);
++	}
++
++errout:
++	rtnl_close(&rth);
++	return ret;
++}
++
++static int print_ctrl(const struct sockaddr_nl *who, struct nlmsghdr *n,
++		      void *arg)
++{
++	struct rtattr *tb[CTRL_ATTR_MAX + 1];
++	struct genlmsghdr *ghdr = NLMSG_DATA(n);
++	int len = n->nlmsg_len;
++	struct rtattr *attrs;
++	FILE *fp = (FILE *) arg;
++
++	if (n->nlmsg_type !=  GENL_ID_CTRL) {
++		fprintf(stderr, "Not a controller message, nlmsg_len=%d "
++			"nlmsg_type=0x%x\n", n->nlmsg_len, n->nlmsg_type);
++		return 0;
++	}
++
++	if (ghdr->cmd != CTRL_CMD_GETFAMILY &&
++	    ghdr->cmd != CTRL_CMD_DELFAMILY &&
++	    ghdr->cmd != CTRL_CMD_NEWFAMILY) {
++		fprintf(stderr, "Unkown controller command %d\n", ghdr->cmd);
++		return 0;
++	}
++
++	len -= NLMSG_LENGTH(GENL_HDRLEN);
++
++	if (len < 0) {
++		fprintf(stderr, "wrong controller message len %d\n", len);
++		return -1;
++	}
++
++	attrs = (struct rtattr *) ((char *) ghdr + GENL_HDRLEN);
++	parse_rtattr(tb, CTRL_ATTR_MAX, attrs, len);
++
++	if (tb[CTRL_ATTR_FAMILY_NAME]) {
++		char *name = RTA_DATA(tb[CTRL_ATTR_FAMILY_NAME]);
++		fprintf(fp, "Name: %s\n",name);
++	}
++	if (tb[CTRL_ATTR_FAMILY_ID]) {
++		__u16 *id = RTA_DATA(tb[CTRL_ATTR_FAMILY_ID]);
++		fprintf(fp, "ID: 0x%x\n",*id);
++	}
++
++	fflush(fp);
++	return 0;
++}
++
++static int ctrl_list(int cmd, int argc, char **argv)
++{
++	struct rtnl_handle rth;
++	struct nlmsghdr *nlh;
++	struct genlmsghdr *ghdr;
++	int ret = -1;
++	char d[GENL_NAMSIZ];
++	struct {
++		struct nlmsghdr         n;
++		char                    buf[4096];
++	} req;
++
++	memset(&req, 0, sizeof(req));
++
++	nlh = &req.n;
++	nlh->nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
++	nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
++	nlh->nlmsg_type = GENL_ID_CTRL;
++
++	ghdr = NLMSG_DATA(&req.n);
++	ghdr->cmd = CTRL_CMD_GETFAMILY;
++
++	if (rtnl_open_byproto(&rth, 0, NETLINK_GENERIC) < 0) {
++		fprintf(stderr, "Cannot open generic netlink socket\n");
++		exit(1);
++	}
++
++	if (cmd == CTRL_CMD_GETFAMILY) {
++		if (argc != 2) {
++			fprintf(stderr, "Wrong number of params\n");
++			return -1;
++		}
++
++		if (matches(*argv, "name") == 0) {
++			NEXT_ARG();
++			strncpy(d, *argv, sizeof (d) - 1);
++			addattr_l(nlh, 128, CTRL_ATTR_FAMILY_NAME,
++				  d, strlen(d) + 1);
++		} else if (matches(*argv, "id") == 0) {
++			__u16 id;
++			NEXT_ARG();
++			if (get_u16(&id, *argv, 0)) {
++				fprintf(stderr, "Illegal \"id\"\n");
++				goto ctrl_done;
++			}
++
++			addattr_l(nlh, 128, CTRL_ATTR_FAMILY_ID, &id, 2);
++
++		} else {
++			fprintf(stderr, "Wrong params\n");
++			goto ctrl_done;
++		}
++
++		if (rtnl_talk(&rth, nlh, 0, 0, nlh, NULL, NULL) < 0) {
++			fprintf(stderr, "Error talking to the kernel\n");
++			goto ctrl_done;
++		}
++
++		if (print_ctrl(NULL, nlh, (void *) stdout) < 0) {
++			fprintf(stderr, "Dump terminated\n");
++			goto ctrl_done;
++		}
++
++	}
++
++	if (cmd == CTRL_CMD_UNSPEC) {
++		nlh->nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
++		nlh->nlmsg_seq = rth.dump = ++rth.seq;
++
++		if (rtnl_send(&rth, (const char *) nlh, nlh->nlmsg_len) < 0) {
++			perror("Failed to send dump request\n");
++			goto ctrl_done;
++		}
++
++		rtnl_dump_filter(&rth, print_ctrl, stdout, NULL, NULL);
++
++        }
++
++	ret = 0;
++ctrl_done:
++	rtnl_close(&rth);
++	return ret;
++}
++
++static int ctrl_listen(int argc, char **argv)
++{
++	struct rtnl_handle rth;
++
++	if (rtnl_open_byproto(&rth, nl_mgrp(GENL_ID_CTRL), NETLINK_GENERIC) < 0) {
++		fprintf(stderr, "Canot open generic netlink socket\n");
++		return -1;
++	}
++
++	if (rtnl_listen(&rth, print_ctrl, (void *) stdout) < 0)
++		return -1;
++
++	return 0;
++}
++
++static int parse_ctrl(struct genl_util *a, int argc, char **argv)
++{
++	argv++;
++	if (--argc <= 0) {
++		fprintf(stderr, "wrong controller params\n");
++		return -1;
++	}
++
++	if (matches(*argv, "monitor") == 0)
++		return ctrl_listen(argc-1, argv+1);
++	if (matches(*argv, "get") == 0)
++		return ctrl_list(CTRL_CMD_GETFAMILY, argc-1, argv+1);
++	if (matches(*argv, "list") == 0 ||
++	    matches(*argv, "show") == 0 ||
++	    matches(*argv, "lst") == 0)
++		return ctrl_list(CTRL_CMD_UNSPEC, argc-1, argv+1);
++	if (matches(*argv, "help") == 0)
++		return usage();
++
++	fprintf(stderr, "ctrl command \"%s\" is unknown, try \"ctrl -help\".\n",
++		*argv);
++
++	return -1;
++}
++
++struct genl_util ctrl_genl_util = {
++	.name = "ctrl",
++	.parse_genlopt = parse_ctrl,
++	.print_genlopt = print_ctrl,
++};
+diff --git a/genl/genl.c b/genl/genl.c
+new file mode 100644
+index 0000000..3ae75ae
+--- /dev/null
++++ b/genl/genl.c
+@@ -0,0 +1,162 @@
++/*
++ * genl.c		"genl" utility frontend.
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:	Jamal Hadi Salim
++ *
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <syslog.h>
++#include <fcntl.h>
++#include <dlfcn.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <string.h>
++#include <errno.h>
++#include <linux/netlink.h>
++#include <linux/rtnetlink.h> /* until we put our own header */
++#include "SNAPSHOT.h"
++#include "utils.h"
++#include "genl_utils.h"
++
++int show_stats = 0;
++int show_details = 0;
++int show_raw = 0;
++int resolve_hosts = 0;
++
++static void *BODY;
++static struct genl_util * genl_list;
++
++
++static int print_nofopt(const struct sockaddr_nl *who, struct nlmsghdr *n,
++			void *arg)
++{
++	fprintf((FILE *) arg, "unknown genl type ..\n");
++	return 0;
++}
++
++static int parse_nofopt(struct genl_util *f, int argc, char **argv)
++{
++	if (argc) {
++		fprintf(stderr, "Unknown genl \"%s\", hence option \"%s\" "
++			"is unparsable\n", f->name, *argv);
++		return -1;
++	}
++
++	return 0;
++}
++
++static struct genl_util *get_genl_kind(char *str)
++{
++	void *dlh;
++	char buf[256];
++	struct genl_util *f;
++
++	for (f = genl_list; f; f = f->next)
++		if (strcmp(f->name, str) == 0)
++			return f;
++
++	snprintf(buf, sizeof(buf), "%s.so", str);
++	dlh = dlopen(buf, RTLD_LAZY);
++	if (dlh == NULL) {
++		dlh = BODY;
++		if (dlh == NULL) {
++			dlh = BODY = dlopen(NULL, RTLD_LAZY);
++			if (dlh == NULL)
++				goto noexist;
++		}
++	}
++
++	snprintf(buf, sizeof(buf), "%s_genl_util", str);
++
++	f = dlsym(dlh, buf);
++	if (f == NULL)
++		goto noexist;
++reg:
++	f->next = genl_list;
++	genl_list = f;
++	return f;
++
++noexist:
++	f = malloc(sizeof(*f));
++	if (f) {
++		memset(f, 0, sizeof(*f));
++		strncpy(f->name, str, 15);
++		f->parse_genlopt = parse_nofopt;
++		f->print_genlopt = print_nofopt;
++		goto reg;
++	}
++	return f;
++}
++
++static void usage(void) __attribute__((noreturn));
++
++static void usage(void)
++{
++	fprintf(stderr, "Usage: genl [ OPTIONS ] OBJECT | help }\n"
++	                "where  OBJECT := { ctrl etc }\n"
++	                "       OPTIONS := { -s[tatistics] | -d[etails] | -r[aw] }\n");
++	exit(-1);
++}
++
++int main(int argc, char **argv)
++{
++	char *basename;
++
++	basename = strrchr(argv[0], '/');
++	if (basename == NULL)
++		basename = argv[0];
++	else
++		basename++;
++
++	while (argc > 1) {
++		if (argv[1][0] != '-')
++			break;
++		if (matches(argv[1], "-stats") == 0 ||
++		    matches(argv[1], "-statistics") == 0) {
++			++show_stats;
++		} else if (matches(argv[1], "-details") == 0) {
++			++show_details;
++		} else if (matches(argv[1], "-raw") == 0) {
++			++show_raw;
++		} else if (matches(argv[1], "-Version") == 0) {
++			printf("genl utility, iproute2-ss%s\n", SNAPSHOT);
++			exit(0);
++		} else if (matches(argv[1], "-help") == 0) {
++			usage();
++		} else {
++			fprintf(stderr, "Option \"%s\" is unknown, try "
++				"\"genl -help\".\n", argv[1]);
++			exit(-1);
++		}
++		argc--;	argv++;
++	}
++
++	if (argc > 1) {
++		int ret;
++		struct genl_util *a = NULL;
++		a = get_genl_kind(argv[1]);
++		if (NULL == a) {
++			fprintf(stderr,"bad genl %s\n",argv[1]);
++		}
++
++		ret = a->parse_genlopt(a, argc-1, argv+1);
++		return ret;
++
++		if (matches(argv[1], "help") == 0)
++			usage();
++		fprintf(stderr, "Object \"%s\" is unknown, try \"genl "
++			"-help\".\n", argv[1]);
++		exit(-1);
++	}
++
++	usage();
++}
+diff --git a/genl/genl_utils.h b/genl/genl_utils.h
+new file mode 100644
+index 0000000..2f2314b
+--- /dev/null
++++ b/genl/genl_utils.h
+@@ -0,0 +1,22 @@
++#ifndef _TC_UTIL_H_
++#define _TC_UTIL_H_ 1
++
++#include "linux/genetlink.h"
++
++struct genl_util
++{
++	struct  genl_util *next;
++	char	name[16];
++	int	(*parse_genlopt)(struct genl_util *fu, int argc, char **argv);
++	int	(*print_genlopt)(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg);
++};
++
++extern int genl_ctrl_resolve_family(const char *family);
++
++/* seems to have dissapeared from netlink.h */
++static inline __u32 nl_mgrp(__u32 group)
++{
++	return group ? 1 << group : 0;
++}
++
++#endif
 
+--=-uyadWekLJMSmTJ74bACi--
 
--- 
-Greetings Michael.
