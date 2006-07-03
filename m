@@ -1,26 +1,38 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC NET 00/04]: Increase number of possible routing tables
-Date: Mon, 3 Jul 2006 13:41:42 +0200
-Message-ID: <20060703114142.GV14627@postel.suug.ch>
-References: <20060703075259.6286.67397.sendpatchset@localhost.localdomain> <44A8E211.4090005@trash.net> <44A8E57E.4080805@trash.net> <20060703113447.GU14627@postel.suug.ch> <44A90149.6090304@trash.net>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH] d80211: Take lowlevel driver's channel change time into
+ account during scanning.
+Date: Mon, 3 Jul 2006 13:58:22 +0200
+Message-ID: <20060703135822.123c2d9f@griffin.suse.cz>
+References: <44A6DDC6.1040005@kpnplanet.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	greearb@candelatech.com, Stephen Hemminger <shemminger@osdl.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jkmaline@cc.hut.fi, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:15258 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1751125AbWGCLlV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2006 07:41:21 -0400
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <44A90149.6090304@trash.net>
+Received: from styx.suse.cz ([82.119.242.94]:12707 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1750863AbWGCL6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2006 07:58:23 -0400
+To: Gertjan van Wingerde <gwingerde@kpnplanet.nl>
+In-Reply-To: <44A6DDC6.1040005@kpnplanet.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <kaber@trash.net> 2006-07-03 13:36
-> They will as long as this feature isn't used, the RTA_TABLE
-> attribute is only added to the message when the table id
-> is > 255. Worked fine during my tests, or are you refering
-> to something else?
+On Sat, 01 Jul 2006 22:40:38 +0200, Gertjan van Wingerde wrote:
+> Make the dscape stack take the driver-supplied channel change time into 
+> account when actively scanning for networks.
+> This particularly has been a problem in the rt2x00 driver, where 
+> configuration changes are done via a work-queue, and
+> the subsequent channel changes failed due to the dscape stack scheduling 
+> a channel update while the previous one had not
+> been performed yet, resulting in failed scans.
 
-Perfect, I said nothing :)
+Your mail client converts tabs to spaces. Nevertheless, I applied the
+patch to my git tree.
+
+Thanks for fixing this,
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
