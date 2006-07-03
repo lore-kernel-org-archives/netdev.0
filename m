@@ -1,72 +1,55 @@
-From: Paul Jackson <pj@sgi.com>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Mon, 3 Jul 2006 09:31:48 -0700
-Message-ID: <20060703093148.5e61a7e4.pj@sgi.com>
-References: <44892610.6040001@watson.ibm.com>
-	<449C6620.1020203@engr.sgi.com>
-	<20060623164743.c894c314.akpm@osdl.org>
-	<449CAA78.4080902@watson.ibm.com>
-	<20060623213912.96056b02.akpm@osdl.org>
-	<449CD4B3.8020300@watson.ibm.com>
-	<44A01A50.1050403@sgi.com>
-	<20060626105548.edef4c64.akpm@osdl.org>
-	<44A020CD.30903@watson.ibm.com>
-	<20060626111249.7aece36e.akpm@osdl.org>
-	<44A026ED.8080903@sgi.com>
-	<20060626113959.839d72bc.akpm@osdl.org>
-	<44A2F50D.8030306@engr.sgi.com>
-	<20060628145341.529a61ab.akpm@osdl.org>
-	<44A2FC72.9090407@engr.sgi.com>
-	<20060629014050.d3bf0be4.pj@sgi.com>
-	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
-	<20060629094408.360ac157.pj@sgi.com>
-	<20060629110107.2e56310b.akpm@osdl.org>
-	<44A57310.3010208@watson.ibm.com>
-	<44A5770F.3080206@watson.ibm.com>
-	<20060630155030.5ea1faba.akpm@osdl.org>
-	<44A5DBE7.2020704@watson.ibm.com>
-	<44A5EDE6.3010605@watson.ibm.com>
-	<20060702215350.2c1de596.pj@sgi.com>
-	<44A93179.2080303@watson.ibm.com>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: [PATCH 9/15] pcmcia: hostap_cs.c - 0xc00f, 0x0000 conflicts
+	with pcnet_cs
+Date: Mon, 03 Jul 2006 12:57:09 -0400
+Message-ID: <1151945829.26514.5.camel@dv>
+References: <20060630195217.GB9095@dominikbrodowski.de>
+	 <20060630195255.GC9095@dominikbrodowski.de>
+	 <20060630195358.GD9095@dominikbrodowski.de>
+	 <20060630195439.GE9095@dominikbrodowski.de>
+	 <20060630195501.GF9095@dominikbrodowski.de>
+	 <20060630195600.GG9095@dominikbrodowski.de>
+	 <20060630195657.GH9095@dominikbrodowski.de>
+	 <20060630195753.GI9095@dominikbrodowski.de>
+	 <20060630195920.GJ9095@dominikbrodowski.de> <1151702323.21767.3.camel@dv>
+	 <20060703085603.GA9465@dominikbrodowski.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
-	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
-	hadi@cyberus.ca, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+	hostap@shmoo.com, linville@tuxdriver.com, jkmaline@cc.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omx1-ext.sgi.com ([192.48.179.11]:42986 "EHLO
-	omx1.americas.sgi.com") by vger.kernel.org with ESMTP
-	id S1750953AbWGCQcQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jul 2006 12:32:16 -0400
-To: Shailabh Nagar <nagar@watson.ibm.com>
-In-Reply-To: <44A93179.2080303@watson.ibm.com>
+Received: from fencepost.gnu.org ([199.232.76.164]:42113 "EHLO
+	fencepost.gnu.org") by vger.kernel.org with ESMTP id S1751158AbWGCQ51
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jul 2006 12:57:27 -0400
+Received: from proski by fencepost.gnu.org with local (Exim 4.34)
+	id 1FxRjh-0004aZ-VL
+	for netdev@vger.kernel.org; Mon, 03 Jul 2006 12:57:26 -0400
+To: Dominik Brodowski <linux@dominikbrodowski.net>
+In-Reply-To: <20060703085603.GA9465@dominikbrodowski.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Shailabh wrote:
-> I don't know if there are buffer overflow 
-> issues in passing a string
+Hi Dominik,
 
-I don't know if this comment applies to "the standard netlink way of
-passing it up using NLA_STRING", but the way I deal with buffer length
-issues in the cpuset code is to insist that the user code express the
-list in no fewer than 100 + 6 * NR_CPUS bytes:
+On Mon, 2006-07-03 at 10:56 +0200, Dominik Brodowski wrote:
 
->From kernel/cpuset.c:
+> Like this?
 
-        /* Crude upper limit on largest legitimate cpulist user might write. */
-        if (nbytes > 100 + 6 * NR_CPUS)
-                return -E2BIG;
+Yes, but I usually drop revisions from the matched IDs, especially in
+presence of the chip ID.  Why would we exclude "RevB" if it happens to
+be ISL37300P based?  So the new entries would be:
 
-This lets the user specify the buffer size passed in, but prevents
-them from trying a denial of service attack on the kernel by trying
-to pass in a huge buffer.
-
-If the user can't figure out how to write the desired cpulist in
-that size, then tough toenails.
+	PCMCIA_DEVICE_PROD_ID123(
+		"Allied Telesyn", "AT-WCL452 Wireless PCMCIA Radio",
+		"Ver. 1.00",
+		0x5cd01705, 0x4271660f, 0x9d08ee12),
+	PCMCIA_DEVICE_PROD_ID123(
+		"corega", "WL PCCL-11", "ISL37300P",
+		0xa21501a, 0x59868926, 0xc9049a39),
 
 -- 
-                  I won't rest till it's the best ...
-                  Programmer, Linux Scalability
-                  Paul Jackson <pj@sgi.com> 1.925.600.0401
+Regards,
+Pavel Roskin
+
