@@ -1,49 +1,72 @@
-From: Andrey Savochkin <saw@swsoft.com>
-Subject: [patch 7/7] net_device list cleanup: debugging
-Date: Mon, 3 Jul 2006 12:18:57 +0400
-Message-ID: <20060630165508.I22285@castle.nmd.msu.ru>
-References: <20060630150823.A22285@castle.nmd.msu.ru>
+From: Paul Jackson <pj@sgi.com>
+Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
+Date: Mon, 3 Jul 2006 09:31:48 -0700
+Message-ID: <20060703093148.5e61a7e4.pj@sgi.com>
+References: <44892610.6040001@watson.ibm.com>
+	<449C6620.1020203@engr.sgi.com>
+	<20060623164743.c894c314.akpm@osdl.org>
+	<449CAA78.4080902@watson.ibm.com>
+	<20060623213912.96056b02.akpm@osdl.org>
+	<449CD4B3.8020300@watson.ibm.com>
+	<44A01A50.1050403@sgi.com>
+	<20060626105548.edef4c64.akpm@osdl.org>
+	<44A020CD.30903@watson.ibm.com>
+	<20060626111249.7aece36e.akpm@osdl.org>
+	<44A026ED.8080903@sgi.com>
+	<20060626113959.839d72bc.akpm@osdl.org>
+	<44A2F50D.8030306@engr.sgi.com>
+	<20060628145341.529a61ab.akpm@osdl.org>
+	<44A2FC72.9090407@engr.sgi.com>
+	<20060629014050.d3bf0be4.pj@sgi.com>
+	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
+	<20060629094408.360ac157.pj@sgi.com>
+	<20060629110107.2e56310b.akpm@osdl.org>
+	<44A57310.3010208@watson.ibm.com>
+	<44A5770F.3080206@watson.ibm.com>
+	<20060630155030.5ea1faba.akpm@osdl.org>
+	<44A5DBE7.2020704@watson.ibm.com>
+	<44A5EDE6.3010605@watson.ibm.com>
+	<20060702215350.2c1de596.pj@sgi.com>
+	<44A93179.2080303@watson.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kirill Korotaev <dev@openvz.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
+	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
+	hadi@cyberus.ca, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.nmd.msu.ru ([193.232.112.53]:40712 "HELO
-	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1751124AbWGCQcB
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jul 2006 12:32:01 -0400
-To: netdev@vger.kernel.org
-In-Reply-To: <20060630150823.A22285@castle.nmd.msu.ru>; from "Andrey Savochkin" on Fri, Jun 30, 2006 at 03:08:23PM
+Received: from omx1-ext.sgi.com ([192.48.179.11]:42986 "EHLO
+	omx1.americas.sgi.com") by vger.kernel.org with ESMTP
+	id S1750953AbWGCQcQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jul 2006 12:32:16 -0400
+To: Shailabh Nagar <nagar@watson.ibm.com>
+In-Reply-To: <44A93179.2080303@watson.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Optional code to catch cases when loop cursor is used after for_each_netdev
-loop: often it's a sign of a bug, since it isn't guaranteed to point to a
-device.
+Shailabh wrote:
+> I don't know if there are buffer overflow 
+> issues in passing a string
 
-Signed-off-by: Andrey Savochkin <saw@swsoft.com>
----
-If anyone wants to keep this under some debug config option,
-let me know which one.
+I don't know if this comment applies to "the standard netlink way of
+passing it up using NLA_STRING", but the way I deal with buffer length
+issues in the cpuset code is to insist that the user code express the
+list in no fewer than 100 + 6 * NR_CPUS bytes:
 
- netdevice.h |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletion(-)
+>From kernel/cpuset.c:
 
---- ./include/linux/netdevice.h.vedevbase-dbg	Mon Jul  3 16:16:51 2006
-+++ ./include/linux/netdevice.h	Mon Jul  3 16:16:51 2006
-@@ -560,7 +560,13 @@ extern struct net_device		loopback_dev;	
- extern struct list_head			dev_base_head;		/* All devices */
- extern rwlock_t				dev_base_lock;		/* Device list lock */
- 
--#define for_each_netdev(p)	list_for_each_entry(p, &dev_base_head, dev_list)
-+#define for_each_netdev(pos)	\
-+for (pos = list_entry(dev_base_head.next, typeof(*pos), dev_list); \
-+     prefetch(pos->dev_list.next), \
-+	&pos->dev_list != &dev_base_head ? : \
-+		({ void *__check_dev_use_after_for_each_netdev; \
-+		   pos = __check_dev_use_after_for_each_netdev; 0; }); \
-+     pos = list_entry(pos->dev_list.next, typeof(*pos), dev_list))
- 
- /*
-  * When possible, it is preferrable to use for_each_netdev() loop
+        /* Crude upper limit on largest legitimate cpulist user might write. */
+        if (nbytes > 100 + 6 * NR_CPUS)
+                return -E2BIG;
+
+This lets the user specify the buffer size passed in, but prevents
+them from trying a denial of service attack on the kernel by trying
+to pass in a huge buffer.
+
+If the user can't figure out how to write the desired cpulist in
+that size, then tough toenails.
+
+-- 
+                  I won't rest till it's the best ...
+                  Programmer, Linux Scalability
+                  Paul Jackson <pj@sgi.com> 1.925.600.0401
