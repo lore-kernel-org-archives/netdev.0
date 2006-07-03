@@ -1,30 +1,23 @@
-From: "Gino" <Ginobyte@earthlink.net>
-Subject: Make other men envy you and girls worship you Most efficient products for men
-Date: Sun, 2 Jul 2006 19:37:52 -0400
-Message-ID: <33149908650310.FD618ADBD4@U4GS>
+From: "Eddie" <Eddiearuba@eartlink.net>
+Subject: Imagine how your life will improve if you stopped being reproached for premature creaming once and for all.
+Date: Sun, 2 Jul 2006 20:50:42 -0400
+Message-ID: <67559570526032.1B8F1A77EF@B6C78>
 Mime-Version: 1.0
 Content-Type: text/plain;
         charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpe-65-29-108-63.twmi.res.rr.com ([65.29.108.63]:18443 "EHLO
-	HEIHACHI") by vger.kernel.org with ESMTP id S1750744AbWGBXiN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jul 2006 19:38:13 -0400
-To: <netdev@vger.kernel.org>
+Received: from verizon-gw3.westbelt.calltech.com ([216.69.223.206]:16622 "EHLO
+	WBLTC25") by vger.kernel.org with ESMTP id S1750775AbWGCAva (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jul 2006 20:51:30 -0400
+To: <newbie-owner@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yo!
+Halo!
+ Lots of men deal with this daily not knowing there's a comprehensive solution to the problem. It's obvious that a satisfied woman will be addicted to you like never before. 
 
+ http://www.kyklopescf.com 
 
-
-Masculine performance has never been so easy to increase with these products
-Most quality products for anyone who wants to become a champion in bed
-
-
- http://www.syllabhd.com
-
-
-A celebrity is someone who works hard all his life to become known and then wears dark glasses to avoid being recognized.  Faith will move mountains
- Gluttony kills more than the sword 
+ Needs must when the devil drives Eat well, stay fit, die anyway.  A friend in need is a friend indeed. There's no fool like an old fool. He will not regard any ransom; neither will he rest content, though thou givest many gifts. 
 
