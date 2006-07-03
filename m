@@ -1,34 +1,51 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: Re: [PATCH 38 of 39] IB/ipath - More changes to support InfiniPath on PowerPC 970 systems
-Date: Tue, 4 Jul 2006 08:25:06 +1000
-Message-ID: <20060703222506.GD31081@krispykreme>
-References: <c22b6c244d5db77f7b1d.1151617289@eng-12.pathscale.com> <20060629.145319.71091846.davem@davemloft.net> <1151618499.10886.26.camel@chalcedony.pathscale.com> <20060629.150417.78710870.davem@davemloft.net>
+From: Brice Goglin <brice@myri.com>
+Subject: [patch 3/4] myri10ge - Use dev_info() when printing parameters after
+ probe
+Date: Mon, 03 Jul 2006 18:41:30 -0400
+Message-ID: <44A99D1A.5080301@myri.com>
+References: <20060703220230.606593000@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bos@pathscale.com, akpm@osdl.org, rdreier@cisco.com,
-	mst@mellanox.co.il, openib-general@openib.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	matthew@wil.cx
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: brice@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:48305 "EHLO ozlabs.org")
-	by vger.kernel.org with ESMTP id S1750834AbWGCW1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2006 18:27:23 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060629.150417.78710870.davem@davemloft.net>
+Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:25786 "EHLO
+	myri.com") by vger.kernel.org with ESMTP id S1751110AbWGCWld (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2006 18:41:33 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <20060703220230.606593000@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Displaying the interface name when listing the device parameters
+at the end of myri10ge_probe is not a good idea since udev might
+rename the interface soon afterwards.
+Print the bus id instead, using dev_info().
+
+Signed-off-by: Brice Goglin <brice@myri.com>
+---
+ drivers/net/myri10ge/myri10ge.c |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+Index: linux-mm/drivers/net/myri10ge/myri10ge.c
+===================================================================
+--- linux-mm.orig/drivers/net/myri10ge/myri10ge.c	2006-07-03 16:02:52.000000000 -0400
++++ linux-mm/drivers/net/myri10ge/myri10ge.c	2006-07-03 16:04:15.000000000 -0400
+@@ -2734,11 +2734,10 @@
+ 		dev_err(&pdev->dev, "register_netdev failed: %d\n", status);
+ 		goto abort_with_irq;
+ 	}
+-
+-	printk(KERN_INFO "myri10ge: %s: %s IRQ %d, tx bndry %d, fw %s, WC %s\n",
+-	       netdev->name, (mgp->msi_enabled ? "MSI" : "xPIC"),
+-	       pdev->irq, mgp->tx.boundary, mgp->fw_name,
+-	       (mgp->mtrr >= 0 ? "Enabled" : "Disabled"));
++	dev_info(dev, "%s IRQ %d, tx bndry %d, fw %s, WC %s\n",
++		 (mgp->msi_enabled ? "MSI" : "xPIC"),
++		 pdev->irq, mgp->tx.boundary, mgp->fw_name,
++		 (mgp->mtrr >= 0 ? "Enabled" : "Disabled"));
  
-Hi,
+ 	return 0;
+ 
 
-> Please fix the generic code if it doesn't provide the facility
-> you need at the moment.  Don't shoe horn it into your driver
-> just to make up for that.
 
-Ive had 3 drivers asking for write combining recently so I agree this is
-a good idea. How about ioremap_wc as suggested by Willy:
-
-http://marc.theaimsgroup.com/?l=linux-kernel&m=114374741828040&w=2
-
-Anton
