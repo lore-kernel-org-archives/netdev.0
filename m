@@ -1,43 +1,83 @@
-From: Andrey Savochkin <saw@swsoft.com>
-Subject: [patch] bridge: br_dump_ifinfo index fix
-Date: Mon, 3 Jul 2006 16:06:40 +0400
-Message-ID: <20060703160640.A15611@castle.nmd.msu.ru>
+From: Herbert Poetzl <herbert@13thfloor.at>
+Subject: Re: strict isolation of net interfaces
+Date: Mon, 3 Jul 2006 15:36:02 +0200
+Message-ID: <20060703133602.GB25534@MAIL.13thfloor.at>
+References: <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net> <44A450D1.2030405@fr.ibm.com> <20060630023947.GA24726@sergelap.austin.ibm.com> <44A4E72D.2060105@fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Kirill Korotaev <dev@openvz.org>,
+Cc: "Serge E. Hallyn" <serue@us.ibm.com>, Sam Vilain <sam@vilain.net>,
+	hadi@cyberus.ca, Alexey Kuznetsov <alexey@sw.ru>,
+	viro@ftp.linux.org.uk, devel@openvz.org, dev@sw.ru,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Andrey Savochkin <saw@swsoft.com>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
 	Ben Greear <greearb@candelatech.com>,
-	Stephen Hemminger <shemminger@osdl.org>
+	Dave Hansen <haveblue@us.ibm.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.nmd.msu.ru ([193.232.112.53]:6 "HELO castle.nmd.msu.ru")
-	by vger.kernel.org with SMTP id S1751129AbWGCMGm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2006 08:06:42 -0400
-To: netdev@vger.kernel.org
+Received: from MAIL.13thfloor.at ([212.16.62.50]:23258 "EHLO mail.13thfloor.at")
+	by vger.kernel.org with ESMTP id S1751166AbWGCNgE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2006 09:36:04 -0400
+To: Cedric Le Goater <clg@fr.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <44A4E72D.2060105@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix for inability of br_dump_ifinfo to handle non-zero start index:
-loop index never increases when entered with non-zero start.
-Spotted by Kirill Korotaev.
+On Fri, Jun 30, 2006 at 10:56:13AM +0200, Cedric Le Goater wrote:
+> Serge E. Hallyn wrote:
+> > 
+> > The last one in your diagram confuses me - why foo0:1?  I would
+> > have thought it'd be
+> 
+> just thinking aloud. I thought that any kind/type of interface could be
+> mapped from host to guest.
+> 
+> > host                  |  guest 0  |  guest 1  |  guest2
+> > ----------------------+-----------+-----------+--------------
+> >   |                   |           |           |
+> >   |-> l0      <-------+-> lo0 ... | lo0       | lo0
+> >   |                   |           |           |
+> >   |-> eth0            |           |           |
+> >   |                   |           |           |
+> >   |-> veth0  <--------+-> eth0    |           |
+> >   |                   |           |           |
+> >   |-> veth1  <--------+-----------+-----------+-> eth0
+> >   |                   |           |           |
+> >   |-> veth2   <-------+-----------+-> eth0    |
+> > 
+> > I think we should avoid using device aliases, as trying to do
+> > something like giving eth0:1 to guest1 and eth0:2 to guest2
+> > while hiding eth0:1 from guest2 requires some uglier code (as
+> > I recall) than working with full devices.  In other words,
+> > if a namespace can see eth0, and eth0:2 exists, it should always
+> > see eth0:2.
+> > 
+> > So conceptually using a full virtual net device per container
+> > certainly seems cleaner to me, and it seems like it should be
+> > simpler by way of statistics gathering etc, but are there actually
+> > any real gains?  Or is the support for multiple IPs per device
+> > actually enough?
+> > 
+> > Herbert, is this basically how ngnet is supposed to work?
 
-Signed-off-by: Andrey Savochkin <saw@swsoft.com>
-Cc: Kirill Korotaev <dev@openvz.org>
----
-Against 2.6.17-mm6
+hard to tell, we have at least three ngnet prototypes
+and basically all variants are covered there, from
+separate interfaces which map to real ones to perfect
+isolation of addresses assigned to global interfaces
 
---- ./net/bridge/br_netlink.c.vebridge-dump	Wed Jun 21 18:53:18 2006
-+++ ./net/bridge/br_netlink.c	Mon Jul  3 14:31:03 2006
-@@ -117,12 +117,13 @@ static int br_dump_ifinfo(struct sk_buff
- 			continue;
- 
- 		if (idx < s_idx)
--			continue;
-+			goto cont;
- 
- 		err = br_fill_ifinfo(skb, p, NETLINK_CB(cb->skb).pid,
- 				     cb->nlh->nlmsg_seq, RTM_NEWLINK, NLM_F_MULTI);
- 		if (err <= 0)
- 			break;
-+cont:
- 		++idx;
- 	}
- 	read_unlock(&dev_base_lock);
+IMHO the 'virtual' interface per guest is fine, as
+the overhead and consumed resources are non critical
+and it will definitely simplify handling for the
+guest side
+
+I'd really appreciate if we could find a solution which
+allows both, isolation and virtualization, and if the
+bridge scenario is as fast as a direct mapping, I'm
+perfectly fine with a big bridge + ebtables to handle
+security issues
+
+best,
+Herbert
+
