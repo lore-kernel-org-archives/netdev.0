@@ -1,44 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [IPROUTE]: Introduce tc monitor
-Date: Mon, 03 Jul 2006 12:13:53 +0200
-Message-ID: <44A8EDE1.7030503@trash.net>
-References: <1151860849.5093.259.camel@jzny2>
+From: Steven Whitehouse <steve@chygwyn.com>
+Subject: Re: [RFC DECNET 04/04]: Increase number of possible routing tables to 2^32
+Date: Mon, 3 Jul 2006 12:20:12 +0100
+Message-ID: <20060703112012.GA24742@souterrain.chygwyn.com>
+References: <20060703075259.6286.67397.sendpatchset@localhost.localdomain> <20060703075305.6286.18061.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	greearb@candelatech.com,
+	Patrick Caulfield <patrick@tykepenguin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63449 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1750914AbWGCKPG
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jul 2006 06:15:06 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1151860849.5093.259.camel@jzny2>
+Received: from souterrain.chygwyn.com ([194.39.143.233]:44228 "EHLO
+	souterrain.chygwyn.com") by vger.kernel.org with ESMTP
+	id S1750888AbWGCLRd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jul 2006 07:17:33 -0400
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <20060703075305.6286.18061.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Speaking of events reminded me of this.. Managed to get some quality
-> time, so heres a patch against current iproute2 git that adds something
-> useful.
+Hi,
+
+On Mon, Jul 03, 2006 at 09:53:05AM +0200, Patrick McHardy wrote:
+> [DECNET]: Increase number of possible routing tables to 2^32
 > 
-> This patch adds ability to monitor tc events similar to ipmonitor.
-> User runs "tc monitor" (without quotes) and watches events of
-> addition, deletion and updates from qdiscs, classes, filters and
-> actions as they happen.
+> Increase the nubmer of possible routing tables to 2^32 by replacing the
+> fixed sized array of tables by a hash table.
+> 
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
+>
+I've had a quick look though the DECnet parts of this and it looks good,
+atthough I've not had a chance to test it at all. Please cc Patrick Caulfield
+on DECnet changes,
 
-Looks good to me. Speaking of actions, do you have any plans to
-add help-texts? Currently the output is very confusing, whenever
-I use them I need to google for examples.
-
-$ tc action help
-action usage improper
-
-$ tc action add mirred help
-mirred not supported help
-bad action parsing
-parse_action: bad value (2:mirred)!
-Illegal "action"
-Command "add" is unknown, try "tc action help".
-
+Steve.
+ 
