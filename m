@@ -1,300 +1,408 @@
 From: Andrey Savochkin <saw@swsoft.com>
-Subject: [patch 1/7] net_device list cleanup: core
-Date: Mon, 3 Jul 2006 12:18:51 +0400
-Message-ID: <20060630150823.A22285@castle.nmd.msu.ru>
+Subject: [patch 4/7] net_device list cleanup: drivers and non-IP protocols
+Date: Mon, 3 Jul 2006 12:18:54 +0400
+Message-ID: <20060630164715.F22285@castle.nmd.msu.ru>
+References: <20060630150823.A22285@castle.nmd.msu.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Kirill Korotaev <dev@openvz.org>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Stuart Cheshire <cheshire@cs.stanford.edu>,
+	Ben Greear <greearb@candelatech.com>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	patrick@tykepenguin.com, acme@conectiva.com.br,
+	ralf@linux-mips.org, sri@us.ibm.com, per.liden@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.nmd.msu.ru ([193.232.112.53]:31496 "HELO
-	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1750766AbWGCQbZ
+Received: from castle.nmd.msu.ru ([193.232.112.53]:34568 "HELO
+	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1750953AbWGCQcA
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jul 2006 12:31:25 -0400
+	Mon, 3 Jul 2006 12:32:00 -0400
 To: netdev@vger.kernel.org
+In-Reply-To: <20060630150823.A22285@castle.nmd.msu.ru>; from "Andrey Savochkin" on Fri, Jun 30, 2006 at 03:08:23PM
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cleanup of net_device list use in net_dev core and IP.
+Cleanup of net_device list use in network device drivers and protocols
+other than IP.
+
 The cleanup consists of
  - converting the to list_head, to make the list double-linked (thus making
    remove operation O(1)), and list walks more readable;
  - introducing of for_each_netdev wrapper over list_for_each.
 
 Signed-off-by: Andrey Savochkin <saw@swsoft.com>
-Signed-off-by: Kirill Korotaev <dev@openvz.org>
 ---
- include/linux/netdevice.h |   29 ++++++++++++++++++++++++++-
- net/core/dev.c            |   48 +++++++++++++++++++++++++---------------------
- net/ipv4/devinet.c        |    6 ++---
- net/ipv6/addrconf.c       |    8 +++----
- net/ipv6/anycast.c        |   10 +++++----
- 5 files changed, 68 insertions(+), 33 deletions(-)
+Requires "bridge: br_dump_ifinfo index fix"
 
---- ./include/linux/netdevice.h.vedevbase-core	Mon Jul  3 15:14:15 2006
-+++ ./include/linux/netdevice.h	Mon Jul  3 16:09:11 2006
-@@ -290,7 +290,8 @@ struct net_device
- 	unsigned long		state;
+ drivers/net/wireless/strip.c |    4 +---
+ net/8021q/vlan.c             |    4 ++--
+ net/8021q/vlanproc.c         |   10 +++++-----
+ net/bridge/br_if.c           |    4 ++--
+ net/bridge/br_ioctl.c        |    4 +++-
+ net/bridge/br_netlink.c      |    3 ++-
+ net/decnet/af_decnet.c       |   11 +++++++----
+ net/decnet/dn_dev.c          |   17 ++++++++++-------
+ net/decnet/dn_fib.c          |    2 +-
+ net/decnet/dn_route.c        |   13 +++++++------
+ net/llc/llc_core.c           |    7 +++++--
+ net/netrom/nr_route.c        |    5 +++--
+ net/rose/rose_route.c        |    8 +++++---
+ net/sctp/protocol.c          |    2 +-
+ net/tipc/eth_media.c         |   11 +++++++----
+ 15 files changed, 61 insertions(+), 44 deletions(-)
+
+--- ./drivers/net/wireless/strip.c.vedevbase-onet	Mon Jul  3 15:13:46 2006
++++ ./drivers/net/wireless/strip.c	Mon Jul  3 16:12:11 2006
+@@ -1969,8 +1969,7 @@ static struct net_device *get_strip_dev(
+ 		      sizeof(zero_address))) {
+ 		struct net_device *dev;
+ 		read_lock_bh(&dev_base_lock);
+-		dev = dev_base;
+-		while (dev) {
++		for_each_netdev(dev) {
+ 			if (dev->type == strip_info->dev->type &&
+ 			    !memcmp(dev->dev_addr,
+ 				    &strip_info->true_dev_addr,
+@@ -1981,7 +1980,6 @@ static struct net_device *get_strip_dev(
+ 				read_unlock_bh(&dev_base_lock);
+ 				return (dev);
+ 			}
+-			dev = dev->next;
+ 		}
+ 		read_unlock_bh(&dev_base_lock);
+ 	}
+--- ./net/8021q/vlan.c.vedevbase-onet	Mon Jul  3 15:14:17 2006
++++ ./net/8021q/vlan.c	Mon Jul  3 16:12:11 2006
+@@ -121,8 +121,8 @@ static void __exit vlan_cleanup_devices(
+ 	struct net_device *dev, *nxt;
  
- 	struct net_device	*next;
--	
-+	struct list_head	dev_list;
-+
- 	/* The device initialization function. Called only once. */
- 	int			(*init)(struct net_device *dev);
+ 	rtnl_lock();
+-	for (dev = dev_base; dev; dev = nxt) {
+-		nxt = dev->next;
++	for (dev = first_netdev(); dev; dev = nxt) {
++		nxt = next_netdev(dev);
+ 		if (dev->priv_flags & IFF_802_1Q_VLAN) {
+ 			unregister_vlan_dev(VLAN_DEV_INFO(dev)->real_dev,
+ 					    VLAN_DEV_INFO(dev)->vlan_id);
+--- ./net/8021q/vlanproc.c.vedevbase-onet	Mon Jul  3 15:14:17 2006
++++ ./net/8021q/vlanproc.c	Mon Jul  3 16:12:11 2006
+@@ -241,7 +241,7 @@ int vlan_proc_rem_dev(struct net_device 
+ static struct net_device *vlan_skip(struct net_device *dev) 
+ {
+ 	while (dev && !(dev->priv_flags & IFF_802_1Q_VLAN)) 
+-		dev = dev->next;
++		dev = next_netdev(dev);
  
-@@ -558,8 +559,34 @@ struct packet_type {
+ 	return dev;
+ }
+@@ -257,8 +257,8 @@ static void *vlan_seq_start(struct seq_f
+ 	if (*pos == 0)
+ 		return SEQ_START_TOKEN;
+ 	
+-	for (dev = vlan_skip(dev_base); dev && i < *pos; 
+-	     dev = vlan_skip(dev->next), ++i);
++	for (dev = vlan_skip(first_netdev()); dev && i < *pos; 
++	     dev = vlan_skip(next_netdev(dev)), ++i);
+ 		
+ 	return  (i == *pos) ? dev : NULL;
+ } 
+@@ -268,8 +268,8 @@ static void *vlan_seq_next(struct seq_fi
+ 	++*pos;
  
- extern struct net_device		loopback_dev;		/* The loopback */
- extern struct net_device		*dev_base;		/* All devices */
-+extern struct list_head			dev_base_head;		/* All devices */
- extern rwlock_t				dev_base_lock;		/* Device list lock */
- 
-+#define for_each_netdev(p)	list_for_each_entry(p, &dev_base_head, dev_list)
-+
-+/*
-+ * When possible, it is preferrable to use for_each_netdev() loop
-+ * defined above, rather than first_netdev()/next_netdev() macros.
-+ * for_each_netdev() loop makes the intentions clearer, and gives more
-+ * flexibility in device list implementation.
-+ * While next_netdev() is unavoidable in seq_proc functions,
-+ * first_netdev() should be needed quite rarely.
-+ */
-+#define first_netdev()		({ \
-+					list_empty(&dev_base_head) ? NULL : \
-+						list_entry(dev_base_head.next, \
-+							struct net_device, \
-+							dev_list); \
-+				 })
-+#define next_netdev(dev)	({ \
-+					struct list_head *__next; \
-+					__next = (dev)->dev_list.next; \
-+					__next == &dev_base_head ? NULL : \
-+						list_entry(__next, \
-+							struct net_device, \
-+							dev_list); \
-+				 })
-+
- extern int 			netdev_boot_setup_check(struct net_device *dev);
- extern unsigned long		netdev_boot_base(const char *prefix, int unit);
- extern struct net_device    *dev_getbyhwaddr(unsigned short type, char *hwaddr);
---- ./net/core/dev.c.vedevbase-core	Mon Jul  3 15:14:19 2006
-+++ ./net/core/dev.c	Mon Jul  3 16:09:11 2006
-@@ -181,6 +181,9 @@ DEFINE_RWLOCK(dev_base_lock);
- EXPORT_SYMBOL(dev_base);
- EXPORT_SYMBOL(dev_base_lock);
- 
-+LIST_HEAD(dev_base_head);
-+EXPORT_SYMBOL(dev_base_head);
-+
- #define NETDEV_HASHBITS	8
- static struct hlist_head dev_name_head[1<<NETDEV_HASHBITS];
- static struct hlist_head dev_index_head[1<<NETDEV_HASHBITS];
-@@ -575,11 +578,11 @@ struct net_device *dev_getbyhwaddr(unsig
- 
- 	ASSERT_RTNL();
- 
--	for (dev = dev_base; dev; dev = dev->next)
-+	for_each_netdev(dev)
- 		if (dev->type == type &&
- 		    !memcmp(dev->dev_addr, ha, dev->addr_len))
--			break;
--	return dev;
-+			return dev;
-+	return NULL;
+ 	return vlan_skip((v == SEQ_START_TOKEN)  
+-			    ? dev_base 
+-			    : ((struct net_device *)v)->next);
++			    ? first_netdev()
++			    : next_netdev((struct net_device *)v));
  }
  
- EXPORT_SYMBOL(dev_getbyhwaddr);
-@@ -589,14 +592,15 @@ struct net_device *dev_getfirstbyhwtype(
+ static void vlan_seq_stop(struct seq_file *seq, void *v)
+--- ./net/bridge/br_if.c.vedevbase-onet	Mon Jul  3 15:14:19 2006
++++ ./net/bridge/br_if.c	Mon Jul  3 16:12:11 2006
+@@ -474,8 +474,8 @@ void __exit br_cleanup_bridges(void)
+ 	struct net_device *dev, *nxt;
+ 
+ 	rtnl_lock();
+-	for (dev = dev_base; dev; dev = nxt) {
+-		nxt = dev->next;
++	for (dev = first_netdev(); dev; dev = nxt) {
++		nxt = next_netdev(dev);
+ 		if (dev->priv_flags & IFF_EBRIDGE)
+ 			del_br(dev->priv);
+ 	}
+--- ./net/bridge/br_ioctl.c.vedevbase-onet	Mon Mar 20 08:53:29 2006
++++ ./net/bridge/br_ioctl.c	Mon Jul  3 16:12:11 2006
+@@ -27,7 +27,9 @@ static int get_bridge_ifindices(int *ind
+ 	struct net_device *dev;
+ 	int i = 0;
+ 
+-	for (dev = dev_base; dev && i < num; dev = dev->next) {
++	for_each_netdev(dev) {
++		if (i >= num)
++			break;
+ 		if (dev->priv_flags & IFF_EBRIDGE) 
+ 			indices[i++] = dev->ifindex;
+ 	}
+--- ./net/bridge/br_netlink.c.vedevbase-onet	Mon Jul  3 16:12:11 2006
++++ ./net/bridge/br_netlink.c	Mon Jul  3 16:12:11 2006
+@@ -109,7 +109,8 @@ static int br_dump_ifinfo(struct sk_buff
+ 	int err = 0;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base, idx = 0; dev; dev = dev->next) {
++	idx = 0;
++	for_each_netdev(dev) {
+ 		struct net_bridge_port *p = dev->br_port;
+ 
+ 		/* not a bridge port */
+--- ./net/decnet/af_decnet.c.vedevbase-onet	Mon Jul  3 15:14:19 2006
++++ ./net/decnet/af_decnet.c	Mon Jul  3 16:12:11 2006
+@@ -720,7 +720,7 @@ static int dn_bind(struct socket *sock, 
+ 	struct sock *sk = sock->sk;
+ 	struct dn_scp *scp = DN_SK(sk);
+ 	struct sockaddr_dn *saddr = (struct sockaddr_dn *)uaddr;
+-	struct net_device *dev;
++	struct net_device *pdev, *dev;
+ 	int rv;
+ 
+ 	if (addr_len != sizeof(struct sockaddr_dn))
+@@ -744,12 +744,15 @@ static int dn_bind(struct socket *sock, 
+ 
+ 	if (!(saddr->sdn_flags & SDF_WILD)) {
+ 		if (dn_ntohs(saddr->sdn_nodeaddrl)) {
++			dev = NULL;
+ 			read_lock(&dev_base_lock);
+-			for(dev = dev_base; dev; dev = dev->next) {
+-				if (!dev->dn_ptr)
++			for_each_netdev(pdev) {
++				if (!pdev->dn_ptr)
+ 					continue;
+-				if (dn_dev_islocal(dev, dn_saddr2dn(saddr)))
++				if (dn_dev_islocal(pdev, dn_saddr2dn(saddr))) {
++					dev = pdev;
+ 					break;
++				}
+ 			}
+ 			read_unlock(&dev_base_lock);
+ 			if (dev == NULL)
+--- ./net/decnet/dn_dev.c.vedevbase-onet	Mon Jul  3 15:14:19 2006
++++ ./net/decnet/dn_dev.c	Mon Jul  3 16:12:11 2006
+@@ -775,13 +775,14 @@ static int dn_dev_dump_ifaddr(struct sk_
+ 	s_idx = cb->args[0];
+ 	s_dn_idx = dn_idx = cb->args[1];
+ 	read_lock(&dev_base_lock);
+-	for(dev = dev_base, idx = 0; dev; dev = dev->next, idx++) {
++	idx = 0;
++	for_each_netdev(dev) {
+ 		if (idx < s_idx)
+-			continue;
++			goto cont;
+ 		if (idx > s_idx)
+ 			s_dn_idx = 0;
+ 		if ((dn_db = dev->dn_ptr) == NULL)
+-			continue;
++			goto cont;
+ 
+ 		for(ifa = dn_db->ifa_list, dn_idx = 0; ifa; ifa = ifa->ifa_next, dn_idx++) {
+ 			if (dn_idx < s_dn_idx)
+@@ -794,6 +795,8 @@ static int dn_dev_dump_ifaddr(struct sk_
+ 					       NLM_F_MULTI) <= 0)
+ 				goto done;
+ 		}
++cont:
++		idx++;
+ 	}
+ done:
+ 	read_unlock(&dev_base_lock);
+@@ -1264,7 +1267,7 @@ void dn_dev_devices_off(void)
  	struct net_device *dev;
  
  	rtnl_lock();
--	for (dev = dev_base; dev; dev = dev->next) {
-+	for_each_netdev(dev) {
- 		if (dev->type == type) {
- 			dev_hold(dev);
--			break;
-+			rtnl_unlock();
-+			return dev;
- 		}
- 	}
+-	for(dev = dev_base; dev; dev = dev->next)
++	for_each_netdev(dev)
+ 		dn_dev_down(dev);
  	rtnl_unlock();
--	return dev;
-+	return NULL;
- }
  
- EXPORT_SYMBOL(dev_getfirstbyhwtype);
-@@ -617,14 +621,15 @@ struct net_device * dev_get_by_flags(uns
+@@ -1275,7 +1278,7 @@ void dn_dev_devices_on(void)
+ 	struct net_device *dev;
+ 
+ 	rtnl_lock();
+-	for(dev = dev_base; dev; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if (dev->flags & IFF_UP)
+ 			dn_dev_up(dev);
+ 	}
+@@ -1296,7 +1299,7 @@ int unregister_dnaddr_notifier(struct no
+ static inline struct net_device *dn_dev_get_next(struct seq_file *seq, struct net_device *dev)
+ {
+ 	do {
+-		dev = dev->next;
++		dev = next_netdev(dev);
+ 	} while(dev && !dev->dn_ptr);
+ 
+ 	return dev;
+@@ -1306,7 +1309,7 @@ static struct net_device *dn_dev_get_idx
+ {
+ 	struct net_device *dev;
+ 
+-	dev = dev_base;
++	dev = first_netdev();
+ 	if (dev && !dev->dn_ptr)
+ 		dev = dn_dev_get_next(seq, dev);
+ 	if (pos) {
+--- ./net/decnet/dn_fib.c.vedevbase-onet	Mon Jul  3 15:14:19 2006
++++ ./net/decnet/dn_fib.c	Mon Jul  3 16:12:11 2006
+@@ -630,7 +630,7 @@ static void dn_fib_del_ifaddr(struct dn_
+ 
+ 	/* Scan device list */
+ 	read_lock(&dev_base_lock);
+-	for(dev = dev_base; dev; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		dn_db = dev->dn_ptr;
+ 		if (dn_db == NULL)
+ 			continue;
+--- ./net/decnet/dn_route.c.vedevbase-onet	Mon Jul  3 15:14:19 2006
++++ ./net/decnet/dn_route.c	Mon Jul  3 16:12:47 2006
+@@ -922,16 +922,17 @@ static int dn_route_output_slow(struct d
+ 			goto out;
+ 		}
+ 		read_lock(&dev_base_lock);
+-		for(dev_out = dev_base; dev_out; dev_out = dev_out->next) {
++		for_each_netdev(dev_out) {
+ 			if (!dev_out->dn_ptr)
+ 				continue;
+-			if (dn_dev_islocal(dev_out, oldflp->fld_src))
+-				break;
++			if (dn_dev_islocal(dev_out, oldflp->fld_src)) {
++				dev_hold(dev_out);
++				read_unlock(&dev_base_lock);
++				goto source_ok;
++			}
+ 		}
+ 		read_unlock(&dev_base_lock);
+-		if (dev_out == NULL)
+-			goto out;
+-		dev_hold(dev_out);
++		goto out;
+ source_ok:
+ 		;
+ 	}
+--- ./net/llc/llc_core.c.vedevbase-onet	Mon Jul  3 15:10:43 2006
++++ ./net/llc/llc_core.c	Mon Jul  3 16:12:11 2006
+@@ -161,8 +161,11 @@ static struct packet_type llc_tr_packet_
+ 
+ static int __init llc_init(void)
+ {
+-	if (dev_base->next)
+-		memcpy(llc_station_mac_sa, dev_base->next->dev_addr, ETH_ALEN);
++	struct net_device *dev;
++
++	dev = next_netdev(first_netdev());
++	if (dev)
++		memcpy(llc_station_mac_sa, dev->dev_addr, ETH_ALEN);
+ 	else
+ 		memset(llc_station_mac_sa, 0, ETH_ALEN);
+ 	dev_add_pack(&llc_packet_type);
+--- ./net/netrom/nr_route.c.vedevbase-onet	Mon Jul  3 15:14:22 2006
++++ ./net/netrom/nr_route.c	Mon Jul  3 16:12:11 2006
+@@ -595,7 +595,7 @@ struct net_device *nr_dev_first(void)
+ 	struct net_device *dev, *first = NULL;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base; dev != NULL; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if ((dev->flags & IFF_UP) && dev->type == ARPHRD_NETROM)
+ 			if (first == NULL || strncmp(dev->name, first->name, 3) < 0)
+ 				first = dev;
+@@ -615,12 +615,13 @@ struct net_device *nr_dev_get(ax25_addre
  	struct net_device *dev;
  
  	read_lock(&dev_base_lock);
 -	for (dev = dev_base; dev != NULL; dev = dev->next) {
 +	for_each_netdev(dev) {
- 		if (((dev->flags ^ if_flags) & mask) == 0) {
+ 		if ((dev->flags & IFF_UP) && dev->type == ARPHRD_NETROM && ax25cmp(addr, (ax25_address *)dev->dev_addr) == 0) {
  			dev_hold(dev);
--			break;
-+			read_unlock(&dev_base_lock);
-+			return dev;
+ 			goto out;
  		}
  	}
++	dev = NULL;
+ out:
  	read_unlock(&dev_base_lock);
--	return dev;
-+	return NULL;
- }
- 
- /**
-@@ -680,7 +685,7 @@ int dev_alloc_name(struct net_device *de
- 		if (!inuse)
- 			return -ENOMEM;
- 
--		for (d = dev_base; d; d = d->next) {
-+		for_each_netdev(d) {
- 			if (!sscanf(d->name, name, &i))
- 				continue;
- 			if (i < 0 || i >= max_netdevices)
-@@ -966,7 +971,7 @@ int register_netdevice_notifier(struct n
- 	rtnl_lock();
- 	err = raw_notifier_chain_register(&netdev_chain, nb);
- 	if (!err) {
--		for (dev = dev_base; dev; dev = dev->next) {
-+		for_each_netdev(dev) {
- 			nb->notifier_call(nb, NETDEV_REGISTER, dev);
- 
- 			if (dev->flags & IFF_UP) 
-@@ -2035,7 +2040,7 @@ static int dev_ifconf(char __user *arg)
- 	 */
- 
- 	total = 0;
--	for (dev = dev_base; dev; dev = dev->next) {
-+	for_each_netdev(dev) {
- 		for (i = 0; i < NPROTO; i++) {
- 			if (gifconf_list[i]) {
- 				int done;
-@@ -2974,6 +2979,7 @@ int register_netdevice(struct net_device
- 	write_lock_bh(&dev_base_lock);
- 	*dev_tail = dev;
- 	dev_tail = &dev->next;
-+	list_add_tail(&dev->dev_list, &dev_base_head);
- 	hlist_add_head(&dev->name_hlist, head);
- 	hlist_add_head(&dev->index_hlist, dev_index_hash(dev->ifindex));
- 	dev_hold(dev);
-@@ -3271,22 +3277,22 @@ int unregister_netdevice(struct net_devi
- 
- 	/* And unlink it from device chain. */
- 	for (dp = &dev_base; (d = *dp) != NULL; dp = &d->next) {
--		if (d == dev) {
--			write_lock_bh(&dev_base_lock);
--			hlist_del(&dev->name_hlist);
--			hlist_del(&dev->index_hlist);
--			if (dev_tail == &dev->next)
--				dev_tail = dp;
--			*dp = d->next;
--			write_unlock_bh(&dev_base_lock);
-+		if (d == dev)
- 			break;
--		}
- 	}
- 	if (!d) {
- 		printk(KERN_ERR "unregister net_device: '%s' not found\n",
- 		       dev->name);
- 		return -ENODEV;
- 	}
-+	write_lock_bh(&dev_base_lock);
-+	list_del(&dev->dev_list);
-+	hlist_del(&dev->name_hlist);
-+	hlist_del(&dev->index_hlist);
-+	if (dev_tail == &dev->next)
-+		dev_tail = dp;
-+	*dp = d->next;
-+	write_unlock_bh(&dev_base_lock);
- 
- 	dev->reg_state = NETREG_UNREGISTERING;
- 
---- ./net/ipv4/devinet.c.vedevbase-core	Mon Jul  3 15:14:20 2006
-+++ ./net/ipv4/devinet.c	Mon Jul  3 16:09:11 2006
-@@ -841,7 +841,7 @@ no_in_dev:
- 	 */
- 	read_lock(&dev_base_lock);
- 	rcu_read_lock();
--	for (dev = dev_base; dev; dev = dev->next) {
-+	for_each_netdev(dev) {
- 		if ((in_dev = __in_dev_get_rcu(dev)) == NULL)
- 			continue;
- 
-@@ -920,7 +920,7 @@ u32 inet_confirm_addr(const struct net_d
+ 	return dev;
+--- ./net/rose/rose_route.c.vedevbase-onet	Mon Jul  3 15:10:43 2006
++++ ./net/rose/rose_route.c	Mon Jul  3 16:12:11 2006
+@@ -600,7 +600,7 @@ struct net_device *rose_dev_first(void)
+ 	struct net_device *dev, *first = NULL;
  
  	read_lock(&dev_base_lock);
- 	rcu_read_lock();
--	for (dev = dev_base; dev; dev = dev->next) {
+-	for (dev = dev_base; dev != NULL; dev = dev->next) {
 +	for_each_netdev(dev) {
- 		if ((in_dev = __in_dev_get_rcu(dev))) {
- 			addr = confirm_addr_indev(in_dev, dst, local, scope);
- 			if (addr)
-@@ -1170,7 +1170,7 @@ void inet_forward_change(void)
- 	ipv4_devconf_dflt.forwarding = on;
+ 		if ((dev->flags & IFF_UP) && dev->type == ARPHRD_ROSE)
+ 			if (first == NULL || strncmp(dev->name, first->name, 3) < 0)
+ 				first = dev;
+@@ -618,12 +618,13 @@ struct net_device *rose_dev_get(rose_add
+ 	struct net_device *dev;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base; dev != NULL; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if ((dev->flags & IFF_UP) && dev->type == ARPHRD_ROSE && rosecmp(addr, (rose_address *)dev->dev_addr) == 0) {
+ 			dev_hold(dev);
+ 			goto out;
+ 		}
+ 	}
++	dev = NULL;
+ out:
+ 	read_unlock(&dev_base_lock);
+ 	return dev;
+@@ -634,10 +635,11 @@ static int rose_dev_exists(rose_address 
+ 	struct net_device *dev;
+ 
+ 	read_lock(&dev_base_lock);
+-	for (dev = dev_base; dev != NULL; dev = dev->next) {
++	for_each_netdev(dev) {
+ 		if ((dev->flags & IFF_UP) && dev->type == ARPHRD_ROSE && rosecmp(addr, (rose_address *)dev->dev_addr) == 0)
+ 			goto out;
+ 	}
++	dev = NULL;
+ out:
+ 	read_unlock(&dev_base_lock);
+ 	return dev != NULL;
+--- ./net/sctp/protocol.c.vedevbase-onet	Mon Jul  3 15:14:22 2006
++++ ./net/sctp/protocol.c	Mon Jul  3 16:12:11 2006
+@@ -177,7 +177,7 @@ static void __sctp_get_local_addr_list(v
+ 	struct sctp_af *af;
  
  	read_lock(&dev_base_lock);
 -	for (dev = dev_base; dev; dev = dev->next) {
 +	for_each_netdev(dev) {
- 		struct in_device *in_dev;
- 		rcu_read_lock();
- 		in_dev = __in_dev_get_rcu(dev);
---- ./net/ipv6/addrconf.c.vedevbase-core	Mon Jul  3 15:14:22 2006
-+++ ./net/ipv6/addrconf.c	Mon Jul  3 16:09:11 2006
-@@ -469,7 +469,7 @@ static void addrconf_forward_change(void
- 	struct inet6_dev *idev;
+ 		__list_for_each(pos, &sctp_address_families) {
+ 			af = list_entry(pos, struct sctp_af, list);
+ 			af->copy_addrlist(&sctp_local_addr_list, dev);
+--- ./net/tipc/eth_media.c.vedevbase-onet	Mon Jul  3 15:14:23 2006
++++ ./net/tipc/eth_media.c	Mon Jul  3 16:14:31 2006
+@@ -120,16 +120,19 @@ static int recv_msg(struct sk_buff *buf,
  
- 	read_lock(&dev_base_lock);
--	for (dev=dev_base; dev; dev=dev->next) {
-+	for_each_netdev(dev) {
- 		read_lock(&addrconf_lock);
- 		idev = __in6_dev_get(dev);
- 		if (idev) {
-@@ -894,7 +894,7 @@ int ipv6_dev_get_saddr(struct net_device
- 	read_lock(&dev_base_lock);
- 	read_lock(&addrconf_lock);
+ static int enable_bearer(struct tipc_bearer *tb_ptr)
+ {
+-	struct net_device *dev = dev_base;
++	struct net_device *pdev, *dev;
+ 	struct eth_bearer *eb_ptr = &eth_bearers[0];
+ 	struct eth_bearer *stop = &eth_bearers[MAX_ETH_BEARERS];
+ 	char *driver_name = strchr((const char *)tb_ptr->name, ':') + 1;
  
--	for (dev = dev_base; dev; dev=dev->next) {
-+	for_each_netdev(dev) {
- 		struct inet6_dev *idev;
- 		struct inet6_ifaddr *ifa;
+ 	/* Find device with specified name */
  
-@@ -1979,7 +1979,7 @@ static void sit_add_v4_addrs(struct inet
- 		return;
- 	}
- 
--        for (dev = dev_base; dev != NULL; dev = dev->next) {
-+	for_each_netdev(dev) {
- 		struct in_device * in_dev = __in_dev_get_rtnl(dev);
- 		if (in_dev && (dev->flags & IFF_UP)) {
- 			struct in_ifaddr * ifa;
-@@ -2128,7 +2128,7 @@ static void ip6_tnl_add_linklocal(struct
- 			return;
- 	}
- 	/* then try to inherit it from any device */
--	for (link_dev = dev_base; link_dev; link_dev = link_dev->next) {
-+	for_each_netdev(link_dev) {
- 		if (!ipv6_inherit_linklocal(idev, link_dev))
- 			return;
- 	}
---- ./net/ipv6/anycast.c.vedevbase-core	Mon Jul  3 15:14:22 2006
-+++ ./net/ipv6/anycast.c	Mon Jul  3 16:09:11 2006
-@@ -427,11 +427,13 @@ int ipv6_chk_acast_addr(struct net_devic
- 	if (dev)
- 		return ipv6_chk_acast_dev(dev, addr);
- 	read_lock(&dev_base_lock);
--	for (dev=dev_base; dev; dev=dev->next)
--		if (ipv6_chk_acast_dev(dev, addr))
--			break;
-+	for_each_netdev(dev)
-+		if (ipv6_chk_acast_dev(dev, addr)) {
-+			read_unlock(&dev_base_lock);
-+			return 1;
+-	while (dev && dev->name && strncmp(dev->name, driver_name, IFNAMSIZ)) {	
+-		dev = dev->next;
+-	}
++	dev = NULL;
++	for_each_netdev(pdev)
++		if (pdev->name && !strncmp(pdev->name, driver_name, IFNAMSIZ)) {
++			dev = pdev;
++			break;
 +		}
- 	read_unlock(&dev_base_lock);
--	return dev != 0;
-+	return 0;
- }
- 
+ 	if (!dev)
+ 		return -ENODEV;
  
