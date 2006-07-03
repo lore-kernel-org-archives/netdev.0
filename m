@@ -1,43 +1,77 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: IPVS Sysctl Variables
-Date: Mon, 3 Jul 2006 10:14:07 +0900
-Message-ID: <20060703011405.GD20593@verge.net.au>
-References: <20060630061940.GA31956@verge.net.au> <20060630.142045.106433722.davem@davemloft.net>
+From: Jeremy Jackson <jerj@coplanar.net>
+Subject: Re: netif_stop_queue() and multiple hardware queues
+Date: Sun, 02 Jul 2006 22:36:03 -0400
+Message-ID: <44A88293.7060000@coplanar.net>
+References: <43A09D18.9040401@coplanar.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, wensong@linux-vs.org, ja@ssi.bg
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:936 "EHLO koto.vergenet.net")
-	by vger.kernel.org with ESMTP id S1750865AbWGCBni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jul 2006 21:43:38 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060630.142045.106433722.davem@davemloft.net>
+Received: from bob.coplanar.net ([206.222.78.116]:26774 "EHLO bob.coplanar.net")
+	by vger.kernel.org with ESMTP id S1750999AbWGCCgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jul 2006 22:36:06 -0400
+To: Jeremy Jackson <jerj@coplanar.net>
+In-Reply-To: <43A09D18.9040401@coplanar.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 30, 2006 at 02:20:45PM -0700, David Miller wrote:
-> From: Horms <horms@verge.net.au>
-> Date: Fri, 30 Jun 2006 15:19:41 +0900
-> 
-> > there are quite a number of entries under /proc/sys/net/ipv4/vs,
-> > I swear that they were documented in Documentation/networking/
-> > at some stage, but perhaps I am dreaming.
-> > 
-> > In any case, if I clean up the information at the following URL (which a
-> > probably complete list of what the options are and what they do, you don't
-> > have to check if you don't want to), is it appropriate for inclusion in
-> > Documentation/networking/, and if so, should it be in ip-sysctl.txt, or
-> > elsewhere?
-> > 
-> > http://www.linuxvirtualserver.org/docs/sysctl.html
-> 
-> Good question, maybe ip-sysctl.txt is getting a bit crowded.
-> I therefore wouldn't mind you putting this into networking/ipvs-sysctl.txt
+I'd like to raise the question again.  How can the network stack's flow 
+control function with hardware that has multiple physical queues?  How 
+can these queues be exposed to tc?
 
-Thanks, I will make that so.
+After scanning the netdev mailing list activity for the last 6 months, I 
+can see no furthur discussion since my original post.  I did notice some 
+churn in several 802.11 layer stacks trying to deal with multiple 
+hardware queues, the IPW2200 in particular.
 
--- 
-Horms                                           
-H: http://www.vergenet.net/~horms/          W: http://www.valinux.co.jp/en/
+I propose that this is an architecture/framework/API issue that the 
+Linux core networking code should be dealing with.
+
+There is some fragmentation already; compare the QoS *policy* 
+implemented by Madwifi vs IPW2200 vs devicescape's 80211 stack. It's 
+worth noting that at the 80211 layer, the first 2 listed above have a 
+"priority" argument to (80211)_hard_start_xmit().
+
+It would seem ideal to expose the queues of Ethernet layer hardware 
+(provide mechanism) and let userspace tc tools do the classifying 
+(sysadmin can set the policy).
+
+Jeremy
+
+Jeremy Jackson wrote:
+> Hi,
+> 
+> I posted this briefly on linux-net, before being redirected here.
+> 
+> Two pieces of hardware now have Linux driver support for multiple 
+> hardware queues: Intel's e1000 (two queues from what I can see in the 
+> code) and Atheros's 5212 and up, in support of 802.11e and WME (four 
+> hardware queues).  In the GigE case, this just reduces latency due to 
+> hardware queueing.  In the WiFi case, the queues actually have 
+> significance in access to the shared medium. (ACKs can be disabled as 
+> well)  It is also worthy of note that ADSL2, VDSL, and ADSL2+ have 4 
+> different latency "queues".  These last two are significant; real-time 
+> applications suffer the most from low speed, shared, and/or 
+> non-deterministic media.  I wonder where DOCSIS 2 is in this regard.  
+> Anyone?  Beuler?
+> 
+> So my question is, what's it going to take to get dev->hard_start_xmit() 
+> to hook up tc queues directly to hardware/driver queues?
+> 
+> Right now, it seems no matter how elaborate a tc setup you have, 
+> everything funnels through one queue, where the only thing that survives 
+> from the classifying/queueing is skb-> priority (ie nothing).  The 
+> hardware driver can then try to reclassify packets.   I suppose you 
+> could hack up an iptables classifyer to set skb->priority...
+> 
+> The  Atheros driver tries to  do it's own classifying by first wiping 
+> out skb->priority, then hard-coding  a mapping (tsk - policy is for the 
+> sysadmin!) between VLAN tag priority, IP TOS/DSCP, and skb->priority, 
+> then to one of the 4 queues and ACK states, blithely ignoring any fine 
+> work done by tc.
+> 
+> It's be sweet to head this nonsense off at the pass, before others 
+> discover the rabbit trail and make it into a trade route.
+> 
 
