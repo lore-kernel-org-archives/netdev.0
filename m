@@ -1,78 +1,92 @@
-From: Nicolas DICHTEL <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] xfrm6: move define/ifdef check order
-Date: Mon, 03 Jul 2006 15:39:40 +0200
-Message-ID: <44A91E1C.7010701@6wind.com>
-References: <20060702143611.dffe7b15.rdunlap@xenotime.net>
-Reply-To: nicolas.dichtel@6wind.com
+From: Andrey Savochkin <saw@swsoft.com>
+Subject: Re: strict isolation of net interfaces
+Date: Mon, 3 Jul 2006 18:53:50 +0400
+Message-ID: <20060703185350.A16826@castle.nmd.msu.ru>
+References: <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net> <44A450D1.2030405@fr.ibm.com> <20060630023947.GA24726@sergelap.austin.ibm.com> <44A49121.4050004@vilain.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, Herbert Poetzl <herbert@13thfloor.at>,
+	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
+	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Ben Greear <greearb@candelatech.com>,
+	Dave Hansen <haveblue@us.ibm.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail01.net-streams.fr ([62.23.133.110]:9231 "EHLO
-	net-streams.fr") by vger.kernel.org with ESMTP id S1750794AbWGCNhq
+Received: from castle.nmd.msu.ru ([193.232.112.53]:26375 "HELO
+	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1751012AbWGCOxv
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jul 2006 09:37:46 -0400
-To: "Randy.Dunlap" <rdunlap@xenotime.net>
-In-Reply-To: <20060702143611.dffe7b15.rdunlap@xenotime.net>
+	Mon, 3 Jul 2006 10:53:51 -0400
+To: Sam Vilain <sam@vilain.net>, "Serge E. Hallyn" <serue@us.ibm.com>,
+	Cedric Le Goater <clg@fr.ibm.com>
+In-Reply-To: <44A49121.4050004@vilain.net>; from "Sam Vilain" on Fri, Jun 30, 2006 at 02:49:05PM
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I point out this issue a long time ago ...
-http://marc.theaimsgroup.com/?l=3Dlinux-netdev&m=3D113032946908126&w=3D=
-2
+Sam, Serge, Cedric,
 
+On Fri, Jun 30, 2006 at 02:49:05PM +1200, Sam Vilain wrote:
+> Serge E. Hallyn wrote:
+> > The last one in your diagram confuses me - why foo0:1?  I would
+> > have thought it'd be
+> >
+> > host                  |  guest 0  |  guest 1  |  guest2
+> > ----------------------+-----------+-----------+--------------
+> >   |                   |           |           |
+> >   |-> l0      <-------+-> lo0 ... | lo0       | lo0
+> >   |                   |           |           |
+> >   |-> eth0            |           |           |
+> >   |                   |           |           |
+> >   |-> veth0  <--------+-> eth0    |           |
+> >   |                   |           |           |
+> >   |-> veth1  <--------+-----------+-----------+-> eth0
+> >   |                   |           |           |
+> >   |-> veth2   <-------+-----------+-> eth0    |
+> >
+> > [...]
+> >
+> > So conceptually using a full virtual net device per container
+> > certainly seems cleaner to me, and it seems like it should be
+> > simpler by way of statistics gathering etc, but are there actually
+> > any real gains?  Or is the support for multiple IPs per device
+> > actually enough?
+> >   
+> 
+> Why special case loopback?
+> 
+> Why not:
+> 
+> host                  |  guest 0  |  guest 1  |  guest2
+> ----------------------+-----------+-----------+--------------
+>   |                   |           |           |
+>   |-> lo              |           |           |
+>   |                   |           |           |
+>   |-> vlo0  <---------+-> lo      |           |
+>   |                   |           |           |
+>   |-> vlo1  <---------+-----------+-----------+-> lo
+>   |                   |           |           |
+>   |-> vlo2   <--------+-----------+-> lo      |
+>   |                   |           |           |
+>   |-> eth0            |           |           |
+>   |                   |           |           |
+>   |-> veth0  <--------+-> eth0    |           |
+>   |                   |           |           |
+>   |-> veth1  <--------+-----------+-----------+-> eth0
+>   |                   |           |           |
+>   |-> veth2   <-------+-----------+-> eth0    |
 
-Regards,
-Nicolas
+I still can't completely understand your direction of thoughts.
+Could you elaborate on IP address assignment in your diagram, please?  For
+example, guest0 wants 127.0.0.1 and 192.168.0.1 addresses on its lo
+interface, and 10.1.1.1 on its eth0 interface.
+Does this diagram assume any local IP addresses on v* interfaces in the
+"host"?
 
-Randy.Dunlap a =E9crit :
-> From: Randy Dunlap <rdunlap@xenotime.net>
->
-> The first check for #ifdef XFRM6_TUNNEL_SPI_MAGIC needs to come after
-> the optional #define of it, otherwise the variable won't be there
-> for the rest of the code to use.
->
-> Shouldn't that CONFIG_IPV6_XFRM6_TUNNEL_DEBUG be part of Kconfig
-> or have its name changed?
->
-> Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
-> ---
->  net/ipv6/xfrm6_tunnel.c |    8 ++++----
->  1 files changed, 4 insertions(+), 4 deletions(-)
->
-> --- linux-2617-g20.orig/net/ipv6/xfrm6_tunnel.c
-> +++ linux-2617-g20/net/ipv6/xfrm6_tunnel.c
-> @@ -52,6 +52,10 @@
->  # define X6TPRINTK3	X6TNOPRINTK
->  #endif
-> =20
-> +#ifdef CONFIG_IPV6_XFRM6_TUNNEL_DEBUG
-> +# define XFRM6_TUNNEL_SPI_MAGIC 0xdeadbeef
-> +#endif
-> +
->  /*
->   * xfrm_tunnel_spi things are for allocating unique id ("spi")=20
->   * per xfrm_address_t.
-> @@ -67,10 +71,6 @@ struct xfrm6_tunnel_spi {
->  #endif
->  };
-> =20
-> -#ifdef CONFIG_IPV6_XFRM6_TUNNEL_DEBUG
-> -# define XFRM6_TUNNEL_SPI_MAGIC 0xdeadbeef
-> -#endif
-> -
->  static DEFINE_RWLOCK(xfrm6_tunnel_spi_lock);
-> =20
->  static u32 xfrm6_tunnel_spi;
->
->
-> ---
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
->
+And the second question.
+Are vlo0, veth0, etc. devices supposed to have hard_xmit routines?
+
+Best regards
+
+Andrey
