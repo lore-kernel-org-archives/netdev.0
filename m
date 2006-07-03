@@ -1,32 +1,41 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [RFC] change netdevice to use struct device instead of struct
- class_device
-Date: Mon, 03 Jul 2006 19:07:49 -0400
-Message-ID: <44A9A345.8040706@garzik.org>
-References: <20060703224719.GA14176@kroah.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [RFC] change netdevice to use struct device instead of struct class_device
+Date: Mon, 3 Jul 2006 16:16:10 -0700
+Message-ID: <20060703231610.GA18352@kroah.com>
+References: <20060703224719.GA14176@kroah.com> <44A9A345.8040706@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:58556 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1750826AbWGCXHy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2006 19:07:54 -0400
-To: Greg KH <greg@kroah.com>
-In-Reply-To: <20060703224719.GA14176@kroah.com>
+Received: from ns1.suse.de ([195.135.220.2]:43149 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S932067AbWGCXTr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jul 2006 19:19:47 -0400
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <44A9A345.8040706@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Greg KH wrote:
-> I have a patch here that converts the network device structure to use
-> the struct device instead of struct class_device structure.  It's a bit
-> too big to post here, so it's at:
-> 	http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/network-class_device-to-device.patch
+On Mon, Jul 03, 2006 at 07:07:49PM -0400, Jeff Garzik wrote:
+> Greg KH wrote:
+> >I have a patch here that converts the network device structure to use
+> >the struct device instead of struct class_device structure.  It's a bit
+> >too big to post here, so it's at:
+> >	http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/network-class_device-to-device.patch
+> 
+> So....  this is a userspace ABI change, then?
 
-So....  this is a userspace ABI change, then?
+No, not really.  According to Documentation/ABI/testing/sysfs-class all
+code that uses /sys/class/foo/ needs to be able to handle the fact that
+those entries might be symlinks and not just directories.  Everything
+that I know of already works properly because the input layer has had
+symlinks in /sys/class/input for quite some time now.
 
-	Jeff
+Do you know of any tools that use /sys/class/net/ that can not handle
+symlinks there?  I've been running this on my boxes for about a week now
+with no noticeable issues.  Renaming interfaces works just fine too.
 
+thanks,
 
-
+greg k-h
