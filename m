@@ -1,91 +1,90 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [2.6.17-git22] lock debugging output
-Date: Tue, 04 Jul 2006 20:32:46 +0200
-Message-ID: <1152037966.3109.91.camel@laptopd505.fenrus.org>
-References: <5a4c581d0607041113o2993cbf5m7011b2a06e96d974@mail.gmail.com>
+From: Andy Gay <andy@andynet.net>
+Subject: Re: RDMA will be reverted
+Date: Tue, 04 Jul 2006 14:34:39 -0400
+Message-ID: <1152038079.3285.586.camel@tahini.andynet.net>
+References: <adawtazgawi.fsf@cisco.com>
+	<20060630.141658.34759102.davem@davemloft.net>
+	<1151708503.11835.8.camel@trinity.ogc.int>  <200607011626.04539.ak@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, mingo@elte.hu,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+Cc: Tom Tucker <tom@opengridcomputing.com>,
+	David Miller <davem@davemloft.net>, rdreier@cisco.com,
+	netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:54679 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S932295AbWGDScz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 14:32:55 -0400
-To: Alessandro Suardi <alessandro.suardi@gmail.com>
-In-Reply-To: <5a4c581d0607041113o2993cbf5m7011b2a06e96d974@mail.gmail.com>
+Received: from vms044pub.verizon.net ([206.46.252.44]:39927 "EHLO
+	vms044pub.verizon.net") by vger.kernel.org with ESMTP
+	id S932327AbWGDSeq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jul 2006 14:34:46 -0400
+Received: from andyhp.tranquilitynj.net ([141.150.87.220])
+ by vms044.mailsrvcs.net
+ (Sun Java System Messaging Server 6.2-4.02 (built Sep  9 2005))
+ with ESMTPA id <0J1W009HU69W3NIB@vms044.mailsrvcs.net> for
+ netdev@vger.kernel.org; Tue, 04 Jul 2006 13:34:46 -0500 (CDT)
+In-reply-to: <200607011626.04539.ak@suse.de>
+To: Andi Kleen <ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arjan van de Ven <arjan@linux.intel.com>
-
-On Tue, 2006-07-04 at 20:13 +0200, Alessandro Suardi wrote:
-> Hoping gmail doesn't mess it too badly...
+On Sat, 2006-07-01 at 16:26 +0200, Andi Kleen wrote:
+> On Saturday 01 July 2006 01:01, Tom Tucker wrote:
+> > On Fri, 2006-06-30 at 14:16 -0700, David Miller wrote:
+> > 
+> > > The TOE folks have tried to submit their hooks and drivers
+> > > on several occaisions, and we've rejected it every time.
+> > 
+> > iWARP != TOE
 > 
-> eth0: tg3 (BCM5751 Gbit Ethernet)
-> eth1: ipw2200 (Intel PRO/Wireless 2200BG)
+> Perhaps a good start of that discussion David asked for would 
+> be if you could give us an overview of the differences
+> and how you avoid the TOE problems.
+
+Interesting thread, I hope someone replies to Andi's request.
+I've actually no real idea what RDMA, IWARP & TOE are, so I may be
+barking up completely the wrong tree here. If so, apologies.
+
+But it sounds like we're talking about technologies that offload some
+part of the network/transport layer processing to the interface device?
+
+And the primary objection to that is that it may bypass some of the cool
+features of the Linux stack? Stuff like iptables and ... what exactly?
+
+Presumably the reason why such offloading would be a Good Thing are to
+do with very high speed network processing, 10G ethernet and the like.
+Which sounds to me very like the way dedicated networking kit would do
+that. So if you have a device that needs to be a very high performance
+router, you dedicate it to that function and don't try to do clever
+per-packet or -flow processing at the same time.
+
+In the Cisco world, there's a network design approach where you consider
+your equipment in three 'layers', I think they call them the core,
+distribution and access layers, or something like that. The idea is that
+the core layer handles the real high speed stuff, you don't do anything
+much except routing/switching in there. The other layers aggregate flows
+for the core, if you need extra processing (firewalls etc) you do it
+somewhere in there. So, for example, the packet capture functions (sort
+of like tcpdump) don't work if fast switching is in use, which it would
+be in the core. Users accept these tradeoffs, because if you design it
+right you can do the extra processing on some other device in the outer
+layers.
+
+So perhaps there's a good argument to make that a Linux system with the
+right hardware could be considered a core device. Likely any place you
+have such a system it would be dedicated to just moving data as well as
+possible, and let other systems do the other stuff. You wouldn't want
+your server farm systems to also be your firewalls.
+
+Bottom line - these technologies seem to me to have a place in a well
+designed network.
+
+Just my 2c...
+
+- Andy
+
 > 
-> Sequence:
->  1. boot with eth0 disconnected (eth1 doesn't come up on boot)
->  2. ifup eth1, bring wpa-supplicant up
->  3. run 'dig' ---> <lock debug info gets printed on console>
-
-
-this appears to be a real deadlock:
-
-the SO_BINDTODEVICE ioctl calls sk_dst_reset(), which looks like this:
-static inline void
-sk_dst_reset(struct sock *sk)
-{
-        write_lock(&sk->sk_dst_lock);
-        __sk_dst_reset(sk);
-        write_unlock(&sk->sk_dst_lock);
-}
-
-now... ipv6 does this in softirq context:
-  [<c028cf72>] sk_dst_check+0x1b/0xe6
-  [<f8ce1305>] ip6_dst_lookup+0x31/0x16d [ipv6]
-  [<f8cf3338>] icmpv6_send+0x332/0x549 [ipv6]
-  [<f8cf09a1>] udpv6_rcv+0x4ab/0x4d6 [ipv6]
-  [<f8ce2900>] ip6_input+0x19c/0x228 [ipv6]
-  [<f8ce2d61>] ipv6_rcv+0x188/0x1b7 [ipv6]
-  [<c02925b7>] netif_receive_skb+0x18d/0x1d8
-  [<c0293d6a>] process_backlog+0x80/0xf9
-  [<c0293f43>] net_rx_action+0x80/0x174
-  [<c01162fd>] __do_softirq+0x46/0x9c
-  [<c01040e6>] do_softirq+0x4d/0xac
-
-where sk_dst_check() takes the same lock for read.
-
-that looks like a real deadlock to me... 
-the most obvious low impact solution is to make sk_dst_reset use an
-irqsave variant; patch for that is attached below. I'll leave it to the
-networking people to say if that's the real right approach
-
-Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
-
----
- include/net/sock.h |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-Index: linux-2.6.17-mm6/include/net/sock.h
-===================================================================
---- linux-2.6.17-mm6.orig/include/net/sock.h
-+++ linux-2.6.17-mm6/include/net/sock.h
-@@ -1025,9 +1025,10 @@ __sk_dst_reset(struct sock *sk)
- static inline void
- sk_dst_reset(struct sock *sk)
- {
--	write_lock(&sk->sk_dst_lock);
-+	unsigned long flags;
-+	write_lock_irqsave(&sk->sk_dst_lock, flags);
- 	__sk_dst_reset(sk);
--	write_unlock(&sk->sk_dst_lock);
-+	write_unlock_irqrestore(&sk->sk_dst_lock, flags);
- }
- 
- extern struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie);
-
+> -Andi
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
