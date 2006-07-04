@@ -1,43 +1,44 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [IPROUTE]: Introduce tc monitor
-Date: Tue, 04 Jul 2006 09:15:41 -0400
-Message-ID: <1152018941.5214.23.camel@jzny2>
-References: <1151860849.5093.259.camel@jzny2>  <44A8EDE1.7030503@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: strict isolation of net interfaces
+Date: Tue, 04 Jul 2006 15:19:52 +0200
+Message-ID: <44AA6AF8.4010205@fr.ibm.com>
+References: <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net> <44A450D1.2030405@fr.ibm.com> <20060630023947.GA24726@sergelap.austin.ibm.com> <44A49121.4050004@vilain.net> <20060703185350.A16826@castle.nmd.msu.ru> <44AA5F28.9040109@fr.ibm.com> <44AA6994.5010202@vilain.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@osdl.org>
+Cc: Andrey Savochkin <saw@swsoft.com>,
+	"Serge E. Hallyn" <serue@us.ibm.com>,
+	Cedric Le Goater <clg@fr.ibm.com>, hadi@cyberus.ca,
+	Herbert Poetzl <herbert@13thfloor.at>,
+	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
+	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ben Greear <greearb@candelatech.com>,
+	Dave Hansen <haveblue@us.ibm.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Russel Coker <russell@coker.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:52443 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1750775AbWGDNP7
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:38266 "EHLO
+	mtagate1.de.ibm.com") by vger.kernel.org with ESMTP id S932210AbWGDNT6
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 09:15:59 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1Fxkkn-0008WU-BT
-	for netdev@vger.kernel.org; Tue, 04 Jul 2006 09:15:49 -0400
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <44A8EDE1.7030503@trash.net>
+	Tue, 4 Jul 2006 09:19:58 -0400
+To: Sam Vilain <sam@vilain.net>
+In-Reply-To: <44AA6994.5010202@vilain.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-03-07 at 12:13 +0200, Patrick McHardy wrote:
-> Speaking of actions, do you have any plans to
-> add help-texts? Currently the output is very confusing, whenever
-> I use them I need to google for examples.
+Sam Vilain wrote:
+> Daniel Lezcano wrote:
 > 
+>>If it is ok for you, we can collaborate to merge the two solutions in
+>>one. I will focus on layer 3 isolation and you on the layer 2.
+> 
+> 
+> So, you're writing a LSM module or adapting the BSD Jail LSM, right? :)
+> 
+> Sam.
 
-Thanks for reminding me. There are examples in the doc/ directory of
-iproute2, but they may be insufficient.
-In any case, I wont have time today or the rest of the week but will get
-some patch after that. 
+No. I am adapting a prototype of network application container we did.
 
-[Actually, I have about half a day off but I want to spend time
-reviewing the qdisc_is_running thing in a test environment( It takes me
-at least 2 hours to steal hardware and set it up)].
-
-cheers,
-jamal
-
+   -- Daniel
