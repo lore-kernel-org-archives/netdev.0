@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [ROSE] Try all routes when establishing a ROSE connections.
-Date: Mon, 03 Jul 2006 19:32:33 -0700 (PDT)
-Message-ID: <20060703.193233.115905034.davem@davemloft.net>
-References: <20060630135316.GA12943@linux-mips.org>
+Subject: Re: Off by one buglets
+Date: Mon, 03 Jul 2006 19:34:15 -0700 (PDT)
+Message-ID: <20060703.193415.48529803.davem@davemloft.net>
+References: <20060630142901.GA13898@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:14268
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:15036
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751371AbWGDCcS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jul 2006 22:32:18 -0400
+	id S1750875AbWGDCd7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jul 2006 22:33:59 -0400
 To: ralf@linux-mips.org
-In-Reply-To: <20060630135316.GA12943@linux-mips.org>
+In-Reply-To: <20060630142901.GA13898@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Ralf Baechle <ralf@linux-mips.org>
-Date: Fri, 30 Jun 2006 14:53:16 +0100
+Date: Fri, 30 Jun 2006 15:29:01 +0100
 
-> >From Jean-Paul F6FBB:
+> Ages ago, changeset
 > 
-> ROSE will only try to establish a route using the first route in its
-> routing table.  Fix to iterate through all additional routes if a
-> connection attempt has failed.
+> http://www.kernel.org/git/?p=linux/kernel/git/tglx/history.git;a=commit;h=22d864d542a0b92116751186f1794c7d0f1ca1b9
 > 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> which converted several protocols from using open coded comparisons to
+> use the helper function sk_acceptq_is_full() did introduce a bunch of
+> off by one errors - sk_acceptq_is_full checks for
+> sk_ack_backlog > sk_max_ack_backlog but it replaced >= or == comparisons.
+> 
+> Below patch is really only meant to illustrate the change, not to be
+> applied.
 
-Applied, thanks.
+Ok, I'll try to resolve this when I get back from my vacation
+unless someone beats me to it.
+
+Thanks for the heads up Ralf.
