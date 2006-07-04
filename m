@@ -1,48 +1,81 @@
 From: Roland Dreier <rdreier@cisco.com>
 Subject: Re: RDMA will be reverted
-Date: Tue, 04 Jul 2006 13:34:30 -0700
-Message-ID: <adar7119kix.fsf@cisco.com>
-References: <ada3bdmfjug.fsf@cisco.com>
+Date: Tue, 04 Jul 2006 13:34:27 -0700
+Message-ID: <adasllh9kj0.fsf@cisco.com>
+References: <adawtazgawi.fsf@cisco.com>
 	<20060630.141658.34759102.davem@davemloft.net>
 	<1151708503.11835.8.camel@trinity.ogc.int>
-	<20060701.144506.74722126.davem@davemloft.net>
+	<200607011626.04539.ak@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tom@opengridcomputing.com, netdev@vger.kernel.org, akpm@osdl.org
+Cc: Tom Tucker <tom@opengridcomputing.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-4.cisco.com ([171.68.10.86]:7316 "EHLO
-	sj-iport-4.cisco.com") by vger.kernel.org with ESMTP
-	id S932392AbWGDUec (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 16:34:32 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060701.144506.74722126.davem@davemloft.net> (David Miller's message of "Sat, 01 Jul 2006 14:45:06 -0700 (PDT)")
+Received: from sj-iport-1-in.cisco.com ([171.71.176.70]:10911 "EHLO
+	sj-iport-1.cisco.com") by vger.kernel.org with ESMTP
+	id S932391AbWGDUeb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jul 2006 16:34:31 -0400
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <200607011626.04539.ak@suse.de> (Andi Kleen's message of "Sat, 1 Jul 2006 16:26:04 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > Roland stated that it has never been the case that we have
- > rejected adding support for a certain class of devices on the
- > kinds of merits being discussed in this thread.  And I'm saying
- > that TOE is such a case where we have emphatically done so.
+    Andi> Perhaps a good start of that discussion David asked for
+    Andi> would be if you could give us an overview of the differences
+    Andi> and how you avoid the TOE problems.
 
-Well, in the past it's seemed more like patches have been rejected not
-because of a blanket refusal to consider support for certain hardware,
-but rather because of issues with the patches themselves.  eg last
-year when Chelsio submitted some TOE hooks, you wrote the following
-<http://marc.theaimsgroup.com/?l=linux-netdev&m=112382991506811&w=2>
+Well, here's a quick overview, leaving out some of the details.  The
+difference between TOE and iWARP/RDMA is really the interface that
+they present.
 
-  >> There is no way you're going to be allowed to call such deep TCP
-  >> internals from your driver.
+A TOE ("TCP Offload Engine") is a piece of hardware that offloads TCP
+processing from the main system to handle regular sockets.  There is
+either some way to hand off a socket from the host stack to the TOE,
+or a socket is created on the TOE to start with, but in both cases,
+the TOE is handling processing for normal TCP sockets.  This means
+that the TOE has some hardware and/or firmware to do stateful TCP
+processing.
 
-  >> This would mean that every time we wish to change the data structures
-  >> and interfaces for TCP socket lookup, your drivers would need to
-  >> change.
+An iWARP device, or RNIC (RDMA NIC), also usually has hardware and/or
+firmware TCP processing, but this isn't exposed through the BSD socket
+interface.  Instead, an RNIC presents an interface more like an
+InfiniBand HCA: work requests (sends, receives, RDMA operations) are
+passed to the RNIC via work queues, and completion notification is
+returned asynchronously via completion queues.  An iWARP connection
+can handle both send/receive ("two-sided") and get/put (RDMA or
+"one-sided") operations.
 
-which looks like a very good reason to reject the changes.
+For full details of the protocol used for this, you can look at the
+drafs from the IETF rddp working group, but basically an RDMA protocol
+is layered on top of a connected stream protocol -- usually TCP, but
+SCTP could be used as well.
 
- > So I am not saying iWARP or RDMA is equal to TOE, and if you had
- > actually read this thread you would have understood that.
+A lot of the perfomance of iWARP comes from the RDMA/direct placement
+capabilities -- for example an NFS/RDMA server can process requests
+out of order and put data directly into the buffer that's waiting for
+it, without using any CPU on the destination -- but even send/receive
+operations can be useful.
 
-There's definitely been quite a bit of conflation between the two in
-this thread, even if you're not responsible...
+As a side note, an RNIC will also typically support the same sort of
+kernel bypass as an IB HCA, where work queues can be safely mapped
+into a userspace process's memory so that work requests can be posted
+without a system call.  In fact, when people usually use RDMA as a
+shorthand for the combination of the three features I described:
+asynchronous work queues and completion queues, connections that
+support both send/receive and RDMA, and kernel bypass.
 
- - R.
+In any case, RNIC support can be added to the existing IB stack with
+fairly minor modifications -- you can search the netdev archives for
+the patchsets posted by Steve Wise, but nearly all of the new code is
+in the low-level hardware driver for the specific iWARP devices.
+
+The real issues for netdev are things like Steve Wise's patch to add
+route change notifiers, which could be used to tell RNICs when to
+update the next hop for a connection they're handling.  More
+generally, it would be interesting to see if it's possible to tie an
+RNIC into the kernel's packet filtering, so that disallowed
+connections don't get set up.  This seems very similar in spirit to
+the problems around packet filtering that were raised for VJ netchannels.
+
+ - Roland
