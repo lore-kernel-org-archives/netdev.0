@@ -1,63 +1,75 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [e1000]:  flow control on by default - good idea really?
-Date: Tue, 04 Jul 2006 15:20:39 -0400
-Message-ID: <1152040839.5276.25.camel@jzny2>
-References: <1152033116.5276.22.camel@jzny2>
+Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
+Date: Tue, 04 Jul 2006 15:24:30 -0400
+Message-ID: <1152041070.5276.29.camel@jzny2>
+References: <44892610.6040001@watson.ibm.com>
+	 <449CD4B3.8020300@watson.ibm.com> <44A01A50.1050403@sgi.com>
+	 <20060626105548.edef4c64.akpm@osdl.org> <44A020CD.30903@watson.ibm.com>
+	 <20060626111249.7aece36e.akpm@osdl.org> <44A026ED.8080903@sgi.com>
+	 <20060626113959.839d72bc.akpm@osdl.org> <44A2F50D.8030306@engr.sgi.com>
+	 <20060628145341.529a61ab.akpm@osdl.org> <44A2FC72.9090407@engr.sgi.com>
+	 <20060629014050.d3bf0be4.pj@sgi.com>
+	 <200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
+	 <20060629094408.360ac157.pj@sgi.com>
+	 <20060629110107.2e56310b.akpm@osdl.org> <44A57310.3010208@watson.ibm.com>
+	 <44A5770F.3080206@watson.ibm.com> <20060630155030.5ea1faba.akpm@osdl.org>
+	 <44A5DBE7.2020704@watson.ibm.com> <44A5EDE6.3010605@watson.ibm.com>
+	 <20060630205148.4f66b125.akpm@osdl.org> <44A9881F.7030103@watson.ibm.com>
+	 <44A9BC4D.7030803@watson.ibm.com> <20060703180151.56f61b31.akpm@osdl.org>
+	 <1152018353.5214.14.camel@jzny2> <44AA86BF.3090600@watson.ibm.com>
+	 <44AA9951.1060804@watson.ibm.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	john.ronciak@intel.com, Ben Greear <greearb@candelatech.com>,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	Jeff Garzik <jgarzik@pobox.com>
+Cc: pj@sgi.com, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
+	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:64162 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932345AbWGDTUx
+Received: from mx03.cybersurf.com ([209.197.145.106]:46247 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932221AbWGDTYm
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 15:20:53 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1FxqS6-0004Px-Kg
-	for netdev@vger.kernel.org; Tue, 04 Jul 2006 15:20:54 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <1152033116.5276.22.camel@jzny2>
+	Tue, 4 Jul 2006 15:24:42 -0400
+To: Shailabh Nagar <nagar@watson.ibm.com>
+In-Reply-To: <44AA9951.1060804@watson.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-04-07 at 13:11 -0400, jamal wrote:
-> CCing anybody who may have stakes on this. Ignore the email if this
-> doesnt interest you.
-> Ok, folks - i had deferred this discussion but it bit me in the ass. 
-> I just spend an hour debugging it (and in the process blew up a gbic i
-> borrowed, so my day aint going well since i actually have to pay for
-> this and cant really do the testing i was planning to;-<).
->  
-> I have a device connected to a e1000 that was erroneously advertising
-> both tx/rx flow control but wasnt properly reacting to it. 
-> The default setup on the e1000 has rx flow control turned on.
-> I was sending at wire rate gige from the device - which is about
-> 1.48Mpps. The e1000 was in turn sending me flow control packets
-> as per default/expected behavior. Unfortunately, it was sending
-> a very large amount of packets. At one point i was seeing upto
-> 1Mpps and on average, the flow control packets were consuming
-> 60-70% of the bandwidth. Even when i fixed this behavior to act
-> properly, allowing flow control on consumed up to 15% of the bandwidth. 
-> Clearly, this is a bad thing. Yes, the device in the first instance was
-> at fault. But i have argued in the past that NAPI does just fine without
-> flow control being turned on, so even chewing 5% of bandwidth on flow
-> control is a bad thing..
+Shailabh,
+
+On Tue, 2006-04-07 at 12:37 -0400, Shailabh Nagar wrote:
+[..]
+> Here's a strawman for the problem we're trying to solve: get
+> notification of the close of a NETLINK_GENERIC socket that had
+> been used to register interest for some cpus within taskstats.
 > 
-> As a compromise, can we declare flow control as an advanced feature
-> and turn it off by default? People who feel it is valuable and know
-> what they are doing can turn it off.
+>  From looking at the netlink code, the way to go seems to be
+> 
+> - it maintains a pidhash of nl_pids that are currently
+> registered to listen to atleast one cpu. It also stores the
+> cpumask used.
+> - taskstats registers a notifier block within netlink_chain
+> and receives a callback on the NETLINK_URELEASE event, similar
+> to drivers/scsci/scsi_transport_iscsi.c: iscsi_rcv_nl_event()
+> 
+> - the callback checks to see that the protocol is NETLINK_GENERIC
+> and that the nl_pid for the socket is in taskstat's pidhash. If so, it
+> does a cleanup using the stored cpumask and releases the nl_pid
+> from the pidhash.
+> 
 
-I meant turn it on.
+Sound quiet reasonable.  I am beginning to wonder whether we should do 
+do the NETLINK_URELEASE in general for NETLINK_GENERIC
 
-BTW, As an addendum this default behavior changed around 2.6.16 it
-seems.
+> We can even do away with the deregister command altogether and
+> simply rely on this autocleanup.
+
+I think if you may still need the register if you are going to allow
+multiple sockets per listener process, no?
+The other question is how do you correlate pid -> fd?
 
 cheers,
 jamal
+
+
 
