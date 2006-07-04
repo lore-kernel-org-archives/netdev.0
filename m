@@ -1,59 +1,57 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Tue, 4 Jul 2006 13:54:22 +0200
-Message-ID: <200607041354.22472.ak@suse.de>
-References: <4492D5D3.4000303@atmos.washington.edu> <200606260723.43209.ak@suse.de> <Pine.LNX.4.61.0607041333030.18483@ask.diku.dk>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: strict isolation of net interfaces
+Date: Tue, 04 Jul 2006 14:29:28 +0200
+Message-ID: <44AA5F28.9040109@fr.ibm.com>
+References: <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net> <44A450D1.2030405@fr.ibm.com> <20060630023947.GA24726@sergelap.austin.ibm.com> <44A49121.4050004@vilain.net> <20060703185350.A16826@castle.nmd.msu.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>, Harry Edmon <harry@atmos.washington.edu>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:4830 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S932219AbWGDLy3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2006 07:54:29 -0400
-To: Jesper Dangaard Brouer <hawk@diku.dk>
-In-Reply-To: <Pine.LNX.4.61.0607041333030.18483@ask.diku.dk>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: Sam Vilain <sam@vilain.net>, "Serge E. Hallyn" <serue@us.ibm.com>,
+	Cedric Le Goater <clg@fr.ibm.com>, hadi@cyberus.ca,
+	Herbert Poetzl <herbert@13thfloor.at>,
+	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
+	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ben Greear <greearb@candelatech.com>,
+	Dave Hansen <haveblue@us.ibm.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932239AbWGDM3e@vger.kernel.org>
+To: Andrey Savochkin <saw@swsoft.com>
+In-Reply-To: <20060703185350.A16826@castle.nmd.msu.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 04 July 2006 13:41, Jesper Dangaard Brouer wrote:
+Andrey Savochkin wrote:
 > 
-> On Mon, 26 Jun 2006, Andi Kleen wrote:
+> I still can't completely understand your direction of thoughts.
+> Could you elaborate on IP address assignment in your diagram, please?  For
+> example, guest0 wants 127.0.0.1 and 192.168.0.1 addresses on its lo
+> interface, and 10.1.1.1 on its eth0 interface.
+> Does this diagram assume any local IP addresses on v* interfaces in the
+> "host"?
 > 
-> >> I encountered the same problem on a dual core opteron equipped with a
-> >> broadcom NIC (tg3) under 2.4. It could receive 1 Mpps when using TSC
-> >> as the clock source, but the time jumped back and forth, so I changed
-> >> it to 'notsc', then the performance dropped dramatically to around the
-> >> same value as above with one CPU saturated. I suspect that the clock
-> >> precision is needed by the tg3 driver to correctly decide to switch to
-> >> polling mode, but unfortunately, the performance drop rendered the
-> >> solution so much unusable that I finally decided to use it only in
-> >> uniprocessor with TSC enabled.
-> >
-> > 2.6 is more clever at this than 2.4. In particular it does the timestamp
-> > for each packet only when actually needed, which is relativelt rare.
-> >
-> > Old experiences do not always apply to new kernels.
-> 
-> Note, that I experinced this problem on 2.6.
-> 
-> Actually the change happens between kernel version 2.6.15 and 2.6.16.
+> And the second question.
+> Are vlo0, veth0, etc. devices supposed to have hard_xmit routines?
 
-The timestamp optimizations are older. Don't remember the exact release,
-but earlier 2.6.
 
-> And  
-> is a result of Andi's changes to arch/x86_64/Kconfig and 
-> drivers/acpi/Kconfig, which "allows/activates" the use of the timer on 
-> x86_64.
+Andrey,
 
-Not sure what you mean here?
+some people are interested by a network full isolation/virtualization 
+like you did with the layer 2 isolation and some other people are 
+interested by a light network isolation done at the layer 3. This one is 
+intended to implement "application container" aka "lightweight container".
 
-2.6.18 will likely be more aggressive at using the TSC on i386 on
-Intel systems where possible, but x86-64 did this already for a long time. 
-When x86-64 uses non TSC then it's because using the TSC is not safe.
+In the case of a layer 3 isolation, the network interface is not totally 
+isolated and the debate here is to find a way to have something 
+intuitive to manage the network devices.
 
--Andi
+IHMO, all the discussion we had convinced me of the needs to have the 
+possibility to choose between a layer 2 or a layer 3 isolation.
+
+If it is ok for you, we can collaborate to merge the two solutions in 
+one. I will focus on layer 3 isolation and you on the layer 2.
+
+Regards
+
+   - Daniel
