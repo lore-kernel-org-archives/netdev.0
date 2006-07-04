@@ -1,45 +1,29 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [patch 1/7] net_device list cleanup: core
-Date: Tue, 4 Jul 2006 10:10:03 +0100
-Message-ID: <20060704091003.GA17961@infradead.org>
-References: <20060630150823.A22285@castle.nmd.msu.ru> <20060703174650.GA22295@infradead.org> <20060704112405.A25305@castle.nmd.msu.ru>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: tiacx - don't use UTS_RELEASE
+Date: Tue, 4 Jul 2006 02:25:37 -0700
+Message-ID: <20060704022537.97f703b4.akpm@osdl.org>
+References: <1152004080.3109.18.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org,
-	Kirill Korotaev <dev@openvz.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:55712 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1751094AbWGDJKI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 05:10:08 -0400
-To: Andrey Savochkin <saw@swsoft.com>
-Content-Disposition: inline
-In-Reply-To: <20060704112405.A25305@castle.nmd.msu.ru>
+Received: from smtp.osdl.org ([65.172.181.4]:50147 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751250AbWGDJZu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2006 05:25:50 -0400
+To: Arjan van de Ven <arjan@infradead.org>
+In-Reply-To: <1152004080.3109.18.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 04, 2006 at 11:24:05AM +0400, Andrey Savochkin wrote:
-> > Yes, it's a little more work as you need to audit all drivers to see what
-> > they are doing and find suitable abstractions but it's a must have that
-> > should have been done a lot earlier.
-> 
-> Hiding dev_base_head can be done by converting first_netdev/next_netdev into
-> functions and implementing for_each_netdev loop through them.
-> 
-> Or are you talking about abstractions like functions
-> for_each_netdev/find_netdev with callbacks?
+On Tue, 04 Jul 2006 11:07:59 +0200
+Arjan van de Ven <arjan@infradead.org> wrote:
 
-an for_each_netdev with a callback makes sense and gives a cleaner
-abstraction, yes.  I don't think you should need a callback for the lookup
-structure.
+> patch below removes the use of UTS_RELEASE from the tiacx driver; there
+> is absolutely no reason for a driver to print the kernel version or use
+> the UTS_RELEASE field; in addition this field changes all the time so
+> this causes spurious rebuilds..
 
-> Do you think that hiding the list internals is worth the additional
-> complexity and substantial increase of the patch size?
+http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/gregkh-04-usb/usb-storage-uname-in-pr-sc-unneeded-message.patch did it too.
 
-Yes, absolutely.  We've converted scsi hosts and devices from a model
-where drivers could directly access the list to strict iterators in the
-2.5 series.  It's quite a lot of work as you have to understand what
-the drivers actually do (and to at least 50% they were doing something
-really stupid) and convert them to the right abstractions.
+UTS_RELEASE doesn't change much.  It's "2.6.17".
