@@ -1,46 +1,87 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: RDMA will be reverted
-Date: Wed, 5 Jul 2006 01:01:12 +0200
-Message-ID: <200607050101.12476.ak@suse.de>
-References: <adawtazgawi.fsf@cisco.com> <200607042247.12296.ak@suse.de> <1152051753.3285.600.camel@tahini.andynet.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/3] [PKT_SCHED]: Fix illegal memory dereferences when
+ dumping actions
+Date: Wed, 05 Jul 2006 01:42:46 +0200
+Message-ID: <44AAFCF6.9000706@trash.net>
+References: <20060704220504.787776000@postel.suug.ch> <20060704220549.952720000@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Tom Tucker <tom@opengridcomputing.com>,
-	David Miller <davem@davemloft.net>, rdreier@cisco.com,
-	netdev@vger.kernel.org, akpm@osdl.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:52953 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S932299AbWGDXBa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2006 19:01:30 -0400
-To: Andy Gay <andy@andynet.net>
-In-Reply-To: <1152051753.3285.600.camel@tahini.andynet.net>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:38113 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S932355AbWGDXoC
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jul 2006 19:44:02 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060704220549.952720000@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Thomas Graf wrote:
+> The TCA_ACT_KIND attribute is used without checking its
+> availability when dumping actions therefore leading to a
+> value of 0x4 being dereferenced.
+> 
+> The use of strcmp() in tc_lookup_action_n() isn't safe
+> when fed with string from an attribute without enforcing
+> proper NUL termination.
+> 
+> Both bugs can be triggered with malformed netlink message
+> and don't require any privileges.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> 
+> Index: net-2.6.git/net/sched/act_api.c
+> ===================================================================
+> --- net-2.6.git.orig/net/sched/act_api.c
+> +++ net-2.6.git/net/sched/act_api.c
+> @@ -776,7 +776,7 @@ replay:
+>  	return ret;
+>  }
+>  
+> -static char *
+> +static struct rtattr *
+>  find_dump_kind(struct nlmsghdr *n)
+>  {
+>  	struct rtattr *tb1, *tb2[TCA_ACT_MAX+1];
+> @@ -804,7 +804,7 @@ find_dump_kind(struct nlmsghdr *n)
+>  		return NULL;
+>  	kind = tb2[TCA_ACT_KIND-1];
+>  
+> -	return (char *) RTA_DATA(kind);
+> +	return kind;
+>  }
+>  
+>  static int
+> @@ -817,16 +817,15 @@ tc_dump_action(struct sk_buff *skb, stru
+>  	struct tc_action a;
+>  	int ret = 0;
+>  	struct tcamsg *t = (struct tcamsg *) NLMSG_DATA(cb->nlh);
+> -	char *kind = find_dump_kind(cb->nlh);
+> +	struct rtattr *kind = find_dump_kind(cb->nlh);
+>  
+>  	if (kind == NULL) {
+>  		printk("tc_dump_action: action bad kind\n");
+>  		return 0;
+>  	}
+>  
+> -	a_o = tc_lookup_action_n(kind);
+> +	a_o = tc_lookup_action(kind);
+>  	if (a_o == NULL) {
+> -		printk("failed to find %s\n", kind);
+>  		return 0;
+>  	}
+>  
+> @@ -834,7 +833,7 @@ tc_dump_action(struct sk_buff *skb, stru
+>  	a.ops = a_o;
+>  
+>  	if (a_o->walk == NULL) {
+> -		printk("tc_dump_action: %s !capable of dumping table\n", kind);
+> +		printk("tc_dump_action: %s !capable of dumping table\n", a_o->kind);
+>  		goto rtattr_failure;
+>  	}
 
-> My point wasn't really about performance here, more that systems needing
-> this level of performance (server farm is just an example) will probably
-> be on an 'inside' network with firewalling being done elsewhere (at the
-> access layer, to use the Cisco paradigm). It's just not good design to
-> attach such systems directly to an untrusted network, IMHO. So these
-> systems just don't need netfilter capabilities.
+Can't we just get rid of these printks? This seems like a good
+opportunity.
 
-Don't think of the highend. It is exotic and rare.
-
-Think of the ordinary single linux box somewhere at a rackspace provider which 
-represents the majority of Linux boxes around. 
-
-With a not too skilled admin who mostly uses the default settings of his configuration.
-For that running firewalling on the same box makes a lot of sense.
-
-Normally it is not that loaded and it doesn't matter much how it performs,
-but it might be occasionally slashdotted and then it should still hold up.
-
-BTW basic firewalling is not really that bad as long as you don't have too many
-rules. Mostly conntrack is painful right now. I'm sure at some point it will
-be fixed too.
-
--Andi
