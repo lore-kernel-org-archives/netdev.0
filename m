@@ -1,70 +1,44 @@
-From: Sam Vilain <sam@vilain.net>
-Subject: Re: strict isolation of net interfaces
-Date: Tue, 04 Jul 2006 15:00:22 +1200
-Message-ID: <44A9D9C6.4060508@vilain.net>
-References: <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net> <44A450D1.2030405@fr.ibm.com> <20060630023947.GA24726@sergelap.austin.ibm.com> <44A49121.4050004@vilain.net> <20060703185350.A16826@castle.nmd.msu.ru>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [1/4] [IPV6]: Remove redundant length check on input
+Date: Tue, 4 Jul 2006 14:04:14 +1000
+Message-ID: <20060704040414.GA31980@gondor.apana.org.au>
+References: <78C9135A3D2ECE4B8162EBDCE82CAD7793A4C8@nekter> <20060701033939.GC29803@gondor.apana.org.au> <20060703.194406.23013279.davem@davemloft.net> <20060704024527.GA31361@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Serge E. Hallyn" <serue@us.ibm.com>,
-	Cedric Le Goater <clg@fr.ibm.com>, hadi@cyberus.ca,
-	Herbert Poetzl <herbert@13thfloor.at>,
-	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
-	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751361AbWGDC7q@vger.kernel.org>
-To: Andrey Savochkin <saw@swsoft.com>
-In-Reply-To: <20060703185350.A16826@castle.nmd.msu.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Ananda.Raju@neterion.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:53764 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751292AbWGDEEZ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jul 2006 00:04:25 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060704024527.GA31361@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrey Savochkin wrote:
->> Why special case loopback?
->>
->> Why not:
->>
->> host                  |  guest 0  |  guest 1  |  guest2
->> ----------------------+-----------+-----------+--------------
->>   |                   |           |           |
->>   |-> lo              |           |           |
->>   |                   |           |           |
->>   |-> vlo0  <---------+-> lo      |           |
->>   |                   |           |           |
->>   |-> vlo1  <---------+-----------+-----------+-> lo
->>   |                   |           |           |
->>   |-> vlo2   <--------+-----------+-> lo      |
->>   |                   |           |           |
->>   |-> eth0            |           |           |
->>   |                   |           |           |
->>   |-> veth0  <--------+-> eth0    |           |
->>   |                   |           |           |
->>   |-> veth1  <--------+-----------+-----------+-> eth0
->>   |                   |           |           |
->>   |-> veth2   <-------+-----------+-> eth0    |
->>     
->
-> I still can't completely understand your direction of thoughts.
-> Could you elaborate on IP address assignment in your diagram, please?  For
-> example, guest0 wants 127.0.0.1 and 192.168.0.1 addresses on its lo
-> interface, and 10.1.1.1 on its eth0 interface.
-> Does this diagram assume any local IP addresses on v* interfaces in the
-> "host"?
->   
+On Tue, Jul 04, 2006 at 12:45:27PM +1000, herbert wrote:
+> 
+> That's what I meant.  I meant ethtool helper functions that
+> clear and set both TSO/TSO6 flags at the same time.
 
-Well, Eric already pointed out some pretty good reasons why this thread
-should die.
+I think I was a bit ambiguous here.  To expand on my argument, what
+I'm saying is that we can't just change the existing ethtool helper
+functions to set TSO6 since that'd break NICs which do not support
+TSO6.
 
-The idea is that each "lo" interface would have the same set of
-addresses. Which would make routing on the host confusing. Yet another
-reason to kill this idea. Let's just make better tools instead.
+Instead of adding an ad-hoc ethtool function in the neterion driver,
+we should either add a new ethtool function which sets both TSO/TSO6,
+or do the following.
 
-Sam.
+> Alternatively, we can add a new features bit which gives the inherent
+> features of a device.  That can then be used to derive the actual
+> features in use.  That way we won't need to invent a new ethtool
+> helper function for this.
 
-> And the second question.
-> Are vlo0, veth0, etc. devices supposed to have hard_xmit routines?
->   
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
