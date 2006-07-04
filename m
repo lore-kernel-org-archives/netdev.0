@@ -1,7 +1,7 @@
 From: Paul Jackson <pj@sgi.com>
 Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Tue, 4 Jul 2006 13:19:13 -0700
-Message-ID: <20060704131913.83a604a0.pj@sgi.com>
+Date: Tue, 4 Jul 2006 13:22:41 -0700
+Message-ID: <20060704132241.385aecc6.pj@sgi.com>
 References: <44892610.6040001@watson.ibm.com>
 	<449CAA78.4080902@watson.ibm.com>
 	<20060623213912.96056b02.akpm@osdl.org>
@@ -27,29 +27,28 @@ References: <44892610.6040001@watson.ibm.com>
 	<20060630205148.4f66b125.akpm@osdl.org>
 	<44A9881F.7030103@watson.ibm.com>
 	<20060703144106.cc5bd6f6.akpm@osdl.org>
+	<20060704131913.83a604a0.pj@sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: nagar@watson.ibm.com, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
-	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
-	hadi@cyberus.ca, netdev@vger.kernel.org
+Cc: akpm@osdl.org, nagar@watson.ibm.com, Valdis.Kletnieks@vt.edu,
+	jlan@engr.sgi.com, balbir@in.ibm.com, csturtiv@sgi.com,
+	linux-kernel@vger.kernel.org, hadi@cyberus.ca,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omx2-ext.sgi.com ([192.48.171.19]:58021 "EHLO omx2.sgi.com")
-	by vger.kernel.org with ESMTP id S932381AbWGDUTl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2006 16:19:41 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060703144106.cc5bd6f6.akpm@osdl.org>
+Received: from omx2-ext.sgi.com ([192.48.171.19]:33702 "EHLO omx2.sgi.com")
+	by vger.kernel.org with ESMTP id S932383AbWGDUXF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2006 16:23:05 -0400
+To: Paul Jackson <pj@sgi.com>
+In-Reply-To: <20060704131913.83a604a0.pj@sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew wrote:
-> OK, so we're passing in an ASCII string.  Fair enough, I think.  Paul would
-> know better.
+pj wrote:
+> writes the code gets to 
 
-Not sure if I know better - just got stronger opinions.
-
-I like the ASCII here - but this is one of those "he who
-writes the code gets to 
+Never mind that last incomplete post - I hit Send
+when I meant to hit Cancel.
 
 -- 
                   I won't rest till it's the best ...
