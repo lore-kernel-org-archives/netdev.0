@@ -1,81 +1,35 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: possible recursive locking in ATM layer
-Date: Tue, 04 Jul 2006 18:13:02 +0200
-Message-ID: <1152029582.3109.70.camel@laptopd505.fenrus.org>
-References: <200607041759.43064.duncan.sands@math.u-psud.fr>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [patch 1/7] net_device list cleanup: core
+Date: Tue, 4 Jul 2006 20:35:37 +0400
+Message-ID: <20060704163537.GA10990@ms2.inr.ac.ru>
+References: <20060630150823.A22285@castle.nmd.msu.ru> <20060703174650.GA22295@infradead.org> <20060704112405.A25305@castle.nmd.msu.ru> <20060704091003.GA17961@infradead.org> <20060704185035.A29778@castle.nmd.msu.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>, chas@cmf.nrl.navy.mil
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org,
+	Kirill Korotaev <dev@openvz.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:32170 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S932232AbWGDQNF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 12:13:05 -0400
-To: Duncan Sands <duncan.sands@math.u-psud.fr>
-In-Reply-To: <200607041759.43064.duncan.sands@math.u-psud.fr>
+Received: from minus.inr.ac.ru ([194.67.69.97]:49837 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S932252AbWGDQf5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2006 12:35:57 -0400
+To: Andrey Savochkin <saw@swsoft.com>
+Content-Disposition: inline
+In-Reply-To: <20060704185035.A29778@castle.nmd.msu.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
-From: Arjan van de Ven <arjan@linux.intel.com>
+> Different modules want different kinds of lookup.
+> So, I'm thinking about something like ilookup5.
+....
+> The next question: would people agree to review a patch doing this for
+> net_devices? :)
 
-> Linux version 2.6.17-git22 (duncan@baldrick) (gcc version 4.0.3 (Ubuntu 4.0.3-1ubuntu5)) #20 PREEMPT Tue Jul 4 10:35:04 CEST 2006
-> 
-> [ 2381.598609] =============================================
-> [ 2381.619314] [ INFO: possible recursive locking detected ]
-> [ 2381.635497] ---------------------------------------------
-> [ 2381.651706] atmarpd/2696 is trying to acquire lock:
-> [ 2381.666354]  (&skb_queue_lock_key){-+..}, at: [<c028c540>] skb_migrate+0x24/0x6c
-> [ 2381.688848]
+One not original suggestion, which did not sound nevertheless:
+to implement netdev_iterate_list() or whatever, update only core
+and a few of devices and deprecate dev_base_head
+with __deprecated_for_modules adding it to
+Documentation/feature-removal-schedule.txt
 
-
-ok this is a real potential deadlock in a way, it takes two locks of 2
-skbuffs without doing any kind of lock ordering; I think the following
-patch should fix it. Just sort the lock taking order by address of the
-skb.. it's not pretty but it's the best this can do in a minimally
-invasive way.
-
-I still agree with the comment that this code shouldn't live in the atm
-layer...
-
-Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
-
----
- net/atm/ipcommon.c |   13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
-
-Index: linux-2.6.17-mm6/net/atm/ipcommon.c
-===================================================================
---- linux-2.6.17-mm6.orig/net/atm/ipcommon.c
-+++ linux-2.6.17-mm6/net/atm/ipcommon.c
-@@ -25,8 +25,8 @@
- /*
-  * skb_migrate appends the list at "from" to "to", emptying "from" in the
-  * process. skb_migrate is atomic with respect to all other skb operations on
-- * "from" and "to". Note that it locks both lists at the same time, so beware
-- * of potential deadlocks.
-+ * "from" and "to". Note that it locks both lists at the same time, so to deal
-+ * with the lock ordering, the locks are taken in address order.
-  *
-  * This function should live in skbuff.c or skbuff.h.
-  */
-@@ -39,8 +39,13 @@ void skb_migrate(struct sk_buff_head *fr
- 	struct sk_buff *skb_to = (struct sk_buff *) to;
- 	struct sk_buff *prev;
- 
--	spin_lock_irqsave(&from->lock,flags);
--	spin_lock(&to->lock);
-+	if (from<to) {
-+		spin_lock_irqsave(&from->lock,flags);
-+		spin_lock_nested(&to->lock, SINGLE_DEPTH_NESTING);
-+	} else {
-+		spin_lock_irqsave(&to->lock, flags);
-+		spin_lock_nested(&from->lock, SINGLE_DEPTH_NESTING);
-+	}
- 	prev = from->prev;
- 	from->next->prev = to->prev;
- 	prev->next = skb_to;
-
-
+Alexey
