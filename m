@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 4/5] drivers/dma/iovlock.c: make num_pages_spanned()
- static
-Date: Mon, 03 Jul 2006 19:27:31 -0700 (PDT)
-Message-ID: <20060703.192731.78705547.davem@davemloft.net>
-References: <200606300927.k5U9RMob001465@shell0.pdx.osdl.net>
+Subject: Re: [patch 5/5] Fix a warning in ioatdma
+Date: Mon, 03 Jul 2006 19:28:32 -0700 (PDT)
+Message-ID: <20060703.192832.112626788.davem@davemloft.net>
+References: <200606300927.k5U9RN8m001468@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bunk@stusta.de
+Cc: netdev@vger.kernel.org, bboissin@gmail.com,
+	benoit.boissinot@ens-lyon.org, christopher.leech@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52910
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:54702
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751354AbWGDC1P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jul 2006 22:27:15 -0400
+	id S1751368AbWGDC2Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jul 2006 22:28:16 -0400
 To: akpm@osdl.org
-In-Reply-To: <200606300927.k5U9RMob001465@shell0.pdx.osdl.net>
+In-Reply-To: <200606300927.k5U9RN8m001468@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: akpm@osdl.org
-Date: Fri, 30 Jun 2006 02:27:22 -0700
+Date: Fri, 30 Jun 2006 02:27:23 -0700
 
-> From: Adrian Bunk <bunk@stusta.de>
+> From: "Benoit Boissinot" <bboissin@gmail.com>
 > 
-> This patch makes the needlessly global num_pages_spanned() static.
+> drivers/dma/ioatdma.c: In function 'ioat_init_module':
+> drivers/dma/ioatdma.c:830: warning: control reaches end of non-void function
 > 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
+> Cc: "Chris Leech" <christopher.leech@intel.com>
 > Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-Applied, thanks Adrian.
+Applied, thanks a lot.
