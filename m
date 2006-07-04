@@ -1,144 +1,63 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Tue, 04 Jul 2006 12:37:37 -0400
-Message-ID: <44AA9951.1060804@watson.ibm.com>
-References: <44892610.6040001@watson.ibm.com> <449CD4B3.8020300@watson.ibm.com>
- <44A01A50.1050403@sgi.com> <20060626105548.edef4c64.akpm@osdl.org>
- <44A020CD.30903@watson.ibm.com> <20060626111249.7aece36e.akpm@osdl.org>
- <44A026ED.8080903@sgi.com> <20060626113959.839d72bc.akpm@osdl.org>
- <44A2F50D.8030306@engr.sgi.com> <20060628145341.529a61ab.akpm@osdl.org>
- <44A2FC72.9090407@engr.sgi.com> <20060629014050.d3bf0be4.pj@sgi.com>
- <200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
- <20060629094408.360ac157.pj@sgi.com> <20060629110107.2e56310b.akpm@osdl.org>
- <44A57310.3010208@watson.ibm.com> <44A5770F.3080206@watson.ibm.com>
- <20060630155030.5ea1faba.akpm@osdl.org> <44A5DBE7.2020704@watson.ibm.com>
- <44A5EDE6.3010605@watson.ibm.com> <20060630205148.4f66b125.akpm@osdl.org>
- <44A9881F.7030103@watson.ibm.com> <44A9BC4D.7030803@watson.ibm.com>
- <20060703180151.56f61b31.akpm@osdl.org> <1152018353.5214.14.camel@jzny2>
- <44AA86BF.3090600@watson.ibm.com>
+From: jamal <hadi@cyberus.ca>
+Subject: [e1000]:  flow control on by default - good idea really?
+Date: Tue, 04 Jul 2006 13:11:56 -0400
+Message-ID: <1152033116.5276.22.camel@jzny2>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: hadi@cyberus.ca, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	csturtiv@sgi.com, balbir@in.ibm.com, jlan@engr.sgi.com,
-	Valdis.Kletnieks@vt.edu, pj@sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta5.srv.hcvlny.cv.net ([167.206.4.200]:28368 "EHLO
-	mta5.srv.hcvlny.cv.net") by vger.kernel.org with ESMTP
-	id S932275AbWGDQhj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 12:37:39 -0400
-In-reply-to: <44AA86BF.3090600@watson.ibm.com>
-To: Shailabh Nagar <nagar@watson.ibm.com>
+Received: from mx02.cybersurf.com ([209.197.145.105]:47258 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932209AbWGDRMD
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jul 2006 13:12:03 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1FxoRQ-0002PE-Im
+	for netdev@vger.kernel.org; Tue, 04 Jul 2006 13:12:04 -0400
+To: "David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	Ben Greear <greearb@candelatech.com>, john.ronciak@intel.com,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	jesse.brandeburg@intel.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Shailabh Nagar wrote:
-> jamal wrote:
-> 
->> On Mon, 2006-03-07 at 18:01 -0700, Andrew Morton wrote:
->>
->>> On Mon, 03 Jul 2006 20:54:37 -0400
->>> Shailabh Nagar <nagar@watson.ibm.com> wrote:
->>>
->>>
->>>>> What happens when a listener exits without doing deregistration
->>>>> (or if the listener attempts to register another cpumask while a 
->>>>> current
->>>>> registration is still active).
->>>>>
->>>>
->>>> ( Jamal, your thoughts on this problem would be appreciated)
->>>>
->>>> Problem is that we have a listener task which has "registered" with 
->>>> taskstats and caused
->>>> its pid to be stored in various per-cpu lists of listeners. Later, 
->>>> when some other task exits on a given cpu, its exit data is sent 
->>>> using genlmsg_unicast on each pid present on that cpu's list.
->>>>
->>>> If the listener exits without doing a "deregister", its pid 
->>>> continues to be kept around, obviously not a good thing. So we need 
->>>> some way of detecting the situation (task is no longer listening on
->>>> these cpus events) that is efficient.
->>>
->>>
->>> Also need to address the case where the listener has closed off his file
->>> descriptor but continues to run.
->>>
->>> So hooking into listener's exit() isn't appropriate - the teardown is
->>> associated with the lifetime of the fd, not of the process.  If we do 
->>> that,
->>> exit() gets handled for free.  
->>
->>
->>
->> If you are always going to send unicast messages, then  -ECONNREFUSED
->> will tell you the listener has closed their fd - this doesnt meant it
->> has exited. 
-> 
-> 
-> Thats good. So we have atleast one way of detecting the "closed fd without
-> deregistering" within taskstats itself.
-> 
->> Besides that one process could open several sockets. I know
->> that would not be the app you would write - but it doesnt stop other
->> people from doing it.
-> 
-> 
-> As far as API is concerned, even a taskstats listener is not being
-> prevented from opening multiple sockets. As Andrew also pointed out,
-> everything needs to be done per-socket.
-> 
->> I think i may not follow what you are doing - for some reason i thought
->> you may have many listeners in user space and these messages get
->> multicast to them?
-> 
-> 
-> That was the design earlier. In the past week, the design has changed to
-> one where there are still many listeners in user space but messages
-> get unicast to each of them. Earlier listeners would get messages generated
-> on task exit from every cpu, now they get it only from cpus for which
-> they have explicitly registered interest (via a cpumask passed in through
-> another genetlink command).
-> 
->> Does the user space program somehow communicate its pid to the kernel?
-> 
-> 
-> Yes. When the listener registers interest in a set of cpus, as described
-> above, its (genl_info->pid) is being stored in the per-cpu list of
-> listeners for those cpus. When a task exits on one of those cpus, the
-> exit data is only sent via genetlink_unicast to those pids
-> (really, nl_pids) who are on that cpu's listener list.
-> 
-> 
-> Now that I think more about it, netlink is really maintaining a pidhash
-> of nl_pids, not process pids, right ? So if one userapp were to open
-> multiple sockets using NETLINK_GENERIC protocol (regardless of how many
-> of those are for the taskstats), each of them would have to use a
-> different nl_pid. Hence, it would be valid for the taskstats layer to 
-> use netlink_lookup() at any time to see if the corresponding socket were
-> closed ?
-> 
 
-Here's a strawman for the problem we're trying to solve: get
-notification of the close of a NETLINK_GENERIC socket that had
-been used to register interest for some cpus within taskstats.
+CCing anybody who may have stakes on this. Ignore the email if this
+doesnt interest you.
+Ok, folks - i had deferred this discussion but it bit me in the ass. 
+I just spend an hour debugging it (and in the process blew up a gbic i
+borrowed, so my day aint going well since i actually have to pay for
+this and cant really do the testing i was planning to;-<).
+ 
+I have a device connected to a e1000 that was erroneously advertising
+both tx/rx flow control but wasnt properly reacting to it. 
+The default setup on the e1000 has rx flow control turned on.
+I was sending at wire rate gige from the device - which is about
+1.48Mpps. The e1000 was in turn sending me flow control packets
+as per default/expected behavior. Unfortunately, it was sending
+a very large amount of packets. At one point i was seeing upto
+1Mpps and on average, the flow control packets were consuming
+60-70% of the bandwidth. Even when i fixed this behavior to act
+properly, allowing flow control on consumed up to 15% of the bandwidth. 
+Clearly, this is a bad thing. Yes, the device in the first instance was
+at fault. But i have argued in the past that NAPI does just fine without
+flow control being turned on, so even chewing 5% of bandwidth on flow
+control is a bad thing..
 
- From looking at the netlink code, the way to go seems to be
+As a compromise, can we declare flow control as an advanced feature
+and turn it off by default? People who feel it is valuable and know
+what they are doing can turn it off.
 
-- it maintains a pidhash of nl_pids that are currently
-registered to listen to atleast one cpu. It also stores the
-cpumask used.
-- taskstats registers a notifier block within netlink_chain
-and receives a callback on the NETLINK_URELEASE event, similar
-to drivers/scsci/scsi_transport_iscsi.c: iscsi_rcv_nl_event()
+If you want more details just shoot.
 
-- the callback checks to see that the protocol is NETLINK_GENERIC
-and that the nl_pid for the socket is in taskstat's pidhash. If so, it
-does a cleanup using the stored cpumask and releases the nl_pid
-from the pidhash.
+cheers,
+jamal 
 
-We can even do away with the deregister command altogether and
-simply rely on this autocleanup.
+PS:- BTW, even turning off flow control on e1000 didnt give as good
+performance as in the old days on this machine - but i dont want to go
+into that discussion.
 
---Shailabh
