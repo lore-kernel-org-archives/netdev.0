@@ -1,53 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipvs: Add sysctl documentation
-Date: Mon, 03 Jul 2006 19:36:47 -0700 (PDT)
-Message-ID: <20060703.193647.08322498.davem@davemloft.net>
-References: <20060630061940.GA31956@verge.net.au>
-	<20060630.142045.106433722.davem@davemloft.net>
-	<20060703023128.GA27424@verge.net.au>
+Subject: Re: [5/4] [NET]: Verify gso_type too in gso_segment
+Date: Mon, 03 Jul 2006 19:38:49 -0700 (PDT)
+Message-ID: <20060703.193849.21931552.davem@davemloft.net>
+References: <20060630054702.GC30149@gondor.apana.org.au>
+	<20060630061350.GA3660@gondor.apana.org.au>
+	<20060630064134.GA20428@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wensong@linux-vs.org, ja@ssi.bg
+Cc: yoshfuji@linux-ipv6.org, Ananda.Raju@neterion.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52432
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:53456
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751376AbWGDCge (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jul 2006 22:36:34 -0400
-To: horms@verge.net.au
-In-Reply-To: <20060703023128.GA27424@verge.net.au>
+	id S1751261AbWGDCid (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jul 2006 22:38:33 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060630064134.GA20428@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Horms <horms@verge.net.au>
-Date: Mon, 3 Jul 2006 11:31:30 +0900
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 30 Jun 2006 16:41:34 +1000
 
-> * Derived from http://www.linuxvirtualserver.org/docs/sysctl.html, v1.4
->   maintained by Wensong Zhang
+> On Fri, Jun 30, 2006 at 04:13:50PM +1000, herbert wrote:
+> > 
+> > [NET]: Verify gso_type too in gso_segment
 > 
-> * Adjusted preample to match ip-sysctl.txt
+> Here is a better version that ensures at least one of TCPV4 and TCPV6
+> is set in tcp_tso_segment.
 > 
-> * Sorted options into alphabetical order
+> [NET]: Verify gso_type too in gso_segment
 > 
-> * Added expire_quiescent_template
+> We don't want nasty Xen guests to pass a TCPv6 packet in with gso_type set
+> to TCPv4 or even UDP (or a packet that's both TCP and UDP).
 > 
-> * Removed timeout_* which are no longer present
-> 
-> * Incoporated doc/debug-levels.txt from IPVS source tree into
->   description of ipvs_debug
-> 
-> * Minor spelling fixes
-> 
-> * Further editing more than welcome
-> 
-> Signed-Off-By: Horms <horms@verge.net.au>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks Simon.
-
-> * DaveM, do you need a 2.4 version of this document,
->   it will likely be a slightly different list of options?
-
-I don't think it's really worthwhile, we should be touching 2.4.x
-as little as possible at this point.  Changes we make in 2.4.x
-should be in the "absolutely necssary" category.
-
+Applied, thanks Herbert.
