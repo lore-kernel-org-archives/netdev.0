@@ -1,450 +1,107 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 2/4] d80211: fix receiving through virtual interfaces
-Date: Tue, 4 Jul 2006 20:05:09 +0200
-Message-ID: <20060704200509.38863d41@griffin.suse.cz>
-References: <20060703192335.935001000.midnight@suse.cz>
-	<20060703172408.C9183483BB@silver.suse.cz>
+From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
+Subject: [2.6.17-git22] lock debugging output
+Date: Tue, 4 Jul 2006 20:13:21 +0200
+Message-ID: <5a4c581d0607041113o2993cbf5m7011b2a06e96d974@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:37249 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S932257AbWGDSFM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2006 14:05:12 -0400
-Received: from griffin.suse.cz (griffin.suse.cz [10.20.1.99])
-	by mail.suse.cz (SUSE CR ESMTP Mailer) with ESMTP id F16CB6280B8
-	for <netdev@vger.kernel.org>; Tue,  4 Jul 2006 20:05:09 +0200 (CEST)
-To: netdev@vger.kernel.org
-In-Reply-To: <20060703172408.C9183483BB@silver.suse.cz>
+Received: from ug-out-1314.google.com ([66.249.92.171]:39485 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S932294AbWGDSNX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jul 2006 14:13:23 -0400
+Received: by ug-out-1314.google.com with SMTP id c2so1860886ugf
+        for <netdev@vger.kernel.org>; Tue, 04 Jul 2006 11:13:21 -0700 (PDT)
+To: "Linux Kernel" <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon,  3 Jul 2006 19:24:08 +0200 (CEST), Jiri Benc wrote:
-> - Packet type (PACKET_HOST and PACKET_OTHER_HOST) is set correctly now.
+Hoping gmail doesn't mess it too badly...
 
-Uhm, not really.
+eth0: tg3 (BCM5751 Gbit Ethernet)
+eth1: ipw2200 (Intel PRO/Wireless 2200BG)
 
-> @@ -3057,7 +3048,9 @@ ieee80211_rx_h_check(struct ieee80211_tx
->  		return TXRX_DROP;
->  	}
->  
-> -	if (memcmp(rx->dev->dev_addr, hdr->addr1, ETH_ALEN) == 0)
-> +	if (rx->fc & WLAN_FC_TODS)
-> +		rx->skb->pkt_type = PACKET_OTHERHOST;
+Sequence:
+ 1. boot with eth0 disconnected (eth1 doesn't come up on boot)
+ 2. ifup eth1, bring wpa-supplicant up
+ 3. run 'dig' ---> <lock debug info gets printed on console>
 
-I'm not sure how something so obviously wrong slipped there.
+Note that due to my very variable network setup, I had no /etc/resolv.conf
+ in place at the moment I ran 'dig'. Second execution of 'dig' did not print
+ any lock debug output but just (properly) stalled; then I realized I didn't
+ put my home resolv.conf in place, did that and 'dig' just worked.
 
-The corrected version of the patch follows.
+System appears to work and I'm actually typing this report from the
+ same kernel that reported the following upon invoking 'dig' :
 
----
- net/d80211/ieee80211.c   |  171 +++++++++++++++++++++++++++++++----------------
- net/d80211/ieee80211_i.h |    5 +
- net/d80211/wpa.c         |    4 +
- 3 files changed, 124 insertions(+), 56 deletions(-)
+ =================================
+ [ INFO: inconsistent lock state ]
+ ---------------------------------
+ inconsistent {softirq-on-W} -> {in-softirq-R} usage.
+ dig/2373 [HC0[0]:SC1[2]:HE1:SE0] takes:
+  (&sk->sk_dst_lock){---?}, at: [<c028cf72>] sk_dst_check+0x1b/0xe6
+ {softirq-on-W} state was registered at:
+   [<c0127a6a>] lock_acquire+0x60/0x80
+   [<c02e151d>] _write_lock+0x19/0x28
+   [<c028c0af>] sock_setsockopt+0x351/0x49c
+   [<c0289d0d>] sys_setsockopt+0x5b/0x8d
+   [<c028ac22>] sys_socketcall+0x148/0x186
+   [<c0102699>] sysenter_past_esp+0x56/0x8d
+ irq event stamp: 1130
+ hardirqs last  enabled at (1130): [<c01161ed>] local_bh_enable_ip+0xb2/0xbb
+ hardirqs last disabled at (1129): [<c011618e>] local_bh_enable_ip+0x53/0xbb
+ softirqs last  enabled at (1120): [<c029423c>] dev_queue_xmit+0x205/0x211
+ softirqs last disabled at (1121): [<c01040e6>] do_softirq+0x4d/0xac
 
---- dscape.orig/net/d80211/ieee80211.c
-+++ dscape/net/d80211/ieee80211.c
-@@ -2463,27 +2463,15 @@ ieee80211_rx_h_data(struct ieee80211_txr
- 		memcpy(ehdr->h_source, src, ETH_ALEN);
-                 ehdr->h_proto = len;
- 	}
--
--        if (rx->sta && !rx->sta->assoc_ap &&
--	    !(rx->sta && (rx->sta->flags & WLAN_STA_WDS)))
--                skb->dev = rx->sta->dev;
--        else
--                skb->dev = dev;
-+	skb->dev = dev;
- 
-         skb2 = NULL;
--        sdata = IEEE80211_DEV_TO_SUB_IF(dev);
- 
--        /*
--         * don't count the master since the low level code
--         * counts it already for us.
--         */
--        if (skb->dev != sdata->master) {
--		sdata->stats.rx_packets++;
--		sdata->stats.rx_bytes += skb->len;
--        }
-+	sdata->stats.rx_packets++;
-+	sdata->stats.rx_bytes += skb->len;
- 
- 	if (local->bridge_packets && (sdata->type == IEEE80211_IF_TYPE_AP
--	    || sdata->type == IEEE80211_IF_TYPE_VLAN)) {
-+	    || sdata->type == IEEE80211_IF_TYPE_VLAN) && rx->u.rx.ra_match) {
- 		if (is_multicast_ether_addr(skb->data)) {
- 			/* send multicast frames both to higher layers in
- 			 * local net stack and back to the wireless media */
-@@ -2760,13 +2748,14 @@ static int ap_sta_ps_end(struct net_devi
- 
- 
- static ieee80211_txrx_result
--ieee80211_rx_h_ieee80211_rx_h_ps_poll(struct ieee80211_txrx_data *rx)
-+ieee80211_rx_h_ps_poll(struct ieee80211_txrx_data *rx)
- {
- 	struct sk_buff *skb;
- 	int no_pending_pkts;
- 
- 	if (likely(!rx->sta || WLAN_FC_GET_TYPE(rx->fc) != WLAN_FC_TYPE_CTRL ||
--		   WLAN_FC_GET_STYPE(rx->fc) != WLAN_FC_STYPE_PSPOLL))
-+		   WLAN_FC_GET_STYPE(rx->fc) != WLAN_FC_STYPE_PSPOLL ||
-+		   !rx->u.rx.ra_match))
- 		return TXRX_CONTINUE;
- 
- 	skb = skb_dequeue(&rx->sta->tx_filtered);
-@@ -3042,8 +3031,10 @@ ieee80211_rx_h_check(struct ieee80211_tx
- 		if (unlikely(rx->fc & WLAN_FC_RETRY &&
- 			     rx->sta->last_seq_ctrl[rx->u.rx.queue] ==
- 			     hdr->seq_ctrl)) {
--			rx->local->dot11FrameDuplicateCount++;
--			rx->sta->num_duplicates++;
-+			if (rx->u.rx.ra_match) {
-+				rx->local->dot11FrameDuplicateCount++;
-+				rx->sta->num_duplicates++;
-+			}
- 			return TXRX_DROP;
- 		} else
- 			rx->sta->last_seq_ctrl[rx->u.rx.queue] = hdr->seq_ctrl;
-@@ -3057,7 +3048,9 @@ ieee80211_rx_h_check(struct ieee80211_tx
- 		return TXRX_DROP;
- 	}
- 
--	if (memcmp(rx->dev->dev_addr, hdr->addr1, ETH_ALEN) == 0)
-+	if (!rx->u.rx.ra_match)
-+		rx->skb->pkt_type = PACKET_OTHERHOST;
-+	else if (memcmp(rx->dev->dev_addr, hdr->addr1, ETH_ALEN) == 0)
- 		rx->skb->pkt_type = PACKET_HOST;
- 	else if (is_multicast_ether_addr(hdr->addr1)) {
- 		if (is_broadcast_ether_addr(hdr->addr1))
-@@ -3080,8 +3073,10 @@ ieee80211_rx_h_check(struct ieee80211_tx
- 		       WLAN_FC_GET_STYPE(rx->fc) == WLAN_FC_STYPE_PSPOLL)) &&
- 		     rx->sdata->type != IEEE80211_IF_TYPE_IBSS &&
- 		     (!rx->sta || !(rx->sta->flags & WLAN_STA_ASSOC)))) {
--		if (!(rx->fc & WLAN_FC_FROMDS) && !(rx->fc & WLAN_FC_TODS)) {
--			/* Drop IBSS frames silently. */
-+		if ((!(rx->fc & WLAN_FC_FROMDS) && !(rx->fc & WLAN_FC_TODS)) ||
-+		    !rx->u.rx.ra_match) {
-+			/* Drop IBSS frames and frames for other hosts
-+			 * silently. */
- 			return TXRX_DROP;
- 		}
- 
-@@ -3113,6 +3108,8 @@ ieee80211_rx_h_check(struct ieee80211_tx
- 				rx->key = rx->sdata->keys[keyidx];
- 			}
- 			if (!rx->key) {
-+				if (!rx->u.rx.ra_match)
-+					return TXRX_DROP;
- 				printk(KERN_DEBUG "%s: RX WEP frame with "
- 				       "unknown keyidx %d (A1=" MACSTR " A2="
- 				       MACSTR " A3=" MACSTR ")\n",
-@@ -3128,7 +3125,7 @@ ieee80211_rx_h_check(struct ieee80211_tx
- 		}
-         }
- 
--	if (rx->fc & WLAN_FC_ISWEP && rx->key) {
-+	if (rx->fc & WLAN_FC_ISWEP && rx->key && rx->u.rx.ra_match) {
- 		rx->key->tx_rx_count++;
- 		if (unlikely(rx->local->key_tx_rx_threshold &&
- 			     rx->key->tx_rx_count >
-@@ -3168,6 +3165,10 @@ ieee80211_rx_h_sta_process(struct ieee80
- 		 */
- 		sta->last_rx = jiffies;
- 	}
-+
-+	if (!rx->u.rx.ra_match)
-+		return TXRX_CONTINUE;
-+
- 	sta->rx_fragments++;
- 	sta->rx_bytes += rx->skb->len;
- 	sta->last_rssi = rx->u.rx.status->ssi;
-@@ -3203,7 +3204,7 @@ ieee80211_rx_h_wep_weak_iv_detection(str
- {
- 	if (!rx->sta || !(rx->fc & WLAN_FC_ISWEP) ||
- 	    WLAN_FC_GET_TYPE(rx->fc) != WLAN_FC_TYPE_DATA || !rx->key ||
--	    rx->key->alg != ALG_WEP)
-+	    rx->key->alg != ALG_WEP || !rx->u.rx.ra_match)
- 		return TXRX_CONTINUE;
- 
- 	/* Check for weak IVs, if hwaccel did not remove IV from the frame */
-@@ -3260,7 +3261,7 @@ static ieee80211_txrx_result
- ieee80211_rx_h_802_1x_pae(struct ieee80211_txrx_data *rx)
- {
- 	if (rx->sdata->eapol && ieee80211_is_eapol(rx->skb) &&
--	    rx->sdata->type != IEEE80211_IF_TYPE_STA) {
-+	    rx->sdata->type != IEEE80211_IF_TYPE_STA && rx->u.rx.ra_match) {
- 		/* Pass both encrypted and unencrypted EAPOL frames to user
- 		 * space for processing. */
- 		ieee80211_rx_mgmt(rx->dev, rx->skb, rx->u.rx.status,
-@@ -3313,6 +3314,10 @@ static ieee80211_txrx_result
- ieee80211_rx_h_mgmt(struct ieee80211_txrx_data *rx)
- {
-         struct ieee80211_sub_if_data *sdata;
-+
-+	if (!rx->u.rx.ra_match)
-+		return TXRX_DROP;
-+
- 	sdata = IEEE80211_DEV_TO_SUB_IF(rx->dev);
- 	if ((sdata->type == IEEE80211_IF_TYPE_STA ||
- 	     sdata->type == IEEE80211_IF_TYPE_IBSS) &&
-@@ -3351,7 +3356,8 @@ ieee80211_rx_h_passive_scan(struct ieee8
-                 fc = le16_to_cpu(hdr->frame_control);
- 
-                 if (WLAN_FC_GET_TYPE(fc) == WLAN_FC_TYPE_MGMT &&
--		    WLAN_FC_GET_STYPE(fc) == WLAN_FC_STYPE_BEACON) {
-+		    WLAN_FC_GET_STYPE(fc) == WLAN_FC_STYPE_BEACON &&
-+		    rx->dev == local->mdev) {
- 			local->scan.rx_beacon++;
- 			/* Need to trim FCS here because it is normally
- 			 * removed only after this passive scan handler. */
-@@ -3502,14 +3508,16 @@ static void ieee80211_rx_michael_mic_rep
- 	rx->skb = NULL;
- }
- 
--static inline void ieee80211_invoke_rx_handlers(struct ieee80211_local *local,
--						struct ieee80211_txrx_data *rx,
--						struct sta_info *sta)
-+static inline ieee80211_txrx_result __ieee80211_invoke_rx_handlers(
-+				struct ieee80211_local *local,
-+				ieee80211_rx_handler *handlers,
-+				struct ieee80211_txrx_data *rx,
-+				struct sta_info *sta)
- {
- 	ieee80211_rx_handler *handler;
-         ieee80211_txrx_result res = TXRX_DROP;
- 
--	for (handler = local->rx_handlers; *handler != NULL; handler++) {
-+	for (handler = handlers; *handler != NULL; handler++) {
- 		res = (*handler)(rx);
- 		if (res != TXRX_CONTINUE) {
- 			if (res == TXRX_DROP) {
-@@ -3523,8 +3531,19 @@ static inline void ieee80211_invoke_rx_h
- 		}
- 	}
- 
-+	if (res == TXRX_DROP) {
-+		dev_kfree_skb(rx->skb);
-+	}
-+	return res;
-+}
- 
--	if (res == TXRX_DROP || *handler == NULL)
-+static inline void ieee80211_invoke_rx_handlers(struct ieee80211_local *local,
-+						ieee80211_rx_handler *handlers,
-+						struct ieee80211_txrx_data *rx,
-+						struct sta_info *sta)
-+{
-+	if (__ieee80211_invoke_rx_handlers(local, handlers, rx, sta) ==
-+	    TXRX_CONTINUE)
- 		dev_kfree_skb(rx->skb);
- }
- 
-@@ -3568,37 +3587,57 @@ void __ieee80211_rx(struct net_device *d
- 	if (unlikely(local->sta_scanning || local->scan.in_scan))
- 		rx.u.rx.in_scan = 1;
- 
-+	if (__ieee80211_invoke_rx_handlers(local, local->rx_pre_handlers, &rx,
-+					   sta) != TXRX_CONTINUE)
-+		goto end;
-+	skb = rx.skb;
-+
- 	if (sta && !sta->assoc_ap && !(sta->flags & WLAN_STA_WDS) &&
- 	    !local->iff_promiscs && !multicast) {
- 		rx.dev = sta->dev;
- 		rx.sdata = IEEE80211_DEV_TO_SUB_IF(rx.dev);
--		ieee80211_invoke_rx_handlers(local, &rx, sta);
-+		rx.u.rx.ra_match = 1;
-+		ieee80211_invoke_rx_handlers(local, local->rx_handlers, &rx,
-+					     sta);
- 	} else {
- 		struct ieee80211_sub_if_data *prev = NULL;
- 		struct sk_buff *skb_new;
- 		u8 *bssid = ieee80211_get_bssid(hdr, skb->len);
- 
- 		list_for_each_entry(sdata, &local->sub_if_list, list) {
-+			rx.u.rx.ra_match = 1;
- 			switch (sdata->type) {
- 			case IEEE80211_IF_TYPE_STA:
--				if (!bssid || memcmp(sdata->u.sta.bssid,
--						     bssid, ETH_ALEN) != 0)
--					continue;
--				if (!multicast && !sdata->promisc &&
--				    memcmp(sdata->dev->dev_addr, hdr->addr1,
--					   ETH_ALEN) != 0)
-+				if (!bssid)
- 					continue;
-+				if (!ieee80211_bssid_match(bssid,
-+							sdata->u.sta.bssid)) {
-+					if (!rx.u.rx.in_scan)
-+						continue;
-+					rx.u.rx.ra_match = 0;
-+				} else if (!multicast &&
-+					   memcmp(sdata->dev->dev_addr,
-+						  hdr->addr1, ETH_ALEN) != 0) {
-+					if (!sdata->promisc)
-+						continue;
-+					rx.u.rx.ra_match = 0;
-+				}
- 				break;
- 			case IEEE80211_IF_TYPE_IBSS:
--				if (!bssid ||
--				    !ieee80211_bssid_match(bssid,
--							   sdata->u.sta.bssid))
-+				if (!bssid)
- 					continue;
--				if (!multicast && !sdata->promisc &&
--				    memcmp(sdata->dev->dev_addr, hdr->addr1,
--					   ETH_ALEN) != 0)
--					continue;
--				if (sta == NULL) {
-+				if (!ieee80211_bssid_match(bssid,
-+							sdata->u.sta.bssid)) {
-+					if (!rx.u.rx.in_scan)
-+						continue;
-+					rx.u.rx.ra_match = 0;
-+				} else if (!multicast &&
-+					   memcmp(sdata->dev->dev_addr,
-+						  hdr->addr1, ETH_ALEN) != 0) {
-+					if (!sdata->promisc)
-+						continue;
-+					rx.u.rx.ra_match = 0;
-+				} else if (sta == NULL) {
- 					sta = rx.sta =
- 						ieee80211_ibss_add_sta(dev, skb, bssid,
- 								       hdr->addr2);
-@@ -3610,10 +3649,12 @@ void __ieee80211_rx(struct net_device *d
- 					if (memcmp(sdata->dev->dev_addr,
- 						   hdr->addr1, ETH_ALEN) != 0)
- 						continue;
--				} else if (!rx.u.rx.in_scan &&
--					   !ieee80211_bssid_match(bssid,
--							sdata->dev->dev_addr))
--					continue;
-+				} else if (!ieee80211_bssid_match(bssid,
-+							sdata->dev->dev_addr)) {
-+					if (!rx.u.rx.in_scan)
-+						continue;
-+					rx.u.rx.ra_match = 0;
-+				}
- 				if (sdata->dev == sdata->master &&
- 				    !rx.u.rx.in_scan)
- 					/* do not receive anything via
-@@ -3643,7 +3684,9 @@ void __ieee80211_rx(struct net_device *d
- 				rx.skb = skb_new;
- 				rx.dev = prev->dev;
- 				rx.sdata = prev;
--				ieee80211_invoke_rx_handlers(local, &rx, sta);
-+				ieee80211_invoke_rx_handlers(local,
-+							     local->rx_handlers,
-+							     &rx, sta);
- 			}
- 			prev = sdata;
- 		}
-@@ -3651,7 +3694,8 @@ void __ieee80211_rx(struct net_device *d
- 			rx.skb = skb;
- 			rx.dev = prev->dev;
- 			rx.sdata = prev;
--			ieee80211_invoke_rx_handlers(local, &rx, sta);
-+			ieee80211_invoke_rx_handlers(local, local->rx_handlers,
-+						     &rx, sta);
- 		} else
- 			dev_kfree_skb(skb);
- 	}
-@@ -3765,11 +3809,17 @@ ieee80211_rx_h_load_stats(struct ieee802
-         local->channel_use_raw += load;
- 	if (rx->sta)
- 		rx->sta->channel_use_raw += load;
--        rx->sdata->channel_use_raw += load;
-+	rx->u.rx.load = load;
- 
- 	return TXRX_CONTINUE;
- }
- 
-+static ieee80211_txrx_result
-+ieee80211_rx_h_if_stats(struct ieee80211_txrx_data *rx)
-+{
-+	rx->sdata->channel_use_raw += rx->u.rx.load;
-+	return TXRX_CONTINUE;
-+}
- 
- static void ieee80211_stat_refresh(unsigned long data)
- {
-@@ -4113,10 +4163,18 @@ void ieee80211_tx_status(struct net_devi
- /* TODO: implement register/unregister functions for adding TX/RX handlers
-  * into ordered list */
- 
--static ieee80211_rx_handler ieee80211_rx_handlers[] =
-+/* rx_pre handlers don't have dev and sdata fields available in
-+ * ieee80211_txrx_data */
-+static ieee80211_rx_handler ieee80211_rx_pre_handlers[] =
- {
- 	ieee80211_rx_h_parse_qos,
- 	ieee80211_rx_h_load_stats,
-+	NULL
-+};
-+
-+static ieee80211_rx_handler ieee80211_rx_handlers[] =
-+{
-+	ieee80211_rx_h_if_stats,
- 	ieee80211_rx_h_monitor,
- 	ieee80211_rx_h_passive_scan,
- 	ieee80211_rx_h_check,
-@@ -4126,7 +4184,7 @@ static ieee80211_rx_handler ieee80211_rx
- 	ieee80211_rx_h_wep_weak_iv_detection,
- 	ieee80211_rx_h_wep_decrypt,
- 	ieee80211_rx_h_defragment,
--	ieee80211_rx_h_ieee80211_rx_h_ps_poll,
-+	ieee80211_rx_h_ps_poll,
- 	ieee80211_rx_h_michael_mic_verify,
- 	/* this must be after decryption - so header is counted in MPDU mic
- 	 * must be before pae and data, so QOS_DATA format frames
-@@ -4284,6 +4342,7 @@ struct net_device *ieee80211_alloc_hw(si
- 			   NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
- 
- 	local->mdev = mdev;
-+	local->rx_pre_handlers = ieee80211_rx_pre_handlers;
-         local->rx_handlers = ieee80211_rx_handlers;
-         local->tx_handlers = ieee80211_tx_handlers;
- 
---- dscape.orig/net/d80211/ieee80211_i.h
-+++ dscape/net/d80211/ieee80211_i.h
-@@ -137,7 +137,11 @@ struct ieee80211_txrx_data {
- 			struct ieee80211_rx_status *status;
- 			int sent_ps_buffered;
- 			int queue;
-+			int load;
- 			int in_scan:1;
-+			int ra_match:1; /* frame is destined to interface
-+					 * currently processed (including
-+					 * multicast frames) */
- 		} rx;
- 	} u;
- #ifdef CONFIG_HOSTAPD_WPA_TESTING
-@@ -413,6 +417,7 @@ struct ieee80211_local {
- 	struct ieee80211_passive_scan scan;
- 
- 
-+	ieee80211_rx_handler *rx_pre_handlers;
- 	ieee80211_rx_handler *rx_handlers;
-         ieee80211_tx_handler *tx_handlers;
- 
---- dscape.orig/net/d80211/wpa.c
-+++ dscape/net/d80211/wpa.c
-@@ -235,6 +235,10 @@ ieee80211_rx_h_michael_mic_verify(struct
- #ifdef CONFIG_HOSTAPD_WPA_TESTING
- 		int i;
- #endif /* CONFIG_HOSTAPD_WPA_TESTING */
-+
-+		if (!rx->u.rx.ra_match)
-+			return TXRX_DROP;
-+
- 		printk(KERN_DEBUG "%s: invalid Michael MIC in data frame from "
- 		       MACSTR "\n", rx->dev->name, MAC2STR(sa));
- #ifdef CONFIG_HOSTAPD_WPA_TESTING
+ other info that might help us debug this:
+ 2 locks held by dig/2373:
+  #0:  (sk_lock-AF_INET6){--..}, at: [<f8cf1168>]
+udpv6_sendmsg+0x546/0x818 [ipv6]
+  #1:  (slock-AF_INET6){-...}, at: [<f8cf3228>] icmpv6_send+0x222/0x549 [ipv6]
+
+ stack backtrace:
+  [<c0102e44>] show_trace+0xd/0x10
+  [<c010335e>] dump_stack+0x19/0x1b
+  [<c01260e1>] print_usage_bug+0x1cc/0x1d9
+  [<c01265e2>] mark_lock+0x193/0x360
+  [<c01271ee>] __lock_acquire+0x3b7/0x969
+  [<c0127a6a>] lock_acquire+0x60/0x80
+  [<c02e15ff>] _read_lock+0x19/0x28
+  [<c028cf72>] sk_dst_check+0x1b/0xe6
+  [<f8ce1305>] ip6_dst_lookup+0x31/0x16d [ipv6]
+  [<f8cf3338>] icmpv6_send+0x332/0x549 [ipv6]
+  [<f8cf09a1>] udpv6_rcv+0x4ab/0x4d6 [ipv6]
+  [<f8ce2900>] ip6_input+0x19c/0x228 [ipv6]
+  [<f8ce2d61>] ipv6_rcv+0x188/0x1b7 [ipv6]
+  [<c02925b7>] netif_receive_skb+0x18d/0x1d8
+  [<c0293d6a>] process_backlog+0x80/0xf9
+  [<c0293f43>] net_rx_action+0x80/0x174
+  [<c01162fd>] __do_softirq+0x46/0x9c
+  [<c01040e6>] do_softirq+0x4d/0xac
+  =======================
+  [<c0116117>] local_bh_enable+0xc8/0xec
+  [<c029423c>] dev_queue_xmit+0x205/0x211
+  [<c0298a8b>] neigh_resolve_output+0x1db/0x207
+  [<f8ce0bee>] ip6_output2+0x1e4/0x202 [ipv6]
+  [<f8ce12aa>] ip6_output+0x69e/0x6c8 [ipv6]
+  [<f8ce1706>] ip6_push_pending_frames+0x2c5/0x377 [ipv6]
+  [<f8cefd8e>] udp_v6_push_pending_frames+0x154/0x176 [ipv6]
+  [<f8cf122a>] udpv6_sendmsg+0x608/0x818 [ipv6]
+  [<c02c6b1d>] inet_sendmsg+0x3b/0x48
+  [<c02894f9>] sock_sendmsg+0xe8/0x103
+  [<c0289b18>] sys_sendmsg+0x14f/0x1aa
+  [<c028ac45>] sys_socketcall+0x16b/0x186
+  [<c0102699>] sysenter_past_esp+0x56/0x8d
 
 
+Hope this may be useful to lock debug devs / netdev folks...
 
--- 
-Jiri Benc
-SUSE Labs
+
+Ciao,
+
+--alessandro
+
+ "I can't change what makes me high and I can't change what I believe in"
+     (Heather Nova, "My Fidelity")
