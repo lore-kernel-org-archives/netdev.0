@@ -1,74 +1,50 @@
-From: "Alessandro Suardi" <alessandro.suardi@gmail.com>
-Subject: [2.6.17-git22] lock debugging output
-Date: Tue, 4 Jul 2006 20:13:21 +0200
-Message-ID: <5a4c581d0607041113o2993cbf5m7011b2a06e96d974@mail.gmail.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [2.6.17-git22] lock debugging output
+Date: Tue, 04 Jul 2006 20:32:46 +0200
+Message-ID: <1152037966.3109.91.camel@laptopd505.fenrus.org>
+References: <5a4c581d0607041113o2993cbf5m7011b2a06e96d974@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:39485 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S932294AbWGDSNX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 14:13:23 -0400
-Received: by ug-out-1314.google.com with SMTP id c2so1860886ugf
-        for <netdev@vger.kernel.org>; Tue, 04 Jul 2006 11:13:21 -0700 (PDT)
-To: "Linux Kernel" <linux-kernel@vger.kernel.org>,
+Cc: akpm@osdl.org, mingo@elte.hu,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
-Content-Disposition: inline
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:54679 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S932295AbWGDScz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jul 2006 14:32:55 -0400
+To: Alessandro Suardi <alessandro.suardi@gmail.com>
+In-Reply-To: <5a4c581d0607041113o2993cbf5m7011b2a06e96d974@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hoping gmail doesn't mess it too badly...
+From: Arjan van de Ven <arjan@linux.intel.com>
 
-eth0: tg3 (BCM5751 Gbit Ethernet)
-eth1: ipw2200 (Intel PRO/Wireless 2200BG)
+On Tue, 2006-07-04 at 20:13 +0200, Alessandro Suardi wrote:
+> Hoping gmail doesn't mess it too badly...
+> 
+> eth0: tg3 (BCM5751 Gbit Ethernet)
+> eth1: ipw2200 (Intel PRO/Wireless 2200BG)
+> 
+> Sequence:
+>  1. boot with eth0 disconnected (eth1 doesn't come up on boot)
+>  2. ifup eth1, bring wpa-supplicant up
+>  3. run 'dig' ---> <lock debug info gets printed on console>
 
-Sequence:
- 1. boot with eth0 disconnected (eth1 doesn't come up on boot)
- 2. ifup eth1, bring wpa-supplicant up
- 3. run 'dig' ---> <lock debug info gets printed on console>
 
-Note that due to my very variable network setup, I had no /etc/resolv.conf
- in place at the moment I ran 'dig'. Second execution of 'dig' did not print
- any lock debug output but just (properly) stalled; then I realized I didn't
- put my home resolv.conf in place, did that and 'dig' just worked.
+this appears to be a real deadlock:
 
-System appears to work and I'm actually typing this report from the
- same kernel that reported the following upon invoking 'dig' :
+the SO_BINDTODEVICE ioctl calls sk_dst_reset(), which looks like this:
+static inline void
+sk_dst_reset(struct sock *sk)
+{
+        write_lock(&sk->sk_dst_lock);
+        __sk_dst_reset(sk);
+        write_unlock(&sk->sk_dst_lock);
+}
 
- =================================
- [ INFO: inconsistent lock state ]
- ---------------------------------
- inconsistent {softirq-on-W} -> {in-softirq-R} usage.
- dig/2373 [HC0[0]:SC1[2]:HE1:SE0] takes:
-  (&sk->sk_dst_lock){---?}, at: [<c028cf72>] sk_dst_check+0x1b/0xe6
- {softirq-on-W} state was registered at:
-   [<c0127a6a>] lock_acquire+0x60/0x80
-   [<c02e151d>] _write_lock+0x19/0x28
-   [<c028c0af>] sock_setsockopt+0x351/0x49c
-   [<c0289d0d>] sys_setsockopt+0x5b/0x8d
-   [<c028ac22>] sys_socketcall+0x148/0x186
-   [<c0102699>] sysenter_past_esp+0x56/0x8d
- irq event stamp: 1130
- hardirqs last  enabled at (1130): [<c01161ed>] local_bh_enable_ip+0xb2/0xbb
- hardirqs last disabled at (1129): [<c011618e>] local_bh_enable_ip+0x53/0xbb
- softirqs last  enabled at (1120): [<c029423c>] dev_queue_xmit+0x205/0x211
- softirqs last disabled at (1121): [<c01040e6>] do_softirq+0x4d/0xac
-
- other info that might help us debug this:
- 2 locks held by dig/2373:
-  #0:  (sk_lock-AF_INET6){--..}, at: [<f8cf1168>]
-udpv6_sendmsg+0x546/0x818 [ipv6]
-  #1:  (slock-AF_INET6){-...}, at: [<f8cf3228>] icmpv6_send+0x222/0x549 [ipv6]
-
- stack backtrace:
-  [<c0102e44>] show_trace+0xd/0x10
-  [<c010335e>] dump_stack+0x19/0x1b
-  [<c01260e1>] print_usage_bug+0x1cc/0x1d9
-  [<c01265e2>] mark_lock+0x193/0x360
-  [<c01271ee>] __lock_acquire+0x3b7/0x969
-  [<c0127a6a>] lock_acquire+0x60/0x80
-  [<c02e15ff>] _read_lock+0x19/0x28
+now... ipv6 does this in softirq context:
   [<c028cf72>] sk_dst_check+0x1b/0xe6
   [<f8ce1305>] ip6_dst_lookup+0x31/0x16d [ipv6]
   [<f8cf3338>] icmpv6_send+0x332/0x549 [ipv6]
@@ -80,28 +56,36 @@ udpv6_sendmsg+0x546/0x818 [ipv6]
   [<c0293f43>] net_rx_action+0x80/0x174
   [<c01162fd>] __do_softirq+0x46/0x9c
   [<c01040e6>] do_softirq+0x4d/0xac
-  =======================
-  [<c0116117>] local_bh_enable+0xc8/0xec
-  [<c029423c>] dev_queue_xmit+0x205/0x211
-  [<c0298a8b>] neigh_resolve_output+0x1db/0x207
-  [<f8ce0bee>] ip6_output2+0x1e4/0x202 [ipv6]
-  [<f8ce12aa>] ip6_output+0x69e/0x6c8 [ipv6]
-  [<f8ce1706>] ip6_push_pending_frames+0x2c5/0x377 [ipv6]
-  [<f8cefd8e>] udp_v6_push_pending_frames+0x154/0x176 [ipv6]
-  [<f8cf122a>] udpv6_sendmsg+0x608/0x818 [ipv6]
-  [<c02c6b1d>] inet_sendmsg+0x3b/0x48
-  [<c02894f9>] sock_sendmsg+0xe8/0x103
-  [<c0289b18>] sys_sendmsg+0x14f/0x1aa
-  [<c028ac45>] sys_socketcall+0x16b/0x186
-  [<c0102699>] sysenter_past_esp+0x56/0x8d
+
+where sk_dst_check() takes the same lock for read.
+
+that looks like a real deadlock to me... 
+the most obvious low impact solution is to make sk_dst_reset use an
+irqsave variant; patch for that is attached below. I'll leave it to the
+networking people to say if that's the real right approach
+
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
+
+---
+ include/net/sock.h |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+Index: linux-2.6.17-mm6/include/net/sock.h
+===================================================================
+--- linux-2.6.17-mm6.orig/include/net/sock.h
++++ linux-2.6.17-mm6/include/net/sock.h
+@@ -1025,9 +1025,10 @@ __sk_dst_reset(struct sock *sk)
+ static inline void
+ sk_dst_reset(struct sock *sk)
+ {
+-	write_lock(&sk->sk_dst_lock);
++	unsigned long flags;
++	write_lock_irqsave(&sk->sk_dst_lock, flags);
+ 	__sk_dst_reset(sk);
+-	write_unlock(&sk->sk_dst_lock);
++	write_unlock_irqrestore(&sk->sk_dst_lock, flags);
+ }
+ 
+ extern struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie);
 
 
-Hope this may be useful to lock debug devs / netdev folks...
-
-
-Ciao,
-
---alessandro
-
- "I can't change what makes me high and I can't change what I believe in"
-     (Heather Nova, "My Fidelity")
