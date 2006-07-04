@@ -1,53 +1,116 @@
-From: Andrey Savochkin <saw@swsoft.com>
-Subject: Re: [patch 1/7] net_device list cleanup: core
-Date: Tue, 4 Jul 2006 18:50:35 +0400
-Message-ID: <20060704185035.A29778@castle.nmd.msu.ru>
-References: <20060630150823.A22285@castle.nmd.msu.ru> <20060703174650.GA22295@infradead.org> <20060704112405.A25305@castle.nmd.msu.ru> <20060704091003.GA17961@infradead.org>
+From: Shailabh Nagar <nagar@watson.ibm.com>
+Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
+Date: Tue, 04 Jul 2006 11:18:23 -0400
+Message-ID: <44AA86BF.3090600@watson.ibm.com>
+References: <44892610.6040001@watson.ibm.com>
+ <20060623213912.96056b02.akpm@osdl.org> <449CD4B3.8020300@watson.ibm.com>
+ <44A01A50.1050403@sgi.com> <20060626105548.edef4c64.akpm@osdl.org>
+ <44A020CD.30903@watson.ibm.com> <20060626111249.7aece36e.akpm@osdl.org>
+ <44A026ED.8080903@sgi.com> <20060626113959.839d72bc.akpm@osdl.org>
+ <44A2F50D.8030306@engr.sgi.com> <20060628145341.529a61ab.akpm@osdl.org>
+ <44A2FC72.9090407@engr.sgi.com> <20060629014050.d3bf0be4.pj@sgi.com>
+ <200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
+ <20060629094408.360ac157.pj@sgi.com> <20060629110107.2e56310b.akpm@osdl.org>
+ <44A57310.3010208@watson.ibm.com> <44A5770F.3080206@watson.ibm.com>
+ <20060630155030.5ea1faba.akpm@osdl.org> <44A5DBE7.2020704@watson.ibm.com>
+ <44A5EDE6.3010605@watson.ibm.com> <20060630205148.4f66b125.akpm@osdl.org>
+ <44A9881F.7030103@watson.ibm.com> <44A9BC4D.7030803@watson.ibm.com>
+ <20060703180151.56f61b31.akpm@osdl.org> <1152018353.5214.14.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Kirill Korotaev <dev@openvz.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, csturtiv@sgi.com, balbir@in.ibm.com,
+	jlan@engr.sgi.com, Valdis.Kletnieks@vt.edu, pj@sgi.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.nmd.msu.ru ([193.232.112.53]:24582 "HELO
-	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S932264AbWGDOug
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 10:50:36 -0400
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20060704091003.GA17961@infradead.org>; from "Christoph Hellwig" on Tue, Jul 04, 2006 at 10:10:03AM
+Received: from mta6.srv.hcvlny.cv.net ([167.206.4.201]:25018 "EHLO
+	mta6.srv.hcvlny.cv.net") by vger.kernel.org with ESMTP
+	id S1750815AbWGDPTM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jul 2006 11:19:12 -0400
+In-reply-to: <1152018353.5214.14.camel@jzny2>
+To: hadi@cyberus.ca
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 04, 2006 at 10:10:03AM +0100, Christoph Hellwig wrote:
-> On Tue, Jul 04, 2006 at 11:24:05AM +0400, Andrey Savochkin wrote:
-> > > Yes, it's a little more work as you need to audit all drivers to see what
-> > > they are doing and find suitable abstractions but it's a must have that
-> > > should have been done a lot earlier.
-> > 
-> > Hiding dev_base_head can be done by converting first_netdev/next_netdev into
-> > functions and implementing for_each_netdev loop through them.
-> > 
-> > Or are you talking about abstractions like functions
-> > for_each_netdev/find_netdev with callbacks?
+jamal wrote:
+> On Mon, 2006-03-07 at 18:01 -0700, Andrew Morton wrote:
 > 
-> an for_each_netdev with a callback makes sense and gives a cleaner
-> abstraction, yes.  I don't think you should need a callback for the lookup
-> structure.
-
-Different modules want different kinds of lookup.
-So, I'm thinking about something like ilookup5.
-
+>>On Mon, 03 Jul 2006 20:54:37 -0400
+>>Shailabh Nagar <nagar@watson.ibm.com> wrote:
+>>
+>>
+>>>>What happens when a listener exits without doing deregistration
+>>>>(or if the listener attempts to register another cpumask while a current
+>>>>registration is still active).
+>>>>
+>>>
+>>>( Jamal, your thoughts on this problem would be appreciated)
+>>>
+>>>Problem is that we have a listener task which has "registered" with 
+>>>taskstats and caused
+>>>its pid to be stored in various per-cpu lists of listeners. Later, when 
+>>>some other task exits on a given cpu, its exit data is sent using 
+>>>genlmsg_unicast on each pid present on that cpu's list.
+>>>
+>>>If the listener exits without doing a "deregister", its pid continues to 
+>>>be kept around, obviously not a good thing. So we need some way of 
+>>>detecting the situation (task is no longer listening on
+>>>these cpus events) that is efficient.
+>>
+>>Also need to address the case where the listener has closed off his file
+>>descriptor but continues to run.
+>>
+>>So hooking into listener's exit() isn't appropriate - the teardown is
+>>associated with the lifetime of the fd, not of the process.  If we do that,
+>>exit() gets handled for free.  
 > 
-> > Do you think that hiding the list internals is worth the additional
-> > complexity and substantial increase of the patch size?
 > 
-> Yes, absolutely.  We've converted scsi hosts and devices from a model
-> where drivers could directly access the list to strict iterators in the
-> 2.5 series.  It's quite a lot of work as you have to understand what
-> the drivers actually do (and to at least 50% they were doing something
-> really stupid) and convert them to the right abstractions.
+> If you are always going to send unicast messages, then  -ECONNREFUSED
+> will tell you the listener has closed their fd - this doesnt meant it
+> has exited. 
 
-The next question: would people agree to review a patch doing this for
-net_devices? :)
+Thats good. So we have atleast one way of detecting the "closed fd without
+deregistering" within taskstats itself.
 
-	Andrey
+> Besides that one process could open several sockets. I know
+> that would not be the app you would write - but it doesnt stop other
+> people from doing it.
+
+As far as API is concerned, even a taskstats listener is not being
+prevented from opening multiple sockets. As Andrew also pointed out,
+everything needs to be done per-socket.
+
+> I think i may not follow what you are doing - for some reason i thought
+> you may have many listeners in user space and these messages get
+> multicast to them?
+
+That was the design earlier. In the past week, the design has changed to
+one where there are still many listeners in user space but messages
+get unicast to each of them. Earlier listeners would get messages generated
+on task exit from every cpu, now they get it only from cpus for which
+they have explicitly registered interest (via a cpumask passed in through
+another genetlink command).
+
+> Does the user space program somehow communicate its pid to the kernel?
+
+Yes. When the listener registers interest in a set of cpus, as described
+above, its (genl_info->pid) is being stored in the per-cpu list of
+listeners for those cpus. When a task exits on one of those cpus, the
+exit data is only sent via genetlink_unicast to those pids
+(really, nl_pids) who are on that cpu's listener list.
+
+
+Now that I think more about it, netlink is really maintaining a pidhash
+of nl_pids, not process pids, right ? So if one userapp were to open
+multiple sockets using NETLINK_GENERIC protocol (regardless of how many
+of those are for the taskstats), each of them would have to use a
+different nl_pid. Hence, it would be valid for the taskstats layer to use 
+netlink_lookup() at any time to see if the corresponding socket were
+closed ?
+
+
+--Shailabh
+
+
+
+
