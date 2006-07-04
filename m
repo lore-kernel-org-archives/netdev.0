@@ -1,55 +1,48 @@
-From: Diann <Diann@ad.funnel.revenuedirect.com.akadns.net>
-Subject: Details inside(work at home).
-Date: Tue, 4 Jul 2006 16:26:11 -0400
-Message-ID: <EC89E760.7113142@rednecks.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: RDMA will be reverted
+Date: Tue, 04 Jul 2006 13:34:30 -0700
+Message-ID: <adar7119kix.fsf@cisco.com>
+References: <ada3bdmfjug.fsf@cisco.com>
+	<20060630.141658.34759102.davem@davemloft.net>
+	<1151708503.11835.8.camel@trinity.ogc.int>
+	<20060701.144506.74722126.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=us-ascii
+Cc: tom@opengridcomputing.com, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus2.kernel.org ([204.152.191.36]:23486 "EHLO zeus2.kernel.org")
-	by vger.kernel.org with ESMTP id S932389AbWGDUZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2006 16:25:49 -0400
-Received: from randy.cinci.rr.com (cpe-65-29-220-98.cinci.res.rr.com [65.29.220.98])
-	by zeus2.kernel.org (8.13.1/8.13.1) with SMTP id k64KPXbF009198
-	for <netdev@vger.kernel.org>; Tue, 4 Jul 2006 20:25:45 GMT
-To: netdev@vger.kernel.org
+Received: from sj-iport-4.cisco.com ([171.68.10.86]:7316 "EHLO
+	sj-iport-4.cisco.com") by vger.kernel.org with ESMTP
+	id S932392AbWGDUec (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jul 2006 16:34:32 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060701.144506.74722126.davem@davemloft.net> (David Miller's message of "Sat, 01 Jul 2006 14:45:06 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Everyone! 
-You have recieved this e-mail from us, we wanted to notify you that we
-are strating our new project and we have a lot to offer. For right now 
-you have an amazing opportunity to earn funds by helping us. There are 
-a lot of people who's seeking for a good job, but still coudln't find 
-any. We are right here right now, you have a chance to get into our 
-project and help us out, thus you will earn some good money. Consider 
-yourself lucky, this is really a great opportunity. 
+ > Roland stated that it has never been the case that we have
+ > rejected adding support for a certain class of devices on the
+ > kinds of merits being discussed in this thread.  And I'm saying
+ > that TOE is such a case where we have emphatically done so.
 
-Ok, closer to the deal. Our project has different kinds of opporunities 
-and vacancies, you can take a look at our website for more information. 
-You will get interested. Plus you don't need any school degree, no 
-education, no past experience. This is a universal opportunity. You need to 
-make a registration on our website and you will be included into our 
-project and we will contact you within 24 hours and will tell you what's 
-going on on your side and what you need to do. Don't think you will not 
-be able to handle your job, it's really very easy and interesting job, 
-and our agents are very friendly. You have to be 18 years old or older. 
-We will put you on the minimal earning plan first, which is around 2000 
-United States dollars per week. After two or three deals you will get 
-raised. 
+Well, in the past it's seemed more like patches have been rejected not
+because of a blanket refusal to consider support for certain hardware,
+but rather because of issues with the patches themselves.  eg last
+year when Chelsio submitted some TOE hooks, you wrote the following
+<http://marc.theaimsgroup.com/?l=linux-netdev&m=112382991506811&w=2>
 
-Alright. Now the question is what do you really have to do. You have to 
-be able to work 1-3 hours a day. The best time is in the morning. Don't 
-worry about your current job, feel yourself comfortable and take care 
-of your things first and then think about this opportunity we give you. 
-But enthusiasm is always appreciated. Once again, the more you work 
-with us - the more you earn, and this is how it goes. For more information 
-visit our website: http://www.wdajob.com don't forget you need to make a
-registration in order to start working with us. When you will get registered 
-we will contact you within 24 hours, please provide your valid phone 
-number. You are very welcome to join our project. Thank You and have a 
-Great Day!
+  >> There is no way you're going to be allowed to call such deep TCP
+  >> internals from your driver.
 
-Best Regards 
+  >> This would mean that every time we wish to change the data structures
+  >> and interfaces for TCP socket lookup, your drivers would need to
+  >> change.
 
+which looks like a very good reason to reject the changes.
+
+ > So I am not saying iWARP or RDMA is equal to TOE, and if you had
+ > actually read this thread you would have understood that.
+
+There's definitely been quite a bit of conflation between the two in
+this thread, even if you're not responsible...
+
+ - R.
