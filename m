@@ -1,43 +1,60 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [RFC] change netdevice to use struct device instead of struct class_device
-Date: Tue, 4 Jul 2006 15:31:01 -0700
-Message-ID: <20060704223101.GA25275@kroah.com>
-References: <20060703224719.GA14176@kroah.com> <44A9A345.8040706@garzik.org> <20060703231610.GA18352@kroah.com> <20060703.185747.74753207.davem@davemloft.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 6791] New: ports in SA should not be zeroed
+ when protocol is specified
+Date: Tue, 4 Jul 2006 15:41:42 -0700
+Message-ID: <20060704154142.b7eddfe7.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, akpm@osdl.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: klimes@centrum.cz,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.suse.de ([195.135.220.2]:38331 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S932303AbWGDWen (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2006 18:34:43 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060703.185747.74753207.davem@davemloft.net>
+Received: from smtp.osdl.org ([65.172.181.4]:17114 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932305AbWGDWly (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2006 18:41:54 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 03, 2006 at 06:57:47PM -0700, David Miller wrote:
-> From: Greg KH <greg@kroah.com>
-> Date: Mon, 3 Jul 2006 16:16:10 -0700
-> 
-> > No, not really.  According to Documentation/ABI/testing/sysfs-class all
-> > code that uses /sys/class/foo/ needs to be able to handle the fact that
-> > those entries might be symlinks and not just directories.  Everything
-> > that I know of already works properly because the input layer has had
-> > symlinks in /sys/class/input for quite some time now.
-> > 
-> > Do you know of any tools that use /sys/class/net/ that can not handle
-> > symlinks there?  I've been running this on my boxes for about a week now
-> > with no noticeable issues.  Renaming interfaces works just fine too.
-> 
-> I do not think this change will cause any problems.
 
-Great, thanks for looking.
 
-Do you mind if I keep this in my tree, due to the dependancies on the
-other driver core changes?
+Begin forwarded message:
 
-thanks,
+Date: Tue, 4 Jul 2006 06:54:01 -0700
+From: bugme-daemon@bugzilla.kernel.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 6791] New: ports in SA should not be zeroed when protocol is specified
 
-greg k-h
+
+http://bugzilla.kernel.org/show_bug.cgi?id=6791
+
+           Summary: ports in SA should not be zeroed when protocol is
+                    specified
+    Kernel Version: 2.6.17 and all previous
+            Status: NEW
+          Severity: normal
+             Owner: shemminger@osdl.org
+         Submitter: klimes@centrum.cz
+
+
+Problem Description:
+Security assotiations manipulation is defined by RFC2367 - PFKEY API.
+
+However this specification has some drawbacks and unnecessary limitations.
+(Maybe RFC2367 would deserve updating as it is rather old.)
+
+Specifically there is a need for an IPsec SA which supports simultaneously TCP
+and UDP. Such behaviour can be required by many applications and is e.g.
+neccessary for authenticating in 3G according to 3GPP TS 33.203.
+Current implementation of PFkey in linux (af_key.c) nethertheless doesn't
+support usage of ports as SA selectors and moreover, if a protocol is specified,
+the ports are zeroed.
+
+I have found that a bug on this issue has been reported against solaris and has
+been corrected - see bugID 6258318
+(http://bugs.opensolaris.org/bugdatabase/view_bug.do?bug_id=6258318)
+So, I would appreciate to have similar behaviour in linux as well to be competitive.
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
