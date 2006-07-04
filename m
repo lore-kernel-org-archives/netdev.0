@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [5/4] [NET]: Verify gso_type too in gso_segment
-Date: Mon, 03 Jul 2006 19:38:49 -0700 (PDT)
-Message-ID: <20060703.193849.21931552.davem@davemloft.net>
-References: <20060630054702.GC30149@gondor.apana.org.au>
-	<20060630061350.GA3660@gondor.apana.org.au>
-	<20060630064134.GA20428@gondor.apana.org.au>
+Subject: Re: [PATCH 1/3] [TIPC] Fixed skb_under_panic caused by
+ tipc_link_bundle_buf
+Date: Mon, 03 Jul 2006 19:39:56 -0700 (PDT)
+Message-ID: <20060703.193956.28783568.davem@davemloft.net>
+References: <Pine.LNX.4.64.0606291703270.1695@ulinpc219.uab.ericsson.se>
+	<20060629.124142.102573938.davem@davemloft.net>
+	<Pine.LNX.4.64.0606301032170.17932@ulinpc219.uab.ericsson.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, Ananda.Raju@neterion.com,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:53456
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36039
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751261AbWGDCid (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jul 2006 22:38:33 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060630064134.GA20428@gondor.apana.org.au>
+	id S1751330AbWGDCjl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jul 2006 22:39:41 -0400
+To: per.liden@ericsson.com
+In-Reply-To: <Pine.LNX.4.64.0606301032170.17932@ulinpc219.uab.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 30 Jun 2006 16:41:34 +1000
+From: Per Liden <per.liden@ericsson.com>
+Date: Fri, 30 Jun 2006 10:49:08 +0200 (CEST)
 
-> On Fri, Jun 30, 2006 at 04:13:50PM +1000, herbert wrote:
-> > 
-> > [NET]: Verify gso_type too in gso_segment
+> [TIPC] Fixed sk_buff panic caused by tipc_link_bundle_buf (REVISED)
 > 
-> Here is a better version that ensures at least one of TCPV4 and TCPV6
-> is set in tcp_tso_segment.
+> From: Allan Stephens <allan.stephens@windriver.com>
 > 
-> [NET]: Verify gso_type too in gso_segment
+> The recent change to direct inspection of bundle buffer tailroom did not
+> account for the possiblity of unrequested tailroom added by skb_alloc(),
+> thereby allowing a bundle to be created that exceeds the current link MTU.
+> An additional check now ensures that bundling works correctly no matter
+> if the bundle buffer is smaller, larger, or equal to the link MTU.
 > 
-> We don't want nasty Xen guests to pass a TCPv6 packet in with gso_type set
-> to TCPv4 or even UDP (or a packet that's both TCP and UDP).
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
+> Signed-off-by: Per Liden <per.liden@ericsson.com>
 
-Applied, thanks Herbert.
+Applied, thanks a lot Per.
