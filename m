@@ -1,94 +1,57 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: 2.6.17-mm6
-Date: Tue, 04 Jul 2006 22:01:11 +0200
-Message-ID: <1152043271.3109.95.camel@laptopd505.fenrus.org>
-References: <20060703030355.420c7155.akpm@osdl.org>
-	 <200607042153.31848.rjw@sisk.pl>
+From: Paul Jackson <pj@sgi.com>
+Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
+Date: Tue, 4 Jul 2006 13:19:13 -0700
+Message-ID: <20060704131913.83a604a0.pj@sgi.com>
+References: <44892610.6040001@watson.ibm.com>
+	<449CAA78.4080902@watson.ibm.com>
+	<20060623213912.96056b02.akpm@osdl.org>
+	<449CD4B3.8020300@watson.ibm.com>
+	<44A01A50.1050403@sgi.com>
+	<20060626105548.edef4c64.akpm@osdl.org>
+	<44A020CD.30903@watson.ibm.com>
+	<20060626111249.7aece36e.akpm@osdl.org>
+	<44A026ED.8080903@sgi.com>
+	<20060626113959.839d72bc.akpm@osdl.org>
+	<44A2F50D.8030306@engr.sgi.com>
+	<20060628145341.529a61ab.akpm@osdl.org>
+	<44A2FC72.9090407@engr.sgi.com>
+	<20060629014050.d3bf0be4.pj@sgi.com>
+	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
+	<20060629094408.360ac157.pj@sgi.com>
+	<20060629110107.2e56310b.akpm@osdl.org>
+	<44A57310.3010208@watson.ibm.com>
+	<44A5770F.3080206@watson.ibm.com>
+	<20060630155030.5ea1faba.akpm@osdl.org>
+	<44A5DBE7.2020704@watson.ibm.com>
+	<44A5EDE6.3010605@watson.ibm.com>
+	<20060630205148.4f66b125.akpm@osdl.org>
+	<44A9881F.7030103@watson.ibm.com>
+	<20060703144106.cc5bd6f6.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org
+Cc: nagar@watson.ibm.com, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
+	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
+	hadi@cyberus.ca, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:37045 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S932370AbWGDUBV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 16:01:21 -0400
-To: netdev@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>
-In-Reply-To: <200607042153.31848.rjw@sisk.pl>
+Received: from omx2-ext.sgi.com ([192.48.171.19]:58021 "EHLO omx2.sgi.com")
+	by vger.kernel.org with ESMTP id S932381AbWGDUTl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2006 16:19:41 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060703144106.cc5bd6f6.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-this is one for the networking people, and thus netdev
+Andrew wrote:
+> OK, so we're passing in an ASCII string.  Fair enough, I think.  Paul would
+> know better.
 
+Not sure if I know better - just got stronger opinions.
 
-On Tue, 2006-07-04 at 21:53 +0200, Rafael J. Wysocki wrote:
-> On Monday 03 July 2006 12:03, Andrew Morton wrote:
-> > 
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.17/2.6.17-mm6/
-> > 
-> > 
-> > - A major update to the e1000 driver.
-> > 
-> > - 1394 updates
-> 
-> Just found this in dmesg:
-> 
-> =================================
-> [ INFO: inconsistent lock state ]
-> ---------------------------------
-> inconsistent {in-hardirq-W} -> {hardirq-on-W} usage.
-> nscd/4929 [HC0[0]:SC0[1]:HE1:SE0] takes:
->  (&skb_queue_lock_key){++..}, at: [<ffffffff8044fe40>] udp_ioctl+0x50/0xa0
-> {in-hardirq-W} state was registered at:
->   [<ffffffff8024b4fa>] lock_acquire+0x8a/0xc0
->   [<ffffffff80476e3f>] _spin_lock_irqsave+0x3f/0x60
->   [<ffffffff80408c25>] skb_queue_tail+0x25/0x60
+I like the ASCII here - but this is one of those "he who
+writes the code gets to 
 
-ok so skb_queue_lock is used in a hardirq context
-
->   [<ffffffff881c9517>] queue_packet_complete+0x27/0x40 [ieee1394]
->   [<ffffffff881c9d6b>] hpsb_packet_sent+0xab/0x100 [ieee1394]
->   [<ffffffff8822a4b5>] dma_trm_reset+0x115/0x140 [ohci1394]
->   [<ffffffff8822c512>] ohci_devctl+0x1c2/0x540 [ohci1394]
->   [<ffffffff881c9673>] hpsb_bus_reset+0x43/0xb0 [ieee1394]
->   [<ffffffff8822d7f6>] ohci_irq_handler+0x416/0x830 [ohci1394]
->   [<ffffffff802631ab>] handle_IRQ_event+0x2b/0x70
->   [<ffffffff80264dd4>] handle_level_irq+0xc4/0x130
->   [<ffffffff8020c762>] do_IRQ+0x112/0x130
->   [<ffffffff80209d90>] common_interrupt+0x64/0x65
-> irq event stamp: 4280
-> hardirqs last  enabled at (4279): [<ffffffff8047606a>] trace_hardirqs_on_thunk+0x35/0x37
-> hardirqs last disabled at (4278): [<ffffffff804760a1>] trace_hardirqs_off_thunk+0x35/0x67
-> softirqs last  enabled at (4258): [<ffffffff804065b5>] release_sock+0xd5/0xe0
-> softirqs last disabled at (4280): [<ffffffff804764d1>] _spin_lock_bh+0x11/0x50
-> 
-> other info that might help us debug this:
-> no locks held by nscd/4929.
-> 
-> stack backtrace:
-> 
-> Call Trace:
->  [<ffffffff8020ab9f>] show_trace+0x9f/0x240
->  [<ffffffff8020af75>] dump_stack+0x15/0x20
->  [<ffffffff80249e52>] print_usage_bug+0x272/0x290
->  [<ffffffff8024a0d7>] mark_lock+0x267/0x5f0
->  [<ffffffff8024a9a6>] __lock_acquire+0x546/0xd10
->  [<ffffffff8024b4fb>] lock_acquire+0x8b/0xc0
->  [<ffffffff804764f4>] _spin_lock_bh+0x34/0x50
->  [<ffffffff8044fe40>] udp_ioctl+0x50/0xa0
-
-yet udp_ioctl takes it only for _bh
-
->  [<ffffffff80457359>] inet_ioctl+0x69/0x70
->  [<ffffffff804033ac>] sock_ioctl+0x22c/0x270
->  [<ffffffff802a32b1>] do_ioctl+0x31/0xa0
->  [<ffffffff802a35db>] vfs_ioctl+0x2bb/0x2e0
->  [<ffffffff802a366a>] sys_ioctl+0x6a/0xa0
->  [<ffffffff8020985a>] system_call+0x7e/0x83
->  [<00002b2d76ab98a9>]
-
-
-is this a real scenario, or is this a case of "firewire is special and
-needs it's own rules"?
-
-
+-- 
+                  I won't rest till it's the best ...
+                  Programmer, Linux Scalability
+                  Paul Jackson <pj@sgi.com> 1.925.600.0401
