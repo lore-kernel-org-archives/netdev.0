@@ -1,90 +1,63 @@
-From: Andy Gay <andy@andynet.net>
-Subject: Re: RDMA will be reverted
-Date: Tue, 04 Jul 2006 14:34:39 -0400
-Message-ID: <1152038079.3285.586.camel@tahini.andynet.net>
-References: <adawtazgawi.fsf@cisco.com>
-	<20060630.141658.34759102.davem@davemloft.net>
-	<1151708503.11835.8.camel@trinity.ogc.int>  <200607011626.04539.ak@suse.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [e1000]:  flow control on by default - good idea really?
+Date: Tue, 04 Jul 2006 15:20:39 -0400
+Message-ID: <1152040839.5276.25.camel@jzny2>
+References: <1152033116.5276.22.camel@jzny2>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Tom Tucker <tom@opengridcomputing.com>,
-	David Miller <davem@davemloft.net>, rdreier@cisco.com,
-	netdev@vger.kernel.org, akpm@osdl.org
+Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	Robert Olsson <Robert.Olsson@data.slu.se>,
+	john.ronciak@intel.com, Ben Greear <greearb@candelatech.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms044pub.verizon.net ([206.46.252.44]:39927 "EHLO
-	vms044pub.verizon.net") by vger.kernel.org with ESMTP
-	id S932327AbWGDSeq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 14:34:46 -0400
-Received: from andyhp.tranquilitynj.net ([141.150.87.220])
- by vms044.mailsrvcs.net
- (Sun Java System Messaging Server 6.2-4.02 (built Sep  9 2005))
- with ESMTPA id <0J1W009HU69W3NIB@vms044.mailsrvcs.net> for
- netdev@vger.kernel.org; Tue, 04 Jul 2006 13:34:46 -0500 (CDT)
-In-reply-to: <200607011626.04539.ak@suse.de>
-To: Andi Kleen <ak@suse.de>
+Received: from mx03.cybersurf.com ([209.197.145.106]:64162 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932345AbWGDTUx
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jul 2006 15:20:53 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1FxqS6-0004Px-Kg
+	for netdev@vger.kernel.org; Tue, 04 Jul 2006 15:20:54 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <1152033116.5276.22.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2006-07-01 at 16:26 +0200, Andi Kleen wrote:
-> On Saturday 01 July 2006 01:01, Tom Tucker wrote:
-> > On Fri, 2006-06-30 at 14:16 -0700, David Miller wrote:
-> > 
-> > > The TOE folks have tried to submit their hooks and drivers
-> > > on several occaisions, and we've rejected it every time.
-> > 
-> > iWARP != TOE
+On Tue, 2006-04-07 at 13:11 -0400, jamal wrote:
+> CCing anybody who may have stakes on this. Ignore the email if this
+> doesnt interest you.
+> Ok, folks - i had deferred this discussion but it bit me in the ass. 
+> I just spend an hour debugging it (and in the process blew up a gbic i
+> borrowed, so my day aint going well since i actually have to pay for
+> this and cant really do the testing i was planning to;-<).
+>  
+> I have a device connected to a e1000 that was erroneously advertising
+> both tx/rx flow control but wasnt properly reacting to it. 
+> The default setup on the e1000 has rx flow control turned on.
+> I was sending at wire rate gige from the device - which is about
+> 1.48Mpps. The e1000 was in turn sending me flow control packets
+> as per default/expected behavior. Unfortunately, it was sending
+> a very large amount of packets. At one point i was seeing upto
+> 1Mpps and on average, the flow control packets were consuming
+> 60-70% of the bandwidth. Even when i fixed this behavior to act
+> properly, allowing flow control on consumed up to 15% of the bandwidth. 
+> Clearly, this is a bad thing. Yes, the device in the first instance was
+> at fault. But i have argued in the past that NAPI does just fine without
+> flow control being turned on, so even chewing 5% of bandwidth on flow
+> control is a bad thing..
 > 
-> Perhaps a good start of that discussion David asked for would 
-> be if you could give us an overview of the differences
-> and how you avoid the TOE problems.
+> As a compromise, can we declare flow control as an advanced feature
+> and turn it off by default? People who feel it is valuable and know
+> what they are doing can turn it off.
 
-Interesting thread, I hope someone replies to Andi's request.
-I've actually no real idea what RDMA, IWARP & TOE are, so I may be
-barking up completely the wrong tree here. If so, apologies.
+I meant turn it on.
 
-But it sounds like we're talking about technologies that offload some
-part of the network/transport layer processing to the interface device?
+BTW, As an addendum this default behavior changed around 2.6.16 it
+seems.
 
-And the primary objection to that is that it may bypass some of the cool
-features of the Linux stack? Stuff like iptables and ... what exactly?
-
-Presumably the reason why such offloading would be a Good Thing are to
-do with very high speed network processing, 10G ethernet and the like.
-Which sounds to me very like the way dedicated networking kit would do
-that. So if you have a device that needs to be a very high performance
-router, you dedicate it to that function and don't try to do clever
-per-packet or -flow processing at the same time.
-
-In the Cisco world, there's a network design approach where you consider
-your equipment in three 'layers', I think they call them the core,
-distribution and access layers, or something like that. The idea is that
-the core layer handles the real high speed stuff, you don't do anything
-much except routing/switching in there. The other layers aggregate flows
-for the core, if you need extra processing (firewalls etc) you do it
-somewhere in there. So, for example, the packet capture functions (sort
-of like tcpdump) don't work if fast switching is in use, which it would
-be in the core. Users accept these tradeoffs, because if you design it
-right you can do the extra processing on some other device in the outer
-layers.
-
-So perhaps there's a good argument to make that a Linux system with the
-right hardware could be considered a core device. Likely any place you
-have such a system it would be dedicated to just moving data as well as
-possible, and let other systems do the other stuff. You wouldn't want
-your server farm systems to also be your firewalls.
-
-Bottom line - these technologies seem to me to have a place in a well
-designed network.
-
-Just my 2c...
-
-- Andy
-
-> 
-> -Andi
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+cheers,
+jamal
 
