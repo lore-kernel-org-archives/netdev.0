@@ -1,47 +1,47 @@
-From: Andrey Savochkin <saw@swsoft.com>
-Subject: Re: [patch 1/7] net_device list cleanup: core
-Date: Tue, 4 Jul 2006 11:24:05 +0400
-Message-ID: <20060704112405.A25305@castle.nmd.msu.ru>
-References: <20060630150823.A22285@castle.nmd.msu.ru> <20060703174650.GA22295@infradead.org>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: tiacx - don't use UTS_RELEASE
+Date: Tue, 04 Jul 2006 11:07:59 +0200
+Message-ID: <1152004080.3109.18.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Kirill Korotaev <dev@openvz.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.nmd.msu.ru ([193.232.112.53]:61200 "HELO
-	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1751094AbWGDHYH
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 03:24:07 -0400
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20060703174650.GA22295@infradead.org>; from "Christoph Hellwig" on Mon, Jul 03, 2006 at 06:46:50PM
+Received: from pentafluge.infradead.org ([213.146.154.40]:19346 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1750883AbWGDJIB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jul 2006 05:08:01 -0400
+To: akpm@osdl.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christoph,
+Hi,
 
-On Mon, Jul 03, 2006 at 06:46:50PM +0100, Christoph Hellwig wrote:
-> On Mon, Jul 03, 2006 at 12:18:51PM +0400, Andrey Savochkin wrote:
-> > Cleanup of net_device list use in net_dev core and IP.
-> > The cleanup consists of
-> >  - converting the to list_head, to make the list double-linked (thus making
-> >    remove operation O(1)), and list walks more readable;
-> >  - introducing of for_each_netdev wrapper over list_for_each.
-> 
-> When you change all this please make sure dev_base_head is never directly
-> accessed anymore, not even through macros and dev_base_head is not exported
-> anymore.  That's the only way to keep drivers messing with it.
-> 
-> Yes, it's a little more work as you need to audit all drivers to see what
-> they are doing and find suitable abstractions but it's a must have that
-> should have been done a lot earlier.
+patch below removes the use of UTS_RELEASE from the tiacx driver; there
+is absolutely no reason for a driver to print the kernel version or use
+the UTS_RELEASE field; in addition this field changes all the time so
+this causes spurious rebuilds..
 
-Hiding dev_base_head can be done by converting first_netdev/next_netdev into
-functions and implementing for_each_netdev loop through them.
+Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
 
-Or are you talking about abstractions like functions
-for_each_netdev/find_netdev with callbacks?
-Do you think that hiding the list internals is worth the additional
-complexity and substantial increase of the patch size?
+---
+ drivers/net/wireless/tiacx/pci.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-	Andrey
+Index: linux-2.6.17-mm4/drivers/net/wireless/tiacx/pci.c
+===================================================================
+--- linux-2.6.17-mm4.orig/drivers/net/wireless/tiacx/pci.c
++++ linux-2.6.17-mm4/drivers/net/wireless/tiacx/pci.c
+@@ -1705,8 +1705,8 @@ acxpci_e_probe(struct pci_dev *pdev, con
+ 	/* acx_sem_unlock(adev); */
+ 
+ 	printk("acx "ACX_RELEASE": net device %s, driver compiled "
+-		"against wireless extensions %d and Linux %s\n",
+-		ndev->name, WIRELESS_EXT, UTS_RELEASE);
++		"against wireless extensions %d\n",
++		ndev->name, WIRELESS_EXT);
+ 
+ #if CMD_DISCOVERY
+ 	great_inquisitor(adev);
+
+
