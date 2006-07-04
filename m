@@ -1,57 +1,78 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: strict isolation of net interfaces
-Date: Tue, 04 Jul 2006 14:29:28 +0200
-Message-ID: <44AA5F28.9040109@fr.ibm.com>
-References: <20060627225213.GB2612@MAIL.13thfloor.at> <1151449973.24103.51.camel@localhost.localdomain> <20060627234210.GA1598@ms2.inr.ac.ru> <m1mzbyj6ft.fsf@ebiederm.dsl.xmission.com> <20060628133640.GB5088@MAIL.13thfloor.at> <1151502803.5203.101.camel@jzny2> <44A44124.5010602@vilain.net> <44A450D1.2030405@fr.ibm.com> <20060630023947.GA24726@sergelap.austin.ibm.com> <44A49121.4050004@vilain.net> <20060703185350.A16826@castle.nmd.msu.ru>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
+Date: Tue, 04 Jul 2006 09:05:53 -0400
+Message-ID: <1152018353.5214.14.camel@jzny2>
+References: <44892610.6040001@watson.ibm.com>
+	 <20060623164743.c894c314.akpm@osdl.org> <449CAA78.4080902@watson.ibm.com>
+	 <20060623213912.96056b02.akpm@osdl.org> <449CD4B3.8020300@watson.ibm.com>
+	 <44A01A50.1050403@sgi.com> <20060626105548.edef4c64.akpm@osdl.org>
+	 <44A020CD.30903@watson.ibm.com> <20060626111249.7aece36e.akpm@osdl.org>
+	 <44A026ED.8080903@sgi.com> <20060626113959.839d72bc.akpm@osdl.org>
+	 <44A2F50D.8030306@engr.sgi.com> <20060628145341.529a61ab.akpm@osdl.org>
+	 <44A2FC72.9090407@engr.sgi.com> <20060629014050.d3bf0be4.pj@sgi.com>
+	 <200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
+	 <20060629094408.360ac157.pj@sgi.com>
+	 <20060629110107.2e56310b.akpm@osdl.org> <44A57310.3010208@watson.ibm.com>
+	 <44A5770F.3080206@watson.ibm.com> <20060630155030.5ea1faba.akpm@osdl.org>
+	 <44A5DBE7.2020704@watson.ibm.com> <44A5EDE6.3010605@watson.ibm.com>
+	 <20060630205148.4f66b125.akpm@osdl.org> <44A9881F.7030103@watson.ibm.com>
+	 <44A9BC4D.7030803@watson.ibm.com>  <20060703180151.56f61b31.akpm@osdl.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Sam Vilain <sam@vilain.net>, "Serge E. Hallyn" <serue@us.ibm.com>,
-	Cedric Le Goater <clg@fr.ibm.com>, hadi@cyberus.ca,
-	Herbert Poetzl <herbert@13thfloor.at>,
-	Alexey Kuznetsov <alexey@sw.ru>, viro@ftp.linux.org.uk,
-	devel@openvz.org, dev@sw.ru, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ben Greear <greearb@candelatech.com>,
-	Dave Hansen <haveblue@us.ibm.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932239AbWGDM3e@vger.kernel.org>
-To: Andrey Savochkin <saw@swsoft.com>
-In-Reply-To: <20060703185350.A16826@castle.nmd.msu.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	csturtiv@sgi.com, balbir@in.ibm.com, jlan@engr.sgi.com,
+	Valdis.Kletnieks@vt.edu, pj@sgi.com,
+	Shailabh Nagar <nagar@watson.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx02.cybersurf.com ([209.197.145.105]:34491 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932148AbWGDNF7
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jul 2006 09:05:59 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060703180151.56f61b31.akpm@osdl.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrey Savochkin wrote:
+On Mon, 2006-03-07 at 18:01 -0700, Andrew Morton wrote:
+> On Mon, 03 Jul 2006 20:54:37 -0400
+> Shailabh Nagar <nagar@watson.ibm.com> wrote:
 > 
-> I still can't completely understand your direction of thoughts.
-> Could you elaborate on IP address assignment in your diagram, please?  For
-> example, guest0 wants 127.0.0.1 and 192.168.0.1 addresses on its lo
-> interface, and 10.1.1.1 on its eth0 interface.
-> Does this diagram assume any local IP addresses on v* interfaces in the
-> "host"?
+> > > What happens when a listener exits without doing deregistration
+> > > (or if the listener attempts to register another cpumask while a current
+> > > registration is still active).
+> > >
+> > ( Jamal, your thoughts on this problem would be appreciated)
+> > 
+> > Problem is that we have a listener task which has "registered" with 
+> > taskstats and caused
+> > its pid to be stored in various per-cpu lists of listeners. Later, when 
+> > some other task exits on a given cpu, its exit data is sent using 
+> > genlmsg_unicast on each pid present on that cpu's list.
+> > 
+> > If the listener exits without doing a "deregister", its pid continues to 
+> > be kept around, obviously not a good thing. So we need some way of 
+> > detecting the situation (task is no longer listening on
+> > these cpus events) that is efficient.
 > 
-> And the second question.
-> Are vlo0, veth0, etc. devices supposed to have hard_xmit routines?
+> Also need to address the case where the listener has closed off his file
+> descriptor but continues to run.
+> 
+> So hooking into listener's exit() isn't appropriate - the teardown is
+> associated with the lifetime of the fd, not of the process.  If we do that,
+> exit() gets handled for free.  
 
+If you are always going to send unicast messages, then  -ECONNREFUSED
+will tell you the listener has closed their fd - this doesnt meant it
+has exited. Besides that one process could open several sockets. I know
+that would not be the app you would write - but it doesnt stop other
+people from doing it.
+I think i may not follow what you are doing - for some reason i thought
+you may have many listeners in user space and these messages get
+multicast to them?
+Does the user space program somehow communicate its pid to the kernel?
 
-Andrey,
+cheers,
+jamal
 
-some people are interested by a network full isolation/virtualization 
-like you did with the layer 2 isolation and some other people are 
-interested by a light network isolation done at the layer 3. This one is 
-intended to implement "application container" aka "lightweight container".
-
-In the case of a layer 3 isolation, the network interface is not totally 
-isolated and the debate here is to find a way to have something 
-intuitive to manage the network devices.
-
-IHMO, all the discussion we had convinced me of the needs to have the 
-possibility to choose between a layer 2 or a layer 3 isolation.
-
-If it is ok for you, we can collaborate to merge the two solutions in 
-one. I will focus on layer 3 isolation and you on the layer 2.
-
-Regards
-
-   - Daniel
