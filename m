@@ -1,61 +1,56 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: tiacx - don't use UTS_RELEASE
-Date: Tue, 04 Jul 2006 12:00:31 +0200
-Message-ID: <1152007232.3109.32.camel@laptopd505.fenrus.org>
-References: <1152004080.3109.18.camel@laptopd505.fenrus.org>
-	 <20060704022537.97f703b4.akpm@osdl.org>
-	 <1152005247.3109.22.camel@laptopd505.fenrus.org>
-	 <20060704095105.GB24298@mars.ravnborg.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
+Date: Tue, 04 Jul 2006 12:07:15 +0200
+Message-ID: <44AA3DD3.1090106@trash.net>
+References: <200603211829.k2LITMNR029085@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:61587 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S932150AbWGDKAe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 06:00:34 -0400
-To: Sam Ravnborg <sam@ravnborg.org>
-In-Reply-To: <20060704095105.GB24298@mars.ravnborg.org>
+Received: from stinky.trash.net ([213.144.137.162]:12466 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S932183AbWGDKHR
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jul 2006 06:07:17 -0400
+To: stefan@loplof.de
+In-Reply-To: <200603211829.k2LITMNR029085@hera.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-07-04 at 11:51 +0200, Sam Ravnborg wrote:
-> On Tue, Jul 04, 2006 at 11:27:27AM +0200, Arjan van de Ven wrote:
-> > On Tue, 2006-07-04 at 02:25 -0700, Andrew Morton wrote:
-> > > On Tue, 04 Jul 2006 11:07:59 +0200
-> > > Arjan van de Ven <arjan@infradead.org> wrote:
-> > > 
-> > > > patch below removes the use of UTS_RELEASE from the tiacx driver; there
-> > > > is absolutely no reason for a driver to print the kernel version or use
-> > > > the UTS_RELEASE field; in addition this field changes all the time so
-> > > > this causes spurious rebuilds..
-> > > 
-> > > http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/gregkh-04-usb/usb-storage-uname-in-pr-sc-unneeded-message.patch did it too.
-> > > 
-> > > UTS_RELEASE doesn't change much.  It's "2.6.17".
-> > 
-> > no but the header that it's in changes all the time iirc, at least it
-> > used to (one of those kbuild regenerated files)
-> Yesterday I pushed a change that splitted include/linux/version.h in two
-> parts.
-> Now include/linux/version.h only contains:
-> #define LINUX_VERSION_CODE 132625
-> #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
+> commit ddd7bf9fe4e59afc0a041378f82b6e1aa88f714b
+> tree 98764adba1bae7d128d2e7db7d9fc1e2fe5826d8
+> parent b00055aacdb172c05067612278ba27265fcd05ce
+> author Stefan Rompf <stefan@loplof.de> Tue, 21 Mar 2006 09:11:41 -0800
+> committer David S. Miller <davem@davemloft.net> Tue, 21 Mar 2006 09:11:41 -0800
 > 
-> And the file wil only be regenerated when the file-content actually
-> changes.
-> 
-> And UTS_RELEASE has moved to include/linux/utsrelease.h which contains:
-> #define UTS_RELEASE "2.6.17-g05668381-dirty"
-> 
-> This is the file that will change often - at least for git users.
-> But with the patch only users of UTS_RELEASE will be rebuild which is
-> far less than users of version.h.
+> [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
+>
+> diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+> index fa76220..3948949 100644
+> --- a/net/8021q/vlan.c
+> +++ b/net/8021q/vlan.c
+> @@ -69,7 +69,7 @@ static struct packet_type vlan_packet_ty
+>  
+>  /* Bits of netdev state that are propagated from real device to virtual */
+>  #define VLAN_LINK_STATE_MASK \
+> -	((1<<__LINK_STATE_PRESENT)|(1<<__LINK_STATE_NOCARRIER))
+> +	((1<<__LINK_STATE_PRESENT)|(1<<__LINK_STATE_NOCARRIER)|(1<<__LINK_STATE_DORMANT))
+>  
+>  /* End of global variables definitions. */
+>  
+> @@ -450,7 +470,7 @@ static struct net_device *register_vlan_
+>  	new_dev->flags = real_dev->flags;
+>  	new_dev->flags &= ~IFF_UP;
+>  
+> -	new_dev->state = real_dev->state & VLAN_LINK_STATE_MASK;
+> +	new_dev->state = real_dev->state & ~(1<<__LINK_STATE_START);
+>  
+>  	/* need 4 bytes for extra VLAN header info,
+>  	 * hope the underlying device can handle it.
 
-which is a good thing, and we should keep users of utsrelease.h to a
-minimum... hence my patch to eliminate a user ;) (which used it to do a
-printk.. but if you use a kernel the version is already in dmesg, no
-need to printk it again :)
-
+This introduced a regression by propagating the __LINK_STATE_XOFF flag,
+when the queue of the underlying device is stopped it will be stopped
+for the VLAN device too and never be woken up. Since you changed
+VLAN_LINK_STATE_MASK, I assume the intention was to just add
+__LINK_STATE_DORMANT to the propagated flags and keep using it here?
 
