@@ -1,56 +1,55 @@
-From: Paul Jackson <pj@sgi.com>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Tue, 4 Jul 2006 13:22:41 -0700
-Message-ID: <20060704132241.385aecc6.pj@sgi.com>
-References: <44892610.6040001@watson.ibm.com>
-	<449CAA78.4080902@watson.ibm.com>
-	<20060623213912.96056b02.akpm@osdl.org>
-	<449CD4B3.8020300@watson.ibm.com>
-	<44A01A50.1050403@sgi.com>
-	<20060626105548.edef4c64.akpm@osdl.org>
-	<44A020CD.30903@watson.ibm.com>
-	<20060626111249.7aece36e.akpm@osdl.org>
-	<44A026ED.8080903@sgi.com>
-	<20060626113959.839d72bc.akpm@osdl.org>
-	<44A2F50D.8030306@engr.sgi.com>
-	<20060628145341.529a61ab.akpm@osdl.org>
-	<44A2FC72.9090407@engr.sgi.com>
-	<20060629014050.d3bf0be4.pj@sgi.com>
-	<200606291230.k5TCUg45030710@turing-police.cc.vt.edu>
-	<20060629094408.360ac157.pj@sgi.com>
-	<20060629110107.2e56310b.akpm@osdl.org>
-	<44A57310.3010208@watson.ibm.com>
-	<44A5770F.3080206@watson.ibm.com>
-	<20060630155030.5ea1faba.akpm@osdl.org>
-	<44A5DBE7.2020704@watson.ibm.com>
-	<44A5EDE6.3010605@watson.ibm.com>
-	<20060630205148.4f66b125.akpm@osdl.org>
-	<44A9881F.7030103@watson.ibm.com>
-	<20060703144106.cc5bd6f6.akpm@osdl.org>
-	<20060704131913.83a604a0.pj@sgi.com>
+From: Diann <Diann@ad.funnel.revenuedirect.com.akadns.net>
+Subject: Details inside(work at home).
+Date: Tue, 4 Jul 2006 16:26:11 -0400
+Message-ID: <EC89E760.7113142@rednecks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, nagar@watson.ibm.com, Valdis.Kletnieks@vt.edu,
-	jlan@engr.sgi.com, balbir@in.ibm.com, csturtiv@sgi.com,
-	linux-kernel@vger.kernel.org, hadi@cyberus.ca,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+	format=flowed
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omx2-ext.sgi.com ([192.48.171.19]:33702 "EHLO omx2.sgi.com")
-	by vger.kernel.org with ESMTP id S932383AbWGDUXF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2006 16:23:05 -0400
-To: Paul Jackson <pj@sgi.com>
-In-Reply-To: <20060704131913.83a604a0.pj@sgi.com>
+Received: from zeus2.kernel.org ([204.152.191.36]:23486 "EHLO zeus2.kernel.org")
+	by vger.kernel.org with ESMTP id S932389AbWGDUZt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jul 2006 16:25:49 -0400
+Received: from randy.cinci.rr.com (cpe-65-29-220-98.cinci.res.rr.com [65.29.220.98])
+	by zeus2.kernel.org (8.13.1/8.13.1) with SMTP id k64KPXbF009198
+	for <netdev@vger.kernel.org>; Tue, 4 Jul 2006 20:25:45 GMT
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-pj wrote:
-> writes the code gets to 
+Hello Everyone! 
+You have recieved this e-mail from us, we wanted to notify you that we
+are strating our new project and we have a lot to offer. For right now 
+you have an amazing opportunity to earn funds by helping us. There are 
+a lot of people who's seeking for a good job, but still coudln't find 
+any. We are right here right now, you have a chance to get into our 
+project and help us out, thus you will earn some good money. Consider 
+yourself lucky, this is really a great opportunity. 
 
-Never mind that last incomplete post - I hit Send
-when I meant to hit Cancel.
+Ok, closer to the deal. Our project has different kinds of opporunities 
+and vacancies, you can take a look at our website for more information. 
+You will get interested. Plus you don't need any school degree, no 
+education, no past experience. This is a universal opportunity. You need to 
+make a registration on our website and you will be included into our 
+project and we will contact you within 24 hours and will tell you what's 
+going on on your side and what you need to do. Don't think you will not 
+be able to handle your job, it's really very easy and interesting job, 
+and our agents are very friendly. You have to be 18 years old or older. 
+We will put you on the minimal earning plan first, which is around 2000 
+United States dollars per week. After two or three deals you will get 
+raised. 
 
--- 
-                  I won't rest till it's the best ...
-                  Programmer, Linux Scalability
-                  Paul Jackson <pj@sgi.com> 1.925.600.0401
+Alright. Now the question is what do you really have to do. You have to 
+be able to work 1-3 hours a day. The best time is in the morning. Don't 
+worry about your current job, feel yourself comfortable and take care 
+of your things first and then think about this opportunity we give you. 
+But enthusiasm is always appreciated. Once again, the more you work 
+with us - the more you earn, and this is how it goes. For more information 
+visit our website: http://www.wdajob.com don't forget you need to make a
+registration in order to start working with us. When you will get registered 
+we will contact you within 24 hours, please provide your valid phone 
+number. You are very welcome to join our project. Thank You and have a 
+Great Day!
+
+Best Regards 
+
