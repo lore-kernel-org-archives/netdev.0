@@ -1,122 +1,92 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
-Date: Wed, 05 Jul 2006 10:09:35 -0400
-Message-ID: <44ABC81F.6060405@watson.ibm.com>
-References: <44892610.6040001@watson.ibm.com>	 <44A01A50.1050403@sgi.com>	 <20060626105548.edef4c64.akpm@osdl.org> <44A020CD.30903@watson.ibm.com>	 <20060626111249.7aece36e.akpm@osdl.org> <44A026ED.8080903@sgi.com>	 <20060626113959.839d72bc.akpm@osdl.org> <44A2F50D.8030306@engr.sgi.com>	 <20060628145341.529a61ab.akpm@osdl.org> <44A2FC72.9090407@engr.sgi.com>	 <20060629014050.d3bf0be4.pj@sgi.com>	 <200606291230.k5TCUg45030710@turing-police.cc.vt.edu>	 <20060629094408.360ac157.pj@sgi.com>	 <20060629110107.2e56310b.akpm@osdl.org> <44A57310.3010208@watson.ibm.com>	 <44A5770F.3080206@watson.ibm.com> <20060630155030.5ea1faba.akpm@osdl.org>	 <44A5DBE7.2020704@watson.ibm.com> <44A5EDE6.3010605@watson.ibm.com>	 <20060630205148.4f66b125.akpm@osdl.org> <44A9881F.7030103@watson.ibm.com>	 <44A9BC4D.7030803@watson.ibm.com> <20060703180151.56f61b31.akpm@osdl.org>	 <1152018353.5214.14.camel@jzny2> <44AA
- 86BF.3090600@watson.ibm.com>	 <44AA9951.1060804@watson.ibm.com> <1152041070.5276.29.camel!
- @jzny2>
+From: "Angelo P. Castellani" <angelo.castellani@gmail.com>
+Subject: [TCP] window update during recovery (continuing on window reduction)
+Date: Wed, 5 Jul 2006 16:28:45 +0200
+Message-ID: <8dd26e70607050728u240d40c7s3b27360dbe82067f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: pj@sgi.com, Valdis.Kletnieks@vt.edu, jlan@engr.sgi.com,
-	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>
+Content-Type: multipart/mixed;
+	boundary="----=_Part_173543_30408169.1152109725340"
+Cc: "Francesco Vacirca" <francesco@net.infocom.uniroma1.it>,
+	"Andrea Baiocchi" <andrea.baiocchi@uniroma1.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:5791 "EHLO e33.co.us.ibm.com")
-	by vger.kernel.org with ESMTP id S964875AbWGEOKe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 10:10:34 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1152041070.5276.29.camel@jzny2>
+Received: from nf-out-0910.google.com ([64.233.182.188]:32791 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S964882AbWGEO2q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jul 2006 10:28:46 -0400
+Received: by nf-out-0910.google.com with SMTP id k26so954599nfc
+        for <netdev@vger.kernel.org>; Wed, 05 Jul 2006 07:28:45 -0700 (PDT)
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Shailabh,
-> 
-> On Tue, 2006-04-07 at 12:37 -0400, Shailabh Nagar wrote:
-> [..]
-> 
->>Here's a strawman for the problem we're trying to solve: get
->>notification of the close of a NETLINK_GENERIC socket that had
->>been used to register interest for some cpus within taskstats.
->>
->> From looking at the netlink code, the way to go seems to be
->>
->>- it maintains a pidhash of nl_pids that are currently
->>registered to listen to atleast one cpu. It also stores the
->>cpumask used.
->>- taskstats registers a notifier block within netlink_chain
->>and receives a callback on the NETLINK_URELEASE event, similar
->>to drivers/scsci/scsi_transport_iscsi.c: iscsi_rcv_nl_event()
->>
->>- the callback checks to see that the protocol is NETLINK_GENERIC
->>and that the nl_pid for the socket is in taskstat's pidhash. If so, it
->>does a cleanup using the stored cpumask and releases the nl_pid
->>from the pidhash.
->>
-> 
-> 
-> Sound quiet reasonable.  I am beginning to wonder whether we should do 
-> do the NETLINK_URELEASE in general for NETLINK_GENERIC
+------=_Part_173543_30408169.1152109725340
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-I'd initially thought that might be useful but since NETLINK_GENERIC
-is only "virtually" multiplexing the sockfd amongst each of its users,
-I don't know what benefits a generic notifier at NETLINK_GENERIC layer
-would bring (as opposed to each NETLINK_GENERIC user directly registering
-its callback with netlink). Perhaps simplicity ?
+During a recovery, we should always reduce send window if the host is
+notifying a window reduction.
 
+This is needed because in the recovery phase the host requires to
+buffer the packets between the beginning of the recovery and the data
+we're sending "forward" with ssthresh window and sacked_out count.
 
->>We can even do away with the deregister command altogether and
->>simply rely on this autocleanup.
-> 
-> 
-> I think if you may still need the register if you are going to allow
-> multiple sockets per listener process, no?
+So it isn't buffering the in_flight packets, but a number of packets
+that could be much higher.
 
-The register command, yes. But an explicit deregister, as opposed to
-auto cleanup on fd close, may not be used all that much :-)
+If the host asks a window reduction its buffer is filling up, and if
+we ignore the reduction, when the buffer is full all the packets
+arriving to the host will be dropped.
 
-> The other question is how do you correlate pid -> fd?
+When the first packet is dropped the host will begin asking for a zero
+window; this request will be eventually granted, however in the
+meantime we will have lost a full window of packets.
 
-For the notifier callback, I thought netlink_release will
-provide the nl_pid correspoding to the fd being closed ?
-I can just do a search for that nl_pid in the taskstats-private pidhash.
+Anyway we could neither set the FLAG_WIN_UPDATE, otherwise the ack
+will not be considered a DUPACK and when using Reno the sacked_out
+count will not be updated.
 
-The nl_pid gets into the pidhash using the genl_info->pid field
-when the listener issues the register command.
+Regards,
+Angelo P. Castellani
 
-Will that be correct ?
+------=_Part_173543_30408169.1152109725340
+Content-Type: text/x-patch; name=silent_window_update.diff;
+	charset=ISO-8859-1
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ep9scos8
+Content-Disposition: attachment; filename="silent_window_update.diff"
 
-So here's the sequence of pids being used/hashed etc. Please let
-me know if my assumptions are correct ?
-
-1. Same listener thread opens 2 sockets
-
-On sockfd1, does a bind() using
-	sockaddr_nl.nl_pid = my_pid1
-On sockfd2, does a bind() using
-	sockaddr_nl.nl_pid = my_pid2
-
-(one of my_pid1's could by its process pid but doesn't have to be)
-
-2. Listener supplies cpumasks on each of the sockets through a
-register command sent on sockfd1.
-
-In the kernel, when the command is received,
-the genl_info->pid field contains my_pid1
-
-my_pid1 is stored in a pidhash alongwith the corresponding cpumask.
-
-cpumask is used to store the my_pid1 into per-cpu lists for each
-cpu in the mask.
-
-3. When an exit event happens on one of those cpus in the mask,
-it is sent to this listener using
-	genlmsg_unicast(...., my_pid1)
-
-
-4. When the listener closes sockfd1, netlink_release() gets called
-and that calls a taskstats notifier callback (say taskstats_cb) with
-	struct netlink_notify n =
-	{ .protocol =  NETLINK_GENERIC, .pid = my_pid1 }
-
-and using the .pid within, taskstats_cb can do a lookup within its
-pidhash. If its present, use the cpumask stored alongside to go
-clean up my_pid1 stored in the listener list of each cpu in the mask.
-
-
---Shailabh
-
-	
-
-
+ZGlmZiAtdXJkIGxpbnV4LTIuNi4xNi1vcmlnL25ldC9pcHY0L3RjcF9pbnB1dC5jIGxpbnV4LTIu
+Ni4xNi13aW51cGRhdGUvbmV0L2lwdjQvdGNwX2lucHV0LmMKLS0tIGxpbnV4LTIuNi4xNi1vcmln
+L25ldC9pcHY0L3RjcF9pbnB1dC5jCTIwMDYtMDUtMTYgMTQ6NTM6MDIuMDAwMDAwMDAwICswMjAw
+CisrKyBsaW51eC0yLjYuMTYtd2ludXBkYXRlL25ldC9pcHY0L3RjcF9pbnB1dC5jCTIwMDYtMDct
+MDUgMTU6Mzg6MDguMDAwMDAwMDAwICswMjAwCkBAIC0yMzY1LDEyICsyMzY1LDQ0IEBACiB7CiAJ
+aW50IGZsYWcgPSAwOwogCXUzMiBud2luID0gbnRvaHMoc2tiLT5oLnRoLT53aW5kb3cpOworCXN0
+cnVjdCBpbmV0X2Nvbm5lY3Rpb25fc29jayAqaWNzayA9IGluZXRfY3NrKHNrKTsKKwlpbnQgc2ls
+ZW50X3VwZGF0ZSA9IDA7CiAKIAlpZiAobGlrZWx5KCFza2ItPmgudGgtPnN5bikpCiAJCW53aW4g
+PDw9IHRwLT5yeF9vcHQuc25kX3dzY2FsZTsKIAotCWlmICh0Y3BfbWF5X3VwZGF0ZV93aW5kb3co
+dHAsIGFjaywgYWNrX3NlcSwgbndpbikpIHsKLQkJZmxhZyB8PSBGTEFHX1dJTl9VUERBVEU7CisJ
+LyoKKwkgKiBEdXJpbmcgYSByZWNvdmVyeSwgd2Ugc2hvdWxkIGFsd2F5cyByZWR1Y2Ugc2VuZCB3
+aW5kb3cgaWYgdGhlIGhvc3QKKwkgKiBpcyBub3RpZnlpbmcgYSB3aW5kb3cgcmVkdWN0aW9uLgor
+CSAqCisJICogVGhpcyBpcyBuZWVkZWQgYmVjYXVzZSBpbiB0aGUgcmVjb3ZlcnkgcGhhc2UgdGhl
+IGhvc3QgcmVxdWlyZXMKKwkgKiB0byBidWZmZXIgdGhlIHBhY2tldHMgYmV0d2VlbiB0aGUgYmVn
+aW5uaW5nIG9mIHRoZSByZWNvdmVyeQorCSAqIGFuZCB0aGUgZGF0YSB3ZSdyZSBzZW5kaW5nICJm
+b3J3YXJkIiB3aXRoIHNzdGhyZXNoIHdpbmRvdyBhbmQKKwkgKiBzYWNrZWRfb3V0IGNvdW50Lgor
+CSAqCisJICogU28gaXQgaXNuJ3QgYnVmZmVyaW5nIHRoZSBpbl9mbGlnaHQgcGFja2V0cywgYnV0
+IGEgbnVtYmVyIG9mIHBhY2tldHMKKwkgKiB0aGF0IGNvdWxkIGJlIG11Y2ggaGlnaGVyLgorCSAq
+CisJICogSWYgdGhlIGhvc3QgYXNrcyBhIHdpbmRvdyByZWR1Y3Rpb24gaXRzIGJ1ZmZlciBpcyBm
+aWxsaW5nIHVwLCBhbmQgaWYgd2UKKwkgKiBpZ25vcmUgdGhlIHJlZHVjdGlvbiwgd2hlbiB0aGUg
+YnVmZmVyIGlzIGZ1bGwgYWxsIHRoZSBwYWNrZXRzIGFycml2aW5nCisJICogdG8gdGhlIGhvc3Qg
+d2lsbCBiZSBkcm9wcGVkLgorCSAqCisJICogV2hlbiB0aGUgZmlyc3QgcGFja2V0IGlzIGRyb3Bw
+ZWQgdGhlIGhvc3Qgd2lsbCBiZWdpbiBhc2tpbmcgZm9yIGEgemVybworCSAqIHdpbmRvdzsgdGhp
+cyByZXF1ZXN0IHdpbGwgYmUgZXZlbnR1YWxseSBncmFudGVkLCBob3dldmVyIGluIHRoZQorCSAq
+IG1lYW50aW1lIHdlIHdpbGwgaGF2ZSBsb3N0IGEgZnVsbCB3aW5kb3cgb2YgcGFja2V0cy4KKwkg
+KgorCSAqIEFueXdheSB3ZSBjb3VsZCBuZWl0aGVyIHNldCB0aGUgRkxBR19XSU5fVVBEQVRFLCBv
+dGhlcndpc2UgdGhlCisJICogYWNrIHdpbGwgbm90IGJlIGNvbnNpZGVyZWQgYSBEVVBBQ0sgYW5k
+IHdoZW4gdXNpbmcgUmVubyB0aGUgCisJICogc2Fja2VkX291dCBjb3VudCB3aWxsIG5vdCBiZSB1
+cGRhdGVkLgorCSAqCisJICovCisJaWYgKGljc2stPmljc2tfY2Ffc3RhdGUgPT0gVENQX0NBX1Jl
+Y292ZXJ5ICYmCisJCSAgICBud2luIDwgdHAtPnNuZF93bmQpCisJCXNpbGVudF91cGRhdGUgPSAx
+OworCisJaWYgKHNpbGVudF91cGRhdGUgfHwgdGNwX21heV91cGRhdGVfd2luZG93KHRwLCBhY2ss
+IGFja19zZXEsIG53aW4pKSB7CisJCWlmICghc2lsZW50X3VwZGF0ZSkKKwkJCWZsYWcgfD0gRkxB
+R19XSU5fVVBEQVRFOwogCQl0Y3BfdXBkYXRlX3dsKHRwLCBhY2ssIGFja19zZXEpOwogCiAJCWlm
+ICh0cC0+c25kX3duZCAhPSBud2luKSB7Cg==
+------=_Part_173543_30408169.1152109725340--
