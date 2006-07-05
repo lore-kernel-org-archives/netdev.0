@@ -1,67 +1,69 @@
-From: "Daniel J Blueman" <daniel.blueman@gmail.com>
-Subject: Re: sky2 rx error problems...
-Date: Wed, 5 Jul 2006 12:44:58 +0100
-Message-ID: <6278d2220607050444o680ac35dn68e2fd0adb918812@mail.gmail.com>
-References: <6278d2220605301408g646fc01l49a8713763cdc009@mail.gmail.com>
-	 <20060530161714.4420e9b4@dxpl.pdx.osdl.net>
+From: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
+Subject: Re: possible dos / wsize affected frozen connection length (was: Re: 2.6.17.1: fails to fully get webpage)
+Date: Wed, 5 Jul 2006 07:54:01 -0400
+Message-ID: <Pine.LNX.4.61.0607050743470.30694@chaos.analogic.com>
+References: <20060629015915.GH2149@zip.com.au> <20060628.194627.74748190.davem@davemloft.net> <20060629030923.GI2149@zip.com.au> <20060628.204709.41634813.davem@davemloft.net> <20060629041827.GJ2149@zip.com.au> <44A3E898.1020202@tmr.com> <20060629225039.GO2149@zip.com.au> <20060705005540.GL2344@zip.com.au>
+Reply-To: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Netfilter Developer" <netfilter-devel@lists.netfilter.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.183]:56995 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S964820AbWGELpc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jul 2006 07:45:32 -0400
-Received: by py-out-1112.google.com with SMTP id t32so2177892pyc
-        for <netdev@vger.kernel.org>; Wed, 05 Jul 2006 04:44:58 -0700 (PDT)
-To: "Stephen Hemminger" <shemminger@osdl.org>
-In-Reply-To: <20060530161714.4420e9b4@dxpl.pdx.osdl.net>
-Content-Disposition: inline
+Received: from odyssey.analogic.com ([204.178.40.5]:35600 "EHLO
+	odyssey.analogic.com") by vger.kernel.org with ESMTP
+	id S964830AbWGELyE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 07:54:04 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20060705005540.GL2344@zip.com.au>
+To: "CaT" <cat@zip.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
 
-Sorry to bring you more trouble. I'm able to reproduce this 'status
-0x977d977d' rx race even with a 100Mb FD connection (MTU 1500) to the
-host sending the data.
+On Tue, 4 Jul 2006, CaT wrote:
 
-Would it help if I try and capture some packet stats or a dump of
-this? The packets being received at the sending host will be a steady
-stream of TCP acks and SMB protocol acks (every 64KB of data), so not
-too heavy. The sending host has a Pentium-M 1.7GHz with 2MB L2$ and is
-quiescent apart from samba sending data via sendfile(), so is
-relatively powerful.
-
-Let me know if there is anything I can do to help.
-
-Many thanks,
-  Daniel
-
-On 31/05/06, Stephen Hemminger <shemminger@osdl.org> wrote:
-> On Tue, 30 May 2006 22:08:12 +0100
-> "Daniel J Blueman" <daniel.blueman@gmail.com> wrote:
+> On Fri, Jun 30, 2006 at 08:50:39AM +1000, CaT wrote:
+>> Another datapoint to this is that I've had this my netcat web test
+>> running since 8:42pm yesterday. It's 8:37am now. It hasn't progressed
+>> in any way. It hasn't quit. It hasn't timed out. It just sits there,
+>> hung. This leads me to consider the possibility of a DOS, either
+>> intentional or accidental (think about 2.6.17.x running on a mail server
+>> and someone mails/spams from a broken place).
 >
-> > To follow on from the previous 'sky2 rx error' problem reported, the
-> > problem doesn't have anything to do with iptables or MTU settings, ie
-> > can be reproduced out the box.
-> >
-> > The race is hit after a couple of GBs of data. Initially, I thought
-> > this may have something to do with broken MSI support on my Intel
-> > ICH-7M chipset, but disabling MSI didn't help.
-> >
-> > kernel: sky2 lan0: rx error, status 0x977d977d length 0
-> >
-> > Is there any debug information I can get to help or such? Voluntary
-> > preemption is enabled, UP, HZ=100 on 2.6.17-rc4 on i686.
-> >
-> > Dan
+> I'm just wondering if connections hanging around this long are normal.
+> The above has now been running for 6 days. netstat is still reporting an
+> established session. netcat has not timed out. It's all just sitting
+> there doing nothing.
 >
-> No the problem is your CPU isn't keeping up with the incoming flood
-> and what ever you are connected to doesn't do hardware flow control.
-> The driver doesn't properly flush the FIFO (yet), and it is not clear
-> even from the NDA documentation the steps required.
--- 
-Daniel J Blueman
+> --
+
+>    "To the extent that we overreact, we proffer the terrorists the
+>    greatest tribute."
+>    	- High Court Judge Michael Kirby
+
+TCP/IP connections can continue forever. That's one of the reasons why
+Berkeley sockets has SO_KEEPALIVE for a socket option. In the absence
+of such an option, the physical connection can be broken for a week,
+reconnected, then the session can continue.
+
+In your case, you probably have a real error in which one end of the
+connection crashed. However, until the other end shuts down that
+socket, the connection is logically correct and should not be
+forcefully terminated.
+
+A DOS is unlikely because with no data being transferred, little
+non-swapable resources are used. You can control the maximum number
+of connections allowed from a host with your firewall software
+(like iptables).
+
+Cheers,
+Dick Johnson
+Penguin : Linux version 2.6.16.4 on an i686 machine (5592.86 BogoMips).
+New book: http://www.AbominableFirebug.com/
+_
+
+
+****************************************************************
+The information transmitted in this message is confidential and may be privileged.  Any review, retransmission, dissemination, or other use of this information by persons or entities other than the intended recipient is prohibited.  If you are not the intended recipient, please notify Analogic Corporation immediately - by replying to this message or by sending an email to DeliveryErrors@analogic.com - and destroy all copies of this information, including any attachments, without reading or disclosing them.
+
+Thank you.
