@@ -1,35 +1,50 @@
-From: CaT <cat@zip.com.au>
-Subject: possible dos / wsize affected frozen connection length (was: Re: 2.6.17.1: fails to fully get webpage)
-Date: Wed, 5 Jul 2006 10:55:41 +1000
-Message-ID: <20060705005540.GL2344@zip.com.au>
-References: <20060629015915.GH2149@zip.com.au> <20060628.194627.74748190.davem@davemloft.net> <20060629030923.GI2149@zip.com.au> <20060628.204709.41634813.davem@davemloft.net> <20060629041827.GJ2149@zip.com.au> <44A3E898.1020202@tmr.com> <20060629225039.GO2149@zip.com.au>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 1/3] [PKT_SCHED]: Fix illegal memory dereferences when
+	dumping actions
+Date: Tue, 04 Jul 2006 21:34:40 -0400
+Message-ID: <1152063280.5199.1.camel@jzny2>
+References: <20060704220504.787776000@postel.suug.ch>
+	 <20060704220549.952720000@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nessie.weebeastie.net ([220.233.7.36]:30222 "EHLO
-	bunyip.lochness.weebeastie.net") by vger.kernel.org with ESMTP
-	id S932356AbWGEAy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 20:54:29 -0400
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20060629225039.GO2149@zip.com.au>
+Received: from mx03.cybersurf.com ([209.197.145.106]:57218 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932436AbWGEBen
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jul 2006 21:34:43 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1FxwHx-000139-SE
+	for netdev@vger.kernel.org; Tue, 04 Jul 2006 21:34:49 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060704220549.952720000@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 30, 2006 at 08:50:39AM +1000, CaT wrote:
-> Another datapoint to this is that I've had this my netcat web test
-> running since 8:42pm yesterday. It's 8:37am now. It hasn't progressed
-> in any way. It hasn't quit. It hasn't timed out. It just sits there,
-> hung. This leads me to consider the possibility of a DOS, either
-> intentional or accidental (think about 2.6.17.x running on a mail server
-> and someone mails/spams from a broken place).
+On Wed, 2006-05-07 at 00:00 +0200, Thomas Graf wrote:
+> plain text document attachment (act_fix_dump_null_deref)
+> The TCA_ACT_KIND attribute is used without checking its
+> availability when dumping actions therefore leading to a
+> value of 0x4 being dereferenced.
+> 
+> The use of strcmp() in tc_lookup_action_n() isn't safe
+> when fed with string from an attribute without enforcing
+> proper NUL termination.
+> 
+> Both bugs can be triggered with malformed netlink message
+> and don't require any privileges.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> 
 
-I'm just wondering if connections hanging around this long are normal.
-The above has now been running for 6 days. netstat is still reporting an
-established session. netcat has not timed out. It's all just sitting
-there doing nothing.
+Good catch.
 
--- 
-    "To the extent that we overreact, we proffer the terrorists the
-    greatest tribute."
-    	- High Court Judge Michael Kirby
+Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+
+cheers,
+jamal
+
