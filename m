@@ -1,36 +1,67 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: 2.6.17-mm6
-Date: Wed, 5 Jul 2006 13:13:50 +0200
-Message-ID: <20060705111350.GA25161@elte.hu>
-References: <20060703030355.420c7155.akpm@osdl.org> <200607042153.31848.rjw@sisk.pl> <1152043271.3109.95.camel@laptopd505.fenrus.org> <44AB940F.7000801@s5r6.in-berlin.de> <44AB9633.9090208@s5r6.in-berlin.de>
+From: "Daniel J Blueman" <daniel.blueman@gmail.com>
+Subject: Re: sky2 rx error problems...
+Date: Wed, 5 Jul 2006 12:44:58 +0100
+Message-ID: <6278d2220607050444o680ac35dn68e2fd0adb918812@mail.gmail.com>
+References: <6278d2220605301408g646fc01l49a8713763cdc009@mail.gmail.com>
+	 <20060530161714.4420e9b4@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@infradead.org>, netdev@vger.kernel.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Andrew Morton <akpm@osdl.org>,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964813AbWGELSd@vger.kernel.org>
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Netfilter Developer" <netfilter-devel@lists.netfilter.org>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from py-out-1112.google.com ([64.233.166.183]:56995 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S964820AbWGELpc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jul 2006 07:45:32 -0400
+Received: by py-out-1112.google.com with SMTP id t32so2177892pyc
+        for <netdev@vger.kernel.org>; Wed, 05 Jul 2006 04:44:58 -0700 (PDT)
+To: "Stephen Hemminger" <shemminger@osdl.org>
+In-Reply-To: <20060530161714.4420e9b4@dxpl.pdx.osdl.net>
 Content-Disposition: inline
-In-Reply-To: <44AB9633.9090208@s5r6.in-berlin.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Stephen,
 
-* Stefan Richter <stefanr@s5r6.in-berlin.de> wrote:
+Sorry to bring you more trouble. I'm able to reproduce this 'status
+0x977d977d' rx race even with a 100Mb FD connection (MTU 1500) to the
+host sending the data.
 
-> I wrote:
-> > (Ieee1394 core's usage of the skb_* API is entirely unrelated to
-> > networking; even if eth1394 was used.)
-> 
-> PS:
-> I wonder if it wouldn't be better to migrate ieee1394 core away from 
-> skb_*. I didn't look thoroughly at it yet but the benefit of using 
-> this API appears quite low to me.
+Would it help if I try and capture some packet stats or a dump of
+this? The packets being received at the sending host will be a steady
+stream of TCP acks and SMB protocol acks (every 64KB of data), so not
+too heavy. The sending host has a Pentium-M 1.7GHz with 2MB L2$ and is
+quiescent apart from samba sending data via sendfile(), so is
+relatively powerful.
 
-yeah, it seems to be the wrong abstraction to use. It's also more 
-expensive than necessary: e.g. skb-heads have a qlen field that is 
-maintained in every list op - but the ieee1394 code does not make use of 
-the queue-length information. Using list.h plus a spinlock should do the 
-trick?
+Let me know if there is anything I can do to help.
 
-	Ingo
+Many thanks,
+  Daniel
+
+On 31/05/06, Stephen Hemminger <shemminger@osdl.org> wrote:
+> On Tue, 30 May 2006 22:08:12 +0100
+> "Daniel J Blueman" <daniel.blueman@gmail.com> wrote:
+>
+> > To follow on from the previous 'sky2 rx error' problem reported, the
+> > problem doesn't have anything to do with iptables or MTU settings, ie
+> > can be reproduced out the box.
+> >
+> > The race is hit after a couple of GBs of data. Initially, I thought
+> > this may have something to do with broken MSI support on my Intel
+> > ICH-7M chipset, but disabling MSI didn't help.
+> >
+> > kernel: sky2 lan0: rx error, status 0x977d977d length 0
+> >
+> > Is there any debug information I can get to help or such? Voluntary
+> > preemption is enabled, UP, HZ=100 on 2.6.17-rc4 on i686.
+> >
+> > Dan
+>
+> No the problem is your CPU isn't keeping up with the incoming flood
+> and what ever you are connected to doesn't do hardware flow control.
+> The driver doesn't properly flush the FIFO (yet), and it is not clear
+> even from the NDA documentation the steps required.
+-- 
+Daniel J Blueman
