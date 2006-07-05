@@ -1,93 +1,52 @@
-From: Wei Yongjun <yjwei@nanjing-fnst.com>
-Subject: [PATCH] SNMPv2 tcpAttemptFails counter error
-Date: Wed, 05 Jul 2006 05:19:54 -0400
-Message-ID: <1152091195.3866.4.camel@LINE>
+From: "Galya" <rud@7cont.ru>
+Subject: Re[3]:hello from Galina S.
+Date: Wed, 05 Jul 2006 12:40:13 +0300
+Message-ID: <00a701c6a016$e8143180$f405000a__10297.429157845$1152092460$gmane$org@202.159.241.189>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=windows-1251
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [221.6.14.228] ([221.6.14.228]:48775 "EHLO
-	localmail.nanjing-fnst.com") by vger.kernel.org with ESMTP
-	id S964775AbWGEJKJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jul 2006 05:10:09 -0400
-To: netdev@vger.kernel.org
+Received: from [202.159.241.189] ([202.159.241.189]:59913 "EHLO
+	202.159.241.189") by vger.kernel.org with ESMTP id S964786AbWGEJjk
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jul 2006 05:39:40 -0400
+To: "netdev" <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Refer to RFC2012, tcpAttemptFails is defined as following:
-  tcpAttemptFails OBJECT-TYPE
-      SYNTAX      Counter32
-      MAX-ACCESS  read-only
-      STATUS      current
-      DESCRIPTION
-              "The number of times TCP connections have made a direct
-              transition to the CLOSED state from either the SYN-SENT
-              state or the SYN-RCVD state, plus the number of times TCP
-              connections have made a direct transition to the LISTEN
-              state from the SYN-RCVD state."
-      ::= { tcp 7 }
+Hello=85=09
 
-When I lookup into RFC793, I found that the state change should occured
-under following condition:
-  1. SYN-SENT -> CLOSED
-     a) Received ACK,RST segment when SYN-SENT state.
+I want to start my first letter from a question: "Is it possible to be =
+happy without LOVE?"
+I think that you will agree with me if the answer will be "NO WAY". Lov=
+e is the most beautiful and exciting thing
+that may happen between man and woman! It inspires us only for doing po=
+sitive things towards each other.
+One very famous writer said: "The beauty will rescue the world" i agree=
+ with his words but still i would add :
+" LOVE and Beauty will rescure the world".=20
+I hope you agree with me that Love is a big notion.
+There's love to  God, to Mother, to a child to the country where you we=
+re born, and there's love that joins a man
+and woman for all their life. That is the LOVE i'm looking for! And i'm=
+ seeking for the man who is also eager to have
+this life long adventure full of surprises and new experience we can sh=
+are together! Will you join me for this trip?
+I do realise that it should be very difficult to say "Yes" from the fir=
+st letter having no idea about me.
+That's why i just offer to get to know each other better though corresp=
+ondence that will help us to reveal many things
+about each other whether we mach perfectly or not. In addition you can =
+look at my pictures and read some info about me here
+http://foryou-mydestiny.com/
+I hope you'll like what you see and read there.
+Well closing my first letter to you i just want to thank you for readin=
+g it and i really hope that you'll share
+my point of view on what i said above. I do really hope that you'll ans=
+wer me soon.
 
-  2. SYN-RCVD -> CLOSED
-     b) Received SYN segment when SYN-RCVD state(came from LISTEN).
-     c) Received RST segment when SYN-RCVD state(came from SYN-SENT).
-     d) Received SYN segment when SYN-RCVD state(came from SYN-SENT).
+a rivederci,
 
-  3. SYN-RCVD -> LISTEN
-     e) Received RST segment when SYN-RCVD state(came from LISTEN).
-
-In my test, those direct state transition can not be counted to
-tcpAttemptFails. Following is my patch:
-
-Signed-off-by: Wei Yongjun <yjwei@nanjing-fnst.com>
-
---- a/net/ipv4/tcp_input.c	2006-06-30 13:37:38.000000000 -0400
-+++ b/net/ipv4/tcp_input.c	2006-07-05 04:45:04.000000000 -0400
-@@ -4089,6 +4089,7 @@ static int tcp_rcv_synsent_state_process
- 		 */
- 
- 		if (th->rst) {
-+			TCP_INC_STATS_BH(TCP_MIB_ATTEMPTFAILS);
- 			tcp_reset(sk);
- 			goto discard;
- 		}
-@@ -4377,6 +4378,8 @@ int tcp_rcv_state_process(struct sock *s
- 
- 	/* step 2: check RST bit */
- 	if(th->rst) {
-+		if(sk->sk_state == TCP_SYN_RECV)
-+			TCP_INC_STATS_BH(TCP_MIB_ATTEMPTFAILS);
- 		tcp_reset(sk);
- 		goto discard;
- 	}
-@@ -4390,6 +4393,8 @@ int tcp_rcv_state_process(struct sock *s
- 	 *	Check for a SYN in window.
- 	 */
- 	if (th->syn && !before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt)) {
-+		if(sk->sk_state == TCP_SYN_RECV)
-+			TCP_INC_STATS_BH(TCP_MIB_ATTEMPTFAILS);
- 		NET_INC_STATS_BH(LINUX_MIB_TCPABORTONSYN);
- 		tcp_reset(sk);
- 		return 1;
---- a/net/ipv4/tcp_minisocks.c	2006-06-30 13:37:38.000000000 -0400
-+++ b/net/ipv4/tcp_minisocks.c	2006-07-05 04:45:04.000000000 -0400
-@@ -592,8 +592,10 @@ struct sock *tcp_check_req(struct sock *
- 		/* RFC793: "second check the RST bit" and
- 		 *	   "fourth, check the SYN bit"
- 		 */
--		if (flg & (TCP_FLAG_RST|TCP_FLAG_SYN))
-+		if (flg & (TCP_FLAG_RST|TCP_FLAG_SYN)) {
-+			TCP_INC_STATS_BH(TCP_MIB_ATTEMPTFAILS);
- 			goto embryonic_reset;
-+		}
- 
- 		/* ACK sequence verified above, just make sure ACK is
- 		 * set.  If ACK not set, just silently drop the packet.
-
-
+Galya
 
 
