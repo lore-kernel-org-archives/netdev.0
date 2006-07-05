@@ -1,409 +1,55 @@
-From: Dawid =?utf-8?q?Ci=C4=99=C5=BCarkiewicz?= <dpc@asn.pl>
-Subject: [PATCH][ebtables][vlan] ebt_vlan_t target
-Date: Wed, 5 Jul 2006 21:49:15 +0200
-Message-ID: <200607052149.16473.dpc@asn.pl>
+From: Chris Sturtivant <csturtiv@sgi.com>
+Subject: Re: [Patch][RFC] Disabling per-tgid stats on task exit in taskstats
+Date: Wed, 05 Jul 2006 13:25:29 -0700
+Message-ID: <44AC2039.8060806@sgi.com>
+References: <44892610.6040001@watson.ibm.com>	 <44A020CD.30903@watson.ibm.com>	 <20060626111249.7aece36e.akpm@osdl.org> <44A026ED.8080903@sgi.com>	 <20060626113959.839d72bc.akpm@osdl.org> <44A2F50D.8030306@engr.sgi.com>	 <20060628145341.529a61ab.akpm@osdl.org> <44A2FC72.9090407@engr.sgi.com>	 <20060629014050.d3bf0be4.pj@sgi.com>	 <200606291230.k5TCUg45030710@turing-police.cc.vt.edu>	 <20060629094408.360ac157.pj@sgi.com>	 <20060629110107.2e56310b.akpm@osdl.org> <44A57310.3010208@watson.ibm.com>	 <44A5770F.3080206@watson.ibm.com> <20060630155030.5ea1faba.akpm@osdl.org>	 <44A5DBE7.2020704@watson.ibm.com> <44A5EDE6.3010605@watson.ibm.com>	 <20060630205148.4f66b125.akpm@osdl.org> <44A9881F.7030103@watson.ibm.com>	 <44A9BC4D.7030803@watson.ibm.com> <20060703180151.56f61b31.akpm@osdl.org>	 <1152018353.5214.14.camel@jzny2> <44AA86BF.3090600@watson.ibm.com>	 <44AA9951.1060804@watson.ibm.com> <115
+ 2041070.5276.29.camel! @jzny2> <44ABC81F.6060405@watson.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, pj@sgi.com, Valdis.Kletnieks@vt.edu,
+	jlan@engr.sgi.com, balbir@in.ibm.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from apollo.asn.pl ([85.14.104.1]:28333 "HELO apollo.asn.pl")
-	by vger.kernel.org with SMTP id S965011AbWGETtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 15:49:21 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from omx2-ext.sgi.com ([192.48.171.19]:9648 "EHLO omx2.sgi.com")
+	by vger.kernel.org with ESMTP id S964989AbWGEUZh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 16:25:37 -0400
+To: Shailabh Nagar <nagar@watson.ibm.com>
+In-Reply-To: <44ABC81F.6060405@watson.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
- my name is Dawid Ciezarkiewicz. As a part of my daily job I was to write 
-kernel module for ebtables to let linux bridges change vlan ids in fly using 
-logic provided by ebtables matches. After hours of tries and kernel learning, 
-reading and googlin' I've finally come to the place where I've got working 
-module that does what I want. I'm looking for comments of more advanced linux 
-developers. Please note that this is my first linux patch I've ever made. 
+Shailabh Nagar wrote:
+> So here's the sequence of pids being used/hashed etc. Please let
+> me know if my assumptions are correct ?
+>
+> 1. Same listener thread opens 2 sockets
+>
+> On sockfd1, does a bind() using
+> 	sockaddr_nl.nl_pid = my_pid1
+> On sockfd2, does a bind() using
+> 	sockaddr_nl.nl_pid = my_pid2
+>
+> (one of my_pid1's could by its process pid but doesn't have to be)
+>   
+
+For CSA, we are proposing to use a single (multi-threaded) demon that 
+combines both the userland components for job and CSA that used to be in 
+the kernel.  In this case, the pid will be the same for two connections 
+along with the cpu range.  Does what your saying here mean that we 
+should choose distinct values for my_pid1 and my_pid2 to avoid the two 
+sockets looking the same?  I'm not too familiar with netlink, yet.
 
 Best regards,
-Dawid
 
 
+--Chris
 
+-- 
+-----------------------------------------------------------------
+Chris Sturtivant, PhD,
+Linux System Software,
+SGI
+(650) 933-1703
+-----------------------------------------------------------------
 
-
--------------------------------------------------- KERNEL PART:
-
-diff -Nur linux-2.6.17.orig/include/linux/netfilter_bridge/ebt_vlan_t.h 
-linux-2.6.17/include/linux/netfilter_bridge/ebt_vlan_t.h
---- linux-2.6.17.orig/include/linux/netfilter_bridge/ebt_vlan_t.h	1970-01-01 
-01:00:00.000000000 +0100
-+++ linux-2.6.17/include/linux/netfilter_bridge/ebt_vlan_t.h	2006-07-03 
-21:29:50.000000000 +0200
-@@ -0,0 +1,12 @@
-+#ifndef __LINUX_BRIDGE_EBT_VLAN_T_H
-+#define __LINUX_BRIDGE_EBT_VLAN_T_H
-+
-+struct ebt_vlan_t_info
-+{
-+	unsigned short id;
-+	/* EBT_ACCEPT, EBT_DROP, EBT_CONTINUE or EBT_RETURN */
-+	int target;
-+};
-+#define EBT_VLAN_TARGET "vlan_t"
-+
-+#endif
-diff -Nur linux-2.6.17.orig/net/bridge/netfilter/Kconfig 
-linux-2.6.17/net/bridge/netfilter/Kconfig
---- linux-2.6.17.orig/net/bridge/netfilter/Kconfig	2006-06-18 
-03:49:35.000000000 +0200
-+++ linux-2.6.17/net/bridge/netfilter/Kconfig	2006-06-28 20:48:27.000000000 
-+0200
-@@ -165,6 +165,15 @@
-
- 	  To compile it as a module, choose M here.  If unsure, say N.
-
-+config BRIDGE_EBT_VLAN_T
-+	tristate "ebt: vlan target support"
-+	depends on BRIDGE_NF_EBTABLES
-+	help
-+	  This option adds the vlan target.
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
-+
- config BRIDGE_EBT_REDIRECT
- 	tristate "ebt: redirect target support"
- 	depends on BRIDGE_NF_EBTABLES
-diff -Nur linux-2.6.17.orig/net/bridge/netfilter/Makefile 
-linux-2.6.17/net/bridge/netfilter/Makefile
---- linux-2.6.17.orig/net/bridge/netfilter/Makefile	2006-06-18 
-03:49:35.000000000 +0200
-+++ linux-2.6.17/net/bridge/netfilter/Makefile	2006-06-28 22:05:52.000000000 
-+0200
-@@ -23,6 +23,7 @@
- # targets
- obj-$(CONFIG_BRIDGE_EBT_ARPREPLY) += ebt_arpreply.o
- obj-$(CONFIG_BRIDGE_EBT_MARK_T) += ebt_mark.o
-+obj-$(CONFIG_BRIDGE_EBT_VLAN_T) += ebt_vlan_t.o
- obj-$(CONFIG_BRIDGE_EBT_DNAT) += ebt_dnat.o
- obj-$(CONFIG_BRIDGE_EBT_REDIRECT) += ebt_redirect.o
- obj-$(CONFIG_BRIDGE_EBT_SNAT) += ebt_snat.o
-diff -Nur linux-2.6.17.orig/net/bridge/netfilter/ebt_vlan_t.c 
-linux-2.6.17/net/bridge/netfilter/ebt_vlan_t.c
---- linux-2.6.17.orig/net/bridge/netfilter/ebt_vlan_t.c	1970-01-01 
-01:00:00.000000000 +0100
-+++ linux-2.6.17/net/bridge/netfilter/ebt_vlan_t.c	2006-07-05 
-21:09:32.000000000 +0200
-@@ -0,0 +1,154 @@
-+/*
-+ *  ebt_vlan target
-+ *
-+ *	Authors:
-+ *	Dawid Ciezarkiewicz <dpc@asn.pl>
-+ *
-+ *  June, 2006
-+ *
-+ */
-+
-+#include <linux/netfilter_bridge/ebtables.h>
-+#include <linux/netfilter_bridge/ebt_vlan_t.h>
-+#include <linux/module.h>
-+#include <linux/if_vlan.h>
-+#include <linux/if_ether.h>
-+#include <net/sock.h>
-+
-+static int ebt_target_vlan(struct sk_buff **pskb, unsigned int hooknr,
-+   const struct net_device *in, const struct net_device *out,
-+   const void *data, unsigned int datalen)
-+{
-+	struct ebt_vlan_t_info *info = (struct ebt_vlan_t_info *)data;
-+	struct vlan_hdr* vh, frame;
-+	unsigned short vlan_TCI;
-+	struct sk_buff *nskb;
-+	int pskb_data_mod;
-+	struct vlan_ethhdr * veth;
-+
-+	if ((*pskb)->protocol == __constant_htons(ETH_P_8021Q)) {
-+		vh = skb_header_pointer(*pskb, 0, sizeof(frame), &frame);
-+		vlan_TCI = ntohs (vh->h_vlan_TCI) & ~VLAN_VID_MASK;
-+		vh->h_vlan_TCI = htons(vlan_TCI | info->id);
-+	} else {
-+		printk("vlan_t: no vlan pskb - creating...\n");
-+
-+		/*
-+		 * If we are here we got (*pskb)->data pointing to
-+		 * IMO strange place - right after protocol ID. If this
-+		 * is layer2 filter shouldn't data point before mac
-+		 * addresses?
-+		 * I don't really know if messing with things before this
-+		 * pointer (adding 2 bytes for vlan and moving everything)
-+		 * is a hack.
-+		 *
-+		 * Anyway I see no other way. --dpc
-+		 */
-+
-+		/* get our own packet */
-+		if (skb_shared(*pskb) || skb_cloned(*pskb)) {
-+			printk("skb_shared(*pskb) || skb_cloned(*pskb)\n");
-+
-+			nskb = skb_copy(*pskb, GFP_ATOMIC);
-+			if (!nskb)
-+				return EBT_DROP;
-+			if ((*pskb)->sk)
-+				skb_set_owner_w(nskb, (*pskb)->sk);
-+			kfree_skb(*pskb);
-+			*pskb = nskb;
-+		}
-+
-+		/*
-+		 * skb_headroom() uses skb->data pointer, we need to fix it
-+		 * for a moment to check if we got 2 bytes in headspace left
-+		 *
-+		 * NOTE:
-+		 * using pskb_data_mod is kind of assert - this should be optimized
-+		 * in the future
-+		 */
-+		pskb_data_mod = (*pskb)->data - (*pskb)->mac.raw;
-+		if (pskb_data_mod != 14) {
-+			printk("vlan_t: no magic 14!\n");
-+			return EBT_DROP;
-+		}
-+		(*pskb)->data = (*pskb)->mac.raw;
-+		(*pskb)->len += pskb_data_mod;
-+
-+
-+		if (skb_headroom(*pskb) < VLAN_HLEN) {
-+			nskb = *pskb;
-+			*pskb = skb_realloc_headroom(nskb, VLAN_HLEN);
-+			if (*pskb == NULL) {
-+				*pskb = nskb;
-+				printk(KERN_ERR "vlan_t: failed to realloc headroom\n");
-+				return EBT_DROP;
-+			}
-+			kfree_skb(nskb);
-+		}
-+
-+		/* restore previous data pointer */
-+		(*pskb)->data += pskb_data_mod;
-+		(*pskb)->len  -= pskb_data_mod;
-+
-+		/* add space and shift data pointer to point right after 0x8100 */
-+		skb_push(*pskb, VLAN_HLEN);
-+
-+		/* move mac pointer as well */
-+		(*pskb)->mac.raw -= VLAN_HLEN;
-+
-+		veth = (struct vlan_ethhdr*)((*pskb)->mac.raw);
-+
-+		/* Move the mac addresses to the beginning of the new header. */
-+		memmove(veth, veth + VLAN_HLEN, 2 * VLAN_ETH_ALEN);
-+
-+		/* first, the ethernet type */
-+		veth->h_vlan_proto = __constant_htons(ETH_P_8021Q);
-+
-+		/* now, the tag */
-+		veth->h_vlan_TCI = htons(info->id);
-+
-+		/* XXX: ke?! taken from __put_vlan_tag()
-+		 * this header haven't moved anywhere ... */
-+		/* skb->nh.raw -= VLAN_HLEN; */
-+	}
-+	return info->target;
-+}
-+
-+static int ebt_target_vlan_check(const char *tablename, unsigned int 
-hookmask,
-+   const struct ebt_entry *e, void *data, unsigned int datalen)
-+{
-+	struct ebt_vlan_t_info *info = (struct ebt_vlan_t_info *)data;
-+
-+	if (datalen != EBT_ALIGN(sizeof(struct ebt_vlan_t_info)))
-+		return -EINVAL;
-+	if (info->id > 4095)
-+		return -EINVAL;
-+	if (BASE_CHAIN && info->target == EBT_RETURN)
-+		return -EINVAL;
-+	CLEAR_BASE_CHAIN_BIT;
-+	if (INVALID_TARGET)
-+		return -EINVAL;
-+	return 0;
-+}
-+
-+static struct ebt_target vlan_target =
-+{
-+	.name		= EBT_VLAN_TARGET,
-+	.target		= ebt_target_vlan,
-+	.check		= ebt_target_vlan_check,
-+	.me		= THIS_MODULE,
-+};
-+
-+static int __init ebt_vlan_init(void)
-+{
-+	return ebt_register_target(&vlan_target);
-+}
-+
-+static void __exit ebt_vlan_fini(void)
-+{
-+	ebt_unregister_target(&vlan_target);
-+}
-+
-+module_init(ebt_vlan_init);
-+module_exit(ebt_vlan_fini);
-+MODULE_LICENSE("GPL");
-
-
-
-
-
-
-
--------------------------------------------------- EBTABLES PART:
-
-diff -Nur ebtables-v2.0.8-rc2.orig/extensions/Makefile 
-ebtables-v2.0.8-rc2/extensions/Makefile
---- ebtables-v2.0.8-rc2.orig/extensions/Makefile	2006-03-30 19:24:57.000000000 
-+0200
-+++ ebtables-v2.0.8-rc2/extensions/Makefile	2006-06-29 17:18:52.000000000 
-+0200
-@@ -1,7 +1,7 @@
- #! /usr/bin/make
-
- EXT_FUNC+=802_3 nat arp arpreply ip standard log redirect vlan mark_m mark \
--          pkttype stp among limit ulog
-+          pkttype stp among limit ulog vlan_t
- EXT_TABLES+=filter nat broute
- EXT_OBJS+=$(foreach T,$(EXT_FUNC), extensions/ebt_$(T).o)
- EXT_OBJS+=$(foreach T,$(EXT_TABLES), extensions/ebtable_$(T).o)
-diff -Nur ebtables-v2.0.8-rc2.orig/extensions/ebt_vlan_t.c 
-ebtables-v2.0.8-rc2/extensions/ebt_vlan_t.c
---- ebtables-v2.0.8-rc2.orig/extensions/ebt_vlan_t.c	1970-01-01 
-01:00:00.000000000 +0100
-+++ ebtables-v2.0.8-rc2/extensions/ebt_vlan_t.c	2006-07-03 21:24:05.000000000 
-+0200
-@@ -0,0 +1,127 @@
-+/* ebt_vlan_t
-+ *
-+ * Authors:
-+ * Dawid Ciezarkiewicz
-+ *
-+ * June, 2006
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <getopt.h>
-+#include "../include/ebtables_u.h"
-+#include <linux/netfilter_bridge/ebt_vlan_t.h>
-+
-+static int id_supplied;
-+
-+#define VLAN_TARGET  '1'
-+#define VLAN_SETID '2'
-+static struct option opts[] =
-+{
-+	{ "vlan-target" , required_argument, 0, VLAN_TARGET },
-+	{ "vlan-set"    , required_argument, 0, VLAN_SETID},
-+	{ 0 }
-+};
-+
-+static void print_help()
-+{
-+	printf(
-+	"vlan target options:\n"
-+	" --vlan-set value     : Set vlan id\n"
-+	" --vlan-target target : ACCEPT, DROP, RETURN or CONTINUE\n");
-+}
-+
-+static void init(struct ebt_entry_target *target)
-+{
-+	struct ebt_vlan_t_info *vlaninfo =
-+	   (struct ebt_vlan_t_info *)target->data;
-+
-+	vlaninfo->target = EBT_ACCEPT;
-+	vlaninfo->id = 0;
-+	id_supplied = 0;
-+}
-+
-+#define OPT_VLAN_SETID  0x01
-+#define OPT_VLAN_TARGET  0x02
-+static int parse(int c, char **argv, int argc,
-+   const struct ebt_u_entry *entry, unsigned int *flags,
-+   struct ebt_entry_target **target)
-+{
-+	struct ebt_vlan_t_info *vlaninfo =
-+	   (struct ebt_vlan_t_info *)(*target)->data;
-+	char *end;
-+
-+	switch (c) {
-+	case VLAN_TARGET:
-+		ebt_check_option2(flags, OPT_VLAN_TARGET);
-+		if (FILL_TARGET(optarg, vlaninfo->target))
-+			ebt_print_error2("Illegal --vlan-target target");
-+		break;
-+	case VLAN_SETID:
-+		ebt_check_option2(flags, OPT_VLAN_SETID);
-+		vlaninfo->id = strtoul(optarg, &end, 0);
-+		if (*end != '\0' || end == optarg || vlaninfo->id > 4095)
-+			ebt_print_error2("Bad VLAN id value '%s'", optarg);
-+		id_supplied = 1;
-+                break;
-+	 default:
-+		return 0;
-+	}
-+	return 1;
-+}
-+
-+static void final_check(const struct ebt_u_entry *entry,
-+   const struct ebt_entry_target *target, const char *name,
-+   unsigned int hookmask, unsigned int time)
-+{
-+	struct ebt_vlan_t_info *vlaninfo =
-+	   (struct ebt_vlan_t_info *)target->data;
-+
-+	if (time == 0 && id_supplied == 0) {
-+		ebt_print_error("No vlan id value supplied");
-+	} else if (BASE_CHAIN && vlaninfo->target == EBT_RETURN)
-+		ebt_print_error("--vlan-target RETURN not allowed on base chain");
-+}
-+
-+static void print(const struct ebt_u_entry *entry,
-+   const struct ebt_entry_target *target)
-+{
-+	struct ebt_vlan_t_info *vlaninfo =
-+	   (struct ebt_vlan_t_info *)target->data;
-+
-+	printf("--vlan-set 0x%lx", vlaninfo->id);
-+	if (vlaninfo->target == EBT_ACCEPT)
-+		return;
-+	printf(" --vlan-target %s", TARGET_NAME(vlaninfo->target));
-+}
-+
-+static int compare(const struct ebt_entry_target *t1,
-+   const struct ebt_entry_target *t2)
-+{
-+	struct ebt_vlan_t_info *vlaninfo1 =
-+	   (struct ebt_vlan_t_info *)t1->data;
-+	struct ebt_vlan_t_info *vlaninfo2 =
-+	   (struct ebt_vlan_t_info *)t2->data;
-+
-+	return vlaninfo1->target == vlaninfo2->target &&
-+	   vlaninfo1->id == vlaninfo2->id;
-+}
-+
-+static struct ebt_u_target vlan_target =
-+{
-+	.name		= EBT_VLAN_TARGET,
-+	.size		= sizeof(struct ebt_vlan_t_info),
-+	.help		= print_help,
-+	.init		= init,
-+	.parse		= parse,
-+	.final_check	= final_check,
-+	.print		= print,
-+	.compare	= compare,
-+	.extra_ops	= opts,
-+};
-+
-+void _init(void)
-+{
-+	ebt_register_target(&vlan_target);
-+}
