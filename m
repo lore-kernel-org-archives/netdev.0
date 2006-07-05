@@ -1,45 +1,72 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 1/3] [PKT_SCHED]: Fix illegal memory dereferences when
-	dumping actions
-Date: Tue, 04 Jul 2006 21:49:27 -0400
-Message-ID: <1152064167.5199.14.camel@jzny2>
-References: <20060704220504.787776000@postel.suug.ch>
-	 <20060704220549.952720000@postel.suug.ch>  <44AAFCF6.9000706@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Angelique <Angelique@most-wanted.com>
+Subject: Hottest Deal out there (a JOB)
+Date: Wed, 5 Jul 2006 10:07:42 +0400
+Message-ID: <2AC6BDC0.8538238@most-wanted.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=iso-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:4295 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932446AbWGEBt3
+Received: from [80.251.139.254] ([80.251.139.254]:40944 "HELO
+	givepeaceachance.com") by vger.kernel.org with SMTP id S932456AbWGEF6Z
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jul 2006 21:49:29 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1FxwWG-0001GM-3D
-	for netdev@vger.kernel.org; Tue, 04 Jul 2006 21:49:36 -0400
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <44AAFCF6.9000706@trash.net>
+	Wed, 5 Jul 2006 01:58:25 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-05-07 at 01:42 +0200, Patrick McHardy wrote:
-> Thomas Graf wrote:
-> >  	if (a_o->walk == NULL) {
-> > -		printk("tc_dump_action: %s !capable of dumping table\n", kind);
-> > +		printk("tc_dump_action: %s !capable of dumping table\n", a_o->kind);
-> >  		goto rtattr_failure;
-> >  	}
-> 
-> Can't we just get rid of these printks? This seems like a good
-> opportunity.
-> 
+Hola!.
 
-perhaps convert to DPRINTKs instead
+Este correo electr=C3=B3nico le muestra una oferta de trabajo, que podr=
+=C3=ADa ser interesante a usted.
 
-cheers,
-jamal
+Gerente financiero situado en su pa=C3=ADs! Trabajo en Internet con bue=
+n sueldo!
+GoldLeader Inc. busca a personas en=C3=A9rgicas y responsables para com=
+pletar el
+puesto de encargado de deudores de media jornada.
+Como encargado de deudores, usted ser=C3=A1 el responsable de procesar =
+y facilitar
+las transferencias de fondos iniciadas por nuestros clientes bajo la su=
+pervisi=C3=B3n del gerente regional.
 
+ Ofrecemos:
+
+- Ventajas buenas (m=C3=A1s de 1000 $ por semana);
+
+- Contrato legal;
+
+ Se precisa puntualidad, capacidades directivas y responsabilidad.
+
+Usted tambi=C3=A9n recibir=C3=A1 instrucciones detalladas para acciones
+subsecuentes de nuestro gerente, con informaci=C3=B3n sobre como recibi=
+r/transferir el dinero.
+
+=20
+1. Ser capaz de comprobar su correo electr=C3=B3nico varias veces por d=
+=C3=ADa
+
+2. Ser capaz de responder a correos electr=C3=B3nico inmediatamente
+
+3. Ser capaz de trabajar horas extra si es necesario
+
+4. Ser responsable y trabajador
+
+5. Hablar ingles
+
+6. Tener m=C3=A1s de 21 a=C3=B1os;
+
+7. Deber=C3=ADa tener una cuenta bancaria personal
+
+Para informaci=C3=B3n adicionales y preguntas sobre el puesto de trabaj=
+o,
+por favor env=C3=ADe sus datos de contacto a  career@goldleader.biz
+
+NO SON VENTAS!!! NO SON LLAMADAS!!!
+USTED NO NECESITA DINERO PARA COMENZAR!!!
+=20
+Gracias por su atencion.
+Con respeto,
+Departamento de personal Goldleader Inc.
+http://www.goldleader.biz
 
