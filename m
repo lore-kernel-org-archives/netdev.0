@@ -1,46 +1,53 @@
-From: Robert Schulze <rob@net-pr.de>
-Subject: airo maybe should select crypto_aes
-Date: Wed, 05 Jul 2006 22:52:43 +0200
-Message-ID: <44AC269B.6000704@net-pr.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
+Date: Wed, 05 Jul 2006 23:00:07 +0200
+Message-ID: <44AC2857.5030706@trash.net>
+References: <200603211829.k2LITMNR029085@hera.kernel.org> <44AA3DD3.1090106@trash.net> <200607052057.05526.stefan@loplof.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p15181122.pureserver.info ([212.227.60.11]:48556 "EHLO
-	p15181122.pureserver.info") by vger.kernel.org with ESMTP
-	id S964868AbWGEUrb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jul 2006 16:47:31 -0400
-Received: from [192.168.0.123] (dialin-145-254-053-026.pools.arcor-ip.net [145.254.53.26])
-	by p15181122.pureserver.info (Postfix) with ESMTP id CE4B3808EA9
-	for <netdev@vger.kernel.org>; Wed,  5 Jul 2006 22:47:31 +0200 (CEST)
-To: netdev@vger.kernel.org
+Received: from stinky.trash.net ([213.144.137.162]:4018 "EHLO stinky.trash.net")
+	by vger.kernel.org with ESMTP id S965020AbWGEVAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 17:00:10 -0400
+To: Stefan Rompf <stefan@loplof.de>
+In-Reply-To: <200607052057.05526.stefan@loplof.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Stefan Rompf wrote:
+> Am Dienstag 04 Juli 2006 12:07 schrieb Patrick McHardy:
+> 
+> 
+>>>-	new_dev->state = real_dev->state & VLAN_LINK_STATE_MASK;
+>>>+	new_dev->state = real_dev->state & ~(1<<__LINK_STATE_START);
+> 
+> 
+>>This introduced a regression by propagating the __LINK_STATE_XOFF flag,
+>>when the queue of the underlying device is stopped it will be stopped
+>>for the VLAN device too and never be woken up. Since you changed
+>>VLAN_LINK_STATE_MASK, I assume the intention was to just add
+>>__LINK_STATE_DORMANT to the propagated flags and keep using it here?
+> 
+> 
+> Hm, I did not hit that bug during tests, even though starfire calls 
+> netif_stop_queue() on close. But I don't remember whether I tested added 
+> VLANs while the main interface was ifconfig'ed down.
 
-I first wrote to the linux-pcmcia ML, but they said it wasn't the right 
-address for my issue. The driver airo (for Cisco Wlan-Cards) complains 
-about "failed to load transform for AES", when it is loaded and 
-CRYPTO_AES is not selected in Kconfig.
-I've got a patch for that, maybe it's worth it.
+It hits me whenever I boot with sky2, it seems to need a while before
+a carrier is detected.
 
-with kind regards,
-Robert Schulze
+> Anyway, is it good to propagate __LINK_STATE_PRESENT then? The same situation 
+> here, add a VLAN while the main interface is "not present", and you are out. 
+> Can you try to revert the quoted part of my patch, I'll rethink which flags 
+> should be copied on device creation.
 
---- linux-2.6.17.1/drivers/net/wireless/Kconfig.orig    2006-07-03
-17:37:02.000000000 +0200
-+++ linux-2.6.17.1/drivers/net/wireless/Kconfig 2006-07-03
-17:36:44.000000000 +0200
-@@ -419,6 +419,7 @@ config AIRO_CS
-          tristate "Cisco/Aironet 34X/35X/4500/4800 PCMCIA cards"
-          depends on NET_RADIO && PCMCIA && (BROKEN || !M32R)
-          select CRYPTO
-+       select CRYPTO_AES
-          ---help---
-            This is the standard Linux driver to support Cisco/Aironet 
-PCMCIA
-            802.11 wireless cards.  This driver is the same as the Aironet
-
-
+I tried both adding LINK_STATE_XOFF to the negated flags and using
+VLAN_LINK_STATE_MASK, both as expected solve the problem for me.
+I have to admit I was wondering about LINK_STATE_PRESENT as well
+(was going to complain about that too until I noticed it is also
+set in VLAN_LINK_STATE_MASK). Maybe Ben can tell us the idea behind
+this?
 
