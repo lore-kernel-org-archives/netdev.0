@@ -1,37 +1,116 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: [PATCH] zd1211rw: Add Sagem device ID's
-Date: Wed,  5 Jul 2006 15:57:31 +0100 (BST)
-Message-ID: <20060705145731.3F2B48AFF4E@zog.reactivated.net>
-Cc: netdev@vger.kernel.org
+From: "Angelo P. Castellani" <angelo.castellani+lkml@gmail.com>
+Subject: [TCP] rfc strict recovery
+Date: Wed, 5 Jul 2006 17:12:07 +0200
+Message-ID: <8dd26e70607050812nb0e7df3x515fd76ee34d0fb3@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_Part_175004_4120454.1152112327977"
+Cc: "Francesco Vacirca" <francesco@net.infocom.uniroma1.it>,
+	"Andrea Baiocchi" <andrea.baiocchi@uniroma1.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta07-winn.ispmail.ntl.com ([81.103.221.47]:44872 "EHLO
-	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S964893AbWGEO53 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jul 2006 10:57:29 -0400
-To: linville@tuxdriver.com
-Cc: kune@deine-taler.de
+Received: from nf-out-0910.google.com ([64.233.182.187]:48317 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S964899AbWGEPMJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jul 2006 11:12:09 -0400
+Received: by nf-out-0910.google.com with SMTP id a4so1265512nfc
+        for <netdev@vger.kernel.org>; Wed, 05 Jul 2006 08:12:08 -0700 (PDT)
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Based on a patch by Matthieu CASTET.
+------=_Part_175004_4120454.1152112327977
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-zd1211 chip 079b:004a v4330 high 00-60-b3 AL2230_RF pa0 g--
-zd1211b chip 079b:0062 v4810 high 00-60-b3 AL2230_RF pa0 g--
+In this patch there is a collection of changes useful to have linux
+tcp recovery close to rfc standard.
 
-Signed-off-by: Daniel Drake <dsd@gentoo.org>
+The linux kernel using this patch defaults to linux standard recovery,
+when net.ipv4.tcp_rfcstrict_recovery=1 the changes in this patch are
+enabled.
 
-diff --git a/drivers/net/wireless/zd1211rw/zd_usb.c b/drivers/net/wireless/zd1211rw/zd_usb.c
-index 72f9052..c68b9f8 100644
---- a/drivers/net/wireless/zd1211rw/zd_usb.c
-+++ b/drivers/net/wireless/zd1211rw/zd_usb.c
-@@ -39,9 +39,11 @@ static struct usb_device_id usb_ids[] = 
- 	{ USB_DEVICE(0x6891, 0xa727), .driver_info = DEVICE_ZD1211 },
- 	{ USB_DEVICE(0x0df6, 0x9071), .driver_info = DEVICE_ZD1211 },
- 	{ USB_DEVICE(0x157e, 0x300b), .driver_info = DEVICE_ZD1211 },
-+	{ USB_DEVICE(0x079b, 0x004a), .driver_info = DEVICE_ZD1211 },
- 	/* ZD1211B */
- 	{ USB_DEVICE(0x0ace, 0x1215), .driver_info = DEVICE_ZD1211B },
- 	{ USB_DEVICE(0x157e, 0x300d), .driver_info = DEVICE_ZD1211B },
-+	{ USB_DEVICE(0x079b, 0x0062), .driver_info = DEVICE_ZD1211B },
- 	{}
- };
+I've already discussed something like this here and I don't think the
+best thing is to discuss whether linux should be or not close to
+rfc's.
+
+I send this patch only because in my tests this changes have helped me
+to obtain the expected (and more performing) results.
+
+The "rfcstrict" recovery reveals extremely more performing during Reno
+recovery of large network drops.
+
+Regards,
+Angelo P. Castellani
+
+------=_Part_175004_4120454.1152112327977
+Content-Type: text/x-patch; name=rfcstrict_recovery.diff; charset=ISO-8859-1
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ep9txeif
+Content-Disposition: attachment; filename="rfcstrict_recovery.diff"
+
+ZGlmZiAtdXJkIGxpbnV4LTIuNi4xNi1vcmlnL2luY2x1ZGUvbGludXgvc3lzY3RsLmggbGludXgt
+Mi42LjE2LXN0ZHJlY292ZXJ5L2luY2x1ZGUvbGludXgvc3lzY3RsLmgKLS0tIGxpbnV4LTIuNi4x
+Ni1vcmlnL2luY2x1ZGUvbGludXgvc3lzY3RsLmgJMjAwNi0wNS0xNiAxNDo1MzowMi4wMDAwMDAw
+MDAgKzAyMDAKKysrIGxpbnV4LTIuNi4xNi1zdGRyZWNvdmVyeS9pbmNsdWRlL2xpbnV4L3N5c2N0
+bC5oCTIwMDYtMDctMDUgMTc6MDU6MjQuMDAwMDAwMDAwICswMjAwCkBAIC0zOTcsNiArMzk3LDcg
+QEAKIAlORVRfVENQX0NPTkdfQ09OVFJPTD0xMTAsCiAJTkVUX1RDUF9BQkM9MTExLAogCU5FVF9J
+UFY0X0lQRlJBR19NQVhfRElTVD0xMTIsCisJTkVUX1RDUF9SRkNTVFJJQ1RfUkVDT1ZFUlksCiB9
+OwogCiBlbnVtIHsKZGlmZiAtdXJkIGxpbnV4LTIuNi4xNi1vcmlnL2luY2x1ZGUvbmV0L3RjcC5o
+IGxpbnV4LTIuNi4xNi1zdGRyZWNvdmVyeS9pbmNsdWRlL25ldC90Y3AuaAotLS0gbGludXgtMi42
+LjE2LW9yaWcvaW5jbHVkZS9uZXQvdGNwLmgJMjAwNi0wNS0xNiAxNDo1MzowMi4wMDAwMDAwMDAg
+KzAyMDAKKysrIGxpbnV4LTIuNi4xNi1zdGRyZWNvdmVyeS9pbmNsdWRlL25ldC90Y3AuaAkyMDA2
+LTA3LTA1IDE3OjA2OjQxLjAwMDAwMDAwMCArMDIwMApAQCAtMjE5LDYgKzIxOSw3IEBACiBleHRl
+cm4gaW50IHN5c2N0bF90Y3BfbW9kZXJhdGVfcmN2YnVmOwogZXh0ZXJuIGludCBzeXNjdGxfdGNw
+X3Rzb193aW5fZGl2aXNvcjsKIGV4dGVybiBpbnQgc3lzY3RsX3RjcF9hYmM7CitleHRlcm4gaW50
+IHN5c2N0bF90Y3BfcmZjc3RyaWN0X3JlY292ZXJ5OwogCiBleHRlcm4gYXRvbWljX3QgdGNwX21l
+bW9yeV9hbGxvY2F0ZWQ7CiBleHRlcm4gYXRvbWljX3QgdGNwX3NvY2tldHNfYWxsb2NhdGVkOwpk
+aWZmIC11cmQgbGludXgtMi42LjE2LW9yaWcvbmV0L2lwdjQvc3lzY3RsX25ldF9pcHY0LmMgbGlu
+dXgtMi42LjE2LXN0ZHJlY292ZXJ5L25ldC9pcHY0L3N5c2N0bF9uZXRfaXB2NC5jCi0tLSBsaW51
+eC0yLjYuMTYtb3JpZy9uZXQvaXB2NC9zeXNjdGxfbmV0X2lwdjQuYwkyMDA2LTA1LTE2IDE0OjUz
+OjAyLjAwMDAwMDAwMCArMDIwMAorKysgbGludXgtMi42LjE2LXN0ZHJlY292ZXJ5L25ldC9pcHY0
+L3N5c2N0bF9uZXRfaXB2NC5jCTIwMDYtMDctMDUgMTc6MDg6MzEuMDAwMDAwMDAwICswMjAwCkBA
+IC02NjQsNiArNjY0LDE0IEBACiAJCS5tb2RlCQk9IDA2NDQsCiAJCS5wcm9jX2hhbmRsZXIJPSAm
+cHJvY19kb2ludHZlYywKIAl9LAorCXsKKwkJLmN0bF9uYW1lCT0gTkVUX1RDUF9SRkNTVFJJQ1Rf
+UkVDT1ZFUlksCisJCS5wcm9jbmFtZQk9ICJ0Y3BfcmZjc3RyaWN0X3JlY292ZXJ5IiwKKwkJLmRh
+dGEJCT0gJnN5c2N0bF90Y3BfcmZjc3RyaWN0X3JlY292ZXJ5LAorCQkubWF4bGVuCQk9IHNpemVv
+ZihpbnQpLAorCQkubW9kZQkJPSAwNjQ0LAorCQkucHJvY19oYW5kbGVyCT0gJnByb2NfZG9pbnR2
+ZWMsCisJfSwKIAogCXsgLmN0bF9uYW1lID0gMCB9CiB9OwpkaWZmIC11cmQgbGludXgtMi42LjE2
+LW9yaWcvbmV0L2lwdjQvdGNwX2lucHV0LmMgbGludXgtMi42LjE2LXN0ZHJlY292ZXJ5L25ldC9p
+cHY0L3RjcF9pbnB1dC5jCi0tLSBsaW51eC0yLjYuMTYtb3JpZy9uZXQvaXB2NC90Y3BfaW5wdXQu
+YwkyMDA2LTA1LTE2IDE0OjUzOjAyLjAwMDAwMDAwMCArMDIwMAorKysgbGludXgtMi42LjE2LXN0
+ZHJlY292ZXJ5L25ldC9pcHY0L3RjcF9pbnB1dC5jCTIwMDYtMDctMDUgMTc6MjY6NDEuMDAwMDAw
+MDAwICswMjAwCkBAIC05MSw2ICs5MSw4IEBACiBpbnQgc3lzY3RsX3RjcF9tb2RlcmF0ZV9yY3Zi
+dWYgPSAxOwogaW50IHN5c2N0bF90Y3BfYWJjID0gMTsKIAoraW50IHN5c2N0bF90Y3BfcmZjc3Ry
+aWN0X3JlY292ZXJ5ID0gMDsKKwogI2RlZmluZSBGTEFHX0RBVEEJCTB4MDEgLyogSW5jb21pbmcg
+ZnJhbWUgY29udGFpbmVkIGRhdGEuCQkqLwogI2RlZmluZSBGTEFHX1dJTl9VUERBVEUJCTB4MDIg
+LyogSW5jb21pbmcgQUNLIHdhcyBhIHdpbmRvdyB1cGRhdGUuCSovCiAjZGVmaW5lIEZMQUdfREFU
+QV9BQ0tFRAkJMHgwNCAvKiBUaGlzIEFDSyBhY2tub3dsZWRnZWQgbmV3IGRhdGEuCQkqLwpAQCAt
+ODU0LDcgKzg1Niw4IEBACiAJCQkJICBjb25zdCBpbnQgdHMpCiB7CiAJc3RydWN0IHRjcF9zb2Nr
+ICp0cCA9IHRjcF9zayhzayk7Ci0JaWYgKG1ldHJpYyA+IHRwLT5yZW9yZGVyaW5nKSB7CisJLy8g
+cmZjc3RyaWN0OiBubyBkeW5hbWljIHJlb3JkZXJpbmcgbWV0cmljCisJaWYgKCFzeXNjdGxfdGNw
+X3JmY3N0cmljdF9yZWNvdmVyeSAmJiBtZXRyaWMgPiB0cC0+cmVvcmRlcmluZykgewogCQl0cC0+
+cmVvcmRlcmluZyA9IG1pbihUQ1BfTUFYX1JFT1JERVJJTkcsIG1ldHJpYyk7CiAKIAkJLyogVGhp
+cyBleGNpdGluZyBldmVudCBpcyB3b3J0aCB0byBiZSByZW1lbWJlcmVkLiA4KSAqLwpAQCAtMTc4
+NCw3ICsxNzg3LDEwIEBACiAJCS8qIEhvbGQgb2xkIHN0YXRlIHVudGlsIHNvbWV0aGluZyAqYWJv
+dmUqIGhpZ2hfc2VxCiAJCSAqIGlzIEFDS2VkLiBGb3IgUmVubyBpdCBpcyBNVVNUIHRvIHByZXZl
+bnQgZmFsc2UKIAkJICogZmFzdCByZXRyYW5zbWl0cyAoUkZDMjU4MikuIFNBQ0sgVENQIGlzIHNh
+ZmUuICovCi0JCXRjcF9tb2RlcmF0ZV9jd25kKHRwKTsKKwkJLy8gcmZjc3RyaWN0OiBhIHRjcF9t
+b2RlcmF0ZV9jd25kIGF0IHRoZSBlbmQgb2YgdGhlIHJlY292ZXJ5CisJCS8vICAgICAgICAgICAg
+ICAgIGFscmVhZHkgc29sdmVzIGFueSBraW5kIG9mIGJ1cnN0aW5lc3MgaXNzdWUKKwkJaWYgKCFz
+eXNjdGxfdGNwX3JmY3N0cmljdF9yZWNvdmVyeSkKKwkJCXRjcF9tb2RlcmF0ZV9jd25kKHRwKTsK
+IAkJcmV0dXJuIDE7CiAJfQogCXRjcF9zZXRfY2Ffc3RhdGUoc2ssIFRDUF9DQV9PcGVuKTsKQEAg
+LTIwMzksNiArMjA0NSwxMCBAQAogCQkJaWYgKCEoZmxhZyZGTEFHX0VDRSkpCiAJCQkJdHAtPnBy
+aW9yX3NzdGhyZXNoID0gdGNwX2N1cnJlbnRfc3N0aHJlc2goc2spOwogCQkJdHAtPnNuZF9zc3Ro
+cmVzaCA9IGljc2stPmljc2tfY2Ffb3BzLT5zc3RocmVzaChzayk7CisJCQkvLyByZmNzdHJpY3Q6
+IHN0YW5kYXJkIHJ1bGUgY3duZCA9IHNzdGhyZXNoICsgMworCQkJLy8gbm90ZTogdHAtPnJlb3Jk
+ZXJpbmcgc2VnbWVudHMgaGF2ZSBiZWVuIGFscmVhZHkgYWRkZWQgdG8gc2Fja2VkX291dAorCQkJ
+aWYgKHN5c2N0bF90Y3BfcmZjc3RyaWN0X3JlY292ZXJ5KQorCQkJCXRwLT5zbmRfY3duZCA9IHRw
+LT5zbmRfc3N0aHJlc2g7CiAJCQlUQ1BfRUNOX3F1ZXVlX2N3cih0cCk7CiAJCX0KIApAQCAtMjA0
+OSw3ICsyMDU5LDkgQEAKIAogCWlmIChpc19kdXBhY2sgfHwgdGNwX2hlYWRfdGltZWRvdXQoc2ss
+IHRwKSkKIAkJdGNwX3VwZGF0ZV9zY29yZWJvYXJkKHNrLCB0cCk7Ci0JdGNwX2N3bmRfZG93bihz
+ayk7CisJLy8gcmZjc3RyaWN0OiBubyBmdXJ0aGVyIHJlZHVjdGlvbiBvdGhlciB0aGFuIGN3bmQg
+PSBzc2h0aHJlc2ggKyAzCisJaWYgKCFzeXNjdGxfdGNwX3JmY3N0cmljdF9yZWNvdmVyeSB8fCBp
+Y3NrLT5pY3NrX2NhX3N0YXRlID09IFRDUF9DQV9DV1IpCisJCXRjcF9jd25kX2Rvd24oc2spOwog
+CXRjcF94bWl0X3JldHJhbnNtaXRfcXVldWUoc2spOwogfQogCg==
+------=_Part_175004_4120454.1152112327977--
