@@ -1,93 +1,46 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: [e1000]: flow control on by default - good idea really?
-Date: Wed, 5 Jul 2006 22:45:08 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0607052241230.12611@bizon.gios.gov.pl>
-References: <1152033116.5276.22.camel@jzny2> <1152040839.5276.25.camel@jzny2>
- <20060705.112237.41652489.davem@davemloft.net> <44AC05A8.9030503@intel.com>
+From: Robert Schulze <rob@net-pr.de>
+Subject: airo maybe should select crypto_aes
+Date: Wed, 05 Jul 2006 22:52:43 +0200
+Message-ID: <44AC269B.6000704@net-pr.de>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-129626438-1152132308=:12611"
-Cc: David Miller <davem@davemloft.net>, hadi@cyberus.ca,
-	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
-	Robert.Olsson@data.slu.se, john.ronciak@intel.com,
-	greearb@candelatech.com, jgarzik@pobox.com
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:61583 "EHLO
-	bizon.gios.gov.pl") by vger.kernel.org with ESMTP id S964820AbWGEUpi
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jul 2006 16:45:38 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <44AC05A8.9030503@intel.com>
+Received: from p15181122.pureserver.info ([212.227.60.11]:48556 "EHLO
+	p15181122.pureserver.info") by vger.kernel.org with ESMTP
+	id S964868AbWGEUrb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jul 2006 16:47:31 -0400
+Received: from [192.168.0.123] (dialin-145-254-053-026.pools.arcor-ip.net [145.254.53.26])
+	by p15181122.pureserver.info (Postfix) with ESMTP id CE4B3808EA9
+	for <netdev@vger.kernel.org>; Wed,  5 Jul 2006 22:47:31 +0200 (CEST)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi,
 
----187430788-129626438-1152132308=:12611
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+I first wrote to the linux-pcmcia ML, but they said it wasn't the right 
+address for my issue. The driver airo (for Cisco Wlan-Cards) complains 
+about "failed to load transform for AES", when it is loaded and 
+CRYPTO_AES is not selected in Kconfig.
+I've got a patch for that, maybe it's worth it.
 
+with kind regards,
+Robert Schulze
 
-
-On Wed, 5 Jul 2006, Auke Kok wrote:
-
-> David Miller wrote:
->> From: jamal <hadi@cyberus.ca>
->> Date: Tue, 04 Jul 2006 15:20:39 -0400
->>=20
->>> BTW, As an addendum this default behavior changed around 2.6.16 it
->>> seems.
->>=20
->> Flow control has been on by default in the tg3 driver since the
->> beginning, maybe e1000 only recently started to behave that way
->> but it's the right thing to do IMHO.
->
-> As said earlier, e1000 always honors the EEPROM setting for this, which h=
-as=20
-> been _on_ by default for all cards (AFAIK, that is).
-
-I'm not sure:
-
-root@r1:~# mii-tool -v eth0
-eth0: negotiated 100baseTx-FD, link ok
-   product info: vendor 00:aa:00, model 56 rev 0
-   basic mode:   autonegotiation enabled
-   basic status: autonegotiation complete, link ok
-   capabilities: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
-   advertising:  100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
-   link partner: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-contr=
-ol
-
-root@r1:~# ethtool -d eth0|grep flow
-       Receive flow control:              disabled
-       Transmit flow control:             disabled
-
-root@r1:~# uname -r
-2.6.14.3
-
-root@r2:~# mii-tool -v eth0
-eth0: negotiated 100baseTx-FD flow-control, link ok
-   product info: vendor 00:aa:00, model 56 rev 0
-   basic mode:   autonegotiation enabled
-   basic status: autonegotiation complete, link ok
-   capabilities: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
-   advertising:  100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-contr=
-ol
-   link partner: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-contr=
-ol
-
-root@r2:~# ethtool -d eth0|grep flow
-       Receive flow control:              enabled
-       Transmit flow control:             enabled
-
-root@r2:~# uname -r
-2.6.16.19
-
-This is exactly the same hardware, only kernel was recently upgraded on=20
-the r2.
-
-Best regards,
+--- linux-2.6.17.1/drivers/net/wireless/Kconfig.orig    2006-07-03
+17:37:02.000000000 +0200
++++ linux-2.6.17.1/drivers/net/wireless/Kconfig 2006-07-03
+17:36:44.000000000 +0200
+@@ -419,6 +419,7 @@ config AIRO_CS
+          tristate "Cisco/Aironet 34X/35X/4500/4800 PCMCIA cards"
+          depends on NET_RADIO && PCMCIA && (BROKEN || !M32R)
+          select CRYPTO
++       select CRYPTO_AES
+          ---help---
+            This is the standard Linux driver to support Cisco/Aironet 
+PCMCIA
+            802.11 wireless cards.  This driver is the same as the Aironet
 
 
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-129626438-1152132308=:12611--
+
