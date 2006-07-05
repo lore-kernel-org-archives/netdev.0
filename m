@@ -1,32 +1,36 @@
-From: Duncan Sands <duncan.sands@math.u-psud.fr>
-Subject: Re: possible recursive locking in ATM layer
-Date: Wed, 5 Jul 2006 12:23:33 +0200
-Message-ID: <200607051223.34339.duncan.sands@math.u-psud.fr>
-References: <200607041759.43064.duncan.sands@math.u-psud.fr> <1152029582.3109.70.camel@laptopd505.fenrus.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: 2.6.17-mm6
+Date: Wed, 5 Jul 2006 13:13:50 +0200
+Message-ID: <20060705111350.GA25161@elte.hu>
+References: <20060703030355.420c7155.akpm@osdl.org> <200607042153.31848.rjw@sisk.pl> <1152043271.3109.95.camel@laptopd505.fenrus.org> <44AB940F.7000801@s5r6.in-berlin.de> <44AB9633.9090208@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-6"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>, chas@cmf.nrl.navy.mil
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g19.free.fr ([212.27.42.27]:27265 "EHLO smtp1-g19.free.fr")
-	by vger.kernel.org with ESMTP id S964783AbWGEKzF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 06:55:05 -0400
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1152029582.3109.70.camel@laptopd505.fenrus.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arjan van de Ven <arjan@infradead.org>, netdev@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Andrew Morton <akpm@osdl.org>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964813AbWGELSd@vger.kernel.org>
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <44AB9633.9090208@s5r6.in-berlin.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> ok this is a real potential deadlock in a way, it takes two locks of 2
-> skbuffs without doing any kind of lock ordering; I think the following
-> patch should fix it. Just sort the lock taking order by address of the
-> skb.. it's not pretty but it's the best this can do in a minimally
-> invasive way.
 
-The patch is effective.  Thanks for making it!
+* Stefan Richter <stefanr@s5r6.in-berlin.de> wrote:
 
-Best wishes,
+> I wrote:
+> > (Ieee1394 core's usage of the skb_* API is entirely unrelated to
+> > networking; even if eth1394 was used.)
+> 
+> PS:
+> I wonder if it wouldn't be better to migrate ieee1394 core away from 
+> skb_*. I didn't look thoroughly at it yet but the benefit of using 
+> this API appears quite low to me.
 
-Duncan.
+yeah, it seems to be the wrong abstraction to use. It's also more 
+expensive than necessary: e.g. skb-heads have a qlen field that is 
+maintained in every list op - but the ieee1394 code does not make use of 
+the queue-length information. Using list.h plus a spinlock should do the 
+trick?
+
+	Ingo
