@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: RDMA will be reverted
-Date: Wed, 05 Jul 2006 11:27:03 -0700 (PDT)
-Message-ID: <20060705.112703.71101840.davem@davemloft.net>
-References: <1151708503.11835.8.camel@trinity.ogc.int>
-	<20060701.144506.74722126.davem@davemloft.net>
-	<adar7119kix.fsf@cisco.com>
+Subject: Re: [RFC] change netdevice to use struct device instead of struct
+ class_device
+Date: Wed, 05 Jul 2006 11:29:01 -0700 (PDT)
+Message-ID: <20060705.112901.104047882.davem@davemloft.net>
+References: <20060703231610.GA18352@kroah.com>
+	<20060703.185747.74753207.davem@davemloft.net>
+	<20060704223101.GA25275@kroah.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom@opengridcomputing.com, netdev@vger.kernel.org, akpm@osdl.org
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:33691
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:35227
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964975AbWGES0k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jul 2006 14:26:40 -0400
-To: rdreier@cisco.com
-In-Reply-To: <adar7119kix.fsf@cisco.com>
+	id S964959AbWGES2h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jul 2006 14:28:37 -0400
+To: greg@kroah.com
+In-Reply-To: <20060704223101.GA25275@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Tue, 04 Jul 2006 13:34:30 -0700
+From: Greg KH <greg@kroah.com>
+Date: Tue, 4 Jul 2006 15:31:01 -0700
 
-> Well, in the past it's seemed more like patches have been rejected not
-> because of a blanket refusal to consider support for certain hardware,
+> Do you mind if I keep this in my tree, due to the dependancies on the
+> other driver core changes?
 
-Then why in the world would we put up explicit web pages that
-say "TOE is bad, here's a list of reasons why" if we had any
-intention of ever adding support for these kinds of devices?
-
-	http://linux-net.osdl.org/index.php/TOE
-
-It had nothing to do with a particular implementation of the patches,
-it had everything to do with fundamentals of the technology.
-
-It's going to be difficult to discuss RDMA and iWARP sanely unless you
-accept the indisputable fact that we've rejected TOE as a technology
-entirely, and it is an example of precedence for disallowing support
-for entire classes of hardware.
+Feel free.
