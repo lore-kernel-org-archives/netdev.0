@@ -1,69 +1,45 @@
-From: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
-Subject: Re: possible dos / wsize affected frozen connection length (was: Re: 2.6.17.1: fails to fully get webpage)
-Date: Wed, 5 Jul 2006 07:54:01 -0400
-Message-ID: <Pine.LNX.4.61.0607050743470.30694@chaos.analogic.com>
-References: <20060629015915.GH2149@zip.com.au> <20060628.194627.74748190.davem@davemloft.net> <20060629030923.GI2149@zip.com.au> <20060628.204709.41634813.davem@davemloft.net> <20060629041827.GJ2149@zip.com.au> <44A3E898.1020202@tmr.com> <20060629225039.GO2149@zip.com.au> <20060705005540.GL2344@zip.com.au>
-Reply-To: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
+From: "Linsys Contractor Amit S. Kale" <amitkale@unminc.com>
+Subject: [PATCH 2.6.17 0/9] NetXen: ethernet nic driver
+Date: Wed, 5 Jul 2006 06:15:16 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0607050602310.27969@dut46>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, sanjeev@netxen.com, unmproj@linsyssoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from odyssey.analogic.com ([204.178.40.5]:35600 "EHLO
-	odyssey.analogic.com") by vger.kernel.org with ESMTP
-	id S964830AbWGELyE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 07:54:04 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20060705005540.GL2344@zip.com.au>
-To: "CaT" <cat@zip.com.au>
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:47975 "EHLO
+	mail.unminc.com") by vger.kernel.org with ESMTP id S964845AbWGENPc
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jul 2006 09:15:32 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-On Tue, 4 Jul 2006, CaT wrote:
+I'll be sending a NetXen 1G/10G ethernet driver patch in subsequent 
+emails. We have made changes as per the feedback received. We would like 
+this driver to be included in mainline kernel.
 
-> On Fri, Jun 30, 2006 at 08:50:39AM +1000, CaT wrote:
->> Another datapoint to this is that I've had this my netcat web test
->> running since 8:42pm yesterday. It's 8:37am now. It hasn't progressed
->> in any way. It hasn't quit. It hasn't timed out. It just sits there,
->> hung. This leads me to consider the possibility of a DOS, either
->> intentional or accidental (think about 2.6.17.x running on a mail server
->> and someone mails/spams from a broken place).
->
-> I'm just wondering if connections hanging around this long are normal.
-> The above has now been running for 6 days. netstat is still reporting an
-> established session. netcat has not timed out. It's all just sitting
-> there doing nothing.
->
-> --
+Kindly review it and feel free to send feedback.
 
->    "To the extent that we overreact, we proffer the terrorists the
->    greatest tribute."
->    	- High Court Judge Michael Kirby
+Thanks,
+-Amit
 
-TCP/IP connections can continue forever. That's one of the reasons why
-Berkeley sockets has SO_KEEPALIVE for a socket option. In the absence
-of such an option, the physical connection can be broken for a week,
-reconnected, then the session can continue.
+Signed-off-by: Amit S. Kale <amitkale@unminc.com>
 
-In your case, you probably have a real error in which one end of the
-connection crashed. However, until the other end shuts down that
-socket, the connection is logically correct and should not be
-forcefully terminated.
-
-A DOS is unlikely because with no data being transferred, little
-non-swapable resources are used. You can control the maximum number
-of connections allowed from a host with your firewall software
-(like iptables).
-
-Cheers,
-Dick Johnson
-Penguin : Linux version 2.6.16.4 on an i686 machine (5592.86 BogoMips).
-New book: http://www.AbominableFirebug.com/
-_
-
-
-****************************************************************
-The information transmitted in this message is confidential and may be privileged.  Any review, retransmission, dissemination, or other use of this information by persons or entities other than the intended recipient is prohibited.  If you are not the intended recipient, please notify Analogic Corporation immediately - by replying to this message or by sending an email to DeliveryErrors@analogic.com - and destroy all copies of this information, including any attachments, without reading or disclosing them.
-
-Thank you.
+  Kconfig                      |    5
+  Makefile                     |    1
+  netxen/Makefile              |   35 +
+  netxen/netxen_nic.h          |  998 ++++++++++++++++++++++++++++++++
+  netxen/netxen_nic_ethtool.c  |  707 +++++++++++++++++++++++
+  netxen/netxen_nic_hdr.h      |  684 ++++++++++++++++++++++
+  netxen/netxen_nic_hw.c       | 1308 +++++++++++++++++++++++++++++++++++++++++++
+  netxen/netxen_nic_hw.h       |  346 +++++++++++
+  netxen/netxen_nic_init.c     | 1263 +++++++++++++++++++++++++++++++++++++++++
+  netxen/netxen_nic_ioctl.h    |   75 ++
+  netxen/netxen_nic_isr.c      |  430 ++++++++++++++
+  netxen/netxen_nic_main.c     | 1228 ++++++++++++++++++++++++++++++++++++++++
+  netxen/netxen_nic_niu.c      |  761 +++++++++++++++++++++++++
+  netxen/netxen_nic_phan_reg.h |  293 +++++++++
+  14 files changed, 8134 insertions(+)
