@@ -1,37 +1,62 @@
 From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: Belkin F5D7001de locks up my Athlon64 system
-Date: Wed, 05 Jul 2006 15:42:44 +0100
-Message-ID: <44ABCFE4.4010808@gentoo.org>
-References: <20060701092313.225240@gmx.net> <200607011828.37874.mb@bu3sch.de> <20060702113205.16230@gmx.net> <200607022028.39852.mb@bu3sch.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Johann Uhrmann <Johann.Uhrmann@gmx.de>,
-	bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	linville@tuxdriver.com
+Subject: [PATCH] zd1211rw: usb_clear_halt not allowed in IRQ context
+Date: Wed,  5 Jul 2006 15:57:39 +0100 (BST)
+Message-ID: <20060705145739.DF3148AFF50@zog.reactivated.net>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta08-winn.ispmail.ntl.com ([81.103.221.48]:29693 "EHLO
+Received: from mta08-winn.ispmail.ntl.com ([81.103.221.48]:55607 "EHLO
 	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S964891AbWGEOh4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jul 2006 10:37:56 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200607022028.39852.mb@bu3sch.de>
+	id S964896AbWGEO5h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jul 2006 10:57:37 -0400
+To: linville@tuxdriver.com
+Cc: kune@deine-taler.de
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> The following patch is supposed to fix this.
-> I did only compile-test it. Please runtime-test it.
-> 
-> Thanks.
-> 
-> --
-> 
-> Softmac Shared Key Auth:
-> Fix recursive call into the driver by doing schedule_work.
-> recursive calls may result in a driver lock recursion.
+We will reimplement halt-clearing later, when we have periodic
+housekeeping routines in place. This will do as a temporary fix, the
+EPIPE case has not yet been seen.
 
-Tested on zd1211rw with shared key auth, works fine.
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
 
-Daniel
-
+diff --git a/drivers/net/wireless/zd1211rw/zd_usb.c b/drivers/net/wireless/zd1211rw/zd_usb.c
+index ce1cb2c..72f9052 100644
+--- a/drivers/net/wireless/zd1211rw/zd_usb.c
++++ b/drivers/net/wireless/zd1211rw/zd_usb.c
+@@ -375,10 +375,8 @@ static void int_urb_complete(struct urb 
+ 	case -ENODEV:
+ 	case -ENOENT:
+ 	case -ECONNRESET:
+-		goto kfree;
+ 	case -EPIPE:
+-		usb_clear_halt(urb->dev, EP_INT_IN);
+-		/* FALL-THROUGH */
++		goto kfree;
+ 	default:
+ 		goto resubmit;
+ 	}
+@@ -580,10 +578,8 @@ static void rx_urb_complete(struct urb *
+ 	case -ENODEV:
+ 	case -ENOENT:
+ 	case -ECONNRESET:
+-		return;
+ 	case -EPIPE:
+-		usb_clear_halt(urb->dev, EP_DATA_IN);
+-		/* FALL-THROUGH */
++		return;
+ 	default:
+ 		dev_dbg_f(urb_dev(urb), "urb %p error %d\n", urb, urb->status);
+ 		goto resubmit;
+@@ -749,11 +745,9 @@ static void tx_urb_complete(struct urb *
+ 	case -ENODEV:
+ 	case -ENOENT:
+ 	case -ECONNRESET:
++	case -EPIPE:
+ 		dev_dbg_f(urb_dev(urb), "urb %p error %d\n", urb, urb->status);
+ 		break;
+-	case -EPIPE:
+-		usb_clear_halt(urb->dev, EP_DATA_OUT);
+-		/* FALL-THROUGH */
+ 	default:
+ 		dev_dbg_f(urb_dev(urb), "urb %p error %d\n", urb, urb->status);
+ 		goto resubmit;
