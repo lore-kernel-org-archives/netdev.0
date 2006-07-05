@@ -1,38 +1,42 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [e1000]: flow control on by default - good idea really?
-Date: Wed, 05 Jul 2006 11:32:08 -0700
-Message-ID: <44AC05A8.9030503@intel.com>
-References: <1152033116.5276.22.camel@jzny2>	<1152040839.5276.25.camel@jzny2> <20060705.112237.41652489.davem@davemloft.net>
+From: Stefan Rompf <stefan@loplof.de>
+Subject: Re: [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
+Date: Wed, 5 Jul 2006 20:57:05 +0200
+Message-ID: <200607052057.05526.stefan@loplof.de>
+References: <200603211829.k2LITMNR029085@hera.kernel.org> <44AA3DD3.1090106@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, Robert.Olsson@data.slu.se,
-	john.ronciak@intel.com, greearb@candelatech.com, jgarzik@pobox.com
+Cc: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:11140 "EHLO
-	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S964978AbWGESqY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jul 2006 14:46:24 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060705.112237.41652489.davem@davemloft.net>
+Received: from natlemon.rzone.de ([81.169.145.170]:27054 "EHLO
+	natlemon.rzone.de") by vger.kernel.org with ESMTP id S964984AbWGESyU
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jul 2006 14:54:20 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <44AA3DD3.1090106@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: jamal <hadi@cyberus.ca>
-> Date: Tue, 04 Jul 2006 15:20:39 -0400
-> 
->> BTW, As an addendum this default behavior changed around 2.6.16 it
->> seems.
-> 
-> Flow control has been on by default in the tg3 driver since the
-> beginning, maybe e1000 only recently started to behave that way
-> but it's the right thing to do IMHO.
+Am Dienstag 04 Juli 2006 12:07 schrieb Patrick McHardy:
 
-As said earlier, e1000 always honors the EEPROM setting for this, which has 
-been _on_ by default for all cards (AFAIK, that is).
+> > -	new_dev->state = real_dev->state & VLAN_LINK_STATE_MASK;
+> > +	new_dev->state = real_dev->state & ~(1<<__LINK_STATE_START);
 
-Cheers,
+> This introduced a regression by propagating the __LINK_STATE_XOFF flag,
+> when the queue of the underlying device is stopped it will be stopped
+> for the VLAN device too and never be woken up. Since you changed
+> VLAN_LINK_STATE_MASK, I assume the intention was to just add
+> __LINK_STATE_DORMANT to the propagated flags and keep using it here?
 
-Auke
+Hm, I did not hit that bug during tests, even though starfire calls 
+netif_stop_queue() on close. But I don't remember whether I tested added 
+VLANs while the main interface was ifconfig'ed down.
+
+Anyway, is it good to propagate __LINK_STATE_PRESENT then? The same situation 
+here, add a VLAN while the main interface is "not present", and you are out. 
+Can you try to revert the quoted part of my patch, I'll rethink which flags 
+should be copied on device creation.
+
+Stefan
