@@ -1,29 +1,29 @@
 From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: [e1000]:  flow control on by default - good idea really?
-Date: Wed, 5 Jul 2006 22:37:18 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0607052235080.12611@bizon.gios.gov.pl>
+Subject: Re: [e1000]: flow control on by default - good idea really?
+Date: Wed, 5 Jul 2006 22:45:08 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0607052241230.12611@bizon.gios.gov.pl>
 References: <1152033116.5276.22.camel@jzny2> <1152040839.5276.25.camel@jzny2>
- <44ABE79A.1060603@intel.com>
+ <20060705.112237.41652489.davem@davemloft.net> <44AC05A8.9030503@intel.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-104785014-1152131838=:12611"
-Cc: hadi@cyberus.ca, "David S. Miller" <davem@davemloft.net>,
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-129626438-1152132308=:12611"
+Cc: David Miller <davem@davemloft.net>, hadi@cyberus.ca,
 	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	john.ronciak@intel.com, Ben Greear <greearb@candelatech.com>,
-	Jeff Garzik <jgarzik@pobox.com>
+	Robert.Olsson@data.slu.se, john.ronciak@intel.com,
+	greearb@candelatech.com, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:8426 "EHLO bizon.gios.gov.pl")
-	by vger.kernel.org with ESMTP id S964853AbWGEUhy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 16:37:54 -0400
+Received: from bizon.gios.gov.pl ([212.244.124.8]:61583 "EHLO
+	bizon.gios.gov.pl") by vger.kernel.org with ESMTP id S964820AbWGEUpi
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jul 2006 16:45:38 -0400
 To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <44ABE79A.1060603@intel.com>
+In-Reply-To: <44AC05A8.9030503@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
   This message is in MIME format.  The first part should be readable text,
   while the remaining parts are likely unreadable without MIME-aware tools.
 
----187430788-104785014-1152131838=:12611
+---187430788-129626438-1152132308=:12611
 Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 
@@ -31,69 +31,63 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 
 On Wed, 5 Jul 2006, Auke Kok wrote:
 
-> jamal wrote:
->> On Tue, 2006-04-07 at 13:11 -0400, jamal wrote:
->>> I have a device connected to a e1000 that was erroneously advertising
->>> both tx/rx flow control but wasnt properly reacting to it. The default=
-=20
->>> setup on the e1000 has rx flow control turned on.
->>> I was sending at wire rate gige from the device - which is about
->>> 1.48Mpps. The e1000 was in turn sending me flow control packets
->>> as per default/expected behavior. Unfortunately, it was sending
->>> a very large amount of packets. At one point i was seeing upto
->>> 1Mpps and on average, the flow control packets were consuming
->>> 60-70% of the bandwidth. Even when i fixed this behavior to act
->>> properly, allowing flow control on consumed up to 15% of the bandwidth.=
-=20
->>> Clearly, this is a bad thing. Yes, the device in the first instance was
->>> at fault. But i have argued in the past that NAPI does just fine withou=
-t
->>> flow control being turned on, so even chewing 5% of bandwidth on flow
->>> control is a bad thing..
->>>=20
->>> As a compromise, can we declare flow control as an advanced feature
->>> and turn it off by default? People who feel it is valuable and know
->>> what they are doing can turn it off.
+> David Miller wrote:
+>> From: jamal <hadi@cyberus.ca>
+>> Date: Tue, 04 Jul 2006 15:20:39 -0400
 >>=20
->> I meant turn it on.
+>>> BTW, As an addendum this default behavior changed around 2.6.16 it
+>>> seems.
 >>=20
->> BTW, As an addendum this default behavior changed around 2.6.16 it
->> seems.
+>> Flow control has been on by default in the tg3 driver since the
+>> beginning, maybe e1000 only recently started to behave that way
+>> but it's the right thing to do IMHO.
 >
-> Flow Control is using the EEPROM provided value, the module driver itself=
-=20
-> does not choose a default:
->
-> e1000_param.c:
->
-> /* User Specified Flow Control Override
-> *
-> * Valid Range: 0-3
-> *  - 0 - No Flow Control
-> *  - 1 - Rx only, respond to PAUSE frames but do not generate them
-> *  - 2 - Tx only, generate PAUSE frames but ignore them on receive
-> *  - 3 - Full Flow Control Support
-> *
-> * Default Value: Read flow control settings from the EEPROM
-> */
->
-> Turning flow control off usually (i.e. almost always) causes (significant=
-ly)=20
-> _degraded_ performance. We should really leave it the way it is (as per=
-=20
-> eeprom setting), and this is best for most if not all people. The card it=
-self=20
-> has this value programmed, which makes it possible for the user to turn=
-=20
-> on/off flowcontrol per card consistently, which makes much more sense to =
-me.=20
-> Also considering e1000 hardware varies significantly.
+> As said earlier, e1000 always honors the EEPROM setting for this, which h=
+as=20
+> been _on_ by default for all cards (AFAIK, that is).
 
-I was never able to find such tool for Linux or at least DOS. Where should=
-=20
-I look for it?
+I'm not sure:
+
+root@r1:~# mii-tool -v eth0
+eth0: negotiated 100baseTx-FD, link ok
+   product info: vendor 00:aa:00, model 56 rev 0
+   basic mode:   autonegotiation enabled
+   basic status: autonegotiation complete, link ok
+   capabilities: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
+   advertising:  100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
+   link partner: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-contr=
+ol
+
+root@r1:~# ethtool -d eth0|grep flow
+       Receive flow control:              disabled
+       Transmit flow control:             disabled
+
+root@r1:~# uname -r
+2.6.14.3
+
+root@r2:~# mii-tool -v eth0
+eth0: negotiated 100baseTx-FD flow-control, link ok
+   product info: vendor 00:aa:00, model 56 rev 0
+   basic mode:   autonegotiation enabled
+   basic status: autonegotiation complete, link ok
+   capabilities: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
+   advertising:  100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-contr=
+ol
+   link partner: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-contr=
+ol
+
+root@r2:~# ethtool -d eth0|grep flow
+       Receive flow control:              enabled
+       Transmit flow control:             enabled
+
+root@r2:~# uname -r
+2.6.16.19
+
+This is exactly the same hardware, only kernel was recently upgraded on=20
+the r2.
 
 Best regards,
 
+
  =09=09=09=09Krzysztof Ol=EAdzki
----187430788-104785014-1152131838=:12611--
+---187430788-129626438-1152132308=:12611--
