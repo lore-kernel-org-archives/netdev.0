@@ -1,95 +1,69 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [TCP] window reduction fix
-Date: Wed, 05 Jul 2006 15:17:23 -0400
-Message-ID: <44AC1043.10603@psc.edu>
-References: <8dd26e70607050924q48954801h8fd4c32efa37929@mail.gmail.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH] ixgb: add PCI Error recovery callbacks
+Date: Wed, 5 Jul 2006 14:44:37 -0500
+Message-ID: <20060705194437.GJ29526@austin.ibm.com>
+References: <20060629162634.GC5472@austin.ibm.com> <1151905766.28493.129.camel@ymzhang-perf.sh.intel.com> <44ABDF87.8000801@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, vacirca@infocom.uniroma1.it,
-	Andrea Baiocchi <andrea.baiocchi@uniroma1.it>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"bibo,mao" <bibo.mao@intel.com>,
+	Rajesh Shah <rajesh.shah@intel.com>,
+	Grant Grundler <grundler@parisc-linux.org>, akpm@osdl.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
+	netdev@vger.kernel.org, wenxiong@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:48112 "EHLO mailer1.psc.edu")
-	by vger.kernel.org with ESMTP id S964993AbWGETRg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 15:17:36 -0400
-To: "Angelo P. Castellani" <angelo.castellani@gmail.com>
-In-Reply-To: <8dd26e70607050924q48954801h8fd4c32efa37929@mail.gmail.com>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:37047 "EHLO
+	e31.co.us.ibm.com") by vger.kernel.org with ESMTP id S965006AbWGETom
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jul 2006 15:44:42 -0400
+To: Auke Kok <auke-jan.h.kok@intel.com>
+Content-Disposition: inline
+In-Reply-To: <44ABDF87.8000801@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hm, wouldn't that violate the TCP spec?
+On Wed, Jul 05, 2006 at 08:49:27AM -0700, Auke Kok wrote:
+> Zhang, Yanmin wrote:
+> >On Fri, 2006-06-30 at 00:26, Linas Vepstas wrote:
+> >>Adds PCI Error recovery callbacks to the Intel 10-gigabit ethernet
+> >>ixgb device driver. Lightly tested, works.
+> >
+> >Both pci_disable_device and ixgb_down would access the device. It doesn't
+> >follow Documentation/pci-error-recovery.txt that error_detected shouldn't 
+> >do
+> >any access to the device.
+> 
+> Moreover, it was Linas who wrote this documentation in the first place :)
 
-   -John
+On the pSeries, its harmless to try to do i/o; the i/o will e blocked. 
 
+> Linas, have you tried moving the e1000_down() call into the _reset part? I 
+> suspect that the e1000_reset() in there however may already be sufficient.
 
-Angelo P. Castellani wrote:
-> I forward the message because it seems hasn't get through to mailing
-> list (removing references to a word that seems blocking the message).
-> 
-> The previous message "[TCP] window update during recovery (continuing
-> on window reduction)" references this one
-> 
-> Regards,
-> Angelo P. Castellani
-> ---------- Forwarded message ----------
-> From: Angelo P. Castellani <angelo.castellani+lkml@gmail.com>
-> Date: 5-lug-2006 16.22
-> Subject: [TCP] window reduction fix
-> To: netdev <netdev@vger.kernel.org>
-> Cc: Francesco Vacirca <francesco@net.infocom.uniroma1.it>, Andrea
-> Baiocchi <andrea.baiocchi@uniroma1.it>
-> 
-> 
-> When the receiver buffer is filling up, it should reduce the allowed
-> receive window value piggybacked in the acks, according to the free
-> space actually left in the buffer.
-> 
-> So it should send in the tcp acks returning to the sender a window
-> field with a value not higher than the space available to store
-> incoming segments.
-> 
-> The attached patch addresses this issue, requests to the sender a
-> window size not bigger than the free space for incoming data.
-> 
-> Regards,
-> Angelo P. Castellani
-> 
-> 
-> ------------------------------------------------------------------------
-> 
-> diff -urd linux-2.6.16-orig/net/ipv4/tcp_output.c linux-2.6.16-winreduction/net/ipv4/tcp_output.c
-> --- linux-2.6.16-orig/net/ipv4/tcp_output.c	2006-05-16 14:53:02.000000000 +0200
-> +++ linux-2.6.16-winreduction/net/ipv4/tcp_output.c	2006-07-05 16:35:55.000000000 +0200
-> @@ -218,18 +218,15 @@
->  	u32 cur_win = tcp_receive_window(tp);
->  	u32 new_win = __tcp_select_window(sk);
->  
-> -	/* Never shrink the offered window */
-> -	if(new_win < cur_win) {
-> -		/* Danger Will Robinson!
-> -		 * Don't update rcv_wup/rcv_wnd here or else
-> -		 * we will not be able to advertise a zero
-> -		 * window in time.  --DaveM
-> -		 *
-> -		 * Relax Will Robinson.
-> -		 */
-> -		new_win = cur_win;
-> -	}
-> -	tp->rcv_wnd = new_win;
-> +	/* Danger Will Robinson!
-> +	 * Don't update rcv_wup/rcv_wnd here or else
-> +	 * we will not be able to advertise a zero
-> +	 * window in time.  --DaveM
-> +	 *
-> +	 * Relax Will Robinson.
-> +	 */
-> +	// Anyway let's send the right window reduction to the sender.
-> +	tp->rcv_wnd = max( new_win, cur_win );
->  	tp->rcv_wup = tp->rcv_nxt;
->  
->  	/* Make sure we do not exceed the maximum possible
-> 
-> 
-> 
-> 
+I wanted to perform all of the "down" type functions BEFORE the reset. 
+The idea is to get the device driver and the various parts of the 
+Linux kernel into a state that would be consisten with a reset.
+
+I don't want to do these functions after the reset, since, at this
+point, the card is a "clean slate"; it has the PCI bars set, but 
+nothing else.  Doing random i/o to it at this point could confuse
+the card; instead, one wants to bring the card up using the usual
+bringup sequence.
+
+For example, I tipped over one rather confusing bug: new code 
+in the -mm tree blocks a pci_enable_device() if it thinks the
+card is already enabled (even if its not). Doing I/O to a card
+that is not enabled will cause either a target abort or a master 
+abort.  Thus, I found I had to call pci_disable_device(); and it
+seemed that the best time to do this would be before the reset, not
+afterwords.  However, I did not play at length with other possibilities.
+
+I recently lost access to my ixgb cards, and so can't do more testing
+just right now.
+
+--linas
+
 
