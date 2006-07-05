@@ -1,37 +1,38 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [RESEND] please pull from git://lost.foo-projects.org/~ahkok/git/netdev-2.6
- upstream
-Date: Wed, 05 Jul 2006 14:33:54 -0400
-Message-ID: <44AC0612.8000300@pobox.com>
-References: <b89f3df8c8420144e0cbf36dd56daa6b@localhost>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [e1000]: flow control on by default - good idea really?
+Date: Wed, 05 Jul 2006 11:32:08 -0700
+Message-ID: <44AC05A8.9030503@intel.com>
+References: <1152033116.5276.22.camel@jzny2>	<1152040839.5276.25.camel@jzny2> <20060705.112237.41652489.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, auke-jan.h.kok@intel.com,
-	auke@foo-projects.org, akpm@osdl.org
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, Robert.Olsson@data.slu.se,
+	john.ronciak@intel.com, greearb@candelatech.com, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:14995 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S964966AbWGESd6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 14:33:58 -0400
-To: Auke Kok <sofar@foo-projects.org>
-In-Reply-To: <b89f3df8c8420144e0cbf36dd56daa6b@localhost>
+Received: from mga02.intel.com ([134.134.136.20]:11140 "EHLO
+	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S964978AbWGESqY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jul 2006 14:46:24 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060705.112237.41652489.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok wrote:
-> Jeff,
+David Miller wrote:
+> From: jamal <hadi@cyberus.ca>
+> Date: Tue, 04 Jul 2006 15:20:39 -0400
 > 
-> Since my pull request from thursday I haven't heard anything anymore, so I
-> assume that the changes we made were sufficient.
+>> BTW, As an addendum this default behavior changed around 2.6.16 it
+>> seems.
 > 
-> Needless to say that I would love to see ich8 support make it into 2.6.18rc,
-> considering that the hardware already is out there and the code has been
-> tested and validated extensively over the last period.
-> 
-> I hope that can still be accomodated. In that light, please pull:
-> 
->     git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream
+> Flow control has been on by default in the tg3 driver since the
+> beginning, maybe e1000 only recently started to behave that way
+> but it's the right thing to do IMHO.
 
-pulled, and updated for the conflict
+As said earlier, e1000 always honors the EEPROM setting for this, which has 
+been _on_ by default for all cards (AFAIK, that is).
 
+Cheers,
 
+Auke
