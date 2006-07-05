@@ -1,71 +1,119 @@
-From: "Angelo P. Castellani" <angelo.castellani@gmail.com>
-Subject: [PATCH] TCP Compound: dwnd=0 on ssthresh
-Date: Wed, 5 Jul 2006 17:29:11 +0200
-Message-ID: <8dd26e70607050829y4fbafdb6teec54874a11ed275@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2.6.17 1/9] NetXen: Makefile and ethtool interface
+Date: Wed, 05 Jul 2006 11:34:51 -0400
+Message-ID: <44ABDC1B.4020504@garzik.org>
+References: <Pine.LNX.4.64.0607050602310.27969@dut46> <Pine.LNX.4.64.0607050616110.27969@dut46>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_175516_19355983.1152113351923"
-Cc: "Francesco Vacirca" <francesco@net.infocom.uniroma1.it>,
-	"Andrea Baiocchi" <andrea.baiocchi@uniroma1.it>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sanjeev@netxen.com, unmproj@linsyssoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:12556 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S964901AbWGEP3N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jul 2006 11:29:13 -0400
-Received: by nf-out-0910.google.com with SMTP id a4so1271023nfc
-        for <netdev@vger.kernel.org>; Wed, 05 Jul 2006 08:29:12 -0700 (PDT)
-To: netdev <netdev@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:62093 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S964903AbWGEPey (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 11:34:54 -0400
+To: "Linsys Contractor Amit S. Kale" <amitkale@unminc.com>
+In-Reply-To: <Pine.LNX.4.64.0607050616110.27969@dut46>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_175516_19355983.1152113351923
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Linsys Contractor Amit S. Kale wrote:
+> +static int
+> +netxen_nic_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+> +{
+> +    struct netxen_port *port = netdev_priv(dev);
+> +    struct netxen_adapter *adapter = port->adapter;
+> +    struct netxen_niu_phy_status status;
+> +
+> +    /* read which mode */
+> +    if (adapter->ahw.board_type == NETXEN_NIC_GBE) {
+> +        /* autonegotiation */
+> +        if (netxen_nic_phy_write(port->adapter, port->portnum,
+> +                     NETXEN_NIU_GB_MII_MGMT_ADDR_AUTONEG,
+> +                     (netxen_crbword_t) ecmd->autoneg) != 0)
+> +            return -EIO;
+> +        else
+> +            port->link_autoneg = ecmd->autoneg;
+> +
+> +        if (netxen_nic_phy_read(port->adapter, port->portnum,
+> +                    NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
+> +                    (netxen_crbword_t *) & status) != 0)
+> +            return -EIO;
+> +
+> +        /* speed */
+> +        switch (ecmd->speed) {
+> +        case SPEED_10:
+> +            status.speed = 0;
+> +            break;
+> +        case SPEED_100:
+> +            status.speed = 1;
+> +            break;
+> +        case SPEED_1000:
+> +            status.speed = 2;
+> +            break;
+> +        }
+> +        /* set duplex mode */
+> +        if (ecmd->duplex == DUPLEX_HALF)
+> +            status.duplex = 0;
+> +        if (ecmd->duplex == DUPLEX_FULL)
+> +            status.duplex = 1;
+> +
+> +        if (netxen_nic_phy_write(port->adapter, port->portnum,
+> +                     NETXEN_NIU_GB_MII_MGMT_ADDR_PHY_STATUS,
+> +                     *((int *)&status)) != 0)
+> +            return -EIO;
+> +        else {
+> +            port->link_speed = ecmd->speed;
+> +            port->link_duplex = ecmd->duplex;
+> +        }
+> +    }
+> +    if (netif_running(dev)) {
+> +        dev->stop(dev);
+> +        dev->open(dev);
+> +    }
+> +    return 0;
+> +}
+> +
 
-In the TCP Compound article used as a reference for the implementation, we read:
-"If a retransmission timeout occurs, dwnd should be reset to zero and
-the delay-based component is disabled." at page 5 of
-ftp://ftp.research.microsoft.com/pub/tr/TR-2005-86.pdf
+> +/* Restart Link Process */
+> +static int netxen_nic_nway_reset(struct net_device *dev)
+> +{
+> +    if (netif_running(dev)) {
+> +        dev->stop(dev);    /* verify */
+> +        dev->open(dev);
+> +    }
+> +    return 0;
+> +}
 
-The attached patch implements this requirement.
+Direct calls to dev->stop() and dev->open() are likely buggy, because 
+the locking/context differs between the above quoted calls and the calls 
+from inside the net stack.
 
-Regards,
-Angelo P. Castellani
 
-------=_Part_175516_19355983.1152113351923
-Content-Type: text/x-patch; name=no_dwnd_on_ssthresh.diff;
-	charset=ISO-8859-1
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ep9uiwc5
-Content-Disposition: attachment; filename="no_dwnd_on_ssthresh.diff"
+> +struct ethtool_ops netxen_nic_ethtool_ops = {
+> +    .get_settings = netxen_nic_get_settings,
+> +    .set_settings = netxen_nic_set_settings,
+> +    .get_drvinfo = netxen_nic_get_drvinfo,
+> +    .get_regs_len = netxen_nic_get_regs_len,
+> +    .get_regs = netxen_nic_get_regs,
+> +    .get_wol = netxen_nic_get_wol,
+> +    .nway_reset = netxen_nic_nway_reset,
+> +    .get_link = netxen_nic_get_link,
+> +    .get_eeprom_len = netxen_nic_get_eeprom_len,
+> +    .get_eeprom = netxen_nic_get_eeprom,
+> +    .get_ringparam = netxen_nic_get_ringparam,
+> +    .get_pauseparam = netxen_nic_get_pauseparam,
+> +    .set_pauseparam = netxen_nic_set_pauseparam,
+> +    .get_tx_csum = ethtool_op_get_tx_csum,
+> +    .set_tx_csum = ethtool_op_set_tx_csum,
+> +    .get_sg = ethtool_op_get_sg,
+> +    .set_sg = ethtool_op_set_sg,
+> +#ifdef NETIF_F_TSO
+> +    .get_tso = ethtool_op_get_tso,
+> +    .set_tso = ethtool_op_set_tso,
+> +#endif
 
-ZGlmZiAtdXJkIGEvbmV0L2lwdjQvdGNwX2NvbXBvdW5kLmMgYi9uZXQvaXB2NC90Y3BfY29tcG91
-bmQuYwotLS0gYS9uZXQvaXB2NC90Y3BfY29tcG91bmQuYwkyMDA2LTA3LTA1IDE3OjE5OjI4LjAw
-MDAwMDAwMCArMDIwMAorKysgYi9uZXQvaXB2NC90Y3BfY29tcG91bmQuYwkyMDA2LTA3LTA1IDE3
-OjIwOjQyLjAwMDAwMDAwMCArMDIwMApAQCAtMjIxLDEyICsyMjEsOSBAQAogCQl0Y3BfY29tcG91
-bmRfaW5pdChzayk7CiB9CiAKLXN0YXRpYyB2b2lkIHRjcF9jb21wb3VuZF9jb25nX2F2b2lkKHN0
-cnVjdCBzb2NrICpzaywgdTMyIGFjaywKLQkJCQkgICAgdTMyIHNlcV9ydHQsIHUzMiBpbl9mbGln
-aHQsIGludCBmbGFnKQoteworc3RhdGljIGlubGluZSB2b2lkIHRjcF9jb21wb3VuZF9zeW5jaChz
-dHJ1Y3Qgc29jayAqc2spIHsKIAlzdHJ1Y3QgdGNwX3NvY2sgKnRwID0gdGNwX3NrKHNrKTsKIAlz
-dHJ1Y3QgY29tcG91bmQgKnZlZ2FzID0gaW5ldF9jc2tfY2Eoc2spOwotCXU4IGluYyA9IDA7CiAK
-IAlpZiAodmVnYXMtPmN3bmQgKyB2ZWdhcy0+ZHduZCA+IHRwLT5zbmRfY3duZCkgewogCQlpZiAo
-dmVnYXMtPmN3bmQgPiB0cC0+c25kX2N3bmQgfHwgdmVnYXMtPmR3bmQgPiB0cC0+c25kX2N3bmQp
-IHsKQEAgLTIzNCw5ICsyMzEsMTkgQEAKIAkJCXZlZ2FzLT5kd25kID0gMDsKIAkJfSBlbHNlCiAJ
-CQl2ZWdhcy0+Y3duZCA9IHRwLT5zbmRfY3duZCAtIHZlZ2FzLT5kd25kOwotCiAJfQogCit9CisK
-K3N0YXRpYyB2b2lkIHRjcF9jb21wb3VuZF9jb25nX2F2b2lkKHN0cnVjdCBzb2NrICpzaywgdTMy
-IGFjaywKKwkJCQkgICAgdTMyIHNlcV9ydHQsIHUzMiBpbl9mbGlnaHQsIGludCBmbGFnKQorewor
-CXN0cnVjdCB0Y3Bfc29jayAqdHAgPSB0Y3Bfc2soc2spOworCXN0cnVjdCBjb21wb3VuZCAqdmVn
-YXMgPSBpbmV0X2Nza19jYShzayk7CisJdTggaW5jID0gMDsKKwkKKwl0Y3BfY29tcG91bmRfc3lu
-Y2goc2spOworCiAJaWYgKCF0Y3BfaXNfY3duZF9saW1pdGVkKHNrLCBpbl9mbGlnaHQpKQogCQly
-ZXR1cm47CiAKQEAgLTQxNSw5ICs0MjIsMjEgQEAKIAl9CiB9CiAKK3N0YXRpYyB1MzIgdGNwX2Nv
-bXBvdW5kX3NzdGhyZXNoKHN0cnVjdCBzb2NrICpzaykgeworCXN0cnVjdCB0Y3Bfc29jayAqdHAg
-PSB0Y3Bfc2soc2spOworCXN0cnVjdCBjb21wb3VuZCAqdmVnYXMgPSBpbmV0X2Nza19jYShzayk7
-CisKKwl0Y3BfY29tcG91bmRfc3luY2goc2spOworCQorCXZlZ2FzLT5kd25kID0gMDsKKwl0cC0+
-c25kX2N3bmQgPSB2ZWdhcy0+Y3duZDsKKwkKKwlyZXR1cm4gdGNwX3Jlbm9fc3N0aHJlc2goc2sp
-OworfQorCiBzdGF0aWMgc3RydWN0IHRjcF9jb25nZXN0aW9uX29wcyB0Y3BfY29tcG91bmQgPSB7
-CiAJLmluaXQJCT0gdGNwX2NvbXBvdW5kX2luaXQsCi0JLnNzdGhyZXNoCT0gdGNwX3Jlbm9fc3N0
-aHJlc2gsCisJLnNzdGhyZXNoCT0gdGNwX2NvbXBvdW5kX3NzdGhyZXNoLAogCS5jb25nX2F2b2lk
-CT0gdGNwX2NvbXBvdW5kX2NvbmdfYXZvaWQsCiAJLm1pbl9jd25kCT0gdGNwX3Jlbm9fbWluX2N3
-bmQsCiAJLnJ0dF9zYW1wbGUJPSB0Y3BfY29tcG91bmRfcnR0X2NhbGMsCg==
-------=_Part_175516_19355983.1152113351923--
+kill this #ifdef
+
+	Jeff
+
+
