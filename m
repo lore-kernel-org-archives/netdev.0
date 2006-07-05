@@ -1,38 +1,32 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: 2.6.17-mm6
-Date: Wed, 05 Jul 2006 12:36:35 +0200
-Message-ID: <44AB9633.9090208@s5r6.in-berlin.de>
-References: <20060703030355.420c7155.akpm@osdl.org>	 <200607042153.31848.rjw@sisk.pl> <1152043271.3109.95.camel@laptopd505.fenrus.org> <44AB940F.7000801@s5r6.in-berlin.de>
+From: Duncan Sands <duncan.sands@math.u-psud.fr>
+Subject: Re: possible recursive locking in ATM layer
+Date: Wed, 5 Jul 2006 12:23:33 +0200
+Message-ID: <200607051223.34339.duncan.sands@math.u-psud.fr>
+References: <200607041759.43064.duncan.sands@math.u-psud.fr> <1152029582.3109.70.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-6"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ingo Molnar <mingo@elte.hu>, chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hp3.statik.TU-Cottbus.De ([141.43.120.68]:20918 "EHLO
-	hp3.statik.tu-cottbus.de") by vger.kernel.org with ESMTP
-	id S964807AbWGEKj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jul 2006 06:39:27 -0400
+Received: from smtp1-g19.free.fr ([212.27.42.27]:27265 "EHLO smtp1-g19.free.fr")
+	by vger.kernel.org with ESMTP id S964783AbWGEKzF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 06:55:05 -0400
 To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <44AB940F.7000801@s5r6.in-berlin.de>
+In-Reply-To: <1152029582.3109.70.camel@laptopd505.fenrus.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I wrote:
-> (Ieee1394 core's usage of the skb_* API is entirely unrelated to
-> networking; even if eth1394 was used.)
+> ok this is a real potential deadlock in a way, it takes two locks of 2
+> skbuffs without doing any kind of lock ordering; I think the following
+> patch should fix it. Just sort the lock taking order by address of the
+> skb.. it's not pretty but it's the best this can do in a minimally
+> invasive way.
 
-PS:
-I wonder if it wouldn't be better to migrate ieee1394 core away from
-skb_*. I didn't look thoroughly at it yet but the benefit of using this
-API appears quite low to me.
+The patch is effective.  Thanks for making it!
 
-We use it to keep track of IEEE 1394 transactions [ = outgoing request
-&& (incoming response || expiry)], with completion of transactions often
-in-order due to mostly single-threaded usage, but sometimes out-of-order
-(may happen regardless of multithreaded or single-threaded usage).
--- 
-Stefan Richter
--=====-=-==- -=== --=-=
-http://arcgraph.de/sr/
+Best wishes,
+
+Duncan.
