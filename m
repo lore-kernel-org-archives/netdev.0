@@ -1,42 +1,40 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6 (revised)
-Date: Wed, 05 Jul 2006 14:25:40 -0400
-Message-ID: <44AC0424.8080703@garzik.org>
-References: <20060626212547.GE30706@tuxdriver.com> <20060628004838.GA15906@tuxdriver.com> <44A551C4.8090208@garzik.org> <20060630192658.GB4359@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RDMA will be reverted
+Date: Wed, 05 Jul 2006 11:27:03 -0700 (PDT)
+Message-ID: <20060705.112703.71101840.davem@davemloft.net>
+References: <1151708503.11835.8.camel@trinity.ogc.int>
+	<20060701.144506.74722126.davem@davemloft.net>
+	<adar7119kix.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: tom@opengridcomputing.com, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:1427 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S964967AbWGESZm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 14:25:42 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060630192658.GB4359@tuxdriver.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:33691
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S964975AbWGES0k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jul 2006 14:26:40 -0400
+To: rdreier@cisco.com
+In-Reply-To: <adar7119kix.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> On Fri, Jun 30, 2006 at 12:31:00PM -0400, Jeff Garzik wrote:
-> 
->>> The following changes since commit 
->>> fcc18e83e1f6fd9fa6b333735bf0fcd530655511:
->>>  Malcolm Parsons:
->>>        uclinux: use PER_LINUX_32BIT in binfmt_flat
->>>
->>> are found in the git repository at:
->>>
->>>  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git 
->>>  upstream
->> nothing pulled?
-> 
-> Odd, the changes seem to be there...did you happen to pull zd1211rw
-> first?  I based that branch off the HEAD of the upstream branch.
+From: Roland Dreier <rdreier@cisco.com>
+Date: Tue, 04 Jul 2006 13:34:30 -0700
 
-Sorry to cause more trouble, but...  In a moment of thoughtless action, 
-I rebased netdev#upstream, which has the obvious ripple effects :/
+> Well, in the past it's seemed more like patches have been rejected not
+> because of a blanket refusal to consider support for certain hardware,
 
-	Jeff
+Then why in the world would we put up explicit web pages that
+say "TOE is bad, here's a list of reasons why" if we had any
+intention of ever adding support for these kinds of devices?
 
+	http://linux-net.osdl.org/index.php/TOE
 
+It had nothing to do with a particular implementation of the patches,
+it had everything to do with fundamentals of the technology.
 
+It's going to be difficult to discuss RDMA and iWARP sanely unless you
+accept the indisputable fact that we've rejected TOE as a technology
+entirely, and it is an example of precedence for disallowing support
+for entire classes of hardware.
