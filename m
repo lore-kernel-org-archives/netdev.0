@@ -1,88 +1,179 @@
-From: Kari Hurtta <hurtta+linux-kernel@leija.mh.fmi.fi>
-Subject: Routing tables (Re: [patch 2/6] [Network namespace] Network
- device sharing by view)
-Date: Thu, 6 Jul 2006 12:45:29 +0300 (EEST)
-Message-ID: <200607060945.k669jTTx023676@leija.fmi.fi>
-References: <44A0FBAC.7020107@fr.ibm.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH] per-task delay accounting taskstats interface: control
+ exit data through cpumasks]
+Date: Thu, 6 Jul 2006 02:56:33 -0700
+Message-ID: <20060706025633.cd4b1c1d.akpm@osdl.org>
+References: <44ACD7C3.5040008@watson.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrey Savochkin <saw@swsoft.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, serue@us.ibm.com, haveblue@us.ibm.com,
-	clg@fr.ibm.com, Andrew Morton <akpm@osdl.org>, dev@sw.ru,
-	herbert@13thfloor.at, devel@openvz.org, sam@vilain.net,
-	ebiederm@xmission.com, viro@ftp.linux.org.uk,
-	Alexey Kuznetsov <alexey@sw.ru>
+Cc: jlan@sgi.com, pj@sgi.com, Valdis.Kletnieks@vt.edu,
+	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
+	hadi@cyberus.ca, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2gate.fmi.fi ([193.166.223.32]:21192 "EHLO smtp2gate.fmi.fi")
-	by vger.kernel.org with ESMTP id S1030193AbWGFJqE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 05:46:04 -0400
-In-Reply-To: <44A0FBAC.7020107@fr.ibm.com>
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
+Received: from smtp.osdl.org ([65.172.181.4]:51864 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030199AbWGFKCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 06:02:13 -0400
+To: Shailabh Nagar <nagar@watson.ibm.com>
+In-Reply-To: <44ACD7C3.5040008@watson.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Andrey Savochkin wrote:
-> > Daniel,
-> > 
-> > On Mon, Jun 26, 2006 at 05:49:41PM +0200, Daniel Lezcano wrote:
-> > 
-> >>>Then you lose the ability for each namespace to have its own routing entries.
-> >>>Which implies that you'll have difficulties with devices that should exist
-> >>>and be visible in one namespace only (like tunnels), as they require IP
-> >>>addresses and route.
-> >>
-> >>I mean instead of having the route tables private to the namespace, the 
-> >>routes have the information to which namespace they are associated.
-> > 
-> > 
-> > I think I understand what you're talking about: you want to make routing
-> > responsible for determining destination namespace ID in addition to route
-> > type (local, unicast etc), nexthop information, and so on.  Right?
+On Thu, 06 Jul 2006 05:28:35 -0400
+Shailabh Nagar <nagar@watson.ibm.com> wrote:
+
+> On systems with a large number of cpus, with even a modest rate of
+> tasks exiting per cpu, the volume of taskstats data sent on thread exit
+> can overflow a userspace listener's buffers.
 > 
-> Yes.
+> One approach to avoiding overflow is to allow listeners to get data for
+> a limited and specific set of cpus. By scaling the number of listeners
+> and/or the cpus they monitor, userspace can handle the statistical data
+> overload more gracefully.
 > 
-> > 
-> > My point is that if you make namespace tagging at routing time, and
-> > your packets are being routed only once, you lose the ability
-> > to have separate routing tables in each namespace.
+> In this patch, each listener registers to listen to a specific set of
+> cpus by specifying a cpumask.  The interest is recorded per-cpu. When
+> a task exits on a cpu, its taskstats data is unicast to each listener
+> interested in that cpu.
 > 
-> Right. What is the advantage of having separate the routing tables ?
+> Thanks to Andrew Morton for pointing out the various scalability and
+> general concerns of previous attempts and for suggesting this design.
+> 
+> ...
+>
+> --- linux-2.6.17-mm3equiv.orig/include/linux/taskstats.h	2006-06-30 19:03:40.000000000 -0400
+> +++ linux-2.6.17-mm3equiv/include/linux/taskstats.h	2006-07-06 02:38:28.000000000 -0400
 
-One application may be following. Consider firewall
+Your email client performs space-stuffing.  Fortunately "sed -e 's/^  / /'"
+is easy.
 
-                       (isp1)            (isp2)
+>   #include <linux/taskstats_kern.h>
+>   #include <linux/delayacct.h>
+> +#include <linux/cpumask.h>
+> +#include <linux/percpu.h>
+>   #include <net/genetlink.h>
+>   #include <asm/atomic.h>
+
+Like that.
+
+> 
+> +static int add_del_listener(pid_t pid, cpumask_t *maskp, int isadd)
+> +{
+> +	struct listener *s;
+> +	struct listener_list *listeners;
+> +	unsigned int cpu;
+> +	cpumask_t mask;
+> +	struct list_head *p;
+> +
+> +	memcpy(&mask, maskp, sizeof(cpumask_t));
+
+	mask = *maskp; ?
+
+> +	if (!cpus_subset(mask, cpu_possible_map))
+> +		return -EINVAL;
+> +
+> +	if (isadd == REGISTER) {
+> +		for_each_cpu_mask(cpu, mask) {
+> +			s = kmalloc_node(sizeof(struct listener), GFP_KERNEL,
+> +					 cpu_to_node(cpu));
+> +			if (!s)
+> +				return -ENOMEM;
+> +			s->pid = pid;
+> +			INIT_LIST_HEAD(&s->list);
+> +
+> +			listeners = &per_cpu(listener_array, cpu);
+> +			down_write(&listeners->sem);
+> +			list_add(&s->list, &listeners->list);
+> +			up_write(&listeners->sem);
+> +		}
+> +	} else {
+> +		for_each_cpu_mask(cpu, mask) {
+> +			struct list_head *tmp;
+> +
+> +			listeners = &per_cpu(listener_array, cpu);
+> +			down_write(&listeners->sem);
+> +			list_for_each_safe(p, tmp, &listeners->list) {
+> +				s = list_entry(p, struct listener, list);
+> +				if (s->pid == pid) {
+> +					list_del(&s->list);
+> +					kfree(s);
+> +					break;
+> +				}
+> +			}
+> +			up_write(&listeners->sem);
+> +		}
+> +	}
+> +	return 0;
+> +}
+
+You might choose to handle the ENOMEM situation here by backing out and not
+leaving things half-installed.  I suspect that's just a simple `goto'.
+
+> -static int taskstats_send_stats(struct sk_buff *skb, struct genl_info *info)
+> +static int taskstats_user_cmd(struct sk_buff *skb, struct genl_info *info)
+>   {
+>   	int rc = 0;
+>   	struct sk_buff *rep_skb;
+> @@ -210,6 +302,25 @@ static int taskstats_send_stats(struct s
+>   	void *reply;
+>   	size_t size;
+>   	struct nlattr *na;
+> +	cpumask_t mask;
+
+When counting add_del_listener(), that's two cpumasks on the stack.  How
+big can these get?  256 bytes?  Is it possible to get by with just the one?
+
+> +
+> +	if (info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK]) {
+> +		na = info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK];
+> +		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
+> +			return -E2BIG;
+> +		cpulist_parse((char *)nla_data(na), mask);
+
+Best check the return value from this function.
+
+> +		rc = add_del_listener(info->snd_pid, &mask, REGISTER);
+> +		return rc;
+> +	}
+> +
+> +	if (info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK]) {
+> +		na = info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK];
+> +		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
+> +			return -E2BIG;
+> +		cpulist_parse((char *)nla_data(na), mask);
+> +		rc = add_del_listener(info->snd_pid, &mask, DEREGISTER);
+> +		return rc;
+> +	}
+> 
+> ...
+> 
+> +void taskstats_exit_alloc(struct taskstats **ptidstats, unsigned int *mycpu)
+> +{
+> +	struct listener_list *listeners;
+> +	struct taskstats *tmp;
+> +	/*
+> +	 * This is the cpu on which the task is exiting currently and will
+> +	 * be the one for which the exit event is sent, even if the cpu
+> +	 * on which this function is running changes later.
+> +	 */
+> +	*mycpu = raw_smp_processor_id();
+> +
+> +	*ptidstats = NULL;
+> +	tmp = kmem_cache_zalloc(taskstats_cache, SLAB_KERNEL);
+> +	if (!tmp)
+> +		return;
+> +
+> +	listeners = &per_cpu(listener_array, *mycpu);
+> +	down_read(&listeners->sem);
+> +	if (!list_empty(&listeners->list)) {
+> +		*ptidstats = tmp;
+> +		tmp = NULL;
+> +	}
+> +	up_read(&listeners->sem);
+> +	if (tmp)
+> +		kfree(tmp);
+
+kfree(NULL) is legal.
 
 
-                         I                 I
-          +-----------  red0------------- red1 ---------+
-          |     +                                 +     |
-          |     |    red routing deamon  (BGP)    |     |
-          |     |                                 |     |
-          |     |    red routing tables           |     |
-          |     |                                 |     |
-          |     +----------tun(?)-----------------+     |
-          |                                             |
-          |     +----------tun(?)-----------------+     |
-          |     |                                 |     |
-          |     |     green routing tables        |     |
-     I mana0    |                                 |     |
-          |     |     green routing deamon (ospf) |     |
-          |     +                                 +     |
-          +--------- green0 ---------- green1 ----------+
-                       I                 I
-
-               
-
-That may allow running different routing deamon on
-red and green side. That is possible if they manage
-different routing tables on kernel.  They not need
-communigate together, when route between them is static.
-
-/ Kari Hurtta
-
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Looks good to me.  Does it work?
