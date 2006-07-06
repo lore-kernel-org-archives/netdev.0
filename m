@@ -1,28 +1,36 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Adding new driver to ethtool
-Date: Wed, 05 Jul 2006 21:31:58 -0400
-Message-ID: <44AC680E.4020809@garzik.org>
-References: <20060705152526.eaa6a190c7abddfed9ba5ffb54cc233d.007181ed23.wbe@email.secureserver.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RDMA will be reverted
+Date: Wed, 05 Jul 2006 20:03:25 -0700 (PDT)
+Message-ID: <20060705.200325.74731166.davem@davemloft.net>
+References: <adar7119kix.fsf@cisco.com>
+	<20060705.112703.71101840.davem@davemloft.net>
+	<adaac7naj80.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: tom@opengridcomputing.com, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45729 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S965115AbWGFBcA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 21:32:00 -0400
-To: moto@arba.com
-In-Reply-To: <20060705152526.eaa6a190c7abddfed9ba5ffb54cc233d.007181ed23.wbe@email.secureserver.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:23772
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965088AbWGFDDA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jul 2006 23:03:00 -0400
+To: rdreier@cisco.com
+In-Reply-To: <adaac7naj80.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-moto@arba.com wrote:
-> For a newbee future contributor: is there a cheatsheet on how to submit
-> an addition to the ethtool for a new device (driver) support?
+From: Roland Dreier <rdreier@cisco.com>
+Date: Wed, 05 Jul 2006 13:29:35 -0700
 
-Just submit a patch...
+> The way forward seems to be to merge basic iWARP support that lives in
+> drivers/infiniband, and then you can accept or reject things for
+> better integration, like notifiers for routing changes.
 
-	Jeff
+<sarcasm>
+Let's merge in drivers before the necessary infrastructure.
+</sarcasm>
 
-
+No, I think that's not the way forward.  You build the foundation
+before the house, if the foundation cannot be built then you are
+wasting your time with the house idea.
 
