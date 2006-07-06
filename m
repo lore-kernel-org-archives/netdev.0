@@ -1,129 +1,51 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Subject: Re: [PATCH] per-task delay accounting taskstats interface: control
- exit data through cpumasks]
-Date: Thu, 06 Jul 2006 18:27:49 -0400
-Message-ID: <44AD8E65.70006@watson.ibm.com>
-References: <44ACD7C3.5040008@watson.ibm.com>	<20060706025633.cd4b1c1d.akpm@osdl.org>	<1152185865.5986.15.camel@localhost.localdomain>	<20060706120835.GY14627@postel.suug.ch> <20060706144808.1dd5fadf.akpm@osdl.org>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 38 of 39] IB/ipath - More changes to support InfiniPath
+	on PowerPC 970 systems
+Date: Fri, 07 Jul 2006 08:37:01 +1000
+Message-ID: <1152225421.9862.12.camel@localhost.localdomain>
+References: <c22b6c244d5db77f7b1d.1151617289@eng-12.pathscale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, jlan@sgi.com, pj@sgi.com,
-	Valdis.Kletnieks@vt.edu, balbir@in.ibm.com, csturtiv@sgi.com,
-	linux-kernel@vger.kernel.org, hadi@cyberus.ca,
+Cc: akpm@osdl.org, rdreier@cisco.com, mst@mellanox.co.il,
+	openib-general@openib.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:31725 "EHLO
-	e36.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750935AbWGFW1w
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jul 2006 18:27:52 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060706144808.1dd5fadf.akpm@osdl.org>
+Received: from gate.crashing.org ([63.228.1.57]:57318 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S1750831AbWGFWjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 18:39:36 -0400
+To: "Bryan O'Sullivan" <bos@pathscale.com>
+In-Reply-To: <c22b6c244d5db77f7b1d.1151617289@eng-12.pathscale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> Thomas Graf <tgraf@suug.ch> wrote:
-> 
->>* Shailabh Nagar <nagar@watson.ibm.com> 2006-07-06 07:37
->>
->>>@@ -37,9 +45,26 @@ static struct nla_policy taskstats_cmd_g
->>> __read_mostly = {
->>> 	[TASKSTATS_CMD_ATTR_PID]  = { .type = NLA_U32 },
->>> 	[TASKSTATS_CMD_ATTR_TGID] = { .type = NLA_U32 },
->>>+	[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK] = { .type = NLA_STRING },
->>>+	[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK] = { .type = NLA_STRING },};
->>
->>>+		na = info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK];
->>>+		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
->>>+			return -E2BIG;
->>>+		rc = cpulist_parse((char *)nla_data(na), mask);
->>
->>This isn't safe, the data in the attribute is not guaranteed to be
->>NUL terminated. Still it's probably me to blame for not making
->>this more obvious in the API.
->>
-> 
-> 
-> Thanks, that was an unpleasant bug.
-> 
-> 
->>I've attached a patch below extending the API to make it easier
->>for interfaces using NUL termianted strings,
-> 
-> 
-> In the interests of keeping this work decoupled from netlink enhancements
-> I'd propose the below.  
 
-The patch looks good. I was also thinking of simply modifying the input
-to have the null termination and modify later when netlink provides
-generic support.
+> +#if defined(__powerpc__)
+> +	/* There isn't a generic way to specify writethrough mappings */
+> +	pgprot_val(vma->vm_page_prot) |= _PAGE_NO_CACHE;
+> +	pgprot_val(vma->vm_page_prot) |= _PAGE_WRITETHRU;
+> +	pgprot_val(vma->vm_page_prot) &= ~_PAGE_GUARDED;
+> +#endif
 
+I don't see any case where having both NO_CACHE and WRITE_THRU can be
+legal... It's one or the other.
 
-> Is it bad to modify the data at nla_data()?
-> 
-> 
-> --- a/kernel/taskstats.c~per-task-delay-accounting-taskstats-interface-control-exit-data-through-cpumasks-fix
-> +++ a/kernel/taskstats.c
-> @@ -299,6 +299,23 @@ cleanup:
->  	return 0;
->  }
->  
-> +static int parse(struct nlattr *na, cpumask_t *mask)
+> +/**
+> + * ipath_unordered_wc - indicate whether write combining is ordered
+> + *
+> + * PowerPC systems (at least those in the 970 processor family)
+> + * write partially filled store buffers in address order, but will write
+> + * completely filled store buffers in "random" order, and therefore must
+> + * have serialization for correctness with current InfiniPath chips.
+> + *
+> + */
+> +int ipath_unordered_wc(void)
 > +{
-> +	char *data;
-> +	int len;
-> +
-> +	if (na == NULL)
-> +		return 1;
-> +	len = nla_len(na);
-> +	if (len > TASKSTATS_CPUMASK_MAXLEN)
-> +		return -E2BIG;
-> +	if (len < 1)
-> +		return -EINVAL;
-> +	data = nla_data(na);
-> +	data[len - 1] = '\0';
-> +	return cpulist_parse(data, *mask);
+> +	return 1;
 > +}
-> +
->  static int taskstats_user_cmd(struct sk_buff *skb, struct genl_info *info)
->  {
->  	int rc = 0;
-> @@ -309,27 +326,17 @@ static int taskstats_user_cmd(struct sk_
->  	struct nlattr *na;
->  	cpumask_t mask;
->  
-> -	if (info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK]) {
-> -		na = info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK];
-> -		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
-> -			return -E2BIG;
-> -		rc = cpulist_parse((char *)nla_data(na), mask);
-> -		if (rc)
-> -			return rc;
-> -		rc = add_del_listener(info->snd_pid, &mask, REGISTER);
-> +	rc = parse(info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK], &mask);
-> +	if (rc < 0)
->  		return rc;
-> -	}
-> +	if (rc == 0)
-> +		return add_del_listener(info->snd_pid, &mask, REGISTER);
->  
-> -	if (info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK]) {
-> -		na = info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK];
-> -		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
-> -			return -E2BIG;
-> -		rc = cpulist_parse((char *)nla_data(na), mask);
-> -		if (rc)
-> -			return rc;
-> -		rc = add_del_listener(info->snd_pid, &mask, DEREGISTER);
-> +	rc = parse(info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK], &mask);
-> +	if (rc < 0)
->  		return rc;
-> -	}
-> +	if (rc == 0)
-> +		return add_del_listener(info->snd_pid, &mask, DEREGISTER);
->  
->  	/*
->  	 * Size includes space for nested attributes
-> _
-> 
+
+How is the above providing any kind of serialisation ?
+
+Ben.
+
 
