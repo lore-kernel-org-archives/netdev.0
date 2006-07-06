@@ -1,118 +1,59 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH] per-task delay accounting taskstats interface: control
- exit data through cpumasks]
-Date: Thu, 6 Jul 2006 14:48:08 -0700
-Message-ID: <20060706144808.1dd5fadf.akpm@osdl.org>
-References: <44ACD7C3.5040008@watson.ibm.com>
-	<20060706025633.cd4b1c1d.akpm@osdl.org>
-	<1152185865.5986.15.camel@localhost.localdomain>
-	<20060706120835.GY14627@postel.suug.ch>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH] ixgb: add PCI Error recovery callbacks
+Date: Thu, 6 Jul 2006 16:52:34 -0500
+Message-ID: <20060706215234.GA29526@austin.ibm.com>
+References: <20060629162634.GC5472@austin.ibm.com> <1151905766.28493.129.camel@ymzhang-perf.sh.intel.com> <44ABDF87.8000801@intel.com> <20060705194437.GJ29526@austin.ibm.com> <1152148899.28493.168.camel@ymzhang-perf.sh.intel.com> <20060706161640.GT29526@austin.ibm.com> <44AD4FFF.4080204@foo-projects.org> <20060706185059.GX29526@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: nagar@watson.ibm.com, jlan@sgi.com, pj@sgi.com,
-	Valdis.Kletnieks@vt.edu, balbir@in.ibm.com, csturtiv@sgi.com,
-	linux-kernel@vger.kernel.org, hadi@cyberus.ca,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"bibo,mao" <bibo.mao@intel.com>,
+	Rajesh Shah <rajesh.shah@intel.com>,
+	Grant Grundler <grundler@parisc-linux.org>, akpm@osdl.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
+	netdev@vger.kernel.org, wenxiong@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:45993 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750785AbWGFVpL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 17:45:11 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060706120835.GY14627@postel.suug.ch>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:50350 "EHLO e1.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1750777AbWGFVwh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 17:52:37 -0400
+To: Auke Kok <sofar@foo-projects.org>
+Content-Disposition: inline
+In-Reply-To: <20060706185059.GX29526@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf <tgraf@suug.ch> wrote:
->
-> * Shailabh Nagar <nagar@watson.ibm.com> 2006-07-06 07:37
-> > @@ -37,9 +45,26 @@ static struct nla_policy taskstats_cmd_g
-> >  __read_mostly = {
-> >  	[TASKSTATS_CMD_ATTR_PID]  = { .type = NLA_U32 },
-> >  	[TASKSTATS_CMD_ATTR_TGID] = { .type = NLA_U32 },
-> > +	[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK] = { .type = NLA_STRING },
-> > +	[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK] = { .type = NLA_STRING },};
+On Thu, Jul 06, 2006 at 01:50:59PM -0500, Linas Vepstas wrote:
+> On Thu, Jul 06, 2006 at 11:01:35AM -0700, Auke Kok wrote:
+> > Linas Vepstas wrote:
+> > >
+> > >Perhaps the right fix is to figure out what parts of the driver do i/o
+> > >during shutdown, and then add a line "if(wedged) skip i/o;" to those
+> > >places?
+> > 
+> > that would be relatively simple if we can check a flag (?) somewhere that 
+> > signifies that we've encountered a pci error. We basically only need to 
+> > skip out after e1000_reset and bypass e1000_irq_disable in e1000_down() 
+> > then.
+> > 
+> > Does the pci error recovery code give us such a flag?
 > 
-> > +		na = info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK];
-> > +		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
-> > +			return -E2BIG;
-> > +		rc = cpulist_parse((char *)nla_data(na), mask);
-> 
-> This isn't safe, the data in the attribute is not guaranteed to be
-> NUL terminated. Still it's probably me to blame for not making
-> this more obvious in the API.
-> 
+> Yes, 
 
-Thanks, that was an unpleasant bug.
+[...]
 
-> I've attached a patch below extending the API to make it easier
-> for interfaces using NUL termianted strings,
+> Unless I get distracted, I'll provide an e1000 patch shortly ?
 
-In the interests of keeping this work decoupled from netlink enhancements
-I'd propose the below.  Is it bad to modify the data at nla_data()?
+I sat down to do this and realized it was a lame idea. If a given
+platform cannot tolerate PCI I/O while a PCI channel is hung, then
+the plaform should stub out readb()/read()/pci_read_config_word()/etc.
+as needed to prevent I/O during the critical stage.
 
+Otherwise, one is trying to chase down all the locations in the driver
+that may or may not require I/O to be disabled, which is a hit-or-miss,
+mistake-prone operation.
 
---- a/kernel/taskstats.c~per-task-delay-accounting-taskstats-interface-control-exit-data-through-cpumasks-fix
-+++ a/kernel/taskstats.c
-@@ -299,6 +299,23 @@ cleanup:
- 	return 0;
- }
- 
-+static int parse(struct nlattr *na, cpumask_t *mask)
-+{
-+	char *data;
-+	int len;
-+
-+	if (na == NULL)
-+		return 1;
-+	len = nla_len(na);
-+	if (len > TASKSTATS_CPUMASK_MAXLEN)
-+		return -E2BIG;
-+	if (len < 1)
-+		return -EINVAL;
-+	data = nla_data(na);
-+	data[len - 1] = '\0';
-+	return cpulist_parse(data, *mask);
-+}
-+
- static int taskstats_user_cmd(struct sk_buff *skb, struct genl_info *info)
- {
- 	int rc = 0;
-@@ -309,27 +326,17 @@ static int taskstats_user_cmd(struct sk_
- 	struct nlattr *na;
- 	cpumask_t mask;
- 
--	if (info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK]) {
--		na = info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK];
--		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
--			return -E2BIG;
--		rc = cpulist_parse((char *)nla_data(na), mask);
--		if (rc)
--			return rc;
--		rc = add_del_listener(info->snd_pid, &mask, REGISTER);
-+	rc = parse(info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK], &mask);
-+	if (rc < 0)
- 		return rc;
--	}
-+	if (rc == 0)
-+		return add_del_listener(info->snd_pid, &mask, REGISTER);
- 
--	if (info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK]) {
--		na = info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK];
--		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
--			return -E2BIG;
--		rc = cpulist_parse((char *)nla_data(na), mask);
--		if (rc)
--			return rc;
--		rc = add_del_listener(info->snd_pid, &mask, DEREGISTER);
-+	rc = parse(info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK], &mask);
-+	if (rc < 0)
- 		return rc;
--	}
-+	if (rc == 0)
-+		return add_del_listener(info->snd_pid, &mask, DEREGISTER);
- 
- 	/*
- 	 * Size includes space for nested attributes
-_
+--linas
 
