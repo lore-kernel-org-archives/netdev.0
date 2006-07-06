@@ -1,91 +1,141 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 2/2] forcedeth: watermark fixup
-Date: Thu, 06 Jul 2006 16:46:25 -0400
-Message-ID: <44AD76A1.40107@nvidia.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH] per-task delay accounting taskstats interface: control
+ exit data through cpumasks]
+Date: Thu, 6 Jul 2006 16:05:57 -0700
+Message-ID: <20060706160557.6f0cdfa0.akpm@osdl.org>
+References: <44ACD7C3.5040008@watson.ibm.com>
+	<20060706025633.cd4b1c1d.akpm@osdl.org>
+	<1152185865.5986.15.camel@localhost.localdomain>
+	<20060706120835.GY14627@postel.suug.ch>
+	<20060706144808.1dd5fadf.akpm@osdl.org>
+	<20060706224009.GA14627@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030101070501050208050602"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: nagar@watson.ibm.com, jlan@sgi.com, pj@sgi.com,
+	Valdis.Kletnieks@vt.edu, balbir@in.ibm.com, csturtiv@sgi.com,
+	linux-kernel@vger.kernel.org, hadi@cyberus.ca,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate02.nvidia.com ([216.228.112.143]:25405 "EHLO
-	HQEMGATE02.nvidia.com") by vger.kernel.org with ESMTP
-	id S1751000AbWGFWzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jul 2006 18:55:25 -0400
-To: Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+Received: from smtp.osdl.org ([65.172.181.4]:28616 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750711AbWGFXMD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 19:12:03 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060706224009.GA14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030101070501050208050602
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Thomas Graf <tgraf@suug.ch> wrote:
+>
+> * Andrew Morton <akpm@osdl.org> 2006-07-06 14:48
+> > In the interests of keeping this work decoupled from netlink enhancements
+> > I'd propose the below.  Is it bad to modify the data at nla_data()?
+> 
+> Yes, it points into a skb data buffer which may be shared by sitting
+> on other queues if the message is to be broadcasted. In this case it
+> would be harmless but the policy is to leave it unmodified.
 
-This patch defines the watermark registers and fixes up the use of this 
-register.
+Yup, sleazy-but-safe.
 
-Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
+> 
+> > --- a/kernel/taskstats.c~per-task-delay-accounting-taskstats-interface-control-exit-data-through-cpumasks-fix
+> > +++ a/kernel/taskstats.c
+> > @@ -299,6 +299,23 @@ cleanup:
+> >  	return 0;
+> >  }
+> >  
+> > +static int parse(struct nlattr *na, cpumask_t *mask)
+> > +{
+> > +	char *data;
+> > +	int len;
+> > +
+> > +	if (na == NULL)
+> > +		return 1;
+> > +	len = nla_len(na);
+> > +	if (len > TASKSTATS_CPUMASK_MAXLEN)
+> > +		return -E2BIG;
+> > +	if (len < 1)
+> > +		return -EINVAL;
+> > +	data = nla_data(na);
+> > +	data[len - 1] = '\0';
+> > +	return cpulist_parse(data, *mask);
+> > +}
+> 
+> Usually this is done by using strlcpy:
+
+hm, nla_strlcpy() looks more complex than it needs to be.  We really need
+nla_kstrndup() ;)
+
+Oh well.  This?
 
 
---------------030101070501050208050602
-Content-Type: text/plain;
- name="patch-forcedeth-watermark"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-watermark"
-
---- orig-2.6/drivers/net/forcedeth.c	2006-07-06 15:04:39.000000000 -0400
-+++ new-2.6/drivers/net/forcedeth.c	2006-07-06 15:05:00.000000000 -0400
-@@ -271,8 +271,10 @@
- #define NVREG_LINKSPEED_MASK	(0xFFF)
- 	NvRegUnknownSetupReg5 = 0x130,
- #define NVREG_UNKSETUP5_BIT31	(1<<31)
--	NvRegUnknownSetupReg3 = 0x13c,
--#define NVREG_UNKSETUP3_VAL1	0x200010
-+	NvRegTxWatermark = 0x13c,
-+#define NVREG_TX_WM_DESC1_DEFAULT	0x0200010
-+#define NVREG_TX_WM_DESC2_3_DEFAULT	0x1e08000
-+#define NVREG_TX_WM_DESC2_3_1000	0xfe08000
- 	NvRegTxRxControl = 0x144,
- #define NVREG_TXRXCTL_KICK	0x0001
- #define NVREG_TXRXCTL_BIT1	0x0002
-@@ -660,7 +662,7 @@
- 	{ NvRegMisc1, 0x03c },
- 	{ NvRegOffloadConfig, 0x03ff },
- 	{ NvRegMulticastAddrA, 0xffffffff },
--	{ NvRegUnknownSetupReg3, 0x0ff },
-+	{ NvRegTxWatermark, 0x0ff },
- 	{ NvRegWakeUpFlags, 0x07777 },
- 	{ 0,0 }
- };
-@@ -2257,6 +2259,16 @@
- 	}
- 	writel(txreg, base + NvRegTxDeferral);
+diff -puN kernel/taskstats.c~per-task-delay-accounting-taskstats-interface-control-exit-data-through-cpumasks-fix kernel/taskstats.c
+--- a/kernel/taskstats.c~per-task-delay-accounting-taskstats-interface-control-exit-data-through-cpumasks-fix
++++ a/kernel/taskstats.c
+@@ -299,6 +299,28 @@ cleanup:
+ 	return 0;
+ }
  
-+	if (np->desc_ver == DESC_VER_1) {
-+		txreg = NVREG_TX_WM_DESC1_DEFAULT;
-+	} else {
-+		if ((np->linkspeed & NVREG_LINKSPEED_MASK) == NVREG_LINKSPEED_1000)
-+			txreg = NVREG_TX_WM_DESC2_3_1000;
-+		else
-+			txreg = NVREG_TX_WM_DESC2_3_DEFAULT;
-+	}
-+	writel(txreg, base + NvRegTxWatermark);
++static int parse(struct nlattr *na, cpumask_t *mask)
++{
++	char *data;
++	int len;
++	int ret;
 +
- 	writel(NVREG_MISC1_FORCE | ( np->duplex ? 0 : NVREG_MISC1_HD),
- 		base + NvRegMisc1);
- 	pci_push(base);
-@@ -3922,7 +3934,10 @@
++	if (na == NULL)
++		return 1;
++	len = nla_len(na);
++	if (len > TASKSTATS_CPUMASK_MAXLEN)
++		return -E2BIG;
++	if (len < 1)
++		return -EINVAL;
++	data = kmalloc(len, GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++	nla_strlcpy(data, na, len);
++	ret = cpulist_parse(data, *mask);
++	kfree(data);
++	return ret;
++}
++
+ static int taskstats_user_cmd(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	int rc = 0;
+@@ -309,27 +331,17 @@ static int taskstats_user_cmd(struct sk_
+ 	struct nlattr *na;
+ 	cpumask_t mask;
  
- 	/* 5) continue setup */
- 	writel(np->linkspeed, base + NvRegLinkSpeed);
--	writel(NVREG_UNKSETUP3_VAL1, base + NvRegUnknownSetupReg3);
-+	if (np->desc_ver == DESC_VER_1)
-+		writel(NVREG_TX_WM_DESC1_DEFAULT, base + NvRegTxWatermark);
-+	else
-+		writel(NVREG_TX_WM_DESC2_3_DEFAULT, base + NvRegTxWatermark);
- 	writel(np->txrxctl_bits, base + NvRegTxRxControl);
- 	writel(np->vlanctl_bits, base + NvRegVlanControl);
- 	pci_push(base);
+-	if (info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK]) {
+-		na = info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK];
+-		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
+-			return -E2BIG;
+-		rc = cpulist_parse((char *)nla_data(na), mask);
+-		if (rc)
+-			return rc;
+-		rc = add_del_listener(info->snd_pid, &mask, REGISTER);
++	rc = parse(info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK], &mask);
++	if (rc < 0)
+ 		return rc;
+-	}
++	if (rc == 0)
++		return add_del_listener(info->snd_pid, &mask, REGISTER);
+ 
+-	if (info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK]) {
+-		na = info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK];
+-		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
+-			return -E2BIG;
+-		rc = cpulist_parse((char *)nla_data(na), mask);
+-		if (rc)
+-			return rc;
+-		rc = add_del_listener(info->snd_pid, &mask, DEREGISTER);
++	rc = parse(info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK], &mask);
++	if (rc < 0)
+ 		return rc;
+-	}
++	if (rc == 0)
++		return add_del_listener(info->snd_pid, &mask, DEREGISTER);
+ 
+ 	/*
+ 	 * Size includes space for nested attributes
+_
 
---------------030101070501050208050602--
