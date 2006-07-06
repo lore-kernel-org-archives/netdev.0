@@ -1,31 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [TCP] window reduction fix
-Date: Wed, 05 Jul 2006 20:50:31 -0700 (PDT)
-Message-ID: <20060705.205031.85393581.davem@davemloft.net>
-References: <8dd26e70607050924q48954801h8fd4c32efa37929@mail.gmail.com>
-	<44AC1043.10603@psc.edu>
+From: Tom Tucker <tom@opengridcomputing.com>
+Subject: Re: RDMA will be reverted
+Date: Thu, 06 Jul 2006 00:25:03 -0500
+Message-ID: <1152163503.20248.98.camel@trinity.ogc.int>
+References: <adar7119kix.fsf@cisco.com>
+	 <20060705.112703.71101840.davem@davemloft.net> <adaac7naj80.fsf@cisco.com>
+	 <20060705.200325.74731166.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: angelo.castellani@gmail.com, netdev@vger.kernel.org,
-	vacirca@infocom.uniroma1.it, andrea.baiocchi@uniroma1.it
+Cc: rdreier@cisco.com, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:64450
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965156AbWGFDuG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jul 2006 23:50:06 -0400
-To: jheffner@psc.edu
-In-Reply-To: <44AC1043.10603@psc.edu>
+Received: from es335.com ([67.65.19.105]:3413 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S932309AbWGFFZC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 01:25:02 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060705.200325.74731166.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: John Heffner <jheffner@psc.edu>
-Date: Wed, 05 Jul 2006 15:17:23 -0400
+On Wed, 2006-07-05 at 20:03 -0700, David Miller wrote:
+> From: Roland Dreier <rdreier@cisco.com>
+> Date: Wed, 05 Jul 2006 13:29:35 -0700
+> 
+> > The way forward seems to be to merge basic iWARP support that lives in
+> > drivers/infiniband, and then you can accept or reject things for
+> > better integration, like notifiers for routing changes.
+> 
+> <sarcasm>
+> Let's merge in drivers before the necessary infrastructure.
+> </sarcasm>
+> 
+> No, I think that's not the way forward.  You build the foundation
+> before the house, if the foundation cannot be built then you are
+> wasting your time with the house idea.
 
-> Hm, wouldn't that violate the TCP spec?
+We have been running NFS and other apps over iWARP 24x7 for the last 6
+mos...without the proposed netdev patch. We've run 200+ node MPI
+clusters for days and days over iWARP...without the proposed netdev
+patch. We ran iWARP interoperability tests across the country between
+Boston and San Jose...without ... yes I know ... you get it.
 
-Yes, this cannot be right.  One cannot shrink the offered
-window under any circumstance.
+<sarcasm>
+News flash...the foundation is built!
+</sarcasm>
 
-If we over-advertised the window, that isn't something we
-can "clean up" like this.
+But! Our stable LAN and the WAN tests didn't often experience MTU
+changes, and redirects...but of course we knew these were inevitable. So
+our goal was to make iWARP more robust in the face of a more dynamic
+network topology. Shutters on the house maybe...I dunno, it's your
+analogy ;-)
+
+All that said, the proposed patch helps not only iWARP, but other
+transports (iSCSI, IB) as well. It is not large, invasive,
+intrusive...hell it's not even new. It leverages an existing event
+notifier mechanism. 
+
+This patch is about dotting I's and crossing T's, it's not about
+foundations.
+
+
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
