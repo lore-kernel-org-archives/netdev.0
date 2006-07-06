@@ -1,2173 +1,2916 @@
 From: "Li Yang-r58472" <LeoLi@freescale.com>
-Subject: [PATCH 2/3] Freescale QE UCC gigabit ethernet driver
-Date: Thu, 6 Jul 2006 20:02:35 +0800
-Message-ID: <4879B0C6C249214CBE7AB04453F84E4DF209@zch01exm20.fsl.freescale.net>
+Subject: [PATCH 3/3] Freescale QE UCC gigabit ethernet driver
+Date: Thu, 6 Jul 2006 20:02:41 +0800
+Message-ID: <4879B0C6C249214CBE7AB04453F84E4DF20A@zch01exm20.fsl.freescale.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="US-ASCII"
 Content-Transfer-Encoding: 8BIT
 Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:58514 "EHLO
+Received: from de01egw01.freescale.net ([192.88.165.102]:60306 "EHLO
 	de01egw01.freescale.net") by vger.kernel.org with ESMTP
-	id S1030215AbWGFMAW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 08:00:22 -0400
+	id S1030216AbWGFMAb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 08:00:31 -0400
 Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
-	by de01egw01.freescale.net (8.12.11/de01egw01) with ESMTP id k66DHXjs017489
-	for <netdev@vger.kernel.org>; Thu, 6 Jul 2006 07:17:33 -0600 (MDT)
+	by de01egw01.freescale.net (8.12.11/de01egw01) with ESMTP id k66DHfu8017513
+	for <netdev@vger.kernel.org>; Thu, 6 Jul 2006 07:17:41 -0600 (MDT)
 Received: from zch01exm20.fsl.freescale.net (zch01exm20.ap.freescale.net [10.192.129.204])
-	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id k66C0Ca2018806
-	for <netdev@vger.kernel.org>; Thu, 6 Jul 2006 07:00:13 -0500 (CDT)
+	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id k66C0Ca4018806
+	for <netdev@vger.kernel.org>; Thu, 6 Jul 2006 07:00:23 -0500 (CDT)
 Content-class: urn:content-classes:message
 To: "Andrew Morton" <akpm@osdl.org>, <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-continues [PATCH 1/3] Freescale QE UCC gigabit ethernet driver
+Continues [PATCH 2/3] Freescale QE UCC gigabit ethernet driver
 
 ---
 +
-+static int
-ugeth_82xx_filtering_clear_all_addr_in_hash(ucc_geth_private_t *
-+						       ugeth,
-+						       enet_addr_type_e
-+						       enet_addr_type)
++static int ucc_geth_remove(struct device *device)
 +{
-+	ucc_geth_82xx_address_filtering_pram_t *p_82xx_addr_filt;
-+	ucc_fast_private_t *uccf;
-+	comm_dir_e comm_dir;
-+	struct list_head *p_lh;
-+	u16 i, num;
-+	u32 *addr_h, *addr_l;
-+	u8 *p_counter;
++	struct net_device *dev = dev_get_drvdata(device);
++	struct ucc_geth_private *ugeth = netdev_priv(dev);
 +
-+	uccf = ugeth->uccf;
-+
-+	p_82xx_addr_filt =
-+	    (ucc_geth_82xx_address_filtering_pram_t *)
-ugeth->p_rx_glbl_pram->
-+	    addressfiltering;
-+
-+	if (enet_addr_type == ENET_ADDR_TYPE_GROUP) {
-+		addr_h = &(p_82xx_addr_filt->gaddr_h);
-+		addr_l = &(p_82xx_addr_filt->gaddr_l);
-+		p_lh = &ugeth->group_hash_q;
-+		p_counter = &(ugeth->numGroupAddrInHash);
-+	} else if (enet_addr_type == ENET_ADDR_TYPE_INDIVIDUAL) {
-+		addr_h = &(p_82xx_addr_filt->iaddr_h);
-+		addr_l = &(p_82xx_addr_filt->iaddr_l);
-+		p_lh = &ugeth->ind_hash_q;
-+		p_counter = &(ugeth->numIndAddrInHash);
-+	} else
-+		return -EINVAL;
-+
-+	comm_dir = 0;
-+	if (uccf->enabled_tx)
-+		comm_dir |= COMM_DIR_TX;
-+	if (uccf->enabled_rx)
-+		comm_dir |= COMM_DIR_RX;
-+	if (comm_dir)
-+		ugeth_disable(ugeth, comm_dir);
-+
-+	/* Clear the hash table. */
-+	out_be32(addr_h, 0x00000000);
-+	out_be32(addr_l, 0x00000000);
-+
-+	if (!p_lh)
-+		return 0;
-+
-+	num = *p_counter;
-+
-+	/* Delete all remaining CQ elements */
-+	for (i = 0; i < num; i++)
-+
-put_enet_addr_container(ENET_ADDR_CONT_ENTRY(dequeue(p_lh)));
-+
-+	*p_counter = 0;
-+
-+	if (comm_dir)
-+		ugeth_enable(ugeth, comm_dir);
++	dev_set_drvdata(device, NULL);
++	ucc_geth_memclean(ugeth);
++	free_netdev(dev);
 +
 +	return 0;
 +}
 +
-+#ifdef CONFIG_UGETH_FILTERING
-+static int ugeth_82xx_filtering_add_addr_in_paddr(ucc_geth_private_t
-*ugeth,
-+						  enet_addr_t
-*p_enet_addr,
-+						  u8 paddr_num)
++/* Structure for a device driver */
++static struct device_driver ucc_geth_driver = {
++	.name = DRV_NAME,
++	.bus = &platform_bus_type,
++	.probe = ucc_geth_probe,
++	.remove = ucc_geth_remove,
++};
++
++static int __init ucc_geth_init(void)
 +{
 +	int i;
++	printk(KERN_INFO "ucc_geth: " DRV_DESC "\n");
++	for (i = 0; i < 8; i++)
++		memcpy(&(ugeth_info[i]), &ugeth_primary_info,
++		       sizeof(ugeth_primary_info));
 +
-+	if ((*p_enet_addr)[0] & ENET_GROUP_ADDR)
-+		ugeth_warn
-+		    ("%s: multicast address added to paddr will have no
-"
-+		     "effect - is this what you wanted?",
-+		     __FUNCTION__);
-+
-+	ugeth->indAddrRegUsed[paddr_num] = 1;	/* mark this paddr as
-used */
-+	/* store address in our database */
-+	for (i = 0; i < ENET_NUM_OCTETS_PER_ADDRESS; i++)
-+		ugeth->paddr[paddr_num][i] = (*p_enet_addr)[i];
-+	/* put in hardware */
-+	return hw_add_addr_in_paddr(ugeth, p_enet_addr, paddr_num);
-+}
-+#endif /* CONFIG_UGETH_FILTERING */
-+
-+static int ugeth_82xx_filtering_clear_addr_in_paddr(ucc_geth_private_t
-*ugeth,
-+						    u8 paddr_num)
-+{
-+	ugeth->indAddrRegUsed[paddr_num] = 0; /* mark this paddr as not
-used */
-+	return hw_clear_addr_in_paddr(ugeth, paddr_num);/* clear in
-hardware */
++	return driver_register(&ucc_geth_driver);
 +}
 +
-+static void ucc_geth_memclean(ucc_geth_private_t *ugeth)
++static void __exit ucc_geth_exit(void)
 +{
-+	u16 i, j;
-+	u8 *bd;
-+
-+	if (!ugeth)
-+		return;
-+
-+	if (ugeth->uccf)
-+		ucc_fast_free(ugeth->uccf);
-+
-+	if (ugeth->p_thread_data_tx) {
-+		qe_muram_free(ugeth->thread_dat_tx_offset);
-+		ugeth->p_thread_data_tx = NULL;
-+	}
-+	if (ugeth->p_thread_data_rx) {
-+		qe_muram_free(ugeth->thread_dat_rx_offset);
-+		ugeth->p_thread_data_rx = NULL;
-+	}
-+	if (ugeth->p_exf_glbl_param) {
-+		qe_muram_free(ugeth->exf_glbl_param_offset);
-+		ugeth->p_exf_glbl_param = NULL;
-+	}
-+	if (ugeth->p_rx_glbl_pram) {
-+		qe_muram_free(ugeth->rx_glbl_pram_offset);
-+		ugeth->p_rx_glbl_pram = NULL;
-+	}
-+	if (ugeth->p_tx_glbl_pram) {
-+		qe_muram_free(ugeth->tx_glbl_pram_offset);
-+		ugeth->p_tx_glbl_pram = NULL;
-+	}
-+	if (ugeth->p_send_q_mem_reg) {
-+		qe_muram_free(ugeth->send_q_mem_reg_offset);
-+		ugeth->p_send_q_mem_reg = NULL;
-+	}
-+	if (ugeth->p_scheduler) {
-+		qe_muram_free(ugeth->scheduler_offset);
-+		ugeth->p_scheduler = NULL;
-+	}
-+	if (ugeth->p_tx_fw_statistics_pram) {
-+		qe_muram_free(ugeth->tx_fw_statistics_pram_offset);
-+		ugeth->p_tx_fw_statistics_pram = NULL;
-+	}
-+	if (ugeth->p_rx_fw_statistics_pram) {
-+		qe_muram_free(ugeth->rx_fw_statistics_pram_offset);
-+		ugeth->p_rx_fw_statistics_pram = NULL;
-+	}
-+	if (ugeth->p_rx_irq_coalescing_tbl) {
-+		qe_muram_free(ugeth->rx_irq_coalescing_tbl_offset);
-+		ugeth->p_rx_irq_coalescing_tbl = NULL;
-+	}
-+	if (ugeth->p_rx_bd_qs_tbl) {
-+		qe_muram_free(ugeth->rx_bd_qs_tbl_offset);
-+		ugeth->p_rx_bd_qs_tbl = NULL;
-+	}
-+	if (ugeth->p_init_enet_param_shadow) {
-+		return_init_enet_entries(ugeth,
-+
-&(ugeth->p_init_enet_param_shadow->
-+					   rxthread[0]),
-+					 ENET_INIT_PARAM_MAX_ENTRIES_RX,
-+					 ugeth->ug_info->riscRx, 1);
-+		return_init_enet_entries(ugeth,
-+
-&(ugeth->p_init_enet_param_shadow->
-+					   txthread[0]),
-+					 ENET_INIT_PARAM_MAX_ENTRIES_TX,
-+					 ugeth->ug_info->riscTx, 0);
-+		kfree(ugeth->p_init_enet_param_shadow);
-+		ugeth->p_init_enet_param_shadow = NULL;
-+	}
-+	for (i = 0; i < ugeth->ug_info->numQueuesTx; i++) {
-+		bd = ugeth->p_tx_bd_ring[i];
-+		for (j = 0; j < ugeth->ug_info->bdRingLenTx[i]; j++) {
-+			if (ugeth->tx_skbuff[i][j]) {
-+				dma_unmap_single(NULL,
-+						 BD_BUFFER_ARG(bd),
-+
-(BD_STATUS_AND_LENGTH(bd) &
-+						  BD_LENGTH_MASK),
-+						 DMA_TO_DEVICE);
-+
-dev_kfree_skb_any(ugeth->tx_skbuff[i][j]);
-+				ugeth->tx_skbuff[i][j] = NULL;
-+			}
-+		}
-+
-+		kfree(ugeth->tx_skbuff[i]);
-+
-+		if (ugeth->p_tx_bd_ring[i]) {
-+			if (ugeth->ug_info->uf_info.bd_mem_part ==
-+			    MEM_PART_SYSTEM)
-+				kfree((void
-*)ugeth->tx_bd_ring_offset[i]);
-+			else if (ugeth->ug_info->uf_info.bd_mem_part ==
-+				 MEM_PART_MURAM)
-+
-qe_muram_free(ugeth->tx_bd_ring_offset[i]);
-+			ugeth->p_tx_bd_ring[i] = NULL;
-+		}
-+	}
-+	for (i = 0; i < ugeth->ug_info->numQueuesRx; i++) {
-+		if (ugeth->p_rx_bd_ring[i]) {
-+			/* Return existing data buffers in ring */
-+			bd = ugeth->p_rx_bd_ring[i];
-+			for (j = 0; j < ugeth->ug_info->bdRingLenRx[i];
-j++) {
-+				if (ugeth->rx_skbuff[i][j]) {
-+					dma_unmap_single(NULL,
-BD_BUFFER(bd),
-+						 ugeth->ug_info->
-+						 uf_info.
-+						 max_rx_buf_length +
-+
-UCC_GETH_RX_DATA_BUF_ALIGNMENT,
-+						 DMA_FROM_DEVICE);
-+
-+					dev_kfree_skb_any(ugeth->
-+
-rx_skbuff[i][j]);
-+					ugeth->rx_skbuff[i][j] = NULL;
-+				}
-+				bd += UCC_GETH_SIZE_OF_BD;
-+			}
-+
-+			kfree(ugeth->rx_skbuff[i]);
-+
-+			if (ugeth->ug_info->uf_info.bd_mem_part ==
-+			    MEM_PART_SYSTEM)
-+				kfree((void
-*)ugeth->rx_bd_ring_offset[i]);
-+			else if (ugeth->ug_info->uf_info.bd_mem_part ==
-+				 MEM_PART_MURAM)
-+
-qe_muram_free(ugeth->rx_bd_ring_offset[i]);
-+			ugeth->p_rx_bd_ring[i] = NULL;
-+		}
-+	}
-+	while (!list_empty(&ugeth->group_hash_q))
-+		put_enet_addr_container(ENET_ADDR_CONT_ENTRY
-+
-(dequeue(&ugeth->group_hash_q)));
-+	while (!list_empty(&ugeth->ind_hash_q))
-+		put_enet_addr_container(ENET_ADDR_CONT_ENTRY
-+					(dequeue(&ugeth->ind_hash_q)));
-+
++	driver_unregister(&ucc_geth_driver);
 +}
 +
-+static void ucc_geth_set_multi(struct net_device *dev)
-+{
-+	ucc_geth_private_t *ugeth;
-+	struct dev_mc_list *dmi;
-+	ucc_fast_t *uf_regs;
-+	ucc_geth_82xx_address_filtering_pram_t *p_82xx_addr_filt;
-+	enet_addr_t tempaddr;
-+	u8 *mcptr, *tdptr;
-+	int i, j;
-+
-+	ugeth = netdev_priv(dev);
-+
-+	uf_regs = ugeth->uccf->uf_regs;
-+
-+	if (dev->flags & IFF_PROMISC) {
-+
-+		/* Log any net taps. */
-+		printk("%s: Promiscuous mode enabled.\n", dev->name);
-+		uf_regs->upsmr |= UPSMR_PRO;
-+
-+	} else {
-+
-+		uf_regs->upsmr &= ~UPSMR_PRO;
-+
-+		p_82xx_addr_filt =
-+		    (ucc_geth_82xx_address_filtering_pram_t *) ugeth->
-+		    p_rx_glbl_pram->addressfiltering;
-+
-+		if (dev->flags & IFF_ALLMULTI) {
-+			/* Catch all multicast addresses, so set the
-+			 * filter to all 1's.
-+			 */
-+			out_be32(&p_82xx_addr_filt->gaddr_h,
-0xffffffff);
-+			out_be32(&p_82xx_addr_filt->gaddr_l,
-0xffffffff);
-+		} else {
-+			/* Clear filter and add the addresses in the
-list.
-+			 */
-+			out_be32(&p_82xx_addr_filt->gaddr_h, 0x0);
-+			out_be32(&p_82xx_addr_filt->gaddr_l, 0x0);
-+
-+			dmi = dev->mc_list;
-+
-+			for (i = 0; i < dev->mc_count; i++, dmi =
-dmi->next) {
-+
-+				/* Only support group multicast for now.
-+				 */
-+				if (!(dmi->dmi_addr[0] & 1))
-+					continue;
-+
-+				/* The address in dmi_addr is LSB first,
-+				 * and taddr is MSB first.  We have to
-+				 * copy bytes MSB first from dmi_addr.
-+				 */
-+				mcptr = (u8 *) dmi->dmi_addr + 5;
-+				tdptr = (u8 *) & tempaddr;
-+				for (j = 0; j < 6; j++)
-+					*tdptr++ = *mcptr--;
-+
-+				/* Ask CPM to run CRC and set bit in
-+				 * filter mask.
-+				 */
-+				hw_add_addr_in_hash(ugeth, &tempaddr);
-+
-+			}
-+		}
-+	}
-+}
-+
-+static void ucc_geth_stop(ucc_geth_private_t *ugeth)
-+{
-+	ucc_geth_t *ug_regs = ugeth->ug_regs;
-+	u32 tempval;
-+
-+	ugeth_vdbg("%s: IN", __FUNCTION__);
-+
-+	/* Disable the controller */
-+	ugeth_disable(ugeth, COMM_DIR_RX_AND_TX);
-+
-+	/* Tell the kernel the link is down */
-+	ugeth->mii_info->link = 0;
-+	adjust_link(ugeth->dev);
-+
-+	/* Mask all interrupts */
-+	out_be32(ugeth->uccf->p_ucce, 0x00000000);
-+
-+	/* Clear all interrupts */
-+	out_be32(ugeth->uccf->p_ucce, 0xffffffff);
-+
-+	/* Disable Rx and Tx */
-+	tempval = in_be32(&ug_regs->maccfg1);
-+	tempval &= ~(MACCFG1_ENABLE_RX | MACCFG1_ENABLE_TX);
-+	out_be32(&ug_regs->maccfg1, tempval);
-+
-+	if (ugeth->ug_info->board_flags & FSL_UGETH_BRD_HAS_PHY_INTR) {
-+		/* Clear any pending interrupts */
-+		mii_clear_phy_interrupt(ugeth->mii_info);
-+
-+		/* Disable PHY Interrupts */
-+		mii_configure_phy_interrupt(ugeth->mii_info,
-+					    MII_INTERRUPT_DISABLED);
-+	}
-+
-+	free_irq(ugeth->ug_info->uf_info.irq, ugeth->dev);
-+
-+	if (ugeth->ug_info->board_flags & FSL_UGETH_BRD_HAS_PHY_INTR) {
-+		free_irq(ugeth->ug_info->phy_interrupt, ugeth->dev);
-+	} else {
-+		del_timer_sync(&ugeth->phy_info_timer);
-+	}
-+
-+	ucc_geth_memclean(ugeth);
-+}
-+
-+static int ucc_geth_startup(ucc_geth_private_t *ugeth)
-+{
-+	ucc_geth_82xx_address_filtering_pram_t *p_82xx_addr_filt;
-+	ucc_geth_init_pram_t *p_init_enet_pram;
-+	ucc_fast_private_t *uccf;
-+	ucc_geth_info_t *ug_info;
-+	ucc_fast_info_t *uf_info;
-+	ucc_fast_t *uf_regs;
-+	ucc_geth_t *ug_regs;
-+	int ret_val = -EINVAL;
-+	u32 remoder = UCC_GETH_REMODER_INIT;
-+	u32 init_enet_pram_offset, cecr_subblock, command, maccfg1;
-+	u32 ifstat, i, j, size, l2qt, l3qt, length;
-+	u16 temoder = UCC_GETH_TEMODER_INIT;
-+	u16 test;
-+	u8 function_code = 0;
-+	u8 *bd, *endOfRing;
-+	u8 numThreadsRxNumerical, numThreadsTxNumerical;
-+
-+	ugeth_vdbg("%s: IN", __FUNCTION__);
-+
-+	ug_info = ugeth->ug_info;
-+	uf_info = &ug_info->uf_info;
-+
-+	if (!((uf_info->bd_mem_part == MEM_PART_SYSTEM) ||
-+	      (uf_info->bd_mem_part == MEM_PART_MURAM))) {
-+		ugeth_err("%s: Bad memory partition value.",
-__FUNCTION__);
-+		return -EINVAL;
-+	}
-+
-+	/* Rx BD lengths */
-+	for (i = 0; i < ug_info->numQueuesRx; i++) {
-+		if ((ug_info->bdRingLenRx[i] <
-UCC_GETH_RX_BD_RING_SIZE_MIN) ||
-+		    (ug_info->bdRingLenRx[i] %
-+		     UCC_GETH_RX_BD_RING_SIZE_ALIGNMENT)) {
-+			ugeth_err
-+			    ("%s: Rx BD ring length must be multiple of
-4,"
-+				" no smaller than 8.", __FUNCTION__);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	/* Tx BD lengths */
-+	for (i = 0; i < ug_info->numQueuesTx; i++) {
-+		if (ug_info->bdRingLenTx[i] <
-UCC_GETH_TX_BD_RING_SIZE_MIN) {
-+			ugeth_err
-+			    ("%s: Tx BD ring length must be no smaller
-than 2.",
-+			     __FUNCTION__);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	/* mrblr */
-+	if ((uf_info->max_rx_buf_length == 0) ||
-+	    (uf_info->max_rx_buf_length % UCC_GETH_MRBLR_ALIGNMENT)) {
-+		ugeth_err
-+		    ("%s: max_rx_buf_length must be non-zero multiple of
-128.",
-+		     __FUNCTION__);
-+		return -EINVAL;
-+	}
-+
-+	/* num Tx queues */
-+	if (ug_info->numQueuesTx > NUM_TX_QUEUES) {
-+		ugeth_err("%s: number of tx queues too large.",
-__FUNCTION__);
-+		return -EINVAL;
-+	}
-+
-+	/* num Rx queues */
-+	if (ug_info->numQueuesRx > NUM_RX_QUEUES) {
-+		ugeth_err("%s: number of rx queues too large.",
-__FUNCTION__);
-+		return -EINVAL;
-+	}
-+
-+	/* l2qt */
-+	for (i = 0; i < UCC_GETH_VLAN_PRIORITY_MAX; i++) {
-+		if (ug_info->l2qt[i] >= ug_info->numQueuesRx) {
-+			ugeth_err
-+			    ("%s: VLAN priority table entry must not be"
-+				" larger than number of Rx queues.",
-+			     __FUNCTION__);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	/* l3qt */
-+	for (i = 0; i < UCC_GETH_IP_PRIORITY_MAX; i++) {
-+		if (ug_info->l3qt[i] >= ug_info->numQueuesRx) {
-+			ugeth_err
-+			    ("%s: IP priority table entry must not be"
-+				" larger than number of Rx queues.",
-+			     __FUNCTION__);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	if (ug_info->cam && !ug_info->ecamptr) {
-+		ugeth_err("%s: If cam mode is chosen, must supply cam
-ptr.",
-+			  __FUNCTION__);
-+		return -EINVAL;
-+	}
-+
-+	if ((ug_info->numStationAddresses !=
-+	     UCC_GETH_NUM_OF_STATION_ADDRESSES_1)
-+	    && ug_info->rxExtendedFiltering) {
-+		ugeth_err("%s: Number of station addresses greater than
-1 "
-+			  "not allowed in extended parsing mode.",
-+			  __FUNCTION__);
-+		return -EINVAL;
-+	}
-+
-+	/* Generate uccm_mask for receive */
-+	uf_info->uccm_mask = ug_info->eventRegMask & UCCE_OTHER;/*
-Errors */
-+	for (i = 0; i < ug_info->numQueuesRx; i++)
-+		uf_info->uccm_mask |= (UCCE_RXBF_SINGLE_MASK << i);
-+
-+	for (i = 0; i < ug_info->numQueuesTx; i++)
-+		uf_info->uccm_mask |= (UCCE_TXBF_SINGLE_MASK << i);
-+	/* Initialize the general fast UCC block. */
-+	if (ucc_fast_init(uf_info, &uccf)) {
-+		ugeth_err("%s: Failed to init uccf.", __FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return -ENOMEM;
-+	}
-+	ugeth->uccf = uccf;
-+
-+	switch (ug_info->numThreadsRx) {
-+	case UCC_GETH_NUM_OF_THREADS_1:
-+		numThreadsRxNumerical = 1;
-+		break;
-+	case UCC_GETH_NUM_OF_THREADS_2:
-+		numThreadsRxNumerical = 2;
-+		break;
-+	case UCC_GETH_NUM_OF_THREADS_4:
-+		numThreadsRxNumerical = 4;
-+		break;
-+	case UCC_GETH_NUM_OF_THREADS_6:
-+		numThreadsRxNumerical = 6;
-+		break;
-+	case UCC_GETH_NUM_OF_THREADS_8:
-+		numThreadsRxNumerical = 8;
-+		break;
-+	default:
-+		ugeth_err("%s: Bad number of Rx threads value.",
-__FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return -EINVAL;
-+		break;
-+	}
-+
-+	switch (ug_info->numThreadsTx) {
-+	case UCC_GETH_NUM_OF_THREADS_1:
-+		numThreadsTxNumerical = 1;
-+		break;
-+	case UCC_GETH_NUM_OF_THREADS_2:
-+		numThreadsTxNumerical = 2;
-+		break;
-+	case UCC_GETH_NUM_OF_THREADS_4:
-+		numThreadsTxNumerical = 4;
-+		break;
-+	case UCC_GETH_NUM_OF_THREADS_6:
-+		numThreadsTxNumerical = 6;
-+		break;
-+	case UCC_GETH_NUM_OF_THREADS_8:
-+		numThreadsTxNumerical = 8;
-+		break;
-+	default:
-+		ugeth_err("%s: Bad number of Tx threads value.",
-__FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return -EINVAL;
-+		break;
-+	}
-+
-+	/* Calculate rx_extended_features */
-+	ugeth->rx_non_dynamic_extended_features =
-ug_info->ipCheckSumCheck ||
-+	    ug_info->ipAddressAlignment ||
-+	    (ug_info->numStationAddresses !=
-+	     UCC_GETH_NUM_OF_STATION_ADDRESSES_1);
-+
-+	ugeth->rx_extended_features =
-ugeth->rx_non_dynamic_extended_features ||
-+	    (ug_info->vlanOperationTagged !=
-UCC_GETH_VLAN_OPERATION_TAGGED_NOP)
-+	    || (ug_info->vlanOperationNonTagged !=
-+		UCC_GETH_VLAN_OPERATION_NON_TAGGED_NOP);
-+
-+	uf_regs = uccf->uf_regs;
-+	ug_regs = (ucc_geth_t *) (uccf->uf_regs);
-+	ugeth->ug_regs = ug_regs;
-+
-+	init_default_reg_vals(&uf_regs->upsmr,
-+			      &ug_regs->maccfg1, &ug_regs->maccfg2);
-+
-+	/*                    Set UPSMR                      */
-+	/* For more details see the hardware spec.           */
-+	init_rx_parameters(ug_info->bro,
-+			   ug_info->rsh, ug_info->pro, &uf_regs->upsmr);
-+
-+	/* We're going to ignore other registers for now, */
-+	/* except as needed to get up and running         */
-+
-+	/*                    Set MACCFG1                    */
-+	/* For more details see the hardware spec.           */
-+	init_flow_control_params(ug_info->aufc,
-+				 ug_info->receiveFlowControl,
-+				 1,
-+				 ug_info->pausePeriod,
-+				 ug_info->extensionField,
-+				 &uf_regs->upsmr,
-+				 &ug_regs->uempr, &ug_regs->maccfg1);
-+
-+	maccfg1 = in_be32(&ug_regs->maccfg1);
-+	maccfg1 |= MACCFG1_ENABLE_RX;
-+	maccfg1 |= MACCFG1_ENABLE_TX;
-+	out_be32(&ug_regs->maccfg1, maccfg1);
-+
-+	/*                    Set IPGIFG                     */
-+	/* For more details see the hardware spec.           */
-+	ret_val =
-init_inter_frame_gap_params(ug_info->nonBackToBackIfgPart1,
-+
-ug_info->nonBackToBackIfgPart2,
-+					      ug_info->
-+
-miminumInterFrameGapEnforcement,
-+
-ug_info->backToBackInterFrameGap,
-+					      &ug_regs->ipgifg);
-+	if (ret_val != 0) {
-+		ugeth_err("%s: IPGIFG initialization parameter too
-large.",
-+			  __FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return ret_val;
-+	}
-+
-+	/*                    Set HAFDUP                     */
-+	/* For more details see the hardware spec.           */
-+	ret_val = init_half_duplex_params(ug_info->altBeb,
-+
-ug_info->backPressureNoBackoff,
-+					  ug_info->noBackoff,
-+					  ug_info->excessDefer,
-+					  ug_info->altBebTruncation,
-+					  ug_info->maxRetransmission,
-+					  ug_info->collisionWindow,
-+					  &ug_regs->hafdup);
-+	if (ret_val != 0) {
-+		ugeth_err("%s: Half Duplex initialization parameter too
-large.",
-+			  __FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return ret_val;
-+	}
-+
-+	/*                    Set IFSTAT                     */
-+	/* For more details see the hardware spec.           */
-+	/* Read only - resets upon read                      */
-+	ifstat = in_be32(&ug_regs->ifstat);
-+
-+	/*                    Clear UEMPR                    */
-+	/* For more details see the hardware spec.           */
-+	out_be32(&ug_regs->uempr, 0);
-+
-+	/*                    Set UESCR                      */
-+	/* For more details see the hardware spec.           */
-+	init_hw_statistics_gathering_mode((ug_info->statisticsMode &
-+
-UCC_GETH_STATISTICS_GATHERING_MODE_HARDWARE),
-+				0, &uf_regs->upsmr, &ug_regs->uescr);
-+
-+	/* Allocate Tx bds */
-+	for (j = 0; j < ug_info->numQueuesTx; j++) {
-+		/* Allocate in multiple of 
-+		   UCC_GETH_TX_BD_RING_SIZE_MEMORY_ALIGNMENT,
-+		   according to spec */
-+		length = ((ug_info->bdRingLenTx[j] *
-UCC_GETH_SIZE_OF_BD)
-+			  / UCC_GETH_TX_BD_RING_SIZE_MEMORY_ALIGNMENT)
-+		    * UCC_GETH_TX_BD_RING_SIZE_MEMORY_ALIGNMENT;
-+		if ((ug_info->bdRingLenTx[j] * UCC_GETH_SIZE_OF_BD) %
-+		    UCC_GETH_TX_BD_RING_SIZE_MEMORY_ALIGNMENT)
-+			length +=
-UCC_GETH_TX_BD_RING_SIZE_MEMORY_ALIGNMENT;
-+		if (uf_info->bd_mem_part == MEM_PART_SYSTEM) {
-+			u32 align = 4;
-+			if (UCC_GETH_TX_BD_RING_ALIGNMENT > 4)
-+				align = UCC_GETH_TX_BD_RING_ALIGNMENT;
-+			ugeth->tx_bd_ring_offset[j] =
-+				(u32) (kmalloc((u32) (length + align),
-+				GFP_KERNEL));
-+			if (ugeth->tx_bd_ring_offset[j] != 0)
-+				ugeth->p_tx_bd_ring[j] =
-+
-(void*)((ugeth->tx_bd_ring_offset[j] +
-+					align) & ~(align - 1));
-+		} else if (uf_info->bd_mem_part == MEM_PART_MURAM) {
-+			ugeth->tx_bd_ring_offset[j] =
-+			    qe_muram_alloc(length,
-+
-UCC_GETH_TX_BD_RING_ALIGNMENT);
-+			if (!IS_MURAM_ERR(ugeth->tx_bd_ring_offset[j]))
-+				ugeth->p_tx_bd_ring[j] =
-+				    (u8 *) qe_muram_addr(ugeth->
-+
-tx_bd_ring_offset[j]);
-+		}
-+		if (!ugeth->p_tx_bd_ring[j]) {
-+			ugeth_err
-+			    ("%s: Can not allocate memory for Tx bd
-rings.",
-+			     __FUNCTION__);
-+			ucc_geth_memclean(ugeth);
-+			return -ENOMEM;
-+		}
-+		/* Zero unused end of bd ring, according to spec */
-+		memset(ugeth->p_tx_bd_ring[j] +
-+		       ug_info->bdRingLenTx[j] * UCC_GETH_SIZE_OF_BD, 0,
-+		       length - ug_info->bdRingLenTx[j] *
-UCC_GETH_SIZE_OF_BD);
-+	}
-+
-+	/* Allocate Rx bds */
-+	for (j = 0; j < ug_info->numQueuesRx; j++) {
-+		length = ug_info->bdRingLenRx[j] * UCC_GETH_SIZE_OF_BD;
-+		if (uf_info->bd_mem_part == MEM_PART_SYSTEM) {
-+			u32 align = 4;
-+			if (UCC_GETH_RX_BD_RING_ALIGNMENT > 4)
-+				align = UCC_GETH_RX_BD_RING_ALIGNMENT;
-+			ugeth->rx_bd_ring_offset[j] =
-+			    (u32) (kmalloc((u32) (length + align),
-GFP_KERNEL));
-+			if (ugeth->rx_bd_ring_offset[j] != 0)
-+				ugeth->p_rx_bd_ring[j] =
-+
-(void*)((ugeth->rx_bd_ring_offset[j] +
-+					align) & ~(align - 1));
-+		} else if (uf_info->bd_mem_part == MEM_PART_MURAM) {
-+			ugeth->rx_bd_ring_offset[j] =
-+			    qe_muram_alloc(length,
-+
-UCC_GETH_RX_BD_RING_ALIGNMENT);
-+			if (!IS_MURAM_ERR(ugeth->rx_bd_ring_offset[j]))
-+				ugeth->p_rx_bd_ring[j] =
-+				    (u8 *) qe_muram_addr(ugeth->
-+
-rx_bd_ring_offset[j]);
-+		}
-+		if (!ugeth->p_rx_bd_ring[j]) {
-+			ugeth_err
-+			    ("%s: Can not allocate memory for Rx bd
-rings.",
-+			     __FUNCTION__);
-+			ucc_geth_memclean(ugeth);
-+			return -ENOMEM;
-+		}
-+	}
-+
-+	/* Init Tx bds */
-+	for (j = 0; j < ug_info->numQueuesTx; j++) {
-+		/* Setup the skbuff rings */
-+		ugeth->tx_skbuff[j] =
-+		    (struct sk_buff **)kmalloc(sizeof(struct sk_buff *)
-*
-+
-ugeth->ug_info->bdRingLenTx[j],
-+					       GFP_KERNEL);
-+
-+		if (ugeth->tx_skbuff[j] == NULL) {
-+			ugeth_err("%s: Could not allocate tx_skbuff",
-+				  __FUNCTION__);
-+			ucc_geth_memclean(ugeth);
-+			return -ENOMEM;
-+		}
-+
-+		for (i = 0; i < ugeth->ug_info->bdRingLenTx[j]; i++)
-+			ugeth->tx_skbuff[j][i] = NULL;
-+
-+		ugeth->skb_curtx[j] = ugeth->skb_dirtytx[j] = 0;
-+		bd = ugeth->confBd[j] = ugeth->txBd[j] =
-ugeth->p_tx_bd_ring[j];
-+		for (i = 0; i < ug_info->bdRingLenTx[j]; i++) {
-+			BD_BUFFER_CLEAR(bd);
-+			BD_STATUS_AND_LENGTH_SET(bd, 0);
-+			bd += UCC_GETH_SIZE_OF_BD;
-+		}
-+		bd -= UCC_GETH_SIZE_OF_BD;
-+		BD_STATUS_AND_LENGTH_SET(bd, T_W);/* for last BD set
-Wrap bit */
-+	}
-+
-+	/* Init Rx bds */
-+	for (j = 0; j < ug_info->numQueuesRx; j++) {
-+		/* Setup the skbuff rings */
-+		ugeth->rx_skbuff[j] =
-+		    (struct sk_buff **)kmalloc(sizeof(struct sk_buff *)
-*
-+
-ugeth->ug_info->bdRingLenRx[j],
-+					       GFP_KERNEL);
-+
-+		if (ugeth->rx_skbuff[j] == NULL) {
-+			ugeth_err("%s: Could not allocate rx_skbuff",
-+				  __FUNCTION__);
-+			ucc_geth_memclean(ugeth);
-+			return -ENOMEM;
-+		}
-+
-+		for (i = 0; i < ugeth->ug_info->bdRingLenRx[j]; i++)
-+			ugeth->rx_skbuff[j][i] = NULL;
-+
-+		ugeth->skb_currx[j] = 0;
-+		bd = ugeth->rxBd[j] = ugeth->p_rx_bd_ring[j];
-+		for (i = 0; i < ug_info->bdRingLenRx[j]; i++) {
-+			BD_STATUS_AND_LENGTH_SET(bd, R_I);
-+			BD_BUFFER_CLEAR(bd);
-+			bd += UCC_GETH_SIZE_OF_BD;
-+		}
-+		bd -= UCC_GETH_SIZE_OF_BD;
-+		BD_STATUS_AND_LENGTH_SET(bd, R_W);/* for last BD set
-Wrap bit */
-+	}
-+
-+	/*
-+	 * Global PRAM
-+	 */
-+	/* Tx global PRAM */
-+	/* Allocate global tx parameter RAM page */
-+	ugeth->tx_glbl_pram_offset =
-+	    qe_muram_alloc(sizeof(ucc_geth_tx_global_pram_t),
-+			   UCC_GETH_TX_GLOBAL_PRAM_ALIGNMENT);
-+	if (IS_MURAM_ERR(ugeth->tx_glbl_pram_offset)) {
-+		ugeth_err
-+		    ("%s: Can not allocate DPRAM memory for
-p_tx_glbl_pram.",
-+		     __FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return -ENOMEM;
-+	}
-+	ugeth->p_tx_glbl_pram =
-+	    (ucc_geth_tx_global_pram_t *) qe_muram_addr(ugeth->
-+
-tx_glbl_pram_offset);
-+	/* Zero out p_tx_glbl_pram */
-+	memset(ugeth->p_tx_glbl_pram, 0,
-sizeof(ucc_geth_tx_global_pram_t));
-+
-+	/* Fill global PRAM */
-+
-+	/* TQPTR */
-+	/* Size varies with number of Tx threads */
-+	ugeth->thread_dat_tx_offset =
-+	    qe_muram_alloc(numThreadsTxNumerical *
-+			   sizeof(ucc_geth_thread_data_tx_t) +
-+			   32 * (numThreadsTxNumerical == 1),
-+			   UCC_GETH_THREAD_DATA_ALIGNMENT);
-+	if (IS_MURAM_ERR(ugeth->thread_dat_tx_offset)) {
-+		ugeth_err
-+		    ("%s: Can not allocate DPRAM memory for
-p_thread_data_tx.",
-+		     __FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return -ENOMEM;
-+	}
-+
-+	ugeth->p_thread_data_tx =
-+	    (ucc_geth_thread_data_tx_t *) qe_muram_addr(ugeth->
-+
-thread_dat_tx_offset);
-+	out_be32(&ugeth->p_tx_glbl_pram->tqptr,
-ugeth->thread_dat_tx_offset);
-+
-+	/* vtagtable */
-+	for (i = 0; i < UCC_GETH_TX_VTAG_TABLE_ENTRY_MAX; i++)
-+		out_be32(&ugeth->p_tx_glbl_pram->vtagtable[i],
-+			 ug_info->vtagtable[i]);
-+
-+	/* iphoffset */
-+	for (i = 0; i < TX_IP_OFFSET_ENTRY_MAX; i++)
-+		ugeth->p_tx_glbl_pram->iphoffset[i] =
-ug_info->iphoffset[i];
-+
-+	/* SQPTR */
-+	/* Size varies with number of Tx queues */
-+	ugeth->send_q_mem_reg_offset =
-+	    qe_muram_alloc(ug_info->numQueuesTx *
-+			   sizeof(ucc_geth_send_queue_qd_t),
-+
-UCC_GETH_SEND_QUEUE_QUEUE_DESCRIPTOR_ALIGNMENT);
-+	if (IS_MURAM_ERR(ugeth->send_q_mem_reg_offset)) {
-+		ugeth_err
-+		    ("%s: Can not allocate DPRAM memory for
-p_send_q_mem_reg.",
-+		     __FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return -ENOMEM;
-+	}
-+
-+	ugeth->p_send_q_mem_reg =
-+	    (ucc_geth_send_queue_mem_region_t *) qe_muram_addr(ugeth->
-+			send_q_mem_reg_offset);
-+	out_be32(&ugeth->p_tx_glbl_pram->sqptr,
-ugeth->send_q_mem_reg_offset);
-+
-+	/* Setup the table */
-+	/* Assume BD rings are already established */
-+	for (i = 0; i < ug_info->numQueuesTx; i++) {
-+		endOfRing =
-+		    ugeth->p_tx_bd_ring[i] + (ug_info->bdRingLenTx[i] -
-+					      1) * UCC_GETH_SIZE_OF_BD;
-+		if (ugeth->ug_info->uf_info.bd_mem_part ==
-MEM_PART_SYSTEM) {
-+
-out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].bd_ring_base,
-+				 (u32)
-virt_to_phys(ugeth->p_tx_bd_ring[i]));
-+			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].
-+				 last_bd_completed_address,
-+				 (u32) virt_to_phys(endOfRing));
-+		} else if (ugeth->ug_info->uf_info.bd_mem_part ==
-+			   MEM_PART_MURAM) {
-+
-out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].bd_ring_base,
-+				 (u32) immrbar_virt_to_phys(ugeth->
-+
-p_tx_bd_ring[i]));
-+			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].
-+				 last_bd_completed_address,
-+				 (u32) immrbar_virt_to_phys(endOfRing));
-+		}
-+	}
-+
-+	/* schedulerbasepointer */
-+
-+	if (ug_info->numQueuesTx > 1) {	
-+	/* scheduler exists only if more than 1 tx queue */
-+		ugeth->scheduler_offset =
-+		    qe_muram_alloc(sizeof(ucc_geth_scheduler_t),
-+				   UCC_GETH_SCHEDULER_ALIGNMENT);
-+		if (IS_MURAM_ERR(ugeth->scheduler_offset)) {
-+			ugeth_err
-+			 ("%s: Can not allocate DPRAM memory for
-p_scheduler.",
-+			     __FUNCTION__);
-+			ucc_geth_memclean(ugeth);
-+			return -ENOMEM;
-+		}
-+
-+		ugeth->p_scheduler =
-+		    (ucc_geth_scheduler_t *) qe_muram_addr(ugeth->
-+
-scheduler_offset);
-+		out_be32(&ugeth->p_tx_glbl_pram->schedulerbasepointer,
-+			 ugeth->scheduler_offset);
-+		/* Zero out p_scheduler */
-+		memset(ugeth->p_scheduler, 0,
-sizeof(ucc_geth_scheduler_t));
-+
-+		/* Set values in scheduler */
-+		out_be32(&ugeth->p_scheduler->mblinterval,
-+			 ug_info->mblinterval);
-+		out_be16(&ugeth->p_scheduler->nortsrbytetime,
-+			 ug_info->nortsrbytetime);
-+		ugeth->p_scheduler->fracsiz = ug_info->fracsiz;
-+		ugeth->p_scheduler->strictpriorityq =
-ug_info->strictpriorityq;
-+		ugeth->p_scheduler->txasap = ug_info->txasap;
-+		ugeth->p_scheduler->extrabw = ug_info->extrabw;
-+		for (i = 0; i < NUM_TX_QUEUES; i++)
-+			ugeth->p_scheduler->weightfactor[i] =
-+			    ug_info->weightfactor[i];
-+
-+		/* Set pointers to cpucount registers in scheduler */
-+		ugeth->p_cpucount[0] = &(ugeth->p_scheduler->cpucount0);
-+		ugeth->p_cpucount[1] = &(ugeth->p_scheduler->cpucount1);
-+		ugeth->p_cpucount[2] = &(ugeth->p_scheduler->cpucount2);
-+		ugeth->p_cpucount[3] = &(ugeth->p_scheduler->cpucount3);
-+		ugeth->p_cpucount[4] = &(ugeth->p_scheduler->cpucount4);
-+		ugeth->p_cpucount[5] = &(ugeth->p_scheduler->cpucount5);
-+		ugeth->p_cpucount[6] = &(ugeth->p_scheduler->cpucount6);
-+		ugeth->p_cpucount[7] = &(ugeth->p_scheduler->cpucount7);
-+	}
-+
-+	/* schedulerbasepointer */
-+	/* TxRMON_PTR (statistics) */
-+	if (ug_info->
-+	    statisticsMode &
-UCC_GETH_STATISTICS_GATHERING_MODE_FIRMWARE_TX) {
-+		ugeth->tx_fw_statistics_pram_offset =
-+		    qe_muram_alloc(sizeof
-+
-(ucc_geth_tx_firmware_statistics_pram_t),
-+				   UCC_GETH_TX_STATISTICS_ALIGNMENT);
-+		if (IS_MURAM_ERR(ugeth->tx_fw_statistics_pram_offset)) {
-+			ugeth_err
-+			    ("%s: Can not allocate DPRAM memory for"
-+				" p_tx_fw_statistics_pram.",
-__FUNCTION__);
-+			ucc_geth_memclean(ugeth);
-+			return -ENOMEM;
-+		}
-+		ugeth->p_tx_fw_statistics_pram =
-+		    (ucc_geth_tx_firmware_statistics_pram_t *)
-+		    qe_muram_addr(ugeth->tx_fw_statistics_pram_offset);
-+		/* Zero out p_tx_fw_statistics_pram */
-+		memset(ugeth->p_tx_fw_statistics_pram,
-+		       0,
-sizeof(ucc_geth_tx_firmware_statistics_pram_t));
-+	}
-+
-+	/* temoder */
-+	/* Already has speed set */
-+
-+	if (ug_info->numQueuesTx > 1)
-+		temoder |= TEMODER_SCHEDULER_ENABLE;
-+	if (ug_info->ipCheckSumGenerate)
-+		temoder |= TEMODER_IP_CHECKSUM_GENERATE;
-+	temoder |= ((ug_info->numQueuesTx - 1) <<
-TEMODER_NUM_OF_QUEUES_SHIFT);
-+	out_be16(&ugeth->p_tx_glbl_pram->temoder, temoder);
-+
-+	test = in_be16(&ugeth->p_tx_glbl_pram->temoder);
-+
-+	/* Function code register value to be used later */
-+	function_code = QE_BMR_BYTE_ORDER_BO_MOT |
-UCC_FAST_FUNCTION_CODE_GBL;	
-+	/* Required for QE */
-+
-+	/* function code register */
-+	out_be32(&ugeth->p_tx_glbl_pram->tstate, ((u32) function_code)
-<< 24);
-+
-+	/* Rx global PRAM */
-+	/* Allocate global rx parameter RAM page */
-+	ugeth->rx_glbl_pram_offset =
-+	    qe_muram_alloc(sizeof(ucc_geth_rx_global_pram_t),
-+			   UCC_GETH_RX_GLOBAL_PRAM_ALIGNMENT);
-+	if (IS_MURAM_ERR(ugeth->rx_glbl_pram_offset)) {
-+		ugeth_err
-+		    ("%s: Can not allocate DPRAM memory for
-p_rx_glbl_pram.",
-+		     __FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return -ENOMEM;
-+	}
-+	ugeth->p_rx_glbl_pram =
-+	    (ucc_geth_rx_global_pram_t *) qe_muram_addr(ugeth->
-+
-rx_glbl_pram_offset);
-+	/* Zero out p_rx_glbl_pram */
-+	memset(ugeth->p_rx_glbl_pram, 0,
-sizeof(ucc_geth_rx_global_pram_t));
-+
-+	/* Fill global PRAM */
-+
-+	/* RQPTR */
-+	/* Size varies with number of Rx threads */
-+	ugeth->thread_dat_rx_offset =
-+	    qe_muram_alloc(numThreadsRxNumerical *
-+			   sizeof(ucc_geth_thread_data_rx_t),
-+			   UCC_GETH_THREAD_DATA_ALIGNMENT);
-+	if (IS_MURAM_ERR(ugeth->thread_dat_rx_offset)) {
-+		ugeth_err
-+		    ("%s: Can not allocate DPRAM memory for
-p_thread_data_rx.",
-+		     __FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return -ENOMEM;
-+	}
-+
-+	ugeth->p_thread_data_rx =
-+	    (ucc_geth_thread_data_rx_t *) qe_muram_addr(ugeth->
-+
-thread_dat_rx_offset);
-+	out_be32(&ugeth->p_rx_glbl_pram->rqptr,
-ugeth->thread_dat_rx_offset);
-+
-+	/* typeorlen */
-+	out_be16(&ugeth->p_rx_glbl_pram->typeorlen, ug_info->typeorlen);
-+
-+	/* rxrmonbaseptr (statistics) */
-+	if (ug_info->
-+	    statisticsMode &
-UCC_GETH_STATISTICS_GATHERING_MODE_FIRMWARE_RX) {
-+		ugeth->rx_fw_statistics_pram_offset =
-+		    qe_muram_alloc(sizeof
-+
-(ucc_geth_rx_firmware_statistics_pram_t),
-+				   UCC_GETH_RX_STATISTICS_ALIGNMENT);
-+		if (IS_MURAM_ERR(ugeth->rx_fw_statistics_pram_offset)) {
-+			ugeth_err
-+				("%s: Can not allocate DPRAM memory for"
-+				" p_rx_fw_statistics_pram.",
-__FUNCTION__);
-+			ucc_geth_memclean(ugeth);
-+			return -ENOMEM;
-+		}
-+		ugeth->p_rx_fw_statistics_pram =
-+		    (ucc_geth_rx_firmware_statistics_pram_t *)
-+		    qe_muram_addr(ugeth->rx_fw_statistics_pram_offset);
-+		/* Zero out p_rx_fw_statistics_pram */
-+		memset(ugeth->p_rx_fw_statistics_pram, 0,
-+		       sizeof(ucc_geth_rx_firmware_statistics_pram_t));
-+	}
-+
-+	/* intCoalescingPtr */
-+
-+	/* Size varies with number of Rx queues */
-+	ugeth->rx_irq_coalescing_tbl_offset =
-+	    qe_muram_alloc(ug_info->numQueuesRx *
-+
-sizeof(ucc_geth_rx_interrupt_coalescing_entry_t),
-+			   UCC_GETH_RX_INTERRUPT_COALESCING_ALIGNMENT);
-+	if (IS_MURAM_ERR(ugeth->rx_irq_coalescing_tbl_offset)) {
-+		ugeth_err
-+		    ("%s: Can not allocate DPRAM memory for"
-+			" p_rx_irq_coalescing_tbl.", __FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return -ENOMEM;
-+	}
-+
-+	ugeth->p_rx_irq_coalescing_tbl =
-+	    (ucc_geth_rx_interrupt_coalescing_table_t *)
-+	    qe_muram_addr(ugeth->rx_irq_coalescing_tbl_offset);
-+	out_be32(&ugeth->p_rx_glbl_pram->intcoalescingptr,
-+		 ugeth->rx_irq_coalescing_tbl_offset);
-+
-+	/* Fill interrupt coalescing table */
-+	for (i = 0; i < ug_info->numQueuesRx; i++) {
-+
-out_be32(&ugeth->p_rx_irq_coalescing_tbl->coalescingentry[i].
-+			 interruptcoalescingmaxvalue,
-+			 ug_info->interruptcoalescingmaxvalue[i]);
-+
-out_be32(&ugeth->p_rx_irq_coalescing_tbl->coalescingentry[i].
-+			 interruptcoalescingcounter,
-+			 ug_info->interruptcoalescingmaxvalue[i]);
-+	}
-+
-+	/* MRBLR */
-+	init_max_rx_buff_len(uf_info->max_rx_buf_length,
-+			     &ugeth->p_rx_glbl_pram->mrblr);
-+	/* MFLR */
-+	out_be16(&ugeth->p_rx_glbl_pram->mflr, ug_info->maxFrameLength);
-+	/* MINFLR */
-+	init_min_frame_len(ug_info->minFrameLength,
-+			   &ugeth->p_rx_glbl_pram->minflr,
-+			   &ugeth->p_rx_glbl_pram->mrblr);
-+	/* MAXD1 */
-+	out_be16(&ugeth->p_rx_glbl_pram->maxd1, ug_info->maxD1Length);
-+	/* MAXD2 */
-+	out_be16(&ugeth->p_rx_glbl_pram->maxd2, ug_info->maxD2Length);
-+
-+	/* l2qt */
-+	l2qt = 0;
-+	for (i = 0; i < UCC_GETH_VLAN_PRIORITY_MAX; i++)
-+		l2qt |= (ug_info->l2qt[i] << (28 - 4 * i));
-+	out_be32(&ugeth->p_rx_glbl_pram->l2qt, l2qt);
-+
-+	/* l3qt */
-+	for (j = 0; j < UCC_GETH_IP_PRIORITY_MAX; j += 8) {
-+		l3qt = 0;
-+		for (i = 0; i < 8; i++)
-+			l3qt |= (ug_info->l3qt[j + i] << (28 - 4 * i));
-+		out_be32(&ugeth->p_rx_glbl_pram->l3qt[j], l3qt);
-+	}
-+
-+	/* vlantype */
-+	out_be16(&ugeth->p_rx_glbl_pram->vlantype, ug_info->vlantype);
-+
-+	/* vlantci */
-+	out_be16(&ugeth->p_rx_glbl_pram->vlantci, ug_info->vlantci);
-+
-+	/* ecamptr */
-+	out_be32(&ugeth->p_rx_glbl_pram->ecamptr, ug_info->ecamptr);
-+
-+	/* RBDQPTR */
-+	/* Size varies with number of Rx queues */
-+	ugeth->rx_bd_qs_tbl_offset =
-+	    qe_muram_alloc(ug_info->numQueuesRx *
-+			   (sizeof(ucc_geth_rx_bd_queues_entry_t) +
-+			    sizeof(ucc_geth_rx_prefetched_bds_t)),
-+			   UCC_GETH_RX_BD_QUEUES_ALIGNMENT);
-+	if (IS_MURAM_ERR(ugeth->rx_bd_qs_tbl_offset)) {
-+		ugeth_err
-+		    ("%s: Can not allocate DPRAM memory for
-p_rx_bd_qs_tbl.",
-+		     __FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return -ENOMEM;
-+	}
-+
-+	ugeth->p_rx_bd_qs_tbl =
-+	    (ucc_geth_rx_bd_queues_entry_t *) qe_muram_addr(ugeth->
-+				    rx_bd_qs_tbl_offset);
-+	out_be32(&ugeth->p_rx_glbl_pram->rbdqptr,
-ugeth->rx_bd_qs_tbl_offset);
-+	/* Zero out p_rx_bd_qs_tbl */
-+	memset(ugeth->p_rx_bd_qs_tbl,
-+	       0,
-+	       ug_info->numQueuesRx *
-(sizeof(ucc_geth_rx_bd_queues_entry_t) +
-+
-sizeof(ucc_geth_rx_prefetched_bds_t)));
-+
-+	/* Setup the table */
-+	/* Assume BD rings are already established */
-+	for (i = 0; i < ug_info->numQueuesRx; i++) {
-+		if (ugeth->ug_info->uf_info.bd_mem_part ==
-MEM_PART_SYSTEM) {
-+
-out_be32(&ugeth->p_rx_bd_qs_tbl[i].externalbdbaseptr,
-+				 (u32)
-virt_to_phys(ugeth->p_rx_bd_ring[i]));
-+		} else if (ugeth->ug_info->uf_info.bd_mem_part ==
-+			   MEM_PART_MURAM) {
-+
-out_be32(&ugeth->p_rx_bd_qs_tbl[i].externalbdbaseptr,
-+				 (u32) immrbar_virt_to_phys(ugeth->
-+
-p_rx_bd_ring[i]));
-+		}
-+		/* rest of fields handled by QE */
-+	}
-+
-+	/* remoder */
-+	/* Already has speed set */
-+
-+	if (ugeth->rx_extended_features)
-+		remoder |= REMODER_RX_EXTENDED_FEATURES;
-+	if (ug_info->rxExtendedFiltering)
-+		remoder |= REMODER_RX_EXTENDED_FILTERING;
-+	if (ug_info->dynamicMaxFrameLength)
-+		remoder |= REMODER_DYNAMIC_MAX_FRAME_LENGTH;
-+	if (ug_info->dynamicMinFrameLength)
-+		remoder |= REMODER_DYNAMIC_MIN_FRAME_LENGTH;
-+	remoder |=
-+	    ug_info->vlanOperationTagged <<
-REMODER_VLAN_OPERATION_TAGGED_SHIFT;
-+	remoder |=
-+	    ug_info->
-+	    vlanOperationNonTagged <<
-REMODER_VLAN_OPERATION_NON_TAGGED_SHIFT;
-+	remoder |= ug_info->rxQoSMode << REMODER_RX_QOS_MODE_SHIFT;
-+	remoder |= ((ug_info->numQueuesRx - 1) <<
-REMODER_NUM_OF_QUEUES_SHIFT);
-+	if (ug_info->ipCheckSumCheck)
-+		remoder |= REMODER_IP_CHECKSUM_CHECK;
-+	if (ug_info->ipAddressAlignment)
-+		remoder |= REMODER_IP_ADDRESS_ALIGNMENT;
-+	out_be32(&ugeth->p_rx_glbl_pram->remoder, remoder);
-+
-+	/* Note that this function must be called */
-+	/* ONLY AFTER p_tx_fw_statistics_pram */
-+	/* andp_UccGethRxFirmwareStatisticsPram are allocated ! */
-+	init_firmware_statistics_gathering_mode((ug_info->
-+		statisticsMode & 
-+		UCC_GETH_STATISTICS_GATHERING_MODE_FIRMWARE_TX),
-+		(ug_info->statisticsMode &
-+		UCC_GETH_STATISTICS_GATHERING_MODE_FIRMWARE_RX),
-+		&ugeth->p_tx_glbl_pram->txrmonbaseptr,
-+		ugeth->tx_fw_statistics_pram_offset,
-+		&ugeth->p_rx_glbl_pram->rxrmonbaseptr,
-+		ugeth->rx_fw_statistics_pram_offset,
-+		&ugeth->p_tx_glbl_pram->temoder,
-+		&ugeth->p_rx_glbl_pram->remoder);
-+
-+	/* function code register */
-+	ugeth->p_rx_glbl_pram->rstate = function_code;
-+
-+	/* initialize extended filtering */
-+	if (ug_info->rxExtendedFiltering) {
-+		if (!ug_info->extendedFilteringChainPointer) {
-+			ugeth_err("%s: Null Extended Filtering Chain
-Pointer.",
-+				  __FUNCTION__);
-+			ucc_geth_memclean(ugeth);
-+			return -EINVAL;
-+		}
-+
-+		/* Allocate memory for extended filtering Mode Global 
-+		Parameters */
-+		ugeth->exf_glbl_param_offset =
-+		    qe_muram_alloc(sizeof(ucc_geth_exf_global_pram_t),
-+
-UCC_GETH_RX_EXTENDED_FILTERING_GLOBAL_PARAMETERS_ALIGNMENT);
-+		if (IS_MURAM_ERR(ugeth->exf_glbl_param_offset)) {
-+			ugeth_err
-+				("%s: Can not allocate DPRAM memory for"
-+				" p_exf_glbl_param.", __FUNCTION__);
-+			ucc_geth_memclean(ugeth);
-+			return -ENOMEM;
-+		}
-+
-+		ugeth->p_exf_glbl_param =
-+		    (ucc_geth_exf_global_pram_t *) qe_muram_addr(ugeth->
-+				 exf_glbl_param_offset);
-+		out_be32(&ugeth->p_rx_glbl_pram->exfGlobalParam,
-+			 ugeth->exf_glbl_param_offset);
-+		out_be32(&ugeth->p_exf_glbl_param->l2pcdptr,
-+			 (u32) ug_info->extendedFilteringChainPointer);
-+
-+	} else {		/* initialize 82xx style address
-filtering */
-+
-+		/* Init individual address recognition registers to
-disabled */
-+
-+		for (j = 0; j < NUM_OF_PADDRS; j++)
-+			ugeth_82xx_filtering_clear_addr_in_paddr(ugeth,
-(u8) j);
-+
-+		/* Create CQs for hash tables */
-+		if (ug_info->maxGroupAddrInHash > 0) {
-+			INIT_LIST_HEAD(&ugeth->group_hash_q);
-+		}
-+		if (ug_info->maxIndAddrInHash > 0) {
-+			INIT_LIST_HEAD(&ugeth->ind_hash_q);
-+		}
-+		p_82xx_addr_filt =
-+		    (ucc_geth_82xx_address_filtering_pram_t *) ugeth->
-+		    p_rx_glbl_pram->addressfiltering;
-+
-+		ugeth_82xx_filtering_clear_all_addr_in_hash(ugeth,
-+			ENET_ADDR_TYPE_GROUP);
-+		ugeth_82xx_filtering_clear_all_addr_in_hash(ugeth,
-+			ENET_ADDR_TYPE_INDIVIDUAL);
-+	}
-+
-+	/*
-+	 * Initialize UCC at QE level
-+	 */
-+
-+	command = QE_INIT_TX_RX;
-+
-+	/* Allocate shadow InitEnet command parameter structure.
-+	 * This is needed because after the InitEnet command is
-executed,
-+	 * the structure in DPRAM is released, because DPRAM is a
-premium 
-+	 * resource. 
-+	 * This shadow structure keeps a copy of what was done so that
++module_init(ucc_geth_init);
++module_exit(ucc_geth_exit);
++
++MODULE_AUTHOR("Freescale Semiconductor, Inc");
++MODULE_DESCRIPTION(DRV_DESC);
++MODULE_LICENSE("GPL");
+diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
+new file mode 100644
+index 0000000..6eafd95
+--- /dev/null
++++ b/drivers/net/ucc_geth.h
+@@ -0,0 +1,1334 @@
++/*
++ * Copyright (C) Freescale Semicondutor, Inc. 2006. All rights
+reserved.
++ *
++ * Author: Shlomi Gridish <gridish@freescale.com>
++ *
++ * Description:
++ * Internal header file for UCC Gigabit Ethernet unit routines.
++ *
++ * Changelog:
++ * Jun 28, 2006 Li Yang <LeoLi@freescale.com>
++ * - Rearrange code and style fixes
++ *
++ * This program is free software; you can redistribute  it and/or
+modify it
++ * under  the terms of  the GNU General  Public License as published by
 the
-+	 * allocated resources can be released when the channel is
-freed.
-+	 */
-+	if (!(ugeth->p_init_enet_param_shadow =
-+	     (ucc_geth_init_pram_t *)
-kmalloc(sizeof(ucc_geth_init_pram_t),
-+					      GFP_KERNEL))) {
-+		ugeth_err
-+		    ("%s: Can not allocate memory for"
-+			" p_UccInitEnetParamShadows.", __FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return -ENOMEM;
-+	}
-+	/* Zero out *p_init_enet_param_shadow */
-+	memset((char *)ugeth->p_init_enet_param_shadow,
-+	       0, sizeof(ucc_geth_init_pram_t));
++ * Free Software Foundation;  either version 2 of the  License, or (at
+your
++ * option) any later version.
++ */
++#ifndef __UCC_GETH_H__
++#define __UCC_GETH_H__
 +
-+	/* Fill shadow InitEnet command parameter structure */
++#include <linux/kernel.h>
++#include <linux/list.h>
++#include <linux/fsl_devices.h>
 +
-+	ugeth->p_init_enet_param_shadow->resinit1 =
-+	    ENET_INIT_PARAM_MAGIC_RES_INIT1;
-+	ugeth->p_init_enet_param_shadow->resinit2 =
-+	    ENET_INIT_PARAM_MAGIC_RES_INIT2;
-+	ugeth->p_init_enet_param_shadow->resinit3 =
-+	    ENET_INIT_PARAM_MAGIC_RES_INIT3;
-+	ugeth->p_init_enet_param_shadow->resinit4 =
-+	    ENET_INIT_PARAM_MAGIC_RES_INIT4;
-+	ugeth->p_init_enet_param_shadow->resinit5 =
-+	    ENET_INIT_PARAM_MAGIC_RES_INIT5;
-+	ugeth->p_init_enet_param_shadow->rgftgfrxglobal |=
-+	    ((u32) ug_info->numThreadsRx) << ENET_INIT_PARAM_RGF_SHIFT;
-+	ugeth->p_init_enet_param_shadow->rgftgfrxglobal |=
-+	    ((u32) ug_info->numThreadsTx) << ENET_INIT_PARAM_TGF_SHIFT;
++#include <asm/immap_qe.h>
++#include <asm/qe.h>
 +
-+	ugeth->p_init_enet_param_shadow->rgftgfrxglobal |=
-+	    ugeth->rx_glbl_pram_offset | ug_info->riscRx;
-+	if ((ug_info->largestexternallookupkeysize !=
-+	     QE_FLTR_LARGEST_EXTERNAL_TABLE_LOOKUP_KEY_SIZE_NONE)
-+	    && (ug_info->largestexternallookupkeysize !=
-+		QE_FLTR_LARGEST_EXTERNAL_TABLE_LOOKUP_KEY_SIZE_8_BYTES)
-+	    && (ug_info->largestexternallookupkeysize !=
++#include <asm/ucc.h>
++#include <asm/ucc_fast.h>
 +
-QE_FLTR_LARGEST_EXTERNAL_TABLE_LOOKUP_KEY_SIZE_16_BYTES)) {
-+		ugeth_err("%s: Invalid largest External Lookup Key
-Size.",
-+			  __FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return -EINVAL;
-+	}
-+	ugeth->p_init_enet_param_shadow->largestexternallookupkeysize =
-+	    ug_info->largestexternallookupkeysize;
-+	size = sizeof(ucc_geth_thread_rx_pram_t);
-+	if (ug_info->rxExtendedFiltering) {
-+		size +=
-THREAD_RX_PRAM_ADDITIONAL_FOR_EXTENDED_FILTERING;
-+		if (ug_info->largestexternallookupkeysize ==
-+		    QE_FLTR_TABLE_LOOKUP_KEY_SIZE_8_BYTES)
-+			size +=
++#define NUM_TX_QUEUES                   8
++#define NUM_RX_QUEUES                   8
++#define NUM_BDS_IN_PREFETCHED_BDS       4
++#define TX_IP_OFFSET_ENTRY_MAX          8
++#define NUM_OF_PADDRS                   4
++#define ENET_INIT_PARAM_MAX_ENTRIES_RX  9
++#define ENET_INIT_PARAM_MAX_ENTRIES_TX  8
 +
-THREAD_RX_PRAM_ADDITIONAL_FOR_EXTENDED_FILTERING_8;
-+		if (ug_info->largestexternallookupkeysize ==
-+		    QE_FLTR_TABLE_LOOKUP_KEY_SIZE_16_BYTES)
-+			size +=
++typedef struct ucc_mii_mng {
++	u32 miimcfg;		/* MII management configuration reg */
++	u32 miimcom;		/* MII management command reg */
++	u32 miimadd;		/* MII management address reg */
++	u32 miimcon;		/* MII management control reg */
++	u32 miimstat;		/* MII management status reg */
++	u32 miimind;		/* MII management indication reg */
++} __attribute__ ((packed)) ucc_mii_mng_t;
 +
-THREAD_RX_PRAM_ADDITIONAL_FOR_EXTENDED_FILTERING_16;
-+	}
++typedef struct ucc_geth {
++	ucc_fast_t uccf;
 +
-+	if ((ret_val = fill_init_enet_entries(ugeth, &(ugeth->
-+		p_init_enet_param_shadow->rxthread[0]),
-+		(u8) (numThreadsRxNumerical + 1)
-+		/* Rx needs one extra for terminator */
-+		, size, UCC_GETH_THREAD_RX_PRAM_ALIGNMENT,
-+		ug_info->riscRx, 1)) != 0) {
-+			ugeth_err("%s: Can not fill
-p_init_enet_param_shadow.",
-+				__FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return ret_val;
-+	}
-+
-+	ugeth->p_init_enet_param_shadow->txglobal =
-+	    ugeth->tx_glbl_pram_offset | ug_info->riscTx;
-+	if ((ret_val =
-+	     fill_init_enet_entries(ugeth,
-+				    &(ugeth->p_init_enet_param_shadow->
-+				      txthread[0]),
-numThreadsTxNumerical,
-+				    sizeof(ucc_geth_thread_tx_pram_t),
-+				    UCC_GETH_THREAD_TX_PRAM_ALIGNMENT,
-+				    ug_info->riscTx, 0)) != 0) {
-+		ugeth_err("%s: Can not fill p_init_enet_param_shadow.",
-+			  __FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return ret_val;
-+	}
-+
-+	/* Load Rx bds with buffers */
-+	for (i = 0; i < ug_info->numQueuesRx; i++) {
-+		if ((ret_val = rx_bd_buffer_set(ugeth, (u8) i)) != 0) {
-+			ugeth_err("%s: Can not fill Rx bds with
-buffers.",
-+				  __FUNCTION__);
-+			ucc_geth_memclean(ugeth);
-+			return ret_val;
-+		}
-+	}
-+
-+	/* Allocate InitEnet command parameter structure */
-+	init_enet_pram_offset =
-qe_muram_alloc(sizeof(ucc_geth_init_pram_t), 4);
-+	if (IS_MURAM_ERR(init_enet_pram_offset)) {
-+		ugeth_err
-+		    ("%s: Can not allocate DPRAM memory for
-p_init_enet_pram.",
-+		     __FUNCTION__);
-+		ucc_geth_memclean(ugeth);
-+		return -ENOMEM;
-+	}
-+	p_init_enet_pram =
-+	    (ucc_geth_init_pram_t *)
-qe_muram_addr(init_enet_pram_offset);
-+
-+	/* Copy shadow InitEnet command parameter structure into PRAM */
-+	p_init_enet_pram->resinit1 =
-ugeth->p_init_enet_param_shadow->resinit1;
-+	p_init_enet_pram->resinit2 =
-ugeth->p_init_enet_param_shadow->resinit2;
-+	p_init_enet_pram->resinit3 =
-ugeth->p_init_enet_param_shadow->resinit3;
-+	p_init_enet_pram->resinit4 =
-ugeth->p_init_enet_param_shadow->resinit4;
-+	out_be16(&p_init_enet_pram->resinit5,
-+		 ugeth->p_init_enet_param_shadow->resinit5);
-+	p_init_enet_pram->largestexternallookupkeysize =
-+
-ugeth->p_init_enet_param_shadow->largestexternallookupkeysize;
-+	out_be32(&p_init_enet_pram->rgftgfrxglobal,
-+		 ugeth->p_init_enet_param_shadow->rgftgfrxglobal);
-+	for (i = 0; i < ENET_INIT_PARAM_MAX_ENTRIES_RX; i++)
-+		out_be32(&p_init_enet_pram->rxthread[i],
-+			 ugeth->p_init_enet_param_shadow->rxthread[i]);
-+	out_be32(&p_init_enet_pram->txglobal,
-+		 ugeth->p_init_enet_param_shadow->txglobal);
-+	for (i = 0; i < ENET_INIT_PARAM_MAX_ENTRIES_TX; i++)
-+		out_be32(&p_init_enet_pram->txthread[i],
-+			 ugeth->p_init_enet_param_shadow->txthread[i]);
-+
-+	/* Issue QE command */
-+	cecr_subblock =
-+
-ucc_fast_get_qe_cr_subblock(ugeth->ug_info->uf_info.ucc_num);
-+	qe_issue_cmd(command, cecr_subblock, (u8)
-QE_CR_PROTOCOL_ETHERNET,
-+		     init_enet_pram_offset);
-+
-+	/* Free InitEnet command parameter */
-+	qe_muram_free(init_enet_pram_offset);
-+
-+	return 0;
-+}
-+
-+/* returns a net_device_stats structure pointer */
-+static struct net_device_stats *ucc_geth_get_stats(struct net_device
-*dev)
-+{
-+	ucc_geth_private_t *ugeth = netdev_priv(dev);
-+
-+	return &(ugeth->stats);
-+}
-+
-+/* ucc_geth_timeout gets called when a packet has not been
-+ * transmitted after a set amount of time.
-+ * For now, assume that clearing out all the structures, and
-+ * starting over will fix the problem. */
-+static void ucc_geth_timeout(struct net_device *dev)
-+{
-+	ucc_geth_private_t *ugeth = netdev_priv(dev);
-+
-+	ugeth_vdbg("%s: IN", __FUNCTION__);
-+
-+	ugeth->stats.tx_errors++;
-+
-+	ugeth_dump_regs(ugeth);
-+
-+	if (dev->flags & IFF_UP) {
-+		ucc_geth_stop(ugeth);
-+		ucc_geth_startup(ugeth);
-+	}
-+
-+	netif_schedule(dev);
-+}
-+
-+/* This is called by the kernel when a frame is ready for transmission.
++	u32 maccfg1;		/* mac configuration reg. 1 */
++	u32 maccfg2;		/* mac configuration reg. 2 */
++	u32 ipgifg;		/* interframe gap reg.  */
++	u32 hafdup;		/* half-duplex reg.  */
++	u8 res1[0x10];
++	ucc_mii_mng_t miimng;	/* MII management structure */
++	u32 ifctl;		/* interface control reg */
++	u32 ifstat;		/* interface statux reg */
++	u32 macstnaddr1;	/* mac station address part 1 reg */
++	u32 macstnaddr2;	/* mac station address part 2 reg */
++	u8 res2[0x8];
++	u32 uempr;		/* UCC Ethernet Mac parameter reg */
++	u32 utbipar;		/* UCC tbi address reg */
++	u16 uescr;		/* UCC Ethernet statistics control reg
 */
-+/* It is pointed to by the dev->hard_start_xmit function pointer */
-+static int ucc_geth_start_xmit(struct sk_buff *skb, struct net_device
-*dev)
++	u8 res3[0x180 - 0x15A];
++	u32 tx64;		/* Total number of frames (including bad
++				   frames) transmitted that were exactly
+of the 
++				   minimal length (64 for un tagged, 68
+for
++				   tagged, or with length exactly equal
+to the
++				   parameter MINLength */
++	u32 tx127;		/* Total number of frames (including bad
++				   frames) transmitted that were between
++				   MINLength (Including FCS length==4)
+and 127
++				   octets */
++	u32 tx255;		/* Total number of frames (including bad
++				   frames) transmitted that were between
+128
++				   (Including FCS length==4) and 255
+octets */
++	u32 rx64;		/* Total number of frames received
+including
++				   bad frames that were exactly of the
+mninimal 
++				   length (64 bytes) */
++	u32 rx127;		/* Total number of frames (including bad
++				   frames) received that were between
+MINLength 
++				   (Including FCS length==4) and 127
+octets */
++	u32 rx255;		/* Total number of frames (including bad
++				   frames) received that were between
+128
++				   (Including FCS length==4) and 255
+octets */
++	u32 txok;		/* Total number of octets residing in
+frames
++				   that where involved in succesfull
++				   transmission */
++	u16 txcf;		/* Total number of PAUSE control frames
++				   transmitted by this MAC */
++	u8 res4[0x2];
++	u32 tmca;		/* Total number of frames that were
+transmitted 
++				   succesfully with the group address
+bit set
++				   that are not broadcast frames */
++	u32 tbca;		/* Total number of frames transmitted
++				   succesfully that had destination
+address
++				   field equal to the broadcast address
+*/
++	u32 rxfok;		/* Total number of frames received OK */
++	u32 rxbok;		/* Total number of octets received OK */
++	u32 rbyt;		/* Total number of octets received
+including
++				   octets in bad frames. Must be
+implemented in 
++				   HW because it includes octets in
+frames that 
++				   never even reach the UCC */
++	u32 rmca;		/* Total number of frames that were
+received
++				   succesfully with the group address
+bit set
++				   that are not broadcast frames */
++	u32 rbca;		/* Total number of frames received
+succesfully
++				   that had destination address equal to
+the
++				   broadcast address */
++	u32 scar;		/* Statistics carry register */
++	u32 scam;		/* Statistics caryy mask register */
++	u8 res5[0x200 - 0x1c4];
++} __attribute__ ((packed)) ucc_geth_t;
++
++/* UCC GETH TEMODR Register */
++#define TEMODER_TX_RMON_STATISTICS_ENABLE       0x0100	/* enable Tx
+statistics 
++							 */
++#define TEMODER_SCHEDULER_ENABLE                0x2000	/* enable
+scheduler */
++#define TEMODER_IP_CHECKSUM_GENERATE            0x0400	/* generate IPv4
++							   checksums */
++#define TEMODER_PERFORMANCE_OPTIMIZATION_MODE1  0x0200	/* enable
+performance
++							   optimization
++							   enhancement
+(mode1) */
++#define TEMODER_RMON_STATISTICS                 0x0100	/* enable tx
+statistics 
++							 */
++#define TEMODER_NUM_OF_QUEUES_SHIFT             (15-15)	/*
+Number of queues <<
++							   shift */
++
++/* UCC GETH TEMODR Register */
++#define REMODER_RX_RMON_STATISTICS_ENABLE       0x00001000	/*
+enable Rx
++
+statistics */
++#define REMODER_RX_EXTENDED_FEATURES            0x80000000	/*
+enable
++
+extended
++
+features */
++#define REMODER_VLAN_OPERATION_TAGGED_SHIFT     (31-9 )	/* vlan
+operation
++							   tagged <<
+shift */
++#define REMODER_VLAN_OPERATION_NON_TAGGED_SHIFT (31-10)	/* vlan
+operation non
++							   tagged <<
+shift */
++#define REMODER_RX_QOS_MODE_SHIFT               (31-15)	/* rx
+QoS mode << shift 
++							 */
++#define REMODER_RMON_STATISTICS                 0x00001000	/*
+enable rx
++
+statistics */
++#define REMODER_RX_EXTENDED_FILTERING           0x00000800	/*
+extended
++
+filtering
++								   vs.
++
+mpc82xx-like 
++
+filtering */
++#define REMODER_NUM_OF_QUEUES_SHIFT             (31-23)	/*
+Number of queues <<
++							   shift */
++#define REMODER_DYNAMIC_MAX_FRAME_LENGTH        0x00000008	/*
+enable
++
+dynamic max
++								   frame
+length 
++								 */
++#define REMODER_DYNAMIC_MIN_FRAME_LENGTH        0x00000004	/*
+enable
++
+dynamic min
++								   frame
+length 
++								 */
++#define REMODER_IP_CHECKSUM_CHECK               0x00000002	/* check
+IPv4
++
+checksums */
++#define REMODER_IP_ADDRESS_ALIGNMENT            0x00000001	/* align
+ip
++
+address to
++
+4-byte
++
+boundary */
++
++/* UCC GETH Event Register */
++#define UCCE_MPD                                0x80000000	/* Magic
+packet 
++
+detection */
++#define UCCE_SCAR                               0x40000000
++#define UCCE_GRA                                0x20000000	/* Tx
+graceful
++								   stop
++
+complete */
++#define UCCE_CBPR                               0x10000000
++#define UCCE_BSY                                0x08000000
++#define UCCE_RXC                                0x04000000
++#define UCCE_TXC                                0x02000000
++#define UCCE_TXE                                0x01000000
++#define UCCE_TXB7                               0x00800000
++#define UCCE_TXB6                               0x00400000
++#define UCCE_TXB5                               0x00200000
++#define UCCE_TXB4                               0x00100000
++#define UCCE_TXB3                               0x00080000
++#define UCCE_TXB2                               0x00040000
++#define UCCE_TXB1                               0x00020000
++#define UCCE_TXB0                               0x00010000
++#define UCCE_RXB7                               0x00008000
++#define UCCE_RXB6                               0x00004000
++#define UCCE_RXB5                               0x00002000
++#define UCCE_RXB4                               0x00001000
++#define UCCE_RXB3                               0x00000800
++#define UCCE_RXB2                               0x00000400
++#define UCCE_RXB1                               0x00000200
++#define UCCE_RXB0                               0x00000100
++#define UCCE_RXF7                               0x00000080
++#define UCCE_RXF6                               0x00000040
++#define UCCE_RXF5                               0x00000020
++#define UCCE_RXF4                               0x00000010
++#define UCCE_RXF3                               0x00000008
++#define UCCE_RXF2                               0x00000004
++#define UCCE_RXF1                               0x00000002
++#define UCCE_RXF0                               0x00000001
++
++#define UCCE_RXBF_SINGLE_MASK                   (UCCE_RXF0)
++#define UCCE_TXBF_SINGLE_MASK                   (UCCE_TXB0)
++
++#define UCCE_TXB         (UCCE_TXB7 | UCCE_TXB6 | UCCE_TXB5 | UCCE_TXB4
+| UCCE_TXB3 | UCCE_TXB2 | UCCE_TXB1 | UCCE_TXB0)
++#define UCCE_RXB         (UCCE_RXB7 | UCCE_RXB6 | UCCE_RXB5 | UCCE_RXB4
+| UCCE_RXB3 | UCCE_RXB2 | UCCE_RXB1 | UCCE_RXB0)
++#define UCCE_RXF         (UCCE_RXF7 | UCCE_RXF6 | UCCE_RXF5 | UCCE_RXF4
+| UCCE_RXF3 | UCCE_RXF2 | UCCE_RXF1 | UCCE_RXF0)
++#define UCCE_OTHER       (UCCE_SCAR | UCCE_GRA  | UCCE_CBPR | UCCE_BSY
+| UCCE_RXC  | UCCE_TXC  | UCCE_TXE)
++
++/* UCC GETH UPSMR (Protocol Specific Mode Register) */
++#define UPSMR_ECM                               0x04000000	/*
+Enable CAM
++								   Miss
+or
++
+Enable
++
+Filtering
++								   Miss
+*/
++#define UPSMR_HSE                               0x02000000	/*
+Hardware
++
+Statistics
++
+Enable */
++#define UPSMR_PRO                               0x00400000	/*
+Promiscuous */
++#define UPSMR_CAP                               0x00200000	/* CAM
+polarity 
++								 */
++#define UPSMR_RSH                               0x00100000	/*
+Receive
++								   Short
+Frames 
++								 */
++#define UPSMR_RPM                               0x00080000	/*
+Reduced Pin
++								   Mode
++
+interfaces */
++#define UPSMR_R10M                              0x00040000	/*
+RGMII/RMII
++								   10
+Mode */
++#define UPSMR_RLPB                              0x00020000	/* RMII
++
+Loopback
++								   Mode
+*/
++#define UPSMR_TBIM                              0x00010000	/*
+Ten-bit
++
+Interface
++								   Mode
+*/
++#define UPSMR_RMM                               0x00001000	/*
+RMII/RGMII
++								   Mode
+*/
++#define UPSMR_CAM                               0x00000400	/* CAM
+Address
++
+Matching */
++#define UPSMR_BRO                               0x00000200	/*
+Broadcast
++
+Address */
++#define UPSMR_RES1                              0x00002000	/*
+Reserved
++								   feild
+- must 
++								   be 1
+*/
++
++/* UCC GETH MACCFG1 (MAC Configuration 1 Register) */
++#define MACCFG1_FLOW_RX                         0x00000020	/* Flow
+Control 
++								   Rx */
++#define MACCFG1_FLOW_TX                         0x00000010	/* Flow
+Control 
++								   Tx */
++#define MACCFG1_ENABLE_SYNCHED_RX               0x00000008	/* Rx
+Enable
++
+synchronized 
++								   to Rx
+stream 
++								 */
++#define MACCFG1_ENABLE_RX                       0x00000004	/*
+Enable Rx */
++#define MACCFG1_ENABLE_SYNCHED_TX               0x00000002	/* Tx
+Enable
++
+synchronized 
++								   to Tx
+stream 
++								 */
++#define MACCFG1_ENABLE_TX                       0x00000001	/*
+Enable Tx */
++
++/* UCC GETH MACCFG2 (MAC Configuration 2 Register) */
++#define MACCFG2_PREL_SHIFT                      (31 - 19)	/*
+Preamble
++
+Length <<
++								   shift
+*/
++#define MACCFG2_PREL_MASK                       0x0000f000	/*
+Preamble
++
+Length mask */
++#define MACCFG2_SRP                             0x00000080	/* Soft
+Receive 
++
+Preamble */
++#define MACCFG2_STP                             0x00000040	/* Soft
++
+Transmit
++
+Preamble */
++#define MACCFG2_RESERVED_1                      0x00000020	/*
+Reserved -
++								   must
+be set
++								   to 1
+*/
++#define MACCFG2_LC                              0x00000010	/*
+Length Check 
++								 */
++#define MACCFG2_MPE                             0x00000008	/* Magic
+packet 
++
+detect */
++#define MACCFG2_FDX                             0x00000001	/* Full
+Duplex */
++#define MACCFG2_FDX_MASK                        0x00000001	/* Full
+Duplex
++								   mask
+*/
++#define MACCFG2_PAD_CRC                         0x00000004
++#define MACCFG2_CRC_EN                          0x00000002
++#define MACCFG2_PAD_AND_CRC_MODE_NONE           0x00000000	/*
+Neither
++
+Padding
++								   short
+frames 
++								   nor
+CRC */
++#define MACCFG2_PAD_AND_CRC_MODE_CRC_ONLY       0x00000002	/*
+Append CRC
++								   only
+*/
++#define MACCFG2_PAD_AND_CRC_MODE_PAD_AND_CRC    0x00000004
++#define MACCFG2_INTERFACE_MODE_NIBBLE           0x00000100	/*
+nibble mode
++
+(MII/RMII/RGMII 
++
+10/100bps) */
++#define MACCFG2_INTERFACE_MODE_BYTE             0x00000200	/* byte
+mode
++
+(GMII/TBI/RTB/RGMII 
++
+1000bps ) */
++#define MACCFG2_INTERFACE_MODE_MASK             0x00000300	/* mask
++
+covering all 
++
+relevant
++								   bits
+*/
++
++/* UCC GETH IPGIFG (Inter-frame Gap / Inter-Frame Gap Register) */
++#define IPGIFG_NON_BACK_TO_BACK_IFG_PART1_SHIFT (31 -  7)	/* Non
++
+back-to-back 
++								   inter
+frame
++								   gap
+part 1.
++								   <<
+shift */
++#define IPGIFG_NON_BACK_TO_BACK_IFG_PART2_SHIFT (31 - 15)	/* Non
++
+back-to-back 
++								   inter
+frame
++								   gap
+part 2.
++								   <<
+shift */
++#define IPGIFG_MINIMUM_IFG_ENFORCEMENT_SHIFT    (31 - 23)	/*
+Mimimum IFG
++
+Enforcement
++								   <<
+shift */
++#define IPGIFG_BACK_TO_BACK_IFG_SHIFT           (31 - 31)	/*
+back-to-back 
++								   inter
+frame
++								   gap
+<< shift 
++								 */
++#define IPGIFG_NON_BACK_TO_BACK_IFG_PART1_MAX   127	/* Non
+back-to-back
++							   inter frame
+gap part 
++							   1. max val */
++#define IPGIFG_NON_BACK_TO_BACK_IFG_PART2_MAX   127	/* Non
+back-to-back
++							   inter frame
+gap part 
++							   2. max val */
++#define IPGIFG_MINIMUM_IFG_ENFORCEMENT_MAX      255	/* Mimimum IFG
++							   Enforcement
+max val */
++#define IPGIFG_BACK_TO_BACK_IFG_MAX             127	/* back-to-back
+inter
++							   frame gap max
+val */
++#define IPGIFG_NBTB_CS_IPG_MASK                 0x7F000000
++#define IPGIFG_NBTB_IPG_MASK                    0x007F0000
++#define IPGIFG_MIN_IFG_MASK                     0x0000FF00
++#define IPGIFG_BTB_IPG_MASK                     0x0000007F
++
++/* UCC GETH HAFDUP (Half Duplex Register) */
++#define HALFDUP_ALT_BEB_TRUNCATION_SHIFT        (31 - 11)	/*
+Alternate
++
+Binary
++
+Exponential
++
+Backoff
++
+Truncation
++								   <<
+shift */
++#define HALFDUP_ALT_BEB_TRUNCATION_MAX          0xf	/* Alternate
+Binary
++							   Exponential
+Backoff
++							   Truncation
+max val */
++#define HALFDUP_ALT_BEB                         0x00080000	/*
+Alternate
++
+Binary
++
+Exponential
++
+Backoff */
++#define HALFDUP_BACK_PRESSURE_NO_BACKOFF        0x00040000	/* Back
++
+pressure no
++
+backoff */
++#define HALFDUP_NO_BACKOFF                      0x00020000	/* No
+Backoff */
++#define HALFDUP_EXCESSIVE_DEFER                 0x00010000	/*
+Excessive
++								   Defer
+*/
++#define HALFDUP_MAX_RETRANSMISSION_SHIFT        (31 - 19)	/*
+Maximum
++
+Retransmission 
++								   <<
+shift */
++#define HALFDUP_MAX_RETRANSMISSION_MAX          0xf	/* Maximum
++
+Retransmission max
++							   val */
++#define HALFDUP_COLLISION_WINDOW_SHIFT          (31 - 31)	/*
+Collision
++
+Window <<
++								   shift
+*/
++#define HALFDUP_COLLISION_WINDOW_MAX            0x3f	/* Collision
+Window max 
++							   val */
++#define HALFDUP_ALT_BEB_TR_MASK                 0x00F00000
++#define HALFDUP_RETRANS_MASK                    0x0000F000
++#define HALFDUP_COL_WINDOW_MASK                 0x0000003F
++
++/* UCC GETH UCCS (Ethernet Status Register) */
++#define UCCS_BPR                                0x02	/* Back pressure
+(in
++							   half duplex
+mode) */
++#define UCCS_PAU                                0x02	/* Pause state
+(in full 
++							   duplex mode)
+*/
++#define UCCS_MPD                                0x01	/* Magic Packet
++							   Detected */
++
++/* UCC GETH MIIMCFG (MII Management Configuration Register) */
++#define MIIMCFG_RESET_MANAGEMENT                0x80000000	/* Reset
++
+management */
++#define MIIMCFG_NO_PREAMBLE                     0x00000010	/*
+Preamble
++
+suppress */
++#define MIIMCFG_CLOCK_DIVIDE_SHIFT              (31 - 31)	/* clock
+divide 
++								   <<
+shift */
++#define MIIMCFG_CLOCK_DIVIDE_MAX                0xf	/* clock divide
+max val 
++							 */
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_2    0x00000000	/*
+divide by 2 */
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_4    0x00000001	/*
+divide by 4 */
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_6    0x00000002	/*
+divide by 6 */
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_8    0x00000003	/*
+divide by 8 */
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_10   0x00000004	/*
+divide by 10 
++								 */
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_14   0x00000005	/*
+divide by 14 
++								 */
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_16   0x00000008	/*
+divide by 16 
++								 */
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_20   0x00000006	/*
+divide by 20 
++								 */
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_28   0x00000007	/*
+divide by 28 
++								 */
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_32   0x00000009	/*
+divide by 32 
++								 */
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_48   0x0000000a	/*
+divide by 48 
++								 */
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_64   0x0000000b	/*
+divide by 64 
++								 */
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_80   0x0000000c	/*
+divide by 80 
++								 */
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_112  0x0000000d	/*
+divide by
++								   112
+*/
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_160  0x0000000e	/*
+divide by
++								   160
+*/
++#define MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_224  0x0000000f	/*
+divide by
++								   224
+*/
++
++/* UCC GETH MIIMCOM (MII Management Command Register) */
++#define MIIMCOM_SCAN_CYCLE                      0x00000002	/* Scan
+cycle */
++#define MIIMCOM_READ_CYCLE                      0x00000001	/* Read
+cycle */
++
++/* UCC GETH MIIMADD (MII Management Address Register) */
++#define MIIMADD_PHY_ADDRESS_SHIFT               (31 - 23)	/* PHY
+Address
++								   <<
+shift */
++#define MIIMADD_PHY_REGISTER_SHIFT              (31 - 31)	/* PHY
+Register 
++								   <<
+shift */
++
++/* UCC GETH MIIMCON (MII Management Control Register) */
++#define MIIMCON_PHY_CONTROL_SHIFT               (31 - 31)	/* PHY
+Control
++								   <<
+shift */
++#define MIIMCON_PHY_STATUS_SHIFT                (31 - 31)	/* PHY
+Status
++								   <<
+shift */
++
++/* UCC GETH MIIMIND (MII Management Indicator Register) */
++#define MIIMIND_NOT_VALID                       0x00000004	/* Not
+valid */
++#define MIIMIND_SCAN                            0x00000002	/* Scan
+in
++
+progress */
++#define MIIMIND_BUSY                            0x00000001
++
++/* UCC GETH IFSTAT (Interface Status Register) */
++#define IFSTAT_EXCESS_DEFER                     0x00000200	/*
+Excessive
++
+transmission 
++								   defer
+*/
++
++/* UCC GETH MACSTNADDR1 (Station Address Part 1 Register) */
++#define MACSTNADDR1_OCTET_6_SHIFT               (31 -  7)	/*
+Station
++
+address 6th
++								   octet
+<<
++								   shift
+*/
++#define MACSTNADDR1_OCTET_5_SHIFT               (31 - 15)	/*
+Station
++
+address 5th
++								   octet
+<<
++								   shift
+*/
++#define MACSTNADDR1_OCTET_4_SHIFT               (31 - 23)	/*
+Station
++
+address 4th
++								   octet
+<<
++								   shift
+*/
++#define MACSTNADDR1_OCTET_3_SHIFT               (31 - 31)	/*
+Station
++
+address 3rd
++								   octet
+<<
++								   shift
+*/
++
++/* UCC GETH MACSTNADDR2 (Station Address Part 2 Register) */
++#define MACSTNADDR2_OCTET_2_SHIFT               (31 -  7)	/*
+Station
++
+address 2nd
++								   octet
+<<
++								   shift
+*/
++#define MACSTNADDR2_OCTET_1_SHIFT               (31 - 15)	/*
+Station
++
+address 1st
++								   octet
+<<
++								   shift
+*/
++
++/* UCC GETH UEMPR (Ethernet Mac Parameter Register) */
++#define UEMPR_PAUSE_TIME_VALUE_SHIFT            (31 - 15)	/* Pause
+time
++								   value
+<<
++								   shift
+*/
++#define UEMPR_EXTENDED_PAUSE_TIME_VALUE_SHIFT   (31 - 31)	/*
+Extended
++								   pause
+time
++								   value
+<<
++								   shift
+*/
++
++/* UCC GETH UTBIPAR (Ten Bit Interface Physical Address Register) */
++#define UTBIPAR_PHY_ADDRESS_SHIFT               (31 - 31)	/* Phy
+address
++								   <<
+shift */
++#define UTBIPAR_PHY_ADDRESS_MASK                0x0000001f	/* Phy
+address
++								   mask
+*/
++
++/* UCC GETH UESCR (Ethernet Statistics Control Register) */
++#define UESCR_AUTOZ                             0x8000	/* Automatically
+zero
++							   addressed
++							   statistical
+counter
++							   values */
++#define UESCR_CLRCNT                            0x4000	/* Clear all
+statistics 
++							   counters */
++#define UESCR_MAXCOV_SHIFT                      (15 -  7)	/* Max
++
+Coalescing
++								   Value
+<<
++								   shift
+*/
++#define UESCR_SCOV_SHIFT                        (15 - 15)	/*
+Status
++
+Coalescing
++								   Value
+<<
++								   shift
+*/
++
++/* UCC GETH UDSR (Data Synchronization Register) */
++#define UDSR_MAGIC                              0x067E
++
++typedef struct ucc_geth_thread_data_tx {
++	u8 res0[104];
++} __attribute__ ((packed)) ucc_geth_thread_data_tx_t;
++
++typedef struct ucc_geth_thread_data_rx {
++	u8 res0[40];
++} __attribute__ ((packed)) ucc_geth_thread_data_rx_t;
++
++/* Send Queue Queue-Descriptor */
++typedef struct ucc_geth_send_queue_qd {
++	u32 bd_ring_base;	/* pointer to BD ring base address */
++	u8 res0[0x8];
++	u32 last_bd_completed_address;	/* initialize to last entry in
+BD ring */
++	u8 res1[0x30];
++} __attribute__ ((packed)) ucc_geth_send_queue_qd_t;
++
++typedef struct ucc_geth_send_queue_mem_region {
++	ucc_geth_send_queue_qd_t sqqd[NUM_TX_QUEUES];
++} __attribute__ ((packed)) ucc_geth_send_queue_mem_region_t;
++
++typedef struct ucc_geth_thread_tx_pram {
++	u8 res0[64];
++} __attribute__ ((packed)) ucc_geth_thread_tx_pram_t;
++
++typedef struct ucc_geth_thread_rx_pram {
++	u8 res0[128];
++} __attribute__ ((packed)) ucc_geth_thread_rx_pram_t;
++
++#define THREAD_RX_PRAM_ADDITIONAL_FOR_EXTENDED_FILTERING        64
++#define THREAD_RX_PRAM_ADDITIONAL_FOR_EXTENDED_FILTERING_8      64
++#define THREAD_RX_PRAM_ADDITIONAL_FOR_EXTENDED_FILTERING_16     96
++
++typedef struct ucc_geth_scheduler {
++	u16 cpucount0;		/* CPU packet counter */
++	u16 cpucount1;		/* CPU packet counter */
++	u16 cecount0;		/* QE packet counter */
++	u16 cecount1;		/* QE packet counter */
++	u16 cpucount2;		/* CPU packet counter */
++	u16 cpucount3;		/* CPU packet counter */
++	u16 cecount2;		/* QE packet counter */
++	u16 cecount3;		/* QE packet counter */
++	u16 cpucount4;		/* CPU packet counter */
++	u16 cpucount5;		/* CPU packet counter */
++	u16 cecount4;		/* QE packet counter */
++	u16 cecount5;		/* QE packet counter */
++	u16 cpucount6;		/* CPU packet counter */
++	u16 cpucount7;		/* CPU packet counter */
++	u16 cecount6;		/* QE packet counter */
++	u16 cecount7;		/* QE packet counter */
++	u32 weightstatus[NUM_TX_QUEUES];	/* accumulated weight
+factor */
++	u32 rtsrshadow;		/* temporary variable handled by QE */
++	u32 time;		/* temporary variable handled by QE */
++	u32 ttl;		/* temporary variable handled by QE */
++	u32 mblinterval;	/* max burst length interval */
++	u16 nortsrbytetime;	/* normalized value of byte time in tsr
+units */
++	u8 fracsiz;		/* radix 2 log value of denom. of
++				   NorTSRByteTime */
++	u8 res0[1];
++	u8 strictpriorityq;	/* Strict Priority Mask register */
++	u8 txasap;		/* Transmit ASAP register */
++	u8 extrabw;		/* Extra BandWidth register */
++	u8 oldwfqmask;		/* temporary variable handled by QE */
++	u8 weightfactor[NUM_TX_QUEUES];
++				      /**< weight factor for queues   */
++	u32 minw;		/* temporary variable handled by QE */
++	u8 res1[0x70 - 0x64];
++} __attribute__ ((packed)) ucc_geth_scheduler_t;
++
++typedef struct ucc_geth_tx_firmware_statistics_pram {
++	u32 sicoltx;		/* single collision */
++	u32 mulcoltx;		/* multiple collision */
++	u32 latecoltxfr;	/* late collision */
++	u32 frabortduecol;	/* frames aborted due to transmit
+collision */
++	u32 frlostinmactxer;	/* frames lost due to internal MAC error
++				   transmission that are not counted on
+any
++				   other counter */
++	u32 carriersenseertx;	/* carrier sense error */
++	u32 frtxok;		/* frames transmitted OK */
++	u32 txfrexcessivedefer;	/* frames with defferal time greater
+than
++				   specified threshold */
++	u32 txpkts256;		/* total packets (including bad) between
+256
++				   and 511 octets */
++	u32 txpkts512;		/* total packets (including bad) between
+512
++				   and 1023 octets */
++	u32 txpkts1024;		/* total packets (including bad) between
+1024
++				   and 1518 octets */
++	u32 txpktsjumbo;	/* total packets (including bad) between
+1024
++				   and MAXLength octets */
++} __attribute__ ((packed)) ucc_geth_tx_firmware_statistics_pram_t;
++
++typedef struct ucc_geth_rx_firmware_statistics_pram {
++	u32 frrxfcser;		/* frames with crc error */
++	u32 fraligner;		/* frames with alignment error */
++	u32 inrangelenrxer;	/* in range length error */
++	u32 outrangelenrxer;	/* out of range length error */
++	u32 frtoolong;		/* frame too long */
++	u32 runt;		/* runt */
++	u32 verylongevent;	/* very long event */
++	u32 symbolerror;	/* symbol error */
++	u32 dropbsy;		/* drop because of BD not ready */
++	u8 res0[0x8];
++	u32 mismatchdrop;	/* drop because of MAC filtering (e.g.
+address
++				   or type mismatch) */
++	u32 underpkts;		/* total frames less than 64 octets */
++	u32 pkts256;		/* total frames (including bad) between
+256 and 
++				   511 octets */
++	u32 pkts512;		/* total frames (including bad) between
+512 and 
++				   1023 octets */
++	u32 pkts1024;		/* total frames (including bad) between
+1024
++				   and 1518 octets */
++	u32 pktsjumbo;		/* total frames (including bad) between
+1024
++				   and MAXLength octets */
++	u32 frlossinmacer;	/* frames lost because of internal MAC
+error
++				   that is not counted in any other
+counter */
++	u32 pausefr;		/* pause frames */
++	u8 res1[0x4];
++	u32 removevlan;		/* total frames that had their VLAN tag
+removed 
++				 */
++	u32 replacevlan;	/* total frames that had their VLAN tag
++				   replaced */
++	u32 insertvlan;		/* total frames that had their VLAN tag
++				   inserted */
++} __attribute__ ((packed)) ucc_geth_rx_firmware_statistics_pram_t;
++
++typedef struct ucc_geth_rx_interrupt_coalescing_entry {
++	u32 interruptcoalescingmaxvalue;	/* interrupt coalescing
+max
++						   value */
++	u32 interruptcoalescingcounter;	/* interrupt coalescing counter,
++					   initialize to
++					   interruptcoalescingmaxvalue
+*/
++} __attribute__ ((packed)) ucc_geth_rx_interrupt_coalescing_entry_t;
++
++typedef struct ucc_geth_rx_interrupt_coalescing_table {
++	ucc_geth_rx_interrupt_coalescing_entry_t
+coalescingentry[NUM_RX_QUEUES];
++
+/**< interrupt coalescing entry */
++} __attribute__ ((packed)) ucc_geth_rx_interrupt_coalescing_table_t;
++
++typedef struct ucc_geth_rx_prefetched_bds {
++	qe_bd_t bd[NUM_BDS_IN_PREFETCHED_BDS];	/* prefetched bd */
++} __attribute__ ((packed)) ucc_geth_rx_prefetched_bds_t;
++
++typedef struct ucc_geth_rx_bd_queues_entry {
++	u32 bdbaseptr;		/* BD base pointer */
++	u32 bdptr;		/* BD pointer */
++	u32 externalbdbaseptr;	/* external BD base pointer */
++	u32 externalbdptr;	/* external BD pointer */
++} __attribute__ ((packed)) ucc_geth_rx_bd_queues_entry_t;
++
++typedef struct ucc_geth_tx_global_pram {
++	u16 temoder;
++	u8 res0[0x38 - 0x02];
++	u32 sqptr;		/* a base pointer to send queue memory
+region */
++	u32 schedulerbasepointer;	/* a base pointer to scheduler
+memory
++					   region */
++	u32 txrmonbaseptr;	/* base pointer to Tx RMON statistics
+counter */
++	u32 tstate;		/* tx internal state. High byte contains
++				   function code */
++	u8 iphoffset[TX_IP_OFFSET_ENTRY_MAX];
++	u32 vtagtable[0x8];	/* 8 4-byte VLAN tags */
++	u32 tqptr;		/* a base pointer to the Tx Queues
+Memory
++				   Region */
++	u8 res2[0x80 - 0x74];
++} __attribute__ ((packed)) ucc_geth_tx_global_pram_t;
++
++/* structure representing Extended Filtering Global Parameters in PRAM
+*/
++typedef struct ucc_geth_exf_global_pram {
++	u32 l2pcdptr;		/* individual address filter, high */
++	u8 res0[0x10 - 0x04];
++} __attribute__ ((packed)) ucc_geth_exf_global_pram_t;
++
++typedef struct ucc_geth_rx_global_pram {
++	u32 remoder;		/* ethernet mode reg. */
++	u32 rqptr;		/* base pointer to the Rx Queues Memory
+Region */
++	u32 res0[0x1];
++	u8 res1[0x20 - 0xC];
++	u16 typeorlen;		/* cutoff point less than which,
+type/len field 
++				   is considered length */
++	u8 res2[0x1];
++	u8 rxgstpack;		/* acknowledgement on GRACEFUL STOP RX
+command */
++	u32 rxrmonbaseptr;	/* base pointer to Rx RMON statistics
+counter */
++	u8 res3[0x30 - 0x28];
++	u32 intcoalescingptr;	/* Interrupt coalescing table pointer */
++	u8 res4[0x36 - 0x34];
++	u8 rstate;		/* rx internal state. High byte contains
++				   function code */
++	u8 res5[0x46 - 0x37];
++	u16 mrblr;		/* max receive buffer length reg. */
++	u32 rbdqptr;		/* base pointer to RxBD parameter table
++				   description */
++	u16 mflr;		/* max frame length reg. */
++	u16 minflr;		/* min frame length reg. */
++	u16 maxd1;		/* max dma1 length reg. */
++	u16 maxd2;		/* max dma2 length reg. */
++	u32 ecamptr;		/* external CAM address */
++	u32 l2qt;		/* VLAN priority mapping table. */
++	u32 l3qt[0x8];		/* IP priority mapping table. */
++	u16 vlantype;		/* vlan type */
++	u16 vlantci;		/* default vlan tci */
++	u8 addressfiltering[64];	/* address filtering data
+structure */
++	u32 exfGlobalParam;	/* base address for extended filtering
+global
++				   parameters */
++	u8 res6[0x100 - 0xC4];	/* Initialize to zero */
++} __attribute__ ((packed)) ucc_geth_rx_global_pram_t;
++
++#define GRACEFUL_STOP_ACKNOWLEDGE_RX            0x01
++
++/* structure representing InitEnet command */
++typedef struct ucc_geth_init_pram {
++	u8 resinit1;
++	u8 resinit2;
++	u8 resinit3;
++	u8 resinit4;
++	u16 resinit5;
++	u8 res1[0x1];
++	u8 largestexternallookupkeysize;
++	u32 rgftgfrxglobal;
++	u32 rxthread[ENET_INIT_PARAM_MAX_ENTRIES_RX];	/* rx threads */
++	u8 res2[0x38 - 0x30];
++	u32 txglobal;		/* tx global */
++	u32 txthread[ENET_INIT_PARAM_MAX_ENTRIES_TX];	/* tx threads */
++	u8 res3[0x1];
++} __attribute__ ((packed)) ucc_geth_init_pram_t;
++
++#define ENET_INIT_PARAM_RGF_SHIFT               (32 - 4)
++#define ENET_INIT_PARAM_TGF_SHIFT               (32 - 8)
++
++#define ENET_INIT_PARAM_RISC_MASK               0x0000003f
++#define ENET_INIT_PARAM_PTR_MASK                0x00ffffc0
++#define ENET_INIT_PARAM_SNUM_MASK               0xff000000
++#define ENET_INIT_PARAM_SNUM_SHIFT              24
++
++#define ENET_INIT_PARAM_MAGIC_RES_INIT1         0x06
++#define ENET_INIT_PARAM_MAGIC_RES_INIT2         0x30
++#define ENET_INIT_PARAM_MAGIC_RES_INIT3         0xff
++#define ENET_INIT_PARAM_MAGIC_RES_INIT4         0x00
++#define ENET_INIT_PARAM_MAGIC_RES_INIT5         0x0400
++
++/* structure representing 82xx Address Filtering Enet Address in PRAM
+*/
++typedef struct ucc_geth_82xx_enet_address {
++	u8 res1[0x2];
++	u16 h;			/* address (MSB) */
++	u16 m;			/* address */
++	u16 l;			/* address (LSB) */
++} __attribute__ ((packed)) ucc_geth_82xx_enet_address_t;
++
++/* structure representing 82xx Address Filtering PRAM */
++typedef struct ucc_geth_82xx_address_filtering_pram {
++	u32 iaddr_h;		/* individual address filter, high */
++	u32 iaddr_l;		/* individual address filter, low */
++	u32 gaddr_h;		/* group address filter, high */
++	u32 gaddr_l;		/* group address filter, low */
++	ucc_geth_82xx_enet_address_t taddr;
++	ucc_geth_82xx_enet_address_t paddr[NUM_OF_PADDRS];
++	u8 res0[0x40 - 0x38];
++} __attribute__ ((packed)) ucc_geth_82xx_address_filtering_pram_t;
++
++/* GETH Tx firmware statistics structure, used when calling
++   UCC_GETH_GetStatistics. */
++typedef struct ucc_geth_tx_firmware_statistics {
++	u32 sicoltx;		/* single collision */
++	u32 mulcoltx;		/* multiple collision */
++	u32 latecoltxfr;	/* late collision */
++	u32 frabortduecol;	/* frames aborted due to transmit
+collision */
++	u32 frlostinmactxer;	/* frames lost due to internal MAC error
++				   transmission that are not counted on
+any
++				   other counter */
++	u32 carriersenseertx;	/* carrier sense error */
++	u32 frtxok;		/* frames transmitted OK */
++	u32 txfrexcessivedefer;	/* frames with defferal time greater
+than
++				   specified threshold */
++	u32 txpkts256;		/* total packets (including bad) between
+256
++				   and 511 octets */
++	u32 txpkts512;		/* total packets (including bad) between
+512
++				   and 1023 octets */
++	u32 txpkts1024;		/* total packets (including bad) between
+1024
++				   and 1518 octets */
++	u32 txpktsjumbo;	/* total packets (including bad) between
+1024
++				   and MAXLength octets */
++} __attribute__ ((packed)) ucc_geth_tx_firmware_statistics_t;
++
++/* GETH Rx firmware statistics structure, used when calling
++   UCC_GETH_GetStatistics. */
++typedef struct ucc_geth_rx_firmware_statistics {
++	u32 frrxfcser;		/* frames with crc error */
++	u32 fraligner;		/* frames with alignment error */
++	u32 inrangelenrxer;	/* in range length error */
++	u32 outrangelenrxer;	/* out of range length error */
++	u32 frtoolong;		/* frame too long */
++	u32 runt;		/* runt */
++	u32 verylongevent;	/* very long event */
++	u32 symbolerror;	/* symbol error */
++	u32 dropbsy;		/* drop because of BD not ready */
++	u8 res0[0x8];
++	u32 mismatchdrop;	/* drop because of MAC filtering (e.g.
+address
++				   or type mismatch) */
++	u32 underpkts;		/* total frames less than 64 octets */
++	u32 pkts256;		/* total frames (including bad) between
+256 and 
++				   511 octets */
++	u32 pkts512;		/* total frames (including bad) between
+512 and 
++				   1023 octets */
++	u32 pkts1024;		/* total frames (including bad) between
+1024
++				   and 1518 octets */
++	u32 pktsjumbo;		/* total frames (including bad) between
+1024
++				   and MAXLength octets */
++	u32 frlossinmacer;	/* frames lost because of internal MAC
+error
++				   that is not counted in any other
+counter */
++	u32 pausefr;		/* pause frames */
++	u8 res1[0x4];
++	u32 removevlan;		/* total frames that had their VLAN tag
+removed 
++				 */
++	u32 replacevlan;	/* total frames that had their VLAN tag
++				   replaced */
++	u32 insertvlan;		/* total frames that had their VLAN tag
++				   inserted */
++} __attribute__ ((packed)) ucc_geth_rx_firmware_statistics_t;
++
++/* GETH hardware statistics structure, used when calling
++   UCC_GETH_GetStatistics. */
++typedef struct ucc_geth_hardware_statistics {
++	u32 tx64;		/* Total number of frames (including bad
++				   frames) transmitted that were exactly
+of the 
++				   minimal length (64 for un tagged, 68
+for
++				   tagged, or with length exactly equal
+to the
++				   parameter MINLength */
++	u32 tx127;		/* Total number of frames (including bad
++				   frames) transmitted that were between
++				   MINLength (Including FCS length==4)
+and 127
++				   octets */
++	u32 tx255;		/* Total number of frames (including bad
++				   frames) transmitted that were between
+128
++				   (Including FCS length==4) and 255
+octets */
++	u32 rx64;		/* Total number of frames received
+including
++				   bad frames that were exactly of the
+mninimal 
++				   length (64 bytes) */
++	u32 rx127;		/* Total number of frames (including bad
++				   frames) received that were between
+MINLength 
++				   (Including FCS length==4) and 127
+octets */
++	u32 rx255;		/* Total number of frames (including bad
++				   frames) received that were between
+128
++				   (Including FCS length==4) and 255
+octets */
++	u32 txok;		/* Total number of octets residing in
+frames
++				   that where involved in succesfull
++				   transmission */
++	u16 txcf;		/* Total number of PAUSE control frames
++				   transmitted by this MAC */
++	u32 tmca;		/* Total number of frames that were
+transmitted 
++				   succesfully with the group address
+bit set
++				   that are not broadcast frames */
++	u32 tbca;		/* Total number of frames transmitted
++				   succesfully that had destination
+address
++				   field equal to the broadcast address
+*/
++	u32 rxfok;		/* Total number of frames received OK */
++	u32 rxbok;		/* Total number of octets received OK */
++	u32 rbyt;		/* Total number of octets received
+including
++				   octets in bad frames. Must be
+implemented in 
++				   HW because it includes octets in
+frames that 
++				   never even reach the UCC */
++	u32 rmca;		/* Total number of frames that were
+received
++				   succesfully with the group address
+bit set
++				   that are not broadcast frames */
++	u32 rbca;		/* Total number of frames received
+succesfully
++				   that had destination address equal to
+the
++				   broadcast address */
++} __attribute__ ((packed)) ucc_geth_hardware_statistics_t;
++
++/* UCC GETH Tx errors returned via TxConf callback */
++#define TX_ERRORS_DEF      0x0200
++#define TX_ERRORS_EXDEF    0x0100
++#define TX_ERRORS_LC       0x0080
++#define TX_ERRORS_RL       0x0040
++#define TX_ERRORS_RC_MASK  0x003C
++#define TX_ERRORS_RC_SHIFT 2
++#define TX_ERRORS_UN       0x0002
++#define TX_ERRORS_CSL      0x0001
++
++/* UCC GETH Rx errors returned via RxStore callback */
++#define RX_ERRORS_CMR      0x0200
++#define RX_ERRORS_M        0x0100
++#define RX_ERRORS_BC       0x0080
++#define RX_ERRORS_MC       0x0040
++
++/* Transmit BD. These are in addition to values defined in uccf. */
++#define T_VID      0x003c0000	/* insert VLAN id index mask. */
++#define T_DEF      (((u32) TX_ERRORS_DEF     ) << 16)
++#define T_EXDEF    (((u32) TX_ERRORS_EXDEF   ) << 16)
++#define T_LC       (((u32) TX_ERRORS_LC      ) << 16)
++#define T_RL       (((u32) TX_ERRORS_RL      ) << 16)
++#define T_RC_MASK  (((u32) TX_ERRORS_RC_MASK ) << 16)
++#define T_UN       (((u32) TX_ERRORS_UN      ) << 16)
++#define T_CSL      (((u32) TX_ERRORS_CSL     ) << 16)
++#define T_ERRORS_REPORT  (T_DEF | T_EXDEF | T_LC | T_RL | T_RC_MASK \
++		| T_UN | T_CSL)	/* transmit errors to report */
++
++/* Receive BD. These are in addition to values defined in uccf. */
++#define R_LG    0x00200000	/* Frame length violation.  */
++#define R_NO    0x00100000	/* Non-octet aligned frame.  */
++#define R_SH    0x00080000	/* Short frame.  */
++#define R_CR    0x00040000	/* CRC error.  */
++#define R_OV    0x00020000	/* Overrun.  */
++#define R_IPCH  0x00010000	/* IP checksum check failed. */
++#define R_CMR   (((u32) RX_ERRORS_CMR  ) << 16)
++#define R_M     (((u32) RX_ERRORS_M    ) << 16)
++#define R_BC    (((u32) RX_ERRORS_BC   ) << 16)
++#define R_MC    (((u32) RX_ERRORS_MC   ) << 16)
++#define R_ERRORS_REPORT (R_CMR | R_M | R_BC | R_MC)	/* receive
+errors to
++							   report */
++#define R_ERRORS_FATAL  (R_LG  | R_NO | R_SH | R_CR | \
++		R_OV | R_IPCH)	/* receive errors to discard */
++
++/* Alignments */
++#define UCC_GETH_RX_GLOBAL_PRAM_ALIGNMENT	256
++#define UCC_GETH_TX_GLOBAL_PRAM_ALIGNMENT       128
++#define UCC_GETH_THREAD_RX_PRAM_ALIGNMENT       128
++#define UCC_GETH_THREAD_TX_PRAM_ALIGNMENT       64
++#define UCC_GETH_THREAD_DATA_ALIGNMENT          256	/* spec gives
+values
++							   based on num
+of
++							   threads, but
+always
++							   using the
+maximum is 
++							   easier */
++#define UCC_GETH_SEND_QUEUE_QUEUE_DESCRIPTOR_ALIGNMENT	32
++#define UCC_GETH_SCHEDULER_ALIGNMENT		4	/* This is a
+guess */
++#define UCC_GETH_TX_STATISTICS_ALIGNMENT	4	/* This is a
+guess */
++#define UCC_GETH_RX_STATISTICS_ALIGNMENT	4	/* This is a
+guess */
++#define UCC_GETH_RX_INTERRUPT_COALESCING_ALIGNMENT	4	/* This
+is a
++								   guess
+*/
++#define UCC_GETH_RX_BD_QUEUES_ALIGNMENT		8	/* This
+is a guess */
++#define UCC_GETH_RX_PREFETCHED_BDS_ALIGNMENT	128	/* This is a
+guess */
++#define UCC_GETH_RX_EXTENDED_FILTERING_GLOBAL_PARAMETERS_ALIGNMENT 4
+/* This 
++
+is a 
++
+guess
++
+*/
++#define UCC_GETH_RX_BD_RING_ALIGNMENT		32
++#define UCC_GETH_TX_BD_RING_ALIGNMENT		32
++#define UCC_GETH_MRBLR_ALIGNMENT		128
++#define UCC_GETH_RX_BD_RING_SIZE_ALIGNMENT	4
++#define UCC_GETH_TX_BD_RING_SIZE_MEMORY_ALIGNMENT	32
++#define UCC_GETH_RX_DATA_BUF_ALIGNMENT		64
++
++#define UCC_GETH_TAD_EF                         0x80
++#define UCC_GETH_TAD_V                          0x40
++#define UCC_GETH_TAD_REJ                        0x20
++#define UCC_GETH_TAD_VTAG_OP_RIGHT_SHIFT        2
++#define UCC_GETH_TAD_VTAG_OP_SHIFT              6
++#define UCC_GETH_TAD_V_NON_VTAG_OP              0x20
++#define UCC_GETH_TAD_RQOS_SHIFT                 0
++#define UCC_GETH_TAD_V_PRIORITY_SHIFT           5
++#define UCC_GETH_TAD_CFI                        0x10
++
++#define UCC_GETH_VLAN_PRIORITY_MAX              8
++#define UCC_GETH_IP_PRIORITY_MAX                64
++#define UCC_GETH_TX_VTAG_TABLE_ENTRY_MAX        8
++#define UCC_GETH_RX_BD_RING_SIZE_MIN            8
++#define UCC_GETH_TX_BD_RING_SIZE_MIN            2
++
++#define UCC_GETH_SIZE_OF_BD                     QE_SIZEOF_BD
++
++/* Driver definitions */
++#define TX_BD_RING_LEN                          0x10
++#define RX_BD_RING_LEN                          0x10
++#define UCC_GETH_DEV_WEIGHT                     TX_BD_RING_LEN
++
++#define TX_RING_MOD_MASK(size)                  (size-1)
++#define RX_RING_MOD_MASK(size)                  (size-1)
++
++#define ENET_NUM_OCTETS_PER_ADDRESS             6
++#define ENET_GROUP_ADDR                         0x01	/* Group address
+mask
++							   for ethernet
++							   addresses */
++
++#define TX_TIMEOUT                              (1*HZ)
++#define SKB_ALLOC_TIMEOUT                       100000
++#define PHY_INIT_TIMEOUT                        100000
++#define PHY_CHANGE_TIME                         2
++
++/* Fast Ethernet (10/100 Mbps) */
++#define UCC_GETH_URFS_INIT                      512	/* Rx virtual
+FIFO size 
++							 */
++#define UCC_GETH_URFET_INIT                     256	/* 1/2 urfs */
++#define UCC_GETH_URFSET_INIT                    384	/* 3/4 urfs */
++#define UCC_GETH_UTFS_INIT                      512	/* Tx virtual
+FIFO size 
++							 */
++#define UCC_GETH_UTFET_INIT                     256	/* 1/2 utfs */
++#define UCC_GETH_UTFTT_INIT                     128
++/* Gigabit Ethernet (1000 Mbps) */
++#define UCC_GETH_URFS_GIGA_INIT                 4096/*2048*/	/* Rx
+virtual
++								   FIFO
+size */
++#define UCC_GETH_URFET_GIGA_INIT                2048/*1024*/	/* 1/2
+urfs */
++#define UCC_GETH_URFSET_GIGA_INIT               3072/*1536*/	/* 3/4
+urfs */
++#define UCC_GETH_UTFS_GIGA_INIT                 8192/*2048*/	/* Tx
+virtual
++								   FIFO
+size */
++#define UCC_GETH_UTFET_GIGA_INIT                4096/*1024*/	/* 1/2
+utfs */
++#define UCC_GETH_UTFTT_GIGA_INIT                0x400/*0x40*/	/* */
++
++#define UCC_GETH_REMODER_INIT                   0	/* bits that
+must be
++							   set */
++#define UCC_GETH_TEMODER_INIT                   0xC000	/* bits that
+must */
++#define UCC_GETH_UPSMR_INIT                     (UPSMR_RES1)	/* Start
+value
++								   for
+this
++
+register */
++#define UCC_GETH_MACCFG1_INIT                   0
++#define UCC_GETH_MACCFG2_INIT                   (MACCFG2_RESERVED_1)
++#define UCC_GETH_MIIMCFG_MNGMNT_CLC_DIV_INIT
+(MIIMCFG_MANAGEMENT_CLOCK_DIVIDE_BY_112)
++
++/* Ethernet speed */
++typedef enum enet_speed {
++	ENET_SPEED_10BT,	/* 10 Base T */
++	ENET_SPEED_100BT,	/* 100 Base T */
++	ENET_SPEED_1000BT	/* 1000 Base T */
++} enet_speed_e;
++
++/* Ethernet Address Type. */
++typedef enum enet_addr_type {
++	ENET_ADDR_TYPE_INDIVIDUAL,
++	ENET_ADDR_TYPE_GROUP,
++	ENET_ADDR_TYPE_BROADCAST
++} enet_addr_type_e;
++
++/* TBI / MII Set Register */
++typedef enum enet_tbi_mii_reg {
++	ENET_TBI_MII_CR = 0x00,	/* Control (CR ) */
++	ENET_TBI_MII_SR = 0x01,	/* Status (SR ) */
++	ENET_TBI_MII_ANA = 0x04,	/* AN advertisement (ANA ) */
++	ENET_TBI_MII_ANLPBPA = 0x05,	/* AN link partner base page
+ability
++					   (ANLPBPA) */
++	ENET_TBI_MII_ANEX = 0x06,	/* AN expansion (ANEX ) */
++	ENET_TBI_MII_ANNPT = 0x07,	/* AN next page transmit (ANNPT
+) */
++	ENET_TBI_MII_ANLPANP = 0x08,	/* AN link partner ability next
+page
++					   (ANLPANP) */
++	ENET_TBI_MII_EXST = 0x0F,	/* Extended status (EXST ) */
++	ENET_TBI_MII_JD = 0x10,	/* Jitter diagnostics (JD ) */
++	ENET_TBI_MII_TBICON = 0x11	/* TBI control (TBICON ) */
++} enet_tbi_mii_reg_e;
++
++/* UCC GETH 82xx Ethernet Address Recognition Location */
++typedef enum ucc_geth_enet_address_recognition_location {
++	UCC_GETH_ENET_ADDRESS_RECOGNITION_LOCATION_STATION_ADDRESS,/*
+station 
++
+address */
++	UCC_GETH_ENET_ADDRESS_RECOGNITION_LOCATION_PADDR_FIRST,	/*
+additional
++
+station
++
+address
++
+paddr1 */
++	UCC_GETH_ENET_ADDRESS_RECOGNITION_LOCATION_PADDR2,	/*
+additional
++
+station
++
+address
++
+paddr2 */
++	UCC_GETH_ENET_ADDRESS_RECOGNITION_LOCATION_PADDR3,	/*
+additional
++
+station
++
+address
++
+paddr3 */
++	UCC_GETH_ENET_ADDRESS_RECOGNITION_LOCATION_PADDR_LAST,	/*
+additional
++
+station
++
+address
++
+paddr4 */
++	UCC_GETH_ENET_ADDRESS_RECOGNITION_LOCATION_GROUP_HASH,	/* group
+hash */
++	UCC_GETH_ENET_ADDRESS_RECOGNITION_LOCATION_INDIVIDUAL_HASH /*
+individual
++
+hash */
++} ucc_geth_enet_address_recognition_location_e;
++
++/* UCC GETH vlan operation tagged */
++typedef enum ucc_geth_vlan_operation_tagged {
++	UCC_GETH_VLAN_OPERATION_TAGGED_NOP = 0x0,	/* Tagged - nop
+*/
++	UCC_GETH_VLAN_OPERATION_TAGGED_REPLACE_VID_PORTION_OF_Q_TAG
++		= 0x1,	/* Tagged - replace vid portion of q tag */
++
+UCC_GETH_VLAN_OPERATION_TAGGED_IF_VID0_REPLACE_VID_WITH_DEFAULT_VALUE
++		= 0x2,	/* Tagged - if vid0 replace vid with default
+value  */
++	UCC_GETH_VLAN_OPERATION_TAGGED_EXTRACT_Q_TAG_FROM_FRAME 
++		= 0x3	/* Tagged - extract q tag from frame */
++} ucc_geth_vlan_operation_tagged_e;
++
++/* UCC GETH vlan operation non-tagged */
++typedef enum ucc_geth_vlan_operation_non_tagged {
++	UCC_GETH_VLAN_OPERATION_NON_TAGGED_NOP = 0x0,	/* Non tagged -
+nop */
++	UCC_GETH_VLAN_OPERATION_NON_TAGGED_Q_TAG_INSERT = 0x1	/* Non
+tagged - 
++								   q tag
+insert 
++								 */
++} ucc_geth_vlan_operation_non_tagged_e;
++
++/* UCC GETH Rx Quality of Service Mode */
++typedef enum ucc_geth_qos_mode {
++	UCC_GETH_QOS_MODE_DEFAULT = 0x0,	/* default queue */
++	UCC_GETH_QOS_MODE_QUEUE_NUM_FROM_L2_CRITERIA = 0x1,	/* queue
++
+determined
++								   by L2
++
+criteria */
++	UCC_GETH_QOS_MODE_QUEUE_NUM_FROM_L3_CRITERIA = 0x2	/* queue
++
+determined
++								   by L3
++
+criteria */
++} ucc_geth_qos_mode_e;
++
++/* UCC GETH Statistics Gathering Mode - These are bit flags, 'or' them
+together 
++   for combined functionality */
++typedef enum ucc_geth_statistics_gathering_mode {
++	UCC_GETH_STATISTICS_GATHERING_MODE_NONE = 0x00000000,	/* No
++
+statistics
++
+gathering */
++	UCC_GETH_STATISTICS_GATHERING_MODE_HARDWARE = 0x00000001,/*
+Enable 
++
+hardware 
++
+statistics 
++
+gathering 
++								  */
++	UCC_GETH_STATISTICS_GATHERING_MODE_FIRMWARE_TX =
+0x00000004,/*Enable 
++
+firmware 
++								      tx
++
+statistics
++
+gathering 
++								     */
++	UCC_GETH_STATISTICS_GATHERING_MODE_FIRMWARE_RX = 0x00000008/*
+Enable 
++
+firmware 
++								      rx
++
+statistics
++
+gathering 
++								    */
++} ucc_geth_statistics_gathering_mode_e;
++
++/* UCC GETH Pad and CRC Mode - Note, Padding without CRC is not
+possible */
++typedef enum ucc_geth_maccfg2_pad_and_crc_mode {
++	UCC_GETH_PAD_AND_CRC_MODE_NONE 
++		= MACCFG2_PAD_AND_CRC_MODE_NONE,	/* Neither
+Padding 
++							   short frames 
++							   nor CRC */
++	UCC_GETH_PAD_AND_CRC_MODE_CRC_ONLY
++		= MACCFG2_PAD_AND_CRC_MODE_CRC_ONLY,	/* Append 
++							   CRC only */
++	UCC_GETH_PAD_AND_CRC_MODE_PAD_AND_CRC =
++	    MACCFG2_PAD_AND_CRC_MODE_PAD_AND_CRC
++} ucc_geth_maccfg2_pad_and_crc_mode_e;
++
++/* UCC GETH upsmr Flow Control Mode */
++typedef enum ucc_geth_flow_control_mode {
++	UPSMR_AUTOMATIC_FLOW_CONTROL_MODE_NONE = 0x00000000,	/* No
+automatic 
++								   flow
+control 
++								 */
++	UPSMR_AUTOMATIC_FLOW_CONTROL_MODE_PAUSE_WHEN_EMERGENCY 
++		= 0x00004000	/* Send pause frame when RxFIFO reaches
+its 
++				   emergency threshold */
++} ucc_geth_flow_control_mode_e;
++
++/* UCC GETH number of threads */
++typedef enum ucc_geth_num_of_threads {
++	UCC_GETH_NUM_OF_THREADS_1 = 0x1,	/* 1 */
++	UCC_GETH_NUM_OF_THREADS_2 = 0x2,	/* 2 */
++	UCC_GETH_NUM_OF_THREADS_4 = 0x0,	/* 4 */
++	UCC_GETH_NUM_OF_THREADS_6 = 0x3,	/* 6 */
++	UCC_GETH_NUM_OF_THREADS_8 = 0x4	/* 8 */
++} ucc_geth_num_of_threads_e;
++
++/* UCC GETH number of station addresses */
++typedef enum ucc_geth_num_of_station_addresses {
++	UCC_GETH_NUM_OF_STATION_ADDRESSES_1,	/* 1 */
++	UCC_GETH_NUM_OF_STATION_ADDRESSES_5	/* 5 */
++} ucc_geth_num_of_station_addresses_e;
++
++typedef u8 enet_addr_t[ENET_NUM_OCTETS_PER_ADDRESS];
++
++/* UCC GETH 82xx Ethernet Address Container */
++typedef struct enet_addr_container {
++	enet_addr_t address;	/* ethernet address */
++	ucc_geth_enet_address_recognition_location_e location;	/*
+location in
++								   82xx
+address 
++
+recognition
++
+hardware */
++	struct list_head node;
++} enet_addr_container_t;
++
++#define ENET_ADDR_CONT_ENTRY(ptr) list_entry(ptr,
+enet_addr_container_t, node)
++
++/* UCC GETH Termination Action Descriptor (TAD) structure. */
++typedef struct ucc_geth_tad_params {
++	int rx_non_dynamic_extended_features_mode;
++	int reject_frame;
++	ucc_geth_vlan_operation_tagged_e vtag_op;
++	ucc_geth_vlan_operation_non_tagged_e vnontag_op;
++	ucc_geth_qos_mode_e rqos;
++	u8 vpri;
++	u16 vid;
++} ucc_geth_tad_params_t;
++
++/* GETH protocol initialization structure */
++typedef struct ucc_geth_info {
++	ucc_fast_info_t uf_info;
++	u8 numQueuesTx;
++	u8 numQueuesRx;
++	int ipCheckSumCheck;
++	int ipCheckSumGenerate;
++	int rxExtendedFiltering;
++	u32 extendedFilteringChainPointer;
++	u16 typeorlen;
++	int dynamicMaxFrameLength;
++	int dynamicMinFrameLength;
++	u8 nonBackToBackIfgPart1;
++	u8 nonBackToBackIfgPart2;
++	u8 miminumInterFrameGapEnforcement;
++	u8 backToBackInterFrameGap;
++	int ipAddressAlignment;
++	int lengthCheckRx;
++	u32 mblinterval;
++	u16 nortsrbytetime;
++	u8 fracsiz;
++	u8 strictpriorityq;
++	u8 txasap;
++	u8 extrabw;
++	int miiPreambleSupress;
++	u8 altBebTruncation;
++	int altBeb;
++	int backPressureNoBackoff;
++	int noBackoff;
++	int excessDefer;
++	u8 maxRetransmission;
++	u8 collisionWindow;
++	int pro;
++	int cap;
++	int rsh;
++	int rlpb;
++	int cam;
++	int bro;
++	int ecm;
++	int receiveFlowControl;
++	u8 maxGroupAddrInHash;
++	u8 maxIndAddrInHash;
++	u8 prel;
++	u16 maxFrameLength;
++	u16 minFrameLength;
++	u16 maxD1Length;
++	u16 maxD2Length;
++	u16 vlantype;
++	u16 vlantci;
++	u32 ecamptr;
++	u32 eventRegMask;
++	u16 pausePeriod;
++	u16 extensionField;
++	u8 phy_address;
++	u32 board_flags;
++	u32 phy_interrupt;
++	u8 weightfactor[NUM_TX_QUEUES];
++	u8 interruptcoalescingmaxvalue[NUM_RX_QUEUES];
++	u8 l2qt[UCC_GETH_VLAN_PRIORITY_MAX];
++	u8 l3qt[UCC_GETH_IP_PRIORITY_MAX];
++	u32 vtagtable[UCC_GETH_TX_VTAG_TABLE_ENTRY_MAX];
++	u8 iphoffset[TX_IP_OFFSET_ENTRY_MAX];
++	u16 bdRingLenTx[NUM_TX_QUEUES];
++	u16 bdRingLenRx[NUM_RX_QUEUES];
++	enet_interface_e enet_interface;
++	ucc_geth_num_of_station_addresses_e numStationAddresses;
++	 qe_fltr_largest_external_tbl_lookup_key_size_e
++	    largestexternallookupkeysize;
++	ucc_geth_statistics_gathering_mode_e statisticsMode;
++	ucc_geth_vlan_operation_tagged_e vlanOperationTagged;
++	ucc_geth_vlan_operation_non_tagged_e vlanOperationNonTagged;
++	ucc_geth_qos_mode_e rxQoSMode;
++	ucc_geth_flow_control_mode_e aufc;
++	ucc_geth_maccfg2_pad_and_crc_mode_e padAndCrc;
++	ucc_geth_num_of_threads_e numThreadsTx;
++	ucc_geth_num_of_threads_e numThreadsRx;
++	qe_risc_allocation_e riscTx;
++	qe_risc_allocation_e riscRx;
++} ucc_geth_info_t;
++
++/* structure representing UCC GETH */
++typedef struct ucc_geth_private {
++	ucc_geth_info_t *ug_info;
++	ucc_fast_private_t *uccf;
++	struct net_device *dev;
++	struct net_device_stats stats;	/* linux network statistics */
++	ucc_geth_t *ug_regs;
++	ucc_geth_init_pram_t *p_init_enet_param_shadow;
++	ucc_geth_exf_global_pram_t *p_exf_glbl_param;
++	u32 exf_glbl_param_offset;
++	ucc_geth_rx_global_pram_t *p_rx_glbl_pram;
++	u32 rx_glbl_pram_offset;
++	ucc_geth_tx_global_pram_t *p_tx_glbl_pram;
++	u32 tx_glbl_pram_offset;
++	ucc_geth_send_queue_mem_region_t *p_send_q_mem_reg;
++	u32 send_q_mem_reg_offset;
++	ucc_geth_thread_data_tx_t *p_thread_data_tx;
++	u32 thread_dat_tx_offset;
++	ucc_geth_thread_data_rx_t *p_thread_data_rx;
++	u32 thread_dat_rx_offset;
++	ucc_geth_scheduler_t *p_scheduler;
++	u32 scheduler_offset;
++	ucc_geth_tx_firmware_statistics_pram_t *p_tx_fw_statistics_pram;
++	u32 tx_fw_statistics_pram_offset;
++	ucc_geth_rx_firmware_statistics_pram_t *p_rx_fw_statistics_pram;
++	u32 rx_fw_statistics_pram_offset;
++	ucc_geth_rx_interrupt_coalescing_table_t
+*p_rx_irq_coalescing_tbl;
++	u32 rx_irq_coalescing_tbl_offset;
++	ucc_geth_rx_bd_queues_entry_t *p_rx_bd_qs_tbl;
++	u32 rx_bd_qs_tbl_offset;
++	u8 *p_tx_bd_ring[NUM_TX_QUEUES];
++	u32 tx_bd_ring_offset[NUM_TX_QUEUES];
++	u8 *p_rx_bd_ring[NUM_RX_QUEUES];
++	u32 rx_bd_ring_offset[NUM_RX_QUEUES];
++	u8 *confBd[NUM_TX_QUEUES];
++	u8 *txBd[NUM_TX_QUEUES];
++	u8 *rxBd[NUM_RX_QUEUES];
++	int badFrame[NUM_RX_QUEUES];
++	u16 cpucount[NUM_TX_QUEUES];
++	volatile u16 *p_cpucount[NUM_TX_QUEUES];
++	int indAddrRegUsed[NUM_OF_PADDRS];
++	enet_addr_t paddr[NUM_OF_PADDRS];
++	u8 numGroupAddrInHash;
++	u8 numIndAddrInHash;
++	u8 numIndAddrInReg;
++	int rx_extended_features;
++	int rx_non_dynamic_extended_features;
++	struct list_head conf_skbs;
++	struct list_head group_hash_q;
++	struct list_head ind_hash_q;
++	u32 saved_uccm;
++	spinlock_t lock;
++	/* pointers to arrays of skbuffs for tx and rx */
++	struct sk_buff **tx_skbuff[NUM_TX_QUEUES];
++	struct sk_buff **rx_skbuff[NUM_RX_QUEUES];
++	/* indices pointing to the next free sbk in skb arrays */
++	u16 skb_curtx[NUM_TX_QUEUES];
++	u16 skb_currx[NUM_RX_QUEUES];
++	/* index of the first skb which hasn't been transmitted yet. */
++	u16 skb_dirtytx[NUM_TX_QUEUES];
++
++	struct work_struct tq;
++	struct timer_list phy_info_timer;
++	struct ugeth_mii_info *mii_info;
++	int oldspeed;
++	int oldduplex;
++	int oldlink;
++} ucc_geth_private_t;
++
++#endif				/* __UCC_GETH_H__ */
+diff --git a/drivers/net/ucc_geth_phy.c b/drivers/net/ucc_geth_phy.c
+new file mode 100644
+index 0000000..6ea1dbe
+--- /dev/null
++++ b/drivers/net/ucc_geth_phy.c
+@@ -0,0 +1,801 @@
++/*
++ * Copyright (C) Freescale Semicondutor, Inc. 2006. All rights
+reserved.
++ *
++ * Author: Shlomi Gridish <gridish@freescale.com>
++ *
++ * Description:
++ * UCC GETH Driver -- PHY handling
++ *
++ * Changelog:
++ * Jun 28, 2006 Li Yang <LeoLi@freescale.com>
++ * - Rearrange code and style fixes
++ *
++ * This program is free software; you can redistribute  it and/or
+modify it
++ * under  the terms of  the GNU General  Public License as published by
+the
++ * Free Software Foundation;  either version 2 of the  License, or (at
+your
++ * option) any later version.
++ *
++ */
++
++#include <linux/config.h>
++#include <linux/kernel.h>
++#include <linux/sched.h>
++#include <linux/string.h>
++#include <linux/errno.h>
++#include <linux/slab.h>
++#include <linux/interrupt.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/skbuff.h>
++#include <linux/spinlock.h>
++#include <linux/mm.h>
++#include <linux/module.h>
++#include <linux/version.h>
++#include <linux/crc32.h>
++#include <linux/mii.h>
++#include <linux/ethtool.h>
++
++#include <asm/io.h>
++#include <asm/irq.h>
++#include <asm/uaccess.h>
++
++#include "ucc_geth.h"
++#include "ucc_geth_phy.h"
++#include <platforms/83xx/mpc8360e_pb.h>
++
++#define ugphy_printk(level, format, arg...)  \
++        printk(level format "\n", ## arg)
++
++#define ugphy_dbg(format, arg...)            \
++        ugphy_printk(KERN_DEBUG, format , ## arg)
++#define ugphy_err(format, arg...)            \
++        ugphy_printk(KERN_ERR, format , ## arg)
++#define ugphy_info(format, arg...)           \
++        ugphy_printk(KERN_INFO, format , ## arg)
++#define ugphy_warn(format, arg...)           \
++        ugphy_printk(KERN_WARNING, format , ## arg)
++
++#ifdef UGETH_VERBOSE_DEBUG
++#define ugphy_vdbg ugphy_dbg
++#else
++#define ugphy_vdbg(fmt, args...) do { } while (0)
++#endif				/* UGETH_VERBOSE_DEBUG */
++
++static void config_genmii_advert(struct ugeth_mii_info *mii_info);
++static void genmii_setup_forced(struct ugeth_mii_info *mii_info);
++static void genmii_restart_aneg(struct ugeth_mii_info *mii_info);
++static int gbit_config_aneg(struct ugeth_mii_info *mii_info);
++static int genmii_config_aneg(struct ugeth_mii_info *mii_info);
++static int genmii_update_link(struct ugeth_mii_info *mii_info);
++static int genmii_read_status(struct ugeth_mii_info *mii_info);
++u16 phy_read(struct ugeth_mii_info *mii_info, u16 regnum);
++void phy_write(struct ugeth_mii_info *mii_info, u16 regnum, u16 val);
++
++static u8 *bcsr_regs = NULL;
++
++/* Write value to the PHY for this device to the register at regnum, */
++/* waiting until the write is done before it returns.  All PHY */
++/* configuration has to be done through the TSEC1 MIIM regs */
++void write_phy_reg(struct net_device *dev, int mii_id, int regnum, int
+value)
 +{
 +	ucc_geth_private_t *ugeth = netdev_priv(dev);
-+	u8 *bd;			/* BD pointer */
-+	u32 bd_status;
-+	u8 txQ = 0;
++	ucc_mii_mng_t *mii_regs;
++	enet_tbi_mii_reg_e mii_reg = (enet_tbi_mii_reg_e) regnum;
++	u32 tmp_reg;
 +
-+	ugeth_vdbg("%s: IN", __FUNCTION__);
++	ugphy_vdbg("%s: IN", __FUNCTION__);
 +
 +	spin_lock_irq(&ugeth->lock);
 +
-+	ugeth->stats.tx_bytes += skb->len;
++	mii_regs = ugeth->mii_info->mii_regs;
 +
-+	/* Start from the next BD that should be filled */
-+	bd = ugeth->txBd[txQ];
-+	bd_status = BD_STATUS_AND_LENGTH(bd);
-+	/* Save the skb pointer so we can free it later */
-+	ugeth->tx_skbuff[txQ][ugeth->skb_curtx[txQ]] = skb;
++	/* Set this UCC to be the master of the MII managment */
++	ucc_set_qe_mux_mii_mng(ugeth->ug_info->uf_info.ucc_num);
 +
-+	/* Update the current skb pointer (wrapping if this was the
-last) */
-+	ugeth->skb_curtx[txQ] =
-+	    (ugeth->skb_curtx[txQ] +
-+	     1) & TX_RING_MOD_MASK(ugeth->ug_info->bdRingLenTx[txQ]);
++	/* Stop the MII management read cycle */
++	out_be32(&mii_regs->miimcom, 0);
++	/* Setting up the MII Mangement Address Register */
++	tmp_reg = ((u32) mii_id << MIIMADD_PHY_ADDRESS_SHIFT) | mii_reg;
++	out_be32(&mii_regs->miimadd, tmp_reg);
 +
-+	/* set up the buffer descriptor */
-+	BD_BUFFER_SET(bd,
-+		      dma_map_single(NULL, skb->data, skb->len,
-DMA_TO_DEVICE));
++	/* Setting up the MII Mangement Control Register with the value
+*/
++	out_be32(&mii_regs->miimcon, (u32) value);
 +
-+	//printk(KERN_DEBUG"skb->data is 0x%x\n",skb->data);
-+
-+	bd_status = (bd_status & T_W) | T_R | T_I | T_L | skb->len;
-+
-+	BD_STATUS_AND_LENGTH_SET(bd, bd_status);
-+
-+	dev->trans_start = jiffies;
-+
-+	/* Move to next BD in the ring */
-+	if (!(bd_status & T_W))
-+		ugeth->txBd[txQ] = bd + UCC_GETH_SIZE_OF_BD;
-+	else
-+		ugeth->txBd[txQ] = ugeth->p_tx_bd_ring[txQ];
-+
-+	/* If the next BD still needs to be cleaned up, then the bds
-+	   are full.  We need to tell the kernel to stop sending us
-stuff. */
-+	if (bd == ugeth->confBd[txQ]) {
-+		if (!netif_queue_stopped(dev))
-+			netif_stop_queue(dev);
-+	}
-+
-+	if (ugeth->p_scheduler) {
-+		ugeth->cpucount[txQ]++;
-+		/* Indicate to QE that there are more Tx bds ready for 
-+		transmission */
-+		/* This is done by writing a running counter of the bd 
-+		count to the scheduler PRAM. */
-+		out_be16(ugeth->p_cpucount[txQ], ugeth->cpucount[txQ]);
-+	}
++	/* Wait till MII management write is complete */
++	while ((in_be32(&mii_regs->miimind)) & MIIMIND_BUSY)
++		cpu_relax();
 +
 +	spin_unlock_irq(&ugeth->lock);
 +
++	udelay(10000);
++}
++
++/* Reads from register regnum in the PHY for device dev, */
++/* returning the value.  Clears miimcom first.  All PHY */
++/* configuration has to be done through the TSEC1 MIIM regs */
++int read_phy_reg(struct net_device *dev, int mii_id, int regnum)
++{
++	ucc_geth_private_t *ugeth = netdev_priv(dev);
++	ucc_mii_mng_t *mii_regs;
++	enet_tbi_mii_reg_e mii_reg = (enet_tbi_mii_reg_e) regnum;
++	u32 tmp_reg;
++	u16 value;
++
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	spin_lock_irq(&ugeth->lock);
++
++	mii_regs = ugeth->mii_info->mii_regs;
++
++	/* Setting up the MII Mangement Address Register */
++	tmp_reg = ((u32) mii_id << MIIMADD_PHY_ADDRESS_SHIFT) | mii_reg;
++	out_be32(&mii_regs->miimadd, tmp_reg);
++
++	/* Perform an MII management read cycle */
++	out_be32(&mii_regs->miimcom, MIIMCOM_READ_CYCLE);
++
++	/* Wait till MII management write is complete */
++	while ((in_be32(&mii_regs->miimind)) & MIIMIND_BUSY)
++		cpu_relax();
++
++	udelay(10000);
++
++	/* Read MII management status  */
++	value = (u16) in_be32(&mii_regs->miimstat);
++	out_be32(&mii_regs->miimcom, 0);
++	if (value == 0xffff)
++		ugphy_warn("read wrong value : mii_id %d,mii_reg %d,
+base %08x",
++			   mii_id, mii_reg, (u32) &
+(mii_regs->miimcfg));
++
++	spin_unlock_irq(&ugeth->lock);
++
++	return (value);
++}
++
++void mii_clear_phy_interrupt(struct ugeth_mii_info *mii_info)
++{
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	if (mii_info->phyinfo->ack_interrupt)
++		mii_info->phyinfo->ack_interrupt(mii_info);
++}
++
++void mii_configure_phy_interrupt(struct ugeth_mii_info *mii_info,
++				 u32 interrupts)
++{
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	mii_info->interrupts = interrupts;
++	if (mii_info->phyinfo->config_intr)
++		mii_info->phyinfo->config_intr(mii_info);
++}
++
++/* Writes MII_ADVERTISE with the appropriate values, after
++ * sanitizing advertise to make sure only supported features
++ * are advertised 
++ */
++static void config_genmii_advert(struct ugeth_mii_info *mii_info)
++{
++	u32 advertise;
++	u16 adv;
++
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	/* Only allow advertising what this PHY supports */
++	mii_info->advertising &= mii_info->phyinfo->features;
++	advertise = mii_info->advertising;
++
++	/* Setup standard advertisement */
++	adv = phy_read(mii_info, MII_ADVERTISE);
++	adv &= ~(ADVERTISE_ALL | ADVERTISE_100BASE4);
++	if (advertise & ADVERTISED_10baseT_Half)
++		adv |= ADVERTISE_10HALF;
++	if (advertise & ADVERTISED_10baseT_Full)
++		adv |= ADVERTISE_10FULL;
++	if (advertise & ADVERTISED_100baseT_Half)
++		adv |= ADVERTISE_100HALF;
++	if (advertise & ADVERTISED_100baseT_Full)
++		adv |= ADVERTISE_100FULL;
++	phy_write(mii_info, MII_ADVERTISE, adv);
++}
++
++static void genmii_setup_forced(struct ugeth_mii_info *mii_info)
++{
++	u16 ctrl;
++	u32 features = mii_info->phyinfo->features;
++
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	ctrl = phy_read(mii_info, MII_BMCR);
++
++	ctrl &=
++	    ~(BMCR_FULLDPLX | BMCR_SPEED100 | BMCR_SPEED1000 |
+BMCR_ANENABLE);
++	ctrl |= BMCR_RESET;
++
++	switch (mii_info->speed) {
++	case SPEED_1000:
++		if (features & (SUPPORTED_1000baseT_Half
++				| SUPPORTED_1000baseT_Full)) {
++			ctrl |= BMCR_SPEED1000;
++			break;
++		}
++		mii_info->speed = SPEED_100;
++	case SPEED_100:
++		if (features & (SUPPORTED_100baseT_Half
++				| SUPPORTED_100baseT_Full)) {
++			ctrl |= BMCR_SPEED100;
++			break;
++		}
++		mii_info->speed = SPEED_10;
++	case SPEED_10:
++		if (features & (SUPPORTED_10baseT_Half
++				| SUPPORTED_10baseT_Full))
++			break;
++	default:		/* Unsupported speed! */
++		ugphy_err("%s: Bad speed!", mii_info->dev->name);
++		break;
++	}
++
++	phy_write(mii_info, MII_BMCR, ctrl);
++}
++
++/* Enable and Restart Autonegotiation */
++static void genmii_restart_aneg(struct ugeth_mii_info *mii_info)
++{
++	u16 ctl;
++
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	ctl = phy_read(mii_info, MII_BMCR);
++	ctl |= (BMCR_ANENABLE | BMCR_ANRESTART);
++	phy_write(mii_info, MII_BMCR, ctl);
++}
++
++static int gbit_config_aneg(struct ugeth_mii_info *mii_info)
++{
++	u16 adv;
++	u32 advertise;
++
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	if (mii_info->autoneg) {
++		/* Configure the ADVERTISE register */
++		config_genmii_advert(mii_info);
++		advertise = mii_info->advertising;
++
++		adv = phy_read(mii_info, MII_1000BASETCONTROL);
++		adv &= ~(MII_1000BASETCONTROL_FULLDUPLEXCAP |
++			 MII_1000BASETCONTROL_HALFDUPLEXCAP);
++		if (advertise & SUPPORTED_1000baseT_Half)
++			adv |= MII_1000BASETCONTROL_HALFDUPLEXCAP;
++		if (advertise & SUPPORTED_1000baseT_Full)
++			adv |= MII_1000BASETCONTROL_FULLDUPLEXCAP;
++		phy_write(mii_info, MII_1000BASETCONTROL, adv);
++
++		/* Start/Restart aneg */
++		genmii_restart_aneg(mii_info);
++	} else
++		genmii_setup_forced(mii_info);
++
 +	return 0;
 +}
 +
-+static int ucc_geth_rx(ucc_geth_private_t *ugeth, u8 rxQ, int
-rx_work_limit)
++static int genmii_config_aneg(struct ugeth_mii_info *mii_info)
 +{
-+	struct sk_buff *skb;
-+	u8 *bd;
-+	u16 length, howmany = 0;
-+	u32 bd_status;
-+	u8 *bdBuffer;
++	ugphy_vdbg("%s: IN", __FUNCTION__);
 +
-+	ugeth_vdbg("%s: IN", __FUNCTION__);
++	if (mii_info->autoneg) {
++		config_genmii_advert(mii_info);
++		genmii_restart_aneg(mii_info);
++	} else
++		genmii_setup_forced(mii_info);
 +
-+	spin_lock(&ugeth->lock);
-+	/* collect received buffers */
-+	bd = ugeth->rxBd[rxQ];
-+
-+	bd_status = BD_STATUS_AND_LENGTH(bd);
-+
-+	/* while there are received buffers and BD is full (~R_E) */
-+	while (!((bd_status & (R_E)) || (--rx_work_limit < 0))) {
-+		bdBuffer = (u8 *) BD_BUFFER(bd);
-+		length = (u16) ((bd_status & BD_LENGTH_MASK) - 4);
-+		skb = ugeth->rx_skbuff[rxQ][ugeth->skb_currx[rxQ]];
-+
-+		/* determine whether buffer is first, last, first and
-last 
-+		(single buffer frame) or middle (not first and not last)
-*/
-+		if (!skb ||
-+		    (!(bd_status & (R_F | R_L))) ||
-+		    (bd_status & R_ERRORS_FATAL)) {
-+			ugeth_vdbg("%s, %d: ERROR!!! skb - 0x%08x",
-+				   __FUNCTION__, __LINE__, (u32) skb);
-+			if (skb)
-+				dev_kfree_skb_any(skb);
-+
-+			ugeth->rx_skbuff[rxQ][ugeth->skb_currx[rxQ]] =
-NULL;
-+			ugeth->stats.rx_dropped++;
-+		} else {
-+			ugeth->stats.rx_packets++;
-+			howmany++;
-+
-+			/* Prep the skb for the packet */
-+			skb_put(skb, length);
-+
-+			/* Tell the skb what kind of packet this is */
-+			skb->protocol = eth_type_trans(skb, ugeth->dev);
-+
-+			ugeth->stats.rx_bytes += length;
-+			/* Send the packet up the stack */
-+#ifdef CONFIG_UGETH_NAPI
-+			netif_receive_skb(skb);
-+#else
-+			netif_rx(skb);
-+#endif				/* CONFIG_UGETH_NAPI */
-+		}
-+
-+		ugeth->dev->last_rx = jiffies;
-+
-+		skb = get_new_skb(ugeth, bd);
-+		if (!skb) {
-+			ugeth_warn("%s: No Rx Data Buffer",
-__FUNCTION__);
-+			spin_unlock(&ugeth->lock);
-+			ugeth->stats.rx_dropped++;
-+			break;
-+		}
-+
-+		ugeth->rx_skbuff[rxQ][ugeth->skb_currx[rxQ]] = skb;
-+
-+		/* update to point at the next skb */
-+		ugeth->skb_currx[rxQ] =
-+		    (ugeth->skb_currx[rxQ] +
-+		     1) &
-RX_RING_MOD_MASK(ugeth->ug_info->bdRingLenRx[rxQ]);
-+
-+		if (bd_status & R_W)
-+			bd = ugeth->p_rx_bd_ring[rxQ];
-+		else
-+			bd += UCC_GETH_SIZE_OF_BD;
-+
-+		bd_status = BD_STATUS_AND_LENGTH(bd);
-+	}
-+
-+	ugeth->rxBd[rxQ] = bd;
-+	spin_unlock(&ugeth->lock);
-+	return howmany;
-+}
-+
-+static int ucc_geth_tx(struct net_device *dev, u8 txQ)
-+{
-+	/* Start from the next BD that should be filled */
-+	ucc_geth_private_t *ugeth = netdev_priv(dev);
-+	u8 *bd;			/* BD pointer */
-+	u32 bd_status;
-+
-+	bd = ugeth->confBd[txQ];
-+	bd_status = BD_STATUS_AND_LENGTH(bd);
-+
-+	/* Normal processing. */
-+	while ((bd_status & T_R) == 0) {
-+		/* BD contains already transmitted buffer.   */
-+		/* Handle the transmitted buffer and release */
-+		/* the BD to be used with the current frame  */
-+
-+		if ((bd = ugeth->txBd[txQ]) && (netif_queue_stopped(dev)
-== 0))
-+			break;
-+
-+		ugeth->stats.tx_packets++;
-+
-+		/* Free the sk buffer associated with this TxBD */
-+		dev_kfree_skb_irq(ugeth->
-+
-tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]]);
-+		ugeth->tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]] = NULL;
-+		ugeth->skb_dirtytx[txQ] =
-+		    (ugeth->skb_dirtytx[txQ] +
-+		     1) &
-TX_RING_MOD_MASK(ugeth->ug_info->bdRingLenTx[txQ]);
-+
-+		/* We freed a buffer, so now we can restart transmission
-*/
-+		if (netif_queue_stopped(dev))
-+			netif_wake_queue(dev);
-+
-+		/* Advance the confirmation BD pointer */
-+		if (!(bd_status & T_W))
-+			ugeth->confBd[txQ] += UCC_GETH_SIZE_OF_BD;
-+		else
-+			ugeth->confBd[txQ] = ugeth->p_tx_bd_ring[txQ];
-+	}
 +	return 0;
 +}
 +
-+#ifdef CONFIG_UGETH_NAPI
-+static int ucc_geth_poll(struct net_device *dev, int *budget)
++static int genmii_update_link(struct ugeth_mii_info *mii_info)
 +{
-+	ucc_geth_private_t *ugeth = netdev_priv(dev);
-+	int howmany;
-+	int rx_work_limit = *budget;
-+	u8 rxQ = 0;
++	u16 status;
 +
-+	if (rx_work_limit > dev->quota)
-+		rx_work_limit = dev->quota;
++	ugphy_vdbg("%s: IN", __FUNCTION__);
 +
-+	howmany = ucc_geth_rx(ugeth, rxQ, rx_work_limit);
++	/* Do a fake read */
++	phy_read(mii_info, MII_BMSR);
 +
-+	dev->quota -= howmany;
-+	rx_work_limit -= howmany;
-+	*budget -= howmany;
++	/* Read link and autonegotiation status */
++	status = phy_read(mii_info, MII_BMSR);
++	if ((status & BMSR_LSTATUS) == 0)
++		mii_info->link = 0;
++	else
++		mii_info->link = 1;
 +
-+	if (rx_work_limit >= 0)
-+		netif_rx_complete(dev);
++	/* If we are autonegotiating, and not done, 
++	 * return an error */
++	if (mii_info->autoneg && !(status & BMSR_ANEGCOMPLETE))
++		return -EAGAIN;
 +
-+	return (rx_work_limit < 0) ? 1 : 0;
++	return 0;
 +}
-+#endif				/* CONFIG_UGETH_NAPI */
 +
-+static irqreturn_t ucc_geth_irq_handler(int irq, void *info,
-+					struct pt_regs *regs)
++static int genmii_read_status(struct ugeth_mii_info *mii_info)
 +{
-+	struct net_device *dev = (struct net_device *)info;
-+	ucc_geth_private_t *ugeth = netdev_priv(dev);
-+	ucc_fast_private_t *uccf;
-+	ucc_geth_info_t *ug_info;
-+	register u32 ucce = 0;
-+	register u32 bit_mask = UCCE_RXBF_SINGLE_MASK;
-+	register u32 tx_mask = UCCE_TXBF_SINGLE_MASK;
-+	register u8 i;
++	u16 status;
++	int err;
 +
-+	ugeth_vdbg("%s: IN", __FUNCTION__);
++	ugphy_vdbg("%s: IN", __FUNCTION__);
 +
-+	if (!ugeth)
-+		return IRQ_NONE;
++	/* Update the link, but return if there
++	 * was an error */
++	err = genmii_update_link(mii_info);
++	if (err)
++		return err;
 +
-+	uccf = ugeth->uccf;
-+	ug_info = ugeth->ug_info;
++	if (mii_info->autoneg) {
++		status = phy_read(mii_info, MII_LPA);
 +
-+	do {
-+		ucce |= (u32) (in_be32(uccf->p_ucce) &
-in_be32(uccf->p_uccm));
++		if (status & (LPA_10FULL | LPA_100FULL))
++			mii_info->duplex = DUPLEX_FULL;
++		else
++			mii_info->duplex = DUPLEX_HALF;
++		if (status & (LPA_100FULL | LPA_100HALF))
++			mii_info->speed = SPEED_100;
++		else
++			mii_info->speed = SPEED_10;
++		mii_info->pause = 0;
++	}
++	/* On non-aneg, we assume what we put in BMCR is the speed,
++	 * though magic-aneg shouldn't prevent this case from occurring
++	 */
 +
-+		/* clear event bits for next time */
-+		/* Side effect here is to mask ucce variable 
-+		for future processing below. */
-+		out_be32(uccf->p_ucce, ucce);	/* Clear with ones, 
-+						but only bits in UCCM */
++	return 0;
++}
 +
-+		/* We ignore Tx interrupts because Tx confirmation is 
-+		done inside Tx routine */
++static int marvell_init(struct ugeth_mii_info *mii_info)
++{
++	ugphy_vdbg("%s: IN", __FUNCTION__);
 +
-+		for (i = 0; i < ug_info->numQueuesRx; i++) {
-+			if (ucce & bit_mask)
-+				ucc_geth_rx(ugeth, i,
-+					    (int)ugeth->ug_info->
-+					    bdRingLenRx[i]);
-+			ucce &= ~bit_mask;
-+			bit_mask <<= 1;
++	phy_write(mii_info, 0x14, 0x0cd2);
++	phy_write(mii_info, MII_BMCR,
++		  phy_read(mii_info, MII_BMCR) | BMCR_RESET);
++	msleep(4000);
++
++	return 0;
++}
++
++static int marvell_config_aneg(struct ugeth_mii_info *mii_info)
++{
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	/* The Marvell PHY has an errata which requires
++	 * that certain registers get written in order
++	 * to restart autonegotiation */
++	phy_write(mii_info, MII_BMCR, BMCR_RESET);
++
++	phy_write(mii_info, 0x1d, 0x1f);
++	phy_write(mii_info, 0x1e, 0x200c);
++	phy_write(mii_info, 0x1d, 0x5);
++	phy_write(mii_info, 0x1e, 0);
++	phy_write(mii_info, 0x1e, 0x100);
++
++	gbit_config_aneg(mii_info);
++
++	return 0;
++}
++
++static int marvell_read_status(struct ugeth_mii_info *mii_info)
++{
++	u16 status;
++	int err;
++
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	/* Update the link, but return if there
++	 * was an error */
++	err = genmii_update_link(mii_info);
++	if (err)
++		return err;
++
++	/* If the link is up, read the speed and duplex */
++	/* If we aren't autonegotiating, assume speeds 
++	 * are as set */
++	if (mii_info->autoneg && mii_info->link) {
++		int speed;
++		status = phy_read(mii_info, MII_M1011_PHY_SPEC_STATUS);
++
++		/* Get the duplexity */
++		if (status & MII_M1011_PHY_SPEC_STATUS_FULLDUPLEX)
++			mii_info->duplex = DUPLEX_FULL;
++		else
++			mii_info->duplex = DUPLEX_HALF;
++
++		/* Get the speed */
++		speed = status & MII_M1011_PHY_SPEC_STATUS_SPD_MASK;
++		switch (speed) {
++		case MII_M1011_PHY_SPEC_STATUS_1000:
++			mii_info->speed = SPEED_1000;
++			break;
++		case MII_M1011_PHY_SPEC_STATUS_100:
++			mii_info->speed = SPEED_100;
++			break;
++		default:
++			mii_info->speed = SPEED_10;
++			break;
 +		}
++		mii_info->pause = 0;
++	}
 +
-+		for (i = 0; i < ug_info->numQueuesTx; i++) {
-+			if (ucce & tx_mask)
-+				ucc_geth_tx(dev, i);
-+			ucce &= ~tx_mask;
-+			tx_mask <<= 1;
-+		}
++	return 0;
++}
 +
-+		/* Exceptions */
-+		if (ucce & UCCE_BSY) {
-+			ugeth_vdbg("Got BUSY irq!!!!");
-+			ugeth->stats.rx_errors++;
-+			ucce &= ~UCCE_BSY;
-+		}
-+		if (ucce & UCCE_OTHER) {
-+			ugeth_vdbg("Got frame with error (ucce -
-0x%08x)!!!!",
-+				   ucce);
-+			ugeth->stats.rx_errors++;
-+			ucce &= ~ucce;
++static int marvell_ack_interrupt(struct ugeth_mii_info *mii_info)
++{
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	/* Clear the interrupts by reading the reg */
++	phy_read(mii_info, MII_M1011_IEVENT);
++
++	return 0;
++}
++
++static int marvell_config_intr(struct ugeth_mii_info *mii_info)
++{
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	if (mii_info->interrupts == MII_INTERRUPT_ENABLED)
++		phy_write(mii_info, MII_M1011_IMASK,
+MII_M1011_IMASK_INIT);
++	else
++		phy_write(mii_info, MII_M1011_IMASK,
+MII_M1011_IMASK_CLEAR);
++
++	return 0;
++}
++
++static int cis820x_init(struct ugeth_mii_info *mii_info)
++{
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	phy_write(mii_info, MII_CIS8201_AUX_CONSTAT,
++		  MII_CIS8201_AUXCONSTAT_INIT);
++	phy_write(mii_info, MII_CIS8201_EXT_CON1,
+MII_CIS8201_EXTCON1_INIT);
++
++	return 0;
++}
++
++static int cis820x_read_status(struct ugeth_mii_info *mii_info)
++{
++	u16 status;
++	int err;
++
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	/* Update the link, but return if there
++	 * was an error */
++	err = genmii_update_link(mii_info);
++	if (err)
++		return err;
++
++	/* If the link is up, read the speed and duplex */
++	/* If we aren't autonegotiating, assume speeds 
++	 * are as set */
++	if (mii_info->autoneg && mii_info->link) {
++		int speed;
++
++		status = phy_read(mii_info, MII_CIS8201_AUX_CONSTAT);
++		if (status & MII_CIS8201_AUXCONSTAT_DUPLEX)
++			mii_info->duplex = DUPLEX_FULL;
++		else
++			mii_info->duplex = DUPLEX_HALF;
++
++		speed = status & MII_CIS8201_AUXCONSTAT_SPEED;
++
++		switch (speed) {
++		case MII_CIS8201_AUXCONSTAT_GBIT:
++			mii_info->speed = SPEED_1000;
++			break;
++		case MII_CIS8201_AUXCONSTAT_100:
++			mii_info->speed = SPEED_100;
++			break;
++		default:
++			mii_info->speed = SPEED_10;
++			break;
 +		}
 +	}
-+	while (ucce);
 +
-+	return IRQ_HANDLED;
++	return 0;
 +}
 +
-+static irqreturn_t phy_interrupt(int irq, void *dev_id, struct pt_regs
-*regs)
++static int cis820x_ack_interrupt(struct ugeth_mii_info *mii_info)
 +{
-+	struct net_device *dev = (struct net_device *)dev_id;
-+	ucc_geth_private_t *ugeth = netdev_priv(dev);
++	ugphy_vdbg("%s: IN", __FUNCTION__);
 +
-+	ugeth_vdbg("%s: IN", __FUNCTION__);
++	phy_read(mii_info, MII_CIS8201_ISTAT);
 +
-+	/* Clear the interrupt */
-+	mii_clear_phy_interrupt(ugeth->mii_info);
-+
-+	/* Disable PHY interrupts */
-+	mii_configure_phy_interrupt(ugeth->mii_info,
-MII_INTERRUPT_DISABLED);
-+
-+	/* Schedule the phy change */
-+	schedule_work(&ugeth->tq);
-+
-+	return IRQ_HANDLED;
++	return 0;
 +}
 +
-+/* Scheduled by the phy_interrupt/timer to handle PHY changes */
-+static void ugeth_phy_change(void *data)
++static int cis820x_config_intr(struct ugeth_mii_info *mii_info)
 +{
-+	struct net_device *dev = (struct net_device *)data;
-+	ucc_geth_private_t *ugeth = netdev_priv(dev);
-+	ucc_geth_t *ug_regs;
-+	int result = 0;
++	ugphy_vdbg("%s: IN", __FUNCTION__);
 +
-+	ugeth_vdbg("%s: IN", __FUNCTION__);
++	if (mii_info->interrupts == MII_INTERRUPT_ENABLED)
++		phy_write(mii_info, MII_CIS8201_IMASK,
+MII_CIS8201_IMASK_MASK);
++	else
++		phy_write(mii_info, MII_CIS8201_IMASK, 0);
 +
-+	ug_regs = ugeth->ug_regs;
-+
-+	/* Delay to give the PHY a chance to change the
-+	 * register state */
-+	msleep(1);
-+
-+	/* Update the link, speed, duplex */
-+	result = ugeth->mii_info->phyinfo->read_status(ugeth->mii_info);
-+
-+	/* Adjust the known status as long as the link
-+	 * isn't still coming up */
-+	if ((0 == result) || (ugeth->mii_info->link == 0))
-+		adjust_link(dev);
-+
-+	/* Reenable interrupts, if needed */
-+	if (ugeth->ug_info->board_flags & FSL_UGETH_BRD_HAS_PHY_INTR)
-+		mii_configure_phy_interrupt(ugeth->mii_info,
-+					    MII_INTERRUPT_ENABLED);
++	return 0;
 +}
 +
-+/* Called every so often on systems that don't interrupt
-+ * the core for PHY changes */
-+static void ugeth_phy_timer(unsigned long data)
++#define DM9161_DELAY 10
++
++static int dm9161_read_status(struct ugeth_mii_info *mii_info)
 +{
-+	struct net_device *dev = (struct net_device *)data;
-+	ucc_geth_private_t *ugeth = netdev_priv(dev);
++	u16 status;
++	int err;
 +
-+	schedule_work(&ugeth->tq);
++	ugphy_vdbg("%s: IN", __FUNCTION__);
 +
-+	mod_timer(&ugeth->phy_info_timer, jiffies + PHY_CHANGE_TIME *
-HZ);
++	/* Update the link, but return if there
++	 * was an error */
++	err = genmii_update_link(mii_info);
++	if (err)
++		return err;
++
++	/* If the link is up, read the speed and duplex */
++	/* If we aren't autonegotiating, assume speeds 
++	 * are as set */
++	if (mii_info->autoneg && mii_info->link) {
++		status = phy_read(mii_info, MII_DM9161_SCSR);
++		if (status & (MII_DM9161_SCSR_100F |
+MII_DM9161_SCSR_100H))
++			mii_info->speed = SPEED_100;
++		else
++			mii_info->speed = SPEED_10;
++
++		if (status & (MII_DM9161_SCSR_100F |
+MII_DM9161_SCSR_10F))
++			mii_info->duplex = DUPLEX_FULL;
++		else
++			mii_info->duplex = DUPLEX_HALF;
++	}
++
++	return 0;
 +}
 +
-+/* Keep trying aneg for some time
-+ * If, after GFAR_AN_TIMEOUT seconds, it has not
-+ * finished, we switch to forced.
-+ * Either way, once the process has completed, we either
-+ * request the interrupt, or switch the timer over to 
-+ * using ugeth_phy_timer to check status */
-+static void ugeth_phy_startup_timer(unsigned long data)
++static int dm9161_config_aneg(struct ugeth_mii_info *mii_info)
++{
++	struct dm9161_private *priv = mii_info->priv;
++
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	if (0 == priv->resetdone)
++		return -EAGAIN;
++
++	return 0;
++}
++
++static void dm9161_timer(unsigned long data)
 +{
 +	struct ugeth_mii_info *mii_info = (struct ugeth_mii_info *)data;
-+	ucc_geth_private_t *ugeth = netdev_priv(mii_info->dev);
-+	static int secondary = UGETH_AN_TIMEOUT;
-+	int result;
++	struct dm9161_private *priv = mii_info->priv;
++	u16 status = phy_read(mii_info, MII_BMSR);
 +
-+	/* Configure the Auto-negotiation */
-+	result = mii_info->phyinfo->config_aneg(mii_info);
++	ugphy_vdbg("%s: IN", __FUNCTION__);
 +
-+	/* If autonegotiation failed to start, and
-+	 * we haven't timed out, reset the timer, and return */
-+	if (result && secondary--) {
-+		mod_timer(&ugeth->phy_info_timer, jiffies + HZ);
-+		return;
-+	} else if (result) {
-+		/* Couldn't start autonegotiation.
-+		 * Try switching to forced */
-+		mii_info->autoneg = 0;
-+		result = mii_info->phyinfo->config_aneg(mii_info);
-+
-+		/* Forcing failed!  Give up */
-+		if (result) {
-+			ugeth_err("%s: Forcing failed!",
-mii_info->dev->name);
-+			return;
-+		}
-+	}
-+
-+	/* Kill the timer so it can be restarted */
-+	del_timer_sync(&ugeth->phy_info_timer);
-+
-+	/* Grab the PHY interrupt, if necessary/possible */
-+	if (ugeth->ug_info->board_flags & FSL_UGETH_BRD_HAS_PHY_INTR) {
-+		if (request_irq(ugeth->ug_info->phy_interrupt,
-+				phy_interrupt,
-+				SA_SHIRQ, "phy_interrupt",
-mii_info->dev) < 0) {
-+			ugeth_err("%s: Can't get IRQ %d (PHY)",
-+				  mii_info->dev->name,
-+				  ugeth->ug_info->phy_interrupt);
-+		} else {
-+			mii_configure_phy_interrupt(ugeth->mii_info,
-+
-MII_INTERRUPT_ENABLED);
-+			return;
-+		}
-+	}
-+
-+	/* Start the timer again, this time in order to
-+	 * handle a change in status */
-+	init_timer(&ugeth->phy_info_timer);
-+	ugeth->phy_info_timer.function = &ugeth_phy_timer;
-+	ugeth->phy_info_timer.data = (unsigned long)mii_info->dev;
-+	mod_timer(&ugeth->phy_info_timer, jiffies + PHY_CHANGE_TIME *
-HZ);
++	if (status & BMSR_ANEGCOMPLETE) {
++		priv->resetdone = 1;
++	} else
++		mod_timer(&priv->timer, jiffies + DM9161_DELAY * HZ);
 +}
 +
-+/* Called when something needs to use the ethernet device */
-+/* Returns 0 for success. */
-+static int ucc_geth_open(struct net_device *dev)
++static int dm9161_init(struct ugeth_mii_info *mii_info)
 +{
-+	ucc_geth_private_t *ugeth = netdev_priv(dev);
-+	int err;
++	struct dm9161_private *priv;
 +
-+	ugeth_vdbg("%s: IN", __FUNCTION__);
++	ugphy_vdbg("%s: IN", __FUNCTION__);
 +
-+	/* Test station address */
-+	if (dev->dev_addr[0] & ENET_GROUP_ADDR) {
-+		ugeth_err("%s: Multicast address used for station
-address"
-+			  " - is this what you wanted?", __FUNCTION__);
-+		return -EINVAL;
-+	}
++	/* Allocate the private data structure */
++	priv = kmalloc(sizeof(struct dm9161_private), GFP_KERNEL);
 +
-+	err = ucc_geth_startup(ugeth);
-+	if (err) {
-+		ugeth_err("%s: Cannot configure net device, aborting.",
-+			  dev->name);
-+		return err;
-+	}
-+
-+	err = adjust_enet_interface(ugeth);
-+	if (err) {
-+		ugeth_err("%s: Cannot configure net device, aborting.",
-+			  dev->name);
-+		return err;
-+	}
-+
-+	/*       Set MACSTNADDR1, MACSTNADDR2                */
-+	/* For more details see the hardware spec.           */
-+	init_mac_station_addr_regs(dev->dev_addr[0],
-+				   dev->dev_addr[1],
-+				   dev->dev_addr[2],
-+				   dev->dev_addr[3],
-+				   dev->dev_addr[4],
-+				   dev->dev_addr[5],
-+				   &ugeth->ug_regs->macstnaddr1,
-+				   &ugeth->ug_regs->macstnaddr2);
-+
-+	err = init_phy(dev);
-+	if (err) {
-+		ugeth_err("%s: Cannot initialzie PHY, aborting.",
-dev->name);
-+		return err;
-+	}
-+#ifndef CONFIG_UGETH_NAPI
-+	err =
-+	    request_irq(ugeth->ug_info->uf_info.irq,
-ucc_geth_irq_handler, 0,
-+			"UCC Geth", dev);
-+	if (err) {
-+		ugeth_err("%s: Cannot get IRQ for net device,
-aborting.",
-+			  dev->name);
-+		ucc_geth_stop(ugeth);
-+		return err;
-+	}
-+#endif				/* CONFIG_UGETH_NAPI */
-+
-+	/* Set up the PHY change work queue */
-+	INIT_WORK(&ugeth->tq, ugeth_phy_change, dev);
-+
-+	init_timer(&ugeth->phy_info_timer);
-+	ugeth->phy_info_timer.function = &ugeth_phy_startup_timer;
-+	ugeth->phy_info_timer.data = (unsigned long)ugeth->mii_info;
-+	mod_timer(&ugeth->phy_info_timer, jiffies + HZ);
-+
-+	err = ugeth_enable(ugeth, COMM_DIR_RX_AND_TX);
-+	if (err) {
-+		ugeth_err("%s: Cannot enable net device, aborting.",
-dev->name);
-+		ucc_geth_stop(ugeth);
-+		return err;
-+	}
-+
-+	netif_start_queue(dev);
-+
-+	return err;
-+}
-+
-+/* Stops the kernel queue, and halts the controller */
-+static int ucc_geth_close(struct net_device *dev)
-+{
-+	ucc_geth_private_t *ugeth = netdev_priv(dev);
-+
-+	ugeth_vdbg("%s: IN", __FUNCTION__);
-+
-+	ucc_geth_stop(ugeth);
-+
-+	/* Shutdown the PHY */
-+	if (ugeth->mii_info->phyinfo->close)
-+		ugeth->mii_info->phyinfo->close(ugeth->mii_info);
-+
-+	kfree(ugeth->mii_info);
-+
-+	netif_stop_queue(dev);
-+
-+	return 0;
-+}
-+
-+struct ethtool_ops ucc_geth_ethtool_ops = {
-+	.get_settings = NULL,
-+	.get_drvinfo = NULL,
-+	.get_regs_len = NULL,
-+	.get_regs = NULL,
-+	.get_link = NULL,
-+	.get_coalesce = NULL,
-+	.set_coalesce = NULL,
-+	.get_ringparam = NULL,
-+	.set_ringparam = NULL,
-+	.get_strings = NULL,
-+	.get_stats_count = NULL,
-+	.get_ethtool_stats = NULL,
-+};
-+
-+static int ucc_geth_probe(struct device *device)
-+{
-+	struct platform_device *pdev = to_platform_device(device);
-+	struct ucc_geth_platform_data *ugeth_pdata;
-+	struct net_device *dev = NULL;
-+	struct ucc_geth_private *ugeth = NULL;
-+	struct ucc_geth_info *ug_info;
-+	int err;
-+	static int mii_mng_configured = 0;
-+
-+	ugeth_vdbg("%s: IN", __FUNCTION__);
-+
-+	ugeth_pdata = (struct ucc_geth_platform_data
-*)pdev->dev.platform_data;
-+
-+	ug_info = &ugeth_info[pdev->id];
-+	ug_info->uf_info.ucc_num = pdev->id;
-+	ug_info->uf_info.rx_clock = ugeth_pdata->rx_clock;
-+	ug_info->uf_info.tx_clock = ugeth_pdata->tx_clock;
-+	ug_info->uf_info.regs = ugeth_pdata->phy_reg_addr;
-+	ug_info->uf_info.irq = platform_get_irq(pdev, 0);
-+	ug_info->phy_address = ugeth_pdata->phy_id;
-+	ug_info->enet_interface = ugeth_pdata->phy_interface;
-+	ug_info->board_flags = ugeth_pdata->board_flags;
-+	ug_info->phy_interrupt = ugeth_pdata->phy_interrupt;
-+	
-+	printk(KERN_INFO "ucc_geth: UCC%1d at 0x%8x (irq = %d) \n", 
-+		ug_info->uf_info.ucc_num + 1, ug_info->uf_info.regs,
-+		ug_info->uf_info.irq);
-+
-+	if (ug_info == NULL) {
-+		ugeth_err("%s: [%d] Missing additional data!",
-__FUNCTION__,
-+			  pdev->id);
-+		return -ENODEV;
-+	}
-+
-+	if (!mii_mng_configured) {
-+		ucc_set_qe_mux_mii_mng(ug_info->uf_info.ucc_num);
-+		mii_mng_configured = 1;
-+	}
-+
-+	/* Create an ethernet device instance */
-+	dev = alloc_etherdev(sizeof(*ugeth));
-+
-+	if (dev == NULL)
++	if (NULL == priv)
 +		return -ENOMEM;
 +
-+	ugeth = netdev_priv(dev);
-+	spin_lock_init(&ugeth->lock);
++	mii_info->priv = priv;
 +
-+	dev_set_drvdata(device, dev);
++	/* Reset is not done yet */
++	priv->resetdone = 0;
 +
-+	/* Set the dev->base_addr to the gfar reg region */
-+	dev->base_addr = (unsigned long)(ug_info->uf_info.regs);
++	phy_write(mii_info, MII_BMCR,
++		  phy_read(mii_info, MII_BMCR) | BMCR_RESET);
 +
-+	SET_MODULE_OWNER(dev);
-+	SET_NETDEV_DEV(dev, device);
++	phy_write(mii_info, MII_BMCR,
++		  phy_read(mii_info, MII_BMCR) & ~BMCR_ISOLATE);
 +
-+	/* Fill in the dev structure */
-+	dev->open = ucc_geth_open;
-+	dev->hard_start_xmit = ucc_geth_start_xmit;
-+	dev->tx_timeout = ucc_geth_timeout;
-+	dev->watchdog_timeo = TX_TIMEOUT;
-+#ifdef CONFIG_UGETH_NAPI
-+	dev->poll = ucc_geth_poll;
-+	dev->weight = UCC_GETH_DEV_WEIGHT;
-+#endif				/* CONFIG_UGETH_NAPI */
-+	dev->stop = ucc_geth_close;
-+	dev->get_stats = ucc_geth_get_stats;
-+//    dev->change_mtu = ucc_geth_change_mtu;
-+	dev->mtu = 1500;
-+	dev->set_multicast_list = ucc_geth_set_multi;
-+	dev->ethtool_ops = &ucc_geth_ethtool_ops;
++	config_genmii_advert(mii_info);
++	/* Start/Restart aneg */
++	genmii_config_aneg(mii_info);
 +
-+	err = register_netdev(dev);
-+	if (err) {
-+		ugeth_err("%s: Cannot register net device, aborting.",
-+			  dev->name);
-+		free_netdev(dev);
-+		return err;
-+	}
-+
-+	ugeth->ug_info = ug_info;
-+	ugeth->dev = dev;
-+	memcpy(dev->dev_addr, ugeth_pdata->mac_addr, 6);
++	/* Start a timer for DM9161_DELAY seconds to wait
++	 * for the PHY to be ready */
++	init_timer(&priv->timer);
++	priv->timer.function = &dm9161_timer;
++	priv->timer.data = (unsigned long)mii_info;
++	mod_timer(&priv->timer, jiffies + DM9161_DELAY * HZ);
 +
 +	return 0;
 +}
++
++static void dm9161_close(struct ugeth_mii_info *mii_info)
++{
++	struct dm9161_private *priv = mii_info->priv;
++
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	del_timer_sync(&priv->timer);
++	kfree(priv);
++}
++
++static int dm9161_ack_interrupt(struct ugeth_mii_info *mii_info)
++{
++/* FIXME: This lines are for BUG fixing in the mpc8325. 
++Remove this from here when it's fixed */
++	if (bcsr_regs == NULL)
++		bcsr_regs = (u8 *) ioremap(BCSR_PHYS_ADDR, BCSR_SIZE);
++	bcsr_regs[14] |= 0x40;
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	/* Clear the interrupts by reading the reg */
++	phy_read(mii_info, MII_DM9161_INTR);
++	
++
++	return 0;
++}
++
++static int dm9161_config_intr(struct ugeth_mii_info *mii_info)
++{
++/* FIXME: This lines are for BUG fixing in the mpc8325. 
++Remove this from here when it's fixed */
++	if (bcsr_regs == NULL) {
++		bcsr_regs = (u8 *) ioremap(BCSR_PHYS_ADDR, BCSR_SIZE);
++		bcsr_regs[14] &= ~0x40;
++	}
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	if (mii_info->interrupts == MII_INTERRUPT_ENABLED)
++		phy_write(mii_info, MII_DM9161_INTR,
+MII_DM9161_INTR_INIT);
++	else
++		phy_write(mii_info, MII_DM9161_INTR,
+MII_DM9161_INTR_STOP);
++
++	return 0;
++}
++
++/* Cicada 820x */
++static struct phy_info phy_info_cis820x = {
++	.phy_id = 0x000fc440,
++	.name = "Cicada Cis8204",
++	.phy_id_mask = 0x000fffc0,
++	.features = MII_GBIT_FEATURES,
++	.init = &cis820x_init,
++	.config_aneg = &gbit_config_aneg,
++	.read_status = &cis820x_read_status,
++	.ack_interrupt = &cis820x_ack_interrupt,
++	.config_intr = &cis820x_config_intr,
++};
++
++static struct phy_info phy_info_dm9161 = {
++	.phy_id = 0x0181b880,
++	.phy_id_mask = 0x0ffffff0,
++	.name = "Davicom DM9161E",
++	.init = dm9161_init,
++	.config_aneg = dm9161_config_aneg,
++	.read_status = dm9161_read_status,
++	.close = dm9161_close,
++};
++
++static struct phy_info phy_info_dm9161a = {
++	.phy_id = 0x0181b8a0,
++	.phy_id_mask = 0x0ffffff0,
++	.name = "Davicom DM9161A",
++	.features = MII_BASIC_FEATURES,
++	.init = dm9161_init,
++	.config_aneg = dm9161_config_aneg,
++	.read_status = dm9161_read_status,
++	.ack_interrupt = dm9161_ack_interrupt,
++	.config_intr = dm9161_config_intr,
++	.close = dm9161_close,
++};
++
++static struct phy_info phy_info_marvell = {
++	.phy_id = 0x01410c00,
++	.phy_id_mask = 0xffffff00,
++	.name = "Marvell 88E11x1",
++	.features = MII_GBIT_FEATURES,
++	.init = &marvell_init,
++	.config_aneg = &marvell_config_aneg,
++	.read_status = &marvell_read_status,
++	.ack_interrupt = &marvell_ack_interrupt,
++	.config_intr = &marvell_config_intr,
++};
++
++static struct phy_info phy_info_genmii = {
++	.phy_id = 0x00000000,
++	.phy_id_mask = 0x00000000,
++	.name = "Generic MII",
++	.features = MII_BASIC_FEATURES,
++	.config_aneg = genmii_config_aneg,
++	.read_status = genmii_read_status,
++};
++
++static struct phy_info *phy_info[] = {
++	&phy_info_cis820x,
++	&phy_info_marvell,
++	&phy_info_dm9161,
++	&phy_info_dm9161a,
++	&phy_info_genmii,
++	NULL
++};
++
++u16 phy_read(struct ugeth_mii_info *mii_info, u16 regnum)
++{
++	u16 retval;
++	unsigned long flags;
++
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	spin_lock_irqsave(&mii_info->mdio_lock, flags);
++	retval = mii_info->mdio_read(mii_info->dev, mii_info->mii_id,
+regnum);
++	spin_unlock_irqrestore(&mii_info->mdio_lock, flags);
++
++	return retval;
++}
++
++void phy_write(struct ugeth_mii_info *mii_info, u16 regnum, u16 val)
++{
++	unsigned long flags;
++
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	spin_lock_irqsave(&mii_info->mdio_lock, flags);
++	mii_info->mdio_write(mii_info->dev, mii_info->mii_id, regnum,
+val);
++	spin_unlock_irqrestore(&mii_info->mdio_lock, flags);
++}
++
++/* Use the PHY ID registers to determine what type of PHY is attached
++ * to device dev.  return a struct phy_info structure describing that
+PHY
++ */
++struct phy_info *get_phy_info(struct ugeth_mii_info *mii_info)
++{
++	u16 phy_reg;
++	u32 phy_ID;
++	int i;
++	struct phy_info *theInfo = NULL;
++	struct net_device *dev = mii_info->dev;
++
++	ugphy_vdbg("%s: IN", __FUNCTION__);
++
++	/* Grab the bits from PHYIR1, and put them in the upper half */
++	phy_reg = phy_read(mii_info, MII_PHYSID1);
++	phy_ID = (phy_reg & 0xffff) << 16;
++
++	/* Grab the bits from PHYIR2, and put them in the lower half */
++	phy_reg = phy_read(mii_info, MII_PHYSID2);
++	phy_ID |= (phy_reg & 0xffff);
++
++	/* loop through all the known PHY types, and find one that */
++	/* matches the ID we read from the PHY. */
++	for (i = 0; phy_info[i]; i++)
++		if (phy_info[i]->phy_id == (phy_ID &
+phy_info[i]->phy_id_mask)){
++			theInfo = phy_info[i];
++			break;
++		}
++
++	/* This shouldn't happen, as we have generic PHY support */
++	if (theInfo == NULL) {
++		ugphy_info("%s: PHY id %x is not supported!", dev->name,
++			   phy_ID);
++		return NULL;
++	} else {
++		ugphy_info("%s: PHY is %s (%x)", dev->name,
+theInfo->name,
++			   phy_ID);
++	}
++
++	return theInfo;
++}
+diff --git a/drivers/net/ucc_geth_phy.h b/drivers/net/ucc_geth_phy.h
+new file mode 100644
+index 0000000..2f98b8f
+--- /dev/null
++++ b/drivers/net/ucc_geth_phy.h
+@@ -0,0 +1,217 @@
++/*
++ * Copyright (C) Freescale Semicondutor, Inc. 2006. All rights
+reserved.
++ *
++ * Author: Shlomi Gridish <gridish@freescale.com>
++ *
++ * Description:
++ * UCC GETH Driver -- PHY handling
++ *
++ * Changelog:
++ * Jun 28, 2006 Li Yang <LeoLi@freescale.com>
++ * - Rearrange code and style fixes
++ *
++ * This program is free software; you can redistribute  it and/or
+modify it
++ * under  the terms of  the GNU General  Public License as published by
+the
++ * Free Software Foundation;  either version 2 of the  License, or (at
+your
++ * option) any later version.
++ *
++ */
++#ifndef __UCC_GETH_PHY_H__
++#define __UCC_GETH_PHY_H__
++
++#define MII_end ((u32)-2)
++#define MII_read ((u32)-1)
++
++#define MIIMIND_BUSY            0x00000001
++#define MIIMIND_NOTVALID        0x00000004
++
++#define UGETH_AN_TIMEOUT        2000
++
++/* 1000BT control (Marvell & BCM54xx at least) */
++#define MII_1000BASETCONTROL                  0x09
++#define MII_1000BASETCONTROL_FULLDUPLEXCAP    0x0200
++#define MII_1000BASETCONTROL_HALFDUPLEXCAP    0x0100
++
++/* Cicada Extended Control Register 1 */
++#define MII_CIS8201_EXT_CON1        0x17
++#define MII_CIS8201_EXTCON1_INIT    0x0000
++
++/* Cicada Interrupt Mask Register */
++#define MII_CIS8201_IMASK           0x19
++#define MII_CIS8201_IMASK_IEN       0x8000
++#define MII_CIS8201_IMASK_SPEED     0x4000
++#define MII_CIS8201_IMASK_LINK      0x2000
++#define MII_CIS8201_IMASK_DUPLEX    0x1000
++#define MII_CIS8201_IMASK_MASK      0xf000
++
++/* Cicada Interrupt Status Register */
++#define MII_CIS8201_ISTAT           0x1a
++#define MII_CIS8201_ISTAT_STATUS    0x8000
++#define MII_CIS8201_ISTAT_SPEED     0x4000
++#define MII_CIS8201_ISTAT_LINK      0x2000
++#define MII_CIS8201_ISTAT_DUPLEX    0x1000
++
++/* Cicada Auxiliary Control/Status Register */
++#define MII_CIS8201_AUX_CONSTAT        0x1c
++#define MII_CIS8201_AUXCONSTAT_INIT    0x0004
++#define MII_CIS8201_AUXCONSTAT_DUPLEX  0x0020
++#define MII_CIS8201_AUXCONSTAT_SPEED   0x0018
++#define MII_CIS8201_AUXCONSTAT_GBIT    0x0010
++#define MII_CIS8201_AUXCONSTAT_100     0x0008
++
++/* 88E1011 PHY Status Register */
++#define MII_M1011_PHY_SPEC_STATUS               0x11
++#define MII_M1011_PHY_SPEC_STATUS_1000          0x8000
++#define MII_M1011_PHY_SPEC_STATUS_100           0x4000
++#define MII_M1011_PHY_SPEC_STATUS_SPD_MASK      0xc000
++#define MII_M1011_PHY_SPEC_STATUS_FULLDUPLEX    0x2000
++#define MII_M1011_PHY_SPEC_STATUS_RESOLVED      0x0800
++#define MII_M1011_PHY_SPEC_STATUS_LINK          0x0400
++
++#define MII_M1011_IEVENT                0x13
++#define MII_M1011_IEVENT_CLEAR          0x0000
++
++#define MII_M1011_IMASK                 0x12
++#define MII_M1011_IMASK_INIT            0x6400
++#define MII_M1011_IMASK_CLEAR           0x0000
++
++#define MII_DM9161_SCR                  0x10
++#define MII_DM9161_SCR_INIT             0x0610
++
++/* DM9161 Specified Configuration and Status Register */
++#define MII_DM9161_SCSR                 0x11
++#define MII_DM9161_SCSR_100F            0x8000
++#define MII_DM9161_SCSR_100H            0x4000
++#define MII_DM9161_SCSR_10F             0x2000
++#define MII_DM9161_SCSR_10H             0x1000
++
++/* DM9161 Interrupt Register */
++#define MII_DM9161_INTR                 0x15
++#define MII_DM9161_INTR_PEND            0x8000
++#define MII_DM9161_INTR_DPLX_MASK       0x0800
++#define MII_DM9161_INTR_SPD_MASK        0x0400
++#define MII_DM9161_INTR_LINK_MASK       0x0200
++#define MII_DM9161_INTR_MASK            0x0100
++#define MII_DM9161_INTR_DPLX_CHANGE     0x0010
++#define MII_DM9161_INTR_SPD_CHANGE      0x0008
++#define MII_DM9161_INTR_LINK_CHANGE     0x0004
++#define MII_DM9161_INTR_INIT            0x0000
++#define MII_DM9161_INTR_STOP    \
++(MII_DM9161_INTR_DPLX_MASK | MII_DM9161_INTR_SPD_MASK \
++ | MII_DM9161_INTR_LINK_MASK | MII_DM9161_INTR_MASK)
++
++/* DM9161 10BT Configuration/Status */
++#define MII_DM9161_10BTCSR              0x12
++#define MII_DM9161_10BTCSR_INIT         0x7800
++
++#define MII_BASIC_FEATURES    (SUPPORTED_10baseT_Half | \
++                 SUPPORTED_10baseT_Full | \
++                 SUPPORTED_100baseT_Half | \
++                 SUPPORTED_100baseT_Full | \
++                 SUPPORTED_Autoneg | \
++                 SUPPORTED_TP | \
++                 SUPPORTED_MII)
++
++#define MII_GBIT_FEATURES    (MII_BASIC_FEATURES | \
++                 SUPPORTED_1000baseT_Half | \
++                 SUPPORTED_1000baseT_Full)
++
++#define MII_READ_COMMAND                0x00000001
++
++#define MII_INTERRUPT_DISABLED          0x0
++#define MII_INTERRUPT_ENABLED           0x1
++/* Taken from mii_if_info and sungem_phy.h */
++struct ugeth_mii_info {
++	/* Information about the PHY type */
++	/* And management functions */
++	struct phy_info *phyinfo;
++
++	ucc_mii_mng_t *mii_regs;
++
++	/* forced speed & duplex (no autoneg)
++	 * partner speed & duplex & pause (autoneg)
++	 */
++	int speed;
++	int duplex;
++	int pause;
++
++	/* The most recently read link state */
++	int link;
++
++	/* Enabled Interrupts */
++	u32 interrupts;
++
++	u32 advertising;
++	int autoneg;
++	int mii_id;
++
++	/* private data pointer */
++	/* For use by PHYs to maintain extra state */
++	void *priv;
++
++	/* Provided by host chip */
++	struct net_device *dev;
++
++	/* A lock to ensure that only one thing can read/write
++	 * the MDIO bus at a time */
++	spinlock_t mdio_lock;
++
++	/* Provided by ethernet driver */
++	int (*mdio_read) (struct net_device * dev, int mii_id, int reg);
++	void (*mdio_write) (struct net_device * dev, int mii_id, int
+reg,
++			    int val);
++};
++
++/* struct phy_info: a structure which defines attributes for a PHY
++ *
++ * id will contain a number which represents the PHY.  During
++ * startup, the driver will poll the PHY to find out what its
++ * UID--as defined by registers 2 and 3--is.  The 32-bit result
++ * gotten from the PHY will be ANDed with phy_id_mask to
++ * discard any bits which may change based on revision numbers
++ * unimportant to functionality
++ *
++ * There are 6 commands which take a ugeth_mii_info structure.
++ * Each PHY must declare config_aneg, and read_status.
++ */
++struct phy_info {
++	u32 phy_id;
++	char *name;
++	unsigned int phy_id_mask;
++	u32 features;
++
++	/* Called to initialize the PHY */
++	int (*init) (struct ugeth_mii_info * mii_info);
++
++	/* Called to suspend the PHY for power */
++	int (*suspend) (struct ugeth_mii_info * mii_info);
++
++	/* Reconfigures autonegotiation (or disables it) */
++	int (*config_aneg) (struct ugeth_mii_info * mii_info);
++
++	/* Determines the negotiated speed and duplex */
++	int (*read_status) (struct ugeth_mii_info * mii_info);
++
++	/* Clears any pending interrupts */
++	int (*ack_interrupt) (struct ugeth_mii_info * mii_info);
++
++	/* Enables or disables interrupts */
++	int (*config_intr) (struct ugeth_mii_info * mii_info);
++
++	/* Clears up any memory if needed */
++	void (*close) (struct ugeth_mii_info * mii_info);
++};
++
++struct phy_info *get_phy_info(struct ugeth_mii_info *mii_info);
++void write_phy_reg(struct net_device *dev, int mii_id, int regnum, int
+value);
++int read_phy_reg(struct net_device *dev, int mii_id, int regnum);
++void mii_clear_phy_interrupt(struct ugeth_mii_info *mii_info);
++void mii_configure_phy_interrupt(struct ugeth_mii_info *mii_info,
++				 u32 interrupts);
++
++struct dm9161_private {
++	struct timer_list timer;
++	int resetdone;
++};
++
++#endif				/* __UCC_GETH_PHY_H__ */
