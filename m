@@ -1,90 +1,81 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [e1000]: flow control on by default - good idea really?
-Date: Thu, 06 Jul 2006 09:03:38 -0400
-Message-ID: <1152191018.5103.48.camel@jzny2>
-References: <1152033116.5276.22.camel@jzny2>
-	 <1152040839.5276.25.camel@jzny2>
-	 <20060705.112237.41652489.davem@davemloft.net> <44AC05A8.9030503@intel.com>
-	 <Pine.LNX.4.64.0607052241230.12611@bizon.gios.gov.pl>
-Reply-To: hadi@cyberus.ca
+From: Shailabh Nagar <nagar@watson.ibm.com>
+Subject: Re: [PATCH] per-task delay accounting taskstats interface: control
+	exit data through cpumasks]
+Date: Thu, 06 Jul 2006 09:21:01 -0400
+Message-ID: <1152192061.1244.1.camel@manjushri.watson.ibm.com>
+References: <44ACD7C3.5040008@watson.ibm.com>
+	 <20060706025633.cd4b1c1d.akpm@osdl.org>
+	 <1152185865.5986.15.camel@localhost.localdomain>
+	 <20060706120835.GY14627@postel.suug.ch>
+Reply-To: nagar@watson.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, greearb@candelatech.com, john.ronciak@intel.com,
-	Robert.Olsson@data.slu.se, jesse.brandeburg@intel.com,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Auke Kok <auke-jan.h.kok@intel.com>
+Cc: Andrew Morton <akpm@osdl.org>, Jay Lan <jlan@sgi.com>, pj@sgi.com,
+	Valdis.Kletnieks@vt.edu, Balbir Singh <balbir@in.ibm.com>,
+	csturtiv@sgi.com, linux-kernel <linux-kernel@vger.kernel.org>,
+	Jamal <hadi@cyberus.ca>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:48361 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1030253AbWGFNDo
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jul 2006 09:03:44 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1FyTWE-0003xL-6K
-	for netdev@vger.kernel.org; Thu, 06 Jul 2006 09:03:46 -0400
-To: Krzysztof Oledzki <olel@ans.pl>
-In-Reply-To: <Pine.LNX.4.64.0607052241230.12611@bizon.gios.gov.pl>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:24225 "EHLO e4.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1030260AbWGFNVE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 09:21:04 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060706120835.GY14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-05-07 at 22:45 +0200, Krzysztof Oledzki wrote:
+On Thu, 2006-07-06 at 14:08 +0200, Thomas Graf wrote:
+> * Shailabh Nagar <nagar@watson.ibm.com> 2006-07-06 07:37
+> > @@ -37,9 +45,26 @@ static struct nla_policy taskstats_cmd_g
+> >  __read_mostly = {
+> >  	[TASKSTATS_CMD_ATTR_PID]  = { .type = NLA_U32 },
+> >  	[TASKSTATS_CMD_ATTR_TGID] = { .type = NLA_U32 },
+> > +	[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK] = { .type = NLA_STRING },
+> > +	[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK] = { .type = NLA_STRING },};
 > 
-> On Wed, 5 Jul 2006, Auke Kok wrote:
+> > +		na = info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK];
+> > +		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
+> > +			return -E2BIG;
+> > +		rc = cpulist_parse((char *)nla_data(na), mask);
 > 
-> > David Miller wrote:
-> >> From: jamal <hadi@cyberus.ca>
-> >> Date: Tue, 04 Jul 2006 15:20:39 -0400
-> >> 
-> >>> BTW, As an addendum this default behavior changed around 2.6.16 it
-> >>> seems.
-> >> 
-> >> Flow control has been on by default in the tg3 driver since the
-> >> beginning, 
-
-Are you sure about this Dave?;-> because I do have a tg3 on my laptop.
-
-hadi@jzny2:~/Desktop/maemo$ sudo ethtool -a eth0
-Pause parameters for eth0:
-Autonegotiate:  on
-RX:             off
-TX:             off
-
-hadi@jzny2:~/Desktop/maemo$ uname -a
-Linux jzny2 2.6.16 #6 Fri Jun 9 15:29:40 EDT 2006 i686 GNU/Linux
-hadi@jzny2:~/Desktop/maemo$
-
-Maybe it is read from the eeprom and mine has it off?
-
-> maybe e1000 only recently started to behave that way
-> >> but it's the right thing to do IMHO.
-> >
-
-I will continue testing when i get proper hardware and post. And if only
-Robert and I are whining about this, we are adults and we can turn it
-off. I never tried it with large packets, so it may be helpful there
-for forwarding.
-
-Again, note that: It is consuming > 10% (13-15% range) of my bandwidth.
-Granted that is at high speeds with small packets so may not be
-reflective of 96% of the world. But that would be > 50kpps of my
-forwarding capacity being chewed unreasonably. So Auke, did you say
-"performance" was what people mostly bitched about? ;->
-
-> > As said earlier, e1000 always honors the EEPROM setting for this, which has 
-> > been _on_ by default for all cards (AFAIK, that is).
+> This isn't safe, the data in the attribute is not guaranteed to be
+> NUL terminated. Still it's probably me to blame for not making
+> this more obvious in the API.
 > 
-
-It has _never ever_ worked on e1000 for as long as i have used e1000. If
-it was intended to work, it must have been fixed in 2.6.16. So it is new
-behavior.
-
-> I'm not sure:
+> I've attached a patch below extending the API to make it easier
+> for interfaces using NUL termianted strings, so you'd do:
 > 
-> root@r1:~# mii-tool -v eth0
+> [TASKSTATS_CMS_ATTR_REGISTER_CPUMASK] = { .type = NLA_NUL_STRING,
+>                                           .len = TASKSTATS_CPUMASK_MAXLEN }
+> 
+> ... and then use (char *) nla_data(str_attr) without any further
+> sanity checks.
 
-Try ethtool -a eth0 to read and -A to set.
 
-cheers,
-jamal
+Thanks. That makes it much clearer. I was looking around for a "maxlen"
+attribute helper yesterday :-)
+
+--Shailabh
+
+
+> 
+> [NETLINK]: Improve string attribute validation
+> 
+> Introduces a new attribute type NLA_NUL_STRING to support NUL
+> terminated strings. Attributes of this kind require to carry
+> a terminating NUL within the maximum specified in the policy.
+> 
+> The `old' NLA_STRING which is not required to be NUL terminated
+> is extended to provide means to specify a maximum length of the
+> string.
+> 
+> Aims at easing the pain with using nla_strlcpy() on temporary
+> buffers.
+> 
+> The old `minlen' field is renamed to `len' for cosmetic purposes
+> which is ok since nobody was using it at this point.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+
+<snip>
 
