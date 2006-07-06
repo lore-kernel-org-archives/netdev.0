@@ -1,62 +1,59 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] ixgb: add PCI Error recovery callbacks
-Date: Thu, 6 Jul 2006 11:16:40 -0500
-Message-ID: <20060706161640.GT29526@austin.ibm.com>
-References: <20060629162634.GC5472@austin.ibm.com> <1151905766.28493.129.camel@ymzhang-perf.sh.intel.com> <44ABDF87.8000801@intel.com> <20060705194437.GJ29526@austin.ibm.com> <1152148899.28493.168.camel@ymzhang-perf.sh.intel.com>
+From: Denis Vlasenko <vda.linux@googlemail.com>
+Subject: Re: ACX100 (softmac-based) driver ready to merge, but is it legal?
+Date: Thu, 6 Jul 2006 19:29:49 +0200
+Message-ID: <200607061929.49103.vda.linux@gmail.com>
+References: <20060604135011.decdc7c9.akpm@osdl.org> <1149524691.30554.23.camel@localhost.localdomain> <20060629142643.GA24463@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Auke Kok <auke-jan.h.kok@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"bibo,mao" <bibo.mao@intel.com>,
-	Rajesh Shah <rajesh.shah@intel.com>,
-	Grant Grundler <grundler@parisc-linux.org>, akpm@osdl.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	netdev@vger.kernel.org, wenxiong@us.ibm.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Andreas Mohr <andi@rhlx01.fht-esslingen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:58814 "EHLO e5.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1030274AbWGFQQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 12:16:48 -0400
-To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Received: from ug-out-1314.google.com ([66.249.92.175]:1982 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1030318AbWGFR34 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 13:29:56 -0400
+Received: by ug-out-1314.google.com with SMTP id a2so2762968ugf
+        for <netdev@vger.kernel.org>; Thu, 06 Jul 2006 10:29:55 -0700 (PDT)
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060629142643.GA24463@tuxdriver.com>
 Content-Disposition: inline
-In-Reply-To: <1152148899.28493.168.camel@ymzhang-perf.sh.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 06, 2006 at 09:21:39AM +0800, Zhang, Yanmin wrote:
-> On Thu, 2006-07-06 at 03:44, Linas Vepstas wrote:
-> > On Wed, Jul 05, 2006 at 08:49:27AM -0700, Auke Kok wrote:
-> > > Zhang, Yanmin wrote:
-> > > >On Fri, 2006-06-30 at 00:26, Linas Vepstas wrote:
-> > > >>Adds PCI Error recovery callbacks to the Intel 10-gigabit ethernet
-> > > >>ixgb device driver. Lightly tested, works.
-> > > >
-> > > >Both pci_disable_device and ixgb_down would access the device. It doesn't
-> > > >follow Documentation/pci-error-recovery.txt that error_detected shouldn't 
-> > > >do
-> > > >any access to the device.
-> > > 
-> > > Moreover, it was Linas who wrote this documentation in the first place :)
-> > 
-> > On the pSeries, its harmless to try to do i/o; the i/o will e blocked.
-> In the future, we might move the pci error recovery codes to generic to
-> support other platforms which might not block I/O. So it's better to follow
-> Documentation/pci-error-recovery.txt when adding error recovery codes into driver.
+On Thursday 29 June 2006 16:26, John W. Linville wrote:
+> I apologize for the long copy list. =A0I have tried to include all
+> known interested parties.
+>=20
+> This is a follow-up to a thread started by Andrew a few weeks ago
+> about what should be merged for 2.6.18. =A0One of the topics he cited
+> was the ACX100 driver which he has carried in -mm for quite some time=
+=2E
+> I have a slightly different (softmac based) version of that driver
+> in wireless-2.6 which I think is worth merging now.
+>=20
+> In the aforementioned thread, some questions were raised about the
+> legality of the ACX100 driver (i.e. tiacx) code base, but no one
+> had any specific points other than that it is not 100% "clean room"
+> derived. =A0Others point-out that this is not strictly a requirement.
+> The matter dropped without a strong defense from the tiacx team.
+>
+> I hereby invite the tiacx team to defend their work by making public,
+> affirmative statements indicating a) how they produced their code; an=
+d,
+> b) that they have the legal right to license it as part of the Linux
+> kernel under the GPL. =A0As an incentive to this, I have already made
+> the necessary preparations for this driver to be merged immediately.
 
-Or we could change the documentation. The point was that doing
-unexpected i/o after the aapter reset is likely to wedge the adapter
-again, leading to an inf loop of resets. As a practical matter, 
-I found that, while developing this patch, and the other related
-patches, that this was indeed the usual failure mode: incorrect bringup
-just lead to more errors.
+About the part of the acx code which was done by me:
+I was working upon the already existing acx driver.
 
-What I really want to do is to perform as clean a shut-down as possible, 
-reset the adapter, and then bring it back up.  I'm concerned that changing 
-the order to "reset"-"shutdown-"bringup" would be inappropriate.
+I do not know how it was developed before I started to play with it,
+but I certainly never worked for TI and did not receive any code
+or documents from TI (I was asking for the documentation,
+but there was no answer).
 
-Perhaps the right fix is to figure out what parts of the driver do i/o
-during shutdown, and then add a line "if(wedged) skip i/o;" to those
-places?
-
---linas
+I realize that this info is not enough to determine whether tiacx
+driver is "clean" legalese-wise.
+--
+vda
