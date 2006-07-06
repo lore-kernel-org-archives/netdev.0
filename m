@@ -1,70 +1,94 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH] per-task delay accounting taskstats interface: control
- exit data through cpumasks]
-Date: Thu, 6 Jul 2006 15:56:43 -0700
-Message-ID: <20060706155643.2cd37b80.akpm@osdl.org>
-References: <44ACD7C3.5040008@watson.ibm.com>
-	<20060706025633.cd4b1c1d.akpm@osdl.org>
-	<1152185865.5986.15.camel@localhost.localdomain>
-	<20060706120835.GY14627@postel.suug.ch>
-	<20060706144808.1dd5fadf.akpm@osdl.org>
-	<44AD8E65.70006@watson.ibm.com>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH 1/2] forcedeth: deferral fixup
+Date: Thu, 06 Jul 2006 16:45:58 -0400
+Message-ID: <44AD7686.8040201@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, jlan@sgi.com, pj@sgi.com, Valdis.Kletnieks@vt.edu,
-	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
-	hadi@cyberus.ca, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------040704080309080100040706"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:7618 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751008AbWGFWxp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 18:53:45 -0400
-To: Shailabh Nagar <nagar@watson.ibm.com>
-In-Reply-To: <44AD8E65.70006@watson.ibm.com>
+Received: from hqemgate02.nvidia.com ([216.228.112.143]:46908 "EHLO
+	HQEMGATE02.nvidia.com") by vger.kernel.org with ESMTP
+	id S1750998AbWGFWzK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jul 2006 18:55:10 -0400
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Shailabh Nagar <nagar@watson.ibm.com> wrote:
->
-> Andrew Morton wrote:
-> > Thomas Graf <tgraf@suug.ch> wrote:
-> > 
-> >>* Shailabh Nagar <nagar@watson.ibm.com> 2006-07-06 07:37
-> >>
-> >>>@@ -37,9 +45,26 @@ static struct nla_policy taskstats_cmd_g
-> >>> __read_mostly = {
-> >>> 	[TASKSTATS_CMD_ATTR_PID]  = { .type = NLA_U32 },
-> >>> 	[TASKSTATS_CMD_ATTR_TGID] = { .type = NLA_U32 },
-> >>>+	[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK] = { .type = NLA_STRING },
-> >>>+	[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK] = { .type = NLA_STRING },};
-> >>
-> >>>+		na = info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK];
-> >>>+		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
-> >>>+			return -E2BIG;
-> >>>+		rc = cpulist_parse((char *)nla_data(na), mask);
-> >>
-> >>This isn't safe, the data in the attribute is not guaranteed to be
-> >>NUL terminated. Still it's probably me to blame for not making
-> >>this more obvious in the API.
-> >>
-> > 
-> > 
-> > Thanks, that was an unpleasant bug.
-> > 
-> > 
-> >>I've attached a patch below extending the API to make it easier
-> >>for interfaces using NUL termianted strings,
-> > 
-> > 
-> > In the interests of keeping this work decoupled from netlink enhancements
-> > I'd propose the below.  
-> 
-> The patch looks good. I was also thinking of simply modifying the input
-> to have the null termination and modify later when netlink provides
-> generic support.
-> 
-> 
+This is a multi-part message in MIME format.
+--------------040704080309080100040706
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Yup.  Thomas, what's the testing status of the netlink patch you sent?  Should I
-queue it up and start plagueing people with it?
+This patch adds the definition for the deferral registers and fixes up 
+the use of these registers.
 
+Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
+
+
+--------------040704080309080100040706
+Content-Type: text/plain;
+ name="patch-forcedeth-deferral"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-deferral"
+
+--- orig-2.6/drivers/net/forcedeth.c	2006-07-06 15:03:45.000000000 -0400
++++ new-2.6/drivers/net/forcedeth.c	2006-07-06 15:03:55.000000000 -0400
+@@ -240,10 +240,12 @@
+ #define NVREG_RNDSEED_FORCE2	0x2d00
+ #define NVREG_RNDSEED_FORCE3	0x7400
+ 
+-	NvRegUnknownSetupReg1 = 0xA0,
+-#define NVREG_UNKSETUP1_VAL	0x16070f
+-	NvRegUnknownSetupReg2 = 0xA4,
+-#define NVREG_UNKSETUP2_VAL	0x16
++	NvRegTxDeferral = 0xA0,
++#define NVREG_TX_DEFERRAL_DEFAULT	0x15050f
++#define NVREG_TX_DEFERRAL_RGMII_10_100	0x16070f
++#define NVREG_TX_DEFERRAL_RGMII_1000	0x14050f
++	NvRegRxDeferral = 0xA4,
++#define NVREG_RX_DEFERRAL_DEFAULT	0x16
+ 	NvRegMacAddrA = 0xA8,
+ 	NvRegMacAddrB = 0xAC,
+ 	NvRegMulticastAddrA = 0xB0,
+@@ -2127,7 +2129,7 @@
+ 	int newdup = np->duplex;
+ 	int mii_status;
+ 	int retval = 0;
+-	u32 control_1000, status_1000, phyreg, pause_flags;
++	u32 control_1000, status_1000, phyreg, pause_flags, txreg;
+ 
+ 	/* BMSR_LSTATUS is latched, read it twice:
+ 	 * we want the current value.
+@@ -2245,6 +2247,16 @@
+ 		phyreg |= PHY_1000;
+ 	writel(phyreg, base + NvRegPhyInterface);
+ 
++	if (phyreg & PHY_RGMII) {
++		if ((np->linkspeed & NVREG_LINKSPEED_MASK) == NVREG_LINKSPEED_1000)
++			txreg = NVREG_TX_DEFERRAL_RGMII_1000;
++		else
++			txreg = NVREG_TX_DEFERRAL_RGMII_10_100;
++	} else {
++		txreg = NVREG_TX_DEFERRAL_DEFAULT;
++	}
++	writel(txreg, base + NvRegTxDeferral);
++
+ 	writel(NVREG_MISC1_FORCE | ( np->duplex ? 0 : NVREG_MISC1_HD),
+ 		base + NvRegMisc1);
+ 	pci_push(base);
+@@ -3932,8 +3944,8 @@
+ 	writel(readl(base + NvRegReceiverStatus), base + NvRegReceiverStatus);
+ 	get_random_bytes(&i, sizeof(i));
+ 	writel(NVREG_RNDSEED_FORCE | (i&NVREG_RNDSEED_MASK), base + NvRegRandomSeed);
+-	writel(NVREG_UNKSETUP1_VAL, base + NvRegUnknownSetupReg1);
+-	writel(NVREG_UNKSETUP2_VAL, base + NvRegUnknownSetupReg2);
++	writel(NVREG_TX_DEFERRAL_DEFAULT, base + NvRegTxDeferral);
++	writel(NVREG_RX_DEFERRAL_DEFAULT, base + NvRegRxDeferral);
+ 	if (poll_interval == -1) {
+ 		if (optimization_mode == NV_OPTIMIZATION_MODE_THROUGHPUT)
+ 			writel(NVREG_POLL_DEFAULT_THROUGHPUT, base + NvRegPollingInterval);
+
+--------------040704080309080100040706--
