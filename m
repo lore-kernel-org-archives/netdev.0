@@ -1,141 +1,35 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH] per-task delay accounting taskstats interface: control
- exit data through cpumasks]
-Date: Thu, 6 Jul 2006 16:05:57 -0700
-Message-ID: <20060706160557.6f0cdfa0.akpm@osdl.org>
-References: <44ACD7C3.5040008@watson.ibm.com>
-	<20060706025633.cd4b1c1d.akpm@osdl.org>
-	<1152185865.5986.15.camel@localhost.localdomain>
-	<20060706120835.GY14627@postel.suug.ch>
-	<20060706144808.1dd5fadf.akpm@osdl.org>
-	<20060706224009.GA14627@postel.suug.ch>
+From: Bryan O'Sullivan <bos@pathscale.com>
+Subject: Re: [PATCH 38 of 39] IB/ipath - More changes to support InfiniPath
+	on PowerPC 970 systems
+Date: Thu, 06 Jul 2006 16:34:27 -0700
+Message-ID: <1152228867.24748.3.camel@localhost.localdomain>
+References: <c22b6c244d5db77f7b1d.1151617289@eng-12.pathscale.com>
+	 <1152225421.9862.12.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: nagar@watson.ibm.com, jlan@sgi.com, pj@sgi.com,
-	Valdis.Kletnieks@vt.edu, balbir@in.ibm.com, csturtiv@sgi.com,
-	linux-kernel@vger.kernel.org, hadi@cyberus.ca,
+Cc: akpm@osdl.org, rdreier@cisco.com, mst@mellanox.co.il,
+	openib-general@openib.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:28616 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750711AbWGFXMD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 19:12:03 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060706224009.GA14627@postel.suug.ch>
+Received: from mx.pathscale.com ([64.160.42.68]:11962 "EHLO mx.pathscale.com")
+	by vger.kernel.org with ESMTP id S1751049AbWGFXe2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 19:34:28 -0400
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+In-Reply-To: <1152225421.9862.12.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf <tgraf@suug.ch> wrote:
->
-> * Andrew Morton <akpm@osdl.org> 2006-07-06 14:48
-> > In the interests of keeping this work decoupled from netlink enhancements
-> > I'd propose the below.  Is it bad to modify the data at nla_data()?
-> 
-> Yes, it points into a skb data buffer which may be shared by sitting
-> on other queues if the message is to be broadcasted. In this case it
-> would be harmless but the policy is to leave it unmodified.
+On Fri, 2006-07-07 at 08:37 +1000, Benjamin Herrenschmidt wrote:
 
-Yup, sleazy-but-safe.
-
-> 
-> > --- a/kernel/taskstats.c~per-task-delay-accounting-taskstats-interface-control-exit-data-through-cpumasks-fix
-> > +++ a/kernel/taskstats.c
-> > @@ -299,6 +299,23 @@ cleanup:
-> >  	return 0;
-> >  }
-> >  
-> > +static int parse(struct nlattr *na, cpumask_t *mask)
+> > +int ipath_unordered_wc(void)
 > > +{
-> > +	char *data;
-> > +	int len;
-> > +
-> > +	if (na == NULL)
-> > +		return 1;
-> > +	len = nla_len(na);
-> > +	if (len > TASKSTATS_CPUMASK_MAXLEN)
-> > +		return -E2BIG;
-> > +	if (len < 1)
-> > +		return -EINVAL;
-> > +	data = nla_data(na);
-> > +	data[len - 1] = '\0';
-> > +	return cpulist_parse(data, *mask);
+> > +	return 1;
 > > +}
 > 
-> Usually this is done by using strlcpy:
+> How is the above providing any kind of serialisation ?
 
-hm, nla_strlcpy() looks more complex than it needs to be.  We really need
-nla_kstrndup() ;)
+It's not intended to; it tells the *caller* whether to do it.
 
-Oh well.  This?
-
-
-diff -puN kernel/taskstats.c~per-task-delay-accounting-taskstats-interface-control-exit-data-through-cpumasks-fix kernel/taskstats.c
---- a/kernel/taskstats.c~per-task-delay-accounting-taskstats-interface-control-exit-data-through-cpumasks-fix
-+++ a/kernel/taskstats.c
-@@ -299,6 +299,28 @@ cleanup:
- 	return 0;
- }
- 
-+static int parse(struct nlattr *na, cpumask_t *mask)
-+{
-+	char *data;
-+	int len;
-+	int ret;
-+
-+	if (na == NULL)
-+		return 1;
-+	len = nla_len(na);
-+	if (len > TASKSTATS_CPUMASK_MAXLEN)
-+		return -E2BIG;
-+	if (len < 1)
-+		return -EINVAL;
-+	data = kmalloc(len, GFP_KERNEL);
-+	if (!data)
-+		return -ENOMEM;
-+	nla_strlcpy(data, na, len);
-+	ret = cpulist_parse(data, *mask);
-+	kfree(data);
-+	return ret;
-+}
-+
- static int taskstats_user_cmd(struct sk_buff *skb, struct genl_info *info)
- {
- 	int rc = 0;
-@@ -309,27 +331,17 @@ static int taskstats_user_cmd(struct sk_
- 	struct nlattr *na;
- 	cpumask_t mask;
- 
--	if (info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK]) {
--		na = info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK];
--		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
--			return -E2BIG;
--		rc = cpulist_parse((char *)nla_data(na), mask);
--		if (rc)
--			return rc;
--		rc = add_del_listener(info->snd_pid, &mask, REGISTER);
-+	rc = parse(info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK], &mask);
-+	if (rc < 0)
- 		return rc;
--	}
-+	if (rc == 0)
-+		return add_del_listener(info->snd_pid, &mask, REGISTER);
- 
--	if (info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK]) {
--		na = info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK];
--		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
--			return -E2BIG;
--		rc = cpulist_parse((char *)nla_data(na), mask);
--		if (rc)
--			return rc;
--		rc = add_del_listener(info->snd_pid, &mask, DEREGISTER);
-+	rc = parse(info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK], &mask);
-+	if (rc < 0)
- 		return rc;
--	}
-+	if (rc == 0)
-+		return add_del_listener(info->snd_pid, &mask, DEREGISTER);
- 
- 	/*
- 	 * Size includes space for nested attributes
-_
+	<b
 
