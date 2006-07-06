@@ -1,81 +1,93 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Subject: Re: [PATCH] per-task delay accounting taskstats interface: control
-	exit data through cpumasks]
-Date: Thu, 06 Jul 2006 09:21:01 -0400
-Message-ID: <1152192061.1244.1.camel@manjushri.watson.ibm.com>
-References: <44ACD7C3.5040008@watson.ibm.com>
-	 <20060706025633.cd4b1c1d.akpm@osdl.org>
-	 <1152185865.5986.15.camel@localhost.localdomain>
-	 <20060706120835.GY14627@postel.suug.ch>
-Reply-To: nagar@watson.ibm.com
+From: "Caitlin Bestler" <caitlinb@broadcom.com>
+Subject: RE: RDMA will be reverted
+Date: Thu, 6 Jul 2006 06:26:06 -0700
+Message-ID: <54AD0F12E08D1541B826BE97C98F99F15F6122@NT-SJCA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Jay Lan <jlan@sgi.com>, pj@sgi.com,
-	Valdis.Kletnieks@vt.edu, Balbir Singh <balbir@in.ibm.com>,
-	csturtiv@sgi.com, linux-kernel <linux-kernel@vger.kernel.org>,
-	Jamal <hadi@cyberus.ca>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Tom Tucker" <tom@opengridcomputing.com>,
+	"David Miller" <davem@davemloft.net>, rdreier@cisco.com,
+	netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:24225 "EHLO e4.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1030260AbWGFNVE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 09:21:04 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060706120835.GY14627@postel.suug.ch>
+Received: from mms3.broadcom.com ([216.31.210.19]:12806 "EHLO
+	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S1030252AbWGFN0h convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jul 2006 09:26:37 -0400
+Content-class: urn:content-classes:message
+To: "Andi Kleen" <ak@suse.de>, "Andy Gay" <andy@andynet.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-07-06 at 14:08 +0200, Thomas Graf wrote:
-> * Shailabh Nagar <nagar@watson.ibm.com> 2006-07-06 07:37
-> > @@ -37,9 +45,26 @@ static struct nla_policy taskstats_cmd_g
-> >  __read_mostly = {
-> >  	[TASKSTATS_CMD_ATTR_PID]  = { .type = NLA_U32 },
-> >  	[TASKSTATS_CMD_ATTR_TGID] = { .type = NLA_U32 },
-> > +	[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK] = { .type = NLA_STRING },
-> > +	[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK] = { .type = NLA_STRING },};
+Andi Kleen wrote:
 > 
-> > +		na = info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK];
-> > +		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
-> > +			return -E2BIG;
-> > +		rc = cpulist_parse((char *)nla_data(na), mask);
+>> We're focusing on netfilter here. Is breaking netfilter really the
+>> only issue with this stuff?
 > 
-> This isn't safe, the data in the attribute is not guaranteed to be
-> NUL terminated. Still it's probably me to blame for not making
-> this more obvious in the API.
+> Another concern is that it will just not be able to keep
+> up with a high rate of new connections or a high number of them
+> (because the hardware has too limited state)
 > 
-> I've attached a patch below extending the API to make it easier
-> for interfaces using NUL termianted strings, so you'd do:
+
+Neither iWARP or an iSCSI initiator will require extremely high
+rates of connection establishment. An RNIC only establishes connections
+when its services have been explicitly requested (via use of a specific
+service).
+
+In any event, the key question here is whether integration with
+the netdevice improves things or whether the offload device should
+be "totally transparent" to the kernel. If the offload device somehow
+insisted on handling connection requests that the kernel would have
+been able to handle then this would be an issue. But the kernel is
+not currently handling RDMA Connect requests on its own, and I know
+of no-one who has suggested that a software-only implementation of
+RDMA is feasible at 10Gbit is feasible.
+
+netfiler integration is definitely something that needs to be addressed,
+but the L2/L3 integrations need to be in place first.
+
+> And then there are the other issues I listed like subtle TCP bugs
+> (TSO is already a nightmare in this area and it's still not quite
+> right) etc. 
 > 
-> [TASKSTATS_CMS_ATTR_REGISTER_CPUMASK] = { .type = NLA_NUL_STRING,
->                                           .len = TASKSTATS_CPUMASK_MAXLEN }
-> 
-> ... and then use (char *) nla_data(str_attr) without any further
-> sanity checks.
+
+Making an RNIC "fully transparent" to the kernell would require it
+to handle many L2 and L3 issues in parallel with the host stack.
+That increases the chance of a bug, or at least a subtle difference
+between the host and the RNIC which while being compliant would
+be unexpected.
+
+The purposes of the proposed patches is to enable the RNIC to be
+in full compliance with the host stack on IP layer issues.
 
 
-Thanks. That makes it much clearer. I was looking around for a "maxlen"
-attribute helper yesterday :-)
-
---Shailabh
-
 
 > 
-> [NETLINK]: Improve string attribute validation
+> It would need someone who can describe how this new RDMA device avoids
+> all the problems, but so far its advocates don't seem to be interested
+> in doing that and I cannot contribute more.
 > 
-> Introduces a new attribute type NLA_NUL_STRING to support NUL
-> terminated strings. Attributes of this kind require to carry
-> a terminating NUL within the maximum specified in the policy.
-> 
-> The `old' NLA_STRING which is not required to be NUL terminated
-> is extended to provide means to specify a maximum length of the
-> string.
-> 
-> Aims at easing the pain with using nla_strlcpy() on temporary
-> buffers.
-> 
-> The old `minlen' field is renamed to `len' for cosmetic purposes
-> which is ok since nobody was using it at this point.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-<snip>
+RDMA services are already defined for the kernel. The connection
+management and network notifier patches are about enabling RDMA
+devices to use IP addresses in a way that is consistent.
+
+Obviously doing so is more important for an iWARP device than for
+an InfiniBand device, but each InfiniBand users have expressed a
+desire to use IP addressing.
+
+Applications do not use RDMA by accident, it is a major design
+decision. Once an application uses RDMA it is no longer a direct
+consumer of the transport layer protocol. Indeed, one of the
+main objectives of the OpenFabrics stack is to enable typical
+applications to be written that will work over RDMA without
+caring what the underlying transport is. The options for control
+will still be there, but just as a sockets programmer does not
+typically care whether their IP is carried over SLIP, PPP,
+Ethernet or ATM; most RDMA developers should not have to worry
+about iWARP or InfiniBand.
+
+http://ietf.org/internet-drafts/draft-ietf-rddp-applicability-08.txt
+provides an overview on how RDMA benefits applications, and when
+applications would benefit from its use as compared to plain TCP.
 
