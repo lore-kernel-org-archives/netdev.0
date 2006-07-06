@@ -1,47 +1,28 @@
-From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Subject: Re: [PATCH] ixgb: add PCI Error recovery callbacks
-Date: Thu, 06 Jul 2006 09:21:39 +0800
-Message-ID: <1152148899.28493.168.camel@ymzhang-perf.sh.intel.com>
-References: <20060629162634.GC5472@austin.ibm.com>
-	 <1151905766.28493.129.camel@ymzhang-perf.sh.intel.com>
-	 <44ABDF87.8000801@intel.com>  <20060705194437.GJ29526@austin.ibm.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Adding new driver to ethtool
+Date: Wed, 05 Jul 2006 21:31:58 -0400
+Message-ID: <44AC680E.4020809@garzik.org>
+References: <20060705152526.eaa6a190c7abddfed9ba5ffb54cc233d.007181ed23.wbe@email.secureserver.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"bibo,mao" <bibo.mao@intel.com>,
-	Rajesh Shah <rajesh.shah@intel.com>,
-	Grant Grundler <grundler@parisc-linux.org>, akpm@osdl.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
-	netdev@vger.kernel.org, wenxiong@us.ibm.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:46999 "EHLO
-	orsmga101.jf.intel.com") by vger.kernel.org with ESMTP
-	id S965112AbWGFBXY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jul 2006 21:23:24 -0400
-To: Linas Vepstas <linas@austin.ibm.com>
-In-Reply-To: <20060705194437.GJ29526@austin.ibm.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:45729 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S965115AbWGFBcA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jul 2006 21:32:00 -0400
+To: moto@arba.com
+In-Reply-To: <20060705152526.eaa6a190c7abddfed9ba5ffb54cc233d.007181ed23.wbe@email.secureserver.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-07-06 at 03:44, Linas Vepstas wrote:
-> On Wed, Jul 05, 2006 at 08:49:27AM -0700, Auke Kok wrote:
-> > Zhang, Yanmin wrote:
-> > >On Fri, 2006-06-30 at 00:26, Linas Vepstas wrote:
-> > >>Adds PCI Error recovery callbacks to the Intel 10-gigabit ethernet
-> > >>ixgb device driver. Lightly tested, works.
-> > >
-> > >Both pci_disable_device and ixgb_down would access the device. It doesn't
-> > >follow Documentation/pci-error-recovery.txt that error_detected shouldn't 
-> > >do
-> > >any access to the device.
-> > 
-> > Moreover, it was Linas who wrote this documentation in the first place :)
-> 
-> On the pSeries, its harmless to try to do i/o; the i/o will e blocked.
-In the future, we might move the pci error recovery codes to generic to
-support other platforms which might not block I/O. So it's better to follow
-Documentation/pci-error-recovery.txt when adding error recovery codes into driver.
+moto@arba.com wrote:
+> For a newbee future contributor: is there a cheatsheet on how to submit
+> an addition to the ethtool for a new device (driver) support?
+
+Just submit a patch...
+
+	Jeff
+
+
+
