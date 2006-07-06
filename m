@@ -1,204 +1,78 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Subject: Re: [PATCH] per-task delay accounting taskstats interface: control
-	exit data through cpumasks]
-Date: Thu, 06 Jul 2006 06:44:14 -0400
-Message-ID: <1152182654.3896.12.camel@manjushri.watson.ibm.com>
-References: <44ACD7C3.5040008@watson.ibm.com>
-	 <20060706025633.cd4b1c1d.akpm@osdl.org>
-Reply-To: nagar@watson.ibm.com
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH][ebtables][vlan] ebt_vlan_t target
+Date: Thu, 6 Jul 2006 13:15:16 +0200
+Message-ID: <200607061315.17109.netdev@axxeo.de>
+References: <200607052149.16473.dpc@asn.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jlan@sgi.com, pj@sgi.com, Valdis.Kletnieks@vt.edu,
-	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
-	hadi@cyberus.ca, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965193AbWGFKoT@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060706025633.cd4b1c1d.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.axxeo.de ([82.100.226.146]:35998 "EHLO mail.axxeo.de")
+	by vger.kernel.org with ESMTP id S932309AbWGFLPX convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jul 2006 07:15:23 -0400
+To: Dawid =?utf-8?q?Ci=C4=99=C5=BCarkiewicz?= <dpc@asn.pl>
+In-Reply-To: <200607052149.16473.dpc@asn.pl>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-07-06 at 02:56 -0700, Andrew Morton wrote:
-> On Thu, 06 Jul 2006 05:28:35 -0400
-> Shailabh Nagar <nagar@watson.ibm.com> wrote:
-> 
-> > On systems with a large number of cpus, with even a modest rate of
-> > tasks exiting per cpu, the volume of taskstats data sent on thread exit
-> > can overflow a userspace listener's buffers.
-> > 
-> > One approach to avoiding overflow is to allow listeners to get data for
-> > a limited and specific set of cpus. By scaling the number of listeners
-> > and/or the cpus they monitor, userspace can handle the statistical data
-> > overload more gracefully.
-> > 
-> > In this patch, each listener registers to listen to a specific set of
-> > cpus by specifying a cpumask.  The interest is recorded per-cpu. When
-> > a task exits on a cpu, its taskstats data is unicast to each listener
-> > interested in that cpu.
-> > 
-> > Thanks to Andrew Morton for pointing out the various scalability and
-> > general concerns of previous attempts and for suggesting this design.
-> > 
-> > ...
-> >
-> > --- linux-2.6.17-mm3equiv.orig/include/linux/taskstats.h	2006-06-30 19:03:40.000000000 -0400
-> > +++ linux-2.6.17-mm3equiv/include/linux/taskstats.h	2006-07-06 02:38:28.000000000 -0400
-> 
-> Your email client performs space-stuffing.  Fortunately "sed -e 's/^  / /'"
-> is easy.
-> 
-> >   #include <linux/taskstats_kern.h>
-> >   #include <linux/delayacct.h>
-> > +#include <linux/cpumask.h>
-> > +#include <linux/percpu.h>
-> >   #include <net/genetlink.h>
-> >   #include <asm/atomic.h>
-> 
-> Like that.
+Hi Dawid,
 
-Sorry. First the text breaking and now patch mangling....I'll switch
-mail clients.
-> 
-> > 
-> > +static int add_del_listener(pid_t pid, cpumask_t *maskp, int isadd)
-> > +{
-> > +	struct listener *s;
-> > +	struct listener_list *listeners;
-> > +	unsigned int cpu;
-> > +	cpumask_t mask;
-> > +	struct list_head *p;
-> > +
-> > +	memcpy(&mask, maskp, sizeof(cpumask_t));
-> 
-> 	mask = *maskp; ?
+Dawid Ci=C4=99=C5=BCarkiewicz schrieb:
+>  my name is Dawid Ciezarkiewicz. As a part of my daily job I was to w=
+rite=20
+> kernel module for ebtables to let linux bridges change vlan ids in fl=
+y using=20
+> logic provided by ebtables matches. After hours of tries and kernel l=
+earning,=20
+> reading and googlin' I've finally come to the place where I've got wo=
+rking=20
+> module that does what I want. I'm looking for comments of more advanc=
+ed linux=20
+> developers. Please note that this is my first linux patch I've ever m=
+ade.=20
 
-Yes.
+=46irst of all:=20
+	You should not implemented "--vlan-target".=20
+	Always return EBT_CONTINUE. That saves a lot of (duplicated) code
+	(you can express the same using some more rules) while keeping=20
+	the same flexibility level. Rules for transforming/mangling=20
+	and decision rules should be seperate.
 
-> 
-> > +	if (!cpus_subset(mask, cpu_possible_map))
-> > +		return -EINVAL;
-> > +
-> > +	if (isadd == REGISTER) {
-> > +		for_each_cpu_mask(cpu, mask) {
-> > +			s = kmalloc_node(sizeof(struct listener), GFP_KERNEL,
-> > +					 cpu_to_node(cpu));
-> > +			if (!s)
-> > +				return -ENOMEM;
-> > +			s->pid = pid;
-> > +			INIT_LIST_HEAD(&s->list);
-> > +
-> > +			listeners = &per_cpu(listener_array, cpu);
-> > +			down_write(&listeners->sem);
-> > +			list_add(&s->list, &listeners->list);
-> > +			up_write(&listeners->sem);
-> > +		}
-> > +	} else {
-> > +		for_each_cpu_mask(cpu, mask) {
-> > +			struct list_head *tmp;
-> > +
-> > +			listeners = &per_cpu(listener_array, cpu);
-> > +			down_write(&listeners->sem);
-> > +			list_for_each_safe(p, tmp, &listeners->list) {
-> > +				s = list_entry(p, struct listener, list);
-> > +				if (s->pid == pid) {
-> > +					list_del(&s->list);
-> > +					kfree(s);
-> > +					break;
-> > +				}
-> > +			}
-> > +			up_write(&listeners->sem);
-> > +		}
-> > +	}
-> > +	return 0;
-> > +}
-> 
-> You might choose to handle the ENOMEM situation here by backing out and not
-> leaving things half-installed.  I suspect that's just a simple `goto'.
 
-Will do. 
+> diff -Nur linux-2.6.17.orig/net/bridge/netfilter/Kconfig=20
+> linux-2.6.17/net/bridge/netfilter/Kconfig
+> --- linux-2.6.17.orig/net/bridge/netfilter/Kconfig	2006-06-18=20
+> 03:49:35.000000000 +0200
+> +++ linux-2.6.17/net/bridge/netfilter/Kconfig	2006-06-28 20:48:27.000=
+000000=20
+> +0200
+> @@ -165,6 +165,15 @@
+>=20
+>  	  To compile it as a module, choose M here.  If unsure, say N.
+>=20
+> +config BRIDGE_EBT_VLAN_T
+> +	tristate "ebt: vlan target support"
+> +	depends on BRIDGE_NF_EBTABLES
+> +	help
+> +	  This option adds the vlan target.
+> +
+> +	  To compile it as a module, choose M here.  If unsure, say N.
+> +
+> +
 
-> 
-> > -static int taskstats_send_stats(struct sk_buff *skb, struct genl_info *info)
-> > +static int taskstats_user_cmd(struct sk_buff *skb, struct genl_info *info)
-> >   {
-> >   	int rc = 0;
-> >   	struct sk_buff *rep_skb;
-> > @@ -210,6 +302,25 @@ static int taskstats_send_stats(struct s
-> >   	void *reply;
-> >   	size_t size;
-> >   	struct nlattr *na;
-> > +	cpumask_t mask;
-> 
-> When counting add_del_listener(), that's two cpumasks on the stack.  How
-> big can these get?  256 bytes?  Is it possible to get by with just the one?
+Please put your nice explanations "to change vlan ids in fly" from your=
+ email here.
 
-For 1024 cpus, 128 bytes. All the cpumask functions seem to need the
-mask (though they internally use the address). Will try to see if I can
-reduce.
-> 
-> > +
-> > +	if (info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK]) {
-> > +		na = info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK];
-> > +		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
-> > +			return -E2BIG;
-> > +		cpulist_parse((char *)nla_data(na), mask);
-> 
-> Best check the return value from this function.
+And short ebtables example for the common use case might help, too. But=
+ only,
+if it is not more than two lines or such. Otherwise omit it.
 
-Oops.
+I cannot comment on rest of the patch and hope other people will do :-)
 
-> 
-> > +		rc = add_del_listener(info->snd_pid, &mask, REGISTER);
-> > +		return rc;
-> > +	}
-> > +
-> > +	if (info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK]) {
-> > +		na = info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK];
-> > +		if (nla_len(na) > TASKSTATS_CPUMASK_MAXLEN)
-> > +			return -E2BIG;
-> > +		cpulist_parse((char *)nla_data(na), mask);
-> > +		rc = add_del_listener(info->snd_pid, &mask, DEREGISTER);
-> > +		return rc;
-> > +	}
-> > 
-> > ...
-> > 
-> > +void taskstats_exit_alloc(struct taskstats **ptidstats, unsigned int *mycpu)
-> > +{
-> > +	struct listener_list *listeners;
-> > +	struct taskstats *tmp;
-> > +	/*
-> > +	 * This is the cpu on which the task is exiting currently and will
-> > +	 * be the one for which the exit event is sent, even if the cpu
-> > +	 * on which this function is running changes later.
-> > +	 */
-> > +	*mycpu = raw_smp_processor_id();
-> > +
-> > +	*ptidstats = NULL;
-> > +	tmp = kmem_cache_zalloc(taskstats_cache, SLAB_KERNEL);
-> > +	if (!tmp)
-> > +		return;
-> > +
-> > +	listeners = &per_cpu(listener_array, *mycpu);
-> > +	down_read(&listeners->sem);
-> > +	if (!list_empty(&listeners->list)) {
-> > +		*ptidstats = tmp;
-> > +		tmp = NULL;
-> > +	}
-> > +	up_read(&listeners->sem);
-> > +	if (tmp)
-> > +		kfree(tmp);
-> 
-> kfree(NULL) is legal.
 
-Aha. Didn't remember that.
-> 
-> 
-> Looks good to me.  Does it work?
+Regards
 
-Yes, though ts only been run on a single cpu so far but the 
-blocking of sends without a registered listener,
-registration/deregistration etc. is all working (confirmed by printing
-out the registered list of pids etc.). Stability is also fine so far.
-
---Shailabh
+Ingo Oeser
