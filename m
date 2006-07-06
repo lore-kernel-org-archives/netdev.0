@@ -1,61 +1,28 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [PKT_SCHED]: Return ENOENT if qdisc module is unavailable
-Date: Thu, 06 Jul 2006 08:40:17 -0400
-Message-ID: <1152189617.5103.25.camel@jzny2>
-Reply-To: hadi@cyberus.ca
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 0/3] Action API fixes
+Date: Thu, 6 Jul 2006 14:45:39 +0200
+Message-ID: <20060706124539.GZ14627@postel.suug.ch>
+References: <20060704220504.787776000@postel.suug.ch> <20060705.204751.112605889.davem@davemloft.net> <1152187428.5103.6.camel@jzny2> <1152188854.5103.17.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-m/l5quBsf+IPECcNw3tN"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:45242 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S965025AbWGFMkU
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jul 2006 08:40:20 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1FyT9a-0007WH-IV
-	for netdev@vger.kernel.org; Thu, 06 Jul 2006 08:40:22 -0400
-To: David Miller <davem@davemloft.net>
+Received: from postel.suug.ch ([194.88.212.233]:34695 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S965190AbWGFMpT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 08:45:19 -0400
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1152188854.5103.17.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+* jamal <hadi@cyberus.ca> 2006-07-06 08:27
+> 
+> The proper patch is attached as a replacement for 
+> "[PATCH 3/3] [PKT_SCHED]: Fix error handling while dumping action"
+> from Thomas. 
+> If you have already submitted it, then i will send a patch against it.
 
---=-m/l5quBsf+IPECcNw3tN
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-
-
-And this is similar to Thomas' patch 2/3 that i pointed out in the
-email.
-It is not intended for stable, so a latter -rc or even 2.6.18
-
-cheers,
-jamal
-
---=-m/l5quBsf+IPECcNw3tN
-Content-Disposition: attachment; filename=sch-ne
-Content-Type: text/plain; name=sch-ne; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-
-
-Return ENOENT if qdisc module is unavailable
-
-Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-
----
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 31570b9..44724c6 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -431,7 +431,7 @@ #ifdef CONFIG_KMOD
- 	}
- #endif
- 
--	err = -EINVAL;
-+	err = -ENOENT;
- 	if (ops == NULL)
- 		goto err_out;
- 
-
---=-m/l5quBsf+IPECcNw3tN--
-
+I don't understand why you're picky about this but if you really
+want to then do it properly and remove the now unused err variable,
+don't leave obscure code behind again.
