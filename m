@@ -1,40 +1,68 @@
-From: Tom Tucker <tom@opengridcomputing.com>
-Subject: Re: RDMA will be reverted
-Date: Thu, 06 Jul 2006 12:36:24 -0500
-Message-ID: <1152207384.20248.104.camel@trinity.ogc.int>
-References: <E1FyUX2-0007Gm-00@gondolin.me.apana.org.au>
+From: Auke Kok <sofar@foo-projects.org>
+Subject: Re: [PATCH] ixgb: add PCI Error recovery callbacks
+Date: Thu, 06 Jul 2006 11:01:35 -0700
+Message-ID: <44AD4FFF.4080204@foo-projects.org>
+References: <20060629162634.GC5472@austin.ibm.com> <1151905766.28493.129.camel@ymzhang-perf.sh.intel.com> <44ABDF87.8000801@intel.com> <20060705194437.GJ29526@austin.ibm.com> <1152148899.28493.168.camel@ymzhang-perf.sh.intel.com> <20060706161640.GT29526@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, rdreier@cisco.com, netdev@vger.kernel.org,
-	akpm@osdl.org
+Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"bibo,mao" <bibo.mao@intel.com>,
+	Rajesh Shah <rajesh.shah@intel.com>,
+	Grant Grundler <grundler@parisc-linux.org>, akpm@osdl.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	linux-pci maillist <linux-pci@atrey.karlin.mff.cuni.cz>,
+	netdev@vger.kernel.org, wenxiong@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from es335.com ([67.65.19.105]:54870 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S1030336AbWGFRg2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 13:36:28 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1FyUX2-0007Gm-00@gondolin.me.apana.org.au>
+Received: from mga07.intel.com ([143.182.124.22]:49796 "EHLO
+	azsmga101.ch.intel.com") by vger.kernel.org with ESMTP
+	id S1750711AbWGFSMJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jul 2006 14:12:09 -0400
+To: Linas Vepstas <linas@austin.ibm.com>
+In-Reply-To: <20060706161640.GT29526@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-07-07 at 00:08 +1000, Herbert Xu wrote:
-> Tom Tucker <tom@opengridcomputing.com> wrote:
-> > 
-> > All that said, the proposed patch helps not only iWARP, but other
-> > transports (iSCSI, IB) as well. It is not large, invasive,
+Linas Vepstas wrote:
+> On Thu, Jul 06, 2006 at 09:21:39AM +0800, Zhang, Yanmin wrote:
+>> On Thu, 2006-07-06 at 03:44, Linas Vepstas wrote:
+>>> On Wed, Jul 05, 2006 at 08:49:27AM -0700, Auke Kok wrote:
+>>>> Zhang, Yanmin wrote:
+>>>>> On Fri, 2006-06-30 at 00:26, Linas Vepstas wrote:
+>>>>>> Adds PCI Error recovery callbacks to the Intel 10-gigabit ethernet
+>>>>>> ixgb device driver. Lightly tested, works.
+>>>>> Both pci_disable_device and ixgb_down would access the device. It doesn't
+>>>>> follow Documentation/pci-error-recovery.txt that error_detected shouldn't 
+>>>>> do
+>>>>> any access to the device.
+>>>> Moreover, it was Linas who wrote this documentation in the first place :)
+>>> On the pSeries, its harmless to try to do i/o; the i/o will e blocked.
+>> In the future, we might move the pci error recovery codes to generic to
+>> support other platforms which might not block I/O. So it's better to follow
+>> Documentation/pci-error-recovery.txt when adding error recovery codes into driver.
 > 
-> Care to explain on how it helps those other technologies?
-
-The RDMA CMA uses IP addresses and port numbers to create a uniform
-addressing scheme across all transport types. For IB, it is necessary to
-resolve IP addresses to IB GIDs. The ARP protocol is used to do this and
-a netfilter rule is installed to snoop the incoming ARP replies. This
-would not be necessary if ARP events were provided as in the patch. 
-
-Unified wire iSCSI adapters have the same issue as iWARP wrt to managing
-IP addresses and ports.
-
-
+> Or we could change the documentation. The point was that doing
+> unexpected i/o after the aapter reset is likely to wedge the adapter
+> again, leading to an inf loop of resets. As a practical matter, 
+> I found that, while developing this patch, and the other related
+> patches, that this was indeed the usual failure mode: incorrect bringup
+> just lead to more errors.
 > 
-> Cheers,
+> What I really want to do is to perform as clean a shut-down as possible, 
+> reset the adapter, and then bring it back up.  I'm concerned that changing 
+> the order to "reset"-"shutdown-"bringup" would be inappropriate.
+> 
+> Perhaps the right fix is to figure out what parts of the driver do i/o
+> during shutdown, and then add a line "if(wedged) skip i/o;" to those
+> places?
 
+that would be relatively simple if we can check a flag (?) somewhere that 
+signifies that we've encountered a pci error. We basically only need to skip 
+out after e1000_reset and bypass e1000_irq_disable in e1000_down() then.
+
+Does the pci error recovery code give us such a flag?
+
+Auke
