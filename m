@@ -1,41 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]NET: Add ECN support for TSO
-Date: Fri, 07 Jul 2006 15:52:00 -0700 (PDT)
-Message-ID: <20060707.155200.78471289.davem@davemloft.net>
-References: <1551EAE59135BE47B544934E30FC4FC041BD9C@NT-IRVA-0751.brcm.ad.broadcom.com>
-	<20060707.145932.66155147.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2/2] correct dev_alloc_skb kerneldoc
+Date: Fri, 7 Jul 2006 15:52:55 -0700
+Message-ID: <20060707155255.10f2e10f@dxpl.pdx.osdl.net>
+References: <20060707090956.GA2543@lst.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ravinandan.arakali@neterion.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:47570
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932366AbWGGWvb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 18:51:31 -0400
-To: mchan@broadcom.com
-In-Reply-To: <20060707.145932.66155147.davem@davemloft.net>
+Received: from smtp.osdl.org ([65.172.181.4]:40105 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751018AbWGGWxB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 18:53:01 -0400
+To: Christoph Hellwig <hch@lst.de>
+In-Reply-To: <20060707090956.GA2543@lst.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 07 Jul 2006 14:59:32 -0700 (PDT)
+On Fri, 7 Jul 2006 11:09:57 +0200
+Christoph Hellwig <hch@lst.de> wrote:
 
-> From: "Michael Chan" <mchan@broadcom.com>
-> Date: Fri, 7 Jul 2006 13:57:11 -0700
+> dev_alloc_skb is designated for RX descriptors, not TX.  (Some drivers
+> use it for the latter anyway, but that's a different story)
 > 
-> > RFC3540 is still experimental I believe and it is not implemented
-> > in the Linux stack.  Even if it is implemented and the NS bit is set,
-> > I think the TSO logic can simply replicate the NS bit as each TSO
-> > divided segment contains the same acknowledgement information from
-> > the original super segment.
-> > 
-> > We should hear Herbert, David, or others' opinions on this.
 > 
-> I'm studying the RFC right now just to make sure your assesment is
-> accurate.  It probably is :)
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> 
+> Index: linux-2.6/include/linux/skbuff.h
+> ===================================================================
+> --- linux-2.6.orig/include/linux/skbuff.h	2006-07-07 11:05:30.000000000 +0200
+> +++ linux-2.6/include/linux/skbuff.h	2006-07-07 11:06:31.000000000 +0200
+> @@ -1067,7 +1067,7 @@
+>  }
+>  
+>  /**
+> - *	__dev_alloc_skb - allocate an skbuff for sending
+> + *	__dev_alloc_skb - allocate an skbuff for receiving
+>   *	@length: length to allocate
+>   *	@gfp_mask: get_free_pages mask, passed to alloc_skb
+>   *
+> @@ -1088,7 +1088,7 @@
+>  }
+>  
+>  /**
+> - *	dev_alloc_skb - allocate an skbuff for sending
+> + *	dev_alloc_skb - allocate an skbuff for receiving
+>   *	@length: length to allocate
+>   *
+>   *	Allocate a new &sk_buff and assign it a usage count of one. The
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Ok, this is correct.  TSO should simply replicate the NS bit
-because the cumulative ACK is going to be the same in each
-and every packet emitted.
+What is the point of dev_alloc_skb anyway? all it does is add header space.
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
+Quis custodiet ipsos custodes?
