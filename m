@@ -1,78 +1,30 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [patch 2/2] lockdep: fix sk_dst_check() deadlock
-Date: Fri, 7 Jul 2006 09:34:25 +0200
-Message-ID: <20060707073425.GA4640@elte.hu>
-References: <200607070659.k676xAZ5030445@shell0.pdx.osdl.net>
+From: Andrey Savochkin <saw@swsoft.com>
+Subject: Re: [patch 1/7] net_device list cleanup: core
+Date: Fri, 7 Jul 2006 11:54:25 +0400
+Message-ID: <20060707115425.A28991@castle.nmd.msu.ru>
+References: <20060630150823.A22285@castle.nmd.msu.ru> <20060707.133434.125915077.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, arjan@linux.intel.com,
-	herbert@gondor.apana.org.au, jeff@garzik.org
+Cc: netdev@vger.kernel.org, dev@openvz.org, ebiederm@xmission.com,
+	kuznet@ms2.inr.ac.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:55694 "EHLO mx2.mail.elte.hu")
-	by vger.kernel.org with ESMTP id S1750846AbWGGHjU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 03:39:20 -0400
-To: akpm@osdl.org
-Content-Disposition: inline
-In-Reply-To: <200607070659.k676xAZ5030445@shell0.pdx.osdl.net>
+Received: from castle.nmd.msu.ru ([193.232.112.53]:7946 "HELO
+	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1750957AbWGGHy2
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 03:54:28 -0400
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@?\(B" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20060707.133434.125915077.yoshfuji@linux-ipv6.org>; from "YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B" on Fri, Jul 07, 2006 at 01:34:34PM
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-the correct Subject of the patch is:
-
-  Subject: lockdep: annotate __icmpv6_socket
-
-	Ingo
-
-* akpm@osdl.org <akpm@osdl.org> wrote:
-
-> From: Ingo Molnar <mingo@elte.hu>
+On Fri, Jul 07, 2006 at 01:34:34PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B wrote:
+> In article <20060630150823.A22285@castle.nmd.msu.ru> (at Mon, 3 Jul 2006 12:18:51 +0400), Andrey Savochkin <saw@swsoft.com> says:
 > 
-> Split off __icmpv6_socket's sk->sk_dst_lock class, because it gets used
-> from softirqs, which is safe for __icmpv6_sockets (because they never get
-> directly used via userspace syscalls), but unsafe for normal sockets.
+> > @@ -3271,22 +3277,22 @@ int unregister_netdevice(struct net_devi
+> >  
+> >  	/* And unlink it from device chain. */
+> >  	for (dp = &dev_base; (d = *dp) != NULL; dp = &d->next) {
 > 
-> Has no effect on non-lockdep kernels.
-> 
-> Signed-off-by: Ingo Molnar <mingo@elte.hu>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Cc: Arjan van de Ven <arjan@linux.intel.com>
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-> Signed-off-by: Andrew Morton <akpm@osdl.org>
-> ---
-> 
->  net/ipv6/icmp.c |   13 +++++++++++++
->  1 files changed, 13 insertions(+)
-> 
-> diff -puN net/ipv6/icmp.c~lockdep-fix-sk_dst_check-deadlock net/ipv6/icmp.c
-> --- a/net/ipv6/icmp.c~lockdep-fix-sk_dst_check-deadlock
-> +++ a/net/ipv6/icmp.c
-> @@ -712,6 +712,11 @@ discard_it:
->  	return 0;
->  }
->  
-> +/*
-> + * Special lock-class for __icmpv6_socket:
-> + */
-> +static struct lock_class_key icmpv6_socket_sk_dst_lock_key;
-> +
->  int __init icmpv6_init(struct net_proto_family *ops)
->  {
->  	struct sock *sk;
-> @@ -730,6 +735,14 @@ int __init icmpv6_init(struct net_proto_
->  
->  		sk = per_cpu(__icmpv6_socket, i)->sk;
->  		sk->sk_allocation = GFP_ATOMIC;
-> +		/*
-> +		 * Split off their lock-class, because sk->sk_dst_lock
-> +		 * gets used from softirqs, which is safe for
-> +		 * __icmpv6_socket (because those never get directly used
-> +		 * via userspace syscalls), but unsafe for normal sockets.
-> +		 */
-> +		lockdep_set_class(&sk->sk_dst_lock,
-> +				  &icmpv6_socket_sk_dst_lock_key);
->  
->  		/* Enough space for 2 64K ICMP packets, including
->  		 * sk_buff struct overhead.
-> _
+> Why not for_each_netdev?
+
+it's a different list
