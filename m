@@ -1,40 +1,31 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH] tg3: add amd8131 to "write reorder" chipsets
-Date: Fri, 7 Jul 2006 14:58:36 -0400
-Message-ID: <20060707185831.GC22636@tuxdriver.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: more rc1 lockdep fun.
+Date: Fri, 07 Jul 2006 21:03:35 +0200
+Message-ID: <1152299015.3111.138.camel@laptopd505.fenrus.org>
+References: <20060707185848.GA5818@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3333 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S932256AbWGGS6v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 14:58:51 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from pentafluge.infradead.org ([213.146.154.40]:51929 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1750800AbWGGTDh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 15:03:37 -0400
+To: Dave Jones <davej@redhat.com>
+In-Reply-To: <20060707185848.GA5818@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add the AMD 8131 bridge to the list of chipsets that reorder writes.
+On Fri, 2006-07-07 at 14:58 -0400, Dave Jones wrote:
+> =======================================================
+> [ INFO: possible circular locking dependency detected ]
+> -------------------------------------------------------
+> gnome-settings-/3278 is trying to acquire lock:
+>  (sk_lock-AF_INET){--..}, at: [<ffffffff8022800c>] tcp_sendmsg+0x1f/0xb1a
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
 
- drivers/net/tg3.c |    2 ++
- 1 files changed, 2 insertions(+)
+this appears to be the same one as the "mc" one I just looked at.
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index f645921..ce6f3be 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -10078,6 +10078,8 @@ static int __devinit tg3_get_invariants(
- 	static struct pci_device_id write_reorder_chipsets[] = {
- 		{ PCI_DEVICE(PCI_VENDOR_ID_AMD,
- 		             PCI_DEVICE_ID_AMD_FE_GATE_700C) },
-+		{ PCI_DEVICE(PCI_VENDOR_ID_AMD,
-+		             PCI_DEVICE_ID_AMD_8131_BRIDGE) },
- 		{ PCI_DEVICE(PCI_VENDOR_ID_VIA,
- 			     PCI_DEVICE_ID_VIA_8385_0) },
- 		{ },
--- 
-John W. Linville
-linville@tuxdriver.com
+
