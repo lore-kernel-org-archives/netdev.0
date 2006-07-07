@@ -1,66 +1,44 @@
-From: Marcus Better <marcus@better.se>
-Subject: Re: rtl8139: NETDEV WATCHDOG: eth0: transmit timed out
-Date: Fri, 07 Jul 2006 18:32:59 +0200
-Message-ID: <44AE8CBB.4070409@better.se>
-References: <e82qhq$4v0$1@sea.gmane.org> <20060630211604.GA5302@electric-eye.fr.zoreil.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [patch 1/7] net_device list cleanup: core
+Date: Sat, 08 Jul 2006 01:48:13 +0900 (JST)
+Message-ID: <20060708.014813.119417005.yoshfuji@linux-ipv6.org>
+References: <20060630150823.A22285@castle.nmd.msu.ru>
+	<20060707.133434.125915077.yoshfuji@linux-ipv6.org>
+	<20060707115425.A28991@castle.nmd.msu.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Alan Hourihane <alanh@tungstengraphics.com>,
-	dri-devel@lists.sourceforge.net, Dave Airlie <airlied@linux.ie>
+Cc: netdev@vger.kernel.org, dev@openvz.org, ebiederm@xmission.com,
+	kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxfep01.bredband.com ([195.54.107.70]:37001 "EHLO
-	mxfep01.bredband.com") by vger.kernel.org with ESMTP
-	id S932205AbWGGQdL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 12:33:11 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060630211604.GA5302@electric-eye.fr.zoreil.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:24337 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S932218AbWGGQrH
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 12:47:07 -0400
+To: saw@swsoft.com
+In-Reply-To: <20060707115425.A28991@castle.nmd.msu.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+In article <20060707115425.A28991@castle.nmd.msu.ru> (at Fri, 7 Jul 2006 11:54:25 +0400), Andrey Savochkin <saw@swsoft.com> says:
 
-(For those haven't followed, this is about
-  http://permalink.gmane.org/gmane.linux.network/38493
-)
+> On Fri, Jul 07, 2006 at 01:34:34PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B wrote:
+> > In article <20060630150823.A22285@castle.nmd.msu.ru> (at Mon, 3 Jul 2006 12:18:51 +0400), Andrey Savochkin <saw@swsoft.com> says:
+> > 
+> > > @@ -3271,22 +3277,22 @@ int unregister_netdevice(struct net_devi
+> > >  
+> > >  	/* And unlink it from device chain. */
+> > >  	for (dp = &dev_base; (d = *dp) != NULL; dp = &d->next) {
+> > 
+> > Why not for_each_netdev?
+> 
+> it's a different list
 
-Francois Romieu wrote:
-> Marcus Better <marcus@better.se> :
->> I'm seeing this problem on my Acer Travelmate 223X laptop with built-in
->> Realtek 8139: The ethernet stops working, usually after at most a few
->> minutes operation.
+Sorry, I still do not understand.
+In other words, why will we still have dev->next?
+After introducing net_device->dev_list, we do not need
+dev->next anymore, do we?
 
-> In a better world, you would narrow the suspect with a git bissect [1]
-> between v2.6.15 and v2.6.16.
+--yoshfuji
 
-I did, and the winner after 13 reboots is...
-
-commit de227f5f32775d86e5c780a7cffdd2e08574f7fb
-Author: Dave Airlie <airlied@starflyer.(none)>
-Date:   Wed Jan 25 15:31:43 2006 +1100
-
-    drm: i915 patches from Tungsten Graphics
-
-    Fix CMDBUFFER path, add heap destroy and flesh out sarea for rotation
-    (Tungsten Graphics)
-
-    From: Alan Hourihane <alanh@tungstengraphics.com>
-    Signed-off-by: Dave Airlie <airlied@linux.ie>
-
-
-I didn't believe it at first either, but blacklisting the i915 module
-actually fixes the problem. Now that I know what to look for, I notice
-that the network errors always started cropping up after X11 started.
-
-Wonder what's going on here. Why is the graphics driver killing my network?
-
-Marcus
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.3 (GNU/Linux)
-
-iD8DBQFEroy7XjXn6TzcAQkRAp7bAJ9F7HgWg+VsvQ0fwkK3+b4Ne+tASwCg8+m3
-8i5BoW+ujUjoX3DLW0QKAPQ=
-=MDAc
------END PGP SIGNATURE-----
