@@ -1,36 +1,25 @@
 From: akpm@osdl.org
-Subject: [patch 5/9] lockdep: fix atm/ipcommon.c deadlock
-Date: Thu, 06 Jul 2006 23:58:24 -0700
-Message-ID: <200607070658.k676wPcS030374@shell0.pdx.osdl.net>
+Subject: [patch 6/9] lockdep: annotate 8390.c disable_irq(), #2
+Date: Thu, 06 Jul 2006 23:58:25 -0700
+Message-ID: <200607070658.k676wPqM030377@shell0.pdx.osdl.net>
 Cc: netdev@vger.kernel.org, akpm@osdl.org, arjan@linux.intel.com,
 	davem@davemloft.net, mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:14786 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751225AbWGGG6t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 02:58:49 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:18882 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751224AbWGGG64 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 02:58:56 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Arjan van de Ven <arjan@linux.intel.com>
 
-> Linux version 2.6.17-git22 (duncan@baldrick) (gcc version 4.0.3 (Ubuntu 4.0.3-1ubuntu5)) #20 PREEMPT Tue Jul 4 10:35:04 CEST 2006
->
-> [ 2381.598609] =============================================
-> [ 2381.619314] [ INFO: possible recursive locking detected ]
-> [ 2381.635497] ---------------------------------------------
-> [ 2381.651706] atmarpd/2696 is trying to acquire lock:
-> [ 2381.666354]  (&skb_queue_lock_key){-+..}, at: [<c028c540>] skb_migrate+0x24/0x6c
-> [ 2381.688848]
+The ne2000 drivers use disable_irq as a poor mans locking construct; make
+sure lockdep knows about these.
 
-ok this is a real potential deadlock in a way, it takes two locks of 2
-skbuffs without doing any kind of lock ordering; I think the following
-patch should fix it. Just sort the lock taking order by address of the
-skb.. it's not pretty but it's the best this can do in a minimally
-invasive way.
-
-I still agree with the comment that this code shouldn't live in the atm
-layer...
+NOTE NOTE: the ne2000 driver calls these *from interrupt context*.  That's
+a new situation that needs to be analyzed for correctness still; it feels
+really wrong to me (but then again so does disable_irq() tricks in general)
 
 Signed-off-by: Arjan van de Ven <arjan@linux.intel.com>
 Signed-off-by: Ingo Molnar <mingo@elte.hu>
@@ -39,37 +28,49 @@ Cc: Jeff Garzik <jeff@garzik.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- net/atm/ipcommon.c |   13 +++++++++----
- 1 files changed, 9 insertions(+), 4 deletions(-)
+ drivers/net/8390.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff -puN net/atm/ipcommon.c~lockdep-fix-atm-ipcommonc-deadlock net/atm/ipcommon.c
---- a/net/atm/ipcommon.c~lockdep-fix-atm-ipcommonc-deadlock
-+++ a/net/atm/ipcommon.c
-@@ -25,8 +25,8 @@
- /*
-  * skb_migrate appends the list at "from" to "to", emptying "from" in the
-  * process. skb_migrate is atomic with respect to all other skb operations on
-- * "from" and "to". Note that it locks both lists at the same time, so beware
-- * of potential deadlocks.
-+ * "from" and "to". Note that it locks both lists at the same time, so to deal
-+ * with the lock ordering, the locks are taken in address order.
-  *
-  * This function should live in skbuff.c or skbuff.h.
-  */
-@@ -39,8 +39,13 @@ void skb_migrate(struct sk_buff_head *fr
- 	struct sk_buff *skb_to = (struct sk_buff *) to;
- 	struct sk_buff *prev;
+diff -puN drivers/net/8390.c~lockdep-annotate-8390c-disable_irq-2 drivers/net/8390.c
+--- a/drivers/net/8390.c~lockdep-annotate-8390c-disable_irq-2
++++ a/drivers/net/8390.c
+@@ -299,7 +299,7 @@ static int ei_start_xmit(struct sk_buff 
+ 	 *	Slow phase with lock held.
+ 	 */
+ 	 
+-	disable_irq_nosync(dev->irq);
++	disable_irq_nosync_lockdep(dev->irq);
+ 	
+ 	spin_lock(&ei_local->page_lock);
+ 	
+@@ -338,7 +338,7 @@ static int ei_start_xmit(struct sk_buff 
+ 		netif_stop_queue(dev);
+ 		outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+ 		spin_unlock(&ei_local->page_lock);
+-		enable_irq(dev->irq);
++		enable_irq_lockdep(dev->irq);
+ 		ei_local->stat.tx_errors++;
+ 		return 1;
+ 	}
+@@ -379,7 +379,7 @@ static int ei_start_xmit(struct sk_buff 
+ 	outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+ 	
+ 	spin_unlock(&ei_local->page_lock);
+-	enable_irq(dev->irq);
++	enable_irq_lockdep(dev->irq);
  
--	spin_lock_irqsave(&from->lock,flags);
--	spin_lock(&to->lock);
-+	if (from < to) {
-+		spin_lock_irqsave(&from->lock,flags);
-+		spin_lock_nested(&to->lock, SINGLE_DEPTH_NESTING);
-+	} else {
-+		spin_lock_irqsave(&to->lock, flags);
-+		spin_lock_nested(&from->lock, SINGLE_DEPTH_NESTING);
-+	}
- 	prev = from->prev;
- 	from->next->prev = to->prev;
- 	prev->next = skb_to;
+ 	dev_kfree_skb (skb);
+ 	ei_local->stat.tx_bytes += send_length;
+@@ -505,9 +505,9 @@ irqreturn_t ei_interrupt(int irq, void *
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ void ei_poll(struct net_device *dev)
+ {
+-	disable_irq(dev->irq);
++	disable_irq_lockdep(dev->irq);
+ 	ei_interrupt(dev->irq, dev, NULL);
+-	enable_irq(dev->irq);
++	enable_irq_lockdep(dev->irq);
+ }
+ #endif
+ 
 _
