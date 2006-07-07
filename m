@@ -1,59 +1,41 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2/2] correct dev_alloc_skb kerneldoc
-Date: Fri, 7 Jul 2006 15:52:55 -0700
-Message-ID: <20060707155255.10f2e10f@dxpl.pdx.osdl.net>
-References: <20060707090956.GA2543@lst.de>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: Bluetooth update for 2.6
+Date: Sat, 08 Jul 2006 00:54:30 +0200
+Message-ID: <1152312870.3693.24.camel@localhost>
+References: <1152216560.20938.37.camel@localhost>
+	 <20060707.001745.07431025.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:40105 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751018AbWGGWxB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 18:53:01 -0400
-To: Christoph Hellwig <hch@lst.de>
-In-Reply-To: <20060707090956.GA2543@lst.de>
+Received: from coyote.holtmann.net ([217.160.111.169]:59306 "EHLO
+	mail.holtmann.net") by vger.kernel.org with ESMTP id S932244AbWGGWy0
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 18:54:26 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060707.001745.07431025.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 7 Jul 2006 11:09:57 +0200
-Christoph Hellwig <hch@lst.de> wrote:
+Hi Dave,
 
-> dev_alloc_skb is designated for RX descriptors, not TX.  (Some drivers
-> use it for the latter anyway, but that's a different story)
+> > this is the second part of pending updates of the Bluetooth subsystem
+> > for the upcoming 2.6.18 kernel. A couple of them are only coding style
+> > cleanups which I failed to submit for the previous kernel release. They
+> > slipped somehow. The rest is driver model integration stuff. Please push
+> > them to Linus as soon as possible.
 > 
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> 
-> Index: linux-2.6/include/linux/skbuff.h
-> ===================================================================
-> --- linux-2.6.orig/include/linux/skbuff.h	2006-07-07 11:05:30.000000000 +0200
-> +++ linux-2.6/include/linux/skbuff.h	2006-07-07 11:06:31.000000000 +0200
-> @@ -1067,7 +1067,7 @@
->  }
->  
->  /**
-> - *	__dev_alloc_skb - allocate an skbuff for sending
-> + *	__dev_alloc_skb - allocate an skbuff for receiving
->   *	@length: length to allocate
->   *	@gfp_mask: get_free_pages mask, passed to alloc_skb
->   *
-> @@ -1088,7 +1088,7 @@
->  }
->  
->  /**
-> - *	dev_alloc_skb - allocate an skbuff for sending
-> + *	dev_alloc_skb - allocate an skbuff for receiving
->   *	@length: length to allocate
->   *
->   *	Allocate a new &sk_buff and assign it a usage count of one. The
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> The merge window for 2.6.18 is closed, so you will need to eliminate
+> things like code cleanups and other non-bugfixes.
 
-What is the point of dev_alloc_skb anyway? all it does is add header space.
+yes, I saw that, but actually these patches were meant to get to you
+before the merge window closed. I failed to prepare the tree, because I
+lost remote access to one of my machines were I unfortunately had queued
+all of these patches. Do you think Linus will make an exception?
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
-Quis custodiet ipsos custodes?
+Regards
+
+Marcel
+
+
