@@ -1,136 +1,132 @@
-From: Reuben Farrelly <reuben-lkml@reub.net>
-Subject: Re: 2.6.17-mm6
-Date: Sat, 08 Jul 2006 03:24:54 +1200
-Message-ID: <44AE7CC6.6090202@reub.net>
-References: <20060703030355.420c7155.akpm@osdl.org>
+From: Dave Jones <davej@redhat.com>
+Subject: starting mc triggers lockdep
+Date: Fri, 7 Jul 2006 12:13:14 -0400
+Message-ID: <20060707161314.GA3223@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751055AbWGGPYz@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060703030355.420c7155.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:45270 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S932147AbWGGQNU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 12:13:20 -0400
+To: Linux Kernel <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+With 2.6.18rc1 + a selection of the lockdep tweaks found so far,
+midnight commander makes the kernel unhappy.
+
+		Dave
 
 
-On 3/07/2006 10:03 p.m., Andrew Morton wrote:
-> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.17/2.6.17-mm6/
-> 
-> 
-> - A major update to the e1000 driver.
-> 
-> - 1394 updates
+=======================================================
+[ INFO: possible circular locking dependency detected ]
+-------------------------------------------------------
+mc/4913 is trying to acquire lock:
+ (sk_lock-AF_INET){--..}, at: [<ffffffff8022800c>] tcp_sendmsg+0x1f/0xb1a
 
-Some minor breakage in the e1000...
+but task is already holding lock:
+ (&inode->i_mutex){--..}, at: [<ffffffff802692e0>] mutex_lock+0x2a/0x2e
 
-Fedora Core release 5.90 (Test)
-Kernel 2.6.17-mm6 on an x86_64
-
-tornado.reub.net login: e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
-   Tx Queue             <0>
-   TDH                  <a>
-   TDT                  <1c>
-   next_to_use          <1c>
-   next_to_clean        <8>
-buffer_info[next_to_clean]
-   time_stamp           <100027f1a>
-   next_to_watch        <a>
-   jiffies              <1000281d4>
-   next_to_watch.status <0>
-e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
-   Tx Queue             <0>
-   TDH                  <a>
-   TDT                  <1c>
-   next_to_use          <1c>
-   next_to_clean        <8>
-buffer_info[next_to_clean]
-   time_stamp           <100027f1a>
-   next_to_watch        <a>
-   jiffies              <1000283c8>
-   next_to_watch.status <0>
-e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
-   Tx Queue             <0>
-   TDH                  <a>
-   TDT                  <1c>
-   next_to_use          <1c>
-   next_to_clean        <8>
-buffer_info[next_to_clean]
-   time_stamp           <100027f1a>
-   next_to_watch        <a>
-   jiffies              <1000285bc>
-   next_to_watch.status <0>
-e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
-   Tx Queue             <0>
-   TDH                  <a>
-   TDT                  <1c>
-   next_to_use          <1c>
-   next_to_clean        <8>
-buffer_info[next_to_clean]
-   time_stamp           <100027f1a>
-   next_to_watch        <a>
-   jiffies              <1000287b0>
-   next_to_watch.status <0>
-e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang
-   Tx Queue             <0>
-   TDH                  <a>
-   TDT                  <1c>
-   next_to_use          <1c>
-   next_to_clean        <8>
-buffer_info[next_to_clean]
-   time_stamp           <100027f1a>
-   next_to_watch        <a>
-   jiffies              <1000289a4>
-   next_to_watch.status <0>
+which lock already depends on the new lock.
 
 
-A look through my switch logs and kernel logs over the last few days shows these 
-messages and layer 2/link down disconnections every few hours or so, but of very 
-short duration (I hadn't noticed until now).
+the existing dependency chain (in reverse order) is:
 
-This output above was under virtually no load.
+-> #2 (&inode->i_mutex){--..}:
+       [<ffffffff802ab6d5>] lock_acquire+0x4a/0x69
+       [<ffffffff80269102>] __mutex_lock_slowpath+0xeb/0x29f
+       [<ffffffff802692df>] mutex_lock+0x29/0x2e
+       [<ffffffff8030f4a0>] create_dir+0x2c/0x1e2
+       [<ffffffff8030fa5b>] sysfs_create_dir+0x59/0x78
+       [<ffffffff8034d2e2>] kobject_add+0x114/0x1d8
+       [<ffffffff803bb1e7>] class_device_add+0xb5/0x49d
+       [<ffffffff804300b1>] netdev_register_sysfs+0x98/0xa2
+       [<ffffffff80426f58>] register_netdevice+0x28c/0x376
+       [<ffffffff8042709c>] register_netdev+0x5a/0x69
+       [<ffffffff8098aa12>] loopback_init+0x4e/0x53
+       [<ffffffff8098a918>] net_olddevs_init+0xb/0xb7
+       [<ffffffff80270918>] init+0x177/0x348
+       [<ffffffff80263cdd>] child_rip+0x7/0x12
 
-Both the e1000 and switch port on the other end are doing RX and TX flow control.
+-> #1 (rtnl_mutex){--..}:
+       [<ffffffff802ab6d5>] lock_acquire+0x4a/0x69
+       [<ffffffff80269102>] __mutex_lock_slowpath+0xeb/0x29f
+       [<ffffffff802692df>] mutex_lock+0x29/0x2e
+       [<ffffffff8042e0a2>] rtnl_lock+0xf/0x12
+       [<ffffffff8045c7b8>] ip_mc_leave_group+0x1e/0xae
+       [<ffffffff804467f7>] do_ip_setsockopt+0x6ad/0x9b2
+       [<ffffffff80446baa>] ip_setsockopt+0x2a/0x84
+       [<ffffffff80454a55>] udp_setsockopt+0xd/0x1c
+       [<ffffffff8041f7ea>] sock_common_setsockopt+0xe/0x11
+       [<ffffffff8041e965>] sys_setsockopt+0x8e/0xb4
+       [<ffffffff80262f19>] tracesys+0xd0/0xdb
 
-The controller is a built in chip on an Intel D945GNT board.
+-> #0 (sk_lock-AF_INET){--..}:
+       [<ffffffff802ab6d5>] lock_acquire+0x4a/0x69
+       [<ffffffff802371ea>] lock_sock+0xd4/0xe7
+       [<ffffffff8022800b>] tcp_sendmsg+0x1e/0xb1a
+       [<ffffffff80248f4b>] inet_sendmsg+0x45/0x53
+       [<ffffffff80259d25>] sock_sendmsg+0x110/0x130
+       [<ffffffff8041f462>] kernel_sendmsg+0x3c/0x52
+       [<ffffffff885399e9>] xs_tcp_send_request+0x117/0x320 [sunrpc]
+       [<ffffffff885388d5>] xprt_transmit+0x105/0x21e [sunrpc]
+       [<ffffffff8853771e>] call_transmit+0x1f4/0x239 [sunrpc]
+       [<ffffffff8853c06e>] __rpc_execute+0x9b/0x1e6 [sunrpc]
+       [<ffffffff8853c1de>] rpc_execute+0x1a/0x1d [sunrpc]
+       [<ffffffff885364ad>] rpc_call_sync+0x87/0xb9 [sunrpc]
+       [<ffffffff885a2587>] nfs3_rpc_wrapper+0x2e/0x74 [nfs]
+       [<ffffffff885a2a14>] nfs3_proc_lookup+0xe0/0x163 [nfs]
+       [<ffffffff88594b10>] nfs_lookup+0xef/0x1d6 [nfs]
+       [<ffffffff8020d300>] do_lookup+0xd0/0x18c
+       [<ffffffff80209f27>] __link_path_walk+0xa29/0xf7d
+       [<ffffffff8020f076>] link_path_walk+0x69/0x101
+       [<ffffffff8020a22b>] __link_path_walk+0xd2d/0xf7d
+       [<ffffffff8020f076>] link_path_walk+0x69/0x101
+       [<ffffffff8020d096>] do_path_lookup+0x27b/0x2e7
+       [<ffffffff802258da>] __user_walk_fd+0x40/0x5c
+       [<ffffffff8022ae4a>] vfs_stat_fd+0x26/0x5d
+       [<ffffffff80225592>] sys_newstat+0x21/0x3c
+       [<ffffffff80262f19>] tracesys+0xd0/0xdb
 
-01:00.0 Ethernet controller: Intel Corporation 82573V Gigabit Ethernet 
-Controller (Copper) (rev 03)
-         Subsystem: Intel Corporation Unknown device 3094
-         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-Stepping- SERR- FastB2B-
-         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- 
-<MAbort- >SERR- <PERR-
-         Latency: 0, Cache Line Size: 64 bytes
-         Interrupt: pin A routed to IRQ 313
-         Region 0: Memory at 48000000 (32-bit, non-prefetchable) [size=128K]
-         Region 2: I/O ports at 2000 [size=32]
-         Capabilities: [c8] Power Management version 2
-                 Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA 
-PME(D0+,D1-,D2-,D3hot+,D3cold+)
-                 Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-         Capabilities: [d0] Message Signalled Interrupts: 64bit+ Queue=0/0 Enable+
-                 Address: 00000000fee0100c  Data: 4142
-         Capabilities: [e0] Express Endpoint IRQ 0
-                 Device: Supported: MaxPayload 256 bytes, PhantFunc 0, ExtTag-
-                 Device: Latency L0s <512ns, L1 <64us
-                 Device: AtnBtn- AtnInd- PwrInd-
-                 Device: Errors: Correctable- Non-Fatal- Fatal- Unsupported-
-                 Device: RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
-                 Device: MaxPayload 128 bytes, MaxReadReq 512 bytes
-                 Link: Supported Speed 2.5Gb/s, Width x1, ASPM unknown, Port 0
-                 Link: Latency L0s <128ns, L1 <64us
-                 Link: ASPM Disabled RCB 64 bytes CommClk+ ExtSynch-
-                 Link: Speed 2.5Gb/s, Width x1
+other info that might help us debug this:
 
-[root@tornado log]# ethtool -i eth0
-driver: e1000
-version: 7.1.9-k2-NAPI
-firmware-version: 1.0-5
-bus-info: 0000:01:00.0
-[root@tornado log]#
+1 lock held by mc/4913:
+ #0:  (&inode->i_mutex){--..}, at: [<ffffffff802692e0>] mutex_lock+0x2a/0x2e
 
-Where can I go from here to help debug this further?
+stack backtrace:
 
-reuben
+Call Trace:
+ [<ffffffff80271910>] show_trace+0xaa/0x23d
+ [<ffffffff80271ab8>] dump_stack+0x15/0x17
+ [<ffffffff802a992f>] print_circular_bug_tail+0x6c/0x77
+ [<ffffffff802aaf34>] __lock_acquire+0x853/0xa54
+ [<ffffffff802ab6d6>] lock_acquire+0x4b/0x69
+ [<ffffffff802371eb>] lock_sock+0xd5/0xe7
+ [<ffffffff8022800c>] tcp_sendmsg+0x1f/0xb1a
+ [<ffffffff80248f4c>] inet_sendmsg+0x46/0x53
+ [<ffffffff80259d26>] sock_sendmsg+0x111/0x130
+ [<ffffffff8041f463>] kernel_sendmsg+0x3d/0x52
+ [<ffffffff885399ea>] :sunrpc:xs_tcp_send_request+0x118/0x320
+ [<ffffffff885388d6>] :sunrpc:xprt_transmit+0x106/0x21e
+ [<ffffffff8853771f>] :sunrpc:call_transmit+0x1f5/0x239
+ [<ffffffff8853c06f>] :sunrpc:__rpc_execute+0x9c/0x1e6
+ [<ffffffff8853c1df>] :sunrpc:rpc_execute+0x1b/0x1d
+ [<ffffffff885364ae>] :sunrpc:rpc_call_sync+0x88/0xb9
+ [<ffffffff885a2588>] :nfs:nfs3_rpc_wrapper+0x2f/0x74
+ [<ffffffff885a2a15>] :nfs:nfs3_proc_lookup+0xe1/0x163
+ [<ffffffff88594b11>] :nfs:nfs_lookup+0xf0/0x1d6
+ [<ffffffff8020d301>] do_lookup+0xd1/0x18c
+ [<ffffffff80209f28>] __link_path_walk+0xa2a/0xf7d
+ [<ffffffff8020f077>] link_path_walk+0x6a/0x101
+ [<ffffffff8020a22c>] __link_path_walk+0xd2e/0xf7d
+ [<ffffffff8020f077>] link_path_walk+0x6a/0x101
+ [<ffffffff8020d097>] do_path_lookup+0x27c/0x2e7
+ [<ffffffff802258db>] __user_walk_fd+0x41/0x5c
+ [<ffffffff8022ae4b>] vfs_stat_fd+0x27/0x5d
+ [<ffffffff80225593>] sys_newstat+0x22/0x3c
+ [<ffffffff80262f1a>] tracesys+0xd1/0xdb
+
+-- 
+http://www.codemonkey.org.uk
