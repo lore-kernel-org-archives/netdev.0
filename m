@@ -1,63 +1,54 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
-Date: Fri, 07 Jul 2006 10:00:23 +0200
-Message-ID: <44AE1497.6010904@trash.net>
-References: <1150278004.26181.35.camel@localhost.localdomain>	 <1150286766.5233.15.camel@jzny2>	 <1150287983.3246.27.camel@ras.pc.brisbane.lube>	 <1150292693.5197.1.camel@jzny2>	 <1150843471.17455.2.camel@ras.pc.brisbane.lube>	 <15653CE98281AD4FBD7F70BCEE3666E53CD54A@comxexch01.comx.local>	 <1151000966.5392.34.camel@jzny2>	 <1151066247.4217.254.camel@ras.pc.brisbane.lube>	 <449C06E3.3090406@trash.net>	 <1151282720.4210.46.camel@ras.pc.brisbane.lube>	 <449FC0AF.1050904@trash.net> <44A0CE01.4010109@stuart.id.au>	 <44AA6D25.9000707@trash.net> <1152146376.4215.59.camel@ras.pc.brisbane.lube>
+Subject: Re: [RFC NET 00/04]: Increase number of possible routing tables
+Date: Fri, 07 Jul 2006 10:05:23 +0200
+Message-ID: <44AE15C3.8050900@trash.net>
+References: <20060703075259.6286.67397.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	netdev@vger.kernel.org, Jesper Dangaard Brouer <hawk@diku.dk>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	greearb@candelatech.com, Thomas Graf <tgraf@suug.ch>,
+	Robert.Olsson@data.slu.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:6839 "EHLO stinky.trash.net")
-	by vger.kernel.org with ESMTP id S1751097AbWGGIA0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 04:00:26 -0400
-To: Russell Stuart <russell@stuart.id.au>
-In-Reply-To: <1152146376.4215.59.camel@ras.pc.brisbane.lube>
+Received: from stinky.trash.net ([213.144.137.162]:24759 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S932067AbWGGIFZ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 04:05:25 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <20060703075259.6286.67397.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Russell Stuart wrote:
-> Unfortunately you do things in the wrong order for ATM.
-> See: http://mailman.ds9a.nl/pipermail/lartc/2006q1/018314.html
-> for an overview of the problem, and then the attached email for
-> a detailed description of how the current patch addresses it.
-> It is a trivial fix.
+Patrick McHardy wrote:
+> I took on Ben's challenge to increase the number of possible routing tables,
+> these are the resulting patches.
+> 
+> The table IDs are changed to 32 bit values and are contained in a new netlink
+> routing attribute. For compatibility rtm_table in struct rtmsg can still be
+> used to access the first 255 tables and contains the low 8 bit of the table
+> ID in case of dumps. Unfortunately there are no invalid values for rtm_table,
+> so the best userspace can do in case of a new iproute version that tries to
+> access tables > 255 on an old kernel is to use RTM_UNSPEC (0) for rtm_table,
+> which will make the kernel allocate an empty table instead of silently adding
+> routes to a more or less random table. The iproute patch will follow shortly.
+> 
+> The hash tables are statically sized since on-the-fly resizing would require
+> introducing locking in the packet processing path (currently we need none),
+> if this is a problem we could just directly attach table references to rules,
+> since tables are never deleted or freed this would be a simple change.
+> 
+> One spot is still missing (nl_fib_lookup), so these patches are purely a RFC
+> for now. Tested only with IPv4, I mainly converted DECNET as well to keep it
+> in sync and because iteration over all possible table values, as done in many
+> spots, has an unacceptable overhead with 32 bit values.
 
-Actually that was the part I didn't understand, you keep talking
-(also in that comment in tc_core.c) about an "unknown overhead".
-What is that and why would it be unknown? The mail you attached
-is quite long, is there an simple example that shows what you
-mean?
 
-> As I said earlier, RTAB and STAB contain the same numbers,
-> just scaled differently.  The ATM patch stuffed around with
-> RTAB.  With your patch in place it will have to do the same 
-> exactly the same thing with STAB - because RTAB and STAB
-> carry the same data.  So to me the two patches seem
-> orthogonal.
+Since there were no objections, I would like to finalize this patch by
+takeing care of nl_fib_lookup. Since it was introduced as a debugging
+interface for fib_trie and the interface definitions are not even
+public (contained in include/net), I wonder if anyone really cares about
+backwards compatibility or if I can just change it.
 
-Yes. As I said in the beginning of this thread, we could still
-do the RTAB thing for qdiscs that support it. But since the
-visible size should be the same for all qdiscs (including child
-ones) we need to do the initial calculation anyway, so I don't
-see any purpose in still adjusting the rate tables and using
-skb->len instead of using the adjusted size.
+Robert, Thomas, you are the only two users of the interface I'm aware
+of, what do you think?
 
-> One observation is the size optimisation you applied to STAB, 
-> making it variable length, could also be applied to RTAB.  
-> In fact it should be.  Then they would be identical, apart 
-> from the scaling.  Even the lookup operation (performed in
-> qdisc_init_len in your patch) would be identical.
-
-We can do that. I'm not attached to the size tables :)
-
-> However, now you lot have made me go away and think, I have
-> another idea on how to attack this.  Perhaps it will be
-> more palatable to you.  It would replace RTAB and STAB with
-> a 28 byte structure for most protocol stacks - well all I can
-> think of off the top of my head, anyway.  RTAB would have to
-> remain for backwards compatibility, of course.
-
-Can you describe in more detail?
