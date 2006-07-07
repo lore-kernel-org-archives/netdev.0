@@ -1,51 +1,42 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Xen-devel] kernel BUG at net/core/dev.c:1133!
-Date: Fri, 07 Jul 2006 22:06:08 +0200
-Message-ID: <44AEBEB0.8020704@trash.net>
-References: <E1FyrUg-0003FA-00@gondolin.me.apana.org.au>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] tg3: add amd8131 to "write reorder" chipsets
+Date: Fri, 7 Jul 2006 16:16:58 -0400
+Message-ID: <20060707201653.GE22636@tuxdriver.com>
+References: <1551EAE59135BE47B544934E30FC4FC041BD9B@NT-IRVA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: "Petersson, Mats" <Mats.Petersson@amd.com>,
-	xen-devel@lists.xensource.com, netdev@vger.kernel.org,
-	davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:25568 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932306AbWGGUGK
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 16:06:10 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1FyrUg-0003FA-00@gondolin.me.apana.org.au>
+Received: from ra.tuxdriver.com ([70.61.120.52]:36870 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1751231AbWGGURO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 16:17:14 -0400
+To: Michael Chan <mchan@broadcom.com>
+Content-Disposition: inline
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC041BD9B@NT-IRVA-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> Petersson, Mats <Mats.Petersson@amd.com> wrote:
+On Fri, Jul 07, 2006 at 12:51:35PM -0700, Michael Chan wrote:
+> John W. Linville wrote:
 > 
->>Looks like the GSO is involved?
+> > Add the AMD 8131 bridge to the list of chipsets that reorder writes.
+> > 
+> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
 > 
+> Hi John,
 > 
-> It's certainly what crashed your machine :) It's probably not the
-> guilty party though.  Someone is passing through a TSO packet with
-> checksum set to something other than CHECKSUM_HW.
-> 
-> I bet it's netfilter and we just never noticed before because real
-> NICS would simply corrupt the checksum silently.
-> 
-> Could you confirm that you have netfilter rules (in particular NAT
-> rules) and that this goes away if you flush all your netfilter tables?
-> 
-> Patrick, do we really have to zap the checksum on outbound NAT? Could
-> we update it instead?
+> The latest tg3 driver in 2.6.18 has a recovery mechanism to detect
+> and recover from this kind of reordering problem.  I suppose we can
+> add this chipset now if we're reasonably sure that it is reordering
+> MMIO.  But it will be nice to actually see the recovery mechanism in
+> action catching this chipset.
 
-Are you refering to this code in ip_nat_fn()?
+Obviously it is between you and Dave to decide what is best.  We are
+carrying this patch in RHEL4 at the moment, so I didn't want to hold
+it back from upstream.  If you think you have a better solution then
+"it's on you"... :-)
 
-        /* If we had a hardware checksum before, it's now invalid */
-        if ((*pskb)->ip_summed == CHECKSUM_HW)
-                if (skb_checksum_help(*pskb, (out == NULL)))
-                        return NF_DROP;
-
-Doing incremental updates should work fine. This is something
-I wanted to take care of at some point, but didn't get to it
-yet.
-
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
