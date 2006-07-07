@@ -1,48 +1,36 @@
-From: Paul Jackson <pj@sgi.com>
-Subject: Re: [PATCH] per-task delay accounting taskstats interface: control
- exit data through cpumasks]
-Date: Thu, 6 Jul 2006 23:18:51 -0700
-Message-ID: <20060706231851.2f043927.pj@sgi.com>
-References: <44ACD7C3.5040008@watson.ibm.com>
-	<20060706025633.cd4b1c1d.akpm@osdl.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: RDMA will be reverted
+Date: Thu, 06 Jul 2006 23:53:20 -0700 (PDT)
+Message-ID: <20060706.235320.92562667.davem@davemloft.net>
+References: <adaac7naj80.fsf@cisco.com>
+	<20060705.200325.74731166.davem@davemloft.net>
+	<1152163503.20248.98.camel@trinity.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nagar@watson.ibm.com, jlan@sgi.com, Valdis.Kletnieks@vt.edu,
-	balbir@in.ibm.com, csturtiv@sgi.com, linux-kernel@vger.kernel.org,
-	hadi@cyberus.ca, netdev@vger.kernel.org
+Cc: rdreier@cisco.com, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omx2-ext.sgi.com ([192.48.171.19]:60586 "EHLO omx2.sgi.com")
-	by vger.kernel.org with ESMTP id S1751013AbWGGGTI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 02:19:08 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060706025633.cd4b1c1d.akpm@osdl.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36052
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751207AbWGGGxC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 02:53:02 -0400
+To: tom@opengridcomputing.com
+In-Reply-To: <1152163503.20248.98.camel@trinity.ogc.int>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew wrote:
-> Your email client performs space-stuffing.
+From: Tom Tucker <tom@opengridcomputing.com>
+Date: Thu, 06 Jul 2006 00:25:03 -0500
 
-Shailabh,
+> This patch is about dotting I's and crossing T's, it's not about
+> foundations.
 
-Some of us find that it is easier and more reliable to use a special
-purpose script to send patches, rather than trying to do so via our
-email client.  Even though my email client, Sylpheed, probably sends
-patches just fine, I enjoy the convenience of preparing the patches
-and mailing instructions in my editor, before sending them off with
-such a utility.
+You assume that I've flat out rejected RDMA, in fact I haven't.  I
+really don't have enough information to form a final opinion yet.
+There's about a week of emails on this topic which I need to read
+and digest first.
 
-One possible such utility is 'sendpatchset', which I maintain:
+What I am saying, however, is that we need to understand the
+technology and the hooks you guys want before we put any of it in.
 
-  http://www.speakeasy.org/~pj99/sgi/sendpatchset
-
-It's a script, with the documentation embedded as the help message.
-
-Especially when sending off multiple patches as a set, it provides
-more reliable results than trying to prepare and send multiple such
-simultaneous messages from the typical email client.
-
--- 
-                  I won't rest till it's the best ...
-                  Programmer, Linux Scalability
-                  Paul Jackson <pj@sgi.com> 1.925.600.0401
+I don't think that's unreasonable.
