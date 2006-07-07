@@ -1,51 +1,33 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: auro deadlock
-Date: Fri, 07 Jul 2006 21:39:55 +0200
-Message-ID: <1152301195.3111.146.camel@laptopd505.fenrus.org>
-References: <20060707171916.GA16343@redhat.com>
-	 <1152295989.3111.116.camel@laptopd505.fenrus.org>
-	 <20060707.120936.98532669.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] tg3: add amd8131 to "write reorder" chipsets
+Date: Fri, 7 Jul 2006 12:51:35 -0700
+Message-ID: <1551EAE59135BE47B544934E30FC4FC041BD9B@NT-IRVA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, akpm@osdl.org, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:15312 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1750940AbWGGTkH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 15:40:07 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060707.120936.98532669.davem@davemloft.net>
+Received: from mms1.broadcom.com ([216.31.210.17]:38926 "EHLO
+	mms1.broadcom.com") by vger.kernel.org with ESMTP id S932293AbWGGTv7 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 15:51:59 -0400
+Content-class: urn:content-classes:message
+To: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-07-07 at 12:09 -0700, David Miller wrote:
-> From: Arjan van de Ven <arjan@infradead.org>
-> Date: Fri, 07 Jul 2006 20:13:09 +0200
+John W. Linville wrote:
+
+> Add the AMD 8131 bridge to the list of chipsets that reorder writes.
 > 
-> > Now a question for netdev: what is the interrupt-or-softirq rules for
-> > the sk_receive_queue.lock?
-> > 
-> > Anyway, the patch below fixes this deadlock; it may or may not be the
-> > correct solution depending on the netdev answer, but the deadlock is
-> > gone ;)
-> 
-> The lockdep fixes are starting to cause us to go in and start adding
-> hard IRQ protection to many socket layer objects and I want this
-> thinking to end quickly :)
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
 
-that's why I asked the question ;)
+Hi John,
 
-
-> To reiterate, nothing socket or SKB level should be taking anything
-> deeper than software IRQ locking.
-> 
-> If drivers manage local SKB queues in hard IRQ context, they need to
-> use a seperate lockdep identifier for that queue's lock.
-
-I'm not so sure that;s the case here, but.. if you have time today I
-hope you can take a look at this one with a wider "network view" than I
-can..
-
+The latest tg3 driver in 2.6.18 has a recovery mechanism to detect
+and recover from this kind of reordering problem.  I suppose we can
+add this chipset now if we're reasonably sure that it is reordering
+MMIO.  But it will be nice to actually see the recovery mechanism in
+action catching this chipset.
 
