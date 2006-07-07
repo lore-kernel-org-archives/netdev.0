@@ -1,40 +1,51 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] tg3: add amd8131 to "write reorder" chipsets
-Date: Fri, 7 Jul 2006 15:21:11 -0400
-Message-ID: <20060707192106.GD22636@tuxdriver.com>
-References: <20060707185831.GC22636@tuxdriver.com> <20060707.121220.99179918.davem@davemloft.net>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: auro deadlock
+Date: Fri, 07 Jul 2006 21:39:55 +0200
+Message-ID: <1152301195.3111.146.camel@laptopd505.fenrus.org>
+References: <20060707171916.GA16343@redhat.com>
+	 <1152295989.3111.116.camel@laptopd505.fenrus.org>
+	 <20060707.120936.98532669.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davej@redhat.com, akpm@osdl.org, mingo@elte.hu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:40197 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S932270AbWGGTV1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 15:21:27 -0400
+Received: from pentafluge.infradead.org ([213.146.154.40]:15312 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1750940AbWGGTkH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 15:40:07 -0400
 To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060707.121220.99179918.davem@davemloft.net>
+In-Reply-To: <20060707.120936.98532669.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 07, 2006 at 12:12:20PM -0700, David Miller wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Fri, 7 Jul 2006 14:58:36 -0400
+On Fri, 2006-07-07 at 12:09 -0700, David Miller wrote:
+> From: Arjan van de Ven <arjan@infradead.org>
+> Date: Fri, 07 Jul 2006 20:13:09 +0200
 > 
-> > Add the AMD 8131 bridge to the list of chipsets that reorder writes.
+> > Now a question for netdev: what is the interrupt-or-softirq rules for
+> > the sk_receive_queue.lock?
 > > 
-> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> > Anyway, the patch below fixes this deadlock; it may or may not be the
+> > correct solution depending on the netdev answer, but the deadlock is
+> > gone ;)
 > 
-> What failure report is this chipset blacklist addition based
-> upon?  I just want to look at the paper trail before adding
-> this.
+> The lockdep fixes are starting to cause us to go in and start adding
+> hard IRQ protection to many socket layer objects and I want this
+> thinking to end quickly :)
 
-What?  Due diligence?  You must be joking!!!  :-)
+that's why I asked the question ;)
 
-	https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=174019#c48
 
-Hth!
+> To reiterate, nothing socket or SKB level should be taking anything
+> deeper than software IRQ locking.
+> 
+> If drivers manage local SKB queues in hard IRQ context, they need to
+> use a seperate lockdep identifier for that queue's lock.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+I'm not so sure that;s the case here, but.. if you have time today I
+hope you can take a look at this one with a wider "network view" than I
+can..
+
+
