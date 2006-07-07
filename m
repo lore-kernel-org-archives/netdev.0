@@ -1,30 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Bluetooth update for 2.6
-Date: Fri, 07 Jul 2006 00:17:45 -0700 (PDT)
-Message-ID: <20060707.001745.07431025.davem@davemloft.net>
-References: <1152216560.20938.37.camel@localhost>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 7/9] 8139cp.c printk fix
+Date: Fri, 07 Jul 2006 03:38:21 -0400
+Message-ID: <44AE0F6D.80400@garzik.org>
+References: <200607070658.k676wQIe030380@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:21678
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751263AbWGGHR3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 03:17:29 -0400
-To: marcel@holtmann.org
-In-Reply-To: <1152216560.20938.37.camel@localhost>
+Received: from srv5.dvmed.net ([207.36.208.214]:16341 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1750767AbWGGHiY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 03:38:24 -0400
+To: akpm@osdl.org
+In-Reply-To: <200607070658.k676wQIe030380@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Thu, 06 Jul 2006 22:09:20 +0200
+akpm@osdl.org wrote:
+> From: Andrew Morton <akpm@osdl.org>
+> 
+> drivers/net/8139cp.c: In function 'cp_init_one':
+> drivers/net/8139cp.c:1919: warning: format '%lx' expects type 'long unsigned int', but argument 4 has type 'resource_size_t'
+> drivers/net/8139cp.c:1919: warning: format '%lx' expects type 'long unsigned int', but argument 5 has type 'resource_size_t'
+> 
+> 
+> Signed-off-by: Andrew Morton <akpm@osdl.org>
+> ---
+> 
+>  drivers/net/8139cp.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff -puN drivers/net/8139cp.c~8139cp-printk-fix drivers/net/8139cp.c
+> --- a/drivers/net/8139cp.c~8139cp-printk-fix
+> +++ a/drivers/net/8139cp.c
+> @@ -1916,7 +1916,7 @@ static int cp_init_one (struct pci_dev *
+>  	regs = ioremap(pciaddr, CP_REGS_SIZE);
+>  	if (!regs) {
+>  		rc = -EIO;
+> -		dev_err(&pdev->dev, "Cannot map PCI MMIO (%lx@%lx)\n",
+> +		dev_err(&pdev->dev, "Cannot map PCI MMIO (%Lx@%Lx)\n",
+>  		       (unsigned long long)pci_resource_len(pdev, 1),
+>  		       (unsigned long long)pciaddr);
 
-> this is the second part of pending updates of the Bluetooth subsystem
-> for the upcoming 2.6.18 kernel. A couple of them are only coding style
-> cleanups which I failed to submit for the previous kernel release. They
-> slipped somehow. The rest is driver model integration stuff. Please push
-> them to Linus as soon as possible.
+should be %llx if I'm not mistaken...  (looks like a merge screwup on my 
+part)
 
-The merge window for 2.6.18 is closed, so you will need to eliminate
-things like code cleanups and other non-bugfixes.
+
