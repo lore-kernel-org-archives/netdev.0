@@ -1,59 +1,51 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 1/3] Freescale QE UCC gigabit ethernet driver
-Date: Fri, 7 Jul 2006 08:19:37 -0500
-Message-ID: <02206875-0FBA-4390-A8AC-14D5446EBA50@kernel.crashing.org>
-References: <4879B0C6C249214CBE7AB04453F84E4DF278@zch01exm20.fsl.freescale.net>
-Mime-Version: 1.0 (Apple Message framework v750)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Tom Tucker <tom@opengridcomputing.com>
+Subject: Re: RDMA will be reverted
+Date: Fri, 07 Jul 2006 08:29:53 -0500
+Message-ID: <1152278993.20248.154.camel@trinity.ogc.int>
+References: <adaac7naj80.fsf@cisco.com>
+	 <20060705.200325.74731166.davem@davemloft.net>
+	 <1152163503.20248.98.camel@trinity.ogc.int>
+	 <20060706.235320.92562667.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@osdl.org>, <jgarzik@pobox.com>,
-	<netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
+Cc: rdreier@cisco.com, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:38290 "EHLO
-	nommos.sslcatacombnetworking.com") by vger.kernel.org with ESMTP
-	id S1751199AbWGGNTv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 09:19:51 -0400
-In-Reply-To: <4879B0C6C249214CBE7AB04453F84E4DF278@zch01exm20.fsl.freescale.net>
-To: Li Yang-r58472 <LeoLi@freescale.com>
+Received: from es335.com ([67.65.19.105]:52051 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S932139AbWGGN3m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 09:29:42 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060706.235320.92562667.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 2006-07-06 at 23:53 -0700, David Miller wrote:
+> From: Tom Tucker <tom@opengridcomputing.com>
+> Date: Thu, 06 Jul 2006 00:25:03 -0500
+> 
+> > This patch is about dotting I's and crossing T's, it's not about
+> > foundations.
+> 
+> You assume that I've flat out rejected RDMA, in fact I haven't.  I
+> really don't have enough information to form a final opinion yet.
+> There's about a week of emails on this topic which I need to read
+> and digest first.
 
-On Jul 7, 2006, at 3:59 AM, Li Yang-r58472 wrote:
+I realize that there is a tremendous amount of work out there and this
+is just one thread.
 
->> -----Original Message-----
->> From: Kumar Gala [mailto:galak@kernel.crashing.org]
->> Sent: Thursday, July 06, 2006 9:45 PM
->> To: Li Yang-r58472
->> Cc: Andrew Morton; jgarzik@pobox.com; netdev@vger.kernel.org;
->> linuxppc-dev@ozlabs.org
->> Subject: Re: [PATCH 1/3] Freescale QE UCC gigabit ethernet driver
->>
->> Nack.  Here are some high level things that should be addressed:
->> * There is a ton of debug code that should probably be stripped out,
->> such as dump_regs, etc..
->
-> The reason I left these debug code in is that, QE is very flexible.
-> User probably needs to fine tune parameters for their own application.
-> It will be good to give them some clue doing that.  It's fine to  
-> remove
-> them, if you do think they are too verbose.
+> 
+> What I am saying, however, is that we need to understand the
+> technology and the hooks you guys want before we put any of it in.
 
-Then I suggest you look at debugfs.
+Absolutely.
 
->> * The phy support should use the phylib instead
->
-> I'll do this when I do get some time. ;)
->> * convert from being a platform_device to of_device
->
-> I'm not up against moving to use of_device.  But why are we putting
-> extra effort in closing the door to backward compatibility with ppc
-> arch, and doesn't provide any new feature. ;)
+> 
+> I don't think that's unreasonable.
 
-Because the intent is for arch/ppc to go away in the future.  You are  
-introducing a new driver and a new platform, this is the ideal time  
-for us to use of_device.  The benefits are that the driver is the  
-ideal place to parse the details of the device node rather than  
-platform code in arch/powerpc.
+Not at all. Let me know if I can help.
 
-- kumar
+Tom
+
+
+
