@@ -1,95 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: What is RDMA (was: RDMA will be reverted)
-Date: Fri, 7 Jul 2006 18:11:31 +1000
-Message-ID: <20060707081131.GA2991@gondor.apana.org.au>
-References: <adaac7naj80.fsf@cisco.com> <20060705.200325.74731166.davem@davemloft.net> <1152163503.20248.98.camel@trinity.ogc.int> <20060706.235320.92562667.davem@davemloft.net>
+From: "Li Yang-r58472" <LeoLi@freescale.com>
+Subject: RE: [PATCH 1/3] Freescale QE UCC gigabit ethernet driver
+Date: Fri, 7 Jul 2006 16:59:35 +0800
+Message-ID: <4879B0C6C249214CBE7AB04453F84E4DF278@zch01exm20.fsl.freescale.net>
+References: <FA983307-6A01-4FCB-A15A-ACC0E7B068A9@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tom@opengridcomputing.com, rdreier@cisco.com,
-	netdev@vger.kernel.org, akpm@osdl.org,
-	Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8BIT
+Cc: "Andrew Morton" <akpm@osdl.org>, <jgarzik@pobox.com>,
+	<netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:19474 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932071AbWGGILz
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 04:11:55 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060706.235320.92562667.davem@davemloft.net>
+Received: from de01egw01.freescale.net ([192.88.165.102]:5355 "EHLO
+	de01egw01.freescale.net") by vger.kernel.org with ESMTP
+	id S1750934AbWGGI5Q convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 04:57:16 -0400
+Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
+	by de01egw01.freescale.net (8.12.11/de01egw01) with ESMTP id k67AESNt027437
+	for <netdev@vger.kernel.org>; Fri, 7 Jul 2006 04:14:28 -0600 (MDT)
+Received: from zch01exm20.fsl.freescale.net (zch01exm20.ap.freescale.net [10.192.129.204])
+	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id k678vDj7013227
+	for <netdev@vger.kernel.org>; Fri, 7 Jul 2006 03:57:14 -0500 (CDT)
+Content-class: urn:content-classes:message
+In-Reply-To: <FA983307-6A01-4FCB-A15A-ACC0E7B068A9@kernel.crashing.org>
+To: "Kumar Gala" <galak@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 07, 2006 at 06:53:20AM +0000, David Miller wrote:
+> -----Original Message-----
+> From: Kumar Gala [mailto:galak@kernel.crashing.org]
+> Sent: Thursday, July 06, 2006 9:45 PM
+> To: Li Yang-r58472
+> Cc: Andrew Morton; jgarzik@pobox.com; netdev@vger.kernel.org;
+> linuxppc-dev@ozlabs.org
+> Subject: Re: [PATCH 1/3] Freescale QE UCC gigabit ethernet driver
 > 
-> What I am saying, however, is that we need to understand the
-> technology and the hooks you guys want before we put any of it in.
+> Nack.  Here are some high level things that should be addressed:
+> * There is a ton of debug code that should probably be stripped out,
+> such as dump_regs, etc..
 
-Yes indeed.
+The reason I left these debug code in is that, QE is very flexible.
+User probably needs to fine tune parameters for their own application.
+It will be good to give them some clue doing that.  It's fine to remove
+them, if you do think they are too verbose.
+> * The phy support should use the phylib instead
 
-Here is what I've understood so far so let's see if we can start building
-a censensus.
+I'll do this when I do get some time. ;)
+> * convert from being a platform_device to of_device
 
-1) RDMA over straight Infiniband is not contentious.  In this case no
-   IP networking is involved.
-
-2) RDMA over TCP/IP (or SCTP) can theoretically run on any network that
-   supported IP, including Infiniband and Ethernet.
-
-3) When RDMA over TCP is completely done in hardware, i.e., it has its
-   own IP address, MAC address, and simply presents an RDMA interface
-   (whatever that may be) to Linux, we're OK with it.
-
-   This is similar to how some iSCSI adapters work.
-
-4) When RDMA over TCP is done completely in the Linux networking stack,
-   we don't have a problem because the existing TCP stack is still in
-   charge.  However, this is pretty pointless.
-
-5) RDMA over TCP on the receive side is offloaded into the NIC.  This
-   allows the NIC to directly place data into the application's buffer.  
-
-   We're starting to have a little bit of a problem because it means that
-   part of the incoming IP traffic is now being directly processed by the
-   NIC, with no input from the Linux TCP/IP stack.
-
-   However, as long as the connection establishment/acks are still
-   controlled/seen by Linux we can probably live with it.
-
-6) RDMA over TCP on the transmit side is offloaded into the NIC.  This
-   is starting to look very worrying.
-
-   The reason is that we lose all control to crucial aspects of TCP like
-   congestion control.  It is now completely up to the NIC to do that.
-   For straight RDMA over Infiniband this isn't an issue because the
-   traffic is not likely to travel across the Internet.
-
-   However, for RDMA over TCP, one of their goals is to support sending
-   traffic over the Internet so this is a concern.  Incidentally, this is
-   why they need to know about things like MAC/route/MTU changing.
-
-7) RDMA over TCP is completely offloaded into the NIC, however, they still
-   use Linux's IP address, MAC address, and rely on us to tell it about
-   events such as MTU updates or MAC changes.
-
-   In addition to the problems we have in 5) and 6), we now have a portion
-   of TCP port space which has suddenly become invisible to Linux.  What's
-   more, we lose control (e.g., netfilter) over what connections may or
-   may not be established.
-
-So to my mind, RDMA over TCP is most problematic when it shares the same
-IP/MAC address as the Linux host, and when the transmit side and/or the
-connection establishment (case 6 and 7) is offloaded into the NIC.  This
-also happens to be the only scenario where they need the notification
-patch that started all this discussion.
-
-BTW, this URL gives an interesting perspective on RDMA over TCP
-(particularly Q14/Q15):
-
-http://www.rdmaconsortium.org/home/FAQs_Apr25.htm
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I'm not up against moving to use of_device.  But why are we putting
+extra effort in closing the door to backward compatibility with ppc
+arch, and doesn't provide any new feature. ;)
+> 
+> - kumar
+> 
