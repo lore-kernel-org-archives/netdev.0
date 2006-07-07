@@ -1,106 +1,55 @@
-From: akpm@osdl.org
-Subject: [patch 3/9] e100: disable interrupts at boot
-Date: Thu, 06 Jul 2006 23:58:21 -0700
-Message-ID: <200607070658.k676wLQV030368@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, bjorn.helgaas@hp.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com, nils.rennebarth@packetalarm.com,
-	stern@rowland.harvard.edu
+From: David Miller <davem@davemloft.net>
+Subject: Re: [e1000]: flow control on by default - good idea really?
+Date: Thu, 06 Jul 2006 23:59:09 -0700 (PDT)
+Message-ID: <20060706.235909.78729229.davem@davemloft.net>
+References: <44AC05A8.9030503@intel.com>
+	<Pine.LNX.4.64.0607052241230.12611@bizon.gios.gov.pl>
+	<1152191018.5103.48.camel@jzny2>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: olel@ans.pl, jgarzik@pobox.com, greearb@candelatech.com,
+	john.ronciak@intel.com, Robert.Olsson@data.slu.se,
+	jesse.brandeburg@intel.com, netdev@vger.kernel.org,
+	auke-jan.h.kok@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:8898 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751223AbWGGG6g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 02:58:36 -0400
-To: jeff@garzik.org
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63926
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751226AbWGGG6y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 02:58:54 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1152191018.5103.48.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+From: jamal <hadi@cyberus.ca>
+Date: Thu, 06 Jul 2006 09:03:38 -0400
 
-Apparently the Intel PRO/100 device enables interrupts on reset.  Unless
-firmware explicitly disables PRO/100 interrupts, we can get a flood of
-interrupts when a driver attaches to an unrelated device that happens to
-share the PRO/100 IRQ.
+> On Wed, 2006-05-07 at 22:45 +0200, Krzysztof Oledzki wrote:
+> > 
+> > On Wed, 5 Jul 2006, Auke Kok wrote:
+> > 
+> > > David Miller wrote:
+> > >> From: jamal <hadi@cyberus.ca>
+> > >> Date: Tue, 04 Jul 2006 15:20:39 -0400
+> > >> 
+> > >>> BTW, As an addendum this default behavior changed around 2.6.16 it
+> > >>> seems.
+> > >> 
+> > >> Flow control has been on by default in the tg3 driver since the
+> > >> beginning, 
+> 
+> Are you sure about this Dave?;-> because I do have a tg3 on my laptop.
+> 
+> hadi@jzny2:~/Desktop/maemo$ sudo ethtool -a eth0
+> Pause parameters for eth0:
+> Autonegotiate:  on
+> RX:             off
+> TX:             off
 
-This should resolve this "irq 11: nobody cared" bug report:
-    http://bugzilla.kernel.org/show_bug.cgi?id=5918
+It's autonegotiated, check you kernel message logs when the link
+came up, you'll see this:
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: John Ronciak <john.ronciak@intel.com>
-Cc: <stern@rowland.harvard.edu>
-Cc: <nils.rennebarth@packetalarm.com>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
+tg3: eth0: Flow control is on for TX and on for RX.
 
- drivers/pci/quirks.c |   57 +++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 57 insertions(+)
-
-diff -puN drivers/pci/quirks.c~e100-disable-interrupts-at-boot drivers/pci/quirks.c
---- a/drivers/pci/quirks.c~e100-disable-interrupts-at-boot
-+++ a/drivers/pci/quirks.c
-@@ -1403,6 +1403,63 @@ static void __devinit quirk_netmos(struc
- }
- DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_NETMOS, PCI_ANY_ID, quirk_netmos);
- 
-+static void __devinit quirk_e100_interrupt(struct pci_dev *dev)
-+{
-+	u16 command;
-+	u32 bar;
-+	u8 __iomem *csr;
-+	u8 cmd_hi;
-+
-+	switch (dev->device) {
-+	/* PCI IDs taken from drivers/net/e100.c */
-+	case 0x1029:
-+	case 0x1030 ... 0x1034:
-+	case 0x1038 ... 0x103E:
-+	case 0x1050 ... 0x1057:
-+	case 0x1059:
-+	case 0x1064 ... 0x106B:
-+	case 0x1091 ... 0x1095:
-+	case 0x1209:
-+	case 0x1229:
-+	case 0x2449:
-+	case 0x2459:
-+	case 0x245D:
-+	case 0x27DC:
-+		break;
-+	default:
-+		return;
-+	}
-+
-+	/*
-+	 * Some firmware hands off the e100 with interrupts enabled,
-+	 * which can cause a flood of interrupts if packets are
-+	 * received before the driver attaches to the device.  So
-+	 * disable all e100 interrupts here.  The driver will
-+	 * re-enable them when it's ready.
-+	 */
-+	pci_read_config_word(dev, PCI_COMMAND, &command);
-+	pci_read_config_dword(dev, PCI_BASE_ADDRESS_0, &bar);
-+
-+	if (!(command & PCI_COMMAND_MEMORY) || !bar)
-+		return;
-+
-+	csr = ioremap(bar, 8);
-+	if (!csr) {
-+		printk(KERN_WARNING "PCI: Can't map %s e100 registers\n",
-+			pci_name(dev));
-+		return;
-+	}
-+
-+	cmd_hi = readb(csr + 3);
-+	if (cmd_hi == 0) {
-+		printk(KERN_WARNING "PCI: Firmware left %s e100 interrupts "
-+			"enabled, disabling\n", pci_name(dev));
-+		writeb(1, csr + 3);
-+	}
-+
-+	iounmap(csr);
-+}
-+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, quirk_e100_interrupt);
- 
- static void __devinit fixup_rev1_53c810(struct pci_dev* dev)
- {
-_
+Take care.
