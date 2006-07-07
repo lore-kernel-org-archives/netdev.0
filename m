@@ -1,47 +1,47 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 8/9] smsc-ircc2: fix section reference mismatches
-Date: Fri, 07 Jul 2006 13:28:16 -0400
-Message-ID: <44AE99B0.6040508@garzik.org>
-References: <200607070658.k676wRh5030383@shell0.pdx.osdl.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] sky2: fix trucated collision threshold mask
+Date: Fri, 7 Jul 2006 13:40:21 -0400
+Message-ID: <20060707174021.GA8636@hmsreliant.homelinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dtor@insightbb.com, dtor@mail.ru
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@osdl.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:14827 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932188AbWGGR2S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 13:28:18 -0400
-To: akpm@osdl.org
-In-Reply-To: <200607070658.k676wRh5030383@shell0.pdx.osdl.net>
+Received: from ra.tuxdriver.com ([70.61.120.52]:19219 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S932233AbWGGRkt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 13:40:49 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@osdl.org wrote:
-> From: Dmitry Torokhov <dtor@insightbb.com>
-> 
-> subsystem_configurations array is only used by an __init function,
-> therefore it should be marked __initdata, not __devinitdata.
-> 
-> Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
-> Signed-off-by: Andrew Morton <akpm@osdl.org>
-> ---
-> 
->  drivers/net/irda/smsc-ircc2.c |    2 +-
->  1 files changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff -puN drivers/net/irda/smsc-ircc2.c~smsc-ircc2-fix-section-reference-mismatches drivers/net/irda/smsc-ircc2.c
-> --- a/drivers/net/irda/smsc-ircc2.c~smsc-ircc2-fix-section-reference-mismatches
-> +++ a/drivers/net/irda/smsc-ircc2.c
-> @@ -2353,7 +2353,7 @@ static int __init smsc_superio_lpc(unsig
->  #ifdef CONFIG_PCI
->  #define PCIID_VENDOR_INTEL 0x8086
->  #define PCIID_VENDOR_ALI 0x10b9
-> -static struct smsc_ircc_subsystem_configuration subsystem_configurations[] __devinitdata = {
-> +static struct smsc_ircc_subsystem_configuration subsystem_configurations[] __initdata = {
+Patch to correct broken collision threshold mask in sky2 driver.  Should be
+three bits wide, but the mask only allows for 1 bit to be set.
 
-Are you sure this fully solves the problem?
+Thanks & Regards
+Neil
 
-It seems like the functions referenced inside this are inappropriately 
-marked as well...
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+
+ sky2.h |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
 
+diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
+index 8a0bc55..2db8d19 100644
+--- a/drivers/net/sky2.h
++++ b/drivers/net/sky2.h
+@@ -1480,7 +1480,7 @@ enum {
+ 	GM_TXCR_FORCE_JAM	= 1<<15, /* Bit 15:	Force Jam / Flow-Control */
+ 	GM_TXCR_CRC_DIS		= 1<<14, /* Bit 14:	Disable insertion of CRC */
+ 	GM_TXCR_PAD_DIS		= 1<<13, /* Bit 13:	Disable padding of packets */
+-	GM_TXCR_COL_THR_MSK	= 1<<10, /* Bit 12..10:	Collision Threshold */
++	GM_TXCR_COL_THR_MSK	= 7<<10, /* Bit 12..10:	Collision Threshold */
+ };
+ 
+ #define TX_COL_THR(x)		(((x)<<10) & GM_TXCR_COL_THR_MSK)
+-- 
+/***************************************************
+ *Neil Horman
+ *Software Engineer
+ *gpg keyid: 1024D / 0x92A74FA1 - http://pgp.mit.edu
+ ***************************************************/
