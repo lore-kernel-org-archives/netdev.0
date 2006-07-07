@@ -1,48 +1,78 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 7/9] 8139cp.c printk fix
-Date: Fri, 07 Jul 2006 03:38:21 -0400
-Message-ID: <44AE0F6D.80400@garzik.org>
-References: <200607070658.k676wQIe030380@shell0.pdx.osdl.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [patch 2/2] lockdep: fix sk_dst_check() deadlock
+Date: Fri, 7 Jul 2006 09:34:25 +0200
+Message-ID: <20060707073425.GA4640@elte.hu>
+References: <200607070659.k676xAZ5030445@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, arjan@linux.intel.com,
+	herbert@gondor.apana.org.au, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:16341 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1750767AbWGGHiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 03:38:24 -0400
+Received: from mx2.mail.elte.hu ([157.181.151.9]:55694 "EHLO mx2.mail.elte.hu")
+	by vger.kernel.org with ESMTP id S1750846AbWGGHjU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 03:39:20 -0400
 To: akpm@osdl.org
-In-Reply-To: <200607070658.k676wQIe030380@shell0.pdx.osdl.net>
+Content-Disposition: inline
+In-Reply-To: <200607070659.k676xAZ5030445@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@osdl.org wrote:
-> From: Andrew Morton <akpm@osdl.org>
+
+the correct Subject of the patch is:
+
+  Subject: lockdep: annotate __icmpv6_socket
+
+	Ingo
+
+* akpm@osdl.org <akpm@osdl.org> wrote:
+
+> From: Ingo Molnar <mingo@elte.hu>
 > 
-> drivers/net/8139cp.c: In function 'cp_init_one':
-> drivers/net/8139cp.c:1919: warning: format '%lx' expects type 'long unsigned int', but argument 4 has type 'resource_size_t'
-> drivers/net/8139cp.c:1919: warning: format '%lx' expects type 'long unsigned int', but argument 5 has type 'resource_size_t'
+> Split off __icmpv6_socket's sk->sk_dst_lock class, because it gets used
+> from softirqs, which is safe for __icmpv6_sockets (because they never get
+> directly used via userspace syscalls), but unsafe for normal sockets.
 > 
+> Has no effect on non-lockdep kernels.
 > 
+> Signed-off-by: Ingo Molnar <mingo@elte.hu>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Cc: Arjan van de Ven <arjan@linux.intel.com>
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 > Signed-off-by: Andrew Morton <akpm@osdl.org>
 > ---
 > 
->  drivers/net/8139cp.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>  net/ipv6/icmp.c |   13 +++++++++++++
+>  1 files changed, 13 insertions(+)
 > 
-> diff -puN drivers/net/8139cp.c~8139cp-printk-fix drivers/net/8139cp.c
-> --- a/drivers/net/8139cp.c~8139cp-printk-fix
-> +++ a/drivers/net/8139cp.c
-> @@ -1916,7 +1916,7 @@ static int cp_init_one (struct pci_dev *
->  	regs = ioremap(pciaddr, CP_REGS_SIZE);
->  	if (!regs) {
->  		rc = -EIO;
-> -		dev_err(&pdev->dev, "Cannot map PCI MMIO (%lx@%lx)\n",
-> +		dev_err(&pdev->dev, "Cannot map PCI MMIO (%Lx@%Lx)\n",
->  		       (unsigned long long)pci_resource_len(pdev, 1),
->  		       (unsigned long long)pciaddr);
-
-should be %llx if I'm not mistaken...  (looks like a merge screwup on my 
-part)
-
-
+> diff -puN net/ipv6/icmp.c~lockdep-fix-sk_dst_check-deadlock net/ipv6/icmp.c
+> --- a/net/ipv6/icmp.c~lockdep-fix-sk_dst_check-deadlock
+> +++ a/net/ipv6/icmp.c
+> @@ -712,6 +712,11 @@ discard_it:
+>  	return 0;
+>  }
+>  
+> +/*
+> + * Special lock-class for __icmpv6_socket:
+> + */
+> +static struct lock_class_key icmpv6_socket_sk_dst_lock_key;
+> +
+>  int __init icmpv6_init(struct net_proto_family *ops)
+>  {
+>  	struct sock *sk;
+> @@ -730,6 +735,14 @@ int __init icmpv6_init(struct net_proto_
+>  
+>  		sk = per_cpu(__icmpv6_socket, i)->sk;
+>  		sk->sk_allocation = GFP_ATOMIC;
+> +		/*
+> +		 * Split off their lock-class, because sk->sk_dst_lock
+> +		 * gets used from softirqs, which is safe for
+> +		 * __icmpv6_socket (because those never get directly used
+> +		 * via userspace syscalls), but unsafe for normal sockets.
+> +		 */
+> +		lockdep_set_class(&sk->sk_dst_lock,
+> +				  &icmpv6_socket_sk_dst_lock_key);
+>  
+>  		/* Enough space for 2 64K ICMP packets, including
+>  		 * sk_buff struct overhead.
+> _
