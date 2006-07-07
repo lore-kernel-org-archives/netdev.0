@@ -1,51 +1,64 @@
 From: akpm@osdl.org
-Subject: [patch 1/2] via-ircc: fix memory leak
-Date: Thu, 06 Jul 2006 23:59:09 -0700
-Message-ID: <200607070659.k676x9QB030442@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, chuck@maggie,
-	bcollins@ubuntu.com, samuel@sortiz.org, zulcss@gmail.com
+Subject: [patch 2/2] lockdep: fix sk_dst_check() deadlock
+Date: Thu, 06 Jul 2006 23:59:10 -0700
+Message-ID: <200607070659.k676xAZ5030445@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, mingo@elte.hu,
+	arjan@linux.intel.com, herbert@gondor.apana.org.au, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:30146 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751227AbWGGG7e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 02:59:34 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:38594 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751229AbWGGHAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 03:00:06 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chuck Short <chuck@maggie>
+From: Ingo Molnar <mingo@elte.hu>
 
-Fix memory leak.
+Split off __icmpv6_socket's sk->sk_dst_lock class, because it gets used
+from softirqs, which is safe for __icmpv6_sockets (because they never get
+directly used via userspace syscalls), but unsafe for normal sockets.
 
-Coverity id# 653
+Has no effect on non-lockdep kernels.
 
-patch location:
-http://www.kernel.org/git/?p=linux/kernel/git/bcollins/ubuntu-dapper.git;a=commitdiff;h=a1f34cb68b16807ed9d5ebb0f6a6ec5ff8a5fc78
-
-Signed-off-by: Chuck Short <zulcss@gmail.com>
-Signed-off-by: Ben Collins <bcollins@ubuntu.com>
-Cc: Samuel Ortiz <samuel@sortiz.org>
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Arjan van de Ven <arjan@linux.intel.com>
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/irda/via-ircc.c |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ net/ipv6/icmp.c |   13 +++++++++++++
+ 1 files changed, 13 insertions(+)
 
-diff -puN drivers/net/irda/via-ircc.c~via-ircc-fix-memory-leak drivers/net/irda/via-ircc.c
---- a/drivers/net/irda/via-ircc.c~via-ircc-fix-memory-leak
-+++ a/drivers/net/irda/via-ircc.c
-@@ -1220,8 +1220,13 @@ static int upload_rxdata(struct via_ircc
+diff -puN net/ipv6/icmp.c~lockdep-fix-sk_dst_check-deadlock net/ipv6/icmp.c
+--- a/net/ipv6/icmp.c~lockdep-fix-sk_dst_check-deadlock
++++ a/net/ipv6/icmp.c
+@@ -712,6 +712,11 @@ discard_it:
+ 	return 0;
+ }
  
- 	IRDA_DEBUG(2, "%s(): len=%x\n", __FUNCTION__, len);
- 
-+	if ((len - 4) < 2) {
-+		self->stats.rx_dropped++;
-+		return FALSE;
-+	}
++/*
++ * Special lock-class for __icmpv6_socket:
++ */
++static struct lock_class_key icmpv6_socket_sk_dst_lock_key;
 +
- 	skb = dev_alloc_skb(len + 1);
--	if ((skb == NULL) || ((len - 4) < 2)) {
-+	if (skb == NULL) {
- 		self->stats.rx_dropped++;
- 		return FALSE;
- 	}
+ int __init icmpv6_init(struct net_proto_family *ops)
+ {
+ 	struct sock *sk;
+@@ -730,6 +735,14 @@ int __init icmpv6_init(struct net_proto_
+ 
+ 		sk = per_cpu(__icmpv6_socket, i)->sk;
+ 		sk->sk_allocation = GFP_ATOMIC;
++		/*
++		 * Split off their lock-class, because sk->sk_dst_lock
++		 * gets used from softirqs, which is safe for
++		 * __icmpv6_socket (because those never get directly used
++		 * via userspace syscalls), but unsafe for normal sockets.
++		 */
++		lockdep_set_class(&sk->sk_dst_lock,
++				  &icmpv6_socket_sk_dst_lock_key);
+ 
+ 		/* Enough space for 2 64K ICMP packets, including
+ 		 * sk_buff struct overhead.
 _
