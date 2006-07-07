@@ -1,30 +1,54 @@
-From: Andrey Savochkin <saw@swsoft.com>
-Subject: Re: [patch 1/7] net_device list cleanup: core
-Date: Fri, 7 Jul 2006 11:54:25 +0400
-Message-ID: <20060707115425.A28991@castle.nmd.msu.ru>
-References: <20060630150823.A22285@castle.nmd.msu.ru> <20060707.133434.125915077.yoshfuji@linux-ipv6.org>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [patch 7/9] 8139cp.c printk fix
+Date: Fri, 7 Jul 2006 00:54:14 -0700
+Message-ID: <20060707005414.8075b51c.akpm@osdl.org>
+References: <200607070658.k676wQIe030380@shell0.pdx.osdl.net>
+	<44AE0F6D.80400@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dev@openvz.org, ebiederm@xmission.com,
-	kuznet@ms2.inr.ac.ru
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from castle.nmd.msu.ru ([193.232.112.53]:7946 "HELO
-	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1750957AbWGGHy2
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 03:54:28 -0400
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@?\(B" <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20060707.133434.125915077.yoshfuji@linux-ipv6.org>; from "YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B" on Fri, Jul 07, 2006 at 01:34:34PM
+Received: from smtp.osdl.org ([65.172.181.4]:47826 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750963AbWGGHyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 03:54:39 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <44AE0F6D.80400@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 07, 2006 at 01:34:34PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B wrote:
-> In article <20060630150823.A22285@castle.nmd.msu.ru> (at Mon, 3 Jul 2006 12:18:51 +0400), Andrey Savochkin <saw@swsoft.com> says:
-> 
-> > @@ -3271,22 +3277,22 @@ int unregister_netdevice(struct net_devi
-> >  
-> >  	/* And unlink it from device chain. */
-> >  	for (dp = &dev_base; (d = *dp) != NULL; dp = &d->next) {
-> 
-> Why not for_each_netdev?
+On Fri, 07 Jul 2006 03:38:21 -0400
+Jeff Garzik <jeff@garzik.org> wrote:
 
-it's a different list
+> akpm@osdl.org wrote:
+> > From: Andrew Morton <akpm@osdl.org>
+> > 
+> > drivers/net/8139cp.c: In function 'cp_init_one':
+> > drivers/net/8139cp.c:1919: warning: format '%lx' expects type 'long unsigned int', but argument 4 has type 'resource_size_t'
+> > drivers/net/8139cp.c:1919: warning: format '%lx' expects type 'long unsigned int', but argument 5 has type 'resource_size_t'
+> > 
+> > 
+> > Signed-off-by: Andrew Morton <akpm@osdl.org>
+> > ---
+> > 
+> >  drivers/net/8139cp.c |    2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff -puN drivers/net/8139cp.c~8139cp-printk-fix drivers/net/8139cp.c
+> > --- a/drivers/net/8139cp.c~8139cp-printk-fix
+> > +++ a/drivers/net/8139cp.c
+> > @@ -1916,7 +1916,7 @@ static int cp_init_one (struct pci_dev *
+> >  	regs = ioremap(pciaddr, CP_REGS_SIZE);
+> >  	if (!regs) {
+> >  		rc = -EIO;
+> > -		dev_err(&pdev->dev, "Cannot map PCI MMIO (%lx@%lx)\n",
+> > +		dev_err(&pdev->dev, "Cannot map PCI MMIO (%Lx@%Lx)\n",
+> >  		       (unsigned long long)pci_resource_len(pdev, 1),
+> >  		       (unsigned long long)pciaddr);
+> 
+> should be %llx if I'm not mistaken...  (looks like a merge screwup on my 
+> part)
+
+%llx == %Lx (doesn't it?)
+
+It saves a byte ;)
