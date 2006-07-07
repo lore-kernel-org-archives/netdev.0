@@ -1,45 +1,69 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [RFC] change netdevice to use struct device instead of struct class_device
-Date: Thu, 6 Jul 2006 17:02:33 -0700
-Message-ID: <20060707000233.GA13921@kroah.com>
-References: <20060703224719.GA14176@kroah.com> <1152109763.4260.19.camel@localhost>
+From: Tom Tucker <tom@opengridcomputing.com>
+Subject: Re: RDMA will be reverted
+Date: Thu, 06 Jul 2006 19:32:31 -0500
+Message-ID: <1152232351.20248.139.camel@trinity.ogc.int>
+References: <E1FyUX2-0007Gm-00@gondolin.me.apana.org.au>
+	 <1152207384.20248.104.camel@trinity.ogc.int>
+	 <20060707000337.GA31273@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, rdreier@cisco.com, netdev@vger.kernel.org,
+	akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:2500 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1750889AbWGGAGU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 20:06:20 -0400
-To: Marcel Holtmann <marcel@holtmann.org>
-Content-Disposition: inline
-In-Reply-To: <1152109763.4260.19.camel@localhost>
+Received: from es335.com ([67.65.19.105]:46445 "EHLO mail.es335.com")
+	by vger.kernel.org with ESMTP id S1750934AbWGGAcj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jul 2006 20:32:39 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060707000337.GA31273@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 05, 2006 at 04:29:23PM +0200, Marcel Holtmann wrote:
-> Hi Greg,
+On Fri, 2006-07-07 at 10:03 +1000, Herbert Xu wrote:
+> On Thu, Jul 06, 2006 at 12:36:24PM -0500, Tom Tucker wrote:
+> > 
+> > The RDMA CMA uses IP addresses and port numbers to create a uniform
+> > addressing scheme across all transport types. For IB, it is necessary to
+> > resolve IP addresses to IB GIDs. The ARP protocol is used to do this and
+> > a netfilter rule is installed to snoop the incoming ARP replies. This
+> > would not be necessary if ARP events were provided as in the patch. 
 > 
-> > The patch needs some other changes to the driver core that are also in
-> > my git tree, and included in the -mm release.  Specifically these
-> > patches are needed:
-> > 	http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/driver/device-groups.patch
-> > 	http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/driver/device-class-parent.patch
+> Well the concerns we have do not apply to just iWARP, but RDMA/IP in
+> general so this isn't really another technology.
 > 
-> while converting the Bluetooth subsystem from class devices to real
-> devices, I had some similar situation with devices without parent. I
-> actually used a Bluetooth platform device as parent for virtual or
-> serial based devices.
+> In fact, it seems that we now have IP-specific knowledge living in
+> drivers/infiniband/core/cma.c which is suboptimal.
 
-The problem with that is you get a bunch of symlinks to that parent
-device that you really don't want to have, when we have a device that is
-associated with a class.
+To be clear the CMA doesn't look in the ARP packet, it just uses the
+existence of the packet as an indication that it should check to see if
+the ARP request it submitted for an IP address has been resolved yet. I
+agree that this is suboptimal and why I think the notifier is a nice
+alternative. 
 
-I was thinking of creating a /sys/devices/virtual/ to put these
-unassociated devices into, and I'll play around with that a bit.  I
-don't know if we will hit some namespace issues with all of the
-different devices that aren't associated with a "real" device if we lump
-them all together into one directory...
+> 
+> > Unified wire iSCSI adapters have the same issue as iWARP wrt to managing
+> > IP addresses and ports.
+> 
+> If by Unified wire iSCSI you mean something that presents a SCSI interface
+> together with an Ethernet interface where the two share the same MAC and
+> IP address, 
 
-thanks,
+Yes, this is what I mean. But the notifier doesn't actually support
+this, you would need to expose the IP/port space database to solve that
+problem.
 
-greg k-h
+What I was referring to relative to  iSCSI is if the adapter is relying
+on Linux to do ARP via the above suboptimal implementation, then it
+would benefit from the notifier patch.
+
+> then we have the same concerns with it as we do with iWARP or
+> TOE.
+
+Yes indeed.
+
+> 
+> Cheers,
+
+
+
+
