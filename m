@@ -1,41 +1,31 @@
-From: Marcel Holtmann <marcel@holtmann.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: Bluetooth update for 2.6
-Date: Sat, 08 Jul 2006 00:54:30 +0200
-Message-ID: <1152312870.3693.24.camel@localhost>
+Date: Fri, 07 Jul 2006 16:14:41 -0700 (PDT)
+Message-ID: <20060707.161441.43873905.davem@davemloft.net>
 References: <1152216560.20938.37.camel@localhost>
-	 <20060707.001745.07431025.davem@davemloft.net>
+	<20060707.001745.07431025.davem@davemloft.net>
+	<1152312870.3693.24.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([217.160.111.169]:59306 "EHLO
-	mail.holtmann.net") by vger.kernel.org with ESMTP id S932244AbWGGWy0
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 18:54:26 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060707.001745.07431025.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5572
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932371AbWGGXON (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 19:14:13 -0400
+To: marcel@holtmann.org
+In-Reply-To: <1152312870.3693.24.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Sat, 08 Jul 2006 00:54:30 +0200
 
-> > this is the second part of pending updates of the Bluetooth subsystem
-> > for the upcoming 2.6.18 kernel. A couple of them are only coding style
-> > cleanups which I failed to submit for the previous kernel release. They
-> > slipped somehow. The rest is driver model integration stuff. Please push
-> > them to Linus as soon as possible.
-> 
-> The merge window for 2.6.18 is closed, so you will need to eliminate
-> things like code cleanups and other non-bugfixes.
+> Do you think Linus will make an exception?
 
-yes, I saw that, but actually these patches were meant to get to you
-before the merge window closed. I failed to prepare the tree, because I
-lost remote access to one of my machines were I unfortunately had queued
-all of these patches. Do you think Linus will make an exception?
+I actually hope that he won't.
 
-Regards
-
-Marcel
-
-
+He even let it go beyond a week this time, it was closer
+to 2 weeks.  This gave you ample opportunity to merge your
+changes in on time, sorry.
