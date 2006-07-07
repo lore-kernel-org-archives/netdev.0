@@ -1,90 +1,102 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: starting mc triggers lockdep
-Date: Fri, 07 Jul 2006 20:48:33 +0200
-Message-ID: <1152298113.3111.134.camel@laptopd505.fenrus.org>
-References: <20060707161314.GA3223@redhat.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [Bugme-new] [Bug 6802] New: pktgen cause kernel oops with
+ transmit load balanced bonding
+Date: Fri, 7 Jul 2006 11:50:19 -0700
+Message-ID: <20060707115019.ebeb6865.akpm@osdl.org>
+References: <200607071437.k67EbqZS022297@fire-2.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, akpm@osdl.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:42196 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S932205AbWGGSsk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 14:48:40 -0400
-To: Dave Jones <davej@redhat.com>
-In-Reply-To: <20060707161314.GA3223@redhat.com>
+Received: from smtp.osdl.org ([65.172.181.4]:62140 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932218AbWGGSub (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 14:50:31 -0400
+To: cltien@gmail.com
+In-Reply-To: <200607071437.k67EbqZS022297@fire-2.osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-07-07 at 12:13 -0400, Dave Jones wrote:
-> With 2.6.18rc1 + a selection of the lockdep tweaks found so far,
-> midnight commander makes the kernel unhappy.
+On Fri, 7 Jul 2006 07:37:52 -0700
+bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=6802
 > 
-> 		Dave
+>            Summary: pktgen cause kernel oops with transmit load balanced
+>                     bonding
+>     Kernel Version: 2.4.32, 2.6.17.2
+>             Status: NEW
+>           Severity: high
+>              Owner: acme@conectiva.com.br
+>          Submitter: cltien@gmail.com
 > 
 > 
-> =======================================================
-> [ INFO: possible circular locking dependency detected ]
-> -------------------------------------------------------
-> mc/4913 is trying to acquire lock:
->  (sk_lock-AF_INET){--..}, at: [<ffffffff8022800c>] tcp_sendmsg+0x1f/0xb1a
+> Most recent kernel where this bug did not occur:
+> not found
+> Distribution:
+> Fedora Core 4
 > 
-> but task is already holding lock:
->  (&inode->i_mutex){--..}, at: [<ffffffff802692e0>] mutex_lock+0x2a/0x2e
+> Hardware Environment:
+> i386, ppc
 > 
-> which lock already depends on the new lock.
+> Software Environment:
+> gcc
+> 
+> Problem Description:
+> If running the kernel packet generator (pktgen), and the output device is set 
+> to bonding interface with mode balance-tlb or balance-alb, then there will be 
+> kernel oops.
+> 
+> I only set the odev, dst and count (as 0 for infinite test) for the pktgen. I 
+> wonder if I made mistake for the pktgen parameters but it doesn't cause problem 
+> if the odev set to physical device such as eth0, etc.
+> 
+> My investigations shows that the problem happen when the bond_alb_xmit tries to 
+> access the daddr fields of IP header in skb->nh.iph. If I did the same in round-
+> robin mode, it can generate oops too.
+> 
+> Steps to reproduce:
+> 1. Build kernel with pktgen (CONFIG_NET_PKTGEN) and bonding driver 
+> (CONFIG_BONDING).
+> 2. Setup bonding interface.
+> ifenslave bond0 eth0
+> 3. Create a script for starting packet generator,
+> the script I start packet generator for kernel 2.4 series is like following:
+> -----------cut here --------
+> #! /bin/sh
+> 
+> modprobe pktgen
+> 
+> PGDEV=/proc/net/pktgen/pg0
+> 
+> function pgset() {
+>     local result
+> 
+>     echo $1 > $PGDEV
+> 
+>     result=`cat $PGDEV | fgrep "Result: OK:"`
+>     if [ "$result" = "" ]; then
+>          cat $PGDEV | fgrep Result:
+>     fi
+> }
+> 
+> function pg() {
+>     echo inject > $PGDEV
+>     cat $PGDEV
+> }
+> 
+> pgset "odev bond0"
+> pgset "dst 127.1.16.1"
+> pgset "count 0"
+> pg
+> -----------cut here --------
+> 
+> 4. If the odev is set to eth0, the this script will not have problem, problem 
+> only happen when it is set to bond0.
+> 
 
+Please send (via an emailed reply-to-all) a copy of the oops output.
 
-ok this looks like a fun three-way variant of the traditional AB-BA
-deadlock... an ABCA deadlock :)
-
-Lock A: rtnl_mutex
-Lock B: i_mutex
-Lock C: sk_lock for AF_INET
-
-
-i_mutex is taken within rtln_mutex like this:
-       [<ffffffff8030f4a0>] create_dir+0x2c/0x1e2
-       [<ffffffff8030fa5b>] sysfs_create_dir+0x59/0x78
-       [<ffffffff8034d2e2>] kobject_add+0x114/0x1d8
-       [<ffffffff803bb1e7>] class_device_add+0xb5/0x49d
-       [<ffffffff804300b1>] netdev_register_sysfs+0x98/0xa2
-       [<ffffffff80426f58>] register_netdevice+0x28c/0x376
-       [<ffffffff8042709c>] register_netdev+0x5a/0x69
-creating the AB dependency
-
-now for the second part:
-if you use the IP_DROP_MEMBERSHIP socket option, you end up going into
-the function do_ip_setsockopt(), which first does a lock_sock(), and
-then a call to ip_mc_leave_group(), which calls rtnl_lock()
-So we have the CA dependency right here.
-
-now for the third part, which involves the nfs client:
-stat on an nfs file, which ends up taken the i_mutex of a directory in
-the path (obvious), and then does 
-       [<ffffffff8022800b>] tcp_sendmsg+0x1e/0xb1a
-       [<ffffffff80248f4b>] inet_sendmsg+0x45/0x53
-       [<ffffffff80259d25>] sock_sendmsg+0x110/0x130
-       [<ffffffff8041f462>] kernel_sendmsg+0x3c/0x52
-       [<ffffffff885399e9>] xs_tcp_send_request+0x117/0x320 [sunrpc]
-       [<ffffffff885388d5>] xprt_transmit+0x105/0x21e [sunrpc]
-       [<ffffffff8853771e>] call_transmit+0x1f4/0x239 [sunrpc]
-       [<ffffffff8853c06e>] __rpc_execute+0x9b/0x1e6 [sunrpc]
-       [<ffffffff8853c1de>] rpc_execute+0x1a/0x1d [sunrpc]
-       [<ffffffff885364ad>] rpc_call_sync+0x87/0xb9 [sunrpc]
-       [<ffffffff885a2587>] nfs3_rpc_wrapper+0x2e/0x74 [nfs]
-       [<ffffffff885a2a14>] nfs3_proc_lookup+0xe0/0x163 [nfs]
-where tcp_sendmsg calls lock_sock. So this is the BC dependency.
-
-
-In summary, we have an AB dependency, a BC dependency and a CA
-dependency. This is reason for lockdep to conclude that there is a
-circular dependency happening, which, looking at my analysis, seems to
-be at least reasonably right...
-
-
-
-
+Thanks.
