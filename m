@@ -1,43 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: auro deadlock
-Date: Fri, 07 Jul 2006 12:09:36 -0700 (PDT)
-Message-ID: <20060707.120936.98532669.davem@davemloft.net>
-References: <20060707171916.GA16343@redhat.com>
-	<1152295989.3111.116.camel@laptopd505.fenrus.org>
+Subject: Re: more rc1 lockdep fun.
+Date: Fri, 07 Jul 2006 12:11:45 -0700 (PDT)
+Message-ID: <20060707.121145.61973582.davem@davemloft.net>
+References: <20060707185848.GA5818@redhat.com>
+	<1152299015.3111.138.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, akpm@osdl.org, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: davej@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48094
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:9105
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932265AbWGGTJF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 15:09:05 -0400
+	id S932271AbWGGTLO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 15:11:14 -0400
 To: arjan@infradead.org
-In-Reply-To: <1152295989.3111.116.camel@laptopd505.fenrus.org>
+In-Reply-To: <1152299015.3111.138.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Arjan van de Ven <arjan@infradead.org>
-Date: Fri, 07 Jul 2006 20:13:09 +0200
+Date: Fri, 07 Jul 2006 21:03:35 +0200
 
-> Now a question for netdev: what is the interrupt-or-softirq rules for
-> the sk_receive_queue.lock?
+> On Fri, 2006-07-07 at 14:58 -0400, Dave Jones wrote:
+> > =======================================================
+> > [ INFO: possible circular locking dependency detected ]
+> > -------------------------------------------------------
+> > gnome-settings-/3278 is trying to acquire lock:
+> >  (sk_lock-AF_INET){--..}, at: [<ffffffff8022800c>] tcp_sendmsg+0x1f/0xb1a
 > 
-> Anyway, the patch below fixes this deadlock; it may or may not be the
-> correct solution depending on the netdev answer, but the deadlock is
-> gone ;)
+> 
+> this appears to be the same one as the "mc" one I just looked at.
 
-The lockdep fixes are starting to cause us to go in and start adding
-hard IRQ protection to many socket layer objects and I want this
-thinking to end quickly :)
-
-The netlink wireless fix is another example of this, but I accept the
-temporary fix for that one for the time being.
-
-To reiterate, nothing socket or SKB level should be taking anything
-deeper than software IRQ locking.
-
-If drivers manage local SKB queues in hard IRQ context, they need to
-use a seperate lockdep identifier for that queue's lock.
+This is what I think too, I'll look at Arjan's analysis later this
+afternoon.
