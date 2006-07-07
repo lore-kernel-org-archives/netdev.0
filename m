@@ -1,27 +1,51 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] per-task delay accounting taskstats interface: control exit data through cpumasks]
-Date: Fri, 7 Jul 2006 12:21:27 +0200
-Message-ID: <20060707102127.GC14627@postel.suug.ch>
-References: <44ACD7C3.5040008@watson.ibm.com> <20060706025633.cd4b1c1d.akpm@osdl.org> <1152185865.5986.15.camel@localhost.localdomain> <20060706120835.GY14627@postel.suug.ch> <20060706144808.1dd5fadf.akpm@osdl.org> <44AD8E65.70006@watson.ibm.com> <20060706155643.2cd37b80.akpm@osdl.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [e1000]: flow control on by default - good idea really?
+Date: Fri, 07 Jul 2006 08:28:03 -0400
+Message-ID: <1152275283.5341.144.camel@jzny2>
+References: <44AC05A8.9030503@intel.com>
+	 <Pine.LNX.4.64.0607052241230.12611@bizon.gios.gov.pl>
+	 <1152191018.5103.48.camel@jzny2>
+	 <20060706.235909.78729229.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Shailabh Nagar <nagar@watson.ibm.com>, jlan@sgi.com, pj@sgi.com,
-	Valdis.Kletnieks@vt.edu, balbir@in.ibm.com, csturtiv@sgi.com,
-	linux-kernel@vger.kernel.org, hadi@cyberus.ca,
-	netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, Robert.Olsson@data.slu.se,
+	john.ronciak@intel.com, greearb@candelatech.com, jgarzik@pobox.com,
+	olel@ans.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:55713 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S932088AbWGGKVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 06:21:06 -0400
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060706155643.2cd37b80.akpm@osdl.org>
+Received: from mx02.cybersurf.com ([209.197.145.105]:3543 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932110AbWGGM2J
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 08:28:09 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1FypRL-0002U3-RA
+	for netdev@vger.kernel.org; Fri, 07 Jul 2006 08:28:11 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060706.235909.78729229.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Andrew Morton <akpm@osdl.org> 2006-07-06 15:56
-> Yup.  Thomas, what's the testing status of the netlink patch you sent?  Should I
-> queue it up and start plagueing people with it?
+On Thu, 2006-06-07 at 23:59 -0700, David Miller wrote:
 
-It survived feeding it with oversized strings etc. Feel free
-to queue it up.
+> 
+> It's autonegotiated, check you kernel message logs when the link
+> came up, you'll see this:
+> 
+> tg3: eth0: Flow control is on for TX and on for RX.
+> 
+
+yikes - yes, this would be it.
+
+I  could be wrong and i will double check:
+I think when the e1000 says via ethtool "rx is on" - it means that it 
+is _advertising_ flow control as opposed to detecting partner has flow
+control capability.
+Auke, can you also check this as well?
+
+cheers,
+jamal 
+
+
