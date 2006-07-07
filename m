@@ -1,47 +1,120 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] sky2: fix trucated collision threshold mask
-Date: Fri, 7 Jul 2006 13:40:21 -0400
-Message-ID: <20060707174021.GA8636@hmsreliant.homelinux.net>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: auro deadlock  (was Re: e100 lockdep irq lock inversion.)
+Date: Fri, 07 Jul 2006 20:13:09 +0200
+Message-ID: <1152295989.3111.116.camel@laptopd505.fenrus.org>
+References: <20060707171916.GA16343@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, jeff@garzik.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, mingo@elte.hu,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:19219 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S932233AbWGGRkt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 13:40:49 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from pentafluge.infradead.org ([213.146.154.40]:62432 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S932244AbWGGSNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 14:13:16 -0400
+To: Dave Jones <davej@redhat.com>
+In-Reply-To: <20060707171916.GA16343@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patch to correct broken collision threshold mask in sky2 driver.  Should be
-three bits wide, but the mask only allows for 1 bit to be set.
+On Fri, 2006-07-07 at 13:19 -0400, Dave Jones wrote:
+> Another one triggered by a Fedora-development user..
+> 
+> e100: eth1: e100_watchdog: link up, 100Mbps, half-duplex
+> 
+> =========================================================
+> [ INFO: possible irq lock inversion dependency detected ]
+> ---------------------------------------------------------
+> ipcalc/1671 just changed the state of lock:
+>  (&skb_queue_lock_key){-+..}, at: [<c05ebe2f>] udp_ioctl+0x3b/0x6e
+> but this lock was taken by another, hard-irq-safe lock in the past:
+>  (&ai->aux_lock){+...}
+> 
+> and interrupts could create inverse lock ordering between them.
 
-Thanks & Regards
-Neil
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+ok the situation is this:
 
- sky2.h |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+the airo driver has a per card aux_lock.
+
+This lock is used in the hardirq handler, and thus all uses need to be
+irqsave (and they are)
+
+Act 1
+
+Enter the mpi_start_xmit() function, which is airo's xmit function.
+This function takes the aux_lock first, with irq's off, then calls
+skb_queue_tail(). skb_queue_tail takes the sk_receive_queue.lock (with
+irqsave as well).
+
+Act 2
+
+Enter the ipcalc program. This program calls an ioctl, which ends up
+calling udp_ioctl. udp_ioctl does
+   spin_lock_bh(&sk->sk_receive_queue.lock);
 
 
-diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-index 8a0bc55..2db8d19 100644
---- a/drivers/net/sky2.h
-+++ b/drivers/net/sky2.h
-@@ -1480,7 +1480,7 @@ enum {
- 	GM_TXCR_FORCE_JAM	= 1<<15, /* Bit 15:	Force Jam / Flow-Control */
- 	GM_TXCR_CRC_DIS		= 1<<14, /* Bit 14:	Disable insertion of CRC */
- 	GM_TXCR_PAD_DIS		= 1<<13, /* Bit 13:	Disable padding of packets */
--	GM_TXCR_COL_THR_MSK	= 1<<10, /* Bit 12..10:	Collision Threshold */
-+	GM_TXCR_COL_THR_MSK	= 7<<10, /* Bit 12..10:	Collision Threshold */
- };
+This is a deadlock
+
+For brevity, lock A is the aux_lock, lock B is the sk_receive_queue.lock
+
+CPU 0				CPU 1
+user context			user context
+				udp_ioctl takes lock B with _bh
+				(leaving irqs enabled)
+
+mpi_start_function takes
+lock A with _irqsave
+mpi_start_function takes
+lock B with _irqsave and spins
+
+				interrupt happens
+				the hard irq handler takes lock A
+				.... and spins for cpu 0
+
+eg a classic AB-BA deadlock.
+
+
+Now a question for netdev: what is the interrupt-or-softirq rules for
+the sk_receive_queue.lock?
+
+Anyway, the patch below fixes this deadlock; it may or may not be the
+correct solution depending on the netdev answer, but the deadlock is
+gone ;)
+
+Signed-off-by: Arjan van de Ven
+
+Index: linux-2.6.18-rc1/net/ipv4/udp.c
+===================================================================
+--- linux-2.6.18-rc1.orig/net/ipv4/udp.c
++++ linux-2.6.18-rc1/net/ipv4/udp.c
+@@ -725,6 +725,7 @@ out:
+  
+ int udp_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ {
++	unsigned long flags;
+ 	switch(cmd) 
+ 	{
+ 		case SIOCOUTQ:
+@@ -739,7 +740,7 @@ int udp_ioctl(struct sock *sk, int cmd, 
+ 			unsigned long amount;
  
- #define TX_COL_THR(x)		(((x)<<10) & GM_TXCR_COL_THR_MSK)
--- 
-/***************************************************
- *Neil Horman
- *Software Engineer
- *gpg keyid: 1024D / 0x92A74FA1 - http://pgp.mit.edu
- ***************************************************/
+ 			amount = 0;
+-			spin_lock_bh(&sk->sk_receive_queue.lock);
++			spin_lock_irqsave(&sk->sk_receive_queue.lock, flags);
+ 			skb = skb_peek(&sk->sk_receive_queue);
+ 			if (skb != NULL) {
+ 				/*
+@@ -749,7 +750,7 @@ int udp_ioctl(struct sock *sk, int cmd, 
+ 				 */
+ 				amount = skb->len - sizeof(struct udphdr);
+ 			}
+-			spin_unlock_bh(&sk->sk_receive_queue.lock);
++			spin_unlock_irqrestore(&sk->sk_receive_queue.lock, flags);
+ 			return put_user(amount, (int __user *)arg);
+ 		}
+ 
+
+
