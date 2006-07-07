@@ -1,102 +1,63 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Bugme-new] [Bug 6802] New: pktgen cause kernel oops with
- transmit load balanced bonding
-Date: Fri, 7 Jul 2006 11:50:19 -0700
-Message-ID: <20060707115019.ebeb6865.akpm@osdl.org>
-References: <200607071437.k67EbqZS022297@fire-2.osdl.org>
+From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+Subject: RE: [PATCH]NET: Add ECN support for TSO
+Date: Fri, 7 Jul 2006 11:56:35 -0700
+Message-ID: <000f01c6a1f7$125ebaf0$4710100a@pc.s2io.com>
+References: <1151464007.5124.13.camel@rh4>
+Reply-To: <ravinandan.arakali@neterion.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"bugme-daemon@kernel-bugs.osdl.org"
-	<bugme-daemon@bugzilla.kernel.org>
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:62140 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932218AbWGGSub (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 14:50:31 -0400
-To: cltien@gmail.com
-In-Reply-To: <200607071437.k67EbqZS022297@fire-2.osdl.org>
+Received: from barracuda.s2io.com ([72.1.205.138]:23533 "EHLO
+	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
+	id S932224AbWGGS5F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 14:57:05 -0400
+To: "'Michael Chan'" <mchan@broadcom.com>, <davem@davemloft.net>,
+	<herbert@gondor.apana.org.au>
+In-Reply-To: <1151464007.5124.13.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 7 Jul 2006 07:37:52 -0700
-bugme-daemon@bugzilla.kernel.org wrote:
+Michael,
+Are network cards expected to be aware-of and implement RFC3540(ECN with
+nonces) ?
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=6802
-> 
->            Summary: pktgen cause kernel oops with transmit load balanced
->                     bonding
->     Kernel Version: 2.4.32, 2.6.17.2
->             Status: NEW
->           Severity: high
->              Owner: acme@conectiva.com.br
->          Submitter: cltien@gmail.com
-> 
-> 
-> Most recent kernel where this bug did not occur:
-> not found
-> Distribution:
-> Fedora Core 4
-> 
-> Hardware Environment:
-> i386, ppc
-> 
-> Software Environment:
-> gcc
-> 
-> Problem Description:
-> If running the kernel packet generator (pktgen), and the output device is set 
-> to bonding interface with mode balance-tlb or balance-alb, then there will be 
-> kernel oops.
-> 
-> I only set the odev, dst and count (as 0 for infinite test) for the pktgen. I 
-> wonder if I made mistake for the pktgen parameters but it doesn't cause problem 
-> if the odev set to physical device such as eth0, etc.
-> 
-> My investigations shows that the problem happen when the bond_alb_xmit tries to 
-> access the daddr fields of IP header in skb->nh.iph. If I did the same in round-
-> robin mode, it can generate oops too.
-> 
-> Steps to reproduce:
-> 1. Build kernel with pktgen (CONFIG_NET_PKTGEN) and bonding driver 
-> (CONFIG_BONDING).
-> 2. Setup bonding interface.
-> ifenslave bond0 eth0
-> 3. Create a script for starting packet generator,
-> the script I start packet generator for kernel 2.4 series is like following:
-> -----------cut here --------
-> #! /bin/sh
-> 
-> modprobe pktgen
-> 
-> PGDEV=/proc/net/pktgen/pg0
-> 
-> function pgset() {
->     local result
-> 
->     echo $1 > $PGDEV
-> 
->     result=`cat $PGDEV | fgrep "Result: OK:"`
->     if [ "$result" = "" ]; then
->          cat $PGDEV | fgrep Result:
->     fi
-> }
-> 
-> function pg() {
->     echo inject > $PGDEV
->     cat $PGDEV
-> }
-> 
-> pgset "odev bond0"
-> pgset "dst 127.1.16.1"
-> pgset "count 0"
-> pg
-> -----------cut here --------
-> 
-> 4. If the odev is set to eth0, the this script will not have problem, problem 
-> only happen when it is set to bond0.
-> 
+Thanks,
+Ravi
 
-Please send (via an emailed reply-to-all) a copy of the oops output.
+-----Original Message-----
+From: netdev-owner@vger.kernel.org
+[mailto:netdev-owner@vger.kernel.org]On Behalf Of Michael Chan
+Sent: Tuesday, June 27, 2006 8:07 PM
+To: davem@davemloft.net; herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org
+Subject: [PATCH]NET: Add ECN support for TSO
 
-Thanks.
+
+In the current TSO implementation, NETIF_F_TSO and ECN cannot be
+turned on together in a TCP connection.  The problem is that most
+hardware that supports TSO does not handle CWR correctly if it is set
+in the TSO packet.  Correct handling requires CWR to be set in the
+first packet only if it is set in the TSO header.
+
+This patch adds the ability to turn on NETIF_F_TSO and ECN using
+GSO if necessary to handle TSO packets with CWR set.  Hardware
+that handles CWR correctly can turn on NETIF_F_TSO_ECN in the dev->
+features flag.
+
+All TSO packets with CWR set will have the SKB_GSO_TCPV4_ECN set.  If
+the output device does not have the NETIF_F_TSO_ECN feature set, GSO
+will split the packet up correctly with CWR only set in the first
+segment.
+
+It is further assumed that all hardware will handle ECE properly by
+replicating the ECE flag in all segments.  If that is not the case, a
+simple extension of the logic will be required.
+
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+
+
