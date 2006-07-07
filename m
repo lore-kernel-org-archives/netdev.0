@@ -1,35 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: add amd8131 to "write reorder" chipsets
-Date: Fri, 07 Jul 2006 13:57:24 -0700 (PDT)
-Message-ID: <20060707.135724.26300161.davem@davemloft.net>
-References: <20060707185831.GC22636@tuxdriver.com>
-	<20060707.121220.99179918.davem@davemloft.net>
-	<44AEC252.70209@intel.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH]NET: Add ECN support for TSO
+Date: Fri, 7 Jul 2006 13:57:11 -0700
+Message-ID: <1551EAE59135BE47B544934E30FC4FC041BD9C@NT-IRVA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:45956
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751230AbWGGU44 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 16:56:56 -0400
-To: auke-jan.h.kok@intel.com
-In-Reply-To: <44AEC252.70209@intel.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:33038 "EHLO
+	mms1.broadcom.com") by vger.kernel.org with ESMTP id S1751254AbWGGU5X convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 16:57:23 -0400
+Content-class: urn:content-classes:message
+To: ravinandan.arakali@neterion.com, davem@davemloft.net,
+	herbert@gondor.apana.org.au
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Date: Fri, 07 Jul 2006 13:21:38 -0700
 
-> Moreover, since e1000 suffers from reordering/write-combining
-> problems on the 8132, I'm starting to see an (ugly) pattern here. I
-> didn't know that tg3 has a whole blacklist for this, could this
-> affect other network cards as well?
+Ravinandan Arakali wrote:
+> Michael,
+> Are network cards expected to be aware-of and implement 
+> RFC3540(ECN with
+> nonces) ?
+> 
+Hi Ravi,
 
-The tg3 is probably more susceptible to this problem because of
-how it uses a software structure in memory for interrupt status and
-RX/TX descriptor table head/tail indexes.
+RFC3540 is still experimental I believe and it is not implemented
+in the Linux stack.  Even if it is implemented and the NS bit is set,
+I think the TSO logic can simply replicate the NS bit as each TSO
+divided segment contains the same acknowledgement information from
+the original super segment.
 
-Whereas the e1000 always has to synchronize with MMIO register reads
-to get interrupt status and the indexes.
+We should hear Herbert, David, or others' opinions on this.
+
+
