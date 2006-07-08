@@ -1,36 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: airo maybe should select crypto_aes
-Date: Sat, 08 Jul 2006 14:37:41 +1000
-Message-ID: <E1Fz4ZZ-0001V1-00@gondolin.me.apana.org.au>
-References: <44AC269B.6000704@net-pr.de>
-Cc: netdev@vger.kernel.org, linville@tuxdriver.com
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFC NET 00/04]: Increase number of possible routing tables
+Date: Fri, 07 Jul 2006 22:06:29 -0700
+Message-ID: <44AF3D55.8040004@candelatech.com>
+References: <20060703075259.6286.67397.sendpatchset@localhost.localdomain> <44AE15C3.8050900@trash.net> <44AEA462.1080505@candelatech.com> <44AEBCE7.2030203@trash.net> <44AF053F.70605@candelatech.com> <44AF1CFD.102@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>, Robert.Olsson@data.slu.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:27148 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932510AbWGHEhy
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Jul 2006 00:37:54 -0400
-To: rob@net-pr.de (Robert Schulze)
-In-Reply-To: <44AC269B.6000704@net-pr.de>
+Received: from ns2.lanforge.com ([66.165.47.211]:20956 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S1750773AbWGHFGt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2006 01:06:49 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <44AF1CFD.102@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Robert Schulze <rob@net-pr.de> wrote:
+Patrick McHardy wrote:
+> Ben Greear wrote:
 > 
-> I first wrote to the linux-pcmcia ML, but they said it wasn't the right 
-> address for my issue. The driver airo (for Cisco Wlan-Cards) complains 
-> about "failed to load transform for AES", when it is loaded and 
-> CRYPTO_AES is not selected in Kconfig.
-> I've got a patch for that, maybe it's worth it.
+>>With this patch applied everything is looking much better.  I currently
+>>have 400+ interfaces and one routing table per interface, and traffic
+>>is passing as expected.
+>>
+>>This is probably due to my own application polling interfaces for
+>>stat updates...but I am seeing over 50% usage (with more system than
+>>user-space)
+>>in this setup on an otherwise lightly loaded system.  top shows no
+>>process averaging
+>>more than about 2% CPU (and only 2-3 are above 0.0 typically), which I find
+>>a little strange.  load is around 3.0.
+> 
+> 
+> I can't imagine this beeing related to the increased number of
+> routing tables, with a number of entries slightly (not even two
+> times) over the hash size it shouldn't make that much of a
+> difference. It may of course be a bug, but I don't see it.
 
-First of your patch is space-damaged.  Please make sure that the
-original tabs are preserved and resend.
+I think it was my polling logic that was the problem.  I fixed it up to
+be more clever and the load went away.
 
-Also, wireless patches should be sent to this list with a cc to
-John W. Linville <linville@tuxdriver.com>.
+Ben
 
-Thanks,
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
