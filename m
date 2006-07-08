@@ -1,79 +1,54 @@
-From: Jamal Hadi Salim <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Sat, 08 Jul 2006 10:29:24 -0400
-Message-ID: <1152368964.5272.46.camel@jzny2>
-References: <1151697554.5270.241.camel@jzny2>
-	 <20060630203034.GN14627@postel.suug.ch>
-	 <20060630.133348.68039806.davem@davemloft.net>
-	 <1151700884.5270.278.camel@jzny2> <20060630211043.GO14627@postel.suug.ch>
-	 <1151703097.5270.307.camel@jzny2> <20060630234512.GR14627@postel.suug.ch>
-	 <1151722785.5093.51.camel@jzny2> <20060701112833.GS14627@postel.suug.ch>
-	 <1151760901.5093.141.camel@jzny2>  <20060708105451.GG14627@postel.suug.ch>
-	 <1152368076.5272.39.camel@jzny2>
-Reply-To: hadi@cyberus.ca
+From: Robert Schulze <rob@net-pr.de>
+Subject: [PATCH] airo: make debug-like messages printed by airo_print_dbg()
+Date: Sat, 08 Jul 2006 17:59:13 +0200
+Message-ID: <44AFD651.8030801@net-pr.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-VzFB7wPZ/WSx1IzoGlko"
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:22693 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S964848AbWGHO32
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Jul 2006 10:29:28 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1FzDoI-0004PS-6v
-	for netdev@vger.kernel.org; Sat, 08 Jul 2006 10:29:30 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <1152368076.5272.39.camel@jzny2>
+Received: from p15181122.pureserver.info ([212.227.60.11]:55200 "EHLO
+	p15181122.pureserver.info") by vger.kernel.org with ESMTP
+	id S964866AbWGHPx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Jul 2006 11:53:56 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+I don't think that messages like
 
---=-VzFB7wPZ/WSx1IzoGlko
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+airo(eth1): cmd= 111
 
-On Sat, 2006-08-07 at 10:14 -0400, Jamal Hadi Salim wrote:
+airo(eth1): status= 7f11
 
-> I have a dated  patch to mirred (may not apply cleanly) 
+airo(eth1): Rsp0= 2
 
-Sorry forgot to attach the patch. Attached for real this time;->
+airo(eth1): Rsp1= 0
 
-> that i believe
-> will fix this specific one. Try to see if it also fixes this case you
-> have.
+airo(eth1): Rsp2= 0
 
-I meant i know this works for eth0->eth0 i am not sure if it will fix
-your specific case. I need my laptop at the moment ;->
-If it does it will be an ok solution but not the best (because it
-introduces an unnecessary check for the common case).
+are interesting to normal users, so switch them from airo_print_err() to airo_print_dbg().
+Furthermore, remove implicit linefeed in those messages, as they are handled by airo_print().
 
-cheers,
-jamal
+with kind regards,
+Robert Schulze
 
---=-VzFB7wPZ/WSx1IzoGlko
-Content-Disposition: attachment; filename=mirred-lpath1
-Content-Type: text/x-patch; name=mirred-lpath1; charset=utf-8
-Content-Transfer-Encoding: 7bit
+--- linux-2.6.17.1/drivers/net/wireless/airo.c.orig	2006-07-08 14:02:12.000000000 +0200
++++ linux-2.6.17.1/drivers/net/wireless/airo.c	2006-07-08 17:36:08.000000000 +0200
+@@ -3897,11 +3897,11 @@ static u16 issuecommand(struct airo_info
+  	pRsp->rsp1 = IN4500(ai, RESP1);
+  	pRsp->rsp2 = IN4500(ai, RESP2);
+  	if ((pRsp->status & 0xff00)!=0 && pCmd->cmd != CMD_SOFTRESET) {
+-		airo_print_err(ai->dev->name, "cmd= %x\n", pCmd->cmd);
+-		airo_print_err(ai->dev->name, "status= %x\n", pRsp->status);
+-		airo_print_err(ai->dev->name, "Rsp0= %x\n", pRsp->rsp0);
+-		airo_print_err(ai->dev->name, "Rsp1= %x\n", pRsp->rsp1);
+-		airo_print_err(ai->dev->name, "Rsp2= %x\n", pRsp->rsp2);
++		airo_print_dbg(ai->dev->name, "cmd= %x", pCmd->cmd);
++		airo_print_dbg(ai->dev->name, "status= %x", pRsp->status);
++		airo_print_dbg(ai->dev->name, "Rsp0= %x", pRsp->rsp0);
++		airo_print_dbg(ai->dev->name, "Rsp1= %x", pRsp->rsp1);
++		airo_print_dbg(ai->dev->name, "Rsp2= %x", pRsp->rsp2);
+  	}
 
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 4fcccbd..d8946b3 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -208,6 +208,12 @@ bad_mirred:
- 
- 	skb2->dev = dev;
- 	skb2->input_dev = skb->dev;
-+	if (skb2->input_dev == skb2->dev) {
-+		if (net_ratelimit())
-+			printk(" Mirred: Loop detected to %s\n",skb2->dev->name);
-+		goto bad_mirred;
-+	}
-+
- 	dev_queue_xmit(skb2);
- 	spin_unlock(&p->lock);
- 	return p->action;
-
---=-VzFB7wPZ/WSx1IzoGlko--
-
+  	// clear stuck command busy if necessary
