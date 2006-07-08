@@ -1,58 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: starting mc triggers lockdep
-Date: Sat, 8 Jul 2006 21:12:40 +1000
-Message-ID: <20060708111240.GA7612@gondor.apana.org.au>
-References: <E1Fz33I-0006vG-00@gondolin.me.apana.org.au> <1152352400.3120.19.camel@laptopd505.fenrus.org>
+From: Robert Schulze <rob@net-pr.de>
+Subject: Re: airo maybe should select crypto_aes
+Date: Sat, 08 Jul 2006 13:37:17 +0200
+Message-ID: <44AF98ED.8000601@net-pr.de>
+References: <E1Fz4ZZ-0001V1-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davej@redhat.com, mingo@elte.hu, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35600 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S964779AbWGHLNB
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Jul 2006 07:13:01 -0400
-To: Arjan van de Ven <arjan@infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1152352400.3120.19.camel@laptopd505.fenrus.org>
+Received: from p15181122.pureserver.info ([212.227.60.11]:18643 "EHLO
+	p15181122.pureserver.info") by vger.kernel.org with ESMTP
+	id S964798AbWGHLcC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Jul 2006 07:32:02 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <E1Fz4ZZ-0001V1-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 08, 2006 at 11:53:20AM +0200, Arjan van de Ven wrote:
->
-> > > now for the third part, which involves the nfs client:
-> > > stat on an nfs file, which ends up taken the i_mutex of a directory in
-> > > the path (obvious), and then does 
-> > >       [<ffffffff8022800b>] tcp_sendmsg+0x1e/0xb1a
-> > >       [<ffffffff80248f4b>] inet_sendmsg+0x45/0x53
-> > >       [<ffffffff80259d25>] sock_sendmsg+0x110/0x130
-> > >       [<ffffffff8041f462>] kernel_sendmsg+0x3c/0x52
-> > >       [<ffffffff885399e9>] xs_tcp_send_request+0x117/0x320 [sunrpc]
-> > >       [<ffffffff885388d5>] xprt_transmit+0x105/0x21e [sunrpc]
-> > >       [<ffffffff8853771e>] call_transmit+0x1f4/0x239 [sunrpc]
-> > >       [<ffffffff8853c06e>] __rpc_execute+0x9b/0x1e6 [sunrpc]
-> > >       [<ffffffff8853c1de>] rpc_execute+0x1a/0x1d [sunrpc]
-> > >       [<ffffffff885364ad>] rpc_call_sync+0x87/0xb9 [sunrpc]
-> > >       [<ffffffff885a2587>] nfs3_rpc_wrapper+0x2e/0x74 [nfs]
-> > >       [<ffffffff885a2a14>] nfs3_proc_lookup+0xe0/0x163 [nfs]
-> > > where tcp_sendmsg calls lock_sock. So this is the BC dependency.
-> > 
-> > This is an nfs inode.
-> > 
-> > Did I miss something?
-> 
-> is it not possible to nfs export /sys, and then mount it over loopback?
+Hi,
 
-Possibly, but not with the backtrace above.  You'd need an nfs server
-backtrace to get the real sysfs inode.
+Herbert Xu schrieb:
+> First of your patch is space-damaged.  Please make sure that the
+> original tabs are preserved and resend.
 
-In any case, the sock lock from the other backtrace that you had
-(udp setsockopt) cannot be held by the kernel nfs client or server
-since the kernel nfs sockets are not visible to user space.
+Sorry for that, hope it fits this time.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Also, wireless patches should be sent to this list with a cc to
+> John W. Linville <linville@tuxdriver.com>.
+
+Didn't know that.
+
+With kind regards,
+Robert Schulze
+
+
+--- linux-2.6.17.1/drivers/net/wireless/Kconfig.orig	2006-07-03 
+17:37:02.000000000 +0200
++++ linux-2.6.17.1/drivers/net/wireless/Kconfig	2006-07-03 
+17:36:44.000000000 +0200
+@@ -419,6 +419,7 @@ config AIRO_CS
+  	tristate "Cisco/Aironet 34X/35X/4500/4800 PCMCIA cards"
+  	depends on NET_RADIO && PCMCIA && (BROKEN || !M32R)
+  	select CRYPTO
++	select CRYPTO_AES
+  	---help---
+  	  This is the standard Linux driver to support Cisco/Aironet PCMCIA
+  	  802.11 wireless cards.  This driver is the same as the Aironet
+
+
