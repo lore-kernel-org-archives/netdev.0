@@ -1,57 +1,47 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC NET 00/04]: Increase number of possible routing tables
-Date: Fri, 07 Jul 2006 22:06:29 -0700
-Message-ID: <44AF3D55.8040004@candelatech.com>
-References: <20060703075259.6286.67397.sendpatchset@localhost.localdomain> <44AE15C3.8050900@trash.net> <44AEA462.1080505@candelatech.com> <44AEBCE7.2030203@trash.net> <44AF053F.70605@candelatech.com> <44AF1CFD.102@trash.net>
+From: Martin Michlmayr <tbm@cyrius.com>
+Subject: Re: skge error; hangs w/ hardware memory hole
+Date: Sat, 8 Jul 2006 10:50:52 +0200
+Message-ID: <20060708085052.GF5635@deprecation.cyrius.com>
+References: <20060703205238.GA10851@deprecation.cyrius.com> <20060707141843.73fc6188@dxpl.pdx.osdl.net> <200607072328.51282.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>, Robert.Olsson@data.slu.se
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, 341801@bugs.debian.org,
+	asd@suespammers.org, kevin@sysexperts.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:20956 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1750773AbWGHFGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2006 01:06:49 -0400
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <44AF1CFD.102@trash.net>
+Received: from sorrow.cyrius.com ([65.19.161.204]:49169 "EHLO
+	sorrow.cyrius.com") by vger.kernel.org with ESMTP id S1750824AbWGHIuy
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Jul 2006 04:50:54 -0400
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <200607072328.51282.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Ben Greear wrote:
-> 
->>With this patch applied everything is looking much better.  I currently
->>have 400+ interfaces and one routing table per interface, and traffic
->>is passing as expected.
->>
->>This is probably due to my own application polling interfaces for
->>stat updates...but I am seeing over 50% usage (with more system than
->>user-space)
->>in this setup on an otherwise lightly loaded system.  top shows no
->>process averaging
->>more than about 2% CPU (and only 2-3 are above 0.0 typically), which I find
->>a little strange.  load is around 3.0.
-> 
-> 
-> I can't imagine this beeing related to the increased number of
-> routing tables, with a number of entries slightly (not even two
-> times) over the hash size it shouldn't make that much of a
-> difference. It may of course be a bug, but I don't see it.
+* Andi Kleen <ak@suse.de> [2006-07-07 23:28]:
+> Is that a board with VIA chipset?
 
-I think it was my polling logic that was the problem.  I fixed it up to
-be more clever and the load went away.
-
-Ben
-
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Yes, according to lspci, there's a VIA K8T800Pro and VT8237.
 
 
+0000:00:00.0 Host bridge: VIA Technologies, Inc. K8T800Pro Host Bridge
+0000:00:00.1 Host bridge: VIA Technologies, Inc. K8T800Pro Host Bridge
+0000:00:00.2 Host bridge: VIA Technologies, Inc. K8T800Pro Host Bridge
+0000:00:00.3 Host bridge: VIA Technologies, Inc. K8T800Pro Host Bridge
+0000:00:00.4 Host bridge: VIA Technologies, Inc. K8T800Pro Host Bridge
+0000:00:00.7 Host bridge: VIA Technologies, Inc. K8T800Pro Host Bridge
+0000:00:01.0 PCI bridge: VIA Technologies, Inc. VT8237 PCI bridge [K8T800/K8T890 South] (prog-if 00 [Normal decode])
+0000:00:07.0 FireWire (IEEE 1394): VIA Technologies, Inc. IEEE 1394 Host Controller (rev 80) (prog-if 10 [OHCI])
+0000:00:0f.0 RAID bus controller: VIA Technologies, Inc. VIA VT6420 SATA RAID Controller (rev 80)
+0000:00:0f.1 IDE interface: VIA Technologies, Inc. VT82C586A/B/VT82C686/A/B/VT823x/A/C PIPC Bus Master IDE (rev 06) (prog-if 8a [Master SecP PriP])
+0000:00:10.0 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 81) (prog-if 00 [UHCI])
+0000:00:10.1 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 81) (prog-if 00 [UHCI])
+0000:00:10.2 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 81) (prog-if 00 [UHCI])
+0000:00:10.3 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 81) (prog-if 00 [UHCI])
+0000:00:10.4 USB Controller: VIA Technologies, Inc. USB 2.0 (rev 86) (prog-if 20 [EHCI])
+0000:00:11.0 ISA bridge: VIA Technologies, Inc. VT8237 ISA bridge [KT600/K8T800/K8T890 South]
+0000:00:11.5 Multimedia audio controller: VIA Technologies, Inc. VT8233/A/8235/8237 AC97 Audio Controller (rev 60)
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Martin Michlmayr
+http://www.cyrius.com/
