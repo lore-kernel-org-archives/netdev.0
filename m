@@ -1,38 +1,58 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC NET 00/04]: Increase number of possible routing tables
-Date: Sat, 08 Jul 2006 04:48:29 +0200
-Message-ID: <44AF1CFD.102@trash.net>
-References: <20060703075259.6286.67397.sendpatchset@localhost.localdomain> <44AE15C3.8050900@trash.net> <44AEA462.1080505@candelatech.com> <44AEBCE7.2030203@trash.net> <44AF053F.70605@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>, Robert.Olsson@data.slu.se
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: starting mc triggers lockdep
+Date: Sat, 08 Jul 2006 13:00:16 +1000
+Message-ID: <E1Fz33I-0006vG-00@gondolin.me.apana.org.au>
+References: <1152298113.3111.134.camel@laptopd505.fenrus.org>
+Cc: davej@redhat.com, mingo@elte.hu, akpm@osdl.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62451 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932405AbWGHCsb
+Received: from rhun.apana.org.au ([64.62.148.172]:21259 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932494AbWGHDAy
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 22:48:31 -0400
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <44AF053F.70605@candelatech.com>
+	Fri, 7 Jul 2006 23:00:54 -0400
+To: arjan@infradead.org (Arjan van de Ven)
+In-Reply-To: <1152298113.3111.134.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> With this patch applied everything is looking much better.  I currently
-> have 400+ interfaces and one routing table per interface, and traffic
-> is passing as expected.
+Arjan van de Ven <arjan@infradead.org> wrote:
 > 
-> This is probably due to my own application polling interfaces for
-> stat updates...but I am seeing over 50% usage (with more system than
-> user-space)
-> in this setup on an otherwise lightly loaded system.  top shows no
-> process averaging
-> more than about 2% CPU (and only 2-3 are above 0.0 typically), which I find
-> a little strange.  load is around 3.0.
+> i_mutex is taken within rtln_mutex like this:
+>       [<ffffffff8030f4a0>] create_dir+0x2c/0x1e2
+>       [<ffffffff8030fa5b>] sysfs_create_dir+0x59/0x78
+>       [<ffffffff8034d2e2>] kobject_add+0x114/0x1d8
+>       [<ffffffff803bb1e7>] class_device_add+0xb5/0x49d
+>       [<ffffffff804300b1>] netdev_register_sysfs+0x98/0xa2
+>       [<ffffffff80426f58>] register_netdevice+0x28c/0x376
+>       [<ffffffff8042709c>] register_netdev+0x5a/0x69
+> creating the AB dependency
 
-I can't imagine this beeing related to the increased number of
-routing tables, with a number of entries slightly (not even two
-times) over the hash size it shouldn't make that much of a
-difference. It may of course be a bug, but I don't see it.
+This is a sysfs inode.
 
+> now for the third part, which involves the nfs client:
+> stat on an nfs file, which ends up taken the i_mutex of a directory in
+> the path (obvious), and then does 
+>       [<ffffffff8022800b>] tcp_sendmsg+0x1e/0xb1a
+>       [<ffffffff80248f4b>] inet_sendmsg+0x45/0x53
+>       [<ffffffff80259d25>] sock_sendmsg+0x110/0x130
+>       [<ffffffff8041f462>] kernel_sendmsg+0x3c/0x52
+>       [<ffffffff885399e9>] xs_tcp_send_request+0x117/0x320 [sunrpc]
+>       [<ffffffff885388d5>] xprt_transmit+0x105/0x21e [sunrpc]
+>       [<ffffffff8853771e>] call_transmit+0x1f4/0x239 [sunrpc]
+>       [<ffffffff8853c06e>] __rpc_execute+0x9b/0x1e6 [sunrpc]
+>       [<ffffffff8853c1de>] rpc_execute+0x1a/0x1d [sunrpc]
+>       [<ffffffff885364ad>] rpc_call_sync+0x87/0xb9 [sunrpc]
+>       [<ffffffff885a2587>] nfs3_rpc_wrapper+0x2e/0x74 [nfs]
+>       [<ffffffff885a2a14>] nfs3_proc_lookup+0xe0/0x163 [nfs]
+> where tcp_sendmsg calls lock_sock. So this is the BC dependency.
+
+This is an nfs inode.
+
+Did I miss something?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
