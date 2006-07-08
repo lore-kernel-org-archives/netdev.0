@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: add amd8131 to "write reorder" chipsets
-Date: Sat, 08 Jul 2006 13:29:28 -0700 (PDT)
-Message-ID: <20060708.132928.124571891.davem@davemloft.net>
-References: <20060707185831.GC22636@tuxdriver.com>
+Subject: Re: [PATCH 1/2][ATM]: Typo in drivers/atm/Kconfig...
+Date: Sat, 08 Jul 2006 13:30:21 -0700 (PDT)
+Message-ID: <20060708.133021.124978564.davem@davemloft.net>
+References: <200607080050.k680o08f022160@relax.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52102
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:34269
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030339AbWGHU3B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Jul 2006 16:29:01 -0400
-To: linville@tuxdriver.com
-In-Reply-To: <20060707185831.GC22636@tuxdriver.com>
+	id S1030345AbWGHU3u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Jul 2006 16:29:50 -0400
+To: chas@cmf.nrl.navy.mil
+In-Reply-To: <200607080050.k680o08f022160@relax.cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 7 Jul 2006 14:58:36 -0400
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Date: Fri, 07 Jul 2006 20:50:00 -0400
 
-> Add the AMD 8131 bridge to the list of chipsets that reorder writes.
+> please consider for 2.6.18 -- thanks!
 > 
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> [ATM]: Typo in drivers/atm/Kconfig...
+> 
+> From: Matt LaPlante <kernel1@cyberdogtech.com>
+> Signed-off-by: Charles Williams <chas@cmf.nrl.navy.mil>
 
-Applied, thanks John.
+Applied, thanks Chas.
