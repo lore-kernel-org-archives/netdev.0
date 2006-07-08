@@ -1,38 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC NET 00/04]: Increase number of possible routing tables
-Date: Fri, 07 Jul 2006 16:59:33 -0700 (PDT)
-Message-ID: <20060707.165933.35333449.davem@davemloft.net>
-References: <44AE15C3.8050900@trash.net>
-	<44AEA462.1080505@candelatech.com>
-	<44AEBCE7.2030203@trash.net>
+Subject: Re: [PATCH 1/3] Rough VJ Channel Implementation - vj_core.patch
+Date: Fri, 07 Jul 2006 17:05:11 -0700 (PDT)
+Message-ID: <20060707.170511.52188432.davem@davemloft.net>
+References: <200605161102.29472.kelly@au.ibm.com>
+	<20060515.221637.90861876.davem@davemloft.net>
+	<200606221205.35161.kelly@au.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, netdev@vger.kernel.org, tgraf@suug.ch,
-	Robert.Olsson@data.slu.se
+Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:2454
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:157
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932418AbWGGX7E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 19:59:04 -0400
-To: kaber@trash.net
-In-Reply-To: <44AEBCE7.2030203@trash.net>
+	id S932334AbWGHAEk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 20:04:40 -0400
+To: kelly@au1.ibm.com
+In-Reply-To: <200606221205.35161.kelly@au.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Fri, 07 Jul 2006 21:58:31 +0200
+From: Kelly Daly <kelly@au1.ibm.com>
+Date: Thu, 22 Jun 2006 12:05:35 +1000
 
-> My patches introduced a bug when dumping tables which could lead to
-> incorrect routes beeing dumped. A second bug (that already existed)
-> makes the kernel fail when dumping more rules than fit in a skb.
-> I think I've already seen the patch to address the second problem
-> a short time ago sent by someone else. Anyway, this patch should
-> fix both.
+> > The hash table bits look good, just as they did last time :-)
+> > So I'll put this part into my vj-2.6 tree now, thanks.
+> Rockin' - thanks...
+> 
+> Sorry for the massive delay - here's the next attempt.
 
-Nice work Patrick.
+My review delay was just as bad if not worse :-)
 
-You guys have a lot of time to flesh out any remaining issues and
-failures, and then submit this for 2.6.19
+> +static int sock_add_netchannel(struct sock *sk)
+> +{
+> +	struct netchannel *np;
+> +
+> +	np = kmalloc(sizeof(struct netchannel), GFP_KERNEL);
+> +	if (!np)
+> +		return -ENOMEM;
+> +	netchannel_init(np, netchannel_wake, (void *)np);
+> +	sk->sk_channel = np;
+> +
+> +	return 0;
+> +}
 
-Thanks again.
+This function is unreferenced entirely?  It's marked static,
+so don't bother including it unless it is being used.
+
+Fix this, give me a good changelog and signed-off-by line
+and I'll stick this into the vj-2.6 tree
+
+Thanks!
