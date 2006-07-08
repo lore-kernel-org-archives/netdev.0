@@ -1,35 +1,41 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [Xen-devel] kernel BUG at net/core/dev.c:1133!
-Date: Sat, 8 Jul 2006 12:03:42 +1000
-Message-ID: <20060708020342.GA9746@gondor.apana.org.au>
-References: <E1FyrUg-0003FA-00@gondolin.me.apana.org.au> <907625E08839C4409CE5768403633E0BA7FD7F@sefsexmb1.amd.com>
+Date: Sat, 8 Jul 2006 12:04:45 +1000
+Message-ID: <20060708020444.GB9746@gondor.apana.org.au>
+References: <E1FyrUg-0003FA-00@gondolin.me.apana.org.au> <44AEBEB0.8020704@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
-	kaber@trash.net, davem@davemloft.net
+Cc: "Petersson, Mats" <Mats.Petersson@amd.com>,
+	xen-devel@lists.xensource.com, netdev@vger.kernel.org,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:39690 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932374AbWGHCD7
+Received: from rhun.apana.org.au ([64.62.148.172]:43530 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932482AbWGHCEx
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jul 2006 22:03:59 -0400
-To: "Petersson, Mats" <Mats.Petersson@amd.com>
+	Fri, 7 Jul 2006 22:04:53 -0400
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <907625E08839C4409CE5768403633E0BA7FD7F@sefsexmb1.amd.com>
+In-Reply-To: <44AEBEB0.8020704@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 07, 2006 at 05:03:36PM +0200, Petersson, Mats wrote:
+On Fri, Jul 07, 2006 at 10:06:08PM +0200, Patrick McHardy wrote:
 > 
-> So, nothing going on there... I certainly haven't got NAT on my machine,
-> as my machine is within the AMD network, and doesn't need NAT. AMD
-> probably uses NAT as part of it's external communications, but I doubt
-> it's used at all internally. 
+> Are you refering to this code in ip_nat_fn()?
+> 
+>         /* If we had a hardware checksum before, it's now invalid */
+>         if ((*pskb)->ip_summed == CHECKSUM_HW)
+>                 if (skb_checksum_help(*pskb, (out == NULL)))
+>                         return NF_DROP;
 
-Actually, just having it loaded is enough to break TSO.  So for all this
-time anyone who had ip_nat loaded were silently corrupting all their TSO
-checksums!
+Yep that's the one.
 
-I'll send a patch soon once I've tested it.
+> Doing incremental updates should work fine. This is something
+> I wanted to take care of at some point, but didn't get to it
+> yet.
+
+No worries.  I'm going to do a workaround to fix the checksums in
+GSO for now.
 
 Cheers,
 -- 
