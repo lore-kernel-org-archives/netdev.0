@@ -1,54 +1,115 @@
-From: Robert Schulze <rob@net-pr.de>
-Subject: [PATCH] airo: make debug-like messages printed by airo_print_dbg()
-Date: Sat, 08 Jul 2006 17:59:13 +0200
-Message-ID: <44AFD651.8030801@net-pr.de>
+From: =?ISO-8859-1?Q?Thomas_Hellstr=F6m?= <thomas@tungstengraphics.com>
+Subject: Re: rtl8139: NETDEV WATCHDOG: eth0: transmit timed out
+Date: Sat, 08 Jul 2006 18:15:55 +0200
+Message-ID: <44AFDA3B.6020904@tungstengraphics.com>
+References: <e82qhq$4v0$1@sea.gmane.org>	<20060630211604.GA5302@electric-eye.fr.zoreil.com> <44AE8CBB.4070409@better.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Dave Airlie <airlied@linux.ie>, netdev@vger.kernel.org,
+	dri-devel@lists.sourceforge.net,
+	Alan Hourihane <alanh@tungstengraphics.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p15181122.pureserver.info ([212.227.60.11]:55200 "EHLO
-	p15181122.pureserver.info") by vger.kernel.org with ESMTP
-	id S964866AbWGHPx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Jul 2006 11:53:56 -0400
-To: netdev@vger.kernel.org
+Received: from 1-1-8-31a.gmt.gbg.bostream.se ([82.182.75.118]:48362 "EHLO
+	lin5.shipmail.org") by vger.kernel.org with ESMTP id S964886AbWGHQP6
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Jul 2006 12:15:58 -0400
+To: Marcus Better <marcus@better.se>
+In-Reply-To: <44AE8CBB.4070409@better.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I don't think that messages like
 
-airo(eth1): cmd= 111
+Hi!
 
-airo(eth1): status= 7f11
+Marcus Better wrote:
 
-airo(eth1): Rsp0= 2
+>-----BEGIN PGP SIGNED MESSAGE-----
+>Hash: SHA1
+>
+>(For those haven't followed, this is about
+>  http://permalink.gmane.org/gmane.linux.network/38493
+>)
+>
+>Francois Romieu wrote:
+>  
+>
+>>Marcus Better <marcus@better.se> :
+>>    
+>>
+>>>I'm seeing this problem on my Acer Travelmate 223X laptop with built-in
+>>>Realtek 8139: The ethernet stops working, usually after at most a few
+>>>minutes operation.
+>>>      
+>>>
+>
+>  
+>
+>>In a better world, you would narrow the suspect with a git bissect [1]
+>>between v2.6.15 and v2.6.16.
+>>    
+>>
+>
+>I did, and the winner after 13 reboots is...
+>
+>commit de227f5f32775d86e5c780a7cffdd2e08574f7fb
+>Author: Dave Airlie <airlied@starflyer.(none)>
+>Date:   Wed Jan 25 15:31:43 2006 +1100
+>
+>    drm: i915 patches from Tungsten Graphics
+>
+>    Fix CMDBUFFER path, add heap destroy and flesh out sarea for rotation
+>    (Tungsten Graphics)
+>
+>    From: Alan Hourihane <alanh@tungstengraphics.com>
+>    Signed-off-by: Dave Airlie <airlied@linux.ie>
+>
+>
+>I didn't believe it at first either, but blacklisting the i915 module
+>actually fixes the problem. Now that I know what to look for, I notice
+>that the network errors always started cropping up after X11 started.
+>
+>Wonder what's going on here. Why is the graphics driver killing my network?
+>  
+>
+I guess you got the wrong commit, and the correct one should be the one 
+where Dave adds vblank interrupts. It should be close to the one you listed.
 
-airo(eth1): Rsp1= 0
+Some i915 chips have buggy interrupts. What happens is that the display 
+interrupts are duplicated on the sound interrupt channel. Usually 
+there's no interrupt handler there that recognizes them, and after a 
+while, the kernel detects too many spurious interrupts and disables the 
+sound IRQ line. If the network sits on the same IRQ line, it will be 
+disabled as well. If you check your kernel logs, you will probably have 
+messages about disabled IRQs.
 
-airo(eth1): Rsp2= 0
+A workaround is to add the "noirqdebug" (I hope I remember the spelling 
+correctly) kernel option at boot time.
 
-are interesting to normal users, so switch them from airo_print_err() to airo_print_dbg().
-Furthermore, remove implicit linefeed in those messages, as they are handled by airo_print().
+/Thomas
 
-with kind regards,
-Robert Schulze
 
---- linux-2.6.17.1/drivers/net/wireless/airo.c.orig	2006-07-08 14:02:12.000000000 +0200
-+++ linux-2.6.17.1/drivers/net/wireless/airo.c	2006-07-08 17:36:08.000000000 +0200
-@@ -3897,11 +3897,11 @@ static u16 issuecommand(struct airo_info
-  	pRsp->rsp1 = IN4500(ai, RESP1);
-  	pRsp->rsp2 = IN4500(ai, RESP2);
-  	if ((pRsp->status & 0xff00)!=0 && pCmd->cmd != CMD_SOFTRESET) {
--		airo_print_err(ai->dev->name, "cmd= %x\n", pCmd->cmd);
--		airo_print_err(ai->dev->name, "status= %x\n", pRsp->status);
--		airo_print_err(ai->dev->name, "Rsp0= %x\n", pRsp->rsp0);
--		airo_print_err(ai->dev->name, "Rsp1= %x\n", pRsp->rsp1);
--		airo_print_err(ai->dev->name, "Rsp2= %x\n", pRsp->rsp2);
-+		airo_print_dbg(ai->dev->name, "cmd= %x", pCmd->cmd);
-+		airo_print_dbg(ai->dev->name, "status= %x", pRsp->status);
-+		airo_print_dbg(ai->dev->name, "Rsp0= %x", pRsp->rsp0);
-+		airo_print_dbg(ai->dev->name, "Rsp1= %x", pRsp->rsp1);
-+		airo_print_dbg(ai->dev->name, "Rsp2= %x", pRsp->rsp2);
-  	}
 
-  	// clear stuck command busy if necessary
+
+>Marcus
+>-----BEGIN PGP SIGNATURE-----
+>Version: GnuPG v1.4.3 (GNU/Linux)
+>
+>iD8DBQFEroy7XjXn6TzcAQkRAp7bAJ9F7HgWg+VsvQ0fwkK3+b4Ne+tASwCg8+m3
+>8i5BoW+ujUjoX3DLW0QKAPQ=
+>=MDAc
+>-----END PGP SIGNATURE-----
+>
+>Using Tomcat but need to do more? Need to support web services, security?
+>Get stuff done quickly with pre-integrated technology to make your job easier
+>Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+>http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+>--
+>_______________________________________________
+>Dri-devel mailing list
+>Dri-devel@lists.sourceforge.net
+>https://lists.sourceforge.net/lists/listinfo/dri-devel
+>  
+>
+
