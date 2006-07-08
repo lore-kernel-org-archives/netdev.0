@@ -1,44 +1,82 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: [PATCH 2/2] correct dev_alloc_skb kerneldoc
-Date: Sat, 8 Jul 2006 12:48:12 +0200
-Message-ID: <20060708104811.GB31751@lst.de>
-References: <20060707090956.GA2543@lst.de> <20060707155255.10f2e10f@dxpl.pdx.osdl.net> <20060707.165527.77037268.davem@davemloft.net>
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: Re: 2.6.17-mm3
+Date: Sat, 08 Jul 2006 12:51:28 +0200
+Message-ID: <44AF8E30.2000603@gmail.com>
+References: <20060627015211.ce480da6.akpm@osdl.org>	<6bffcb0e0606270712w166f04a6u237d695e2bfa1913@mail.gmail.com> <20060707192227.1d95ca0e@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, hch@lst.de, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@osdl.org>, Ingo Molnar <mingo@elte.hu>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from verein.lst.de ([213.95.11.210]:32478 "EHLO mail.lst.de")
-	by vger.kernel.org with ESMTP id S1751284AbWGHKsa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Jul 2006 06:48:30 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060707.165527.77037268.davem@davemloft.net>
+Received: from nf-out-0910.google.com ([64.233.182.187]:10454 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1751298AbWGHKv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Jul 2006 06:51:26 -0400
+Received: by nf-out-0910.google.com with SMTP id o60so80011nfa
+        for <netdev@vger.kernel.org>; Sat, 08 Jul 2006 03:51:24 -0700 (PDT)
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060707192227.1d95ca0e@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 07, 2006 at 04:55:27PM -0700, David Miller wrote:
-> From: Stephen Hemminger <shemminger@osdl.org>
-> Date: Fri, 7 Jul 2006 15:52:55 -0700
-> 
-> > What is the point of dev_alloc_skb anyway? all it does is add header space.
-> 
-> In stone-age times it actually had specific semantics, but yes today
-> it is just a synonym.
-> 
-> It's going to be hard to get rid of it, every single network driver
-> out there references it.
+Stephen Hemminger napisa=C5=82(a):
+> On Tue, 27 Jun 2006 16:12:42 +0200
+> "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com> wrote:
+>=20
+>> Hi,
+>>
+>> On 27/06/06, Andrew Morton <akpm@osdl.org> wrote:
+>>> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.1=
+7/2.6.17-mm3/
+>>>
+>>>
+>> It looks like a skge bug
+>>
+>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>> [ INFO: possible irq lock inversion dependency detected ]
+>> ---------------------------------------------------------
+>> swapper/0 just changed the state of lock:
+>>  (tasklist_lock){..-?}, at: [<c0128092>] send_group_sig_info+0x16/0x=
+34
+>> but this lock took another, soft-irq-unsafe lock in the past:
+>>   (&sig->stats_lock){--..}
+>>
+>> and interrupts could create inverse lock ordering between them.
+>>
+>>
+>> other info that might help us debug this:
+>> no locks held by swapper/0.
+>>
+>> the first lock's dependencies:
+>> -> (tasklist_lock){..-?} ops: 13763 {
+>>    initial-use  at:
+>>                         [<c01353ab>] lock_acquire+0x60/0x80
+>>                         [<c02d0ce2>] _write_lock_irq+0x29/0x38
+>>                         [<c011c4e3>] copy_process+0xea7/0x13c0
+>>                         [<c011cc6a>] do_fork+0x8d/0x18f
+>>                         [<c010136c>] kernel_thread+0x6c/0x74
+>>                         [<c0100518>] rest_init+0x14/0x3c
+>>                         [<c03b6769>] start_kernel+0x388/0x390
+>>                         [<c0100210>] 0xc0100210
+>>    in-softirq-R at:
+>> [..]
+>>
+>> Here is a dmesg log http://www.stardust.webpages.pl/files/mm/2.6.17-=
+mm3/mm-dmesg
+>=20
+>=20
+> That file no longer exists...
 
-On powerpc64 it actually makes a difference because it now allocates the
-right headerspace as pad to ge the higher layer protocol headers aligned
-for best dma performance.
+It was moved, sorry.
 
-Now what lead me up to this patch is something else.  On the Cell
-hardware we badly need to allocate rx buffers on the local node, because
-the access to memory on a different node is horrible slow (thank rambus!)
+Regards,
+Michal
 
-My plan is to give dev_alloc_skb a struct netdevice * argument and
-introduce a alloc_netdev_node so the driver can tell what node the
-device is on.  This gives a significant speedup for cell.  I already
-have this implemented in fact but only converted a handfull of drivers.
-
-Does this approach sound okay?
+--=20
+Michal K. K. Piotrowski
+LTG - Linux Testers Group
+(http://www.stardust.webpages.pl/ltg/wiki/)
