@@ -1,67 +1,67 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC NET 00/04]: Increase number of possible routing tables
-Date: Fri, 07 Jul 2006 18:07:11 -0700
-Message-ID: <44AF053F.70605@candelatech.com>
-References: <20060703075259.6286.67397.sendpatchset@localhost.localdomain> <44AE15C3.8050900@trash.net> <44AEA462.1080505@candelatech.com> <44AEBCE7.2030203@trash.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] fix drivers/net/irda/ali-ircc.c:ali_ircc_init()
+Date: Sat, 8 Jul 2006 03:28:05 +0200
+Message-ID: <20060708012800.GH26941@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>, Robert.Olsson@data.slu.se
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:3507 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1750903AbWGHBHW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jul 2006 21:07:22 -0400
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <44AEBCE7.2030203@trash.net>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:44049 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S1751286AbWGHB2K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jul 2006 21:28:10 -0400
+To: Samuel Ortiz <samuel@sortiz.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Ben Greear wrote:
-> 
->>Patrick McHardy wrote:
->>
->>
->>>>I took on Ben's challenge to increase the number of possible routing
->>>>tables, these are the resulting patches.
->>
->>
->>I am seeing problems..though they could be with the way I'm using the tool
->>or pehaps I patched the kernel incorrectly.
->>
->>I applied the 3 patches to 2.6.17..all patches applied without problem,
->>but with a few lines of fuzz.  I get the same behaviour with and
->>without the new 'ip' patches applied.
->>
->>If I do an 'ip ru show', then I see lots of tables, though not all it
->>seems. (I have not tried beyond 205 yet).  But, if I do an
->>'ip route show table XX', then I see nothing or incorrect values.
-> 
-> 
-> My patches introduced a bug when dumping tables which could lead to
-> incorrect routes beeing dumped. A second bug (that already existed)
-> makes the kernel fail when dumping more rules than fit in a skb.
-> I think I've already seen the patch to address the second problem
-> a short time ago sent by someone else. Anyway, this patch should
-> fix both.
+The Coverity checker spotted, that from the changes from commit 
+898b1d16f8230fb912a0c2248df685735c6ceda3 the
+       if (ret)
+               platform_driver_unregister(&ali_ircc_driver);
+was dead code.
 
-With this patch applied everything is looking much better.  I currently
-have 400+ interfaces and one routing table per interface, and traffic
-is passing as expected.
+This patch changes this function to what seems to have been the 
+intention.
 
-This is probably due to my own application polling interfaces for
-stat updates...but I am seeing over 50% usage (with more system than user-space)
-in this setup on an otherwise lightly loaded system.  top shows no process averaging
-more than about 2% CPU (and only 2-3 are above 0.0 typically), which I find
-a little strange.  load is around 3.0.
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-I'll dig into my code and see if I can tune the stat-gathering logic a bit...
+---
 
-Thanks,
-Ben
+ drivers/net/irda/ali-ircc.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--- linux-2.6.17-mm6-full/drivers/net/irda/ali-ircc.c.old	2006-07-08 01:44:53.000000000 +0200
++++ linux-2.6.17-mm6-full/drivers/net/irda/ali-ircc.c	2006-07-08 01:46:46.000000000 +0200
+@@ -142,28 +142,29 @@
+  *    Initialize chip. Find out whay kinds of chips we are dealing with
+  *    and their configuation registers address
+  */
+ static int __init ali_ircc_init(void)
+ {
+ 	ali_chip_t *chip;
+ 	chipio_t info;
+-	int ret = -ENODEV;
++	int ret;
+ 	int cfg, cfg_base;
+ 	int reg, revision;
+ 	int i = 0;
+ 	
+ 	IRDA_DEBUG(2, "%s(), ---------------- Start ----------------\n", __FUNCTION__);
+ 
+ 	ret = platform_driver_register(&ali_ircc_driver);
+         if (ret) {
+                 IRDA_ERROR("%s, Can't register driver!\n",
+ 			   ALI_IRCC_DRIVER_NAME);
+                 return ret;
+         }
+ 
++	ret = -ENODEV;
+ 	
+ 	/* Probe for all the ALi chipsets we know about */
+ 	for (chip= chips; chip->name; chip++, i++) 
+ 	{
+ 		IRDA_DEBUG(2, "%s(), Probing for %s ...\n", __FUNCTION__, chip->name);
+ 				
+ 		/* Try all config registers for this chip */
 
