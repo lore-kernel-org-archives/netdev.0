@@ -1,49 +1,44 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
-Date: Sun, 09 Jul 2006 22:05:43 +0200
-Message-ID: <m3irm6v90o.fsf@defiant.localdomain>
-References: <44AE2FCC.6020207@trash.net>
-	<20060707143314.67bf07ff@dxpl.pdx.osdl.net>
-	<200607091049.31628.stefan@loplof.de>
-	<20060709.114827.63031023.davem@davemloft.net>
+From: "Ivo Van Doorn" <ivdoorn@gmail.com>
+Subject: Re: [PATCH] d80211: make sleeping in hw->config possible
+Date: Sun, 9 Jul 2006 23:18:19 +0200
+Message-ID: <a32f33a40607091418y7ea55rd73c6982364d22b8@mail.gmail.com>
+References: <200607092047.57256.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stefan@loplof.de, shemminger@osdl.org, kaber@trash.net,
-	greearb@candelatech.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, "Jiri Benc" <jbenc@suse.cz>,
+	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:29836 "EHLO khc.piap.pl")
-	by vger.kernel.org with ESMTP id S1161095AbWGIUFp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2006 16:05:45 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060709.114827.63031023.davem@davemloft.net> (David Miller's message of "Sun, 09 Jul 2006 11:48:27 -0700 (PDT)")
+Received: from py-out-1112.google.com ([64.233.166.177]:15911 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S1161162AbWGIVST (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Jul 2006 17:18:19 -0400
+Received: by py-out-1112.google.com with SMTP id 57so723214pya
+        for <netdev@vger.kernel.org>; Sun, 09 Jul 2006 14:18:19 -0700 (PDT)
+To: "Michael Buesch" <mb@bu3sch.de>
+In-Reply-To: <200607092047.57256.mb@bu3sch.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+Hi,
 
->> > Not really. The flag code last major change was to do the dormant
->> > stuff that HDLC wanted.
->> 
->> ... and where the maintainer doesn't seem to care to use it now that the 
->> infrastructure is there. Sigh.
+> Please apply this to wireless-dev.
+>
+> --
+>
+> This patch makes sleeping in the hw->config callback possible
+> by removing the only atomic caller. The atomic caller was
+> a timer and is replaced by a workqueue.
+>
+> In general, allowing to sleep in the config callback is a
+> good thing. bcm43xx must be able to sleep here, as it is
+> required to lock a mutex.
+> But there are other good reasons to sleep here. We might
+> want to sleep for a grace period on channel switch, for example.
 
-This is very different from what I proposed and doesn't fit very well.
-We've been discussing this to death.
+Excellent work.
+Sleeping in hw->config is a much desired feature for rt2x00 as well,
+this is especially beneficial for the USB drivers who always need sleeping.
 
-> Yes, this is very unfortunate.  They made the loudest noise about
-> wanting the change, yet they aren't even responsible enough to submit
-> the HDLC patches necessary to make use of it.  This was apparently
-> needed to fix HDLC, so where's the followup?
-
-I'm still thinking how to use it safely. Should it be implemented
-sanely, things would be different.
-
-> This is why the HDLC "maintainers" shouldn't be surprised if we flat
-> out ignore them the next time they complain about anything.
-
-You are correct - some time ago, I was really surprised. Now, especially
-having received that private mail from you - the situation is obvious.
-
-I'm a single developer BTW.
--- 
-Krzysztof Halasa
+Ivo
