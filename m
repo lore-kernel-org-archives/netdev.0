@@ -1,62 +1,95 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [BUG/PATCH/RFC] bridge: locally generated broadcast
- traffic may block sender
-Date: Sat, 8 Jul 2006 22:32:40 -0700
-Message-ID: <20060708223240.57cfd14f@localhost.localdomain>
-References: <65170.217.5.191.115.1152028122.squirrel@sesamstrasse.dyndns.tv>
-	<20060707153648.694f84c2@dxpl.pdx.osdl.net>
-	<43150.217.5.191.115.1152350639.squirrel@sesamstrasse.dyndns.tv>
+From: "Sal Keys" <93caldwell@punkass.com>
+Subject: I'm fine, but still searching for business partners.
+Date: Sun, 9 Jul 2006 14:52:19 +0800
+Message-ID: <200607090651.k696oida019368@zeus1.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@kernel.org, bridge@lists.osdl.org, Wolfgang Denk <wd@denx.de>
-Return-path: <bridge-bounces@lists.osdl.org>
-To: "Bernd Kischnick" <kisch@sesamstrasse.dyndns.tv>
-In-Reply-To: <43150.217.5.191.115.1152350639.squirrel@sesamstrasse.dyndns.tv>
-List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.osdl.org>
-List-Help: <mailto:bridge-request@lists.osdl.org?subject=help>
-List-Subscribe: <https://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=subscribe>
-Sender: bridge-bounces@lists.osdl.org
-Errors-To: bridge-bounces@lists.osdl.org
+Content-Type: text/plain; charset=Windows-1251
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeus1.kernel.org ([204.152.191.4]:2750 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S965027AbWGIGvC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2006 02:51:02 -0400
+To: <netdev@vger.kernel.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 8 Jul 2006 11:23:59 +0200 (CEST)
-"Bernd Kischnick" <kisch@sesamstrasse.dyndns.tv> wrote:
+Yo Netdev.
 
-> =
 
-> On Sa, 8.07.2006, 00:36, Stephen Hemminger explained:
-> =
+How are you? I hope you are fine. I missed you so much honey. I have be=
+en thinking about our last meeting so much and I=92ll=20
 
-> > The fix is not acceptable, because it eliminatess the whole sender memo=
-ry
-> > flow control limitation.
-> >
-> > The root cause is that the device incorrectly holds onto packets when
-> > the carrier is lost. The device should clear it's own queue.
-> > What hardware is this?
-> >
-> =
 
-> That's the built-in Ethernet MAC of the 82xx series Motorola PowerQUICC
-> CPUs. The driver is 2.4.32:arch/ppc/cpm2_io/fcc_enet.c, or
-> 2.6.17.3:arch/ppc/8260_io/fcc_enet.c, with modifications by
-> Wolfgang Denk to support a specific PHY chip.
-> =
 
-> Of course I've been examinating the driver first. It's obvious that the
-> bridge code experiences much broader testing than the odd driver for
-> the odd embedded target. But I didn't see a way to have the driver handle
-> this problem correctly.
+never forget all the fun we had together that month.
+About me all the same, same town same city same job hheheh all the same=
+ I am bored and I cant wait to visit u next year.=20
 
-The driver doesn't handle carrier properly.
-It needs to call netif_carrier_off when carrier is lost, and netif_carrier_=
-on
-when carrier is detected. This is done in some drivers by phy interrupt, and
-in others by polling the carrier status.
+Almost nothing has changed between us; my hart is waiting for you.
+By the way, do you remember that distributor of art, who helped me sell=
+ing different items, yes, that ones I was reselling=20
 
-Bridging can't detect lost links and do fail over without it.
+
+
+to Artists and Collectors.=20
+Their Comicion to our money-bags!! They want to sell their antiques at =
+the Art Market in Australia. But they have some=20
+
+
+
+reasons for not opening a branch in Australia for the moment. Maybe nex=
+t year, this means that I can move to Sydney very=20
+soon.
+The only thing I can say is that I=92ve worked with this company for a =
+long time and they are really the best bosses I ever=20
+
+
+had in my life, you know all the time I have in my life for my activiti=
+es and also They never let me down. I am completely=20
+
+satisfied with their assistance in all work matters.=20
+In short they are searching for people for distant-work. This job will =
+take only couple of hours a day, but the salary is=20
+
+
+
+rather acceptable, 300-400 dollars weekly.=20
+They asked me to help them in finding any bulletin boards. I know that =
+you work with different kinds of announcements and=20
+
+may be you can advice something. Or may be you know a couple of honest =
+people who need some work. The requirements to=20
+
+candidate are not too high, he should be an honest person able to work =
+with PC- Know about Internet- and some other office=20
+
+
+tools, you know, like Word Excel MSN, etc.
+
+
+So if you have someone in mind, say them to write to support@lesantique=
+sltd.com
+
+
+PS. By the way, you promised me to call and didn=92t keep it. It=92s no=
+ good forgetting your old and faithful friend. I=92ll always be glad to=
+ here from you,
+
+
+
+Remember me to your mates,
+Love you Heepss,
+
+Emanuel Hinson
+
+Sun, 9 Jul 2006 14:52:19 +0800
+
+
+
+doge
+colt
+beefy
+barnabas
+aphasia
+
+
