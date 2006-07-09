@@ -1,47 +1,132 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPV4] inetpeer: Get rid of volatile from peer_total
-Date: Mon, 10 Jul 2006 09:07:11 +1000
-Message-ID: <20060709230711.GA19901@gondor.apana.org.au>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] netfilter: fix SYSCTL=n compile
+Date: Mon, 10 Jul 2006 01:33:04 +0200
+Message-ID: <20060709233304.GX13938@stusta.de>
+References: <20060708202023.GE5020@stusta.de> <44B079FF.8060909@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: coreteam@netfilter.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:22801 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932517AbWGIXHS
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Jul 2006 19:07:18 -0400
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:9233 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S932524AbWGIXdG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Jul 2006 19:33:06 -0400
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
+In-Reply-To: <44B079FF.8060909@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave:
+On Sun, Jul 09, 2006 at 05:37:35AM +0200, Patrick McHardy wrote:
+> Adrian Bunk wrote:
+> > This patch fixes the following compile error with CONFIG_SYSCTL=n 
+> > introduced by commit 39a27a35c5c1b5be499a0576a35c45a011788bf8:
+> 
+> My fault I guess.
+> 
+> > <--  snip  -->
+> > 
+> > ...
+> >   LD      .tmp_vmlinux1
+> > net/built-in.o: In function `tcp_error':
+> > ip_conntrack_proto_tcp.c:(.text+0x77af6): undefined reference to `ip_conntrack_checksum'
+> > net/built-in.o: In function `udp_error':
+> > ip_conntrack_proto_udp.c:(.text+0x78456): undefined reference to `ip_conntrack_checksum'
+> > net/built-in.o: In function `icmp_error':
+> > ip_conntrack_proto_icmp.c:(.text+0x7868f): undefined reference to `ip_conntrack_checksum'
+> > make: *** [.tmp_vmlinux1] Error 1
+> 
+> Thanks Adrian. Usually all bugs in ip_conntrack are duplicated in
+> nf_conntrack, please update your patch to take care of that as well.
 
-Just joining on the fun on volatile :)
+Correct, updated patch below.
 
-[IPV4] inetpeer: Get rid of volatile from peer_total
+cu
+Adrian
 
-The variable peer_total is protected by a lock.  The volatile marker
-makes no sense.  This shaves off 20 bytes on i386.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+<--  snip  -->
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index 2160874..03ff62e 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -86,7 +86,7 @@ static struct inet_peer *peer_root = pee
- static DEFINE_RWLOCK(peer_pool_lock);
- #define PEER_MAXDEPTH 40 /* sufficient for about 2^27 nodes */
+
+This patch fixes the following compile errors with CONFIG_SYSCTL=n 
+introduced by commit 39a27a35c5c1b5be499a0576a35c45a011788bf8:
+
+<--  snip  -->
+
+...
+  LD      .tmp_vmlinux1
+net/built-in.o: In function `tcp_error':
+ip_conntrack_proto_tcp.c:(.text+0x77af6): undefined reference to `ip_conntrack_checksum'
+net/built-in.o: In function `udp_error':
+ip_conntrack_proto_udp.c:(.text+0x78456): undefined reference to `ip_conntrack_checksum'
+net/built-in.o: In function `icmp_error':
+ip_conntrack_proto_icmp.c:(.text+0x7868f): undefined reference to `ip_conntrack_checksum'
+make: *** [.tmp_vmlinux1] Error 1
+
+<--  snip  -->
+
+...
+  LD      .tmp_vmlinux1
+net/built-in.o: In function `tcp_error':
+nf_conntrack_proto_tcp.c:(.text+0x46b44): undefined reference to `nf_conntrack_checksum'
+net/built-in.o: In function `udp_error':
+nf_conntrack_proto_udp.c:(.text+0x474f5): undefined reference to `nf_conntrack_checksum'
+net/built-in.o: In function `icmp_error':
+nf_conntrack_proto_icmp.c:(.text+0x8e5f4): undefined reference to `nf_conntrack_checksum'
+net/built-in.o: In function `icmpv6_error':
+nf_conntrack_proto_icmpv6.c:(.text+0xd3f54): undefined reference to `nf_conntrack_checksum'
+make: *** [.tmp_vmlinux1] Error 1
+
+<--  snip  -->
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+ net/ipv4/netfilter/ip_conntrack_standalone.c |    4 ++--
+ net/netfilter/nf_conntrack_standalone.c      |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+--- linux-2.6.17-mm6-full/net/ipv4/netfilter/ip_conntrack_standalone.c.old	2006-07-08 15:32:32.000000000 +0200
++++ linux-2.6.17-mm6-full/net/ipv4/netfilter/ip_conntrack_standalone.c	2006-07-08 15:33:30.000000000 +0200
+@@ -534,6 +534,8 @@
  
--static volatile int peer_total;
-+static int peer_total;
- /* Exported for sysctl_net_ipv4.  */
- int inet_peer_threshold = 65536 + 128;	/* start to throw entries more
- 					 * aggressively at this stage */
+ /* Sysctl support */
+ 
++int ip_conntrack_checksum = 1;
++
+ #ifdef CONFIG_SYSCTL
+ 
+ /* From ip_conntrack_core.c */
+@@ -568,8 +570,6 @@
+ static int log_invalid_proto_min = 0;
+ static int log_invalid_proto_max = 255;
+ 
+-int ip_conntrack_checksum = 1;
+-
+ static struct ctl_table_header *ip_ct_sysctl_header;
+ 
+ static ctl_table ip_ct_sysctl_table[] = {
+
+--- linux-2.6.18-rc1-mm1-full/net/netfilter/nf_conntrack_standalone.c.old	2006-07-09 21:18:04.000000000 +0200
++++ linux-2.6.18-rc1-mm1-full/net/netfilter/nf_conntrack_standalone.c	2006-07-09 21:18:27.000000000 +0200
+@@ -428,6 +428,8 @@
+ 
+ /* Sysctl support */
+ 
++int nf_conntrack_checksum = 1;
++
+ #ifdef CONFIG_SYSCTL
+ 
+ /* From nf_conntrack_core.c */
+@@ -459,8 +461,6 @@
+ static int log_invalid_proto_min = 0;
+ static int log_invalid_proto_max = 255;
+ 
+-int nf_conntrack_checksum = 1;
+-
+ static struct ctl_table_header *nf_ct_sysctl_header;
+ 
+ static ctl_table nf_ct_sysctl_table[] = {
+
