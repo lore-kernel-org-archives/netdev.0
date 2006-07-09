@@ -1,48 +1,39 @@
-From: Robert Schulze <rob@net-pr.de>
-Subject: Re: [PATCH] airo: make debug-like messages printed by	airo_print_dbg()
-Date: Mon, 10 Jul 2006 00:23:17 +0200
-Message-ID: <44B181D5.5070007@net-pr.de>
-References: <44AFD651.8030801@net-pr.de> <1152455044.2519.7.camel@localhost.localdomain> <44B13974.9090604@net-pr.de> <44B1431D.3010405@tls.msk.ru>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [AX.25] Get rid of the last volatile.
+Date: Sun, 9 Jul 2006 23:37:45 +0100
+Message-ID: <20060709223745.GA20324@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
-	linville@tuxdriver.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p15181122.pureserver.info ([212.227.60.11]:40601 "EHLO
-	p15181122.pureserver.info") by vger.kernel.org with ESMTP
-	id S1161188AbWGIWR4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Jul 2006 18:17:56 -0400
-To: Michael Tokarev <mjt@tls.msk.ru>
-In-Reply-To: <44B1431D.3010405@tls.msk.ru>
+Received: from zeus1.kernel.org ([204.152.191.4]:20444 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1161208AbWGIWk6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2006 18:40:58 -0400
+Received: from ftp.linux-mips.org (ftp.linux-mips.org [194.74.144.162])
+	by zeus1.kernel.org (8.13.1/8.13.1) with ESMTP id k69Mei0S029441
+	for <netdev@vger.kernel.org>; Sun, 9 Jul 2006 22:40:57 GMT
+Received: from localhost.localdomain ([127.0.0.1]:23741 "EHLO bacchus.dhis.org")
+	by ftp.linux-mips.org with ESMTP id S8133507AbWGIWhl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2006 23:37:41 +0100
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This volatile makes no sense - not even wearing pink shades ...
 
-ok lets keep that message to be visible to anybody, but put it into one line.
-Thanks for your comments.
-Now, I will track down what causes the error on my machine, I think it has something todo with pcmcia...
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-with kind regards,
-
-Robert Schulze
-
---- linux-2.6.17.1/drivers/net/wireless/airo.c.orig	2006-07-08 14:02:12.000000000 +0200
-+++ linux-2.6.17.1/drivers/net/wireless/airo.c	2006-07-10 00:19:15.000000000 +0200
-@@ -3897,11 +3897,10 @@ static u16 issuecommand(struct airo_info
-  	pRsp->rsp1 = IN4500(ai, RESP1);
-  	pRsp->rsp2 = IN4500(ai, RESP2);
-  	if ((pRsp->status & 0xff00)!=0 && pCmd->cmd != CMD_SOFTRESET) {
--		airo_print_err(ai->dev->name, "cmd= %x\n", pCmd->cmd);
--		airo_print_err(ai->dev->name, "status= %x\n", pRsp->status);
--		airo_print_err(ai->dev->name, "Rsp0= %x\n", pRsp->rsp0);
--		airo_print_err(ai->dev->name, "Rsp1= %x\n", pRsp->rsp1);
--		airo_print_err(ai->dev->name, "Rsp2= %x\n", pRsp->rsp2);
-+		airo_print_err(ai->dev->name,
-+			"cmd:%x status:%x rsp0:%x rsp1:%x rsp2:%x"
-+			pCmd->cmd, pRsp->status, pRsp->rsp0, pRsp->rsp1,
-+			pRsp->rsp2);
-  	}
-
-  	// clear stuck command busy if necessary
+diff --git a/net/ax25/ax25_in.c b/net/ax25/ax25_in.c
+index 4cf8754..e9d9429 100644
+--- a/net/ax25/ax25_in.c
++++ b/net/ax25/ax25_in.c
+@@ -102,8 +102,8 @@ static int ax25_rx_fragment(ax25_cb *ax2
+ int ax25_rx_iframe(ax25_cb *ax25, struct sk_buff *skb)
+ {
+ 	int (*func)(struct sk_buff *, ax25_cb *);
+-	volatile int queued = 0;
+ 	unsigned char pid;
++	int queued = 0;
+ 
+ 	if (skb == NULL) return 0;
+ 
