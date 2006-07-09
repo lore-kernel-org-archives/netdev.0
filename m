@@ -1,106 +1,107 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [AX.25] Use kzalloc
-Date: Sun, 9 Jul 2006 02:52:00 +0100
-Message-ID: <20060709015200.GA6221@linux-mips.org>
+From: Jamal Hadi Salim <hadi@cyberus.ca>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Sun, 09 Jul 2006 08:52:16 -0400
+Message-ID: <1152449536.5124.31.camel@jzny2>
+References: <20060630.133348.68039806.davem@davemloft.net>
+	 <1151700884.5270.278.camel@jzny2> <20060630211043.GO14627@postel.suug.ch>
+	 <1151703097.5270.307.camel@jzny2> <20060630234512.GR14627@postel.suug.ch>
+	 <1151722785.5093.51.camel@jzny2> <20060701112833.GS14627@postel.suug.ch>
+	 <1151760901.5093.141.camel@jzny2> <20060708105451.GG14627@postel.suug.ch>
+	 <1152368076.5272.39.camel@jzny2>  <20060708234602.GH14627@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:43237 "EHLO
-	ftp.linux-mips.org") by vger.kernel.org with ESMTP id S932427AbWGIKpu
+Received: from mx03.cybersurf.com ([209.197.145.106]:43440 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1030485AbWGIMwV
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Jul 2006 06:45:50 -0400
-Received: from localhost.localdomain ([127.0.0.1]:9873 "EHLO bacchus.dhis.org")
-	by ftp.linux-mips.org with ESMTP id S8133749AbWGIKps (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2006 11:45:48 +0100
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Content-Disposition: inline
+	Sun, 9 Jul 2006 08:52:21 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1FzYlr-0006sI-MP
+	for netdev@vger.kernel.org; Sun, 09 Jul 2006 08:52:23 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060708234602.GH14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replace kzalloc instead of kmalloc + memset.
+On Sun, 2006-09-07 at 01:46 +0200, Thomas Graf wrote:
+> * Jamal Hadi Salim <hadi@cyberus.ca> 2006-07-08 10:14
+[..]
+> > There is no easy way to detect such a deadlock. I think it reduces to
+> > the same case as eth0->eth0, i.e:
+> 
+> It's very simple. Just use the same method and add a flag if a mirred
+> is currently in use as Herbert did to qdisc_run().
+> 
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+But that would make it more complex in the sense it would require a lot
+more code.
 
- net/ax25/af_ax25.c     |    3 +--
- net/ax25/ax25_dev.c    |    4 +---
- net/netrom/af_netrom.c |    4 +---
- net/rose/af_rose.c     |    3 +--
- 4 files changed, 4 insertions(+), 10 deletions(-)
+Another simpler approach is to check for recursion right in 
+dev_queue_xmit() - but i did not dare to do that because i could not
+justify it for any other code other than loops created by the action
+code. i.e something along the lines of:
 
-Index: linux-net/net/ax25/ax25_dev.c
-===================================================================
---- linux-net.orig/net/ax25/ax25_dev.c	2006-07-09 02:48:00.000000000 +0100
-+++ linux-net/net/ax25/ax25_dev.c	2006-07-09 02:50:35.000000000 +0100
-@@ -55,15 +55,13 @@ void ax25_dev_device_up(struct net_devic
- {
- 	ax25_dev *ax25_dev;
- 
--	if ((ax25_dev = kmalloc(sizeof(*ax25_dev), GFP_ATOMIC)) == NULL) {
-+	if ((ax25_dev = kzalloc(sizeof(*ax25_dev), GFP_ATOMIC)) == NULL) {
- 		printk(KERN_ERR "AX.25: ax25_dev_device_up - out of memory\n");
- 		return;
- 	}
- 
- 	ax25_unregister_sysctl();
- 
--	memset(ax25_dev, 0x00, sizeof(*ax25_dev));
--
- 	dev->ax25_ptr     = ax25_dev;
- 	ax25_dev->dev     = dev;
- 	dev_hold(dev);
-Index: linux-net/net/ax25/af_ax25.c
-===================================================================
---- linux-net.orig/net/ax25/af_ax25.c	2006-07-09 02:48:01.000000000 +0100
-+++ linux-net/net/ax25/af_ax25.c	2006-07-09 02:50:35.000000000 +0100
-@@ -486,10 +486,9 @@ ax25_cb *ax25_create_cb(void)
- {
- 	ax25_cb *ax25;
- 
--	if ((ax25 = kmalloc(sizeof(*ax25), GFP_ATOMIC)) == NULL)
-+	if ((ax25 = kzalloc(sizeof(*ax25), GFP_ATOMIC)) == NULL)
- 		return NULL;
- 
--	memset(ax25, 0x00, sizeof(*ax25));
- 	atomic_set(&ax25->refcount, 1);
- 
- 	skb_queue_head_init(&ax25->write_queue);
-Index: linux-net/net/netrom/af_netrom.c
-===================================================================
---- linux-net.orig/net/netrom/af_netrom.c	2006-07-09 02:48:01.000000000 +0100
-+++ linux-net/net/netrom/af_netrom.c	2006-07-09 02:50:35.000000000 +0100
-@@ -1382,14 +1382,12 @@ static int __init nr_proto_init(void)
- 		return -1;
- 	}
- 
--	dev_nr = kmalloc(nr_ndevs * sizeof(struct net_device *), GFP_KERNEL);
-+	dev_nr = kzalloc(nr_ndevs * sizeof(struct net_device *), GFP_KERNEL);
- 	if (dev_nr == NULL) {
- 		printk(KERN_ERR "NET/ROM: nr_proto_init - unable to allocate device array\n");
- 		return -1;
- 	}
- 
--	memset(dev_nr, 0x00, nr_ndevs * sizeof(struct net_device *));
--
- 	for (i = 0; i < nr_ndevs; i++) {
- 		char name[IFNAMSIZ];
- 		struct net_device *dev;
-Index: linux-net/net/rose/af_rose.c
-===================================================================
---- linux-net.orig/net/rose/af_rose.c	2006-07-09 02:48:01.000000000 +0100
-+++ linux-net/net/rose/af_rose.c	2006-07-09 02:50:35.000000000 +0100
-@@ -1490,14 +1490,13 @@ static int __init rose_proto_init(void)
- 
- 	rose_callsign = null_ax25_address;
- 
--	dev_rose = kmalloc(rose_ndevs * sizeof(struct net_device *), GFP_KERNEL);
-+	dev_rose = kzalloc(rose_ndevs * sizeof(struct net_device *), GFP_KERNEL);
- 	if (dev_rose == NULL) {
- 		printk(KERN_ERR "ROSE: rose_proto_init - unable to allocate device structure\n");
- 		rc = -ENOMEM;
- 		goto out_proto_unregister;
- 	}
- 
--	memset(dev_rose, 0x00, rose_ndevs * sizeof(struct net_device*));
- 	for (i = 0; i < rose_ndevs; i++) {
- 		struct net_device *dev;
- 		char name[IFNAMSIZ];
+if (q->enqueue) {
+		if (!spin_trylock(&dev->queue_lock)) {
+			printk("yikes recursed device %s\n",dev->name);
+                        goto tx_recursion_detected;
+                }
+.
+.
+.
+recursion_detected:
+        rc = -ENETDOWN;
+        local_bh_enable();
+
+out_kfree_skb:
+        kfree_skb(skb);
+        return rc;
+out:
+        local_bh_enable();
+        return rc;
+}
+
+[BTW, notice how i used code to describe my view above ;->]
+Again, I was hoping that Herbert's stuff may change this view (and
+therefore give it more legitimacy) - but if the above can be accepted
+then we can forget touching mirred.
+The above change if acceptable will catch all sorts of scenarios:
+A->A, A->B->A, A->B->C->B etc
+
+> > I have a dated  patch to mirred (may not apply cleanly) that i believe
+> > will fix this specific one. Try to see if it also fixes this case you
+> > have.
+> 
+> This is complete nonsense, fixing a case out of a generic
+> problem is useless.
+> 
+
+No Thomas - this is a valid check. As valid as mirred checking if device
+is up first. I dont like it, like i said, because it adds one more check
+in the first path. I was contemplating at some point even not doing the 
+
+> > Its the second pathological case tx deadlock essentially and mirred
+> > could help - it is not the mirred lock really if the attached patch
+> > fixes it, but i could be wrong.
+> 
+> __LINK_STATE_QDISC_RUNNING will prevent an eventual tx deadlock,
+> it will not prevent the mirred deadlock.
+> 
+
+By "mirred deadlock" i think you mean the deadlock that happens in
+dev_queue_xmit()? 
+
+> I think everything has been said about this, since I'm still not
+> getting the intend of many parts I'm not able to fix these, sorry.
+> 
+
+What is still not clear above?
+
+cheers,
+jamal
+
