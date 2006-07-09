@@ -1,368 +1,93 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [RFC 4/4] kevent: generic poll and timer notifications.
-Date: Sun, 9 Jul 2006 17:25:37 +0400
-Message-ID: <20060709132537.GE29435@2ka.mipt.ru>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Sun, 9 Jul 2006 15:33:27 +0200
+Message-ID: <20060709133327.GK14627@postel.suug.ch>
+References: <20060630211043.GO14627@postel.suug.ch> <1151703097.5270.307.camel@jzny2> <20060630234512.GR14627@postel.suug.ch> <1151722785.5093.51.camel@jzny2> <20060701112833.GS14627@postel.suug.ch> <1151760901.5093.141.camel@jzny2> <20060708105451.GG14627@postel.suug.ch> <1152368076.5272.39.camel@jzny2> <20060708234602.GH14627@postel.suug.ch> <1152449536.5124.31.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030505AbWGIN0K@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from postel.suug.ch ([194.88.212.233]:47328 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1030490AbWGINdH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2006 09:33:07 -0400
+To: Jamal Hadi Salim <hadi@cyberus.ca>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1152449536.5124.31.camel@jzny2>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch includes generic poll/select and timer notifications.
+* Jamal Hadi Salim <hadi@cyberus.ca> 2006-07-09 08:52
+> On Sun, 2006-09-07 at 01:46 +0200, Thomas Graf wrote:
+> > * Jamal Hadi Salim <hadi@cyberus.ca> 2006-07-08 10:14
+> [..]
+> > > There is no easy way to detect such a deadlock. I think it reduces to
+> > > the same case as eth0->eth0, i.e:
+> > 
+> > It's very simple. Just use the same method and add a flag if a mirred
+> > is currently in use as Herbert did to qdisc_run().
+> > 
+> 
+> But that would make it more complex in the sense it would require a lot
+> more code.
+> 
+> Another simpler approach is to check for recursion right in 
 
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mitp.ru>
+It's very interesting that you change from "there is no easy way"
+to "another simpler approach..." in just one posting :-)
 
-diff --git a/kernel/kevent/kevent_poll.c b/kernel/kevent/kevent_poll.c
-new file mode 100644
-index 0000000..4950e7c
---- /dev/null
-+++ b/kernel/kevent/kevent_poll.c
-@@ -0,0 +1,223 @@
-+/*
-+ * 	kevent_poll.c
-+ * 
-+ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-+ * All rights reserved.
-+ * 
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/list.h>
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+#include <linux/timer.h>
-+#include <linux/file.h>
-+#include <linux/kevent.h>
-+#include <linux/poll.h>
-+#include <linux/fs.h>
-+
-+static kmem_cache_t *kevent_poll_container_cache;
-+static kmem_cache_t *kevent_poll_priv_cache;
-+
-+struct kevent_poll_ctl
-+{
-+	struct poll_table_struct 	pt;
-+	struct kevent			*k;
-+};
-+
-+struct kevent_poll_wait_container
-+{
-+	struct list_head		container_entry;
-+	wait_queue_head_t		*whead;
-+	wait_queue_t			wait;
-+	struct kevent			*k;
-+};
-+
-+struct kevent_poll_private
-+{
-+	struct list_head		container_list;
-+	spinlock_t			container_lock;
-+};
-+
-+static int kevent_poll_enqueue(struct kevent *k);
-+static int kevent_poll_dequeue(struct kevent *k);
-+static int kevent_poll_callback(struct kevent *k);
-+
-+static int kevent_poll_wait_callback(wait_queue_t *wait, 
-+		unsigned mode, int sync, void *key)
-+{
-+	struct kevent_poll_wait_container *cont = 
-+		container_of(wait, struct kevent_poll_wait_container, wait);
-+	struct kevent *k = cont->k;
-+	struct file *file = k->st->origin;
-+	unsigned long flags;
-+	u32 revents, event;
-+
-+	revents = file->f_op->poll(file, NULL);
-+	spin_lock_irqsave(&k->lock, flags);
-+	event = k->event.event;
-+	spin_unlock_irqrestore(&k->lock, flags);
-+
-+	kevent_storage_ready(k->st, NULL, revents);
-+
-+	return 0;
-+}
-+
-+static void kevent_poll_qproc(struct file *file, wait_queue_head_t *whead, 
-+		struct poll_table_struct *poll_table)
-+{
-+	struct kevent *k = 
-+		container_of(poll_table, struct kevent_poll_ctl, pt)->k;
-+	struct kevent_poll_private *priv = k->priv;
-+	struct kevent_poll_wait_container *cont;
-+	unsigned long flags;
-+
-+	cont = kmem_cache_alloc(kevent_poll_container_cache, SLAB_KERNEL);
-+	if (!cont) {
-+		kevent_break(k);
-+		return;
-+	}
-+		
-+	cont->k = k;
-+	init_waitqueue_func_entry(&cont->wait, kevent_poll_wait_callback);
-+	cont->whead = whead;
-+
-+	spin_lock_irqsave(&priv->container_lock, flags);
-+	list_add_tail(&cont->container_entry, &priv->container_list);
-+	spin_unlock_irqrestore(&priv->container_lock, flags);
-+
-+	add_wait_queue(whead, &cont->wait);
-+}
-+
-+static int kevent_poll_enqueue(struct kevent *k)
-+{
-+	struct file *file;
-+	int err, ready = 0;
-+	unsigned int revents;
-+	struct kevent_poll_ctl ctl;
-+	struct kevent_poll_private *priv;
-+
-+	file = fget(k->event.id.raw[0]);
-+	if (!file)
-+		return -ENODEV;
-+
-+	err = -EINVAL;
-+	if (!file->f_op || !file->f_op->poll)
-+		goto err_out_fput;
-+
-+	err = -ENOMEM;
-+	priv = kmem_cache_alloc(kevent_poll_priv_cache, SLAB_KERNEL);
-+	if (!priv)
-+		goto err_out_fput;
-+
-+	spin_lock_init(&priv->container_lock);
-+	INIT_LIST_HEAD(&priv->container_list);
-+
-+	k->priv = priv;
-+
-+	ctl.k = k;
-+	init_poll_funcptr(&ctl.pt, &kevent_poll_qproc);
-+
-+	err = kevent_storage_enqueue(&file->st, k);
-+	if (err)
-+		goto err_out_free;
-+
-+	revents = file->f_op->poll(file, &ctl.pt);
-+	if (revents & k->event.event) {
-+		ready = 1;
-+		kevent_poll_dequeue(k);
-+	}
-+	
-+	return ready;
-+
-+err_out_free:
-+	kmem_cache_free(kevent_poll_priv_cache, priv);
-+err_out_fput:
-+	fput(file);
-+	return err;
-+}
-+
-+static int kevent_poll_dequeue(struct kevent *k)
-+{
-+	struct file *file = k->st->origin;
-+	struct kevent_poll_private *priv = k->priv;
-+	struct kevent_poll_wait_container *w, *n;
-+	unsigned long flags;
-+
-+	kevent_storage_dequeue(k->st, k);
-+
-+	spin_lock_irqsave(&priv->container_lock, flags);
-+	list_for_each_entry_safe(w, n, &priv->container_list, container_entry) {
-+		list_del(&w->container_entry);
-+		remove_wait_queue(w->whead, &w->wait);
-+		kmem_cache_free(kevent_poll_container_cache, w);
-+	}
-+	spin_unlock_irqrestore(&priv->container_lock, flags);
-+	
-+	kmem_cache_free(kevent_poll_priv_cache, priv);
-+	k->priv = NULL;
-+	
-+	fput(file);
-+
-+	return 0;
-+}
-+
-+static int kevent_poll_callback(struct kevent *k)
-+{
-+	struct file *file = k->st->origin;
-+	unsigned int revents = file->f_op->poll(file, NULL);
-+	return (revents & k->event.event);
-+}
-+
-+int kevent_init_poll(struct kevent *k)
-+{
-+	if (!kevent_poll_container_cache || !kevent_poll_priv_cache)
-+		return -ENOMEM;
-+
-+	k->enqueue = &kevent_poll_enqueue;
-+	k->dequeue = &kevent_poll_dequeue;
-+	k->callback = &kevent_poll_callback;
-+	return 0;
-+}
-+
-+
-+static int __init kevent_poll_sys_init(void)
-+{
-+	kevent_poll_container_cache = kmem_cache_create("kevent_poll_container_cache", 
-+			sizeof(struct kevent_poll_wait_container), 0, 0, NULL, NULL);
-+	if (!kevent_poll_container_cache) {
-+		printk(KERN_ERR "Failed to create kevent poll container cache.\n");
-+		return -ENOMEM;
-+	}
-+	
-+	kevent_poll_priv_cache = kmem_cache_create("kevent_poll_priv_cache", 
-+			sizeof(struct kevent_poll_private), 0, 0, NULL, NULL);
-+	if (!kevent_poll_priv_cache) {
-+		printk(KERN_ERR "Failed to create kevent poll private data cache.\n");
-+		kmem_cache_destroy(kevent_poll_container_cache);
-+		kevent_poll_container_cache = NULL;
-+		return -ENOMEM;
-+	}
-+
-+	printk(KERN_INFO "Kevent poll()/select() subsystem has been initialized.\n");
-+	return 0;
-+}
-+
-+static void __exit kevent_poll_sys_fini(void)
-+{
-+	kmem_cache_destroy(kevent_poll_priv_cache);
-+	kmem_cache_destroy(kevent_poll_container_cache);
-+}
-+
-+module_init(kevent_poll_sys_init);
-+module_exit(kevent_poll_sys_fini);
-diff --git a/kernel/kevent/kevent_timer.c b/kernel/kevent/kevent_timer.c
-new file mode 100644
-index 0000000..53d3bdf
---- /dev/null
-+++ b/kernel/kevent/kevent_timer.c
-@@ -0,0 +1,112 @@
-+/*
-+ * 	kevent_timer.c
-+ * 
-+ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-+ * All rights reserved.
-+ * 
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/list.h>
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+#include <linux/timer.h>
-+#include <linux/jiffies.h>
-+#include <linux/kevent.h>
-+
-+static void kevent_timer_func(unsigned long data)
-+{
-+	struct kevent *k = (struct kevent *)data;
-+	struct timer_list *t = k->st->origin;
-+
-+	kevent_storage_ready(k->st, NULL, KEVENT_MASK_ALL);
-+	mod_timer(t, jiffies + msecs_to_jiffies(k->event.id.raw[0]));
-+}
-+
-+static int kevent_timer_enqueue(struct kevent *k)
-+{
-+	struct timer_list *t;
-+	struct kevent_storage *st;
-+	int err;
-+
-+	t = kmalloc(sizeof(struct timer_list) + sizeof(struct kevent_storage), 
-+			GFP_KERNEL);
-+	if (!t)
-+		return -ENOMEM;
-+
-+	init_timer(t);
-+	t->function = kevent_timer_func;
-+	t->expires = jiffies + msecs_to_jiffies(k->event.id.raw[0]);
-+	t->data = (unsigned long)k;
-+
-+	st = (struct kevent_storage *)(t+1);
-+	err = kevent_storage_init(t, st);
-+	if (err)
-+		goto err_out_free;
-+
-+	err = kevent_storage_enqueue(st, k);
-+	if (err)
-+		goto err_out_st_fini;
-+	
-+	add_timer(t);
-+
-+	return 0;
-+
-+err_out_st_fini:	
-+	kevent_storage_fini(st);
-+err_out_free:
-+	kfree(t);
-+
-+	return err;
-+}
-+
-+static int kevent_timer_dequeue(struct kevent *k)
-+{
-+	struct kevent_storage *st = k->st;
-+	struct timer_list *t = st->origin;
-+
-+	if (!t)
-+		return -ENODEV;
-+
-+	del_timer_sync(t);
-+	
-+	kevent_storage_dequeue(st, k);
-+	
-+	kfree(t);
-+
-+	return 0;
-+}
-+
-+static int kevent_timer_callback(struct kevent *k)
-+{
-+	struct kevent_storage *st = k->st;
-+	struct timer_list *t = st->origin;
-+
-+	if (!t)
-+		return -ENODEV;
-+	
-+	k->event.ret_data[0] = (__u32)jiffies;
-+	return 1;
-+}
-+
-+int kevent_init_timer(struct kevent *k)
-+{
-+	k->enqueue = &kevent_timer_enqueue;
-+	k->dequeue = &kevent_timer_dequeue;
-+	k->callback = &kevent_timer_callback;
-+	return 0;
-+}
+> dev_queue_xmit() - but i did not dare to do that because i could not
+> justify it for any other code other than loops created by the action
+> code. i.e something along the lines of:
+> 
+> if (q->enqueue) {
+> 		if (!spin_trylock(&dev->queue_lock)) {
+> 			printk("yikes recursed device %s\n",dev->name);
+>                         goto tx_recursion_detected;
+>                 }
 
+That's not gonna work, dev->queue_lock may be held legimitately
+by someone else than an underlying dev_queue_xmit() call.
 
--- 
-	Evgeniy Polyakov
+> [BTW, notice how i used code to describe my view above ;->]
+
+I'm very proud of you.
+
+> Again, I was hoping that Herbert's stuff may change this view (and
+> therefore give it more legitimacy) - but if the above can be accepted
+> then we can forget touching mirred.
+
+You need this:
+
+if (test_and_set_bit(__LINK_STATE_ENQUEUEING, &dev->state))
+	goto tx_recursion_detected;
+
+spin_lock(queue_lock);
+enqueue(...)
+qdisc_run()
+spin_unlock(queue_lock);
+
+clear_bit(__LINK_TATE_ENQUEUEING, &dev->state);
+
+Unfortunately we'd still need __LINK_STATE_QDISC_RUNNING due
+to net_tx_action().
+
+> No Thomas - this is a valid check. As valid as mirred checking if device
+> is up first. I dont like it, like i said, because it adds one more check
+> in the first path. I was contemplating at some point even not doing the 
+
+I'm not going to argue about this.
+
+> By "mirred deadlock" i think you mean the deadlock that happens in
+> dev_queue_xmit()? 
+
+I meant the deadlock within mirred but the deadlock on queue_lock
+is happening first anyway.
+
+> What is still not clear above?
+
+Frankly, I have no idea which deadlocks are intentional, what ideas
+you have about ingress->egress, etc because it is not documented.
+The list is very long. I'm not going to waste time trying to work
+out a patch that will then not suit the ideas in your mind and on
+your notes. You're maintaing this code, no?
