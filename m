@@ -1,95 +1,97 @@
-From: "Sal Keys" <93caldwell@punkass.com>
-Subject: I'm fine, but still searching for business partners.
-Date: Sun, 9 Jul 2006 14:52:19 +0800
-Message-ID: <200607090651.k696oida019368@zeus1.kernel.org>
+From: Marcus Better <marcus@better.se>
+Subject: Re: rtl8139: NETDEV WATCHDOG: eth0: transmit timed out
+Date: Sun, 09 Jul 2006 09:23:04 +0200
+Message-ID: <44B0AED8.3040604@better.se>
+References: <e82qhq$4v0$1@sea.gmane.org>	<20060630211604.GA5302@electric-eye.fr.zoreil.com> <44AE8CBB.4070409@better.se> <44AFDA3B.6020904@tungstengraphics.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=Windows-1251
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Dave Airlie <airlied@linux.ie>, netdev@vger.kernel.org,
+	dri-devel@lists.sourceforge.net,
+	Alan Hourihane <alanh@tungstengraphics.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus1.kernel.org ([204.152.191.4]:2750 "EHLO zeus1.kernel.org")
-	by vger.kernel.org with ESMTP id S965027AbWGIGvC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2006 02:51:02 -0400
-To: <netdev@vger.kernel.org>
+Received: from mxfep02.bredband.com ([195.54.107.73]:55455 "EHLO
+	mxfep02.bredband.com") by vger.kernel.org with ESMTP
+	id S932375AbWGIHXR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Jul 2006 03:23:17 -0400
+To: =?ISO-8859-1?Q?Thomas_Hellstr=F6m?= <thomas@tungstengraphics.com>
+In-Reply-To: <44AFDA3B.6020904@tungstengraphics.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yo Netdev.
+Thomas Hellstr=F6m wrote:
+> I guess you got the wrong commit, and the correct one should be the o=
+ne
+> where Dave adds vblank interrupts. It should be close to the one you
+> listed.
 
+I thought I double-checked that it was the right commit, but will check
+again.
 
-How are you? I hope you are fine. I missed you so much honey. I have be=
-en thinking about our last meeting so much and I=92ll=20
+> If the network sits on the same IRQ line, it will be disabled as well=
+=2E
 
+It appears to be on a different IRQ:
+~$ cat /proc/interrupts
+           CPU0
+  0:     202574          XT-PIC  timer
+  1:       2649          XT-PIC  i8042
+  2:          0          XT-PIC  cascade
+  8:          0          XT-PIC  rtc
+  9:          0          XT-PIC  acpi
+ 10:       1059          XT-PIC  yenta, Intel 82801CA-ICH3 Modem, Intel
+82801CA-ICH3
+ 11:      40776          XT-PIC  uhci_hcd:usb1, uhci_hcd:usb2, eth0
+ 12:     100433          XT-PIC  i8042
+ 14:      63563          XT-PIC  ide0
+ 15:       6773          XT-PIC  ide1
+NMI:          0
+ERR:          0
 
+(This is without i915 loaded though.)
 
-never forget all the fun we had together that month.
-About me all the same, same town same city same job hheheh all the same=
- I am bored and I cant wait to visit u next year.=20
+> If you check your kernel logs, you will probably have
+> messages about disabled IRQs.
 
-Almost nothing has changed between us; my hart is waiting for you.
-By the way, do you remember that distributor of art, who helped me sell=
-ing different items, yes, that ones I was reselling=20
+Correct. Here's an example:
 
+Jul  7 16:43:39 kelev kernel: irq 11: nobody cared (try booting with th=
+e
+"irqpoll" option)
+Jul  7 16:43:39 kelev kernel:  [<c0138b74>] __report_bad_irq+0x24/0x90
+Jul  7 16:43:39 kelev kernel:  [<c0138c82>] note_interrupt+0x72/0xc0
+Jul  7 16:43:39 kelev kernel:  [<c013862e>] __do_IRQ+0xae/0xc0
+Jul  7 16:43:39 kelev kernel:  [<c0104a69>] do_IRQ+0x19/0x30
+Jul  7 16:43:39 kelev kernel:  [<c01030c2>] common_interrupt+0x1a/0x20
+Jul  7 16:43:39 kelev kernel:  [<c011c4fe>] __do_softirq+0x2e/0xa0
+Jul  7 16:43:39 kelev kernel:  [<c011c597>] do_softirq+0x27/0x30
+Jul  7 16:43:39 kelev kernel:  [<c0104a6e>] do_IRQ+0x1e/0x30
+Jul  7 16:43:39 kelev kernel:  [<c01030c2>] common_interrupt+0x1a/0x20
+Jul  7 16:43:39 kelev kernel:  [<c0102ef5>] syscall_call+0x7/0xb
+Jul  7 16:43:39 kelev kernel: handlers:
+Jul  7 16:43:39 kelev kernel: [<e01270c0>] (usb_hcd_irq+0x0/0x60 [usbco=
+re])
+Jul  7 16:43:39 kelev kernel: [<e01270c0>] (usb_hcd_irq+0x0/0x60 [usbco=
+re])
+Jul  7 16:43:39 kelev kernel: [<e0044160>] (rtl8139_interrupt+0x0/0x1d0
+[8139too]
+)
+Jul  7 16:43:39 kelev kernel: Disabling IRQ #11
 
-
-to Artists and Collectors.=20
-Their Comicion to our money-bags!! They want to sell their antiques at =
-the Art Market in Australia. But they have some=20
-
-
-
-reasons for not opening a branch in Australia for the moment. Maybe nex=
-t year, this means that I can move to Sydney very=20
-soon.
-The only thing I can say is that I=92ve worked with this company for a =
-long time and they are really the best bosses I ever=20
-
-
-had in my life, you know all the time I have in my life for my activiti=
-es and also They never let me down. I am completely=20
-
-satisfied with their assistance in all work matters.=20
-In short they are searching for people for distant-work. This job will =
-take only couple of hours a day, but the salary is=20
-
-
-
-rather acceptable, 300-400 dollars weekly.=20
-They asked me to help them in finding any bulletin boards. I know that =
-you work with different kinds of announcements and=20
-
-may be you can advice something. Or may be you know a couple of honest =
-people who need some work. The requirements to=20
-
-candidate are not too high, he should be an honest person able to work =
-with PC- Know about Internet- and some other office=20
-
-
-tools, you know, like Word Excel MSN, etc.
-
-
-So if you have someone in mind, say them to write to support@lesantique=
-sltd.com
-
-
-PS. By the way, you promised me to call and didn=92t keep it. It=92s no=
- good forgetting your old and faithful friend. I=92ll always be glad to=
- here from you,
-
-
-
-Remember me to your mates,
-Love you Heepss,
-
-Emanuel Hinson
-
-Sun, 9 Jul 2006 14:52:19 +0800
-
-
-
-doge
-colt
-beefy
-barnabas
-aphasia
+Jul  7 16:44:03 kelev kernel: NETDEV WATCHDOG: eth0: transmit timed out
+Jul  7 16:44:03 kelev kernel: eth0: Transmit timeout, status 0c 0005
+c07f media 9
+0.
+Jul  7 16:44:03 kelev kernel: eth0: Tx queue start entry 48  dirty entr=
+y 44.
+Jul  7 16:44:03 kelev kernel: eth0:  Tx descriptor 0 is 0008a062. (queu=
+e
+head)
+Jul  7 16:44:03 kelev kernel: eth0:  Tx descriptor 1 is 0008a062.
+Jul  7 16:44:03 kelev kernel: eth0:  Tx descriptor 2 is 0008a062.
+Jul  7 16:44:03 kelev kernel: eth0:  Tx descriptor 3 is 0008a062.
+Jul  7 16:44:03 kelev kernel: eth0: link up, 100Mbps, full-duplex, lpa
+0x45E1
 
 
