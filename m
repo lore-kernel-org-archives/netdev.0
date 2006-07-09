@@ -1,39 +1,49 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [AX.25] Get rid of the last volatile.
-Date: Sun, 9 Jul 2006 23:37:45 +0100
-Message-ID: <20060709223745.GA20324@linux-mips.org>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] d80211: make sleeping in hw->config possible
+Date: Mon, 10 Jul 2006 01:04:52 +0200
+Message-ID: <200607100104.53006.mb@bu3sch.de>
+References: <200607092047.57256.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
+	bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus1.kernel.org ([204.152.191.4]:20444 "EHLO zeus1.kernel.org")
-	by vger.kernel.org with ESMTP id S1161208AbWGIWk6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2006 18:40:58 -0400
-Received: from ftp.linux-mips.org (ftp.linux-mips.org [194.74.144.162])
-	by zeus1.kernel.org (8.13.1/8.13.1) with ESMTP id k69Mei0S029441
-	for <netdev@vger.kernel.org>; Sun, 9 Jul 2006 22:40:57 GMT
-Received: from localhost.localdomain ([127.0.0.1]:23741 "EHLO bacchus.dhis.org")
-	by ftp.linux-mips.org with ESMTP id S8133507AbWGIWhl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2006 23:37:41 +0100
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:12193
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932485AbWGIXFi
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Jul 2006 19:05:38 -0400
+To: linville@tuxdriver.com
+In-Reply-To: <200607092047.57256.mb@bu3sch.de>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This volatile makes no sense - not even wearing pink shades ...
+On Sunday 09 July 2006 20:47, you wrote:
+> ===================================================================
+> --- wireless-dev-dscapeports.orig/net/d80211/ieee80211.c	2006-06-17 21:26:10.000000000 +0200
+> +++ wireless-dev-dscapeports/net/d80211/ieee80211.c	2006-07-09 20:01:42.000000000 +0200
+> @@ -4327,8 +4327,7 @@
+>  		del_timer_sync(&local->rate_limit_timer);
+>  	if (local->stat_time)
+>  		del_timer_sync(&local->stat_timer);
+> -	if (local->scan_timer.data)
+> -		del_timer_sync(&local->scan_timer);
+> +	cancel_rearming_delayed_work(&local->scan_work);
+>  	ieee80211_rx_bss_list_deinit(dev);
+>  
+>  	rtnl_lock();
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+There seems to be a problem. It sometimes loops inside of
+cancel_rearming_delayed_work forever. So I tried to fix it like this:
+	if (local->scan_work.data)
+		cancel_rearming_delayed_work(&local->scan_work);
+This fixes the case where we don't scan (have no STA), so don't
+initialize the work struct.
 
-diff --git a/net/ax25/ax25_in.c b/net/ax25/ax25_in.c
-index 4cf8754..e9d9429 100644
---- a/net/ax25/ax25_in.c
-+++ b/net/ax25/ax25_in.c
-@@ -102,8 +102,8 @@ static int ax25_rx_fragment(ax25_cb *ax2
- int ax25_rx_iframe(ax25_cb *ax25, struct sk_buff *skb)
- {
- 	int (*func)(struct sk_buff *, ax25_cb *);
--	volatile int queued = 0;
- 	unsigned char pid;
-+	int queued = 0;
- 
- 	if (skb == NULL) return 0;
- 
+But it still loops infinite, sometimes.
+Any suggestions?
+
+-- 
+Greetings Michael.
