@@ -1,40 +1,34 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
-Date: Sun, 9 Jul 2006 10:49:31 +0200
-Message-ID: <200607091049.31628.stefan@loplof.de>
-References: <200603211829.k2LITMNR029085@hera.kernel.org> <44AE2FCC.6020207@trash.net> <20060707143314.67bf07ff@dxpl.pdx.osdl.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Ben Greear <greearb@candelatech.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.17-mm3
+Date: Sun, 09 Jul 2006 20:01:55 +1000
+Message-ID: <E1FzW6t-0003te-00@gondolin.me.apana.org.au>
+References: <44AF8E30.2000603@gmail.com>
+Cc: shemminger@osdl.org, akpm@osdl.org, mingo@elte.hu,
+	arjan@linux.intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from natlemon.rzone.de ([81.169.145.170]:33723 "EHLO
-	natlemon.rzone.de") by vger.kernel.org with ESMTP id S932420AbWGIIri
+Received: from rhun.apana.org.au ([64.62.148.172]:53516 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932186AbWGIKCX
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Jul 2006 04:47:38 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060707143314.67bf07ff@dxpl.pdx.osdl.net>
-Content-Disposition: inline
+	Sun, 9 Jul 2006 06:02:23 -0400
+To: michal.k.k.piotrowski@gmail.com (Michal Piotrowski)
+In-Reply-To: <44AF8E30.2000603@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Freitag, 7. Juli 2006 23:33 schrieb Stephen Hemminger:
+Michal Piotrowski <michal.k.k.piotrowski@gmail.com> wrote:
+> 
+> It was moved, sorry.
 
-> Not really. The flag code last major change was to do the dormant
-> stuff that HDLC wanted.
+I fail to spot any relevant backtraces for skge or indeed any part
+of the networking stack.  Ingo/Arjan, perhaps you guys can figure
+out what's wrong here.
 
-... and where the maintainer doesn't seem to care to use it now that the 
-infrastructure is there. Sigh.
+In future perhaps you should consider posting the dmesg to the list
+directly.
 
-> IMHO VLAN device's should mirror the state of the underlying physical
-> device.
->
-> I can't really follow the thread well. What is broken?
-
-The thread is still quite short and describes the problem, look at 
-http://marc.theaimsgroup.com/?t=115200782600004&r=1&w=2
-
-Stefan
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
