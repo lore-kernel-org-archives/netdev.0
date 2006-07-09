@@ -1,42 +1,39 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: [PATCH] airo: make debug-like messages printed by	airo_print_dbg()
-Date: Sun, 09 Jul 2006 21:55:41 +0400
-Message-ID: <44B1431D.3010405@tls.msk.ru>
-References: <44AFD651.8030801@net-pr.de> <1152455044.2519.7.camel@localhost.localdomain> <44B13974.9090604@net-pr.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PKT_SCHED]: act_api: Fix module leak while flushing actions
+Date: Sun, 09 Jul 2006 11:38:58 -0700 (PDT)
+Message-ID: <20060709.113858.01310628.davem@davemloft.net>
+References: <20060709142043.GN14627@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
-	linville@tuxdriver.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hobbit.corpit.ru ([81.13.94.6]:18520 "EHLO hobbit.corpit.ru")
-	by vger.kernel.org with ESMTP id S1161026AbWGIRzq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2006 13:55:46 -0400
-To: Robert Schulze <rob@net-pr.de>
-In-Reply-To: <44B13974.9090604@net-pr.de>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:24222
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1161038AbWGISi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Jul 2006 14:38:27 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20060709142043.GN14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Robert Schulze wrote:
-> Hi,
+From: Thomas Graf <tgraf@suug.ch>
+Date: Sun, 9 Jul 2006 16:20:43 +0200
+
+> Module reference needs to be given back if message header
+> construction fails.
 > 
-> Dan Williams schrieb:
->> This message will only happen if the card hangs up and stops responding
->> to commands anyway, so we don't necessarily care about making the
->> message decipherable to anyone other than developers.
-> 
-> Well, I get this message each time I insert my Cisco Aironet 350 PCMCIA
-> card, which works obviously fine.
-[]
-> Besides, the messages can be read by issuing dmesg even after the patch,
-> so no information gets lost.
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-The fact that you're getting that message indicates that something's wrong,
-at least from the kernel's point of view.  So it better be understand and
-fixed, instead of being hidden in debugging output.  If it's visible in
-dmesg but isn't visible in syslog (default syslog configuration does not
-capture any debugging messages), far less people will notice it.
+Applied, thanks Thomas.
 
-I'd vote for making it one-line, but with current KERN_ERR priority.
+This reminds me of something, not only are non-networking developers
+getting tripped up constantly about these magic code labels referenced
+from the netlink macros, they are tripping us up as well.
 
-/mjt (who don't even have the hardware in question)
+I really think it's time, at a minimum, to explicitly mention the
+labels as an argument to the macros, or something like that.
+
+I'll try to cons something up when I get a chance.  The current
+situation is too error prone.
+
