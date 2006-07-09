@@ -1,46 +1,85 @@
-From: Jamal Hadi Salim <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
-Date: Sun, 09 Jul 2006 09:17:51 -0400
-Message-ID: <1152451071.5124.51.camel@jzny2>
-References: <20060630.133348.68039806.davem@davemloft.net>
-	 <1151700884.5270.278.camel@jzny2> <20060630211043.GO14627@postel.suug.ch>
-	 <1151703097.5270.307.camel@jzny2> <20060630234512.GR14627@postel.suug.ch>
-	 <1151722785.5093.51.camel@jzny2> <20060701112833.GS14627@postel.suug.ch>
-	 <1151760901.5093.141.camel@jzny2> <20060708105451.GG14627@postel.suug.ch>
-	 <1152368076.5272.39.camel@jzny2>  <20060708234602.GH14627@postel.suug.ch>
-	 <1152449536.5124.31.camel@jzny2>
-Reply-To: hadi@cyberus.ca
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [RFC 0/4] kevent: generic kernel event processing subsystem.
+Date: Sun, 9 Jul 2006 17:24:29 +0400
+Message-ID: <20060709132426.GA29435@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:29416 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1030491AbWGINRx
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Jul 2006 09:17:53 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1FzZAZ-0001vm-2m
-	for netdev@vger.kernel.org; Sun, 09 Jul 2006 09:17:55 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <1152449536.5124.31.camel@jzny2>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:31386 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1030496AbWGINYb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jul 2006 09:24:31 -0400
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2006-09-07 at 08:52 -0400, Jamal Hadi Salim wrote:
+Hello developers.
 
-Ok, didnt complete my thought there ..
+I'm pleased to announce in linux-kernel@ mail list kevent subsystem 
+which incorporates several AIO/kqueue design notes and ideas.
+Kevent can be used both for edge and level notifications. It supports
+socket notifications, network AIO (aio_send(), aio_recv() and
+aio_sendfile()), inode notifications (create/remove),
+generic poll()/select() notifications and timer notifications.
 
-> I dont like it, like i said, because it adds one more check
-> in the first path. I was contemplating at some point even not doing the 
+Short implementation details.
+storage - each source of events (socket, inode, timer, aio) 
+has structure kevent_storage incorporated into it, which is 
+basically a list of registered interests for this source of events.
+user - it is abstraction which holds all requested kevents. 
+It is similar to FreeBSD's kqueue.
 
+kevent - set of interests for given source of events or storage.
 
-".. not doing the " check for device up and just shove the packet at it.
+Each kevent now is queued into three lists:
 
-cheers,
-jamal
+    * kevent_user->kevent_list - list of all registered kevents.
+    * kevent_user->ready_list - list of ready kevents.
+    * kevent_storage->list - list of all interests for given kevent_storage.
 
-PS:-  warning on response still applies.
+When kevent is queued into storage, it will live there until 
+removed by kevent_dequeue(). When some activity is noticed in 
+given storage, it scans it's kevent_storage->list for kevents 
+which match activity event. If kevents are found and they are 
+not already in the kevent_user->ready_list, they will be added 
+there at the end.
 
+It is possible wait until either requested number of kevents are 
+ready or timeout elapsed or at least one kevent is ready, 
+it's behaviour depends on parameters.
+
+Any event can be added/removed/modified by ioctl or one control syscall.
+
+It was tested against FreeBSD kqueue and Linux epoll and showed
+very noticeble performance win.
+
+Network asynchronous IO operations were tested against Linux synchronous
+socket code and showed noticeble performance win.
+
+I would like to hear some comments about the overall design,
+implementation and plans about it's usefullness for generic kernel.
+Kevent patches were discussed several times already (project was created 
+quite long time ago), and there were present no major negative feedback
+except some high-level API changes. The latest discussion can be found 
+at [4].
+
+Design notes, patches, userspace application and perfomance tests can be
+found at project's homepages.
+
+1. Kevent subsystem.
+http://tservice.net.ru/~s0mbre/old/?section=projects&item=kevent
+
+2. Network AIO.
+http://tservice.net.ru/~s0mbre/old/?section=projects&item=naio
+
+3. LWN article about kevent.
+http://lwn.net/Articles/172844/
+
+4. The latest discussion in netdev@ mail list.
+http://thread.gmane.org/gmane.linux.network/37595/focus=37673
+
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+
+-- 
+	Evgeniy Polyakov
