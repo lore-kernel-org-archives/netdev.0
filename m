@@ -1,49 +1,52 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] d80211: make sleeping in hw->config possible
-Date: Mon, 10 Jul 2006 01:04:52 +0200
-Message-ID: <200607100104.53006.mb@bu3sch.de>
-References: <200607092047.57256.mb@bu3sch.de>
+From: Jamal Hadi Salim <hadi@cyberus.ca>
+Subject: Re: [PATCH 2/3] [VLAN]: Update iif when receiving via VLAN device
+Date: Sun, 09 Jul 2006 19:06:59 -0400
+Message-ID: <1152486419.5124.139.camel@jzny2>
+References: <20060701112833.GS14627@postel.suug.ch>
+	 <1151760901.5093.141.camel@jzny2> <20060708105451.GG14627@postel.suug.ch>
+	 <1152368076.5272.39.camel@jzny2> <20060708234602.GH14627@postel.suug.ch>
+	 <1152449536.5124.31.camel@jzny2> <20060709133327.GK14627@postel.suug.ch>
+	 <1152453796.5124.70.camel@jzny2> <20060709141933.GM14627@postel.suug.ch>
+	 <1152457232.5124.127.camel@jzny2>  <20060709155405.GO14627@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:12193
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932485AbWGIXFi
+Received: from mx02.cybersurf.com ([209.197.145.105]:20204 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932520AbWGIXHC
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Jul 2006 19:05:38 -0400
-To: linville@tuxdriver.com
-In-Reply-To: <200607092047.57256.mb@bu3sch.de>
-Content-Disposition: inline
+	Sun, 9 Jul 2006 19:07:02 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1FziMl-0003RP-0d
+	for netdev@vger.kernel.org; Sun, 09 Jul 2006 19:07:07 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060709155405.GO14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 09 July 2006 20:47, you wrote:
-> ===================================================================
-> --- wireless-dev-dscapeports.orig/net/d80211/ieee80211.c	2006-06-17 21:26:10.000000000 +0200
-> +++ wireless-dev-dscapeports/net/d80211/ieee80211.c	2006-07-09 20:01:42.000000000 +0200
-> @@ -4327,8 +4327,7 @@
->  		del_timer_sync(&local->rate_limit_timer);
->  	if (local->stat_time)
->  		del_timer_sync(&local->stat_timer);
-> -	if (local->scan_timer.data)
-> -		del_timer_sync(&local->scan_timer);
-> +	cancel_rearming_delayed_work(&local->scan_work);
->  	ieee80211_rx_bss_list_deinit(dev);
->  
->  	rtnl_lock();
+On Sun, 2006-09-07 at 17:54 +0200, Thomas Graf wrote:
 
-There seems to be a problem. It sometimes loops inside of
-cancel_rearming_delayed_work forever. So I tried to fix it like this:
-	if (local->scan_work.data)
-		cancel_rearming_delayed_work(&local->scan_work);
-This fixes the case where we don't scan (have no STA), so don't
-initialize the work struct.
+> Look at where dev->queue_lock is taken, whenever a qdisc or
+> filter is added, modified or deleted the lock is taken. Using
+> your approach packets get dropped while such an operation is
+> taking place. 
 
-But it still loops infinite, sometimes.
-Any suggestions?
+True, this will be bad for devices that dont care about any of this
+(looping etc).
+Perhaps it may even have been a reason that held me back - i dont
+remember and it doesnt matter.
+So go ahead and submit a patch while keeping in mind the same reasoning
+as above.
 
--- 
-Greetings Michael.
+> Your approach is wrong.
+
+And this is where we are going to go into a loop. Do you want to go that
+path? I suggest we dont.
+
+cheers,
+jamal
+
