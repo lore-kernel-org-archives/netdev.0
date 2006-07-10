@@ -1,59 +1,48 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH] cancel_rearming_delayed_work infinite loop fix
-Date: Tue, 11 Jul 2006 00:36:30 +0200
-Message-ID: <200607110036.31574.mb@bu3sch.de>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Subject: [PATCH] IB/cm: set private data length for reject messages
+Date: Tue, 11 Jul 2006 01:43:42 +0300
+Message-ID: <20060710224342.GA496@mellanox.co.il>
+Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de, linville@tuxdriver.com,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Sean Hefty <sean.hefty@intel.com>,
+	Roland Dreier <rolandd@cisco.com>, openib-general@openib.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:27595
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965290AbWGJWgd
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jul 2006 18:36:33 -0400
-To: akpm@osdl.org
+Received: from mxl145v69.mxlogic.net ([208.65.145.69]:52356 "EHLO
+	p02c11o146.mxlogic.net") by vger.kernel.org with ESMTP
+	id S965296AbWGJWn1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jul 2006 18:43:27 -0400
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-cancel_rearming_delayed_work{queue} is broken, because it is
-possible to enter an infinite loop if:
-We call the function on a work that is currently not executing or pending.
+Hi Andrew,
+Here's another infiniband patch that needs to go upstream.
 
-But, as this is a synchronization function and as its only purpose
-is to synchronize the work, that should not loop infinite.
+---
 
-This patch rewrites the function.
-It now first cancels the work, but throws the retval of that function
-away, because it is meaningless in this context. (The retval is 1,
-if the work was pending and 0, if not)
-After that we flush the queue to make sure any work function returns.
-Now, if it was indeed running, it rescheduled itself. That is caught
-by the test_bit(). If it rescheduled itself, we have the schedule-delay
-time to cancel the work again (without it rescheduling itself again).
-So we redo the loop. Most likely it will succeed on the
-second loop iteration at least.
+From: "Ira Weiny" <weiny2@llnl.gov>
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+Set private data length for reject messages to the correct size.
+Fix from openib svn r8483.
 
-Index: wireless-dev-dscapeports/kernel/workqueue.c
+Signed-off-by: Sean Hefty <sean.hefty@intel.com>
+Signed-off-by: Michael S. Tsirkin <mst@mellanox.co.il>
+
+Index: openib/drivers/infiniband/core/cma.c
 ===================================================================
---- wireless-dev-dscapeports.orig/kernel/workqueue.c	2006-06-13 14:44:16.000000000 +0200
-+++ wireless-dev-dscapeports/kernel/workqueue.c	2006-07-11 00:19:06.000000000 +0200
-@@ -461,8 +461,10 @@
- void cancel_rearming_delayed_workqueue(struct workqueue_struct *wq,
- 				       struct work_struct *work)
- {
--	while (!cancel_delayed_work(work))
-+	do {
-+		cancel_delayed_work(work);
- 		flush_workqueue(wq);
-+	} while (test_bit(0, &work->pending));
- }
- EXPORT_SYMBOL(cancel_rearming_delayed_workqueue);
+--- openib/drivers/infiniband/core/cma.c	(revision 8482)
++++ openib/drivers/infiniband/core/cma.c	(revision 8483)
+@@ -906,6 +906,7 @@ static int cma_ib_handler(struct ib_cm_i
+ 		cma_modify_qp_err(&id_priv->id);
+ 		status = ib_event->param.rej_rcvd.reason;
+ 		event = RDMA_CM_EVENT_REJECTED;
++		private_data_len = IB_CM_REJ_PRIVATE_DATA_SIZE;
+ 		break;
+ 	default:
+ 		printk(KERN_ERR "RDMA CMA: unexpected IB CM event: %d",
 
 -- 
-Greetings Michael.
+MST
