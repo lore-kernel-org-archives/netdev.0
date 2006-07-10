@@ -1,44 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: order addresses by scope
-Date: Mon, 10 Jul 2006 15:26:24 -0700 (PDT)
-Message-ID: <20060710.152624.14224431.davem@davemloft.net>
-References: <4489BA9A.9050508@hp.com>
-	<20060710.150045.128593827.davem@davemloft.net>
-	<20060710.181816.38918735.yoshfuji@linux-ipv6.org>
+From: Stefan Rompf <stefan@loplof.de>
+Subject: Re: [PATCH RFC]rfkill - Hardware button support for Wireless cards
+Date: Tue, 11 Jul 2006 00:34:47 +0200
+Message-ID: <200607110034.47944.stefan@loplof.de>
+References: <a32f33a40607090849h737287a0k9f4d95669aa0ce9c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "Jiri Benc" <jbenc@suse.cz>,
+	"Francois Romieu" <romieu@fr.zoreil.com>,
+	"Vojtech Pavlik" <vojtech@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63381
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965278AbWGJWZn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jul 2006 18:25:43 -0400
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20060710.181816.38918735.yoshfuji@linux-ipv6.org>
+Received: from natlemon.rzone.de ([81.169.145.170]:22417 "EHLO
+	natlemon.rzone.de") by vger.kernel.org with ESMTP id S965286AbWGJWcb
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jul 2006 18:32:31 -0400
+To: "Ivo Van Doorn" <ivdoorn@gmail.com>
+In-Reply-To: <a32f33a40607090849h737287a0k9f4d95669aa0ce9c@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Mon, 10 Jul 2006 18:18:16 -0400 (EDT)
+Am Sonntag, 9. Juli 2006 17:49 schrieb Ivo Van Doorn:
 
-> In article <20060710.150045.128593827.davem@davemloft.net> (at Mon, 10 Jul 2006 15:00:45 -0700 (PDT)), David Miller <davem@davemloft.net> says:
-> 
-> > > If IPv6 addresses are ordered by scope, then ipv6_dev_get_saddr() can 
-> > > break-out of the device addr_list for() loop when the candidate source 
-> > > address scope is less than the destination address scope.
-> > > 
-> > > Signed-off-by: Brian Haley <brian.haley@hp.com>
-> > 
-> > This patch looks fine to me, it's an optimization and not a
-> > correctness issue.
-> > 
-> > But I'd like an ACK from an ipv6 developer, such as Yoshifuji, before
-> > adding this patch.
-> 
-> I agree, too.
-> Note: People should not depend on the order of addresses.
-> 
-> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> I have been quite busy lately, hence the reason for this late continuance
+> of the Hardware button support for Wireless cards discussion.
+> I have CC'ed the people who discussed this in earlier threads.
 
-Thank you for reviewing, patch applied.
+no problem. Look good, just one thing I'm missing:
+
+> +	For each registered hardware button an input device will be created.
+> +	If this input device has been opened by the user, rfkill will send a
+> +	signal to userspace instead of the hardware about the new button
+> +	status. This will allow userpace to perform the correct steps
+> +	in order to bring down all interfaces.
+
+> +		if (rfkill->input_dev->users) {
+> +			input_report_key(rfkill->input_dev,
+> +				KEY_RFKILL, new_status);
+> +			input_sync(rfkill->input_dev);
+
+Shouldn't there be a continue to avoid calling enable/disable_radio()?
+
+> +		}
+
+Stefan
+
+PS: This rfkill stuff is really caught between two stools. Sending a netlink 
+event for the device with an additional TLV for radio button status seems as 
+valid as sending an input event...
