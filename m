@@ -1,53 +1,31 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: infiniband patch series (was Re: ipath patch series a-comin', but no IB maintainer to shepherd them)
-Date: Tue, 11 Jul 2006 01:19:02 +0300
-Message-ID: <20060710221902.GB32328@mellanox.co.il>
-Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+From: Jan Engelhardt <jengelh@linux01.gwdg.de>
+Subject: Re: [patch] do not allow IPW_2100=Y or IPW_2200=Y
+Date: Tue, 11 Jul 2006 00:21:53 +0200 (MEST)
+Message-ID: <Pine.LNX.4.61.0607110021240.5420@yvahk01.tjqt.qr>
+References: <20060710152032.GA8540@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sean Hefty <sean.hefty@intel.com>,
-	Roland Dreier <rolandd@cisco.com>, openib-general@openib.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: yi.zhu@intel.com, jketreno@linux.intel.com,
+	Netdev list <netdev@vger.kernel.org>, linville@tuxdriver.com,
+	kernel list <linux-kernel@vger.kernel.org>, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxl145v65.mxlogic.net ([208.65.145.65]:56012 "EHLO
-	p02c11o142.mxlogic.net") by vger.kernel.org with ESMTP
-	id S965016AbWGJWSi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jul 2006 18:18:38 -0400
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
+Received: from linux01.gwdg.de ([134.76.13.21]:16816 "EHLO linux01.gwdg.de")
+	by vger.kernel.org with ESMTP id S965276AbWGJWX6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2006 18:23:58 -0400
+To: Pavel Machek <pavel@ucw.cz>
+In-Reply-To: <20060710152032.GA8540@elf.ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quoting r. Michael S. Tsirkin <mst@mellanox.co.il>:
-> Yes, -mm seems like a good way to get more review.
+>Is there better way of creating N/m config option?
 
-Andrew, am I using the right format to send things upstream to you?
-There's really a set of independent patches, so it didn't make sense
-to me to batch them up in a series. OK?
-Maybe the addition of the git tree (below) serves to clarify things.
+> config IPW2100
+> 	tristate "Intel PRO/Wireless 2100 Network Connection"
+>-	depends on NET_RADIO && PCI
+>+	depends on NET_RADIO && PCI && MODULE_ONLY
 
-> Further, in the hope that this will help keep things reasonably stable till
-> Roland comes back, and help everyone see what's being merged, I have
-> created a git branch for all things infiniband going into 2.6.18.
-> 
-> You can get at it here:
-> 	git://www.mellanox.co.il/~git/infiniband  mst-for-2.6.18
+"depends on NET_RADIO && PCI && m"
 
-BTW, all outstanding infiniband patches intended for upstream are currently
-there. Here's the list:
 
-Jack Morgenstein:
-      IB/mthca: fix mthca_ah_query static rate format
-
-Michael S. Tsirkin:
-      IB/cm: drop REQ when out of memory
-      IB/mthca: comment fix
-
-Sean Hefty:
-      IB/addr: gid structure alignment fix
-
-Vu Pham:
-      IB/srp: fix fmr error handling
-
+Jan Engelhardt
 -- 
-MST
