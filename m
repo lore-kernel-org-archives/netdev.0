@@ -1,78 +1,31 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Subject: [PATCHv2] IB/mthca: comment fix
-Date: Tue, 11 Jul 2006 00:15:42 +0300
-Message-ID: <20060710211542.GA30898@mellanox.co.il>
-References: <20060710111412.GD24705@mellanox.co.il> <20060710151824.GL24705@mellanox.co.il>
-Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+From: Zach Brown <zach.brown@oracle.com>
+Subject: Re: [PATCHv2] IB/mthca: comment fix
+Date: Mon, 10 Jul 2006 14:20:19 -0700
+Message-ID: <44B2C493.4060007@oracle.com>
+References: <20060710111412.GD24705@mellanox.co.il> <20060710151824.GL24705@mellanox.co.il> <20060710211542.GA30898@mellanox.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Zach Brown <zach.brown@oracle.com>, openib-general@openib.org,
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>,
+	Arjan van de Ven <arjan@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>, openib-general@openib.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Roland Dreier <rolandd@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxl145v68.mxlogic.net ([208.65.145.68]:13263 "EHLO
-	p02c11o145.mxlogic.net") by vger.kernel.org with ESMTP
-	id S964814AbWGJVPP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jul 2006 17:15:15 -0400
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060710151824.GL24705@mellanox.co.il>
+Received: from agminet01.oracle.com ([141.146.126.228]:21915 "EHLO
+	agminet01.oracle.com") by vger.kernel.org with ESMTP
+	id S965208AbWGJVX5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jul 2006 17:23:57 -0400
+To: "Michael S. Tsirkin" <mst@mellanox.co.il>
+In-Reply-To: <20060710211542.GA30898@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-OK, this is fine with both Arjan van de Ven and Roland Dreier, so -
-Andrew, could you take this into -mm please?
+Michael S. Tsirkin wrote:
+> OK, this is fine with both Arjan van de Ven and Roland Dreier, so -
+> Andrew, could you take this into -mm please?
 
----
+> Signed-off-by: Michael S. Tsirkin <mst@mellanox.co.il>
 
-After recent changes, mthca_wq_init does not actually initialize the WQ as it
-used to - it simply resets all index fields to their initial values. So,
-let's rename it to mthca_wq_reset.
+Acked-by: Zach Brown <zach.brown@oracle.com>
 
-Signed-off-by: Michael S. Tsirkin <mst@mellanox.co.il>
-
-diff --git a/drivers/infiniband/hw/mthca/mthca_qp.c b/drivers/infiniband/hw/mthca/mthca_qp.c
-index 490fc78..cd8b672 100644
---- a/drivers/infiniband/hw/mthca/mthca_qp.c
-+++ b/drivers/infiniband/hw/mthca/mthca_qp.c
-@@ -222,9 +222,8 @@ static void *get_send_wqe(struct mthca_q
- 			 (PAGE_SIZE - 1));
- }
- 
--static void mthca_wq_init(struct mthca_wq *wq)
-+static void mthca_wq_reset(struct mthca_wq *wq)
- {
--	/* mthca_alloc_qp_common() initializes the locks */
- 	wq->next_ind  = 0;
- 	wq->last_comp = wq->max - 1;
- 	wq->head      = 0;
-@@ -845,10 +844,10 @@ int mthca_modify_qp(struct ib_qp *ibqp, 
- 			mthca_cq_clean(dev, to_mcq(qp->ibqp.recv_cq), qp->qpn,
- 				       qp->ibqp.srq ? to_msrq(qp->ibqp.srq) : NULL);
- 
--		mthca_wq_init(&qp->sq);
-+		mthca_wq_reset(&qp->sq);
- 		qp->sq.last = get_send_wqe(qp, qp->sq.max - 1);
- 
--		mthca_wq_init(&qp->rq);
-+		mthca_wq_reset(&qp->rq);
- 		qp->rq.last = get_recv_wqe(qp, qp->rq.max - 1);
- 
- 		if (mthca_is_memfree(dev)) {
-@@ -1112,9 +1111,9 @@ static int mthca_alloc_qp_common(struct 
- 	qp->atomic_rd_en = 0;
- 	qp->resp_depth   = 0;
- 	qp->sq_policy    = send_policy;
--	mthca_wq_init(&qp->sq);
--	mthca_wq_init(&qp->rq);
--	/* these are initialized separately so lockdep can tell them apart */
-+	mthca_wq_reset(&qp->sq);
-+	mthca_wq_reset(&qp->rq);
-+
- 	spin_lock_init(&qp->sq.lock);
- 	spin_lock_init(&qp->rq.lock);
- 
--- 
-MST
