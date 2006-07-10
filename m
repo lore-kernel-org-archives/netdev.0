@@ -1,63 +1,37 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] let BT_HIDP depend on INPUT
-Date: Mon, 10 Jul 2006 20:31:54 +0200
-Message-ID: <20060710183154.GD13938@stusta.de>
-Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [patch] do not allow IPW_2100=Y or IPW_2200=Y
+Date: Mon, 10 Jul 2006 11:29:30 -0700
+Message-ID: <44B29C8A.8090405@intel.com>
+References: <20060710152032.GA8540@elf.ucw.cz> <44B2940A.2080102@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bluez-devel@lists.sf.net, linux390@de.ibm.com
-Return-path: <bluez-devel-bounces@lists.sourceforge.net>
-To: marcel@holtmann.org, maxk@qualcomm.com
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: bluez-devel-bounces@lists.sourceforge.net
-Errors-To: bluez-devel-bounces@lists.sourceforge.net
+Cc: Pavel Machek <pavel@ucw.cz>, yi.zhu@intel.com,
+	jketreno@linux.intel.com, Netdev list <netdev@vger.kernel.org>,
+	linville@tuxdriver.com, kernel list <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:7759 "EHLO
+	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1422644AbWGJSeL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jul 2006 14:34:11 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <44B2940A.2080102@pobox.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch let's BT_HIDP depend on instead of select INPUT.
+Jeff Garzik wrote:
+> Pavel Machek wrote:
+>> Kconfig currently allows compiling IPW_2100 and IPW_2200 into kernel
+>> (not as a module). Unfortunately, such configuration does not work,
+>> because these drivers need a firmware, and it can't be loaded by
+>> userspace loader when userspace is not running.
+> 
+> False, initramfs...
 
-This fixes the following warning during an s390 build:
+which would warrant some extra documentation in Kconfig explaining that this 
+driver needs initramfs with firmware for it to work when compiled in the 
+kernel. A link to the ipw2x00 documentation might also help.
 
-<--  snip  -->
+Cheers,
 
-...
-net/bluetooth/hidp/Kconfig:4:warning: 'select' used by config symbol 'BT_HIDP' refer to undefined symbol 'INPUT'
-...
-
-<--  snip  -->
-
-A dependency on INPUT also implies !S390 (and therefore makes the 
-explicit dependency obsolete) since INPUT is not available on s390.
-
-The practical difference should be nearly zero, since INPUT is always 
-set to y unless EMBEDDED=y (or S390=y).
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-2.6.18-rc1-mm1-full/net/bluetooth/hidp/Kconfig.old	2006-07-10 16:51:59.000000000 +0200
-+++ linux-2.6.18-rc1-mm1-full/net/bluetooth/hidp/Kconfig	2006-07-10 16:52:52.000000000 +0200
-@@ -1,7 +1,6 @@
- config BT_HIDP
- 	tristate "HIDP protocol support"
--	depends on BT && BT_L2CAP && (BROKEN || !S390)
--	select INPUT
-+	depends on INPUT && BT && BT_L2CAP
- 	help
- 	  HIDP (Human Interface Device Protocol) is a transport layer
- 	  for HID reports.  HIDP is required for the Bluetooth Human
-
-
-
--------------------------------------------------------------------------
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+Auke
