@@ -1,61 +1,92 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [2.6 patch] let BT_HIDP depend on INPUT
-Date: Mon, 10 Jul 2006 21:07:20 +0200
-Message-ID: <1152558440.32554.4.camel@localhost>
-References: <20060710183154.GD13938@stusta.de>
-Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] let BT_HIDP depend on INPUT
+Date: Mon, 10 Jul 2006 21:33:42 +0200
+Message-ID: <20060710193342.GF13938@stusta.de>
+References: <20060710183154.GD13938@stusta.de> <1152558440.32554.4.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux390@de.ibm.com,
-	bluez-devel@lists.sf.net, maxk@qualcomm.com,
-	linux-kernel@vger.kernel.org
-Return-path: <bluez-devel-bounces@lists.sourceforge.net>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20060710183154.GD13938@stusta.de>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: bluez-devel-bounces@lists.sourceforge.net
-Errors-To: bluez-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: maxk@qualcomm.com, bluez-devel@lists.sf.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux390@de.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:522 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S1422793AbWGJTdo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jul 2006 15:33:44 -0400
+To: Marcel Holtmann <marcel@holtmann.org>
+Content-Disposition: inline
+In-Reply-To: <1152558440.32554.4.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Adrian,
-
-> This patch let's BT_HIDP depend on instead of select INPUT.
+On Mon, Jul 10, 2006 at 09:07:20PM +0200, Marcel Holtmann wrote:
+> Hi Adrian,
 > 
-> This fixes the following warning during an s390 build:
+> > This patch let's BT_HIDP depend on instead of select INPUT.
+> > 
+> > This fixes the following warning during an s390 build:
+> > 
+> > <--  snip  -->
+> > 
+> > ...
+> > net/bluetooth/hidp/Kconfig:4:warning: 'select' used by config symbol 'BT_HIDP' refer to undefined symbol 'INPUT'
+> > ...
+> > 
+> > <--  snip  -->
+> > 
+> > A dependency on INPUT also implies !S390 (and therefore makes the 
+> > explicit dependency obsolete) since INPUT is not available on s390.
+> > 
+> > The practical difference should be nearly zero, since INPUT is always 
+> > set to y unless EMBEDDED=y (or S390=y).
 > 
-> <--  snip  -->
+> I actually have no idea why we ended up with using select, but depends
+> is also fine by me. Except I like to see it "BT && BT_L2CAP && INPUT" ;)
+
+Updated patch below.
+
+> Regards
 > 
-> ...
-> net/bluetooth/hidp/Kconfig:4:warning: 'select' used by config symbol 'BT_HIDP' refer to undefined symbol 'INPUT'
-> ...
-> 
-> <--  snip  -->
-> 
-> A dependency on INPUT also implies !S390 (and therefore makes the 
-> explicit dependency obsolete) since INPUT is not available on s390.
-> 
-> The practical difference should be nearly zero, since INPUT is always 
-> set to y unless EMBEDDED=y (or S390=y).
+> Marcel
 
-I actually have no idea why we ended up with using select, but depends
-is also fine by me. Except I like to see it "BT && BT_L2CAP && INPUT" ;)
+cu
+Adrian
 
-Regards
 
-Marcel
+<--  snip  -->
 
 
 
+This patch lets BT_HIDP depend on instead of select INPUT.
 
--------------------------------------------------------------------------
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+This fixes the following warning during an s390 build:
+
+<--  snip  -->
+
+...
+net/bluetooth/hidp/Kconfig:4:warning: 'select' used by config symbol 
+'BT_HIDP' r
+efer to undefined symbol 'INPUT'
+...
+
+<--  snip  -->
+
+A dependency on INPUT also implies !S390 (and therefore makes the 
+explicit dependency obsolete) since INPUT is not available on s390.
+
+The practical difference should be nearly zero, since INPUT is always 
+set to y unless EMBEDDED=y (or S390=y).
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.18-rc1-mm1-full/net/bluetooth/hidp/Kconfig.old	2006-07-10 16:51:59.000000000 +0200
++++ linux-2.6.18-rc1-mm1-full/net/bluetooth/hidp/Kconfig	2006-07-10 21:21:46.000000000 +0200
+@@ -1,7 +1,6 @@
+ config BT_HIDP
+ 	tristate "HIDP protocol support"
+-	depends on BT && BT_L2CAP && (BROKEN || !S390)
+-	select INPUT
++	depends on BT && BT_L2CAP && INPUT
+ 	help
+ 	  HIDP (Human Interface Device Protocol) is a transport layer
+ 	  for HID reports.  HIDP is required for the Bluetooth Human
