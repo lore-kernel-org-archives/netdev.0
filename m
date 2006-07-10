@@ -1,51 +1,59 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: [PATCH RFC]rfkill - Hardware button support for Wireless cards
-Date: Tue, 11 Jul 2006 00:34:47 +0200
-Message-ID: <200607110034.47944.stefan@loplof.de>
-References: <a32f33a40607090849h737287a0k9f4d95669aa0ce9c@mail.gmail.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] cancel_rearming_delayed_work infinite loop fix
+Date: Tue, 11 Jul 2006 00:36:30 +0200
+Message-ID: <200607110036.31574.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Jiri Benc" <jbenc@suse.cz>,
-	"Francois Romieu" <romieu@fr.zoreil.com>,
-	"Vojtech Pavlik" <vojtech@suse.cz>
+Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
+	bcm43xx-dev@lists.berlios.de, linville@tuxdriver.com,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from natlemon.rzone.de ([81.169.145.170]:22417 "EHLO
-	natlemon.rzone.de") by vger.kernel.org with ESMTP id S965286AbWGJWcb
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:27595
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965290AbWGJWgd
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jul 2006 18:32:31 -0400
-To: "Ivo Van Doorn" <ivdoorn@gmail.com>
-In-Reply-To: <a32f33a40607090849h737287a0k9f4d95669aa0ce9c@mail.gmail.com>
+	Mon, 10 Jul 2006 18:36:33 -0400
+To: akpm@osdl.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Sonntag, 9. Juli 2006 17:49 schrieb Ivo Van Doorn:
+cancel_rearming_delayed_work{queue} is broken, because it is
+possible to enter an infinite loop if:
+We call the function on a work that is currently not executing or pending.
 
-> I have been quite busy lately, hence the reason for this late continuance
-> of the Hardware button support for Wireless cards discussion.
-> I have CC'ed the people who discussed this in earlier threads.
+But, as this is a synchronization function and as its only purpose
+is to synchronize the work, that should not loop infinite.
 
-no problem. Look good, just one thing I'm missing:
+This patch rewrites the function.
+It now first cancels the work, but throws the retval of that function
+away, because it is meaningless in this context. (The retval is 1,
+if the work was pending and 0, if not)
+After that we flush the queue to make sure any work function returns.
+Now, if it was indeed running, it rescheduled itself. That is caught
+by the test_bit(). If it rescheduled itself, we have the schedule-delay
+time to cancel the work again (without it rescheduling itself again).
+So we redo the loop. Most likely it will succeed on the
+second loop iteration at least.
 
-> +	For each registered hardware button an input device will be created.
-> +	If this input device has been opened by the user, rfkill will send a
-> +	signal to userspace instead of the hardware about the new button
-> +	status. This will allow userpace to perform the correct steps
-> +	in order to bring down all interfaces.
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-> +		if (rfkill->input_dev->users) {
-> +			input_report_key(rfkill->input_dev,
-> +				KEY_RFKILL, new_status);
-> +			input_sync(rfkill->input_dev);
+Index: wireless-dev-dscapeports/kernel/workqueue.c
+===================================================================
+--- wireless-dev-dscapeports.orig/kernel/workqueue.c	2006-06-13 14:44:16.000000000 +0200
++++ wireless-dev-dscapeports/kernel/workqueue.c	2006-07-11 00:19:06.000000000 +0200
+@@ -461,8 +461,10 @@
+ void cancel_rearming_delayed_workqueue(struct workqueue_struct *wq,
+ 				       struct work_struct *work)
+ {
+-	while (!cancel_delayed_work(work))
++	do {
++		cancel_delayed_work(work);
+ 		flush_workqueue(wq);
++	} while (test_bit(0, &work->pending));
+ }
+ EXPORT_SYMBOL(cancel_rearming_delayed_workqueue);
 
-Shouldn't there be a continue to avoid calling enable/disable_radio()?
-
-> +		}
-
-Stefan
-
-PS: This rfkill stuff is really caught between two stools. Sending a netlink 
-event for the device with an additional TLV for radio button status seems as 
-valid as sending an input event...
+-- 
+Greetings Michael.
