@@ -1,67 +1,38 @@
-From: CaT <cat@zip.com.au>
-Subject: Re: possible dos / wsize affected frozen connection length (was: Re: 2.6.17.1: fails to fully get webpage)
-Date: Tue, 11 Jul 2006 09:23:24 +1000
-Message-ID: <20060710232324.GR2344@zip.com.au>
-References: <20060629015915.GH2149@zip.com.au> <20060628.194627.74748190.davem@davemloft.net> <20060629030923.GI2149@zip.com.au> <20060628.204709.41634813.davem@davemloft.net> <20060629041827.GJ2149@zip.com.au> <44A3E898.1020202@tmr.com> <20060629225039.GO2149@zip.com.au> <20060705005540.GL2344@zip.com.au> <Pine.LNX.4.61.0607050743470.30694@chaos.analogic.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [NETROM] Drop lock before calling nr_destroy_socket
+Date: Tue, 11 Jul 2006 00:25:45 +0100
+Message-ID: <20060710232545.GA8866@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nessie.weebeastie.net ([220.233.7.36]:57348 "EHLO
-	bunyip.lochness.weebeastie.net") by vger.kernel.org with ESMTP
-	id S965319AbWGJXWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jul 2006 19:22:16 -0400
-To: "linux-os (Dick Johnson)" <linux-os@analogic.com>
+Received: from ftp.linux-mips.org ([194.74.144.162]:64900 "EHLO
+	ftp.linux-mips.org") by vger.kernel.org with ESMTP id S965323AbWGJXZo
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jul 2006 19:25:44 -0400
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-hams@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0607050743470.30694@chaos.analogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 05, 2006 at 07:54:01AM -0400, linux-os (Dick Johnson) wrote:
-> >> running since 8:42pm yesterday. It's 8:37am now. It hasn't progressed
-> >> in any way. It hasn't quit. It hasn't timed out. It just sits there,
-> >> hung. This leads me to consider the possibility of a DOS, either
-> >> intentional or accidental (think about 2.6.17.x running on a mail server
-> >> and someone mails/spams from a broken place).
-> 
-> TCP/IP connections can continue forever. That's one of the reasons why
-> Berkeley sockets has SO_KEEPALIVE for a socket option. In the absence
-> of such an option, the physical connection can be broken for a week,
-> reconnected, then the session can continue.
+nr_destroy_socket takes the socket lock itself so it should better be
+called with the socket unlocked.
 
-D'oh. I knew that. Sigh. It's one of the things I like about having a
-static ip on a bad connection. :)
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-> In your case, you probably have a real error in which one end of the
-> connection crashed. However, until the other end shuts down that
+---
 
-Well not so much crashed but became unreachable due to the wsize thing.
-
-> socket, the connection is logically correct and should not be
-> forcefully terminated.
-
-It'll never terminate right now unless I hit ^c.
-
-> A DOS is unlikely because with no data being transferred, little
-
-Not all DOS' are transfer based. Just anything that uses up resources to
-the point where a service is no longer able to be performed.
-
-> non-swapable resources are used. You can control the maximum number
-> of connections allowed from a host with your firewall software
-> (like iptables).
-
-After the fact really. In this case one can send mail to a box and make
-it bounce to someplace behind a wsize broken network. Resources taken up
-that wont return until someone spots what's wrong. You could make your
-own wsize broken network, connect to someplace a few times and then move
-on whilst their end hangs around, waiting for the connections to do
-somthing.
-
-In my test case I am wondering if there was/is a web process hanging
-about doing nothing other then waiting for my end to do something.
-
--- 
-    "To the extent that we overreact, we proffer the terrorists the
-    greatest tribute."
-    	- High Court Judge Michael Kirby
+diff --git a/net/netrom/nr_timer.c b/net/netrom/nr_timer.c
+index 75b72d3..ddba1c1 100644
+--- a/net/netrom/nr_timer.c
++++ b/net/netrom/nr_timer.c
+@@ -138,8 +138,8 @@ static void nr_heartbeat_expiry(unsigned
+ 		if (sock_flag(sk, SOCK_DESTROY) ||
+ 		    (sk->sk_state == TCP_LISTEN && sock_flag(sk, SOCK_DEAD))) {
+ 			sock_hold(sk);
+-			nr_destroy_socket(sk);
+ 			bh_unlock_sock(sk);
++			nr_destroy_socket(sk);
+ 			sock_put(sk);
+ 			return;
+ 		}
