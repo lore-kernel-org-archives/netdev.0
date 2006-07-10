@@ -1,46 +1,84 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [patch] do not allow IPW_2100=Y or IPW_2200=Y
-Date: Mon, 10 Jul 2006 20:51:58 +0200
-Message-ID: <1152557518.4874.79.camel@laptopd505.fenrus.org>
-References: <20060710152032.GA8540@elf.ucw.cz> <44B2940A.2080102@pobox.com>
-	 <44B29C8A.8090405@intel.com> <20060710.114717.44959528.davem@davemloft.net>
+From: Laurent Riffard <laurent.riffard@free.fr>
+Subject: Re: 2.6.18-rc1-mm1 inconsistent lock state in netpoll_send_skb
+Date: Mon, 10 Jul 2006 21:06:10 +0200
+Message-ID: <44B2A522.2080703@free.fr>
+References: <20060709021106.9310d4d1.akpm@osdl.org>	 <44B17735.4060006@free.fr> <1152520823.4874.0.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, jgarzik@pobox.com, pavel@ucw.cz,
-	yi.zhu@intel.com, jketreno@linux.intel.com, netdev@vger.kernel.org,
-	linville@tuxdriver.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@osdl.org>,
+	Kernel development list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:36834 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1422665AbWGJSwI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jul 2006 14:52:08 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060710.114717.44959528.davem@davemloft.net>
+Received: from smtp2-g19.free.fr ([212.27.42.28]:50877 "EHLO smtp2-g19.free.fr")
+	by vger.kernel.org with ESMTP id S1422775AbWGJTFz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2006 15:05:55 -0400
+To: Arjan van de Ven <arjan@infradead.org>
+In-Reply-To: <1152520823.4874.0.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-07-10 at 11:47 -0700, David Miller wrote:
-> From: Auke Kok <auke-jan.h.kok@intel.com>
-> Date: Mon, 10 Jul 2006 11:29:30 -0700
-> 
-> > Jeff Garzik wrote:
-> > > Pavel Machek wrote:
-> > >> Kconfig currently allows compiling IPW_2100 and IPW_2200 into kernel
-> > >> (not as a module). Unfortunately, such configuration does not work,
-> > >> because these drivers need a firmware, and it can't be loaded by
-> > >> userspace loader when userspace is not running.
-> > > 
-> > > False, initramfs...
-> > 
-> > which would warrant some extra documentation in Kconfig explaining that this 
-> > driver needs initramfs with firmware for it to work when compiled in the 
-> > kernel. A link to the ipw2x00 documentation might also help.
-> 
-> Besides, the initramfs runs long after the driver init routine
-> runs which is when the firmware needs to be available.
 
-.. unless you use sysfs to do a fake hotunplug + replug the device, at
-which point the driver init routine runs again.
+Le 10.07.2006 10:40, Arjan van de Ven a =E9crit :
+> On Sun, 2006-07-09 at 23:37 +0200, Laurent Riffard wrote:
+>> ei_start_xmit
+>=20
+> please try this patch
+>=20
+> ---
+>  drivers/net/8390.c |   10 +++++-----
+>  1 file changed, 5 insertions(+), 5 deletions(-)
+>=20
+> Index: linux-2.6.17-mm4/drivers/net/8390.c
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> --- linux-2.6.17-mm4.orig/drivers/net/8390.c
+> +++ linux-2.6.17-mm4/drivers/net/8390.c
+> @@ -299,7 +299,7 @@ static int ei_start_xmit(struct sk_buff=20
+>  	 *	Slow phase with lock held.
+>  	 */
+>  	=20
+> -	disable_irq_nosync(dev->irq);
+> +	disable_irq_nosync_lockdep(dev->irq);
+>  =09
+>  	spin_lock(&ei_local->page_lock);
+>  =09
+> @@ -338,7 +338,7 @@ static int ei_start_xmit(struct sk_buff=20
+>  		netif_stop_queue(dev);
+>  		outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+>  		spin_unlock(&ei_local->page_lock);
+> -		enable_irq(dev->irq);
+> +		enable_irq_lockdep(dev->irq);
+>  		ei_local->stat.tx_errors++;
+>  		return 1;
+>  	}
+> @@ -379,7 +379,7 @@ static int ei_start_xmit(struct sk_buff=20
+>  	outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+>  =09
+>  	spin_unlock(&ei_local->page_lock);
+> -	enable_irq(dev->irq);
+> +	enable_irq_lockdep(dev->irq);
+> =20
+>  	dev_kfree_skb (skb);
+>  	ei_local->stat.tx_bytes +=3D send_length;
+> @@ -505,9 +505,9 @@ irqreturn_t ei_interrupt(int irq, void *
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  void ei_poll(struct net_device *dev)
+>  {
+> -	disable_irq(dev->irq);
+> +	disable_irq_lockdep(dev->irq);
+>  	ei_interrupt(dev->irq, dev, NULL);
+> -	enable_irq(dev->irq);
+> +	enable_irq_lockdep(dev->irq);
+>  }
+>  #endif
 
 
+Reversed (or previously applied) patch detected!=20
+
+Wrong patch ? This one won't apply, it seems to be already=20
+applied to 2.6.18-rc1-mm1.
+
+--=20
+laurent
