@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [AX.25] Get rid of the last volatile.
-Date: Sun, 09 Jul 2006 18:17:28 -0700 (PDT)
-Message-ID: <20060709.181728.94058466.davem@davemloft.net>
-References: <20060709223745.GA20324@linux-mips.org>
+Subject: Re: [IPV4] inetpeer: Get rid of volatile from peer_total
+Date: Sun, 09 Jul 2006 18:18:18 -0700 (PDT)
+Message-ID: <20060709.181818.42440047.davem@davemloft.net>
+References: <20060709230711.GA19901@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:43959
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:44727
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964923AbWGJBQs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Jul 2006 21:16:48 -0400
-To: ralf@linux-mips.org
-In-Reply-To: <20060709223745.GA20324@linux-mips.org>
+	id S964958AbWGJBRh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Jul 2006 21:17:37 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060709230711.GA19901@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Sun, 9 Jul 2006 23:37:45 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 10 Jul 2006 09:07:11 +1000
 
-> This volatile makes no sense - not even wearing pink shades ...
+> [IPV4] inetpeer: Get rid of volatile from peer_total
 > 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> The variable peer_total is protected by a lock.  The volatile marker
+> makes no sense.  This shaves off 20 bytes on i386.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks Ralf :)
+Applied, thanks.
