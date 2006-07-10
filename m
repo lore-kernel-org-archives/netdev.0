@@ -1,63 +1,69 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: Network performance degradation from 2.6.11.12 to 2.6.16.20
-Date: Mon, 10 Jul 2006 12:55:30 +0200 (CEST)
-Message-ID: <Pine.LNX.4.61.0607101235430.2378@ask.diku.dk>
-References: <4492D5D3.4000303@atmos.washington.edu> <200606260723.43209.ak@suse.de>
- <Pine.LNX.4.61.0607041333030.18483@ask.diku.dk> <200607041354.22472.ak@suse.de>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Subject: [PATCH] IB/mthca: fix static rate returned by mthca_ah_query
+Date: Mon, 10 Jul 2006 14:06:18 +0300
+Message-ID: <20060710110618.GC24705@mellanox.co.il>
+Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@mellanox.co.il>,
+	openib-general@openib.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:53476 "EHLO mgw1.diku.dk")
-	by vger.kernel.org with ESMTP id S1751351AbWGJKzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2006 06:55:35 -0400
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <200607041354.22472.ak@suse.de>
+Received: from mxl145v66.mxlogic.net ([208.65.145.66]:58056 "EHLO
+	p02c11o143.mxlogic.net") by vger.kernel.org with ESMTP
+	id S964863AbWGJLFz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jul 2006 07:05:55 -0400
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Andrew,
+this has been out for a couple of days - could you drop this into -mm /
+push this along to Linus, please?
 
+----- Forwarded message from "Michael S. Tsirkin" <mst@mellanox.co.il> -----
 
-On Tue, 4 Jul 2006, Andi Kleen wrote:
+Please review:
 
-> On Tuesday 04 July 2006 13:41, Jesper Dangaard Brouer wrote:
->>
->> Actually the change happens between kernel version 2.6.15 and 2.6.16.
->
-> The timestamp optimizations are older. Don't remember the exact release,
-> but earlier 2.6.
+git://www.mellanox.co.il/~git/infiniband  mst-for-2.6.18
 
-What I'm saying is that, with the same Config file, some Kconfig option 
-changed between 2.6.15 and 2.6.16, that made my system use pmtmr for high-res 
-timesource instead of TSC.
+This has the following patch:
 
-
->> And
->> is a result of Andi's changes to arch/x86_64/Kconfig and
->> drivers/acpi/Kconfig, which "allows/activates" the use of the timer on
->> x86_64.
->
-> Not sure what you mean here?
-
-I think, that the changes you made to the files "arch/x86_64/Kconfig" and 
-"drivers/acpi/Kconfig", caused this change...
-
-commit: e78256b8f3e2850ad55c2d69e1429e6c2607afd3
-
-http://www.kernel.org/git/?p=linux/kernel/git/stable/linux-2.6.17.y.git;a=commitdiff;h=e78256b8f3e2850ad55c2d69e1429e6c2607afd3
-
-and maybe
-commit: 2eb1bdbad89b19c99f8ac1de1492cdabbff6b3d3
-
-http://www.kernel.org/git/?p=linux/kernel/git/stable/linux-2.6.17.y.git;a=commitdiff;h=2eb1bdbad89b19c99f8ac1de1492cdabbff6b3d3
-
-
-Hilsen
-   Jesper Brouer
+IB/mthca: fix static rate returned by mthca_ah_query
 
 --
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
+
+commit 8b9395d3b67af87ce4c218af06a259a8af246d75
+Author: Jack Morgenstein <jackm@mellanox.co.il>
+Date:   Thu Jul 6 19:33:25 2006 +0300
+
+    mthca_ah_query returs the static rate of the address handle in internal mthc
+    format. fix it to use rate encoding from enum ib_rate, which is what users
+    expect.
+
+    Signed-off-by: Jack Morgenstein <jackm@mellanox.co.il>
+    Signed-off-by: Michael S. Tsirkin <mst@mellanox.co.il>
+
+Index: latest/drivers/infiniband/hw/mthca/mthca_av.c
+===================================================================
+--- latest.orig/drivers/infiniband/hw/mthca/mthca_av.c	2006-07-02 18:00:34.000000000 +0300
++++ latest/drivers/infiniband/hw/mthca/mthca_av.c	2006-07-05 13:50:06.000000000 +0300
+@@ -303,9 +303,10 @@ int mthca_ah_query(struct ib_ah *ibah, s
+ 	memset(attr, 0, sizeof *attr);
+ 	attr->dlid          = be16_to_cpu(ah->av->dlid);
+ 	attr->sl            = be32_to_cpu(ah->av->sl_tclass_flowlabel) >> 28;
+-	attr->static_rate   = ah->av->msg_sr & 0x7;
+-	attr->src_path_bits = ah->av->g_slid & 0x7F;
+ 	attr->port_num      = be32_to_cpu(ah->av->port_pd) >> 24;
++	attr->static_rate   = mthca_rate_to_ib(dev, ah->av->msg_sr & 0x7,
++					       attr->port_num);
++	attr->src_path_bits = ah->av->g_slid & 0x7F;
+ 	attr->ah_flags      = mthca_ah_grh_present(ah) ? IB_AH_GRH : 0;
+ 
+ 	if (attr->ah_flags) {
+
+
+-- 
+MST
