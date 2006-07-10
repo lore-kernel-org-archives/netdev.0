@@ -1,48 +1,81 @@
-From: Robert Schulze <rob@net-pr.de>
-Subject: Re: [PATCH] airo: make debug-like messages printed by	airo_print_dbg()
-Date: Mon, 10 Jul 2006 18:37:44 +0200
-Message-ID: <44B28258.2060109@net-pr.de>
-References: <44AFD651.8030801@net-pr.de> <1152455044.2519.7.camel@localhost.localdomain> <44B13974.9090604@net-pr.de> <44B1431D.3010405@tls.msk.ru>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
+Date: Mon, 10 Jul 2006 09:56:03 -0700
+Message-ID: <20060710095603.0b197eec@dxpl.pdx.osdl.net>
+References: <200603211829.k2LITMNR029085@hera.kernel.org>
+	<44AE2FCC.6020207@trash.net>
+	<20060707143314.67bf07ff@dxpl.pdx.osdl.net>
+	<200607091049.31628.stefan@loplof.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
-	linville@tuxdriver.com
+Cc: Patrick McHardy <kaber@trash.net>,
+	Ben Greear <greearb@candelatech.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p15181122.pureserver.info ([212.227.60.11]:55533 "EHLO
-	p15181122.pureserver.info") by vger.kernel.org with ESMTP
-	id S1422685AbWGJQcY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jul 2006 12:32:24 -0400
-To: Michael Tokarev <mjt@tls.msk.ru>
-In-Reply-To: <44B1431D.3010405@tls.msk.ru>
+Received: from smtp.osdl.org ([65.172.181.4]:36741 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1422697AbWGJQ4I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2006 12:56:08 -0400
+To: Stefan Rompf <stefan@loplof.de>
+In-Reply-To: <200607091049.31628.stefan@loplof.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Sun, 9 Jul 2006 10:49:31 +0200
+Stefan Rompf <stefan@loplof.de> wrote:
 
-I regret making a mistake yesterday, I forgot a comma.
-Here now is the working patch.
+> Am Freitag, 7. Juli 2006 23:33 schrieb Stephen Hemminger:
+> 
+> > Not really. The flag code last major change was to do the dormant
+> > stuff that HDLC wanted.
+> 
+> ... and where the maintainer doesn't seem to care to use it now that the 
+> infrastructure is there. Sigh.
+> 
+> > IMHO VLAN device's should mirror the state of the underlying physical
+> > device.
+> >
+> > I can't really follow the thread well. What is broken?
+> 
+> The thread is still quite short and describes the problem, look at 
+> http://marc.theaimsgroup.com/?t=115200782600004&r=1&w=2
+> 
+> Stefan
 
-[PATCH] airo: collapse debugging-messages in issuecommand to one line
 
-Robert Schulze
+Okay, going back to the original problem, before the current round
+of name calling. This bug shows a lot of problems with the existing
+VLAN device state management.
 
+1. I think vlan code should never be using the state bits directly at all.
+It makes the code error prone if the bits ever change, and it means
+that the proper callbacks are not being done. The existing vlan_transfer_operstate
+does what you want. VLAN_LINK_STATE_MASK etc, should go.
 
---- linux-2.6.17.1/drivers/net/wireless/airo.c.orig	2006-07-08 14:02:12.000000000 +0200
-+++ linux-2.6.17.1/drivers/net/wireless/airo.c	2006-07-10 18:30:30.000000000 +0200
-@@ -3897,11 +3897,10 @@ static u16 issuecommand(struct airo_info
-  	pRsp->rsp1 = IN4500(ai, RESP1);
-  	pRsp->rsp2 = IN4500(ai, RESP2);
-  	if ((pRsp->status & 0xff00)!=0 && pCmd->cmd != CMD_SOFTRESET) {
--		airo_print_err(ai->dev->name, "cmd= %x\n", pCmd->cmd);
--		airo_print_err(ai->dev->name, "status= %x\n", pRsp->status);
--		airo_print_err(ai->dev->name, "Rsp0= %x\n", pRsp->rsp0);
--		airo_print_err(ai->dev->name, "Rsp1= %x\n", pRsp->rsp1);
--		airo_print_err(ai->dev->name, "Rsp2= %x\n", pRsp->rsp2);
-+		airo_print_err(ai->dev->name,
-+			"cmd:%x status:%x rsp0:%x rsp1:%x rsp2:%x",
-+			pCmd->cmd, pRsp->status, pRsp->rsp0, pRsp->rsp1,
-+			pRsp->rsp2);
-  	}
+2. The vlan device should not be marked as up when it
+is registered.  Couldn't it wait for the user to bring it up?
+If you want to automagically bring the device up, you need to call
+dev_open() so that all the proper notifier's get called.
 
-  	// clear stuck command busy if necessary
+3. All checks for IFF_UP should be using netif_running instead.
+IFF_UP is a leftover BSDism.
+
+Instead of:
+
+int vlan_dev_open(struct net_device *dev)
+{
+	if (!(VLAN_DEV_INFO(dev)->real_dev->flags & IFF_UP))
+		return -ENETDOWN;
+
+	return 0;
+}
+
+Use:
+int vlan_dev_open(struct net_device *dev)
+{
+	return netif_running(VLAN_DEV_INFO(dev)->real_dev) ? 0 : -ENETDOWN;
+}
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
+Quis custodiet ipsos custodes?
