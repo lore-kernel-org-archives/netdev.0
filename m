@@ -1,51 +1,53 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
-Date: Mon, 10 Jul 2006 14:01:58 +0200
-Message-ID: <m33bd9653d.fsf@defiant.localdomain>
-References: <44AE2FCC.6020207@trash.net>
-	<20060709.114827.63031023.davem@davemloft.net>
-	<m3irm6v90o.fsf@defiant.localdomain>
-	<200607100817.26635.stefan@loplof.de>
+From: Marcus Better <marcus@better.se>
+Subject: Re: rtl8139: NETDEV WATCHDOG: eth0: transmit timed out
+Date: Mon, 10 Jul 2006 15:02:46 +0200
+Message-ID: <44B24FF6.5060102@better.se>
+References: <e82qhq$4v0$1@sea.gmane.org>	<20060630211604.GA5302@electric-eye.fr.zoreil.com> <44AE8CBB.4070409@better.se> <44AFDA3B.6020904@tungstengraphics.com> <44B0AED8.3040604@better.se> <44B0B17D.10803@tungstengraphics.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigE7A592EA15D38FD5AE4C0B36"
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Dave Airlie <airlied@linux.ie>, netdev@vger.kernel.org,
+	dri-devel@lists.sourceforge.net,
+	Alan Hourihane <alanh@tungstengraphics.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:26566 "EHLO khc.piap.pl")
-	by vger.kernel.org with ESMTP id S964786AbWGJMCA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2006 08:02:00 -0400
-To: Stefan Rompf <stefan@loplof.de>
+Received: from mxfep02.bredband.com ([195.54.107.73]:57034 "EHLO
+	mxfep02.bredband.com") by vger.kernel.org with ESMTP
+	id S1161061AbWGJNC6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jul 2006 09:02:58 -0400
+To: =?ISO-8859-1?Q?Thomas_Hellstr=F6m?= <thomas@tungstengraphics.com>
+In-Reply-To: <44B0B17D.10803@tungstengraphics.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stefan Rompf <stefan@loplof.de> writes:
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigE7A592EA15D38FD5AE4C0B36
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-> You've been asking for two independant flags of which one does not stop the 
-> queue.
+Thomas Hellstr=F6m wrote:
+> Does the "noirqdebug" option fix the problem?
 
-Actually I asked for only one flag which can be set independently of
-others, and which would be visible to userspace. I provided a patch
-as well. It didn't break anything. I provided a sample of code
-showing usage of the flag. I still have Message-Ids and the actual
-messages so don't hesitate to ask if you want to see that again.
+Yes... but it breaks switching to a text console. I get an interesting
+"fluid" effect on the screen (a bright static pattern), and the keyboard
+locks up.
 
-Then we had that long discussion with you and Jamal and, I admit,
-I said "pass".
+Marcus
 
-> You've got two independant flags of which one does not stop the queue.
 
-Is it ok to set that flag without synchronization with other flags?
-I.e, from within another module and without using cross-module locks,
-as I've shown at the time? Just asking, I don't know what the final
-conclusion was.
 
-I.e., is it ok if the hardware module does netif_carrier_on/off()
-(for example, from its IRQ handler) and if the protocol module does
-netif_dormant_on/off() independently (for example, from its timer
-or linkwatch)?
+--------------enigE7A592EA15D38FD5AE4C0B36
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-If it's ok then I'll be happy to implement the support in my drivers
-ASAP (this uncertainty was, in fact, the main problem). That should
-also mean others things I have on queue (blocked by this issue) would
-go upstream.
--- 
-Krzysztof Halasa
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3 (GNU/Linux)
+
+iD8DBQFEsk/2XjXn6TzcAQkRAsj1AJ9U8dQyjOsXJLKhGTJmuFXxz20obwCgx004
+qBJbZdallj55y6DHFQeyWQU=
+=1DKU
+-----END PGP SIGNATURE-----
+
+--------------enigE7A592EA15D38FD5AE4C0B36--
