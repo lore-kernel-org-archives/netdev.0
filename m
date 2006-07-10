@@ -1,90 +1,59 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
-Date: Mon, 10 Jul 2006 10:02:04 -0700
-Message-ID: <44B2880C.9040801@candelatech.com>
-References: <200603211829.k2LITMNR029085@hera.kernel.org>	<44AE2FCC.6020207@trash.net>	<20060707143314.67bf07ff@dxpl.pdx.osdl.net>	<200607091049.31628.stefan@loplof.de> <20060710095603.0b197eec@dxpl.pdx.osdl.net>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: [patch] do not allow IPW_2100=Y or IPW_2200=Y
+Date: Mon, 10 Jul 2006 17:20:32 +0200
+Message-ID: <20060710152032.GA8540@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Rompf <stefan@loplof.de>, Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:56024 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1422701AbWGJRCO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2006 13:02:14 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060710095603.0b197eec@dxpl.pdx.osdl.net>
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:13456 "EHLO amd.ucw.cz")
+	by vger.kernel.org with ESMTP id S1422724AbWGJRcH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2006 13:32:07 -0400
+To: yi.zhu@intel.com, jketreno@linux.intel.com,
+	Netdev list <netdev@vger.kernel.org>, linville@tuxdriver.com,
+	kernel list <linux-kernel@vger.kernel.org>, jgarzik@pobox.com
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Sun, 9 Jul 2006 10:49:31 +0200
-> Stefan Rompf <stefan@loplof.de> wrote:
-> 
-> 
->>Am Freitag, 7. Juli 2006 23:33 schrieb Stephen Hemminger:
->>
->>
->>>Not really. The flag code last major change was to do the dormant
->>>stuff that HDLC wanted.
->>
->>... and where the maintainer doesn't seem to care to use it now that the 
->>infrastructure is there. Sigh.
->>
->>
->>>IMHO VLAN device's should mirror the state of the underlying physical
->>>device.
->>>
->>>I can't really follow the thread well. What is broken?
->>
->>The thread is still quite short and describes the problem, look at 
->>http://marc.theaimsgroup.com/?t=115200782600004&r=1&w=2
->>
->>Stefan
-> 
-> 
-> 
-> Okay, going back to the original problem, before the current round
-> of name calling. This bug shows a lot of problems with the existing
-> VLAN device state management.
-> 
-> 1. I think vlan code should never be using the state bits directly at all.
-> It makes the code error prone if the bits ever change, and it means
-> that the proper callbacks are not being done. The existing vlan_transfer_operstate
-> does what you want. VLAN_LINK_STATE_MASK etc, should go.
-> 
-> 2. The vlan device should not be marked as up when it
-> is registered.  Couldn't it wait for the user to bring it up?
-> If you want to automagically bring the device up, you need to call
-> dev_open() so that all the proper notifier's get called.
+Kconfig currently allows compiling IPW_2100 and IPW_2200 into kernel
+(not as a module). Unfortunately, such configuration does not work,
+because these drivers need a firmware, and it can't be loaded by
+userspace loader when userspace is not running.
 
-This sounds good to me.
+Is there better way of creating N/m config option?
 
-> 3. All checks for IFF_UP should be using netif_running instead.
-> IFF_UP is a leftover BSDism.
+Signed-off-by: Pavel Machek <pavel@suse.cz>
 
-That also sounds good.
-
-> 
-> Instead of:
-> 
-> int vlan_dev_open(struct net_device *dev)
-> {
-> 	if (!(VLAN_DEV_INFO(dev)->real_dev->flags & IFF_UP))
-> 		return -ENETDOWN;
-> 
-> 	return 0;
-> }
-> 
-> Use:
-> int vlan_dev_open(struct net_device *dev)
-> {
-> 	return netif_running(VLAN_DEV_INFO(dev)->real_dev) ? 0 : -ENETDOWN;
-> }
-> 
-
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index fa9d2c4..050febb 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -144,9 +144,14 @@ config PCMCIA_RAYCS
+ comment "Wireless 802.11b ISA/PCI cards support"
+ 	depends on NET_RADIO && (ISA || PCI || PPC_PMAC || PCMCIA)
+ 
++
++config MODULE_ONLY
++	tristate
++	default m
++
+ config IPW2100
+ 	tristate "Intel PRO/Wireless 2100 Network Connection"
+-	depends on NET_RADIO && PCI
++	depends on NET_RADIO && PCI && MODULE_ONLY
+ 	select FW_LOADER
+ 	select IEEE80211
+ 	---help---
+@@ -200,7 +205,7 @@ config IPW2100_DEBUG
+ 
+ config IPW2200
+ 	tristate "Intel PRO/Wireless 2200BG and 2915ABG Network Connection"
+-	depends on NET_RADIO && PCI
++	depends on NET_RADIO && PCI && MODULE_ONLY
+ 	select FW_LOADER
+ 	select IEEE80211
+ 	---help---
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
