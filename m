@@ -1,287 +1,174 @@
-From: "Bernd Kischnick" <kisch@sesamstrasse.dyndns.tv>
-Subject: Re: [BUG/PATCH/RFC] bridge: locally generated broadcast
- traffic may block sender
-Date: Sat, 8 Jul 2006 11:23:59 +0200 (CEST)
-Message-ID: <43150.217.5.191.115.1152350639.squirrel@sesamstrasse.dyndns.tv>
-References: <65170.217.5.191.115.1152028122.squirrel@sesamstrasse.dyndns.tv>
-	<20060707153648.694f84c2@dxpl.pdx.osdl.net>
+From: "Tien ChenLi" <cltien@gmail.com>
+Subject: Re: [Bugme-new] [Bug 6802] New: pktgen cause kernel oops with transmit load balanced bonding
+Date: Mon, 10 Jul 2006 10:52:58 -0400
+Message-ID: <cc862f80607100752t4f575548uba3d54e7ceee400a@mail.gmail.com>
+References: <200607071437.k67EbqZS022297@fire-2.osdl.org>
+	 <20060707115019.ebeb6865.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@kernel.org, bridge@lists.osdl.org, Wolfgang Denk <wd@denx.de>
-Return-path: <bridge-bounces@lists.osdl.org>
-In-Reply-To: <20060707153648.694f84c2@dxpl.pdx.osdl.net>
-To: "Stephen Hemminger" <shemminger@osdl.org>
-List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.osdl.org>
-List-Help: <mailto:bridge-request@lists.osdl.org?subject=help>
-List-Subscribe: <https://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=subscribe>
-Sender: bridge-bounces@lists.osdl.org
-Errors-To: bridge-bounces@lists.osdl.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.184]:10253 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1422644AbWGJOxA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jul 2006 10:53:00 -0400
+Received: by nf-out-0910.google.com with SMTP id a25so678068nfc
+        for <netdev@vger.kernel.org>; Mon, 10 Jul 2006 07:52:58 -0700 (PDT)
+To: "Andrew Morton" <akpm@osdl.org>
+In-Reply-To: <20060707115019.ebeb6865.akpm@osdl.org>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Output of kernel 2.6.17.4:
 
-On Sa, 8.07.2006, 00:36, Stephen Hemminger explained:
+BUG: unable to handle kernel NULL pointer dereference at virtual
+address 00000010
+ printing eip:
+e0988e2e
+*pde = 00000000
+Oops: 0000 [#1]
+Modules linked in: pktgen bonding ip_tables x_tables microcode ata_piix libata
+CPU:    0
+EIP:    0060:[<e0988e2e>]    Not tainted VLI
+EFLAGS: 00010213   (2.6.17.4 #1)
+EIP is at bond_alb_xmit+0xb2/0x1c9 [bonding]
+eax: 00000000   ebx: df526ba0   ecx: 00000005   edx: dd8f0ee8
+esi: df53b6a3   edi: e098ad51   ebp: dca23f18   esp: dca23f00
+ds: 007b   es: 007b   ss: 0068
+Process pktgen/0 (pid: 2104, threadinfo=dca22000 task=ddd10520)
+Stack: df53b6a2 00000001 df526cb8 df526940 dde8e16c df526940 dca23fe4 e097a324
+       dd8f0ee8 df526940 5a5a5a5a 5a5a5a5a 5a5a5a5a 5a5a5a5a 5a5a5a5a 5a5a5a5a
+       00000000 00000000 dca22000 5a5a5a5a 5a5a5a5a 5a5a5a5a 5a5a5a5a bc5e5016
+Call Trace:
+ <c0102a82> show_stack_log_lvl+0x87/0x8f  <c0102bd3> show_registers+0x112/0x17b
+ <c0102d8e> die+0xda/0x19f  <c010b228> do_page_fault+0x467/0x551
+ <c0102727> error_code+0x4f/0x54  <e097a324>
+pktgen_thread_worker+0x3b1/0x790 [pktgen]
+ <c0100d3d> kernel_thread_helper+0x5/0xb
+Code: 74 69 81 fa dd 86 00 00 74 3f e9 b5 00 00 00 fc 8b 75 e8 bf 50
+ad 98 e0 b9 06 00 00 00 f3 a6 0f 84 a3 00 00 00 8b 55 08 8b 42 20 <83>
+78 10 ff 0f 84 93 00 00 00 80 78 09 02 0f 84 89 00 00 00 8d
+EIP: [<e0988e2e>] bond_alb_xmit+0xb2/0x1c9 [bonding] SS:ESP 0068:dca23f00
+ <0>Kernel panic - not syncing: Fatal exception in interrupt
 
-> The fix is not acceptable, because it eliminatess the whole sender memory
-> flow control limitation.
+The script I ran with kernel 2.6 is:
+
+#! /bin/sh
+
+modprobe pktgen
+
+PGDEV=/proc/net/pktgen/bond0
+PGCTL=/proc/net/pktgen/pgctrl
+
+function pgset() {
+    local result
+
+    echo $1 > $PGDEV
+
+    result=`cat $PGDEV | fgrep "Result: OK:"`
+    if [ "$result" = "" ]; then
+         cat $PGDEV | fgrep Result:
+    fi
+}
+
+function pg() {
+    echo start > $PGCTL
+    cat $PGDEV
+}
+
+echo "add_device bond0" > /proc/net/pktgen/kpktgend_0
+pgset "frags 5"         # packet will consist of 5 fragments
+pgset "dst 192.168.0.1"
+
+pgset "count 0"    # sets number of packets to send, set to zero
+                        # for continious sends untill explicitly
+                        # stopped.
+pg
+
+2006/7/7, Andrew Morton <akpm@osdl.org>:
+> On Fri, 7 Jul 2006 07:37:52 -0700
+> bugme-daemon@bugzilla.kernel.org wrote:
 >
-> The root cause is that the device incorrectly holds onto packets when
-> the carrier is lost. The device should clear it's own queue.
-> What hardware is this?
+> > http://bugzilla.kernel.org/show_bug.cgi?id=6802
+> >
+> >            Summary: pktgen cause kernel oops with transmit load balanced
+> >                     bonding
+> >     Kernel Version: 2.4.32, 2.6.17.2
+> >             Status: NEW
+> >           Severity: high
+> >              Owner: acme@conectiva.com.br
+> >          Submitter: cltien@gmail.com
+> >
+> >
+> > Most recent kernel where this bug did not occur:
+> > not found
+> > Distribution:
+> > Fedora Core 4
+> >
+> > Hardware Environment:
+> > i386, ppc
+> >
+> > Software Environment:
+> > gcc
+> >
+> > Problem Description:
+> > If running the kernel packet generator (pktgen), and the output device is set
+> > to bonding interface with mode balance-tlb or balance-alb, then there will be
+> > kernel oops.
+> >
+> > I only set the odev, dst and count (as 0 for infinite test) for the pktgen. I
+> > wonder if I made mistake for the pktgen parameters but it doesn't cause problem
+> > if the odev set to physical device such as eth0, etc.
+> >
+> > My investigations shows that the problem happen when the bond_alb_xmit tries to
+> > access the daddr fields of IP header in skb->nh.iph. If I did the same in round-
+> > robin mode, it can generate oops too.
+> >
+> > Steps to reproduce:
+> > 1. Build kernel with pktgen (CONFIG_NET_PKTGEN) and bonding driver
+> > (CONFIG_BONDING).
+> > 2. Setup bonding interface.
+> > ifenslave bond0 eth0
+> > 3. Create a script for starting packet generator,
+> > the script I start packet generator for kernel 2.4 series is like following:
+> > -----------cut here --------
+> > #! /bin/sh
+> >
+> > modprobe pktgen
+> >
+> > PGDEV=/proc/net/pktgen/pg0
+> >
+> > function pgset() {
+> >     local result
+> >
+> >     echo $1 > $PGDEV
+> >
+> >     result=`cat $PGDEV | fgrep "Result: OK:"`
+> >     if [ "$result" = "" ]; then
+> >          cat $PGDEV | fgrep Result:
+> >     fi
+> > }
+> >
+> > function pg() {
+> >     echo inject > $PGDEV
+> >     cat $PGDEV
+> > }
+> >
+> > pgset "odev bond0"
+> > pgset "dst 127.1.16.1"
+> > pgset "count 0"
+> > pg
+> > -----------cut here --------
+> >
+> > 4. If the odev is set to eth0, the this script will not have problem, problem
+> > only happen when it is set to bond0.
+> >
 >
-
-That's the built-in Ethernet MAC of the 82xx series Motorola PowerQUICC
-CPUs. The driver is 2.4.32:arch/ppc/cpm2_io/fcc_enet.c, or
-2.6.17.3:arch/ppc/8260_io/fcc_enet.c, with modifications by
-Wolfgang Denk to support a specific PHY chip.
-
-Of course I've been examinating the driver first. It's obvious that the
-bridge code experiences much broader testing than the odd driver for
-the odd embedded target. But I didn't see a way to have the driver handle
-this problem correctly.
-
-Perhaps that's because I couldn't see any relation between the conditions
-of "link down" (as reported on the MII connection) and "carrier lost" (as
-noticed by the MAC hardware) in the driver. If that's normally indeed
-the same thing, as you indicate, then that's the bug in the driver:
-In the 2.4 version, there's a check for "link down" right at the begin
-of the transmit-method fcc_enet_start_xmit():
-
-        if (!cep->link) {
-                /* Link is down or autonegotiation is in progress. */
-                return 1;
-        }
-
-This causes the transmit queue to fill up during link-down.
-This check is suspiciously absent from the 2.6 version of the driver.
-
-Without the check in the transmit method, there's no reference to the
-link-down condition in either transmit or interrupt function - but to
-carrier-lost instead.
-
-I now understand that the correct way to handle link-down would be to
-still insert the incoming packets into the transmit ring of the hardware,
-which should then mark them as being "not transmitted due to carrier-lost",
-and you free those packets in the interrupt function.
-Is that correct?
-
-Many thanks for your advice!
-I'll try if that cures the problem.
-
-have a nice weekend,
-- Bernd
-
-
-> On Tue, 4 Jul 2006 17:48:42 +0200 (CEST)
-> "Bernd Kischnick" <kisch+linux@sesamstrasse.dyndns.tv> wrote:
+> Please send (via an emailed reply-to-all) a copy of the oops output.
 >
->> Hello Stephen,
->>
->> I may have tracked down some unexpected behaviour from a common bridge
->> setup, and would like to incite expert oppinion on my observations.
->> The issue relates to both 2.6 and 2.4 kernel series bridging code,
->> and as far as I can see might have been present in all releases
->> hitherto.
->>
->> Consider this setup:
->> - two ethernet devices in a simple bridge configuration
->> - bridge-interface configured for IPv4
->> - local application multicasting heavy UDP traffic down the bridge
->> - one of the ethernet links goes down (=3D> disconnect cable).
->>
->> I would expect that IP-multicast/Ethernet-broadcast traffic is simply
->> sent
->> out of all the bridged interfaces still available and link-up.
->>
->> Instead we observe that the result --- rather surprisingly --- depends
->> on
->> WHICH of the ethernet links is down.
->>
->> One of the two ports doesn't cause troubles: the traffic flows out from
->> that port which stays up, and the application doesn't mind.
->>
->> But if you disconnect the OTHER link, then SOME traffic is still sent
->> out of
->> the port that stays up, but then the sending application is blocked in
->> the
->> sendto() call. Consequentially, the network traffic then ceases, even
->> though one of the interfaces is still up and available.
->> When the link comes up again, everything continues as normal.
->>
->> You can create a testbed like this:
->>
->> # build the bridge
->> ifconfig eth0 0.0.0.0 up
->> ifconfig eth1 0.0.0.0 up
->> brctl addbr br0
->> brctl addif br0 eth0
->> brctl addif br0 eth1
->> # brctl stp br0 on/off doesn't matter
->>
->> # configure bridge interface
->> ifconfig br0 10.20.30.40 up
->> route add -net 224.0.0.0 netmask 240.0.0.0 dev br0
->>
->> # try to send a fixed amount of multicast UDP traffic
->> nbytes=3D`cat /proc/sys/net/wmem_max`
->> nbytes=3D$(( $nbytes * 2 ))
->> dd if=3D/dev/zero bs=3D$nbytes count=3D1 | nc -nuvw1 224.0.0.123 1234
->>
->> # arguments to nc:
->> # -w1 "wait 1sec" causes nc to exit after sending the _complete_ amount
->> # -n no names, -v verbose, -u UDP to multicast 224.0.0.123 port 1234
->>
->>
->> If both links are connected, the dd|nc-test completes.
->> If eth1 link is disconnected, the dd|nc-test completes, too.
->> If eth0 link is disconnected: dd|nc will block.
->> If unicast UDP is used: no problems, regardless of link state.
->>
->> Mind that it's the FIRST bridge interface that stands out.
->> If you /exchange/ the order of the interfaces when adding them to the
->> bridge, then eth1 will show the awkward behaviour ---
->> again the FIRST bridge interface.
->>
->>
->> Why does the application block?
->>
->> ifconfig br0, ifconfig eth1, or a tcpdump on the other and of the eth1
->> link will show that an amount of roundabout sys.net.wmem_max has been
->> sent.
->>
->> cat /proc/net/udp shows that an EQUAL amount of bytes as has already
->> been
->> sent out is STILL queued on behalf of the socket openened by nc.
->> It will be sent as soon as the link goes up again, and the application
->> will promptly unblock and finish.
->>
->> The tx_queue indication for the sending socket is the clue.
->> The packets (or rather sk_buffs) generated through the socket are
->> accredited
->> to the socket's wmem_alloc memory quota. Because one link is down,
->> sk_buffs will be queued on the transmit queue of one interface.
->> While they are queued, they won't be freed, causing the socket to run
->> out
->> of its wmem_alloc quota, because they are still associated to the
->> socket.
->>
->>
->> Why the first bridge interface only?
->>
->> Obviously the bridge has to copy outgoing packets to distribute them to
->> its ports. Regard the copy loop br_flood() in br_forward.c.
->> It has two modes of operation, selected by a "clone" flag.
->> For distributing locally generated traffic, br_flood() is called in the
->> mode "clone=3D0". This mode works like this:
->>
->> /* deliver this: */
->> sk_buff* skb;
->>
->> prev_port=3DNULL;
->> port=3Dtail of bridge port list;
->> while (port) {
->>     if (prev_port !=3D NULL) {
->>           deliver (prev_port, skb_clone (skb));
->>     }
->>     prev_port =3D port;
->>     port =3D next bridge port in list;
->> }
->> if (prev_port) {
->>     deliver (prev_port, skb);
->>     return;
->> }
->> kfree_skb (skb);
->>
->>
->> This results in clones of the original sk_buff being send through all
->> bridge ports except for the last in list traversal. This port
->> receives the original sk_buff which was generated through the
->> application's
->> socket. The "last in list traversal" happens to be the first port added
->> to the bridge.
->>
->> This means that the bridge port which shows link-down peculiarities is
->> also the one which receives the original sk_buff. All ports that receive
->> clones of the original sk_buff work as expected.
->>
->> This observation is consistent with the way skb_clone() works:
->> the clones don't share the "sock" and "destructor" attributes of the
->> original. This means that the clones are not credited to the originating
->> socket, whereas the originals are.
->>
->> When the original sk_buffs are to be delivered across a link that's
->> down,
->> they will be queued on the transmit queue of physical device instead,
->> and not be freed. Therefore the originating socket runs out of
->> wmem_alloc
->> quota and blocks the application.
->>
->> It's perhaps not surprising that this behaviour has gone unnoticed so
->> far,
->> because it only affects broadcast/multicast traffic, which only consists
->> of tiny amounts of transferred volume in the protocols usually found.
->> And additionally the wmem_alloc is available per socket, not per ether
->> device, so that different protocols don't run into a cumulative traffic
->> barrier.
->>
->>
->>
->> Fix.
->>
->> Should we agree that the observed behaviour should indeed be amended,
->> i propose the following fix:
->>
->> in br_device.c, function br_dev_xmit() (or __br_dev_xmit() in 2.4):
->> skb_orphan() the sk_buff to be delivered before handing it to the clone
->> loop in br_flood_deliver(), calling br_flood().
->>
->> skb_orphan() disassociates the sk_buff from its owning socket and runs
->> the "destructor" attached to the sk_buff, which restores the wmem_alloc
->> quota of the sending socket.
->>
->> If the wmem_alloc is replenished, the application won't block and keep
->> sending the broadcast messages to all available bridge ports.
->> The transmit queue of the link-down port will eventually fill up,
->> but the same happens currently when the non-first port goes link-down,
->> without obvious hazards. The sk_buff will be freed as part of the
->> transmit queue run, just like it is currently.
+> Thanks.
 >
-> Adding yourself to the credits for a minor patch is not the appropriate
-> protocol.
-
-oops... I'm sorry.
-Anyway it would have been the most major of my minor patches...
-
->
->> diff -urN a/net/bridge/br_device.c b/net/bridge/br_device.c
->> --- a/net/bridge/br_device.c    2006-06-30 19:37:38.000000000 +0200
->> +++ b/net/bridge/br_device.c    2006-07-04 17:26:36.000000000 +0200
->> @@ -40,12 +40,16 @@
->>         skb->mac.raw =3D skb->data;
->>         skb_pull(skb, ETH_HLEN);
->>
->> -       if (dest[0] & 1)
->> +
->> +       if (dest[0] & 1) {
->> +               skb_orphan(skb);
->>                 br_flood_deliver(br, skb, 0);
->> -       else if ((dst =3D __br_fdb_get(br, dest)) !=3D NULL)
->> +       } else if ((dst =3D __br_fdb_get(br, dest)) !=3D NULL) {
->>                 br_deliver(dst->dst, skb);
->> -       else
->> +       } else {
->> +               skb_orphan(skb);
->>                 br_flood_deliver(br, skb, 0);
->> +       }
->>
->>         return 0;
->>  }
->
-
--- =
-
-- Bernd Kischnick
