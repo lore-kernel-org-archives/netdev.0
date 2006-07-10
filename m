@@ -1,37 +1,41 @@
-From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
-Date: Mon, 10 Jul 2006 08:17:26 +0200
-Message-ID: <200607100817.26635.stefan@loplof.de>
-References: <44AE2FCC.6020207@trash.net> <20060709.114827.63031023.davem@davemloft.net> <m3irm6v90o.fsf@defiant.localdomain>
+From: Andrey Savochkin <saw@swsoft.com>
+Subject: Re: [patch 1/7] net_device list cleanup: core
+Date: Mon, 10 Jul 2006 10:53:05 +0400
+Message-ID: <20060710105305.A17324@castle.nmd.msu.ru>
+References: <20060630150823.A22285@castle.nmd.msu.ru> <20060707.133434.125915077.yoshfuji@linux-ipv6.org> <20060707115425.A28991@castle.nmd.msu.ru> <20060708.014813.119417005.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dev@openvz.org, ebiederm@xmission.com,
+	kuznet@ms2.inr.ac.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from natklopstock.rzone.de ([81.169.145.174]:7618 "EHLO
-	natklopstock.rzone.de") by vger.kernel.org with ESMTP
-	id S1751351AbWGJGPg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jul 2006 02:15:36 -0400
-To: Krzysztof Halasa <khc@pm.waw.pl>
-In-Reply-To: <m3irm6v90o.fsf@defiant.localdomain>
-Content-Disposition: inline
+Received: from castle.nmd.msu.ru ([193.232.112.53]:47633 "HELO
+	castle.nmd.msu.ru") by vger.kernel.org with SMTP id S1161357AbWGJGxH
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jul 2006 02:53:07 -0400
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@?\(B" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20060708.014813.119417005.yoshfuji@linux-ipv6.org>; from "YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B" on Sat, Jul 08, 2006 at 01:48:13AM
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[Trimmed CC list as we're off topic]
+On Sat, Jul 08, 2006 at 01:48:13AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B wrote:
+> In article <20060707115425.A28991@castle.nmd.msu.ru> (at Fri, 7 Jul 2006 11:54:25 +0400), Andrey Savochkin <saw@swsoft.com> says:
+> 
+> > On Fri, Jul 07, 2006 at 01:34:34PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B wrote:
+> > > In article <20060630150823.A22285@castle.nmd.msu.ru> (at Mon, 3 Jul 2006 12:18:51 +0400), Andrey Savochkin <saw@swsoft.com> says:
+> > > 
+> > > > @@ -3271,22 +3277,22 @@ int unregister_netdevice(struct net_devi
+> > > >  
+> > > >  	/* And unlink it from device chain. */
+> > > >  	for (dp = &dev_base; (d = *dp) != NULL; dp = &d->next) {
+> > > 
+> > > Why not for_each_netdev?
+> > 
+> > it's a different list
+> 
+> Sorry, I still do not understand.
+> In other words, why will we still have dev->next?
+> After introducing net_device->dev_list, we do not need
+> dev->next anymore, do we?
 
-Am Sonntag, 9. Juli 2006 22:05 schrieb Krzysztof Halasa:
-
-> >> ... and where the maintainer doesn't seem to care to use it now that the
-> >> infrastructure is there. Sigh.
->
-> This is very different from what I proposed and doesn't fit very well.
-> We've been discussing this to death.
-
-You've been asking for two independant flags of which one does not stop the 
-queue. You've got two independant flags of which one does not stop the queue. 
-If you're claiming now that this doesn't fit well you either did not bother 
-to look at the result or you are outrigthly lying. End of story.
-
-Stefan
+dev->next is removed in the last patch, to make possible the bisection
+of patch list.
