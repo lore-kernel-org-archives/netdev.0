@@ -1,80 +1,58 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH] ixgb: fix tx unit hang - properly calculate desciptor count
-Date: Mon, 10 Jul 2006 08:51:43 -0700
-Message-ID: <44B2778F.2030304@intel.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [BPQ] lockdep: fix false positive
+Date: Mon, 10 Jul 2006 16:53:34 +0100
+Message-ID: <20060710155334.GA16338@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010102030600030408070801"
-Cc: Andrew Morton <akpm@osdl.org>, NetDev <netdev@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Auke Kok <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:46652 "EHLO
-	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S964906AbWGJPwu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jul 2006 11:52:50 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from ftp.linux-mips.org ([194.74.144.162]:41141 "EHLO
+	ftp.linux-mips.org") by vger.kernel.org with ESMTP id S1422665AbWGJPxe
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jul 2006 11:53:34 -0400
+Received: from localhost.localdomain ([127.0.0.1]:42893 "EHLO bacchus.dhis.org")
+	by ftp.linux-mips.org with ESMTP id S8133867AbWGJPxc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2006 16:53:32 +0100
+To: "David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	Molnar Ingo <mingo@elte.hu>,
+	Arjan van de Ven <arjan@infradead.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010102030600030408070801
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Bpqether is encapsulating AX.25 frames into ethernet frames.  There is a
+virtual bpqether device paired with each ethernet devices, so it's normal
+to pass through dev_queue_xmit twice for each frame which triggers the
+locking detector.
 
-
-Jeff,
-
-Please apply to #upstream-fixes.
-
-Cheers,
-
-Auke
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
 ---
+ drivers/net/hamradio/bpqether.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
 
---------------010102030600030408070801
-Content-Type: text/x-patch;
- name="ixgb_fix_tx_hang_ring_overrun.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="ixgb_fix_tx_hang_ring_overrun.patch"
-
-There were some tso bugs that only showed up with heavy load and 16kB
-pages that this patch fixes by making the driver's internal use count
-of descriptors match the count that it was estimating it needed using
-the DESC_NEEDED macro.  This bug caused NETDEV_WATCHDOG resets aka
-tx timeouts.
-
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-
----
-
- drivers/net/ixgb/ixgb_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index b91e082..846e11b 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -1281,7 +1281,7 @@ ixgb_tx_map(struct ixgb_adapter *adapter
+Index: linux-net/drivers/net/hamradio/bpqether.c
+===================================================================
+--- linux-net.orig/drivers/net/hamradio/bpqether.c	2006-07-09 02:47:59.000000000 +0100
++++ linux-net/drivers/net/hamradio/bpqether.c	2006-07-10 14:18:48.000000000 +0100
+@@ -122,6 +122,12 @@ struct bpqdev {
  
- 	while(len) {
- 		buffer_info = &tx_ring->buffer_info[i];
--		size = min(len, IXGB_MAX_JUMBO_FRAME_SIZE);
-+		size = min(len, IXGB_MAX_DATA_PER_TXD);
- 		buffer_info->length = size;
- 		buffer_info->dma =
- 			pci_map_single(adapter->pdev,
-@@ -1306,7 +1306,7 @@ ixgb_tx_map(struct ixgb_adapter *adapter
+ static LIST_HEAD(bpq_devices);
  
- 		while(len) {
- 			buffer_info = &tx_ring->buffer_info[i];
--			size = min(len, IXGB_MAX_JUMBO_FRAME_SIZE);
-+			size = min(len, IXGB_MAX_DATA_PER_TXD);
- 			buffer_info->length = size;
- 			buffer_info->dma =
- 				pci_map_page(adapter->pdev,
-
---------------010102030600030408070801--
++/*
++ * bpqether network devices are paired with ethernet devices below them, so
++ * form a special "super class" of normal ethernet devices; split their locks
++ * off into a separate class since they always nest.
++ */
++static struct lock_class_key bpq_netdev_xmit_lock_key;
+ 
+ /* ------------------------------------------------------------------------ */
+ 
+@@ -528,6 +534,7 @@ static int bpq_new_device(struct net_dev
+ 	err = register_netdevice(ndev);
+ 	if (err)
+ 		goto error;
++	lockdep_set_class(&ndev->_xmit_lock, &bpq_netdev_xmit_lock_key);
+ 
+ 	/* List protected by RTNL */
+ 	list_add_rcu(&bpq->bpq_list, &bpq_devices);
