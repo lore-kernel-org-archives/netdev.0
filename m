@@ -1,42 +1,63 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: active-backup/bonding with drivers not supporting set_mac_address()
-Date: Mon, 10 Jul 2006 11:31:48 -0700
-Message-ID: <200607101831.k6AIVmp0026998@death.nxdomain.ibm.com>
-References: <Pine.LNX.4.64.0607101618390.26558@zuben> <20060710.112322.100334803.davem@davemloft.net>
-Cc: ogerlitz@voltaire.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:7840 "EHLO e5.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S965203AbWGJSbu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2006 14:31:50 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e5.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k6AIVn8t026968
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 10 Jul 2006 14:31:50 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k6AIVn9Y280266
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 10 Jul 2006 14:31:49 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k6AIVnZC010092
-	for <netdev@vger.kernel.org>; Mon, 10 Jul 2006 14:31:49 -0400
-To: David Miller <davem@davemloft.net>
-In-reply-to: <20060710.112322.100334803.davem@davemloft.net> 
-Sender: netdev-owner@vger.kernel.org
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] let BT_HIDP depend on INPUT
+Date: Mon, 10 Jul 2006 20:31:54 +0200
+Message-ID: <20060710183154.GD13938@stusta.de>
+Reply-To: BlueZ development <bluez-devel@lists.sourceforge.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bluez-devel@lists.sf.net, linux390@de.ibm.com
+Return-path: <bluez-devel-bounces@lists.sourceforge.net>
+To: marcel@holtmann.org, maxk@qualcomm.com
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
+List-Post: <mailto:bluez-devel@lists.sourceforge.net>
+List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: bluez-devel-bounces@lists.sourceforge.net
+Errors-To: bluez-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
-[...]
->Regardless of whether we add support for active-backup/bonding for
->devices without this method, in the mean time the bonding
->driver should check for whether that method is NULL and disallow
->the bond configuration if it is.
+This patch let's BT_HIDP depend on instead of select INPUT.
 
-	That's what it does; if a slave lacks a set_mac_address
-function, the enslavement fails.  Changes to the MAC are done via
-dev_set_mac_address.
+This fixes the following warning during an s390 build:
 
-	-J
+<--  snip  -->
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+...
+net/bluetooth/hidp/Kconfig:4:warning: 'select' used by config symbol 'BT_HIDP' refer to undefined symbol 'INPUT'
+...
 
+<--  snip  -->
+
+A dependency on INPUT also implies !S390 (and therefore makes the 
+explicit dependency obsolete) since INPUT is not available on s390.
+
+The practical difference should be nearly zero, since INPUT is always 
+set to y unless EMBEDDED=y (or S390=y).
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.18-rc1-mm1-full/net/bluetooth/hidp/Kconfig.old	2006-07-10 16:51:59.000000000 +0200
++++ linux-2.6.18-rc1-mm1-full/net/bluetooth/hidp/Kconfig	2006-07-10 16:52:52.000000000 +0200
+@@ -1,7 +1,6 @@
+ config BT_HIDP
+ 	tristate "HIDP protocol support"
+-	depends on BT && BT_L2CAP && (BROKEN || !S390)
+-	select INPUT
++	depends on INPUT && BT && BT_L2CAP
+ 	help
+ 	  HIDP (Human Interface Device Protocol) is a transport layer
+ 	  for HID reports.  HIDP is required for the Bluetooth Human
+
+
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
