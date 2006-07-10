@@ -1,82 +1,70 @@
-From: Sergei Shtylylov <sshtylyov@ru.mvista.com>
-Subject: [PATCH] Don't call request_region() for 3C90x chips
-Date: Mon, 10 Jul 2006 22:25:49 +0400
-Message-ID: <200607102225.49253.sshtylyov@ru.mvista.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: active-backup/bonding with drivers not supporting set_mac_address()
+Date: Mon, 10 Jul 2006 11:29:14 -0700
+Message-ID: <200607101829.k6AITEp0026893@death.nxdomain.ibm.com>
+References: <Pine.LNX.4.64.0607101618390.26558@zuben>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft2.corbina.net ([85.21.88.2]:38883 "HELO
-	mail.dev.rtsoft.ru") by vger.kernel.org with SMTP id S1422748AbWGJS07
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jul 2006 14:26:59 -0400
-To: jgarzik@pobox.com
-Content-Disposition: inline
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:21912 "EHLO e5.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S964972AbWGJS3c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2006 14:29:32 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e5.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k6AITG7m023845
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Mon, 10 Jul 2006 14:29:17 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay04.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k6AITGaG292064
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 10 Jul 2006 14:29:16 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k6AITG4s032015
+	for <netdev@vger.kernel.org>; Mon, 10 Jul 2006 14:29:16 -0400
+To: Or Gerlitz <ogerlitz@voltaire.com>
+In-reply-to: <Pine.LNX.4.64.0607101618390.26558@zuben> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It's generally not a good idea to call request_region() on an address returned 
-by pci_iomap(), even less so on a MMIO address. And there was absolutely no 
-point in claiming the region already claimed by the PCI core, especially with 
-the same PCI generic owner's name. As this is the only case of the 
-must_free_region flag being set, this flag may go away as well...
+Or Gerlitz <ogerlitz@voltaire.com> wrote:
 
-Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+>Looking on the linux bonding driver, it seems to unconditionally (*)
+>assume that the enslaved device supports the set_mac_address call.
+>
+>From reading the doc (Documentation/networking/bonding.txt) i understand that
+>it is **not** a must prerequisite for the active-backup mode, this is since
+>there is at most one active slave at each point of time and as the doc states:
+>
+>	when a failover occurs in active-backup mode, bonding will issue
+>	one or more gratuitous ARPs on the newly active slave.
 
-Index: linux-2.6/drivers/net/3c59x.c
-===================================================================
---- linux-2.6.orig/drivers/net/3c59x.c
-+++ linux-2.6/drivers/net/3c59x.c
-@@ -630,7 +630,6 @@ struct vortex_private {
- 		pm_state_valid:1,				/* pci_dev->saved_config_space has sane contents */
- 		open:1,
- 		medialock:1,
--		must_free_region:1,				/* Flag: if zero, Cardbus owns the I/O region */
- 		large_frames:1;			/* accept large frames */
- 	int drv_flags;
- 	u16 status_enable;
-@@ -1084,11 +1083,6 @@ static int __devinit vortex_probe1(struc
- 
- 	/* PCI-only startup logic */
- 	if (pdev) {
--		/* EISA resources already marked, so only PCI needs to do this here */
--		/* Ignore return value, because Cardbus drivers already allocate for us */
--		if (request_region(dev->base_addr, vci->io_size, print_name) != NULL)
--			vp->must_free_region = 1;
--
- 		/* enable bus-mastering if necessary */		
- 		if (vci->flags & PCI_USES_MASTER)
- 			pci_set_master(pdev);
-@@ -1125,7 +1119,7 @@ static int __devinit vortex_probe1(struc
- 					   &vp->rx_ring_dma);
- 	retval = -ENOMEM;
- 	if (vp->rx_ring == 0)
--		goto free_region;
-+		goto free_netdev;
- 
- 	vp->tx_ring = (struct boom_tx_desc *)(vp->rx_ring + RX_RING_SIZE);
- 	vp->tx_ring_dma = vp->rx_ring_dma + sizeof(struct boom_rx_desc) * 
-RX_RING_SIZE;
-@@ -1410,9 +1404,7 @@ free_ring:
- 							+ sizeof(struct boom_tx_desc) * TX_RING_SIZE,
- 						vp->rx_ring,
- 						vp->rx_ring_dma);
--free_region:
--	if (vp->must_free_region)
--		release_region(dev->base_addr, vci->io_size);
-+free_netdev:
- 	free_netdev(dev);
- 	printk(KERN_ERR PFX "vortex_probe1 fails.  Returns %d\n", retval);
- out:
-@@ -3143,8 +3135,6 @@ static void __devexit vortex_remove_one(
- 							+ sizeof(struct boom_tx_desc) * TX_RING_SIZE,
- 						vp->rx_ring,
- 						vp->rx_ring_dma);
--	if (vp->must_free_region)
--		release_region(dev->base_addr, vp->io_size);
- 	free_netdev(dev);
- }
- 
+	I think you're misreading the documentation a bit.  Some
+specific modes (balance-alb, for example) require that the slave device
+driver support set_mac_address while the device is up.  Many device
+drivers will only allow MAC changes while the device is down; those
+drivers won't work with the alb mode.
 
+	The active-backup and other modes have always needed a set_mac
+functionality, but they don't require that the device be up when
+changing the MAC (those modes set the mac for a slave one time, during
+the enslavement process, and the device is down when this is done).
+
+	The purpose of the gratuitous ARP is to update switch forwarding
+tables (i.e., announce that the device has moved from one port to
+another), not to announce a change of MAC address.
+
+>I'd like to get feedback from people here if you think it makes sense
+>to change the bonding driver to actually allow for active-backup/bonding
+>with network device drivers which does not support set_mac_address.
+
+	What network device drivers are there that don't permit ever
+changing the device MAC address?
+
+	I think changing active-backup (as an example here) to cause a
+MAC change during failover will have some side effects and secondary
+requirements that aren't necessarily obvious.  For example, the MAC of
+the bond itself will change during failover; I'm not sure right offhand
+what effect if any this might have on third parties.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
