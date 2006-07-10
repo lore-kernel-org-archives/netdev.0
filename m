@@ -1,39 +1,78 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [patch] do not allow IPW_2100=Y or IPW_2200=Y
-Date: Mon, 10 Jul 2006 23:05:06 +0200
-Message-ID: <200607102305.06572.mb@bu3sch.de>
-References: <20060710152032.GA8540@elf.ucw.cz> <44B2940A.2080102@pobox.com>
+From: "Michael S. Tsirkin" <mst@mellanox.co.il>
+Subject: [PATCHv2] IB/mthca: comment fix
+Date: Tue, 11 Jul 2006 00:15:42 +0300
+Message-ID: <20060710211542.GA30898@mellanox.co.il>
+References: <20060710111412.GD24705@mellanox.co.il> <20060710151824.GL24705@mellanox.co.il>
+Reply-To: "Michael S. Tsirkin" <mst@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: yi.zhu@intel.com, jketreno@linux.intel.com,
-	Netdev list <netdev@vger.kernel.org>, linville@tuxdriver.com,
-	kernel list <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arjan van de Ven <arjan@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	Zach Brown <zach.brown@oracle.com>, openib-general@openib.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Roland Dreier <rolandd@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:14005
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1422919AbWGJVDT
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jul 2006 17:03:19 -0400
-To: Jeff Garzik <jgarzik@pobox.com>, Pavel Machek <pavel@ucw.cz>
-In-Reply-To: <44B2940A.2080102@pobox.com>
+Received: from mxl145v68.mxlogic.net ([208.65.145.68]:13263 "EHLO
+	p02c11o145.mxlogic.net") by vger.kernel.org with ESMTP
+	id S964814AbWGJVPP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jul 2006 17:15:15 -0400
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
+In-Reply-To: <20060710151824.GL24705@mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 10 July 2006 19:53, you wrote:
-> Pavel Machek wrote:
-> > Kconfig currently allows compiling IPW_2100 and IPW_2200 into kernel
-> > (not as a module). Unfortunately, such configuration does not work,
-> > because these drivers need a firmware, and it can't be loaded by
-> > userspace loader when userspace is not running.
-> 
-> False, initramfs...
+OK, this is fine with both Arjan van de Ven and Roland Dreier, so -
+Andrew, could you take this into -mm please?
 
-Does the ipw driver _really_ need the firmware on insmod time?
-bcm43xx, for example, loads the firmware on "ifconfig up" time.
-If ipw really needs the firmware on insmod, is it possible to
-defer it to later at "ifconfig up" time?
+---
 
+After recent changes, mthca_wq_init does not actually initialize the WQ as it
+used to - it simply resets all index fields to their initial values. So,
+let's rename it to mthca_wq_reset.
+
+Signed-off-by: Michael S. Tsirkin <mst@mellanox.co.il>
+
+diff --git a/drivers/infiniband/hw/mthca/mthca_qp.c b/drivers/infiniband/hw/mthca/mthca_qp.c
+index 490fc78..cd8b672 100644
+--- a/drivers/infiniband/hw/mthca/mthca_qp.c
++++ b/drivers/infiniband/hw/mthca/mthca_qp.c
+@@ -222,9 +222,8 @@ static void *get_send_wqe(struct mthca_q
+ 			 (PAGE_SIZE - 1));
+ }
+ 
+-static void mthca_wq_init(struct mthca_wq *wq)
++static void mthca_wq_reset(struct mthca_wq *wq)
+ {
+-	/* mthca_alloc_qp_common() initializes the locks */
+ 	wq->next_ind  = 0;
+ 	wq->last_comp = wq->max - 1;
+ 	wq->head      = 0;
+@@ -845,10 +844,10 @@ int mthca_modify_qp(struct ib_qp *ibqp, 
+ 			mthca_cq_clean(dev, to_mcq(qp->ibqp.recv_cq), qp->qpn,
+ 				       qp->ibqp.srq ? to_msrq(qp->ibqp.srq) : NULL);
+ 
+-		mthca_wq_init(&qp->sq);
++		mthca_wq_reset(&qp->sq);
+ 		qp->sq.last = get_send_wqe(qp, qp->sq.max - 1);
+ 
+-		mthca_wq_init(&qp->rq);
++		mthca_wq_reset(&qp->rq);
+ 		qp->rq.last = get_recv_wqe(qp, qp->rq.max - 1);
+ 
+ 		if (mthca_is_memfree(dev)) {
+@@ -1112,9 +1111,9 @@ static int mthca_alloc_qp_common(struct 
+ 	qp->atomic_rd_en = 0;
+ 	qp->resp_depth   = 0;
+ 	qp->sq_policy    = send_policy;
+-	mthca_wq_init(&qp->sq);
+-	mthca_wq_init(&qp->rq);
+-	/* these are initialized separately so lockdep can tell them apart */
++	mthca_wq_reset(&qp->sq);
++	mthca_wq_reset(&qp->rq);
++
+ 	spin_lock_init(&qp->sq.lock);
+ 	spin_lock_init(&qp->rq.lock);
+ 
 -- 
-Greetings Michael.
+MST
