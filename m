@@ -1,1369 +1,3029 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: oops in current -git
-Date: Mon, 10 Jul 2006 17:38:57 -0400
-Message-ID: <44B2C8F1.8040500@garzik.org>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] bcm43xx-d80211: init routine rewrite
+Date: Mon, 10 Jul 2006 23:38:38 +0200
+Message-ID: <200607102338.39969.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010107010900020000060002"
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
-	"Brown, Len" <len.brown@intel.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
+	"Francois Barre" <francois.barre@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:50921 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S965240AbWGJVjC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2006 17:39:02 -0400
-To: Netdev List <netdev@vger.kernel.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:50366
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965253AbWGJVk0
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jul 2006 17:40:26 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010107010900020000060002
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-I see a reproducible oops in the current -git.
-
-It occurs on an Fedora Core 5 box w/ 2.6.18-rc1-git (HEAD 
-e2b209509ca33743864846aef2e1b2afc21f7915).  The topmost information 
-scrolls off the screen, so I don't know if its an oops or a BUG.  What I 
-do see:
-
-* FC5 boot proceeds normally, mounting local filesystems etc., until it 
-reaches the step where it determines the network address for eth0 (8139too).
-* oops process shown as "ipcalc"
-* complete call trace: ip_generic_getfrag, udp_sendmsg, neigh_lookup, 
-sock_sendmsg, find_get_page, autoremove_wake_function, 
-__handle_mm_fault, sys_sendto, do_page_fault, sys_connect
-* This only occurs when I specify 'acpi=off'.  If ACPI is enabled, the 
-box boots and networks happily.
-
-Kernel .config is attached.  I can't post dmesg or lspci for this 
-machine publicly.  It's a modern Intel EM64T class machine.
-
-	Jeff
-
-
-
-
---------------010107010900020000060002
-Content-Type: text/plain;
- name="config.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="config.txt"
-
-#
-# Automatically generated make config: don't edit
-# Linux kernel version: 2.6.18-rc1
-# Mon Jul 10 10:23:00 2006
-#
-CONFIG_X86_64=y
-CONFIG_64BIT=y
-CONFIG_X86=y
-CONFIG_LOCKDEP_SUPPORT=y
-CONFIG_STACKTRACE_SUPPORT=y
-CONFIG_SEMAPHORE_SLEEPERS=y
-CONFIG_MMU=y
-CONFIG_RWSEM_GENERIC_SPINLOCK=y
-CONFIG_GENERIC_HWEIGHT=y
-CONFIG_GENERIC_CALIBRATE_DELAY=y
-CONFIG_X86_CMPXCHG=y
-CONFIG_EARLY_PRINTK=y
-CONFIG_GENERIC_ISA_DMA=y
-CONFIG_GENERIC_IOMAP=y
-CONFIG_ARCH_MAY_HAVE_PC_FDC=y
-CONFIG_DMI=y
-CONFIG_DEFCONFIG_LIST="/lib/modules/$UNAME_RELEASE/.config"
-
-#
-# Code maturity level options
-#
-CONFIG_EXPERIMENTAL=y
-CONFIG_LOCK_KERNEL=y
-CONFIG_INIT_ENV_ARG_LIMIT=32
-
-#
-# General setup
-#
-CONFIG_LOCALVERSION=""
-CONFIG_LOCALVERSION_AUTO=y
-CONFIG_SWAP=y
-CONFIG_SYSVIPC=y
-CONFIG_POSIX_MQUEUE=y
-CONFIG_BSD_PROCESS_ACCT=y
-# CONFIG_BSD_PROCESS_ACCT_V3 is not set
-CONFIG_SYSCTL=y
-CONFIG_AUDIT=y
-CONFIG_AUDITSYSCALL=y
-# CONFIG_IKCONFIG is not set
-# CONFIG_CPUSETS is not set
-# CONFIG_RELAY is not set
-CONFIG_INITRAMFS_SOURCE=""
-CONFIG_UID16=y
-# CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
-# CONFIG_EMBEDDED is not set
-CONFIG_KALLSYMS=y
-# CONFIG_KALLSYMS_ALL is not set
-# CONFIG_KALLSYMS_EXTRA_PASS is not set
-CONFIG_HOTPLUG=y
-CONFIG_PRINTK=y
-CONFIG_BUG=y
-CONFIG_ELF_CORE=y
-CONFIG_BASE_FULL=y
-CONFIG_RT_MUTEXES=y
-CONFIG_FUTEX=y
-CONFIG_EPOLL=y
-CONFIG_SHMEM=y
-CONFIG_SLAB=y
-CONFIG_VM_EVENT_COUNTERS=y
-# CONFIG_TINY_SHMEM is not set
-CONFIG_BASE_SMALL=0
-# CONFIG_SLOB is not set
-
-#
-# Loadable module support
-#
-CONFIG_MODULES=y
-CONFIG_MODULE_UNLOAD=y
-# CONFIG_MODULE_FORCE_UNLOAD is not set
-# CONFIG_MODVERSIONS is not set
-# CONFIG_MODULE_SRCVERSION_ALL is not set
-CONFIG_KMOD=y
-CONFIG_STOP_MACHINE=y
-
-#
-# Block layer
-#
-# CONFIG_LBD is not set
-# CONFIG_BLK_DEV_IO_TRACE is not set
-# CONFIG_LSF is not set
-
-#
-# IO Schedulers
-#
-CONFIG_IOSCHED_NOOP=y
-CONFIG_IOSCHED_AS=y
-CONFIG_IOSCHED_DEADLINE=y
-CONFIG_IOSCHED_CFQ=y
-CONFIG_DEFAULT_AS=y
-# CONFIG_DEFAULT_DEADLINE is not set
-# CONFIG_DEFAULT_CFQ is not set
-# CONFIG_DEFAULT_NOOP is not set
-CONFIG_DEFAULT_IOSCHED="anticipatory"
-
-#
-# Processor type and features
-#
-CONFIG_X86_PC=y
-# CONFIG_X86_VSMP is not set
-# CONFIG_MK8 is not set
-CONFIG_MPSC=y
-# CONFIG_GENERIC_CPU is not set
-CONFIG_X86_L1_CACHE_BYTES=128
-CONFIG_X86_L1_CACHE_SHIFT=7
-CONFIG_X86_INTERNODE_CACHE_BYTES=128
-CONFIG_X86_TSC=y
-CONFIG_X86_GOOD_APIC=y
-# CONFIG_MICROCODE is not set
-CONFIG_X86_MSR=m
-CONFIG_X86_CPUID=m
-CONFIG_X86_HT=y
-CONFIG_X86_IO_APIC=y
-CONFIG_X86_LOCAL_APIC=y
-CONFIG_MTRR=y
-CONFIG_SMP=y
-CONFIG_SCHED_SMT=y
-# CONFIG_SCHED_MC is not set
-CONFIG_PREEMPT_NONE=y
-# CONFIG_PREEMPT_VOLUNTARY is not set
-# CONFIG_PREEMPT is not set
-# CONFIG_PREEMPT_BKL is not set
-# CONFIG_NUMA is not set
-CONFIG_ARCH_SPARSEMEM_ENABLE=y
-CONFIG_ARCH_FLATMEM_ENABLE=y
-CONFIG_SELECT_MEMORY_MODEL=y
-CONFIG_FLATMEM_MANUAL=y
-# CONFIG_DISCONTIGMEM_MANUAL is not set
-# CONFIG_SPARSEMEM_MANUAL is not set
-CONFIG_FLATMEM=y
-CONFIG_FLAT_NODE_MEM_MAP=y
-# CONFIG_SPARSEMEM_STATIC is not set
-CONFIG_SPLIT_PTLOCK_CPUS=4
-CONFIG_RESOURCES_64BIT=y
-CONFIG_NR_CPUS=4
-# CONFIG_HOTPLUG_CPU is not set
-CONFIG_ARCH_ENABLE_MEMORY_HOTPLUG=y
-CONFIG_HPET_TIMER=y
-CONFIG_HPET_EMULATE_RTC=y
-CONFIG_IOMMU=y
-# CONFIG_CALGARY_IOMMU is not set
-CONFIG_SWIOTLB=y
-CONFIG_X86_MCE=y
-CONFIG_X86_MCE_INTEL=y
-# CONFIG_X86_MCE_AMD is not set
-# CONFIG_KEXEC is not set
-# CONFIG_CRASH_DUMP is not set
-CONFIG_PHYSICAL_START=0x200000
-CONFIG_SECCOMP=y
-# CONFIG_HZ_100 is not set
-CONFIG_HZ_250=y
-# CONFIG_HZ_1000 is not set
-CONFIG_HZ=250
-CONFIG_REORDER=y
-CONFIG_K8_NB=y
-CONFIG_GENERIC_HARDIRQS=y
-CONFIG_GENERIC_IRQ_PROBE=y
-CONFIG_ISA_DMA_API=y
-CONFIG_GENERIC_PENDING_IRQ=y
-
-#
-# Power management options
-#
-CONFIG_PM=y
-# CONFIG_PM_LEGACY is not set
-# CONFIG_PM_DEBUG is not set
-
-#
-# ACPI (Advanced Configuration and Power Interface) Support
-#
-CONFIG_ACPI=y
-CONFIG_ACPI_AC=m
-# CONFIG_ACPI_BATTERY is not set
-CONFIG_ACPI_BUTTON=m
-# CONFIG_ACPI_VIDEO is not set
-# CONFIG_ACPI_HOTKEY is not set
-CONFIG_ACPI_FAN=y
-CONFIG_ACPI_PROCESSOR=y
-CONFIG_ACPI_THERMAL=y
-# CONFIG_ACPI_ASUS is not set
-# CONFIG_ACPI_IBM is not set
-# CONFIG_ACPI_TOSHIBA is not set
-CONFIG_ACPI_BLACKLIST_YEAR=0
-# CONFIG_ACPI_DEBUG is not set
-CONFIG_ACPI_EC=y
-CONFIG_ACPI_POWER=y
-CONFIG_ACPI_SYSTEM=y
-CONFIG_X86_PM_TIMER=y
-# CONFIG_ACPI_CONTAINER is not set
-
-#
-# CPU Frequency scaling
-#
-# CONFIG_CPU_FREQ is not set
-
-#
-# Bus options (PCI etc.)
-#
-CONFIG_PCI=y
-CONFIG_PCI_DIRECT=y
-CONFIG_PCI_MMCONFIG=y
-CONFIG_PCIEPORTBUS=y
-CONFIG_HOTPLUG_PCI_PCIE=m
-# CONFIG_HOTPLUG_PCI_PCIE_POLL_EVENT_MODE is not set
-CONFIG_PCI_MSI=y
-# CONFIG_PCI_DEBUG is not set
-
-#
-# PCCARD (PCMCIA/CardBus) support
-#
-# CONFIG_PCCARD is not set
-
-#
-# PCI Hotplug Support
-#
-CONFIG_HOTPLUG_PCI=y
-# CONFIG_HOTPLUG_PCI_FAKE is not set
-# CONFIG_HOTPLUG_PCI_ACPI is not set
-# CONFIG_HOTPLUG_PCI_CPCI is not set
-# CONFIG_HOTPLUG_PCI_SHPC is not set
-
-#
-# Executable file formats / Emulations
-#
-CONFIG_BINFMT_ELF=y
-CONFIG_BINFMT_MISC=y
-CONFIG_IA32_EMULATION=y
-# CONFIG_IA32_AOUT is not set
-CONFIG_COMPAT=y
-CONFIG_SYSVIPC_COMPAT=y
-
-#
-# Networking
-#
-CONFIG_NET=y
-
-#
-# Networking options
-#
-# CONFIG_NETDEBUG is not set
-CONFIG_PACKET=m
-# CONFIG_PACKET_MMAP is not set
-CONFIG_UNIX=y
-CONFIG_XFRM=y
-CONFIG_XFRM_USER=m
-CONFIG_NET_KEY=m
-CONFIG_INET=y
-CONFIG_IP_MULTICAST=y
-# CONFIG_IP_ADVANCED_ROUTER is not set
-CONFIG_IP_FIB_HASH=y
-# CONFIG_IP_PNP is not set
-CONFIG_NET_IPIP=m
-# CONFIG_NET_IPGRE is not set
-# CONFIG_IP_MROUTE is not set
-# CONFIG_ARPD is not set
-# CONFIG_SYN_COOKIES is not set
-CONFIG_INET_AH=m
-CONFIG_INET_ESP=m
-CONFIG_INET_IPCOMP=m
-CONFIG_INET_XFRM_TUNNEL=m
-CONFIG_INET_TUNNEL=m
-CONFIG_INET_XFRM_MODE_TRANSPORT=m
-CONFIG_INET_XFRM_MODE_TUNNEL=m
-CONFIG_INET_DIAG=y
-CONFIG_INET_TCP_DIAG=y
-# CONFIG_TCP_CONG_ADVANCED is not set
-CONFIG_TCP_CONG_BIC=y
-CONFIG_IPV6=m
-CONFIG_IPV6_PRIVACY=y
-# CONFIG_IPV6_ROUTER_PREF is not set
-CONFIG_INET6_AH=m
-CONFIG_INET6_ESP=m
-CONFIG_INET6_IPCOMP=m
-CONFIG_INET6_XFRM_TUNNEL=m
-CONFIG_INET6_TUNNEL=m
-CONFIG_INET6_XFRM_MODE_TRANSPORT=m
-CONFIG_INET6_XFRM_MODE_TUNNEL=m
-CONFIG_IPV6_TUNNEL=m
-# CONFIG_NETWORK_SECMARK is not set
-# CONFIG_NETFILTER is not set
-
-#
-# DCCP Configuration (EXPERIMENTAL)
-#
-# CONFIG_IP_DCCP is not set
-
-#
-# SCTP Configuration (EXPERIMENTAL)
-#
-# CONFIG_IP_SCTP is not set
-
-#
-# TIPC Configuration (EXPERIMENTAL)
-#
-# CONFIG_TIPC is not set
-# CONFIG_ATM is not set
-# CONFIG_BRIDGE is not set
-# CONFIG_VLAN_8021Q is not set
-# CONFIG_DECNET is not set
-# CONFIG_LLC2 is not set
-# CONFIG_IPX is not set
-# CONFIG_ATALK is not set
-# CONFIG_X25 is not set
-# CONFIG_LAPB is not set
-# CONFIG_NET_DIVERT is not set
-# CONFIG_ECONET is not set
-# CONFIG_WAN_ROUTER is not set
-
-#
-# QoS and/or fair queueing
-#
-# CONFIG_NET_SCHED is not set
-
-#
-# Network testing
-#
-# CONFIG_NET_PKTGEN is not set
-# CONFIG_HAMRADIO is not set
-# CONFIG_IRDA is not set
-# CONFIG_BT is not set
-# CONFIG_IEEE80211 is not set
-
-#
-# Device Drivers
-#
-
-#
-# Generic Driver Options
-#
-CONFIG_STANDALONE=y
-# CONFIG_PREVENT_FIRMWARE_BUILD is not set
-CONFIG_FW_LOADER=m
-# CONFIG_DEBUG_DRIVER is not set
-# CONFIG_SYS_HYPERVISOR is not set
-
-#
-# Connector - unified userspace <-> kernelspace linker
-#
-# CONFIG_CONNECTOR is not set
-
-#
-# Memory Technology Devices (MTD)
-#
-# CONFIG_MTD is not set
-
-#
-# Parallel port support
-#
-# CONFIG_PARPORT is not set
-
-#
-# Plug and Play support
-#
-CONFIG_PNP=y
-# CONFIG_PNP_DEBUG is not set
-
-#
-# Protocols
-#
-CONFIG_PNPACPI=y
-
-#
-# Block devices
-#
-CONFIG_BLK_DEV_FD=m
-# CONFIG_BLK_CPQ_DA is not set
-# CONFIG_BLK_CPQ_CISS_DA is not set
-# CONFIG_BLK_DEV_DAC960 is not set
-# CONFIG_BLK_DEV_UMEM is not set
-# CONFIG_BLK_DEV_COW_COMMON is not set
-CONFIG_BLK_DEV_LOOP=m
-# CONFIG_BLK_DEV_CRYPTOLOOP is not set
-# CONFIG_BLK_DEV_NBD is not set
-# CONFIG_BLK_DEV_SX8 is not set
-# CONFIG_BLK_DEV_UB is not set
-CONFIG_BLK_DEV_RAM=y
-CONFIG_BLK_DEV_RAM_COUNT=16
-CONFIG_BLK_DEV_RAM_SIZE=16384
-CONFIG_BLK_DEV_INITRD=y
-# CONFIG_CDROM_PKTCDVD is not set
-# CONFIG_ATA_OVER_ETH is not set
-
-#
-# ATA/ATAPI/MFM/RLL support
-#
-CONFIG_IDE=y
-CONFIG_BLK_DEV_IDE=y
-
-#
-# Please see Documentation/ide.txt for help/info on IDE drives
-#
-# CONFIG_BLK_DEV_IDE_SATA is not set
-# CONFIG_BLK_DEV_HD_IDE is not set
-CONFIG_BLK_DEV_IDEDISK=y
-CONFIG_IDEDISK_MULTI_MODE=y
-CONFIG_BLK_DEV_IDECD=y
-# CONFIG_BLK_DEV_IDETAPE is not set
-# CONFIG_BLK_DEV_IDEFLOPPY is not set
-# CONFIG_BLK_DEV_IDESCSI is not set
-# CONFIG_IDE_TASK_IOCTL is not set
-
-#
-# IDE chipset support/bugfixes
-#
-# CONFIG_IDE_GENERIC is not set
-# CONFIG_BLK_DEV_CMD640 is not set
-CONFIG_BLK_DEV_IDEPNP=y
-CONFIG_BLK_DEV_IDEPCI=y
-CONFIG_IDEPCI_SHARE_IRQ=y
-# CONFIG_BLK_DEV_OFFBOARD is not set
-# CONFIG_BLK_DEV_GENERIC is not set
-# CONFIG_BLK_DEV_OPTI621 is not set
-# CONFIG_BLK_DEV_RZ1000 is not set
-CONFIG_BLK_DEV_IDEDMA_PCI=y
-# CONFIG_BLK_DEV_IDEDMA_FORCED is not set
-CONFIG_IDEDMA_PCI_AUTO=y
-# CONFIG_IDEDMA_ONLYDISK is not set
-# CONFIG_BLK_DEV_AEC62XX is not set
-# CONFIG_BLK_DEV_ALI15X3 is not set
-# CONFIG_BLK_DEV_AMD74XX is not set
-# CONFIG_BLK_DEV_ATIIXP is not set
-# CONFIG_BLK_DEV_CMD64X is not set
-# CONFIG_BLK_DEV_TRIFLEX is not set
-# CONFIG_BLK_DEV_CY82C693 is not set
-# CONFIG_BLK_DEV_CS5520 is not set
-# CONFIG_BLK_DEV_CS5530 is not set
-# CONFIG_BLK_DEV_HPT34X is not set
-# CONFIG_BLK_DEV_HPT366 is not set
-# CONFIG_BLK_DEV_SC1200 is not set
-CONFIG_BLK_DEV_PIIX=y
-# CONFIG_BLK_DEV_IT821X is not set
-# CONFIG_BLK_DEV_NS87415 is not set
-# CONFIG_BLK_DEV_PDC202XX_OLD is not set
-# CONFIG_BLK_DEV_PDC202XX_NEW is not set
-# CONFIG_BLK_DEV_SVWKS is not set
-# CONFIG_BLK_DEV_SIIMAGE is not set
-# CONFIG_BLK_DEV_SIS5513 is not set
-# CONFIG_BLK_DEV_SLC90E66 is not set
-# CONFIG_BLK_DEV_TRM290 is not set
-# CONFIG_BLK_DEV_VIA82CXXX is not set
-# CONFIG_IDE_ARM is not set
-CONFIG_BLK_DEV_IDEDMA=y
-# CONFIG_IDEDMA_IVB is not set
-CONFIG_IDEDMA_AUTO=y
-# CONFIG_BLK_DEV_HD is not set
-
-#
-# SCSI device support
-#
-# CONFIG_RAID_ATTRS is not set
-CONFIG_SCSI=m
-CONFIG_SCSI_PROC_FS=y
-
-#
-# SCSI support type (disk, tape, CD-ROM)
-#
-CONFIG_BLK_DEV_SD=m
-# CONFIG_CHR_DEV_ST is not set
-# CONFIG_CHR_DEV_OSST is not set
-CONFIG_BLK_DEV_SR=m
-CONFIG_BLK_DEV_SR_VENDOR=y
-CONFIG_CHR_DEV_SG=m
-# CONFIG_CHR_DEV_SCH is not set
-
-#
-# Some SCSI devices (e.g. CD jukebox) support multiple LUNs
-#
-# CONFIG_SCSI_MULTI_LUN is not set
-CONFIG_SCSI_CONSTANTS=y
-CONFIG_SCSI_LOGGING=y
-
-#
-# SCSI Transport Attributes
-#
-CONFIG_SCSI_SPI_ATTRS=m
-# CONFIG_SCSI_FC_ATTRS is not set
-# CONFIG_SCSI_ISCSI_ATTRS is not set
-# CONFIG_SCSI_SAS_ATTRS is not set
-
-#
-# SCSI low-level drivers
-#
-# CONFIG_ISCSI_TCP is not set
-# CONFIG_BLK_DEV_3W_XXXX_RAID is not set
-# CONFIG_SCSI_3W_9XXX is not set
-# CONFIG_SCSI_ACARD is not set
-# CONFIG_SCSI_AACRAID is not set
-# CONFIG_SCSI_AIC7XXX is not set
-# CONFIG_SCSI_AIC7XXX_OLD is not set
-# CONFIG_SCSI_AIC79XX is not set
-# CONFIG_MEGARAID_NEWGEN is not set
-# CONFIG_MEGARAID_LEGACY is not set
-# CONFIG_MEGARAID_SAS is not set
-CONFIG_SCSI_SATA=m
-CONFIG_SCSI_SATA_AHCI=m
-CONFIG_SCSI_SATA_SVW=m
-CONFIG_SCSI_ATA_PIIX=m
-CONFIG_SCSI_SATA_MV=m
-CONFIG_SCSI_SATA_NV=m
-CONFIG_SCSI_PDC_ADMA=m
-# CONFIG_SCSI_HPTIOP is not set
-CONFIG_SCSI_SATA_QSTOR=m
-CONFIG_SCSI_SATA_PROMISE=m
-CONFIG_SCSI_SATA_SX4=m
-CONFIG_SCSI_SATA_SIL=m
-CONFIG_SCSI_SATA_SIL24=m
-CONFIG_SCSI_SATA_SIS=m
-CONFIG_SCSI_SATA_ULI=m
-CONFIG_SCSI_SATA_VIA=m
-CONFIG_SCSI_SATA_VITESSE=m
-CONFIG_SCSI_SATA_INTEL_COMBINED=y
-# CONFIG_SCSI_BUSLOGIC is not set
-# CONFIG_SCSI_DMX3191D is not set
-# CONFIG_SCSI_EATA is not set
-# CONFIG_SCSI_FUTURE_DOMAIN is not set
-# CONFIG_SCSI_GDTH is not set
-# CONFIG_SCSI_IPS is not set
-# CONFIG_SCSI_INITIO is not set
-# CONFIG_SCSI_INIA100 is not set
-# CONFIG_SCSI_SYM53C8XX_2 is not set
-# CONFIG_SCSI_IPR is not set
-# CONFIG_SCSI_QLOGIC_1280 is not set
-# CONFIG_SCSI_QLA_FC is not set
-# CONFIG_SCSI_LPFC is not set
-# CONFIG_SCSI_DC395x is not set
-# CONFIG_SCSI_DC390T is not set
-# CONFIG_SCSI_DEBUG is not set
-
-#
-# Multi-device support (RAID and LVM)
-#
-# CONFIG_MD is not set
-
-#
-# Fusion MPT device support
-#
-# CONFIG_FUSION is not set
-# CONFIG_FUSION_SPI is not set
-# CONFIG_FUSION_FC is not set
-# CONFIG_FUSION_SAS is not set
-
-#
-# IEEE 1394 (FireWire) support
-#
-# CONFIG_IEEE1394 is not set
-
-#
-# I2O device support
-#
-# CONFIG_I2O is not set
-
-#
-# Network device support
-#
-CONFIG_NETDEVICES=y
-# CONFIG_DUMMY is not set
-# CONFIG_BONDING is not set
-# CONFIG_EQUALIZER is not set
-# CONFIG_TUN is not set
-# CONFIG_NET_SB1000 is not set
-
-#
-# ARCnet devices
-#
-# CONFIG_ARCNET is not set
-
-#
-# PHY device support
-#
-# CONFIG_PHYLIB is not set
-
-#
-# Ethernet (10 or 100Mbit)
-#
-CONFIG_NET_ETHERNET=y
-CONFIG_MII=m
-# CONFIG_HAPPYMEAL is not set
-# CONFIG_SUNGEM is not set
-# CONFIG_CASSINI is not set
-# CONFIG_NET_VENDOR_3COM is not set
-
-#
-# Tulip family network device support
-#
-# CONFIG_NET_TULIP is not set
-# CONFIG_HP100 is not set
-CONFIG_NET_PCI=y
-# CONFIG_PCNET32 is not set
-# CONFIG_AMD8111_ETH is not set
-# CONFIG_ADAPTEC_STARFIRE is not set
-# CONFIG_B44 is not set
-# CONFIG_FORCEDETH is not set
-# CONFIG_DGRS is not set
-# CONFIG_EEPRO100 is not set
-# CONFIG_E100 is not set
-# CONFIG_FEALNX is not set
-# CONFIG_NATSEMI is not set
-# CONFIG_NE2K_PCI is not set
-# CONFIG_8139CP is not set
-CONFIG_8139TOO=m
-# CONFIG_8139TOO_PIO is not set
-CONFIG_8139TOO_TUNE_TWISTER=y
-# CONFIG_8139TOO_8129 is not set
-# CONFIG_8139_OLD_RX_RESET is not set
-# CONFIG_SIS900 is not set
-# CONFIG_EPIC100 is not set
-# CONFIG_SUNDANCE is not set
-# CONFIG_VIA_RHINE is not set
-
-#
-# Ethernet (1000 Mbit)
-#
-# CONFIG_ACENIC is not set
-# CONFIG_DL2K is not set
-CONFIG_E1000=m
-CONFIG_E1000_NAPI=y
-# CONFIG_E1000_DISABLE_PACKET_SPLIT is not set
-# CONFIG_NS83820 is not set
-# CONFIG_HAMACHI is not set
-# CONFIG_YELLOWFIN is not set
-# CONFIG_R8169 is not set
-# CONFIG_SIS190 is not set
-# CONFIG_SKGE is not set
-# CONFIG_SKY2 is not set
-# CONFIG_SK98LIN is not set
-# CONFIG_VIA_VELOCITY is not set
-# CONFIG_TIGON3 is not set
-# CONFIG_BNX2 is not set
-
-#
-# Ethernet (10000 Mbit)
-#
-# CONFIG_CHELSIO_T1 is not set
-# CONFIG_IXGB is not set
-# CONFIG_S2IO is not set
-# CONFIG_MYRI10GE is not set
-
-#
-# Token Ring devices
-#
-# CONFIG_TR is not set
-
-#
-# Wireless LAN (non-hamradio)
-#
-# CONFIG_NET_RADIO is not set
-
-#
-# Wan interfaces
-#
-# CONFIG_WAN is not set
-# CONFIG_FDDI is not set
-# CONFIG_HIPPI is not set
-# CONFIG_PPP is not set
-# CONFIG_SLIP is not set
-# CONFIG_NET_FC is not set
-# CONFIG_SHAPER is not set
-# CONFIG_NETCONSOLE is not set
-# CONFIG_NETPOLL is not set
-# CONFIG_NET_POLL_CONTROLLER is not set
-
-#
-# ISDN subsystem
-#
-# CONFIG_ISDN is not set
-
-#
-# Telephony Support
-#
-# CONFIG_PHONE is not set
-
-#
-# Input device support
-#
-CONFIG_INPUT=y
-
-#
-# Userland interfaces
-#
-CONFIG_INPUT_MOUSEDEV=y
-# CONFIG_INPUT_MOUSEDEV_PSAUX is not set
-CONFIG_INPUT_MOUSEDEV_SCREEN_X=1024
-CONFIG_INPUT_MOUSEDEV_SCREEN_Y=768
-CONFIG_INPUT_JOYDEV=m
-# CONFIG_INPUT_TSDEV is not set
-CONFIG_INPUT_EVDEV=y
-# CONFIG_INPUT_EVBUG is not set
-
-#
-# Input Device Drivers
-#
-CONFIG_INPUT_KEYBOARD=y
-CONFIG_KEYBOARD_ATKBD=y
-# CONFIG_KEYBOARD_SUNKBD is not set
-# CONFIG_KEYBOARD_LKKBD is not set
-# CONFIG_KEYBOARD_XTKBD is not set
-# CONFIG_KEYBOARD_NEWTON is not set
-CONFIG_INPUT_MOUSE=y
-CONFIG_MOUSE_PS2=y
-CONFIG_MOUSE_SERIAL=m
-# CONFIG_MOUSE_VSXXXAA is not set
-# CONFIG_INPUT_JOYSTICK is not set
-# CONFIG_INPUT_TOUCHSCREEN is not set
-CONFIG_INPUT_MISC=y
-CONFIG_INPUT_PCSPKR=y
-CONFIG_INPUT_UINPUT=m
-
-#
-# Hardware I/O ports
-#
-CONFIG_SERIO=y
-CONFIG_SERIO_I8042=y
-CONFIG_SERIO_SERPORT=y
-# CONFIG_SERIO_CT82C710 is not set
-# CONFIG_SERIO_PCIPS2 is not set
-CONFIG_SERIO_LIBPS2=y
-# CONFIG_SERIO_RAW is not set
-# CONFIG_GAMEPORT is not set
-
-#
-# Character devices
-#
-CONFIG_VT=y
-CONFIG_VT_CONSOLE=y
-CONFIG_HW_CONSOLE=y
-# CONFIG_VT_HW_CONSOLE_BINDING is not set
-# CONFIG_SERIAL_NONSTANDARD is not set
-
-#
-# Serial drivers
-#
-CONFIG_SERIAL_8250=y
-CONFIG_SERIAL_8250_CONSOLE=y
-CONFIG_SERIAL_8250_PCI=y
-CONFIG_SERIAL_8250_PNP=y
-CONFIG_SERIAL_8250_NR_UARTS=4
-CONFIG_SERIAL_8250_RUNTIME_UARTS=4
-CONFIG_SERIAL_8250_EXTENDED=y
-# CONFIG_SERIAL_8250_MANY_PORTS is not set
-CONFIG_SERIAL_8250_SHARE_IRQ=y
-# CONFIG_SERIAL_8250_DETECT_IRQ is not set
-# CONFIG_SERIAL_8250_RSA is not set
-
-#
-# Non-8250 serial port support
-#
-CONFIG_SERIAL_CORE=y
-CONFIG_SERIAL_CORE_CONSOLE=y
-# CONFIG_SERIAL_JSM is not set
-CONFIG_UNIX98_PTYS=y
-# CONFIG_LEGACY_PTYS is not set
-
-#
-# IPMI
-#
-# CONFIG_IPMI_HANDLER is not set
-
-#
-# Watchdog Cards
-#
-# CONFIG_WATCHDOG is not set
-# CONFIG_HW_RANDOM is not set
-CONFIG_NVRAM=m
-CONFIG_RTC=y
-# CONFIG_DTLK is not set
-# CONFIG_R3964 is not set
-# CONFIG_APPLICOM is not set
-
-#
-# Ftape, the floppy tape device driver
-#
-CONFIG_AGP=y
-CONFIG_AGP_AMD64=y
-CONFIG_AGP_INTEL=y
-# CONFIG_AGP_SIS is not set
-# CONFIG_AGP_VIA is not set
-CONFIG_DRM=m
-# CONFIG_DRM_TDFX is not set
-# CONFIG_DRM_R128 is not set
-# CONFIG_DRM_RADEON is not set
-# CONFIG_DRM_I810 is not set
-CONFIG_DRM_I830=m
-CONFIG_DRM_I915=m
-# CONFIG_DRM_MGA is not set
-# CONFIG_DRM_SIS is not set
-# CONFIG_DRM_VIA is not set
-# CONFIG_DRM_SAVAGE is not set
-# CONFIG_MWAVE is not set
-# CONFIG_PC8736x_GPIO is not set
-# CONFIG_RAW_DRIVER is not set
-CONFIG_HPET=y
-# CONFIG_HPET_RTC_IRQ is not set
-CONFIG_HPET_MMAP=y
-# CONFIG_HANGCHECK_TIMER is not set
-
-#
-# TPM devices
-#
-# CONFIG_TCG_TPM is not set
-# CONFIG_TELCLOCK is not set
-
-#
-# I2C support
-#
-# CONFIG_I2C is not set
-
-#
-# SPI support
-#
-# CONFIG_SPI is not set
-# CONFIG_SPI_MASTER is not set
-
-#
-# Dallas's 1-wire bus
-#
-
-#
-# Hardware Monitoring support
-#
-CONFIG_HWMON=y
-# CONFIG_HWMON_VID is not set
-# CONFIG_SENSORS_ABITUGURU is not set
-# CONFIG_SENSORS_F71805F is not set
-# CONFIG_SENSORS_HDAPS is not set
-# CONFIG_HWMON_DEBUG_CHIP is not set
-
-#
-# Misc devices
-#
-# CONFIG_IBM_ASM is not set
-
-#
-# Multimedia devices
-#
-# CONFIG_VIDEO_DEV is not set
-CONFIG_VIDEO_V4L2=y
-
-#
-# Digital Video Broadcasting Devices
-#
-# CONFIG_DVB is not set
-# CONFIG_USB_DABUSB is not set
-
-#
-# Graphics support
-#
-CONFIG_FIRMWARE_EDID=y
-# CONFIG_FB is not set
-
-#
-# Console display driver support
-#
-CONFIG_VGA_CONSOLE=y
-# CONFIG_VGACON_SOFT_SCROLLBACK is not set
-# CONFIG_VIDEO_SELECT is not set
-CONFIG_DUMMY_CONSOLE=y
-
-#
-# Sound
-#
-# CONFIG_SOUND is not set
-
-#
-# USB support
-#
-CONFIG_USB_ARCH_HAS_HCD=y
-CONFIG_USB_ARCH_HAS_OHCI=y
-CONFIG_USB_ARCH_HAS_EHCI=y
-CONFIG_USB=y
-# CONFIG_USB_DEBUG is not set
-
-#
-# Miscellaneous USB options
-#
-CONFIG_USB_DEVICEFS=y
-# CONFIG_USB_BANDWIDTH is not set
-# CONFIG_USB_DYNAMIC_MINORS is not set
-CONFIG_USB_SUSPEND=y
-# CONFIG_USB_OTG is not set
-
-#
-# USB Host Controller Drivers
-#
-CONFIG_USB_EHCI_HCD=m
-CONFIG_USB_EHCI_SPLIT_ISO=y
-CONFIG_USB_EHCI_ROOT_HUB_TT=y
-# CONFIG_USB_EHCI_TT_NEWSCHED is not set
-# CONFIG_USB_ISP116X_HCD is not set
-# CONFIG_USB_OHCI_HCD is not set
-CONFIG_USB_UHCI_HCD=m
-# CONFIG_USB_SL811_HCD is not set
-
-#
-# USB Device Class drivers
-#
-# CONFIG_USB_ACM is not set
-CONFIG_USB_PRINTER=m
-
-#
-# NOTE: USB_STORAGE enables SCSI, and 'SCSI disk support'
-#
-
-#
-# may also be needed; see USB_STORAGE Help for more information
-#
-CONFIG_USB_STORAGE=m
-# CONFIG_USB_STORAGE_DEBUG is not set
-CONFIG_USB_STORAGE_DATAFAB=y
-CONFIG_USB_STORAGE_FREECOM=y
-CONFIG_USB_STORAGE_ISD200=y
-CONFIG_USB_STORAGE_DPCM=y
-# CONFIG_USB_STORAGE_USBAT is not set
-CONFIG_USB_STORAGE_SDDR09=y
-CONFIG_USB_STORAGE_SDDR55=y
-CONFIG_USB_STORAGE_JUMPSHOT=y
-# CONFIG_USB_STORAGE_ALAUDA is not set
-CONFIG_USB_LIBUSUAL=y
-
-#
-# USB Input Devices
-#
-CONFIG_USB_HID=y
-CONFIG_USB_HIDINPUT=y
-# CONFIG_USB_HIDINPUT_POWERBOOK is not set
-CONFIG_HID_FF=y
-CONFIG_HID_PID=y
-# CONFIG_LOGITECH_FF is not set
-# CONFIG_THRUSTMASTER_FF is not set
-CONFIG_USB_HIDDEV=y
-# CONFIG_USB_AIPTEK is not set
-# CONFIG_USB_WACOM is not set
-# CONFIG_USB_ACECAD is not set
-# CONFIG_USB_KBTAB is not set
-# CONFIG_USB_POWERMATE is not set
-# CONFIG_USB_TOUCHSCREEN is not set
-# CONFIG_USB_YEALINK is not set
-# CONFIG_USB_XPAD is not set
-# CONFIG_USB_ATI_REMOTE is not set
-# CONFIG_USB_ATI_REMOTE2 is not set
-# CONFIG_USB_KEYSPAN_REMOTE is not set
-# CONFIG_USB_APPLETOUCH is not set
-
-#
-# USB Imaging devices
-#
-# CONFIG_USB_MDC800 is not set
-# CONFIG_USB_MICROTEK is not set
-
-#
-# USB Network Adapters
-#
-# CONFIG_USB_CATC is not set
-# CONFIG_USB_KAWETH is not set
-# CONFIG_USB_PEGASUS is not set
-# CONFIG_USB_RTL8150 is not set
-# CONFIG_USB_USBNET is not set
-# CONFIG_USB_MON is not set
-
-#
-# USB port drivers
-#
-
-#
-# USB Serial Converter support
-#
-# CONFIG_USB_SERIAL is not set
-
-#
-# USB Miscellaneous drivers
-#
-# CONFIG_USB_EMI62 is not set
-# CONFIG_USB_EMI26 is not set
-# CONFIG_USB_AUERSWALD is not set
-# CONFIG_USB_RIO500 is not set
-# CONFIG_USB_LEGOTOWER is not set
-# CONFIG_USB_LCD is not set
-# CONFIG_USB_LED is not set
-# CONFIG_USB_CY7C63 is not set
-# CONFIG_USB_CYTHERM is not set
-# CONFIG_USB_PHIDGETKIT is not set
-# CONFIG_USB_PHIDGETSERVO is not set
-# CONFIG_USB_IDMOUSE is not set
-# CONFIG_USB_APPLEDISPLAY is not set
-# CONFIG_USB_SISUSBVGA is not set
-# CONFIG_USB_LD is not set
-# CONFIG_USB_TEST is not set
-
-#
-# USB DSL modem support
-#
-
-#
-# USB Gadget Support
-#
-# CONFIG_USB_GADGET is not set
-
-#
-# MMC/SD Card support
-#
-# CONFIG_MMC is not set
-
-#
-# LED devices
-#
-# CONFIG_NEW_LEDS is not set
-
-#
-# LED drivers
-#
-
-#
-# LED Triggers
-#
-
-#
-# InfiniBand support
-#
-# CONFIG_INFINIBAND is not set
-# CONFIG_IPATH_CORE is not set
-
-#
-# EDAC - error detection and reporting (RAS) (EXPERIMENTAL)
-#
-# CONFIG_EDAC is not set
-
-#
-# Real Time Clock
-#
-CONFIG_RTC_LIB=m
-CONFIG_RTC_CLASS=m
-
-#
-# RTC interfaces
-#
-CONFIG_RTC_INTF_SYSFS=m
-CONFIG_RTC_INTF_PROC=m
-CONFIG_RTC_INTF_DEV=m
-# CONFIG_RTC_INTF_DEV_UIE_EMUL is not set
-
-#
-# RTC drivers
-#
-# CONFIG_RTC_DRV_DS1553 is not set
-# CONFIG_RTC_DRV_DS1742 is not set
-# CONFIG_RTC_DRV_M48T86 is not set
-# CONFIG_RTC_DRV_TEST is not set
-# CONFIG_RTC_DRV_V3020 is not set
-
-#
-# DMA Engine support
-#
-# CONFIG_DMA_ENGINE is not set
-
-#
-# DMA Clients
-#
-
-#
-# DMA Devices
-#
-
-#
-# Firmware Drivers
-#
-CONFIG_EDD=m
-# CONFIG_DELL_RBU is not set
-# CONFIG_DCDBAS is not set
-
-#
-# File systems
-#
-CONFIG_EXT2_FS=y
-CONFIG_EXT2_FS_XATTR=y
-CONFIG_EXT2_FS_POSIX_ACL=y
-CONFIG_EXT2_FS_SECURITY=y
-# CONFIG_EXT2_FS_XIP is not set
-CONFIG_EXT3_FS=m
-CONFIG_EXT3_FS_XATTR=y
-CONFIG_EXT3_FS_POSIX_ACL=y
-CONFIG_EXT3_FS_SECURITY=y
-CONFIG_JBD=m
-# CONFIG_JBD_DEBUG is not set
-CONFIG_FS_MBCACHE=y
-# CONFIG_REISERFS_FS is not set
-# CONFIG_JFS_FS is not set
-CONFIG_FS_POSIX_ACL=y
-# CONFIG_XFS_FS is not set
-# CONFIG_OCFS2_FS is not set
-# CONFIG_MINIX_FS is not set
-# CONFIG_ROMFS_FS is not set
-CONFIG_INOTIFY=y
-CONFIG_INOTIFY_USER=y
-# CONFIG_QUOTA is not set
-CONFIG_DNOTIFY=y
-# CONFIG_AUTOFS_FS is not set
-# CONFIG_AUTOFS4_FS is not set
-# CONFIG_FUSE_FS is not set
-
-#
-# CD-ROM/DVD Filesystems
-#
-CONFIG_ISO9660_FS=y
-CONFIG_JOLIET=y
-# CONFIG_ZISOFS is not set
-CONFIG_UDF_FS=m
-CONFIG_UDF_NLS=y
-
-#
-# DOS/FAT/NT Filesystems
-#
-CONFIG_FAT_FS=m
-CONFIG_MSDOS_FS=m
-# CONFIG_VFAT_FS is not set
-CONFIG_FAT_DEFAULT_CODEPAGE=437
-# CONFIG_NTFS_FS is not set
-
-#
-# Pseudo filesystems
-#
-CONFIG_PROC_FS=y
-CONFIG_PROC_KCORE=y
-CONFIG_SYSFS=y
-CONFIG_TMPFS=y
-CONFIG_HUGETLBFS=y
-CONFIG_HUGETLB_PAGE=y
-CONFIG_RAMFS=y
-# CONFIG_CONFIGFS_FS is not set
-
-#
-# Miscellaneous filesystems
-#
-# CONFIG_ADFS_FS is not set
-# CONFIG_AFFS_FS is not set
-# CONFIG_HFS_FS is not set
-# CONFIG_HFSPLUS_FS is not set
-# CONFIG_BEFS_FS is not set
-# CONFIG_BFS_FS is not set
-# CONFIG_EFS_FS is not set
-# CONFIG_CRAMFS is not set
-# CONFIG_VXFS_FS is not set
-# CONFIG_HPFS_FS is not set
-# CONFIG_QNX4FS_FS is not set
-# CONFIG_SYSV_FS is not set
-# CONFIG_UFS_FS is not set
-
-#
-# Network File Systems
-#
-CONFIG_NFS_FS=m
-CONFIG_NFS_V3=y
-# CONFIG_NFS_V3_ACL is not set
-CONFIG_NFS_V4=y
-CONFIG_NFS_DIRECTIO=y
-# CONFIG_NFSD is not set
-CONFIG_LOCKD=m
-CONFIG_LOCKD_V4=y
-CONFIG_NFS_COMMON=y
-CONFIG_SUNRPC=m
-CONFIG_SUNRPC_GSS=m
-CONFIG_RPCSEC_GSS_KRB5=m
-CONFIG_RPCSEC_GSS_SPKM3=m
-# CONFIG_SMB_FS is not set
-# CONFIG_CIFS is not set
-# CONFIG_CIFS_DEBUG2 is not set
-# CONFIG_NCP_FS is not set
-# CONFIG_CODA_FS is not set
-# CONFIG_AFS_FS is not set
-# CONFIG_9P_FS is not set
-
-#
-# Partition Types
-#
-# CONFIG_PARTITION_ADVANCED is not set
-CONFIG_MSDOS_PARTITION=y
-
-#
-# Native Language Support
-#
-CONFIG_NLS=y
-CONFIG_NLS_DEFAULT="utf8"
-CONFIG_NLS_CODEPAGE_437=y
-# CONFIG_NLS_CODEPAGE_737 is not set
-# CONFIG_NLS_CODEPAGE_775 is not set
-# CONFIG_NLS_CODEPAGE_850 is not set
-# CONFIG_NLS_CODEPAGE_852 is not set
-# CONFIG_NLS_CODEPAGE_855 is not set
-# CONFIG_NLS_CODEPAGE_857 is not set
-# CONFIG_NLS_CODEPAGE_860 is not set
-# CONFIG_NLS_CODEPAGE_861 is not set
-# CONFIG_NLS_CODEPAGE_862 is not set
-# CONFIG_NLS_CODEPAGE_863 is not set
-# CONFIG_NLS_CODEPAGE_864 is not set
-# CONFIG_NLS_CODEPAGE_865 is not set
-# CONFIG_NLS_CODEPAGE_866 is not set
-# CONFIG_NLS_CODEPAGE_869 is not set
-# CONFIG_NLS_CODEPAGE_936 is not set
-# CONFIG_NLS_CODEPAGE_950 is not set
-# CONFIG_NLS_CODEPAGE_932 is not set
-# CONFIG_NLS_CODEPAGE_949 is not set
-# CONFIG_NLS_CODEPAGE_874 is not set
-# CONFIG_NLS_ISO8859_8 is not set
-# CONFIG_NLS_CODEPAGE_1250 is not set
-# CONFIG_NLS_CODEPAGE_1251 is not set
-CONFIG_NLS_ASCII=y
-CONFIG_NLS_ISO8859_1=y
-# CONFIG_NLS_ISO8859_2 is not set
-# CONFIG_NLS_ISO8859_3 is not set
-# CONFIG_NLS_ISO8859_4 is not set
-# CONFIG_NLS_ISO8859_5 is not set
-# CONFIG_NLS_ISO8859_6 is not set
-# CONFIG_NLS_ISO8859_7 is not set
-# CONFIG_NLS_ISO8859_9 is not set
-# CONFIG_NLS_ISO8859_13 is not set
-# CONFIG_NLS_ISO8859_14 is not set
-# CONFIG_NLS_ISO8859_15 is not set
-# CONFIG_NLS_KOI8_R is not set
-# CONFIG_NLS_KOI8_U is not set
-CONFIG_NLS_UTF8=y
-
-#
-# Instrumentation Support
-#
-# CONFIG_PROFILING is not set
-# CONFIG_KPROBES is not set
-
-#
-# Kernel hacking
-#
-CONFIG_TRACE_IRQFLAGS_SUPPORT=y
-# CONFIG_PRINTK_TIME is not set
-CONFIG_MAGIC_SYSRQ=y
-# CONFIG_UNUSED_SYMBOLS is not set
-CONFIG_DEBUG_KERNEL=y
-CONFIG_LOG_BUF_SHIFT=17
-CONFIG_DETECT_SOFTLOCKUP=y
-# CONFIG_SCHEDSTATS is not set
-# CONFIG_DEBUG_SLAB is not set
-# CONFIG_DEBUG_RT_MUTEXES is not set
-# CONFIG_RT_MUTEX_TESTER is not set
-# CONFIG_DEBUG_SPINLOCK is not set
-# CONFIG_DEBUG_MUTEXES is not set
-# CONFIG_DEBUG_RWSEMS is not set
-# CONFIG_DEBUG_LOCK_ALLOC is not set
-# CONFIG_PROVE_LOCKING is not set
-# CONFIG_DEBUG_SPINLOCK_SLEEP is not set
-# CONFIG_DEBUG_LOCKING_API_SELFTESTS is not set
-# CONFIG_DEBUG_KOBJECT is not set
-# CONFIG_DEBUG_INFO is not set
-# CONFIG_DEBUG_FS is not set
-# CONFIG_DEBUG_VM is not set
-# CONFIG_FRAME_POINTER is not set
-CONFIG_UNWIND_INFO=y
-# CONFIG_STACK_UNWIND is not set
-CONFIG_FORCED_INLINING=y
-# CONFIG_RCU_TORTURE_TEST is not set
-CONFIG_DEBUG_RODATA=y
-# CONFIG_IOMMU_DEBUG is not set
-# CONFIG_DEBUG_STACKOVERFLOW is not set
-# CONFIG_DEBUG_STACK_USAGE is not set
-
-#
-# Security options
-#
-# CONFIG_KEYS is not set
-# CONFIG_SECURITY is not set
-
-#
-# Cryptographic options
-#
-CONFIG_CRYPTO=y
-CONFIG_CRYPTO_HMAC=y
-# CONFIG_CRYPTO_NULL is not set
-CONFIG_CRYPTO_MD4=m
-CONFIG_CRYPTO_MD5=y
-CONFIG_CRYPTO_SHA1=y
-CONFIG_CRYPTO_SHA256=m
-CONFIG_CRYPTO_SHA512=m
-# CONFIG_CRYPTO_WP512 is not set
-# CONFIG_CRYPTO_TGR192 is not set
-CONFIG_CRYPTO_DES=y
-# CONFIG_CRYPTO_BLOWFISH is not set
-# CONFIG_CRYPTO_TWOFISH is not set
-# CONFIG_CRYPTO_SERPENT is not set
-CONFIG_CRYPTO_AES=m
-CONFIG_CRYPTO_AES_X86_64=y
-CONFIG_CRYPTO_CAST5=m
-# CONFIG_CRYPTO_CAST6 is not set
-# CONFIG_CRYPTO_TEA is not set
-# CONFIG_CRYPTO_ARC4 is not set
-# CONFIG_CRYPTO_KHAZAD is not set
-# CONFIG_CRYPTO_ANUBIS is not set
-CONFIG_CRYPTO_DEFLATE=y
-# CONFIG_CRYPTO_MICHAEL_MIC is not set
-# CONFIG_CRYPTO_CRC32C is not set
-# CONFIG_CRYPTO_TEST is not set
-
-#
-# Hardware crypto devices
-#
-
-#
-# Library routines
-#
-# CONFIG_CRC_CCITT is not set
-# CONFIG_CRC16 is not set
-CONFIG_CRC32=y
-# CONFIG_LIBCRC32C is not set
-CONFIG_ZLIB_INFLATE=y
-CONFIG_ZLIB_DEFLATE=y
-CONFIG_PLIST=y
-
---------------010107010900020000060002--
+Hi John,
+
+Please apply this to wireless-dev.
+
+--
+
+Rewrite of the bcm43xx initialization routines.
+This fixes several issues:
+* up-down-up-down-up... stale data issue
+  (May fix some DHCP issues)
+* Fix the init vs IRQ handler race (and remove the workaround)
+* Fix init for cards with multiple cores (APHY)
+  The active PHY is selected through d80211.
+* Fix the controller restart code.
+  Controller restart can now also be triggered through
+  echo 1 > /debug/bcm43xx/ethX/restart
+
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+
+Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h
+===================================================================
+--- wireless-dev-dscapeports.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h	2006-07-10 00:41:15.000000000 +0200
++++ wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h	2006-07-10 00:54:11.000000000 +0200
+@@ -493,6 +493,12 @@
+ 	 * This lock is only used by bcm43xx_phy_{un}lock()
+ 	 */
+ 	spinlock_t lock;
++
++	/* Firmware. */
++	const struct firmware *ucode;
++	const struct firmware *pcm;
++	const struct firmware *initvals0;
++	const struct firmware *initvals1;
+ };
+ 
+ 
+@@ -583,12 +589,14 @@
+ 	u8 available:1,
+ 	   enabled:1,
+ 	   initialized:1;
+-	/** core_id ID number */
+-	u16 id;
+ 	/** core_rev revision number */
+ 	u8 rev;
+ 	/** Index number for _switch_core() */
+ 	u8 index;
++	/** core_id ID number */
++	u16 id;
++	/** Core-specific data. */
++	void *priv;
+ };
+ 
+ /* Additional information for each 80211 core. */
+@@ -658,7 +666,10 @@
+ 	BCM43xx_STAT_RESTARTING,	/* controller_restart() called. */
+ };
+ #define bcm43xx_status(bcm)		atomic_read(&(bcm)->init_status)
+-#define bcm43xx_set_status(bcm, stat)	atomic_set(&(bcm)->init_status, (stat))
++#define bcm43xx_set_status(bcm, stat)	do {			\
++		atomic_set(&(bcm)->init_status, (stat));	\
++		smp_wmb();					\
++					} while (0)
+ 
+ /*    *** THEORY OF LOCKING ***
+  *
+@@ -740,10 +751,6 @@
+ 	struct bcm43xx_coreinfo core_80211[ BCM43xx_MAX_80211_CORES ];
+ 	/* Additional information, specific to the 80211 cores. */
+ 	struct bcm43xx_coreinfo_80211 core_80211_ext[ BCM43xx_MAX_80211_CORES ];
+-	/* Index of the current 80211 core. If current_core is not
+-	 * an 80211 core, this is -1.
+-	 */
+-	int current_80211_core_idx;
+ 	/* Number of available 80211 cores. */
+ 	int nr_80211_available;
+ 
+@@ -776,12 +783,6 @@
+ 	struct bcm43xx_key key[54];
+ 	u8 default_key_idx;
+ 
+-	/* Firmware. */
+-	const struct firmware *ucode;
+-	const struct firmware *pcm;
+-	const struct firmware *initvals0;
+-	const struct firmware *initvals1;
+-
+ 	/* Cached beacon template while uploading the template. */
+ 	struct sk_buff *cached_beacon;
+ 
+@@ -828,34 +829,33 @@
+  * any of these functions.
+  */
+ static inline
++struct bcm43xx_coreinfo_80211 *
++bcm43xx_current_80211_priv(struct bcm43xx_private *bcm)
++{
++	assert(bcm->current_core->id == BCM43xx_COREID_80211);
++	return bcm->current_core->priv;
++}
++static inline
+ struct bcm43xx_pio * bcm43xx_current_pio(struct bcm43xx_private *bcm)
+ {
+ 	assert(bcm43xx_using_pio(bcm));
+-	assert(bcm->current_80211_core_idx >= 0);
+-	assert(bcm->current_80211_core_idx < BCM43xx_MAX_80211_CORES);
+-	return &(bcm->core_80211_ext[bcm->current_80211_core_idx].pio);
++	return &(bcm43xx_current_80211_priv(bcm)->pio);
+ }
+ static inline
+ struct bcm43xx_dma * bcm43xx_current_dma(struct bcm43xx_private *bcm)
+ {
+ 	assert(!bcm43xx_using_pio(bcm));
+-	assert(bcm->current_80211_core_idx >= 0);
+-	assert(bcm->current_80211_core_idx < BCM43xx_MAX_80211_CORES);
+-	return &(bcm->core_80211_ext[bcm->current_80211_core_idx].dma);
++	return &(bcm43xx_current_80211_priv(bcm)->dma);
+ }
+ static inline
+ struct bcm43xx_phyinfo * bcm43xx_current_phy(struct bcm43xx_private *bcm)
+ {
+-	assert(bcm->current_80211_core_idx >= 0);
+-	assert(bcm->current_80211_core_idx < BCM43xx_MAX_80211_CORES);
+-	return &(bcm->core_80211_ext[bcm->current_80211_core_idx].phy);
++	return &(bcm43xx_current_80211_priv(bcm)->phy);
+ }
+ static inline
+ struct bcm43xx_radioinfo * bcm43xx_current_radio(struct bcm43xx_private *bcm)
+ {
+-	assert(bcm->current_80211_core_idx >= 0);
+-	assert(bcm->current_80211_core_idx < BCM43xx_MAX_80211_CORES);
+-	return &(bcm->core_80211_ext[bcm->current_80211_core_idx].radio);
++	return &(bcm43xx_current_80211_priv(bcm)->radio);
+ }
+ 
+ 
+Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-dev-dscapeports.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c	2006-07-10 00:41:15.000000000 +0200
++++ wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c	2006-07-10 00:54:11.000000000 +0200
+@@ -147,6 +147,73 @@
+ MODULE_DEVICE_TABLE(pci, bcm43xx_pci_tbl);
+ 
+ 
++#define RATETAB_ENT(_rateid, _flags) \
++	{						\
++		.rate	= (((_rateid) * 10) / 2),	\
++		.val	= (_rateid),			\
++		.val2	= (_rateid),			\
++		.flags	= (_flags),			\
++	}
++static const struct ieee80211_rate bcm43xx_cck_ratetable[] = {
++	RATETAB_ENT(BCM43xx_CCK_RATE_1MB, IEEE80211_RATE_CCK),
++	RATETAB_ENT(BCM43xx_CCK_RATE_2MB, IEEE80211_RATE_CCK_2),
++	RATETAB_ENT(BCM43xx_CCK_RATE_5MB, IEEE80211_RATE_CCK_2),
++	RATETAB_ENT(BCM43xx_CCK_RATE_11MB, IEEE80211_RATE_CCK_2),
++};
++static const struct ieee80211_rate bcm43xx_ofdm_ratetable[] = {
++	RATETAB_ENT(BCM43xx_OFDM_RATE_6MB, IEEE80211_RATE_OFDM),
++	RATETAB_ENT(BCM43xx_OFDM_RATE_9MB, IEEE80211_RATE_OFDM),
++	RATETAB_ENT(BCM43xx_OFDM_RATE_12MB, IEEE80211_RATE_OFDM),
++	RATETAB_ENT(BCM43xx_OFDM_RATE_18MB, IEEE80211_RATE_OFDM),
++	RATETAB_ENT(BCM43xx_OFDM_RATE_24MB, IEEE80211_RATE_OFDM),
++	RATETAB_ENT(BCM43xx_OFDM_RATE_36MB, IEEE80211_RATE_OFDM),
++	RATETAB_ENT(BCM43xx_OFDM_RATE_48MB, IEEE80211_RATE_OFDM),
++	RATETAB_ENT(BCM43xx_OFDM_RATE_54MB, IEEE80211_RATE_OFDM),
++};
++#define CHANTAB_ENT(_chanid, _freq) \
++	{							\
++		.chan	= (_chanid),				\
++		.freq	= (_freq),				\
++		.val	= (_chanid),				\
++		.flag	= IEEE80211_CHAN_W_SCAN |		\
++			  IEEE80211_CHAN_W_ACTIVE_SCAN |	\
++			  IEEE80211_CHAN_W_IBSS,		\
++		.power_level	= 0xFF,				\
++		.antenna_max	= 0xFF,				\
++	}
++static const struct ieee80211_channel bcm43xx_bg_chantable[] = {
++	CHANTAB_ENT(1, 2412),
++	CHANTAB_ENT(2, 2417),
++	CHANTAB_ENT(3, 2422),
++	CHANTAB_ENT(4, 2427),
++	CHANTAB_ENT(5, 2432),
++	CHANTAB_ENT(6, 2437),
++	CHANTAB_ENT(7, 2442),
++	CHANTAB_ENT(8, 2447),
++	CHANTAB_ENT(9, 2452),
++	CHANTAB_ENT(10, 2457),
++	CHANTAB_ENT(11, 2462),
++	CHANTAB_ENT(12, 2467),
++	CHANTAB_ENT(13, 2472),
++	CHANTAB_ENT(14, 2484),
++};
++static const struct ieee80211_channel bcm43xx_a_chantable[] = {
++	CHANTAB_ENT(36, 5180),
++	CHANTAB_ENT(40, 5200),
++	CHANTAB_ENT(44, 5220),
++	CHANTAB_ENT(48, 5240),
++	CHANTAB_ENT(52, 5260),
++	CHANTAB_ENT(56, 5280),
++	CHANTAB_ENT(60, 5300),
++	CHANTAB_ENT(64, 5320),
++	CHANTAB_ENT(149, 5745),
++	CHANTAB_ENT(153, 5765),
++	CHANTAB_ENT(157, 5785),
++	CHANTAB_ENT(161, 5805),
++	CHANTAB_ENT(165, 5825),
++};
++
++
+ static void bcm43xx_ram_write(struct bcm43xx_private *bcm, u16 offset, u32 val)
+ {
+ 	u32 status;
+@@ -516,23 +583,19 @@
+ }
+ 
+ /* Make sure we don't receive more data from the device. */
+-static int bcm43xx_disable_interrupts_sync(struct bcm43xx_private *bcm, u32 *oldstate)
++static int bcm43xx_disable_interrupts_sync(struct bcm43xx_private *bcm)
+ {
+ 	unsigned long flags;
+-	u32 old;
+ 
+ 	spin_lock_irqsave(&bcm->irq_lock, flags);
+ 	if (unlikely(bcm43xx_status(bcm) != BCM43xx_STAT_INITIALIZED)) {
+ 		spin_unlock_irqrestore(&bcm->irq_lock, flags);
+ 		return -EBUSY;
+ 	}
+-	old = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
++	bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+ 	spin_unlock_irqrestore(&bcm->irq_lock, flags);
+ 	bcm43xx_synchronize_irq(bcm);
+ 
+-	if (oldstate)
+-		*oldstate = old;
+-
+ 	return 0;
+ }
+ 
+@@ -544,7 +607,6 @@
+ 	u16 manufact;
+ 	u16 version;
+ 	u8 revision;
+-	s8 i;
+ 
+ 	if (bcm->chip_id == 0x4317) {
+ 		if (bcm->chip_rev == 0x00)
+@@ -587,17 +649,6 @@
+ 	radio->version = version;
+ 	radio->revision = revision;
+ 
+-	/* Set default attenuation values. */
+-	radio->baseband_atten = bcm43xx_default_baseband_attenuation(bcm);
+-	radio->radio_atten = bcm43xx_default_radio_attenuation(bcm);
+-	radio->txctl1 = bcm43xx_default_txctl1(bcm);
+-	radio->txctl2 = 0xFFFF;
+-	radio->power_level = ~0;
+-
+-	/* Initialize the in-memory nrssi Lookup Table. */
+-	for (i = 0; i < 64; i++)
+-		radio->nrssi_lt[i] = i;
+-
+ 	return 0;
+ 
+ err_unsupported_radio:
+@@ -1150,10 +1201,6 @@
+ 		goto out;
+ 
+ 	bcm->current_core = new_core;
+-	bcm->current_80211_core_idx = -1;
+-	if (new_core->id == BCM43xx_COREID_80211)
+-		bcm->current_80211_core_idx = (int)(new_core - &(bcm->core_80211[0]));
+-
+ out:
+ 	return err;
+ }
+@@ -1323,43 +1370,23 @@
+ 	bcm43xx_core_disable(bcm, 0);
+ }
+ 
+-/* Mark the current 80211 core inactive.
+- * "active_80211_core" is the other 80211 core, which is used.
+- */
+-static int bcm43xx_wireless_core_mark_inactive(struct bcm43xx_private *bcm,
+-					       struct bcm43xx_coreinfo *active_80211_core)
++/* Mark the current 80211 core inactive. */
++static void bcm43xx_wireless_core_mark_inactive(struct bcm43xx_private *bcm)
+ {
+ 	u32 sbtmstatelow;
+-	struct bcm43xx_coreinfo *old_core;
+-	int err = 0;
+ 
+ 	bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+ 	bcm43xx_radio_turn_off(bcm);
+ 	sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+-	sbtmstatelow &= ~0x200a0000;
+-	sbtmstatelow |= 0xa0000;
++	sbtmstatelow &= 0xDFF5FFFF;
++	sbtmstatelow |= 0x000A0000;
+ 	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+ 	udelay(1);
+ 	sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+-	sbtmstatelow &= ~0xa0000;
+-	sbtmstatelow |= 0x80000;
++	sbtmstatelow &= 0xFFF5FFFF;
++	sbtmstatelow |= 0x00080000;
+ 	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+ 	udelay(1);
+-
+-	if (bcm43xx_current_phy(bcm)->type == BCM43xx_PHYTYPE_G) {
+-		old_core = bcm->current_core;
+-		err = bcm43xx_switch_core(bcm, active_80211_core);
+-		if (err)
+-			goto out;
+-		sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+-		sbtmstatelow &= ~0x20000000;
+-		sbtmstatelow |= 0x20000000;
+-		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+-		err = bcm43xx_switch_core(bcm, old_core);
+-	}
+-
+-out:
+-	return err;
+ }
+ 
+ static void handle_irq_transmit_status(struct bcm43xx_private *bcm)
+@@ -2008,6 +2035,9 @@
+ 
+ 	spin_lock(&bcm->irq_lock);
+ 
++	assert(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED);
++	assert(bcm->current_core->id == BCM43xx_COREID_80211);
++
+ 	reason = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+ 	if (reason == 0xffffffff) {
+ 		/* irq not for us (shared irq) */
+@@ -2028,21 +2058,11 @@
+ 			     & 0x0001dc00;
+ 
+ 	bcm43xx_interrupt_ack(bcm, reason);
+-
+-	/* Only accept IRQs, if we are initialized properly.
+-	 * This avoids an RX race while initializing.
+-	 * We should probably not enable IRQs before we are initialized
+-	 * completely, but some careful work is needed to fix this. I think it
+-	 * is best to stay with this cheap workaround for now... .
+-	 */
+-	if (likely(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED)) {
+-		/* disable all IRQs. They are enabled again in the bottom half. */
+-		bcm->irq_savedstate = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+-		/* save the reason code and call our bottom half. */
+-		bcm->irq_reason = reason;
+-		tasklet_schedule(&bcm->isr_tasklet);
+-	}
+-
++	/* disable all IRQs. They are enabled again in the bottom half. */
++	bcm->irq_savedstate = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
++	/* save the reason code and call our bottom half. */
++	bcm->irq_reason = reason;
++	tasklet_schedule(&bcm->isr_tasklet);
+ out:
+ 	mmiowb();
+ 	spin_unlock(&bcm->irq_lock);
+@@ -2052,16 +2072,18 @@
+ 
+ static void bcm43xx_release_firmware(struct bcm43xx_private *bcm, int force)
+ {
++	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
++
+ 	if (bcm->firmware_norelease && !force)
+ 		return; /* Suspending or controller reset. */
+-	release_firmware(bcm->ucode);
+-	bcm->ucode = NULL;
+-	release_firmware(bcm->pcm);
+-	bcm->pcm = NULL;
+-	release_firmware(bcm->initvals0);
+-	bcm->initvals0 = NULL;
+-	release_firmware(bcm->initvals1);
+-	bcm->initvals1 = NULL;
++	release_firmware(phy->ucode);
++	phy->ucode = NULL;
++	release_firmware(phy->pcm);
++	phy->pcm = NULL;
++	release_firmware(phy->initvals0);
++	phy->initvals0 = NULL;
++	release_firmware(phy->initvals1);
++	phy->initvals1 = NULL;
+ }
+ 
+ static int bcm43xx_request_firmware(struct bcm43xx_private *bcm)
+@@ -2072,11 +2094,11 @@
+ 	int nr;
+ 	char buf[22 + sizeof(modparam_fwpostfix) - 1] = { 0 };
+ 
+-	if (!bcm->ucode) {
++	if (!phy->ucode) {
+ 		snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_microcode%d%s.fw",
+ 			 (rev >= 5 ? 5 : rev),
+ 			 modparam_fwpostfix);
+-		err = request_firmware(&bcm->ucode, buf, &bcm->pci_dev->dev);
++		err = request_firmware(&phy->ucode, buf, &bcm->pci_dev->dev);
+ 		if (err) {
+ 			printk(KERN_ERR PFX 
+ 			       "Error: Microcode \"%s\" not available or load failed.\n",
+@@ -2085,12 +2107,12 @@
+ 		}
+ 	}
+ 
+-	if (!bcm->pcm) {
++	if (!phy->pcm) {
+ 		snprintf(buf, ARRAY_SIZE(buf),
+ 			 "bcm43xx_pcm%d%s.fw",
+ 			 (rev < 5 ? 4 : 5),
+ 			 modparam_fwpostfix);
+-		err = request_firmware(&bcm->pcm, buf, &bcm->pci_dev->dev);
++		err = request_firmware(&phy->pcm, buf, &bcm->pci_dev->dev);
+ 		if (err) {
+ 			printk(KERN_ERR PFX
+ 			       "Error: PCM \"%s\" not available or load failed.\n",
+@@ -2099,7 +2121,7 @@
+ 		}
+ 	}
+ 
+-	if (!bcm->initvals0) {
++	if (!phy->initvals0) {
+ 		if (rev == 2 || rev == 4) {
+ 			switch (phy->type) {
+ 			case BCM43xx_PHYTYPE_A:
+@@ -2130,20 +2152,20 @@
+ 		snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
+ 			 nr, modparam_fwpostfix);
+ 
+-		err = request_firmware(&bcm->initvals0, buf, &bcm->pci_dev->dev);
++		err = request_firmware(&phy->initvals0, buf, &bcm->pci_dev->dev);
+ 		if (err) {
+ 			printk(KERN_ERR PFX 
+ 			       "Error: InitVals \"%s\" not available or load failed.\n",
+ 			        buf);
+ 			goto error;
+ 		}
+-		if (bcm->initvals0->size % sizeof(struct bcm43xx_initval)) {
++		if (phy->initvals0->size % sizeof(struct bcm43xx_initval)) {
+ 			printk(KERN_ERR PFX "InitVals fileformat error.\n");
+ 			goto error;
+ 		}
+ 	}
+ 
+-	if (!bcm->initvals1) {
++	if (!phy->initvals1) {
+ 		if (rev >= 5) {
+ 			u32 sbtmstatehigh;
+ 
+@@ -2165,14 +2187,14 @@
+ 			snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
+ 				 nr, modparam_fwpostfix);
+ 
+-			err = request_firmware(&bcm->initvals1, buf, &bcm->pci_dev->dev);
++			err = request_firmware(&phy->initvals1, buf, &bcm->pci_dev->dev);
+ 			if (err) {
+ 				printk(KERN_ERR PFX 
+ 				       "Error: InitVals \"%s\" not available or load failed.\n",
+ 			        	buf);
+ 				goto error;
+ 			}
+-			if (bcm->initvals1->size % sizeof(struct bcm43xx_initval)) {
++			if (phy->initvals1->size % sizeof(struct bcm43xx_initval)) {
+ 				printk(KERN_ERR PFX "InitVals fileformat error.\n");
+ 				goto error;
+ 			}
+@@ -2192,12 +2214,13 @@
+ 
+ static void bcm43xx_upload_microcode(struct bcm43xx_private *bcm)
+ {
++	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	const u32 *data;
+ 	unsigned int i, len;
+ 
+ 	/* Upload Microcode. */
+-	data = (u32 *)(bcm->ucode->data);
+-	len = bcm->ucode->size / sizeof(u32);
++	data = (u32 *)(phy->ucode->data);
++	len = phy->ucode->size / sizeof(u32);
+ 	bcm43xx_shm_control_word(bcm, BCM43xx_SHM_UCODE, 0x0000);
+ 	for (i = 0; i < len; i++) {
+ 		bcm43xx_write32(bcm, BCM43xx_MMIO_SHM_DATA,
+@@ -2206,8 +2229,8 @@
+ 	}
+ 
+ 	/* Upload PCM data. */
+-	data = (u32 *)(bcm->pcm->data);
+-	len = bcm->pcm->size / sizeof(u32);
++	data = (u32 *)(phy->pcm->data);
++	len = phy->pcm->size / sizeof(u32);
+ 	bcm43xx_shm_control_word(bcm, BCM43xx_SHM_PCM, 0x01ea);
+ 	bcm43xx_write32(bcm, BCM43xx_MMIO_SHM_DATA, 0x00004000);
+ 	bcm43xx_shm_control_word(bcm, BCM43xx_SHM_PCM, 0x01eb);
+@@ -2253,15 +2276,16 @@
+ 
+ static int bcm43xx_upload_initvals(struct bcm43xx_private *bcm)
+ {
++	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	int err;
+ 
+-	err = bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)bcm->initvals0->data,
+-				     bcm->initvals0->size / sizeof(struct bcm43xx_initval));
++	err = bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)phy->initvals0->data,
++				     phy->initvals0->size / sizeof(struct bcm43xx_initval));
+ 	if (err)
+ 		goto out;
+-	if (bcm->initvals1) {
+-		err = bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)bcm->initvals1->data,
+-					     bcm->initvals1->size / sizeof(struct bcm43xx_initval));
++	if (phy->initvals1) {
++		err = bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)phy->initvals1->data,
++					     phy->initvals1->size / sizeof(struct bcm43xx_initval));
+ 		if (err)
+ 			goto out;
+ 	}
+@@ -2271,9 +2295,7 @@
+ 
+ static int bcm43xx_initialize_irq(struct bcm43xx_private *bcm)
+ {
+-	int res;
+-	unsigned int i;
+-	u32 data;
++	int err;
+ 
+ 	bcm->irq = bcm->pci_dev->irq;
+ #ifdef CONFIG_BCM947XX
+@@ -2286,32 +2308,12 @@
+ 		}
+ 	}
+ #endif
+-	res = request_irq(bcm->irq, bcm43xx_interrupt_handler,
++	err = request_irq(bcm->irq, bcm43xx_interrupt_handler,
+ 			  SA_SHIRQ, KBUILD_MODNAME, bcm);
+-	if (res) {
++	if (err)
+ 		printk(KERN_ERR PFX "Cannot register IRQ%d\n", bcm->irq);
+-		return -ENODEV;
+-	}
+-	bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON, 0xffffffff);
+-	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, 0x00020402);
+-	i = 0;
+-	while (1) {
+-		data = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+-		if (data == BCM43xx_IRQ_READY)
+-			break;
+-		i++;
+-		if (i >= BCM43xx_IRQWAIT_MAX_RETRIES) {
+-			printk(KERN_ERR PFX "Card IRQ register not responding. "
+-					    "Giving up.\n");
+-			free_irq(bcm->irq, bcm);
+-			return -ENODEV;
+-		}
+-		udelay(10);
+-	}
+-	// dummy read
+-	bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+ 
+-	return 0;
++	return err;
+ }
+ 
+ /* Switch to the core used to write the GPIO register.
+@@ -2498,6 +2500,46 @@
+ 	bcm43xx_write16(bcm, 0x0612, value);
+ }
+ 
++static void bcm43xx_rate_memory_write(struct bcm43xx_private *bcm,
++				      u16 rate,
++				      int is_ofdm)
++{
++	u16 offset;
++
++	if (is_ofdm) {
++		offset = 0x480;
++		offset += (bcm43xx_plcp_get_ratecode_ofdm(rate) & 0x000F) * 2;
++	} else {
++		offset = 0x4C0;
++		offset += (bcm43xx_plcp_get_ratecode_cck(rate) & 0x000F) * 2;
++	}
++	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, offset + 0x20,
++			    bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, offset));
++}
++
++static void bcm43xx_rate_memory_init(struct bcm43xx_private *bcm)
++{
++	switch (bcm43xx_current_phy(bcm)->type) {
++	case BCM43xx_PHYTYPE_A:
++	case BCM43xx_PHYTYPE_G:
++		bcm43xx_rate_memory_write(bcm, BCM43xx_OFDM_RATE_6MB, 1);
++		bcm43xx_rate_memory_write(bcm, BCM43xx_OFDM_RATE_12MB, 1);
++		bcm43xx_rate_memory_write(bcm, BCM43xx_OFDM_RATE_18MB, 1);
++		bcm43xx_rate_memory_write(bcm, BCM43xx_OFDM_RATE_24MB, 1);
++		bcm43xx_rate_memory_write(bcm, BCM43xx_OFDM_RATE_36MB, 1);
++		bcm43xx_rate_memory_write(bcm, BCM43xx_OFDM_RATE_48MB, 1);
++		bcm43xx_rate_memory_write(bcm, BCM43xx_OFDM_RATE_54MB, 1);
++	case BCM43xx_PHYTYPE_B:
++		bcm43xx_rate_memory_write(bcm, BCM43xx_CCK_RATE_1MB, 0);
++		bcm43xx_rate_memory_write(bcm, BCM43xx_CCK_RATE_2MB, 0);
++		bcm43xx_rate_memory_write(bcm, BCM43xx_CCK_RATE_5MB, 0);
++		bcm43xx_rate_memory_write(bcm, BCM43xx_CCK_RATE_11MB, 0);
++		break;
++	default:
++		assert(0);
++	}
++}
++
+ /* This is the opposite of bcm43xx_chip_init() */
+ static void bcm43xx_chip_cleanup(struct bcm43xx_private *bcm)
+ {
+@@ -2505,7 +2547,6 @@
+ 	if (!modparam_noleds)
+ 		bcm43xx_leds_exit(bcm);
+ 	bcm43xx_gpio_cleanup(bcm);
+-	free_irq(bcm->irq, bcm);
+ 	bcm43xx_release_firmware(bcm, 0);
+ }
+ 
+@@ -2517,7 +2558,7 @@
+ 	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	int err;
+-	int tmp;
++	int i, tmp;
+ 	u32 value32;
+ 	u16 value16;
+ 
+@@ -2529,12 +2570,27 @@
+ 	if (err)
+ 		goto out;
+ 	bcm43xx_upload_microcode(bcm);
+-	err = bcm43xx_initialize_irq(bcm);
+-	if (err)
+-		goto err_release_fw;
++
++	bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON, 0xFFFFFFFF);
++	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, 0x00020402);
++	i = 0;
++	while (1) {
++		value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
++		if (value32 == BCM43xx_IRQ_READY)
++			break;
++		i++;
++		if (i >= BCM43xx_IRQWAIT_MAX_RETRIES) {
++			printk(KERN_ERR PFX "IRQ_READY timeout\n");
++			err = -ENODEV;
++			goto err_release_fw;
++		}
++		udelay(10);
++	}
++	bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy read */
++
+ 	err = bcm43xx_gpio_init(bcm);
+ 	if (err)
+-		goto err_free_irq;
++		goto err_release_fw;
+ 	err = bcm43xx_upload_initvals(bcm);
+ 	if (err)
+ 		goto err_gpio_cleanup;
+@@ -2617,140 +2673,457 @@
+ 	bcm43xx_radio_turn_off(bcm);
+ err_gpio_cleanup:
+ 	bcm43xx_gpio_cleanup(bcm);
+-err_free_irq:
+-	free_irq(bcm->irq, bcm);
+ err_release_fw:
+ 	bcm43xx_release_firmware(bcm, 1);
+ 	goto out;
+ }
+-	
+-/* Validate chip access
+- * http://bcm-specs.sipsolutions.net/ValidateChipAccess */
+-static int bcm43xx_validate_chip(struct bcm43xx_private *bcm)
+-{
+-	u32 value;
+-	u32 shm_backup;
+-
+-	shm_backup = bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, 0x0000);
+-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, 0x0000, 0xAA5555AA);
+-	if (bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, 0x0000) != 0xAA5555AA)
+-		goto error;
+-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, 0x0000, 0x55AAAA55);
+-	if (bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, 0x0000) != 0x55AAAA55)
+-		goto error;
+-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, 0x0000, shm_backup);
+-
+-	value = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+-	if ((value | 0x80000000) != 0x80000400)
+-		goto error;
+-
+-	value = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+-	if (value != 0x00000000)
+-		goto error;
+-
+-	return 0;
+-error:
+-	printk(KERN_ERR PFX "Failed to validate the chipaccess\n");
+-	return -ENODEV;
+-}
+ 
+-static void bcm43xx_init_struct_phyinfo(struct bcm43xx_phyinfo *phy)
++static void bcm43xx_wireless_core_cleanup(struct bcm43xx_private *bcm)
+ {
+-	/* Initialize a "phyinfo" structure. The structure is already
+-	 * zeroed out.
+-	 */
+-	phy->antenna_diversity = 0xFFFF;
+-	phy->savedpctlreg = 0xFFFF;
+-	phy->minlowsig[0] = 0xFFFF;
+-	phy->minlowsig[1] = 0xFFFF;
+-	spin_lock_init(&phy->lock);
+-}
++	bcm43xx_chip_cleanup(bcm);
++	bcm43xx_pio_free(bcm);
++	bcm43xx_dma_free(bcm);
+ 
+-static void bcm43xx_init_struct_radioinfo(struct bcm43xx_radioinfo *radio)
+-{
+-	/* Initialize a "radioinfo" structure. The structure is already
+-	 * zeroed out.
+-	 */
+-	radio->interfmode = BCM43xx_RADIO_INTERFMODE_NONE;
+-	radio->channel = 0xFF;
+-	radio->initial_channel = 0xFF;
+-	radio->lofcal = 0xFFFF;
+-	radio->initval = 0xFFFF;
+-	radio->nrssi[0] = -1000;
+-	radio->nrssi[1] = -1000;
++	bcm->current_core->initialized = 0;
+ }
+ 
+-static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
++/* http://bcm-specs.sipsolutions.net/80211Init */
++static int bcm43xx_wireless_core_init(struct bcm43xx_private *bcm,
++				      int active_wlcore)
+ {
+-	int err, i;
+-	int current_core;
+-	u32 core_vendor, core_id, core_rev;
+-	u32 sb_id_hi, chip_id_32 = 0;
+-	u16 pci_device, chip_id_16;
+-	u8 core_count;
++	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
++	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
++	u32 ucodeflags;
++	int err;
++	u32 sbimconfiglow;
++	u8 limit;
+ 
+-	memset(&bcm->core_chipcommon, 0, sizeof(struct bcm43xx_coreinfo));
+-	memset(&bcm->core_pci, 0, sizeof(struct bcm43xx_coreinfo));
+-	memset(&bcm->core_80211, 0, sizeof(struct bcm43xx_coreinfo)
+-				    * BCM43xx_MAX_80211_CORES);
+-	memset(&bcm->core_80211_ext, 0, sizeof(struct bcm43xx_coreinfo_80211)
+-					* BCM43xx_MAX_80211_CORES);
+-	bcm->current_80211_core_idx = -1;
+-	bcm->nr_80211_available = 0;
+-	bcm->current_core = NULL;
+-	bcm->active_80211_core = NULL;
++	if (bcm->chip_rev < 5) {
++		sbimconfiglow = bcm43xx_read32(bcm, BCM43xx_CIR_SBIMCONFIGLOW);
++		sbimconfiglow &= ~ BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
++		sbimconfiglow &= ~ BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
++		if (bcm->bustype == BCM43xx_BUSTYPE_PCI)
++			sbimconfiglow |= 0x32;
++		else if (bcm->bustype == BCM43xx_BUSTYPE_SB)
++			sbimconfiglow |= 0x53;
++		else
++			assert(0);
++		bcm43xx_write32(bcm, BCM43xx_CIR_SBIMCONFIGLOW, sbimconfiglow);
++	}
+ 
+-	/* map core 0 */
+-	err = _switch_core(bcm, 0);
++	bcm43xx_phy_calibrate(bcm);
++	err = bcm43xx_chip_init(bcm);
+ 	if (err)
+ 		goto out;
+ 
+-	/* fetch sb_id_hi from core information registers */
+-	sb_id_hi = bcm43xx_read32(bcm, BCM43xx_CIR_SB_ID_HI);
++	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0016, bcm->current_core->rev);
++	ucodeflags = bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, BCM43xx_UCODEFLAGS_OFFSET);
+ 
+-	core_id = (sb_id_hi & 0xFFF0) >> 4;
+-	core_rev = (sb_id_hi & 0xF);
+-	core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
++	if (0 /*FIXME: which condition has to be used here? */)
++		ucodeflags |= 0x00000010;
+ 
+-	/* if present, chipcommon is always core 0; read the chipid from it */
+-	if (core_id == BCM43xx_COREID_CHIPCOMMON) {
+-		chip_id_32 = bcm43xx_read32(bcm, 0);
+-		chip_id_16 = chip_id_32 & 0xFFFF;
+-		bcm->core_chipcommon.available = 1;
+-		bcm->core_chipcommon.id = core_id;
+-		bcm->core_chipcommon.rev = core_rev;
+-		bcm->core_chipcommon.index = 0;
+-		/* While we are at it, also read the capabilities. */
+-		bcm->chipcommon_capabilities = bcm43xx_read32(bcm, BCM43xx_CHIPCOMMON_CAPABILITIES);
+-	} else {
+-		/* without a chipCommon, use a hard coded table. */
+-		pci_device = bcm->pci_dev->device;
+-		if (pci_device == 0x4301)
+-			chip_id_16 = 0x4301;
+-		else if ((pci_device >= 0x4305) && (pci_device <= 0x4307))
+-			chip_id_16 = 0x4307;
+-		else if ((pci_device >= 0x4402) && (pci_device <= 0x4403))
+-			chip_id_16 = 0x4402;
+-		else if ((pci_device >= 0x4610) && (pci_device <= 0x4615))
+-			chip_id_16 = 0x4610;
+-		else if ((pci_device >= 0x4710) && (pci_device <= 0x4715))
+-			chip_id_16 = 0x4710;
+-#ifdef CONFIG_BCM947XX
+-		else if ((pci_device >= 0x4320) && (pci_device <= 0x4325))
+-			chip_id_16 = 0x4309;
+-#endif
+-		else {
+-			printk(KERN_ERR PFX "Could not determine Chip ID\n");
+-			return -ENODEV;
+-		}
+-	}
++	/* HW decryption needs to be set now. */
++	ucodeflags |= 0x40000000;
+ 
+-	/* ChipCommon with Core Rev >=4 encodes number of cores,
+-	 * otherwise consult hardcoded table */
+-	if ((core_id == BCM43xx_COREID_CHIPCOMMON) && (core_rev >= 4)) {
+-		core_count = (chip_id_32 & 0x0F000000) >> 24;
+-	} else {
+-		switch (chip_id_16) {
++	if (phy->type == BCM43xx_PHYTYPE_G) {
++		ucodeflags |= BCM43xx_UCODEFLAG_UNKBGPHY;
++		if (phy->rev == 1)
++			ucodeflags |= BCM43xx_UCODEFLAG_UNKGPHY;
++		if (bcm->sprom.boardflags & BCM43xx_BFL_PACTRL)
++			ucodeflags |= BCM43xx_UCODEFLAG_UNKPACTRL;
++	} else if (phy->type == BCM43xx_PHYTYPE_B) {
++		ucodeflags |= BCM43xx_UCODEFLAG_UNKBGPHY;
++		if (phy->rev >= 2 && radio->version == 0x2050)
++			ucodeflags &= ~BCM43xx_UCODEFLAG_UNKGPHY;
++	}
++
++	if (ucodeflags != bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED,
++					     BCM43xx_UCODEFLAGS_OFFSET)) {
++		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
++				    BCM43xx_UCODEFLAGS_OFFSET, ucodeflags);
++	}
++
++	/* Short/Long Retry Limit.
++	 * The retry-limit is a 4-bit counter. Enforce this to avoid overflowing
++	 * the chip-internal counter.
++	 */
++	limit = limit_value(modparam_short_retry, 0, 0xF);
++	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0006, limit);
++	limit = limit_value(modparam_long_retry, 0, 0xF);
++	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0007, limit);
++
++	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0044, 3);
++	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0046, 2);
++
++	bcm43xx_rate_memory_init(bcm);
++
++	/* Minimum Contention Window */
++	if (phy->type == BCM43xx_PHYTYPE_B)
++		bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0003, 0x0000001f);
++	else
++		bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0003, 0x0000000f);
++	/* Maximum Contention Window */
++	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0004, 0x000003ff);
++
++	bcm43xx_write_mac_bssid_templates(bcm);
++
++	if (bcm->current_core->rev >= 5)
++		bcm43xx_write16(bcm, 0x043C, 0x000C);
++
++	if (active_wlcore) {
++		if (bcm43xx_using_pio(bcm))
++			err = bcm43xx_pio_init(bcm);
++		else
++			err = bcm43xx_dma_init(bcm);
++		if (err)
++			goto err_chip_cleanup;
++	}
++	bcm43xx_write16(bcm, 0x0612, 0x0050);
++	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0416, 0x0050);
++	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0414, 0x01F4);
++
++	if (active_wlcore) {
++		if (radio->initial_channel != 0xFF)
++			bcm43xx_radio_selectchannel(bcm, radio->initial_channel, 0);
++	}
++
++	/* Don't enable MAC/IRQ here, as it will race with the IRQ handler.
++	 * We enable it later.
++	 */
++	bcm->current_core->initialized = 1;
++out:
++	return err;
++
++err_chip_cleanup:
++	bcm43xx_chip_cleanup(bcm);
++	goto out;
++}
++
++static void bcm43xx_periodic_every120sec(struct bcm43xx_private *bcm)
++{
++	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
++
++	if (phy->type != BCM43xx_PHYTYPE_G || phy->rev < 2)
++		return;
++
++	bcm43xx_mac_suspend(bcm);
++	bcm43xx_phy_lo_g_measure(bcm);
++	bcm43xx_mac_enable(bcm);
++}
++
++static void bcm43xx_periodic_every60sec(struct bcm43xx_private *bcm)
++{
++	bcm43xx_phy_lo_mark_all_unused(bcm);
++	if (bcm->sprom.boardflags & BCM43xx_BFL_RSSI) {
++		bcm43xx_mac_suspend(bcm);
++		bcm43xx_calc_nrssi_slope(bcm);
++		bcm43xx_mac_enable(bcm);
++	}
++}
++
++static void bcm43xx_periodic_every30sec(struct bcm43xx_private *bcm)
++{
++	/* Update device statistics. */
++	bcm43xx_calculate_link_quality(bcm);
++}
++
++static void bcm43xx_periodic_every15sec(struct bcm43xx_private *bcm)
++{
++	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
++	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
++
++	if (phy->type == BCM43xx_PHYTYPE_G) {
++		//TODO: update_aci_moving_average
++		if (radio->aci_enable && radio->aci_wlan_automatic) {
++			bcm43xx_mac_suspend(bcm);
++			if (!radio->aci_enable && 1 /*TODO: not scanning? */) {
++				if (0 /*TODO: bunch of conditions*/) {
++					bcm43xx_radio_set_interference_mitigation(bcm,
++										  BCM43xx_RADIO_INTERFMODE_MANUALWLAN);
++				}
++			} else if (1/*TODO*/) {
++				/*
++				if ((aci_average > 1000) && !(bcm43xx_radio_aci_scan(bcm))) {
++					bcm43xx_radio_set_interference_mitigation(bcm,
++										  BCM43xx_RADIO_INTERFMODE_NONE);
++				}
++				*/
++			}
++			bcm43xx_mac_enable(bcm);
++		} else if (radio->interfmode == BCM43xx_RADIO_INTERFMODE_NONWLAN &&
++			   phy->rev == 1) {
++			//TODO: implement rev1 workaround
++		}
++	}
++	bcm43xx_phy_xmitpower(bcm); //FIXME: unless scanning?
++	//TODO for APHY (temperature?)
++}
++
++static void do_periodic_work(struct bcm43xx_private *bcm)
++{
++	unsigned int state;
++
++	state = bcm->periodic_state;
++	if (state % 8 == 0)
++		bcm43xx_periodic_every120sec(bcm);
++	if (state % 4 == 0)
++		bcm43xx_periodic_every60sec(bcm);
++	if (state % 2 == 0)
++		bcm43xx_periodic_every30sec(bcm);
++	if (state % 1 == 0)
++		bcm43xx_periodic_every15sec(bcm);
++	bcm->periodic_state = state + 1;
++
++	schedule_delayed_work(&bcm->periodic_work, HZ * 15);
++}
++
++/* Estimate a "Badness" value based on the periodic work
++ * state-machine state. "Badness" is worse (bigger), if the
++ * periodic work will take longer.
++ */
++static int estimate_periodic_work_badness(unsigned int state)
++{
++	int badness = 0;
++
++	if (state % 8 == 0) /* every 120 sec */
++		badness += 10;
++	if (state % 4 == 0) /* every 60 sec */
++		badness += 5;
++	if (state % 2 == 0) /* every 30 sec */
++		badness += 1;
++	if (state % 1 == 0) /* every 15 sec */
++		badness += 1;
++
++#define BADNESS_LIMIT	4
++	return badness;
++}
++
++static void bcm43xx_periodic_work_handler(void *d)
++{
++	struct bcm43xx_private *bcm = d;
++	unsigned long flags;
++	u32 savedirqs = 0;
++	int badness;
++
++	badness = estimate_periodic_work_badness(bcm->periodic_state);
++	if (badness > BADNESS_LIMIT) {
++		/* Periodic work will take a long time, so we want it to
++		 * be preemtible.
++		 */
++		netif_stop_queue(bcm->net_dev);
++		synchronize_net();
++		spin_lock_irqsave(&bcm->irq_lock, flags);
++		bcm43xx_mac_suspend(bcm);
++		if (bcm43xx_using_pio(bcm))
++			bcm43xx_pio_freeze_txqueues(bcm);
++		savedirqs = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
++		spin_unlock_irqrestore(&bcm->irq_lock, flags);
++		mutex_lock(&bcm->mutex);
++		bcm43xx_synchronize_irq(bcm);
++	} else {
++		/* Periodic work should take short time, so we want low
++		 * locking overhead.
++		 */
++		mutex_lock(&bcm->mutex);
++		spin_lock_irqsave(&bcm->irq_lock, flags);
++	}
++
++	do_periodic_work(bcm);
++
++	if (badness > BADNESS_LIMIT) {
++		spin_lock_irqsave(&bcm->irq_lock, flags);
++		if (likely(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED)) {
++			tasklet_enable(&bcm->isr_tasklet);
++			bcm43xx_interrupt_enable(bcm, savedirqs);
++			if (bcm43xx_using_pio(bcm))
++				bcm43xx_pio_thaw_txqueues(bcm);
++			bcm43xx_mac_enable(bcm);
++		}
++		netif_wake_queue(bcm->net_dev);
++	}
++	mmiowb();
++	spin_unlock_irqrestore(&bcm->irq_lock, flags);
++	mutex_unlock(&bcm->mutex);
++}
++
++static void bcm43xx_periodic_tasks_delete(struct bcm43xx_private *bcm)
++{
++	cancel_rearming_delayed_work(&bcm->periodic_work);
++}
++
++static void bcm43xx_periodic_tasks_setup(struct bcm43xx_private *bcm)
++{
++	struct work_struct *work = &(bcm->periodic_work);
++
++	assert(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED);
++	INIT_WORK(work, bcm43xx_periodic_work_handler, bcm);
++	schedule_work(work);
++}
++
++static int bcm43xx_shutdown_all_wireless_cores(struct bcm43xx_private *bcm)
++{
++	int ret = 0;
++	int i, err;
++	struct bcm43xx_coreinfo *core;
++
++	bcm43xx_set_status(bcm, BCM43xx_STAT_SHUTTINGDOWN);
++	for (i = 0; i < bcm->nr_80211_available; i++) {
++		core = &(bcm->core_80211[i]);
++		assert(core->available);
++		if (!core->initialized)
++			continue;
++		err = bcm43xx_switch_core(bcm, core);
++		if (err) {
++			dprintk(KERN_ERR PFX "shutdown_all_wireless_cores "
++					     "switch_core failed (%d)\n", err);
++			ret = err;
++			continue;
++		}
++		bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
++		bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy read */
++		bcm43xx_wireless_core_cleanup(bcm);
++		if (core == bcm->active_80211_core)
++			bcm->active_80211_core = NULL;
++	}
++	free_irq(bcm->irq, bcm);
++	bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
++
++	return ret;
++}
++
++/* This is the opposite of bcm43xx_init_board() */
++static void bcm43xx_free_board(struct bcm43xx_private *bcm)
++{
++	bcm43xx_sysfs_unregister(bcm);
++	bcm43xx_periodic_tasks_delete(bcm);
++
++	mutex_lock(&bcm->mutex);
++	bcm43xx_shutdown_all_wireless_cores(bcm);
++	bcm43xx_pctl_set_crystal(bcm, 0);
++	mutex_unlock(&bcm->mutex);
++}
++
++/* Validate chip access
++ * http://bcm-specs.sipsolutions.net/ValidateChipAccess */
++static int bcm43xx_validate_chip(struct bcm43xx_private *bcm)
++{
++	u32 value;
++	u32 shm_backup;
++
++	shm_backup = bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, 0x0000);
++	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, 0x0000, 0xAA5555AA);
++	if (bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, 0x0000) != 0xAA5555AA)
++		goto error;
++	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, 0x0000, 0x55AAAA55);
++	if (bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, 0x0000) != 0x55AAAA55)
++		goto error;
++	bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED, 0x0000, shm_backup);
++
++	value = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
++	if ((value | 0x80000000) != 0x80000400)
++		goto error;
++
++	value = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
++	if (value != 0x00000000)
++		goto error;
++
++	return 0;
++error:
++	printk(KERN_ERR PFX "Failed to validate the chipaccess\n");
++	return -ENODEV;
++}
++
++static void bcm43xx_init_struct_phyinfo(struct bcm43xx_phyinfo *phy)
++{
++	/* Initialize a "phyinfo" structure. The structure is already
++	 * zeroed out.
++	 * This is called on insmod time to initialize members.
++	 */
++	phy->savedpctlreg = 0xFFFF;
++	spin_lock_init(&phy->lock);
++}
++
++static void bcm43xx_init_struct_radioinfo(struct bcm43xx_radioinfo *radio)
++{
++	/* Initialize a "radioinfo" structure. The structure is already
++	 * zeroed out.
++	 * This is called on insmod time to initialize members.
++	 */
++	radio->interfmode = BCM43xx_RADIO_INTERFMODE_NONE;
++	radio->channel = 0xFF;
++	radio->initial_channel = 0xFF;
++}
++
++static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
++{
++	int err, i;
++	int current_core;
++	u32 core_vendor, core_id, core_rev;
++	u32 sb_id_hi, chip_id_32 = 0;
++	u16 pci_device, chip_id_16;
++	u8 core_count;
++
++	memset(&bcm->core_chipcommon, 0, sizeof(struct bcm43xx_coreinfo));
++	memset(&bcm->core_pci, 0, sizeof(struct bcm43xx_coreinfo));
++	memset(&bcm->core_80211, 0, sizeof(struct bcm43xx_coreinfo)
++				    * BCM43xx_MAX_80211_CORES);
++	memset(&bcm->core_80211_ext, 0, sizeof(struct bcm43xx_coreinfo_80211)
++					* BCM43xx_MAX_80211_CORES);
++	bcm->nr_80211_available = 0;
++	bcm->current_core = NULL;
++	bcm->active_80211_core = NULL;
++
++	/* map core 0 */
++	err = _switch_core(bcm, 0);
++	if (err)
++		goto out;
++
++	/* fetch sb_id_hi from core information registers */
++	sb_id_hi = bcm43xx_read32(bcm, BCM43xx_CIR_SB_ID_HI);
++
++	core_id = (sb_id_hi & 0xFFF0) >> 4;
++	core_rev = (sb_id_hi & 0xF);
++	core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
++
++	/* if present, chipcommon is always core 0; read the chipid from it */
++	if (core_id == BCM43xx_COREID_CHIPCOMMON) {
++		chip_id_32 = bcm43xx_read32(bcm, 0);
++		chip_id_16 = chip_id_32 & 0xFFFF;
++		bcm->core_chipcommon.available = 1;
++		bcm->core_chipcommon.id = core_id;
++		bcm->core_chipcommon.rev = core_rev;
++		bcm->core_chipcommon.index = 0;
++		/* While we are at it, also read the capabilities. */
++		bcm->chipcommon_capabilities = bcm43xx_read32(bcm, BCM43xx_CHIPCOMMON_CAPABILITIES);
++	} else {
++		/* without a chipCommon, use a hard coded table. */
++		pci_device = bcm->pci_dev->device;
++		if (pci_device == 0x4301)
++			chip_id_16 = 0x4301;
++		else if ((pci_device >= 0x4305) && (pci_device <= 0x4307))
++			chip_id_16 = 0x4307;
++		else if ((pci_device >= 0x4402) && (pci_device <= 0x4403))
++			chip_id_16 = 0x4402;
++		else if ((pci_device >= 0x4610) && (pci_device <= 0x4615))
++			chip_id_16 = 0x4610;
++		else if ((pci_device >= 0x4710) && (pci_device <= 0x4715))
++			chip_id_16 = 0x4710;
++#ifdef CONFIG_BCM947XX
++		else if ((pci_device >= 0x4320) && (pci_device <= 0x4325))
++			chip_id_16 = 0x4309;
++#endif
++		else {
++			printk(KERN_ERR PFX "Could not determine Chip ID\n");
++			return -ENODEV;
++		}
++	}
++
++	/* ChipCommon with Core Rev >=4 encodes number of cores,
++	 * otherwise consult hardcoded table */
++	if ((core_id == BCM43xx_COREID_CHIPCOMMON) && (core_rev >= 4)) {
++		core_count = (chip_id_32 & 0x0F000000) >> 24;
++	} else {
++		switch (chip_id_16) {
+ 			case 0x4610:
+ 			case 0x4704:
+ 			case 0x4710:
+@@ -2865,6 +3238,7 @@
+ 				goto out;
+ 			}
+ 			bcm->nr_80211_available++;
++			core->priv = ext_80211;
+ 			bcm43xx_init_struct_phyinfo(&ext_80211->phy);
+ 			bcm43xx_init_struct_radioinfo(&ext_80211->radio);
+ 			break;
+@@ -2876,174 +3250,21 @@
+ 			core->available = 1;
+ 			core->id = core_id;
+ 			core->rev = core_rev;
+-			core->index = current_core;
+-		}
+-	}
+-
+-	if (!bcm->core_80211[0].available) {
+-		printk(KERN_ERR PFX "Error: No 80211 core found!\n");
+-		err = -ENODEV;
+-		goto out;
+-	}
+-
+-	err = bcm43xx_switch_core(bcm, &bcm->core_80211[0]);
+-
+-	assert(err == 0);
+-out:
+-	return err;
+-}
+-
+-static void bcm43xx_rate_memory_write(struct bcm43xx_private *bcm,
+-				      u16 rate,
+-				      int is_ofdm)
+-{
+-	u16 offset;
+-
+-	if (is_ofdm) {
+-		offset = 0x480;
+-		offset += (bcm43xx_plcp_get_ratecode_ofdm(rate) & 0x000F) * 2;
+-	} else {
+-		offset = 0x4C0;
+-		offset += (bcm43xx_plcp_get_ratecode_cck(rate) & 0x000F) * 2;
+-	}
+-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, offset + 0x20,
+-			    bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, offset));
+-}
+-
+-static void bcm43xx_rate_memory_init(struct bcm43xx_private *bcm)
+-{
+-	switch (bcm43xx_current_phy(bcm)->type) {
+-	case BCM43xx_PHYTYPE_A:
+-	case BCM43xx_PHYTYPE_G:
+-		bcm43xx_rate_memory_write(bcm, BCM43xx_OFDM_RATE_6MB, 1);
+-		bcm43xx_rate_memory_write(bcm, BCM43xx_OFDM_RATE_12MB, 1);
+-		bcm43xx_rate_memory_write(bcm, BCM43xx_OFDM_RATE_18MB, 1);
+-		bcm43xx_rate_memory_write(bcm, BCM43xx_OFDM_RATE_24MB, 1);
+-		bcm43xx_rate_memory_write(bcm, BCM43xx_OFDM_RATE_36MB, 1);
+-		bcm43xx_rate_memory_write(bcm, BCM43xx_OFDM_RATE_48MB, 1);
+-		bcm43xx_rate_memory_write(bcm, BCM43xx_OFDM_RATE_54MB, 1);
+-	case BCM43xx_PHYTYPE_B:
+-		bcm43xx_rate_memory_write(bcm, BCM43xx_CCK_RATE_1MB, 0);
+-		bcm43xx_rate_memory_write(bcm, BCM43xx_CCK_RATE_2MB, 0);
+-		bcm43xx_rate_memory_write(bcm, BCM43xx_CCK_RATE_5MB, 0);
+-		bcm43xx_rate_memory_write(bcm, BCM43xx_CCK_RATE_11MB, 0);
+-		break;
+-	default:
+-		assert(0);
+-	}
+-}
+-
+-static void bcm43xx_wireless_core_cleanup(struct bcm43xx_private *bcm)
+-{
+-	bcm43xx_chip_cleanup(bcm);
+-	bcm43xx_pio_free(bcm);
+-	bcm43xx_dma_free(bcm);
+-
+-	bcm->current_core->initialized = 0;
+-}
+-
+-/* http://bcm-specs.sipsolutions.net/80211Init */
+-static int bcm43xx_wireless_core_init(struct bcm43xx_private *bcm)
+-{
+-	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+-	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
+-	u32 ucodeflags;
+-	int err;
+-	u32 sbimconfiglow;
+-	u8 limit;
+-
+-	if (bcm->chip_rev < 5) {
+-		sbimconfiglow = bcm43xx_read32(bcm, BCM43xx_CIR_SBIMCONFIGLOW);
+-		sbimconfiglow &= ~ BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
+-		sbimconfiglow &= ~ BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
+-		if (bcm->bustype == BCM43xx_BUSTYPE_PCI)
+-			sbimconfiglow |= 0x32;
+-		else if (bcm->bustype == BCM43xx_BUSTYPE_SB)
+-			sbimconfiglow |= 0x53;
+-		else
+-			assert(0);
+-		bcm43xx_write32(bcm, BCM43xx_CIR_SBIMCONFIGLOW, sbimconfiglow);
+-	}
+-
+-	bcm43xx_phy_calibrate(bcm);
+-	err = bcm43xx_chip_init(bcm);
+-	if (err)
+-		goto out;
+-
+-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0016, bcm->current_core->rev);
+-	ucodeflags = bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, BCM43xx_UCODEFLAGS_OFFSET);
+-
+-	if (0 /*FIXME: which condition has to be used here? */)
+-		ucodeflags |= 0x00000010;
+-
+-	/* HW decryption needs to be set now. */
+-	ucodeflags |= 0x40000000;
+-
+-	if (phy->type == BCM43xx_PHYTYPE_G) {
+-		ucodeflags |= BCM43xx_UCODEFLAG_UNKBGPHY;
+-		if (phy->rev == 1)
+-			ucodeflags |= BCM43xx_UCODEFLAG_UNKGPHY;
+-		if (bcm->sprom.boardflags & BCM43xx_BFL_PACTRL)
+-			ucodeflags |= BCM43xx_UCODEFLAG_UNKPACTRL;
+-	} else if (phy->type == BCM43xx_PHYTYPE_B) {
+-		ucodeflags |= BCM43xx_UCODEFLAG_UNKBGPHY;
+-		if (phy->rev >= 2 && radio->version == 0x2050)
+-			ucodeflags &= ~BCM43xx_UCODEFLAG_UNKGPHY;
+-	}
+-
+-	if (ucodeflags != bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED,
+-					     BCM43xx_UCODEFLAGS_OFFSET)) {
+-		bcm43xx_shm_write32(bcm, BCM43xx_SHM_SHARED,
+-				    BCM43xx_UCODEFLAGS_OFFSET, ucodeflags);
++			core->index = current_core;
++		}
+ 	}
+ 
+-	/* Short/Long Retry Limit.
+-	 * The retry-limit is a 4-bit counter. Enforce this to avoid overflowing
+-	 * the chip-internal counter.
+-	 */
+-	limit = limit_value(modparam_short_retry, 0, 0xF);
+-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0006, limit);
+-	limit = limit_value(modparam_long_retry, 0, 0xF);
+-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0007, limit);
+-
+-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0044, 3);
+-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0046, 2);
+-
+-	bcm43xx_rate_memory_init(bcm);
+-
+-	/* Minimum Contention Window */
+-	if (phy->type == BCM43xx_PHYTYPE_B)
+-		bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0003, 0x0000001f);
+-	else
+-		bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0003, 0x0000000f);
+-	/* Maximum Contention Window */
+-	bcm43xx_shm_write32(bcm, BCM43xx_SHM_WIRELESS, 0x0004, 0x000003ff);
+-
+-	bcm43xx_write_mac_bssid_templates(bcm);
+-
+-	if (bcm->current_core->rev >= 5)
+-		bcm43xx_write16(bcm, 0x043C, 0x000C);
+-
+-	if (bcm43xx_using_pio(bcm))
+-		err = bcm43xx_pio_init(bcm);
+-	else
+-		err = bcm43xx_dma_init(bcm);
+-	if (err)
+-		goto err_chip_cleanup;
+-	bcm43xx_write16(bcm, 0x0612, 0x0050);
+-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0416, 0x0050);
+-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0414, 0x01F4);
++	if (!bcm->core_80211[0].available) {
++		printk(KERN_ERR PFX "Error: No 80211 core found!\n");
++		err = -ENODEV;
++		goto out;
++	}
+ 
+-	bcm43xx_mac_enable(bcm);
+-	bcm43xx_interrupt_enable(bcm, bcm->irq_savedstate);
++	err = bcm43xx_switch_core(bcm, &bcm->core_80211[0]);
+ 
+-	bcm->current_core->initialized = 1;
++	assert(err == 0);
+ out:
+ 	return err;
+-
+-err_chip_cleanup:
+-	bcm43xx_chip_cleanup(bcm);
+-	goto out;
+ }
+ 
+ static int bcm43xx_chipset_attach(struct bcm43xx_private *bcm)
+@@ -3151,167 +3372,6 @@
+ 	return err;
+ }
+ 
+-static void bcm43xx_periodic_every120sec(struct bcm43xx_private *bcm)
+-{
+-	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+-
+-	if (phy->type != BCM43xx_PHYTYPE_G || phy->rev < 2)
+-		return;
+-
+-	bcm43xx_mac_suspend(bcm);
+-	bcm43xx_phy_lo_g_measure(bcm);
+-	bcm43xx_mac_enable(bcm);
+-}
+-
+-static void bcm43xx_periodic_every60sec(struct bcm43xx_private *bcm)
+-{
+-	bcm43xx_phy_lo_mark_all_unused(bcm);
+-	if (bcm->sprom.boardflags & BCM43xx_BFL_RSSI) {
+-		bcm43xx_mac_suspend(bcm);
+-		bcm43xx_calc_nrssi_slope(bcm);
+-		bcm43xx_mac_enable(bcm);
+-	}
+-}
+-
+-static void bcm43xx_periodic_every30sec(struct bcm43xx_private *bcm)
+-{
+-	/* Update device statistics. */
+-	bcm43xx_calculate_link_quality(bcm);
+-}
+-
+-static void bcm43xx_periodic_every15sec(struct bcm43xx_private *bcm)
+-{
+-	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+-	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
+-
+-	if (phy->type == BCM43xx_PHYTYPE_G) {
+-		//TODO: update_aci_moving_average
+-		if (radio->aci_enable && radio->aci_wlan_automatic) {
+-			bcm43xx_mac_suspend(bcm);
+-			if (!radio->aci_enable && 1 /*TODO: not scanning? */) {
+-				if (0 /*TODO: bunch of conditions*/) {
+-					bcm43xx_radio_set_interference_mitigation(bcm,
+-										  BCM43xx_RADIO_INTERFMODE_MANUALWLAN);
+-				}
+-			} else if (1/*TODO*/) {
+-				/*
+-				if ((aci_average > 1000) && !(bcm43xx_radio_aci_scan(bcm))) {
+-					bcm43xx_radio_set_interference_mitigation(bcm,
+-										  BCM43xx_RADIO_INTERFMODE_NONE);
+-				}
+-				*/
+-			}
+-			bcm43xx_mac_enable(bcm);
+-		} else if (radio->interfmode == BCM43xx_RADIO_INTERFMODE_NONWLAN &&
+-			   phy->rev == 1) {
+-			//TODO: implement rev1 workaround
+-		}
+-	}
+-	bcm43xx_phy_xmitpower(bcm); //FIXME: unless scanning?
+-	//TODO for APHY (temperature?)
+-}
+-
+-static void do_periodic_work(struct bcm43xx_private *bcm)
+-{
+-	unsigned int state;
+-
+-	state = bcm->periodic_state;
+-	if (state % 8 == 0)
+-		bcm43xx_periodic_every120sec(bcm);
+-	if (state % 4 == 0)
+-		bcm43xx_periodic_every60sec(bcm);
+-	if (state % 2 == 0)
+-		bcm43xx_periodic_every30sec(bcm);
+-	if (state % 1 == 0)
+-		bcm43xx_periodic_every15sec(bcm);
+-	bcm->periodic_state = state + 1;
+-
+-	schedule_delayed_work(&bcm->periodic_work, HZ * 15);
+-}
+-
+-/* Estimate a "Badness" value based on the periodic work
+- * state-machine state. "Badness" is worse (bigger), if the
+- * periodic work will take longer.
+- */
+-static int estimate_periodic_work_badness(unsigned int state)
+-{
+-	int badness = 0;
+-
+-	if (state % 8 == 0) /* every 120 sec */
+-		badness += 10;
+-	if (state % 4 == 0) /* every 60 sec */
+-		badness += 5;
+-	if (state % 2 == 0) /* every 30 sec */
+-		badness += 1;
+-	if (state % 1 == 0) /* every 15 sec */
+-		badness += 1;
+-
+-#define BADNESS_LIMIT	4
+-	return badness;
+-}
+-
+-static void bcm43xx_periodic_work_handler(void *d)
+-{
+-	struct bcm43xx_private *bcm = d;
+-	unsigned long flags;
+-	u32 savedirqs = 0;
+-	int badness;
+-
+-	badness = estimate_periodic_work_badness(bcm->periodic_state);
+-	if (badness > BADNESS_LIMIT) {
+-		/* Periodic work will take a long time, so we want it to
+-		 * be preemtible.
+-		 */
+-		netif_stop_queue(bcm->net_dev);
+-		synchronize_net();
+-		spin_lock_irqsave(&bcm->irq_lock, flags);
+-		bcm43xx_mac_suspend(bcm);
+-		if (bcm43xx_using_pio(bcm))
+-			bcm43xx_pio_freeze_txqueues(bcm);
+-		savedirqs = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+-		spin_unlock_irqrestore(&bcm->irq_lock, flags);
+-		mutex_lock(&bcm->mutex);
+-		bcm43xx_synchronize_irq(bcm);
+-	} else {
+-		/* Periodic work should take short time, so we want low
+-		 * locking overhead.
+-		 */
+-		mutex_lock(&bcm->mutex);
+-		spin_lock_irqsave(&bcm->irq_lock, flags);
+-	}
+-
+-	do_periodic_work(bcm);
+-
+-	if (badness > BADNESS_LIMIT) {
+-		spin_lock_irqsave(&bcm->irq_lock, flags);
+-		if (likely(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED)) {
+-			tasklet_enable(&bcm->isr_tasklet);
+-			bcm43xx_interrupt_enable(bcm, savedirqs);
+-			if (bcm43xx_using_pio(bcm))
+-				bcm43xx_pio_thaw_txqueues(bcm);
+-			bcm43xx_mac_enable(bcm);
+-		}
+-		netif_wake_queue(bcm->net_dev);
+-	}
+-	mmiowb();
+-	spin_unlock_irqrestore(&bcm->irq_lock, flags);
+-	mutex_unlock(&bcm->mutex);
+-}
+-
+-static void bcm43xx_periodic_tasks_delete(struct bcm43xx_private *bcm)
+-{
+-	cancel_rearming_delayed_work(&bcm->periodic_work);
+-}
+-
+-static void bcm43xx_periodic_tasks_setup(struct bcm43xx_private *bcm)
+-{
+-	struct work_struct *work = &(bcm->periodic_work);
+-
+-	assert(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED);
+-	INIT_WORK(work, bcm43xx_periodic_work_handler, bcm);
+-	schedule_work(work);
+-}
+-
+ static void bcm43xx_free_modes(struct bcm43xx_private *bcm)
+ {
+ 	struct ieee80211_hw *ieee = bcm->ieee;
+@@ -3331,7 +3391,9 @@
+ 			       int nr_channels,
+ 			       const struct ieee80211_channel *channels,
+ 			       int nr_rates,
+-			       const struct ieee80211_rate *rates)
++			       const struct ieee80211_rate *rates,
++			       int nr_rates2,
++			       const struct ieee80211_rate *rates2)
+ {
+ 	struct ieee80211_hw_modes *mode;
+ 	int err = -ENOMEM;
+@@ -3340,609 +3402,87 @@
+ 
+ 	mode->mode = mode_id;
+ 	mode->num_channels = nr_channels;
+-	mode->channels = kzalloc(sizeof(*channels) * nr_channels, GFP_KERNEL);
+-	if (!mode->channels)
+-		goto out;
+-	memcpy(mode->channels, channels, sizeof(*channels) * nr_channels);
+-
+-	mode->num_rates = nr_rates;
+-	mode->rates = kzalloc(sizeof(*rates) * nr_rates, GFP_KERNEL);
+-	if (!mode->rates)
+-		goto err_free_channels;
+-	memcpy(mode->rates, rates, sizeof(*rates) * nr_rates);
+-
+-	ieee->num_modes++;
+-	err = 0;
+-out:
+-	return err;
+-
+-err_free_channels:
+-	kfree(mode->channels);
+-	goto out;
+-}
+-
+-static int bcm43xx_setup_modes_aphy(struct bcm43xx_private *bcm)
+-{
+-	int err = 0;
+-
+-	static const struct ieee80211_rate rates[] = {
+-		{
+-			.rate	= 60,
+-			.val	= BCM43xx_OFDM_RATE_6MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_6MB,
+-		}, {
+-			.rate	= 90,
+-			.val	= BCM43xx_OFDM_RATE_9MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_9MB,
+-		}, {
+-			.rate	= 120,
+-			.val	= BCM43xx_OFDM_RATE_12MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_12MB,
+-		}, {
+-			.rate	= 180,
+-			.val	= BCM43xx_OFDM_RATE_18MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_18MB,
+-		}, {
+-			.rate	= 240,
+-			.val	= BCM43xx_OFDM_RATE_24MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_24MB,
+-		}, {
+-			.rate	= 360,
+-			.val	= BCM43xx_OFDM_RATE_36MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_36MB,
+-		}, {
+-			.rate	= 480,
+-			.val	= BCM43xx_OFDM_RATE_48MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_48MB,
+-		}, {
+-			.rate	= 540,
+-			.val	= BCM43xx_OFDM_RATE_54MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_54MB,
+-		},
+-	};
+-	static const struct ieee80211_channel channels[] = {
+-		{
+-			.chan		= 36,
+-			.freq		= 5180,
+-			.val		= 36,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 40,
+-			.freq		= 5200,
+-			.val		= 40,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 44,
+-			.freq		= 5220,
+-			.val		= 44,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 48,
+-			.freq		= 5240,
+-			.val		= 48,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 52,
+-			.freq		= 5260,
+-			.val		= 52,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 56,
+-			.freq		= 5280,
+-			.val		= 56,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 60,
+-			.freq		= 5300,
+-			.val		= 60,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 64,
+-			.freq		= 5320,
+-			.val		= 64,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 149,
+-			.freq		= 5745,
+-			.val		= 149,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 153,
+-			.freq		= 5765,
+-			.val		= 153,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 157,
+-			.freq		= 5785,
+-			.val		= 157,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 161,
+-			.freq		= 5805,
+-			.val		= 161,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 165,
+-			.freq		= 5825,
+-			.val		= 165,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		},
+-	};
+-
+-	if (bcm43xx_current_phy(bcm)->type == BCM43xx_PHYTYPE_A) {
+-		err = bcm43xx_append_mode(bcm->ieee, MODE_IEEE80211A,
+-					  ARRAY_SIZE(channels), channels,
+-					  ARRAY_SIZE(rates), rates);
+-	}
+-
+-	return err;
+-}
+-
+-static int bcm43xx_setup_modes_bphy(struct bcm43xx_private *bcm)
+-{
+-	int err = 0;
+-
+-	static const struct ieee80211_rate rates[] = {
+-		{
+-			.rate	= 10,
+-			.val	= BCM43xx_CCK_RATE_1MB,
+-			.flags	= IEEE80211_RATE_CCK,
+-			.val2	= BCM43xx_CCK_RATE_1MB,
+-		}, {
+-			.rate	= 20,
+-			.val	= BCM43xx_CCK_RATE_2MB,
+-			.flags	= IEEE80211_RATE_CCK_2,
+-			.val2	= BCM43xx_CCK_RATE_2MB,
+-		}, {
+-			.rate	= 55,
+-			.val	= BCM43xx_CCK_RATE_5MB,
+-			.flags	= IEEE80211_RATE_CCK_2,
+-			.val2	= BCM43xx_CCK_RATE_5MB,
+-		}, {
+-			.rate	= 110,
+-			.val	= BCM43xx_CCK_RATE_11MB,
+-			.flags	= IEEE80211_RATE_CCK_2,
+-			.val2	= BCM43xx_CCK_RATE_11MB,
+-		},
+-	};
+-	static const struct ieee80211_channel channels[] = {
+-		{
+-			.chan		= 1,
+-			.freq		= 2412,
+-			.val		= 1,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 2,
+-			.freq		= 2417,
+-			.val		= 2,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 3,
+-			.freq		= 2422,
+-			.val		= 3,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 4,
+-			.freq		= 2427,
+-			.val		= 4,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 5,
+-			.freq		= 2432,
+-			.val		= 5,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 6,
+-			.freq		= 2437,
+-			.val		= 6,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 7,
+-			.freq		= 2442,
+-			.val		= 7,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 8,
+-			.freq		= 2447,
+-			.val		= 8,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 9,
+-			.freq		= 2452,
+-			.val		= 9,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 10,
+-			.freq		= 2457,
+-			.val		= 10,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 11,
+-			.freq		= 2462,
+-			.val		= 11,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 12,
+-			.freq		= 2467,
+-			.val		= 12,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 13,
+-			.freq		= 2472,
+-			.val		= 13,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, /*{
+-			.chan		= 14,
+-			.freq		= 2484,
+-			.val		= 14,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		},*/
+-	};
+-
+-	if (bcm43xx_current_phy(bcm)->type == BCM43xx_PHYTYPE_B ||
+-	    bcm43xx_current_phy(bcm)->type == BCM43xx_PHYTYPE_G) {
+-		err = bcm43xx_append_mode(bcm->ieee, MODE_IEEE80211B,
+-					  ARRAY_SIZE(channels), channels,
+-					  ARRAY_SIZE(rates), rates);
+-	}
+-
+-	return err;
+-}
+-
+-static int bcm43xx_setup_modes_gphy(struct bcm43xx_private *bcm)
+-{
+-	int err = 0;
+-
+-	static const struct ieee80211_rate rates[] = {
+-		{
+-			.rate	= 10,
+-			.val	= BCM43xx_CCK_RATE_1MB,
+-			.flags	= IEEE80211_RATE_CCK,
+-			.val2	= BCM43xx_CCK_RATE_1MB,
+-		}, {
+-			.rate	= 20,
+-			.val	= BCM43xx_CCK_RATE_2MB,
+-			.flags	= IEEE80211_RATE_CCK_2,
+-			.val2	= BCM43xx_CCK_RATE_2MB,
+-		}, {
+-			.rate	= 55,
+-			.val	= BCM43xx_CCK_RATE_5MB,
+-			.flags	= IEEE80211_RATE_CCK_2,
+-			.val2	= BCM43xx_CCK_RATE_5MB,
+-		}, {
+-			.rate	= 60,
+-			.val	= BCM43xx_OFDM_RATE_6MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_6MB,
+-		}, {
+-			.rate	= 90,
+-			.val	= BCM43xx_OFDM_RATE_9MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_9MB,
+-		}, {
+-			.rate	= 110,
+-			.val	= BCM43xx_CCK_RATE_11MB,
+-			.flags	= IEEE80211_RATE_CCK_2,
+-			.val2	= BCM43xx_CCK_RATE_11MB,
+-		}, {
+-			.rate	= 120,
+-			.val	= BCM43xx_OFDM_RATE_12MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_12MB,
+-		}, {
+-			.rate	= 180,
+-			.val	= BCM43xx_OFDM_RATE_18MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_18MB,
+-		}, {
+-			.rate	= 240,
+-			.val	= BCM43xx_OFDM_RATE_24MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_24MB,
+-		}, {
+-			.rate	= 360,
+-			.val	= BCM43xx_OFDM_RATE_36MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_36MB,
+-		}, {
+-			.rate	= 480,
+-			.val	= BCM43xx_OFDM_RATE_48MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_48MB,
+-		}, {
+-			.rate	= 540,
+-			.val	= BCM43xx_OFDM_RATE_54MB,
+-			.flags	= IEEE80211_RATE_OFDM,
+-			.val2	= BCM43xx_OFDM_RATE_54MB,
+-		},
+-	};
+-	static const struct ieee80211_channel channels[] = {
+-		{
+-			.chan		= 1,
+-			.freq		= 2412,
+-			.val		= 1,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 2,
+-			.freq		= 2417,
+-			.val		= 2,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 3,
+-			.freq		= 2422,
+-			.val		= 3,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 4,
+-			.freq		= 2427,
+-			.val		= 4,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 5,
+-			.freq		= 2432,
+-			.val		= 5,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 6,
+-			.freq		= 2437,
+-			.val		= 6,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 7,
+-			.freq		= 2442,
+-			.val		= 7,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 8,
+-			.freq		= 2447,
+-			.val		= 8,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 9,
+-			.freq		= 2452,
+-			.val		= 9,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 10,
+-			.freq		= 2457,
+-			.val		= 10,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 11,
+-			.freq		= 2462,
+-			.val		= 11,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 12,
+-			.freq		= 2467,
+-			.val		= 12,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, {
+-			.chan		= 13,
+-			.freq		= 2472,
+-			.val		= 13,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		}, /*{
+-			.chan		= 14,
+-			.freq		= 2484,
+-			.val		= 14,
+-			.flag		= IEEE80211_CHAN_W_SCAN |
+-					  IEEE80211_CHAN_W_ACTIVE_SCAN |
+-					  IEEE80211_CHAN_W_IBSS,
+-			.power_level	= 0xFF,
+-			.antenna_max	= 0xFF,
+-		},*/
+-	};
++	mode->channels = kzalloc(sizeof(*channels) * nr_channels, GFP_KERNEL);
++	if (!mode->channels)
++		goto out;
++	memcpy(mode->channels, channels, sizeof(*channels) * nr_channels);
+ 
+-	if (bcm43xx_current_phy(bcm)->type == BCM43xx_PHYTYPE_G) {
+-		err = bcm43xx_append_mode(bcm->ieee, MODE_IEEE80211G,
+-					  ARRAY_SIZE(channels), channels,
+-					  ARRAY_SIZE(rates), rates);
++	mode->num_rates = nr_rates;
++	mode->rates = kzalloc(sizeof(*rates) * (nr_rates + nr_rates2),
++			      GFP_KERNEL);
++	if (!mode->rates)
++		goto err_free_channels;
++	memcpy(mode->rates, rates, sizeof(*rates) * nr_rates);
++	if (nr_rates2) {
++		mode->num_rates += nr_rates2;
++		memcpy(mode->rates + nr_rates, rates2,
++		       sizeof(*rates2) * nr_rates2);
+ 	}
+ 
++	ieee->num_modes++;
++	err = 0;
++out:
+ 	return err;
++
++err_free_channels:
++	kfree(mode->channels);
++	goto out;
+ }
+ 
+ static int bcm43xx_setup_modes(struct bcm43xx_private *bcm)
+ {
+-	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	int err = -ENOMEM;
+-	int nr;
+ 	struct ieee80211_hw *ieee = bcm->ieee;
+-
+-	if (phy->type == BCM43xx_PHYTYPE_A)
+-		nr = 1;
+-	else if (phy->type == BCM43xx_PHYTYPE_B)
+-		nr = 1;
+-	else
+-		nr = 2;
+-	ieee->modes = kzalloc(sizeof(*(ieee->modes)) * nr, GFP_KERNEL);
++	struct bcm43xx_coreinfo *core;
++	struct bcm43xx_coreinfo_80211 *wlext;
++	int i, nr_modes;
++
++	nr_modes = bcm->nr_80211_available;
++	ieee->modes = kzalloc(sizeof(*(ieee->modes)) * nr_modes,
++			      GFP_KERNEL);
+ 	if (!ieee->modes)
+ 		goto out;
+ 	ieee->num_modes = 0;
+ 
+-	err = bcm43xx_setup_modes_aphy(bcm);
+-	if (err)
+-		goto error;
+-	err = bcm43xx_setup_modes_gphy(bcm);
+-	if (err)
+-		goto error;
+-	err = bcm43xx_setup_modes_bphy(bcm);
+-	if (err)
+-		goto error;
++	for (i = 0; i < bcm->nr_80211_available; i++) {
++		core = &(bcm->core_80211[i]);
++		wlext = core->priv;
+ 
+-	assert(ieee->num_modes == nr && nr > 0);
++		switch (wlext->phy.type) {
++		case BCM43xx_PHYTYPE_A:
++			err = bcm43xx_append_mode(bcm->ieee, MODE_IEEE80211A,
++						  ARRAY_SIZE(bcm43xx_a_chantable),
++						  bcm43xx_a_chantable,
++						  ARRAY_SIZE(bcm43xx_ofdm_ratetable),
++						  bcm43xx_ofdm_ratetable,
++						  0, NULL);
++			break;
++		case BCM43xx_PHYTYPE_B:
++			err = bcm43xx_append_mode(bcm->ieee, MODE_IEEE80211B,
++						  ARRAY_SIZE(bcm43xx_bg_chantable),
++						  bcm43xx_bg_chantable,
++						  ARRAY_SIZE(bcm43xx_cck_ratetable),
++						  bcm43xx_cck_ratetable,
++						  0, NULL);
++			break;
++		case BCM43xx_PHYTYPE_G:
++			err = bcm43xx_append_mode(bcm->ieee, MODE_IEEE80211G,
++						  ARRAY_SIZE(bcm43xx_bg_chantable),
++						  bcm43xx_bg_chantable,
++						  ARRAY_SIZE(bcm43xx_ofdm_ratetable),
++						  bcm43xx_ofdm_ratetable,
++						  ARRAY_SIZE(bcm43xx_cck_ratetable),
++						  bcm43xx_cck_ratetable);
++			break;
++		default:
++			err = 0;
++			assert(0);
++		}
++		if (err)
++			goto error;
++	}
+ out:
+ 	return err;
+-
+ error:
+ 	bcm43xx_free_modes(bcm);
+ 	goto out;
+@@ -3955,99 +3495,222 @@
+ 	bcm43xx_clear_keys(bcm);
+ }
+ 
+-/* This is the opposite of bcm43xx_init_board() */
+-static void bcm43xx_free_board(struct bcm43xx_private *bcm)
++static void prepare_phydata_for_init(struct bcm43xx_phyinfo *phy)
+ {
+-	int i, err;
++	phy->antenna_diversity = 0xFFFF;
++	memset(phy->minlowsig, 0xFF, sizeof(phy->minlowsig));
++	memset(phy->minlowsigpos, 0, sizeof(phy->minlowsigpos));
+ 
+-	mutex_lock(&bcm->mutex);
+-	bcm43xx_sysfs_unregister(bcm);
+-	bcm43xx_periodic_tasks_delete(bcm);
++	/* Flags */
++	phy->calibrated = 0;
++	phy->is_locked = 0;
+ 
+-	bcm43xx_set_status(bcm, BCM43xx_STAT_SHUTTINGDOWN);
++	if (phy->_lo_pairs) {
++		memset(phy->_lo_pairs, 0,
++		       sizeof(struct bcm43xx_lopair) * BCM43xx_LO_COUNT);
++	}
++	memset(phy->loopback_gain, 0, sizeof(phy->loopback_gain));
++}
++
++static void prepare_radiodata_for_init(struct bcm43xx_private *bcm,
++				       struct bcm43xx_radioinfo *radio)
++{
++	int i;
++
++	/* Set default attenuation values. */
++	radio->baseband_atten = bcm43xx_default_baseband_attenuation(bcm);
++	radio->radio_atten = bcm43xx_default_radio_attenuation(bcm);
++	radio->txctl1 = bcm43xx_default_txctl1(bcm);
++	radio->txctl2 = 0xFFFF;
++	radio->txpwr_offset = 0;
++
++	/* NRSSI */
++	radio->nrssislope = 0;
++	for (i = 0; i < ARRAY_SIZE(radio->nrssi); i++)
++		radio->nrssi[i] = -1000;
++	for (i = 0; i < ARRAY_SIZE(radio->nrssi_lt); i++)
++		radio->nrssi_lt[i] = i;
++
++	radio->lofcal = 0xFFFF;
++	radio->initval = 0xFFFF;
++
++	radio->aci_enable = 0;
++	radio->aci_wlan_automatic = 0;
++	radio->aci_hw_rssi = 0;
++}
++
++static void prepare_priv_for_init(struct bcm43xx_private *bcm)
++{
++	int i;
++	struct bcm43xx_coreinfo *core;
++	struct bcm43xx_coreinfo_80211 *wlext;
++
++	assert(!bcm->active_80211_core);
++
++	bcm43xx_set_status(bcm, BCM43xx_STAT_INITIALIZING);
+ 
++	/* Flags */
++	bcm->was_initialized = 0;
++	bcm->reg124_set_0x4 = 0;
++
++	/* Stats */
++	memset(&bcm->stats, 0, sizeof(bcm->stats));
++
++	/* Wireless core data */
+ 	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
+-		if (!bcm->core_80211[i].available)
+-			continue;
+-		if (!bcm->core_80211[i].initialized)
++		core = &(bcm->core_80211[i]);
++		wlext = core->priv;
++
++		if (!core->available)
+ 			continue;
++		assert(wlext == &(bcm->core_80211_ext[i]));
+ 
+-		err = bcm43xx_switch_core(bcm, &bcm->core_80211[i]);
+-		assert(err == 0);
+-		bcm43xx_wireless_core_cleanup(bcm);
++		prepare_phydata_for_init(&wlext->phy);
++		prepare_radiodata_for_init(bcm, &wlext->radio);
+ 	}
+ 
+-	bcm43xx_pctl_set_crystal(bcm, 0);
+-	bcm43xx_free_modes(bcm);
++	/* IRQ related flags */
++	bcm->irq_reason = 0;
++	memset(bcm->dma_reason, 0, sizeof(bcm->dma_reason));
++	bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
+ 
+-	bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
+-	mutex_unlock(&bcm->mutex);
++	bcm->mac_suspended = 1;
++
++	/* Noise calculation context */
++	memset(&bcm->noisecalc, 0, sizeof(bcm->noisecalc));
++
++	/* Periodic work context */
++	bcm->periodic_state = 0;
+ }
+ 
+-static int bcm43xx_init_board(struct bcm43xx_private *bcm)
++static int wireless_core_up(struct bcm43xx_private *bcm,
++			    int active_wlcore)
++{
++	int err;
++
++	if (!bcm43xx_core_enabled(bcm))
++		bcm43xx_wireless_core_reset(bcm, 1);
++	if (!active_wlcore)
++		bcm43xx_wireless_core_mark_inactive(bcm);
++	err = bcm43xx_wireless_core_init(bcm, active_wlcore);
++	if (err)
++		goto out;
++	if (!active_wlcore)
++		bcm43xx_radio_turn_off(bcm);
++out:
++	return err;
++}
++
++/* Select and enable the "to be used" wireless core.
++ * Locking: bcm->mutex must be aquired before calling this.
++ *          bcm->irq_lock must not be aquired.
++ */
++int bcm43xx_select_wireless_core(struct bcm43xx_private *bcm,
++				 int phytype)
+ {
+ 	int i, err;
+-	int connect_phy;
++	struct bcm43xx_coreinfo *active_core = NULL;
++	struct bcm43xx_coreinfo_80211 *active_wlext = NULL;
++	struct bcm43xx_coreinfo *core;
++	struct bcm43xx_coreinfo_80211 *wlext;
++	int adjust_active_sbtmstatelow = 0;
+ 
+ 	might_sleep();
+ 
+-	mutex_lock(&bcm->mutex);
+-	bcm43xx_set_status(bcm, BCM43xx_STAT_INITIALIZING);
++	if (phytype < 0) {
++		/* If no phytype is requested, select the first core. */
++		assert(bcm->core_80211[0].available);
++		wlext = bcm->core_80211[0].priv;
++		phytype = wlext->phy.type;
++	}
++	/* Find the requested core. */
++	for (i = 0; i < bcm->nr_80211_available; i++) {
++		core = &(bcm->core_80211[i]);
++		wlext = core->priv;
++		if (wlext->phy.type == phytype) {
++			active_core = core;
++			active_wlext = wlext;
++			break;
++		}
++	}
++	if (!active_core)
++		return -ESRCH; /* No such PHYTYPE on this board. */
++
++	if (bcm->active_80211_core) {
++		/* We already selected a wl core in the past.
++		 * So first clean up everything.
++		 */
++		dprintk(KERN_INFO PFX "select_wireless_core: cleanup\n");
++		ieee80211_netif_oper(bcm->net_dev, NETIF_STOP);
++		ieee80211_netif_oper(bcm->net_dev, NETIF_DETACH);
++		bcm43xx_set_status(bcm, BCM43xx_STAT_INITIALIZED);
++		err = bcm43xx_disable_interrupts_sync(bcm);
++		assert(!err);
++		tasklet_enable(&bcm->isr_tasklet);
++		err = bcm43xx_shutdown_all_wireless_cores(bcm);
++		if (err)
++			goto error;
++		/* Ok, everything down, continue to re-initialize. */
++		bcm43xx_set_status(bcm, BCM43xx_STAT_INITIALIZING);
++	}
++
++	/* Reset all data structures. */
++	prepare_priv_for_init(bcm);
+ 
+-	err = bcm43xx_pctl_set_crystal(bcm, 1);
+-	if (err)
+-		goto out;
+-	err = bcm43xx_pctl_init(bcm);
+-	if (err)
+-		goto err_crystal_off;
+ 	err = bcm43xx_pctl_set_clock(bcm, BCM43xx_PCTL_CLK_FAST);
+ 	if (err)
+-		goto err_crystal_off;
++		goto error;
+ 
+-	tasklet_enable(&bcm->isr_tasklet);
++	/* Mark all unused cores "inactive". */
+ 	for (i = 0; i < bcm->nr_80211_available; i++) {
+-		err = bcm43xx_switch_core(bcm, &bcm->core_80211[i]);
+-		assert(err != -ENODEV);
+-		if (err)
+-			goto err_80211_unwind;
++		core = &(bcm->core_80211[i]);
++		wlext = core->priv;
+ 
+-		/* Enable the selected wireless core.
+-		 * Connect PHY only on the first core.
+-		 */
+-		if (!bcm43xx_core_enabled(bcm)) {
+-			if (bcm->nr_80211_available == 1) {
+-				connect_phy = bcm43xx_current_phy(bcm)->connected;
+-			} else {
+-				if (i == 0)
+-					connect_phy = 1;
+-				else
+-					connect_phy = 0;
+-			}
+-			bcm43xx_wireless_core_reset(bcm, connect_phy);
++		if (core == active_core)
++			continue;
++		err = bcm43xx_switch_core(bcm, core);
++		if (err) {
++			dprintk(KERN_ERR PFX "Could not switch to inactive "
++					     "802.11 core (%d)\n", err);
++			goto error;
+ 		}
++		err = wireless_core_up(bcm, 0);
++		if (err) {
++			dprintk(KERN_ERR PFX "core_up for inactive 802.11 core "
++					     "failed (%d)\n", err);
++			goto error;
++		}
++		adjust_active_sbtmstatelow = 1;
++	}
+ 
+-		if (i != 0)
+-			bcm43xx_wireless_core_mark_inactive(bcm, &bcm->core_80211[0]);
+-
+-		err = bcm43xx_wireless_core_init(bcm);
+-		if (err)
+-			goto err_80211_unwind;
++	/* Now initialize the active 802.11 core. */
++	err = bcm43xx_switch_core(bcm, active_core);
++	if (err) {
++		dprintk(KERN_ERR PFX "Could not switch to active "
++				     "802.11 core (%d)\n", err);
++		goto error;
++	}
++	if (adjust_active_sbtmstatelow &&
++	    active_wlext->phy.type == BCM43xx_PHYTYPE_G) {
++		u32 sbtmstatelow;
+ 
+-		if (i != 0) {
+-			bcm43xx_mac_suspend(bcm);
+-			bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+-			bcm43xx_radio_turn_off(bcm);
+-		}
++		sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
++		sbtmstatelow |= 0x20000000;
++		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+ 	}
+-	bcm->active_80211_core = &bcm->core_80211[0];
+-	if (bcm->nr_80211_available >= 2) {
+-		bcm43xx_switch_core(bcm, &bcm->core_80211[0]);
+-		bcm43xx_mac_enable(bcm);
++	err = wireless_core_up(bcm, 1);
++	if (err) {
++		dprintk(KERN_ERR PFX "core_up for active 802.11 core "
++				     "failed (%d)\n", err);
++		goto error;
+ 	}
++	err = bcm43xx_pctl_set_clock(bcm, BCM43xx_PCTL_CLK_DYNAMIC);
++	if (err)
++		goto error;
++	bcm->active_80211_core = active_core;
++
+ 	bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
+ 	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
+-	dprintk(KERN_INFO PFX "80211 cores initialized\n");
+-	bcm43xx_setup_modes(bcm);
+ 	bcm43xx_security_init(bcm);
+ 	bcm43xx_measure_channel_change_time(bcm);
+ 	ieee80211_update_hw(bcm->net_dev, bcm->ieee);
+@@ -4055,37 +3718,59 @@
+ 	ieee80211_netif_oper(bcm->net_dev, NETIF_START);
+ 	ieee80211_netif_oper(bcm->net_dev, NETIF_WAKE);
+ 
+-	bcm43xx_pctl_set_clock(bcm, BCM43xx_PCTL_CLK_DYNAMIC);
++	/* Let's go! Be careful after enabling the IRQs.
++	 * Don't switch cores, for example.
++	 */
++	bcm43xx_mac_enable(bcm);
++	bcm43xx_set_status(bcm, BCM43xx_STAT_INITIALIZED);
++	err = bcm43xx_initialize_irq(bcm);
++	if (err)
++		goto error;
++	bcm43xx_interrupt_enable(bcm, bcm->irq_savedstate);
++
++	dprintk(KERN_INFO PFX "Selected 802.11 core (phytype %d)\n",
++		active_wlext->phy.type);
+ 
+-	if (bcm43xx_current_radio(bcm)->initial_channel != 0xFF) {
+-		bcm43xx_mac_suspend(bcm);
+-		bcm43xx_radio_selectchannel(bcm, bcm43xx_current_radio(bcm)->initial_channel, 0);
+-		bcm43xx_mac_enable(bcm);
+-	}
++	return 0;
+ 
+-	/* Initialization of the board is done. Flag it as such. */
+-	bcm43xx_set_status(bcm, BCM43xx_STAT_INITIALIZED);
++error:
++	bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
++	bcm43xx_pctl_set_clock(bcm, BCM43xx_PCTL_CLK_SLOW);
++	return err;
++}
+ 
+-	bcm43xx_periodic_tasks_setup(bcm);
+-	bcm43xx_sysfs_register(bcm);
++static int bcm43xx_init_board(struct bcm43xx_private *bcm)
++{
++	int err;
+ 
+-	assert(err == 0);
++	mutex_lock(&bcm->mutex);
++
++	tasklet_enable(&bcm->isr_tasklet);
++	err = bcm43xx_pctl_set_crystal(bcm, 1);
++	if (err)
++		goto err_tasklet;
++	err = bcm43xx_pctl_init(bcm);
++	if (err)
++		goto err_crystal_off;
++	err = bcm43xx_select_wireless_core(bcm, -1);
++	if (err)
++		goto err_crystal_off;
++
++	bcm43xx_periodic_tasks_setup(bcm);
++	err = bcm43xx_sysfs_register(bcm);
++	if (err)
++		goto err_wlshutdown;
+ out:
+ 	mutex_unlock(&bcm->mutex);
+ 
+ 	return err;
+ 
+-err_80211_unwind:
+-	tasklet_disable(&bcm->isr_tasklet);
+-	/* unwind all 80211 initialization */
+-	for (i = 0; i < bcm->nr_80211_available; i++) {
+-		if (!bcm->core_80211[i].initialized)
+-			continue;
+-		bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+-		bcm43xx_wireless_core_cleanup(bcm);
+-	}
++err_wlshutdown:
++	bcm43xx_shutdown_all_wireless_cores(bcm);
+ err_crystal_off:
+ 	bcm43xx_pctl_set_crystal(bcm, 0);
++err_tasklet:
++	tasklet_disable(&bcm->isr_tasklet);
+ 	goto out;
+ }
+ 
+@@ -4106,6 +3791,7 @@
+ 		if (bcm->core_80211_ext[i].phy.dyn_tssi_tbl)
+ 			kfree(bcm->core_80211_ext[i].phy.tssi2dbm);
+ 	}
++	bcm43xx_free_modes(bcm);
+ }
+ 
+ static int bcm43xx_read_phyinfo(struct bcm43xx_private *bcm)
+@@ -4263,6 +3949,7 @@
+ 		memcpy(bcm->net_dev->dev_addr, bcm->sprom.et1macaddr, 6);
+ 	else
+ 		memcpy(bcm->net_dev->dev_addr, bcm->sprom.il0macaddr, 6);
++	bcm43xx_setup_modes(bcm);
+ 
+ 	snprintf(bcm->nick, IW_ESSID_MAX_SIZE,
+ 		 "Broadcom %04X", bcm->chip_id);
+@@ -4328,16 +4015,44 @@
+ 	struct bcm43xx_radioinfo *radio;
+ 	struct bcm43xx_phyinfo *phy;
+ 	unsigned long flags;
++	int new_phymode = -1;
++	int new_antennadiv = 0;
++	int err = 0;
+ 
++	mutex_lock(&bcm->mutex);
+ 	spin_lock_irqsave(&bcm->irq_lock, flags);
+ 	if (bcm43xx_status(bcm) != BCM43xx_STAT_INITIALIZED)
+ 		goto out_unlock;
+-	radio = bcm43xx_current_radio(bcm);
+ 	phy = bcm43xx_current_phy(bcm);
++	radio = bcm43xx_current_radio(bcm);
++
++	/* Switch the PHY mode (if necessary). */
++	switch (conf->phymode) {
++	case MODE_IEEE80211A:
++		new_phymode = BCM43xx_PHYTYPE_A;
++		break;
++	case MODE_IEEE80211B:
++		new_phymode = BCM43xx_PHYTYPE_B;
++		break;
++	case MODE_IEEE80211G:
++		new_phymode = BCM43xx_PHYTYPE_G;
++		break;
++	default:
++		assert(0);
++	}
++	if (phy->type != new_phymode) {
++		err = bcm43xx_select_wireless_core(bcm, new_phymode);
++		if (err)
++			goto out_unlock;
++		phy = bcm43xx_current_phy(bcm);
++		radio = bcm43xx_current_radio(bcm);
++	}
+ 
+-	if (conf->channel != radio->channel)
+-		bcm43xx_radio_selectchannel(bcm, conf->channel, 0);
++	/* Switch to the requested channel. */
++	if (conf->channel_val != radio->channel)
++		bcm43xx_radio_selectchannel(bcm, conf->channel_val, 0);
+ 
++	/* Enable/Disable ShortSlot timing. */
+ 	if (conf->short_slot_time != bcm->short_slot) {
+ 		assert(phy->type == BCM43xx_PHYTYPE_G);
+ 		if (conf->short_slot_time)
+@@ -4346,11 +4061,13 @@
+ 			bcm43xx_short_slot_timing_disable(bcm);
+ 	}
+ 
++	/* Adjust the desired TX power level. */
+ 	if (conf->power_level != 0) {
+ 		radio->power_level = conf->power_level;
+ 		bcm43xx_phy_xmitpower(bcm);
+ 	}
+ 
++	/* Hide/Show the SSID (AP mode only). */
+ 	if (conf->ssid_hidden) {
+ 		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
+ 				bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD)
+@@ -4361,20 +4078,26 @@
+ 				& ~BCM43xx_SBF_NO_SSID_BCAST);
+ 	}
+ 
+-//FIXME: This does not seem to wake up:
+-#if 0
+-	if (conf->power_level == 0) {
+-		if (radio->enabled)
+-			bcm43xx_radio_turn_off(bcm);
+-	} else {
+-		if (!radio->enabled)
+-			bcm43xx_radio_turn_on(bcm);
++	/* Select the TX Antenna. */
++	switch (conf->antenna_sel) {
++	case 0: /* default/diversity */
++		new_antennadiv = BCM43xx_RADIO_TXANTENNA_DEFAULT;
++		break;
++	case 1: /* Antenna 0 */
++		new_antennadiv = BCM43xx_RADIO_TXANTENNA_0;
++		break;
++	case 2: /* Antenna 1 */
++		new_antennadiv = BCM43xx_RADIO_TXANTENNA_1;
++		break;
++	default:
++		assert(0);
++	}
++	if (new_antennadiv != phy->antenna_diversity) {
++		phy->antenna_diversity = new_antennadiv;
++		bcm43xx_phy_set_antenna_diversity(bcm);
+ 	}
+-#endif
+-
+-	//TODO: phymode
+-	//TODO: antennas
+ 
++	/* Update templates for AP mode. */
+ 	if (bcm43xx_is_mode(bcm, IEEE80211_IF_TYPE_AP)) {
+ 		bcm43xx_set_beacon_int(bcm, conf->beacon_int);
+ 		bcm43xx_refresh_templates(bcm);
+@@ -4382,8 +4105,9 @@
+ 
+ out_unlock:
+ 	spin_unlock_irqrestore(&bcm->irq_lock, flags);
++	mutex_unlock(&bcm->mutex);
+ 
+-	return 0;
++	return err;
+ }
+ 
+ static int bcm43xx_net_set_key(struct net_device *net_dev,
+@@ -4504,7 +4228,8 @@
+ 	unsigned long flags;
+ 
+ 	local_irq_save(flags);
+-	bcm43xx_interrupt_handler(bcm->irq, bcm, NULL);
++	if (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED)
++		bcm43xx_interrupt_handler(bcm->irq, bcm, NULL);
+ 	local_irq_restore(flags);
+ }
+ #endif /* CONFIG_NET_POLL_CONTROLLER */
+@@ -4522,7 +4247,7 @@
+ 	int err;
+ 
+ 	if (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED) {
+-		err = bcm43xx_disable_interrupts_sync(bcm, NULL);
++		err = bcm43xx_disable_interrupts_sync(bcm);
+ 		assert(!err);
+ 		bcm43xx_free_board(bcm);
+ 	}
+@@ -4781,7 +4506,6 @@
+ 	if (bcm->cached_beacon)
+ 		kfree_skb(bcm->cached_beacon);
+ 	bcm->cached_beacon = NULL;
+-	assert(bcm->ucode == NULL);
+ 	ieee80211_free_hw(net_dev);
+ 	kfree(ieee);
+ }
+@@ -4792,48 +4516,26 @@
+ static void bcm43xx_chip_reset(void *_bcm)
+ {
+ 	struct bcm43xx_private *bcm = _bcm;
+-	struct net_device *net_dev = bcm->net_dev;
+-	struct pci_dev *pci_dev = bcm->pci_dev;
+-	struct ieee80211_hw *ieee = bcm->ieee;
++	struct bcm43xx_phyinfo *phy;
+ 	int err;
+-	int was_initialized = (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED);
+-
+-	ieee80211_netif_oper(bcm->net_dev, NETIF_DETACH);
+-	tasklet_disable(&bcm->isr_tasklet);
+ 
+-	bcm->firmware_norelease = 1;
+-	if (was_initialized)
+-		bcm43xx_free_board(bcm);
+-	bcm->firmware_norelease = 0;
+-	bcm43xx_detach_board(bcm);
+-	err = bcm43xx_init_private(bcm, net_dev, pci_dev, ieee);
+-	if (err)
+-		goto failure;
+-	err = bcm43xx_attach_board(bcm);
+-	if (err)
+-		goto failure;
+-	if (was_initialized) {
+-		err = bcm43xx_init_board(bcm);
+-		if (err)
+-			goto failure;
+-	}
+-	ieee80211_netif_oper(bcm->net_dev, NETIF_ATTACH);
+-	printk(KERN_INFO PFX "Controller restarted\n");
++	mutex_lock(&bcm->mutex);
++	phy = bcm43xx_current_phy(bcm);
++	err = bcm43xx_select_wireless_core(bcm, phy->type);
++	mutex_unlock(&bcm->mutex);
+ 
+-	return;
+-failure:
+-	printk(KERN_ERR PFX "Controller restart failed\n");
++	printk("%s" PFX "Controller restart%s\n",
++	       (err == 0) ? KERN_INFO : KERN_ERR,
++	       (err == 0) ? "ed" : " failed");
+ }
+ 
+ /* Hard-reset the chip.
+  * This can be called from interrupt or process context.
+- * Make sure to _not_ re-enable device interrupts after this has been called.
+  */
+ void bcm43xx_controller_restart(struct bcm43xx_private *bcm, const char *reason)
+ {
++	assert(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED);
+ 	bcm43xx_set_status(bcm, BCM43xx_STAT_RESTARTING);
+-	bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+-	bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD); /* dummy read */
+ 	printk(KERN_ERR PFX "Controller RESET (%s) ...\n", reason);
+ 	INIT_WORK(&bcm->restart_work, bcm43xx_chip_reset, bcm);
+ 	schedule_work(&bcm->restart_work);
+@@ -4845,17 +4547,16 @@
+ {
+ 	struct net_device *net_dev = pci_get_drvdata(pdev);
+ 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+-	int try_to_shutdown = 0, err;
++	int err;
+ 
+ 	dprintk(KERN_INFO PFX "Suspending...\n");
+ 
+-	bcm->was_initialized = (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED);
+-	if (bcm->was_initialized)
+-		try_to_shutdown = 1;
+-
++	ieee80211_netif_oper(bcm->net_dev, NETIF_STOP);
+ 	ieee80211_netif_oper(bcm->net_dev, NETIF_DETACH);
+-	if (try_to_shutdown) {
+-		err = bcm43xx_disable_interrupts_sync(bcm, &bcm->irq_savedstate);
++	bcm->was_initialized = 0;
++	if (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED) {
++		bcm->was_initialized = 1;
++		err = bcm43xx_disable_interrupts_sync(bcm);
+ 		if (unlikely(err)) {
+ 			dprintk(KERN_ERR PFX "Suspend failed.\n");
+ 			return -EAGAIN;
+@@ -4888,16 +4589,14 @@
+ 	pci_restore_state(pdev);
+ 
+ 	bcm43xx_chipset_attach(bcm);
+-	if (bcm->was_initialized) {
+-		bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
++	if (bcm->was_initialized)
+ 		err = bcm43xx_init_board(bcm);
+-	}
+ 	if (err) {
+ 		printk(KERN_ERR PFX "Resume failed!\n");
+ 		return err;
+ 	}
+-
+ 	ieee80211_netif_oper(bcm->net_dev, NETIF_ATTACH);
++	ieee80211_netif_oper(bcm->net_dev, NETIF_WAKE);
+ 
+ 	dprintk(KERN_INFO PFX "Device resumed.\n");
+ 
+Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c
+===================================================================
+--- wireless-dev-dscapeports.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c	2006-07-10 00:41:15.000000000 +0200
++++ wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c	2006-07-10 00:54:11.000000000 +0200
+@@ -316,6 +316,42 @@
+ 	return res;
+ }
+ 
++static ssize_t restart_write_file(struct file *file, const char __user *user_buf,
++				  size_t count, loff_t *ppos)
++{
++	struct bcm43xx_private *bcm = file->private_data;
++	char *buf = really_big_buffer;
++	ssize_t buf_size;
++	ssize_t res;
++	unsigned long flags;
++
++	buf_size = min(count, sizeof (really_big_buffer) - 1);
++	down(&big_buffer_sem);
++	if (copy_from_user(buf, user_buf, buf_size)) {
++	        res = -EFAULT;
++		goto out_up;
++	}
++	mutex_lock(&bcm->mutex);
++	spin_lock_irqsave(&bcm->irq_lock, flags);
++	if (bcm43xx_status(bcm) != BCM43xx_STAT_INITIALIZED) {
++		printk(KERN_INFO PFX "debugfs: Board not initialized.\n");
++		res = -EFAULT;
++		goto out_unlock;
++	}
++	if (count > 0 && buf[0] == '1') {
++		bcm43xx_controller_restart(bcm, "manually restarted");
++		res = count;
++	} else
++		res = -EINVAL;
++
++out_unlock:
++	spin_unlock_irqrestore(&bcm->irq_lock, flags);
++	mutex_unlock(&bcm->mutex);
++out_up:
++	up(&big_buffer_sem);
++	return res;
++}
++
+ #undef fappend
+ 
+ 
+@@ -349,6 +385,11 @@
+ 	.open = open_file_generic,
+ };
+ 
++static struct file_operations restart_fops = {
++	.write = restart_write_file,
++	.open = open_file_generic,
++};
++
+ 
+ void bcm43xx_debugfs_add_device(struct bcm43xx_private *bcm)
+ {
+@@ -400,6 +441,10 @@
+ 						bcm, &txstat_fops);
+ 	if (!e->dentry_txstat)
+ 		printk(KERN_ERR PFX "debugfs: creating \"tx_status\" for \"%s\" failed!\n", devdir);
++	e->dentry_restart = debugfs_create_file("restart", 0222, e->subdir,
++						bcm, &restart_fops);
++	if (!e->dentry_restart)
++		printk(KERN_ERR PFX "debugfs: creating \"restart\" for \"%s\" failed!\n", devdir);
+ }
+ 
+ void bcm43xx_debugfs_remove_device(struct bcm43xx_private *bcm)
+@@ -415,6 +460,7 @@
+ 	debugfs_remove(e->dentry_devinfo);
+ 	debugfs_remove(e->dentry_tsf);
+ 	debugfs_remove(e->dentry_txstat);
++	debugfs_remove(e->dentry_restart);
+ 	debugfs_remove(e->subdir);
+ 	kfree(e->xmitstatus_buffer);
+ 	kfree(e->xmitstatus_print_buffer);
+Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.h
+===================================================================
+--- wireless-dev-dscapeports.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.h	2006-07-10 00:41:15.000000000 +0200
++++ wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.h	2006-07-10 00:54:11.000000000 +0200
+@@ -20,6 +20,7 @@
+ 	struct dentry *dentry_spromdump;
+ 	struct dentry *dentry_tsf;
+ 	struct dentry *dentry_txstat;
++	struct dentry *dentry_restart;
+ 
+ 	struct bcm43xx_private *bcm;
+ 
+Index: wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.h
+===================================================================
+--- wireless-dev-dscapeports.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.h	2006-07-10 00:41:15.000000000 +0200
++++ wireless-dev-dscapeports/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.h	2006-07-10 00:54:11.000000000 +0200
+@@ -152,6 +152,9 @@
+ 
+ int bcm43xx_switch_core(struct bcm43xx_private *bcm, struct bcm43xx_coreinfo *new_core);
+ 
++int bcm43xx_select_wireless_core(struct bcm43xx_private *bcm,
++				 int phytype);
++
+ void bcm43xx_wireless_core_reset(struct bcm43xx_private *bcm, int connect_phy);
+ 
+ void bcm43xx_mac_suspend(struct bcm43xx_private *bcm);
+
+-- 
+Greetings Michael.
