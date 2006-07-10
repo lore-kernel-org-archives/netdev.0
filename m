@@ -1,34 +1,38 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: Please pull 'upstream' branch of wireless-2.6
-Date: Mon, 10 Jul 2006 16:58:34 -0500
-Message-ID: <44B2CD8A.3080708@lwfinger.net>
-References: <20060710212900.GF13775@tuxdriver.com> <20060710213101.GG13775@tuxdriver.com> <200607102338.24955.mb@bu3sch.de>
+From: Stefan Rompf <stefan@loplof.de>
+Subject: Re: [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
+Date: Mon, 10 Jul 2006 23:58:28 +0200
+Message-ID: <200607102358.28470.stefan@loplof.de>
+References: <44AE2FCC.6020207@trash.net> <200607100817.26635.stefan@loplof.de> <m33bd9653d.fsf@defiant.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:7113 "EHLO
-	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S965002AbWGJV67 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jul 2006 17:58:59 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200607102338.24955.mb@bu3sch.de>
+Received: from natreg.rzone.de ([81.169.145.183]:28309 "EHLO natreg.rzone.de")
+	by vger.kernel.org with ESMTP id S965022AbWGJV7O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jul 2006 17:59:14 -0400
+To: Krzysztof Halasa <khc@pm.waw.pl>
+In-Reply-To: <m33bd9653d.fsf@defiant.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> On Monday 10 July 2006 23:31, you wrote:
-> Larry, I see that several patches from you got merged now.
-> Please make sure that you also submit patches for bcm43xx-d80211.
-> If you don't, your changes will all be lost, as soon as bcm43xx-d80211
-> is merged upstream and softmac is dropped.
-> 
+Am Montag, 10. Juli 2006 14:01 schrieb Krzysztof Halasa:
 
-Will do. A couple of days ago I downloaded a copy of the wireless-dev repository, and now have the 
-master code so that I can prepare the patches.
+> > You've got two independant flags of which one does not stop the queue.
+>
+> Is it ok to set that flag without synchronization with other flags?
+> I.e, from within another module and without using cross-module locks,
+> as I've shown at the time? Just asking, I don't know what the final
+> conclusion was.
+>
+> I.e., is it ok if the hardware module does netif_carrier_on/off()
+> (for example, from its IRQ handler) and if the protocol module does
+> netif_dormant_on/off() independently (for example, from its timer
+> or linkwatch)?
 
-Will the upstream merge of d80211 be made for 2.6.19 or later?
+Yes, you can read and write these flags independantly. For the details, look 
+at Documentation/networking/operstates.txt in the 2.6.17 tree.
 
-Larry
-
+Stefan
