@@ -1,94 +1,89 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [RFC] vlan handling of up/down
-Date: Tue, 11 Jul 2006 14:28:08 -0700
-Message-ID: <20060711142808.1a6a47bb@dxpl.pdx.osdl.net>
-References: <200603211829.k2LITMNR029085@hera.kernel.org>
-	<200607091049.31628.stefan@loplof.de>
-	<20060710095603.0b197eec@dxpl.pdx.osdl.net>
-	<200607110001.14812.stefan@loplof.de>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [patch] do not allow IPW_2100=Y or IPW_2200=Y
+Date: Tue, 11 Jul 2006 15:32:28 +0200
+Message-ID: <20060711133227.GA1650@elf.ucw.cz>
+References: <20060710152032.GA8540@elf.ucw.cz> <44B2940A.2080102@pobox.com> <200607102305.06572.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Ben Greear <greearb@candelatech.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, yi.zhu@intel.com,
+	jketreno@linux.intel.com, Netdev list <netdev@vger.kernel.org>,
+	linville@tuxdriver.com, kernel list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:50318 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751319AbWGKV2Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 17:28:16 -0400
-To: Stefan Rompf <stefan@loplof.de>
-In-Reply-To: <200607110001.14812.stefan@loplof.de>
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:23244 "EHLO amd.ucw.cz")
+	by vger.kernel.org with ESMTP id S1751333AbWGKVpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 17:45:18 -0400
+To: Michael Buesch <mb@bu3sch.de>
+Content-Disposition: inline
+In-Reply-To: <200607102305.06572.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Untested, but here is the basic idea of how I think up/down should be
-handled.  Basically, rather than changing the flags directly the VLAN code
-should call dev_open/dev_close.  The notifier end's up recursively calling
-but this is okay.
+On Mon 2006-07-10 23:05:06, Michael Buesch wrote:
+> On Monday 10 July 2006 19:53, you wrote:
+> > Pavel Machek wrote:
+> > > Kconfig currently allows compiling IPW_2100 and IPW_2200 into kernel
+> > > (not as a module). Unfortunately, such configuration does not work,
+> > > because these drivers need a firmware, and it can't be loaded by
+> > > userspace loader when userspace is not running.
+> > 
+> > False, initramfs...
+> 
+> Does the ipw driver _really_ need the firmware on insmod time?
+> bcm43xx, for example, loads the firmware on "ifconfig up" time.
+> If ipw really needs the firmware on insmod, is it possible to
+> defer it to later at "ifconfig up" time?
 
+Probably not. This (very dirty) hack implements that (with some level
+of success -- ifconfig down/ifconfig up is enough to get wireless
+working).
 
---- vlan.orig/net/8021q/vlan.c
-+++ vlan/net/8021q/vlan.c
-@@ -427,7 +427,7 @@ static struct net_device *register_vlan_
- 	/* The real device must be up and operating in order to
- 	 * assosciate a VLAN device with it.
- 	 */
--	if (!(real_dev->flags & IFF_UP))
-+	if (!netif_running(real_dev))
- 		goto out_unlock;
+Signed-off-by: Pavel Machek <pavel@suse.cz>
+
+									Pavel
+
+--- clean-mm/drivers/net/wireless/ipw2200.c	2006-07-11 15:22:50.000000000 +0200
++++ linux-mm/drivers/net/wireless/ipw2200.c	2006-07-11 14:38:01.000000000 +0200
+@@ -97,6 +97,7 @@
+ static int bt_coexist = 0;
+ static int hwcrypto = 0;
+ static int roaming = 1;
++static int needs_reinit = 1;
+ static const char ipw_modes[] = {
+ 	'a', 'b', 'g', '?'
+ };
+@@ -10013,10 +10014,20 @@
+ 	sys_config->silence_threshold = 0x1e;
+ }
  
- 	if (__find_vlan_dev(real_dev, VLAN_ID) != NULL) {
-@@ -476,10 +476,7 @@ static struct net_device *register_vlan_
- 	printk(VLAN_DBG "Allocated new name -:%s:-\n", new_dev->name);
- #endif
- 	/* IFF_BROADCAST|IFF_MULTICAST; ??? */
--	new_dev->flags = real_dev->flags;
--	new_dev->flags &= ~IFF_UP;
--
--	new_dev->state = real_dev->state & ~(1<<__LINK_STATE_START);
-+	new_dev->flags = real_dev->flags & ~IFF_UP;
- 
- 	/* need 4 bytes for extra VLAN header info,
- 	 * hope the underlying device can handle it.
-@@ -566,6 +563,9 @@ static struct net_device *register_vlan_
- 	if (real_dev->features & NETIF_F_HW_VLAN_FILTER)
- 		real_dev->vlan_rx_add_vid(real_dev, VLAN_ID);
- 
-+	/* Real device is up so bring up the vlan */
-+	dev_open(new_dev);
++static int ipw_pci_suspend(struct pci_dev *pdev, pm_message_t state);
++static int ipw_pci_resume(struct pci_dev *pdev);
 +
- 	rtnl_unlock();
+ static int ipw_net_open(struct net_device *dev)
+ {
+ 	struct ipw_priv *priv = ieee80211_priv(dev);
+ 	IPW_DEBUG_INFO("dev->open\n");
++
++	if (needs_reinit) {
++		printk("ipw: Delayed loading the firmware\n");
++		ipw_pci_suspend(priv->pci_dev, PMSG_FREEZE);
++		ipw_pci_resume(priv->pci_dev);
++	}
++
+ 	/* we should be verifying the device is ready to be opened */
+ 	mutex_lock(&priv->mutex);
+ 	if (!(priv->status & STATUS_RF_KILL_MASK) &&
+@@ -11295,7 +11306,8 @@
  
+ 	if (ipw_up(priv)) {
+ 		mutex_unlock(&priv->mutex);
+-		return -EIO;
++		needs_reinit = 1;
++		return 0;
+ 	}
  
-@@ -624,11 +624,7 @@ static int vlan_device_event(struct noti
- 			if (!vlandev)
- 				continue;
- 
--			flgs = vlandev->flags;
--			if (!(flgs & IFF_UP))
--				continue;
--
--			dev_change_flags(vlandev, flgs & ~IFF_UP);
-+			dev_close(vlandev);
- 		}
- 		break;
- 
-@@ -638,12 +634,8 @@ static int vlan_device_event(struct noti
- 			vlandev = grp->vlan_devices[i];
- 			if (!vlandev)
- 				continue;
--				
--			flgs = vlandev->flags;
--			if (flgs & IFF_UP)
--				continue;
- 
--			dev_change_flags(vlandev, flgs | IFF_UP);
-+			dev_open(vlandev);
- 		}
- 		break;
- 		
+ 	mutex_unlock(&priv->mutex);
 
 
 -- 
-Stephen Hemminger <shemminger@osdl.org>
-Quis custodiet ipsos custodes?
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
