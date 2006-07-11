@@ -1,41 +1,44 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] d80211: make sleeping in hw->config possible #2
-Date: Tue, 11 Jul 2006 12:12:53 +0200
-Message-ID: <200607111212.53730.mb@bu3sch.de>
-References: <200607110054.36520.mb@bu3sch.de> <200607111111.28040.mb@bu3sch.de> <20060711023100.6d117264.akpm@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, jbenc@suse.cz, netdev@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] cancel_rearming_delayed_work infinite loop fix
+Date: Tue, 11 Jul 2006 20:13:03 +1000
+Message-ID: <E1G0FEl-0002lK-00@gondolin.me.apana.org.au>
+References: <200607110036.31574.mb@bu3sch.de>
+Cc: akpm@osdl.org, jbenc@suse.cz, netdev@vger.kernel.org,
+	bcm43xx-dev@lists.berlios.de, linville@tuxdriver.com,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:6113
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750921AbWGKKLX
+Received: from rhun.apana.org.au ([64.62.148.172]:34576 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750928AbWGKKNy
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 06:11:23 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060711023100.6d117264.akpm@osdl.org>
-Content-Disposition: inline
+	Tue, 11 Jul 2006 06:13:54 -0400
+To: mb@bu3sch.de (Michael Buesch)
+In-Reply-To: <200607110036.31574.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 11 July 2006 11:31, you wrote:
-> On Tue, 11 Jul 2006 11:11:27 +0200
-> Michael Buesch <mb@bu3sch.de> wrote:
-> 
-> > But I think the following is also broken in the old code:
-> > A wq is not pending anymore, but just executing (before it reschedules itself).
-> > I think that would also loop forever. I don't think that's what we want.
-> > Because we can't really keep track of _this_.
-> 
-> The present implementation assumes that the handler will re-arm itself.
-> 
-> I agree that extending that makes sense.  But beware that it's easy to
-> leave subtle holes in this logic.  Needs careful thought to get right.
+Michael Buesch <mb@bu3sch.de> wrote:
+> cancel_rearming_delayed_work{queue} is broken, because it is
+> possible to enter an infinite loop if:
+> We call the function on a work that is currently not executing or pending.
 
-Yeah, as I said. There is still a race.
-Should I redo the patch to fix it?
+Why are you calling it on a work that was never scheduled? Sounds like
+a bug to me.
 
+> void cancel_rearming_delayed_workqueue(struct workqueue_struct *wq,
+>                                       struct work_struct *work)
+> {
+> -       while (!cancel_delayed_work(work))
+> +       do {
+> +               cancel_delayed_work(work);
+>                flush_workqueue(wq);
+> +       } while (test_bit(0, &work->pending));
+
+This is broken.  If the work just starts running before your test_bit
+you'd exit without cancelling it properly.
+
+Cheers,
 -- 
-Greetings Michael.
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
