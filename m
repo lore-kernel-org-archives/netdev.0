@@ -1,29 +1,32 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: RE: IPsec and netfilter needs INPUT rule for protocol 4?
-Date: Tue, 11 Jul 2006 16:11:44 +0200
-Message-ID: <BAY103-F3738884C0CF149C91509B0B2680@phx.gbl>
-References: <1152626083.20072.252.camel@tahini.andynet.net>
+From: Alex Davis <alex14641@yahoo.com>
+Subject: d80211 sysfs
+Date: Tue, 11 Jul 2006 07:31:36 -0700 (PDT)
+Message-ID: <20060711143136.66285.qmail@web50203.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc2-s7.bay0.hotmail.com ([65.54.246.143]:27829 "EHLO
-	bay0-omc2-s7.bay0.hotmail.com") by vger.kernel.org with ESMTP
-	id S1750811AbWGKOLs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 10:11:48 -0400
-In-Reply-To: <1152626083.20072.252.camel@tahini.andynet.net>
-To: andy@andynet.net
+Received: from web50203.mail.yahoo.com ([206.190.38.44]:28084 "HELO
+	web50203.mail.yahoo.com") by vger.kernel.org with SMTP
+	id S1750863AbWGKObi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 10:31:38 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andy Gay wrote:
+Ivo Van Doorn  wrote:
 
->Since 2.6.16 it's been necessary to add an ACCEPT rule for IPIP
->(protocol 4) in the INPUT chain, otherwise IPsec tunnel mode packets get
->dropped (if your INPUT policy is DROP).
->
->I was wondering if that's the intended behavior.
+[snip]
+> EIP: 0060:[<c019bca4>] Tainted: P VLI
+                         ^^^^^^^
 
-No it isn't the desired behaviour. It is a know issue.
+Just out of curiosity, what's tainting your kernel?
 
+-Alex
 
+I code, therefore I am
+
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
