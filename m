@@ -1,49 +1,43 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch 6/6] per task delay accounting taskstats interface: fix clone skbs for each listener
-Date: Tue, 11 Jul 2006 21:15:25 +1000
-Message-ID: <20060711111525.GA11175@gondor.apana.org.au>
-References: <20060711030524.39abc3d5.akpm@osdl.org> <E1G0FU2-0002oE-00@gondolin.me.apana.org.au> <20060711035731.63c087b3.akpm@osdl.org>
+Subject: Re: ipsec tunnel asymmetrical mtu
+Date: Tue, 11 Jul 2006 21:21:53 +1000
+Message-ID: <20060711112153.GB11175@gondor.apana.org.au>
+References: <BAY103-F209936DACD91675B1D73DFB2680@phx.gbl> <BAY103-F36F59C0E4B463B590831A5B2680@phx.gbl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: nagar@watson.ibm.com, linux-kernel@vger.kernel.org, jlan@sgi.com,
-	csturtiv@sgi.com, pj@sgi.com, balbir@in.ibm.com,
-	sekharan@us.ibm.com, hadi@cyberus.ca, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:60177 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751037AbWGKLPs
+Received: from rhun.apana.org.au ([64.62.148.172]:64529 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751017AbWGKLV4
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 07:15:48 -0400
-To: Andrew Morton <akpm@osdl.org>
+	Tue, 11 Jul 2006 07:21:56 -0400
+To: Marco Berizzi <pupilla@hotmail.com>
 Content-Disposition: inline
-In-Reply-To: <20060711035731.63c087b3.akpm@osdl.org>
+In-Reply-To: <BAY103-F36F59C0E4B463B590831A5B2680@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 11, 2006 at 03:57:31AM -0700, Andrew Morton wrote:
->
-> > >>       down_write(&listeners->sem);
-> > >>       list_for_each_entry_safe(s, tmp, &listeners->list, list) {
-> > >> -             ret = genlmsg_unicast(skb, s->pid);
-> > >> +             skb_next = NULL;
-> > >> +             if (!list_islast(&s->list, &listeners->list)) {
-> > >> +                     skb_next = skb_clone(skb_cur, GFP_KERNEL);
-> > > 
-> > > If we do a GFP_KERNEL allocation with this semaphore held, and the
-> > > oom-killer tries to kill something to satisfy the allocation, and the
-> > > killed task gets stuck on that semaphore, I wonder of the box locks up.
-> > 
-> > We do GFP_KERNEL inside semaphores/mutexes in lots of places.  So if this
-> > can deadlock with the oom-killer we probably should fix that, preferably
-> > by having GFP_KERNEL fail in that case.
+On Tue, Jul 11, 2006 at 11:31:33AM +0200, Marco Berizzi wrote:
 > 
-> This lock is special, in that it's taken on the exit() path (I think).  So
-> it can block tasks which are trying to exit.
+> Me again. After a while here is:
+> 
+> root@Mimosa:/tmp# ping 10.49.59.23
+> PING 10.49.59.23 (10.49.59.23) 56(84) bytes of data.
+> 
+> --- 10.49.59.23 ping statistics ---
+> 4 packets transmitted, 0 received, 100% packet loss, time 3010ms
 
-Sorry, missed the context.
+Please check using ip -s x p to make sure that the packet is hitting
+the right policy.  Unfortunately we don't update the byte/packet counters
+so you'll have to look at the `use' time stamp.
 
-If there is a deadlock then it's not just this allocation that you
-need worry about.  There is also an allocation within genlmsg_uniast
-that would be GFP_KERNEL.
+If it's passing through IPsec, then you should trace through your
+iptables rules using the LOG target to see if it's hitting them.
+
+We need to know if it's being dropped before, in, or after netfilter.
+
+Please also do ip r g 10.49.59.23 to make sure that it says something
+sane.
 
 Cheers,
 -- 
