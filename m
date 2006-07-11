@@ -1,143 +1,107 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: [patch] cleanup // comments from ipw2200
-Date: Tue, 11 Jul 2006 15:34:05 +0200
-Message-ID: <20060711133405.GB1650@elf.ucw.cz>
-References: <20060710152032.GA8540@elf.ucw.cz> <44B2940A.2080102@pobox.com> <200607102305.06572.mb@bu3sch.de>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFC] vlan handling of up/down
+Date: Tue, 11 Jul 2006 14:47:49 -0700
+Message-ID: <44B41C85.3040305@candelatech.com>
+References: <200603211829.k2LITMNR029085@hera.kernel.org>	<200607091049.31628.stefan@loplof.de>	<20060710095603.0b197eec@dxpl.pdx.osdl.net>	<200607110001.14812.stefan@loplof.de> <20060711142808.1a6a47bb@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: yi.zhu@intel.com, jketreno@linux.intel.com,
-	Netdev list <netdev@vger.kernel.org>, linville@tuxdriver.com,
-	kernel list <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stefan Rompf <stefan@loplof.de>, Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:22476 "EHLO amd.ucw.cz")
-	by vger.kernel.org with ESMTP id S1751332AbWGKVpW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 17:45:22 -0400
-To: pavel@ucw.cz
-Content-Disposition: inline
-In-Reply-To: <200607102305.06572.mb@bu3sch.de>
+Received: from ns2.lanforge.com ([66.165.47.211]:18821 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S932140AbWGKVsF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 17:48:05 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060711142808.1a6a47bb@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Stephen Hemminger wrote:
+> Untested, but here is the basic idea of how I think up/down should be
+> handled.  Basically, rather than changing the flags directly the VLAN code
+> should call dev_open/dev_close.  The notifier end's up recursively calling
+> but this is okay.
+> 
+> 
+> --- vlan.orig/net/8021q/vlan.c
+> +++ vlan/net/8021q/vlan.c
+> @@ -427,7 +427,7 @@ static struct net_device *register_vlan_
+>  	/* The real device must be up and operating in order to
+>  	 * assosciate a VLAN device with it.
+>  	 */
+> -	if (!(real_dev->flags & IFF_UP))
+> +	if (!netif_running(real_dev))
+>  		goto out_unlock;
 
-ipw2200 uses // comments, and uses them for removing unneeded
-code. Clean it up a bit.
+I can't remember why I thought this check was a good idea..but is there
+any reason to keep it in?  I mean, why not allow attaching VLANs to a
+'down' device?
 
-Signed-off-by: Pavel Machek <pavel@suse.cz>
+>  	if (__find_vlan_dev(real_dev, VLAN_ID) != NULL) {
+> @@ -476,10 +476,7 @@ static struct net_device *register_vlan_
+>  	printk(VLAN_DBG "Allocated new name -:%s:-\n", new_dev->name);
+>  #endif
+>  	/* IFF_BROADCAST|IFF_MULTICAST; ??? */
+> -	new_dev->flags = real_dev->flags;
+> -	new_dev->flags &= ~IFF_UP;
+> -
+> -	new_dev->state = real_dev->state & ~(1<<__LINK_STATE_START);
+> +	new_dev->flags = real_dev->flags & ~IFF_UP;
+>  
+>  	/* need 4 bytes for extra VLAN header info,
+>  	 * hope the underlying device can handle it.
+> @@ -566,6 +563,9 @@ static struct net_device *register_vlan_
+>  	if (real_dev->features & NETIF_F_HW_VLAN_FILTER)
+>  		real_dev->vlan_rx_add_vid(real_dev, VLAN_ID);
+>  
+> +	/* Real device is up so bring up the vlan */
+> +	dev_open(new_dev);
+> +
+>  	rtnl_unlock();
 
-diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
-index b3300ff..758459e 100644
---- a/drivers/net/wireless/ipw2200.c
-+++ b/drivers/net/wireless/ipw2200.c
-@@ -2667,7 +2667,7 @@ static void ipw_fw_dma_abort(struct ipw_
- 
- 	IPW_DEBUG_FW(">> :\n");
- 
--	//set the Stop and Abort bit
-+	/* set the Stop and Abort bit */
- 	control = DMA_CONTROL_SMALL_CB_CONST_VALUE | DMA_CB_STOP_AND_ABORT;
- 	ipw_write_reg32(priv, IPW_DMA_I_DMA_CONTROL, control);
- 	priv->sram_desc.last_cb_index = 0;
-@@ -3002,8 +3002,6 @@ static int ipw_load_ucode(struct ipw_pri
- 	if (rc < 0)
- 		return rc;
- 
--//      spin_lock_irqsave(&priv->lock, flags);
--
- 	for (addr = IPW_SHARED_LOWER_BOUND;
- 	     addr < IPW_REGISTER_DOMAIN1_END; addr += 4) {
- 		ipw_write32(priv, addr, 0);
-@@ -3097,8 +3095,6 @@ static int ipw_load_ucode(struct ipw_pri
- 	   firmware have problem getting alive resp. */
- 	ipw_write_reg8(priv, IPW_BASEBAND_CONTROL_STATUS, 0);
- 
--//      spin_unlock_irqrestore(&priv->lock, flags);
--
- 	return rc;
- }
- 
-@@ -6387,13 +6383,6 @@ static int ipw_wx_set_genie(struct net_d
- 	    (wrqu->data.length && extra == NULL))
- 		return -EINVAL;
- 
--	//mutex_lock(&priv->mutex);
--
--	//if (!ieee->wpa_enabled) {
--	//      err = -EOPNOTSUPP;
--	//      goto out;
--	//}
--
- 	if (wrqu->data.length) {
- 		buf = kmalloc(wrqu->data.length, GFP_KERNEL);
- 		if (buf == NULL) {
-@@ -6413,7 +6402,6 @@ static int ipw_wx_set_genie(struct net_d
- 
- 	ipw_wpa_assoc_frame(priv, ieee->wpa_ie, ieee->wpa_ie_len);
-       out:
--	//mutex_unlock(&priv->mutex);
- 	return err;
- }
- 
-@@ -6426,13 +6414,6 @@ static int ipw_wx_get_genie(struct net_d
- 	struct ieee80211_device *ieee = priv->ieee;
- 	int err = 0;
- 
--	//mutex_lock(&priv->mutex);
--
--	//if (!ieee->wpa_enabled) {
--	//      err = -EOPNOTSUPP;
--	//      goto out;
--	//}
--
- 	if (ieee->wpa_ie_len == 0 || ieee->wpa_ie == NULL) {
- 		wrqu->data.length = 0;
- 		goto out;
-@@ -6447,7 +6428,6 @@ static int ipw_wx_get_genie(struct net_d
- 	memcpy(extra, ieee->wpa_ie, ieee->wpa_ie_len);
- 
-       out:
--	//mutex_unlock(&priv->mutex);
- 	return err;
- }
- 
-@@ -6558,7 +6538,6 @@ static int ipw_wx_set_auth(struct net_de
- 		ieee->ieee802_1x = param->value;
- 		break;
- 
--		//case IW_AUTH_ROAMING_CONTROL:
- 	case IW_AUTH_PRIVACY_INVOKED:
- 		ieee->privacy_invoked = param->value;
- 		break;
-@@ -6680,7 +6659,7 @@ static int ipw_wx_set_mlme(struct net_de
- 
- 	switch (mlme->cmd) {
- 	case IW_MLME_DEAUTH:
--		// silently ignore
-+		/* silently ignore */
- 		break;
- 
- 	case IW_MLME_DISASSOC:
-@@ -9766,7 +9745,7 @@ static int ipw_wx_set_monitor(struct net
- 	return 0;
- }
- 
--#endif				// CONFIG_IPW2200_MONITOR
-+#endif				/* CONFIG_IPW2200_MONITOR */
- 
- static int ipw_wx_reset(struct net_device *dev,
- 			struct iw_request_info *info,
-@@ -10009,7 +9988,7 @@ static  void init_sys_config(struct ipw_
- 	sys_config->dot11g_auto_detection = 0;
- 	sys_config->enable_cts_to_self = 0;
- 	sys_config->bt_coexist_collision_thr = 0;
--	sys_config->pass_noise_stats_to_host = 1;	//1 -- fix for 256
-+	sys_config->pass_noise_stats_to_host = 1;	/* 1 -- fix for 256 */
- 	sys_config->silence_threshold = 0x1e;
- }
- 
+Assuming we take out the 'is-up' check above, this would need
+a check added here (if real-dev is up, then bring up vlan, else leave it down.)
 
+> @@ -624,11 +624,7 @@ static int vlan_device_event(struct noti
+>  			if (!vlandev)
+>  				continue;
+>  
+> -			flgs = vlandev->flags;
+> -			if (!(flgs & IFF_UP))
+> -				continue;
+> -
+> -			dev_change_flags(vlandev, flgs & ~IFF_UP);
+> +			dev_close(vlandev);
+>  		}
+>  		break;
+>  
+> @@ -638,12 +634,8 @@ static int vlan_device_event(struct noti
+>  			vlandev = grp->vlan_devices[i];
+>  			if (!vlandev)
+>  				continue;
+> -				
+> -			flgs = vlandev->flags;
+> -			if (flgs & IFF_UP)
+> -				continue;
+>  
+> -			dev_change_flags(vlandev, flgs | IFF_UP);
+> +			dev_open(vlandev);
+>  		}
+>  		break;
 
+Although it may be too late to change this (don't want to change
+user-visible behaviour), I don't really like that bouncing the
+real-dev could cause the VLANs to come up, even if previously
+user-space had forced them down.
+
+Perhaps a piece of state in the vlan dev could be added to remember
+the 'desired state', and then only bring back up interfaces that are
+desired-up when the real-dev comes back online....
+
+Ben
 
 -- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
