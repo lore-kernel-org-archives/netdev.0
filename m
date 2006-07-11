@@ -1,50 +1,69 @@
-From: "Ivo Van Doorn" <ivdoorn@gmail.com>
-Subject: Re: d80211 sysfs
-Date: Tue, 11 Jul 2006 10:46:34 +0200
-Message-ID: <a32f33a40607110146k580eff00r8ca909c52b0548c4@mail.gmail.com>
-References: <a32f33a40607080505wd3c9200sdf50ff814fd5afb@mail.gmail.com>
-	 <20060710172702.288680e9@griffin.suse.cz>
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: Re: ipsec tunnel asymmetrical mtu
+Date: Tue, 11 Jul 2006 11:00:09 +0200
+Message-ID: <BAY103-F209936DACD91675B1D73DFB2680@phx.gbl>
+References: <20060711075943.GB1490@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; format=flowed
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:17871 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S1750753AbWGKIqe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 04:46:34 -0400
-Received: by py-out-1112.google.com with SMTP id x31so1425948pye
-        for <netdev@vger.kernel.org>; Tue, 11 Jul 2006 01:46:34 -0700 (PDT)
-To: "Jiri Benc" <jbenc@suse.cz>
-In-Reply-To: <20060710172702.288680e9@griffin.suse.cz>
-Content-Disposition: inline
+Received: from bay0-omc1-s33.bay0.hotmail.com ([65.54.246.105]:39119 "EHLO
+	bay0-omc1-s33.bay0.hotmail.com") by vger.kernel.org with ESMTP
+	id S1750785AbWGKJAL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 05:00:11 -0400
+In-Reply-To: <20060711075943.GB1490@gondor.apana.org.au>
+To: herbert@gondor.apana.org.au
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Herbert Xu wrote:
 
-> > Since I didn't want to loose any tested because of the new field in
-> > the net_device structure,
-> > I have used the base_addr field instead and used the following access functions:
+>On Mon, May 08, 2006 at 08:28:32AM +0000, Marco Berizzi wrote:
+> >
+> > root@Mimosa:~# ping 10.49.59.23
+> > PING 10.49.59.23 (10.49.59.23) 56(84) bytes of data.
+> > 64 bytes from 10.49.59.23: icmp_seq=1 ttl=247 time=91.9 ms
+> > 64 bytes from 10.49.59.23: icmp_seq=2 ttl=247 time=49.3 ms
+> > 64 bytes from 10.49.59.23: icmp_seq=3 ttl=247 time=106 ms
+> > 64 bytes from 10.49.59.23: icmp_seq=4 ttl=247 time=74.3 ms
+> >
+> > --- 10.49.59.23 ping statistics ---
+> > 4 packets transmitted, 4 received, 0% packet loss, time 2998ms
+> > rtt min/avg/max/mdev = 49.316/80.460/106.257/21.241 ms
+> > root@Mimosa:~# cd /tmp/
+> > root@Mimosa:/tmp# tcpdump -v -p -n ip host 10.49.59.23 >
+> > /tmp/NULL-10.49.59.23 &
+> > [1] 18981
+> > root@Mimosa:/tmp# tcpdump: listening on eth0, link-type EN10MB 
+>(Ethernet),
+> > capture size 96 bytes
+> >
+> > root@Mimosa:/tmp# ping 10.49.59.23
+> > PING 10.49.59.23 (10.49.59.23) 56(84) bytes of data.
+> >
+> > --- 10.49.59.23 ping statistics ---
+> > 8 packets transmitted, 0 received, 100% packet loss, time 6999ms
+> >
+> > root@Mimosa:/tmp# fg
+> > tcpdump -v -p -n ip host 10.49.59.23 >/tmp/NULL-10.49.59.23
+> > 101 packets captured
+> > 101 packets received by filter
+> > 0 packets dropped by kernel
 >
-> This will horribly fail when you send something to master device
-> (wmaster0) directly. For example, having ipv6 enabled is enough to
-> produce some funny Oopses.
+>Yes this is really weird.  The only thing I can think of is that it
+>somehow managed to put some bogus entry into the conntrack table.
+>What happens if you do
 >
-> > kernel BUG at fs/sysfs/symlink.c:88!
-> > invalid opcode: 0000 [#1]
-> > SMP
+>grep 10.49.59.23 /proc/net/ip_conntrack
 >
-> d80211 stack is not SMP safe yet. Is this reproducible on non-SMP
-> non-preemptible kernel without your base_addr patches?
+>before and after the tcpdump?
 
-Ok I think I am closer to the source of the problem.
-Some users just verified that the problem does not excist in the 2.6.17 kernel.
-So it must have been an issue already resolved in the kernel.
+I'm not able to reproduce it :-[[[
+Today mimosa is running 2.6.17.4, mon May 8 mimosa was running
+2.6.16.12
 
-I'll ask my testers to upgrade their kernels, or perhaps I am going to
-ask them to use the wireless-dev or dscape git tree to test rt2x00.
+If you want I could downgrade to 2.6.16.12 and see if I'm able
+to reproduce it.
+Sorry.
 
-Thanks.
 
-Ivo
