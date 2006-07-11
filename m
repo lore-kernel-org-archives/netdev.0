@@ -1,7 +1,7 @@
 From: Stefan Rompf <stefan@loplof.de>
-Subject: Re: [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
-Date: Wed, 12 Jul 2006 00:07:56 +0200
-Message-ID: <200607120007.57120.stefan@loplof.de>
+Subject: Repost: Re: [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
+Date: Wed, 12 Jul 2006 00:15:17 +0200
+Message-ID: <200607120015.17735.stefan@loplof.de>
 References: <200603211829.k2LITMNR029085@hera.kernel.org> <200607071145.09325.stefan@loplof.de> <44AE2FCC.6020207@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -11,15 +11,18 @@ Cc: Ben Greear <greearb@candelatech.com>,
 	Linux Netdev List <netdev@vger.kernel.org>,
 	Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from natlemon.rzone.de ([81.169.145.170]:56454 "EHLO
-	natlemon.rzone.de") by vger.kernel.org with ESMTP id S932183AbWGKWGx
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 18:06:53 -0400
+Received: from natklopstock.rzone.de ([81.169.145.174]:55521 "EHLO
+	natklopstock.rzone.de") by vger.kernel.org with ESMTP
+	id S932192AbWGKWMg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 18:12:36 -0400
 To: Patrick McHardy <kaber@trash.net>
 In-Reply-To: <44AE2FCC.6020207@trash.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+VLAN devices did not get registered as admin up in 2.6.16 and IMHO also
+not in 2.6.17. So update patch description.
 
 Ok,
 
@@ -34,9 +37,7 @@ Stefan
 
 When the queue of the underlying device is stopped at initialization time
 or the device is marked "not present", the state will be propagated to the
-vlan device and never change. This also fixes VLAN devices being wrongly
-registered as admin up since 2.6.17. Based on an analysis by Patrick
-McHardy.
+vlan device and never change. Based on an analysis by Patrick McHardy.
 
 Signed-off-by: Stefan Rompf <stefan@loplof.de>
 
