@@ -1,32 +1,35 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPCOMP]: Fix truesize after decompression
-Date: Wed, 12 Jul 2006 09:12:51 +1000
-Message-ID: <20060711231251.GA6725@gondor.apana.org.au>
-References: <BB1F4EFD574E9F409035BDA71C9612500242B8@exchange.i-bn> <20060711114544.GA11396@gondor.apana.org.au> <20060711.135553.106801039.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel.Beschorner@facton.com, netdev@vger.kernel.org
+Subject: Re: [BUG] Two BUG warnings in net/core/dev.c
+Date: Wed, 12 Jul 2006 09:19:50 +1000
+Message-ID: <E1G0RWA-0001m9-00@gondolin.me.apana.org.au>
+References: <1152659106.5364.7.camel@localhost>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:55055 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751183AbWGKXNg
+Received: from rhun.apana.org.au ([64.62.148.172]:57615 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932099AbWGKXUA
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 19:13:36 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060711.135553.106801039.davem@davemloft.net>
+	Tue, 11 Jul 2006 19:20:00 -0400
+To: johnstul@us.ibm.com (john stultz)
+In-Reply-To: <1152659106.5364.7.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 11, 2006 at 01:55:53PM -0700, David Miller wrote:
-> 
-> I think it is possible cover a certain class of these situations
-> from within pskb_expand_head.  For example, if skb->sk is NULL
-> we can prove that updating skb->truesize is safe since no
-> socket's buffer accounting can possible depend upon the truesize
-> value of this skb.
+john stultz <johnstul@us.ibm.com> wrote:
+> Both of these were seen on my laptop w/ the current (as of this writing)
+> -git tree using the e1000 driver after a suspend/resume cycle.
 
-Yes that's certainly possible.  However, we'll need to audit the few
-spots (e.g., ATM) that use truesize without setting skb->sk.
+It's just a reminder that we need to fix NAT to update checksums
+incrementally.  You'll only see it once per boot.
+
+> BUG: warning at net/core/dev.c:1171/skb_checksum_help()
+> [<c0103d69>] show_trace_log_lvl+0x149/0x170
+> [<c01052bb>] show_trace+0x1b/0x20
+> [<c01052e4>] dump_stack+0x24/0x30
+> [<c03c7523>] skb_checksum_help+0x163/0x170
+> [<c0439c15>] ip_nat_fn+0x1a5/0x210
+
+Of course, if anyone sees it with a backtrace that does not contain
+ip_nat_fn, please let us know.
 
 Cheers,
 -- 
