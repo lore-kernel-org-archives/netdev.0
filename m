@@ -1,87 +1,141 @@
 From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [patch] do not allow IPW_2100=Y or IPW_2200=Y
-Date: Tue, 11 Jul 2006 15:32:28 +0200
-Message-ID: <20060711133227.GA1650@elf.ucw.cz>
+Subject: [patch] cleanup // comments from ipw2200
+Date: Tue, 11 Jul 2006 15:34:05 +0200
+Message-ID: <20060711133405.GB1650@elf.ucw.cz>
 References: <20060710152032.GA8540@elf.ucw.cz> <44B2940A.2080102@pobox.com> <200607102305.06572.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, yi.zhu@intel.com,
-	jketreno@linux.intel.com, Netdev list <netdev@vger.kernel.org>,
-	linville@tuxdriver.com, kernel list <linux-kernel@vger.kernel.org>
+Cc: yi.zhu@intel.com, jketreno@linux.intel.com,
+	Netdev list <netdev@vger.kernel.org>, linville@tuxdriver.com,
+	kernel list <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:23244 "EHLO amd.ucw.cz")
-	by vger.kernel.org with ESMTP id S1751333AbWGKVpS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 17:45:18 -0400
-To: Michael Buesch <mb@bu3sch.de>
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:22476 "EHLO amd.ucw.cz")
+	by vger.kernel.org with ESMTP id S1751332AbWGKVpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 17:45:22 -0400
+To: pavel@ucw.cz
 Content-Disposition: inline
 In-Reply-To: <200607102305.06572.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon 2006-07-10 23:05:06, Michael Buesch wrote:
-> On Monday 10 July 2006 19:53, you wrote:
-> > Pavel Machek wrote:
-> > > Kconfig currently allows compiling IPW_2100 and IPW_2200 into kernel
-> > > (not as a module). Unfortunately, such configuration does not work,
-> > > because these drivers need a firmware, and it can't be loaded by
-> > > userspace loader when userspace is not running.
-> > 
-> > False, initramfs...
-> 
-> Does the ipw driver _really_ need the firmware on insmod time?
-> bcm43xx, for example, loads the firmware on "ifconfig up" time.
-> If ipw really needs the firmware on insmod, is it possible to
-> defer it to later at "ifconfig up" time?
 
-Probably not. This (very dirty) hack implements that (with some level
-of success -- ifconfig down/ifconfig up is enough to get wireless
-working).
+ipw2200 uses // comments, and uses them for removing unneeded
+code. Clean it up a bit.
 
 Signed-off-by: Pavel Machek <pavel@suse.cz>
 
-									Pavel
-
---- clean-mm/drivers/net/wireless/ipw2200.c	2006-07-11 15:22:50.000000000 +0200
-+++ linux-mm/drivers/net/wireless/ipw2200.c	2006-07-11 14:38:01.000000000 +0200
-@@ -97,6 +97,7 @@
- static int bt_coexist = 0;
- static int hwcrypto = 0;
- static int roaming = 1;
-+static int needs_reinit = 1;
- static const char ipw_modes[] = {
- 	'a', 'b', 'g', '?'
- };
-@@ -10013,10 +10014,20 @@
+diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
+index b3300ff..758459e 100644
+--- a/drivers/net/wireless/ipw2200.c
++++ b/drivers/net/wireless/ipw2200.c
+@@ -2667,7 +2667,7 @@ static void ipw_fw_dma_abort(struct ipw_
+ 
+ 	IPW_DEBUG_FW(">> :\n");
+ 
+-	//set the Stop and Abort bit
++	/* set the Stop and Abort bit */
+ 	control = DMA_CONTROL_SMALL_CB_CONST_VALUE | DMA_CB_STOP_AND_ABORT;
+ 	ipw_write_reg32(priv, IPW_DMA_I_DMA_CONTROL, control);
+ 	priv->sram_desc.last_cb_index = 0;
+@@ -3002,8 +3002,6 @@ static int ipw_load_ucode(struct ipw_pri
+ 	if (rc < 0)
+ 		return rc;
+ 
+-//      spin_lock_irqsave(&priv->lock, flags);
+-
+ 	for (addr = IPW_SHARED_LOWER_BOUND;
+ 	     addr < IPW_REGISTER_DOMAIN1_END; addr += 4) {
+ 		ipw_write32(priv, addr, 0);
+@@ -3097,8 +3095,6 @@ static int ipw_load_ucode(struct ipw_pri
+ 	   firmware have problem getting alive resp. */
+ 	ipw_write_reg8(priv, IPW_BASEBAND_CONTROL_STATUS, 0);
+ 
+-//      spin_unlock_irqrestore(&priv->lock, flags);
+-
+ 	return rc;
+ }
+ 
+@@ -6387,13 +6383,6 @@ static int ipw_wx_set_genie(struct net_d
+ 	    (wrqu->data.length && extra == NULL))
+ 		return -EINVAL;
+ 
+-	//mutex_lock(&priv->mutex);
+-
+-	//if (!ieee->wpa_enabled) {
+-	//      err = -EOPNOTSUPP;
+-	//      goto out;
+-	//}
+-
+ 	if (wrqu->data.length) {
+ 		buf = kmalloc(wrqu->data.length, GFP_KERNEL);
+ 		if (buf == NULL) {
+@@ -6413,7 +6402,6 @@ static int ipw_wx_set_genie(struct net_d
+ 
+ 	ipw_wpa_assoc_frame(priv, ieee->wpa_ie, ieee->wpa_ie_len);
+       out:
+-	//mutex_unlock(&priv->mutex);
+ 	return err;
+ }
+ 
+@@ -6426,13 +6414,6 @@ static int ipw_wx_get_genie(struct net_d
+ 	struct ieee80211_device *ieee = priv->ieee;
+ 	int err = 0;
+ 
+-	//mutex_lock(&priv->mutex);
+-
+-	//if (!ieee->wpa_enabled) {
+-	//      err = -EOPNOTSUPP;
+-	//      goto out;
+-	//}
+-
+ 	if (ieee->wpa_ie_len == 0 || ieee->wpa_ie == NULL) {
+ 		wrqu->data.length = 0;
+ 		goto out;
+@@ -6447,7 +6428,6 @@ static int ipw_wx_get_genie(struct net_d
+ 	memcpy(extra, ieee->wpa_ie, ieee->wpa_ie_len);
+ 
+       out:
+-	//mutex_unlock(&priv->mutex);
+ 	return err;
+ }
+ 
+@@ -6558,7 +6538,6 @@ static int ipw_wx_set_auth(struct net_de
+ 		ieee->ieee802_1x = param->value;
+ 		break;
+ 
+-		//case IW_AUTH_ROAMING_CONTROL:
+ 	case IW_AUTH_PRIVACY_INVOKED:
+ 		ieee->privacy_invoked = param->value;
+ 		break;
+@@ -6680,7 +6659,7 @@ static int ipw_wx_set_mlme(struct net_de
+ 
+ 	switch (mlme->cmd) {
+ 	case IW_MLME_DEAUTH:
+-		// silently ignore
++		/* silently ignore */
+ 		break;
+ 
+ 	case IW_MLME_DISASSOC:
+@@ -9766,7 +9745,7 @@ static int ipw_wx_set_monitor(struct net
+ 	return 0;
+ }
+ 
+-#endif				// CONFIG_IPW2200_MONITOR
++#endif				/* CONFIG_IPW2200_MONITOR */
+ 
+ static int ipw_wx_reset(struct net_device *dev,
+ 			struct iw_request_info *info,
+@@ -10009,7 +9988,7 @@ static  void init_sys_config(struct ipw_
+ 	sys_config->dot11g_auto_detection = 0;
+ 	sys_config->enable_cts_to_self = 0;
+ 	sys_config->bt_coexist_collision_thr = 0;
+-	sys_config->pass_noise_stats_to_host = 1;	//1 -- fix for 256
++	sys_config->pass_noise_stats_to_host = 1;	/* 1 -- fix for 256 */
  	sys_config->silence_threshold = 0x1e;
  }
  
-+static int ipw_pci_suspend(struct pci_dev *pdev, pm_message_t state);
-+static int ipw_pci_resume(struct pci_dev *pdev);
-+
- static int ipw_net_open(struct net_device *dev)
- {
- 	struct ipw_priv *priv = ieee80211_priv(dev);
- 	IPW_DEBUG_INFO("dev->open\n");
-+
-+	if (needs_reinit) {
-+		printk("ipw: Delayed loading the firmware\n");
-+		ipw_pci_suspend(priv->pci_dev, PMSG_FREEZE);
-+		ipw_pci_resume(priv->pci_dev);
-+	}
-+
- 	/* we should be verifying the device is ready to be opened */
- 	mutex_lock(&priv->mutex);
- 	if (!(priv->status & STATUS_RF_KILL_MASK) &&
-@@ -11295,7 +11306,8 @@
- 
- 	if (ipw_up(priv)) {
- 		mutex_unlock(&priv->mutex);
--		return -EIO;
-+		needs_reinit = 1;
-+		return 0;
- 	}
- 
- 	mutex_unlock(&priv->mutex);
+
 
 
 -- 
