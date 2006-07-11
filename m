@@ -1,64 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPCOMP]: Fix truesize after decompression
-Date: Tue, 11 Jul 2006 13:55:53 -0700 (PDT)
-Message-ID: <20060711.135553.106801039.davem@davemloft.net>
-References: <BB1F4EFD574E9F409035BDA71C9612500242B8@exchange.i-bn>
-	<20060711114544.GA11396@gondor.apana.org.au>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: e1000 TX unit hang (redux)
+Date: Tue, 11 Jul 2006 14:09:47 -0700
+Message-ID: <44B4139B.7060907@intel.com>
+References: <200607111116.41932.shaw@vranix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel.Beschorner@facton.com, netdev@vger.kernel.org
+Cc: auke-jan.h.kok@intel.com, kernel@linuxace.com,
+	jesse.brandeburg@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:931
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751158AbWGKUzF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 16:55:05 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060711114544.GA11396@gondor.apana.org.au>
+Received: from mga02.intel.com ([134.134.136.20]:63351 "EHLO
+	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S932127AbWGKVK1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 17:10:27 -0400
+To: shaw@vranix.com
+In-Reply-To: <200607111116.41932.shaw@vranix.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 11 Jul 2006 21:45:44 +1000
-
-> [IPCOMP]: Fix truesize after decompression
+shaw@vranix.com wrote:
+> I have an e1000 card periodically misbehaving with the message 'Detected Tx 
+> unit hang'.   I've noticed this problem come up on netdev a couple of times 
+> and found the link to the bug tracking page--
+> http://sourceforge.net/tracker/index.php?func=detail&aid=1463045&group_id=42302&atid=447449
 > 
-> The truesize check has uncovered the fact that we forgot to update truesize
-> after pskb_expand_head.  Unfortunately pskb_expand_head can't update it for
-> us because it's used in all sorts of different contexts, some of which would
-> not allow truesize to be updated by itself.
+> I've also seen the patch that I believe was placed in 2.6.16 and subsequently 
+> brought down to 2.4.2?
+
+that's not only impossible but also unlikely - we don't push changes to 2.4 
+kernels anymore a lot, I think the last change is likely older than 2.4.28 or so.
+
+ > that seems to address this problem by creating a
+> tx_timeout_factor relative to the speed of the NIC.  However, there is no 
+> mention of this workaround/fix on the bug at the link above and I haven't 
+> found any discussion of it here on netdev. 
+
+I wouldn't even know what patch you are talking about (?!)
+
+> Auke recommends turning off tso 
+> to see if that resolves the problem and this also seems to work, though I 
+> have as yet not been able to confirm this and would prefer a more performance 
+> friendly fix..if available ;)
 > 
-> So the solution for now is to simply update it in IPComp.
-> 
-> This patch also changes skb_put to __skb_put since we've just expanded
-> tailroom by exactly that amount so we know it's there (but gcc does not).
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Would one of you pplease give an update on the status of the bug? If a cause 
+> was ever found and if the tx_timeout_factor was intended as a fix or 
+> temporary workaround?   I feel like I must have missed something, because I 
+> never saw the tx_timeout_factor patch go through netdev at all..
 
-Applied.
+One possible problem is a bad EEPROM bit, where the hardware might have been 
+misconfigured. This only affects _some_ older e1000's. Any bugreport therefore 
+should include the output of `ethtool -e ethX` (as well as the `lspci -vv` 
+output of course. If you haven't already done so, please submit this to the 
+bugtracker or to us by e-mail
 
-I think it is possible cover a certain class of these situations
-from within pskb_expand_head.  For example, if skb->sk is NULL
-we can prove that updating skb->truesize is safe since no
-socket's buffer accounting can possible depend upon the truesize
-value of this skb.
+Cheers,
 
-That way, we don't need to dilly-dally around spotting all the
-cases like these two decompression bits where we need to add
-the truesize adjustment by-hand.
-
-This got me thinking... we can probably handle the skb->sk != NULL
-case with some minor surgery.  If we could give some more information
-to the skb->destructor callback, it could be used for truesize
-adjustments.
-
-The only remaining issue is context within which the destructor
-is called for truesize changes.  There are some messy assumptions
-out that, such as sk_stream_rfree(), which work on the basis
-that the SKB is always freed up from the socket code with the
-socket locked.  They use this assumption in order to safely
-be able to adjust sk->sk_forward_alloc without any explicit
-locking.
-
-So it gets a little messy, but I think it's doable in the end.
-
+Auke
