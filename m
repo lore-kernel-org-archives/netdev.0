@@ -1,55 +1,24 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [patch] do not allow IPW_2100=Y or IPW_2200=Y
-Date: Tue, 11 Jul 2006 16:42:57 +0200
-Message-ID: <1152628977.3128.74.camel@laptopd505.fenrus.org>
-References: <20060710152032.GA8540@elf.ucw.cz> <44B2940A.2080102@pobox.com>
-	 <44B29C8A.8090405@intel.com> <20060710.114717.44959528.davem@davemloft.net>
-	 <1152557518.4874.79.camel@laptopd505.fenrus.org>
-	 <20060711112721.GA1618@elf.ucw.cz>
+From: "Brown, Len" <len.brown@intel.com>
+Subject: RE: oops in current -git
+Date: Tue, 11 Jul 2006 11:55:10 -0400
+Message-ID: <CFF307C98FEABE47A452B27C06B85BB6F3116F@hdsmsx411.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, auke-jan.h.kok@intel.com,
-	jgarzik@pobox.com, yi.zhu@intel.com, jketreno@linux.intel.com,
-	netdev@vger.kernel.org, linville@tuxdriver.com,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Linux Kernel" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:11215 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1750920AbWGKOn1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 10:43:27 -0400
-To: Pavel Machek <pavel@ucw.cz>
-In-Reply-To: <20060711112721.GA1618@elf.ucw.cz>
+Received: from mga01.intel.com ([192.55.52.88]:37726 "EHLO
+	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
+	id S1750758AbWGKPzh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 11:55:37 -0400
+Content-class: urn:content-classes:message
+To: "Jeff Garzik" <jeff@garzik.org>,
+	"Netdev List" <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-07-11 at 13:27 +0200, Pavel Machek wrote:
-> Hi!
-> 
-> > > > >> Kconfig currently allows compiling IPW_2100 and IPW_2200 into kernel
-> > > > >> (not as a module). Unfortunately, such configuration does not work,
-> > > > >> because these drivers need a firmware, and it can't be loaded by
-> > > > >> userspace loader when userspace is not running.
-> > > > > 
-> > > > > False, initramfs...
-> > > > 
-> > > > which would warrant some extra documentation in Kconfig explaining that this 
-> > > > driver needs initramfs with firmware for it to work when compiled in the 
-> > > > kernel. A link to the ipw2x00 documentation might also help.
-> > > 
-> > > Besides, the initramfs runs long after the driver init routine
-> > > runs which is when the firmware needs to be available.
-> > 
-> > .. unless you use sysfs to do a fake hotunplug + replug the device, at
-> > which point the driver init routine runs again.
-> 
-> Ouch, nice trick. But how do I actually pull it up? There's nothing
-> that looks like allowing that in /sys:
-> 
-> root@amd:/sys/devices/pci0000:00/0000:00:1e.0/0000:02:02.0# ls
+try latest -mm, latest ACPI patch, or
+try CONFIG_ACPI_BATTERY=n
 
-/sys/bus/pci/slots/0000:04:02.1
-
-need to go there via bus/pci/slots
-
-
+-Len
