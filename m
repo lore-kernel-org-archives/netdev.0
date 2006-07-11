@@ -1,40 +1,77 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH] d80211: make sleeping in hw->config possible #2
-Date: Mon, 10 Jul 2006 21:25:36 -0700
-Message-ID: <20060710212536.5a223977.akpm@osdl.org>
-References: <200607110054.36520.mb@bu3sch.de>
+From: Shailabh Nagar <nagar@watson.ibm.com>
+Subject: [Patch 6/6] per task delay accounting taskstats interface: fix
+	clone skbs for each listener
+Date: Tue, 11 Jul 2006 00:36:39 -0400
+Message-ID: <1152592599.14142.136.camel@localhost.localdomain>
+References: <1152591838.14142.114.camel@localhost.localdomain>
+Reply-To: nagar@watson.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, jbenc@suse.cz, netdev@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	Jay Lan <jlan@sgi.com>, Chris Sturtivant <csturtiv@sgi.com>,
+	Paul Jackson <pj@sgi.com>, Balbir Singh <balbir@in.ibm.com>,
+	Chandra Seetharaman <sekharan@us.ibm.com>,
+	Jamal <hadi@cyberus.ca>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:16513 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965136AbWGKE0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 00:26:09 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200607110054.36520.mb@bu3sch.de>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:11499 "EHLO e1.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S965164AbWGKEgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 00:36:42 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <1152591838.14142.114.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 11 Jul 2006 00:54:33 +0200
-Michael Buesch <mb@bu3sch.de> wrote:
+Use a cloned sk_buff for each netlink message sent to multiple listeners.
 
-> Please apply this to wireless-dev.
-> Note that this is the second try to submit this patch.
-> The first try contained a little bug. I'm sorry for that.
-> If you already applied the first one, I can provide an incremental patch.
-> 
-> Note2 that this patch depends on the
-> [PATCH] cancel_rearming_delayed_work infinite loop fix
-> I just sent out to the lists and akpm.
+Earlier, the same skb, representing a netlink message, was being erroneously 
+reused for doing genetlink_unicast()'s (effectively netlink_unicast()) to 
+each listener on the per-cpu list of listeners. Since netlink_unicast() frees
+up the skb passed to it, regardless of status of the send, reuse is bad.
 
-Am still scratching my head over that.  I wouldn't really call it a "fix". 
-More an enhcancement to cover unanticipated (and arguably strange) usage.
+Thanks to Chandra Seetharaman for discovering this bug.
 
-It's odd to call cancel_rearming_delayed_work() against a rearming
-workqueue which isn't actually running.  It tends to indicate that the
-caller has lost track of what it's up to.
+Signed-Off-By: Shailabh Nagar <nagar@watson.ibm.com>
+Signed-Off-By: Chandra Seetharaman <sekharan@us.ibm.com>
 
-But as a convenience thing I guess it's an OK thing to do.  I need to stare
-at the implementation for a bit longer - that stuff's tricky.
+ kernel/taskstats.c |   13 ++++++++++++-
+ 1 files changed, 12 insertions(+), 1 deletion(-)
+
+Index: linux-2.6.18-rc1/kernel/taskstats.c
+===================================================================
+--- linux-2.6.18-rc1.orig/kernel/taskstats.c	2006-07-10 23:44:56.000000000 -0400
++++ linux-2.6.18-rc1/kernel/taskstats.c	2006-07-10 23:45:15.000000000 -0400
+@@ -125,6 +125,7 @@ static int send_cpu_listeners(struct sk_
+ 	struct genlmsghdr *genlhdr = nlmsg_data((struct nlmsghdr *)skb->data);
+ 	struct listener_list *listeners;
+ 	struct listener *s, *tmp;
++	struct sk_buff *skb_next, *skb_cur = skb;
+ 	void *reply = genlmsg_data(genlhdr);
+ 	int rc, ret;
+ 
+@@ -138,12 +139,22 @@ static int send_cpu_listeners(struct sk_
+ 	listeners = &per_cpu(listener_array, cpu);
+ 	down_write(&listeners->sem);
+ 	list_for_each_entry_safe(s, tmp, &listeners->list, list) {
+-		ret = genlmsg_unicast(skb, s->pid);
++		skb_next = NULL;
++		if (!list_islast(&s->list, &listeners->list)) {
++			skb_next = skb_clone(skb_cur, GFP_KERNEL);
++			if (!skb_next) {
++				nlmsg_free(skb_cur);
++				rc = -ENOMEM;
++				break;
++			}
++		}
++		ret = genlmsg_unicast(skb_cur, s->pid);
+ 		if (ret == -ECONNREFUSED) {
+ 			list_del(&s->list);
+ 			kfree(s);
+ 			rc = ret;
+ 		}
++		skb_cur = skb_next;
+ 	}
+ 	up_write(&listeners->sem);
+ 
+
+
