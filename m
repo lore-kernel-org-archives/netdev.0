@@ -1,46 +1,29 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Question on device events and unregister_netdev.
-Date: Tue, 11 Jul 2006 16:27:25 -0700
-Message-ID: <44B433DD.8070100@candelatech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Question on device events and unregister_netdev.
+Date: Tue, 11 Jul 2006 16:43:31 -0700 (PDT)
+Message-ID: <20060711.164331.122338629.davem@davemloft.net>
+References: <44B433DD.8070100@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:54660 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S932235AbWGKX10 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 19:27:26 -0400
-Received: from [71.112.216.116] (pool-71-112-216-116.sttlwa.dsl-w.verizon.net [71.112.216.116])
-	(authenticated bits=0)
-	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id k6BNRPpi000544
-	for <netdev@vger.kernel.org>; Tue, 11 Jul 2006 16:27:26 -0700
-To: NetDev <netdev@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:19150
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932254AbWGKXmn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 19:42:43 -0400
+To: greearb@candelatech.com
+In-Reply-To: <44B433DD.8070100@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+From: Ben Greear <greearb@candelatech.com>
+Date: Tue, 11 Jul 2006 16:27:25 -0700
 
-I'm working on stacking some virtual interfaces, and ran into a problem with
-locking.
+> So, the question is: Should I be calling unregister_netdev from the
+> notifier callback?
 
-Basically, I have an ethernet-like device, and on top of that I am putting
-802.1Q vlans..and on top of that, some other vlan (macvlan).
+Not really, as you saw it can be deadlock prone.
 
-In the event notifier for the vlan, I attempt to delete all vlans who's
-under-lying device is going away.  I do the same for the macvlan.
-
-Currently, I am setting a deadlock warning because the macvlan code
-is calling unregister_netdev, but the 'rmmod' method already has
-a lock in there due to having earlier called unregister_netdev on the
-.1q vlan.
-
-
-So, the question is:  Should I be calling unregister_netdev from the notifier
-callback?
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+One idea is to run the unregister asynchronously via a workqueue.
+That should be able to get you out of the deadlock.
