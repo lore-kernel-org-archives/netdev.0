@@ -1,69 +1,69 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: ipsec tunnel asymmetrical mtu
-Date: Tue, 11 Jul 2006 11:00:09 +0200
-Message-ID: <BAY103-F209936DACD91675B1D73DFB2680@phx.gbl>
-References: <20060711075943.GB1490@gondor.apana.org.au>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] d80211: make sleeping in hw->config possible #2
+Date: Tue, 11 Jul 2006 11:11:27 +0200
+Message-ID: <200607111111.28040.mb@bu3sch.de>
+References: <200607110054.36520.mb@bu3sch.de> <20060710212536.5a223977.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, jbenc@suse.cz, netdev@vger.kernel.org,
+	bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc1-s33.bay0.hotmail.com ([65.54.246.105]:39119 "EHLO
-	bay0-omc1-s33.bay0.hotmail.com") by vger.kernel.org with ESMTP
-	id S1750785AbWGKJAL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 05:00:11 -0400
-In-Reply-To: <20060711075943.GB1490@gondor.apana.org.au>
-To: herbert@gondor.apana.org.au
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:40143
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750810AbWGKJJn
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 05:09:43 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060710212536.5a223977.akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
+On Tuesday 11 July 2006 06:25, you wrote:
+> On Tue, 11 Jul 2006 00:54:33 +0200
+> Michael Buesch <mb@bu3sch.de> wrote:
+> 
+> > Please apply this to wireless-dev.
+> > Note that this is the second try to submit this patch.
+> > The first try contained a little bug. I'm sorry for that.
+> > If you already applied the first one, I can provide an incremental patch.
+> > 
+> > Note2 that this patch depends on the
+> > [PATCH] cancel_rearming_delayed_work infinite loop fix
+> > I just sent out to the lists and akpm.
+> 
+> Am still scratching my head over that.  I wouldn't really call it a "fix". 
+> More an enhcancement to cover unanticipated (and arguably strange) usage.
+> 
+> It's odd to call cancel_rearming_delayed_work() against a rearming
+> workqueue which isn't actually running.  It tends to indicate that the
+> caller has lost track of what it's up to.
 
->On Mon, May 08, 2006 at 08:28:32AM +0000, Marco Berizzi wrote:
-> >
-> > root@Mimosa:~# ping 10.49.59.23
-> > PING 10.49.59.23 (10.49.59.23) 56(84) bytes of data.
-> > 64 bytes from 10.49.59.23: icmp_seq=1 ttl=247 time=91.9 ms
-> > 64 bytes from 10.49.59.23: icmp_seq=2 ttl=247 time=49.3 ms
-> > 64 bytes from 10.49.59.23: icmp_seq=3 ttl=247 time=106 ms
-> > 64 bytes from 10.49.59.23: icmp_seq=4 ttl=247 time=74.3 ms
-> >
-> > --- 10.49.59.23 ping statistics ---
-> > 4 packets transmitted, 4 received, 0% packet loss, time 2998ms
-> > rtt min/avg/max/mdev = 49.316/80.460/106.257/21.241 ms
-> > root@Mimosa:~# cd /tmp/
-> > root@Mimosa:/tmp# tcpdump -v -p -n ip host 10.49.59.23 >
-> > /tmp/NULL-10.49.59.23 &
-> > [1] 18981
-> > root@Mimosa:/tmp# tcpdump: listening on eth0, link-type EN10MB 
->(Ethernet),
-> > capture size 96 bytes
-> >
-> > root@Mimosa:/tmp# ping 10.49.59.23
-> > PING 10.49.59.23 (10.49.59.23) 56(84) bytes of data.
-> >
-> > --- 10.49.59.23 ping statistics ---
-> > 8 packets transmitted, 0 received, 100% packet loss, time 6999ms
-> >
-> > root@Mimosa:/tmp# fg
-> > tcpdump -v -p -n ip host 10.49.59.23 >/tmp/NULL-10.49.59.23
-> > 101 packets captured
-> > 101 packets received by filter
-> > 0 packets dropped by kernel
->
->Yes this is really weird.  The only thing I can think of is that it
->somehow managed to put some bogus entry into the conntrack table.
->What happens if you do
->
->grep 10.49.59.23 /proc/net/ip_conntrack
->
->before and after the tcpdump?
+No, I don't think so.
+Let's say we have the following scenario:
+A wq reschedules itself x times after it was scheduled once from outside.
+After these x times, it does not reschedule anymore. That's what happens
+in d80211. And I don't see a solution to sync this, other than modifying
+the function, because we may call it after the x reschedule times.
+Or do you think we should really do a statemachine to workaround it?
 
-I'm not able to reproduce it :-[[[
-Today mimosa is running 2.6.17.4, mon May 8 mimosa was running
-2.6.16.12
+I am not the first one to hit this (I call it) bug.
+It is _very_ confusing to see this sync function blocking forever.
+I saw several people complaining about it. Also on #kernelnewbies.
 
-If you want I could downgrade to 2.6.16.12 and see if I'm able
-to reproduce it.
-Sorry.
+> But as a convenience thing I guess it's an OK thing to do.  I need to stare
+> at the implementation for a bit longer - that stuff's tricky.
 
+Actually, I think there's still a little race.
+I will send a more complex fix for this, if you agree to change the function.
+If you say "no, we don't fix this. Insert a statemachine or something in your
+code instead", I can use the time for better things. :)
 
+But I think the following is also broken in the old code:
+A wq is not pending anymore, but just executing (before it reschedules itself).
+I think that would also loop forever. I don't think that's what we want.
+Because we can't really keep track of _this_.
+
+-- 
+Greetings Michael.
