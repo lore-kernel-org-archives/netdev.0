@@ -1,49 +1,69 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] bcm43xx-softmac: Further improvement in wireless statistics
-Date: Tue, 11 Jul 2006 11:04:53 -0500
-Message-ID: <44B3CC25.7060305@lwfinger.net>
+From: Shailabh Nagar <nagar@watson.ibm.com>
+Subject: Re: [Patch 6/6] per task delay accounting taskstats interface: fix
+ clone skbs for each listener
+Date: Tue, 11 Jul 2006 13:44:05 -0400
+Message-ID: <44B3E365.1020602@watson.ibm.com>
+References: <20060711030524.39abc3d5.akpm@osdl.org> <E1G0FU2-0002oE-00@gondolin.me.apana.org.au> <20060711035731.63c087b3.akpm@osdl.org> <20060711111525.GA11175@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:53229 "EHLO
-	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1751124AbWGKQFJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 12:05:09 -0400
-To: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	jlan@sgi.com, csturtiv@sgi.com, pj@sgi.com, balbir@in.ibm.com,
+	sekharan@us.ibm.com, hadi@cyberus.ca, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751152AbWGKRoR@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060711111525.GA11175@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This minor patch adjusts the parameters of the wireless statistics to improve the display of 
-programs such as the "Wireless Network Information" applet of KDE.
+Herbert Xu wrote:
+> On Tue, Jul 11, 2006 at 03:57:31AM -0700, Andrew Morton wrote:
+> 
+>>>>>      down_write(&listeners->sem);
+>>>>>      list_for_each_entry_safe(s, tmp, &listeners->list, list) {
+>>>>>-             ret = genlmsg_unicast(skb, s->pid);
+>>>>>+             skb_next = NULL;
+>>>>>+             if (!list_islast(&s->list, &listeners->list)) {
+>>>>>+                     skb_next = skb_clone(skb_cur, GFP_KERNEL);
+>>>>
+>>>>If we do a GFP_KERNEL allocation with this semaphore held, and the
+>>>>oom-killer tries to kill something to satisfy the allocation, and the
+>>>>killed task gets stuck on that semaphore, I wonder of the box locks up.
 
-Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
+Hmm...doesn't look very safe does it.
+There's no real need for us to skb_clone within the sem. Keeping a count of
+listeners and doing the clone outside should let us avoid this problem.
 
-==============================================================
+I was trying to avoid doing the above because of the potential for
+listeners getting added continuously to the list
+(and having to repeat the allocation loop outside the down_write).
 
+But on second thoughts, we're under no obligation to send the data to all the
+listeners who add themselves in the short time between our taking a snapshot
+of the listener count and when the send is done (within the down_write). So
+it should be ok.
 
+>>>
+>>>We do GFP_KERNEL inside semaphores/mutexes in lots of places.  So if this
+>>>can deadlock with the oom-killer we probably should fix that, preferably
+>>>by having GFP_KERNEL fail in that case.
+>>
+>>This lock is special, in that it's taken on the exit() path (I think).  So
+>>it can block tasks which are trying to exit.
+> 
+> 
+> Sorry, missed the context.
+> 
+> If there is a deadlock then it's not just this allocation that you
+> need worry about.  There is also an allocation within genlmsg_uniast
+> that would be GFP_KERNEL.
+> 
 
-diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-index 8ffd760..1ea04da 100644
---- a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-+++ b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-@@ -49,7 +49,7 @@ #define BCM43xx_WX_VERSION	18
-  #define MAX_WX_STRING		80
-  /* FIXME: the next line is a guess as to what the maximum value of RX power
-            (in dBm) might be */
--#define RX_POWER_MAX		-10
-+#define RX_POWER_MAX		-20
+Thats true. The GFP_KERNEL allocation potentially called in netlink_trim() as part
+of the genlmsg/netlink_unicast() is again a problem.
 
+So perhaps we should switch to using RCU for protecting the listener list.
 
-  static int bcm43xx_wx_get_name(struct net_device *net_dev,
-@@ -231,8 +231,8 @@ static int bcm43xx_wx_get_rangeparams(st
+--Shailabh
 
-  	range->max_qual.qual = 100;
-  	/* TODO: Real max RSSI */
--	range->max_qual.level = 0;
--	range->max_qual.noise = 0;
-+	range->max_qual.level = -100;
-+	range->max_qual.noise = -100;
-  	range->max_qual.updated = IW_QUAL_ALL_UPDATED;
-
-  	range->avg_qual.qual = 50;
+> Cheers,
