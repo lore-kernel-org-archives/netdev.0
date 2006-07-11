@@ -1,66 +1,33 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: Re: active-backup/bonding with drivers not supporting set_mac_address()
-Date: Tue, 11 Jul 2006 16:33:48 +0300
-Message-ID: <44B3A8BC.9060306@voltaire.com>
-References: <Pine.LNX.4.64.0607101618390.26558@zuben> <200607101829.k6AITEp0026893@death.nxdomain.ibm.com>
+From: Andy Gay <andy@andynet.net>
+Subject: IPsec and netfilter needs INPUT rule for protocol 4?
+Date: Tue, 11 Jul 2006 09:54:42 -0400
+Message-ID: <1152626083.20072.252.camel@tahini.andynet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from taurus.voltaire.com ([193.47.165.240]:5491 "EHLO
-	taurus.voltaire.com") by vger.kernel.org with ESMTP
-	id S1750765AbWGKNeB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 09:34:01 -0400
-To: Jay Vosburgh <fubar@us.ibm.com>
-In-Reply-To: <200607101829.k6AITEp0026893@death.nxdomain.ibm.com>
+Received: from vms044pub.verizon.net ([206.46.252.44]:41166 "EHLO
+	vms044pub.verizon.net") by vger.kernel.org with ESMTP
+	id S1750795AbWGKNyr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 09:54:47 -0400
+Received: from andyhp.tranquilitynj.net ([138.89.61.131])
+ by vms044.mailsrvcs.net
+ (Sun Java System Messaging Server 6.2-4.02 (built Sep  9 2005))
+ with ESMTPA id <0J2800942RZ9UPY4@vms044.mailsrvcs.net> for
+ netdev@vger.kernel.org; Tue, 11 Jul 2006 08:54:45 -0500 (CDT)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> Or Gerlitz <ogerlitz@voltaire.com> wrote:
-> 
->> Looking on the linux bonding driver, it seems to unconditionally (*)
->> assume that the enslaved device supports the set_mac_address call.
->>
->>From reading the doc (Documentation/networking/bonding.txt) i understand that
->> it is **not** a must prerequisite for the active-backup mode, this is since
->> there is at most one active slave at each point of time and as the doc states:
->>
->> 	when a failover occurs in active-backup mode, bonding will issue
->> 	one or more gratuitous ARPs on the newly active slave.
-> 
-> 	I think you're misreading the documentation a bit.  Some
-> specific modes (balance-alb, for example) require that the slave device
-> driver support set_mac_address while the device is up.  Many device
-> drivers will only allow MAC changes while the device is down; those
-> drivers won't work with the alb mode.
-> 
-> 	The active-backup and other modes have always needed a set_mac
-> functionality, but they don't require that the device be up when
-> changing the MAC (those modes set the mac for a slave one time, during
-> the enslavement process, and the device is down when this is done).
+Since 2.6.16 it's been necessary to add an ACCEPT rule for IPIP
+(protocol 4) in the INPUT chain, otherwise IPsec tunnel mode packets get
+dropped (if your INPUT policy is DROP).
 
-Thanks for clarifying and sharpening this point; however thinking about 
-set_mac_address for active-backup mode i could not convince myself that 
-there is a **need** for that. However, at high level it does make some 
-(much) sense that the bond net device exposes a mac which is not changed 
-when the active slave changes.
+I was wondering if that's the intended behavior. I did google around for
+this, I found a few reports of the same thing but no explanation. For
+example, Patrick discusses this in -
+http://lists.netfilter.org/pipermail/netfilter-devel/2006-February/023420.html
+but that thread seems to end inconclusively.
 
-> 	The purpose of the gratuitous ARP is to update switch forwarding
-> tables (i.e., announce that the device has moved from one port to
-> another), not to announce a change of MAC address.
-
-I see, but it will have the affect of MAC address change announcement.
-
-> 	I think changing active-backup (as an example here) to cause a
-> MAC change during failover will have some side effects and secondary
-> requirements that aren't necessarily obvious.  For example, the MAC of
-> the bond itself will change during failover; I'm not sure right offhand
-> what effect if any this might have on third parties.
-
-I will be glad to know if you have more concrete ideas what would be the 
-possible problems with such impl.
-
-Or.
 
