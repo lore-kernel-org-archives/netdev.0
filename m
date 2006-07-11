@@ -1,114 +1,67 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] softmac: do shared key auth in workqueue
-Date: Wed, 12 Jul 2006 00:49:49 +0200
-Message-ID: <200607120049.49601.mb@bu3sch.de>
-References: <20060711221634.7B3A58B2E80@zog.reactivated.net>
+From: john stultz <johnstul@us.ibm.com>
+Subject: [BUG] Two BUG warnings in net/core/dev.c
+Date: Tue, 11 Jul 2006 16:05:06 -0700
+Message-ID: <1152659106.5364.7.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
-	johannes@sipsolutions.net
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:64407
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932225AbWGKWsK
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 18:48:10 -0400
-To: Daniel Drake <dsd@gentoo.org>
-In-Reply-To: <20060711221634.7B3A58B2E80@zog.reactivated.net>
-Content-Disposition: inline
+Received: from e33.co.us.ibm.com ([32.97.110.151]:5814 "EHLO e33.co.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1751343AbWGKXFJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 19:05:09 -0400
+To: lkml <linux-kernel@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 12 July 2006 00:16, you wrote:
-> Johann Uhrmann reported a bcm43xx crash and Michael Buesch tracked it down
-> to a problem with the new shared key auth code (recursive calls into the driver)
-> 
-> This patch (effectively Michael's patch with a couple of small modifications)
-> solves the problem by sending the authentication challenge response frame
-> from a workqueue entry.
-> 
-> I also removed a lone \n from the bcm43xx messages relating to authentication
-> mode - this small change was previously discussed but not patched in.
-> 
-> Signed-off-by: Daniel Drake <dsd@gentoo.org>
-> Acked-by: Johannes Berg <johannes@sipsolutions.net>
+Both of these were seen on my laptop w/ the current (as of this writing)
+-git tree using the e1000 driver after a suspend/resume cycle.
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+thanks
+-john
 
-> 
-> Index: linux/net/ieee80211/softmac/ieee80211softmac_auth.c
-> ===================================================================
-> --- linux.orig/net/ieee80211/softmac/ieee80211softmac_auth.c
-> +++ linux/net/ieee80211/softmac/ieee80211softmac_auth.c
-> @@ -116,6 +116,16 @@ ieee80211softmac_auth_queue(void *data)
->  	kfree(auth);
->  }
->  
-> +/* Sends a response to an auth challenge (for shared key auth). */
-> +static void
-> +ieee80211softmac_auth_challenge_response(void *_aq)
-> +{
-> +	struct ieee80211softmac_auth_queue_item *aq = _aq;
-> +
-> +	/* Send our response */
-> +	ieee80211softmac_send_mgt_frame(aq->mac, aq->net, IEEE80211_STYPE_AUTH, aq->state);
-> +}
-> +
->  /* Handle the auth response from the AP
->   * This should be registered with ieee80211 as handle_auth 
->   */
-> @@ -197,24 +207,30 @@ ieee80211softmac_auth_resp(struct net_de
->  		case IEEE80211SOFTMAC_AUTH_SHARED_CHALLENGE:
->  			/* Check to make sure we have a challenge IE */
->  			data = (u8 *)auth->info_element;
-> -			if(*data++ != MFIE_TYPE_CHALLENGE){
-> +			if (*data++ != MFIE_TYPE_CHALLENGE) {
->  				printkl(KERN_NOTICE PFX "Shared Key Authentication failed due to a missing challenge.\n");
->  				break;	
->  			}
->  			/* Save the challenge */
->  			spin_lock_irqsave(&mac->lock, flags);
->  			net->challenge_len = *data++; 	
-> -			if(net->challenge_len > WLAN_AUTH_CHALLENGE_LEN)
-> +			if (net->challenge_len > WLAN_AUTH_CHALLENGE_LEN)
->  				net->challenge_len = WLAN_AUTH_CHALLENGE_LEN;
-> -			if(net->challenge != NULL)
-> +			if (net->challenge != NULL)
->  				kfree(net->challenge);
->  			net->challenge = kmalloc(net->challenge_len, GFP_ATOMIC);
->  			memcpy(net->challenge, data, net->challenge_len);
->  			aq->state = IEEE80211SOFTMAC_AUTH_SHARED_RESPONSE; 
-> -			spin_unlock_irqrestore(&mac->lock, flags);
->  
-> -			/* Send our response */
-> -			ieee80211softmac_send_mgt_frame(mac, aq->net, IEEE80211_STYPE_AUTH, aq->state);
-> +			/* We reuse the work struct from the auth request here.
-> +			 * It is safe to do so as each one is per-request, and
-> +			 * at this point (dealing with authentication response)
-> +			 * we have obviously already sent the initial auth
-> +			 * request. */
-> +			cancel_delayed_work(&aq->work);
-> +			INIT_WORK(&aq->work, &ieee80211softmac_auth_challenge_response, (void *)aq);
-> +			schedule_work(&aq->work);
-> +			spin_unlock_irqrestore(&mac->lock, flags);
->  			return 0;
->  		case IEEE80211SOFTMAC_AUTH_SHARED_PASS:
->  			kfree(net->challenge);
-> Index: linux/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> ===================================================================
-> --- linux.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> +++ linux/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> @@ -3701,7 +3701,7 @@ static void bcm43xx_ieee80211_set_securi
->  	}
->  	if (sec->flags & SEC_AUTH_MODE) {
->  		secinfo->auth_mode = sec->auth_mode;
-> -		dprintk(", .auth_mode = %d\n", sec->auth_mode);
-> +		dprintk(", .auth_mode = %d", sec->auth_mode);
->  	}
->  	dprintk("\n");
->  	if (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED &&
-> 
+BUG: warning at net/core/dev.c:1171/skb_checksum_help()
+ [<c0103d69>] show_trace_log_lvl+0x149/0x170
+ [<c01052bb>] show_trace+0x1b/0x20
+ [<c01052e4>] dump_stack+0x24/0x30
+ [<c03c7523>] skb_checksum_help+0x163/0x170
+ [<c0439c15>] ip_nat_fn+0x1a5/0x210
+ [<c0439fa5>] ip_nat_local_fn+0x65/0xf0
+ [<c03db140>] nf_iterate+0x60/0x90
+ [<c03db1cc>] nf_hook_slow+0x5c/0x100
+ [<c03eca51>] ip_queue_xmit+0x1f1/0x4c0
+ [<c03fd2af>] tcp_transmit_skb+0x3bf/0x7d0
+ [<c03ff32f>] tcp_push_one+0x9f/0x120
+ [<c03f4943>] tcp_sendmsg+0x393/0xbf0
+ [<c0411595>] inet_sendmsg+0x35/0x60
+ [<c03be06d>] sock_sendmsg+0xcd/0x100
+ [<c03be3e3>] sys_sendto+0xd3/0x100
+ [<c03be442>] sys_send+0x32/0x40
+ [<c03bea32>] sys_socketcall+0x142/0x260
+ [<c010320d>] sysenter_past_esp+0x56/0x8d
+ [<b7fa8410>] 0xb7fa8410
 
--- 
-Greetings Michael.
+
+BUG: warning at net/core/dev.c:1225/skb_gso_segment()
+ [<c0103d69>] show_trace_log_lvl+0x149/0x170
+ [<c01052bb>] show_trace+0x1b/0x20
+ [<c01052e4>] dump_stack+0x24/0x30
+ [<c03c8e8a>] skb_gso_segment+0x20a/0x210
+ [<c03ca3bf>] dev_hard_start_xmit+0x15f/0x300
+ [<c03d6cab>] __qdisc_run+0x7b/0x1f0
+ [<c03ca687>] dev_queue_xmit+0x127/0x310
+ [<c03d0ccc>] neigh_resolve_output+0xec/0x2a0
+ [<c03ed490>] ip_output+0x170/0x260
+ [<c03ecb06>] ip_queue_xmit+0x2a6/0x4c0
+ [<c03fd2af>] tcp_transmit_skb+0x3bf/0x7d0
+ [<c03ff32f>] tcp_push_one+0x9f/0x120
+ [<c03f4943>] tcp_sendmsg+0x393/0xbf0
+ [<c0411595>] inet_sendmsg+0x35/0x60
+ [<c03be06d>] sock_sendmsg+0xcd/0x100
+ [<c03be3e3>] sys_sendto+0xd3/0x100
+ [<c03be442>] sys_send+0x32/0x40
+ [<c03bea32>] sys_socketcall+0x142/0x260
+ [<c010320d>] sysenter_past_esp+0x56/0x8d
+ [<b7fa8410>] 0xb7fa8410
+
+
