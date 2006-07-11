@@ -1,69 +1,43 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Subject: Re: [Patch 6/6] per task delay accounting taskstats interface: fix
- clone skbs for each listener
-Date: Tue, 11 Jul 2006 13:44:05 -0400
-Message-ID: <44B3E365.1020602@watson.ibm.com>
-References: <20060711030524.39abc3d5.akpm@osdl.org> <E1G0FU2-0002oE-00@gondolin.me.apana.org.au> <20060711035731.63c087b3.akpm@osdl.org> <20060711111525.GA11175@gondor.apana.org.au>
+From: shaw@vranix.com
+Subject: e1000 TX unit hang (redux)
+Date: Tue, 11 Jul 2006 11:16:41 -0700
+Message-ID: <200607111116.41932.shaw@vranix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	jlan@sgi.com, csturtiv@sgi.com, pj@sgi.com, balbir@in.ibm.com,
-	sekharan@us.ibm.com, hadi@cyberus.ca, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751152AbWGKRoR@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060711111525.GA11175@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ws6-3.us4.outblaze.com ([205.158.62.199]:18874 "HELO
+	ws6-3.us4.outblaze.com") by vger.kernel.org with SMTP
+	id S1750730AbWGKSQm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 14:16:42 -0400
+To: auke-jan.h.kok@intel.com, kernel@linuxace.com,
+	jesse.brandeburg@intel.com
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Tue, Jul 11, 2006 at 03:57:31AM -0700, Andrew Morton wrote:
-> 
->>>>>      down_write(&listeners->sem);
->>>>>      list_for_each_entry_safe(s, tmp, &listeners->list, list) {
->>>>>-             ret = genlmsg_unicast(skb, s->pid);
->>>>>+             skb_next = NULL;
->>>>>+             if (!list_islast(&s->list, &listeners->list)) {
->>>>>+                     skb_next = skb_clone(skb_cur, GFP_KERNEL);
->>>>
->>>>If we do a GFP_KERNEL allocation with this semaphore held, and the
->>>>oom-killer tries to kill something to satisfy the allocation, and the
->>>>killed task gets stuck on that semaphore, I wonder of the box locks up.
+Hello All,
 
-Hmm...doesn't look very safe does it.
-There's no real need for us to skb_clone within the sem. Keeping a count of
-listeners and doing the clone outside should let us avoid this problem.
+I have an e1000 card periodically misbehaving with the message 'Detected Tx 
+unit hang'.   I've noticed this problem come up on netdev a couple of times 
+and found the link to the bug tracking page--
+http://sourceforge.net/tracker/index.php?func=detail&aid=1463045&group_id=42302&atid=447449
 
-I was trying to avoid doing the above because of the potential for
-listeners getting added continuously to the list
-(and having to repeat the allocation loop outside the down_write).
+I've also seen the patch that I believe was placed in 2.6.16 and subsequently 
+brought down to 2.4.2? that seems to address this problem by creating a 
+tx_timeout_factor relative to the speed of the NIC.  However, there is no 
+mention of this workaround/fix on the bug at the link above and I haven't 
+found any discussion of it here on netdev.   Auke recommends turning off tso 
+to see if that resolves the problem and this also seems to work, though I 
+have as yet not been able to confirm this and would prefer a more performance 
+friendly fix..if available ;)
 
-But on second thoughts, we're under no obligation to send the data to all the
-listeners who add themselves in the short time between our taking a snapshot
-of the listener count and when the send is done (within the down_write). So
-it should be ok.
+Would one of you pplease give an update on the status of the bug? If a cause 
+was ever found and if the tx_timeout_factor was intended as a fix or 
+temporary workaround?   I feel like I must have missed something, because I 
+never saw the tx_timeout_factor patch go through netdev at all..
 
->>>
->>>We do GFP_KERNEL inside semaphores/mutexes in lots of places.  So if this
->>>can deadlock with the oom-killer we probably should fix that, preferably
->>>by having GFP_KERNEL fail in that case.
->>
->>This lock is special, in that it's taken on the exit() path (I think).  So
->>it can block tasks which are trying to exit.
-> 
-> 
-> Sorry, missed the context.
-> 
-> If there is a deadlock then it's not just this allocation that you
-> need worry about.  There is also an allocation within genlmsg_uniast
-> that would be GFP_KERNEL.
-> 
-
-Thats true. The GFP_KERNEL allocation potentially called in netlink_trim() as part
-of the genlmsg/netlink_unicast() is again a problem.
-
-So perhaps we should switch to using RCU for protecting the listener list.
-
---Shailabh
-
-> Cheers,
+Thanks again for your help,
+Shaw
