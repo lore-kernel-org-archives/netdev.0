@@ -1,85 +1,59 @@
-From: Ian McDonald <ian.mcdonald@jandi.co.nz>
-Subject: [PATCH 1/1] net: fix __sk_stream_mem_reclaim
-Date: Wed, 12 Jul 2006 19:09:16 +1200
-Message-ID: <200607121909.17311.ian.mcdonald@jandi.co.nz>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [NETROM] lockdep: fix false positive
+Date: Tue, 11 Jul 2006 23:11:42 +0100
+Message-ID: <20060711221142.GA5721@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:59656 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S1750761AbWGLHJv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jul 2006 03:09:51 -0400
-Received: by py-out-1112.google.com with SMTP id x31so191194pye
-        for <netdev@vger.kernel.org>; Wed, 12 Jul 2006 00:09:51 -0700 (PDT)
-To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Received: from ftp.linux-mips.org ([194.74.144.162]:53442 "EHLO
+	ftp.linux-mips.org") by vger.kernel.org with ESMTP id S1751045AbWGLJUq
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jul 2006 05:20:46 -0400
+Received: from localhost.localdomain ([127.0.0.1]:28641 "EHLO bacchus.dhis.org")
+	by ftp.linux-mips.org with ESMTP id S3561309AbWGLJUo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 10:20:44 +0100
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Molnar Ingo <mingo@elte.hu>,
+	Arjan van de Ven <arjan@infradead.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-__sk_stream_mem_reclaim is only called by sk_stream_mem_reclaim.
+NETROM network devices are virtual network devices encapsulating NETROM
+frames into AX.25 which will be sent through an AX.25 device, so form a
+special "super class" of normal net devices; split their locks off into a
+separate class since they always nest.
 
-As such the check on sk->sk_forward_alloc is not needed and can be removed.
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-At the same time remove the EXPORT_SYMBOL_GPL as not needed and shift it
-into include/net/sock.h
-
-Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 324b3ea..3a62b5b 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -694,7 +694,6 @@ static inline struct inode *SOCK_INODE(s
- 	return &container_of(socket, struct socket_alloc, socket)->vfs_inode;
- }
+ net/netrom/af_netrom.c |    9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+Index: linux-net/net/netrom/af_netrom.c
+===================================================================
+--- linux-net.orig/net/netrom/af_netrom.c	2006-07-10 20:40:51.000000000 +0100
++++ linux-net/net/netrom/af_netrom.c	2006-07-11 22:04:04.000000000 +0100
+@@ -66,6 +66,14 @@ static DEFINE_SPINLOCK(nr_list_lock);
+ static const struct proto_ops nr_proto_ops;
  
--extern void __sk_stream_mem_reclaim(struct sock *sk);
- extern int sk_stream_mem_schedule(struct sock *sk, int size, int kind);
- 
- #define SK_STREAM_MEM_QUANTUM ((int)PAGE_SIZE)
-@@ -704,6 +703,17 @@ static inline int sk_stream_pages(int am
- 	return (amt + SK_STREAM_MEM_QUANTUM - 1) / SK_STREAM_MEM_QUANTUM;
- }
- 
-+static void __sk_stream_mem_reclaim(struct sock *sk)
-+{
-+	atomic_sub(sk->sk_forward_alloc / SK_STREAM_MEM_QUANTUM,
-+		   sk->sk_prot->memory_allocated);
-+	sk->sk_forward_alloc &= SK_STREAM_MEM_QUANTUM - 1;
-+	if (*sk->sk_prot->memory_pressure &&
-+	    (atomic_read(sk->sk_prot->memory_allocated) <
-+	     sk->sk_prot->sysctl_mem[0]))
-+		*sk->sk_prot->memory_pressure = 0;
-+}
+ /*
++ * NETROM network devices are virtual network devices encapsulating NETROM
++ * frames into AX.25 which will be sent through an AX.25 device, so form a
++ * special "super class" of normal net devices; split their locks off into a
++ * separate class since they always nest.
++ */
++static struct lock_class_key nr_netdev_xmit_lock_key;
 +
- static inline void sk_stream_mem_reclaim(struct sock *sk)
- {
- 	if (sk->sk_forward_alloc >= SK_STREAM_MEM_QUANTUM)
-diff --git a/net/core/stream.c b/net/core/stream.c
-index e948969..8ff97e6 100644
---- a/net/core/stream.c
-+++ b/net/core/stream.c
-@@ -194,21 +194,6 @@ int sk_stream_error(struct sock *sk, int
++/*
+  *	Socket removal during an interrupt is now safe.
+  */
+ static void nr_remove_socket(struct sock *sk)
+@@ -1405,6 +1413,7 @@ static int __init nr_proto_init(void)
+ 			free_netdev(dev);
+ 			goto fail;
+ 		}
++		lockdep_set_class(&dev->_xmit_lock, &nr_netdev_xmit_lock_key);
+ 		dev_nr[i] = dev;
+ 	}
  
- EXPORT_SYMBOL(sk_stream_error);
- 
--void __sk_stream_mem_reclaim(struct sock *sk)
--{
--	if (sk->sk_forward_alloc >= SK_STREAM_MEM_QUANTUM) {
--		atomic_sub(sk->sk_forward_alloc / SK_STREAM_MEM_QUANTUM,
--			   sk->sk_prot->memory_allocated);
--		sk->sk_forward_alloc &= SK_STREAM_MEM_QUANTUM - 1;
--		if (*sk->sk_prot->memory_pressure &&
--		    (atomic_read(sk->sk_prot->memory_allocated) <
--		     sk->sk_prot->sysctl_mem[0]))
--			*sk->sk_prot->memory_pressure = 0;
--	}
--}
--
--EXPORT_SYMBOL(__sk_stream_mem_reclaim);
--
- int sk_stream_mem_schedule(struct sock *sk, int size, int kind)
- {
- 	int amt = sk_stream_pages(size);
