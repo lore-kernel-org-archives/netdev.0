@@ -1,39 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [BUG] Two BUG warnings in net/core/dev.c
-Date: Wed, 12 Jul 2006 09:19:50 +1000
-Message-ID: <E1G0RWA-0001m9-00@gondolin.me.apana.org.au>
-References: <1152659106.5364.7.camel@localhost>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [IPCOMP]: Fix truesize after decompression
+Date: Tue, 11 Jul 2006 16:22:17 -0700 (PDT)
+Message-ID: <20060711.162217.101672676.davem@davemloft.net>
+References: <20060711114544.GA11396@gondor.apana.org.au>
+	<20060711.135553.106801039.davem@davemloft.net>
+	<20060711231251.GA6725@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Daniel.Beschorner@facton.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:57615 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932099AbWGKXUA
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 19:20:00 -0400
-To: johnstul@us.ibm.com (john stultz)
-In-Reply-To: <1152659106.5364.7.camel@localhost>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:32973
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932230AbWGKXVc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 19:21:32 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060711231251.GA6725@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-john stultz <johnstul@us.ibm.com> wrote:
-> Both of these were seen on my laptop w/ the current (as of this writing)
-> -git tree using the e1000 driver after a suspend/resume cycle.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 12 Jul 2006 09:12:51 +1000
 
-It's just a reminder that we need to fix NAT to update checksums
-incrementally.  You'll only see it once per boot.
+> On Tue, Jul 11, 2006 at 01:55:53PM -0700, David Miller wrote:
+> > 
+> > I think it is possible cover a certain class of these situations
+> > from within pskb_expand_head.  For example, if skb->sk is NULL
+> > we can prove that updating skb->truesize is safe since no
+> > socket's buffer accounting can possible depend upon the truesize
+> > value of this skb.
+> 
+> Yes that's certainly possible.  However, we'll need to audit the few
+> spots (e.g., ATM) that use truesize without setting skb->sk.
 
-> BUG: warning at net/core/dev.c:1171/skb_checksum_help()
-> [<c0103d69>] show_trace_log_lvl+0x149/0x170
-> [<c01052bb>] show_trace+0x1b/0x20
-> [<c01052e4>] dump_stack+0x24/0x30
-> [<c03c7523>] skb_checksum_help+0x163/0x170
-> [<c0439c15>] ip_nat_fn+0x1a5/0x210
+Yuck, I'd forgotten about that usage....
 
-Of course, if anyone sees it with a backtrace that does not contain
-ip_nat_fn, please let us know.
+What ATM is doing here is charging the SKB to the virtual circuit
+sockets.  At least in the few cases I've looked at just now, the
+skb is some private ATM level signalling message, and not part of
+a normal transmit/receive packet from the normal networking stack.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Therefore, there seems to be no reason why ATM can't use the
+destructor callback of the SKB to manage this accounting just like the
+rest of the kernel does.
