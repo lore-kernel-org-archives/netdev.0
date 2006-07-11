@@ -1,64 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: ipsec tunnel asymmetrical mtu
-Date: Tue, 11 Jul 2006 17:59:43 +1000
-Message-ID: <20060711075943.GB1490@gondor.apana.org.au>
-References: <E1FXVdb-0003Tt-00@gondolin.me.apana.org.au> <BAY103-F1D9D892CDA10889FCB525B2A80@phx.gbl>
+From: "Ivo Van Doorn" <ivdoorn@gmail.com>
+Subject: Fwd: d80211 sysfs
+Date: Tue, 11 Jul 2006 10:08:49 +0200
+Message-ID: <a32f33a40607110108obf692f6l559212286b5df366@mail.gmail.com>
+References: <a32f33a40607080505wd3c9200sdf50ff814fd5afb@mail.gmail.com>
+	 <20060710172702.288680e9@griffin.suse.cz>
+	 <a32f33a40607110107n7fcc0cf0v3f72c44710e87f44@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35340 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750722AbWGKH7q
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 03:59:46 -0400
-To: Marco Berizzi <pupilla@hotmail.com>
+Received: from py-out-1112.google.com ([64.233.166.180]:36737 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S1750734AbWGKIIu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 04:08:50 -0400
+Received: by py-out-1112.google.com with SMTP id x31so1404218pye
+        for <netdev@vger.kernel.org>; Tue, 11 Jul 2006 01:08:49 -0700 (PDT)
+To: netdev@vger.kernel.org, "Jiri Benc" <jbenc@suse.cz>
+In-Reply-To: <a32f33a40607110107n7fcc0cf0v3f72c44710e87f44@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <BAY103-F1D9D892CDA10889FCB525B2A80@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 08, 2006 at 08:28:32AM +0000, Marco Berizzi wrote:
+Sorry for the double mail.
+Forgot to CC netdev list.
+
+Hi,
+
+> > Since I didn't want to loose any tested because of the new field in
+> > the net_device structure,
+> > I have used the base_addr field instead and used the following access functions:
 >
-> root@Mimosa:~# ping 10.49.59.23
-> PING 10.49.59.23 (10.49.59.23) 56(84) bytes of data.
-> 64 bytes from 10.49.59.23: icmp_seq=1 ttl=247 time=91.9 ms
-> 64 bytes from 10.49.59.23: icmp_seq=2 ttl=247 time=49.3 ms
-> 64 bytes from 10.49.59.23: icmp_seq=3 ttl=247 time=106 ms
-> 64 bytes from 10.49.59.23: icmp_seq=4 ttl=247 time=74.3 ms
-> 
-> --- 10.49.59.23 ping statistics ---
-> 4 packets transmitted, 4 received, 0% packet loss, time 2998ms
-> rtt min/avg/max/mdev = 49.316/80.460/106.257/21.241 ms
-> root@Mimosa:~# cd /tmp/
-> root@Mimosa:/tmp# tcpdump -v -p -n ip host 10.49.59.23 > 
-> /tmp/NULL-10.49.59.23 &
-> [1] 18981
-> root@Mimosa:/tmp# tcpdump: listening on eth0, link-type EN10MB (Ethernet), 
-> capture size 96 bytes
-> 
-> root@Mimosa:/tmp# ping 10.49.59.23
-> PING 10.49.59.23 (10.49.59.23) 56(84) bytes of data.
-> 
-> --- 10.49.59.23 ping statistics ---
-> 8 packets transmitted, 0 received, 100% packet loss, time 6999ms
-> 
-> root@Mimosa:/tmp# fg
-> tcpdump -v -p -n ip host 10.49.59.23 >/tmp/NULL-10.49.59.23
-> 101 packets captured
-> 101 packets received by filter
-> 0 packets dropped by kernel
+> This will horribly fail when you send something to master device
+> (wmaster0) directly. For example, having ipv6 enabled is enough to
+> produce some funny Oopses.
+>
+> > kernel BUG at fs/sysfs/symlink.c:88!
+> > invalid opcode: 0000 [#1]
+> > SMP
+>
+> d80211 stack is not SMP safe yet. Is this reproducible on non-SMP
+> non-preemptible kernel without your base_addr patches?
 
-Yes this is really weird.  The only thing I can think of is that it
-somehow managed to put some bogus entry into the conntrack table.
-What happens if you do
+Yes, I have verified this problem on my PC as well and it is running a
+non-SMP kernel.
+I have also checked the reports from other users and it seems to
+affect both SMP as non-SMP users/kernels.
 
-grep 10.49.59.23 /proc/net/ip_conntrack
-
-before and after the tcpdump?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ivo
