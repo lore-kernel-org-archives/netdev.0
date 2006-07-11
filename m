@@ -1,75 +1,74 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: 2.6.18-rc1-mm1 - VPN chewing CPU like crazy..
-Date: Mon, 10 Jul 2006 23:19:39 -0700
-Message-ID: <20060710231939.256a017a.akpm@osdl.org>
-References: <200607110420.k6B4KMZM013584@turing-police.cc.vt.edu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: ipsec tunnel asymmetrical mtu
+Date: Tue, 11 Jul 2006 16:42:32 +1000
+Message-ID: <20060711064232.GA1490@gondor.apana.org.au>
+References: <E1FXVdb-0003Tt-00@gondolin.me.apana.org.au> <BAY103-F290B963EE35123CC2E6DB8B2BE0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:58789 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965213AbWGKGTm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 02:19:42 -0400
-To: Valdis.Kletnieks@vt.edu
-In-Reply-To: <200607110420.k6B4KMZM013584@turing-police.cc.vt.edu>
+Received: from rhun.apana.org.au ([64.62.148.172]:64010 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S965085AbWGKGmf
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 02:42:35 -0400
+To: Marco Berizzi <pupilla@hotmail.com>
+Content-Disposition: inline
+In-Reply-To: <BAY103-F290B963EE35123CC2E6DB8B2BE0@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Marco:
 
-(cc's added)
+On Mon, Apr 24, 2006 at 09:23:00AM +0000, Marco Berizzi wrote:
+> 
+> What should I do? Mangling MSS with iptables  --set-mss ?
+> Altering MSS to 1440 did the trick. See:
+> http://marc.theaimsgroup.com/?l=linux-netdev&m=114373067423528&w=2
 
-On Tue, 11 Jul 2006 00:20:22 -0400
-Valdis.Kletnieks@vt.edu wrote:
+Yes that's enough, although proper PMTU would be better.
+ 
+> and here is snmp when the sapgui client has told me that the
+> connections has been reset:
+> 
+> root@Mimosa:/var/log# cat SNMP-CONN-RESET
+> Ip: Forwarding DefaultTTL InReceives InHdrErrors InAddrErrors ForwDatagrams 
+> InUnknownProtos InDiscards InDelivers OutRequests OutDiscards OutNoRoutes 
+> ReasmTimeout ReasmReqds ReasmOKs ReasmFails FragOKs FragFails FragCreates
+> Ip: 1 64 79257 0 31 48139 0 0 38799 56650 2 0 2 182 90 2 90 0 124
 
-> (This is *NOT* new with 2.6.18-rc1-mm1, I've seen it a few times before, no
-> idea when it started... I think I've seen it as far back as 2.6.16-mm2 or so).
-> 
-> Most of the time, the VPN comes up just fine.
-> 
-> Jul 10 22:44:28 turing-police kernel: [ 7180.696000] CSLIP: code copyright 1989 Regents of the University of California
-> Jul 10 22:44:28 turing-police kernel: [ 7180.701000] PPP generic driver version 2.4.2
-> Jul 10 23:00:26 turing-police kernel: [ 8137.903000] PPP MPPE Compression module registered
-> 
-> However, sometimes (usually when restarting after the VPN gets dropped due to
-> a network burp, etc), it will start up, get connected, and then the the first
-> (or one of the first) data packets over the VPN will suddenly spike the
-> CPU to 100% (about 50% userspace and 50% kernel).  A quick oprofile check
-> shows the kernel CPU getting sucked:
-> 
-> samples  %        image name               app name                 symbol name
-> 10901    18.2805  arc4.ko                  arc4                     .text
-> 5046      8.4619  ppp_async.ko             ppp_async                ppp_async_push
-> 4865      8.1584  pptp                     pptp                     (no symbols)
-> 4382      7.3484  arc4.ko                  arc4                     arc4_set_key
-> 4331      7.2629  vmlinux                  vmlinux                  sha_transform
-> 4203      7.0482  libfb.so                 libfb.so                 fbCopyAreammx
-> 3342      5.6044  vmlinux                  vmlinux                  ecb_process
-> 1324      2.2203  libgdk_imlib.so.1.9.13   libgdk_imlib.so.1.9.13   (no symbols)
-> 1149      1.9268  ip_tables.ko             ip_tables                ipt_do_table
-> 1071      1.7960  vmlinux                  vmlinux                  local_bh_enable
-> 848       1.4221  vmlinux                  vmlinux                  acpi_pm_read
-> 816       1.3684  vmlinux                  vmlinux                  __local_bh_disable
-> 698       1.1705  vmlinux                  vmlinux                  n_tty_receive_buf
-> 651       1.0917  vmlinux                  vmlinux                  do_page_fault
-> 
-> (pptp is the userspace control process)
-> 
-> gkrellm reports that about 4 mbytes/sec is being sent on ppp0 - but shows
-> zero traffic on eth0 (the underlying interface).  When working properly,
-> both ppp0 and eth0 show the traffic.
-> 
-> This continues until I get fed up and manually take the VPN down, at which
-> point it happily gets rid of ppp0 and CPU load returns to normal.
-> 
-> I haven't found a clean way to reproduce it - sometimes I won't see it for
-> 2-3 weeks, then it will pop up several times in an evening.
-> 
-> Any suggestions/hints (besides rebuilding the implicated .ko with debugging
-> symbols so oprofile can be more granular - that's already on the to-do list)?
-> 
+OK, the number of reassemblies equals the number of FragOKs.  So it does
+not look like there is a problem within mimosa, i.e., Linux.
 
-I'd suggest you whack sysrq-T 5-10 times when it happens, capture a few
-stack traces.
+I've looked at your packet dumps again and in fact there is not qualitative
+difference between WITHTCPDUMP and WITHOUTTCPDUMP.  What is different is
+that the latter seems to have experienced a higher packet loss rate at an
+early stage and therefore the sender has already backed off to a very long
+retry period.
 
+The fact that tcpdump makes a difference could simply be that it changes
+the timing of the fragment tramissions on mimosa which has an impact on
+the loss rate between mimosa and pleiadi.
+
+We can say these things for certain:
+
+1) The path between mimosa and pleiadi has a packet loss problem.  A small
+   burst of 10 or so fragments is enough to cause at least half of them to
+   be lost.  This problem may be specific to IPsec traffic (ISPs often
+   discriminate against traffic with protocols other than TCP/UDP).
+
+2) Fragmentation exacerbates the packet loss problem because it increases
+   the number of packets and a packet is lost if only one of its fragments
+   is lost.
+
+3) The fact that the TCP connections are not using PMTU causes fragmentation
+   in the presence of IPsec.
+
+>From what I've seen, there does not appear to be a bug in Linux that could
+explain the behaviour change that is seen when you run tcpdump.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
