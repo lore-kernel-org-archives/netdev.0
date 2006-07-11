@@ -1,36 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Netchannel: default, find, add to socket
-Date: Tue, 11 Jul 2006 00:37:35 -0700 (PDT)
-Message-ID: <20060711.003735.127203302.davem@davemloft.net>
-References: <200607111539.25458.kelly@au.ibm.com>
-	<20060711055708.GA3935@2ka.mipt.ru>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: ipsec tunnel asymmetrical mtu
+Date: Tue, 11 Jul 2006 17:59:43 +1000
+Message-ID: <20060711075943.GB1490@gondor.apana.org.au>
+References: <E1FXVdb-0003Tt-00@gondolin.me.apana.org.au> <BAY103-F1D9D892CDA10889FCB525B2A80@phx.gbl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kelly@au1.ibm.com, netdev@vger.kernel.org, rusty@rustcorp.com.au
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:44972
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030418AbWGKHgx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 03:36:53 -0400
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20060711055708.GA3935@2ka.mipt.ru>
+Received: from rhun.apana.org.au ([64.62.148.172]:35340 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750722AbWGKH7q
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 03:59:46 -0400
+To: Marco Berizzi <pupilla@hotmail.com>
+Content-Disposition: inline
+In-Reply-To: <BAY103-F1D9D892CDA10889FCB525B2A80@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Tue, 11 Jul 2006 09:57:08 +0400
+On Mon, May 08, 2006 at 08:28:32AM +0000, Marco Berizzi wrote:
+>
+> root@Mimosa:~# ping 10.49.59.23
+> PING 10.49.59.23 (10.49.59.23) 56(84) bytes of data.
+> 64 bytes from 10.49.59.23: icmp_seq=1 ttl=247 time=91.9 ms
+> 64 bytes from 10.49.59.23: icmp_seq=2 ttl=247 time=49.3 ms
+> 64 bytes from 10.49.59.23: icmp_seq=3 ttl=247 time=106 ms
+> 64 bytes from 10.49.59.23: icmp_seq=4 ttl=247 time=74.3 ms
+> 
+> --- 10.49.59.23 ping statistics ---
+> 4 packets transmitted, 4 received, 0% packet loss, time 2998ms
+> rtt min/avg/max/mdev = 49.316/80.460/106.257/21.241 ms
+> root@Mimosa:~# cd /tmp/
+> root@Mimosa:/tmp# tcpdump -v -p -n ip host 10.49.59.23 > 
+> /tmp/NULL-10.49.59.23 &
+> [1] 18981
+> root@Mimosa:/tmp# tcpdump: listening on eth0, link-type EN10MB (Ethernet), 
+> capture size 96 bytes
+> 
+> root@Mimosa:/tmp# ping 10.49.59.23
+> PING 10.49.59.23 (10.49.59.23) 56(84) bytes of data.
+> 
+> --- 10.49.59.23 ping statistics ---
+> 8 packets transmitted, 0 received, 100% packet loss, time 6999ms
+> 
+> root@Mimosa:/tmp# fg
+> tcpdump -v -p -n ip host 10.49.59.23 >/tmp/NULL-10.49.59.23
+> 101 packets captured
+> 101 packets received by filter
+> 0 packets dropped by kernel
 
-> Did you benchmarked such approach both with
-> and without netchannel bound to the socket?
+Yes this is really weird.  The only thing I can think of is that it
+somehow managed to put some bogus entry into the conntrack table.
+What happens if you do
 
-It is not meant to be used in "real life" :-)
-So benchmark is quite useless.
+grep 10.49.59.23 /proc/net/ip_conntrack
 
-We are starting simple, and eventually all types of packets will hit
-some kind of channel, thus making the default channel a kind of
-anomaly slow path.
+before and after the tcpdump?
 
-That code will not come immediately, therefore it would be nice
-if the performance were not too bad, and it can be made into a
-software interrupt or tasklet with some care.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
