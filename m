@@ -1,59 +1,84 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [patch] do not allow IPW_2100=Y or IPW_2200=Y
-Date: Tue, 11 Jul 2006 13:27:21 +0200
-Message-ID: <20060711112721.GA1618@elf.ucw.cz>
-References: <20060710152032.GA8540@elf.ucw.cz> <44B2940A.2080102@pobox.com> <44B29C8A.8090405@intel.com> <20060710.114717.44959528.davem@davemloft.net> <1152557518.4874.79.camel@laptopd505.fenrus.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPCOMP]: Fix truesize after decompression
+Date: Tue, 11 Jul 2006 21:45:44 +1000
+Message-ID: <20060711114544.GA11396@gondor.apana.org.au>
+References: <BB1F4EFD574E9F409035BDA71C9612500242B8@exchange.i-bn>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, auke-jan.h.kok@intel.com,
-	jgarzik@pobox.com, yi.zhu@intel.com, jketreno@linux.intel.com,
-	netdev@vger.kernel.org, linville@tuxdriver.com,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:42631 "EHLO amd.ucw.cz")
-	by vger.kernel.org with ESMTP id S1751049AbWGKL1u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 07:27:50 -0400
-To: Arjan van de Ven <arjan@infradead.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:22034 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751219AbWGKLqH
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 07:46:07 -0400
+To: "David S. Miller" <davem@davemloft.net>,
+	Beschorner Daniel <Daniel.Beschorner@facton.com>
 Content-Disposition: inline
-In-Reply-To: <1152557518.4874.79.camel@laptopd505.fenrus.org>
+In-Reply-To: <BB1F4EFD574E9F409035BDA71C9612500242B8@exchange.i-bn>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
-
-> > > >> Kconfig currently allows compiling IPW_2100 and IPW_2200 into kernel
-> > > >> (not as a module). Unfortunately, such configuration does not work,
-> > > >> because these drivers need a firmware, and it can't be loaded by
-> > > >> userspace loader when userspace is not running.
-> > > > 
-> > > > False, initramfs...
-> > > 
-> > > which would warrant some extra documentation in Kconfig explaining that this 
-> > > driver needs initramfs with firmware for it to work when compiled in the 
-> > > kernel. A link to the ipw2x00 documentation might also help.
-> > 
-> > Besides, the initramfs runs long after the driver init routine
-> > runs which is when the firmware needs to be available.
+On Thu, Jul 06, 2006 at 12:53:45PM +0000, Beschorner Daniel wrote:
+> Does it harm?
 > 
-> .. unless you use sysfs to do a fake hotunplug + replug the device, at
-> which point the driver init routine runs again.
+> SKB BUG: Invalid truesize (380) len=1383, sizeof(sk_buff)=156
+> SKB BUG: Invalid truesize (316) len=1383, sizeof(sk_buff)=156
+> SKB BUG: Invalid truesize (348) len=1383, sizeof(sk_buff)=156
+> SKB BUG: Invalid truesize (316) len=1383, sizeof(sk_buff)=156
+> SKB BUG: Invalid truesize (380) len=1383, sizeof(sk_buff)=156
+> 
+> I found it in the log of a 2.6.17 box using IPSEC tunnels.
 
-Ouch, nice trick. But how do I actually pull it up? There's nothing
-that looks like allowing that in /sys:
+It's not fatal, but it does stuff up socket accounting.  Unfortunately
+getting totally accurate truesizes is not easy due to the large numbers
+of pskb_expand_head calls scattered around the stack.
 
-root@amd:/sys/devices/pci0000:00/0000:00:1e.0/0000:02:02.0# ls
-broken_parity_status  config  irq         power/     subsystem@
-uevent
-bus@                  device  local_cpus  resource   subsystem_device
-vendor
-class                 enable  modalias    resource0  subsystem_vendor
-root@amd:/sys/devices/pci0000:00/0000:00:1e.0/0000:02:02.0#
+[IPCOMP]: Fix truesize after decompression
 
-I tried going to bus/drivers/ and unbind/rebind ipw2200 driver; that
-does not work. I tried echo 0 > enable; echo 1 > enable, but no trick,
-either.
+The truesize check has uncovered the fact that we forgot to update truesize
+after pskb_expand_head.  Unfortunately pskb_expand_head can't update it for
+us because it's used in all sorts of different contexts, some of which would
+not allow truesize to be updated by itself.
 
-								Pavel
+So the solution for now is to simply update it in IPComp.
+
+This patch also changes skb_put to __skb_put since we've just expanded
+tailroom by exactly that amount so we know it's there (but gcc does not).
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
 -- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
+index 8e03748..8a8b5cf 100644
+--- a/net/ipv4/ipcomp.c
++++ b/net/ipv4/ipcomp.c
+@@ -70,7 +70,8 @@ static int ipcomp_decompress(struct xfrm
+ 	if (err)
+ 		goto out;
+ 		
+-	skb_put(skb, dlen - plen);
++	skb->truesize += dlen - plen;
++	__skb_put(skb, dlen - plen);
+ 	memcpy(skb->data, scratch, dlen);
+ out:	
+ 	put_cpu();
+diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
+index b285b03..7e4d1c1 100644
+--- a/net/ipv6/ipcomp6.c
++++ b/net/ipv6/ipcomp6.c
+@@ -109,7 +109,8 @@ static int ipcomp6_input(struct xfrm_sta
+ 		goto out_put_cpu;
+ 	}
+ 
+-	skb_put(skb, dlen - plen);
++	skb->truesize += dlen - plen;
++	__skb_put(skb, dlen - plen);
+ 	memcpy(skb->data, scratch, dlen);
+ 	err = ipch->nexthdr;
+ 
