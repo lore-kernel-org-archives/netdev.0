@@ -1,68 +1,66 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: What is RDMA (was: RDMA will be reverted)
-Date: Tue, 11 Jul 2006 08:27:21 -0500
-Message-ID: <1152624441.28478.6.camel@stevo-desktop>
-References: <adaac7naj80.fsf@cisco.com>
-	 <20060705.200325.74731166.davem@davemloft.net>
-	 <1152163503.20248.98.camel@trinity.ogc.int>
-	 <20060706.235320.92562667.davem@davemloft.net>
-	 <20060707081131.GA2991@gondor.apana.org.au>
-	 <1152296744.18332.42.camel@stevo-desktop>
-	 <20060711081725.GD1490@gondor.apana.org.au>
+From: Or Gerlitz <ogerlitz@voltaire.com>
+Subject: Re: active-backup/bonding with drivers not supporting set_mac_address()
+Date: Tue, 11 Jul 2006 16:33:48 +0300
+Message-ID: <44B3A8BC.9060306@voltaire.com>
+References: <Pine.LNX.4.64.0607101618390.26558@zuben> <200607101829.k6AITEp0026893@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, tom@opengridcomputing.com,
-	rdreier@cisco.com, netdev@vger.kernel.org, akpm@osdl.org,
-	Jeff Garzik <jgarzik@pobox.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [67.65.19.105] ([67.65.19.105]:61469 "EHLO mail.es335.com")
-	by vger.kernel.org with ESMTP id S1750757AbWGKN3R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 09:29:17 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060711081725.GD1490@gondor.apana.org.au>
+Received: from taurus.voltaire.com ([193.47.165.240]:5491 "EHLO
+	taurus.voltaire.com") by vger.kernel.org with ESMTP
+	id S1750765AbWGKNeB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 09:34:01 -0400
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200607101829.k6AITEp0026893@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-07-11 at 18:17 +1000, Herbert Xu wrote:
-> On Fri, Jul 07, 2006 at 01:25:44PM -0500, Steve Wise wrote:
-> > 
-> > Some IP networking is involved for this.  IP addresses and port numbers
-> > are used by the RDMA Connection Manager.  The motivation for this was
-> > two-fold, I think:
-> > 
-> > 1) to simplify the connection setup model.  The IB CM model was very
-> > complex.
-> > 
-> > 2) to allow ULPs to be transport independent.  Thus a single code base
-> > for NFSoRDMA, for example, can run over Infiniband and RDMA/TCP
-> > transports without code changes or knowing about transport-specific
-> > addressing.
-> > 
-> > The routing table is also consulted to determine which rdma device
-> > should be used for connection setup.  Each rdma device also installs a
-> > netdev device for native stack traffic.  The RDMA CM maintains an
-> > association between the netdev device and the rdma device.  
-> > 
-> > And the Infiniband subsystem uses ARP over IPoIB to map IP addresses to
-> > GID/QPN info.  This is done by calling arp_send() directly, and snooping
-> > all ARP packets to "discover" when the arp entry is completed.
+Jay Vosburgh wrote:
+> Or Gerlitz <ogerlitz@voltaire.com> wrote:
 > 
-> This sounds interesting.
+>> Looking on the linux bonding driver, it seems to unconditionally (*)
+>> assume that the enslaved device supports the set_mac_address call.
+>>
+>>From reading the doc (Documentation/networking/bonding.txt) i understand that
+>> it is **not** a must prerequisite for the active-backup mode, this is since
+>> there is at most one active slave at each point of time and as the doc states:
+>>
+>> 	when a failover occurs in active-backup mode, bonding will issue
+>> 	one or more gratuitous ARPs on the newly active slave.
 > 
-> Since this is going to be IB-neutral, what about moving high-level logic
-> like this is moved out of drivers/infiniband and into net?
+> 	I think you're misreading the documentation a bit.  Some
+> specific modes (balance-alb, for example) require that the slave device
+> driver support set_mac_address while the device is up.  Many device
+> drivers will only allow MAC changes while the device is down; those
+> drivers won't work with the alb mode.
 > 
-> That way the rest of the networking community can add input into how
-> things are done.
-> 
+> 	The active-backup and other modes have always needed a set_mac
+> functionality, but they don't require that the device be up when
+> changing the MAC (those modes set the mac for a slave one time, during
+> the enslavement process, and the device is down when this is done).
 
-The notifier patch I posted sort of does this already by eliminating the
-need to snoop arp replies.  It will notify interested subsystems of
-neighbour changes (EG when an ARP reply is processed and the neighbour
-struct updated with the correct hw mac addr).  And I _think_
-neigh_event_send() could be used instead of arp_send().
+Thanks for clarifying and sharpening this point; however thinking about 
+set_mac_address for active-backup mode i could not convince myself that 
+there is a **need** for that. However, at high level it does make some 
+(much) sense that the bond net device exposes a mac which is not changed 
+when the active slave changes.
 
+> 	The purpose of the gratuitous ARP is to update switch forwarding
+> tables (i.e., announce that the device has moved from one port to
+> another), not to announce a change of MAC address.
 
-Steve.
+I see, but it will have the affect of MAC address change announcement.
+
+> 	I think changing active-backup (as an example here) to cause a
+> MAC change during failover will have some side effects and secondary
+> requirements that aren't necessarily obvious.  For example, the MAC of
+> the bond itself will change during failover; I'm not sure right offhand
+> what effect if any this might have on third parties.
+
+I will be glad to know if you have more concrete ideas what would be the 
+possible problems with such impl.
+
+Or.
 
