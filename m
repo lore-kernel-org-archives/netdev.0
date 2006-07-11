@@ -1,86 +1,48 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: Re: active-backup/bonding with drivers not supporting set_mac_address()
-Date: Tue, 11 Jul 2006 17:01:01 +0300
-Message-ID: <44B3AF1D.7060100@voltaire.com>
-References: <Pine.LNX.4.64.0607101618390.26558@zuben> <200607101829.k6AITEp0026893@death.nxdomain.ibm.com>
+From: "Ivo Van Doorn" <ivdoorn@gmail.com>
+Subject: [PATCH] rt2x00 makefile
+Date: Tue, 11 Jul 2006 16:09:33 +0200
+Message-ID: <a32f33a40607110709r6e6e5f03y18149fa9cf3b110d@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from taurus.voltaire.com ([193.47.165.240]:47734 "EHLO
-	taurus.voltaire.com") by vger.kernel.org with ESMTP
-	id S1750796AbWGKOBJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 10:01:09 -0400
-To: Jay Vosburgh <fubar@us.ibm.com>
-In-Reply-To: <200607101829.k6AITEp0026893@death.nxdomain.ibm.com>
+Received: from py-out-1112.google.com ([64.233.166.180]:10454 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S1750808AbWGKOJe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 10:09:34 -0400
+Received: by py-out-1112.google.com with SMTP id x31so1675829pye
+        for <netdev@vger.kernel.org>; Tue, 11 Jul 2006 07:09:33 -0700 (PDT)
+To: linville@tuxdriver.com
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> Or Gerlitz <ogerlitz@voltaire.com> wrote:
+Hi John,
 
-> 	What network device drivers are there that don't permit ever
-> changing the device MAC address?
+This patch fixes a copy&paste error by correcting the name
+for hardware button support in rt61pci.
 
-I am thinking about what would it take to support active-backup/bonding 
-for IP over Infiniband (see Documentation/infiniband/ipoib.txt).
+Please apply to wireless-dev.
 
-The IPoIB MAC address (defined in RFC 4391 section 9.1.1) is 20 bytes 
-long and made of the IB port GID (16 bytes), the IB QPN (Queue-Pair 
-number) used by this device (3 bytes) plus 1 reserved byte.
+Thanks.
 
-The IPoIB MAC address is made of two unique hardware resource 
-identifiers: the GID which identifies the HCA IP port and the number of 
-the QP opened by the driver on this HCA/port.  Currently the driver does 
-not support changing this MAC and i am also looking into whether its 
-possible and what does it would take to have some abstraction layer 
-implemented in the driver that would allow for external setting of the 
-MAC address; that is an intermediate data structure that would translate 
-from the MAC address exposed in the device and neigh structures to the 
-actual IB hardware address.
+Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
 
-However, again, if you would ACK an intension to patch the bonding 
-driver such that it will not force usage of dev->set_mac_address for 
-active-backup/bonding i would prefer to first produce and test a patch 
-which does not change the IPoIB driver (drivers/infiniband/ulp/ipoib)
+---
 
-Or.
+diff -uprN wireless-dev/drivers/net/wireless/d80211/rt2x00/Kconfig
+wireless-dev-end/drivers/net/wireless/d80211/rt2x00/Kconfig
+--- wireless-dev/drivers/net/wireless/d80211/rt2x00/Kconfig	2006-07-11
+15:44:19.000000000 +0200
++++ wireless-dev-end/drivers/net/wireless/d80211/rt2x00/Kconfig	2006-07-11
+16:01:59.000000000 +0200
+@@ -61,7 +61,7 @@ config RT61PCI
 
-Below is the addr info on a node named dill with two ipoib devices ib0 
-(192.168.10.118) and ib1 (not up) and the neigh info for an ipoib 
-endpoint whose address is 192.168.10.57
+ 	When compiled as a module, this driver will be called "rt61pci.ko".
 
-so
-
-the GID of the port associated with ib0 is 
-fe:80:00:00:00:00:00:00:00:08:f1:04:03:96:51:dd
-
-the GID of the port associated with ib1 is
-fe:80:00:00:00:00:00:00:00:08:f1:04:03:96:51:de
-
-the qpn used by ib0 is 00:04:04 (0x404)
-the qpn used by ib1 is 00:04:05 (0x405)
-
-the remote GID in this example is 
-fe:80:00:00:00:00:00:00:00:08:f1:04:03:97:07:99
-
-and the remote qpn is 0x404
-
-dill # ip addr show ib0
-6: ib0: <BROADCAST,MULTICAST,UP,10000> mtu 2044 qdisc pfifo_fast qlen 128
-     link/[32] 00:00:04:04:fe:80:00:00:00:00:00:00:00:08:f1:04:03:96:51:dd
-       brd 00:ff:ff:ff:ff:12:40:1b:ff:ff:00:00:00:00:00:00:ff:ff:ff:ff
-     inet 192.168.10.118/24 brd 192.168.10.255 scope global ib0
-     inet6 fe80::208:f104:396:51dd/64 scope link
-        valid_lft forever preferred_lft forever
-
-dill# ip addr show ib1
-7: ib1: <BROADCAST,MULTICAST> mtu 2044 qdisc noop qlen 128
-     link/[32] 00:00:04:05:fe:80:00:00:00:00:00:00:00:08:f1:04:03:96:51:de
-       brd 00:ff:ff:ff:ff:12:40:1b:ff:ff:00:00:00:00:00:00:ff:ff:ff:ff
-
-dill# ip neigh show 192.168.10.57
-192.168.10.57 dev ib0 lladdr 
-00:00:04:04:fe:80:00:00:00:00:00:00:00:08:f1:04:03:97:07:99 nud reachable
-
+-config RT2500PCI_BUTTON
++config RT61PCI_BUTTON
+ 	bool "Ralink rt61 hardware button support"
+ 	depends on RT61PCI && X86
+ 	---help---
