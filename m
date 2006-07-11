@@ -1,84 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPCOMP]: Fix truesize after decompression
-Date: Tue, 11 Jul 2006 21:45:44 +1000
-Message-ID: <20060711114544.GA11396@gondor.apana.org.au>
-References: <BB1F4EFD574E9F409035BDA71C9612500242B8@exchange.i-bn>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: [patch] do not allow IPW_2100=Y or IPW_2200=Y
+Date: Tue, 11 Jul 2006 12:53:19 +0100
+Message-ID: <44B3912F.3010300@gentoo.org>
+References: <20060710152032.GA8540@elf.ucw.cz> <44B2940A.2080102@pobox.com> <200607102305.06572.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, Pavel Machek <pavel@ucw.cz>,
+	yi.zhu@intel.com, jketreno@linux.intel.com,
+	Netdev list <netdev@vger.kernel.org>, linville@tuxdriver.com,
+	kernel list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:22034 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751219AbWGKLqH
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 07:46:07 -0400
-To: "David S. Miller" <davem@davemloft.net>,
-	Beschorner Daniel <Daniel.Beschorner@facton.com>
-Content-Disposition: inline
-In-Reply-To: <BB1F4EFD574E9F409035BDA71C9612500242B8@exchange.i-bn>
+Received: from mta08-winn.ispmail.ntl.com ([81.103.221.48]:120 "EHLO
+	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S1750859AbWGKLrm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 07:47:42 -0400
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200607102305.06572.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 06, 2006 at 12:53:45PM +0000, Beschorner Daniel wrote:
-> Does it harm?
-> 
-> SKB BUG: Invalid truesize (380) len=1383, sizeof(sk_buff)=156
-> SKB BUG: Invalid truesize (316) len=1383, sizeof(sk_buff)=156
-> SKB BUG: Invalid truesize (348) len=1383, sizeof(sk_buff)=156
-> SKB BUG: Invalid truesize (316) len=1383, sizeof(sk_buff)=156
-> SKB BUG: Invalid truesize (380) len=1383, sizeof(sk_buff)=156
-> 
-> I found it in the log of a 2.6.17 box using IPSEC tunnels.
+Michael Buesch wrote:
+> Does the ipw driver _really_ need the firmware on insmod time?
+> bcm43xx, for example, loads the firmware on "ifconfig up" time.
+> If ipw really needs the firmware on insmod, is it possible to
+> defer it to later at "ifconfig up" time?
 
-It's not fatal, but it does stuff up socket accounting.  Unfortunately
-getting totally accurate truesizes is not easy due to the large numbers
-of pskb_expand_head calls scattered around the stack.
+Is bcm43xx able to get the MAC address before the firmware is loaded?
+Last time I checked, if the MAC address is only discovered after the 
+interface is created (as would be the case with ipw loading firmware on 
+ifconfig up, I think), interface renaming does not work.
 
-[IPCOMP]: Fix truesize after decompression
-
-The truesize check has uncovered the fact that we forgot to update truesize
-after pskb_expand_head.  Unfortunately pskb_expand_head can't update it for
-us because it's used in all sorts of different contexts, some of which would
-not allow truesize to be updated by itself.
-
-So the solution for now is to simply update it in IPComp.
-
-This patch also changes skb_put to __skb_put since we've just expanded
-tailroom by exactly that amount so we know it's there (but gcc does not).
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-index 8e03748..8a8b5cf 100644
---- a/net/ipv4/ipcomp.c
-+++ b/net/ipv4/ipcomp.c
-@@ -70,7 +70,8 @@ static int ipcomp_decompress(struct xfrm
- 	if (err)
- 		goto out;
- 		
--	skb_put(skb, dlen - plen);
-+	skb->truesize += dlen - plen;
-+	__skb_put(skb, dlen - plen);
- 	memcpy(skb->data, scratch, dlen);
- out:	
- 	put_cpu();
-diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
-index b285b03..7e4d1c1 100644
---- a/net/ipv6/ipcomp6.c
-+++ b/net/ipv6/ipcomp6.c
-@@ -109,7 +109,8 @@ static int ipcomp6_input(struct xfrm_sta
- 		goto out_put_cpu;
- 	}
- 
--	skb_put(skb, dlen - plen);
-+	skb->truesize += dlen - plen;
-+	__skb_put(skb, dlen - plen);
- 	memcpy(skb->data, scratch, dlen);
- 	err = ipch->nexthdr;
- 
+Daniel
