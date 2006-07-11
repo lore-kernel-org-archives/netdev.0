@@ -1,32 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPCOMP]: Fix truesize after decompression
-Date: Wed, 12 Jul 2006 09:22:28 +1000
-Message-ID: <20060711232228.GA6907@gondor.apana.org.au>
-References: <20060711114544.GA11396@gondor.apana.org.au> <20060711.135553.106801039.davem@davemloft.net> <20060711231251.GA6725@gondor.apana.org.au> <20060711.162217.101672676.davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Question on device events and unregister_netdev.
+Date: Tue, 11 Jul 2006 16:27:25 -0700
+Message-ID: <44B433DD.8070100@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel.Beschorner@facton.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1040 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932233AbWGKXWe
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 19:22:34 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060711.162217.101672676.davem@davemloft.net>
+Received: from ns2.lanforge.com ([66.165.47.211]:54660 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S932235AbWGKX10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 19:27:26 -0400
+Received: from [71.112.216.116] (pool-71-112-216-116.sttlwa.dsl-w.verizon.net [71.112.216.116])
+	(authenticated bits=0)
+	by ns2.lanforge.com (8.13.4/8.13.4) with ESMTP id k6BNRPpi000544
+	for <netdev@vger.kernel.org>; Tue, 11 Jul 2006 16:27:26 -0700
+To: NetDev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 11, 2006 at 04:22:17PM -0700, David Miller wrote:
-> 
-> What ATM is doing here is charging the SKB to the virtual circuit
-> sockets.  At least in the few cases I've looked at just now, the
-> skb is some private ATM level signalling message, and not part of
-> a normal transmit/receive packet from the normal networking stack.
+Hello!
 
-Indeed, at least they do have an sk to charge things to :)
+I'm working on stacking some virtual interfaces, and ran into a problem with
+locking.
+
+Basically, I have an ethernet-like device, and on top of that I am putting
+802.1Q vlans..and on top of that, some other vlan (macvlan).
+
+In the event notifier for the vlan, I attempt to delete all vlans who's
+under-lying device is going away.  I do the same for the macvlan.
+
+Currently, I am setting a deadlock warning because the macvlan code
+is calling unregister_netdev, but the 'rmmod' method already has
+a lock in there due to having earlier called unregister_netdev on the
+.1q vlan.
+
+
+So, the question is:  Should I be calling unregister_netdev from the notifier
+callback?
+
+Thanks,
+Ben
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
