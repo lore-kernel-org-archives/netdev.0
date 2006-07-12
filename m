@@ -1,44 +1,30 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH]NET: Add ECN support for TSO
-Date: Tue, 11 Jul 2006 21:53:42 -0700
-Message-ID: <1551EAE59135BE47B544934E30FC4FC093F9C0@NT-IRVA-0751.brcm.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] bonding: enhance the IP address check of arp_ip_target
+Date: Wed, 12 Jul 2006 15:19:59 +1000
+Message-ID: <E1G0X8h-0003Tg-00@gondolin.me.apana.org.au>
+References: <20060711215317.7d673f89@localhost.localdomain>
+Cc: takata.tetsuo@oss.ntt.co.jp, bonding-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, takatatt@intellilink.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:44809 "EHLO
-	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S932424AbWGLEyH convert rfc822-to-8bit
+Received: from rhun.apana.org.au ([64.62.148.172]:39175 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751288AbWGLFUa
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jul 2006 00:54:07 -0400
-Content-class: urn:content-classes:message
-To: "David Miller" <davem@davemloft.net>,
-	ravinandan.arakali@neterion.com
+	Wed, 12 Jul 2006 01:20:30 -0400
+To: shemminger@osdl.org (Stephen Hemminger)
+In-Reply-To: <20060711215317.7d673f89@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-David Miller wrote:
-
-> On receive?  There is no reason for skb->sk to be anything other than
-> NULL on receive, the networking stack hasn't even seen the packet yet.
-> Only the driver has seen the skb.
+Stephen Hemminger <shemminger@osdl.org> wrote:
 > 
-> 
+> Why not just use sscanf?
 
-Yeah, here's roughly how LRO should work for ECN:
+Better yet, use a better interface like netlink rather than module
+parameters.
 
-If CE, ECE, or CWR is set on an incoming packet, hw should stop LRO
-on that TCP stream and indicate the packet(s) to the driver right
-away.
-
-In the future if RFC 3540 is implemented, hw needs to do the above
-and keep track of ECT(0) and ECT(1) on incoming packets.  It needs
-to do a partial sum or parity on the ECT codes and give it to the
-driver when an LRO packet is ready.
-
-There is no reason to find out if ECN is enabled or not for any
-TCP connections.  Hw just needs to watch the above bits in the
-incoming packets.
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
