@@ -1,52 +1,33 @@
-From: Andreas Kleen <ak@suse.de>
-Subject: Re: skge error; hangs w/ hardware memory hole
-Date: Wed, 12 Jul 2006 04:54:54 +0200 (CEST)
-Message-ID: <121226.1152672894714.SLOX.WebMail.wwwrun@imap-dhs.suse.de>
-References: <20060703205238.GA10851@deprecation.cyrius.com> <20060707141843.73fc6188@dxpl.pdx.osdl.net> <200607072328.51282.ak@suse.de> <44B46276.5030006@suespammers.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Martin Michlmayr <tbm@cyrius.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kevin@sysexperts.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Unnecessary check in __sk_stream_mem_reclaim?
+Date: Wed, 12 Jul 2006 13:12:13 +1000
+Message-ID: <E1G0V93-00037K-00@gondolin.me.apana.org.au>
+References: <5640c7e00607111942jc0ef6cdyc0466dc0cfd5a00b@mail.gmail.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.suse.de ([195.135.220.2]:37603 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S932129AbWGLCzD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 22:55:03 -0400
-To: Anthony DeRobertis <asd@suespammers.org>
-In-Reply-To: <44B46276.5030006@suespammers.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:2565 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932360AbWGLDMX
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 23:12:23 -0400
+To: ian.mcdonald@jandi.co.nz (Ian McDonald)
+In-Reply-To: <5640c7e00607111942jc0ef6cdyc0466dc0cfd5a00b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Ian McDonald <ian.mcdonald@jandi.co.nz> wrote:
+> 
+> It looks to me like this check here in net/core/stream.c for
+> __sk_stream_mem_reclaim:
+>        if (sk->sk_forward_alloc >= SK_STREAM_MEM_QUANTUM) {
+> 
+> is unnecessary.
 
-Spamming bug robot dropped from cc list.
+It's needed after skb's have been freed which can push sk_forward_alloc
+above a quantum.
 
-Am Mi 12.07.2006 04:46 schrieb Anthony DeRobertis <asd@suespammers.org>:
-
-> OK, here are the results with iommu=force. All of these are copied
-> down
-> by hand, so please forgive any transcription errors:
-
-You need to use iommu=soft swiotlb=force
-
-The standard IOMMU is also broken on VIA, but forced swiotlb should
-work.
-
-However it is a bit slow because it will force all IO through an
-additional copy.
-If it helps I can do a proper patch that only bounces IO > 4GB through
-the copy.
-
-> Honestly, should I chuck this board through the window of my nearest
-> ASUS and/or VIA office, and buy an NForce board?
-
-We can probably get it to work, but you're clearly outside validated
-territory (= you're running the hardware in a untested by the vendor
-configuration). Normally that's not a good idea.
-
-BTW there are NForce systems with similar problems, but they are
-rare.
-
--Andi
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
