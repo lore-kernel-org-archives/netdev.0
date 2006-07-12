@@ -1,28 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]NET: Add ECN support for TSO
-Date: Tue, 11 Jul 2006 23:11:49 -0700 (PDT)
-Message-ID: <20060711.231149.77849003.davem@davemloft.net>
-References: <1551EAE59135BE47B544934E30FC4FC093F9C0@NT-IRVA-0751.brcm.ad.broadcom.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Repost: Re: [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
+Date: Wed, 12 Jul 2006 08:50:07 +0200
+Message-ID: <44B49B9F.6050501@trash.net>
+References: <200603211829.k2LITMNR029085@hera.kernel.org> <200607071145.09325.stefan@loplof.de> <44AE2FCC.6020207@trash.net> <200607120015.17735.stefan@loplof.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: ravinandan.arakali@neterion.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
+Cc: Ben Greear <greearb@candelatech.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:57747
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932443AbWGLGLC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jul 2006 02:11:02 -0400
-To: mchan@broadcom.com
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC093F9C0@NT-IRVA-0751.brcm.ad.broadcom.com>
+Received: from stinky.trash.net ([213.144.137.162]:48565 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1750750AbWGLGuJ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jul 2006 02:50:09 -0400
+To: Stefan Rompf <stefan@loplof.de>
+In-Reply-To: <200607120015.17735.stefan@loplof.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Tue, 11 Jul 2006 21:53:42 -0700
+Stefan Rompf wrote:
+> the following patch should fix the problem. Patrick, can you give it a
+> try? As the bug did not affect me through my testing, I want to be sure it
+> works now. This is stuff for 2.6.18 and 2.6.17-stable.
 
-> There is no reason to find out if ECN is enabled or not for any
-> TCP connections.  Hw just needs to watch the above bits in the
-> incoming packets.
+I'm on my way out the door and will be gone for a couple of days,
+so its going to take me a while. But it looks fine, if you want
+to test it yourself, just pull the ethernet cable before adding
+a VLAN and plug it in again afterwards.
 
-Correct, it can be done in a completely stateless manner.
