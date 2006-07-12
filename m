@@ -1,49 +1,26 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [DOC]: generic netlink
-Date: Tue, 11 Jul 2006 16:57:43 -0700
-Message-ID: <20060711165743.fe41a43b.rdunlap@xenotime.net>
-References: <1150724482.5815.48.camel@jzny2>
-	<44972743.3040904@watson.ibm.com>
-	<1150815013.5270.73.camel@jzny2>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: [patch] workaround zd1201 interference problem
+Date: Wed, 12 Jul 2006 01:13:19 +0100
+Message-ID: <44B43E9F.1050406@gentoo.org>
+References: <20060607140045.GB1936@elf.ucw.cz> <20060607160828.0045e7f5@griffin.suse.cz> <20060607141536.GD1936@elf.ucw.cz> <4486FD2F.8040205@gentoo.org> <20060608070525.GE3688@elf.ucw.cz> <4489ECD0.1030908@gentoo.org> <20060609223804.GB3252@elf.ucw.cz> <20060615201024.GD32582@tuxdriver.com> <20060615204738.GD1849@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: nagar@watson.ibm.com, per.liden@ericsson.com, jlan@engr.sgi.com,
-	tgraf@suug.ch, davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:36575 "HELO xenotime.net")
-	by vger.kernel.org with SMTP id S932261AbWGKXzC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 19:55:02 -0400
-Received: from midway.site ([71.117.253.75]) by xenotime.net for <netdev@vger.kernel.org>; Tue, 11 Jul 2006 16:54:54 -0700
-To: hadi@cyberus.ca
-In-Reply-To: <1150815013.5270.73.camel@jzny2>
-Sender: netdev-owner@vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>,
+	kernel list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932291AbWGLAHk@vger.kernel.org>
+To: Pavel Machek <pavel@suse.cz>
+In-Reply-To: <20060615204738.GD1849@elf.ucw.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 20 Jun 2006 10:50:13 -0400 jamal wrote:
+Pavel Machek wrote:
+> I'd actually like you to keep it, it does not seem ZyDas contacts are
+> going anywhere.
 
-> 
-> > > PS:- I dont have a good place to put this doc and point to, hence the
-> > > 17K attachment
-> > >
-> > 
-> > http://www.kernel.org/pub/linux/kernel/people/hadi/ ?
-> > 
-> > (unless your permissions have been revoked for lack of use ! :-)
-> > 
-> 
-> I am only allowed to put kernel patches there by the powers that be. So
-> this wont fit the criteria. It is hard to believe in these
-> times my ISP charges me $1/M/month every time i exceed my allocated 5M
-> quota. I have been with this ISP for > 10 years, hence migration gets
-> harder - and given that many years on the same account, even my .bashrc
-> approaches 5M ;->
+ZyDAS did not respond to me about this. At least we know more about the 
+problem now anyway :)
 
-so make it a patch to Documentation/networking/...
-
-I have some doc corrections, Jamal.  Do I send them against
-the 2006-june-19 doc posting?  and as email comments or as a patch?
-
-thanks,
----
-~Randy
+Daniel
