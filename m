@@ -1,65 +1,35 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 5/7] sky2: NAPI suspend/resume of dual port cards
-Date: Wed, 12 Jul 2006 15:23:46 -0700
-Message-ID: <20060712222646.467993013@localhost.localdomain>
+Subject: [PATCH 3/7] sk98lin: fix truncated collision threshold mask
+Date: Wed, 12 Jul 2006 15:23:44 -0700
+Message-ID: <20060712222646.085423694@localhost.localdomain>
 References: <20060712222341.686007133@localhost.localdomain>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:18313 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751266AbWGLWb6 (ORCPT
+Received: from smtp.osdl.org ([65.172.181.4]:18825 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751360AbWGLWb6 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 18:31:58 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=sky2-suspend-dev0-poll.patch
+Content-Disposition: inline; filename=sk98lin-thr-msk.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The changes to handle suspend/resume didn't handle the case where
-a dual port card has the first port down, but the second is running.
-In this driver, all NAPI polling is done on the primary port.
+Patch to correct broken collision threshold mask in (same problem
+as sky2 driver).  Should be three bits wide, but the mask only allows
+for 1 bit to be set.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
---- sky2.orig/drivers/net/sky2.c	2006-07-07 16:31:29.000000000 -0700
-+++ sky2/drivers/net/sky2.c	2006-07-07 16:35:29.000000000 -0700
-@@ -3437,17 +3437,14 @@
- 		return -EINVAL;
+--- sky2.orig/drivers/net/sk98lin/h/xmac_ii.h	2006-04-27 11:12:38.000000000 -0700
++++ sky2/drivers/net/sk98lin/h/xmac_ii.h	2006-07-12 15:09:23.000000000 -0700
+@@ -1473,7 +1473,7 @@
+ #define GM_TXCR_FORCE_JAM	(1<<15)	/* Bit 15:	Force Jam / Flow-Control */
+ #define GM_TXCR_CRC_DIS		(1<<14)	/* Bit 14:	Disable insertion of CRC */
+ #define GM_TXCR_PAD_DIS		(1<<13)	/* Bit 13:	Disable padding of packets */
+-#define GM_TXCR_COL_THR_MSK	(1<<10)	/* Bit 12..10:	Collision Threshold */
++#define GM_TXCR_COL_THR_MSK	(7<<10)	/* Bit 12..10:	Collision Threshold */
  
- 	del_timer_sync(&hw->idle_timer);
-+	netif_poll_disable(hw->dev[0]);
+ #define TX_COL_THR(x)		(SHIFT10(x) & GM_TXCR_COL_THR_MSK)
  
- 	for (i = 0; i < hw->ports; i++) {
- 		struct net_device *dev = hw->dev[i];
- 
--		if (dev) {
--			if (!netif_running(dev))
--				continue;
--
-+		if (netif_running(dev)) {
- 			sky2_down(dev);
- 			netif_device_detach(dev);
--			netif_poll_disable(dev);
- 		}
- 	}
- 
-@@ -3474,9 +3471,8 @@
- 
- 	for (i = 0; i < hw->ports; i++) {
- 		struct net_device *dev = hw->dev[i];
--		if (dev && netif_running(dev)) {
-+		if (netif_running(dev)) {
- 			netif_device_attach(dev);
--			netif_poll_enable(dev);
- 
- 			err = sky2_up(dev);
- 			if (err) {
-@@ -3488,6 +3484,7 @@
- 		}
- 	}
- 
-+	netif_poll_enable(hw->dev[0]);
- 	sky2_idle_start(hw);
- out:
- 	return err;
 
 --
 
