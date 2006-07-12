@@ -1,40 +1,74 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: What's new in wireless-dev?
-Date: Wed, 12 Jul 2006 11:48:32 +0200
-Message-ID: <20060712114832.4f1dbac6@griffin.suse.cz>
-References: <20060711204553.GB26186@tuxdriver.com>
+From: Mrs Chong Hee <m.megalotto@virgilio.it>
+Subject: WROM: EGAUTFJMVRESKPNKMB
+Date: Wed, 12 Jul 2006 10:51:44 +0100 (GMT+01:00)
+Message-ID: <10c62262dc1.m.megalotto@virgilio.it>
+Reply-To: chonghee1960@aol.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:19869 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1750867AbWGLJsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 05:48:35 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060711204553.GB26186@tuxdriver.com>
+Received: from vsmtp2.tin.it ([212.216.176.222]:53726 "EHLO vsmtp2.tin.it")
+	by vger.kernel.org with ESMTP id S1751041AbWGLKFr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 06:05:47 -0400
+To: unlisted-recipients:; (no To-header on input)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 11 Jul 2006 16:45:58 -0400, John W. Linville wrote:
-> John W. Linville:
->       d80211: use netif_tx_lock API
+WROM: IPBARHDMNNSKVFVWRK
+Dear sir/madam,
+I am Chong Hee-ja and I am 
+writing on behalf of my husband Mr.Kim Woo Choong the C.E.O/FOUNDER of 
+Deawoo Group Worldwide.
+I have a very sensitive and confidential brief 
+to ask for your partnership in re-profiling funds in a private bank 
+investment portfolio in Europe.
 
-> --- a/net/d80211/ieee80211.c
-> +++ b/net/d80211/ieee80211.c
-> @@ -1338,7 +1338,7 @@ static void ieee80211_tx_pending(unsigne
->  	struct ieee80211_txrx_data tx;
->  	int i, ret, reschedule = 0;
->  
-> -	spin_lock_bh(&dev->xmit_lock);
-> +	netif_tx_lock_bh(dev);
->  	dev->xmit_lock_owner = smp_processor_id();
+I shall release more details to you on 
+what is expected of you, but in summary, kindly read the link as listed 
+below for further reference:
 
-Those dev->xmit_lock_owner assignments are done in netif_tx_[un]lock_bh,
-so they should go away as well.
+http://news.bbc.co.
+uk/2/hi/business/5028708.stm
+http://www.forbes.com/2001/01/05/0105faces.
+html
+http://www.keepmedia.com/pubs/BusinessWeek/2001/02/19/16158?
+extID=10038&data=kim_woo_choong
+http://english.people.com.
+cn/200506/13/eng20050613_189922.html
+http://news.bbc.co.
+uk/2/hi/business/1644807.stm
 
- Jiri
+You will be paid 15% of the portfolio 
+investment value as your "management
+fees". If you are interested, 
+please write back to me via my e-mail address and provide me with your 
+confidential telephone/fax numbers, full name and office/residentail 
+address or P.O.Box and I will provide further details and if you are 
+satisfied I can proceed with the instructions. I shall send you the 
+contact of the person who will handle this secret and confidentail 
+transaction with you. 
 
--- 
-Jiri Benc
-SUSE Labs
+Please be informed that this
+transaction has 
+nothing to do with any Governmental agenices, it is legal and risk free 
+so please feel free to contact me.
+
+Please we cannot afford any 
+problems because of recent events in South
+Korea and my husband is 
+facing 10yrs jail term now. So I will advice you
+keep this to your 
+self.
+
+Finally, please note that this must be concluded within 
+reasonable time
+frame therefore, your prompt reply is essential.
+
+For 
+security reasons i advice you reply me with this email address:  
+(chonghee1960@aol.com)
+I look forward to your urgent reply.
+
+Best 
+Regards
+Mrs. Chong Hee-ja.
