@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NETROM] lockdep: fix false positive
-Date: Wed, 12 Jul 2006 13:26:33 -0700 (PDT)
-Message-ID: <20060712.132633.34391834.davem@davemloft.net>
-References: <20060711221142.GA5721@linux-mips.org>
+Subject: Re: [Bug 6688] Memory allocation problem
+Date: Wed, 12 Jul 2006 13:30:38 -0700 (PDT)
+Message-ID: <20060712.133038.05331476.davem@davemloft.net>
+References: <20060620002433.28115714.akpm@osdl.org>
+	<E1G0d94-0004My-00@gondolin.me.apana.org.au>
+	<20060712114513.GA16823@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mingo@elte.hu, arjan@infradead.org
+Cc: akpm@osdl.org, netdev@vger.kernel.org, pstaszewski@artcom.pl,
+	Robert.Olsson@data.slu.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:21651
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:4765
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751046AbWGLUZo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jul 2006 16:25:44 -0400
-To: ralf@linux-mips.org
-In-Reply-To: <20060711221142.GA5721@linux-mips.org>
+	id S1751207AbWGLU3r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jul 2006 16:29:47 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060712114513.GA16823@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Tue, 11 Jul 2006 23:11:42 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 12 Jul 2006 21:45:13 +1000
 
-> NETROM network devices are virtual network devices encapsulating NETROM
-> frames into AX.25 which will be sent through an AX.25 device, so form a
-> special "super class" of normal net devices; split their locks off into a
-> separate class since they always nest.
+> [IPV4]: Fix error handling for fib_insert_node call
 > 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> The error handling around fib_insert_node was broken because we always
+> zeroed the error before checking it.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks.
+Applied, thanks Herbert.
