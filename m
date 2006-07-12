@@ -1,50 +1,49 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 1/7] sky2: fix truncated collision threshold mask
-Date: Wed, 12 Jul 2006 15:23:42 -0700
-Message-ID: <20060712222645.703394439@localhost.localdomain>
+Subject: [PATCH 6/7] sky2: PHY power on delays
+Date: Wed, 12 Jul 2006 15:23:47 -0700
+Message-ID: <20060712222646.660842048@localhost.localdomain>
 References: <20060712222341.686007133@localhost.localdomain>
-Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:23945 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932066AbWGLWcR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 18:32:17 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:19849 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751468AbWGLWb7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 18:31:59 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=sky2-thr-msk.patch
+Content-Disposition: inline; filename=sky2-phy-read-timeout.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patch to correct broken collision threshold mask in sky2 driver.  Should be
-three bits wide, but the mask only allows for 1 bit to be set.
+The documentation says we need to wait after turning on the PHY.
+Also, don't enable WOL by default.
 
-Thanks & Regards
-Neil
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
- sky2.h |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
-
-diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-index 8a0bc55..2db8d19 100644
---- a/drivers/net/sky2.h
-+++ b/drivers/net/sky2.h
-@@ -1480,7 +1480,7 @@ enum {
- 	GM_TXCR_FORCE_JAM	= 1<<15, /* Bit 15:	Force Jam / Flow-Control */
- 	GM_TXCR_CRC_DIS		= 1<<14, /* Bit 14:	Disable insertion of CRC */
- 	GM_TXCR_PAD_DIS		= 1<<13, /* Bit 13:	Disable padding of packets */
--	GM_TXCR_COL_THR_MSK	= 1<<10, /* Bit 12..10:	Collision Threshold */
-+	GM_TXCR_COL_THR_MSK	= 7<<10, /* Bit 12..10:	Collision Threshold */
- };
+--- sky2.orig/drivers/net/sky2.c	2006-07-11 15:25:40.000000000 -0700
++++ sky2/drivers/net/sky2.c	2006-07-11 15:35:31.000000000 -0700
+@@ -234,7 +234,6 @@
+ 		}
  
- #define TX_COL_THR(x)		(((x)<<10) & GM_TXCR_COL_THR_MSK)
--- 
-/***************************************************
- *Neil Horman
- *Software Engineer
- *gpg keyid: 1024D / 0x92A74FA1 - http://pgp.mit.edu
- ***************************************************/
+ 		if (hw->chip_id == CHIP_ID_YUKON_EC_U) {
+-			sky2_write16(hw, B0_CTST, Y2_HW_WOL_ON);
+ 			sky2_pci_write32(hw, PCI_DEV_REG3, 0);
+ 			reg1 = sky2_pci_read32(hw, PCI_DEV_REG4);
+ 			reg1 &= P_ASPM_CONTROL_MSK;
+@@ -243,6 +242,7 @@
+ 		}
+ 
+ 		sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
++		udelay(100);
+ 
+ 		break;
+ 
+@@ -255,6 +255,7 @@
+ 		else
+ 			reg1 |= (PCI_Y2_PHY1_POWD | PCI_Y2_PHY2_POWD);
+ 		sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
++		udelay(100);
+ 
+ 		if (hw->chip_id == CHIP_ID_YUKON_XL && hw->chip_rev > 1)
+ 			sky2_write8(hw, B2_Y2_CLK_GATE, 0);
 
 --
 
