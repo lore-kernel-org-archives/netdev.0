@@ -1,38 +1,151 @@
-From: Kevin Brown <kevin@sysexperts.com>
-Subject: Re: skge error; hangs w/ hardware memory hole
-Date: Tue, 11 Jul 2006 21:09:29 -0700
-Message-ID: <44B475F9.2010805@sysexperts.com>
-References: <20060703205238.GA10851@deprecation.cyrius.com> <20060707141843.73fc6188@dxpl.pdx.osdl.net> <200607072328.51282.ak@suse.de> <44B46276.5030006@suespammers.org> <121226.1152672894714.SLOX.WebMail.wwwrun@imap-dhs.suse.de>
+From: Tetsuo Takata <takata.tetsuo@oss.ntt.co.jp>
+Subject: [PATCH] bonding: enhance the IP address check of arp_ip_target
+Date: Wed, 12 Jul 2006 13:25:52 +0900
+Message-ID: <44B479D0.5080204@oss.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: Anthony DeRobertis <asd@suespammers.org>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	Martin Michlmayr <tbm@cyrius.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, takatatt@intellilink.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [67.170.228.241] ([67.170.228.241]:43494 "EHLO sysexperts.com")
-	by vger.kernel.org with ESMTP id S932177AbWGLEJp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 00:09:45 -0400
-To: Andreas Kleen <ak@suse.de>
-In-Reply-To: <121226.1152672894714.SLOX.WebMail.wwwrun@imap-dhs.suse.de>
+Received: from serv1.oss.ntt.co.jp ([222.151.198.98]:54675 "EHLO
+	serv1.oss.ntt.co.jp") by vger.kernel.org with ESMTP id S932413AbWGLEZ5
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jul 2006 00:25:57 -0400
+To: bonding-devel@lists.sourceforge.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andreas Kleen wrote:
-> If it helps I can do a proper patch that only bounces IO > 4GB through
-> the copy.
-
-For the A8V series of boards, that will almost certainly be just fine, 
-because as far as I know you can't populate them with more than 4G of 
-memory anyway.
-
-If someone has more than 4G of memory, it's likely they'll be willing to 
-take the performance hit from the mod in exchange for being able to use 
-more than 4G of memory.
-
-Bottom line: do the patch.  It'll be worth using.
+Hi,
 
 
-- Kevin
+I found this in drivers/net/bonding/bond_main.c.
+> /* not complete check, but should be good enough to
+>     catch mistakes */
+
+I made a patch which I believe is little bit better than this,
+I hope...
+
+
+best regards,
+
+---
+Signed-off-by: Tetsuo Takata <takatatt@intellilink.co.jp>
+
+--- linux-2.6.17.3/drivers/net/bonding/bond_main.c	2006-07-01 02:37:38.000000000 +0900
++++ linux-2.6.17.3-bonding-ipcheck/drivers/net/bonding/bond_main.c	2006-07-12 09:51:12.000000000 +0900
+@@ -4455,7 +4455,113 @@ static int bond_check_params(struct bond
+ 	     arp_ip_count++) {
+ 		/* not complete check, but should be good enough to
+ 		   catch mistakes */
+-		if (!isdigit(arp_ip_target[arp_ip_count][0])) {
++		int i, notip = 0;
++		char *cp;
++
++		cp = arp_ip_target[arp_ip_count];
++
++		/* notip's number is the error code for debug purpose */
++		do {
++			if (cp == NULL) {
++				notip = 1;
++				break;
++			}
++
++			/* check digit */
++			for (i = 0; isdigit(*cp); i++) {
++				if ((i < 0) || (i >= 3)) {
++					notip = 2;
++					break;
++				}
++				cp++;
++			}
++			if (notip)
++				break;
++
++			if (i == 0) {
++				notip = 3;
++				break;
++			}
++
++			/* check delimiter */
++			if (*cp != '.') {
++				notip = 4;
++				break;
++			}
++			cp++;
++
++			/* check digit */
++			for (i = 0; isdigit(*cp); i++) {
++				if ((i < 0) || (i >= 3)) {
++					notip = 5;
++					break;
++				}
++				cp++;
++			}
++			if (notip)
++				break;
++
++			if (i == 0) {
++				notip = 6;
++				break;
++			}
++
++			/* check delimiter */
++			if (*cp != '.') {
++				notip = 7;
++				break;
++			}
++			cp++;
++
++			/* check digit */
++			for (i = 0; isdigit(*cp); i++) {
++				if ((i < 0) || (i >= 3)) {
++					notip = 8;
++					break;
++				}
++				cp++;
++			}
++			if (notip)
++				break;
++
++			if (i == 0) {
++				notip = 9;
++				break;
++			}
++
++			/* check delimiter */
++			if (*cp != '.') {
++				notip = 10;
++				break;
++			}
++			cp++;
++
++			/* check digit */
++			for (i = 0; isdigit(*cp); i++) {
++				if ((i < 0) || (i >= 3)) {
++					notip = 11;
++					break;
++				}
++				cp++;
++			}
++			if (notip)
++				break;
++
++			if (i == 0) {
++				notip = 12;
++				break;
++			}
++
++
++			/* check EOS */
++			if (*cp != '\0') {
++				notip = 13;
++				break;
++			}
++
++		} while(0);
++
++		if (notip) {
+ 			printk(KERN_WARNING DRV_NAME
+ 			       ": Warning: bad arp_ip_target module parameter "
+ 			       "(%s), ARP monitoring will not be performed\n",
 
