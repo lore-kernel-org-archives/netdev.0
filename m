@@ -1,55 +1,43 @@
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Subject: Unnecessary check in __sk_stream_mem_reclaim?
-Date: Wed, 12 Jul 2006 14:42:36 +1200
-Message-ID: <5640c7e00607111942jc0ef6cdyc0466dc0cfd5a00b@mail.gmail.com>
+From: Anthony DeRobertis <asd@suespammers.org>
+Subject: Re: skge error; hangs w/ hardware memory hole
+Date: Tue, 11 Jul 2006 22:46:14 -0400
+Message-ID: <44B46276.5030006@suespammers.org>
+References: <20060703205238.GA10851@deprecation.cyrius.com> <20060707141843.73fc6188@dxpl.pdx.osdl.net> <200607072328.51282.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	Martin Michlmayr <tbm@cyrius.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, 341801@bugs.debian.org,
+	kevin@sysexperts.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-f131.google.com ([64.233.182.131]:36686 "EHLO
-	nf-out-f131.google.com") by vger.kernel.org with ESMTP
-	id S932353AbWGLCmh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 22:42:37 -0400
-Received: by nf-out-f131.google.com with SMTP id k65so5432nfa
-        for <netdev@vger.kernel.org>; Tue, 11 Jul 2006 19:42:36 -0700 (PDT)
-To: netdev <netdev@vger.kernel.org>
-Content-Disposition: inline
+Received: from Maxwell.derobert.net ([207.188.193.82]:22745 "EHLO
+	Maxwell.derobert.net") by vger.kernel.org with ESMTP
+	id S932354AbWGLCqv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 22:46:51 -0400
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <200607072328.51282.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Folks,
+OK, here are the results with iommu=force. All of these are copied down
+by hand, so please forgive any transcription errors:
 
-It looks to me like this check here in net/core/stream.c for
-__sk_stream_mem_reclaim:
-	if (sk->sk_forward_alloc >= SK_STREAM_MEM_QUANTUM) {
+2.6.12[1]: Last line displayed on screen is "ata1: dev 0 ATA max
+UDMA/133 390721968 sectors, lba48". Then it sits there. Scrolling with
+shift-pgup/pgdown works. Control-Alt-Del reboots the machine. According
+to /var/log/dmesg, the next line --- which never appears --- should be
+"ata1: dev 0 configured for UDMA/133"
 
-is unnecessary.
+2.6.17-1: The kernel panics with a null pointer dereference on loading
+uhci_hcd. The addresses given are usb_kick_khud+7, usb_hc_died+106,
+pcibios_set_master+30, etc. After the panic, it sits there (just like
+2.6.12)
 
-It is also done in include/net/sock.h for sk_stream_mem_reclaim which
-if the test succeeds calls __sk_stream_mem_reclaim. This is the only
-use of it in the kernel.
+2.6.17-mm6: The last line displayed is "SATA link up 1.5 Gbps SStatus
+113 Scontrol 300". It completely hangs: neither scrolling nor
+control-alt-del work.
 
-Now sk_stream_mem_reclaim seems to be in the current form for
-perfomance reasons which make sense so I think it makes sense to
-remove it from __sk_stream_mem_reclaim
 
-The danger of removing the check is an external module could use it -
-which I suspect is highly unlikely. This could be overcome by removing
-the export_symbol_gpl and shifting the function into the header file
-although this would result in mutliple instances being linked in. I am
-guessing that there is a smarter way to do this though which still
-results in the symbol not being exported. I don't know my way around
-the linking/exporting very well.
-
-Comments? I guess if this was done it would have to be put in feature
-removal schedule though because it is currently exported?
-
-Ian
--- 
-Ian McDonald
-Web: http://wand.net.nz/~iam4
-Blog: http://imcdnzl.blogspot.com
-WAND Network Research Group
-Department of Computer Science
-University of Waikato
-New Zealand
+Honestly, should I chuck this board through the window of my nearest
+ASUS and/or VIA office, and buy an NForce board?
