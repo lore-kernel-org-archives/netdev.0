@@ -1,43 +1,52 @@
-From: Anthony DeRobertis <asd@suespammers.org>
+From: Andreas Kleen <ak@suse.de>
 Subject: Re: skge error; hangs w/ hardware memory hole
-Date: Tue, 11 Jul 2006 22:46:14 -0400
-Message-ID: <44B46276.5030006@suespammers.org>
-References: <20060703205238.GA10851@deprecation.cyrius.com> <20060707141843.73fc6188@dxpl.pdx.osdl.net> <200607072328.51282.ak@suse.de>
+Date: Wed, 12 Jul 2006 04:54:54 +0200 (CEST)
+Message-ID: <121226.1152672894714.SLOX.WebMail.wwwrun@imap-dhs.suse.de>
+References: <20060703205238.GA10851@deprecation.cyrius.com> <20060707141843.73fc6188@dxpl.pdx.osdl.net> <200607072328.51282.ak@suse.de> <44B46276.5030006@suespammers.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 Cc: Stephen Hemminger <shemminger@osdl.org>,
 	Martin Michlmayr <tbm@cyrius.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, 341801@bugs.debian.org,
-	kevin@sysexperts.com
+	linux-kernel@vger.kernel.org, kevin@sysexperts.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Maxwell.derobert.net ([207.188.193.82]:22745 "EHLO
-	Maxwell.derobert.net") by vger.kernel.org with ESMTP
-	id S932354AbWGLCqv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 22:46:51 -0400
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <200607072328.51282.ak@suse.de>
+Received: from ns.suse.de ([195.135.220.2]:37603 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S932129AbWGLCzD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jul 2006 22:55:03 -0400
+To: Anthony DeRobertis <asd@suespammers.org>
+In-Reply-To: <44B46276.5030006@suespammers.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-OK, here are the results with iommu=force. All of these are copied down
-by hand, so please forgive any transcription errors:
 
-2.6.12[1]: Last line displayed on screen is "ata1: dev 0 ATA max
-UDMA/133 390721968 sectors, lba48". Then it sits there. Scrolling with
-shift-pgup/pgdown works. Control-Alt-Del reboots the machine. According
-to /var/log/dmesg, the next line --- which never appears --- should be
-"ata1: dev 0 configured for UDMA/133"
+Spamming bug robot dropped from cc list.
 
-2.6.17-1: The kernel panics with a null pointer dereference on loading
-uhci_hcd. The addresses given are usb_kick_khud+7, usb_hc_died+106,
-pcibios_set_master+30, etc. After the panic, it sits there (just like
-2.6.12)
+Am Mi 12.07.2006 04:46 schrieb Anthony DeRobertis <asd@suespammers.org>:
 
-2.6.17-mm6: The last line displayed is "SATA link up 1.5 Gbps SStatus
-113 Scontrol 300". It completely hangs: neither scrolling nor
-control-alt-del work.
+> OK, here are the results with iommu=force. All of these are copied
+> down
+> by hand, so please forgive any transcription errors:
+
+You need to use iommu=soft swiotlb=force
+
+The standard IOMMU is also broken on VIA, but forced swiotlb should
+work.
+
+However it is a bit slow because it will force all IO through an
+additional copy.
+If it helps I can do a proper patch that only bounces IO > 4GB through
+the copy.
+
+> Honestly, should I chuck this board through the window of my nearest
+> ASUS and/or VIA office, and buy an NForce board?
+
+We can probably get it to work, but you're clearly outside validated
+territory (= you're running the hardware in a untested by the vendor
+configuration). Normally that's not a good idea.
+
+BTW there are NForce systems with similar problems, but they are
+rare.
+
+-Andi
 
 
-Honestly, should I chuck this board through the window of my nearest
-ASUS and/or VIA office, and buy an NForce board?
