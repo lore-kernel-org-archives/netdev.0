@@ -1,35 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]NET: Add ECN support for TSO
-Date: Tue, 11 Jul 2006 18:51:31 -0700 (PDT)
-Message-ID: <20060711.185131.10796208.davem@davemloft.net>
-References: <20060708.133223.35527292.davem@davemloft.net>
-	<002201c6a554$e6af4580$4710100a@pc.s2io.com>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Unnecessary check in __sk_stream_mem_reclaim?
+Date: Wed, 12 Jul 2006 14:42:36 +1200
+Message-ID: <5640c7e00607111942jc0ef6cdyc0466dc0cfd5a00b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:59876
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932323AbWGLBuo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jul 2006 21:50:44 -0400
-To: ravinandan.arakali@neterion.com
-In-Reply-To: <002201c6a554$e6af4580$4710100a@pc.s2io.com>
+Received: from nf-out-f131.google.com ([64.233.182.131]:36686 "EHLO
+	nf-out-f131.google.com") by vger.kernel.org with ESMTP
+	id S932353AbWGLCmh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jul 2006 22:42:37 -0400
+Received: by nf-out-f131.google.com with SMTP id k65so5432nfa
+        for <netdev@vger.kernel.org>; Tue, 11 Jul 2006 19:42:36 -0700 (PDT)
+To: netdev <netdev@vger.kernel.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-Date: Tue, 11 Jul 2006 18:45:48 -0700
+Folks,
 
-> tk = tcp_sk(skb->sk);
-> if (tk->ecn_flags & TCP_ECN_OK)
->    /* Check CE, ECE, CWR etc */
-> 
-> I find that skb->sk is NULL. Is this the correct way to check the
-> per-session
-> ECN capability ? Why is skb->sk NULL ?
+It looks to me like this check here in net/core/stream.c for
+__sk_stream_mem_reclaim:
+	if (sk->sk_forward_alloc >= SK_STREAM_MEM_QUANTUM) {
 
-On receive?  There is no reason for skb->sk to be anything other than
-NULL on receive, the networking stack hasn't even seen the packet yet.
-Only the driver has seen the skb.
+is unnecessary.
+
+It is also done in include/net/sock.h for sk_stream_mem_reclaim which
+if the test succeeds calls __sk_stream_mem_reclaim. This is the only
+use of it in the kernel.
+
+Now sk_stream_mem_reclaim seems to be in the current form for
+perfomance reasons which make sense so I think it makes sense to
+remove it from __sk_stream_mem_reclaim
+
+The danger of removing the check is an external module could use it -
+which I suspect is highly unlikely. This could be overcome by removing
+the export_symbol_gpl and shifting the function into the header file
+although this would result in mutliple instances being linked in. I am
+guessing that there is a smarter way to do this though which still
+results in the symbol not being exported. I don't know my way around
+the linking/exporting very well.
+
+Comments? I guess if this was done it would have to be put in feature
+removal schedule though because it is currently exported?
+
+Ian
+-- 
+Ian McDonald
+Web: http://wand.net.nz/~iam4
+Blog: http://imcdnzl.blogspot.com
+WAND Network Research Group
+Department of Computer Science
+University of Waikato
+New Zealand
