@@ -1,49 +1,44 @@
 From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] bcm43xx-d80211: use SET_NETDEV_DEV
-Date: Wed, 12 Jul 2006 22:31:48 +0200
-Message-ID: <200607122231.49097.mb@bu3sch.de>
-References: <20060712190120.7c909ac7@griffin.suse.cz> <20060712190246.0427ff70@griffin.suse.cz>
+Subject: Re: [PATCH] d80211: make sleeping in hw->config possible #2
+Date: Wed, 12 Jul 2006 22:34:44 +0200
+Message-ID: <200607122234.44309.mb@bu3sch.de>
+References: <200607110054.36520.mb@bu3sch.de> <20060712185331.0573b1b1@griffin.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, Dan Williams <dcbw@redhat.com>,
-	NetDev <netdev@vger.kernel.org>
+Cc: bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:27821
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751157AbWGLU3x
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:37550
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751158AbWGLUch
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jul 2006 16:29:53 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060712190246.0427ff70@griffin.suse.cz>
+	Wed, 12 Jul 2006 16:32:37 -0400
+To: linville@tuxdriver.com, Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20060712185331.0573b1b1@griffin.suse.cz>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 12 July 2006 19:02, you wrote:
-> This adds /sys/class/net/wmaster0/device symlink.
+On Wednesday 12 July 2006 18:53, Jiri Benc wrote:
+> On Tue, 11 Jul 2006 00:54:33 +0200, Michael Buesch wrote:
+> > Please apply this to wireless-dev.
+> > Note that this is the second try to submit this patch.
+> > The first try contained a little bug. I'm sorry for that.
+> > If you already applied the first one, I can provide an incremental patch.
+> > 
+> > Note2 that this patch depends on the
+> > [PATCH] cancel_rearming_delayed_work infinite loop fix
+> > I just sent out to the lists and akpm.
 > 
-> Signed-off-by: Jiri Benc <jbenc@suse.cz>
+> I'm still digging through this. But I think it is not necessary to use
+> cancel_rearming_delayed_work at all; will try to make a patch.
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+Jiri, so you care to get that patch upstream?
+Would be cool, thanks.
 
-> 
-> ---
->  drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |    1 +
->  1 files changed, 1 insertion(+)
-> 
-> --- dscape.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-> +++ dscape/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-> @@ -4722,6 +4722,7 @@ static int __devinit bcm43xx_init_one(st
->  		goto err_free_netdev;
->  
->  	pci_set_drvdata(pdev, net_dev);
-> +	SET_NETDEV_DEV(net_dev, &pdev->dev);
->  
->  	err = bcm43xx_attach_board(bcm);
->  	if (err)
-> 
-> 
+John, do you manage to apply the bcm43xx init fix patch, which
+depends on this one, to the tree after this one got in?
+Or should I resend it?
 
 -- 
 Greetings Michael.
