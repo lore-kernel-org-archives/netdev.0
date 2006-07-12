@@ -1,31 +1,85 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Repost: Re: [VLAN]: translate IF_OPER_DORMANT to netif_dormant_on()
-Date: Wed, 12 Jul 2006 08:50:07 +0200
-Message-ID: <44B49B9F.6050501@trash.net>
-References: <200603211829.k2LITMNR029085@hera.kernel.org> <200607071145.09325.stefan@loplof.de> <44AE2FCC.6020207@trash.net> <200607120015.17735.stefan@loplof.de>
+From: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Subject: [PATCH 1/1] net: fix __sk_stream_mem_reclaim
+Date: Wed, 12 Jul 2006 19:09:16 +1200
+Message-ID: <200607121909.17311.ian.mcdonald@jandi.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48565 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1750750AbWGLGuJ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jul 2006 02:50:09 -0400
-To: Stefan Rompf <stefan@loplof.de>
-In-Reply-To: <200607120015.17735.stefan@loplof.de>
+Received: from py-out-1112.google.com ([64.233.166.182]:59656 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S1750761AbWGLHJv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jul 2006 03:09:51 -0400
+Received: by py-out-1112.google.com with SMTP id x31so191194pye
+        for <netdev@vger.kernel.org>; Wed, 12 Jul 2006 00:09:51 -0700 (PDT)
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stefan Rompf wrote:
-> the following patch should fix the problem. Patrick, can you give it a
-> try? As the bug did not affect me through my testing, I want to be sure it
-> works now. This is stuff for 2.6.18 and 2.6.17-stable.
+__sk_stream_mem_reclaim is only called by sk_stream_mem_reclaim.
 
-I'm on my way out the door and will be gone for a couple of days,
-so its going to take me a while. But it looks fine, if you want
-to test it yourself, just pull the ethernet cable before adding
-a VLAN and plug it in again afterwards.
+As such the check on sk->sk_forward_alloc is not needed and can be removed.
 
+At the same time remove the EXPORT_SYMBOL_GPL as not needed and shift it
+into include/net/sock.h
+
+Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+---
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 324b3ea..3a62b5b 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -694,7 +694,6 @@ static inline struct inode *SOCK_INODE(s
+ 	return &container_of(socket, struct socket_alloc, socket)->vfs_inode;
+ }
+ 
+-extern void __sk_stream_mem_reclaim(struct sock *sk);
+ extern int sk_stream_mem_schedule(struct sock *sk, int size, int kind);
+ 
+ #define SK_STREAM_MEM_QUANTUM ((int)PAGE_SIZE)
+@@ -704,6 +703,17 @@ static inline int sk_stream_pages(int am
+ 	return (amt + SK_STREAM_MEM_QUANTUM - 1) / SK_STREAM_MEM_QUANTUM;
+ }
+ 
++static void __sk_stream_mem_reclaim(struct sock *sk)
++{
++	atomic_sub(sk->sk_forward_alloc / SK_STREAM_MEM_QUANTUM,
++		   sk->sk_prot->memory_allocated);
++	sk->sk_forward_alloc &= SK_STREAM_MEM_QUANTUM - 1;
++	if (*sk->sk_prot->memory_pressure &&
++	    (atomic_read(sk->sk_prot->memory_allocated) <
++	     sk->sk_prot->sysctl_mem[0]))
++		*sk->sk_prot->memory_pressure = 0;
++}
++
+ static inline void sk_stream_mem_reclaim(struct sock *sk)
+ {
+ 	if (sk->sk_forward_alloc >= SK_STREAM_MEM_QUANTUM)
+diff --git a/net/core/stream.c b/net/core/stream.c
+index e948969..8ff97e6 100644
+--- a/net/core/stream.c
++++ b/net/core/stream.c
+@@ -194,21 +194,6 @@ int sk_stream_error(struct sock *sk, int
+ 
+ EXPORT_SYMBOL(sk_stream_error);
+ 
+-void __sk_stream_mem_reclaim(struct sock *sk)
+-{
+-	if (sk->sk_forward_alloc >= SK_STREAM_MEM_QUANTUM) {
+-		atomic_sub(sk->sk_forward_alloc / SK_STREAM_MEM_QUANTUM,
+-			   sk->sk_prot->memory_allocated);
+-		sk->sk_forward_alloc &= SK_STREAM_MEM_QUANTUM - 1;
+-		if (*sk->sk_prot->memory_pressure &&
+-		    (atomic_read(sk->sk_prot->memory_allocated) <
+-		     sk->sk_prot->sysctl_mem[0]))
+-			*sk->sk_prot->memory_pressure = 0;
+-	}
+-}
+-
+-EXPORT_SYMBOL(__sk_stream_mem_reclaim);
+-
+ int sk_stream_mem_schedule(struct sock *sk, int size, int kind)
+ {
+ 	int amt = sk_stream_pages(size);
