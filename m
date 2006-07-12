@@ -1,53 +1,42 @@
-From: Prince Obi Musa <obimusa@alant.zzn.com>
-Subject: Your Past Effort Comensation
-Date: Wed, 12 Jul 2006 15:01:15 +0200
-Message-ID: <1152709275.44b4f29b0a868@imp8-g19.free.fr>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: What's new in wireless-dev?
+Date: Wed, 12 Jul 2006 08:48:32 -0400
+Message-ID: <20060712124827.GB4213@tuxdriver.com>
+References: <20060711204553.GB26186@tuxdriver.com> <20060712114832.4f1dbac6@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g19.free.fr ([212.27.42.36]:22977 "EHLO smtp6-g19.free.fr")
-	by vger.kernel.org with ESMTP id S1750744AbWGLMqZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 08:46:25 -0400
-To: undisclosed-recipients:;
+Received: from ra.tuxdriver.com ([70.61.120.52]:64786 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1751360AbWGLMs7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 08:48:59 -0400
+To: Jiri Benc <jbenc@suse.cz>
+Content-Disposition: inline
+In-Reply-To: <20060712114832.4f1dbac6@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear Sir,
+On Wed, Jul 12, 2006 at 11:48:32AM +0200, Jiri Benc wrote:
+> On Tue, 11 Jul 2006 16:45:58 -0400, John W. Linville wrote:
+> > John W. Linville:
+> >       d80211: use netif_tx_lock API
+> 
+> > --- a/net/d80211/ieee80211.c
+> > +++ b/net/d80211/ieee80211.c
+> > @@ -1338,7 +1338,7 @@ static void ieee80211_tx_pending(unsigne
+> >  	struct ieee80211_txrx_data tx;
+> >  	int i, ret, reschedule = 0;
+> >  
+> > -	spin_lock_bh(&dev->xmit_lock);
+> > +	netif_tx_lock_bh(dev);
+> >  	dev->xmit_lock_owner = smp_processor_id();
+> 
+> Those dev->xmit_lock_owner assignments are done in netif_tx_[un]lock_bh,
+> so they should go away as well.
 
- I know you must have forgotten me but I still remember your kindnes to me at
-the earlier stage of this transaction, therefore, I'm happy to inform you about
-my success in getting the fund released and transferred to Hongkong bank
-Asia,under the cooperation of a new partner from
-hongkong , Who is a citizen of United Kingdom.
+Doh!  I missed that...thanks for the heads-up!
 
-Presently I'm in London, planing how to travel out to Hongkong, where he
-assisted to retriev the
-money from the bank,and the money has been currently deposited with Hongkong
-BANK . I will soon leave China for investment projects with my own share of the
-total sum. Meanwhile,I didn't forget your past efforts and attempts to assist me
-in transferring those funds despite that it failed us some how. Now contact my
-secretary,her name is Cherry Cola, and her email address is,
-info2me@cherrycola.com ask her to send you the total $800.000.00 which I mapped
-for your compensation for all the past efforts and attempts to ssist me in this
-matter.
- Note that I tried  all my best to reach you on phone but I did not know your
-current phone
-number and all I could do is to write a cashier cheque worth of that value on
-your name, I appreciated your efforts at that time very much.
- so feel  free and get in touch with my secretary (Cherry Cola), and instruct
-her where to
-send the cheque to you via courier service or to pay into any commercial bank so
-as to wire it to your account. Please, do let me know immediately you receive it
-so that we can share the joy after all the sufferings, and stress at that time,
-I am very busy here because of the investment projects which me and the new
-partner are having at hand, finally, remember that I had forwarded instruction
-to the secretary on your behalf to release the cashier cheque to you so feel
-free to get in touch with her, and she will send the cheque to you without any
-delay.
-
- Thanks, and remain blessed.
-
- Prince Obi Musa
-
-
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
