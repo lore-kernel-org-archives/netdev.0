@@ -1,42 +1,42 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH] bcm43xx-d80211: use SET_NETDEV_DEV
-Date: Wed, 12 Jul 2006 19:02:46 +0200
-Message-ID: <20060712190246.0427ff70@griffin.suse.cz>
-References: <20060712190120.7c909ac7@griffin.suse.cz>
+From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+Subject: RE: [PATCH]NET: Add ECN support for TSO
+Date: Wed, 12 Jul 2006 10:15:36 -0700
+Message-ID: <000501c6a5d6$cac1a2f0$4710100a@pc.s2io.com>
+References: <20060711.231149.77849003.davem@davemloft.net>
+Reply-To: <ravinandan.arakali@neterion.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Dan Williams <dcbw@redhat.com>, Michael Buesch <mb@bu3sch.de>
+Cc: <herbert@gondor.apana.org.au>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:2971 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751273AbWGLRCs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 13:02:48 -0400
-To: NetDev <netdev@vger.kernel.org>
-In-Reply-To: <20060712190120.7c909ac7@griffin.suse.cz>
+Received: from barracuda.s2io.com ([72.1.205.138]:7138 "EHLO
+	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
+	id S932095AbWGLRQM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jul 2006 13:16:12 -0400
+To: "'David Miller'" <davem@davemloft.net>, <mchan@broadcom.com>
+In-Reply-To: <20060711.231149.77849003.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This adds /sys/class/net/wmaster0/device symlink.
+Thanks.. I will get rid of the per-session check for ECN.
 
-Signed-off-by: Jiri Benc <jbenc@suse.cz>
+Ravi
 
----
- drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |    1 +
- 1 files changed, 1 insertion(+)
-
---- dscape.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-+++ dscape/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-@@ -4722,6 +4722,7 @@ static int __devinit bcm43xx_init_one(st
- 		goto err_free_netdev;
- 
- 	pci_set_drvdata(pdev, net_dev);
-+	SET_NETDEV_DEV(net_dev, &pdev->dev);
- 
- 	err = bcm43xx_attach_board(bcm);
- 	if (err)
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net]
+Sent: Tuesday, July 11, 2006 11:12 PM
+To: mchan@broadcom.com
+Cc: ravinandan.arakali@neterion.com; herbert@gondor.apana.org.au;
+netdev@vger.kernel.org
+Subject: Re: [PATCH]NET: Add ECN support for TSO
 
 
--- 
-Jiri Benc
-SUSE Labs
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Tue, 11 Jul 2006 21:53:42 -0700
+
+> There is no reason to find out if ECN is enabled or not for any
+> TCP connections.  Hw just needs to watch the above bits in the
+> incoming packets.
+
+Correct, it can be done in a completely stateless manner.
