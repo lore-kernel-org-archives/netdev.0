@@ -1,42 +1,56 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: What's new in wireless-dev?
-Date: Wed, 12 Jul 2006 08:48:32 -0400
-Message-ID: <20060712124827.GB4213@tuxdriver.com>
-References: <20060711204553.GB26186@tuxdriver.com> <20060712114832.4f1dbac6@griffin.suse.cz>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: skge error; hangs w/ hardware memory hole
+Date: Wed, 12 Jul 2006 15:37:53 +0200
+Message-ID: <200607121537.53586.ak@suse.de>
+References: <20060703205238.GA10851@deprecation.cyrius.com> <121226.1152672894714.SLOX.WebMail.wwwrun@imap-dhs.suse.de> <44B475F9.2010805@sysexperts.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Anthony DeRobertis <asd@suespammers.org>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Martin Michlmayr <tbm@cyrius.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:64786 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1751360AbWGLMs7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 08:48:59 -0400
-To: Jiri Benc <jbenc@suse.cz>
+Received: from ns2.suse.de ([195.135.220.15]:39588 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1751365AbWGLNiB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 09:38:01 -0400
+To: Kevin Brown <kevin@sysexperts.com>
+In-Reply-To: <44B475F9.2010805@sysexperts.com>
 Content-Disposition: inline
-In-Reply-To: <20060712114832.4f1dbac6@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 12, 2006 at 11:48:32AM +0200, Jiri Benc wrote:
-> On Tue, 11 Jul 2006 16:45:58 -0400, John W. Linville wrote:
-> > John W. Linville:
-> >       d80211: use netif_tx_lock API
-> 
-> > --- a/net/d80211/ieee80211.c
-> > +++ b/net/d80211/ieee80211.c
-> > @@ -1338,7 +1338,7 @@ static void ieee80211_tx_pending(unsigne
-> >  	struct ieee80211_txrx_data tx;
-> >  	int i, ret, reschedule = 0;
-> >  
-> > -	spin_lock_bh(&dev->xmit_lock);
-> > +	netif_tx_lock_bh(dev);
-> >  	dev->xmit_lock_owner = smp_processor_id();
-> 
-> Those dev->xmit_lock_owner assignments are done in netif_tx_[un]lock_bh,
-> so they should go away as well.
+On Wednesday 12 July 2006 06:09, Kevin Brown wrote:
+> Andreas Kleen wrote:
+> > If it helps I can do a proper patch that only bounces IO > 4GB through
+> > the copy.
+>
+> For the A8V series of boards, that will almost certainly be just fine,
+> because as far as I know you can't populate them with more than 4G of
+> memory anyway.
 
-Doh!  I missed that...thanks for the heads-up!
+Even if you only put 4GB in then memory remapping for the PCI hole will 
+usually put some memory beyond 4GB.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+Of course again the mainboard vendor seems to have never
+tested this so there might be other more subtle problems the kernel can't
+help with.
+
+>
+> If someone has more than 4G of memory, it's likely they'll be willing to
+> take the performance hit from the mod in exchange for being able to use
+> more than 4G of memory.
+
+Somewhat of a platitude. They would have no choice.
+
+>
+> Bottom line: do the patch.  It'll be worth using.
+
+I'm still waiting for a positive test result. Ideally from multiple people 
+because it's a pretty radical step to blacklist all VIA chipsets like this
+(and it's s still possible that only some BIOS are broken, not all VIA boards)
+In fact I've been trying to get confirmation from VIA on this, but they
+never answered my queries.
+
+-Andi
