@@ -1,59 +1,82 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [ROSE] lockdep: fix false positive
-Date: Tue, 11 Jul 2006 23:13:57 +0100
-Message-ID: <20060711221357.GA5813@linux-mips.org>
+From: Tetsuo Takata <takata.tetsuo@oss.ntt.co.jp>
+Subject: Re: [PATCH] bonding: enhance the IP address check of arp_ip_target
+Date: Wed, 12 Jul 2006 18:30:40 +0900
+Message-ID: <44B4C140.5040403@oss.ntt.co.jp>
+References: <E1G0X8h-0003Tg-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	takatatt@intellilink.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:53442 "EHLO
-	ftp.linux-mips.org") by vger.kernel.org with ESMTP id S1751042AbWGLJUp
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jul 2006 05:20:45 -0400
-Received: from localhost.localdomain ([127.0.0.1]:28129 "EHLO bacchus.dhis.org")
-	by ftp.linux-mips.org with ESMTP id S3561304AbWGLJUn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 10:20:43 +0100
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Molnar Ingo <mingo@elte.hu>,
-	Arjan van de Ven <arjan@infradead.org>
-Content-Disposition: inline
+Received: from ns.oss.ntt.co.jp ([222.151.198.98]:42903 "EHLO
+	serv1.oss.ntt.co.jp") by vger.kernel.org with ESMTP
+	id S1751061AbWGLJan (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jul 2006 05:30:43 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1G0X8h-0003Tg-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ROSE network devices are virtual network devices encapsulating ROSE
-frames into AX.25 which will be sent through an AX.25 device, so form a
-special "super class" of normal net devices; split their locks off into
-a separate class since they always nest.
+Hi,
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+Thank you for the comments.
+
+
+>> Why not just use sscanf?
+Here's a fixed version of the previous patch, that uses sscanf.
+
+> 
+> Better yet, use a better interface like netlink rather than module
+> parameters.
+Wouldn't that be overkill?
+
+
+best regards,
 
 ---
- net/rose/af_rose.c |    9 +++++++++
- 1 file changed, 9 insertions(+)
+Signed-off-by: Tetsuo Takata <takatatt@intellilink.co.jp>
 
-Index: linux-net/net/rose/af_rose.c
-===================================================================
---- linux-net.orig/net/rose/af_rose.c	2006-07-10 01:35:09.000000000 +0100
-+++ linux-net/net/rose/af_rose.c	2006-07-11 22:01:37.000000000 +0100
-@@ -67,6 +67,14 @@ static struct proto_ops rose_proto_ops;
- ax25_address rose_callsign;
- 
- /*
-+ * ROSE network devices are virtual network devices encapsulating ROSE
-+ * frames into AX.25 which will be sent through an AX.25 device, so form a
-+ * special "super class" of normal net devices; split their locks off into a
-+ * separate class since they always nest.
-+ */
-+static struct lock_class_key rose_netdev_xmit_lock_key;
+--- linux-2.6.17.4/drivers/net/bonding/bond_main.c	2006-06-18 10:49:35.000000000 +0900
++++ linux-2.6.17.4-enhance-ipcheck/drivers/net/bonding/bond_main.c	2006-07-12 17:20:39.000000000 +0900
+@@ -4455,7 +4455,36 @@ static int bond_check_params(struct bond
+ 	     arp_ip_count++) {
+ 		/* not complete check, but should be good enough to
+ 		   catch mistakes */
+-		if (!isdigit(arp_ip_target[arp_ip_count][0])) {
++		int ip1, ip2, ip3, ip4, notip = 0;
++		char dummy;
 +
-+/*
-  *	Convert a ROSE address into text.
-  */
- const char *rose2asc(const rose_address *addr)
-@@ -1515,6 +1523,7 @@ static int __init rose_proto_init(void)
- 			free_netdev(dev);
- 			goto fail;
- 		}
-+		lockdep_set_class(&dev->_xmit_lock, &rose_netdev_xmit_lock_key);
- 		dev_rose[i] = dev;
- 	}
- 
++		/* notip's number means error code for debug purpose */
++		do {
++			if (sscanf(arp_ip_target[arp_ip_count], "%d.%d.%d.%d%c",
++					 	&ip1, &ip2, &ip3, &ip4, &dummy) != 4) {
++				notip = 1;
++				break;
++			} else {
++				if (ip1 < 0 || ip1 > 255) {
++					notip = 1;
++					break;
++				}
++				if (ip2 < 0 || ip2 > 255) {
++					notip = 1;
++					break;
++				}
++				if (ip3 < 0 || ip3 > 255) {
++					notip = 1;
++					break;
++				}
++				if (ip4 < 0 || ip4 > 255) {
++					notip = 1;
++					break;
++				}
++			}
++		} while(0);
++
++		if (notip) {
+ 			printk(KERN_WARNING DRV_NAME
+ 			       ": Warning: bad arp_ip_target module parameter "
+ 			       "(%s), ARP monitoring will not be performed\n",
+
