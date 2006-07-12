@@ -1,34 +1,50 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 4/7] sky2: sky2_reset section mismatch
-Date: Wed, 12 Jul 2006 15:23:45 -0700
-Message-ID: <20060712222646.276899800@localhost.localdomain>
+Subject: [PATCH 1/7] sky2: fix truncated collision threshold mask
+Date: Wed, 12 Jul 2006 15:23:42 -0700
+Message-ID: <20060712222645.703394439@localhost.localdomain>
 References: <20060712222341.686007133@localhost.localdomain>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:20361 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751469AbWGLWcA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 18:32:00 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:23945 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932066AbWGLWcR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jul 2006 18:32:17 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=sky2-devinit-reset.patch
+Content-Disposition: inline; filename=sky2-thr-msk.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since sky2_reset gets call from sky2_resume it shouldn't be tagged
-with devinit.
+Patch to correct broken collision threshold mask in sky2 driver.  Should be
+three bits wide, but the mask only allows for 1 bit to be set.
 
+Thanks & Regards
+Neil
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
---- sky2.orig/drivers/net/sky2.c	2006-07-07 13:02:23.000000000 -0700
-+++ sky2/drivers/net/sky2.c	2006-07-07 16:31:29.000000000 -0700
-@@ -2286,7 +2286,7 @@
- }
+ sky2.h |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+
+diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
+index 8a0bc55..2db8d19 100644
+--- a/drivers/net/sky2.h
++++ b/drivers/net/sky2.h
+@@ -1480,7 +1480,7 @@ enum {
+ 	GM_TXCR_FORCE_JAM	= 1<<15, /* Bit 15:	Force Jam / Flow-Control */
+ 	GM_TXCR_CRC_DIS		= 1<<14, /* Bit 14:	Disable insertion of CRC */
+ 	GM_TXCR_PAD_DIS		= 1<<13, /* Bit 13:	Disable padding of packets */
+-	GM_TXCR_COL_THR_MSK	= 1<<10, /* Bit 12..10:	Collision Threshold */
++	GM_TXCR_COL_THR_MSK	= 7<<10, /* Bit 12..10:	Collision Threshold */
+ };
  
- 
--static int __devinit sky2_reset(struct sky2_hw *hw)
-+static int sky2_reset(struct sky2_hw *hw)
- {
- 	u16 status;
- 	u8 t8, pmd_type;
+ #define TX_COL_THR(x)		(((x)<<10) & GM_TXCR_COL_THR_MSK)
+-- 
+/***************************************************
+ *Neil Horman
+ *Software Engineer
+ *gpg keyid: 1024D / 0x92A74FA1 - http://pgp.mit.edu
+ ***************************************************/
 
 --
 
