@@ -1,619 +1,75 @@
 From: Venkat Yekkirala <vyekkirala@trustedcs.com>
-Subject: [PATCH 08/10] MLSXFRM: Add security context to acquire messages using
+Subject: [PATCH 07/10] MLSXFRM: Add security context to acquire messages using
  PF_KEY
-Date: Wed, 12 Jul 2006 16:14:42 -0500
-Message-ID: <44B56642.6060500@trustedcs.com>
+Date: Wed, 12 Jul 2006 16:14:36 -0500
+Message-ID: <44B5663C.3050307@trustedcs.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: jmorris@namei.org, sds@tycho.nsa.gov, tjaeger@cse.psu.edu,
 	selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:62322 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S932445AbWGLVPC
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:38777 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S932438AbWGLVOn
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jul 2006 17:15:02 -0400
+	Wed, 12 Jul 2006 17:14:43 -0400
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This labels the flows that could utilize IPSec xfrms at the points they
-are defined so that IPSec policy and SAs at the right label can be used.
-
-The following protos are currently not handled, but they should continue
-to be able to use single-labeled IPSec like they currently do.
-
-ipmr
-ip_gre
-ipip
-igmp
-sit
-sctp
-ip6_tunnel (IPv6 over IPv6 tunnel device)
-decnet
-
+This includes the security context of a security association created for use by IKE
+in the acquire messages sent to IKE daemons using PF_KEY. This would allow
+the daemons to include the security context in the negotiation, so that the resultant
+association is unique to that security context.
 
 Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
 ---
 
- include/linux/security.h         |   33 ++++++++++++++++++-----------
- include/net/route.h              |    3 ++
- net/dccp/ipv4.c                  |    1 
- net/dccp/ipv6.c                  |    6 +++++
- net/ipv4/af_inet.c               |    1 
- net/ipv4/icmp.c                  |    2 +
- net/ipv4/inet_connection_sock.c  |    1 
- net/ipv4/ip_output.c             |    2 +
- net/ipv4/netfilter/ipt_REJECT.c  |    1 
- net/ipv4/raw.c                   |    1 
- net/ipv4/syncookies.c            |    1 
- net/ipv4/udp.c                   |    1 
- net/ipv6/af_inet6.c              |    1 
- net/ipv6/datagram.c              |    2 +
- net/ipv6/icmp.c                  |    2 +
- net/ipv6/inet6_connection_sock.c |    1 
- net/ipv6/ndisc.c                 |    1 
- net/ipv6/netfilter/ip6t_REJECT.c |    1 
- net/ipv6/raw.c                   |    1 
- net/ipv6/tcp_ipv6.c              |    7 ++++++
- net/ipv6/udp.c                   |    2 +
- net/xfrm/xfrm_policy.c           |    3 --
- security/dummy.c                 |    7 ++----
- security/selinux/hooks.c         |   11 ++++++---
- security/selinux/include/xfrm.h  |    2 -
- security/selinux/xfrm.c          |   11 ++++++---
- 26 files changed, 78 insertions(+), 27 deletions(-)
+ net/key/af_key.c |   22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
 
---- linux-2.6.17.af_key/include/linux/security.h	2006-07-11 20:34:16.000000000 -0500
-+++ linux-2.6.17/include/linux/security.h	2006-07-12 09:13:07.000000000 -0500
-@@ -815,8 +815,8 @@ struct swap_info_struct;
-  *	Deallocate security structure.
-  * @sk_clone_security:
-  *	Clone/copy security structure.
-- * @sk_getsid:
-- *	Retrieve the LSM-specific sid for the sock to enable caching of network
-+ * @sk_getsecid:
-+ *	Retrieve the LSM-specific secid for the sock to enable caching of network
-  *	authorizations.
-  *
-  * Security hooks for XFRM operations.
-@@ -882,7 +882,8 @@ struct swap_info_struct;
-  *	Return 1 if there is a match.
-  * @xfrm_decode_session:
-  *	@skb points to skb to decode.
-- *	@fl points to the flow key to set.
-+ *	@secid points to the flow key secid to set.
-+ *	@ckall says if all xfrms used should be checked for same secid.
-  *	Return 0 if successful decoding.
-  *
-  * Security hooks affecting all Key Management operations
-@@ -1341,7 +1342,7 @@ struct security_operations {
- 	int (*sk_alloc_security) (struct sock *sk, int family, gfp_t priority);
- 	void (*sk_free_security) (struct sock *sk);
- 	void (*sk_clone_security) (const struct sock *sk, struct sock *newsk);
--	unsigned int (*sk_getsid) (struct sock *sk, struct flowi *fl, u8 dir);
-+	void (*sk_getsecid) (struct sock *sk, u32 *secid);
- #endif	/* CONFIG_SECURITY_NETWORK */
+--- linux-2.6.17.xfrm_user/net/key/af_key.c	2006-07-11 16:04:20.000000000 -0500
++++ linux-2.6.17/net/key/af_key.c	2006-07-11 20:59:42.000000000 -0500
+@@ -2708,6 +2708,9 @@ static int pfkey_send_acquire(struct xfr
+ #endif
+ 	int sockaddr_size;
+ 	int size;
++	struct sadb_x_sec_ctx *sec_ctx;
++	struct xfrm_sec_ctx *xfrm_ctx;
++	int ctx_size = 0;
+ 	
+ 	sockaddr_size = pfkey_sockaddr_size(x->props.family);
+ 	if (!sockaddr_size)
+@@ -2723,6 +2726,11 @@ static int pfkey_send_acquire(struct xfr
+ 	else if (x->id.proto == IPPROTO_ESP)
+ 		size += count_esp_combs(t);
  
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
-@@ -1358,7 +1359,7 @@ struct security_operations {
- 	int (*xfrm_state_pol_flow_match)(struct xfrm_state *x,
- 			struct xfrm_policy *xp, struct flowi *fl);
- 	int (*xfrm_flow_state_match)(struct flowi *fl, struct xfrm_state *xfrm);
--	int (*xfrm_decode_session)(struct sk_buff *skb, struct flowi *fl);
-+	int (*xfrm_decode_session)(struct sk_buff *skb, u32 *secid, int ckall);
- #endif	/* CONFIG_SECURITY_NETWORK_XFRM */
- 
- 	/* key management security hooks */
-@@ -2888,9 +2889,9 @@ static inline void security_sk_clone(con
- 	return security_ops->sk_clone_security(sk, newsk);
- }
- 
--static inline unsigned int security_sk_sid(struct sock *sk, struct flowi *fl, u8 dir)
-+static inline void security_sk_secid(struct sock *sk, u32 *secid)
- {
--	return security_ops->sk_getsid(sk, fl, dir);
-+	security_ops->sk_getsecid(sk, secid);
- }
- #else	/* CONFIG_SECURITY_NETWORK */
- static inline int security_unix_stream_connect(struct socket * sock,
-@@ -3019,9 +3020,8 @@ static inline void security_sk_clone(con
- {
- }
- 
--static inline unsigned int security_sk_sid(struct sock *sk, struct flowi *fl, u8 dir)
-+static inline void security_sk_secid(struct sock *sk, u32 *secid)
- {
--	return 0;
- }
- #endif	/* CONFIG_SECURITY_NETWORK */
- 
-@@ -3086,9 +3086,14 @@ static inline int security_xfrm_flow_sta
- 	return security_ops->xfrm_flow_state_match(fl, xfrm);
- }
- 
--static inline int security_xfrm_decode_session(struct sk_buff *skb, struct flowi *fl)
-+static inline int security_xfrm_decode_session(struct sk_buff *skb, u32 *secid)
-+{
-+	return security_ops->xfrm_decode_session(skb, secid, 1);
-+}
++	if ((xfrm_ctx = x->security)) {
++		ctx_size = PFKEY_ALIGN8(xfrm_ctx->ctx_len);
++		size +=  sizeof(struct sadb_x_sec_ctx) + ctx_size;
++	}
 +
-+static inline void security_xfrm_skb_secid(struct sk_buff *skb, u32 *secid)
- {
--	return security_ops->xfrm_decode_session(skb, fl);
-+	BUG_ON(security_ops->xfrm_decode_session(skb, secid, 0));
- }
- #else	/* CONFIG_SECURITY_NETWORK_XFRM */
- static inline int security_xfrm_policy_alloc(struct xfrm_policy *xp, struct xfrm_user_sec_ctx *sec_ctx)
-@@ -3148,11 +3153,15 @@ static inline int security_xfrm_flow_sta
- 	return 1;
- }
- 
--static inline int security_xfrm_decode_session(struct sk_buff *skb, struct flowi *fl)
-+static inline int security_xfrm_decode_session(struct sk_buff *skb, u32 *secid)
- {
- 	return 0;
- }
- 
-+static inline void security_xfrm_skb_secid(struct sk_buff *skb, u32 *secid)
-+{
-+}
-+
- #endif	/* CONFIG_SECURITY_NETWORK_XFRM */
- 
- #ifdef CONFIG_KEYS
---- linux-2.6.17.af_key/include/net/route.h	2006-07-11 16:04:16.000000000 -0500
-+++ linux-2.6.17/include/net/route.h	2006-07-12 09:10:02.000000000 -0500
-@@ -32,6 +32,7 @@
- #include <linux/route.h>
- #include <linux/ip.h>
- #include <linux/cache.h>
-+#include <linux/security.h>
- 
- #ifndef __KERNEL__
- #warning This file is not supposed to be used outside of kernel.
-@@ -166,6 +167,7 @@ static inline int ip_route_connect(struc
- 		ip_rt_put(*rp);
- 		*rp = NULL;
- 	}
-+	security_sk_secid(sk, &fl.secid);
- 	return ip_route_output_flow(rp, &fl, sk, 0);
- }
- 
-@@ -182,6 +184,7 @@ static inline int ip_route_newports(stru
- 		fl.proto = protocol;
- 		ip_rt_put(*rp);
- 		*rp = NULL;
-+		security_sk_secid(sk, &fl.secid);
- 		return ip_route_output_flow(rp, &fl, sk, 0);
- 	}
- 	return 0;
---- linux-2.6.17.af_key/security/dummy.c	2006-07-11 19:57:00.000000000 -0500
-+++ linux-2.6.17/security/dummy.c	2006-07-12 09:19:41.000000000 -0500
-@@ -810,9 +810,8 @@ static inline void dummy_sk_clone_securi
- {
- }
- 
--static unsigned int dummy_sk_getsid(struct sock *sk, struct flowi *fl, u8 dir)
-+static inline void dummy_sk_getsecid(struct sock *sk, u32 *secid)
- {
--	return 0;
- }
- #endif	/* CONFIG_SECURITY_NETWORK */
- 
-@@ -867,7 +866,7 @@ static int dummy_xfrm_flow_state_match(s
- 	return 1;
- }
- 
--static int dummy_xfrm_decode_session(struct sk_buff *skb, struct flowi *fl)
-+static int dummy_xfrm_decode_session(struct sk_buff *skb, u32 *fl, int ckall)
- {
- 	return 0;
- }
-@@ -1073,7 +1072,7 @@ void security_fixup_ops (struct security
- 	set_to_dummy_if_null(ops, sk_alloc_security);
- 	set_to_dummy_if_null(ops, sk_free_security);
- 	set_to_dummy_if_null(ops, sk_clone_security);
--	set_to_dummy_if_null(ops, sk_getsid);
-+	set_to_dummy_if_null(ops, sk_getsecid);
-  #endif	/* CONFIG_SECURITY_NETWORK */
- #ifdef  CONFIG_SECURITY_NETWORK_XFRM
- 	set_to_dummy_if_null(ops, xfrm_policy_alloc_security);
---- linux-2.6.17.af_key/security/selinux/hooks.c	2006-07-11 20:14:10.000000000 -0500
-+++ linux-2.6.17/security/selinux/hooks.c	2006-07-12 09:18:59.000000000 -0500
-@@ -3561,13 +3561,13 @@ static void selinux_sk_clone_security(co
- 	newssec->peer_sid = ssec->peer_sid;
- }
- 
--static unsigned int selinux_sk_getsid_security(struct sock *sk, struct flowi *fl, u8 dir)
-+static void selinux_sk_getsecid(struct sock *sk, u32 *secid)
- {
- 	struct inode_security_struct *isec;
- 	u32 sock_sid = SECINITSID_ANY_SOCKET;
- 
- 	if (!sk)
--		return selinux_no_sk_sid(fl);
-+		goto out;
- 
- 	read_lock_bh(&sk->sk_callback_lock);
- 	isec = get_sock_isec(sk);
-@@ -3580,7 +3580,10 @@ static unsigned int selinux_sk_getsid_se
- 	}
- 
- 	read_unlock_bh(&sk->sk_callback_lock);
--	return sock_sid;
-+
-+out:
-+	*secid = sock_sid;
-+	return;
- }
- 
- static int selinux_nlmsg_perm(struct sock *sk, struct sk_buff *skb)
-@@ -4619,7 +4622,7 @@ static struct security_operations selinu
- 	.sk_alloc_security =		selinux_sk_alloc_security,
- 	.sk_free_security =		selinux_sk_free_security,
- 	.sk_clone_security =		selinux_sk_clone_security,
--	.sk_getsid = 			selinux_sk_getsid_security,
-+	.sk_getsecid = 			selinux_sk_getsecid,
- 
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
- 	.xfrm_policy_alloc_security =	selinux_xfrm_policy_alloc,
---- linux-2.6.17.af_key/security/selinux/include/xfrm.h	2006-07-11 20:17:10.000000000 -0500
-+++ linux-2.6.17/security/selinux/include/xfrm.h	2006-07-12 09:10:02.000000000 -0500
-@@ -19,7 +19,7 @@ int selinux_xfrm_policy_lookup(struct xf
- int selinux_xfrm_state_pol_flow_match(struct xfrm_state *x,
- 			struct xfrm_policy *xp, struct flowi *fl);
- int selinux_xfrm_flow_state_match(struct flowi *fl, struct xfrm_state *xfrm);
--int selinux_xfrm_decode_session(struct sk_buff *skb, struct flowi *fl);
-+int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *fl, int ckall);
- 
- 
- /*
---- linux-2.6.17.af_key/security/selinux/xfrm.c	2006-07-11 20:18:59.000000000 -0500
-+++ linux-2.6.17/security/selinux/xfrm.c	2006-07-12 09:10:02.000000000 -0500
-@@ -158,11 +158,11 @@ int selinux_xfrm_flow_state_match(struct
-  * LSM hook implementation that determines the sid for the session.
-  */
- 
--int selinux_xfrm_decode_session(struct sk_buff *skb, struct flowi *fl)
-+int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *sid, int ckall)
- {
- 	struct sec_path *sp;
- 
--	fl->secid = SECSID_NULL;
-+	*sid = SECSID_NULL;
- 
+ 	skb =  alloc_skb(size + 16, GFP_ATOMIC);
  	if (skb == NULL)
- 		return 0;
-@@ -177,10 +177,13 @@ int selinux_xfrm_decode_session(struct s
- 				struct xfrm_sec_ctx *ctx = x->security;
+ 		return -ENOMEM;
+@@ -2818,6 +2826,20 @@ static int pfkey_send_acquire(struct xfr
+ 	else if (x->id.proto == IPPROTO_ESP)
+ 		dump_esp_combs(skb, t);
  
- 				if (!sid_set) {
--					fl->secid = ctx->ctx_sid;
-+					*sid = ctx->ctx_sid;
- 					sid_set = 1;
++	/* security context */
++	if (xfrm_ctx) {
++		sec_ctx = (struct sadb_x_sec_ctx *) skb_put(skb,
++				sizeof(struct sadb_x_sec_ctx) + ctx_size);
++		sec_ctx->sadb_x_sec_len =
++		  (sizeof(struct sadb_x_sec_ctx) + ctx_size) / sizeof(uint64_t);
++		sec_ctx->sadb_x_sec_exttype = SADB_X_EXT_SEC_CTX;
++		sec_ctx->sadb_x_ctx_doi = xfrm_ctx->ctx_doi;
++		sec_ctx->sadb_x_ctx_alg = xfrm_ctx->ctx_alg;
++		sec_ctx->sadb_x_ctx_len = xfrm_ctx->ctx_len;
++		memcpy(sec_ctx + 1, xfrm_ctx->ctx_str,
++		       xfrm_ctx->ctx_len);
++	}
 +
-+					if (!ckall)
-+						break;
- 				}
--				else if (fl->secid != ctx->ctx_sid)
-+				else if (*sid != ctx->ctx_sid)
- 					return -EINVAL;
- 			}
- 		}
---- linux-2.6.17.af_key/net/dccp/ipv4.c	2006-07-11 16:04:19.000000000 -0500
-+++ linux-2.6.17/net/dccp/ipv4.c	2006-07-12 09:10:02.000000000 -0500
-@@ -679,6 +679,7 @@ static struct dst_entry* dccp_v4_route_s
- 			   	     }
- 			  };
- 
-+	security_xfrm_skb_secid(skb, &fl.secid);
- 	if (ip_route_output_flow(&rt, &fl, sk, 0)) {
- 		IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
- 		return NULL;
---- linux-2.6.17.af_key/net/dccp/ipv6.c	2006-07-11 16:04:19.000000000 -0500
-+++ linux-2.6.17/net/dccp/ipv6.c	2006-07-12 09:10:02.000000000 -0500
-@@ -200,6 +200,7 @@ static int dccp_v6_connect(struct sock *
- 	fl.oif = sk->sk_bound_dev_if;
- 	fl.fl_ip_dport = usin->sin6_port;
- 	fl.fl_ip_sport = inet->sport;
-+	security_sk_secid(sk, &fl.secid);
- 
- 	if (np->opt != NULL && np->opt->srcrt != NULL) {
- 		const struct rt0_hdr *rt0 = (struct rt0_hdr *)np->opt->srcrt;
-@@ -321,6 +322,7 @@ static void dccp_v6_err(struct sk_buff *
- 			fl.oif = sk->sk_bound_dev_if;
- 			fl.fl_ip_dport = inet->dport;
- 			fl.fl_ip_sport = inet->sport;
-+			security_sk_secid(sk, &fl.secid);
- 
- 			err = ip6_dst_lookup(sk, &dst, &fl);
- 			if (err) {
-@@ -421,6 +423,7 @@ static int dccp_v6_send_response(struct 
- 	fl.oif = ireq6->iif;
- 	fl.fl_ip_dport = inet_rsk(req)->rmt_port;
- 	fl.fl_ip_sport = inet_sk(sk)->sport;
-+	security_sk_secid(sk, &fl.secid);
- 
- 	if (dst == NULL) {
- 		opt = np->opt;
-@@ -565,6 +568,7 @@ static void dccp_v6_ctl_send_reset(struc
- 	fl.oif = inet6_iif(rxskb);
- 	fl.fl_ip_dport = dh->dccph_dport;
- 	fl.fl_ip_sport = dh->dccph_sport;
-+	security_xfrm_skb_secid(rxskb, &fl.secid);
- 
- 	/* sk = NULL, but it is safe for now. RST socket required. */
- 	if (!ip6_dst_lookup(NULL, &skb->dst, &fl)) {
-@@ -621,6 +625,7 @@ static void dccp_v6_reqsk_send_ack(struc
- 	fl.oif = inet6_iif(rxskb);
- 	fl.fl_ip_dport = dh->dccph_dport;
- 	fl.fl_ip_sport = dh->dccph_sport;
-+	security_xfrm_skb_secid(rxskb, &fl.secid);
- 
- 	if (!ip6_dst_lookup(NULL, &skb->dst, &fl)) {
- 		if (xfrm_lookup(&skb->dst, &fl, NULL, 0) >= 0) {
-@@ -842,6 +847,7 @@ static struct sock *dccp_v6_request_recv
- 		fl.oif = sk->sk_bound_dev_if;
- 		fl.fl_ip_dport = inet_rsk(req)->rmt_port;
- 		fl.fl_ip_sport = inet_sk(sk)->sport;
-+		security_sk_secid(sk, &fl.secid);
- 
- 		if (ip6_dst_lookup(sk, &dst, &fl))
- 			goto out;
---- linux-2.6.17.af_key/net/ipv4/af_inet.c	2006-07-11 16:04:19.000000000 -0500
-+++ linux-2.6.17/net/ipv4/af_inet.c	2006-07-12 09:10:02.000000000 -0500
-@@ -1074,6 +1074,7 @@ int inet_sk_rebuild_header(struct sock *
- 		},
- 	};
- 						
-+	security_sk_secid(sk, &fl.secid);
- 	err = ip_route_output_flow(&rt, &fl, sk, 0);
- }
- 	if (!err)
---- linux-2.6.17.af_key/net/ipv4/icmp.c	2006-07-11 16:04:19.000000000 -0500
-+++ linux-2.6.17/net/ipv4/icmp.c	2006-07-12 09:10:02.000000000 -0500
-@@ -406,6 +406,7 @@ static void icmp_reply(struct icmp_bxm *
- 						.saddr = rt->rt_spec_dst,
- 						.tos = RT_TOS(skb->nh.iph->tos) } },
- 				    .proto = IPPROTO_ICMP };
-+		security_xfrm_skb_secid(skb, &fl.secid);
- 		if (ip_route_output_key(&rt, &fl))
- 			goto out_unlock;
- 	}
-@@ -560,6 +561,7 @@ void icmp_send(struct sk_buff *skb_in, i
- 				}
- 			}
- 		};
-+		security_xfrm_skb_secid(skb_in, &fl.secid);
- 		if (ip_route_output_key(&rt, &fl))
- 			goto out_unlock;
- 	}
---- linux-2.6.17.af_key/net/ipv4/inet_connection_sock.c	2006-07-11 16:04:19.000000000 -0500
-+++ linux-2.6.17/net/ipv4/inet_connection_sock.c	2006-07-12 09:10:02.000000000 -0500
-@@ -327,6 +327,7 @@ struct dst_entry* inet_csk_route_req(str
- 				       { .sport = inet_sk(sk)->sport,
- 					 .dport = ireq->rmt_port } } };
- 
-+	security_sk_secid(sk, &fl.secid);
- 	if (ip_route_output_flow(&rt, &fl, sk, 0)) {
- 		IP_INC_STATS_BH(IPSTATS_MIB_OUTNOROUTES);
- 		return NULL;
---- linux-2.6.17.af_key/net/ipv4/ip_output.c	2006-07-11 16:04:19.000000000 -0500
-+++ linux-2.6.17/net/ipv4/ip_output.c	2006-07-12 09:10:02.000000000 -0500
-@@ -328,6 +328,7 @@ int ip_queue_xmit(struct sk_buff *skb, i
- 			 * keep trying until route appears or the connection times
- 			 * itself out.
- 			 */
-+			security_sk_secid(sk, &fl.secid);
- 			if (ip_route_output_flow(&rt, &fl, sk, 0))
- 				goto no_route;
- 		}
-@@ -1364,6 +1365,7 @@ void ip_send_reply(struct sock *sk, stru
- 					       { .sport = skb->h.th->dest,
- 					         .dport = skb->h.th->source } },
- 				    .proto = sk->sk_protocol };
-+		security_xfrm_skb_secid(skb, &fl.secid);
- 		if (ip_route_output_key(&rt, &fl))
- 			return;
- 	}
---- linux-2.6.17.af_key/net/ipv4/netfilter/ipt_REJECT.c	2006-07-11 16:04:19.000000000 -0500
-+++ linux-2.6.17/net/ipv4/netfilter/ipt_REJECT.c	2006-07-12 09:10:02.000000000 -0500
-@@ -90,6 +90,7 @@ static inline struct rtable *route_rever
- 	fl.proto = IPPROTO_TCP;
- 	fl.fl_ip_sport = tcph->dest;
- 	fl.fl_ip_dport = tcph->source;
-+	security_xfrm_skb_secid(skb, &fl.secid);
- 
- 	xfrm_lookup((struct dst_entry **)&rt, &fl, NULL, 0);
- 
---- linux-2.6.17.af_key/net/ipv4/raw.c	2006-07-11 16:04:19.000000000 -0500
-+++ linux-2.6.17/net/ipv4/raw.c	2006-07-12 09:10:02.000000000 -0500
-@@ -484,6 +484,7 @@ static int raw_sendmsg(struct kiocb *ioc
- 		if (!inet->hdrincl)
- 			raw_probe_proto_opt(&fl, msg);
- 
-+		security_sk_secid(sk, &fl.secid);
- 		err = ip_route_output_flow(&rt, &fl, sk, !(msg->msg_flags&MSG_DONTWAIT));
- 	}
- 	if (err)
---- linux-2.6.17.af_key/net/ipv4/syncookies.c	2006-06-17 20:49:35.000000000 -0500
-+++ linux-2.6.17/net/ipv4/syncookies.c	2006-07-12 09:10:02.000000000 -0500
-@@ -259,6 +259,7 @@ struct sock *cookie_v4_check(struct sock
- 				    .uli_u = { .ports =
- 					       { .sport = skb->h.th->dest,
- 						 .dport = skb->h.th->source } } };
-+		security_sk_secid(sk, &fl.secid);
- 		if (ip_route_output_key(&rt, &fl)) {
- 			reqsk_free(req);
- 			goto out; 
---- linux-2.6.17.af_key/net/ipv4/udp.c	2006-07-11 16:04:20.000000000 -0500
-+++ linux-2.6.17/net/ipv4/udp.c	2006-07-12 09:10:02.000000000 -0500
-@@ -603,6 +603,7 @@ int udp_sendmsg(struct kiocb *iocb, stru
- 				    .uli_u = { .ports =
- 					       { .sport = inet->sport,
- 						 .dport = dport } } };
-+		security_sk_secid(sk, &fl.secid);
- 		err = ip_route_output_flow(&rt, &fl, sk, !(msg->msg_flags&MSG_DONTWAIT));
- 		if (err)
- 			goto out;
---- linux-2.6.17.af_key/net/ipv6/af_inet6.c	2006-07-11 16:04:20.000000000 -0500
-+++ linux-2.6.17/net/ipv6/af_inet6.c	2006-07-12 09:10:02.000000000 -0500
-@@ -637,6 +637,7 @@ int inet6_sk_rebuild_header(struct sock 
- 		fl.oif = sk->sk_bound_dev_if;
- 		fl.fl_ip_dport = inet->dport;
- 		fl.fl_ip_sport = inet->sport;
-+		security_sk_secid(sk, &fl.secid);
- 
- 		if (np->opt && np->opt->srcrt) {
- 			struct rt0_hdr *rt0 = (struct rt0_hdr *) np->opt->srcrt;
---- linux-2.6.17.af_key/net/ipv6/datagram.c	2006-06-17 20:49:35.000000000 -0500
-+++ linux-2.6.17/net/ipv6/datagram.c	2006-07-12 09:10:02.000000000 -0500
-@@ -156,6 +156,8 @@ ipv4_connected:
- 	if (!fl.oif && (addr_type&IPV6_ADDR_MULTICAST))
- 		fl.oif = np->mcast_oif;
- 
-+	security_sk_secid(sk, &fl.secid);
-+
- 	if (flowlabel) {
- 		if (flowlabel->opt && flowlabel->opt->srcrt) {
- 			struct rt0_hdr *rt0 = (struct rt0_hdr *) flowlabel->opt->srcrt;
---- linux-2.6.17.af_key/net/ipv6/icmp.c	2006-07-11 16:05:49.000000000 -0500
-+++ linux-2.6.17/net/ipv6/icmp.c	2006-07-12 09:10:02.000000000 -0500
-@@ -358,6 +358,7 @@ void icmpv6_send(struct sk_buff *skb, in
- 	fl.oif = iif;
- 	fl.fl_icmp_type = type;
- 	fl.fl_icmp_code = code;
-+	security_xfrm_skb_secid(skb, &fl.secid);
- 
- 	if (icmpv6_xmit_lock())
- 		return;
-@@ -472,6 +473,7 @@ static void icmpv6_echo_reply(struct sk_
- 		ipv6_addr_copy(&fl.fl6_src, saddr);
- 	fl.oif = skb->dev->ifindex;
- 	fl.fl_icmp_type = ICMPV6_ECHO_REPLY;
-+	security_xfrm_skb_secid(skb, &fl.secid);
- 
- 	if (icmpv6_xmit_lock())
- 		return;
---- linux-2.6.17.af_key/net/ipv6/inet6_connection_sock.c	2006-07-11 16:04:20.000000000 -0500
-+++ linux-2.6.17/net/ipv6/inet6_connection_sock.c	2006-07-12 09:10:02.000000000 -0500
-@@ -157,6 +157,7 @@ int inet6_csk_xmit(struct sk_buff *skb, 
- 	fl.oif = sk->sk_bound_dev_if;
- 	fl.fl_ip_sport = inet->sport;
- 	fl.fl_ip_dport = inet->dport;
-+	security_sk_secid(sk, &fl.secid);
- 
- 	if (np->opt && np->opt->srcrt) {
- 		struct rt0_hdr *rt0 = (struct rt0_hdr *)np->opt->srcrt;
---- linux-2.6.17.af_key/net/ipv6/ndisc.c	2006-07-11 16:04:20.000000000 -0500
-+++ linux-2.6.17/net/ipv6/ndisc.c	2006-07-12 09:10:02.000000000 -0500
-@@ -419,6 +419,7 @@ static inline void ndisc_flow_init(struc
- 	fl->proto	 	= IPPROTO_ICMPV6;
- 	fl->fl_icmp_type	= type;
- 	fl->fl_icmp_code	= 0;
-+	security_sk_secid(ndisc_socket->sk, &fl->secid);
+ 	return pfkey_broadcast(skb, GFP_ATOMIC, BROADCAST_REGISTERED, NULL);
  }
  
- static void ndisc_send_na(struct net_device *dev, struct neighbour *neigh,
---- linux-2.6.17.af_key/net/ipv6/netfilter/ip6t_REJECT.c	2006-07-11 16:04:20.000000000 -0500
-+++ linux-2.6.17/net/ipv6/netfilter/ip6t_REJECT.c	2006-07-12 09:10:02.000000000 -0500
-@@ -96,6 +96,7 @@ static void send_reset(struct sk_buff *o
- 	ipv6_addr_copy(&fl.fl6_dst, &oip6h->saddr);
- 	fl.fl_ip_sport = otcph.dest;
- 	fl.fl_ip_dport = otcph.source;
-+	security_xfrm_skb_secid(oldskb, &fl.secid);
- 	dst = ip6_route_output(NULL, &fl);
- 	if (dst == NULL)
- 		return;
---- linux-2.6.17.af_key/net/ipv6/raw.c	2006-06-17 20:49:35.000000000 -0500
-+++ linux-2.6.17/net/ipv6/raw.c	2006-07-12 09:10:02.000000000 -0500
-@@ -758,6 +758,7 @@ static int rawv6_sendmsg(struct kiocb *i
- 
- 	if (!fl.oif && ipv6_addr_is_multicast(&fl.fl6_dst))
- 		fl.oif = np->mcast_oif;
-+	security_sk_secid(sk, &fl.secid);
- 
- 	err = ip6_dst_lookup(sk, &dst, &fl);
- 	if (err)
---- linux-2.6.17.af_key/net/ipv6/tcp_ipv6.c	2006-07-11 16:04:20.000000000 -0500
-+++ linux-2.6.17/net/ipv6/tcp_ipv6.c	2006-07-12 09:10:02.000000000 -0500
-@@ -251,6 +251,8 @@ static int tcp_v6_connect(struct sock *s
- 		final_p = &final;
- 	}
- 
-+	security_sk_secid(sk, &fl.secid);
-+
- 	err = ip6_dst_lookup(sk, &dst, &fl);
- 	if (err)
- 		goto failure;
-@@ -374,6 +376,7 @@ static void tcp_v6_err(struct sk_buff *s
- 			fl.oif = sk->sk_bound_dev_if;
- 			fl.fl_ip_dport = inet->dport;
- 			fl.fl_ip_sport = inet->sport;
-+			security_xfrm_skb_secid(skb, &fl.secid);
- 
- 			if ((err = ip6_dst_lookup(sk, &dst, &fl))) {
- 				sk->sk_err_soft = -err;
-@@ -468,6 +471,7 @@ static int tcp_v6_send_synack(struct soc
- 	fl.oif = treq->iif;
- 	fl.fl_ip_dport = inet_rsk(req)->rmt_port;
- 	fl.fl_ip_sport = inet_sk(sk)->sport;
-+	security_sk_secid(sk, &fl.secid);
- 
- 	if (dst == NULL) {
- 		opt = np->opt;
-@@ -608,6 +612,7 @@ static void tcp_v6_send_reset(struct sk_
- 	fl.oif = inet6_iif(skb);
- 	fl.fl_ip_dport = t1->dest;
- 	fl.fl_ip_sport = t1->source;
-+	security_xfrm_skb_secid(skb, &fl.secid);
- 
- 	/* sk = NULL, but it is safe for now. RST socket required. */
- 	if (!ip6_dst_lookup(NULL, &buff->dst, &fl)) {
-@@ -674,6 +679,7 @@ static void tcp_v6_send_ack(struct sk_bu
- 	fl.oif = inet6_iif(skb);
- 	fl.fl_ip_dport = t1->dest;
- 	fl.fl_ip_sport = t1->source;
-+	security_xfrm_skb_secid(skb, &fl.secid);
- 
- 	if (!ip6_dst_lookup(NULL, &buff->dst, &fl)) {
- 		if (xfrm_lookup(&buff->dst, &fl, NULL, 0) >= 0) {
-@@ -907,6 +913,7 @@ static struct sock * tcp_v6_syn_recv_soc
- 		fl.oif = sk->sk_bound_dev_if;
- 		fl.fl_ip_dport = inet_rsk(req)->rmt_port;
- 		fl.fl_ip_sport = inet_sk(sk)->sport;
-+		security_sk_secid(sk, &fl.secid);
- 
- 		if (ip6_dst_lookup(sk, &dst, &fl))
- 			goto out;
---- linux-2.6.17.af_key/net/ipv6/udp.c	2006-07-11 16:04:20.000000000 -0500
-+++ linux-2.6.17/net/ipv6/udp.c	2006-07-12 09:10:02.000000000 -0500
-@@ -782,6 +782,8 @@ do_udp_sendmsg:
- 		connected = 0;
- 	}
- 
-+	security_sk_secid(sk, &fl->secid);
-+
- 	err = ip6_dst_lookup(sk, &dst, fl);
- 	if (err)
- 		goto out;
---- linux-2.6.17.af_key/net/xfrm/xfrm_policy.c	2006-07-11 19:57:00.000000000 -0500
-+++ linux-2.6.17/net/xfrm/xfrm_policy.c	2006-07-12 09:10:02.000000000 -0500
-@@ -864,7 +864,6 @@ int xfrm_lookup(struct dst_entry **dst_p
- 	u16 family;
- 	u8 dir = policy_to_flow_dir(XFRM_POLICY_OUT);
- 
--	fl->secid = security_sk_sid(sk, fl, dir);
- restart:
- 	genid = atomic_read(&flow_cache_genid);
- 	policy = NULL;
-@@ -1040,7 +1039,7 @@ xfrm_decode_session(struct sk_buff *skb,
- 		return -EAFNOSUPPORT;
- 
- 	afinfo->decode_session(skb, fl);
--	err = security_xfrm_decode_session(skb, fl);
-+	err = security_xfrm_decode_session(skb, &fl->secid);
- 	xfrm_policy_put_afinfo(afinfo);
- 	return err;
- }
