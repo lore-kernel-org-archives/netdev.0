@@ -1,64 +1,55 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 08/10] MLSXFRM: Add security context to acquire messages
- using PF_KEY
-Date: Thu, 13 Jul 2006 11:24:25 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0607131119080.6169@d.namei>
-References: <44B56642.6060500@trustedcs.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
-	tjaeger@cse.psu.edu, selinux@tycho.nsa.gov,
-	"David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH] zd1211rw: Implement SIOCGIWNICKN
+Date: Thu, 13 Jul 2006 17:56:16 +0100 (BST)
+Message-ID: <20060713165616.3FFD78B3552@zog.reactivated.net>
+Cc: kune@deine-taler.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:40580 "EHLO
-	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S964781AbWGMPY1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jul 2006 11:24:27 -0400
-To: Venkat Yekkirala <vyekkirala@trustedcs.com>
-In-Reply-To: <44B56642.6060500@trustedcs.com>
+Received: from mta08-winn.ispmail.ntl.com ([81.103.221.48]:6670 "EHLO
+	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S1030245AbWGMQ4Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jul 2006 12:56:16 -0400
+To: linville@tuxdriver.com
+Cc: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Jul 2006, Venkat Yekkirala wrote:
+wireless.h discourages using SIOCGIWNAME to publish the driver name
+which the interface belongs to. Use SIOCGIWNICKN instead.
 
-> This labels the flows that could utilize IPSec xfrms at the points they
-> are defined so that IPSec policy and SAs at the right label can be used.
-> 
-> The following protos are currently not handled, but they should continue
-> to be able to use single-labeled IPSec like they currently do.
-> 
-> ipmr
-> ip_gre
-> ipip
-> igmp
-> sit
-> sctp
-> ip6_tunnel (IPv6 over IPv6 tunnel device)
-> decnet
-> 
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
 
-Also, just to bring netdev up to date on this, previous discussion on the 
-redhat-lspp list about this patch:
-
-(myself):
-> This seems problematic in that it's not a general solution and depends 
-> always on hooking in at all of the right places in every protocol.  
-> Adding a bunch of hooks to protocol-specific code is what got us in trouble 
-> with the initial LSM submission.
->
-> What about using secmark and connection tracking for this, instead?
-
-
-I did get a reply from Venkat but can't find it in the archives, so it may 
-have been off-list?
-
-IIRC, the outgoing netfilter hook is in the wrong location.
-
-Venkat, please clarify.
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+diff --git a/drivers/net/wireless/zd1211rw/zd_netdev.c b/drivers/net/wireless/zd1211rw/zd_netdev.c
+index 9df232c..440ef24 100644
+--- a/drivers/net/wireless/zd1211rw/zd_netdev.c
++++ b/drivers/net/wireless/zd1211rw/zd_netdev.c
+@@ -72,10 +72,18 @@ static int iw_get_name(struct net_device
+ 	               struct iw_request_info *info,
+ 		       union iwreq_data *req, char *extra)
+ {
+-	/* FIXME: check whether 802.11a will also supported, add also
+-	 *        zd1211B, if we support it.
+-	 */
+-	strlcpy(req->name, "802.11g zd1211", IFNAMSIZ);
++	/* FIXME: check whether 802.11a will also supported */
++	strlcpy(req->name, "IEEE 802.11b/g", IFNAMSIZ);
++	return 0;
++}
++
++static int iw_get_nick(struct net_device *netdev,
++	               struct iw_request_info *info,
++		       union iwreq_data *req, char *extra)
++{
++	strcpy(extra, "zd1211");
++	req->data.length = strlen(extra) + 1;
++	req->data.flags = 1;
+ 	return 0;
+ }
+ 
+@@ -181,6 +189,7 @@ #define WX(x) [(x)-SIOCIWFIRST]
+ 
+ static const iw_handler zd_standard_iw_handlers[] = {
+ 	WX(SIOCGIWNAME)		= iw_get_name,
++	WX(SIOCGIWNICKN)	= iw_get_nick,
+ 	WX(SIOCSIWFREQ)		= iw_set_freq,
+ 	WX(SIOCGIWFREQ)		= iw_get_freq,
+ 	WX(SIOCSIWMODE)		= iw_set_mode,
