@@ -1,71 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: another networking lockdep bug
-Date: Thu, 13 Jul 2006 19:17:34 +1000
-Message-ID: <E1G0xKA-0007Ts-00@gondolin.me.apana.org.au>
-References: <20060713040715.GE4199@redhat.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	arjan@infradead.org, mingo@elte.hu
+From: Jens Osterkamp <jens@de.ibm.com>
+Subject: [patch 0/2] spidernet : two important bugfixes
+Date: Thu, 13 Jul 2006 11:53:47 +0200
+Message-ID: <200607131153.47572.jens@de.ibm.com>
+Mime-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org, arndb@de.ibm.com,
+	maxim@de.ibm.com, utz.bacher@de.ibm.com, seg@us.ibm.com,
+	jklewis@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:26121 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S964858AbWGMJRp
+Received: from mtagate2.de.ibm.com ([195.212.29.151]:33549 "EHLO
+	mtagate2.de.ibm.com") by vger.kernel.org with ESMTP id S932429AbWGMJy2
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jul 2006 05:17:45 -0400
-To: davej@redhat.com (Dave Jones)
-In-Reply-To: <20060713040715.GE4199@redhat.com>
+	Thu, 13 Jul 2006 05:54:28 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate2.de.ibm.com (8.13.6/8.13.6) with ESMTP id k6D9sP8S163886
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Thu, 13 Jul 2006 09:54:27 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k6D9vL6Z122966
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 13 Jul 2006 11:57:21 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k6D9sNW4007803
+	for <netdev@vger.kernel.org>; Thu, 13 Jul 2006 11:54:24 +0200
+To: jgarzik@pobox.com
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave Jones <davej@redhat.com> wrote:
-> Not sure if this one got reported/fixed yet, as I was running
-> a kernel from sometime last week..
+This patchset contains two bugfixes, one fixes a bug in the
+code clearing out the sequencer ram at startup. The other is
+a fix for the tx queue stopping to send packets in heavy load
+situations.
 
-I think we've seen a couple of similar ones, this one is more
-elaborate though :)
- 
-> -> #1 (rtnl_mutex){--..}:
->       [<ffffffff802ab792>] lock_acquire+0x4a/0x69
->       [<ffffffff802691c2>] __mutex_lock_slowpath+0xeb/0x29f
->       [<ffffffff8026939f>] mutex_lock+0x29/0x2e
->       [<ffffffff8042d973>] rtnl_lock+0xf/0x12
->       [<ffffffff8045c18a>] ip_mc_leave_group+0x1e/0xae
->       [<ffffffff80446087>] do_ip_setsockopt+0x6ad/0x9b2
->       [<ffffffff8044643a>] ip_setsockopt+0x2a/0x84
->       [<ffffffff80454328>] udp_setsockopt+0xd/0x1c
->       [<ffffffff8041f094>] sock_common_setsockopt+0xe/0x11
->       [<ffffffff8041e20f>] sys_setsockopt+0x8e/0xb4
->       [<ffffffff80262fd9>] tracesys+0xd0/0xdb
-> 
-> -> #0 (sk_lock-AF_INET){--..}:
->       [<ffffffff802ab792>] lock_acquire+0x4a/0x69
->       [<ffffffff8023726c>] lock_sock+0xd4/0xe7
->       [<ffffffff80228061>] tcp_sendmsg+0x1e/0xb1a
->       [<ffffffff80248ff8>] inet_sendmsg+0x45/0x53
->       [<ffffffff80259dd3>] sock_sendmsg+0x110/0x130
->       [<ffffffff8041ed0c>] kernel_sendmsg+0x3c/0x52
->       [<ffffffff8853c9e9>] xs_tcp_send_request+0x117/0x320 [sunrpc]
->       [<ffffffff8853b8d5>] xprt_transmit+0x105/0x21e [sunrpc]
->       [<ffffffff8853a71e>] call_transmit+0x1f4/0x239 [sunrpc]
->       [<ffffffff8853f06e>] __rpc_execute+0x9b/0x1e6 [sunrpc]
->       [<ffffffff8853f1de>] rpc_execute+0x1a/0x1d [sunrpc]
->       [<ffffffff885394ad>] rpc_call_sync+0x87/0xb9 [sunrpc]
->       [<ffffffff885a5587>] nfs3_rpc_wrapper+0x2e/0x74 [nfs]
->       [<ffffffff885a5870>] nfs3_proc_setattr+0x9b/0xd3 [nfs]
->       [<ffffffff8859bffb>] nfs_setattr+0xe9/0x11e [nfs]
->       [<ffffffff8022f7b4>] notify_change+0x154/0x2f7
->       [<ffffffff802e00c7>] do_truncate+0x52/0x72
->       [<ffffffff80212d17>] may_open+0x1d5/0x231
->       [<ffffffff8021c270>] open_namei+0x290/0x6b4
->       [<ffffffff80229974>] do_filp_open+0x27/0x46
->       [<ffffffff8021acb7>] do_sys_open+0x4e/0xcd
->       [<ffffffff80234b2a>] sys_open+0x1a/0x1d
->       [<ffffffff80262fd9>] tracesys+0xd0/0xdb
+Please consider these for inclusion into 2.6.18.
 
-We know this is a false positive because the NFS sockets are not
-exported to user-space and therefore #1 can't happen.
+--
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
