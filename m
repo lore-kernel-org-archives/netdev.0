@@ -1,78 +1,47 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: [PATCH 10/10] MLSXFRM: Auto-labeling of child sockets
-Date: Thu, 13 Jul 2006 09:48:38 -0400
-Message-ID: <1152798518.10075.273.camel@moss-spartans.epoch.ncsc.mil>
-References: <44B56655.9080303@trustedcs.com>
+From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+Subject: RE: [PATCH 03/10] MLSXFRM: Add security sid to sock
+Date: Thu, 13 Jul 2006 09:59:06 -0400
+Message-ID: <36282A1733C57546BE392885C06185920138E0D5@chaos.tcs.tcs-sec.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Cc: netdev@vger.kernel.org, jmorris@namei.org, tjaeger@cse.psu.edu,
 	selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mummy.ncsc.mil ([144.51.88.129]:40426 "EHLO jazzhorn.ncsc.mil")
-	by vger.kernel.org with ESMTP id S1751442AbWGMNqF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2006 09:46:05 -0400
-To: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-In-Reply-To: <44B56655.9080303@trustedcs.com>
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:57160 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1751494AbWGMN7Y
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jul 2006 09:59:24 -0400
+To: Stephen Smalley <sds@tycho.nsa.gov>,
+	Venkat Yekkirala <vyekkirala@TrustedCS.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-07-12 at 16:15 -0500, Venkat Yekkirala wrote:
-> This automatically labels the TCP, Unix stream, and dccp child sockets
-> as well as openreqs to be at the same MLS level as the peer.
+> Is it ever possible for the isec->sid and the sksec->sid to be
+> inconsistent with one another?
+
+I can't think of any possibility of this happening.
+
+>  Could you just always return the
+> sksec->sid here and avoid the need to grab the isec 
+> altogether (dropping
+> the requirement for sk_callback_lock at the same time, since you no
+> longer need sk_socket)?
+
+Will do.
 > 
-> Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-> ---
->  include/linux/security.h        |   43 ++++++++++++++++++++++++++
->  include/net/request_sock.h      |    1 
->  include/net/sock.h              |    1 
->  net/dccp/ipv4.c                 |    3 +
->  net/dccp/ipv6.c                 |    7 +++-
->  net/ipv4/inet_connection_sock.c |    4 +-
->  net/ipv4/syncookies.c           |    6 +++
->  net/ipv4/tcp_ipv4.c             |    3 +
->  net/ipv6/tcp_ipv6.c             |    6 ++-
->  security/dummy.c                |   18 +++++++++++
->  security/selinux/hooks.c        |   49 +++++++++++++++++++++++++++++-
->  security/selinux/xfrm.c         |    1 
->  12 files changed, 134 insertions(+), 8 deletions(-)
-> 
+> Likewise, given sksec->sid, why don't you change sock_rcv_skb 
+> to always
+> use it, and eliminate the need for the isec and the sk_callback_lock
+> there?
 
-> --- linux-2.6.17.sk_policy/security/selinux/hooks.c	2006-07-12 09:18:59.000000000 -0500
-> +++ linux-2.6.17/security/selinux/hooks.c	2006-07-12 14:55:16.000000000 -0500
-> @@ -3324,7 +3324,12 @@ static int selinux_socket_unix_stream_co
->  	/* server child socket */
->  	ssec = newsk->sk_security;
->  	ssec->peer_sid = isec->sid;
-> -	
-> +	err = security_sid_mls_copy(other_isec->sid, ssec->peer_sid, &ssec->sid);
-> +	if (err) {
-> +		printk(KERN_ERR "ERROR: security_sid_mls_copy failed.");
+This is actually on my list of things to do already :) more for
+the reason that this would help enforce controls on any data that
+arrive for the socket between the time it's created and the time it's
+accepted. Was planning to do this as part of the next patch reconciling
+the various secids (IPSec, secmark, netlabel) per the design doc.
 
-Drop the printk please.  It isn't precisely a useful error message
-anyway.  If you need to audit such failures, then do it within the
-function and use audit_log, and make the message useful.
+>   Similarly for postroute_last's use of isec->sid.  With direct
+> labeling of the sock, it is no longer necessary to extract the isec.
 
-> +int selinux_inet_conn_request(struct sock *sk, struct sk_buff *skb, 
-> +					   struct request_sock *req)
-> +{
-> +	struct sk_security_struct *sksec = sk->sk_security;
-> +	int err;
-> +	u32 newsid = 0;
-> +	u32 peersid;
-> +
-> +	BUG_ON(selinux_xfrm_decode_session(skb, &peersid, 0));
-
-Doesn't seem suitable for a BUG_ON.
-
-> +
-> +	err = security_sid_mls_copy(sksec->sid, peersid, &newsid);
-> +	if (err) {
-> +		printk(KERN_ERR "ERROR: security_sid_mls_copy failed.");
-
-Drop the printk.
-
--- 
-Stephen Smalley
-National Security Agency
-
+Sure. Thanks.
