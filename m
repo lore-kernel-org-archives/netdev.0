@@ -1,32 +1,18 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: jumbo frames and memory fragmentation
-Date: Thu, 13 Jul 2006 22:13:42 +1000
-Message-ID: <E1G104c-0007qF-00@gondolin.me.apana.org.au>
-References: <44A56520.5010703@nortel.com>
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+From: "Painter" <Paintercatenate@lobbyist.com>
+Subject: You have feelings of guilt and  =?ISO-8859-1?Q?=20embarrassment=85?=
+Date: Thu, 13 Jul 2006 08:10:55 -0500
+Message-ID: <45415430484167.46F483E648@P3PIKBV6>
+Mime-Version: 1.0
+Content-Type: text/plain;
+        charset="Windows-1252"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:54540 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751535AbWGMMOA
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jul 2006 08:14:00 -0400
-To: cfriesen@nortel.com (Chris Friesen)
-In-Reply-To: <44A56520.5010703@nortel.com>
+Received: from c-71-201-5-202.hsd1.il.comcast.net ([71.201.5.202]:10506 "EHLO
+	LMAY042A") by vger.kernel.org with ESMTP id S1030196AbWGMNJv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2006 09:09:51 -0400
+To: <nux-newbie-owner@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Friesen <cfriesen@nortel.com> wrote:
-> Herbert Xu wrote:
-> 
->> Either upgrade your kernel or backport the page-splitting code in the
->> current tree.  That's really the only sane solution for jumbo packets.
-> 
-> Looking at the page-splitting code, it says "82571 and greater support 
-> packet-split...".  We're running the 82546GB device.  Looks like it 
-> won't help me.
+Hello my friend! Younger and older males face this difficulty. Whatever your age, you have the answer. Keep her satisfied forever with Extra-Time which makes you Mr. Long Laster. Don't let your partner leave you because of being unhappy with the duration of your acts. Just take a look: http://ferrold.com/dll/get/ You'll bring your marriage to new levels of passion and dedication with this.
 
-Well, time to fork out for a new card then :)
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
