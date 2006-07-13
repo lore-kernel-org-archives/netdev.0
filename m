@@ -1,32 +1,30 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH wireless-dev] d80211: Replace rc4 code with crypto api
- arc4
-Date: Thu, 13 Jul 2006 13:03:27 +0200
-Message-ID: <20060713130327.228eec9c@griffin.suse.cz>
-References: <200607130140.09916.flamingice@sourmilk.net>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [SLHC 0/4] Misc SLHC cleanups
+Date: Thu, 13 Jul 2006 12:03:46 +0100
+Message-ID: <200607131103.k6DB3k1h019839@denk.linux-mips.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:57793 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751515AbWGMLDc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2006 07:03:32 -0400
-To: Michael Wu <flamingice@sourmilk.net>
-In-Reply-To: <200607130140.09916.flamingice@sourmilk.net>
+Received: from ftp.linux-mips.org ([194.74.144.162]:6813 "EHLO
+	ftp.linux-mips.org") by vger.kernel.org with ESMTP id S1751512AbWGMLDq
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jul 2006 07:03:46 -0400
+Received: from localhost.localdomain ([127.0.0.1]:6602 "EHLO bacchus.dhis.org")
+	by ftp.linux-mips.org with ESMTP id S8133457AbWGMLDp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2006 12:03:45 +0100
+Received: from denk.linux-mips.net (denk.linux-mips.net [127.0.0.1])
+	by bacchus.dhis.org (8.13.6/8.13.4) with ESMTP id k6DB3kHl019840
+	for <netdev@vger.kernel.org>; Thu, 13 Jul 2006 12:03:46 +0100
+Received: (from ralf@localhost)
+	by denk.linux-mips.net (8.13.6/8.13.6/Submit) id k6DB3k1h019839
+	for netdev@vger.kernel.org; Thu, 13 Jul 2006 12:03:46 +0100
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kkeil@suse.de, Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 13 Jul 2006 01:39:59 -0700, Michael Wu wrote:
-> This patch replaces the rc4 code used in wep.c with crypto api's arc4
-> cipher. The struct crypto_tfm passing in tkip isn't great, but it'll get fixed
-> when tkip is converted to use crypto api entirely. (michael_mic)
+This is a series of small cleanup to the SLHC code as part of my work on
+VJ compressed IP over AX.25
 
-Great work! Thanks, I'll apply the patch to my tree (there is a minor
-conflict) and push it to John eventually.
-
- Jiri
-
--- 
-Jiri Benc
-SUSE Labs
+  Ralf
