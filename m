@@ -1,47 +1,87 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: e1000 fails to load sometimes: The EEPROM Checksum Is Not Valid
-Date: Thu, 13 Jul 2006 14:24:38 -0700
-Message-ID: <44B6BA16.5040902@intel.com>
-References: <44B69545.8000507@intel.com> <44B6B14A.3020001@goop.org> <44B6B43B.6000005@intel.com> <44B6B5FB.6070400@goop.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2/2] correct dev_alloc_skb kerneldoc
+Date: Thu, 13 Jul 2006 14:24:40 -0700
+Message-ID: <20060713142440.0e487717@dxpl.pdx.osdl.net>
+References: <20060707155255.10f2e10f@dxpl.pdx.osdl.net>
+	<20060707.165527.77037268.davem@davemloft.net>
+	<20060708104811.GB31751@lst.de>
+	<20060708.133738.123994596.davem@davemloft.net>
+	<20060713203615.GA26954@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>,
-	profilek@users.sourceforge.net, squat@users.sourceforge.net,
-	NetDev <netdev@vger.kernel.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	support@pathscale.com, samuel@sortiz.org, kkeil@suse.de,
+	kai.germaschewski@gmx.de, chas@cmf.nrl.navy.mil, paulus@samba.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:1285 "EHLO
-	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
-	id S1030350AbWGMVZN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jul 2006 17:25:13 -0400
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-In-Reply-To: <44B6B5FB.6070400@goop.org>
+Received: from smtp.osdl.org ([65.172.181.4]:37322 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030402AbWGMVZ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2006 17:25:27 -0400
+To: Christoph Hellwig <hch@lst.de>
+In-Reply-To: <20060713203615.GA26954@lst.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeremy Fitzhardinge wrote:
-> Auke Kok wrote:
->> See:
->>
->> http://www-307.ibm.com/pc/support/site.wss/document.do?lndocid=MIGR-63027
->>
->> links to the latest .iso image.
->>
->> Note: I haven't tried the 1.07 update myself. I had to *downgrade* our 
->> test system to actually expose the bug. 
-> This appears to be a link to the T60 1.06 update.  Do you know if 
-> they're planning an X60 update too?
+On Thu, 13 Jul 2006 22:36:16 +0200
+Christoph Hellwig <hch@lst.de> wrote:
 
-x60 bios upgrade 1.06 is here: (found by typing "x60 bios" in the search bar 
-on the same website)
+> On Sat, Jul 08, 2006 at 01:37:38PM -0700, David Miller wrote:
+> > > My plan is to give dev_alloc_skb a struct netdevice * argument and
+> > > introduce a alloc_netdev_node so the driver can tell what node the
+> > > device is on.  This gives a significant speedup for cell.  I already
+> > > have this implemented in fact but only converted a handfull of drivers.
+> > > 
+> > > Does this approach sound okay?
+> > 
+> > I do not think it is feasible to add a netdevice argument to
+> > such a widely used interface.
+> > 
+> > I would instead recommend that you add a new interface, and
+> > we convert drivers gradually.
+> 
+> I gave converting the dev_alloc_skb prototype everywhere a spin and it
+> doesn't look too bad.  There's only a few places that don't have a
+> netdevice at hand, and all these look bogus:
+> 
+>  - drivers/atm/{idt77252.c, nicstar.c}, drivers/usb/atm/usbatm.c:
+> 	These use private skb queues and do odd things.  I can't see
+> 	any point for using dev_alloc_skb with it's additional headroom
+> 	reservation here.
+>  - drivers/isdn/<everything> :
+> 	These don't even have a netdevice!  Also I can't see why they
+> 	need the headroom.
+>  - drivers/net/{ppp_async.c,drivers/net/ppp_async.c}:
+>    	They take data from the underlying tty device.  Because of that
+> 	there's not point for he additional headroom.
+>  - net/irda/*:
+>    	They allocate the skb in protocol code for TX.  Should probably
+> 	do a normal alloc_skb like all the other protocol code.
+>  - drivers/infiniband/hw/ipath/ipath_driver.c:
+>    	Uses skbbuffs in a driver that has absolutely nothing to do
+> 	with networking.  Duh..
+> 
+> I've added the respective maintainers to the cc list here so they can
+> comment on these usages.
+> 
+> The patchkit for this is at http://verein.lst.de/~hch/patches.skb.tgz, it
+> includes the first two cleanup patches I posted previously (Any plans
+> to put them in?), a patch to move __dev_alloc_skb out of line because
+> otherwise we'd need to include netdevice.h in skbuff.h which creates
+> lots of problems (and moving it out of lines shaves 10kb off a
+> allyesconfig), the dev_alloc_skb prototype changes and some experimental
+> patches to make dev_alloc_skb nodeaware.
+> 
+> > That netdevice argument is useful for other things.  For example,
+> > you can use it to apply a per-netdev random memory allocation
+> > failure setting, to test the robustness of drivers.  I came up
+> > with that idea something like 7 years ago but never got around
+> > to doing it :)
+> 
+> Sounds cool.  While doing the change I also noticed that assigning
+> skb->dev can move in there aswell, but I haven't done that change yet.
 
-http://www-307.ibm.com/pc/support/site.wss/license.do?filename=mobiles/7buj04uc.iso
+What's the new name? For sanity, don't reuse the name dev_alloc_skb.
 
-unfortunately the changelog for this BIOS upgrade doesn't tell us much if the 
-DSPD feature was affected or not. I also have not tried this one either.
-
-Cheers,
-
-Auke
+-- 
+Stephen Hemminger <shemminger@osdl.org>
+"And in the Packet there writ down that doome"
