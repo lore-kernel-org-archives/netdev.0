@@ -1,49 +1,63 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: I/O Acceleration Technology Nics
-Date: Fri, 14 Jul 2006 09:41:18 -0700
-Message-ID: <44B7C92E.6050502@hp.com>
-References: <d0383f90607140250u2e958470o4ba6b072dd57df3d@mail.gmail.com>
+From: Guillaume Chazarain <guichaz@yahoo.fr>
+Subject: Re: Netem does not work with loopback
+Date: Fri, 14 Jul 2006 19:04:01 +0200
+Message-ID: <44B7CE81.8020800@yahoo.fr>
+References: <44B7AB76.2030700@yahoo.fr> <20060714083847.6997a460@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+ boundary="------------030402010607000704050809"
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel13.hp.com ([156.153.255.238]:57485 "EHLO palrel13.hp.com")
-	by vger.kernel.org with ESMTP id S1161265AbWGNQlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 12:41:19 -0400
-To: Ian Brown <ianbrn@gmail.com>
-In-Reply-To: <d0383f90607140250u2e958470o4ba6b072dd57df3d@mail.gmail.com>
+Received: from smtp4-g19.free.fr ([212.27.42.30]:3991 "EHLO smtp4-g19.free.fr")
+	by vger.kernel.org with ESMTP id S1161248AbWGNRDA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 13:03:00 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060714083847.6997a460@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ian Brown wrote:
-> Hello,
->  I came across the e1000 download for linux in intel site.
-> I saw that in the readme they talk about Intel(R) I/O Acceleration 
-> Technology;
-> According to this readme , there is support for "systems using the
-> Intel(R) 5000 Series Chipsets Integrated Device - 1A38".
-> see:
-> http://downloadmirror.intel.com/df-support/9180/ENG/README.txt
-> 
-> My question is : did anybody tried using chipsets with this I/O
-> Acceleration Technology ?  Did he get a significant performance
-> improvement over non I/O Accelerated nics ?
+This is a multi-part message in MIME format.
+--------------030402010607000704050809
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-IIRC, there were some measures made and discussed at least a little in 
-netdev.  A search of the archives should find them.
+Stephen Hemminger wrote :
+> Isn't the skb owned by netem at that point...
+>   
+Thank you, that makes sense to me.
+But then the loopback device reinjects the skb without cleaning skb->cb.
 
-I would also expect that Intel would have some glossy PDF's on their 
-site touting the performance boosts technology :)  They should at least 
-somewhere have some links to actual measurements...
+The attached patch solves the problem for me (netem on lo). Maybe the
+correct solution would be to make a skb->destructor function for netem,
+but I am not sure this is the intended use of a destructor function.
 
-> Ian
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks.
 
-I suspect the URL above there will start one on the path to the email 
-archive.
+-- 
+Guillaume
 
-rick jones
+
+--------------030402010607000704050809
+Content-Type: text/x-patch;
+ name="loopback_zero_cb.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="loopback_zero_cb.diff"
+
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -156,6 +156,9 @@
+ 	lb_stats->tx_packets = lb_stats->rx_packets;
+ 	put_cpu();
+ 
++	/* Get rid of all the private data accumulated in the sending part */
++	memset(skb->cb, 0, sizeof(skb->cb));
++
+ 	netif_rx(skb);
+ 
+ 	return(0);
+
+-- 
+Signed-off-by: Guillaume Chazarain <guichaz@yahoo.fr>
+
+--------------030402010607000704050809--
