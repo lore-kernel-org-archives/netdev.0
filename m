@@ -1,64 +1,45 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Bluetooth update for 2.6
-Date: Fri, 14 Jul 2006 16:38:31 +0200
-Message-ID: <1152887911.25660.32.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH 2/2] correct dev_alloc_skb kerneldoc
+Date: Fri, 14 Jul 2006 11:24:38 -0400
+Message-ID: <200607141524.k6EFOcS0025630@cmf.nrl.navy.mil>
+References: <20060713.134735.23014475.davem@davemloft.net>
+Reply-To: chas3@users.sourceforge.net
+Cc: hch@lst.de, shemminger@osdl.org, netdev@vger.kernel.org,
+	support@pathscale.com, samuel@sortiz.org, kkeil@suse.de,
+	kai.germaschewski@gmx.de, paulus@samba.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([217.160.111.169]:32209 "EHLO
-	mail.holtmann.net") by vger.kernel.org with ESMTP id S1161114AbWGNOiM
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jul 2006 10:38:12 -0400
-To: "David S. Miller" <davem@davemloft.net>
+Received: from ginger.cmf.nrl.navy.mil ([134.207.12.161]:50393 "EHLO
+	ginger.cmf.nrl.navy.mil") by vger.kernel.org with ESMTP
+	id S1161121AbWGNP0m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jul 2006 11:26:42 -0400
+To: David Miller <davem@davemloft.net>
+In-reply-to: <20060713.134735.23014475.davem@davemloft.net> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+In message <20060713.134735.23014475.davem@davemloft.net>,David Miller writes:
+>From: Christoph Hellwig <hch@lst.de>
+>Date: Thu, 13 Jul 2006 22:36:16 +0200
+>>  - drivers/atm/{idt77252.c, nicstar.c}, drivers/usb/atm/usbatm.c:
+>> 	These use private skb queues and do odd things.  I can't see
+>> 	any point for using dev_alloc_skb with it's additional headroom
+>> 	reservation here.
 
-here are two more bug fixes for the Bluetooth subsystem. Both are
-workarounds for either broken implementations or broken hardware.
+as i recall, for simple rfc1483 encapsulation, the LLC/SNAP header of 8
+bytes needs to be replaced by an ether header of 14 bytes.  its likely
+this is the reason dev_alloc_skb() is used.  most of the other drivers
+use atm_alloc_charge() which does a skb_reserve(), but these drivers
+dont dma directly into a skb.
 
-Regards
+>Any of these cases that DMA into the skb allocated will need
+>the headroom, as explained by the PowerPC folks.
 
-Marcel
+this only works for "ordinary" ip traffic (which i admit is the most
+common case).  but since the nicstar/idt77252 devices have a peak
+speed of 155Mb/s i doubt they would suffer much.  considering they still
+use virt_to_bus/bus_to_virt i would be a bit surprised if they worked
+(atleast on ppc64).  they can be simply converted to alloc_skb() and
+manually skb_reserve() a little overhead.
 
-
-Please pull from
-
-        git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
-
-This will update the following files:
-
- drivers/bluetooth/hci_usb.c |   17 +++++++++++++++--
- net/bluetooth/rfcomm/core.c |   19 +++++++++++++++++--
- 2 files changed, 32 insertions(+), 4 deletions(-)
-
-through these ChangeSets:
-
-Marcel Holtmann <marcel@holtmann.org> Fri, 14 Jul 2006 16:01:52 +0200 
-
-    [Bluetooth] Correct SCO buffer size for another Broadcom chip
-    
-    The SCO buffer size values on IBM/Lenovo ThinkPad laptops with a
-    Bluetooth chip from Broadcom are wrong. The USB Bluetooth driver
-    has to set a quirk to correct the SCO buffer size values.
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-
-Marcel Holtmann <marcel@holtmann.org> Fri, 14 Jul 2006 11:42:12 +0200 
-
-    [Bluetooth] Correct RFCOMM channel MTU for broken implementations
-    
-    Some Bluetooth RFCOMM implementations try to negotiate a bigger channel
-    MTU than we can support for a particular session. The maximum MTU for
-    a RFCOMM session is limited through the L2CAP layer. So if the other
-    side proposes a channel MTU that is bigger than the underlying L2CAP
-    MTU, we should reduce it to the L2CAP MTU of the session minus five
-    bytes for the RFCOMM headers.
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
-
-
-
+usbatm should probably be converted to use atm_alloc_charge() since
+the vcc is known at this point unlike the nicstar/idt77252 case.
