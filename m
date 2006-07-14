@@ -1,45 +1,66 @@
-From: Chuck Ebbert <76306.1226@compuserve.com>
-Subject: [patch] ieee80211: TKIP requires CRC32
-Date: Fri, 14 Jul 2006 18:51:41 -0400
-Message-ID: <200607141855_MC3-1-C4FF-BD1B@compuserve.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] remove unused routines from d80211 version of bcm43xx
+Date: Sat, 15 Jul 2006 01:02:30 +0200
+Message-ID: <200607150102.30704.mb@bu3sch.de>
+References: <44B806DA.5010809@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	 charset=us-ascii
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Toralf Foerster <toralf.foerster@gmx.de>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-stable <stable@kernel.org>, Andrew Morton <akpm@osdl.org>
+Cc: Larry Finger <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from liaag1aa.mx.compuserve.com ([149.174.40.27]:13271 "EHLO
-	liaag1aa.mx.compuserve.com") by vger.kernel.org with ESMTP
-	id S1030435AbWGNW6z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jul 2006 18:58:55 -0400
-To: linux-netdev <netdev@vger.kernel.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:62114
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1030460AbWGNXAW
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jul 2006 19:00:22 -0400
+To: John Linville <linville@tuxdriver.com>
+In-Reply-To: <44B806DA.5010809@lwfinger.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ieee80211_crypt_tkip will not work without CRC32.
+On Friday 14 July 2006 23:04, you wrote:
+> This patch removes some unused static inline routines from bcm43xx-d80211 version of bcm43xx_main.h.
+> 
+> Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
 
-  LD      .tmp_vmlinux1
-net/built-in.o: In function `ieee80211_tkip_encrypt':
-net/ieee80211/ieee80211_crypt_tkip.c:349: undefined reference to `crc32_le'
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-Reported by Toralf Foerster <toralf.foerster@gmx.de>
+> ===========================================================
+> 
+> index e228833..04d8b91 100644
+> --- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.h
+> +++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.h
+> @@ -112,30 +112,6 @@ int bcm43xx_channel_to_freq(struct bcm43
+>      return bcm43xx_channel_to_freq_bg(channel);
+>   }
+> 
+> -/* Lightweight function to check if a channel number is valid.
+> - * Note that this does _NOT_ check for geographical restrictions!
+> - */
+> -static inline
+> -int bcm43xx_is_valid_channel_a(u8 channel)
+> -{
+> -    return (channel >= IEEE80211_52GHZ_MIN_CHANNEL
+> -           && channel <= IEEE80211_52GHZ_MAX_CHANNEL);
+> -}
+> -static inline
+> -int bcm43xx_is_valid_channel_bg(u8 channel)
+> -{
+> -    return (channel >= IEEE80211_24GHZ_MIN_CHANNEL
+> -           && channel <= IEEE80211_24GHZ_MAX_CHANNEL);
+> -}
+> -static inline
+> -int bcm43xx_is_valid_channel(struct bcm43xx_private *bcm,
+> -                  u8 channel)
+> -{
+> -    if (bcm43xx_current_phy(bcm)->type == BCM43xx_PHYTYPE_A)
+> -        return bcm43xx_is_valid_channel_a(channel);
+> -    return bcm43xx_is_valid_channel_bg(channel);
+> -}
+> -
+>   void bcm43xx_tsf_read(struct bcm43xx_private *bcm, u64 *tsf);
+>   void bcm43xx_tsf_write(struct bcm43xx_private *bcm, u64 tsf);
 
-Signed-off-by: Chuck Ebbert <76306.1226@compuserve.com>
-
---- 2.6.18-rc1-32.orig/net/ieee80211/Kconfig
-+++ 2.6.18-rc1-32/net/ieee80211/Kconfig
-@@ -58,6 +58,7 @@ config IEEE80211_CRYPT_TKIP
- 	depends on IEEE80211 && NET_RADIO
- 	select CRYPTO
- 	select CRYPTO_MICHAEL_MIC
-+	select CRC32
- 	---help---
- 	Include software based cipher suites in support of IEEE 802.11i
- 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with TKIP enabled
 -- 
-Chuck
- "You can't read a newspaper if you can't read."  --George W. Bush
+Greetings Michael.
