@@ -1,35 +1,127 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 08/10] MLSXFRM: Add security context to acquire messages
- using PF_KEY
-Date: Fri, 14 Jul 2006 09:54:59 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0607140952220.15305@d.namei>
-References: <44B56642.6060500@trustedcs.com> <20060713.230445.106436593.davem@davemloft.net>
+From: Guillaume Chazarain <guichaz@yahoo.fr>
+Subject: Patch "[PKT_SCHED]: PSCHED_TADD() and PSCHED_TADD2() can result,tv_usec
+ >= 1000000" seems wrong
+Date: Fri, 14 Jul 2006 16:17:16 +0200
+Message-ID: <44B7A76C.4010703@yahoo.fr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: vyekkirala@trustedcs.com, netdev@vger.kernel.org,
-	Stephen Smalley <sds@tycho.nsa.gov>, tjaeger@cse.psu.edu,
-	selinux@tycho.nsa.gov, Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: multipart/mixed;
+ boundary="------------020204080601010805040703"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:54949 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1030450AbWGNNzD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jul 2006 09:55:03 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060713.230445.106436593.davem@davemloft.net>
+Received: from smtp6-g19.free.fr ([212.27.42.36]:48019 "EHLO smtp6-g19.free.fr")
+	by vger.kernel.org with ESMTP id S1161107AbWGNOQR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 10:16:17 -0400
+To: Shuya MAEDA <maeda-sxb@necst.nec.co.jp>,
+	"David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 13 Jul 2006, David Miller wrote:
+This is a multi-part message in MIME format.
+--------------020204080601010805040703
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> The other changes I'm either OK with, or they are outside my scope of
-> knowledge (the stuff that lives inside of SELINUX).
+Hello,
 
-The security side of things looks ok to me.
+This patch:
+http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=4ee303dfeac6451b402e3d8512723d3a0f861857
 
-Herbert, any review from you on this would be greatly appreciated.
+looks wrong.
+
+In PSCHED_TADD2, if delta is less than tv.tv_usec (so, less than 
+USEC_PER_SEC too) then tv_res will be before tv. The
+affectation (tv_res).tv_usec = __delta; is wrong. The same applies to 
+PSCHED_TADD.
+
+I think the correct fix is simply to restore the original code and 
+change the 'if' in a 'while'.
+
+So here are two patches for the two possible solutions :
+
+o Reverting the commit and applying from_before_patch_to_correct.diff
+
+o Applying from_tip_to_correct.diff
 
 
-- James
+Thanks.
+
+
 -- 
-James Morris
-<jmorris@namei.org>
+Guillaume
+
+
+--------------020204080601010805040703
+Content-Type: text/x-patch;
+ name="from_before_patch_to_correct.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="from_before_patch_to_correct.diff"
+
+--- a/include/net/pkt_sched.h.before	2006-07-14 15:58:53.000000000 +0200
++++ b/include/net/pkt_sched.h	2006-07-14 15:59:10.000000000 +0200
+@@ -171,14 +171,14 @@
+ ({ \
+ 	   int __delta = (tv).tv_usec + (delta); \
+ 	   (tv_res).tv_sec = (tv).tv_sec; \
+-	   if (__delta > USEC_PER_SEC) { (tv_res).tv_sec++; __delta -= USEC_PER_SEC; } \
++	   while (__delta > USEC_PER_SEC) { (tv_res).tv_sec++; __delta -= USEC_PER_SEC; } \
+ 	   (tv_res).tv_usec = __delta; \
+ })
+ 
+ #define PSCHED_TADD(tv, delta) \
+ ({ \
+ 	   (tv).tv_usec += (delta); \
+-	   if ((tv).tv_usec > USEC_PER_SEC) { (tv).tv_sec++; \
++	   while ((tv).tv_usec > USEC_PER_SEC) { (tv).tv_sec++; \
+ 		 (tv).tv_usec -= USEC_PER_SEC; } \
+ })
+
+--  
+Signed-off-by: Guillaume Chazarain <guichaz@yahoo.fr>
+
+--------------020204080601010805040703
+Content-Type: text/x-patch;
+ name="from_tip_to_correct.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="from_tip_to_correct.diff"
+
+diff -r 672dc37bf355 include/net/pkt_sched.h
+--- a/include/net/pkt_sched.h	Fri Jul 14 06:57:04 2006 +0700
++++ b/include/net/pkt_sched.h	Fri Jul 14 15:58:04 2006 +0200
+@@ -169,23 +169,17 @@ psched_tod_diff(int delta_sec, int bound
+ 
+ #define PSCHED_TADD2(tv, delta, tv_res) \
+ ({ \
+-	   int __delta = (delta); \
+-	   (tv_res) = (tv); \
+-	   while(__delta >= USEC_PER_SEC){ \
+-		 (tv_res).tv_sec++; \
+-		 __delta -= USEC_PER_SEC; \
+-	   } \
++	   int __delta = (tv).tv_usec + (delta); \
++	   (tv_res).tv_sec = (tv).tv_sec; \
++	   while (__delta > USEC_PER_SEC) { (tv_res).tv_sec++; __delta -= USEC_PER_SEC; } \
+ 	   (tv_res).tv_usec = __delta; \
+ })
+ 
+ #define PSCHED_TADD(tv, delta) \
+ ({ \
+-	   int __delta = (delta); \
+-	   while(__delta >= USEC_PER_SEC){ \
+-		 (tv).tv_sec++; \
+-		 __delta -= USEC_PER_SEC; \
+-	   } \
+-	   (tv).tv_usec = __delta; \
++	   (tv).tv_usec += (delta); \
++	   while ((tv).tv_usec > USEC_PER_SEC) { (tv).tv_sec++; \
++		 (tv).tv_usec -= USEC_PER_SEC; } \
+ })
+ 
+ /* Set/check that time is in the "past perfect";
+
+-- 
+Signed-off-by: Guillaume Chazarain <guichaz@yahoo.fr>
+
+
+--------------020204080601010805040703--
