@@ -1,37 +1,48 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Netem does not work with loopback
-Date: Fri, 14 Jul 2006 08:38:47 -0700
-Message-ID: <20060714083847.6997a460@localhost.localdomain>
-References: <44B7AB76.2030700@yahoo.fr>
+From: Dan Williams <dcbw@redhat.com>
+Subject: [PATCH] orinoco: fix setting transmit key only
+Date: Fri, 14 Jul 2006 11:41:47 -0400
+Message-ID: <1152891707.14037.12.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: linville@tuxdriver.com, Pavel Roskin <proski@gnu.org>,
+	Jean Tourrilhes <jt@hpl.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:58271 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1161123AbWGNPi5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 11:38:57 -0400
-To: Guillaume Chazarain <guichaz@yahoo.fr>
-In-Reply-To: <44B7AB76.2030700@yahoo.fr>
+Received: from mx1.redhat.com ([66.187.233.31]:19166 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1161131AbWGNPn0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 11:43:26 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 14 Jul 2006 16:34:30 +0200
-Guillaume Chazarain <guichaz@yahoo.fr> wrote:
+When determining whether there's a key to set or not, orinoco should be
+looking at the key length, not the key data.  Otherwise confusion reigns
+when trying to set TX key only, passing in zero-length key, but non-NULL
+pointer.  Key length takes precedence over non-NULL key data.
 
-> Hello,
-> 
-> Is it a known problem that the Netem qdisc is very unreliable on the 
-> loopback (unlike on a true NIC)?
-> 
-> This seems to come from its usage of skb->cb which conflicts with IPCB. 
-> For instance, the field
-> IPCB(skb)->opt.optlen becomes non-null and memory corruption follows.
-> 
-> I ``worked around'' this conflict with the following ugly hack:
+Signed-off-by: Dan Williams <dcbw@redhat.com>
 
-Isn't the skb owned by netem at that point...
+diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoco.c
+index 8a31b59..1e69bc6 100644
+--- a/drivers/net/wireless/orinoco.c
++++ b/drivers/net/wireless/orinoco.c
+@@ -2876,7 +2876,7 @@ static int orinoco_ioctl_setiwencode(str
+ 	if (orinoco_lock(priv, &flags) != 0)
+ 		return -EBUSY;
+ 
+-	if (erq->pointer) {
++	if (erq->length > 0) {
+ 		if ((index < 0) || (index >= ORINOCO_MAX_KEYS))
+ 			index = priv->tx_key;
+ 
+@@ -2919,7 +2919,7 @@ static int orinoco_ioctl_setiwencode(str
+ 	if (erq->flags & IW_ENCODE_RESTRICTED)
+ 		restricted = 1;
+ 
+-	if (erq->pointer) {
++	if (erq->pointer && erq->length > 0) {
+ 		priv->keys[index].len = cpu_to_le16(xlen);
+ 		memset(priv->keys[index].data, 0,
+ 		       sizeof(priv->keys[index].data));
 
--- 
-If one would give me six lines written by the hand of the most honest
-man, I would find something in them to have him hanged. -- Cardinal Richlieu
+
