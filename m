@@ -1,58 +1,56 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] remove unused routines from d80211 version of bcm43xx
-Date: Fri, 14 Jul 2006 16:04:26 -0500
-Message-ID: <44B806DA.5010809@lwfinger.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] VLAN code can use the faster ether_compare_addr
+Date: Fri, 14 Jul 2006 14:27:38 -0700
+Message-ID: <20060714142738.265a7a98@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:21958 "EHLO
-	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1161301AbWGNVEe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jul 2006 17:04:34 -0400
-To: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
+Received: from smtp.osdl.org ([65.172.181.4]:5788 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161305AbWGNV1y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 17:27:54 -0400
+To: Ben Greear <greearb@candelatech.com>,
+	"David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes some unused static inline routines from bcm43xx-d80211 version of bcm43xx_main.h.
+The inline function compare_ether_addr is faster than memcmp.
+Also, don't need to drag in proc_fs.h, the only reference to proc_dir_entry
+is a pointer so the declaration is needed here.
 
-Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-===========================================================
+---
 
-index e228833..04d8b91 100644
---- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.h
-+++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.h
-@@ -112,30 +112,6 @@ int bcm43xx_channel_to_freq(struct bcm43
-     return bcm43xx_channel_to_freq_bg(channel);
-  }
+ include/linux/if_vlan.h |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
--/* Lightweight function to check if a channel number is valid.
-- * Note that this does _NOT_ check for geographical restrictions!
-- */
--static inline
--int bcm43xx_is_valid_channel_a(u8 channel)
--{
--    return (channel >= IEEE80211_52GHZ_MIN_CHANNEL
--           && channel <= IEEE80211_52GHZ_MAX_CHANNEL);
--}
--static inline
--int bcm43xx_is_valid_channel_bg(u8 channel)
--{
--    return (channel >= IEEE80211_24GHZ_MIN_CHANNEL
--           && channel <= IEEE80211_24GHZ_MAX_CHANNEL);
--}
--static inline
--int bcm43xx_is_valid_channel(struct bcm43xx_private *bcm,
--                  u8 channel)
--{
--    if (bcm43xx_current_phy(bcm)->type == BCM43xx_PHYTYPE_A)
--        return bcm43xx_is_valid_channel_a(channel);
--    return bcm43xx_is_valid_channel_bg(channel);
--}
--
-  void bcm43xx_tsf_read(struct bcm43xx_private *bcm, u64 *tsf);
-  void bcm43xx_tsf_write(struct bcm43xx_private *bcm, u64 tsf);
+1738bd3d785bb3f9fa24e26f98b8d86e7783eadf
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index eef0876..383627a 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -23,8 +23,8 @@ struct vlan_collection;
+ struct vlan_dev_info;
+ struct hlist_node;
+ 
+-#include <linux/proc_fs.h> /* for proc_dir_entry */
+ #include <linux/netdevice.h>
++#include <linux/etherdevice.h>
+ 
+ #define VLAN_HLEN	4		/* The additional bytes (on top of the Ethernet header)
+ 					 * that VLAN requires.
+@@ -185,7 +185,8 @@ static inline int __vlan_hwaccel_rx(stru
+ 		 * This allows the VLAN to have a different MAC than the underlying
+ 		 * device, and still route correctly.
+ 		 */
+-		if (!memcmp(eth_hdr(skb)->h_dest, skb->dev->dev_addr, ETH_ALEN))
++		if (!compare_ether_addr(eth_hdr(skb)->h_dest,
++				       	skb->dev->dev_addr))
+ 			skb->pkt_type = PACKET_HOST;
+ 		break;
+ 	};
+-- 
+1.2.4
 
-
-===============================================================
