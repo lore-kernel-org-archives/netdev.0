@@ -1,44 +1,28 @@
-From: Samuel Ortiz <samuel@sortiz.org>
-Subject: Re: [PATCH 2/2] correct dev_alloc_skb kerneldoc
-Date: Fri, 14 Jul 2006 10:27:27 +0300
-Message-ID: <20060714072726.GB6458@sortiz.org>
-References: <20060707155255.10f2e10f@dxpl.pdx.osdl.net> <20060707.165527.77037268.davem@davemloft.net> <20060708104811.GB31751@lst.de> <20060708.133738.123994596.davem@davemloft.net> <20060713203615.GA26954@lst.de>
-Reply-To: Samuel Ortiz <samuel@sortiz.org>
+From: "Courtney" <Courtneyboatman@repairman.com>
+Subject: Enhanced male power and unlimited prowess with your girl The best products for the winning guys
+Date: Fri, 14 Jul 2006 10:19:36 +0800
+Message-ID: <83550176166770.1A0D5FBA42@DG184LY>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, shemminger@osdl.org,
-	netdev@vger.kernel.org, support@pathscale.com, kkeil@suse.de,
-	kai.germaschewski@gmx.de, chas@cmf.nrl.navy.mil, paulus@samba.org
+Content-Type: text/plain;
+        charset="Windows-1252"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.pp.htv.fi ([213.243.153.37]:29375 "EHLO smtp1.pp.htv.fi")
-	by vger.kernel.org with ESMTP id S1161151AbWGNAPe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2006 20:15:34 -0400
-To: Christoph Hellwig <hch@lst.de>
-Content-Disposition: inline
-In-Reply-To: <20060713203615.GA26954@lst.de>
+Received: from [58.62.45.87] ([58.62.45.87]:8203 "EHLO s5eneeaa.gaiuixu.rr.com")
+	by vger.kernel.org with ESMTP id S1161173AbWGNCU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2006 22:20:58 -0400
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 13, 2006 at 10:36:16PM +0200, Christoph Hellwig wrote:
->  - net/irda/*:
->    	They allocate the skb in protocol code for TX.  Should probably
-> 	do a normal alloc_skb like all the other protocol code.
-Agreed. I will come up with a patch replacing all the useless dev_alloc_skb()
-calls from the IrDA stack.
+Hello!
+
+Impress your girl with prolonged hardness, plentiful explosions and increased duration
+Impress your girl with prolonged hardness, plentiful explosions and increased duration
+
+ http://www.entirelyjb.com
 
 
-> The patchkit for this is at http://verein.lst.de/~hch/patches.skb.tgz, it
-> includes the first two cleanup patches I posted previously (Any plans
-> to put them in?), a patch to move __dev_alloc_skb out of line because
-> otherwise we'd need to include netdevice.h in skbuff.h which creates
-> lots of problems (and moving it out of lines shaves 10kb off a
-> allyesconfig), the dev_alloc_skb prototype changes and some experimental
-> patches to make dev_alloc_skb nodeaware.
-In those patches you change dev_alloc_skb prototype, but then the new netdev
-argument is not used by __dev_alloc_skb() to allocate the sk_buff on the
-correct node. Do you plan to introduce an alloc_skb_node() later or am I 
-missing something ? 
+Keep your friends close but your enemies closer Might as well be hanged for a sheep as a lamb . Haste makes waste 
+ I was almost in all evil in the midst of the congregation and assembly.
 
-Cheers,
-Samuel.
 
