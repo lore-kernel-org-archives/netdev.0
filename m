@@ -1,50 +1,49 @@
-From: Kyle McMartin <kyle@mcmartin.ca>
-Subject: Re: Error acx-20060215 wireless module
-Date: Fri, 14 Jul 2006 12:32:48 -0400
-Message-ID: <20060714163248.GC979@athena.road.mcmartin.ca>
-References: <44B7C18E.2070306@fastwebnet.it>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: I/O Acceleration Technology Nics
+Date: Fri, 14 Jul 2006 09:41:18 -0700
+Message-ID: <44B7C92E.6050502@hp.com>
+References: <d0383f90607140250u2e958470o4ba6b072dd57df3d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stout.engsoc.carleton.ca ([134.117.69.22]:10457 "EHLO
-	stout.engsoc.carleton.ca") by vger.kernel.org with ESMTP
-	id S1161250AbWGNQdX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jul 2006 12:33:23 -0400
-Received: from localhost (stout [127.0.0.1])
-	by stout.engsoc.carleton.ca (Postfix) with ESMTP id C80485840CC
-	for <netdev@vger.kernel.org>; Fri, 14 Jul 2006 12:33:21 -0400 (EDT)
-Received: from fattire.cabal.ca (cabal.ca [134.117.69.58])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by stout.engsoc.carleton.ca (Postfix) with ESMTP id 5C4A55840C9
-	for <netdev@vger.kernel.org>; Fri, 14 Jul 2006 12:33:21 -0400 (EDT)
-Received: from localhost (fattire.cabal.ca [127.0.0.1])
-	by fattire.cabal.ca (Postfix) with ESMTP id E879223E83
-	for <netdev@vger.kernel.org>; Fri, 14 Jul 2006 12:33:20 -0400 (EDT)
-Received: from fattire.cabal.ca ([127.0.0.1])
-	by localhost (fattire [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 10584-01 for <netdev@vger.kernel.org>;
-	Fri, 14 Jul 2006 12:33:20 -0400 (EDT)
-Received: from athena.road.mcmartin.ca (athena.road.mcmartin.ca [134.117.69.56])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(Client CN "quicksilver.road.mcmartin.ca", Issuer "There Is No Cabal Certificate Authority" (verified OK))
-	by fattire.cabal.ca (Postfix) with ESMTP id A992B23E82
-	for <netdev@vger.kernel.org>; Fri, 14 Jul 2006 12:33:20 -0400 (EDT)
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <44B7C18E.2070306@fastwebnet.it>
+Received: from palrel13.hp.com ([156.153.255.238]:57485 "EHLO palrel13.hp.com")
+	by vger.kernel.org with ESMTP id S1161265AbWGNQlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 12:41:19 -0400
+To: Ian Brown <ianbrn@gmail.com>
+In-Reply-To: <d0383f90607140250u2e958470o4ba6b072dd57df3d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 14, 2006 at 06:08:46PM +0200, VinX wrote:
-> I think that it's missing <linux/utsrelease.h> on this file!
+Ian Brown wrote:
+> Hello,
+>  I came across the e1000 download for linux in intel site.
+> I saw that in the readme they talk about Intel(R) I/O Acceleration 
+> Technology;
+> According to this readme , there is support for "systems using the
+> Intel(R) 5000 Series Chipsets Integrated Device - 1A38".
+> see:
+> http://downloadmirror.intel.com/df-support/9180/ENG/README.txt
 > 
+> My question is : did anybody tried using chipsets with this I/O
+> Acceleration Technology ?  Did he get a significant performance
+> improvement over non I/O Accelerated nics ?
 
-Wow. Why does so much out of tree shite want UTS_RELEASE? I'm
-(untested) thinking that instead they could just put in their Makefile:
+IIRC, there were some measures made and discussed at least a little in 
+netdev.  A search of the archives should find them.
 
-CFLAGS += -D KERNVERSION=$(KERNELVERSION)
+I would also expect that Intel would have some glossy PDF's on their 
+site touting the performance boosts technology :)  They should at least 
+somewhere have some links to actual measurements...
 
-And obtain it from the Linux Makefile instead of from UTS_RELEASE.
+> Ian
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Of course if they don't use Kbuild this won't work...
+I suspect the URL above there will start one on the path to the email 
+archive.
+
+rick jones
