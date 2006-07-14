@@ -1,1081 +1,1834 @@
 From: paul.moore@hp.com
-Subject: [PATCH 1/7] NetLabel: documentation
-Date: Fri, 14 Jul 2006 14:57:40 -0400
-Message-ID: <20060714185913.865268000@flek.zko.hp.com>
+Subject: [PATCH 3/7] NetLabel: CIPSOv4 engine
+Date: Fri, 14 Jul 2006 14:57:42 -0400
+Message-ID: <20060714185915.270209000@flek.zko.hp.com>
 References: <20060714185739.780700000@flek.zko.hp.com>
 Cc: davem@davemloft.net, sds@epoch.ncsc.mil, jmorris@redhat.com,
 	pratt@argus-systems.com, Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:28046 "EHLO atlrel9.hp.com")
-	by vger.kernel.org with ESMTP id S1161294AbWGNS7S (ORCPT
+Received: from atlrel6.hp.com ([156.153.255.205]:34001 "EHLO atlrel6.hp.com")
+	by vger.kernel.org with ESMTP id S1161293AbWGNS7S (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 14:59:18 -0400
 To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
-Content-Disposition: inline; filename=netlabel-documentation
+Content-Disposition: inline; filename=netlabel-net_cipsov4-2.6.18
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Documentation for the NetLabel system, this includes a basic overview of how
-NetLabel works, how LSM developers can integrate it into their favorite
-LSM, as well as documentation on the CIPSO related sysctl variables.  Also,
-due to the difficulty of finding expired IETF drafts, I am including the IETF
-CIPSO draft that is the basis of the NetLabel CIPSO implementation.
+Add support for the Commercial IP Security Option (CIPSO) to the IPv4 network
+stack.  CIPSO has become a de-facto standard for trusted/labeled networking
+amongst existing Trusted Operating Systems such as Trusted Solaris, HP-UX CMW,
+etc.  This implementation is designed to be used with the NetLabel subsystem
+to provide explicit packet labeling to LSM developers.
+
+The CIPSO/IPv4 packet labeling works by the LSM calling a NetLabel API function
+which attaches a CIPSO label (IPv4 option) to a given socket; this in turn
+attaches the CIPSO label to every packet leaving the socket without any extra
+processing on the outbound side.  On the inbound side the individual packet's
+sk_buff is examined through a call to a NetLabel API function to determine if a
+CIPSO/IPv4 label is present and if so the security attributes of the CIPSO
+label are returned to the caller of the NetLabel API function.
 
 Signed-off-by: Paul Moore <paul.moore@hp.com>
 ---
- CREDITS                                                   |    7 
- Documentation/00-INDEX                                    |    2 
- Documentation/netlabel/00-INDEX                           |   10 
- Documentation/netlabel/cipso_ipv4.txt                     |   48 
- Documentation/netlabel/draft-ietf-cipso-ipsecurity-01.txt |  791 ++++++++++++++
- Documentation/netlabel/introduction.txt                   |   53 
- Documentation/netlabel/lsm_interface.txt                  |   47 
- Documentation/networking/ip-sysctl.txt                    |   28 
- 8 files changed, 986 insertions(+)
+ include/linux/sysctl.h     |    4 
+ net/ipv4/Makefile          |    1 
+ net/ipv4/cipso_ipv4.c      | 1708 +++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/sysctl_net_ipv4.c |   35 
+ 4 files changed, 1748 insertions(+)
 
-Index: linux-2.6.18-rc1/CREDITS
+Index: linux-2.6.18-rc1/include/linux/sysctl.h
 ===================================================================
---- linux-2.6.18-rc1.orig/CREDITS
-+++ linux-2.6.18-rc1/CREDITS
-@@ -2384,6 +2384,13 @@ N: Thomas Molina
- E: tmolina@cablespeed.com
- D: bug fixes, documentation, minor hackery
+--- linux-2.6.18-rc1.orig/include/linux/sysctl.h
++++ linux-2.6.18-rc1/include/linux/sysctl.h
+@@ -411,6 +411,10 @@ enum
+ 	NET_IPV4_TCP_WORKAROUND_SIGNED_WINDOWS=115,
+ 	NET_TCP_DMA_COPYBREAK=116,
+ 	NET_TCP_SLOW_START_AFTER_IDLE=117,
++	NET_CIPSOV4_CACHE_ENABLE=118,
++	NET_CIPSOV4_CACHE_BUCKET_SIZE=119,
++	NET_CIPSOV4_RBM_OPTFMT=120,
++	NET_CIPSOV4_RBM_STRICTVALID=121,
+ };
  
-+N: Paul Moore
-+E: paul.moore@hp.com
-+D: NetLabel author
-+S: Hewlett-Packard
-+S: 110 Spit Brook Road
-+S: Nashua, NH 03062
-+
- N: James Morris
- E: jmorris@namei.org
- W: http://namei.org/
-Index: linux-2.6.18-rc1/Documentation/00-INDEX
+ enum {
+Index: linux-2.6.18-rc1/net/ipv4/Makefile
 ===================================================================
---- linux-2.6.18-rc1.orig/Documentation/00-INDEX
-+++ linux-2.6.18-rc1/Documentation/00-INDEX
-@@ -184,6 +184,8 @@ mtrr.txt
- 	- how to use PPro Memory Type Range Registers to increase performance.
- nbd.txt
- 	- info on a TCP implementation of a network block device.
-+netlabel/
-+	- directory with information on the NetLabel subsystem.
- networking/
- 	- directory with info on various aspects of networking with Linux.
- nfsroot.txt
-Index: linux-2.6.18-rc1/Documentation/netlabel/00-INDEX
-===================================================================
---- /dev/null
-+++ linux-2.6.18-rc1/Documentation/netlabel/00-INDEX
-@@ -0,0 +1,10 @@
-+00-INDEX
-+	- this file.
-+cipso_ipv4.txt
-+	- documentation on the IPv4 CIPSO protocol engine.
-+draft-ietf-cipso-ipsecurity-01.txt
-+	- IETF draft of the CIPSO protocol, dated 16 July 1992.
-+introduction.txt
-+	- NetLabel introduction, READ THIS FIRST.
-+lsm_interface.txt
-+	- documentation on the NetLabel kernel security module API.
-Index: linux-2.6.18-rc1/Documentation/netlabel/cipso_ipv4.txt
-===================================================================
---- /dev/null
-+++ linux-2.6.18-rc1/Documentation/netlabel/cipso_ipv4.txt
-@@ -0,0 +1,48 @@
-+NetLabel CIPSO/IPv4 Protocol Engine
-+==============================================================================
-+Paul Moore, paul.moore@hp.com
-+
-+May 17, 2006
-+
-+ * Overview
-+
-+The NetLabel CIPSO/IPv4 protocol engine is based on the IETF Commercial IP
-+Security Option (CIPSO) draft from July 16, 1992.  A copy of this draft can be
-+found in this directory, consult '00-INDEX' for the filename.  While the IETF
-+draft never made it to an RFC standard it has become a de-facto standard for
-+labeled networking and is used in many trusted operating systems.
-+
-+ * Outbound Packet Processing
-+
-+The CIPSO/IPv4 protocol engine applies the CIPSO IP option to packets by
-+adding the CIPSO label to the socket.  This causes all packets leaving the
-+system through the socket to have the CIPSO IP option applied.  The socket's
-+CIPSO label can be changed at any point in time, however, it is recommended
-+that it is set upon the socket's creation.  The LSM can set the socket's CIPSO
-+label by using the NetLabel security module API; if the NetLabel "domain" is
-+configured to use CIPSO for packet labeling then a CIPSO IP option will be
-+generated and attached to the socket.
-+
-+ * Inbound Packet Processing
-+
-+The CIPSO/IPv4 protocol engine validates every CIPSO IP option it finds at the
-+IP layer without any special handling required by the LSM.  However, in order
-+to decode and translate the CIPSO label on the packet the LSM must use the
-+NetLabel security module API to extract the security attributes of the packet.
-+This is typically done at the socket layer using the 'socket_sock_rcv_skb()'
-+LSM hook.
-+
-+ * Label Translation
-+
-+The CIPSO/IPv4 protocol engine contains a mechanism to translate CIPSO security
-+attributes such as sensitivity level and category to values which are
-+appropriate for the host.  These mappings are defined as part of a CIPSO
-+Domain Of Interpretation (DOI) definition and are configured through the
-+NetLabel user space communication layer.  Each DOI definition can have a
-+different security attribute mapping table.
-+
-+ * Label Translation Cache
-+
-+The NetLabel system provides a framework for caching security attribute
-+mappings from the network labels to the corresponding LSM identifiers.  The
-+CIPSO/IPv4 protocol engine supports this caching mechanism.
-Index: linux-2.6.18-rc1/Documentation/netlabel/draft-ietf-cipso-ipsecurity-01.txt
-===================================================================
---- /dev/null
-+++ linux-2.6.18-rc1/Documentation/netlabel/draft-ietf-cipso-ipsecurity-01.txt
-@@ -0,0 +1,791 @@
-+IETF CIPSO Working Group
-+16 July, 1992
-+
-+
-+
-+                 COMMERCIAL IP SECURITY OPTION (CIPSO 2.2)
-+
-+
-+
-+1.    Status
-+
-+This Internet Draft provides the high level specification for a Commercial
-+IP Security Option (CIPSO).  This draft reflects the version as approved by
-+the CIPSO IETF Working Group.  Distribution of this memo is unlimited.
-+
-+This document is an Internet Draft.  Internet Drafts are working documents
-+of the Internet Engineering Task Force (IETF), its Areas, and its Working
-+Groups. Note that other groups may also distribute working documents as
-+Internet Drafts.
-+
-+Internet Drafts are draft documents valid for a maximum of six months.
-+Internet Drafts may be updated, replaced, or obsoleted by other documents
-+at any time.  It is not appropriate to use Internet Drafts as reference
-+material or to cite them other than as a "working draft" or "work in
-+progress."
-+
-+Please check the I-D abstract listing contained in each Internet Draft
-+directory to learn the current status of this or any other Internet Draft.
-+
-+
-+
-+
-+2.    Background
-+
-+Currently the Internet Protocol includes two security options.  One of
-+these options is the DoD Basic Security Option (BSO) (Type 130) which allows
-+IP datagrams to be labeled with security classifications.  This option
-+provides sixteen security classifications and a variable number of handling
-+restrictions.  To handle additional security information, such as security
-+categories or compartments, another security option (Type 133) exists and
-+is referred to as the DoD Extended Security Option (ESO).  The values for
-+the fixed fields within these two options are administered by the Defense
-+Information Systems Agency (DISA).
-+
-+Computer vendors are now building commercial operating systems with
-+mandatory access controls and multi-level security.  These systems are
-+no longer built specifically for a particular group in the defense or
-+intelligence communities.  They are generally available commercial systems
-+for use in a variety of government and civil sector environments.
-+
-+The small number of ESO format codes can not support all the possible
-+applications of a commercial security option.  The BSO and ESO were
-+designed to only support the United States DoD.  CIPSO has been designed
-+to support multiple security policies.  This Internet Draft provides the
-+format and procedures required to support a Mandatory Access Control
-+security policy.  Support for additional security policies shall be
-+defined in future RFCs.
-+
-+
-+
-+
-+Internet Draft, Expires 15 Jan 93                                 [PAGE 1]
-+
-+
-+
-+CIPSO INTERNET DRAFT                                         16 July, 1992
-+
-+
-+
-+
-+3.    CIPSO Format
-+
-+Option type: 134 (Class 0, Number 6, Copy on Fragmentation)
-+Option length: Variable
-+
-+This option permits security related information to be passed between
-+systems within a single Domain of Interpretation (DOI).  A DOI is a
-+collection of systems which agree on the meaning of particular values
-+in the security option.  An authority that has been assigned a DOI
-+identifier will define a mapping between appropriate CIPSO field values
-+and their human readable equivalent.  This authority will distribute that
-+mapping to hosts within the authority's domain.  These mappings may be
-+sensitive, therefore a DOI authority is not required to make these
-+mappings available to anyone other than the systems that are included in
-+the DOI.
-+
-+This option MUST be copied on fragmentation.  This option appears at most
-+once in a datagram.  All multi-octet fields in the option are defined to be
-+transmitted in network byte order.  The format of this option is as follows:
-+
-++----------+----------+------//------+-----------//---------+
-+| 10000110 | LLLLLLLL | DDDDDDDDDDDD | TTTTTTTTTTTTTTTTTTTT |
-++----------+----------+------//------+-----------//---------+
-+
-+  TYPE=134    OPTION    DOMAIN OF               TAGS
-+              LENGTH    INTERPRETATION
-+
-+
-+                Figure 1. CIPSO Format
-+
-+
-+3.1    Type
-+
-+This field is 1 octet in length.  Its value is 134.
-+
-+
-+3.2    Length
-+
-+This field is 1 octet in length.  It is the total length of the option
-+including the type and length fields.  With the current IP header length
-+restriction of 40 octets the value of this field MUST not exceed 40.
-+
-+
-+3.3    Domain of Interpretation Identifier
-+
-+This field is an unsigned 32 bit integer.  The value 0 is reserved and MUST
-+not appear as the DOI identifier in any CIPSO option.  Implementations
-+should assume that the DOI identifier field is not aligned on any particular
-+byte boundary.
-+
-+To conserve space in the protocol, security levels and categories are
-+represented by numbers rather than their ASCII equivalent.  This requires
-+a mapping table within CIPSO hosts to map these numbers to their
-+corresponding ASCII representations.  Non-related groups of systems may
-+
-+
-+
-+Internet Draft, Expires 15 Jan 93                                 [PAGE 2]
-+
-+
-+
-+CIPSO INTERNET DRAFT                                         16 July, 1992
-+
-+
-+
-+have their own unique mappings.  For example, one group of systems may
-+use the number 5 to represent Unclassified while another group may use the
-+number 1 to represent that same security level.  The DOI identifier is used
-+to identify which mapping was used for the values within the option.
-+
-+
-+3.4    Tag Types
-+
-+A common format for passing security related information is necessary
-+for interoperability.  CIPSO uses sets of "tags" to contain the security
-+information relevant to the data in the IP packet.  Each tag begins with
-+a tag type identifier followed by the length of the tag and ends with the
-+actual security information to be passed.  All multi-octet fields in a tag
-+are defined to be transmitted in network byte order.  Like the DOI
-+identifier field in the CIPSO header, implementations should assume that
-+all tags, as well as fields within a tag, are not aligned on any particular
-+octet boundary.   The tag types defined in this document contain alignment
-+bytes to assist alignment of some information, however alignment can not
-+be guaranteed if CIPSO is not the first IP option.
-+
-+CIPSO tag types 0 through 127 are reserved for defining standard tag
-+formats.  Their definitions will be published in RFCs.  Tag types whose
-+identifiers are greater than 127 are defined by the DOI authority and may
-+only be meaningful in certain Domains of Interpretation.  For these tag
-+types, implementations will require the DOI identifier as well as the tag
-+number to determine the security policy and the format associated with the
-+tag.  Use of tag types above 127 are restricted to closed networks where
-+interoperability with other networks will not be an issue.  Implementations
-+that support a tag type greater than 127 MUST support at least one DOI that
-+requires only tag types 1 to 127.
-+
-+Tag type 0 is reserved. Tag types 1, 2, and 5 are defined in this
-+Internet Draft.  Types 3 and 4 are reserved for work in progress.
-+The standard format for all current and future CIPSO tags is shown below:
-+
-++----------+----------+--------//--------+
-+| TTTTTTTT | LLLLLLLL | IIIIIIIIIIIIIIII |
-++----------+----------+--------//--------+
-+    TAG       TAG         TAG
-+    TYPE      LENGTH      INFORMATION
-+
-+    Figure 2:  Standard Tag Format
-+
-+In the three tag types described in this document, the length and count
-+restrictions are based on the current IP limitation of 40 octets for all
-+IP options.  If the IP header is later expanded, then the length and count
-+restrictions specified in this document may increase to use the full area
-+provided for IP options.
-+
-+
-+3.4.1    Tag Type Classes
-+
-+Tag classes consist of tag types that have common processing requirements
-+and support the same security policy.  The three tags defined in this
-+Internet Draft belong to the Mandatory Access Control (MAC) Sensitivity
-+
-+
-+
-+Internet Draft, Expires 15 Jan 93                                 [PAGE 3]
-+
-+
-+
-+CIPSO INTERNET DRAFT                                         16 July, 1992
-+
-+
-+
-+class and support the MAC Sensitivity security policy.
-+
-+
-+3.4.2    Tag Type 1
-+
-+This is referred to as the "bit-mapped" tag type.  Tag type 1 is included
-+in the MAC Sensitivity tag type class.  The format of this tag type is as
-+follows:
-+
-++----------+----------+----------+----------+--------//---------+
-+| 00000001 | LLLLLLLL | 00000000 | LLLLLLLL | CCCCCCCCCCCCCCCCC |
-++----------+----------+----------+----------+--------//---------+
-+
-+    TAG       TAG      ALIGNMENT  SENSITIVITY    BIT MAP OF
-+    TYPE      LENGTH   OCTET      LEVEL          CATEGORIES
-+
-+            Figure 3. Tag Type 1 Format
-+
-+
-+3.4.2.1    Tag Type
-+
-+This field is 1 octet in length and has a value of 1.
-+
-+
-+3.4.2.2    Tag Length
-+
-+This field is 1 octet in length.  It is the total length of the tag type
-+including the type and length fields.  With the current IP header length
-+restriction of 40 bytes the value within this field is between 4 and 34.
-+
-+
-+3.4.2.3    Alignment Octet
-+
-+This field is 1 octet in length and always has the value of 0.  Its purpose
-+is to align the category bitmap field on an even octet boundary.  This will
-+speed many implementations including router implementations.
-+
-+
-+3.4.2.4    Sensitivity Level
-+
-+This field is 1 octet in length.  Its value is from 0 to 255.  The values
-+are ordered with 0 being the minimum value and 255 representing the maximum
-+value.
-+
-+
-+3.4.2.5    Bit Map of Categories
-+
-+The length of this field is variable and ranges from 0 to 30 octets.  This
-+provides representation of categories 0 to 239.  The ordering of the bits
-+is left to right or MSB to LSB.  For example category 0 is represented by
-+the most significant bit of the first byte and category 15 is represented
-+by the least significant bit of the second byte.  Figure 4 graphically
-+shows this ordering.  Bit N is binary 1 if category N is part of the label
-+for the datagram, and bit N is binary 0 if category N is not part of the
-+label.  Except for the optimized tag 1 format described in the next section,
-+
-+
-+
-+Internet Draft, Expires 15 Jan 93                                 [PAGE 4]
-+
-+
-+
-+CIPSO INTERNET DRAFT                                         16 July, 1992
-+
-+
-+
-+minimal encoding SHOULD be used resulting in no trailing zero octets in the
-+category bitmap.
-+
-+        octet 0  octet 1  octet 2  octet 3  octet 4  octet 5
-+        XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX XXXXXXXX . . .
-+bit     01234567 89111111 11112222 22222233 33333333 44444444
-+number             012345 67890123 45678901 23456789 01234567
-+
-+            Figure 4. Ordering of Bits in Tag 1 Bit Map
-+
-+
-+3.4.2.6    Optimized Tag 1 Format
-+
-+Routers work most efficiently when processing fixed length fields.  To
-+support these routers there is an optimized form of tag type 1.  The format
-+does not change.  The only change is to the category bitmap which is set to
-+a constant length of 10 octets.  Trailing octets required to fill out the 10
-+octets are zero filled.  Ten octets, allowing for 80 categories, was chosen
-+because it makes the total length of the CIPSO option 20 octets.  If CIPSO
-+is the only option then the option will be full word aligned and additional
-+filler octets will not be required.
-+
-+
-+3.4.3    Tag Type 2
-+
-+This is referred to as the "enumerated" tag type.  It is used to describe
-+large but sparsely populated sets of categories.  Tag type 2 is in the MAC
-+Sensitivity tag type class.  The format of this tag type is as follows:
-+
-++----------+----------+----------+----------+-------------//-------------+
-+| 00000010 | LLLLLLLL | 00000000 | LLLLLLLL | CCCCCCCCCCCCCCCCCCCCCCCCCC |
-++----------+----------+----------+----------+-------------//-------------+
-+
-+    TAG       TAG      ALIGNMENT  SENSITIVITY         ENUMERATED
-+    TYPE      LENGTH   OCTET      LEVEL               CATEGORIES
-+
-+                Figure 5. Tag Type 2 Format
-+
-+
-+3.4.3.1     Tag Type
-+
-+This field is one octet in length and has a value of 2.
-+
-+
-+3.4.3.2    Tag Length
-+
-+This field is 1 octet in length. It is the total length of the tag type
-+including the type and length fields.  With the current IP header length
-+restriction of 40 bytes the value within this field is between 4 and 34.
-+
-+
-+3.4.3.3    Alignment Octet
-+
-+This field is 1 octet in length and always has the value of 0.  Its purpose
-+is to align the category field on an even octet boundary.  This will
-+
-+
-+
-+Internet Draft, Expires 15 Jan 93                                 [PAGE 5]
-+
-+
-+
-+CIPSO INTERNET DRAFT                                         16 July, 1992
-+
-+
-+
-+speed many implementations including router implementations.
-+
-+
-+3.4.3.4    Sensitivity Level
-+
-+This field is 1 octet in length. Its value is from 0 to 255.  The values
-+are ordered with 0 being the minimum value and 255 representing the
-+maximum value.
-+
-+
-+3.4.3.5    Enumerated Categories
-+
-+In this tag, categories are represented by their actual value rather than
-+by their position within a bit field.  The length of each category is 2
-+octets.  Up to 15 categories may be represented by this tag.  Valid values
-+for categories are 0 to 65534.  Category 65535 is not a valid category
-+value.  The categories MUST be listed in ascending order within the tag.
-+
-+
-+3.4.4    Tag Type 5
-+
-+This is referred to as the "range" tag type.  It is used to represent
-+labels where all categories in a range, or set of ranges, are included
-+in the sensitivity label.  Tag type 5 is in the MAC Sensitivity tag type
-+class.  The format of this tag type is as follows:
-+
-++----------+----------+----------+----------+------------//-------------+
-+| 00000101 | LLLLLLLL | 00000000 | LLLLLLLL |  Top/Bottom | Top/Bottom  |
-++----------+----------+----------+----------+------------//-------------+
-+
-+    TAG       TAG      ALIGNMENT  SENSITIVITY        CATEGORY RANGES
-+    TYPE      LENGTH   OCTET      LEVEL
-+
-+                     Figure 6. Tag Type 5 Format
-+
-+
-+3.4.4.1     Tag Type
-+
-+This field is one octet in length and has a value of 5.
-+
-+
-+3.4.4.2    Tag Length
-+
-+This field is 1 octet in length. It is the total length of the tag type
-+including the type and length fields.  With the current IP header length
-+restriction of 40 bytes the value within this field is between 4 and 34.
-+
-+
-+3.4.4.3    Alignment Octet
-+
-+This field is 1 octet in length and always has the value of 0.  Its purpose
-+is to align the category range field on an even octet boundary.  This will
-+speed many implementations including router implementations.
-+
-+
-+
-+
-+
-+Internet Draft, Expires 15 Jan 93                                 [PAGE 6]
-+
-+
-+
-+CIPSO INTERNET DRAFT                                         16 July, 1992
-+
-+
-+
-+3.4.4.4    Sensitivity Level
-+
-+This field is 1 octet in length. Its value is from 0 to 255.  The values
-+are ordered with 0 being the minimum value and 255 representing the maximum
-+value.
-+
-+
-+3.4.4.5    Category Ranges
-+
-+A category range is a 4 octet field comprised of the 2 octet index of the
-+highest numbered category followed by the 2 octet index of the lowest
-+numbered category.  These range endpoints are inclusive within the range of
-+categories.  All categories within a range are included in the sensitivity
-+label.  This tag may contain a maximum of 7 category pairs.  The bottom
-+category endpoint for the last pair in the tag MAY be omitted and SHOULD be
-+assumed to be 0.  The ranges MUST be non-overlapping and be listed in
-+descending order.  Valid values for categories are 0 to 65534.  Category
-+65535 is not a valid category value.
-+
-+
-+3.4.5     Minimum Requirements
-+
-+A CIPSO implementation MUST be capable of generating at least tag type 1 in
-+the non-optimized form.  In addition, a CIPSO implementation MUST be able
-+to receive any valid tag type 1 even those using the optimized tag type 1
-+format.
-+
-+
-+4.    Configuration Parameters
-+
-+The configuration parameters defined below are required for all CIPSO hosts,
-+gateways, and routers that support multiple sensitivity labels.  A CIPSO
-+host is defined to be the origination or destination system for an IP
-+datagram.  A CIPSO gateway provides IP routing services between two or more
-+IP networks and may be required to perform label translations between
-+networks.  A CIPSO gateway may be an enhanced CIPSO host or it may just
-+provide gateway services with no end system CIPSO capabilities.  A CIPSO
-+router is a dedicated IP router that routes IP datagrams between two or more
-+IP networks.
-+
-+An implementation of CIPSO on a host MUST have the capability to reject a
-+datagram for reasons that the information contained can not be adequately
-+protected by the receiving host or if acceptance may result in violation of
-+the host or network security policy.  In addition, a CIPSO gateway or router
-+MUST be able to reject datagrams going to networks that can not provide
-+adequate protection or may violate the network's security policy.  To
-+provide this capability the following minimal set of configuration
-+parameters are required for CIPSO implementations:
-+
-+HOST_LABEL_MAX - This parameter contains the maximum sensitivity label that
-+a CIPSO host is authorized to handle.  All datagrams that have a label
-+greater than this maximum MUST be rejected by the CIPSO host.  This
-+parameter does not apply to CIPSO gateways or routers.  This parameter need
-+not be defined explicitly as it can be implicitly derived from the
-+PORT_LABEL_MAX parameters for the associated interfaces.
-+
-+
-+
-+Internet Draft, Expires 15 Jan 93                                 [PAGE 7]
-+
-+
-+
-+CIPSO INTERNET DRAFT                                         16 July, 1992
-+
-+
-+
-+
-+HOST_LABEL_MIN - This parameter contains the minimum sensitivity label that
-+a CIPSO host is authorized to handle.  All datagrams that have a label less
-+than this minimum MUST be rejected by the CIPSO host.  This parameter does
-+not apply to CIPSO gateways or routers.  This parameter need not be defined
-+explicitly as it can be implicitly derived from the PORT_LABEL_MIN
-+parameters for the associated interfaces.
-+
-+PORT_LABEL_MAX - This parameter contains the maximum sensitivity label for
-+all datagrams that may exit a particular network interface port.  All
-+outgoing datagrams that have a label greater than this maximum MUST be
-+rejected by the CIPSO system.  The label within this parameter MUST be
-+less than or equal to the label within the HOST_LABEL_MAX parameter.  This
-+parameter does not apply to CIPSO hosts that support only one network port.
-+
-+PORT_LABEL_MIN - This parameter contains the minimum sensitivity label for
-+all datagrams that may exit a particular network interface port.  All
-+outgoing datagrams that have a label less than this minimum MUST be
-+rejected by the CIPSO system.  The label within this parameter MUST be
-+greater than or equal to the label within the HOST_LABEL_MIN parameter.
-+This parameter does not apply to CIPSO hosts that support only one network
-+port.
-+
-+PORT_DOI - This parameter is used to assign a DOI identifier value to a
-+particular network interface port.  All CIPSO labels within datagrams
-+going out this port MUST use the specified DOI identifier.  All CIPSO
-+hosts and gateways MUST support either this parameter, the NET_DOI
-+parameter, or the HOST_DOI parameter.
-+
-+NET_DOI - This parameter is used to assign a DOI identifier value to a
-+particular IP network address.  All CIPSO labels within datagrams destined
-+for the particular IP network MUST use the specified DOI identifier.  All
-+CIPSO hosts and gateways MUST support either this parameter, the PORT_DOI
-+parameter, or the HOST_DOI parameter.
-+
-+HOST_DOI - This parameter is used to assign a DOI identifier value to a
-+particular IP host address.  All CIPSO labels within datagrams destined for
-+the particular IP host will use the specified DOI identifier.  All CIPSO
-+hosts and gateways MUST support either this parameter, the PORT_DOI
-+parameter, or the NET_DOI parameter.
-+
-+This list represents the minimal set of configuration parameters required
-+to be compliant.  Implementors are encouraged to add to this list to
-+provide enhanced functionality and control.  For example, many security
-+policies may require both incoming and outgoing datagrams be checked against
-+the port and host label ranges.
-+
-+
-+4.1    Port Range Parameters
-+
-+The labels represented by the PORT_LABEL_MAX and PORT_LABEL_MIN parameters
-+MAY be in CIPSO or local format.  Some CIPSO systems, such as routers, may
-+want to have the range parameters expressed in CIPSO format so that incoming
-+labels do not have to be converted to a local format before being compared
-+against the range.  If multiple DOIs are supported by one of these CIPSO
-+
-+
-+
-+Internet Draft, Expires 15 Jan 93                                 [PAGE 8]
-+
-+
-+
-+CIPSO INTERNET DRAFT                                         16 July, 1992
-+
-+
-+
-+systems then multiple port range parameters would be needed, one set for
-+each DOI supported on a particular port.
-+
-+The port range will usually represent the total set of labels that may
-+exist on the logical network accessed through the corresponding network
-+interface.  It may, however, represent a subset of these labels that are
-+allowed to enter the CIPSO system.
-+
-+
-+4.2    Single Label CIPSO Hosts
-+
-+CIPSO implementations that support only one label are not required to
-+support the parameters described above.  These limited implementations are
-+only required to support a NET_LABEL parameter.  This parameter contains
-+the CIPSO label that may be inserted in datagrams that exit the host.  In
-+addition, the host MUST reject any incoming datagram that has a label which
-+is not equivalent to the NET_LABEL parameter.
-+
-+
-+5.    Handling Procedures
-+
-+This section describes the processing requirements for incoming and
-+outgoing IP datagrams.  Just providing the correct CIPSO label format
-+is not enough.  Assumptions will be made by one system on how a
-+receiving system will handle the CIPSO label.  Wrong assumptions may
-+lead to non-interoperability or even a security incident.  The
-+requirements described below represent the minimal set needed for
-+interoperability and that provide users some level of confidence.
-+Many other requirements could be added to increase user confidence,
-+however at the risk of restricting creativity and limiting vendor
-+participation.
-+
-+
-+5.1    Input Procedures
-+
-+All datagrams received through a network port MUST have a security label
-+associated with them, either contained in the datagram or assigned to the
-+receiving port.  Without this label the host, gateway, or router will not
-+have the information it needs to make security decisions.  This security
-+label will be obtained from the CIPSO if the option is present in the
-+datagram.  See section 4.1.2 for handling procedures for unlabeled
-+datagrams.  This label will be compared against the PORT (if appropriate)
-+and HOST configuration parameters defined in section 3.
-+
-+If any field within the CIPSO option, such as the DOI identifier, is not
-+recognized the IP datagram is discarded and an ICMP "parameter problem"
-+(type 12) is generated and returned.  The ICMP code field is set to "bad
-+parameter" (code 0) and the pointer is set to the start of the CIPSO field
-+that is unrecognized.
-+
-+If the contents of the CIPSO are valid but the security label is
-+outside of the configured host or port label range, the datagram is
-+discarded and an ICMP "destination unreachable" (type 3) is generated
-+and returned.  The code field of the ICMP is set to "communication with
-+destination network administratively prohibited" (code 9) or to
-+
-+
-+
-+Internet Draft, Expires 15 Jan 93                                 [PAGE 9]
-+
-+
-+
-+CIPSO INTERNET DRAFT                                         16 July, 1992
-+
-+
-+
-+"communication with destination host administratively prohibited"
-+(code 10).  The value of the code field used is dependent upon whether
-+the originator of the ICMP message is acting as a CIPSO host or a CIPSO
-+gateway.  The recipient of the ICMP message MUST be able to handle either
-+value.  The same procedure is performed if a CIPSO can not be added to an
-+IP packet because it is too large to fit in the IP options area.
-+
-+If the error is triggered by receipt of an ICMP message, the message
-+is discarded and no response is permitted (consistent with general ICMP
-+processing rules).
-+
-+
-+5.1.1    Unrecognized tag types
-+
-+The default condition for any CIPSO implementation is that an
-+unrecognized tag type MUST be treated as a "parameter problem" and
-+handled as described in section 4.1.  A CIPSO implementation MAY allow
-+the system administrator to identify tag types that may safely be
-+ignored.  This capability is an allowable enhancement, not a
-+requirement.
-+
-+
-+5.1.2    Unlabeled Packets
-+
-+A network port may be configured to not require a CIPSO label for all
-+incoming  datagrams.  For this configuration a CIPSO label must be
-+assigned to that network port and associated with all unlabeled IP
-+datagrams.  This capability might be used for single level networks or
-+networks that have CIPSO and non-CIPSO hosts and the non-CIPSO hosts
-+all operate at the same label.
-+
-+If a CIPSO option is required and none is found, the datagram is
-+discarded and an ICMP "parameter problem" (type 12) is generated and
-+returned to the originator of the datagram.  The code field of the ICMP
-+is set to "option missing" (code 1) and the ICMP pointer is set to 134
-+(the value of the option type for the missing CIPSO option).
-+
-+
-+5.2    Output Procedures
-+
-+A CIPSO option MUST appear only once in a datagram.  Only one tag type
-+from the MAC Sensitivity class MAY be included in a CIPSO option.  Given
-+the current set of defined tag types, this means that CIPSO labels at
-+first will contain only one tag.
-+
-+All datagrams leaving a CIPSO system MUST meet the following condition:
-+
-+        PORT_LABEL_MIN <= CIPSO label <= PORT_LABEL_MAX
-+
-+If this condition is not satisfied the datagram MUST be discarded.
-+If the CIPSO system only supports one port, the HOST_LABEL_MIN and the
-+HOST_LABEL_MAX parameters MAY be substituted for the PORT parameters in
-+the above condition.
-+
-+The DOI identifier to be used for all outgoing datagrams is configured by
-+
-+
-+
-+Internet Draft, Expires 15 Jan 93                                 [PAGE 10]
-+
-+
-+
-+CIPSO INTERNET DRAFT                                         16 July, 1992
-+
-+
-+
-+the administrator.  If port level DOI identifier assignment is used, then
-+the PORT_DOI configuration parameter MUST contain the DOI identifier to
-+use.  If network level DOI assignment is used, then the NET_DOI parameter
-+MUST contain the DOI identifier to use.  And if host level DOI assignment
-+is employed, then the HOST_DOI parameter MUST contain the DOI identifier
-+to use.  A CIPSO implementation need only support one level of DOI
-+assignment.
-+
-+
-+5.3    DOI Processing Requirements
-+
-+A CIPSO implementation MUST support at least one DOI and SHOULD support
-+multiple DOIs.  System and network administrators are cautioned to
-+ensure that at least one DOI is common within an IP network to allow for
-+broadcasting of IP datagrams.
-+
-+CIPSO gateways MUST be capable of translating a CIPSO option from one
-+DOI to another when forwarding datagrams between networks.  For
-+efficiency purposes this capability is only a desired feature for CIPSO
-+routers.
-+
-+
-+5.4    Label of ICMP Messages
-+
-+The CIPSO label to be used on all outgoing ICMP messages MUST be equivalent
-+to the label of the datagram that caused the ICMP message.  If the ICMP was
-+generated due to a problem associated with the original CIPSO label then the
-+following responses are allowed:
-+
-+  a.  Use the CIPSO label of the original IP datagram
-+  b.  Drop the original datagram with no return message generated
-+
-+In most cases these options will have the same effect.  If you can not
-+interpret the label or if it is outside the label range of your host or
-+interface then an ICMP message with the same label will probably not be
-+able to exit the system.
-+
-+
-+6.    Assignment of DOI Identifier Numbers                                   =
-+
-+Requests for assignment of a DOI identifier number should be addressed to
-+the Internet Assigned Numbers Authority (IANA).
-+
-+
-+7.    Acknowledgements
-+
-+Much of the material in this RFC is based on (and copied from) work
-+done by Gary Winiger of Sun Microsystems and published as Commercial
-+IP Security Option at the INTEROP 89, Commercial IPSO Workshop.
-+
-+
-+8.    Author's Address
-+
-+To submit mail for distribution to members of the IETF CIPSO Working
-+Group, send mail to: cipso@wdl1.wdl.loral.com.
-+
-+
-+
-+Internet Draft, Expires 15 Jan 93                                 [PAGE 11]
-+
-+
-+
-+CIPSO INTERNET DRAFT                                         16 July, 1992
-+
-+
-+
-+
-+To be added to or deleted from this distribution, send mail to:
-+cipso-request@wdl1.wdl.loral.com.
-+
-+
-+9.    References
-+
-+RFC 1038, "Draft Revised IP Security Option", M. St. Johns, IETF, January
-+1988.
-+
-+RFC 1108, "U.S. Department of Defense Security Options
-+for the Internet Protocol", Stephen Kent, IAB, 1 March, 1991.
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+
-+Internet Draft, Expires 15 Jan 93                                 [PAGE 12]
-+
-+
-+
-Index: linux-2.6.18-rc1/Documentation/netlabel/introduction.txt
-===================================================================
---- /dev/null
-+++ linux-2.6.18-rc1/Documentation/netlabel/introduction.txt
-@@ -0,0 +1,53 @@
-+NetLabel Introduction
-+==============================================================================
-+Paul Moore, paul.moore@hp.com
-+
-+June 27, 2006
-+
-+ * Overview
-+
-+NetLabel is a mechanism which can be used by kernel security modules to attach
-+security attributes to outgoing network packets generated from user space
-+applications and read security attributes from incoming network packets.  It
-+is composed of four main components, the protocol engines, the communication
-+layer, the kernel security module API, and the network stack operations.
-+
-+ * Protocol Engines
-+
-+The protocol engines are responsible for both applying and retrieving the
-+network packet's security attributes.  If any translation between the network
-+security attributes and those on the host are required then the protocol
-+engine will handle those tasks as well.  Other kernel subsystems should
-+refrain from calling the protocol engines directly, instead they should use
-+the NetLabel kernel security module API described below.
-+
-+Detailed information about each NetLabel protocol engine can be found in this
-+directory, consult '00-INDEX' for filenames.
-+
-+ * Communication Layer
-+
-+The communication layer exists to allow NetLabel configuration and monitoring
-+from user space.  The NetLabel communication layer uses a message based
-+protocol built on top of the Generic NETLINK transport mechanism.  The exact
-+formatting of these NetLabel messages as well as the Generic NETLINK family
-+names can be found in the the 'net/netlabel/' directory as comments in the
-+header files as well as in 'include/net/netlabel.h'.
-+
-+ * Security Module API
-+
-+The purpose of the NetLabel security module API is to provide a protocol
-+independent interface to the underlying NetLabel protocol engines.  In addition
-+to protocol independence, the security module API is designed to be completely
-+LSM independent which should allow multiple LSMs to leverage the same code
-+base.
-+
-+Detailed information about the NetLabel security module API can be found in the
-+'include/net/netlabel.h' header file as well as the 'lsm_interface.txt' file
-+found in this directory.
-+
-+ * Network Stack Operations
-+
-+The reason for the network stack operations are to ensure the correct handling
-+of the security attributes for kernel generated packets.  In general only the
-+core network stack should call these functions.
-+
-Index: linux-2.6.18-rc1/Documentation/netlabel/lsm_interface.txt
-===================================================================
---- /dev/null
-+++ linux-2.6.18-rc1/Documentation/netlabel/lsm_interface.txt
-@@ -0,0 +1,47 @@
-+NetLabel Linux Security Module Interface
-+==============================================================================
-+Paul Moore, paul.moore@hp.com
-+
-+May 17, 2006
-+
-+ * Overview
-+
-+NetLabel is a mechanism which can set and retrieve security attributes from
-+network packets.  It is intended to be used by LSM developers who want to make
-+use of a common code base for several different packet labeling protocols.
-+The NetLabel security module API is defined in 'include/net/netlabel.h' but a
-+brief overview is given below.
-+
-+ * NetLabel Security Attributes
-+
-+Since NetLabel supports multiple different packet labeling protocols and LSMs
-+it uses the concept of security attributes to refer to the packet's security
-+labels.  The NetLabel security attributes are defined by the
-+'netlbl_lsm_secattr' structure in the NetLabel header file.  Internally the
-+NetLabel subsystem converts the security attributes to and from the correct
-+low-level packet label depending on the NetLabel build time and run time
-+configuration.  It is up to the LSM developer to translate the NetLabel
-+security attributes into whatever security identifiers are in use for their
-+particular LSM.
-+
-+ * NetLabel LSM Protocol Operations
-+
-+These are the functions which allow the LSM developer to manipulate the labels
-+on outgoing packets as well as read the labels on incoming packets.  Functions
-+exist to operate both on sockets as well as the sk_buffs directly.  These high
-+level functions are translated into low level protocol operations based on how
-+the administrator has configured the NetLabel subsystem.
-+
-+ * NetLabel Label Mapping Cache Operations
-+
-+Depending on the exact configuration, translation between the network packet
-+label and the internal LSM security identifier can be time consuming.  The
-+NetLabel label mapping cache is a caching mechanism which can be used to
-+sidestep much of this overhead once a mapping has been established.  Once the
-+LSM has received a packet, used NetLabel to decode it's security attributes,
-+and translated the security attributes into a LSM internal identifier the LSM
-+can use the NetLabel caching functions to associate the LSM internal
-+identifier with the network packet's label.  This means that in the future
-+when a incoming packet matches a cached value not only are the internal
-+NetLabel translation mechanisms bypassed but the LSM translation mechanisms are
-+bypassed as well which should result in a significant reduction in overhead.
-Index: linux-2.6.18-rc1/Documentation/networking/ip-sysctl.txt
-===================================================================
---- linux-2.6.18-rc1.orig/Documentation/networking/ip-sysctl.txt
-+++ linux-2.6.18-rc1/Documentation/networking/ip-sysctl.txt
-@@ -369,6 +369,34 @@ tcp_slow_start_after_idle - BOOLEAN
- 	be timed out after an idle period.
- 	Default: 1
+--- linux-2.6.18-rc1.orig/net/ipv4/Makefile
++++ linux-2.6.18-rc1/net/ipv4/Makefile
+@@ -48,6 +48,7 @@ obj-$(CONFIG_TCP_CONG_VENO) += tcp_veno.
+ obj-$(CONFIG_TCP_CONG_SCALABLE) += tcp_scalable.o
+ obj-$(CONFIG_TCP_CONG_LP) += tcp_lp.o
+ obj-$(CONFIG_TCP_CONG_COMPOUND) += tcp_compound.o
++obj-$(CONFIG_NETLABEL) += cipso_ipv4.o
  
-+CIPSOv4 Variables:
+ obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
+ 		      xfrm4_output.o
+Index: linux-2.6.18-rc1/net/ipv4/cipso_ipv4.c
+===================================================================
+--- /dev/null
++++ linux-2.6.18-rc1/net/ipv4/cipso_ipv4.c
+@@ -0,0 +1,1708 @@
++/*
++ * CIPSO - Commercial IP Security Option
++ *
++ * This is an implementation of the CIPSO 2.2 protocol as specified in
++ * draft-ietf-cipso-ipsecurity-01.txt with additional tag types as found in
++ * FIPS-188, copies of both documents can be found in the Documentation
++ * directory.  While CIPSO never became a full IETF RFC standard many vendors
++ * have chosen to adopt the protocol and over the years it has become a
++ * de-facto standard for labeled networking.
++ *
++ * Author: Paul Moore <paul.moore@hp.com>
++ *
++ */
 +
-+cipso_cache_enable - BOOLEAN
-+	If set, enable additions to and lookups from the CIPSO label mapping
-+	cache.  If unset, additions are ignored and lookups always result in a
-+	miss.  However, regardless of the setting the cache is still
-+	invalidated when required when means you can safely toggle this on and
-+	off and the cache will always be "safe".
++/*
++ * (c) Copyright Hewlett-Packard Development Company, L.P., 2006
++ *
++ * This program is free software;  you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY;  without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
++ * the GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program;  if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
++ *
++ */
 +
-+cipso_cache_bucket_size - INTEGER
-+	This is the maximum size of a CIPSO label cache bucket, once the limit
-+	is reached the "older" entries inside the bucket are tossed to make
-+	room for the new CIPSO labels.
++#include <linux/init.h>
++#include <linux/types.h>
++#include <linux/rcupdate.h>
++#include <linux/list.h>
++#include <linux/spinlock.h>
++#include <linux/string.h>
++#include <linux/module.h>
++#include <linux/jhash.h>
++#include <net/ip.h>
++#include <net/icmp.h>
++#include <net/tcp.h>
++#include <net/netlabel.h>
++#include <net/cipso_ipv4.h>
++#include <asm/bug.h>
 +
-+cipso_rbm_optfmt - BOOLEAN
-+	Enable the "Optimized Tag 1 Format" as defined in section 3.4.2.6 of
-+	the CIPSO draft specification (see Documentation/netlabel for details).
-+	This means that when set the CIPSO tag will be padded with empty
-+	categories in order to make the packet data 32-bit aligned.
++struct cipso_v4_domhsh_entry {
++	char *domain;
++	u32 valid;
++	struct list_head list;
++	struct rcu_head rcu;
++};
 +
-+cipso_rbm_structvalid - BOOLEAN
-+	If set, do a very strict check of the CIPSO option when
-+	ip_options_compile() is called.  If unset, relax the checks done during
-+	ip_options_compile().  Either way is "safe" as errors are caught else
-+	where in the CIPSO processing code but setting this to 0 (False) should
-+	result in less work (i.e. it should be faster) but possibile problems
-+	with other implementations that require strict checks.
++/* List of available DOI definitions */
++/* XXX - Updates should be minimal so having a single lock for the
++   cipso_v4_doi_list and the cipso_v4_doi_list->dom_list should be
++   okay. */
++/* XXX - This currently assumes a minimal number of different DOIs in use,
++   if in practice there are a lot of different DOIs this list should
++   probably be turned into a hash table or something similar so we
++   can do quick lookups. */
++DEFINE_SPINLOCK(cipso_v4_doi_list_lock);
++static struct list_head cipso_v4_doi_list = LIST_HEAD_INIT(cipso_v4_doi_list);
 +
- IP Variables:
++/* Label mapping cache */
++int cipso_v4_cache_enabled = 1;
++int cipso_v4_cache_bucketsize = 10;
++#define CIPSO_V4_CACHE_BUCKETBITS     7
++#define CIPSO_V4_CACHE_BUCKETS        (1 << CIPSO_V4_CACHE_BUCKETBITS)
++#define CIPSO_V4_CACHE_REORDERLIMIT   10
++struct cipso_v4_map_cache_bkt {
++	spinlock_t lock;
++	u32 size;
++	struct list_head list;
++};
++struct cipso_v4_map_cache_entry {
++	u32 hash;
++	unsigned char *key;
++	u32 key_len;
++
++	struct netlbl_lsm_cache lsm_data;
++
++	u32 activity;
++	struct list_head list;
++};
++static u32 cipso_v4_cache_size = 0;
++static struct cipso_v4_map_cache_bkt *cipso_v4_cache = NULL;
++#define CIPSO_V4_CACHE_ENABLED (cipso_v4_cache_enabled &&		\
++				cipso_v4_cache_bucketsize > 0 &&	\
++				cipso_v4_cache_size > 0)
++
++/* Restricted bitmap (tag #1) flags */
++int cipso_v4_rbm_optfmt = 0;
++int cipso_v4_rbm_strictvalid = 1;
++
++/*
++ * Helper Functions
++ */
++
++/**
++ * cipso_v4_bitmap_walk - Walk a bitmap looking for a bit
++ * @bitmap: the bitmap
++ * @bitmap_len: length in bits
++ * @offset: starting offset
++ * @state: if non-zero, look for a set (1) bit else look for a cleared (0) bit
++ *
++ * Description:
++ * Starting at @offset, walk the bitmap from left to right until either the
++ * desired bit is found or we reach the end.  Return the bit offset, -1 if
++ * not found, or -2 if error.
++ */
++static int cipso_v4_bitmap_walk(const unsigned char *bitmap,
++				const u32 bitmap_len,
++				const u32 offset,
++				const u8 state)
++{
++	u32 bit_spot;
++	u32 byte_offset;
++	unsigned char bitmask;
++	unsigned char byte;
++
++	/* gcc always rounds to zero when doing integer division */
++	byte_offset = offset / 8;
++	byte = bitmap[byte_offset];
++	bit_spot = offset;
++	bitmask = 0x80 >> (offset % 8);
++
++	/* XXX - probably should use include/asm/bitops.h if we can */
++	while (bit_spot < bitmap_len) {
++		if ((state && (byte & bitmask) == bitmask) ||
++		    (state == 0 && (byte & bitmask) == 0))
++			return bit_spot;
++
++		bit_spot++;
++		bitmask >>= 1;
++		if (bitmask == 0) {
++			byte = bitmap[++byte_offset];
++			bitmask = 0x80;
++		}
++	}
++
++	return -1;
++}
++
++/**
++ * cipso_v4_bitmap_setbit - Sets a single bit in a bitmap
++ * @bitmap: the bitmap
++ * @bit: the bit
++ * @state: if non-zero, set the bit (1) else clear the bit (0)
++ *
++ * Description:
++ * Set a single bit in the bitmask.  Returns zero on success, negative values
++ * on error.
++ */
++static void cipso_v4_bitmap_setbit(unsigned char *bitmap,
++				   const u32 bit,
++				   const u8 state)
++{
++	u32 byte_spot;
++	u8 bitmask;
++
++	/* gcc always rounds to zero when doing integer division */
++	byte_spot = bit / 8;
++	bitmask = 0x80 >> (bit % 8);
++	if (state)
++		bitmap[byte_spot] |= bitmask;
++	else
++		bitmap[byte_spot] &= ~bitmask;
++}
++
++/**
++ * cipso_v4_doi_domhsh_free - Frees a domain list entry
++ * @entry: the entry's RCU field
++ *
++ * Description:
++ * This function is designed to be used as a callback to the call_rcu()
++ * function so that the memory allocated to a domain list entry can be released
++ * safely.
++ *
++ */
++static void cipso_v4_doi_domhsh_free(struct rcu_head *entry)
++{
++	struct cipso_v4_domhsh_entry *ptr;
++
++	ptr = container_of(entry, struct cipso_v4_domhsh_entry, rcu);
++	kfree(ptr->domain);
++	kfree(ptr);
++}
++
++/**
++ * cipso_v4_cache_entry_free - Frees a cache entry
++ * @entry: the entry to free
++ *
++ * Description:
++ * This function frees the memory associated with a cache entry.
++ *
++ */
++static void cipso_v4_cache_entry_free(struct cipso_v4_map_cache_entry *entry)
++{
++	if (entry->lsm_data.free)
++		entry->lsm_data.free(entry->lsm_data.data);
++	kfree(entry->key);
++	kfree(entry);
++}
++
++/**
++ * cipso_v4_map_cache_hash - Hashing function for the CIPSO cache
++ * @key: the hash key
++ * @key_len: the length of the key in bytes
++ *
++ * Description:
++ * The CIPSO tag hashing function.  Returns a 32-bit hash value.
++ *
++ */
++static u32 cipso_v4_map_cache_hash(const unsigned char *key, const u32 key_len)
++{
++	return jhash(key, key_len, 0);
++}
++
++/*
++ * Label Mapping Cache Functions
++ */
++
++/**
++ * cipso_v4_cache_init - Initialize the CIPSO cache
++ * @bkt_size: the number of cache buckets
++ *
++ * Description:
++ * Initializes the CIPSO label mapping cache, this function should be called
++ * before any of the other functions defined in this file.  Returns zero on
++ * success, negative values on error.
++ *
++ */
++static int cipso_v4_cache_init(const u32 bkt_size)
++{
++	struct cipso_v4_map_cache_bkt *cache;
++	u32 iter;
++
++	if (bkt_size == 0)
++		return -EINVAL;
++
++	cache = kcalloc(bkt_size,
++			sizeof(struct cipso_v4_map_cache_bkt), GFP_KERNEL);
++	if (cache == NULL)
++		return -ENOMEM;
++
++	for (iter = 0; iter < bkt_size; iter++) {
++		cache[iter].lock = SPIN_LOCK_UNLOCKED;
++		cache[iter].size = 0;
++		INIT_LIST_HEAD(&cache[iter].list);
++	}
++	cipso_v4_cache = cache;
++	cipso_v4_cache_size = bkt_size;
++
++	return 0;
++}
++
++/**
++ * cipso_v4_cache_destroy - Destroy the CIPSO cache
++ *
++ * Description:
++ * Clears the CIPSO cache and frees all the memory.  This function does not
++ * hold any locks and should only be called when the module is being unloaded.
++ *
++ */
++static int cipso_v4_cache_destroy(void)
++{
++	struct cipso_v4_map_cache_bkt *cache;
++	struct cipso_v4_map_cache_entry *entry;
++	u32 cache_size;
++	u32 iter;
++
++	cache = cipso_v4_cache;
++	cache_size = cipso_v4_cache_size;
++	cipso_v4_cache_size = 0;
++	cipso_v4_cache = NULL;
++
++	for (iter = 0; iter < cache_size; iter++)
++		list_for_each_entry(entry, &cache[iter].list, list) {
++			list_del(&entry->list);
++			cipso_v4_cache_entry_free(entry);
++		}
++
++	return 0;
++}
++
++/**
++ * cipso_v4_cache_invalidate - Invalidates the current CIPSO cache
++ *
++ * Description:
++ * Invalidates and frees any entries in the CIPSO cache.  Returns zero on
++ * success and negative values on failure.
++ *
++ */
++void cipso_v4_cache_invalidate(void)
++{
++	struct cipso_v4_map_cache_entry *entry, *tmp_entry;
++	u32 iter;
++
++	if (cipso_v4_cache_size == 0)
++		return;
++
++	for (iter = 0; iter < cipso_v4_cache_size; iter++) {
++		spin_lock(&cipso_v4_cache[iter].lock);
++		list_for_each_entry_safe(entry,
++					 tmp_entry,
++					 &cipso_v4_cache[iter].list, list) {
++			list_del(&entry->list);
++			cipso_v4_cache_entry_free(entry);
++		}
++		cipso_v4_cache[iter].size = 0;
++		spin_unlock(&cipso_v4_cache[iter].lock);
++	}
++
++	return;
++}
++
++/**
++ * cipso_v4_cache_check - Check the CIPSO cache for a label mapping
++ * @key: the buffer to check
++ * @key_len: buffer length in bytes
++ * @secattr: the security attribute struct to use
++ *
++ * Description:
++ * This function checks the cache to see if a label mapping already exists for
++ * the given key.  If there is a match then the cache is adjusted and the
++ * @secattr struct is populated with the correct LSM security attributes.  The
++ * cache is adjusted in the following manner if the entry is not already the
++ * first in the cache bucket:
++ *
++ *  1. The cache entry's activity counter is incremented
++ *  2. The previous (higher ranking) entry's activity counter is decremented
++ *  3. If the difference between the two activity counters is geater than
++ *     CIPSO_V4_CACHE_REORDERLIMIT the two entries are swapped
++ *
++ * Returns zero on success, -ENOENT for a cache miss, and other negative values
++ * on error.
++ *
++ */
++static int cipso_v4_cache_check(const unsigned char *key,
++				const u32 key_len,
++				struct netlbl_lsm_secattr *secattr)
++{
++	u32 bkt;
++	struct cipso_v4_map_cache_entry *entry;
++	struct cipso_v4_map_cache_entry *prev_entry = NULL;
++	u32 hash;
++
++	if (!CIPSO_V4_CACHE_ENABLED)
++		return -ENOENT;
++
++	hash = cipso_v4_map_cache_hash(key, key_len);
++	bkt = hash & (CIPSO_V4_CACHE_BUCKETBITS - 1);
++	spin_lock(&cipso_v4_cache[bkt].lock);
++	list_for_each_entry(entry, &cipso_v4_cache[bkt].list, list) {
++		if (entry->hash == hash &&
++		    entry->key_len == key_len &&
++		    memcmp(entry->key, key, key_len) == 0) {
++			entry->activity += 1;
++
++			if (prev_entry != NULL) {
++				if (prev_entry->activity > 0)
++					prev_entry->activity -= 1;
++
++				if (entry->activity > prev_entry->activity &&
++				    entry->activity - prev_entry->activity >
++				    CIPSO_V4_CACHE_REORDERLIMIT) {
++					__list_del(entry->list.prev,
++						   entry->list.next);
++					__list_add(&entry->list,
++						   prev_entry->list.prev,
++						   &prev_entry->list);
++				}
++			}
++
++			secattr->cache.free = entry->lsm_data.free;
++			secattr->cache.data = entry->lsm_data.data;
++			spin_unlock(&cipso_v4_cache[bkt].lock);
++			return 0;
++		}
++		prev_entry = entry;
++	}
++	spin_unlock(&cipso_v4_cache[bkt].lock);
++
++	return -ENOENT;
++}
++
++/**
++ * cipso_v4_cache_add - Add an entry to the CIPSO cache
++ * @skb: the packet
++ * @secattr: the packet's security attributes
++ *
++ * Description:
++ * Add a new entry into the CIPSO label mapping cache.  Add the new entry to
++ * head of the cache bucket's list, if the cache bucket is out of room remove
++ * the last entry in the list first.  It is important to note that there is
++ * currently no checking for duplicate keys.  Returns zero on success,
++ * negative values on failure.
++ *
++ */
++int cipso_v4_cache_add(const struct sk_buff *skb,
++		       const struct netlbl_lsm_secattr *secattr)
++{
++	int ret_val = -EPERM;
++	u32 bkt;
++	struct cipso_v4_map_cache_entry *entry = NULL;
++	struct cipso_v4_map_cache_entry *old_entry = NULL;
++	unsigned char *cipso_ptr;
++	u32 cipso_ptr_len;
++
++	if (!CIPSO_V4_CACHE_ENABLED)
++		return 0;
++
++	cipso_ptr = CIPSO_V4_OPTPTR(skb);
++	cipso_ptr_len = cipso_ptr[1];
++
++	entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
++	if (entry == NULL)
++		return -ENOMEM;
++	entry->key = kmalloc(cipso_ptr_len, GFP_ATOMIC);
++	if (entry->key == NULL) {
++		ret_val = -ENOMEM;
++		goto cache_add_failure;
++	}
++	memcpy(entry->key, cipso_ptr, cipso_ptr_len);
++	entry->key_len = cipso_ptr_len;
++	entry->hash = cipso_v4_map_cache_hash(cipso_ptr, cipso_ptr_len);
++	entry->lsm_data.free = secattr->cache.free;
++	entry->lsm_data.data = secattr->cache.data;
++
++	bkt = entry->hash & (CIPSO_V4_CACHE_BUCKETBITS - 1);
++	spin_lock(&cipso_v4_cache[bkt].lock);
++	if (cipso_v4_cache[bkt].size < cipso_v4_cache_bucketsize) {
++		list_add(&entry->list, &cipso_v4_cache[bkt].list);
++		cipso_v4_cache[bkt].size += 1;
++	} else {
++		old_entry = list_entry(cipso_v4_cache[bkt].list.prev,
++				       struct cipso_v4_map_cache_entry, list);
++		list_del(&old_entry->list);
++		list_add(&entry->list, &cipso_v4_cache[bkt].list);
++		cipso_v4_cache_entry_free(old_entry);
++	}
++	spin_unlock(&cipso_v4_cache[bkt].lock);
++
++	return 0;
++
++cache_add_failure:
++	if (entry)
++		cipso_v4_cache_entry_free(entry);
++	return ret_val;
++}
++
++/*
++ * DOI List Functions
++ */
++
++/**
++ * cipso_v4_doi_search - Searches for a DOI definition
++ * @doi: the DOI to search for
++ *
++ * Description:
++ * Search the DOI definition list for a DOI definition with a DOI value that
++ * matches @doi.  The caller is responsibile for calling rcu_read_[un]lock().
++ * Returns a pointer to the DOI definition on success and NULL on failure.
++ */
++static struct cipso_v4_doi *cipso_v4_doi_search(const u32 doi)
++{
++	struct cipso_v4_doi *iter;
++
++	list_for_each_entry_rcu(iter, &cipso_v4_doi_list, list)
++		if (iter->doi == doi && iter->valid)
++			return iter;
++	return NULL;
++}
++
++/**
++ * cipso_v4_doi_add - Add a new DOI to the CIPSO protocol engine
++ * @doi_def: the DOI structure
++ *
++ * Description:
++ * The caller defines a new DOI for use by the CIPSO engine and calls this
++ * function to add it to the list of acceptable domains.  The caller must
++ * ensure that the mapping table specified in @doi_def->map meets all of the
++ * requirements of the mapping type (see cipso_ipv4.h for details).  Returns
++ * zero on success and non-zero on failure.
++ *
++ */
++int cipso_v4_doi_add(struct cipso_v4_doi *doi_def)
++{
++	if (doi_def == NULL || doi_def->doi == CIPSO_V4_DOI_UNKNOWN)
++		return -EINVAL;
++
++	doi_def->valid = 1;
++	INIT_RCU_HEAD(&doi_def->rcu);
++	INIT_LIST_HEAD(&doi_def->dom_list);
++
++	rcu_read_lock();
++	if (cipso_v4_doi_search(doi_def->doi) != NULL) {
++		rcu_read_unlock();
++		return -EEXIST;
++	}
++	spin_lock(&cipso_v4_doi_list_lock);
++	list_add_tail_rcu(&doi_def->list, &cipso_v4_doi_list);
++	spin_unlock(&cipso_v4_doi_list_lock);
++	rcu_read_unlock();
++
++	return 0;
++}
++
++/**
++ * cipso_v4_doi_remove - Remove an existing DOI from the CIPSO protocol engine
++ * @doi: the DOI value
++ * @callback: the DOI cleanup/free callback
++ *
++ * Description:
++ * Removes a DOI definition from the CIPSO engine, @callback is called to
++ * free any memory.  The NetLabel routines will be called to release their own
++ * LSM domain mappings as well as our own domain list.  Returns zero on
++ * success and negative values on failure.
++ *
++ */
++int cipso_v4_doi_remove(const u32 doi,
++			void (*callback) (struct rcu_head * head))
++{
++	struct cipso_v4_doi *doi_def;
++	struct cipso_v4_domhsh_entry *dom_iter;
++
++	rcu_read_lock();
++	doi_def = cipso_v4_doi_search(doi);
++	if (doi_def != NULL) {
++		spin_lock(&cipso_v4_doi_list_lock);
++		doi_def->valid = 0;
++		list_del_rcu(&doi_def->list);
++		spin_unlock(&cipso_v4_doi_list_lock);
++		list_for_each_entry_rcu(dom_iter, &doi_def->dom_list, list)
++			if (dom_iter->valid)
++				netlbl_domhsh_remove(dom_iter->domain);
++		cipso_v4_cache_invalidate();
++		rcu_read_unlock();
++
++		call_rcu(&doi_def->rcu, callback);
++		return 0;
++	}
++	rcu_read_unlock();
++
++	return -ENOENT;
++}
++
++/**
++ * cipso_v4_doi_getdef - Returns a pointer to a valid DOI definition
++ * @doi: the DOI value
++ *
++ * Description:
++ * Searches for a valid DOI definition and if one is found it is returned to
++ * the caller.  Otherwise NULL is returned.  The caller must ensure that
++ * rcu_read_lock() is held while accessing the returned definition.
++ *
++ */
++struct cipso_v4_doi *cipso_v4_doi_getdef(const u32 doi)
++{
++	return cipso_v4_doi_search(doi);
++}
++
++/**
++ * cipso_v4_doi_dump_all - Dump all the CIPSO DOI definitions into a sk_buff
++ * @headroom: the amount of headroom to allocate for the sk_buff
++ *
++ * Description:
++ * Dump a list of all the configured DOI values into a sk_buff.  The returned
++ * sk_buff has room at the front of the sk_buff for @headroom bytes.  See
++ * net/netlabel/netlabel_cipso_v4.h for the LISTALL message format.  This
++ * function may fail if another process is changing the DOI list at the same
++ * time.  Returns a pointer to a sk_buff on success, NULL on error.
++ *
++ */
++struct sk_buff *cipso_v4_doi_dump_all(const size_t headroom)
++{
++	struct sk_buff *skb;
++	unsigned char *buf;
++	struct cipso_v4_doi *iter;
++	u32 doi_cnt = 0;
++	ssize_t buf_len;
++
++	/* XXX - In both cases, this is kinda ugly as we have to go through
++	   the list once to determine how large of a buffer we need,
++	   drop the locks, allocate the buffer, grab the locks, and
++	   finally fill the buffer.  The problem is that there is that
++	   open window where the table could grow and we will end up
++	   short on space. */
++
++	buf_len = NETLBL_LEN_U32;
++	rcu_read_lock();
++	list_for_each_entry_rcu(iter, &cipso_v4_doi_list, list)
++		if (iter->valid) {
++			doi_cnt += 1;
++			buf_len += 2 * NETLBL_LEN_U32;
++		}
++	rcu_read_unlock();
++
++	skb = netlbl_netlink_alloc_skb(headroom, buf_len, GFP_KERNEL);
++	if (skb == NULL)
++		return NULL;
++	buf = skb_put(skb, buf_len);
++	netlbl_putinc_u32(&buf, doi_cnt, &buf_len);
++
++	rcu_read_lock();
++	list_for_each_entry_rcu(iter, &cipso_v4_doi_list, list)
++		if (iter->valid) {
++			if (buf_len < 2 * NETLBL_LEN_U32) {
++				rcu_read_unlock();
++				kfree(skb);
++				return NULL;
++			}
++			netlbl_putinc_u32(&buf, iter->doi, &buf_len);
++			netlbl_putinc_u32(&buf, iter->type, &buf_len);
++		}
++	rcu_read_unlock();
++
++	return skb;
++}
++
++/**
++ * cipso_v4_doi_dump - Dump a CIPSO DOI definition into a sk_buff
++ * @doi: the DOI value
++ * @headroom: the amount of headroom to allocate for the sk_buff
++ *
++ * Description:
++ * Lookup the DOI definition matching @doi and dump it's contents into a
++ * sk_buff.  The returned sk_buff has room at the front of the sk_buff for
++ * @headroom bytes.  See net/netlabel/netlabel_cipso_v4.h for the LIST message
++ * format.  This function may fail if another process is changing the DOI list
++ * at the same time.  Returns a pointer to a sk_buff on success, NULL on error.
++ *
++ */
++struct sk_buff *cipso_v4_doi_dump(const u32 doi, const size_t headroom)
++{
++	struct sk_buff *skb;
++	unsigned char *buf;
++	struct cipso_v4_doi *iter;
++	u32 tag_cnt = 0;
++	u32 lvl_cnt = 0;
++	u32 cat_cnt = 0;
++	ssize_t buf_len;
++	ssize_t tmp;
++
++	/* XXX - In both cases, this is kinda ugly as we have to go through
++	   the list once to determine how large of a buffer we need,
++	   drop the locks, allocate the buffer, grab the locks, and
++	   finally fill the buffer.  The problem is that there is that
++	   open window where the table could grow and we will end up
++	   short on space. */
++
++	rcu_read_lock();
++	iter = cipso_v4_doi_getdef(doi);
++	if (iter == NULL) {
++		rcu_read_unlock();
++		return NULL;
++	}
++	buf_len = NETLBL_LEN_U32;
++	switch (iter->type) {
++	case CIPSO_V4_MAP_PASS:
++		buf_len += NETLBL_LEN_U32;
++		while(tag_cnt < CIPSO_V4_TAG_MAXCNT &&
++		      iter->tags[tag_cnt] != CIPSO_V4_TAG_INVALID) {
++			tag_cnt += 1;
++			buf_len += NETLBL_LEN_U8;
++		}
++		break;
++	case CIPSO_V4_MAP_STD:
++		buf_len += 3 * NETLBL_LEN_U32;
++		while (tag_cnt < CIPSO_V4_TAG_MAXCNT &&
++		       iter->tags[tag_cnt] != CIPSO_V4_TAG_INVALID) {
++			tag_cnt += 1;
++			buf_len += NETLBL_LEN_U8;
++		}
++		for (tmp = 0; tmp < iter->map.std->lvl.local_size; tmp++)
++			if (iter->map.std->lvl.local[tmp] !=
++			    CIPSO_V4_INV_LVL) {
++				lvl_cnt += 1;
++				buf_len += NETLBL_LEN_U32 + NETLBL_LEN_U8;
++			}
++		for (tmp = 0; tmp < iter->map.std->cat.local_size; tmp++)
++			if (iter->map.std->cat.local[tmp] !=
++			    CIPSO_V4_INV_CAT) {
++				cat_cnt += 1;
++				buf_len += NETLBL_LEN_U32 + NETLBL_LEN_U16;
++			}
++		break;
++	}
++	rcu_read_unlock();
++
++	skb = netlbl_netlink_alloc_skb(headroom, buf_len, GFP_KERNEL);
++	if (skb == NULL)
++		return NULL;
++	buf = skb_put(skb, buf_len);
++	netlbl_putinc_u32(&buf, iter->type, &buf_len);
++
++	rcu_read_lock();
++	if (iter != cipso_v4_doi_getdef(doi))
++		goto doi_dump_failure;
++	switch (iter->type) {
++	case CIPSO_V4_MAP_PASS:
++		netlbl_putinc_u32(&buf, tag_cnt, &buf_len);
++		for (tmp = 0;
++		     tmp < CIPSO_V4_TAG_MAXCNT &&
++			     iter->tags[tmp] != CIPSO_V4_TAG_INVALID;
++		     tmp++) {
++			if (buf_len < NETLBL_LEN_U8)
++				goto doi_dump_failure;
++			netlbl_putinc_u8(&buf, iter->tags[tmp], &buf_len);
++		}
++		break;
++	case CIPSO_V4_MAP_STD:
++		netlbl_putinc_u32(&buf, tag_cnt, &buf_len);
++		netlbl_putinc_u32(&buf, lvl_cnt, &buf_len);
++		netlbl_putinc_u32(&buf, cat_cnt, &buf_len);
++		for (tmp = 0;
++		     tmp < CIPSO_V4_TAG_MAXCNT &&
++			     iter->tags[tmp] != CIPSO_V4_TAG_INVALID;
++		     tmp++) {
++			if (buf_len < NETLBL_LEN_U8)
++				goto doi_dump_failure;
++			netlbl_putinc_u8(&buf, iter->tags[tmp], &buf_len);
++		}
++		for (tmp = 0; tmp < iter->map.std->lvl.local_size; tmp++)
++			if (iter->map.std->lvl.local[tmp] !=
++			    CIPSO_V4_INV_LVL) {
++				if (buf_len < 2 * NETLBL_LEN_U32)
++					goto doi_dump_failure;
++				netlbl_putinc_u32(&buf, tmp, &buf_len);
++				netlbl_putinc_u8(&buf,
++						 iter->map.std->lvl.local[tmp],
++						 &buf_len);
++			}
++		for (tmp = 0; tmp < iter->map.std->cat.local_size; tmp++)
++			if (iter->map.std->cat.local[tmp] !=
++			    CIPSO_V4_INV_CAT) {
++				if (buf_len < 2 * NETLBL_LEN_U32)
++					goto doi_dump_failure;
++				netlbl_putinc_u32(&buf, tmp, &buf_len);
++				netlbl_putinc_u16(&buf,
++						  iter->map.std->cat.local[tmp],
++						  &buf_len);
++			}
++		break;
++	}
++	rcu_read_unlock();
++
++	return skb;
++
++doi_dump_failure:
++	rcu_read_unlock();
++	kfree(skb);
++	return NULL;
++}
++
++/**
++ * cipso_v4_doi_domhsh_add - Adds a domain entry to a DOI definition
++ * @doi_def: the DOI definition
++ * @domain: the domain to add
++ *
++ * Description:
++ * Adds the @domain to the the DOI specified by @doi_def, this function
++ * should only be called by external functions (i.e. NetLabel).  This function
++ * does allocate memory.  Returns zero on success, negative values on failure.
++ *
++ */
++int cipso_v4_doi_domhsh_add(struct cipso_v4_doi *doi_def, const char *domain)
++{
++	struct cipso_v4_domhsh_entry *iter;
++	struct cipso_v4_domhsh_entry *new_dom;
++
++	new_dom = kzalloc(sizeof(*new_dom), GFP_KERNEL);
++	if (new_dom == NULL)
++		return -ENOMEM;
++	if (domain) {
++		new_dom->domain = kstrdup(domain, GFP_KERNEL);
++		if (new_dom->domain == NULL) {
++			kfree(new_dom);
++			return -ENOMEM;
++		}
++	}
++	new_dom->valid = 1;
++	INIT_RCU_HEAD(&new_dom->rcu);
++
++	rcu_read_lock();
++	list_for_each_entry_rcu(iter, &doi_def->dom_list, list)
++		if (iter->valid &&
++		    ((domain != NULL && iter->domain != NULL &&
++		      strcmp(iter->domain, domain) == 0) ||
++		     (domain == NULL && iter->domain == NULL))) {
++			rcu_read_unlock();
++			kfree(new_dom->domain);
++			kfree(new_dom);
++			return -EEXIST;
++		}
++	spin_lock(&cipso_v4_doi_list_lock);
++	list_add_tail_rcu(&new_dom->list, &doi_def->dom_list);
++	spin_unlock(&cipso_v4_doi_list_lock);
++	rcu_read_unlock();
++
++	return 0;
++}
++
++/**
++ * cipso_v4_doi_domhsh_remove - Removes a domain entry from a DOI definition
++ * @doi_def: the DOI definition
++ * @domain: the domain to remove
++ *
++ * Description:
++ * Removes the @domain from the DOI specified by @doi_def, this function
++ * should only be called by external functions (i.e. NetLabel).   Returns zero
++ * on success and negative values on error.
++ *
++ */
++int cipso_v4_doi_domhsh_remove(struct cipso_v4_doi *doi_def,
++			       const char *domain)
++{
++	struct cipso_v4_domhsh_entry *iter;
++
++	rcu_read_lock();
++	list_for_each_entry_rcu(iter, &doi_def->dom_list, list)
++		if (iter->valid &&
++		    ((domain != NULL && iter->domain != NULL &&
++		      strcmp(iter->domain, domain) == 0) ||
++		     (domain == NULL && iter->domain == NULL))) {
++			spin_lock(&cipso_v4_doi_list_lock);
++			iter->valid = 0;
++			list_del_rcu(&iter->list);
++			spin_unlock(&cipso_v4_doi_list_lock);
++			rcu_read_unlock();
++			call_rcu(&iter->rcu, cipso_v4_doi_domhsh_free);
++
++			return 0;
++		}
++	rcu_read_unlock();
++
++	return -ENOENT;
++}
++
++/*
++ * Label Mapping Functions
++ */
++
++/**
++ * cipso_v4_map_lvl_valid - Checks to see if the given level is understood
++ * @doi_def: the DOI definition
++ * @level: the level to check
++ *
++ * Description:
++ * Checks the given level against the given DOI definition and returns a
++ * negative value if the level does not have a valid mapping and a zero value
++ * if the level is defined by the DOI.
++ *
++ */
++static int cipso_v4_map_lvl_valid(const struct cipso_v4_doi *doi_def,
++				  const u8 level)
++{
++	switch (doi_def->type) {
++	case CIPSO_V4_MAP_PASS:
++		return 0;
++	case CIPSO_V4_MAP_STD:
++		if (doi_def->map.std->lvl.cipso[level] < CIPSO_V4_INV_LVL)
++			return 0;
++		break;
++	}
++
++	return -EFAULT;
++}
++
++/**
++ * cipso_v4_map_lvl_hton - Perform a level mapping from the host to the network
++ * @doi_def: the DOI definition
++ * @host_lvl: the host MLS level
++ * @net_lvl: the network/CIPSO MLS level
++ *
++ * Description:
++ * Perform a label mapping to translate a local MLS level to the correct
++ * CIPSO level using the given DOI definition.  Returns zero on success,
++ * negative values otherwise.
++ *
++ */
++static int cipso_v4_map_lvl_hton(const struct cipso_v4_doi *doi_def,
++				 const u32 host_lvl,
++				 u32 *net_lvl)
++{
++	switch (doi_def->type) {
++	case CIPSO_V4_MAP_PASS:
++		*net_lvl = host_lvl;
++		return 0;
++	case CIPSO_V4_MAP_STD:
++		if (host_lvl < doi_def->map.std->lvl.local_size) {
++			*net_lvl = doi_def->map.std->lvl.local[host_lvl];
++			return 0;
++		}
++		break;
++	}
++
++	return -EINVAL;
++}
++
++/**
++ * cipso_v4_map_lvl_ntoh - Perform a level mapping from the network to the host
++ * @doi_def: the DOI definition
++ * @net_lvl: the network/CIPSO MLS level
++ * @host_lvl: the host MLS level
++ *
++ * Description:
++ * Perform a label mapping to translate a CIPSO level to the correct local MLS
++ * level using the given DOI definition.  Returns zero on success, negative
++ * values otherwise.
++ *
++ */
++static int cipso_v4_map_lvl_ntoh(const struct cipso_v4_doi *doi_def,
++				 const u32 net_lvl,
++				 u32 *host_lvl)
++{
++	struct cipso_v4_std_map_tbl *map_tbl;
++
++	switch (doi_def->type) {
++	case CIPSO_V4_MAP_PASS:
++		*host_lvl = net_lvl;
++		return 0;
++	case CIPSO_V4_MAP_STD:
++		map_tbl = doi_def->map.std;
++		if (net_lvl < map_tbl->lvl.cipso_size &&
++		    map_tbl->lvl.cipso[net_lvl] < CIPSO_V4_INV_LVL) {
++			*host_lvl = doi_def->map.std->lvl.cipso[net_lvl];
++			return 0;
++		}
++		break;
++	}
++
++	return -EINVAL;
++}
++
++/**
++ * cipso_v4_map_cat_rbm_valid - Checks to see if the category bitmap is valid
++ * @doi_def: the DOI definition
++ * @bitmap: category bitmap
++ * @bitmap_len: bitmap length in bytes
++ *
++ * Description:
++ * Checks the given category bitmap against the given DOI definition and
++ * returns a negative value if any of the categories in the bitmap do not have
++ * a valid mapping and a zero value if all of the categories are valid.
++ *
++ */
++static int cipso_v4_map_cat_rbm_valid(const struct cipso_v4_doi *doi_def,
++				      const unsigned char *bitmap,
++				      const u32 bitmap_len)
++{
++	int cat = -1;
++	u32 bitmap_len_bits = bitmap_len * 8;
++	u32 cipso_cat_size = doi_def->map.std->cat.cipso_size;
++	u32 *cipso_array = doi_def->map.std->cat.cipso;
++
++	switch (doi_def->type) {
++	case CIPSO_V4_MAP_PASS:
++		return 0;
++	case CIPSO_V4_MAP_STD:
++		for (;;) {
++			cat = cipso_v4_bitmap_walk(bitmap,
++						   bitmap_len_bits,
++						   cat + 1,
++						   1);
++			if (cat < 0)
++				break;
++			if (cat >= cipso_cat_size ||
++			    cipso_array[cat] >= CIPSO_V4_INV_CAT)
++				return -EFAULT;
++		}
++
++		if (cat == -1)
++			return 0;
++		break;
++	}
++
++	return -EFAULT;
++}
++
++/**
++ * cipso_v4_map_cat_rbm_hton - Perform a category mapping from host to network
++ * @doi_def: the DOI definition
++ * @host_cat: the category bitmap in host format
++ * @host_cat_len: the length of the host's category bitmap in bytes
++ * @net_cat: the zero'd out category bitmap in network/CIPSO format
++ * @net_cat_len: the length of the CIPSO bitmap in bytes
++ *
++ * Description:
++ * Perform a label mapping to translate a local MLS category bitmap to the
++ * correct CIPSO bitmap using the given DOI definition.  Returns the minimum
++ * size in bytes of the network bitmap on success, negative values otherwise.
++ *
++ */
++static int cipso_v4_map_cat_rbm_hton(const struct cipso_v4_doi *doi_def,
++				     const unsigned char *host_cat,
++				     const u32 host_cat_len,
++				     unsigned char *net_cat,
++				     const u32 net_cat_len)
++{
++	int host_spot = -1;
++	u32 net_spot;
++	u32 net_spot_max = 0;
++	u32 host_clen_bits = host_cat_len * 8;
++	u32 net_clen_bits = net_cat_len * 8;
++	u32 host_cat_size = doi_def->map.std->cat.local_size;
++	u32 *host_cat_array = doi_def->map.std->cat.local;
++
++	switch (doi_def->type) {
++	case CIPSO_V4_MAP_PASS:
++		net_spot_max = host_cat_len - 1;
++		while (net_spot_max > 0 && host_cat[net_spot_max] == 0)
++			net_spot_max--;
++		if (net_spot_max > net_cat_len)
++			return -EINVAL;
++		memcpy(net_cat, host_cat, net_spot_max);
++		return net_spot_max;
++	case CIPSO_V4_MAP_STD:
++		for (;;) {
++			host_spot = cipso_v4_bitmap_walk(host_cat,
++							 host_clen_bits,
++							 host_spot + 1,
++							 1);
++			if (host_spot < 0)
++				break;
++			if (host_spot >= host_cat_size)
++				return -EPERM;
++
++			net_spot = host_cat_array[host_spot];
++			if (net_spot >= net_clen_bits)
++				return -ENOSPC;
++			cipso_v4_bitmap_setbit(net_cat, net_spot, 1);
++
++			if (net_spot > net_spot_max)
++				net_spot_max = net_spot;
++		}
++
++		if (host_spot == -2)
++			return -EFAULT;
++
++		if (++net_spot_max % 8)
++			return net_spot_max / 8 + 1;
++		return net_spot_max / 8;
++	}
++
++	return -EINVAL;
++}
++
++/**
++ * cipso_v4_map_cat_rbm_ntoh - Perform a category mapping from network to host
++ * @doi_def: the DOI definition
++ * @net_cat: the category bitmap in network/CIPSO format
++ * @net_cat_len: the length of the CIPSO bitmap in bytes
++ * @host_cat: the zero'd out category bitmap in host format
++ * @host_cat_len: the length of the host's category bitmap in bytes
++ *
++ * Description:
++ * Perform a label mapping to translate a CIPSO bitmap to the correct local
++ * MLS category bitmap using the given DOI definition.  Returns the minimum
++ * size in bytes of the host bitmap on success, negative values otherwise.
++ *
++ */
++static int cipso_v4_map_cat_rbm_ntoh(const struct cipso_v4_doi *doi_def,
++				     const unsigned char *net_cat,
++				     const u32 net_cat_len,
++				     unsigned char *host_cat,
++				     const u32 host_cat_len)
++{
++	u32 host_spot;
++	u32 host_spot_max = 0;
++	int net_spot = -1;
++	u32 net_clen_bits = net_cat_len * 8;
++	u32 host_clen_bits = host_cat_len * 8;
++	u32 net_cat_size = doi_def->map.std->cat.cipso_size;
++	u32 *net_cat_array = doi_def->map.std->cat.cipso;
++
++	switch (doi_def->type) {
++	case CIPSO_V4_MAP_PASS:
++		if (net_cat_len > host_cat_len)
++			return -EINVAL;
++		memcpy(host_cat, net_cat, net_cat_len);
++		return net_cat_len;
++	case CIPSO_V4_MAP_STD:
++		for (;;) {
++			net_spot = cipso_v4_bitmap_walk(net_cat,
++							net_clen_bits,
++							net_spot + 1,
++							1);
++			if (net_spot < 0)
++				break;
++			if (net_spot >= net_cat_size ||
++			    net_cat_array[net_spot] >= CIPSO_V4_INV_CAT)
++				return -EPERM;
++
++			host_spot = net_cat_array[net_spot];
++			if (host_spot >= host_clen_bits)
++				return -ENOSPC;
++			cipso_v4_bitmap_setbit(host_cat, host_spot, 1);
++
++			if (host_spot > host_spot_max)
++				host_spot_max = host_spot;
++		}
++
++		if (net_spot == -2)
++			return -EFAULT;
++
++		if (++host_spot_max % 8)
++			return host_spot_max / 8 + 1;
++		return host_spot_max / 8;
++	}
++
++	return -EINVAL;
++}
++
++/*
++ * Protocol Handling Functions
++ */
++
++#define CIPSO_V4_HDR_LEN              6
++
++/**
++ * cipso_v4_gentag_hdr - Generate a CIPSO option header
++ * @doi_def: the DOI definition
++ * @len: the total tag length in bytes
++ * @buf: the CIPSO option buffer
++ *
++ * Description:
++ * Write a CIPSO header into the beginning of @buffer.  Return zero on success,
++ * negative values on failure.
++ *
++ */
++static int cipso_v4_gentag_hdr(const struct cipso_v4_doi *doi_def,
++			       const u32 len,
++			       unsigned char *buf)
++{
++	if (CIPSO_V4_HDR_LEN + len > 40)
++		return -ENOSPC;
++
++	buf[0] = IPOPT_CIPSO;
++	buf[1] = CIPSO_V4_HDR_LEN + len;
++	*(u32 *)&buf[2] = htonl(doi_def->doi);
++
++	return 0;
++}
++
++#define CIPSO_V4_TAG1_CAT_LEN         30
++
++/**
++ * cipso_v4_gentag_rbm - Generate a CIPSO restricted bitmap tag (type #1)
++ * @doi_def: the DOI definition
++ * @secattr: the security attributes
++ * @buffer: the option buffer
++ * @buffer_len: length of buffer in bytes
++ *
++ * Description:
++ * Generate a CIPSO option using the restricted bitmap tag, tag type #1.  The
++ * actual buffer length may be larger than the indicated size due to
++ * translation between host and network category bitmaps.  Returns zero on
++ * success, negative values on failure.
++ *
++ */
++static int cipso_v4_gentag_rbm(const struct cipso_v4_doi *doi_def,
++			       const struct netlbl_lsm_secattr *secattr,
++			       unsigned char **buffer,
++			       u32 *buffer_len)
++{
++	int ret_val = -EPERM;
++	unsigned char *buf = NULL;
++	u32 buf_len;
++	u32 level;
++
++	if (secattr->mls_cat) {
++		buf = kzalloc(CIPSO_V4_HDR_LEN + 4 + CIPSO_V4_TAG1_CAT_LEN,
++			      GFP_ATOMIC);
++		if (buf == NULL)
++			return -ENOMEM;
++
++		ret_val = cipso_v4_map_cat_rbm_hton(doi_def,
++						    secattr->mls_cat,
++						    secattr->mls_cat_len,
++						    &buf[CIPSO_V4_HDR_LEN + 4],
++						    CIPSO_V4_TAG1_CAT_LEN);
++		if (ret_val < 0)
++			goto gentag_failure;
++
++		/* XXX - this will send packets using the "optimized" format
++		   when possibile as specified in  section 3.4.2.6 of the
++		   CIPSO draft */
++		if (cipso_v4_rbm_optfmt && (ret_val > 0 && ret_val < 10))
++			ret_val = 10;
++
++		buf_len = 4 + ret_val;
++	} else {
++		buf = kzalloc(CIPSO_V4_HDR_LEN + 4, GFP_ATOMIC);
++		if (buf == NULL)
++			return -ENOMEM;
++		buf_len = 4;
++	}
++
++	ret_val = cipso_v4_map_lvl_hton(doi_def, secattr->mls_lvl, &level);
++	if (ret_val != 0)
++		goto gentag_failure;
++
++	ret_val = cipso_v4_gentag_hdr(doi_def, buf_len, buf);
++	if (ret_val != 0)
++		goto gentag_failure;
++
++	buf[CIPSO_V4_HDR_LEN] = 0x01;
++	buf[CIPSO_V4_HDR_LEN + 1] = buf_len;
++	buf[CIPSO_V4_HDR_LEN + 3] = level;
++
++	*buffer = buf;
++	*buffer_len = CIPSO_V4_HDR_LEN + buf_len;
++
++	return 0;
++
++gentag_failure:
++	kfree(buf);
++	return ret_val;
++}
++
++/**
++ * cipso_v4_parsetag_rbm - Parse a CIPSO restricted bitmap tag
++ * @doi_def: the DOI definition
++ * @tag: the CIPSO tag
++ * @secattr: the security attributes
++ *
++ * Description:
++ * Parse a CIPSO restricted bitmap tag (tag type #1) and return the security
++ * attributes in @secattr.  Return zero on success, negatives values on
++ * failure.
++ *
++ */
++static int cipso_v4_parsetag_rbm(const struct cipso_v4_doi *doi_def,
++				 const unsigned char *tag,
++				 struct netlbl_lsm_secattr *secattr)
++{
++	int ret_val;
++	u8 tag_len = tag[1];
++	u32 level;
++
++	ret_val = cipso_v4_map_lvl_ntoh(doi_def, tag[3], &level);
++	if (ret_val != 0)
++		return ret_val;
++	secattr->mls_lvl = level;
++	secattr->mls_lvl_vld = 1;
++
++	if (tag_len > 4) {
++		switch (doi_def->type) {
++		case CIPSO_V4_MAP_PASS:
++			secattr->mls_cat_len = tag_len - 4;
++			break;
++		case CIPSO_V4_MAP_STD:
++			secattr->mls_cat_len =
++				doi_def->map.std->cat.local_size;
++			break;
++		}
++		secattr->mls_cat = kzalloc(secattr->mls_cat_len, GFP_ATOMIC);
++		if (secattr->mls_cat == NULL)
++			return -ENOMEM;
++
++		ret_val = cipso_v4_map_cat_rbm_ntoh(doi_def,
++						    &tag[4],
++						    tag_len - 4,
++						    secattr->mls_cat,
++						    secattr->mls_cat_len);
++		if (ret_val < 0) {
++			kfree(secattr->mls_cat);
++			return ret_val;
++		}
++		secattr->mls_cat_len = ret_val;
++	}
++
++	return 0;
++}
++
++/**
++ * cipso_v4_validate - Validate a CIPSO option
++ * @option: the start of the option, on error it is set to point to the error
++ *
++ * Description:
++ * This routine is called to validate a CIPSO option, it checks all of the
++ * fields to ensure that they are at least valid, see the draft snippet below
++ * for details.  If the option is valid then a zero value is returned and
++ * the value of @option is unchanged.  If the option is invalid then a
++ * non-zero value is returned and @option is adjusted to point to the
++ * offending portion of the option.  From the IETF draft ...
++ *
++ *  "If any field within the CIPSO options, such as the DOI identifier, is not
++ *   recognized the IP datagram is discarded and an ICMP 'parameter problem'
++ *   (type 12) is generated and returned.  The ICMP code field is set to 'bad
++ *   parameter' (code 0) and the pointer is set to the start of the CIPSO field
++ *   that is unrecognized."
++ *
++ */
++int cipso_v4_validate(unsigned char **option)
++{
++	unsigned char *opt = *option;
++	unsigned char *tag;
++	unsigned char opt_iter;
++	unsigned char err_offset = 0;
++	unsigned char locked = 0;
++	u8 opt_len;
++	u8 tag_len;
++	struct cipso_v4_doi *doi_def = NULL;
++	u32 tag_iter;
++
++	/* XXX - caller already checks for length values that are too large */
++	opt_len = opt[1];
++	if (opt_len < 8) {
++		err_offset = 1;
++		goto validate_return;
++	}
++
++	rcu_read_lock();
++	locked = 1;
++	doi_def = cipso_v4_doi_getdef(ntohl(*((u32 *)&opt[2])));
++	if (doi_def == NULL) {
++		err_offset = 2;
++		goto validate_return;
++	}
++
++	opt_iter = 6;
++	tag = opt + opt_iter;
++	while (opt_iter < opt_len) {
++		for (tag_iter = 0; doi_def->tags[tag_iter] != tag[0];)
++			if (doi_def->tags[tag_iter] == CIPSO_V4_TAG_INVALID ||
++			    ++tag_iter == CIPSO_V4_TAG_MAXCNT) {
++				err_offset = opt_iter;
++				goto validate_return;
++			}
++
++		tag_len = tag[1];
++		if (tag_len > (opt_len - opt_iter)) {
++			err_offset = opt_iter + 1;
++			goto validate_return;
++		}
++
++		switch (tag[0]) {
++		case CIPSO_V4_TAG_RBITMAP:
++			if (tag_len < 4) {
++				err_offset = opt_iter + 1;
++				goto validate_return;
++			}
++
++			/* XXX - we are already going to do all the
++			   verification necessary at the socket layer so from
++			   our point of view it is safe to turn these checks
++			   off (and less work), however, the CIPSO draft says
++			   we should do all the CIPSO validations here but it
++			   doesn't really specify _exactly_ what we need to
++			   validate ... so, just make it a sysctl tunable */
++			if (cipso_v4_rbm_strictvalid) {
++				if (cipso_v4_map_lvl_valid(doi_def,
++							   tag[3]) < 0) {
++					err_offset = opt_iter + 3;
++					goto validate_return;
++				}
++				if (tag_len > 4 &&
++				    cipso_v4_map_cat_rbm_valid(doi_def,
++							    &tag[4],
++							    tag_len - 4) < 0) {
++					err_offset = opt_iter + 4;
++					goto validate_return;
++				}
++			}
++			break;
++		default:
++			err_offset = opt_iter;
++			goto validate_return;
++		}
++
++		tag += tag_len;
++		opt_iter += tag_len;
++	}
++
++validate_return:
++	if (locked)
++		rcu_read_unlock();
++	*option = opt + err_offset;
++	return err_offset;
++}
++
++/**
++ * cipso_v4_error - Send the correct reponse for a bad packet
++ * @skb: the packet
++ * @error: the error code
++ * @gateway: CIPSO gateway flag
++ *
++ * Description:
++ * Based on the error code given in @error, send an ICMP error message back to
++ * the originating host.  From the IETF draft ...
++ *
++ *  "If the contents of the CIPSO [option] are valid but the security label is
++ *   outside of the configured host or port label range, the datagram is
++ *   discarded and an ICMP 'destination unreachable' (type 3) is generated and
++ *   returned.  The code field of the ICMP is set to 'communication with
++ *   destination network administratively prohibited' (code 9) or to
++ *   'communication with destination host administratively prohibited'
++ *   (code 10).  The value of the code is dependent on whether the originator
++ *   of the ICMP message is acting as a CIPSO host or a CIPSO gateway.  The
++ *   recipient of the ICMP message MUST be able to handle either value.  The
++ *   same procedure is performed if a CIPSO [option] can not be added to an
++ *   IP packet because it is too large to fit in the IP options area."
++ *
++ *  "If the error is triggered by receipt of an ICMP message, the message is
++ *   discarded and no response is permitted (consistent with general ICMP
++ *   processing rules)."
++ *
++ */
++void cipso_v4_error(struct sk_buff *skb, const int error, const u32 gateway)
++{
++	if (skb->nh.iph->protocol == IPPROTO_ICMP || error != -EACCES)
++		return;
++
++	if (gateway)
++		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_NET_ANO, 0);
++	else
++		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_ANO, 0);
++}
++
++/**
++ * cipso_v4_socket_setopt - Set the CIPSO option string on a socket
++ * @sock: the socket
++ * @opt: the option string
++ * @opt_len: the option string length
++ *
++ * Description:
++ * Attempt to add the given CIPSO option string to the socket.  The caller is
++ * responsibile for locking and releasing the socket.  Returns zero on success,
++ * negative values on failure.
++ *
++ */
++int cipso_v4_socket_setopt(struct socket *sock,
++			   unsigned char *opt,
++			   u32 opt_len)
++{
++	int ret_val;
++	struct ip_options *ip_opt = NULL;
++	struct sock *sk = sock->sk;
++	struct inet_sock *sk_inet;
++	struct inet_connection_sock *sk_conn;
++
++	ret_val = ip_options_get(&ip_opt, opt, opt_len);
++	if (ret_val != 0)
++		goto socket_setopt_return;
++	ip_opt->is_setbyuser = 0;
++	sk_inet = inet_sk(sk);
++	if (sk_inet->is_icsk) {
++		sk_conn = inet_csk(sk);
++		if (sk_inet->opt)
++			sk_conn->icsk_ext_hdr_len -= sk_inet->opt->optlen;
++		sk_conn->icsk_ext_hdr_len += ip_opt->optlen;
++		sk_conn->icsk_sync_mss(sk, sk_conn->icsk_pmtu_cookie);
++	}
++	ip_opt = xchg(&sk_inet->opt, ip_opt);
++
++	ret_val = 0;
++
++socket_setopt_return:
++	kfree(opt);
++	return ret_val;
++}
++
++/**
++ * cipso_v4_socket_setattr - Add a CIPSO option to a socket
++ * @sock: the socket
++ * @doi_def: the CIPSO DOI to use
++ * @secattr: the specific security attributes of the socket
++ *
++ * Description:
++ * Set the CIPSO option on the given socket using the DOI definition and
++ * security attributes passed to the function.  Returns zero on success and
++ * negative values on failure.
++ *
++ */
++int cipso_v4_socket_setattr(const struct socket *sock,
++			    const struct cipso_v4_doi *doi_def,
++			    const struct netlbl_lsm_secattr *secattr)
++{
++	int ret_val = -EPERM;
++	u32 iter;
++	unsigned char *buf = NULL;
++	u32 buf_len = 0;
++	struct ip_options *opt = NULL;
++	struct sock *sk;
++	struct inet_sock *sk_inet;
++	struct inet_connection_sock *sk_conn;
++
++	/* In the case of sock_create_lite(), the sock->sk field is not
++	   defined yet but it is not a problem as the only users of these
++	   "lite" PF_INET sockets are functions which do an accept() call
++	   afterwards so we will label the socket as part of the accept(). */
++	sk = sock->sk;
++	if (sk == NULL)
++		return 0;
++
++	/* XXX - this code assumes only one tag per CIPSO option which isnt
++	   really a good assumption to make but since we only support the MAC
++	   tags right now it is a safe assumption */
++	iter = 0;
++	do {
++		switch (doi_def->tags[iter]) {
++		case CIPSO_V4_TAG_RBITMAP:
++			ret_val = cipso_v4_gentag_rbm(doi_def,
++						      secattr,
++						      &buf,
++						      &buf_len);
++			break;
++		default:
++			ret_val = -EPERM;
++			goto socket_setattr_failure;
++		}
++
++		iter++;
++	} while (ret_val != 0 &&
++		 iter < CIPSO_V4_TAG_MAXCNT &&
++		 doi_def->tags[iter] != CIPSO_V4_TAG_INVALID);
++	if (ret_val != 0)
++		goto socket_setattr_failure;
++
++	ret_val = ip_options_get(&opt, buf, buf_len);
++	if (ret_val != 0)
++		goto socket_setattr_failure;
++	opt->is_setbyuser = 0;
++
++	kfree(buf);
++	buf = NULL;
++
++	lock_sock(sk);
++	sk_inet = inet_sk(sk);
++	if (sk_inet->is_icsk) {
++		sk_conn = inet_csk(sk);
++		if (sk_inet->opt)
++			sk_conn->icsk_ext_hdr_len -= sk_inet->opt->optlen;
++		sk_conn->icsk_ext_hdr_len += opt->optlen;
++		sk_conn->icsk_sync_mss(sk, sk_conn->icsk_pmtu_cookie);
++	}
++	opt = xchg(&sk_inet->opt, opt);
++	release_sock(sk);
++	kfree(opt);
++
++	return 0;
++
++socket_setattr_failure:
++	kfree(buf);
++	kfree(opt);
++	return ret_val;
++}
++
++/**
++ * cipso_v4_socket_getopt - Get the CIPSO IP option string from the socket
++ * @sock: the socket
++ * @opt: the option string
++ * @opt_len: the option string length in bytes
++ *
++ * Description:
++ * If a CIPSO option is present in the socket's IP options then return a
++ * a pointer to the option string.  The caller is responsibile for locking
++ * and releasing the socket.  Returns zero on success, negative values on
++ * failure.
++ *
++ */
++int cipso_v4_socket_getopt(const struct socket *sock,
++			   unsigned char **opt,
++			   u32 *opt_len)
++{
++	struct ip_options *ip_opt = inet_sk(sock->sk)->opt;
++	unsigned char *cipso_ptr;
++
++	if (ip_opt == NULL || ip_opt->cipso == 0)
++		return -ENOMSG;
++	cipso_ptr = ip_opt->__data + ip_opt->cipso - sizeof(struct iphdr);
++
++	*opt = cipso_ptr;
++	*opt_len = cipso_ptr[1];
++
++	return 0;
++}
++
++/**
++ * cipso_v4_socket_getattr - Get the security attributes from a socket
++ * @sock: the socket
++ * @secattr: the security attributes
++ *
++ * Description:
++ * Query @sock to see if there is a CIPSO option attached to the socket and if
++ * there is return the CIPSO security attributes in @secattr.  Returns zero on
++ * success and negative values on failure.
++ *
++ */
++int cipso_v4_socket_getattr(const struct socket *sock,
++			    struct netlbl_lsm_secattr *secattr)
++{
++	int ret_val = -ENOMSG;
++	struct sock *sk;
++	struct inet_sock *sk_inet;
++	unsigned char *cipso_ptr;
++	u32 doi;
++	struct cipso_v4_doi *doi_def;
++
++	sk = sock->sk;
++	lock_sock(sk);
++	sk_inet = inet_sk(sk);
++	if (sk_inet->opt == NULL || sk_inet->opt->cipso == 0)
++		goto socket_getattr_return;
++	cipso_ptr = sk_inet->opt->__data + sk_inet->opt->cipso -
++		sizeof(struct iphdr);
++	ret_val = cipso_v4_cache_check(cipso_ptr, cipso_ptr[1], secattr);
++	if (ret_val == 0)
++		goto socket_getattr_return;
++
++	doi = ntohl(*(u32 *)&cipso_ptr[2]);
++	rcu_read_lock();
++	doi_def = cipso_v4_doi_getdef(doi);
++	if (doi_def == NULL) {
++		rcu_read_unlock();
++		goto socket_getattr_return;
++	}
++	switch (cipso_ptr[6]) {
++	case CIPSO_V4_TAG_RBITMAP:
++		ret_val = cipso_v4_parsetag_rbm(doi_def,
++						&cipso_ptr[6],
++						secattr);
++		break;
++	}
++	rcu_read_unlock();
++
++socket_getattr_return:
++	release_sock(sk);
++	return ret_val;
++}
++
++/**
++ * cipso_v4_skbuff_getattr - Get the security attributes from the CIPSO option
++ * @skb: the packet
++ * @secattr: the security attributes
++ *
++ * Description:
++ * Parse the given packet's CIPSO option and return the security attributes.
++ * Returns zero on success and negative values on failure.
++ *
++ */
++int cipso_v4_skbuff_getattr(const struct sk_buff *skb,
++			    struct netlbl_lsm_secattr *secattr)
++{
++	int ret_val = -ENOMSG;
++	unsigned char *cipso_ptr;
++	u32 doi;
++	struct cipso_v4_doi *doi_def;
++
++	if (!CIPSO_V4_OPTEXIST(skb))
++		return -ENOMSG;
++	cipso_ptr = CIPSO_V4_OPTPTR(skb);
++	if (cipso_v4_cache_check(cipso_ptr, cipso_ptr[1], secattr) == 0)
++		return 0;
++
++	doi = ntohl(*(u32 *)&cipso_ptr[2]);
++	rcu_read_lock();
++	doi_def = cipso_v4_doi_getdef(doi);
++	if (doi_def == NULL)
++		goto skbuff_getattr_return;
++	switch (cipso_ptr[6]) {
++	case CIPSO_V4_TAG_RBITMAP:
++		ret_val = cipso_v4_parsetag_rbm(doi_def,
++						&cipso_ptr[6],
++						secattr);
++		break;
++	}
++
++skbuff_getattr_return:
++	rcu_read_unlock();
++	return ret_val;
++}
++
++/*
++ * Setup Functions
++ */
++
++/**
++ * cipso_v4_init - Initialize the CIPSO module
++ *
++ * Description:
++ * Initialize the CIPSO module and prepare it for use.  Returns zero on success
++ * and negative values on failure.
++ *
++ */
++static int __init cipso_v4_init(void)
++{
++	return cipso_v4_cache_init(CIPSO_V4_CACHE_BUCKETS);
++}
++
++/**
++ * cipso_v4_exit - Cleanup after the CIPSO module
++ *
++ * Description:
++ * Perform any necessary cleanup tasks before the CIPSO module goes away.
++ *
++ */
++static void __exit cipso_v4_exit(void)
++{
++	cipso_v4_cache_destroy();
++}
++
++subsys_initcall(cipso_v4_init);
+Index: linux-2.6.18-rc1/net/ipv4/sysctl_net_ipv4.c
+===================================================================
+--- linux-2.6.18-rc1.orig/net/ipv4/sysctl_net_ipv4.c
++++ linux-2.6.18-rc1/net/ipv4/sysctl_net_ipv4.c
+@@ -17,6 +17,7 @@
+ #include <net/ip.h>
+ #include <net/route.h>
+ #include <net/tcp.h>
++#include <net/cipso_ipv4.h>
  
- ip_local_port_range - 2 INTEGERS
+ /* From af_inet.c */
+ extern int sysctl_ip_nonlocal_bind;
+@@ -697,6 +698,40 @@ ctl_table ipv4_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec
+ 	},
++#ifdef CONFIG_NETLABEL
++	{
++		.ctl_name	= NET_CIPSOV4_CACHE_ENABLE,
++		.procname	= "cipso_cache_enable",
++		.data		= &cipso_v4_cache_enabled,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec,
++	},
++	{
++		.ctl_name	= NET_CIPSOV4_CACHE_BUCKET_SIZE,
++		.procname	= "cipso_cache_bucket_size",
++		.data		= &cipso_v4_cache_bucketsize,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec,
++	},
++	{
++		.ctl_name	= NET_CIPSOV4_RBM_OPTFMT,
++		.procname	= "cipso_rbm_optfmt",
++		.data		= &cipso_v4_rbm_optfmt,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec,
++	},
++	{
++		.ctl_name	= NET_CIPSOV4_RBM_STRICTVALID,
++		.procname	= "cipso_rbm_strictvalid",
++		.data		= &cipso_v4_rbm_strictvalid,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec,
++	},
++#endif /* CONFIG_NETLABEL */
+ 	{ .ctl_name = 0 }
+ };
+ 
 
 --
 paul moore
