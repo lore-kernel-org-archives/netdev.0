@@ -1,33 +1,45 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 08/10] MLSXFRM: Add security context to acquire messag
  es using PF_KEY
-Date: Thu, 13 Jul 2006 22:29:02 -0700 (PDT)
-Message-ID: <20060713.222902.131918079.davem@davemloft.net>
+Date: Thu, 13 Jul 2006 22:30:09 -0700 (PDT)
+Message-ID: <20060713.223009.68157153.davem@davemloft.net>
 References: <36282A1733C57546BE392885C06185920138E0F0@chaos.tcs.tcs-sec.com>
-	<Pine.LNX.4.64.0607131115130.6169@d.namei>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vyekkirala@TrustedCS.com, netdev@vger.kernel.org,
-	sds@tycho.nsa.gov, tjaeger@cse.psu.edu, selinux@tycho.nsa.gov
+Cc: jmorris@namei.org, netdev@vger.kernel.org, sds@tycho.nsa.gov,
+	tjaeger@cse.psu.edu, selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:10933
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:12469
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964795AbWGNF27 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jul 2006 01:28:59 -0400
-To: jmorris@namei.org
-In-Reply-To: <Pine.LNX.4.64.0607131115130.6169@d.namei>
+	id S964796AbWGNFaF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jul 2006 01:30:05 -0400
+To: vyekkirala@TrustedCS.com
+In-Reply-To: <36282A1733C57546BE392885C06185920138E0F0@chaos.tcs.tcs-sec.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Morris <jmorris@namei.org>
-Date: Thu, 13 Jul 2006 11:18:32 -0400 (EDT)
+From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+Date: Thu, 13 Jul 2006 10:54:14 -0400
 
-> I'd suggest assigning the return value to a variable and asserting that, 
-> in case defines BUG_ON to nothing and the function won't be called.  Not 
-> sure what kernel policy is on this (ISTR people used to worry about it), 
-> but it's better not to take uncecessary chances.
+> > > +static inline void security_xfrm_skb_secid(struct sk_buff 
+> > *skb, u32 *secid)
+> > > {
+> > > -	return security_ops->xfrm_decode_session(skb, fl);
+> > > +	BUG_ON(security_ops->xfrm_decode_session(skb, secid, 0));
+> > > 
+> > 
+> > BUG_ON looks wrong here, in that you don't know why the LSM 
+> > returned an 
+> > error, and why should the box panic at this point at all?
+> 
+> This hook must not fail when the ckall parameter is set to zero,
+> which is what the BUG_ON is asserting. I see I didn't comment
+> the hook def in security.h to this effect; will correct this. Thanks.
 
-There should never be side effects in BUG_ON() checks, just like
-an assert().
+The real problem is that when debugging is disabled, BUG_ON() is
+defined to do nothing, it will not even evaluate the expression once.
+So it is not valid to put things with expected side effects in there.
 
+This is the same thing that happens to assert() in userspace if
+you define "NDEBUG".
