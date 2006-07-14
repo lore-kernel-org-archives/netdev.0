@@ -1,39 +1,31 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 2/7] NetLabel: core network changes
-Date: Fri, 14 Jul 2006 19:34:20 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0607141933170.18747@d.namei>
-References: <20060714185739.780700000@flek.zko.hp.com>
- <20060714185914.416432000@flek.zko.hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] VLAN code can use the faster ether_compare_addr
+Date: Fri, 14 Jul 2006 16:34:40 -0700 (PDT)
+Message-ID: <20060714.163440.51519318.davem@davemloft.net>
+References: <20060714142738.265a7a98@localhost.localdomain>
+	<44B80E51.7010901@candelatech.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
-	"David S. Miller" <davem@davemloft.net>, sds@epoch.ncsc.mil,
-	pratt@argus-systems.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:59077 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1945914AbWGNXeX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jul 2006 19:34:23 -0400
-To: Paul Moore <paul.moore@hp.com>
-In-Reply-To: <20060714185914.416432000@flek.zko.hp.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:45768
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1945916AbWGNXee (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jul 2006 19:34:34 -0400
+To: greearb@candelatech.com
+In-Reply-To: <44B80E51.7010901@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 14 Jul 2006, paul.moore@hp.com wrote:
+From: Ben Greear <greearb@candelatech.com>
+Date: Fri, 14 Jul 2006 14:36:17 -0700
 
+> Stephen Hemminger wrote:
+> > The inline function compare_ether_addr is faster than memcmp.
+> > Also, don't need to drag in proc_fs.h, the only reference to proc_dir_entry
+> > is a pointer so the declaration is needed here.
+> 
+> Looks fine to me.
 
-> +static inline void netlbl_put_hdr(unsigned char *buffer,
-> +				  const u32 msg_type,
-> +				  const u16 msg_len,
-> +				  const u16 msg_flags,
-> +				  const u32 msg_pid,
-> +				  const u32 msg_seq)
-
-Why are these parameters marked const?  Seems to be common throughout the 
-code.
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+To me too, applied, thanks a lot.
