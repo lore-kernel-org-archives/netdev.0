@@ -1,63 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Update frag_list in pskb_trim
-Date: Thu, 13 Jul 2006 19:22:10 -0700 (PDT)
-Message-ID: <20060713.192210.35014155.davem@davemloft.net>
-References: <20060713090341.GA28426@gondor.apana.org.au>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH] WAN: converting generic HDLC to use netif_dormant*()
+Date: Thu, 13 Jul 2006 19:45:04 -0700
+Message-ID: <20060713194504.f6c97d47.akpm@osdl.org>
+References: <m3veq3suve.fsf@defiant.localdomain>
+	<20060712.134632.06531928.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: khc@pm.waw.pl, jeff@garzik.org, netdev@vger.kernel.org,
+	Paul Fulghum <paulkf@microgate.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61356
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1161191AbWGNCWY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jul 2006 22:22:24 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060713090341.GA28426@gondor.apana.org.au>
+Received: from smtp.osdl.org ([65.172.181.4]:27306 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161192AbWGNCpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jul 2006 22:45:47 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060712.134632.06531928.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 13 Jul 2006 19:03:41 +1000
+On Wed, 12 Jul 2006 13:46:32 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> [NET]: Update frag_list in pskb_trim
+> From: Krzysztof Halasa <khc@pm.waw.pl>
+> Date: Tue, 11 Jul 2006 23:18:45 +0200
 > 
-> When pskb_trim has to defer to ___pksb_trim to trim the frag_list part of
-> the packet, the frag_list is not updated to reflect the trimming.  This
-> will usually work fine until you hit something that uses the packet length
-> or tail from the frag_list.
+> > This patch converts generic HDLC (and WAN drivers using it) from
+> > hdlc_set_carrier() to netif_dormant*() interface.
+> > WAN hardware drivers should now use netif_carrier_on|off() like
+> > other network drivers.
+> > 
+> > Please apply. Thanks.
+> > 
+> > Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
 > 
-> Examples include esp_output and ip_fragment.
-> 
-> Another problem caused by this is that you can end up with a linear packet
-> with a frag_list attached.
-> 
-> It is possible to get away with this if we audit everything to make sure
-> that they always consult skb->len before going down onto frag_list.  In
-> fact we can do the samething for the paged part as well to avoid copying
-> the data area of the skb.  For now though, let's do the conservative fix
-> and update frag_list.
-> 
-> Many thanks to Marco Berizzi for helping me to track down this bug.
-> 
-> This 4-year old bug took 3 months to track down.  Marco was very patient
-> indeed :)
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Applied.
 
-I happened to be looking at this function just the other day
-and said to myself: "It only drops the fraglist if the whole
-thing is trimmed, lazy and inefficient but seems to work"
+Broken ;)
 
-Even the existing check for when to drop the whole fraglist
-seems to be buggy, it only drops if the length drops below
-headlen.  Paged and fraglist skbs are legal, so the proper
-check would be to drop the entire fraglist when len drops
-to headlen + the length of the paged portion (if any).
+WARNING: "hdlc_set_carrier" [drivers/char/synclinkmp.ko] undefined!
+WARNING: "hdlc_set_carrier" [drivers/char/synclink_gt.ko] undefined!
+WARNING: "hdlc_set_carrier" [drivers/char/synclink.ko] undefined!
+WARNING: "hdlc_set_carrier" [drivers/char/pcmcia/synclink_cs.ko] undefined!
 
-In any event leaving stale chunks there on the fraglist is
-certainly a major bug, thanks for fixing this Herbert.
-
-I bet a suitably placed assertion or two would have caught this
-sooner.  One good spot would have been skb_cow_data(), where it has to
-mince the fragments due to the presence of a frag_list.
