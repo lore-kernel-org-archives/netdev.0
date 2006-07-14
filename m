@@ -1,66 +1,35 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] VLAN code can use the faster ether_compare_addr
-Date: Fri, 14 Jul 2006 14:36:17 -0700
-Message-ID: <44B80E51.7010901@candelatech.com>
-References: <20060714142738.265a7a98@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] clear skb cb on IP input
+Date: Fri, 14 Jul 2006 14:48:55 -0700 (PDT)
+Message-ID: <20060714.144855.62664893.davem@davemloft.net>
+References: <20060714113900.029e6a2f@dxpl.pdx.osdl.net>
+	<44B7E740.5090004@yahoo.fr>
+	<20060714115621.689cd7a0@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: guichaz@yahoo.fr, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:55959 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1161308AbWGNVgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 17:36:22 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060714142738.265a7a98@localhost.localdomain>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:11962
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1161311AbWGNVsu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jul 2006 17:48:50 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060714115621.689cd7a0@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> The inline function compare_ether_addr is faster than memcmp.
-> Also, don't need to drag in proc_fs.h, the only reference to proc_dir_entry
-> is a pointer so the declaration is needed here.
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Fri, 14 Jul 2006 11:56:21 -0700
 
-Looks fine to me.
-
-Ben
-
+> when data arrives at IP through loopback (and possibly other devices).
+> So the field needs to be cleared before it confuses the route code.
+> This was seen when running netem over loopback, but there are probably
+> other device cases. Maybe this should go into stable?
 > 
 > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> 
-> ---
-> 
->  include/linux/if_vlan.h |    5 +++--
->  1 files changed, 3 insertions(+), 2 deletions(-)
-> 
-> 1738bd3d785bb3f9fa24e26f98b8d86e7783eadf
-> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-> index eef0876..383627a 100644
-> --- a/include/linux/if_vlan.h
-> +++ b/include/linux/if_vlan.h
-> @@ -23,8 +23,8 @@ struct vlan_collection;
->  struct vlan_dev_info;
->  struct hlist_node;
->  
-> -#include <linux/proc_fs.h> /* for proc_dir_entry */
->  #include <linux/netdevice.h>
-> +#include <linux/etherdevice.h>
->  
->  #define VLAN_HLEN	4		/* The additional bytes (on top of the Ethernet header)
->  					 * that VLAN requires.
-> @@ -185,7 +185,8 @@ static inline int __vlan_hwaccel_rx(stru
->  		 * This allows the VLAN to have a different MAC than the underlying
->  		 * device, and still route correctly.
->  		 */
-> -		if (!memcmp(eth_hdr(skb)->h_dest, skb->dev->dev_addr, ETH_ALEN))
-> +		if (!compare_ether_addr(eth_hdr(skb)->h_dest,
-> +				       	skb->dev->dev_addr))
->  			skb->pkt_type = PACKET_HOST;
->  		break;
->  	};
 
+Thank goodness this thing is only 3-words in size, this is going to
+run on every single IPv4 packet received by the system. :-/
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+I'll apply this, thanks a lot Stephen.
