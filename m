@@ -1,48 +1,64 @@
-From: Guillaume Chazarain <guichaz@yahoo.fr>
-Subject: Netem does not work with loopback
-Date: Fri, 14 Jul 2006 16:34:30 +0200
-Message-ID: <44B7AB76.2030700@yahoo.fr>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Bluetooth update for 2.6
+Date: Fri, 14 Jul 2006 16:38:31 +0200
+Message-ID: <1152887911.25660.32.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3-g19.free.fr ([212.27.42.29]:10142 "EHLO smtp3-g19.free.fr")
-	by vger.kernel.org with ESMTP id S1161059AbWGNOdc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 10:33:32 -0400
-Received: from [192.168.0.4] (bar06-2-82-224-157-131.fbx.proxad.net [82.224.157.131])
-	by smtp3-g19.free.fr (Postfix) with ESMTP id 2074C48141
-	for <netdev@vger.kernel.org>; Fri, 14 Jul 2006 16:33:30 +0200 (CEST)
-To: netdev@vger.kernel.org
+Received: from coyote.holtmann.net ([217.160.111.169]:32209 "EHLO
+	mail.holtmann.net") by vger.kernel.org with ESMTP id S1161114AbWGNOiM
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jul 2006 10:38:12 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Hi Dave,
 
-Is it a known problem that the Netem qdisc is very unreliable on the 
-loopback (unlike on a true NIC)?
+here are two more bug fixes for the Bluetooth subsystem. Both are
+workarounds for either broken implementations or broken hardware.
 
-This seems to come from its usage of skb->cb which conflicts with IPCB. 
-For instance, the field
-IPCB(skb)->opt.optlen becomes non-null and memory corruption follows.
+Regards
 
-I ``worked around'' this conflict with the following ugly hack:
-
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -79,6 +79,7 @@ struct netem_sched_data {
- 
- /* Time stamp put into socket buffer control block */
- struct netem_skb_cb {
-+    char padding[32]; /* to avoid stepping over IPCB when used on the 
-loopback */
-     psched_time_t    time_to_send;
- };
+Marcel
 
 
-Hopefully someone has a better solution :-)
+Please pull from
 
-Thanks.
+        git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
 
--- 
-Guillaume
+This will update the following files:
+
+ drivers/bluetooth/hci_usb.c |   17 +++++++++++++++--
+ net/bluetooth/rfcomm/core.c |   19 +++++++++++++++++--
+ 2 files changed, 32 insertions(+), 4 deletions(-)
+
+through these ChangeSets:
+
+Marcel Holtmann <marcel@holtmann.org> Fri, 14 Jul 2006 16:01:52 +0200 
+
+    [Bluetooth] Correct SCO buffer size for another Broadcom chip
+    
+    The SCO buffer size values on IBM/Lenovo ThinkPad laptops with a
+    Bluetooth chip from Broadcom are wrong. The USB Bluetooth driver
+    has to set a quirk to correct the SCO buffer size values.
+    
+    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+
+Marcel Holtmann <marcel@holtmann.org> Fri, 14 Jul 2006 11:42:12 +0200 
+
+    [Bluetooth] Correct RFCOMM channel MTU for broken implementations
+    
+    Some Bluetooth RFCOMM implementations try to negotiate a bigger channel
+    MTU than we can support for a particular session. The maximum MTU for
+    a RFCOMM session is limited through the L2CAP layer. So if the other
+    side proposes a channel MTU that is bigger than the underlying L2CAP
+    MTU, we should reduce it to the L2CAP MTU of the session minus five
+    bytes for the RFCOMM headers.
+    
+    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+
+
 
