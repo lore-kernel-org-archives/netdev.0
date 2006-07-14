@@ -1,45 +1,37 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH 2/2] correct dev_alloc_skb kerneldoc
-Date: Fri, 14 Jul 2006 11:24:38 -0400
-Message-ID: <200607141524.k6EFOcS0025630@cmf.nrl.navy.mil>
-References: <20060713.134735.23014475.davem@davemloft.net>
-Reply-To: chas3@users.sourceforge.net
-Cc: hch@lst.de, shemminger@osdl.org, netdev@vger.kernel.org,
-	support@pathscale.com, samuel@sortiz.org, kkeil@suse.de,
-	kai.germaschewski@gmx.de, paulus@samba.org
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Netem does not work with loopback
+Date: Fri, 14 Jul 2006 08:38:47 -0700
+Message-ID: <20060714083847.6997a460@localhost.localdomain>
+References: <44B7AB76.2030700@yahoo.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ginger.cmf.nrl.navy.mil ([134.207.12.161]:50393 "EHLO
-	ginger.cmf.nrl.navy.mil") by vger.kernel.org with ESMTP
-	id S1161121AbWGNP0m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jul 2006 11:26:42 -0400
-To: David Miller <davem@davemloft.net>
-In-reply-to: <20060713.134735.23014475.davem@davemloft.net> 
+Received: from smtp.osdl.org ([65.172.181.4]:58271 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161123AbWGNPi5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 11:38:57 -0400
+To: Guillaume Chazarain <guichaz@yahoo.fr>
+In-Reply-To: <44B7AB76.2030700@yahoo.fr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In message <20060713.134735.23014475.davem@davemloft.net>,David Miller writes:
->From: Christoph Hellwig <hch@lst.de>
->Date: Thu, 13 Jul 2006 22:36:16 +0200
->>  - drivers/atm/{idt77252.c, nicstar.c}, drivers/usb/atm/usbatm.c:
->> 	These use private skb queues and do odd things.  I can't see
->> 	any point for using dev_alloc_skb with it's additional headroom
->> 	reservation here.
+On Fri, 14 Jul 2006 16:34:30 +0200
+Guillaume Chazarain <guichaz@yahoo.fr> wrote:
 
-as i recall, for simple rfc1483 encapsulation, the LLC/SNAP header of 8
-bytes needs to be replaced by an ether header of 14 bytes.  its likely
-this is the reason dev_alloc_skb() is used.  most of the other drivers
-use atm_alloc_charge() which does a skb_reserve(), but these drivers
-dont dma directly into a skb.
+> Hello,
+> 
+> Is it a known problem that the Netem qdisc is very unreliable on the 
+> loopback (unlike on a true NIC)?
+> 
+> This seems to come from its usage of skb->cb which conflicts with IPCB. 
+> For instance, the field
+> IPCB(skb)->opt.optlen becomes non-null and memory corruption follows.
+> 
+> I ``worked around'' this conflict with the following ugly hack:
 
->Any of these cases that DMA into the skb allocated will need
->the headroom, as explained by the PowerPC folks.
+Isn't the skb owned by netem at that point...
 
-this only works for "ordinary" ip traffic (which i admit is the most
-common case).  but since the nicstar/idt77252 devices have a peak
-speed of 155Mb/s i doubt they would suffer much.  considering they still
-use virt_to_bus/bus_to_virt i would be a bit surprised if they worked
-(atleast on ppc64).  they can be simply converted to alloc_skb() and
-manually skb_reserve() a little overhead.
-
-usbatm should probably be converted to use atm_alloc_charge() since
-the vcc is known at this point unlike the nicstar/idt77252 case.
+-- 
+If one would give me six lines written by the hand of the most honest
+man, I would find something in them to have him hanged. -- Cardinal Richlieu
