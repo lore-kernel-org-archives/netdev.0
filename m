@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Update frag_list in pskb_trim
-Date: Thu, 13 Jul 2006 22:05:26 -0700 (PDT)
-Message-ID: <20060713.220526.55726160.davem@davemloft.net>
-References: <20060713090341.GA28426@gondor.apana.org.au>
+Subject: Re: [SLHC 1/4] Cleanup SLHC configuration
+Date: Thu, 13 Jul 2006 22:07:18 -0700 (PDT)
+Message-ID: <20060713.220718.10298012.davem@davemloft.net>
+References: <20060713110615.GA19816@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, kkeil@suse.de, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:26338
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:27618
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964791AbWGNFFa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jul 2006 01:05:30 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060713090341.GA28426@gondor.apana.org.au>
+	id S964793AbWGNFHP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jul 2006 01:07:15 -0400
+To: ralf@linux-mips.org
+In-Reply-To: <20060713110615.GA19816@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 13 Jul 2006 19:03:41 +1000
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Thu, 13 Jul 2006 12:06:15 +0100
 
-> This needs to go into stable as well.  In fact, there is another unrelated
-> bug with exactly the same symptoms which was inadvertently fixed by the
-> GSO patches.  So I'll send a simpler fix for that to stable.
+> Convert selection of serial line header compression to use CONFIG_SLHC
+> rather than makefile ifeq uglyness.  This makes it easier to select
+> the SLHC module from other code.
+> 
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-As I noted already, this is in my tree and will go off to
-Linus soon.
+Something is missing here?
 
-Please toss this over to -stable under seperate cover, if
-you haven't done so already.  Please add my signoff:
+I don't see where in the makefiles that you've added
+the seemingly necessary:
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+obj-${CONFIG_SLHC} += slhc.o
 
-if you like.
+line?  How does it get linked in now?
 
 Thanks.
