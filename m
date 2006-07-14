@@ -1,44 +1,35 @@
-From: "Rogelio Griggs" <RogelioGriggs@0451.com>
-Subject: Your money, Pan-orthodox
-Date: Fri, 14 Jul 2006 12:55:46 -0120
-Message-ID: <90323508.20060714125546@0451.com>
-Reply-To: "Rogelio Griggs" <RogelioGriggs@0451.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 08/10] MLSXFRM: Add security context to acquire messages
+ using PF_KEY
+Date: Fri, 14 Jul 2006 09:54:59 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0607140952220.15305@d.namei>
+References: <44B56642.6060500@trustedcs.com> <20060713.230445.106436593.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: vyekkirala@trustedcs.com, netdev@vger.kernel.org,
+	Stephen Smalley <sds@tycho.nsa.gov>, tjaeger@cse.psu.edu,
+	selinux@tycho.nsa.gov, Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus1.kernel.org ([204.152.191.4]:41959 "EHLO zeus1.kernel.org")
-	by vger.kernel.org with ESMTP id S1030437AbWGNMzb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 08:55:31 -0400
-Received: from k-lklqxktghpxie (cl-82-78-131-189.cablelink.mures.rdsnet.ro [82.78.131.189] (may be forged))
-	by zeus1.kernel.org (8.13.1/8.13.1) with ESMTP id k6ECtIqf004902
-	for <netdev@vger.kernel.org>; Fri, 14 Jul 2006 12:55:30 GMT
-To: netdev@vger.kernel.org
+Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:54949 "EHLO
+	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1030450AbWGNNzD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jul 2006 09:55:03 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060713.230445.106436593.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Even if you have no erectin problems SOFT CIA9LIS 
-would help you to make BETTER SEHX MORE OFTEN!
-and to bring  unimagnable plesure to her.
+On Thu, 13 Jul 2006, David Miller wrote:
 
-Just disolve half a pil under your tongue 
-and get ready for action in 15 minutes. 
+> The other changes I'm either OK with, or they are outside my scope of
+> knowledge (the stuff that lives inside of SELINUX).
 
-The tests showed that the majority of men 
-after taking this medic ation were able to have 
-PERFECT ER0ECTION during 36 hours!
+The security side of things looks ok to me.
 
-VISIT US, AND GET OUR SPECIAL 70% DISCIOUNT OFER!
+Herbert, any review from you on this would be greatly appreciated.
 
-http://2CUZTo6cxbxt6u1uzp6ozt6ohb6oo.eozoicck.com/
 
-==========
-from where he had been rooted for so long.
-     "That's  better,"  I  said. "That's  the  ticket. Keep  plugging  away,
-and this one--surely one of the  most provocative of all: "Write me a  story
-entrance.  That's the routine they have  here, so that everyone will see the
-     "Well sure, O.K. they're Outcast," said some of  the  younger  gulls,
-had spent almost all of the money. They hadn't caught me with the goods, and
-
-earth  scientists and engineers could use.  After  all,  many very important
-up again and taken him to another broad, and in a week he would have been as
+- James
+-- 
+James Morris
+<jmorris@namei.org>
