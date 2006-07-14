@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [SLHC 1/4] Cleanup SLHC configuration
-Date: Thu, 13 Jul 2006 22:07:18 -0700 (PDT)
-Message-ID: <20060713.220718.10298012.davem@davemloft.net>
-References: <20060713110615.GA19816@linux-mips.org>
+Subject: Re: [PATCH 08/10] MLSXFRM: Add security context to acquire messag
+ es using PF_KEY
+Date: Thu, 13 Jul 2006 22:29:02 -0700 (PDT)
+Message-ID: <20060713.222902.131918079.davem@davemloft.net>
+References: <36282A1733C57546BE392885C06185920138E0F0@chaos.tcs.tcs-sec.com>
+	<Pine.LNX.4.64.0607131115130.6169@d.namei>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kkeil@suse.de, jeff@garzik.org
+Cc: vyekkirala@TrustedCS.com, netdev@vger.kernel.org,
+	sds@tycho.nsa.gov, tjaeger@cse.psu.edu, selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:27618
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:10933
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964793AbWGNFHP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jul 2006 01:07:15 -0400
-To: ralf@linux-mips.org
-In-Reply-To: <20060713110615.GA19816@linux-mips.org>
+	id S964795AbWGNF27 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jul 2006 01:28:59 -0400
+To: jmorris@namei.org
+In-Reply-To: <Pine.LNX.4.64.0607131115130.6169@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Thu, 13 Jul 2006 12:06:15 +0100
+From: James Morris <jmorris@namei.org>
+Date: Thu, 13 Jul 2006 11:18:32 -0400 (EDT)
 
-> Convert selection of serial line header compression to use CONFIG_SLHC
-> rather than makefile ifeq uglyness.  This makes it easier to select
-> the SLHC module from other code.
-> 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> I'd suggest assigning the return value to a variable and asserting that, 
+> in case defines BUG_ON to nothing and the function won't be called.  Not 
+> sure what kernel policy is on this (ISTR people used to worry about it), 
+> but it's better not to take uncecessary chances.
 
-Something is missing here?
+There should never be side effects in BUG_ON() checks, just like
+an assert().
 
-I don't see where in the makefiles that you've added
-the seemingly necessary:
-
-obj-${CONFIG_SLHC} += slhc.o
-
-line?  How does it get linked in now?
-
-Thanks.
