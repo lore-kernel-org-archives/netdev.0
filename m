@@ -1,33 +1,44 @@
-From: "Brian F. G. Bidulock" <bidulock@openss7.org>
-Subject: Re: linux 2.6.16 routing problem
-Date: Fri, 14 Jul 2006 06:31:23 -0600
-Message-ID: <20060714063123.A21577@openss7.org>
-References: <d096a3ee0607140525r3e1fb9dbg399c87bb3fbe4205@mail.gmail.com>
-Reply-To: bidulock@openss7.org
+From: "Rogelio Griggs" <RogelioGriggs@0451.com>
+Subject: Your money, Pan-orthodox
+Date: Fri, 14 Jul 2006 12:55:46 -0120
+Message-ID: <90323508.20060714125546@0451.com>
+Reply-To: "Rogelio Griggs" <RogelioGriggs@0451.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.openss7.com ([142.179.199.224]:29125 "EHLO gw.openss7.com")
-	by vger.kernel.org with ESMTP id S1161097AbWGNMbY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 08:31:24 -0400
-To: Mayuresh Chitale <mchitale@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <d096a3ee0607140525r3e1fb9dbg399c87bb3fbe4205@mail.gmail.com>; from mchitale@gmail.com on Fri, Jul 14, 2006 at 05:55:10PM +0530
+Received: from zeus1.kernel.org ([204.152.191.4]:41959 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1030437AbWGNMzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 08:55:31 -0400
+Received: from k-lklqxktghpxie (cl-82-78-131-189.cablelink.mures.rdsnet.ro [82.78.131.189] (may be forged))
+	by zeus1.kernel.org (8.13.1/8.13.1) with ESMTP id k6ECtIqf004902
+	for <netdev@vger.kernel.org>; Fri, 14 Jul 2006 12:55:30 GMT
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mayuresh,
+Even if you have no erectin problems SOFT CIA9LIS 
+would help you to make BETTER SEHX MORE OFTEN!
+and to bring  unimagnable plesure to her.
 
-On Fri, 14 Jul 2006, Mayuresh Chitale wrote:
-> 
-> If anyone has solved similar problem or knows what causes this
-> problem, please let me know.
-> 
-> Any suggestion is welcome.
+Just disolve half a pil under your tongue 
+and get ready for action in 15 minutes. 
 
-Configure a static arp entry for the tester on the unit under test.
-(Or configure the tester to respond to ARP queries.)
+The tests showed that the majority of men 
+after taking this medic ation were able to have 
+PERFECT ER0ECTION during 36 hours!
 
---brian
+VISIT US, AND GET OUR SPECIAL 70% DISCIOUNT OFER!
 
+http://2CUZTo6cxbxt6u1uzp6ozt6ohb6oo.eozoicck.com/
+
+==========
+from where he had been rooted for so long.
+     "That's  better,"  I  said. "That's  the  ticket. Keep  plugging  away,
+and this one--surely one of the  most provocative of all: "Write me a  story
+entrance.  That's the routine they have  here, so that everyone will see the
+     "Well sure, O.K. they're Outcast," said some of  the  younger  gulls,
+had spent almost all of the money. They hadn't caught me with the goods, and
+
+earth  scientists and engineers could use.  After  all,  many very important
+up again and taken him to another broad, and in a week he would have been as
