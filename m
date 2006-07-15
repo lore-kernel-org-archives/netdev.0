@@ -1,194 +1,153 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [NET]: Update frag_list in pskb_trim
-Date: Sat, 15 Jul 2006 10:10:03 +1000
-Message-ID: <20060715001003.GD9334@gondor.apana.org.au>
-References: <20060713090341.GA28426@gondor.apana.org.au> <20060713.220526.55726160.davem@davemloft.net>
+From: "Jeff Kirsher" <tarbal@gmail.com>
+Subject: Re: [PATCH 0/4] e1000: fixes for 7.1.9-k2
+Date: Fri, 14 Jul 2006 17:15:18 -0700
+Message-ID: <9929d2390607141715p4b63afafsc0a981384e1a9e7@mail.gmail.com>
+References: <20060714232452.22378.32866.stgit@gitlost.site>
+	 <20060715000301.GP6908@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	"Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>, nhorman@tuxdriver.com,
+	jmoyer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:43782 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1945930AbWGOAKP
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jul 2006 20:10:15 -0400
-To: stable@kernel.org, David Miller <davem@davemloft.net>
+Received: from ug-out-1314.google.com ([66.249.92.173]:15420 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1945933AbWGOAPU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jul 2006 20:15:20 -0400
+Received: by ug-out-1314.google.com with SMTP id m3so1010160ugc
+        for <netdev@vger.kernel.org>; Fri, 14 Jul 2006 17:15:19 -0700 (PDT)
+To: "Matt Mackall" <mpm@selenic.com>
+In-Reply-To: <20060715000301.GP6908@waste.org>
 Content-Disposition: inline
-In-Reply-To: <20060713.220526.55726160.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 13, 2006 at 10:05:26PM -0700, David Miller wrote:
-> 
-> As I noted already, this is in my tree and will go off to
-> Linus soon.
-> 
-> Please toss this over to -stable under seperate cover, if
-> you haven't done so already.  Please add my signoff:
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+On 7/14/06, Matt Mackall <mpm@selenic.com> wrote:
+> On Fri, Jul 14, 2006 at 04:24:52PM -0700, Kok, Auke wrote:
+> >
+> > Jeff,
+> >
+> > Please pull the following patches from
+> >
+> > git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream-fixes-jgarzik
+> > (based on 22e1170310ec6afa41e0dc7ac9dfac735d82dcab)
+> >
+> > To receive the following fixes for e1000:
+> >
+> > [01]: Redo netpoll fix
+>
+> Have I seen this patch? Is there a way to browse it?
+>
+> --
+> Mathematics is the supreme nostalgia of our time.
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
 
-Great.  Here we go:
+Matt,
+The patch you are referring to is in patch set emails that Auke sent out.
 
-[NET]: Update frag_list in pskb_trim
+I have also copied the patch below:
 
-When pskb_trim has to defer to ___pksb_trim to trim the frag_list part of
-the packet, the frag_list is not updated to reflect the trimming.  This
-will usually work fine until you hit something that uses the packet length
-or tail from the frag_list.
+The original suggested fix for netpoll was found to be racy on SMP
+kernels. While it is highly unlikely that this race would ever be seen
+in the real world due to current netpoll usage models, we implemented
+this updated fix to address concerns.
 
-Examples include esp_output and ip_fragment.
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-Another problem caused by this is that you can end up with a linear packet
-with a frag_list attached.
+ drivers/net/e1000/e1000_main.c |   39 ++++++++++++++++-----------------------
+ 1 files changed, 16 insertions(+), 23 deletions(-)
 
-It is possible to get away with this if we audit everything to make sure
-that they always consult skb->len before going down onto frag_list.  In
-fact we can do the samething for the paged part as well to avoid copying
-the data area of the skb.  For now though, let's do the conservative fix
-and update frag_list.
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 6d3d419..1c6bcad 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -3387,8 +3387,8 @@ e1000_intr(int irq, void *data, struct p
+               E1000_WRITE_REG(hw, IMC, ~0);
+               E1000_WRITE_FLUSH(hw);
+       }
+-       if (likely(netif_rx_schedule_prep(&adapter->polling_netdev[0])))
+-               __netif_rx_schedule(&adapter->polling_netdev[0]);
++       if (likely(netif_rx_schedule_prep(netdev)))
++               __netif_rx_schedule(netdev);
+       else
+               e1000_irq_enable(adapter);
+ #else
+@@ -3431,34 +3431,26 @@ e1000_clean(struct net_device *poll_dev,
+ {
+       struct e1000_adapter *adapter;
+       int work_to_do = min(*budget, poll_dev->quota);
+-       int tx_cleaned = 0, i = 0, work_done = 0;
++       int tx_cleaned = 0, work_done = 0;
 
-Many thanks to Marco Berizzi for helping me to track down this bug.
+       /* Must NOT use netdev_priv macro here. */
+       adapter = poll_dev->priv;
 
-This 4-year old bug took 3 months to track down.  Marco was very patient
-indeed :)
+       /* Keep link state information with original netdev */
+-       if (!netif_carrier_ok(adapter->netdev))
++       if (!netif_carrier_ok(poll_dev))
+               goto quit_polling;
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+-       while (poll_dev != &adapter->polling_netdev[i]) {
+-               i++;
+-               BUG_ON(i == adapter->num_rx_queues);
+-       }
+-
+-       if (likely(adapter->num_tx_queues == 1)) {
+-               /* e1000_clean is called per-cpu.  This lock protects
+-                * tx_ring[0] from being cleaned by multiple cpus
+-                * simultaneously.  A failure obtaining the lock means
+-                * tx_ring[0] is currently being cleaned anyway. */
+-               if (spin_trylock(&adapter->tx_queue_lock)) {
+-                       tx_cleaned = e1000_clean_tx_irq(adapter,
+-                                                       &adapter->tx_ring[0]);
+-                       spin_unlock(&adapter->tx_queue_lock);
+-               }
+-       } else
+-               tx_cleaned = e1000_clean_tx_irq(adapter, &adapter->tx_ring[i]);
++       /* e1000_clean is called per-cpu.  This lock protects
++        * tx_ring[0] from being cleaned by multiple cpus
++        * simultaneously.  A failure obtaining the lock means
++        * tx_ring[0] is currently being cleaned anyway. */
++       if (spin_trylock(&adapter->tx_queue_lock)) {
++               tx_cleaned = e1000_clean_tx_irq(adapter,
++                                               &adapter->tx_ring[0]);
++               spin_unlock(&adapter->tx_queue_lock);
++       }
 
-Cheers,
+-       adapter->clean_rx(adapter, &adapter->rx_ring[i],
++       adapter->clean_rx(adapter, &adapter->rx_ring[0],
+                         &work_done, work_to_do);
+
+       *budget -= work_done;
+@@ -3466,7 +3458,7 @@ e1000_clean(struct net_device *poll_dev,
+
+       /* If no Tx and not enough Rx work done, exit the polling mode */
+       if ((!tx_cleaned && (work_done == 0)) ||
+-          !netif_running(adapter->netdev)) {
++          !netif_running(poll_dev)) {
+ quit_polling:
+               netif_rx_complete(poll_dev);
+               e1000_irq_enable(adapter);
+@@ -4752,6 +4744,7 @@ static void
+ e1000_netpoll(struct net_device *netdev)
+ {
+       struct e1000_adapter *adapter = netdev_priv(netdev);
++
+       disable_irq(adapter->pdev->irq);
+       e1000_intr(adapter->pdev->irq, netdev, NULL);
+       e1000_clean_tx_irq(adapter, adapter->tx_ring);
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 44f6a18..476aa39 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -257,11 +257,11 @@ nodata:
- }
- 
- 
--static void skb_drop_fraglist(struct sk_buff *skb)
-+static void skb_drop_list(struct sk_buff **listp)
- {
--	struct sk_buff *list = skb_shinfo(skb)->frag_list;
-+	struct sk_buff *list = *listp;
- 
--	skb_shinfo(skb)->frag_list = NULL;
-+	*listp = NULL;
- 
- 	do {
- 		struct sk_buff *this = list;
-@@ -270,6 +270,11 @@ static void skb_drop_fraglist(struct sk_
- 	} while (list);
- }
- 
-+static inline void skb_drop_fraglist(struct sk_buff *skb)
-+{
-+	skb_drop_list(&skb_shinfo(skb)->frag_list);
-+}
-+
- static void skb_clone_fraglist(struct sk_buff *skb)
- {
- 	struct sk_buff *list;
-@@ -830,41 +835,75 @@ free_skb:
- 
- int ___pskb_trim(struct sk_buff *skb, unsigned int len)
- {
-+	struct sk_buff **fragp;
-+	struct sk_buff *frag;
- 	int offset = skb_headlen(skb);
- 	int nfrags = skb_shinfo(skb)->nr_frags;
- 	int i;
-+	int err;
-+
-+	if (skb_cloned(skb) &&
-+	    unlikely((err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC))))
-+		return err;
- 
- 	for (i = 0; i < nfrags; i++) {
- 		int end = offset + skb_shinfo(skb)->frags[i].size;
--		if (end > len) {
--			if (skb_cloned(skb)) {
--				if (pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
--					return -ENOMEM;
--			}
--			if (len <= offset) {
--				put_page(skb_shinfo(skb)->frags[i].page);
--				skb_shinfo(skb)->nr_frags--;
--			} else {
--				skb_shinfo(skb)->frags[i].size = len - offset;
--			}
-+
-+		if (end < len) {
-+			offset = end;
-+			continue;
- 		}
--		offset = end;
-+
-+		if (len > offset)
-+			skb_shinfo(skb)->frags[i++].size = len - offset;
-+
-+		skb_shinfo(skb)->nr_frags = i;
-+
-+		for (; i < nfrags; i++)
-+			put_page(skb_shinfo(skb)->frags[i].page);
-+
-+		if (skb_shinfo(skb)->frag_list)
-+			skb_drop_fraglist(skb);
-+		break;
- 	}
- 
--	if (offset < len) {
-+	for (fragp = &skb_shinfo(skb)->frag_list; (frag = *fragp);
-+	     fragp = &frag->next) {
-+		int end = offset + frag->len;
-+
-+		if (skb_shared(frag)) {
-+			struct sk_buff *nfrag;
-+
-+			nfrag = skb_clone(frag, GFP_ATOMIC);
-+			if (unlikely(!nfrag))
-+				return -ENOMEM;
-+
-+			nfrag->next = frag->next;
-+			frag = nfrag;
-+			*fragp = frag;
-+		}
-+
-+		if (end < len) {
-+			offset = end;
-+			continue;
-+		}
-+
-+		if (end > len &&
-+		    unlikely((err = pskb_trim(frag, len - offset))))
-+			return err;
-+
-+		if (frag->next)
-+			skb_drop_list(&frag->next);
-+		break;
-+	}
-+
-+	if (len > skb_headlen(skb)) {
- 		skb->data_len -= skb->len - len;
- 		skb->len       = len;
- 	} else {
--		if (len <= skb_headlen(skb)) {
--			skb->len      = len;
--			skb->data_len = 0;
--			skb->tail     = skb->data + len;
--			if (skb_shinfo(skb)->frag_list && !skb_cloned(skb))
--				skb_drop_fraglist(skb);
--		} else {
--			skb->data_len -= skb->len - len;
--			skb->len       = len;
--		}
-+		skb->len       = len;
-+		skb->data_len  = 0;
-+		skb->tail      = skb->data + len;
- 	}
- 
- 	return 0;
+Cheers,
+Jeff
