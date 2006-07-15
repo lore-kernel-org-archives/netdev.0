@@ -1,26 +1,36 @@
-From: =?ISO-8859-1?Q?=20=22=CC=E0=F0=E8=ED=E0?=
-	  =?ISO-8859-1?Q?=20=CF=EB=EE=F2=ED=E8=EA=22?=
-	 <DoloresAlexander@cyberis.fr>
-Subject: =?ISO-8859-1?Q?=20=CF=CE=D0=CD=CE?=
-Date: Sun, 16 Jul 2006 01:13:34 +0500
-Message-ID: <IFSSHLLFIWYKMBMXALYVOSQU@directline-holidays.co.uk>
-Reply-To: =?ISO-8859-1?Q?=20=22=C0=EB=E5=EA=F1=E0=ED=E4=F0?=
-	    =?ISO-8859-1?Q?=20=C7=E0=ED=E0=E4?=
-	    =?ISO-8859-1?Q?=E2=EE=F0=EE=E2=22?=
-	   <DoloresAlexander@cyberis.fr>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 3/7] NetLabel: CIPSOv4 engine
+Date: Sat, 15 Jul 2006 18:39:57 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0607151837530.28012@d.namei>
+References: <20060714185739.780700000@flek.zko.hp.com>
+ <20060714185915.270209000@flek.zko.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=Windows-1251;
-	boundary="--42242146632469407"
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, davem@davemloft.net,
+	sds@epoch.ncsc.mil, jmorris@redhat.com, pratt@argus-systems.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 201-0-41-66.dsl.telesp.net.br ([201.0.41.66]:57867 "HELO
-	201-0-41-66.dsl.telesp.net.br") by vger.kernel.org with SMTP
-	id S1161023AbWGOUQR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Jul 2006 16:16:17 -0400
-To: netdev@vger.kernel.org
+Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:52369 "EHLO
+	mail3.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S964796AbWGOWkA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Jul 2006 18:40:00 -0400
+To: Paul Moore <paul.moore@hp.com>
+In-Reply-To: <20060714185915.270209000@flek.zko.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 14 Jul 2006, paul.moore@hp.com wrote:
 
-На сайте порно фото девочек:
+> +int cipso_v4_cache_add(const struct sk_buff *skb,
+> +		       const struct netlbl_lsm_secattr *secattr)
+> +{
 
-http://vigovo.by.ru
+It seems that this cache grows without bounds, correct?
+
+Also, how do you handle the case of a change to a cached mapping?
+
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
