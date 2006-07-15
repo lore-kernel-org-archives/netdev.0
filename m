@@ -1,33 +1,27 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 08/10] MLSXFRM: Add security context to acquire messages using PF_KEY
-Date: Sat, 15 Jul 2006 12:20:13 +1000
-Message-ID: <20060715022013.GA13987@gondor.apana.org.au>
-References: <44B56642.6060500@trustedcs.com> <20060713.230445.106436593.davem@davemloft.net> <Pine.LNX.4.64.0607140952220.15305@d.namei>
+From: =?ISO-8859-1?Q?=20=22=C1=EE=F0=E8=F1?=
+	  =?ISO-8859-1?Q?=20=C7=E8=ED=E3=E0=F0=E5=E2=E8=F7=22?=
+	 <NoelGoodman@ff.com>
+Subject: =?ISO-8859-1?Q?=20=CF=CE=D0=CD=CE?=  =?ISO-8859-1?Q?=20=D4=CE=D2=CE?=
+Date: Sat, 15 Jul 2006 04:18:08 +0100
+Message-ID: <DMCMUOTODHIMSLTLSNQQYTEZ@eva.ro>
+Reply-To: =?ISO-8859-1?Q?=20=22=D4=E8=EB=FC=EC=EE=E2?=
+	    =?ISO-8859-1?Q?=20=CF=E5=F2=F0=22?= <NoelGoodman@ff.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, vyekkirala@trustedcs.com,
-	netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
-	tjaeger@cse.psu.edu, selinux@tycho.nsa.gov
+Content-Type: text/plain; charset=Windows-1251;
+	boundary="--683890165061794"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:27400 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1945977AbWGOCUh
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jul 2006 22:20:37 -0400
-To: James Morris <jmorris@namei.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0607140952220.15305@d.namei>
+Received: from 190-48-30-43.speedy.com.ar ([190.48.30.43]:47888 "HELO
+	190-48-30-43.speedy.com.ar") by vger.kernel.org with SMTP
+	id S1945981AbWGOCXM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jul 2006 22:23:12 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 14, 2006 at 09:54:59AM -0400, James Morris wrote:
-> 
-> Herbert, any review from you on this would be greatly appreciated.
 
-OK, I'll try to have a look tomorrow (I'm GMT-4 at the moment).
+На сайте порно фото девочек:
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+http://aaaggg.by.ru
+
+
+
