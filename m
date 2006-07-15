@@ -1,29 +1,29 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: michael_mic in crypto api?
-Date: Sat, 15 Jul 2006 20:37:24 +1000
-Message-ID: <E1G1hWW-0004ec-00@gondolin.me.apana.org.au>
-References: <200607132350.25755.michael.wu@mozilla.com>
-Cc: jbenc@suse.cz, linville@tuxdriver.com, netdev@vger.kernel.org
+Subject: Re: [PATCH 08/10] MLSXFRM: Add security context to acquire messages using PF_KEY
+Date: Sat, 15 Jul 2006 22:31:27 +1000
+Message-ID: <20060715123127.GA18698@gondor.apana.org.au>
+References: <44B56642.6060500@trustedcs.com> <20060713.230445.106436593.davem@davemloft.net> <Pine.LNX.4.64.0607140952220.15305@d.namei>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, vyekkirala@trustedcs.com,
+	netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
+	tjaeger@cse.psu.edu, selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:63503 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1946019AbWGOKi0
+Received: from rhun.apana.org.au ([64.62.148.172]:62482 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1946025AbWGOMbk
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Jul 2006 06:38:26 -0400
-To: michael.wu@mozilla.com (Michael Wu)
-In-Reply-To: <200607132350.25755.michael.wu@mozilla.com>
+	Sat, 15 Jul 2006 08:31:40 -0400
+To: James Morris <jmorris@namei.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0607140952220.15305@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Wu <michael.wu@mozilla.com> wrote:
+On Fri, Jul 14, 2006 at 09:54:59AM -0400, James Morris wrote:
 > 
-> Is there really a point to having michael_mic in crypto api? The only users 
-> are 802.11 stacks. I can imagine arc4 being used for other purposes, but 
-> michael_mic is very much wireless only. The only advantage of keeping 
-> michael_mic in crypto seems to be the testing code.
+> Herbert, any review from you on this would be greatly appreciated.
 
-I suppose the question is that what do you gain by moving it out?
-If all else being equal then it's better to have a standardised
-interface for accessing it.
+Looks good to me.
 
 Cheers,
 -- 
