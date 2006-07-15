@@ -1,53 +1,71 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/core/user_dma.c should #include <net/netdma.h>
-Date: Sat, 15 Jul 2006 02:36:17 +0200
-Message-ID: <20060715003617.GL3633@stusta.de>
+From: Guillaume Chazarain <guichaz@yahoo.fr>
+Subject: [PATCH] Fix slab corruption with netem
+Date: Sat, 15 Jul 2006 02:39:54 +0200
+Message-ID: <44B8395A.1050602@yahoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------010002090801050605090006"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:34569 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1945942AbWGOAgS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jul 2006 20:36:18 -0400
-To: Chris Leech <christopher.leech@intel.com>
-Content-Disposition: inline
+Received: from smtp4-g19.free.fr ([212.27.42.30]:42423 "EHLO smtp4-g19.free.fr")
+	by vger.kernel.org with ESMTP id S1945955AbWGOAiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 20:38:52 -0400
+Received: from [192.168.0.4] (bar06-2-82-224-157-131.fbx.proxad.net [82.224.157.131])
+	by smtp4-g19.free.fr (Postfix) with ESMTP id 1D1004DE43
+	for <netdev@vger.kernel.org>; Sat, 15 Jul 2006 02:38:52 +0200 (CEST)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Every file should #include the headers containing the prototypes for 
-its global functions.
+This is a multi-part message in MIME format.
+--------------010002090801050605090006
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Especially in cases like this one where gcc can tell us through a 
-compile error that the prototype was wrong...
+Hello,
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+CONFIG_DEBUG_SLAB found the following bug:
+netem_enqueue() in sch_netem.c gets a pointer inside a slab object: 
+struct netem_skb_cb *cb = (struct netem_skb_cb *)skb->cb;
+But then, the slab object may be freed: skb = skb_unshare(skb, GFP_ATOMIC)
+cb is still pointing inside the freed skb, so here is a patch to 
+initialize cb later, and make it clear
+that initializing it sooner is a bad idea.
 
----
+Thanks.
 
- include/net/netdma.h |    2 +-
- net/core/user_dma.c  |    1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
+-- 
+Guillaume
 
---- linux-2.6.18-rc1-mm2-full/include/net/netdma.h.old	2006-07-15 00:52:38.000000000 +0200
-+++ linux-2.6.18-rc1-mm2-full/include/net/netdma.h	2006-07-15 00:52:43.000000000 +0200
-@@ -37,7 +37,7 @@
- }
+
+--------------010002090801050605090006
+Content-Type: text/x-patch;
+ name="netem_cb_initialization.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="netem_cb_initialization.diff"
+
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -148,7 +148,8 @@ static int netem_enqueue(struct sk_buff 
+ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ {
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+-	struct netem_skb_cb *cb = (struct netem_skb_cb *)skb->cb;
++	/* We don't fill cb now as skb_unshare() may invalidate it */
++	struct netem_skb_cb *cb = NULL;
+ 	struct sk_buff *skb2;
+ 	int ret;
+ 	int count = 1;
+@@ -200,6 +201,7 @@ static int netem_enqueue(struct sk_buff 
+ 		skb->data[net_random() % skb_headlen(skb)] ^= 1<<(net_random() % 8);
+ 	}
  
- int dma_skb_copy_datagram_iovec(struct dma_chan* chan,
--		const struct sk_buff *skb, int offset, struct iovec *to,
-+		struct sk_buff *skb, int offset, struct iovec *to,
- 		size_t len, struct dma_pinned_list *pinned_list);
- 
- #endif /* CONFIG_NET_DMA */
---- linux-2.6.18-rc1-mm2-full/net/core/user_dma.c.old	2006-07-14 21:59:37.000000000 +0200
-+++ linux-2.6.18-rc1-mm2-full/net/core/user_dma.c	2006-07-14 21:59:50.000000000 +0200
-@@ -29,6 +29,7 @@
- #include <linux/socket.h>
- #include <linux/rtnetlink.h> /* for BUG_TRAP */
- #include <net/tcp.h>
-+#include <net/netdma.h>
- 
- #define NET_DMA_DEFAULT_COPYBREAK 4096
- 
++	cb = (struct netem_skb_cb *)skb->cb;
+ 	if (q->gap == 0 		/* not doing reordering */
+ 	    || q->counter < q->gap 	/* inside last reordering gap */
+ 	    || q->reorder < get_crandom(&q->reorder_cor)) {
 
+-- 
+Signed-off-by: Guillaume Chazarain <guichaz@yahoo.fr>
+
+--------------010002090801050605090006--
