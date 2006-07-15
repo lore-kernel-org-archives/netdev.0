@@ -1,80 +1,55 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 3/7] NetLabel: CIPSOv4 engine
-Date: Fri, 14 Jul 2006 19:56:17 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0607141950580.19230@d.namei>
-References: <20060714185739.780700000@flek.zko.hp.com>
- <20060714185915.270209000@flek.zko.hp.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.18-rc1-mm2
+Date: Sat, 15 Jul 2006 10:04:58 +1000
+Message-ID: <20060715000458.GB9334@gondor.apana.org.au>
+References: <20060713224800.6cbdbf5d.akpm@osdl.org> <44B73FEE.6040908@reub.net> <20060714000551.649ca455.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
-	"David S. Miller" <davem@davemloft.net>, sds@epoch.ncsc.mil,
-	pratt@argus-systems.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Reuben Farrelly <reuben-lkml@reub.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.sea5.speakeasy.net ([69.17.117.4]:47845 "EHLO
-	mail2.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1945922AbWGNX4T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jul 2006 19:56:19 -0400
-To: Paul Moore <paul.moore@hp.com>
-In-Reply-To: <20060714185915.270209000@flek.zko.hp.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:35334 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1945923AbWGOAFN
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jul 2006 20:05:13 -0400
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060714000551.649ca455.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 14 Jul 2006, paul.moore@hp.com wrote:
+On Fri, Jul 14, 2006 at 12:05:51AM -0700, Andrew Morton wrote:
+>
+> > Call Trace:
+> >   [<ffffffff8026963e>] show_trace+0xae/0x265
+> >   [<ffffffff8026980a>] dump_stack+0x15/0x1b
+> >   [<ffffffff8043ba7b>] skb_checksum_help+0x61/0x126
+> >   [<ffffffff8802f35f>] :iptable_nat:ip_nat_fn+0x5f/0x1d2
 
-> +int cipso_v4_validate(unsigned char **option)
-> +{
-> +	unsigned char *opt = *option;
-> +	unsigned char *tag;
-> +	unsigned char opt_iter;
-> +	unsigned char err_offset = 0;
-> +	unsigned char locked = 0;
-> +	u8 opt_len;
-> +	u8 tag_len;
-> +	struct cipso_v4_doi *doi_def = NULL;
-> +	u32 tag_iter;
-> +
-> +	/* XXX - caller already checks for length values that are too large */
+This is tell you that there is a bug in ip_nat_fn in that it completes
+the partial checksum even for TSO packets which will cause them to go
+out with bogus checksums.
 
-Please don't put 'XXX' there for a normaly comment.  It's supposed to 
-indicate that something needs attention (e.g. known bug, unresolved 
-question etc).
+The warning also indicates that the system has detected this and has
+worked around it by recomputing the partial checksum after NAT.
 
-> +	rcu_read_lock();
-> +	locked = 1;
+The warning is here so someone can fix NAT to not trash the partial
+checksum.  It would also tell us if anyone else breaks checksums in
+this way.
 
-> +validate_return:
-> +	if (locked)
-> +		rcu_read_unlock();
-> +	*option = opt + err_offset;
-> +	return err_offset;
-> +}
+I've already made the warning appear only once per-boot so I'd really
+like to keep it in until
 
-No need for the 'locked' variable, just create a new goto label, like:
+1) NAT is fixed.
+2) We're reasonably sure there's nothing else doing this.
 
+Prior to this change your TSO packets would've gone out with corrupted
+checksums silently.  Essentially TSO would only slow your machine down
+since every transmission it makes has to be retransmitted as non-TSO.
 
-{
-
-out_unlock:
-	rcu_read_unlock();
-out:
-	*option = opt + err_offset;
-	return err_offset;
-}
-
-Then have the goto callers specify the correct label.
-
-> +	/* In the case of sock_create_lite(), the sock->sk field is not
-> +	   defined yet but it is not a problem as the only users of these
-> +	   "lite" PF_INET sockets are functions which do an accept() call
-> +	   afterwards so we will label the socket as part of the accept(). */
-
-Coding style standard for multiline comments is:
-
-	/*
-	 *
-         */
-
-
+Cheers,
 -- 
-James Morris
-<jmorris@namei.org>
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
