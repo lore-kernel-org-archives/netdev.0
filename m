@@ -1,42 +1,36 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] clear skb cb on IP input
-Date: Sat, 15 Jul 2006 08:50:58 -0700
-Message-ID: <44B90EE2.1080808@osdl.org>
-References: <E1G1kCA-000533-00@gondolin.me.apana.org.au>
+From: Guillaume Chazarain <guichaz@yahoo.fr>
+Subject: Re: [PATCH] Fix slab corruption with netem
+Date: Sat, 15 Jul 2006 18:06:16 +0200
+Message-ID: <44B91278.7010002@yahoo.fr>
+References: <44B8395A.1050602@yahoo.fr> <44B90E8C.5090400@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, guichaz@yahoo.fr,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:29129 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750715AbWGOPvM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jul 2006 11:51:12 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1G1kCA-000533-00@gondolin.me.apana.org.au>
+Received: from smtp6-g19.free.fr ([212.27.42.36]:27601 "EHLO smtp6-g19.free.fr")
+	by vger.kernel.org with ESMTP id S1750718AbWGOQFM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jul 2006 12:05:12 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <44B90E8C.5090400@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> David Miller <davem@davemloft.net> wrote:
->   
->> Thank goodness this thing is only 3-words in size, this is going to
->> run on every single IPv4 packet received by the system. :-/
->>     
->
-> At least this lets us get rid of a few other memsets :)
->
-> [IPV4]: Get rid of redundant IPCB->opts initialisation
->
-> Now that we always zero the IPCB->opts in ip_rcv, it is no longer
-> necessary to do so before calling netif_rx for tunneled packets.
->
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->
-> Cheers
->   
+Stephen Hemminger wrote :
+>> -    struct netem_skb_cb *cb = (struct netem_skb_cb *)skb->cb;
+>> +    /* We don't fill cb now as skb_unshare() may invalidate it */
+>> +    struct netem_skb_cb *cb = NULL;
+>>   
+> Would rather leave it unitialized, rather than setting to NULL.
 
-Since skb->cb is aligned, we could optimize the initialization
-slightly by just using:
-    *(unsigned long *)skb->cb = 0;
+I find that strange. If someone mistakenly uses cb before it is 
+initialized it could be hard
+to figure out why some memory is corrupted. But by initializing cb to 
+NULL, it will
+always trigger an Oops, so it will be easier to debug in this case.
+
+Cheers.
+
+-- 
+Guillaume
 
