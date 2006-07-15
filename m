@@ -1,71 +1,38 @@
-From: Guillaume Chazarain <guichaz@yahoo.fr>
-Subject: [PATCH] Fix slab corruption with netem
-Date: Sat, 15 Jul 2006 02:39:54 +0200
-Message-ID: <44B8395A.1050602@yahoo.fr>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH 0/4] e1000: fixes for 7.1.9-k2
+Date: Fri, 14 Jul 2006 19:44:06 -0500
+Message-ID: <20060715004406.GQ6908@waste.org>
+References: <20060714232452.22378.32866.stgit@gitlost.site> <20060715000301.GP6908@waste.org> <9929d2390607141715p4b63afafsc0a981384e1a9e7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010002090801050605090006"
+Content-Type: text/plain; charset=us-ascii
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	"Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>, nhorman@tuxdriver.com,
+	jmoyer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4-g19.free.fr ([212.27.42.30]:42423 "EHLO smtp4-g19.free.fr")
-	by vger.kernel.org with ESMTP id S1945955AbWGOAiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 20:38:52 -0400
-Received: from [192.168.0.4] (bar06-2-82-224-157-131.fbx.proxad.net [82.224.157.131])
-	by smtp4-g19.free.fr (Postfix) with ESMTP id 1D1004DE43
-	for <netdev@vger.kernel.org>; Sat, 15 Jul 2006 02:38:52 +0200 (CEST)
-To: netdev@vger.kernel.org
+Received: from waste.org ([66.93.16.53]:57310 "EHLO waste.org")
+	by vger.kernel.org with ESMTP id S1945943AbWGOAqB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jul 2006 20:46:01 -0400
+To: Jeff Kirsher <tarbal@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <9929d2390607141715p4b63afafsc0a981384e1a9e7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010002090801050605090006
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Fri, Jul 14, 2006 at 05:15:18PM -0700, Jeff Kirsher wrote:
+> Matt,
+> The patch you are referring to is in patch set emails that Auke sent out.
 
-Hello,
+Doesn't look like it made it here.
 
-CONFIG_DEBUG_SLAB found the following bug:
-netem_enqueue() in sch_netem.c gets a pointer inside a slab object: 
-struct netem_skb_cb *cb = (struct netem_skb_cb *)skb->cb;
-But then, the slab object may be freed: skb = skb_unshare(skb, GFP_ATOMIC)
-cb is still pointing inside the freed skb, so here is a patch to 
-initialize cb later, and make it clear
-that initializing it sooner is a bad idea.
+> I have also copied the patch below:
 
-Thanks.
+I'm going to assume all the tab damage here is an artifact. Otherwise,
+looks good.
+
+Signed-off-by: Matt Mackall <mpm@selenic.com>
 
 -- 
-Guillaume
-
-
---------------010002090801050605090006
-Content-Type: text/x-patch;
- name="netem_cb_initialization.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="netem_cb_initialization.diff"
-
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -148,7 +148,8 @@ static int netem_enqueue(struct sk_buff 
- static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- {
- 	struct netem_sched_data *q = qdisc_priv(sch);
--	struct netem_skb_cb *cb = (struct netem_skb_cb *)skb->cb;
-+	/* We don't fill cb now as skb_unshare() may invalidate it */
-+	struct netem_skb_cb *cb = NULL;
- 	struct sk_buff *skb2;
- 	int ret;
- 	int count = 1;
-@@ -200,6 +201,7 @@ static int netem_enqueue(struct sk_buff 
- 		skb->data[net_random() % skb_headlen(skb)] ^= 1<<(net_random() % 8);
- 	}
- 
-+	cb = (struct netem_skb_cb *)skb->cb;
- 	if (q->gap == 0 		/* not doing reordering */
- 	    || q->counter < q->gap 	/* inside last reordering gap */
- 	    || q->reorder < get_crandom(&q->reorder_cor)) {
-
--- 
-Signed-off-by: Guillaume Chazarain <guichaz@yahoo.fr>
-
---------------010002090801050605090006--
+Mathematics is the supreme nostalgia of our time.
