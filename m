@@ -1,32 +1,33 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Netdev kernel summit.
-Date: Sat, 15 Jul 2006 13:40:56 +0400
-Message-ID: <20060715094056.GA2744@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: michael_mic in crypto api?
+Date: Sat, 15 Jul 2006 20:37:24 +1000
+Message-ID: <E1G1hWW-0004ec-00@gondolin.me.apana.org.au>
+References: <200607132350.25755.michael.wu@mozilla.com>
+Cc: jbenc@suse.cz, linville@tuxdriver.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:54151 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932457AbWGOJmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jul 2006 05:42:20 -0400
-Received: from 2ka.mipt.ru (localhost [127.0.0.1])
-	by 2ka.mipt.ru (8.13.7/8.13.7) with ESMTP id k6F9gFxN004935
-	for <netdev@vger.kernel.org>; Sat, 15 Jul 2006 13:42:15 +0400
-Received: (from johnpol@localhost)
-	by 2ka.mipt.ru (8.13.7/8.12.1/Submit) id k6F9eu83004546
-	for netdev@vger.kernel.org; Sat, 15 Jul 2006 13:40:56 +0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from rhun.apana.org.au ([64.62.148.172]:63503 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1946019AbWGOKi0
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Jul 2006 06:38:26 -0400
+To: michael.wu@mozilla.com (Michael Wu)
+In-Reply-To: <200607132350.25755.michael.wu@mozilla.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello developers.
+Michael Wu <michael.wu@mozilla.com> wrote:
+> 
+> Is there really a point to having michael_mic in crypto api? The only users 
+> are 802.11 stacks. I can imagine arc4 being used for other purposes, but 
+> michael_mic is very much wireless only. The only advantage of keeping 
+> michael_mic in crypto seems to be the testing code.
 
-Where interested reader can find info about this year netdev kernel
-summit topics and presentations, if that event will/is/was at all.
+I suppose the question is that what do you gain by moving it out?
+If all else being equal then it's better to have a standardised
+interface for accessing it.
 
-Previous summits had extremely interesting topics.
-
-Thank you.
-
+Cheers,
 -- 
-	Evgeniy Polyakov
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
