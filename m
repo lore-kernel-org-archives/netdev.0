@@ -1,36 +1,35 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: [-mm patch] remove net/core/skbuff.c:skb_queue_lock_key
-Date: Sat, 15 Jul 2006 07:35:16 +0200
-Message-ID: <44B87E94.7000602@linux.intel.com>
-References: <20060713224800.6cbdbf5d.akpm@osdl.org> <20060715003519.GF3633@stusta.de>
+From: Dave Jones <davej@redhat.com>
+Subject: sch_htb compile fix.
+Date: Sat, 15 Jul 2006 03:41:12 -0400
+Message-ID: <20060715074112.GA18210@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	Ingo Molnar <mingo@elte.hu>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Linus Torvalds <torvalds@osdl.org>,
+	Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fmr18.intel.com ([134.134.136.17]:11476 "EHLO
-	orsfmr003.jf.intel.com") by vger.kernel.org with ESMTP
-	id S932500AbWGOFhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Jul 2006 01:37:16 -0400
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20060715003519.GF3633@stusta.de>
+Received: from mx1.redhat.com ([66.187.233.31]:19687 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1946004AbWGOHlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jul 2006 03:41:17 -0400
+To: Linux Kernel <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> On Thu, Jul 13, 2006 at 10:48:00PM -0700, Andrew Morton wrote:
->> ...
->> Changes since 2.6.18-rc1-mm1:
->> ...
->> +lockdep-split-the-skb_queue_head_init-lock-class.patch
->>
->>  lockdep-versus-net fix.
->> ...
-> 
-> skb_queue_lock_key is no longer used.
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> 
+net/sched/sch_htb.c: In function 'htb_change_class':
+net/sched/sch_htb.c:1605: error: expected ';' before 'do_gettimeofday'
 
-Acked-by: Arjan van de Ven <arjan@linux.intel.com>
+Signed-off-by: Dave Jones <davej@redhat.com>
+
+--- linux-2.6.17.noarch/net/sched/sch_htb.c~	2006-07-15 03:40:14.000000000 -0400
++++ linux-2.6.17.noarch/net/sched/sch_htb.c	2006-07-15 03:40:21.000000000 -0400
+@@ -1601,7 +1601,7 @@ static int htb_change_class(struct Qdisc
+ 		/* set class to be in HTB_CAN_SEND state */
+ 		cl->tokens = hopt->buffer;
+ 		cl->ctokens = hopt->cbuffer;
+-		cl->mbuffer = PSCHED_JIFFIE2US(HZ*60) /* 1min */
++		cl->mbuffer = PSCHED_JIFFIE2US(HZ*60); /* 1min */
+ 		PSCHED_GET_TIME(cl->t_c);
+ 		cl->cmode = HTB_CAN_SEND;
+-- 
+http://www.codemonkey.org.uk
