@@ -1,58 +1,54 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: michael_mic in crypto api?
-Date: Sat, 15 Jul 2006 21:44:38 -0700
-Message-ID: <200607152144.44350.flamingice@sourmilk.net>
-References: <E1G1hWW-0004ec-00@gondolin.me.apana.org.au>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCHv2  2.6.18-rc1-mm2   1/3]  net:  UDP-Lite generic support
+Date: Sun, 16 Jul 2006 10:29:48 +0100
+Message-ID: <200607161029.48628@strip-the-willow>
+References: <E1G1kGi-000549-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1255527.Y4atA5KU0J";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: jbenc@suse.cz, linville@tuxdriver.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-6
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@osdl.org, davem@davemloft.net, yoshfuji@linux-ipv6.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@coreworks.de,
+	pekkas@netcore.fi, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:14728 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S1946001AbWGPEpS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Jul 2006 00:45:18 -0400
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:24211 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S1750831AbWGPJcQ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Jul 2006 05:32:16 -0400
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1G1hWW-0004ec-00@gondolin.me.apana.org.au>
+In-Reply-To: <E1G1kGi-000549-00@gondolin.me.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1255527.Y4atA5KU0J
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Quoting Herbert Xu:
+|  > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0case SO_NO_CHECK:
+|  > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 sk->sk_no_check =3D =
+valbool;
+|  > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* UDP-Lite (RFC 382=
+8) mandates checksumming,
+|  > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* hence user must=
+ not enable this option. =A0 */
+|  > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (sk->sk_protocol =
+=3D=3D IPPROTO_UDPLITE)
+|  > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =
+=3D -EOPNOTSUPP;
+|  > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 else
+|  > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 sk->sk_no_ch=
+eck =3D valbool;
+| =20
+|  Please don't add protocol-specific stuff to generic functions. =A0In=
+ this
+|  case why don't you just ignore sk_no_check for UDPLITE as we do for =
+TCP?
 
-On Saturday 15 July 2006 03:37, Herbert Xu wrote:
-> I suppose the question is that what do you gain by moving it out?
-> If all else being equal then it's better to have a standardised
-> interface for accessing it.
->
-Simplicity and consistency. Whereas the relatively simple mic part of the T=
-KIP=20
-algorithm is in crypto API, the (more important, more complicated) key mixi=
-ng=20
-part is not in crypto api. It is unlikely that either the mic or key mixing=
-=20
-part would be used separately or even outside of TKIP/802.11i code, and we=
-=20
-don't want to encourage people anyways since they're just bandaids for=20
-problems associated with using rc4.
+Thank you for spotting this -- the UDP-Lite code indeed ignores sk_no_c=
+heck
+and will (if no socket options are set) emulate UDP with sk_no_check =3D=
+ 0. Setting
+it to 1 will make no difference; so the above is more not strictly nece=
+ssary. Will=20
+remove in next patch.
+Any other comments or ideas, please do not hesitate to write.=20
 
-=2DMichael Wu
-
---nextPart1255527.Y4atA5KU0J
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBEucQ8T3Oqt9AH4aERArmvAKCK/oRDyiu2E3NTKR7AJo+5YjzMVwCgm3Zh
-ET4vGa+DqZ11Xn4odEJZZUc=
-=+Skh
------END PGP SIGNATURE-----
-
---nextPart1255527.Y4atA5KU0J--
+-- Gerrit
