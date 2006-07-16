@@ -1,51 +1,70 @@
 From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] WAN: converting generic HDLC to use netif_dormant*()
-Date: Sun, 16 Jul 2006 14:07:57 +0200
-Message-ID: <m3ac79n46a.fsf@defiant.localdomain>
+Subject: [PATCH] WAN: Added missing netif_dormant_off() to generic HDLC
+Date: Sun, 16 Jul 2006 14:17:20 +0200
+Message-ID: <m33bd1n3qn.fsf@defiant.localdomain>
 References: <m3veq3suve.fsf@defiant.localdomain>
-	<20060712.134632.06531928.davem@davemloft.net>
-	<20060713194504.f6c97d47.akpm@osdl.org>
-	<20060713.211858.15263760.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, jeff@garzik.org, netdev@vger.kernel.org,
-	paulkf@microgate.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:27860 "EHLO khc.piap.pl")
-	by vger.kernel.org with ESMTP id S1751030AbWGPMIA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Jul 2006 08:08:00 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060713.211858.15263760.davem@davemloft.net> (David Miller's message of "Thu, 13 Jul 2006 21:18:58 -0700 (PDT)")
+Received: from khc.piap.pl ([195.187.100.11]:18591 "EHLO khc.piap.pl")
+	by vger.kernel.org with ESMTP id S1751054AbWGPMRX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Jul 2006 08:17:23 -0400
+To: Jeff Garzik <jeff@garzik.org>, David Miller <davem@davemloft.net>
+In-Reply-To: <m3veq3suve.fsf@defiant.localdomain> (Krzysztof Halasa's message of "Tue, 11 Jul 2006 23:18:45 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+WAN: Fixed a problem with PPP/raw HDLC/X.25 protocols not doing
+netif_dormant_off() at startup.
 
->> WARNING: "hdlc_set_carrier" [drivers/char/synclinkmp.ko] undefined!
->> WARNING: "hdlc_set_carrier" [drivers/char/synclink_gt.ko] undefined!
->> WARNING: "hdlc_set_carrier" [drivers/char/synclink.ko] undefined!
->> WARNING: "hdlc_set_carrier" [drivers/char/pcmcia/synclink_cs.ko] undefined!
->
-> Krzysztof please provide a fix for this,
+Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
 
-Sure
-
-> this function you added
-> calls to does not exist anywhere,
-
-The function doesn't exist anymore, I've removed the calls (but
-unfortunately not all of them). Now, instead of hdlc_set_carrier(),
-normal netif_carrier_on|off() should be used (it looks like only
-synclink drivers and drivers written by me used hdlc_set_carrier()
-- other drivers always used netif_carrier_*() only).
-
-> which suggests you either produced
-> a patch against a different tree than the current one or you didn't
-> even compile test this patch.
-
-Actually I wasn't at the moment aware that there are WAN drivers in
-drivers/char (only checked drivers/net).
-
-I'm just posting a patch.
--- 
-Krzysztof Halasa
+diff --git a/drivers/net/wan/hdlc_ppp.c b/drivers/net/wan/hdlc_ppp.c
+index b81263e..fbaab5b 100644
+--- a/drivers/net/wan/hdlc_ppp.c
++++ b/drivers/net/wan/hdlc_ppp.c
+@@ -107,6 +107,7 @@ int hdlc_ppp_ioctl(struct net_device *de
+ 		dev->hard_header = NULL;
+ 		dev->type = ARPHRD_PPP;
+ 		dev->addr_len = 0;
++		netif_dormant_off(dev);
+ 		return 0;
+ 	}
+ 
+diff --git a/drivers/net/wan/hdlc_raw.c b/drivers/net/wan/hdlc_raw.c
+index 9456d31..f15aa6b 100644
+--- a/drivers/net/wan/hdlc_raw.c
++++ b/drivers/net/wan/hdlc_raw.c
+@@ -82,6 +82,7 @@ int hdlc_raw_ioctl(struct net_device *de
+ 		dev->type = ARPHRD_RAWHDLC;
+ 		dev->flags = IFF_POINTOPOINT | IFF_NOARP;
+ 		dev->addr_len = 0;
++		netif_dormant_off(dev);
+ 		return 0;
+ 	}
+ 
+diff --git a/drivers/net/wan/hdlc_raw_eth.c b/drivers/net/wan/hdlc_raw_eth.c
+index b1285cc..d188498 100644
+--- a/drivers/net/wan/hdlc_raw_eth.c
++++ b/drivers/net/wan/hdlc_raw_eth.c
+@@ -100,6 +100,7 @@ int hdlc_raw_eth_ioctl(struct net_device
+ 		dev->tx_queue_len = old_qlen;
+ 		memcpy(dev->dev_addr, "\x00\x01", 2);
+                 get_random_bytes(dev->dev_addr + 2, ETH_ALEN - 2);
++		netif_dormant_off(dev);
+ 		return 0;
+ 	}
+ 
+diff --git a/drivers/net/wan/hdlc_x25.c b/drivers/net/wan/hdlc_x25.c
+index 07e5eef..a867fb4 100644
+--- a/drivers/net/wan/hdlc_x25.c
++++ b/drivers/net/wan/hdlc_x25.c
+@@ -212,6 +212,7 @@ int hdlc_x25_ioctl(struct net_device *de
+ 		dev->hard_header = NULL;
+ 		dev->type = ARPHRD_X25;
+ 		dev->addr_len = 0;
++		netif_dormant_off(dev);
+ 		return 0;
+ 	}
+ 
