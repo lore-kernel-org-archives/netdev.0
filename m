@@ -1,53 +1,79 @@
-From: Shawn Starr <shawn.starr@rogers.com>
-Subject: Re: [2.6.18-rc2][e1000][swsusp] - Regression - Suspend to disk and resume breaks e1000
-Date: Sun, 16 Jul 2006 13:33:20 -0400
-Message-ID: <200607161333.20858.shawn.starr@rogers.com>
-References: <200607160509.52930.shawn.starr@rogers.com> <44BA6A4A.5090007@intel.com>
+From: Guillaume Chazarain <guichaz@yahoo.fr>
+Subject: [PATCH] Fix slab corruption with netem (2nd try)
+Date: Sun, 16 Jul 2006 23:56:31 +0200
+Message-ID: <44BAB60F.7060600@yahoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, NetDev <netdev@vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------010503000401020607070909"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp101.rog.mail.re2.yahoo.com ([206.190.36.79]:49003 "HELO
-	smtp101.rog.mail.re2.yahoo.com") by vger.kernel.org with SMTP
-	id S1750898AbWGPRd1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Jul 2006 13:33:27 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <44BA6A4A.5090007@intel.com>
-Content-Disposition: inline
+Received: from smtp4-g19.free.fr ([212.27.42.30]:40400 "EHLO smtp4-g19.free.fr")
+	by vger.kernel.org with ESMTP id S1750836AbWGPVzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Jul 2006 17:55:23 -0400
+Received: from [192.168.0.4] (bar06-2-82-224-157-131.fbx.proxad.net [82.224.157.131])
+	by smtp4-g19.free.fr (Postfix) with ESMTP id B5EA5547E9
+	for <netdev@vger.kernel.org>; Sun, 16 Jul 2006 23:55:22 +0200 (CEST)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 16 July 2006 12:33, Auke Kok wrote:
-> [adding netdev to the cc]
->
->
-> unfortunately I didn't.
->
-> e1000 has a special e1000_pci_save_state/e1000_pci_restore_state set of
-> routines that save and restore the configuration space. the fact that it
-> works for suspend to memory to me suggests that there is nothing wrong with
-> that.
->
-> I'm surprised that the t42 comes with a PCI/PCI-X e1000, which changes the
-> need for this special routine, and the routine does the exact same thing as
-> pci_save_state in your case. These special routines are made to handle
-> PCI-E cards properly.
->
-> Also there are no config_pm changes related to this in 2.6.18-rc2. Most of
-> this code has been in the kernel for a few major releases afaik. This code
-> worked fine before, so I don't rule out any suspend-related issues. You
-> should certainly compare with 2.6.18-rc1 and make sure it was a regression,
-> perhaps even bisect the e1000-related changes if you have the time, which
-> is about 22 patches or so.
->
-> I'll see if I can find out some more once I get back to work.
->
-> Auke
+This is a multi-part message in MIME format.
+--------------010503000401020607070909
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-The previous kernel I was using was 2.6.17 vanilla, so between this and -git 
-snapshots I'll have to see where that changed.
+CONFIG_DEBUG_SLAB found the following bug:
+netem_enqueue() in sch_netem.c gets a pointer inside a slab object:
+struct netem_skb_cb *cb = (struct netem_skb_cb *)skb->cb;
+But then, the slab object may be freed:
+skb = skb_unshare(skb, GFP_ATOMIC)
+cb is still pointing inside the freed skb, so here is a patch to
+initialize cb later, and make it clear that initializing it sooner
+is a bad idea.
 
-Thanks ,
-Shawn.
+[From Stephen Hemminger: leave cb unitialized in order to let gcc
+complain in case of use before initialization]
+
+Thanks.
+
+-- 
+Guillaume
+
+
+
+
+--------------010503000401020607070909
+Content-Type: text/x-patch;
+ name="netem_cb_initialization.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="netem_cb_initialization.diff"
+
+Signed-off-by: Guillaume Chazarain <guichaz@yahoo.fr>
+---
+ net/sched/sch_netem.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff -r 1b8d63e34819 net/sched/sch_netem.c
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -148,7 +148,8 @@ static int netem_enqueue(struct sk_buff 
+ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ {
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+-	struct netem_skb_cb *cb = (struct netem_skb_cb *)skb->cb;
++	/* We don't fill cb now as skb_unshare() may invalidate it */
++	struct netem_skb_cb *cb;
+ 	struct sk_buff *skb2;
+ 	int ret;
+ 	int count = 1;
+@@ -200,6 +201,7 @@ static int netem_enqueue(struct sk_buff 
+ 		skb->data[net_random() % skb_headlen(skb)] ^= 1<<(net_random() % 8);
+ 	}
+ 
++	cb = (struct netem_skb_cb *)skb->cb;
+ 	if (q->gap == 0 		/* not doing reordering */
+ 	    || q->counter < q->gap 	/* inside last reordering gap */
+ 	    || q->reorder < get_crandom(&q->reorder_cor)) {
+
+
+--------------010503000401020607070909--
