@@ -1,29 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sch_htb compile fix.
-Date: Sat, 15 Jul 2006 18:19:40 -0700 (PDT)
-Message-ID: <20060715.181940.104030882.davem@davemloft.net>
-References: <20060715074112.GA18210@redhat.com>
+From: "Linda" <Lindabreakwater@poetic.com>
+Subject: Recent stuff Online Casinno. Go andd Play It
+Date: Sat, 15 Jul 2006 23:21:19 -0400
+Message-ID: <41888036050747.9CF2100A26@AHLDGTD>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+        charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	torvalds@osdl.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:44168
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1946069AbWGPBT1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Jul 2006 21:19:27 -0400
-To: davej@redhat.com
-In-Reply-To: <20060715074112.GA18210@redhat.com>
+Received: from zeus2.kernel.org ([204.152.191.36]:23701 "EHLO zeus2.kernel.org")
+	by vger.kernel.org with ESMTP id S964854AbWGPDV2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jul 2006 23:21:28 -0400
+To: <nux-newbie-owner@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dave Jones <davej@redhat.com>
-Date: Sat, 15 Jul 2006 03:41:12 -0400
+Hello 
 
-> net/sched/sch_htb.c: In function 'htb_change_class':
-> net/sched/sch_htb.c:1605: error: expected ';' before 'do_gettimeofday'
-> 
-> Signed-off-by: Dave Jones <davej@redhat.com>
 
-Thanks for catching this Dave.
+  Online Casino witth 85+ games. Play It Now!  http://uveltord.com/d1/ace/ 
+
+
+ People living in glass houses should not!.
+
