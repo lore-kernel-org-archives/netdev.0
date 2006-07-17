@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] WAN: Converted synclink drivers to use
- netif_carrier_*()
-Date: Sun, 16 Jul 2006 19:00:42 -0700 (PDT)
-Message-ID: <20060716.190042.85415873.davem@davemloft.net>
-References: <m3veq3suve.fsf@defiant.localdomain>
-	<m3zmf9love.fsf@defiant.localdomain>
+Subject: Re: [PATCH] Fix slab corruption with netem (2nd try)
+Date: Sun, 16 Jul 2006 19:02:06 -0700 (PDT)
+Message-ID: <20060716.190206.18580391.davem@davemloft.net>
+References: <44BAB60F.7060600@yahoo.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61139
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61651
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751617AbWGQCA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Jul 2006 22:00:26 -0400
-To: khc@pm.waw.pl
-In-Reply-To: <m3zmf9love.fsf@defiant.localdomain>
+	id S932185AbWGQCBu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Jul 2006 22:01:50 -0400
+To: guichaz@yahoo.fr
+In-Reply-To: <44BAB60F.7060600@yahoo.fr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Sun, 16 Jul 2006 14:23:49 +0200
+From: Guillaume Chazarain <guichaz@yahoo.fr>
+Date: Sun, 16 Jul 2006 23:56:31 +0200
 
-> WAN: Converted synclink drivers to use netif_carrier_*() instead
-> of hdlc_set_carrier().
+> CONFIG_DEBUG_SLAB found the following bug:
+> netem_enqueue() in sch_netem.c gets a pointer inside a slab object:
+> struct netem_skb_cb *cb = (struct netem_skb_cb *)skb->cb;
+> But then, the slab object may be freed:
+> skb = skb_unshare(skb, GFP_ATOMIC)
+> cb is still pointing inside the freed skb, so here is a patch to
+> initialize cb later, and make it clear that initializing it sooner
+> is a bad idea.
 > 
-> Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+> [From Stephen Hemminger: leave cb unitialized in order to let gcc
+> complain in case of use before initialization]
 
-Also applied, thanks for fixing this up Krzysztof.
+Looks good to me, applied, thanks a lot.
