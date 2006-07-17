@@ -1,44 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/7] NetLabel: CIPSOv4 engine
-Date: Sun, 16 Jul 2006 18:12:30 -0700 (PDT)
-Message-ID: <20060716.181230.59471240.davem@davemloft.net>
-References: <20060714185915.270209000@flek.zko.hp.com>
-	<Pine.LNX.4.64.0607142202380.19821@d.namei>
-	<200607161210.44873.paul.moore@hp.com>
+Subject: Re: [PATCH] clear skb cb on IP input
+Date: Sun, 16 Jul 2006 18:18:09 -0700 (PDT)
+Message-ID: <20060716.181809.71092089.davem@davemloft.net>
+References: <E1G1kCA-000533-00@gondolin.me.apana.org.au>
+	<20060715.181222.74751444.davem@davemloft.net>
+	<20060716220350.GB30090@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, netdev@vger.kernel.org, selinux@tycho.nsa.gov,
-	sds@epoch.ncsc.mil, pratt@argus-systems.com
+Cc: shemminger@osdl.org, guichaz@yahoo.fr, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28645
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:1246
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751494AbWGQBMO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Jul 2006 21:12:14 -0400
-To: paul.moore@hp.com
-In-Reply-To: <200607161210.44873.paul.moore@hp.com>
+	id S1751603AbWGQBRy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Jul 2006 21:17:54 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060716220350.GB30090@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Sun, 16 Jul 2006 12:10:44 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 17 Jul 2006 08:03:50 +1000
 
-> On Friday 14 July 2006 10:03 pm, James Morris wrote:
-> > On Fri, 14 Jul 2006, paul.moore@hp.com wrote:
-> > > +/**
-> > > + * cipso_v4_bitmap_walk - Walk a bitmap looking for a bit
-> > >
-> > > + * cipso_v4_bitmap_setbit - Sets a single bit in a bitmap
-> >
-> > Can you use lib/bitmap.c instead?
->
-> Looking again at include/asm/bitops.h I think I now remember why I
-> decided not to use them in the first place.
+> The thing is qdiscs using cb means that this method of clearing cb
+> before netif_rx doesn't work anymore.
+> 
+> In particular, even if loopback clears cb before calling netif_rx,
+> some qdisc could come along between netif_rx and ip_rcv and put
+> stuff in the cb.
+> 
+> The same thing can happen to any NIC in fact, as long as we allow
+> qdiscs to use the cb area without clearing it, ip_rcv needs to
+> clear it itself.
 
-lib/bitmap.c and the asm/bitops.h operations are two entirely
-different animals.
+Ok, I'm convinced that IPv4 has to clear this out and shouldn't
+assume it's contents are anything but garbage.
 
-Wrt. your asm/bitops.h concerns, is there any reason you cannot pad
-out your bitmaps to be a modulo of "long" which is required for
-those routines?
+> With a little bit of effort we should be able to get away with
+> clearing just optlen.  Whether this effort is worthwhile I don't
+> know :)
 
+It all sits in the same cacheline, so probably not.
