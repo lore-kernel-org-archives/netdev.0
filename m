@@ -1,43 +1,40 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 0/7] Updated patchset w/James' comments
-Date: Mon, 17 Jul 2006 15:00:17 -0400
-Message-ID: <44BBDE41.7080709@hp.com>
-References: <20060717155224.060020000@hp.com> <200607171848.k6HImHUG020102@turing-police.cc.vt.edu>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Subject: [PATCH] sky2: add another PCI ID
+Date: Mon, 17 Jul 2006 15:38:32 -0400
+Message-ID: <20060717153832.17ce0e4f@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:38544 "EHLO atlrel8.hp.com")
-	by vger.kernel.org with ESMTP id S1750777AbWGQTAV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2006 15:00:21 -0400
-To: Valdis.Kletnieks@vt.edu
-In-Reply-To: <200607171848.k6HImHUG020102@turing-police.cc.vt.edu>
+Received: from smtp.osdl.org ([65.172.181.4]:5352 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750734AbWGQTij (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2006 15:38:39 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Valdis.Kletnieks@vt.edu wrote:
-> On Mon, 17 Jul 2006 11:52:24 EDT, paul.moore@hp.com said:
-> 
->>Some changes in the patchset based on James Morris' comments over the weekend, in
->>addition I rebased the patchset against 2.6.18-rc2.
-> 
-> Minor comment - can you start posting these with Subject: lines that
-> say something like:
-> 
-> Subject: [Patch X/Y] NetLabel-VNN:
-> 
-> Where 'NN' gets incremented each time you post?  I almost got myself a
-> patch set in my "to look at" queue that was half Friday's and half today's,
-> and no good could have come from that. And yes, it's *ok* if Friday's was
-> -v14 and today is -v15, if we're making progress towards merge-able code.. ;)
-> 
-> (Venkat - I'm cc'ing you as I've seen the same thing with MLSXFRM patchsets)...
-> 
+Yet another PCI ID for 88E8056
 
-Sure.  Unless the patchset gets accepted it it's current form (a guy can
-dream can't he?) I'll mark the next round as "NetLabel-v1".
+Signed-off-by: Stephen Hemminger <sch@sch-laptop.localdomain>
 
+---
+
+ drivers/net/sky2.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+df48ef5419855dc19bbf3176552128143e431c69
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index d98f28c..217b96f 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -121,6 +121,7 @@ static const struct pci_device_id sky2_i
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4361) },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4362) },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4363) },
++	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4364) },
+ 	{ 0 }
+ };
+ 
 -- 
-paul moore
-linux security @ hp
+1.1.3
