@@ -1,59 +1,33 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [patch 29/45] ieee80211: TKIP requires CRC32
-Date: Mon, 17 Jul 2006 09:28:16 -0700
-Message-ID: <20060717162816.GD4829@kroah.com>
-References: <20060717160652.408007000@blue.kroah.org>
+From: "Chris Friesen" <cfriesen@nortel.com>
+Subject: Re: jumbo frames and memory fragmentation
+Date: Mon, 17 Jul 2006 11:16:19 -0600
+Message-ID: <44BBC5E3.60008@nortel.com>
+References: <E1G104c-0007qF-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>, torvalds@osdl.org,
-	akpm@osdl.org, alan@lxorguk.ukuu.org.uk,
-	Toralf Foerster <toralf.foerster@gmx.de>,
-	Chuck Ebbert <76306.1226@compuserve.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kroah.org ([69.55.234.183]:6844 "EHLO perch.kroah.org")
-	by vger.kernel.org with ESMTP id S1750979AbWGQQdQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jul 2006 12:33:16 -0400
-To: linux-kernel@vger.kernel.org, stable@kernel.org,
-	linux-netdev <netdev@vger.kernel.org>
-Content-Disposition: inline; filename="ieee80211-tkip-requires-crc32.patch"
-In-Reply-To: <20060717162452.GA4829@kroah.com>
+Received: from zcars04e.nortel.com ([47.129.242.56]:28346 "EHLO
+	zcars04e.nortel.com") by vger.kernel.org with ESMTP
+	id S1751073AbWGQRQ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Jul 2006 13:16:29 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1G104c-0007qF-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
--stable review patch.  If anyone has any objections, please let us know.
+Herbert Xu wrote:
+> Chris Friesen <cfriesen@nortel.com> wrote:
 
-------------------
-ieee80211_crypt_tkip will not work without CRC32.
+>>Looking at the page-splitting code, it says "82571 and greater support 
+>>packet-split...".  We're running the 82546GB device.  Looks like it 
+>>won't help me.
+> 
+> 
+> Well, time to fork out for a new card then :)
 
-  LD      .tmp_vmlinux1
-net/built-in.o: In function `ieee80211_tkip_encrypt':
-net/ieee80211/ieee80211_crypt_tkip.c:349: undefined reference to `crc32_le'
+I wish.  This is an embedded ATCA board.  I'm not going to get a respin 
+just because it doesn't deal well with jumbo frames.
 
-Reported by Toralf Foerster <toralf.foerster@gmx.de>
-
-Signed-off-by: Chuck Ebbert <76306.1226@compuserve.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- net/ieee80211/Kconfig |    1 +
- 1 file changed, 1 insertion(+)
-
---- linux-2.6.17.6.orig/net/ieee80211/Kconfig
-+++ linux-2.6.17.6/net/ieee80211/Kconfig
-@@ -58,6 +58,7 @@ config IEEE80211_CRYPT_TKIP
- 	depends on IEEE80211 && NET_RADIO
- 	select CRYPTO
- 	select CRYPTO_MICHAEL_MIC
-+	select CRC32
- 	---help---
- 	Include software based cipher suites in support of IEEE 802.11i
- 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with TKIP enabled
-
---
+Chris
