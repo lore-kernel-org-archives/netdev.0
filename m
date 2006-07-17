@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] WAN: Cosmetic changes to N2 and C101 drivers
-Date: Sun, 16 Jul 2006 18:59:27 -0700 (PDT)
-Message-ID: <20060716.185927.126764168.davem@davemloft.net>
+Subject: Re: [PATCH] WAN: Converted synclink drivers to use
+ netif_carrier_*()
+Date: Sun, 16 Jul 2006 19:00:42 -0700 (PDT)
+Message-ID: <20060716.190042.85415873.davem@davemloft.net>
 References: <m3veq3suve.fsf@defiant.localdomain>
-	<m31wsln3no.fsf@defiant.localdomain>
+	<m3zmf9love.fsf@defiant.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: jeff@garzik.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:15504
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61139
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751339AbWGQB7L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Jul 2006 21:59:11 -0400
+	id S1751617AbWGQCA0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Jul 2006 22:00:26 -0400
 To: khc@pm.waw.pl
-In-Reply-To: <m31wsln3no.fsf@defiant.localdomain>
+In-Reply-To: <m3zmf9love.fsf@defiant.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Sun, 16 Jul 2006 14:19:07 +0200
+Date: Sun, 16 Jul 2006 14:23:49 +0200
 
-> WAN: Cosmetic changes to N2 and C101 drivers
+> WAN: Converted synclink drivers to use netif_carrier_*() instead
+> of hdlc_set_carrier().
 > 
 > Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
 
-Applied, thanks.
+Also applied, thanks for fixing this up Krzysztof.
