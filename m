@@ -1,402 +1,123 @@
-From: Samuel Ortiz <samuel@sortiz.org>
-Subject: [PATCH] [IrDA] Use alloc_skb() in IrDA TX path
-Date: Wed, 19 Jul 2006 08:13:31 +0300
-Message-ID: <20060719051331.GA3817@sortiz.org>
-Reply-To: Samuel Ortiz <samuel@sortiz.org>
+From: Oumer Teyeb <oumer@kom.aau.dk>
+Subject: Re: Strange TCP SACK behaviour in Linux TCP
+Date: Wed, 19 Jul 2006 00:05:10 +0200
+Message-ID: <44BD5B16.8080303@kom.aau.dk>
+References: <44BD0A5F.4090001@kom.aau.dk> <20060718155706.777ea1f3@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
-	Christoph Hellwig <hch@lst.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.pp.htv.fi ([213.243.153.36]:38588 "EHLO smtp3.pp.htv.fi")
-	by vger.kernel.org with ESMTP id S932183AbWGRWB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 18:01:26 -0400
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
+Received: from zaz.kom.auc.dk ([130.225.51.10]:41213 "EHLO zaz.kom.auc.dk")
+	by vger.kernel.org with ESMTP id S932079AbWGRWFS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 18:05:18 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060718155706.777ea1f3@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Hi Stephen,
 
-As pointed out by Christoph Hellwig, dev_alloc_skb() is not intended to be
-used for allocating TX sk_buff. The IrDA stack was exclusively calling
-dev_alloc_skb() on the TX path, and this patch fixes that.
+Thanks for the quick response.
 
-Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
+I have done what you asked and you can find the files at
+www.kom.auc.dk/~oumer/sackstuff.tar.gz
+I have run the different cases 10 times each,
 
----
- net/irda/af_irda.c              |    2 +-
- net/irda/ircomm/ircomm_lmp.c    |    4 ++--
- net/irda/ircomm/ircomm_param.c  |    2 +-
- net/irda/ircomm/ircomm_tty.c    |    5 +++--
- net/irda/iriap.c                |    9 +++++----
- net/irda/iriap_event.c          |    2 +-
- net/irda/irlan/irlan_common.c   |   16 ++++++++--------
- net/irda/irlan/irlan_provider.c |    2 +-
- net/irda/irlap.c                |    2 +-
- net/irda/irlap_frame.c          |   16 ++++++++--------
- net/irda/irlmp.c                |    2 +-
- net/irda/irttp.c                |   11 ++++++-----
- 12 files changed, 38 insertions(+), 35 deletions(-)
+NT_NSACK[1-10].dat---no timestamp, no SACK
+NT_SACK[1-10].dat----no timestamp, SACK
+T_NSACK[1-10].dat---timestamp, no SACK
+T_SACK[1-10].dat----timestamp. SACK
+ 
+the files without extension are just two column files that summarize the 
+ten runs for the four different cases, the first column in the # 
+retransmission, and second column is the download time, the values are 
+gathered from tcptrace
 
-diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
-index 7fae48a..17699ee 100644
---- a/net/irda/af_irda.c
-+++ b/net/irda/af_irda.c
-@@ -308,7 +308,7 @@ static void irda_connect_response(struct
- 
- 	IRDA_ASSERT(self != NULL, return;);
- 
--	skb = dev_alloc_skb(64);
-+	skb = alloc_skb(64, GFP_ATOMIC);
- 	if (skb == NULL) {
- 		IRDA_DEBUG(0, "%s() Unable to allocate sk_buff!\n",
- 			   __FUNCTION__);
-diff --git a/net/irda/ircomm/ircomm_lmp.c b/net/irda/ircomm/ircomm_lmp.c
-index d909720..959874b 100644
---- a/net/irda/ircomm/ircomm_lmp.c
-+++ b/net/irda/ircomm/ircomm_lmp.c
-@@ -81,7 +81,7 @@ static int ircomm_lmp_connect_response(s
- 	
- 	/* Any userdata supplied? */
- 	if (userdata == NULL) {
--		tx_skb = dev_alloc_skb(64);
-+		tx_skb = alloc_skb(64, GFP_ATOMIC);
- 		if (!tx_skb)
- 			return -ENOMEM;
- 
-@@ -115,7 +115,7 @@ static int ircomm_lmp_disconnect_request
- 	IRDA_DEBUG(0, "%s()\n", __FUNCTION__ );
- 
-         if (!userdata) {
--		tx_skb = dev_alloc_skb(64);
-+		tx_skb = alloc_skb(64, GFP_ATOMIC);
- 		if (!tx_skb)
- 			return -ENOMEM;
- 		
-diff --git a/net/irda/ircomm/ircomm_param.c b/net/irda/ircomm/ircomm_param.c
-index 6009bab..a39f573 100644
---- a/net/irda/ircomm/ircomm_param.c
-+++ b/net/irda/ircomm/ircomm_param.c
-@@ -121,7 +121,7 @@ int ircomm_param_request(struct ircomm_t
- 
- 	skb = self->ctrl_skb;	
- 	if (!skb) {
--		skb = dev_alloc_skb(256);
-+		skb = alloc_skb(256, GFP_ATOMIC);
- 		if (!skb) {
- 			spin_unlock_irqrestore(&self->spinlock, flags);
- 			return -ENOMEM;
-diff --git a/net/irda/ircomm/ircomm_tty.c b/net/irda/ircomm/ircomm_tty.c
-index b400f27..cde3b84 100644
---- a/net/irda/ircomm/ircomm_tty.c
-+++ b/net/irda/ircomm/ircomm_tty.c
-@@ -759,8 +759,9 @@ #endif
- 			}
- 		} else {
- 			/* Prepare a full sized frame */
--			skb = dev_alloc_skb(self->max_data_size+
--					    self->max_header_size);
-+			skb = alloc_skb(self->max_data_size+
-+					self->max_header_size,
-+					GFP_ATOMIC);
- 			if (!skb) {
- 				spin_unlock_irqrestore(&self->spinlock, flags);
- 				return -ENOBUFS;
-diff --git a/net/irda/iriap.c b/net/irda/iriap.c
-index a047265..61128aa 100644
---- a/net/irda/iriap.c
-+++ b/net/irda/iriap.c
-@@ -345,7 +345,7 @@ static void iriap_disconnect_request(str
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == IAS_MAGIC, return;);
- 
--	tx_skb = dev_alloc_skb(64);
-+	tx_skb = alloc_skb(64, GFP_ATOMIC);
- 	if (tx_skb == NULL) {
- 		IRDA_DEBUG(0, "%s(), Could not allocate an sk_buff of length %d\n", 
- 			__FUNCTION__, 64);
-@@ -396,7 +396,7 @@ int iriap_getvaluebyclass_request(struct
- 	attr_len = strlen(attr);	/* Up to IAS_MAX_ATTRIBNAME = 60 */
- 
- 	skb_len = self->max_header_size+2+name_len+1+attr_len+4;
--	tx_skb = dev_alloc_skb(skb_len);
-+	tx_skb = alloc_skb(skb_len, GFP_ATOMIC);
- 	if (!tx_skb)
- 		return -ENOMEM;
- 
-@@ -562,7 +562,8 @@ static void iriap_getvaluebyclass_respon
- 	 *  value. We add 32 bytes because of the 6 bytes for the frame and
- 	 *  max 5 bytes for the value coding.
- 	 */
--	tx_skb = dev_alloc_skb(value->len + self->max_header_size + 32);
-+	tx_skb = alloc_skb(value->len + self->max_header_size + 32,
-+			   GFP_ATOMIC);
- 	if (!tx_skb)
- 		return;
- 
-@@ -700,7 +701,7 @@ void iriap_send_ack(struct iriap_cb *sel
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == IAS_MAGIC, return;);
- 
--	tx_skb = dev_alloc_skb(64);
-+	tx_skb = alloc_skb(64, GFP_ATOMIC);
- 	if (!tx_skb)
- 		return;
- 
-diff --git a/net/irda/iriap_event.c b/net/irda/iriap_event.c
-index a736074..da17395 100644
---- a/net/irda/iriap_event.c
-+++ b/net/irda/iriap_event.c
-@@ -365,7 +365,7 @@ static void state_r_disconnect(struct ir
- 
- 	switch (event) {
- 	case IAP_LM_CONNECT_INDICATION:
--		tx_skb = dev_alloc_skb(64);
-+		tx_skb = alloc_skb(64, GFP_ATOMIC);
- 		if (tx_skb == NULL) {
- 			IRDA_WARNING("%s: unable to malloc!\n", __FUNCTION__);
- 			return;
-diff --git a/net/irda/irlan/irlan_common.c b/net/irda/irlan/irlan_common.c
-index bd659dd..7dd0a2f 100644
---- a/net/irda/irlan/irlan_common.c
-+++ b/net/irda/irlan/irlan_common.c
-@@ -636,7 +636,7 @@ void irlan_get_provider_info(struct irla
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == IRLAN_MAGIC, return;);
- 
--	skb = dev_alloc_skb(64);
-+	skb = alloc_skb(64, GFP_ATOMIC);
- 	if (!skb)
- 		return;
- 
-@@ -668,7 +668,7 @@ void irlan_open_data_channel(struct irla
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == IRLAN_MAGIC, return;);
- 	
--	skb = dev_alloc_skb(64);
-+	skb = alloc_skb(64, GFP_ATOMIC);
- 	if (!skb)
- 		return;
- 
-@@ -704,7 +704,7 @@ void irlan_close_data_channel(struct irl
- 	if (self->client.tsap_ctrl == NULL)
- 		return;
- 
--	skb = dev_alloc_skb(64);
-+	skb = alloc_skb(64, GFP_ATOMIC);
- 	if (!skb)
- 		return;
- 
-@@ -739,7 +739,7 @@ static void irlan_open_unicast_addr(stru
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == IRLAN_MAGIC, return;);	
- 	
--	skb = dev_alloc_skb(128);
-+	skb = alloc_skb(128, GFP_ATOMIC);
- 	if (!skb)
- 		return;
- 
-@@ -777,7 +777,7 @@ void irlan_set_broadcast_filter(struct i
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == IRLAN_MAGIC, return;);
- 	
-- 	skb = dev_alloc_skb(128);
-+ 	skb = alloc_skb(128, GFP_ATOMIC);
- 	if (!skb)
- 		return;
- 
-@@ -816,7 +816,7 @@ void irlan_set_multicast_filter(struct i
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == IRLAN_MAGIC, return;);
- 
-- 	skb = dev_alloc_skb(128);
-+ 	skb = alloc_skb(128, GFP_ATOMIC);
- 	if (!skb)
- 		return;
- 	
-@@ -856,7 +856,7 @@ static void irlan_get_unicast_addr(struc
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == IRLAN_MAGIC, return;);
- 	
--	skb = dev_alloc_skb(128);
-+	skb = alloc_skb(128, GFP_ATOMIC);
- 	if (!skb)
- 		return;
- 
-@@ -891,7 +891,7 @@ void irlan_get_media_char(struct irlan_c
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == IRLAN_MAGIC, return;);
- 	
--	skb = dev_alloc_skb(64);
-+	skb = alloc_skb(64, GFP_ATOMIC);
- 	if (!skb)
- 		return;
- 
-diff --git a/net/irda/irlan/irlan_provider.c b/net/irda/irlan/irlan_provider.c
-index 39c202d..9c0df86 100644
---- a/net/irda/irlan/irlan_provider.c
-+++ b/net/irda/irlan/irlan_provider.c
-@@ -296,7 +296,7 @@ void irlan_provider_send_reply(struct ir
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == IRLAN_MAGIC, return;);
- 
--	skb = dev_alloc_skb(128);
-+	skb = alloc_skb(128, GFP_ATOMIC);
- 	if (!skb)
- 		return;
- 
-diff --git a/net/irda/irlap.c b/net/irda/irlap.c
-index cade355..9199c12 100644
---- a/net/irda/irlap.c
-+++ b/net/irda/irlap.c
-@@ -882,7 +882,7 @@ static void irlap_change_speed(struct ir
- 	/* Change speed now, or just piggyback speed on frames */
- 	if (now) {
- 		/* Send down empty frame to trigger speed change */
--		skb = dev_alloc_skb(0);
-+		skb = alloc_skb(0, GFP_ATOMIC);
- 		if (skb)
- 			irlap_queue_xmit(self, skb);
- 	}
-diff --git a/net/irda/irlap_frame.c b/net/irda/irlap_frame.c
-index 3e9a06a..fa5c144 100644
---- a/net/irda/irlap_frame.c
-+++ b/net/irda/irlap_frame.c
-@@ -117,7 +117,7 @@ void irlap_send_snrm_frame(struct irlap_
- 	IRDA_ASSERT(self->magic == LAP_MAGIC, return;);
- 
- 	/* Allocate frame */
--	tx_skb = dev_alloc_skb(64);
-+	tx_skb = alloc_skb(64, GFP_ATOMIC);
- 	if (!tx_skb)
- 		return;
- 
-@@ -210,7 +210,7 @@ void irlap_send_ua_response_frame(struct
- 	IRDA_ASSERT(self->magic == LAP_MAGIC, return;);
- 
- 	/* Allocate frame */
--	tx_skb = dev_alloc_skb(64);
-+	tx_skb = alloc_skb(64, GFP_ATOMIC);
- 	if (!tx_skb)
- 		return;
- 
-@@ -250,7 +250,7 @@ void irlap_send_dm_frame( struct irlap_c
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == LAP_MAGIC, return;);
- 
--	tx_skb = dev_alloc_skb(32);
-+	tx_skb = alloc_skb(32, GFP_ATOMIC);
- 	if (!tx_skb)
- 		return;
- 
-@@ -282,7 +282,7 @@ void irlap_send_disc_frame(struct irlap_
- 	IRDA_ASSERT(self != NULL, return;);
- 	IRDA_ASSERT(self->magic == LAP_MAGIC, return;);
- 
--	tx_skb = dev_alloc_skb(16);
-+	tx_skb = alloc_skb(16, GFP_ATOMIC);
- 	if (!tx_skb)
- 		return;
- 
-@@ -315,7 +315,7 @@ void irlap_send_discovery_xid_frame(stru
- 	IRDA_ASSERT(self->magic == LAP_MAGIC, return;);
- 	IRDA_ASSERT(discovery != NULL, return;);
- 
--	tx_skb = dev_alloc_skb(64);
-+	tx_skb = alloc_skb(64, GFP_ATOMIC);
- 	if (!tx_skb)
- 		return;
- 
-@@ -576,7 +576,7 @@ void irlap_send_rr_frame(struct irlap_cb
- 	struct sk_buff *tx_skb;
- 	__u8 *frame;
- 
--	tx_skb = dev_alloc_skb(16);
-+	tx_skb = alloc_skb(16, GFP_ATOMIC);
- 	if (!tx_skb)
- 		return;
- 
-@@ -601,7 +601,7 @@ void irlap_send_rd_frame(struct irlap_cb
- 	struct sk_buff *tx_skb;
- 	__u8 *frame;
- 
--	tx_skb = dev_alloc_skb(16);
-+	tx_skb = alloc_skb(16, GFP_ATOMIC);
- 	if (!tx_skb)
- 		return;
- 
-@@ -1215,7 +1215,7 @@ void irlap_send_test_frame(struct irlap_
- 	struct test_frame *frame;
- 	__u8 *info;
- 
--	tx_skb = dev_alloc_skb(cmd->len+sizeof(struct test_frame));
-+	tx_skb = alloc_skb(cmd->len+sizeof(struct test_frame), GFP_ATOMIC);
- 	if (!tx_skb)
- 		return;
- 
-diff --git a/net/irda/irlmp.c b/net/irda/irlmp.c
-index 129ad64..5ee7946 100644
---- a/net/irda/irlmp.c
-+++ b/net/irda/irlmp.c
-@@ -395,7 +395,7 @@ int irlmp_connect_request(struct lsap_cb
- 
- 	/* Any userdata? */
- 	if (tx_skb == NULL) {
--		tx_skb = dev_alloc_skb(64);
-+		tx_skb = alloc_skb(64, GFP_ATOMIC);
- 		if (!tx_skb)
- 			return -ENOMEM;
- 
-diff --git a/net/irda/irttp.c b/net/irda/irttp.c
-index 49c51c5..7a3ccb8 100644
---- a/net/irda/irttp.c
-+++ b/net/irda/irttp.c
-@@ -306,7 +306,8 @@ static inline void irttp_fragment_skb(st
- 		IRDA_DEBUG(2, "%s(), fragmenting ...\n", __FUNCTION__);
- 
- 		/* Make new segment */
--		frag = dev_alloc_skb(self->max_seg_size+self->max_header_size);
-+		frag = alloc_skb(self->max_seg_size+self->max_header_size,
-+				 GFP_ATOMIC);
- 		if (!frag)
- 			return;
- 
-@@ -805,7 +806,7 @@ static inline void irttp_give_credit(str
- 		   self->send_credit, self->avail_credit, self->remote_credit);
- 
- 	/* Give credit to peer */
--	tx_skb = dev_alloc_skb(64);
-+	tx_skb = alloc_skb(64, GFP_ATOMIC);
- 	if (!tx_skb)
- 		return;
- 
-@@ -1094,7 +1095,7 @@ int irttp_connect_request(struct tsap_cb
- 
- 	/* Any userdata supplied? */
- 	if (userdata == NULL) {
--		tx_skb = dev_alloc_skb(64);
-+		tx_skb = alloc_skb(64, GFP_ATOMIC);
- 		if (!tx_skb)
- 			return -ENOMEM;
- 
-@@ -1342,7 +1343,7 @@ int irttp_connect_response(struct tsap_c
- 
- 	/* Any userdata supplied? */
- 	if (userdata == NULL) {
--		tx_skb = dev_alloc_skb(64);
-+		tx_skb = alloc_skb(64, GFP_ATOMIC);
- 		if (!tx_skb)
- 			return -ENOMEM;
- 
-@@ -1541,7 +1542,7 @@ int irttp_disconnect_request(struct tsap
- 
- 	if (!userdata) {
- 		struct sk_buff *tx_skb;
--		tx_skb = dev_alloc_skb(64);
-+		tx_skb = alloc_skb(64, GFP_ATOMIC);
- 		if (!tx_skb)
- 			return -ENOMEM;
- 
--- 
-1.4.0
+the two eps files are just the plot summarizing  the above average 
+download time and average retransmission # for each case...
+
+one more thing in the trace files, you will find 3 tcp connections, the 
+first one is not modified by my emulator that causes the reordering 
+(actually, that is the connection through which I reset the destination 
+catch that stores some metrics from previous runs using some commands 
+via ssh), the second one is the ftp control channel and the third one is 
+the ftp data channel....the emulator affects the last two channels
+and causes reordering once in a while.....
+please dont hesistate to ask me if anything is not clear...
+
+Thanks a lot for taking the time
+
+Regards,
+Oumer
+
+Stephen Hemminger wrote:
+
+>On Tue, 18 Jul 2006 18:20:47 +0200
+>Oumer Teyeb <oumer@kom.aau.dk> wrote:
+>
+>  
+>
+>>Hello Guys,
+>>
+>>I have some questions regarding TCP SACK implementation in Linux .
+>>As I am a subscriber, could you please cc the reply to me? thanks!
+>>
+>>
+>>I am doing these experiments to find out the impact of reordering. So I 
+>>have different TCP versions (newReno, SACK, FACk, DSACK, FRTO,....) as 
+>>implemented in Linux. and I am trying their combination to see how they 
+>>behave. What struck me was that when I dont use timestamps, introducing 
+>>SACK increases the download time but decreases the total number of 
+>>retransmissions.
+>>When timestamps is used, SACK leads to an increase in both the download 
+>>time and the retransmissions.
+>>
+>>So I looked further into the results, and what I found was that when 
+>>SACK  is used, the retransmissions seem to happen earlier .
+>>at www.kom.auc.dk/~oumer/first_transmission_times.pdf
+>>you can find the pic of cdf of the time when the first TCP 
+>>retransmission occured for the four combinations of SACK and timestamps 
+>>after hundrends of downloads of a 100K file for the different conditions 
+>>under network reordering...
+>>
+>>This explains the reason why the download time increases with SACK, 
+>>because the earlier we go into fast recovery the longer the time we 
+>>spend on congestion avoidance, and the longer the download time....
+>>
+>>...but I couldnt figure out why the retransmissions occur earlier for 
+>>SACK than no SACK TCP. As far as I know, for both SACK and non SACK 
+>>cases, we need three (or more according to the setting) duplicate ACKs 
+>>to enter the fast retransmission /recovery state.... which would have 
+>>resulted in the same behaviour to the first occurance of a 
+>>retransmission..... or is there some undocumented enhancment in Linux 
+>>TCP when using SACK that makes it enter fast retransmit earlier... the 
+>>ony explanation I could imagine is something like this
+>>
+>>non SACK case
+>>=============
+>>1 2 3 4 5 6 7 8 9 10..... were sent and 2 was reorderd....and assume we 
+>>are using delayed ACKs...and we get a triple duplicate ACK after pkt#8 
+>>is received. (i.e 3&4--first duplicate ACK, 5&6..second duplicate ACK 
+>>and 7&8...third duplicate ACK.....)...
+>>
+>>so if SACK behaved like this...
+>>
+>>3&4 SACKEd.... 2 packets out of order received
+>>5&6 SACKEd....4 packets out of order received.... start fast 
+>>retransmission....as reorderd is greater than 3.... (this is true when 
+>>it comes to marking packets as lost during fast recovery, but is it true 
+>>als for the first retransmission?)
+>>
+>>.. any ideas why this is happening???
+>>
+>>
+>>Thanks in advance,
+>>Oumer
+>>    
+>>
+>
+>Could you post some short tcpdump snapshot summaries to netdev@vger.kernel.org?
+>  
+>
+
