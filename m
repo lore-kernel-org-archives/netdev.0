@@ -1,46 +1,50 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Tue, 18 Jul 2006 23:08:01 +0400
-Message-ID: <20060718190801.GA28540@2ka.mipt.ru>
-References: <20060718081625.GA13830@2ka.mipt.ru> <20060718121517.GB28291@wohnheim.fh-wedel.de>
+Date: Tue, 18 Jul 2006 23:11:37 +0400
+Message-ID: <20060718191137.GB28540@2ka.mipt.ru>
+References: <20060718081625.GA13830@2ka.mipt.ru> <200607181316.18461.borntrae@de.ibm.com> <20060718115125.GA6087@2ka.mipt.ru> <200607181436.57841.borntrae@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
 Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:58554 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932379AbWGRUEo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 16:04:44 -0400
-To: J?rn Engel <joern@wohnheim.fh-wedel.de>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:59834 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932380AbWGRUF2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 16:05:28 -0400
+To: Christian Borntraeger <borntrae@de.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <20060718121517.GB28291@wohnheim.fh-wedel.de>
+In-Reply-To: <200607181436.57841.borntrae@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 18, 2006 at 02:15:17PM +0200, J?rn Engel (joern@wohnheim.fh-wedel.de) wrote:
+On Tue, Jul 18, 2006 at 02:36:57PM +0200, Christian Borntraeger (borntrae@de.ibm.com) wrote:
+> On Tuesday 18 July 2006 13:51, Evgeniy Polyakov wrote:
+> > > I think this should be -EFAULT instead of -ERESTARTSYS, right?
+> >
+> > I have no strong feeling on what must be returned in that case.
+> > As far as I see, copy*user can fail due to absence of the next
+> > destination page, so -ERESTARTSYS makes sence, but if failure happens due
+> > to process size limitation, -EFAULT is correct.
 > 
-> Your description makes it sound as if you would take a huge leap,
-> changing all in-kernel code _and_ the userspace interface in a single
-> patch.  Am I wrong?  Or am I right and would it make sense to extract
-> small incremental steps from your patch similar to those Van did in
-> his non-published work?
+> If I am not completely mistaken ERESTARTSYS is wrong. 
+> include/linux/errno.h says userspace should never see ERESTARTSYS, therefore 
+> we should only return it if we were interrupted by a signal as do_signal 
+> takes care of ERESTARTSYS. Furthermore, copy*user transparently faults in 
+> necessary pages as long as the address is valid in the user context. 
 
-My first implementation used existing kernel code and showed small
-performance win - there was binding of the socket to netchannel and all
-protocol processing was moved into process context. It actually is the
-same what IBM folks do, but my investigation showed that linux sending
-side has some issues which would not allow to grow speed very noticebly
-(after creating yet another congestion control algo I now think that the
-problem is there, but I'm not 100% sure).
-And after looking into Van's presentation (and his words about
-_userspace_ protocol processing) I think they used own stack too.
-So I reinvented the wheel and created my own too.
+Actually userspace will not see ERESTARTSYS, when it is returned from
+syscall.
 
-> J?rn
+> > Let's change it to -EFAULT.
 > 
+> Thanks :-)
+
+No problem. I've commited this change already.
+ 
 > -- 
-> When people work hard for you for a pat on the back, you've got
-> to give them that pat.
-> -- Robert Heinlein
+> Mit freundlichen Gr????en / Best Regards
+> 
+> Christian Borntraeger
+> Linux Software Engineer zSeries Linux & Virtualization
 
 -- 
 	Evgeniy Polyakov
