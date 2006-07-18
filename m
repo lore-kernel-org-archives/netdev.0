@@ -1,59 +1,53 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [RFC PATCH 32/33] Add the Xen virtual network device driver.
-Date: Tue, 18 Jul 2006 12:42:28 +0200
-Message-ID: <1153219348.3038.60.camel@laptopd505.fenrus.org>
-References: <20060718091807.467468000@sous-sol.org>
-	 <20060718091958.414414000@sous-sol.org>
-	 <1153218477.3038.46.camel@laptopd505.fenrus.org>
-	 <278d0ba5a24d74c5b590dd76d234c312@cl.cam.ac.uk>
+From: Christian Borntraeger <borntrae@de.ibm.com>
+Subject: Re: Netchannles: first stage has been completed. Further ideas.
+Date: Tue, 18 Jul 2006 13:16:18 +0200
+Message-ID: <200607181316.18461.borntrae@de.ibm.com>
+References: <20060718081625.GA13830@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Ian Pratt <ian.pratt@xensource.com>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	xen-devel@lists.xensource.com, linux-kernel@vger.kernel.org,
-	virtualization@lists.osdl.org, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, Chris Wright <chrisw@sous-sol.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [216.208.38.107] ([216.208.38.107]:7553 "EHLO OTTLS.pngxnet.com")
-	by vger.kernel.org with ESMTP id S1751271AbWGRKnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 06:43:31 -0400
-To: Keir Fraser <Keir.Fraser@cl.cam.ac.uk>
-In-Reply-To: <278d0ba5a24d74c5b590dd76d234c312@cl.cam.ac.uk>
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:49723 "EHLO
+	mtagate6.de.ibm.com") by vger.kernel.org with ESMTP id S932174AbWGRLQV convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Jul 2006 07:16:21 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate6.de.ibm.com (8.13.7/8.13.7) with ESMTP id k6IBGJlq089736
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Tue, 18 Jul 2006 11:16:20 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k6IBJOPG151060
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 18 Jul 2006 13:19:24 +0200
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k6IBGJnw018323
+	for <netdev@vger.kernel.org>; Tue, 18 Jul 2006 13:16:19 +0200
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060718081625.GA13830@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-07-18 at 11:35 +0100, Keir Fraser wrote:
-> On 18 Jul 2006, at 11:27, Arjan van de Ven wrote:
-> 
-> > Hmmm maybe it's me, but something bugs me if a NIC driver is going to
-> > send IP level ARP packets... that just feels very very wrong and is a
-> > blatant layering violation.... shouldn't the ifup/ifconfig scripts just
-> > be fixed instead if this is critical behavior?
-> 
-> Maybe we should be faking this out from our hotplug scripts in the 
-> control VM, although triggering this from user space is probably a bit 
-> of a pain. Regardless, the function can be removed from the driver if 
-> it's too distasteful: it's only a performance 'hack' to get network 
-> traffic more quickly redirected when migrating a VM between physical 
-> hosts. Things won't break horribly if it's removed.
+Hello Evgeniy,
+
+> +asmlinkage long sys_netchannel_control(void __user *arg)
+[...]
+> +	if (copy_from_user(&ctl, arg, sizeof(struct unetchannel_control)))
+> +		return -ERESTARTSYS;
+                        ^^^^^^^^^^^
+[...]
+> +	if (copy_to_user(arg, &ctl, sizeof(struct unetchannel_control)))
+> +		return -ERESTARTSYS;
+                        ^^^^^^^^^^^
+
+I think this should be -EFAULT instead of -ERESTARTSYS, right?
+
+--=20
+Mit freundlichen Gr=FC=DFen / Best Regards
+
+Christian Borntraeger
+Linux Software Engineer zSeries Linux & Virtualization
 
 
-that sounds like a perfect job for a udev-kind of notification to
-userspace, eg "hey I migrated", and then udev/hotplug can just do this
-sending of arps.. maybe they also want to do other things just after a
-migration (which sounds entirely reasonable to me) such as renewing the
-dhcp lease, resetting the periodic userspace hardware polling timers in
-"hal", network manager etc etc... 
-
-so it looks entirely useful for me to have a userspace upcall for "post
-migration", and once you have that that udev side of things can just do
-this...
-
-(question is if you also want a pre-migration upcall; my gut feeling
-says "no" because upcalls are async and you may end up running that
-upcall on the new physical machine)
-
-Greetings,
-   Arjan van de Ven
 
