@@ -1,50 +1,64 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Tue, 18 Jul 2006 23:11:37 +0400
-Message-ID: <20060718191137.GB28540@2ka.mipt.ru>
-References: <20060718081625.GA13830@2ka.mipt.ru> <200607181316.18461.borntrae@de.ibm.com> <20060718115125.GA6087@2ka.mipt.ru> <200607181436.57841.borntrae@de.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH] ieee80211: small ERP handling additions
+Date: Tue, 18 Jul 2006 21:30:34 +0100 (BST)
+Message-ID: <20060718203034.E13A38DEF41@zog.reactivated.net>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:59834 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932380AbWGRUF2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 16:05:28 -0400
-To: Christian Borntraeger <borntrae@de.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <200607181436.57841.borntrae@de.ibm.com>
+Received: from mta07-winn.ispmail.ntl.com ([81.103.221.47]:8177 "EHLO
+	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S932385AbWGRUae (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Jul 2006 16:30:34 -0400
+To: linville@tuxdriver.com
+Cc: ipw2100-admin@linux.intel.com
+Cc: johannes@sipsolutions.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 18, 2006 at 02:36:57PM +0200, Christian Borntraeger (borntrae@de.ibm.com) wrote:
-> On Tuesday 18 July 2006 13:51, Evgeniy Polyakov wrote:
-> > > I think this should be -EFAULT instead of -ERESTARTSYS, right?
-> >
-> > I have no strong feeling on what must be returned in that case.
-> > As far as I see, copy*user can fail due to absence of the next
-> > destination page, so -ERESTARTSYS makes sence, but if failure happens due
-> > to process size limitation, -EFAULT is correct.
-> 
-> If I am not completely mistaken ERESTARTSYS is wrong. 
-> include/linux/errno.h says userspace should never see ERESTARTSYS, therefore 
-> we should only return it if we were interrupted by a signal as do_signal 
-> takes care of ERESTARTSYS. Furthermore, copy*user transparently faults in 
-> necessary pages as long as the address is valid in the user context. 
+This adds a flag to the ieee80211_network structure which indicates whether
+the stored erp_value is valid (a check against 0 is not enough, since an ERP
+of 0 is valid and very meaningful).
 
-Actually userspace will not see ERESTARTSYS, when it is returned from
-syscall.
+I also added the ERP IE bit-definitions to ieee80211.h.
 
-> > Let's change it to -EFAULT.
-> 
-> Thanks :-)
+This is needed by some upcoming softmac patches.
 
-No problem. I've commited this change already.
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
+Acked-by: Johannes Berg <johannes@sipsolutions.net>
+
+Index: linux/include/net/ieee80211.h
+===================================================================
+--- linux.orig/include/net/ieee80211.h
++++ linux/include/net/ieee80211.h
+@@ -240,6 +240,11 @@ struct ieee80211_snap_hdr {
+ #define WLAN_CAPABILITY_SHORT_SLOT_TIME (1<<10)
+ #define WLAN_CAPABILITY_DSSS_OFDM (1<<13)
  
-> -- 
-> Mit freundlichen Gr????en / Best Regards
-> 
-> Christian Borntraeger
-> Linux Software Engineer zSeries Linux & Virtualization
-
--- 
-	Evgeniy Polyakov
++/* 802.11g ERP information element */
++#define WLAN_ERP_NON_ERP_PRESENT (1<<0)
++#define WLAN_ERP_USE_PROTECTION (1<<1)
++#define WLAN_ERP_BARKER_PREAMBLE (1<<2)
++
+ /* Status codes */
+ enum ieee80211_statuscode {
+ 	WLAN_STATUS_SUCCESS = 0,
+@@ -747,6 +752,8 @@ struct ieee80211_txb {
+ #define NETWORK_HAS_IBSS_DFS            (1<<8)
+ #define NETWORK_HAS_TPC_REPORT          (1<<9)
+ 
++#define NETWORK_HAS_ERP_VALUE           (1<<10)
++
+ #define QOS_QUEUE_NUM                   4
+ #define QOS_OUI_LEN                     3
+ #define QOS_OUI_TYPE                    2
+Index: linux/net/ieee80211/ieee80211_rx.c
+===================================================================
+--- linux.orig/net/ieee80211/ieee80211_rx.c
++++ linux/net/ieee80211/ieee80211_rx.c
+@@ -1166,6 +1166,7 @@ static int ieee80211_parse_info_param(st
+ 
+ 		case MFIE_TYPE_ERP_INFO:
+ 			network->erp_value = info_element->data[0];
++			network->flags |= NETWORK_HAS_ERP_VALUE;
+ 			IEEE80211_DEBUG_MGMT("MFIE_TYPE_ERP_SET: %d\n",
+ 					     network->erp_value);
+ 			break;
