@@ -1,123 +1,46 @@
-From: Oumer Teyeb <oumer@kom.aau.dk>
-Subject: Re: Strange TCP SACK behaviour in Linux TCP
-Date: Wed, 19 Jul 2006 00:05:10 +0200
-Message-ID: <44BD5B16.8080303@kom.aau.dk>
-References: <44BD0A5F.4090001@kom.aau.dk> <20060718155706.777ea1f3@localhost.localdomain>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFT] Realtek 8168 ethernet support
+Date: Wed, 19 Jul 2006 00:14:16 +0200
+Message-ID: <20060718221416.GA1430@electric-eye.fr.zoreil.com>
+References: <20060601200200.A0E0689D05D@zog.reactivated.net> <20060608143133.7e36a0b7.rdunlap@xenotime.net> <4488DF85.3090901@garzik.org> <20060609183358.GA5835@electric-eye.fr.zoreil.com> <4489C290.6020705@garzik.org> <20060610120523.GA24288@electric-eye.fr.zoreil.com> <20060610224811.GA3256@electric-eye.fr.zoreil.com> <20060611233022.GA11776@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Randy.Dunlap" <rdunlap@xenotime.net>,
+	Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zaz.kom.auc.dk ([130.225.51.10]:41213 "EHLO zaz.kom.auc.dk")
-	by vger.kernel.org with ESMTP id S932079AbWGRWFS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 18:05:18 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060718155706.777ea1f3@localhost.localdomain>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:40099 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S932071AbWGRWQh
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Jul 2006 18:16:37 -0400
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <20060611233022.GA11776@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+Francois Romieu <romieu@fr.zoreil.com> :
+> The patch below agaisnt 2.6.17-rc6 includes the following changes:
+> 
+> commit 3072cc0aba3ac0c944e196a63c4154ca5746ec0b
+> 
+>     r8169: sync with vendor's driver
+>     
+>     - add several PCI ID for the PCI-E adapters ;
+>     - new identification strings ;
+>     - the RTL_GIGA_MAC_VER_ defines have been renamed to closely match the
+>       out-of-tree driver. It makes the comparison less hairy ;
+>     - various magic ;
+>     - the PCI region for the device with PCI ID 0x8136 is guessed.
+>       Explanation: the in-kernel Linux driver is written to allow MM register
+>       accesses and avoid the IO tax. The relevant BAR register was found at
+>       base address 1 for the plain-old PCI 8169. User reported lspci show that
+>       it is found at base address 2 for the new Gigabit PCI-E 816{8/9}.
 
-Thanks for the quick response.
+Despite the fact that the newer 8168 has been reported to only work with an
+extra alignment (gross hack: s/NET_IP_ALIGN/8/), the serie seems otherwise
+fine.
 
-I have done what you asked and you can find the files at
-www.kom.auc.dk/~oumer/sackstuff.tar.gz
-I have run the different cases 10 times each,
+I'll submit an updated serie to correctly support the 8168.
 
-NT_NSACK[1-10].dat---no timestamp, no SACK
-NT_SACK[1-10].dat----no timestamp, SACK
-T_NSACK[1-10].dat---timestamp, no SACK
-T_SACK[1-10].dat----timestamp. SACK
- 
-the files without extension are just two column files that summarize the 
-ten runs for the four different cases, the first column in the # 
-retransmission, and second column is the download time, the values are 
-gathered from tcptrace
-
-the two eps files are just the plot summarizing  the above average 
-download time and average retransmission # for each case...
-
-one more thing in the trace files, you will find 3 tcp connections, the 
-first one is not modified by my emulator that causes the reordering 
-(actually, that is the connection through which I reset the destination 
-catch that stores some metrics from previous runs using some commands 
-via ssh), the second one is the ftp control channel and the third one is 
-the ftp data channel....the emulator affects the last two channels
-and causes reordering once in a while.....
-please dont hesistate to ask me if anything is not clear...
-
-Thanks a lot for taking the time
-
-Regards,
-Oumer
-
-Stephen Hemminger wrote:
-
->On Tue, 18 Jul 2006 18:20:47 +0200
->Oumer Teyeb <oumer@kom.aau.dk> wrote:
->
->  
->
->>Hello Guys,
->>
->>I have some questions regarding TCP SACK implementation in Linux .
->>As I am a subscriber, could you please cc the reply to me? thanks!
->>
->>
->>I am doing these experiments to find out the impact of reordering. So I 
->>have different TCP versions (newReno, SACK, FACk, DSACK, FRTO,....) as 
->>implemented in Linux. and I am trying their combination to see how they 
->>behave. What struck me was that when I dont use timestamps, introducing 
->>SACK increases the download time but decreases the total number of 
->>retransmissions.
->>When timestamps is used, SACK leads to an increase in both the download 
->>time and the retransmissions.
->>
->>So I looked further into the results, and what I found was that when 
->>SACK  is used, the retransmissions seem to happen earlier .
->>at www.kom.auc.dk/~oumer/first_transmission_times.pdf
->>you can find the pic of cdf of the time when the first TCP 
->>retransmission occured for the four combinations of SACK and timestamps 
->>after hundrends of downloads of a 100K file for the different conditions 
->>under network reordering...
->>
->>This explains the reason why the download time increases with SACK, 
->>because the earlier we go into fast recovery the longer the time we 
->>spend on congestion avoidance, and the longer the download time....
->>
->>...but I couldnt figure out why the retransmissions occur earlier for 
->>SACK than no SACK TCP. As far as I know, for both SACK and non SACK 
->>cases, we need three (or more according to the setting) duplicate ACKs 
->>to enter the fast retransmission /recovery state.... which would have 
->>resulted in the same behaviour to the first occurance of a 
->>retransmission..... or is there some undocumented enhancment in Linux 
->>TCP when using SACK that makes it enter fast retransmit earlier... the 
->>ony explanation I could imagine is something like this
->>
->>non SACK case
->>=============
->>1 2 3 4 5 6 7 8 9 10..... were sent and 2 was reorderd....and assume we 
->>are using delayed ACKs...and we get a triple duplicate ACK after pkt#8 
->>is received. (i.e 3&4--first duplicate ACK, 5&6..second duplicate ACK 
->>and 7&8...third duplicate ACK.....)...
->>
->>so if SACK behaved like this...
->>
->>3&4 SACKEd.... 2 packets out of order received
->>5&6 SACKEd....4 packets out of order received.... start fast 
->>retransmission....as reorderd is greater than 3.... (this is true when 
->>it comes to marking packets as lost during fast recovery, but is it true 
->>als for the first retransmission?)
->>
->>.. any ideas why this is happening???
->>
->>
->>Thanks in advance,
->>Oumer
->>    
->>
->
->Could you post some short tcpdump snapshot summaries to netdev@vger.kernel.org?
->  
->
-
+-- 
+Ueimor
