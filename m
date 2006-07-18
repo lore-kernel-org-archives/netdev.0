@@ -1,71 +1,46 @@
-From: Wei Yongjun <yjwei@nanjing-fnst.com>
-Subject: Re: [PATCH] Bug in pskb_trim_rcsum()
-Date: Mon, 17 Jul 2006 22:26:06 -0400
-Message-ID: <1153189567.3226.3.camel@LINE>
+From: Russell Stuart <russell-tcatm@stuart.id.au>
+Subject: RE: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
+Date: Tue, 18 Jul 2006 12:06:49 +1000
+Message-ID: <1153188409.13145.5.camel@ras.pc.brisbane.lube>
+References: <1150278004.26181.35.camel@localhost.localdomain>
+	 <1150286766.5233.15.camel@jzny2>
+	 <1150287983.3246.27.camel@ras.pc.brisbane.lube>
+	 <1150292693.5197.1.camel@jzny2>
+	 <1150843471.17455.2.camel@ras.pc.brisbane.lube>
+	 <15653CE98281AD4FBD7F70BCEE3666E53CD54A@comxexch01.comx.local>
+	 <1151000966.5392.34.camel@jzny2>
+	 <1151066247.4217.254.camel@ras.pc.brisbane.lube>
+	 <1151158431.6716.95.camel@jzny2>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [221.6.14.228] ([221.6.14.228]:24278 "EHLO
-	localmail.nanjing-fnst.com") by vger.kernel.org with ESMTP
-	id S1751288AbWGRBge (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Jul 2006 21:36:34 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:21161 "EHLO
+	adsl-kenny.stuart.id.au") by vger.kernel.org with ESMTP
+	id S1750830AbWGRCHk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Jul 2006 22:07:40 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1151158431.6716.95.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 17 July 2006 08:17, Herbert Xu wrote:
-> Wei Yongjun <yjwei@nanjing-fnst.com> wrote:
-> >  So if I want to trim a skb, I think I must do a checksum even if
-the
-> > skb->ip_summed is CHECKSUM_UNNECESSARY.
->
-> Nope.  CHECKSUM_UNNECESSARY means that the hardware has already
-> verified the checksum to be correct for the given protocol.
-> Trimming a packet does not affect it.
+On Sat, 2006-06-24 at 10:13 -0400, jamal wrote:
+> And yes, I was arguing that the tc scheme you describe would not be so
+> bad either if the cost of making a generic change is expensive.
+<snip>
+> Patrick seems to have a simple way to compensate generically for link
+> layer fragmentation, so i will not argue the practically; hopefully that
+> settles it? ;->
 
-Yes, you are right. hardware has already verified the checksum to be
-correct.
-But I think hardware do this:
-  1) calculate a checksum for the given protocol.(as the same as the
-hardware which does not support verified the checksum)
-  2) verified the checksum.(compare protocol checksum of packet with
-calculated checksum)
-If that is true, Trimming a packet also affect CHECKSUM_UNNECESSARY.
+Things seem to have died down.  Patrick's patch seemed 
+unrelated to ATM to me.  I did put up another suggestion, 
+but I don't think anybody was too impressed with the 
+idea.  So that leave the current ATM patch as the only 
+one we have on the table that addresses the ATM issue.
 
-And in my test, UDP under IPv4 maybe do that.
-My UDP packet is:
-
-packet1:
- ___________________________________
-| Source Port     | Dest Port       |
-|_________________|_________________|
-| Length = 16     | Checksum(*1)    |
-|_________________|_________________|
-|             payload24             |
-|___________________________________|
-
-correct is :
- ___________________________________
-| Source Port     | Dest Port       |
-|_________________|_________________|
-| Length = 32     | Checksum        |
-|_________________|_________________|
-|             payload24             |
-|___________________________________|
-
-  Checksum(*1)  is the checksum of payload24, not only the first 8 byte
-of payload24.
-
-  When I send packet1 to echo-udp(target used e1000 inferface), echo-
-reply can be reply. When I send packet1 to echo-udp(target used e100
-inferface), echo-reply can not be reply.
-
-  In e1000, when packet1 with checksum(*1) ,  skb->ip_summed is set to
-CHECKSUM_UNNECESSARY. And when other, skb->ip_summed is set to
-CHECKSUM_HW. So I think my guess is correct. Patch is necessary.
-
-
-Regards
+Since you don't think it is "too bad", can we proceed 
+with it?
 
