@@ -1,50 +1,94 @@
-From: "Grant Barrett" <GrantBarrett@mail.ru>
-Subject: Life, white-shouldered
-Date: Tue, 18 Jul 2006 16:02:41 +0000 (UTC)
-Message-ID: <607104786.20060718160209@mail.ru>
-Reply-To: "Grant Barrett" <GrantBarrett@mail.ru>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: dscape git
+Date: Tue, 18 Jul 2006 18:31:33 +0200
+Message-ID: <20060718183133.2ebbec1e@griffin.suse.cz>
+References: <20060717151555.28384.qmail@web60718.mail.yahoo.com>
+	<20060717161439.38118.qmail@web60711.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: Erik Mouw <erik@harddisk-recovery.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 20178153106.user.veloxzone.com.br ([201.78.153.106]:25607 "EHLO
-	athlon") by vger.kernel.org with ESMTP id S1750856AbWGRQCK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 12:02:10 -0400
-Date: Tue, 18 Jul 2006 16:02:09 +0180
-To: netdev-owner@vger.kernel.org
+Received: from styx.suse.cz ([82.119.242.94]:5342 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751362AbWGRQbg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 12:31:36 -0400
+To: Tomas Winkler <tomas_bw@yahoo.com>
+In-Reply-To: <20060717161439.38118.qmail@web60711.mail.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Your cre dit doesn't matter to us! If you OWN real est ate
-and want IMMEDIATEB cash to spend ANY way you like, or simply wish 
-to LOWER your monthly paym ents by a third or more, here are the dea ls
-we have TODAY (hurry, these ofers will expre TONIGHT):
+On Mon, 17 Jul 2006 09:14:39 -0700 (PDT), Tomas Winkler wrote:
+> Hmm, I've missed the second part of you email. 
+> The solution you've suggested has worked. 
+> Thanks
+> Anyhow if this is a problem of sync then it last for 2
+> days already.
 
-$488,000.00 at a 3.67,% fixed-rate6
-$372,000.00 at a 3.90,% variable-rateI
-$492,000.00 at a 3.21,% interest-onlyK
-$248,000.00 at a 3.36,% fixed-rateR
-$198,000.00 at a 3.55,% variable-rate2
+This is because I'm using Linus' repository as a reference repository to
+save space on kernel.org. Use --reference parameter as suggested.
 
-Hurry, when these deals are gone, they are gone Simply fill out this one-min ute form... 
+However, if you are new with git I need to warn you: it's not easy to
+track my tree. I rebase it frequently and it contains several branches,
+some of whom disappear and reappear from time to time. This means you
+cannot always simply pull from my tree to obtain updates (for a
+solution, see below).
 
-Don't worry about approval, your cre dit will not disqualify you! 
+Note that it's always safe to try pulling (git-pull
+git://git.kernel.org/.../dscape.git). If I haven't rebased the tree it
+will succeed; if the tree was rebased it will fail, give you error
+message and leave your tree in a state it was before.
 
-http://U9TO2PY4.jokip.com
+If the pull fails, you can re-clone the tree. But it is time and
+bandwidth consuming, so it is not recommended.
 
 
+ === How to track dscape.git tree ===
 
-     "Lie there,  you toad, lie still, or I'll  kill you."  Tons and tons of
-tore open all  the zippers on  his  jacket,  took  it off, and threw it down
+1. Cloning the tree
 
-a little longer, looking around anxiously, then he also sat down.
-watched as the  green  wash  dimmed and quickly  turned to  pink. The  sun's
-heaps  surrounded them,  and that mountains  hid in the gloom beyond. And he
+1.1. Clone John Linville's wireless-dev.git tree:
+git-clone git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-dev.git
 
-seemingly perfectly  smooth  and perpendicular. The near end  was marked  by
-     Redrick put the flask that he had been holding back under his shirt.
-batteries, and other rubbish remaining after the Visitation.
-It's probably the most valuable thing in  the Zone! And who  should have it?
+1.2. Create a new branch named 'dscape':
+git-branch dscape
 
-angrily, listening to the wisecracks, waiting for Ernest--young  then and in
-followed. Out of  the  corner  of his  eye  he could see Arthur's  face, his
+1.3. Checkout your new 'dscape' branch:
+git-checkout dscape
+
+1.4. Pull from 'master' branch of dscape.git tree (in the rare case when
+this fails with a conflict, send me a note, I'll fix that):
+git-pull git://git.kernel.org/pub/scm/linux/kernel/git/jbenc/dscape.git master
+
+1.5. You may pull from other branches of dscape.git tree now (e.g.
+'devel' branch may be interesting). Be aware that branches other than
+'master' may contain highly experimental code.
+
+2. Updating the tree
+
+2.1 Try pulling from 'master' branch of dscape.git tree:
+git-pull git://git.kernel.org/pub/scm/linux/kernel/git/jbenc/dscape.git master
+
+2.2 If this succeeded (message informing you that merge was successful
+or there was nothing to merge), you're done (and don't follow next
+steps). If this didn't succeed, you need to recreate your 'dscape'
+branch - follow next steps.
+
+2.3 Checkout 'master' branch of your tree:
+git-checkout master
+
+2.4 Delete 'dscape' branch:
+git-branch -D dscape
+
+2.5 Pull from John Linville's tree (optional, but will speed up things
+on next update):
+git-pull git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-dev.git
+
+2.6 Continue from step 1.2.
+
+Thanks,
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
