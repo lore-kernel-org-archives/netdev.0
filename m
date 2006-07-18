@@ -1,46 +1,52 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFT] Realtek 8168 ethernet support
-Date: Wed, 19 Jul 2006 00:14:16 +0200
-Message-ID: <20060718221416.GA1430@electric-eye.fr.zoreil.com>
-References: <20060601200200.A0E0689D05D@zog.reactivated.net> <20060608143133.7e36a0b7.rdunlap@xenotime.net> <4488DF85.3090901@garzik.org> <20060609183358.GA5835@electric-eye.fr.zoreil.com> <4489C290.6020705@garzik.org> <20060610120523.GA24288@electric-eye.fr.zoreil.com> <20060610224811.GA3256@electric-eye.fr.zoreil.com> <20060611233022.GA11776@electric-eye.fr.zoreil.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] [IrDA] Use alloc_skb() in IrDA TX path
+Date: Tue, 18 Jul 2006 15:38:31 -0700 (PDT)
+Message-ID: <20060718.153831.22498182.davem@davemloft.net>
+References: <20060719051331.GA3817@sortiz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Randy.Dunlap" <rdunlap@xenotime.net>,
-	Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:40099 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S932071AbWGRWQh
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Jul 2006 18:16:37 -0400
-To: Jeff Garzik <jeff@garzik.org>
-Content-Disposition: inline
-In-Reply-To: <20060611233022.GA11776@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, hch-jcswGhMUV9g@public.gmane.org,
+	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
+In-Reply-To: <20060719051331.GA3817-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu <romieu@fr.zoreil.com> :
-> The patch below agaisnt 2.6.17-rc6 includes the following changes:
+From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Date: Wed, 19 Jul 2006 08:13:31 +0300
+
+> As pointed out by Christoph Hellwig, dev_alloc_skb() is not intended to be
+> used for allocating TX sk_buff. The IrDA stack was exclusively calling
+> dev_alloc_skb() on the TX path, and this patch fixes that.
 > 
-> commit 3072cc0aba3ac0c944e196a63c4154ca5746ec0b
-> 
->     r8169: sync with vendor's driver
->     
->     - add several PCI ID for the PCI-E adapters ;
->     - new identification strings ;
->     - the RTL_GIGA_MAC_VER_ defines have been renamed to closely match the
->       out-of-tree driver. It makes the comparison less hairy ;
->     - various magic ;
->     - the PCI region for the device with PCI ID 0x8136 is guessed.
->       Explanation: the in-kernel Linux driver is written to allow MM register
->       accesses and avoid the IO tax. The relevant BAR register was found at
->       base address 1 for the plain-old PCI 8169. User reported lspci show that
->       it is found at base address 2 for the new Gigabit PCI-E 816{8/9}.
+> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 
-Despite the fact that the newer 8168 has been reported to only work with an
-extra alignment (gross hack: s/NET_IP_ALIGN/8/), the serie seems otherwise
-fine.
+Applied, thanks Samuel.
 
-I'll submit an updated serie to correctly support the 8168.
+As followups it would be nice to:
 
--- 
-Ueimor
+1) See if any of the GFP_ATOMIC's can be moved to GFP_KERNEL.
+   I do understand that many of these call sites are running
+   in software interrupt context or are holding spinlocks and
+   thus must use GFP_ATOMIC.
+
+2) Change these 64 and 128 constant sizes to something with
+   a name.
+
+Thanks!
+
+-------------------------------------------------------------------------
+Take Surveys. Earn Cash. Influence the Future of IT
+Join SourceForge.net's Techsay panel and you'll get the chance to share your
+opinions on IT & business topics through brief surveys -- and earn cash
+http://www.techsay.com/default.php?page=join.php&p=sourceforge&CID=DEVDEV
