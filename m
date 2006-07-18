@@ -1,16 +1,16 @@
 From: Stephen Hemminger <shemminger@osdl.org>
 Subject: Re: Strange TCP SACK behaviour in Linux TCP
-Date: Tue, 18 Jul 2006 15:56:43 -0400
-Message-ID: <20060718155643.78eddf52@localhost.localdomain>
+Date: Tue, 18 Jul 2006 15:57:06 -0400
+Message-ID: <20060718155706.777ea1f3@localhost.localdomain>
 References: <44BD0A5F.4090001@kom.aau.dk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:25047 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932372AbWGRT5Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 15:57:25 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:29399 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932374AbWGRT5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 15:57:44 -0400
 To: Oumer Teyeb <oumer@kom.aau.dk>
 In-Reply-To: <44BD0A5F.4090001@kom.aau.dk>
 Sender: netdev-owner@vger.kernel.org
