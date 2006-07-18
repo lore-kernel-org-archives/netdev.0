@@ -1,48 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Bug in pskb_trim_rcsum()
-Date: Tue, 18 Jul 2006 21:32:45 +1000
-Message-ID: <20060718113245.GA12040@gondor.apana.org.au>
-References: <E1G2S2h-0000nq-00@gondolin.me.apana.org.au> <006201c6aa06$d51581c0$6004a8c0@WeiYongjun>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Netchannles: first stage has been completed. Further ideas.
+Date: Tue, 18 Jul 2006 15:51:25 +0400
+Message-ID: <20060718115125.GA6087@2ka.mipt.ru>
+References: <20060718081625.GA13830@2ka.mipt.ru> <200607181316.18461.borntrae@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:59401 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932175AbWGRLcs
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Jul 2006 07:32:48 -0400
-To: Wei Yongjun <yjwei@nanjing-fnst.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:14517 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751308AbWGRLv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 07:51:28 -0400
+To: Christian Borntraeger <borntrae@de.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <006201c6aa06$d51581c0$6004a8c0@WeiYongjun>
+In-Reply-To: <200607181316.18461.borntrae@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 18, 2006 at 09:09:34AM +0800, Wei Yongjun wrote:
->
-> And in my test, UDP under IPv4 maybe do that.
-> My UDP packet is:
-> 
-> packet1:
->  ___________________________________
-> | Source Port               | Dest Port                   |
-> |_________________|_________________|
-> | Length = 16               | Checksum(*1)          |
-> |_________________|_________________|
-> |                          payload24                          |
-> |__________________________________|
+On Tue, Jul 18, 2006 at 01:16:18PM +0200, Christian Borntraeger (borntr=
+ae@de.ibm.com) wrote:
+> Hello Evgeniy,
+>=20
+> > +asmlinkage long sys_netchannel_control(void __user *arg)
+> [...]
+> > +	if (copy_from_user(&ctl, arg, sizeof(struct unetchannel_control))=
+)
+> > +		return -ERESTARTSYS;
+>                         ^^^^^^^^^^^
+> [...]
+> > +	if (copy_to_user(arg, &ctl, sizeof(struct unetchannel_control)))
+> > +		return -ERESTARTSYS;
+>                         ^^^^^^^^^^^
+>=20
+> I think this should be -EFAULT instead of -ERESTARTSYS, right?
 
-The whole point of CHECKSUM_UNNECESSARY is that the hardware parses
-the protocol header for us.  So in this case it must calculate the
-checksum for only the first 8 bytes of the payload.
+I have no strong feeling on what must be returned in that case.
+As far as I see, copy*user can fail due to absence of the next
+destination page, so -ERESTARTSYS makes sence, but if failure happens d=
+ue to
+process size limitation, -EFAULT is correct.
 
-If it does this incorrectly, then it doesn't support RX checksums at
-all.
+Let's change it to -EFAULT.
 
-Which NIC is doing this BTW?
+> --=20
+> Mit freundlichen Gr=C3=BC=C3=9Fen / Best Regards
+>=20
+> Christian Borntraeger
+> Linux Software Engineer zSeries Linux & Virtualization
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--=20
+	Evgeniy Polyakov
