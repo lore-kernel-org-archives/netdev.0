@@ -1,64 +1,47 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC PATCH 32/33] Add the Xen virtual network device driver.
-Date: Tue, 18 Jul 2006 08:39:39 -0400
-Message-ID: <1153226379.5283.51.camel@jzny2>
-References: <20060718091807.467468000@sous-sol.org>
-	 <20060718091958.414414000@sous-sol.org>
-	 <1153218477.3038.46.camel@laptopd505.fenrus.org>
-Reply-To: hadi@cyberus.ca
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH] Bug in pskb_trim_rcsum()
+Date: Tue, 18 Jul 2006 16:54:39 +0400
+Message-ID: <20060718125439.GA19770@ms2.inr.ac.ru>
+References: <E1G2S2h-0000nq-00@gondolin.me.apana.org.au> <006201c6aa06$d51581c0$6004a8c0@WeiYongjun> <20060718113245.GA12040@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Chris Wright <chrisw@sous-sol.org>, linux-kernel@vger.kernel.org,
-	virtualization@lists.osdl.org, xen-devel@lists.xensource.com,
-	Jeremy Fitzhardinge <jeremy@goop.org>, Andi Kleen <ak@suse.de>,
-	Andrew Morton <akpm@osdl.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Zachary Amsden <zach@vmware.com>,
-	Ian Pratt <ian.pratt@xensource.com>,
-	Christian Limpach <Christian.Limpach@cl.cam.ac.uk>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Wei Yongjun <yjwei@nanjing-fnst.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.znyx.com ([208.2.156.141]:65034 "EHLO mailhub.znyx.com")
-	by vger.kernel.org with ESMTP id S1750880AbWGRMlR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 08:41:17 -0400
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1153218477.3038.46.camel@laptopd505.fenrus.org>
+Received: from minus.inr.ac.ru ([194.67.69.97]:10171 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S932179AbWGRMzq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 08:55:46 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <20060718113245.GA12040@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-18-07 at 12:27 +0200, Arjan van de Ven wrote:
+Hello!
 
-> 
-> Hmmm maybe it's me, but something bugs me if a NIC driver is going to
-> send IP level ARP packets... that just feels very very wrong and is a
-> blatant layering violation.... 
+> The whole point of CHECKSUM_UNNECESSARY is that the hardware parses
+> the protocol header for us.  So in this case it must calculate the
+> checksum for only the first 8 bytes of the payload.
 
-It is but the bonding driver has been setting precedence for years now
-on sending ARPs from a driver;->
-It does make a lot of sense to put it in user space. More interesting
-policies may include sending more than just ARPs and once you hard-code
-in the kernel you loose that flexibility.
+I remember this place, I stalled there for a minute ages ago.
 
-> shouldn't the ifup/ifconfig scripts just
-> be fixed instead if this is critical behavior?
-> 
+He is right in his doubts, the place is confusing, device do it wrong
+(but they are innocent, it is just a flaw of UDP, people did not know
+what to do with redundant two octets in header and placed some useless
+thing there :-)) and if we want to be paranoid about checksum,
+we should really clear CHECKSUM_UNNECESSARY tag and to recheck.
 
-I dont think the ifup/ifconfig provide operational status (i.e link
-up/down) - or do they? If they can be made to invoke scripts in such
-a case then we are set.
+I preferred optimistic approach: if the checksum comes out correct,
+we do not really care, how device calculated it. Probably, it calculated
+checksum over wrong data, but got a good checksum. So what? It is
+not a crypto digest yet. And if device found wrong checksum, we will
+recalculate it anyway.
 
-Note: you will get netlink events when devices are created or devices
-change their admin (via ifconfig) or operational (link down/up) status.
-[Try running "ip monitor" to see]
 
-One could write a little daemon that reacts to these specific events.
-The problem has been some people claiming that daemons are a bad idea
-from a usability perspective. Patrick has mentioned he may be working on
-a daemon in user space that does exactly that. The other alternative is
-to do the udev thing and have the kernel invoke a script whenever an
-event of interest happens.
+I would like to add that CHECKSUM_UNNECESSARY can be used, when
+checksum is really wrong (on loopback), that's why it is not cleared,
+when trimming. CHECKSUM_HW can always fall back to CHECKSUM_NONE,
+but CHECKSUM_UNNECESSARY cannot. Probably, this was bad idea, but
+it still means that if some generic function starts to clear it,
+all the code using it should be reverified.
 
-cheers,
-jamal
-
+Alexey
