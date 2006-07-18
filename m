@@ -1,52 +1,57 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
 Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Tue, 18 Jul 2006 15:51:25 +0400
-Message-ID: <20060718115125.GA6087@2ka.mipt.ru>
-References: <20060718081625.GA13830@2ka.mipt.ru> <200607181316.18461.borntrae@de.ibm.com>
+Date: Tue, 18 Jul 2006 14:15:17 +0200
+Message-ID: <20060718121517.GB28291@wohnheim.fh-wedel.de>
+References: <20060718081625.GA13830@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:14517 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751308AbWGRLv2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 07:51:28 -0400
-To: Christian Borntraeger <borntrae@de.ibm.com>
+Received: from wohnheim.fh-wedel.de ([213.39.233.138]:30660 "EHLO
+	wohnheim.fh-wedel.de") by vger.kernel.org with ESMTP
+	id S1751312AbWGRMP0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Jul 2006 08:15:26 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <200607181316.18461.borntrae@de.ibm.com>
+In-Reply-To: <20060718081625.GA13830@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 18, 2006 at 01:16:18PM +0200, Christian Borntraeger (borntr=
-ae@de.ibm.com) wrote:
-> Hello Evgeniy,
+On Tue, 18 July 2006 12:16:26 +0400, Evgeniy Polyakov wrote:
 >=20
-> > +asmlinkage long sys_netchannel_control(void __user *arg)
-> [...]
-> > +	if (copy_from_user(&ctl, arg, sizeof(struct unetchannel_control))=
-)
-> > +		return -ERESTARTSYS;
->                         ^^^^^^^^^^^
-> [...]
-> > +	if (copy_to_user(arg, &ctl, sizeof(struct unetchannel_control)))
-> > +		return -ERESTARTSYS;
->                         ^^^^^^^^^^^
->=20
-> I think this should be -EFAULT instead of -ERESTARTSYS, right?
+> Current tests with the latest netchannel patch show that netchannels=20
+> outperforms sockets in any type of bulk transfer (big-sized, small-si=
+zed,=20
+> sending, receiving) over 1gb wire. I omit graphs and numbers here,=20
+> since I posted it already several times. I also plan to proceed
+> some negotiations which would allow to test netchannel support in 10g=
+bit
+> environment, but it can also happen after second development stage
+> completed.
 
-I have no strong feeling on what must be returned in that case.
-As far as I see, copy*user can fail due to absence of the next
-destination page, so -ERESTARTSYS makes sence, but if failure happens d=
-ue to
-process size limitation, -EFAULT is correct.
+[ I don't have enough time for a deeper look.  So if my questions are
+stupid, please just tell me so and don't take it personal. ]
 
-Let's change it to -EFAULT.
+After having seen Van Jacobson's presentation at LCA twice, it
+appeared to me that Van could get astonishing speedups with small
+incremental steps, only changing kernel code and leaving the
+kernel-userspace interface as is.
 
-> --=20
-> Mit freundlichen Gr=C3=BC=C3=9Fen / Best Regards
->=20
-> Christian Borntraeger
-> Linux Software Engineer zSeries Linux & Virtualization
+Changing (or rather adding a new) the userspace interface was just the
+last step, which also gave some performance benefits but is also a
+change to the userspace interface and therefore easy to get wrong and
+hard to fix later.
+
+Your description makes it sound as if you would take a huge leap,
+changing all in-kernel code _and_ the userspace interface in a single
+patch.  Am I wrong?  Or am I right and would it make sense to extract
+small incremental steps from your patch similar to those Van did in
+his non-published work?
+
+J=F6rn
 
 --=20
-	Evgeniy Polyakov
+When people work hard for you for a pat on the back, you've got
+to give them that pat.
+-- Robert Heinlein
