@@ -1,56 +1,47 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 3/9] d80211: better deallocation of mdev
-Date: Tue, 18 Jul 2006 17:45:23 +0200 (CEST)
-Message-ID: <20060718154523.E380E483BC@silver.suse.cz>
-References: <20060718174442.485760904.midnight@suse.cz>
+Subject: [PATCH 0/9] d80211: pull request
+Date: Tue, 18 Jul 2006 17:45:20 +0200 (CEST)
+Message-ID: <20060718174442.485760904.midnight@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:40329 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S932291AbWGRPng (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 11:43:36 -0400
+Received: from styx.suse.cz ([82.119.242.94]:39561 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S932285AbWGRPnd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 11:43:33 -0400
 To: netdev@vger.kernel.org
-In-Reply-To: <20060718174442.485760904.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Master device and ieee80211_local are allocated separately now, so master
-device can be freed by the same function as other virtual interfaces.
+Please pull from
+git://git.kernel.org/pub/scm/linux/kernel/git/jbenc/dscape.git master
+to obtain following patches:
 
-Signed-off-by: Jiri Benc <jbenc@suse.cz>
+Jiri Benc:
+      d80211: do not receive through master interface when not scanning
+      d80211: host_gen_beacon_template flag
+      d80211: better deallocation of mdev
+      d80211: fix receiving through virtual interfaces
+      d80211: fix defragmentation
+      d80211: optimize defragmentation
+      d80211: SET_NETDEV_DEV for non-master devices
 
----
+Michael Wu:
+      d80211: Replace rc4 code with crypto api arc4
+      d80211: Add sparse bitwise annotations
 
- net/d80211/ieee80211.c       |    2 +-
- net/d80211/ieee80211_iface.c |    3 ++-
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ include/net/d80211.h         |   12 +-
+ include/net/d80211_mgmt.h    |   42 +++---
+ net/d80211/Kconfig           |    1 
+ net/d80211/ieee80211.c       |  290 ++++++++++++++++++++++++++++--------------
+ net/d80211/ieee80211_i.h     |   19 ++-
+ net/d80211/ieee80211_iface.c |   21 +++
+ net/d80211/ieee80211_ioctl.c |    2 
+ net/d80211/ieee80211_sta.c   |    7 -
+ net/d80211/tkip.c            |   14 +-
+ net/d80211/tkip.h            |   10 +
+ net/d80211/wep.c             |  193 ++++++----------------------
+ net/d80211/wep.h             |   11 +-
+ net/d80211/wpa.c             |    8 +
+ 13 files changed, 327 insertions(+), 303 deletions(-)
 
-603ee5045dad050a66b94a847cd5385fc7678ce9
-diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
-index 549c8a4..3d7091a 100644
---- a/net/d80211/ieee80211.c
-+++ b/net/d80211/ieee80211.c
-@@ -4534,7 +4534,7 @@ void ieee80211_free_hw(struct net_device
- {
- 	struct ieee80211_local *local = dev->ieee80211_ptr;
- 
--	free_netdev(dev);
-+	ieee80211_if_free(dev);
- 	ieee80211_dev_free(local);
- }
- 
-diff --git a/net/d80211/ieee80211_iface.c b/net/d80211/ieee80211_iface.c
-index 5abd713..566bb36 100644
---- a/net/d80211/ieee80211_iface.c
-+++ b/net/d80211/ieee80211_iface.c
-@@ -337,7 +337,8 @@ void ieee80211_if_free(struct net_device
- {
- 	struct ieee80211_local *local = dev->ieee80211_ptr;
- 
--	BUG_ON(dev == local->mdev || dev == local->apdev);
-+	/* local->apdev must be NULL when freeing management interface */
-+	BUG_ON(dev == local->apdev);
- 	free_netdev(dev);
- }
- 
 -- 
-1.3.0
-
+Jiri Benc
+SUSE Labs
