@@ -1,45 +1,41 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Bug in pskb_trim_rcsum()
-Date: Tue, 18 Jul 2006 23:04:04 +1000
-Message-ID: <20060718130404.GA12785@gondor.apana.org.au>
-References: <E1G2S2h-0000nq-00@gondolin.me.apana.org.au> <006201c6aa06$d51581c0$6004a8c0@WeiYongjun> <20060718113245.GA12040@gondor.apana.org.au> <20060718125439.GA19770@ms2.inr.ac.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wei Yongjun <yjwei@nanjing-fnst.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:41995 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932187AbWGRNER
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Jul 2006 09:04:17 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Content-Disposition: inline
-In-Reply-To: <20060718125439.GA19770@ms2.inr.ac.ru>
-Sender: netdev-owner@vger.kernel.org
+Subject: Re: [RFC PATCH 32/33] Add the Xen virtual network
+	device driver.
+Date: Tue, 18 Jul 2006 23:08:09 +1000
+Message-ID: <E1G2pJ3-0003LN-00@gondolin.me.apana.org.au>
+References: <1153226379.5283.51.camel@jzny2>
+Cc: akpm@osdl.org, zach@vmware.com, jeremy@goop.org,
+	xen-devel@lists.xensource.com, ian.pratt@xensource.com,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au,
+	linux-kernel@vger.kernel.org, ak@suse.de, chrisw@sous-sol.org,
+	virtualization@lists.osdl.org, Christian.Limpach@cl.cam.ac.uk,
+	arjan@infradead.org
+Return-path: <xen-devel-bounces@lists.xensource.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1153226379.5283.51.camel@jzny2>
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 18, 2006 at 04:54:39PM +0400, Alexey Kuznetsov wrote:
+jamal <hadi@cyberus.ca> wrote:
 >
-> I preferred optimistic approach: if the checksum comes out correct,
-> we do not really care, how device calculated it. Probably, it calculated
-> checksum over wrong data, but got a good checksum. So what? It is
-> not a crypto digest yet. And if device found wrong checksum, we will
-> recalculate it anyway.
+> I dont think the ifup/ifconfig provide operational status (i.e link
+> up/down) - or do they? If they can be made to invoke scripts in such
+> a case then we are set.
 
-Agreed.
+In fact, that's a very good reason why this shouldn't be in netfront.
+Indeed, it shouldn't be in the guest at all.  The reason is that the
+guest has no idea whether the physical carrier is present.
 
-> I would like to add that CHECKSUM_UNNECESSARY can be used, when
-> checksum is really wrong (on loopback), that's why it is not cleared,
-> when trimming. CHECKSUM_HW can always fall back to CHECKSUM_NONE,
-> but CHECKSUM_UNNECESSARY cannot. Probably, this was bad idea, but
-> it still means that if some generic function starts to clear it,
-> all the code using it should be reverified.
-
-Actually, I plan to differentiate between RX CHECKSUM_HW and TX
-CHECKSUM_HW.  Now that we have things like Xen it is possible for
-RX packets to have patial checksums too.
-
-When this is done loopback can send TX CHECKSUM_HW packets instead
-of CHECKSUM_UNNECESSARY (I'm currently calling this CHECKSUM_PARTIAL).
+It's much better for the host to send the ARP packet on behalf of the
+guest since the host knows the carrier status and the guest's MAC
+address.
 
 Cheers,
 -- 
