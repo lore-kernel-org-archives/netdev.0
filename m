@@ -1,167 +1,41 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 5/9] d80211: fix defragmentation
-Date: Tue, 18 Jul 2006 17:45:26 +0200 (CEST)
-Message-ID: <20060718154526.08176483BC@silver.suse.cz>
-References: <20060718174442.485760904.midnight@suse.cz>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [RFC PATCH 32/33] Add the Xen virtual network device driver.
+Date: Tue, 18 Jul 2006 11:44:30 -0400
+Message-ID: <20060718114430.73985431@localhost.localdomain>
+References: <20060718091807.467468000@sous-sol.org>
+	<20060718091958.414414000@sous-sol.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, virtualization@lists.osdl.org,
+	xen-devel@lists.xensource.com,
+	Jeremy Fitzhardinge <jeremy@goop.org>, Andi Kleen <ak@suse.de>,
+	Andrew Morton <akpm@osdl.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Zachary Amsden <zach@vmware.com>,
+	Ian Pratt <ian.pratt@xensource.com>,
+	Christian Limpach <Christian.Limpach@cl.cam.ac.uk>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:40841 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S932291AbWGRPni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 11:43:38 -0400
-To: netdev@vger.kernel.org
-In-Reply-To: <20060718174442.485760904.midnight@suse.cz>
+Received: from smtp.osdl.org ([65.172.181.4]:25729 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932288AbWGRPpI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 11:45:08 -0400
+To: Chris Wright <chrisw@sous-sol.org>
+In-Reply-To: <20060718091958.414414000@sous-sol.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When multiple virtual interfaces are active and some of them is in promisc
-mode, defragmentation does not work. Fix it by introducing separate fragment
-table for each virtual interface.
 
-Signed-off-by: Jiri Benc <jbenc@suse.cz>
+> diff -r eadc12b20f35 drivers/xen/netfront/netfront.c
+> --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
+> +++ b/drivers/xen/netfront/netfront.c	Fri Jun 09 15:03:12 2006 -0400
+> @@ -0,0 +1,1584 @@
 
----
+> +static inline void init_skb_shinfo(struct sk_buff *skb)
+> +{
+> +	atomic_set(&(skb_shinfo(skb)->dataref), 1);
+> +	skb_shinfo(skb)->nr_frags = 0;
+> +	skb_shinfo(skb)->frag_list = NULL;
+> +}
 
- net/d80211/ieee80211.c       |   26 +++++++++++---------------
- net/d80211/ieee80211_i.h     |    8 ++++----
- net/d80211/ieee80211_iface.c |    5 +++++
- 3 files changed, 20 insertions(+), 19 deletions(-)
-
-bb23c7cde283025bab76f0422003c45a2f82c937
-diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
-index 0b6d8a5..ac2c03f 100644
---- a/net/d80211/ieee80211.c
-+++ b/net/d80211/ieee80211.c
-@@ -2810,17 +2810,17 @@ #endif /* IEEE80211_VERBOSE_DEBUG_PS */
- 
- 
- static inline struct ieee80211_fragment_entry *
--ieee80211_reassemble_add(struct ieee80211_local *local,
-+ieee80211_reassemble_add(struct ieee80211_sub_if_data *sdata,
- 			 unsigned int frag, unsigned int seq, int rx_queue,
- 			 struct sk_buff **skb)
- {
-         struct ieee80211_fragment_entry *entry;
- 	int idx;
- 
--	idx = local->fragment_next;
--	entry = &local->fragments[local->fragment_next++];
--	if (local->fragment_next >= IEEE80211_FRAGMENT_MAX)
--		local->fragment_next = 0;
-+	idx = sdata->fragment_next;
-+	entry = &sdata->fragments[sdata->fragment_next++];
-+	if (sdata->fragment_next >= IEEE80211_FRAGMENT_MAX)
-+		sdata->fragment_next = 0;
- 
- 	if (entry->skb) {
- #ifdef CONFIG_D80211_DEBUG
-@@ -2829,7 +2829,7 @@ #ifdef CONFIG_D80211_DEBUG
- 		printk(KERN_DEBUG "%s: RX reassembly removed oldest "
- 		       "fragment entry (idx=%d age=%lu seq=%d last_frag=%d "
- 		       "addr1=" MACSTR " addr2=" MACSTR "\n",
--		       local->mdev->name, idx,
-+		       sdata->dev->name, idx,
- 		       jiffies - entry->first_frag_time, entry->seq,
- 		       entry->last_frag, MAC2STR(hdr->addr1),
- 		       MAC2STR(hdr->addr2));
-@@ -2850,14 +2850,14 @@ #endif /* CONFIG_D80211_DEBUG */
- 
- 
- static inline struct ieee80211_fragment_entry *
--ieee80211_reassemble_find(struct ieee80211_local *local,
-+ieee80211_reassemble_find(struct ieee80211_sub_if_data *sdata,
- 			  u16 fc, unsigned int frag, unsigned int seq,
- 			  int rx_queue, struct ieee80211_hdr *hdr)
- {
- 	struct ieee80211_fragment_entry *entry;
-         int i, idx;
- 
--	idx = local->fragment_next;
-+	idx = sdata->fragment_next;
- 	for (i = 0; i < IEEE80211_FRAGMENT_MAX; i++) {
- 		struct ieee80211_hdr *f_hdr;
- 		u16 f_fc;
-@@ -2866,7 +2866,7 @@ ieee80211_reassemble_find(struct ieee802
- 		if (idx < 0)
- 			idx = IEEE80211_FRAGMENT_MAX - 1;
- 
--		entry = &local->fragments[idx];
-+		entry = &sdata->fragments[idx];
- 		if (!entry->skb || entry->seq != seq ||
- 		    entry->rx_queue != rx_queue ||
- 		    entry->last_frag + 1 != frag)
-@@ -2916,7 +2916,7 @@ ieee80211_rx_h_defragment(struct ieee802
- 
- 	if (frag == 0) {
- 		/* This is the first fragment of a new frame. */
--		entry = ieee80211_reassemble_add(rx->local, frag, seq,
-+		entry = ieee80211_reassemble_add(rx->sdata, frag, seq,
- 						 rx->u.rx.queue, &(rx->skb));
- 		if (rx->key && rx->key->alg == ALG_CCMP &&
- 		    (rx->fc & WLAN_FC_ISWEP)) {
-@@ -2933,7 +2933,7 @@ ieee80211_rx_h_defragment(struct ieee802
- 	/* This is a fragment for a frame that should already be pending in
- 	 * fragment cache. Add this fragment to the end of the pending entry.
- 	 */
--	entry = ieee80211_reassemble_find(rx->local, rx->fc, frag, seq,
-+	entry = ieee80211_reassemble_find(rx->sdata, rx->fc, frag, seq,
- 					  rx->u.rx.queue, hdr);
- 	if (!entry) {
- 		I802_DEBUG_INC(rx->local->rx_handlers_drop_defrag);
-@@ -4571,10 +4571,6 @@ void ieee80211_unregister_hw(struct net_
- 				  &local->class_dev.kobj);
- 	ieee80211_dev_sysfs_del(local);
- 
--	for (i = 0; i < IEEE80211_FRAGMENT_MAX; i++)
--		if (local->fragments[i].skb)
--			dev_kfree_skb(local->fragments[i].skb);
--
- 	for (i = 0; i < NUM_IEEE80211_MODES; i++) {
- 		kfree(local->supp_rates[i]);
- 		kfree(local->basic_rates[i]);
-diff --git a/net/d80211/ieee80211_i.h b/net/d80211/ieee80211_i.h
-index 3f4d00e..6a952bd 100644
---- a/net/d80211/ieee80211_i.h
-+++ b/net/d80211/ieee80211_i.h
-@@ -307,6 +307,10 @@ struct ieee80211_sub_if_data {
- 	int ieee802_1x; /* IEEE 802.1X PAE - drop packet to/from unauthorized
- 			 * port */
- 
-+	/* Fragment table for host-based reassembly */
-+	struct ieee80211_fragment_entry	fragments[IEEE80211_FRAGMENT_MAX];
-+	unsigned int fragment_next;
-+
- #define NUM_DEFAULT_KEYS 4
-         struct ieee80211_key *keys[NUM_DEFAULT_KEYS];
-         struct ieee80211_key *default_key;
-@@ -406,10 +410,6 @@ #define IEEE80211_IRQSAFE_QUEUE_LIMIT 12
- 				  * or RX before generating a rekey
- 				  * notification; 0 = notification disabled. */
- 
--	/* Fragment table for host-based reassembly */
--	struct ieee80211_fragment_entry	fragments[IEEE80211_FRAGMENT_MAX];
--	unsigned int fragment_next;
--
- 	int bridge_packets; /* bridge packets between associated stations and
- 			     * deliver multicast frames both back to wireless
- 			     * media and to the local net stack */
-diff --git a/net/d80211/ieee80211_iface.c b/net/d80211/ieee80211_iface.c
-index 566bb36..f49ce8a 100644
---- a/net/d80211/ieee80211_iface.c
-+++ b/net/d80211/ieee80211_iface.c
-@@ -336,9 +336,14 @@ int ieee80211_if_remove(struct net_devic
- void ieee80211_if_free(struct net_device *dev)
- {
- 	struct ieee80211_local *local = dev->ieee80211_ptr;
-+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-+	int i;
- 
- 	/* local->apdev must be NULL when freeing management interface */
- 	BUG_ON(dev == local->apdev);
-+	for (i = 0; i < IEEE80211_FRAGMENT_MAX; i++)
-+		if (sdata->fragments[i].skb)
-+			dev_kfree_skb(sdata->fragments[i].skb);
- 	free_netdev(dev);
- }
- 
--- 
-1.3.0
-
+Shouldn't this move to skbuff.h?
