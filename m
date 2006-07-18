@@ -1,45 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH 32/33] Add the Xen virtual network
-	device driver.
-Date: Tue, 18 Jul 2006 23:08:09 +1000
-Message-ID: <E1G2pJ3-0003LN-00@gondolin.me.apana.org.au>
-References: <1153226379.5283.51.camel@jzny2>
-Cc: akpm@osdl.org, zach@vmware.com, jeremy@goop.org,
-	xen-devel@lists.xensource.com, ian.pratt@xensource.com,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au,
-	linux-kernel@vger.kernel.org, ak@suse.de, chrisw@sous-sol.org,
-	virtualization@lists.osdl.org, Christian.Limpach@cl.cam.ac.uk,
-	arjan@infradead.org
-Return-path: <xen-devel-bounces@lists.xensource.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1153226379.5283.51.camel@jzny2>
-List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
+From: John Haller <jhaller@lucent.com>
+Subject: Re: [RFC PATCH 32/33] Add the Xen virtual network device driver.
+Date: Tue, 18 Jul 2006 08:25:49 -0500
+Message-ID: <44BCE15D.2090501@lucent.com>
+References: <E1G2pJ3-0003LN-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, arjan@infradead.org, chrisw@sous-sol.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.osdl.org,
+	xen-devel@lists.xensource.com, jeremy@goop.org, ak@suse.de,
+	akpm@osdl.org, rusty@rustcorp.com.au, zach@vmware.com,
+	ian.pratt@xensource.com, Christian.Limpach@cl.cam.ac.uk,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ihemail1.lucent.com ([192.11.222.161]:31143 "EHLO
+	ihemail1.lucent.com") by vger.kernel.org with ESMTP id S932200AbWGRNba
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Jul 2006 09:31:30 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1G2pJ3-0003LN-00@gondolin.me.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal <hadi@cyberus.ca> wrote:
->
-> I dont think the ifup/ifconfig provide operational status (i.e link
-> up/down) - or do they? If they can be made to invoke scripts in such
-> a case then we are set.
-
-In fact, that's a very good reason why this shouldn't be in netfront.
-Indeed, it shouldn't be in the guest at all.  The reason is that the
-guest has no idea whether the physical carrier is present.
-
-It's much better for the host to send the ARP packet on behalf of the
-guest since the host knows the carrier status and the guest's MAC
-address.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Herbert Xu wrote:
+> jamal <hadi@cyberus.ca> wrote:
+>> I dont think the ifup/ifconfig provide operational status (i.e link
+>> up/down) - or do they? If they can be made to invoke scripts in such
+>> a case then we are set.
+> 
+> In fact, that's a very good reason why this shouldn't be in netfront.
+> Indeed, it shouldn't be in the guest at all.  The reason is that the
+> guest has no idea whether the physical carrier is present.
+> 
+> It's much better for the host to send the ARP packet on behalf of the
+> guest since the host knows the carrier status and the guest's MAC
+> address.
+But sending ARPs is not the right thing if the guest is expecting
+to use IPv6 networking, in which case unsolicited neighbor
+advertisements are the right thing to do.  The driver just
+doesn't seem to be the right place to do this, as it doesn't/
+shouldn't need to know the difference between IPv4/IPv6.
