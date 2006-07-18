@@ -1,51 +1,36 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: Re: [RFC PATCH 32/33] Add the Xen virtual network device driver.
-Date: Tue, 18 Jul 2006 14:09:50 -0700
-Message-ID: <20060718210950.GG2654@sequoia.sous-sol.org>
-References: <20060718091807.467468000@sous-sol.org> <20060718091958.414414000@sous-sol.org> <20060718.134219.48395353.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Netchannles: first stage has been completed. Further ideas.
+Date: Tue, 18 Jul 2006 14:20:16 -0700 (PDT)
+Message-ID: <20060718.142016.124082348.davem@davemloft.net>
+References: <20060718115125.GA6087@2ka.mipt.ru>
+	<200607181436.57841.borntrae@de.ibm.com>
+	<20060718191137.GB28540@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chrisw@sous-sol.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.osdl.org, xen-devel@lists.xensource.com,
-	jeremy@goop.org, ak@suse.de, akpm@osdl.org, rusty@rustcorp.com.au,
-	zach@vmware.com, ian.pratt@xensource.com,
-	Christian.Limpach@cl.cam.ac.uk, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: borntrae@de.ibm.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:53120 "EHLO
-	sous-sol.org") by vger.kernel.org with ESMTP id S1750707AbWGRVJT
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Jul 2006 17:09:19 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060718.134219.48395353.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30661
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932074AbWGRVTx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Jul 2006 17:19:53 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20060718191137.GB28540@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* David Miller (davem@davemloft.net) wrote:
-> From: Chris Wright <chrisw@sous-sol.org>
-> Date: Tue, 18 Jul 2006 00:00:32 -0700
-> 
-> > +#ifdef CONFIG_XEN_BALLOON
-> > +#include <xen/balloon.h>
-> > +#endif
-> 
-> Let's put the ifdefs in xen/balloon.h not in the files
-> including it.
-> 
-> > +#ifdef CONFIG_XEN_BALLOON
-> > +	/* Tell the ballon driver what is going on. */
-> > +	balloon_update_driver_allowance(i);
-> > +#endif
-> 
-> Similarly let's define empty do-nothing functions in
-> xen/balloon.h when the config option isn't set so we
-> don't need to crap up the C sources with these ifdefs.
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Tue, 18 Jul 2006 23:11:37 +0400
 
-Yeah, sorry it's kept more as a reminder to me.  Upstream Xen doesn't do
-this, but this patchset doesn't support ballooning yet, so there just is
-not xen/balloon.h in the set.  When merging with upstream Xen there's
-patch rejects either way, so I agree, better to just drop this since
-it's just future placeholder.
+> Actually userspace will not see ERESTARTSYS, when it is returned from
+> syscall.
 
-thanks,
--chris
+This is true only when a signal is pending.
+
+It is the signal dispatch code that fixes up the return value
+either by changing it to -EINTR or by resetting the register
+state such that the signal handler returns to re-execute the
+system call with the original set of argument register values.
+
+If a signal is not pending, you risk leaking ERESTARTSYS to
+userspace.
