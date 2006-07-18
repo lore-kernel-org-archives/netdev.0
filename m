@@ -1,79 +1,46 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Strange TCP SACK behaviour in Linux TCP
-Date: Tue, 18 Jul 2006 15:57:06 -0400
-Message-ID: <20060718155706.777ea1f3@localhost.localdomain>
-References: <44BD0A5F.4090001@kom.aau.dk>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Netchannles: first stage has been completed. Further ideas.
+Date: Tue, 18 Jul 2006 23:08:01 +0400
+Message-ID: <20060718190801.GA28540@2ka.mipt.ru>
+References: <20060718081625.GA13830@2ka.mipt.ru> <20060718121517.GB28291@wohnheim.fh-wedel.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:29399 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932374AbWGRT5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 15:57:44 -0400
-To: Oumer Teyeb <oumer@kom.aau.dk>
-In-Reply-To: <44BD0A5F.4090001@kom.aau.dk>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:58554 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932379AbWGRUEo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 16:04:44 -0400
+To: J?rn Engel <joern@wohnheim.fh-wedel.de>
+Content-Disposition: inline
+In-Reply-To: <20060718121517.GB28291@wohnheim.fh-wedel.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Jul 2006 18:20:47 +0200
-Oumer Teyeb <oumer@kom.aau.dk> wrote:
+On Tue, Jul 18, 2006 at 02:15:17PM +0200, J?rn Engel (joern@wohnheim.fh-wedel.de) wrote:
+> 
+> Your description makes it sound as if you would take a huge leap,
+> changing all in-kernel code _and_ the userspace interface in a single
+> patch.  Am I wrong?  Or am I right and would it make sense to extract
+> small incremental steps from your patch similar to those Van did in
+> his non-published work?
 
-> Hello Guys,
-> 
-> I have some questions regarding TCP SACK implementation in Linux .
-> As I am a subscriber, could you please cc the reply to me? thanks!
-> 
-> 
-> I am doing these experiments to find out the impact of reordering. So I 
-> have different TCP versions (newReno, SACK, FACk, DSACK, FRTO,....) as 
-> implemented in Linux. and I am trying their combination to see how they 
-> behave. What struck me was that when I dont use timestamps, introducing 
-> SACK increases the download time but decreases the total number of 
-> retransmissions.
-> When timestamps is used, SACK leads to an increase in both the download 
-> time and the retransmissions.
-> 
-> So I looked further into the results, and what I found was that when 
-> SACK  is used, the retransmissions seem to happen earlier .
-> at www.kom.auc.dk/~oumer/first_transmission_times.pdf
-> you can find the pic of cdf of the time when the first TCP 
-> retransmission occured for the four combinations of SACK and timestamps 
-> after hundrends of downloads of a 100K file for the different conditions 
-> under network reordering...
-> 
-> This explains the reason why the download time increases with SACK, 
-> because the earlier we go into fast recovery the longer the time we 
-> spend on congestion avoidance, and the longer the download time....
-> 
-> ...but I couldnt figure out why the retransmissions occur earlier for 
-> SACK than no SACK TCP. As far as I know, for both SACK and non SACK 
-> cases, we need three (or more according to the setting) duplicate ACKs 
-> to enter the fast retransmission /recovery state.... which would have 
-> resulted in the same behaviour to the first occurance of a 
-> retransmission..... or is there some undocumented enhancment in Linux 
-> TCP when using SACK that makes it enter fast retransmit earlier... the 
-> ony explanation I could imagine is something like this
-> 
-> non SACK case
-> =============
-> 1 2 3 4 5 6 7 8 9 10..... were sent and 2 was reorderd....and assume we 
-> are using delayed ACKs...and we get a triple duplicate ACK after pkt#8 
-> is received. (i.e 3&4--first duplicate ACK, 5&6..second duplicate ACK 
-> and 7&8...third duplicate ACK.....)...
-> 
-> so if SACK behaved like this...
-> 
-> 3&4 SACKEd.... 2 packets out of order received
-> 5&6 SACKEd....4 packets out of order received.... start fast 
-> retransmission....as reorderd is greater than 3.... (this is true when 
-> it comes to marking packets as lost during fast recovery, but is it true 
-> als for the first retransmission?)
-> 
-> .. any ideas why this is happening???
-> 
-> 
-> Thanks in advance,
-> Oumer
+My first implementation used existing kernel code and showed small
+performance win - there was binding of the socket to netchannel and all
+protocol processing was moved into process context. It actually is the
+same what IBM folks do, but my investigation showed that linux sending
+side has some issues which would not allow to grow speed very noticebly
+(after creating yet another congestion control algo I now think that the
+problem is there, but I'm not 100% sure).
+And after looking into Van's presentation (and his words about
+_userspace_ protocol processing) I think they used own stack too.
+So I reinvented the wheel and created my own too.
 
-Could you post some short tcpdump snapshot summaries to netdev@vger.kernel.org?
+> J?rn
+> 
+> -- 
+> When people work hard for you for a pat on the back, you've got
+> to give them that pat.
+> -- Robert Heinlein
+
+-- 
+	Evgeniy Polyakov
