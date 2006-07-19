@@ -1,76 +1,50 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 3/9] d80211: better deallocation of mdev
-Date: Wed, 19 Jul 2006 12:15:01 +0200
-Message-ID: <20060719121501.7be3ddce@griffin.suse.cz>
-References: <20060718154523.E380E483BC@silver.suse.cz>
-	<C86180A8C204554D8A3323D8F6B0A29F01565A43@dhost002-46.dex002.intermedia.net>
+From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
+Subject: Re: Netchannles: first stage has been completed. Further ideas.
+Date: Wed, 19 Jul 2006 13:00:35 +0200
+Message-ID: <20060719110035.GA10081@wohnheim.fh-wedel.de>
+References: <20060718081625.GA13830@2ka.mipt.ru> <20060718121517.GB28291@wohnheim.fh-wedel.de> <20060718190801.GA28540@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:41625 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S964785AbWGSKPF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2006 06:15:05 -0400
-To: "Simon Barber" <simon@devicescape.com>
-In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F01565A43@dhost002-46.dex002.intermedia.net>
+Received: from wohnheim.fh-wedel.de ([213.39.233.138]:15032 "EHLO
+	wohnheim.fh-wedel.de") by vger.kernel.org with ESMTP
+	id S964797AbWGSLHD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jul 2006 07:07:03 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Disposition: inline
+In-Reply-To: <20060718190801.GA28540@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Jul 2006 20:07:34 -0700, Simon Barber wrote:
-> I have been thinking about a slightly different approach for the master
-> device. Since the master device represents the physical hardware, I am
-> thinking that the hardware driver could register the master device
-> directly itself. It would use the normal netdev_register call to do so.
+On Tue, 18 July 2006 23:08:01 +0400, Evgeniy Polyakov wrote:
+> On Tue, Jul 18, 2006 at 02:15:17PM +0200, J?rn Engel (joern@wohnheim.=
+fh-wedel.de) wrote:
+> >=20
+> > Your description makes it sound as if you would take a huge leap,
+> > changing all in-kernel code _and_ the userspace interface in a sing=
+le
+> > patch.  Am I wrong?  Or am I right and would it make sense to extra=
+ct
+> > small incremental steps from your patch similar to those Van did in
+> > his non-published work?
+>=20
+> My first implementation used existing kernel code and showed small
+> performance win - there was binding of the socket to netchannel and a=
+ll
+> protocol processing was moved into process context.
 
-How will you allocate structures for 802.11 specific data? You will
-require the driver to call some ieee80211_allocate function anyway, so
-you will probably want to leave allocation of net_device structure to
-this function too. And it is probably better to have correspondent
-ieee80211_register function to prevent confusion (even if the only thing
-done in ieee80211_register is calling netdev_register).
+Iirc, Van didn't show performance numbers but rather cpu utilization
+numbers.  And those went down significantly without changing the
+userspace interface.
 
-> Received frames would be marked as having a protocol type of 802.11, and
-> the 802.11 code would register itself as a protocol handler for this
-> protocol type. Now netif_rx() could be used within the hardware driver
-> to pass frames to the kernel 802.11 code
+Did you look at cpu utilization as well?  If you did and your numbers
+are worse than Vans, he either did something smarter than you or
+forged his numbers (quite unlikely).
 
-How will you pass data like signal strength or rate to 802.11 stack?
+J=F6rn
 
-> - this has the benefit of
-> better performance for the hardirq/softirq transition than the current
-> scheme.
-
-I don't see much benefit in this. Instead of rewriting big part of the
-stack (and drivers as well) for questionable performance gain I would
-rather see a work on putting the stack to mainline - the only blockers
-left are SMP safety and stack<->hostapd netlink protocol. Oh, and better
-communication with tools like NetworkManager.
-
-> On the transmit side - currently the 802.11 code does much
-> processing within the hard_start_xmit function on the master device. I
-> would move all this processing into the 802.11 qdisc - putting it into
-> the dequeue function.
-
-This makes sense, especially fragmentation is a good candidate (and this
-implies nearly the whole processing needs to be moved there as well).
-Though most of these problems will vanish when the Ethernet<->802.11
-conversion routines are removed and the stack starts working with native
-802.11 frames.
-
-> Now the hard_start_xmit function would be the real
-> hardware drivers transmit function.
-
-No need for this.
-
-I also think that moving xmit processing to qdisc doesn't need to be
-done now. It can be done without changing drivers, so we can do it after
-the stack goes into mainline.
-
-Thanks,
-
- Jiri
-
--- 
-Jiri Benc
-SUSE Labs
+--=20
+Sometimes, asking the right question is already the answer.
+-- Unknown
