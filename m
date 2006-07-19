@@ -1,50 +1,36 @@
-From: "Archie Mock" <ArchieMock@1-2-wonder.com>
-Subject: Success, well-regarded
-Date: Wed, 19 Jul 2006 03:58:20 +0000 (UTC)
-Message-ID: <52689008.20030811114043@1-2-wonder.com>
-Reply-To: "Archie Mock" <ArchieMock@1-2-wonder.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Conversions from kmalloc+memset to k(z|c)alloc.
+Date: Tue, 18 Jul 2006 21:11:49 -0700 (PDT)
+Message-ID: <20060718.211149.132925536.davem@davemloft.net>
+References: <20060719010343.GC30823@lumumba.uhasselt.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, acme@conectiva.com.br,
+	patrick@tykepenguin.com, per.liden@ericsson.com, mitch@sfgoth.com,
+	samuel@sortiz.org, eis@baty.hanse.de, ralf@linux-mips.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.87.182.14] ([203.87.182.14]:61427 "EHLO 61.187.98.10")
-	by vger.kernel.org with ESMTP id S932467AbWGSD6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 23:58:10 -0400
-Date: Mon, 11 Aug 2003 11:40:43 +0480
-To: netdev-owner@vger.kernel.org
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:15328
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932489AbWGSELZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jul 2006 00:11:25 -0400
+To: takis@lumumba.uhasselt.be
+In-Reply-To: <20060719010343.GC30823@lumumba.uhasselt.be>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Your cre dit doesn't matter to us! If you OWN real est ate
-and want IMMEDIATEL cash to spend ANY way you like, or simply wish 
-to LOWER your monthly paym ents by a third or more, here are the dea ls
-we have TODAY (hurry, these ofers will expre TONIGHT):
+From: takis@lumumba.uhasselt.be (Panagiotis Issaris)
+Date: Wed, 19 Jul 2006 03:03:43 +0200
 
-$488,000.00 at a 3.67,% fixed-rateL
-$372,000.00 at a 3.90,% variable-rate8
-$492,000.00 at a 3.21,% interest-only0
-$248,000.00 at a 3.36,% fixed-rateH
-$198,000.00 at a 3.55,% variable-rateH
+> From: Panagiotis Issaris <takis@issaris.org>
+> 
+> net: Conversions from kmalloc+memset to kzalloc.
+> 
+> Signed-off-by: Panagiotis Issaris <takis@issaris.org>
 
-Hurry, when these deals are gone, they are gone Simply fill out this one-min ute form... 
+Applied, thanks a lot.
 
-Don't worry about approval, your cre dit will not disqualify you! 
-
-http://IGIEM191.jokip.com
-
-
-
-     The boy could  have made a stalker,  after  all, thought  Redrick. They
-     Redrick put the flask that he had been holding back under his shirt.
-
-the  joints; it seemed to him, through the hot haze that  was enveloping his
-     Wincing  from the pain  of the pack on his burned shoulders, he put his
-     They  went around  the  mound  of gray  rags. There was nothing left of
-
-     "Nonsense!"  Redrick muttered distractedly and froze over the cup  near
-smooth, and  it shone dully in the sun. It lay at  the foot  of the quarry's
-     He  fell silent and looked at the old man. A shudder  crossed his face,
-not dissolving with time, but  on the contrary, it was accumulating. And  he
-
-truck.  They crawled into  the  shade.  Arthur  lay on  his  back  and began
-cost?--and  then they argued. Noonan insisted that the cottage was expensive
+One of the ieee80211 cases is even a bug fix because it
+was memset()'ing without checking if kmalloc() returned
+NULL.
