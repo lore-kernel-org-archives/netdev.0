@@ -1,61 +1,98 @@
-From: "Ivo Van Doorn" <ivdoorn@gmail.com>
-Subject: Re: [PATCH RFC]rfkill - Hardware button support for Wireless cards
-Date: Wed, 19 Jul 2006 13:32:53 +0200
-Message-ID: <a32f33a40607190432x3c9aa74dh7421786032adf37c@mail.gmail.com>
-References: <a32f33a40607090849h737287a0k9f4d95669aa0ce9c@mail.gmail.com>
-	 <200607110034.47944.stefan@loplof.de>
+From: Guillaume Chazarain <guichaz@yahoo.fr>
+Subject: Re: [PATCH] clear skb cb on IP input
+Date: Wed, 19 Jul 2006 14:35:15 +0200
+Message-ID: <44BE2703.8060907@yahoo.fr>
+References: <200607161120.k6GBKZEG009486@cmf.nrl.navy.mil> <44BD2636.1010105@yahoo.fr> <20060718194318.GA15572@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Jiri Benc" <jbenc@suse.cz>,
-	"Francois Romieu" <romieu@fr.zoreil.com>,
-	"Vojtech Pavlik" <vojtech@suse.cz>
+Content-Type: multipart/mixed;
+ boundary="------------070007040800030700040101"
+Cc: chas3@users.sourceforge.net, David Miller <davem@davemloft.net>,
+	shemminger@osdl.org, netdev@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.178]:28562 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S932541AbWGSLcy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jul 2006 07:32:54 -0400
-Received: by py-out-1112.google.com with SMTP id s49so245571pyc
-        for <netdev@vger.kernel.org>; Wed, 19 Jul 2006 04:32:53 -0700 (PDT)
-To: "Stefan Rompf" <stefan@loplof.de>
-In-Reply-To: <200607110034.47944.stefan@loplof.de>
-Content-Disposition: inline
+Received: from sophia.inria.fr ([138.96.64.20]:38636 "EHLO sophia.inria.fr")
+	by vger.kernel.org with ESMTP id S964799AbWGSMhJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2006 08:37:09 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060718194318.GA15572@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This is a multi-part message in MIME format.
+--------------070007040800030700040101
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> > I have been quite busy lately, hence the reason for this late continuance
-> > of the Hardware button support for Wireless cards discussion.
-> > I have CC'ed the people who discussed this in earlier threads.
->
-> no problem. Look good, just one thing I'm missing:
->
-> > +     For each registered hardware button an input device will be created.
-> > +     If this input device has been opened by the user, rfkill will send a
-> > +     signal to userspace instead of the hardware about the new button
-> > +     status. This will allow userpace to perform the correct steps
-> > +     in order to bring down all interfaces.
->
-> > +             if (rfkill->input_dev->users) {
-> > +                     input_report_key(rfkill->input_dev,
-> > +                             KEY_RFKILL, new_status);
-> > +                     input_sync(rfkill->input_dev);
->
-> Shouldn't there be a continue to avoid calling enable/disable_radio()?
+Herbert Xu wrote :
+> Probably. Patches are welcome :)
+Here are they, in both case I checked that the stuff to clear
+was not already cleared, but I could not produce any misbehavior
+by writing random junk instead of clearing the data. All my tests
+were on the loopback using UML.
 
-True, totally overlooked that part. Will fix this immediately.
+For IPv4, the added safety seems worth, but for IPv6 it's less clear.
 
-> > +             }
->
-> Stefan
->
-> PS: This rfkill stuff is really caught between two stools. Sending a netlink
-> event for the device with an additional TLV for radio button status seems as
-> valid as sending an input event...
+Thanks.
 
-Hmm not sure about this one. Personally I would think that support for
-a button would belong more to the input layer. Even when the button
-would only be usefull for networking.
+-- 
+Guillaume
 
-ivo
+
+--------------070007040800030700040101
+Content-Type: text/x-patch;
+ name="clear_ip6cb.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="clear_ip6cb.diff"
+
+Clear the accumulated junk in IP6CB when starting to handle an
+IPV6 packet.
+
+Signed-off-by: Guillaume Chazarain <guichaz@yahoo.fr>
+---
+
+ ip6_input.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -70,6 +70,8 @@ int ipv6_rcv(struct sk_buff *skb, struct
+ 		IP6_INC_STATS_BH(IPSTATS_MIB_INDISCARDS);
+ 		goto out;
+ 	}
++
++	memset(IP6CB(skb), 0, sizeof(struct inet6_skb_parm));
+ 
+ 	/*
+ 	 * Store incoming device index. When the packet will
+
+
+--------------070007040800030700040101
+Content-Type: text/x-patch;
+ name="clear_whole_ipcb.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="clear_whole_ipcb.diff"
+
+Clear the whole IPCB, this clears also IPCB(skb)->flags.
+
+Signed-off-by: Guillaume Chazarain <guichaz@yahoo.fr>
+---
+
+ ip_input.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -429,7 +429,7 @@ int ip_rcv(struct sk_buff *skb, struct n
+ 	}
+ 
+ 	/* Remove any debris in the socket control block */
+-	memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
++	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
+ 
+ 	return NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, dev, NULL,
+ 		       ip_rcv_finish);
+
+
+--------------070007040800030700040101--
