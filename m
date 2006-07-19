@@ -1,50 +1,52 @@
-From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
-Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Wed, 19 Jul 2006 13:00:35 +0200
-Message-ID: <20060719110035.GA10081@wohnheim.fh-wedel.de>
-References: <20060718081625.GA13830@2ka.mipt.ru> <20060718121517.GB28291@wohnheim.fh-wedel.de> <20060718190801.GA28540@2ka.mipt.ru>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: Wireless statistics for bcm43xx-d80211
+Date: Wed, 19 Jul 2006 07:13:49 -0400
+Message-ID: <1153307630.2565.12.camel@localhost.localdomain>
+References: <44BDB400.40408@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wohnheim.fh-wedel.de ([213.39.233.138]:15032 "EHLO
-	wohnheim.fh-wedel.de") by vger.kernel.org with ESMTP
-	id S964797AbWGSLHD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jul 2006 07:07:03 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20060718190801.GA28540@2ka.mipt.ru>
+Received: from mx1.redhat.com ([66.187.233.31]:19387 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S932353AbWGSLMv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2006 07:12:51 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <44BDB400.40408@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 18 July 2006 23:08:01 +0400, Evgeniy Polyakov wrote:
-> On Tue, Jul 18, 2006 at 02:15:17PM +0200, J?rn Engel (joern@wohnheim.=
-fh-wedel.de) wrote:
-> >=20
-> > Your description makes it sound as if you would take a huge leap,
-> > changing all in-kernel code _and_ the userspace interface in a sing=
-le
-> > patch.  Am I wrong?  Or am I right and would it make sense to extra=
-ct
-> > small incremental steps from your patch similar to those Van did in
-> > his non-published work?
->=20
-> My first implementation used existing kernel code and showed small
-> performance win - there was binding of the socket to netchannel and a=
-ll
-> protocol processing was moved into process context.
+On Tue, 2006-07-18 at 23:24 -0500, Larry Finger wrote:
+> I have gotten most things working to produce wireless statistics through /proc/net/wireless for
+> bcm43xx-d80211; however, I have one problem that I have not yet been able to solve. When I do a 'cat
+> /proc/net/wireless', the following is printed:
+> 
+> Inter-| sta-|   Quality        |   Discarded packets               | Missed | WE
+>   face | tus | link level noise |  nwid  crypt   frag  retry   misc | beacon | 20
+> wmaster0: 0000  100.    0.    0.       0      0      0      0      0        0
+>   wlan1: 0000  100.  -26.  -67.       0      0      0      0      0        0
+> 
+> Based on the numbers obtained using bcm43xx-softmac for my interface, the numbers for level and 
+> noise for wlan1 are what I expected (in dBm). The link value has not yet been finished. The main 
+> problem is that the wireless kicker applet for KDE, which I use for a display, is only looking at 
+> the first line, and never sees the wlan1 data - only the wmaster0 results.
+> 
+> Is there some way to detect that the master interface is being interrogated, and return data for the
+> attached STA instead?
 
-Iirc, Van didn't show performance numbers but rather cpu utilization
-numbers.  And those went down significantly without changing the
-userspace interface.
+I'm not entirely sure how you configure d80211-based drivers [1], but I
+think this is Kicker's problem?  Doesn't it know which device you are
+actually connecting with, i.e. wlan1?  Kicker should know this, but we
+may need to update userland applications like Kicker and NetworkManager
+for the new device model that d80211 presents.  wlanmaster0 shouldn't
+have any quality, because it's not connected to anything, and nothing
+connects to it.  It's not exposed over the air in any way, AFAIUI.
 
-Did you look at cpu utilization as well?  If you did and your numbers
-are worse than Vans, he either did something smarter than you or
-forged his numbers (quite unlikely).
+Let's fix this the right way, in userspace apps, not working around this
+stuff in the drivers.
 
-J=F6rn
+Dan
 
---=20
-Sometimes, asking the right question is already the answer.
--- Unknown
+[1] i.e., can you have more than one STA attached to a master?  I
+thought so, but could be wrong.
+
