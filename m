@@ -1,81 +1,55 @@
 From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Wed, 19 Jul 2006 17:19:15 +0400
-Message-ID: <20060719131915.GA21942@ms2.inr.ac.ru>
-References: <20060718081625.GA13830@2ka.mipt.ru> <20060718230121.GA31474@ms2.inr.ac.ru> <20060719053841.GA24744@2ka.mipt.ru>
+Subject: Re: Weird TCP SACK problem. in Linux...
+Date: Wed, 19 Jul 2006 17:27:19 +0400
+Message-ID: <20060719132719.GA22143@ms2.inr.ac.ru>
+References: <44BD38B1.1080807@kom.aau.dk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:46501 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S964800AbWGSNXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2006 09:23:11 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Received: from minus.inr.ac.ru ([194.67.69.97]:53158 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S964804AbWGSN2i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2006 09:28:38 -0400
+To: Oumer Teyeb <oumer@kom.aau.dk>
 Content-Disposition: inline
-In-Reply-To: <20060719053841.GA24744@2ka.mipt.ru>
+In-Reply-To: <44BD38B1.1080807@kom.aau.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hello!
 
-> There is no socket spinlock anymore.
-> Above lock is skb_queue lock which is held inside
-> skb_dequeue/skb_queue_tail calls.
+> DSACK)  is used, the retransmissions seem to happen earlier .
 
-Lock is named differently, but it is still here.
-BTW for UDP even the name is the same.
+Yes. With SACK/FACK retransmissions can be triggered earlier,
+if an ACK SACKs a segment which is far enough from current snd.una.
+That's what happens f.e. in T_SACK_dump5.dat
 
- 
-> > Equivalent of socket user lock.
-> 
-> No, it is an equivalent for hash lock in socket table.
+01:28:15.681050 < 192.38.55.34.51137 > 192.168.110.111.42238: P 18825:20273[31857](1448) ack 1/5841 win 5840/0 <nop,nop,timestamp 418948058 469778216> [|] (DF)(ttl 64, id 19165)
+01:28:15.800946 < 192.168.110.111.42238 > 192.38.55.34.51137: . 1:1[5841](0) ack 8689/31857 win 23168/0 <nop,nop,timestamp 469778229 418948031,nop,nop, sack 1 {10137:11585} > (DF) [tos 0x8]  (ttl 62, id 45508)
+01:28:15.860773 < 192.168.110.111.42238 > 192.38.55.34.51137: . 1:1[5841](0) ack 8689/31857 win 23168/0 <nop,nop,timestamp 469778235 418948031,nop,nop, sack 2 {13033:14481}{10137:11585} > (DF) [tos 0x8]  (ttl 62, id 45509)
+01:28:15.860781 < 192.38.55.34.51137 > 192.168.110.111.42238: . 8689:10137[31857](1448) ack 1/5841 win 5840/0 <nop,nop,timestamp 418948076 469778235> [|] (DF) (ttl 64, id 19166)
 
-OK. But you have to introduce socket mutex somewhere in any case.
-Even in ATCP.
+The second sack confirms that 13033..14481 already arrived.
 
+And this is even not a mistake, the third dupack arrived immediately:
+01:28:15.901382 < 192.168.110.111.42238 > 192.38.55.34.51137: . 1:1[5841](0) ack 8689/31857 win 23168/0 <nop,nop,timestamp 469778238 418948031,nop,nop, sack 2 {13033:15929}{10137:11585} > (DF) [tos 0x8]  (ttl 62, id 45510)
 
-> Just an example - tcp_established() can be called with bh disabled under
-> the socket lock.
-
-When we have a process context in hands, it is not.
-
-Did you ask youself, why do not we put all the packets to backlog/prequeue
-and just wait when user will read the data? It would be 100% equivalent
-to "netchannels".
-
-The answer is simple: because we cannot wait. If user delays for 200msec,
-wait for connection collapse due to retransmissions. If the segment is
-out of order, immediate attention is required. Any scheme, which tries
-to wait for user unconditionally, at least has to run a watchdog timer,
-which fires before sender senses the gap.
-
-And this is what we do for ages. Grep for "VJ" in sources. :-)
-
-netchannels have nothing to do with it, it is much elder idea.
+Actually, it is the reason why the FACK heuristics is not disabled
+even when FACK disabled. Experiments showed that relaxing it severely
+damages recovery in presense of real multiple losses.
+And when it happens to be reordering, undoing works really well.
 
 
+There is one more thing, which probably happens in your experiments,
+though I did not find it in dumps. If reordering exceeds RTT, i.e.
+we receive SACK for a segment, which was sent as part of forward
+retransmission after a hole was detected, fast retransmit entered immediately.
+Two dupacks is enough for this: first triggers forward transmission,
+if the second SACKs the segmetn which has just been sent, we are there.
 
-> In that case one copies the whole data into userspace, so access for 20
-> bytes of headers completely does not matter.
+> One more thing, say I have FRTO, DSACK and timestamps enabled, which 
+> algorithm takes precedence ?
 
-For short packets it matters.
-
-But I said not this. I said it looks _worse_. A bit, but worse.
-
-
-> Hmm, for 80 bytes sized packets win was about 2.5 times. Could you
-> please show me lines inside existing code, which should be commented, so
-> I got 50Mbyte/sec for that?
-
-If I knew it would be done. :-)
-
-Actually, it is the action, which I would expect. This, but
-not dropping all the TCP stack.
-
-
-> I showed there, that using existing stack it is imposible
-
-Please, understand, it is such statements that compromise your work.
-If it is impossible then it is not interesting.
+They live together, essnetially, not dependant. 
 
 Alexey
