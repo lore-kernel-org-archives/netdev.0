@@ -1,43 +1,28 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Don't call request_region() for 3C90x chips
-Date: Wed, 19 Jul 2006 13:57:37 -0400
-Message-ID: <44BE7291.2080306@pobox.com>
-References: <200607102225.49253.sshtylyov@ru.mvista.com>
+From: "Elias" <EliasMcgill@priest.com>
+Subject: Never seen stuff Surely you only dream of it Relax with
+Date: Wed, 19 Jul 2006 20:44:33 +0200
+Message-ID: <54672349334305.92912344FC@9P07H>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+        charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51333 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932331AbWGSR5k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2006 13:57:40 -0400
-To: Sergei Shtylylov <sshtylyov@ru.mvista.com>
-In-Reply-To: <200607102225.49253.sshtylyov@ru.mvista.com>
+Received: from zeus1.kernel.org ([204.152.191.4]:42718 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1030216AbWGSSp1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2006 14:45:27 -0400
+Received: from uteuzue.2wg8i.adelphia.net ([41.250.32.52])
+	by zeus1.kernel.org (8.13.1/8.13.1) with ESMTP id k6JIiwPq021694
+	for <netdev@vger.kernel.org>; Wed, 19 Jul 2006 18:45:26 GMT
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sergei Shtylylov wrote:
-> It's generally not a good idea to call request_region() on an address returned 
-> by pci_iomap(), even less so on a MMIO address. And there was absolutely no 
-> point in claiming the region already claimed by the PCI core, especially with 
-> the same PCI generic owner's name. As this is the only case of the 
-> must_free_region flag being set, this flag may go away as well...
-> 
-> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Hello my friend!
+Boost your manhood to astonishing levels Everything a real man would ever need. 
+Fill up your supplies with our secure ordering, cost saving and fast delivery.
+ State-of-the-art goods from the highest class brands, recognized everywhere
 
-I agree you have identified a bug, but this is not a solution.
-
-The current driver bug is that it calls request_region() potentially on 
-an MMIO address, but the solution is _not_ to completely avoid reserving 
-the resource.
-
-The region registered with the PCI core, but _not_ claimed by anyone. 
-Someone still needs to either call pci_{request,release}_regions() or 
-request_[mem_]region() to indicate that the resource is reserved.
-
-This bug you have found was probably a missed detail during the 
-conversion to the iomap API.
-
-	Jeff
+ Come on in: http://www.hanchbi.com 
+ Just check yourself!
 
 
