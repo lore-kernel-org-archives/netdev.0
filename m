@@ -1,103 +1,39 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [2.6 patch] drivers/net/wireless/zd1211rw/: possible cleanups
-Date: Wed, 19 Jul 2006 17:16:48 +0200
-Message-ID: <20060719151648.GA22498@stusta.de>
-References: <20060715003511.GE3633@stusta.de> <44BA3C59.9030503@gentoo.org> <20060717212951.GC29824@p15091797.pureserver.info>
+From: Georg Wicherski <georg-wicherski@pixel-house.net>
+Subject: Bind TUN to IPv4 Subnet
+Date: Wed, 19 Jul 2006 17:26:49 +0200
+Message-ID: <44BE4F39.70405@pixel-house.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:50960 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S964856AbWGSPQt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jul 2006 11:16:49 -0400
-To: Daniel Drake <dsd@gentoo.org>, Andrew Morton <akpm@osdl.org>,
-	linville@tuxdriver.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20060717212951.GC29824@p15091797.pureserver.info>
+Received: from dd3112.kasserver.com ([81.209.184.234]:44210 "EHLO
+	dd3112.kasserver.com") by vger.kernel.org with ESMTP
+	id S964871AbWGSP0n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jul 2006 11:26:43 -0400
+Received: from [192.168.108.105] (public.eurecom.fr [193.55.113.196])
+	by dd3112.kasserver.com (Postfix) with ESMTP id 1D45A1B9EB8
+	for <netdev@vger.kernel.org>; Wed, 19 Jul 2006 17:26:42 +0200 (CEST)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 17, 2006 at 11:29:51PM +0200, Ulrich Kunitz wrote:
-> On 06-07-16 14:17 Daniel Drake wrote:
-> 
-> > Adrian Bunk wrote:
-> > >This patch contains the following possible cleanups:
-> > >- make needlessly global functions static
-> > >- #if 0 unused functions
-> > >
-> > >Please review which of these functions do make sense and which do 
-> > >conflict with pending patches.
-> > 
-> > Thanks Adrian. I have put this in my tree and made an additional change 
-> > along the same lines (your patched introduced an unused function warning 
-> > to the non-debug build). If Ulrich signifies acceptance, I will send 
-> > this on to John.
-> > 
-> > I have also sent in a patch to add a MAINTAINERS entry for zd1211rw, in 
-> > hope that this will help you send patches with myself and/or Ulrich CC'd 
-> > in future :)
-> > 
-> > Thanks.
-> > Daniel
-> > -
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> Adrian, I would like to see this patch split up into three at
-> least. 
-> 
-> Patch 1: Remove unused IO emulation functions
-> Patch 2: Remove other unused stuff, which could be split up
->          further for each C file and header
-> Patch 3: Change DEBUG ifdefs to #if 0
-> 
-> The purpose of patch 3 is bogus, because the follow-up patch will
-> be called "removed useless #if 0 stuff". Keep in mind there is
+Hey Folks,
 
-That's not the purpose.
+I need to bind a TUN device previously created by open("/dev/net/tun",
+O_RW) to a subnet, let's say 10.254.0.0/16. The ultimate goal is to have
+a tunnel endpoint for a IPv4 tunnel, where I can after writing the
+packet which came over the tunnel to the TUN device use an arbitary
+userland socket bound to one of the 2^16 IPs or just all of them with
+with INADDR_ANY.
 
-#if 0'ed code is both marked as unused and does no longer bloat the 
-kernel.
+What is the (sequence?) of ioctl's to configure the TUN device into
+`listening' on a whole subnet? If possible, I want to just specify a
+base address and a prefix length.
 
-> some reason, why I have such code there. If they ifdefs are not
-> acceptable I will make this code dependent on a module parameter
-> and compile it into the production module. We have a lot of
-> different devices from different vendors out there and people
-> report "stuff isn't working" but almost nothing more.
+Digging into the curent 2.6.x kernel sources didn't help me much (yes,
+they are badly commented).
 
-You are misunderstanding this part of my patch.
-It does NOT remove used debug code.
-It does #if 0 code that was not used with CONFIG_ZD1211RW_DEBUG=y.
 
-> The problem with patch 1 and 2 is, that almost all of the function
-> are completing the interface and some of them are even only static
-> inlines. They are there because they should be used, before
-> somebody reinvents the wheel or makes something completely stupid.
-> However if such reasoning is not acceptable I'm ready to
-> compromise.
-
-I've only #if 0'ed "static inline" functions when they were the only 
-user of an otherwise unused global function.
-
-The main question is what your "should be used" means.
-
-Will they be used within the next days/weeks or only in some far future?
-
-In the first case, I agree that my patch shouldn't be applied now.
-In the latter case, there's no reason to bloat the kernel binary now for 
-some future usage that might or might not happen.
-
-> Uli Kunitz
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Thanks,
+Georg Wicherski
 
