@@ -1,44 +1,68 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL (RTAB BUG)
-Date: Thu, 20 Jul 2006 01:00:04 +0400
-Message-ID: <20060719210004.GB20264@ms2.inr.ac.ru>
-References: <1150843471.17455.2.camel@ras.pc.brisbane.lube> <15653CE98281AD4FBD7F70BCEE3666E53CD54A@comxexch01.comx.local> <1151000966.5392.34.camel@jzny2> <1151066247.4217.254.camel@ras.pc.brisbane.lube> <1151158431.6716.95.camel@jzny2> <1153188409.13145.5.camel@ras.pc.brisbane.lube> <44BD56A4.9090002@andyfurniss.entadsl.com> <1153270932.4242.60.camel@ras.pc.brisbane.lube> <44BE44E3.9080100@andyfurniss.entadsl.com> <Pine.LNX.4.61.0607192114240.9570@tyr.diku.dk>
+From: "Ivo Van Doorn" <ivdoorn@gmail.com>
+Subject: Re: drivers/net/wireless/d80211: Check configuration type in hw->config_interface.
+Date: Wed, 19 Jul 2006 23:13:35 +0200
+Message-ID: <a32f33a40607191413k5cab2766u4fc4ee8b4f6c4088@mail.gmail.com>
+References: <44BE958C.4030401@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Furniss <lists@andyfurniss.entadsl.com>,
-	Russell Stuart <russell-tcatm@stuart.id.au>, hadi@cyberus.ca,
-	netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>,
-	Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:7552 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1030297AbWGSVET (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2006 17:04:19 -0400
-To: Jesper Dangaard Brouer <hawk@diku.dk>
+Received: from py-out-1112.google.com ([64.233.166.179]:25727 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S1030314AbWGSVNg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jul 2006 17:13:36 -0400
+Received: by py-out-1112.google.com with SMTP id s49so477353pyc
+        for <netdev@vger.kernel.org>; Wed, 19 Jul 2006 14:13:35 -0700 (PDT)
+To: "Jean-Mickael Guerin" <jean-mickael.guerin@6wind.com>
+In-Reply-To: <44BE958C.4030401@6wind.com>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0607192114240.9570@tyr.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Hi,
 
-> Guess that Alexey wrote these RTAB lookup in a time where array lookups 
-> was faster... now we have that memory lookups are the bottleneck.
+> This patch prevents a NULL pointer dereferencing in AP mode:
+> ieee80211_if_config will set conf->bssid only if device is of type STA
+> or IBSS.
+> I see it using following commands right after module loading (with rt61)
+> # iwconfig wlan0 mode Master
+> # ifconfig wlan0 up
 
-No, they were slower from the very beginning. If I remember correctly,
-there is comment about this somewhere.
+When submitting a patch, please state what drivers you are really changing,
+your mail subject suggested a change to the dscape stack itself.
+Since I look at those patches at an irregular basis, while I am always
+checking for rt2x00 related patches I could have missed this one.
+Especially when you don't CC the driver maintainers about the patch
+for their drivers.
+Also I think most people would prefer if you split up patches when it
+affects multiple drivers,
+in this case rt2x00 and adm8211.
 
-I just did not find any simple way to do 32 bit fixed point arithmetics
-scaling from bps to Gbps and was lazy to investigate this further,
-tables are much simpler and more flexible.
+As for the patch itself, see my comments below. ;)
 
+> diff --git a/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+> b/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+> index 946cf86..1d45851 100644
+> --- a/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+> +++ b/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+> @@ -1877,7 +1877,9 @@ rt2400pci_config_interface(struct net_de
+>      if (rt2x00pci->type == IEEE80211_IF_TYPE_MNTR)
+>          return 0;
+>
+> -    rt2400pci_config_bssid(rt2x00pci, conf->bssid);
+> +    if (conf->type == IEEE80211_IF_TYPE_STA ||
+> +        conf->type == IEEE80211_IF_TYPE_IBSS)
+> +        rt2400pci_config_bssid(rt2x00pci, conf->bssid);
 
-> What about removing the RTAB system entirely?
+Should rt2400pci_config_bssid not simply run a check to see if the
+bssid argument is valid?
+This would prevent the risk of having a similar problem when the
+function is called from somewhere else as well.
 
-Well, if fixed point arithmetics is not a problem.
+Same comment applies for rt2500pci and rt61pci.
 
-Plus, remember, the function is not R*size, it is at least
-R*size+addend, to account for link overhead. Plus account for padding
-of small packets. Plus, when policing it should deaccount already added
-link headers, QoS counts only network payload.
+Any particular reason why you applied this change to PCI drivers in
+rt2x00 only and not to the USB drivers?
 
-Alexey
+Ivo
