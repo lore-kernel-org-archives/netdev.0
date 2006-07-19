@@ -1,149 +1,103 @@
-From: Oumer Teyeb <oumer@kom.aau.dk>
-Subject: Re: Weird TCP SACK problem. in Linux...
-Date: Wed, 19 Jul 2006 17:02:39 +0200
-Message-ID: <44BE498F.9070001@kom.aau.dk>
-References: <44BD38B1.1080807@kom.aau.dk> <20060719132719.GA22143@ms2.inr.ac.ru>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [2.6 patch] drivers/net/wireless/zd1211rw/: possible cleanups
+Date: Wed, 19 Jul 2006 17:16:48 +0200
+Message-ID: <20060719151648.GA22498@stusta.de>
+References: <20060715003511.GE3633@stusta.de> <44BA3C59.9030503@gentoo.org> <20060717212951.GC29824@p15091797.pureserver.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zaz.kom.auc.dk ([130.225.51.10]:10979 "EHLO zaz.kom.auc.dk")
-	by vger.kernel.org with ESMTP id S964860AbWGSPDI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2006 11:03:08 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20060719132719.GA22143@ms2.inr.ac.ru>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:50960 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S964856AbWGSPQt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jul 2006 11:16:49 -0400
+To: Daniel Drake <dsd@gentoo.org>, Andrew Morton <akpm@osdl.org>,
+	linville@tuxdriver.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20060717212951.GC29824@p15091797.pureserver.info>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi ,
+On Mon, Jul 17, 2006 at 11:29:51PM +0200, Ulrich Kunitz wrote:
+> On 06-07-16 14:17 Daniel Drake wrote:
+> 
+> > Adrian Bunk wrote:
+> > >This patch contains the following possible cleanups:
+> > >- make needlessly global functions static
+> > >- #if 0 unused functions
+> > >
+> > >Please review which of these functions do make sense and which do 
+> > >conflict with pending patches.
+> > 
+> > Thanks Adrian. I have put this in my tree and made an additional change 
+> > along the same lines (your patched introduced an unused function warning 
+> > to the non-debug build). If Ulrich signifies acceptance, I will send 
+> > this on to John.
+> > 
+> > I have also sent in a patch to add a MAINTAINERS entry for zd1211rw, in 
+> > hope that this will help you send patches with myself and/or Ulrich CC'd 
+> > in future :)
+> > 
+> > Thanks.
+> > Daniel
+> > -
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> Adrian, I would like to see this patch split up into three at
+> least. 
+> 
+> Patch 1: Remove unused IO emulation functions
+> Patch 2: Remove other unused stuff, which could be split up
+>          further for each C file and header
+> Patch 3: Change DEBUG ifdefs to #if 0
+> 
+> The purpose of patch 3 is bogus, because the follow-up patch will
+> be called "removed useless #if 0 stuff". Keep in mind there is
 
-Alexey Kuznetsov wrote:
+That's not the purpose.
 
->Hello!
->
->  
->
->>DSACK)  is used, the retransmissions seem to happen earlier .
->>    
->>
->
->Yes. With SACK/FACK retransmissions can be triggered earlier,
->if an ACK SACKs a segment which is far enough from current snd.una.
->That's what happens f.e. in T_SACK_dump5.dat
->
->01:28:15.681050 < 192.38.55.34.51137 > 192.168.110.111.42238: P 18825:20273[31857](1448) ack 1/5841 win 5840/0 <nop,nop,timestamp 418948058 469778216> [|] (DF)(ttl 64, id 19165)
->01:28:15.800946 < 192.168.110.111.42238 > 192.38.55.34.51137: . 1:1[5841](0) ack 8689/31857 win 23168/0 <nop,nop,timestamp 469778229 418948031,nop,nop, sack 1 {10137:11585} > (DF) [tos 0x8]  (ttl 62, id 45508)
->01:28:15.860773 < 192.168.110.111.42238 > 192.38.55.34.51137: . 1:1[5841](0) ack 8689/31857 win 23168/0 <nop,nop,timestamp 469778235 418948031,nop,nop, sack 2 {13033:14481}{10137:11585} > (DF) [tos 0x8]  (ttl 62, id 45509)
->01:28:15.860781 < 192.38.55.34.51137 > 192.168.110.111.42238: . 8689:10137[31857](1448) ack 1/5841 win 5840/0 <nop,nop,timestamp 418948076 469778235> [|] (DF) (ttl 64, id 19166)
->
->The second sack confirms that 13033..14481 already arrived.
->
->And this is even not a mistake, the third dupack arrived immediately:
->01:28:15.901382 < 192.168.110.111.42238 > 192.38.55.34.51137: . 1:1[5841](0) ack 8689/31857 win 23168/0 <nop,nop,timestamp 469778238 418948031,nop,nop, sack 2 {13033:15929}{10137:11585} > (DF) [tos 0x8]  (ttl 62, id 45510)
->  
->
-Thanks a lot Alexey for pointing that out.!!!..That was more or less 
-what I was asumming....  but is this feature of linux TCP documented 
-somewhere? as far as I can see I couldnt find it in Pasi's paper.... in 
-the conservative sack based recovery RFC (* RFC 3517), it is clearly 
-*stated that the
+#if 0'ed code is both marked as unused and does no longer bloat the 
+kernel.
 
-   Upon the receipt of the first (DupThresh - 1) duplicate ACKs, the
-   scoreboard is to be updated as normal.  Note: The first and second
-   duplicate ACKs can also be used to trigger the transmission of
-   previously unsent segments using the Limited Transmit algorithm
-   [RFC3042].
+> some reason, why I have such code there. If they ifdefs are not
+> acceptable I will make this code dependent on a module parameter
+> and compile it into the production module. We have a lot of
+> different devices from different vendors out there and people
+> report "stuff isn't working" but almost nothing more.
 
-   When a TCP sender receives the duplicate ACK corresponding to
-   DupThresh ACKs, the scoreboard MUST be updated with the new SACK
-   information (via Update ()).  If no previous loss event has occurred
-   on the connection or the cumulative acknowledgment point is beyond
-   the last value of RecoveryPoint, a loss recovery phase SHOULD be
-   initiated, per the fast retransmit algorithm outlined in [RFC2581].
+You are misunderstanding this part of my patch.
+It does NOT remove used debug code.
+It does #if 0 code that was not used with CONFIG_ZD1211RW_DEBUG=y.
 
-ofcourse,  once we are in the fast recovery phase we are able to mark a packet lost based on the criteria (also from the same RFC)
+> The problem with patch 1 and 2 is, that almost all of the function
+> are completing the interface and some of them are even only static
+> inlines. They are there because they should be used, before
+> somebody reinvents the wheel or makes something completely stupid.
+> However if such reasoning is not acceptable I'm ready to
+> compromise.
 
-IsLost (SeqNum):
-      This routine returns whether the given sequence number is
-      considered to be lost.  The routine returns true when either
-      DupThresh discontiguous SACKed sequences have arrived above
-      'SeqNum' or (DupThresh * SMSS) bytes with sequence numbers greater
-      than 'SeqNum' have been SACKed.  Otherwise, the routine returns
-      false.
+I've only #if 0'ed "static inline" functions when they were the only 
+user of an otherwise unused global function.
 
-But from the trace portion you cut outside  it seems the sack 
-implementation in linux simply checked the sn of the newly sacked one, 
-and finding out that there are two blocks in between, considered it as 
-if it is a dupthresh duplicate ack and retransmitted it... So if we were 
-not using sack the retransmission would have occured after 
-01:28:15.90... so the TCP SACK retransmitted in this case around 50ms 
-earlier...but  it might be larger in some cases, (I will try to look 
-into the traces to find larger time differences but you can see there is 
-a clear difference by looking at the plots of the cdf of the time of 
-occurance of the first retransmissions for the different cases at  
-http://kom.aau.dk/~oumer/first_transmission_times.pdf .... so I am on 
-the verge of concluding TCP SACK is worse than non SACK TCP incase of 
-persistent reordering....if only I could find a reference about the 
-linux TCP SACK behaviour we discussed above :-)...
+The main question is what your "should be used" means.
 
->Actually, it is the reason why the FACK heuristics is not disabled
->even when FACK disabled. Experiments showed that relaxing it severely
->damages recovery in presense of real multiple losses.
->And when it happens to be reordering, undoing works really well.
->  
->
-so you are saying, it doesnt matter whether I disable FACK or not, it is 
-basically set by default?
-and it is disabled only when reordering is detected (and this is done 
-either through timestamps or DSACK, right?)...
-so if neither DSACK and timestamps are enabled we are unable to detect 
-disorder, so basically there should be no difference between SACK and 
-FACK, cause it is always FACK used... and that seems to make sense  from 
-the results I have  (i.e. referrring to ....
-http://kom.aau.dk/~oumer/384_100Kbyte_Timestamps_SACK_FACK_DSACK_10FER_DT.pdf
-http://kom.aau.dk/~oumer/384_100Kbyte_Timestamps_SACK_FACK_DSACK_10FER_ret.pdf
-)...
+Will they be used within the next days/weeks or only in some far future?
 
-now let's introduce DSACK and no timestamps... that means we are able to 
-detect some reordering and download time should decrease, and it does so 
-as shown in the first of the figures I just give the link to...however, 
-the # of retransmissions increases as shown in the second figure? isnt 
-that odd? shouldnt it be the other way around?
+In the first case, I agree that my patch shouldn't be applied now.
+In the latter case, there's no reason to bloat the kernel binary now for 
+some future usage that might or might not happen.
 
-Also why does the # retransmissions in the timestamp case increases when 
-we use SACK/FACK as compared with no SACK case?...and as you mentioned 
-earlier reordering undoing works very well, by comparing the curves with 
-and without timestamps, but some of this seems to be undo when we use it 
-along with SACK, FACK and DSACK, eventhough the differences are not that 
-much...
+> Uli Kunitz
 
->There is one more thing, which probably happens in your experiments,
->though I did not find it in dumps. If reordering exceeds RTT, i.e.
->we receive SACK for a segment, which was sent as part of forward
->retransmission after a hole was detected, fast retransmit entered immediately.
->Two dupacks is enough for this: first triggers forward transmission,
->if the second SACKs the segmetn which has just been sent, we are there.
->  
->
-This one , I dont think I understood you. Could you please make it a bit 
-more clearer?
+cu
+Adrian
 
->>One more thing, say I have FRTO, DSACK and timestamps enabled, which 
->>algorithm takes precedence ?
->>    
->>
->
->They live together, essnetially, not dependant. 
->  
->
-OK ...but if timestamps are enabled, then I just couldnt figure out the 
-use of  DSACK, can it tell us something more than we can find using 
-timestamps??
+-- 
 
->Alexey
->  
->
-Regards,
-Oumer
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
