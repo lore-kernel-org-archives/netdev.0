@@ -1,32 +1,31 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.18-rc2 tg3  Dead loop on netdevice eth0 fix it urgently!
-Date: Thu, 20 Jul 2006 01:30:39 +1000
-Message-ID: <E1G3E0V-0006e2-00@gondolin.me.apana.org.au>
-References: <20060719110439.GJ23431@puettmann.net>
-Cc: sergio@sergiomb.no-ip.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Subject: Re: michael_mic in crypto api?
+Date: Thu, 20 Jul 2006 01:39:05 +1000
+Message-ID: <E1G3E8f-0007xk-00@gondolin.me.apana.org.au>
+References: <200607152144.44350.flamingice@sourmilk.net>
+Cc: herbert@gondor.apana.org.au, jbenc@suse.cz, linville@tuxdriver.com,
+	netdev@vger.kernel.org, jkmaline@cc.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:26635 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1030182AbWGSPbN
+Received: from rhun.apana.org.au ([64.62.148.172]:42507 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1030189AbWGSPjk
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jul 2006 11:31:13 -0400
-To: davem@davemloft.net, ruben@puettmann.net (Ruben Puettmann)
-In-Reply-To: <20060719110439.GJ23431@puettmann.net>
+	Wed, 19 Jul 2006 11:39:40 -0400
+To: flamingice@sourmilk.net (Michael Wu)
+In-Reply-To: <200607152144.44350.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ruben Puettmann <ruben@puettmann.net> wrote:
+Michael Wu <flamingice@sourmilk.net> wrote:
 >
-> Yes But in the moment I thing  I have not enough informations.
+> Simplicity and consistency. Whereas the relatively simple mic part of the TKIP 
+> algorithm is in crypto API, the (more important, more complicated) key mixing 
+> part is not in crypto api. It is unlikely that either the mic or key mixing 
+> part would be used separately or even outside of TKIP/802.11i code, and we 
+> don't want to encourage people anyways since they're just bandaids for 
+> problems associated with using rc4.
 
-Oops, it was a thinko on my part.
-
-[NET]: Fix reversed error test in netif_tx_trylock
-
-A non-zero return value indicates success from spin_trylock,
-not error.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Sure, I don't mind either way.  I think Jouni wrote this originally,
+maybe he can share his thoughts with us?
 
 Cheers,
 -- 
@@ -34,22 +33,3 @@ Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 76cc099..75f02d8 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -924,10 +924,10 @@ static inline void netif_tx_lock_bh(stru
- 
- static inline int netif_tx_trylock(struct net_device *dev)
- {
--	int err = spin_trylock(&dev->_xmit_lock);
--	if (!err)
-+	int ok = spin_trylock(&dev->_xmit_lock);
-+	if (likely(ok))
- 		dev->xmit_lock_owner = smp_processor_id();
--	return err;
-+	return ok;
- }
- 
- static inline void netif_tx_unlock(struct net_device *dev)
