@@ -1,36 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Conversions from kmalloc+memset to k(z|c)alloc.
-Date: Tue, 18 Jul 2006 21:13:22 -0700 (PDT)
-Message-ID: <20060718.211322.41951011.davem@davemloft.net>
-References: <20060719011540.GD30823@lumumba.uhasselt.be>
-	<20060719024805.GB3786@tuxdriver.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Wireless statistics for bcm43xx-d80211
+Date: Tue, 18 Jul 2006 23:24:32 -0500
+Message-ID: <44BDB400.40408@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: takis@lumumba.uhasselt.be, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, nico@cam.org, patrick@tykepenguin.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:17888
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932427AbWGSEM7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jul 2006 00:12:59 -0400
-To: linville@tuxdriver.com
-In-Reply-To: <20060719024805.GB3786@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,  netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Unsubscribe: <http://bat.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://bat.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <http://bat.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 18 Jul 2006 22:48:05 -0400
+I have gotten most things working to produce wireless statistics through /proc/net/wireless for
+bcm43xx-d80211; however, I have one problem that I have not yet been able to solve. When I do a 'cat
+/proc/net/wireless', the following is printed:
 
-> On Wed, Jul 19, 2006 at 03:15:40AM +0200, Panagiotis Issaris wrote:
-> > From: Panagiotis Issaris <takis@issaris.org>
-> > 
-> > Conversions from kmalloc+memset to k(z|c)alloc.  The original memsets
-> > did not clear out the entire allocated structure. To my unexperienced
-> > eye, that seemed a bit fishy (or at least a bit weird and inconsistent).
-> > 
-> > Signed-off-by: Panagiotis Issaris <takis@issaris.org>
-> 
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+Inter-| sta-|   Quality        |   Discarded packets               | Missed | WE
+  face | tus | link level noise |  nwid  crypt   frag  retry   misc | beacon | 20
+wmaster0: 0000  100.    0.    0.       0      0      0      0      0        0
+  wlan1: 0000  100.  -26.  -67.       0      0      0      0      0        0
 
-Also applied, thanks a lot.
+Based on the numbers obtained using bcm43xx-softmac for my interface, the numbers for level and 
+noise for wlan1 are what I expected (in dBm). The link value has not yet been finished. The main 
+problem is that the wireless kicker applet for KDE, which I use for a display, is only looking at 
+the first line, and never sees the wlan1 data - only the wmaster0 results.
+
+Is there some way to detect that the master interface is being interrogated, and return data for the
+attached STA instead?
+
+Thanks,  Larry
