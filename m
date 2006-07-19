@@ -1,32 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] SNMPv2 tcpOutSegs counter error
-Date: Mon, 24 Jul 2006 14:44:11 -0700 (PDT)
-Message-ID: <20060724.144411.57446335.davem@davemloft.net>
-References: <1152172878.4695.2.camel@LINE>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] skge: chip clock rate typo
+Date: Wed, 19 Jul 2006 14:03:23 -0700
+Message-ID: <20060719140323.6f8bd5b2@localhost.localdomain>
+References: <200607222330.30842.mb@bu3sch.de>
+	<20060719133535.40e490fc@localhost.localdomain>
+	<44C53CF6.7040400@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Michael Buesch <mb@bu3sch.de>, Jeff Garzik <jgarzik@pobox.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63970
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932253AbWGXVoC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jul 2006 17:44:02 -0400
-To: yjwei@nanjing-fnst.com
-In-Reply-To: <1152172878.4695.2.camel@LINE>
+Received: from smtp.osdl.org ([65.172.181.4]:421 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932248AbWGXVo3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2006 17:44:29 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <44C53CF6.7040400@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yjwei@nanjing-fnst.com>
-Date: Thu, 06 Jul 2006 04:01:18 -0400
+On Mon, 24 Jul 2006 16:34:46 -0500
+Larry Finger <Larry.Finger@lwfinger.net> wrote:
 
-> -	TCP_INC_STATS(TCP_MIB_OUTSEGS);
-> +	if (!(tcb->sacked & TCPCB_LOST))
-> +		TCP_INC_STATS(TCP_MIB_OUTSEGS);
-
-This test is not accurate enough.  For example, timer based
-retransmits will not set the TCPCB_LOST bit.
-
-I'm tempted to say to pass a flag to tcp_transmit_skb()
-which says whether it is a retransmit or not, but that
-function already takes way too many arguments.
+> Stephen Hemminger wrote:
+> > Michael Buesch spotted this typo.  The impact is that the incorrect value
+> > was being computed for blinking LED and interrupt moderation values.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> > 
+> > --- skge-2.6.orig/drivers/net/skge.c
+> > +++ skge-2.6/drivers/net/skge.c
+> > @@ -519,7 +519,7 @@ static inline u32 hwkhz(const struct skg
+> >  	if (hw->chip_id == CHIP_ID_GENESIS)
+> >  		return 53215; /* or:  53.125 MHz */
+> -------------------------^   Should this be 53125?
+> 
+> Larry
+> 
+yup
