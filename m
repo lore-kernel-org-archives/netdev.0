@@ -1,96 +1,49 @@
-From: "Simon Barber" <simon@devicescape.com>
-Subject: RE: [PATCH 3/9] d80211: better deallocation of mdev
-Date: Tue, 18 Jul 2006 20:07:34 -0700
-Message-ID: <C86180A8C204554D8A3323D8F6B0A29F01565A43@dhost002-46.dex002.intermedia.net>
-References: <20060718154523.E380E483BC@silver.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:20878 "EHLO
-	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S932478AbWGSDHy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 23:07:54 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20060718154523.E380E483BC@silver.suse.cz>
-To: "Jiri Benc" <jbenc@suse.cz>, <netdev@vger.kernel.org>
-Sender: netdev-owner@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH 32/33] Add the Xen virtual network
+	device driver.
+Date: Wed, 19 Jul 2006 13:55:13 +1000
+Message-ID: <E1G339V-0004z8-00@gondolin.me.apana.org.au>
+References: <20060718114430.73985431@localhost.localdomain>
+Cc: akpm@osdl.org, zach@vmware.com, jeremy@goop.org,
+	xen-devel@lists.xensource.com, ian.pratt@xensource.com,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au,
+	linux-kernel@vger.kernel.org, ak@suse.de, chrisw@sous-sol.org,
+	virtualization@lists.osdl.org, Christian.Limpach@cl.cam.ac.uk
+Return-path: <xen-devel-bounces@lists.xensource.com>
+To: shemminger@osdl.org (Stephen Hemminger)
+In-Reply-To: <20060718114430.73985431@localhost.localdomain>
+List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
 List-Id: netdev.vger.kernel.org
 
-Hi Jiri,
+Stephen Hemminger <shemminger@osdl.org> wrote:
+> 
+>> diff -r eadc12b20f35 drivers/xen/netfront/netfront.c
+>> --- /dev/null Thu Jan 01 00:00:00 1970 +0000
+>> +++ b/drivers/xen/netfront/netfront.c Fri Jun 09 15:03:12 2006 -0400
+>> @@ -0,0 +1,1584 @@
+> 
+>> +static inline void init_skb_shinfo(struct sk_buff *skb)
+>> +{
+>> +     atomic_set(&(skb_shinfo(skb)->dataref), 1);
+>> +     skb_shinfo(skb)->nr_frags = 0;
+>> +     skb_shinfo(skb)->frag_list = NULL;
+>> +}
+> 
+> Shouldn't this move to skbuff.h?
 
-I have been thinking about a slightly different approach for the master
-device. Since the master device represents the physical hardware, I am
-thinking that the hardware driver could register the master device
-directly itself. It would use the normal netdev_register call to do so.
-Received frames would be marked as having a protocol type of 802.11, and
-the 802.11 code would register itself as a protocol handler for this
-protocol type. Now netif_rx() could be used within the hardware driver
-to pass frames to the kernel 802.11 code - this has the benefit of
-better performance for the hardirq/softirq transition than the current
-scheme. On the transmit side - currently the 802.11 code does much
-processing within the hard_start_xmit function on the master device. I
-would move all this processing into the 802.11 qdisc - putting it into
-the dequeue function. Now the hard_start_xmit function would be the real
-hardware drivers transmit function.
+If and when my dom0=>domU GSO patches are applied, this will simply
+disappear.
 
-What do you think?
-
-Simon
- 
-
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-On Behalf Of Jiri Benc
-Sent: Tuesday, July 18, 2006 8:45 AM
-To: netdev@vger.kernel.org
-Subject: [PATCH 3/9] d80211: better deallocation of mdev
-
-Master device and ieee80211_local are allocated separately now, so
-master device can be freed by the same function as other virtual
-interfaces.
-
-Signed-off-by: Jiri Benc <jbenc@suse.cz>
-
----
-
- net/d80211/ieee80211.c       |    2 +-
- net/d80211/ieee80211_iface.c |    3 ++-
- 2 files changed, 3 insertions(+), 2 deletions(-)
-
-603ee5045dad050a66b94a847cd5385fc7678ce9
-diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c index
-549c8a4..3d7091a 100644
---- a/net/d80211/ieee80211.c
-+++ b/net/d80211/ieee80211.c
-@@ -4534,7 +4534,7 @@ void ieee80211_free_hw(struct net_device  {
- 	struct ieee80211_local *local = dev->ieee80211_ptr;
- 
--	free_netdev(dev);
-+	ieee80211_if_free(dev);
- 	ieee80211_dev_free(local);
- }
- 
-diff --git a/net/d80211/ieee80211_iface.c b/net/d80211/ieee80211_iface.c
-index 5abd713..566bb36 100644
---- a/net/d80211/ieee80211_iface.c
-+++ b/net/d80211/ieee80211_iface.c
-@@ -337,7 +337,8 @@ void ieee80211_if_free(struct net_device  {
- 	struct ieee80211_local *local = dev->ieee80211_ptr;
- 
--	BUG_ON(dev == local->mdev || dev == local->apdev);
-+	/* local->apdev must be NULL when freeing management interface
-*/
-+	BUG_ON(dev == local->apdev);
- 	free_netdev(dev);
- }
- 
---
-1.3.0
-
--
-To unsubscribe from this list: send the line "unsubscribe netdev" in the
-body of a message to majordomo@vger.kernel.org More majordomo info at
-http://vger.kernel.org/majordomo-info.html
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
