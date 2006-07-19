@@ -1,49 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH 32/33] Add the Xen virtual network
-	device driver.
-Date: Wed, 19 Jul 2006 13:55:13 +1000
-Message-ID: <E1G339V-0004z8-00@gondolin.me.apana.org.au>
-References: <20060718114430.73985431@localhost.localdomain>
-Cc: akpm@osdl.org, zach@vmware.com, jeremy@goop.org,
-	xen-devel@lists.xensource.com, ian.pratt@xensource.com,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au,
-	linux-kernel@vger.kernel.org, ak@suse.de, chrisw@sous-sol.org,
-	virtualization@lists.osdl.org, Christian.Limpach@cl.cam.ac.uk
-Return-path: <xen-devel-bounces@lists.xensource.com>
-To: shemminger@osdl.org (Stephen Hemminger)
-In-Reply-To: <20060718114430.73985431@localhost.localdomain>
-List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
+From: "Archie Mock" <ArchieMock@1-2-wonder.com>
+Subject: Success, well-regarded
+Date: Wed, 19 Jul 2006 03:58:20 +0000 (UTC)
+Message-ID: <52689008.20030811114043@1-2-wonder.com>
+Reply-To: "Archie Mock" <ArchieMock@1-2-wonder.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [203.87.182.14] ([203.87.182.14]:61427 "EHLO 61.187.98.10")
+	by vger.kernel.org with ESMTP id S932467AbWGSD6K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jul 2006 23:58:10 -0400
+Date: Mon, 11 Aug 2003 11:40:43 +0480
+To: netdev-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> wrote:
-> 
->> diff -r eadc12b20f35 drivers/xen/netfront/netfront.c
->> --- /dev/null Thu Jan 01 00:00:00 1970 +0000
->> +++ b/drivers/xen/netfront/netfront.c Fri Jun 09 15:03:12 2006 -0400
->> @@ -0,0 +1,1584 @@
-> 
->> +static inline void init_skb_shinfo(struct sk_buff *skb)
->> +{
->> +     atomic_set(&(skb_shinfo(skb)->dataref), 1);
->> +     skb_shinfo(skb)->nr_frags = 0;
->> +     skb_shinfo(skb)->frag_list = NULL;
->> +}
-> 
-> Shouldn't this move to skbuff.h?
+Your cre dit doesn't matter to us! If you OWN real est ate
+and want IMMEDIATEL cash to spend ANY way you like, or simply wish 
+to LOWER your monthly paym ents by a third or more, here are the dea ls
+we have TODAY (hurry, these ofers will expre TONIGHT):
 
-If and when my dom0=>domU GSO patches are applied, this will simply
-disappear.
+$488,000.00 at a 3.67,% fixed-rateL
+$372,000.00 at a 3.90,% variable-rate8
+$492,000.00 at a 3.21,% interest-only0
+$248,000.00 at a 3.36,% fixed-rateH
+$198,000.00 at a 3.55,% variable-rateH
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Hurry, when these deals are gone, they are gone Simply fill out this one-min ute form... 
+
+Don't worry about approval, your cre dit will not disqualify you! 
+
+http://IGIEM191.jokip.com
+
+
+
+     The boy could  have made a stalker,  after  all, thought  Redrick. They
+     Redrick put the flask that he had been holding back under his shirt.
+
+the  joints; it seemed to him, through the hot haze that  was enveloping his
+     Wincing  from the pain  of the pack on his burned shoulders, he put his
+     They  went around  the  mound  of gray  rags. There was nothing left of
+
+     "Nonsense!"  Redrick muttered distractedly and froze over the cup  near
+smooth, and  it shone dully in the sun. It lay at  the foot  of the quarry's
+     He  fell silent and looked at the old man. A shudder  crossed his face,
+not dissolving with time, but  on the contrary, it was accumulating. And  he
+
+truck.  They crawled into  the  shade.  Arthur  lay on  his  back  and began
+cost?--and  then they argued. Noonan insisted that the cottage was expensive
