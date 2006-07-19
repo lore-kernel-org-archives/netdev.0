@@ -1,55 +1,49 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: Weird TCP SACK problem. in Linux...
-Date: Wed, 19 Jul 2006 17:27:19 +0400
-Message-ID: <20060719132719.GA22143@ms2.inr.ac.ru>
-References: <44BD38B1.1080807@kom.aau.dk>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: Wireless statistics for bcm43xx-d80211
+Date: Wed, 19 Jul 2006 09:56:19 -0400
+Message-ID: <1153317379.2537.2.camel@localhost.localdomain>
+References: <44BDB400.40408@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:53158 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S964804AbWGSN2i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2006 09:28:38 -0400
-To: Oumer Teyeb <oumer@kom.aau.dk>
-Content-Disposition: inline
-In-Reply-To: <44BD38B1.1080807@kom.aau.dk>
+Received: from mx1.redhat.com ([66.187.233.31]:50617 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S964821AbWGSNzW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2006 09:55:22 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <44BDB400.40408@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Tue, 2006-07-18 at 23:24 -0500, Larry Finger wrote:
+> I have gotten most things working to produce wireless statistics through /proc/net/wireless for
+> bcm43xx-d80211; however, I have one problem that I have not yet been able to solve. When I do a 'cat
+> /proc/net/wireless', the following is printed:
+> 
+> Inter-| sta-|   Quality        |   Discarded packets               | Missed | WE
+>   face | tus | link level noise |  nwid  crypt   frag  retry   misc | beacon | 20
+> wmaster0: 0000  100.    0.    0.       0      0      0      0      0        0
+>   wlan1: 0000  100.  -26.  -67.       0      0      0      0      0        0
+> 
+> Based on the numbers obtained using bcm43xx-softmac for my interface, the numbers for level and 
+> noise for wlan1 are what I expected (in dBm). The link value has not yet been finished. The main 
+> problem is that the wireless kicker applet for KDE, which I use for a display, is only looking at 
+> the first line, and never sees the wlan1 data - only the wmaster0 results.
+> 
+> Is there some way to detect that the master interface is being interrogated, and return data for the
+> attached STA instead?
 
-> DSACK)  is used, the retransmissions seem to happen earlier .
+Actually, now that I think about it, why are _any_ applets
+screen-scraping /proc/net/wireless anymore?  If they profess to be a
+wireless applet, yet screenscrape /proc/net/wireless, that's suspect
+right there.  The ioctls for status are quite well-defined and haven't
+changed in a very long time (ie, SIOCGIWRANGE).
 
-Yes. With SACK/FACK retransmissions can be triggered earlier,
-if an ACK SACKs a segment which is far enough from current snd.una.
-That's what happens f.e. in T_SACK_dump5.dat
+On the flip side, /proc/net/wireless has been supported since the dawn
+of time (ok, not really) and is the textual interface for reporting
+wireless statistic, but maybe that shouldn't be the case anymore.
 
-01:28:15.681050 < 192.38.55.34.51137 > 192.168.110.111.42238: P 18825:20273[31857](1448) ack 1/5841 win 5840/0 <nop,nop,timestamp 418948058 469778216> [|] (DF)(ttl 64, id 19165)
-01:28:15.800946 < 192.168.110.111.42238 > 192.38.55.34.51137: . 1:1[5841](0) ack 8689/31857 win 23168/0 <nop,nop,timestamp 469778229 418948031,nop,nop, sack 1 {10137:11585} > (DF) [tos 0x8]  (ttl 62, id 45508)
-01:28:15.860773 < 192.168.110.111.42238 > 192.38.55.34.51137: . 1:1[5841](0) ack 8689/31857 win 23168/0 <nop,nop,timestamp 469778235 418948031,nop,nop, sack 2 {13033:14481}{10137:11585} > (DF) [tos 0x8]  (ttl 62, id 45509)
-01:28:15.860781 < 192.38.55.34.51137 > 192.168.110.111.42238: . 8689:10137[31857](1448) ack 1/5841 win 5840/0 <nop,nop,timestamp 418948076 469778235> [|] (DF) (ttl 64, id 19166)
-
-The second sack confirms that 13033..14481 already arrived.
-
-And this is even not a mistake, the third dupack arrived immediately:
-01:28:15.901382 < 192.168.110.111.42238 > 192.38.55.34.51137: . 1:1[5841](0) ack 8689/31857 win 23168/0 <nop,nop,timestamp 469778238 418948031,nop,nop, sack 2 {13033:15929}{10137:11585} > (DF) [tos 0x8]  (ttl 62, id 45510)
-
-Actually, it is the reason why the FACK heuristics is not disabled
-even when FACK disabled. Experiments showed that relaxing it severely
-damages recovery in presense of real multiple losses.
-And when it happens to be reordering, undoing works really well.
+Dan
 
 
-There is one more thing, which probably happens in your experiments,
-though I did not find it in dumps. If reordering exceeds RTT, i.e.
-we receive SACK for a segment, which was sent as part of forward
-retransmission after a hole was detected, fast retransmit entered immediately.
-Two dupacks is enough for this: first triggers forward transmission,
-if the second SACKs the segmetn which has just been sent, we are there.
-
-> One more thing, say I have FRTO, DSACK and timestamps enabled, which 
-> algorithm takes precedence ?
-
-They live together, essnetially, not dependant. 
-
-Alexey
