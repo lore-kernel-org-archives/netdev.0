@@ -1,43 +1,52 @@
-From: Andrew Vasquez <andrew.vasquez@qlogic.com>
+From: Michael Tokarev <mjt@tls.msk.ru>
 Subject: Re: [PATCH] Qlogic qla3xxx driver v2.02.00-k36 for upstream inclusion.
-Date: Thu, 20 Jul 2006 07:50:25 -0700
-Message-ID: <20060720145025.GA305@andrew-vasquezs-powerbook-g4-15.local>
-References: <0BB3E5E7462EEA4295BC02D49691DC07223E4E@AVEXCH1.qlogic.org>
+Date: Thu, 20 Jul 2006 18:59:28 +0400
+Message-ID: <44BF9A50.60207@tls.msk.ru>
+References: <0BB3E5E7462EEA4295BC02D49691DC07223E4E@AVEXCH1.qlogic.org> <20060720145025.GA305@andrew-vasquezs-powerbook-g4-15.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ron Mercer <ron.mercer@qlogic.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ron Mercer <ron.mercer@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pat.qlogic.com ([198.70.193.2]:3946 "EHLO avexch1.qlogic.com")
-	by vger.kernel.org with ESMTP id S932587AbWGTOui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 10:50:38 -0400
-To: Michael Tokarev <mjt@tls.msk.ru>, netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <0BB3E5E7462EEA4295BC02D49691DC07223E4E@AVEXCH1.qlogic.org>
+Received: from hobbit.corpit.ru ([81.13.94.6]:64603 "EHLO hobbit.corpit.ru")
+	by vger.kernel.org with ESMTP id S932588AbWGTO7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 10:59:32 -0400
+To: Andrew Vasquez <andrew.vasquez@qlogic.com>
+In-Reply-To: <20060720145025.GA305@andrew-vasquezs-powerbook-g4-15.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Jul 2006, Ron Mercer wrote:
+Andrew Vasquez wrote:
+> On Thu, 20 Jul 2006, Ron Mercer wrote:
+> 
+>> qla3xxx driver  does not support ISP4010.
+> 
+> Exactly...  The qla3xxx driver supports the NIC function only.
 
-> qla3xxx driver  does not support ISP4010.
+...which is provided by ISP4010 card, as appears on PCI bus:
 
-Exactly...  The qla3xxx driver supports the NIC function only.
+04:04.0 Ethernet controller: QLogic Corp. QLA3010 Network Adapter (rev 05)
+04:04.1 Network controller: QLogic Corp. QLA4010 iSCSI TOE Adapter (rev 05)
 
-> > -----Original Message-----
-> > From: Michael Tokarev [mailto:mjt@tls.msk.ru] 
-> > Sent: Thursday, July 20, 2006 2:13 AM
-> > To: Ron Mercer
-> > Cc: netdev@vger.kernel.org
-> > Subject: Re: [PATCH] Qlogic qla3xxx driver v2.02.00-k36 for 
-> > upstream inclusion.
-> > 
-> > By the way, should it work with ISP4010 controllers?
-> > Those "expose" network interface card "subdevice" too, but 
-> > aren't listed in pci_device_table of the driver, and after 
-> > adding the device ID to the driver, it still does not quite 
-> > work (I tried, just out of curiosity) - the NIC on ISP4010 is 
-> > - it seems - close but not exactly the same as the driver expects.
+(the first (sub)device).  So it *looks* like the card has *both*
+a NIC and iSCSI TOE adapter, and the NIC part is pretty much similar
+to what qla3xxx driver expects...  That's why my curiosity. ;)
 
-You'll need to use the qla4xxx driver to drive the iSCSI function.
+(not that it matters much, just.. curious, really.
+Well.  Not exactly.  It'd be nice to compare a NIC w/o Jumbo
+frames support (which we have on all machines connected to
+the iSCSI segment), with something more.. advanced.  So I
+wondered if I can utilize the NIC part of the ISP4010 for
+the test.  iSCSI part of the card works significantly slower
+than open-iscsi stack on non-jumbo-frames-aware Tigon GigE NIC).
 
-Regards,
-Andrew Vasquez
+[]
+> You'll need to use the qla4xxx driver to drive the iSCSI function.
+
+Yeah, I know.  I posted some results to open-iscsi@ list about a week
+ago.  It basically works (the new one, with open-iscsi infrastructure),
+but is slooow... ;)
+
+Thanks.
+
+/mjt
