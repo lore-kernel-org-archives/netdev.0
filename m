@@ -1,46 +1,41 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [IPROUTE2]: update documentation on mirred and IFB
-Date: Thu, 20 Jul 2006 09:44:28 -0400
-Message-ID: <1153403068.5098.72.camel@jzny2>
-References: <1153227400.5283.62.camel@jzny2>
-	 <44BED55F.1090405@andyfurniss.entadsl.com>
+Subject: Re: Oops in IFB
+Date: Thu, 20 Jul 2006 09:58:13 -0400
+Message-ID: <1153403893.5098.79.camel@jzny2>
+References: <44BF8628.9080204@6wind.com>  <1153402801.5098.66.camel@jzny2>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:1471 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1030309AbWGTNoc
+Received: from mx02.cybersurf.com ([209.197.145.105]:3538 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1030289AbWGTN6R
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jul 2006 09:44:32 -0400
+	Thu, 20 Jul 2006 09:58:17 -0400
 Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1G3YpP-0007oH-1J
-	for netdev@vger.kernel.org; Thu, 20 Jul 2006 09:44:35 -0400
-To: lists@andyfurniss.entadsl.com
-In-Reply-To: <44BED55F.1090405@andyfurniss.entadsl.com>
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1G3Z2i-0004Wm-0K
+	for netdev@vger.kernel.org; Thu, 20 Jul 2006 09:58:20 -0400
+To: nicolas.dichtel@6wind.com
+In-Reply-To: <1153402801.5098.66.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-20-07 at 01:59 +0100, Andy Furniss wrote:
-> jamal wrote:
-> > About two more or so to complete these..
+On Thu, 2006-20-07 at 09:40 -0400, jamal wrote:
+> On Thu, 2006-20-07 at 15:33 +0200, Nicolas DICHTEL wrote:
+> 
+> 
+> > [IFB] After ifb_init_one() failed, i is increased. Decrease
+> > it before entering in the loop for freeing the other ifb devices.
 > > 
-> > cheers,
-> > jamal
-> > 
-> > 
-> +tc qdisc add dev lo eth0 ?
+> > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> 
+> Thanks Nicolas.
 > 
 
-Thanks for catching that Andy. It was attempt at adding ingress to
-qdisc. I will wait for Stephen to swallow the other patches and then fix
-this - I have at least two more patches to send in that area. Or you can
-get a little gitty and send a patch ;->
-BTW, if there are areas in the docs, help etc that need clarification
-let me know or fix them and send patches. Or if there are better
-examples to give send patches.
+BTW, in the name of the LinuxWay(tm) - can you also submit a similar
+patch for dummy? It suffers from the same bug.
 
 cheers,
 jamal
