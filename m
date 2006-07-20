@@ -1,53 +1,81 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC/PATCH][Bonding]: keep slave state when admin down
-Date: Thu, 20 Jul 2006 16:22:11 -0400
-Message-ID: <1153426931.5273.136.camel@jzny2>
-References: <1153401556.5098.43.camel@jzny2>
-	 <200607201850.k6KIo0hg016751@death.nxdomain.ibm.com>
-Reply-To: hadi@cyberus.ca
+From: Piet Delaney <piet@bluelane.com>
+Subject: Re: Alternate to Ixia's ANVL test harness for tcp compliance.
+Date: Thu, 20 Jul 2006 13:24:34 -0700
+Message-ID: <1153427074.8114.466.camel@piet2.bluelane.com>
+References: <1153424967.8114.450.camel@piet2.bluelane.com>
+	 <44BFE1D2.8060004@garzik.org>
+Reply-To: piet@bluelane.com
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Cc: Piet Delaney <piet@bluelane.com>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>,
+	David Miller <davem@davemloft.net>, Andi Kleen <ak@suse.de>,
+	piet at work <piet@work.piet.net>,
+	Rajneesh Saini <rksaini@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:15328 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S964852AbWGTUWN
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jul 2006 16:22:13 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1G3f2I-0001it-Gw
-	for netdev@vger.kernel.org; Thu, 20 Jul 2006 16:22:18 -0400
-To: Jay Vosburgh <fubar@us.ibm.com>
-In-Reply-To: <200607201850.k6KIo0hg016751@death.nxdomain.ibm.com>
+Received: from mse2fe2.mse2.exchange.ms ([66.232.26.194]:35539 "EHLO
+	mse2fe2.mse2.exchange.ms") by vger.kernel.org with ESMTP
+	id S964890AbWGTUYi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jul 2006 16:24:38 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <44BFE1D2.8060004@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-20-07 at 11:50 -0700, Jay Vosburgh wrote:
+On Thu, 2006-07-20 at 16:04 -0400, Jeff Garzik wrote:
+> Piet Delaney wrote:
+> > Do any of you use tools other than ANVL for RFC compliance while
+> > hacking to the tcp code?
+> > 
+> > In the unlikely event that there isn't an alternate; is there any
+> > interest in a netdev group effort to motivate Ixia to porting their C 
+> > sharp code to linux. I get the feeling that come of their developers
+> > would like to port the code to linux.
+> 
+> 
+> Linux is the most RFC-compliant net stack in the world...  if they don't 
+> want to support Linux, it's their loss.  :)
+
+They aren't exactly dropping support for Linux, they 'just' are not 
+plaining to port the new ethereal like GUI to Lunux:
+------------------------------------------------------------------------------
+Hi Piet,
+
+Unfortunately there is no plan to redesign the GUI for Linux. We added
+support for Windows a couple of releases back. The latest release 7.10
+has been benefit by a new Windows GUI framework we have designed for all
+windows based Ixia test application. The new GUI is based on C#, which
+includes ethereal like packet decode, ladder diagram, Outlook like GUI
+design. Currently there is big challenge to implement the same GUI for
+Linux. The needed resource is also an issue. Ixia will continue to
+maintain and support Linux platform. Please rest assure. Both windows
+and linux platforms share the same under layer test engine.. So there is
+no difference in test cases. Ixia also offers an upgrade path from Linux
+to Windows. Please contact your local Ixia sales if you are interested.
+Dean
+-------------------------------------------------------------------------------
+
+I wonder if Microsoft is providing the "big challenge" to porting the
+same GUI to linux. The world really doesn't need yet another Java
+language. Gosling is a Genius, I studied his X11 News Server enough
+to know first hand. Microsoft lost in court with their violating the
+Java standards and C sharp seems to be just another stratagy to their
+bizarre attempt to world domination (Like the SCO mess).
+
+I suggest that Linux networking companies like UNM and us be Beta
+customers for a port. So far it hasn't been entertained TMBK.
+ 
+-piet
 
 > 
-> 	Do the initscript and sysconfig packages (/sbin/ifup, ifdown,
-> that stuff in /etc/sysconfig/network-scripts, etc) do the right thing
-> with this change?
+> 	Jeff
 > 
-
-I havent seen issues so far.
-
-> 	If memory serves, the initscripts will down the bond during
-> setup; I'm not sure if there is any dependency on that action releasing
-> all (possibly preexisting) slaves.
 > 
+-- 
+Piet Delaney
+BlueLane Teck
+W: (408) 200-5256; piet@bluelane.com
+H: (408) 243-8872; piet@piet.net
 
-The one i have experimented with has no issues - but you may be right
-some people depend on this behavior at shutdown.
-
-> 	I don't have a big problem with this, but I'm a little concerned
-> that there may be dependencies on the existing behavior.
-
-I could add a module parameter that restores old behavior when asked to
-and we keep that for a while and have it print a warning message.
-The other alternative is just release it and see if someone complains.
-
-cheers,
-jamal
 
