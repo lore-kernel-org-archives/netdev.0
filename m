@@ -1,62 +1,36 @@
-From: Evgeniy Polyakov <s0mbre@tservice.net.ru>
-Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Thu, 20 Jul 2006 11:42:30 +0400
-Message-ID: <20060720074230.GA21258@tservice.net.ru>
-References: <20060719110035.GA10081@wohnheim.fh-wedel.de>
+From: "Margo" <Maestro@74.ru>
+Subject: Re[5]:How do you do
+Date: Thu, 20 Jul 2006 10:59:06 +0300
+Message-ID: <00bb01c6abd2$5d186700$4d15000a__21230.0454536036$1153382328$gmane$org@hJUx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="windows-1251"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [195.178.208.66] ([195.178.208.66]:5870 "EHLO tservice.net.ru")
-	by vger.kernel.org with ESMTP id S932567AbWGTHmb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 03:42:31 -0400
-To: Jrn Engel <joern@wohnheim.fh-wedel.de>
-Content-Disposition: inline
-In-Reply-To: <20060719110035.GA10081@wohnheim.fh-wedel.de>
+Received: from 61.17.205.223.bb-dynamic.vsnl.net.in ([61.17.205.223]:48143
+	"EHLO 61.17.205.223.bb-dynamic.vsnl.net.in") by vger.kernel.org
+	with ESMTP id S932574AbWGTH60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 03:58:26 -0400
+To: "netdev" <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi my Dear Stranger!
 
-[ Sorry for long delay, there are some problems with mail servers, so I
-can not access them remotely, so I create mail by hads, hopefully thread
-will not be broken. ]
+I'm a very young and energetic lady! I have very positive attitude to life and people. I do enjoy new experience life can offer me: to see new interesting places, to meet new people.
+I do try to enjoy every moment of life and accept everything the way it comes without complaining.
+Though my life seems to be quite enjoyable there's one important thing missing. It's LOVE!
+Without my beloved one, my soul mate, my King my life is not completed.
+I wish i coud find him very soon so that we could share together every momement of the life-time romance! 
+What about you? Could you be my King? If answer is "yes" - you can find more about me 
+http://iamsearching-forlove.com/
 
->> > Your description makes it sound as if you would take a huge leap,
->> > changing all in-kernel code _and_ the userspace interface in a
->> > single
->> > patch.  Am I wrong?  Or am I right and would it make sense to
->> > extract
->> > small incremental steps from your patch similar to those Van did in
->> > his non-published work?
->> 
->> My first implementation used existing kernel code and showed small
->> performance win - there was binding of the socket to netchannel and
->> all
->> protocol processing was moved into process context.
+good-bye
 
->Iirc, Van didn't show performance numbers but rather cpu utilization
->numbers.  And those went down significantly without changing the
->userspace interface.
+Margo
 
-At least lca presentation graphs shows exactly different numbers - 
-performance without CPU utilization (but not as his tables).
+If you think that you were subscribed by mistake for this mail
+delivery or if your email has been added without your permission,
+please, visit http://iamsearching-forlove.com/ and unsubscribe from our mails.
 
->Did you look at cpu utilization as well?  If you did and your numbers
->are worse than Vans, he either did something smarter than you or
->forged his numbers (quite unlikely).
 
-Interesting sentence from political correcteness point of view :)
-
-I did both CPU and speed measurements when used socket code [1], 
-and both of them showed small gain, but I only tested 1gbit setup, so
-they can not be compared with Van's.
-But even with 1gb I was not satisfied with them, so I started different
-implementation, which I described in my e-mail to Alexey.
-
-1. speed/cpu measurements of one of the netchannels implementation which
-used socket code.
-http://thread.gmane.org/gmane.linux.network/36609/focus=36614
-
--- 
-	Evgeniy Polyakov
