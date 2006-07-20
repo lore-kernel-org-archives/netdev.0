@@ -1,55 +1,65 @@
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Fri, 21 Jul 2006 09:40:32 +1200
-Message-ID: <5640c7e00607201440v38911f9ble6dbee9f6725be99@mail.gmail.com>
-References: <20060719131915.GA21942@ms2.inr.ac.ru>
-	 <20060720073223.GA15567@tservice.net.ru>
-	 <20060720164100.GA9213@ms2.inr.ac.ru>
-	 <20060720210849.GA28715@tservice.net.ru>
+From: Piet Delaney <piet@bluelane.com>
+Subject: Re: Alternate to Ixia's ANVL test harness for tcp compliance.
+Date: Thu, 20 Jul 2006 14:42:57 -0700
+Message-ID: <1153431778.15610.19.camel@piet2.bluelane.com>
+References: <1153424967.8114.450.camel@piet2.bluelane.com>
+	 <44BFE1D2.8060004@garzik.org>
+	 <1153427074.8114.466.camel@piet2.bluelane.com>
+	 <44BFF644.2020507@garzik.org>
+Reply-To: piet@bluelane.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Cc: Piet Delaney <piet@bluelane.com>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>,
+	David Miller <davem@davemloft.net>, Andi Kleen <ak@suse.de>,
+	piet at work <piet@work.piet.net>,
+	Rajneesh Saini <rksaini@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-f131.google.com ([64.233.182.131]:26660 "EHLO
-	nf-out-f131.google.com") by vger.kernel.org with ESMTP
-	id S1030383AbWGTVke (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jul 2006 17:40:34 -0400
-Received: by nf-out-f131.google.com with SMTP id k65so28774nfa
-        for <netdev@vger.kernel.org>; Thu, 20 Jul 2006 14:40:33 -0700 (PDT)
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20060720210849.GA28715@tservice.net.ru>
-Content-Disposition: inline
+Received: from mse2fe2.mse2.exchange.ms ([66.232.26.194]:27239 "EHLO
+	mse2fe2.mse2.exchange.ms") by vger.kernel.org with ESMTP
+	id S1030384AbWGTVnC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jul 2006 17:43:02 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <44BFF644.2020507@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->
-> If we consider netchannels as how Van Jackobson discribed them, then
-> mutext is not needed, since it is impossible to have several readers or
-> writers. But in socket case even if there is only one userspace
-> consumer, that lock must be held to protect against bh (or introduce
-> several queues and complicate a lot their's management (ucopy for
-> example)).
->
-As I recall Van's talk you don't need a lock with a ring buffer if you
-have a start and end variable pointing to location within ring buffer.
+On Thu, 2006-07-20 at 17:31 -0400, Jeff Garzik wrote:
+> Piet Delaney wrote:
+> > I wonder if Microsoft is providing the "big challenge" to porting the
+> > same GUI to linux. The world really doesn't need yet another Java
+> > language. Gosling is a Genius, I studied his X11 News Server enough
+> > to know first hand. Microsoft lost in court with their violating the
+> > Java standards and C sharp seems to be just another stratagy to their
+> > bizarre attempt to world domination (Like the SCO mess).
+> 
+> Runtime dynamic bytecode languages -- Java, Perl, Python, Ruby, ... -- 
+> do seem to be all the rage.
+> 
+> As DaveM noted, though, C# is fully supported under Linux.
+> 
+> Or maybe they could go for Gtk+, which has successfully been used to 
+> maintain complex GUIs apps on both Windows and Linux.  GIMP is the most 
+> notable example, but use of Gtk+, GLib, and mingw has meant that you can 
+> build Linux-ish apps on Windows without nasty porting layers like Cygwin.
 
-He didn't explain this in great depth as it is computer science 101
-but here is how I would explain it:
+Perhaps, but my experience with GTK has been that it's difficult
+to get installed right if you put it on /usr/local. I tried compiling
+ethereal for our platform and it needed GTK and a series of other
+libraries. I suspect it's likely a major effort to migrate from a
+Microsoft C sharp environment to GTK.
 
-Once socket is initialiased consumer is the only one that sets start
-variable and network driver reads this only. It is the other way
-around for the end variable. As long as the writes are atomic then you
-are fine. You only need one ring buffer in this scenario and two
-atomic variables.
+-piet
 
-Having atomic writes does have overhead but far less than locking semantic.
+> 
+> 	Jeff
+> 
+> 
 -- 
-Ian McDonald
-Web: http://wand.net.nz/~iam4
-Blog: http://imcdnzl.blogspot.com
-WAND Network Research Group
-Department of Computer Science
-University of Waikato
-New Zealand
+Piet Delaney
+BlueLane Teck
+W: (408) 200-5256; piet@bluelane.com
+H: (408) 243-8872; piet@piet.net
+
+
