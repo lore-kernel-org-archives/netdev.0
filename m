@@ -1,51 +1,75 @@
-From: Nicolas DICHTEL <nicolas.dichtel@6wind.com>
-Subject: [PATCH][NET]: fix dummy initialization
-Date: Thu, 20 Jul 2006 17:27:33 +0200
-Message-ID: <44BFA0E5.5040502@6wind.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Oumer Teyeb <oumer@kom.aau.dk>
+Subject: Re: Weird TCP SACK problem. in Linux...
+Date: Thu, 20 Jul 2006 17:41:28 +0200
+Message-ID: <44BFA428.9000408@kom.aau.dk>
+References: <44BD38B1.1080807@kom.aau.dk> <20060719132719.GA22143@ms2.inr.ac.ru> <44BE498F.9070001@kom.aau.dk> <20060719154934.GA29877@ms2.inr.ac.ru> <44BE5E89.1020002@kom.aau.dk> <44BE6C9A.1030601@kom.aau.dk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080607040702080500060404"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail01.net-streams.fr ([62.23.133.110]:29196 "EHLO
-	net-streams.fr") by vger.kernel.org with ESMTP id S1030335AbWGTPYY
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jul 2006 11:24:24 -0400
-To: netdev <netdev@vger.kernel.org>
+Received: from zaz.kom.auc.dk ([130.225.51.10]:21436 "EHLO zaz.kom.auc.dk")
+	by vger.kernel.org with ESMTP id S1030333AbWGTPlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 11:41:55 -0400
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <44BE6C9A.1030601@kom.aau.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080607040702080500060404
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Hi Alexy, Is there anything linux specific about the DSACK 
+implementation that might lead to increase in the number of 
+retransmissions, but leads to improvment in download time when 
+timestamps are not used (and the reverse effect  when timestamps are 
+used, less retransmissions but bigger download times)?  because I 
+couldnt figure it out,....also is there anywhere where the reordering 
+response of tcp linux described? (it seem dupthreshold is dynamically 
+adjusted based on the reordering history... but I was not able to find 
+out how...)...
+ 
+Oumer Teyeb wrote:
 
-Same problem and same fix that for IFB.
+> Oumer Teyeb wrote:
+>
+>> Hi,
+>>
+>> Alexey Kuznetsov wrote:
+>>
+>>> Condition triggering start of fast retransmit is the same.
+>>> The behaviour while retransmit is different. FACKless code
+>>> behaves more like NewReno.
+>>>  
+>>>
+>> Ok, that is a good point!!  Now at least I can convince myself the 
+>> CDFs for the first retransmissions showing that SACK leads to earlier 
+>> retransmissions than no SACK are not wrong....and I can even convince 
+>> myself that this is the real reason behind sack/fack's performance 
+>> degredation for the case of no timestamps,:-)... ...
+>
+>
+> Actually, then the increase in the number of retransmissions and the 
+> increase in teh download time from no SACK - SACK for timestamp case 
+> seems to make sense also...my reasoning is like this...if there is 
+> timestamps, that means there is reordering detection...hence the 
+> number retransmissions are reduced because we avoid the time spent in 
+> fast recovery.... when we introduce SACK on top of timestamps, we 
+> enter fast retransmits earlier than no SACK case as we seem to agree, 
+> and since the timestamp reduces the number of retransmission once we 
+> are in fast recovery, the retransmissions we see are basically the 
+> first few retransmissions that made us enter the false fast 
+> retransmits, so we have a little increase in the retransmissions and a 
+> little increase in the download times... but when no timestamps are 
+> used, there is no reordering detection and so SACK leads to less 
+> number of retransmissions because it retransmits selectively, but it 
+> doesnt improve the download time because it enters fast retransmit 
+> eralier than the no SACK and in this case the fast retransmits are 
+> very costly because they are not detected lead to window reduction.... 
+> am I making sense?:-).... still the DSACK case is puzzling me....
+>
+> Regards,
+> Oumer
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Regards,
-Nicolas
 
-
-[NET][DUMMY] Avoid an oops when dummy_init_one() failed
-
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-
---------------080607040702080500060404
-Content-Type: text/x-patch;
- name="x.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x.diff"
-
---- a/drivers/net/dummy.c	2006-07-20 16:19:09.395351558 +0200
-+++ b/drivers/net/dummy.c	2006-07-20 16:19:58.802327279 +0200
-@@ -132,6 +132,7 @@
- 	for (i = 0; i < numdummies && !err; i++)
- 		err = dummy_init_one(i); 
- 	if (err) { 
-+		i--;
- 		while (--i >= 0)
- 			dummy_free_one(i);
- 	}
-
---------------080607040702080500060404--
