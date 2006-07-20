@@ -1,64 +1,96 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: ipw2200: Driver lockup
-Date: Thu, 20 Jul 2006 13:22:34 +0800
-Message-ID: <1153372954.3485.7.camel@debian.sh.intel.com>
-References: <20060719142833.GA21345@linux-mips.org>
-	 <1153356597.2542.7.camel@localhost.localdomain>
-	 <20060720025810.GA5901@tuxdriver.com>
+From: Russell Stuart <russell-tcatm@stuart.id.au>
+Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL (RTAB
+	BUG)
+Date: Thu, 20 Jul 2006 15:47:54 +1000
+Message-ID: <1153374474.4231.103.camel@ras.pc.brisbane.lube>
+References: <1150843471.17455.2.camel@ras.pc.brisbane.lube>
+	 <15653CE98281AD4FBD7F70BCEE3666E53CD54A@comxexch01.comx.local>
+	 <1151000966.5392.34.camel@jzny2>
+	 <1151066247.4217.254.camel@ras.pc.brisbane.lube>
+	 <1151158431.6716.95.camel@jzny2>
+	 <1153188409.13145.5.camel@ras.pc.brisbane.lube>
+	 <44BD56A4.9090002@andyfurniss.entadsl.com>
+	 <1153270932.4242.60.camel@ras.pc.brisbane.lube>
+	 <44BE44E3.9080100@andyfurniss.entadsl.com>
+	 <Pine.LNX.4.61.0607192114240.9570@tyr.diku.dk>
+	 <20060719210004.GB20264@ms2.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw@redhat.com>, Ralf Baechle <ralf@linux-mips.org>,
-	netdev@vger.kernel.org, Stefan Rompf <stefan@loplof.de>,
-	James Ketrenos <jketreno@linux.intel.com>,
-	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	Andy Furniss <lists@andyfurniss.entadsl.com>, hadi@cyberus.ca,
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:62290 "EHLO
-	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1030247AbWGTFia (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jul 2006 01:38:30 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060720025810.GA5901@tuxdriver.com>
+Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:59816 "EHLO
+	adsl-kenny.stuart.id.au") by vger.kernel.org with ESMTP
+	id S1030272AbWGTFtC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jul 2006 01:49:02 -0400
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <20060719210004.GB20264@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-07-19 at 22:58 -0400, John W. Linville wrote:
-> For what it is worth, there was a patch for this posted back
-> in January.  It stirred-up a kerfluffle, so it never got merged.
-> FWIW, it touches on 802.11e QoS and multiple TX queues -- my personal
-> favorite wireless subject...NOT!
-> 
-> The thread is available here (first post not connected to follow-up
-> thread for some reason):
-> 
-> 	http://marc.theaimsgroup.com/?l=linux-netdev&m=113809246102858&w=2
-> 	http://marc.theaimsgroup.com/?l=linux-netdev&m=113814103024576&w=2
-> 
-> Given that half a year has passed, does anyone have any better ideas
-> now?  Should I merge the patch?  Or is the cure worse than the disease?
+On Thu, 2006-07-20 at 01:00 +0400, Alexey Kuznetsov wrote:
+> Hello!
 
-The patch from Stefan Rompf in the second link has already been merged.
-The first one was already merged (with slightly difference). We can just
-remove the ieee80211 warning now.
+So you really do exist?  I thought it was just
+rumour.
 
-[PATCH] ieee80211: remove ieee80211_tx() is_queue_full warning
+> Well, if fixed point arithmetics is not a problem.
 
-Signed-off-by: Zhu Yi <yi.zhu@intel.com>
----
+It shouldn't be.  Any decimal number can be expressed
+as a fraction, eg:
 
---- a/net/ieee80211/ieee80211_tx.c
-+++ b/net/ieee80211/ieee80211_tx.c
-@@ -533,13 +533,6 @@ int ieee80211_xmit(struct sk_buff *skb, 
- 			return 0;
- 		}
- 
--		if (ret == NETDEV_TX_BUSY) {
--			printk(KERN_ERR "%s: NETDEV_TX_BUSY returned; "
--			       "driver should report queue full via "
--			       "ieee_device->is_queue_full.\n",
--			       ieee->dev->name);
--		}
--
- 		ieee80211_txb_free(txb);
- 	}
- 
+  0.00123 = 123/100000
+
+Which can be calculated as a multiply and a divide. With
+MTU's up to 2048, it should be possible to do this with
+99.9999% accuracy (ie 2048/2^23).
+
+With a bit more work in userspace (ie in tc), it can be
+be reduced to a multiply and a shift.
+
+> Plus, remember, the function is not R*size, it is at least
+> R*size+addend, to account for link overhead. Plus account for padding
+> of small packets. Plus, when policing it should deaccount already added
+> link headers, QoS counts only network payload.
+
+Yes, it is flexible - and has served us well up until
+now.  It doesn't work well for ATM, but with a small
+bit of extra calculation in the kernel it could.
+However, it turns out that ATM is a special case.  If 
+ATM's cell payload was 58 bytes instead of 48 bytes 
+(say), then it would not be possible to produce a RTAB 
+that had small errors (eg < 10%) for smallish packet 
+sizes (< 290 bytes).  I seem to have trouble 
+explaining why in a concise way that people understand, 
+so I won't try here.
+
+So when Alan Cox said our ATM patch didn't solve the 
+packetisation problem in general, he was right as our
+patch just built upon RTAB.  Patrick's STAB proposal 
+in general either for that matter, as it is just another 
+implementation of RTAB with the same limitations.  The 
+only way I can think of to solve it in general is to 
+move many more calculations into the kernel - as I 
+proposed in a long winded answer to Patrick earlier 
+in this thread.
+
+But doing so would get rid of the table implementation 
+and the flexibility it has given us to date.  For that 
+reason I feel uncomfortable with it.
+
+The engineering decision becomes this - are there any
+other protocols like ATM out there that could justify 
+such a change?  (In my more cynical moments I think of 
+it differently - has/is the world going to make a 
+second engineering fuck up on the scale of ATM again?  
+How on earth did anyone decide that pushing data 
+packets over ATM, as happens in ADSL, was a good 
+idea?)  I know of no other such protocols.  But then
+I don't have an encyclopedic knowledge of comms
+protocols, so that doesn't mean much.  I suspect you
+know a good deal more about them than I do.  What say
+you?
+
