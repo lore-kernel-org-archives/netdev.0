@@ -1,64 +1,72 @@
-From: "Ivo Van Doorn" <ivdoorn@gmail.com>
-Subject: Re: [PATCH] drivers/net/wireless/d80211: Check configuration type in hw->config_interface.
-Date: Thu, 20 Jul 2006 18:47:50 +0200
-Message-ID: <a32f33a40607200947o456d703emef604f7a28d2bb0b@mail.gmail.com>
-References: <44BE958C.4030401@6wind.com>
-	 <20060720104634.0a8961da@griffin.suse.cz>
-	 <a32f33a40607200919t38a2d123y3626a74fa87ac725@mail.gmail.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: e1000: "fix" it on thinkpad x60 / eeprom checksum read fails
+Date: Thu, 20 Jul 2006 10:34:23 -0700
+Message-ID: <44BFBE9F.7070600@intel.com>
+References: <20060721005832.GA1889@elf.ucw.cz> <44BFADA6.6090909@intel.com> <20060720170758.GA9938@atrey.karlin.mff.cuni.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Jean-Mickael Guerin" <jean-mickael.guerin@6wind.com>,
-	linville@tuxdriver.com, netdev@vger.kernel.org,
-	"Michael Wu" <flamingice@sourmilk.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.180]:61476 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S1750738AbWGTQrv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jul 2006 12:47:51 -0400
-Received: by py-out-1112.google.com with SMTP id c39so788205pyd
-        for <netdev@vger.kernel.org>; Thu, 20 Jul 2006 09:47:50 -0700 (PDT)
-To: "Jiri Benc" <jbenc@suse.cz>
-In-Reply-To: <a32f33a40607200919t38a2d123y3626a74fa87ac725@mail.gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: Auke Kok <auke-jan.h.kok@intel.com>, cramerj@intel.com,
+	john.ronciak@intel.com, jesse.brandeburg@intel.com,
+	jeffrey.t.kirsher@intel.com,
+	kernel list <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750828AbWGTRiN@vger.kernel.org>
+To: Pavel Machek <pavel@ucw.cz>
+In-Reply-To: <20060720170758.GA9938@atrey.karlin.mff.cuni.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Pavel Machek wrote:
+> Hi!
+> 
+>>> e1000 in thinkpad x60 fails without this dirty hack. What to do with
+>>> it?
+>>>
+>>> Signed-off-by: Pavel Machek <pavel@suse.cz>
+>> NAK, certainly this should never be merged in any tree...
+>>
+>> this is a known issue that we're tracking here:
+>>
+>> http://sourceforge.net/tracker/index.php?func=detail&aid=1474679&group_id=42302&atid=447449
+>>
+>> Summary of the issue:
+>>
+>> Lenovo has used certain BIOS versions where ASPD/DSPD was turned on which 
+>> turns the PHY off when no cable is inserted to save power. The e1000 driver 
+>> already turns off this feature but can't do this until the driver is 
+>> loaded. It seems that turning this feature on causes the MAC to give read 
+>> errors.
+>>
+>> Lenovo seems to have the feature turned off in their latest BIOS versions, 
+>> we encourage all people to upgrade their BIOS with the latest version from 
+>> Lenovo (available from their website). It seems that for at least 2 people, 
+>> this has fixed the problem.
+>>
+>> Inserting a cable obviously might also work :)
+> 
+> Hehe.
+> 
+>> We did reproduce the problem initially with the old BIOS (1.01-1.03) on a 
+>> T60 system, but unfortunately the bug disappeared into nothingness.
+>>
+>> Bypassing the checksum leaves the NIC in an uncertain state and is not 
+>> recommended.
+> 
+> Okay, perhaps this should be inserted as a comment into the driver,
+> and printk should be fixed to point at this explanation?
+> 
+> Can't we enable the driver with the bad checksum, then read the _real_
+> data?
 
-> > > This patch prevents a NULL pointer dereferencing in AP mode:
-> > > ieee80211_if_config will set conf->bssid only if device is of type STA
-> > > or IBSS.
-> > > I see it using following commands right after module loading (with rt61)
-> > > # iwconfig wlan0 mode Master
-> > > # ifconfig wlan0 up
-> >
-> > The patch seems to fix the problem at a wrong place. rt2x00 has broken
-> > add_interface handler - it allows adding of AP interface even though the
-> > driver doesn't support AP mode. It is add_interface callback that should
-> > be fixed in rt2x00.
->
-> Well rt2x00 does support AP mode, our latest CVS tree (patches for
-> wireless-dev are in progress) has even shown a working configuration
-> for some users.
-> So add_interface is correct at allowing the AP interface, perhaps some
-> more steps
-> are required to make it completely work, but it is work in progress.
->
-> > The check in the patch most likely won't be needed even after AP mode
-> > support is added to rt2x00 - the driver needs to handle AP mode
-> > differently so config_interface callback will be rewritten anyway.
->
-> I'll make a check to see if the bssid is NULL or invalid in the
-> config_bssid() function,
-> and make sure that in AP mode the MAC is written as BSSID.
+no.
 
-I won't be able to send this patch seperately, so it will become part
-of the larger series
-that I am currently working on, that patch series throws a lot of code
-around and has some major changes to the rt2x00 code so expect very
-large patches.
-The bssid is NULL fix was already in my cvs tree,
-so only the update to use the MAC as BSSID in master mode has been added.
+We're working on a solution where we make sure that the PHY is physically 
+turned on properly before we read the EEPROM, which would be the proper fix. 
+It's completely not acceptable to run when the EEPROM checksum fails - you 
+might even be running with the wrong MAC address, or worse. Lets fix this the 
+right way instead.
 
-Ivo
+Auke
+
+PS: adding netdev to the CC...
