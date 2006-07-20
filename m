@@ -1,52 +1,51 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: [PATCH] Qlogic qla3xxx driver v2.02.00-k36 for upstream inclusion.
-Date: Thu, 20 Jul 2006 18:59:28 +0400
-Message-ID: <44BF9A50.60207@tls.msk.ru>
-References: <0BB3E5E7462EEA4295BC02D49691DC07223E4E@AVEXCH1.qlogic.org> <20060720145025.GA305@andrew-vasquezs-powerbook-g4-15.local>
+From: Nicolas DICHTEL <nicolas.dichtel@6wind.com>
+Subject: [PATCH][NET]: fix dummy initialization
+Date: Thu, 20 Jul 2006 17:27:33 +0200
+Message-ID: <44BFA0E5.5040502@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ron Mercer <ron.mercer@qlogic.com>
+Content-Type: multipart/mixed;
+ boundary="------------080607040702080500060404"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hobbit.corpit.ru ([81.13.94.6]:64603 "EHLO hobbit.corpit.ru")
-	by vger.kernel.org with ESMTP id S932588AbWGTO7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 10:59:32 -0400
-To: Andrew Vasquez <andrew.vasquez@qlogic.com>
-In-Reply-To: <20060720145025.GA305@andrew-vasquezs-powerbook-g4-15.local>
+Received: from mail01.net-streams.fr ([62.23.133.110]:29196 "EHLO
+	net-streams.fr") by vger.kernel.org with ESMTP id S1030335AbWGTPYY
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jul 2006 11:24:24 -0400
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Vasquez wrote:
-> On Thu, 20 Jul 2006, Ron Mercer wrote:
-> 
->> qla3xxx driver  does not support ISP4010.
-> 
-> Exactly...  The qla3xxx driver supports the NIC function only.
+This is a multi-part message in MIME format.
+--------------080607040702080500060404
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-...which is provided by ISP4010 card, as appears on PCI bus:
+Same problem and same fix that for IFB.
 
-04:04.0 Ethernet controller: QLogic Corp. QLA3010 Network Adapter (rev 05)
-04:04.1 Network controller: QLogic Corp. QLA4010 iSCSI TOE Adapter (rev 05)
+Regards,
+Nicolas
 
-(the first (sub)device).  So it *looks* like the card has *both*
-a NIC and iSCSI TOE adapter, and the NIC part is pretty much similar
-to what qla3xxx driver expects...  That's why my curiosity. ;)
 
-(not that it matters much, just.. curious, really.
-Well.  Not exactly.  It'd be nice to compare a NIC w/o Jumbo
-frames support (which we have on all machines connected to
-the iSCSI segment), with something more.. advanced.  So I
-wondered if I can utilize the NIC part of the ISP4010 for
-the test.  iSCSI part of the card works significantly slower
-than open-iscsi stack on non-jumbo-frames-aware Tigon GigE NIC).
+[NET][DUMMY] Avoid an oops when dummy_init_one() failed
 
-[]
-> You'll need to use the qla4xxx driver to drive the iSCSI function.
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Yeah, I know.  I posted some results to open-iscsi@ list about a week
-ago.  It basically works (the new one, with open-iscsi infrastructure),
-but is slooow... ;)
+--------------080607040702080500060404
+Content-Type: text/x-patch;
+ name="x.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x.diff"
 
-Thanks.
+--- a/drivers/net/dummy.c	2006-07-20 16:19:09.395351558 +0200
++++ b/drivers/net/dummy.c	2006-07-20 16:19:58.802327279 +0200
+@@ -132,6 +132,7 @@
+ 	for (i = 0; i < numdummies && !err; i++)
+ 		err = dummy_init_one(i); 
+ 	if (err) { 
++		i--;
+ 		while (--i >= 0)
+ 			dummy_free_one(i);
+ 	}
 
-/mjt
+--------------080607040702080500060404--
