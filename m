@@ -1,33 +1,32 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Alternate to Ixia's ANVL test harness for tcp compliance.
-Date: Thu, 20 Jul 2006 17:56:21 -0400
-Message-ID: <44BFFC05.9030401@garzik.org>
-References: <1153424967.8114.450.camel@piet2.bluelane.com> <1153427074.8114.466.camel@piet2.bluelane.com> <44BFF644.2020507@garzik.org> <200607201647.15334.bcook@bpointsys.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] via-velocity: fix reported speed and link detected status
+Date: Thu, 20 Jul 2006 23:57:28 +0200
+Message-ID: <20060720215728.GA32119@electric-eye.fr.zoreil.com>
+References: <20060720032854.GA4520@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: piet@bluelane.com, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@osdl.org>,
-	David Miller <davem@davemloft.net>, Andi Kleen <ak@suse.de>,
-	piet at work <piet@work.piet.net>,
-	Rajneesh Saini <rksaini@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:20407 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1750840AbWGTV5P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 17:57:15 -0400
-To: Brent Cook <bcook@bpointsys.com>
-In-Reply-To: <200607201647.15334.bcook@bpointsys.com>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:49120 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1030388AbWGTV76
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jul 2006 17:59:58 -0400
+To: Jay Cliburn <jacliburn@bellsouth.net>
+Content-Disposition: inline
+In-Reply-To: <20060720032854.GA4520@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brent Cook wrote:
-> Just because the GUI is C# does not mean that it does not have a number of 
-> Windows-only dependencies, unless it was implemented with portability 
-> in-mind.
+Jay Cliburn <jacliburn@bellsouth.net> :
+> The via-velocity driver reports incorrect speed and link detected status
+> as viewed by ethtool (and probably other tools). This patch fixes those
+> incorrect reports and prettifies a long line.
 
-Well, sure...  The same can be said of any source code base, for any set 
-of platforms, for any given language.
+Looks fine.
 
-	Jeff
+Fixed the whitespace/tabs damage, the 190 cols comment  and taged as
+'upstream-20060720-00' in branch 'upstream' at
+git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
 
-
+-- 
+Ueimor
