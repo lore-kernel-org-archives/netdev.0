@@ -1,43 +1,51 @@
-From: "Liz Carmichael" <LizCarmichael@0451.com>
-Subject: Hi, mild silver protein
-Date: Thu, 20 Jul 2006 18:40:58 +0000 (UTC)
-Message-ID: <662161c80604uzd76a5abm6pf2elcf5gotfuphelddvzhb@mail.0451.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [RFC/PATCH][Bonding]: keep slave state when admin down
+Date: Thu, 20 Jul 2006 11:50:00 -0700
+Message-ID: <200607201850.k6KIo0hg016751@death.nxdomain.ibm.com>
+References: <1153401556.5098.43.camel@jzny2>
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus2.kernel.org ([204.152.191.36]:36007 "EHLO zeus2.kernel.org")
-	by vger.kernel.org with ESMTP id S1750930AbWGTSk2 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jul 2006 14:40:28 -0400
-Date: Fri, 21 Jul 2006 16:43:49 -0060
-To: netdev-owner@vger.kernel.org
-Content-Disposition: inline
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:28368 "EHLO e3.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S964787AbWGTSuG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 14:50:06 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e3.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k6KIo2Zg026018
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Thu, 20 Jul 2006 14:50:04 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay02.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k6KIo21h275114
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 20 Jul 2006 14:50:02 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k6KIo2jm013299
+	for <netdev@vger.kernel.org>; Thu, 20 Jul 2006 14:50:02 -0400
+To: hadi@cyberus.ca
+In-reply-to: <1153401556.5098.43.camel@jzny2> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Even if you have no erectin problems SOFT CIAFLIS 
-would help you to make BETTER SE0X MORE OFTEN!
-and to bring  unimagnable plesure to her.
+jamal <hadi@cyberus.ca> wrote:
 
-Just disolve half a pil under your tongue 
-and get ready for action in 15 minutes. 
+>When a bonding netdevice is admin-ed down it looses the slaves
+>attributes (set via ifenslave). This is not consistent with other
+>behavior of netdevices (example a qdisc attached to a netdevice doesnt
+>disappear or an attached IP address etc).
+>The included patch fixes this. Ive tested by ifenslaving, downing the
+>bond, checking /proc and making sure it still has the slaves, up-ing the
+>bond and making sure things continue to work.
 
-The tests showed that the majority of men 
-after taking this medic ation were able to have 
-PERFECT ER5ECTION during 36 hours!
+	Do the initscript and sysconfig packages (/sbin/ifup, ifdown,
+that stuff in /etc/sysconfig/network-scripts, etc) do the right thing
+with this change?
 
-VISIT US, AND GET OUR SPECIAL 70% DISCSOUNT OFER!
+	If memory serves, the initscripts will down the bond during
+setup; I'm not sure if there is any dependency on that action releasing
+all (possibly preexisting) slaves.
 
-http://28D4pluncvv2vrd087p0u7piu7p7.lieshag.com/
+	I don't have a big problem with this, but I'm a little concerned
+that there may be dependencies on the existing behavior.
 
-=====
-excellent science fiction is being produced in East Germany, Czechoslovakia,
-the showers.
-avidly sought by the science-fiction reader. It has space flight and  future
-would he get the  money from? He was a foreign scientist, and a  Russian one
-of advances and discoveries of a technological nature.  Discoveries that our
-stand what bastard could have squealed.
+	-J
 
-remember?"
-stalker."
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
