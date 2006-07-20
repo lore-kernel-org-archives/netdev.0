@@ -1,36 +1,48 @@
-From: "Margo" <Maestro@74.ru>
-Subject: Re[5]:How do you do
-Date: Thu, 20 Jul 2006 10:59:06 +0300
-Message-ID: <00bb01c6abd2$5d186700$4d15000a__21230.0454536036$1153382328$gmane$org@hJUx>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH] drivers/net/wireless/d80211: Check configuration type
+ in hw->config_interface.
+Date: Thu, 20 Jul 2006 10:46:34 +0200
+Message-ID: <20060720104634.0a8961da@griffin.suse.cz>
+References: <44BE958C.4030401@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="windows-1251"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
+	"Ivo Van Doorn" <ivdoorn@gmail.com>,
+	Michael Wu <flamingice@sourmilk.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 61.17.205.223.bb-dynamic.vsnl.net.in ([61.17.205.223]:48143
-	"EHLO 61.17.205.223.bb-dynamic.vsnl.net.in") by vger.kernel.org
-	with ESMTP id S932574AbWGTH60 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 03:58:26 -0400
-To: "netdev" <netdev@vger.kernel.org>
+Received: from styx.suse.cz ([82.119.242.94]:60893 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S932547AbWGTIqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 04:46:36 -0400
+To: Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
+In-Reply-To: <44BE958C.4030401@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi my Dear Stranger!
+On Wed, 19 Jul 2006 22:26:52 +0200, Jean-Mickael Guerin wrote:
+> This patch prevents a NULL pointer dereferencing in AP mode:
+> ieee80211_if_config will set conf->bssid only if device is of type STA 
+> or IBSS.
+> I see it using following commands right after module loading (with rt61)
+> # iwconfig wlan0 mode Master
+> # ifconfig wlan0 up
 
-I'm a very young and energetic lady! I have very positive attitude to life and people. I do enjoy new experience life can offer me: to see new interesting places, to meet new people.
-I do try to enjoy every moment of life and accept everything the way it comes without complaining.
-Though my life seems to be quite enjoyable there's one important thing missing. It's LOVE!
-Without my beloved one, my soul mate, my King my life is not completed.
-I wish i coud find him very soon so that we could share together every momement of the life-time romance! 
-What about you? Could you be my King? If answer is "yes" - you can find more about me 
-http://iamsearching-forlove.com/
+The patch seems to fix the problem at a wrong place. rt2x00 has broken
+add_interface handler - it allows adding of AP interface even though the
+driver doesn't support AP mode. It is add_interface callback that should
+be fixed in rt2x00.
 
-good-bye
+The check in the patch most likely won't be needed even after AP mode
+support is added to rt2x00 - the driver needs to handle AP mode
+differently so config_interface callback will be rewritten anyway.
 
-Margo
+adm8211 driver doesn't have this problem and doesn't need to be
+modified.
 
-If you think that you were subscribed by mistake for this mail
-delivery or if your email has been added without your permission,
-please, visit http://iamsearching-forlove.com/ and unsubscribe from our mails.
+Thanks,
 
+ Jiri
 
+-- 
+Jiri Benc
+SUSE Labs
