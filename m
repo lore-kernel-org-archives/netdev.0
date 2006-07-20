@@ -1,142 +1,62 @@
 From: Evgeniy Polyakov <s0mbre@tservice.net.ru>
 Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Thu, 20 Jul 2006 11:32:23 +0400
-Message-ID: <20060720073223.GA15567@tservice.net.ru>
-References: <20060719131915.GA21942@ms2.inr.ac.ru>
+Date: Thu, 20 Jul 2006 11:42:30 +0400
+Message-ID: <20060720074230.GA21258@tservice.net.ru>
+References: <20060719110035.GA10081@wohnheim.fh-wedel.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [195.178.208.66] ([195.178.208.66]:35772 "EHLO tservice.net.ru")
-	by vger.kernel.org with ESMTP id S964826AbWGTHc0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 03:32:26 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Received: from [195.178.208.66] ([195.178.208.66]:5870 "EHLO tservice.net.ru")
+	by vger.kernel.org with ESMTP id S932567AbWGTHmb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 03:42:31 -0400
+To: Jrn Engel <joern@wohnheim.fh-wedel.de>
 Content-Disposition: inline
-In-Reply-To: <20060719131915.GA21942@ms2.inr.ac.ru>
+In-Reply-To: <20060719110035.GA10081@wohnheim.fh-wedel.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Hello!
-
-Hello, Alexey.
+Hello.
 
 [ Sorry for long delay, there are some problems with mail servers, so I
 can not access them remotely, so I create mail by hads, hopefully thread
 will not be broken. ]
 
->> There is no socket spinlock anymore.
->> Above lock is skb_queue lock which is held inside
->> skb_dequeue/skb_queue_tail calls.
-
-> Lock is named differently, but it is still here.
-> BTW for UDP even the name is the same.
-
-There is no bh processing, that lock is needed for 4 operations when skb
-is enqueued/dequeued.
-
-And if I would changed skbs to different structures there were no locks
-at all - it is extremely lightweight, it can not be compared with socket
-lock at all.
-
-No bh/irq processing at all, natural speed management - that is main idea
-behind netchannels.
-
->> > Equivalent of socket user lock.
+>> > Your description makes it sound as if you would take a huge leap,
+>> > changing all in-kernel code _and_ the userspace interface in a
+>> > single
+>> > patch.  Am I wrong?  Or am I right and would it make sense to
+>> > extract
+>> > small incremental steps from your patch similar to those Van did in
+>> > his non-published work?
 >> 
->> No, it is an equivalent for hash lock in socket table.
+>> My first implementation used existing kernel code and showed small
+>> performance win - there was binding of the socket to netchannel and
+>> all
+>> protocol processing was moved into process context.
 
->OK. But you have to introduce socket mutex somewhere in any case.
->Even in ATCP.
+>Iirc, Van didn't show performance numbers but rather cpu utilization
+>numbers.  And those went down significantly without changing the
+>userspace interface.
 
-Actually not - VJ's idea is to have only one consumer and one provider,
-so no locks needed, but I agree, in general case it is needed, but _only_
-to protect against several netchannel userspace consumers.
-There is no BH protocol processing at all, so there is no need to
-pprotect against someone who will add data while you are processing own
-chunk.
+At least lca presentation graphs shows exactly different numbers - 
+performance without CPU utilization (but not as his tables).
 
->> Just an example - tcp_established() can be called with bh disabled
->> under the socket lock.
+>Did you look at cpu utilization as well?  If you did and your numbers
+>are worse than Vans, he either did something smarter than you or
+>forged his numbers (quite unlikely).
 
-> When we have a process context in hands, it is not.
+Interesting sentence from political correcteness point of view :)
 
->Did you ask youself, why do not we put all the packets to
->backlog/prequeue
->and just wait when user will read the data? It would be 100% equivalent
->to "netchannels".
+I did both CPU and speed measurements when used socket code [1], 
+and both of them showed small gain, but I only tested 1gbit setup, so
+they can not be compared with Van's.
+But even with 1gb I was not satisfied with them, so I started different
+implementation, which I described in my e-mail to Alexey.
 
-How many hacks just to be a bit closer to userspace processing,
-implemented in netchannels!
-
->The answer is simple: because we cannot wait. If user delays for
->200msec,
->wait for connection collapse due to retransmissions. If the segment is
->out of order, immediate attention is required. Any scheme, which tries
->to wait for user unconditionally, at least has to run a watchdog timer,
->which fires before sender senses the gap.
-
-If userspace is scheduled away for too much time, it is bloody wrong to
-ack the data, that is impossible to read due to the fact that system is
-being busy. It is just postponing the work from one end to another - ack
-now and stop when queue is full, or postpone the ack generation when
-segment is realy being read.
-
->And this is what we do for ages. Grep for "VJ" in sources. :-)
->netchannels have nothing to do with it, it is much elder idea.
-
-And it was Van, who decided to move away from BH/irq processing.
-It was slow and a bit pain way (how many hacks with prequeue, with
-direct processing, it is enough just to look how TCP socket lock is locked
-in different contexts :)
-
->> In that case one copies the whole data into userspace, so access for
->> 20 bytes of headers completely does not matter.
-
->For short packets it matters.
-
->But I said not this. I said it looks _worse_. A bit, but worse.
-
-At least for 80 bytes it does not matter at all.
-And it is very likely that data is misaligned, so half of the
-header will be in a cache line. And socket code has the same problem -
-skb->cb can be flushed away, and tcp_recvmsg() needs to get it again.
-And actually I never understood nanooptimisation behind more serious
-problems (i.e. one cache line vs. 50MB/sec speed).
-
->> Hmm, for 80 bytes sized packets win was about 2.5 times. Could you
->> please show me lines inside existing code, which should be commented,
->> so I got 50Mbyte/sec for that?
-
->If I knew it would be done. :-)
->
->Actually, it is the action, which I would expect. This, but
->not dropping all the TCP stack.
-
-I tried to use existing one, and I had speed and CPU usage win, but it's
-magnitude was not what I expected, so I started userspace network stack
-implementation. It was succeded, and there are _very_ major
-optimisations over existing code, when processing is fully moved into
-userspace, but also there are big problems, like one syscall per ack, 
-so I decided to use that stack as a base for in-kernel process protocol 
-processing, and I succeded. Probably I will return to the userspace 
-network stack idea when I complete zero-copy networking support.
-
->> I showed there, that using existing stack it is imposible
-
->Please, understand, it is such statements that compromise your work.
->If it is impossible then it is not interesting.
-
-Do not mix soft and warm - I just post the facts, that netchannel TCP
-implementation works (sumetimes much) faster.
-It is socket code that probably has some misoptimisations, and if it is
-impossible to fix them (well, it least it is very hard), then it is not
-interesting.
-
-I definitely do not say, that it must be removed/replaced/anything - it
-works perfectly ok, but it is possible to have better performance by
-changing architecture, and it was done.
-
->Alexey
+1. speed/cpu measurements of one of the netchannels implementation which
+used socket code.
+http://thread.gmane.org/gmane.linux.network/36609/focus=36614
 
 -- 
 	Evgeniy Polyakov
