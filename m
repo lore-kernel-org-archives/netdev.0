@@ -1,96 +1,142 @@
-From: Russell Stuart <russell-tcatm@stuart.id.au>
-Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL (RTAB
-	BUG)
-Date: Thu, 20 Jul 2006 15:47:54 +1000
-Message-ID: <1153374474.4231.103.camel@ras.pc.brisbane.lube>
-References: <1150843471.17455.2.camel@ras.pc.brisbane.lube>
-	 <15653CE98281AD4FBD7F70BCEE3666E53CD54A@comxexch01.comx.local>
-	 <1151000966.5392.34.camel@jzny2>
-	 <1151066247.4217.254.camel@ras.pc.brisbane.lube>
-	 <1151158431.6716.95.camel@jzny2>
-	 <1153188409.13145.5.camel@ras.pc.brisbane.lube>
-	 <44BD56A4.9090002@andyfurniss.entadsl.com>
-	 <1153270932.4242.60.camel@ras.pc.brisbane.lube>
-	 <44BE44E3.9080100@andyfurniss.entadsl.com>
-	 <Pine.LNX.4.61.0607192114240.9570@tyr.diku.dk>
-	 <20060719210004.GB20264@ms2.inr.ac.ru>
+From: Evgeniy Polyakov <s0mbre@tservice.net.ru>
+Subject: Re: Netchannles: first stage has been completed. Further ideas.
+Date: Thu, 20 Jul 2006 11:32:23 +0400
+Message-ID: <20060720073223.GA15567@tservice.net.ru>
+References: <20060719131915.GA21942@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	Andy Furniss <lists@andyfurniss.entadsl.com>, hadi@cyberus.ca,
-	netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>,
-	Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:59816 "EHLO
-	adsl-kenny.stuart.id.au") by vger.kernel.org with ESMTP
-	id S1030272AbWGTFtC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jul 2006 01:49:02 -0400
+Received: from [195.178.208.66] ([195.178.208.66]:35772 "EHLO tservice.net.ru")
+	by vger.kernel.org with ESMTP id S964826AbWGTHc0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 03:32:26 -0400
 To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20060719210004.GB20264@ms2.inr.ac.ru>
+Content-Disposition: inline
+In-Reply-To: <20060719131915.GA21942@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-07-20 at 01:00 +0400, Alexey Kuznetsov wrote:
 > Hello!
 
-So you really do exist?  I thought it was just
-rumour.
+Hello, Alexey.
 
-> Well, if fixed point arithmetics is not a problem.
+[ Sorry for long delay, there are some problems with mail servers, so I
+can not access them remotely, so I create mail by hads, hopefully thread
+will not be broken. ]
 
-It shouldn't be.  Any decimal number can be expressed
-as a fraction, eg:
+>> There is no socket spinlock anymore.
+>> Above lock is skb_queue lock which is held inside
+>> skb_dequeue/skb_queue_tail calls.
 
-  0.00123 = 123/100000
+> Lock is named differently, but it is still here.
+> BTW for UDP even the name is the same.
 
-Which can be calculated as a multiply and a divide. With
-MTU's up to 2048, it should be possible to do this with
-99.9999% accuracy (ie 2048/2^23).
+There is no bh processing, that lock is needed for 4 operations when skb
+is enqueued/dequeued.
 
-With a bit more work in userspace (ie in tc), it can be
-be reduced to a multiply and a shift.
+And if I would changed skbs to different structures there were no locks
+at all - it is extremely lightweight, it can not be compared with socket
+lock at all.
 
-> Plus, remember, the function is not R*size, it is at least
-> R*size+addend, to account for link overhead. Plus account for padding
-> of small packets. Plus, when policing it should deaccount already added
-> link headers, QoS counts only network payload.
+No bh/irq processing at all, natural speed management - that is main idea
+behind netchannels.
 
-Yes, it is flexible - and has served us well up until
-now.  It doesn't work well for ATM, but with a small
-bit of extra calculation in the kernel it could.
-However, it turns out that ATM is a special case.  If 
-ATM's cell payload was 58 bytes instead of 48 bytes 
-(say), then it would not be possible to produce a RTAB 
-that had small errors (eg < 10%) for smallish packet 
-sizes (< 290 bytes).  I seem to have trouble 
-explaining why in a concise way that people understand, 
-so I won't try here.
+>> > Equivalent of socket user lock.
+>> 
+>> No, it is an equivalent for hash lock in socket table.
 
-So when Alan Cox said our ATM patch didn't solve the 
-packetisation problem in general, he was right as our
-patch just built upon RTAB.  Patrick's STAB proposal 
-in general either for that matter, as it is just another 
-implementation of RTAB with the same limitations.  The 
-only way I can think of to solve it in general is to 
-move many more calculations into the kernel - as I 
-proposed in a long winded answer to Patrick earlier 
-in this thread.
+>OK. But you have to introduce socket mutex somewhere in any case.
+>Even in ATCP.
 
-But doing so would get rid of the table implementation 
-and the flexibility it has given us to date.  For that 
-reason I feel uncomfortable with it.
+Actually not - VJ's idea is to have only one consumer and one provider,
+so no locks needed, but I agree, in general case it is needed, but _only_
+to protect against several netchannel userspace consumers.
+There is no BH protocol processing at all, so there is no need to
+pprotect against someone who will add data while you are processing own
+chunk.
 
-The engineering decision becomes this - are there any
-other protocols like ATM out there that could justify 
-such a change?  (In my more cynical moments I think of 
-it differently - has/is the world going to make a 
-second engineering fuck up on the scale of ATM again?  
-How on earth did anyone decide that pushing data 
-packets over ATM, as happens in ADSL, was a good 
-idea?)  I know of no other such protocols.  But then
-I don't have an encyclopedic knowledge of comms
-protocols, so that doesn't mean much.  I suspect you
-know a good deal more about them than I do.  What say
-you?
+>> Just an example - tcp_established() can be called with bh disabled
+>> under the socket lock.
 
+> When we have a process context in hands, it is not.
+
+>Did you ask youself, why do not we put all the packets to
+>backlog/prequeue
+>and just wait when user will read the data? It would be 100% equivalent
+>to "netchannels".
+
+How many hacks just to be a bit closer to userspace processing,
+implemented in netchannels!
+
+>The answer is simple: because we cannot wait. If user delays for
+>200msec,
+>wait for connection collapse due to retransmissions. If the segment is
+>out of order, immediate attention is required. Any scheme, which tries
+>to wait for user unconditionally, at least has to run a watchdog timer,
+>which fires before sender senses the gap.
+
+If userspace is scheduled away for too much time, it is bloody wrong to
+ack the data, that is impossible to read due to the fact that system is
+being busy. It is just postponing the work from one end to another - ack
+now and stop when queue is full, or postpone the ack generation when
+segment is realy being read.
+
+>And this is what we do for ages. Grep for "VJ" in sources. :-)
+>netchannels have nothing to do with it, it is much elder idea.
+
+And it was Van, who decided to move away from BH/irq processing.
+It was slow and a bit pain way (how many hacks with prequeue, with
+direct processing, it is enough just to look how TCP socket lock is locked
+in different contexts :)
+
+>> In that case one copies the whole data into userspace, so access for
+>> 20 bytes of headers completely does not matter.
+
+>For short packets it matters.
+
+>But I said not this. I said it looks _worse_. A bit, but worse.
+
+At least for 80 bytes it does not matter at all.
+And it is very likely that data is misaligned, so half of the
+header will be in a cache line. And socket code has the same problem -
+skb->cb can be flushed away, and tcp_recvmsg() needs to get it again.
+And actually I never understood nanooptimisation behind more serious
+problems (i.e. one cache line vs. 50MB/sec speed).
+
+>> Hmm, for 80 bytes sized packets win was about 2.5 times. Could you
+>> please show me lines inside existing code, which should be commented,
+>> so I got 50Mbyte/sec for that?
+
+>If I knew it would be done. :-)
+>
+>Actually, it is the action, which I would expect. This, but
+>not dropping all the TCP stack.
+
+I tried to use existing one, and I had speed and CPU usage win, but it's
+magnitude was not what I expected, so I started userspace network stack
+implementation. It was succeded, and there are _very_ major
+optimisations over existing code, when processing is fully moved into
+userspace, but also there are big problems, like one syscall per ack, 
+so I decided to use that stack as a base for in-kernel process protocol 
+processing, and I succeded. Probably I will return to the userspace 
+network stack idea when I complete zero-copy networking support.
+
+>> I showed there, that using existing stack it is imposible
+
+>Please, understand, it is such statements that compromise your work.
+>If it is impossible then it is not interesting.
+
+Do not mix soft and warm - I just post the facts, that netchannel TCP
+implementation works (sumetimes much) faster.
+It is socket code that probably has some misoptimisations, and if it is
+impossible to fix them (well, it least it is very hard), then it is not
+interesting.
+
+I definitely do not say, that it must be removed/replaced/anything - it
+works perfectly ok, but it is possible to have better performance by
+changing architecture, and it was done.
+
+>Alexey
+
+-- 
+	Evgeniy Polyakov
