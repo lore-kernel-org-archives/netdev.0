@@ -1,54 +1,53 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH] drivers/net/wireless/d80211: Check configuration type in hw->config_interface.
-Date: Wed, 19 Jul 2006 18:07:05 -0700
-Message-ID: <200607191807.12360.flamingice@sourmilk.net>
-References: <44BE958C.4030401@6wind.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: ipw2200: Driver lockup
+Date: Wed, 19 Jul 2006 22:58:10 -0400
+Message-ID: <20060720025810.GA5901@tuxdriver.com>
+References: <20060719142833.GA21345@linux-mips.org> <1153356597.2542.7.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2858437.xOOTPqW5x0";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
-	Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ralf Baechle <ralf@linux-mips.org>, netdev@vger.kernel.org,
+	Stefan Rompf <stefan@loplof.de>, Zhu Yi <yi.zhu@intel.com>,
+	James Ketrenos <jketreno@linux.intel.com>,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:13540 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S932552AbWGTBV6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jul 2006 21:21:58 -0400
-To: Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
-In-Reply-To: <44BE958C.4030401@6wind.com>
+Received: from ra.tuxdriver.com ([70.61.120.52]:38921 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S964896AbWGTDJc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jul 2006 23:09:32 -0400
+To: Dan Williams <dcbw@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <1153356597.2542.7.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2858437.xOOTPqW5x0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Wed, Jul 19, 2006 at 08:49:57PM -0400, Dan Williams wrote:
+> On Wed, 2006-07-19 at 10:28 -0400, Ralf Baechle wrote:
+> > I got the driver to die several times under the extreme condition at the
+> > KS / OLS with dozens to hundreds of other machines in the same room.  The
+> > last kernel message I got from about the time when wireless died was
+> > 
+> >   eth1: NETDEV_TX_BUSY returned; driver should report queue full via ieee_device->is_queue_full.
+> 
+> I actually get this quite a bit too, at least a couple times per day.
+> Sometimes the device goes down and you have to rmmod ipw2200, other
+> times it recovers.  But quite annoying anyway.
+> 
+> Anyone know exactly what that message means, and possibly how to fix it?
 
-On Wednesday 19 July 2006 13:26, Jean-Mickael Guerin wrote:
-> This patch prevents a NULL pointer dereferencing in AP mode:
-> ieee80211_if_config will set conf->bssid only if device is of type STA
-> or IBSS.
-Why is that? Isn't there a BSSID in AP mode too? Perhaps it is calling=20
-config_interface before setting the BSSID?
+For what it is worth, there was a patch for this posted back
+in January.  It stirred-up a kerfluffle, so it never got merged.
+FWIW, it touches on 802.11e QoS and multiple TX queues -- my personal
+favorite wireless subject...NOT!
 
-adm8211 doesn't support AP mode yet, but it's good to know this crash won't=
-=20
-occur when it does. :)
+The thread is available here (first post not connected to follow-up
+thread for some reason):
 
-=2DMichael Wu
+	http://marc.theaimsgroup.com/?l=linux-netdev&m=113809246102858&w=2
+	http://marc.theaimsgroup.com/?l=linux-netdev&m=113814103024576&w=2
 
---nextPart2858437.xOOTPqW5x0
-Content-Type: application/pgp-signature
+Given that half a year has passed, does anyone have any better ideas
+now?  Should I merge the patch?  Or is the cure worse than the disease?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBEvtdAT3Oqt9AH4aERAjpGAKCV/ABvSqLuaxrigYhne8f7gUKlzwCgkJy3
-yz+wz33Pbgb4TygTpKrY3mE=
-=TkIj
------END PGP SIGNATURE-----
-
---nextPart2858437.xOOTPqW5x0--
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
