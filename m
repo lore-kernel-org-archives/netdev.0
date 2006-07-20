@@ -1,19 +1,18 @@
-From: "Chapman" <Chapmanbuckthorn@diplomats.com>
-Subject: Buy Exttra-Time and forget your fears!
-Date: Thu, 20 Jul 2006 11:33:12 +0200
-Message-ID: <04967447057827.7139035F19@FHWGWSY>
+From: "Lusk" <Luskantisemitic@dublin.com>
+Subject: You cumm right after penetration!
+Date: Thu, 20 Jul 2006 11:41:05 +0200
+Message-ID: <29602018973603.16D5426EDE@BOCL4OE>
 Mime-Version: 1.0
 Content-Type: text/plain;
         charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 84.94.184.54.cable.012.net.il ([84.94.184.54]:5898 "EHLO
-	1111-4JK4O1E3CO.e8e4a.com") by vger.kernel.org with ESMTP
-	id S932577AbWGTJeJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jul 2006 05:34:09 -0400
+Received: from zeus1.kernel.org ([204.152.191.4]:51949 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S932579AbWGTJmL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 05:42:11 -0400
 To: <newbie-owner@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Why don't you tell your girl you're not among all these short-lasting losers? Forget about rubber, drinking, hypnosis and the like - Extra-Time is the way that works. You tried condoms, pauses, alcohol, but nothing worked. Eager to find a way to stop this premature thing forever? Check up here: http://federsol.com/dll/get This is the ultimate thing for the two of you, making you confident and giving her everything she wants.
+Hi, Every day thousands of guys have this problem. You can stand out from the crowd. Forget about rubber, drinking, hypnosis and the like - Extra-Time is the way that works. Imagine how your life will improve if you stopped being reproached for premature creaming once and for all. See our offer: http://centifelt.com/dll/get You'll make your equipment suit the task - and she'll worship you for that!
 
