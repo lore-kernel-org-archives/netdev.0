@@ -1,125 +1,80 @@
-From: Henne <henne@nachtwindheim.de>
-Subject: [PATCH][NET] ULi526x - driver cleanups
-Date: Thu, 20 Jul 2006 12:11:04 +0200
-Message-ID: <44BF56B8.9050502@nachtwindheim.de>
+From: jamal <hadi@cyberus.ca>
+Subject: [RFC/PATCH][Bonding]: keep slave state when admin down
+Date: Thu, 20 Jul 2006 09:19:16 -0400
+Message-ID: <1153401556.5098.43.camel@jzny2>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030246AbWGTKLF@vger.kernel.org>
-To: jgarzik@pobox.com
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-fj0MxAgA1jxixXy0u0RA"
+Cc: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx03.cybersurf.com ([209.197.145.106]:5532 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S964874AbWGTNTV
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jul 2006 09:19:21 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1G3YR1-0006et-AU
+	for netdev@vger.kernel.org; Thu, 20 Jul 2006 09:19:23 -0400
+To: Jay Vosburgh <fubar@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Henrik Kretzschmar <henne@nachtwindheim.de>
 
-Some little cleanups for ULI-TULIP-driver:
+--=-fj0MxAgA1jxixXy0u0RA
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-pci_module_init() conversion to pci_register_driver()
-remove rc, an unneeded variable from uli526x_module_init()
-let the debug macros use correct loglevels
-add a loglevel to a printk
-let some code more look like CodingStyle
 
-Signed-off-by: Henrik Kretzschmar <henne@nachtwindheim.de>
+When a bonding netdevice is admin-ed down it looses the slaves
+attributes (set via ifenslave). This is not consistent with other
+behavior of netdevices (example a qdisc attached to a netdevice doesnt
+disappear or an attached IP address etc).
+The included patch fixes this. Ive tested by ifenslaving, downing the
+bond, checking /proc and making sure it still has the slaves, up-ing the
+bond and making sure things continue to work.
 
----
+Jay/Bonding folks if you are ok with it, just ACK it or include it in
+your tree etc. Otherwise we can discuss. This is against linus tree.
 
---- linux-2.6.18-rc2/drivers/net/tulip/uli526x.c	2006-07-18 13:37:09.000000000 +0200
-+++ linux/drivers/net/tulip/uli526x.c	2006-07-20 11:43:07.000000000 +0200
-@@ -82,9 +82,9 @@
- #define ULI526X_TX_TIMEOUT ((16*HZ)/2)	/* tx packet time-out time 8 s" */
- #define ULI526X_TX_KICK 	(4*HZ/2)	/* tx packet Kick-out time 2 s" */
+cheers,
+jamal
+
+--=-fj0MxAgA1jxixXy0u0RA
+Content-Disposition: attachment; filename=bond_p2
+Content-Type: text/x-patch; name=bond_p2; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 8b95123..df319be 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3420,7 +3420,6 @@ static int bond_close(struct net_device 
  
--#define ULI526X_DBUG(dbug_now, msg, value) if (uli526x_debug || (dbug_now)) printk(KERN_ERR DRV_NAME ": %s %lx\n", (msg), (long) (value))
-+#define ULI526X_DBUG(dbug_now, msg, value) if (uli526x_debug || (dbug_now)) printk(KERN_DEBUG DRV_NAME ": %s %lx\n", (msg), (long) (value))
+ 	write_lock_bh(&bond->lock);
  
--#define SHOW_MEDIA_TYPE(mode) printk(KERN_ERR DRV_NAME ": Change Speed to %sMhz %s duplex\n",mode & 1 ?"100":"10", mode & 4 ? "full":"half");
-+#define SHOW_MEDIA_TYPE(mode) printk(KERN_NOTICE DRV_NAME ": Change Speed to %sMhz %s duplex\n",mode & 1 ?"100":"10", mode & 4 ? "full":"half");
+-	bond_mc_list_destroy(bond);
  
- 
- /* CR9 definition: SROM/MII */
-@@ -373,7 +373,8 @@
- 	if (err)
- 		goto err_out_res;
- 
--	printk(KERN_INFO "%s: ULi M%04lx at pci%s,",dev->name,ent->driver_data >> 16,pci_name(pdev));
-+	printk(KERN_INFO "%s: ULi M%04lx at pci%s,",dev->name,
-+			ent->driver_data >> 16,pci_name(pdev));
- 
- 	for (i = 0; i < 6; i++)
- 		printk("%c%02x", i ? ':' : ' ', dev->dev_addr[i]);
-@@ -1027,7 +1028,7 @@
- 		if ( time_after(jiffies, dev->trans_start + ULI526X_TX_TIMEOUT) ) {
- 			db->reset_TXtimeout++;
- 			db->wait_reset = 1;
--			printk( "%s: Tx timeout - resetting\n",
-+			printk(KERN_ERR "%s: Tx timeout - resetting\n",
- 			       dev->name);
- 		}
- 	}
-@@ -1671,18 +1672,17 @@
- 
- 
- static struct pci_device_id uli526x_pci_tbl[] = {
--	{ 0x10B9, 0x5261, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ULI5261_ID },
--	{ 0x10B9, 0x5263, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ULI5263_ID },
--	{ 0, }
-+	{0x10B9, 0x5261, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ULI5261_ID},
-+	{0x10B9, 0x5263, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ULI5263_ID},
-+	{}
- };
- MODULE_DEVICE_TABLE(pci, uli526x_pci_tbl);
- 
--
- static struct pci_driver uli526x_driver = {
--	.name		= "uli526x",
--	.id_table	= uli526x_pci_tbl,
--	.probe		= uli526x_init_one,
--	.remove		= __devexit_p(uli526x_remove_one),
-+	.name = "uli526x",
-+	.id_table = uli526x_pci_tbl,
-+	.probe = uli526x_init_one,
-+	.remove = __devexit_p(uli526x_remove_one),
- };
- 
- MODULE_AUTHOR("Peer Chen, peer.chen@uli.com.tw");
-@@ -1702,7 +1702,6 @@
- 
- static int __init uli526x_init_module(void)
- {
--	int rc;
- 
- 	printk(version);
- 	printed_version = 1;
-@@ -1714,25 +1713,21 @@
- 	if (cr6set)
- 		uli526x_cr6_user_set = cr6set;
- 
-- 	switch(mode) {
-+ 	switch (mode) {
-    	case ULI526X_10MHF:
- 	case ULI526X_100MHF:
- 	case ULI526X_10MFD:
- 	case ULI526X_100MFD:
- 		uli526x_media_mode = mode;
- 		break;
--	default:uli526x_media_mode = ULI526X_AUTO;
-+	default:
-+		uli526x_media_mode = ULI526X_AUTO;
+ 	/* signal timers not to re-arm */
+ 	bond->kill_timers = 1;
+@@ -3451,8 +3450,6 @@ static int bond_close(struct net_device 
  		break;
  	}
  
--	rc = pci_module_init(&uli526x_driver);
--	if (rc < 0)
--		return rc;
--
--	return 0;
-+	return pci_register_driver(&uli526x_driver);
- }
+-	/* Release the bonded slaves */
+-	bond_release_all(bond_dev);
  
--
- /*
-  *	Description:
-  *	when user used rmmod to delete module, system invoked clean_module()
+ 	if ((bond->params.mode == BOND_MODE_TLB) ||
+ 	    (bond->params.mode == BOND_MODE_ALB)) {
+@@ -4237,6 +4234,9 @@ static void bond_free_all(void)
+ 	list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list) {
+ 		struct net_device *bond_dev = bond->dev;
+ 
++		bond_mc_list_destroy(bond);
++		/* Release the bonded slaves */
++		bond_release_all(bond_dev);
+ 		unregister_netdevice(bond_dev);
+ 		bond_deinit(bond_dev);
+ 	}
+
+--=-fj0MxAgA1jxixXy0u0RA--
+
