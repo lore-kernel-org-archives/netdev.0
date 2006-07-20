@@ -1,46 +1,42 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Thu, 20 Jul 2006 14:21:57 -0700
-Message-ID: <44BFF3F5.3040104@candelatech.com>
-References: <20060719131915.GA21942@ms2.inr.ac.ru> <20060720073223.GA15567@tservice.net.ru> <20060720164100.GA9213@ms2.inr.ac.ru> <20060720210849.GA28715@tservice.net.ru>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Alternate to Ixia's ANVL test harness for tcp compliance.
+Date: Thu, 20 Jul 2006 17:31:48 -0400
+Message-ID: <44BFF644.2020507@garzik.org>
+References: <1153424967.8114.450.camel@piet2.bluelane.com>	 <44BFE1D2.8060004@garzik.org> <1153427074.8114.466.camel@piet2.bluelane.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>,
+	David Miller <davem@davemloft.net>, Andi Kleen <ak@suse.de>,
+	piet at work <piet@work.piet.net>,
+	Rajneesh Saini <rksaini@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:61581 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1030378AbWGTVWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 17:22:30 -0400
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20060720210849.GA28715@tservice.net.ru>
+Received: from srv5.dvmed.net ([207.36.208.214]:48054 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1030377AbWGTVcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 17:32:43 -0400
+To: piet@bluelane.com
+In-Reply-To: <1153427074.8114.466.camel@piet2.bluelane.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
+Piet Delaney wrote:
+> I wonder if Microsoft is providing the "big challenge" to porting the
+> same GUI to linux. The world really doesn't need yet another Java
+> language. Gosling is a Genius, I studied his X11 News Server enough
+> to know first hand. Microsoft lost in court with their violating the
+> Java standards and C sharp seems to be just another stratagy to their
+> bizarre attempt to world domination (Like the SCO mess).
 
->>Backlog is actually not a protection, but a thing equivalent to netchannel.
->>The difference is only that it tries to process something immediately,
->>when it is safe. You can omit this and push everything to backlog(=netchannel),
->>which is processed only by syscalls, if you do not care about latency.
-> 
-> 
-> If we consider netchannels as how Van Jackobson discribed them, then
-> mutext is not needed, since it is impossible to have several readers or
-> writers. But in socket case even if there is only one userspace
-> consumer, that lock must be held to protect against bh (or introduce
-> several queues and complicate a lot their's management (ucopy for
-> example)).
+Runtime dynamic bytecode languages -- Java, Perl, Python, Ruby, ... -- 
+do seem to be all the rage.
 
-Out of curiosity, is it possible to have the single producer logic
-if you have two+ ethernet interfaces handling frames for a single
-TCP connection?  (I am assuming some sort of multi-path routing
-logic...)
+As DaveM noted, though, C# is fully supported under Linux.
 
-Thanks,
-Ben
+Or maybe they could go for Gtk+, which has successfully been used to 
+maintain complex GUIs apps on both Windows and Linux.  GIMP is the most 
+notable example, but use of Gtk+, GLib, and mingw has meant that you can 
+build Linux-ish apps on Windows without nasty porting layers like Cygwin.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+	Jeff
+
 
