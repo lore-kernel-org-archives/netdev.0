@@ -1,36 +1,27 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: Oops in IFB
-Date: Thu, 20 Jul 2006 16:16:15 -0700 (PDT)
-Message-ID: <20060720.161615.105821005.davem@davemloft.net>
-References: <44BF8628.9080204@6wind.com>
-	<1153402801.5098.66.camel@jzny2>
+Date: Thu, 20 Jul 2006 16:17:08 -0700 (PDT)
+Message-ID: <20060720.161708.102123491.davem@davemloft.net>
+References: <1153403893.5098.79.camel@jzny2>
+	<44BF934F.8050708@6wind.com>
+	<44BF93B4.3030204@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+Cc: hadi@cyberus.ca, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:8389
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:9925
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030405AbWGTXQM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jul 2006 19:16:12 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1153402801.5098.66.camel@jzny2>
+	id S1030406AbWGTXRF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jul 2006 19:17:05 -0400
+To: nicolas.dichtel@6wind.com
+In-Reply-To: <44BF93B4.3030204@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 20 Jul 2006 09:40:00 -0400
+From: Nicolas DICHTEL <nicolas.dichtel@6wind.com>
+Date: Thu, 20 Jul 2006 16:31:16 +0200
 
-> On Thu, 2006-20-07 at 15:33 +0200, Nicolas DICHTEL wrote:
-> 
-> 
-> > [IFB] After ifb_init_one() failed, i is increased. Decrease
-> > it before entering in the loop for freeing the other ifb devices.
-> > 
-> > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> 
-> Thanks Nicolas.
-> 
-> Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+> Sorry, I forgot the patch ;-)
 
-Applied, thanks a lot.
+Also applied, thanks Nicolas.
