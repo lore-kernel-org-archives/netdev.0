@@ -1,35 +1,60 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: [RFT] Realtek 8168 ethernet support
-Date: Fri, 21 Jul 2006 14:02:43 +0100
-Message-ID: <44C0D073.8080205@gentoo.org>
-References: <20060601200200.A0E0689D05D@zog.reactivated.net> <20060608143133.7e36a0b7.rdunlap@xenotime.net> <4488DF85.3090901@garzik.org> <20060609183358.GA5835@electric-eye.fr.zoreil.com> <4489C290.6020705@garzik.org> <20060610120523.GA24288@electric-eye.fr.zoreil.com> <20060610224811.GA3256@electric-eye.fr.zoreil.com> <20060611233022.GA11776@electric-eye.fr.zoreil.com> <20060718221416.GA1430@electric-eye.fr.zoreil.com>
+From: takis@issaris.org
+Subject: [PATCH 1/4] net: Removing useless casts
+Date: Fri, 21 Jul 2006 15:45:50 +0200
+Message-ID: <20060721134550.GA27097@issaris.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>,
-	"Randy.Dunlap" <rdunlap@xenotime.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: per.liden@ericsson.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta08-winn.ispmail.ntl.com ([81.103.221.48]:51074 "EHLO
-	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1750706AbWGUNCc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jul 2006 09:02:32 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20060718221416.GA1430@electric-eye.fr.zoreil.com>
+Received: from outmx009.isp.belgacom.be ([195.238.5.4]:33158 "EHLO
+	outmx009.isp.belgacom.be") by vger.kernel.org with ESMTP
+	id S1750722AbWGUNo6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jul 2006 09:44:58 -0400
+Received: from outmx009.isp.belgacom.be (localhost [127.0.0.1])
+        by outmx009.isp.belgacom.be (8.12.11.20060308/8.12.11/Skynet-OUT-2.22) with ESMTP id k6LDisXU026883
+        for <netdev@vger.kernel.org>; Fri, 21 Jul 2006 15:44:54 +0200
+        (envelope-from <takis@issaris.org>)
+To: linux-kernel@vger.kernel.og
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Francois,
+From: Panagiotis Issaris <takis@issaris.org>
 
-Francois Romieu wrote:
-> Despite the fact that the newer 8168 has been reported to only work with an
-> extra alignment (gross hack: s/NET_IP_ALIGN/8/), the serie seems otherwise
-> fine.
-> 
-> I'll submit an updated serie to correctly support the 8168.
+Removing useless casts
 
+Signed-off-by: Panagiotis Issaris <takis@issaris.org>
+---
+ net/tipc/discover.c |    2 +-
+ net/tipc/ref.c      |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Any word on the updated 8168 patch? Would love to get that supported in 
-Gentoo's upcoming release media, if the patch is ready.
+diff --git a/net/tipc/discover.c b/net/tipc/discover.c
+index 2b84412..ee94de9 100644
+--- a/net/tipc/discover.c
++++ b/net/tipc/discover.c
+@@ -295,7 +295,7 @@ struct link_req *tipc_disc_init_link_req
+ {
+ 	struct link_req *req;
+ 
+-	req = (struct link_req *)kmalloc(sizeof(*req), GFP_ATOMIC);
++	req = kmalloc(sizeof(*req), GFP_ATOMIC);
+ 	if (!req)
+ 		return NULL;
+ 
+diff --git a/net/tipc/ref.c b/net/tipc/ref.c
+index 596d3c8..e6d6ae2 100644
+--- a/net/tipc/ref.c
++++ b/net/tipc/ref.c
+@@ -79,7 +79,7 @@ int tipc_ref_table_init(u32 requested_si
+ 	while (sz < requested_size) {
+ 		sz <<= 1;
+ 	}
+-	table = (struct reference *)vmalloc(sz * sizeof(struct reference));
++	table = vmalloc(sz * sizeof(*table));
+ 	if (table == NULL)
+ 		return -ENOMEM;
+ 
+-- 
+1.4.2.rc1.ge7a0-dirty
 
-Thanks!
-Daniel
