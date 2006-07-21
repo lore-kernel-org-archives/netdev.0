@@ -1,32 +1,45 @@
-From: Theodore Tso <tytso@mit.edu>
+From: Auke Kok <auke-jan.h.kok@intel.com>
 Subject: Re: e1000: "fix" it on thinkpad x60 / eeprom checksum read fails
-Date: Fri, 21 Jul 2006 11:12:39 -0400
-Message-ID: <20060721151239.GC2290@thunk.org>
-References: <20060721005832.GA1889@elf.ucw.cz> <44BFADA6.6090909@intel.com> <20060720170758.GA9938@atrey.karlin.mff.cuni.cz> <44BFBE9F.7070600@intel.com> <20060721064105.aa960acd.akpm@osdl.org>
+Date: Fri, 21 Jul 2006 08:22:38 -0700
+Message-ID: <44C0F13E.2030008@intel.com>
+References: <20060721005832.GA1889@elf.ucw.cz> <44BFADA6.6090909@intel.com> <20060720170758.GA9938@atrey.karlin.mff.cuni.cz> <44BFBE9F.7070600@intel.com> <20060721064105.aa960acd.akpm@osdl.org> <20060721151239.GC2290@thunk.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Auke Kok <auke-jan.h.kok@intel.com>, pavel@ucw.cz,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:39487 "EHLO
+	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1750795AbWGUP3C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jul 2006 11:29:02 -0400
+To: Theodore Tso <tytso@mit.edu>, Andrew Morton <akpm@osdl.org>,
+	Auke Kok <auke-jan.h.kok@intel.com>, pavel@ucw.cz,
 	cramerj@intel.com, john.ronciak@intel.com,
 	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750757AbWGUPMu@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060721064105.aa960acd.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20060721151239.GC2290@thunk.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 21, 2006 at 06:41:05AM -0700, Andrew Morton wrote:
-> > It's completely not acceptable to run when the EEPROM checksum fails - you 
-> > might even be running with the wrong MAC address, or worse. Lets fix this the 
-> > right way instead.
+Theodore Tso wrote:
+> On Fri, Jul 21, 2006 at 06:41:05AM -0700, Andrew Morton wrote:
+>>> It's completely not acceptable to run when the EEPROM checksum fails - you 
+>>> might even be running with the wrong MAC address, or worse. Lets fix this the 
+>>> right way instead.
+>> A printk which helps the user to understand all this saga would be very nice.
+>> -
 > 
-> A printk which helps the user to understand all this saga would be very nice.
-> -
+> And if someone who understands all of these details could put a note
+> in the thinkwiki (say, here:
+> http://www.thinkwiki.org/wiki/Ethernet_Controllers#Intel_Gigabit_.2810.2F100.2F1000.29)
+> it would be greatly appreciated.
+> 
 
-And if someone who understands all of these details could put a note
-in the thinkwiki (say, here:
-http://www.thinkwiki.org/wiki/Ethernet_Controllers#Intel_Gigabit_.2810.2F100.2F1000.29)
-it would be greatly appreciated.
+why don't I do that :)
 
-						- Ted
+
+Andrew: I'm contemplating that printk...
+
+
+Cheers,
+
+Auke
