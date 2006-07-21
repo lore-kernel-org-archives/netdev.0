@@ -1,52 +1,42 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL (RTAB BUG)
-Date: Fri, 21 Jul 2006 03:49:01 +0400
-Message-ID: <20060720234901.GA24848@ms2.inr.ac.ru>
-References: <1151000966.5392.34.camel@jzny2> <1151066247.4217.254.camel@ras.pc.brisbane.lube> <1151158431.6716.95.camel@jzny2> <1153188409.13145.5.camel@ras.pc.brisbane.lube> <44BD56A4.9090002@andyfurniss.entadsl.com> <1153270932.4242.60.camel@ras.pc.brisbane.lube> <44BE44E3.9080100@andyfurniss.entadsl.com> <Pine.LNX.4.61.0607192114240.9570@tyr.diku.dk> <20060719210004.GB20264@ms2.inr.ac.ru> <1153374474.4231.103.camel@ras.pc.brisbane.lube>
+From: ivl@krasu.ru (Igor V. Liferenko)
+Subject: A question about linux/net/ipv4/ipcomp.c
+Date: Fri, 21 Jul 2006 11:26:58 +0800
+Message-ID: <7t7j27iqnx.fsf@seba.krasu.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	Andy Furniss <lists@andyfurniss.entadsl.com>, hadi@cyberus.ca,
-	netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>,
-	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:33510 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1030401AbWGTXu7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 19:50:59 -0400
-To: Russell Stuart <russell-tcatm@stuart.id.au>
-Content-Disposition: inline
-In-Reply-To: <1153374474.4231.103.camel@ras.pc.brisbane.lube>
+Received: from seba.krasu.ru ([80.250.188.21]:47254 "EHLO seba.krasu.ru")
+	by vger.kernel.org with ESMTP id S964829AbWGUD1A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jul 2006 23:27:00 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Hello, everyone.
 
-> It shouldn't be.  Any decimal number can be expressed
-> as a fraction, eg:
+I'm having fun reading RFC's and looking through linux source code for
+implementation examples.
 
-I remember this. :-) I stalled selecting corrects divisors
-to fight over/underflows. Not becuase it was difficult,
-just because did not see a reason to do this.
+What I'm not able to understand is this piece of code :
 
+union {
+		struct iphdr	iph;
+		char 		buf[60];
+} tmp_iph;
 
+and corresponding RFC 791 statement : "The maximal internet header is
+60 octets."
 
-> But doing so would get rid of the table implementation 
-> and the flexibility it has given us to date.  For that 
-> reason I feel uncomfortable with it.
-> 
-> The engineering decision becomes this - are there any
-> other protocols like ATM out there that could justify 
-> such a change? 
+Would you please say why it's 60, and not 52?
 
-Is it faster? You say, yes. Is it required? You say, yes.
-Is there some protocols, which needs more flexibility? No.
+Well, what I came up with is this :
 
-> know a good deal more about them than I do.  What say
-> you?
+RFC791: "The option-length octet counts the option-type octet and the
+option-length octet as well as the option-data octets". [i.e.
+options' total length may be up to 2^8/8 octets (32)]. Then, header
+lenght without options is 20 octets. So, a maximum header length is
+32+20=52 octets. RFC791: "Internet Header Length is the length of the
+internet header in 32 bit words..." 52 octets is 52*8 bits and it's a
+multiple of 32.
 
-Frankly, I seriously believed that rtabs is a good way to handle ATM. :-)
-I seriously believed that you have to do something like:
-((packet_size+cell_payload-1)/cell_payload)*cell_size
-
-So, if in reality even this protocol does not justify keeping ratbs, kill
-them.
+Thanks in advance
