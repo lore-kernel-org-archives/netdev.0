@@ -1,46 +1,33 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Fri, 21 Jul 2006 20:27:20 +0400
-Message-ID: <20060721162720.GA20549@2ka.mipt.ru>
-References: <20060719131915.GA21942@ms2.inr.ac.ru> <20060720073223.GA15567@tservice.net.ru> <20060720164100.GA9213@ms2.inr.ac.ru> <20060720210849.GA28715@tservice.net.ru> <44BFF3F5.3040104@candelatech.com> <20060721071900.GB5151@2ka.mipt.ru> <44C0FD6F.5010601@candelatech.com>
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Subject: Re: [AX.25 1/2] Introduce struct ax25_sock.
+Date: Fri, 21 Jul 2006 14:26:26 -0300
+Message-ID: <39e6f6c70607211026i4f1df82s80e1bf54eff8a108@mail.gmail.com>
+References: <20060721152946.GA16317@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:43945 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751082AbWGUQ13 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jul 2006 12:27:29 -0400
-To: Ben Greear <greearb@candelatech.com>
+Received: from ug-out-1314.google.com ([66.249.92.168]:37666 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1751086AbWGUR01 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jul 2006 13:26:27 -0400
+Received: by ug-out-1314.google.com with SMTP id m3so1376988ugc
+        for <netdev@vger.kernel.org>; Fri, 21 Jul 2006 10:26:26 -0700 (PDT)
+To: "Ralf Baechle" <ralf@linux-mips.org>
+In-Reply-To: <20060721152946.GA16317@linux-mips.org>
 Content-Disposition: inline
-In-Reply-To: <44C0FD6F.5010601@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 21, 2006 at 09:14:39AM -0700, Ben Greear (greearb@candelatech.com) wrote:
-> >>Out of curiosity, is it possible to have the single producer logic
-> >>if you have two+ ethernet interfaces handling frames for a single
-> >>TCP connection?  (I am assuming some sort of multi-path routing
-> >>logic...)
-> >
-> >I do not think it is possible with additional logic like what is
-> >implemented in softirqs, i.e. per cpu queues of data, which in turn will
-> >be converted into skbs one-by-one.
-> 
-> Couldn't you have two NICs being handled by two separate CPUs, with both
-> CPUs trying to write to the same socket queue?
-> 
-> The receive path works with RCU locking from what I understand, so
-> a protocol's receive function must be re-entrant.
+On 7/21/06, Ralf Baechle <ralf@linux-mips.org> wrote:
 
-There will not be socket queue on that stage - only per-cpu queues,
-which then will be processed one-by-one by _exactly_ single user.
-That user can get skb in round-robin manner and put them into socket
-queue and call protocol receiving function.
+> Aside of wanrouter AX.25 has also been the last member of struct
+> sock.sk_protinfo.  With net/wanrouter being considered hopeless code and
+> an application-level solution being prefered these days this means we now
+> can delete sk_protinfo.
 
-> -- 
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc  http://www.candelatech.com
+/me sheds a tear... ;) Yay, hasta la vista sk_protinfo, it has been a
+long way 8)
 
--- 
-	Evgeniy Polyakov
+- Arnaldo
