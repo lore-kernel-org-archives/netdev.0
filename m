@@ -1,29 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: A question about linux/net/ipv4/ipcomp.c
-Date: Fri, 21 Jul 2006 22:57:35 +1000
-Message-ID: <E1G3uZT-0006Jz-00@gondolin.me.apana.org.au>
-References: <7t7j27iqnx.fsf@seba.krasu.ru>
-Cc: netdev@vger.kernel.org
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: [RFT] Realtek 8168 ethernet support
+Date: Fri, 21 Jul 2006 14:02:43 +0100
+Message-ID: <44C0D073.8080205@gentoo.org>
+References: <20060601200200.A0E0689D05D@zog.reactivated.net> <20060608143133.7e36a0b7.rdunlap@xenotime.net> <4488DF85.3090901@garzik.org> <20060609183358.GA5835@electric-eye.fr.zoreil.com> <4489C290.6020705@garzik.org> <20060610120523.GA24288@electric-eye.fr.zoreil.com> <20060610224811.GA3256@electric-eye.fr.zoreil.com> <20060611233022.GA11776@electric-eye.fr.zoreil.com> <20060718221416.GA1430@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>,
+	"Randy.Dunlap" <rdunlap@xenotime.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:34309 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750701AbWGUM5n
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jul 2006 08:57:43 -0400
-To: ivl@krasu.ru (Igor V. Liferenko)
-In-Reply-To: <7t7j27iqnx.fsf@seba.krasu.ru>
+Received: from mta08-winn.ispmail.ntl.com ([81.103.221.48]:51074 "EHLO
+	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S1750706AbWGUNCc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jul 2006 09:02:32 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060718221416.GA1430@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Igor V. Liferenko <ivl@krasu.ru> wrote:
->
-> Would you please say why it's 60, and not 52?
+Hi Francois,
 
-The header length / 4 must fit within a single hexadecimal
-digit.  Therefore the maximum is 15 * 4 = 60.
+Francois Romieu wrote:
+> Despite the fact that the newer 8168 has been reported to only work with an
+> extra alignment (gross hack: s/NET_IP_ALIGN/8/), the serie seems otherwise
+> fine.
+> 
+> I'll submit an updated serie to correctly support the 8168.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+Any word on the updated 8168 patch? Would love to get that supported in 
+Gentoo's upcoming release media, if the patch is ready.
+
+Thanks!
+Daniel
