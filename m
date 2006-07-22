@@ -1,19 +1,56 @@
-From: "Rhodes" <Rhodescontaminate@australiamail.com>
-Subject: Just use it and your life will be changed!
-Date: Sat, 22 Jul 2006 22:03:04 +0300
-Message-ID: <26494949085292.46009C8990@8K2VZ8>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] mark sk98lin driver for removal
+Date: Sat, 22 Jul 2006 14:11:50 -0700
+Message-ID: <20060722141150.5994fee1@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="Windows-1252"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [84.36.130.243] ([84.36.130.243]:60432 "EHLO
-	r1oy32b6.ser7.verizon.net") by vger.kernel.org with ESMTP
-	id S1750997AbWGVTE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Jul 2006 15:04:29 -0400
-To: <nux-newbie-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:148 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750760AbWGVVMG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2006 17:12:06 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear valued customer. Eliminate this problem and all the anxiety it causes! Become a better male! The great thing about Extra-Time is that it works, making you last longer from the very first time. Is not again the phrase you hear too often in bed with your partner? Check up here: http://yeltren.com/dll/get/ Even the most demanding females will find it fully satisfying their needs.
+The sk98lin driver is now superseded by the skge driver. I wanted to just
+let the old driver wither and die from old age, but there are still bugs
+that are too painful to fix.
 
+See http://bugzilla.kernel.org/show_bug.cgi?id=6780
+The board crashes repeatedly after 2 weeks. It probably is something
+in the vendor MIB code. That code is a mess, and starting over was one
+of the motivations for creating the skge driver.
+
+So rather than add more bondo to the old beater to cover the rusty bits,
+throw it in the dustbin.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.or
+
+--- skge.orig/Documentation/feature-removal-schedule.txt
++++ skge/Documentation/feature-removal-schedule.txt
+@@ -258,3 +258,10 @@ Why:	These drivers never compiled since 
+ Who:	Jean Delvare <khali@linux-fr.org>
+ 
+ ---------------------------
++
++What:   sk98lin network driver
++When:   January 2007
++Why:    replaced by the skge driver
++Who:    Stephen Hemminger <shemminger@osdl.org>
++
++---------------------------
+--- skge.orig/MAINTAINERS
++++ skge/MAINTAINERS
+@@ -2677,6 +2677,10 @@ L:	sdhci-devel@list.drzeus.cx
+ W:	http://mmc.drzeus.cx/wiki/Linux/Drivers/sdhci
+ S:	Maintained
+ 
++SK98LIN GIGABBIT ETHERNET DRIVER
++L:	netdev@vger.kernel.org
++S:	Obsolete
++
+ SKGE, SKY2 10/100/1000 GIGABIT ETHERNET DRIVERS
+ P:	Stephen Hemminger
+ M:	shemminger@osdl.org
