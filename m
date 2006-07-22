@@ -1,49 +1,51 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: skge driver oops
-Date: Sun, 23 Jul 2006 00:28:25 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0607230018150.22678@bizon.gios.gov.pl>
-References: <BB1F4EFD574E9F409035BDA71C9612500241A2@exchange.i-bn>
- <20060526081737.5c5b422f@localhost.localdomain>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: [PATCH] mark sk98lin driver for removal
+Date: Sat, 22 Jul 2006 19:17:03 -0400
+Message-ID: <20060722231703.GB8042@redhat.com>
+References: <20060722141150.5994fee1@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-1966348823-1153607305=:22678"
-Cc: Beschorner Daniel <Daniel.Beschorner@facton.com>,
-	netdev@vger.kernel.org, "'david@mantara.com'" <david@mantara.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:56963 "EHLO
-	bizon.gios.gov.pl") by vger.kernel.org with ESMTP id S1751064AbWGVW2o
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Jul 2006 18:28:44 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:37507 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751079AbWGVXRt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2006 19:17:49 -0400
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060526081737.5c5b422f@localhost.localdomain>
+Content-Disposition: inline
+In-Reply-To: <20060722141150.5994fee1@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Sat, Jul 22, 2006 at 02:11:50PM -0700, Stephen Hemminger wrote:
+ > The sk98lin driver is now superseded by the skge driver. I wanted to just
+ > let the old driver wither and die from old age, but there are still bugs
+ > that are too painful to fix.
+ > 
+ > See http://bugzilla.kernel.org/show_bug.cgi?id=6780
+ > The board crashes repeatedly after 2 weeks. It probably is something
+ > in the vendor MIB code. That code is a mess, and starting over was one
+ > of the motivations for creating the skge driver.
+ > 
+ > So rather than add more bondo to the old beater to cover the rusty bits,
+ > throw it in the dustbin.
+ > 
+ > Signed-off-by: Stephen Hemminger <shemminger@osdl.or
 
----187430788-1966348823-1153607305=:22678
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+After a huge number of bug reports in Fedora 'went away' when we
+switched our users to using skge instead, I wholeheartedly endorse this.
+sk98lin is a disaster.  The last time I looked the vendor out-of-tree
+driver had a huge delta vs mainline, and backed out numerous fixes
+made to it in the mainline kernel. It's a huge effort to get the 'good bits'
+out of that patch, and letting it die is the only sensible solution IMO.
+
+ACKed-by: Dave Jones <davej@redhat.com>
 
 
+ > +SK98LIN GIGABBIT ETHERNET DRIVER
 
-On Fri, 26 May 2006, Stephen Hemminger wrote:
+typo :-)
 
-> Please give this a try, it rearranges the transmit buffer management,
-> and may avoid issues with partial completions causing SKB reuse.
+		Dave
 
-<CUT>
-
-Plase excuse me, I overlooked this patch. Anyway, it seems that this fix=20
-went into the 2.6.16 kernel, which is already on the server that caused=20
-problems (http://bugzilla.kernel.org/show_bug.cgi?id=3D6142). I'll disable=
-=20
-my workaround (/usr/sbin/ethtool -K eth1 tx off) and let you known about=20
-the results.
-
-Thank you.
-
-Best regards,
-
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-1966348823-1153607305=:22678--
+-- 
+http://www.codemonkey.org.uk
