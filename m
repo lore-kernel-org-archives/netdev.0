@@ -1,51 +1,43 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: Netchannles: first stage has been completed. Further ideas.
-Date: Sat, 22 Jul 2006 06:23:46 -0700
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F17442A3@NT-SJCA-0751.brcm.ad.broadcom.com>
-References: <44C0FD6F.5010601@candelatech.com>
+From: HyipPaying <benj125@yahoo.com>
+Subject: PAYING
+Date: Sat, 22 Jul 2006 16:58:35 +0200
+Message-ID: <200607221459.k6MExE2F032287@zeus1.kernel.org>
+Reply-To: benj125@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="a0bf6f8c-81f4-461d-9986-ce7dd194c3a1"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:59922 "EHLO
-	mms2.broadcom.com") by vger.kernel.org with ESMTP id S1751346AbWGVNZ6 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Jul 2006 09:25:58 -0400
-In-Reply-To: <44C0FD6F.5010601@candelatech.com>
-Content-class: urn:content-classes:message
-To: "Ben Greear" <greearb@candelatech.com>,
-	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+Received: from zeus1.kernel.org ([204.152.191.4]:39841 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1750792AbWGVO7b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2006 10:59:31 -0400
+Received: from yahoo2332.com (AMontpellier-252-1-97-71.w86-200.abo.wanadoo.fr [86.200.219.71])
+	by zeus1.kernel.org (8.13.1/8.13.1) with SMTP id k6MExE2F032287
+	for <netdev@vger.kernel.org>; Sat, 22 Jul 2006 14:59:30 GMT
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netdev-owner@vger.kernel.org wrote:
-> Evgeniy Polyakov wrote:
->> On Thu, Jul 20, 2006 at 02:21:57PM -0700, Ben Greear
-> (greearb@candelatech.com) wrote:
->> 
->>> Out of curiosity, is it possible to have the single producer logic
->>> if you have two+ ethernet interfaces handling frames for a single
->>> TCP connection?  (I am assuming some sort of multi-path routing
->>> logic...)
->> 
->> 
->> I do not think it is possible with additional logic like what is
->> implemented in softirqs, i.e. per cpu queues of data, which in turn
->> will be converted into skbs one-by-one.
-> 
-> Couldn't you have two NICs being handled by two separate
-> CPUs, with both CPUs trying to write to the same socket queue?
-> 
-> The receive path works with RCU locking from what I
-> understand, so a protocol's receive function must be re-entrant.
 
-Wouldn't it be easier simply not have two NICs feed the
-same ring? What packets end up in which ring is fully
-controllable. On the rare occasion that a single connection
-must be fed by two NICs a software merge of the two rings
-would be far cheaper than having to co-ordinate between
-producers all the time.
+This is a multi-part message in MIME format
+
+--a0bf6f8c-81f4-461d-9986-ce7dd194c3a1
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+Winners Invest
+
+Promo Plan: 300 % after 1 day  
+
+130-210 % after 1 day
+190-270 % after 2 days
+250-330 % after 3 days
+
+min spend: 1 USD
+max spend: 2000 USD
+
+REF:5-10-15 %
+
+Sign Up
+
+http://www.winners-invest.com/?ref=3DBenJ  
+--a0bf6f8c-81f4-461d-9986-ce7dd194c3a1--
 
