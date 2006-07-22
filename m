@@ -1,56 +1,49 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] mark sk98lin driver for removal
-Date: Sat, 22 Jul 2006 14:11:50 -0700
-Message-ID: <20060722141150.5994fee1@localhost.localdomain>
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Re: skge driver oops
+Date: Sun, 23 Jul 2006 00:28:25 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0607230018150.22678@bizon.gios.gov.pl>
+References: <BB1F4EFD574E9F409035BDA71C9612500241A2@exchange.i-bn>
+ <20060526081737.5c5b422f@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-1966348823-1153607305=:22678"
+Cc: Beschorner Daniel <Daniel.Beschorner@facton.com>,
+	netdev@vger.kernel.org, "'david@mantara.com'" <david@mantara.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:148 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750760AbWGVVMG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2006 17:12:06 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from bizon.gios.gov.pl ([212.244.124.8]:56963 "EHLO
+	bizon.gios.gov.pl") by vger.kernel.org with ESMTP id S1751064AbWGVW2o
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Jul 2006 18:28:44 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060526081737.5c5b422f@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The sk98lin driver is now superseded by the skge driver. I wanted to just
-let the old driver wither and die from old age, but there are still bugs
-that are too painful to fix.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-See http://bugzilla.kernel.org/show_bug.cgi?id=6780
-The board crashes repeatedly after 2 weeks. It probably is something
-in the vendor MIB code. That code is a mess, and starting over was one
-of the motivations for creating the skge driver.
+---187430788-1966348823-1153607305=:22678
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-So rather than add more bondo to the old beater to cover the rusty bits,
-throw it in the dustbin.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.or
 
---- skge.orig/Documentation/feature-removal-schedule.txt
-+++ skge/Documentation/feature-removal-schedule.txt
-@@ -258,3 +258,10 @@ Why:	These drivers never compiled since 
- Who:	Jean Delvare <khali@linux-fr.org>
- 
- ---------------------------
-+
-+What:   sk98lin network driver
-+When:   January 2007
-+Why:    replaced by the skge driver
-+Who:    Stephen Hemminger <shemminger@osdl.org>
-+
-+---------------------------
---- skge.orig/MAINTAINERS
-+++ skge/MAINTAINERS
-@@ -2677,6 +2677,10 @@ L:	sdhci-devel@list.drzeus.cx
- W:	http://mmc.drzeus.cx/wiki/Linux/Drivers/sdhci
- S:	Maintained
- 
-+SK98LIN GIGABBIT ETHERNET DRIVER
-+L:	netdev@vger.kernel.org
-+S:	Obsolete
-+
- SKGE, SKY2 10/100/1000 GIGABIT ETHERNET DRIVERS
- P:	Stephen Hemminger
- M:	shemminger@osdl.org
+On Fri, 26 May 2006, Stephen Hemminger wrote:
+
+> Please give this a try, it rearranges the transmit buffer management,
+> and may avoid issues with partial completions causing SKB reuse.
+
+<CUT>
+
+Plase excuse me, I overlooked this patch. Anyway, it seems that this fix=20
+went into the 2.6.16 kernel, which is already on the server that caused=20
+problems (http://bugzilla.kernel.org/show_bug.cgi?id=3D6142). I'll disable=
+=20
+my workaround (/usr/sbin/ethtool -K eth1 tx off) and let you known about=20
+the results.
+
+Thank you.
+
+Best regards,
+
+ =09=09=09=09Krzysztof Ol=EAdzki
+---187430788-1966348823-1153607305=:22678--
