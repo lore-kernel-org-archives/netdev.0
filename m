@@ -1,31 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Netdev kernel summit.
-Date: Sat, 22 Jul 2006 03:05:27 -0700 (PDT)
-Message-ID: <20060722.030527.61504918.davem@davemloft.net>
-References: <20060715094056.GA2744@2ka.mipt.ru>
+From: Gregory <Steven@brars.org.uk>
+Subject: Der beste Weg Ihr Einkommen zu erhohen.
+Date: Sat, 22 Jul 2006 21:12:07 +0800
+Message-ID: <22A64DCD.0017132@brars.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1251; format=flowed
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:37510
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932121AbWGVKF1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Jul 2006 06:05:27 -0400
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20060715094056.GA2744@2ka.mipt.ru>
+Received: from zeus1.kernel.org ([204.152.191.4]:8833 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1750766AbWGVNLp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2006 09:11:45 -0400
+Received: from sbs.siemens.co.uk (cm138.delta89.maxonline.com.sg [59.189.89.138])
+	by zeus1.kernel.org (8.13.1/8.13.1) with SMTP id k6MDBT84022056
+	for <netdev@vger.kernel.org>; Sat, 22 Jul 2006 13:11:42 GMT
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Sat, 15 Jul 2006 13:40:56 +0400
+Brauchen Sie zusaetzliches Einkommen?
+ 
+Schon heute haben Sie diese neue Moeglichkeit!
+ 
+ Company Get Assisted Co. bietet Ihnen die Zusammenarbeit an.
+Sie sind verantwortlich und punktlich.
+ Sie sind zwischen 18 und 60 Jahre.
 
-> Where interested reader can find info about this year netdev kernel
-> summit topics and presentations, if that event will/is/was at all.
-> 
-> Previous summits had extremely interesting topics.
+Sie haben Freizeit (2-4 Stunden taglich)
 
-It will be in September this year, very likely in Tokyo, Japan.
+Das ist Ihre Chance. 
 
-Once we have more information I will post details and links in my
-blog, which I know you do follow :-)
+ Kontaktieren Sie mit uns, bitte, Ihr Job wartet auf Sie!
+Schicken Sie bitte Ihre E-Mails an support@g-ted.biz
+
+
