@@ -1,31 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [AX.25 1/2] Introduce struct ax25_sock.
-Date: Sat, 22 Jul 2006 17:05:44 -0700 (PDT)
-Message-ID: <20060722.170544.21927031.davem@davemloft.net>
-References: <20060721152946.GA16317@linux-mips.org>
-	<20060722.013618.71088903.davem@davemloft.net>
-	<20060722121343.GA7579@linux-mips.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] mark sk98lin driver for removal
+Date: Sat, 22 Jul 2006 22:17:30 -0400
+Message-ID: <20060723021730.GA5369@tuxdriver.com>
+References: <20060722141150.5994fee1@localhost.localdomain> <20060722231703.GB8042@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:4574
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750755AbWGWAFl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Jul 2006 20:05:41 -0400
-To: ralf@linux-mips.org
-In-Reply-To: <20060722121343.GA7579@linux-mips.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:7690 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1751066AbWGWCgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2006 22:36:31 -0400
+To: Dave Jones <davej@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20060722231703.GB8042@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Sat, 22 Jul 2006 08:13:43 -0400
+On Sat, Jul 22, 2006 at 07:17:03PM -0400, Dave Jones wrote:
+> On Sat, Jul 22, 2006 at 02:11:50PM -0700, Stephen Hemminger wrote:
+>  > The sk98lin driver is now superseded by the skge driver. I wanted to just
+>  > let the old driver wither and die from old age, but there are still bugs
+>  > that are too painful to fix.
 
-> While this patch itself is more of a cleanup it's a prerequisite for
-> being able the use the sk_*_timer functions to fix the reference counts
-> in AX.25 timers ...
+>  > So rather than add more bondo to the old beater to cover the rusty bits,
+>  > throw it in the dustbin.
+>  > 
+>  > Signed-off-by: Stephen Hemminger <shemminger@osdl.or
+> 
+> After a huge number of bug reports in Fedora 'went away' when we
+> switched our users to using skge instead, I wholeheartedly endorse this.
 
-When you have those timer refcount fixes as part of your patch set, I
-can then justify putting the change into 2.6.18.  Feel free to
-resubmit once you have it all ready.
+> ACKed-by: Dave Jones <davej@redhat.com>
+
+ACKed-by: John W. Linville <linville@tuxdriver.com>
+
+-- 
+John W. Linville
+linville@tuxdriver.com
