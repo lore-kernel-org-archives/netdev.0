@@ -1,19 +1,18 @@
-From: "Bryson" <Brysonburke@australiamail.com>
-Subject: Hey, buddy, you must be very disappointed of it!
-Date: Sun, 23 Jul 2006 18:47:05 -0200
-Message-ID: <33810330347575.5D726E19B4@YY2NJFE2>
+From: "English" <Englishcheeky@berlin.com>
+Subject: Have all delights using this wonderful product!
+Date: Sun, 23 Jul 2006 18:48:18 -0200
+Message-ID: <95392384548353.99CADF5182@YC90Q4>
 Mime-Version: 1.0
 Content-Type: text/plain;
         charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [201.47.16.199] ([201.47.16.199]:21522 "EHLO
-	upa6o.eoeobape.ameritech.net") by vger.kernel.org with ESMTP
-	id S1751333AbWGWVra (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Jul 2006 17:47:30 -0400
+Received: from [201.47.16.199] ([201.47.16.199]:49412 "EHLO CASA")
+	by vger.kernel.org with ESMTP id S1751310AbWGWVsn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jul 2006 17:48:43 -0400
 To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Millions of men are facing this issue, and the smartest ones already got an answer. Keep her satisfied forever with Extra-Time which makes you Mr. Long Laster. Don't let your partner leave you because of being unhappy with the duration of your acts. Come in: http://florexx.com/gall/get/ You'll make your equipment suit the task - and she'll worship you for that!
+Hi Bro, Eliminate this problem and all the anxiety it causes! Become a better male! Safe, efficient and covering all aspects, Extra-Time will help you forget the premature nightmare. Ever thought your relationship is about to break up because you finish within a few minutes from penetration? You may find what you need here: http://oxtrent.com/gall/get/ It's obvious that a satisfied woman will be addicted to you like never before.
 
