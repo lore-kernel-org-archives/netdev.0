@@ -1,51 +1,31 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [PATCH] mark sk98lin driver for removal
-Date: Sat, 22 Jul 2006 19:17:03 -0400
-Message-ID: <20060722231703.GB8042@redhat.com>
-References: <20060722141150.5994fee1@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [AX.25 1/2] Introduce struct ax25_sock.
+Date: Sat, 22 Jul 2006 17:05:44 -0700 (PDT)
+Message-ID: <20060722.170544.21927031.davem@davemloft.net>
+References: <20060721152946.GA16317@linux-mips.org>
+	<20060722.013618.71088903.davem@davemloft.net>
+	<20060722121343.GA7579@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:37507 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751079AbWGVXRt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jul 2006 19:17:49 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060722141150.5994fee1@localhost.localdomain>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:4574
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750755AbWGWAFl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Jul 2006 20:05:41 -0400
+To: ralf@linux-mips.org
+In-Reply-To: <20060722121343.GA7579@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 22, 2006 at 02:11:50PM -0700, Stephen Hemminger wrote:
- > The sk98lin driver is now superseded by the skge driver. I wanted to just
- > let the old driver wither and die from old age, but there are still bugs
- > that are too painful to fix.
- > 
- > See http://bugzilla.kernel.org/show_bug.cgi?id=6780
- > The board crashes repeatedly after 2 weeks. It probably is something
- > in the vendor MIB code. That code is a mess, and starting over was one
- > of the motivations for creating the skge driver.
- > 
- > So rather than add more bondo to the old beater to cover the rusty bits,
- > throw it in the dustbin.
- > 
- > Signed-off-by: Stephen Hemminger <shemminger@osdl.or
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Sat, 22 Jul 2006 08:13:43 -0400
 
-After a huge number of bug reports in Fedora 'went away' when we
-switched our users to using skge instead, I wholeheartedly endorse this.
-sk98lin is a disaster.  The last time I looked the vendor out-of-tree
-driver had a huge delta vs mainline, and backed out numerous fixes
-made to it in the mainline kernel. It's a huge effort to get the 'good bits'
-out of that patch, and letting it die is the only sensible solution IMO.
+> While this patch itself is more of a cleanup it's a prerequisite for
+> being able the use the sk_*_timer functions to fix the reference counts
+> in AX.25 timers ...
 
-ACKed-by: Dave Jones <davej@redhat.com>
-
-
- > +SK98LIN GIGABBIT ETHERNET DRIVER
-
-typo :-)
-
-		Dave
-
--- 
-http://www.codemonkey.org.uk
+When you have those timer refcount fixes as part of your patch set, I
+can then justify putting the change into 2.6.18.  Feel free to
+resubmit once you have it all ready.
