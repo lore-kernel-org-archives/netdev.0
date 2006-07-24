@@ -1,61 +1,49 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Help with bugfix for bond active-backup mode + vlans
-Date: Mon, 24 Jul 2006 10:49:01 -0700
-Message-ID: <200607241749.k6OHn1hg030011@death.nxdomain.ibm.com>
-References: <200607241837.42626.Christophe.Devriese@eurid.eu>
-Cc: netdev@vger.kernel.org
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: Problems with sky2 driver.
+Date: Mon, 24 Jul 2006 18:57:24 +0100
+Message-ID: <44C50A04.5020002@gentoo.org>
+References: <20060724133829.49bf7979@akemi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:22964 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S932241AbWGXRtJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2006 13:49:09 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e2.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k6OHn8xP026728
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 24 Jul 2006 13:49:08 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k6OHn75m234384
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 24 Jul 2006 13:49:08 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k6OHn79A012897
-	for <netdev@vger.kernel.org>; Mon, 24 Jul 2006 13:49:07 -0400
-To: Christophe Devriese <Christophe.Devriese@eurid.eu>
-In-reply-to: <200607241837.42626.Christophe.Devriese@eurid.eu> 
+Received: from mta07-winn.ispmail.ntl.com ([81.103.221.47]:17216 "EHLO
+	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S932238AbWGXRtw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jul 2006 13:49:52 -0400
+To: Todd Showalter <tshowalter@silverbirchstudios.com>
+In-Reply-To: <20060724133829.49bf7979@akemi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christophe Devriese <Christophe.Devriese@eurid.eu> wrote:
+Todd Showalter wrote:
+>     I've been having trouble with the sky2 driver.  It appears to work
+> most of the time, but it will quite often wedge during transfers.  The
+> 2.6.17.* kernels actually seem worse than 2.6.16.19, but none of them
+> work perfectly.
+> 
+>     What typically happens is that after working perfectly for a while,
+> existing net connections hang, and subsequent net connections don't
+> seem to start at all.  firefox gets stuck with a bunch of half-loaded
+> pages, for instance, and I've watched an scp of a large file to a
+> colleague's machine stall and remain stalled.
 
-[...]
->Would it be acceptable to have an interface flag IFF_SILENT that can be set on 
->an interface, which prevents it from receiving packets in both forwarding 
->paths ?
+Please test with the very latest git snapshot. A critical fix was 
+applied after 2.6.18-rc2 was released.
 
-	Starting with kernel version 2.6.17, there is code in skb_bond()
-to suppress traffic on inactive slaves, but it looks like that will
-bypassed by hardware accelerated VLAN packets (which, if I'm reading the
-code correctly, have their skb->dev directly assigned to the VLAN
-interface, so they go into netif_receive_skb with skb->dev not set to
-the slave device, which will bypass the stuff in skb_bond).
+>     Once the machine is behaving this way, a reboot is the only way I
+> have found of recovering it.
+> 
+>     We have two identical machines here that are both behaving this
+> way, so I'm assuming it's not a hardware problem per se.  The machines
+> are Intel Pentium D 940 (3GHz) processors.  They have ASUS P5LD2
+> motherboards, with builtin Marvell PCIe 88E8053 gigabit ethernet
+> controllers.
+> 
+>     I'm not running any binary modules; it's an untainted kernel.  I'm
+> running a Gentoo system, but I'm using the vanilla-sources kernel (ie:
+> a pure kernel.org release, not the Gentoo-specific patched version).
+> 
+>     What can I do to help solve this?
 
-	An IFF_SILENT type of flag would work fine (if checked in both
-input paths) for the active-backup mode, but the 802.3ad and balance-alb
-modes need differing types of traffic dropping, e.g., the balance-alb
-mode just needs to suppress broadcast and multicasts.
-
-	One possible solution for this would be to have bonding remove
-the vlan registration for inactive slaves, which would cause the errant
-packets to pass through skb_bond() normally and presumably be dropped.
-That would work for the active-backup case, but would cause balance-alb
-mode to lose VLAN acceleration on all interfaces except for one.
-
-	Another possibility would be to have __vlan_hwaccel_rx check the
-VLAN_DEV_INFO(skb->dev)->real_dev, and if that's a bonding device, apply
-the same logic found in skb_bond().  Or, if there's some way to ask the
-question "is dev a VLAN device?", then that same test could be put into
-skb_bond() and all of the packet suppression fru fru could stay there.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
