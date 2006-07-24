@@ -1,75 +1,32 @@
-From: "Caitlin Bestler" <caitlinb@broadcom.com>
-Subject: RE: RDMA will be reverted
-Date: Mon, 24 Jul 2006 15:47:50 -0700
-Message-ID: <54AD0F12E08D1541B826BE97C98F99F17443F3@NT-SJCA-0751.brcm.ad.broadcom.com>
-References: <20060724.152533.62664432.davem@davemloft.net>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: What is RDMA
+Date: Tue, 25 Jul 2006 00:49:14 +0200
+Message-ID: <200607250049.14666.ak@suse.de>
+References: <1152163503.20248.98.camel@trinity.ogc.int> <20060724.152925.85821176.davem@davemloft.net> <44C54AF6.3030609@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: tom@opengridcomputing.com, ak@suse.de, rdreier@cisco.com,
-	netdev@vger.kernel.org, akpm@osdl.org
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	tom@opengridcomputing.com, rdreier@cisco.com,
+	netdev@vger.kernel.org, akpm@osdl.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:56584 "EHLO
-	mms2.broadcom.com") by vger.kernel.org with ESMTP id S932310AbWGXWsK convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jul 2006 18:48:10 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20060724.152533.62664432.davem@davemloft.net>
-To: "David Miller" <davem@davemloft.net>, swise@opengridcomputing.com
+Received: from ns1.suse.de ([195.135.220.2]:51673 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S932312AbWGXWva (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2006 18:51:30 -0400
+To: Rick Jones <rick.jones2@hp.com>
+In-Reply-To: <44C54AF6.3030609@hp.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netdev-owner@vger.kernel.org wrote:
-> From: Steve Wise <swise@opengridcomputing.com>
-> Date: Wed, 05 Jul 2006 12:50:34 -0500
-> 
->> However, iWARP devices _could_ integrate with netfilter.  For most
->> devices the connection request event (SYN) gets passed up to the host
->> driver.  So the driver can enforce filter rules then.
-> 
-> This doesn't work.  In order to handle things like NAT and
-> connection tracking properly you must even allow ESTABLISHED
-> state packets to pass through netfilter.
-> 
-> Netfilter can have rules such as "NAT port 200 to 300, leave
-> the other fields alone" and your suggested scheme cannot handle this.
+On Tuesday 25 July 2006 00:34, Rick Jones wrote:
+> That TOE/iWARP could end-up being precluded by NAT seems so ironic from a POE2E 
+> standpoint.
 
-This is totally irrelevant. But it does work.
+Yes, it's sad, but reality unfortunately. 
 
-First, an RDMA connection once established associates a
-TCP connection *as identified external to the box* with
-an RDMA endpoint (conventionally a "QP").
+There is even precedent: the VJ stateless TW recycling scheme also
+turned out to not work because of NAT considerations.
 
-Performing a NAT translation on a TCP packet would certainly
-be within the capabilities of an RNIC, but it would be pointless.
-The relabeled TCP segment would be associated with the same QP.
-
-Once an RDMA connection is established, the individual TCP segments
-are only of interest to the RDMA endpoint. Payload is delivered
-through the RDMA interface (the same one already used for
-InfiniBand). The purpose of integration with netfilter would
-be to ensure that no RDMA Connection could exist, or persist,
-if netfilter would not allow the TCP connection to be created.
-
-That is not a matter of packet filtering, it is matter of
-administrative consistency. If someone uses netfilter to block
-connections from a given IP netmask then they reasonably expect
-that there will be no connections with any host within that
-IP netmask. They do not expect exceptions for RDMA, iSCSI
-or InfiniBand.
-
-The existing connection management interfaces in openfabrics,
-designed to support both InfiniBand and iWARP, could naturally
-be extended to validate all RDMA connections using an IP address
-with netfilter. This would be of real value.
-
-The only real value of a rule such as "NAT port 200 to 300" is
-to allow a remote peer to establish a connection to port 200
-with a local listener using port 300. That *can* be supported
-without actually manipulating the header in each TCP packet.
-
-It is also possible to discuss other netfilter functionality
-that serves a valid end-user purpose, such as counting packets.
- 
-
+-Andi
