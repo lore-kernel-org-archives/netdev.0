@@ -1,42 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: What is RDMA
-Date: Mon, 24 Jul 2006 15:39:17 -0700 (PDT)
-Message-ID: <20060724.153917.15588754.davem@davemloft.net>
-References: <20060707081131.GA2991@gondor.apana.org.au>
-	<20060724.152925.85821176.davem@davemloft.net>
-	<44C54AF6.3030609@hp.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 1/2] remove CONFIG_HAVE_ARCH_DEV_ALLOC_SKB
+Date: Mon, 24 Jul 2006 15:44:15 -0700
+Message-ID: <ada4px6ipxc.fsf@cisco.com>
+References: <20060707091008.GB2543@lst.de>
+	<20060724.153044.10246226.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, tom@opengridcomputing.com,
-	rdreier@cisco.com, netdev@vger.kernel.org, akpm@osdl.org,
-	jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: hch@lst.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:53913
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932303AbWGXWjI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jul 2006 18:39:08 -0400
-To: rick.jones2@hp.com
-In-Reply-To: <44C54AF6.3030609@hp.com>
+Received: from sj-iport-4.cisco.com ([171.68.10.86]:13211 "EHLO
+	sj-iport-4.cisco.com") by vger.kernel.org with ESMTP
+	id S932313AbWGXWoR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jul 2006 18:44:17 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060724.153044.10246226.davem@davemloft.net> (David Miller's message of "Mon, 24 Jul 2006 15:30:44 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Mon, 24 Jul 2006 15:34:30 -0700
+> skbuff.h has an #ifndef CONFIG_HAVE_ARCH_DEV_ALLOC_SKB to allow
+> architectures to reimplement __dev_alloc_skb.  It's not set on any
+> architecture and now that we have an architecture-overrideable
+> NET_SKB_PAD there is not point at all to have one either.
 
-> That TOE/iWARP could end-up being precluded by NAT seems so ironic
-> from a POE2E standpoint.
+I missed this when hch first posted it, sorry.
 
-To be honest we do not have a pure end to end internet, and some of
-our failed experiments in the past prove this :-)
+But my impression was that the intent of the config option was to let
+Xen hook __dev_alloc_skb() to allocate special receive skbs to handle
+their page-flipping virtual network device.  Which goes beyond
+NET_SKB_PAD.
 
-For example, we have an optimization that allows much earlier
-termination of TIME_WAIT connections.  It relies upon TCP timestamps
-and attributes we can determine about end hosts using that information
-(it is yet another Van Jacobson idea btw).  But NAT means that IP+Port
-does not necessarily equate to the same host over time, not even over
-short periods of time.  A NAT box could be using Port X for host A and
-then host B some short time later.
+So the real question is about Xen hooks I guess -- and given where the
+rest of Xen is, it probably does make sense to go ahead and strip this
+out.
 
-Therefore we had to disable the early timewait recycling trick by
-default.
+ - R.
