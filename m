@@ -1,240 +1,119 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: [PATCH dscape] d80211: Switch to IEEE80211_ style naming in d80211.h
-Date: Mon, 24 Jul 2006 01:39:30 -0700
-Message-ID: <200607240139.36516.flamingice@sourmilk.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: Unable to handle kernel paging request, another 2.6.16.25
+ server reboots
+Date: Mon, 24 Jul 2006 02:28:36 -0700
+Message-ID: <20060724022836.919814b3.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1949159.qOpREhL3Cn";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org
+Cc: Jim Klimov <klimov@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:40119 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S1750807AbWGXIjl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jul 2006 04:39:41 -0400
-To: Jiri Benc <jbenc@suse.cz>
+Received: from smtp.osdl.org ([65.172.181.4]:13248 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751158AbWGXJ2v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2006 05:28:51 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1949159.qOpREhL3Cn
-Content-Type: multipart/mixed;
-  boundary="Boundary-01=_CdIxE7UUFcgd0OV"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
 
---Boundary-01=_CdIxE7UUFcgd0OV
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
 
-Christoph Hellwig made a comment about how the names in ieee80211.h make mo=
-re=20
-sense, and I also agree. This should also make patches for migrating fullma=
-c=20
-drivers to d80211 smaller.
+Begin forwarded message:
 
-Hopefully I didn't miss anything in the transition. Patch is bzip2ed since =
-a=20
-49kb patch seems a little big for inline.
+Date: Mon, 24 Jul 2006 12:01:48 +0400
+From: Jim Klimov <klimov@2ka.mipt.ru>
+To: linux-kernel@vger.kernel.org
+Subject: Unable to handle kernel paging request, another 2.6.16.25 server reboots
 
-Thanks,
-=2DMIchael Wu
 
---Boundary-01=_CdIxE7UUFcgd0OV
-Content-Type: application/x-bzip2;
-  name="switch-to-new-names.patch.bz2"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename="switch-to-new-names.patch.bz2"
+Hello linux-kernel,
 
-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
-Vtr0axr01uKuQ1zXuJJ/8XckU4UJCpH+HvA=
+  I recently wrote about problems with a fileserver rebooting
+  frequently. Another similar server got under NFS load today
+  and rebooted at least twice in the past few hours.
 
---Boundary-01=_CdIxE7UUFcgd0OV--
+  This server has a similar motherboard (Supermicro X5DP8-G2),
+  dual Xeons@533, two older 3Ware controllers (7506+8506) and
+  a reiserfs v3 archive.
 
---nextPart1949159.qOpREhL3Cn
-Content-Type: application/pgp-signature
+  The server reported last week has two 3Ware 9550 controllers,
+  ext3 archives and primarily a Samba usage.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+[32262.075038] Unable to handle kernel paging request at virtual address f9445d43
+[32262.082673]  printing eip:
+[32262.085515] c0392bba
+[32262.087822] *pde = 32e59067
+[32262.090729] Oops: 0000 [#1]
+[32262.093636] SMP 
+[32262.095649] Modules linked in: w83781d hwmon_vid hwmon i2c_isa i2c_core w83627hf_wdt
+[32262.104138] CPU:    0
+[32262.104139] EIP:    0060:[<c0392bba>]    Not tainted VLI
+[32262.104140] EFLAGS: 00010282   (2.6.16.25 #3) 
+[32262.116474] EIP is at ipt_do_table+0xae/0x385
+[32262.121055] eax: 00000003   ebx: 00000000   ecx: cbf4b8d8   edx: f944a2c8
+[32262.128063] esi: e2262940   edi: f9445cf0   ebp: 80000000   esp: f700fac8
+[32262.135095] ds: 007b   es: 007b   ss: 0068
+[32262.139328] Process nfsd (pid: 10685, threadinfo=f700e000 task=f36a7ab0)
+[32262.146127] Stack: <0>f9446b10 00000282 c33e2180 f36cda80 00000000 c047deec f944a2c8 f9418000 
+[32262.155812]        f7788800 c0530cd4 00000000 cbf4b8d8 00000000 00000003 f700fba0 00000000 
+[32262.164948]        f700fba0 00000003 c052f0d8 80000000 c03947e7 f7788800 c047dec0 00000000 
+[32262.174128] Call Trace:
+[32262.176759]  [<c03947e7>] ipt_local_out_hook+0x72/0x77
+[32262.182228]  [<c035dfd9>] nf_iterate+0x69/0x83
+[32262.186964]  [<c036a1ca>] dst_output+0x0/0x7
+[32262.191502]  [<c036a1ca>] dst_output+0x0/0x7
+[32262.196055]  [<c035e050>] nf_hook_slow+0x5d/0xea
+[32262.200995]  [<c036a1ca>] dst_output+0x0/0x7
+[32262.205528]  [<c0368178>] ip_queue_xmit+0x3d4/0x4f5
+[32262.210724]  [<c036a1ca>] dst_output+0x0/0x7
+[32262.215276]  [<c012ce4a>] __rcu_process_callbacks+0x7d/0xc5
+[32262.221217]  [<c0115d92>] activate_task+0x99/0xa5
+[32262.226231]  [<c011659c>] try_to_wake_up+0x29c/0x33b
+[32262.231540]  [<c037d0d1>] tcp_v4_send_check+0x4a/0xdc
+[32262.236945]  [<c037868d>] tcp_transmit_skb+0x2e6/0x45a
+[32262.242419]  [<c0379879>] tcp_push_one+0x97/0x104
+[32262.247423]  [<c036ec4c>] tcp_sendmsg+0x36b/0xb4d
+[32262.252436]  [<c035dfd9>] nf_iterate+0x69/0x83
+[32262.257190]  [<c037e653>] tcp_v4_rcv+0x4e6/0x81f
+[32262.262101]  [<c0389cbe>] inet_sendmsg+0x47/0x5f
+[32262.267017]  [<c0344768>] sock_sendmsg+0xc9/0xe3
+[32262.271942]  [<c03649ad>] ip_rcv+0x2bc/0x56f
+[32262.276481]  [<c034e58a>] netif_receive_skb+0x227/0x2d7
+[32262.282039]  [<c0348c4c>] __kfree_skb+0x3a/0xc3
+[32262.286881]  [<c012f3e4>] autoremove_wake_function+0x0/0x43
+[32262.292741]  [<c0125923>] update_wall_time_one_tick+0x6/0x7e
+[32262.298772]  [<c01259ce>] update_wall_time+0x8/0x35
+[32262.303957]  [<c01062ab>] timer_interrupt+0x5b/0x86
+[32262.309124]  [<c0139975>] handle_IRQ_event+0x26/0x59
+[32262.314444]  [<c03447b0>] kernel_sendmsg+0x2e/0x3c
+[32262.319525]  [<c0347a3f>] sock_no_sendpage+0x80/0x9f
+[32262.324772]  [<c036e8a5>] tcp_sendpage+0x49/0x85
+[32262.329708]  [<c03a9573>] svc_sendto+0x134/0x250
+[32262.334651]  [<c034e7ce>] net_rx_action+0x88/0x15f
+[32262.339777]  [<c0104f82>] do_IRQ+0x1e/0x24
+[32262.344129]  [<c01035e2>] common_interrupt+0x1a/0x20
+[32262.349422]  [<c03aa597>] svc_tcp_sendto+0x4d/0x99
+[32262.354495]  [<c0258eab>] _atomic_dec_and_lock+0x33/0x4c
+[32262.360121]  [<c03aad1a>] svc_send+0xaa/0xed
+[32262.364691]  [<c0210abc>] fh_put+0x133/0x17d
+[32262.369239]  [<c03ac4da>] svcauth_unix_release+0x43/0x45
+[32262.374885]  [<c021d1fd>] nfs3svc_release_fhandle+0x0/0xe
+[32262.380606]  [<c03a8b14>] svc_process+0x1b1/0x619
+[32262.386970]  [<c01183f8>] default_wake_function+0x0/0xc
+[32262.392485]  [<c020e10d>] nfsd+0x178/0x301
+[32262.396891]  [<c020df95>] nfsd+0x0/0x301
+[32262.401132]  [<c01010a1>] kernel_thread_helper+0x5/0xb
+[32262.406560] Code: ff 21 e0 0f b7 db 8b 40 10 8b 44 86 34 89 44 24 1c
+89 c7 8b 44 24 34 8b 54 24 1c 03 7c 86 0c 03 54 86 20 89 5c 24 10 89 54
+24 18 <0f> b6 5f 53 89 d8 24 08 84 c0 0f 84 b4 02 00 00 8b 47 08 8b 4c
+[32262.429623]  <0>Kernel panic - not syncing: Fatal exception in interrupt
+[32262.436516]  <0>Rebooting in 1 seconds..  
 
-iD8DBQBExIdIT3Oqt9AH4aERAgDUAKDXl1Ew7RFlSeDr9SaooFXjw/i2zACgvEU7
-d/QIcQbiVCg3VRqy/Xmnv40=
-=3RPq
------END PGP SIGNATURE-----
+-- 
+Best regards,
+ Jim Klimov                          mailto:klimov@2ka.mipt.ru
 
---nextPart1949159.qOpREhL3Cn--
+-
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
