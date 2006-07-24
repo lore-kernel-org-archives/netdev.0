@@ -1,79 +1,35 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH 0/2] PHYLIB: Fix forcing mode reduction
-Date: Mon, 24 Jul 2006 11:40:46 -0500
-Message-ID: <1D5FF487-7443-4BBF-B61D-51CC8AD9BAB4@kernel.crashing.org>
-References: <1149551159.10700.46.camel@localhost.localdomain>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: [PATCH wireless-dev 0/5] Switch drivers to d80211
+Date: Mon, 24 Jul 2006 12:45:57 -0400
+Message-ID: <43e72e890607240945o9aad221lcd4a34136bde5c8b@mail.gmail.com>
+References: <200607232032.24299.flamingice@sourmilk.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Fleming <afleming@freescale.com>,
-	Nathaniel Case <ncase@xes-inc.com>, netdev@vger.kernel.org
+Cc: linville@tuxdriver.com, "Jiri Benc" <jbenc@suse.cz>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:48824 "EHLO
-	nommos.sslcatacombnetworking.com") by vger.kernel.org with ESMTP
-	id S932208AbWGXQky (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jul 2006 12:40:54 -0400
-In-Reply-To: <1149551159.10700.46.camel@localhost.localdomain>
-To: Jeff Garzik <jeff@garzik.org>
+Received: from ug-out-1314.google.com ([66.249.92.175]:22758 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S932212AbWGXQp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jul 2006 12:45:59 -0400
+Received: by ug-out-1314.google.com with SMTP id m3so2293122ugc
+        for <netdev@vger.kernel.org>; Mon, 24 Jul 2006 09:45:57 -0700 (PDT)
+To: "Michael Wu" <flamingice@sourmilk.net>
+In-Reply-To: <200607232032.24299.flamingice@sourmilk.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff,
+On 7/23/06, Michael Wu <flamingice@sourmilk.net> wrote:
+> Hi,
+>         This patch series converts a number of fullmac wireless drivers to use
+> d80211.h instead of ieee80211.h.
 
-Any status on accepting this patch, I've got some additional fixes  
-that are based on having access to genphy_update_link()
+Nice work
 
-- kumar
+> The remaining drivers are hostap, atmel, zd1211rw and ipw*.
 
-On Jun 5, 2006, at 6:45 PM, Nathaniel Case wrote:
+I've been working on zd1211rw, give me a week. Anyone started ipw yet?
 
-> On Mon, 2006-06-05 at 17:08 -0500, Andy Fleming wrote:
->> Looks good.  Feel free to send these patches to
->> netdev@vger.kernel.org (you may need to subscribe), and copy Jeff
->> Garzik <jeff@garzik.org>.
->
-> This fixes a problem seen when a port without a cable connected would
-> repeatedly print out "Trying 1000/HALF".  While in the PHY_FORCING
-> state, the call to phy_read_status() was resetting the value of
-> phydev->speed and phydev->duplex, preventing it from incrementally
-> trying the speed/duplex variations.
->
-> Since we really just want the link status updated for the PHY_FORCING
-> state, calling genphy_update_link() instead of phy_read_status() fixes
-> this issue.
->
-> Patch tested on a MPC8540 platform with a BCM5421 PHY.
->
-> Signed-off-by: Nate Case <ncase@xes-inc.com>
-> Signed-off-by: Andy Fleming <afleming@freescale.com>
->
-> ---
->
-> --- a/drivers/net/phy/phy.c	2006-06-04 16:01:59.000000000 -0500
-> +++ b/drivers/net/phy/phy.c	2006-06-05 10:55:31.000000000 -0500
-> @@ -767,7 +783,7 @@
->  			}
->  			break;
->  		case PHY_FORCING:
-> -			err = phy_read_status(phydev);
-> +			err = genphy_update_link(phydev);
->
->  			if (err)
->  				break;
-> --- a/drivers/net/phy/phy_device.c	2006-06-04 16:02:08.000000000 -0500
-> +++ b/drivers/net/phy/phy_device.c	2006-06-04 19:12:26.000000000 -0500
-> @@ -417,6 +417,7 @@
->
->  	return 0;
->  }
-> +EXPORT_SYMBOL(genphy_update_link);
->
->  /* genphy_read_status
->   *
->
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+  Luis
