@@ -1,36 +1,75 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 1/2] remove CONFIG_HAVE_ARCH_DEV_ALLOC_SKB
-Date: Mon, 24 Jul 2006 15:44:15 -0700
-Message-ID: <ada4px6ipxc.fsf@cisco.com>
-References: <20060707091008.GB2543@lst.de>
-	<20060724.153044.10246226.davem@davemloft.net>
+From: "Caitlin Bestler" <caitlinb@broadcom.com>
+Subject: RE: RDMA will be reverted
+Date: Mon, 24 Jul 2006 15:47:50 -0700
+Message-ID: <54AD0F12E08D1541B826BE97C98F99F17443F3@NT-SJCA-0751.brcm.ad.broadcom.com>
+References: <20060724.152533.62664432.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hch@lst.de, netdev@vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: tom@opengridcomputing.com, ak@suse.de, rdreier@cisco.com,
+	netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-4.cisco.com ([171.68.10.86]:13211 "EHLO
-	sj-iport-4.cisco.com") by vger.kernel.org with ESMTP
-	id S932313AbWGXWoR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jul 2006 18:44:17 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060724.153044.10246226.davem@davemloft.net> (David Miller's message of "Mon, 24 Jul 2006 15:30:44 -0700 (PDT)")
+Received: from mms2.broadcom.com ([216.31.210.18]:56584 "EHLO
+	mms2.broadcom.com") by vger.kernel.org with ESMTP id S932310AbWGXWsK convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jul 2006 18:48:10 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20060724.152533.62664432.davem@davemloft.net>
+To: "David Miller" <davem@davemloft.net>, swise@opengridcomputing.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> skbuff.h has an #ifndef CONFIG_HAVE_ARCH_DEV_ALLOC_SKB to allow
-> architectures to reimplement __dev_alloc_skb.  It's not set on any
-> architecture and now that we have an architecture-overrideable
-> NET_SKB_PAD there is not point at all to have one either.
+netdev-owner@vger.kernel.org wrote:
+> From: Steve Wise <swise@opengridcomputing.com>
+> Date: Wed, 05 Jul 2006 12:50:34 -0500
+> 
+>> However, iWARP devices _could_ integrate with netfilter.  For most
+>> devices the connection request event (SYN) gets passed up to the host
+>> driver.  So the driver can enforce filter rules then.
+> 
+> This doesn't work.  In order to handle things like NAT and
+> connection tracking properly you must even allow ESTABLISHED
+> state packets to pass through netfilter.
+> 
+> Netfilter can have rules such as "NAT port 200 to 300, leave
+> the other fields alone" and your suggested scheme cannot handle this.
 
-I missed this when hch first posted it, sorry.
+This is totally irrelevant. But it does work.
 
-But my impression was that the intent of the config option was to let
-Xen hook __dev_alloc_skb() to allocate special receive skbs to handle
-their page-flipping virtual network device.  Which goes beyond
-NET_SKB_PAD.
+First, an RDMA connection once established associates a
+TCP connection *as identified external to the box* with
+an RDMA endpoint (conventionally a "QP").
 
-So the real question is about Xen hooks I guess -- and given where the
-rest of Xen is, it probably does make sense to go ahead and strip this
-out.
+Performing a NAT translation on a TCP packet would certainly
+be within the capabilities of an RNIC, but it would be pointless.
+The relabeled TCP segment would be associated with the same QP.
 
- - R.
+Once an RDMA connection is established, the individual TCP segments
+are only of interest to the RDMA endpoint. Payload is delivered
+through the RDMA interface (the same one already used for
+InfiniBand). The purpose of integration with netfilter would
+be to ensure that no RDMA Connection could exist, or persist,
+if netfilter would not allow the TCP connection to be created.
+
+That is not a matter of packet filtering, it is matter of
+administrative consistency. If someone uses netfilter to block
+connections from a given IP netmask then they reasonably expect
+that there will be no connections with any host within that
+IP netmask. They do not expect exceptions for RDMA, iSCSI
+or InfiniBand.
+
+The existing connection management interfaces in openfabrics,
+designed to support both InfiniBand and iWARP, could naturally
+be extended to validate all RDMA connections using an IP address
+with netfilter. This would be of real value.
+
+The only real value of a rule such as "NAT port 200 to 300" is
+to allow a remote peer to establish a connection to port 200
+with a local listener using port 300. That *can* be supported
+without actually manipulating the header in each TCP packet.
+
+It is also possible to discuss other netfilter functionality
+that serves a valid end-user purpose, such as counting packets.
+ 
+
