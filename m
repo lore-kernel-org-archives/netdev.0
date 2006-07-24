@@ -1,54 +1,32 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Help with bugfix for bond active-backup mode + vlans
-Date: Mon, 24 Jul 2006 14:35:30 -0700
-Message-ID: <44C53D22.6040908@candelatech.com>
-References: <200607241837.42626.Christophe.Devriese@eurid.eu> <200607241749.k6OHn1hg030011@death.nxdomain.ibm.com> <44C50A5E.80009@candelatech.com> <200607242125.k6OLPPhg019864@death.nxdomain.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] SNMPv2 tcpOutSegs counter error
+Date: Mon, 24 Jul 2006 14:44:11 -0700 (PDT)
+Message-ID: <20060724.144411.57446335.davem@davemloft.net>
+References: <1152172878.4695.2.camel@LINE>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Christophe Devriese <Christophe.Devriese@eurid.eu>,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:56987 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S932255AbWGXVfj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2006 17:35:39 -0400
-To: Jay Vosburgh <fubar@us.ibm.com>
-In-Reply-To: <200607242125.k6OLPPhg019864@death.nxdomain.ibm.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63970
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932253AbWGXVoC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jul 2006 17:44:02 -0400
+To: yjwei@nanjing-fnst.com
+In-Reply-To: <1152172878.4695.2.camel@LINE>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> Ben Greear <greearb@candelatech.com> wrote:
-> 
-> 
->>Jay Vosburgh wrote:
->>
->>
->>>	Another possibility would be to have __vlan_hwaccel_rx check the
->>>VLAN_DEV_INFO(skb->dev)->real_dev, and if that's a bonding device, apply
->>>the same logic found in skb_bond().  Or, if there's some way to ask the
->>>question "is dev a VLAN device?", then that same test could be put into
->>>skb_bond() and all of the packet suppression fru fru could stay there.
->>
->>There is a flag in if.h to denote VLAN devices:
-> 
-> 
-> 	Thanks, I missed that.
-> 
-> 	Sadly, elegance remains elusive, since the by the time skb_bond
-> is called, the slave device the packet arrived on isn't available
-> (vlan->real_dev points to 'bond0' by this point), and that information
-> is needed to decide whether to drop the packet or not.
-> 
-> 	The least grotty solution that comes to mind is to have
-> __vlan_hwaccel_rx call some skb_bond_suppress_dups() function directly,
-> and change skb_bond() to also call that function.
+From: Wei Yongjun <yjwei@nanjing-fnst.com>
+Date: Thu, 06 Jul 2006 04:01:18 -0400
 
-Can you use skb->input_dev?
+> -	TCP_INC_STATS(TCP_MIB_OUTSEGS);
+> +	if (!(tcb->sacked & TCPCB_LOST))
+> +		TCP_INC_STATS(TCP_MIB_OUTSEGS);
 
-Ben
+This test is not accurate enough.  For example, timer based
+retransmits will not set the TCPCB_LOST bit.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+I'm tempted to say to pass a flag to tcp_transmit_skb()
+which says whether it is a retransmit or not, but that
+function already takes way too many arguments.
