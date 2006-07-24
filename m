@@ -1,60 +1,66 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Problems with sky2 driver.
-Date: Mon, 24 Jul 2006 11:45:33 -0700
-Message-ID: <20060724114533.2c61992b@dxpl.pdx.osdl.net>
-References: <20060724133829.49bf7979@akemi>
-	<20060724105303.2c4d529f@localhost.localdomain>
-	<20060724143839.56bfebdb@akemi>
+Subject: Re: Netchannles: first stage has been completed. Further ideas.
+Date: Mon, 24 Jul 2006 11:54:15 -0700
+Message-ID: <20060724115415.7cc7acc6@dxpl.pdx.osdl.net>
+References: <20060718081625.GA13830@2ka.mipt.ru>
+	<20060718230121.GA31474@ms2.inr.ac.ru>
+	<20060719155204.0de8882b@localhost.localdomain>
+	<20060719.130150.39158599.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, johnpol@2ka.mipt.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:43744 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751417AbWGXSp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2006 14:45:27 -0400
-To: Todd Showalter <tshowalter@silverbirchstudios.com>,
-	netdev@vger.kernel.org
-In-Reply-To: <20060724143839.56bfebdb@akemi>
+Received: from smtp.osdl.org ([65.172.181.4]:20196 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932295AbWGXTAy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2006 15:00:54 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060719.130150.39158599.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 24 Jul 2006 14:38:39 -0400
-Todd Showalter <tshowalter@silverbirchstudios.com> wrote:
+On Wed, 19 Jul 2006 13:01:50 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> On Mon, 24 Jul 2006 10:53:03 -0700, Stephen Hemminger
-> <shemminger@osdl.org> wrote:
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Wed, 19 Jul 2006 15:52:04 -0400
 > 
-> > There is a receive problem that shows up under load, that is fixed
-> > in the latest version (2.6.18 git), the patch is queued for the stable
-> > tree as well.
+> > As a related note, I am looking into fixing inet hash tables to use RCU.
 > 
->     I have hand-patched this in my 2.6.17.6 kernel.  It seems better
-> (no hard wedge yet), but there are still definitely problems.
-> 
->     The most obvious place is in firefox; for example, the front page
-> of slashdot half-renders (all the borders, no stories) and then sits
-> "loading" for eternity.  Ditto the online package database at
-> gentoo.org.  I'm seeing similar behavior with other websites as well.
-> It's consistant, too; I haven't been able to view the slashdot front
-> page since booting a 2.6.17 kernel.
+> IBM had posted a patch a long time ago, which would be not
+> so hard to munge into the current tree.  See if you can
+> spot it in the archives :)
 
+Srivatsa Vaddagiri from IBM did  patch: http://lkml.org/lkml/2004/8/31/129
 
-I suspect that probably isn't a sky2 driver problem.
-Does it go away if you turn of TCP window scaling:
-	sysctl -w net.ipv4.tcp_window_scaling=0
+And Ben had a patch: http://lwn.net/Articles/174596/
 
-If so, you probably have a middlebox in your path that is not correctly
-handling TCP window scaling. OpenBSD seems to be particularly bad.
+Srivata's was more complete but pre-dates Acme's rearrangement.
+Also, there is some code for refcnt's in it that looks wrong.
+Or at minimum is masking underlying design flaws.
 
-> 
->     If I boot with the 2.6.16.9 kernel, I don't seem to get that
-> problem until the network actually hangs.
-> 
->                                                Todd.
-> 
-> --
->   Todd Showalter
->   Silverbirch Studios
+/* Ungrab socket and destroy it, if it was the last reference. */
+ static inline void sock_put(struct sock *sk)
+ {
+-	if (atomic_dec_and_test(&sk->sk_refcnt))
+-		sk_free(sk);
++sp_loop:
++	if (atomic_dec_and_test(&sk->sk_refcnt)) {
++		/* Restore ref count and schedule callback.
++		 * If we don't restore ref count, then the callback can be
++		 * scheduled by more than one CPU.
++		 */
++		atomic_inc(&sk->sk_refcnt);
++
++		if (atomic_read(&sk->sk_refcnt) == 1)
++			call_rcu(&sk->sk_rcu, sk_free_rcu);
++		else
++			goto sp_loop;
++	}
+ }
+
+Ben's still left reader writer locks, and needed IPV6 work. He said he
+plans to get back to it.
 
 
 -- 
