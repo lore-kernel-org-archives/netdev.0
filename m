@@ -1,52 +1,79 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH wireless-dev] d80211: Make MACSTR/MAC2STR macro available to drivers
-Date: Mon, 24 Jul 2006 09:40:13 -0700
-Message-ID: <200607240940.19670.flamingice@sourmilk.net>
-References: <200607230143.31375.flamingice@sourmilk.net> <20060724155435.6ec32485@griffin.suse.cz>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2188827.nZ3Ue9zQ03";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH 0/2] PHYLIB: Fix forcing mode reduction
+Date: Mon, 24 Jul 2006 11:40:46 -0500
+Message-ID: <1D5FF487-7443-4BBF-B61D-51CC8AD9BAB4@kernel.crashing.org>
+References: <1149551159.10700.46.camel@localhost.localdomain>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, Michael Buesch <mb@bu3sch.de>,
-	netdev@vger.kernel.org
+Cc: Andy Fleming <afleming@freescale.com>,
+	Nathaniel Case <ncase@xes-inc.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:13261 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S932207AbWGXQk1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jul 2006 12:40:27 -0400
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20060724155435.6ec32485@griffin.suse.cz>
+Received: from nommos.sslcatacombnetworking.com ([67.18.224.114]:48824 "EHLO
+	nommos.sslcatacombnetworking.com") by vger.kernel.org with ESMTP
+	id S932208AbWGXQky (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jul 2006 12:40:54 -0400
+In-Reply-To: <1149551159.10700.46.camel@localhost.localdomain>
+To: Jeff Garzik <jeff@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2188827.nZ3Ue9zQ03
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Jeff,
 
-On Monday 24 July 2006 06:54, Jiri Benc wrote:
-> I really dislike those MACSTR/MAC2STR names. I always fail to remember
-> which one is which. What about renaming them when we are touching them?
+Any status on accepting this patch, I've got some additional fixes  
+that are based on having access to genphy_update_link()
+
+- kumar
+
+On Jun 5, 2006, at 6:45 PM, Nathaniel Case wrote:
+
+> On Mon, 2006-06-05 at 17:08 -0500, Andy Fleming wrote:
+>> Looks good.  Feel free to send these patches to
+>> netdev@vger.kernel.org (you may need to subscribe), and copy Jeff
+>> Garzik <jeff@garzik.org>.
 >
-> And why not to use MAC_FMT/MAC_ARG names as used in net/ieee80211.h? ;-)
+> This fixes a problem seen when a port without a cable connected would
+> repeatedly print out "Trying 1000/HALF".  While in the PHY_FORCING
+> state, the call to phy_read_status() was resetting the value of
+> phydev->speed and phydev->duplex, preventing it from incrementally
+> trying the speed/duplex variations.
 >
-I dislike MACSTR/MAC2STR too, but I was trying to minimize changes to the=20
-d80211 code. I'll switch to MAC_FMT/MAC_ARG.
+> Since we really just want the link status updated for the PHY_FORCING
+> state, calling genphy_update_link() instead of phy_read_status() fixes
+> this issue.
+>
+> Patch tested on a MPC8540 platform with a BCM5421 PHY.
+>
+> Signed-off-by: Nate Case <ncase@xes-inc.com>
+> Signed-off-by: Andy Fleming <afleming@freescale.com>
+>
+> ---
+>
+> --- a/drivers/net/phy/phy.c	2006-06-04 16:01:59.000000000 -0500
+> +++ b/drivers/net/phy/phy.c	2006-06-05 10:55:31.000000000 -0500
+> @@ -767,7 +783,7 @@
+>  			}
+>  			break;
+>  		case PHY_FORCING:
+> -			err = phy_read_status(phydev);
+> +			err = genphy_update_link(phydev);
+>
+>  			if (err)
+>  				break;
+> --- a/drivers/net/phy/phy_device.c	2006-06-04 16:02:08.000000000 -0500
+> +++ b/drivers/net/phy/phy_device.c	2006-06-04 19:12:26.000000000 -0500
+> @@ -417,6 +417,7 @@
+>
+>  	return 0;
+>  }
+> +EXPORT_SYMBOL(genphy_update_link);
+>
+>  /* genphy_read_status
+>   *
+>
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-=2DMichael Wu
-
---nextPart2188827.nZ3Ue9zQ03
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBExPfzT3Oqt9AH4aERAvrSAJ9nHWkzUrtFSlIJU2N0GHzv+hlrdACgnWr+
-tDhvoDkXy+K0TAr3TL8UECg=
-=Kpnm
------END PGP SIGNATURE-----
-
---nextPart2188827.nZ3Ue9zQ03--
