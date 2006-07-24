@@ -1,73 +1,65 @@
 From: Michael Wu <flamingice@sourmilk.net>
-Subject: [PATCH wireless-dev 0/5] Switch drivers to d80211
-Date: Sun, 23 Jul 2006 20:32:14 -0700
-Message-ID: <200607232032.24299.flamingice@sourmilk.net>
+Subject: [PATCH wireless-dev 1/5] ray_cs: Remove dependency on ieee80211
+Date: Sun, 23 Jul 2006 20:37:19 -0700
+Message-ID: <200607232037.24803.flamingice@sourmilk.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed;
-  boundary="nextPart1296992.yLWpQiHPld";
+  boundary="nextPart2324945.Bou9h2IU9l";
   protocol="application/pgp-signature";
   micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
+Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
+	corey@world.std.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:41958 "EHLO
+Received: from server8.tchmachines.com ([216.180.241.250]:41702 "EHLO
 	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S1751391AbWGXDyJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751386AbWGXDyJ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 23 Jul 2006 23:54:09 -0400
 To: linville@tuxdriver.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1296992.yLWpQiHPld
+--nextPart2324945.Bou9h2IU9l
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
 
-Hi,
-	This patch series converts a number of fullmac wireless drivers to use=20
-d80211.h instead of ieee80211.h. The changes are not major for the most par=
-t=20
-due to the fact that fullmac drivers tend to use the macros in ieee80211.h=
+ray_cs: Remove dependency on ieee80211
+
+This patch removes the dependency on ieee80211.h from
+the ray_cs driver.
+
+Signed-off-by: Michael Wu <flamingice@sourmilk.net>
+=2D--
+
+ drivers/net/wireless/ray_cs.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/ray_cs.c b/drivers/net/wireless/ray_cs.c
+index 61b83a5..8e112d1 100644
+=2D-- a/drivers/net/wireless/ray_cs.c
++++ b/drivers/net/wireless/ray_cs.c
+@@ -52,8 +52,8 @@ #include <pcmcia/cisreg.h>
+ #include <pcmcia/ds.h>
+ #include <pcmcia/mem_op.h>
 =20
-more than any actual 802.11 stack functions.
+=2D#include <net/ieee80211.h>
+ #include <linux/wireless.h>
++#include <net/iw_handler.h>
+=20
+ #include <asm/io.h>
+ #include <asm/system.h>
 
-Notes on individual drivers:
-ray_cs: This change was quite small since ray_cs does not actually use=20
-anything in ieee80211.h. Don't know why it includes it.. This change can=20
-probably be brought over to wireless-2.6 if desired.
-orinoco: Fairly straightforward. IEEE80211_DATA_LEN constant added to d8021=
-1.h=20
-because the value is also used in the stack.
-wl3501_cs: Very simple.
-zd1201: Straightforward.
-airo: This was simple for the most part, but I added struct=20
-ieee80211_info_element to d80211.h and updated the stack accordingly.
-
-The remaining drivers are hostap, atmel, zd1211rw and ipw*. Hostap shouldn'=
-t=20
-be a problem, but I had the impression that a new d80211 version was=20
-being/should be written. Atmel appears to implement its own softmac stack t=
-o=20
-some extent. Will need to investigate that further. zd1211rw utilizes=20
-ieee80211softmac. Should work with d80211, though I haven't checked yet. An=
-d=20
-of course, there are the ipw drivers. They may require some modifications t=
-o=20
-d80211 to support some sort of kinda-softmac-but-not-really mode. :) I'll=20
-figure it out when I get there..
-
-=2DMichael Wu
-
---nextPart1296992.yLWpQiHPld
+--nextPart2324945.Bou9h2IU9l
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.2 (GNU/Linux)
 
-iD8DBQBExD9IT3Oqt9AH4aERAkx0AJ91UXHrUm3mDl7geLcYbx435i/7HwCeLA//
-BJl+2xr6rd8i2iWU1Rc58qA=
-=OjLf
+iD8DBQBExEB0T3Oqt9AH4aERAhgbAJ0ewKKb4JfSLOX/oZHQUZ4IyXyNEwCgxmSI
+hsfTZap171X/5I6qM1K6FMY=
+=kRDf
 -----END PGP SIGNATURE-----
 
---nextPart1296992.yLWpQiHPld--
+--nextPart2324945.Bou9h2IU9l--
