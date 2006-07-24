@@ -1,17 +1,17 @@
 From: Henne <henne@nachtwindheim.de>
-Subject: [NET] initialisation cleanup for ULI526x-net-driver
-Date: Mon, 24 Jul 2006 14:31:15 +0200
-Message-ID: <44C4BD93.40804@nachtwindheim.de>
+Subject: [NET] initialisation cleanup for ULI526x-net-driver 2nd(mailer issue)
+Date: Mon, 24 Jul 2006 14:42:01 +0200
+Message-ID: <44C4C019.70603@nachtwindheim.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: peer.chen@uli.com.tw, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server6.greatnet.de ([83.133.96.26]:29318 "EHLO
-	server6.greatnet.de") by vger.kernel.org with ESMTP id S932137AbWGXNB2
+Received: from server6.greatnet.de ([83.133.96.26]:14005 "EHLO
+	server6.greatnet.de") by vger.kernel.org with ESMTP id S932145AbWGXNMQ
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jul 2006 09:01:28 -0400
+	Mon, 24 Jul 2006 09:12:16 -0400
 To: jgarzik@pobox.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -66,3 +66,5 @@ diff -ruN linux-2.6.18-rc2-git2/drivers/net/tulip/uli526x.c linux/drivers/net/tu
  }
  
  
+
+
