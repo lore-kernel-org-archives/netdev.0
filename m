@@ -1,37 +1,42 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH wireless-dev] d80211: Make MACSTR/MAC2STR macro
- available to drivers
-Date: Mon, 24 Jul 2006 15:54:35 +0200
-Message-ID: <20060724155435.6ec32485@griffin.suse.cz>
-References: <200607230143.31375.flamingice@sourmilk.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: wireless-2.6 git repos broken
+Date: Mon, 24 Jul 2006 12:14:47 -0400
+Message-ID: <20060724161441.GA17005@tuxdriver.com>
+References: <200607231722.39504.mb@bu3sch.de> <44C39B4F.9020002@gentoo.org> <44C39CCD.70702@lwfinger.net> <200607231807.27556.mb@bu3sch.de> <44C3A040.8000206@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, Michael Buesch <mb@bu3sch.de>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	Junio C Hamano <junkio@cox.net>,
+	Daniel Drake <dsd@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:21202 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S932164AbWGXNyh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2006 09:54:37 -0400
-To: Michael Wu <flamingice@sourmilk.net>
-In-Reply-To: <200607230143.31375.flamingice@sourmilk.net>
+Received: from ra.tuxdriver.com ([70.61.120.52]:17932 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1751321AbWGXQPO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2006 12:15:14 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Disposition: inline
+In-Reply-To: <44C3A040.8000206@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 23 Jul 2006 01:43:25 -0700, Michael Wu wrote:
-> This patch moves the MACSTR/MAC2STR macros to d80211.h
-> so that they are available to drivers. It also converts the adm8211
-> and bcm43xx drivers to use this macro.
+On Sun, Jul 23, 2006 at 11:13:52AM -0500, Larry Finger wrote:
+> Michael Buesch wrote:
+> >On Sunday 23 July 2006 17:59, Larry Finger wrote:
+> >>>Do you have the same problem on other git trees?
+> >>>I saw some people running into this error when cloning Linus' 
+> >>>linux-2.6.git. I couldn't reproduce it, using exactly the same git 
+> >>>version.
+> >>I had the same error when pulling from Linus's tree. It was fixed with a 
+> >>'git fsck-objects --full' command.
+> >
+> >Uhm, that tells me the git tree on kernel.org is broken
+> >and John has to run this command, right?
+> >
+> I think so.
 
-I really dislike those MACSTR/MAC2STR names. I always fail to remember
-which one is which. What about renaming them when we are touching them?
+Hmmm...well, I'll look into it.  FWIW, I cloned my git tree from
+kernel.org onto my laptop while I was at OLS w/o any problems.
 
-And why not to use MAC_FMT/MAC_ARG names as used in net/ieee80211.h? ;-)
-
-Thanks,
-
- Jiri
-
+John
 -- 
-Jiri Benc
-SUSE Labs
+John W. Linville
+linville@tuxdriver.com
