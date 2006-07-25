@@ -1,48 +1,57 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] ip multicast route bug fix
-Date: Tue, 25 Jul 2006 08:55:28 -0700
-Message-ID: <20060725085528.38b86319@localhost.localdomain>
-References: <20060719145716.4cb9e7e2@localhost.localdomain>
-	<20060725162001.GA15058@ms2.inr.ac.ru>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: Runtime power management for network interfaces
+Date: Tue, 25 Jul 2006 09:20:06 -0700
+Message-ID: <44C644B6.20208@intel.com>
+References: <Pine.LNX.4.44L0.0607251147040.6498-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Network development list <netdev@vger.kernel.org>,
+	David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:11487 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964790AbWGYQgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 12:36:36 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20060725162001.GA15058@ms2.inr.ac.ru>
+Received: from mga01.intel.com ([192.55.52.88]:55081 "EHLO
+	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
+	id S932447AbWGYQi0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 12:38:26 -0400
+To: Alan Stern <stern@rowland.harvard.edu>
+In-Reply-To: <Pine.LNX.4.44L0.0607251147040.6498-100000@iolanthe.rowland.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 25 Jul 2006 20:20:01 +0400
-Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
+Alan Stern wrote:
+> During a Power Management session at the Ottawa Linux Symposium, it was
+> generally agreed that network interface drivers ought to automatically
+> suspend their devices (if possible) whenever:
+> 
+>     (1) The interface is ifconfig'ed down, or
+> 
+>     (2) No link is available.
+> 
+> Presumably (1) should be easy enough to implement.  (2) might or might not
+> be feasible, depending on how much WOL support is available.  (It might
+> not be feasible at all for wireless networking.)  Still, there can be no
+> question that it would be a Good Thing for laptops to power-down their
+> ethernet controllers when the network cable is unplugged.
+> 
+> Has any progress been made in this direction?  If not, a natural approach 
+> would be to start with a reference implementation in one driver which 
+> could then be copied to other drivers.
 
-> Hello!
-> 
-> > Code was reusing an skb which could lead to use after free or double free.
-> 
-> No, this does not help. The bug is not here.
-> 
-> I was so ashamed of this that could not touch the thing. :-)
-> It startled me a lot, how is it possible that the thing was in production
-> for several years and such bad bug never was noticed?
-> 
-> Now it is clear. skbs leaked sometimes before BK changeset 1.889.26.53,
-> subj: [IPV4]: Fix skb leak in inet_rtm_getroute. But after this fix,
-> which introduced new bug (goto out_free in the enclosed patch),
-> the bug showed on surface.
-> 
-> Please, review this.
-> 
-> - ipmr_cache_unresolved() does not free skb. Caller does.
-> - goto out_free in route.c in the case, when skb is enqueued
->   is returned to goto out.
-> - some cosmetic cleanup in rt_fill_info() to make it more readable.
 
-This looks correct, but it may lead to false reports from automated
-checking tools because the skb lifetime depends on the return value.
-Wouldn't it be better to have a consistent interface (skb always freed),
-and clone the skb if needed for deferred processing?
+Intel's newer e1000's (ich7 onboard e1000 and newer versions for instance) 
+already support this feature partially - the MAC stays on but the PHY can be 
+powered off when no link is present.
+
+In order to enable this feature you will need to turn it on explicitly at load 
+time:
+
+modprobe e1000 SmartPowerDownEnable=1
+
+Allthough not the entire NIC is powered off, it still saves a significant part 
+of the power consumed by the NIC. All bits help. The power automatically 
+restores once a cable is plugged in.
+
+
+Cheers,
+
+Auke
