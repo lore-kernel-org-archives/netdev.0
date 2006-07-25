@@ -1,29 +1,48 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: RDMA will be reverted
-Date: Tue, 25 Jul 2006 18:32:05 +0200
-Message-ID: <200607251832.05687.ak@suse.de>
-References: <44C565D1.6070202@hp.com> <20060724.182108.37154478.davem@davemloft.net> <44C646D7.3040701@hp.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] ip multicast route bug fix
+Date: Tue, 25 Jul 2006 08:55:28 -0700
+Message-ID: <20060725085528.38b86319@localhost.localdomain>
+References: <20060719145716.4cb9e7e2@localhost.localdomain>
+	<20060725162001.GA15058@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rdreier@cisco.com,
-	tom@opengridcomputing.com, netdev@vger.kernel.org, akpm@osdl.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:45980 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S964787AbWGYQcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 12:32:54 -0400
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <44C646D7.3040701@hp.com>
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:11487 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S964790AbWGYQgg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 12:36:36 -0400
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <20060725162001.GA15058@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 25 Jul 2006 20:20:01 +0400
+Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
 
-> It may be a hardware interpretation, but doesn't it have non-trivial system 
-> implications - where one runs threads/processes etc?
+> Hello!
+> 
+> > Code was reusing an skb which could lead to use after free or double free.
+> 
+> No, this does not help. The bug is not here.
+> 
+> I was so ashamed of this that could not touch the thing. :-)
+> It startled me a lot, how is it possible that the thing was in production
+> for several years and such bad bug never was noticed?
+> 
+> Now it is clear. skbs leaked sometimes before BK changeset 1.889.26.53,
+> subj: [IPV4]: Fix skb leak in inet_rtm_getroute. But after this fix,
+> which introduced new bug (goto out_free in the enclosed patch),
+> the bug showed on surface.
+> 
+> Please, review this.
+> 
+> - ipmr_cache_unresolved() does not free skb. Caller does.
+> - goto out_free in route.c in the case, when skb is enqueued
+>   is returned to goto out.
+> - some cosmetic cleanup in rt_fill_info() to make it more readable.
 
-Only if you do process context RX processing. If you chose not to it doesn't 
-have much influence.
-
--Andi
+This looks correct, but it may lead to false reports from automated
+checking tools because the skb lifetime depends on the return value.
+Wouldn't it be better to have a consistent interface (skb always freed),
+and clone the skb if needed for deferred processing?
