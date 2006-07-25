@@ -1,36 +1,42 @@
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Subject: Re: Who maintains the website ?
-Date: Wed, 26 Jul 2006 08:41:58 +1200
-Message-ID: <5640c7e00607251341udb9e9a3u6351a0340886662d@mail.gmail.com>
-References: <20060725190948.GA3768@walrus.eth1.org>
+From: "Piotrowski, Ted P." <Ted.Piotrowski@jhuapl.edu>
+Subject: bandwidth limitation help
+Date: Tue, 25 Jul 2006 16:42:27 -0400
+Message-ID: <3C5BFF28444F434695FB134004DF014701B94425@aplesjustice.dom1.jhuapl.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-f131.google.com ([64.233.182.131]:12064 "EHLO
-	nf-out-f131.google.com") by vger.kernel.org with ESMTP
-	id S1751575AbWGYUmA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 16:42:00 -0400
-Received: by nf-out-f131.google.com with SMTP id k65so133377nfa
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2006 13:41:59 -0700 (PDT)
-To: "Christophe Devriese" <christophe.devriese@eth1.org>
-In-Reply-To: <20060725190948.GA3768@walrus.eth1.org>
-Content-Disposition: inline
+Received: from APLesJustice.dom1.jhuapl.edu ([128.244.198.158]:40024 "EHLO
+	aplesjustice.dom1.jhuapl.edu") by vger.kernel.org with ESMTP
+	id S1751573AbWGYUm1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 16:42:27 -0400
+Content-class: urn:content-classes:message
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/26/06, Christophe Devriese <christophe.devriese@eth1.org> wrote:
-> The http://linux-net.osdl.org/index.php/Main_Page website I mean.
->
-It's a Wiki so anybody can alter content on the website. The exception
-to this is that particular page - the main page. If you want something
-altered on that particular page send email to one of the sysops.
--- 
-Ian McDonald
-Web: http://wand.net.nz/~iam4
-Blog: http://imcdnzl.blogspot.com
-WAND Network Research Group
-Department of Computer Science
-University of Waikato
-New Zealand
+Hi,
+ 
+I am new to the mailing list so I'm not sure if anybody reads these, but
+here goes nothing. I recently read: Linux Advanced Routing & Traffic
+Control HOWTO and have been trying to test my applications using
+bandwidth limitation. All the examples described in the HOWTO do not
+simulate the conditions I need to test my software. What I would like is
+for my bandwidth limitation to empty my UDP buffer at a given rate. I
+have tried using a simple TBF to do this, but all that happens is that
+my application floods the TBF buffer at link speed and the TBF buffer
+quickly overflows and drops packets. I want the packets to actually stay
+in the UDP buffer and be emptied at a given rate without modifying my
+application.
+ 
+I don't know if any of you are familiar with netem, but it can be used
+in conjuction with tc to add delay to a link. Surprisingly, packets
+delayed by netem appear to remain in the UDP buffer until it is time for
+them to be sent. I would like this same behavior of keeping the packets
+in the UDP buffer, but with bandwidth limitation on the rate at which
+the buffer empties, not just packet delay. Has anybody ever done
+anything like this or can point me to some resources?
+ 
+Thank you,
+Ted P.
