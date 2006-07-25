@@ -1,29 +1,55 @@
 From: Andi Kleen <ak@suse.de>
-Subject: Re: RDMA will be reverted
-Date: Tue, 25 Jul 2006 03:42:38 +0200
-Message-ID: <200607250342.38984.ak@suse.de>
-References: <adasllh9kj0.fsf@cisco.com> <200607250202.02913.ak@suse.de> <44C565D1.6070202@hp.com>
+Subject: Re: skge error; hangs w/ hardware memory hole
+Date: Tue, 25 Jul 2006 04:35:05 +0200
+Message-ID: <200607250435.05557.ak@suse.de>
+References: <20060703205238.GA10851@deprecation.cyrius.com> <121226.1152672894714.SLOX.WebMail.wwwrun@imap-dhs.suse.de> <44C317FF.8030705@suespammers.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rdreier@cisco.com,
-	tom@opengridcomputing.com, netdev@vger.kernel.org, akpm@osdl.org
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	Martin Michlmayr <tbm@cyrius.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kevin@sysexperts.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:10218 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S932383AbWGYBnT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2006 21:43:19 -0400
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <44C565D1.6070202@hp.com>
+Received: from cantor2.suse.de ([195.135.220.15]:24238 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S932413AbWGYCf4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2006 22:35:56 -0400
+To: Anthony DeRobertis <asd@suespammers.org>
+In-Reply-To: <44C317FF.8030705@suespammers.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 25 July 2006 02:29, Rick Jones wrote:
-> This all sounds like the discussions we had within HP-UX between 10.20 and 11.0 
-> concerning Inbound Packet Scheduling vs Thread Optimized Packet Scheduling.  
+On Sunday 23 July 2006 08:32, Anthony DeRobertis wrote:
+> Andreas Kleen wrote:
+> 
+> > 
+> > You need to use iommu=soft swiotlb=force
+> > 
+> > The standard IOMMU is also broken on VIA, but forced swiotlb should
+> > work.
+> 
+> Didn't work :-(
 
-We've also talking about this for many years, just no code so far.
-Or rather Linux so far left the job to manual tuning.
+swiotlb=force is unfortunately broken right now. 
+
+But which this patch it should work. Does it?
 
 -Andi
+
+Test patch only: disable DMA over 4GB
+
+Index: linux-2.6.17-work/arch/x86_64/kernel/pci-dma.c
+===================================================================
+--- linux-2.6.17-work.orig/arch/x86_64/kernel/pci-dma.c
++++ linux-2.6.17-work/arch/x86_64/kernel/pci-dma.c
+@@ -202,7 +202,7 @@ int dma_set_mask(struct device *dev, u64
+ {
+ 	if (!dev->dma_mask || !dma_supported(dev, mask))
+ 		return -EIO;
+-	*dev->dma_mask = mask;
++	*dev->dma_mask = mask & 0xffffffff;
+ 	return 0;
+ }
+ EXPORT_SYMBOL(dma_set_mask);
+
