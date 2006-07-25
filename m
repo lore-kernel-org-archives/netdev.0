@@ -1,52 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RDMA will be reverted
-Date: Mon, 24 Jul 2006 18:21:08 -0700 (PDT)
-Message-ID: <20060724.182108.37154478.davem@davemloft.net>
-References: <44C565D1.6070202@hp.com>
-	<20060724.174518.52116903.davem@davemloft.net>
-	<44C56BFC.7080000@hp.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, rdreier@cisco.com, tom@opengridcomputing.com,
-	netdev@vger.kernel.org, akpm@osdl.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: Help with bugfix for bond active-backup mode + vlans
+Date: Mon, 24 Jul 2006 18:40:30 -0700
+Message-ID: <200607250140.k6P1eUhg023141@death.nxdomain.ibm.com>
+References: <200607241837.42626.Christophe.Devriese@eurid.eu> <200607241749.k6OHn1hg030011@death.nxdomain.ibm.com> <44C50A5E.80009@candelatech.com> <200607242125.k6OLPPhg019864@death.nxdomain.ibm.com> <44C53D22.6040908@candelatech.com>
+Cc: Christophe Devriese <Christophe.Devriese@eurid.eu>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:45250
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932379AbWGYBU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jul 2006 21:20:57 -0400
-To: rick.jones2@hp.com
-In-Reply-To: <44C56BFC.7080000@hp.com>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:6605 "EHLO e33.co.us.ibm.com")
+	by vger.kernel.org with ESMTP id S932378AbWGYBkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2006 21:40:33 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e33.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k6P1eXq3005799
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Mon, 24 Jul 2006 21:40:33 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k6P1eW7K187102
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 24 Jul 2006 19:40:33 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k6P1eWmP027056
+	for <netdev@vger.kernel.org>; Mon, 24 Jul 2006 19:40:32 -0600
+To: Ben Greear <greearb@candelatech.com>
+In-reply-to: <44C53D22.6040908@candelatech.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Mon, 24 Jul 2006 17:55:24 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-> Even enough bits for 1024 or 2048 CPUs in the single system image?  I have seen 
-> 1024 touted by SGI, and with things going so multi-core, perhaps 16384 while 
-> sounding initially bizzare would be in the realm of theoretically possible 
-> before tooooo long.
+>Jay Vosburgh wrote:
+>> 	Sadly, elegance remains elusive, since the by the time skb_bond
+>> is called, the slave device the packet arrived on isn't available
+>> (vlan->real_dev points to 'bond0' by this point), and that information
+>> is needed to decide whether to drop the packet or not.
+>> 	The least grotty solution that comes to mind is to have
+>> __vlan_hwaccel_rx call some skb_bond_suppress_dups() function directly,
+>> and change skb_bond() to also call that function.
+>
+>Can you use skb->input_dev?
 
-Read the RSS NDIS documents from Microsoft.  You aren't going to want
-to demux to more than, say, 256 cpus for single network adapter even
-on the largest machines.
+	Not as it is currently implemented.  It is set by
+netif_receive_skb, not by the vlan accelerator, so input_dev ends up
+being the vlan device, not the underlying actual ethernet device.  It
+looks like input_dev will be inconsistently assigned with vlans over
+bonding: if the slave device is vlan accelerated, input_dev will be the
+vlan device; if the slave isn't accelerated, input_dev will be the
+slave.
 
-Therefore a simple translation table and/or "base cpu number" is
-sufficient to only need 8 bits of cpu identification.
+	As far as I can tell, the input_dev is only used by the
+NET_CLS_IND (input device classification) stuff, which has warnings
+saying it might be going away.  I'm not seeing anything else right
+offhand that uses it.
 
-You will be limited by the number of MSI-X vectors also,
-for implementations demuxing directly to cpus using MSI-X
-selection.
+	Anyway, the skb_bond logic really needs the enslaved interface,
+which isn't necessarily the input_dev (even if input_dev was always the
+device that actually had the wire plugged into it).  If the slave is
+itself some kind of virtual device (a vlan, for example), then input_dev
+wouldn't be the right thing.
 
-> That would cover TCP, are there similarly fungible fields in SCTP or
-> other ULPs?  And if we were to want to get HW support for the thing,
-> getting it adopted in a de jure standards body would probably be in
-> order :)
+	-J
 
-Microsoft never does this, neither do we.  LRO came out of our own
-design, the network folks found it reasonable and thus they have
-started to implement it.  The same is true for Microsofts RSS stuff.
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
 
-It's a hardware interpretation, therefore it belongs in a driver API
-specification, nowhere else.
