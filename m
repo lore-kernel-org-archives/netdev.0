@@ -1,46 +1,33 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: Can we have GET_NETDEV_DEV?
-Date: Tue, 25 Jul 2006 00:52:25 -0400
-Message-ID: <1153803145.23803.19.camel@dv>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH] ip multicast route bug fix
+Date: Tue, 25 Jul 2006 01:29:37 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0607250128540.15020@d.namei>
+References: <20060719145716.4cb9e7e2@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fencepost.gnu.org ([199.232.76.164]:46264 "EHLO
-	fencepost.gnu.org") by vger.kernel.org with ESMTP id S932449AbWGYEwa
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 00:52:30 -0400
-Received: from proski by fencepost.gnu.org with local (Exim 4.34)
-	id 1G5EuD-0005VP-Ft
-	for netdev@vger.kernel.org; Tue, 25 Jul 2006 00:52:29 -0400
-To: netdev@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>
+Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:28883 "EHLO
+	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S932465AbWGYF3l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 01:29:41 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060719145716.4cb9e7e2@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Wed, 19 Jul 2006, Stephen Hemminger wrote:
 
-gregkh-driver-network-class_device-to-device.patch, which briefly
-appeared in Linux 2.6.18-rc1-mm1 broke MadWifi, which is copying the
-physical device information from the master network device to the
-virtual network devices:
+> This should fix the problem reported in http://bugzilla.kernel.org/show_bug.cgi?id=6186
+> where the skb is used after freed. The code in IP multicast route.
+> 
+> Code was reusing an skb which could lead to use after free or double free.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@dxpl.pdx.osdl.net>
 
-SET_NETDEV_DEV(dev, mdev->class_dev.dev);
+Acked-by: James Morris <jmorris@namei.org>
 
-The same code exists in hostap.  The patch is gone from 2.6.18-rc1-mm2,
-but I'd like to be prepared if it reappears.
-
-An easy solution would be to have GET_NETDEV_DEV macro.  Then the
-drivers could do this:
-
-SET_NETDEV_DEV(dev, GET_NETDEV_DEV(mdev));
-
-without having to worry about the internals of struct net_device.  It
-should be done before class_dev is removed or in the same time.
-
-Should I send a patch?
 
 -- 
-Regards,
-Pavel Roskin
-
-
+James Morris
+<jmorris@namei.org>
