@@ -1,26 +1,49 @@
-From: "Shafer" <dejabufflehead@realtyagent.com>
-Subject: One is by reducing food intake or food absorption and the other is by enhancing energy expenditure.
-Date: Tue, 25 Jul 2006 17:57:37 -0400
-Message-ID: <71386727222518.674D545926@CSAVIH>
+From: David Miller <davem@davemloft.net>
+Subject: Re: async network I/O, event channels, etc
+Date: Tue, 25 Jul 2006 15:01:22 -0700 (PDT)
+Message-ID: <20060725.150122.49854414.davem@davemloft.net>
+References: <44C66FC9.3050402@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="Windows-1252"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus2.kernel.org ([204.152.191.36]:31406 "EHLO zeus2.kernel.org")
-	by vger.kernel.org with ESMTP id S964878AbWGYV5i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 17:57:38 -0400
-To: <newbie-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:22993
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030208AbWGYWBJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 18:01:09 -0400
+To: drepper@redhat.com
+In-Reply-To: <44C66FC9.3050402@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Halo! 
+From: Ulrich Drepper <drepper@redhat.com>
+Date: Tue, 25 Jul 2006 12:23:53 -0700
 
- Fatblaster is an all natural herbal formulated thermogenic weight loss supplement.  One way to reduce energy intake and absorption is through thermogenic formulas such as the ingredients found in Fatblaster.  Supplement your life today! Join thousands of satisfied customers and experience for yourself the proven benefits of Fatblaster.  All you need is here: http://klopinta.com/gall/fb/ 
+> I was very much surprised by the reactions I got after my OLS talk.
+> Lots of people declared interest and even agreed with the approach and
+> asked me to do further ahead with all this.  For those who missed it,
+> the paper and the slides are available on my home page:
+> 
+> http://people.redhat.com/drepper/
+> 
+> As for the next steps I see a number of possible ways.  The discussions
+> can be held on the usual mailing lists (i.e., lkml and netdev) but due
+> to the raw nature of the current proposal I would imagine that would be
+> mainly perceived as noise.
 
+Since I gave a big thumbs up for Evgivny's kevent work yesterday
+on linux-kernel, you might want to start by comparing your work
+to his.  Because his has the advantage that 1) we have code now
+and 2) he has written many test applications and performed many
+benchmarks against his code which has flushed out most of the
+major implementation issues.
 
- Fruit out of season, sorrow out of reason It is nice to be important but it is more important to be nice Pardon all but theyself
+I think most of the people who have encouraged your work are unaware
+of Evgivny's kevent stuff, which is extremely unfortunate, the two
+works are more similar than they are different.
 
+I do not think discussing all of this on netdev would be perceived
+as noise. :)
 
- Fools seldom differ  When children stand still they have done some ill If you lie down with the dogs, you'll.. stink in the morning.
 
