@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: MTU probing bug?
-Date: Tue, 25 Jul 2006 00:17:44 -0700 (PDT)
-Message-ID: <20060725.001744.26930215.davem@davemloft.net>
+Subject: Re: RDMA will be reverted
+Date: Tue, 25 Jul 2006 00:33:44 -0700 (PDT)
+Message-ID: <20060725.003344.125313848.davem@davemloft.net>
+References: <20060725055127.GA5103@2ka.mipt.ru>
+	<20060724.234853.112197982.davem@davemloft.net>
+	<20060725065921.GB30561@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: rdreier@cisco.com, ak@suse.de, tom@opengridcomputing.com,
+	netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:59841
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:27051
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751386AbWGYHRl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 03:17:41 -0400
-To: jheffner@psc.edu
+	id S1751305AbWGYHds (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 03:33:48 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20060725065921.GB30561@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Tue, 25 Jul 2006 10:59:21 +0400
 
-John, have a look at this code in tcp_write_timeout():
+> As a side completely unrelated to either my or others work note :) - 
+> I think it is a nanooptimisation - we get a bit of performance here, 
+> and lose those bit in other place.
+> When bag is filled, there is no much sence of rearranging some stuff
+> inside to be able to place another one - it is better to buy new bag.
 
-		mss = min(sysctl_tcp_base_mss,
-		          tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low)/2);
-		mss = max(mss, 68 - tp->tcp_header_len);
+It is a matter of what the viewpoint is, I suppose.
 
-That first line looks like it should be a max() instead
-of a min().
-
-tcp_base_mss is the smallest MSS we should use, therefore
-we should make sure the "mss" is at least that large.
-
-It's also possible that I misread the intention of this code :) From
-what I read, it is trying to half the MSS in use and adjust the MTU
-search low point to be based upon this new value.
+I think in this specific case it might turn out to be
+better for the scheduler to respond to what the device
+throws at it, rather than the other way around.  And
+in that case we need no feedback from scheduler to
+cpu demux engine.
 
