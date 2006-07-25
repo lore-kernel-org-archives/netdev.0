@@ -1,113 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH Round 4 2/3] Core network changes to support network event notification.
-Date: Tue, 25 Jul 2006 17:39:45 +1000
-Message-ID: <E1G5HW5-0005xn-00@gondolin.me.apana.org.au>
-References: <20060718184907.25455.8174.stgit@dell3.ogc.int>
-Cc: davem@davemloft.net, rdreier@cisco.com, openib-general@openib.org,
-	netdev@vger.kernel.org
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: RDMA will be reverted
+Date: Tue, 25 Jul 2006 11:42:30 +0400
+Message-ID: <20060725074226.GA16682@2ka.mipt.ru>
+References: <20060725055127.GA5103@2ka.mipt.ru> <20060724.234853.112197982.davem@davemloft.net> <20060725065921.GB30561@2ka.mipt.ru> <20060725.003344.125313848.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=koi8-r
+Cc: rdreier@cisco.com, ak@suse.de, tom@opengridcomputing.com,
+	netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:45326 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751398AbWGYHn3
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 03:43:29 -0400
-To: swise@opengridcomputing.com (Steve Wise)
-In-Reply-To: <20060718184907.25455.8174.stgit@dell3.ogc.int>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:7308 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751454AbWGYHqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 03:46:50 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060725.003344.125313848.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Steve Wise <swise@opengridcomputing.com> wrote:
+On Tue, Jul 25, 2006 at 12:33:44AM -0700, David Miller (davem@davemloft.net) wrote:
+> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> Date: Tue, 25 Jul 2006 10:59:21 +0400
 > 
-> Routing redirect events are broadcast as a pair of rtmsgs, RTM_DELROUTE
-> and RTM_NEWROUTE.
-
-This may confuse existing rtnetlink users since you're generating an
-RTM_DELROUTE message that's identical to one triggered by something
-like 'ip route del'.
-
-As you're introducing a completely new RTM_ROUTEUPD type, it might
-be better to attach any information from the existing route that you
-need to the ROUTEUPD message.
-
-Actually, what was the reason you need the existing route here?
-
-> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-> index 5f87533..33d8a83 100644
-> --- a/net/ipv4/fib_semantics.c
-> +++ b/net/ipv4/fib_semantics.c
-> @@ -44,6 +44,7 @@ #include <net/tcp.h>
-> #include <net/sock.h>
-> #include <net/ip_fib.h>
-> #include <net/ip_mp_alg.h>
-> +#include <net/netevent.h>
+> > As a side completely unrelated to either my or others work note :) - 
+> > I think it is a nanooptimisation - we get a bit of performance here, 
+> > and lose those bit in other place.
+> > When bag is filled, there is no much sence of rearranging some stuff
+> > inside to be able to place another one - it is better to buy new bag.
 > 
-> #include "fib_lookup.h"
-> 
-> @@ -279,6 +280,14 @@ void rtmsg_fib(int event, u32 key, struc
->        struct sk_buff *skb;
->        u32 pid = req ? req->pid : n->nlmsg_pid;
->        int size = NLMSG_SPACE(sizeof(struct rtmsg)+256);
-> +       struct netevent_route_info nri;
-> +       int netevent;
-> +
-> +       nri.family = AF_INET;
-> +       nri.data = &fa->fa_info;
-> +       netevent = event == RTM_NEWROUTE ? NETEVENT_ROUTE_ADD 
-> +                                        : NETEVENT_ROUTE_DEL;
-> +       call_netevent_notifiers(netevent, &nri);
+> It is a matter of what the viewpoint is, I suppose.
 
-Hmm, this is broken.  These route events are meaningless without the
-corresponding IP rule events.  Are you sure you really want to make
-your hardware/driver grok multiple routing tables?
+Definitely.
 
-Perhaps you should simply stick to dst entries and flush all your
-tables when the routes are changed.  This is what the Linux IP stack
-does.
+> I think in this specific case it might turn out to be
+> better for the scheduler to respond to what the device
+> throws at it, rather than the other way around.  And
+> in that case we need no feedback from scheduler to
+> cpu demux engine.
 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 2dc6dbb..18879e6 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -1117,6 +1120,52 @@ static void rt_del(unsigned hash, struct
->        spin_unlock_bh(rt_hash_lock_addr(hash));
-> }
-> 
-> +static void rtm_redirect(struct rtable *old, struct rtable *new)
-> +{
-> +       struct netevent_redirect netevent;
-> +       struct sk_buff *skb;
-> +       int err;
-> +
-> +       netevent.old = &old->u.dst;
-> +       netevent.new = &new->u.dst;
-> +
-> +       /* notify netevent subscribers */
-> +       call_netevent_notifiers(NETEVENT_REDIRECT, &netevent);
-> +
-> +       /* Post NETLINK messages:  RTM_DELROUTE for old route, 
-> +                                  RTM_NEWROUTE for new route */
-> +       skb = alloc_skb(NLMSG_GOODSIZE, GFP_ATOMIC);
+That's exactly one bit lose/gain - if CPU is loafing - we get a gain,
+and lose otherwise - so instead of generally predictible steady behaviour 
+we can end up with bursty shapes.
 
-Please use a better size estimate rather than NLMSG_GOODSIZE here since
-you're doing GFP_ATOMIC.
+Actually without real tests all it is just a handwaving, so let's see when
+modern NICs get that capability, so network softirq scheduling would be 
+changed accordingly.
 
-> @@ -1442,6 +1493,32 @@ unsigned short ip_rt_frag_needed(struct 
->        return est_mtu ? : new_mtu;
-> }
-> 
-> +static void rtm_pmtu_update(struct rtable *rt)
-> +{
-> +       struct sk_buff *skb;
-> +       int err;
-> +
-> +       call_netevent_notifiers(NETEVENT_PMTU_UPDATE, &rt->u.dst);
-> +
-> +       skb = alloc_skb(NLMSG_GOODSIZE, GFP_ATOMIC);
-
-Ditto.
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	Evgeniy Polyakov
