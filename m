@@ -1,49 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: async network I/O, event channels, etc
-Date: Tue, 25 Jul 2006 15:01:22 -0700 (PDT)
-Message-ID: <20060725.150122.49854414.davem@davemloft.net>
-References: <44C66FC9.3050402@redhat.com>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: Can we have GET_NETDEV_DEV?
+Date: Tue, 25 Jul 2006 18:02:55 -0400
+Message-ID: <1153864975.2288.49.camel@dv>
+References: <1153803145.23803.19.camel@dv>
+	 <20060725102005.7edb5509@localhost.localdomain>
+	 <1153861691.2288.14.camel@dv>
+	 <20060725142606.0a44d258@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:22993
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030208AbWGYWBJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 18:01:09 -0400
-To: drepper@redhat.com
-In-Reply-To: <44C66FC9.3050402@redhat.com>
+Received: from fencepost.gnu.org ([199.232.76.164]:37847 "EHLO
+	fencepost.gnu.org") by vger.kernel.org with ESMTP id S932251AbWGYWC7
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 18:02:59 -0400
+Received: from proski by fencepost.gnu.org with local (Exim 4.34)
+	id 1G5UzS-0001QQ-BT
+	for netdev@vger.kernel.org; Tue, 25 Jul 2006 18:02:58 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060725142606.0a44d258@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ulrich Drepper <drepper@redhat.com>
-Date: Tue, 25 Jul 2006 12:23:53 -0700
-
-> I was very much surprised by the reactions I got after my OLS talk.
-> Lots of people declared interest and even agreed with the approach and
-> asked me to do further ahead with all this.  For those who missed it,
-> the paper and the slides are available on my home page:
+On Tue, 2006-07-25 at 14:26 -0700, Stephen Hemminger wrote:
+> On Tue, 25 Jul 2006 17:08:11 -0400
+> Pavel Roskin <proski@gnu.org> wrote:
+> > Considering the drivers that are already in the kernel, you may prefer
+> > to have a more high-level function that would clone the network device
+> > by copying most of the net_device structure.  I think netdev_get_pdev()
+> > would be mostly used for such cloning if implemented.
+> > 
 > 
-> http://people.redhat.com/drepper/
-> 
-> As for the next steps I see a number of possible ways.  The discussions
-> can be held on the usual mailing lists (i.e., lkml and netdev) but due
-> to the raw nature of the current proposal I would imagine that would be
-> mainly perceived as noise.
+> What is the wireless tree using for this?
 
-Since I gave a big thumbs up for Evgivny's kevent work yesterday
-on linux-kernel, you might want to start by comparing your work
-to his.  Because his has the advantage that 1) we have code now
-and 2) he has written many test applications and performed many
-benchmarks against his code which has flushed out most of the
-major implementation issues.
+Suppose there is a wireless device that can be used on different buses,
+e.g. PCI and PCMCIA.  The driver consists of the common part that works
+with the chip and the bus specific parts that allocate the resources.
 
-I think most of the people who have encouraged your work are unaware
-of Evgivny's kevent stuff, which is extremely unfortunate, the two
-works are more similar than they are different.
+The bus specific parts call SET_NETDEV_DEV to associate the network
+device with the hardware device.
 
-I do not think discussing all of this on netdev would be perceived
-as noise. :)
+Now, suppose the user requests creating a WDS interface.  WDS interfaces
+use 4-address headers, which allows bridging.  As it stands now, the way
+to support a WDS interface is to make is a separate network device.  I
+wish it wouldn't be necessary, but we would need to change quite a few
+code inside and outside the kernel to understand WDS addressing (I hope
+to be wrong about that).
+
+There is nothing hardware specific about WDS interfaces.  They are just
+extensions of the main interface with a fixed "receive address" and
+4-address headers enabled.  So it makes sense to create WDS interface in
+the common (i.e. bus-agnostic) part of the driver.
+
+In the (possibly misguided) attempt to make WDS network devices look
+like real network interfaces, the "class_dev" field is copied from the
+master network device, because it's something that can be done in the
+bus-agnostic way:
+
+SET_NETDEV_DEV(dev, mdev->class_dev.dev);
+
+This is how it's done in HostAP (in the kernel) and MadWifi (outside the
+kernel).
+
+Sure, this value can be stored in the private part of the driver, so
+it's a minor issue.
+
+(Actually, the main (AP or STA) interface is also made a virtual network
+device, so that the the master interface appears as the parent of the
+main and the WDS devices and as the single point for monitoring of all
+wireless traffic.)
+
+-- 
+Regards,
+Pavel Roskin
 
 
