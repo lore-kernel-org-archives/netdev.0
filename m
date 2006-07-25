@@ -1,27 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] tg3: Update version and reldate
-Date: Tue, 25 Jul 2006 16:38:47 -0700 (PDT)
-Message-ID: <20060725.163847.81467386.davem@davemloft.net>
-References: <1153868186.3167.28.camel@rh4>
+Subject: Re: [PATCH] ip multicast route bug fix
+Date: Tue, 25 Jul 2006 16:45:27 -0700 (PDT)
+Message-ID: <20060725.164527.04738467.davem@davemloft.net>
+References: <20060725162001.GA15058@ms2.inr.ac.ru>
+	<20060725085528.38b86319@localhost.localdomain>
+	<20060725211725.GA24366@ms2.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sdoyon@max-t.com, howie@vmware.com, netdev@vger.kernel.org
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:45732
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52356
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030265AbWGYXic (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 19:38:32 -0400
-To: mchan@broadcom.com
-In-Reply-To: <1153868186.3167.28.camel@rh4>
+	id S1030260AbWGYXpM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 19:45:12 -0400
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <20060725211725.GA24366@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Tue, 25 Jul 2006 15:56:26 -0700
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Date: Wed, 26 Jul 2006 01:17:25 +0400
 
-> Update version to 3.63.
+> Hello!
 > 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> > Wouldn't it be better to have a consistent interface (skb always freed),
+> > and clone the skb if needed for deferred processing?
+> 
+> I think you mean this.
+> 
+> Note, it is real skb_clone(), not alloc_skb(). Equeued skb contains
+> the whole half-prepared netlink message plus room for the rest.
+> It could be also skb_copy(), if we want to be puristic about mangling
+> cloned data, but original copy is really not going to be used.  
 
-Also applied, thanks again.
+Applied, thanks Alexey.
