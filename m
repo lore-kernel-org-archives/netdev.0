@@ -1,42 +1,64 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: MTU probing bug?
-Date: Tue, 25 Jul 2006 09:56:38 -0400
-Message-ID: <44C62316.9080501@psc.edu>
-References: <20060725.001744.26930215.davem@davemloft.net>
+From: James Morris <jmorris@namei.org>
+Subject: [PATCH][IPv4/IPv6] Setting 0 for unused port field. (fwd)
+Date: Tue, 25 Jul 2006 10:45:51 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0607251045470.21222@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:5322 "EHLO mailer1.psc.edu")
-	by vger.kernel.org with ESMTP id S932294AbWGYN4o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 09:56:44 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060725.001744.26930215.davem@davemloft.net>
+Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:28302 "EHLO
+	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S932368AbWGYOpx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 10:45:53 -0400
+Received: from megaweapon.nightmoose.net (HELO d.namei) ([66.92.66.197])
+          (envelope-sender <jmorris@namei.org>)
+          by mail1.sea5.speakeasy.net (qmail-ldap-1.03) with AES256-SHA encrypted SMTP
+          for <netdev@vger.kernel.org>; 25 Jul 2006 14:45:52 -0000
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> John, have a look at this code in tcp_write_timeout():
-> 
-> 		mss = min(sysctl_tcp_base_mss,
-> 		          tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low)/2);
-> 		mss = max(mss, 68 - tp->tcp_header_len);
-> 
-> That first line looks like it should be a max() instead
-> of a min().
-> 
-> tcp_base_mss is the smallest MSS we should use, therefore
-> we should make sure the "mss" is at least that large.
-> 
-> It's also possible that I misread the intention of this code :) From
-> what I read, it is trying to half the MSS in use and adjust the MTU
-> search low point to be based upon this new value.
 
-No, the min() is what's intended here.  The base_mss is where you want 
-to start searching from.  So, on black hole detection, you drop 
-immediatly down to the base.  The base is configurable, because making 
-it higher can make searching faster.  If it's still too high for some 
-links, you halve it again on successive timeouts.
+---------- Forwarded message ----------
+Date: Tue, 25 Jul 2006 16:38:05 +0900
+From: from-linux-kernel@i-love.sakura.ne.jp
+To: linux-kernel@vger.kernel.org
+Subject: [PATCH][IPv4/IPv6] Setting 0 for unused port field.
 
-   -John
+Hello.
+
+The recvmsg() for raw socket seems to return random u16 value
+from the kernel stack memory since port field is not initialized.
+But I'm not sure this patch is correct.
+Does raw socket return any information stored in port field?
+
+---------- Start of patch ----------
+diff -ur before/net/ipv4/raw.c after/net/ipv4/raw.c
+--- before/net/ipv4/raw.c       2006-06-18 10:49:35.000000000 +0900
++++ after/net/ipv4/raw.c        2006-07-25 16:15:26.000000000 +0900
+@@ -609,6 +609,7 @@
+        if (sin) {
+                sin->sin_family = AF_INET;
+                sin->sin_addr.s_addr = skb->nh.iph->saddr;
++               sin->sin_port = 0;
+                memset(&sin->sin_zero, 0, sizeof(sin->sin_zero));
+        }
+        if (inet->cmsg_flags)
+diff -ur before/net/ipv6/raw.c after/net/ipv6/raw.c
+--- before/net/ipv6/raw.c       2006-06-18 10:49:35.000000000 +0900
++++ after/net/ipv6/raw.c        2006-07-25 16:16:52.000000000 +0900
+@@ -411,6 +411,7 @@
+        /* Copy the address. */
+        if (sin6) {
+                sin6->sin6_family = AF_INET6;
++               sin6->sin6_port = 0;
+                ipv6_addr_copy(&sin6->sin6_addr, &skb->nh.ipv6h->saddr);
+                sin6->sin6_flowinfo = 0;
+                sin6->sin6_scope_id = 0;
+---------- End of patch ----------
+
+Regards.
+-
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
