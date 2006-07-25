@@ -1,46 +1,34 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: RDMA will be reverted
-Date: Tue, 25 Jul 2006 10:59:21 +0400
-Message-ID: <20060725065921.GB30561@2ka.mipt.ru>
-References: <adasllh9kj0.fsf@cisco.com> <20060724.150613.54186472.davem@davemloft.net> <20060725055127.GA5103@2ka.mipt.ru> <20060724.234853.112197982.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: MTU probing bug?
+Date: Tue, 25 Jul 2006 00:17:44 -0700 (PDT)
+Message-ID: <20060725.001744.26930215.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: rdreier@cisco.com, ak@suse.de, tom@opengridcomputing.com,
-	netdev@vger.kernel.org, akpm@osdl.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:56503 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751480AbWGYHDd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 03:03:33 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060724.234853.112197982.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:59841
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751386AbWGYHRl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 03:17:41 -0400
+To: jheffner@psc.edu
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 24, 2006 at 11:48:53PM -0700, David Miller (davem@davemloft.net) wrote:
-> > And if that CPU is very busy?
-> > Linux should somehow tell NIC that some CPUs are valid and some are not
-> > right now, but not in a second, so scheduler must be tightly bound with
-> > network internals.
-> 
-> Yes, it is research problem.
-> 
-> Most of the time, even stateless version will improve things.
-> From another viewpoint, even in worst case, it can be no
-> worse than current situation. :)
-> 
-> BTW, such dynamic remapping is provided for in the NDIS interfaces.
-> There is an indexing table that is gone through using computed hash to
-> get "cpu number".
 
-I think we should force Linux scheduler to export some easily accessed CPU
-statistic, so that info might be used by irq layer/protocol processing.
+John, have a look at this code in tcp_write_timeout():
 
-As a side completely unrelated to either my or others work note :) - 
-I think it is a nanooptimisation - we get a bit of performance here, 
-and lose those bit in other place.
-When bag is filled, there is no much sence of rearranging some stuff
-inside to be able to place another one - it is better to buy new bag.
+		mss = min(sysctl_tcp_base_mss,
+		          tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low)/2);
+		mss = max(mss, 68 - tp->tcp_header_len);
 
--- 
-	Evgeniy Polyakov
+That first line looks like it should be a max() instead
+of a min().
+
+tcp_base_mss is the smallest MSS we should use, therefore
+we should make sure the "mss" is at least that large.
+
+It's also possible that I misread the intention of this code :) From
+what I read, it is trying to half the MSS in use and adjust the MTU
+search low point to be based upon this new value.
+
