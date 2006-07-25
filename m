@@ -1,64 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [XFRM]: Fix protocol field value for outgoing IPv6 GSO packets
-Date: Tue, 25 Jul 2006 02:09:26 +0200
-Message-ID: <44C56136.50600@trash.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: softmac possible null deref [was: Complete report of Null
+ dereference errors in kernel 2.6.17.1]
+Date: Mon, 24 Jul 2006 17:12:13 -0700
+Message-ID: <20060724171213.62810d2b@localhost.localdomain>
+References: <1153782637.44c5536e013a4@webmail>
+	<44C55F36.5000701@gentoo.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010804050402050802020300"
-Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Tom Walter Dillig <tdillig@stanford.edu>,
+	linux-kernel@vger.kernel.org, w@1wt.eul,
+	kernel_org@digitalpeer.com, security@kernel.org,
+	Netdev list <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:30875 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932342AbWGYALD
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jul 2006 20:11:03 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Received: from smtp.osdl.org ([65.172.181.4]:16074 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932345AbWGYANJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jul 2006 20:13:09 -0400
+To: Daniel Drake <dsd@gentoo.org>
+In-Reply-To: <44C55F36.5000701@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010804050402050802020300
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+On Tue, 25 Jul 2006 01:00:54 +0100
+Daniel Drake <dsd@gentoo.org> wrote:
 
-This appears to be a mistake, but I didn't follow the GSO stuff
-very closely, so there could be some non-obvious reason.
+> Tom Walter Dillig wrote:
+> > [109]
+> > 452 net/ieee80211/softmac/ieee80211softmac_io.c
+> > Possible null dereference of variable "*pkt" in function call
+> > (include/asm/string.h:__constant_c_and_count_memset) checked at
+> > (453:net/ieee80211/softmac/ieee80211softmac_io.c)
+> 
+> Either I'm misunderstanding, or this is bogus.
+> 
+> when *pkt is allocated by the various child functions (e.g. 
+> ieee80211softmac_disassoc_deauth), it is always checked for NULL.
+> 
+> Finally, line 453 does another NULL check.
 
+> 
+> What is the report trying to say?
 
+That the check in 453 should be removed because is unneeded.
 
---------------010804050402050802020300
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[XFRM]: Fix protocol field value for outgoing IPv6 GSO packets
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit 8035f60a607630459e4440dbbc5a20f3cfbf97ac
-tree f1a7061cfd1f923b3991ee8f449cffce86870a3e
-parent 440848a8e33fc1927bab45bd73f6c8e042ea7abd
-author Patrick McHardy <kaber@trash.net> Tue, 25 Jul 2006 02:02:00 +0200
-committer Patrick McHardy <kaber@trash.net> Tue, 25 Jul 2006 02:02:00 +0200
-
- net/ipv6/xfrm6_output.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-index 0eea60e..c8c8b44 100644
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@ -125,7 +125,7 @@ static int xfrm6_output_finish(struct sk
- 	if (!skb_is_gso(skb))
- 		return xfrm6_output_finish2(skb);
- 
--	skb->protocol = htons(ETH_P_IP);
-+	skb->protocol = htons(ETH_P_IPV6);
- 	segs = skb_gso_segment(skb, 0);
- 	kfree_skb(skb);
- 	if (unlikely(IS_ERR(segs)))
-
---------------010804050402050802020300--
+People who obsess about code coverage care that there are unneded
+checks. I don't think it matters.
