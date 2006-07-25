@@ -1,156 +1,96 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH Round 4 2/3] Core network changes to support network
-	event notification.
-Date: Tue, 25 Jul 2006 10:05:40 -0500
-Message-ID: <1153839940.14354.37.camel@stevo-desktop>
-References: <E1G5HW5-0005xn-00@gondolin.me.apana.org.au>
+From: Tomasz Torcz <zdzichu@irc.pl>
+Subject: BUGs in skb_checksum_help() and skb_gso_segment() in 2.6.18-rc2
+Date: Tue, 25 Jul 2006 17:15:04 +0200
+Message-ID: <20060725151504.GA8947@irc.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, rdreier@cisco.com, openib-general@openib.org,
-	netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="UugvWAfsgieZRqgk"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-218-104.sw.biz.rr.com ([24.153.218.104]:26589 "EHLO
-	dell3.ogc.int") by vger.kernel.org with ESMTP id S932381AbWGYPFl
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 11:05:41 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1G5HW5-0005xn-00@gondolin.me.apana.org.au>
+Received: from nsm.pl ([195.34.211.229]:33553 "EHLO nsm.pl")
+	by vger.kernel.org with ESMTP id S932432AbWGYPPS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 11:15:18 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by nsm.pl (Postfix) with ESMTP id 18B762CAB24
+	for <netdev@vger.kernel.org>; Tue, 25 Jul 2006 17:13:23 +0200 (CEST)
+Received: from nsm.pl ([195.34.211.229])
+ by localhost (nsm.pl [127.0.0.1]) (amavisd-new, port 10024) with ESMTP
+ id 19896-05 for <netdev@vger.kernel.org>;
+ Tue, 25 Jul 2006 17:13:22 +0200 (CEST)
+Received: from matthew.ogrody.nsm.pl (matthew.ogrody.nsm.pl [192.168.173.98])
+	by nsm.pl (Postfix) with SMTP id 9E1002CAB10
+	for <netdev@vger.kernel.org>; Tue, 25 Jul 2006 17:13:12 +0200 (CEST)
+To: netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-07-25 at 17:39 +1000, Herbert Xu wrote:
-> Steve Wise <swise@opengridcomputing.com> wrote:
-> > 
-> > Routing redirect events are broadcast as a pair of rtmsgs, RTM_DELROUTE
-> > and RTM_NEWROUTE.
-> 
-> This may confuse existing rtnetlink users since you're generating an
-> RTM_DELROUTE message that's identical to one triggered by something
-> like 'ip route del'.
-> 
 
-Yea, I didn't really want to create a REDIRECT rtmsg, so I punted. :-)  
-
-But they really are seeing a delete followed by an add.  That's what the
-kernel is doing.
-
-> As you're introducing a completely new RTM_ROUTEUPD type, it might
-> be better to attach any information from the existing route that you
-> need to the ROUTEUPD message.
-
-Yea, the main change is the next hop ip address or gateway field.  
-
-> 
-> Actually, what was the reason you need the existing route here?
-> 
-
-The rdma driver needs to update all established rdma connections that
-are using the next-hop information of the existing route and make them
-use the next-hop information of the new route.  In addition, the rdma
-driver might have a reference to the old dst entry.  So it can release
-that ref and add a ref to the new dst entry.
-
-> > diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-> > index 5f87533..33d8a83 100644
-> > --- a/net/ipv4/fib_semantics.c
-> > +++ b/net/ipv4/fib_semantics.c
-> > @@ -44,6 +44,7 @@ #include <net/tcp.h>
-> > #include <net/sock.h>
-> > #include <net/ip_fib.h>
-> > #include <net/ip_mp_alg.h>
-> > +#include <net/netevent.h>
-> > 
-> > #include "fib_lookup.h"
-> > 
-> > @@ -279,6 +280,14 @@ void rtmsg_fib(int event, u32 key, struc
-> >        struct sk_buff *skb;
-> >        u32 pid = req ? req->pid : n->nlmsg_pid;
-> >        int size = NLMSG_SPACE(sizeof(struct rtmsg)+256);
-> > +       struct netevent_route_info nri;
-> > +       int netevent;
-> > +
-> > +       nri.family = AF_INET;
-> > +       nri.data = &fa->fa_info;
-> > +       netevent = event == RTM_NEWROUTE ? NETEVENT_ROUTE_ADD 
-> > +                                        : NETEVENT_ROUTE_DEL;
-> > +       call_netevent_notifiers(netevent, &nri);
-> 
-> Hmm, this is broken.  These route events are meaningless without the
-> corresponding IP rule events.  Are you sure you really want to make
-> your hardware/driver grok multiple routing tables?
-> 
-> Perhaps you should simply stick to dst entries and flush all your
-> tables when the routes are changed.  This is what the Linux IP stack
-> does.
-> 
-
-I have to admit I'm a little fuzzy on the routing stuff.  The main
-netevents I've utilized in the the rdma driver I'm writing is the
-neighbour update event and the redirect event.  Route add/del was added
-for completeness of "routing" netevents.   
-
-Can you expand further or point me to code where the IP stack "flushes
-its tables" when routes are changed?
-
->From my experience, all the rdma driver needs is the dst entry.   It
-using the routing table to determine the dst_entry at connection
-establish time.  And it needs to know if the next-hop or PMTU ever
-changes.
+--UugvWAfsgieZRqgk
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
 
+  Hi,
 
-> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> > index 2dc6dbb..18879e6 100644
-> > --- a/net/ipv4/route.c
-> > +++ b/net/ipv4/route.c
-> > @@ -1117,6 +1120,52 @@ static void rt_del(unsigned hash, struct
-> >        spin_unlock_bh(rt_hash_lock_addr(hash));
-> > }
-> > 
-> > +static void rtm_redirect(struct rtable *old, struct rtable *new)
-> > +{
-> > +       struct netevent_redirect netevent;
-> > +       struct sk_buff *skb;
-> > +       int err;
-> > +
-> > +       netevent.old = &old->u.dst;
-> > +       netevent.new = &new->u.dst;
-> > +
-> > +       /* notify netevent subscribers */
-> > +       call_netevent_notifiers(NETEVENT_REDIRECT, &netevent);
-> > +
-> > +       /* Post NETLINK messages:  RTM_DELROUTE for old route, 
-> > +                                  RTM_NEWROUTE for new route */
-> > +       skb = alloc_skb(NLMSG_GOODSIZE, GFP_ATOMIC);
-> 
-> Please use a better size estimate rather than NLMSG_GOODSIZE here since
-> you're doing GFP_ATOMIC.
-> 
+I just noticed in my logs following messages:
 
-ok
+BUG: warning at net/core/dev.c:1171/skb_checksum_help()
+ [<c010374a>] show_trace_log_lvl+0x51/0xe6
+ [<c01037e9>] show_trace+0xa/0xc
+ [<c01038b4>] dump_stack+0x13/0x15
+ [<c02b41c4>] skb_checksum_help+0x4d/0xeb
+ [<c02f9cbe>] ip_nat_fn+0x47/0x19a
+ [<c02f9f83>] ip_nat_local_fn+0x3c/0xba
+ [<c02c51dc>] nf_iterate+0x40/0x60
+ [<c02c523e>] nf_hook_slow+0x42/0xa2
+ [<c02cd6e7>] ip_queue_xmit+0x396/0x3e2
+ [<c02db405>] tcp_transmit_skb+0x387/0x3a4
+ [<c02dc74e>] tcp_push_one+0xaf/0xd3
+ [<c02d32eb>] tcp_sendmsg+0x7ce/0x9b3
+ [<c02e9a91>] inet_sendmsg+0x35/0x3f
+ [<c02abea7>] sock_sendmsg+0xbf/0xd8
+ [<c02acf03>] sys_sendto+0xe5/0x106
+ [<c02acf3d>] sys_send+0x19/0x1d
+ [<c02ad5e7>] sys_socketcall+0xf2/0x19b
+ [<c0102a1b>] syscall_call+0x7/0xb
+ [<47bb967e>] 0x47bb967e
+BUG: warning at net/core/dev.c:1225/skb_gso_segment()
+ [<c010374a>] show_trace_log_lvl+0x51/0xe6
+ [<c01037e9>] show_trace+0xa/0xc
+ [<c01038b4>] dump_stack+0x13/0x15
+ [<c02b42ea>] skb_gso_segment+0x88/0x174
+ [<c02b4483>] dev_gso_segment+0x5c/0x82
+ [<c02b44f2>] dev_hard_start_xmit+0x49/0xaf
+ [<c02beb99>] __qdisc_run+0x91/0x117
+ [<c02b4679>] dev_queue_xmit+0x121/0x1ce
+ [<c02cd31b>] ip_output+0x1a8/0x1de
 
-> > @@ -1442,6 +1493,32 @@ unsigned short ip_rt_frag_needed(struct 
-> >        return est_mtu ? : new_mtu;
-> > }
-> > 
-> > +static void rtm_pmtu_update(struct rtable *rt)
-> > +{
-> > +       struct sk_buff *skb;
-> > +       int err;
-> > +
-> > +       call_netevent_notifiers(NETEVENT_PMTU_UPDATE, &rt->u.dst);
-> > +
-> > +       skb = alloc_skb(NLMSG_GOODSIZE, GFP_ATOMIC);
-> 
-> Ditto.
-> 
-
-ok
+ System is fairly standard x86 with e1000 card. 2.6.18-rc2.
+# ethtool -k ep0
+Offload parameters for ep0:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: on
 
 
-Thanks,
+--=20
+Tomasz Torcz                "Funeral in the morning, IDE hacking
+zdzichu@irc.-nie.spam-.pl    in the afternoon and evening." - Alan Cox
 
-Steve.
 
+--UugvWAfsgieZRqgk
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.4 (GNU/Linux)
+Comment: gpg --search-keys Tomasz Torcz
+
+iD8DBQFExjV4ThhlKowQALQRArSAAJ9PrB7yYGJixC6iDbjGDhVeVqDdhwCfVJI2
+NBcRPR47q1Ur3OoiBHg6OLE=
+=o5JY
+-----END PGP SIGNATURE-----
+
+--UugvWAfsgieZRqgk--
