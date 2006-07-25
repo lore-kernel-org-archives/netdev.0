@@ -1,70 +1,60 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] ip multicast route bug fix (rev2)
-Date: Tue, 25 Jul 2006 08:42:38 -0700
-Message-ID: <20060725084238.32bcc50f@localhost.localdomain>
-References: <20060719145716.4cb9e7e2@localhost.localdomain>
-	<E1G5Ht7-00060p-00@gondolin.me.apana.org.au>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: RDMA will be reverted
+Date: Tue, 25 Jul 2006 09:29:11 -0700
+Message-ID: <44C646D7.3040701@hp.com>
+References: <44C565D1.6070202@hp.com>	<20060724.174518.52116903.davem@davemloft.net>	<44C56BFC.7080000@hp.com> <20060724.182108.37154478.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: ak@suse.de, rdreier@cisco.com, tom@opengridcomputing.com,
+	netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:62170 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932451AbWGYQXk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 12:23:40 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net
-In-Reply-To: <E1G5Ht7-00060p-00@gondolin.me.apana.org.au>
+Received: from palrel13.hp.com ([156.153.255.238]:19114 "EHLO palrel13.hp.com")
+	by vger.kernel.org with ESMTP id S964786AbWGYQ3T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 12:29:19 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060724.182108.37154478.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-IP multicast route code was reusing an skb which causes
-use after free and double free.
+David Miller wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Mon, 24 Jul 2006 17:55:24 -0700
+> 
+> 
+>>Even enough bits for 1024 or 2048 CPUs in the single system image?  I have seen 
+>>1024 touted by SGI, and with things going so multi-core, perhaps 16384 while 
+>>sounding initially bizzare would be in the realm of theoretically possible 
+>>before tooooo long.
+> 
+> 
+> Read the RSS NDIS documents from Microsoft. 
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
----
- net/ipv4/ipmr.c |   22 ++++++++++++++++------
- 1 files changed, 16 insertions(+), 6 deletions(-)
+I'll see about hunting them down.
 
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index ba33f86..f5d3d96 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1580,6 +1580,7 @@ int ipmr_get_route(struct sk_buff *skb, 
- 	cache = ipmr_cache_find(rt->rt_src, rt->rt_dst);
- 
- 	if (cache==NULL) {
-+		struct sk_buff *skb2;
- 		struct net_device *dev;
- 		int vif;
- 
-@@ -1593,12 +1594,21 @@ int ipmr_get_route(struct sk_buff *skb, 
- 			read_unlock(&mrt_lock);
- 			return -ENODEV;
- 		}
--		skb->nh.raw = skb_push(skb, sizeof(struct iphdr));
--		skb->nh.iph->ihl = sizeof(struct iphdr)>>2;
--		skb->nh.iph->saddr = rt->rt_src;
--		skb->nh.iph->daddr = rt->rt_dst;
--		skb->nh.iph->version = 0;
--		err = ipmr_cache_unresolved(vif, skb);
-+		
-+		skb2 = alloc_skb(sizeof(struct iphdr) + sizeof(struct nlmsghdr),
-+				 GFP_ATOMIC);
-+		if (!skb2) {
-+			read_unlock(&mrt_lock);
-+			return -ENOMEM;
-+		}
-+
-+		memset(skb2->data, 0, sizeof(struct iphdr));
-+		skb2->nh.raw = skb2->data;
-+		skb2->nh.iph->ihl = sizeof(struct iphdr)>>2;
-+		skb2->nh.iph->saddr = rt->rt_src;
-+		skb2->nh.iph->daddr = rt->rt_dst;
-+
-+		err = ipmr_cache_unresolved(vif, skb2);
- 		read_unlock(&mrt_lock);
- 		return err;
- 	}
--- 
-1.4.0
+> You aren't going to want
+> to demux to more than, say, 256 cpus for single network adapter even
+> on the largest machines.
 
+I suppose, it just seems to tweak _small_ alarms in my intuition - maybe because 
+it still sounds like networking telling the scheduler where to run threads of 
+execution, and even though I'm a networking guy I seem to have the notion that 
+it should be the other way 'round.
+
+>>That would cover TCP, are there similarly fungible fields in SCTP or
+>>other ULPs?  And if we were to want to get HW support for the thing,
+>>getting it adopted in a de jure standards body would probably be in
+>>order :)
+> 
+> 
+> Microsoft never does this, neither do we.  LRO came out of our own
+> design, the network folks found it reasonable and thus they have
+> started to implement it.  The same is true for Microsofts RSS stuff.
+> 
+> It's a hardware interpretation, therefore it belongs in a driver API
+> specification, nowhere else.
+
+It may be a hardware interpretation, but doesn't it have non-trivial system 
+implications - where one runs threads/processes etc?
+
+rick jones
