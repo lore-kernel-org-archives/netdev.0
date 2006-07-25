@@ -1,95 +1,68 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: Runtime power management for network interfaces
-Date: Tue, 25 Jul 2006 10:03:44 -0700
-Message-ID: <200607251003.45314.david-b@pacbell.net>
-References: <Pine.LNX.4.44L0.0607251147040.6498-100000@iolanthe.rowland.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Can we have GET_NETDEV_DEV?
+Date: Tue, 25 Jul 2006 10:20:05 -0700
+Message-ID: <20060725102005.7edb5509@localhost.localdomain>
+References: <1153803145.23803.19.camel@dv>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Network development list <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp112.sbc.mail.mud.yahoo.com ([68.142.198.211]:13454 "HELO
-	smtp112.sbc.mail.mud.yahoo.com") by vger.kernel.org with SMTP
-	id S932101AbWGYRDs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 13:03:48 -0400
-To: Alan Stern <stern@rowland.harvard.edu>
-In-Reply-To: <Pine.LNX.4.44L0.0607251147040.6498-100000@iolanthe.rowland.org>
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:21484 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750739AbWGYRVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 13:21:21 -0400
+To: Pavel Roskin <proski@gnu.org>
+In-Reply-To: <1153803145.23803.19.camel@dv>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 25 July 2006 8:59 am, Alan Stern wrote:
-> During a Power Management session at the Ottawa Linux Symposium, it was
-> generally agreed that network interface drivers ought to automatically
-> suspend their devices (if possible) whenever:
+On Tue, 25 Jul 2006 00:52:25 -0400
+Pavel Roskin <proski@gnu.org> wrote:
+
+> Hello!
 > 
->     (1) The interface is ifconfig'ed down, or
+> gregkh-driver-network-class_device-to-device.patch, which briefly
+> appeared in Linux 2.6.18-rc1-mm1 broke MadWifi, which is copying the
+> physical device information from the master network device to the
+> virtual network devices:
 > 
->     (2) No link is available.
-> 
-> Presumably (1) should be easy enough to implement.
+> SET_NETDEV_DEV(dev, mdev->class_dev.dev);
+>
 
-I can't imagine that there are many network drivers that couldn't
-put the hardware in some kind of low power mode at that point.
+I would rather see SET_NETDEV_DEV go away. It was done for source
+compatibility between 2.4 and 2.6 network device drivers. This is
+no longer really important.
 
-All PCI drivers can certainly set_pci_power_state(pdev, PCI_D3hot)
-and save a certain amount of power.  Of course, that means coping
-with a possible device reset when going to PCI_D0, and I can imagine
-some devices might prefer to use PCI_D2 rather than reload firmware.
+It would be better to either access the network device directly.
+BUT, there are plans to get rid of class_dev so that would mean
+source changes to all the drivers again...
 
-Embedded chips probably have an easier time with this; just turn
-off all the clocks going to that controller and its PHY.  
+So how about these wrappers.
 
-
-> (2) might or might not 
-> be feasible, depending on how much WOL support is available.
-
-A network adapter without PHY support in the WOL hardware wouldn't be
-able to implement (2).  And in today's systems, where we can't rely on
-ACPI+PCI to morph PME# to pci_driver.resume() during runtime suspend,
-not all platforms can implement (2).  Embedded chips probably have an
-easier time here ... I know for a fact that at91_ether can do that sort
-of thing easily, at least on boards where the PHY IRQ is hooked up, so
-that the driver doesn't need to poll link status.
-
-The USB analogy here is that _some_ external transceivers (PHY) can
-report link state changes via IRQs, supporting a mode where everything
-else is powered off until the link can be active, at which point the
-controller can come out of its low power state.  Those are of course
-transceivers intended for use in systems with itty bitty batteries.
-
-
-(I keep thinking wakeup event handling is pretty weak in Linux today.
-As you know, we're still shaking the USB HCDs into shape there, since
-some system configs have issues.  Network adapters seem to be another
-major use case for wakeup events in Linux, and I get the impression
-they're not as widely used -- or functional -- as would be good.)
-
-
-> (It might 
-> not be feasible at all for wireless networking.)  Still, there can be no
-> question that it would be a Good Thing for laptops to power-down their
-> ethernet controllers when the network cable is unplugged.
-> 
-> Has any progress been made in this direction?  If not, a natural approach 
-> would be to start with a reference implementation in one driver which 
-> could then be copied to other drivers.
-> 
-> Any suggestions?
-
-My initial thought was that network drivers could be refactored so
-that they have ifsuspend() and ifresume() methods to put the hardware
-into the low power state.
-
-The remove(), open() and resume() methods would call ifresume(); probe(),
-close() and suspend() would call ifsuspend() ... thatid give (1).  And
-for hardware supporting (2) there'd be some housekeeping for the WOL support
-during suspend() and resume(), in addition to netif_device_{de,at}tach().
-
-For hardware where a PHY can report link state without requiring an active
-Ethernet controller (e.g. at91_ether for sure) some events could trigger
-ifresume()/ifsuspend() when the interface is active.
-
-- Dave
-
+--- a/include/linux/netdevice.h	2006-07-24 10:56:59.000000000 -0700
++++ b/include/linux/netdevice.h	2006-07-25 10:18:12.000000000 -0700
+@@ -535,10 +535,23 @@
+ }
+ 
+ #define SET_MODULE_OWNER(dev) do { } while (0)
++
+ /* Set the sysfs physical device reference for the network logical device
+  * if set prior to registration will cause a symlink during initialization.
+  */
+-#define SET_NETDEV_DEV(net, pdev)	((net)->class_dev.dev = (pdev))
++static inline void netdev_set_pdev(struct net_device *dev, struct device *pdev)
++{
++	dev->class_dev.dev = pdev;
++}
++
++static inline struct device *netdev_get_pdev(struct net_device *dev)
++{
++	return dev->class_dev.dev;
++}
++
++
++/* old style macro for compatiablity */
++#define SET_NETDEV_DEV(net, pdev)	netdev_set_pdev(net, pdev)
+ 
+ struct packet_type {
+ 	__be16			type;	/* This is really htons(ether_type). */
