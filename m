@@ -1,34 +1,38 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: BUGs in skb_checksum_help() and skb_gso_segment() in 2.6.18-rc2
-Date: Tue, 25 Jul 2006 19:29:39 +0400
-Message-ID: <20060725152939.GA2246@2ka.mipt.ru>
-References: <20060725151504.GA8947@irc.pl>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Runtime power management for network interfaces
+Date: Tue, 25 Jul 2006 11:59:52 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.0607251147040.6498-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:1242 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932439AbWGYP3t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 11:29:49 -0400
-To: Tomasz Torcz <zdzichu@irc.pl>
-Content-Disposition: inline
-In-Reply-To: <20060725151504.GA8947@irc.pl>
+Received: from iolanthe.rowland.org ([192.131.102.54]:2055 "HELO
+	iolanthe.rowland.org") by vger.kernel.org with SMTP id S932398AbWGYP75
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 11:59:57 -0400
+To: Network development list <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 25, 2006 at 05:15:04PM +0200, Tomasz Torcz (zdzichu@irc.pl) wrote:
-> BUG: warning at net/core/dev.c:1171/skb_checksum_help()
->  [<c010374a>] show_trace_log_lvl+0x51/0xe6
->  [<c01037e9>] show_trace+0xa/0xc
->  [<c01038b4>] dump_stack+0x13/0x15
->  [<c02b41c4>] skb_checksum_help+0x4d/0xeb
->  [<c02f9cbe>] ip_nat_fn+0x47/0x19a
+During a Power Management session at the Ottawa Linux Symposium, it was
+generally agreed that network interface drivers ought to automatically
+suspend their devices (if possible) whenever:
 
-It is not a bug, but remind to update nat helper function.
+    (1) The interface is ifconfig'ed down, or
 
-> -- 
-> Tomasz Torcz                "Funeral in the morning, IDE hacking
-> zdzichu@irc.-nie.spam-.pl    in the afternoon and evening." - Alan Cox
+    (2) No link is available.
 
--- 
-	Evgeniy Polyakov
+Presumably (1) should be easy enough to implement.  (2) might or might not
+be feasible, depending on how much WOL support is available.  (It might
+not be feasible at all for wireless networking.)  Still, there can be no
+question that it would be a Good Thing for laptops to power-down their
+ethernet controllers when the network cable is unplugged.
+
+Has any progress been made in this direction?  If not, a natural approach 
+would be to start with a reference implementation in one driver which 
+could then be copied to other drivers.
+
+Any suggestions?
+
+Alan Stern
+
