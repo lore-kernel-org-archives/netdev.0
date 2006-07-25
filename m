@@ -1,57 +1,76 @@
-From: Martin Josefsson <gandalf@wlug.westbo.se>
-Subject: Re: [PATCH] ip multicast route bug fix
-Date: Tue, 25 Jul 2006 08:03:00 +0200
-Message-ID: <1153807381.23563.2.camel@localhost.localdomain>
-References: <20060719145716.4cb9e7e2@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC 1/4] kevent: core files.
+Date: Mon, 24 Jul 2006 23:17:08 -0700 (PDT)
+Message-ID: <20060724.231708.01289489.davem@davemloft.net>
+References: <20060709132446.GB29435@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-uvXq0V1BxKdczNbvQJdf"
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailfront1.citynet.nu ([217.10.96.36]:49853 "EHLO
-	mailfront1.citynet.nu") by vger.kernel.org with ESMTP
-	id S1751400AbWGYGDf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 02:03:35 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060719145716.4cb9e7e2@localhost.localdomain>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:16517
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751436AbWGYGRH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 02:17:07 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20060709132446.GB29435@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Sun, 9 Jul 2006 17:24:46 +0400
 
---=-uvXq0V1BxKdczNbvQJdf
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> This patch includes core kevent files:
+>  - userspace controlling
+>  - kernelspace interfaces
+>  - initialisation
+>  - notification state machines
+> 
+> It might also inlclude parts from other subsystem (like network related
+> syscalls so it is possible that it will not compile without other
+> patches applied).
+> 
+> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
-On Wed, 2006-07-19 at 14:57 -0700, Stephen Hemminger wrote:
-> This should fix the problem reported in http://bugzilla.kernel.org/show_b=
-ug.cgi?id=3D6186
-> where the skb is used after freed. The code in IP multicast route.
->=20
-> Code was reusing an skb which could lead to use after free or double free=
-.
+I like this work a lot, as I've stated before.  The data structures
+look like they will scale well and it takes care of all the limitations
+that networking in particular seems to have in this area.
 
-> +	=09
-> +		iskb =3D alloc_skb(sizeof(struct iphdr), GFP_KERNEL);
-> +		if (!iskb) {
-> +			read_unlock(&mrt_lock);
-> +			return -ENOMEM;
-> +		}
+I have to say that the user API is not the nicest in the world.  Yet,
+at the same time, I cannot think of a better one :)
 
-GFP_KERNEL allocation under read_lock()?
+Please, remove some grot such as this:
 
---=20
-/Martin
+> +	if (kevent_cache)
+> +		k = kmem_cache_alloc(kevent_cache, mask);
+> +	else
+> +		k = kzalloc(sizeof(struct kevent), mask);
+ ...
+> +	if (kevent_cache)
+> +		kmem_cache_free(kevent_cache, k);
+> +	else
+> +		kfree(k);
 
---=-uvXq0V1BxKdczNbvQJdf
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+Instead, make this:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.3 (GNU/Linux)
+> +	kevent_cache = kmem_cache_create("kevent_cache", 
+> +			sizeof(struct kevent), 0, 0, NULL, NULL);
+> +	if (!kevent_cache)
+> +		err = -ENOMEM;
 
-iD8DBQBExbQUWm2vlfa207ERAtVyAJ92E9tpmFJpUNq439SubGwKyKQTaQCfYTs1
-92Ghaxq+wXZ5lzUHXQdTNjM=
-=EXPM
------END PGP SIGNATURE-----
+panic().  This is consistent with how other core subsystems handle
+SLAB cache creation failures.
 
---=-uvXq0V1BxKdczNbvQJdf--
+I also think that if we accept this work, it should be first class
+citizen with no config options and no ifdefs scattered all over.
+Either this is how we do network AIO or it is not.
 
+I've looked only briefly at Ulrich Drepper's AIO proposal in his OLS
+slides, although the DMA bits do not initially strike me as such a hot
+idea.  I haven't wrapped my brain much around this new stuff, so I'm
+not going to touch on it much more just yet.
+
+The practical advantage kevent has over any new proposal is that 1)
+implementation exists :) and 2) several types of test applications and
+performance measurements have been made against it which usually
+flushes out the worst design issues.
