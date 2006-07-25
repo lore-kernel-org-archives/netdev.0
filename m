@@ -1,40 +1,59 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPROUTE]: Add support for multipath route realms
-Date: Tue, 25 Jul 2006 18:21:44 +1000
-Message-ID: <20060725082144.GA23383@gondor.apana.org.au>
-References: <44C596EC.905@trash.net> <E1G5I8b-00063u-00@gondolin.me.apana.org.au>
+From: "Max Vick" <743toiboid@hotmail.com>
+Subject: Oportunidad unica. mas informacion
+Date: Tue, 25 Jul 2006 01:41:11 -0700
+Message-ID: <200607250841.k6P8fG2d030020@zeus2.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=Windows-1251
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33295 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932155AbWGYIVv
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 04:21:51 -0400
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <E1G5I8b-00063u-00@gondolin.me.apana.org.au>
+Received: from zeus2.kernel.org ([204.152.191.36]:49311 "EHLO zeus2.kernel.org")
+	by vger.kernel.org with ESMTP id S932280AbWGYIle (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 04:41:34 -0400
+To: <majordomo@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 25, 2006 at 06:19:33PM +1000, Herbert Xu wrote:
->
-> > new kernel:
-> > 
-> > 1.2.3.4
-> >        nexthop realm 1 dev dummy0 weight 1
-> >        nexthop realm 2 dev dummy1 weight 1
-> >        nexthop realm 3 dev dummy2 weight 1
-> >        nexthop realm 4 dev dummy3 weight 1
-> 
-> This really looks like papering over fundamental brokenness of
-> IP_ROUTE_MULTIPATH_CACHED since you wouldn't otherwise get these
-> entries in the routing cache.
+Es usted una persona responsable y esta buscando un trabajo de medio ti=
+empo  muy bien pagado?=20
 
-Nevermind, I misread your changelog.  Your patch is obviously
-not related to IP_ROUTE_MULTIPATH_CACHED :)
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+=20
+Somos una compania familiar especializados en varias operaciones con an=
+tiguedades y joyeria Antigua, somos =93Tollis Ltd=94 , y estamos buscan=
+do gente honesta y responsable para que se nos una..  =20
+
+=20
+No te pierdas esta oportunidad =96 somos exactamente lo que estas busca=
+ndo!
+Ganaras mas de EUR 1500 por mes,  utilizando solo 3-4 horas de tu tiemp=
+o. Es real con nosotros!.=20
+=20
+
+
+Nosotros no hacemos conversacion de venta que requiera que pagues cargo=
+s de inscripcion o inscribirte a una lista de correo. No queremos que i=
+nviertas dinero. Este trabajo requiere solo un monto limitado de tu tie=
+mpo.. =20
+=20
+Te pagaremos en la primera semana de trabajo  =20
+=20
+
+No requerimos ninguna experiencia ni habilidad especial. Trabajaras com=
+o un contratado independiente desde tu hogar.=20
+ =20
+Si estas interesado, por  favor sientete libre de pedir informacion adi=
+cional y las provisiones generales.  =20
+=20
+
+
+Escribenos ahora, te responderemos al instante.=20
+Por favor responde a este mail: support@t-antiques.com
+
+
+
+
+
+deconvolve=20
+doherty accretion=20
+alberto
+
