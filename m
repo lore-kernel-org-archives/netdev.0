@@ -1,54 +1,53 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: Can we have GET_NETDEV_DEV?
-Date: Tue, 25 Jul 2006 14:31:27 -0700
-Message-ID: <20060725213127.GC9513@suse.de>
-References: <1153803145.23803.19.camel@dv> <20060725102005.7edb5509@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: MTU probing bug?
+Date: Tue, 25 Jul 2006 14:42:25 -0700 (PDT)
+Message-ID: <20060725.144225.67885911.davem@davemloft.net>
+References: <20060725.001744.26930215.davem@davemloft.net>
+	<44C62316.9080501@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Roskin <proski@gnu.org>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:57272 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S964868AbWGYVfg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 17:35:36 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060725102005.7edb5509@localhost.localdomain>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:34471
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S964869AbWGYVmU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 17:42:20 -0400
+To: jheffner@psc.edu
+In-Reply-To: <44C62316.9080501@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 25, 2006 at 10:20:05AM -0700, Stephen Hemminger wrote:
-> On Tue, 25 Jul 2006 00:52:25 -0400
-> Pavel Roskin <proski@gnu.org> wrote:
-> 
-> > Hello!
+From: John Heffner <jheffner@psc.edu>
+Date: Tue, 25 Jul 2006 09:56:38 -0400
+
+> David Miller wrote:
+> > John, have a look at this code in tcp_write_timeout():
 > > 
-> > gregkh-driver-network-class_device-to-device.patch, which briefly
-> > appeared in Linux 2.6.18-rc1-mm1 broke MadWifi, which is copying the
-> > physical device information from the master network device to the
-> > virtual network devices:
+> > 		mss = min(sysctl_tcp_base_mss,
+> > 		          tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low)/2);
+> > 		mss = max(mss, 68 - tp->tcp_header_len);
 > > 
-> > SET_NETDEV_DEV(dev, mdev->class_dev.dev);
-> >
+> > That first line looks like it should be a max() instead
+> > of a min().
+> > 
+> > tcp_base_mss is the smallest MSS we should use, therefore
+> > we should make sure the "mss" is at least that large.
+> > 
+> > It's also possible that I misread the intention of this code :) From
+> > what I read, it is trying to half the MSS in use and adjust the MTU
+> > search low point to be based upon this new value.
 > 
-> I would rather see SET_NETDEV_DEV go away. It was done for source
-> compatibility between 2.4 and 2.6 network device drivers. This is
-> no longer really important.
+> No, the min() is what's intended here.  The base_mss is where you want 
+> to start searching from.  So, on black hole detection, you drop 
+> immediatly down to the base.  The base is configurable, because making 
+> it higher can make searching faster.  If it's still too high for some 
+> links, you halve it again on successive timeouts.
 
-It did make my change much simpler to do, which I appreciated :)
+Thanks for the clarification John.
 
-> It would be better to either access the network device directly.
-> BUT, there are plans to get rid of class_dev so that would mean
-> source changes to all the drivers again...
-> 
-> So how about these wrappers.
+I find it interesting that black hole detection is handled
+different from a normal probe failure.  I guess here we are
+dealing with a more significant failure, so we should start
+at the thing which is most guarenteed to work.
 
-They look good to me.
-
-BTW, I'll be getting the patch back into -mm that does the class_device
--> device conversion after I fix the SuSE 10.0 release that doesn't like
-the change and get that pushed out to users.  After that happens, there
-shouldn't be any userspace problems with this patch.
-
-thanks,
-
-greg k-h
