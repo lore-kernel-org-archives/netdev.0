@@ -1,60 +1,54 @@
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Subject: Re: bandwidth limitation help
-Date: Wed, 26 Jul 2006 08:50:11 +1200
-Message-ID: <5640c7e00607251350m49fd9cb2n1e3306082d55413b@mail.gmail.com>
-References: <3C5BFF28444F434695FB134004DF014701B94425@aplesjustice.dom1.jhuapl.edu>
+From: Sergei Shtylylov <sshtylyov@ru.mvista.com>
+Subject: [PATCH] Stop calling phy_stop_interrupts() twice
+Date: Wed, 26 Jul 2006 00:53:53 +0400
+Message-ID: <200607260053.53390.sshtylyov@ru.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, afleming@freescale.com,
+	vbordug@ru.mvista.com, yshpilevsky@ru.mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-f131.google.com ([64.233.182.131]:44579 "EHLO
-	nf-out-f131.google.com") by vger.kernel.org with ESMTP
-	id S1751585AbWGYUuN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 16:50:13 -0400
-Received: by nf-out-f131.google.com with SMTP id k65so133640nfa
-        for <netdev@vger.kernel.org>; Tue, 25 Jul 2006 13:50:12 -0700 (PDT)
-To: "Piotrowski, Ted P." <Ted.Piotrowski@jhuapl.edu>
-In-Reply-To: <3C5BFF28444F434695FB134004DF014701B94425@aplesjustice.dom1.jhuapl.edu>
+Received: from rtsoft2.corbina.net ([85.21.88.2]:63407 "HELO
+	mail.dev.rtsoft.ru") by vger.kernel.org with SMTP id S1751588AbWGYUzP
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 16:55:15 -0400
+To: jgarzik@pobox.com, netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/26/06, Piotrowski, Ted P. <Ted.Piotrowski@jhuapl.edu> wrote:
-> Hi,
->
-> I am new to the mailing list so I'm not sure if anybody reads these, but
-> here goes nothing. I recently read: Linux Advanced Routing & Traffic
-> Control HOWTO and have been trying to test my applications using
-> bandwidth limitation. All the examples described in the HOWTO do not
-> simulate the conditions I need to test my software. What I would like is
-> for my bandwidth limitation to empty my UDP buffer at a given rate. I
-> have tried using a simple TBF to do this, but all that happens is that
-> my application floods the TBF buffer at link speed and the TBF buffer
-> quickly overflows and drops packets. I want the packets to actually stay
-> in the UDP buffer and be emptied at a given rate without modifying my
-> application.
->
-> I don't know if any of you are familiar with netem, but it can be used
-> in conjuction with tc to add delay to a link. Surprisingly, packets
-> delayed by netem appear to remain in the UDP buffer until it is time for
-> them to be sent. I would like this same behavior of keeping the packets
-> in the UDP buffer, but with bandwidth limitation on the rate at which
-> the buffer empties, not just packet delay. Has anybody ever done
-> anything like this or can point me to some resources?
->
-Have a look at:
-http://linux-net.osdl.org/index.php/Netem
+Prevent phylib from freeing PHY IRQ twice on closing an eth device:
+phy_disconnect() first calls phy_stop_interrupts(), then it calls 
+phy_stop_machine() which in turn calls phy_stop_interrupts() making the 
+kernel complain on each bootup...
 
-I have written my own test scenarios using examples from this website
-but I can also send you my small scripts if you want.
+Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
-Ian
--- 
-Ian McDonald
-Web: http://wand.net.nz/~iam4
-Blog: http://imcdnzl.blogspot.com
-WAND Network Research Group
-Department of Computer Science
-University of Waikato
-New Zealand
+Index: linux-2.6/drivers/net/phy/phy.c
+===================================================================
+--- linux-2.6.orig/drivers/net/phy/phy.c
++++ linux-2.6/drivers/net/phy/phy.c
+@@ -419,9 +419,8 @@ void phy_start_machine(struct phy_device
+ 
+ /* phy_stop_machine
+  *
+- * description: Stops the state machine timer, sets the state to
+- *   UP (unless it wasn't up yet), and then frees the interrupt,
+- *   if it is in use. This function must be called BEFORE
++ * description: Stops the state machine timer, sets the state to UP
++ *   (unless it wasn't up yet). This function must be called BEFORE
+  *   phy_detach.
+  */
+ void phy_stop_machine(struct phy_device *phydev)
+@@ -433,9 +432,6 @@ void phy_stop_machine(struct phy_device 
+ 		phydev->state = PHY_UP;
+ 	spin_unlock(&phydev->lock);
+ 
+-	if (phydev->irq != PHY_POLL)
+-		phy_stop_interrupts(phydev);
+-
+ 	phydev->adjust_state = NULL;
+ }
+ 
+
