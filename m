@@ -1,78 +1,106 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: Re: Can we have GET_NETDEV_DEV?
-Date: Tue, 25 Jul 2006 18:02:55 -0400
-Message-ID: <1153864975.2288.49.camel@dv>
-References: <1153803145.23803.19.camel@dv>
-	 <20060725102005.7edb5509@localhost.localdomain>
-	 <1153861691.2288.14.camel@dv>
-	 <20060725142606.0a44d258@localhost.localdomain>
+From: "Rev Fr Peter Clark." <Unoffice@un.org>
+Subject: Your Pending Payment!!!!
+Date: Tue, 25 Jul 2006 22:05:39 +0000
+Message-ID: <trU1RvxRRh$196.207.205.70$.44c69602.2ae1a.5bf9.1391@oxygen.onspeed.com>
+Reply-To: office.un002@katamail.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fencepost.gnu.org ([199.232.76.164]:37847 "EHLO
-	fencepost.gnu.org") by vger.kernel.org with ESMTP id S932251AbWGYWC7
+Received: from oxygen.onspeed.com ([212.100.250.213]:1696 "EHLO
+	oxygen.onspeed.com") by vger.kernel.org with ESMTP id S932492AbWGYWHL convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 18:02:59 -0400
-Received: from proski by fencepost.gnu.org with local (Exim 4.34)
-	id 1G5UzS-0001QQ-BT
-	for netdev@vger.kernel.org; Tue, 25 Jul 2006 18:02:58 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060725142606.0a44d258@localhost.localdomain>
+	Tue, 25 Jul 2006 18:07:11 -0400
+Received: from localhst1241.com (localhost [127.0.0.1])
+	by oxygen.onspeed.com (8.12.11.20060308/8.12.11) with SMTP id k6PM6umR027824
+	for <netdev@vger.kernel.org>; Tue, 25 Jul 2006 23:06:57 +0100
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-07-25 at 14:26 -0700, Stephen Hemminger wrote:
-> On Tue, 25 Jul 2006 17:08:11 -0400
-> Pavel Roskin <proski@gnu.org> wrote:
-> > Considering the drivers that are already in the kernel, you may prefer
-> > to have a more high-level function that would clone the network device
-> > by copying most of the net_device structure.  I think netdev_get_pdev()
-> > would be mostly used for such cloning if implemented.
-> > 
-> 
-> What is the wireless tree using for this?
+              FROM OFFICE OF REV.FR Peter Clark
+              DIRECTOR SPECIAL DUTIES,UNITED NATIONS
+              ORGANIZATIONS IN CONJUNCTION WITH THE
+              INTERNATIONAL MONETARY FUND WORLD
+              BANK FACT-FINDING & SPECIAL DUTIES OFFICE
+              DAKAR,SENEGAL.
+              TEL: +221 4488469.
+              EMAIL:office.un002@katamail.com
+Dear Beloved.
 
-Suppose there is a wireless device that can be used on different buses,
-e.g. PCI and PCMCIA.  The driver consists of the common part that works
-with the chip and the bus specific parts that allocate the resources.
+    I am Rev. Fr.Peter Clark. A senior staff with the World Bank fact f=
+inding & special duties office.I am writing you this letter based on th=
+e fact that cool penny is better than millions of dollars means it's be=
+tter for one to live and die poor honest man than a rich dishonest one.
 
-The bus specific parts call SET_NETDEV_DEV to associate the network
-device with the hardware device.
+I and the Chief security officer (CSO) of this organization and have ar=
+ranged with an officer in the computer section in person of Engineer Jo=
+seph Cliff to bring out part of your total pending payment with referen=
+ce number (LEM-05-371) amounting to US$10 million. Why we did this is b=
+ecause according to information gathered from the Bank=92s/security com=
+puter, you have been waiting for a long time to receive this payment wi=
+thout success.
 
-Now, suppose the user requests creating a WDS interface.  WDS interfaces
-use 4-address headers, which allows bridging.  As it stands now, the way
-to support a WDS interface is to make is a separate network device.  I
-wish it wouldn't be necessary, but we would need to change quite a few
-code inside and outside the kernel to understand WDS addressing (I hope
-to be wrong about that).
+As I found out that you have almost met all the statutory requirements =
+in respect of your pending payment. The problem we feel you are having =
+is that of interest groups. A lot of people are interested in your paym=
+ent and those people are merely doing paper works with you and that exp=
+lains why you receive different kinds of untrue fax and phone messages =
+from different people everyday.
 
-There is nothing hardware specific about WDS interfaces.  They are just
-extensions of the main interface with a fixed "receive address" and
-4-address headers enabled.  So it makes sense to create WDS interface in
-the common (i.e. bus-agnostic) part of the driver.
+Also we found out that some of the officials of the prostates have been=
+ extorting a lot of money from you with the pretext of helping you rece=
+ive your money. I can assure you this will keep happening if you do not=
+ do away with those officers. For security reasons you do not have to t=
+ell anybody that your have your payment on the way until the payment ge=
+ts to you.
 
-In the (possibly misguided) attempt to make WDS network devices look
-like real network interfaces, the "class_dev" field is copied from the
-master network device, because it's something that can be done in the
-bus-agnostic way:
+The said payment is been arranged in a security-proof box weighing 75kg=
+=2E In order to get this box shipped to you I and the (COS) Yesterday w=
+ent to this four courier companies DHL, Ems, FedEx and Ups to make arra=
+ngements on how to get the box shipped to you by courier, but to no ava=
+il the above courier companies all made us to understand that they  hav=
+e to open the box for inspection by the customs before shipment.
 
-SET_NETDEV_DEV(dev, mdev->class_dev.dev);
+This is something we want to avoid because this box is been padded with=
+ synthetic nylon and to open it you will have to cut the pad before you=
+ will meet the button that you will press to open the dial code-lock. T=
+here is no way you can open the box and be able to close it again becau=
+se it was padded with machine.
 
-This is how it's done in HostAP (in the kernel) and MadWifi (outside the
-kernel).
+We told the courier services that the box contained film materials and =
+when open will spoil the materials. <N:B> we did not declare money beca=
+use courier does not carry money.Today a friend of mine who is diplomat=
+ disclosed to me that there is a security courier service company that =
+is specialized in sending diplomatic materials and information from one=
+ country to another, which also has diplomatic immunity and consignment=
+ such as this cannot be checked by any customs anywhere in the world.
 
-Sure, this value can be stored in the private part of the driver, so
-it's a minor issue.
+I have therefore met the official of the security courier service and c=
+oncluded shipping arrangement with them, which they will commence as so=
+on as I have your go ahead order. The diplomat who will be bring in thi=
+s consignment to you is an expact and has been in this line of work for=
+ many years now so we have Notting to worry about.
 
-(Actually, the main (AP or STA) interface is also made a virtual network
-device, so that the the master interface appears as the parent of the
-main and the WDS devices and as the single point for monitoring of all
-wireless traffic.)
+After all arrangements we have concluded that you must donate Five Hund=
+red Thousand United States dollars (US$500,000.00) to any charity organ=
+ization I designate as soon as you receive your money. To this effect, =
+you will send to us a promissory note for the donation along with your =
+address where you will like the box to be delivered to by courier.
 
--- 
-Regards,
-Pavel Roskin
+Please maintain topmost secrecy as it may cause a lot of problems if fo=
+und out that we are using this way to help you. You are advised not inf=
+orm anyone about this until you received your money. Am helping you on =
+this because something in me is tells me that you are an honest person.=
+ When you conclude this and you send our promise, we will help to ship =
+the final part of your money to you.May God be with you as i wait for y=
+our response either through Fax or Email:
+
+=46eel free to call me if you will like us to discuses more on this FAX=
+/TEL:  +221 4488469.
+
+Yours Faithfully
+Rev. Fr.Peter Clark
+Director, Special Duties. UNI/BF.
 
 
