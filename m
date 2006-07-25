@@ -1,91 +1,36 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [RFC 1/4] kevent: core files.
-Date: Tue, 25 Jul 2006 10:26:29 +0400
-Message-ID: <20060725062625.GA29242@2ka.mipt.ru>
-References: <20060709132446.GB29435@2ka.mipt.ru> <20060724.231708.01289489.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Bug in pskb_trim_rcsum()
+Date: Mon, 24 Jul 2006 23:36:53 -0700 (PDT)
+Message-ID: <20060724.233653.71166298.davem@davemloft.net>
+References: <20060718113245.GA12040@gondor.apana.org.au>
+	<20060718125439.GA19770@ms2.inr.ac.ru>
+	<20060718130404.GA12785@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, yjwei@nanjing-fnst.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:34227 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751446AbWGYG0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 02:26:42 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060724.231708.01289489.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:33213
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751459AbWGYGhE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 02:37:04 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060718130404.GA12785@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 24, 2006 at 11:17:08PM -0700, David Miller (davem@davemloft.net) wrote:
-> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> Date: Sun, 9 Jul 2006 17:24:46 +0400
-> 
-> > This patch includes core kevent files:
-> >  - userspace controlling
-> >  - kernelspace interfaces
-> >  - initialisation
-> >  - notification state machines
-> > 
-> > It might also inlclude parts from other subsystem (like network related
-> > syscalls so it is possible that it will not compile without other
-> > patches applied).
-> > 
-> > Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> 
-> I like this work a lot, as I've stated before.  The data structures
-> look like they will scale well and it takes care of all the limitations
-> that networking in particular seems to have in this area.
-> 
-> I have to say that the user API is not the nicest in the world.  Yet,
-> at the same time, I cannot think of a better one :)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 18 Jul 2006 23:04:04 +1000
 
-Hi David. I see you have a day of backlog mails processing :)
-
-> Please, remove some grot such as this:
+> Actually, I plan to differentiate between RX CHECKSUM_HW and TX
+> CHECKSUM_HW.  Now that we have things like Xen it is possible for
+> RX packets to have patial checksums too.
 > 
-> > +	if (kevent_cache)
-> > +		k = kmem_cache_alloc(kevent_cache, mask);
-> > +	else
-> > +		k = kzalloc(sizeof(struct kevent), mask);
->  ...
-> > +	if (kevent_cache)
-> > +		kmem_cache_free(kevent_cache, k);
-> > +	else
-> > +		kfree(k);
-> 
-> Instead, make this:
-> 
-> > +	kevent_cache = kmem_cache_create("kevent_cache", 
-> > +			sizeof(struct kevent), 0, 0, NULL, NULL);
-> > +	if (!kevent_cache)
-> > +		err = -ENOMEM;
-> 
-> panic().  This is consistent with how other core subsystems handle
-> SLAB cache creation failures.
+> When this is done loopback can send TX CHECKSUM_HW packets instead
+> of CHECKSUM_UNNECESSARY (I'm currently calling this CHECKSUM_PARTIAL).
 
-Ok.
+This sounds like a good idea.
 
-> I also think that if we accept this work, it should be first class
-> citizen with no config options and no ifdefs scattered all over.
-> Either this is how we do network AIO or it is not.
-> 
-> I've looked only briefly at Ulrich Drepper's AIO proposal in his OLS
-> slides, although the DMA bits do not initially strike me as such a hot
-> idea.  I haven't wrapped my brain much around this new stuff, so I'm
-> not going to touch on it much more just yet.
-
-Yes, his idea of dma alloc is extremely good.
-I manage it with quite big overhead in kevent unfortunately.
-All other topics are fully covered with kevent (except nice userspace
-API of course :) )
-
-> The practical advantage kevent has over any new proposal is that 1)
-> implementation exists :) and 2) several types of test applications and
-> performance measurements have been made against it which usually
-> flushes out the worst design issues.
-
-I will clean code up and resubmit today.
-Thank you.
-
--- 
-	Evgeniy Polyakov
+Undoing CHECKSUM_UNNECESSARY when trimming is definitely going to
+break loopback the way things are done currently.
