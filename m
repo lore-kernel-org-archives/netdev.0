@@ -1,57 +1,44 @@
-From: Rolf Eike Beer <eike-kernel@sf-tec.de>
-Subject: Re: [BUG] stacktrace from skb_checksum_help() and skb_gso_segment()
-Date: Wed, 26 Jul 2006 09:00:39 +0200
-Message-ID: <200607260900.46599.eike-kernel@sf-tec.de>
-References: <200607260841.54017.eike-kernel@sf-tec.de> <20060726064419.GB32190@2ka.mipt.ru>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH 1/2] remove CONFIG_HAVE_ARCH_DEV_ALLOC_SKB
+Date: Wed, 26 Jul 2006 09:58:25 +0200
+Message-ID: <20060726075825.GB28526@lst.de>
+References: <20060707091008.GB2543@lst.de> <20060724.153044.10246226.davem@davemloft.net> <ada4px6ipxc.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2519558.hmFPTIC7WH";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, hch@lst.de,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sf-mail.de ([62.27.20.61]:62435 "EHLO mail.sf-mail.de")
-	by vger.kernel.org with ESMTP id S1030415AbWGZG6y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 02:58:54 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060726064419.GB32190@2ka.mipt.ru>
+Received: from verein.lst.de ([213.95.11.210]:59802 "EHLO mail.lst.de")
+	by vger.kernel.org with ESMTP id S964790AbWGZH7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 03:59:45 -0400
+To: Roland Dreier <rdreier@cisco.com>
+Content-Disposition: inline
+In-Reply-To: <ada4px6ipxc.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2519558.hmFPTIC7WH
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Mon, Jul 24, 2006 at 03:44:15PM -0700, Roland Dreier wrote:
+> > skbuff.h has an #ifndef CONFIG_HAVE_ARCH_DEV_ALLOC_SKB to allow
+> > architectures to reimplement __dev_alloc_skb.  It's not set on any
+> > architecture and now that we have an architecture-overrideable
+> > NET_SKB_PAD there is not point at all to have one either.
+> 
+> I missed this when hch first posted it, sorry.
+> 
+> But my impression was that the intent of the config option was to let
+> Xen hook __dev_alloc_skb() to allocate special receive skbs to handle
+> their page-flipping virtual network device.  Which goes beyond
+> NET_SKB_PAD.
+> 
+> So the real question is about Xen hooks I guess -- and given where the
+> rest of Xen is, it probably does make sense to go ahead and strip this
+> out.
 
-Am Mittwoch, 26. Juli 2006 08:44 schrieb Evgeniy Polyakov:
-> On Wed, Jul 26, 2006 at 08:41:48AM +0200, Rolf Eike Beer=20
-(eike-kernel@sf-tec.de) wrote:
-> > linux-2.6 git tree from yesterday.
-> >
-> > Before this the sky2 network driver was working. After a pseudo hotplug
-> > of the device it was working again (at least if you receive this mail
-> > *g*).
-> >
-> > What next?
->
-> It is not a bug, but remind to update NAT helper function.
-> It has nothing with device drivers and is only printed once.
+If xen wants to use something else then dev_alloc_skb in their virtual
+network driver that's totall fine.  No need to override the definiton of
+dev_alloc_skb for that, though.  They can add their own xen_alloc_skb or
+opencode the operation they want for it.
 
-But why was my sky2 down afterwards? There's nothing in the log but this.
-
-Eike
-
---nextPart2519558.hmFPTIC7WH
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBExxMeXKSJPmm5/E4RAgRQAJ9EcV/8yD+xeAGm6X7AddbBq2Af9ACeLhF8
-DYaLNyVMlXAgDLmscP3/Jgs=
-=PEsa
------END PGP SIGNATURE-----
-
---nextPart2519558.hmFPTIC7WH--
+Note that overriding dev_alloc_skb is not just utterly pointless but would
+even be harmfull in the case they'd finally add pci support for non-dom0
+domains and used normaly NIC drivers in there.
