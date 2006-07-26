@@ -1,36 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [XFRM]: Fix protocol field value for outgoing IPv6 GSO packets
-Date: Wed, 26 Jul 2006 15:17:50 -0700 (PDT)
-Message-ID: <20060726.151750.131945231.davem@davemloft.net>
-References: <44C56136.50600@trash.net>
-	<20060725001326.GA18972@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [RFC] Multiple IPV6 Routing Tables & Policy Routing
+Date: Thu, 27 Jul 2006 00:11:00 +0200
+Message-ID: <20060726221100.325687073@postel.suug.ch>
+Cc: vnuorval@tcs.hut.fi, usagi-core@linux-ipv6.org,
+	yoshfuji@linux-ipv6.org, davem@davemloft.net, anttit@tcs.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:19589
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1161015AbWGZWSA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jul 2006 18:18:00 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060725001326.GA18972@gondor.apana.org.au>
+Received: from postel.suug.ch ([194.88.212.233]:17846 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1751233AbWGZWT4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 18:19:56 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 25 Jul 2006 10:13:26 +1000
+Hello,
 
-> On Tue, Jul 25, 2006 at 02:09:26AM +0200, Patrick McHardy wrote:
-> > This appears to be a mistake, but I didn't follow the GSO stuff
-> > very closely, so there could be some non-obvious reason.
-> 
-> Yes it definitely was a mistake! Thanks for picking this up Patrick.
-> 
-> > [XFRM]: Fix protocol field value for outgoing IPv6 GSO packets
-> > 
-> > Signed-off-by: Patrick McHardy <kaber@trash.net>
-> 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Thought it might be time to go through a round of comments
+on this work. Even though I've almost rewritten all the code
+the patches are based on the work found on www.mobile-ipv6.org.
+I have no idea which code was written by whom so just email me
+to get the credits right.
 
-Applied, thanks guys.
+Main differences to the version found on mobile-ipv6.org is
+that I removed table refcnt and defined that tables cannot
+disappear once created to simplify things and avoid too many
+atomic operations when looking up routes. I've replaced the
+table array with a hash table to prepare it for > 255 tables
+and made things aware of the new default router selection
+code and experimental route info stuff added recently.
+
+It's not final but somewhat working, I'm eager to see comments
+or patches. I apologize if I've tramped onto anybody's foot
+by taking this up and submitting it, this isn't meant as an
+attempt to steal credits but rather to pick up good code and
+finally get it upstream after a very long while.
+
