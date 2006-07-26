@@ -1,35 +1,33 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH][IPv4/IPv6] Setting 0 for unused port field. (fwd)
-Date: Wed, 26 Jul 2006 09:02:00 +0900 (JST)
-Message-ID: <20060726.090200.69427685.yoshfuji@linux-ipv6.org>
-References: <Pine.LNX.4.64.0607251045470.21222@d.namei>
-	<20060725.235340.99246287.yoshfuji@linux-ipv6.org>
-	<20060725.165436.127672564.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][IPv4/IPv6] Setting 0 for unused port field.
+Date: Tue, 25 Jul 2006 17:01:39 -0700 (PDT)
+Message-ID: <20060725.170139.24611263.davem@davemloft.net>
+References: <200607250738.k6P7c67G089452@www262.sakura.ne.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:18707 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1030275AbWGZAAi
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 20:00:38 -0400
-To: davem@davemloft.net
-In-Reply-To: <20060725.165436.127672564.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:35005
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030276AbWGZABY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 20:01:24 -0400
+To: from-linux-kernel@i-love.sakura.ne.jp
+In-Reply-To: <200607250738.k6P7c67G089452@www262.sakura.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20060725.165436.127672564.davem@davemloft.net> (at Tue, 25 Jul 2006 16:54:36 -0700 (PDT)), David Miller <davem@davemloft.net> says:
 
-> > Well, instead, should it be initalized to protocol number, shouldn't it?
-> 
-> Initially, this was my reaction too.  But, aparently it is defined
-> to be zero, from TCP/IP Illustrated Volume 2, page 1055, which is
-:
+Tetsuo-san can you please use a correct "From:" field in your patch
+postings?  Thank you.
 
-Okay, Acked.
+This will allow me to form a correct attribution when I apply your
+patches in the future.
 
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+This time I had to perform a lengthy web search to find who is behind
+these strange from-${LIST_NAME}@i-love.sakura.ne.jp email addresses
+:-((  Using these per-listname email addresses really makes things
+painful for other developers, even though it might simplify things
+for you.
 
---yoshfuji
+Thanks again.
