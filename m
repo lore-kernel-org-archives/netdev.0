@@ -1,59 +1,61 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: [3/4] kevent: AIO, aio_sendfile() implementation.
-Date: Wed, 26 Jul 2006 14:19:21 +0400
-Message-ID: <20060726101919.GB2715@2ka.mipt.ru>
-References: <1153905495613@2ka.mipt.ru> <11539054952574@2ka.mipt.ru> <20060726100431.GA7518@infradead.org>
+Date: Wed, 26 Jul 2006 14:25:07 +0400
+Message-ID: <20060726102507.GC2715@2ka.mipt.ru>
+References: <1153905495613@2ka.mipt.ru> <11539054952574@2ka.mipt.ru> <20060726100013.GA7126@infradead.org> <20060726100848.GA2715@2ka.mipt.ru> <20060726101356.GA8443@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:9153 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932166AbWGZKUQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 06:20:16 -0400
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:18592 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932170AbWGZKZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 06:25:57 -0400
 To: Christoph Hellwig <hch@infradead.org>,
 	lkml <linux-kernel@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
 	Ulrich Drepper <drepper@redhat.com>,
 	netdev <netdev@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20060726100431.GA7518@infradead.org>
+In-Reply-To: <20060726101356.GA8443@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 26, 2006 at 11:04:31AM +0100, Christoph Hellwig (hch@infradead.org) wrote:
-> On Wed, Jul 26, 2006 at 01:18:15PM +0400, Evgeniy Polyakov wrote:
+On Wed, Jul 26, 2006 at 11:13:56AM +0100, Christoph Hellwig (hch@infradead.org) wrote:
+> On Wed, Jul 26, 2006 at 02:08:49PM +0400, Evgeniy Polyakov wrote:
+> > On Wed, Jul 26, 2006 at 11:00:13AM +0100, Christoph Hellwig (hch@infradead.org) wrote:
+> > > >  struct address_space_operations ext2_aops = {
+> > > > +	.get_block		= ext2_get_block,
+> > > 
+> > > No way in hell.  For whatever you do please provide a interface at
+> > > the readpage/writepage/sendfile/etc abstraction layer.  get_block is
+> > > nothing that can be exposed to the common code.
 > > 
-> > This patch includes asynchronous propagation of file's data into VFS
-> > cache and aio_sendfile() implementation.
-> > Network aio_sendfile() works lazily - it asynchronously populates pages
-> > into the VFS cache (which can be used for various tricks with adaptive
-> > readahead) and then uses usual ->sendfile() callback.
+> > Compare this with sync read methods - all they do is exactly the same
+> > operations with low-level blocks, which are combined into nice exported
+> > function, so there is _no_ readpage layer - it calls only one function
+> > which works with blocks.
 > 
-> And please don't base this on sendfile.  Please make the splice infrastructure
-> aynschronous without duplicating all the code but rather make the existing
-> code aynch and the existing synchronous call wait on them to finish, similar
-> to how we handle async/sync direct I/O.  And to be honest, I don't think
-> adding all this code is acceptable if it can't replace the existing aio
-> code while keeping the interface.  So while you interface looks pretty
-> sane the implementation needs a lot of work still :)
+> No.  The abtraction layer there is ->readpage(s).  _A_ common implementation
+> works with a get_block callback from the filesystem, but there are various
+> others.  We've been there before, up to mid-2.3.x we had a get_block inode
+> operation and we got rid of it because it is the wrong abstraction.
 
-Kevent was created quite before splice and friends, so I used what there
-were :)
+Well, kevent can work not from it's own, but with common implementation,
+which works with get_block(). No problem here.
 
-I stopped to work on AIO, since neither existing, nor mine
-implementation were able to outperform sync speeds (one of the major problems
-in my implementation is get_user_pages() overhead, which can be
-completely eliminated with physical memory allocation being done in
-advance in userspace, like Ulrich described).
-My personal opinion on existing AIO is that it is not the right design.
-Benjamin LaHaise agree with me (if I understood him right), but he
-failed to move AIO outside repeated-call model (2.4 had state machine
-based one, and out-of-the tree 2.6 patches have that design too).
-In theory existing AIO (with all posix userspace API) can be replaced
-with kevent (it will even take less space), but I would present it as a
-TODO item, since kevent itself has nothing to do with AIO.
+> > So it is not a technical problem, but political one.
+> 
+> It's a technical problem, and it's called get you abstractions right.  And
+> ontop of that a political one and that's called get your abstraction coherent.
+> If you managed to argue all of us into accept that get_block is the right
+> abstraction (and as I mentioned above that's technically not true) you'd
+> still have the burden to update everything to use the same abstraction.
 
-Kevent is a generic event processing mechanism, AIO, network AIO and all
-others are just kernel users of it's functionality.
+Christoph, I completely understand your point of view.
+There is absolutely no technical problem to create common async implementation,
+and place it where existing sync lives and call from readpage() level.
+
+It just requires to allow to change BIO callbacks instead of default
+one, and (probably) event sync readpage can be used.
 
 -- 
 	Evgeniy Polyakov
