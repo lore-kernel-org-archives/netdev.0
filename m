@@ -1,48 +1,42 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 10/24] RT2x00: Add software and hardware sequence
- counting
-Date: Wed, 26 Jul 2006 19:56:57 +0200
-Message-ID: <20060726195657.058ab234@griffin.suse.cz>
-References: <200607261905.08494.IvDoorn@gmail.com>
-	<20060726193337.27923ef1@griffin.suse.cz>
-	<200607261948.35770.IvDoorn@gmail.com>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: [RESEND PATCH 0/24] RT2x00
+Date: Wed, 26 Jul 2006 20:15:01 +0200
+Message-ID: <200607262015.01747.IvDoorn@gmail.com>
+References: <200607261904.16781.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linville@tuxdriver.com
+Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:63109 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751094AbWGZR5A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 13:57:00 -0400
-To: Ivo van Doorn <ivdoorn@gmail.com>
-In-Reply-To: <200607261948.35770.IvDoorn@gmail.com>
+Received: from nf-out-0910.google.com ([64.233.182.186]:16340 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1750945AbWGZSPO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jul 2006 14:15:14 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so836088nfa
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 11:15:12 -0700 (PDT)
+To: netdev@vger.kernel.org
+In-Reply-To: <200607261904.16781.IvDoorn@gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 26 Jul 2006 19:48:35 +0200, Ivo van Doorn wrote:
-> To be the honest the same reason as why I didn't yell about RTS,
+Hi,
 
-Yes, another thing that should be in the stack.
+> Here is a new series of patches to bring rt2x00 in wireless-dev
+> up to date again.
+> 
+> I am holding back 2 patches, which will be send later this week,
+> but they are changes not only to rt2x00, so there is a chance those
+> patches will be rejected at first.
+> 
+> Anyway, here are the patches for rt2x00 only. ;)
 
-> I had placed it on my todo list for d80211. ;)
+[..snip..]
 
-Please, if you encounter such thing, speak loudly so everybody
-interested has an idea what's missing.
+My apologies, I had not configured my mail client correctly,
+This means that all patches have been word wrapped. :(
 
-Could you send me your d80211 todo list?
+Here is the correct series for wireless-dev
 
-> But due to limited time I have never started on it, and I still had to look to 
-> see if it belongs in d80211 or in the driver. Very often the device itself is 
-> handling the sequence counting. rt2400pci and rt2500pci just seem to be the
-> exception.
-
-It belongs to the stack. Both from theoretical (it is a part of 802.11
-spec) and practical (at least two drivers need that) point of view.
-
-Thanks,
-
- Jiri
-
--- 
-Jiri Benc
-SUSE Labs
+Ivo
