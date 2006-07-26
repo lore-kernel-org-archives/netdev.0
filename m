@@ -1,8 +1,8 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH 22/24] RT2x00: Optimize config handlers
-Date: Wed, 26 Jul 2006 20:31:25 +0200
-Message-ID: <200607262031.25284.IvDoorn@gmail.com>
-References: <200607261905.52685.IvDoorn@gmail.com>
+Subject: Re: [PATCH 24/24] RT2x00: Misc. fixes
+Date: Wed, 26 Jul 2006 20:32:01 +0200
+Message-ID: <200607262032.01718.IvDoorn@gmail.com>
+References: <200607261905.57136.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
@@ -10,1150 +10,791 @@ Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from nf-out-0910.google.com ([64.233.182.184]:2063 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1161024AbWGZSbh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 14:31:37 -0400
+	id S1161027AbWGZScO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 14:32:14 -0400
 Received: by nf-out-0910.google.com with SMTP id o25so839729nfa
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 11:31:36 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 11:32:13 -0700 (PDT)
 To: netdev@vger.kernel.org
-In-Reply-To: <200607261905.52685.IvDoorn@gmail.com>
+In-Reply-To: <200607261905.57136.IvDoorn@gmail.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 >From Ivo van Doorn <IvDoorn@gmail.com>
 
-Optimize the configuration handlers to only run
-when the current configuration has been changed.
-This means we need to store the current setting
-of most configuration options in rt2x00_dev.
+Misc. fixes
+* Compile fixes
+* Code style fixes previously overlooked
+* Better check of return values of functions
 
 Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
 
-diff -rU3 wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
---- wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-26 10:55:31.000000000 +0200
-+++ wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-26 12:49:38.000000000 +0200
-@@ -475,6 +475,14 @@
- 	u32 reg;
- 
- 	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (type == rt2x00dev->interface.type ||
-+	    (rt2x00dev->interface.monitor_count ^
-+	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
-+		return;
-+
-+	/*
- 	 * Apply hardware packet filter.
- 	 */
- 	rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
-@@ -520,7 +528,13 @@
- 	/*
- 	 * Update working mode.
- 	 */
--	rt2x00dev->interface.type = type;
-+	if (type != IEEE80211_IF_TYPE_MNTR)
-+		rt2x00dev->interface.type = type;
-+
-+	if (rt2x00dev->interface.monitor_count)
-+		SET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
-+	else
-+		CLEAR_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
+diff -rU3 wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+--- wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-26 15:39:52.000000000 +0200
++++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-26 15:56:37.000000000 +0200
+@@ -360,7 +360,7 @@
+ 		rt2x00dev, rt2x00_get_field32(reg, GPIOCSR_BIT0));
  }
+ #else /* CONFIG_RT2400PCI_BUTTON */
+-static void rt2400pci_button_poll(struct rt2x00_dev *rt2x00dev){}
++static void rt2400pci_button_poll(unsigned long data){}
+ #endif /* CONFIG_RT2400PCI_BUTTON */
  
- static void rt2400pci_config_channel(struct rt2x00_dev *rt2x00dev,
-@@ -529,6 +543,12 @@
- 	u32 rf1 = rt2x00dev->rf1;
- 	u32 rf3 = rt2x00dev->rf3;
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (channel == rt2x00dev->rx_params.channel)
-+		return;
-+
- 	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x.\n",
- 		rf1, rf2, rf3);
- 
-@@ -575,15 +595,31 @@
- 	rt2x00dev->rx_params.channel = channel;
- 
- 	/*
-+	 * Update rf fields
-+	 */
-+	rt2x00dev->rf1 = rf1;
-+	rt2x00dev->rf2 = rf2;
-+	rt2x00dev->rf3 = rf3;
-+
-+	/*
- 	 * Clear false CRC during channel switch.
- 	 */
- 	rt2x00_register_read(rt2x00dev, CNT0, &rf1);
- }
- 
--static void rt2400pci_config_txpower(struct rt2x00_dev *rt2x00dev, u8 txpower)
-+static void rt2400pci_config_txpower(struct rt2x00_dev *rt2x00dev, int txpower)
+ /*
+@@ -1520,7 +1520,7 @@
  {
- 	txpower = TXPOWER_TO_DEV(txpower);
-+
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (txpower == rt2x00dev->tx_power)
-+		return;
-+
- 	rt2x00_bbp_write(rt2x00dev, 3, txpower);
-+
-+	rt2x00dev->tx_power = txpower;
- }
+ 	struct ieee80211_hdr *ieee80211hdr;
+ 	struct sk_buff *skb;
+-	u16 temp;
++	u16 frame_control;
  
- static void rt2400pci_config_antenna(struct rt2x00_dev *rt2x00dev, int antenna)
-@@ -591,6 +627,12 @@
- 	u8 reg_rx;
- 	u8 reg_tx;
+ 	skb = dev_alloc_skb(IEEE80211_HEADER);
+ 	if (!skb)
+@@ -1532,8 +1532,8 @@
+ 	memcpy(skb_put(skb, IEEE80211_HEADER), hdr, IEEE80211_HEADER);
+ 	ieee80211hdr = (struct ieee80211_hdr*)skb->data;
  
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (rt2x00dev->rx_params.antenna == antenna)
-+		return;
-+
- 	rt2x00_bbp_read(rt2x00dev, 4, &reg_rx);
- 	rt2x00_bbp_read(rt2x00dev, 1, &reg_tx);
+-	temp = (WLAN_FC_TYPE_CTRL  << 2) | (WLAN_FC_STYPE_RTS << 4);
+-	ieee80211hdr->frame_control = cpu_to_le16(temp);
++	frame_control = (WLAN_FC_TYPE_CTRL  << 2) | (WLAN_FC_STYPE_RTS << 4);
++	ieee80211hdr->frame_control = cpu_to_le16(frame_control);
  
-@@ -713,6 +755,12 @@
- {
- 	struct ieee80211_rate *rate;
+ 	ieee80211hdr->duration_id += cpu_to_le16(duration);
  
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (rt2x00dev->rx_params.phymode == phymode)
-+		return;
-+
- 	rate = &rt2x00dev->hw.modes[0].rates[
- 		rt2x00dev->hw.modes[0].num_rates - 1];
- 
-@@ -1760,6 +1808,9 @@
- 	if (!reg)
- 		return IRQ_NONE;
- 
-+	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
-+		return IRQ_HANDLED;
+@@ -1559,7 +1559,7 @@
+ 	u16 frame_control;
+ 	u8 bitrate;
+ 	int tx_rate;
+- 
 +
  	/*
- 	 * Handle interrupts, walk through all bits
- 	 * and run the tasks, the bits are checked in order of
-@@ -1982,12 +2033,17 @@
- 	u32 reg;
- 
- 	/*
--	 * Some configuration changes require the RX to be disabled.
-+	 * Check if we need to disable the radio,
-+	 * if this is not the case, at least the RX must be disabled.
+ 	 * Check which rate should be used for this frame.
  	 */
- 	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--		rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
--		rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 1);
--		rt2x00_register_write(rt2x00dev, RXCSR0, reg);
-+		if (!conf->radio_enabled)
-+			rt2400pci_disable_radio(rt2x00dev);
-+		else {
-+			rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
-+			rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 1);
-+			rt2x00_register_write(rt2x00dev, RXCSR0, reg);
-+		}
+@@ -1593,16 +1593,16 @@
+ 	 */
+ 	rt2x00_set_field32(&txd->word0, TXD_W0_RETRY_MODE, 0);
+ 
+-	if (frame_control & WLAN_FC_MOREFRAG)
++	if (ieee80211_get_morefrag(ieee80211hdr))
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_MORE_FRAG, 1);
+ 	else
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_MORE_FRAG, 0);
+- 
++
+ 	if (WLAN_FC_GET_STYPE(frame_control) == WLAN_FC_STYPE_RTS)
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_RTS, 1);
+ 	else
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_RTS, 0);
+- 
++
+ 	rt2x00_set_field32(&txd->word2, TXD_W2_DATABYTE_COUNT, skb->len);
+ 
+ 	/*
+@@ -1613,10 +1613,9 @@
+ 	/*
+ 	 * Convert length to microseconds.
+ 	 */
+-	residual = get_duration_res(length,
+-		DEVICE_GET_RATE_FIELD(tx_rate, RATE));
+-	length = get_duration(length,
+-		DEVICE_GET_RATE_FIELD(tx_rate, RATE));
++	bitrate = DEVICE_GET_RATE_FIELD(tx_rate, RATE);
++	residual = get_duration_res(length, bitrate);
++	length = get_duration(length, bitrate);
+ 
+ 	if (residual)
+ 		length++;
+@@ -2627,16 +2626,16 @@
+ 	for (i = 0; i < 13; i++) {
+ 		channels[i].chan = i + 1;
+ 		channels[i].freq = 2407 + ((i + 1) * 5);
+-		channels[i].flag = IEEE80211_CHAN_W_IBSS
+-			| IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
++		channels[i].flag = IEEE80211_CHAN_W_IBSS |
++			IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
+ 		channels[i].val = cpu_to_le32(vals[i]);
+ 		channels[i].antenna_max = 0xff;
  	}
  
- 	rt2400pci_config_channel(rt2x00dev,
-@@ -2000,24 +2056,13 @@
- 	/*
- 	 * Reenable RX only if the radio should be on.
- 	 */
--	if (conf->radio_enabled) {
--		if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--			if (rt2400pci_open(net_dev)) {
--				ERROR("Failed to enabled radio.\n");
--				return;
--			}
--		} else {
--			rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
--			rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 0);
--			rt2x00_register_write(rt2x00dev, RXCSR0, reg);
--		}
--	} else {
--		if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--			if (rt2400pci_stop(net_dev)) {
--				ERROR("Failed to disable radio.\n");
--				return;
--			}
--		}
-+	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
-+		rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
-+		rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 0);
-+		rt2x00_register_write(rt2x00dev, RXCSR0, reg);
-+	} else if (conf->radio_enabled) {
-+		if (rt2400pci_enable_radio(rt2x00dev))
-+			return;
+ 	channels[13].chan = 14;
+ 	channels[13].freq = 2484;
+-	channels[13].flag = IEEE80211_CHAN_W_IBSS
+-		| IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
++	channels[13].flag = IEEE80211_CHAN_W_IBSS |
++		IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
+ 	channels[13].val = cpu_to_le32(vals[13]);
+ 	channels[13].antenna_max = 0xff;
+ 
+@@ -2852,9 +2851,10 @@
+ 	struct net_device *net_dev;
+ 	int status;
+ 
+-	if (pci_enable_device(pci_dev)) {
++	status = pci_enable_device(pci_dev);
++	if (status) {
+ 		ERROR("Enable device failed.\n");
+-		return -EIO;
++		return status;
  	}
- }
  
-@@ -2141,10 +2186,20 @@
+ 	pci_set_master(pci_dev);
+@@ -2869,9 +2869,9 @@
+ 		goto exit_disable_device;
+ 	}
+ 
+-	if (pci_request_regions(pci_dev, pci_name(pci_dev))) {
++	status = pci_request_regions(pci_dev, pci_name(pci_dev));
++	if (status) {
+ 		ERROR("PCI request regions failed.\n");
+-		status = -EBUSY;
+ 		goto exit_disable_device;
+ 	}
+ 
+diff -rU3 wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+--- wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-26 15:39:52.000000000 +0200
++++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-26 15:56:37.000000000 +0200
+@@ -360,7 +360,7 @@
+ 		rt2x00dev, rt2x00_get_field32(reg, GPIOCSR_BIT0));
+ }
+ #else /* CONFIG_RT2500PCI_BUTTON */
+-static void rt2500pci_button_poll(struct rt2x00_dev *rt2x00dev){}
++static void rt2500pci_button_poll(unsigned long data){}
+ #endif /* CONFIG_RT2500PCI_BUTTON */
+ 
+ /*
+@@ -520,14 +520,12 @@
+ 	/*
+ 	 * Enable beacon config
+ 	 */
+-	if (ring) {
+-		rt2x00_register_read(rt2x00dev, BCNCSR1, &reg);
+-		rt2x00_set_field32(&reg, BCNCSR1_PRELOAD,
+-			PREAMBLE + get_duration(IEEE80211_HEADER, 2));
+-		rt2x00_set_field32(&reg, BCNCSR1_BEACON_CWMIN,
+-			rt2x00dev->ring[RING_BEACON].tx_params.cw_min);
+-		rt2x00_register_write(rt2x00dev, BCNCSR1, reg);
+-	}
++	rt2x00_register_read(rt2x00dev, BCNCSR1, &reg);
++	rt2x00_set_field32(&reg, BCNCSR1_PRELOAD,
++		PREAMBLE + get_duration(IEEE80211_HEADER, 2));
++	rt2x00_set_field32(&reg, BCNCSR1_BEACON_CWMIN,
++		rt2x00dev->ring[RING_BEACON].tx_params.cw_min);
++	rt2x00_register_write(rt2x00dev, BCNCSR1, reg);
+ 
+ 	/*
+ 	 * Enable synchronisation.
+@@ -1642,7 +1640,7 @@
  {
- 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+ 	struct ieee80211_hdr *ieee80211hdr;
+ 	struct sk_buff *skb;
+-	u16 temp;
++	u16 frame_control;
  
-+	/*
-+	 * Check if we are not busy with the previous
-+	 * passive scan request.
-+	 */
- 	if (rt2x00dev->scan)
- 		return -EBUSY;
+ 	skb = dev_alloc_skb(IEEE80211_HEADER);
+ 	if (!skb)
+@@ -1654,8 +1652,8 @@
+ 	memcpy(skb_put(skb, IEEE80211_HEADER), hdr, IEEE80211_HEADER);
+ 	ieee80211hdr = (struct ieee80211_hdr*)skb->data;
  
- 	/*
-+	 * Check if the radio is enabled.
-+	 */
-+	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
-+		return -EIO;
-+
-+	/*
- 	 * Allocate scanning structure to store scanning info.
+-	temp = (WLAN_FC_TYPE_CTRL  << 2) | (WLAN_FC_STYPE_RTS << 4);
+-	ieee80211hdr->frame_control = cpu_to_le16(temp);
++	frame_control = (WLAN_FC_TYPE_CTRL  << 2) | (WLAN_FC_STYPE_RTS << 4);
++	ieee80211hdr->frame_control = cpu_to_le16(frame_control);
+ 
+ 	ieee80211hdr->duration_id += cpu_to_le16(duration);
+ 
+@@ -1679,7 +1677,6 @@
+ 	u16 length_low;
+ 	u16 signal;
+ 	u16 service;
+-	u8 rate;
+ 	u16 frame_control;
+ 	u8 bitrate;
+ 	int tx_rate;
+@@ -1721,7 +1718,7 @@
  	 */
- 	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
-@@ -2443,6 +2498,9 @@
- 	struct net_device *net_dev = pci_get_drvdata(rt2x00dev_pci(rt2x00dev));
- 	u32 reg[2] = { 0, 0 };
+ 	rt2x00_set_field32(&txd->word0, TXD_W0_RETRY_MODE, 0);
  
-+	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
-+		return 0;
-+
- 	rt2x00_register_multiread(rt2x00dev, CSR3, &reg[0], sizeof(reg));
+-	if (frame_control & WLAN_FC_MOREFRAG)
++	if (ieee80211_get_morefrag(ieee80211hdr))
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_MORE_FRAG, 1);
+ 	else
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_MORE_FRAG, 0);
+@@ -1758,12 +1755,12 @@
+ 		length_low = (length & 0x3f);
  
- 	net_dev->dev_addr[0] = rt2x00_get_field32(reg[0], CSR3_BYTE0);
-@@ -2454,6 +2512,10 @@
+ 	} else {
+-		rate = DEVICE_GET_RATE_FIELD(tx_rate, RATE);
++		bitrate = DEVICE_GET_RATE_FIELD(tx_rate, RATE);
  
- 	net_dev->addr_len = 6;
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_OFDM, 0);
  
-+	if (!is_valid_ether_addr(&net_dev->dev_addr[0]))
-+		return -EINVAL;
-+
-+	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
- 	return 0;
+-		residual = get_duration_res(length, rate);
+-		length = get_duration(length, rate);
++		residual = get_duration_res(length, bitrate);
++		length = get_duration(length, bitrate);
+ 
+ 		if (residual != 0)
+ 			length++;
+@@ -2032,6 +2029,7 @@
+ 
+ 	return IRQ_HANDLED;
  }
- 
-diff -rU3 wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
---- wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-26 10:56:10.000000000 +0200
-+++ wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-26 12:50:25.000000000 +0200
-@@ -475,6 +475,14 @@
- 	u32 reg;
- 
- 	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (type == rt2x00dev->interface.type ||
-+	    (rt2x00dev->interface.monitor_count ^
-+	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
-+		return;
 +
-+	/*
- 	 * Apply hardware packet filter.
- 	 */
- 	rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
-@@ -523,7 +531,13 @@
- 	/*
- 	 * Update working mode.
- 	 */
--	rt2x00dev->interface.type = type;
-+	if (type != IEEE80211_IF_TYPE_MNTR)
-+		rt2x00dev->interface.type = type;
-+
-+	if (rt2x00dev->interface.monitor_count)
-+		SET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
-+	else
-+		CLEAR_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
- }
+ /*
+  * IEEE80211 stack callback functions.
+  */
+@@ -2786,15 +2784,15 @@
+ 	for (i = 0; i < 13; i++) {
+ 		channels[i].chan = i + 1;
+ 		channels[i].freq = 2407 + ((i + 1) * 5);
+-		channels[i].flag = IEEE80211_CHAN_W_IBSS
+-			| IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
++		channels[i].flag = IEEE80211_CHAN_W_IBSS |
++			IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
+ 		channels[i].antenna_max = 0xff;
+ 	}
  
- static void rt2500pci_config_channel(struct rt2x00_dev *rt2x00dev,
-@@ -533,6 +547,12 @@
- 	u32 rf3 = rt2x00dev->rf3;
- 	u32 rf4 = rt2x00dev->rf4;
+ 	channels[13].chan = 14;
+ 	channels[13].freq = 2484;
+-	channels[13].flag = IEEE80211_CHAN_W_IBSS
+-		| IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
++	channels[13].flag = IEEE80211_CHAN_W_IBSS |
++		IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
+ 	channels[13].antenna_max = 0xff;
  
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (channel == rt2x00dev->rx_params.channel)
-+		return;
-+
- 	if (txpower == 0xff)
- 		txpower = rt2x00dev->tx_power;
- 	txpower = TXPOWER_TO_DEV(txpower);
-@@ -559,14 +579,14 @@
+ 	if (rt2x00_rf(&rt2x00dev->chip, RF5222)) {
+@@ -2807,9 +2805,9 @@
+ 				channels[i].chan = 149;
+ 			channels[i].chan += ((i - 14) * 4);
+ 			channels[i].freq = ((i - 13) + 1000) * 5;
+-			channels[i].flag = IEEE80211_CHAN_W_IBSS
+-				| IEEE80211_CHAN_W_ACTIVE_SCAN
+-				| IEEE80211_CHAN_W_SCAN;
++			channels[i].flag = IEEE80211_CHAN_W_IBSS |
++				IEEE80211_CHAN_W_ACTIVE_SCAN |
++				IEEE80211_CHAN_W_SCAN;
+ 			channels[i].power_level = DEFAULT_TXPOWER;
+ 			channels[i].antenna_max = 0xff;
  		}
+@@ -3136,9 +3134,10 @@
+ 	struct net_device *net_dev;
+ 	int status;
+ 
+-	if (pci_enable_device(pci_dev)) {
++	status = pci_enable_device(pci_dev);
++	if (status) {
+ 		ERROR("Enable device failed.\n");
+-		return -EIO;
++		return status;
  	}
  
--	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x, "
--		"RF4: 0x%08x.\n", rf1, rf2, rf3, rf4);
--
- 	/*
- 	 * Set TXpower.
- 	 */
- 	rt2x00_set_field32(&rf3, RF3_TXPOWER, txpower);
- 
-+	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x, "
-+		"RF4: 0x%08x.\n", rf1, rf2, rf3, rf4);
-+
- 	/*
- 	 * For RT2525 we should first set the channel to half band higher.
- 	 */
-@@ -611,6 +631,16 @@
- 	rt2x00dev->rx_params.channel = channel;
- 
- 	/*
-+	 * Update rf fields
-+	 */
-+	rt2x00dev->rf1 = rf1;
-+	rt2x00dev->rf2 = rf2;
-+	rt2x00dev->rf3 = rf3;
-+	rt2x00dev->rf4 = rf4;
-+
-+	rt2x00dev->tx_power = txpower;
-+
-+	/*
- 	 * Clear false CRC during channel switch.
- 	 */
- 	rt2x00_register_read(rt2x00dev, CNT0, &rf1);
-@@ -620,8 +650,16 @@
- {
- 	txpower = TXPOWER_TO_DEV(txpower);
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (txpower == rt2x00dev->tx_power)
-+		return;
-+
- 	rt2x00_set_field32(&rt2x00dev->rf3, RF3_TXPOWER, txpower);
- 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf3);
-+
-+	rt2x00dev->tx_power = txpower;
- }
- 
- static void rt2500pci_config_antenna(struct rt2x00_dev *rt2x00dev, int antenna)
-@@ -630,6 +668,12 @@
- 	u8 reg_rx;
- 	u8 reg_tx;
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (rt2x00dev->rx_params.antenna == antenna)
-+		return;
-+
- 	rt2x00_register_read(rt2x00dev, BBPCSR1, &reg);
- 	rt2x00_bbp_read(rt2x00dev, 14, &reg_rx);
- 	rt2x00_bbp_read(rt2x00dev, 2, &reg_tx);
-@@ -768,6 +812,12 @@
- {
- 	struct ieee80211_rate *rate;
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (rt2x00dev->rx_params.phymode == phymode)
-+		return;
-+
- 	if (phymode == MODE_IEEE80211A &&
- 	    rt2x00_rf(&rt2x00dev->chip, RF5222))
- 		rate = &rt2x00dev->hw.modes[2].rates[
-@@ -1896,6 +1946,9 @@
- 	if (!reg)
- 		return IRQ_NONE;
- 
-+	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
-+		return IRQ_HANDLED;
-+
- 	/*
- 	 * Handle interrupts, walk through all bits
- 	 * and run the tasks, the bits are checked in order of
-@@ -2117,12 +2170,17 @@
- 	u32 reg;
- 
- 	/*
--	 * Some configuration changes require the RX to be disabled.
-+	 * Check if we need to disable the radio,
-+	 * if this is not the case, at least the RX must be disabled.
- 	 */
- 	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--		rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
--		rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 1);
--		rt2x00_register_write(rt2x00dev, RXCSR0, reg);
-+		if (!conf->radio_enabled)
-+			rt2500pci_disable_radio(rt2x00dev);
-+		else {
-+			rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
-+			rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 1);
-+			rt2x00_register_write(rt2x00dev, RXCSR0, reg);
-+		}
+ 	pci_set_master(pci_dev);
+@@ -3153,9 +3152,9 @@
+ 		goto exit_disable_device;
  	}
  
- 	rt2500pci_config_channel(rt2x00dev,
-@@ -2136,24 +2194,13 @@
- 	/*
- 	 * Reenable RX only if the radio should be on.
- 	 */
--	if (conf->radio_enabled) {
--		if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--			if (rt2500pci_open(net_dev)) {
--				ERROR("Failed to enabled radio.\n");
--				return;
--			}
--		} else {
--			rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
--			rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 0);
--			rt2x00_register_write(rt2x00dev, RXCSR0, reg);
--		}
--	} else {
--		if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--			if (rt2500pci_stop(net_dev)) {
--				ERROR("Failed to disable radio.\n");
--				return;
--			}
--		}
-+	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
-+		rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
-+		rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 0);
-+		rt2x00_register_write(rt2x00dev, RXCSR0, reg);
-+	} else if (conf->radio_enabled) {
-+		if (rt2500pci_enable_radio(rt2x00dev))
-+			return;
+-	if (pci_request_regions(pci_dev, pci_name(pci_dev))) {
++	status = pci_request_regions(pci_dev, pci_name(pci_dev));
++	if (status) {
+ 		ERROR("PCI request regions failed.\n");
+-		status = -EBUSY;
+ 		goto exit_disable_device;
  	}
- }
  
-@@ -2273,10 +2320,20 @@
+diff -rU3 wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+--- wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-26 15:39:52.000000000 +0200
++++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-26 15:56:37.000000000 +0200
+@@ -1402,7 +1402,7 @@
  {
- 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+ 	struct ieee80211_hdr *ieee80211hdr;
+ 	struct sk_buff *skb;
+-	u16 temp;
++	u16 frame_control;
  
-+	/*
-+	 * Check if we are not busy with the previous
-+	 * passive scan request.
-+	 */
- 	if (rt2x00dev->scan)
- 		return -EBUSY;
+ 	skb = dev_alloc_skb(IEEE80211_HEADER);
+ 	if (!skb)
+@@ -1414,8 +1414,8 @@
+ 	memcpy(skb_put(skb, IEEE80211_HEADER), hdr, IEEE80211_HEADER);
+ 	ieee80211hdr = (struct ieee80211_hdr*)skb->data;
  
- 	/*
-+	 * Check if the radio is enabled.
-+	 */
-+	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
-+		return -EIO;
-+
-+	/*
- 	 * Allocate scanning structure to store scanning info.
- 	 */
- 	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
-@@ -2583,6 +2640,9 @@
- 	struct net_device *net_dev = pci_get_drvdata(rt2x00dev_pci(rt2x00dev));
- 	u32 reg[2] = { 0, 0 };
+-	temp = (WLAN_FC_TYPE_CTRL  << 2) | (WLAN_FC_STYPE_RTS << 4);
+-	ieee80211hdr->frame_control = cpu_to_le16(temp);
++	frame_control = (WLAN_FC_TYPE_CTRL  << 2) | (WLAN_FC_STYPE_RTS << 4);
++	ieee80211hdr->frame_control = cpu_to_le16(frame_control);
  
-+	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
-+		return 0;
-+
- 	rt2x00_register_multiread(rt2x00dev, CSR3, &reg[0], sizeof(reg));
+ 	ieee80211hdr->duration_id += cpu_to_le16(duration);
  
- 	net_dev->dev_addr[0] = rt2x00_get_field32(reg[0], CSR3_BYTE0);
-@@ -2594,6 +2654,10 @@
+@@ -1435,11 +1435,11 @@
+ 	struct data_ring *ring;
+ 	u32 length;
+ 	u32 residual;
++	u16 frame_control;
+ 	u8 length_high;
+ 	u8 length_low;
+ 	u8 signal;
+ 	u8 service;
+-	u16 frame_control;
+ 	u8 bitrate;
+ 	int tx_rate;
  
- 	net_dev->addr_len = 6;
+@@ -1477,7 +1477,7 @@
+ 	rt2x00_set_field32(&txd->word0, TXD_W0_RETRY_LIMIT,
+ 		control->retry_limit);
  
-+	if (!is_valid_ether_addr(&net_dev->dev_addr[0]))
-+		return -EINVAL;
-+
-+	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
- 	return 0;
- }
+-	if (frame_control & WLAN_FC_MOREFRAG)
++	if (ieee80211_get_morefrag(ieee80211hdr))
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_MORE_FRAG, 1);
+ 	else
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_MORE_FRAG, 0);
+@@ -1514,12 +1514,12 @@
+ 		length_low = (length & 0x3f);
  
-diff -rU3 wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
---- wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-26 10:56:11.000000000 +0200
-+++ wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-26 12:50:28.000000000 +0200
-@@ -325,6 +325,14 @@
- 	u16 reg;
+ 	} else {
+-		rate = DEVICE_GET_RATE_FIELD(tx_rate, RATE);
++		bitrate = DEVICE_GET_RATE_FIELD(tx_rate, RATE);
  
- 	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (type == rt2x00dev->interface.type ||
-+	    (rt2x00dev->interface.monitor_count ^
-+	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
-+		return;
-+
-+	/*
- 	 * Apply hardware packet filter.
- 	 */
- 	rt2x00_register_read(rt2x00dev, TXRX_CSR2, &reg);
-@@ -370,7 +378,13 @@
- 	/*
- 	 * Update working mode.
- 	 */
--	rt2x00dev->interface.type = type;
-+	if (type != IEEE80211_IF_TYPE_MNTR)
-+		rt2x00dev->interface.type = type;
-+
-+	if (rt2x00dev->interface.monitor_count)
-+		SET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
-+	else
-+		CLEAR_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
- }
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_OFDM, 0);
  
- static void rt2500usb_config_channel(struct rt2x00_dev *rt2x00dev,
-@@ -380,6 +394,12 @@
- 	u32 rf3 = rt2x00dev->rf3;
- 	u32 rf4 = rt2x00dev->rf4;
+-		residual = get_duration_res(length, rate);
+-		length = get_duration(length, rate);
++		residual = get_duration_res(length, bitrate);
++		length = get_duration(length, bitrate);
  
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (channel == rt2x00dev->rx_params.channel)
-+		return;
-+
- 	if (txpower == 0xff)
- 		txpower = rt2x00dev->tx_power;
- 	txpower = TXPOWER_TO_DEV(txpower);
-@@ -418,11 +438,14 @@
+ 		if (residual != 0)
+ 			length++;
+@@ -2462,15 +2462,15 @@
+ 	for (i = 0; i < 13; i++) {
+ 		channels[i].chan = i + 1;
+ 		channels[i].freq = 2407 + ((i + 1) * 5);
+-		channels[i].flag = IEEE80211_CHAN_W_IBSS
+-			| IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
++		channels[i].flag = IEEE80211_CHAN_W_IBSS |
++			IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
+ 		channels[i].antenna_max = 0xff;
+ 	}
+ 
+ 	channels[13].chan = 14;
+ 	channels[13].freq = 2484;
+-	channels[13].flag = IEEE80211_CHAN_W_IBSS
+-		| IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
++	channels[13].flag = IEEE80211_CHAN_W_IBSS |
++		IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
+ 	channels[13].antenna_max = 0xff;
+ 
+ 	if (rt2x00_rf(&rt2x00dev->chip, RF5222)) {
+@@ -2483,9 +2483,9 @@
+ 				channels[i].chan = 149;
+ 			channels[i].chan += ((i - 14) * 4);
+ 			channels[i].freq = ((i - 13) + 1000) * 5;
+-			channels[i].flag = IEEE80211_CHAN_W_IBSS
+-				| IEEE80211_CHAN_W_ACTIVE_SCAN
+-				| IEEE80211_CHAN_W_SCAN;
++			channels[i].flag = IEEE80211_CHAN_W_IBSS |
++				IEEE80211_CHAN_W_ACTIVE_SCAN |
++				IEEE80211_CHAN_W_SCAN;
+ 			channels[i].power_level = DEFAULT_TXPOWER;
+ 			channels[i].antenna_max = 0xff;
  		}
+@@ -2953,7 +2953,7 @@
+ 	{ USB_DEVICE(0x0eb0, 0x9020) },
+ 	/* Zinwell */
+ 	{ USB_DEVICE(0x5a57, 0x0260) },
+-	{0,}
++	{ 0, }
+ };
+ 
+ MODULE_AUTHOR(DRV_PROJECT);
+diff -rU3 wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2x00.h wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2x00.h
+--- wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-07-26 15:39:43.000000000 +0200
++++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-07-26 15:56:37.000000000 +0200
+@@ -107,6 +107,19 @@
+ #define CLEAR_FLAGS(__dev)		( (__dev)->flags = 0 )
+ 
+ /*
++ * Standard timning and size defines.
++ */
++#define ACK_SIZE		14
++#define IEEE80211_HEADER	24
++#define PLCP			48
++#define BEACON			100
++#define SIFS			10
++#define PREAMBLE		144
++#define SHORT_PREAMBLE		72
++#define SLOT_TIME		20
++#define SHORT_SLOT_TIME		7
++
++/*
+  * TX result flags.
+  */
+ enum TX_STATUS {
+@@ -451,7 +464,7 @@
+  * and the data buffer. For TX rings the reference to the
+  * sk_buff of the packet being transmitted is also stored here.
+  */
+-struct data_entry{
++struct data_entry {
+ 	/*
+ 	 * Status flags
+ 	 */
+@@ -1022,14 +1035,4 @@
+ 	return ((size * 8 * 10) % rate);
+ }
+ 
+-#define ACK_SIZE		14
+-#define IEEE80211_HEADER	24
+-#define PLCP			48
+-#define BEACON			100
+-#define SIFS			10
+-#define PREAMBLE		144
+-#define SHORT_PREAMBLE		72
+-#define SLOT_TIME		20
+-#define SHORT_SLOT_TIME		7
+-
+ #endif /* RT2X00_H */
+diff -rU3 wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h
+--- wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h	2006-07-26 15:39:37.000000000 +0200
++++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h	2006-07-26 15:56:37.000000000 +0200
+@@ -151,7 +151,7 @@
+ }
+ #else /* CONFIG_RT2X00_BUTTON */
+ static inline void rt2x00pci_button_start(struct rt2x00_dev *rt2x00dev,
+-	int (*handler)(struct rt2x00_dev *rt2x00dev)){}
++	void (*handler)(unsigned long data)){}
+ static inline void rt2x00pci_button_stop(struct rt2x00_dev *rt2x00dev){}
+ #endif /* CONFIG_RT2X00_BUTTON */
+ 
+diff -rU3 wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h
+--- wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h	2006-07-26 15:39:37.000000000 +0200
++++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h	2006-07-26 15:56:37.000000000 +0200
+@@ -84,9 +84,9 @@
+ 	struct usb_device *usb_dev = interface_to_usbdev(
+ 		rt2x00dev_usb(rt2x00dev));
+ 	int status;
+-	u8 counter;
++	unsigned int i;
+ 
+-	for (counter = 0; counter < REGISTER_BUSY_COUNT; counter++) {
++	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
+ 		status = usb_control_msg(
+ 			usb_dev,
+ 			(type == USB_VENDOR_REQUEST_IN) ?
+diff -rU3 wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-26 15:39:52.000000000 +0200
++++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-26 15:57:18.000000000 +0200
+@@ -391,7 +391,7 @@
+ 		rt2x00dev, rt2x00_get_field32(reg, MAC_CSR13_BIT5));
+ }
+ #else /* CONFIG_RT61PCI_BUTTON */
+-static void rt61pci_button_poll(struct rt2x00_dev *rt2x00dev){}
++static void rt61pci_button_poll(unsigned long data){}
+ #endif /* CONFIG_RT61PCI_BUTTON */
+ 
+ /*
+@@ -1591,7 +1591,7 @@
+ 		rt2x00_set_field32(&txd->word1, TXD_W1_BUFFER_COUNT, 1);
+ 		rt2x00_set_field32(&txd->word6, TXD_W6_BUFFER_PHYSICAL_ADDRESS,
+ 			ring->entry[i].data_dma);
+-		rt2x00_set_field32(&txd->word5, TXD_W5_PID_TYPE, type);
++		rt2x00_set_field32(&txd->word5, TXD_W5_PID_TYPE, ring_type);
+ 		rt2x00_set_field32(&txd->word5, TXD_W5_PID_SUBTYPE, i);
  	}
  
-+	/*
-+	 * Set TXpower.
-+	 */
-+	rt2x00_set_field32_nb(&rf3, RF3_TXPOWER, txpower);
-+
- 	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x, "
- 		"RF4: 0x%08x.\n", rf1, rf2, rf3, rf4);
+@@ -2073,7 +2073,7 @@
+ {
+ 	struct ieee80211_hdr *ieee80211hdr;
+ 	struct sk_buff *skb;
+-	u16 temp;
++	u16 frame_control;
  
--	rt2x00_set_field32_nb(&rf3, RF3_TXPOWER, txpower);
+ 	skb = dev_alloc_skb(IEEE80211_HEADER);
+ 	if (!skb)
+@@ -2085,8 +2085,8 @@
+ 	memcpy(skb_put(skb, IEEE80211_HEADER), hdr, IEEE80211_HEADER);
+ 	ieee80211hdr = (struct ieee80211_hdr*)skb->data;
+ 
+-	temp = (WLAN_FC_TYPE_CTRL  << 2) | (WLAN_FC_STYPE_RTS << 4);
+-	ieee80211hdr->frame_control = cpu_to_le16(temp);
++	frame_control = (WLAN_FC_TYPE_CTRL  << 2) | (WLAN_FC_STYPE_RTS << 4);
++	ieee80211hdr->frame_control = cpu_to_le16(frame_control);
+ 
+ 	ieee80211hdr->duration_id += cpu_to_le16(duration);
+ 
+@@ -2110,7 +2110,6 @@
+ 	u16 length_low;
+ 	u16 signal;
+ 	u16 service;
+-	u8 rate;
+ 	u16 frame_control;
+ 	u8 bitrate;
+ 	int tx_rate;
+@@ -2152,7 +2151,7 @@
+ 	 */
+ 	rt2x00_set_field32(&txd->word0, TXD_W0_RETRY_MODE, 0);
+ 
+-	if (frame_control & WLAN_FC_MOREFRAG)
++	if (ieee80211_get_morefrag(ieee80211hdr))
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_MORE_FRAG, 1);
+ 	else
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_MORE_FRAG, 0);
+@@ -2203,12 +2202,12 @@
+ 		length_low = (length & 0x3f);
+ 
+ 	} else {
+-		rate = DEVICE_GET_RATE_FIELD(tx_rate, RATE);
++		bitrate = DEVICE_GET_RATE_FIELD(tx_rate, RATE);
+ 
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_OFDM, 0);
+ 
+-		residual = get_duration_res(length, rate);
+-		length = get_duration(length, rate);
++		residual = get_duration_res(length, bitrate);
++		length = get_duration(length, bitrate);
+ 
+ 		if (residual != 0)
+ 			length++;
+@@ -2313,13 +2312,11 @@
+ 		rt2x00_ring_index_inc(ring);
+ 	}
+ 
+-	if (total_rssi && rssi_count)
+-		total_rssi /= rssi_count;
 -
  	/*
- 	 * For RT2525E we should first set the channel to half band higher.
+ 	 * Tune link for optimal performance.
  	 */
-@@ -443,14 +466,34 @@
- 	 */
- 	rt2x00dev->rx_params.freq = freq;
- 	rt2x00dev->rx_params.channel = channel;
-+
-+	rt2x00dev->tx_power = txpower;
-+
-+	/*
-+	 * Update rf fields
-+	 */
-+	rt2x00dev->rf1 = rf1;
-+	rt2x00dev->rf2 = rf2;
-+	rt2x00dev->rf3 = rf3;
-+	rt2x00dev->rf4 = rf4;
-+
-+	rt2x00dev->tx_power = txpower;
- }
- 
- static void rt2500usb_config_txpower(struct rt2x00_dev *rt2x00dev, int txpower)
- {
- 	txpower = TXPOWER_TO_DEV(txpower);
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (txpower == rt2x00dev->tx_power)
-+		return;
-+
- 	rt2x00_set_field32_nb(&rt2x00dev->rf3, RF3_TXPOWER, txpower);
- 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf3);
-+
-+	rt2x00dev->tx_power = txpower;
- }
- 
- static void rt2500usb_config_antenna(struct rt2x00_dev *rt2x00dev, int antenna)
-@@ -460,6 +503,12 @@
- 	u16 csr5_reg;
- 	u16 csr6_reg;
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (rt2x00dev->rx_params.antenna == antenna)
-+		return;
-+
- 	rt2x00_bbp_read(rt2x00dev, 2, &reg_tx);
- 	rt2x00_bbp_read(rt2x00dev, 14, &reg_rx);
- 	rt2x00_register_read(rt2x00dev, PHY_CSR5, &csr5_reg);
-@@ -578,6 +627,12 @@
- {
- 	struct ieee80211_rate *rate;
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (rt2x00dev->rx_params.phymode == phymode)
-+		return;
-+
- 	if (phymode == MODE_IEEE80211A &&
- 	    rt2x00_rf(&rt2x00dev->chip, RF5222))
- 		rate = &rt2x00dev->hw.modes[2].rates[
-@@ -1819,12 +1874,17 @@
- 	u16 reg;
+-	rt61pci_link_tuner(rt2x00dev, total_rssi);
++	if (total_rssi && rssi_count)
++		rt61pci_link_tuner(rt2x00dev, total_rssi / rssi_count);
  
  	/*
--	 * Some configuration changes require the RX to be disabled.
-+	 * Check if we need to disable the radio,
-+	 * if this is not the case, at least the RX must be disabled.
- 	 */
- 	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--		rt2x00_register_read(rt2x00dev, TXRX_CSR2, &reg);
--		rt2x00_set_field16_nb(&reg, TXRX_CSR2_DISABLE_RX, 1);
--		rt2x00_register_write(rt2x00dev, TXRX_CSR2, reg);
-+		if (!conf->radio_enabled)
-+			rt2500usb_disable_radio(rt2x00dev);
-+		else {
-+			rt2x00_register_read(rt2x00dev, TXRX_CSR2, &reg);
-+			rt2x00_set_field16_nb(&reg, TXRX_CSR2_DISABLE_RX, 1);
-+			rt2x00_register_write(rt2x00dev, TXRX_CSR2, reg);
-+		}
- 	}
- 
- 	rt2500usb_config_channel(rt2x00dev,
-@@ -1838,24 +1898,13 @@
- 	/*
- 	 * Reenable RX only if the radio should be on.
- 	 */
--	if (conf->radio_enabled) {
--		if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--			if (rt2500usb_open(net_dev)) {
--				ERROR("Failed to enabled radio.\n");
--				return;
--			}
--		} else {
--			rt2x00_register_read(rt2x00dev, TXRX_CSR2, &reg);
--			rt2x00_set_field16_nb(&reg, TXRX_CSR2_DISABLE_RX, 0);
--			rt2x00_register_write(rt2x00dev, TXRX_CSR2, reg);
--		}
--	} else {
--		if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--			if (rt2500usb_stop(net_dev)) {
--				ERROR("Failed to disable radio.\n");
--				return;
--			}
--		}
-+	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
-+		rt2x00_register_read(rt2x00dev, TXRX_CSR2, &reg);
-+		rt2x00_set_field16_nb(&reg, TXRX_CSR2_DISABLE_RX, 0);
-+		rt2x00_register_write(rt2x00dev, TXRX_CSR2, reg);
-+	} else if (conf->radio_enabled) {
-+		if (rt2500usb_enable_radio(rt2x00dev))
-+			return;
- 	}
- }
- 
-@@ -1985,10 +2034,20 @@
- {
- 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
- 
-+	/*
-+	 * Check if we are not busy with the previous
-+	 * passive scan request.
-+	 */
- 	if (rt2x00dev->scan)
- 		return -EBUSY;
+ 	 * Update LED.
+@@ -2500,40 +2497,15 @@
+ 			&rt2x00dev->ring[RING_RX].irq_work);
  
  	/*
-+	 * Check if the radio is enabled.
-+	 */
-+	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
-+		return -EIO;
-+
-+	/*
- 	 * Allocate scanning structure to store scanning info.
+-	 * 3 - AC_BK ring transmit done interrupt.
++	 * 3 - Tx ring done interrupt.
++	 * Don't care about which ring we use to schedule
++	 * work to. The handler will run for all TX
++	 * related rings except Beacon.
  	 */
- 	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
-@@ -2241,6 +2300,9 @@
- 		usb_get_intfdata(rt2x00dev_usb(rt2x00dev));
- 	u16 eeprom[3] = { 0, 0, 0 };
+-	if (rt2x00_get_field32(reg, INT_SOURCE_CSR_AC0_DMA_DONE))
++	if (rt2x00_get_field32(reg, INT_SOURCE_CSR_TXDONE))
+ 		queue_work(rt2x00dev->workqueue,
+ 			&rt2x00dev->ring[RING_AC_BK].irq_work);
  
-+	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
-+		return 0;
-+
- 	/*
- 	 * Read MAC address from EEPROM.
- 	 */
-@@ -2261,6 +2323,10 @@
- 
- 	net_dev->addr_len = 6;
- 
-+	if (!is_valid_ether_addr(&net_dev->dev_addr[0]))
-+		return -EINVAL;
-+
-+	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
- 	return 0;
- }
- 
-diff -rU3 wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-26 10:56:17.000000000 +0200
-+++ wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-26 12:50:33.000000000 +0200
-@@ -506,6 +506,14 @@
- 	u32 reg;
- 
- 	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (type == rt2x00dev->interface.type ||
-+	    (rt2x00dev->interface.monitor_count ^
-+	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
-+		return;
-+
-+	/*
- 	 * Apply hardware packet filter.
- 	 */
- 	rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
-@@ -554,7 +562,13 @@
- 	/*
- 	 * Update working mode.
- 	 */
--	rt2x00dev->interface.type = type;
-+	if (type != IEEE80211_IF_TYPE_MNTR)
-+		rt2x00dev->interface.type = type;
-+
-+	if (rt2x00dev->interface.monitor_count)
-+		SET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
-+	else
-+		CLEAR_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
- }
- 
- static void rt61pci_config_channel(struct rt2x00_dev *rt2x00dev,
-@@ -565,6 +579,12 @@
- 	u32 rf3 = 0;
- 	u32 rf4 = 0;
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (channel == rt2x00dev->rx_params.channel)
-+		return;
-+
- 	if (txpower == 0xff)
- 		txpower = rt2x00dev->tx_power;
- 	txpower = TXPOWER_TO_DEV(txpower);
-@@ -735,14 +755,14 @@
- 		}
- 	}
- 
--	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x, "
--		"RF4: 0x%08x.\n", rf1, rf2, rf3, rf4);
--
- 	/*
- 	 * Set TXpower.
- 	 */
- 	rt2x00_set_field32(&rf3, RF3_TXPOWER, txpower);
- 
-+	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x, "
-+		"RF4: 0x%08x.\n", rf1, rf2, rf3, rf4);
-+
- 	/*
- 	 * Set Frequency offset.
- 	 */
-@@ -782,12 +802,28 @@
- 	 */
- 	rt2x00dev->rx_params.freq = freq;
- 	rt2x00dev->rx_params.channel = channel;
-+
-+	rt2x00dev->tx_power = txpower;
-+
-+	/*
-+	 * Update rf fields
-+	 */
-+	rt2x00dev->rf1 = rf1;
-+	rt2x00dev->rf2 = rf2;
-+	rt2x00dev->rf3 = rf3;
-+	rt2x00dev->rf4 = rf4;
- }
- 
- static void rt61pci_config_txpower(struct rt2x00_dev *rt2x00dev, int txpower)
- {
- 	txpower = TXPOWER_TO_DEV(txpower);
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (txpower == rt2x00dev->tx_power)
-+		return;
-+
- 	rt2x00_set_field32(&rt2x00dev->rf3, RF3_TXPOWER, txpower);
- 
- 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf1);
-@@ -808,6 +844,8 @@
- 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf2);
- 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf3 & ~cpu_to_le32(0x00000004));
- 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf4);
-+
-+	rt2x00dev->tx_power = txpower;
- }
- 
- static void rt61pci_config_antenna(struct rt2x00_dev *rt2x00dev,
-@@ -819,6 +857,12 @@
- 	u8 reg_r77;
- 	u8 frame_type;
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (rt2x00dev->rx_params.antenna == antenna)
-+		return;
-+
- 	rt2x00_register_read(rt2x00dev, PHY_CSR0, &reg);
- 
- 	if (phymode == MODE_IEEE80211A) {
-@@ -997,6 +1041,12 @@
- {
- 	struct ieee80211_rate *rate;
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (rt2x00dev->rx_params.phymode == phymode)
-+		return;
-+
- 	if (phymode == MODE_IEEE80211A &&
- 	    (rt2x00_rf(&rt2x00dev->chip, RF5225) ||
- 	    rt2x00_rf(&rt2x00dev->chip, RF5325)))
-@@ -2400,6 +2450,9 @@
- 	if (!reg)
- 		return IRQ_NONE;
- 
-+	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
-+		return IRQ_HANDLED;
-+
- 	/*
- 	 * Handle interrupts, walk through all bits
- 	 * and run the tasks, the bits are checked in order of
-@@ -2632,12 +2685,17 @@
- 	u32 reg;
- 
- 	/*
--	 * Some configuration changes require the RX to be disabled.
-+	 * Check if we need to disable the radio,
-+	 * if this is not the case, at least the RX must be disabled.
- 	 */
- 	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--		rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
--		rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 1);
--		rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
-+		if (!conf->radio_enabled)
-+			rt61pci_disable_radio(rt2x00dev);
-+		else {
-+			rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
-+			rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 1);
-+			rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
-+		}
- 	}
- 
- 	rt61pci_config_channel(rt2x00dev,
-@@ -2651,24 +2709,13 @@
- 	/*
- 	 * Reenable RX only if the radio should be on.
- 	 */
--	if (conf->radio_enabled) {
--		if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--			if (rt61pci_open(net_dev)) {
--				ERROR("Failed to enabled radio.\n");
--				return;
--			}
--		} else {
--			rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
--			rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 0);
--			rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
--		}
--	} else {
--		if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--			if (rt61pci_stop(net_dev)) {
--				ERROR("Failed to disable radio.\n");
--				return;
--			}
--		}
-+	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
-+		rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
-+		rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 0);
-+		rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
-+	} else if (conf->radio_enabled) {
-+		if (rt61pci_enable_radio(rt2x00dev))
-+			return;
- 	}
- }
- 
-@@ -2788,10 +2835,20 @@
- {
- 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
- 
-+	/*
-+	 * Check if we are not busy with the previous
-+	 * passive scan request.
-+	 */
- 	if (rt2x00dev->scan)
- 		return -EBUSY;
- 
- 	/*
-+	 * Check if the radio is enabled.
-+	 */
-+	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
-+		return -EIO;
-+
-+	/*
- 	 * Allocate scanning structure to store scanning info.
- 	 */
- 	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
-@@ -3143,7 +3200,10 @@
- static int rt61pci_init_mac(struct rt2x00_dev *rt2x00dev)
- {
- 	struct net_device *net_dev = pci_get_drvdata(rt2x00dev_pci(rt2x00dev));
--	u16 eeprom[3];
-+	u16 eeprom[3] = { 0, 0, 0 };
-+
-+	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
-+		return 0;
- 
- 	/*
- 	 * Read MAC address from EEPROM.
-@@ -3165,6 +3225,10 @@
- 
- 	net_dev->addr_len = 6;
- 
-+	if (!is_valid_ether_addr(&net_dev->dev_addr[0]))
-+		return -EINVAL;
-+
-+	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
- 	return 0;
- }
- 
-diff -rU3 wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt73usb.c
---- wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-26 10:56:20.000000000 +0200
-+++ wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-26 12:50:39.000000000 +0200
-@@ -327,6 +327,14 @@
- 	u32 reg;
- 
- 	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (type == rt2x00dev->interface.type ||
-+	    (rt2x00dev->interface.monitor_count ^
-+	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
-+		return;
-+
-+	/*
- 	 * Apply hardware packet filter.
- 	 */
- 	rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
-@@ -375,7 +383,13 @@
- 	/*
- 	 * Update working mode.
- 	 */
--	rt2x00dev->interface.type = type;
-+	if (type != IEEE80211_IF_TYPE_MNTR)
-+		rt2x00dev->interface.type = type;
-+
-+	if (rt2x00dev->interface.monitor_count)
-+		SET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
-+	else
-+		CLEAR_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
- }
- 
- static void rt73usb_config_channel(struct rt2x00_dev *rt2x00dev,
-@@ -386,6 +400,12 @@
- 	u32 rf3 = rt2x00dev->rf3;
- 	u32 rf4 = 0;
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (channel == rt2x00dev->rx_params.channel)
-+		return;
-+
- 	if (txpower == 0xff)
- 		txpower = rt2x00dev->tx_power;
- 	txpower = TXPOWER_TO_DEV(txpower);
-@@ -463,14 +483,14 @@
- 	    rt2x00_rf(&rt2x00dev->chip, RF5225))
- 		rf4 |= 0x00010000;
- 
--	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x, "
--		"RF4: 0x%08x.\n", rf1, rf2, rf3, rf4);
--
- 	/*
- 	 * Set TXpower.
- 	 */
- 	rt2x00_set_field32(&rf3, RF3_TXPOWER, txpower);
- 
-+	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x, "
-+		"RF4: 0x%08x.\n", rf1, rf2, rf3, rf4);
-+
- 	/*
- 	 * Set Frequency offset.
- 	 */
-@@ -506,12 +526,30 @@
- 	 */
- 	rt2x00dev->rx_params.freq = freq;
- 	rt2x00dev->rx_params.channel = channel;
-+
-+	rt2x00dev->tx_power = txpower;
-+
-+	/*
-+	 * Update rf fields
-+	 */
-+	rt2x00dev->rf1 = rf1;
-+	rt2x00dev->rf2 = rf2;
-+	rt2x00dev->rf3 = rf3;
-+	rt2x00dev->rf4 = rf4;
-+
-+	rt2x00dev->tx_power = txpower;
- }
- 
- static void rt73usb_config_txpower(struct rt2x00_dev *rt2x00dev, int txpower)
- {
- 	txpower = TXPOWER_TO_DEV(txpower);
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (txpower == rt2x00dev->tx_power)
-+		return;
-+
- 	rt2x00_set_field32(&rt2x00dev->rf3, RF3_TXPOWER, txpower);
- 
- 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf1);
-@@ -528,6 +566,8 @@
- 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf2);
- 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf3 & ~cpu_to_le32(0x00000004));
- 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf4);
-+
-+	rt2x00dev->tx_power = txpower;
- }
- 
- static void rt73usb_config_antenna(struct rt2x00_dev *rt2x00dev,
-@@ -539,6 +579,12 @@
- 	u8 reg_r77;
- 	u8 frame_type;
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (rt2x00dev->rx_params.antenna == antenna)
-+		return;
-+
- 	rt2x00_register_read(rt2x00dev, PHY_CSR0, &reg);
- 
- 	if (phymode == MODE_IEEE80211A) {
-@@ -711,6 +757,12 @@
- {
- 	struct ieee80211_rate *rate;
- 
-+	/*
-+	 * Only continue when there is something to be done.
-+	 */
-+	if (rt2x00dev->rx_params.phymode == phymode)
-+		return;
-+
- 	if (phymode == MODE_IEEE80211A &&
- 	    (rt2x00_rf(&rt2x00dev->chip, RF5225) ||
- 	    rt2x00_rf(&rt2x00dev->chip, RF5226)))
-@@ -2133,12 +2185,17 @@
- 	u32 reg;
- 
- 	/*
--	 * Some configuration changes require the RX to be disabled.
-+	 * Check if we need to disable the radio,
-+	 * if this is not the case, at least the RX must be disabled.
- 	 */
- 	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--		rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
--		rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 1);
--		rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
-+		if (!conf->radio_enabled)
-+			rt73usb_disable_radio(rt2x00dev);
-+		else {
-+			rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
-+			rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 1);
-+			rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
-+		}
- 	}
- 
- 	rt73usb_config_channel(rt2x00dev,
-@@ -2150,29 +2207,15 @@
- 	rt73usb_config_phymode(rt2x00dev, conf->phymode);
- 
- 	/*
--	 * Reenable RX.
--	 */
 -	/*
- 	 * Reenable RX only if the radio should be on.
- 	 */
--	if (conf->radio_enabled) {
--		if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--			if (rt73usb_open(net_dev)) {
--				ERROR("Failed to enabled radio.\n");
--				return;
--			}
--		} else {
--			rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
--			rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 0);
--			rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
--		}
--	} else {
--		if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
--			if (rt73usb_stop(net_dev)) {
--				ERROR("Failed to disable radio.\n");
--				return;
--			}
--		}
-+	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
-+		rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
-+		rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 0);
-+		rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
-+	} else if (conf->radio_enabled) {
-+		if (rt73usb_enable_radio(rt2x00dev))
-+			return;
+-	 * 4 - AC_BE ring transmit done interrupt.
+-	 */
+-	if (rt2x00_get_field32(reg, INT_SOURCE_CSR_AC1_DMA_DONE))
+-		queue_work(rt2x00dev->workqueue,
+-			&rt2x00dev->ring[RING_AC_BE].irq_work);
+-
+-	/*
+-	 * 5 - AC_VI ring transmit done interrupt.
+-	 */
+-	if (rt2x00_get_field32(reg, INT_SOURCE_CSR_AC2_DMA_DONE))
+-		queue_work(rt2x00dev->workqueue,
+-			&rt2x00dev->ring[RING_AC_VI].irq_work);
+-
+-	/*
+-	 * 6 - AC_VO ring transmit done interrupt.
+-	 */
+-	if (rt2x00_get_field32(reg, INT_SOURCE_CSR_AC3_DMA_DONE))
+-		queue_work(rt2x00dev->workqueue,
+-			&rt2x00dev->ring[RING_AC_VO].irq_work);
+-
+-	/*
+-	 * 7 - PRIO ring transmit done interrupt.
+-	 */
+-	if (rt2x00_get_field32(reg, INT_SOURCE_CSR_MGMT_DMA_DONE))
+-		queue_work(rt2x00dev->workqueue,
+-			&rt2x00dev->ring[RING_PRIO].irq_work);
+-
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -3329,15 +3301,15 @@
+ 	for (i = 0; i < 13; i++) {
+ 		channels[i].chan = i + 1;
+ 		channels[i].freq = 2407 + ((i + 1) * 5);
+-		channels[i].flag = IEEE80211_CHAN_W_IBSS
+-			| IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
++		channels[i].flag = IEEE80211_CHAN_W_IBSS |
++			IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
+ 		channels[i].antenna_max = 0xff;
  	}
- }
  
-@@ -2302,10 +2345,20 @@
+ 	channels[13].chan = 14;
+ 	channels[13].freq = 2484;
+-	channels[13].flag = IEEE80211_CHAN_W_IBSS
+-		| IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
++	channels[13].flag = IEEE80211_CHAN_W_IBSS |
++		IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
+ 	channels[13].antenna_max = 0xff;
+ 
+ 	if (rt2x00_rf(&rt2x00dev->chip, RF5225) ||
+@@ -3351,9 +3323,9 @@
+ 				channels[i].chan = 149;
+ 			channels[i].chan += ((i - 14) * 4);
+ 			channels[i].freq = ((i - 13) + 1000) * 5;
+-			channels[i].flag = IEEE80211_CHAN_W_IBSS
+-				| IEEE80211_CHAN_W_ACTIVE_SCAN
+-				| IEEE80211_CHAN_W_SCAN;
++			channels[i].flag = IEEE80211_CHAN_W_IBSS |
++				IEEE80211_CHAN_W_ACTIVE_SCAN |
++				IEEE80211_CHAN_W_SCAN;
+ 			channels[i].antenna_max = 0xff;
+ 		}
+ 	}
+@@ -3693,9 +3665,10 @@
+ 	struct net_device *net_dev;
+ 	int status;
+ 
+-	if (pci_enable_device(pci_dev)) {
++	status = pci_enable_device(pci_dev);
++	if (status) {
+ 		ERROR("Enable device failed.\n");
+-		return -EIO;
++		return status;
+ 	}
+ 
+ 	pci_set_master(pci_dev);
+@@ -3710,9 +3683,9 @@
+ 		goto exit_disable_device;
+ 	}
+ 
+-	if (pci_request_regions(pci_dev, pci_name(pci_dev))) {
++	status = pci_request_regions(pci_dev, pci_name(pci_dev));
++	if (status) {
+ 		ERROR("PCI request regions failed.\n");
+-		status = -EBUSY;
+ 		goto exit_disable_device;
+ 	}
+ 
+diff -rU3 wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-26 15:39:52.000000000 +0200
++++ wireless-dev-misc/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-26 15:59:09.000000000 +0200
+@@ -1669,7 +1669,7 @@
  {
- 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+ 	struct ieee80211_hdr *ieee80211hdr;
+ 	struct sk_buff *skb;
+-	u16 temp;
++	u16 frame_control;
  
-+	/*
-+	 * Check if we are not busy with the previous
-+	 * passive scan request.
-+	 */
- 	if (rt2x00dev->scan)
- 		return -EBUSY;
+ 	skb = dev_alloc_skb(IEEE80211_HEADER);
+ 	if (!skb)
+@@ -1681,8 +1681,8 @@
+ 	memcpy(skb_put(skb, IEEE80211_HEADER), hdr, IEEE80211_HEADER);
+ 	ieee80211hdr = (struct ieee80211_hdr*)skb->data;
+ 
+-	temp = (WLAN_FC_TYPE_CTRL  << 2) | (WLAN_FC_STYPE_RTS << 4);
+-	ieee80211hdr->frame_control = cpu_to_le16(temp);
++	frame_control = (WLAN_FC_TYPE_CTRL  << 2) | (WLAN_FC_STYPE_RTS << 4);
++	ieee80211hdr->frame_control = cpu_to_le16(frame_control);
+ 
+ 	ieee80211hdr->duration_id += cpu_to_le16(duration);
+ 
+@@ -1706,7 +1706,6 @@
+ 	u16 length_low;
+ 	u16 signal;
+ 	u16 service;
+-	u8 rate;
+ 	u16 frame_control;
+ 	u8 bitrate;
+ 	int tx_rate;
+@@ -1748,7 +1747,7 @@
+ 	 */
+ 	rt2x00_set_field32(&txd->word0, TXD_W0_RETRY_MODE, 0);
+ 
+-	if (frame_control & WLAN_FC_MOREFRAG)
++	if (ieee80211_get_morefrag(ieee80211hdr))
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_MORE_FRAG, 1);
+ 	else
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_MORE_FRAG, 0);
+@@ -1798,12 +1797,12 @@
+ 		length_low = (length & 0x3f);
+ 
+ 	} else {
+-		rate = DEVICE_GET_RATE_FIELD(tx_rate, RATE);
++		bitrate = DEVICE_GET_RATE_FIELD(tx_rate, RATE);
+ 
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_OFDM, 0);
+ 
+-		residual = get_duration_res(length, rate);
+-		length = get_duration(length, rate);
++		residual = get_duration_res(length, bitrate);
++		length = get_duration(length, bitrate);
+ 
+ 		if (residual != 0)
+ 			length++;
+@@ -1889,11 +1888,7 @@
+ 			continue;
+ 		}
+ 
+-		/*
+-		 * Received USB packets have 4 bytes of extra data.
+-		 */
+ 		size = rt2x00_get_field32(rxd->word0, RXD_W0_DATABYTE_COUNT);
+-		size -= 4;
+ 
+ 		/*
+ 		 * TODO: Don't we need to keep statistics
+@@ -1926,13 +1921,11 @@
+ 		rt2x00_ring_index_inc(ring);
+ 	}
+ 
+-	if (total_rssi && rssi_count)
+-		total_rssi /= rssi_count;
+-
+ 	/*
+ 	 * Tune link for optimal performance.
+ 	 */
+-	rt73usb_link_tuner(rt2x00dev, total_rssi);
++	if (total_rssi && rssi_count)
++		rt73usb_link_tuner(rt2x00dev, total_rssi / rssi_count);
  
  	/*
-+	 * Check if the radio is enabled.
-+	 */
-+	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
-+		return -EIO;
-+
-+	/*
- 	 * Allocate scanning structure to store scanning info.
- 	 */
- 	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
-@@ -2640,6 +2693,9 @@
- 		usb_get_intfdata(rt2x00dev_usb(rt2x00dev));
- 	u16 eeprom[3] = { 0, 0, 0 };
+ 	 * Update LED.
+@@ -2837,15 +2830,15 @@
+ 	for (i = 0; i < 13; i++) {
+ 		channels[i].chan = i + 1;
+ 		channels[i].freq = 2407 + ((i + 1) * 5);
+-		channels[i].flag = IEEE80211_CHAN_W_IBSS
+-			| IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
++		channels[i].flag = IEEE80211_CHAN_W_IBSS |
++			IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
+ 		channels[i].antenna_max = 0xff;
+ 	}
  
-+	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
-+		return 0;
-+
- 	/*
- 	 * Read MAC address from EEPROM.
- 	 */
-@@ -2660,6 +2716,10 @@
+ 	channels[13].chan = 14;
+ 	channels[13].freq = 2484;
+-	channels[13].flag = IEEE80211_CHAN_W_IBSS
+-		| IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
++	channels[13].flag = IEEE80211_CHAN_W_IBSS |
++		IEEE80211_CHAN_W_ACTIVE_SCAN | IEEE80211_CHAN_W_SCAN;
+ 	channels[13].antenna_max = 0xff;
  
- 	net_dev->addr_len = 6;
+ 	if (rt2x00_rf(&rt2x00dev->chip, RF5225) ||
+@@ -2859,9 +2852,9 @@
+ 				channels[i].chan = 149;
+ 			channels[i].chan += ((i - 14) * 4);
+ 			channels[i].freq = ((i - 13) + 1000) * 5;
+-			channels[i].flag = IEEE80211_CHAN_W_IBSS
+-				| IEEE80211_CHAN_W_ACTIVE_SCAN
+-				| IEEE80211_CHAN_W_SCAN;
++			channels[i].flag = IEEE80211_CHAN_W_IBSS |
++				IEEE80211_CHAN_W_ACTIVE_SCAN |
++				IEEE80211_CHAN_W_SCAN;
+ 			channels[i].antenna_max = 0xff;
+ 		}
+ 	}
+@@ -3133,6 +3126,7 @@
+ 	    rt73usb_init_hw_modes(rt2x00dev)) {
+ 		ERROR("Failed to initialize device.\n");
+ 		goto exit;
++	}
  
-+	if (!is_valid_ether_addr(&net_dev->dev_addr[0]))
-+		return -EINVAL;
-+
-+	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
- 	return 0;
- }
- 
+ 	if (rt73usb_init_firmware(rt2x00dev)) {
+ 		ERROR("Failed to load Firmware.\n");
