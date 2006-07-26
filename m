@@ -1,131 +1,107 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: async network I/O, event channels, etc
-Date: Wed, 26 Jul 2006 10:28:17 +0400
-Message-ID: <20060726062817.GA20636@2ka.mipt.ru>
-References: <44C66FC9.3050402@redhat.com> <20060725.150122.49854414.davem@davemloft.net>
+From: Rolf Eike Beer <eike-kernel@sf-tec.de>
+Subject: [BUG] stacktrace from skb_checksum_help() and skb_gso_segment()
+Date: Wed, 26 Jul 2006 08:41:48 +0200
+Message-ID: <200607260841.54017.eike-kernel@sf-tec.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: drepper@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart1192756.VqL6tbdyTK";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:38306 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1030402AbWGZG2m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 02:28:42 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060725.150122.49854414.davem@davemloft.net>
+Received: from mail.sf-mail.de ([62.27.20.61]:17608 "EHLO mail.sf-mail.de")
+	by vger.kernel.org with ESMTP id S1030403AbWGZGj6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 02:39:58 -0400
+Received: from  ([::ffff:212.65.3.74] HELO siso-eb-i34d.silicon-software.de) (auth=eike-kernel@sf-tec.de)
+	by mail.sf-mail.de (Qsmtpd 0.9) with (DHE-RSA-AES256-SHA encrypted) ESMTPSA
+	for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 08:39:56 +0200
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 25, 2006 at 03:01:22PM -0700, David Miller (davem@davemloft.net) wrote:
-> From: Ulrich Drepper <drepper@redhat.com>
-> Date: Tue, 25 Jul 2006 12:23:53 -0700
-> 
-> > I was very much surprised by the reactions I got after my OLS talk.
-> > Lots of people declared interest and even agreed with the approach and
-> > asked me to do further ahead with all this.  For those who missed it,
-> > the paper and the slides are available on my home page:
-> > 
-> > http://people.redhat.com/drepper/
-> > 
-> > As for the next steps I see a number of possible ways.  The discussions
-> > can be held on the usual mailing lists (i.e., lkml and netdev) but due
-> > to the raw nature of the current proposal I would imagine that would be
-> > mainly perceived as noise.
-> 
-> Since I gave a big thumbs up for Evgivny's kevent work yesterday
-> on linux-kernel, you might want to start by comparing your work
-> to his.  Because his has the advantage that 1) we have code now
-> and 2) he has written many test applications and performed many
-> benchmarks against his code which has flushed out most of the
-> major implementation issues.
-> 
-> I think most of the people who have encouraged your work are unaware
-> of Evgivny's kevent stuff, which is extremely unfortunate, the two
-> works are more similar than they are different.
-> 
-> I do not think discussing all of this on netdev would be perceived
-> as noise. :)
+--nextPart1192756.VqL6tbdyTK
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Hello David, Ulrich.
+linux-2.6 git tree from yesterday.
 
-Here is brief description of what is kevent and how it works.
+Before this the sky2 network driver was working. After a pseudo hotplug of =
+the=20
+device it was working again (at least if you receive this mail *g*).
 
-Kevent subsystem incorporates several AIO/kqueue design notes and ideas.
-Kevent can be used both for edge and level notifications. It supports
-socket notifications (accept, send, recv), network AIO (aio_send(),
-aio_recv() and aio_sendfile()), inode notifications (create/remove),
-generic poll()/select() notifications and timer notifications.
+What next?
 
-There are several object in the kevent system:
-storage - each source of events (socket, inode, timer, aio, anything) has
-	structure kevent_storage incorporated into it, which is basically a list
-	of registered interests for this source of events.
-user - it is abstraction which holds all requested kevents. It is
-	similar to FreeBSD's kqueue.
-kevent - set of interests for given source of events or storage.
+Eike
 
-When kevent is queued into storage, it will live there until removed by
-kevent_dequeue(). When some activity is noticed in given storage, it
-scans it's kevent_storage->list for kevents which match activity event.
-If kevents are found and they are not already in the
-kevent_user->ready_list, they will be added there at the end.
+Jul 26 08:22:51 siso-eb-i34d kernel: BUG: warning=20
+at /home/beer/repos/linux-2.6/net/core/dev.c:1171/skb_checksum_help()
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c1003aa9>]=20
+show_trace_log_lvl+0x54/0xfd
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c1004915>] show_trace+0xd/0x10
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c100492f>] dump_stack+0x17/0x1c
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11a1c92>]=20
+skb_checksum_help+0x55/0x108
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<f0953303>] ip_nat_fn+0x43/0x183=20
+[iptable_nat]
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<f0953665>] ip_nat_local_fn+0x36/0xb=
+5=20
+[iptable_nat]
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11b043c>] nf_iterate+0x2e/0x61
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11b04a6>] nf_hook_slow+0x37/0x95
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11bb212>] ip_queue_xmit+0x362/0x3b2
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11c8cd2>]=20
+tcp_transmit_skb+0x5f3/0x615
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11ca1b6>] tcp_push_one+0xb7/0xda
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11c1cc2>] tcp_sendmsg+0x786/0x990
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11d847c>] inet_sendmsg+0x39/0x46
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c1199ac7>] do_sock_write+0x93/0x9b
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c119a092>] sock_aio_write+0x56/0x64
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c10584e6>] do_sync_write+0xaf/0xe4
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c105889f>] vfs_write+0x94/0xe8
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c105900c>] sys_write+0x3b/0x60
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c1002845>] sysenter_past_esp+0x56/0=
+x8d
+Jul 26 08:22:51 siso-eb-i34d kernel: BUG: warning=20
+at /home/beer/repos/linux-2.6/net/core/dev.c:1225/skb_gso_segment()
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c1003aa9>]=20
+show_trace_log_lvl+0x54/0xfd
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c1004915>] show_trace+0xd/0x10
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c100492f>] dump_stack+0x17/0x1c
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11a309b>] skb_gso_segment+0x84/0x1=
+71
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11a4427>]=20
+dev_hard_start_xmit+0x175/0x202
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11ad119>] __qdisc_run+0xde/0x1a5
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11a45ef>] dev_queue_xmit+0x13b/0x2=
+4c
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11a9080>]=20
+neigh_resolve_output+0x1cf/0x1fb
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11bb88d>] ip_output+0x1c4/0x1ff
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11bb223>] ip_queue_xmit+0x373/0x3b2
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11c8cd2>]=20
+tcp_transmit_skb+0x5f3/0x615
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11ca1b6>] tcp_push_one+0xb7/0xda
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11c1cc2>] tcp_sendmsg+0x786/0x990
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c11d847c>] inet_sendmsg+0x39/0x46
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c1199ac7>] do_sock_write+0x93/0x9b
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c119a092>] sock_aio_write+0x56/0x64
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c10584e6>] do_sync_write+0xaf/0xe4
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c105889f>] vfs_write+0x94/0xe8
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c105900c>] sys_write+0x3b/0x60
+Jul 26 08:22:51 siso-eb-i34d kernel:  [<c1002845>] sysenter_past_esp+0x56/0=
+x8d
 
-ioctl(WAIT) (or appropriate syscall) will wait until either requested
-number of kevents are ready or timeout elapsed or at least one kevent is
-ready, it's behaviour depends on parameters.
+--nextPart1192756.VqL6tbdyTK
+Content-Type: application/pgp-signature
 
-It is possible to have one-shot kevents, which are automatically removed
-when are ready.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
-Any event can be added/removed/modified by ioctl or special controlling
-syscall.
+iD8DBQBExw6yXKSJPmm5/E4RAmc3AJ0QNOQtq2HF9PQR7qnXGZBMNfByHQCfTUK1
+UHxXnM+HcwjrWrccjI8SdB0=
+=RqDC
+-----END PGP SIGNATURE-----
 
-Network AIO is based on kevent and works as usual kevent storage on top
-of inode.
-When new socket is created it is associated with that inode and when
-some activity is detected appropriate notifications are generated and
-kevent_naio_callback() is called.
-When new kevent is being registered, network AIO ->enqueue() callback
-simply marks itself like usual socket event watcher. It also locks
-physical userspace pages in memory and stores appropriate pointers in
-private kevent structure. I have not created additional DMA memory
-allocation methods, like Ulrich described in his article, so I handle it
-inside NAIO which has some overhead (I posted get_user_pages()
-sclability graph some time ago).
-Network AIO callback gets pointers to userspace pages and tries to copy
-data from receiving skb queue into them using protocol specific
-callback. This callback is very similar to ->recvmsg(), so they could
-share a lot in future (as far as I recall it worked only with hardware
-capable to do checksumming, I'm a bit lazy).
-
-Both network and aio implementation work on top of hooks inside
-appropriate state machines, but not as repeated call design (curect AIO) 
-or special thread (SGI AIO). AIO work was stopped, since I was unable to 
-achieve the same speed as synchronous read 
-(maximum speeds were 2Gb/sec vs. 2.1 GB/sec for aio and sync IO accordingly
-when reading data from the cache).
-Network aio_sendfile() works lazily - it asynchronously populates pages
-into the VFS cache (which can be used for various tricks with adaptive
-readahead) and then uses usual ->sendfile() callback.
-
-I have not created an interface for userspace events (like Solaris), 
-since right now I do not see it's usefullness, but if there is
-requirements for that it is quite easy with kevents.
-
-I'm preparing set of kevent patches resend (with cleanups mentioned in
-previous e-mails), which will be ready in a couple of moments.
-
-1. kevent homepage.
-http://tservice.net.ru/~s0mbre/old/?section=projects&item=kevent
-
-2. network aio homepage.
-http://tservice.net.ru/~s0mbre/old/?section=projects&item=naio
-
-3. LWN.net published a very good article about kevent.
-http://lwn.net/Articles/172844/
-
-Thank you.
-
--- 
-	Evgeniy Polyakov
+--nextPart1192756.VqL6tbdyTK--
