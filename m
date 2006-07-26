@@ -1,52 +1,88 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [3/4] kevent: AIO, aio_sendfile() implementation.
-Date: Wed, 26 Jul 2006 11:30:01 +0100
-Message-ID: <20060726103001.GA10139@infradead.org>
-References: <1153905495613@2ka.mipt.ru> <11539054952574@2ka.mipt.ru> <20060726100431.GA7518@infradead.org> <20060726101919.GB2715@2ka.mipt.ru>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [1/4] kevent: core files.
+Date: Wed, 26 Jul 2006 03:31:05 -0700
+Message-ID: <20060726033105.7cd173b8.akpm@osdl.org>
+References: <11539054941027@2ka.mipt.ru>
+	<11539054952689@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	drepper@redhat.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:44427 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S932097AbWGZKaD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jul 2006 06:30:03 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:7587 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932293AbWGZKbp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 06:31:45 -0400
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20060726101919.GB2715@2ka.mipt.ru>
+In-Reply-To: <11539054952689@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 26, 2006 at 02:19:21PM +0400, Evgeniy Polyakov wrote:
-> I stopped to work on AIO, since neither existing, nor mine
-> implementation were able to outperform sync speeds (one of the major problems
-> in my implementation is get_user_pages() overhead, which can be
-> completely eliminated with physical memory allocation being done in
-> advance in userspace, like Ulrich described).
-> My personal opinion on existing AIO is that it is not the right design.
-> Benjamin LaHaise agree with me (if I understood him right),
+On Wed, 26 Jul 2006 13:18:15 +0400
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 
-I completely agree with that aswell.
+> +static int kevent_ctl_process(struct file *file, 
+> +		struct kevent_user_control *ctl, void __user *arg)
+> +{
+> +	int err;
+> +	struct kevent_user *u = file->private_data;
+> +
+> +	if (!u)
+> +		return -EINVAL;
+> +
+> +	switch (ctl->cmd) {
+> +		case KEVENT_CTL_ADD:
+> +			err = kevent_user_ctl_add(u, ctl, 
+> +					arg+sizeof(struct kevent_user_control));
+> +			break;
+> +		case KEVENT_CTL_REMOVE:
+> +			err = kevent_user_ctl_remove(u, ctl, 
+> +					arg+sizeof(struct kevent_user_control));
+> +			break;
+> +		case KEVENT_CTL_MODIFY:
+> +			err = kevent_user_ctl_modify(u, ctl, 
+> +					arg+sizeof(struct kevent_user_control));
+> +			break;
+> +		case KEVENT_CTL_WAIT:
+> +			err = kevent_user_wait(file, u, ctl, arg);
+> +			break;
+> +		case KEVENT_CTL_INIT:
+> +			err = kevent_ctl_init();
+> +		default:
+> +			err = -EINVAL;
+> +			break;
+> +	}
+> +
+> +	return err;
+> +}
 
-> but he
-> failed to move AIO outside repeated-call model (2.4 had state machine
-> based one, and out-of-the tree 2.6 patches have that design too).
-> In theory existing AIO (with all posix userspace API) can be replaced
-> with kevent (it will even take less space), but I would present it as a
-> TODO item, since kevent itself has nothing to do with AIO.
+Please indent the body of the switch one tabstop to the left.
 
-And replacing the existing aio code is exactly we I want you to do.  We
-can't keep adding more and more code without getting rid of old mess forever.
+> +asmlinkage long sys_kevent_ctl(int fd, void __user *arg)
+> +{
+> +	int err, fput_needed;
+> +	struct kevent_user_control ctl;
+> +	struct file *file;
+> +
+> +	if (copy_from_user(&ctl, arg, sizeof(struct kevent_user_control)))
+> +		return -EINVAL;
+> +
+> +	if (ctl.cmd == KEVENT_CTL_INIT)
+> +		return kevent_ctl_init();
+> +
+> +	file = fget_light(fd, &fput_needed);
+> +	if (!file)
+> +		return -ENODEV;
+> +
+> +	err = kevent_ctl_process(file, &ctl, arg);
+> +
+> +	fput_light(file, fput_needed);
+> +	return err;
+> +}
 
-And yes, the asynchronous pagecache population bit in your patchkit has a lot
-to do with aio.  It's same variant of aio done right (or at least less bad).
+If the user passes this an fd which was obtained via means other than
+kevent_ctl_init(), the kernel will explode.  Do
 
-I suspect the right way to go ahead is to drop that bit for now (it's the
-by far worst code in the patchkit anyway) and then we can redo it later to
-not get abstractions wrong and duplicate lots of code but also replace the
-aio code.  I don't expect you to do that alone, you'll probably need quite
-a bit help from us FS and VM people.
+	if (file->f_fop != &kevent_user_fops)
+		return -EINVAL;
+
