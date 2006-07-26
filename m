@@ -1,61 +1,48 @@
-From: Christophe Devriese <christophe.devriese@eth1.org>
-Subject: Re: Who maintains the website ?
-Date: Wed, 26 Jul 2006 12:14:01 +0200
-Message-ID: <20060726101401.GB15619@walrus.eth1.org>
-References: <20060725190948.GA3768@walrus.eth1.org> <5640c7e00607251341udb9e9a3u6351a0340886662d@mail.gmail.com> <20060726081956.GA15619@walrus.eth1.org> <5640c7e00607260152v3e8d04dfq4cf7356caaf00f11@mail.gmail.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [3/4] kevent: AIO, aio_sendfile() implementation.
+Date: Wed, 26 Jul 2006 14:08:49 +0400
+Message-ID: <20060726100848.GA2715@2ka.mipt.ru>
+References: <1153905495613@2ka.mipt.ru> <11539054952574@2ka.mipt.ru> <20060726100013.GA7126@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=koi8-r
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eth1.org ([85.158.215.1]:51887 "EHLO walrus.kotnet.org")
-	by vger.kernel.org with ESMTP id S1751190AbWGZKGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 06:06:03 -0400
-To: netdev@vger.kernel.org
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:56514 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751198AbWGZKJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 06:09:28 -0400
+To: Christoph Hellwig <hch@infradead.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <5640c7e00607260152v3e8d04dfq4cf7356caaf00f11@mail.gmail.com>
+In-Reply-To: <20060726100013.GA7126@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I have created the http://linux-net.osdl.org/index.php/VLAN page. What do
-you think ?
-
-Regards,
-
-Christophe
-
-On Wed, Jul 26, 2006 at 08:52:52PM +1200, Ian McDonald wrote:
-> On 7/26/06, Christophe Devriese <christophe.devriese@eth1.org> wrote:
-> >I would like to have a VLAN page on the main page, so that I can update it
-> >a bit with relevant info, and then include the link to the external site
-> >as it's basically a "here is a patch, here is a usage" page, while an
-> >explanation of the different stuff would be nice (such as the forwarding
-> >path, the vlan acceleration, where packets go ...).
-> >
-> What is the external page? If it doesn't exist consider putting the
-> content on the wiki itself so others can improve it.
+On Wed, Jul 26, 2006 at 11:00:13AM +0100, Christoph Hellwig (hch@infradead.org) wrote:
+> >  struct address_space_operations ext2_aops = {
+> > +	.get_block		= ext2_get_block,
 > 
-> Prepare the Wiki page including linking in the existing VLAN link on
-> the front page and then we can see what can be done. You can create a
-> VLAN page without having to change the wiki front page initially...
-> 
-> If it looks good then Stephen, or myself or others can change the front 
-> page.
-> -- 
-> Ian McDonald
-> Web: http://wand.net.nz/~iam4
-> Blog: http://imcdnzl.blogspot.com
-> WAND Network Research Group
-> Department of Computer Science
-> University of Waikato
-> New Zealand
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> No way in hell.  For whatever you do please provide a interface at
+> the readpage/writepage/sendfile/etc abstraction layer.  get_block is
+> nothing that can be exposed to the common code.
 
+Compare this with sync read methods - all they do is exactly the same
+operations with low-level blocks, which are combined into nice exported
+function, so there is _no_ readpage layer - it calls only one function
+which works with blocks.
+
+I would create the same, i.e. async_readpage(), which called kevent's
+functions and processed low-level blocks, just like sync code does, but
+that requires kevent to be deep part of the FS tree.
+
+So I prefer to have
+kevent/some_function_which_works_with_blocks_and_kevents() 
+
+instead of
+fs/some_function_which_works_with_block_and_kevents()
+kevent/call_that_function_like_all_readpage_callbacks_do().
+
+So it is not a technical problem, but political one.
 -- 
------------------------------------------------------------------------
-Christophe Devriese                                               EURiD
-Network Adminstrator / Developer
-christophe.devriese@eth1.org
----------------------------- http://www.eth1.org ----------------------
-
+	Evgeniy Polyakov
