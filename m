@@ -1,10 +1,10 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/5] [IPV6]: Policy Routing Rules
-Date: Wed, 26 Jul 2006 16:40:28 -0700 (PDT)
-Message-ID: <20060726.164028.13029784.davem@davemloft.net>
+Subject: Re: [PATCH 5/5] [IPV4]: Use Protocol Independant Policy Routing
+ Rules Framework
+Date: Wed, 26 Jul 2006 16:47:00 -0700 (PDT)
+Message-ID: <20060726.164700.34544679.davem@davemloft.net>
 References: <20060726221100.325687073@postel.suug.ch>
-	<20060726221850.124450582@postel.suug.ch>
-	<20060726.163343.29813028.davem@davemloft.net>
+	<20060726221850.460778279@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,43 +12,29 @@ Cc: netdev@vger.kernel.org, vnuorval@tcs.hut.fi,
 	usagi-core@linux-ipv6.org, yoshfuji@linux-ipv6.org,
 	anttit@tcs.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:1727
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48086
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750731AbWGZXkN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jul 2006 19:40:13 -0400
+	id S1751747AbWGZXqp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jul 2006 19:46:45 -0400
 To: tgraf@suug.ch
-In-Reply-To: <20060726.163343.29813028.davem@davemloft.net>
+In-Reply-To: <20060726221850.460778279@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 26 Jul 2006 16:33:43 -0700 (PDT)
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 27 Jul 2006 00:00:05 +0200
 
-> Therfore, the better fix seems to be, to change the Makefile
-> rule to be:
-> 
-> ipv6-$(CONFIG_IPV6_MULTIPLE_TABLES) += fib6_rules.o
-> 
-> Ok?
+> Index: net-2.6.git/net/ipv4/fib_rules.c
+> ===================================================================
+> --- net-2.6.git.orig/net/ipv4/fib_rules.c
+> +++ net-2.6.git/net/ipv4/fib_rules.c
+ ...
+> -	new_r = kmalloc(sizeof(*new_r), GFP_KERNEL);
+> -	if (!new_r)
+> -		return -ENOMEM;
+> -	memset(new_r, 0, sizeof(*new_r));
 
-And once this is fixed, new problems crop up :-)
-
-WARNING: net/ipv6/ipv6.o - Section mismatch: reference to .exit.text:fib6_rules_cleanup from .text between 'ip6_route_cleanup' (at offset 0xbfd4) and 'rt6_mtu_change_route'
-WARNING: "fib_rules_dump" [net/ipv6/ipv6.ko] undefined!
-WARNING: "fib_rules_register" [net/ipv6/ipv6.ko] undefined!
-WARNING: "fib_rules_lookup" [net/ipv6/ipv6.ko] undefined!
-WARNING: "fib_rules_unregister" [net/ipv6/ipv6.ko] undefined!
-
-The fib_rules_* cases are easy to fix, simply export
-those symbols using EXPORT_SYMBOL_GPL() in net/core/fib_rules.c
-
-The other problem is a bit more onerous.  ip6_route_cleanup is not
-marked __exit, since it is called from initialization as well as
-exit contexts.  Therefore fib6_rules_cleanup() has to have it's
-__exit marker deleted too.
-
-IPv6 seems to build modular now with all of these issues taken
-care of.  Thomas, please integrate these fixes into your patch.
+When you respin these patches, please regenerate them against
+the current tree which now uses kzalloc() here.
 
 Thanks.
-
