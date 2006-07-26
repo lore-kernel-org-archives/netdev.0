@@ -1,7 +1,7 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 16/24] RT2x00: Fix rt61pci interrupt handling
-Date: Wed, 26 Jul 2006 19:05:36 +0200
-Message-ID: <200607261905.36712.IvDoorn@gmail.com>
+Subject: [PATCH 22/24] RT2x00: Optimize config handlers
+Date: Wed, 26 Jul 2006 19:05:52 +0200
+Message-ID: <200607261905.52685.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -10,10 +10,10 @@ Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from nf-out-0910.google.com ([64.233.182.189]:46239 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1030330AbWGZRHl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 13:07:41 -0400
+	id S1030316AbWGZRHv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 13:07:51 -0400
 Received: by nf-out-0910.google.com with SMTP id o25so812592nfa
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 10:07:40 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 10:07:50 -0700 (PDT)
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -21,247 +21,1161 @@ List-Id: netdev.vger.kernel.org
 
 >From Ivo van Doorn <IvDoorn@gmail.com>
 
-rt61pci irq is a bit different compared to the others,
-when the irq is raised, we should read from the register which
-ring and which entry has been send. And this entry should
-be processed. Using a for loop to go through all entries
-is no longer working since we require certain statistics
-from the registers.
+Optimize the configuration handlers to only run
+when the current configuration has been changed.
+This means we need to store the current setting
+of most configuration options in rt2x00_dev.
 
 Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
 
 ---
 
-diff -rU3 wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt61pci.c 
-wireless-dev-rt61irq/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt61pci.c	
-2006-07-25 14:55:25.000000000 +0200
-+++ wireless-dev-rt61irq/drivers/net/wireless/d80211/rt2x00/rt61pci.c	
-2006-07-25 16:13:19.000000000 +0200
-@@ -1473,72 +1473,119 @@
- 	rt61pci_activity_led(rt2x00dev, total_rssi);
- }
+diff -rU3 wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt2400pci.c 
+wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+--- wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	
+2006-07-26 10:55:31.000000000 +0200
++++ wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	
+2006-07-26 12:49:38.000000000 +0200
+@@ -475,6 +475,14 @@
+ 	u32 reg;
  
--static void rt61pci_txdone(void *data)
-+static void rt61pci_txdone_entry(struct data_entry *entry, u32 sta_csr4)
- {
--	struct data_ring *ring = data;
--	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(ring->net_dev);
--	struct data_entry *entry;
-+	struct rt2x00_dev *rt2x00dev =
-+		ieee80211_dev_hw_data(entry->ring->net_dev);
- 	struct txd *txd;
- 	int tx_status;
- 	int ack;
--	int reg;
- 	int ring_full;
- 
-+	txd = rt2x00pci_desc_addr(entry);
-+
-+	if (rt2x00_get_field32(txd->word0, TXD_W0_OWNER_NIC) ||
-+	    !rt2x00_get_field32(txd->word0, TXD_W0_VALID))
+ 	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (type == rt2x00dev->interface.type ||
++	    (rt2x00dev->interface.monitor_count ^
++	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
 +		return;
 +
-+	ack = rt2x00_get_field32(txd->word0, TXD_W0_ACK);
-+
- 	/*
--	 * Store the current status of the ring.
-+	 * TODO: How can te below field be set correctly?
++	/*
+ 	 * Apply hardware packet filter.
  	 */
--	ring_full = rt2x00_ring_full(ring);
-+	entry->tx_status.tx_filtered = 0;
- 
--	while (!rt2x00_ring_empty(ring)) {
--		entry = rt2x00_get_data_entry_done(ring);
--		txd = rt2x00pci_desc_addr(entry);
-+	entry->tx_status.queue_length = entry->ring->stats.limit;
- 
--		rt2x00_register_read(rt2x00dev, STA_CSR4, &reg);
-+	/*
-+	 * The TXD_W0_RESULT field will only be set when
-+	 * we had requested an ACK. So we have received an
-+	 * ACK response when ACK was requested and status
-+	 * was succesfull.
-+	 */
-+	tx_status = rt2x00_get_field32(sta_csr4, STA_CSR4_TX_RESULT);
-+	entry->tx_status.ack = 0;
-+	if (ack && (tx_status == TX_SUCCESS ||
-+	    tx_status == TX_SUCCESS_RETRY))
-+		entry->tx_status.ack = 1;
-+	else if (ack && tx_status == TX_FAIL_RETRY) {
-+		rt2x00dev->low_level_stats.dot11ACKFailureCount++;
-+		entry->tx_status.excessive_retries++;
-+	}
- 
--		if (rt2x00_get_field32(txd->word0, TXD_W0_OWNER_NIC) ||
--		    !rt2x00_get_field32(txd->word0, TXD_W0_VALID) ||
--		    !rt2x00_get_field32(reg, STA_CSR4_VALID))
--			break;
-+	rt2x00_bbp_read(rt2x00dev, 32,
-+		(u8*)&entry->tx_status.ack_signal);
- 
--		ack = rt2x00_get_field32(txd->word0, TXD_W0_ACK);
-+	entry->tx_status.retry_count = rt2x00_get_field32(
-+		sta_csr4, STA_CSR4_RETRY_COUNT);
- 
--		/*
--		 * TODO: How can te below field be set correctly?
--		 */
--		entry->tx_status.tx_filtered = 0;
-+	if (!GET_FLAG(entry, ENTRY_RTS_FRAME))
-+		ieee80211_tx_status(entry->ring->net_dev,
-+			entry->skb, &entry->tx_status);
- 
--		entry->tx_status.queue_length = ring->stats.limit;
-+	rt2x00_set_field32(&txd->word0, TXD_W0_VALID, 0);
-+	entry->skb = NULL;
- 
--		/*
--		 * The TXD_W0_RESULT field will only be set when
--		 * we had requested an ACK. So we have received an
--		 * ACK response when ACK was requested and status
--		 * was succesfull.
--		 */
--		tx_status = rt2x00_get_field32(reg, STA_CSR4_TX_RESULT);
--		entry->tx_status.ack = 0;
--		if (ack && (tx_status == TX_SUCCESS ||
--		    tx_status == TX_SUCCESS_RETRY))
--			entry->tx_status.ack = 1;
--		else if (ack && tx_status == TX_FAIL_RETRY) {
--			rt2x00dev->low_level_stats.dot11ACKFailureCount++;
--			entry->tx_status.excessive_retries++;
--		}
-+	/*
-+	 * Store the current status of the ring.
-+	 */
-+	ring_full = rt2x00_ring_full(entry->ring);
- 
--		rt2x00_bbp_read(rt2x00dev, 32,
--			(u8*)&entry->tx_status.ack_signal);
-+	rt2x00_ring_index_done_inc(entry->ring);
- 
--		entry->tx_status.retry_count = rt2x00_get_field32(
--			reg, STA_CSR4_RETRY_COUNT);
-+	/*
-+	 * If the data ring was full before the txdone handler
-+	 * we must make sure the packet queue in the d80211 stack
-+	 * is reenabled when the txdone handler has finished.
-+	 */
-+	if (ring_full && !rt2x00_ring_full(entry->ring))
-+		ieee80211_wake_queue(entry->ring->net_dev,
-+			entry->tx_status.control.queue);
-+}
- 
--		if (!GET_FLAG(entry, ENTRY_RTS_FRAME))
--			ieee80211_tx_status(ring->net_dev,
--				entry->skb, &entry->tx_status);
-+static void rt61pci_txdone(void *data)
-+{
-+	struct data_ring *ring = data;
-+	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(ring->net_dev);
-+	int index;
-+	int reg;
- 
--		rt2x00_set_field32(&txd->word0, TXD_W0_VALID, 0);
--		entry->skb = NULL;
-+	/*
-+	 * Keep looping while STA_CSR4 contains value data.
-+	 * at each read the value will be reset to a new value,
-+	 * which we should check since it contains the ring
-+	 * and index number of the entry which has been
-+	 * completely transmitted.
-+	 */
-+	while (1) {
-+		/*
-+		 * Stop looping when the entry is invalid.
-+		 */
-+		rt2x00_register_read(rt2x00dev, STA_CSR4, &reg);
-+		if (!rt2x00_get_field32(reg, STA_CSR4_VALID))
-+			break;
- 
--		rt2x00_ring_index_done_inc(ring);
-+		/*
-+		 * Skip this entry when it contains an invalid
-+		 * ring identication number.
-+		 */
-+		ring = rt2x00_get_ring(rt2x00dev,
-+			rt2x00_get_field32(reg, STA_CSR4_PID_TYPE));
-+		if (unlikely(!ring))
-+			continue;
-+
-+		/*
-+		 * Skip this entry when it contains an invalid
-+		 * index number.
-+		 */
-+		index = rt2x00_get_field32(reg, STA_CSR4_PID_SUBTYPE);
-+		if (unlikely(index >= ring->stats.limit))
-+			continue;
-+
-+		/*
-+		 * Packet received correctly, we can now process it.
-+		 */
-+		rt61pci_txdone_entry(&ring->entry[index], reg);
- 	}
- 
+ 	rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
+@@ -520,7 +528,13 @@
  	/*
-@@ -1554,16 +1601,6 @@
- 		rt2x00dev->scan->status = SCANNING_READY;
- 		complete(&rt2x00dev->scan->completion);
- 	}
--
--	/*
--	 * If the data ring was full before the txdone handler
--	 * we must make sure the packet queue in the d80211 stack
--	 * is reenabled when the txdone handler has finished.
--	 */
--	entry = ring->entry;
--	if (ring_full && !rt2x00_ring_full(ring))
--		ieee80211_wake_queue(ring->net_dev,
--			entry->tx_status.control.queue);
+ 	 * Update working mode.
+ 	 */
+-	rt2x00dev->interface.type = type;
++	if (type != IEEE80211_IF_TYPE_MNTR)
++		rt2x00dev->interface.type = type;
++
++	if (rt2x00dev->interface.monitor_count)
++		SET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
++	else
++		CLEAR_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
  }
  
- static irqreturn_t rt61pci_interrupt(int irq, void *dev_instance,
-@@ -1966,6 +2003,8 @@
- 		rt2x00_set_field32(&txd->word1, TXD_W1_BUFFER_COUNT, 1);
- 		rt2x00_set_field32(&txd->word6, TXD_W6_BUFFER_PHYSICAL_ADDRESS,
- 			ring->entry[i].data_dma);
-+		rt2x00_set_field32(&txd->word5, TXD_W5_PID_TYPE, ring->type);
-+		rt2x00_set_field32(&txd->word5, TXD_W5_PID_SUBTYPE, i);
+ static void rt2400pci_config_channel(struct rt2x00_dev *rt2x00dev,
+@@ -529,6 +543,12 @@
+ 	u32 rf1 = rt2x00dev->rf1;
+ 	u32 rf3 = rt2x00dev->rf3;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (channel == rt2x00dev->rx_params.channel)
++		return;
++
+ 	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x.\n",
+ 		rf1, rf2, rf3);
+ 
+@@ -575,15 +595,31 @@
+ 	rt2x00dev->rx_params.channel = channel;
+ 
+ 	/*
++	 * Update rf fields
++	 */
++	rt2x00dev->rf1 = rf1;
++	rt2x00dev->rf2 = rf2;
++	rt2x00dev->rf3 = rf3;
++
++	/*
+ 	 * Clear false CRC during channel switch.
+ 	 */
+ 	rt2x00_register_read(rt2x00dev, CNT0, &rf1);
+ }
+ 
+-static void rt2400pci_config_txpower(struct rt2x00_dev *rt2x00dev, u8 
+txpower)
++static void rt2400pci_config_txpower(struct rt2x00_dev *rt2x00dev, int 
+txpower)
+ {
+ 	txpower = TXPOWER_TO_DEV(txpower);
++
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (txpower == rt2x00dev->tx_power)
++		return;
++
+ 	rt2x00_bbp_write(rt2x00dev, 3, txpower);
++
++	rt2x00dev->tx_power = txpower;
+ }
+ 
+ static void rt2400pci_config_antenna(struct rt2x00_dev *rt2x00dev, int 
+antenna)
+@@ -591,6 +627,12 @@
+ 	u8 reg_rx;
+ 	u8 reg_tx;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (rt2x00dev->rx_params.antenna == antenna)
++		return;
++
+ 	rt2x00_bbp_read(rt2x00dev, 4, &reg_rx);
+ 	rt2x00_bbp_read(rt2x00dev, 1, &reg_tx);
+ 
+@@ -713,6 +755,12 @@
+ {
+ 	struct ieee80211_rate *rate;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (rt2x00dev->rx_params.phymode == phymode)
++		return;
++
+ 	rate = &rt2x00dev->hw.modes[0].rates[
+ 		rt2x00dev->hw.modes[0].num_rates - 1];
+ 
+@@ -1760,6 +1808,9 @@
+ 	if (!reg)
+ 		return IRQ_NONE;
+ 
++	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
++		return IRQ_HANDLED;
++
+ 	/*
+ 	 * Handle interrupts, walk through all bits
+ 	 * and run the tasks, the bits are checked in order of
+@@ -1982,12 +2033,17 @@
+ 	u32 reg;
+ 
+ 	/*
+-	 * Some configuration changes require the RX to be disabled.
++	 * Check if we need to disable the radio,
++	 * if this is not the case, at least the RX must be disabled.
+ 	 */
+ 	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-		rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
+-		rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 1);
+-		rt2x00_register_write(rt2x00dev, RXCSR0, reg);
++		if (!conf->radio_enabled)
++			rt2400pci_disable_radio(rt2x00dev);
++		else {
++			rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
++			rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 1);
++			rt2x00_register_write(rt2x00dev, RXCSR0, reg);
++		}
  	}
  
- 	rt2x00_ring_index_clear(ring);
-diff -rU3 wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt61pci.h 
-wireless-dev-rt61irq/drivers/net/wireless/d80211/rt2x00/rt61pci.h
---- wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt61pci.h	
-2006-07-25 10:09:44.000000000 +0200
-+++ wireless-dev-rt61irq/drivers/net/wireless/d80211/rt2x00/rt61pci.h	
-2006-07-25 16:10:20.000000000 +0200
-@@ -633,8 +633,8 @@
- #define STA_CSR4_VALID			FIELD32(0x00000001)
- #define STA_CSR4_TX_RESULT		FIELD32(0x0000000e)
- #define STA_CSR4_RETRY_COUNT		FIELD32(0x000000f0)
--#define STA_CSR4_PID_SUBTYPE		FIELD32(0x00003f00)
--#define STA_CSR4_PID_TYPE		FIELD32(0x0000c000)
-+#define STA_CSR4_PID_SUBTYPE		FIELD32(0x00001f00)
-+#define STA_CSR4_PID_TYPE		FIELD32(0x0000e000)
- #define STA_CSR4_TXRATE			FIELD32(0x000f0000)
+ 	rt2400pci_config_channel(rt2x00dev,
+@@ -2000,24 +2056,13 @@
+ 	/*
+ 	 * Reenable RX only if the radio should be on.
+ 	 */
+-	if (conf->radio_enabled) {
+-		if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-			if (rt2400pci_open(net_dev)) {
+-				ERROR("Failed to enabled radio.\n");
+-				return;
+-			}
+-		} else {
+-			rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
+-			rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 0);
+-			rt2x00_register_write(rt2x00dev, RXCSR0, reg);
+-		}
+-	} else {
+-		if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-			if (rt2400pci_stop(net_dev)) {
+-				ERROR("Failed to disable radio.\n");
+-				return;
+-			}
+-		}
++	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
++		rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
++		rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 0);
++		rt2x00_register_write(rt2x00dev, RXCSR0, reg);
++	} else if (conf->radio_enabled) {
++		if (rt2400pci_enable_radio(rt2x00dev))
++			return;
+ 	}
+ }
  
- /*
-@@ -1172,13 +1172,15 @@
- /*
-  * WORD5
-  * FRAME_OFFSET: Frame start offset inside ASIC TXFIFO (after TXINFO field).
-- * PACKET_ID: Driver assigned packet ID to categorize TXResult in interrupt.
-+ * TXD_W5_PID_SUBTYPE: Driver assigned packet ID index for txdone handler.
-+ * TXD_W5_PID_TYPE: Driver assigned packet ID type for txdone handler.
-  * WAITING_DMA_DONE_INT: TXD been filled with data
-  * and waiting for TxDoneISR housekeeping.
-  */
- 	__le32 word5;
- #define TXD_W5_FRAME_OFFSET		FIELD32(0x000000ff)
--#define TXD_W5_PACKET_ID		FIELD32(0x0000ff00)
-+#define TXD_W5_PID_SUBTYPE		FIELD32(0x00001f00)
-+#define TXD_W5_PID_TYPE			FIELD32(0x0000e000)
- #define TXD_W5_TX_POWER			FIELD32(0x00ff0000)
- #define TXD_W5_WAITING_DMA_DONE_INT	FIELD32(0x01000000)
+@@ -2141,10 +2186,20 @@
+ {
+ 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+ 
++	/*
++	 * Check if we are not busy with the previous
++	 * passive scan request.
++	 */
+ 	if (rt2x00dev->scan)
+ 		return -EBUSY;
+ 
+ 	/*
++	 * Check if the radio is enabled.
++	 */
++	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
++		return -EIO;
++
++	/*
+ 	 * Allocate scanning structure to store scanning info.
+ 	 */
+ 	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
+@@ -2443,6 +2498,9 @@
+ 	struct net_device *net_dev = pci_get_drvdata(rt2x00dev_pci(rt2x00dev));
+ 	u32 reg[2] = { 0, 0 };
+ 
++	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
++		return 0;
++
+ 	rt2x00_register_multiread(rt2x00dev, CSR3, &reg[0], sizeof(reg));
+ 
+ 	net_dev->dev_addr[0] = rt2x00_get_field32(reg[0], CSR3_BYTE0);
+@@ -2454,6 +2512,10 @@
+ 
+ 	net_dev->addr_len = 6;
+ 
++	if (!is_valid_ether_addr(&net_dev->dev_addr[0]))
++		return -EINVAL;
++
++	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
+ 	return 0;
+ }
+ 
+diff -rU3 wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt2500pci.c 
+wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+--- wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	
+2006-07-26 10:56:10.000000000 +0200
++++ wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	
+2006-07-26 12:50:25.000000000 +0200
+@@ -475,6 +475,14 @@
+ 	u32 reg;
+ 
+ 	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (type == rt2x00dev->interface.type ||
++	    (rt2x00dev->interface.monitor_count ^
++	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
++		return;
++
++	/*
+ 	 * Apply hardware packet filter.
+ 	 */
+ 	rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
+@@ -523,7 +531,13 @@
+ 	/*
+ 	 * Update working mode.
+ 	 */
+-	rt2x00dev->interface.type = type;
++	if (type != IEEE80211_IF_TYPE_MNTR)
++		rt2x00dev->interface.type = type;
++
++	if (rt2x00dev->interface.monitor_count)
++		SET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
++	else
++		CLEAR_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
+ }
+ 
+ static void rt2500pci_config_channel(struct rt2x00_dev *rt2x00dev,
+@@ -533,6 +547,12 @@
+ 	u32 rf3 = rt2x00dev->rf3;
+ 	u32 rf4 = rt2x00dev->rf4;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (channel == rt2x00dev->rx_params.channel)
++		return;
++
+ 	if (txpower == 0xff)
+ 		txpower = rt2x00dev->tx_power;
+ 	txpower = TXPOWER_TO_DEV(txpower);
+@@ -559,14 +579,14 @@
+ 		}
+ 	}
+ 
+-	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x, "
+-		"RF4: 0x%08x.\n", rf1, rf2, rf3, rf4);
+-
+ 	/*
+ 	 * Set TXpower.
+ 	 */
+ 	rt2x00_set_field32(&rf3, RF3_TXPOWER, txpower);
+ 
++	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x, "
++		"RF4: 0x%08x.\n", rf1, rf2, rf3, rf4);
++
+ 	/*
+ 	 * For RT2525 we should first set the channel to half band higher.
+ 	 */
+@@ -611,6 +631,16 @@
+ 	rt2x00dev->rx_params.channel = channel;
+ 
+ 	/*
++	 * Update rf fields
++	 */
++	rt2x00dev->rf1 = rf1;
++	rt2x00dev->rf2 = rf2;
++	rt2x00dev->rf3 = rf3;
++	rt2x00dev->rf4 = rf4;
++
++	rt2x00dev->tx_power = txpower;
++
++	/*
+ 	 * Clear false CRC during channel switch.
+ 	 */
+ 	rt2x00_register_read(rt2x00dev, CNT0, &rf1);
+@@ -620,8 +650,16 @@
+ {
+ 	txpower = TXPOWER_TO_DEV(txpower);
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (txpower == rt2x00dev->tx_power)
++		return;
++
+ 	rt2x00_set_field32(&rt2x00dev->rf3, RF3_TXPOWER, txpower);
+ 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf3);
++
++	rt2x00dev->tx_power = txpower;
+ }
+ 
+ static void rt2500pci_config_antenna(struct rt2x00_dev *rt2x00dev, int 
+antenna)
+@@ -630,6 +668,12 @@
+ 	u8 reg_rx;
+ 	u8 reg_tx;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (rt2x00dev->rx_params.antenna == antenna)
++		return;
++
+ 	rt2x00_register_read(rt2x00dev, BBPCSR1, &reg);
+ 	rt2x00_bbp_read(rt2x00dev, 14, &reg_rx);
+ 	rt2x00_bbp_read(rt2x00dev, 2, &reg_tx);
+@@ -768,6 +812,12 @@
+ {
+ 	struct ieee80211_rate *rate;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (rt2x00dev->rx_params.phymode == phymode)
++		return;
++
+ 	if (phymode == MODE_IEEE80211A &&
+ 	    rt2x00_rf(&rt2x00dev->chip, RF5222))
+ 		rate = &rt2x00dev->hw.modes[2].rates[
+@@ -1896,6 +1946,9 @@
+ 	if (!reg)
+ 		return IRQ_NONE;
+ 
++	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
++		return IRQ_HANDLED;
++
+ 	/*
+ 	 * Handle interrupts, walk through all bits
+ 	 * and run the tasks, the bits are checked in order of
+@@ -2117,12 +2170,17 @@
+ 	u32 reg;
+ 
+ 	/*
+-	 * Some configuration changes require the RX to be disabled.
++	 * Check if we need to disable the radio,
++	 * if this is not the case, at least the RX must be disabled.
+ 	 */
+ 	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-		rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
+-		rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 1);
+-		rt2x00_register_write(rt2x00dev, RXCSR0, reg);
++		if (!conf->radio_enabled)
++			rt2500pci_disable_radio(rt2x00dev);
++		else {
++			rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
++			rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 1);
++			rt2x00_register_write(rt2x00dev, RXCSR0, reg);
++		}
+ 	}
+ 
+ 	rt2500pci_config_channel(rt2x00dev,
+@@ -2136,24 +2194,13 @@
+ 	/*
+ 	 * Reenable RX only if the radio should be on.
+ 	 */
+-	if (conf->radio_enabled) {
+-		if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-			if (rt2500pci_open(net_dev)) {
+-				ERROR("Failed to enabled radio.\n");
+-				return;
+-			}
+-		} else {
+-			rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
+-			rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 0);
+-			rt2x00_register_write(rt2x00dev, RXCSR0, reg);
+-		}
+-	} else {
+-		if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-			if (rt2500pci_stop(net_dev)) {
+-				ERROR("Failed to disable radio.\n");
+-				return;
+-			}
+-		}
++	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
++		rt2x00_register_read(rt2x00dev, RXCSR0, &reg);
++		rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 0);
++		rt2x00_register_write(rt2x00dev, RXCSR0, reg);
++	} else if (conf->radio_enabled) {
++		if (rt2500pci_enable_radio(rt2x00dev))
++			return;
+ 	}
+ }
+ 
+@@ -2273,10 +2320,20 @@
+ {
+ 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+ 
++	/*
++	 * Check if we are not busy with the previous
++	 * passive scan request.
++	 */
+ 	if (rt2x00dev->scan)
+ 		return -EBUSY;
+ 
+ 	/*
++	 * Check if the radio is enabled.
++	 */
++	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
++		return -EIO;
++
++	/*
+ 	 * Allocate scanning structure to store scanning info.
+ 	 */
+ 	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
+@@ -2583,6 +2640,9 @@
+ 	struct net_device *net_dev = pci_get_drvdata(rt2x00dev_pci(rt2x00dev));
+ 	u32 reg[2] = { 0, 0 };
+ 
++	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
++		return 0;
++
+ 	rt2x00_register_multiread(rt2x00dev, CSR3, &reg[0], sizeof(reg));
+ 
+ 	net_dev->dev_addr[0] = rt2x00_get_field32(reg[0], CSR3_BYTE0);
+@@ -2594,6 +2654,10 @@
+ 
+ 	net_dev->addr_len = 6;
+ 
++	if (!is_valid_ether_addr(&net_dev->dev_addr[0]))
++		return -EINVAL;
++
++	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
+ 	return 0;
+ }
+ 
+diff -rU3 wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt2500usb.c 
+wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+--- wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	
+2006-07-26 10:56:11.000000000 +0200
++++ wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	
+2006-07-26 12:50:28.000000000 +0200
+@@ -325,6 +325,14 @@
+ 	u16 reg;
+ 
+ 	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (type == rt2x00dev->interface.type ||
++	    (rt2x00dev->interface.monitor_count ^
++	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
++		return;
++
++	/*
+ 	 * Apply hardware packet filter.
+ 	 */
+ 	rt2x00_register_read(rt2x00dev, TXRX_CSR2, &reg);
+@@ -370,7 +378,13 @@
+ 	/*
+ 	 * Update working mode.
+ 	 */
+-	rt2x00dev->interface.type = type;
++	if (type != IEEE80211_IF_TYPE_MNTR)
++		rt2x00dev->interface.type = type;
++
++	if (rt2x00dev->interface.monitor_count)
++		SET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
++	else
++		CLEAR_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
+ }
+ 
+ static void rt2500usb_config_channel(struct rt2x00_dev *rt2x00dev,
+@@ -380,6 +394,12 @@
+ 	u32 rf3 = rt2x00dev->rf3;
+ 	u32 rf4 = rt2x00dev->rf4;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (channel == rt2x00dev->rx_params.channel)
++		return;
++
+ 	if (txpower == 0xff)
+ 		txpower = rt2x00dev->tx_power;
+ 	txpower = TXPOWER_TO_DEV(txpower);
+@@ -418,11 +438,14 @@
+ 		}
+ 	}
+ 
++	/*
++	 * Set TXpower.
++	 */
++	rt2x00_set_field32_nb(&rf3, RF3_TXPOWER, txpower);
++
+ 	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x, "
+ 		"RF4: 0x%08x.\n", rf1, rf2, rf3, rf4);
+ 
+-	rt2x00_set_field32_nb(&rf3, RF3_TXPOWER, txpower);
+-
+ 	/*
+ 	 * For RT2525E we should first set the channel to half band higher.
+ 	 */
+@@ -443,14 +466,34 @@
+ 	 */
+ 	rt2x00dev->rx_params.freq = freq;
+ 	rt2x00dev->rx_params.channel = channel;
++
++	rt2x00dev->tx_power = txpower;
++
++	/*
++	 * Update rf fields
++	 */
++	rt2x00dev->rf1 = rf1;
++	rt2x00dev->rf2 = rf2;
++	rt2x00dev->rf3 = rf3;
++	rt2x00dev->rf4 = rf4;
++
++	rt2x00dev->tx_power = txpower;
+ }
+ 
+ static void rt2500usb_config_txpower(struct rt2x00_dev *rt2x00dev, int 
+txpower)
+ {
+ 	txpower = TXPOWER_TO_DEV(txpower);
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (txpower == rt2x00dev->tx_power)
++		return;
++
+ 	rt2x00_set_field32_nb(&rt2x00dev->rf3, RF3_TXPOWER, txpower);
+ 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf3);
++
++	rt2x00dev->tx_power = txpower;
+ }
+ 
+ static void rt2500usb_config_antenna(struct rt2x00_dev *rt2x00dev, int 
+antenna)
+@@ -460,6 +503,12 @@
+ 	u16 csr5_reg;
+ 	u16 csr6_reg;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (rt2x00dev->rx_params.antenna == antenna)
++		return;
++
+ 	rt2x00_bbp_read(rt2x00dev, 2, &reg_tx);
+ 	rt2x00_bbp_read(rt2x00dev, 14, &reg_rx);
+ 	rt2x00_register_read(rt2x00dev, PHY_CSR5, &csr5_reg);
+@@ -578,6 +627,12 @@
+ {
+ 	struct ieee80211_rate *rate;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (rt2x00dev->rx_params.phymode == phymode)
++		return;
++
+ 	if (phymode == MODE_IEEE80211A &&
+ 	    rt2x00_rf(&rt2x00dev->chip, RF5222))
+ 		rate = &rt2x00dev->hw.modes[2].rates[
+@@ -1819,12 +1874,17 @@
+ 	u16 reg;
+ 
+ 	/*
+-	 * Some configuration changes require the RX to be disabled.
++	 * Check if we need to disable the radio,
++	 * if this is not the case, at least the RX must be disabled.
+ 	 */
+ 	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-		rt2x00_register_read(rt2x00dev, TXRX_CSR2, &reg);
+-		rt2x00_set_field16_nb(&reg, TXRX_CSR2_DISABLE_RX, 1);
+-		rt2x00_register_write(rt2x00dev, TXRX_CSR2, reg);
++		if (!conf->radio_enabled)
++			rt2500usb_disable_radio(rt2x00dev);
++		else {
++			rt2x00_register_read(rt2x00dev, TXRX_CSR2, &reg);
++			rt2x00_set_field16_nb(&reg, TXRX_CSR2_DISABLE_RX, 1);
++			rt2x00_register_write(rt2x00dev, TXRX_CSR2, reg);
++		}
+ 	}
+ 
+ 	rt2500usb_config_channel(rt2x00dev,
+@@ -1838,24 +1898,13 @@
+ 	/*
+ 	 * Reenable RX only if the radio should be on.
+ 	 */
+-	if (conf->radio_enabled) {
+-		if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-			if (rt2500usb_open(net_dev)) {
+-				ERROR("Failed to enabled radio.\n");
+-				return;
+-			}
+-		} else {
+-			rt2x00_register_read(rt2x00dev, TXRX_CSR2, &reg);
+-			rt2x00_set_field16_nb(&reg, TXRX_CSR2_DISABLE_RX, 0);
+-			rt2x00_register_write(rt2x00dev, TXRX_CSR2, reg);
+-		}
+-	} else {
+-		if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-			if (rt2500usb_stop(net_dev)) {
+-				ERROR("Failed to disable radio.\n");
+-				return;
+-			}
+-		}
++	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
++		rt2x00_register_read(rt2x00dev, TXRX_CSR2, &reg);
++		rt2x00_set_field16_nb(&reg, TXRX_CSR2_DISABLE_RX, 0);
++		rt2x00_register_write(rt2x00dev, TXRX_CSR2, reg);
++	} else if (conf->radio_enabled) {
++		if (rt2500usb_enable_radio(rt2x00dev))
++			return;
+ 	}
+ }
+ 
+@@ -1985,10 +2034,20 @@
+ {
+ 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+ 
++	/*
++	 * Check if we are not busy with the previous
++	 * passive scan request.
++	 */
+ 	if (rt2x00dev->scan)
+ 		return -EBUSY;
+ 
+ 	/*
++	 * Check if the radio is enabled.
++	 */
++	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
++		return -EIO;
++
++	/*
+ 	 * Allocate scanning structure to store scanning info.
+ 	 */
+ 	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
+@@ -2241,6 +2300,9 @@
+ 		usb_get_intfdata(rt2x00dev_usb(rt2x00dev));
+ 	u16 eeprom[3] = { 0, 0, 0 };
+ 
++	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
++		return 0;
++
+ 	/*
+ 	 * Read MAC address from EEPROM.
+ 	 */
+@@ -2261,6 +2323,10 @@
+ 
+ 	net_dev->addr_len = 6;
+ 
++	if (!is_valid_ether_addr(&net_dev->dev_addr[0]))
++		return -EINVAL;
++
++	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
+ 	return 0;
+ }
+ 
+diff -rU3 wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt61pci.c 
+wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt61pci.c	
+2006-07-26 10:56:17.000000000 +0200
++++ wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt61pci.c	
+2006-07-26 12:50:33.000000000 +0200
+@@ -506,6 +506,14 @@
+ 	u32 reg;
+ 
+ 	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (type == rt2x00dev->interface.type ||
++	    (rt2x00dev->interface.monitor_count ^
++	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
++		return;
++
++	/*
+ 	 * Apply hardware packet filter.
+ 	 */
+ 	rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
+@@ -554,7 +562,13 @@
+ 	/*
+ 	 * Update working mode.
+ 	 */
+-	rt2x00dev->interface.type = type;
++	if (type != IEEE80211_IF_TYPE_MNTR)
++		rt2x00dev->interface.type = type;
++
++	if (rt2x00dev->interface.monitor_count)
++		SET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
++	else
++		CLEAR_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
+ }
+ 
+ static void rt61pci_config_channel(struct rt2x00_dev *rt2x00dev,
+@@ -565,6 +579,12 @@
+ 	u32 rf3 = 0;
+ 	u32 rf4 = 0;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (channel == rt2x00dev->rx_params.channel)
++		return;
++
+ 	if (txpower == 0xff)
+ 		txpower = rt2x00dev->tx_power;
+ 	txpower = TXPOWER_TO_DEV(txpower);
+@@ -735,14 +755,14 @@
+ 		}
+ 	}
+ 
+-	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x, "
+-		"RF4: 0x%08x.\n", rf1, rf2, rf3, rf4);
+-
+ 	/*
+ 	 * Set TXpower.
+ 	 */
+ 	rt2x00_set_field32(&rf3, RF3_TXPOWER, txpower);
+ 
++	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x, "
++		"RF4: 0x%08x.\n", rf1, rf2, rf3, rf4);
++
+ 	/*
+ 	 * Set Frequency offset.
+ 	 */
+@@ -782,12 +802,28 @@
+ 	 */
+ 	rt2x00dev->rx_params.freq = freq;
+ 	rt2x00dev->rx_params.channel = channel;
++
++	rt2x00dev->tx_power = txpower;
++
++	/*
++	 * Update rf fields
++	 */
++	rt2x00dev->rf1 = rf1;
++	rt2x00dev->rf2 = rf2;
++	rt2x00dev->rf3 = rf3;
++	rt2x00dev->rf4 = rf4;
+ }
+ 
+ static void rt61pci_config_txpower(struct rt2x00_dev *rt2x00dev, int txpower)
+ {
+ 	txpower = TXPOWER_TO_DEV(txpower);
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (txpower == rt2x00dev->tx_power)
++		return;
++
+ 	rt2x00_set_field32(&rt2x00dev->rf3, RF3_TXPOWER, txpower);
+ 
+ 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf1);
+@@ -808,6 +844,8 @@
+ 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf2);
+ 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf3 & ~cpu_to_le32(0x00000004));
+ 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf4);
++
++	rt2x00dev->tx_power = txpower;
+ }
+ 
+ static void rt61pci_config_antenna(struct rt2x00_dev *rt2x00dev,
+@@ -819,6 +857,12 @@
+ 	u8 reg_r77;
+ 	u8 frame_type;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (rt2x00dev->rx_params.antenna == antenna)
++		return;
++
+ 	rt2x00_register_read(rt2x00dev, PHY_CSR0, &reg);
+ 
+ 	if (phymode == MODE_IEEE80211A) {
+@@ -997,6 +1041,12 @@
+ {
+ 	struct ieee80211_rate *rate;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (rt2x00dev->rx_params.phymode == phymode)
++		return;
++
+ 	if (phymode == MODE_IEEE80211A &&
+ 	    (rt2x00_rf(&rt2x00dev->chip, RF5225) ||
+ 	    rt2x00_rf(&rt2x00dev->chip, RF5325)))
+@@ -2400,6 +2450,9 @@
+ 	if (!reg)
+ 		return IRQ_NONE;
+ 
++	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
++		return IRQ_HANDLED;
++
+ 	/*
+ 	 * Handle interrupts, walk through all bits
+ 	 * and run the tasks, the bits are checked in order of
+@@ -2632,12 +2685,17 @@
+ 	u32 reg;
+ 
+ 	/*
+-	 * Some configuration changes require the RX to be disabled.
++	 * Check if we need to disable the radio,
++	 * if this is not the case, at least the RX must be disabled.
+ 	 */
+ 	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-		rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
+-		rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 1);
+-		rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
++		if (!conf->radio_enabled)
++			rt61pci_disable_radio(rt2x00dev);
++		else {
++			rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
++			rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 1);
++			rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
++		}
+ 	}
+ 
+ 	rt61pci_config_channel(rt2x00dev,
+@@ -2651,24 +2709,13 @@
+ 	/*
+ 	 * Reenable RX only if the radio should be on.
+ 	 */
+-	if (conf->radio_enabled) {
+-		if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-			if (rt61pci_open(net_dev)) {
+-				ERROR("Failed to enabled radio.\n");
+-				return;
+-			}
+-		} else {
+-			rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
+-			rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 0);
+-			rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
+-		}
+-	} else {
+-		if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-			if (rt61pci_stop(net_dev)) {
+-				ERROR("Failed to disable radio.\n");
+-				return;
+-			}
+-		}
++	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
++		rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
++		rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 0);
++		rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
++	} else if (conf->radio_enabled) {
++		if (rt61pci_enable_radio(rt2x00dev))
++			return;
+ 	}
+ }
+ 
+@@ -2788,10 +2835,20 @@
+ {
+ 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+ 
++	/*
++	 * Check if we are not busy with the previous
++	 * passive scan request.
++	 */
+ 	if (rt2x00dev->scan)
+ 		return -EBUSY;
+ 
+ 	/*
++	 * Check if the radio is enabled.
++	 */
++	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
++		return -EIO;
++
++	/*
+ 	 * Allocate scanning structure to store scanning info.
+ 	 */
+ 	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
+@@ -3143,7 +3200,10 @@
+ static int rt61pci_init_mac(struct rt2x00_dev *rt2x00dev)
+ {
+ 	struct net_device *net_dev = pci_get_drvdata(rt2x00dev_pci(rt2x00dev));
+-	u16 eeprom[3];
++	u16 eeprom[3] = { 0, 0, 0 };
++
++	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
++		return 0;
+ 
+ 	/*
+ 	 * Read MAC address from EEPROM.
+@@ -3165,6 +3225,10 @@
+ 
+ 	net_dev->addr_len = 6;
+ 
++	if (!is_valid_ether_addr(&net_dev->dev_addr[0]))
++		return -EINVAL;
++
++	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
+ 	return 0;
+ }
+ 
+diff -rU3 wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt73usb.c 
+wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev-control/drivers/net/wireless/d80211/rt2x00/rt73usb.c	
+2006-07-26 10:56:20.000000000 +0200
++++ wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt73usb.c	
+2006-07-26 12:50:39.000000000 +0200
+@@ -327,6 +327,14 @@
+ 	u32 reg;
+ 
+ 	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (type == rt2x00dev->interface.type ||
++	    (rt2x00dev->interface.monitor_count ^
++	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
++		return;
++
++	/*
+ 	 * Apply hardware packet filter.
+ 	 */
+ 	rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
+@@ -375,7 +383,13 @@
+ 	/*
+ 	 * Update working mode.
+ 	 */
+-	rt2x00dev->interface.type = type;
++	if (type != IEEE80211_IF_TYPE_MNTR)
++		rt2x00dev->interface.type = type;
++
++	if (rt2x00dev->interface.monitor_count)
++		SET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
++	else
++		CLEAR_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR);
+ }
+ 
+ static void rt73usb_config_channel(struct rt2x00_dev *rt2x00dev,
+@@ -386,6 +400,12 @@
+ 	u32 rf3 = rt2x00dev->rf3;
+ 	u32 rf4 = 0;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (channel == rt2x00dev->rx_params.channel)
++		return;
++
+ 	if (txpower == 0xff)
+ 		txpower = rt2x00dev->tx_power;
+ 	txpower = TXPOWER_TO_DEV(txpower);
+@@ -463,14 +483,14 @@
+ 	    rt2x00_rf(&rt2x00dev->chip, RF5225))
+ 		rf4 |= 0x00010000;
+ 
+-	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x, "
+-		"RF4: 0x%08x.\n", rf1, rf2, rf3, rf4);
+-
+ 	/*
+ 	 * Set TXpower.
+ 	 */
+ 	rt2x00_set_field32(&rf3, RF3_TXPOWER, txpower);
+ 
++	INFO("Switching channel. RF1: 0x%08x, RF2: 0x%08x, RF3: 0x%08x, "
++		"RF4: 0x%08x.\n", rf1, rf2, rf3, rf4);
++
+ 	/*
+ 	 * Set Frequency offset.
+ 	 */
+@@ -506,12 +526,30 @@
+ 	 */
+ 	rt2x00dev->rx_params.freq = freq;
+ 	rt2x00dev->rx_params.channel = channel;
++
++	rt2x00dev->tx_power = txpower;
++
++	/*
++	 * Update rf fields
++	 */
++	rt2x00dev->rf1 = rf1;
++	rt2x00dev->rf2 = rf2;
++	rt2x00dev->rf3 = rf3;
++	rt2x00dev->rf4 = rf4;
++
++	rt2x00dev->tx_power = txpower;
+ }
+ 
+ static void rt73usb_config_txpower(struct rt2x00_dev *rt2x00dev, int txpower)
+ {
+ 	txpower = TXPOWER_TO_DEV(txpower);
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (txpower == rt2x00dev->tx_power)
++		return;
++
+ 	rt2x00_set_field32(&rt2x00dev->rf3, RF3_TXPOWER, txpower);
+ 
+ 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf1);
+@@ -528,6 +566,8 @@
+ 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf2);
+ 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf3 & ~cpu_to_le32(0x00000004));
+ 	rt2x00_rf_write(rt2x00dev, rt2x00dev->rf4);
++
++	rt2x00dev->tx_power = txpower;
+ }
+ 
+ static void rt73usb_config_antenna(struct rt2x00_dev *rt2x00dev,
+@@ -539,6 +579,12 @@
+ 	u8 reg_r77;
+ 	u8 frame_type;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (rt2x00dev->rx_params.antenna == antenna)
++		return;
++
+ 	rt2x00_register_read(rt2x00dev, PHY_CSR0, &reg);
+ 
+ 	if (phymode == MODE_IEEE80211A) {
+@@ -711,6 +757,12 @@
+ {
+ 	struct ieee80211_rate *rate;
+ 
++	/*
++	 * Only continue when there is something to be done.
++	 */
++	if (rt2x00dev->rx_params.phymode == phymode)
++		return;
++
+ 	if (phymode == MODE_IEEE80211A &&
+ 	    (rt2x00_rf(&rt2x00dev->chip, RF5225) ||
+ 	    rt2x00_rf(&rt2x00dev->chip, RF5226)))
+@@ -2133,12 +2185,17 @@
+ 	u32 reg;
+ 
+ 	/*
+-	 * Some configuration changes require the RX to be disabled.
++	 * Check if we need to disable the radio,
++	 * if this is not the case, at least the RX must be disabled.
+ 	 */
+ 	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-		rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
+-		rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 1);
+-		rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
++		if (!conf->radio_enabled)
++			rt73usb_disable_radio(rt2x00dev);
++		else {
++			rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
++			rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 1);
++			rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
++		}
+ 	}
+ 
+ 	rt73usb_config_channel(rt2x00dev,
+@@ -2150,29 +2207,15 @@
+ 	rt73usb_config_phymode(rt2x00dev, conf->phymode);
+ 
+ 	/*
+-	 * Reenable RX.
+-	 */
+-	/*
+ 	 * Reenable RX only if the radio should be on.
+ 	 */
+-	if (conf->radio_enabled) {
+-		if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-			if (rt73usb_open(net_dev)) {
+-				ERROR("Failed to enabled radio.\n");
+-				return;
+-			}
+-		} else {
+-			rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
+-			rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 0);
+-			rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
+-		}
+-	} else {
+-		if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
+-			if (rt73usb_stop(net_dev)) {
+-				ERROR("Failed to disable radio.\n");
+-				return;
+-			}
+-		}
++	if (GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO)) {
++		rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
++		rt2x00_set_field32(&reg, TXRX_CSR0_DISABLE_RX, 0);
++		rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
++	} else if (conf->radio_enabled) {
++		if (rt73usb_enable_radio(rt2x00dev))
++			return;
+ 	}
+ }
+ 
+@@ -2302,10 +2345,20 @@
+ {
+ 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
+ 
++	/*
++	 * Check if we are not busy with the previous
++	 * passive scan request.
++	 */
+ 	if (rt2x00dev->scan)
+ 		return -EBUSY;
+ 
+ 	/*
++	 * Check if the radio is enabled.
++	 */
++	if (!GET_FLAG(rt2x00dev, DEVICE_ENABLED_RADIO))
++		return -EIO;
++
++	/*
+ 	 * Allocate scanning structure to store scanning info.
+ 	 */
+ 	rt2x00dev->scan = kmalloc(sizeof(struct scanning), GFP_ATOMIC);
+@@ -2640,6 +2693,9 @@
+ 		usb_get_intfdata(rt2x00dev_usb(rt2x00dev));
+ 	u16 eeprom[3] = { 0, 0, 0 };
+ 
++	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
++		return 0;
++
+ 	/*
+ 	 * Read MAC address from EEPROM.
+ 	 */
+@@ -2660,6 +2716,10 @@
+ 
+ 	net_dev->addr_len = 6;
+ 
++	if (!is_valid_ether_addr(&net_dev->dev_addr[0]))
++		return -EINVAL;
++
++	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
+ 	return 0;
+ }
  
