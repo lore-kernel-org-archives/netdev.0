@@ -1,40 +1,54 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/4] kevent: core files.
-Date: Wed, 26 Jul 2006 14:44:07 +0400
-Message-ID: <20060726104407.GB10459@2ka.mipt.ru>
-References: <11539054941027@2ka.mipt.ru> <11539054952689@2ka.mipt.ru>
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH 3/3] deprecate dev_alloc_skb
+Date: Wed, 26 Jul 2006 13:31:57 +0200
+Message-ID: <20060726113157.GC403@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:12674 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932524AbWGZKo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 06:44:26 -0400
-To: lkml <linux-kernel@vger.kernel.org>
+Received: from verein.lst.de ([213.95.11.210]:38819 "EHLO mail.lst.de")
+	by vger.kernel.org with ESMTP id S1751472AbWGZLcM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 07:32:12 -0400
+To: davem@davemloft.net
 Content-Disposition: inline
-In-Reply-To: <11539054952689@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 26, 2006 at 01:18:15PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> +struct kevent *kevent_alloc(gfp_t mask)
-> +{
-> +	struct kevent *k;
-> +	
-> +	if (kevent_cache)
-> +		k = kmem_cache_alloc(kevent_cache, mask);
-> +	else
-> +		k = kzalloc(sizeof(struct kevent), mask);
-> +
-> +	return k;
-> +}
-> +
 
-Sorry for that.
-It is fixed already to always use cache, but I forget to commit that
-change before I created pachset.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 
--- 
-	Evgeniy Polyakov
+Index: linux-2.6/include/linux/skbuff.h
+===================================================================
+--- linux-2.6.orig/include/linux/skbuff.h	2006-07-26 12:06:12.000000000 +0200
++++ linux-2.6/include/linux/skbuff.h	2006-07-26 12:08:49.000000000 +0200
+@@ -1077,9 +1077,13 @@
+  *	built in space. The built in space is used for optimisations.
+  *
+  *	%NULL is returned in there is no free memory.
++ *
++ * 	NOTE: Do not use this function.  Network driver want to use
++ * 	netdev_alloc_skb for the receive path, everyone else wants plain
++ * 	alloc_skb.
+  */
+-static inline struct sk_buff *__dev_alloc_skb(unsigned int length,
+-					      gfp_t gfp_mask)
++static inline struct sk_buff * __deprecated
++__dev_alloc_skb(unsigned int length, gfp_t gfp_mask)
+ {
+ 	struct sk_buff *skb = alloc_skb(length + NET_SKB_PAD, gfp_mask);
+ 	if (likely(skb))
+@@ -1098,8 +1102,13 @@
+  *
+  *	%NULL is returned in there is no free memory. Although this function
+  *	allocates memory it can be called from an interrupt.
++ *
++ * 	NOTE: Do not use this function.  Network driver want to use
++ * 	netdev_alloc_skb for the receive path, everyone else wants plain
++ * 	alloc_skb.
+  */
+-static inline struct sk_buff *dev_alloc_skb(unsigned int length)
++static inline struct sk_buff * __deprecated
++dev_alloc_skb(unsigned int length)
+ {
+ 	return __dev_alloc_skb(length, GFP_ATOMIC);
+ }
