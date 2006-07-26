@@ -1,37 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Netchannel: default, find, add to socket
-Date: Tue, 25 Jul 2006 17:21:10 -0700 (PDT)
-Message-ID: <20060725.172110.102043861.davem@davemloft.net>
-References: <200607111539.25458.kelly@au.ibm.com>
-	<20060711055708.GA3935@2ka.mipt.ru>
-	<200607111617.56971.kelly@au.ibm.com>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: MTU probing bug?
+Date: Tue, 25 Jul 2006 21:53:01 -0400
+Message-ID: <44C6CAFD.8090107@psc.edu>
+References: <20060725.001744.26930215.davem@davemloft.net>	<44C62316.9080501@psc.edu> <20060725.144225.67885911.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au, johnpol@2ka.mipt.ru
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:20107
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030294AbWGZAU4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 20:20:56 -0400
-To: kelly@au1.ibm.com
-In-Reply-To: <200607111617.56971.kelly@au.ibm.com>
+Received: from mailer1.psc.edu ([128.182.58.100]:15843 "EHLO mailer1.psc.edu")
+	by vger.kernel.org with ESMTP id S1030352AbWGZBxW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 21:53:22 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060725.144225.67885911.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kelly Daly <kelly@au1.ibm.com>
-Date: Tue, 11 Jul 2006 16:17:56 +1000
+David Miller wrote:
+> I find it interesting that black hole detection is handled
+> different from a normal probe failure.  I guess here we are
+> dealing with a more significant failure, so we should start
+> at the thing which is most guarenteed to work.
 
-> Implement finding of correct netchannel for buffer, default netchannel and 
-> attach a netchannel to a socket
-> 
-> Signed-off-by:  Kelly Daly <kelly@au.ibm.com>
+Black hole detection is substantially different than probe failure. 
+It's an indication that your current effective MTU is too large, and 
+must be reduced.  A black hole basically means that your current path 
+information is no good, either because your initial values are wrong, or 
+the path changed.  So, you really want to reset everything to 
+conservative values.  After a failed probe, your effective MTU is still 
+fine, you've just gotten some additional information about the path 
+(that it doesn't support the higher MTU).
 
-Kelly, I want to apply this, but your email client has busted up the
-patch by placing new lines all over.  It also has turned tabs into
-spaces, which also corrupts the patch.
-
-Can you configure KMail not to corrupt the patch like this and
-resubmit?
-
-Thanks.
+   -John
