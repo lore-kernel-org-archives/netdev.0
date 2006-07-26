@@ -1,33 +1,40 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Who maintains the website ?
-Date: Wed, 26 Jul 2006 09:50:42 -0700
-Message-ID: <20060726095042.4348c419@localhost>
-References: <20060725190948.GA3768@walrus.eth1.org>
-	<5640c7e00607251341udb9e9a3u6351a0340886662d@mail.gmail.com>
-	<20060726081956.GA15619@walrus.eth1.org>
-	<5640c7e00607260152v3e8d04dfq4cf7356caaf00f11@mail.gmail.com>
-	<20060726101401.GB15619@walrus.eth1.org>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH dscape] d80211: Switch d80211.h to IEEE80211_ style
+ names
+Date: Wed, 26 Jul 2006 18:53:33 +0200
+Message-ID: <20060726185333.36e13fdd@griffin.suse.cz>
+References: <200607242302.58670.flamingice@sourmilk.net>
+	<20060726183200.79fb431e@griffin.suse.cz>
+	<200607260944.01692.flamingice@sourmilk.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:12184 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1030217AbWGZQus (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 12:50:48 -0400
-To: Christophe Devriese <christophe.devriese@eth1.org>
-In-Reply-To: <20060726101401.GB15619@walrus.eth1.org>
+Received: from styx.suse.cz ([82.119.242.94]:18818 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1030207AbWGZQxf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 12:53:35 -0400
+To: Michael Wu <flamingice@sourmilk.net>
+In-Reply-To: <200607260944.01692.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 26 Jul 2006 12:14:01 +0200
-Christophe Devriese <christophe.devriese@eth1.org> wrote:
+On Wed, 26 Jul 2006 09:43:55 -0700, Michael Wu wrote:
+> I still want to convert d80211_mgmt.h. Once that's done, I'll look through for 
+> those tabs/spaces & long lines formatting issues. I won't mind if you start 
+> fixing some of those issues now, however. :)
 
-> I have created the http://linux-net.osdl.org/index.php/VLAN page.
-> What do you think ?
+I just meant running some s/ {8}/\t/ on your patch :-)
 
-I changed the mainpage VLAN to point to that. You might want to move
-the generic (non-linux stuff) to wikipedia.
-	http://en.wikipedia.org/wiki/VLAN
-and put a link to that. It is standard to put the external links
-at the bottom of the article.
+Also, I don't want to fix all of tab issues in d80211 by one big patch.
+I always have several patches pending (and other people probably too)
+and it leads to unnecessary rejects when applying them. Instead, I
+gradually correct them when changing corresponding lines.
+
+Thanks,
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
