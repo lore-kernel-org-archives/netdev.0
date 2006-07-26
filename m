@@ -1,96 +1,131 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH] kthread: airo.c
-Date: Tue, 25 Jul 2006 23:18:39 -0700
-Message-ID: <20060725231839.6a69a85e.akpm@osdl.org>
-References: <20060713205319.GA23594@us.ibm.com>
-	<20060724181309.GA23938@us.ibm.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: async network I/O, event channels, etc
+Date: Wed, 26 Jul 2006 10:28:17 +0400
+Message-ID: <20060726062817.GA20636@2ka.mipt.ru>
+References: <44C66FC9.3050402@redhat.com> <20060725.150122.49854414.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: achirica@gmail.com, hch@infradead.org, linville@tuxdriver.com,
-	haveblue@us.ibm.com, serue@us.ibm.com, clr@fr.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: drepper@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:57804 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1030315AbWGZGTG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 02:19:06 -0400
-To: Sukadev Bhattiprolu <sukadev@us.ibm.com>
-In-Reply-To: <20060724181309.GA23938@us.ibm.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:38306 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1030402AbWGZG2m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 02:28:42 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060725.150122.49854414.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 24 Jul 2006 11:13:09 -0700
-Sukadev Bhattiprolu <sukadev@us.ibm.com> wrote:
-
-> Sukadev Bhattiprolu [sukadev@us.ibm.com] wrote:
+On Tue, Jul 25, 2006 at 03:01:22PM -0700, David Miller (davem@davemloft.net) wrote:
+> From: Ulrich Drepper <drepper@redhat.com>
+> Date: Tue, 25 Jul 2006 12:23:53 -0700
 > 
-> | Andrew,
-> | 
-> | Javier Achirica, one of the major contributors to drivers/net/wireless/airo.c
-> | took a look at this patch, and doesn't have any problems with it. It doesn't
-> | fix any bugs and is just a cleanup, so it certainly isn't a candidate
-> | for this mainline cycle
+> > I was very much surprised by the reactions I got after my OLS talk.
+> > Lots of people declared interest and even agreed with the approach and
+> > asked me to do further ahead with all this.  For those who missed it,
+> > the paper and the slides are available on my home page:
+> > 
+> > http://people.redhat.com/drepper/
+> > 
+> > As for the next steps I see a number of possible ways.  The discussions
+> > can be held on the usual mailing lists (i.e., lkml and netdev) but due
+> > to the raw nature of the current proposal I would imagine that would be
+> > mainly perceived as noise.
 > 
-> Here is the same patch, merged up to 2.6.18-rc2. Christoph's patch (see
-> http://lkml.org/lkml/2006/7/13/332) still applies cleanly on top of this.
+> Since I gave a big thumbs up for Evgivny's kevent work yesterday
+> on linux-kernel, you might want to start by comparing your work
+> to his.  Because his has the advantage that 1) we have code now
+> and 2) he has written many test applications and performed many
+> benchmarks against his code which has flushed out most of the
+> major implementation issues.
 > 
-> -----
-> The airo driver is currently caching a pid for later use, but with the
-> implementation of containers, pids themselves do not uniquely identify
-> a task. The driver is also using kernel_thread() which is deprecated in
-> drivers.
+> I think most of the people who have encouraged your work are unaware
+> of Evgivny's kevent stuff, which is extremely unfortunate, the two
+> works are more similar than they are different.
 > 
-> This patch essentially replaces the kernel_thread() with kthread_create().
-> It also stores the task_struct of the airo_thread rather than its pid.
-> Since this introduces a second task_struct in struct airo_info, the patch
-> renames airo_info.task to airo_info.list_bss_task.
-> 
-> As an extension of these changes, the patch further:
-> 
->          - replaces kill_proc() with kthread_stop()
->          - replaces signal_pending() with kthread_should_stop()
-> 	 - removes thread completion synchronisation which is handled by
-> 	   kthread_stop().
-> 
-> ..
->
-> @@ -1736,9 +1736,9 @@ static int readBSSListRid(struct airo_in
->  		issuecommand(ai, &cmd, &rsp);
->  		up(&ai->sem);
->  		/* Let the command take effect */
-> -		ai->task = current;
-> +		ai->list_bss_task = current;
->  		ssleep(3);
-> -		ai->task = NULL;
-> +		ai->list_bss_task = NULL;
+> I do not think discussing all of this on netdev would be perceived
+> as noise. :)
 
-This looks a little racy to me.  It's relatively benign - a race will cause
-us to sleep for too long.  But it's easy to fix:
+Hello David, Ulrich.
 
+Here is brief description of what is kevent and how it works.
 
---- a/drivers/net/wireless/airo.c~kthread-airoc-race-fix
-+++ a/drivers/net/wireless/airo.c
-@@ -1733,10 +1733,10 @@ static int readBSSListRid(struct airo_in
- 		cmd.cmd=CMD_LISTBSS;
- 		if (down_interruptible(&ai->sem))
- 			return -ERESTARTSYS;
-+		ai->list_bss_task = current;
- 		issuecommand(ai, &cmd, &rsp);
- 		up(&ai->sem);
- 		/* Let the command take effect */
--		ai->list_bss_task = current;
- 		ssleep(3);
- 		ai->list_bss_task = NULL;
- 	}
-_
+Kevent subsystem incorporates several AIO/kqueue design notes and ideas.
+Kevent can be used both for edge and level notifications. It supports
+socket notifications (accept, send, recv), network AIO (aio_send(),
+aio_recv() and aio_sendfile()), inode notifications (create/remove),
+generic poll()/select() notifications and timer notifications.
 
-<looks more closely>
+There are several object in the kevent system:
+storage - each source of events (socket, inode, timer, aio, anything) has
+	structure kevent_storage incorporated into it, which is basically a list
+	of registered interests for this source of events.
+user - it is abstraction which holds all requested kevents. It is
+	similar to FreeBSD's kqueue.
+kevent - set of interests for given source of events or storage.
 
-Actually, ssleep() ends up doing
+When kevent is queued into storage, it will live there until removed by
+kevent_dequeue(). When some activity is noticed in given storage, it
+scans it's kevent_storage->list for kevents which match activity event.
+If kevents are found and they are not already in the
+kevent_user->ready_list, they will be added there at the end.
 
-        while (timeout)
-                timeout = schedule_timeout_uninterruptible(timeout);
+ioctl(WAIT) (or appropriate syscall) will wait until either requested
+number of kevents are ready or timeout elapsed or at least one kevent is
+ready, it's behaviour depends on parameters.
 
-so if the intent of this code is to terminate the sleep early, when the
-interrupt has happened then it isn't working right.  A fix would be to
-convert the ssleep(3) into schedule_timeout_uninterruptible(3 * HZ).
+It is possible to have one-shot kevents, which are automatically removed
+when are ready.
+
+Any event can be added/removed/modified by ioctl or special controlling
+syscall.
+
+Network AIO is based on kevent and works as usual kevent storage on top
+of inode.
+When new socket is created it is associated with that inode and when
+some activity is detected appropriate notifications are generated and
+kevent_naio_callback() is called.
+When new kevent is being registered, network AIO ->enqueue() callback
+simply marks itself like usual socket event watcher. It also locks
+physical userspace pages in memory and stores appropriate pointers in
+private kevent structure. I have not created additional DMA memory
+allocation methods, like Ulrich described in his article, so I handle it
+inside NAIO which has some overhead (I posted get_user_pages()
+sclability graph some time ago).
+Network AIO callback gets pointers to userspace pages and tries to copy
+data from receiving skb queue into them using protocol specific
+callback. This callback is very similar to ->recvmsg(), so they could
+share a lot in future (as far as I recall it worked only with hardware
+capable to do checksumming, I'm a bit lazy).
+
+Both network and aio implementation work on top of hooks inside
+appropriate state machines, but not as repeated call design (curect AIO) 
+or special thread (SGI AIO). AIO work was stopped, since I was unable to 
+achieve the same speed as synchronous read 
+(maximum speeds were 2Gb/sec vs. 2.1 GB/sec for aio and sync IO accordingly
+when reading data from the cache).
+Network aio_sendfile() works lazily - it asynchronously populates pages
+into the VFS cache (which can be used for various tricks with adaptive
+readahead) and then uses usual ->sendfile() callback.
+
+I have not created an interface for userspace events (like Solaris), 
+since right now I do not see it's usefullness, but if there is
+requirements for that it is quite easy with kevents.
+
+I'm preparing set of kevent patches resend (with cleanups mentioned in
+previous e-mails), which will be ready in a couple of moments.
+
+1. kevent homepage.
+http://tservice.net.ru/~s0mbre/old/?section=projects&item=kevent
+
+2. network aio homepage.
+http://tservice.net.ru/~s0mbre/old/?section=projects&item=naio
+
+3. LWN.net published a very good article about kevent.
+http://lwn.net/Articles/172844/
+
+Thank you.
+
+-- 
+	Evgeniy Polyakov
