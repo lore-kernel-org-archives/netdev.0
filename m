@@ -1,8 +1,8 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH 13/24] RT2x00: Allow link tuning while scanning
-Date: Wed, 26 Jul 2006 20:28:26 +0200
-Message-ID: <200607262028.27016.IvDoorn@gmail.com>
-References: <200607261905.23860.IvDoorn@gmail.com>
+Subject: Re: [PATCH 14/24] RT2x00: Check if read eeprom words are valid
+Date: Wed, 26 Jul 2006 20:28:45 +0200
+Message-ID: <200607262028.45332.IvDoorn@gmail.com>
+References: <200607261905.28121.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
@@ -10,131 +10,252 @@ Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from nf-out-0910.google.com ([64.233.182.184]:2063 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1751758AbWGZS2j convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 14:28:39 -0400
+	id S1161009AbWGZS26 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 14:28:58 -0400
 Received: by nf-out-0910.google.com with SMTP id o25so839729nfa
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 11:28:38 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 11:28:57 -0700 (PDT)
 To: netdev@vger.kernel.org
-In-Reply-To: <200607261905.23860.IvDoorn@gmail.com>
+In-Reply-To: <200607261905.28121.IvDoorn@gmail.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 >From Ivo van Doorn <IvDoorn@gmail.com>
 
-rt2x00 does not know when we are scanning,
-unless passive_scan() is being used.
-For consistent behaviour we should not block
-tuning while scanning.
-We should however not tune the connection when
-it has been disabled in the hardware.
+Make checks if the EEPROM data read is valid,
+if it is not, use the default values.
+Also fix the endian issue when reading the PCI_CONFIG_HEADER.
 
 Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
 
-diff -rU3 wireless-dev-newdev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
---- wireless-dev-newdev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-23 22:41:58.000000000 +0200
-+++ wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-23 22:59:00.000000000 +0200
-@@ -811,9 +811,10 @@
- 	u8 reg_r17;
+diff -rU3 wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 23:04:25.000000000 +0200
++++ wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 23:19:17.000000000 +0200
+@@ -2914,6 +2914,7 @@
+ 	u32 reg;
+ 	u16 value;
+ 	u16 eeprom;
++	u16 device;
  
  	/*
--	 * Don't perform any tuning during scan.
-+	 * Don't perform any tuning when it is disabled
-+	 * in the EEPROM.
+ 	 * 1 - Detect EEPROM width.
+@@ -2934,12 +2935,11 @@
+ 	 * To determine the RT chip we have to read the
+ 	 * PCI header of the device.
  	 */
--	if (rt2x00dev->scan)
-+	if (GET_FLAG(rt2x00dev, CONFIG_DISABLE_BBP_TUNING))
- 		return;
+-	pci_read_config_dword(rt2x00dev_pci(rt2x00dev),
+-		PCI_CONFIG_HEADER, &reg);
+-	reg = rt2x00_get_field32(reg, PCI_CONFIG_HEADER_DEVICE);
++	pci_read_config_word(
++		rt2x00dev_pci(rt2x00dev), PCI_CONFIG_HEADER_DEVICE, &device);
  
- 	rt2x00_register_read(rt2x00dev, CSR0, &reg);
-@@ -2488,7 +2489,16 @@
- 		SET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON);
+ 	value = rt2x00_get_field16(eeprom, EEPROM_ANTENNA_RF_TYPE);
+-	rt2x00_set_chip(&rt2x00dev->chip, (u16)reg, value);
++	rt2x00_set_chip(&rt2x00dev->chip, device, value);
  
- 	/*
--	 * 7 - Read BBP data from EEPROM and store in private structure.
-+	 * 7 - Check if the BBP tuning should be enabled.
-+	 */
-+	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &eeprom);
+ 	if (!rt2x00_rf(&rt2x00dev->chip, RF5225) &&
+ 	    !rt2x00_rf(&rt2x00dev->chip, RF5325) &&
+@@ -2985,6 +2985,8 @@
+ 	 * 8 - Read external LNA informations.
+ 	 */
+ 	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &eeprom);
 +	if (eeprom == 0xffff)
 +		eeprom = 0;
-+	if (rt2x00_get_field16(eeprom, EEPROM_NIC_DYN_BBP_TUNE))
-+		SET_FLAG(rt2x00dev, CONFIG_DISABLE_BBP_TUNING);
-+
-+	/*
-+	 * 8 - Read BBP data from EEPROM and store in private structure.
+ 	if (rt2x00_get_field16(eeprom, EEPROM_NIC_EXTERNAL_LNA_A))
+ 		SET_FLAG(rt2x00dev, CONFIG_EXTERNAL_LNA_A);
+ 	if (rt2x00_get_field16(eeprom, EEPROM_NIC_EXTERNAL_LNA_BG))
+@@ -2994,58 +2996,35 @@
+ 	 * 9 - Store led settings, for correct led behaviour.
  	 */
- 	rt2x00dev->eeprom = kzalloc(EEPROM_BBP_SIZE * sizeof(u16), GFP_KERNEL);
- 	if (!rt2x00dev->eeprom)
-diff -rU3 wireless-dev-newdev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
---- wireless-dev-newdev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-23 22:42:03.000000000 +0200
-+++ wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-23 23:00:43.000000000 +0200
-@@ -617,15 +617,16 @@
+ 	rt2x00_eeprom_read(rt2x00dev, EEPROM_LED, &eeprom);
+-	if (eeprom == 0xffff) {
+-		rt2x00dev->led_mode = LED_MODE_DEFAULT;
+ 
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_LED_MODE, LED_MODE_DEFAULT);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_0, 1);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_1, 1);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_2, 1);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_3, 1);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_4, 1);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_ACT, 1);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_BG, 1);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_A, 1);
+-	} else {
++	/*
++	 * If the eeprom value is invalid,
++	 * switch to default led mode.
++	 */
++	if (eeprom == 0xffff)
++		rt2x00dev->led_mode = LED_MODE_DEFAULT;
++	else
+ 		rt2x00dev->led_mode = rt2x00_get_field16(eeprom,
+ 			EEPROM_LED_LED_MODE);
+ 
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_LED_MODE, rt2x00dev->led_mode);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_0, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_0));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_1, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_1));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_2, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_2));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_3, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_3));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_4, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_4));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_ACT, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_ACT));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_BG, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_RDY_G));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_A, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_RDY_A));
+-	}
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_LED_MODE,
++		rt2x00dev->led_mode);
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_0,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_0));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_1,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_1));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_2,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_2));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_3,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_3));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_4,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_4));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_ACT,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_ACT));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_READY_BG,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_RDY_G));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_READY_A,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_RDY_A));
+ 
+ 	/*
+ 	 * 10 - Detect if this device has an hardware controlled radio.
+diff -rU3 wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt61pci.h wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.h
+--- wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-07-23 19:33:56.000000000 +0200
++++ wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-07-23 23:21:39.000000000 +0200
+@@ -57,9 +57,8 @@
+ /*
+  * PCI Configuration Header
   */
- static void rt2500usb_link_tuner(struct rt2x00_dev *rt2x00dev, char rssi)
- {
--	u16  reg;
-+	u16 reg;
- 	u8 reg_r17;
- 	u8 up_bound;
- 	u8 low_bound;
+-#define PCI_CONFIG_HEADER		0x0000
+-#define PCI_CONFIG_HEADER_VENDOR	FIELD32(0x0000ffff)
+-#define PCI_CONFIG_HEADER_DEVICE	FIELD32(0xffff0000)
++#define PCI_CONFIG_HEADER_VENDOR	0x0000
++#define PCI_CONFIG_HEADER_DEVICE	0x0002
  
- 	/*
--	 * Don't perform any tuning during scan.
-+	 * Don't perform any tuning when it is disabled
-+	 * in the EEPROM.
+ /*
+  * HOST_CMD_CSR: For HOST to interrupt embedded processor
+diff -rU3 wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 23:04:31.000000000 +0200
++++ wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 23:17:42.000000000 +0200
+@@ -2475,6 +2475,8 @@
+ 	 * 7 - Read external LNA informations.
  	 */
--	if (rt2x00dev->scan)
-+	if (GET_FLAG(rt2x00dev, CONFIG_DISABLE_BBP_TUNING))
- 		return;
- 
- 	low_bound = 0x32;
-@@ -2105,7 +2106,16 @@
- 				EEPROM_ANTENNA_LED_MODE);
- 
- 	/*
--	 * 5 - Read BBP data from EEPROM and store in private structure.
-+	 * 5 - Check if the BBP tuning should be disabled.
-+	 */
-+	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &eeprom);
+ 	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &eeprom);
 +	if (eeprom == 0xffff)
 +		eeprom = 0;
-+	if (rt2x00_get_field16(eeprom, EEPROM_NIC_DYN_BBP_TUNE))
-+		SET_FLAG(rt2x00dev, CONFIG_DISABLE_BBP_TUNING);
+ 	if (rt2x00_get_field16(eeprom, EEPROM_NIC_EXTERNAL_LNA))
+ 		SET_FLAG(rt2x00dev, CONFIG_EXTERNAL_LNA);
+ 
+@@ -2482,58 +2484,36 @@
+ 	 * 8 - Store led settings, for correct led behaviour.
+ 	 */
+ 	rt2x00_eeprom_read(rt2x00dev, EEPROM_LED, &eeprom);
 +
 +	/*
-+	 * 6 - Read BBP data from EEPROM and store in private structure.
- 	 */
- 	rt2x00dev->eeprom = kzalloc(EEPROM_BBP_SIZE * sizeof(u16), GFP_KERNEL);
- 	if (!rt2x00dev->eeprom)
-diff -rU3 wireless-dev-newdev/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-newdev/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 22:42:09.000000000 +0200
-+++ wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 23:04:25.000000000 +0200
-@@ -1043,12 +1043,6 @@
- 	u8 up_bound;
- 	u8 low_bound;
- 
--	/*
--	 * Don't perform any tuning during scan.
--	 */
--	if (rt2x00dev->scan)
--		return;
++	 * If the eeprom value is invalid,
++	 * switch to default led mode, and clear all bits.
++	 */
+ 	if (eeprom == 0xffff) {
+ 		rt2x00dev->led_mode = LED_MODE_DEFAULT;
 -
- 	if (rt2x00dev->rx_params.phymode == MODE_IEEE80211A) {
- 		up_bound = 0x48;
- 		low_bound = 0x28;
-diff -rU3 wireless-dev-newdev/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt73usb.c
---- wireless-dev-newdev/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 22:47:41.000000000 +0200
-+++ wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 23:04:31.000000000 +0200
-@@ -757,12 +757,6 @@
- 	u8 up_bound;
- 	u8 low_bound;
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_LED_MODE, LED_MODE_DEFAULT);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_0, 0);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_1, 0);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_2, 0);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_3, 0);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_4, 0);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_ACT, 0);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_BG, 0);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_A, 0);
+-	} else {
++		eeprom = 0x0000;
++	} else
+ 		rt2x00dev->led_mode = rt2x00_get_field16(eeprom,
+ 			EEPROM_LED_LED_MODE);
  
--	/*
--	 * Don't perform any tuning during scan.
--	 */
--	if (rt2x00dev->scan)
--		return;
--
- 	if (rt2x00dev->rx_params.phymode == MODE_IEEE80211A) {
- 		up_bound = 0x48;
- 		low_bound = 0x28;
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_LED_MODE, rt2x00dev->led_mode);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_0, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_0));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_1, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_1));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_2, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_2));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_3, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_3));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_4, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_4));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_ACT, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_ACT));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_BG, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_RDY_G));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_A, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_RDY_A));
+-	}
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_LED_MODE,
++		rt2x00dev->led_mode);
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_0,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_0));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_1,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_1));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_2,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_2));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_3,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_3));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_4,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_4));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_ACT,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_ACT));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_READY_BG,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_RDY_G));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_READY_A,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_RDY_A));
+ 
+ 	/*
+ 	 * 9 - Read BBP data from EEPROM and store in private structure.
