@@ -1,7 +1,7 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 14/24] RT2x00: Check if read eeprom words are valid
-Date: Wed, 26 Jul 2006 19:05:27 +0200
-Message-ID: <200607261905.28121.IvDoorn@gmail.com>
+Subject: [PATCH 8/24] RT2x00: Fix *_set_state() functions
+Date: Wed, 26 Jul 2006 19:05:00 +0200
+Message-ID: <200607261905.00813.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -10,10 +10,10 @@ Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from nf-out-0910.google.com ([64.233.182.189]:46239 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1030291AbWGZRHi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 13:07:38 -0400
+	id S1030271AbWGZRHb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 13:07:31 -0400
 Received: by nf-out-0910.google.com with SMTP id o25so812592nfa
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 10:07:37 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 10:07:30 -0700 (PDT)
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -21,251 +21,235 @@ List-Id: netdev.vger.kernel.org
 
 >From Ivo van Doorn <IvDoorn@gmail.com>
 
-Make checks if the EEPROM data read is valid,
-if it is not, use the default values.
-Also fix the endian issue when reading the PCI_CONFIG_HEADER.
+Fix problems with waking up the device at initialization time.
+The debug message should be more descriptive of the problem,
+when the device fails to wake up.
 
 Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
 
 ---
 
-diff -rU3 wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt61pci.c 
-wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt61pci.c	
-2006-07-23 23:04:25.000000000 +0200
-+++ wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.c	
-2006-07-23 23:19:17.000000000 +0200
-@@ -2914,6 +2914,7 @@
+diff -rU3 wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt2400pci.c 
+wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+--- wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-23 
+18:16:35.000000000 +0200
++++ wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	
+2006-07-23 18:34:06.000000000 +0200
+@@ -857,7 +857,9 @@
+ 		msleep(10);
+ 	}
+ 
+-	NOTICE("Device failed to %s.\n" , put_to_sleep ? "suspend" : "resume");
++	NOTICE("Device failed to enter state %d, "
++		"current device state: bbp %d and rf %d.\n",
++		state, bbp_state, rf_state);
+ 
+ 	return -EBUSY;
+ }
+diff -rU3 wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt2500pci.c 
+wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+--- wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-23 
+18:16:41.000000000 +0200
++++ wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	
+2006-07-23 18:34:14.000000000 +0200
+@@ -930,7 +930,9 @@
+ 		msleep(10);
+ 	}
+ 
+-	NOTICE("Device failed to %s.\n" , put_to_sleep ? "suspend" : "resume");
++	NOTICE("Device failed to enter state %d, "
++		"current device state: bbp %d and rf %d.\n",
++		state, bbp_state, rf_state);
+ 
+ 	return -EBUSY;
+ }
+diff -rU3 wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt2500usb.c 
+wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+--- wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-23 
+18:15:52.000000000 +0200
++++ wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	
+2006-07-23 18:36:12.000000000 +0200
+@@ -731,6 +731,7 @@
+ 	enum dev_state state)
+ {
+ 	u16 reg;
++	u16 reg2;
+ 	unsigned int i;
+ 	char put_to_sleep;
+ 	char bbp_state;
+@@ -739,11 +740,12 @@
+ 	put_to_sleep = (state != STATE_AWAKE);
+ 
+ 	rt2x00_register_read(rt2x00dev, MAC_CSR17, &reg);
+-	rt2x00_set_field16_nb(&reg, MAC_CSR17_SET_STATE, 1);
+ 	rt2x00_set_field16_nb(&reg, MAC_CSR17_BBP_DESIRE_STATE, state);
+ 	rt2x00_set_field16_nb(&reg, MAC_CSR17_RF_DESIRE_STATE, state);
+ 	rt2x00_set_field16_nb(&reg, MAC_CSR17_PUT_TO_SLEEP, put_to_sleep);
+ 	rt2x00_register_write(rt2x00dev, MAC_CSR17, reg);
++	rt2x00_set_field16_nb(&reg, MAC_CSR17_SET_STATE, 1);
++	rt2x00_register_write(rt2x00dev, MAC_CSR17, reg);
+ 
+ 	/*
+ 	 * Device is not guarenteed to be in the requested state yet.
+@@ -751,16 +753,20 @@
+ 	 * device has entered the correct state.
+ 	 */
+ 	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
+-		rt2x00_register_read(rt2x00dev, MAC_CSR17, &reg);
+-		bbp_state = rt2x00_get_field16_nb(
+-			reg, MAC_CSR17_BBP_CURR_STATE);
+-		rf_state = rt2x00_get_field16_nb(reg, MAC_CSR17_RF_CURR_STATE);
++		rt2x00_register_read(rt2x00dev, MAC_CSR17, &reg2);
++		bbp_state = rt2x00_get_field16_nb(reg2,
++			MAC_CSR17_BBP_CURR_STATE);
++		rf_state = rt2x00_get_field16_nb(reg2,
++			MAC_CSR17_RF_CURR_STATE);
+ 		if (bbp_state == state && rf_state == state)
+ 			return 0;
++		rt2x00_register_write(rt2x00dev, MAC_CSR17, reg);
+ 		msleep(10);
+ 	}
+ 
+-	NOTICE("Device failed to %s.\n" , put_to_sleep ? "suspend" : "resume");
++	NOTICE("Device failed to enter state %d, "
++		"current device state: bbp %d and rf %d.\n",
++		state, bbp_state, rf_state);
+ 
+ 	return -EBUSY;
+ }
+diff -rU3 wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt61pci.c 
+wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 
+18:16:51.000000000 +0200
++++ wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 
+19:22:41.000000000 +0200
+@@ -1169,19 +1169,33 @@
  	u32 reg;
- 	u16 value;
- 	u16 eeprom;
-+	u16 device;
+ 	unsigned int i;
+ 	char put_to_sleep;
++	char current_state;
  
- 	/*
- 	 * 1 - Detect EEPROM width.
-@@ -2934,12 +2935,11 @@
- 	 * To determine the RT chip we have to read the
- 	 * PCI header of the device.
- 	 */
--	pci_read_config_dword(rt2x00dev_pci(rt2x00dev),
--		PCI_CONFIG_HEADER, &reg);
--	reg = rt2x00_get_field32(reg, PCI_CONFIG_HEADER_DEVICE);
-+	pci_read_config_word(
-+		rt2x00dev_pci(rt2x00dev), PCI_CONFIG_HEADER_DEVICE, &device);
+ 	put_to_sleep = (state != STATE_AWAKE);
  
- 	value = rt2x00_get_field16(eeprom, EEPROM_ANTENNA_RF_TYPE);
--	rt2x00_set_chip(&rt2x00dev->chip, (u16)reg, value);
-+	rt2x00_set_chip(&rt2x00dev->chip, device, value);
- 
- 	if (!rt2x00_rf(&rt2x00dev->chip, RF5225) &&
- 	    !rt2x00_rf(&rt2x00dev->chip, RF5325) &&
-@@ -2985,6 +2985,8 @@
- 	 * 8 - Read external LNA informations.
- 	 */
- 	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &eeprom);
-+	if (eeprom == 0xffff)
-+		eeprom = 0;
- 	if (rt2x00_get_field16(eeprom, EEPROM_NIC_EXTERNAL_LNA_A))
- 		SET_FLAG(rt2x00dev, CONFIG_EXTERNAL_LNA_A);
- 	if (rt2x00_get_field16(eeprom, EEPROM_NIC_EXTERNAL_LNA_BG))
-@@ -2994,58 +2996,35 @@
- 	 * 9 - Store led settings, for correct led behaviour.
- 	 */
- 	rt2x00_eeprom_read(rt2x00dev, EEPROM_LED, &eeprom);
--	if (eeprom == 0xffff) {
--		rt2x00dev->led_mode = LED_MODE_DEFAULT;
- 
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_LED_MODE, LED_MODE_DEFAULT);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_0, 1);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_1, 1);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_2, 1);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_3, 1);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_4, 1);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_ACT, 1);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_READY_BG, 1);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_READY_A, 1);
--	} else {
-+	/*
-+	 * If the eeprom value is invalid,
-+	 * switch to default led mode.
-+	 */
-+	if (eeprom == 0xffff)
-+		rt2x00dev->led_mode = LED_MODE_DEFAULT;
-+	else
- 		rt2x00dev->led_mode = rt2x00_get_field16(eeprom,
- 			EEPROM_LED_LED_MODE);
- 
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_LED_MODE, rt2x00dev->led_mode);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_0, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_GPIO_0));
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_1, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_GPIO_1));
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_2, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_GPIO_2));
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_3, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_GPIO_3));
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_4, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_GPIO_4));
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_ACT, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_ACT));
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_READY_BG, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_RDY_G));
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_READY_A, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_RDY_A));
--	}
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_LED_MODE,
-+		rt2x00dev->led_mode);
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_0,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_0));
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_1,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_1));
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_2,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_2));
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_3,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_3));
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_4,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_4));
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_ACT,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_ACT));
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_READY_BG,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_RDY_G));
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_READY_A,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_RDY_A));
- 
- 	/*
- 	 * 10 - Detect if this device has an hardware controlled radio.
-diff -rU3 wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt61pci.h 
-wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.h
---- wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt61pci.h	
-2006-07-23 19:33:56.000000000 +0200
-+++ wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.h	
-2006-07-23 23:21:39.000000000 +0200
-@@ -57,9 +57,8 @@
- /*
-  * PCI Configuration Header
-  */
--#define PCI_CONFIG_HEADER		0x0000
--#define PCI_CONFIG_HEADER_VENDOR	FIELD32(0x0000ffff)
--#define PCI_CONFIG_HEADER_DEVICE	FIELD32(0xffff0000)
-+#define PCI_CONFIG_HEADER_VENDOR	0x0000
-+#define PCI_CONFIG_HEADER_DEVICE	0x0002
- 
- /*
-  * HOST_CMD_CSR: For HOST to interrupt embedded processor
-diff -rU3 wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt73usb.c 
-wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt73usb.c
---- wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt73usb.c	
-2006-07-23 23:04:31.000000000 +0200
-+++ wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt73usb.c	
-2006-07-23 23:17:42.000000000 +0200
-@@ -2475,6 +2475,8 @@
- 	 * 7 - Read external LNA informations.
- 	 */
- 	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &eeprom);
-+	if (eeprom == 0xffff)
-+		eeprom = 0;
- 	if (rt2x00_get_field16(eeprom, EEPROM_NIC_EXTERNAL_LNA))
- 		SET_FLAG(rt2x00dev, CONFIG_EXTERNAL_LNA);
- 
-@@ -2482,58 +2484,36 @@
- 	 * 8 - Store led settings, for correct led behaviour.
- 	 */
- 	rt2x00_eeprom_read(rt2x00dev, EEPROM_LED, &eeprom);
-+
-+	/*
-+	 * If the eeprom value is invalid,
-+	 * switch to default led mode, and clear all bits.
-+	 */
- 	if (eeprom == 0xffff) {
- 		rt2x00dev->led_mode = LED_MODE_DEFAULT;
+-	if (!put_to_sleep)
+-		rt2x00_mcu_request(rt2x00dev, MCU_WAKEUP, 0xff, 0x00, 0x00);
 -
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_LED_MODE, LED_MODE_DEFAULT);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_0, 0);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_1, 0);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_2, 0);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_3, 0);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_4, 0);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_ACT, 0);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_READY_BG, 0);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_READY_A, 0);
--	} else {
-+		eeprom = 0x0000;
-+	} else
- 		rt2x00dev->led_mode = rt2x00_get_field16(eeprom,
- 			EEPROM_LED_LED_MODE);
+ 	rt2x00_register_read(rt2x00dev, MAC_CSR12, &reg);
+ 	rt2x00_set_field32(&reg, MAC_CSR12_FORCE_WAKEUP, !put_to_sleep);
+ 	rt2x00_set_field32(&reg, MAC_CSR12_PUT_TO_SLEEP, put_to_sleep);
+ 	rt2x00_register_write(rt2x00dev, MAC_CSR12, reg);
  
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_LED_MODE, rt2x00dev->led_mode);
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_0, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_GPIO_0));
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_1, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_GPIO_1));
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_2, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_GPIO_2));
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_3, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_GPIO_3));
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_GPIO_4, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_GPIO_4));
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_ACT, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_ACT));
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_READY_BG, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_RDY_G));
--		rt2x00_set_field16(&rt2x00dev->led_reg,
--			MCU_LEDCS_POLARITY_READY_A, rt2x00_get_field16(eeprom,
--			EEPROM_LED_POLARITY_RDY_A));
--	}
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_LED_MODE,
-+		rt2x00dev->led_mode);
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_0,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_0));
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_1,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_1));
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_2,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_2));
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_3,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_3));
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_4,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_4));
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_ACT,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_ACT));
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_READY_BG,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_RDY_G));
-+	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_READY_A,
-+		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_RDY_A));
+-	if (put_to_sleep)
++	if (put_to_sleep) {
++		rt2x00_register_write(rt2x00dev,
++			SOFT_RESET_CSR, cpu_to_le32(0x00000005));
++		rt2x00_register_write(rt2x00dev,
++			IO_CNTL_CSR, cpu_to_le32(0x0000001c));
++		rt2x00_register_write(rt2x00dev,
++			PCI_USEC_CSR, cpu_to_le32(0x00000060));
++
+ 		rt2x00_mcu_request(rt2x00dev, MCU_SLEEP, 0xff, 0x00, 0x00);
++	} else {
++		rt2x00_register_write(rt2x00dev,
++			SOFT_RESET_CSR, cpu_to_le32(0x00000007));
++		rt2x00_register_write(rt2x00dev,
++			IO_CNTL_CSR, cpu_to_le32(0x00000018));
++		rt2x00_register_write(rt2x00dev,
++			PCI_USEC_CSR, cpu_to_le32(0x00000020));
++		rt2x00_mcu_request(rt2x00dev, MCU_WAKEUP, 0xff, 0x00, 0x00);
++	}
  
  	/*
- 	 * 9 - Read BBP data from EEPROM and store in private structure.
+ 	 * Device is not guarenteed to be in the requested state yet.
+@@ -1190,13 +1204,15 @@
+ 	 */
+ 	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
+ 		rt2x00_register_read(rt2x00dev, MAC_CSR12, &reg);
+-		if (rt2x00_get_field32(
+-			reg, MAC_CSR12_CURRENT_STATE) == !put_to_sleep)
++		current_state = rt2x00_get_field32(reg,
++			MAC_CSR12_BBP_CURRENT_STATE);
++		if (current_state == !put_to_sleep)
+ 			return 0;
+ 		msleep(10);
+ 	}
+ 
+-	NOTICE("Device failed to %s.\n" , put_to_sleep ? "suspend" : "resume");
++	NOTICE("Device failed to enter state %d, "
++		"current device state %d.\n", !put_to_sleep, current_state);
+ 
+ 	return -EBUSY;
+ }
+diff -rU3 wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt61pci.h 
+wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt61pci.h
+--- wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-07-23 
+17:16:49.000000000 +0200
++++ wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-07-23 
+18:33:18.000000000 +0200
+@@ -311,11 +311,13 @@
+  * MAC_CSR12: Manual power control / status register (merge CSR20 & PWRCSR1).
+  * CURRENT_STATE: 0:sleep, 1:awake.
+  * FORCE_WAKEUP: This has higher priority than PUT_TO_SLEEP.
++ * BBP_CURRENT_STATE: 0: BBP sleep, 1: BBP awake.
+  */
+ #define MAC_CSR12			0x3030
+ #define MAC_CSR12_CURRENT_STATE		FIELD32(0x00000001)
+ #define MAC_CSR12_PUT_TO_SLEEP		FIELD32(0x00000002)
+ #define MAC_CSR12_FORCE_WAKEUP		FIELD32(0x00000004)
++#define MAC_CSR12_BBP_CURRENT_STATE	FIELD32(0x00000008)
+ 
+ /*
+  * MAC_CSR13: GPIO.
+diff -rU3 wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt73usb.c 
+wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 
+18:17:01.000000000 +0200
++++ wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 
+19:23:14.000000000 +0200
+@@ -895,6 +895,7 @@
+ 	u32 reg;
+ 	unsigned int i;
+ 	char put_to_sleep;
++	char current_state;
+ 
+ 	put_to_sleep = (state != STATE_AWAKE);
+ 
+@@ -920,13 +921,15 @@
+ 	 */
+ 	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
+ 		rt2x00_register_read(rt2x00dev, MAC_CSR12, &reg);
+-		if (rt2x00_get_field32(
+-			reg, MAC_CSR12_CURRENT_STATE) == !put_to_sleep)
++		current_state = rt2x00_get_field32(reg,
++			MAC_CSR12_BBP_CURRENT_STATE);
++		if (current_state == !put_to_sleep)
+ 			return 0;
+ 		msleep(10);
+ 	}
+ 
+-	NOTICE("Device failed to %s.\n" , put_to_sleep ? "suspend" : "resume");
++	NOTICE("Device failed to enter state %d, "
++		"current device state %d.\n", !put_to_sleep, current_state);
+ 
+ 	return -EBUSY;
+ }
+diff -rU3 wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt73usb.h 
+wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt73usb.h
+--- wireless-dev-rts/drivers/net/wireless/d80211/rt2x00/rt73usb.h	2006-07-23 
+17:17:09.000000000 +0200
++++ wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt73usb.h	2006-07-23 
+18:33:18.000000000 +0200
+@@ -218,11 +218,13 @@
+  * MAC_CSR12: Manual power control / status register (merge CSR20 & PWRCSR1).
+  * CURRENT_STATE: 0:sleep, 1:awake.
+  * FORCE_WAKEUP: This has higher priority than PUT_TO_SLEEP.
++ * BBP_CURRENT_STATE: 0: BBP sleep, 1: BBP awake.
+  */
+ #define MAC_CSR12			0x3030
+ #define MAC_CSR12_CURRENT_STATE		FIELD32(0x00000001)
+ #define MAC_CSR12_PUT_TO_SLEEP		FIELD32(0x00000002)
+ #define MAC_CSR12_FORCE_WAKEUP		FIELD32(0x00000004)
++#define MAC_CSR12_BBP_CURRENT_STATE	FIELD32(0x00000008)
+ 
+ /*
+  * MAC_CSR13: GPIO.
