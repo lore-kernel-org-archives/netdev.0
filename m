@@ -1,19 +1,19 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 10/24] RT2x00: Add software and hardware sequence counting
-Date: Wed, 26 Jul 2006 19:05:08 +0200
-Message-ID: <200607261905.08494.IvDoorn@gmail.com>
+Subject: [PATCH 9/24] RT2x00: Don't use driver_data and driver_info fields
+Date: Wed, 26 Jul 2006 19:05:04 +0200
+Message-ID: <200607261905.04965.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.189]:46239 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.190]:5025 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1030310AbWGZRHe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 13:07:34 -0400
-Received: by nf-out-0910.google.com with SMTP id o25so812592nfa
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 10:07:33 -0700 (PDT)
+	id S1030291AbWGZRHd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 13:07:33 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so812601nfa
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 10:07:32 -0700 (PDT)
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -21,200 +21,258 @@ List-Id: netdev.vger.kernel.org
 
 >From Ivo van Doorn <IvDoorn@gmail.com>
 
-Add software sequence number counting to rt2400pci and rt2500pci,
-enable hardware sequence number counting for rt2500usb, rt61pci and rt73usb.
+driver_info and driver_data are not required for rt2x00,
+neither is there any need to check that field when the probe()
+function is called. The PCI and USB layers already correctly
+make the checks.
 
 Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
 
 ---
 
-diff -rU3 wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c 
-wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
---- wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-23 
+diff -rU3 wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt2400pci.c 
+wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+--- wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	
+2006-07-23 18:34:06.000000000 +0200
++++ wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-23 
 19:36:40.000000000 +0200
-+++ wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	
-2006-07-23 19:52:17.000000000 +0200
-@@ -1682,6 +1682,11 @@
- 		return NETDEV_TX_BUSY;
- 	}
+@@ -2670,11 +2670,6 @@
+ 	struct net_device *net_dev;
+ 	int status;
  
-+	/*
-+	 * Set the software sequence number.
-+	 */
-+	rt2x00_set_sequence(skb, &rt2x00dev->interface.sequence);
-+
- 	memcpy(entry->data_addr, skb->data, skb->len);
- 	rt2400pci_write_tx_desc(rt2x00dev, txd, skb, control);
- 	if (WLAN_FC_GET_STYPE(frame_control) == WLAN_FC_STYPE_RTS)
-@@ -2275,6 +2280,11 @@
- 	 */
- 	control->queue = IEEE80211_TX_QUEUE_BEACON;
+-	if (unlikely(id->driver_data != RT2460)) {
+-		ERROR("Detected device not supported.\n");
+-		return -ENODEV;
+-	}
+-
+ 	if (pci_enable_device(pci_dev)) {
+ 		ERROR("Enable device failed.\n");
+ 		return -EIO;
+@@ -2839,7 +2834,7 @@
+ 	DRV_NAME " - " DRV_VERSION " (" DRV_RELDATE ") by " DRV_PROJECT;
  
-+	/*
-+	 * Set the software sequence number.
-+	 */
-+	rt2x00_set_sequence(skb, &rt2x00dev->interface.sequence);
-+
- 	memcpy(entry->data_addr, skb->data, skb->len);
- 	rt2400pci_write_tx_desc(rt2x00dev, entry->desc_addr, skb, control);
+ static struct pci_device_id rt2400pci_device_table[] = {
+-	{ PCI_DEVICE(0x1814, 0x0101), .driver_data = RT2460},
++	{ PCI_DEVICE(0x1814, 0x0101) },
+ 	{ 0, }
+ };
  
-diff -rU3 wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c 
-wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
---- wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-23 
+diff -rU3 wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt2500pci.c 
+wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+--- wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	
+2006-07-23 18:34:14.000000000 +0200
++++ wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-23 
 19:33:46.000000000 +0200
-+++ wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	
-2006-07-23 19:52:28.000000000 +0200
-@@ -1817,6 +1817,11 @@
- 		return NETDEV_TX_BUSY;
- 	}
+@@ -2936,11 +2936,6 @@
+ 	struct net_device *net_dev;
+ 	int status;
  
-+	/*
-+	 * Set the software sequence number.
-+	 */
-+	rt2x00_set_sequence(skb, &rt2x00dev->interface.sequence);
-+
- 	memcpy(entry->data_addr, skb->data, skb->len);
- 	rt2500pci_write_tx_desc(rt2x00dev, txd, skb, control);
- 	if (WLAN_FC_GET_STYPE(frame_control) == WLAN_FC_STYPE_RTS)
-@@ -2401,6 +2406,11 @@
- 	 */
- 	control->queue = IEEE80211_TX_QUEUE_BEACON;
+-	if (unlikely(id->driver_data != RT2560)) {
+-		ERROR("Detected device not supported.\n");
+-		return -ENODEV;
+-	}
+-
+ 	if (pci_enable_device(pci_dev)) {
+ 		ERROR("Enable device failed.\n");
+ 		return -EIO;
+@@ -3105,7 +3100,7 @@
+ 	DRV_NAME " - " DRV_VERSION " (" DRV_RELDATE ") by " DRV_PROJECT;
  
-+	/*
-+	 * Set the software sequence number.
-+	 */
-+	rt2x00_set_sequence(skb, &rt2x00dev->interface.sequence);
-+
- 	memcpy(entry->data_addr, skb->data, skb->len);
- 	rt2500pci_write_tx_desc(rt2x00dev, entry->desc_addr, skb, control);
+ static struct pci_device_id rt2500pci_device_table[] = {
+-	{ PCI_DEVICE(0x1814, 0x0201), .driver_data = RT2560},
++	{ PCI_DEVICE(0x1814, 0x0201) },
+ 	{ 0, }
+ };
  
-diff -rU3 wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c 
-wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
---- wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-23 
+diff -rU3 wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt2500usb.c 
+wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+--- wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	
+2006-07-23 18:36:12.000000000 +0200
++++ wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-23 
 19:36:18.000000000 +0200
-+++ wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	
-2006-07-23 19:54:54.000000000 +0200
-@@ -1385,7 +1385,7 @@
- 	rt2x00_register_write(rt2x00dev, MAC_CSR18, reg);
+@@ -2545,11 +2545,6 @@
+ 	struct net_device *net_dev;
+ 	int status;
  
- 	rt2x00_register_read(rt2x00dev, TXRX_CSR1, &reg);
--	rt2x00_set_field16_nb(&reg, TXRX_CSR1_AUTO_SEQUENCE, 0x00);
-+	rt2x00_set_field16_nb(&reg, TXRX_CSR1_AUTO_SEQUENCE, 1);
- 	rt2x00_register_write(rt2x00dev, TXRX_CSR1, reg);
+-	if (unlikely(id->driver_info != RT2570)) {
+-		ERROR("Detected device not supported.\n");
+-		return -ENODEV;
+-	}
+-
+ 	usb_dev = usb_get_dev(usb_dev);
  
- 	rt2x00_register_read(rt2x00dev, PHY_CSR4, &reg);
-diff -rU3 wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2x00.h 
-wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2x00.h
---- wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-07-23 
-18:09:00.000000000 +0200
-+++ wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2x00.h	
-2006-07-23 19:49:00.000000000 +0200
-@@ -911,6 +911,50 @@
- }
+ 	net_dev = ieee80211_alloc_hw(sizeof(struct rt2x00_dev), NULL);
+@@ -2682,46 +2677,46 @@
  
- /*
-+ * Sequence number handlers.
-+ */
-+static inline int rt2x00_require_sequence(struct ieee80211_hdr *ieee80211hdr)
-+{
-+	/*
-+	 * Check if the packet has a header
-+	 * that contains a seq_ctrl field.
-+	 */
-+	if (ieee80211_get_hdrlen(
-+		le16_to_cpu(ieee80211hdr->frame_control)) >= IEEE80211_HEADER)
-+		return 1;
-+	return 0;
-+}
-+
-+static inline void rt2x00_set_sequence(struct sk_buff *skb, u16 *seq)
-+{
-+	struct ieee80211_hdr *ieee80211hdr =
-+		(struct ieee80211_hdr*)skb->data;
-+
-+	/*
-+	 * Only attach the sequence number, when
-+	 * the buffer requires it.
-+	 */
-+	if (!rt2x00_require_sequence(ieee80211hdr))
-+		return;
-+
-+	/*
-+	 * Set the sequence number for this frame,
-+	 * but do not change the fragment number.
-+	 */
-+	ieee80211hdr->seq_ctrl |= cpu_to_le16((*seq << 4) & 0xfff0);
-+
-+	/*
-+	 * Since the dscape stack sends all packets and
-+	 * fragments individually, we need to check if there
-+	 * will be new fragments following.
-+	 * If this is the last or only fragment, the sequence
-+	 * counter should be increased.
-+	 */
-+	if (!ieee80211_get_morefrag(ieee80211hdr))
-+		*seq = (*seq + 1) & 0x0fff;
-+}
-+
-+/*
-  * Duration calculations
-  * The rate variable passed is: 100kbs.
-  * To convert from bytes to bits we multiply size with 8,
-diff -rU3 wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c 
-wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 
+ static struct usb_device_id rt2500usb_device_table[] = {
+ 	/* ASUS */
+-	{ USB_DEVICE(0x0b05, 0x1706), .driver_info = RT2570},
+-	{ USB_DEVICE(0x0b05, 0x1707), .driver_info = RT2570},
++	{ USB_DEVICE(0x0b05, 0x1706) },
++	{ USB_DEVICE(0x0b05, 0x1707) },
+ 	/* Belkin */
+-	{ USB_DEVICE(0x050d, 0x7050), .driver_info = RT2570},
+-	{ USB_DEVICE(0x050d, 0x7051), .driver_info = RT2570},
+-	{ USB_DEVICE(0x050d, 0x705a), .driver_info = RT2570},
++	{ USB_DEVICE(0x050d, 0x7050) },
++	{ USB_DEVICE(0x050d, 0x7051) },
++	{ USB_DEVICE(0x050d, 0x705a) },
+ 	/* Cisco Systems */
+-	{ USB_DEVICE(0x13b1, 0x000d), .driver_info = RT2570},
+-	{ USB_DEVICE(0x13b1, 0x0011), .driver_info = RT2570},
+-	{ USB_DEVICE(0x13b1, 0x001a), .driver_info = RT2570},
++	{ USB_DEVICE(0x13b1, 0x000d) },
++	{ USB_DEVICE(0x13b1, 0x0011) },
++	{ USB_DEVICE(0x13b1, 0x001a) },
+ 	/* Conceptronic */
+-	{ USB_DEVICE(0x14b2, 0x3c02), .driver_info = RT2570},
++	{ USB_DEVICE(0x14b2, 0x3c02) },
+ 	/* D-LINK */
+-	{ USB_DEVICE(0x2001, 0x3c00), .driver_info = RT2570},
++	{ USB_DEVICE(0x2001, 0x3c00) },
+ 	/* Gigabyte */
+-	{ USB_DEVICE(0x1044, 0x8001), .driver_info = RT2570},
+-	{ USB_DEVICE(0x1044, 0x8007), .driver_info = RT2570},
++	{ USB_DEVICE(0x1044, 0x8001) },
++	{ USB_DEVICE(0x1044, 0x8007) },
+ 	/* Hercules */
+-	{ USB_DEVICE(0x06f8, 0xe000), .driver_info = RT2570},
++	{ USB_DEVICE(0x06f8, 0xe000) },
+ 	/* Melco */
+-	{ USB_DEVICE(0x0411, 0x0066), .driver_info = RT2570},
+-	{ USB_DEVICE(0x0411, 0x0067), .driver_info = RT2570},
+-	{ USB_DEVICE(0x0411, 0x008b), .driver_info = RT2570},
++	{ USB_DEVICE(0x0411, 0x0066) },
++	{ USB_DEVICE(0x0411, 0x0067) },
++	{ USB_DEVICE(0x0411, 0x008b) },
+ 	/* MSI */
+-	{ USB_DEVICE(0x0db0, 0x6861), .driver_info = RT2570},
+-	{ USB_DEVICE(0x0db0, 0x6865), .driver_info = RT2570},
+-	{ USB_DEVICE(0x0db0, 0x6869), .driver_info = RT2570},
++	{ USB_DEVICE(0x0db0, 0x6861) },
++	{ USB_DEVICE(0x0db0, 0x6865) },
++	{ USB_DEVICE(0x0db0, 0x6869) },
+ 	/* Ralink */
+-	{ USB_DEVICE(0x148f, 0x1706), .driver_info = RT2570},
+-	{ USB_DEVICE(0x148f, 0x2570), .driver_info = RT2570},
+-	{ USB_DEVICE(0x148f, 0x2573), .driver_info = RT2570},
+-	{ USB_DEVICE(0x148f, 0x9020), .driver_info = RT2570},
++	{ USB_DEVICE(0x148f, 0x1706) },
++	{ USB_DEVICE(0x148f, 0x2570) },
++	{ USB_DEVICE(0x148f, 0x2573) },
++	{ USB_DEVICE(0x148f, 0x9020) },
+ 	/* SMC */
+-	{ USB_DEVICE(0x0707, 0xee13), .driver_info = RT2570},
++	{ USB_DEVICE(0x0707, 0xee13) },
+ 	/* Spairon */
+-	{ USB_DEVICE(0x114b, 0x0110), .driver_info = RT2570},
++	{ USB_DEVICE(0x114b, 0x0110) },
+ 	/* Trust */
+-	{ USB_DEVICE(0x0eb0, 0x9020), .driver_info = RT2570},
++	{ USB_DEVICE(0x0eb0, 0x9020) },
+ 	/* Zinwell */
+-	{ USB_DEVICE(0x5a57, 0x0260), .driver_info = RT2570},
++	{ USB_DEVICE(0x5a57, 0x0260) },
+ 	{0,}
+ };
+ 
+diff -rU3 wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt61pci.c 
+wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 
+19:22:41.000000000 +0200
++++ wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 
 19:34:27.000000000 +0200
-+++ wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt61pci.c	
-2006-07-23 19:53:45.000000000 +0200
-@@ -1321,7 +1321,10 @@
- 		rt2x00_set_field32(&txd->word1,
- 			TXD_W1_HOST_Q_ID, control->queue);
+@@ -3517,11 +3517,6 @@
+ 	struct net_device *net_dev;
+ 	int status;
  
--	rt2x00_set_field32(&txd->word1, TXD_W1_HW_SEQUENCE, 0);
-+	if (rt2x00_require_sequence(ieee80211hdr))
-+		rt2x00_set_field32(&txd->word1, TXD_W1_HW_SEQUENCE, 1);
-+	else
-+		rt2x00_set_field32(&txd->word1, TXD_W1_HW_SEQUENCE, 0);
+-	if (unlikely(id->driver_data != RT61)) {
+-		ERROR("Detected device not supported.\n");
+-		return -ENODEV;
+-	}
+-
+ 	if (pci_enable_device(pci_dev)) {
+ 		ERROR("Enable device failed.\n");
+ 		return -EIO;
+@@ -3687,11 +3682,11 @@
  
- 	rt2x00_set_field32(&txd->word1, TXD_W1_AIFSN, ring->tx_params.aifs);
- 	rt2x00_set_field32(&txd->word1, TXD_W1_CWMIN, ring->tx_params.cw_min);
-@@ -2113,6 +2116,10 @@
- 	rt2x00_set_field32(&reg, MAC_CSR9_CW_SELECT, 0);
- 	rt2x00_register_write(rt2x00dev, MAC_CSR9, reg);
+ static struct pci_device_id rt61pci_device_table[] = {
+ 	/* RT2561s */
+-	{ PCI_DEVICE(0x1814, 0x0301), .driver_data = RT61},
++	{ PCI_DEVICE(0x1814, 0x0301) },
+ 	/* RT2561 v2 */
+-	{ PCI_DEVICE(0x1814, 0x0302), .driver_data = RT61},
++	{ PCI_DEVICE(0x1814, 0x0302) },
+ 	/* RT2661 */
+-	{ PCI_DEVICE(0x1814, 0x0401), .driver_data = RT61},
++	{ PCI_DEVICE(0x1814, 0x0401) },
+ 	{ 0, }
+ };
  
-+	rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
-+	rt2x00_set_field32(&reg, TXRX_CSR0_AUTO_TX_SEQ, 1);
-+	rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
-+
- 	rt2x00_register_write(rt2x00dev, PHY_CSR1, cpu_to_le32(0x000023b0));
- 	rt2x00_register_write(rt2x00dev, PHY_CSR5, cpu_to_le32(0x060a100c));
- 	rt2x00_register_write(rt2x00dev, PHY_CSR6, cpu_to_le32(0x00080606));
-diff -rU3 wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c 
-wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt73usb.c
---- wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 
+diff -rU3 wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt61pci.h 
+wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.h
+--- wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-07-23 
+18:33:18.000000000 +0200
++++ wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-07-23 
+19:33:56.000000000 +0200
+@@ -30,7 +30,6 @@
+ /*
+  * RT chip defines.
+  */
+-#define RT61				0x0300
+ #define RT2561				0x0301
+ #define RT2561s				0x0302
+ #define RT2661				0x0401
+diff -rU3 wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt73usb.c 
+wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev-state/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 
+19:23:14.000000000 +0200
++++ wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 
 19:33:08.000000000 +0200
-+++ wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt73usb.c	
-2006-07-23 19:54:16.000000000 +0200
-@@ -1038,7 +1038,10 @@
- 		rt2x00_set_field32(&txd->word1,
- 			TXD_W1_HOST_Q_ID, control->queue);
+@@ -2972,11 +2972,6 @@
+ 	struct net_device *net_dev;
+ 	int status;
  
--	rt2x00_set_field32(&txd->word1, TXD_W1_HW_SEQUENCE, 0);
-+	if (rt2x00_require_sequence(ieee80211hdr))
-+		rt2x00_set_field32(&txd->word1, TXD_W1_HW_SEQUENCE, 1);
-+	else
-+		rt2x00_set_field32(&txd->word1, TXD_W1_HW_SEQUENCE, 0);
+-	if (unlikely(id->driver_info != RT73)) {
+-		ERROR("Detected device not supported.\n");
+-		return -ENODEV;
+-	}
+-
+ 	usb_dev = usb_get_dev(usb_dev);
  
- 	rt2x00_set_field32(&txd->word1, TXD_W1_AIFSN, ring->tx_params.aifs);
- 	rt2x00_set_field32(&txd->word1, TXD_W1_CWMIN, ring->tx_params.cw_min);
-@@ -1682,6 +1685,10 @@
- 	rt2x00_set_field32(&reg, MAC_CSR9_CW_SELECT, 0);
- 	rt2x00_register_write(rt2x00dev, MAC_CSR9, reg);
+ 	net_dev = ieee80211_alloc_hw(sizeof(struct rt2x00_dev), NULL);
+@@ -3108,23 +3103,23 @@
  
-+	rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
-+	rt2x00_set_field32(&reg, TXRX_CSR0_AUTO_TX_SEQ, 1);
-+	rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
-+
- 	/*
- 	 * We must clear the error counters.
- 	 * These registers are cleared on read,
+ static struct usb_device_id rt73usb_device_table[] = {
+ 	/* Belkin */
+-	{ USB_DEVICE(0x050d, 0x7050), .driver_info = RT73},
+-	{ USB_DEVICE(0x050d, 0x705a), .driver_info = RT73},
++	{ USB_DEVICE(0x050d, 0x7050) },
++	{ USB_DEVICE(0x050d, 0x705a) },
+ 	/* Conceptronic */
+-	{ USB_DEVICE(0x14b2, 0x3c22), .driver_info = RT73},
++	{ USB_DEVICE(0x14b2, 0x3c22) },
+ 	/* D-Link */
+-	{ USB_DEVICE(0x07d1, 0x3c03), .driver_info = RT73},
+-	{ USB_DEVICE(0x07d1, 0x3c04), .driver_info = RT73},
++	{ USB_DEVICE(0x07d1, 0x3c03) },
++	{ USB_DEVICE(0x07d1, 0x3c04) },
+ 	/* Gigabyte */
+-	{ USB_DEVICE(0x1044, 0x8008), .driver_info = RT73},
++	{ USB_DEVICE(0x1044, 0x8008) },
+ 	/* MSI */
+-	{ USB_DEVICE(0x0db0, 0x6877), .driver_info = RT73},
+-	{ USB_DEVICE(0x0db0, 0xa874), .driver_info = RT73},
++	{ USB_DEVICE(0x0db0, 0x6877) },
++	{ USB_DEVICE(0x0db0, 0xa874) },
+ 	/* Ralink */
+-	{ USB_DEVICE(0x148f, 0x2573), .driver_info = RT73},
+-	{ USB_DEVICE(0x148f, 0x2671), .driver_info = RT73},
++	{ USB_DEVICE(0x148f, 0x2573) },
++	{ USB_DEVICE(0x148f, 0x2671) },
+ 	/* Qcom */
+-	{ USB_DEVICE(0x18e8, 0x6196), .driver_info = RT73},
++	{ USB_DEVICE(0x18e8, 0x6196) },
+ 	{ 0, }
+ };
+ 
