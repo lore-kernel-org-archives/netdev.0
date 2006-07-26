@@ -1,34 +1,48 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: MTU probing bug?
-Date: Tue, 25 Jul 2006 21:53:01 -0400
-Message-ID: <44C6CAFD.8090107@psc.edu>
-References: <20060725.001744.26930215.davem@davemloft.net>	<44C62316.9080501@psc.edu> <20060725.144225.67885911.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] ip multicast route bug fix
+Date: Wed, 26 Jul 2006 12:26:02 +1000
+Message-ID: <E1G5Z62-00083O-00@gondolin.me.apana.org.au>
+References: <20060725211725.GA24366@ms2.inr.ac.ru>
+Cc: shemminger@osdl.org, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:15843 "EHLO mailer1.psc.edu")
-	by vger.kernel.org with ESMTP id S1030352AbWGZBxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jul 2006 21:53:22 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060725.144225.67885911.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:31240 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1030365AbWGZC0u
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jul 2006 22:26:50 -0400
+To: kuznet@ms2.inr.ac.ru (Alexey Kuznetsov)
+In-Reply-To: <20060725211725.GA24366@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> I find it interesting that black hole detection is handled
-> different from a normal probe failure.  I guess here we are
-> dealing with a more significant failure, so we should start
-> at the thing which is most guarenteed to work.
+Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
+> 
+> I think you mean this.
+> 
+> Note, it is real skb_clone(), not alloc_skb(). Equeued skb contains
+> the whole half-prepared netlink message plus room for the rest.
+> It could be also skb_copy(), if we want to be puristic about mangling
+> cloned data, but original copy is really not going to be used.  
 
-Black hole detection is substantially different than probe failure. 
-It's an indication that your current effective MTU is too large, and 
-must be reduced.  A black hole basically means that your current path 
-information is no good, either because your initial values are wrong, or 
-the path changed.  So, you really want to reset everything to 
-conservative values.  After a failed probe, your effective MTU is still 
-fine, you've just gotten some additional information about the path 
-(that it doesn't support the higher MTU).
+I like this.  However, since the cloned skb is either discarded in case
+of error, or queued in which case the caller discards its reference right
+away, wouldn't it be simpler to just do this?
 
-   -John
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index ba33f86..0a2af08 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1593,6 +1593,7 @@ int ipmr_get_route(struct sk_buff *skb, 
+ 			read_unlock(&mrt_lock);
+ 			return -ENODEV;
+ 		}
++		skb_get(skb);
+ 		skb->nh.raw = skb_push(skb, sizeof(struct iphdr));
+ 		skb->nh.iph->ihl = sizeof(struct iphdr)>>2;
+ 		skb->nh.iph->saddr = rt->rt_src;
