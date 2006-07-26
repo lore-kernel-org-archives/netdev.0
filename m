@@ -1,8 +1,8 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH 15/24] RT2x00: Merge PCI and USB version of data_entry structure
-Date: Wed, 26 Jul 2006 20:29:09 +0200
-Message-ID: <200607262029.09531.IvDoorn@gmail.com>
-References: <200607261905.32410.IvDoorn@gmail.com>
+Subject: Re: [PATCH 16/24] RT2x00: Fix rt61pci interrupt handling
+Date: Wed, 26 Jul 2006 20:29:30 +0200
+Message-ID: <200607262029.30542.IvDoorn@gmail.com>
+References: <200607261905.36712.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
@@ -10,1534 +10,251 @@ Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from nf-out-0910.google.com ([64.233.182.184]:2063 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1161014AbWGZS3X convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 14:29:23 -0400
+	id S1161015AbWGZS3m convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 14:29:42 -0400
 Received: by nf-out-0910.google.com with SMTP id o25so839729nfa
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 11:29:22 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 11:29:41 -0700 (PDT)
 To: netdev@vger.kernel.org
-In-Reply-To: <200607261905.32410.IvDoorn@gmail.com>
+In-Reply-To: <200607261905.36712.IvDoorn@gmail.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 >From Ivo van Doorn <IvDoorn@gmail.com>
 
-Merge the data_entry structure for USB and PCI into
-a single structure. This means that all access to the data_addr
-and desc_addr should now be performed through the functions:
-rt2x00pci_desc_addr()
-rt2x00pci_data_addr()
-And for usb:
-rt2x00usb_urb()
-rt2x00usb_rxdata_addr()
-rt2x00usb_rxdesc_addr()
-rt2x00usb_txdata_addr()
-rt2x00usb_txdesc_addr()
+rt61pci irq is a bit different compared to the others,
+when the irq is raised, we should read from the register which
+ring and which entry has been send. And this entry should
+be processed. Using a for loop to go through all entries
+is no longer working since we require certain statistics
+from the registers.
 
 Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
 
-diff -rU3 wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
---- wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-23 22:41:51.000000000 +0200
-+++ wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-25 10:44:12.000000000 +0200
-@@ -1039,7 +1039,7 @@
- 
- 	while (1) {
- 		entry = rt2x00_get_data_entry(ring);
--		rxd = entry->desc_addr;
-+		rxd = rt2x00pci_desc_addr(entry);
- 
- 		if (rt2x00_get_field32(rxd->word0, RXD_W0_OWNER_NIC))
- 			break;
-@@ -1058,7 +1058,8 @@
- 
- 			skb_reserve(skb, NET_IP_ALIGN);
- 
--			memcpy(skb_put(skb, size), entry->data_addr, size);
-+			memcpy(skb_put(skb, size), rt2x00pci_data_addr(entry),
-+				size);
- 
- 			rt2x00dev->rx_params.ssi =
- 				rt2x00_get_field32(rxd->word2, RXD_W2_RSSI);
-@@ -1100,7 +1101,7 @@
- 
- 	while (!rt2x00_ring_empty(ring)) {
- 		entry = rt2x00_get_data_entry_done(ring);
--		txd = entry->desc_addr;
-+		txd = rt2x00pci_desc_addr(entry);
- 
- 		if (rt2x00_get_field32(txd->word0, TXD_W0_OWNER_NIC) ||
- 		    !rt2x00_get_field32(txd->word0, TXD_W0_VALID))
-@@ -1237,10 +1238,10 @@
-  * DMA ring functions.
-  */
- static int rt2400pci_alloc_ring(struct rt2x00_dev *rt2x00dev,
--	struct data_ring *ring, void (*handler)(void *),
-+	unsigned short type, void (*handler)(void *),
- 	const u16 max_entries, const u16 data_size, const u16 desc_size)
- {
--	struct data_entry *entry;
-+	struct data_ring *ring = &rt2x00dev->ring[type];
- 	unsigned int i;
- 
- 	/*
-@@ -1261,15 +1262,15 @@
- 
- 	rt2x00_ring_index_clear(ring);
- 
-+	ring->type = type;
- 	ring->stats.limit = max_entries;
--	ring->entry_size = sizeof(struct data_entry);
- 	ring->data_size = data_size;
- 	ring->desc_size = desc_size;
- 
- 	/*
- 	 * Allocate all ring entries.
- 	 */
--	ring->entry = kmalloc(ring->stats.limit * ring->entry_size,
-+	ring->entry = kmalloc(ring->stats.limit * sizeof(struct data_entry),
- 		GFP_KERNEL);
- 	if (!ring->entry)
- 		return -ENOMEM;
-@@ -1288,15 +1289,14 @@
- 	 * Initialize all ring entries to contain valid
- 	 * addresses.
- 	 */
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		entry[i].skb = NULL;
--		entry[i].desc_addr = ring->data_addr
-+		ring->entry[i].skb = NULL;
-+		ring->entry[i].priv = ring->data_addr
- 			+ (i * ring->desc_size);
--		entry[i].data_addr = ring->data_addr
-+		ring->entry[i].data_addr = ring->data_addr
- 			+ (ring->stats.limit * ring->desc_size)
- 			+ (i * ring->data_size);
--		entry[i].data_dma = ring->data_dma
-+		ring->entry[i].data_dma = ring->data_dma
- 			+ (ring->stats.limit * ring->desc_size)
- 			+ (i * ring->data_size);
- 	}
-@@ -1329,19 +1329,19 @@
- 	SET_FLAG(rt2x00dev, DEVICE_SUPPORT_ATIM);
- 
- 	if (rt2400pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_RX], rt2400pci_rxdone,
-+		rt2x00dev, RING_RX, rt2400pci_rxdone,
- 		RX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct rxd)) ||
- 	    rt2400pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_TX], rt2400pci_txdone,
-+		rt2x00dev, RING_TX, rt2400pci_txdone,
- 		 TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt2400pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_ATIM], rt2400pci_txdone,
-+		rt2x00dev, RING_ATIM, rt2400pci_txdone,
- 		ATIM_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt2400pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_PRIO], rt2400pci_txdone,
-+		rt2x00dev, RING_PRIO, rt2400pci_txdone,
- 		TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt2400pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_BEACON], rt2400pci_beacondone,
-+		rt2x00dev, RING_BEACON, rt2400pci_beacondone,
- 		BEACON_ENTRIES, MGMT_FRAME_SIZE, sizeof(struct txd))) {
- 		ERROR("DMA allocation failed.\n");
- 		return -ENOMEM;
-@@ -1368,20 +1368,18 @@
- static void rt2400pci_init_rxdesc(struct rt2x00_dev *rt2x00dev,
- 	struct data_ring *ring)
- {
--	struct data_entry *entry;
- 	struct rxd *rxd;
- 	unsigned int i;
- 
- 	memset(ring->data_addr, 0x00, rt2x00_get_ring_size(ring));
- 
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		rxd = entry[i].desc_addr;
-+		rxd = rt2x00pci_desc_addr(&ring->entry[i]);
- 
- 		rt2x00_set_field32(&rxd->word2, RXD_W2_BUFFER_LENGTH,
- 			ring->data_size);
- 		rt2x00_set_field32(&rxd->word1, RXD_W1_BUFFER_ADDRESS,
--			entry[i].data_dma);
-+			ring->entry[i].data_dma);
- 		rt2x00_set_field32(&rxd->word0, RXD_W0_OWNER_NIC, 1);
- 	}
- 
-@@ -1391,20 +1389,18 @@
- static void rt2400pci_init_txdesc(struct rt2x00_dev *rt2x00dev,
- 	struct data_ring *ring)
- {
--	struct data_entry *entry;
- 	struct txd *txd;
- 	unsigned int i;
- 
- 	memset(ring->data_addr, 0x00, rt2x00_get_ring_size(ring));
- 
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		txd = entry[i].desc_addr;
-+		txd = rt2x00pci_desc_addr(&ring->entry[i]);
- 
- 		rt2x00_set_field32(&txd->word2, TXD_W2_BUFFER_LENGTH,
- 			ring->data_size);
- 		rt2x00_set_field32(&txd->word1, TXD_W1_BUFFER_ADDRESS,
--			entry[i].data_dma);
-+			ring->entry[i].data_dma);
- 		rt2x00_set_field32(&txd->word0, TXD_W0_VALID, 0);
- 		rt2x00_set_field32(&txd->word0, TXD_W0_OWNER_NIC, 0);
- 	}
-@@ -1671,7 +1667,7 @@
- 	}
- 
- 	entry = rt2x00_get_data_entry(ring);
--	txd = entry->desc_addr;
-+	txd = rt2x00pci_desc_addr(entry);
- 
- 	if (rt2x00_get_field32(txd->word0, TXD_W0_OWNER_NIC) ||
- 	    rt2x00_get_field32(txd->word0, TXD_W0_VALID)) {
-@@ -1687,7 +1683,7 @@
- 	 */
- 	rt2x00_set_sequence(skb, &rt2x00dev->interface.sequence);
- 
--	memcpy(entry->data_addr, skb->data, skb->len);
-+	memcpy(rt2x00pci_data_addr(entry), skb->data, skb->len);
- 	rt2400pci_write_tx_desc(rt2x00dev, txd, skb, control);
- 	if (WLAN_FC_GET_STYPE(frame_control) == WLAN_FC_STYPE_RTS)
- 		SET_FLAG(entry, ENTRY_RTS_FRAME);
-@@ -2286,8 +2282,9 @@
- 	 */
- 	rt2x00_set_sequence(skb, &rt2x00dev->interface.sequence);
- 
--	memcpy(entry->data_addr, skb->data, skb->len);
--	rt2400pci_write_tx_desc(rt2x00dev, entry->desc_addr, skb, control);
-+	memcpy(rt2x00pci_data_addr(entry), skb->data, skb->len);
-+	rt2400pci_write_tx_desc(rt2x00dev, rt2x00pci_desc_addr(entry),
-+		skb, control);
- 
- 	return 0;
+diff -rU3 wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-rt61irq/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-25 14:55:25.000000000 +0200
++++ wireless-dev-rt61irq/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-25 16:13:19.000000000 +0200
+@@ -1473,72 +1473,119 @@
+ 	rt61pci_activity_led(rt2x00dev, total_rssi);
  }
-diff -rU3 wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2400pci.h wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2400pci.h
---- wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2400pci.h	2006-07-23 17:15:44.000000000 +0200
-+++ wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2400pci.h	2006-07-25 10:09:31.000000000 +0200
-@@ -845,6 +845,20 @@
- };
  
- /*
-+ * Small handlers to determine the descriptor and
-+ * data address within each entry.
-+ */
-+static inline void* rt2x00pci_data_addr(struct data_entry *entry)
-+{
-+	return entry->data_addr;
-+}
-+
-+static inline void* rt2x00pci_desc_addr(struct data_entry *entry)
-+{
-+	return entry->priv;
-+}
-+
-+/*
-  * Macro's for converting txpower from EEPROM to dscape value
-  * and from dscape value to register value.
-  * NOTE: Logics in rt2400pci for txpower are reversed
-diff -rU3 wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
---- wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-23 22:59:00.000000000 +0200
-+++ wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-25 14:50:08.000000000 +0200
-@@ -1137,7 +1137,7 @@
- 
- 	while (1) {
- 		entry = rt2x00_get_data_entry(ring);
--		rxd = entry->desc_addr;
-+		rxd = rt2x00pci_desc_addr(entry);
- 
- 		if (rt2x00_get_field32(rxd->word0, RXD_W0_OWNER_NIC))
- 			break;
-@@ -1156,7 +1156,8 @@
- 
- 			skb_reserve(skb, NET_IP_ALIGN);
- 
--			memcpy(skb_put(skb, size), entry->data_addr, size);
-+			memcpy(skb_put(skb, size), rt2x00pci_data_addr(entry),
-+				size);
- 
- 			rt2x00dev->rx_params.ssi =
- 				rt2x00_get_field32(rxd->word2, RXD_W2_RSSI);
-@@ -1201,7 +1202,7 @@
- 
- 	while (!rt2x00_ring_empty(ring)) {
- 		entry = rt2x00_get_data_entry_done(ring);
--		txd = entry->desc_addr;
-+		txd = rt2x00pci_desc_addr(entry);
- 
- 		if (rt2x00_get_field32(txd->word0, TXD_W0_OWNER_NIC) ||
- 		    !rt2x00_get_field32(txd->word0, TXD_W0_VALID))
-@@ -1338,10 +1339,10 @@
-  * DMA ring functions.
-  */
- static int rt2500pci_alloc_ring(struct rt2x00_dev *rt2x00dev,
--	struct data_ring *ring, void (*handler)(void *),
-+	unsigned short type, void (*handler)(void *),
- 	const u16 max_entries, const u16 data_size, const u16 desc_size)
+-static void rt61pci_txdone(void *data)
++static void rt61pci_txdone_entry(struct data_entry *entry, u32 sta_csr4)
  {
+-	struct data_ring *ring = data;
+-	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(ring->net_dev);
 -	struct data_entry *entry;
-+	struct data_ring *ring = &rt2x00dev->ring[type];
- 	unsigned int i;
- 
- 	/*
-@@ -1363,15 +1364,15 @@
- 
- 	rt2x00_ring_index_clear(ring);
- 
-+	ring->type = type;
- 	ring->stats.limit = max_entries;
--	ring->entry_size = sizeof(struct data_entry);
- 	ring->data_size = data_size;
- 	ring->desc_size = desc_size;
- 
- 	/*
- 	 * Allocate all ring entries.
- 	 */
--	ring->entry = kmalloc(ring->stats.limit * ring->entry_size,
-+	ring->entry = kmalloc(ring->stats.limit * sizeof(struct data_entry),
- 		GFP_KERNEL);
- 	if (!ring->entry)
- 		return -ENOMEM;
-@@ -1390,15 +1391,14 @@
- 	 * Initialize all ring entries to contain valid
- 	 * addresses.
- 	 */
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		entry[i].skb = NULL;
--		entry[i].desc_addr = ring->data_addr
-+		ring->entry[i].skb = NULL;
-+		ring->entry[i].priv = ring->data_addr
- 			+ (i * ring->desc_size);
--		entry[i].data_addr = ring->data_addr
-+		ring->entry[i].data_addr = ring->data_addr
- 			+ (ring->stats.limit * ring->desc_size)
- 			+ (i * ring->data_size);
--		entry[i].data_dma = ring->data_dma
-+		ring->entry[i].data_dma = ring->data_dma
- 			+ (ring->stats.limit * ring->desc_size)
- 			+ (i * ring->data_size);
- 	}
-@@ -1431,19 +1431,19 @@
- 	SET_FLAG(rt2x00dev, DEVICE_SUPPORT_ATIM);
- 
- 	if (rt2500pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_RX], rt2500pci_rxdone,
-+		rt2x00dev, RING_RX, rt2500pci_rxdone,
- 		RX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct rxd)) ||
- 	    rt2500pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_TX], rt2500pci_txdone,
-+		rt2x00dev, RING_TX, rt2500pci_txdone,
- 		 TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt2500pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_ATIM], rt2500pci_txdone,
-+		rt2x00dev, RING_ATIM, rt2500pci_txdone,
- 		ATIM_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt2500pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_PRIO], rt2500pci_txdone,
-+		rt2x00dev, RING_PRIO, rt2500pci_txdone,
- 		TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt2500pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_BEACON], rt2500pci_beacondone,
-+		rt2x00dev, RING_BEACON, rt2500pci_beacondone,
- 		BEACON_ENTRIES, MGMT_FRAME_SIZE, sizeof(struct txd))) {
- 		ERROR("DMA allocation failed.\n");
- 		return -ENOMEM;
-@@ -1470,18 +1470,16 @@
- static void rt2500pci_init_rxdesc(struct rt2x00_dev *rt2x00dev,
- 	struct data_ring *ring)
- {
--	struct data_entry *entry;
- 	struct rxd *rxd;
- 	unsigned int i;
- 
- 	memset(ring->data_addr, 0x00, rt2x00_get_ring_size(ring));
- 
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		rxd = entry[i].desc_addr;
-+		rxd = rt2x00pci_desc_addr(&ring->entry[i]);
- 
- 		rt2x00_set_field32(&rxd->word1, RXD_W1_BUFFER_ADDRESS,
--			entry[i].data_dma);
-+			ring->entry[i].data_dma);
- 		rt2x00_set_field32(&rxd->word0, RXD_W0_OWNER_NIC, 1);
- 	}
- 
-@@ -1491,18 +1489,16 @@
- static void rt2500pci_init_txdesc(struct rt2x00_dev *rt2x00dev,
- 	struct data_ring *ring)
- {
--	struct data_entry *entry;
++	struct rt2x00_dev *rt2x00dev =
++		ieee80211_dev_hw_data(entry->ring->net_dev);
  	struct txd *txd;
- 	unsigned int i;
- 
- 	memset(ring->data_addr, 0x00, rt2x00_get_ring_size(ring));
- 
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		txd = entry[i].desc_addr;
-+		txd = rt2x00pci_desc_addr(&ring->entry[i]);
- 
- 		rt2x00_set_field32(&txd->word1, TXD_W1_BUFFER_ADDRESS,
--			entry[i].data_dma);
-+			ring->entry[i].data_dma);
- 		rt2x00_set_field32(&txd->word0, TXD_W0_VALID, 0);
- 		rt2x00_set_field32(&txd->word0, TXD_W0_OWNER_NIC, 0);
- 	}
-@@ -1807,7 +1803,7 @@
- 	}
- 
- 	entry = rt2x00_get_data_entry(ring);
--	txd = entry->desc_addr;
-+	txd = rt2x00pci_desc_addr(entry);
- 
- 	if (rt2x00_get_field32(txd->word0, TXD_W0_OWNER_NIC) ||
- 	    rt2x00_get_field32(txd->word0, TXD_W0_VALID)) {
-@@ -1823,7 +1819,7 @@
- 	 */
- 	rt2x00_set_sequence(skb, &rt2x00dev->interface.sequence);
- 
--	memcpy(entry->data_addr, skb->data, skb->len);
-+	memcpy(rt2x00pci_data_addr(entry), skb->data, skb->len);
- 	rt2500pci_write_tx_desc(rt2x00dev, txd, skb, control);
- 	if (WLAN_FC_GET_STYPE(frame_control) == WLAN_FC_STYPE_RTS)
- 		SET_FLAG(entry, ENTRY_RTS_FRAME);
-@@ -2413,8 +2409,9 @@
- 	 */
- 	rt2x00_set_sequence(skb, &rt2x00dev->interface.sequence);
- 
--	memcpy(entry->data_addr, skb->data, skb->len);
--	rt2500pci_write_tx_desc(rt2x00dev, entry->desc_addr, skb, control);
-+	memcpy(rt2x00pci_data_addr(entry), skb->data, skb->len);
-+	rt2500pci_write_tx_desc(rt2x00dev, rt2x00pci_desc_addr(entry),
-+		skb, control);
- 
- 	return 0;
- }
-diff -rU3 wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2500pci.h wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2500pci.h
---- wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2500pci.h	2006-07-23 17:16:15.000000000 +0200
-+++ wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2500pci.h	2006-07-25 10:09:39.000000000 +0200
-@@ -1114,6 +1114,20 @@
- };
- 
- /*
-+ * Small handlers to determine the descriptor and
-+ * data address within each entry.
-+ */
-+static inline void* rt2x00pci_data_addr(struct data_entry *entry)
-+{
-+	return entry->data_addr;
-+}
-+
-+static inline void* rt2x00pci_desc_addr(struct data_entry *entry)
-+{
-+	return entry->priv;
-+}
-+
-+/*
-  * Macro's for converting txpower from EEPROM to dscape value
-  * and from dscape value to register value.
-  */
-diff -rU3 wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
---- wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-23 23:00:43.000000000 +0200
-+++ wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-25 15:37:14.000000000 +0200
-@@ -949,6 +949,7 @@
- 	struct data_entry *entry;
- 	struct sk_buff *skb;
- 	struct rxd *rxd;
-+	struct urb *urb;
- 	u16 size;
- 	u8 rssi_count;
- 	char total_rssi;
-@@ -962,6 +963,7 @@
- 	while (1) {
- 		entry = rt2x00_get_data_entry(ring);
- 		rxd = rt2x00usb_rxdesc_addr(entry);
-+		urb = rt2x00usb_urb(entry);
- 
- 		if (GET_FLAG(entry, ENTRY_OWNER_NIC))
- 			break;
-@@ -969,9 +971,9 @@
- 		/*
- 		 * There has been a problem. Ignore packet.
- 		 */
--		if (entry->urb->status) {
-+		if (urb->status) {
- 			SET_FLAG(entry, ENTRY_OWNER_NIC);
--			usb_submit_urb(entry->urb, GFP_ATOMIC);
-+			usb_submit_urb(urb, GFP_ATOMIC);
- 			rt2x00_ring_index_inc(ring);
- 			continue;
- 		}
-@@ -1008,7 +1010,7 @@
- 		}
- 
- 		SET_FLAG(entry, ENTRY_OWNER_NIC);
--		usb_submit_urb(entry->urb, GFP_ATOMIC);
-+		usb_submit_urb(urb, GFP_ATOMIC);
- 
- 		rt2x00_ring_index_inc(ring);
- 	}
-@@ -1031,6 +1033,7 @@
- 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(ring->net_dev);
- 	struct data_entry *entry;
- 	struct txd *txd;
-+	struct urb *urb;
+ 	int tx_status;
  	int ack;
+-	int reg;
  	int ring_full;
  
-@@ -1042,6 +1045,7 @@
- 	 while (!rt2x00_ring_empty(ring)) {
- 		entry = rt2x00_get_data_entry_done(ring);
- 		txd = rt2x00usb_txdesc_addr(entry);
-+		urb = rt2x00usb_urb(entry);
- 
- 		if (GET_FLAG(entry, ENTRY_OWNER_NIC))
- 			break;
-@@ -1061,9 +1065,9 @@
- 		 * was succesfull.
- 		 */
- 		entry->tx_status.ack = 0;
--		if (ack && (entry->urb->status == TX_SUCCESS))
-+		if (ack && (urb->status == TX_SUCCESS))
- 			entry->tx_status.ack = 1;
--		else if (ack && entry->urb->status == TX_FAIL_OTHER) {
-+		else if (ack && urb->status == TX_FAIL_OTHER) {
- 			rt2x00dev->low_level_stats.dot11ACKFailureCount++;
- 			entry->tx_status.excessive_retries++;
- 		}
-@@ -1117,7 +1121,7 @@
- 	if (urb->status)
- 		return;
- 
--	if (GET_FLAG(entry, ENTRY_TYPE_RX))
-+	if (entry->ring->type == RING_RX)
- 		rt2500usb_activity_led(rt2x00dev, 1);
- 
- 	queue_work(rt2x00dev->workqueue, &entry->ring->irq_work);
-@@ -1127,10 +1131,10 @@
-  * DMA ring functions.
-  */
- static int rt2500usb_alloc_ring(struct rt2x00_dev *rt2x00dev,
--	struct data_ring *ring, void (*handler)(void *),
-+	unsigned short type, void (*handler)(void *),
- 	const u16 max_entries, const u16 data_size, const u16 desc_size)
- {
--	struct data_entry *entry;
-+	struct data_ring *ring = &rt2x00dev->ring[type];
- 	unsigned int i;
- 	int status;
- 
-@@ -1153,15 +1157,15 @@
- 
- 	rt2x00_ring_index_clear(ring);
- 
-+	ring->type = type;
- 	ring->stats.limit = max_entries;
--	ring->entry_size = sizeof(struct data_entry);
- 	ring->data_size = data_size;
- 	ring->desc_size = desc_size;
- 
++	txd = rt2x00pci_desc_addr(entry);
++
++	if (rt2x00_get_field32(txd->word0, TXD_W0_OWNER_NIC) ||
++	    !rt2x00_get_field32(txd->word0, TXD_W0_VALID))
++		return;
++
++	ack = rt2x00_get_field32(txd->word0, TXD_W0_ACK);
++
  	/*
- 	 * Allocate all ring entries.
+-	 * Store the current status of the ring.
++	 * TODO: How can te below field be set correctly?
  	 */
--	ring->entry = kmalloc(ring->stats.limit * ring->entry_size,
-+	ring->entry = kmalloc(ring->stats.limit * sizeof(struct data_entry),
- 		GFP_KERNEL);
- 	if (!ring->entry)
- 		return -ENOMEM;
-@@ -1182,20 +1186,19 @@
- 	 * addresses.
- 	 */
- 	status = 0;
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		entry[i].ring = ring;
-+		ring->entry[i].ring = ring;
- 		if (!status)
--			entry[i].urb = usb_alloc_urb(0, GFP_KERNEL);
-+			ring->entry[i].priv = usb_alloc_urb(0, GFP_KERNEL);
- 		else
--			entry[i].urb = NULL;
--		if (!entry[i].urb)
-+			ring->entry[i].priv = NULL;
-+		if (!ring->entry[i].priv)
- 			status = -ENOMEM;
--		entry[i].skb = NULL;
--		entry[i].data_addr = ring->data_addr
-+		ring->entry[i].skb = NULL;
-+		ring->entry[i].data_addr = ring->data_addr
- 			+ (i * ring->desc_size)
- 			+ (i * ring->data_size);
--		entry[i].data_dma = ring->data_dma
-+		ring->entry[i].data_dma = ring->data_dma
- 			+ (i * ring->desc_size)
- 			+ (i * ring->data_size);
- 	}
-@@ -1206,16 +1209,16 @@
- static void rt2500usb_free_ring(struct rt2x00_dev *rt2x00dev,
- 	struct data_ring *ring)
- {
--	struct data_entry *entry;
-+	struct urb *urb;
- 	unsigned int i;
+-	ring_full = rt2x00_ring_full(ring);
++	entry->tx_status.tx_filtered = 0;
  
- 	if (!ring->entry)
- 		goto exit;
+-	while (!rt2x00_ring_empty(ring)) {
+-		entry = rt2x00_get_data_entry_done(ring);
+-		txd = rt2x00pci_desc_addr(entry);
++	entry->tx_status.queue_length = entry->ring->stats.limit;
  
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		usb_kill_urb(entry[i].urb);
--		usb_free_urb(entry[i].urb);
-+		urb = rt2x00usb_urb(&ring->entry[i]);
-+		usb_kill_urb(urb);
-+		usb_free_urb(urb);
- 	}
+-		rt2x00_register_read(rt2x00dev, STA_CSR4, &reg);
++	/*
++	 * The TXD_W0_RESULT field will only be set when
++	 * we had requested an ACK. So we have received an
++	 * ACK response when ACK was requested and status
++	 * was succesfull.
++	 */
++	tx_status = rt2x00_get_field32(sta_csr4, STA_CSR4_TX_RESULT);
++	entry->tx_status.ack = 0;
++	if (ack && (tx_status == TX_SUCCESS ||
++	    tx_status == TX_SUCCESS_RETRY))
++		entry->tx_status.ack = 1;
++	else if (ack && tx_status == TX_FAIL_RETRY) {
++		rt2x00dev->low_level_stats.dot11ACKFailureCount++;
++		entry->tx_status.excessive_retries++;
++	}
  
- 	kfree(ring->entry);
-@@ -1242,19 +1245,19 @@
- 	SET_FLAG(rt2x00dev, DEVICE_SUPPORT_ATIM);
+-		if (rt2x00_get_field32(txd->word0, TXD_W0_OWNER_NIC) ||
+-		    !rt2x00_get_field32(txd->word0, TXD_W0_VALID) ||
+-		    !rt2x00_get_field32(reg, STA_CSR4_VALID))
+-			break;
++	rt2x00_bbp_read(rt2x00dev, 32,
++		(u8*)&entry->tx_status.ack_signal);
  
- 	if (rt2500usb_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_RX], &rt2500usb_rxdone,
-+		rt2x00dev, RING_RX, &rt2500usb_rxdone,
- 		RX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct rxd)) ||
- 	    rt2500usb_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_TX], &rt2500usb_txdone,
-+		rt2x00dev, RING_TX, &rt2500usb_txdone,
- 		 TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt2500usb_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_ATIM], &rt2500usb_txdone,
-+		rt2x00dev, RING_ATIM, &rt2500usb_txdone,
- 		ATIM_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt2500usb_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_PRIO], &rt2500usb_txdone,
-+		rt2x00dev, RING_PRIO, &rt2500usb_txdone,
- 		TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt2500usb_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_BEACON], &rt2500usb_beacondone,
-+		rt2x00dev, RING_BEACON, &rt2500usb_beacondone,
- 		BEACON_ENTRIES, MGMT_FRAME_SIZE, sizeof(struct txd))) {
- 		ERROR("DMA allocation failed.\n");
- 		return -ENOMEM;
-@@ -1283,37 +1286,37 @@
- {
- 	struct usb_device *usb_dev =
- 		interface_to_usbdev(rt2x00dev_usb(rt2x00dev));
--	struct data_entry *entry;
-+	struct urb *urb;
- 	unsigned int i;
+-		ack = rt2x00_get_field32(txd->word0, TXD_W0_ACK);
++	entry->tx_status.retry_count = rt2x00_get_field32(
++		sta_csr4, STA_CSR4_RETRY_COUNT);
  
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		entry[i].urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
--		entry[i].urb->transfer_dma = entry[i].data_dma;
-+		urb = rt2x00usb_urb(&ring->entry[i]);
-+		urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
-+		urb->transfer_dma = ring->entry[i].data_dma;
- 		usb_fill_bulk_urb(
--			entry[i].urb,
-+			urb,
- 			usb_dev,
- 			usb_rcvbulkpipe(usb_dev, 1),
--			entry[i].data_addr,
-+			ring->entry[i].data_addr,
- 			ring->entry_size + ring->desc_size,
- 			rt2500usb_interrupt,
--			&entry[i]);
--		SET_FLAG(&entry[i], ENTRY_OWNER_NIC | ENTRY_TYPE_RX);
--		usb_submit_urb(entry[i].urb, GFP_ATOMIC);
-+			&ring->entry[i]);
-+		SET_FLAG(&ring->entry[i], ENTRY_OWNER_NIC);
-+		usb_submit_urb(urb, GFP_ATOMIC);
- 	}
- }
+-		/*
+-		 * TODO: How can te below field be set correctly?
+-		 */
+-		entry->tx_status.tx_filtered = 0;
++	if (!GET_FLAG(entry, ENTRY_RTS_FRAME))
++		ieee80211_tx_status(entry->ring->net_dev,
++			entry->skb, &entry->tx_status);
  
- static void rt2500usb_init_txring(struct rt2x00_dev *rt2x00dev,
- 	struct data_ring *ring)
- {
--	struct data_entry *entry;
-+	struct urb *urb;
- 	unsigned int i;
+-		entry->tx_status.queue_length = ring->stats.limit;
++	rt2x00_set_field32(&txd->word0, TXD_W0_VALID, 0);
++	entry->skb = NULL;
  
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		entry[i].urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
--		entry[i].urb->transfer_dma = entry[i].data_dma;
--		CLEAR_FLAGS(&entry[i]);
-+		urb = rt2x00usb_urb(&ring->entry[i]);
-+		urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
-+		urb->transfer_dma = ring->entry[i].data_dma;
-+		CLEAR_FLAGS(&ring->entry[i]);
- 	}
- }
+-		/*
+-		 * The TXD_W0_RESULT field will only be set when
+-		 * we had requested an ACK. So we have received an
+-		 * ACK response when ACK was requested and status
+-		 * was succesfull.
+-		 */
+-		tx_status = rt2x00_get_field32(reg, STA_CSR4_TX_RESULT);
+-		entry->tx_status.ack = 0;
+-		if (ack && (tx_status == TX_SUCCESS ||
+-		    tx_status == TX_SUCCESS_RETRY))
+-			entry->tx_status.ack = 1;
+-		else if (ack && tx_status == TX_FAIL_RETRY) {
+-			rt2x00dev->low_level_stats.dot11ACKFailureCount++;
+-			entry->tx_status.excessive_retries++;
+-		}
++	/*
++	 * Store the current status of the ring.
++	 */
++	ring_full = rt2x00_ring_full(entry->ring);
  
-@@ -1536,14 +1539,14 @@
+-		rt2x00_bbp_read(rt2x00dev, 32,
+-			(u8*)&entry->tx_status.ack_signal);
++	rt2x00_ring_index_done_inc(entry->ring);
  
- 	SET_FLAG(entry, ENTRY_OWNER_NIC);
- 	usb_fill_bulk_urb(
--		entry->urb,
-+		rt2x00usb_urb(entry),
- 		usb_dev,
- 		usb_sndbulkpipe(usb_dev, 1),
- 		entry->data_addr,
- 		skb->len + ring->desc_size,
- 		rt2500usb_interrupt,
- 		entry);
--	usb_submit_urb(entry->urb, GFP_ATOMIC);
-+	usb_submit_urb(rt2x00usb_urb(entry), GFP_ATOMIC);
- 
- 	rt2x00_ring_index_inc(ring);
- 
-@@ -1555,12 +1558,10 @@
- 
- static inline void rt2500usb_reset_ring(struct data_ring *ring)
- {
--	struct data_entry *entry;
- 	unsigned int i;
- 
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++)
--		usb_kill_urb(entry[i].urb);
-+		usb_kill_urb(ring->entry[i].urb);
- }
- 
- static int rt2500usb_reset(struct net_device *net_dev)
-@@ -2050,14 +2051,14 @@
- 
- 	SET_FLAG(entry, ENTRY_OWNER_NIC);
- 	usb_fill_bulk_urb(
--		entry->urb,
-+		rt2x00usb_urb(entry),
- 		usb_dev,
- 		usb_sndbulkpipe(usb_dev, 1),
- 		entry->data_addr,
- 		skb->len + rt2x00dev->ring[RING_BEACON].desc_size,
- 		rt2500usb_interrupt,
- 		entry);
--	usb_submit_urb(entry->urb, GFP_ATOMIC);
-+	usb_submit_urb(rt2x00usb_urb(entry), GFP_ATOMIC);
- 
- 	return 0;
- }
-diff -rU3 wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2500usb.h wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2500usb.h
---- wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2500usb.h	2006-07-23 17:16:31.000000000 +0200
-+++ wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2500usb.h	2006-07-25 10:08:02.000000000 +0200
-@@ -634,6 +634,37 @@
- };
- 
- /*
-+ * The location of the descriptor is variating and depends
-+ * on the fact if it is a TX or RX ring and the length of the packet.
-+ * We need some small handlers to properly access the descriptors.
-+ */
-+static inline struct urb* rt2x00usb_urb(struct data_entry *entry)
-+{
-+	return (struct urb*)entry->priv;
+-		entry->tx_status.retry_count = rt2x00_get_field32(
+-			reg, STA_CSR4_RETRY_COUNT);
++	/*
++	 * If the data ring was full before the txdone handler
++	 * we must make sure the packet queue in the d80211 stack
++	 * is reenabled when the txdone handler has finished.
++	 */
++	if (ring_full && !rt2x00_ring_full(entry->ring))
++		ieee80211_wake_queue(entry->ring->net_dev,
++			entry->tx_status.control.queue);
 +}
-+
-+static inline void* rt2x00usb_rxdata_addr(struct data_entry *entry)
+ 
+-		if (!GET_FLAG(entry, ENTRY_RTS_FRAME))
+-			ieee80211_tx_status(ring->net_dev,
+-				entry->skb, &entry->tx_status);
++static void rt61pci_txdone(void *data)
 +{
-+	return entry->data_addr;
-+}
-+
-+static inline void* rt2x00usb_rxdesc_addr(struct data_entry *entry)
-+{
-+	return entry->data_addr +
-+		(rt2x00usb_urb(entry)->actual_length - entry->ring->desc_size);
-+}
-+
-+static inline void* rt2x00usb_txdata_addr(struct data_entry *entry)
-+{
-+	return entry->data_addr + entry->ring->desc_size;
-+}
-+
-+static inline void* rt2x00usb_txdesc_addr(struct data_entry *entry)
-+{
-+	return entry->data_addr;
-+}
-+
-+/*
-  * Macro's for converting txpower from EEPROM to dscape value
-  * and from dscape value to register value.
-  */
-diff -rU3 wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2x00.h wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2x00.h
---- wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-07-23 22:32:51.000000000 +0200
-+++ wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-07-25 10:15:58.000000000 +0200
-@@ -445,6 +445,51 @@
- }
++	struct data_ring *ring = data;
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(ring->net_dev);
++	int index;
++	int reg;
  
- /*
-+ * data_entry
-+ * The data ring is a list of data entries.
-+ * Each entry holds a reference to the descriptor
-+ * and the data buffer. For TX rings the reference to the
-+ * sk_buff of the packet being transmitted is also stored here.
-+ */
-+struct data_entry{
+-		rt2x00_set_field32(&txd->word0, TXD_W0_VALID, 0);
+-		entry->skb = NULL;
 +	/*
-+	 * Status flags
++	 * Keep looping while STA_CSR4 contains value data.
++	 * at each read the value will be reset to a new value,
++	 * which we should check since it contains the ring
++	 * and index number of the entry which has been
++	 * completely transmitted.
 +	 */
-+	unsigned int flags;
-+#define ENTRY_OWNER_NIC	0x00000001
-+#define ENTRY_RTS_FRAME	0x00000002
++	while (1) {
++		/*
++		 * Stop looping when the entry is invalid.
++		 */
++		rt2x00_register_read(rt2x00dev, STA_CSR4, &reg);
++		if (!rt2x00_get_field32(reg, STA_CSR4_VALID))
++			break;
+ 
+-		rt2x00_ring_index_done_inc(ring);
++		/*
++		 * Skip this entry when it contains an invalid
++		 * ring identication number.
++		 */
++		ring = rt2x00_get_ring(rt2x00dev,
++			rt2x00_get_field32(reg, STA_CSR4_PID_TYPE));
++		if (unlikely(!ring))
++			continue;
 +
-+	/*
-+	 * Ring we belong to.
-+	 */
-+	struct data_ring *ring;
++		/*
++		 * Skip this entry when it contains an invalid
++		 * index number.
++		 */
++		index = rt2x00_get_field32(reg, STA_CSR4_PID_SUBTYPE);
++		if (unlikely(index >= ring->stats.limit))
++			continue;
 +
-+	/*
-+	 * sk_buff for the packet which is being transmitted
-+	 * in this entry (Only used with TX related rings).
-+	 */
-+	struct sk_buff *skb;
-+
-+	/*
-+	 * Store a ieee80211_tx_status structure in each
-+	 * ring entry, this will optimize the txdone
-+	 * handler.
-+	 */
-+	struct ieee80211_tx_status tx_status;
-+
-+	/*
-+	 * private pointer specific to driver.
-+	 */
-+	void *priv;
-+
-+	/*
-+	 * Data address for this entry.
-+	 */
-+	void *data_addr;
-+	dma_addr_t data_dma;
-+};
-+
-+/*
-  * data_ring
-  * Data rings are used by the device to send and receive packets.
-  * The data_addr is the base address of the data memory.
-@@ -465,7 +510,7 @@
- 	/*
- 	 * Base address for the device specific data entries.
- 	 */
--	void *entry;
-+	struct data_entry *entry;
- 
- 	/*
- 	 * TX queue statistic info.
-@@ -490,9 +535,9 @@
- 	u8 index_done;
- 
- 	/*
--	 * Size of device specific data entry structure.
-+	 * Ring type.
- 	 */
--	u16 entry_size;
-+	u16 type;
- 
- 	/*
- 	 * Size of packet and descriptor in bytes.
-@@ -505,14 +550,16 @@
-  * Handlers to determine the address of the current device specific
-  * data entry, where either index or index_done points to.
-  */
--static inline void* rt2x00_get_data_entry(struct data_ring *ring)
-+static inline struct data_entry* rt2x00_get_data_entry(
-+	struct data_ring *ring)
- {
--	return ring->entry + (ring->index * ring->entry_size);
-+	return &ring->entry[ring->index];
- }
- 
--static inline void* rt2x00_get_data_entry_done(struct data_ring *ring)
-+static inline struct data_entry* rt2x00_get_data_entry_done(
-+	struct data_ring *ring)
- {
--	return ring->entry + (ring->index_done * ring->entry_size);
-+	return &ring->entry[ring->index_done];
- }
- 
- /*
-@@ -899,7 +946,7 @@
- /*
-  * Initialize a ieee80211_entry by filling in all fields and correctly
-  * construct the device specific val and val2 fields.
--  */
-+ */
- static inline void device_rate_entry(struct ieee80211_rate *entry,
- 	int rate, int mask, int plcp, int flags)
- {
-diff -rU3 wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h
---- wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h	2006-07-23 17:59:04.000000000 +0200
-+++ wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h	2006-07-25 10:13:00.000000000 +0200
-@@ -76,45 +76,6 @@
- #endif /* CONFIG_RT2X00_BUTTON */
- 
- /*
-- * data_entry
-- * The data ring is a list of data entries.
-- * Each entry holds a reference to the descriptor
-- * and the data buffer. For TX rings the reference to the
-- * sk_buff of the packet being transmitted is also stored here.
-- */
--struct data_entry {
--	/*
--	 * Status flag.
--	 */
--	unsigned int flags;
--#define ENTRY_RTS_FRAME		0x00000001
--
--	/*
--	 * sk_buff for the packet which is being transmitted
--	 * in this entry (Only used with TX related rings).
--	 */
--	struct sk_buff *skb;
--
--	/*
--	 * Store a ieee80211_tx_status structure in each
--	 * ring entry, this will optimize the txdone
--	 * handler.
--	 */
--	struct ieee80211_tx_status tx_status;
--
--	/*
--	 * Descriptor address for this entry.
--	 */
--	void *desc_addr;
--
--	/*
--	 * Data address for this entry.
--	 */
--	void *data_addr;
--	dma_addr_t data_dma;
--};
--
--/*
-  * HW button variables & functions.
-  * The delay between each poll is set by the module parameter.
-  */
-diff -rU3 wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h
---- wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h	2006-07-23 17:58:43.000000000 +0200
-+++ wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h	2006-07-25 10:13:18.000000000 +0200
-@@ -43,78 +43,6 @@
- #define REGISTER_TIMEOUT_FIRMWARE	1000
- 
- /*
-- * data_entry
-- * The data ring is a list of data entries.
-- * Each entry holds a reference to the descriptor
-- * and the data buffer. For TX rings the reference to the
-- * sk_buff of the packet being transmitted is also stored here.
-- */
--struct data_entry {
--	/*
--	 * Status flag.
--	 */
--	unsigned int flags;
--#define ENTRY_OWNER_NIC		0x00000001
--#define ENTRY_TYPE_RX		0x00000002
--#define ENTRY_RTS_FRAME		0x00000004
--
--	/*
--	 * Ring we belong to.
--	 */
--	struct data_ring *ring;
--
--	/*
--	 * URB for communication with device.
--	 */
--	struct urb *urb;
--
--	/*
--	 * sk_buff for the packet which is being transmitted
--	 * in this entry (Only used with TX related rings).
--	 */
--	struct sk_buff *skb;
--
--	/*
--	 * Store a ieee80211_tx_status structure in each
--	 * ring entry, this will optimize the txdone
--	 * handler.
--	 */
--	struct ieee80211_tx_status tx_status;
--
--	/*
--	 * Data address for this entry.
--	 */
--	void *data_addr;
--	dma_addr_t data_dma;
--};
--
--/*
-- * The location of the descriptor is variating and depends
-- * on the fact if it is a TX or RX ring and the length of the packet.
-- * We need some small handlers to properly access the descriptors.
-- */
--static inline void* rt2x00usb_rxdata_addr(struct data_entry *entry)
--{
--	return entry->data_addr;
--}
--
--static inline void* rt2x00usb_rxdesc_addr(struct data_entry *entry)
--{
--	return entry->data_addr +
--		(entry->urb->actual_length - entry->ring->desc_size);
--}
--
--static inline void* rt2x00usb_txdata_addr(struct data_entry *entry)
--{
--	return entry->data_addr + entry->ring->desc_size;
--}
--
--static inline void* rt2x00usb_txdesc_addr(struct data_entry *entry)
--{
--	return entry->data_addr;
--}
--
--/*
-  * USB request types.
-  */
- #define USB_VENDOR_REQUEST	( USB_TYPE_VENDOR | USB_RECIP_DEVICE )
-diff -rU3 wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 23:19:17.000000000 +0200
-+++ wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-25 14:55:25.000000000 +0200
-@@ -1424,7 +1424,7 @@
- 
- 	while (1) {
- 		entry = rt2x00_get_data_entry(ring);
--		rxd = entry->desc_addr;
-+		rxd = rt2x00pci_desc_addr(entry);
- 
- 		if (rt2x00_get_field32(rxd->word0, RXD_W0_OWNER_NIC))
- 			break;
-@@ -1442,7 +1442,8 @@
- 
- 			skb_reserve(skb, NET_IP_ALIGN);
- 
--			memcpy(skb_put(skb, size), entry->data_addr, size);
-+			memcpy(skb_put(skb, size), rt2x00pci_data_addr(entry),
-+				size);
- 
- 			rt2x00dev->rx_params.ssi =
- 				rt2x00_get_field32(rxd->word1, RXD_W1_RSSI);
-@@ -1490,7 +1491,7 @@
- 
- 	while (!rt2x00_ring_empty(ring)) {
- 		entry = rt2x00_get_data_entry_done(ring);
--		txd = entry->desc_addr;
-+		txd = rt2x00pci_desc_addr(entry);
- 
- 		rt2x00_register_read(rt2x00dev, STA_CSR4, &reg);
- 
-@@ -1796,10 +1797,10 @@
-  * DMA ring functions.
-  */
- static int rt61pci_alloc_ring(struct rt2x00_dev *rt2x00dev,
--	struct data_ring *ring, void (*handler)(void *),
-+	unsigned short type, void (*handler)(void *),
- 	const u16 max_entries, const u16 data_size, const u16 desc_size)
- {
--	struct data_entry *entry;
-+	struct data_ring *ring = &rt2x00dev->ring[type];
- 	unsigned int i;
- 
- 	/*
-@@ -1821,15 +1822,15 @@
- 
- 	rt2x00_ring_index_clear(ring);
- 
-+	ring->type = type;
- 	ring->stats.limit = max_entries;
--	ring->entry_size = sizeof(struct data_entry);
- 	ring->data_size = data_size;
- 	ring->desc_size = desc_size;
- 
- 	/*
- 	 * Allocate all ring entries.
- 	 */
--	ring->entry = kmalloc(ring->stats.limit * ring->entry_size,
-+	ring->entry = kmalloc(ring->stats.limit * sizeof(struct data_entry),
- 		GFP_KERNEL);
- 	if (!ring->entry)
- 		return -ENOMEM;
-@@ -1848,15 +1849,14 @@
- 	 * Initialize all ring entries to contain valid
- 	 * addresses.
- 	 */
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		entry[i].skb = NULL;
--		entry[i].desc_addr = ring->data_addr
-+		ring->entry[i].skb = NULL;
-+		ring->entry[i].priv = ring->data_addr
- 			+ (i * ring->desc_size);
--		entry[i].data_addr = ring->data_addr
-+		ring->entry[i].data_addr = ring->data_addr
- 			+ (ring->stats.limit * ring->desc_size)
- 			+ (i * ring->data_size);
--		entry[i].data_dma = ring->data_dma
-+		ring->entry[i].data_dma = ring->data_dma
- 			+ (ring->stats.limit * ring->desc_size)
- 			+ (i * ring->data_size);
- 	}
-@@ -1887,25 +1887,25 @@
++		/*
++		 * Packet received correctly, we can now process it.
++		 */
++		rt61pci_txdone_entry(&ring->entry[index], reg);
  	}
  
- 	if (rt61pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_RX], rt61pci_rxdone,
-+		rt2x00dev, RING_RX, rt61pci_rxdone,
- 		RX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct rxd)) ||
- 	    rt61pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_AC_BK], rt61pci_txdone,
-+		rt2x00dev, RING_AC_BK, rt61pci_txdone,
- 		TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt61pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_AC_BE], rt61pci_txdone,
-+		rt2x00dev, RING_AC_BE, rt61pci_txdone,
- 		TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt61pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_AC_VI], rt61pci_txdone,
-+		rt2x00dev, RING_AC_VI, rt61pci_txdone,
- 		TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt61pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_AC_VO], rt61pci_txdone,
-+		rt2x00dev, RING_AC_VO, rt61pci_txdone,
- 		 TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt61pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_PRIO], rt61pci_txdone,
-+		rt2x00dev, RING_PRIO, rt61pci_txdone,
- 		TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt61pci_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_BEACON], rt61pci_beacondone,
-+		rt2x00dev, RING_BEACON, rt61pci_beacondone,
- 		BEACON_ENTRIES, MGMT_FRAME_SIZE, sizeof(struct txd)) ) {
- 		ERROR("DMA allocation failed.\n");
- 		return -ENOMEM;
-@@ -1934,19 +1934,17 @@
- static void rt61pci_init_rxdesc(struct rt2x00_dev *rt2x00dev,
- 	struct data_ring *ring)
- {
--	struct data_entry *entry;
- 	struct rxd *rxd;
- 	unsigned int i;
- 
- 	memset(ring->data_addr, 0x00, rt2x00_get_ring_size(ring));
- 
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		rxd = entry[i].desc_addr;
-+		rxd = rt2x00pci_desc_addr(&ring->entry[i]);
- 
- 		rt2x00_set_field32(&rxd->word0, RXD_W0_OWNER_NIC, 1);
- 		rt2x00_set_field32(&rxd->word5, RXD_W5_BUFFER_PHYSICAL_ADDRESS,
--			entry[i].data_dma);
-+			ring->entry[i].data_dma);
+ 	/*
+@@ -1554,16 +1601,6 @@
+ 		rt2x00dev->scan->status = SCANNING_READY;
+ 		complete(&rt2x00dev->scan->completion);
  	}
- 
- 	rt2x00_ring_index_clear(ring);
-@@ -1955,21 +1953,19 @@
- static void rt61pci_init_txdesc(struct rt2x00_dev *rt2x00dev,
- 	struct data_ring *ring)
- {
--	struct data_entry *entry;
- 	struct txd *txd;
- 	unsigned int i;
- 
- 	memset(ring->data_addr, 0x00, rt2x00_get_ring_size(ring));
- 
+-
+-	/*
+-	 * If the data ring was full before the txdone handler
+-	 * we must make sure the packet queue in the d80211 stack
+-	 * is reenabled when the txdone handler has finished.
+-	 */
 -	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		txd = entry[i].desc_addr;
-+		txd = rt2x00pci_desc_addr(&ring->entry[i]);
+-	if (ring_full && !rt2x00_ring_full(ring))
+-		ieee80211_wake_queue(ring->net_dev,
+-			entry->tx_status.control.queue);
+ }
  
- 		rt2x00_set_field32(&txd->word0, TXD_W0_VALID, 0);
- 		rt2x00_set_field32(&txd->word0, TXD_W0_OWNER_NIC, 0);
+ static irqreturn_t rt61pci_interrupt(int irq, void *dev_instance,
+@@ -1966,6 +2003,8 @@
  		rt2x00_set_field32(&txd->word1, TXD_W1_BUFFER_COUNT, 1);
  		rt2x00_set_field32(&txd->word6, TXD_W6_BUFFER_PHYSICAL_ADDRESS,
--			entry[i].data_dma);
-+			ring->entry[i].data_dma);
+ 			ring->entry[i].data_dma);
++		rt2x00_set_field32(&txd->word5, TXD_W5_PID_TYPE, ring->type);
++		rt2x00_set_field32(&txd->word5, TXD_W5_PID_SUBTYPE, i);
  	}
  
  	rt2x00_ring_index_clear(ring);
-@@ -2271,7 +2267,7 @@
- 	}
- 
- 	entry = rt2x00_get_data_entry(ring);
--	txd = entry->desc_addr;
-+	txd = rt2x00pci_desc_addr(entry);
- 
- 	if (rt2x00_get_field32(txd->word0, TXD_W0_OWNER_NIC) ||
- 	    rt2x00_get_field32(txd->word0, TXD_W0_VALID)) {
-@@ -2282,7 +2278,7 @@
- 		return NETDEV_TX_BUSY;
- 	}
- 
--	memcpy(entry->data_addr, skb->data, skb->len);
-+	memcpy(rt2x00pci_data_addr(entry), skb->data, skb->len);
- 	rt61pci_write_tx_desc(rt2x00dev, txd, skb, control);
- 	if (WLAN_FC_GET_STYPE(frame_control) == WLAN_FC_STYPE_RTS)
- 		SET_FLAG(entry, ENTRY_RTS_FRAME);
-@@ -2898,8 +2894,9 @@
- 	 */
- 	control->queue = IEEE80211_TX_QUEUE_BEACON;
- 
--	memcpy(entry->data_addr, skb->data, skb->len);
--	rt61pci_write_tx_desc(rt2x00dev, entry->desc_addr, skb, control);
-+	memcpy(rt2x00pci_data_addr(entry), skb->data, skb->len);
-+	rt61pci_write_tx_desc(rt2x00dev, rt2x00pci_desc_addr(entry),
-+		skb, control);
- 
- 	return 0;
- }
-diff -rU3 wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.h wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt61pci.h
---- wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-07-23 23:21:39.000000000 +0200
-+++ wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-07-25 10:09:44.000000000 +0200
-@@ -1330,6 +1330,20 @@
- };
+diff -rU3 wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt61pci.h wireless-dev-rt61irq/drivers/net/wireless/d80211/rt2x00/rt61pci.h
+--- wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-07-25 10:09:44.000000000 +0200
++++ wireless-dev-rt61irq/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-07-25 16:10:20.000000000 +0200
+@@ -633,8 +633,8 @@
+ #define STA_CSR4_VALID			FIELD32(0x00000001)
+ #define STA_CSR4_TX_RESULT		FIELD32(0x0000000e)
+ #define STA_CSR4_RETRY_COUNT		FIELD32(0x000000f0)
+-#define STA_CSR4_PID_SUBTYPE		FIELD32(0x00003f00)
+-#define STA_CSR4_PID_TYPE		FIELD32(0x0000c000)
++#define STA_CSR4_PID_SUBTYPE		FIELD32(0x00001f00)
++#define STA_CSR4_PID_TYPE		FIELD32(0x0000e000)
+ #define STA_CSR4_TXRATE			FIELD32(0x000f0000)
  
  /*
-+ * Small handlers to determine the descriptor and
-+ * data address within each entry.
-+ */
-+static inline void* rt2x00pci_data_addr(struct data_entry *entry)
-+{
-+	return entry->data_addr;
-+}
-+
-+static inline void* rt2x00pci_desc_addr(struct data_entry *entry)
-+{
-+	return entry->priv;
-+}
-+
-+/*
-  * Macro's for converting txpower from EEPROM to dscape value
-  * and from dscape value to register value.
-  */
-diff -rU3 wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt73usb.c
---- wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 23:17:42.000000000 +0200
-+++ wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-25 15:37:22.000000000 +0200
-@@ -1128,6 +1128,7 @@
- 	struct data_entry *entry;
- 	struct sk_buff *skb;
- 	struct rxd *rxd;
-+	struct urb *urb;
- 	u16 size;
- 	u8 rssi_count;
- 	char total_rssi;
-@@ -1141,6 +1142,7 @@
- 	while (1) {
- 		entry = rt2x00_get_data_entry(ring);
- 		rxd = rt2x00usb_rxdesc_addr(entry);
-+		urb = rt2x00usb_urb(entry);
- 
- 		if (GET_FLAG(entry, ENTRY_OWNER_NIC))
- 			break;
-@@ -1148,9 +1150,9 @@
- 		/*
- 		 * There has been a problem. Ignore packet.
- 		 */
--		if (entry->urb->status) {
-+		if (urb->status) {
- 			SET_FLAG(entry, ENTRY_OWNER_NIC);
--			usb_submit_urb(entry->urb, GFP_ATOMIC);
-+			usb_submit_urb(urb, GFP_ATOMIC);
- 			rt2x00_ring_index_inc(ring);
- 			continue;
- 		}
-@@ -1187,7 +1189,7 @@
- 		}
- 
- 		SET_FLAG(entry, ENTRY_OWNER_NIC);
--		usb_submit_urb(entry->urb, GFP_ATOMIC);
-+		usb_submit_urb(urb, GFP_ATOMIC);
- 
- 		rt2x00_ring_index_inc(ring);
- 	}
-@@ -1212,6 +1214,7 @@
- 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(ring->net_dev);
- 	struct data_entry *entry;
- 	struct txd *txd;
-+	struct urb *urb;
- 	int ack;
- 	int ring_full;
- 
-@@ -1222,7 +1225,8 @@
- 
- 	while (!rt2x00_ring_empty(ring)) {
- 		entry = rt2x00_get_data_entry_done(ring);
--		txd = rt2x00usb_txdesc_addr(entry);;
-+		txd = rt2x00usb_txdesc_addr(entry);
-+		urb = rt2x00usb_urb(entry);
- 
- 		if (GET_FLAG(entry, ENTRY_OWNER_NIC))
- 			break;
-@@ -1242,7 +1246,7 @@
- 		 * was succesfull.
- 		 */
- 		entry->tx_status.ack = 0;
--		if (ack && (entry->urb->status == TX_SUCCESS))
-+		if (ack && (urb->status == TX_SUCCESS))
- 			entry->tx_status.ack = 1;
- 		else {
- 			rt2x00dev->low_level_stats.dot11ACKFailureCount++;
-@@ -1413,10 +1417,10 @@
-  * DMA ring functions.
-  */
- static int rt73usb_alloc_ring(struct rt2x00_dev *rt2x00dev,
--	struct data_ring *ring, void (*handler)(void *),
-+	unsigned short type, void (*handler)(void *),
- 	const u16 max_entries, const u16 data_size, const u16 desc_size)
- {
--	struct data_entry *entry;
-+	struct data_ring *ring = &rt2x00dev->ring[type];
- 	unsigned int i;
- 	int status;
- 
-@@ -1439,15 +1443,15 @@
- 
- 	rt2x00_ring_index_clear(ring);
- 
-+	ring->type = type;
- 	ring->stats.limit = max_entries;
--	ring->entry_size = sizeof(struct data_entry);
- 	ring->data_size = data_size;
- 	ring->desc_size = desc_size;
- 
- 	/*
- 	 * Allocate all ring entries.
- 	 */
--	ring->entry = kmalloc(ring->stats.limit * ring->entry_size,
-+	ring->entry = kmalloc(ring->stats.limit * sizeof(struct data_entry),
- 		GFP_KERNEL);
- 	if (!ring->entry)
- 		return -ENOMEM;
-@@ -1468,20 +1472,19 @@
- 	 * addresses.
- 	 */
- 	status = 0;
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		entry[i].ring = ring;
-+		ring->entry[i].ring = ring;
- 		if (!status)
--			entry[i].urb = usb_alloc_urb(0, GFP_KERNEL);
-+			ring->entry[i].priv = usb_alloc_urb(0, GFP_KERNEL);
- 		else
--			entry[i].urb = NULL;
--		if (!entry[i].urb)
-+			ring->entry[i].priv = NULL;
-+		if (!ring->entry[i].priv)
- 			status = -ENOMEM;
--		entry[i].skb = NULL;
--		entry[i].data_addr = ring->data_addr
-+		ring->entry[i].skb = NULL;
-+		ring->entry[i].data_addr = ring->data_addr
- 			+ (i * ring->desc_size)
- 			+ (i * ring->data_size);
--		entry[i].data_dma = ring->data_dma
-+		ring->entry[i].data_dma = ring->data_dma
- 			+ (i * ring->desc_size)
- 			+ (i * ring->data_size);
- 	}
-@@ -1492,16 +1495,16 @@
- static void rt73usb_free_ring(struct rt2x00_dev *rt2x00dev,
- 	struct data_ring *ring)
- {
--	struct	data_entry *entry;
-+	struct urb *urb;
- 	unsigned int i;
- 
- 	if (!ring->entry)
- 		goto exit;
- 
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		usb_kill_urb(entry[i].urb);
--		usb_free_urb(entry[i].urb);
-+		urb = rt2x00usb_urb(&ring->entry[i]);
-+		usb_kill_urb(urb);
-+		usb_free_urb(urb);
- 	}
- 
- 	kfree(ring->entry);
-@@ -1526,25 +1529,25 @@
- 	}
- 
- 	if (rt73usb_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_RX], rt73usb_rxdone,
-+		rt2x00dev, RING_RX, rt73usb_rxdone,
- 		RX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct rxd)) ||
- 	    rt73usb_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_AC_BK], rt73usb_txdone,
-+		rt2x00dev, RING_AC_BK, rt73usb_txdone,
- 		TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt73usb_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_AC_BE], rt73usb_txdone,
-+		rt2x00dev, RING_AC_BE, rt73usb_txdone,
- 		TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt73usb_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_AC_VI], rt73usb_txdone,
-+		rt2x00dev, RING_AC_VI, rt73usb_txdone,
- 		TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt73usb_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_AC_VO], rt73usb_txdone,
-+		rt2x00dev, RING_AC_VO, rt73usb_txdone,
- 		 TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt73usb_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_PRIO], rt73usb_txdone,
-+		rt2x00dev, RING_PRIO, rt73usb_txdone,
- 		TX_ENTRIES, DATA_FRAME_SIZE, sizeof(struct txd)) ||
- 	    rt73usb_alloc_ring(
--		rt2x00dev, &rt2x00dev->ring[RING_BEACON], rt73usb_beacondone,
-+		rt2x00dev, RING_BEACON, rt73usb_beacondone,
- 		BEACON_ENTRIES, MGMT_FRAME_SIZE, sizeof(struct txd)) ) {
- 		ERROR("DMA allocation failed.\n");
- 		return -ENOMEM;
-@@ -1575,37 +1578,37 @@
- {
- 	struct usb_device *usb_dev =
- 		interface_to_usbdev(rt2x00dev_usb(rt2x00dev));
--	struct data_entry *entry;
-+	struct urb *urb;
- 	unsigned int i;
- 
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		entry[i].urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
--		entry[i].urb->transfer_dma = entry[i].data_dma;
-+		urb = rt2x00usb_urb(&ring->entry[i]);
-+		urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
-+		urb->transfer_dma = ring->entry[i].data_dma;
- 		usb_fill_bulk_urb(
--			entry[i].urb,
-+			urb,
- 			usb_dev,
- 			usb_rcvbulkpipe(usb_dev, 1),
--			entry[i].data_addr,
-+			ring->entry[i].data_addr,
- 			ring->entry_size + ring->desc_size,
- 			rt73usb_interrupt,
--			&entry[i]);
--		SET_FLAG(&entry[i], ENTRY_OWNER_NIC | ENTRY_TYPE_RX);
--		usb_submit_urb(entry[i].urb, GFP_ATOMIC);
-+			&ring->entry[i]);
-+		SET_FLAG(&ring->entry[i], ENTRY_OWNER_NIC);
-+		usb_submit_urb(urb, GFP_ATOMIC);
- 	}
- }
- 
- static void rt73usb_init_txring(struct rt2x00_dev *rt2x00dev,
- 	struct data_ring *ring)
- {
--	struct data_entry *entry;
-+	struct urb *urb;
- 	unsigned int i;
- 
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++) {
--		entry[i].urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
--		entry[i].urb->transfer_dma = entry[i].data_dma;
--		CLEAR_FLAGS(&entry[i]);
-+		urb = rt2x00usb_urb(&ring->entry[i]);
-+		urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
-+		urb->transfer_dma = ring->entry[i].data_dma;
-+		CLEAR_FLAGS(&ring->entry[i]);
- 	}
- }
- 
-@@ -1847,14 +1850,14 @@
- 
- 	SET_FLAG(entry, ENTRY_OWNER_NIC);
- 	usb_fill_bulk_urb(
--		entry->urb,
-+		rt2x00usb_urb(entry),
- 		usb_dev,
- 		usb_sndbulkpipe(usb_dev, 1),
- 		entry->data_addr,
- 		skb->len + ring->desc_size,
- 		rt73usb_interrupt,
- 		entry);
--	usb_submit_urb(entry->urb, GFP_ATOMIC);
-+	usb_submit_urb(rt2x00usb_urb(entry), GFP_ATOMIC);
- 
- 	rt2x00_ring_index_inc(ring);
- 
-@@ -1866,12 +1869,10 @@
- 
- static inline void rt73usb_reset_ring(struct data_ring *ring)
- {
--	struct data_entry *entry;
- 	unsigned int i;
- 
--	entry = ring->entry;
- 	for (i = 0; i < ring->stats.limit; i++)
--		usb_kill_urb(entry[i].urb);
-+		usb_kill_urb(ring->entry[i].urb);
- }
- 
- static int rt73usb_reset(struct net_device *net_dev)
-@@ -2408,14 +2409,14 @@
- 
- 	SET_FLAG(entry, ENTRY_OWNER_NIC);
- 	usb_fill_bulk_urb(
--		entry->urb,
-+		rt2x00usb_urb(entry),
- 		usb_dev,
- 		usb_sndbulkpipe(usb_dev, 1),
- 		entry->data_addr,
- 		skb->len + rt2x00dev->ring[RING_BEACON].desc_size,
- 		rt73usb_interrupt,
- 		entry);
--	usb_submit_urb(entry->urb, GFP_ATOMIC);
-+	usb_submit_urb(rt2x00usb_urb(entry), GFP_ATOMIC);
- 
- 	return 0;
- }
-diff -rU3 wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt73usb.h wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt73usb.h
---- wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt73usb.h	2006-07-23 18:33:18.000000000 +0200
-+++ wireless-dev-ringentry/drivers/net/wireless/d80211/rt2x00/rt73usb.h	2006-07-25 10:07:34.000000000 +0200
-@@ -895,6 +895,36 @@
- };
- 
+@@ -1172,13 +1172,15 @@
  /*
-+ * The location of the descriptor is variating and depends
-+ * on the fact if it is a TX or RX ring and the length of the packet.
-+ * We need some small handlers to properly access the descriptors.
-+ */
-+static inline struct urb* rt2x00usb_urb(struct data_entry *entry)
-+{
-+	return (struct urb*)entry->priv;
-+}
-+
-+static inline void* rt2x00usb_rxdata_addr(struct data_entry *entry)
-+{
-+	return entry->data_addr + entry->ring->desc_size;
-+}
-+
-+static inline void* rt2x00usb_rxdesc_addr(struct data_entry *entry)
-+{
-+	return entry->data_addr;
-+}
-+
-+static inline void* rt2x00usb_txdata_addr(struct data_entry *entry)
-+{
-+	return entry->data_addr + entry->ring->desc_size;
-+}
-+
-+static inline void* rt2x00usb_txdesc_addr(struct data_entry *entry)
-+{
-+	return entry->data_addr;
-+}
-+
-+/*
-  * Macro's for converting txpower from EEPROM to dscape value
-  * and from dscape value to register value.
+  * WORD5
+  * FRAME_OFFSET: Frame start offset inside ASIC TXFIFO (after TXINFO field).
+- * PACKET_ID: Driver assigned packet ID to categorize TXResult in interrupt.
++ * TXD_W5_PID_SUBTYPE: Driver assigned packet ID index for txdone handler.
++ * TXD_W5_PID_TYPE: Driver assigned packet ID type for txdone handler.
+  * WAITING_DMA_DONE_INT: TXD been filled with data
+  * and waiting for TxDoneISR housekeeping.
   */
+ 	__le32 word5;
+ #define TXD_W5_FRAME_OFFSET		FIELD32(0x000000ff)
+-#define TXD_W5_PACKET_ID		FIELD32(0x0000ff00)
++#define TXD_W5_PID_SUBTYPE		FIELD32(0x00001f00)
++#define TXD_W5_PID_TYPE			FIELD32(0x0000e000)
+ #define TXD_W5_TX_POWER			FIELD32(0x00ff0000)
+ #define TXD_W5_WAITING_DMA_DONE_INT	FIELD32(0x01000000)
+ 
