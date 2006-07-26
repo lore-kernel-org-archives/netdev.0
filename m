@@ -1,1106 +1,635 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH 2/24] RT2x00: Add interface structure
-Date: Wed, 26 Jul 2006 20:22:22 +0200
-Message-ID: <200607262022.22465.IvDoorn@gmail.com>
-References: <200607261904.35952.IvDoorn@gmail.com>
+Subject: Re: [PATCH 4/24] RT2x00: Add ethtool support
+Date: Wed, 26 Jul 2006 20:23:15 +0200
+Message-ID: <200607262023.15645.IvDoorn@gmail.com>
+References: <200607261904.45076.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:1779 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.190]:48887 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1751746AbWGZSWj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 14:22:39 -0400
-Received: by nf-out-0910.google.com with SMTP id o25so838345nfa
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 11:22:35 -0700 (PDT)
+	id S1751745AbWGZSX2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 14:23:28 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so838661nfa
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 11:23:26 -0700 (PDT)
 To: netdev@vger.kernel.org
-In-Reply-To: <200607261904.35952.IvDoorn@gmail.com>
+In-Reply-To: <200607261904.45076.IvDoorn@gmail.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 >From Ivo van Doorn <IvDoorn@gmail.com>
 
-Move all settings depending on the current association into
-a seperate interface structure.
-Altough we only support 1 association type at a time,
-we do support multiple monitor devices, keep track of the
-number using the monitor_count field.
+Add ethtool support.
+At the moment we support the following features:
+* read driver info
+* read registers
+* read eeprom
+* enable and disable debug output
 
 Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
 
-diff -rU3 wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
---- wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-22 23:17:54.000000000 +0200
-+++ wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-23 14:54:53.000000000 +0200
-@@ -411,7 +411,7 @@
- 		rt2x00_set_field32(&reg, RXCSR0_DROP_TODS, 0);
+diff -rU3 wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+--- wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-23 15:53:06.000000000 +0200
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-23 16:30:58.000000000 +0200
+@@ -33,7 +33,9 @@
+ #include <linux/delay.h>
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
++#include <linux/etherdevice.h>
+ #include <linux/wireless.h>
++#include <linux/ethtool.h>
  
- 	rt2x00_set_field32(&reg, RXCSR0_DROP_CRC, 1);
--	if (type == IEEE80211_IF_TYPE_MNTR) {
-+	if (rt2x00pci->interface.monitor_count) {
- 		rt2x00_set_field32(&reg, RXCSR0_DROP_PHYSICAL, 0);
- 		rt2x00_set_field32(&reg, RXCSR0_DROP_CONTROL, 0);
- 		rt2x00_set_field32(&reg, RXCSR0_DROP_VERSION_ERROR, 0);
-@@ -426,7 +426,7 @@
- 	/*
- 	 * Enable promisc mode when in monitor mode.
- 	 */
--	if (type == IEEE80211_IF_TYPE_MNTR)
-+	if (rt2x00pci->interface.monitor_count)
- 		rt2400pci_config_promisc(rt2x00pci, 1);
+ #include <net/iw_handler.h>
+ #include <net/d80211.h>
+@@ -362,6 +364,79 @@
+ #endif /* CONFIG_RT2400PCI_BUTTON */
  
- 	/*
-@@ -445,7 +445,7 @@
- 	/*
- 	 * Update working mode.
- 	 */
--	rt2x00pci->type = type;
-+	rt2x00pci->interface.type = type;
- }
- 
- static void rt2400pci_config_channel(struct rt2x00_pci *rt2x00pci,
-@@ -897,7 +897,7 @@
- 	memset(&beacon, 0x00, sizeof(beacon));
- 
- 	skb = ieee80211_beacon_get(ring->net_dev,
--		rt2x00pci->interface_id, &beacon);
-+		rt2x00pci->interface.id, &beacon);
- 	if (!skb)
- 		return;
- 
-@@ -1725,16 +1725,36 @@
- 	struct rt2x00_pci *rt2x00pci = ieee80211_dev_hw_data(net_dev);
- 
- 	/*
--	 * We only support 1 single working mode.
-+	 * We only support 1 non-monitor interface.
- 	 */
--	if (GET_FLAG(rt2x00pci, INTERFACE_INITIALIZED))
-+	if (conf->type != IEEE80211_IF_TYPE_MNTR &&
-+	    GET_FLAG(rt2x00pci, INTERFACE_INITIALIZED))
- 		return -ENOBUFS;
- 
--	rt2x00pci->interface_id = conf->if_id;
-+	SET_FLAG(rt2x00pci, INTERFACE_INITIALIZED);
-+
-+	rt2x00_add_interface(&rt2x00pci->interface, conf);
- 
-+	/*
-+	 * Enable configuration.
-+	 */
-+	rt2400pci_config_type(rt2x00pci, conf->type);
- 	rt2400pci_config_mac_address(rt2x00pci, conf->mac_addr);
- 
--	SET_FLAG(rt2x00pci, INTERFACE_INITIALIZED);
-+	/*
-+	 * In case of master mode, set the BSSID to our MAC.
-+	 */
-+	if (conf->type == IEEE80211_IF_TYPE_AP) {
-+		memcpy(&rt2x00pci->interface.bssid, conf->mac_addr, ETH_ALEN);
-+		rt2400pci_config_bssid(rt2x00pci, conf->mac_addr);
-+	}
-+
-+	/*
-+	 * Enable radio when this is the first
-+	 * interface that is brought up.
-+	 */
-+	if (!GET_FLAG(rt2x00pci, DEVICE_ENABLED_RADIO))
-+		return rt2400pci_enable_radio(rt2x00pci);
- 
- 	return 0;
- }
-@@ -1745,14 +1765,22 @@
- 	struct rt2x00_pci *rt2x00pci = ieee80211_dev_hw_data(net_dev);
- 
- 	/*
--	 * We only support 1 single working mode.
-+	 * We only support 1 non-monitor interface.
- 	 */
--	if (!GET_FLAG(rt2x00pci, INTERFACE_INITIALIZED))
-+	if (conf->type != IEEE80211_IF_TYPE_MNTR &&
-+	    !GET_FLAG(rt2x00pci, INTERFACE_INITIALIZED))
- 		return;
- 
--	rt2x00pci->interface_id = 0;
-+	rt2x00_remove_interface(&rt2x00pci->interface, conf);
- 
- 	CLEAR_FLAG(rt2x00pci, INTERFACE_INITIALIZED);
-+
-+	/*
-+	 * Disable radio if this was the last interface
-+	 * that was working with this device.
-+	 */
-+	if (!rt2x00pci->interface.monitor_count)
-+		rt2400pci_disable_radio(rt2x00pci);
- }
- 
- static void rt2400pci_config_update(void *data)
-@@ -1818,15 +1846,20 @@
- {
- 	struct rt2x00_pci *rt2x00pci = ieee80211_dev_hw_data(net_dev);
- 
--	rt2400pci_config_type(rt2x00pci, conf->type);
--
- 	/*
- 	 * When configuring monitor mode, we are done now.
-+	 * but if we are configuring another mode it must be
-+	 * equal to the interface that has been added.
- 	 */
--	if (rt2x00pci->type == IEEE80211_IF_TYPE_MNTR)
-+	if (conf->type == IEEE80211_IF_TYPE_MNTR)
- 		return 0;
-+	else if (conf->type != rt2x00pci->interface.type)
-+		return -EINVAL;
- 
--	rt2400pci_config_bssid(rt2x00pci, conf->bssid);
-+	if (conf->bssid) {
-+		memcpy(&rt2x00pci->interface.bssid, conf->bssid, ETH_ALEN);
-+		rt2400pci_config_bssid(rt2x00pci, conf->bssid);
-+	}
- 
- 	return 0;
- }
-@@ -1835,21 +1868,27 @@
- 	unsigned short flags, int mc_count)
- {
- 	struct rt2x00_pci *rt2x00pci = ieee80211_dev_hw_data(net_dev);
-+	int update = 0;
-+
-+	if (GET_FLAG(rt2x00pci, INTERFACE_PROMISC)) {
-+		if (!(flags & IFF_PROMISC)) {
-+			rt2x00pci->interface.promisc = 0;
-+			update = 1;
-+		}
-+	} else {
-+		if (flags & IFF_PROMISC) {
-+			rt2x00pci->interface.promisc = 1;
-+			update = 1;
-+		}
-+	}
- 
- 	/*
- 	 * Monitor mode works with PROMISC mode forced on,
- 	 * so there is nothing to be done here.
- 	 */
--	if (rt2x00pci->type == IEEE80211_IF_TYPE_MNTR)
--		return;
--
--	if (GET_FLAG(rt2x00pci, INTERFACE_PROMISC)) {
--		if (!(flags & IFF_PROMISC))
--			rt2400pci_config_promisc(rt2x00pci, 0);
--	} else {
--		if (flags & IFF_PROMISC)
--			rt2400pci_config_promisc(rt2x00pci, 1);
--	}
-+	if (update && !rt2x00pci->interface.monitor_count)
-+		rt2400pci_config_promisc(rt2x00pci,
-+			rt2x00pci->interface.promisc);
- }
- 
- static void rt2400pci_scan(void *data)
-@@ -2419,6 +2458,11 @@
- 	INIT_WORK(&rt2x00pci->config_work, rt2400pci_config_update, rt2x00pci);
- 
- 	/*
-+	 * Reset current working type.
-+	 */
-+	rt2x00pci->interface.type = -EINVAL;
-+
-+	/*
- 	 * Intialize scanning attributes.
- 	 */
- 	INIT_WORK(&rt2x00pci->scan_work, rt2400pci_scan, rt2x00pci);
-diff -rU3 wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
---- wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-22 23:18:04.000000000 +0200
-+++ wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-23 14:55:00.000000000 +0200
-@@ -411,7 +411,7 @@
- 		rt2x00_set_field32(&reg, RXCSR0_DROP_TODS, 0);
- 
- 	rt2x00_set_field32(&reg, RXCSR0_DROP_CRC, 1);
--	if (type == IEEE80211_IF_TYPE_MNTR) {
-+	if (rt2x00pci->interface.monitor_count) {
- 		rt2x00_set_field32(&reg, RXCSR0_DROP_PHYSICAL, 0);
- 		rt2x00_set_field32(&reg, RXCSR0_DROP_CONTROL, 0);
- 		rt2x00_set_field32(&reg, RXCSR0_DROP_VERSION_ERROR, 0);
-@@ -429,7 +429,7 @@
- 	/*
- 	 * Enable promisc mode when in monitor mode.
- 	 */
--	if (type == IEEE80211_IF_TYPE_MNTR)
-+	if (rt2x00pci->interface.monitor_count)
- 		rt2500pci_config_promisc(rt2x00pci, 1);
- 
- 	/*
-@@ -448,7 +448,7 @@
- 	/*
- 	 * Update working mode.
- 	 */
--	rt2x00pci->type = type;
-+	rt2x00pci->interface.type = type;
- }
- 
- static void rt2500pci_config_channel(struct rt2x00_pci *rt2x00pci,
-@@ -976,7 +976,7 @@
- 	memset(&beacon, 0x00, sizeof(beacon));
- 
- 	skb = ieee80211_beacon_get(ring->net_dev,
--		rt2x00pci->interface_id, &beacon);
-+		rt2x00pci->interface.id, &beacon);
- 	if (!skb)
- 		return;
- 
-@@ -1850,16 +1850,36 @@
- 	struct rt2x00_pci *rt2x00pci = ieee80211_dev_hw_data(net_dev);
- 
- 	/*
--	 * We only support 1 single working mode.
-+	 * We only support 1 non-monitor interface.
- 	 */
--	if (GET_FLAG(rt2x00pci, INTERFACE_INITIALIZED))
-+	if (conf->type != IEEE80211_IF_TYPE_MNTR &&
-+	    GET_FLAG(rt2x00pci, INTERFACE_INITIALIZED))
- 		return -ENOBUFS;
- 
--	rt2x00pci->interface_id = conf->if_id;
-+	SET_FLAG(rt2x00pci, INTERFACE_INITIALIZED);
-+
-+	rt2x00_add_interface(&rt2x00pci->interface, conf);
- 
-+	/*
-+	 * Enable configuration.
-+	 */
-+	rt2500pci_config_type(rt2x00pci, conf->type);
- 	rt2500pci_config_mac_address(rt2x00pci, conf->mac_addr);
- 
--	SET_FLAG(rt2x00pci, INTERFACE_INITIALIZED);
-+	/*
-+	 * In case of master mode, set the BSSID to our MAC.
-+	 */
-+	if (conf->type == IEEE80211_IF_TYPE_AP) {
-+		memcpy(&rt2x00pci->interface.bssid, conf->mac_addr, ETH_ALEN);
-+		rt2500pci_config_bssid(rt2x00pci, conf->mac_addr);
-+	}
-+
-+	/*
-+	 * Enable radio when this is the first
-+	 * interface that is brought up.
-+	 */
-+	if (!GET_FLAG(rt2x00pci, DEVICE_ENABLED_RADIO))
-+		return rt2500pci_enable_radio(rt2x00pci);
- 
- 	return 0;
- }
-@@ -1870,14 +1890,22 @@
- 	struct rt2x00_pci *rt2x00pci = ieee80211_dev_hw_data(net_dev);
- 
- 	/*
--	 * We only support 1 single working mode.
-+	 * We only support 1 non-monitor interface.
- 	 */
--	if (!GET_FLAG(rt2x00pci, INTERFACE_INITIALIZED))
-+	if (conf->type != IEEE80211_IF_TYPE_MNTR &&
-+	    !GET_FLAG(rt2x00pci, INTERFACE_INITIALIZED))
- 		return;
- 
--	rt2x00pci->interface_id = 0;
-+	rt2x00_remove_interface(&rt2x00pci->interface, conf);
- 
- 	CLEAR_FLAG(rt2x00pci, INTERFACE_INITIALIZED);
-+
-+	/*
-+	 * Disable radio if this was the last interface
-+	 * that was working with this device.
-+	 */
-+	if (!rt2x00pci->interface.monitor_count)
-+		rt2500pci_disable_radio(rt2x00pci);
- }
- 
- static void rt2500pci_config_update(void *data)
-@@ -1943,15 +1971,20 @@
- {
- 	struct rt2x00_pci *rt2x00pci = ieee80211_dev_hw_data(net_dev);
- 
--	rt2500pci_config_type(rt2x00pci, conf->type);
--
- 	/*
- 	 * When configuring monitor mode, we are done now.
-+	 * but if we are configuring another mode it must be
-+	 * equal to the interface that has been added.
- 	 */
- 	if (conf->type == IEEE80211_IF_TYPE_MNTR)
- 		return 0;
-+	else if (conf->type != rt2x00pci->interface.type)
-+		return -EINVAL;
- 
--	rt2500pci_config_bssid(rt2x00pci, conf->bssid);
-+	if (conf->bssid) {
-+		memcpy(&rt2x00pci->interface.bssid, conf->bssid, ETH_ALEN);
-+		rt2500pci_config_bssid(rt2x00pci, conf->bssid);
-+	}
- 
- 	return 0;
- }
-@@ -1960,21 +1993,27 @@
- 	unsigned short flags, int mc_count)
- {
- 	struct rt2x00_pci *rt2x00pci = ieee80211_dev_hw_data(net_dev);
-+	int update = 0;
-+
-+	if (GET_FLAG(rt2x00pci, INTERFACE_PROMISC)) {
-+		if (!(flags & IFF_PROMISC)) {
-+			rt2x00pci->interface.promisc = 0;
-+			update = 1;
-+		}
-+	} else {
-+		if (flags & IFF_PROMISC) {
-+			rt2x00pci->interface.promisc = 1;
-+			update = 1;
-+		}
-+	}
- 
- 	/*
- 	 * Monitor mode works with PROMISC mode forced on,
- 	 * so there is nothing to be done here.
- 	 */
--	if (rt2x00pci->type == IEEE80211_IF_TYPE_MNTR)
--		return;
--
--	if (GET_FLAG(rt2x00pci, INTERFACE_PROMISC)) {
--		if (!(flags & IFF_PROMISC))
--			rt2500pci_config_promisc(rt2x00pci, 0);
--	} else {
--		if (flags & IFF_PROMISC)
--			rt2500pci_config_promisc(rt2x00pci, 1);
--	}
-+	if (update && !rt2x00pci->interface.monitor_count)
-+		rt2500pci_config_promisc(rt2x00pci,
-+			rt2x00pci->interface.promisc);
- }
- 
- static void rt2500pci_scan(void *data)
-@@ -2722,6 +2761,11 @@
- 	INIT_WORK(&rt2x00pci->config_work, rt2500pci_config_update, rt2x00pci);
- 
- 	/*
-+	 * Reset current working type.
-+	 */
-+	rt2x00pci->interface.type = -EINVAL;
-+
-+	/*
- 	 * Intialize scanning attributes.
- 	 */
- 	INIT_WORK(&rt2x00pci->scan_work, rt2500pci_scan, rt2x00pci);
-diff -rU3 wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
---- wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-22 22:53:28.000000000 +0200
-+++ wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-23 14:54:29.000000000 +0200
-@@ -261,7 +261,7 @@
- 		rt2x00_set_field16_nb(&reg, TXRX_CSR2_DROP_TODS, 0);
- 
- 	rt2x00_set_field16_nb(&reg, TXRX_CSR2_DROP_CRC, 1);
--	if (type == IEEE80211_IF_TYPE_MNTR) {
-+	if (rt2x00usb->interface.monitor_count) {
- 		rt2x00_set_field16_nb(&reg, TXRX_CSR2_DROP_PHYSICAL, 0);
- 		rt2x00_set_field16_nb(&reg, TXRX_CSR2_DROP_CONTROL, 0);
- 		rt2x00_set_field16_nb(&reg, TXRX_CSR2_DROP_VERSION_ERROR, 0);
-@@ -276,7 +276,7 @@
- 	/*
- 	 * Enable promisc mode when in monitor mode.
- 	 */
--	if (type == IEEE80211_IF_TYPE_MNTR)
-+	if (rt2x00usb->interface.monitor_count)
- 		rt2500usb_config_promisc(rt2x00usb, 1);
- 
- 	/*
-@@ -295,7 +295,7 @@
- 	/*
- 	 * Update working mode.
- 	 */
--	rt2x00usb->type = type;
-+	rt2x00usb->interface.type = type;
- }
- 
- static void rt2500usb_config_channel(struct rt2x00_usb *rt2x00usb,
-@@ -796,7 +796,7 @@
- 	memset(&beacon, 0x00, sizeof(beacon));
- 
- 	skb = ieee80211_beacon_get(ring->net_dev,
--		rt2x00usb->interface_id, &beacon);
-+		rt2x00usb->interface.id, &beacon);
- 	if (!skb)
- 		return;
- 
-@@ -1510,16 +1510,36 @@
- 	struct rt2x00_usb *rt2x00usb = ieee80211_dev_hw_data(net_dev);
- 
- 	/*
--	 * We only support 1 single working mode.
-+	 * We only support 1 non-monitor interface.
- 	 */
--	if (GET_FLAG(rt2x00usb, INTERFACE_INITIALIZED))
-+	if (conf->type != IEEE80211_IF_TYPE_MNTR &&
-+	    GET_FLAG(rt2x00usb, INTERFACE_INITIALIZED))
- 		return -ENOBUFS;
- 
--	rt2x00usb->interface_id = conf->if_id;
-+	SET_FLAG(rt2x00usb, INTERFACE_INITIALIZED);
-+
-+	rt2x00_add_interface(&rt2x00usb->interface, conf);
- 
-+	/*
-+	 * Enable configuration.
-+	 */
-+	rt2500usb_config_type(rt2x00usb, conf->type);
- 	rt2500usb_config_mac_address(rt2x00usb, conf->mac_addr);
- 
--	SET_FLAG(rt2x00usb, INTERFACE_INITIALIZED);
-+	/*
-+	 * In case of master mode, set the BSSID to our MAC.
-+	 */
-+	if (conf->type == IEEE80211_IF_TYPE_AP) {
-+		memcpy(&rt2x00usb->interface.bssid, conf->mac_addr, ETH_ALEN);
-+		rt2500usb_config_bssid(rt2x00usb, conf->mac_addr);
-+	}
-+
-+	/*
-+	 * Enable radio when this is the first
-+	 * interface that is brought up.
-+	 */
-+	if (!GET_FLAG(rt2x00usb, DEVICE_ENABLED_RADIO))
-+		return rt2500usb_enable_radio(rt2x00usb);
- 
- 	return 0;
- }
-@@ -1530,14 +1550,22 @@
- 	struct rt2x00_usb *rt2x00usb = ieee80211_dev_hw_data(net_dev);
- 
- 	/*
--	 * We only support 1 single working mode.
-+	 * We only support 1 non-monitor interface.
- 	 */
--	if (!GET_FLAG(rt2x00usb, INTERFACE_INITIALIZED))
-+	if (conf->type != IEEE80211_IF_TYPE_MNTR &&
-+	    !GET_FLAG(rt2x00usb, INTERFACE_INITIALIZED))
- 		return;
- 
--	rt2x00usb->interface_id = 0;
-+	rt2x00_remove_interface(&rt2x00usb->interface, conf);
- 
- 	CLEAR_FLAG(rt2x00usb, INTERFACE_INITIALIZED);
-+
-+	/*
-+	 * Disable radio if this was the last interface
-+	 * that was working with this device.
-+	 */
-+	if (!rt2x00usb->interface.monitor_count)
-+		rt2500usb_disable_radio(rt2x00usb);
- }
- 
- static void rt2500usb_config_update(void *data)
-@@ -1598,20 +1626,35 @@
- 	return !queue_work(rt2x00usb->workqueue, &rt2x00usb->config_work);
- }
- 
-+static void rt2500usb_interface_update(void *data)
+ /*
++ * Ethtool handlers.
++ */
++static void rt2400pci_get_drvinfo(struct net_device *net_dev,
++	struct ethtool_drvinfo *drvinfo)
 +{
-+	struct rt2x00_usb *rt2x00usb = data;
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
 +
-+	rt2500usb_config_bssid(rt2x00usb, &rt2x00usb->interface.bssid[0]);
-+	rt2500usb_config_promisc(rt2x00usb, (rt2x00usb->interface.promisc ||
-+		rt2x00usb->interface.monitor_count));
++	strcpy(drvinfo->driver, DRV_NAME);
++	strcpy(drvinfo->version, DRV_VERSION);
++	strcpy(drvinfo->bus_info, pci_name(rt2x00dev_pci(rt2x00dev)));
++	drvinfo->eedump_len = EEPROM_SIZE;
++	drvinfo->regdump_len = CSR_REG_SIZE;
 +}
 +
- static int rt2500usb_config_interface(struct net_device *net_dev, int if_id,
- 	struct ieee80211_if_conf *conf)
- {
- 	struct rt2x00_usb *rt2x00usb = ieee80211_dev_hw_data(net_dev);
- 
--	rt2500usb_config_type(rt2x00usb, conf->type);
--
- 	/*
- 	 * When configuring monitor mode, we are done now.
-+	 * but if we are configuring another mode it must be
-+	 * equal to the interface that has been added.
- 	 */
- 	if (conf->type == IEEE80211_IF_TYPE_MNTR)
- 		return 0;
-+	else if (conf->type != rt2x00usb->interface.type)
-+		return -EINVAL;
- 
--	rt2500usb_config_bssid(rt2x00usb, conf->bssid);
-+	if (conf->bssid) {
-+		memcpy(&rt2x00usb->interface.bssid, conf->bssid, ETH_ALEN);
-+		return !queue_work(rt2x00usb->workqueue,
-+				&rt2x00usb->interface.work);
-+	}
- 
- 	return 0;
- }
-@@ -1620,21 +1663,27 @@
- 	unsigned short flags, int mc_count)
- {
- 	struct rt2x00_usb *rt2x00usb = ieee80211_dev_hw_data(net_dev);
-+	int update = 0;
++static int rt2400pci_get_regs_len(struct net_device *net_dev)
++{
++	return CSR_REG_SIZE;
++}
 +
-+	if (GET_FLAG(rt2x00usb, INTERFACE_PROMISC)) {
-+		if (!(flags & IFF_PROMISC)) {
-+			rt2x00usb->interface.promisc = 0;
-+			update = 1;
-+		}
-+	} else {
-+		if (flags & IFF_PROMISC) {
-+			rt2x00usb->interface.promisc = 1;
-+			update = 1;
-+		}
-+	}
- 
- 	/*
- 	 * Monitor mode works with PROMISC mode forced on,
- 	 * so there is nothing to be done here.
- 	 */
--	if (rt2x00usb->type == IEEE80211_IF_TYPE_MNTR)
--		return;
--
--	if (GET_FLAG(rt2x00usb, INTERFACE_PROMISC)) {
--		if (!(flags & IFF_PROMISC))
--			rt2500usb_config_promisc(rt2x00usb, 0);
--	} else {
--		if (flags & IFF_PROMISC)
--			rt2500usb_config_promisc(rt2x00usb, 1);
--	}
-+	if (update && !rt2x00usb->interface.monitor_count)
-+		queue_work(rt2x00usb->workqueue,
-+			&rt2x00usb->interface.work);
- }
- 
- static void rt2500usb_scan(void *data)
-@@ -2326,6 +2375,13 @@
- 	 * Initialize cofniguration work.
- 	 */
- 	INIT_WORK(&rt2x00usb->config_work, rt2500usb_config_update, rt2x00usb);
-+	INIT_WORK(&rt2x00usb->interface.work,
-+		rt2500usb_interface_update, rt2x00usb);
++static void rt2400pci_get_regs(struct net_device *net_dev,
++	struct ethtool_regs *regs, void *data)
++{
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
 +
-+	/*
-+	 * Reset current working type.
-+	 */
-+	rt2x00usb->interface.type = -EINVAL;
++	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
++	regs->version = *((u32*)data);
++	regs->len = CSR_REG_SIZE;
++}
++
++#ifdef CONFIG_RT2400PCI_DEBUG
++static u32 rt2400pci_get_msglevel(struct net_device *net_dev)
++{
++	return rt2x00_debug_level;
++}
++
++static void rt2400pci_set_msglevel(struct net_device *net_dev, u32 msg)
++{
++	rt2x00_debug_level = !!msg;
++}
++#endif /* CONFIG_RT2400PCI_DEBUG */
++
++static int rt2400pci_get_eeprom_len(struct net_device *net_dev)
++{
++	return EEPROM_SIZE;
++}
++
++static int rt2400pci_get_eeprom(struct net_device *net_dev,
++	struct ethtool_eeprom *eeprom, u8 *data)
++{
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
++
++	eeprom->magic = 0xbad;
++
++	rt2x00_eeprom_multiread(rt2x00dev,
++		eeprom->offset / sizeof(u16), (void*)data, eeprom->len);
++
++	return 0;
++}
++
++static struct ethtool_ops rt2400pci_ethtool_ops = {
++	.get_drvinfo	= rt2400pci_get_drvinfo,
++	.get_regs_len	= rt2400pci_get_regs_len,
++	.get_regs	= rt2400pci_get_regs,
++#ifdef CONFIG_RT2400PCI_DEBUG
++	.get_msglevel	= rt2400pci_get_msglevel,
++	.set_msglevel	= rt2400pci_set_msglevel,
++#endif /* CONFIG_RT2400PCI_DEBUG */
++	.get_link	= ethtool_op_get_link,
++	.get_eeprom_len	= rt2400pci_get_eeprom_len,
++	.get_eeprom	= rt2400pci_get_eeprom,
++};
++
++/*
+  * Configuration handlers.
+  */
+ static void rt2400pci_config_bssid(struct rt2x00_dev *rt2x00dev, u8 *bssid)
+@@ -2582,6 +2657,8 @@
+ 		goto exit_release_regions;
+ 	}
  
- 	/*
- 	 * Intialize scanning attributes.
-diff -rU3 wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt2x00.h wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt2x00.h
---- wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-07-23 14:17:22.000000000 +0200
-+++ wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-07-23 14:24:04.000000000 +0200
-@@ -570,6 +570,90 @@
++	SET_ETHTOOL_OPS(net_dev, &rt2400pci_ethtool_ops);
++
+ 	pci_set_drvdata(pci_dev, net_dev);
+ 
+ 	status = rt2400pci_initialize(pci_dev, net_dev);
+diff -rU3 wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.h wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2400pci.h
+--- wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.h	2006-07-22 23:05:16.000000000 +0200
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2400pci.h	2006-07-23 16:34:46.000000000 +0200
+@@ -39,6 +39,14 @@
+ #define RF2421				0x0001
+ 
+ /*
++ * Register layout information.
++ */
++#define CSR_REG_BASE			0x0000
++#define CSR_REG_SIZE			0x014c
++#define EEPROM_BASE			0x0000
++#define EEPROM_SIZE			0x00ff
++
++/*
+  * Control/Status Registers(CSR).
+  * Some values are set in TU, whereas 1 TU == 1024 us.
+  */
+diff -rU3 wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+--- wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-23 15:53:09.000000000 +0200
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-23 16:31:10.000000000 +0200
+@@ -33,7 +33,9 @@
+ #include <linux/delay.h>
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
++#include <linux/etherdevice.h>
+ #include <linux/wireless.h>
++#include <linux/ethtool.h>
+ 
+ #include <net/iw_handler.h>
+ #include <net/d80211.h>
+@@ -362,6 +364,79 @@
+ #endif /* CONFIG_RT2500PCI_BUTTON */
+ 
+ /*
++ * Ethtool handlers.
++ */
++static void rt2500pci_get_drvinfo(struct net_device *net_dev,
++	struct ethtool_drvinfo *drvinfo)
++{
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
++
++	strcpy(drvinfo->driver, DRV_NAME);
++	strcpy(drvinfo->version, DRV_VERSION);
++	strcpy(drvinfo->bus_info, pci_name(rt2x00dev_pci(rt2x00dev)));
++	drvinfo->eedump_len = EEPROM_SIZE;
++	drvinfo->regdump_len = CSR_REG_SIZE;
++}
++
++static int rt2500pci_get_regs_len(struct net_device *net_dev)
++{
++	return CSR_REG_SIZE;
++}
++
++static void rt2500pci_get_regs(struct net_device *net_dev,
++	struct ethtool_regs *regs, void *data)
++{
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
++
++	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
++	regs->version = *((u32*)data);
++	regs->len = CSR_REG_SIZE;
++}
++
++#ifdef CONFIG_RT2500PCI_DEBUG
++static u32 rt2500pci_get_msglevel(struct net_device *net_dev)
++{
++	return rt2x00_debug_level;
++}
++
++static void rt2500pci_set_msglevel(struct net_device *net_dev, u32 msg)
++{
++	rt2x00_debug_level = !!msg;
++}
++#endif /* CONFIG_RT2500PCI_DEBUG */
++
++static int rt2500pci_get_eeprom_len(struct net_device *net_dev)
++{
++	return EEPROM_SIZE;
++}
++
++static int rt2500pci_get_eeprom(struct net_device *net_dev,
++	struct ethtool_eeprom *eeprom, u8 *data)
++{
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
++
++	eeprom->magic = 0xbad;
++
++	rt2x00_eeprom_multiread(rt2x00dev,
++		eeprom->offset / sizeof(u16), (void*)data, eeprom->len);
++
++	return 0;
++}
++
++static struct ethtool_ops rt2500pci_ethtool_ops = {
++	.get_drvinfo	= rt2500pci_get_drvinfo,
++	.get_regs_len	= rt2500pci_get_regs_len,
++	.get_regs	= rt2500pci_get_regs,
++#ifdef CONFIG_RT2500PCI_DEBUG
++	.get_msglevel	= rt2500pci_get_msglevel,
++	.set_msglevel	= rt2500pci_set_msglevel,
++#endif /* CONFIG_RT2500PCI_DEBUG */
++	.get_link	= ethtool_op_get_link,
++	.get_eeprom_len	= rt2500pci_get_eeprom_len,
++	.get_eeprom	= rt2500pci_get_eeprom,
++};
++
++/*
+  * Configuration handlers.
+  */
+ static void rt2500pci_config_bssid(struct rt2x00_dev *rt2x00dev, u8 *bssid)
+@@ -2885,6 +2960,8 @@
+ 		goto exit_release_regions;
+ 	}
+ 
++	SET_ETHTOOL_OPS(net_dev, &rt2500pci_ethtool_ops);
++
+ 	pci_set_drvdata(pci_dev, net_dev);
+ 
+ 	status = rt2500pci_initialize(pci_dev, net_dev);
+diff -rU3 wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.h wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500pci.h
+--- wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.h	2006-07-22 23:14:25.000000000 +0200
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500pci.h	2006-07-23 16:35:07.000000000 +0200
+@@ -50,6 +50,14 @@
+ #define RT2560_VERSION_D		4
+ 
+ /*
++ * Register layout information.
++ */
++#define CSR_REG_BASE			0x0000
++#define CSR_REG_SIZE			0x0174
++#define EEPROM_BASE			0x0000
++#define EEPROM_SIZE			0x01ff
++
++/*
+  * Control/Status Registers(CSR).
+  * Some values are set in TU, whereas 1 TU == 1024 us.
+  */
+diff -rU3 wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+--- wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-23 15:46:52.000000000 +0200
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-23 16:31:02.000000000 +0200
+@@ -32,7 +32,9 @@
+ #include <linux/delay.h>
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
++#include <linux/etherdevice.h>
+ #include <linux/wireless.h>
++#include <linux/ethtool.h>
+ 
+ #include <net/iw_handler.h>
+ #include <net/d80211.h>
+@@ -212,6 +214,79 @@
  }
  
  /*
-+ * Interface structure
-+ * Configuration details about the current interface.
++ * Ethtool handlers.
 + */
-+struct interface {
-+	/*
-+	 * Interface identification. The value is assigned
-+	 * to us by the 80211 stack, and is used to request
-+	 * new beacons.
-+	 */
-+	int id;
++static void rt2500usb_get_drvinfo(struct net_device *net_dev,
++	struct ethtool_drvinfo *drvinfo)
++{
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
 +
-+	/*
-+	 * Current working type (IEEE80211_IF_TYPE_*).
-+	 * This excludes the type IEEE80211_IF_TYPE_MNTR
-+	 * since that is counted seperately in the monitor_count
-+	 * field.
-+	 */
-+	int type;
++	strcpy(drvinfo->driver, DRV_NAME);
++	strcpy(drvinfo->version, DRV_VERSION);
++	strcpy(drvinfo->bus_info, rt2x00dev_usb(rt2x00dev)->dev.bus_id);
++	drvinfo->eedump_len = EEPROM_SIZE;
++	drvinfo->regdump_len = CSR_REG_SIZE;
++}
 +
-+	/*
-+	 * BBSID of the AP to associate with.
-+	 */
-+	u8 bssid[ETH_ALEN];
++static int rt2500usb_get_regs_len(struct net_device *net_dev)
++{
++	return CSR_REG_SIZE;
++}
 +
-+	/*
-+	 * Store the promisc mode for the current interface.
-+	 * monitor mode always forces promisc mode to be enabled,
-+	 * so we need to store the promisc mode seperately.
-+	 */
-+	short promisc;
++static void rt2500usb_get_regs(struct net_device *net_dev,
++	struct ethtool_regs *regs, void *data)
++{
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
 +
-+	/*
-+	 * Monitor mode count, the number of interfaces
-+	 * in monitor mode that that have been added.
-+	 */
-+	short monitor_count;
++	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
++	regs->version = *((u16*)data);
++	regs->len = CSR_REG_SIZE;
++}
 +
-+	/*
-+	 * Sequence number for software controled sequence counters.
-+	 */
-+	u16 sequence;
++#ifdef CONFIG_RT2500USB_DEBUG
++static u32 rt2500usb_get_msglevel(struct net_device *net_dev)
++{
++	return rt2x00_debug_level;
++}
 +
-+	/*
-+	 * Work structure in case interface configuration
-+	 * requires scheduling.
-+	 */
-+	struct work_struct work;
++static void rt2500usb_set_msglevel(struct net_device *net_dev, u32 msg)
++{
++	rt2x00_debug_level = !!msg;
++}
++#endif /* CONFIG_RT2500USB_DEBUG */
++
++static int rt2500usb_get_eeprom_len(struct net_device *net_dev)
++{
++	return EEPROM_SIZE;
++}
++
++static int rt2500usb_get_eeprom(struct net_device *net_dev,
++	struct ethtool_eeprom *eeprom, u8 *data)
++{
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
++
++	eeprom->magic = 0xbad;
++
++	rt2x00_eeprom_multiread(rt2x00dev,
++		eeprom->offset / sizeof(u16), (void*)data, eeprom->len);
++
++	return 0;
++}
++
++static struct ethtool_ops rt2500usb_ethtool_ops = {
++	.get_drvinfo	= rt2500usb_get_drvinfo,
++	.get_regs_len	= rt2500usb_get_regs_len,
++	.get_regs	= rt2500usb_get_regs,
++#ifdef CONFIG_RT2500USB_DEBUG
++	.get_msglevel	= rt2500usb_get_msglevel,
++	.set_msglevel	= rt2500usb_set_msglevel,
++#endif /* CONFIG_RT2500USB_DEBUG */
++	.get_link	= ethtool_op_get_link,
++	.get_eeprom_len	= rt2500usb_get_eeprom_len,
++	.get_eeprom	= rt2500usb_get_eeprom,
 +};
 +
-+static inline void rt2x00_add_interface(struct interface *intf,
-+	struct ieee80211_if_init_conf *conf)
-+{
-+	/*
-+	 * We support muliple monitor mode interfaces.
-+	 * All we need to do is increase the monitor_count.
-+	 */
-+	if (conf->type == IEEE80211_IF_TYPE_MNTR) {
-+		intf->monitor_count++;
-+	} else {
-+		intf->id = conf->if_id;
-+		intf->promisc = 0;
-+		intf->sequence = 0;
-+	}
-+}
++/*
+  * Configuration handlers.
+  */
+ static void rt2500usb_config_bssid(struct rt2x00_dev *rt2x00dev, u8 *bssid)
+@@ -2469,6 +2544,8 @@
+ 		goto exit_put_device;
+ 	}
+ 
++	SET_ETHTOOL_OPS(net_dev, &rt2500usb_ethtool_ops);
 +
-+static inline void rt2x00_remove_interface(struct interface *intf,
-+	struct ieee80211_if_init_conf *conf)
-+{
-+	/*
-+	 * We support muliple monitor mode interfaces.
-+	 * All we need to do is decrease the monitor_count.
-+	 */
-+	if (conf->type == IEEE80211_IF_TYPE_MNTR) {
-+		intf->monitor_count--;
-+	} else if (intf->type == conf->type) {
-+		intf->id = 0;
-+		intf->type = -EINVAL;
-+		memset(&intf->bssid, 0x00, ETH_ALEN);
-+		intf->promisc = 0;
-+		intf->sequence = 0;
-+	}
-+}
+ 	usb_set_intfdata(usb_intf, net_dev);
+ 
+ 	status = rt2500usb_initialize(usb_intf, net_dev);
+diff -rU3 wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.h wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500usb.h
+--- wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.h	2006-07-22 23:05:34.000000000 +0200
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500usb.h	2006-07-23 16:35:21.000000000 +0200
+@@ -43,6 +43,14 @@
+ #define RF5222				0x0010
+ 
+ /*
++ * Register layout information.
++ */
++#define CSR_REG_BASE			0x0400
++#define CSR_REG_SIZE			0x00ff
++#define EEPROM_BASE			0x0000
++#define EEPROM_SIZE			0x006a
 +
 +/*
-  * Scanning structure.
-  * Swithing channel during scanning will be put
-  * in a workqueue so we will be able to sleep
-diff -rU3 wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h
---- wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h	2006-07-22 23:04:01.000000000 +0200
-+++ wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h	2006-07-23 14:24:46.000000000 +0200
-@@ -155,15 +155,9 @@
- 	struct workqueue_struct *workqueue;
+  * Control/Status Registers(CSR).
+  * Some values are set in TU, whereas 1 TU == 1024 us.
+  */
+diff -rU3 wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 15:53:12.000000000 +0200
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 16:30:48.000000000 +0200
+@@ -33,8 +33,10 @@
+ #include <linux/delay.h>
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
++#include <linux/etherdevice.h>
+ #include <linux/wireless.h>
+ #include <linux/firmware.h>
++#include <linux/ethtool.h>
  
- 	/*
--	 * Interface identication required for requesting beacons
--	 * from dscape stack.
-+	 * Interface we are connected with.
- 	 */
--	int interface_id;
--
--	/*
--	 * Current working mode.
--	 */
--	int type;
-+	struct interface interface;
+ #include <net/iw_handler.h>
+ #include <net/d80211.h>
+@@ -393,6 +395,79 @@
+ #endif /* CONFIG_RT61PCI_BUTTON */
  
- 	/*
- 	 * EEPROM bus width.
-diff -rU3 wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h
---- wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h	2006-07-22 23:04:13.000000000 +0200
-+++ wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt2x00usb.h	2006-07-23 14:25:07.000000000 +0200
-@@ -150,15 +150,9 @@
- 	struct workqueue_struct *workqueue;
- 
- 	/*
--	 * Interface identication required for requesting beacons
--	 * from dscape stack.
-+	 * Interface we are connected with.
- 	 */
--	int interface_id;
--
--	/*
--	 * Current working mode.
--	 */
--	int type;
-+	struct interface interface;
- 
- 	/*
- 	 * Frequency offset (for rt73usb).
-diff -rU3 wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-22 23:19:03.000000000 +0200
-+++ wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 14:55:07.000000000 +0200
-@@ -442,7 +442,7 @@
- 		rt2x00_set_field32(&reg, TXRX_CSR0_DROP_TO_DS, 0);
- 
- 	rt2x00_set_field32(&reg, TXRX_CSR0_DROP_CRC, 1);
--	if (type == IEEE80211_IF_TYPE_MNTR) {
-+	if (rt2x00pci->interface.monitor_count) {
- 		rt2x00_set_field32(&reg, TXRX_CSR0_DROP_PHYSICAL, 0);
- 		rt2x00_set_field32(&reg, TXRX_CSR0_DROP_CONTROL, 0);
- 		rt2x00_set_field32(&reg, TXRX_CSR0_DROP_VERSION_ERROR, 0);
-@@ -460,7 +460,7 @@
- 	/*
- 	 * Enable promisc mode when in monitor mode.
- 	 */
--	if (type == IEEE80211_IF_TYPE_MNTR)
-+	if (rt2x00pci->interface.monitor_count)
- 		rt61pci_config_promisc(rt2x00pci, 1);
- 
- 	/*
-@@ -479,7 +479,7 @@
- 	/*
- 	 * Update working mode.
- 	 */
--	rt2x00pci->type = type;
-+	rt2x00pci->interface.type = type;
- }
- 
- static void rt61pci_config_channel(struct rt2x00_pci *rt2x00pci,
-@@ -1231,7 +1231,7 @@
- 	memset(&beacon, 0x00, sizeof(beacon));
- 
- 	skb = ieee80211_beacon_get(ring->net_dev,
--		rt2x00pci->interface_id, &beacon);
-+		rt2x00pci->interface.id, &beacon);
- 	if (!skb)
- 		return;
- 
-@@ -2305,16 +2305,36 @@
- 	struct rt2x00_pci *rt2x00pci = ieee80211_dev_hw_data(net_dev);
- 
- 	/*
--	 * We only support 1 single working mode.
-+	 * We only support 1 non-monitor interface.
- 	 */
--	if (GET_FLAG(rt2x00pci, INTERFACE_INITIALIZED))
-+	if (conf->type != IEEE80211_IF_TYPE_MNTR &&
-+	    GET_FLAG(rt2x00pci, INTERFACE_INITIALIZED))
- 		return -ENOBUFS;
- 
--	rt2x00pci->interface_id = conf->if_id;
-+	SET_FLAG(rt2x00pci, INTERFACE_INITIALIZED);
-+
-+	rt2x00_add_interface(&rt2x00pci->interface, conf);
- 
-+	/*
-+	 * Enable configuration.
-+	 */
-+	rt61pci_config_type(rt2x00pci, conf->type);
- 	rt61pci_config_mac_address(rt2x00pci, conf->mac_addr);
- 
--	SET_FLAG(rt2x00pci, INTERFACE_INITIALIZED);
-+	/*
-+	 * In case of master mode, set the BSSID to our MAC.
-+	 */
-+	if (conf->type == IEEE80211_IF_TYPE_AP) {
-+		memcpy(&rt2x00pci->interface.bssid, conf->mac_addr, ETH_ALEN);
-+		rt61pci_config_bssid(rt2x00pci, conf->mac_addr);
-+	}
-+
-+	/*
-+	 * Enable radio when this is the first
-+	 * interface that is brought up.
-+	 */
-+	if (!GET_FLAG(rt2x00pci, DEVICE_ENABLED_RADIO))
-+		return rt61pci_enable_radio(rt2x00pci);
- 
- 	return 0;
- }
-@@ -2325,14 +2345,22 @@
- 	struct rt2x00_pci *rt2x00pci = ieee80211_dev_hw_data(net_dev);
- 
- 	/*
--	 * We only support 1 single working mode.
-+	 * We only support 1 non-monitor interface.
- 	 */
--	if (!GET_FLAG(rt2x00pci, INTERFACE_INITIALIZED))
-+	if (conf->type != IEEE80211_IF_TYPE_MNTR &&
-+	    !GET_FLAG(rt2x00pci, INTERFACE_INITIALIZED))
- 		return;
- 
--	rt2x00pci->interface_id = 0;
-+	rt2x00_remove_interface(&rt2x00pci->interface, conf);
- 
- 	CLEAR_FLAG(rt2x00pci, INTERFACE_INITIALIZED);
-+
-+	/*
-+	 * Disable radio if this was the last interface
-+	 * that was working with this device.
-+	 */
-+	if (!rt2x00pci->interface.monitor_count)
-+		rt61pci_disable_radio(rt2x00pci);
- }
- 
- static void rt61pci_config_update(void *data)
-@@ -2398,15 +2426,20 @@
- {
- 	struct rt2x00_pci *rt2x00pci = ieee80211_dev_hw_data(net_dev);
- 
--	rt61pci_config_type(rt2x00pci, conf->type);
--
- 	/*
- 	 * When configuring monitor mode, we are done now.
-+	 * but if we are configuring another mode it must be
-+	 * equal to the interface that has been added.
- 	 */
- 	if (conf->type == IEEE80211_IF_TYPE_MNTR)
- 		return 0;
-+	else if (conf->type != rt2x00pci->interface.type)
-+		return -EINVAL;
- 
--	rt61pci_config_bssid(rt2x00pci, conf->bssid);
-+	if (conf->bssid) {
-+		memcpy(&rt2x00pci->interface.bssid, conf->bssid, ETH_ALEN);
-+		rt61pci_config_bssid(rt2x00pci, conf->bssid);
-+	}
- 
- 	return 0;
- }
-@@ -2415,21 +2448,27 @@
- 	unsigned short flags, int mc_count)
- {
- 	struct rt2x00_pci *rt2x00pci = ieee80211_dev_hw_data(net_dev);
-+	int update = 0;
-+
-+	if (GET_FLAG(rt2x00pci, INTERFACE_PROMISC)) {
-+		if (!(flags & IFF_PROMISC)) {
-+			rt2x00pci->interface.promisc = 0;
-+			update = 1;
-+		}
-+	} else {
-+		if (flags & IFF_PROMISC) {
-+			rt2x00pci->interface.promisc = 1;
-+			update = 1;
-+		}
-+	}
- 
- 	/*
- 	 * Monitor mode works with PROMISC mode forced on,
- 	 * so there is nothing to be done here.
- 	 */
--	if (rt2x00pci->type == IEEE80211_IF_TYPE_MNTR)
--		return;
--
--	if (GET_FLAG(rt2x00pci, INTERFACE_PROMISC)) {
--		if (!(flags & IFF_PROMISC))
--			rt61pci_config_promisc(rt2x00pci, 0);
--	} else {
--		if (flags & IFF_PROMISC)
--			rt61pci_config_promisc(rt2x00pci, 1);
--	}
-+	if (update && !rt2x00pci->interface.monitor_count)
-+		rt61pci_config_promisc(rt2x00pci,
-+			rt2x00pci->interface.promisc);
- }
- 
- static void rt61pci_scan(void *data)
-@@ -3263,6 +3302,11 @@
- 	INIT_WORK(&rt2x00pci->config_work, rt61pci_config_update, rt2x00pci);
- 
- 	/*
-+	 * Reset current working type.
-+	 */
-+	rt2x00pci->interface.type = -EINVAL;
-+
-+	/*
- 	 * Initialize scanning attributes.
- 	 */
- 	INIT_WORK(&rt2x00pci->scan_work, rt61pci_scan, rt2x00pci);
-diff -rU3 wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt73usb.c
---- wireless-dev-style/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-22 23:18:51.000000000 +0200
-+++ wireless-dev-interface/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 14:55:15.000000000 +0200
-@@ -263,7 +263,7 @@
- 		rt2x00_set_field32(&reg, TXRX_CSR0_DROP_TO_DS, 0);
- 
- 	rt2x00_set_field32(&reg, TXRX_CSR0_DROP_CRC, 1);
--	if (type == IEEE80211_IF_TYPE_MNTR) {
-+	if (rt2x00usb->interface.monitor_count) {
- 		rt2x00_set_field32(&reg, TXRX_CSR0_DROP_PHYSICAL, 0);
- 		rt2x00_set_field32(&reg, TXRX_CSR0_DROP_CONTROL, 0);
- 		rt2x00_set_field32(&reg, TXRX_CSR0_DROP_VERSION_ERROR, 0);
-@@ -281,7 +281,7 @@
- 	/*
- 	 * Enable promisc mode when in monitor mode.
- 	 */
--	if (type == IEEE80211_IF_TYPE_MNTR)
-+	if (rt2x00usb->interface.monitor_count)
- 		rt73usb_config_promisc(rt2x00usb, 1);
- 
- 	/*
-@@ -296,6 +296,11 @@
- 	else
- 		rt2x00_set_field32(&reg, TXRX_CSR9_TSF_SYNC_MODE, 0);
- 	rt2x00_register_write(rt2x00usb, TXRX_CSR9, reg);
-+
-+	/*
-+	 * Update working mode.
-+	 */
-+	rt2x00usb->interface.type = type;
- }
- 
- static void rt73usb_config_channel(struct rt2x00_usb *rt2x00usb,
-@@ -959,7 +964,7 @@
- 	memset(&beacon, 0x00, sizeof(beacon));
- 
- 	skb = ieee80211_beacon_get(ring->net_dev,
--		rt2x00usb->interface_id, &beacon);
-+		rt2x00usb->interface.id, &beacon);
- 	if (!skb)
- 		return;
- 
-@@ -1804,16 +1809,36 @@
- 	struct rt2x00_usb *rt2x00usb = ieee80211_dev_hw_data(net_dev);
- 
- 	/*
--	 * We only support 1 single working mode.
-+	 * We only support 1 non-monitor interface.
- 	 */
--	if (GET_FLAG(rt2x00usb, INTERFACE_INITIALIZED))
-+	if (conf->type != IEEE80211_IF_TYPE_MNTR &&
-+	    GET_FLAG(rt2x00usb, INTERFACE_INITIALIZED))
- 		return -ENOBUFS;
- 
--	rt2x00usb->interface_id = conf->if_id;
-+	SET_FLAG(rt2x00usb, INTERFACE_INITIALIZED);
-+
-+	rt2x00_add_interface(&rt2x00usb->interface, conf);
- 
-+	/*
-+	 * Enable configuration.
-+	 */
-+	rt73usb_config_type(rt2x00usb, conf->type);
- 	rt73usb_config_mac_address(rt2x00usb, conf->mac_addr);
- 
--	SET_FLAG(rt2x00usb, INTERFACE_INITIALIZED);
-+	/*
-+	 * In case of master mode, set the BSSID to our MAC.
-+	 */
-+	if (conf->type == IEEE80211_IF_TYPE_AP) {
-+		memcpy(&rt2x00usb->interface.bssid, conf->mac_addr, ETH_ALEN);
-+		rt73usb_config_bssid(rt2x00usb, conf->mac_addr);
-+	}
-+
-+	/*
-+	 * Enable radio when this is the first
-+	 * interface that is brought up.
-+	 */
-+	if (!GET_FLAG(rt2x00usb, DEVICE_ENABLED_RADIO))
-+		return rt73usb_enable_radio(rt2x00usb);
- 
- 	return 0;
- }
-@@ -1824,14 +1849,22 @@
- 	struct rt2x00_usb *rt2x00usb = ieee80211_dev_hw_data(net_dev);
- 
- 	/*
--	 * We only support 1 single working mode.
-+	 * We only support 1 non-monitor interface.
- 	 */
--	if (!GET_FLAG(rt2x00usb, INTERFACE_INITIALIZED))
-+	if (conf->type != IEEE80211_IF_TYPE_MNTR &&
-+	    !GET_FLAG(rt2x00usb, INTERFACE_INITIALIZED))
- 		return;
- 
--	rt2x00usb->interface_id = 0;
-+	rt2x00_remove_interface(&rt2x00usb->interface, conf);
- 
- 	CLEAR_FLAG(rt2x00usb, INTERFACE_INITIALIZED);
-+
-+	/*
-+	 * Disable radio if this was the last interface
-+	 * that was working with this device.
-+	 */
-+	if (!rt2x00usb->interface.monitor_count)
-+		rt73usb_disable_radio(rt2x00usb);
- }
- 
- static void rt73usb_config_update(void *data)
-@@ -1895,20 +1928,35 @@
- 	return !queue_work(rt2x00usb->workqueue, &rt2x00usb->config_work);
- }
- 
-+static void rt73usb_interface_update(void *data)
+ /*
++ * Ethtool handlers.
++ */
++static void rt61pci_get_drvinfo(struct net_device *net_dev,
++	struct ethtool_drvinfo *drvinfo)
 +{
-+	struct rt2x00_usb *rt2x00usb = data;
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
 +
-+	rt73usb_config_bssid(rt2x00usb, &rt2x00usb->interface.bssid[0]);
-+	rt73usb_config_promisc(rt2x00usb, (rt2x00usb->interface.promisc ||
-+		rt2x00usb->interface.monitor_count));
++	strcpy(drvinfo->driver, DRV_NAME);
++	strcpy(drvinfo->version, DRV_VERSION);
++	strcpy(drvinfo->bus_info, pci_name(rt2x00dev_pci(rt2x00dev)));
++	drvinfo->eedump_len = EEPROM_SIZE;
++	drvinfo->regdump_len = CSR_REG_SIZE;
 +}
 +
- static int rt73usb_config_interface(struct net_device *net_dev, int if_id,
- 	struct ieee80211_if_conf *conf)
- {
- 	struct rt2x00_usb *rt2x00usb = ieee80211_dev_hw_data(net_dev);
- 
--	rt73usb_config_type(rt2x00usb, conf->type);
--
- 	/*
- 	 * When configuring monitor mode, we are done now.
-+	 * but if we are configuring another mode it must be
-+	 * equal to the interface that has been added.
- 	 */
- 	if (conf->type == IEEE80211_IF_TYPE_MNTR)
- 		return 0;
-+	else if (conf->type != rt2x00usb->interface.type)
-+		return -EINVAL;
- 
--	rt73usb_config_bssid(rt2x00usb, conf->bssid);
-+	if (conf->bssid) {
-+		memcpy(&rt2x00usb->interface.bssid, conf->bssid, ETH_ALEN);
-+		return !queue_work(rt2x00usb->workqueue,
-+				&rt2x00usb->interface.work);
-+	}
- 
- 	return 0;
- }
-@@ -1917,21 +1965,27 @@
- 	unsigned short flags, int mc_count)
- {
- 	struct rt2x00_usb *rt2x00usb = ieee80211_dev_hw_data(net_dev);
-+	int update = 0;
++static int rt61pci_get_regs_len(struct net_device *net_dev)
++{
++	return CSR_REG_SIZE;
++}
 +
-+	if (GET_FLAG(rt2x00usb, INTERFACE_PROMISC)) {
-+		if (!(flags & IFF_PROMISC)) {
-+			rt2x00usb->interface.promisc = 0;
-+			update = 1;
-+		}
-+	} else {
-+		if (flags & IFF_PROMISC) {
-+			rt2x00usb->interface.promisc = 1;
-+			update = 1;
-+		}
-+	}
++static void rt61pci_get_regs(struct net_device *net_dev,
++	struct ethtool_regs *regs, void *data)
++{
++	struct rt2x00_dev	*rt2x00dev = ieee80211_dev_hw_data(net_dev);
++
++	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
++	regs->version = *((u32*)data);
++	regs->len = CSR_REG_SIZE;
++}
++
++#ifdef CONFIG_RT61PCI_DEBUG
++static u32 rt61pci_get_msglevel(struct net_device *net_dev)
++{
++	return rt2x00_debug_level;
++}
++
++static void rt61pci_set_msglevel(struct net_device *net_dev, u32 msg)
++{
++	rt2x00_debug_level = !!msg;
++}
++#endif /* CONFIG_RT61PCI_DEBUG */
++
++static int rt61pci_get_eeprom_len(struct net_device *net_dev)
++{
++	return EEPROM_SIZE;
++}
++
++static int rt61pci_get_eeprom(struct net_device *net_dev,
++	struct ethtool_eeprom *eeprom, u8 *data)
++{
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
++
++	eeprom->magic = 0xbad;
++
++	rt2x00_eeprom_multiread(rt2x00dev,
++		eeprom->offset / sizeof(u16), (void*)data, eeprom->len);
++
++	return 0;
++}
++
++static struct ethtool_ops rt61pci_ethtool_ops = {
++	.get_drvinfo	= rt61pci_get_drvinfo,
++	.get_regs_len	= rt61pci_get_regs_len,
++	.get_regs	= rt61pci_get_regs,
++#ifdef CONFIG_RT61PCI_DEBUG
++	.get_msglevel	= rt61pci_get_msglevel,
++	.set_msglevel	= rt61pci_set_msglevel,
++#endif /* CONFIG_RT61PCI_DEBUG */
++	.get_link	= ethtool_op_get_link,
++	.get_eeprom_len	= rt61pci_get_eeprom_len,
++	.get_eeprom	= rt61pci_get_eeprom,
++};
++
++/*
+  * Configuration handlers.
+  */
+ static void rt61pci_config_bssid(struct rt2x00_dev *rt2x00dev, u8 *bssid)
+@@ -3434,6 +3509,8 @@
+ 		goto exit_release_regions;
+ 	}
  
- 	/*
- 	 * Monitor mode works with PROMISC mode forced on,
- 	 * so there is nothing to be done here.
- 	 */
--	if (rt2x00usb->type == IEEE80211_IF_TYPE_MNTR)
--		return;
--
--	if (GET_FLAG(rt2x00usb, INTERFACE_PROMISC)) {
--		if (!(flags & IFF_PROMISC))
--			rt73usb_config_promisc(rt2x00usb, 0);
--	} else {
--		if (flags & IFF_PROMISC)
--			rt73usb_config_promisc(rt2x00usb, 1);
--	}
-+	if (update && !rt2x00usb->interface.monitor_count)
-+		queue_work(rt2x00usb->workqueue,
-+			&rt2x00usb->interface.work);
++	SET_ETHTOOL_OPS(net_dev, &rt61pci_ethtool_ops);
++
+ 	pci_set_drvdata(pci_dev, net_dev);
+ 
+ 	status = rt61pci_initialize(pci_dev, net_dev);
+diff -rU3 wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt61pci.h wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt61pci.h
+--- wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-07-22 23:16:12.000000000 +0200
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-07-23 16:35:36.000000000 +0200
+@@ -44,6 +44,14 @@
+ #define RF2529				0x0004
+ 
+ /*
++ * Register layout information.
++ */
++#define CSR_REG_BASE			0x3000
++#define CSR_REG_SIZE			0x04b0
++#define EEPROM_BASE			0x0000
++#define EEPROM_SIZE			0x00ff
++
++/*
+  * PCI registers.
+  */
+ 
+diff -rU3 wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 15:51:03.000000000 +0200
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 16:30:55.000000000 +0200
+@@ -32,8 +32,10 @@
+ #include <linux/delay.h>
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
++#include <linux/etherdevice.h>
+ #include <linux/wireless.h>
+ #include <linux/firmware.h>
++#include <linux/ethtool.h>
+ 
+ #include <net/iw_handler.h>
+ #include <net/d80211.h>
+@@ -214,6 +216,79 @@
  }
  
- static void rt73usb_scan(void *data)
-@@ -2730,6 +2784,13 @@
- 	 * Initialize cofniguration work.
- 	 */
- 	INIT_WORK(&rt2x00usb->config_work, rt73usb_config_update, rt2x00usb);
-+	INIT_WORK(&rt2x00usb->interface.work,
-+		rt73usb_interface_update, rt2x00usb);
+ /*
++ * Ethtool handlers.
++ */
++static void rt73usb_get_drvinfo(struct net_device *net_dev,
++	struct ethtool_drvinfo *drvinfo)
++{
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
 +
-+	/*
-+	 * Reset current working type.
-+	 */
-+	rt2x00usb->interface.type = -EINVAL;
++	strcpy(drvinfo->driver, DRV_NAME);
++	strcpy(drvinfo->version, DRV_VERSION);
++	strcpy(drvinfo->bus_info, rt2x00dev_usb(rt2x00dev)->dev.bus_id);
++	drvinfo->eedump_len = EEPROM_SIZE;
++	drvinfo->regdump_len = CSR_REG_SIZE;
++}
++
++static int rt73usb_get_regs_len(struct net_device *net_dev)
++{
++	return CSR_REG_SIZE;
++}
++
++static void rt73usb_get_regs(struct net_device *net_dev,
++	struct ethtool_regs *regs, void *data)
++{
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
++
++	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
++	regs->version = *((u32*)data);
++	regs->len = CSR_REG_SIZE;
++}
++
++#ifdef CONFIG_RT73USB_DEBUG
++static u32 rt73usb_get_msglevel(struct net_device *net_dev)
++{
++	return rt2x00_debug_level;
++}
++
++static void rt73usb_set_msglevel(struct net_device *net_dev, u32 msg)
++{
++	rt2x00_debug_level = !!msg;
++}
++#endif /* CONFIG_RT73USB_DEBUG */
++
++static int rt73usb_get_eeprom_len(struct net_device *net_dev)
++{
++	return EEPROM_SIZE;
++}
++
++static int rt73usb_get_eeprom(struct net_device *net_dev,
++	struct ethtool_eeprom *eeprom, u8 *data)
++{
++	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
++
++	eeprom->magic = 0xbad;
++
++	rt2x00_eeprom_multiread(rt2x00dev,
++		eeprom->offset / sizeof(u16), (void*)data, eeprom->len);
++
++	return 0;
++}
++
++static struct ethtool_ops rt73usb_ethtool_ops = {
++	.get_drvinfo	= rt73usb_get_drvinfo,
++	.get_regs_len	= rt73usb_get_regs_len,
++	.get_regs	= rt73usb_get_regs,
++#ifdef CONFIG_RT73USB_DEBUG
++	.get_msglevel	= rt73usb_get_msglevel,
++	.set_msglevel	= rt73usb_set_msglevel,
++#endif /* CONFIG_RT2500USB_DEBUG */
++	.get_link	= ethtool_op_get_link,
++	.get_eeprom_len	= rt73usb_get_eeprom_len,
++	.get_eeprom	= rt73usb_get_eeprom,
++};
++
++/*
+  * Configuration handlers.
+  */
+ static void rt73usb_config_bssid(struct rt2x00_dev *rt2x00dev, u8 *bssid)
+@@ -2885,6 +2960,8 @@
+ 		goto exit_put_device;
+ 	}
  
- 	/*
- 	 * Intialize scanning attributes.
++	SET_ETHTOOL_OPS(net_dev, &rt73usb_ethtool_ops);
++
+ 	usb_set_intfdata(usb_intf, net_dev);
+ 
+ 	status = rt73usb_initialize(usb_intf, net_dev);
+diff -rU3 wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt73usb.h wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt73usb.h
+--- wireless-dev-pciusb_dev/drivers/net/wireless/d80211/rt2x00/rt73usb.h	2006-07-22 23:05:59.000000000 +0200
++++ wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt73usb.h	2006-07-23 16:35:48.000000000 +0200
+@@ -41,6 +41,14 @@
+ #define RF2527				0x0004
+ 
+ /*
++ * Register layout information.
++ */
++#define CSR_REG_BASE			0x3000
++#define CSR_REG_SIZE			0x04b0
++#define EEPROM_BASE			0x0000
++#define EEPROM_SIZE			0x00ff
++
++/*
+  * USB registers.
+  */
+ 
