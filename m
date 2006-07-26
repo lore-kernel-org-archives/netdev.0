@@ -1,55 +1,46 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH dscape] d80211: Switch d80211.h to IEEE80211_ style names
-Date: Wed, 26 Jul 2006 10:10:41 -0700
-Message-ID: <200607261010.48850.flamingice@sourmilk.net>
-References: <200607242302.58670.flamingice@sourmilk.net> <200607260944.01692.flamingice@sourmilk.net> <20060726185333.36e13fdd@griffin.suse.cz>
+From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+Subject: H/W requirements for NETIF_F_HW_CSUM
+Date: Wed, 26 Jul 2006 10:28:00 -0700
+Message-ID: <006201c6b0d8$d831ba80$4510100a@pc.s2io.com>
+Reply-To: <ravinandan.arakali@neterion.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart4732818.iLxjrrJ38m";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linville@tuxdriver.com
+Cc: <Steve.Whitaker@neterion.com>, <Mike.Doyle@neterion.com>,
+	<Andrew.LaCroix@neterion.com>, <Ananda.Raju@neterion.com>,
+	<dave.fenton@neterion.com>,
+	"Leonid. Grossman \(E-mail\)" <leonid.grossman@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:989 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S1160997AbWGZRKp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jul 2006 13:10:45 -0400
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20060726185333.36e13fdd@griffin.suse.cz>
+Received: from barracuda.s2io.com ([72.1.205.138]:44211 "EHLO
+	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
+	id S1750772AbWGZR24 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jul 2006 13:28:56 -0400
+Received: from guinness.s2io.com (unknown [142.46.210.147])
+	by barracuda.mail.s2io.com (Spam Firewall) with ESMTP id 84DC62001D46
+	for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 13:28:55 -0400 (EDT)
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart4732818.iLxjrrJ38m
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Hello,
+Our current NIC does not provide the actual checksum value on receive path.
+Hence we only claim NETIF_F_IP_CSUM instead of the more general
+NETIF_F_HW_CSUM.
 
-On Wednesday 26 July 2006 09:53, Jiri Benc wrote:
-> I just meant running some s/ {8}/\t/ on your patch :-)
->
-> Also, I don't want to fix all of tab issues in d80211 by one big patch.
-> I always have several patches pending (and other people probably too)
-> and it leads to unnecessary rejects when applying them. Instead, I
-> gradually correct them when changing corresponding lines.
->
-Ah. Well, if you don't mind doing the space->tabs fix, please do. I don't k=
-now=20
-if I can get to that soon enough.
+To support this in a future adapter, we would like to know what exactly are
+the requirements (on both Rx and Tx )to claim NETIF_F_HW_CSUM ?
+
+Following are some specific questions:
+1. On Tx, our adapter supports checksumming of TCP/UDP over IPv4 and IPv6.
+This computation is TCP/UDP specific. Does the checksum calculation need to
+be more generic ? Also, skbuff.h says that the checksum needs to be placed
+at a specific location(skb->h.raw+skb->csum). I guess this means the adapter
+needs to pass back the checksum to host driver after transmission. What
+happens in case of TSO ?
+2. On Rx, is it suffficient if we place the L4 checksum in skb->csum ? What
+about L3 checksum ?
 
 Thanks,
-=2DMichael Wu
+Ravi
 
---nextPart4732818.iLxjrrJ38m
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBEx6IYT3Oqt9AH4aERAn2PAJ45u1wZV7Oj24dMkl8iNrgQnMH/swCgztAY
-9hOgi48h0HJEOJmRoWBAAq8=
-=xwrL
------END PGP SIGNATURE-----
-
---nextPart4732818.iLxjrrJ38m--
