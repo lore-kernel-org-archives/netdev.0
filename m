@@ -1,8 +1,8 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: [PATCH 10/24] RT2x00: Add software and hardware sequence counting
-Date: Wed, 26 Jul 2006 20:27:02 +0200
-Message-ID: <200607262027.02788.IvDoorn@gmail.com>
-References: <200607261905.08494.IvDoorn@gmail.com>
+Subject: Re: [PATCH 11/24] RT2x00: Move scan_work to scanning structure
+Date: Wed, 26 Jul 2006 20:27:30 +0200
+Message-ID: <200607262027.30929.IvDoorn@gmail.com>
+References: <200607261905.12030.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
@@ -10,192 +10,139 @@ Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from nf-out-0910.google.com ([64.233.182.184]:2063 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1751753AbWGZS1O convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 14:27:14 -0400
+	id S1161013AbWGZS1m convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 14:27:42 -0400
 Received: by nf-out-0910.google.com with SMTP id o25so839729nfa
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 11:27:14 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 11:27:41 -0700 (PDT)
 To: netdev@vger.kernel.org
-In-Reply-To: <200607261905.08494.IvDoorn@gmail.com>
+In-Reply-To: <200607261905.12030.IvDoorn@gmail.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 >From Ivo van Doorn <IvDoorn@gmail.com>
 
-Add software sequence number counting to rt2400pci and rt2500pci,
-enable hardware sequence number counting for rt2500usb, rt61pci and rt73usb.
+Remove scan_work from rt2x00_dev and place it in the scanning structure.
 
 Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
 
-diff -rU3 wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
---- wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-23 19:36:40.000000000 +0200
-+++ wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-23 19:52:17.000000000 +0200
-@@ -1682,6 +1682,11 @@
- 		return NETDEV_TX_BUSY;
- 	}
- 
-+	/*
-+	 * Set the software sequence number.
-+	 */
-+	rt2x00_set_sequence(skb, &rt2x00dev->interface.sequence);
-+
- 	memcpy(entry->data_addr, skb->data, skb->len);
- 	rt2400pci_write_tx_desc(rt2x00dev, txd, skb, control);
- 	if (WLAN_FC_GET_STYPE(frame_control) == WLAN_FC_STYPE_RTS)
-@@ -2275,6 +2280,11 @@
+diff -rU3 wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+--- wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-23 19:52:17.000000000 +0200
++++ wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-07-23 22:41:51.000000000 +0200
+@@ -2139,7 +2139,8 @@
+ 	/*
+ 	 * Queue work.
  	 */
- 	control->queue = IEEE80211_TX_QUEUE_BEACON;
+-	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan_work))
++	INIT_WORK(&rt2x00dev->scan->work, rt2400pci_scan, rt2x00dev);
++	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan->work))
+ 		goto exit;
  
-+	/*
-+	 * Set the software sequence number.
-+	 */
-+	rt2x00_set_sequence(skb, &rt2x00dev->interface.sequence);
-+
- 	memcpy(entry->data_addr, skb->data, skb->len);
- 	rt2400pci_write_tx_desc(rt2x00dev, entry->desc_addr, skb, control);
- 
-diff -rU3 wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
---- wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-23 19:33:46.000000000 +0200
-+++ wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-23 19:52:28.000000000 +0200
-@@ -1817,6 +1817,11 @@
- 		return NETDEV_TX_BUSY;
- 	}
- 
-+	/*
-+	 * Set the software sequence number.
-+	 */
-+	rt2x00_set_sequence(skb, &rt2x00dev->interface.sequence);
-+
- 	memcpy(entry->data_addr, skb->data, skb->len);
- 	rt2500pci_write_tx_desc(rt2x00dev, txd, skb, control);
- 	if (WLAN_FC_GET_STYPE(frame_control) == WLAN_FC_STYPE_RTS)
-@@ -2401,6 +2406,11 @@
+ 	return 0;
+@@ -2599,7 +2600,6 @@
+ 	/*
+ 	 * Intialize scanning attributes.
  	 */
- 	control->queue = IEEE80211_TX_QUEUE_BEACON;
+-	INIT_WORK(&rt2x00dev->scan_work, rt2400pci_scan, rt2x00dev);
+ 	rt2x00dev->scan = NULL;
  
-+	/*
-+	 * Set the software sequence number.
-+	 */
-+	rt2x00_set_sequence(skb, &rt2x00dev->interface.sequence);
+ 	if (rt2400pci_init_eeprom(rt2x00dev) ||
+diff -rU3 wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+--- wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-23 19:52:28.000000000 +0200
++++ wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-07-23 22:41:58.000000000 +0200
+@@ -2271,7 +2271,8 @@
+ 	/*
+ 	 * Queue work.
+ 	 */
+-	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan_work))
++	INIT_WORK(&rt2x00dev->scan->work, rt2500pci_scan, rt2x00dev);
++	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan->work))
+ 		goto exit;
+ 
+ 	return 0;
+@@ -2865,7 +2866,6 @@
+ 	/*
+ 	 * Intialize scanning attributes.
+ 	 */
+-	INIT_WORK(&rt2x00dev->scan_work, rt2500pci_scan, rt2x00dev);
+ 	rt2x00dev->scan = NULL;
+ 
+ 	if (rt2500pci_init_eeprom(rt2x00dev) ||
+diff -rU3 wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+--- wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-23 19:54:54.000000000 +0200
++++ wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-23 22:42:03.000000000 +0200
+@@ -1942,7 +1942,8 @@
+ 	/*
+ 	 * Queue work.
+ 	 */
+-	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan_work))
++	INIT_WORK(&rt2x00dev->scan->work, rt2500usb_scan, rt2x00dev);
++	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan->work))
+ 		goto exit;
+ 
+ 	return 0;
+@@ -2481,7 +2482,6 @@
+ 	/*
+ 	 * Intialize scanning attributes.
+ 	 */
+-	INIT_WORK(&rt2x00dev->scan_work, rt2500usb_scan, rt2x00dev);
+ 	rt2x00dev->scan = NULL;
+ 
+ 	if (rt2500usb_init_eeprom(rt2x00dev) ||
+diff -rU3 wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2x00.h wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2x00.h
+--- wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-07-23 19:49:00.000000000 +0200
++++ wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-07-23 22:32:51.000000000 +0200
+@@ -676,6 +676,11 @@
+ 	short status;
+ #define SCANNING_READY		0x0001
+ #define SCANNING_CANCELLED	0x0002
 +
- 	memcpy(entry->data_addr, skb->data, skb->len);
- 	rt2500pci_write_tx_desc(rt2x00dev, entry->desc_addr, skb, control);
- 
-diff -rU3 wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
---- wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-23 19:36:18.000000000 +0200
-+++ wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-07-23 19:54:54.000000000 +0200
-@@ -1385,7 +1385,7 @@
- 	rt2x00_register_write(rt2x00dev, MAC_CSR18, reg);
- 
- 	rt2x00_register_read(rt2x00dev, TXRX_CSR1, &reg);
--	rt2x00_set_field16_nb(&reg, TXRX_CSR1_AUTO_SEQUENCE, 0x00);
-+	rt2x00_set_field16_nb(&reg, TXRX_CSR1_AUTO_SEQUENCE, 1);
- 	rt2x00_register_write(rt2x00dev, TXRX_CSR1, reg);
- 
- 	rt2x00_register_read(rt2x00dev, PHY_CSR4, &reg);
-diff -rU3 wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2x00.h wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2x00.h
---- wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-07-23 18:09:00.000000000 +0200
-+++ wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-07-23 19:49:00.000000000 +0200
-@@ -911,6 +911,50 @@
- }
++	/*
++	 * Work structure for scheduling the scanning work.
++	 */
++	struct work_struct work;
+ };
  
  /*
-+ * Sequence number handlers.
-+ */
-+static inline int rt2x00_require_sequence(struct ieee80211_hdr *ieee80211hdr)
-+{
-+	/*
-+	 * Check if the packet has a header
-+	 * that contains a seq_ctrl field.
-+	 */
-+	if (ieee80211_get_hdrlen(
-+		le16_to_cpu(ieee80211hdr->frame_control)) >= IEEE80211_HEADER)
-+		return 1;
-+	return 0;
-+}
-+
-+static inline void rt2x00_set_sequence(struct sk_buff *skb, u16 *seq)
-+{
-+	struct ieee80211_hdr *ieee80211hdr =
-+		(struct ieee80211_hdr*)skb->data;
-+
-+	/*
-+	 * Only attach the sequence number, when
-+	 * the buffer requires it.
-+	 */
-+	if (!rt2x00_require_sequence(ieee80211hdr))
-+		return;
-+
-+	/*
-+	 * Set the sequence number for this frame,
-+	 * but do not change the fragment number.
-+	 */
-+	ieee80211hdr->seq_ctrl |= cpu_to_le16((*seq << 4) & 0xfff0);
-+
-+	/*
-+	 * Since the dscape stack sends all packets and
-+	 * fragments individually, we need to check if there
-+	 * will be new fragments following.
-+	 * If this is the last or only fragment, the sequence
-+	 * counter should be increased.
-+	 */
-+	if (!ieee80211_get_morefrag(ieee80211hdr))
-+		*seq = (*seq + 1) & 0x0fff;
-+}
-+
-+/*
-  * Duration calculations
-  * The rate variable passed is: 100kbs.
-  * To convert from bytes to bits we multiply size with 8,
-diff -rU3 wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 19:34:27.000000000 +0200
-+++ wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 19:53:45.000000000 +0200
-@@ -1321,7 +1321,10 @@
- 		rt2x00_set_field32(&txd->word1,
- 			TXD_W1_HOST_Q_ID, control->queue);
- 
--	rt2x00_set_field32(&txd->word1, TXD_W1_HW_SEQUENCE, 0);
-+	if (rt2x00_require_sequence(ieee80211hdr))
-+		rt2x00_set_field32(&txd->word1, TXD_W1_HW_SEQUENCE, 1);
-+	else
-+		rt2x00_set_field32(&txd->word1, TXD_W1_HW_SEQUENCE, 0);
- 
- 	rt2x00_set_field32(&txd->word1, TXD_W1_AIFSN, ring->tx_params.aifs);
- 	rt2x00_set_field32(&txd->word1, TXD_W1_CWMIN, ring->tx_params.cw_min);
-@@ -2113,6 +2116,10 @@
- 	rt2x00_set_field32(&reg, MAC_CSR9_CW_SELECT, 0);
- 	rt2x00_register_write(rt2x00dev, MAC_CSR9, reg);
- 
-+	rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
-+	rt2x00_set_field32(&reg, TXRX_CSR0_AUTO_TX_SEQ, 1);
-+	rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
-+
- 	rt2x00_register_write(rt2x00dev, PHY_CSR1, cpu_to_le32(0x000023b0));
- 	rt2x00_register_write(rt2x00dev, PHY_CSR5, cpu_to_le32(0x060a100c));
- 	rt2x00_register_write(rt2x00dev, PHY_CSR6, cpu_to_le32(0x00080606));
-diff -rU3 wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt73usb.c
---- wireless-dev-dev/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 19:33:08.000000000 +0200
-+++ wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 19:54:16.000000000 +0200
-@@ -1038,7 +1038,10 @@
- 		rt2x00_set_field32(&txd->word1,
- 			TXD_W1_HOST_Q_ID, control->queue);
- 
--	rt2x00_set_field32(&txd->word1, TXD_W1_HW_SEQUENCE, 0);
-+	if (rt2x00_require_sequence(ieee80211hdr))
-+		rt2x00_set_field32(&txd->word1, TXD_W1_HW_SEQUENCE, 1);
-+	else
-+		rt2x00_set_field32(&txd->word1, TXD_W1_HW_SEQUENCE, 0);
- 
- 	rt2x00_set_field32(&txd->word1, TXD_W1_AIFSN, ring->tx_params.aifs);
- 	rt2x00_set_field32(&txd->word1, TXD_W1_CWMIN, ring->tx_params.cw_min);
-@@ -1682,6 +1685,10 @@
- 	rt2x00_set_field32(&reg, MAC_CSR9_CW_SELECT, 0);
- 	rt2x00_register_write(rt2x00dev, MAC_CSR9, reg);
- 
-+	rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
-+	rt2x00_set_field32(&reg, TXRX_CSR0_AUTO_TX_SEQ, 1);
-+	rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
-+
+diff -rU3 wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 19:53:45.000000000 +0200
++++ wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 22:42:09.000000000 +0200
+@@ -2764,7 +2764,8 @@
  	/*
- 	 * We must clear the error counters.
- 	 * These registers are cleared on read,
+ 	 * Queue work.
+ 	 */
+-	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan_work))
++	INIT_WORK(&rt2x00dev->scan->work, rt61pci_scan, rt2x00dev);
++	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan->work))
+ 		goto exit;
+ 
+ 	return 0;
+@@ -3438,7 +3439,6 @@
+ 	/*
+ 	 * Initialize scanning attributes.
+ 	 */
+-	INIT_WORK(&rt2x00dev->scan_work, rt61pci_scan, rt2x00dev);
+ 	rt2x00dev->scan = NULL;
+ 
+ 	if (rt61pci_init_eeprom(rt2x00dev) ||
+diff -rU3 wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 19:54:16.000000000 +0200
++++ wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 22:35:17.000000000 +0200
+@@ -2266,7 +2266,8 @@
+ 	/*
+ 	 * Queue work.
+ 	 */
+-	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan_work))
++	INIT_WORK(&rt2x00dev->scan->work, rt73usb_scan, rt2x00dev);
++	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan->work))
+ 		goto exit;
+ 
+ 	return 0;
+@@ -2910,7 +2911,6 @@
+ 	/*
+ 	 * Intialize scanning attributes.
+ 	 */
+-	INIT_WORK(&rt2x00dev->scan_work, rt73usb_scan, rt2x00dev);
+ 	rt2x00dev->scan = NULL;
+ 
+ 	if (rt73usb_init_eeprom(rt2x00dev) ||
