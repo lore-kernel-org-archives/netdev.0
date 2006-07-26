@@ -1,31 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] [IPV4]: Use Protocol Independant Policy Routing
- Rules Framework
-Date: Wed, 26 Jul 2006 15:43:20 -0700 (PDT)
-Message-ID: <20060726.154320.74146693.davem@davemloft.net>
-References: <20060726221100.325687073@postel.suug.ch>
-	<20060726221850.460778279@postel.suug.ch>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/5] [IPV6]: Multiple Routing Tables
+Date: Thu, 27 Jul 2006 00:48:48 +0200
+Message-ID: <20060726224848.GX14627@postel.suug.ch>
+References: <20060726221100.325687073@postel.suug.ch> <20060726221849.495778268@postel.suug.ch> <20060726.153949.29046809.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, vnuorval@tcs.hut.fi,
 	usagi-core@linux-ipv6.org, yoshfuji@linux-ipv6.org,
 	anttit@tcs.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:42693
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751812AbWGZWnb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jul 2006 18:43:31 -0400
-To: tgraf@suug.ch
-In-Reply-To: <20060726221850.460778279@postel.suug.ch>
+Received: from postel.suug.ch ([194.88.212.233]:2999 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1751238AbWGZWs1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 18:48:27 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060726.153949.29046809.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 27 Jul 2006 00:00:05 +0200
+* David Miller <davem@davemloft.net> 2006-07-26 15:39
+> Wow, were we corrupting the IP6CB() of input packets on every
+> route lookup that hit this path?
 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+I found that via compile error as passing on skb to this context
+didn't make sense when I rewrote the code around it :-)
 
-Like the ipv6 counterpart, this looks fine too.
+Fortunately it's only used read-only when notifying to figure
+out the destination pid but that code seems bogus as well and
+we can probably remove the netlink cb passing hell throughout
+all the code there.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
