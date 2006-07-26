@@ -1,72 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH Round 4 2/3] Core network changes to support network event notification.
-Date: Wed, 26 Jul 2006 13:39:51 +1000
-Message-ID: <20060726033951.GB3203@gondor.apana.org.au>
-References: <E1G5HW5-0005xn-00@gondolin.me.apana.org.au> <1153839940.14354.37.camel@stevo-desktop>
+From: Albert Lee <albertcc@tw.ibm.com>
+Subject: Is the qla3xxx driver in the mainline?
+Date: Wed, 26 Jul 2006 11:45:10 +0800
+Message-ID: <44C6E546.8030502@tw.ibm.com>
+Reply-To: albertl@mail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, rdreier@cisco.com, openib-general@openib.org,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, Doug Maxey <dwm@enoyolf.org>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:13065 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932513AbWGZDkF
+Received: from e31.co.us.ibm.com ([32.97.110.149]:52373 "EHLO
+	e31.co.us.ibm.com") by vger.kernel.org with ESMTP id S1030372AbWGZDp7
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 23:40:05 -0400
-To: Steve Wise <swise@opengridcomputing.com>
-Content-Disposition: inline
-In-Reply-To: <1153839940.14354.37.camel@stevo-desktop>
+	Tue, 25 Jul 2006 23:45:59 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e31.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k6Q3jw00012600
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Tue, 25 Jul 2006 23:45:58 -0400
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay04.boulder.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k6Q3jvEH169830
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 25 Jul 2006 21:45:57 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k6Q3jvqS031392
+	for <netdev@vger.kernel.org>; Tue, 25 Jul 2006 21:45:57 -0600
+To: Ron Mercer <ron.mercer@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 25, 2006 at 10:05:40AM -0500, Steve Wise wrote:
-> 
-> But they really are seeing a delete followed by an add.  That's what the
-> kernel is doing.
+Hi Ron,
 
-Actually that's the other thing I don't really like.  The user-space
-monitor may perceive that a route was actually deleted and replaced
-by a new one even though this isn't what's happening at all.
+The qla3xxx driver is in the -mm tree.
 
-In fact the problem here is that you're sending route notifications
-when it's really the dst_entry that's changing.  User-space as it
-stands only get notifications about fib changes which is quite different
-from changes to the transient dst_entry objects which only exist in the
-route cache.
+For the mainline inclusion, Jeff seems ready to accept the driver:
+http://marc.theaimsgroup.com/?l=linux-netdev&m=115334172810775&w=2
 
-Is anyone actually going to use the user-space interface of this? If not
-perhaps we should wait until someone really needs it before adding the
-netlink part of the patch.
+Just wondering if the qla3xxx driver is in the mainline yet?
 
-We can change the kernel interface at will so if we make a mistake with
-netevent it can be easily corrected.  For user-space though the rules
-are totally different.  I'd really hate to be stuck with an interface
-which turns out to not be the one that people actually want to have.
+(I am curious to have some performance comparison of
+qla3xxx + open iscsi v.s. qla4xxx + on board TOE/iscsi.)
 
-> The rdma driver needs to update all established rdma connections that
-> are using the next-hop information of the existing route and make them
-> use the next-hop information of the new route.  In addition, the rdma
-> driver might have a reference to the old dst entry.  So it can release
-> that ref and add a ref to the new dst entry.
+--
+albert
 
-Do you really need the old route for the user-space part of your patch?
-
-> I have to admit I'm a little fuzzy on the routing stuff.  The main
-> netevents I've utilized in the the rdma driver I'm writing is the
-> neighbour update event and the redirect event.  Route add/del was added
-> for completeness of "routing" netevents.   
-
-So you mean you aren't going to use the route notifications? In that case
-we should probably just drop them and add them when someone actually needs
-it.  At that point they can tell us what semantics they want from it :)
-
-> Can you expand further or point me to code where the IP stack "flushes
-> its tables" when routes are changed?
-
-Grep for rt_cache_flush in net/ipv4/fib_hash.c.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
