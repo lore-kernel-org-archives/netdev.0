@@ -1,7 +1,7 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 5/24] RT2x00: Clean up device specific rate value initialization
-Date: Wed, 26 Jul 2006 19:04:48 +0200
-Message-ID: <200607261904.48942.IvDoorn@gmail.com>
+Subject: [PATCH 23/24] RT2x00: Fix register initialization
+Date: Wed, 26 Jul 2006 19:05:54 +0200
+Message-ID: <200607261905.54825.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -10,10 +10,10 @@ Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from nf-out-0910.google.com ([64.233.182.190]:5025 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1030219AbWGZRH1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 13:07:27 -0400
+	id S1030334AbWGZRHw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 13:07:52 -0400
 Received: by nf-out-0910.google.com with SMTP id o25so812601nfa
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 10:07:26 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 10:07:51 -0700 (PDT)
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -21,778 +21,718 @@ List-Id: netdev.vger.kernel.org
 
 >From Ivo van Doorn <IvDoorn@gmail.com>
 
-ieee80211_rate structure should be initialized by device_rate_entry
-And the creation of the device specific rate value can be optimized
-and made more clearer.
+Thanks to ethtool a lot of problems with initialization
+of the registers has been discovered.
+This will correctly initialize all registers.
 
 Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
 
 ---
 
-diff -rU3 wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2400pci.c 
-wireless-dev-rates/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
---- wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	
-2006-07-23 16:30:58.000000000 +0200
-+++ wireless-dev-rates/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	
-2006-07-23 17:01:06.000000000 +0200
-@@ -680,10 +680,10 @@
- 	u32 value;
- 	u32 preamble;
+diff -rU3 wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2400pci.c 
+wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+--- wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	
+2006-07-26 12:49:38.000000000 +0200
++++ wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	
+2006-07-26 14:04:13.000000000 +0200
+@@ -482,6 +482,8 @@
+ 	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
+ 		return;
  
--	preamble = DEVICE_RATE_FIELD(rate, PREAMBLE)
-+	preamble = DEVICE_GET_RATE_FIELD(rate, PREAMBLE)
- 		? SHORT_PREAMBLE : PREAMBLE;
- 
--	reg[0] = DEVICE_RATE_FIELD(rate, RATEMASK);
-+	reg[0] = DEVICE_GET_RATE_FIELD(rate, RATEMASK);
- 
- 	rt2x00_register_write(rt2x00dev, ARCSR1, reg[0]);
- 
-@@ -699,7 +699,7 @@
- 	rt2x00_set_field32(&reg[0], TXCSR1_ACK_CONSUME_TIME, value);
- 	rt2x00_register_write(rt2x00dev, TXCSR1, reg[0]);
- 
--	value = DEVICE_RATE_FIELD(rate, PREAMBLE) ? 8 : 0;
-+	value = DEVICE_GET_RATE_FIELD(rate, PREAMBLE) ? 8 : 0;
- 
- 	reg[0] = cpu_to_le32(0x00700400 | value);	/* ARCSR2 */
- 	reg[1] = cpu_to_le32(0x00380401 | value);	/* ARCSR3 */
-@@ -919,9 +919,9 @@
- 	 * Convert length to microseconds.
- 	 */
- 	residual = get_duration_res(length,
--		DEVICE_RATE_FIELD(control->tx_rate, RATE));
-+		DEVICE_GET_RATE_FIELD(control->tx_rate, RATE));
- 	length = get_duration(length,
--		DEVICE_RATE_FIELD(control->tx_rate, RATE));
-+		DEVICE_GET_RATE_FIELD(control->tx_rate, RATE));
- 
- 	if (residual)
- 		length++;
-@@ -939,8 +939,8 @@
- 	length_high = 0x8000 | 0x0700 | (length >> 8);
- 	length_low = 0x8000 | 0x0800 | (length & 0xff);
- 
--	signal = 0x8500 | DEVICE_RATE_FIELD(control->tx_rate, PLCP);
--	if (DEVICE_RATE_FIELD(control->tx_rate, PREAMBLE))
-+	signal = 0x8500 | DEVICE_GET_RATE_FIELD(control->tx_rate, PLCP);
-+	if (DEVICE_GET_RATE_FIELD(control->tx_rate, PREAMBLE))
- 		signal |= 0x0008;
- 
- 	service = 0x0600 | 0x0004;
-@@ -2370,33 +2370,10 @@
++	rt2x00_register_write(rt2x00dev, CSR14, 0);
++
  	/*
- 	 * Rates initialization.
+ 	 * Apply hardware packet filter.
  	 */
--	rates[0].rate = 10;
--	rates[0].val = DEVICE_RATE_1MB;
--	rates[0].flags = IEEE80211_RATE_CCK;
--	rates[0].val2 = DEVICE_RATE_1MB;
--	rates[0].min_rssi_ack = 0;
--	rates[0].min_rssi_ack_delta = 0;
--
--	rates[1].rate = 20;
--	rates[1].val = DEVICE_RATE_2MB;
--	rates[1].flags = IEEE80211_RATE_CCK_2;
--	rates[1].val2 = DEVICE_RATE_2MB_PREAMBLE;
--	rates[1].min_rssi_ack = 0;
--	rates[1].min_rssi_ack_delta = 0;
--
--	rates[2].rate = 55;
--	rates[2].val = DEVICE_RATE_55MB;
--	rates[2].flags = IEEE80211_RATE_CCK_2;
--	rates[2].val2 = DEVICE_RATE_55MB_PREAMBLE;
--	rates[2].min_rssi_ack = 0;
--	rates[2].min_rssi_ack_delta = 0;
--
--	rates[3].rate = 110;
--	rates[3].val = DEVICE_RATE_11MB;
--	rates[3].flags = IEEE80211_RATE_CCK_2;
--	rates[3].val2 = DEVICE_RATE_11MB_PREAMBLE;
--	rates[3].min_rssi_ack = 0;
--	rates[3].min_rssi_ack_delta = 0;
-+	device_rate_entry(&rates[0], 10, 0x001, 0x00, IEEE80211_RATE_CCK);
-+	device_rate_entry(&rates[1], 20, 0x003, 0x01, IEEE80211_RATE_CCK_2);
-+	device_rate_entry(&rates[2], 55, 0x007, 0x02, IEEE80211_RATE_CCK_2);
-+	device_rate_entry(&rates[3], 110, 0x00f, 0x03, IEEE80211_RATE_CCK_2);
- }
+@@ -513,16 +515,40 @@
+ 		rt2400pci_config_promisc(rt2x00dev, 1);
  
- static int rt2400pci_init_hw(struct rt2x00_dev *rt2x00dev)
-diff -rU3 wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500pci.c 
-wireless-dev-rates/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
---- wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	
-2006-07-23 16:31:10.000000000 +0200
-+++ wireless-dev-rates/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	
-2006-07-23 17:01:39.000000000 +0200
-@@ -725,10 +725,10 @@
- 	u32 value;
- 	u32 preamble;
- 
--	preamble = DEVICE_RATE_FIELD(rate, PREAMBLE)
-+	preamble = DEVICE_GET_RATE_FIELD(rate, PREAMBLE)
- 		? SHORT_PREAMBLE : PREAMBLE;
- 
--	reg[0] = DEVICE_RATE_FIELD(rate, RATEMASK);
-+	reg[0] = DEVICE_GET_RATE_FIELD(rate, RATEMASK);
- 
- 	rt2x00_register_write(rt2x00dev, ARCSR1, reg[0]);
- 
-@@ -744,7 +744,7 @@
- 	rt2x00_set_field32(&reg[0], TXCSR1_ACK_CONSUME_TIME, value);
- 	rt2x00_register_write(rt2x00dev, TXCSR1, reg[0]);
- 
--	value = DEVICE_RATE_FIELD(rate, PREAMBLE) ? 8 : 0;
-+	value = DEVICE_GET_RATE_FIELD(rate, PREAMBLE) ? 8 : 0;
- 
- 	reg[0] = cpu_to_le32(0x00700400 | value);	/* ARCSR2 */
- 	reg[1] = cpu_to_le32(0x00380401 | value);	/* ARCSR3 */
-@@ -993,7 +993,7 @@
- 	 * this can be done by checking if bit 4 or higher
- 	 * is set in the ratemask.
+ 	/*
++	 * Enable beacon config
++	 */
++	rt2x00_register_read(rt2x00dev, BCNCSR1, &reg);
++	rt2x00_set_field32(&reg, BCNCSR1_PRELOAD,
++		PREAMBLE + get_duration(IEEE80211_HEADER, 2));
++	rt2x00_register_write(rt2x00dev, BCNCSR1, reg);
++
++	/*
+ 	 * Enable synchronisation.
  	 */
--	if (DEVICE_RATE_FIELD(control->tx_rate, RATEMASK) & 0x0ff0) {
-+	if (DEVICE_GET_RATE_FIELD(control->tx_rate, RATEMASK) & 0x0ff0) {
- 		rt2x00_set_field32(&txd->word0, TXD_W0_OFDM, 1);
- 		residual = 0;
++	rt2x00_register_read(rt2x00dev, CSR12, &reg);
++	rt2x00_set_field32(&reg, CSR12_BEACON_INTERVAL, 100 * 16);
++	rt2x00_set_field32(&reg, CSR12_CFP_MAX_DURATION, 100 * 16);
++	rt2x00_register_write(rt2x00dev, CSR12, reg);
++
+ 	rt2x00_register_read(rt2x00dev, CSR14, &reg);
+-	rt2x00_set_field32(&reg, CSR14_TSF_COUNT, 1);
+-	if (type == IEEE80211_IF_TYPE_IBSS)
++	if (type != IEEE80211_IF_TYPE_MNTR) {
++		rt2x00_set_field32(&reg, CSR14_TSF_COUNT, 1);
++		rt2x00_set_field32(&reg, CSR14_TBCN, 1);
++	}
++
++	if (type == IEEE80211_IF_TYPE_IBSS) {
+ 		rt2x00_set_field32(&reg, CSR14_TSF_SYNC, 2);
+-	else if (type == IEEE80211_IF_TYPE_STA)
++		rt2x00_set_field32(&reg, CSR14_BEACON_GEN, 1);
++	} else if (type == IEEE80211_IF_TYPE_STA) {
+ 		rt2x00_set_field32(&reg, CSR14_TSF_SYNC, 1);
+-	else
++		rt2x00_set_field32(&reg, CSR14_BEACON_GEN, 0);
++	} else if (type == IEEE80211_IF_TYPE_AP) {
+ 		rt2x00_set_field32(&reg, CSR14_TSF_SYNC, 0);
++		rt2x00_set_field32(&reg, CSR14_BEACON_GEN, 1);
++	} else if (type == IEEE80211_IF_TYPE_MNTR) {
++		rt2x00_set_field32(&reg, CSR14_TSF_SYNC, 0);
++		rt2x00_set_field32(&reg, CSR14_BEACON_GEN, 0);
++	}
+ 	rt2x00_register_write(rt2x00dev, CSR14, reg);
  
-@@ -1004,7 +1004,7 @@
- 		length_low = (length & 0x3f);
+ 	/*
+@@ -726,7 +752,7 @@
  
- 	} else {
--		rate = DEVICE_RATE_FIELD(control->tx_rate, RATE);
-+		rate = DEVICE_GET_RATE_FIELD(control->tx_rate, RATE);
+ 	reg[0] = DEVICE_GET_RATE_FIELD(rate, RATEMASK);
  
- 		rt2x00_set_field32(&txd->word0, TXD_W0_OFDM, 0);
+-	rt2x00_register_write(rt2x00dev, ARCSR1, reg[0]);
++	rt2x00_register_write(rt2x00dev, ARCSR1, cpu_to_le32(reg[0]));
  
-@@ -1018,8 +1018,8 @@
- 		length_low = length & 0xff;
+ 	rt2x00_register_read(rt2x00dev, TXCSR1, &reg[0]);
+ 	value = SIFS + PLCP
+@@ -830,8 +856,8 @@
+ 
+ 	rt2x00_register_read(rt2x00dev, LEDCSR, &reg);
+ 
+-	rt2x00_set_field32(&reg, LEDCSR_ON_PERIOD, 30);
+-	rt2x00_set_field32(&reg, LEDCSR_OFF_PERIOD, 70);
++	rt2x00_set_field32(&reg, LEDCSR_ON_PERIOD, 70);
++	rt2x00_set_field32(&reg, LEDCSR_OFF_PERIOD, 30);
+ 
+ 	if (rt2x00dev->led_mode == LED_MODE_TXRX_ACTIVITY) {
+ 		rt2x00_set_field32(&reg, LEDCSR_LINK, 1);
+diff -rU3 wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2500pci.c 
+wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+--- wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	
+2006-07-26 12:50:25.000000000 +0200
++++ wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	
+2006-07-26 14:04:55.000000000 +0200
+@@ -482,6 +482,8 @@
+ 	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
+ 		return;
+ 
++	rt2x00_register_write(rt2x00dev, CSR14, 0);
++
+ 	/*
+ 	 * Apply hardware packet filter.
+ 	 */
+@@ -516,16 +518,44 @@
+ 		rt2500pci_config_promisc(rt2x00dev, 1);
+ 
+ 	/*
++	 * Enable beacon config
++	 */
++	if (ring) {
++		rt2x00_register_read(rt2x00dev, BCNCSR1, &reg);
++		rt2x00_set_field32(&reg, BCNCSR1_PRELOAD,
++			PREAMBLE + get_duration(IEEE80211_HEADER, 2));
++		rt2x00_set_field32(&reg, BCNCSR1_BEACON_CWMIN,
++			rt2x00dev->ring[RING_BEACON].tx_params.cw_min);
++		rt2x00_register_write(rt2x00dev, BCNCSR1, reg);
++	}
++
++	/*
+ 	 * Enable synchronisation.
+ 	 */
++	rt2x00_register_read(rt2x00dev, CSR12, &reg);
++	rt2x00_set_field32(&reg, CSR12_BEACON_INTERVAL, 100 * 16);
++	rt2x00_set_field32(&reg, CSR12_CFPMAX_DURATION, 100 * 16);
++	rt2x00_register_write(rt2x00dev, CSR12, reg);
++
+ 	rt2x00_register_read(rt2x00dev, CSR14, &reg);
+-	rt2x00_set_field32(&reg, CSR14_TSF_COUNT, 1);
+-	if (type == IEEE80211_IF_TYPE_IBSS)
++	if (type != IEEE80211_IF_TYPE_MNTR) {
++		rt2x00_set_field32(&reg, CSR14_TSF_COUNT, 1);
++		rt2x00_set_field32(&reg, CSR14_TBCN, 1);
++	}
++
++	if (type == IEEE80211_IF_TYPE_IBSS) {
+ 		rt2x00_set_field32(&reg, CSR14_TSF_SYNC, 2);
+-	else if (type == IEEE80211_IF_TYPE_STA)
++		rt2x00_set_field32(&reg, CSR14_BEACON_GEN, 1);
++	} else if (type == IEEE80211_IF_TYPE_STA) {
+ 		rt2x00_set_field32(&reg, CSR14_TSF_SYNC, 1);
+-	else
++		rt2x00_set_field32(&reg, CSR14_BEACON_GEN, 0);
++	} else if (type == IEEE80211_IF_TYPE_AP) {
++		rt2x00_set_field32(&reg, CSR14_TSF_SYNC, 0);
++		rt2x00_set_field32(&reg, CSR14_BEACON_GEN, 1);
++	} else if (type == IEEE80211_IF_TYPE_MNTR) {
+ 		rt2x00_set_field32(&reg, CSR14_TSF_SYNC, 0);
++		rt2x00_set_field32(&reg, CSR14_BEACON_GEN, 0);
++	}
+ 	rt2x00_register_write(rt2x00dev, CSR14, reg);
+ 
+ 	/*
+@@ -591,8 +621,15 @@
+ 	 * For RT2525 we should first set the channel to half band higher.
+ 	 */
+ 	if (rt2x00_rf(&rt2x00dev->chip, RF2525)) {
++		static const u32 vals[] = {
++			0x00080cbe, 0x00080d02, 0x00080d06, 0x00080d0a,
++			0x00080d0e, 0x00080d12, 0x00080d16, 0x00080d1a,
++			0x00080d1e, 0x00080d22, 0x00080d26, 0x00080d2a,
++			0x00080d2e, 0x00080d3a
++		};
++
+ 		rt2x00_rf_write(rt2x00dev, rf1);
+-		rt2x00_rf_write(rt2x00dev, rf2 + cpu_to_le32(0x00000020));
++		rt2x00_rf_write(rt2x00dev, cpu_to_le32(vals[channel - 1]));
+ 		rt2x00_rf_write(rt2x00dev, rf3);
+ 		if (rf4)
+ 			rt2x00_rf_write(rt2x00dev, rf4);
+@@ -609,7 +646,7 @@
+ 	 */
+ 	rt2x00_bbp_write(rt2x00dev, 70, (channel == 14) ? 0x4e : 0x46);
+ 
+-	mdelay(1);
++	msleep(1);
+ 
+ 	/*
+ 	 * Switch off tuning bits.
+@@ -681,7 +718,7 @@
+ 	/*
+ 	 * Clear current config antenna bits.
+ 	 */
+-	reg_rx &= ~0x06;
++	reg_rx &= ~0x03;
+ 	reg_tx &= ~0x03;
+ 
+ 	/*
+@@ -692,12 +729,12 @@
+ 	if (antenna == 0) {
+ 		/* Diversity. */
+ 		reg_rx |= 0x02;
+-		reg_tx |= 0x01;
++		reg_tx |= 0x02;
+ 		rt2x00_set_field32(&reg, BBPCSR1_CCK, 2);
+ 		rt2x00_set_field32(&reg, BBPCSR1_OFDM, 2);
+ 	} else if (antenna == 1) {
+ 		/* RX: Antenna B */
+-		reg_rx |= 0x04;
++		reg_rx |= 0x02;
+ 		/* TX: Antenna A */
+ 		reg_tx |= 0x00;
+ 		rt2x00_set_field32(&reg, BBPCSR1_CCK, 0);
+@@ -783,7 +820,7 @@
+ 
+ 	reg[0] = DEVICE_GET_RATE_FIELD(rate, RATEMASK);
+ 
+-	rt2x00_register_write(rt2x00dev, ARCSR1, reg[0]);
++	rt2x00_register_write(rt2x00dev, ARCSR1, cpu_to_le32(reg[0]));
+ 
+ 	rt2x00_register_read(rt2x00dev, TXCSR1, &reg[0]);
+ 	value = SIFS + PLCP
+@@ -906,8 +943,8 @@
+ 
+ 	rt2x00_register_read(rt2x00dev, LEDCSR, &reg);
+ 
+-	rt2x00_set_field32(&reg, LEDCSR_ON_PERIOD, 30);
+-	rt2x00_set_field32(&reg, LEDCSR_OFF_PERIOD, 70);
++	rt2x00_set_field32(&reg, LEDCSR_ON_PERIOD, 70);
++	rt2x00_set_field32(&reg, LEDCSR_OFF_PERIOD, 30);
+ 
+ 	if (rt2x00dev->led_mode == LED_MODE_TXRX_ACTIVITY) {
+ 		rt2x00_set_field32(&reg, LEDCSR_LINK, 1);
+diff -rU3 wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2500usb.c 
+wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+--- wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	
+2006-07-26 12:50:28.000000000 +0200
++++ wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	
+2006-07-26 13:47:29.000000000 +0200
+@@ -332,6 +332,8 @@
+ 	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
+ 		return;
+ 
++	rt2x00_register_write(rt2x00dev, TXRX_CSR19, 0);
++
+ 	/*
+ 	 * Apply hardware packet filter.
+ 	 */
+@@ -363,16 +365,54 @@
+ 		rt2500usb_config_promisc(rt2x00dev, 1);
+ 
+ 	/*
++	 * Enable beacon config
++	 */
++	rt2x00_register_read(rt2x00dev, TXRX_CSR20, &reg);
++	rt2x00_set_field16_nb(&reg, TXRX_CSR20_OFFSET,
++		(PREAMBLE + get_duration(IEEE80211_HEADER, 2)) >> 6);
++	if (type == IEEE80211_IF_TYPE_STA)
++		rt2x00_set_field16_nb(&reg, TXRX_CSR20_BCN_EXPECT_WINDOW, 0);
++	else
++		rt2x00_set_field16_nb(&reg, TXRX_CSR20_BCN_EXPECT_WINDOW, 2);
++	rt2x00_register_write(rt2x00dev, TXRX_CSR20, reg);
++
++	/*
+ 	 * Enable synchronisation.
+ 	 */
++	rt2x00_register_read(rt2x00dev, TXRX_CSR18, &reg);
++	rt2x00_set_field16_nb(&reg, TXRX_CSR18_OFFSET, 0);
++	rt2x00_set_field16_nb(&reg, TXRX_CSR18_INTERVAL, 100 << 2);
++	rt2x00_register_write(rt2x00dev, TXRX_CSR18, reg);
++
+ 	rt2x00_register_read(rt2x00dev, TXRX_CSR19, &reg);
+-	rt2x00_set_field16_nb(&reg, TXRX_CSR19_TSF_COUNT, 1);
+-	if (type == IEEE80211_IF_TYPE_IBSS)
++	if (type != IEEE80211_IF_TYPE_MNTR) {
++		rt2x00_set_field16_nb(&reg, TXRX_CSR19_TSF_COUNT, 1);
++		rt2x00_set_field16_nb(&reg, TXRX_CSR19_TBCN, 1);
++	}
++
++	if (type == IEEE80211_IF_TYPE_IBSS) {
+ 		rt2x00_set_field16_nb(&reg, TXRX_CSR19_TSF_SYNC, 2);
+-	else if (type == IEEE80211_IF_TYPE_STA)
++		rt2x00_set_field16_nb(&reg, TXRX_CSR19_BEACON_GEN, 1);
++	} else if (type == IEEE80211_IF_TYPE_STA) {
+ 		rt2x00_set_field16_nb(&reg, TXRX_CSR19_TSF_SYNC, 1);
+-	else
++		rt2x00_set_field16_nb(&reg, TXRX_CSR19_BEACON_GEN, 0);
++	} else if (type == IEEE80211_IF_TYPE_AP) {
++		rt2x00_set_field16_nb(&reg, TXRX_CSR19_TSF_SYNC, 0);
++		rt2x00_set_field16_nb(&reg, TXRX_CSR19_BEACON_GEN, 1);
++	} else if (type == IEEE80211_IF_TYPE_MNTR) {
+ 		rt2x00_set_field16_nb(&reg, TXRX_CSR19_TSF_SYNC, 0);
++		rt2x00_set_field16_nb(&reg, TXRX_CSR19_BEACON_GEN, 0);
++	}
++
++	/*
++	 * Beacon generation will fail initially.
++	 * To prevent this we need to register the TXRX_CSR19
++	 * register several times.
++	 */
++	rt2x00_register_write(rt2x00dev, TXRX_CSR19, reg);
++	rt2x00_register_write(rt2x00dev, TXRX_CSR19, 0);
++	rt2x00_register_write(rt2x00dev, TXRX_CSR19, reg);
++	rt2x00_register_write(rt2x00dev, TXRX_CSR19, 0);
+ 	rt2x00_register_write(rt2x00dev, TXRX_CSR19, reg);
+ 
+ 	/*
+@@ -450,7 +490,14 @@
+ 	 * For RT2525E we should first set the channel to half band higher.
+ 	 */
+ 	if (rt2x00_rf(&rt2x00dev->chip, RF2525E)) {
+-		rt2x00_rf_write(rt2x00dev, rf2 + 0x00000010);
++		static const u32 vals[] = {
++			0x000008aa, 0x000008ae, 0x000008ae, 0x000008b2,
++			0x000008b2, 0x000008b6, 0x000008b6, 0x000008ba,
++			0x000008ba, 0x000008be, 0x000008b7, 0x00000902,
++			0x00000902, 0x00000906
++		};
++
++		rt2x00_rf_write(rt2x00dev, vals[channel - 1]);
+ 		if (rf4)
+ 			rt2x00_rf_write(rt2x00dev, rf4);
  	}
+@@ -540,9 +587,9 @@
+ 		rt2x00_set_field16_nb(&csr6_reg, PHY_CSR6_OFDM, 0);
+ 	} else if (antenna == 2) {
+ 		/* RX: Antenna A */
+-		reg_tx |= 0x02;
+-		/* TX: Antenna B */
+ 		reg_rx |= 0x00;
++		/* TX: Antenna B */
++		reg_tx |= 0x02;
+ 		rt2x00_set_field16_nb(&csr5_reg, PHY_CSR5_CCK, 2);
+ 		rt2x00_set_field16_nb(&csr6_reg, PHY_CSR6_OFDM, 2);
+ 	}
+@@ -737,8 +784,8 @@
+ 	u16 reg;
  
--	signal = 0x8500 | DEVICE_RATE_FIELD(control->tx_rate, PLCP);
--	if (DEVICE_RATE_FIELD(control->tx_rate, PREAMBLE))
-+	signal = 0x8500 | DEVICE_GET_RATE_FIELD(control->tx_rate, PLCP);
-+	if (DEVICE_GET_RATE_FIELD(control->tx_rate, PREAMBLE))
- 		signal |= 0x0008;
+ 	rt2x00_register_read(rt2x00dev, MAC_CSR21, &reg);
+-	rt2x00_set_field16_nb(&reg, MAC_CSR21_ON_PERIOD, 30);
+-	rt2x00_set_field16_nb(&reg, MAC_CSR21_OFF_PERIOD, 70);
++	rt2x00_set_field16_nb(&reg, MAC_CSR21_ON_PERIOD, 70);
++	rt2x00_set_field16_nb(&reg, MAC_CSR21_OFF_PERIOD, 30);
+ 	rt2x00_register_write(rt2x00dev, MAC_CSR21, reg);
  
- 	service = 0x0600 | 0x0004;
-@@ -2571,89 +2571,18 @@
- 	/*
- 	 * Rates initialization.
- 	 */
--	rates[0].rate = 10;
--	rates[0].val = DEVICE_RATE_1MB;
--	rates[0].flags = IEEE80211_RATE_CCK;
--	rates[0].val2 = DEVICE_RATE_1MB;
--	rates[0].min_rssi_ack = 0;
--	rates[0].min_rssi_ack_delta = 0;
--
--	rates[1].rate = 20;
--	rates[1].val = DEVICE_RATE_2MB;
--	rates[1].flags = IEEE80211_RATE_CCK_2;
--	rates[1].val2 = DEVICE_RATE_2MB_PREAMBLE;
--	rates[1].min_rssi_ack = 0;
--	rates[1].min_rssi_ack_delta = 0;
--
--	rates[2].rate = 55;
--	rates[2].val = DEVICE_RATE_55MB;
--	rates[2].flags = IEEE80211_RATE_CCK_2;
--	rates[2].val2 = DEVICE_RATE_55MB_PREAMBLE;
--	rates[2].min_rssi_ack = 0;
--	rates[2].min_rssi_ack_delta = 0;
--
--	rates[3].rate = 110;
--	rates[3].val = DEVICE_RATE_11MB;
--	rates[3].flags = IEEE80211_RATE_CCK_2;
--	rates[3].val2 = DEVICE_RATE_11MB_PREAMBLE;
--	rates[3].min_rssi_ack = 0;
--	rates[3].min_rssi_ack_delta = 0;
--
--	rates[4].rate = 60;
--	rates[4].val = DEVICE_RATE_6MB;
--	rates[4].flags = IEEE80211_RATE_OFDM;
--	rates[4].val2 = DEVICE_RATE_6MB;
--	rates[4].min_rssi_ack = 0;
--	rates[4].min_rssi_ack_delta = 0;
--
--	rates[5].rate = 90;
--	rates[5].val = DEVICE_RATE_9MB;
--	rates[5].flags = IEEE80211_RATE_OFDM;
--	rates[5].val2 = DEVICE_RATE_9MB;
--	rates[5].min_rssi_ack = 0;
--	rates[5].min_rssi_ack_delta = 0;
--
--	rates[6].rate = 120;
--	rates[6].val = DEVICE_RATE_12MB;
--	rates[6].flags = IEEE80211_RATE_OFDM;
--	rates[6].val2 = DEVICE_RATE_12MB;
--	rates[6].min_rssi_ack = 0;
--	rates[6].min_rssi_ack_delta = 0;
--
--	rates[7].rate = 180;
--	rates[7].val = DEVICE_RATE_18MB;
--	rates[7].flags = IEEE80211_RATE_OFDM;
--	rates[7].val2 = DEVICE_RATE_18MB;
--	rates[7].min_rssi_ack = 0;
--	rates[7].min_rssi_ack_delta = 0;
--
--	rates[8].rate = 240;
--	rates[8].val = DEVICE_RATE_24MB;
--	rates[8].flags = IEEE80211_RATE_OFDM;
--	rates[8].val2 = DEVICE_RATE_24MB;
--	rates[8].min_rssi_ack = 0;
--	rates[8].min_rssi_ack_delta = 0;
--
--	rates[9].rate = 360;
--	rates[9].val = DEVICE_RATE_36MB;
--	rates[9].flags = IEEE80211_RATE_OFDM;
--	rates[9].val2 = DEVICE_RATE_36MB;
--	rates[9].min_rssi_ack = 0;
--	rates[9].min_rssi_ack_delta = 0;
--
--	rates[10].rate = 480;
--	rates[10].val = DEVICE_RATE_48MB;
--	rates[10].flags = IEEE80211_RATE_OFDM;
--	rates[10].val2 = DEVICE_RATE_48MB;
--	rates[10].min_rssi_ack = 0;
--	rates[10].min_rssi_ack_delta = 0;
--
--	rates[11].rate = 540;
--	rates[11].val = DEVICE_RATE_54MB;
--	rates[11].flags = IEEE80211_RATE_OFDM;
--	rates[11].val2 = DEVICE_RATE_54MB;
--	rates[11].min_rssi_ack = 0;
--	rates[11].min_rssi_ack_delta = 0;
-+	device_rate_entry(&rates[0], 10, 0x001, 0x00, IEEE80211_RATE_CCK);
-+	device_rate_entry(&rates[1], 20, 0x003, 0x01, IEEE80211_RATE_CCK_2);
-+	device_rate_entry(&rates[2], 55, 0x007, 0x02, IEEE80211_RATE_CCK_2);
-+	device_rate_entry(&rates[3], 110, 0x00f, 0x03, IEEE80211_RATE_CCK_2);
-+	device_rate_entry(&rates[4], 60, 0x01f, 0x0b, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[5], 90, 0x03f, 0x0f, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[6], 120, 0x07f, 0x0a, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[7], 180, 0x0ff, 0x0e, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[8], 240, 0x1ff, 0x09, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[9], 360, 0x3ff, 0x0d, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[10], 480, 0x7ff, 0x08, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[11], 540, 0xfff, 0x0c, IEEE80211_RATE_OFDM);
+ 	rt2x00_register_read(rt2x00dev, MAC_CSR20, &reg);
+diff -rU3 wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt61pci.c 
+wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt61pci.c	
+2006-07-26 12:50:33.000000000 +0200
++++ wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt61pci.c	
+2006-07-26 13:52:16.000000000 +0200
+@@ -183,7 +183,7 @@
+ 
+ rf_write:
+ 	reg = value;
+-	rt2x00_set_field32(&reg, PHY_CSR4_NUMBER_OF_BITS, 20);
++	rt2x00_set_field32(&reg, PHY_CSR4_NUMBER_OF_BITS, 21);
+ 	rt2x00_set_field32(&reg, PHY_CSR4_IF_SELECT, 0);
+ 	rt2x00_set_field32(&reg, PHY_CSR4_BUSY, 1);
+ 
+@@ -480,6 +480,7 @@
+ 	rt2x00_set_field32(&reg[0], MAC_CSR4_BYTE3, *(bssid + 3));
+ 	rt2x00_set_field32(&reg[1], MAC_CSR5_BYTE4, *(bssid + 4));
+ 	rt2x00_set_field32(&reg[1], MAC_CSR5_BYTE5, *(bssid + 5));
++	rt2x00_set_field32(&reg[1], MAC_CSR5_BSS_ID_MASK, 3);
+ 
+ 	rt2x00_register_multiwrite(rt2x00dev, MAC_CSR4, &reg[0], sizeof(reg));
  }
+@@ -513,6 +514,8 @@
+ 	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
+ 		return;
  
- static int rt2500pci_init_hw(struct rt2x00_dev *rt2x00dev)
-diff -rU3 wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500usb.c 
-wireless-dev-rates/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
---- wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	
-2006-07-23 16:31:02.000000000 +0200
-+++ wireless-dev-rates/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	
-2006-07-23 17:02:01.000000000 +0200
-@@ -541,10 +541,10 @@
- 	u16 value;
- 	u16 preamble;
++	rt2x00_register_write(rt2x00dev, TXRX_CSR9, 0);
++
+ 	/*
+ 	 * Apply hardware packet filter.
+ 	 */
+@@ -550,13 +553,24 @@
+ 	 * Enable synchronisation.
+ 	 */
+ 	rt2x00_register_read(rt2x00dev, TXRX_CSR9, &reg);
+-	rt2x00_set_field32(&reg, TXRX_CSR9_TSF_TICKING, 1);
+-	if (type == IEEE80211_IF_TYPE_IBSS)
++	if (type != IEEE80211_IF_TYPE_MNTR) {
++		rt2x00_set_field32(&reg, TXRX_CSR9_BEACON_INTERVAL, 100 * 16);
++		rt2x00_set_field32(&reg, TXRX_CSR9_TSF_TICKING, 1);
++		rt2x00_set_field32(&reg, TXRX_CSR9_TBTT_ENABLE, 1);
++	}
++	if (type == IEEE80211_IF_TYPE_IBSS) {
+ 		rt2x00_set_field32(&reg, TXRX_CSR9_TSF_SYNC_MODE, 2);
+-	else if (type == IEEE80211_IF_TYPE_STA)
++		rt2x00_set_field32(&reg, TXRX_CSR9_BEACON_GEN, 1);
++	} else if (type == IEEE80211_IF_TYPE_STA) {
+ 		rt2x00_set_field32(&reg, TXRX_CSR9_TSF_SYNC_MODE, 1);
+-	else
++		rt2x00_set_field32(&reg, TXRX_CSR9_BEACON_GEN, 0);
++	} else if (type == IEEE80211_IF_TYPE_AP) {
++		rt2x00_set_field32(&reg, TXRX_CSR9_TSF_SYNC_MODE, 0);
++		rt2x00_set_field32(&reg, TXRX_CSR9_BEACON_GEN, 1);
++	} else if (type == IEEE80211_IF_TYPE_MNTR) {
+ 		rt2x00_set_field32(&reg, TXRX_CSR9_TSF_SYNC_MODE, 0);
++		rt2x00_set_field32(&reg, TXRX_CSR9_BEACON_GEN, 0);
++	}
+ 	rt2x00_register_write(rt2x00dev, TXRX_CSR9, reg);
  
--	preamble = DEVICE_RATE_FIELD(rate, PREAMBLE)
-+	preamble = DEVICE_GET_RATE_FIELD(rate, PREAMBLE)
- 		? SHORT_PREAMBLE : PREAMBLE;
+ 	/*
+@@ -770,27 +784,27 @@
  
--	reg = DEVICE_RATE_FIELD(rate, RATEMASK);
-+	reg = DEVICE_GET_RATE_FIELD(rate, RATEMASK);
+ 	rt2x00_rf_write(rt2x00dev, rf1);
+ 	rt2x00_rf_write(rt2x00dev, rf2);
+-	rt2x00_rf_write(rt2x00dev, rf3 & cpu_to_le32(0x00000040));
++	rt2x00_rf_write(rt2x00dev, rf3 & ~cpu_to_le32(0x00000004));
+ 	rt2x00_rf_write(rt2x00dev, rf4);
  
- 	rt2x00_register_write(rt2x00dev, TXRX_CSR11, reg);
+ 	udelay(200);
  
-@@ -557,7 +557,7 @@
- 	rt2x00_register_write(rt2x00dev, TXRX_CSR1, reg);
+ 	rt2x00_rf_write(rt2x00dev, rf1);
+ 	rt2x00_rf_write(rt2x00dev, rf2);
+-	rt2x00_rf_write(rt2x00dev, rf3 | cpu_to_le32(0x00000040));
++	rt2x00_rf_write(rt2x00dev, rf3 | cpu_to_le32(0x00000004));
+ 	rt2x00_rf_write(rt2x00dev, rf4);
  
- 	rt2x00_register_read(rt2x00dev, TXRX_CSR10, &reg);
--	if (DEVICE_RATE_FIELD(rate, PREAMBLE))
-+	if (DEVICE_GET_RATE_FIELD(rate, PREAMBLE))
- 		reg |= 0x0004;
+ 	udelay(200);
+ 
+ 	rt2x00_rf_write(rt2x00dev, rf1);
+ 	rt2x00_rf_write(rt2x00dev, rf2);
+-	rt2x00_rf_write(rt2x00dev, rf3 & cpu_to_le32(0x00000040));
++	rt2x00_rf_write(rt2x00dev, rf3 & ~cpu_to_le32(0x00000004));
+ 	rt2x00_rf_write(rt2x00dev, rf4);
+ 
+ 	rt2x00_bbp_read(rt2x00dev, 3, &reg);
+ 	if (rt2x00_rf(&rt2x00dev->chip, RF5225) ||
+ 	    rt2x00_rf(&rt2x00dev->chip, RF2527))
+-		reg |= ~0x01;
++		reg &= ~0x01;
  	else
- 		reg &= ~0x0004;
-@@ -819,7 +819,7 @@
- 	 * this can be done by checking if bit 4 or higher
- 	 * is set in the ratemask.
- 	 */
--	if (DEVICE_RATE_FIELD(control->tx_rate, RATEMASK) & 0x0ff0) {
-+	if (DEVICE_GET_RATE_FIELD(control->tx_rate, RATEMASK) & 0x0ff0) {
- 		rt2x00_set_field32(&txd->word0, TXD_W0_OFDM, 1);
- 		residual = 0;
- 
-@@ -830,7 +830,7 @@
- 		length_low = (length & 0x3f);
- 
- 	} else {
--		rate = DEVICE_RATE_FIELD(control->tx_rate, RATE);
-+		rate = DEVICE_GET_RATE_FIELD(control->tx_rate, RATE);
- 
- 		rt2x00_set_field32(&txd->word0, TXD_W0_OFDM, 0);
- 
-@@ -844,8 +844,8 @@
- 		length_low = length & 0xff;
- 	}
- 
--	signal = DEVICE_RATE_FIELD(control->tx_rate, PLCP);
--	if (DEVICE_RATE_FIELD(control->tx_rate, PREAMBLE))
-+	signal = DEVICE_GET_RATE_FIELD(control->tx_rate, PLCP);
-+	if (DEVICE_GET_RATE_FIELD(control->tx_rate, PREAMBLE))
- 		signal |= 0x08;
- 
- 	service = 0x04;
-@@ -2203,89 +2203,18 @@
- 	/*
- 	 * Rates initialization.
- 	 */
--	rates[0].rate = 10;
--	rates[0].val = DEVICE_RATE_1MB;
--	rates[0].flags = IEEE80211_RATE_CCK;
--	rates[0].val2 = DEVICE_RATE_1MB;
--	rates[0].min_rssi_ack = 0;
--	rates[0].min_rssi_ack_delta = 0;
--
--	rates[1].rate = 20;
--	rates[1].val = DEVICE_RATE_2MB;
--	rates[1].flags = IEEE80211_RATE_CCK_2;
--	rates[1].val2 = DEVICE_RATE_2MB_PREAMBLE;
--	rates[1].min_rssi_ack = 0;
--	rates[1].min_rssi_ack_delta = 0;
--
--	rates[2].rate = 55;
--	rates[2].val = DEVICE_RATE_55MB;
--	rates[2].flags = IEEE80211_RATE_CCK_2;
--	rates[2].val2 = DEVICE_RATE_55MB_PREAMBLE;
--	rates[2].min_rssi_ack = 0;
--	rates[2].min_rssi_ack_delta = 0;
--
--	rates[3].rate = 110;
--	rates[3].val = DEVICE_RATE_11MB;
--	rates[3].flags = IEEE80211_RATE_CCK_2;
--	rates[3].val2 = DEVICE_RATE_11MB_PREAMBLE;
--	rates[3].min_rssi_ack = 0;
--	rates[3].min_rssi_ack_delta = 0;
--
--	rates[4].rate = 60;
--	rates[4].val = DEVICE_RATE_6MB;
--	rates[4].flags = IEEE80211_RATE_OFDM;
--	rates[4].val2 = DEVICE_RATE_6MB;
--	rates[4].min_rssi_ack = 0;
--	rates[4].min_rssi_ack_delta = 0;
--
--	rates[5].rate = 90;
--	rates[5].val = DEVICE_RATE_9MB;
--	rates[5].flags = IEEE80211_RATE_OFDM;
--	rates[5].val2 = DEVICE_RATE_9MB;
--	rates[5].min_rssi_ack = 0;
--	rates[5].min_rssi_ack_delta = 0;
--
--	rates[6].rate = 120;
--	rates[6].val = DEVICE_RATE_12MB;
--	rates[6].flags = IEEE80211_RATE_OFDM;
--	rates[6].val2 = DEVICE_RATE_12MB;
--	rates[6].min_rssi_ack = 0;
--	rates[6].min_rssi_ack_delta = 0;
--
--	rates[7].rate = 180;
--	rates[7].val = DEVICE_RATE_18MB;
--	rates[7].flags = IEEE80211_RATE_OFDM;
--	rates[7].val2 = DEVICE_RATE_18MB;
--	rates[7].min_rssi_ack = 0;
--	rates[7].min_rssi_ack_delta = 0;
--
--	rates[8].rate = 240;
--	rates[8].val = DEVICE_RATE_24MB;
--	rates[8].flags = IEEE80211_RATE_OFDM;
--	rates[8].val2 = DEVICE_RATE_24MB;
--	rates[8].min_rssi_ack = 0;
--	rates[8].min_rssi_ack_delta = 0;
--
--	rates[9].rate = 360;
--	rates[9].val = DEVICE_RATE_36MB;
--	rates[9].flags = IEEE80211_RATE_OFDM;
--	rates[9].val2 = DEVICE_RATE_36MB;
--	rates[9].min_rssi_ack = 0;
--	rates[9].min_rssi_ack_delta = 0;
--
--	rates[10].rate = 480;
--	rates[10].val = DEVICE_RATE_48MB;
--	rates[10].flags = IEEE80211_RATE_OFDM;
--	rates[10].val2 = DEVICE_RATE_48MB;
--	rates[10].min_rssi_ack = 0;
--	rates[10].min_rssi_ack_delta = 0;
--
--	rates[11].rate = 540;
--	rates[11].val = DEVICE_RATE_54MB;
--	rates[11].flags = IEEE80211_RATE_OFDM;
--	rates[11].val2 = DEVICE_RATE_54MB;
--	rates[11].min_rssi_ack = 0;
--	rates[11].min_rssi_ack_delta = 0;
-+	device_rate_entry(&rates[0], 10, 0x001, 0x00, IEEE80211_RATE_CCK);
-+	device_rate_entry(&rates[1], 20, 0x003, 0x01, IEEE80211_RATE_CCK_2);
-+	device_rate_entry(&rates[2], 55, 0x007, 0x02, IEEE80211_RATE_CCK_2);
-+	device_rate_entry(&rates[3], 110, 0x00f, 0x03, IEEE80211_RATE_CCK_2);
-+	device_rate_entry(&rates[4], 60, 0x01f, 0x0b, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[5], 90, 0x03f, 0x0f, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[6], 120, 0x07f, 0x0a, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[7], 180, 0x0ff, 0x0e, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[8], 240, 0x1ff, 0x09, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[9], 360, 0x3ff, 0x0d, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[10], 480, 0x7ff, 0x08, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[11], 540, 0xfff, 0x0c, IEEE80211_RATE_OFDM);
- }
- 
- static int rt2500usb_init_hw(struct rt2x00_dev *rt2x00dev)
-diff -rU3 wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2x00.h 
-wireless-dev-rates/drivers/net/wireless/d80211/rt2x00/rt2x00.h
---- wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt2x00.h	
-2006-07-23 15:47:08.000000000 +0200
-+++ wireless-dev-rates/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-07-23 
-16:59:40.000000000 +0200
-@@ -872,37 +872,33 @@
- #define DEV_PLCP	FIELD32(0xff000000)
- 
- /*
-- * Macro's for creating the device specific rate value.
-+ * Macro's to set and get specific fields from the device specific val and 
-val2
-+ * fields inside the ieee80211_rate entry.
-  */
--#define DEVICE_RATE_VALUE(__rate, __mask, __plcp) \
--	(int) ((((__rate) << DEV_RATE.bit_offset) & DEV_RATE.bit_mask) | \
--	 (((__mask) << DEV_RATEMASK.bit_offset) & DEV_RATEMASK.bit_mask) | \
--	 (((__plcp) << DEV_PLCP.bit_offset) & DEV_PLCP.bit_mask) )
-+#define DEVICE_SET_RATE_FIELD(__value, __mask) \
-+	(int)( ((__value) << DEV_##__mask.bit_offset) & DEV_##__mask.bit_mask )
- 
--#define DEVICE_RATE_PREAMBLE(__value) \
--	(int)( (__value) | (1 << DEV_PREAMBLE.bit_offset) )
-+#define DEVICE_GET_RATE_FIELD(__value, __mask) \
-+	(int)( ((__value) & DEV_##__mask.bit_mask) >> DEV_##__mask.bit_offset )
- 
- /*
-- * Macro for reading the device specific rate value.
-- */
--#define DEVICE_RATE_FIELD(__value, __mask) \
--	(int)( ((__value) & DEV_##__mask.bit_mask) >> DEV_##__mask.bit_offset)
--
--#define DEVICE_RATE_1MB			DEVICE_RATE_VALUE(10, 0x001, 0x00)
--#define DEVICE_RATE_2MB			DEVICE_RATE_VALUE(20, 0x003, 0x01)
--#define DEVICE_RATE_2MB_PREAMBLE	DEVICE_RATE_PREAMBLE(DEVICE_RATE_2MB)
--#define DEVICE_RATE_55MB		DEVICE_RATE_VALUE(55, 0x007, 0x02)
--#define DEVICE_RATE_55MB_PREAMBLE	DEVICE_RATE_PREAMBLE(DEVICE_RATE_55MB)
--#define DEVICE_RATE_11MB		DEVICE_RATE_VALUE(110, 0x00f, 0x03)
--#define DEVICE_RATE_11MB_PREAMBLE	DEVICE_RATE_PREAMBLE(DEVICE_RATE_11MB)
--#define DEVICE_RATE_6MB			DEVICE_RATE_VALUE(60, 0x01f, 0x0b)
--#define DEVICE_RATE_9MB			DEVICE_RATE_VALUE(90, 0x03f, 0x0f)
--#define DEVICE_RATE_12MB		DEVICE_RATE_VALUE(120, 0x07f, 0x0a)
--#define DEVICE_RATE_18MB		DEVICE_RATE_VALUE(180, 0x0ff, 0x0e)
--#define DEVICE_RATE_24MB		DEVICE_RATE_VALUE(240, 0x1ff, 0x09)
--#define DEVICE_RATE_36MB		DEVICE_RATE_VALUE(360, 0x3ff, 0x0d)
--#define DEVICE_RATE_48MB		DEVICE_RATE_VALUE(480, 0x7ff, 0x08)
--#define DEVICE_RATE_54MB		DEVICE_RATE_VALUE(540, 0xfff, 0x0c)
-+ * Initialize a ieee80211_entry by filling in all fields and correctly
-+ * construct the device specific val and val2 fields.
-+  */
-+static inline void device_rate_entry(struct ieee80211_rate *entry,
-+	int rate, int mask, int plcp, int flags)
-+{
-+	entry->rate = rate;
-+	entry->val = DEVICE_SET_RATE_FIELD(rate, RATE) |
-+		DEVICE_SET_RATE_FIELD(mask, RATEMASK) |
-+		DEVICE_SET_RATE_FIELD(plcp, PLCP);
-+	entry->flags = flags;
-+	entry->val2 = entry->val |
-+		DEVICE_SET_RATE_FIELD(entry->flags & IEEE80211_RATE_PREAMBLE2,
-+				      PREAMBLE);
-+	entry->min_rssi_ack = 0;
-+	entry->min_rssi_ack_delta = 0;
-+}
- 
- /*
-  * Duration calculations
-diff -rU3 wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt61pci.c 
-wireless-dev-rates/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt61pci.c	
-2006-07-23 16:30:48.000000000 +0200
-+++ wireless-dev-rates/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 
-17:02:10.000000000 +0200
-@@ -953,7 +953,7 @@
- 	u32 value;
- 	u32 preamble;
- 
--	preamble = DEVICE_RATE_FIELD(rate, PREAMBLE)
-+	preamble = DEVICE_GET_RATE_FIELD(rate, PREAMBLE)
+ 		reg |= 0x01;
+ 	rt2x00_bbp_write(rt2x00dev, 3, reg);
+@@ -1027,6 +1041,10 @@
+ 	preamble = DEVICE_GET_RATE_FIELD(rate, PREAMBLE)
  		? SHORT_PREAMBLE : PREAMBLE;
  
++	reg = DEVICE_GET_RATE_FIELD(rate, RATEMASK);
++
++	rt2x00_register_write(rt2x00dev, TXRX_CSR5, cpu_to_le32(reg));
++
  	rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
-@@ -1249,7 +1249,7 @@
- 	 * this can be done by checking if bit 4 or higher
- 	 * is set in the ratemask.
- 	 */
--	if (DEVICE_RATE_FIELD(control->tx_rate, RATEMASK) & 0x0ff0) {
-+	if (DEVICE_GET_RATE_FIELD(control->tx_rate, RATEMASK) & 0x0ff0) {
- 		rt2x00_set_field32(&txd->word0, TXD_W0_OFDM, 1);
- 
- 		/*
-@@ -1260,7 +1260,7 @@
- 		length_low = (length & 0x3f);
- 
- 	} else {
--		rate = DEVICE_RATE_FIELD(control->tx_rate, RATE);
-+		rate = DEVICE_GET_RATE_FIELD(control->tx_rate, RATE);
- 
- 		rt2x00_set_field32(&txd->word0, TXD_W0_OFDM, 0);
- 
-@@ -1274,8 +1274,8 @@
- 		length_low = length & 0xff;
- 	}
- 
--	signal = 0x8500 | DEVICE_RATE_FIELD(control->tx_rate, PLCP);
--	if (DEVICE_RATE_FIELD(control->tx_rate, PREAMBLE))
-+	signal = 0x8500 | DEVICE_GET_RATE_FIELD(control->tx_rate, PLCP);
-+	if (DEVICE_GET_RATE_FIELD(control->tx_rate, PREAMBLE))
- 		signal |= 0x0008;
- 
- 	service = 0x04;
-@@ -3117,89 +3117,18 @@
- 	/*
- 	 * Rates initialization.
- 	 */
--	rates[0].rate = 10;
--	rates[0].val = DEVICE_RATE_1MB;
--	rates[0].flags = IEEE80211_RATE_CCK;
--	rates[0].val2 = DEVICE_RATE_1MB;
--	rates[0].min_rssi_ack = 0;
--	rates[0].min_rssi_ack_delta = 0;
--
--	rates[1].rate = 20;
--	rates[1].val = DEVICE_RATE_2MB;
--	rates[1].flags = IEEE80211_RATE_CCK_2;
--	rates[1].val2 = DEVICE_RATE_2MB_PREAMBLE;
--	rates[1].min_rssi_ack = 0;
--	rates[1].min_rssi_ack_delta = 0;
--
--	rates[2].rate = 55;
--	rates[2].val = DEVICE_RATE_55MB;
--	rates[2].flags = IEEE80211_RATE_CCK_2;
--	rates[2].val2 = DEVICE_RATE_55MB_PREAMBLE;
--	rates[2].min_rssi_ack = 0;
--	rates[2].min_rssi_ack_delta = 0;
--
--	rates[3].rate = 110;
--	rates[3].val = DEVICE_RATE_11MB;
--	rates[3].flags = IEEE80211_RATE_CCK_2;
--	rates[3].val2 = DEVICE_RATE_11MB_PREAMBLE;
--	rates[3].min_rssi_ack = 0;
--	rates[3].min_rssi_ack_delta = 0;
--
--	rates[4].rate = 60;
--	rates[4].val = DEVICE_RATE_6MB;
--	rates[4].flags = IEEE80211_RATE_OFDM;
--	rates[4].val2 = DEVICE_RATE_6MB;
--	rates[4].min_rssi_ack = 0;
--	rates[4].min_rssi_ack_delta = 0;
--
--	rates[5].rate = 90;
--	rates[5].val = DEVICE_RATE_9MB;
--	rates[5].flags = IEEE80211_RATE_OFDM;
--	rates[5].val2 = DEVICE_RATE_9MB;
--	rates[5].min_rssi_ack = 0;
--	rates[5].min_rssi_ack_delta = 0;
--
--	rates[6].rate = 120;
--	rates[6].val = DEVICE_RATE_12MB;
--	rates[6].flags = IEEE80211_RATE_OFDM;
--	rates[6].val2 = DEVICE_RATE_12MB;
--	rates[6].min_rssi_ack = 0;
--	rates[6].min_rssi_ack_delta = 0;
--
--	rates[7].rate = 180;
--	rates[7].val = DEVICE_RATE_18MB;
--	rates[7].flags = IEEE80211_RATE_OFDM;
--	rates[7].val2 = DEVICE_RATE_18MB;
--	rates[7].min_rssi_ack = 0;
--	rates[7].min_rssi_ack_delta = 0;
--
--	rates[8].rate = 240;
--	rates[8].val = DEVICE_RATE_24MB;
--	rates[8].flags = IEEE80211_RATE_OFDM;
--	rates[8].val2 = DEVICE_RATE_24MB;
--	rates[8].min_rssi_ack = 0;
--	rates[8].min_rssi_ack_delta = 0;
--
--	rates[9].rate = 360;
--	rates[9].val = DEVICE_RATE_36MB;
--	rates[9].flags = IEEE80211_RATE_OFDM;
--	rates[9].val2 = DEVICE_RATE_36MB;
--	rates[9].min_rssi_ack = 0;
--	rates[9].min_rssi_ack_delta = 0;
--
--	rates[10].rate = 480;
--	rates[10].val = DEVICE_RATE_48MB;
--	rates[10].flags = IEEE80211_RATE_OFDM;
--	rates[10].val2 = DEVICE_RATE_48MB;
--	rates[10].min_rssi_ack = 0;
--	rates[10].min_rssi_ack_delta = 0;
--
--	rates[11].rate = 540;
--	rates[11].val = DEVICE_RATE_54MB;
--	rates[11].flags = IEEE80211_RATE_OFDM;
--	rates[11].val2 = DEVICE_RATE_54MB;
--	rates[11].min_rssi_ack = 0;
--	rates[11].min_rssi_ack_delta = 0;
-+	device_rate_entry(&rates[0], 10, 0x001, 0x00, IEEE80211_RATE_CCK);
-+	device_rate_entry(&rates[1], 20, 0x003, 0x01, IEEE80211_RATE_CCK_2);
-+	device_rate_entry(&rates[2], 55, 0x007, 0x02, IEEE80211_RATE_CCK_2);
-+	device_rate_entry(&rates[3], 110, 0x00f, 0x03, IEEE80211_RATE_CCK_2);
-+	device_rate_entry(&rates[4], 60, 0x01f, 0x0b, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[5], 90, 0x03f, 0x0f, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[6], 120, 0x07f, 0x0a, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[7], 180, 0x0ff, 0x0e, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[8], 240, 0x1ff, 0x09, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[9], 360, 0x3ff, 0x0d, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[10], 480, 0x7ff, 0x08, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[11], 540, 0xfff, 0x0c, IEEE80211_RATE_OFDM);
+ 	value = SIFS + PLCP
+ 		+ (2 * (conf->short_slot_time ? SHORT_SLOT_TIME : SLOT_TIME))
+@@ -1034,6 +1052,13 @@
+ 		+ get_duration(ACK_SIZE, 10);
+ 	rt2x00_set_field32(&reg, TXRX_CSR0_RX_ACK_TIMEOUT, value);
+ 	rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
++
++	rt2x00_register_read(rt2x00dev, TXRX_CSR4, &reg);
++	if (preamble == SHORT_PREAMBLE)
++		rt2x00_set_field32(&reg, TXRX_CSR4_AUTORESPOND_PREAMBLE, 1);
++	else
++		rt2x00_set_field32(&reg, TXRX_CSR4_AUTORESPOND_PREAMBLE, 0);
++	rt2x00_register_write(rt2x00dev, TXRX_CSR4, reg);
  }
  
- static int rt61pci_init_hw(struct rt2x00_dev *rt2x00dev)
-diff -rU3 wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt73usb.c 
-wireless-dev-rates/drivers/net/wireless/d80211/rt2x00/rt73usb.c
---- wireless-dev-ethtool/drivers/net/wireless/d80211/rt2x00/rt73usb.c	
-2006-07-23 16:30:55.000000000 +0200
-+++ wireless-dev-rates/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 
-17:02:18.000000000 +0200
-@@ -671,7 +671,7 @@
- 	u32 value;
- 	u32 preamble;
+ static void rt61pci_config_phymode(struct rt2x00_dev *rt2x00dev,
+@@ -1146,8 +1171,8 @@
+ 	u8 arg1;
  
--	preamble = DEVICE_RATE_FIELD(rate, PREAMBLE)
-+	preamble = DEVICE_GET_RATE_FIELD(rate, PREAMBLE)
+ 	rt2x00_register_read(rt2x00dev, MAC_CSR14, &reg);
+-	rt2x00_set_field32(&reg, MAC_CSR14_ON_PERIOD, 30);
+-	rt2x00_set_field32(&reg, MAC_CSR14_OFF_PERIOD, 70);
++	rt2x00_set_field32(&reg, MAC_CSR14_ON_PERIOD, 70);
++	rt2x00_set_field32(&reg, MAC_CSR14_OFF_PERIOD, 30);
+ 	rt2x00_register_write(rt2x00dev, MAC_CSR14, reg);
+ 
+ 	led_reg = rt2x00dev->led_reg;
+@@ -2133,6 +2158,7 @@
+ 		rt2x00_set_field32(&txd->word0, TXD_W0_MORE_FRAG, 0);
+ 
+ 	rt2x00_set_field32(&txd->word0, TXD_W0_DATABYTE_COUNT, skb->len);
++	rt2x00_set_field32(&txd->word11, TXD_W11_BUFFER_LENGTH0, skb->len);
+ 
+ 	if (control->queue == IEEE80211_TX_QUEUE_BEACON)
+ 		rt2x00_set_field32(&txd->word1,
+diff -rU3 wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt73usb.c 
+wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev-config/drivers/net/wireless/d80211/rt2x00/rt73usb.c	
+2006-07-26 12:50:39.000000000 +0200
++++ wireless-dev-reginit/drivers/net/wireless/d80211/rt2x00/rt73usb.c	
+2006-07-26 13:59:03.000000000 +0200
+@@ -301,6 +301,7 @@
+ 	rt2x00_set_field32(&reg[0], MAC_CSR4_BYTE3, *(bssid + 3));
+ 	rt2x00_set_field32(&reg[1], MAC_CSR5_BYTE4, *(bssid + 4));
+ 	rt2x00_set_field32(&reg[1], MAC_CSR5_BYTE5, *(bssid + 5));
++	rt2x00_set_field32(&reg[1], MAC_CSR5_BSS_ID_MASK, 3);
+ 
+ 	rt2x00_register_multiwrite(rt2x00dev, MAC_CSR4, &reg[0], sizeof(reg));
+ }
+@@ -334,6 +335,8 @@
+ 	    GET_FLAG(rt2x00dev, INTERFACE_ENABLED_MONITOR)))
+ 		return;
+ 
++	rt2x00_register_write(rt2x00dev, TXRX_CSR9, 0);
++
+ 	/*
+ 	 * Apply hardware packet filter.
+ 	 */
+@@ -371,13 +374,25 @@
+ 	 * Enable synchronisation.
+ 	 */
+ 	rt2x00_register_read(rt2x00dev, TXRX_CSR9, &reg);
+-	rt2x00_set_field32(&reg, TXRX_CSR9_TSF_TICKING, 1);
+-	if (type == IEEE80211_IF_TYPE_IBSS)
++	if (type != IEEE80211_IF_TYPE_MNTR) {
++		rt2x00_set_field32(&reg, TXRX_CSR9_BEACON_INTERVAL, 100 * 16);
++		rt2x00_set_field32(&reg, TXRX_CSR9_TSF_TICKING, 1);
++		rt2x00_set_field32(&reg, TXRX_CSR9_TBTT_ENABLE, 1);
++	}
++
++	if (type == IEEE80211_IF_TYPE_IBSS) {
+ 		rt2x00_set_field32(&reg, TXRX_CSR9_TSF_SYNC_MODE, 2);
+-	else if (type == IEEE80211_IF_TYPE_STA)
++		rt2x00_set_field32(&reg, TXRX_CSR9_BEACON_GEN, 1);
++	} else if (type == IEEE80211_IF_TYPE_STA) {
+ 		rt2x00_set_field32(&reg, TXRX_CSR9_TSF_SYNC_MODE, 1);
+-	else
++		rt2x00_set_field32(&reg, TXRX_CSR9_BEACON_GEN, 0);
++	} else if (type == IEEE80211_IF_TYPE_AP) {
++		rt2x00_set_field32(&reg, TXRX_CSR9_TSF_SYNC_MODE, 0);
++		rt2x00_set_field32(&reg, TXRX_CSR9_BEACON_GEN, 1);
++	} else if (type == IEEE80211_IF_TYPE_MNTR) {
+ 		rt2x00_set_field32(&reg, TXRX_CSR9_TSF_SYNC_MODE, 0);
++		rt2x00_set_field32(&reg, TXRX_CSR9_BEACON_GEN, 0);
++	}
+ 	rt2x00_register_write(rt2x00dev, TXRX_CSR9, reg);
+ 
+ 	/*
+@@ -412,76 +427,76 @@
+ 
+ 	if (rt2x00_rf(&rt2x00dev->chip, RF5225)) {
+ 		if (channel <= 14)
+-			rf3 = 0x00068455;
++			rf3 = cpu_to_le32(0x00068455);
+ 		else if (channel >= 36 && channel <= 48)
+-			rf3 = 0x0009be55;
++			rf3 = cpu_to_le32(0x0009be55);
+ 		else if (channel >= 52 && channel <= 64)
+-			rf3 = 0x0009ae55;
++			rf3 = cpu_to_le32(0x0009ae55);
+ 		else if (channel >= 100 && channel <= 112)
+-			rf3 = 0x000bae55;
++			rf3 = cpu_to_le32(0x000bae55);
+ 		else
+-			rf3 = 0x000bbe55;
++			rf3 = cpu_to_le32(0x000bbe55);
+ 	}
+ 
+ 	if (channel < 14) {
+ 		if (channel & 0x01)
+-			rf4 = 0x000fea0b;
++			rf4 = cpu_to_le32(0x000fea0b);
+ 		else
+-			rf4 = 0x000fea1f;
++			rf4 = cpu_to_le32(0x000fea1f);
+ 	} else if (channel == 14) {
+-		rf4 = 0x000fea13;
++		rf4 = cpu_to_le32(0x000fea13);
+ 	} else {
+ 		switch (channel) {
+ 			case 36:
+ 			case 56:
+ 			case 116:
+ 			case 136:
+-				rf4 = 0x000fea23;
++				rf4 = cpu_to_le32(0x000fea23);
+ 				break;
+ 			case 40:
+ 			case 60:
+ 			case 100:
+ 			case 120:
+ 			case 140:
+-				rf4 = 0x000fea03;
++				rf4 = cpu_to_le32(0x000fea03);
+ 				break;
+ 			case 44:
+ 			case 64:
+ 			case 104:
+ 			case 124:
+-				rf4 = 0x000fea0b;
++				rf4 = cpu_to_le32(0x000fea0b);
+ 				break;
+ 			case 48:
+ 			case 108:
+ 			case 128:
+-				rf4 = 0x000fea13;
++				rf4 = cpu_to_le32(0x000fea13);
+ 				break;
+ 			case 52:
+ 			case 112:
+ 			case 132:
+-				rf4 = 0x000fea1b;
++				rf4 = cpu_to_le32(0x000fea1b);
+ 				break;
+ 			case 149:
+-				rf4 = 0x000fea1f;
++				rf4 = cpu_to_le32(0x000fea1f);
+ 				break;
+ 			case 153:
+-				rf4 = 0x000fea27;
++				rf4 = cpu_to_le32(0x000fea27);
+ 				break;
+ 			case 157:
+-				rf4 = 0x000fea07;
++				rf4 = cpu_to_le32(0x000fea07);
+ 				break;
+ 			case 161:
+-				rf4 = 0x000fea0f;
++				rf4 = cpu_to_le32(0x000fea0f);
+ 				break;
+ 			case 165:
+-				rf4 = 0x000fea17;
++				rf4 = cpu_to_le32(0x000fea17);
+ 				break;
+ 		}
+ 	}
+ 
+ 	if (rt2x00_rf(&rt2x00dev->chip, RF2527) ||
+ 	    rt2x00_rf(&rt2x00dev->chip, RF5225))
+-		rf4 |= 0x00010000;
++		rf4 |= cpu_to_le32(0x00010000);
+ 
+ 	/*
+ 	 * Set TXpower.
+@@ -499,24 +514,24 @@
+ 	rt2x00_bbp_read(rt2x00dev, 3, &reg);
+ 	if (rt2x00_rf(&rt2x00dev->chip, RF5225) ||
+ 	    rt2x00_rf(&rt2x00dev->chip, RF2527))
+-		reg |= ~0x01;
++		reg &= ~0x01;
+ 	else
+ 		reg |= 0x01;
+ 	rt2x00_bbp_write(rt2x00dev, 3, reg);
+ 
+ 	rt2x00_rf_write(rt2x00dev, rf1);
+ 	rt2x00_rf_write(rt2x00dev, rf2);
+-	rt2x00_rf_write(rt2x00dev, rf3 & 0x00000040);
++	rt2x00_rf_write(rt2x00dev, rf3 & ~cpu_to_le32(0x00000004));
+ 	rt2x00_rf_write(rt2x00dev, rf4);
+ 
+ 	rt2x00_rf_write(rt2x00dev, rf1);
+ 	rt2x00_rf_write(rt2x00dev, rf2);
+-	rt2x00_rf_write(rt2x00dev, rf3 | 0x00000040);
++	rt2x00_rf_write(rt2x00dev, rf3 | cpu_to_le32(0x00000004));
+ 	rt2x00_rf_write(rt2x00dev, rf4);
+ 
+ 	rt2x00_rf_write(rt2x00dev, rf1);
+ 	rt2x00_rf_write(rt2x00dev, rf2);
+-	rt2x00_rf_write(rt2x00dev, rf3 & 0x00000040);
++	rt2x00_rf_write(rt2x00dev, rf3 & ~cpu_to_le32(0x00000004));
+ 	rt2x00_rf_write(rt2x00dev, rf4);
+ 
+ 	msleep(1);
+@@ -743,6 +758,10 @@
+ 	preamble = DEVICE_GET_RATE_FIELD(rate, PREAMBLE)
  		? SHORT_PREAMBLE : PREAMBLE;
  
++	reg = DEVICE_GET_RATE_FIELD(rate, RATEMASK);
++
++	rt2x00_register_write(rt2x00dev, TXRX_CSR5, cpu_to_le32(reg));
++
  	rt2x00_register_read(rt2x00dev, TXRX_CSR0, &reg);
-@@ -983,7 +983,7 @@
- 	 * this can be done by checking if bit 4 or higher
- 	 * is set in the ratemask.
- 	 */
--	if (DEVICE_RATE_FIELD(control->tx_rate, RATEMASK) & 0x0ff0) {
-+	if (DEVICE_GET_RATE_FIELD(control->tx_rate, RATEMASK) & 0x0ff0) {
- 		rt2x00_set_field32(&txd->word0, TXD_W0_OFDM, 1);
- 
- 		/*
-@@ -994,7 +994,7 @@
- 		length_low = (length & 0x3f);
- 
- 	} else {
--		rate = DEVICE_RATE_FIELD(control->tx_rate, RATE);
-+		rate = DEVICE_GET_RATE_FIELD(control->tx_rate, RATE);
- 
- 		rt2x00_set_field32(&txd->word0, TXD_W0_OFDM, 0);
- 
-@@ -1008,8 +1008,8 @@
- 		length_low = length & 0xff;
- 	}
- 
--	signal = 0x8500 | DEVICE_RATE_FIELD(control->tx_rate, PLCP);
--	if (DEVICE_RATE_FIELD(control->tx_rate, PREAMBLE))
-+	signal = 0x8500 | DEVICE_GET_RATE_FIELD(control->tx_rate, PLCP);
-+	if (DEVICE_GET_RATE_FIELD(control->tx_rate, PREAMBLE))
- 		signal |= 0x0008;
- 
- 	service = 0x04;
-@@ -2612,89 +2612,18 @@
- 	/*
- 	 * Rates initialization.
- 	 */
--	rates[0].rate = 10;
--	rates[0].val = DEVICE_RATE_1MB;
--	rates[0].flags = IEEE80211_RATE_CCK;
--	rates[0].val2 = DEVICE_RATE_1MB;
--	rates[0].min_rssi_ack = 0;
--	rates[0].min_rssi_ack_delta = 0;
--
--	rates[1].rate = 20;
--	rates[1].val = DEVICE_RATE_2MB;
--	rates[1].flags = IEEE80211_RATE_CCK_2;
--	rates[1].val2 = DEVICE_RATE_2MB_PREAMBLE;
--	rates[1].min_rssi_ack = 0;
--	rates[1].min_rssi_ack_delta = 0;
--
--	rates[2].rate = 55;
--	rates[2].val = DEVICE_RATE_55MB;
--	rates[2].flags = IEEE80211_RATE_CCK_2;
--	rates[2].val2 = DEVICE_RATE_55MB_PREAMBLE;
--	rates[2].min_rssi_ack = 0;
--	rates[2].min_rssi_ack_delta = 0;
--
--	rates[3].rate = 110;
--	rates[3].val = DEVICE_RATE_11MB;
--	rates[3].flags = IEEE80211_RATE_CCK_2;
--	rates[3].val2 = DEVICE_RATE_11MB_PREAMBLE;
--	rates[3].min_rssi_ack = 0;
--	rates[3].min_rssi_ack_delta = 0;
--
--	rates[4].rate = 60;
--	rates[4].val = DEVICE_RATE_6MB;
--	rates[4].flags = IEEE80211_RATE_OFDM;
--	rates[4].val2 = DEVICE_RATE_6MB;
--	rates[4].min_rssi_ack = 0;
--	rates[4].min_rssi_ack_delta = 0;
--
--	rates[5].rate = 90;
--	rates[5].val = DEVICE_RATE_9MB;
--	rates[5].flags = IEEE80211_RATE_OFDM;
--	rates[5].val2 = DEVICE_RATE_9MB;
--	rates[5].min_rssi_ack = 0;
--	rates[5].min_rssi_ack_delta = 0;
--
--	rates[6].rate = 120;
--	rates[6].val = DEVICE_RATE_12MB;
--	rates[6].flags = IEEE80211_RATE_OFDM;
--	rates[6].val2 = DEVICE_RATE_12MB;
--	rates[6].min_rssi_ack = 0;
--	rates[6].min_rssi_ack_delta = 0;
--
--	rates[7].rate = 180;
--	rates[7].val = DEVICE_RATE_18MB;
--	rates[7].flags = IEEE80211_RATE_OFDM;
--	rates[7].val2 = DEVICE_RATE_18MB;
--	rates[7].min_rssi_ack = 0;
--	rates[7].min_rssi_ack_delta = 0;
--
--	rates[8].rate = 240;
--	rates[8].val = DEVICE_RATE_24MB;
--	rates[8].flags = IEEE80211_RATE_OFDM;
--	rates[8].val2 = DEVICE_RATE_24MB;
--	rates[8].min_rssi_ack = 0;
--	rates[8].min_rssi_ack_delta = 0;
--
--	rates[9].rate = 360;
--	rates[9].val = DEVICE_RATE_36MB;
--	rates[9].flags = IEEE80211_RATE_OFDM;
--	rates[9].val2 = DEVICE_RATE_36MB;
--	rates[9].min_rssi_ack = 0;
--	rates[9].min_rssi_ack_delta = 0;
--
--	rates[10].rate = 480;
--	rates[10].val = DEVICE_RATE_48MB;
--	rates[10].flags = IEEE80211_RATE_OFDM;
--	rates[10].val2 = DEVICE_RATE_48MB;
--	rates[10].min_rssi_ack = 0;
--	rates[10].min_rssi_ack_delta = 0;
--
--	rates[11].rate = 540;
--	rates[11].val = DEVICE_RATE_54MB;
--	rates[11].flags = IEEE80211_RATE_OFDM;
--	rates[11].val2 = DEVICE_RATE_54MB;
--	rates[11].min_rssi_ack = 0;
--	rates[11].min_rssi_ack_delta = 0;
-+	device_rate_entry(&rates[0], 10, 0x001, 0x00, IEEE80211_RATE_CCK);
-+	device_rate_entry(&rates[1], 20, 0x003, 0x01, IEEE80211_RATE_CCK_2);
-+	device_rate_entry(&rates[2], 55, 0x007, 0x02, IEEE80211_RATE_CCK_2);
-+	device_rate_entry(&rates[3], 110, 0x00f, 0x03, IEEE80211_RATE_CCK_2);
-+	device_rate_entry(&rates[4], 60, 0x01f, 0x0b, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[5], 90, 0x03f, 0x0f, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[6], 120, 0x07f, 0x0a, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[7], 180, 0x0ff, 0x0e, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[8], 240, 0x1ff, 0x09, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[9], 360, 0x3ff, 0x0d, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[10], 480, 0x7ff, 0x08, IEEE80211_RATE_OFDM);
-+	device_rate_entry(&rates[11], 540, 0xfff, 0x0c, IEEE80211_RATE_OFDM);
+ 	value = SIFS + PLCP
+ 		+ (2 * (conf->short_slot_time ? SHORT_SLOT_TIME : SLOT_TIME))
+@@ -750,6 +769,13 @@
+ 		+ get_duration(ACK_SIZE, 10);
+ 	rt2x00_set_field32(&reg, TXRX_CSR0_RX_ACK_TIMEOUT, value);
+ 	rt2x00_register_write(rt2x00dev, TXRX_CSR0, reg);
++
++	rt2x00_register_read(rt2x00dev, TXRX_CSR4, &reg);
++	if (preamble == SHORT_PREAMBLE)
++		rt2x00_set_field32(&reg, TXRX_CSR4_AUTORESPOND_PREAMBLE, 1);
++	else
++		rt2x00_set_field32(&reg, TXRX_CSR4_AUTORESPOND_PREAMBLE, 0);
++	rt2x00_register_write(rt2x00dev, TXRX_CSR4, reg);
  }
  
- static int rt73usb_init_hw(struct rt2x00_dev *rt2x00dev)
+ static void rt73usb_config_phymode(struct rt2x00_dev *rt2x00dev,
+@@ -878,8 +904,8 @@
+ 	u32 reg;
+ 
+ 	rt2x00_register_read(rt2x00dev, MAC_CSR14, &reg);
+-	rt2x00_set_field32(&reg, MAC_CSR14_ON_PERIOD, 30);
+-	rt2x00_set_field32(&reg, MAC_CSR14_OFF_PERIOD, 70);
++	rt2x00_set_field32(&reg, MAC_CSR14_ON_PERIOD, 70);
++	rt2x00_set_field32(&reg, MAC_CSR14_OFF_PERIOD, 30);
+ 	rt2x00_register_write(rt2x00dev, MAC_CSR14, reg);
+ 
+ 	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_RADIO_STATUS, 1);
+@@ -2849,7 +2875,7 @@
+ 		rf2_base = 0x00004000;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(vals); i++)
+-		channels[i].val = vals[i] | rf2_base;
++		channels[i].val = cpu_to_le32(vals[i] | rf2_base);
+ 
+ 	if (rt2x00_rf(&rt2x00dev->chip, RF5225) ||
+ 	    rt2x00_rf(&rt2x00dev->chip, RF5226)) {
+@@ -2865,7 +2891,7 @@
+ 		struct ieee80211_channel *chan = channels + 14;
+ 
+ 		for (i = 0; i < ARRAY_SIZE(vals); i++)
+-			(chan++)->val = vals[i];
++			(chan++)->val = cpu_to_le32(vals[i]);
+ 	}
+ 
+ 	/*
+@@ -2904,8 +2930,8 @@
+ 	 */
+ 	for (i = 0; i < ARRAY_SIZE(rf); i++) {
+ 		if (rt2x00_rf(&rt2x00dev->chip, rf[i].chip)) {
+-			rt2x00dev->rf1 = rf[i].val[0];
+-			rt2x00dev->rf3 = rf[i].val[1];
++			rt2x00dev->rf1 = cpu_to_le32(rf[i].val[0]);
++			rt2x00dev->rf3 = cpu_to_le32(rf[i].val[1]);
+ 		}
+ 	}
+ }
