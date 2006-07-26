@@ -1,44 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: kernel memory leak fix for af_unix datagram getpeersec
-Date: Wed, 26 Jul 2006 15:49:17 -0700 (PDT)
-Message-ID: <20060726.154917.124068980.davem@davemloft.net>
-References: <20060726201916.GA32505@jiayuguan.watson.ibm.com>
-	<1153947040.11769.208.camel@moss-spartans.epoch.ncsc.mil>
+Subject: Re: [PATCH 2/5] [IPV6]: Multiple Routing Tables
+Date: Wed, 26 Jul 2006 15:55:37 -0700 (PDT)
+Message-ID: <20060726.155537.96627920.davem@davemloft.net>
+References: <20060726221849.495778268@postel.suug.ch>
+	<20060726.153949.29046809.davem@davemloft.net>
+	<20060726224848.GX14627@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cxzhang@watson.ibm.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jmorris@namei.org,
-	catalin.marinas@gmail.com, michal.k.k.piotrowski@gmail.com,
-	czhang.us@gmail.com
+Cc: netdev@vger.kernel.org, vnuorval@tcs.hut.fi,
+	usagi-core@linux-ipv6.org, yoshfuji@linux-ipv6.org,
+	anttit@tcs.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:47784
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:57558
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751811AbWGZWtL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jul 2006 18:49:11 -0400
-To: sds@tycho.nsa.gov
-In-Reply-To: <1153947040.11769.208.camel@moss-spartans.epoch.ncsc.mil>
+	id S1751159AbWGZWz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jul 2006 18:55:26 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20060726224848.GX14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Date: Wed, 26 Jul 2006 16:50:40 -0400
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 27 Jul 2006 00:48:48 +0200
 
-> > diff -puN net/unix/af_unix.c~af_unix-datagram-getpeersec-ml-fix net/unix/af_unix.c
-> > --- linux-2.6.18-rc2/net/unix/af_unix.c~af_unix-datagram-getpeersec-ml-fix	2006-07-22 23:01:26.000000000 -0400
-> > +++ linux-2.6.18-rc2-cxzhang/net/unix/af_unix.c	2006-07-22 23:14:15.000000000 -0400
-> > @@ -1323,8 +1299,9 @@ static int unix_dgram_sendmsg(struct kio
-> >  	memcpy(UNIXCREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
-> >  	if (siocb->scm->fp)
-> >  		unix_attach_fds(siocb->scm, skb);
-> > -
-> > -	unix_get_peersec_dgram(skb);
-> > +#ifdef CONFIG_SECURITY_NETWORK
-> > +	memcpy(UNIXSID(skb), &siocb->scm->sid, sizeof(u32));
-> > +#endif /* CONFIG_SECURITY_NETWORK */
-> 
-> You want to retain the static inlines, and just update their contents,
-> not replace them with embedded #ifdefs.  And this could be a direct
-> assignment, right?
+> Fortunately it's only used read-only when notifying to figure
+> out the destination pid but that code seems bogus as well and
+> we can probably remove the netlink cb passing hell throughout
+> all the code there.
 
-This is my feeling too.
+Yes, that pid handling looks very strange.  But I would
+search the history of this code that passes the netlink
+skb parms around before making any changes to things like
+inet6_rt_notify :)
+
+It appears to have been added in 2.4.32, the original patch passes the
+raw pid around as the argument but that got changed to the current
+form which passes the netlink_skb_parms.
