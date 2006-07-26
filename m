@@ -1,61 +1,33 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH dscape] d80211: Switch d80211.h to IEEE80211_ style names
-Date: Wed, 26 Jul 2006 09:43:55 -0700
-Message-ID: <200607260944.01692.flamingice@sourmilk.net>
-References: <200607242302.58670.flamingice@sourmilk.net> <20060726183200.79fb431e@griffin.suse.cz>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Who maintains the website ?
+Date: Wed, 26 Jul 2006 09:50:42 -0700
+Message-ID: <20060726095042.4348c419@localhost>
+References: <20060725190948.GA3768@walrus.eth1.org>
+	<5640c7e00607251341udb9e9a3u6351a0340886662d@mail.gmail.com>
+	<20060726081956.GA15619@walrus.eth1.org>
+	<5640c7e00607260152v3e8d04dfq4cf7356caaf00f11@mail.gmail.com>
+	<20060726101401.GB15619@walrus.eth1.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1313379.5FbmeIHicL";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linville@tuxdriver.com
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:9430 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S932170AbWGZQoB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jul 2006 12:44:01 -0400
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20060726183200.79fb431e@griffin.suse.cz>
+Received: from smtp.osdl.org ([65.172.181.4]:12184 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030217AbWGZQus (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 12:50:48 -0400
+To: Christophe Devriese <christophe.devriese@eth1.org>
+In-Reply-To: <20060726101401.GB15619@walrus.eth1.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1313379.5FbmeIHicL
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Wed, 26 Jul 2006 12:14:01 +0200
+Christophe Devriese <christophe.devriese@eth1.org> wrote:
 
-On Wednesday 26 July 2006 09:32, Jiri Benc wrote:
-> One more thing (hopefully the last one), could you try to keep lines
-> under 80 characters? I understand that with such long identifiers it is
-> not always possible (it dramatically reduces readability of the code if
-> you try to force the limit in every case) but there are some places
-> where it is feasible.
->
-Ah, yeah, that was a problem..
+> I have created the http://linux-net.osdl.org/index.php/VLAN page.
+> What do you think ?
 
-> Also, when changing a line that is indented with spaces instead of tab
-> characters, it's nice to convert that spaces to tabs. That's not a
-> requirement, though; I will modify the patch if you won't do it.
->
-I still want to convert d80211_mgmt.h. Once that's done, I'll look through =
-for=20
-those tabs/spaces & long lines formatting issues. I won't mind if you start=
-=20
-fixing some of those issues now, however. :)
-
-=2DMichael Wu
-
---nextPart1313379.5FbmeIHicL
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBEx5vRT3Oqt9AH4aERAm+4AKDI9D0t9BpkOdLCwW1rkvycklgf0gCeK0AG
-J58i8RGwKcx0fWpBrktVwW0=
-=DCl1
------END PGP SIGNATURE-----
-
---nextPart1313379.5FbmeIHicL--
+I changed the mainpage VLAN to point to that. You might want to move
+the generic (non-linux stuff) to wikipedia.
+	http://en.wikipedia.org/wiki/VLAN
+and put a link to that. It is standard to put the external links
+at the bottom of the article.
