@@ -1,39 +1,64 @@
-From: Avi Kivity <avi@argo.co.il>
+From: Ulrich Drepper <drepper@redhat.com>
 Subject: Re: [3/4] kevent: AIO, aio_sendfile() implementation.
-Date: Wed, 26 Jul 2006 17:14:34 +0300
-Message-ID: <44C778CA.1010404@argo.co.il>
-References: <20060726.031247.98341392.davem@davemloft.net>
+Date: Wed, 26 Jul 2006 07:28:51 -0700
+Message-ID: <44C77C23.7000803@redhat.com>
+References: <1153905495613@2ka.mipt.ru> <11539054952574@2ka.mipt.ru> <20060726100431.GA7518@infradead.org> <20060726101919.GB2715@2ka.mipt.ru> <20060726103001.GA10139@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: hch@infradead.org, johnpol@2ka.mipt.ru,
-	linux-kernel@vger.kernel.org, drepper@redhat.com,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway.argo.co.il ([194.90.79.130]:32531 "EHLO
-	argo2k.argo.co.il") by vger.kernel.org with ESMTP id S1750728AbWGZOOi
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jul 2006 10:14:38 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060726.031247.98341392.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigE0F541614E1AF69A90F7C149"
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751636AbWGZO1h@vger.kernel.org>
+To: Christoph Hellwig <hch@infradead.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+In-Reply-To: <20060726103001.GA10139@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
->
-> From: Christoph Hellwig <hch@infradead.org>
-> Date: Wed, 26 Jul 2006 11:04:31 +0100
->
-> > And to be honest, I don't think adding all this code is acceptable
-> > if it can't replace the existing aio code while keeping the
-> > interface.  So while you interface looks pretty sane the
-> > implementation needs a lot of work still :)
->
-> Networking and disk AIO have significantly different needs.
->
-Surely, there needs to be a unified polling interface to support single 
-threaded designs.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigE0F541614E1AF69A90F7C149
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
--- 
-error compiling committee.c: too many arguments to function
+Christoph Hellwig wrote:
+>> My personal opinion on existing AIO is that it is not the right design=
+=2E
+>> Benjamin LaHaise agree with me (if I understood him right),
+>=20
+> I completely agree with that aswell.
 
+I agree, too, but the current code is not the last of the line.  Suparna
+has a st of patches which make the current kernel aio code work much
+better and especially make it really usable to implement POSIX AIO.
+
+In Ottawa we were talking about submitting it and Suparna will.  We just
+thought about a little longer timeframe.  I guess it could be
+accelerated since he mostly has the patch done.  But I don't know her
+schedule.
+
+Important here is, don't base any decision on the current aio
+implementation.
+
+--=20
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
+=E2=9E=A7 Mountain View, CA =E2=9D=96
+
+
+--------------enigE0F541614E1AF69A90F7C149
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.4 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
+
+iD8DBQFEx3wj2ijCOnn/RHQRAlJEAKCohm3ngAyWs0Jo5O16Urun9K9lsgCfcymV
+jsPinmGcEThS5CJG75Qh00Q=
+=phCc
+-----END PGP SIGNATURE-----
+
+--------------enigE0F541614E1AF69A90F7C149--
