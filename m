@@ -1,39 +1,59 @@
-From: "Oscar Raines" <OscarRaines@0451.com>
-Subject: Your money, pan fish
-Date: Wed, 26 Jul 2006 09:29:07 +0000 (UTC)
-Message-ID: <265888346.20060726092845@0451.com>
-Reply-To: "Oscar Raines" <OscarRaines@0451.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [3/4] kevent: AIO, aio_sendfile() implementation.
+Date: Wed, 26 Jul 2006 11:00:13 +0100
+Message-ID: <20060726100013.GA7126@infradead.org>
+References: <1153905495613@2ka.mipt.ru> <11539054952574@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus2.kernel.org ([204.152.191.36]:4506 "EHLO zeus2.kernel.org")
-	by vger.kernel.org with ESMTP id S1751119AbWGZJ2r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 05:28:47 -0400
-Date: Wed, 26 Jul 2006 09:28:45 -0480
-To: netdev-owner@vger.kernel.org
+Received: from pentafluge.infradead.org ([213.146.154.40]:7651 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1750840AbWGZKAP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jul 2006 06:00:15 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Disposition: inline
+In-Reply-To: <11539054952574@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Genuine Swiss made RoleLx repilcas are as close to the real thing 
-as a repilca watch can be. Sometimes even the professional jewelers 
-are unable to tell the difference from the real RoleYx watch.
+On Wed, Jul 26, 2006 at 01:18:15PM +0400, Evgeniy Polyakov wrote:
+> 
+> This patch includes asynchronous propagation of file's data into VFS
+> cache and aio_sendfile() implementation.
+> Network aio_sendfile() works lazily - it asynchronously populates pages
+> into the VFS cache (which can be used for various tricks with adaptive
+> readahead) and then uses usual ->sendfile() callback.
+> 
+> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> 
+> diff --git a/fs/bio.c b/fs/bio.c
+> index 6a0b9ad..a3ee530 100644
+> --- a/fs/bio.c
+> +++ b/fs/bio.c
+> @@ -119,7 +119,7 @@ void bio_free(struct bio *bio, struct bi
+>  /*
+>   * default destructor for a bio allocated with bio_alloc_bioset()
+>   */
+> -static void bio_fs_destructor(struct bio *bio)
+> +void bio_fs_destructor(struct bio *bio)
+>  {
+>  	bio_free(bio, fs_bio_set);
+>  }
+> diff --git a/fs/ext2/inode.c b/fs/ext2/inode.c
+> index 04af9c4..295fce9 100644
+> --- a/fs/ext2/inode.c
+> +++ b/fs/ext2/inode.c
+> @@ -685,6 +685,7 @@ ext2_writepages(struct address_space *ma
+>  }
+>  
+>  struct address_space_operations ext2_aops = {
+> +	.get_block		= ext2_get_block,
 
-Why spend thousands of dollars on the real deal when 
-a repilca watch looks so much alike that only an expert could tell the difference...
-And you only pay a fractoin of the price.
+No way in hell.  For whatever you do please provide a interface at
+the readpage/writepage/sendfile/etc abstraction layer.  get_block is
+nothing that can be exposed to the common code.
 
-VISIT US, AND GET OUR SPECIL 370% DISDCOUNT OFER!
-
-http://BHW18Xu0ipz206iv05vcuazcuszucu.viscidlyln.com/
-
-==========
-of travel go nowhere, slowly. Those who put aside travel for the  sake  of
-hadn't gotten  anywhere  yet,  and he was worn out. He  was sort of gray and
-     To be centered for shame meant that he would  be  cast  out  of  gull
-Silence. Stuck  out my head. Nobody. And I went on my way, whistling a tune.
-which more than one furtive eye watched.
-     I couldn't throw the nut.
-
-Livingston Seagull was practicing. A hundred feet in the  sky  he  lowered
-hold hands. Especially when  you think of those stories about what stalkers'
