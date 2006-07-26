@@ -1,19 +1,19 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 11/24] RT2x00: Move scan_work to scanning structure
-Date: Wed, 26 Jul 2006 19:05:11 +0200
-Message-ID: <200607261905.12030.IvDoorn@gmail.com>
+Subject: [PATCH 14/24] RT2x00: Check if read eeprom words are valid
+Date: Wed, 26 Jul 2006 19:05:27 +0200
+Message-ID: <200607261905.28121.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:5025 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.189]:46239 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1030292AbWGZRHf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 13:07:35 -0400
-Received: by nf-out-0910.google.com with SMTP id o25so812601nfa
-        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 10:07:34 -0700 (PDT)
+	id S1030291AbWGZRHi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 13:07:38 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so812592nfa
+        for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 10:07:37 -0700 (PDT)
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -21,147 +21,251 @@ List-Id: netdev.vger.kernel.org
 
 >From Ivo van Doorn <IvDoorn@gmail.com>
 
-Remove scan_work from rt2x00_dev and place it in the scanning structure.
+Make checks if the EEPROM data read is valid,
+if it is not, use the default values.
+Also fix the endian issue when reading the PCI_CONFIG_HEADER.
 
 Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
 
 ---
 
-diff -rU3 wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2400pci.c 
-wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
---- wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	
-2006-07-23 19:52:17.000000000 +0200
-+++ wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	
-2006-07-23 22:41:51.000000000 +0200
-@@ -2139,7 +2139,8 @@
- 	/*
- 	 * Queue work.
- 	 */
--	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan_work))
-+	INIT_WORK(&rt2x00dev->scan->work, rt2400pci_scan, rt2x00dev);
-+	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan->work))
- 		goto exit;
+diff -rU3 wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt61pci.c 
+wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt61pci.c	
+2006-07-23 23:04:25.000000000 +0200
++++ wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.c	
+2006-07-23 23:19:17.000000000 +0200
+@@ -2914,6 +2914,7 @@
+ 	u32 reg;
+ 	u16 value;
+ 	u16 eeprom;
++	u16 device;
  
- 	return 0;
-@@ -2599,7 +2600,6 @@
  	/*
- 	 * Intialize scanning attributes.
+ 	 * 1 - Detect EEPROM width.
+@@ -2934,12 +2935,11 @@
+ 	 * To determine the RT chip we have to read the
+ 	 * PCI header of the device.
  	 */
--	INIT_WORK(&rt2x00dev->scan_work, rt2400pci_scan, rt2x00dev);
- 	rt2x00dev->scan = NULL;
+-	pci_read_config_dword(rt2x00dev_pci(rt2x00dev),
+-		PCI_CONFIG_HEADER, &reg);
+-	reg = rt2x00_get_field32(reg, PCI_CONFIG_HEADER_DEVICE);
++	pci_read_config_word(
++		rt2x00dev_pci(rt2x00dev), PCI_CONFIG_HEADER_DEVICE, &device);
  
- 	if (rt2400pci_init_eeprom(rt2x00dev) ||
-diff -rU3 wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500pci.c 
-wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
---- wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	
-2006-07-23 19:52:28.000000000 +0200
-+++ wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	
-2006-07-23 22:41:58.000000000 +0200
-@@ -2271,7 +2271,8 @@
- 	/*
- 	 * Queue work.
+ 	value = rt2x00_get_field16(eeprom, EEPROM_ANTENNA_RF_TYPE);
+-	rt2x00_set_chip(&rt2x00dev->chip, (u16)reg, value);
++	rt2x00_set_chip(&rt2x00dev->chip, device, value);
+ 
+ 	if (!rt2x00_rf(&rt2x00dev->chip, RF5225) &&
+ 	    !rt2x00_rf(&rt2x00dev->chip, RF5325) &&
+@@ -2985,6 +2985,8 @@
+ 	 * 8 - Read external LNA informations.
  	 */
--	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan_work))
-+	INIT_WORK(&rt2x00dev->scan->work, rt2500pci_scan, rt2x00dev);
-+	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan->work))
- 		goto exit;
- 
- 	return 0;
-@@ -2865,7 +2866,6 @@
- 	/*
- 	 * Intialize scanning attributes.
+ 	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &eeprom);
++	if (eeprom == 0xffff)
++		eeprom = 0;
+ 	if (rt2x00_get_field16(eeprom, EEPROM_NIC_EXTERNAL_LNA_A))
+ 		SET_FLAG(rt2x00dev, CONFIG_EXTERNAL_LNA_A);
+ 	if (rt2x00_get_field16(eeprom, EEPROM_NIC_EXTERNAL_LNA_BG))
+@@ -2994,58 +2996,35 @@
+ 	 * 9 - Store led settings, for correct led behaviour.
  	 */
--	INIT_WORK(&rt2x00dev->scan_work, rt2500pci_scan, rt2x00dev);
- 	rt2x00dev->scan = NULL;
+ 	rt2x00_eeprom_read(rt2x00dev, EEPROM_LED, &eeprom);
+-	if (eeprom == 0xffff) {
+-		rt2x00dev->led_mode = LED_MODE_DEFAULT;
  
- 	if (rt2500pci_init_eeprom(rt2x00dev) ||
-diff -rU3 wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500usb.c 
-wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
---- wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	
-2006-07-23 19:54:54.000000000 +0200
-+++ wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	
-2006-07-23 22:42:03.000000000 +0200
-@@ -1942,7 +1942,8 @@
- 	/*
- 	 * Queue work.
- 	 */
--	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan_work))
-+	INIT_WORK(&rt2x00dev->scan->work, rt2500usb_scan, rt2x00dev);
-+	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan->work))
- 		goto exit;
- 
- 	return 0;
-@@ -2481,7 +2482,6 @@
- 	/*
- 	 * Intialize scanning attributes.
- 	 */
--	INIT_WORK(&rt2x00dev->scan_work, rt2500usb_scan, rt2x00dev);
- 	rt2x00dev->scan = NULL;
- 
- 	if (rt2500usb_init_eeprom(rt2x00dev) ||
-diff -rU3 wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2x00.h 
-wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2x00.h
---- wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt2x00.h	
-2006-07-23 19:49:00.000000000 +0200
-+++ wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-07-23 
-22:32:51.000000000 +0200
-@@ -676,6 +676,11 @@
- 	short status;
- #define SCANNING_READY		0x0001
- #define SCANNING_CANCELLED	0x0002
-+
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_LED_MODE, LED_MODE_DEFAULT);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_0, 1);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_1, 1);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_2, 1);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_3, 1);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_4, 1);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_ACT, 1);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_BG, 1);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_A, 1);
+-	} else {
 +	/*
-+	 * Work structure for scheduling the scanning work.
++	 * If the eeprom value is invalid,
++	 * switch to default led mode.
 +	 */
-+	struct work_struct work;
- };
++	if (eeprom == 0xffff)
++		rt2x00dev->led_mode = LED_MODE_DEFAULT;
++	else
+ 		rt2x00dev->led_mode = rt2x00_get_field16(eeprom,
+ 			EEPROM_LED_LED_MODE);
+ 
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_LED_MODE, rt2x00dev->led_mode);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_0, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_0));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_1, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_1));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_2, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_2));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_3, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_3));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_4, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_4));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_ACT, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_ACT));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_BG, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_RDY_G));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_A, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_RDY_A));
+-	}
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_LED_MODE,
++		rt2x00dev->led_mode);
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_0,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_0));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_1,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_1));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_2,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_2));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_3,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_3));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_4,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_4));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_ACT,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_ACT));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_READY_BG,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_RDY_G));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_READY_A,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_RDY_A));
+ 
+ 	/*
+ 	 * 10 - Detect if this device has an hardware controlled radio.
+diff -rU3 wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt61pci.h 
+wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.h
+--- wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt61pci.h	
+2006-07-23 19:33:56.000000000 +0200
++++ wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt61pci.h	
+2006-07-23 23:21:39.000000000 +0200
+@@ -57,9 +57,8 @@
+ /*
+  * PCI Configuration Header
+  */
+-#define PCI_CONFIG_HEADER		0x0000
+-#define PCI_CONFIG_HEADER_VENDOR	FIELD32(0x0000ffff)
+-#define PCI_CONFIG_HEADER_DEVICE	FIELD32(0xffff0000)
++#define PCI_CONFIG_HEADER_VENDOR	0x0000
++#define PCI_CONFIG_HEADER_DEVICE	0x0002
  
  /*
-diff -rU3 wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt61pci.c 
-wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt61pci.c	
-2006-07-23 19:53:45.000000000 +0200
-+++ wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-07-23 
-22:42:09.000000000 +0200
-@@ -2764,7 +2764,8 @@
- 	/*
- 	 * Queue work.
+  * HOST_CMD_CSR: For HOST to interrupt embedded processor
+diff -rU3 wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt73usb.c 
+wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev-tuning/drivers/net/wireless/d80211/rt2x00/rt73usb.c	
+2006-07-23 23:04:31.000000000 +0200
++++ wireless-dev-eeprom/drivers/net/wireless/d80211/rt2x00/rt73usb.c	
+2006-07-23 23:17:42.000000000 +0200
+@@ -2475,6 +2475,8 @@
+ 	 * 7 - Read external LNA informations.
  	 */
--	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan_work))
-+	INIT_WORK(&rt2x00dev->scan->work, rt61pci_scan, rt2x00dev);
-+	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan->work))
- 		goto exit;
+ 	rt2x00_eeprom_read(rt2x00dev, EEPROM_NIC, &eeprom);
++	if (eeprom == 0xffff)
++		eeprom = 0;
+ 	if (rt2x00_get_field16(eeprom, EEPROM_NIC_EXTERNAL_LNA))
+ 		SET_FLAG(rt2x00dev, CONFIG_EXTERNAL_LNA);
  
- 	return 0;
-@@ -3438,7 +3439,6 @@
- 	/*
- 	 * Initialize scanning attributes.
+@@ -2482,58 +2484,36 @@
+ 	 * 8 - Store led settings, for correct led behaviour.
  	 */
--	INIT_WORK(&rt2x00dev->scan_work, rt61pci_scan, rt2x00dev);
- 	rt2x00dev->scan = NULL;
+ 	rt2x00_eeprom_read(rt2x00dev, EEPROM_LED, &eeprom);
++
++	/*
++	 * If the eeprom value is invalid,
++	 * switch to default led mode, and clear all bits.
++	 */
+ 	if (eeprom == 0xffff) {
+ 		rt2x00dev->led_mode = LED_MODE_DEFAULT;
+-
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_LED_MODE, LED_MODE_DEFAULT);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_0, 0);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_1, 0);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_2, 0);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_3, 0);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_4, 0);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_ACT, 0);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_BG, 0);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_A, 0);
+-	} else {
++		eeprom = 0x0000;
++	} else
+ 		rt2x00dev->led_mode = rt2x00_get_field16(eeprom,
+ 			EEPROM_LED_LED_MODE);
  
- 	if (rt61pci_init_eeprom(rt2x00dev) ||
-diff -rU3 wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt73usb.c 
-wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt73usb.c
---- wireless-dev-sequence/drivers/net/wireless/d80211/rt2x00/rt73usb.c	
-2006-07-23 19:54:16.000000000 +0200
-+++ wireless-dev-scan/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-07-23 
-22:35:17.000000000 +0200
-@@ -2266,7 +2266,8 @@
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_LED_MODE, rt2x00dev->led_mode);
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_0, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_0));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_1, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_1));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_2, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_2));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_3, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_3));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_GPIO_4, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_GPIO_4));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_ACT, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_ACT));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_BG, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_RDY_G));
+-		rt2x00_set_field16(&rt2x00dev->led_reg,
+-			MCU_LEDCS_POLARITY_READY_A, rt2x00_get_field16(eeprom,
+-			EEPROM_LED_POLARITY_RDY_A));
+-	}
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_LED_MODE,
++		rt2x00dev->led_mode);
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_0,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_0));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_1,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_1));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_2,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_2));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_3,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_3));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_GPIO_4,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_GPIO_4));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_ACT,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_ACT));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_READY_BG,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_RDY_G));
++	rt2x00_set_field16(&rt2x00dev->led_reg, MCU_LEDCS_POLARITY_READY_A,
++		rt2x00_get_field16(eeprom, EEPROM_LED_POLARITY_RDY_A));
+ 
  	/*
- 	 * Queue work.
- 	 */
--	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan_work))
-+	INIT_WORK(&rt2x00dev->scan->work, rt73usb_scan, rt2x00dev);
-+	if (!queue_work(rt2x00dev->workqueue, &rt2x00dev->scan->work))
- 		goto exit;
- 
- 	return 0;
-@@ -2910,7 +2911,6 @@
- 	/*
- 	 * Intialize scanning attributes.
- 	 */
--	INIT_WORK(&rt2x00dev->scan_work, rt73usb_scan, rt2x00dev);
- 	rt2x00dev->scan = NULL;
- 
- 	if (rt73usb_init_eeprom(rt2x00dev) ||
+ 	 * 9 - Read BBP data from EEPROM and store in private structure.
