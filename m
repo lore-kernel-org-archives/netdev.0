@@ -1,36 +1,39 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH] ip multicast route bug fix
-Date: Wed, 26 Jul 2006 17:27:27 +0400
-Message-ID: <20060726132727.GA10167@ms2.inr.ac.ru>
-References: <20060725211725.GA24366@ms2.inr.ac.ru> <E1G5Z62-00083O-00@gondolin.me.apana.org.au>
+From: Avi Kivity <avi@argo.co.il>
+Subject: Re: [3/4] kevent: AIO, aio_sendfile() implementation.
+Date: Wed, 26 Jul 2006 17:14:34 +0300
+Message-ID: <44C778CA.1010404@argo.co.il>
+References: <20060726.031247.98341392.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hch@infradead.org, johnpol@2ka.mipt.ru,
+	linux-kernel@vger.kernel.org, drepper@redhat.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:61856 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1750705AbWGZN2W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 09:28:22 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <E1G5Z62-00083O-00@gondolin.me.apana.org.au>
+Received: from gateway.argo.co.il ([194.90.79.130]:32531 "EHLO
+	argo2k.argo.co.il") by vger.kernel.org with ESMTP id S1750728AbWGZOOi
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jul 2006 10:14:38 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060726.031247.98341392.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-HellO!
+David Miller wrote:
+>
+> From: Christoph Hellwig <hch@infradead.org>
+> Date: Wed, 26 Jul 2006 11:04:31 +0100
+>
+> > And to be honest, I don't think adding all this code is acceptable
+> > if it can't replace the existing aio code while keeping the
+> > interface.  So while you interface looks pretty sane the
+> > implementation needs a lot of work still :)
+>
+> Networking and disk AIO have significantly different needs.
+>
+Surely, there needs to be a unified polling interface to support single 
+threaded designs.
 
-> I like this.  However, since the cloned skb is either discarded in case
-> of error, or queued in which case the caller discards its reference right
-> away, wouldn't it be simpler to just do this?
+-- 
+error compiling committee.c: too many arguments to function
 
-Well, if we wanted just to cheat those checking tools, it is nice.
-But if we want clarity, it does not look so sweet.
-
-I _loved_ the tricks with skb refcnt a lot (look into netlink.c :-))
-until the day, when pskb_expand_head() and Co appeared. It is so much
-more handy and so hates refcnt.
-
-I would seriously review all the uses of refcnt and leave it internal
-to skbuff.c and use it externally only in a few places,
-where it is obviously safe (MSG_PEEK, mostly) 
-
-Alexey
