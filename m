@@ -1,45 +1,56 @@
-From: Albert Lee <albertcc@tw.ibm.com>
-Subject: Is the qla3xxx driver in the mainline?
-Date: Wed, 26 Jul 2006 11:45:10 +0800
-Message-ID: <44C6E546.8030502@tw.ibm.com>
-Reply-To: albertl@mail.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: BUGs in skb_checksum_help() and skb_gso_segment() in 2.6.18-rc2
+Date: Wed, 26 Jul 2006 13:46:50 +1000
+Message-ID: <20060726034650.GA3393@gondor.apana.org.au>
+References: <E1G5ZBx-00084U-00@gondolin.me.apana.org.au> <44C6E39F.8010602@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, Doug Maxey <dwm@enoyolf.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, zdzichu@irc.pl,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:52373 "EHLO
-	e31.co.us.ibm.com") by vger.kernel.org with ESMTP id S1030372AbWGZDp7
+Received: from rhun.apana.org.au ([64.62.148.172]:16649 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1030374AbWGZDrA
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jul 2006 23:45:59 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e31.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k6Q3jw00012600
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Tue, 25 Jul 2006 23:45:58 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k6Q3jvEH169830
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 25 Jul 2006 21:45:57 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k6Q3jvqS031392
-	for <netdev@vger.kernel.org>; Tue, 25 Jul 2006 21:45:57 -0600
-To: Ron Mercer <ron.mercer@qlogic.com>
+	Tue, 25 Jul 2006 23:47:00 -0400
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <44C6E39F.8010602@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Ron,
+Hi Patrick:
 
-The qla3xxx driver is in the -mm tree.
+On Wed, Jul 26, 2006 at 05:38:07AM +0200, Patrick McHardy wrote:
+> 
+> I have a patch which changes netfilter to do incremental checksumming.
+> The hook number is passed to all functions doing this so they know
+> how to update the checksum. Could you explain how
+> CHECKSUM_COMPLETE/CHECKSUM_PARTIAL are going to be used? I assume
+> they're meant to avoid passing hook numbers around everywhere?
 
-For the mainline inclusion, Jeff seems ready to accept the driver:
-http://marc.theaimsgroup.com/?l=linux-netdev&m=115334172810775&w=2
+Yes the hook number is another way to solve the same problem.  However,
+it can only be used within netfilter.  CHECKSUM_COMPLETE/CHECKSUM_PARTIAL
+on the other hand are valid throughout the stack.  With Xen feeding Linux
+packets into the stack the netfilter hook is also no longer sufficient to
+distinguish between these two cases as partial checksum packets can now
+appear on receive.
 
-Just wondering if the qla3xxx driver is in the mainline yet?
+The problem is that you need to do different incremental updates depending
+on whether the checksum is complete (i.e., CHECKSUM_HW on receive), or
+partial (i.e., CHECKSUM_HW on transmit).
 
-(I am curious to have some performance comparison of
-qla3xxx + open iscsi v.s. qla4xxx + on board TOE/iscsi.)
+With complete checksums the current update code in netfilter can be used
+as is.  With partial checksums you need to exclude bits which weren't
+used when computing the partial checksums (e.g., TCP port numbers need
+to be excluded, but the IP address needs to be included for NAT).
 
---
-albert
+I have a patch that adds CHECKSUM_COMPLETE/CHECKSUM_PARTIAL if you want
+something to work from.  Let me know if you want this and I'll bounce it
+to you.
 
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
