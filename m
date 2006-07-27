@@ -1,63 +1,74 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
 Subject: Re: async network I/O, event channels, etc
-Date: Thu, 27 Jul 2006 11:49:02 +0400
-Message-ID: <20060727074902.GC5490@2ka.mipt.ru>
-References: <44C66FC9.3050402@redhat.com> <20060725.150122.49854414.davem@davemloft.net> <20060726062817.GA20636@2ka.mipt.ru> <20060726.231055.121220029.davem@davemloft.net>
+Date: Thu, 27 Jul 2006 01:02:55 -0700 (PDT)
+Message-ID: <20060727.010255.87351515.davem@davemloft.net>
+References: <20060726062817.GA20636@2ka.mipt.ru>
+	<20060726.231055.121220029.davem@davemloft.net>
+	<20060727074902.GC5490@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: drepper@redhat.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:5262 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751299AbWG0Hta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2006 03:49:30 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060726.231055.121220029.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:56265
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750805AbWG0ICr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jul 2006 04:02:47 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20060727074902.GC5490@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 26, 2006 at 11:10:55PM -0700, David Miller (davem@davemloft.net) wrote:
-> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> Date: Wed, 26 Jul 2006 10:28:17 +0400
-> 
-> > I have not created additional DMA memory allocation methods, like
-> > Ulrich described in his article, so I handle it inside NAIO which
-> > has some overhead (I posted get_user_pages() sclability graph some
-> > time ago).
-> 
-> I've been thinking about this aspect, and I think it's very
-> interesting.  Let's be clear what the ramifications of this
-> are first.
-> 
-> Using the terminology of Network Algorithmics, this is an
-> instance of Principle 2, "Shift computation in time".
-> 
-> Instead of using get_user_pages() at AIO setup, we instead map the
-> thing to userspace later when the user wants it.  Pinning pages is a
-> pain because both user and kernel refer to the buffer at the same
-> time.  We get more flexibility when the user has to map the thing
-> explicitly.
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Thu, 27 Jul 2006 11:49:02 +0400
 
-I.e. map skb's data to userspace? Not a good idea especially with it's
-tricky lifetime and unability for userspace to inform kernel when it
-finished and skb can be freed (without additional syscall).
-I did it with af_tlb zero-copy sniffer (but I substitute mapped pages
-with physical skb->data pages), and it was not very good.
+> I.e. map skb's data to userspace? Not a good idea especially with it's
+> tricky lifetime and unability for userspace to inform kernel when it
+> finished and skb can be freed (without additional syscall).
 
-> I want us to think about how a user might want to use this.  What
-> I anticipate is that users will want to organize a pool of AIO
-> buffers for themselves using this DMA interface.  So the events
-> they are truly interested in are of a finer granularity than you
-> might expect.  They want to know when pieces of a buffer are
-> available for reuse.
+Hmmm...
 
-Ah, I see.
-Well, I think preallocate some buffers and use that in AIO setup is a
-plus, since in that case user does not care about when it is possible to
-reuse the same buffer - when appropriate kevent is completed, that means
-that provided buffer is no longer in use by kernel, and user can reuse
-it.
+If it is paged based, I do not see the problem.  Events and calls to
+AIO I/O routines make transfer of buffer ownership.  The fact that
+while kernel (and thus networking stack) "owns" the buffer for an AIO
+call, the user can have a valid mapping to it is a unimportant detail.
 
--- 
-	Evgeniy Polyakov
+If the user will scramble a piece of data that is in flight to or from
+the network card, it is his problem.
+
+If we are using a primitive network card that does not support
+scatter-gather I/O and thus not page based SKBs, we will make
+copies.  But this is transparent to the user.
+
+The idea is that DMA mappings have page granularity.
+
+At least on transmit it should work well.  Receive side is more
+difficult and initial implementation will need to copy.
+
+> I did it with af_tlb zero-copy sniffer (but I substitute mapped pages
+> with physical skb->data pages), and it was not very good.
+
+Trying to be too clever with skb->data has always been catastrophic. :)
+
+> Well, I think preallocate some buffers and use that in AIO setup is a
+> plus, since in that case user does not care about when it is possible to
+> reuse the same buffer - when appropriate kevent is completed, that means
+> that provided buffer is no longer in use by kernel, and user can reuse
+> it.
+
+We now enter the most interesting topic of AIO buffer pool management
+and where it belongs. :-)  We are assuming up to this point that the
+user manages this stuff with explicit DMA calls for allocation, then
+passes the key based references to those buffers as arguments to the
+AIO I/O calls.
+
+But I want to suggest another possibility.  What if the kernel managed
+the AIO buffer pool for a task?  It could grow this dynamically based
+upon need.  The only implementation road block is how large to we
+allow this to grow, but I think normal VM mechanisms can take care
+of it.
+
+On transmit this is not straightforward, but for receive it has really
+nice possibilities. :)
+
