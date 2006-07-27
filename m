@@ -1,52 +1,42 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 1/2] forcedeth: coding style cleanups (rev2)
-Date: Thu, 27 Jul 2006 21:21:14 +0200
-Message-ID: <200607272121.14459.mb@bu3sch.de>
-References: <20060727161945.204688818@localhost> <20060727162051.090728791@localhost> <20060727104811.1c00e938@localhost.localdomain>
+From: Xiaolan Zhang <cxzhang@us.ibm.com>
+Subject: Re: RFC: kernel memory leak fix for af_unix datagram getpeersec
+Date: Thu, 27 Jul 2006 15:22:16 -0400
+Message-ID: <OF4EC0606D.E357EE61-ON852571B8.006A5AAE-852571B8.006A68C9@us.ibm.com>
+References: <b0943d9e0607270200h250953d7uf58dc9a4f087cb0b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org, Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: "Catherine Zhang" <cxzhang@watson.ibm.com>, czhang.us@gmail.com,
+	davem@davemloft.net, jmorris@namei.org,
+	linux-kernel@vger.kernel.org, michal.k.k.piotrowski@gmail.com,
+	netdev@vger.kernel.org, sds@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:46558
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751781AbWG0TV4
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Jul 2006 15:21:56 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060727104811.1c00e938@localhost.localdomain>
-Content-Disposition: inline
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:45291 "EHLO e1.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1751027AbWG0TWU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2006 15:22:20 -0400
+In-Reply-To: <b0943d9e0607270200h250953d7uf58dc9a4f087cb0b@mail.gmail.com>
+To: "Catalin Marinas" <catalin.marinas@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 27 July 2006 19:48, Stephen Hemminger wrote:
-> --- sky2.orig/drivers/net/forcedeth.c	2006-07-13 12:53:48.000000000 -0700
-> +++ sky2/drivers/net/forcedeth.c	2006-07-27 10:45:49.000000000 -0700
-> @@ -381,21 +381,21 @@
->  
->  /* Big endian: should work, but is untested */
->  struct ring_desc {
-> -	u32 PacketBuffer;
-> -	u32 FlagLen;
-> +	u32 buf;
-> +	u32 flaglen;
->  };
->  
->  struct ring_desc_ex {
-> -	u32 PacketBufferHigh;
-> -	u32 PacketBufferLow;
-> -	u32 TxVlan;
-> -	u32 FlagLen;
-> +	u32 bufhigh;
-> +	u32 buflow;
-> +	u32 txvlan;
-> +	u32 flaglen;
->  };
+Hi, Catalin and Michal,
 
-Shouldn't these two structs be __attribute__((packed)) ?
+Many thanks for your help in fnding and testing the patch!
 
--- 
-Greetings Michael.
+Catherine
+
+"Catalin Marinas" <catalin.marinas@gmail.com> wrote on 07/27/2006 05:00:23 
+AM:
+
+> On 26/07/06, Catherine Zhang <cxzhang@watson.ibm.com> wrote:
+> > Enclosed please find the new fix for the memory leak problem, 
+incorporating
+> > suggestions from Stephen and James.
+> 
+> FYI, Michal confirmed that, with this patch, kmemleak no longer
+> reports leaks in the context_struct_to_string() function in
+> security/selinux/ss/services.c. Many thanks to Michal for testing this
+> (and his constant feedback into kmemleak).
+> 
+> -- 
+> Catalin
+
