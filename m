@@ -1,72 +1,82 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Thu, 27 Jul 2006 20:51:22 +0400
-Message-ID: <20060727165121.GA6637@2ka.mipt.ru>
-References: <20060718081625.GA13830@2ka.mipt.ru> <20060718230121.GA31474@ms2.inr.ac.ru> <1153966671.6904.71.camel@localhost.localdomain> <20060726.221708.123400049.davem@davemloft.net> <1153979173.6904.100.camel@localhost.localdomain> <20060727163335.GA12944@ms2.inr.ac.ru>
+From: Venkat Yekkirala <vyekkirala@trustedcs.com>
+Subject: Re: [PATCH 10/10] MLSXFRM-v02: Auto-labeling of child sockets
+Date: Thu, 27 Jul 2006 11:53:44 -0500
+Message-ID: <44C8EF98.3020507@trustedcs.com>
+References: <44BD196C.6000307@trustedcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: selinux@tycho.nsa.gov, jmorris@namei.org, sds@tycho.nsa.gov,
+	tjaeger@cse.psu.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:43678 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751753AbWG0Qvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2006 12:51:46 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Content-Disposition: inline
-In-Reply-To: <20060727163335.GA12944@ms2.inr.ac.ru>
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:9739 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1751764AbWG0QyF
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jul 2006 12:54:05 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <44BD196C.6000307@trustedcs.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, Alexey.
+The following patch will fix the build problem (encountered by Andrew Morton)
+when SECURITY_NETWORK_XFRM is not enabled.
 
-On Thu, Jul 27, 2006 at 08:33:35PM +0400, Alexey Kuznetsov (kuznet@ms2.inr.ac.ru) wrote:
-> First, it was stated that suggested implementation performs better and even
-> much better. I am asking why do we see such improvement?
-> I am absolutely not satisifed with statement "It is better. Period."
-> From all that I see, this particular implementation does not implement
-> optimizations suggested by VJ, it implements only the things,
-> which are not supposed to affect performance or to affect it negatively.
+As compared to git-net-selinux_xfrm_decode_session-build-fix.patch in -mm,
+this patch sets the return parameter sid to SECSID_NULL in selinux_xfrm_decode_session()
+and handles this value in the caller selinux_inet_conn_request() appropriately.
 
-Just for clarifications: I showed that even using _existing_ stack
-(using sk_backlog_rcv) performance in process context can exceed two
-level processing. And after creating own TCP implemetation 
-(which does not include two-level related overhead among other things)
-performance different was even higher. I can agree that it is possible
-that in second case part of the gain is obtained from the new TCP
-implementation, but not 100% from process' context, but in first place 
-existing socket code was used.
+Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+--- 
+NOTE: Not sure what the ideal thing to do is here. The following is incremental
+to the original patch. I can send a revision of the entire patch with these changes
+if desired.
 
-> > userspace), no dequeue lock is required.
-> 
-> And that was a part of the second question.
-> 
-> I do not see, how single threaded TCP is possible. In receiver path
-> it has to ack with quite strict time bounds, to delack etc., in sender path
-> it has to slow start, I am even not saying about "slow path" things:
-> retransmit, probing window, lingering without process context etc.
-> It looks like, VJ implies the protocol must be changed. We can't, we mustn't.
-> 
-> After we deidealize this idealization and recognize that some "slow path"
-> should exist and some part of this "slow path" has to be executed
-> with higher priority than the "fast" one, where do we arrive?
-> Is not it exactly what we have right now? Clean fast path, separate slow path.
-> Not good enough? Where? Let's find and fix this.
+ security/selinux/hooks.c        |    5 +++++
+ security/selinux/include/xfrm.h |    7 ++++++-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
 
-Slow path does exist, retransmits and friends are there too in new stack.
-And my initial netchannel implementation used  _existing_ socket code
-from process context. Again, there is no need to crate two levels
-between fast and slow or softirq and process, and it was proven and
-shown that it can perform faster.
+--- linux-2.6.17.child_sock/security/selinux/include/xfrm.h	2006-07-17 16:51:22.000000000 -0500
++++ linux-2.6.17/security/selinux/include/xfrm.h	2006-07-27 11:29:16.000000000 -0500
+@@ -20,7 +20,6 @@ int selinux_xfrm_policy_lookup(struct xf
+ int selinux_xfrm_state_pol_flow_match(struct xfrm_state *x,
+ 			struct xfrm_policy *xp, struct flowi *fl);
+ int selinux_xfrm_flow_state_match(struct flowi *fl, struct xfrm_state *xfrm);
+-int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *fl, int ckall);
+ 
+ 
+ /*
+@@ -41,6 +40,7 @@ int selinux_xfrm_postroute_last(u32 isec
+ 			struct avc_audit_data *ad);
+ u32 selinux_socket_getpeer_stream(struct sock *sk);
+ u32 selinux_socket_getpeer_dgram(struct sk_buff *skb);
++int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *sid, int ckall);
+ #else
+ static inline int selinux_xfrm_sock_rcv_skb(u32 isec_sid, struct sk_buff *skb,
+ 			struct avc_audit_data *ad)
+@@ -63,6 +63,11 @@ static inline int selinux_socket_getpeer
+ {
+ 	return SECSID_NULL;
+ }
++static inline int selinux_xfrm_decode_session(struct sk_buff *skb, u32 *sid, int ckall)
++{
++	*sid = SECSID_NULL;
++	return 0;
++}
+ #endif
+ 
+ #endif /* _SELINUX_XFRM_H_ */
+--- linux-2.6.17.child_sock/security/selinux/hooks.c	2006-07-18 10:33:42.000000000 -0500
++++ linux-2.6.17/security/selinux/hooks.c	2006-07-27 11:28:53.000000000 -0500
+@@ -3595,6 +3595,11 @@ int selinux_inet_conn_request(struct soc
+ 	err = selinux_xfrm_decode_session(skb, &peersid, 0);
+ 	BUG_ON(err);
+ 
++	if (peersid == SECSID_NULL) {
++		req->secid = sksec->sid;
++		return 0;
++	}
++
+ 	err = security_sid_mls_copy(sksec->sid, peersid, &newsid);
+ 	if (err)
+ 		return err;
 
-Why don't you want to see, that existing model is just path enlargement:
-there might also exist delayes between hard and soft irqs, so acks will
-be delayed and so on... But stack works without problems even if some
-kernel thread takes 100% cpu (with preemption), and there are very big
-delays for ack generations, but userspace is not possible to get that
-data. With netchannels it is essentially the same (heh, I said that
-already a lot of times).
-
-> Alexey
-
--- 
-	Evgeniy Polyakov
