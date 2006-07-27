@@ -1,68 +1,59 @@
-From: Badari Pulavarty <pbadari@us.ibm.com>
-Subject: Re: [3/4] kevent: AIO, aio_sendfile() implementation.
-Date: Thu, 27 Jul 2006 14:02:44 -0700
-Message-ID: <1154034164.29920.22.camel@dyn9047017100.beaverton.ibm.com>
-References: <1153905495613@2ka.mipt.ru> <11539054952574@2ka.mipt.ru>
-	 <20060726100431.GA7518@infradead.org> <20060726101919.GB2715@2ka.mipt.ru>
-	 <20060726103001.GA10139@infradead.org> <44C77C23.7000803@redhat.com>
-	 <44C796C3.9030404@us.ibm.com> <1153982954.3887.9.camel@frecb000686>
-	 <44C8DB80.6030007@us.ibm.com>  <44C9029A.4090705@oracle.com>
-	 <1154024943.29920.3.camel@dyn9047017100.beaverton.ibm.com>
-	 <44C90987.1040200@redhat.com>
+From: "COMPREMICRO" <vendas@compremicro.com.br>
+Subject: SUPER  =?ISO-8859-1?Q?=20PROMO=C7=C30?= DE C0MPUTAD0RES
+Date: Thu, 27 Jul 2006 18:06:50 -0300
+Message-ID: <20060727220454.A6F01310C37@mail.compremicro.com.br>
+Reply-To: "COMPREMICRO" <vendas@compremicro.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Zach Brown <zach.brown@oracle.com>,
-	=?ISO-8859-1?Q?S=E9bastien_Dugu=E9?= <sebastien.dugue@bull.net>,
-	Christoph Hellwig <hch@infradead.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Suparna Bhattacharya <suparna@in.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:15772 "EHLO
-	e32.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751056AbWG0VAJ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Jul 2006 17:00:09 -0400
-To: Ulrich Drepper <drepper@redhat.com>
-In-Reply-To: <44C90987.1040200@redhat.com>
+Received: from 200-189-82-95-sne.pme.vivax.com.br ([200.189.82.95]:48785 "EHLO
+	mail.compremicro.com.br") by vger.kernel.org with ESMTP
+	id S1751267AbWG0VDh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jul 2006 17:03:37 -0400
+Received: from compremicro.com.br (unknown [192.168.0.221])
+	by mail.compremicro.com.br (Postfix) with SMTP id A6F01310C37
+	for <netdev@vger.kernel.org>; Thu, 27 Jul 2006 19:04:54 -0300 (BRT)
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-07-27 at 11:44 -0700, Ulrich Drepper wrote:
-> Badari Pulavarty wrote:
-> > Before we spend too much time cleaning up and merging into mainline -
-> > I would like an agreement that what we add is good enough for glibc
-> > POSIX AIO.
-> 
-> I haven't seen a description of the interface so far.  Would be good if
-> it existed.  But I briefly mentioned one quirk in the interface about
-> which Suparna wasn't sure whether it's implemented/implementable in the
-> current interface.
+SE ESTE EMAIL ESTIVER INCOMODANDO NOS AVISE QUE REMOVEMOS DA LISTA
+------------------------------------------------------------------
 
-Sebastien, could you provide a description of interfaces you are
-adding ? Since you did all the work, it would be appropriate for
-you to do it :)
+- AMD - Sempron 2400+(462),  sem monitor --> 849,00
+- INTEL Celeron 2.66 /533 (478),  sem monitor --> 874,00
+- AMD - Sempron 64 2600+(754),  sem monitor --> 913,00
+- INTEL Celeron 3.2 /533 (478),  sem monitor --> 947,00
+- AMD - Sempron 64 2800+(754),  sem monitor --> 955,00
+- INTEL Pentium 4 2.4 1Mb/533 (478),  sem monitor --> 1.030,00
+- AMD - Athlon 64 3200+(939),  sem monitor --> 1.155,00
+- INTEL Pentium 4 3.0 1Mb/533 (775),  sem monitor --> 1.162,00
+- AMD - Athlon 64 x2 4200+(Dual-Core),  sem monitor --> 1.530,00
 
-> If a lio_listio call is made the individual requests are handle just as
-> if they'd be issue separately.  I.e., the notification specified in the
-> individual aiocb is performed when the specific request is done.  Then,
-> once all requests are done, another notification is made, this time
-> controlled by the sigevent parameter if lio_listio.
-> 
-> 
-> Another feature which I always wanted: the current lio_listio call
-> returns in blocking mode only if all requests are done.  In non-blocking
-> mode it returns immediately and the program needs to poll the aiocbs.
-> What is needed is something in the middle.  For instance, if multiple
-> read requests are issued the program might be able to start working as
-> soon as one request is satisfied.  I.e., a call similar to lio_listio
-> would be nice which also takes another parameter specifying how many of
-> the NENT aiocbs have to finish before the call returns.
+- Monitor 15" Samsung Lcd 540N (preto/prata) --> R$ 600,00=20
+- Notebook Gateway 4026GL Celeron M 1.3 --> R$ 2.110,00 - ( 6 meses
+garantia )
+- Notebook Gateway 4026GL Celeron M 1.3 --> R$ 2.400,00 - ( 1 ano garan=
+tia )
+- C=E2mera digital HP E317 ( 5.0 MP ) --> R$ 455,00=20
 
-Looks reasonable.
+Confira estas e outras ofertas em nosso site:
+www.compremicro.com.br
 
-Thanks,
-Badari
+-----------------------------------------------------------------------=
+-----
+------------------
+=46INANCIAMENTO PARA TODO O BRASIL
+AT=C9 25X NO CHEQUE.....com juros a partir de 3% / M=EAs !
+TEMOS PRE=C7OS ESPECIAIS PARA COMPRA ACIMA DE 2 MICROS
+-----------------------------------------------------------------------=
+-----
+------------------
+
+
+INFSERV Inform=E1tica ( 15 anos no ramo de manuten=E7=E3o e vendas )
+S=E3o Caetano do Sul - SP
+(11) 4239-4756  /  6835-2191  /  9135-1817  /  9357-7593
+
 
