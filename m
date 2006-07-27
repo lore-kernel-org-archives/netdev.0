@@ -1,39 +1,35 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RESEND 3/5] [NET]: Protocol Independant Policy Routing Rules
- Framework
-Date: Fri, 28 Jul 2006 01:31:31 +0200
-Message-ID: <44C94CD3.4030108@trash.net>
-References: <20060726.230230.111423566.davem@davemloft.net>	<20060727223931.GZ14627@postel.suug.ch>	<44C94529.5080605@trash.net> <20060727.161746.120621542.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, jmorris@namei.org, netdev@vger.kernel.org,
-	vnuorval@tcs.hut.fi, usagi-core@linux-ipv6.org,
-	yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Regarding offloading IPv6 addrconf and ndisc
+Date: Fri, 28 Jul 2006 09:56:42 +1000
+Message-ID: <E1G6Fic-0005py-00@gondolin.me.apana.org.au>
+References: <44C8B0B8.2010408@miyazawa.org>
+Cc: yoshfuji@linux-ipv6.org, davem@davemloft.net,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:29064 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1751560AbWG0XdK
+Received: from rhun.apana.org.au ([64.62.148.172]:3343 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750710AbWG0X5Z
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Jul 2006 19:33:10 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060727.161746.120621542.davem@davemloft.net>
+	Thu, 27 Jul 2006 19:57:25 -0400
+To: kazunori@miyazawa.org (Kazunori Miyazawa)
+In-Reply-To: <44C8B0B8.2010408@miyazawa.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Fri, 28 Jul 2006 00:58:49 +0200
+Kazunori Miyazawa <kazunori@miyazawa.org> wrote:
 > 
->>This clashes with my routing table patch, guess we have to figure
->>out who should go first :)
-> 
-> 
-> I think since USAGI has some work that depends on this, we
-> should get Thomas's stuff in first.
+> I'm interested in the approach. And I have a couple of comments.
+> I think DAD and ND are time critical operations.
+> Can the daemons process with confirming to the specs.
+> even if it were swapped out?
+> Can we prevent the oom killer from killing the daemons?
 
-OK.
+These are valid concerns.  However, if we can have things like ntpd
+live in user-space without causing nuisance, then addrconf should be
+fine as well.
 
-> It shouldn't be a big deal to rework your >256 tables patch
-> against Thomas's should it?
-
-No, that shouldn't be much work.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
