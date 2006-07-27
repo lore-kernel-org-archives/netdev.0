@@ -1,70 +1,41 @@
-From: Hugo Santos <hsantos@av.it.pt>
-Subject: Re: Regarding offloading IPv6 addrconf and ndisc
-Date: Thu, 27 Jul 2006 18:56:49 +0100
-Message-ID: <20060727175649.GO6026@innerghost.net>
-References: <20060727112531.GN6026@innerghost.net> <44C8B0B8.2010408@miyazawa.org>
+From: Zach Brown <zach.brown@oracle.com>
+Subject: Re: [3/4] kevent: AIO, aio_sendfile() implementation.
+Date: Thu, 27 Jul 2006 11:14:50 -0700
+Message-ID: <44C9029A.4090705@oracle.com>
+References: <1153905495613@2ka.mipt.ru> <11539054952574@2ka.mipt.ru>	 <20060726100431.GA7518@infradead.org> <20060726101919.GB2715@2ka.mipt.ru>	 <20060726103001.GA10139@infradead.org> <44C77C23.7000803@redhat.com>	 <44C796C3.9030404@us.ibm.com> <1153982954.3887.9.camel@frecb000686> <44C8DB80.6030007@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="2/+Vq7w28QOSGzSM"
-Cc: yoshfuji@linux-ipv6.org, davem@davemloft.net,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-15?Q?S=E9bastien_Dugu=E9?= <sebastien.dugue@bull.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Suparna Bhattacharya <suparna@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.av.it.pt ([193.136.92.53]:57488 "EHLO av.it.pt")
-	by vger.kernel.org with ESMTP id S1751902AbWG0R4v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2006 13:56:51 -0400
-To: Kazunori Miyazawa <kazunori@miyazawa.org>
-Content-Disposition: inline
-In-Reply-To: <44C8B0B8.2010408@miyazawa.org>
+Received: from tetsuo.zabbo.net ([207.173.201.20]:45983 "EHLO tetsuo.zabbo.net")
+	by vger.kernel.org with ESMTP id S1751888AbWG0SO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2006 14:14:56 -0400
+To: Badari Pulavarty <pbadari@us.ibm.com>
+In-Reply-To: <44C8DB80.6030007@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---2/+Vq7w28QOSGzSM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> Suparna mentioned at Ulrich wants us to concentrate on kernel-side 
+> support, so that he can look at glibc side of things (along with
+> other work he is already doing). So, if we can get an agreement on
+> what kind of kernel support is needed - we can focus our efforts on
+> kernel side first and leave glibc enablement to capable hands of Uli
+> :)
 
-Hi,
+Yeah, and the existing patches still need some cleanup.  Badari, did you
+still want me to look into that?
 
-> I'm interested in the approach. And I have a couple of comments.
-> I think DAD and ND are time critical operations.
-> Can the daemons process with confirming to the specs.
+We need someone to claim ultimate responsibility for getting these
+patches suitable for merging :).  I'm happy to do that if Suparna isn't
+already on it.
 
-   My tests indicate that yes, even when considering mobility scenarios
- where expected times are reduced. There is always the possibility of
- giving the process a priority high enough to work as well as possible
- in most usages.
-
-> even if it were swapped out?
-
-   Depending on the implementation, you may lock all or part of the
- process address space so it doesn't get swapped out.
-
-> Can we prevent the oom killer from killing the daemons?
-
-   I don't think we can prevent it, but we may adjust it's score via
- /proc/pid/oom_adj as it's likeness of being killed being very reduced.
-
-> Anyway, we have to consider Pros. and Cons of the approach.
-
-   As long as there is no impact in the current functionality and the
- changes which are required from an architectual POV are acceptable by
- the main developers, i don't see anything against.
-
-   Waiting for input,
-
-   Hugo
-
---2/+Vq7w28QOSGzSM
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFEyP5h7asb/itUNKwRAgSpAJ4ogN3ayMQZ/PRr2fXfXUnzv20xqgCgoBbt
-MRzoXFnQ9W++UH+SitBPb1I=
-=0hY1
------END PGP SIGNATURE-----
-
---2/+Vq7w28QOSGzSM--
+- z
