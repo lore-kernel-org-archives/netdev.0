@@ -1,66 +1,60 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Thu, 27 Jul 2006 12:17:51 +1000
-Message-ID: <1153966671.6904.71.camel@localhost.localdomain>
-References: <20060718081625.GA13830@2ka.mipt.ru>
-	 <20060718230121.GA31474@ms2.inr.ac.ru>
+From: Albert Lee <albertcc@tw.ibm.com>
+Subject: Re: Is the qla3xxx driver in the mainline?
+Date: Thu, 27 Jul 2006 11:16:04 +0800
+Message-ID: <44C82FF4.4010401@tw.ibm.com>
+References: <44C6E546.8030502@tw.ibm.com> <44C75E06.1060402@tls.msk.ru>
+Reply-To: albertl@mail.com
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Doug Maxey <dwm@enoyolf.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.tip.net.au ([203.10.76.45]:6619 "EHLO ozlabs.org")
-	by vger.kernel.org with ESMTP id S1751024AbWG0CRy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jul 2006 22:17:54 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20060718230121.GA31474@ms2.inr.ac.ru>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:51179 "EHLO
+	e31.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751250AbWG0DQ0
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jul 2006 23:16:26 -0400
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e31.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k6R3GO47005030
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 23:16:24 -0400
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by westrelay02.boulder.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k6R3GOuj305540
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 21:16:24 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k6R3GNF9015702
+	for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 21:16:23 -0600
+To: Michael Tokarev <mjt@tls.msk.ru>
+In-Reply-To: <44C75E06.1060402@tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-07-19 at 03:01 +0400, Alexey Kuznetsov wrote:
-> Hello!
+Michael Tokarev wrote:
+> Albert Lee wrote:
+> []
 > 
-> Can I ask couple of questions? Just as a person who looked at VJ's
-> slides once and was confused. And startled, when found that it is not
-> considered as another joke of genuis. :-)
-
-Hi Alexey!
-
-> About locks:
+>>(I am curious to have some performance comparison of
+>>qla3xxx + open iscsi v.s. qla4xxx + on board TOE/iscsi.)
 > 
-> > 	  is completely lockless (there is one irq lock when skb 
-> > is queued/dequeued into netchannels queue in hard/soft irq, 
 > 
-> Equivalent of socket spinlock.
+> On wich card?  I've been told that IPS4010 for example
+> isn't supported by qla3xxx.
 
-I don't think they are equivalent.  In channels, this can be split into
-two locks, queue lock and an dequeue lock, which operate independently.
-The socket spinlock cannot.  Moreover, in the case where there is a
-guarantee about IRQs being bound to a single CPU (as Dave's ideas on
-MSI), the queue lock is no longer required.  In the case where there is
-a single reader of the socket (or, as VJ did, the other end is in
-userspace), no dequeue lock is required.
+I've borrowed an ISP4022 based adapter, the qla3xxx
+should be supported.
 
-> VJ slides describe a totally different scheme, where softirq part is omitted
-> completely, protocol processing is moved to user space as whole.
-> It is an amazing toy. But I see nothing, which could promote its status
-> to practical. Exokernels used to do this thing for ages, and all the
-> performance gains are compensated by overcomplicated classification
-> engine, which has to remain in kernel and essentially to do the same
-> work which routing/firewalling/socket hash tables do.
+> 
+> BTW, I found qla4xxx (on IPS4010) performs noticeable
+> worse than open-iscsi stack on top of tigon (non-jumbo-
+> frames-capable) GigE NIC (on an eserver xSeries 346
+> machine).
+> 
 
-My feeling is that modern cards will do partial demux for us; whether we
-use netchannels or not, we should use that to accelerate lookup.  Making
-card aim MSI at same CPU for same flow is a start (and as Dave said,
-much less code).  As the next step, having the card give us a cookie
-too, would allow us to explicitly skip first level of lookup.  This
-should allow us to identify which flows are simple enough to be directly
-accelerated (whether by channels or something else): no bonding, raw
-sockets, non-trivial netfilter rules, connection tracking changes, etc.
+Thanks for the info. With qla3xxx, we can actually use
+the Ethernet interface of the qla4022 instead of the bcm57xx
+tg3. So, we could compare the performance of the on-board
+TOE/iscsi with open-iscsi better.
 
-Thoughts?
-Rusty.
--- 
-Help! Save Australia from the worst of the DMCA: http://linux.org.au/law
+--
+albert
 
