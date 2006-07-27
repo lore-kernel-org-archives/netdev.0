@@ -1,68 +1,58 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] Create IP100A Driver
-Date: Thu, 27 Jul 2006 09:06:26 -0400
-Message-ID: <20060727130626.GB8794@hmsreliant.homelinux.net>
-References: <1154030065.5967.15.camel@localhost.localdomain> <20060727125421.GB22935@tuxdriver.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCH] NET: fix kernel panic from no dev->hard_header_len space
+Date: Thu, 27 Jul 2006 15:56:40 +0200
+Message-ID: <m3zmevqhgn.fsf@defiant.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jesse Huang <jesse@icplus.com.tw>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, akpm@osdl.org, jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751293AbWG0NIO@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-Content-Disposition: inline
-In-Reply-To: <20060727125421.GB22935@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from khc.piap.pl ([195.187.100.11]:59883 "EHLO khc.piap.pl")
+	by vger.kernel.org with ESMTP id S1751295AbWG0N4o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2006 09:56:44 -0400
+To: <netdev@vger.kernel.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 27, 2006 at 08:54:27AM -0400, John W. Linville wrote:
-> On Thu, Jul 27, 2006 at 03:54:25PM -0400, Jesse Huang wrote:
-> > From: Jesse Huang <jesse@icplus.com.tw>
-> > 
-> > This is the first version of IP100A Linux Driver.
-> 
-> One general comment is that your patch is whitespace-damaged,
-> undoubtedly mangled by your mailer.  I would suggest that you use
-> a text- or curses-based mailer (like mutt or even mail) for sending
-> patches, but I'm sure there are graphical mailers that can be trained
-> to not be "too smart".
-> 
-> > +static struct pci_device_id ipf_pci_tbl[] __devinitdata = {
-> > +       {0x1186, 0x1002, 0x1186, 0x1002, 0, 0, 0},
-> > +       {0x1186, 0x1002, 0x1186, 0x1003, 0, 0, 1},
-> > +       {0x1186, 0x1002, 0x1186, 0x1012, 0, 0, 2},
-> > +       {0x1186, 0x1002, 0x1186, 0x1040, 0, 0, 3},
-> > +       {0x1186, 0x1002, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 4},
-> > +       {0x13F0, 0x0201, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 5},
-> > +       {0x13F0, 0x0200, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 6},
-> > +       {0,}
-> > +};
-> 
-> This PCI ID table is identical to the one in the sundance driver.
-> What advantage does this driver offer over sundance?
-> 
-> Thanks,
-> 
-> John
+Hi,
 
-Having read Johns comment, I went back and looked again, and in fact the entire
-driver appears to be a copy of the sundance code.  The most significant changes
-I can see is that the header includes were moved to ipf.h, and the non-standard
-data types (UINT/UCHAR/etc) were added.
+ip_output() ignores dev->hard_header_len if dev->hard_header
+function == NULL. It's inconsistent with the rest of the kernel. With
+some drivers it would mean instant panic, but we are usually saved by
+existence of the "default" header space.
 
-Regards
-Neil
+With some bad luck things like tun or IPsec may kill the box.
 
-> -- 
-> John W. Linville
-> linville@tuxdriver.com
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+A similar problem may be present in psched_mtu().
 
--- 
-/***************************************************
- *Neil Horman
- *Software Engineer
- *gpg keyid: 1024D / 0x92A74FA1 - http://pgp.mit.edu
- ***************************************************/
+Please apply.
+I think it should then be applied to stable series as well.
+
+Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index b94d1ad..3ae64ba 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -234,8 +234,7 @@ extern int tc_classify(struct sk_buff *s
+  */
+ static inline unsigned psched_mtu(struct net_device *dev)
+ {
+-	unsigned mtu = dev->mtu;
+-	return dev->hard_header ? mtu + dev->hard_header_len : mtu;
++	return dev->mtu + dev->hard_header_len;
+ }
+ 
+ #endif
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index cff9c3a..f5d9051 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -169,7 +169,7 @@ static inline int ip_finish_output2(stru
+ 	int hh_len = LL_RESERVED_SPACE(dev);
+ 
+ 	/* Be paranoid, rather than too clever. */
+-	if (unlikely(skb_headroom(skb) < hh_len && dev->hard_header)) {
++	if (unlikely(skb_headroom(skb) < hh_len)) {
+ 		struct sk_buff *skb2;
+ 
+ 		skb2 = skb_realloc_headroom(skb, LL_RESERVED_SPACE(dev));
