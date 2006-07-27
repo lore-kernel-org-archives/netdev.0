@@ -1,68 +1,56 @@
-From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-Subject: Re: [PATCH] Don't call request_region() for 3C90x chips
-Date: Thu, 27 Jul 2006 23:22:06 +0400
-Message-ID: <44C9125E.8030404@ru.mvista.com>
-References: <200607102225.49253.sshtylyov@ru.mvista.com> <44BE7291.2080306@pobox.com> <44BE8324.2060103@ru.mvista.com> <44BE865A.6060307@pobox.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 1/2] forcedeth: coding style cleanups (rev2)
+Date: Thu, 27 Jul 2006 12:24:29 -0700
+Message-ID: <20060727122429.27fcd513@localhost.localdomain>
+References: <20060727161945.204688818@localhost>
+	<20060727162051.090728791@localhost>
+	<20060727104811.1c00e938@localhost.localdomain>
+	<200607272121.14459.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
+	netdev@vger.kernel.org, Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway-1237.mvista.com ([63.81.120.155]:34723 "EHLO
-	imap.sh.mvista.com") by vger.kernel.org with ESMTP id S1751868AbWG0TXU
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Jul 2006 15:23:20 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <44BE865A.6060307@pobox.com>
+Received: from smtp.osdl.org ([65.172.181.4]:65209 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751870AbWG0TZm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2006 15:25:42 -0400
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200607272121.14459.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Thu, 27 Jul 2006 21:21:14 +0200
+Michael Buesch <mb@bu3sch.de> wrote:
 
-Jeff Garzik wrote:
+> On Thursday 27 July 2006 19:48, Stephen Hemminger wrote:
+> > --- sky2.orig/drivers/net/forcedeth.c	2006-07-13 12:53:48.000000000 -0700
+> > +++ sky2/drivers/net/forcedeth.c	2006-07-27 10:45:49.000000000 -0700
+> > @@ -381,21 +381,21 @@
+> >  
+> >  /* Big endian: should work, but is untested */
+> >  struct ring_desc {
+> > -	u32 PacketBuffer;
+> > -	u32 FlagLen;
+> > +	u32 buf;
+> > +	u32 flaglen;
+> >  };
+> >  
+> >  struct ring_desc_ex {
+> > -	u32 PacketBufferHigh;
+> > -	u32 PacketBufferLow;
+> > -	u32 TxVlan;
+> > -	u32 FlagLen;
+> > +	u32 bufhigh;
+> > +	u32 buflow;
+> > +	u32 txvlan;
+> > +	u32 flaglen;
+> >  };
+> 
+> Shouldn't these two structs be __attribute__((packed)) ?
+> 
 
->>>> It's generally not a good idea to call request_region() on an 
->>>> address returned by pci_iomap(), even less so on a MMIO address. And 
->>>> there was absolutely no point in claiming the region already claimed 
->>>> by the PCI core, especially with the same PCI generic owner's name. 
->>>> As this is the only case of the must_free_region flag being set, 
->>>> this flag may go away as well...
-
->>>> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-
->>> I agree you have identified a bug, but this is not a solution.
-
->>> The current driver bug is that it calls request_region() potentially 
->>> on an MMIO address, but the solution is _not_ to completely avoid 
->>> reserving the resource.
-
->>    It's not even a MMIO/PIO address anymore after pci_iomap() -- it 
->> either went thru ioremap() or ioport_map() which both change the 
->> mapping from the physical to the virtual address (or some equivalent 
->> of it for I/O ports).
-
-> Yes.  _Obviously_ you must reserve the resource passed to 
-> pci_iomap/ioremap, not the cookie returned by such.
-
-    What somewhat puzzled me is the words "Cardbus drivers already allocate 
-for us" in the current driver's vortex_probe1(). What extra drivers, and why 
-should they call request_region() for us? :-/
-
->>> The region registered with the PCI core, but _not_ claimed by anyone. 
->>> Someone still needs to either call pci_{request,release}_regions() or 
->>> request_[mem_]region() to indicate that the resource is reserved.
-
->>    Sigh, it seems I've missed that difference. So, I'll recast...
-
-> IMO it would be easiest to do pci_{request,release}_regions() in the 
-> PCI-only code.  I believe this matches up well with the existing 
-> EISA-specific code, which also performs request_region().
-
-    Ugh, I've looked at vortex_remove_one() and found another buglet: they're 
-trying to reset the chip there... after calling pci_disable_device(). Guess 
-whether they really reset anything. I wonder whether it's accpetable for this 
-fix to be put in the same patch...
-
->     Jeff
-
-WBR, Sergei
+Not really necessary since the elements are all the same size.
+Plus, this was a style cleanup patch...
