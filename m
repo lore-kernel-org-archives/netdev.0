@@ -1,60 +1,74 @@
-From: Albert Lee <albertcc@tw.ibm.com>
-Subject: Re: Is the qla3xxx driver in the mainline?
-Date: Thu, 27 Jul 2006 11:16:04 +0800
-Message-ID: <44C82FF4.4010401@tw.ibm.com>
-References: <44C6E546.8030502@tw.ibm.com> <44C75E06.1060402@tls.msk.ru>
-Reply-To: albertl@mail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: Netchannles: first stage has been completed. Further ideas.
+Date: Wed, 26 Jul 2006 22:17:08 -0700 (PDT)
+Message-ID: <20060726.221708.123400049.davem@davemloft.net>
+References: <20060718081625.GA13830@2ka.mipt.ru>
+	<20060718230121.GA31474@ms2.inr.ac.ru>
+	<1153966671.6904.71.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Doug Maxey <dwm@enoyolf.org>
+Cc: kuznet@ms2.inr.ac.ru, johnpol@2ka.mipt.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:51179 "EHLO
-	e31.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751250AbWG0DQ0
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jul 2006 23:16:26 -0400
-Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
-	by e31.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k6R3GO47005030
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 23:16:24 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by westrelay02.boulder.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k6R3GOuj305540
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 21:16:24 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k6R3GNF9015702
-	for <netdev@vger.kernel.org>; Wed, 26 Jul 2006 21:16:23 -0600
-To: Michael Tokarev <mjt@tls.msk.ru>
-In-Reply-To: <44C75E06.1060402@tls.msk.ru>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:11927
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750856AbWG0FQs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jul 2006 01:16:48 -0400
+To: rusty@rustcorp.com.au
+In-Reply-To: <1153966671.6904.71.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Tokarev wrote:
-> Albert Lee wrote:
-> []
-> 
->>(I am curious to have some performance comparison of
->>qla3xxx + open iscsi v.s. qla4xxx + on board TOE/iscsi.)
-> 
-> 
-> On wich card?  I've been told that IPS4010 for example
-> isn't supported by qla3xxx.
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Thu, 27 Jul 2006 12:17:51 +1000
 
-I've borrowed an ISP4022 based adapter, the qla3xxx
-should be supported.
-
+> On Wed, 2006-07-19 at 03:01 +0400, Alexey Kuznetsov wrote:
+> > About locks:
+> > 
+> > > 	  is completely lockless (there is one irq lock when skb 
+> > > is queued/dequeued into netchannels queue in hard/soft irq, 
+> > 
+> > Equivalent of socket spinlock.
 > 
-> BTW, I found qla4xxx (on IPS4010) performs noticeable
-> worse than open-iscsi stack on top of tigon (non-jumbo-
-> frames-capable) GigE NIC (on an eserver xSeries 346
-> machine).
-> 
+> I don't think they are equivalent.  In channels, this can be split into
+> two locks, queue lock and an dequeue lock, which operate independently.
+> The socket spinlock cannot.  Moreover, in the case where there is a
+> guarantee about IRQs being bound to a single CPU (as Dave's ideas on
+> MSI), the queue lock is no longer required.  In the case where there is
+> a single reader of the socket (or, as VJ did, the other end is in
+> userspace), no dequeue lock is required.
 
-Thanks for the info. With qla3xxx, we can actually use
-the Ethernet interface of the qla4022 instead of the bcm57xx
-tg3. So, we could compare the performance of the on-board
-TOE/iscsi with open-iscsi better.
+Cost is a very interesting question here.  I guess your main point
+is that eventually this lock can be made to go away, whereas
+Alexey speaks about the state of Evgivny's specific implementation.
 
---
-albert
+> My feeling is that modern cards will do partial demux for us; whether we
+> use netchannels or not, we should use that to accelerate lookup.  Making
+> card aim MSI at same CPU for same flow is a start (and as Dave said,
+> much less code).  As the next step, having the card give us a cookie
+> too, would allow us to explicitly skip first level of lookup.  This
+> should allow us to identify which flows are simple enough to be directly
+> accelerated (whether by channels or something else): no bonding, raw
+> sockets, non-trivial netfilter rules, connection tracking changes, etc.
+
+I read this as "we will be able to get around the problems" but
+no specific answer as to "how".  I am an optimist too but I want
+to start seeing concrete discussion about the way in which the
+problems will be dealt with.
+
+Alexey has some ideas, such as running the netfilter path from the
+netchannel consumer socket context.  That is the kind of thing
+we need to be talking about.
+
+Robert Olsson is also doing some work involving full flow
+classifications using special trie structures in the routing cache
+that might be extendable to netchannels.  His trick is to watch for
+the FIN shutdown sequence and GC route cache entries for a flow when
+this is seen.  This is in order to keep the trie shallow and thus have
+a better bound on memory accesses for routing lookups.
+
+We are not a group of mathematicians discussing the tractability of
+some problem.  Our interest is practice not theory. :)
+
+
 
