@@ -1,50 +1,31 @@
-From: Andy Gay <andy@andynet.net>
+From: "Marco Berizzi" <pupilla@hotmail.com>
 Subject: Re: ipsec tunnel policy vs routing table
-Date: Thu, 27 Jul 2006 10:53:08 -0400
-Message-ID: <1154011988.16424.13.camel@tahini.andynet.net>
-References: <BAY103-F29E50C26FA020FFF3019DAB2580@phx.gbl>
+Date: Thu, 27 Jul 2006 17:25:05 +0200
+Message-ID: <BAY103-F465E15C95576093DD78A3B2580@phx.gbl>
+References: <1154011988.16424.13.camel@tahini.andynet.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; format=flowed
 Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms046pub.verizon.net ([206.46.252.46]:50578 "EHLO
-	vms046pub.verizon.net") by vger.kernel.org with ESMTP
-	id S1751541AbWG0OxM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Jul 2006 10:53:12 -0400
-Received: from andyhp.tranquilitynj.net ([70.18.168.191])
- by vms046.mailsrvcs.net
- (Sun Java System Messaging Server 6.2-4.02 (built Sep  9 2005))
- with ESMTPA id <0J3200KL6HCM4ECB@vms046.mailsrvcs.net> for
- netdev@vger.kernel.org; Thu, 27 Jul 2006 09:53:10 -0500 (CDT)
-In-reply-to: <BAY103-F29E50C26FA020FFF3019DAB2580@phx.gbl>
-To: Marco Berizzi <pupilla@hotmail.com>
+Received: from bay0-omc3-s34.bay0.hotmail.com ([65.54.246.234]:14677 "EHLO
+	bay0-omc3-s34.bay0.hotmail.com") by vger.kernel.org with ESMTP
+	id S932554AbWG0PZL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jul 2006 11:25:11 -0400
+In-Reply-To: <1154011988.16424.13.camel@tahini.andynet.net>
+To: andy@andynet.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-07-27 at 16:36 +0200, Marco Berizzi wrote:
-> Andy Gay wrote:
-> 
-> >It's a function of the IPsec SADB.
-(That should have beed SPDB, of course... :)
+Andy Gay wrote:
 
->  The passthrough conn added a more
-> >specific policy that will match before the tunnel policy.
-> >You can run 'ip xfrm p' and 'ip xfrm s' to view the policies & state
-> >info.
-> 
-> I did, but no results:
-> 
-> ip x p | grep '172.16.1.253'
-> 
-> nor
-> 
-> ip x s | grep '172.16.1.253'
-> 
-As Herbert said, the right= address doesn't matter. Search for 10.180.
+>As Herbert said, the right= address doesn't matter. Search for 10.180.
 
-BTW - in your erlier mail you had "rightsubnet=10.180.0./16". Looks like
-a typo there.
+If it doesn't matter, who told to linux to send packets for
+10.180.0.0/16 to 172.16.1.253?
 
+>BTW - in your erlier mail you had "rightsubnet=10.180.0./16". Looks like
+>a typo there.
+
+yes it was a typo.
 
 
