@@ -1,43 +1,38 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Thu, 27 Jul 2006 11:54:19 -0700
-Message-ID: <20060727115419.0e25843f@localhost.localdomain>
-References: <1153966671.6904.71.camel@localhost.localdomain>
-	<20060726.221708.123400049.davem@davemloft.net>
-	<1153979173.6904.100.camel@localhost.localdomain>
-	<20060726.230028.00077989.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Hello, We have IP100A Linux driver need to submit to 2.6.x kernel
+Date: Thu, 27 Jul 2006 21:07:07 +0200
+Message-ID: <20060727190707.GA24157@electric-eye.fr.zoreil.com>
+References: <02fb01c6b147$b15b8fc0$4964a8c0@icplus.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, kuznet@ms2.inr.ac.ru, johnpol@2ka.mipt.ru,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:29617 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751948AbWG0Sy6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2006 14:54:58 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060726.230028.00077989.davem@davemloft.net>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:46042 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751055AbWG0TLC
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jul 2006 15:11:02 -0400
+To: Jesse Huang <jesse@icplus.com.tw>
+Content-Disposition: inline
+In-Reply-To: <02fb01c6b147$b15b8fc0$4964a8c0@icplus.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 26 Jul 2006 23:00:28 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Rusty Russell <rusty@rustcorp.com.au>
-> Date: Thu, 27 Jul 2006 15:46:12 +1000
+Jesse Huang <jesse@icplus.com.tw> :
+[...]
+> I am IC Plus software engineer. We have IP100A 10/100 fast network adapter
+> driver need to submit to Linux 2.6.x kernel. Please tell me who should I
+> submit to.
 > 
-> > Yes, my first thought back in January was how netfilter would interact
-> > with this in a sane way.  One answer is "don't": once someone registers
-> > on any hook we go into slow path.  Another is to run the hooks in socket
-> > context, which is better, but precludes having the consumer in
-> > userspace, which still appeals to me 8)
-> 
-> Small steps, small steps.  I have not ruled out userspace TCP just
-> yet, but we are not prepared to go there right now anyways.  It is
-> just the same kind of jump to go to kernel level netchannels as it is
-> to go from kernel level netchannels to userspace netchannel based TCP.
+> IP100A's device ID is 0x13f0 0200.
 
-I think we sell our existing stack short. There are lots of opportunities left
-to look more closely at actual real performance bottlenecks and improve
-incrementally. But it requires, tools, time, faster net hardware, and some
-creative insight. I guess it just isn't as cool.
+You do not need to do anything:
+
+http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=1668b19f75cb949f930814a23b74201ad6f76a53
+
+As far as I have checked before forwarding Pedro Alejandro's patch, the
+out-of-tree IP100 driver exhibited no significant difference with the
+sundance driver.
+
+-- 
+Ueimor
