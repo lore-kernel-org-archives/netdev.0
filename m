@@ -1,58 +1,76 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [PATCH] NET: fix kernel panic from no dev->hard_header_len space
-Date: Thu, 27 Jul 2006 15:56:40 +0200
-Message-ID: <m3zmevqhgn.fsf@defiant.localdomain>
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: Re: ipsec tunnel policy vs routing table
+Date: Thu, 27 Jul 2006 16:06:44 +0200
+Message-ID: <BAY103-F281E5B6AC611062170572AB2580@phx.gbl>
+References: <E1G63xV-0004LN-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>
+Content-Type: text/plain; format=flowed
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:59883 "EHLO khc.piap.pl")
-	by vger.kernel.org with ESMTP id S1751295AbWG0N4o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2006 09:56:44 -0400
-To: <netdev@vger.kernel.org>
+Received: from bay0-omc3-s38.bay0.hotmail.com ([65.54.246.238]:12982 "EHLO
+	bay0-omc3-s38.bay0.hotmail.com") by vger.kernel.org with ESMTP
+	id S1751329AbWG0OGs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jul 2006 10:06:48 -0400
+In-Reply-To: <E1G63xV-0004LN-00@gondolin.me.apana.org.au>
+To: herbert@gondor.apana.org.au
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Herbert Xu wrote:
 
-ip_output() ignores dev->hard_header_len if dev->hard_header
-function == NULL. It's inconsistent with the rest of the kernel. With
-some drivers it would mean instant panic, but we are usually saved by
-existence of the "default" header space.
+>Marco Berizzi <pupilla@hotmail.com> wrote:
+> >
+> > 172.16.0.0/23 dev eth2  proto kernel  scope link  src 172.16.1.1
+> > 10.180.0.0/16 via 172.16.1.253 dev eth2
+> > 10.0.0.0/8 via pub_ip dev eth0
+> > 127.0.0.0/8 dev lo  scope link
+> >
+> > I have noticed that packets for 10.180.0.0/16 network
+> > are eaten by the ipsec tunnel because the policy allow
+> > them. Is there a way to deliver packets for 10.180.0.0
+> > network to the 172.16.1.253 router (because the route
+> > to 10.180.0.0 is more specific than 10.0.0.0/8)?
+>
+>You need an IPsec pass action.  With Openswan you can do it with
+>something like
+>
+>conn pass
+>	left=%defaultroute
+>	# This should be the leftsubnet of your 10.0.0.0/8 connection.
+>	leftsubnet=0.0.0.0/0
+>	# This field doesn't really matter.
+>	right=172.16.1.253
+>	rightsubnet=10.180.0.0/16
+>         type=passthrough
+>         authby=never
+>         auto=route
 
-With some bad luck things like tun or IPsec may kill the box.
+Thanks for the tip Herbert.
+Ok I have inserted this section in openswan init
+file (ipsec.conf)
 
-A similar problem may be present in psched_mtu().
+conn pass
+	left=172.16.1.1
+	leftsubnet=172.16.0.0/23
+	right=172.16.1.253
+	rightsubnet=10.180.0./16
+	type=passthrough
+	authby=never
+	auto=route
 
-Please apply.
-I think it should then be applied to stable series as well.
+After running 'ipsec auto --add pass && ipsec auto
+--route pass' openswan has eaten my static route
+inserted by hand:
+route add -net 10.180.0.0/16 gw 172.16.1.253
+Here is 'ip r s' output after 'ipsec auto --route
+pass':
+172.16.0.0/23 dev eth2  proto kernel  scope link  src 172.16.1.1
+10.180.0.0/16 dev eth2  scope link
 
-Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+All if fine now. It isn't even needed anymore to
+insert the static route now, as it is placed by
+openswan. My question is how linux understand that
+it should send packets for 10.180.0.0/24 to the
+172.16.1.253 router.
 
-diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
-index b94d1ad..3ae64ba 100644
---- a/include/net/pkt_sched.h
-+++ b/include/net/pkt_sched.h
-@@ -234,8 +234,7 @@ extern int tc_classify(struct sk_buff *s
-  */
- static inline unsigned psched_mtu(struct net_device *dev)
- {
--	unsigned mtu = dev->mtu;
--	return dev->hard_header ? mtu + dev->hard_header_len : mtu;
-+	return dev->mtu + dev->hard_header_len;
- }
- 
- #endif
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index cff9c3a..f5d9051 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -169,7 +169,7 @@ static inline int ip_finish_output2(stru
- 	int hh_len = LL_RESERVED_SPACE(dev);
- 
- 	/* Be paranoid, rather than too clever. */
--	if (unlikely(skb_headroom(skb) < hh_len && dev->hard_header)) {
-+	if (unlikely(skb_headroom(skb) < hh_len)) {
- 		struct sk_buff *skb2;
- 
- 		skb2 = skb_realloc_headroom(skb, LL_RESERVED_SPACE(dev));
+
