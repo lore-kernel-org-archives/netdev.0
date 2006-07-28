@@ -1,48 +1,37 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/7] NetLabel: core network changes
-Date: Fri, 28 Jul 2006 20:58:25 +0200
-Message-ID: <20060728185825.GG14627@postel.suug.ch>
-References: <20060717155224.060020000@hp.com> <20060717155822.315389000@hp.com> <20060728112426.GE14627@postel.suug.ch> <44CA504C.6030207@hp.com> <20060728181225.GF14627@postel.suug.ch> <44CA59D8.4090702@hp.com>
+From: Zach Brown <zach.brown@oracle.com>
+Subject: Re: [RFC 1/4] kevent: core files.
+Date: Fri, 28 Jul 2006 12:01:28 -0700
+Message-ID: <44CA5F08.3080500@oracle.com>
+References: <20060709132446.GB29435@2ka.mipt.ru> <20060724.231708.01289489.davem@davemloft.net> <44C91192.4090303@oracle.com> <20060727205806.GD16971@kvack.org> <44C933D2.4040406@oracle.com> <20060727220238.GE16971@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, davem@davemloft.net,
-	sds@epoch.ncsc.mil, jmorris@redhat.com, pratt@argus-systems.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:238 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1161245AbWG1S6J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 14:58:09 -0400
-To: Paul Moore <paul.moore@hp.com>
-Content-Disposition: inline
-In-Reply-To: <44CA59D8.4090702@hp.com>
+Received: from tetsuo.zabbo.net ([207.173.201.20]:5099 "EHLO tetsuo.zabbo.net")
+	by vger.kernel.org with ESMTP id S1161239AbWG1TB3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 15:01:29 -0400
+To: Benjamin LaHaise <bcrl@kvack.org>
+In-Reply-To: <20060727220238.GE16971@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Paul Moore <paul.moore@hp.com> 2006-07-28 14:39
-> It sounds like you main concern is that I'm not using the netlink
-> attribute interfaces, yes?  I looked at using those originally but
-> decided not to use them for the following reasons:
-> 
->  1. They are listed as "optional" in the documents I read
->  2. They add at least an extra 32 bits to each attribute
->  3. There seems to be plenty of users in net/ipv4 who do not make
->     use of attributes (a *quick* look again reveals none)
->  4. Since I'm reading messages from userspace I can't trust the
->     message contents regardless of it's use of attributes
->  5. Harder to work with in userspace without using a netlink
->     library, which would create an extra dependency for tools which
->     talk to the NetLabel subsystem
-> 
-> Basically, I saw no requirement to use the netlink attributes and no
-> advantage so I didn't.  Is this reasonable, or do you feel the use of
-> attributes is a requirement?
 
-Not a requirement but I would encourage it. Almost all netlink
-families are using attributes with a few exceptions. We just
-used to call them rtattr defined in rtnetlink.h before the new
-api was added. There is one huge advantage in using attributes
-which is that your protocol is extendable without breaking binary
-interfaces.
+> Things were like that at one point in time, but file descriptors turn out 
+> to introduce a huge gaping security hole with SUID programs.  The problem 
+> is that any event context is closely tied to the address space of the 
+> thread issuing the syscalls, and file descriptors do not have this close 
+> binding.
 
-What I'm refering to primarly are the existing functions to write
-netlink and genetlink headers etc.
+Can you go into that hole in more detail?
 
+> Except that you're not usually pulling a full ring worth of events at a 
+> time, more often just one.
+
+OK, but then to wait for it you were already sleeping in the kernel, right?
+
+Clearly we should port httpd to kevents and take some measurements :)
+
+- z
