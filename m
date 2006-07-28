@@ -1,69 +1,40 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 driver problem with RTL8110SB chip (on iop3xx ARM board)
-Date: Fri, 28 Jul 2006 21:49:33 +0200
-Message-ID: <20060728194933.GA14222@electric-eye.fr.zoreil.com>
-References: <20060728101109.GA25854@xi.wantstofly.org> <20060728104946.GA6710@electric-eye.fr.zoreil.com> <20060728111534.GD25854@xi.wantstofly.org> <20060728115237.GF21733@deprecation.cyrius.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/7] NetLabel: core network changes
+Date: Fri, 28 Jul 2006 12:55:41 -0700 (PDT)
+Message-ID: <20060728.125541.78492222.davem@davemloft.net>
+References: <20060717155822.315389000@hp.com>
+	<20060728.005542.21593420.davem@davemloft.net>
+	<44CA5B61.3010704@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, sds@epoch.ncsc.mil,
+	jmorris@redhat.com, pratt@argus-systems.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:4062 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1161190AbWG1Ttp
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jul 2006 15:49:45 -0400
-To: Martin Michlmayr <tbm@cyrius.com>
-Content-Disposition: inline
-In-Reply-To: <20060728115237.GF21733@deprecation.cyrius.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:32211
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030286AbWG1Tzl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jul 2006 15:55:41 -0400
+To: paul.moore@hp.com
+In-Reply-To: <44CA5B61.3010704@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Martin Michlmayr <tbm@cyrius.com> :
-[...]
-> Here's the output using the r8169 driver:
-> 
-> RealTek RTL-8110 registers:
-> ------------------------------
+From: Paul Moore <paul.moore@hp.com>
+Date: Fri, 28 Jul 2006 14:45:53 -0400
 
-The (untested) patch below should apply to the source code that Realtek
-included in linux-r1000(103).zip, wherence supporting the extraction
-of the same info.
+> I'm happy to drop this hook as it *looks* like the MLSXFRM patchset is
+> going to make it which has some of the accept hooks I was hoping to get,
+> but figured I stood a "snowballs chance in hell" trying to get it in
+> solely for use with CIPSO :)  I'll drop this on the next release of the
+> NetLabel patchset and assuming both the NetLabel and the MLSXFRM
+> patchset make it into the 2.6.19 release I'll issue another small
+> patchset then to integrate into the new LSM hooks for accept.  I'd do it
+> now but I think it would cause too much of a mess with patch
+> dependencies/collisions/etc.
 
---- r1000/src/r1000_ioctl.c	2006-07-28 21:35:25.000000000 +0200
-+++ r1000/src/r1000_ioctl.c	2006-07-28 21:38:17.000000000 +0200
-@@ -4,6 +4,27 @@ extern int R1000_READ_GMII_REG(unsigned 
- extern int R1000_WRITE_GMII_REG(unsigned long ioaddr, int RegAddr, int value);
- extern int r1000_set_speed_duplex(unsigned long ioaddr, unsigned long anar, unsigned long gbcr, unsigned long bmcr);
- 
-+#define R1000_REGS_SIZE 256
-+
-+static int r1000_get_regs_len(struct net_device *dev)
-+{
-+	return R1000_REGS_SIZE;
-+}
-+
-+static void r1000_get_regs(struct net_device *dev, struct ethtool_regs *regs,
-+			   void *p)
-+{
-+	struct r1000_private *priv = netdev_priv(dev);
-+	unsigned long flags;
-+
-+	if (regs->len > R1000_REGS_SIZE)
-+		regs->len = R1000_REGS_SIZE;
-+
-+	spin_lock_irqsave(&priv->lock, flags);
-+	memcpy_fromio(p, (void __iomem *)priv->ioaddr, regs->len);
-+	spin_unlock_irqrestore(&priv->lock, flags);
-+}
-+
- static int ethtool_get_settings(struct net_device *netdev,struct ethtool_cmd *ecmd){
- 	struct r1000_private *priv = (struct r1000_private *)(netdev->priv);
- 	unsigned long ioaddr = priv->ioaddr;
-@@ -136,6 +157,8 @@ int ethtool_ioctl(struct ifreq *ifr){
- 
- #if LINUX_VERSION_CODE > KERNEL_VERSION(2,5,0)
- struct ethtool_ops r1000_ethtool_ops = {
-+	.get_regs_len	= r1000_get_regs_len,
-+	.get_regs	= r1000_get_regs,
- 	.get_settings	= ethtool_get_settings,
- 	.set_settings	= ethtool_set_settings,
- };
+The MLSXFRM stuff is already queued up in my 2.6.19 tree at:
+
+	master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.19.git
+
+so you can make your work relative to that if you wish.
