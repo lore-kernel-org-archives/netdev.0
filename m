@@ -1,70 +1,81 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Regarding offloading IPv6 addrconf and ndisc
-Date: Thu, 27 Jul 2006 21:07:38 -0700
-Message-ID: <20060727210738.36f33436@localhost.localdomain>
-References: <20060728014528.GB29313@innerghost.net>
-	<20060727.192743.39159331.davem@davemloft.net>
-	<20060728031322.GE29313@innerghost.net>
-	<20060727.202044.85689055.davem@davemloft.net>
-	<20060728033132.GF29313@innerghost.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: Netchannles: first stage has been completed. Further ideas.
+Date: Fri, 28 Jul 2006 14:49:24 +1000
+Message-ID: <1154062165.5159.76.camel@localhost.localdomain>
+References: <20060718081625.GA13830@2ka.mipt.ru>
+	 <20060718230121.GA31474@ms2.inr.ac.ru>
+	 <1153966671.6904.71.camel@localhost.localdomain>
+	 <20060726.221708.123400049.davem@davemloft.net>
+	 <1153979173.6904.100.camel@localhost.localdomain>
+	 <20060727163335.GA12944@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	kazunori@miyazawa.org, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Cc: David Miller <davem@davemloft.net>, johnpol@2ka.mipt.ru,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:62164 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751863AbWG1EIg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 00:08:36 -0400
-To: Hugo Santos <hsantos@av.it.pt>
-In-Reply-To: <20060728033132.GF29313@innerghost.net>
+Received: from ozlabs.tip.net.au ([203.10.76.45]:57275 "EHLO ozlabs.org")
+	by vger.kernel.org with ESMTP id S1751892AbWG1Eta (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 00:49:30 -0400
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <20060727163335.GA12944@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 28 Jul 2006 04:31:32 +0100
-Hugo Santos <hsantos@av.it.pt> wrote:
-
-> On Thu, Jul 27, 2006 at 08:20:44PM -0700, David Miller wrote:
-> > 
-> > Now, if you're saying that, in response to a NDISC packet, we might
-> > have to go out and obtain the certificate, before we can process
-> > the NDISC packet.  This is a different issue.  Is that how this
-> > secure NDISC works?  Or does the system obtain all the certificates
-> > first, by some other means, and then either it can certify an NDISC
-> > frame immediately or it can't?
+On Thu, 2006-07-27 at 20:33 +0400, Alexey Kuznetsov wrote:
+> Hello!
 > 
->    It might happen that the host must ask the router for a Certification
->  Path by receiving a Router Advertisement. More specifically, RFC 3971
->  Section 6.4.6. 'Processing Rules for Hosts' states the following:
+> On Thu, Jul 27, 2006 at 03:46:12PM +1000, Rusty Russell wrote:
+> > Of course, it means rewriting all the userspace tools, documentation,
+> > and creating a complete new infrastructure for connection tracking and
+> > NAT, but if that's what's required, then so be it.
 > 
->       The host SHOULD retrieve a certification path when a Router
->       Advertisement has been received with a public key that is not
->       available from a certificate in the hosts' cache, or when there is
->       no certification path to one of the host's trust anchors.  In
->       these situations, the host MAY send a Certification Path
->       Solicitation message to retrieve the path.  If there is no
->       response within CPS_RETRY seconds, the message should be retried.
->       The wait interval for each subsequent retransmission MUST
->       exponentially increase, doubling each time.  If there is no
->       response after CPS_RETRY_MAX seconds, the host abandons the
->       certification path retrieval process. (...)
+> That's what I love to hear. Not a joke. :-)
 > 
->    If no certification path is established, the RA must be treated as
->  unsecure. Secure prefixes are given preference over non-secure ones so
->  it might cause problems.
+> Could I only suggest not to relate this to netchannels? :-)
+> In the past we used to call this thing (grand-unified) "flow cache".
+
+Yes.  Thankyou for all your explanation, it was very helpful.  I agree,
+grand unified lookup idea returns 8).  Netchannels proposal vs.
+netfilter forced me back into thinking about it again, but it is
+unrelated.  Any "netfilter bypass" acceleration will want similar ideas.
+
+I apologize for misreading your discussion of Evgeniy's implementation
+with general channel problem.  My mistake.  
+
+> > userspace), no dequeue lock is required.
 > 
->    Hugo
+> And that was a part of the second question.
+> 
+> I do not see, how single threaded TCP is possible. In receiver path
+> it has to ack with quite strict time bounds, to delack etc., in sender path
+> it has to slow start, I am even not saying about "slow path" things:
+> retransmit, probing window, lingering without process context etc.
+> It looks like, VJ implies the protocol must be changed. We can't, we mustn't.
 
-A couple of basic questions:
-1. Can we just proceed assuming it is non-secure until a later time when
-   the certificate path is established?
-2. What if user process dies? or gets overwhelmed?
-   One of the assumptions of the any well designed kernel is that the system should never
-   hang because some user application died or waited for ever.
+All good points.  I can see two kinds of problems here: performance
+problems due to wakeup (eg. ack processing for 5MB write), and
+correctness problems due to no kernel enforcement.  We need measurements
+for the performance issues, so I'll ignore them for the moment.
 
-   
+For correctness, in true end-to-end, kernel is just a router for
+userspace, then we do not worry about such problems 8)  In real life
+kernel must enforce linger and sending tuple correctness, but I don't
+know how much else we must regulate.  Too much, and you are right: we
+have slow and fast path split just like now.
 
+> After we deidealize this idealization and recognize that some "slow path"
+> should exist and some part of this "slow path" has to be executed
+> with higher priority than the "fast" one, where do we arrive?
+> Is not it exactly what we have right now? Clean fast path, separate slow path.
+> Not good enough? Where? Let's find and fix this.
+
+I am still not sure how significant slow path is: if 99% can be in
+userspace, it could work very well for RDMA.  I would like to have seen
+VJ's implementation so we could compare and steal bits.
+
+Thanks,
+Rusty.
 -- 
-If one would give me six lines written by the hand of the most honest
-man, I would find something in them to have him hanged. -- Cardinal Richlieu
+Help! Save Australia from the worst of the DMCA: http://linux.org.au/law
+
