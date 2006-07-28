@@ -1,48 +1,47 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCHv2 2.6.18-rc1-mm2 1/3] net: UDP-Lite generic support
-Date: Fri, 28 Jul 2006 09:19:55 +0100
-Message-ID: <200607280919.55482@strip-the-willow>
-References: <200607141719.02766@strip-the-willow> <20060727.223010.63131639.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Netchannles: first stage has been completed. Further ideas.
+Date: Fri, 28 Jul 2006 01:21:50 -0700 (PDT)
+Message-ID: <20060728.012150.45740322.davem@davemloft.net>
+References: <1153979173.6904.100.camel@localhost.localdomain>
+	<20060726.230028.00077989.davem@davemloft.net>
+	<20060727115419.0e25843f@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, kaber@coreworks.de, pekkas@netcore.fi,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: rusty@rustcorp.com.au, kuznet@ms2.inr.ac.ru, johnpol@2ka.mipt.ru,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:10884 "EHLO erg.abdn.ac.uk")
-	by vger.kernel.org with ESMTP id S932585AbWG1IVJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 04:21:09 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060727.223010.63131639.davem@davemloft.net>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:17031
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932594AbWG1IWL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jul 2006 04:22:11 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060727115419.0e25843f@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Thu, 27 Jul 2006 11:54:19 -0700
 
-thank you very much for taking time to revise the code 
-and for the detailed comments.
+> I think we sell our existing stack short.
 
+I agree.
 
-|  The amount of code duplication is absolutely enormous and
-|  totally unnecessary.
-You are right. 
-So far I thought it better to keep UDP and UDP-Lite separate but an
-intelligent code integration does seem the better way.
+> There are lots of opportunities left to look more closely at actual
+> real performance bottlenecks and improve incrementally. But it
+> requires, tools, time, faster net hardware, and some creative
+> insight. I guess it just isn't as cool.
 
+We are in fact suggesting some ideas that address the current
+stack issues along the way.  Witness the discussion we had about
+the tcp_ack() costs wrt. pruning the retransmit queue and tagging
+packets for SACK, I'm working on a new data structure and layout
+to cure all that stuff.
 
-<snip>
-|  It's mostly clerical work, but it will mean that we will have one
-|  copy of all this code and as a result we won't even need a config
-|  option for UDP-Lite.
+But I think we can do better.  Jamal said to me one email, "If even
+only half of Van's numbers are real, this is really exciting."
 
-I will start with the v4-side and post a small RFC patch to see whether
-I got the concepts right. (Due to vacation, this will not before mid/end 
-of August.)
-
-
-
-Best regards
-Gerrit
+Rusty and Alexey are looking at the problem from another direction.
+Go back to the unified flow cache, implement all the hair to do
+that, and then we can look at netchannels because they will be so
+much more straight forward at that point.
