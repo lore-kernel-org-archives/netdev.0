@@ -1,50 +1,34 @@
-From: David Miller <davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Subject: Re: [RFC] [IPV6] ADDRCONF: Lifetime handling fixes
-Date: Fri, 28 Jul 2006 01:11:03 -0700 (PDT)
-Message-ID: <20060728.011103.21926965.davem@davemloft.net>
-References: <20060727.185726.133626295.yoshfuji@linux-ipv6.org>
-	<20060727102802.GM6026@innerghost.net>
+Date: Fri, 28 Jul 2006 17:18:18 +0900 (JST)
+Message-ID: <20060728.171818.37443466.yoshfuji@linux-ipv6.org>
+References: <20060727102802.GM6026@innerghost.net>
 	<20060727.194929.796987341.takamiya@po.ntts.co.jp>
+	<20060728.011103.21926965.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hsantos@av.it.pt, yoshfuji@linux-ipv6.org, vnuorval@tcs.hut.fi,
+Cc: takamiya@po.ntts.co.jp, hsantos@av.it.pt, vnuorval@tcs.hut.fi,
 	anttit@tcs.hut.fi, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+	usagi-core@linux-ipv6.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30404
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1161092AbWG1ILY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jul 2006 04:11:24 -0400
-To: takamiya@po.ntts.co.jp
-In-Reply-To: <20060727.194929.796987341.takamiya@po.ntts.co.jp>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:7943 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S932588AbWG1IQx
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jul 2006 04:16:53 -0400
+To: davem@davemloft.net
+In-Reply-To: <20060728.011103.21926965.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-Date: Thu, 27 Jul 2006 19:49:29 +0900 (JST)
+In article <20060728.011103.21926965.davem@davemloft.net> (at Fri, 28 Jul 2006 01:11:03 -0700 (PDT)), David Miller <davem@davemloft.net> says:
 
-> >> Thu, 27 Jul 2006 11:28:02 +0100
-> >> [Subject: Re: [RFC] [IPV6] ADDRCONF: Lifetime handling fixes] wrote...
-> >> Hugo Santos <hsantos@av.it.pt> wrote...
+> Besides this correction, the rest of the changes look fine to me.
+> I think we should get these fixes into 2.6.18, if you don't mind.
 > 
-> > > +	ifp = ipv6_get_ifaddr(pfx, dev, 1);
-> > > +	if (ifp == NULL)
-> > > +		return -ENOENT;
-> > > +
-> > > +	if (!valid_lft || (prefered_lft > valid_lft))
-> > > +		return -EINVAL;
-> >                 ^^^^^^^^^^^^^^^
-> > 
-> >    Unreleased ifp? This test should go before ipv6_get_ifaddr.
-> 
->   That's right. Thanks.
+> So please resubmit with the correction.
 
-Thank you Takamiya-san.
+Okay. I'll do this soon.
 
-Besides this correction, the rest of the changes look fine to me.
-I think we should get these fixes into 2.6.18, if you don't mind.
-
-So please resubmit with the correction.
-
-Thanks again.
+--yoshfuji
