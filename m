@@ -1,43 +1,83 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Debugging kernel lockups during network activity
-Date: Fri, 28 Jul 2006 16:39:10 +0200
-Message-ID: <44CA218E.6040502@o2.pl>
-References: <20060727181943.GD23091@artsapartment.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: PATCH Fix bonding active-backup behavior for VLAN interfaces
+Date: Fri, 28 Jul 2006 09:01:20 -0700
+Message-ID: <44CA34D0.1070507@candelatech.com>
+References: <20060728094421.GA14903@walrus.eth1.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:44702 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S1161178AbWG1Oid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 10:38:33 -0400
-Received: from [192.168.100.10] (bv170.internetdsl.tpnet.pl [80.53.205.170])
-	by poczta.o2.pl (Postfix) with ESMTP id 4341E7480D8
-	for <netdev@vger.kernel.org>; Fri, 28 Jul 2006 16:38:32 +0200 (CEST)
-To: netdev@vger.kernel.org
-In-Reply-To: <20060727181943.GD23091@artsapartment.org>
+Received: from ns2.lanforge.com ([66.165.47.211]:40361 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S1752003AbWG1QBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 12:01:24 -0400
+To: Christophe Devriese <christophe.devriese@eth1.org>
+In-Reply-To: <20060728094421.GA14903@walrus.eth1.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 27-07-2006 20:19, Art Haas wrote:
-> Hi.
+This patch by itself does nothing useful, other than remove a method.
+
+If we assume you did the patch backwards, and wanted to add the method
+instead, then where is this method ever called?
+
+Ben
+
+
+Christophe Devriese wrote:
+> diff -rU3 linux-2.6.17.7/net/core/dev.c linux-2.6.17.7-wapper/net/core/dev.c
+> --- linux-2.6.17.7/net/core/dev.c       2006-07-25 05:36:01.000000000 +0200
+> +++ linux-2.6.17.7-wapper/net/core/dev.c        2006-07-27 20:16:36.000000000 +0200
+> @@ -88,6 +88,7 @@
+>  #include <linux/sockios.h>
+>  #include <linux/errno.h>
+>  #include <linux/interrupt.h>
+> +#include <linux/if_bonding.h>
+>  #include <linux/if_ether.h>
+>  #include <linux/netdevice.h>
+>  #include <linux/etherdevice.h>
+> @@ -1518,37 +1519,6 @@
 > 
-> I've got Fedora Rawhide running on a SMP PIII machine, and the latest
-> kernels from Fedora have been locking up when I run 'yum update' to
-> get the latest packages. I also experience lock-ups when I use
-> Firefox to do some web browsing. Not all my network usage results in a
-> lockup, however. I can usually do 'git pull' and update git itself or
-> my copy of Linus' kernel tree without problems, as well as update my
-> GCC repo with subversion and Mozilla with cvs. I realize that running
-> Fedora Rawhide means when things break I can keep the pieces, so
-> the lockups or other occasional issues are not unexpected.
+>  EXPORT_SYMBOL(netif_rx_ni);
+> 
+> -static inline struct net_device *skb_bond(struct sk_buff *skb)
+> -{
+> -       struct net_device *dev = skb->dev;
+> -
+> -       if (dev->master) {
+> -               /*
+> -                * On bonding slaves other than the currently active
+> -                * slave, suppress duplicates except for 802.3ad
+> -                * ETH_P_SLOW and alb non-mcast/bcast.
+> -                */
+> -               if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
+> -                       if (dev->master->priv_flags & IFF_MASTER_ALB) {
+> -                               if (skb->pkt_type != PACKET_BROADCAST &&
+> -                                   skb->pkt_type != PACKET_MULTICAST)
+> -                                       goto keep;
+> -                       }
+> -
+> -                       if (dev->master->priv_flags & IFF_MASTER_8023AD &&
+> -                           skb->protocol == __constant_htons(ETH_P_SLOW))
+> -                               goto keep;
+> -
+> -                       kfree_skb(skb);
+> -                       return NULL;
+> -               }
+> -keep:
+> -               skb->dev = dev->master;
+> -       }
+> -
+> -       return dev;
+> -}
+> -
+>  static void net_tx_action(struct softirq_action *h)
+>  {
+>         struct softnet_data *sd = &__get_cpu_var(softnet_data);
+> 
 
-I don't know the numbers of this kernels, but did you try 
-linux-2.6.18-rc2.
 
-It has some great patch to queue scheduler by Hubert Xu. I think 
-it is some Gnu/miracle that it has been working (mostly) under 
-heavy load without this patch.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
-But there are also other possibilities...
-
-Jarek P.
