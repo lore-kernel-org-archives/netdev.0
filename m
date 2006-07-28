@@ -1,200 +1,152 @@
 From: Steve Wise <swise@opengridcomputing.com>
-Subject: [PATCH Round 5 2/3] Core net changes to generate netevents
-Date: Fri, 28 Jul 2006 13:29:09 -0500
-Message-ID: <20060728182909.14325.2628.stgit@stevo-desktop>
+Subject: [PATCH Round 5 1/3] Network Event Notifier Mechanism.
+Date: Fri, 28 Jul 2006 13:28:59 -0500
+Message-ID: <20060728182859.14325.86842.stgit@stevo-desktop>
 References: <20060728182849.14325.62898.stgit@stevo-desktop>
 Content-Type: text/plain; charset=utf-8; format=fixed
 Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org, openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rrcs-24-153-218-104.sw.biz.rr.com ([24.153.218.104]:35300 "EHLO
-	linux.local") by vger.kernel.org with ESMTP id S1751254AbWG1S3U
+Received: from rrcs-24-153-218-104.sw.biz.rr.com ([24.153.218.104]:33508 "EHLO
+	linux.local") by vger.kernel.org with ESMTP id S1751257AbWG1S3K
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jul 2006 14:29:20 -0400
+	Fri, 28 Jul 2006 14:29:10 -0400
 To: davem@davemloft.net, rdreier@cisco.com
 In-Reply-To: <20060728182849.14325.62898.stgit@stevo-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Generate netevents for:
-- neighbour changes
-- routing redirects
-- pmtu changes
+This patch uses notifier blocks to implement a network event
+notifier mechanism.
+
+Clients register their callback function by calling
+register_netevent_notifier() like this:
+
+static struct notifier_block nb = {
+        .notifier_call = my_callback_func
+};
+
+...
+
+register_netevent_notifier(&nb);
 ---
 
- net/core/Makefile    |    2 +-
- net/core/neighbour.c |   14 ++++++++------
- net/ipv4/route.c     |    8 ++++++++
- net/ipv6/route.c     |    7 +++++++
- 4 files changed, 24 insertions(+), 7 deletions(-)
+ include/net/netevent.h |   33 +++++++++++++++++++++++
+ net/core/netevent.c    |   69 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 102 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/Makefile b/net/core/Makefile
-index e9bd246..2645ba4 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -7,7 +7,7 @@ obj-y := sock.o request_sock.o skbuff.o 
- 
- obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
- 
--obj-y		     += dev.o ethtool.o dev_mcast.o dst.o \
-+obj-y		     += dev.o ethtool.o dev_mcast.o dst.o netevent.o \
- 			neighbour.o rtnetlink.o utils.o link_watch.o filter.o
- 
- obj-$(CONFIG_XFRM) += flow.o
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 7ad681f..5130d2e 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -29,6 +29,7 @@ #include <linux/times.h>
- #include <net/neighbour.h>
- #include <net/dst.h>
- #include <net/sock.h>
-+#include <net/netevent.h>
- #include <linux/rtnetlink.h>
- #include <linux/random.h>
- #include <linux/string.h>
-@@ -754,6 +755,7 @@ #endif
- 			neigh->nud_state = NUD_STALE;
- 			neigh->updated = jiffies;
- 			neigh_suspect(neigh);
-+			notify = 1;
- 		}
- 	} else if (state & NUD_DELAY) {
- 		if (time_before_eq(now, 
-@@ -762,6 +764,7 @@ #endif
- 			neigh->nud_state = NUD_REACHABLE;
- 			neigh->updated = jiffies;
- 			neigh_connect(neigh);
-+			notify = 1;
- 			next = neigh->confirmed + neigh->parms->reachable_time;
- 		} else {
- 			NEIGH_PRINTK2("neigh %p is probed.\n", neigh);
-@@ -819,6 +822,8 @@ #endif
- out:
- 		write_unlock(&neigh->lock);
- 	}
-+	if (notify)
-+		call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, neigh);
- 
- #ifdef CONFIG_ARPD
- 	if (notify && neigh->parms->app_probes)
-@@ -926,9 +931,7 @@ int neigh_update(struct neighbour *neigh
- {
- 	u8 old;
- 	int err;
--#ifdef CONFIG_ARPD
- 	int notify = 0;
--#endif
- 	struct net_device *dev;
- 	int update_isrouter = 0;
- 
-@@ -948,9 +951,7 @@ #endif
- 			neigh_suspect(neigh);
- 		neigh->nud_state = new;
- 		err = 0;
--#ifdef CONFIG_ARPD
- 		notify = old & NUD_VALID;
--#endif
- 		goto out;
- 	}
- 
-@@ -1022,9 +1023,7 @@ #endif
- 		if (!(new & NUD_CONNECTED))
- 			neigh->confirmed = jiffies -
- 				      (neigh->parms->base_reachable_time << 1);
--#ifdef CONFIG_ARPD
- 		notify = 1;
--#endif
- 	}
- 	if (new == old)
- 		goto out;
-@@ -1056,6 +1055,9 @@ out:
- 			(neigh->flags & ~NTF_ROUTER);
- 	}
- 	write_unlock_bh(&neigh->lock);
+diff --git a/include/net/netevent.h b/include/net/netevent.h
+new file mode 100644
+index 0000000..e5d2162
+--- /dev/null
++++ b/include/net/netevent.h
+@@ -0,0 +1,33 @@
++#ifndef _NET_EVENT_H
++#define _NET_EVENT_H
 +
-+	if (notify)
-+		call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, neigh);
- #ifdef CONFIG_ARPD
- 	if (notify && neigh->parms->app_probes)
- 		neigh_app_notify(neigh);
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 2dc6dbb..19bd49d 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -104,6 +104,7 @@ #include <net/tcp.h>
- #include <net/icmp.h>
- #include <net/xfrm.h>
- #include <net/ip_mp_alg.h>
-+#include <net/netevent.h>
- #ifdef CONFIG_SYSCTL
- #include <linux/sysctl.h>
- #endif
-@@ -1125,6 +1126,7 @@ void ip_rt_redirect(u32 old_gw, u32 dadd
- 	struct rtable *rth, **rthp;
- 	u32  skeys[2] = { saddr, 0 };
- 	int  ikeys[2] = { dev->ifindex, 0 };
-+	struct netevent_redirect netevent;
- 
- 	if (!in_dev)
- 		return;
-@@ -1216,6 +1218,11 @@ void ip_rt_redirect(u32 old_gw, u32 dadd
- 					rt_drop(rt);
- 					goto do_next;
- 				}
-+				
-+				netevent.old = &rth->u.dst;
-+				netevent.new = &rt->u.dst;
-+				call_netevent_notifiers(NETEVENT_REDIRECT, 
-+						        &netevent);
- 
- 				rt_del(hash, rth);
- 				if (!rt_intern_hash(hash, rt, &rt))
-@@ -1452,6 +1459,7 @@ static void ip_rt_update_pmtu(struct dst
- 		}
- 		dst->metrics[RTAX_MTU-1] = mtu;
- 		dst_set_expires(dst, ip_rt_mtu_expires);
-+		call_netevent_notifiers(NETEVENT_PMTU_UPDATE, dst);
- 	}
- }
- 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 87c39c9..4b16371 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -53,6 +53,7 @@ #include <net/tcp.h>
- #include <linux/rtnetlink.h>
- #include <net/dst.h>
- #include <net/xfrm.h>
-+#include <net/netevent.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -742,6 +743,7 @@ static void ip6_rt_update_pmtu(struct ds
- 			dst->metrics[RTAX_FEATURES-1] |= RTAX_FEATURE_ALLFRAG;
- 		}
- 		dst->metrics[RTAX_MTU-1] = mtu;
-+		call_netevent_notifiers(NETEVENT_PMTU_UPDATE, dst);
- 	}
- }
- 
-@@ -1155,6 +1157,7 @@ void rt6_redirect(struct in6_addr *dest,
- 	struct rt6_info *rt, *nrt = NULL;
- 	int strict;
- 	struct fib6_node *fn;
-+	struct netevent_redirect netevent;
- 
- 	/*
- 	 * Get the "current" route for this destination and
-@@ -1252,6 +1255,10 @@ restart:
- 	if (ip6_ins_rt(nrt, NULL, NULL, NULL))
- 		goto out;
- 
-+	netevent.old = &rt->u.dst;
-+	netevent.new = &nrt->u.dst;
-+	call_netevent_notifiers(NETEVENT_REDIRECT, &netevent);
++/*
++ *	Generic netevent notifiers
++ *
++ *	Authors:
++ *      Tom Tucker              <tom@opengridcomputing.com>
++ *      Steve Wise              <swise@opengridcomputing.com>
++ *
++ * 	Changes:
++ */
++#ifdef __KERNEL__
 +
- 	if (rt->rt6i_flags&RTF_CACHE) {
- 		ip6_del_rt(rt, NULL, NULL, NULL);
- 		return;
++#include <net/dst.h>
++
++struct netevent_redirect {
++	struct dst_entry *old;
++	struct dst_entry *new;
++};
++
++enum netevent_notif_type {
++	NETEVENT_NEIGH_UPDATE = 1, /* arg is struct neighbour ptr */
++	NETEVENT_PMTU_UPDATE,	   /* arg is struct dst_entry ptr */
++	NETEVENT_REDIRECT,	   /* arg is struct netevent_redirect ptr */
++};
++
++extern int register_netevent_notifier(struct notifier_block *nb);
++extern int unregister_netevent_notifier(struct notifier_block *nb);
++extern int call_netevent_notifiers(unsigned long val, void *v);
++
++#endif
++#endif
+diff --git a/net/core/netevent.c b/net/core/netevent.c
+new file mode 100644
+index 0000000..35d02c3
+--- /dev/null
++++ b/net/core/netevent.c
+@@ -0,0 +1,69 @@
++/*
++ *	Network event notifiers
++ *
++ *	Authors:
++ *      Tom Tucker             <tom@opengridcomputing.com>
++ *      Steve Wise             <swise@opengridcomputing.com>
++ *
++ *	This program is free software; you can redistribute it and/or
++ *      modify it under the terms of the GNU General Public License
++ *      as published by the Free Software Foundation; either version
++ *      2 of the License, or (at your option) any later version.
++ *
++ *	Fixes:
++ */
++
++#include <linux/rtnetlink.h>
++#include <linux/notifier.h>
++
++static ATOMIC_NOTIFIER_HEAD(netevent_notif_chain);
++
++/**
++ *	register_netevent_notifier - register a netevent notifier block
++ *	@nb: notifier
++ *
++ *	Register a notifier to be called when a netevent occurs.
++ *	The notifier passed is linked into the kernel structures and must
++ *	not be reused until it has been unregistered. A negative errno code
++ *	is returned on a failure.
++ */
++int register_netevent_notifier(struct notifier_block *nb)
++{
++	int err;
++
++	err = atomic_notifier_chain_register(&netevent_notif_chain, nb);
++	return err;
++}
++
++/**
++ *	netevent_unregister_notifier - unregister a netevent notifier block
++ *	@nb: notifier
++ *
++ *	Unregister a notifier previously registered by
++ *	register_neigh_notifier(). The notifier is unlinked into the
++ *	kernel structures and may then be reused. A negative errno code
++ *	is returned on a failure.
++ */
++
++int unregister_netevent_notifier(struct notifier_block *nb)
++{
++	return atomic_notifier_chain_unregister(&netevent_notif_chain, nb);
++}
++
++/**
++ *	call_netevent_notifiers - call all netevent notifier blocks
++ *      @val: value passed unmodified to notifier function
++ *      @v:   pointer passed unmodified to notifier function
++ *
++ *	Call all neighbour notifier blocks.  Parameters and return value
++ *	are as for notifier_call_chain().
++ */
++
++int call_netevent_notifiers(unsigned long val, void *v)
++{
++	return atomic_notifier_call_chain(&netevent_notif_chain, val, v);
++}
++
++EXPORT_SYMBOL_GPL(register_netevent_notifier);
++EXPORT_SYMBOL_GPL(unregister_netevent_notifier);
++EXPORT_SYMBOL_GPL(call_netevent_notifiers);
