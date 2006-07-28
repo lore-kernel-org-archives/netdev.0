@@ -1,70 +1,33 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [RFC 6/8] NetLabel: CIPSOv4 integration
-Date: Fri, 28 Jul 2006 14:10:20 -0400
-Message-ID: <44CA530C.9040803@hp.com>
-References: <20060622224910.885573000@flek.zko.hp.com>	 <20060622225410.521216000@flek.zko.hp.com> <1154087670.5165.36.camel@jzny2>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/7] NetLabel: core network changes
+Date: Fri, 28 Jul 2006 20:12:25 +0200
+Message-ID: <20060728181225.GF14627@postel.suug.ch>
+References: <20060717155224.060020000@hp.com> <20060717155822.315389000@hp.com> <20060728112426.GE14627@postel.suug.ch> <44CA504C.6030207@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, davem@davemloft.net,
+	sds@epoch.ncsc.mil, jmorris@redhat.com, pratt@argus-systems.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:10382 "EHLO atlrel8.hp.com")
-	by vger.kernel.org with ESMTP id S1161208AbWG1SKV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 14:10:21 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1154087670.5165.36.camel@jzny2>
+Received: from postel.suug.ch ([194.88.212.233]:57836 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1161209AbWG1SMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 14:12:05 -0400
+To: Paul Moore <paul.moore@hp.com>
+Content-Disposition: inline
+In-Reply-To: <44CA504C.6030207@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jamal Hadi Salim wrote:
-> On Thu, 2006-22-06 at 18:49 -0400, paul.moore@hp.com wrote:
->>+/**
->>+ * netlbl_cipsov4_rcv - Process incoming NetLabel packets
->>+ * @skb: the NETLINK buffer
->>+ * @msg: pointer to the start of the NetLabel data
->>+ *
->>+ * Description:
->>+ * This function is reponsibile for reading all of the incoming CIPSO V4
->>+ * NetLabel traffic and dispatching it to the correct CIPSO V4 functions.
->>+ *
->>+ */
->>+void netlbl_cipsov4_rcv(const struct sk_buff *skb, const unsigned char *msg)
->>+{
->>+	int ret_val;
->>+	struct netlbl_cipsov4_msghdr *nl_cv4_hdr;
->>+
->>+	if (nlmsg_len((struct nlmsghdr *)skb->data) <
->>+	    sizeof(struct netlbl_cipsov4_msghdr)) {
->>+		netlbl_cipsov4_send_ack(skb, EINVAL);
->>+		return;
->>+	}
->>+
->>+	nl_cv4_hdr = (struct netlbl_cipsov4_msghdr *)msg;
->>+	switch (nl_cv4_hdr->opcode) {
->>+	case NL_CV4_ADD:
+* Paul Moore <paul.moore@hp.com> 2006-07-28 13:58
+> I'm  a little confused by your comment, could you be a bit more
+> specific?  Are you basing your comment strictly on the text above?  If
+> so, the problem may be my poor excuse for documentation rather then my
+> poor excuse for implementation :)
 > 
-> Could you not have had all these NL_CV4_CMDs as just TLVs?
-> This is just the classical way of how we do things.
-> This would allow you to send multiple cmds in one message as well as 
-> very easily add new ones in the future.
+> I am using the generic netlink interface, in what I believe to be a
+> "correct" fashion - please correct me if I'm wrong.
 
-I think you are looking at an older patchset, which is most likely my
-fault for not clearly marking each patch set with a datestamp or version
-number.  I will fix that in next release.
-
-Anyway, back to your comment - this function no longer exists in the
-current patchset.  All of the different "commands" specified by NL_CV4_*
-are now "operations" registered with the genetlink interface.  It's not
-the TLV solution you mention but it seems to be inline with how the
-generic netlink interface works.
-
-> BTW, can you please repost your latest changes to netdev?
-
-Yes I will, but not much has changed from my last patchset posted to
-netdev (although quite a bit has changed since the patchset you are
-looking at).  I'm in the middle of moving/unpacking right now so it may
-not get posted until sometime this weekend, although I try for today.
-
--- 
-paul moore
-linux security @ hp
+The netlink bits are spread around all patches so I just quoted
+on this comment. By adding functions like netlbl_align(),
+netlbl_put_u8(), netlbl_put_hdr() writing a netlink header
+etc. you are just duplicating the already existing interfaces
+found in net/netlink.h and net/genetlink.h.
