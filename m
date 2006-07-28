@@ -1,107 +1,53 @@
-From: Martin Josefsson <gandalf@wlug.westbo.se>
-Subject: Re: [RESEND 3/5] [NET]: Protocol Independant Policy Routing Rules
-	Framework
-Date: Fri, 28 Jul 2006 11:25:27 +0200
-Message-ID: <1154078728.23563.21.camel@localhost.localdomain>
-References: <20060726221100.325687073@postel.suug.ch>
-	 <20060726221849.807482409@postel.suug.ch>
-	 <Pine.LNX.4.64.0607270158001.4779@d.namei>
-	 <20060726.230230.111423566.davem@davemloft.net>
-	 <20060727223931.GZ14627@postel.suug.ch>  <44C94529.5080605@trash.net>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: Hello, We have IP100A Linux driver need to submit to 2.6.x
+	kernel
+Date: Fri, 28 Jul 2006 11:26:40 +0200
+Message-ID: <1154078800.3117.20.camel@laptopd505.fenrus.org>
+References: <02fb01c6b147$b15b8fc0$4964a8c0@icplus.com.tw>
+	 <20060727190707.GA24157@electric-eye.fr.zoreil.com>
+	 <040401c6b1e8$e8b14ae0$4964a8c0@icplus.com.tw>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-41wQMkJqqxJ6qWPftWk0"
-Cc: Thomas Graf <tgraf@suug.ch>, David Miller <davem@davemloft.net>,
-	jmorris@namei.org, netdev@vger.kernel.org, vnuorval@tcs.hut.fi,
-	usagi-core@linux-ipv6.org, yoshfuji@linux-ipv6.org,
-	anttit@tcs.hut.fi
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailfront1.citynet.nu ([217.10.96.36]:4528 "EHLO
-	mailfront1.citynet.nu") by vger.kernel.org with ESMTP
-	id S1161118AbWG1J0E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jul 2006 05:26:04 -0400
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <44C94529.5080605@trash.net>
+Received: from pentafluge.infradead.org ([213.146.154.40]:24765 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1161123AbWG1J1B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jul 2006 05:27:01 -0400
+To: Jesse Huang <jesse@icplus.com.tw>
+In-Reply-To: <040401c6b1e8$e8b14ae0$4964a8c0@icplus.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2006-07-28 at 09:55 +0800, Jesse Huang wrote:
+> Hi Francois:
+> 
+>     Sorry, I don't know this patch before. IP100A is a new version of IP100
+> (sundance.c). I don't know what is you suggestion of IP100A driver? Should
+> I...
+> 
+> 1. Only updata sundance.c to support IP100A
+> 2. Release ip100a.c which support ip100(sundance) to kernel 2.6.x and ask to
+> remove sundance.c.
+> 3. Release ip100a.c with sundance.c both to kernel 2.6.x
+> 
+> We hope to use IP100a.c as our product driver, so 2. and 3. will better for
+> IC Plus. But we will still follow your suggestion, if you feel 1. was better
+> for kernel.
 
---=-41wQMkJqqxJ6qWPftWk0
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2006-07-28 at 00:58 +0200, Patrick McHardy wrote:
+Hello,
 
-> > +int fib_rules_lookup(struct fib_rules_ops *ops, struct flowi *fl,
-> > +		     int flags, struct fib_lookup_arg *arg)
-> > +{
-> > +	struct fib_rule *rule;
-> > +	int err;
-> > +
-> > +	rcu_read_lock();
-> > +
-> > +	list_for_each_entry(rule, ops->rules_list, list) {
->=20
-> Shouldn't that be list_for_each_entry_rcu?
+in general the policy for Linux is that if adding support for a new
+device is only minor changes to an existing driver, it is better to
+update this existing driver with those changes. The reason for that is
+that this makes it possible to share bugfixes and testing between both
+devices. Now there is a point where it no longer makes sense to share,
+for example when the devices are really very, very different. 
 
-Yes that's correct, it should.
-
-> > +		if (rule->ifname[0] && (rule->ifindex !=3D fl->iif))
-> > +			continue;
-> > +
-> > +		if (!ops->match(rule, fl, flags))
-> > +			continue;
-> > +
-> > +		rcu_read_unlock();
-> > +
-> > +		err =3D ops->action(rule, fl, flags, arg);
-> > +		if (err !=3D -EAGAIN) {
-> > +			fib_rule_get(rule);
-> > +			arg->rule =3D rule;
-> > +			goto out;
-> > +		}
-> > +	}
-> > +
-> > +	err =3D -ENETUNREACH;
-> > +out:
-> > +	rcu_read_unlock();
->=20
-> rcu_read_unlock might get called multiple times in the list iteration
-> and once again here.
-
-Yes, the rcu_read_unlock() in the list iteration is misplaced, it
-shouldn't be there. Besides the unbalanced lock/unlocks it suffers from
-the general issue described below
-
-As a somewhat related note, I've just digged a bit through RCU land,
-talked to dipankar and mckenney, and discovered that rcu_read_lock() /
-rcu_read_unlock() aren't strictly needed in softirqs since preempt is
-already disabled in softirqs. This means that you can use the result of
-the rcu read-side critical outside of the rcu_read_lock() /
-rcu_read_unlock() section. BUT this changes with the -rt kernel where
-softirqs are preemptable and where rcu_read_lock() / rcu_read_unlock()
-doesn't disable/enable preempt anymore, which means the rcu read-side
-critical section is also preemptable. This means that we can get
-preempted in the read-side critical section but the resulting grace
-period won't occur until rcu_read_unlock() is called, which means that
-using results of an read-side critical section outside of the critical
-section is just not going to work in softirqs in -rt kernels.
-I'm sure Ingo has reviewed the RCU usage in softirqs but I don't know if
-there's been any changes in this area after his review.
-
---=20
-/Martin
-
---=-41wQMkJqqxJ6qWPftWk0
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.3 (GNU/Linux)
-
-iD8DBQBEydgHWm2vlfa207ERAnjPAJ4+oQSUxGHGHBnZtF29TLpYz1mZMgCgsC7H
-WYkxWVg44jFQHGPIrAZuTV0=
-=KhOD
------END PGP SIGNATURE-----
-
---=-41wQMkJqqxJ6qWPftWk0--
+Greetings,
+   Arjan van de Ven
 
