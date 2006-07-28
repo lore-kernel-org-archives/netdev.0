@@ -1,60 +1,59 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 2/7] NetLabel: core network changes
-Date: Fri, 28 Jul 2006 14:39:20 -0400
-Message-ID: <44CA59D8.4090702@hp.com>
-References: <20060717155224.060020000@hp.com> <20060717155822.315389000@hp.com> <20060728112426.GE14627@postel.suug.ch> <44CA504C.6030207@hp.com> <20060728181225.GF14627@postel.suug.ch>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [RFC 1/4] kevent: core files.
+Date: Fri, 28 Jul 2006 22:44:45 +0400
+Message-ID: <20060728184445.GA10797@2ka.mipt.ru>
+References: <20060709132446.GB29435@2ka.mipt.ru> <20060724.231708.01289489.davem@davemloft.net> <44C91192.4090303@oracle.com> <20060727200655.GA4586@2ka.mipt.ru> <44C930D5.9020704@oracle.com> <20060728052312.GB11210@2ka.mipt.ru> <44CA586C.4010205@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, davem@davemloft.net,
-	sds@epoch.ncsc.mil, jmorris@redhat.com, pratt@argus-systems.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:52380 "EHLO atlrel6.hp.com")
-	by vger.kernel.org with ESMTP id S1161228AbWG1SjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 14:39:22 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060728181225.GF14627@postel.suug.ch>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751162AbWG1SpJ@vger.kernel.org>
+To: Zach Brown <zach.brown@oracle.com>
+Content-Disposition: inline
+In-Reply-To: <44CA586C.4010205@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> * Paul Moore <paul.moore@hp.com> 2006-07-28 13:58
+On Fri, Jul 28, 2006 at 11:33:16AM -0700, Zach Brown (zach.brown@oracle.com) wrote:
 > 
->>I'm  a little confused by your comment, could you be a bit more
->>specific?  Are you basing your comment strictly on the text above?  If
->>so, the problem may be my poor excuse for documentation rather then my
->>poor excuse for implementation :)
->>
->>I am using the generic netlink interface, in what I believe to be a
->>"correct" fashion - please correct me if I'm wrong.
+> > I completely agree that existing kevent interface is not the best, so
+> > I'm opened for any suggestions.
+> > Should kevent creation/removing/modification be separated too?
 > 
-> The netlink bits are spread around all patches so I just quoted
-> on this comment. By adding functions like netlbl_align(),
-> netlbl_put_u8(), netlbl_put_hdr() writing a netlink header
-> etc. you are just duplicating the already existing interfaces
-> found in net/netlink.h and net/genetlink.h.
+> Yeah, I think so.
 
-Thanks for the clarification, I think I understand your point a bit
-better now.
+So, I'm going to create kevent_create/destroy/control and kevent_get_events()
+Or any better names?
 
-It sounds like you main concern is that I'm not using the netlink
-attribute interfaces, yes?  I looked at using those originally but
-decided not to use them for the following reasons:
+> >>> Hmm, it looks like I'm lost here...
+> >> Yeah, it seems my description might not have sunk in :).  We're giving
+> >> userspace a way to collect events without performing a system call.
+> > 
+> > And why do we want this?
+> 
+> So that event collection can be very efficient.
+> 
+> > How glibc is supposed to determine, that some events already fired and
+> > such requests will return immediately, or for example how timer events
+> > will be managed?
+> 
+> ...
+> 
+> That was what my previous mail was all about!
 
- 1. They are listed as "optional" in the documents I read
- 2. They add at least an extra 32 bits to each attribute
- 3. There seems to be plenty of users in net/ipv4 who do not make
-    use of attributes (a *quick* look again reveals none)
- 4. Since I'm reading messages from userspace I can't trust the
-    message contents regardless of it's use of attributes
- 5. Harder to work with in userspace without using a netlink
-    library, which would create an extra dependency for tools which
-    talk to the NetLabel subsystem
+Some events are impossible to create in userspace (like timer
+notification, which requires timer start and check when timer
+completed).
+Actually all events are part of the kernel, since glibc does not have
+any knowledge about in-kernel state machines which are bound to
+appropriate kevents, so each kevent takes at least two syscall (create
+and get ready), and I do not see how, for exmple, glibc can avoid them
+when user requested POLLIN or similar event for network dataflow?
 
-Basically, I saw no requirement to use the netlink attributes and no
-advantage so I didn't.  Is this reasonable, or do you feel the use of
-attributes is a requirement?
+According to syscall speed on Linux, last time I checked empty syscall 
+took about 100ns on AMD Athlon 3500+.
+
+> - z
 
 -- 
-paul moore
-linux security @ hp
+	Evgeniy Polyakov
