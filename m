@@ -1,77 +1,107 @@
-From: Hugo Santos <hsantos@av.it.pt>
-Subject: Re: Regarding offloading IPv6 addrconf and ndisc
-Date: Fri, 28 Jul 2006 09:34:33 +0100
-Message-ID: <20060728083433.GG29313@innerghost.net>
-References: <20060728014528.GB29313@innerghost.net> <20060727.192743.39159331.davem@davemloft.net> <20060728031322.GE29313@innerghost.net> <20060727.202044.85689055.davem@davemloft.net> <20060728033132.GF29313@innerghost.net> <20060727210738.36f33436@localhost.localdomain>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH 1/3] add netdev_alloc_skb
+Date: Fri, 28 Jul 2006 10:46:28 +0200
+Message-ID: <20060728084628.GA27892@lst.de>
+References: <20060728070851.GB25174@lst.de> <20060728.012424.70217564.davem@davemloft.net> <20060728082712.GA27366@lst.de> <20060728.012832.99202035.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="4C6bbPZ6c/S1npyF"
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	kazunori@miyazawa.org, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: hch@lst.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.av.it.pt ([193.136.92.53]:28312 "EHLO av.it.pt")
-	by vger.kernel.org with ESMTP id S1751980AbWG1Ieg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 04:34:36 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
+Received: from verein.lst.de ([213.95.11.210]:30892 "EHLO mail.lst.de")
+	by vger.kernel.org with ESMTP id S1751796AbWG1Iq6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 04:46:58 -0400
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20060727210738.36f33436@localhost.localdomain>
+In-Reply-To: <20060728.012832.99202035.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Jul 28, 2006 at 01:28:32AM -0700, David Miller wrote:
+> From: Christoph Hellwig <hch@lst.de>
+> Date: Fri, 28 Jul 2006 10:27:12 +0200
+> 
+> > We need a fixup patch for the existing wrong comments on dev_alloc_skb
+> > anyway - but if you prefer to respin the netdev_alloc_skb and have
+> > another patch to fixup the original comments I can do that aswell.
+> 
+> I intend to, for everyone's convenience, put the addition of
+> netdev_alloc_skb() into 2.6.18.
 
---4C6bbPZ6c/S1npyF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Here is the requested fixed up version:
 
-> A couple of basic questions:
-> 1. Can we just proceed assuming it is non-secure until a later time when
->    the certificate path is established?
 
-   This is not something which is described in the standard. In fact,
- processing the RA without a certificate path to the router already
- assumes the host is configured to so do (assuming unverified messages
- are treated as normal non-secure ones). Treating it as non-secure would
- allow an attacker to temporarily receive packets from the host if it
- has no secure router to be used (in the same or other interfaces).
- This may allow it to retrieve some of the user's info (think web-login
- portal) and it just has to be on-link (typical NDP attack). A solution
- would be not to assume it is non-secure, but instead cache or drop the
- RA and initiate the process to obtain a certificate path. This however
- does not allow the kind of behaviour that Dave described in one of is
- earlier e-mails, where packets are processed in order.
-
-   Also, the host cache needs to hold X.509v3 certificates, and even if
- a lighter crypto-hash based check is available (if CGAs are used as
- well, to make sure the packets come from the packet's source address),
- hosts will end up having to perform RSA signature checks.
-
-> 2. What if user process dies? or gets overwhelmed?
->    One of the assumptions of the any well designed kernel is that the system should never
->    hang because some user application died or waited for ever.
-
-   Of course that this is a real problem. However, if the control daemon
- dies the kernel won't die. Depending on the implementation -- you might
- temporarily get out of addresses, if the addresses are flushed when the
- control daemon dies, etc. But, just like a routing daemon is critical
- to a router, this control application would also be critical to the
- host's connectivity. And if it dies, it needs to be restarted. The
- application might be itself complex, but in the end we moved this
- complexity away from the kernel.
-
-   Hugo
-
---4C6bbPZ6c/S1npyF
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFEycwZ7asb/itUNKwRAiSGAJ49cYP8Ip0R+ZDeHTLm6SsZrskxxwCfSiBA
-wE9yHdxhRyd0Y/owJq4dKOY=
-=Jbz2
------END PGP SIGNATURE-----
-
---4C6bbPZ6c/S1npyF--
+Index: linux-2.6/include/linux/skbuff.h
+===================================================================
+--- linux-2.6.orig/include/linux/skbuff.h	2006-07-26 13:27:07.000000000 +0200
++++ linux-2.6/include/linux/skbuff.h	2006-07-28 10:41:00.000000000 +0200
+@@ -1104,6 +1104,28 @@
+ 	return __dev_alloc_skb(length, GFP_ATOMIC);
+ }
+ 
++extern struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
++		unsigned int length, gfp_t gfp_mask);
++
++/**
++ *	netdev_alloc_skb - allocate an skbuff for rx on a specific device
++ *	@dev: network device to receive on
++ *	@length: length to allocate
++ *
++ *	Allocate a new &sk_buff and assign it a usage count of one. The
++ *	buffer has unspecified headroom built in. Users should allocate
++ *	the headroom they think they need without accounting for the
++ *	built in space. The built in space is used for optimisations.
++ *
++ *	%NULL is returned if there is no free memory. Although this function
++ *	allocates memory it can be called from an interrupt.
++ */
++static inline struct sk_buff *netdev_alloc_skb(struct net_device *dev,
++		unsigned int length)
++{
++	return __netdev_alloc_skb(dev, length, GFP_ATOMIC);
++}
++
+ /**
+  *	skb_cow - copy header of skb when it is required
+  *	@skb: buffer to cow
+Index: linux-2.6/net/core/skbuff.c
+===================================================================
+--- linux-2.6.orig/net/core/skbuff.c	2006-07-26 13:27:07.000000000 +0200
++++ linux-2.6/net/core/skbuff.c	2006-07-28 10:41:09.000000000 +0200
+@@ -256,6 +256,29 @@
+ 	goto out;
+ }
+ 
++/**
++ *	__netdev_alloc_skb - allocate an skbuff for rx on a specific device
++ *	@dev: network device to receive on
++ *	@length: length to allocate
++ *	@gfp_mask: get_free_pages mask, passed to alloc_skb
++ *
++ *	Allocate a new &sk_buff and assign it a usage count of one. The
++ *	buffer has unspecified headroom built in. Users should allocate
++ *	the headroom they think they need without accounting for the
++ *	built in space. The built in space is used for optimisations.
++ *
++ *	%NULL is returned if there is no free memory.
++ */
++struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
++		unsigned int length, gfp_t gfp_mask)
++{
++	struct sk_buff *skb;
++
++	skb = alloc_skb(length + NET_SKB_PAD, gfp_mask);
++	if (likely(skb))
++		skb_reserve(skb, NET_SKB_PAD);
++	return skb;
++}
+ 
+ static void skb_drop_list(struct sk_buff **listp)
+ {
+@@ -2042,6 +2065,7 @@
+ EXPORT_SYMBOL(kfree_skb);
+ EXPORT_SYMBOL(__pskb_pull_tail);
+ EXPORT_SYMBOL(__alloc_skb);
++EXPORT_SYMBOL(__netdev_alloc_skb);
+ EXPORT_SYMBOL(pskb_copy);
+ EXPORT_SYMBOL(pskb_expand_head);
+ EXPORT_SYMBOL(skb_checksum);
