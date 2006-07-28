@@ -1,58 +1,69 @@
 From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 2/7] NetLabel: core network changes
-Date: Fri, 28 Jul 2006 13:58:36 -0400
-Message-ID: <44CA504C.6030207@hp.com>
-References: <20060717155224.060020000@hp.com> <20060717155822.315389000@hp.com> <20060728112426.GE14627@postel.suug.ch>
+Subject: Re: [RFC 6/8] NetLabel: CIPSOv4 integration
+Date: Fri, 28 Jul 2006 14:10:20 -0400
+Message-ID: <44CA530C.9040803@hp.com>
+References: <20060622224910.885573000@flek.zko.hp.com>	 <20060622225410.521216000@flek.zko.hp.com> <1154087670.5165.36.camel@jzny2>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, davem@davemloft.net,
-	sds@epoch.ncsc.mil, jmorris@redhat.com, pratt@argus-systems.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:64961 "EHLO atlrel7.hp.com")
-	by vger.kernel.org with ESMTP id S1030250AbWG1R6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 13:58:37 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060728112426.GE14627@postel.suug.ch>
+Received: from atlrel8.hp.com ([156.153.255.206]:10382 "EHLO atlrel8.hp.com")
+	by vger.kernel.org with ESMTP id S1161208AbWG1SKV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 14:10:21 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1154087670.5165.36.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> * paul.moore@hp.com <paul.moore@hp.com> 2006-07-17 11:52
-> 
->>+ * NetLabel makes use of the Generic NETLINK mechanism as a transport layer to
->>+ * send messages between kernel and user space.  The general format of a
->>+ * NetLabel message is shown below:
+Jamal Hadi Salim wrote:
+> On Thu, 2006-22-06 at 18:49 -0400, paul.moore@hp.com wrote:
+>>+/**
+>>+ * netlbl_cipsov4_rcv - Process incoming NetLabel packets
+>>+ * @skb: the NETLINK buffer
+>>+ * @msg: pointer to the start of the NetLabel data
 >>+ *
->>+ *  +-----------------+-------------------+--------- --- -- -
->>+ *  | struct nlmsghdr | struct genlmsghdr | payload
->>+ *  +-----------------+-------------------+--------- --- -- -
->>+ *
->>+ * The 'nlmsghdr' and 'genlmsghdr' structs should be dealt with like normal.
->>+ * The payload is dependent on the subsystem specified in the
->>+ * 'nlmsghdr->nlmsg_type' and should be defined below, supporting functions
->>+ * should be defined in the corresponding net/netlabel/netlabel_<subsys>.h|c
->>+ * file.  All of the fields in the NetLabel payload should be aligned using
->>+ * the alignment functions provided.
+>>+ * Description:
+>>+ * This function is reponsibile for reading all of the incoming CIPSO V4
+>>+ * NetLabel traffic and dispatching it to the correct CIPSO V4 functions.
 >>+ *
 >>+ */
+>>+void netlbl_cipsov4_rcv(const struct sk_buff *skb, const unsigned char *msg)
+>>+{
+>>+	int ret_val;
+>>+	struct netlbl_cipsov4_msghdr *nl_cv4_hdr;
 >>+
->>+/*
->>+ * NetLabel NETLINK protocol
->>+ */
+>>+	if (nlmsg_len((struct nlmsghdr *)skb->data) <
+>>+	    sizeof(struct netlbl_cipsov4_msghdr)) {
+>>+		netlbl_cipsov4_send_ack(skb, EINVAL);
+>>+		return;
+>>+	}
 >>+
+>>+	nl_cv4_hdr = (struct netlbl_cipsov4_msghdr *)msg;
+>>+	switch (nl_cv4_hdr->opcode) {
+>>+	case NL_CV4_ADD:
 > 
-> Is there a reason for not using any of the existing netlink and
-> genetlink interfaces in any of your patches? It's all duplicated
-> code.
+> Could you not have had all these NL_CV4_CMDs as just TLVs?
+> This is just the classical way of how we do things.
+> This would allow you to send multiple cmds in one message as well as 
+> very easily add new ones in the future.
 
-I'm  a little confused by your comment, could you be a bit more
-specific?  Are you basing your comment strictly on the text above?  If
-so, the problem may be my poor excuse for documentation rather then my
-poor excuse for implementation :)
+I think you are looking at an older patchset, which is most likely my
+fault for not clearly marking each patch set with a datestamp or version
+number.  I will fix that in next release.
 
-I am using the generic netlink interface, in what I believe to be a
-"correct" fashion - please correct me if I'm wrong.
+Anyway, back to your comment - this function no longer exists in the
+current patchset.  All of the different "commands" specified by NL_CV4_*
+are now "operations" registered with the genetlink interface.  It's not
+the TLV solution you mention but it seems to be inline with how the
+generic netlink interface works.
+
+> BTW, can you please repost your latest changes to netdev?
+
+Yes I will, but not much has changed from my last patchset posted to
+netdev (although quite a bit has changed since the patchset you are
+looking at).  I'm in the middle of moving/unpacking right now so it may
+not get posted until sometime this weekend, although I try for today.
 
 -- 
 paul moore
