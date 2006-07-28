@@ -1,61 +1,76 @@
 From: Jamal Hadi Salim <hadi@cyberus.ca>
-Subject: Re: r8169 driver problem with RTL8110SB chip (on iop3xx ARM board)
-Date: Fri, 28 Jul 2006 08:28:14 -0400
-Message-ID: <1154089694.5165.54.camel@jzny2>
-References: <20060728101109.GA25854@xi.wantstofly.org>
-	 <20060728104946.GA6710@electric-eye.fr.zoreil.com>
-	 <20060728111534.GD25854@xi.wantstofly.org>
+Subject: Re: Regarding offloading IPv6 addrconf and ndisc
+Date: Fri, 28 Jul 2006 08:45:37 -0400
+Message-ID: <1154090737.5165.69.camel@jzny2>
+References: <20060728014528.GB29313@innerghost.net>
+	 <20060727.192743.39159331.davem@davemloft.net>
+	 <20060728031322.GE29313@innerghost.net>
+	 <20060727.202044.85689055.davem@davemloft.net>
+	 <20060728033132.GF29313@innerghost.net>
+	 <20060727210738.36f33436@localhost.localdomain>
+	 <20060728083433.GG29313@innerghost.net>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
-	tbm@cyrius.com
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	David Miller <davem@davemloft.net>,
+	herbert@gondor.apana.org.au, kazunori@miyazawa.org,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:12179 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1161136AbWG1M2T
+Received: from mx02.cybersurf.com ([209.197.145.105]:24999 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1750922AbWG1Mpm
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jul 2006 08:28:19 -0400
+	Fri, 28 Jul 2006 08:45:42 -0400
 Received: from mail.cyberus.ca ([209.197.145.21])
 	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1G6RS1-0007E5-99
-	for netdev@vger.kernel.org; Fri, 28 Jul 2006 08:28:21 -0400
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20060728111534.GD25854@xi.wantstofly.org>
+	id 1G6Riq-0004e6-GQ
+	for netdev@vger.kernel.org; Fri, 28 Jul 2006 08:45:44 -0400
+To: Hugo Santos <hsantos@av.it.pt>
+In-Reply-To: <20060728083433.GG29313@innerghost.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-28-07 at 13:15 +0200, Lennert Buytenhek wrote:
-> On Fri, Jul 28, 2006 at 12:49:46PM +0200, Francois Romieu wrote:
+On Fri, 2006-28-07 at 09:34 +0100, Hugo Santos wrote:
+
+> > 2. What if user process dies? or gets overwhelmed?
+> >    One of the assumptions of the any well designed kernel is that the system should never
+> >    hang because some user application died or waited for ever.
 > 
-> > > The in-kernel 'r8169' drivers in 2.6.17 and 2.6.18-rc2 appear to work
-> > > initially, but they don't actually seem to transmit any packets on the
-> > > wire, nor do they receive any.
-> > > 
-> > > Boot logs from 2.6.17 and 2.6.18-rc2 attached.  Apart from the MAC
-> > > address for eth1 being incorrect (boot loader bug, being worked on)
-> > > there don't seem to be any strange messages or errors.
-> > 
-> > Can you send:
-> > - the output of 'lspci -vvx' 
+>    Of course that this is a real problem. However, if the control daemon
+>  dies the kernel won't die. Depending on the implementation -- you might
+>  temporarily get out of addresses, if the addresses are flushed when the
+>  control daemon dies, etc. But, just like a routing daemon is critical
+>  to a router, this control application would also be critical to the
+>  host's connectivity. And if it dies, it needs to be restarted. The
+>  application might be itself complex, but in the end we moved this
+>  complexity away from the kernel.
 > 
 
+Hugo,
 
-Since you mention an incorrect MAC address: The one thing that has
-bitten me in the past(twice) is misprograming of the eeprom (where
-typically the MAC address would sit as well). Vendor in a hurry to put
-out the NIC/board forgets to do something at manufacturing time. The
-most recent was about 9 months back where the same chip was used in the
-board but in one port copper was used and in another hooking up via
-serdes. The eeprom claimed both to be copper. It worked for sometime
-until you pulled a link and then plugged it back in. A little ethtool
-magic to change the device id to match 0x107B
-(E1000_DEV_ID_82546GB_SERDES) instead of 0x1079
-(E1000_DEV_ID_82546GB_COPPER) fixed it.
+The biggest challenge you will face is the view that people hate daemons
+- mostly from a usability perspective (is the gist of the arguements i
+have seen) but also because of concerns such as the one Stephen mentions
+above. 
+I hold the same views as you do on the separation of control from the
+datapath and to respond to Stephens assertion on well designed kernel
+above: It is good kernel abstraction to separate policy management from
+mechanisms.
+
+The certificate issue only validates further this pov: that control
+tends to be feature-rich, swiss-army knife i.e more moving target than
+datapath. Such things typically belong to user-space.
+I have also seen talk of secure ARP; i wonder if there may be
+certificates involved there as well? If you look at the archives on
+netdev you may notice such discussions. Summary: I violently agree with
+you and i think if you address the "daemon" concerns, you will get other
+folks to agree as well.
 
 cheers,
 jamal
 
-PS:- That box looks interesting - priced correctly i may even buy
-one ;->
+
+
 
