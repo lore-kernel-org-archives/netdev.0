@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] add netdev_alloc_skb
-Date: Fri, 28 Jul 2006 01:24:24 -0700 (PDT)
-Message-ID: <20060728.012424.70217564.davem@davemloft.net>
-References: <20060726113136.GA403@lst.de>
-	<20060726.152451.35043090.davem@davemloft.net>
-	<20060728070851.GB25174@lst.de>
+Subject: Re: [PATCHv2 2.6.18-rc1-mm2 1/3] net: UDP-Lite generic support
+Date: Fri, 28 Jul 2006 01:25:33 -0700 (PDT)
+Message-ID: <20060728.012533.98555563.davem@davemloft.net>
+References: <200607141719.02766@strip-the-willow>
+	<20060727.223010.63131639.davem@davemloft.net>
+	<200607280919.55482@strip-the-willow>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: akpm@osdl.org, yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, kaber@coreworks.de, pekkas@netcore.fi,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:50611
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52915
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750841AbWG1IYq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jul 2006 04:24:46 -0400
-To: hch@lst.de
-In-Reply-To: <20060728070851.GB25174@lst.de>
+	id S1751141AbWG1IZy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jul 2006 04:25:54 -0400
+To: gerrit@erg.abdn.ac.uk
+In-Reply-To: <200607280919.55482@strip-the-willow>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 28 Jul 2006 09:08:51 +0200
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Fri, 28 Jul 2006 09:19:55 +0100
 
-> Yes, Joe Perches already pointed that out in private.  This typo is copy
-> and pasted from the dev_alloc_skb kerneldoc, so this patch fixes up all
-> four occurances:
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> I will start with the v4-side and post a small RFC patch to see whether
+> I got the concepts right. (Due to vacation, this will not before mid/end 
+> of August.)
 
-Please respin your original patch with this fixup, thanks
-a lot Christoph.
+Ok, I look forward to reviewing it.
+
