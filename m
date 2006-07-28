@@ -1,33 +1,50 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/7] NetLabel: core network changes
-Date: Fri, 28 Jul 2006 20:12:25 +0200
-Message-ID: <20060728181225.GF14627@postel.suug.ch>
-References: <20060717155224.060020000@hp.com> <20060717155822.315389000@hp.com> <20060728112426.GE14627@postel.suug.ch> <44CA504C.6030207@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, davem@davemloft.net,
-	sds@epoch.ncsc.mil, jmorris@redhat.com, pratt@argus-systems.com
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [PATCH Round 5 0/3] Network Event Notifier Mechanism
+Date: Fri, 28 Jul 2006 13:28:49 -0500
+Message-ID: <20060728182849.14325.62898.stgit@stevo-desktop>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:57836 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1161209AbWG1SMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 14:12:05 -0400
-To: Paul Moore <paul.moore@hp.com>
-Content-Disposition: inline
-In-Reply-To: <44CA504C.6030207@hp.com>
+Received: from rrcs-24-153-218-104.sw.biz.rr.com ([24.153.218.104]:32228 "EHLO
+	linux.local") by vger.kernel.org with ESMTP id S1161215AbWG1S2z
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jul 2006 14:28:55 -0400
+To: davem@davemloft.net, rdreier@cisco.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Paul Moore <paul.moore@hp.com> 2006-07-28 13:58
-> I'm  a little confused by your comment, could you be a bit more
-> specific?  Are you basing your comment strictly on the text above?  If
-> so, the problem may be my poor excuse for documentation rather then my
-> poor excuse for implementation :)
-> 
-> I am using the generic netlink interface, in what I believe to be a
-> "correct" fashion - please correct me if I'm wrong.
 
-The netlink bits are spread around all patches so I just quoted
-on this comment. By adding functions like netlbl_align(),
-netlbl_put_u8(), netlbl_put_hdr() writing a netlink header
-etc. you are just duplicating the already existing interfaces
-found in net/netlink.h and net/genetlink.h.
+Dave/Roland, is this patchset about ready to go?
+
+Round 5 Changes:
+
+- removed user-mode support
+- removed route add/del events.
+
+------
+
+This patch implements a mechanism that allows interested clients to
+register for notification of certain network events. The intended use
+is to allow RDMA devices (linux/drivers/infiniband) to be notified of
+neighbour updates, ICMP redirects, and path MTU changes.
+
+RDMA devices need these network events because they typically
+cache this information in hardware and need to be notified
+when it changes.  To learn about RDMA internet protocols, see:
+http://www.ietf.org/html.charters/rddp-charter.html.
+
+The key events of interest are:
+
+- neighbour mac address change 
+- routing redirect (the next hop neighbour changes for a dst_entry)
+- path mtu change (the path mtu for a dst_entry changes).
+
+This patchset consists of 3 patches:
+
+1) New files implementing the Network Event Notifier
+2) Core network changes to generate netevents
+3) Cleanup ib_addr modules to use the netevent patch
+
+Signed-off-by: Tom Tucker <tom@opengridcomputing.com>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
