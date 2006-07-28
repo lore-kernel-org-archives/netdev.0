@@ -1,60 +1,36 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 4/3] forcedeth: fix NAPI hang in IRQ.
-Date: Thu, 27 Jul 2006 19:01:14 -0700
-Message-ID: <20060727190114.68bfd817@localhost>
-References: <20060728015007.625581647@localhost>
-	<20060728015054.566221096@localhost>
+From: "Lamarque Souza" <lamarque_souza@hotmail.com>
+Subject: tg3 module problem with suspend2
+Date: Fri, 28 Jul 2006 02:13:08 +0000
+Message-ID: <BAY112-F31BFE92D891589065C0D42F0590@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:39095 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932117AbWG1CBa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2006 22:01:30 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060728015054.566221096@localhost>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1; format=flowed
+Cc: Suspend2-devel@lists.suspend2.net, mchan@broadcom.com
+Return-path: <suspend2-devel-bounces@lists.suspend2.net>
+To: netdev@vger.kernel.org
+List-Unsubscribe: <http://lists.suspend2.net/mailman/listinfo/suspend2-devel>,
+	<mailto:suspend2-devel-request@lists.suspend2.net?subject=unsubscribe>
+List-Archive: <http://lists.suspend2.net/lurker/list/suspend2-devel.html>
+List-Post: <mailto:suspend2-devel@lists.suspend2.net>
+List-Help: <mailto:suspend2-devel-request@lists.suspend2.net?subject=help>
+List-Subscribe: <http://lists.suspend2.net/mailman/listinfo/suspend2-devel>,
+	<mailto:suspend2-devel-request@lists.suspend2.net?subject=subscribe>
+Sender: suspend2-devel-bounces@lists.suspend2.net
+Errors-To: suspend2-devel-bounces@lists.suspend2.net
 List-Id: netdev.vger.kernel.org
 
-Fix for NAPI hanging in interrupt. With NAPI, we only need one
-iteration over the IRQ.
+Just to make you know. My notebook (Ferrari 4005wlmi, kernel2.6.17.3) uses 
+the tg3 driver and has problems after resume from suspend2. The card is an 
+Ethernet controller: Broadcom Corporation NetLink BCM5789 Gigabit Ethernet 
+PCI Express (14e4:169d). The problem happens when I suspend with tg3 driver 
+loaded. After resume, ifplugd detect link but does not renew the IP address. 
+If I unconfigure the interface (/etc/init.d/net.eth0 stop in Gentoo) the 
+mii-tool complaints with message "SIOCGMIIPHY on 'eth0' failed: Resource 
+temporarily unavailable, no MII interfaces found". If I reaload the driver 
+it works ok.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Do you have any idea why that happens?
 
---- linux-2.6.orig/drivers/net/forcedeth.c	2006-07-27
-18:58:21.000000000 -0700 +++ linux-2.6/drivers/net/forcedeth.c
-2006-07-27 18:57:31.000000000 -0700 @@ -2422,10 +2422,11 @@
- 						dev->name, events);
- 		}
- #ifdef CONFIG_FORCEDETH_NAPI
--		if (netif_rx_schedule_prep(dev)) {
--			__netif_rx_schedule(dev);
-+		if (events & NVREG_IRQ_RX_ALL) {
-+			netif_rx_schedule(dev);
- 			nv_disable_hw_interrupts(dev,
-NVREG_IRQ_RX_ALL); }
-+		return IRQ_HANDLED;
- #else
- 		nv_rx_process(dev, dev->weight);
- 		if (nv_alloc_rx(dev)) {
-@@ -2434,7 +2435,6 @@
- 				mod_timer(&np->oom_kick, jiffies +
-OOM_REFILL); spin_unlock(&np->lock);
- 		}
--#endif
- 		if (i > max_interrupt_work) {
- 			spin_lock(&np->lock);
- 			/* disable interrupts on the nic */
-@@ -2452,7 +2452,7 @@
- 			spin_unlock(&np->lock);
- 			break;
- 		}
--
-+#endif
- 	}
- 	dprintk(KERN_DEBUG "%s: nv_nic_irq completed\n", dev->name);
- 
+-----
+Lamarque V. Souza
+http://www.geographicguide.com/brazil.htm
+Linux User #57137 - http://counter.li.org/
