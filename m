@@ -1,48 +1,32 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Zach Brown <zach.brown@oracle.com>
 Subject: Re: [RFC 1/4] kevent: core files.
-Date: Fri, 28 Jul 2006 23:24:03 +0400
-Message-ID: <20060728192403.GA13690@2ka.mipt.ru>
-References: <20060709132446.GB29435@2ka.mipt.ru> <20060724.231708.01289489.davem@davemloft.net> <44C91192.4090303@oracle.com> <20060727205806.GD16971@kvack.org> <44C933D2.4040406@oracle.com> <20060727220238.GE16971@kvack.org> <44CA5F08.3080500@oracle.com>
+Date: Fri, 28 Jul 2006 12:34:48 -0700
+Message-ID: <44CA66D8.3010404@oracle.com>
+References: <20060709132446.GB29435@2ka.mipt.ru> <20060724.231708.01289489.davem@davemloft.net> <44C91192.4090303@oracle.com> <20060727205806.GD16971@kvack.org> <44C933D2.4040406@oracle.com> <20060727220238.GE16971@kvack.org> <44CA5F08.3080500@oracle.com> <20060728192403.GA13690@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
+Content-Transfer-Encoding: 7bit
 Cc: Benjamin LaHaise <bcrl@kvack.org>,
 	David Miller <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:55255 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751998AbWG1TYX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 15:24:23 -0400
-To: Zach Brown <zach.brown@oracle.com>
-Content-Disposition: inline
-In-Reply-To: <44CA5F08.3080500@oracle.com>
+Received: from tetsuo.zabbo.net ([207.173.201.20]:5519 "EHLO tetsuo.zabbo.net")
+	by vger.kernel.org with ESMTP id S1030286AbWG1Teu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 15:34:50 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060728192403.GA13690@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 28, 2006 at 12:01:28PM -0700, Zach Brown (zach.brown@oracle.com) wrote:
-> Clearly we should port httpd to kevents and take some measurements :)
+Evgeniy Polyakov wrote:
+> On Fri, Jul 28, 2006 at 12:01:28PM -0700, Zach Brown (zach.brown@oracle.com) wrote:
+>> Clearly we should port httpd to kevents and take some measurements :)
+> 
+> One of my main kevent benchmarks (socket notifications for
+> accept/receive) is handmade http server.
 
-One of my main kevent benchmarks (socket notifications for
-accept/receive) is handmade http server.
-I compared it with FreeBSD kqueue, epoll and kevent_poll
-(this is generic poll/select notifications ported to kevent)
-based (it is the same server but with different event functions.
+Yeah, so I noticed.  That's a good starting point but I'm more
+interested in seeing the work integrated with servers that have to
+survive outside of benchmarking runs.
 
-Client was httperf, I ran it with 30k connections in bursts of 3k
-connection with 1 second timeout between bursts.
-
-
-Here are results:
-
-kevent:	more than 2600 requests/second
-epoll and kevent_poll: about 1600-1800 requests/second
-kqueue: enormous number of connection reset errors (only 62% of
-successfull connections) (likely misconfiguration, default FreeBSD
-6-something does not allow such rates at all).
-
-More info can be found on kevent homepage:
-http://tservice.net.ru/~s0mbre/old/?section=projects&item=kevent
-
-> - z
-
--- 
-	Evgeniy Polyakov
+- z
