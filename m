@@ -1,76 +1,40 @@
-From: Jamal Hadi Salim <hadi@cyberus.ca>
-Subject: Re: Regarding offloading IPv6 addrconf and ndisc
-Date: Fri, 28 Jul 2006 08:45:37 -0400
-Message-ID: <1154090737.5165.69.camel@jzny2>
-References: <20060728014528.GB29313@innerghost.net>
-	 <20060727.192743.39159331.davem@davemloft.net>
-	 <20060728031322.GE29313@innerghost.net>
-	 <20060727.202044.85689055.davem@davemloft.net>
-	 <20060728033132.GF29313@innerghost.net>
-	 <20060727210738.36f33436@localhost.localdomain>
-	 <20060728083433.GG29313@innerghost.net>
-Reply-To: hadi@cyberus.ca
+From: Paying-Hyip <kong64@yahoo.com>
+Subject: PAYING !
+Date: Fri, 28 Jul 2006 14:54:07 +0200
+Message-ID: <200607281255.k6SCssDN031067@zeus1.kernel.org>
+Reply-To: kong64@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	David Miller <davem@davemloft.net>,
-	herbert@gondor.apana.org.au, kazunori@miyazawa.org,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+Content-Type: multipart/mixed; boundary="e696669d-763f-4839-8b57-25a4dec41062"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:24999 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1750922AbWG1Mpm
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jul 2006 08:45:42 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1G6Riq-0004e6-GQ
-	for netdev@vger.kernel.org; Fri, 28 Jul 2006 08:45:44 -0400
-To: Hugo Santos <hsantos@av.it.pt>
-In-Reply-To: <20060728083433.GG29313@innerghost.net>
+Received: from zeus1.kernel.org ([204.152.191.4]:35220 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1751294AbWG1MzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 08:55:12 -0400
+Received: from yahoo1960.com (AMontpellier-252-1-70-148.w86-193.abo.wanadoo.fr [86.193.244.148])
+	by zeus1.kernel.org (8.13.7/8.13.1) with SMTP id k6SCssDN031067
+	for <netdev@vger.kernel.org>; Fri, 28 Jul 2006 12:55:11 GMT
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-28-07 at 09:34 +0100, Hugo Santos wrote:
 
-> > 2. What if user process dies? or gets overwhelmed?
-> >    One of the assumptions of the any well designed kernel is that the system should never
-> >    hang because some user application died or waited for ever.
-> 
->    Of course that this is a real problem. However, if the control daemon
->  dies the kernel won't die. Depending on the implementation -- you might
->  temporarily get out of addresses, if the addresses are flushed when the
->  control daemon dies, etc. But, just like a routing daemon is critical
->  to a router, this control application would also be critical to the
->  host's connectivity. And if it dies, it needs to be restarted. The
->  application might be itself complex, but in the end we moved this
->  complexity away from the kernel.
-> 
+This is a multi-part message in MIME format
 
-Hugo,
+--e696669d-763f-4839-8b57-25a4dec41062
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-The biggest challenge you will face is the view that people hate daemons
-- mostly from a usability perspective (is the gist of the arguements i
-have seen) but also because of concerns such as the one Stephen mentions
-above. 
-I hold the same views as you do on the separation of control from the
-datapath and to respond to Stephens assertion on well designed kernel
-above: It is good kernel abstraction to separate policy management from
-mechanisms.
+Authentic Invest
 
-The certificate issue only validates further this pov: that control
-tends to be feature-rich, swiss-army knife i.e more moving target than
-datapath. Such things typically belong to user-space.
-I have also seen talk of secure ARP; i wonder if there may be
-certificates involved there as well? If you look at the archives on
-netdev you may notice such discussions. Summary: I violently agree with
-you and i think if you address the "daemon" concerns, you will get other
-folks to agree as well.
+250 % after 1 day (For first 200 users)
 
-cheers,
-jamal
+140-220 % after 1 day
+200-280 % after 2 days
 
+min spend: 1 USD
+max spend: 2000 USD
 
-
+REF:5-10-15 %
+Jpin Now
+http://www.authentic-invest.com/?ref=3Dkong  
+--e696669d-763f-4839-8b57-25a4dec41062--
 
