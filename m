@@ -1,1571 +1,1624 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Please pull 'upstream' branch of wireless-2.6
-Date: Thu, 27 Jul 2006 20:23:59 -0400
-Message-ID: <20060728002358.GB11621@tuxdriver.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: What's new in 'bcm43xx' branch of wireless-2.6?
+Date: Thu, 27 Jul 2006 20:37:53 -0400
+Message-ID: <20060728003753.GC11621@tuxdriver.com>
 References: <20060728002206.GA11621@tuxdriver.com>
+	<20060728002358.GB11621@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:37897 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1750783AbWG1AY1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2006 20:24:27 -0400
-To: jeff@garzik.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Content-Disposition: inline
-In-Reply-To: <20060728002206.GA11621@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20060728002358.GB11621-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <http://bat.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://bat.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <http://bat.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The following changes since commit 416512cb75f51f3d12e5e1aa57b6a36760fd12c9:
-  John W. Linville:
-        Merge branch 'upstream-fixes' into upstream
+As most of us are painfully aware, there is a blockage in getting
+bcm43xx patches upstream.(*)
+
+In order to keep upstream bcm43xx development moving, I have opened
+a bcm43xx branch in wireless-2.6.  Please make sure that any patches
+submitted upstream can apply to that branch (at least w/ minimal
+effort) if at all possible.  Critical (e.g. security) fixes would be
+the exception, since we may want to get those upstream sooner than we
+can count on resolving the issue blocking upstream progress of bcm43xx.
+
+I appreciate your cooperation.  If anyone wants to be a hero, finding
+a way to get rid of the potentially long busy waits in bcm43xx is
+the ticket. :-)
+
+Thanks,
+
+John
+
+(*) http://marc.theaimsgroup.com/?l=linux-netdev&m=115137403631920&w=2
+
+---
+
+The following changes since commit 8f0f850e240df5bea027caeb1723142c50e37e57:
+  Daniel Drake:
+        softmac: Add MAINTAINERS entry
 
 are found in the git repository at:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git bcm43xx
 
-Dan Williams:
-      prism54: update to WE-19 for WPA support
+John W. Linville:
+      bcm43xx: fix-up build breakage from merging patches out of order
 
-Daniel Drake:
-      zd1211rw: Implement SIOCGIWNICKN
-      Add zd1211rw MAINTAINERS entry
-      ieee80211: small ERP handling additions
-      softmac: ERP handling and driver-level notifications
-      softmac: export highest_supported_rate function
-      ieee80211: Make ieee80211_rx_any usable
-      softmac: Add MAINTAINERS entry
+Larry Finger:
+      bcm43xx: improved statistics
 
-Pavel Machek:
-      cleanup // comments from ipw2200
+Michael Buesch:
+      bcm43xx: suspend MAC while executing long pwork
+      bcm43xx: lower mac_suspend udelay
+      bcm43xx: fix mac_suspend refcount
+      bcm43xx: init routine rewrite
 
-Robert Schulze:
-      airo: collapse debugging-messages in issuecommand to one line
+ drivers/net/wireless/bcm43xx/bcm43xx.h         |   52 +-
+ drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c |   46 ++
+ drivers/net/wireless/bcm43xx/bcm43xx_debugfs.h |    1 
+ drivers/net/wireless/bcm43xx/bcm43xx_main.c    |  686 ++++++++++++++----------
+ drivers/net/wireless/bcm43xx/bcm43xx_main.h    |    3 
+ drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c   |   70 ++
+ drivers/net/wireless/bcm43xx/bcm43xx_wx.c      |   28 +
+ drivers/net/wireless/bcm43xx/bcm43xx_xmit.c    |    5 
+ 8 files changed, 564 insertions(+), 327 deletions(-)
 
- MAINTAINERS                                     |   21 +
- drivers/net/wireless/airo.c                     |   12 
- drivers/net/wireless/ipw2200.c                  |   29 -
- drivers/net/wireless/prism54/isl_ioctl.c        |  573 ++++++++++++++++++++++-
- drivers/net/wireless/prism54/isl_ioctl.h        |    6 
- drivers/net/wireless/prism54/islpci_dev.c       |    4 
- drivers/net/wireless/prism54/islpci_dev.h       |    2 
- drivers/net/wireless/zd1211rw/zd_netdev.c       |   17 +
- include/net/ieee80211.h                         |    9 
- include/net/ieee80211softmac.h                  |   60 ++
- net/ieee80211/ieee80211_rx.c                    |   39 +-
- net/ieee80211/softmac/ieee80211softmac_assoc.c  |   21 +
- net/ieee80211/softmac/ieee80211softmac_io.c     |   14 +
- net/ieee80211/softmac/ieee80211softmac_module.c |   90 ++--
- net/ieee80211/softmac/ieee80211softmac_priv.h   |    8 
- 15 files changed, 777 insertions(+), 128 deletions(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index b2afc7a..4e14ee7 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2588,6 +2588,18 @@ P:	Nicolas Pitre
- M:	nico@cam.org
- S:	Maintained
- 
-+SOFTMAC LAYER (IEEE 802.11)
-+P:	Johannes Berg
-+M:	johannes@sipsolutions.net
-+P:	Joe Jezak
-+M:	josejx@gentoo.org
-+P:	Daniel Drake
-+M:	dsd@gentoo.org
-+W:	http://softmac.sipsolutions.net/
-+L:	softmac-dev@sipsolutions.net
-+L:	netdev@vger.kernel.org
-+S:	Maintained
-+
- SOFTWARE RAID (Multiple Disks) SUPPORT
- P:	Ingo Molnar
- M:	mingo@redhat.com
-@@ -3296,6 +3308,15 @@ W:	http://www.qsl.net/dl1bke/
- L:	linux-hams@vger.kernel.org
- S:	Maintained
- 
-+ZD1211RW WIRELESS DRIVER
-+P:	Daniel Drake
-+M:	dsd@gentoo.org
-+P:	Ulrich Kunitz
-+M:	kune@deine-taler.de
-+W:	http://zd1211.ath.cx/wiki/DriverRewrite
-+L:	zd1211-devs@lists.sourceforge.net (subscribers-only)
-+S:	Maintained
-+
- ZF MACHZ WATCHDOG
- P:	Fernando Fuganti
- M:	fuganti@netbank.com.br
-diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
-index a4dd139..16befbc 100644
---- a/drivers/net/wireless/airo.c
-+++ b/drivers/net/wireless/airo.c
-@@ -3950,13 +3950,11 @@ static u16 issuecommand(struct airo_info
- 	pRsp->rsp0 = IN4500(ai, RESP0);
- 	pRsp->rsp1 = IN4500(ai, RESP1);
- 	pRsp->rsp2 = IN4500(ai, RESP2);
--	if ((pRsp->status & 0xff00)!=0 && pCmd->cmd != CMD_SOFTRESET) {
--		airo_print_err(ai->dev->name, "cmd= %x\n", pCmd->cmd);
--		airo_print_err(ai->dev->name, "status= %x\n", pRsp->status);
--		airo_print_err(ai->dev->name, "Rsp0= %x\n", pRsp->rsp0);
--		airo_print_err(ai->dev->name, "Rsp1= %x\n", pRsp->rsp1);
--		airo_print_err(ai->dev->name, "Rsp2= %x\n", pRsp->rsp2);
--	}
-+	if ((pRsp->status & 0xff00)!=0 && pCmd->cmd != CMD_SOFTRESET)
-+		airo_print_err(ai->dev->name,
-+			"cmd:%x status:%x rsp0:%x rsp1:%x rsp2:%x",
-+			pCmd->cmd, pRsp->status, pRsp->rsp0, pRsp->rsp1,
-+			pRsp->rsp2);
- 
- 	// clear stuck command busy if necessary
- 	if (IN4500(ai, COMMAND) & COMMAND_BUSY) {
-diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
-index b3300ff..758459e 100644
---- a/drivers/net/wireless/ipw2200.c
-+++ b/drivers/net/wireless/ipw2200.c
-@@ -2667,7 +2667,7 @@ static void ipw_fw_dma_abort(struct ipw_
- 
- 	IPW_DEBUG_FW(">> :\n");
- 
--	//set the Stop and Abort bit
-+	/* set the Stop and Abort bit */
- 	control = DMA_CONTROL_SMALL_CB_CONST_VALUE | DMA_CB_STOP_AND_ABORT;
- 	ipw_write_reg32(priv, IPW_DMA_I_DMA_CONTROL, control);
- 	priv->sram_desc.last_cb_index = 0;
-@@ -3002,8 +3002,6 @@ static int ipw_load_ucode(struct ipw_pri
- 	if (rc < 0)
- 		return rc;
- 
--//      spin_lock_irqsave(&priv->lock, flags);
--
- 	for (addr = IPW_SHARED_LOWER_BOUND;
- 	     addr < IPW_REGISTER_DOMAIN1_END; addr += 4) {
- 		ipw_write32(priv, addr, 0);
-@@ -3097,8 +3095,6 @@ static int ipw_load_ucode(struct ipw_pri
- 	   firmware have problem getting alive resp. */
- 	ipw_write_reg8(priv, IPW_BASEBAND_CONTROL_STATUS, 0);
- 
--//      spin_unlock_irqrestore(&priv->lock, flags);
--
- 	return rc;
- }
- 
-@@ -6387,13 +6383,6 @@ static int ipw_wx_set_genie(struct net_d
- 	    (wrqu->data.length && extra == NULL))
- 		return -EINVAL;
- 
--	//mutex_lock(&priv->mutex);
--
--	//if (!ieee->wpa_enabled) {
--	//      err = -EOPNOTSUPP;
--	//      goto out;
--	//}
--
- 	if (wrqu->data.length) {
- 		buf = kmalloc(wrqu->data.length, GFP_KERNEL);
- 		if (buf == NULL) {
-@@ -6413,7 +6402,6 @@ static int ipw_wx_set_genie(struct net_d
- 
- 	ipw_wpa_assoc_frame(priv, ieee->wpa_ie, ieee->wpa_ie_len);
-       out:
--	//mutex_unlock(&priv->mutex);
- 	return err;
- }
- 
-@@ -6426,13 +6414,6 @@ static int ipw_wx_get_genie(struct net_d
- 	struct ieee80211_device *ieee = priv->ieee;
- 	int err = 0;
- 
--	//mutex_lock(&priv->mutex);
--
--	//if (!ieee->wpa_enabled) {
--	//      err = -EOPNOTSUPP;
--	//      goto out;
--	//}
--
- 	if (ieee->wpa_ie_len == 0 || ieee->wpa_ie == NULL) {
- 		wrqu->data.length = 0;
- 		goto out;
-@@ -6447,7 +6428,6 @@ static int ipw_wx_get_genie(struct net_d
- 	memcpy(extra, ieee->wpa_ie, ieee->wpa_ie_len);
- 
-       out:
--	//mutex_unlock(&priv->mutex);
- 	return err;
- }
- 
-@@ -6558,7 +6538,6 @@ static int ipw_wx_set_auth(struct net_de
- 		ieee->ieee802_1x = param->value;
- 		break;
- 
--		//case IW_AUTH_ROAMING_CONTROL:
- 	case IW_AUTH_PRIVACY_INVOKED:
- 		ieee->privacy_invoked = param->value;
- 		break;
-@@ -6680,7 +6659,7 @@ static int ipw_wx_set_mlme(struct net_de
- 
- 	switch (mlme->cmd) {
- 	case IW_MLME_DEAUTH:
--		// silently ignore
-+		/* silently ignore */
- 		break;
- 
- 	case IW_MLME_DISASSOC:
-@@ -9766,7 +9745,7 @@ #endif
- 	return 0;
- }
- 
--#endif				// CONFIG_IPW2200_MONITOR
-+#endif				/* CONFIG_IPW2200_MONITOR */
- 
- static int ipw_wx_reset(struct net_device *dev,
- 			struct iw_request_info *info,
-@@ -10009,7 +9988,7 @@ static  void init_sys_config(struct ipw_
- 	sys_config->dot11g_auto_detection = 0;
- 	sys_config->enable_cts_to_self = 0;
- 	sys_config->bt_coexist_collision_thr = 0;
--	sys_config->pass_noise_stats_to_host = 1;	//1 -- fix for 256
-+	sys_config->pass_noise_stats_to_host = 1;	/* 1 -- fix for 256 */
- 	sys_config->silence_threshold = 0x1e;
- }
- 
-diff --git a/drivers/net/wireless/prism54/isl_ioctl.c b/drivers/net/wireless/prism54/isl_ioctl.c
-index 989599a..0c30fe7 100644
---- a/drivers/net/wireless/prism54/isl_ioctl.c
-+++ b/drivers/net/wireless/prism54/isl_ioctl.c
-@@ -35,10 +35,14 @@ #include "oid_mgt.h"
- 
- #include <net/iw_handler.h>	/* New driver API */
- 
-+#define KEY_SIZE_WEP104 13	/* 104/128-bit WEP keys */
-+#define KEY_SIZE_WEP40  5	/* 40/64-bit WEP keys */
-+/* KEY_SIZE_TKIP should match isl_oid.h, struct obj_key.key[] size */
-+#define KEY_SIZE_TKIP   32	/* TKIP keys */
- 
--static void prism54_wpa_ie_add(islpci_private *priv, u8 *bssid,
-+static void prism54_wpa_bss_ie_add(islpci_private *priv, u8 *bssid,
- 				u8 *wpa_ie, size_t wpa_ie_len);
--static size_t prism54_wpa_ie_get(islpci_private *priv, u8 *bssid, u8 *wpa_ie);
-+static size_t prism54_wpa_bss_ie_get(islpci_private *priv, u8 *bssid, u8 *wpa_ie);
- static int prism54_set_wpa(struct net_device *, struct iw_request_info *,
- 				__u32 *, char *);
- 
-@@ -468,6 +472,9 @@ prism54_get_range(struct net_device *nde
- 	range->event_capa[1] = IW_EVENT_CAPA_K_1;
- 	range->event_capa[4] = IW_EVENT_CAPA_MASK(IWEVCUSTOM);
- 
-+	range->enc_capa = IW_ENC_CAPA_WPA | IW_ENC_CAPA_WPA2 |
-+		IW_ENC_CAPA_CIPHER_TKIP;
-+
- 	if (islpci_get_state(priv) < PRV_STATE_INIT)
- 		return 0;
- 
-@@ -567,6 +574,8 @@ prism54_translate_bss(struct net_device 
- 	struct iw_event iwe;	/* Temporary buffer */
- 	short cap;
- 	islpci_private *priv = netdev_priv(ndev);
-+	u8 wpa_ie[MAX_WPA_IE_LEN];
-+	size_t wpa_ie_len;
- 
- 	/* The first entry must be the MAC address */
- 	memcpy(iwe.u.ap_addr.sa_data, bss->address, 6);
-@@ -627,27 +636,13 @@ #define CAP_CRYPT 0x10
- 	current_ev =
- 	    iwe_stream_add_event(current_ev, end_buf, &iwe, IW_EV_QUAL_LEN);
- 
--	if (priv->wpa) {
--		u8 wpa_ie[MAX_WPA_IE_LEN];
--		char *buf, *p;
--		size_t wpa_ie_len;
--		int i;
--
--		wpa_ie_len = prism54_wpa_ie_get(priv, bss->address, wpa_ie);
--		if (wpa_ie_len > 0 &&
--		    (buf = kmalloc(wpa_ie_len * 2 + 10, GFP_ATOMIC))) {
--			p = buf;
--			p += sprintf(p, "wpa_ie=");
--			for (i = 0; i < wpa_ie_len; i++) {
--				p += sprintf(p, "%02x", wpa_ie[i]);
--			}
--			memset(&iwe, 0, sizeof (iwe));
--			iwe.cmd = IWEVCUSTOM;
--			iwe.u.data.length = strlen(buf);
--			current_ev = iwe_stream_add_point(current_ev, end_buf,
--							  &iwe, buf);
--			kfree(buf);
--		}
-+	/* Add WPA/RSN Information Element, if any */
-+	wpa_ie_len = prism54_wpa_bss_ie_get(priv, bss->address, wpa_ie);
-+	if (wpa_ie_len > 0) {
-+		iwe.cmd = IWEVGENIE;
-+		iwe.u.data.length = min(wpa_ie_len, (size_t)MAX_WPA_IE_LEN);
-+		current_ev = iwe_stream_add_point(current_ev, end_buf,
-+				&iwe, wpa_ie);
- 	}
- 	return current_ev;
- }
-@@ -1051,12 +1046,24 @@ prism54_set_encode(struct net_device *nd
- 		current_index = r.u;
- 		/* Verify that the key is not marked as invalid */
- 		if (!(dwrq->flags & IW_ENCODE_NOKEY)) {
--			key.length = dwrq->length > sizeof (key.key) ?
--			    sizeof (key.key) : dwrq->length;
--			memcpy(key.key, extra, key.length);
--			if (key.length == 32)
--				/* we want WPA-PSK */
-+			if (dwrq->length > KEY_SIZE_TKIP) {
-+				/* User-provided key data too big */
-+				return -EINVAL;
-+			}
-+			if (dwrq->length > KEY_SIZE_WEP104) {
-+				/* WPA-PSK TKIP */
- 				key.type = DOT11_PRIV_TKIP;
-+				key.length = KEY_SIZE_TKIP;
-+			} else if (dwrq->length > KEY_SIZE_WEP40) {
-+				/* WEP 104/128 */
-+				key.length = KEY_SIZE_WEP104;
-+			} else {
-+				/* WEP 40/64 */
-+				key.length = KEY_SIZE_WEP40;
-+			}
-+			memset(key.key, 0, sizeof (key.key));
-+			memcpy(key.key, extra, dwrq->length);
-+
- 			if ((index < 0) || (index > 3))
- 				/* no index provided use the current one */
- 				index = current_index;
-@@ -1210,6 +1217,489 @@ prism54_set_txpower(struct net_device *n
- 	}
- }
- 
-+static int prism54_set_genie(struct net_device *ndev,
-+			     struct iw_request_info *info,
-+			     struct iw_point *data, char *extra)
-+{
-+	islpci_private *priv = netdev_priv(ndev);
-+	int alen, ret = 0;
-+	struct obj_attachment *attach;
-+
-+	if (data->length > MAX_WPA_IE_LEN ||
-+	    (data->length && extra == NULL))
-+		return -EINVAL;
-+
-+	memcpy(priv->wpa_ie, extra, data->length);
-+	priv->wpa_ie_len = data->length;
-+
-+	alen = sizeof(*attach) + priv->wpa_ie_len;
-+	attach = kzalloc(alen, GFP_KERNEL);
-+	if (attach == NULL)
-+		return -ENOMEM;
-+
-+#define WLAN_FC_TYPE_MGMT 0
-+#define WLAN_FC_STYPE_ASSOC_REQ 0
-+#define WLAN_FC_STYPE_REASSOC_REQ 2
-+
-+	/* Note: endianness is covered by mgt_set_varlen */
-+	attach->type = (WLAN_FC_TYPE_MGMT << 2) |
-+               (WLAN_FC_STYPE_ASSOC_REQ << 4);
-+	attach->id = -1;
-+	attach->size = priv->wpa_ie_len;
-+	memcpy(attach->data, extra, priv->wpa_ie_len);
-+
-+	ret = mgt_set_varlen(priv, DOT11_OID_ATTACHMENT, attach,
-+		priv->wpa_ie_len);
-+	if (ret == 0) {
-+		attach->type = (WLAN_FC_TYPE_MGMT << 2) |
-+			(WLAN_FC_STYPE_REASSOC_REQ << 4);
-+
-+		ret = mgt_set_varlen(priv, DOT11_OID_ATTACHMENT, attach,
-+			priv->wpa_ie_len);
-+		if (ret == 0)
-+			printk(KERN_DEBUG "%s: WPA IE Attachment was set\n",
-+				ndev->name);
-+	}
-+
-+	kfree(attach);
-+	return ret;
-+}
-+
-+
-+static int prism54_get_genie(struct net_device *ndev,
-+			     struct iw_request_info *info,
-+			     struct iw_point *data, char *extra)
-+{
-+	islpci_private *priv = netdev_priv(ndev);
-+	int len = priv->wpa_ie_len;
-+
-+	if (len <= 0) {
-+		data->length = 0;
-+		return 0;
-+	}
-+
-+	if (data->length < len)
-+		return -E2BIG;
-+
-+	data->length = len;
-+	memcpy(extra, priv->wpa_ie, len);
-+
-+	return 0;
-+}
-+
-+static int prism54_set_auth(struct net_device *ndev,
-+			       struct iw_request_info *info,
-+			       union iwreq_data *wrqu, char *extra)
-+{
-+	islpci_private *priv = netdev_priv(ndev);
-+	struct iw_param *param = &wrqu->param;
-+	u32 mlmelevel = 0, authen = 0, dot1x = 0;
-+	u32 exunencrypt = 0, privinvoked = 0, wpa = 0;
-+	u32 old_wpa;
-+	int ret = 0;
-+	union oid_res_t r;
-+
-+	if (islpci_get_state(priv) < PRV_STATE_INIT)
-+		return 0;
-+
-+	/* first get the flags */
-+	down_write(&priv->mib_sem);
-+	wpa = old_wpa = priv->wpa;
-+	up_write(&priv->mib_sem);
-+	ret = mgt_get_request(priv, DOT11_OID_AUTHENABLE, 0, NULL, &r);
-+	authen = r.u;
-+	ret = mgt_get_request(priv, DOT11_OID_PRIVACYINVOKED, 0, NULL, &r);
-+	privinvoked = r.u;
-+	ret = mgt_get_request(priv, DOT11_OID_EXUNENCRYPTED, 0, NULL, &r);
-+	exunencrypt = r.u;
-+	ret = mgt_get_request(priv, DOT11_OID_DOT1XENABLE, 0, NULL, &r);
-+	dot1x = r.u;
-+	ret = mgt_get_request(priv, DOT11_OID_MLMEAUTOLEVEL, 0, NULL, &r);
-+	mlmelevel = r.u;
-+
-+	if (ret < 0)
-+		goto out;
-+
-+	switch (param->flags & IW_AUTH_INDEX) {
-+	case IW_AUTH_CIPHER_PAIRWISE:
-+	case IW_AUTH_CIPHER_GROUP:
-+	case IW_AUTH_KEY_MGMT:
-+		break;
-+
-+	case IW_AUTH_WPA_ENABLED:
-+		/* Do the same thing as IW_AUTH_WPA_VERSION */
-+		if (param->value) {
-+			wpa = 1;
-+			privinvoked = 1; /* For privacy invoked */
-+			exunencrypt = 1; /* Filter out all unencrypted frames */
-+			dot1x = 0x01; /* To enable eap filter */
-+			mlmelevel = DOT11_MLME_EXTENDED;
-+			authen = DOT11_AUTH_OS; /* Only WEP uses _SK and _BOTH */
-+		} else {
-+			wpa = 0;
-+			privinvoked = 0;
-+			exunencrypt = 0; /* Do not filter un-encrypted data */
-+			dot1x = 0;
-+			mlmelevel = DOT11_MLME_AUTO;
-+		}
-+		break;
-+
-+	case IW_AUTH_WPA_VERSION:
-+		if (param->value & IW_AUTH_WPA_VERSION_DISABLED) {
-+			wpa = 0;
-+			privinvoked = 0;
-+			exunencrypt = 0; /* Do not filter un-encrypted data */
-+			dot1x = 0;
-+			mlmelevel = DOT11_MLME_AUTO;
-+		} else {
-+			if (param->value & IW_AUTH_WPA_VERSION_WPA)
-+				wpa = 1;
-+			else if (param->value & IW_AUTH_WPA_VERSION_WPA2)
-+				wpa = 2;
-+			privinvoked = 1; /* For privacy invoked */
-+			exunencrypt = 1; /* Filter out all unencrypted frames */
-+			dot1x = 0x01; /* To enable eap filter */
-+			mlmelevel = DOT11_MLME_EXTENDED;
-+			authen = DOT11_AUTH_OS; /* Only WEP uses _SK and _BOTH */
-+		}
-+		break;
-+
-+	case IW_AUTH_RX_UNENCRYPTED_EAPOL:
-+		dot1x = param->value ? 1 : 0;
-+		break;
-+
-+	case IW_AUTH_PRIVACY_INVOKED:
-+		privinvoked = param->value ? 1 : 0;
-+
-+	case IW_AUTH_DROP_UNENCRYPTED:
-+		exunencrypt = param->value ? 1 : 0;
-+		break;
-+
-+	case IW_AUTH_80211_AUTH_ALG:
-+		if (param->value & IW_AUTH_ALG_SHARED_KEY) {
-+			/* Only WEP uses _SK and _BOTH */
-+			if (wpa > 0) {
-+				ret = -EINVAL;
-+				goto out;
-+			}
-+			authen = DOT11_AUTH_SK;
-+		} else if (param->value & IW_AUTH_ALG_OPEN_SYSTEM) {
-+			authen = DOT11_AUTH_OS;
-+		} else {
-+			ret = -EINVAL;
-+			goto out;
-+		}
-+		break;
-+
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	/* Set all the values */
-+	down_write(&priv->mib_sem);
-+	priv->wpa = wpa;
-+	up_write(&priv->mib_sem);
-+	mgt_set_request(priv, DOT11_OID_AUTHENABLE, 0, &authen);
-+	mgt_set_request(priv, DOT11_OID_PRIVACYINVOKED, 0, &privinvoked);
-+	mgt_set_request(priv, DOT11_OID_EXUNENCRYPTED, 0, &exunencrypt);
-+	mgt_set_request(priv, DOT11_OID_DOT1XENABLE, 0, &dot1x);
-+	mgt_set_request(priv, DOT11_OID_MLMEAUTOLEVEL, 0, &mlmelevel);
-+
-+out:
-+	return ret;
-+}
-+
-+static int prism54_get_auth(struct net_device *ndev,
-+			    struct iw_request_info *info,
-+			    union iwreq_data *wrqu, char *extra)
-+{
-+	islpci_private *priv = netdev_priv(ndev);
-+	struct iw_param *param = &wrqu->param;
-+	u32 wpa = 0;
-+	int ret = 0;
-+	union oid_res_t r;
-+
-+	if (islpci_get_state(priv) < PRV_STATE_INIT)
-+		return 0;
-+
-+	/* first get the flags */
-+	down_write(&priv->mib_sem);
-+	wpa = priv->wpa;
-+	up_write(&priv->mib_sem);
-+
-+	switch (param->flags & IW_AUTH_INDEX) {
-+	case IW_AUTH_CIPHER_PAIRWISE:
-+	case IW_AUTH_CIPHER_GROUP:
-+	case IW_AUTH_KEY_MGMT:
-+		/*
-+		 * wpa_supplicant will control these internally
-+		 */
-+		ret = -EOPNOTSUPP;
-+		break;
-+
-+	case IW_AUTH_WPA_VERSION:
-+		switch (wpa) {
-+		case 1:
-+			param->value = IW_AUTH_WPA_VERSION_WPA;
-+			break;
-+		case 2:
-+			param->value = IW_AUTH_WPA_VERSION_WPA2;
-+			break;
-+		case 0:
-+		default:
-+			param->value = IW_AUTH_WPA_VERSION_DISABLED;
-+			break;
-+		}
-+		break;
-+
-+	case IW_AUTH_DROP_UNENCRYPTED:
-+		ret = mgt_get_request(priv, DOT11_OID_EXUNENCRYPTED, 0, NULL, &r);
-+		if (ret >= 0)
-+			param->value = r.u > 0 ? 1 : 0;
-+		break;
-+
-+	case IW_AUTH_80211_AUTH_ALG:
-+		ret = mgt_get_request(priv, DOT11_OID_AUTHENABLE, 0, NULL, &r);
-+		if (ret >= 0) {
-+			switch (r.u) {
-+			case DOT11_AUTH_OS:
-+				param->value = IW_AUTH_ALG_OPEN_SYSTEM;
-+				break;
-+			case DOT11_AUTH_BOTH:
-+			case DOT11_AUTH_SK:
-+				param->value = IW_AUTH_ALG_SHARED_KEY;
-+			case DOT11_AUTH_NONE:
-+			default:
-+				param->value = 0;
-+				break;
-+			}
-+		}
-+		break;
-+
-+	case IW_AUTH_WPA_ENABLED:
-+		param->value = wpa > 0 ? 1 : 0;
-+		break;
-+
-+	case IW_AUTH_RX_UNENCRYPTED_EAPOL:
-+		ret = mgt_get_request(priv, DOT11_OID_DOT1XENABLE, 0, NULL, &r);
-+		if (ret >= 0)
-+			param->value = r.u > 0 ? 1 : 0;
-+		break;
-+
-+	case IW_AUTH_PRIVACY_INVOKED:
-+		ret = mgt_get_request(priv, DOT11_OID_PRIVACYINVOKED, 0, NULL, &r);
-+		if (ret >= 0)
-+			param->value = r.u > 0 ? 1 : 0;
-+		break;
-+
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+	return ret;
-+}
-+
-+static int prism54_set_encodeext(struct net_device *ndev,
-+				 struct iw_request_info *info,
-+				 union iwreq_data *wrqu,
-+				 char *extra)
-+{
-+	islpci_private *priv = netdev_priv(ndev);
-+	struct iw_point *encoding = &wrqu->encoding;
-+	struct iw_encode_ext *ext = (struct iw_encode_ext *)extra;
-+	int idx, alg = ext->alg, set_key = 1;
-+	union oid_res_t r;
-+	int authen = DOT11_AUTH_OS, invoke = 0, exunencrypt = 0;
-+	int ret = 0;
-+
-+	if (islpci_get_state(priv) < PRV_STATE_INIT)
-+		return 0;
-+
-+	/* Determine and validate the key index */
-+	idx = (encoding->flags & IW_ENCODE_INDEX) - 1;
-+	if (idx) {
-+		if (idx < 0 || idx > 3)
-+			return -EINVAL;
-+	} else {
-+		ret = mgt_get_request(priv, DOT11_OID_DEFKEYID, 0, NULL, &r);
-+		if (ret < 0)
-+			goto out;
-+		idx = r.u;
-+	}
-+
-+	if (encoding->flags & IW_ENCODE_DISABLED)
-+		alg = IW_ENCODE_ALG_NONE;
-+
-+	if (ext->ext_flags & IW_ENCODE_EXT_SET_TX_KEY) {
-+		/* Only set transmit key index here, actual
-+		 * key is set below if needed.
-+		 */
-+		ret = mgt_set_request(priv, DOT11_OID_DEFKEYID, 0, &idx);
-+		set_key = ext->key_len > 0 ? 1 : 0;
-+	}
-+
-+	if (set_key) {
-+		struct obj_key key = { DOT11_PRIV_WEP, 0, "" };
-+		switch (alg) {
-+		case IW_ENCODE_ALG_NONE:
-+			break;
-+		case IW_ENCODE_ALG_WEP:
-+			if (ext->key_len > KEY_SIZE_WEP104) {
-+				ret = -EINVAL;
-+				goto out;
-+			}
-+			if (ext->key_len > KEY_SIZE_WEP40)
-+				key.length = KEY_SIZE_WEP104;
-+			else
-+				key.length = KEY_SIZE_WEP40;
-+			break;
-+		case IW_ENCODE_ALG_TKIP:
-+			if (ext->key_len > KEY_SIZE_TKIP) {
-+				ret = -EINVAL;
-+				goto out;
-+			}
-+			key.type = DOT11_PRIV_TKIP;
-+			key.length = KEY_SIZE_TKIP;
-+		default:
-+			return -EINVAL;
-+		}
-+
-+		if (key.length) {
-+			memset(key.key, 0, sizeof(key.key));
-+			memcpy(key.key, ext->key, ext->key_len);
-+			ret = mgt_set_request(priv, DOT11_OID_DEFKEYX, idx,
-+					    &key);
-+			if (ret < 0)
-+				goto out;
-+		}
-+	}
-+
-+	/* Read the flags */
-+	if (encoding->flags & IW_ENCODE_DISABLED) {
-+		/* Encoding disabled,
-+		 * authen = DOT11_AUTH_OS;
-+		 * invoke = 0;
-+		 * exunencrypt = 0; */
-+	}
-+	if (encoding->flags & IW_ENCODE_OPEN) {
-+		/* Encode but accept non-encoded packets. No auth */
-+		invoke = 1;
-+	}
-+	if (encoding->flags & IW_ENCODE_RESTRICTED) {
-+		/* Refuse non-encoded packets. Auth */
-+		authen = DOT11_AUTH_BOTH;
-+		invoke = 1;
-+		exunencrypt = 1;
-+	}
-+
-+	/* do the change if requested  */
-+	if (encoding->flags & IW_ENCODE_MODE) {
-+		ret = mgt_set_request(priv, DOT11_OID_AUTHENABLE, 0,
-+				      &authen);
-+		ret = mgt_set_request(priv, DOT11_OID_PRIVACYINVOKED, 0,
-+				      &invoke);
-+		ret = mgt_set_request(priv, DOT11_OID_EXUNENCRYPTED, 0,
-+				      &exunencrypt);
-+	}
-+
-+out:
-+	return ret;
-+}
-+
-+
-+static int prism54_get_encodeext(struct net_device *ndev,
-+				 struct iw_request_info *info,
-+				 union iwreq_data *wrqu,
-+				 char *extra)
-+{
-+	islpci_private *priv = netdev_priv(ndev);
-+	struct iw_point *encoding = &wrqu->encoding;
-+	struct iw_encode_ext *ext = (struct iw_encode_ext *)extra;
-+	int idx, max_key_len;
-+	union oid_res_t r;
-+	int authen = DOT11_AUTH_OS, invoke = 0, exunencrypt = 0, wpa = 0;
-+	int ret = 0;
-+
-+	if (islpci_get_state(priv) < PRV_STATE_INIT)
-+		return 0;
-+
-+	/* first get the flags */
-+	ret = mgt_get_request(priv, DOT11_OID_AUTHENABLE, 0, NULL, &r);
-+	authen = r.u;
-+	ret = mgt_get_request(priv, DOT11_OID_PRIVACYINVOKED, 0, NULL, &r);
-+	invoke = r.u;
-+	ret = mgt_get_request(priv, DOT11_OID_EXUNENCRYPTED, 0, NULL, &r);
-+	exunencrypt = r.u;
-+	if (ret < 0)
-+		goto out;
-+
-+	max_key_len = encoding->length - sizeof(*ext);
-+	if (max_key_len < 0)
-+		return -EINVAL;
-+
-+	idx = (encoding->flags & IW_ENCODE_INDEX) - 1;
-+	if (idx) {
-+		if (idx < 0 || idx > 3)
-+			return -EINVAL;
-+	} else {
-+		ret = mgt_get_request(priv, DOT11_OID_DEFKEYID, 0, NULL, &r);
-+		if (ret < 0)
-+			goto out;
-+		idx = r.u;
-+	}
-+
-+	encoding->flags = idx + 1;
-+	memset(ext, 0, sizeof(*ext));
-+
-+	switch (authen) {
-+	case DOT11_AUTH_BOTH:
-+	case DOT11_AUTH_SK:
-+		wrqu->encoding.flags |= IW_ENCODE_RESTRICTED;
-+	case DOT11_AUTH_OS:
-+	default:
-+		wrqu->encoding.flags |= IW_ENCODE_OPEN;
-+		break;
-+	}
-+
-+	down_write(&priv->mib_sem);
-+	wpa = priv->wpa;
-+	up_write(&priv->mib_sem);
-+
-+	if (authen == DOT11_AUTH_OS && !exunencrypt && !invoke && !wpa) {
-+		/* No encryption */
-+		ext->alg = IW_ENCODE_ALG_NONE;
-+		ext->key_len = 0;
-+		wrqu->encoding.flags |= IW_ENCODE_DISABLED;
-+	} else {
-+		struct obj_key *key;
-+
-+		ret = mgt_get_request(priv, DOT11_OID_DEFKEYX, idx, NULL, &r);
-+		if (ret < 0)
-+			goto out;
-+		key = r.ptr;
-+		if (max_key_len < key->length) {
-+			ret = -E2BIG;
-+			goto out;
-+		}
-+		memcpy(ext->key, key->key, key->length);
-+		ext->key_len = key->length;
-+
-+		switch (key->type) {
-+		case DOT11_PRIV_TKIP:
-+			ext->alg = IW_ENCODE_ALG_TKIP;
-+			break;
-+		default:
-+		case DOT11_PRIV_WEP:
-+			ext->alg = IW_ENCODE_ALG_WEP;
-+			break;
-+		}
-+		wrqu->encoding.flags |= IW_ENCODE_ENABLED;
-+	}
-+
-+out:
-+	return ret;
-+}
-+
-+
- static int
- prism54_reset(struct net_device *ndev, struct iw_request_info *info,
- 	      __u32 * uwrq, char *extra)
-@@ -1591,8 +2081,8 @@ #define MAC2STR(a) (a)[0], (a)[1], (a)[2
- #define MACSTR "%02x:%02x:%02x:%02x:%02x:%02x"
- 
- static void
--prism54_wpa_ie_add(islpci_private *priv, u8 *bssid,
--		   u8 *wpa_ie, size_t wpa_ie_len)
-+prism54_wpa_bss_ie_add(islpci_private *priv, u8 *bssid,
-+		       u8 *wpa_ie, size_t wpa_ie_len)
- {
- 	struct list_head *ptr;
- 	struct islpci_bss_wpa_ie *bss = NULL;
-@@ -1658,7 +2148,7 @@ prism54_wpa_ie_add(islpci_private *priv,
- }
- 
- static size_t
--prism54_wpa_ie_get(islpci_private *priv, u8 *bssid, u8 *wpa_ie)
-+prism54_wpa_bss_ie_get(islpci_private *priv, u8 *bssid, u8 *wpa_ie)
- {
- 	struct list_head *ptr;
- 	struct islpci_bss_wpa_ie *bss = NULL;
-@@ -1683,14 +2173,14 @@ prism54_wpa_ie_get(islpci_private *priv,
- }
- 
- void
--prism54_wpa_ie_init(islpci_private *priv)
-+prism54_wpa_bss_ie_init(islpci_private *priv)
- {
- 	INIT_LIST_HEAD(&priv->bss_wpa_list);
- 	sema_init(&priv->wpa_sem, 1);
- }
- 
- void
--prism54_wpa_ie_clean(islpci_private *priv)
-+prism54_wpa_bss_ie_clean(islpci_private *priv)
- {
- 	struct list_head *ptr, *n;
- 
-@@ -1722,7 +2212,7 @@ prism54_process_bss_data(islpci_private 
- 		}
- 		if (pos[0] == WLAN_EID_GENERIC && pos[1] >= 4 &&
- 		    memcmp(pos + 2, wpa_oid, 4) == 0) {
--			prism54_wpa_ie_add(priv, addr, pos, pos[1] + 2);
-+			prism54_wpa_bss_ie_add(priv, addr, pos, pos[1] + 2);
- 			return;
- 		}
- 		pos += 2 + pos[1];
-@@ -1879,7 +2369,7 @@ prism54_process_trap_helper(islpci_priva
- 		send_formatted_event(priv, "Associate request (ex)", mlme, 1);
- 
- 		if (priv->iw_mode != IW_MODE_MASTER 
--				&& mlmeex->state != DOT11_STATE_AUTHING)
-+				&& mlmeex->state != DOT11_STATE_ASSOCING)
- 			break;
- 		
- 		confirm = kmalloc(sizeof(struct obj_mlmeex), GFP_ATOMIC);
-@@ -1893,7 +2383,7 @@ prism54_process_trap_helper(islpci_priva
- 		confirm->state = 0; /* not used */
- 		confirm->code = 0;
- 
--		wpa_ie_len = prism54_wpa_ie_get(priv, mlmeex->address, wpa_ie);
-+		wpa_ie_len = prism54_wpa_bss_ie_get(priv, mlmeex->address, wpa_ie);
- 
- 		if (!wpa_ie_len) {
- 			printk(KERN_DEBUG "No WPA IE found from "
-@@ -1937,7 +2427,7 @@ prism54_process_trap_helper(islpci_priva
- 		confirm->state = 0; /* not used */
- 		confirm->code = 0;
- 
--		wpa_ie_len = prism54_wpa_ie_get(priv, mlmeex->address, wpa_ie);
-+		wpa_ie_len = prism54_wpa_bss_ie_get(priv, mlmeex->address, wpa_ie);
- 
- 		if (!wpa_ie_len) {
- 			printk(KERN_DEBUG "No WPA IE found from "
-@@ -2553,6 +3043,15 @@ static const iw_handler prism54_handler[
- 	(iw_handler) prism54_get_encode,	/* SIOCGIWENCODE */
- 	(iw_handler) NULL,	/* SIOCSIWPOWER */
- 	(iw_handler) NULL,	/* SIOCGIWPOWER */
-+	NULL,			/* -- hole -- */
-+	NULL,			/* -- hole -- */
-+	(iw_handler) prism54_set_genie,	/* SIOCSIWGENIE */
-+	(iw_handler) prism54_get_genie,	/* SIOCGIWGENIE */
-+	(iw_handler) prism54_set_auth,	/* SIOCSIWAUTH */
-+	(iw_handler) prism54_get_auth,	/* SIOCGIWAUTH */
-+	(iw_handler) prism54_set_encodeext, /* SIOCSIWENCODEEXT */
-+	(iw_handler) prism54_get_encodeext, /* SIOCGIWENCODEEXT */
-+	NULL,			/* SIOCSIWPMKSA */
- };
- 
- /* The low order bit identify a SET (0) or a GET (1) ioctl.  */
-diff --git a/drivers/net/wireless/prism54/isl_ioctl.h b/drivers/net/wireless/prism54/isl_ioctl.h
-index 46d5cde..65f33ac 100644
---- a/drivers/net/wireless/prism54/isl_ioctl.h
-+++ b/drivers/net/wireless/prism54/isl_ioctl.h
-@@ -27,7 +27,7 @@ #include "islpci_dev.h"
- 
- #include <net/iw_handler.h>	/* New driver API */
- 
--#define SUPPORTED_WIRELESS_EXT                  16
-+#define SUPPORTED_WIRELESS_EXT                  19
- 
- void prism54_mib_init(islpci_private *);
- 
-@@ -39,8 +39,8 @@ void prism54_acl_clean(struct islpci_acl
- 
- void prism54_process_trap(void *);
- 
--void prism54_wpa_ie_init(islpci_private *priv);
--void prism54_wpa_ie_clean(islpci_private *priv);
-+void prism54_wpa_bss_ie_init(islpci_private *priv);
-+void prism54_wpa_bss_ie_clean(islpci_private *priv);
- 
- int prism54_set_mac_address(struct net_device *, void *);
- 
-diff --git a/drivers/net/wireless/prism54/islpci_dev.c b/drivers/net/wireless/prism54/islpci_dev.c
-index 5ddf295..ab3c5a2 100644
---- a/drivers/net/wireless/prism54/islpci_dev.c
-+++ b/drivers/net/wireless/prism54/islpci_dev.c
-@@ -715,7 +715,7 @@ #endif
- 	}
- 
- 	prism54_acl_init(&priv->acl);
--	prism54_wpa_ie_init(priv);
-+	prism54_wpa_bss_ie_init(priv);
- 	if (mgt_init(priv)) 
- 		goto out_free;
- 
-@@ -774,7 +774,7 @@ islpci_free_memory(islpci_private *priv)
- 
- 	/* Free the acces control list and the WPA list */
- 	prism54_acl_clean(&priv->acl);
--	prism54_wpa_ie_clean(priv);
-+	prism54_wpa_bss_ie_clean(priv);
- 	mgt_clean(priv);
- 
- 	return 0;
-diff --git a/drivers/net/wireless/prism54/islpci_dev.h b/drivers/net/wireless/prism54/islpci_dev.h
-index 0705316..5049f37 100644
---- a/drivers/net/wireless/prism54/islpci_dev.h
-+++ b/drivers/net/wireless/prism54/islpci_dev.h
-@@ -179,6 +179,8 @@ typedef struct {
- 	struct list_head bss_wpa_list;
- 	int num_bss_wpa;
- 	struct semaphore wpa_sem;
-+	u8 wpa_ie[MAX_WPA_IE_LEN];
-+	size_t wpa_ie_len;
- 
- 	struct work_struct reset_task;
- 	int reset_task_pending;
-diff --git a/drivers/net/wireless/zd1211rw/zd_netdev.c b/drivers/net/wireless/zd1211rw/zd_netdev.c
-index 9df232c..440ef24 100644
---- a/drivers/net/wireless/zd1211rw/zd_netdev.c
-+++ b/drivers/net/wireless/zd1211rw/zd_netdev.c
-@@ -72,10 +72,18 @@ static int iw_get_name(struct net_device
- 	               struct iw_request_info *info,
- 		       union iwreq_data *req, char *extra)
- {
--	/* FIXME: check whether 802.11a will also supported, add also
--	 *        zd1211B, if we support it.
--	 */
--	strlcpy(req->name, "802.11g zd1211", IFNAMSIZ);
-+	/* FIXME: check whether 802.11a will also supported */
-+	strlcpy(req->name, "IEEE 802.11b/g", IFNAMSIZ);
-+	return 0;
-+}
-+
-+static int iw_get_nick(struct net_device *netdev,
-+	               struct iw_request_info *info,
-+		       union iwreq_data *req, char *extra)
-+{
-+	strcpy(extra, "zd1211");
-+	req->data.length = strlen(extra) + 1;
-+	req->data.flags = 1;
- 	return 0;
- }
- 
-@@ -181,6 +189,7 @@ #define WX(x) [(x)-SIOCIWFIRST]
- 
- static const iw_handler zd_standard_iw_handlers[] = {
- 	WX(SIOCGIWNAME)		= iw_get_name,
-+	WX(SIOCGIWNICKN)	= iw_get_nick,
- 	WX(SIOCSIWFREQ)		= iw_set_freq,
- 	WX(SIOCGIWFREQ)		= iw_get_freq,
- 	WX(SIOCSIWMODE)		= iw_set_mode,
-diff --git a/include/net/ieee80211.h b/include/net/ieee80211.h
-index ecc4286..b174ebb 100644
---- a/include/net/ieee80211.h
-+++ b/include/net/ieee80211.h
-@@ -240,6 +240,11 @@ #define WLAN_CAPABILITY_QOS (1<<9)
- #define WLAN_CAPABILITY_SHORT_SLOT_TIME (1<<10)
- #define WLAN_CAPABILITY_DSSS_OFDM (1<<13)
- 
-+/* 802.11g ERP information element */
-+#define WLAN_ERP_NON_ERP_PRESENT (1<<0)
-+#define WLAN_ERP_USE_PROTECTION (1<<1)
-+#define WLAN_ERP_BARKER_PREAMBLE (1<<2)
-+
- /* Status codes */
- enum ieee80211_statuscode {
- 	WLAN_STATUS_SUCCESS = 0,
-@@ -747,6 +752,8 @@ #define NETWORK_HAS_QUIET               
- #define NETWORK_HAS_IBSS_DFS            (1<<8)
- #define NETWORK_HAS_TPC_REPORT          (1<<9)
- 
-+#define NETWORK_HAS_ERP_VALUE           (1<<10)
-+
- #define QOS_QUEUE_NUM                   4
- #define QOS_OUI_LEN                     3
- #define QOS_OUI_TYPE                    2
-@@ -1252,6 +1259,8 @@ extern int ieee80211_tx_frame(struct iee
- 			      int total_len, int encrypt_mpdu);
- 
- /* ieee80211_rx.c */
-+extern void ieee80211_rx_any(struct ieee80211_device *ieee,
-+		     struct sk_buff *skb, struct ieee80211_rx_stats *stats);
- extern int ieee80211_rx(struct ieee80211_device *ieee, struct sk_buff *skb,
- 			struct ieee80211_rx_stats *rx_stats);
- /* make sure to set stats->len */
-diff --git a/include/net/ieee80211softmac.h b/include/net/ieee80211softmac.h
-index 00ad810..425b3a5 100644
---- a/include/net/ieee80211softmac.h
-+++ b/include/net/ieee80211softmac.h
-@@ -86,9 +86,6 @@ struct ieee80211softmac_assoc_info {
- 	
- 	/* BSSID we're trying to associate to */
- 	char bssid[ETH_ALEN];
--
--	/* Rates supported by the network */
--	struct ieee80211softmac_ratesinfo supported_rates;
- 	
- 	/* some flags.
- 	 * static_essid is valid if the essid is constant,
-@@ -103,6 +100,7 @@ struct ieee80211softmac_assoc_info {
- 	 * bssfixed is used for SIOCSIWAP.
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx.h b/drivers/net/wireless/bcm43xx/bcm43xx.h
+index ee6571e..c6ee1e9 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx.h
++++ b/drivers/net/wireless/bcm43xx/bcm43xx.h
+@@ -504,6 +504,12 @@ struct bcm43xx_phyinfo {
+ 	 * This lock is only used by bcm43xx_phy_{un}lock()
  	 */
- 	u8 static_essid:1,
-+	   short_preamble_available:1,
- 	   associating:1,
- 	   assoc_wait:1,
- 	   bssvalid:1,
-@@ -115,6 +113,19 @@ struct ieee80211softmac_assoc_info {
- 	struct work_struct timeout;
+ 	spinlock_t lock;
++
++	/* Firmware. */
++	const struct firmware *ucode;
++	const struct firmware *pcm;
++	const struct firmware *initvals0;
++	const struct firmware *initvals1;
  };
  
-+struct ieee80211softmac_bss_info {
-+	/* Rates supported by the network */
-+	struct ieee80211softmac_ratesinfo supported_rates;
+ 
+@@ -593,12 +599,14 @@ struct bcm43xx_coreinfo {
+ 	u8 available:1,
+ 	   enabled:1,
+ 	   initialized:1;
+-	/** core_id ID number */
+-	u16 id;
+ 	/** core_rev revision number */
+ 	u8 rev;
+ 	/** Index number for _switch_core() */
+ 	u8 index;
++	/** core_id ID number */
++	u16 id;
++	/** Core-specific data. */
++	void *priv;
+ };
+ 
+ /* Additional information for each 80211 core. */
+@@ -647,7 +655,10 @@ enum {
+ 	BCM43xx_STAT_RESTARTING,	/* controller_restart() called. */
+ };
+ #define bcm43xx_status(bcm)		atomic_read(&(bcm)->init_status)
+-#define bcm43xx_set_status(bcm, stat)	atomic_set(&(bcm)->init_status, (stat))
++#define bcm43xx_set_status(bcm, stat)	do {			\
++		atomic_set(&(bcm)->init_status, (stat));	\
++		smp_wmb();					\
++					} while (0)
+ 
+ /*    *** THEORY OF LOCKING ***
+  *
+@@ -721,10 +732,6 @@ #endif
+ 	struct bcm43xx_coreinfo core_80211[ BCM43xx_MAX_80211_CORES ];
+ 	/* Additional information, specific to the 80211 cores. */
+ 	struct bcm43xx_coreinfo_80211 core_80211_ext[ BCM43xx_MAX_80211_CORES ];
+-	/* Index of the current 80211 core. If current_core is not
+-	 * an 80211 core, this is -1.
+-	 */
+-	int current_80211_core_idx;
+ 	/* Number of available 80211 cores. */
+ 	int nr_80211_available;
+ 
+@@ -737,6 +744,8 @@ #endif
+ 	u32 irq_savedstate;
+ 	/* Link Quality calculation context. */
+ 	struct bcm43xx_noise_calculation noisecalc;
++	/* if > 0 MAC is suspended. if == 0 MAC is enabled. */
++	int mac_suspended;
+ 
+ 	/* Threshold values. */
+ 	//TODO: The RTS thr has to be _used_. Currently, it is only set via WX.
+@@ -759,12 +768,6 @@ #endif
+ 	struct bcm43xx_key key[54];
+ 	u8 default_key_idx;
+ 
+-	/* Firmware. */
+-	const struct firmware *ucode;
+-	const struct firmware *pcm;
+-	const struct firmware *initvals0;
+-	const struct firmware *initvals1;
+-
+ 	/* Random Number Generator. */
+ 	struct hwrng rng;
+ 	char rng_name[20 + 1];
+@@ -827,34 +830,33 @@ #endif
+  * any of these functions.
+  */
+ static inline
++struct bcm43xx_coreinfo_80211 *
++bcm43xx_current_80211_priv(struct bcm43xx_private *bcm)
++{
++	assert(bcm->current_core->id == BCM43xx_COREID_80211);
++	return bcm->current_core->priv;
++}
++static inline
+ struct bcm43xx_pio * bcm43xx_current_pio(struct bcm43xx_private *bcm)
+ {
+ 	assert(bcm43xx_using_pio(bcm));
+-	assert(bcm->current_80211_core_idx >= 0);
+-	assert(bcm->current_80211_core_idx < BCM43xx_MAX_80211_CORES);
+-	return &(bcm->core_80211_ext[bcm->current_80211_core_idx].pio);
++	return &(bcm43xx_current_80211_priv(bcm)->pio);
+ }
+ static inline
+ struct bcm43xx_dma * bcm43xx_current_dma(struct bcm43xx_private *bcm)
+ {
+ 	assert(!bcm43xx_using_pio(bcm));
+-	assert(bcm->current_80211_core_idx >= 0);
+-	assert(bcm->current_80211_core_idx < BCM43xx_MAX_80211_CORES);
+-	return &(bcm->core_80211_ext[bcm->current_80211_core_idx].dma);
++	return &(bcm43xx_current_80211_priv(bcm)->dma);
+ }
+ static inline
+ struct bcm43xx_phyinfo * bcm43xx_current_phy(struct bcm43xx_private *bcm)
+ {
+-	assert(bcm->current_80211_core_idx >= 0);
+-	assert(bcm->current_80211_core_idx < BCM43xx_MAX_80211_CORES);
+-	return &(bcm->core_80211_ext[bcm->current_80211_core_idx].phy);
++	return &(bcm43xx_current_80211_priv(bcm)->phy);
+ }
+ static inline
+ struct bcm43xx_radioinfo * bcm43xx_current_radio(struct bcm43xx_private *bcm)
+ {
+-	assert(bcm->current_80211_core_idx >= 0);
+-	assert(bcm->current_80211_core_idx < BCM43xx_MAX_80211_CORES);
+-	return &(bcm->core_80211_ext[bcm->current_80211_core_idx].radio);
++	return &(bcm43xx_current_80211_priv(bcm)->radio);
+ }
+ 
+ 
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c b/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c
+index 2600ee4..923275e 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.c
+@@ -316,6 +316,42 @@ static ssize_t txstat_read_file(struct f
+ 	return res;
+ }
+ 
++static ssize_t restart_write_file(struct file *file, const char __user *user_buf,
++				  size_t count, loff_t *ppos)
++{
++	struct bcm43xx_private *bcm = file->private_data;
++	char *buf = really_big_buffer;
++	ssize_t buf_size;
++	ssize_t res;
++	unsigned long flags;
 +
-+	/* This indicates whether frames can currently be transmitted with
-+	 * short preamble (only use this variable during TX at CCK rates) */
-+	u8 short_preamble:1;
++	buf_size = min(count, sizeof (really_big_buffer) - 1);
++	down(&big_buffer_sem);
++	if (copy_from_user(buf, user_buf, buf_size)) {
++	        res = -EFAULT;
++		goto out_up;
++	}
++	mutex_lock(&(bcm)->mutex);
++	spin_lock_irqsave(&(bcm)->irq_lock, flags);
++	if (bcm43xx_status(bcm) != BCM43xx_STAT_INITIALIZED) {
++		printk(KERN_INFO PFX "debugfs: Board not initialized.\n");
++		res = -EFAULT;
++		goto out_unlock;
++	}
++	if (count > 0 && buf[0] == '1') {
++		bcm43xx_controller_restart(bcm, "manually restarted");
++		res = count;
++	} else
++		res = -EINVAL;
 +
-+	/* This indicates whether protection (e.g. self-CTS) should be used
-+	 * when transmitting with OFDM modulation */
-+	u8 use_protection:1;
++out_unlock:
++	spin_unlock_irqrestore(&(bcm)->irq_lock, flags);
++	mutex_unlock(&(bcm)->mutex);
++out_up:
++	up(&big_buffer_sem);
++	return res;
++}
++
+ #undef fappend
+ 
+ 
+@@ -349,6 +385,11 @@ static struct file_operations txstat_fop
+ 	.open = open_file_generic,
+ };
+ 
++static struct file_operations restart_fops = {
++	.write = restart_write_file,
++	.open = open_file_generic,
 +};
 +
- enum {
- 	IEEE80211SOFTMAC_AUTH_OPEN_REQUEST	= 1,
- 	IEEE80211SOFTMAC_AUTH_OPEN_RESPONSE	= 2,
-@@ -157,6 +168,10 @@ #define IEEE80211SOFTMAC_TXRATECHG_DEFAU
- #define IEEE80211SOFTMAC_TXRATECHG_MCAST		(1 << 2) /* mcast_rate */
- #define IEEE80211SOFTMAC_TXRATECHG_MGT_MCAST		(1 << 3) /* mgt_mcast_rate */
  
-+#define IEEE80211SOFTMAC_BSSINFOCHG_RATES		(1 << 0) /* supported_rates */
-+#define IEEE80211SOFTMAC_BSSINFOCHG_SHORT_PREAMBLE	(1 << 1) /* short_preamble */
-+#define IEEE80211SOFTMAC_BSSINFOCHG_PROTECTION		(1 << 2) /* use_protection */
-+
- struct ieee80211softmac_device {
- 	/* 802.11 structure for data stuff */
- 	struct ieee80211_device *ieee;
-@@ -200,10 +215,16 @@ struct ieee80211softmac_device {
- 	 * The driver just needs to read them.
- 	 */
- 	struct ieee80211softmac_txrates txrates;
--	/* If the driver needs to do stuff on TX rate changes, assign this callback. */
-+
-+	/* If the driver needs to do stuff on TX rate changes, assign this
-+	 * callback. See IEEE80211SOFTMAC_TXRATECHG for change flags. */
- 	void (*txrates_change)(struct net_device *dev,
--			       u32 changes, /* see IEEE80211SOFTMAC_TXRATECHG flags */
--			       const struct ieee80211softmac_txrates *rates_before_change);
-+			       u32 changes);
-+
-+	/* If the driver needs to do stuff when BSS properties change, assign
-+	 * this callback. see IEEE80211SOFTMAC_BSSINFOCHG for change flags. */
-+	void (*bssinfo_change)(struct net_device *dev,
-+			       u32 changes);
- 
- 	/* private stuff follows */
- 	/* this lock protects this structure */
-@@ -216,6 +237,7 @@ struct ieee80211softmac_device {
- 	
- 	struct ieee80211softmac_scaninfo *scaninfo;
- 	struct ieee80211softmac_assoc_info associnfo;
-+	struct ieee80211softmac_bss_info bssinfo;
- 
- 	struct list_head auth_queue;
- 	struct list_head events;
-@@ -257,6 +279,14 @@ extern void ieee80211softmac_fragment_lo
-  * Note that the rates need to be sorted. */
- extern void ieee80211softmac_set_rates(struct net_device *dev, u8 count, u8 *rates);
- 
-+/* Finds the highest rate which is:
-+ *  1. Present in ri (optionally a basic rate)
-+ *  2. Supported by the device
-+ *  3. Less than or equal to the user-defined rate
-+ */
-+extern u8 ieee80211softmac_highest_supported_rate(struct ieee80211softmac_device *mac,
-+	struct ieee80211softmac_ratesinfo *ri, int basic_only);
-+
- /* Helper function which advises you the rate at which a frame should be
-  * transmitted at. */
- static inline u8 ieee80211softmac_suggest_txrate(struct ieee80211softmac_device *mac,
-@@ -279,6 +309,24 @@ static inline u8 ieee80211softmac_sugges
- 		return txrates->mcast_rate;
- }
- 
-+/* Helper function which advises you when it is safe to transmit with short
-+ * preamble.
-+ * You should only call this function when transmitting at CCK rates. */
-+static inline int ieee80211softmac_short_preamble_ok(struct ieee80211softmac_device *mac,
-+						    int is_multicast,
-+						    int is_mgt)
-+{
-+	return (is_multicast && is_mgt) ? 0 : mac->bssinfo.short_preamble;
-+}
-+
-+/* Helper function which advises you whether protection (e.g. self-CTS) is
-+ * needed. 1 = protection needed, 0 = no protection needed
-+ * Only use this function when transmitting with OFDM modulation. */
-+static inline int ieee80211softmac_protection_needed(struct ieee80211softmac_device *mac)
-+{
-+	return mac->bssinfo.use_protection;
-+}
-+
- /* Start the SoftMAC. Call this after you initialized the device
-  * and it is ready to run.
-  */
-diff --git a/net/ieee80211/ieee80211_rx.c b/net/ieee80211/ieee80211_rx.c
-index 72d4d4e..d60358d 100644
---- a/net/ieee80211/ieee80211_rx.c
-+++ b/net/ieee80211/ieee80211_rx.c
-@@ -779,33 +779,44 @@ #endif
- 	return 0;
- }
- 
--/* Filter out unrelated packets, call ieee80211_rx[_mgt] */
--int ieee80211_rx_any(struct ieee80211_device *ieee,
-+/* Filter out unrelated packets, call ieee80211_rx[_mgt]
-+ * This function takes over the skb, it should not be used again after calling
-+ * this function. */
-+void ieee80211_rx_any(struct ieee80211_device *ieee,
- 		     struct sk_buff *skb, struct ieee80211_rx_stats *stats)
+ void bcm43xx_debugfs_add_device(struct bcm43xx_private *bcm)
  {
- 	struct ieee80211_hdr_4addr *hdr;
- 	int is_packet_for_us;
- 	u16 fc;
+@@ -400,6 +441,10 @@ void bcm43xx_debugfs_add_device(struct b
+ 						bcm, &txstat_fops);
+ 	if (!e->dentry_txstat)
+ 		printk(KERN_ERR PFX "debugfs: creating \"tx_status\" for \"%s\" failed!\n", devdir);
++	e->dentry_restart = debugfs_create_file("restart", 0222, e->subdir,
++						bcm, &restart_fops);
++	if (!e->dentry_restart)
++		printk(KERN_ERR PFX "debugfs: creating \"restart\" for \"%s\" failed!\n", devdir);
+ }
  
--	if (ieee->iw_mode == IW_MODE_MONITOR)
--		return ieee80211_rx(ieee, skb, stats) ? 0 : -EINVAL;
-+	if (ieee->iw_mode == IW_MODE_MONITOR) {
-+		if (!ieee80211_rx(ieee, skb, stats))
-+			dev_kfree_skb_irq(skb);
-+		return;
-+	}
-+
-+	if (skb->len < sizeof(struct ieee80211_hdr))
-+		goto drop_free;
+ void bcm43xx_debugfs_remove_device(struct bcm43xx_private *bcm)
+@@ -415,6 +460,7 @@ void bcm43xx_debugfs_remove_device(struc
+ 	debugfs_remove(e->dentry_devinfo);
+ 	debugfs_remove(e->dentry_tsf);
+ 	debugfs_remove(e->dentry_txstat);
++	debugfs_remove(e->dentry_restart);
+ 	debugfs_remove(e->subdir);
+ 	kfree(e->xmitstatus_buffer);
+ 	kfree(e->xmitstatus_print_buffer);
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.h b/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.h
+index 50ce267..a40d1af 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.h
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_debugfs.h
+@@ -20,6 +20,7 @@ struct bcm43xx_dfsentry {
+ 	struct dentry *dentry_spromdump;
+ 	struct dentry *dentry_tsf;
+ 	struct dentry *dentry_txstat;
++	struct dentry *dentry_restart;
  
- 	hdr = (struct ieee80211_hdr_4addr *)skb->data;
- 	fc = le16_to_cpu(hdr->frame_ctl);
+ 	struct bcm43xx_private *bcm;
  
- 	if ((fc & IEEE80211_FCTL_VERS) != 0)
--		return -EINVAL;
-+		goto drop_free;
- 		
- 	switch (fc & IEEE80211_FCTL_FTYPE) {
- 	case IEEE80211_FTYPE_MGMT:
-+		if (skb->len < sizeof(struct ieee80211_hdr_3addr))
-+			goto drop_free;
- 		ieee80211_rx_mgt(ieee, hdr, stats);
--		return 0;
-+		dev_kfree_skb_irq(skb);
-+		return;
- 	case IEEE80211_FTYPE_DATA:
- 		break;
- 	case IEEE80211_FTYPE_CTL:
--		return 0;
-+		return;
- 	default:
--		return -EINVAL;
-+		return;
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+index ab3a0ee..24d531e 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -509,23 +509,19 @@ static void bcm43xx_synchronize_irq(stru
+ }
+ 
+ /* Make sure we don't receive more data from the device. */
+-static int bcm43xx_disable_interrupts_sync(struct bcm43xx_private *bcm, u32 *oldstate)
++static int bcm43xx_disable_interrupts_sync(struct bcm43xx_private *bcm)
+ {
+ 	unsigned long flags;
+-	u32 old;
+ 
+ 	spin_lock_irqsave(&bcm->irq_lock, flags);
+ 	if (unlikely(bcm43xx_status(bcm) != BCM43xx_STAT_INITIALIZED)) {
+ 		spin_unlock_irqrestore(&bcm->irq_lock, flags);
+ 		return -EBUSY;
  	}
+-	old = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
++	bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+ 	spin_unlock_irqrestore(&bcm->irq_lock, flags);
+ 	bcm43xx_synchronize_irq(bcm);
  
- 	is_packet_for_us = 0;
-@@ -849,8 +860,14 @@ int ieee80211_rx_any(struct ieee80211_de
- 	}
- 
- 	if (is_packet_for_us)
--		return (ieee80211_rx(ieee, skb, stats) ? 0 : -EINVAL);
--	return 0;
-+		if (!ieee80211_rx(ieee, skb, stats))
-+			dev_kfree_skb_irq(skb);
-+	return;
-+
-+drop_free:
-+	dev_kfree_skb_irq(skb);
-+	ieee->stats.rx_dropped++;
-+	return;
- }
- 
- #define MGMT_FRAME_FIXED_PART_LENGTH		0x24
-@@ -1166,6 +1183,7 @@ #endif
- 
- 		case MFIE_TYPE_ERP_INFO:
- 			network->erp_value = info_element->data[0];
-+			network->flags |= NETWORK_HAS_ERP_VALUE;
- 			IEEE80211_DEBUG_MGMT("MFIE_TYPE_ERP_SET: %d\n",
- 					     network->erp_value);
- 			break;
-@@ -1729,5 +1747,6 @@ void ieee80211_rx_mgt(struct ieee80211_d
- 	}
- }
- 
-+EXPORT_SYMBOL_GPL(ieee80211_rx_any);
- EXPORT_SYMBOL(ieee80211_rx_mgt);
- EXPORT_SYMBOL(ieee80211_rx);
-diff --git a/net/ieee80211/softmac/ieee80211softmac_assoc.c b/net/ieee80211/softmac/ieee80211softmac_assoc.c
-index 44215ce..589f6d2 100644
---- a/net/ieee80211/softmac/ieee80211softmac_assoc.c
-+++ b/net/ieee80211/softmac/ieee80211softmac_assoc.c
-@@ -96,7 +96,7 @@ ieee80211softmac_disassoc(struct ieee802
- 	mac->associated = 0;
- 	mac->associnfo.bssvalid = 0;
- 	mac->associnfo.associating = 0;
--	ieee80211softmac_init_txrates(mac);
-+	ieee80211softmac_init_bss(mac);
- 	ieee80211softmac_call_events_locked(mac, IEEE80211SOFTMAC_EVENT_DISASSOCIATED, NULL);
- 	spin_unlock_irqrestore(&mac->lock, flags);
- }
-@@ -334,11 +334,19 @@ ieee80211softmac_associated(struct ieee8
- 	struct ieee80211_assoc_response * resp,
- 	struct ieee80211softmac_network *net)
- {
-+	u16 cap = le16_to_cpu(resp->capability);
-+	u8 erp_value = net->erp_value;
-+
- 	mac->associnfo.associating = 0;
--	mac->associnfo.supported_rates = net->supported_rates;
-+	mac->bssinfo.supported_rates = net->supported_rates;
- 	ieee80211softmac_recalc_txrates(mac);
- 
- 	mac->associated = 1;
-+
-+	mac->associnfo.short_preamble_available =
-+		(cap & WLAN_CAPABILITY_SHORT_PREAMBLE) != 0;
-+	ieee80211softmac_process_erp(mac, erp_value);
-+
- 	if (mac->set_bssid_filter)
- 		mac->set_bssid_filter(mac->dev, net->bssid);
- 	memcpy(mac->ieee->bssid, net->bssid, ETH_ALEN);
-@@ -351,9 +359,9 @@ ieee80211softmac_associated(struct ieee8
- int
- ieee80211softmac_handle_assoc_response(struct net_device * dev,
- 				       struct ieee80211_assoc_response * resp,
--				       struct ieee80211_network * _ieee80211_network_do_not_use)
-+				       struct ieee80211_network * _ieee80211_network)
- {
--	/* NOTE: the network parameter has to be ignored by
-+	/* NOTE: the network parameter has to be mostly ignored by
- 	 *       this code because it is the ieee80211's pointer
- 	 *       to the struct, not ours (we made a copy)
- 	 */
-@@ -385,6 +393,11 @@ ieee80211softmac_handle_assoc_response(s
- 	/* now that we know it was for us, we can cancel the timeout */
- 	cancel_delayed_work(&mac->associnfo.timeout);
- 
-+	/* if the association response included an ERP IE, update our saved
-+	 * copy */
-+	if (_ieee80211_network->flags & NETWORK_HAS_ERP_VALUE)
-+		network->erp_value = _ieee80211_network->erp_value;
-+
- 	switch (status) {
- 		case 0:
- 			dprintk(KERN_INFO PFX "associated!\n");
-diff --git a/net/ieee80211/softmac/ieee80211softmac_io.c b/net/ieee80211/softmac/ieee80211softmac_io.c
-index 6ae5a1d..82bfddb 100644
---- a/net/ieee80211/softmac/ieee80211softmac_io.c
-+++ b/net/ieee80211/softmac/ieee80211softmac_io.c
-@@ -467,3 +467,17 @@ ieee80211softmac_send_mgt_frame(struct i
- 	kfree(pkt);
- 	return 0;
- }
-+
-+/* Beacon handling */
-+int ieee80211softmac_handle_beacon(struct net_device *dev,
-+	struct ieee80211_beacon *beacon,
-+	struct ieee80211_network *network)
-+{
-+	struct ieee80211softmac_device *mac = ieee80211_priv(dev);
-+
-+	if (mac->associated && memcmp(network->bssid, mac->associnfo.bssid, ETH_ALEN) == 0)
-+		ieee80211softmac_process_erp(mac, network->erp_value);
-+
-+	return 0;
-+}
-+
-diff --git a/net/ieee80211/softmac/ieee80211softmac_module.c b/net/ieee80211/softmac/ieee80211softmac_module.c
-index 4b2e57d..addea1c 100644
---- a/net/ieee80211/softmac/ieee80211softmac_module.c
-+++ b/net/ieee80211/softmac/ieee80211softmac_module.c
-@@ -44,6 +44,7 @@ struct net_device *alloc_ieee80211softma
- 	softmac->ieee->handle_assoc_response = ieee80211softmac_handle_assoc_response;
- 	softmac->ieee->handle_reassoc_request = ieee80211softmac_handle_reassoc_req;
- 	softmac->ieee->handle_disassoc = ieee80211softmac_handle_disassoc;
-+ 	softmac->ieee->handle_beacon = ieee80211softmac_handle_beacon;
- 	softmac->scaninfo = NULL;
- 
- 	softmac->associnfo.scan_retry = IEEE80211SOFTMAC_ASSOC_SCAN_RETRY_LIMIT;
-@@ -178,21 +179,14 @@ int ieee80211softmac_ratesinfo_rate_supp
- 	return 0;
- }
- 
--/* Finds the highest rate which is:
-- *  1. Present in ri (optionally a basic rate)
-- *  2. Supported by the device
-- *  3. Less than or equal to the user-defined rate
-- */
--static u8 highest_supported_rate(struct ieee80211softmac_device *mac,
-+u8 ieee80211softmac_highest_supported_rate(struct ieee80211softmac_device *mac,
- 	struct ieee80211softmac_ratesinfo *ri, int basic_only)
- {
- 	u8 user_rate = mac->txrates.user_rate;
- 	int i;
- 
--	if (ri->count == 0) {
--		dprintk(KERN_ERR PFX "empty ratesinfo?\n");
-+	if (ri->count == 0)
- 		return IEEE80211_CCK_RATE_1MB;
--	}
- 
- 	for (i = ri->count - 1; i >= 0; i--) {
- 		u8 rate = ri->rates[i];
-@@ -208,36 +202,61 @@ static u8 highest_supported_rate(struct 
- 	/* If we haven't found a suitable rate by now, just trust the user */
- 	return user_rate;
- }
-+EXPORT_SYMBOL_GPL(ieee80211softmac_highest_supported_rate);
-+
-+void ieee80211softmac_process_erp(struct ieee80211softmac_device *mac,
-+	u8 erp_value)
-+{
-+ 	int use_protection;
-+	int short_preamble;
-+ 	u32 changes = 0;
-+
-+	/* Barker preamble mode */
-+	short_preamble = ((erp_value & WLAN_ERP_BARKER_PREAMBLE) == 0
-+			  && mac->associnfo.short_preamble_available) ? 1 : 0;
-+
-+	/* Protection needed? */
-+	use_protection = (erp_value & WLAN_ERP_USE_PROTECTION) != 0;
-+
-+	if (mac->bssinfo.short_preamble != short_preamble) {
-+		changes |= IEEE80211SOFTMAC_BSSINFOCHG_SHORT_PREAMBLE;
-+		mac->bssinfo.short_preamble = short_preamble;
-+	}
-+
-+	if (mac->bssinfo.use_protection != use_protection) {
-+		changes |= IEEE80211SOFTMAC_BSSINFOCHG_PROTECTION;
-+		mac->bssinfo.use_protection = use_protection;
-+	}
-+
-+	if (mac->bssinfo_change && changes)
-+		mac->bssinfo_change(mac->dev, changes);
-+}
- 
- void ieee80211softmac_recalc_txrates(struct ieee80211softmac_device *mac)
- {
- 	struct ieee80211softmac_txrates *txrates = &mac->txrates;
--	struct ieee80211softmac_txrates oldrates;
- 	u32 change = 0;
- 
--	if (mac->txrates_change)
--		oldrates = mac->txrates;
+-	if (oldstate)
+-		*oldstate = old;
 -
- 	change |= IEEE80211SOFTMAC_TXRATECHG_DEFAULT;
--	txrates->default_rate = highest_supported_rate(mac, &mac->associnfo.supported_rates, 0);
-+	txrates->default_rate = ieee80211softmac_highest_supported_rate(mac, &mac->bssinfo.supported_rates, 0);
- 
- 	change |= IEEE80211SOFTMAC_TXRATECHG_DEFAULT_FBACK;
- 	txrates->default_fallback = lower_rate(mac, txrates->default_rate);
- 
- 	change |= IEEE80211SOFTMAC_TXRATECHG_MCAST;
--	txrates->mcast_rate = highest_supported_rate(mac, &mac->associnfo.supported_rates, 1);
-+	txrates->mcast_rate = ieee80211softmac_highest_supported_rate(mac, &mac->bssinfo.supported_rates, 1);
- 
- 	if (mac->txrates_change)
--		mac->txrates_change(mac->dev, change, &oldrates);
-+		mac->txrates_change(mac->dev, change);
- 
+ 	return 0;
  }
  
--void ieee80211softmac_init_txrates(struct ieee80211softmac_device *mac)
-+void ieee80211softmac_init_bss(struct ieee80211softmac_device *mac)
- {
- 	struct ieee80211_device *ieee = mac->ieee;
- 	u32 change = 0;
- 	struct ieee80211softmac_txrates *txrates = &mac->txrates;
--	struct ieee80211softmac_txrates oldrates;
-+	struct ieee80211softmac_bss_info *bssinfo = &mac->bssinfo;
+@@ -537,7 +533,6 @@ static int bcm43xx_read_radioinfo(struct
+ 	u16 manufact;
+ 	u16 version;
+ 	u8 revision;
+-	s8 i;
  
- 	/* TODO: We need some kind of state machine to lower the default rates
- 	 *       if we loose too many packets.
-@@ -245,8 +264,6 @@ void ieee80211softmac_init_txrates(struc
- 	/* Change the default txrate to the highest possible value.
- 	 * The txrate machine will lower it, if it is too high.
+ 	if (bcm->chip_id == 0x4317) {
+ 		if (bcm->chip_rev == 0x00)
+@@ -580,20 +575,11 @@ static int bcm43xx_read_radioinfo(struct
+ 	radio->version = version;
+ 	radio->revision = revision;
+ 
+-	/* Set default attenuation values. */
+-	radio->baseband_atten = bcm43xx_default_baseband_attenuation(bcm);
+-	radio->radio_atten = bcm43xx_default_radio_attenuation(bcm);
+-	radio->txctl1 = bcm43xx_default_txctl1(bcm);
+-	radio->txctl2 = 0xFFFF;
+ 	if (phy->type == BCM43xx_PHYTYPE_A)
+ 		radio->txpower_desired = bcm->sprom.maxpower_aphy;
+ 	else
+ 		radio->txpower_desired = bcm->sprom.maxpower_bgphy;
+ 
+-	/* Initialize the in-memory nrssi Lookup Table. */
+-	for (i = 0; i < 64; i++)
+-		radio->nrssi_lt[i] = i;
+-
+ 	return 0;
+ 
+ err_unsupported_radio:
+@@ -1250,10 +1236,6 @@ int bcm43xx_switch_core(struct bcm43xx_p
+ 		goto out;
+ 
+ 	bcm->current_core = new_core;
+-	bcm->current_80211_core_idx = -1;
+-	if (new_core->id == BCM43xx_COREID_80211)
+-		bcm->current_80211_core_idx = (int)(new_core - &(bcm->core_80211[0]));
+-
+ out:
+ 	return err;
+ }
+@@ -1423,43 +1405,23 @@ static void bcm43xx_wireless_core_disabl
+ 	bcm43xx_core_disable(bcm, 0);
+ }
+ 
+-/* Mark the current 80211 core inactive.
+- * "active_80211_core" is the other 80211 core, which is used.
+- */
+-static int bcm43xx_wireless_core_mark_inactive(struct bcm43xx_private *bcm,
+-					       struct bcm43xx_coreinfo *active_80211_core)
++/* Mark the current 80211 core inactive. */
++static void bcm43xx_wireless_core_mark_inactive(struct bcm43xx_private *bcm)
+ {
+ 	u32 sbtmstatelow;
+-	struct bcm43xx_coreinfo *old_core;
+-	int err = 0;
+ 
+ 	bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+ 	bcm43xx_radio_turn_off(bcm);
+ 	sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+-	sbtmstatelow &= ~0x200a0000;
+-	sbtmstatelow |= 0xa0000;
++	sbtmstatelow &= 0xDFF5FFFF;
++	sbtmstatelow |= 0x000A0000;
+ 	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+ 	udelay(1);
+ 	sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+-	sbtmstatelow &= ~0xa0000;
+-	sbtmstatelow |= 0x80000;
++	sbtmstatelow &= 0xFFF5FFFF;
++	sbtmstatelow |= 0x00080000;
+ 	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+ 	udelay(1);
+-
+-	if (bcm43xx_current_phy(bcm)->type == BCM43xx_PHYTYPE_G) {
+-		old_core = bcm->current_core;
+-		err = bcm43xx_switch_core(bcm, active_80211_core);
+-		if (err)
+-			goto out;
+-		sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+-		sbtmstatelow &= ~0x20000000;
+-		sbtmstatelow |= 0x20000000;
+-		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+-		err = bcm43xx_switch_core(bcm, old_core);
+-	}
+-
+-out:
+-	return err;
+ }
+ 
+ static void handle_irq_transmit_status(struct bcm43xx_private *bcm)
+@@ -1885,14 +1847,8 @@ static irqreturn_t bcm43xx_interrupt_han
+ 
+ 	spin_lock(&bcm->irq_lock);
+ 
+-	/* Only accept IRQs, if we are initialized properly.
+-	 * This avoids an RX race while initializing.
+-	 * We should probably not enable IRQs before we are initialized
+-	 * completely, but some careful work is needed to fix this. I think it
+-	 * is best to stay with this cheap workaround for now... .
+-	 */
+-	if (unlikely(bcm43xx_status(bcm) != BCM43xx_STAT_INITIALIZED))
+-		goto out;
++	assert(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED);
++	assert(bcm->current_core->id == BCM43xx_COREID_80211);
+ 
+ 	reason = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+ 	if (reason == 0xffffffff) {
+@@ -1930,16 +1886,18 @@ out:
+ 
+ static void bcm43xx_release_firmware(struct bcm43xx_private *bcm, int force)
+ {
++	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
++
+ 	if (bcm->firmware_norelease && !force)
+ 		return; /* Suspending or controller reset. */
+-	release_firmware(bcm->ucode);
+-	bcm->ucode = NULL;
+-	release_firmware(bcm->pcm);
+-	bcm->pcm = NULL;
+-	release_firmware(bcm->initvals0);
+-	bcm->initvals0 = NULL;
+-	release_firmware(bcm->initvals1);
+-	bcm->initvals1 = NULL;
++	release_firmware(phy->ucode);
++	phy->ucode = NULL;
++	release_firmware(phy->pcm);
++	phy->pcm = NULL;
++	release_firmware(phy->initvals0);
++	phy->initvals0 = NULL;
++	release_firmware(phy->initvals1);
++	phy->initvals1 = NULL;
+ }
+ 
+ static int bcm43xx_request_firmware(struct bcm43xx_private *bcm)
+@@ -1950,11 +1908,11 @@ static int bcm43xx_request_firmware(stru
+ 	int nr;
+ 	char buf[22 + sizeof(modparam_fwpostfix) - 1] = { 0 };
+ 
+-	if (!bcm->ucode) {
++	if (!phy->ucode) {
+ 		snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_microcode%d%s.fw",
+ 			 (rev >= 5 ? 5 : rev),
+ 			 modparam_fwpostfix);
+-		err = request_firmware(&bcm->ucode, buf, &bcm->pci_dev->dev);
++		err = request_firmware(&phy->ucode, buf, &bcm->pci_dev->dev);
+ 		if (err) {
+ 			printk(KERN_ERR PFX 
+ 			       "Error: Microcode \"%s\" not available or load failed.\n",
+@@ -1963,12 +1921,12 @@ static int bcm43xx_request_firmware(stru
+ 		}
+ 	}
+ 
+-	if (!bcm->pcm) {
++	if (!phy->pcm) {
+ 		snprintf(buf, ARRAY_SIZE(buf),
+ 			 "bcm43xx_pcm%d%s.fw",
+ 			 (rev < 5 ? 4 : 5),
+ 			 modparam_fwpostfix);
+-		err = request_firmware(&bcm->pcm, buf, &bcm->pci_dev->dev);
++		err = request_firmware(&phy->pcm, buf, &bcm->pci_dev->dev);
+ 		if (err) {
+ 			printk(KERN_ERR PFX
+ 			       "Error: PCM \"%s\" not available or load failed.\n",
+@@ -1977,7 +1935,7 @@ static int bcm43xx_request_firmware(stru
+ 		}
+ 	}
+ 
+-	if (!bcm->initvals0) {
++	if (!phy->initvals0) {
+ 		if (rev == 2 || rev == 4) {
+ 			switch (phy->type) {
+ 			case BCM43xx_PHYTYPE_A:
+@@ -2008,20 +1966,20 @@ static int bcm43xx_request_firmware(stru
+ 		snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
+ 			 nr, modparam_fwpostfix);
+ 
+-		err = request_firmware(&bcm->initvals0, buf, &bcm->pci_dev->dev);
++		err = request_firmware(&phy->initvals0, buf, &bcm->pci_dev->dev);
+ 		if (err) {
+ 			printk(KERN_ERR PFX 
+ 			       "Error: InitVals \"%s\" not available or load failed.\n",
+ 			        buf);
+ 			goto error;
+ 		}
+-		if (bcm->initvals0->size % sizeof(struct bcm43xx_initval)) {
++		if (phy->initvals0->size % sizeof(struct bcm43xx_initval)) {
+ 			printk(KERN_ERR PFX "InitVals fileformat error.\n");
+ 			goto error;
+ 		}
+ 	}
+ 
+-	if (!bcm->initvals1) {
++	if (!phy->initvals1) {
+ 		if (rev >= 5) {
+ 			u32 sbtmstatehigh;
+ 
+@@ -2043,14 +2001,14 @@ static int bcm43xx_request_firmware(stru
+ 			snprintf(buf, ARRAY_SIZE(buf), "bcm43xx_initval%02d%s.fw",
+ 				 nr, modparam_fwpostfix);
+ 
+-			err = request_firmware(&bcm->initvals1, buf, &bcm->pci_dev->dev);
++			err = request_firmware(&phy->initvals1, buf, &bcm->pci_dev->dev);
+ 			if (err) {
+ 				printk(KERN_ERR PFX 
+ 				       "Error: InitVals \"%s\" not available or load failed.\n",
+ 			        	buf);
+ 				goto error;
+ 			}
+-			if (bcm->initvals1->size % sizeof(struct bcm43xx_initval)) {
++			if (phy->initvals1->size % sizeof(struct bcm43xx_initval)) {
+ 				printk(KERN_ERR PFX "InitVals fileformat error.\n");
+ 				goto error;
+ 			}
+@@ -2070,12 +2028,13 @@ err_noinitval:
+ 
+ static void bcm43xx_upload_microcode(struct bcm43xx_private *bcm)
+ {
++	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	const u32 *data;
+ 	unsigned int i, len;
+ 
+ 	/* Upload Microcode. */
+-	data = (u32 *)(bcm->ucode->data);
+-	len = bcm->ucode->size / sizeof(u32);
++	data = (u32 *)(phy->ucode->data);
++	len = phy->ucode->size / sizeof(u32);
+ 	bcm43xx_shm_control_word(bcm, BCM43xx_SHM_UCODE, 0x0000);
+ 	for (i = 0; i < len; i++) {
+ 		bcm43xx_write32(bcm, BCM43xx_MMIO_SHM_DATA,
+@@ -2084,8 +2043,8 @@ static void bcm43xx_upload_microcode(str
+ 	}
+ 
+ 	/* Upload PCM data. */
+-	data = (u32 *)(bcm->pcm->data);
+-	len = bcm->pcm->size / sizeof(u32);
++	data = (u32 *)(phy->pcm->data);
++	len = phy->pcm->size / sizeof(u32);
+ 	bcm43xx_shm_control_word(bcm, BCM43xx_SHM_PCM, 0x01ea);
+ 	bcm43xx_write32(bcm, BCM43xx_MMIO_SHM_DATA, 0x00004000);
+ 	bcm43xx_shm_control_word(bcm, BCM43xx_SHM_PCM, 0x01eb);
+@@ -2131,15 +2090,16 @@ err_format:
+ 
+ static int bcm43xx_upload_initvals(struct bcm43xx_private *bcm)
+ {
++	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	int err;
+ 
+-	err = bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)bcm->initvals0->data,
+-				     bcm->initvals0->size / sizeof(struct bcm43xx_initval));
++	err = bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)phy->initvals0->data,
++				     phy->initvals0->size / sizeof(struct bcm43xx_initval));
+ 	if (err)
+ 		goto out;
+-	if (bcm->initvals1) {
+-		err = bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)bcm->initvals1->data,
+-					     bcm->initvals1->size / sizeof(struct bcm43xx_initval));
++	if (phy->initvals1) {
++		err = bcm43xx_write_initvals(bcm, (struct bcm43xx_initval *)phy->initvals1->data,
++					     phy->initvals1->size / sizeof(struct bcm43xx_initval));
+ 		if (err)
+ 			goto out;
+ 	}
+@@ -2156,9 +2116,7 @@ #endif
+ 
+ static int bcm43xx_initialize_irq(struct bcm43xx_private *bcm)
+ {
+-	int res;
+-	unsigned int i;
+-	u32 data;
++	int err;
+ 
+ 	bcm->irq = bcm->pci_dev->irq;
+ #ifdef CONFIG_BCM947XX
+@@ -2175,32 +2133,12 @@ #ifdef CONFIG_BCM947XX
+ 		}
+ 	}
+ #endif
+-	res = request_irq(bcm->irq, bcm43xx_interrupt_handler,
++	err = request_irq(bcm->irq, bcm43xx_interrupt_handler,
+ 			  IRQF_SHARED, KBUILD_MODNAME, bcm);
+-	if (res) {
++	if (err)
+ 		printk(KERN_ERR PFX "Cannot register IRQ%d\n", bcm->irq);
+-		return -ENODEV;
+-	}
+-	bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON, 0xffffffff);
+-	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, 0x00020402);
+-	i = 0;
+-	while (1) {
+-		data = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+-		if (data == BCM43xx_IRQ_READY)
+-			break;
+-		i++;
+-		if (i >= BCM43xx_IRQWAIT_MAX_RETRIES) {
+-			printk(KERN_ERR PFX "Card IRQ register not responding. "
+-					    "Giving up.\n");
+-			free_irq(bcm->irq, bcm);
+-			return -ENODEV;
+-		}
+-		udelay(10);
+-	}
+-	// dummy read
+-	bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+ 
+-	return 0;
++	return err;
+ }
+ 
+ /* Switch to the core used to write the GPIO register.
+@@ -2298,13 +2236,17 @@ static int bcm43xx_gpio_cleanup(struct b
+ /* http://bcm-specs.sipsolutions.net/EnableMac */
+ void bcm43xx_mac_enable(struct bcm43xx_private *bcm)
+ {
+-	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
+-	                bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD)
+-			| BCM43xx_SBF_MAC_ENABLED);
+-	bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON, BCM43xx_IRQ_READY);
+-	bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD); /* dummy read */
+-	bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy read */
+-	bcm43xx_power_saving_ctl_bits(bcm, -1, -1);
++	bcm->mac_suspended--;
++	assert(bcm->mac_suspended >= 0);
++	if (bcm->mac_suspended == 0) {
++		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
++		                bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD)
++				| BCM43xx_SBF_MAC_ENABLED);
++		bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON, BCM43xx_IRQ_READY);
++		bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD); /* dummy read */
++		bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy read */
++		bcm43xx_power_saving_ctl_bits(bcm, -1, -1);
++	}
+ }
+ 
+ /* http://bcm-specs.sipsolutions.net/SuspendMAC */
+@@ -2313,18 +2255,23 @@ void bcm43xx_mac_suspend(struct bcm43xx_
+ 	int i;
+ 	u32 tmp;
+ 
+-	bcm43xx_power_saving_ctl_bits(bcm, -1, 1);
+-	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
+-	                bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD)
+-			& ~BCM43xx_SBF_MAC_ENABLED);
+-	bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy read */
+-	for (i = 100000; i; i--) {
+-		tmp = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+-		if (tmp & BCM43xx_IRQ_READY)
+-			return;
+-		udelay(10);
++	assert(bcm->mac_suspended >= 0);
++	if (bcm->mac_suspended == 0) {
++		bcm43xx_power_saving_ctl_bits(bcm, -1, 1);
++		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
++		                bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD)
++				& ~BCM43xx_SBF_MAC_ENABLED);
++		bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy read */
++		for (i = 100000; i; i--) {
++			tmp = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
++			if (tmp & BCM43xx_IRQ_READY)
++				goto out;
++			udelay(1);
++		}
++		printkl(KERN_ERR PFX "MAC suspend failed\n");
+ 	}
+-	printkl(KERN_ERR PFX "MAC suspend failed\n");
++out:
++	bcm->mac_suspended++;
+ }
+ 
+ void bcm43xx_set_iwmode(struct bcm43xx_private *bcm,
+@@ -2394,7 +2341,6 @@ static void bcm43xx_chip_cleanup(struct 
+ 	if (!modparam_noleds)
+ 		bcm43xx_leds_exit(bcm);
+ 	bcm43xx_gpio_cleanup(bcm);
+-	free_irq(bcm->irq, bcm);
+ 	bcm43xx_release_firmware(bcm, 0);
+ }
+ 
+@@ -2406,7 +2352,7 @@ static int bcm43xx_chip_init(struct bcm4
+ 	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	int err;
+-	int tmp;
++	int i, tmp;
+ 	u32 value32;
+ 	u16 value16;
+ 
+@@ -2419,13 +2365,26 @@ static int bcm43xx_chip_init(struct bcm4
+ 		goto out;
+ 	bcm43xx_upload_microcode(bcm);
+ 
+-	err = bcm43xx_initialize_irq(bcm);
+-	if (err)
+-		goto err_release_fw;
++	bcm43xx_write32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON, 0xFFFFFFFF);
++	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, 0x00020402);
++	i = 0;
++	while (1) {
++		value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
++		if (value32 == BCM43xx_IRQ_READY)
++			break;
++		i++;
++		if (i >= BCM43xx_IRQWAIT_MAX_RETRIES) {
++			printk(KERN_ERR PFX "IRQ_READY timeout\n");
++			err = -ENODEV;
++			goto err_release_fw;
++		}
++		udelay(10);
++	}
++	bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy read */
+ 
+ 	err = bcm43xx_gpio_init(bcm);
+ 	if (err)
+-		goto err_free_irq;
++		goto err_release_fw;
+ 
+ 	err = bcm43xx_upload_initvals(bcm);
+ 	if (err)
+@@ -2509,8 +2468,6 @@ err_radio_off:
+ 	bcm43xx_radio_turn_off(bcm);
+ err_gpio_cleanup:
+ 	bcm43xx_gpio_cleanup(bcm);
+-err_free_irq:
+-	free_irq(bcm->irq, bcm);
+ err_release_fw:
+ 	bcm43xx_release_firmware(bcm, 1);
+ 	goto out;
+@@ -2550,11 +2507,9 @@ static void bcm43xx_init_struct_phyinfo(
+ {
+ 	/* Initialize a "phyinfo" structure. The structure is already
+ 	 * zeroed out.
++	 * This is called on insmod time to initialize members.
  	 */
--	if (mac->txrates_change)
--		oldrates = mac->txrates;
- 	/* FIXME: We don't correctly handle backing down to lower
- 	   rates, so 801.11g devices start off at 11M for now. People
- 	   can manually change it if they really need to, but 11M is
-@@ -272,7 +289,23 @@ void ieee80211softmac_init_txrates(struc
- 	change |= IEEE80211SOFTMAC_TXRATECHG_MGT_MCAST;
- 
- 	if (mac->txrates_change)
--		mac->txrates_change(mac->dev, change, &oldrates);
-+		mac->txrates_change(mac->dev, change);
-+
-+	change = 0;
-+
-+	bssinfo->supported_rates.count = 0;
-+	memset(bssinfo->supported_rates.rates, 0,
-+		sizeof(bssinfo->supported_rates.rates));
-+	change |= IEEE80211SOFTMAC_BSSINFOCHG_RATES;
-+
-+	bssinfo->short_preamble = 0;
-+	change |= IEEE80211SOFTMAC_BSSINFOCHG_SHORT_PREAMBLE;
-+
-+	bssinfo->use_protection = 0;
-+	change |= IEEE80211SOFTMAC_BSSINFOCHG_PROTECTION;
-+
-+	if (mac->bssinfo_change)
-+		mac->bssinfo_change(mac->dev, change);
- 
- 	mac->running = 1;
+-	phy->antenna_diversity = 0xFFFF;
+ 	phy->savedpctlreg = 0xFFFF;
+-	phy->minlowsig[0] = 0xFFFF;
+-	phy->minlowsig[1] = 0xFFFF;
+ 	spin_lock_init(&phy->lock);
  }
-@@ -282,7 +315,7 @@ void ieee80211softmac_start(struct net_d
- 	struct ieee80211softmac_device *mac = ieee80211_priv(dev);
  
- 	ieee80211softmac_start_check_rates(mac);
--	ieee80211softmac_init_txrates(mac);
-+	ieee80211softmac_init_bss(mac);
- }
- EXPORT_SYMBOL_GPL(ieee80211softmac_start);
- 
-@@ -335,7 +368,6 @@ u8 ieee80211softmac_lower_rate_delta(str
- static void ieee80211softmac_add_txrates_badness(struct ieee80211softmac_device *mac,
- 						 int amount)
+@@ -2562,14 +2517,11 @@ static void bcm43xx_init_struct_radioinf
  {
--	struct ieee80211softmac_txrates oldrates;
- 	u8 default_rate = mac->txrates.default_rate;
- 	u8 default_fallback = mac->txrates.default_fallback;
- 	u32 changes = 0;
-@@ -348,8 +380,6 @@ printk("badness %d\n", mac->txrate_badne
- 	mac->txrate_badness += amount;
- 	if (mac->txrate_badness <= -1000) {
- 		/* Very small badness. Try a faster bitrate. */
--		if (mac->txrates_change)
--			memcpy(&oldrates, &mac->txrates, sizeof(oldrates));
- 		default_rate = raise_rate(mac, default_rate);
- 		changes |= IEEE80211SOFTMAC_TXRATECHG_DEFAULT;
- 		default_fallback = get_fallback_rate(mac, default_rate);
-@@ -358,8 +388,6 @@ printk("badness %d\n", mac->txrate_badne
- printk("Bitrate raised to %u\n", default_rate);
- 	} else if (mac->txrate_badness >= 10000) {
- 		/* Very high badness. Try a slower bitrate. */
--		if (mac->txrates_change)
--			memcpy(&oldrates, &mac->txrates, sizeof(oldrates));
- 		default_rate = lower_rate(mac, default_rate);
- 		changes |= IEEE80211SOFTMAC_TXRATECHG_DEFAULT;
- 		default_fallback = get_fallback_rate(mac, default_rate);
-@@ -372,7 +400,7 @@ printk("Bitrate lowered to %u\n", defaul
- 	mac->txrates.default_fallback = default_fallback;
- 
- 	if (changes && mac->txrates_change)
--		mac->txrates_change(mac->dev, changes, &oldrates);
-+		mac->txrates_change(mac->dev, changes);
+ 	/* Initialize a "radioinfo" structure. The structure is already
+ 	 * zeroed out.
++	 * This is called on insmod time to initialize members.
+ 	 */
+ 	radio->interfmode = BCM43xx_RADIO_INTERFMODE_NONE;
+ 	radio->channel = 0xFF;
+ 	radio->initial_channel = 0xFF;
+-	radio->lofcal = 0xFFFF;
+-	radio->initval = 0xFFFF;
+-	radio->nrssi[0] = -1000;
+-	radio->nrssi[1] = -1000;
  }
  
- void ieee80211softmac_fragment_lost(struct net_device *dev,
-@@ -416,7 +444,11 @@ ieee80211softmac_create_network(struct i
- 	memcpy(&softnet->supported_rates.rates[softnet->supported_rates.count], net->rates_ex, net->rates_ex_len);
- 	softnet->supported_rates.count += net->rates_ex_len;
- 	sort(softnet->supported_rates.rates, softnet->supported_rates.count, sizeof(softnet->supported_rates.rates[0]), rate_cmp, NULL);
+ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
+@@ -2587,7 +2539,6 @@ static int bcm43xx_probe_cores(struct bc
+ 				    * BCM43xx_MAX_80211_CORES);
+ 	memset(&bcm->core_80211_ext, 0, sizeof(struct bcm43xx_coreinfo_80211)
+ 					* BCM43xx_MAX_80211_CORES);
+-	bcm->current_80211_core_idx = -1;
+ 	bcm->nr_80211_available = 0;
+ 	bcm->current_core = NULL;
+ 	bcm->active_80211_core = NULL;
+@@ -2757,6 +2708,7 @@ #endif
+ 				goto out;
+ 			}
+ 			bcm->nr_80211_available++;
++			core->priv = ext_80211;
+ 			bcm43xx_init_struct_phyinfo(&ext_80211->phy);
+ 			bcm43xx_init_struct_radioinfo(&ext_80211->radio);
+ 			break;
+@@ -2857,7 +2809,8 @@ static void bcm43xx_wireless_core_cleanu
+ }
+ 
+ /* http://bcm-specs.sipsolutions.net/80211Init */
+-static int bcm43xx_wireless_core_init(struct bcm43xx_private *bcm)
++static int bcm43xx_wireless_core_init(struct bcm43xx_private *bcm,
++				      int active_wlcore)
+ {
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	struct bcm43xx_radioinfo *radio = bcm43xx_current_radio(bcm);
+@@ -2939,19 +2892,26 @@ static int bcm43xx_wireless_core_init(st
+ 	if (bcm->current_core->rev >= 5)
+ 		bcm43xx_write16(bcm, 0x043C, 0x000C);
+ 
+-	if (bcm43xx_using_pio(bcm))
+-		err = bcm43xx_pio_init(bcm);
+-	else
+-		err = bcm43xx_dma_init(bcm);
+-	if (err)
+-		goto err_chip_cleanup;
++	if (active_wlcore) {
++		if (bcm43xx_using_pio(bcm))
++			err = bcm43xx_pio_init(bcm);
++		else
++			err = bcm43xx_dma_init(bcm);
++		if (err)
++			goto err_chip_cleanup;
++	}
+ 	bcm43xx_write16(bcm, 0x0612, 0x0050);
+ 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0416, 0x0050);
+ 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0414, 0x01F4);
+ 
+-	bcm43xx_mac_enable(bcm);
+-	bcm43xx_interrupt_enable(bcm, bcm->irq_savedstate);
++	if (active_wlcore) {
++		if (radio->initial_channel != 0xFF)
++			bcm43xx_radio_selectchannel(bcm, radio->initial_channel, 0);
++	}
+ 
++	/* Don't enable MAC/IRQ here, as it will race with the IRQ handler.
++	 * We enable it later.
++	 */
+ 	bcm->current_core->initialized = 1;
+ out:
+ 	return err;
+@@ -3066,11 +3026,6 @@ out:
+ 	return err;
+ }
+ 
+-static void bcm43xx_softmac_init(struct bcm43xx_private *bcm)
+-{
+-	ieee80211softmac_start(bcm->net_dev);
+-}
+-
+ static void bcm43xx_periodic_every120sec(struct bcm43xx_private *bcm)
+ {
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+@@ -3183,7 +3138,9 @@ static void bcm43xx_periodic_work_handle
+ 		 * be preemtible.
+ 		 */
+ 		netif_stop_queue(bcm->net_dev);
++		synchronize_net();
+ 		spin_lock_irqsave(&bcm->irq_lock, flags);
++		bcm43xx_mac_suspend(bcm);
+ 		if (bcm43xx_using_pio(bcm))
+ 			bcm43xx_pio_freeze_txqueues(bcm);
+ 		savedirqs = bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+@@ -3207,6 +3164,7 @@ static void bcm43xx_periodic_work_handle
+ 			bcm43xx_interrupt_enable(bcm, savedirqs);
+ 			if (bcm43xx_using_pio(bcm))
+ 				bcm43xx_pio_thaw_txqueues(bcm);
++			bcm43xx_mac_enable(bcm);
+ 		}
+ 		netif_wake_queue(bcm->net_dev);
+ 	}
+@@ -3241,9 +3199,9 @@ static int bcm43xx_rng_read(struct hwrng
+ 	struct bcm43xx_private *bcm = (struct bcm43xx_private *)rng->priv;
+ 	unsigned long flags;
+ 
+-	bcm43xx_lock_irqonly(bcm, flags);
++	spin_lock_irqsave(&(bcm)->irq_lock, flags);
+ 	*data = bcm43xx_read16(bcm, BCM43xx_MMIO_RNG);
+-	bcm43xx_unlock_irqonly(bcm, flags);
++	spin_unlock_irqrestore(&(bcm)->irq_lock, flags);
+ 
+ 	return (sizeof(u16));
+ }
+@@ -3269,139 +3227,322 @@ static int bcm43xx_rng_init(struct bcm43
+ 	return err;
+ }
+ 
+-/* This is the opposite of bcm43xx_init_board() */
+-static void bcm43xx_free_board(struct bcm43xx_private *bcm)
++static int bcm43xx_shutdown_all_wireless_cores(struct bcm43xx_private *bcm)
+ {
++	int ret = 0;
+ 	int i, err;
++	struct bcm43xx_coreinfo *core;
+ 
+-	mutex_lock(&bcm->mutex);
++	bcm43xx_set_status(bcm, BCM43xx_STAT_SHUTTINGDOWN);
++	for (i = 0; i < bcm->nr_80211_available; i++) {
++		core = &(bcm->core_80211[i]);
++		assert(core->available);
++		if (!core->initialized)
++			continue;
++		err = bcm43xx_switch_core(bcm, core);
++		if (err) {
++			dprintk(KERN_ERR PFX "shutdown_all_wireless_cores "
++					     "switch_core failed (%d)\n", err);
++			ret = err;
++			continue;
++		}
++		bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
++		bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy read */
++		bcm43xx_wireless_core_cleanup(bcm);
++		if (core == bcm->active_80211_core)
++			bcm->active_80211_core = NULL;
++	}
++	free_irq(bcm->irq, bcm);
++	bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
++
++	return ret;
++}
++
++/* This is the opposite of bcm43xx_init_board() */
++static void bcm43xx_free_board(struct bcm43xx_private *bcm)
++{
+ 	bcm43xx_sysfs_unregister(bcm);
+ 	bcm43xx_periodic_tasks_delete(bcm);
+ 
+-	bcm43xx_set_status(bcm, BCM43xx_STAT_SHUTTINGDOWN);
++	mutex_lock(&(bcm)->mutex);
++	bcm43xx_shutdown_all_wireless_cores(bcm);
++	bcm43xx_pctl_set_crystal(bcm, 0);
++	mutex_unlock(&(bcm)->mutex);
++}
++
++static void prepare_phydata_for_init(struct bcm43xx_phyinfo *phy)
++{
++	phy->antenna_diversity = 0xFFFF;
++	memset(phy->minlowsig, 0xFF, sizeof(phy->minlowsig));
++	memset(phy->minlowsigpos, 0, sizeof(phy->minlowsigpos));
++
++	/* Flags */
++	phy->calibrated = 0;
++	phy->is_locked = 0;
++
++	if (phy->_lo_pairs) {
++		memset(phy->_lo_pairs, 0,
++		       sizeof(struct bcm43xx_lopair) * BCM43xx_LO_COUNT);
++	}
++	memset(phy->loopback_gain, 0, sizeof(phy->loopback_gain));
++}
++
++static void prepare_radiodata_for_init(struct bcm43xx_private *bcm,
++				       struct bcm43xx_radioinfo *radio)
++{
++	int i;
++
++	/* Set default attenuation values. */
++	radio->baseband_atten = bcm43xx_default_baseband_attenuation(bcm);
++	radio->radio_atten = bcm43xx_default_radio_attenuation(bcm);
++	radio->txctl1 = bcm43xx_default_txctl1(bcm);
++	radio->txctl2 = 0xFFFF;
++	radio->txpwr_offset = 0;
++
++	/* NRSSI */
++	radio->nrssislope = 0;
++	for (i = 0; i < ARRAY_SIZE(radio->nrssi); i++)
++		radio->nrssi[i] = -1000;
++	for (i = 0; i < ARRAY_SIZE(radio->nrssi_lt); i++)
++		radio->nrssi_lt[i] = i;
++
++	radio->lofcal = 0xFFFF;
++	radio->initval = 0xFFFF;
++
++	radio->aci_enable = 0;
++	radio->aci_wlan_automatic = 0;
++	radio->aci_hw_rssi = 0;
++}
++
++static void prepare_priv_for_init(struct bcm43xx_private *bcm)
++{
++	int i;
++	struct bcm43xx_coreinfo *core;
++	struct bcm43xx_coreinfo_80211 *wlext;
++
++	assert(!bcm->active_80211_core);
++
++	bcm43xx_set_status(bcm, BCM43xx_STAT_INITIALIZING);
+ 
+-	bcm43xx_rng_exit(bcm);
++	/* Flags */
++	bcm->was_initialized = 0;
++	bcm->reg124_set_0x4 = 0;
++
++	/* Stats */
++	memset(&bcm->stats, 0, sizeof(bcm->stats));
++
++	/* Wireless core data */
+ 	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
+-		if (!bcm->core_80211[i].available)
+-			continue;
+-		if (!bcm->core_80211[i].initialized)
++		core = &(bcm->core_80211[i]);
++		wlext = core->priv;
++
++		if (!core->available)
+ 			continue;
++		assert(wlext == &(bcm->core_80211_ext[i]));
+ 
+-		err = bcm43xx_switch_core(bcm, &bcm->core_80211[i]);
+-		assert(err == 0);
+-		bcm43xx_wireless_core_cleanup(bcm);
++		prepare_phydata_for_init(&wlext->phy);
++		prepare_radiodata_for_init(bcm, &wlext->radio);
+ 	}
+ 
+-	bcm43xx_pctl_set_crystal(bcm, 0);
++	/* IRQ related flags */
++	bcm->irq_reason = 0;
++	memset(bcm->dma_reason, 0, sizeof(bcm->dma_reason));
++	bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
+ 
+-	bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
+-	mutex_unlock(&bcm->mutex);
++	/* Noise calculation context */
++	memset(&bcm->noisecalc, 0, sizeof(bcm->noisecalc));
++
++	/* Periodic work context */
++	bcm->periodic_state = 0;
+ }
+ 
+-static int bcm43xx_init_board(struct bcm43xx_private *bcm)
++static int wireless_core_up(struct bcm43xx_private *bcm,
++			    int active_wlcore)
++{
++	int err;
++
++	if (!bcm43xx_core_enabled(bcm))
++		bcm43xx_wireless_core_reset(bcm, 1);
++	if (!active_wlcore)
++		bcm43xx_wireless_core_mark_inactive(bcm);
++	err = bcm43xx_wireless_core_init(bcm, active_wlcore);
++	if (err)
++		goto out;
++	if (!active_wlcore)
++		bcm43xx_radio_turn_off(bcm);
++out:
++	return err;
++}
++
++/* Select and enable the "to be used" wireless core.
++ * Locking: bcm->mutex must be aquired before calling this.
++ *          bcm->irq_lock must not be aquired.
++ */
++int bcm43xx_select_wireless_core(struct bcm43xx_private *bcm,
++				 int phytype)
+ {
+ 	int i, err;
+-	int connect_phy;
++	struct bcm43xx_coreinfo *active_core = NULL;
++	struct bcm43xx_coreinfo_80211 *active_wlext = NULL;
++	struct bcm43xx_coreinfo *core;
++	struct bcm43xx_coreinfo_80211 *wlext;
++	int adjust_active_sbtmstatelow = 0;
+ 
+ 	might_sleep();
+ 
+-	mutex_lock(&bcm->mutex);
+-	bcm43xx_set_status(bcm, BCM43xx_STAT_INITIALIZING);
++	if (phytype < 0) {
++		/* If no phytype is requested, select the first core. */
++		assert(bcm->core_80211[0].available);
++		wlext = bcm->core_80211[0].priv;
++		phytype = wlext->phy.type;
++	}
++	/* Find the requested core. */
++	for (i = 0; i < bcm->nr_80211_available; i++) {
++		core = &(bcm->core_80211[i]);
++		wlext = core->priv;
++		if (wlext->phy.type == phytype) {
++			active_core = core;
++			active_wlext = wlext;
++			break;
++		}
++	}
++	if (!active_core)
++		return -ESRCH; /* No such PHYTYPE on this board. */
++
++	if (bcm->active_80211_core) {
++		/* We already selected a wl core in the past.
++		 * So first clean up everything.
++		 */
++		dprintk(KERN_INFO PFX "select_wireless_core: cleanup\n");
++		ieee80211softmac_stop(bcm->net_dev);
++		bcm43xx_set_status(bcm, BCM43xx_STAT_INITIALIZED);
++		err = bcm43xx_disable_interrupts_sync(bcm);
++		assert(!err);
++		tasklet_enable(&bcm->isr_tasklet);
++		err = bcm43xx_shutdown_all_wireless_cores(bcm);
++		if (err)
++			goto error;
++		/* Ok, everything down, continue to re-initialize. */
++		bcm43xx_set_status(bcm, BCM43xx_STAT_INITIALIZING);
++	}
++
++	/* Reset all data structures. */
++	prepare_priv_for_init(bcm);
+ 
+-	err = bcm43xx_pctl_set_crystal(bcm, 1);
+-	if (err)
+-		goto out;
+-	err = bcm43xx_pctl_init(bcm);
+-	if (err)
+-		goto err_crystal_off;
+ 	err = bcm43xx_pctl_set_clock(bcm, BCM43xx_PCTL_CLK_FAST);
+ 	if (err)
+-		goto err_crystal_off;
++		goto error;
+ 
+-	tasklet_enable(&bcm->isr_tasklet);
++	/* Mark all unused cores "inactive". */
+ 	for (i = 0; i < bcm->nr_80211_available; i++) {
+-		err = bcm43xx_switch_core(bcm, &bcm->core_80211[i]);
+-		assert(err != -ENODEV);
+-		if (err)
+-			goto err_80211_unwind;
++		core = &(bcm->core_80211[i]);
++		wlext = core->priv;
+ 
+-		/* Enable the selected wireless core.
+-		 * Connect PHY only on the first core.
+-		 */
+-		if (!bcm43xx_core_enabled(bcm)) {
+-			if (bcm->nr_80211_available == 1) {
+-				connect_phy = bcm43xx_current_phy(bcm)->connected;
+-			} else {
+-				if (i == 0)
+-					connect_phy = 1;
+-				else
+-					connect_phy = 0;
+-			}
+-			bcm43xx_wireless_core_reset(bcm, connect_phy);
++		if (core == active_core)
++			continue;
++		err = bcm43xx_switch_core(bcm, core);
++		if (err) {
++			dprintk(KERN_ERR PFX "Could not switch to inactive "
++					     "802.11 core (%d)\n", err);
++			goto error;
+ 		}
++		err = wireless_core_up(bcm, 0);
++		if (err) {
++			dprintk(KERN_ERR PFX "core_up for inactive 802.11 core "
++					     "failed (%d)\n", err);
++			goto error;
++		}
++		adjust_active_sbtmstatelow = 1;
++	}
+ 
+-		if (i != 0)
+-			bcm43xx_wireless_core_mark_inactive(bcm, &bcm->core_80211[0]);
+-
+-		err = bcm43xx_wireless_core_init(bcm);
+-		if (err)
+-			goto err_80211_unwind;
++	/* Now initialize the active 802.11 core. */
++	err = bcm43xx_switch_core(bcm, active_core);
++	if (err) {
++		dprintk(KERN_ERR PFX "Could not switch to active "
++				     "802.11 core (%d)\n", err);
++		goto error;
++	}
++	if (adjust_active_sbtmstatelow &&
++	    active_wlext->phy.type == BCM43xx_PHYTYPE_G) {
++		u32 sbtmstatelow;
+ 
+-		if (i != 0) {
+-			bcm43xx_mac_suspend(bcm);
+-			bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+-			bcm43xx_radio_turn_off(bcm);
+-		}
++		sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
++		sbtmstatelow |= 0x20000000;
++		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+ 	}
+-	bcm->active_80211_core = &bcm->core_80211[0];
+-	if (bcm->nr_80211_available >= 2) {
+-		bcm43xx_switch_core(bcm, &bcm->core_80211[0]);
+-		bcm43xx_mac_enable(bcm);
++	err = wireless_core_up(bcm, 1);
++	if (err) {
++		dprintk(KERN_ERR PFX "core_up for active 802.11 core "
++				     "failed (%d)\n", err);
++		goto error;
+ 	}
+-	err = bcm43xx_rng_init(bcm);
++	err = bcm43xx_pctl_set_clock(bcm, BCM43xx_PCTL_CLK_DYNAMIC);
+ 	if (err)
+-		goto err_80211_unwind;
++		goto error;
++	bcm->active_80211_core = active_core;
++
+ 	bcm43xx_macfilter_clear(bcm, BCM43xx_MACFILTER_ASSOC);
+ 	bcm43xx_macfilter_set(bcm, BCM43xx_MACFILTER_SELF, (u8 *)(bcm->net_dev->dev_addr));
+-	dprintk(KERN_INFO PFX "80211 cores initialized\n");
+ 	bcm43xx_security_init(bcm);
+-	bcm43xx_softmac_init(bcm);
++	ieee80211softmac_start(bcm->net_dev);
+ 
+-	bcm43xx_pctl_set_clock(bcm, BCM43xx_PCTL_CLK_DYNAMIC);
++	/* Let's go! Be careful after enabling the IRQs.
++	 * Don't switch cores, for example.
++	 */
++	bcm43xx_mac_enable(bcm);
++	bcm43xx_set_status(bcm, BCM43xx_STAT_INITIALIZED);
++	err = bcm43xx_initialize_irq(bcm);
++	if (err)
++		goto error;
++	bcm43xx_interrupt_enable(bcm, bcm->irq_savedstate);
+ 
+-	if (bcm43xx_current_radio(bcm)->initial_channel != 0xFF) {
+-		bcm43xx_mac_suspend(bcm);
+-		bcm43xx_radio_selectchannel(bcm, bcm43xx_current_radio(bcm)->initial_channel, 0);
+-		bcm43xx_mac_enable(bcm);
+-	}
++	dprintk(KERN_INFO PFX "Selected 802.11 core (phytype %d)\n",
++		active_wlext->phy.type);
+ 
+-	/* Initialization of the board is done. Flag it as such. */
+-	bcm43xx_set_status(bcm, BCM43xx_STAT_INITIALIZED);
++	return 0;
++
++error:
++	bcm43xx_set_status(bcm, BCM43xx_STAT_UNINIT);
++	bcm43xx_pctl_set_clock(bcm, BCM43xx_PCTL_CLK_SLOW);
++	return err;
++}
++
++static int bcm43xx_init_board(struct bcm43xx_private *bcm)
++{
++	int err;
++
++	mutex_lock(&(bcm)->mutex);
++
++	tasklet_enable(&bcm->isr_tasklet);
++	err = bcm43xx_pctl_set_crystal(bcm, 1);
++	if (err)
++		goto err_tasklet;
++	err = bcm43xx_pctl_init(bcm);
++	if (err)
++		goto err_crystal_off;
++	err = bcm43xx_select_wireless_core(bcm, -1);
++	if (err)
++		goto err_crystal_off;
+ 
+ 	bcm43xx_periodic_tasks_setup(bcm);
+-	bcm43xx_sysfs_register(bcm);
+-	//FIXME: check for bcm43xx_sysfs_register failure. This function is a bit messy regarding unwinding, though...
++	err = bcm43xx_sysfs_register(bcm);
++	if (err)
++		goto err_wlshutdown;
+ 
+ 	/*FIXME: This should be handled by softmac instead. */
+ 	schedule_work(&bcm->softmac->associnfo.work);
+ 
+-	assert(err == 0);
+ out:
+-	mutex_unlock(&bcm->mutex);
++	mutex_unlock(&(bcm)->mutex);
+ 
+ 	return err;
+ 
+-err_80211_unwind:
+-	tasklet_disable(&bcm->isr_tasklet);
+-	/* unwind all 80211 initialization */
+-	for (i = 0; i < bcm->nr_80211_available; i++) {
+-		if (!bcm->core_80211[i].initialized)
+-			continue;
+-		bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+-		bcm43xx_wireless_core_cleanup(bcm);
+-	}
++err_wlshutdown:
++	bcm43xx_shutdown_all_wireless_cores(bcm);
+ err_crystal_off:
+ 	bcm43xx_pctl_set_crystal(bcm, 0);
++err_tasklet:
++	tasklet_disable(&bcm->isr_tasklet);
+ 	goto out;
+ }
+ 
+@@ -3783,7 +3924,8 @@ static void bcm43xx_net_poll_controller(
+ 	unsigned long flags;
+ 
+ 	local_irq_save(flags);
+-	bcm43xx_interrupt_handler(bcm->irq, bcm, NULL);
++	if (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED)
++		bcm43xx_interrupt_handler(bcm->irq, bcm, NULL);
+ 	local_irq_restore(flags);
+ }
+ #endif /* CONFIG_NET_POLL_CONTROLLER */
+@@ -3801,7 +3943,7 @@ static int bcm43xx_net_stop(struct net_d
+ 	int err;
+ 
+ 	ieee80211softmac_stop(net_dev);
+-	err = bcm43xx_disable_interrupts_sync(bcm, NULL);
++	err = bcm43xx_disable_interrupts_sync(bcm);
+ 	assert(!err);
+ 	bcm43xx_free_board(bcm);
+ 
+@@ -3943,7 +4085,6 @@ static void __devexit bcm43xx_remove_one
+ 	bcm43xx_debugfs_remove_device(bcm);
+ 	unregister_netdev(net_dev);
+ 	bcm43xx_detach_board(bcm);
+-	assert(bcm->ucode == NULL);
+ 	free_ieee80211softmac(net_dev);
+ }
+ 
+@@ -3953,47 +4094,25 @@ static void __devexit bcm43xx_remove_one
+ static void bcm43xx_chip_reset(void *_bcm)
+ {
+ 	struct bcm43xx_private *bcm = _bcm;
+-	struct net_device *net_dev = bcm->net_dev;
+-	struct pci_dev *pci_dev = bcm->pci_dev;
++	struct bcm43xx_phyinfo *phy;
+ 	int err;
+-	int was_initialized = (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED);
+ 
+-	netif_stop_queue(bcm->net_dev);
+-	tasklet_disable(&bcm->isr_tasklet);
++	mutex_lock(&(bcm)->mutex);
++	phy = bcm43xx_current_phy(bcm);
++	err = bcm43xx_select_wireless_core(bcm, phy->type);
++	mutex_unlock(&(bcm)->mutex);
+ 
+-	bcm->firmware_norelease = 1;
+-	if (was_initialized)
+-		bcm43xx_free_board(bcm);
+-	bcm->firmware_norelease = 0;
+-	bcm43xx_detach_board(bcm);
+-	err = bcm43xx_init_private(bcm, net_dev, pci_dev);
+-	if (err)
+-		goto failure;
+-	err = bcm43xx_attach_board(bcm);
+-	if (err)
+-		goto failure;
+-	if (was_initialized) {
+-		err = bcm43xx_init_board(bcm);
+-		if (err)
+-			goto failure;
+-	}
+-	netif_wake_queue(bcm->net_dev);
+-	printk(KERN_INFO PFX "Controller restarted\n");
+-
+-	return;
+-failure:
+-	printk(KERN_ERR PFX "Controller restart failed\n");
++	printk(KERN_ERR PFX "Controller restart%s\n",
++	       (err == 0) ? "ed" : " failed");
+ }
+ 
+ /* Hard-reset the chip.
+  * This can be called from interrupt or process context.
+- * Make sure to _not_ re-enable device interrupts after this has been called.
+-*/
++ */
+ void bcm43xx_controller_restart(struct bcm43xx_private *bcm, const char *reason)
+ {
++	assert(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED);
+ 	bcm43xx_set_status(bcm, BCM43xx_STAT_RESTARTING);
+-	bcm43xx_interrupt_disable(bcm, BCM43xx_IRQ_ALL);
+-	bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD); /* dummy read */
+ 	printk(KERN_ERR PFX "Controller RESET (%s) ...\n", reason);
+ 	INIT_WORK(&bcm->restart_work, bcm43xx_chip_reset, bcm);
+ 	schedule_work(&bcm->restart_work);
+@@ -4005,18 +4124,16 @@ static int bcm43xx_suspend(struct pci_de
+ {
+ 	struct net_device *net_dev = pci_get_drvdata(pdev);
+ 	struct bcm43xx_private *bcm = bcm43xx_priv(net_dev);
+-	int try_to_shutdown = 0, err;
++	int err;
+ 
+ 	dprintk(KERN_INFO PFX "Suspending...\n");
+ 
+-	bcm->was_initialized = (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED);
+-	if (bcm->was_initialized)
+-		try_to_shutdown = 1;
+-
+ 	netif_device_detach(net_dev);
+-	if (try_to_shutdown) {
++	bcm->was_initialized = 0;
++	if (bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED) {
++		bcm->was_initialized = 1;
+ 		ieee80211softmac_stop(net_dev);
+-		err = bcm43xx_disable_interrupts_sync(bcm, &bcm->irq_savedstate);
++		err = bcm43xx_disable_interrupts_sync(bcm);
+ 		if (unlikely(err)) {
+ 			dprintk(KERN_ERR PFX "Suspend failed.\n");
+ 			return -EAGAIN;
+@@ -4049,17 +4166,14 @@ static int bcm43xx_resume(struct pci_dev
+ 	pci_restore_state(pdev);
+ 
+ 	bcm43xx_chipset_attach(bcm);
+-	if (bcm->was_initialized) {
+-		bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
++	if (bcm->was_initialized)
+ 		err = bcm43xx_init_board(bcm);
+-	}
+ 	if (err) {
+ 		printk(KERN_ERR PFX "Resume failed!\n");
+ 		return err;
+ 	}
+-
+ 	netif_device_attach(net_dev);
 -	
 +
-+	/* we save the ERP value because it is needed at association time, and
-+	 * many AP's do not include an ERP IE in the association response. */
-+	softnet->erp_value = net->erp_value;
+ 	dprintk(KERN_INFO PFX "Device resumed.\n");
+ 
+ 	return 0;
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.h b/drivers/net/wireless/bcm43xx/bcm43xx_main.h
+index 1164936..505c86e 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_main.h
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.h
+@@ -133,6 +133,9 @@ void bcm43xx_dummy_transmission(struct b
+ 
+ int bcm43xx_switch_core(struct bcm43xx_private *bcm, struct bcm43xx_coreinfo *new_core);
+ 
++int bcm43xx_select_wireless_core(struct bcm43xx_private *bcm,
++				 int phytype);
 +
- 	softnet->capabilities = net->capability;
- 	return softnet;
- }
-diff --git a/net/ieee80211/softmac/ieee80211softmac_priv.h b/net/ieee80211/softmac/ieee80211softmac_priv.h
-index fa1f8e3..0642e09 100644
---- a/net/ieee80211/softmac/ieee80211softmac_priv.h
-+++ b/net/ieee80211/softmac/ieee80211softmac_priv.h
-@@ -116,9 +116,11 @@ ieee80211softmac_get_network_by_essid(st
- 	struct ieee80211softmac_essid *essid);
+ void bcm43xx_wireless_core_reset(struct bcm43xx_private *bcm, int connect_phy);
  
- /* Rates related */
-+void ieee80211softmac_process_erp(struct ieee80211softmac_device *mac,
-+	u8 erp_value);
- int ieee80211softmac_ratesinfo_rate_supported(struct ieee80211softmac_ratesinfo *ri, u8 rate);
- u8 ieee80211softmac_lower_rate_delta(struct ieee80211softmac_device *mac, u8 rate, int delta);
--void ieee80211softmac_init_txrates(struct ieee80211softmac_device *mac);
-+void ieee80211softmac_init_bss(struct ieee80211softmac_device *mac);
- void ieee80211softmac_recalc_txrates(struct ieee80211softmac_device *mac);
- static inline u8 lower_rate(struct ieee80211softmac_device *mac, u8 rate) {
- 	return ieee80211softmac_lower_rate_delta(mac, rate, 1);
-@@ -133,6 +135,9 @@ static inline u8 get_fallback_rate(struc
- /*** prototypes from _io.c */
- int ieee80211softmac_send_mgt_frame(struct ieee80211softmac_device *mac,
- 	void* ptrarg, u32 type, u32 arg);
-+int ieee80211softmac_handle_beacon(struct net_device *dev,
-+	struct ieee80211_beacon *beacon,
-+	struct ieee80211_network *network);
+ void bcm43xx_mac_suspend(struct bcm43xx_private *bcm);
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c b/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
+index cc1ff3c..ece3351 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_sysfs.c
+@@ -309,6 +309,70 @@ static DEVICE_ATTR(shortpreamble, 0644,
+ 		   bcm43xx_attr_preamble_show,
+ 		   bcm43xx_attr_preamble_store);
  
- /*** prototypes from _auth.c */
- /* do these have to go into the public header? */
-@@ -189,6 +194,7 @@ struct ieee80211softmac_network {
- 	    authenticated:1,
- 	    auth_desynced_once:1;
++static ssize_t bcm43xx_attr_phymode_store(struct device *dev,
++					  struct device_attribute *attr,
++					  const char *buf, size_t count)
++{
++	struct bcm43xx_private *bcm = dev_to_bcm(dev);
++	int phytype;
++	int err = -EINVAL;
++
++	if (count < 1)
++		goto out;
++	switch (buf[0]) {
++	case 'a':  case 'A':
++		phytype = BCM43xx_PHYTYPE_A;
++		break;
++	case 'b':  case 'B':
++		phytype = BCM43xx_PHYTYPE_B;
++		break;
++	case 'g':  case 'G':
++		phytype = BCM43xx_PHYTYPE_G;
++		break;
++	default:
++		goto out;
++	}
++
++	mutex_lock(&(bcm)->mutex);
++	err = bcm43xx_select_wireless_core(bcm, phytype);
++	mutex_unlock(&(bcm)->mutex);
++	if (err == -ESRCH)
++		err = -ENODEV;
++
++out:
++	return err ? err : count;
++}
++
++static ssize_t bcm43xx_attr_phymode_show(struct device *dev,
++					 struct device_attribute *attr,
++					 char *buf)
++{
++	struct bcm43xx_private *bcm = dev_to_bcm(dev);
++	ssize_t count = 0;
++
++	mutex_lock(&(bcm)->mutex);
++	switch (bcm43xx_current_phy(bcm)->type) {
++	case BCM43xx_PHYTYPE_A:
++		snprintf(buf, PAGE_SIZE, "A");
++		break;
++	case BCM43xx_PHYTYPE_B:
++		snprintf(buf, PAGE_SIZE, "B");
++		break;
++	case BCM43xx_PHYTYPE_G:
++		snprintf(buf, PAGE_SIZE, "G");
++		break;
++	default:
++		assert(0);
++	}
++	mutex_unlock(&(bcm)->mutex);
++
++	return count;
++}
++
++static DEVICE_ATTR(phymode, 0644,
++		   bcm43xx_attr_phymode_show,
++		   bcm43xx_attr_phymode_store);
++
+ int bcm43xx_sysfs_register(struct bcm43xx_private *bcm)
+ {
+ 	struct device *dev = &bcm->pci_dev->dev;
+@@ -325,9 +389,14 @@ int bcm43xx_sysfs_register(struct bcm43x
+ 	err = device_create_file(dev, &dev_attr_shortpreamble);
+ 	if (err)
+ 		goto err_remove_interfmode;
++	err = device_create_file(dev, &dev_attr_phymode);
++	if (err)
++		goto err_remove_shortpreamble;
  
-+	u8 erp_value;				/* Saved ERP value */
- 	u16 capabilities;			/* Capabilities bitfield */
- 	u8 challenge_len;			/* Auth Challenge length */
- 	char *challenge;			/* Challenge Text */
+ out:
+ 	return err;
++err_remove_shortpreamble:
++	device_remove_file(dev, &dev_attr_shortpreamble);
+ err_remove_interfmode:
+ 	device_remove_file(dev, &dev_attr_interference);
+ err_remove_sprom:
+@@ -339,6 +408,7 @@ void bcm43xx_sysfs_unregister(struct bcm
+ {
+ 	struct device *dev = &bcm->pci_dev->dev;
+ 
++	device_remove_file(dev, &dev_attr_phymode);
+ 	device_remove_file(dev, &dev_attr_shortpreamble);
+ 	device_remove_file(dev, &dev_attr_interference);
+ 	device_remove_file(dev, &dev_attr_sprom);
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+index 8ffd760..1d3a3aa 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+@@ -47,9 +47,8 @@ #include "bcm43xx_phy.h"
+ #define BCM43xx_WX_VERSION	18
+ 
+ #define MAX_WX_STRING		80
+-/* FIXME: the next line is a guess as to what the maximum value of RX power
+-          (in dBm) might be */
+-#define RX_POWER_MAX		-10
++/* FIXME: the next line is a guess as to what the maximum RSSI value might be */
++#define RX_RSSI_MAX		60
+ 
+ 
+ static int bcm43xx_wx_get_name(struct net_device *net_dev,
+@@ -230,9 +229,8 @@ static int bcm43xx_wx_get_rangeparams(st
+ 	range->throughput = 27 * 1000 * 1000;
+ 
+ 	range->max_qual.qual = 100;
+-	/* TODO: Real max RSSI */
+-	range->max_qual.level = 0;
+-	range->max_qual.noise = 0;
++	range->max_qual.level = 152; /* set floor at -104 dBm (152 - 256) */
++	range->max_qual.noise = 152;
+ 	range->max_qual.updated = IW_QUAL_ALL_UPDATED;
+ 
+ 	range->avg_qual.qual = 50;
+@@ -845,6 +843,7 @@ static struct iw_statistics *bcm43xx_get
+ 	struct iw_statistics *wstats;
+ 	struct ieee80211_network *network = NULL;
+ 	static int tmp_level = 0;
++	static int tmp_qual = 0;
+ 	unsigned long flags;
+ 
+ 	wstats = &bcm->stats.wstats;
+@@ -863,25 +862,28 @@ static struct iw_statistics *bcm43xx_get
+ 		wstats->qual.level = 0;
+ 		wstats->qual.noise = 0;
+ 		wstats->qual.updated = 7;
+-		wstats->qual.updated |= IW_QUAL_ALL_UPDATED;
++		wstats->qual.updated |= IW_QUAL_ALL_UPDATED | IW_QUAL_DBM;
+ 		return wstats;
+ 	}
+ 	/* fill in the real statistics when iface associated */
+ 	spin_lock_irqsave(&mac->ieee->lock, flags);
+ 	list_for_each_entry(network, &mac->ieee->network_list, list) {
+ 		if (!memcmp(mac->associnfo.bssid, network->bssid, ETH_ALEN)) {
+-			if (!tmp_level)		/* get initial value */
+-				tmp_level = network->stats.rssi;
+-			else			/* smooth results */
+-				tmp_level = (7 * tmp_level + network->stats.rssi)/8;
++			if (!tmp_level)	{	/* get initial values */
++				tmp_level = network->stats.signal;
++				tmp_qual = network->stats.rssi;
++			} else {		/* smooth results */
++				tmp_level = (15 * tmp_level + network->stats.signal)/16;
++				tmp_qual = (15 * tmp_qual + network->stats.rssi)/16;
++			}
+ 			break;
+ 		}
+ 	}
+ 	spin_unlock_irqrestore(&mac->ieee->lock, flags);
+ 	wstats->qual.level = tmp_level;
+-	wstats->qual.qual = 100 + tmp_level - RX_POWER_MAX; // TODO: get the real signal quality
++	wstats->qual.qual = 100 * tmp_qual / RX_RSSI_MAX;
+ 	wstats->qual.noise = bcm->stats.noise;
+-	wstats->qual.updated = IW_QUAL_ALL_UPDATED;
++	wstats->qual.updated = IW_QUAL_ALL_UPDATED | IW_QUAL_DBM;
+ 	wstats->discard.code = bcm->ieee->ieee_stats.rx_discards_undecryptable;
+ 	wstats->discard.retries = bcm->ieee->ieee_stats.tx_retry_limit_exceeded;
+ 	wstats->discard.nwid = bcm->ieee->ieee_stats.tx_discards_wrong_sa;
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c b/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
+index 6dbd855..c0efbfe 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_xmit.c
+@@ -492,16 +492,15 @@ int bcm43xx_rx(struct bcm43xx_private *b
+ 
+ 	memset(&stats, 0, sizeof(stats));
+ 	stats.mac_time = le16_to_cpu(rxhdr->mactime);
+-	stats.rssi = bcm43xx_rssi_postprocess(bcm, rxhdr->rssi, is_ofdm,
++	stats.rssi = rxhdr->rssi;
++	stats.signal = bcm43xx_rssi_postprocess(bcm, rxhdr->rssi, is_ofdm,
+ 					      !!(rxflags1 & BCM43xx_RXHDR_FLAGS1_2053RSSIADJ),
+ 					      !!(rxflags3 & BCM43xx_RXHDR_FLAGS3_2050RSSIADJ));
+-	stats.signal = rxhdr->signal_quality;	//FIXME
+ //TODO	stats.noise = 
+ 	if (is_ofdm)
+ 		stats.rate = bcm43xx_plcp_get_bitrate_ofdm(plcp);
+ 	else
+ 		stats.rate = bcm43xx_plcp_get_bitrate_cck(plcp);
+-//printk("RX ofdm %d, rate == %u\n", is_ofdm, stats.rate);
+ 	stats.received_channel = radio->channel;
+ //TODO	stats.control = 
+ 	stats.mask = IEEE80211_STATMASK_SIGNAL |
 -- 
 John W. Linville
-linville@tuxdriver.com
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
