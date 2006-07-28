@@ -1,83 +1,59 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: PATCH Fix bonding active-backup behavior for VLAN interfaces
-Date: Fri, 28 Jul 2006 09:01:20 -0700
-Message-ID: <44CA34D0.1070507@candelatech.com>
-References: <20060728094421.GA14903@walrus.eth1.org>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 2/7] NetLabel: core network changes
+Date: Fri, 28 Jul 2006 13:58:36 -0400
+Message-ID: <44CA504C.6030207@hp.com>
+References: <20060717155224.060020000@hp.com> <20060717155822.315389000@hp.com> <20060728112426.GE14627@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, davem@davemloft.net,
+	sds@epoch.ncsc.mil, jmorris@redhat.com, pratt@argus-systems.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:40361 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1752003AbWG1QBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 12:01:24 -0400
-To: Christophe Devriese <christophe.devriese@eth1.org>
-In-Reply-To: <20060728094421.GA14903@walrus.eth1.org>
+Received: from atlrel7.hp.com ([156.153.255.213]:64961 "EHLO atlrel7.hp.com")
+	by vger.kernel.org with ESMTP id S1030250AbWG1R6h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 13:58:37 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060728112426.GE14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch by itself does nothing useful, other than remove a method.
-
-If we assume you did the patch backwards, and wanted to add the method
-instead, then where is this method ever called?
-
-Ben
-
-
-Christophe Devriese wrote:
-> diff -rU3 linux-2.6.17.7/net/core/dev.c linux-2.6.17.7-wapper/net/core/dev.c
-> --- linux-2.6.17.7/net/core/dev.c       2006-07-25 05:36:01.000000000 +0200
-> +++ linux-2.6.17.7-wapper/net/core/dev.c        2006-07-27 20:16:36.000000000 +0200
-> @@ -88,6 +88,7 @@
->  #include <linux/sockios.h>
->  #include <linux/errno.h>
->  #include <linux/interrupt.h>
-> +#include <linux/if_bonding.h>
->  #include <linux/if_ether.h>
->  #include <linux/netdevice.h>
->  #include <linux/etherdevice.h>
-> @@ -1518,37 +1519,6 @@
+Thomas Graf wrote:
+> * paul.moore@hp.com <paul.moore@hp.com> 2006-07-17 11:52
 > 
->  EXPORT_SYMBOL(netif_rx_ni);
+>>+ * NetLabel makes use of the Generic NETLINK mechanism as a transport layer to
+>>+ * send messages between kernel and user space.  The general format of a
+>>+ * NetLabel message is shown below:
+>>+ *
+>>+ *  +-----------------+-------------------+--------- --- -- -
+>>+ *  | struct nlmsghdr | struct genlmsghdr | payload
+>>+ *  +-----------------+-------------------+--------- --- -- -
+>>+ *
+>>+ * The 'nlmsghdr' and 'genlmsghdr' structs should be dealt with like normal.
+>>+ * The payload is dependent on the subsystem specified in the
+>>+ * 'nlmsghdr->nlmsg_type' and should be defined below, supporting functions
+>>+ * should be defined in the corresponding net/netlabel/netlabel_<subsys>.h|c
+>>+ * file.  All of the fields in the NetLabel payload should be aligned using
+>>+ * the alignment functions provided.
+>>+ *
+>>+ */
+>>+
+>>+/*
+>>+ * NetLabel NETLINK protocol
+>>+ */
+>>+
 > 
-> -static inline struct net_device *skb_bond(struct sk_buff *skb)
-> -{
-> -       struct net_device *dev = skb->dev;
-> -
-> -       if (dev->master) {
-> -               /*
-> -                * On bonding slaves other than the currently active
-> -                * slave, suppress duplicates except for 802.3ad
-> -                * ETH_P_SLOW and alb non-mcast/bcast.
-> -                */
-> -               if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
-> -                       if (dev->master->priv_flags & IFF_MASTER_ALB) {
-> -                               if (skb->pkt_type != PACKET_BROADCAST &&
-> -                                   skb->pkt_type != PACKET_MULTICAST)
-> -                                       goto keep;
-> -                       }
-> -
-> -                       if (dev->master->priv_flags & IFF_MASTER_8023AD &&
-> -                           skb->protocol == __constant_htons(ETH_P_SLOW))
-> -                               goto keep;
-> -
-> -                       kfree_skb(skb);
-> -                       return NULL;
-> -               }
-> -keep:
-> -               skb->dev = dev->master;
-> -       }
-> -
-> -       return dev;
-> -}
-> -
->  static void net_tx_action(struct softirq_action *h)
->  {
->         struct softnet_data *sd = &__get_cpu_var(softnet_data);
-> 
+> Is there a reason for not using any of the existing netlink and
+> genetlink interfaces in any of your patches? It's all duplicated
+> code.
 
+I'm  a little confused by your comment, could you be a bit more
+specific?  Are you basing your comment strictly on the text above?  If
+so, the problem may be my poor excuse for documentation rather then my
+poor excuse for implementation :)
+
+I am using the generic netlink interface, in what I believe to be a
+"correct" fashion - please correct me if I'm wrong.
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+paul moore
+linux security @ hp
