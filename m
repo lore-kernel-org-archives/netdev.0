@@ -1,62 +1,48 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 1/7] NetLabel: documentation
-Date: Fri, 28 Jul 2006 14:52:48 -0400
-Message-ID: <44CA5D00.4010405@hp.com>
-References: <20060717155224.060020000@hp.com>	<20060717155821.600856000@hp.com> <20060728.005104.78711481.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/7] NetLabel: core network changes
+Date: Fri, 28 Jul 2006 20:58:25 +0200
+Message-ID: <20060728185825.GG14627@postel.suug.ch>
+References: <20060717155224.060020000@hp.com> <20060717155822.315389000@hp.com> <20060728112426.GE14627@postel.suug.ch> <44CA504C.6030207@hp.com> <20060728181225.GF14627@postel.suug.ch> <44CA59D8.4090702@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, sds@epoch.ncsc.mil,
-	jmorris@redhat.com, pratt@argus-systems.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, davem@davemloft.net,
+	sds@epoch.ncsc.mil, jmorris@redhat.com, pratt@argus-systems.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:18594 "EHLO atlrel9.hp.com")
-	by vger.kernel.org with ESMTP id S1752060AbWG1SxC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 14:53:02 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060728.005104.78711481.davem@davemloft.net>
+Received: from postel.suug.ch ([194.88.212.233]:238 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1161245AbWG1S6J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 14:58:09 -0400
+To: Paul Moore <paul.moore@hp.com>
+Content-Disposition: inline
+In-Reply-To: <44CA59D8.4090702@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: paul.moore@hp.com
-> Date: Mon, 17 Jul 2006 11:52:25 -0400
+* Paul Moore <paul.moore@hp.com> 2006-07-28 14:39
+> It sounds like you main concern is that I'm not using the netlink
+> attribute interfaces, yes?  I looked at using those originally but
+> decided not to use them for the following reasons:
 > 
+>  1. They are listed as "optional" in the documents I read
+>  2. They add at least an extra 32 bits to each attribute
+>  3. There seems to be plenty of users in net/ipv4 who do not make
+>     use of attributes (a *quick* look again reveals none)
+>  4. Since I'm reading messages from userspace I can't trust the
+>     message contents regardless of it's use of attributes
+>  5. Harder to work with in userspace without using a netlink
+>     library, which would create an extra dependency for tools which
+>     talk to the NetLabel subsystem
 > 
->>+CIPSOv4 Variables:
->>+
->>+cipso_cache_enable - BOOLEAN
-> 
->  ...
-> 
->>+cipso_cache_bucket_size - INTEGER
-> 
->  ...
-> 
->>+cipso_rbm_optfmt - BOOLEAN
-> 
->  ...
-> 
->>+cipso_rbm_structvalid - BOOLEAN
-> 
->  ...
-> 
-> We need some more information for these entries.
-> 
-> First, list the default value these sysctls will have.
-> This is consistent with other entries in this file.  If
-> there is a compelling argument to support the default
-> value, please mention it.
-> 
-> Second, cipso_cache_bucket_size is still opaque, there is
-> nothing in the description with describes the units this
-> value is specified in, nor in fact what it really controls.
-> Does it say how deep the hash chains of the hash table are
-> allowed to grow to?  Otherwise, what does it control and what
-> are the consequences of using different values?
-> 
+> Basically, I saw no requirement to use the netlink attributes and no
+> advantage so I didn't.  Is this reasonable, or do you feel the use of
+> attributes is a requirement?
 
-Okay, I'll work on the doc so to try and take care of these issues.
+Not a requirement but I would encourage it. Almost all netlink
+families are using attributes with a few exceptions. We just
+used to call them rtattr defined in rtnetlink.h before the new
+api was added. There is one huge advantage in using attributes
+which is that your protocol is extendable without breaking binary
+interfaces.
 
--- 
-paul moore
-linux security @ hp
+What I'm refering to primarly are the existing functions to write
+netlink and genetlink headers etc.
+
