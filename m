@@ -1,84 +1,69 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Subject: lockdep tcp_v6_rcv message
-Date: Fri, 28 Jul 2006 14:45:31 -0500
-Message-ID: <20060728194531.GA17744@lists.us.dell.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 driver problem with RTL8110SB chip (on iop3xx ARM board)
+Date: Fri, 28 Jul 2006 21:49:33 +0200
+Message-ID: <20060728194933.GA14222@electric-eye.fr.zoreil.com>
+References: <20060728101109.GA25854@xi.wantstofly.org> <20060728104946.GA6710@electric-eye.fr.zoreil.com> <20060728111534.GD25854@xi.wantstofly.org> <20060728115237.GF21733@deprecation.cyrius.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60ps301.us.dell.com ([143.166.148.206]:51218 "EHLO
-	ausc60ps301.us.dell.com") by vger.kernel.org with ESMTP
-	id S1030286AbWG1Tp3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jul 2006 15:45:29 -0400
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:4062 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1161190AbWG1Ttp
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jul 2006 15:49:45 -0400
+To: Martin Michlmayr <tbm@cyrius.com>
 Content-Disposition: inline
+In-Reply-To: <20060728115237.GF21733@deprecation.cyrius.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Triggered on Fedora rawhide kernel-2.6.17-1.2462.fc6 x86_64 which is
-based on 2.6.18rc2-git6.  IPv6 was in use at the time.
+Martin Michlmayr <tbm@cyrius.com> :
+[...]
+> Here's the output using the r8169 driver:
+> 
+> RealTek RTL-8110 registers:
+> ------------------------------
 
+The (untested) patch below should apply to the source code that Realtek
+included in linux-r1000(103).zip, wherence supporting the extraction
+of the same info.
 
-=================================
-[ INFO: inconsistent lock state ]
----------------------------------
-inconsistent {softirq-on-W} -> {in-softirq-R} usage.
-swapper/0 [HC0[0]:SC1[1]:HE1:SE0] takes:
- (&sk->sk_dst_lock){---?}, at: [<ffffffff80418ef3>]
- sk_dst_check+0x26/0x12b
-{softirq-on-W} state was registered at:
-  [<ffffffff802a874d>] lock_acquire+0x4a/0x69
-  [<ffffffff802672a1>] _write_lock+0x24/0x31
-  [<ffffffff8044a26b>] ip4_datagram_connect+0x2e1/0x350
-  [<ffffffff80451214>] inet_dgram_connect+0x57/0x65
-  [<ffffffff8041652a>] sys_connect+0x7d/0xa4
-  [<ffffffff8025ff0d>] system_call+0x7d/0x83
-irq event stamp: 3507830
-hardirqs last  enabled at (3507830): [<ffffffff8020aaa8>]
-kmem_cache_alloc+0xd3/0xf7
-hardirqs last disabled at (3507829): [<ffffffff8020aa20>]
-kmem_cache_alloc+0x4b/0xf7
-softirqs last  enabled at (3507808): [<ffffffff80212a9d>]
-__do_softirq+0xec/0xf5
-softirqs last disabled at (3507811): [<ffffffff802611ba>]
-call_softirq+0x1e/0x28
-
-other info that might help us debug this:
-1 lock held by swapper/0:
- #0:  (slock-AF_INET6){-+..}, at: [<ffffffff883dc3d6>]
- tcp_v6_rcv+0x30e/0x770 [ipv6]
-
-stack backtrace:
-
-Call Trace:
- [<ffffffff8026e269>] show_trace+0xaa/0x23d
- [<ffffffff8026e411>] dump_stack+0x15/0x17
- [<ffffffff802a67bd>] print_usage_bug+0x259/0x26a
- [<ffffffff802a6fc2>] mark_lock+0x1d5/0x3e3
- [<ffffffff802a7b80>] __lock_acquire+0x427/0xa54
- [<ffffffff802a874e>] lock_acquire+0x4b/0x69
- [<ffffffff802673b8>] _read_lock+0x28/0x34
- [<ffffffff80418ef3>] sk_dst_check+0x26/0x12b
- [<ffffffff883bd9be>] :ipv6:ip6_dst_lookup+0x3a/0x1a2
- [<ffffffff883d9dcf>] :ipv6:tcp_v6_send_synack+0x185/0x2ec
- [<ffffffff883dac02>] :ipv6:tcp_v6_conn_request+0x291/0x2f3
- [<ffffffff80243ce6>] tcp_rcv_state_process+0x5f/0xe7b
- [<ffffffff883da1bd>] :ipv6:tcp_v6_do_rcv+0x268/0x372
- [<ffffffff883dc7e7>] :ipv6:tcp_v6_rcv+0x71f/0x770
- [<ffffffff883bf4ef>] :ipv6:ip6_input+0x223/0x315
- [<ffffffff883bfb9d>] :ipv6:ipv6_rcv+0x254/0x2af
- [<ffffffff8022154d>] netif_receive_skb+0x260/0x2dd
- [<ffffffff881163ef>] :e1000:e1000_clean_rx_irq+0x423/0x4c2
- [<ffffffff881148c9>] :e1000:e1000_clean+0x88/0x15b
- [<ffffffff8020cc82>] net_rx_action+0xac/0x1c7
- [<ffffffff80212a19>] __do_softirq+0x68/0xf5
- [<ffffffff802611ba>] call_softirq+0x1e/0x28
-
-
-Thanks,
-Matt
-
--- 
-Matt Domsch
-Software Architect
-Dell Linux Solutions linux.dell.com & www.dell.com/linux
-Linux on Dell mailing lists @ http://lists.us.dell.com
+--- r1000/src/r1000_ioctl.c	2006-07-28 21:35:25.000000000 +0200
++++ r1000/src/r1000_ioctl.c	2006-07-28 21:38:17.000000000 +0200
+@@ -4,6 +4,27 @@ extern int R1000_READ_GMII_REG(unsigned 
+ extern int R1000_WRITE_GMII_REG(unsigned long ioaddr, int RegAddr, int value);
+ extern int r1000_set_speed_duplex(unsigned long ioaddr, unsigned long anar, unsigned long gbcr, unsigned long bmcr);
+ 
++#define R1000_REGS_SIZE 256
++
++static int r1000_get_regs_len(struct net_device *dev)
++{
++	return R1000_REGS_SIZE;
++}
++
++static void r1000_get_regs(struct net_device *dev, struct ethtool_regs *regs,
++			   void *p)
++{
++	struct r1000_private *priv = netdev_priv(dev);
++	unsigned long flags;
++
++	if (regs->len > R1000_REGS_SIZE)
++		regs->len = R1000_REGS_SIZE;
++
++	spin_lock_irqsave(&priv->lock, flags);
++	memcpy_fromio(p, (void __iomem *)priv->ioaddr, regs->len);
++	spin_unlock_irqrestore(&priv->lock, flags);
++}
++
+ static int ethtool_get_settings(struct net_device *netdev,struct ethtool_cmd *ecmd){
+ 	struct r1000_private *priv = (struct r1000_private *)(netdev->priv);
+ 	unsigned long ioaddr = priv->ioaddr;
+@@ -136,6 +157,8 @@ int ethtool_ioctl(struct ifreq *ifr){
+ 
+ #if LINUX_VERSION_CODE > KERNEL_VERSION(2,5,0)
+ struct ethtool_ops r1000_ethtool_ops = {
++	.get_regs_len	= r1000_get_regs_len,
++	.get_regs	= r1000_get_regs,
+ 	.get_settings	= ethtool_get_settings,
+ 	.set_settings	= ethtool_set_settings,
+ };
