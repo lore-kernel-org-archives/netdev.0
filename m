@@ -1,38 +1,58 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Fri, 28 Jul 2006 09:17:25 +0400
-Message-ID: <20060728051723.GA11210@2ka.mipt.ru>
-References: <20060718081625.GA13830@2ka.mipt.ru> <20060718230121.GA31474@ms2.inr.ac.ru> <1153966671.6904.71.camel@localhost.localdomain> <20060726.221708.123400049.davem@davemloft.net> <1153979173.6904.100.camel@localhost.localdomain> <20060727163335.GA12944@ms2.inr.ac.ru> <20060727165121.GA6637@2ka.mipt.ru> <20060727205651.GA29953@ms2.inr.ac.ru>
+Subject: Re: [RFC 1/4] kevent: core files.
+Date: Fri, 28 Jul 2006 09:23:12 +0400
+Message-ID: <20060728052312.GB11210@2ka.mipt.ru>
+References: <20060709132446.GB29435@2ka.mipt.ru> <20060724.231708.01289489.davem@davemloft.net> <44C91192.4090303@oracle.com> <20060727200655.GA4586@2ka.mipt.ru> <44C930D5.9020704@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:64643 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932577AbWG1FRq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 01:17:46 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:17328 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751773AbWG1FXc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 01:23:32 -0400
+To: Zach Brown <zach.brown@oracle.com>
 Content-Disposition: inline
-In-Reply-To: <20060727205651.GA29953@ms2.inr.ac.ru>
+In-Reply-To: <44C930D5.9020704@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 28, 2006 at 12:56:51AM +0400, Alexey Kuznetsov (kuznet@ms2.inr.ac.ru) wrote:
-> Hello!
+On Thu, Jul 27, 2006 at 02:32:05PM -0700, Zach Brown (zach.brown@oracle.com) wrote:
 > 
-> > kernel thread takes 100% cpu (with preemption
+> >> 	int kevent_getevents(int event_fd, struct ukevent *events,
+> >> 		int min_events, int max_events,
+> >> 		struct timeval *timeout);
+> > 
+> > I used only one syscall for all operations, above syscall is
+> > essentially what kevent_user_wait() does.
 > 
-> Preemption, you tell... :-)
+> Essentially, yes, but the differences are important.  It's important to
+> have a clear syscall interface instead of nesting through multiplexers.
+>  And we should get the batching/latency inputs right.  (I'm for both
+> min/max elements and arguably timeouts, but I could understand not
+> wanting to go *that* far.)
+
+I completely agree that existing kevent interface is not the best, so
+I'm opened for any suggestions.
+Should kevent creation/removing/modification be separated too?
+
+> > Hmm, it looks like I'm lost here...
 > 
-> I begged you to spend 1 minute of your time to press ^Z. Did you?
+> Yeah, it seems my description might not have sunk in :).  We're giving
+> userspace a way to collect events without performing a system call.
 
-What would you expect from non-preemptible kernel? Hard lockup, no acks,
-no soft irqs. So this case still does not differ from process' context
-processing.
+And why do we want this?
+How glibc is supposed to determine, that some events already fired and
+such requests will return immediately, or for example how timer events
+will be managed?
 
-And after several minutes I pressed hardware reset button...
+> > I especially like idea about world happinness in a week or so :)
+> 
+> A few weeks! :)
 
-> Alexey
+No matter after couple of millions of years of human evolution :)
+
+> - z
 
 -- 
 	Evgeniy Polyakov
