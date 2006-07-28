@@ -1,42 +1,29 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 0/9] d80211: pull request
-Date: Fri, 28 Jul 2006 16:25:54 +0200
-Message-ID: <20060728162554.62df2fd7@griffin.suse.cz>
-References: <20060718174442.485760904.midnight@suse.cz>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: SMSC LAN911x and LAN921x vendor driver
+Date: Fri, 28 Jul 2006 07:31:22 -0700
+Message-ID: <20060728073122.3b7baafe@localhost>
+References: <20060714115035.502d8edf@dxpl.pdx.osdl.net>
+	<11540873333102-git-send-email-steve.glendinning@smsc.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Ian Saturley <ian.saturley@smsc.com>,
+	Bahadir Balban <Bahadir.Balban@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:65421 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751886AbWG1OZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 10:25:57 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060718174442.485760904.midnight@suse.cz>
+Received: from smtp.osdl.org ([65.172.181.4]:12462 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751984AbWG1Obk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 10:31:40 -0400
+To: Steve Glendinning <steve.glendinning@smsc.com>
+In-Reply-To: <11540873333102-git-send-email-steve.glendinning@smsc.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Jul 2006 17:45:20 +0200 (CEST), Jiri Benc wrote:
-> Please pull from
-> git://git.kernel.org/pub/scm/linux/kernel/git/jbenc/dscape.git master
 
-I renamed that branch to 'up'. Please pull from 'up' branch.
+> +/* Tasklet declarations */
+> +static unsigned long rx_tasklet_parameter;
+> +static void smsc911x_rx_tasklet(unsigned long data);
+> +
+> +DECLARE_TASKLET(rx_tasklet, smsc911x_rx_tasklet, 0);
 
-> to obtain following patches:
-> 
-> Jiri Benc:
->       d80211: do not receive through master interface when not scanning
->       d80211: host_gen_beacon_template flag
->       d80211: better deallocation of mdev
->       d80211: fix receiving through virtual interfaces
->       d80211: fix defragmentation
->       d80211: optimize defragmentation
->       d80211: SET_NETDEV_DEV for non-master devices
-> 
-> Michael Wu:
->       d80211: Replace rc4 code with crypto api arc4
->       d80211: Add sparse bitwise annotations
-
--- 
-Jiri Benc
-SUSE Labs
+You can make this local with
+static DECLARE_TASKLET(rx_tasklet, smsc911x_rx_tasklet, 0);
