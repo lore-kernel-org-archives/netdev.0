@@ -1,41 +1,56 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 2/7] NetLabel: core network changes
-Date: Fri, 28 Jul 2006 16:59:52 -0400
-Message-ID: <44CA7AC8.5020609@hp.com>
-References: <44CA60BC.1030503@hp.com>	<20060728.125816.10299135.davem@davemloft.net>	<44CA6EEB.6090103@hp.com> <20060728.135628.99458624.davem@davemloft.net>
+From: James Morris <jmorris@namei.org>
+Subject: [PATCH][SECURITY] secmark: nul-terminate secdata
+Date: Fri, 28 Jul 2006 17:00:15 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0607281649440.20690@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, selinux@tycho.nsa.gov,
-	sds@epoch.ncsc.mil, jmorris@redhat.com, pratt@argus-systems.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Stephen Smalley <sds@tycho.nsa.gov>,
+	Eric Paris <eparis@redhat.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Chris Wright <chrisw@sous-sol.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:18107 "EHLO atlrel8.hp.com")
-	by vger.kernel.org with ESMTP id S1161301AbWG1U7y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 16:59:54 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060728.135628.99458624.davem@davemloft.net>
+Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:55462 "EHLO
+	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1161302AbWG1VAR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jul 2006 17:00:17 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Paul Moore <paul.moore@hp.com>
-> Date: Fri, 28 Jul 2006 16:09:15 -0400
-> 
->>Okay.  I stated earlier today that I would push a new patchset out to
->>the list this weekend or perhaps today, but in light of this I think
->>I'll wait until I have had a chance to make this change which should be
->>sometime next week.
->  
-> Thanks a lot Paul.
-> 
-> I think once we flesh all of this out we can queue your code
-> into my net-2.6.19 tree.
-> 
-> Thanks again.
+The patch below fixes a problem in the iptables SECMARK target, where the 
+user-supplied 'selctx' string may not be nul-terminated.
 
-No problem, thanks for being open to some more of that "Commercial
-Security crap" :)
+>From initial analysis, it seems that the strlen() called from 
+selinux_string_to_sid() could run until it arbitrarily finds a zero, and 
+possibly cause a kernel oops before then.
 
--- 
-paul moore
-linux security @ hp
+The impact of this appears limited because the operation requires 
+CAP_NET_ADMIN, which is essentially always root.  Also, the module is not 
+yet in wide use.
+
+Please apply.
+
+Note: some other iptables modules which handle strings supplied from 
+userspace may require a similar fix (e.g. xt_string looks suspect at first 
+glance).
+
+cc'd Chris Wright, as this patch seems like a candidate for the stable 
+tree.
+
+Signed-off-by: James Morris <jmorris@namei.org>
+Signed-off-by: Stephen Smalley <sds@tycho.nsa.gov>
+
+---
+
+diff -purN -X dontdiff linux-2.6.18-rc2-mm1.o/net/netfilter/xt_SECMARK.c linux-2.6.18-rc2-mm1.w/net/netfilter/xt_SECMARK.c
+--- linux-2.6.18-rc2-mm1.o/net/netfilter/xt_SECMARK.c	2006-07-28 11:01:46.000000000 -0400
++++ linux-2.6.18-rc2-mm1.w/net/netfilter/xt_SECMARK.c	2006-07-28 11:15:44.000000000 -0400
+@@ -57,6 +57,8 @@ static int checkentry_selinux(struct xt_
+ {
+ 	int err;
+ 	struct xt_secmark_target_selinux_info *sel = &info->u.sel;
++	
++	sel->selctx[SECMARK_SELCTX_MAX - 1] = '\0';
+ 
+ 	err = selinux_string_to_sid(sel->selctx, &sel->selsid);
+ 	if (err) {
