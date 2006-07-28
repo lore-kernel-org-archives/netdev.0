@@ -1,34 +1,48 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC] [IPV6] ADDRCONF: Lifetime handling fixes
-Date: Fri, 28 Jul 2006 17:18:18 +0900 (JST)
-Message-ID: <20060728.171818.37443466.yoshfuji@linux-ipv6.org>
-References: <20060727102802.GM6026@innerghost.net>
-	<20060727.194929.796987341.takamiya@po.ntts.co.jp>
-	<20060728.011103.21926965.davem@davemloft.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCHv2 2.6.18-rc1-mm2 1/3] net: UDP-Lite generic support
+Date: Fri, 28 Jul 2006 09:19:55 +0100
+Message-ID: <200607280919.55482@strip-the-willow>
+References: <200607141719.02766@strip-the-willow> <20060727.223010.63131639.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: takamiya@po.ntts.co.jp, hsantos@av.it.pt, vnuorval@tcs.hut.fi,
-	anttit@tcs.hut.fi, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org, yoshfuji@linux-ipv6.org
+Cc: akpm@osdl.org, yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, kaber@coreworks.de, pekkas@netcore.fi,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:7943 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S932588AbWG1IQx
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jul 2006 04:16:53 -0400
-To: davem@davemloft.net
-In-Reply-To: <20060728.011103.21926965.davem@davemloft.net>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:10884 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S932585AbWG1IVJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 04:21:09 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060727.223010.63131639.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20060728.011103.21926965.davem@davemloft.net> (at Fri, 28 Jul 2006 01:11:03 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+Hi David,
 
-> Besides this correction, the rest of the changes look fine to me.
-> I think we should get these fixes into 2.6.18, if you don't mind.
-> 
-> So please resubmit with the correction.
+thank you very much for taking time to revise the code 
+and for the detailed comments.
 
-Okay. I'll do this soon.
 
---yoshfuji
+|  The amount of code duplication is absolutely enormous and
+|  totally unnecessary.
+You are right. 
+So far I thought it better to keep UDP and UDP-Lite separate but an
+intelligent code integration does seem the better way.
+
+
+<snip>
+|  It's mostly clerical work, but it will mean that we will have one
+|  copy of all this code and as a result we won't even need a config
+|  option for UDP-Lite.
+
+I will start with the v4-side and post a small RFC patch to see whether
+I got the concepts right. (Due to vacation, this will not before mid/end 
+of August.)
+
+
+
+Best regards
+Gerrit
