@@ -1,76 +1,38 @@
-From: "Jesse Huang" <jesse@icplus.com.tw>
-Subject: Re: [PATCH] Create IP100A Driver
-Date: Fri, 28 Jul 2006 10:23:30 +0800
-Message-ID: <044901c6b1ec$d0f5b680$4964a8c0@icplus.com.tw>
-References: <1154030065.5967.15.camel@localhost.localdomain> <20060727125421.GB22935@tuxdriver.com>
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<akpm@osdl.org>, <jgarzik@pobox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Regarding offloading IPv6 addrconf and ndisc
+Date: Thu, 27 Jul 2006 19:27:43 -0700 (PDT)
+Message-ID: <20060727.192743.39159331.davem@davemloft.net>
+References: <E1G6Fic-0005py-00@gondolin.me.apana.org.au>
+	<20060727.183415.104032934.davem@davemloft.net>
+	<20060728014528.GB29313@innerghost.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, kazunori@miyazawa.org,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr24.hinet.net ([168.95.4.124]:35970 "EHLO msr24.hinet.net")
-	by vger.kernel.org with ESMTP id S1750968AbWG1CXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2006 22:23:45 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48334
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932571AbWG1C17 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jul 2006 22:27:59 -0400
+To: hsantos@av.it.pt
+In-Reply-To: <20060728014528.GB29313@innerghost.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi John:
+From: Hugo Santos <hsantos@av.it.pt>
+Date: Fri, 28 Jul 2006 02:45:28 +0100
 
-I will try mutt or mail when i want to send next patch. Most different of
-ip100a.c
-and sundance.c are almost same only fix some bugs. The different of ip100a
-and ip100 is in phy. We can use one driver to support those two device, I
-want
-to know what is better for kernel:
+>   Is it reasonable to consider that control packet processing needs to
+> be serialized with data packet processing? In this particular case, is
+> it not the tests that are broken if not giving enough time to the host
+> to configure the address? The standards do not specify implementation
+> details so no specific processing model should be assumed, and what you
+> describe sounds a bit like an ideal model.
 
-1. Only updata sundance.c to support IP100A
-2. Release ip100a.c which support ip100(sundance) to kernel 2.6.x and ask to
-remove sundance.c.
-3. Release ip100a.c with sundance.c both to kernel 2.6.x
+Just like a TCP connection, packets cause state transitions.
+And it is reasonable to expect that after a state transition,
+the effects can be visible by subsequent packets.
 
-We hope to use IP100a.c as our product driver, so 2. and 3. will better for
-IC Plus. But we will still follow your suggestion, if you feel 1. was better
-for kernel.
-
-Jesse
------ Original Message ----- 
-From: "John W. Linville" <linville@tuxdriver.com>
-To: "Jesse Huang" <jesse@icplus.com.tw>
-Cc: <linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
-<akpm@osdl.org>; <jgarzik@pobox.com>
-Sent: Thursday, July 27, 2006 8:54 PM
-Subject: Re: [PATCH] Create IP100A Driver
-
-
-On Thu, Jul 27, 2006 at 03:54:25PM -0400, Jesse Huang wrote:
-> From: Jesse Huang <jesse@icplus.com.tw>
->
-> This is the first version of IP100A Linux Driver.
-
-One general comment is that your patch is whitespace-damaged,
-undoubtedly mangled by your mailer.  I would suggest that you use
-a text- or curses-based mailer (like mutt or even mail) for sending
-patches, but I'm sure there are graphical mailers that can be trained
-to not be "too smart".
-
-> +static struct pci_device_id ipf_pci_tbl[] __devinitdata = {
-> +       {0x1186, 0x1002, 0x1186, 0x1002, 0, 0, 0},
-> +       {0x1186, 0x1002, 0x1186, 0x1003, 0, 0, 1},
-> +       {0x1186, 0x1002, 0x1186, 0x1012, 0, 0, 2},
-> +       {0x1186, 0x1002, 0x1186, 0x1040, 0, 0, 3},
-> +       {0x1186, 0x1002, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 4},
-> +       {0x13F0, 0x0201, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 5},
-> +       {0x13F0, 0x0200, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 6},
-> +       {0,}
-> +};
-
-This PCI ID table is identical to the one in the sundance driver.
-What advantage does this driver offer over sundance?
-
-Thanks,
-
-John
--- 
-John W. Linville
-linville@tuxdriver.com
-
-
+I think the tests are doing valid things.
