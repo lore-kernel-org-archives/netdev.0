@@ -1,38 +1,318 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 2/7] NetLabel: core network changes
-Date: Fri, 28 Jul 2006 16:09:15 -0400
-Message-ID: <44CA6EEB.6090103@hp.com>
-References: <44CA59D8.4090702@hp.com>	<20060728185825.GG14627@postel.suug.ch>	<44CA60BC.1030503@hp.com> <20060728.125816.10299135.davem@davemloft.net>
+From: Martin Michlmayr <tbm@cyrius.com>
+Subject: Re: r8169 driver problem with RTL8110SB chip (on iop3xx ARM board)
+Date: Fri, 28 Jul 2006 22:34:37 +0200
+Message-ID: <20060728203437.GA6253@deprecation.cyrius.com>
+References: <20060728101109.GA25854@xi.wantstofly.org> <20060728104946.GA6710@electric-eye.fr.zoreil.com> <20060728111534.GD25854@xi.wantstofly.org> <20060728115237.GF21733@deprecation.cyrius.com> <20060728194933.GA14222@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, selinux@tycho.nsa.gov,
-	sds@epoch.ncsc.mil, jmorris@redhat.com, pratt@argus-systems.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:23729 "EHLO atlrel9.hp.com")
-	by vger.kernel.org with ESMTP id S1161262AbWG1UJS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 16:09:18 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060728.125816.10299135.davem@davemloft.net>
+Received: from sorrow.cyrius.com ([65.19.161.204]:40464 "EHLO
+	sorrow.cyrius.com") by vger.kernel.org with ESMTP id S1161286AbWG1Uet
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jul 2006 16:34:49 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Disposition: inline
+In-Reply-To: <20060728194933.GA14222@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Paul Moore <paul.moore@hp.com>
-> Date: Fri, 28 Jul 2006 15:08:44 -0400
-> 
->>Thanks for your feedback but unless I hear from others that this
->>is a requirement I think I'm going to leave the code as written for the
->>reasons I listed above.
->  
-> Please switch over to the scheme which Thomas has suggested.
-> 
+* Francois Romieu <romieu@fr.zoreil.com> [2006-07-28 21:49]:
+> The (untested) patch below should apply to the source code that Realtek
+> included in linux-r1000(103).zip, wherence supporting the extraction
+> of the same info.
 
-Okay.  I stated earlier today that I would push a new patchset out to
-the list this weekend or perhaps today, but in light of this I think
-I'll wait until I have had a chance to make this change which should be
-sometime next week.
+Note quite.  I also had to add the patch below but now it's working:
+
+Offset	Value
+--------	-----
+00	0x00
+01	0x14
+02	0xfd
+03	0x10
+04	0x27
+05	0x74
+06	0x00
+07	0x00
+08	0x00
+09	0x00
+10	0x00
+11	0x80
+12	0x00
+13	0x00
+14	0x00
+15	0x00
+16	0xc0
+17	0xfe
+18	0xbb
+19	0xdf
+20	0x7b
+21	0xb6
+22	0x74
+23	0xff
+24	0x00
+25	0x00
+26	0x00
+27	0x00
+28	0x00
+29	0x00
+30	0x00
+31	0x00
+32	0x00
+33	0x80
+34	0x20
+35	0x07
+36	0x00
+37	0x00
+38	0x00
+39	0x00
+40	0x00
+41	0x3f
+42	0xfc
+43	0xff
+44	0xac
+45	0xf7
+46	0xf7
+47	0xfe
+48	0x00
+49	0x00
+50	0x00
+51	0x00
+52	0x00
+53	0x00
+54	0x08
+55	0x0c
+56	0x00
+57	0x00
+58	0x00
+59	0x00
+60	0x7f
+61	0x00
+62	0x00
+63	0x00
+64	0x00
+65	0x07
+66	0x00
+67	0x13
+68	0x0e
+69	0xe7
+70	0x00
+71	0x00
+72	0x24
+73	0x57
+74	0xaf
+75	0x31
+76	0x00
+77	0x00
+78	0x00
+79	0x00
+80	0x00
+81	0x04
+82	0x1f
+83	0x10
+84	0x20
+85	0x80
+86	0x03
+87	0x00
+88	0x00
+89	0x00
+90	0x00
+91	0x00
+92	0x00
+93	0x00
+94	0x10
+95	0x00
+96	0x6d
+97	0x79
+98	0x01
+99	0x80
+100	0x00
+101	0x00
+102	0x00
+103	0x00
+104	0x00
+105	0x00
+106	0x00
+107	0x00
+108	0x6b
+109	0x00
+110	0x00
+111	0x00
+112	0xff
+113	0xfd
+114	0xfb
+115	0xff
+116	0xfc
+117	0x03
+118	0x00
+119	0x00
+120	0x00
+121	0xff
+122	0xff
+123	0xff
+124	0x00
+125	0x00
+126	0x00
+127	0x00
+128	0x00
+129	0x00
+130	0x00
+131	0x00
+132	0x7f
+133	0xef
+134	0xfe
+135	0xfc
+136	0x9f
+137	0xfe
+138	0xff
+139	0xdf
+140	0x3f
+141	0xcf
+142	0xf7
+143	0xab
+144	0xbf
+145	0xdb
+146	0xfb
+147	0xff
+148	0xdf
+149	0xff
+150	0xfa
+151	0xdf
+152	0xfd
+153	0xbf
+154	0xbf
+155	0xbf
+156	0xfc
+157	0xbe
+158	0x75
+159	0xaa
+160	0xf9
+161	0xea
+162	0x5f
+163	0xcb
+164	0xdf
+165	0x6f
+166	0xdf
+167	0xfb
+168	0xb7
+169	0x75
+170	0x7e
+171	0xff
+172	0xfd
+173	0xfb
+174	0xdf
+175	0xbb
+176	0xff
+177	0xff
+178	0x7c
+179	0xff
+180	0x9f
+181	0xde
+182	0x3b
+183	0x7f
+184	0x7f
+185	0xfa
+186	0xbf
+187	0xbb
+188	0xcd
+189	0xfd
+190	0x9f
+191	0xae
+192	0xff
+193	0xbb
+194	0xc8
+195	0x36
+196	0xef
+197	0xda
+198	0xff
+199	0xff
+200	0xff
+201	0xae
+202	0xfe
+203	0x6a
+204	0x2f
+205	0xdc
+206	0x00
+207	0x00
+208	0x00
+209	0x00
+210	0x00
+211	0x00
+212	0x00
+213	0x00
+214	0x00
+215	0x00
+216	0x00
+217	0x00
+218	0xf2
+219	0x05
+220	0x00
+221	0x00
+222	0x00
+223	0x00
+224	0x08
+225	0x20
+226	0x00
+227	0x00
+228	0x00
+229	0x00
+230	0x79
+231	0x07
+232	0x00
+233	0x00
+234	0x00
+235	0x00
+236	0x3f
+237	0x00
+238	0x00
+239	0x00
+240	0x00
+241	0x80
+242	0x00
+243	0x00
+244	0x00
+245	0x00
+246	0x00
+247	0x00
+248	0x02
+249	0x00
+250	0x00
+251	0x00
+252	0x00
+253	0x00
+254	0x00
+255	0x00
+
+
+
+--- r1000_ioctl.c~	2006-07-28 20:32:58.027267250 +0000
++++ r1000_ioctl.c	2006-07-28 20:33:18.600553000 +0000
+@@ -6,6 +6,16 @@
+ 
+ #define R1000_REGS_SIZE 256
+ 
++static void r1000_get_drvinfo(struct net_device *dev,
++				struct ethtool_drvinfo *info)
++{
++	struct r1000_private *priv = netdev_priv(dev);
++
++	strcpy(info->driver, MODULENAME);
++	strcpy(info->version, R1000_VERSION);
++	strcpy(info->bus_info, pci_name(priv->pci_dev));
++}
++
+ static int r1000_get_regs_len(struct net_device *dev)
+ {
+ 	return R1000_REGS_SIZE;
+@@ -157,6 +167,7 @@
+ 
+ #if LINUX_VERSION_CODE > KERNEL_VERSION(2,5,0)
+ struct ethtool_ops r1000_ethtool_ops = {
++	.get_drvinfo	= r1000_get_drvinfo,
+ 	.get_regs_len	= r1000_get_regs_len,
+ 	.get_regs	= r1000_get_regs,
+ 	.get_settings	= ethtool_get_settings,
 
 -- 
-paul moore
-linux security @ hp
+Martin Michlmayr
+http://www.cyrius.com/
