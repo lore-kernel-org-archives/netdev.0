@@ -1,72 +1,64 @@
-From: Hugo Santos <hsantos@av.it.pt>
-Subject: Re: Regarding offloading IPv6 addrconf and ndisc
-Date: Fri, 28 Jul 2006 02:45:28 +0100
-Message-ID: <20060728014528.GB29313@innerghost.net>
-References: <44C8B0B8.2010408@miyazawa.org> <E1G6Fic-0005py-00@gondolin.me.apana.org.au> <20060727.183415.104032934.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="kVXhAStRUZ/+rrGn"
-Cc: herbert@gondor.apana.org.au, kazunori@miyazawa.org,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+From: "Jesse Huang" <jesse@icplus.com.tw>
+Subject: Re: Hello, We have IP100A Linux driver need to submit to 2.6.x kernel
+Date: Fri, 28 Jul 2006 09:55:31 +0800
+Message-ID: <040401c6b1e8$e8b14ae0$4964a8c0@icplus.com.tw>
+References: <02fb01c6b147$b15b8fc0$4964a8c0@icplus.com.tw> <20060727190707.GA24157@electric-eye.fr.zoreil.com>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	"Andrew Morton" <akpm@osdl.org>, "Jeff Garzik" <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.av.it.pt ([193.136.92.53]:51861 "EHLO av.it.pt")
-	by vger.kernel.org with ESMTP id S1751783AbWG1Bpa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2006 21:45:30 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060727.183415.104032934.davem@davemloft.net>
+Received: from msr43.hinet.net ([168.95.4.143]:42634 "EHLO msr43.hinet.net")
+	by vger.kernel.org with ESMTP id S1751790AbWG1Bzn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jul 2006 21:55:43 -0400
+To: "Francois Romieu" <romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Francois:
 
---kVXhAStRUZ/+rrGn
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+    Sorry, I don't know this patch before. IP100A is a new version of IP100
+(sundance.c). I don't know what is you suggestion of IP100A driver? Should
+I...
 
-Hi David,
+1. Only updata sundance.c to support IP100A
+2. Release ip100a.c which support ip100(sundance) to kernel 2.6.x and ask to
+remove sundance.c.
+3. Release ip100a.c with sundance.c both to kernel 2.6.x
 
-> If we process these in sequence in software interrupt, everything
-> is fine.  Processing of "A" will add the address, and the test
-> ping packet "B" will respond properly.
->=20
-> If you defer "A", everything breaks and the test packet "B" will
-> get processed first and not work.
+We hope to use IP100a.c as our product driver, so 2. and 3. will better for
+IC Plus. But we will still follow your suggestion, if you feel 1. was better
+for kernel.
 
-   Is it reasonable to consider that control packet processing needs to
- be serialized with data packet processing? In this particular case, is
- it not the tests that are broken if not giving enough time to the host
- to configure the address? The standards do not specify implementation
- details so no specific processing model should be assumed, and what you
- describe sounds a bit like an ideal model.
+Thanks!
 
-> As a secondary reason not to even consider this, it's in the kernel
-> already and therefore it is totally impractical to try and remove it.
+Jesse
 
-   I'm not sure if it was clear from my original e-mail, but i'm not
- suggesting removing any of the functionality from the kernel -- it is
- clear the current implementation is useful in out of the box
- deployments. Instead, i would like to know what was the possibility of
- having a bit of new functionality that would allow this specific
- methods to be outsourced to an user-space control application. And by
- specific methods i'm refering to NDISC message processing, "neighbor
- entry needs refreshing" events, etc.
-
-   Hugo
+----- Original Message ----- 
+From: "Francois Romieu" <romieu@fr.zoreil.com>
+To: "Jesse Huang" <jesse@icplus.com.tw>
+Cc: <linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>; "Andrew
+Morton" <akpm@osdl.org>; "Jeff Garzik" <jgarzik@pobox.com>
+Sent: Friday, July 28, 2006 3:07 AM
+Subject: Re: Hello, We have IP100A Linux driver need to submit to 2.6.x
+kernel
 
 
---kVXhAStRUZ/+rrGn
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+Jesse Huang <jesse@icplus.com.tw> :
+[...]
+> I am IC Plus software engineer. We have IP100A 10/100 fast network adapter
+> driver need to submit to Linux 2.6.x kernel. Please tell me who should I
+> submit to.
+>
+> IP100A's device ID is 0x13f0 0200.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
+You do not need to do anything:
 
-iD8DBQFEyWw47asb/itUNKwRAgK8AJ9J0MBYhXRUDf0b9JA5RHIQVof2agCg1wU8
-hXFMp65BBOY4cr/uH/jtBGQ=
-=uVdV
------END PGP SIGNATURE-----
+http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=1668b19f75cb949f930814a23b74201ad6f76a53
 
---kVXhAStRUZ/+rrGn--
+As far as I have checked before forwarding Pedro Alejandro's patch, the
+out-of-tree IP100 driver exhibited no significant difference with the
+sundance driver.
+
+-- 
+Ueimor
+
+
