@@ -1,46 +1,55 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [stable] [PATCH] e1000: add forgotten PCI ID for supported device
-Date: Fri, 28 Jul 2006 23:19:05 -0400
-Message-ID: <20060729031859.GA23779@tuxdriver.com>
-References: <44CA8A59.40002@intel.com> <20060728231837.GA2109@kroah.com> <Pine.WNT.4.63.0607281659480.2660@jbrandeb-desk.amr.corp.intel.com> <20060729002440.GA3284@kroah.com>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: [RFC 1/4] kevent: core files.
+Date: Fri, 28 Jul 2006 20:38:02 -0700
+Message-ID: <44CAD81A.9060401@redhat.com>
+References: <20060709132446.GB29435@2ka.mipt.ru> <20060724.231708.01289489.davem@davemloft.net> <44C91192.4090303@oracle.com> <20060727200655.GA4586@2ka.mipt.ru> <44C930D5.9020704@oracle.com> <20060728052312.GB11210@2ka.mipt.ru> <44CA586C.4010205@oracle.com> <20060728184445.GA10797@2ka.mipt.ru> <44CA613F.9080806@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, stable@kernel.org,
-	NetDev <netdev@vger.kernel.org>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig1B2C08651A93A5532AC0B66A"
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:61969 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1751317AbWG2DUN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 23:20:13 -0400
-To: Greg KH <greg@kroah.com>
-Content-Disposition: inline
-In-Reply-To: <20060729002440.GA3284@kroah.com>
+Received: from mx1.redhat.com ([66.187.233.31]:54432 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1752006AbWG2Dgg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 23:36:36 -0400
+To: Zach Brown <zach.brown@oracle.com>
+In-Reply-To: <44CA613F.9080806@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 28, 2006 at 05:24:40PM -0700, Greg KH wrote:
-> On Fri, Jul 28, 2006 at 05:04:49PM -0700, Brandeburg, Jesse wrote:
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig1B2C08651A93A5532AC0B66A
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-> > The kernel driver advertises through our probe table and in our readme 
-> > that we support this device (code is in e1000_main.c) but we don't load on 
-> > it correctly due to an error when we submitted the patches (e1000_hw.c/h).
-> > 
-> > Patch is very simple and low risk, but it is your call.
-> 
-> Sorry, but for now, no.  Users should be able to use the sysfs bind and
-> new_id interface to add new device support for your driver, if it's
-> written properly :)
+Zach Brown wrote:
+> Ulrich, would you be satisfied if we didn't
+> have the userspace mapped ring on the first pass and only had a
+> collection syscall?
 
-In this case it isn't an addition to the PCI ID table, but an actual
-added check in the code.  You could make the argument that it is a
-bug since the PCI ID table says the device is supported, but it won't
-work w/o this additional check.
+I'm not the one to make a call but why rush things?  Let's do it right
+from the start.  Later changes can only lead to problems with users of
+the earlier interface.
 
-Of course, the "if it's written properly" comment is still valid... :-)
+--=20
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
+=E2=9E=A7 Mountain View, CA =E2=9D=96
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+
+--------------enig1B2C08651A93A5532AC0B66A
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.4 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
+
+iD8DBQFEytga2ijCOnn/RHQRAvDpAJwJWFGyrC5rJZMjNF/h2l3NhV739QCfdt0E
+6TYaA/HYfEsA7aV0f/bdBTw=
+=frO5
+-----END PGP SIGNATURE-----
+
+--------------enig1B2C08651A93A5532AC0B66A--
