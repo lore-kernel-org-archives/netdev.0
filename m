@@ -1,40 +1,44 @@
 From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [PATCH 19/23] [PATCH] [XFRM] POLICY: Add Kconfig to support sub policy.
-Date: Sat, 29 Jul 2006 18:30:49 +0900
-Message-ID: <1154165449785-git-send-email-nakam@linux-ipv6.org>
+Subject: [PATCH 18/23] [PATCH] [XFRM] IPV6: Update outbound state timestamp for each sending.
+Date: Sat, 29 Jul 2006 18:30:47 +0900
+Message-ID: <11541654473727-git-send-email-nakam@linux-ipv6.org>
 Reply-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
 Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
 	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
 	Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:30339 "EHLO jupiter")
-	by vger.kernel.org with ESMTP id S1161172AbWG2Jau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 05:30:50 -0400
+Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:29315 "EHLO jupiter")
+	by vger.kernel.org with ESMTP id S1161134AbWG2Jas (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 05:30:48 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-diff --git a/net/xfrm/Kconfig b/net/xfrm/Kconfig
-index 50f2fb3..9d28e88 100644
---- a/net/xfrm/Kconfig
-+++ b/net/xfrm/Kconfig
-@@ -22,6 +22,16 @@ config XFRM_ADVANCED
+Mobile IPv6 enabled nodes will want to know traffic status of each
+binding (e.g. judgement to request binding refresh by correspondent node,
+or to keep home/care-of nonce alive by mobile node).
+The last used timestamp is an important hint about it.
+Based on MIPL2 kernel patch.
+---
+ net/ipv6/xfrm6_output.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index 8792b5c..9ff4230 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -130,6 +130,11 @@ static int xfrm6_output_one(struct sk_bu
+ 		x->curlft.bytes += skb->len;
+ 		x->curlft.packets++;
  
- 	  If unsure, say N.
++#ifdef CONFIG_XFRM_ADVANCED
++		if (!xfrm_id_proto_match(x->id.proto, IPSEC_PROTO_ANY))
++			x->curlft.use_time = (unsigned long) xtime.tv_sec;
++#endif
++
+ 		spin_unlock_bh(&x->lock);
  
-+config XFRM_SUB_POLICY
-+	bool "Transformation sub policy support (EXPERIMENTAL)"
-+	depends on XFRM && EXPERIMENTAL
-+	---help---
-+	  Support sub policy for developers. By using sub policy with main
-+	  one, two policies can be applied to the same packet at once. 
-+	  Policy which lives shorter time in kernel should be a sub.
-+
-+	  If unsure, say N.
-+
- config NET_KEY
- 	tristate "PF_KEY sockets"
- 	select XFRM
+ 		skb->nh.raw = skb->data;
 -- 
 1.4.1
 
