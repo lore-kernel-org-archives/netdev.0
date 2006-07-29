@@ -1,82 +1,43 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] security/selinux/hooks.c: make 4 functions static
-Date: Sat, 29 Jul 2006 19:48:30 +0200
-Message-ID: <20060729174830.GD26963@stusta.de>
-References: <20060727015639.9c89db57.akpm@osdl.org>
+From: "Lavonne Feldman" <LavonneFeldman@0451.com>
+Subject: Order status, mile-pound
+Date: Sat, 29 Jul 2006 17:56:22 +0000 (UTC)
+Message-ID: <662161c80604c8rnj4fniidjta9yqzcm7zvjutd1qmn0@mail.0451.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, sds@tycho.nsa.gov, jmorris@namei.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:2066 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S932189AbWG2Rsa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Jul 2006 13:48:30 -0400
-To: Andrew Morton <akpm@osdl.org>,
-	Venkat Yekkirala <vyekkirala@TrustedCS.com>
+Received: from dsl-201-155-228-188.prod-empresarial.com.mx ([201.155.228.188]:30218
+	"EHLO dsl-201-155-228-188.prod-empresarial.com.mx") by vger.kernel.org
+	with ESMTP id S932196AbWG2R4G convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 13:56:06 -0400
+Date: Sat, 29 Jul 2006 17:55:55 +0360
+To: netdev-owner@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20060727015639.9c89db57.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 27, 2006 at 01:56:39AM -0700, Andrew Morton wrote:
->...
-> Changes since 2.6.18-rc2-mm1:
->...
->  git-net.patch
->...
->  git trees
->...
+Even if you have no erectin problems SOFT CIA7LIS 
+would help you to make BETTER SETX MORE OFTEN!
+and to bring  unimagnable plesure to her.
 
-This patch makes four needlessly global functions static.
+Just disolve half a pil under your tongue 
+and get ready for action in 15 minutes. 
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+The tests showed that the majority of men 
+after taking this medic ation were able to have 
+PERFECT ER3ECTION during 36 hours!
 
----
+VISIT US, AND GET OUR SPECIAL 70% DISC2OUNT OFER!
 
- security/selinux/hooks.c |   12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+http://ijfunj.feelsalone.com/?67285163
 
---- linux-2.6.18-rc2-mm1-full/security/selinux/hooks.c.old	2006-07-27 20:31:37.000000000 +0200
-+++ linux-2.6.18-rc2-mm1-full/security/selinux/hooks.c	2006-07-27 20:32:46.000000000 +0200
-@@ -3576,7 +3576,7 @@
- 	}
- }
- 
--void selinux_sock_graft(struct sock* sk, struct socket *parent)
-+static void selinux_sock_graft(struct sock* sk, struct socket *parent)
- {
- 	struct inode_security_struct *isec = SOCK_INODE(parent)->i_security;
- 	struct sk_security_struct *sksec = sk->sk_security;
-@@ -3584,8 +3584,8 @@
- 	isec->sid = sksec->sid;
- }
- 
--int selinux_inet_conn_request(struct sock *sk, struct sk_buff *skb, 
--					   struct request_sock *req)
-+static int selinux_inet_conn_request(struct sock *sk, struct sk_buff *skb, 
-+				     struct request_sock *req)
- {
- 	struct sk_security_struct *sksec = sk->sk_security;
- 	int err;
-@@ -3603,7 +3603,8 @@
- 	return 0;
- }
- 
--void selinux_inet_csk_clone(struct sock *newsk, const struct request_sock *req)
-+static void selinux_inet_csk_clone(struct sock *newsk,
-+				   const struct request_sock *req)
- {
- 	struct sk_security_struct *newsksec = newsk->sk_security;
- 
-@@ -3614,7 +3615,8 @@
- 	   time it will have been created and available. */
- }
- 
--void selinux_req_classify_flow(const struct request_sock *req, struct flowi *fl)
-+static void selinux_req_classify_flow(const struct request_sock *req,
-+				      struct flowi *fl)
- {
- 	fl->secid = req->secid;
- }
+=====
+circle of students, looking curiously at Maynard. They didn't care whether
+cracked his nose, poor guy, against the glass, closed his eyes, and shut up.
+stable of science fiction talent ever seen, he would throw out challenges to
+made believe he was dead.  Thank God, they finally  believed  it and left. I
+     Still, it was easier for them to practice high  performance  than  it
+for him smack into  the middle, so  that he could enjoy his concentrate.  It
 
+of... curve... Then his featliers ruffled, he stalled and fell.
+     "Listen, Red, how much would a full empty cost?"
