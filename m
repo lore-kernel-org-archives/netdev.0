@@ -1,65 +1,145 @@
 From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [PATCH 15/23] [PATCH] [XFRM] STATE: Allow non IPsec protocol.
-Date: Sat, 29 Jul 2006 18:30:40 +0900
-Message-ID: <1154165440812-git-send-email-nakam@linux-ipv6.org>
+Subject: [PATCH 23/23] [PATCH] [XFRM] IPV6: Add sort functions to combine templates/states for IPsec.
+Date: Sat, 29 Jul 2006 18:30:58 +0900
+Message-ID: <1154165458989-git-send-email-nakam@linux-ipv6.org>
 Reply-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
 Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
 	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
 	Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:26243 "EHLO jupiter")
-	by vger.kernel.org with ESMTP id S1161054AbWG2Jal (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 05:30:41 -0400
+Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:34435 "EHLO jupiter")
+	by vger.kernel.org with ESMTP id S1422704AbWG2Ja7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 05:30:59 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It will be added two more transformation protocols (routing header
-and destination options header) by Mobile IPv6.
-xfrm_id_proto_match() can be handle zero as all, IPSEC_PROTO_ANY as
-all IPsec and otherwise as exact one.
-
-Based on MIPL2 kernel patch.
+Add sort functions to combine templates/states for IPsec.
+Think of outbound transformation order we should be careful with transport AH
+which must be the last of all transport ones.
 ---
- include/net/xfrm.h   |    7 +++++++
- net/xfrm/xfrm_user.c |    4 ++++
- 2 files changed, 11 insertions(+), 0 deletions(-)
+ net/ipv6/xfrm6_state.c |  101 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 101 insertions(+), 0 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 67fe834..0b8edad 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -881,7 +881,14 @@ static inline int xfrm_state_kern(struct
- 
- static inline int xfrm_id_proto_match(u8 proto, u8 userproto)
- {
-+#ifdef CONFIG_XFRM_ADVANCED
-+	return (!userproto || proto == userproto ||
-+		(userproto == IPSEC_PROTO_ANY && (proto == IPPROTO_AH ||
-+						  proto == IPPROTO_ESP ||
-+						  proto == IPPROTO_COMP)));
-+#else
- 	return (userproto == IPSEC_PROTO_ANY || proto == userproto);
-+#endif
+diff --git a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
+index d141030..1a5cc65 100644
+--- a/net/ipv6/xfrm6_state.c
++++ b/net/ipv6/xfrm6_state.c
+@@ -160,6 +160,103 @@ #endif
+ 	return x0;
  }
  
- /*
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 13fe172..a91367d 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -598,7 +598,11 @@ static int xfrm_dump_sa(struct sk_buff *
- 	info.nlmsg_flags = NLM_F_MULTI;
- 	info.this_idx = 0;
- 	info.start_idx = cb->args[0];
-+#ifdef CONFIG_XFRM_ADVANCED
-+	(void) xfrm_state_walk(0, dump_one_state, &info);
-+#else
- 	(void) xfrm_state_walk(IPSEC_PROTO_ANY, dump_one_state, &info);
++#ifdef CONFIG_XFRM_SUB_POLICY
++static int
++__xfrm6_state_sort(struct xfrm_state **dst, struct xfrm_state **src, int n)
++{
++	int i;
++	int j = 0;
++
++	/* Rule 1: select IPsec transport except AH */
++	for (i = 0; i < n; i++) {
++		if (src[i]->props.mode == XFRM_MODE_TRANSPORT &&
++		    src[i]->id.proto != IPPROTO_AH) {
++			dst[j++] = src[i];
++			src[i] = NULL;
++		}
++	}
++	if (j == n)
++		goto end;
++
++	/* XXX: Rule 2: select MIPv6 RO or inbound trigger */
++
++	/* Rule 3: select IPsec transport AH */
++	for (i = 0; i < n; i++) {
++		if (src[i] &&
++		    src[i]->props.mode == XFRM_MODE_TRANSPORT &&
++		    src[i]->id.proto == IPPROTO_AH) {
++			dst[j++] = src[i];
++			src[i] = NULL;
++		}
++	}
++	if (j == n)
++		goto end;
++
++	/* Rule 4: select IPsec tunnel */
++	for (i = 0; i < n; i++) {
++		if (src[i] &&
++		    src[i]->props.mode == XFRM_MODE_TUNNEL) {
++			dst[j++] = src[i];
++			src[i] = NULL;
++		}
++	}
++	if (likely(j == n))
++		goto end;
++
++	/* Final rule */
++	for (i = 0; i < n; i++) {
++		if (src[i]) {
++			dst[j++] = src[i];
++			src[i] = NULL;
++		}
++	}
++
++ end:
++	return 0;
++}
++
++static int
++__xfrm6_tmpl_sort(struct xfrm_tmpl **dst, struct xfrm_tmpl **src, int n)
++{
++	int i;
++	int j = 0;
++
++	/* Rule 1: select IPsec transport */
++	for (i = 0; i < n; i++) {
++		if (src[i]->mode == XFRM_MODE_TRANSPORT) {
++			dst[j++] = src[i];
++			src[i] = NULL;
++		}
++	}
++	if (j == n)
++		goto end;
++
++	/* XXX: Rule 2: select MIPv6 RO or inbound trigger */
++
++	/* Rule 3: select IPsec tunnel */
++	for (i = 0; i < n; i++) {
++		if (src[i] &&
++		    src[i]->mode == XFRM_MODE_TUNNEL) {
++			dst[j++] = src[i];
++			src[i] = NULL;
++		}
++	}
++	if (likely(j == n))
++		goto end;
++
++	/* Final rule */
++	for (i = 0; i < n; i++) {
++		if (src[i]) {
++			dst[j++] = src[i];
++			src[i] = NULL;
++		}
++	}
++
++ end:
++	return 0;
++}
 +#endif
- 	cb->args[0] = info.this_idx;
++
+ static struct xfrm_state_afinfo xfrm6_state_afinfo = {
+ 	.family			= AF_INET6,
+ 	.lock			= RW_LOCK_UNLOCKED,
+@@ -169,6 +266,10 @@ #ifdef CONFIG_XFRM_ADVANCED
+ 	.state_lookup_byaddr	= __xfrm6_state_lookup_byaddr,
+ #endif
+ 	.find_acq		= __xfrm6_find_acq,
++#ifdef CONFIG_XFRM_SUB_POLICY
++	.tmpl_sort		= __xfrm6_tmpl_sort,
++	.state_sort		= __xfrm6_state_sort,
++#endif
+ };
  
- 	return skb->len;
+ void __init xfrm6_state_init(void)
 -- 
 1.4.1
 
