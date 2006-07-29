@@ -1,55 +1,50 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [RFC 1/4] kevent: core files.
-Date: Fri, 28 Jul 2006 20:38:02 -0700
-Message-ID: <44CAD81A.9060401@redhat.com>
-References: <20060709132446.GB29435@2ka.mipt.ru> <20060724.231708.01289489.davem@davemloft.net> <44C91192.4090303@oracle.com> <20060727200655.GA4586@2ka.mipt.ru> <44C930D5.9020704@oracle.com> <20060728052312.GB11210@2ka.mipt.ru> <44CA586C.4010205@oracle.com> <20060728184445.GA10797@2ka.mipt.ru> <44CA613F.9080806@oracle.com>
+From: "Bobbie Burch" <BobbieBurch@mail.ru>
+Subject: Better Life, wonder-charmed
+Date: Sat, 29 Jul 2006 03:51:33 +0300
+Message-ID: <662161c80604tvdy8chirtwb8ditbctfhbty8w6is4ps@mxs.mail.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig1B2C08651A93A5532AC0B66A"
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:54432 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1752006AbWG2Dgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 23:36:36 -0400
-To: Zach Brown <zach.brown@oracle.com>
-In-Reply-To: <44CA613F.9080806@oracle.com>
+Received: from c-68-38-164-248.hsd1.nj.comcast.net ([68.38.164.248]:32009 "EHLO
+	c-68-38-164-248.hsd1.nj.comcast.net") by vger.kernel.org with ESMTP
+	id S1752069AbWG2DsW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 23:48:22 -0400
+To: netdev-owner@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig1B2C08651A93A5532AC0B66A
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Your cre dit doesn't matter to us! If you OWN real est ate
+and want IMMEDIATEK cash to spend ANY way you like, or simply wish 
+to LOWER your monthly paym ents by a third or more, here are the dea ls
+we have TODAY (hurry, these ofers will expre TONIGHT):
 
-Zach Brown wrote:
-> Ulrich, would you be satisfied if we didn't
-> have the userspace mapped ring on the first pass and only had a
-> collection syscall?
+$488,000.00 at a 3.67,% fixed-rateZ
+$372,000.00 at a 3.90,% variable-rateR
+$492,000.00 at a 3.21,% interest-onlyH
+$248,000.00 at a 3.36,% fixed-rateT
+$198,000.00 at a 3.55,% variable-rate9
 
-I'm not the one to make a call but why rush things?  Let's do it right
-from the start.  Later changes can only lead to problems with users of
-the earlier interface.
+Hurry, when these deals are gone, they are gone Simply fill out this one-min ute form... 
 
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
-=E2=9E=A7 Mountain View, CA =E2=9D=96
+Don't worry about approval, your cre dit will not disqualify you! 
+
+http://7N1CN5QI.corkpencills.com
 
 
---------------enig1B2C08651A93A5532AC0B66A
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.4 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
+means that  I really am a good guy, after all. That's what Guta insists, and
+     "Thank you, Mr. Schuhart! You saved my life!"
 
-iD8DBQFEytga2ijCOnn/RHQRAvDpAJwJWFGyrC5rJZMjNF/h2l3NhV739QCfdt0E
-6TYaA/HYfEsA7aV0f/bdBTw=
-=frO5
------END PGP SIGNATURE-----
+ago  by the treads and wheels of heavy vehicles.  To the right was  a  white
+     Redrick went back to his  pack for the map,  which he spread out on the
+     When  they finally  scrambled out onto dry  land  that  was covered  by
 
---------------enig1B2C08651A93A5532AC0B66A--
+grab, or  bite away from the indifferent  chaos that  surrounded him. It had
+smack at his feet, raising a cloud of white dust. He was
+explanation of what was going on. Redrick listened  for a minute or two  and
+     Wincing  from the pain  of the pack on his burned shoulders, he put his
+
+Since  childhood he had relied  on nothing but himself. And since  childhood
+     Arthur  stretched his arms, straightened his  shoulders,  grimaced, and
