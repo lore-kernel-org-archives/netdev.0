@@ -1,28 +1,33 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] mark sk98lin driver for removal
-Date: Sat, 29 Jul 2006 00:35:00 -0400
-Message-ID: <44CAE574.70207@pobox.com>
-References: <20060722141150.5994fee1@localhost.localdomain>
+Subject: Re: [PATCH] via-velocity: fix reported speed and link detected status
+Date: Sat, 29 Jul 2006 01:26:59 -0400
+Message-ID: <44CAF1A3.3010809@pobox.com>
+References: <20060720032854.GA4520@osprey.hogchain.net> <20060720215728.GA32119@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Jay Cliburn <jacliburn@bellsouth.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:11427 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1161466AbWG2EfD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 00:35:03 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060722141150.5994fee1@localhost.localdomain>
+Received: from srv5.dvmed.net ([207.36.208.214]:17828 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1161419AbWG2F1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 01:27:06 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20060720215728.GA32119@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ACK, however
+Francois Romieu wrote:
+> Jay Cliburn <jacliburn@bellsouth.net> :
+>> The via-velocity driver reports incorrect speed and link detected status
+>> as viewed by ethtool (and probably other tools). This patch fixes those
+>> incorrect reports and prettifies a long line.
+> 
+> Looks fine.
+> 
+> Fixed the whitespace/tabs damage, the 190 cols comment  and taged as
+> 'upstream-20060720-00' in branch 'upstream' at
+> git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
 
-[jgarzik@pretzel netdev-2.6]$ git-applymbox /g/tmp/mbox ~/info/signoff.txt
-1 patch(es) to process.
+pulled
 
-Applying 'mark sk98lin driver for removal'
-
-error: patch failed: Documentation/feature-removal-schedule.txt:258
-error: Documentation/feature-removal-schedule.txt: patch does not apply
 
