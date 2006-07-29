@@ -1,50 +1,64 @@
-From: "Bobbie Burch" <BobbieBurch@mail.ru>
-Subject: Better Life, wonder-charmed
-Date: Sat, 29 Jul 2006 03:51:33 +0300
-Message-ID: <662161c80604tvdy8chirtwb8ditbctfhbty8w6is4ps@mxs.mail.ru>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH 4/3] forcedeth: fix NAPI hang in IRQ.
+Date: Fri, 28 Jul 2006 21:10:00 -0700
+Message-ID: <20060728211000.449d8727.akpm@osdl.org>
+References: <20060728015007.625581647@localhost>
+	<20060728015054.566221096@localhost>
+	<20060727190114.68bfd817@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, aabdulla@nvidia.com, manfred@colorfullife.com,
+	jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c-68-38-164-248.hsd1.nj.comcast.net ([68.38.164.248]:32009 "EHLO
-	c-68-38-164-248.hsd1.nj.comcast.net") by vger.kernel.org with ESMTP
-	id S1752069AbWG2DsW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jul 2006 23:48:22 -0400
-To: netdev-owner@vger.kernel.org
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:11466 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161439AbWG2EKP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 00:10:15 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060727190114.68bfd817@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Your cre dit doesn't matter to us! If you OWN real est ate
-and want IMMEDIATEK cash to spend ANY way you like, or simply wish 
-to LOWER your monthly paym ents by a third or more, here are the dea ls
-we have TODAY (hurry, these ofers will expre TONIGHT):
+On Thu, 27 Jul 2006 19:01:14 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-$488,000.00 at a 3.67,% fixed-rateZ
-$372,000.00 at a 3.90,% variable-rateR
-$492,000.00 at a 3.21,% interest-onlyH
-$248,000.00 at a 3.36,% fixed-rateT
-$198,000.00 at a 3.55,% variable-rate9
+> Fix for NAPI hanging in interrupt. With NAPI, we only need one
+> iteration over the IRQ.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> 
+> --- linux-2.6.orig/drivers/net/forcedeth.c	2006-07-27
+> 18:58:21.000000000 -0700 +++ linux-2.6/drivers/net/forcedeth.c
+> 2006-07-27 18:57:31.000000000 -0700 @@ -2422,10 +2422,11 @@
+>  						dev->name, events);
+>  		}
+>  #ifdef CONFIG_FORCEDETH_NAPI
+> -		if (netif_rx_schedule_prep(dev)) {
+> -			__netif_rx_schedule(dev);
+> +		if (events & NVREG_IRQ_RX_ALL) {
+> +			netif_rx_schedule(dev);
+>  			nv_disable_hw_interrupts(dev,
+> NVREG_IRQ_RX_ALL); }
+> +		return IRQ_HANDLED;
+>  #else
+>  		nv_rx_process(dev, dev->weight);
+>  		if (nv_alloc_rx(dev)) {
+> @@ -2434,7 +2435,6 @@
+>  				mod_timer(&np->oom_kick, jiffies +
+> OOM_REFILL); spin_unlock(&np->lock);
+>  		}
+> -#endif
+>  		if (i > max_interrupt_work) {
+>  			spin_lock(&np->lock);
+>  			/* disable interrupts on the nic */
+> @@ -2452,7 +2452,7 @@
+>  			spin_unlock(&np->lock);
+>  			break;
+>  		}
+> -
+> +#endif
+>  	}
+>  	dprintk(KERN_DEBUG "%s: nv_nic_irq completed\n", dev->name);
+>  
 
-Hurry, when these deals are gone, they are gone Simply fill out this one-min ute form... 
-
-Don't worry about approval, your cre dit will not disqualify you! 
-
-http://7N1CN5QI.corkpencills.com
-
-
-
-means that  I really am a good guy, after all. That's what Guta insists, and
-     "Thank you, Mr. Schuhart! You saved my life!"
-
-ago  by the treads and wheels of heavy vehicles.  To the right was  a  white
-     Redrick went back to his  pack for the map,  which he spread out on the
-     When  they finally  scrambled out onto dry  land  that  was covered  by
-
-grab, or  bite away from the indifferent  chaos that  surrounded him. It had
-smack at his feet, raising a cloud of white dust. He was
-explanation of what was going on. Redrick listened  for a minute or two  and
-     Wincing  from the pain  of the pack on his burned shoulders, he put his
-
-Since  childhood he had relied  on nothing but himself. And since  childhood
-     Arthur  stretched his arms, straightened his  shoulders,  grimaced, and
+What on earth happened to that?
