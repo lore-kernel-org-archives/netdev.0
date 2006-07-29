@@ -1,48 +1,58 @@
 From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [PATCH 0/23][XFRM] MIPv6 CN introduction (part A) (Re: [RFC] Mobile
- IPv6 introduction)
-Date: Sat, 29 Jul 2006 18:28:13 +0900
-Message-ID: <44CB2A2D.4090808@linux-ipv6.org>
-References: <44CB2914.9010803@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
+Subject: [PATCH 4/23] [PATCH] [XFRM]: Fix message about transformation user interface.
+Date: Sat, 29 Jul 2006 18:30:07 +0900
+Message-ID: <11541654071107-git-send-email-nakam@linux-ipv6.org>
+Reply-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
 Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
+	Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.178.140.9] ([203.178.140.9]:20881 "EHLO mail.gomagoma.org")
-	by vger.kernel.org with ESMTP id S1750889AbWG2J2U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 05:28:20 -0400
+Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:14979 "EHLO jupiter")
+	by vger.kernel.org with ESMTP id S1751229AbWG2JaK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 05:30:10 -0400
 To: davem@davemloft.net
-In-Reply-To: <44CB2914.9010803@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please see patches about "Avanced XFRM for CN", following this mail.
-These are just for review, and it is against 2.6.17.
+Transformation user interface is not only for IPsec.
+Based on MIPL2 kernel patch.
+---
+ net/xfrm/Kconfig     |    6 +++---
+ net/xfrm/xfrm_user.c |    2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-"Avanced XFRM for CN" tree is consists of:
-
- A. XFRM extension for route optimization
- B. IPv6 extension headers:
-	new type (2) of routing header
-	new TLV option for destination options header: home address option
-	new header for signaling: mobility header
-
-Part B patches depend on A. Let me start part A first.
-
-Part A is also available as mip6cn-20060716-review branch at:
-
-git://git.skbuff.net:9419/gitroot/nakam/linux-2.6-mip6cn-xfrm
-
-
-> 3. Advanced XFRM for CN
-> "Route optimization" defined MIPv6 specification
-> is designed as XFRM extension. IPv6 extension headers
-> handling is included, too.
-> This feature is required by all MIPv6 nodes(CN, MN, HA) then it can
-> be said MIPv6 platform.
-
-
+diff --git a/net/xfrm/Kconfig b/net/xfrm/Kconfig
+index 95f4f09..50f2fb3 100644
+--- a/net/xfrm/Kconfig
++++ b/net/xfrm/Kconfig
+@@ -6,11 +6,11 @@ config XFRM
+        depends on NET
+ 
+ config XFRM_USER
+-	tristate "IPsec user configuration interface"
++	tristate "Transformation user configuration interface"
+ 	depends on INET && XFRM
+ 	---help---
+-	  Support for IPsec user configuration interface used
+-	  by native Linux tools.
++	  Support for Transformation(XFRM) user configuration interface
++	  like IPsec used by native Linux tools.
+ 
+ 	  If unsure, say Y.
+ 
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 9516da3..f92d163 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1949,7 +1949,7 @@ static int __init xfrm_user_init(void)
+ {
+ 	struct sock *nlsk;
+ 
+-	printk(KERN_INFO "Initializing IPsec netlink socket\n");
++	printk(KERN_INFO "Initializing XFRM netlink socket\n");
+ 
+ 	nlsk = netlink_kernel_create(NETLINK_XFRM, XFRMNLGRP_MAX,
+ 	                             xfrm_netlink_rcv, THIS_MODULE);
 -- 
-Masahide NAKAMURA
+1.4.1
+
