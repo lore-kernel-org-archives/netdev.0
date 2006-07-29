@@ -1,50 +1,48 @@
-From: "Carol Kirkpatrick" <CarolKirkpatrick@072.com>
-Subject: Better Success, well-reasoned
-Date: Sat, 29 Jul 2006 20:35:57 +0300
-Message-ID: <24324362.20060729203557@072.com>
-Reply-To: "Carol Kirkpatrick" <CarolKirkpatrick@072.com>
+From: Nicholas Miell <nmiell@comcast.net>
+Subject: Re: [RFC 1/4] kevent: core files.
+Date: Sat, 29 Jul 2006 13:54:51 -0700
+Message-ID: <1154206491.2467.3.camel@entropy>
+References: <20060724.231708.01289489.davem@davemloft.net>
+	 <44C91192.4090303@oracle.com> <20060727200655.GA4586@2ka.mipt.ru>
+	 <44C930D5.9020704@oracle.com> <20060728052312.GB11210@2ka.mipt.ru>
+	 <44CA586C.4010205@oracle.com> <20060728184445.GA10797@2ka.mipt.ru>
+	 <44CA613F.9080806@oracle.com> <44CAD81A.9060401@redhat.com>
+	 <1154147562.2451.30.camel@entropy>  <20060729154817.GB25926@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: Ulrich Drepper <drepper@redhat.com>,
+	Zach Brown <zach.brown@oracle.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pool-72-71-194-113.cncdnh.fios.verizon.net ([72.71.194.113]:62710
-	"EHLO pool-72-71-194-113.cncdnh.fios.verizon.net") by vger.kernel.org
-	with ESMTP id S932193AbWG2Uf5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 16:35:57 -0400
-To: netdev-owner@vger.kernel.org
+Received: from alnrmhc11.comcast.net ([204.127.225.91]:45994 "EHLO
+	alnrmhc11.comcast.net") by vger.kernel.org with ESMTP
+	id S932244AbWG2UzX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Jul 2006 16:55:23 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060729154817.GB25926@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Your cre dit doesn't matter to us! If you OWN real est ate
-and want IMMEDIATEE cash to spend ANY way you like, or simply wish 
-to LOWER your monthly paym ents by a third or more, here are the dea ls
-we have TODAY (hurry, these ofers will expre TONIGHT):
+On Sat, 2006-07-29 at 19:48 +0400, Evgeniy Polyakov wrote:
+> On Fri, Jul 28, 2006 at 09:32:42PM -0700, Nicholas Miell (nmiell@comcast.net) wrote:
+> > Speaking of API design choices, I saw your OLS paper and was wondering
+> > if you were familiar with the Solaris port APIs* and, if so, you could
+> > please comment on how your proposed event channels are different/better.
+> 
+> As far as it concerns kevents - userspace "ports" are just usual users
+> of kevents, like timer notifications. Add another syscall to "complete"
+> requested kevents and you get exactly Solaris ports.
+> It is fairly simple to implement on top of kevents, I just do not see
+> immediate benefits from that.
+> 
 
-$488,000.00 at a 3.67,% fixed-rateP
-$372,000.00 at a 3.90,% variable-rateI
-$492,000.00 at a 3.21,% interest-onlyJ
-$248,000.00 at a 3.36,% fixed-rate1
-$198,000.00 at a 3.55,% variable-rateA
+Sorry, I wasn't talking about kevent, I was talking about the interfaces
+described in "The Need for Asynchronous, Zero-Copy Network I/O" by
+Ulrich Drepper -- specifically the ec_t type and related functions and
+the modifications to struct sigevent.
 
-Hurry, when these deals are gone, they are gone Simply fill out this one-min ute form... 
+-- 
+Nicholas Miell <nmiell@comcast.net>
 
-Don't worry about approval, your cre dit will not disqualify you! 
-
-http://L8XCRZ.corkpencills.com
-
-
-
-Where have you  seen a good system? When have you ever seen me under  a good
-that contained the  tightly rolled balloon. "I followed  you and when  I saw
-
-Since  childhood he had relied  on nothing but himself. And since  childhood
-like in a dream. Only it hadn't been a dream. It was Monkey screaming in her
-did  this: he  walked through and  left this behind.  Four-eyes  lay on  the
-
-were two other X's, one on the slope of the hill with the tree, the other on
-     "So, that's it."  Redrick stared at him. "Well, you don't have to worry
-Kirill used to say, and what Richard is always babbling about. Some good guy
-     "Fine. And next time I'll let you have it in the teeth. If you're still
-
-by its warm textured handle, tossed it up in the air, and caught it.
-stalker to fall into the  meatgrinder and live. He was lucky. The fool still
