@@ -1,158 +1,243 @@
 From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [PATCH 4/20] [PATCH] [IPV6] MIP6: Add inbound interface of routing header type 2.
-Date: Sat, 29 Jul 2006 18:38:22 +0900
-Message-ID: <11541659023402-git-send-email-nakam@linux-ipv6.org>
+Subject: [PATCH 11/20] [PATCH] [IPV6] IPSEC: Support sending with Mobile IPv6 extension headers.
+Date: Sat, 29 Jul 2006 18:38:45 +0900
+Message-ID: <11541659254188-git-send-email-nakam@linux-ipv6.org>
 Reply-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
 Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
 	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
 	Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:38531 "EHLO jupiter")
-	by vger.kernel.org with ESMTP id S1422711AbWG2JiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 05:38:23 -0400
+Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:45443 "EHLO jupiter")
+	by vger.kernel.org with ESMTP id S1422717AbWG2Jiq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 05:38:46 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add inbound interface of routing header type 2 for Mobile IPv6.
+Mobile IPv6 defines home address option as an option of destination
+options header. It is placed before fragment header then
+ip6_find_1stfragopt() is fixed to know about it.
+Home address option also carries final source address of the flow, then
+outbound AH calculation should take care of it like routing header case.
+
 Based on MIPL2 kernel patch.
 ---
- include/net/addrconf.h |    7 +++++
- net/ipv6/exthdrs.c     |   71 +++++++++++++++++++++++++++++++++++++++++++-----
- 2 files changed, 70 insertions(+), 8 deletions(-)
+ net/ipv6/ah6.c        |  109 +++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/ip6_output.c |   18 ++++++--
+ 2 files changed, 122 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 750e250..71fc890 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -62,6 +62,13 @@ extern int			addrconf_set_dstaddr(void _
- extern int			ipv6_chk_addr(struct in6_addr *addr,
- 					      struct net_device *dev,
- 					      int strict);
-+/* XXX: this is a placeholder till addrconf supports */
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index dcdd039..af0ed78 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -75,6 +75,68 @@ bad:
+ 	return 0;
+ }
+ 
 +#ifdef CONFIG_IPV6_MIP6
-+static inline int ipv6_chk_home_addr(struct in6_addr *addr)
++/**
++ *	ipv6_rearrange_destopt - rearrange IPv6 destination options header
++ *	@iph: IPv6 header
++ *	@destopt: destionation options header
++ */
++static void ipv6_rearrange_destopt(struct ipv6hdr *iph, struct ipv6_opt_hdr *destopt)
 +{
-+	return 0;
-+}
-+#endif
- extern struct inet6_ifaddr *	ipv6_get_ifaddr(struct in6_addr *addr,
- 						struct net_device *dev,
- 						int strict);
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index a18d425..138cb12 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -43,6 +43,9 @@ #include <net/rawv6.h>
- #include <net/ndisc.h>
- #include <net/ip6_route.h>
- #include <net/addrconf.h>
-+#ifdef CONFIG_IPV6_MIP6
-+#include <net/xfrm.h>
-+#endif
- 
- #include <asm/uaccess.h>
- 
-@@ -219,7 +222,7 @@ static int ipv6_rthdr_rcv(struct sk_buff
- {
- 	struct sk_buff *skb = *skbp;
- 	struct inet6_skb_parm *opt = IP6CB(skb);
--	struct in6_addr *addr;
-+	struct in6_addr *addr = NULL;
- 	struct in6_addr daddr;
- 	int n, i;
- 
-@@ -244,6 +247,23 @@ static int ipv6_rthdr_rcv(struct sk_buff
- 
- looped_back:
- 	if (hdr->segments_left == 0) {
-+		switch (hdr->type) {
-+#ifdef CONFIG_IPV6_MIP6
-+		case IPV6_SRCRT_TYPE_2:
-+			/* Silently discard type 2 header unless it was
-+			 * processed by own
++	u8 *opt = (u8 *)destopt;
++	int len = ipv6_optlen(destopt);
++	int off = 0;
++	int optlen = 0;
++
++	off += 2;
++	len -= 2;
++
++	while (len > 0) {
++
++		switch (opt[off]) {
++
++		case IPV6_TLV_PAD0:
++			optlen = 1;
++			break;
++		default:
++			if (len < 2)
++				goto bad;
++			optlen = opt[off+1]+2;
++			if (len < optlen)
++				goto bad;
++
++			/* Rearrange the source address in @iph and the
++			 * addresses in home address option for final source.
++			 * See 11.3.2 of RFC 3775 for details.
 +			 */
-+			if (!addr) {
-+				IP6_INC_STATS_BH(IPSTATS_MIB_INADDRERRORS);
-+				kfree_skb(skb);
-+				return -1;
++			if (opt[off] == IPV6_TLV_HAO) {
++				struct in6_addr final_addr;
++				struct destopt_hao *hao;
++
++				hao = (struct destopt_hao *)&opt[off];
++				if (hao->length != sizeof(hao->addr)) {
++					if (net_ratelimit())
++						printk(KERN_WARNING "destopt hao: invalid header length: %u\n", hao->length);
++					goto bad;
++				}
++				ipv6_addr_copy(&final_addr, &hao->addr);
++				ipv6_addr_copy(&hao->addr, &iph->saddr);
++				ipv6_addr_copy(&iph->saddr, &final_addr);
 +			}
 +			break;
-+#endif
-+		default:
-+			break;
 +		}
 +
- 		opt->lastopt = skb->h.raw - skb->nh.raw;
- 		opt->srcrt = skb->h.raw - skb->nh.raw;
- 		skb->h.raw += (hdr->hdrlen + 1) << 3;
-@@ -253,17 +273,29 @@ looped_back:
- 		return 1;
- 	}
- 
--	if (hdr->type != IPV6_SRCRT_TYPE_0) {
-+	switch (hdr->type) {
-+	case IPV6_SRCRT_TYPE_0:
-+		if (hdr->hdrlen & 0x01) {
-+			IP6_INC_STATS_BH(IPSTATS_MIB_INHDRERRORS);
-+			icmpv6_param_prob(skb, ICMPV6_HDR_FIELD, (&hdr->hdrlen) - skb->nh.raw);
-+			return -1;
-+		}
-+		break;
-+#ifdef CONFIG_IPV6_MIP6
-+	case IPV6_SRCRT_TYPE_2:
-+		/* Silently discard invalid RTH type 2 */
-+		if (hdr->hdrlen != 2 || hdr->segments_left != 1) {
-+			IP6_INC_STATS_BH(IPSTATS_MIB_INHDRERRORS);
-+			kfree_skb(skb);
-+			return -1;
-+		}
-+		break;
-+#endif
-+	default:
- 		IP6_INC_STATS_BH(IPSTATS_MIB_INHDRERRORS);
- 		icmpv6_param_prob(skb, ICMPV6_HDR_FIELD, (&hdr->type) - skb->nh.raw);
- 		return -1;
- 	}
--	
--	if (hdr->hdrlen & 0x01) {
--		IP6_INC_STATS_BH(IPSTATS_MIB_INHDRERRORS);
--		icmpv6_param_prob(skb, ICMPV6_HDR_FIELD, (&hdr->hdrlen) - skb->nh.raw);
--		return -1;
--	}
- 
- 	/*
- 	 *	This is the routing header forwarding algorithm from
-@@ -303,6 +335,29 @@ looped_back:
- 	addr = rthdr->addr;
- 	addr += i - 1;
- 
-+	switch (hdr->type) {
-+#ifdef CONFIG_IPV6_MIP6
-+	case IPV6_SRCRT_TYPE_2:
-+		if (__xfrm6_rcv_one(skb,
-+				    (xfrm_address_t *)addr,
-+				    (xfrm_address_t *)&skb->nh.ipv6h->saddr,
-+				    IPPROTO_ROUTING) < 0) {
-+			IP6_INC_STATS_BH(IPSTATS_MIB_INADDRERRORS);
-+			kfree_skb(skb);
-+			return -1;
-+		}
-+
-+		if (!ipv6_chk_home_addr(addr)) {
-+			IP6_INC_STATS_BH(IPSTATS_MIB_INADDRERRORS);
-+			kfree_skb(skb);
-+			return -1;
-+		}
-+		break;
-+#endif
-+	default:
-+		break;
++		off += optlen;
++		len -= optlen;
 +	}
++	if (len == 0)
++		return;
 +
- 	if (ipv6_addr_is_multicast(addr)) {
- 		IP6_INC_STATS_BH(IPSTATS_MIB_INADDRERRORS);
- 		kfree_skb(skb);
++bad:
++	return;
++}
++#endif
++
+ /**
+  *	ipv6_rearrange_rthdr - rearrange IPv6 routing header
+  *	@iph: IPv6 header
+@@ -114,7 +176,11 @@ static void ipv6_rearrange_rthdr(struct 
+ 	ipv6_addr_copy(&iph->daddr, &final_addr);
+ }
+ 
++#ifdef CONFIG_IPV6_MIP6
++static int ipv6_clear_mutable_options(struct ipv6hdr *iph, int len, int dir)
++#else
+ static int ipv6_clear_mutable_options(struct ipv6hdr *iph, int len)
++#endif
+ {
+ 	union {
+ 		struct ipv6hdr *iph;
+@@ -129,6 +195,28 @@ static int ipv6_clear_mutable_options(st
+ 
+ 	while (exthdr.raw < end) {
+ 		switch (nexthdr) {
++#ifdef CONFIG_IPV6_MIP6
++		case NEXTHDR_HOP:
++			if (!zero_out_mutable_opts(exthdr.opth)) {
++				LIMIT_NETDEBUG(
++					KERN_WARNING "overrun %sopts\n",
++					nexthdr == NEXTHDR_HOP ?
++						"hop" : "dest");
++				return -EINVAL;
++			}
++			break;
++		case NEXTHDR_DEST:
++			if (dir == XFRM_POLICY_OUT)
++				ipv6_rearrange_destopt(iph, exthdr.opth);
++			if (!zero_out_mutable_opts(exthdr.opth)) {
++				LIMIT_NETDEBUG(
++					KERN_WARNING "overrun %sopts\n",
++					nexthdr == NEXTHDR_HOP ?
++						"hop" : "dest");
++				return -EINVAL;
++			}
++			break;
++#else
+ 		case NEXTHDR_HOP:
+ 		case NEXTHDR_DEST:
+ 			if (!zero_out_mutable_opts(exthdr.opth)) {
+@@ -139,6 +227,7 @@ static int ipv6_clear_mutable_options(st
+ 				return -EINVAL;
+ 			}
+ 			break;
++#endif
+ 
+ 		case NEXTHDR_ROUTING:
+ 			ipv6_rearrange_rthdr(iph, exthdr.rth);
+@@ -165,6 +254,9 @@ static int ah6_output(struct xfrm_state 
+ 	u8 nexthdr;
+ 	char tmp_base[8];
+ 	struct {
++#ifdef CONFIG_IPV6_MIP6
++		struct in6_addr saddr;
++#endif
+ 		struct in6_addr daddr;
+ 		char hdrs[0];
+ 	} *tmp_ext;
+@@ -189,10 +281,18 @@ static int ah6_output(struct xfrm_state 
+ 			err = -ENOMEM;
+ 			goto error;
+ 		}
++#ifdef CONFIG_IPV6_MIP6
++		memcpy(tmp_ext, &top_iph->saddr, extlen);
++		err = ipv6_clear_mutable_options(top_iph,
++						 extlen - sizeof(*tmp_ext) +
++						 sizeof(*top_iph),
++						 XFRM_POLICY_OUT);
++#else
+ 		memcpy(tmp_ext, &top_iph->daddr, extlen);
+ 		err = ipv6_clear_mutable_options(top_iph,
+ 						 extlen - sizeof(*tmp_ext) +
+ 						 sizeof(*top_iph));
++#endif
+ 		if (err)
+ 			goto error_free_iph;
+ 	}
+@@ -220,7 +320,11 @@ static int ah6_output(struct xfrm_state 
+ 
+ 	memcpy(top_iph, tmp_base, sizeof(tmp_base));
+ 	if (tmp_ext) {
++#ifdef CONFIG_IPV6_MIP6
++		memcpy(&top_iph->saddr, tmp_ext, extlen);
++#else
+ 		memcpy(&top_iph->daddr, tmp_ext, extlen);
++#endif
+ error_free_iph:
+ 		kfree(tmp_ext);
+ 	}
+@@ -279,8 +383,13 @@ static int ah6_input(struct xfrm_state *
+ 	if (!tmp_hdr)
+ 		goto out;
+ 	memcpy(tmp_hdr, skb->nh.raw, hdr_len);
++#ifdef CONFIG_IPV6_MIP6
++	if (ipv6_clear_mutable_options(skb->nh.ipv6h, hdr_len, XFRM_POLICY_IN))
++		goto out;
++#else
+ 	if (ipv6_clear_mutable_options(skb->nh.ipv6h, hdr_len))
+ 		goto free_out;
++#endif
+ 	skb->nh.ipv6h->priority    = 0;
+ 	skb->nh.ipv6h->flow_lbl[0] = 0;
+ 	skb->nh.ipv6h->flow_lbl[1] = 0;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 2d9ea9b..24ad7e8 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -473,17 +473,25 @@ int ip6_find_1stfragopt(struct sk_buff *
+ 		switch (**nexthdr) {
+ 
+ 		case NEXTHDR_HOP:
++			break;
+ 		case NEXTHDR_ROUTING:
++			found_rhdr = 1;
++			break;
+ 		case NEXTHDR_DEST:
+-			if (**nexthdr == NEXTHDR_ROUTING) found_rhdr = 1;
+-			if (**nexthdr == NEXTHDR_DEST && found_rhdr) return offset;
+-			offset += ipv6_optlen(exthdr);
+-			*nexthdr = &exthdr->nexthdr;
+-			exthdr = (struct ipv6_opt_hdr*)(skb->nh.raw + offset);
++#ifdef CONFIG_IPV6_MIP6
++			if (ipv6_find_tlv(skb, offset, IPV6_TLV_HAO) >= 0)
++				break;
++#endif
++			if (found_rhdr)
++				return offset;
+ 			break;
+ 		default :
+ 			return offset;
+ 		}
++
++		offset += ipv6_optlen(exthdr);
++		*nexthdr = &exthdr->nexthdr;
++		exthdr = (struct ipv6_opt_hdr*)(skb->nh.raw + offset);
+ 	}
+ 
+ 	return offset;
 -- 
 1.4.1
 
