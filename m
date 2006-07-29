@@ -1,75 +1,112 @@
 From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [PATCH 20/20] [PATCH] [IPV6] MIP6: Transformation support mobility header.
-Date: Sat, 29 Jul 2006 18:39:10 +0900
-Message-ID: <11541659501671-git-send-email-nakam@linux-ipv6.org>
+Subject: [PATCH 16/20] [PATCH] [IPV6] MIP6: Add Mobility header definition.
+Date: Sat, 29 Jul 2006 18:39:00 +0900
+Message-ID: <11541659402139-git-send-email-nakam@linux-ipv6.org>
 Reply-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
 Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
 	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
 	Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:54915 "EHLO jupiter")
-	by vger.kernel.org with ESMTP id S1422726AbWG2JjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 05:39:11 -0400
+Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:50819 "EHLO jupiter")
+	by vger.kernel.org with ESMTP id S1422718AbWG2JjB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 05:39:01 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Transformation support mobility header.
+Add Mobility header definition for Mobile IPv6.
 Based on MIPL2 kernel patch.
 ---
- include/net/xfrm.h      |    5 +++++
- net/ipv6/xfrm6_policy.c |   15 +++++++++++++++
- 2 files changed, 20 insertions(+), 0 deletions(-)
+ include/linux/in6.h |    1 +
+ include/net/flow.h  |    9 +++++++++
+ include/net/ipv6.h  |    1 +
+ include/net/mip6.h  |   23 +++++++++++++++++++++++
+ 4 files changed, 34 insertions(+), 0 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 0d14b1f..85398b0 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -587,6 +587,11 @@ u16 xfrm_flowi_sport(struct flowi *fl)
- 	case IPPROTO_ICMPV6:
- 		port = htons(fl->fl_icmp_type);
- 		break;
-+#ifdef CONFIG_IPV6_MIP6
-+	case IPPROTO_MH:
-+		port = htons(fl->fl_mh_type);
-+		break;
-+#endif
- 	default:
- 		port = 0;	/*XXX*/
- 	}
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index eaa1b0d..98e407e 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -19,6 +19,9 @@ #include <net/xfrm.h>
- #include <net/ip.h>
- #include <net/ipv6.h>
- #include <net/ip6_route.h>
-+#ifdef CONFIG_IPV6_MIP6
-+#include <net/mip6.h>
-+#endif
+diff --git a/include/linux/in6.h b/include/linux/in6.h
+index 086ec2a..d776829 100644
+--- a/include/linux/in6.h
++++ b/include/linux/in6.h
+@@ -134,6 +134,7 @@ #define IPPROTO_FRAGMENT	44	/* IPv6 frag
+ #define IPPROTO_ICMPV6		58	/* ICMPv6			*/
+ #define IPPROTO_NONE		59	/* IPv6 no next header		*/
+ #define IPPROTO_DSTOPTS		60	/* IPv6 destination options	*/
++#define IPPROTO_MH		135	/* IPv6 mobility header		*/
  
- static struct dst_ops xfrm6_dst_ops;
- static struct xfrm_policy_afinfo xfrm6_policy_afinfo;
-@@ -247,6 +250,18 @@ _decode_session6(struct sk_buff *skb, st
- 			fl->proto = nexthdr;
- 			return;
+ /*
+  *	IPv6 TLV options.
+diff --git a/include/net/flow.h b/include/net/flow.h
+index 04d89f7..650dfaf 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -72,12 +72,21 @@ #define FLOWI_FLAG_MULTIPATHOLDROUTE 0x0
+ 		} dnports;
  
+ 		__u32		spi;
++
 +#ifdef CONFIG_IPV6_MIP6
-+		case IPPROTO_MH:
-+			if (pskb_may_pull(skb, skb->nh.raw + offset + 3 - skb->data)) {
-+				struct ip6_mh *mh;
-+				mh = (struct ip6_mh *)exthdr;
-+
-+				fl->fl_mh_type = mh->ip6mh_type;
-+			}
-+			fl->proto = nexthdr;
-+			return;
++		struct {
++			__u8	type;
++		} mht;
 +#endif
+ 	} uli_u;
+ #define fl_ip_sport	uli_u.ports.sport
+ #define fl_ip_dport	uli_u.ports.dport
+ #define fl_icmp_type	uli_u.icmpt.type
+ #define fl_icmp_code	uli_u.icmpt.code
+ #define fl_ipsec_spi	uli_u.spi
++#ifdef CONFIG_IPV6_MIP6
++#define fl_mh_type	uli_u.mht.type
++#endif
+ } __attribute__((__aligned__(BITS_PER_LONG/8)));
+ 
+ #define FLOW_DIR_IN	0
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index cbe72ea..7688534 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -40,6 +40,7 @@ #define NEXTHDR_AUTH		51	/* Authenticati
+ #define NEXTHDR_ICMP		58	/* ICMP for IPv6. */
+ #define NEXTHDR_NONE		59	/* No next header */
+ #define NEXTHDR_DEST		60	/* Destination options header. */
++#define NEXTHDR_MOBILITY	135	/* Mobility header. */
+ 
+ #define NEXTHDR_MAX		255
+ 
+diff --git a/include/net/mip6.h b/include/net/mip6.h
+index 42b65ba..fd43178 100644
+--- a/include/net/mip6.h
++++ b/include/net/mip6.h
+@@ -28,6 +28,29 @@ #define _NET_MIP6_H
+ #define MIP6_OPT_PAD_1	0
+ #define MIP6_OPT_PAD_N	1
+ 
++/*
++ * Mobility Header
++ */
++struct ip6_mh {
++	__u8	ip6mh_proto;
++	__u8	ip6mh_hdrlen;
++	__u8	ip6mh_type;
++	__u8	ip6mh_reserved;
++	__u16	ip6mh_cksum;
++	/* Followed by type specific messages */
++	__u8	data[0];
++} __attribute__ ((__packed__));
 +
- 		/* XXX Why are there these headers? */
- 		case IPPROTO_AH:
- 		case IPPROTO_ESP:
++#define IP6_MH_TYPE_BRR		0   /* Binding Refresh Request */
++#define IP6_MH_TYPE_HOTI	1   /* HOTI Message   */
++#define IP6_MH_TYPE_COTI	2   /* COTI Message  */
++#define IP6_MH_TYPE_HOT		3   /* HOT Message   */
++#define IP6_MH_TYPE_COT		4   /* COT Message  */
++#define IP6_MH_TYPE_BU		5   /* Binding Update */
++#define IP6_MH_TYPE_BACK	6   /* Binding ACK */
++#define IP6_MH_TYPE_BERROR	7   /* Binding Error */
++#define IP6_MH_TYPE_MAX		IP6_MH_TYPE_BERROR
++
+ extern int mip6_init(void);
+ extern void mip6_fini(void);
+ 
 -- 
 1.4.1
 
