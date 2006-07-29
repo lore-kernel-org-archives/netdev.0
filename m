@@ -1,48 +1,76 @@
-From: Nicholas Miell <nmiell@comcast.net>
-Subject: Re: [RFC 1/4] kevent: core files.
-Date: Sat, 29 Jul 2006 13:54:51 -0700
-Message-ID: <1154206491.2467.3.camel@entropy>
-References: <20060724.231708.01289489.davem@davemloft.net>
-	 <44C91192.4090303@oracle.com> <20060727200655.GA4586@2ka.mipt.ru>
-	 <44C930D5.9020704@oracle.com> <20060728052312.GB11210@2ka.mipt.ru>
-	 <44CA586C.4010205@oracle.com> <20060728184445.GA10797@2ka.mipt.ru>
-	 <44CA613F.9080806@oracle.com> <44CAD81A.9060401@redhat.com>
-	 <1154147562.2451.30.camel@entropy>  <20060729154817.GB25926@2ka.mipt.ru>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [PATCH 2/7] NetLabel: core network changes
+Date: Sat, 29 Jul 2006 17:03:33 -0400
+Message-ID: <200607291703.34579.paul.moore@hp.com>
+References: <36282A1733C57546BE392885C0618592013E80BD@chaos.tcs.tcs-sec.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Ulrich Drepper <drepper@redhat.com>,
-	Zach Brown <zach.brown@oracle.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	selinux@tycho.nsa.gov, sds@epoch.ncsc.mil, jmorris@redhat.com,
+	pratt@argus-systems.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alnrmhc11.comcast.net ([204.127.225.91]:45994 "EHLO
-	alnrmhc11.comcast.net") by vger.kernel.org with ESMTP
-	id S932244AbWG2UzX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Jul 2006 16:55:23 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060729154817.GB25926@2ka.mipt.ru>
+Received: from mailhub.hp.com ([192.151.27.10]:6033 "EHLO mailhub.hp.com")
+	by vger.kernel.org with ESMTP id S932247AbWG2VDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 17:03:42 -0400
+To: Venkat Yekkirala <vyekkirala@trustedcs.com>
+In-Reply-To: <36282A1733C57546BE392885C0618592013E80BD@chaos.tcs.tcs-sec.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2006-07-29 at 19:48 +0400, Evgeniy Polyakov wrote:
-> On Fri, Jul 28, 2006 at 09:32:42PM -0700, Nicholas Miell (nmiell@comcast.net) wrote:
-> > Speaking of API design choices, I saw your OLS paper and was wondering
-> > if you were familiar with the Solaris port APIs* and, if so, you could
-> > please comment on how your proposed event channels are different/better.
-> 
-> As far as it concerns kevents - userspace "ports" are just usual users
-> of kevents, like timer notifications. Add another syscall to "complete"
-> requested kevents and you get exactly Solaris ports.
-> It is fairly simple to implement on top of kevents, I just do not see
-> immediate benefits from that.
-> 
+On Saturday 29 July 2006 12:34 pm, Venkat Yekkirala wrote:
+> > > This is only true wart I see in the patch set from my
+> > > perspective.
+> > >
+> > > You have security_post_accept_hook(), which gets the parent and
+> > > the child socket which is all the information you need, and it
+> > > seems to be invoked at the correct location.
+> > >
+> > > So can you please hook into this location using the security
+> > > level hook we already have?  Just check sock->sk->sk_family is
+> > > PF_INET at the top of that hook if you only want to handle
+> > > ipv4 sockets, or something like that.
+> > >
+> > > Could this work?
+> > >
+> > > When preparing and argument stating why this won't work, please
+> > > suggest a nicer name for this af_inet.c hook or some way to make
+> > > it more generic and palatable to us.
+> >
+> > The only reason for having this new hook in inet_accept() is to catch
+> > all the in-kernel "daemons" who do not go through the LSM hooked
+> > accept() code path.  I debated putting this hook into the patchset and
+> > in the end figured it was at least worth a shot.
+>
+> If I understand the patch correctly, the openreq inherits cipso from
+> the incoming syn and the syn-ack is then sent with this option. I further
+> see that the child sock inherits options from the openreq already.
+>
+> Could you then please elaborate on the need for explicitly copying options
+> from parent to child?
 
-Sorry, I wasn't talking about kevent, I was talking about the interfaces
-described in "The Need for Asynchronous, Zero-Copy Network I/O" by
-Ulrich Drepper -- specifically the ec_t type and related functions and
-the modifications to struct sigevent.
+The NetLabel patch allows administrators to assign specific a CIPSO 
+DOI/configuration to each LSM "domain".  Blindly using the CIPSO tag that the 
+remote host sends could violate the administrator's NetLabel configuration.  
+
+The current patch reads the CIPSO tag off the child socket, translating the 
+tag according to the CIPSO DOI configuration to arrive at the correct/desired 
+LSM  security attributes.  These LSM security attributes and the "domain" are 
+then used to set the NetLabel on the socket.  In the case where everyone is 
+well behaved this should have no effect on the socket IP options and the 
+packets sent across the wire.  However, in the case of a not-nice remote host 
+the outgoing CIPSO tag may change to match the administrators desired 
+settings.
+
+It is important to note that the next patchset will be based against David's 
+net-2.6.19 git tree which has the additional LSM hooks in the accept code 
+path - which I plan to use - so expect the implementation to change as a 
+result.  Like I said earlier, these new LSM hooks are probably the proper way 
+to do it, but I wanted to stick with the hooks that were present at the time 
+I started working on NetLabel to minimize the impact on the kernel.
 
 -- 
-Nicholas Miell <nmiell@comcast.net>
-
+paul moore
+linux security @ hp
