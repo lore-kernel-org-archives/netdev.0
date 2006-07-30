@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET: fix kernel panic from no dev->hard_header_len
- space
-Date: Sun, 30 Jul 2006 15:30:04 -0700 (PDT)
-Message-ID: <20060730.153004.45876935.davem@davemloft.net>
-References: <m3zmevqhgn.fsf@defiant.localdomain>
-	<20060727164334.GA2779@ms2.inr.ac.ru>
-	<m3fygjkpwb.fsf@defiant.localdomain>
+Subject: Re: [PATCH 1/20] [PATCH] [IPV6]: Add Kconfig to enable Mobile IPv6.
+Date: Sun, 30 Jul 2006 15:43:00 -0700 (PDT)
+Message-ID: <20060730.154300.42775765.davem@davemloft.net>
+References: <11541658921982-git-send-email-nakam@linux-ipv6.org>
+	<Pine.LNX.4.64.0607301819500.26424@d.namei>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
+Cc: nakam@linux-ipv6.org, yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi,
+	vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48015
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:47493
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751427AbWG3W3x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Jul 2006 18:29:53 -0400
-To: khc@pm.waw.pl
-In-Reply-To: <m3fygjkpwb.fsf@defiant.localdomain>
+	id S1751401AbWG3Wmu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Jul 2006 18:42:50 -0400
+To: jmorris@namei.org
+In-Reply-To: <Pine.LNX.4.64.0607301819500.26424@d.namei>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Sun, 30 Jul 2006 18:40:04 +0200
+From: James Morris <jmorris@namei.org>
+Date: Sun, 30 Jul 2006 18:20:46 -0400 (EDT)
 
-> Do the semantics (I'm not talking about bugs) allow skb passed
-> to dev->hard_header() (if defined) and then to dev->hard_start_xmit()
-> to have less link layer header space than dev->hard_header_len?
-> 
-> I.e., is dev->hard_header_len only advisory?
+> The overall kernel config is getting very messed up because of all of 
+> these selects.
 
-It does seem weird that IP output won't pay attention to
-dev->hard_header_len if the device does not provide a
-dev->hard_header() method.  That is for sure.
+The idea is that the user should be shielded from having to know what
+random kernel internal subsystem is necessary in order for feature
+"FOO" to even appear in their available kernel config selections.
