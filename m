@@ -1,45 +1,37 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [-mm patch] security/selinux/hooks.c: make 4 functions static
-Date: Sat, 29 Jul 2006 20:37:09 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0607292036460.31683@d.namei>
-References: <20060727015639.9c89db57.akpm@osdl.org> <20060729174830.GD26963@stusta.de>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: [parisc-linux] [git patches] tulip fixes from parisc-linux
+Date: Sat, 29 Jul 2006 18:43:39 -0600
+Message-ID: <20060730004339.GC11975@colo.lackof.org>
+References: <20060729225459.GA4835@athena.road.mcmartin.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@osdl.org>,
-	Venkat Yekkirala <vyekkirala@TrustedCS.com>,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, sds@tycho.nsa.gov
+Content-Type: text/plain; charset=us-ascii
+Cc: Valerie Henson <val_henson@linux.intel.com>,
+	netdev@vger.kernel.org, parisc-linux@lists.parisc-linux.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail7.sea5.speakeasy.net ([69.17.117.9]:48875 "EHLO
-	mail7.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1750896AbWG3AhN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Jul 2006 20:37:13 -0400
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20060729174830.GD26963@stusta.de>
+Received: from colo.lackof.org ([198.49.126.79]:45451 "EHLO colo.lackof.org")
+	by vger.kernel.org with ESMTP id S1750902AbWG3Anu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jul 2006 20:43:50 -0400
+To: Kyle McMartin <kyle@parisc-linux.org>
+Content-Disposition: inline
+In-Reply-To: <20060729225459.GA4835@athena.road.mcmartin.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 29 Jul 2006, Adrian Bunk wrote:
-
-> On Thu, Jul 27, 2006 at 01:56:39AM -0700, Andrew Morton wrote:
-> >...
-> > Changes since 2.6.18-rc2-mm1:
-> >...
-> >  git-net.patch
-> >...
-> >  git trees
-> >...
+On Sat, Jul 29, 2006 at 06:54:59PM -0400, Kyle McMartin wrote:
+> Hi Val,
 > 
-> This patch makes four needlessly global functions static.
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> Sorry it took so long for me to get around to splitting
+> up the changes from the parisc-linux tree. But here
+> they finally are.
 
+Kyle,
+dude, you rock!
+Many thanks for doing that.
 
-Acked-by: James Morris <jmorris@namei.org>
+I just wanted to warn that some of the changes are already in akpm
+'s tree (-mm).
+Becuase off hand I've forgotten which ones, would it be better to
+diff against -mm instead?
 
-
-
-
--- 
-James Morris
-<jmorris@namei.org>
+thanks,
+grant
