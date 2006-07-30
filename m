@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV6]: Audit all ip6_dst_lookup/ip6_dst_store calls
-Date: Sun, 30 Jul 2006 15:44:16 -0700 (PDT)
-Message-ID: <20060730.154416.121293840.davem@davemloft.net>
-References: <20060728194531.GA17744@lists.us.dell.com>
-	<20060729043325.GA7035@gondor.apana.org.au>
+Subject: Re: [PATCH] include/linux/netfilter_bridge.h: header cleanup
+Date: Sun, 30 Jul 2006 15:45:21 -0700 (PDT)
+Message-ID: <20060730.154521.35507382.davem@davemloft.net>
+References: <20060729074545.GA6843@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, Matt_Domsch@dell.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: akpm@osdl.org, netdev@vger.kernel.org, dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:49285
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:50053
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751428AbWG3WoH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Jul 2006 18:44:07 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060729043325.GA7035@gondor.apana.org.au>
+	id S1751429AbWG3WpK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Jul 2006 18:45:10 -0400
+To: adobriyan@gmail.com
+In-Reply-To: <20060729074545.GA6843@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 29 Jul 2006 14:33:25 +1000
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Sat, 29 Jul 2006 11:45:45 +0400
 
-> [IPV6]: Audit all ip6_dst_lookup/ip6_dst_store calls
+> Header doesn't use anything from atomic.h.
+> It fixes headers_check warning:
 > 
-> The current users of ip6_dst_lookup can be divided into two classes:
+> include/linux/netfilter_bridge.h requires asm/atomic.h, which does not exist
 > 
-> 1) The caller holds no locks and is in user-context (UDP).
-> 2) The caller does not want to lookup the dst cache at all.
+> Compile tested on
+> alpha     arm   i386-up  sparc    sparc64-up  x86_64
+> alpha-up  i386           sparc64  sparc-up    x86_64-up
 > 
-> The second class covers everyone except UDP because most people do
-> the cache lookup directly before calling ip6_dst_lookup.  This patch
-> adds ip6_sk_dst_lookup for the first class.
-> 
-> Similarly ip6_dst_store users can be divded into those that need to
-> take the socket dst lock and those that don't.  This patch adds
-> __ip6_dst_store for those (everyone except UDP/datagram) that don't
-> need an extra lock.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Applied, thanks Herbert.
+Applied, thanks Alexey.
