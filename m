@@ -1,31 +1,30 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [parisc-linux] [git patches] tulip fixes from parisc-linux
-Date: Sun, 30 Jul 2006 18:56:15 -0400
-Message-ID: <44CD390F.5000305@garzik.org>
-References: <20060729225459.GA4835@athena.road.mcmartin.ca> <20060730004339.GC11975@colo.lackof.org> <20060730165607.GB4835@athena.road.mcmartin.ca> <20060730113532.4db2fcb5.akpm@osdl.org> <20060730185456.GA17066@tachyon.int.mcmartin.ca>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] fix memory leak in
+ net/ipv4/tcp_probe.c::tcpprobe_read()
+Date: Sun, 30 Jul 2006 15:56:40 -0700 (PDT)
+Message-ID: <20060730.155640.10246145.davem@davemloft.net>
+References: <20060730142922.7c1d4f7d@localhost.localdomain>
+	<Pine.LNX.4.64.0607301747170.26424@d.namei>
+	<9a8748490607301451j21589110ifd8677f328b7eba6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, grundler@parisc-linux.org,
-	val_henson@linux.intel.com, netdev@vger.kernel.org,
-	parisc-linux@lists.parisc-linux.org
+Cc: jmorris@namei.org, shemminger@osdl.org, kuznet@ms2.inr.ac.ru,
+	yoshfuji@linux-ipv6.org, pekkas@netcore.fi, kaber@coreworks.de,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:30935 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S964780AbWG3W4T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2006 18:56:19 -0400
-To: Kyle McMartin <kyle@parisc-linux.org>
-In-Reply-To: <20060730185456.GA17066@tachyon.int.mcmartin.ca>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:58261
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S964781AbWG3W43 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Jul 2006 18:56:29 -0400
+To: jesper.juhl@gmail.com
+In-Reply-To: <9a8748490607301451j21589110ifd8677f328b7eba6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kyle McMartin wrote:
-> parisc-linux
-> merged Francois' tulip workqueue patch some time ago, and have been
-> running with it since without issue. This defers the tulip_select_media
-> work to process context, and so should be less of an issue.
+From: "Jesper Juhl" <jesper.juhl@gmail.com>
+Date: Sun, 30 Jul 2006 23:51:20 +0200
 
-Good to hear.  That's definitely my preference for future direction...
+> Looks ok to me.
 
-	Jeff
-
-
+I've applied James's version of the fix, thanks everyone.
