@@ -1,65 +1,59 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [RFC 1/4] kevent: core files.
-Date: Sun, 30 Jul 2006 01:08:42 -0700
-Message-ID: <44CC690A.5030204@redhat.com>
-References: <20060709132446.GB29435@2ka.mipt.ru>	 <20060724.231708.01289489.davem@davemloft.net>	 <44C91192.4090303@oracle.com> <20060727200655.GA4586@2ka.mipt.ru>	 <44C930D5.9020704@oracle.com> <20060728052312.GB11210@2ka.mipt.ru>	 <44CA586C.4010205@oracle.com> <20060728184445.GA10797@2ka.mipt.ru>	 <44CA613F.9080806@oracle.com>  <44CAD81A.9060401@redhat.com> <1154147562.2451.30.camel@entropy>
+From: maximilian attems <maks@sternwelten.at>
+Subject: Re: Bug#380411: 3c59x broken after swsuspend
+Date: Sun, 30 Jul 2006 11:25:12 +0200
+Message-ID: <20060730092512.GH8147@nancy>
+References: <20060730002718.GA13889@nighthawk.chemicalconnection.dyndns.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig86D0700284F405347779E45F"
-Cc: Zach Brown <zach.brown@oracle.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:34945 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751127AbWG3IHO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2006 04:07:14 -0400
-To: Nicholas Miell <nmiell@comcast.net>
-In-Reply-To: <1154147562.2451.30.camel@entropy>
+Received: from baikonur.stro.at ([213.239.196.228]:25731 "EHLO
+	baikonur.stro.at") by vger.kernel.org with ESMTP id S932125AbWG3JZQ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Jul 2006 05:25:16 -0400
+To: Michael Banck <mbanck@debian.org>, 380411@bugs.debian.org
+Content-Disposition: inline
+In-Reply-To: <20060730002718.GA13889@nighthawk.chemicalconnection.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig86D0700284F405347779E45F
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+hello michael,
 
-Nicholas Miell wrote:
-> [...] and was wondering
-> if you were familiar with the Solaris port APIs* and,
+sending bugreport to netdev.
 
-I wasn't.
+On Sun, 30 Jul 2006, Michael Banck wrote:
 
-
-> if so, you could
-> please comment on how your proposed event channels are different/better=
-=2E
-
-There indeed is not much difference.  The differences are in the
-details.  The way those ports are specified doesn't allow much room for
-further optimizations.  E.g., the userlevel ring buffer isn't possible.
- But mostly it's the same semantics.  The ec_t type in my text is also
-better a file descriptor since otherwise it cannot be transported via
-Unix stream sockets.
-
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
-=E2=9E=A7 Mountain View, CA =E2=9D=96
-
-
---------------enig86D0700284F405347779E45F
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.4 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
-
-iD4DBQFEzGkP2ijCOnn/RHQRAvC2AJjnzxTdqNtKpVSI4QdSJg30AUFMAJ96RT9c
-098L1wtV2qSAWu8UrK0tfA==
-=PJXY
------END PGP SIGNATURE-----
-
---------------enig86D0700284F405347779E45F--
+> Package: linux-2.6
+> Version: 2.6.17-4
+> 
+> after hibernate, my 3Com Corporation 3c556 Hurricane CardBus [Cyclone]
+> (rev 10) (3c59x driver) fails to come back up.
+> 
+> This is written on the console/xterm:
+> 
+> Internet Systems Consortium DHCP Client V3.0.4
+> Copyright 2004-2006 Internet Systems Consortium.
+> All rights reserved.
+> For info, please visit http://www.isc.org/sw/dhcp/
+> 
+> SIOCSIFADDR: No such device
+> eth0: ERROR while getting interface flags: No such device
+> eth0: ERROR while getting interface flags: No such device
+> FATAL: Module acpi_sbs not found.
+> Bind socket to interface: No such device
+> Failed to bring up eth0.
+> 
+> And this is in dmesg:
+> 
+> 3c59x: Donald Becker and others. www.scyld.com/network/vortex.html
+> 0000:00:0b.0: 3Com PCI 3c556 Laptop Tornado at c8830400.
+> eth1: New link status: Connected (0001)
+> *** EEPROM MAC address is invalid.
+> 3c59x: vortex_probe1 fails.  Returns -22
+> ACPI: PCI interrupt for device 0000:00:0b.0 disabled
+> 3c59x: probe of 0000:00:0b.0 failed with error -22
+> 
+> 
+> Michael
+-- 
+maks
