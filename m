@@ -1,36 +1,67 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Subsystem/prefix in patch submission format
-Date: Sun, 30 Jul 2006 14:01:09 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0607301342150.19037@kivilampi-30.cs.helsinki.fi>
+From: Hugo Santos <hsantos@av.it.pt>
+Subject: Re: Regarding offloading IPv6 addrconf and ndisc
+Date: Sun, 30 Jul 2006 12:30:50 +0100
+Message-ID: <20060730113050.GL8334@innerghost.net>
+References: <20060728014528.GB29313@innerghost.net> <20060727.192743.39159331.davem@davemloft.net> <20060728031322.GE29313@innerghost.net> <20060727.202044.85689055.davem@davemloft.net> <20060728033132.GF29313@innerghost.net> <20060727210738.36f33436@localhost.localdomain> <20060728083433.GG29313@innerghost.net> <1154090737.5165.69.camel@jzny2> <20060729133442.GI8334@innerghost.net> <44CC2741.4050706@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="dfmC41YZQlborXoK"
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	David Miller <davem@davemloft.net>,
+	herbert@gondor.apana.org.au, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:24746 "EHLO
-	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP id S932261AbWG3LBN
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Jul 2006 07:01:13 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by kivilampi-30.cs.helsinki.fi (Postfix) with ESMTP id 9B391EAFE5
-	for <netdev@vger.kernel.org>; Sun, 30 Jul 2006 14:01:11 +0300 (EEST)
-To: netdev@vger.kernel.org
+Received: from mail.av.it.pt ([193.136.92.53]:11190 "EHLO av.it.pt")
+	by vger.kernel.org with ESMTP id S932267AbWG3Lax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2006 07:30:53 -0400
+To: Kazunori Miyazawa <kazunori@miyazawa.org>
+Content-Disposition: inline
+In-Reply-To: <44CC2741.4050706@miyazawa.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+
+--dfmC41YZQlborXoK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
 Hi,
 
-I have read through http://linux.yyz.us/patch-format.html, which uses 
-$subsystem as prefix for summary. Could you please clarify what is 
-appropriate "prefix" for the actual summary in a case where patch touches 
-only a part of a subsystem, that is in my case, FRTO. Should the 
-subsystem be TCP or can I use FRTO directly? Or should I perhaps use
-them both (I found something similar from netdev archives and also from
-some logs of the kernel):
-   [TCP] FRTO: summary here
+> On the other hand, if a ND daemon loose the synchronization, it is
+> unpredicable, I guess.
 
-Just making sure, so that I can start to use the correct format of log 
-messages in my git tree. Thank you.
+   What do you mean by synchronization in this context? My idea was to
+ keep the ND state machine inside the kernel, and instead have the
+ daemon be reactive. That means it would send messages on behalf of the
+ kernel, and apply information based on received signalling (besides, ND
+ is reseliant to loss of messages). Taking your example, if the kernel
+ is using a neighbor entry and you replace it (either changing it's
+ state or link-layer address), the kernel will adapt, i believe it is
+ predictable. To be honest, i'm only worried about possible lost netlink
+ messages; but the daemon may be implemented to handle this, re-sending
+ while an ACK isn't receiving, thus minimizing any de-synchronization
+ possibilities.
 
+> BTW, we have a choice which we implement a functionality as a
+> module. I think it can achieve some of what you want.
 
--- 
- i.
+   Well, exporting the functionality to a module would be a start to
+ have one moving it out of the kernel. :-)
+
+   Hugo
+
+--dfmC41YZQlborXoK
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFEzJhq7asb/itUNKwRAsxoAJ0Xnj0w2IRGwj9w4vi4gINTE02ROACgtiJD
+5eCY//iIDBWf7wWcyOwcfDA=
+=PuL7
+-----END PGP SIGNATURE-----
+
+--dfmC41YZQlborXoK--
