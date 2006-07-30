@@ -1,25 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Subsystem/prefix in patch submission format
-Date: Sun, 30 Jul 2006 15:28:46 -0700 (PDT)
-Message-ID: <20060730.152846.42906358.davem@davemloft.net>
-References: <Pine.LNX.4.58.0607301342150.19037@kivilampi-30.cs.helsinki.fi>
+Subject: Re: [PATCH] NET: fix kernel panic from no dev->hard_header_len
+ space
+Date: Sun, 30 Jul 2006 15:30:04 -0700 (PDT)
+Message-ID: <20060730.153004.45876935.davem@davemloft.net>
+References: <m3zmevqhgn.fsf@defiant.localdomain>
+	<20060727164334.GA2779@ms2.inr.ac.ru>
+	<m3fygjkpwb.fsf@defiant.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:46991
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48015
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751396AbWG3W2g convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2006 18:28:36 -0400
-To: ilpo.jarvinen@helsinki.fi
-In-Reply-To: <Pine.LNX.4.58.0607301342150.19037@kivilampi-30.cs.helsinki.fi>
+	id S1751427AbWG3W3x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Jul 2006 18:29:53 -0400
+To: khc@pm.waw.pl
+In-Reply-To: <m3fygjkpwb.fsf@defiant.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Sun, 30 Jul 2006 14:01:09 +0300 (EEST)
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Date: Sun, 30 Jul 2006 18:40:04 +0200
 
->    [TCP] FRTO: summary here
+> Do the semantics (I'm not talking about bugs) allow skb passed
+> to dev->hard_header() (if defined) and then to dev->hard_start_xmit()
+> to have less link layer header space than dev->hard_header_len?
+> 
+> I.e., is dev->hard_header_len only advisory?
 
-This looks perfectly fine.
+It does seem weird that IP output won't pay attention to
+dev->hard_header_len if the device does not provide a
+dev->hard_header() method.  That is for sure.
