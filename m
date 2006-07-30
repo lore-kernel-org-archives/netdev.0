@@ -1,56 +1,36 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH] include/linux/netfilter_bridge.h: header cleanup
-Date: Sun, 30 Jul 2006 11:03:12 +0100
-Message-ID: <1154253792.3025.33.camel@pmac.infradead.org>
-References: <20060729074545.GA6843@martell.zuzino.mipt.ru>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Subsystem/prefix in patch submission format
+Date: Sun, 30 Jul 2006 14:01:09 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0607301342150.19037@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org, dot@dotat.at
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([205.233.218.70]:48027 "EHLO
-	canuck.infradead.org") by vger.kernel.org with ESMTP
-	id S1751382AbWG3KDz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Jul 2006 06:03:55 -0400
-To: Alexey Dobriyan <adobriyan@gmail.com>
-In-Reply-To: <20060729074545.GA6843@martell.zuzino.mipt.ru>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:24746 "EHLO
+	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP id S932261AbWG3LBN
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Jul 2006 07:01:13 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by kivilampi-30.cs.helsinki.fi (Postfix) with ESMTP id 9B391EAFE5
+	for <netdev@vger.kernel.org>; Sun, 30 Jul 2006 14:01:11 +0300 (EEST)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2006-07-29 at 11:45 +0400, Alexey Dobriyan wrote:
-> Header doesn't use anything from atomic.h.
-> It fixes headers_check warning:
-> 
-> include/linux/netfilter_bridge.h requires asm/atomic.h, which does not exist
-> 
-> Compile tested on
-> alpha     arm   i386-up  sparc    sparc64-up  x86_64
-> alpha-up  i386           sparc64  sparc-up    x86_64-up
-> 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> ---
-> 
->  include/linux/netfilter_bridge.h |    1 -
->  1 file changed, 1 deletion(-)
-> 
-> --- a/include/linux/netfilter_bridge.h
-> +++ b/include/linux/netfilter_bridge.h
-> @@ -6,7 +6,6 @@ #define __LINUX_BRIDGE_NETFILTER_H
->  
->  #include <linux/netfilter.h>
->  #if defined(__KERNEL__) && defined(CONFIG_BRIDGE_NETFILTER)
-> -#include <asm/atomic.h>
->  #include <linux/if_ether.h>
->  #endif
+Hi,
 
-Hm, that could have been dropped entirely by '#unifdef -U__KERNEL__'.
-P'raps we could teach unifdef that '#if defined(FOO) && ...' is always
-false if -UFOO.
+I have read through http://linux.yyz.us/patch-format.html, which uses 
+$subsystem as prefix for summary. Could you please clarify what is 
+appropriate "prefix" for the actual summary in a case where patch touches 
+only a part of a subsystem, that is in my case, FRTO. Should the 
+subsystem be TCP or can I use FRTO directly? Or should I perhaps use
+them both (I found something similar from netdev archives and also from
+some logs of the kernel):
+   [TCP] FRTO: summary here
 
-Dropping the include in this case is _also_ the right thing to do
-though, since it doesn't actually need to be there even for in-kernel
-compilation.
+Just making sure, so that I can start to use the correct format of log 
+messages in my git tree. Thank you.
+
 
 -- 
-dwmw2
-
+ i.
