@@ -1,38 +1,25 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 1/20] [PATCH] [IPV6]: Add Kconfig to enable Mobile IPv6.
-Date: Sun, 30 Jul 2006 18:20:46 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0607301819500.26424@d.namei>
-References: <11541658921982-git-send-email-nakam@linux-ipv6.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Subsystem/prefix in patch submission format
+Date: Sun, 30 Jul 2006 15:28:46 -0700 (PDT)
+Message-ID: <20060730.152846.42906358.davem@davemloft.net>
+References: <Pine.LNX.4.58.0607301342150.19037@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi,
-	vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.sea5.speakeasy.net ([69.17.117.6]:17552 "EHLO
-	mail4.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1750832AbWG3WUt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Jul 2006 18:20:49 -0400
-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
-In-Reply-To: <11541658921982-git-send-email-nakam@linux-ipv6.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:46991
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751396AbWG3W2g convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2006 18:28:36 -0400
+To: ilpo.jarvinen@helsinki.fi
+In-Reply-To: <Pine.LNX.4.58.0607301342150.19037@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 29 Jul 2006, Masahide NAKAMURA wrote:
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Sun, 30 Jul 2006 14:01:09 +0300 (EEST)
 
-> +config IPV6_MIP6
-> +	bool "IPv6: Mobility (EXPERIMENTAL)"
-> +	depends on IPV6 && EXPERIMENTAL
-> +	select XFRM
-> +	select XFRM_ADVANCED
+>    [TCP] FRTO: summary here
 
-Why 'select' here instead of 'depends on'?
-
-The overall kernel config is getting very messed up because of all of 
-these selects.
-
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+This looks perfectly fine.
