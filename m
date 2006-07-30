@@ -1,61 +1,54 @@
-From: James Morris <jmorris@namei.org>
+From: "Jesper Juhl" <jesper.juhl@gmail.com>
 Subject: Re: [PATCH] fix memory leak in net/ipv4/tcp_probe.c::tcpprobe_read()
-Date: Sun, 30 Jul 2006 17:48:23 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0607301747170.26424@d.namei>
+Date: Sun, 30 Jul 2006 23:51:20 +0200
+Message-ID: <9a8748490607301451j21589110ifd8677f328b7eba6@mail.gmail.com>
 References: <200607302138.02855.jesper.juhl@gmail.com>
- <20060730142922.7c1d4f7d@localhost.localdomain>
+	 <20060730142922.7c1d4f7d@localhost.localdomain>
+	 <Pine.LNX.4.64.0607301747170.26424@d.namei>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jesper Juhl <jesper.juhl@gmail.com>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Stephen Hemminger" <shemminger@osdl.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Pekka Savola <pekkas@netcore.fi>,
-	Patrick McHardy <kaber@coreworks.de>, netdev@vger.kernel.org
+	"Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>,
+	"Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>,
+	"Pekka Savola" <pekkas@netcore.fi>,
+	"Patrick McHardy" <kaber@coreworks.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:38880 "EHLO
-	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932408AbWG3Vs1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Jul 2006 17:48:27 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060730142922.7c1d4f7d@localhost.localdomain>
+Received: from ug-out-1314.google.com ([66.249.92.175]:21412 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S932426AbWG3VvV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Jul 2006 17:51:21 -0400
+Received: by ug-out-1314.google.com with SMTP id m3so469978ugc
+        for <netdev@vger.kernel.org>; Sun, 30 Jul 2006 14:51:20 -0700 (PDT)
+To: "James Morris" <jmorris@namei.org>
+In-Reply-To: <Pine.LNX.4.64.0607301747170.26424@d.namei>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 30 Jul 2006, Stephen Hemminger wrote:
+On 30/07/06, James Morris <jmorris@namei.org> wrote:
+> On Sun, 30 Jul 2006, Stephen Hemminger wrote:
+>
+> > On Sun, 30 Jul 2006 21:38:02 +0200
+> > Jesper Juhl <jesper.juhl@gmail.com> wrote:
+> >
+> > > There's an obvious memory leak in net/ipv4/tcp_probe.c::tcpprobe_read()
+> > > We are not freeing 'tbuf' on error.
+> > > Patch below fixes that.
+> > >
+> > >
+> > > Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+> > Agreed, thanks for catching it.  The whole kfifo interface is kind of
+> > annoying have to do an extra copy.
+>
+> Might be cleaner to make a single return path for cleanup:
+>
+> Signed-off-by: James Morris <jmorris@namei.org>
+>
+Looks ok to me.
 
-> On Sun, 30 Jul 2006 21:38:02 +0200
-> Jesper Juhl <jesper.juhl@gmail.com> wrote:
-> 
-> > There's an obvious memory leak in net/ipv4/tcp_probe.c::tcpprobe_read()
-> > We are not freeing 'tbuf' on error.
-> > Patch below fixes that.
-> > 
-> > 
-> > Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
-> Agreed, thanks for catching it.  The whole kfifo interface is kind of
-> annoying have to do an extra copy.
-
-Might be cleaner to make a single return path for cleanup:
-
-Signed-off-by: James Morris <jmorris@namei.org>
-
----
-
-
---- linux-2.6.18-rc2-mm1.o/net/ipv4/tcp_probe.c	2006-07-28 11:01:46.000000000 -0400
-+++ linux-2.6.18-rc2-mm1.w/net/ipv4/tcp_probe.c	2006-07-30 17:45:53.000000000 -0400
-@@ -130,11 +130,12 @@ static ssize_t tcpprobe_read(struct file
- 	error = wait_event_interruptible(tcpw.wait,
- 					 __kfifo_len(tcpw.fifo) != 0);
- 	if (error)
--		return error;
-+		goto out_free;
- 
- 	cnt = kfifo_get(tcpw.fifo, tbuf, len);
- 	error = copy_to_user(buf, tbuf, cnt);
- 
-+out_free:
- 	vfree(tbuf);
- 
- 	return error ? error : cnt;
+-- 
+Jesper Juhl <jesper.juhl@gmail.com>
+Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please      http://www.expita.com/nomime.html
