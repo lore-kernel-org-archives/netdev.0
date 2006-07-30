@@ -1,29 +1,48 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] NET: fix kernel panic from no dev->hard_header_len space
-Date: Sun, 30 Jul 2006 18:40:04 +0200
-Message-ID: <m3fygjkpwb.fsf@defiant.localdomain>
-References: <m3zmevqhgn.fsf@defiant.localdomain>
-	<20060727164334.GA2779@ms2.inr.ac.ru>
+From: Kyle McMartin <kyle@parisc-linux.org>
+Subject: Re: [parisc-linux] [git patches] tulip fixes from parisc-linux
+Date: Sun, 30 Jul 2006 12:56:07 -0400
+Message-ID: <20060730165607.GB4835@athena.road.mcmartin.ca>
+References: <20060729225459.GA4835@athena.road.mcmartin.ca> <20060730004339.GC11975@colo.lackof.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Cc: Valerie Henson <val_henson@linux.intel.com>,
+	netdev@vger.kernel.org, parisc-linux@lists.parisc-linux.org,
+	akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:42442 "EHLO khc.piap.pl")
-	by vger.kernel.org with ESMTP id S932366AbWG3QkH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jul 2006 12:40:07 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20060727164334.GA2779@ms2.inr.ac.ru> (Alexey Kuznetsov's message of "Thu, 27 Jul 2006 20:43:34 +0400")
+Received: from stout.engsoc.carleton.ca ([134.117.69.22]:61579 "EHLO
+	stout.engsoc.carleton.ca") by vger.kernel.org with ESMTP
+	id S1751188AbWG3Q4l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Jul 2006 12:56:41 -0400
+To: Grant Grundler <grundler@parisc-linux.org>
+Content-Disposition: inline
+In-Reply-To: <20060730004339.GC11975@colo.lackof.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Alexey,
+On Sat, Jul 29, 2006 at 06:43:39PM -0600, Grant Grundler wrote:
+> I just wanted to warn that some of the changes are already in akpm
+> 's tree (-mm).
+> Becuase off hand I've forgotten which ones, would it be better to
+> diff against -mm instead?
 
-Can you clarify this for me, please?
+tulip-fix-shutdown-dma-irq-race.patch
+  tulip: fix shutdown DMA/irq race
 
-Do the semantics (I'm not talking about bugs) allow skb passed
-to dev->hard_header() (if defined) and then to dev->hard_start_xmit()
-to have less link layer header space than dev->hard_header_len?
+tulip-fix-for-64-bit-mips.patch
+  tulip: fix for 64-bit mips
 
-I.e., is dev->hard_header_len only advisory?
--- 
-Krzysztof Halasa
+tulip-natsemi-dp83840a-phy-fix.patch
+  tulip: NatSemi DP83840A PHY fix
+
+Are the tulip patches in -mm, found here:
+http://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18-rc2/2.6.18-rc2-mm1/broken-out/tulip-fix-for-64-bit-mips.patch
+http://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18-rc2/2.6.18-rc2-mm1/broken-out/tulip-fix-shutdown-dma-irq-race.patch
+http://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18-rc2/2.6.18-rc2-mm1/broken-out/tulip-natsemi-dp83840a-phy-fix.patch
+
+[akpm: I added you to the CC list, if Val acks the patches can
+you see that they make their way into -mm?
+git.kernel.org/pub/scm/linux/kernel/git/kyle/tulip-2.6.git#master]
+
+Cheers,
+	Kyle M.
+
