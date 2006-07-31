@@ -1,140 +1,134 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: eth2.100: received packet with  own address as source address
-Date: Mon, 31 Jul 2006 11:46:46 -0400
-Message-ID: <20060731154646.GA24625@gospo.rdu.redhat.com>
-References: <44CD86A7.4010103@davidcoulson.net>
+From: Thomas Glanzmann <sithglan@stud.uni-erlangen.de>
+Subject: Re: IBM (Lenovo) T60: e1000 driver high latency
+Date: Mon, 31 Jul 2006 17:51:26 +0200
+Message-ID: <20060731155126.GH2576@cip.informatik.uni-erlangen.de>
+References: <20060731093433.GF2576@cip.informatik.uni-erlangen.de> <44CE1C37.2090001@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: bridge@lists.osdl.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:25820 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1030193AbWGaPqz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 11:46:55 -0400
-To: David Coulson <david@davidcoulson.net>
+Received: from faui03.informatik.uni-erlangen.de ([131.188.30.103]:63999 "EHLO
+	faui03.informatik.uni-erlangen.de") by vger.kernel.org with ESMTP
+	id S1030206AbWGaPv2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 11:51:28 -0400
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Content-Disposition: inline
-In-Reply-To: <44CD86A7.4010103@davidcoulson.net>
+In-Reply-To: <44CE1C37.2090001@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 31, 2006 at 12:27:19AM -0400, David Coulson wrote:
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
-> 
-> I have a machine running 2.6.18-rc3 with a bridge config that looks like
-> this:
-> 
-> cr1:~# brctl show
-> bridge name     bridge id               STP enabled     interfaces
-> vlan100         36b0.0007e90f40c1       yes             eth0.100
->                                                         eth2.100
-> vlan101         5dc0.0007e90f40c1       yes             eth0.101
->                                                         eth2.101
-> vlan102         5dc0.00e08163c33f       yes             eth3
-> vlan200         5dc0.0007e90f40c1       yes             eth0.200
->                                                         eth2.200
-> vlan201         5dc0.0007e90f40c1       yes             eth0.201
->                                                         eth2.201
-> vlan300         5dc0.0007e90f40c1       yes             eth0.300
->                                                         eth2.300
-> vlan301         5dc0.0007e90f40c1       yes             eth0.301
->                                                         eth2.301
-> vlan302         5dc0.0007e90f40c1       yes             eth0.302
->                                                         eth2.302
-> vlan303         5dc0.0007e90f40c1       yes             eth0.303
->                                                         eth2.303
-> 
-> All bridges, except for vlan102, are running STP and appear to have
-> elected themselves the root bridge.
-> 
-> I see this on the console:
-> 
-> printk: 18 messages suppressed.
-> eth2.100: received packet with  own address as source address
-> printk: 20 messages suppressed.
-> eth2.200: received packet with  own address as source address
-> 
+Hello Auke,
 
-This usually means that you have a loop somewhere, I can't say
-specifically that this is the case with your current setup, but it would
-be interesting to capture traffic on that interface and determine what
-it looks like in more detail.
+> > CONFIG_IRQBALANCE=y
 
+thanks for the feedback. The behaviour improoved. In my first tests it
+wasn't so good. But now it seems perfect:
 
-> This repeats continuously, only indicating an issue on the two specific
-> ports mentioned above. This confuses me:
-> 
-> 1) All VLANs (except for 102) are in an identical configuration
-> 2) No other VLANs exhibit the same kernel message
-> 3) I have another machine, running 2.6.18-rc2 with the same config and
-> no kernel message
-> 
-> Is this message specifically related to BPDU frames, or is it pertaining
-> to any Ethernet frame on the port?
-> 
-> Here is the STP config for one of the bridges. What's the next step to
-> troubleshoot this?
+(thinkpad) [~] ping 131.188.30.102
+PING 131.188.30.102 (131.188.30.102) 56(84) bytes of data.
+64 bytes from 131.188.30.102: icmp_seq=1 ttl=64 time=419 ms
+64 bytes from 131.188.30.102: icmp_seq=2 ttl=64 time=0.264 ms
+64 bytes from 131.188.30.102: icmp_seq=3 ttl=64 time=0.701 ms
+64 bytes from 131.188.30.102: icmp_seq=4 ttl=64 time=0.630 ms
+64 bytes from 131.188.30.102: icmp_seq=5 ttl=64 time=0.710 ms
+64 bytes from 131.188.30.102: icmp_seq=6 ttl=64 time=0.638 ms
+64 bytes from 131.188.30.102: icmp_seq=7 ttl=64 time=0.588 ms
+64 bytes from 131.188.30.102: icmp_seq=8 ttl=64 time=0.517 ms
+64 bytes from 131.188.30.102: icmp_seq=9 ttl=64 time=0.445 ms
+64 bytes from 131.188.30.102: icmp_seq=10 ttl=64 time=0.374 ms
 
-Capture some of the suspicious traffic.
+--- 131.188.30.102 ping statistics ---
+10 packets transmitted, 10 received, 0% packet loss, time 8996ms
+rtt min/avg/max/mdev = 0.264/42.447/419.606/125.719 ms
+(thinkpad) [~] ping 131.188.30.102
+PING 131.188.30.102 (131.188.30.102) 56(84) bytes of data.
+64 bytes from 131.188.30.102: icmp_seq=1 ttl=64 time=0.547 ms
+64 bytes from 131.188.30.102: icmp_seq=2 ttl=64 time=0.502 ms
+64 bytes from 131.188.30.102: icmp_seq=3 ttl=64 time=0.402 ms
+64 bytes from 131.188.30.102: icmp_seq=4 ttl=64 time=0.329 ms
 
-> 
-> vlan200
->  bridge id              5dc0.0007e90f40c1
->  designated root        5dc0.0007e90f40c1
->  root port                 0                    path cost                  0
->  max age                  20.00                 bridge max age
->   20.00
->  hello time                2.00                 bridge hello time
->    2.00
->  forward delay             5.00                 bridge forward delay
->    5.00
->  ageing time             300.01
->  hello timer               1.67                 tcn timer
->    0.00
->  topology change timer     0.00                 gc timer
->    0.03
->  flags
-> 
-> 
-> eth0.200 (1)
->  port id                8001                    state
-> forwarding
->  designated root        5dc0.0007e90f40c1       path cost                 19
->  designated bridge      5dc0.0007e90f40c1       message age timer
->    0.00
->  designated port        8001                    forward delay timer
->    0.00
->  designated cost           0                    hold timer
->    0.67
->  flags
-> 
-> eth2.200 (2)
->  port id                8002                    state
-> blocking
->  designated root        5dc0.0007e90f40c1       path cost                  4
->  designated bridge      5dc0.0007e90f40c1       message age timer
->   19.67
->  designated port        8001                    forward delay timer
->    0.00
->  designated cost           0                    hold timer
->    0.00
->  flags
-> 
-> 
-> David
-> 
-> - --
-> David J. Coulson
-> email: david@davidcoulson.net
-> web: http://www.davidcoulson.net/
-> -----BEGIN PGP SIGNATURE-----
-> Version: GnuPG v1.4.3 (GNU/Linux)
-> Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-> 
-> iD8DBQFEzYanTIgPQWnLowkRApT1AJ9yXl/O+rzacF+mpM7hhNtsEh/ufACfQCHk
-> mBGBxl5Iscj7vbFlM0IzY/Y=
-> =ZIs7
-> -----END PGP SIGNATURE-----
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- 131.188.30.102 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 2998ms
+rtt min/avg/max/mdev = 0.329/0.445/0.547/0.085 ms
+(thinkpad) [~] ping 131.188.30.102
+PING 131.188.30.102 (131.188.30.102) 56(84) bytes of data.
+64 bytes from 131.188.30.102: icmp_seq=1 ttl=64 time=0.301 ms
+64 bytes from 131.188.30.102: icmp_seq=2 ttl=64 time=0.753 ms
+64 bytes from 131.188.30.102: icmp_seq=3 ttl=64 time=0.681 ms
+64 bytes from 131.188.30.102: icmp_seq=4 ttl=64 time=0.609 ms
+64 bytes from 131.188.30.102: icmp_seq=5 ttl=64 time=0.538 ms
+64 bytes from 131.188.30.102: icmp_seq=6 ttl=64 time=0.466 ms
+64 bytes from 131.188.30.102: icmp_seq=7 ttl=64 time=0.374 ms
+64 bytes from 131.188.30.102: icmp_seq=8 ttl=64 time=0.308 ms
+
+--- 131.188.30.102 ping statistics ---
+8 packets transmitted, 8 received, 0% packet loss, time 6993ms
+rtt min/avg/max/mdev = 0.301/0.503/0.753/0.161 ms
+(thinkpad) [~] ping www.heise.de
+PING www.heise.de (193.99.144.85) 56(84) bytes of data.
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=1 ttl=246 time=1019 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=2 ttl=246 time=15.8 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=3 ttl=246 time=1000 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=4 ttl=246 time=360 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=5 ttl=246 time=39.1 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=6 ttl=246 time=360 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=7 ttl=246 time=1000 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=8 ttl=246 time=360 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=9 ttl=246 time=360 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=10 ttl=246 time=360 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=11 ttl=246 time=1000 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=12 ttl=246 time=319 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=13 ttl=246 time=20.5 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=14 ttl=246 time=350 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=15 ttl=246 time=792 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=16 ttl=246 time=350 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=17 ttl=246 time=1000 ms
+
+--- www.heise.de ping statistics ---
+18 packets transmitted, 17 received, 5% packet loss, time 17013ms
+rtt min/avg/max/mdev = 15.835/512.385/1019.753/360.201 ms, pipe 2
+(thinkpad) [~] ping www.google.de
+PING www.l.google.com (66.249.85.104) 56(84) bytes of data.
+64 bytes from 66.249.85.104: icmp_seq=1 ttl=246 time=732 ms
+64 bytes from 66.249.85.104: icmp_seq=2 ttl=246 time=999 ms
+64 bytes from 66.249.85.104: icmp_seq=3 ttl=246 time=1000 ms
+64 bytes from 66.249.85.104: icmp_seq=4 ttl=246 time=400 ms
+
+--- www.l.google.com ping statistics ---
+5 packets transmitted, 4 received, 20% packet loss, time 4388ms
+rtt min/avg/max/mdev = 400.939/783.424/1000.436/246.402 ms, pipe 2
+(thinkpad) [~] uname -a
+Linux thinkpad 2.6.17.7 #3 SMP Mon Jul 31 17:44:21 CEST 2006 i686 GNU/Linux
+(thinkpad) [~] date
+Mon Jul 31 17:47:39 CEST 2006
+(thinkpad) [~] ping www.google.de
+PING www.l.google.com (66.249.85.99) 56(84) bytes of data.
+64 bytes from 66.249.85.99: icmp_seq=1 ttl=246 time=13.3 ms
+64 bytes from 66.249.85.99: icmp_seq=2 ttl=246 time=13.4 ms
+64 bytes from 66.249.85.99: icmp_seq=3 ttl=246 time=13.4 ms
+64 bytes from 66.249.85.99: icmp_seq=4 ttl=246 time=13.3 ms
+64 bytes from 66.249.85.99: icmp_seq=5 ttl=246 time=13.2 ms
+64 bytes from 66.249.85.99: icmp_seq=6 ttl=246 time=13.6 ms
+64 bytes from 66.249.85.99: icmp_seq=7 ttl=246 time=13.6 ms
+64 bytes from 66.249.85.99: icmp_seq=8 ttl=246 time=13.5 ms
+64 bytes from 66.249.85.99: icmp_seq=9 ttl=246 time=13.4 ms
+64 bytes from 66.249.85.99: icmp_seq=10 ttl=246 time=13.4 ms
+64 bytes from 66.249.85.99: icmp_seq=11 ttl=246 time=13.3 ms
+
+--- www.l.google.com ping statistics ---
+11 packets transmitted, 11 received, 0% packet loss, time 10002ms
+rtt min/avg/max/mdev = 13.287/13.451/13.689/0.188 ms
+(thinkpad) [~] ping www.heise.de
+PING www.heise.de (193.99.144.85) 56(84) bytes of data.
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=1 ttl=246 time=13.9 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=2 ttl=246 time=13.8 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=3 ttl=246 time=14.2 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=4 ttl=246 time=14.2 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=5 ttl=246 time=13.6 ms
+64 bytes from www.heise.de (193.99.144.85): icmp_seq=6 ttl=246 time=13.5 ms
+
+--- www.heise.de ping statistics ---
+6 packets transmitted, 6 received, 0% packet loss, time 4995ms
+rtt min/avg/max/mdev = 13.561/13.906/14.279/0.274 ms
+
+        Thomas
