@@ -1,57 +1,37 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH] NET: fix kernel panic from no dev->hard_header_len space
-Date: Mon, 31 Jul 2006 19:39:48 +0400
-Message-ID: <20060731153948.GB17540@ms2.inr.ac.ru>
-References: <m3zmevqhgn.fsf@defiant.localdomain> <20060727164334.GA2779@ms2.inr.ac.ru> <m3fygjkpwb.fsf@defiant.localdomain> <20060730.153004.45876935.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/5] [IPV6]: Multiple Routing Tables
+Date: Mon, 31 Jul 2006 17:41:42 +0200
+Message-ID: <20060731154142.GK14627@postel.suug.ch>
+References: <44CE0BE6.1070108@tcs.hut.fi> <E1G7YKN-0007Ao-00@gondolin.me.apana.org.au> <20060731140214.GA27619@gondor.apana.org.au> <44CE0BE6.1070108@tcs.hut.fi> <E1G7YKN-0007Ao-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: khc@pm.waw.pl, netdev@vger.kernel.org
+Cc: Ville Nuorvala <vnuorval@tcs.hut.fi>, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org, yoshfuji@linux-ipv6.org,
+	davem@davemloft.net, anttit@tcs.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:58327 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1030190AbWGaPkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 11:40:45 -0400
-To: David Miller <davem@davemloft.net>
+Received: from postel.suug.ch ([194.88.212.233]:27603 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1030199AbWGaPlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 11:41:21 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <20060730.153004.45876935.davem@davemloft.net>
+In-Reply-To: <20060731140214.GA27619@gondor.apana.org.au> <E1G7YKN-0007Ao-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+* Herbert Xu <herbert@gondor.apana.org.au> 2006-08-01 00:01
+> Without a route cache, I think our only choice is to search through
+> all tables.  The same thing applies to PMTU updates as well.
 
-> It does seem weird that IP output won't pay attention to
+I think PMTU etc. should be moved out of the route into a
+some form of flow cache. It's currently using rt6_lookup()
+which even goes through the rules.
 
-Not so weird, actually.
+Doing a few thousand trie lookups after Patrick's changes
+in the worst case for every redirect might be acceptable
+but doing so for every PMTU update could become an issue.
 
-The logic was:
+> Actually, if we're adding policy routing, we should seriously consider
+> whether living without a routing cache is still viable or not because
+> the cost of a route lookup has just gone up.
 
-Only initial skb allocation tries to reserve all the space
-to avoid copies in the future.
-
-All the rest of places just check, that there is enough space
-for their immediate needs. If dev->hard_header() is NULL, it means that
-stack does not need any space at all, so that it does not need to worry.
-
-Right logic for reallocation would be:
-
-	if (skb_headroom(skb) < space_which_I_need_now) {
-		skb2 = skb_realloc_headroom(skb, space_for_future);
-	}
-
-That logic was not followed exactly only because of laziness,
-each time some device is found which forgets to check for space,
-so reallocation is made in absolutely inappropriate places.
-F.e. ip_forward() does not need to reallocate skb when
-skb_headroom() < dev->hard_header_len. It does and it is not good.
-
-Good example is ipip tunnel. It sets:
-
-	dev->hard_header_len = sizeof(iphdr) + LL_MAX_HEADER
-
-because it does not know, what device will be used.
-It is lots of space and most likely it will not use it.
-So, initial allocation reserves lots of space, but all the rest
-of stack should not reallocate, tunnel will take care of this itself.
-
-Alexey
-
-
+Absolutely.
