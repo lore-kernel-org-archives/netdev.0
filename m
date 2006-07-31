@@ -1,30 +1,67 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: Re: [RESEND 4/5] [IPV6]: Policy Routing Rules
-Date: Mon, 31 Jul 2006 17:55:27 +0300
-Message-ID: <44CE19DF.9050604@tcs.hut.fi>
-References: <20060726221100.325687073@postel.suug.ch> <20060726221850.124450582@postel.suug.ch> <20060726.163343.29813028.davem@davemloft.net> <20060726.164028.13029784.davem@davemloft.net> <20060727224012.GA14627@postel.suug.ch>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: IBM (Lenovo) T60: e1000 driver high latency
+Date: Mon, 31 Jul 2006 08:05:27 -0700
+Message-ID: <44CE1C37.2090001@intel.com>
+References: <20060731093433.GF2576@cip.informatik.uni-erlangen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org, yoshfuji@linux-ipv6.org,
-	anttit@tcs.hut.fi
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from neon.tcs.hut.fi ([130.233.215.20]:5387 "EHLO neon.tcs.hut.fi")
-	by vger.kernel.org with ESMTP id S1751234AbWGaOz2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 10:55:28 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060727224012.GA14627@postel.suug.ch>
+Received: from mga01.intel.com ([192.55.52.88]:39200 "EHLO
+	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
+	id S1750879AbWGaPGn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 11:06:43 -0400
+To: Thomas Glanzmann <sithglan@stud.uni-erlangen.de>
+In-Reply-To: <20060731093433.GF2576@cip.informatik.uni-erlangen.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
+Thomas Glanzmann wrote:
+> Hello,
+> 
+>    [ resend because .config and the used kernel version was missing ]
+> 
+> Linux Kernel Version: Linus Vanilla Tree; .config attached.
+> 
+> I recently aquired a Lenovo (IBM) T60 with a e1000 network card. I
+> experience high latency with this networkcard: Pings last upto 1 second
+> where the ping should be around 25 ms. I googled a bit and found the
+> following:
+> 
+> - Enable NAPI, which didn't worked for me.
+> 
+>         64 bytes from 192.168.0.223: icmp_seq=30 ttl=64 time=1004 ms
+>         64 bytes from 192.168.0.223: icmp_seq=31 ttl=64 time=0.444 ms
+>         64 bytes from 192.168.0.223: icmp_seq=32 ttl=64 time=1006 ms
+>         64 bytes from 192.168.0.223: icmp_seq=33 ttl=64 time=0.739 ms
 
-> Adds support for policy routing rules including a new
-> local table for routes with a local destination.
+Someone reported this problem on the e1000 bug tracker at e1000.sf.net.
 
-Looks good!
+He also reported that the behaviour goes away completely if he disables the 
+in-kernel irq balancer:
 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+: If I disable in kernel config Irq Balancing pings are
+: much better but not the best  :-)
+:
+: 64 bytes from 192.168.3.74: icmp_seq=29 ttl=64 time=12.7 ms
+: 64 bytes from 192.168.3.74: icmp_seq=30 ttl=64 time=10.0 ms
+: 64 bytes from 192.168.3.74: icmp_seq=31 ttl=64 time=7.3 ms
+: 64 bytes from 192.168.3.74: icmp_seq=32 ttl=64 time=4.5 ms
 
-Signed-off-by: Ville Nuorvala <vnuorval@tcs.hut.fi>
+that's a large difference from >> 1000ms, and I cannot suspect otherwise that 
+the kernel irqbalance is wreaking havoc in your system, trying to swap the 
+entire context between each core (t60 is a core duo) every second or so.
+
+I've never believed much in the kernel irq balancer, the userspace daemon 
+written by Arjan van der Ven just does a much better job, so can you try to 
+disable the kernel irqbalancer?
+
+ > CONFIG_IRQBALANCE=y
+
+turn that off ;)
+
+
+Cheers,
+
+Auke
