@@ -1,102 +1,57 @@
-From: Suparna Bhattacharya <suparna@in.ibm.com>
-Subject: Re: [3/4] kevent: AIO, aio_sendfile() implementation.
-Date: Mon, 31 Jul 2006 15:41:57 +0530
-Message-ID: <20060731101157.GA10499@in.ibm.com>
-References: <20060726100431.GA7518@infradead.org> <20060726101919.GB2715@2ka.mipt.ru> <20060726103001.GA10139@infradead.org> <44C77C23.7000803@redhat.com> <44C796C3.9030404@us.ibm.com> <1153982954.3887.9.camel@frecb000686> <44C8DB80.6030007@us.ibm.com> <44C9029A.4090705@oracle.com> <1154024943.29920.3.camel@dyn9047017100.beaverton.ibm.com> <44C90987.1040200@redhat.com>
-Reply-To: suparna@in.ibm.com
+From: Wei Yongjun <yjwei@nanjing-fnst.com>
+Subject: Re: [PATCH] SNMPv2 udpInDatagrams counter error
+Date: Mon, 31 Jul 2006 07:21:15 -0400
+Message-ID: <1154344876.4239.7.camel@LINE>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Badari Pulavarty <pbadari@us.ibm.com>,
-	Zach Brown <zach.brown@oracle.com>,
-	=?iso-8859-1?Q?S=E9bastien_Dugu=E9_=3Csebastien=2Edugue=40bull=2Enet?=.=?iso-8859-1?Q?=3E?=@qubit.in.ibm.com,
-	Christoph Hellwig <hch@infradead.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:7896 "EHLO e34.co.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1751330AbWGaKLe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 06:11:34 -0400
-To: Ulrich Drepper <drepper@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <44C90987.1040200@redhat.com>
+Received: from [221.6.14.228] ([221.6.14.228]:56978 "EHLO
+	localmail.nanjing-fnst.com") by vger.kernel.org with ESMTP
+	id S1751502AbWGaKOd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 06:14:33 -0400
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 27, 2006 at 11:44:23AM -0700, Ulrich Drepper wrote:
-> Badari Pulavarty wrote:
-> > Before we spend too much time cleaning up and merging into mainline=
- -
-> > I would like an agreement that what we add is good enough for glibc
-> > POSIX AIO.
->=20
-> I haven't seen a description of the interface so far.  Would be good =
-if
+This change does not effect to tcpdump, only let UDP filter can not 
+received UDP datagrams with checksum error. It is not a good idea, but
+I think is the best way to resolve this problem. If you want to capture
+error UDP packet, you can used tcpdump.
 
-Did S=E9bastien's mail with the description help ?=20
-
-> it existed.  But I briefly mentioned one quirk in the interface about
-> which Suparna wasn't sure whether it's implemented/implementable in t=
-he
-> current interface.
->=20
-> If a lio_listio call is made the individual requests are handle just =
-as
-> if they'd be issue separately.  I.e., the notification specified in t=
-he
-> individual aiocb is performed when the specific request is done.  The=
-n,
-> once all requests are done, another notification is made, this time
-> controlled by the sigevent parameter if lio_listio.
-
-Looking at the code in lio kernel patch, this should be already covered=
-:
-
-        if (iocb->ki_signo)
-                __aio_send_signal(iocb);
-
-+       if (iocb->ki_lio)
-+               lio_check(iocb->ki_lio);
-
-That is, it first checks the notification in the individual iocb, and t=
-hen
-the one for the LIO.
-
->=20
->=20
-> Another feature which I always wanted: the current lio_listio call
-> returns in blocking mode only if all requests are done.  In non-block=
-ing
-> mode it returns immediately and the program needs to poll the aiocbs.
-> What is needed is something in the middle.  For instance, if multiple
-> read requests are issued the program might be able to start working a=
-s
-> soon as one request is satisfied.  I.e., a call similar to lio_listio
-> would be nice which also takes another parameter specifying how many =
-of
-> the NENT aiocbs have to finish before the call returns.
-
-I imagine the kernel could enable this by incorporating this additional
-parameter for IOCB_CMD_GROUP in the ABI (in the default case this shoul=
-d be the
-same as the total number of iocbs submitted to lio_listio). Now should =
-the
-at least NENT check apply only to LIO_WAIT or also to the LIO_NOWAIT
-notification case ?=20
-
-BTW, the native io_getevents does support a min_nr wakeup already, exce=
-pt that
-it applies to any iocb on the io_context, and not just a given lio_list=
-io call.
-
-Regards
-Suparna
-
-
---=20
-Suparna Bhattacharya (suparna@in.ibm.com)
-Linux Technology Center
-IBM Software Lab, India
+On Monday 31 July 2006 04:57, Gerrit Renker wrote:
+> Hi,
+>
+> |  if (!sk->sk_filter && skb->ip_summed != CHECKSUM_UNNECESSARY) {
+> |
+> |  IPv6 doesn't do this, so I think delete condition 'sk->sk_filter'
+is
+> | better. Do you think so?
+>
+> I think the sk->sk_filter is there for a good reason. If you delete
+it,
+> that routine is forced to always compute UDP checksums, even if the
+only
+> receiving application is a tcpdump process. I may be wrong here, but I
+> think that deleting the sk_filter statement is not at a good idea.
+>
+> The other alternatives discussed (afaik) so far were:
+>
+> 1) Move the increment of UDP_MIB_INDATAGRAMS from udp_queue_rcv_skb()
+to
+> udp_recvmsg() (first patch uploaded to 
+> http://bugzilla.kernel.org/show_bug.cgi?id=6660). This was discussed:
+not a
+> good idea, since in-kernel applications may use the data_ready handler
+> rather than udp_recvmsg().
+>
+> 2) Decrement UDP_MIB_INDATAGRAMS in udp_recvmsg() when the checksum
+turns
+> out to be wrong (second patch uploaded to above address). This would
+be a
+> fix to the problem you are stating, it also solves the problem of
+missing
+> out the data_ready handlers in (1), and was suggested earlier on this
+> mailing list.
 
