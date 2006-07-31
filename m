@@ -1,64 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: neigh_lookup lockdep bug.
-Date: Mon, 31 Jul 2006 14:02:52 -0700 (PDT)
-Message-ID: <20060731.140252.31448010.davem@davemloft.net>
-References: <20060731205004.GA31845@redhat.com>
+Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help()
+ 2.6.18-rc3
+Date: Mon, 31 Jul 2006 14:15:59 -0700 (PDT)
+Message-ID: <20060731.141559.95507027.davem@davemloft.net>
+References: <44CDDDF7.70004@trash.net>
+	<20060731113050.GA25972@gondor.apana.org.au>
+	<44CE4DCA.8000609@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arjan@infradead.org, mingo@redhat.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52386
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:9608
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030457AbWGaVDg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 17:03:36 -0400
-To: davej@redhat.com
-In-Reply-To: <20060731205004.GA31845@redhat.com>
+	id S1751341AbWGaVQo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 17:16:44 -0400
+To: kaber@trash.net
+In-Reply-To: <44CE4DCA.8000609@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dave Jones <davej@redhat.com>
-Date: Mon, 31 Jul 2006 16:50:04 -0400
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 31 Jul 2006 20:36:58 +0200
 
-> 2.6.18rc2-gitSomething on my firewall box just triggered this..
+> I'm going to do some more testing now ..
 
-Lockdep is perhaps confused.
+Thanks for all of this work Patrick.
 
-> [515613.904945] swapper/0 is trying to acquire lock:
-> [515613.931489]  (&tbl->lock){-+-+}, at: [<c05b5d63>] neigh_lookup+0x50/0xaf
-> [515613.964369] 
-> [515613.964373] but task is already holding lock:
-> [515614.006550]  (&skb_queue_lock_key){-+..}, at: [<c05b741c>] neigh_proxy_process+0x20/0xc2
+I noticed a subtle semantic change for nf_queue().  Previously, if we
+can't grab the module reference for the matching entry, we'd not free
+the skb, return 0, and the caller tries to iterate to the next hook.
 
-The skb_queue_lock in question is &tbl->proxy_queue.lock
+That behavior is preserved for singleton frames, but that's not what
+happens for GSO frames.  Instead, the GSO frame is split up and we
+always return "1" even if some of the subsegments cause __nf_queue()
+to return 0 due to the case described in the previous paragraph.
 
-> [515614.103459] the existing dependency chain (in reverse order) is:
-> [515614.148752] 
-> [515614.148755] -> #2 (&skb_queue_lock_key){-+..}:
-> [515614.188880]        [<c043bf43>] lock_acquire+0x4b/0x6c
-> [515614.215554]        [<c06089a7>] _spin_lock_irqsave+0x22/0x32
-> [515614.243606]        [<c05ac2e3>] skb_dequeue+0x12/0x43
-> [515614.269657]        [<c05acffe>] skb_queue_purge+0x14/0x1b
-> [515614.296565]        [<c05b673e>] neigh_update+0x317/0x353
+It is, however, mindful to free up the kfree_skb so it doesn't cause a
+leak or anything like that.
 
-This is a different queue lock, namely &neigh->arp_queue.lock
+Does this matter?
 
-Like the ipv6 trace we got yesterday from Matt Domsche, lockdep
-is aparently confusing two instances of the skb_queue_lock_key
-
-> [515614.677724] -> #0 (&tbl->lock){-+-+}:
-> [515614.707327]        [<c043bf43>] lock_acquire+0x4b/0x6c
-> [515614.729897]        [<c060878a>] _read_lock_bh+0x1e/0x2d
-> [515614.752546]        [<c05b5d63>] neigh_lookup+0x50/0xaf
-> [515614.774754]        [<c05b6e5e>] neigh_event_ns+0x2c/0x77
-> [515614.797271]        [<c05e88c7>] arp_process+0x366/0x4e4
-> [515614.819349]        [<c05e8b3e>] parp_redo+0x8/0xa
-> [515614.839660]        [<c05b7462>] neigh_proxy_process+0x66/0xc2
-> [515614.862931]        [<c042db48>] run_timer_softirq+0x108/0x167
-> [515614.886048]        [<c04293d5>] __do_softirq+0x78/0xf2
-> [515614.907136]        [<c040662f>] do_softirq+0x5a/0xbe
-> [515614.927553] 
-
-And this path takes &neigh->proxy_queue.lock, then &tbl->lock
-
-I don't see the problem.
