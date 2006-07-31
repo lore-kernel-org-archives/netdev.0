@@ -1,38 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV6]: Audit all ip6_dst_lookup/ip6_dst_store calls
-Date: Sun, 30 Jul 2006 20:56:23 -0700 (PDT)
-Message-ID: <20060730.205623.91207946.davem@davemloft.net>
-References: <20060729043325.GA7035@gondor.apana.org.au>
-	<20060730.154416.121293840.davem@davemloft.net>
-	<20060731033210.GD31083@humbolt.us.dell.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [XFRM]: Fix protocol field value for outgoing IPv6 GSO packets
+Date: Mon, 31 Jul 2006 06:06:37 +0200
+Message-ID: <44CD81CD.3060503@trash.net>
+References: <44C56136.50600@trash.net> <20060725001326.GA18972@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, yoshfuji@linux-ipv6.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------000505060408070205030208"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Kernel Netdev Mailing List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48524
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751069AbWGaD4M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Jul 2006 23:56:12 -0400
-To: Matt_Domsch@dell.com
-In-Reply-To: <20060731033210.GD31083@humbolt.us.dell.com>
+Received: from stinky.trash.net ([213.144.137.162]:22666 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751435AbWGaEGj
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 00:06:39 -0400
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060725001326.GA18972@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Matt Domsch <Matt_Domsch@dell.com>
-Date: Sun, 30 Jul 2006 22:32:10 -0500
+This is a multi-part message in MIME format.
+--------------000505060408070205030208
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-> swapper/0 is trying to acquire lock:
->  (slock-AF_INET6){-+..}, at: [<ffffffff80414fda>] sk_clone+0xd2/0x3a8
+Hi Dave,
+
+Herbert Xu wrote:
+> On Tue, Jul 25, 2006 at 02:09:26AM +0200, Patrick McHardy wrote:
 > 
-> but task is already holding lock:
->  (slock-AF_INET6){-+..}, at: [<ffffffff883d71a8>] tcp_v6_rcv+0x30e/0x76e [ipv6]
+>>[XFRM]: Fix protocol field value for outgoing IPv6 GSO packets
+>>
+>>Signed-off-by: Patrick McHardy <kaber@trash.net>
+> 
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-The tcp_v6_rcv() code path is holding the slock on the parent
-listening socket, whereas in sk_clone() we have grabbed the
-socket slock on the newly allocated "newsk" socket.  These
-are thus two seperate locks, although they are in the same
-locking class "slock-AF_INET6".
+I believe you missed this one. Attached again for your convenience.
 
-I don't know why the lock validator is complaining about this.
+
+--------------000505060408070205030208
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+[XFRM]: Fix protocol field value for outgoing IPv6 GSO packets
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit 8035f60a607630459e4440dbbc5a20f3cfbf97ac
+tree f1a7061cfd1f923b3991ee8f449cffce86870a3e
+parent 440848a8e33fc1927bab45bd73f6c8e042ea7abd
+author Patrick McHardy <kaber@trash.net> Tue, 25 Jul 2006 02:02:00 +0200
+committer Patrick McHardy <kaber@trash.net> Tue, 25 Jul 2006 02:02:00 +0200
+
+ net/ipv6/xfrm6_output.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index 0eea60e..c8c8b44 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -125,7 +125,7 @@ static int xfrm6_output_finish(struct sk
+ 	if (!skb_is_gso(skb))
+ 		return xfrm6_output_finish2(skb);
+ 
+-	skb->protocol = htons(ETH_P_IP);
++	skb->protocol = htons(ETH_P_IPV6);
+ 	segs = skb_gso_segment(skb, 0);
+ 	kfree_skb(skb);
+ 	if (unlikely(IS_ERR(segs)))
+
+
+--------------000505060408070205030208--
