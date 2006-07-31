@@ -1,40 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PATCH Fix bonding active-backup behavior for VLAN interfaces
-Date: Sun, 30 Jul 2006 20:50:32 -0700 (PDT)
-Message-ID: <20060730.205032.130618331.davem@davemloft.net>
-References: <44CA34D0.1070507@candelatech.com>
-	<20060728215032.GA17930@walrus.eth1.org>
-	<44CA87C5.1060905@candelatech.com>
+Subject: Re: [IPV6]: Audit all ip6_dst_lookup/ip6_dst_store calls
+Date: Sun, 30 Jul 2006 20:56:23 -0700 (PDT)
+Message-ID: <20060730.205623.91207946.davem@davemloft.net>
+References: <20060729043325.GA7035@gondor.apana.org.au>
+	<20060730.154416.121293840.davem@davemloft.net>
+	<20060731033210.GD31083@humbolt.us.dell.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: christophe.devriese@eth1.org, netdev@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, yoshfuji@linux-ipv6.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:40682
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48524
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751115AbWGaDuW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Jul 2006 23:50:22 -0400
-To: greearb@candelatech.com
-In-Reply-To: <44CA87C5.1060905@candelatech.com>
+	id S1751069AbWGaD4M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Jul 2006 23:56:12 -0400
+To: Matt_Domsch@dell.com
+In-Reply-To: <20060731033210.GD31083@humbolt.us.dell.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Fri, 28 Jul 2006 14:55:17 -0700
+From: Matt Domsch <Matt_Domsch@dell.com>
+Date: Sun, 30 Jul 2006 22:32:10 -0500
 
-> The skb_bond method assigns skb->dev when it does the 'keep',
-> but the VLAN code immediately over-writes the skb->dev when
-> searching for the vlan device.
+> swapper/0 is trying to acquire lock:
+>  (slock-AF_INET6){-+..}, at: [<ffffffff80414fda>] sk_clone+0xd2/0x3a8
 > 
-> What is the purpose of assinging skb->dev to the master device?
+> but task is already holding lock:
+>  (slock-AF_INET6){-+..}, at: [<ffffffff883d71a8>] tcp_v6_rcv+0x30e/0x76e [ipv6]
 
-This makes me consider this patch highly dubious, at best.
+The tcp_v6_rcv() code path is holding the slock on the parent
+listening socket, whereas in sk_clone() we have grabbed the
+socket slock on the newly allocated "newsk" socket.  These
+are thus two seperate locks, although they are in the same
+locking class "slock-AF_INET6".
 
-The whole intention of bonding on input is to make all packets
-incoming on the individual bond slaves to look like they come in via
-the master device.
-
-Therefore, even when the bond slaves are VLAN devices, in the end the
-skb->dev should be the bond master device _not_ the VLAN device.
-
-I'm not applying this patch, it doesn't look correct at all.
+I don't know why the lock validator is complaining about this.
