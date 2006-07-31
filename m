@@ -1,134 +1,114 @@
-From: Thomas Glanzmann <sithglan@stud.uni-erlangen.de>
-Subject: Re: IBM (Lenovo) T60: e1000 driver high latency
-Date: Mon, 31 Jul 2006 17:51:26 +0200
-Message-ID: <20060731155126.GH2576@cip.informatik.uni-erlangen.de>
-References: <20060731093433.GF2576@cip.informatik.uni-erlangen.de> <44CE1C37.2090001@intel.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [RFC] gre: transparent ethernet bridging
+Date: Mon, 31 Jul 2006 09:14:23 -0700
+Message-ID: <20060731091423.3327f85e@dxpl.pdx.osdl.net>
+References: <44CDD631.5030008@snapgear.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from faui03.informatik.uni-erlangen.de ([131.188.30.103]:63999 "EHLO
-	faui03.informatik.uni-erlangen.de") by vger.kernel.org with ESMTP
-	id S1030206AbWGaPv2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 11:51:28 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
-Content-Disposition: inline
-In-Reply-To: <44CE1C37.2090001@intel.com>
+Received: from smtp.osdl.org ([65.172.181.4]:35209 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030211AbWGaQOi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 12:14:38 -0400
+To: Philip Craig <philipc@snapgear.com>
+In-Reply-To: <44CDD631.5030008@snapgear.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Auke,
+On Mon, 31 Jul 2006 20:06:41 +1000
+Philip Craig <philipc@snapgear.com> wrote:
 
-> > CONFIG_IRQBALANCE=y
+> This patch implements transparent ethernet bridging for gre tunnels.
+> There are a few outstanding issues.
 
-thanks for the feedback. The behaviour improoved. In my first tests it
-wasn't so good. But now it seems perfect:
+Why not use existing bridge code?
 
-(thinkpad) [~] ping 131.188.30.102
-PING 131.188.30.102 (131.188.30.102) 56(84) bytes of data.
-64 bytes from 131.188.30.102: icmp_seq=1 ttl=64 time=419 ms
-64 bytes from 131.188.30.102: icmp_seq=2 ttl=64 time=0.264 ms
-64 bytes from 131.188.30.102: icmp_seq=3 ttl=64 time=0.701 ms
-64 bytes from 131.188.30.102: icmp_seq=4 ttl=64 time=0.630 ms
-64 bytes from 131.188.30.102: icmp_seq=5 ttl=64 time=0.710 ms
-64 bytes from 131.188.30.102: icmp_seq=6 ttl=64 time=0.638 ms
-64 bytes from 131.188.30.102: icmp_seq=7 ttl=64 time=0.588 ms
-64 bytes from 131.188.30.102: icmp_seq=8 ttl=64 time=0.517 ms
-64 bytes from 131.188.30.102: icmp_seq=9 ttl=64 time=0.445 ms
-64 bytes from 131.188.30.102: icmp_seq=10 ttl=64 time=0.374 ms
+> There is no way for userspace to select the type of gre tunnel. The
+> #if 0 near the top of the patch forces all gre tunnels to be bridges.
+> The problem is that userspace uses an IPPROTO_ to select the type of
+> tunnel, but both types of gre tunnel are IPPROTO_GRE. I can't see
+> anything else in struct ip_tunnel_parm that could be used to select
+> this. One approach that I've seen mentioned in the archives is to add
+> a netlink interface to replace the tunnel ioctls.
+> 
+> Network loops are bad. See the comments at the top of ip_gre.c for
+> a description of how gre tunnels handle this normally. But for gre
+> bridges, we don't want to copy the ttl (it breaks routing protocols),
+> and we don't want to force DF (we want to bridge 1500 byte packets).
+> I couldn't think of any solution for this.
+> 
+> Some routers set LLC_SAP_BSPAN in the gre protocol field, and then
+> give the bpdu packet without any other ethernet/llc header. This patch
+> currently tries to fake the ethernet/llc header before passing the
+> packet up, but it is buggy (mac addresses are wrong at least). Maybe a
+> better approach is to call directly into the bridging code. I didn't try
+> that at first because it isn't modular, and may break other things that
+> want to see the packet.
 
---- 131.188.30.102 ping statistics ---
-10 packets transmitted, 10 received, 0% packet loss, time 8996ms
-rtt min/avg/max/mdev = 0.264/42.447/419.606/125.719 ms
-(thinkpad) [~] ping 131.188.30.102
-PING 131.188.30.102 (131.188.30.102) 56(84) bytes of data.
-64 bytes from 131.188.30.102: icmp_seq=1 ttl=64 time=0.547 ms
-64 bytes from 131.188.30.102: icmp_seq=2 ttl=64 time=0.502 ms
-64 bytes from 131.188.30.102: icmp_seq=3 ttl=64 time=0.402 ms
-64 bytes from 131.188.30.102: icmp_seq=4 ttl=64 time=0.329 ms
+Existing bridge code already has spanning tree.
 
---- 131.188.30.102 ping statistics ---
-4 packets transmitted, 4 received, 0% packet loss, time 2998ms
-rtt min/avg/max/mdev = 0.329/0.445/0.547/0.085 ms
-(thinkpad) [~] ping 131.188.30.102
-PING 131.188.30.102 (131.188.30.102) 56(84) bytes of data.
-64 bytes from 131.188.30.102: icmp_seq=1 ttl=64 time=0.301 ms
-64 bytes from 131.188.30.102: icmp_seq=2 ttl=64 time=0.753 ms
-64 bytes from 131.188.30.102: icmp_seq=3 ttl=64 time=0.681 ms
-64 bytes from 131.188.30.102: icmp_seq=4 ttl=64 time=0.609 ms
-64 bytes from 131.188.30.102: icmp_seq=5 ttl=64 time=0.538 ms
-64 bytes from 131.188.30.102: icmp_seq=6 ttl=64 time=0.466 ms
-64 bytes from 131.188.30.102: icmp_seq=7 ttl=64 time=0.374 ms
-64 bytes from 131.188.30.102: icmp_seq=8 ttl=64 time=0.308 ms
+> --- linux-2.6.x/net/ipv4/ip_gre.c	18 Jun 2006 23:30:56 -0000	1.1.1.33
+> +++ linux-2.6.x/net/ipv4/ip_gre.c	31 Jul 2006 09:57:41 -0000
+> @@ -30,6 +30,8 @@
+>  #include <linux/igmp.h>
+>  #include <linux/netfilter_ipv4.h>
+>  #include <linux/if_ether.h>
+> +#include <linux/etherdevice.h>
+> +#include <linux/llc.h>
+> 
+>  #include <net/sock.h>
+>  #include <net/ip.h>
+> @@ -41,6 +43,8 @@
+>  #include <net/dsfield.h>
+>  #include <net/inet_ecn.h>
+>  #include <net/xfrm.h>
+> +#include <net/llc.h>
+> +#include <net/llc_pdu.h>
+> 
+>  #ifdef CONFIG_IPV6
+>  #include <net/ipv6.h>
+> @@ -119,6 +123,7 @@
+> 
+>  static int ipgre_tunnel_init(struct net_device *dev);
+>  static void ipgre_tunnel_setup(struct net_device *dev);
+> +static void ipgre_ether_tunnel_setup(struct net_device *dev);
+> 
+>  /* Fallback tunnel: no source, no destination, no key, no options */
+> 
+> @@ -274,7 +279,11 @@ static struct ip_tunnel * ipgre_tunnel_l
+>  			goto failed;
+>  	}
+> 
+> +#if 0
+>  	dev = alloc_netdev(sizeof(*t), name, ipgre_tunnel_setup);
+> +#else
+> +	dev = alloc_netdev(sizeof(*t), name, ipgre_ether_tunnel_setup);
+> +#endif
 
---- 131.188.30.102 ping statistics ---
-8 packets transmitted, 8 received, 0% packet loss, time 6993ms
-rtt min/avg/max/mdev = 0.301/0.503/0.753/0.161 ms
-(thinkpad) [~] ping www.heise.de
-PING www.heise.de (193.99.144.85) 56(84) bytes of data.
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=1 ttl=246 time=1019 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=2 ttl=246 time=15.8 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=3 ttl=246 time=1000 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=4 ttl=246 time=360 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=5 ttl=246 time=39.1 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=6 ttl=246 time=360 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=7 ttl=246 time=1000 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=8 ttl=246 time=360 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=9 ttl=246 time=360 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=10 ttl=246 time=360 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=11 ttl=246 time=1000 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=12 ttl=246 time=319 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=13 ttl=246 time=20.5 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=14 ttl=246 time=350 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=15 ttl=246 time=792 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=16 ttl=246 time=350 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=17 ttl=246 time=1000 ms
+"Do, or do not there is no try"
 
---- www.heise.de ping statistics ---
-18 packets transmitted, 17 received, 5% packet loss, time 17013ms
-rtt min/avg/max/mdev = 15.835/512.385/1019.753/360.201 ms, pipe 2
-(thinkpad) [~] ping www.google.de
-PING www.l.google.com (66.249.85.104) 56(84) bytes of data.
-64 bytes from 66.249.85.104: icmp_seq=1 ttl=246 time=732 ms
-64 bytes from 66.249.85.104: icmp_seq=2 ttl=246 time=999 ms
-64 bytes from 66.249.85.104: icmp_seq=3 ttl=246 time=1000 ms
-64 bytes from 66.249.85.104: icmp_seq=4 ttl=246 time=400 ms
 
---- www.l.google.com ping statistics ---
-5 packets transmitted, 4 received, 20% packet loss, time 4388ms
-rtt min/avg/max/mdev = 400.939/783.424/1000.436/246.402 ms, pipe 2
-(thinkpad) [~] uname -a
-Linux thinkpad 2.6.17.7 #3 SMP Mon Jul 31 17:44:21 CEST 2006 i686 GNU/Linux
-(thinkpad) [~] date
-Mon Jul 31 17:47:39 CEST 2006
-(thinkpad) [~] ping www.google.de
-PING www.l.google.com (66.249.85.99) 56(84) bytes of data.
-64 bytes from 66.249.85.99: icmp_seq=1 ttl=246 time=13.3 ms
-64 bytes from 66.249.85.99: icmp_seq=2 ttl=246 time=13.4 ms
-64 bytes from 66.249.85.99: icmp_seq=3 ttl=246 time=13.4 ms
-64 bytes from 66.249.85.99: icmp_seq=4 ttl=246 time=13.3 ms
-64 bytes from 66.249.85.99: icmp_seq=5 ttl=246 time=13.2 ms
-64 bytes from 66.249.85.99: icmp_seq=6 ttl=246 time=13.6 ms
-64 bytes from 66.249.85.99: icmp_seq=7 ttl=246 time=13.6 ms
-64 bytes from 66.249.85.99: icmp_seq=8 ttl=246 time=13.5 ms
-64 bytes from 66.249.85.99: icmp_seq=9 ttl=246 time=13.4 ms
-64 bytes from 66.249.85.99: icmp_seq=10 ttl=246 time=13.4 ms
-64 bytes from 66.249.85.99: icmp_seq=11 ttl=246 time=13.3 ms
+> +__be16 ipgre_type_trans(struct sk_buff *skb, int offset)
+> +{
+> +	u8     *h = skb->data;
+> +	__be16 flags = *(__be16*)h;
+> +	__be16 proto = *(__be16*)(h + 2);
+> +
+> +	/* WCCP version 1 and 2 protocol decoding.
+> +	 * - Change protocol to IP
+> +	 * - When dealing with WCCPv2, Skip extra 4 bytes in GRE header
+> +	 */
+> +	if (flags == 0 &&
+> +	    proto == __constant_htons(ETH_P_WCCP)) {
+> +		proto = __constant_htons(ETH_P_IP);
+> +		if ((*(h + offset) & 0xF0) != 0x40)
+> +			offset += 4;
+> +	}
 
---- www.l.google.com ping statistics ---
-11 packets transmitted, 11 received, 0% packet loss, time 10002ms
-rtt min/avg/max/mdev = 13.287/13.451/13.689/0.188 ms
-(thinkpad) [~] ping www.heise.de
-PING www.heise.de (193.99.144.85) 56(84) bytes of data.
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=1 ttl=246 time=13.9 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=2 ttl=246 time=13.8 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=3 ttl=246 time=14.2 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=4 ttl=246 time=14.2 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=5 ttl=246 time=13.6 ms
-64 bytes from www.heise.de (193.99.144.85): icmp_seq=6 ttl=246 time=13.5 ms
+Don't use __constant_htons() except in initializers and switch cases
+(where gcc is too stupid to optimize the macro).
 
---- www.heise.de ping statistics ---
-6 packets transmitted, 6 received, 0% packet loss, time 4995ms
-rtt min/avg/max/mdev = 13.561/13.906/14.279/0.274 ms
-
-        Thomas
+-- 
+Stephen Hemminger <shemminger@osdl.org>
+"And in the Packet there writ down that doome"
