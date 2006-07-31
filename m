@@ -1,53 +1,71 @@
-From: Wei Yongjun <yjwei@nanjing-fnst.com>
-Subject: [PATCH] SNMPv2 udpInDatagrams counter error
-Date: Mon, 31 Jul 2006 04:51:14 -0400
-Message-ID: <1154335874.3194.3.camel@LINE>
+From: Christophe Devriese <Christophe.Devriese@eurid.eu>
+Subject: Re: PATCH Fix bonding active-backup behavior for VLAN interfaces
+Date: Mon, 31 Jul 2006 10:15:40 +0200
+Message-ID: <200607311015.40255.Christophe.Devriese@eurid.eu>
+References: <44CA34D0.1070507@candelatech.com> <44CA87C5.1060905@candelatech.com> <20060730.205032.130618331.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [221.6.14.228] ([221.6.14.228]:50321 "EHLO
-	localmail.nanjing-fnst.com") by vger.kernel.org with ESMTP
-	id S1750863AbWGaICV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 04:02:21 -0400
-To: netdev@vger.kernel.org
+Received: from uu212-190-206-99.unknown.uunet.be ([212.190.206.99]:44509 "EHLO
+	smtp.eurid.eu") by vger.kernel.org with ESMTP id S964834AbWGaIPu
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 04:15:50 -0400
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+In-Reply-To: <20060730.205032.130618331.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When I send a UDP datagrams with checksum error to target, I found that:
-Under IPv6, counter udpInErrors increased, but under IPv4 counter
-udpInDatagrams increased. I lookup into the source code, and found that,
-under IPv4 UDP datagrams with checksum error will be delivered to UDP
-receive queue, but IPv6 does not. IPv4 delivered into UDP receive queue,
-increased udpInDatagrams, then discard it before delivered to UDP user.
-RFC said udpInDatagrams is the total number of UDP datagrams delivered
-to UDP users, so udpInDatagrams should not be increased while UDP
-datagrams with checksum error received.
+On Monday 31 July 2006 05:50, you wrote:
+> From: Ben Greear <greearb@candelatech.com>
+> Date: Fri, 28 Jul 2006 14:55:17 -0700
+>
+> > The skb_bond method assigns skb->dev when it does the 'keep',
+> > but the VLAN code immediately over-writes the skb->dev when
+> > searching for the vlan device.
+> >
+> > What is the purpose of assinging skb->dev to the master device?
+>
+> This makes me consider this patch highly dubious, at best.
+>
+> The whole intention of bonding on input is to make all packets
+> incoming on the individual bond slaves to look like they come in via
+> the master device.
+>
+> Therefore, even when the bond slaves are VLAN devices, in the end the
+> skb->dev should be the bond master device _not_ the VLAN device.
+>
+> I'm not applying this patch, it doesn't look correct at all.
 
-Refer to RFC2013:
-  udpInDatagrams OBJECT-TYPE
-      SYNTAX      Counter32
-      MAX-ACCESS  read-only
-      STATUS      current
-      DESCRIPTION
-              "The total number of UDP datagrams delivered to UDP
-users."
-      ::= { udp 1 }
+That code is not introduced by this patch, but is already in the kernel. This 
+patch is about having the same behavior for the vlan accelerated input path 
+and the normal input path.
 
-Following is my patch:
+If you bond 2 vlan subinterfaces, the patch is not necessary at all. In that 
+case also the source device will be changed from eth0.<vlan> to bond<x>. So 
+that's correct behavior no ?
 
---- a/net/ipv4/udp.c	2006-07-31 09:33:45.392479344 -0400
-+++ b/net/ipv4/udp.c	2006-07-31 09:34:26.430240656 -0400
-@@ -1018,7 +1018,7 @@ static int udp_queue_rcv_skb(struct sock
- 		/* FALLTHROUGH -- it's a UDP Packet */
- 	}
- 
--	if (sk->sk_filter && skb->ip_summed != CHECKSUM_UNNECESSARY) {
-+	if (skb->ip_summed != CHECKSUM_UNNECESSARY) {
- 		if (__udp_checksum_complete(skb)) {
- 			UDP_INC_STATS_BH(UDP_MIB_INERRORS);
- 			kfree_skb(skb);
+In the second case, you create vlan subifs on a bonding device, vlan 
+subinterfaces will be created on the slave interfaces. In that case the vlan 
+code will reassign the skb->dev node, and because skb_bond needs to know the 
+actual input device in order to make an informed drop decision before passing 
+this code (skb active-backup mode needs to drop packets from the backup slave 
+interface, if you don't do that you get big problems with broadcasts). 
 
-Signed-off-by: Wei Yongjun <yjwei@nanjing-fnst.com>
+The same struct vlan_group is assigned to all slave devices and so the only 
+vlan subinterfaces that exist in this case are the bond<x>.<vlan> 
+subinterfaces, and the vlan path for both slaves will assign the 
+bond<x>.<vlan> interface to skb->dev, thereby erasing the information about 
+where the packet came from.
 
+I have tested the patch, and it works correctly, in both cases on my test 
+sytem (where I join vlan subifs on a bonding device into a bridge and have 
+xen guests' vifX.Y interfaces connected to those bridges, which is a 
+configuration we imho really want to support) (without this patch, as 
+explained earlier in this thread, this config does not work)
 
+Regards,
+
+Christophe
