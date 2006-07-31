@@ -1,133 +1,130 @@
 From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: [PATCH 2/2] forcedeth: mac address corrected
-Date: Mon, 31 Jul 2006 12:05:01 -0400
-Message-ID: <44CE2A2D.9000103@nvidia.com>
+Subject: [PATCH 1/2] forcedeth: move mac address setup/teardown
+Date: Mon, 31 Jul 2006 12:04:45 -0400
+Message-ID: <44CE2A1D.4000805@nvidia.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------000409000302020605040700"
+ boundary="------------040904080403090803080702"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate02.nvidia.com ([216.228.112.143]:551 "EHLO
-	HQEMGATE02.nvidia.com") by vger.kernel.org with ESMTP
-	id S1030299AbWGaSMt (ORCPT <rfc822;netdev@vger.kernel.org>);
+Received: from hqemgate01.nvidia.com ([216.228.112.170]:56385 "EHLO
+	HQEMGATE01.nvidia.com") by vger.kernel.org with ESMTP
+	id S1030300AbWGaSMt (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 31 Jul 2006 14:12:49 -0400
 To: Jeff Garzik <jgarzik@pobox.com>,
 	Manfred Spraul <manfred@colorfullife.com>,
 	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@osdl.org>
+	shemminger@osdl.org, Ayaz Abdulla <aabdulla@nvidia.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------000409000302020605040700
+--------------040904080403090803080702
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-This patch will correct the mac address and set a flag to indicate that 
-it is already corrected in case nv_probe is called again. For example, 
-when you use kexec to restart the kernel.
+This patch moves the mac address setup/teardown to the 
+nv_probe/nv_remove functions. This fixes WOL wakeup since on nv_close we 
+would reverse the mac address. Also, bonding driver will reset address 
+after nv_close is called.
 
 Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
---------------000409000302020605040700
+--------------040904080403090803080702
 Content-Type: text/plain;
- name="patch-forcedeth-057-macaddress-corrected"
+ name="patch-forcedeth-move-macaddress-set"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="patch-forcedeth-057-macaddress-corrected"
+ filename="patch-forcedeth-move-macaddress-set"
 
---- orig-2.6/drivers/net/forcedeth.c	2006-07-06 15:06:27.000000000 -0400
-+++ new-2.6/drivers/net/forcedeth.c	2006-07-06 15:06:58.000000000 -0400
-@@ -109,6 +109,7 @@
-  *	0.54: 21 Mar 2006: Fix spin locks for multi irqs and cleanup.
-  *	0.55: 22 Mar 2006: Add flow control (pause frame).
-  *	0.56: 22 Mar 2006: Additional ethtool config and moduleparam support.
-+ *	0.57: 14 May 2006: Mac address set in probe/remove and order corrections.
-  *
-  * Known bugs:
-  * We suspect that on some hardware no TX done interrupts are generated.
-@@ -120,7 +121,7 @@
-  * DEV_NEED_TIMERIRQ will not harm you on sane hardware, only generating a few
-  * superfluous timer interrupts from the nic.
-  */
--#define FORCEDETH_VERSION		"0.56"
-+#define FORCEDETH_VERSION		"0.57"
- #define DRV_NAME			"forcedeth"
+--- orig-2.6/drivers/net/forcedeth.c	2006-07-06 15:05:31.000000000 -0400
++++ new-2.6/drivers/net/forcedeth.c	2006-07-06 15:05:54.000000000 -0400
+@@ -3895,10 +3895,9 @@
  
- #include <linux/module.h>
-@@ -262,7 +263,8 @@
- 	NvRegRingSizes = 0x108,
- #define NVREG_RINGSZ_TXSHIFT 0
- #define NVREG_RINGSZ_RXSHIFT 16
--	NvRegUnknownTransmitterReg = 0x10c,
-+	NvRegTransmitPoll = 0x10c,
-+#define NVREG_TRANSMITPOLL_MAC_ADDR_REV	0x00008000
- 	NvRegLinkSpeed = 0x110,
- #define NVREG_LINKSPEED_FORCE 0x10000
- #define NVREG_LINKSPEED_10	1000
-@@ -1178,7 +1180,7 @@
- 			KERN_INFO "nv_stop_tx: TransmitterStatus remained busy");
+ 	dprintk(KERN_DEBUG "nv_open: begin\n");
  
- 	udelay(NV_TXSTOP_DELAY2);
--	writel(0, base + NvRegUnknownTransmitterReg);
-+	writel(readl(base + NvRegTransmitPoll) & NVREG_TRANSMITPOLL_MAC_ADDR_REV, base + NvRegTransmitPoll);
- }
+-	/* 1) erase previous misconfiguration */
++	/* erase previous misconfiguration */
+ 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
+ 		nv_mac_reset(dev);
+-	/* 4.1-1: stop adapter: ignored, 4.3 seems to be overkill */
+ 	writel(NVREG_MCASTADDRA_FORCE, base + NvRegMulticastAddrA);
+ 	writel(0, base + NvRegMulticastAddrB);
+ 	writel(0, base + NvRegMulticastMaskA);
+@@ -3913,7 +3912,7 @@
+ 	if (np->pause_flags & NV_PAUSEFRAME_TX_CAPABLE)
+ 		writel(NVREG_TX_PAUSEFRAME_DISABLE,  base + NvRegTxPauseFrame);
  
- static void nv_txrx_reset(struct net_device *dev)
-@@ -3917,7 +3919,7 @@
+-	/* 2) initialize descriptor rings */
++	/* initialize descriptor rings */
+ 	set_bufsize(dev);
  	oom = nv_init_ring(dev);
  
- 	writel(0, base + NvRegLinkSpeed);
--	writel(0, base + NvRegUnknownTransmitterReg);
-+	writel(readl(base + NvRegTransmitPoll) & NVREG_TRANSMITPOLL_MAC_ADDR_REV, base + NvRegTransmitPoll);
- 	nv_txrx_reset(dev);
- 	writel(0, base + NvRegUnknownSetupReg6);
+@@ -3924,15 +3923,11 @@
  
-@@ -4082,7 +4084,7 @@
- 	unsigned long addr;
- 	u8 __iomem *base;
- 	int err, i;
--	u32 powerstate;
-+	u32 powerstate, txreg;
+ 	np->in_shutdown = 0;
  
- 	dev = alloc_etherdev(sizeof(struct fe_priv));
- 	err = -ENOMEM;
-@@ -4269,12 +4271,30 @@
- 	np->orig_mac[0] = readl(base + NvRegMacAddrA);
- 	np->orig_mac[1] = readl(base + NvRegMacAddrB);
+-	/* 3) set mac address */
+-	nv_copy_mac_to_hw(dev);
+-
+-	/* 4) give hw rings */
++	/* give hw rings */
+ 	setup_hw_rings(dev, NV_SETUP_RX_RING | NV_SETUP_TX_RING);
+ 	writel( ((np->rx_ring_size-1) << NVREG_RINGSZ_RXSHIFT) + ((np->tx_ring_size-1) << NVREG_RINGSZ_TXSHIFT),
+ 		base + NvRegRingSizes);
  
--	dev->dev_addr[0] = (np->orig_mac[1] >>  8) & 0xff;
--	dev->dev_addr[1] = (np->orig_mac[1] >>  0) & 0xff;
--	dev->dev_addr[2] = (np->orig_mac[0] >> 24) & 0xff;
--	dev->dev_addr[3] = (np->orig_mac[0] >> 16) & 0xff;
--	dev->dev_addr[4] = (np->orig_mac[0] >>  8) & 0xff;
--	dev->dev_addr[5] = (np->orig_mac[0] >>  0) & 0xff;
-+	/* check the workaround bit for correct mac address order */
-+	txreg = readl(base + NvRegTransmitPoll);
-+	if (txreg & NVREG_TRANSMITPOLL_MAC_ADDR_REV) {
-+		/* mac address is already in correct order */
-+		dev->dev_addr[0] = (np->orig_mac[0] >>  0) & 0xff;
-+		dev->dev_addr[1] = (np->orig_mac[0] >>  8) & 0xff;
-+		dev->dev_addr[2] = (np->orig_mac[0] >> 16) & 0xff;
-+		dev->dev_addr[3] = (np->orig_mac[0] >> 24) & 0xff;
-+		dev->dev_addr[4] = (np->orig_mac[1] >>  0) & 0xff;
-+		dev->dev_addr[5] = (np->orig_mac[1] >>  8) & 0xff;
-+	} else {
-+		/* need to reverse mac address to correct order */
-+		dev->dev_addr[0] = (np->orig_mac[1] >>  8) & 0xff;
-+		dev->dev_addr[1] = (np->orig_mac[1] >>  0) & 0xff;
-+		dev->dev_addr[2] = (np->orig_mac[0] >> 24) & 0xff;
-+		dev->dev_addr[3] = (np->orig_mac[0] >> 16) & 0xff;
-+		dev->dev_addr[4] = (np->orig_mac[0] >>  8) & 0xff;
-+		dev->dev_addr[5] = (np->orig_mac[0] >>  0) & 0xff;
-+		/* set permanent address to be correct aswell */
-+		np->orig_mac[0] = (dev->dev_addr[0] << 0) + (dev->dev_addr[1] << 8) +
-+			(dev->dev_addr[2] << 16) + (dev->dev_addr[3] << 24);
-+		np->orig_mac[1] = (dev->dev_addr[4] << 0) + (dev->dev_addr[5] << 8);
-+		writel(txreg|NVREG_TRANSMITPOLL_MAC_ADDR_REV, base + NvRegTransmitPoll);
-+	}
- 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+-	/* 5) continue setup */
+ 	writel(np->linkspeed, base + NvRegLinkSpeed);
+ 	if (np->desc_ver == DESC_VER_1)
+ 		writel(NVREG_TX_WM_DESC1_DEFAULT, base + NvRegTxWatermark);
+@@ -3950,7 +3945,6 @@
+ 	writel(NVREG_IRQSTAT_MASK, base + NvRegIrqStatus);
+ 	writel(NVREG_MIISTAT_MASK2, base + NvRegMIIStatus);
  
- 	if (!is_valid_ether_addr(dev->perm_addr)) {
+-	/* 6) continue setup */
+ 	writel(NVREG_MISC1_FORCE | NVREG_MISC1_HD, base + NvRegMisc1);
+ 	writel(readl(base + NvRegTransmitterStatus), base + NvRegTransmitterStatus);
+ 	writel(NVREG_PFF_ALWAYS, base + NvRegPacketFilterFlags);
+@@ -4076,12 +4070,6 @@
+ 	if (np->wolenabled)
+ 		nv_start_rx(dev);
+ 
+-	/* special op: write back the misordered MAC address - otherwise
+-	 * the next nv_probe would see a wrong address.
+-	 */
+-	writel(np->orig_mac[0], base + NvRegMacAddrA);
+-	writel(np->orig_mac[1], base + NvRegMacAddrB);
+-
+ 	/* FIXME: power down nic */
+ 
+ 	return 0;
+@@ -4309,6 +4297,9 @@
+ 			dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+ 			dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
+ 
++	/* set mac address */
++	nv_copy_mac_to_hw(dev);
++
+ 	/* disable WOL */
+ 	writel(0, base + NvRegWakeUpFlags);
+ 	np->wolenabled = 0;
+@@ -4421,9 +4412,17 @@
+ static void __devexit nv_remove(struct pci_dev *pci_dev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pci_dev);
++	struct fe_priv *np = netdev_priv(dev);
++	u8 __iomem *base = get_hwbase(dev);
+ 
+ 	unregister_netdev(dev);
+ 
++	/* special op: write back the misordered MAC address - otherwise
++	 * the next nv_probe would see a wrong address.
++	 */
++	writel(np->orig_mac[0], base + NvRegMacAddrA);
++	writel(np->orig_mac[1], base + NvRegMacAddrB);
++
+ 	/* free all structures */
+ 	free_rings(dev);
+ 	iounmap(get_hwbase(dev));
 
---------------000409000302020605040700--
+--------------040904080403090803080702--
