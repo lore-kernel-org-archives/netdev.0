@@ -1,40 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Off by one buglets
-Date: Mon, 31 Jul 2006 15:28:27 -0700 (PDT)
-Message-ID: <20060731.152827.68041705.davem@davemloft.net>
-References: <20060630142901.GA13898@linux-mips.org>
+From: Zach Brown <zach.brown@oracle.com>
+Subject: Re: [RFC 1/4] kevent: core files.
+Date: Mon, 31 Jul 2006 15:46:20 -0700
+Message-ID: <44CE883C.8090206@oracle.com>
+References: <44C91192.4090303@oracle.com> <20060727200655.GA4586@2ka.mipt.ru> <44C930D5.9020704@oracle.com> <20060728052312.GB11210@2ka.mipt.ru> <44CA586C.4010205@oracle.com> <20060728184445.GA10797@2ka.mipt.ru> <44CA613F.9080806@oracle.com> <44CAD81A.9060401@redhat.com> <20060729154401.GA25926@2ka.mipt.ru> <44CB8A67.3060801@redhat.com> <20060731103322.GA1898@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Ulrich Drepper <drepper@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:22488
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030495AbWGaW3O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 18:29:14 -0400
-To: ralf@linux-mips.org
-In-Reply-To: <20060630142901.GA13898@linux-mips.org>
+Received: from tetsuo.zabbo.net ([207.173.201.20]:34479 "EHLO tetsuo.zabbo.net")
+	by vger.kernel.org with ESMTP id S1030359AbWGaWqY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 18:46:24 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060731103322.GA1898@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Fri, 30 Jun 2006 15:29:01 +0100
 
-> Ages ago, changeset
-> 
-> http://www.kernel.org/git/?p=linux/kernel/git/tglx/history.git;a=commit;h=22d864d542a0b92116751186f1794c7d0f1ca1b9
-> 
-> which converted several protocols from using open coded comparisons to
-> use the helper function sk_acceptq_is_full() did introduce a bunch of
-> off by one errors - sk_acceptq_is_full checks for
-> sk_ack_backlog > sk_max_ack_backlog but it replaced >= or == comparisons.
-> 
-> Below patch is really only meant to illustrate the change, not to be
-> applied.
+> Ok, let's do it in the following way:
+> I present new version of kevent with new syscalls and fixed issues mentioned
+> before, while people look at it we can end up with mapped buffer design.
+> Is it ok?
 
-I looked at this again, and the change is perfectly fine.
+Yeah, that sounds good.  I'm looking forward to seeing the next set of
+patches :).
 
-This patch merely shows that previously the protocols were very
-inconsistent about what sk_max_ack_backlog really meant.  All
-Arnaldo's changeset did was enforce a consistent meaning of
-this limit across the entire tree.
+- z
