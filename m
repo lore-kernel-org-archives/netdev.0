@@ -1,43 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help()
- 2.6.18-rc3
-Date: Mon, 31 Jul 2006 14:15:59 -0700 (PDT)
-Message-ID: <20060731.141559.95507027.davem@davemloft.net>
-References: <44CDDDF7.70004@trash.net>
-	<20060731113050.GA25972@gondor.apana.org.au>
-	<44CE4DCA.8000609@trash.net>
+Subject: Re: Regarding offloading IPv6 addrconf and ndisc
+Date: Mon, 31 Jul 2006 14:23:07 -0700 (PDT)
+Message-ID: <20060731.142307.35014994.davem@davemloft.net>
+References: <20060729133442.GI8334@innerghost.net>
+	<44CC2741.4050706@miyazawa.org>
+	<20060730113050.GL8334@innerghost.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+Cc: kazunori@miyazawa.org, hadi@cyberus.ca, shemminger@osdl.org,
+	herbert@gondor.apana.org.au, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:9608
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:4492
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751341AbWGaVQo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 17:16:44 -0400
-To: kaber@trash.net
-In-Reply-To: <44CE4DCA.8000609@trash.net>
+	id S1030464AbWGaVXv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 17:23:51 -0400
+To: hsantos@av.it.pt
+In-Reply-To: <20060730113050.GL8334@innerghost.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 31 Jul 2006 20:36:58 +0200
 
-> I'm going to do some more testing now ..
+So all of you userland control-plane fanatics, how will you handle
+things like NFS root with these daemon-required variants of NDISC and
+ARP?
 
-Thanks for all of this work Patrick.
+I know the devils' advocate responses already, so don't bother with
+responses saying things like 1) "do it in the initial ramdisk, we only
+need the daemon to setup the NDISC entries to talk to the NFS server"
+or 2) "IPSEC's control plane is in userspace and therefore we can't do
+NFS root over IPSEC, why is that ok and key'd NDISC is not?"
 
-I noticed a subtle semantic change for nf_queue().  Previously, if we
-can't grab the module reference for the matching entry, we'd not free
-the skb, return 0, and the caller tries to iterate to the next hook.
+I think we are building systems which gradually are becomming less and
+less reliable, with increasing numbers of possible points of failure.
 
-That behavior is preserved for singleton frames, but that's not what
-happens for GSO frames.  Instead, the GSO frame is split up and we
-always return "1" even if some of the subsegments cause __nf_queue()
-to return 0 due to the case described in the previous paragraph.
-
-It is, however, mindful to free up the kfree_skb so it doesn't cause a
-leak or anything like that.
-
-Does this matter?
-
+Flexibility is overrated.  There are many crucial optimizations and
+simplifications we cannot perform because we've made certain aspects
+of network configuration far too flexible.
