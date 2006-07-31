@@ -1,49 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/5] [IPV6]: Multiple Routing Tables
-Date: Tue, 1 Aug 2006 00:02:14 +1000
-Message-ID: <20060731140214.GA27619@gondor.apana.org.au>
-References: <44CE0BE6.1070108@tcs.hut.fi> <E1G7YKN-0007Ao-00@gondolin.me.apana.org.au>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Debugging kernel lockups during network activity
+Date: Mon, 31 Jul 2006 16:15:37 +0200
+Message-ID: <44CE1089.7070104@o2.pl>
+References: <20060727181943.GD23091@artsapartment.org> <44CA218E.6040502@o2.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
-	yoshfuji@linux-ipv6.org, davem@davemloft.net, anttit@tcs.hut.fi
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:31237 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932288AbWGaOCR
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 10:02:17 -0400
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Content-Disposition: inline
-In-Reply-To: <E1G7YKN-0007Ao-00@gondolin.me.apana.org.au>
+Received: from mx10.go2.pl ([193.17.41.74]:44706 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S932340AbWGaOPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 10:15:00 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <44CA218E.6040502@o2.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 01, 2006 at 12:01:03AM +1000, Herbert Xu wrote:
-> Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
-> > 
-> >> When locating routes for redirects only the main table is
-> >> searched for now. Since policy rules will not be reversible
-> >> it is unclear whether it makes sense to change this.
-> > 
-> > This is a good point. You are absolutely correct about the policy rules.
-> > 
-> > IIRC, I initially looked through all the tables, but skipped this
-> > behavior when I rewrote the code for 2.6.11. Currently I'm once again
-> > in favor of looping through them all. This is IMO at least closer to the
-> > spirit of RFC 2461 section 8.3. where a host SHOULD update its
-> > destination cache upon receiving a redirect. If we don't look through
-> > all tables, we can't ensure this happens.
-> 
-> Without a route cache, I think our only choice is to search through
-> all tables.  The same thing applies to PMTU updates as well.
+On 28-07-2006 16:39, Jarek Poplawski wrote:
+...
 
-Actually, if we're adding policy routing, we should seriously consider
-whether living without a routing cache is still viable or not because
-the cost of a route lookup has just gone up.
+> It has some great patch to queue scheduler by Hubert Xu. I think it is 
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I'm immensly sorry to change the name of Mr Herbert Xu.
+
+And I thought it's easy name - just like some famous conductor 
+(but not so famous). You'll not believe, but when I wrote this I 
+checked mails not to misspell his surname!
+
+Jarek P.
