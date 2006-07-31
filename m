@@ -1,66 +1,64 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH dscape] d80211: Switch d80211.h to IEEE80211_ style names
-Date: Mon, 31 Jul 2006 13:51:31 -0700
-Message-ID: <200607311351.35757.flamingice@sourmilk.net>
-References: <200607270037.22384.flamingice@sourmilk.net> <20060731203113.GG10138@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: neigh_lookup lockdep bug.
+Date: Mon, 31 Jul 2006 14:02:52 -0700 (PDT)
+Message-ID: <20060731.140252.31448010.davem@davemloft.net>
+References: <20060731205004.GA31845@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1990480.2MiNRIigYL";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, arjan@infradead.org, mingo@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:47253 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S1030357AbWGaUvy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 16:51:54 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060731203113.GG10138@tuxdriver.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52386
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030457AbWGaVDg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 17:03:36 -0400
+To: davej@redhat.com
+In-Reply-To: <20060731205004.GA31845@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1990480.2MiNRIigYL
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+From: Dave Jones <davej@redhat.com>
+Date: Mon, 31 Jul 2006 16:50:04 -0400
 
-On Monday 31 July 2006 13:31, John W. Linville wrote:
-> As usual I'll depend on Jiri to merge d80211 stack patches, then
-> send me a pull request.  If I apply your "Switch drivers to d80211"
-> series now, that will undoutedly cause a breakage when Jiri asks me
-> to pull this later.
->
-Yeah, there needs to be a new (and smaller) set of patches to switch driver=
-s=20
-to the d80211.h header.
+> 2.6.18rc2-gitSomething on my firewall box just triggered this..
 
-> I presume that at least parts of those patches will still be necessary
-> or desirable after the d80211 symbol rename gets merged.  Are you
-> preparing a new patch series for when that happens?
->
-I'm not quite sure whether switching d80211_mgmt.h will be worthwhile. If i=
-t=20
-isn't, then I can get to preparing a new patch series. At any rate, I think=
-=20
-the most important thing right now is fixing the conflicts w/ wireless-dev =
-in=20
-the patch that updates the d80211 drivers to use the new names so we can ge=
-t=20
-the rename stuff into wireless-dev.
+Lockdep is perhaps confused.
 
-=2DMichael Wu
+> [515613.904945] swapper/0 is trying to acquire lock:
+> [515613.931489]  (&tbl->lock){-+-+}, at: [<c05b5d63>] neigh_lookup+0x50/0xaf
+> [515613.964369] 
+> [515613.964373] but task is already holding lock:
+> [515614.006550]  (&skb_queue_lock_key){-+..}, at: [<c05b741c>] neigh_proxy_process+0x20/0xc2
 
---nextPart1990480.2MiNRIigYL
-Content-Type: application/pgp-signature
+The skb_queue_lock in question is &tbl->proxy_queue.lock
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+> [515614.103459] the existing dependency chain (in reverse order) is:
+> [515614.148752] 
+> [515614.148755] -> #2 (&skb_queue_lock_key){-+..}:
+> [515614.188880]        [<c043bf43>] lock_acquire+0x4b/0x6c
+> [515614.215554]        [<c06089a7>] _spin_lock_irqsave+0x22/0x32
+> [515614.243606]        [<c05ac2e3>] skb_dequeue+0x12/0x43
+> [515614.269657]        [<c05acffe>] skb_queue_purge+0x14/0x1b
+> [515614.296565]        [<c05b673e>] neigh_update+0x317/0x353
 
-iD8DBQBEzm1XT3Oqt9AH4aERArFNAJ9lTBq5VlXhHE6E+cSMA6lK9KWGwACgs4uB
-Esv3O1bTrmGyqH4k1Loudgg=
-=yqwg
------END PGP SIGNATURE-----
+This is a different queue lock, namely &neigh->arp_queue.lock
 
---nextPart1990480.2MiNRIigYL--
+Like the ipv6 trace we got yesterday from Matt Domsche, lockdep
+is aparently confusing two instances of the skb_queue_lock_key
+
+> [515614.677724] -> #0 (&tbl->lock){-+-+}:
+> [515614.707327]        [<c043bf43>] lock_acquire+0x4b/0x6c
+> [515614.729897]        [<c060878a>] _read_lock_bh+0x1e/0x2d
+> [515614.752546]        [<c05b5d63>] neigh_lookup+0x50/0xaf
+> [515614.774754]        [<c05b6e5e>] neigh_event_ns+0x2c/0x77
+> [515614.797271]        [<c05e88c7>] arp_process+0x366/0x4e4
+> [515614.819349]        [<c05e8b3e>] parp_redo+0x8/0xa
+> [515614.839660]        [<c05b7462>] neigh_proxy_process+0x66/0xc2
+> [515614.862931]        [<c042db48>] run_timer_softirq+0x108/0x167
+> [515614.886048]        [<c04293d5>] __do_softirq+0x78/0xf2
+> [515614.907136]        [<c040662f>] do_softirq+0x5a/0xbe
+> [515614.927553] 
+
+And this path takes &neigh->proxy_queue.lock, then &tbl->lock
+
+I don't see the problem.
