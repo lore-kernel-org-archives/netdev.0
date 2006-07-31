@@ -1,36 +1,136 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [XFRM]: Fix protocol field value for outgoing IPv6 GSO packets
-Date: Sun, 30 Jul 2006 21:08:19 -0700 (PDT)
-Message-ID: <20060730.210819.01288662.davem@davemloft.net>
-References: <44C56136.50600@trash.net>
-	<20060725001326.GA18972@gondor.apana.org.au>
-	<44CD81CD.3060503@trash.net>
+From: David Coulson <david@davidcoulson.net>
+Subject: BUG: warning at net/core/dev.c:1171/skb_checksum_help() 2.6.18-rc3
+Date: Mon, 31 Jul 2006 00:16:21 -0400
+Message-ID: <44CD8415.2020403@davidcoulson.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:50089
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751436AbWGaEIw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 00:08:52 -0400
-To: kaber@trash.net
-In-Reply-To: <44CD81CD.3060503@trash.net>
+Received: from ns1.openconsultancy.com ([207.166.203.131]:26314 "EHLO
+	mail.mx.davidcoulson.net") by vger.kernel.org with ESMTP
+	id S1751444AbWGaEQ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 00:16:27 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 31 Jul 2006 06:06:37 +0200
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> Herbert Xu wrote:
-> > On Tue, Jul 25, 2006 at 02:09:26AM +0200, Patrick McHardy wrote:
-> > 
-> >>[XFRM]: Fix protocol field value for outgoing IPv6 GSO packets
-> >>
-> >>Signed-off-by: Patrick McHardy <kaber@trash.net>
-> > 
-> > Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> I believe you missed this one. Attached again for your convenience.
+This machine has four NICs running the e1000 kernel module. Other than
+the BUG() messages, it seems to be running fine. I was running 2.6.15.4
+without any issues on the same hardware, although I noticed the e1000
+has been updated (and I went for rc3 since I was hitting the panic in -rc2)
 
-It's in my tree, but thanks for reminding me.
+Now, I'm not sure if it also has anything to do with this message:
+
+NAT: no longer support implicit source local NAT
+NAT: packet src 10.1.1.1 -> dst 207.166.203.131
+
+Any suggestions as to how to go about debugging this?
+
+BUG: warning at net/core/dev.c:1171/skb_checksum_help()
+ [<c02e0412>] skb_checksum_help+0x4d/0xf0
+ [<c034e4d3>] ip_nat_fn+0x4e/0x19e
+ [<c034e78e>] ip_nat_local_fn+0x3d/0xb9
+ [<c0314011>] dst_output+0x0/0x7
+ [<c03059ee>] nf_iterate+0x40/0x6e
+BUG: warning at net/core/dev.c:1171/skb_checksum_help()
+ [<c02e0412>] skb_checksum_help+0x4d/0xf0
+ [<c034e4d3>] ip_nat_fn+0x4e/0x19e
+ [<c034e78e>] ip_nat_local_fn+0x3d/0xb9
+ [<c0314011>] dst_output+0x0/0x7
+ [<c03059ee>] nf_iterate+0x40/0x6e
+ [<c0314011>] dst_output+0x0/0x7
+ [<c0305a5e>] nf_hook_slow+0x42/0x98
+ [<c0314011>] dst_output+0x0/0x7
+ [<c03123c4>] ip_queue_xmit+0x3a3/0x3fc
+ [<c0314011>] dst_output+0x0/0x7
+ [<c037f544>] xprt_timer+0x0/0x65
+ [<c01e7964>] __next_cpu+0x12/0x1f
+ [<c0112a8c>] find_busiest_group+0x17e/0x473
+ [<c0320d17>] tcp_transmit_skb+0x39f/0x3bc
+ [<c0321f7a>] tcp_write_xmit+0x1a8/0x210
+ [<c0322000>] __tcp_push_pending_frames+0x1e/0x6f
+ [<c0317d5d>] do_tcp_sendpages+0x4fa/0x521
+ [<c0317dcf>] tcp_sendpage+0x4b/0x5e
+ [<c02d7fa7>] sock_sendpage+0x31/0x37
+ [<c013242e>] file_send_actor+0x30/0x4a
+ [<c0131e0b>] do_generic_mapping_read+0x167/0x3d5
+ [<c013248a>] generic_file_sendfile+0x42/0x55
+ [<c01323fe>] file_send_actor+0x0/0x4a
+ [<c019a141>] nfs_file_sendfile+0x59/0x60
+ [<c01323fe>] file_send_actor+0x0/0x4a
+ [<c014ad07>] do_sendfile+0x1b8/0x252
+ [<c01323fe>] file_send_actor+0x0/0x4a
+ [<c014adec>] sys_sendfile+0x4b/0x86
+ [<c010272f>] syscall_call+0x7/0xb
+BUG: warning at net/core/dev.c:1225/skb_gso_segment()
+ [<c02e053d>] skb_gso_segment+0x88/0x179
+ [<c02e06db>] dev_gso_segment+0x5c/0x82
+ [<c02e074a>] dev_hard_start_xmit+0x49/0xb1
+ [<c02e0957>] dev_queue_xmit+0x1a5/0x21f
+ [<c0311fea>] ip_output+0x1ce/0x205
+ [<c03123d6>] ip_queue_xmit+0x3b5/0x3fc
+ [<c037f544>] xprt_timer+0x0/0x65
+ [<c01e7964>] __next_cpu+0x12/0x1f
+ [<c0112a8c>] find_busiest_group+0x17e/0x473
+ [<c0320d17>] tcp_transmit_skb+0x39f/0x3bc
+ [<c0321f7a>] tcp_write_xmit+0x1a8/0x210
+ [<c0322000>] __tcp_push_pending_frames+0x1e/0x6f
+ [<c0317d5d>] do_tcp_sendpages+0x4fa/0x521
+ [<c0317dcf>] tcp_sendpprintk: 19 messages suppressed.
+age+0x4b/0x5e
+ eth2.300: received packet with  own address as source address
+[<c02d7fa7>] sock_sendpage+0x31/0x37
+ [<c013242e>] file_send_actor+0x30/0x4a
+ [<c0131e0b>] do_generic_mapping_read+0x167/0x3d5
+ [<c013248a>] generic_file_sendfile+0x42/0x55
+ [<c01323fe>] file_send_actor+0x0/0x4a
+ [<c019a141>] nfs_file_sendfile+0x59/0x60
+ [<c01323fe>] file_send_actor+0x0/0x4a
+ [<c014ad07>] do_sendfile+0x1b8/0x252
+ [<c01323fe>] file_send_actor+0x0/0x4a
+ [<c014adec>] sys_sendfile+0x4b/0x86
+ [<c010272f>] syscall_call+0x7/0xb
+ [<c0314011>] dst_output+0x0/0x7
+ [<c0305a5e>] nf_hook_slow+0x42/0x98
+ [<c0314011>] dst_output+0x0/0x7
+ [<c03123c4>] ip_queue_xmit+0x3a3/0x3fc
+ [<c0314011>] dst_output+0x0/0x7
+ [<c037f544>] xprt_timer+0x0/0x65
+ [<c01e7964>] __next_cpu+0x12/0x1f
+ [<c0112a8c>] find_busiest_group+0x17e/0x473
+ [<c0320d17>] tcp_transmit_skb+0x39f/0x3bc
+ [<c0321f7a>] tcp_write_xmit+0x1a8/0x210
+ [<c0322000>] __tcp_push_pending_frames+0x1e/0x6f
+ [<c0317d5d>] do_tcp_sendpages+0x4fa/0x521
+ [<c0317dcf>] tcp_sendpage+0x4b/0x5e
+ [<c02d7fa7>] sock_sendpage+0x31/0x37
+ [<c013242e>] file_send_actor+0x30/0x4a
+ [<c0131e0b>] do_generic_mapping_read+0x167/0x3d5
+ [<c013248a>] generic_file_sendfile+0x42/0x55
+ [<c01323fe>] file_send_actor+0x0/0x4a
+ [<c019a141>] nfs_file_sendfile+0x59/0x60
+ [<c01323fe>] file_send_actor+0x0/0x4a
+ [<c014ad07>] do_sendfile+0x1b8/0x252
+ [<c01323fe>] file_send_actor+0x0/0x4a
+ [<c014adec>] sys_sendfile+0x4b/0x86
+ [<c010272f>] syscall_call+0x7/0xb
+
+David
+
+- --
+David J. Coulson
+email: david@davidcoulson.net
+web: http://www.davidcoulson.net/
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+
+iD8DBQFEzYQUTIgPQWnLowkRAqHuAKDhAovcE8dIhAofI2KTUXXZOQlXagCcC99R
+YGveQogGHtJV8yWbeezn45w=
+=upA0
+-----END PGP SIGNATURE-----
