@@ -1,39 +1,133 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RESEND 3/5] [NET]: Protocol Independant Policy Routing Rules
- Framework
-Date: Mon, 31 Jul 2006 20:01:56 +0200
-Message-ID: <44CE4594.1030505@trash.net>
-References: <20060726221100.325687073@postel.suug.ch> <20060726221849.807482409@postel.suug.ch> <Pine.LNX.4.64.0607270158001.4779@d.namei> <20060726.230230.111423566.davem@davemloft.net> <20060727223931.GZ14627@postel.suug.ch> <44CE17B6.2070108@tcs.hut.fi> <20060731152401.GI14627@postel.suug.ch>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: [PATCH 2/2] forcedeth: mac address corrected
+Date: Mon, 31 Jul 2006 12:05:01 -0400
+Message-ID: <44CE2A2D.9000103@nvidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Ville Nuorvala <vnuorval@tcs.hut.fi>,
-	David Miller <davem@davemloft.net>, jmorris@namei.org,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
-	yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi
+Content-Type: multipart/mixed;
+ boundary="------------000409000302020605040700"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38334 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1030291AbWGaSB6
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 14:01:58 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060731152401.GI14627@postel.suug.ch>
+Received: from hqemgate02.nvidia.com ([216.228.112.143]:551 "EHLO
+	HQEMGATE02.nvidia.com") by vger.kernel.org with ESMTP
+	id S1030299AbWGaSMt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 14:12:49 -0400
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> * Ville Nuorvala <vnuorval@tcs.hut.fi> 2006-07-31 17:46
->
->>Shouldn't all these (struct fib_rule_hdr included) actually be defined
->>in include/linux/rtnetlink.h?
-> 
-> 
-> We used to stuff everything into rtnetlink.h for no good reason. Having
-> independant include/linux/<subsystem>.h to export the interface to
-> userspace and include/net/<subsystem>.h to export the kernel interface
-> instead of contributing to the ifdef hell seems a lot cleaner to me.
+This is a multi-part message in MIME format.
+--------------000409000302020605040700
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+This patch will correct the mac address and set a flag to indicate that 
+it is already corrected in case nv_probe is called again. For example, 
+when you use kexec to restart the kernel.
+
+Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
 
 
-I agree, but then we should also split up rtnetlink.h. Having one
-special case will just make it harder to find.
+--------------000409000302020605040700
+Content-Type: text/plain;
+ name="patch-forcedeth-057-macaddress-corrected"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-057-macaddress-corrected"
 
+--- orig-2.6/drivers/net/forcedeth.c	2006-07-06 15:06:27.000000000 -0400
++++ new-2.6/drivers/net/forcedeth.c	2006-07-06 15:06:58.000000000 -0400
+@@ -109,6 +109,7 @@
+  *	0.54: 21 Mar 2006: Fix spin locks for multi irqs and cleanup.
+  *	0.55: 22 Mar 2006: Add flow control (pause frame).
+  *	0.56: 22 Mar 2006: Additional ethtool config and moduleparam support.
++ *	0.57: 14 May 2006: Mac address set in probe/remove and order corrections.
+  *
+  * Known bugs:
+  * We suspect that on some hardware no TX done interrupts are generated.
+@@ -120,7 +121,7 @@
+  * DEV_NEED_TIMERIRQ will not harm you on sane hardware, only generating a few
+  * superfluous timer interrupts from the nic.
+  */
+-#define FORCEDETH_VERSION		"0.56"
++#define FORCEDETH_VERSION		"0.57"
+ #define DRV_NAME			"forcedeth"
+ 
+ #include <linux/module.h>
+@@ -262,7 +263,8 @@
+ 	NvRegRingSizes = 0x108,
+ #define NVREG_RINGSZ_TXSHIFT 0
+ #define NVREG_RINGSZ_RXSHIFT 16
+-	NvRegUnknownTransmitterReg = 0x10c,
++	NvRegTransmitPoll = 0x10c,
++#define NVREG_TRANSMITPOLL_MAC_ADDR_REV	0x00008000
+ 	NvRegLinkSpeed = 0x110,
+ #define NVREG_LINKSPEED_FORCE 0x10000
+ #define NVREG_LINKSPEED_10	1000
+@@ -1178,7 +1180,7 @@
+ 			KERN_INFO "nv_stop_tx: TransmitterStatus remained busy");
+ 
+ 	udelay(NV_TXSTOP_DELAY2);
+-	writel(0, base + NvRegUnknownTransmitterReg);
++	writel(readl(base + NvRegTransmitPoll) & NVREG_TRANSMITPOLL_MAC_ADDR_REV, base + NvRegTransmitPoll);
+ }
+ 
+ static void nv_txrx_reset(struct net_device *dev)
+@@ -3917,7 +3919,7 @@
+ 	oom = nv_init_ring(dev);
+ 
+ 	writel(0, base + NvRegLinkSpeed);
+-	writel(0, base + NvRegUnknownTransmitterReg);
++	writel(readl(base + NvRegTransmitPoll) & NVREG_TRANSMITPOLL_MAC_ADDR_REV, base + NvRegTransmitPoll);
+ 	nv_txrx_reset(dev);
+ 	writel(0, base + NvRegUnknownSetupReg6);
+ 
+@@ -4082,7 +4084,7 @@
+ 	unsigned long addr;
+ 	u8 __iomem *base;
+ 	int err, i;
+-	u32 powerstate;
++	u32 powerstate, txreg;
+ 
+ 	dev = alloc_etherdev(sizeof(struct fe_priv));
+ 	err = -ENOMEM;
+@@ -4269,12 +4271,30 @@
+ 	np->orig_mac[0] = readl(base + NvRegMacAddrA);
+ 	np->orig_mac[1] = readl(base + NvRegMacAddrB);
+ 
+-	dev->dev_addr[0] = (np->orig_mac[1] >>  8) & 0xff;
+-	dev->dev_addr[1] = (np->orig_mac[1] >>  0) & 0xff;
+-	dev->dev_addr[2] = (np->orig_mac[0] >> 24) & 0xff;
+-	dev->dev_addr[3] = (np->orig_mac[0] >> 16) & 0xff;
+-	dev->dev_addr[4] = (np->orig_mac[0] >>  8) & 0xff;
+-	dev->dev_addr[5] = (np->orig_mac[0] >>  0) & 0xff;
++	/* check the workaround bit for correct mac address order */
++	txreg = readl(base + NvRegTransmitPoll);
++	if (txreg & NVREG_TRANSMITPOLL_MAC_ADDR_REV) {
++		/* mac address is already in correct order */
++		dev->dev_addr[0] = (np->orig_mac[0] >>  0) & 0xff;
++		dev->dev_addr[1] = (np->orig_mac[0] >>  8) & 0xff;
++		dev->dev_addr[2] = (np->orig_mac[0] >> 16) & 0xff;
++		dev->dev_addr[3] = (np->orig_mac[0] >> 24) & 0xff;
++		dev->dev_addr[4] = (np->orig_mac[1] >>  0) & 0xff;
++		dev->dev_addr[5] = (np->orig_mac[1] >>  8) & 0xff;
++	} else {
++		/* need to reverse mac address to correct order */
++		dev->dev_addr[0] = (np->orig_mac[1] >>  8) & 0xff;
++		dev->dev_addr[1] = (np->orig_mac[1] >>  0) & 0xff;
++		dev->dev_addr[2] = (np->orig_mac[0] >> 24) & 0xff;
++		dev->dev_addr[3] = (np->orig_mac[0] >> 16) & 0xff;
++		dev->dev_addr[4] = (np->orig_mac[0] >>  8) & 0xff;
++		dev->dev_addr[5] = (np->orig_mac[0] >>  0) & 0xff;
++		/* set permanent address to be correct aswell */
++		np->orig_mac[0] = (dev->dev_addr[0] << 0) + (dev->dev_addr[1] << 8) +
++			(dev->dev_addr[2] << 16) + (dev->dev_addr[3] << 24);
++		np->orig_mac[1] = (dev->dev_addr[4] << 0) + (dev->dev_addr[5] << 8);
++		writel(txreg|NVREG_TRANSMITPOLL_MAC_ADDR_REV, base + NvRegTransmitPoll);
++	}
+ 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+ 	if (!is_valid_ether_addr(dev->perm_addr)) {
+
+--------------000409000302020605040700--
