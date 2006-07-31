@@ -1,67 +1,109 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: IBM (Lenovo) T60: e1000 driver high latency
-Date: Mon, 31 Jul 2006 08:05:27 -0700
-Message-ID: <44CE1C37.2090001@intel.com>
-References: <20060731093433.GF2576@cip.informatik.uni-erlangen.de>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RESEND 3/5] [NET]: Protocol Independant Policy Routing Rules Framework
+Date: Mon, 31 Jul 2006 17:24:01 +0200
+Message-ID: <20060731152401.GI14627@postel.suug.ch>
+References: <20060726221100.325687073@postel.suug.ch> <20060726221849.807482409@postel.suug.ch> <Pine.LNX.4.64.0607270158001.4779@d.namei> <20060726.230230.111423566.davem@davemloft.net> <20060727223931.GZ14627@postel.suug.ch> <44CE17B6.2070108@tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jmorris@namei.org,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
+	yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:39200 "EHLO
-	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
-	id S1750879AbWGaPGn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 11:06:43 -0400
-To: Thomas Glanzmann <sithglan@stud.uni-erlangen.de>
-In-Reply-To: <20060731093433.GF2576@cip.informatik.uni-erlangen.de>
+Received: from postel.suug.ch ([194.88.212.233]:62930 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932431AbWGaPXm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 11:23:42 -0400
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Content-Disposition: inline
+In-Reply-To: <44CE17B6.2070108@tcs.hut.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Glanzmann wrote:
-> Hello,
+* Ville Nuorvala <vnuorval@tcs.hut.fi> 2006-07-31 17:46
+> > Derived from net/ipv6/fib_rules.c
 > 
->    [ resend because .config and the used kernel version was missing ]
+> do you mean net/ipv4/fib_rules.c or net/ipv6/fib6_rules.c? :-)
+
+Hehe, I meant net/ipv4/fib_rules.c :-)
+
+> > +struct fib_rule_hdr
+> > +{
+> > +	__u8		family;
+> > +	__u8		dst_len;
+> > +	__u8		src_len;
+> > +	__u8		tos;
+> > +
+> > +	__u8		table;
+> > +	__u8		res1;	/* reserved */
+> > +	__u8		res2;	/* reserved */
+> > +	__u8		action;
+> > +
+> > +	__u32		flags;
+> > +};
 > 
-> Linux Kernel Version: Linus Vanilla Tree; .config attached.
+> I'm wondering if this is guaranteed to be equvalent to struct rtmsg?
 > 
-> I recently aquired a Lenovo (IBM) T60 with a e1000 network card. I
-> experience high latency with this networkcard: Pings last upto 1 second
-> where the ping should be around 25 ms. I googled a bit and found the
-> following:
+> struct rtmsg
+> {
+> 	unsigned char		rtm_family;
+> 	unsigned char		rtm_dst_len;
+> 	unsigned char		rtm_src_len;
+> 	unsigned char		rtm_tos;
 > 
-> - Enable NAPI, which didn't worked for me.
+> 	unsigned char		rtm_table;	/* Routing table id */
+> 	unsigned char		rtm_protocol;	/* Routing protocol; see below	*/
+> 	unsigned char		rtm_scope;	/* See below */	
+> 	unsigned char		rtm_type;	/* See below	*/
 > 
->         64 bytes from 192.168.0.223: icmp_seq=30 ttl=64 time=1004 ms
->         64 bytes from 192.168.0.223: icmp_seq=31 ttl=64 time=0.444 ms
->         64 bytes from 192.168.0.223: icmp_seq=32 ttl=64 time=1006 ms
->         64 bytes from 192.168.0.223: icmp_seq=33 ttl=64 time=0.739 ms
+> 	unsigned		rtm_flags;
+> };
+> 
+> Won't we otherwise be breaking the existing userland interface?
 
-Someone reported this problem on the e1000 bug tracker at e1000.sf.net.
+It is equivalent but you're right, it would break userland
+interfaces otherwise. I've defined this new header to add
+implicit names and stop the confusion with unused fields.
 
-He also reported that the behaviour goes away completely if he disables the 
-in-kernel irq balancer:
+> > +enum
+> > +{
+> > +	FRA_UNSPEC,
+> > +	FRA_DST,	/* destination address */
+> > +	FRA_SRC,	/* source address */
+> > +	FRA_IFNAME,	/* interface name */
+> > +	FRA_UNUSED1,
+> > +	FRA_UNUSED2,
+> > +	FRA_PRIORITY,	/* priority/preference */
+> > +	FRA_UNUSED3,
+> > +	FRA_UNUSED4,
+> > +	FRA_UNUSED5,
+> > +	FRA_FWMARK,	/* netfilter mark (IPv4) */
+> > +	FRA_FLOW,	/* flow/class id */
+> > +	__FRA_MAX
+> > +};
+> > +
+> > +#define FRA_MAX (__FRA_MAX - 1)
+> > +
+> > +enum
+> > +{
+> > +	FR_ACT_UNSPEC,
+> > +	FR_ACT_TO_TBL,		/* Pass to fixed table */
+> > +	FR_ACT_RES1,
+> > +	FR_ACT_RES2,
+> > +	FR_ACT_RES3,
+> > +	FR_ACT_RES4,
+> > +	FR_ACT_BLACKHOLE,	/* Drop without notification */
+> > +	FR_ACT_UNREACHABLE,	/* Drop with ENETUNREACH */
+> > +	FR_ACT_PROHIBIT,	/* Drop with EACCES */
+> > +	__FR_ACT_MAX,
+> > +};
+> > +
+> > +#define FR_ACT_MAX (__FR_ACT_MAX - 1)
+> > +
+> > +#endif
+> 
+> Shouldn't all these (struct fib_rule_hdr included) actually be defined
+> in include/linux/rtnetlink.h?
 
-: If I disable in kernel config Irq Balancing pings are
-: much better but not the best  :-)
-:
-: 64 bytes from 192.168.3.74: icmp_seq=29 ttl=64 time=12.7 ms
-: 64 bytes from 192.168.3.74: icmp_seq=30 ttl=64 time=10.0 ms
-: 64 bytes from 192.168.3.74: icmp_seq=31 ttl=64 time=7.3 ms
-: 64 bytes from 192.168.3.74: icmp_seq=32 ttl=64 time=4.5 ms
-
-that's a large difference from >> 1000ms, and I cannot suspect otherwise that 
-the kernel irqbalance is wreaking havoc in your system, trying to swap the 
-entire context between each core (t60 is a core duo) every second or so.
-
-I've never believed much in the kernel irq balancer, the userspace daemon 
-written by Arjan van der Ven just does a much better job, so can you try to 
-disable the kernel irqbalancer?
-
- > CONFIG_IRQBALANCE=y
-
-turn that off ;)
-
-
-Cheers,
-
-Auke
+We used to stuff everything into rtnetlink.h for no good reason. Having
+independant include/linux/<subsystem>.h to export the interface to
+userspace and include/net/<subsystem>.h to export the kernel interface
+instead of contributing to the ifdef hell seems a lot cleaner to me.
