@@ -1,42 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] Fix UDP filter condition when do checksum
-Date: Mon, 31 Jul 2006 21:36:07 +1000
-Message-ID: <E1G7W47-0006ss-00@gondolin.me.apana.org.au>
+Date: Mon, 31 Jul 2006 05:02:01 -0700 (PDT)
+Message-ID: <20060731.050201.18308966.davem@davemloft.net>
 References: <1154342022.3959.10.camel@LINE>
-Cc: netdev@vger.kernel.org, davem@davemloft.net
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:60177 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932272AbWGaLgK
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 07:36:10 -0400
-To: yjwei@nanjing-fnst.com (Wei Yongjun)
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:47319
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750895AbWGaMCO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 08:02:14 -0400
+To: yjwei@nanjing-fnst.com
 In-Reply-To: <1154342022.3959.10.camel@LINE>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wei Yongjun <yjwei@nanjing-fnst.com> wrote:
+From: Wei Yongjun <yjwei@nanjing-fnst.com>
+Date: Mon, 31 Jul 2006 06:33:42 -0400
+
 > In udp_queue_rcv_skb(), checksum condition is error. When UDP filter is
 > set, checksum is be done, but if UDP filter is not set, checksum will
-> not be done. So I think this is a BUG. Following is my patch:
-> 
-> --- a/net/ipv4/udp.c    2006-07-31 09:33:45.392479344 -0400
-> +++ b/net/ipv4/udp.c    2006-07-31 17:10:41.271632200 -0400
-> @@ -1018,7 +1018,7 @@ static int udp_queue_rcv_skb(struct sock
->                /* FALLTHROUGH -- it's a UDP Packet */
->        }
-> 
-> -       if (sk->sk_filter && skb->ip_summed != CHECKSUM_UNNECESSARY) {
-> +       if (!sk->sk_filter && skb->ip_summed != CHECKSUM_UNNECESSARY) {
->                if (__udp_checksum_complete(skb)) {
->                        UDP_INC_STATS_BH(UDP_MIB_INERRORS);
->                        kfree_skb(skb);
+> not be done. So I think this is a BUG.
 
-For the record, this isn't correct since the only reason we're computing
-a checksum here rather than recv(2) time is if we have a filter attached.
+It is not a bug, we defer the checksum, when we can, to sys_recvmsg()
+where we can combine the copy into userspace and the checksum
+calculation into one operation.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+We cannot do this deferral when there is a filter attached, and that
+is why the check is the way it is.
