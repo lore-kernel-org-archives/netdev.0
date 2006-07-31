@@ -1,40 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Regarding offloading IPv6 addrconf and ndisc
-Date: Mon, 31 Jul 2006 14:23:07 -0700 (PDT)
-Message-ID: <20060731.142307.35014994.davem@davemloft.net>
-References: <20060729133442.GI8334@innerghost.net>
-	<44CC2741.4050706@miyazawa.org>
-	<20060730113050.GL8334@innerghost.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: skge and sky2 backported driver.
+Date: Mon, 31 Jul 2006 14:25:55 -0700
+Message-ID: <20060731142555.31beef7e@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kazunori@miyazawa.org, hadi@cyberus.ca, shemminger@osdl.org,
-	herbert@gondor.apana.org.au, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:4492
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030464AbWGaVXv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 17:23:51 -0400
-To: hsantos@av.it.pt
-In-Reply-To: <20060730113050.GL8334@innerghost.net>
+Received: from smtp.osdl.org ([65.172.181.4]:3727 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751337AbWGaV3T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 17:29:19 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is a backport of the current 2.6.18 version of skge and sky2
+drivers for use with older kernels.  The drivers depend on the CRC32
+module.
 
-So all of you userland control-plane fanatics, how will you handle
-things like NFS root with these daemon-required variants of NDISC and
-ARP?
+It has been compiled and tested on RHEL (2.4) and 2.6.8
+but should work on other kernels past that point. It does depend on 
+ethtool_ops, if_vlan and mii support.
 
-I know the devils' advocate responses already, so don't bother with
-responses saying things like 1) "do it in the initial ramdisk, we only
-need the daemon to setup the NDISC entries to talk to the NFS server"
-or 2) "IPSEC's control plane is in userspace and therefore we can't do
-NFS root over IPSEC, why is that ok and key'd NDISC is not?"
+This version is somewhat different than the current
+2.6 version:
 
-I think we are building systems which gradually are becomming less and
-less reliable, with increasing numbers of possible points of failure.
+ * no suspend/resume or wake on LAN
 
-Flexibility is overrated.  There are many crucial optimizations and
-simplifications we cannot perform because we've made certain aspects
-of network configuration far too flexible.
+ * no support for reading original MAC address
+
+ * no support for MSI on sky2
+
+ * receive checksumming default off because earlier kernels often
+   do not handle it properly with vlan's or PPP.
+
+ * sky2 does not use NAPI because it required changes
+   to netdevice.h and/or tweaking internals of netdevice
+   interface to handle dual port status.
+
+ * sky2 defaults to TSO off because until 2.6.13 there
+   are issues with TCP congestion control and TSO.
+
+ * sky2 doesn't use VLAN acceleration features
+   probably doesn't make much difference.
+
+THIS IS NOT SUPPORTED, IT IS PROVIDED AS IS.  In other words, go ahead
+and mail bug reports to me <shemminger@osdl.org> but don't expect me
+to be able to fix them.
+
+http://developer.osdl.org/shemminger/releases/skge-sky2-backport.tar.bz2
