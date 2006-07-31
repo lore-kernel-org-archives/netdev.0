@@ -1,60 +1,86 @@
-From: Christophe Devriese <Christophe.Devriese@eurid.eu>
-Subject: Re: Linville's L2 rant... -- Re: PATCH Fix bonding active-backup behavior for VLAN interfaces
-Date: Mon, 31 Jul 2006 18:48:21 +0200
-Message-ID: <200607311848.22451.Christophe.Devriese@eurid.eu>
-References: <44CA34D0.1070507@candelatech.com> <200607311015.40255.Christophe.Devriese@eurid.eu> <20060731123038.GA10138@tuxdriver.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [RFC] irqbalance: Mark in-kernel irqbalance as obsolete, set to N
+ by default
+Date: Mon, 31 Jul 2006 10:35:26 -0700
+Message-ID: <44CE3F5E.4010305@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+ boundary="------------060404080901020204030504"
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	NetDev <netdev@vger.kernel.org>,
+	Arjan van de Ven <arjan@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from uu212-190-206-99.unknown.uunet.be ([212.190.206.99]:29931 "EHLO
-	smtp.eurid.eu") by vger.kernel.org with ESMTP id S1030237AbWGaQsc
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 12:48:32 -0400
-To: "John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
-In-Reply-To: <20060731123038.GA10138@tuxdriver.com>
-Content-Disposition: inline
+Received: from mga02.intel.com ([134.134.136.20]:23055 "EHLO
+	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1030283AbWGaRgd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 13:36:33 -0400
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 31 July 2006 14:30, you wrote:
-> (This is not directed at Christophe, or anyone in particular...)
->
-> <rant>
->
-> Am I the only one that thinks that our handling of LAN L2 stuff
-> is at best a little "too" flexible (and at worst a collection of
-> nasty hacks)?
->
-> I mean, do we really need both the ability to bond multiple vlan
-> interfaces AND the ability to have vlan interfaces on top of a bond?
-> How many people really appreciate the subtle(?) differences?
->
-> Then throw bridging into the mix!  If I'm using VLANs and bonds in
-> a bridged environment, do I bridge the bonds, or bond the bridges?
+This is a multi-part message in MIME format.
+--------------060404080901020204030504
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-In all honesty, you cannot bond bridges :-p
 
-> Do the VLANs come before the bonds?  after the bridges?  or somewhere
-> in-between?  Do all these combinations even work together?  Who has
-> the definitive answer (besides the code itself)?
->
-> I have no doubt that there are plenty of opportunities for cleverness
-> here (and no doubt dragons too).  I just doubt that most of them
-> are worth the complexities introduced by our current collection of
-> "transparently" stackable pseudo-drivers and strategically placed hacks
-> (e.g. skb_bond).  All that, and it still isn't clear to me how we
-> can cleanly accomodate 802.1s (which adds VLAN awareness to bridging).
->
-> Do we hold the view that our L2 code is on par with the rest of
-> our code?  Is there an appetite for a clean-up?  Or is it just me?
+We've recently seen a number of user bug reports against e1000 that the 
+in-kernel irqbalance code is detrimental to network latency. The algorithm 
+keeps swapping irq's for NICs from cpu to cpu causing extremely high network 
+latency (>1000ms). Another NIC driver (cxgb) already has severe warnings in 
+their documentation file against using CONFIG_IRQBALANCE, but this is a 
+general problem for all NIC drivers and other subsystems. This is especially 
+so with cpufreq scaling where the system is slowed down and the migrations 
+take much longer.
 
-A vlan capable bridge with trunk ports and access ports would be nice :-p
+I suggest that the in-kernel irqbalance is phased out, by marking it OBSOLETE 
+first and (perhaps) removing the code later. The userspace irqbalance daemon 
+written by Arjan van de Ven does a wonderful job and should be used instead.
 
-I think the current code is nice. You need it to properly support 
-virtualization and I find it very useful where I work to have this option.
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 
-Regards,
+---
 
-Christophe
+  Kconfig |   15 +++++++++++----
+  1 file changed, 11 insertions(+), 4 deletions(-)
+---
+
+--------------060404080901020204030504
+Content-Type: text/x-patch;
+ name="mark_CONFIG_IRQBALANCE_as_obsolete.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="mark_CONFIG_IRQBALANCE_as_obsolete.patch"
+
+diff --git a/arch/i386/Kconfig b/arch/i386/Kconfig
+index daa75ce..5a40cfe 100644
+--- a/arch/i386/Kconfig
++++ b/arch/i386/Kconfig
+@@ -690,12 +690,19 @@ config EFI
+ 	kernel should continue to boot on existing non-EFI platforms.
+ 
+ config IRQBALANCE
+- 	bool "Enable kernel irq balancing"
++	bool "Enable kernel irq balancing (obsolete)"
+ 	depends on SMP && X86_IO_APIC
+-	default y
++	default n
+ 	help
+- 	  The default yes will allow the kernel to do irq load balancing.
+-	  Saying no will keep the kernel from doing irq load balancing.
++	  The kernel irq balance will migrate interrupts between cpu's
++	  constantly, which may help reduce load in some cases. It is not
++	  beneficial for latency however, and a user-space daemon is available
++	  that does a much better job.
++
++	  The default no will keep the kernel from doing irq load balancing.
++	  Say yes will allow the kernel to do irq load balancing.
++
++	  If unsure, say N.
+ 
+ # turning this on wastes a bunch of space.
+ # Summit needs it only when NUMA is on
+
+--------------060404080901020204030504--
