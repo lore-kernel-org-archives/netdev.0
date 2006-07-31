@@ -1,52 +1,45 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: Subsystem/prefix in patch submission format
-Date: Mon, 31 Jul 2006 06:27:36 +0200
-Message-ID: <20060731042736.GA10597@mars.ravnborg.org>
-References: <Pine.LNX.4.58.0607301342150.19037@kivilampi-30.cs.helsinki.fi> <20060730.152846.42906358.davem@davemloft.net> <20060730224543.GA9506@mars.ravnborg.org> <20060730.155956.106769160.davem@davemloft.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help()
+ 2.6.18-rc3
+Date: Sun, 30 Jul 2006 21:34:37 -0700
+Message-ID: <20060730213437.e2ce619d.akpm@osdl.org>
+References: <44CD8415.2020403@davidcoulson.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpb.tele.dk ([80.160.77.98]:28833 "EHLO pasmtp.tele.dk")
-	by vger.kernel.org with ESMTP id S1750906AbWGaE1r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 00:27:47 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060730.155956.106769160.davem@davemloft.net>
+Received: from smtp.osdl.org ([65.172.181.4]:47763 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751234AbWGaEes (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 00:34:48 -0400
+To: David Coulson <david@davidcoulson.net>
+In-Reply-To: <44CD8415.2020403@davidcoulson.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 30, 2006 at 03:59:56PM -0700, David Miller wrote:
-> From: Sam Ravnborg <sam@ravnborg.org>
-> Date: Mon, 31 Jul 2006 00:45:43 +0200
+On Mon, 31 Jul 2006 00:16:21 -0400
+David Coulson <david@davidcoulson.net> wrote:
+
+> This machine has four NICs running the e1000 kernel module. Other than
+> the BUG() messages, it seems to be running fine. I was running 2.6.15.4
+> without any issues on the same hardware, although I noticed the e1000
+> has been updated (and I went for rc3 since I was hitting the panic in -rc2)
 > 
-> > >From a pure eye-candy perspective it would be nice to use same format
-> > all over.
-> > >From Documentation/SubmittingPatches:
-> > ------------------
-> > 12) The canonical patch format
-> > 
-> > The canonical patch subject line is:
-> > 
-> >     Subject: [PATCH 001/123] subsystem: summary phrase
-> > --------------
+> Now, I'm not sure if it also has anything to do with this message:
 > 
-> The patch format specifies things that make no sense
-> when the changes gets into the tree.  Especially the
-> sequence numbers, which are implied by the changes
-> placement in the relative changeset history.
+> NAT: no longer support implicit source local NAT
+> NAT: packet src 10.1.1.1 -> dst 207.166.203.131
+> 
+> Any suggestions as to how to go about debugging this?
+> 
+> BUG: warning at net/core/dev.c:1171/skb_checksum_help()
+>  [<c02e0412>] skb_checksum_help+0x4d/0xf0
+>  [<c034e4d3>] ip_nat_fn+0x4e/0x19e
+>  [<c034e78e>] ip_nat_local_fn+0x3d/0xb9
+>  [<c0314011>] dst_output+0x0/0x7
+>  [<c03059ee>] nf_iterate+0x40/0x6e
 
-"git am" removes the patch format specifiers when the change are
-committed. git applymbox replace the patch format specifier with
-[PATCH].
+Several people are reporting this.  It's apparently harmless and serves as
+a(n odd) way for the net guys to remind themselves that this needs fixing.
 
-So:
-git am        => subsystem: summary phrase
-git applymbox => [PATCH] subsystem: summary phrase
-
-Both variants exists because Linus uses the latter to distingush between
-what is applied via git tress and what is applied via mail patches.
-
-The Signed-off-by: carries same info btw.
-
-	Sam
+It'd be nice to not let this escape into 2.6.18, please?
