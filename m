@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/5] [IPV6]: Multiple Routing Tables
-Date: Mon, 31 Jul 2006 13:09:50 -0700 (PDT)
-Message-ID: <20060731.130950.125895376.davem@davemloft.net>
-References: <44CE0BE6.1070108@tcs.hut.fi>
-	<E1G7YKN-0007Ao-00@gondolin.me.apana.org.au>
-	<20060731154142.GK14627@postel.suug.ch>
+Subject: Re: Linux TCP in the presence of delays or drops...
+Date: Mon, 31 Jul 2006 13:12:49 -0700 (PDT)
+Message-ID: <20060731.131249.21928475.davem@davemloft.net>
+References: <44CD0D58.7050207@kom.aau.dk>
+	<44CE42A8.7090305@kom.aau.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, vnuorval@tcs.hut.fi,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
-	yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, shemminger@osdl.org,
+	davidwei79@gmail.com, hsu@leaf.dragonflybsd.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:55992
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:57528
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932477AbWGaUJx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 16:09:53 -0400
-To: tgraf@suug.ch
-In-Reply-To: <20060731154142.GK14627@postel.suug.ch>
+	id S932431AbWGaUMw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 16:12:52 -0400
+To: oumer@kom.aau.dk
+In-Reply-To: <44CE42A8.7090305@kom.aau.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Mon, 31 Jul 2006 17:41:42 +0200
+From: Oumer Teyeb <oumer@kom.aau.dk>
+Date: Mon, 31 Jul 2006 19:49:28 +0200
 
-> * Herbert Xu <herbert@gondor.apana.org.au> 2006-08-01 00:01
-> > Actually, if we're adding policy routing, we should seriously consider
-> > whether living without a routing cache is still viable or not because
-> > the cost of a route lookup has just gone up.
-> 
-> Absolutely.
+> it would be so great if some of you could spare a few minutes and take a 
+> look at the traces I provided.....see below for the original postng...
 
-This is something I wanted to bring up too.
+If people are too backlogged and busy to reply to your original
+posting, you will only ensure that it will take even longer by
+bombarding the list with even more information and questions on
+top of your original large query.
+
+Just be patient.
