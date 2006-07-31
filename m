@@ -1,58 +1,126 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 2/7] NetLabel: core network changes
-Date: Mon, 31 Jul 2006 10:16:51 -0400
-Message-ID: <200607311016.52064.paul.moore@hp.com>
-References: <36282A1733C57546BE392885C0618592013E80CA@chaos.tcs.tcs-sec.com>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: [RESEND 3/5] [NET]: Protocol Independant Policy Routing Rules
+ Framework
+Date: Mon, 31 Jul 2006 17:46:14 +0300
+Message-ID: <44CE17B6.2070108@tcs.hut.fi>
+References: <20060726221100.325687073@postel.suug.ch> <20060726221849.807482409@postel.suug.ch> <Pine.LNX.4.64.0607270158001.4779@d.namei> <20060726.230230.111423566.davem@davemloft.net> <20060727223931.GZ14627@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov, sds@epoch.ncsc.mil, jmorris@redhat.com,
-	pratt@argus-systems.com
+Cc: David Miller <davem@davemloft.net>, jmorris@namei.org,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
+	yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.hp.com ([192.151.27.10]:11725 "EHLO mailhub.hp.com")
-	by vger.kernel.org with ESMTP id S932340AbWGaORA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 10:17:00 -0400
-To: Venkat Yekkirala <vyekkirala@trustedcs.com>
-In-Reply-To: <36282A1733C57546BE392885C0618592013E80CA@chaos.tcs.tcs-sec.com>
-Content-Disposition: inline
+Received: from neon.tcs.hut.fi ([130.233.215.20]:64266 "EHLO neon.tcs.hut.fi")
+	by vger.kernel.org with ESMTP id S1750994AbWGaOqT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 10:46:19 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060727223931.GZ14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 31 July 2006 8:43 am, Venkat Yekkirala wrote:
-> > The NetLabel patch allows administrators to assign specific a CIPSO
-> > DOI/configuration to each LSM "domain".  Blindly using the
-> > CIPSO tag that the
-> > remote host sends could violate the administrator's NetLabel
-> > configuration.
-> >
-> > The current patch reads the CIPSO tag off the child socket,
-> > translating the
-> > tag according to the CIPSO DOI configuration to arrive at the
-> > correct/desired
-> > LSM  security attributes.  These LSM security attributes and
-> > the "domain" are
-> > then used to set the NetLabel on the socket.  In the case
-> > where everyone is
-> > well behaved this should have no effect on the socket IP
-> > options and the
-> > packets sent across the wire.  However, in the case of a
-> > not-nice remote host
-> > the outgoing CIPSO tag may change to match the administrators desired
-> > settings.
->
-> I wonder if waiting till accept isn't too late though. Perhaps this
-> should be done when the openreq is created so the syn-ack and such
-> will go out with the right tag?
+Thomas Graf wrote:
 
-Stephen Smalley and I had several long discussions about this and my opinion, 
-which seemed to be at least acceptable to Stephen, was that it was okay since 
-there was no actual data being sent only TCP control messages.  However, like 
-I said earlier, the exact details of this are going to change as I am going 
-to port the code to use the new accept() LSM hooks so this is really a not 
-much of a concern anymore ...
+Hi Thomas,
 
--- 
-paul moore
-linux security @ hp
+
+> Derived from net/ipv6/fib_rules.c
+
+do you mean net/ipv4/fib_rules.c or net/ipv6/fib6_rules.c? :-)
+
+A couple of comments below.
+
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> 
+> Index: net-2.6.git/include/linux/fib_rules.h
+> ===================================================================
+> --- /dev/null
+> +++ net-2.6.git/include/linux/fib_rules.h
+> @@ -0,0 +1,60 @@
+> +#ifndef __LINUX_FIB_RULES_H
+> +#define __LINUX_FIB_RULES_H
+> +
+> +#include <linux/types.h>
+> +#include <linux/rtnetlink.h>
+> +
+> +/* rule is permanent, and cannot be deleted */
+> +#define FIB_RULE_PERMANENT	1
+> +
+> +struct fib_rule_hdr
+> +{
+> +	__u8		family;
+> +	__u8		dst_len;
+> +	__u8		src_len;
+> +	__u8		tos;
+> +
+> +	__u8		table;
+> +	__u8		res1;	/* reserved */
+> +	__u8		res2;	/* reserved */
+> +	__u8		action;
+> +
+> +	__u32		flags;
+> +};
+
+I'm wondering if this is guaranteed to be equvalent to struct rtmsg?
+
+struct rtmsg
+{
+	unsigned char		rtm_family;
+	unsigned char		rtm_dst_len;
+	unsigned char		rtm_src_len;
+	unsigned char		rtm_tos;
+
+	unsigned char		rtm_table;	/* Routing table id */
+	unsigned char		rtm_protocol;	/* Routing protocol; see below	*/
+	unsigned char		rtm_scope;	/* See below */	
+	unsigned char		rtm_type;	/* See below	*/
+
+	unsigned		rtm_flags;
+};
+
+Won't we otherwise be breaking the existing userland interface?
+
+> +enum
+> +{
+> +	FRA_UNSPEC,
+> +	FRA_DST,	/* destination address */
+> +	FRA_SRC,	/* source address */
+> +	FRA_IFNAME,	/* interface name */
+> +	FRA_UNUSED1,
+> +	FRA_UNUSED2,
+> +	FRA_PRIORITY,	/* priority/preference */
+> +	FRA_UNUSED3,
+> +	FRA_UNUSED4,
+> +	FRA_UNUSED5,
+> +	FRA_FWMARK,	/* netfilter mark (IPv4) */
+> +	FRA_FLOW,	/* flow/class id */
+> +	__FRA_MAX
+> +};
+> +
+> +#define FRA_MAX (__FRA_MAX - 1)
+> +
+> +enum
+> +{
+> +	FR_ACT_UNSPEC,
+> +	FR_ACT_TO_TBL,		/* Pass to fixed table */
+> +	FR_ACT_RES1,
+> +	FR_ACT_RES2,
+> +	FR_ACT_RES3,
+> +	FR_ACT_RES4,
+> +	FR_ACT_BLACKHOLE,	/* Drop without notification */
+> +	FR_ACT_UNREACHABLE,	/* Drop with ENETUNREACH */
+> +	FR_ACT_PROHIBIT,	/* Drop with EACCES */
+> +	__FR_ACT_MAX,
+> +};
+> +
+> +#define FR_ACT_MAX (__FR_ACT_MAX - 1)
+> +
+> +#endif
+
+Shouldn't all these (struct fib_rule_hdr included) actually be defined
+in include/linux/rtnetlink.h?
+
+Otherwise, looks good.
+
+Regards,
+Ville
