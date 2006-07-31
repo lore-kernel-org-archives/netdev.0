@@ -1,44 +1,34 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: Please pull 'bcm43xx' branch of wireless-2.6?
-Date: Mon, 31 Jul 2006 16:04:56 -0400
-Message-ID: <20060731200450.GF10138@tuxdriver.com>
-References: <20060728002206.GA11621@tuxdriver.com>
-	<20060728002358.GB11621@tuxdriver.com>
-	<20060728003753.GC11621@tuxdriver.com>
-	<20060731191014.GD10138@tuxdriver.com>
-	<44CE61A7.4010207@garzik.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/5] [IPV6]: Multiple Routing Tables
+Date: Mon, 31 Jul 2006 13:09:50 -0700 (PDT)
+Message-ID: <20060731.130950.125895376.davem@davemloft.net>
+References: <44CE0BE6.1070108@tcs.hut.fi>
+	<E1G7YKN-0007Ao-00@gondolin.me.apana.org.au>
+	<20060731154142.GK14627@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <44CE61A7.4010207-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <http://bat.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://bat.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <http://bat.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: herbert@gondor.apana.org.au, vnuorval@tcs.hut.fi,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
+	yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:55992
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932477AbWGaUJx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 16:09:53 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20060731154142.GK14627@postel.suug.ch>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 31, 2006 at 04:01:43PM -0400, Jeff Garzik wrote:
-> John W. Linville wrote:
-> >Jeff, if a 10ms maximum delay is still acceptable to you, then please
-> >pull from the bcm43xx branch of wireless-2.6 into the upstream branch
-> >of netdev-2.6.
+From: Thomas Graf <tgraf@suug.ch>
+Date: Mon, 31 Jul 2006 17:41:42 +0200
+
+> * Herbert Xu <herbert@gondor.apana.org.au> 2006-08-01 00:01
+> > Actually, if we're adding policy routing, we should seriously consider
+> > whether living without a routing cache is still viable or not because
+> > the cost of a route lookup has just gone up.
 > 
-> Just to be clear, 'upstream' not 'upstream-fixes', correct?
+> Absolutely.
 
-Yes, queued for 2.6.19.
-
-Thanks,
-
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+This is something I wanted to bring up too.
