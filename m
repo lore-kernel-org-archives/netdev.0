@@ -1,76 +1,36 @@
-From: Patrick McHardy <kaber@trash.net>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [XFRM]: Fix protocol field value for outgoing IPv6 GSO packets
-Date: Mon, 31 Jul 2006 06:06:37 +0200
-Message-ID: <44CD81CD.3060503@trash.net>
-References: <44C56136.50600@trash.net> <20060725001326.GA18972@gondor.apana.org.au>
+Date: Sun, 30 Jul 2006 21:08:19 -0700 (PDT)
+Message-ID: <20060730.210819.01288662.davem@davemloft.net>
+References: <44C56136.50600@trash.net>
+	<20060725001326.GA18972@gondor.apana.org.au>
+	<44CD81CD.3060503@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000505060408070205030208"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Kernel Netdev Mailing List <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:22666 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1751435AbWGaEGj
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 00:06:39 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060725001326.GA18972@gondor.apana.org.au>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:50089
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751436AbWGaEIw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 00:08:52 -0400
+To: kaber@trash.net
+In-Reply-To: <44CD81CD.3060503@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000505060408070205030208
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 31 Jul 2006 06:06:37 +0200
 
-Hi Dave,
-
-Herbert Xu wrote:
-> On Tue, Jul 25, 2006 at 02:09:26AM +0200, Patrick McHardy wrote:
+> Herbert Xu wrote:
+> > On Tue, Jul 25, 2006 at 02:09:26AM +0200, Patrick McHardy wrote:
+> > 
+> >>[XFRM]: Fix protocol field value for outgoing IPv6 GSO packets
+> >>
+> >>Signed-off-by: Patrick McHardy <kaber@trash.net>
+> > 
+> > Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 > 
->>[XFRM]: Fix protocol field value for outgoing IPv6 GSO packets
->>
->>Signed-off-by: Patrick McHardy <kaber@trash.net>
-> 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> I believe you missed this one. Attached again for your convenience.
 
-I believe you missed this one. Attached again for your convenience.
-
-
---------------000505060408070205030208
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[XFRM]: Fix protocol field value for outgoing IPv6 GSO packets
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit 8035f60a607630459e4440dbbc5a20f3cfbf97ac
-tree f1a7061cfd1f923b3991ee8f449cffce86870a3e
-parent 440848a8e33fc1927bab45bd73f6c8e042ea7abd
-author Patrick McHardy <kaber@trash.net> Tue, 25 Jul 2006 02:02:00 +0200
-committer Patrick McHardy <kaber@trash.net> Tue, 25 Jul 2006 02:02:00 +0200
-
- net/ipv6/xfrm6_output.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-index 0eea60e..c8c8b44 100644
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@ -125,7 +125,7 @@ static int xfrm6_output_finish(struct sk
- 	if (!skb_is_gso(skb))
- 		return xfrm6_output_finish2(skb);
- 
--	skb->protocol = htons(ETH_P_IP);
-+	skb->protocol = htons(ETH_P_IPV6);
- 	segs = skb_gso_segment(skb, 0);
- 	kfree_skb(skb);
- 	if (unlikely(IS_ERR(segs)))
-
-
---------------000505060408070205030208--
+It's in my tree, but thanks for reminding me.
