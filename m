@@ -1,37 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC 1/4] kevent: core files.
-Date: Mon, 31 Jul 2006 20:59:43 +1000
-Message-ID: <20060731105943.GA26114@gondor.apana.org.au>
-References: <20060731103322.GA1898@2ka.mipt.ru> <E1G7V7r-0006jL-00@gondolin.me.apana.org.au> <20060731105037.GA2073@2ka.mipt.ru> <20060731.035716.39159213.davem@davemloft.net>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: [RFC] Multiple IPV6 Routing Tables & Policy Routing
+Date: Mon, 31 Jul 2006 14:01:11 +0300
+Message-ID: <44CDE2F7.3010302@tcs.hut.fi>
+References: <20060726221100.325687073@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johnpol@2ka.mipt.ru, drepper@redhat.com, zach.brown@oracle.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
+	yoshfuji@linux-ipv6.org, davem@davemloft.net, anttit@tcs.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:20241 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932146AbWGaK7y
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 06:59:54 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060731.035716.39159213.davem@davemloft.net>
+Received: from neon.tcs.hut.fi ([130.233.215.20]:42249 "EHLO neon.tcs.hut.fi")
+	by vger.kernel.org with ESMTP id S932179AbWGaLBM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 07:01:12 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060726221100.325687073@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 31, 2006 at 03:57:16AM -0700, David Miller wrote:
-> 
-> So I would say for up to 4 or 5 events, system call overhead alone
-> touches as many cache lines as the events themselves.
+Thomas Graf wrote:
+> Hello,
 
-Absolutely.
+Hi Thomas!
 
-The other to consider is that events don't come from the hardware.
-Events are written by the kernel.  So if user-space is just reading
-the events that we've written, then there are no cache misses at all.
+> Thought it might be time to go through a round of comments
+> on this work. Even though I've almost rewritten all the code
+> the patches are based on the work found on www.mobile-ipv6.org.
+> I have no idea which code was written by whom so just email me
+> to get the credits right.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The policy routing stuff (multiple tables and source address based
+routing) was almost entirely written by me. Therefore you can apply my
+name as you see fit ;-)
+
+Tushar Gohad at MontaVista, Benjamin Thery at Bull and of course USAGI
+have also worked on the code.
+
+> Main differences to the version found on mobile-ipv6.org is
+> that I removed table refcnt and defined that tables cannot
+> disappear once created to simplify things and avoid too many
+> atomic operations when looking up routes.
+
+Yes, that sounds good. As the ipv6 module doesn't really seem to become
+unloadable anytime soon, there isn't really any good reason to refcount
+the tables.
+
+> I've replaced the
+> table array with a hash table to prepare it for > 255 tables
+> and made things aware of the new default router selection
+> code and experimental route info stuff added recently.
+
+Good! I never had the time to merge our changes with 2.6.17.
+
+> It's not final but somewhat working, I'm eager to see comments
+> or patches.
+
+I'll try to comment on them the best I can.
+
+> I apologize if I've tramped onto anybody's foot
+> by taking this up and submitting it, this isn't meant as an
+> attempt to steal credits but rather to pick up good code and
+> finally get it upstream after a very long while.
+
+No offense taken! It's great that someone wants to push these things
+upstream as I personally have neither had the time nor the energy to do
+so lately.
+
+Regards,
+Ville
