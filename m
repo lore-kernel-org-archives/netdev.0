@@ -1,38 +1,57 @@
-From: a1 <a1k@mail.ru>
-Subject: Re[4]: e1000 speed/duplex error
-Date: Tue, 1 Aug 2006 16:20:06 +0400
-Message-ID: <911206621.20060801162006@mail.ru>
-References: <1301563340.20060801141827@mail.ru> <9929d2390608010420t60bd44d7o4e522c6edc0a677e@mail.gmail.com> <793732866.20060801153230@mail.ru> <9929d2390608010445w4fd81b64g310ae90a423e1a7d@mail.gmail.com>
-Reply-To: a1 <a1k@mail.ru>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: e1000 speed/duplex error
+Date: Tue, 1 Aug 2006 08:21:22 -0400
+Message-ID: <20060801122122.GA5965@gospo.rdu.redhat.com>
+References: <1301563340.20060801141827@mail.ru> <9929d2390608010420t60bd44d7o4e522c6edc0a677e@mail.gmail.com> <595776532.20060801160328@mail.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Jeff Kirsher <tarbal@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.mail.ru ([194.67.23.121]:43892 "EHLO mx1.mail.ru")
-	by vger.kernel.org with ESMTP id S1751265AbWHAMTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 08:19:43 -0400
-To: "Jeff Kirsher" <tarbal@gmail.com>
-In-Reply-To: <9929d2390608010445w4fd81b64g310ae90a423e1a7d@mail.gmail.com>
+Received: from mx1.redhat.com ([66.187.233.31]:54731 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751265AbWHAMVk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 08:21:40 -0400
+To: a1 <a1k@mail.ru>
+Content-Disposition: inline
+In-Reply-To: <595776532.20060801160328@mail.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Jeff.
+On Tue, Aug 01, 2006 at 04:03:28PM +0400, a1 wrote:
+> He, Jeff.
+> 
+> Thank for quick reply.
+> 
+> JK> On 8/1/06, a1 <a1k@mail.ru> wrote:
+> >> I'm trying to set my nic to force 100Mb/FD, but I'm constantly getting 100/HD on
+> >> other side of the link.
+> >>
+> >> The command is:
+> >> ethtool -s eth0 speed 100 duplex full autoneg off
+> >>
+> >> e1000 driver version 7.1.9 (latest) downloaded from sourceforge.
+> >>
+> 
+> JK> What are you linking to? And what is the link partner set to?
+> I am linking to my 3com gigabit ethernet switch. And it shows
+> 100Mbit/halfduplex.
+> 
+> JK> If one link partner is set to auto-negotiate, and the other partner
+> JK> forced, it is common to see this issue no matter what the two link
+> JK> partners are.
+> I thought the common behavior is that if one side force any particular
+> parameter, other side should "sense" that and go to that mode too.
+> 
+> In current case there is misunderstanding - one side (linux box)
+> reports 100/FD and other (switch) reports 100/HD.
+> 
+> Maybe I don't understand something...
+> 
 
+Jeff it correct, but the behavior can change depending on the switch
+hardware.  The results you see are expected since I'm quite sure the
+IEEE standard says that a device should default to half-duplex when
+auto-negotiation fails (which is why your 3com switch defaults to
+half-duplex).
 
-JK> OPTION 2: Turn auto-negotiate on the e1000 card and tell it to only
-JK> advertise 100 Full Duplex.  This will allow negotiation between the
-JK> two lnk partners and the e1000 will advertise that it is only able to
-JK> do 100 Full duplex.
-
-Is there any way i could do this with ethtool? It only allows force
-spd/dplx , but not set it for advertising...
-
-If i do as follows other side reports 1000/FD:
-
-ethtool -s eth0 speed 100 duplex full autoneg on
-
--- 
-Best Regards,
- a1                          mailto:a1k@mail.ru
+-andy
 
