@@ -1,41 +1,36 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH 2/2] forcedeth: mac address corrected
-Date: Tue, 1 Aug 2006 09:17:09 -0400
-Message-ID: <20060801131709.GC5965@gospo.rdu.redhat.com>
-References: <44CE2A2D.9000103@nvidia.com> <20060801122727.GB5965@gospo.rdu.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Manfred Spraul <manfred@colorfullife.com>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@osdl.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: neigh_lookup lockdep bug.
+Date: Tue, 01 Aug 2006 23:19:43 +1000
+Message-ID: <E1G7u9v-0001mL-00@gondolin.me.apana.org.au>
+References: <1154437278.3113.0.camel@laptopd505.fenrus.org>
+Cc: davem@davemloft.net, davej@redhat.com, netdev@vger.kernel.org,
+	mingo@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:2704 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S932074AbWHANSP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 09:18:15 -0400
-To: Andy Gospodarek <andy@greyhouse.net>
-Content-Disposition: inline
-In-Reply-To: <20060801122727.GB5965@gospo.rdu.redhat.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:4883 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751192AbWHANUD
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 09:20:03 -0400
+To: arjan@infradead.org (Arjan van de Ven)
+In-Reply-To: <1154437278.3113.0.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 01, 2006 at 08:27:27AM -0400, Andy Gospodarek wrote:
-> On Mon, Jul 31, 2006 at 12:05:01PM -0400, Ayaz Abdulla wrote:
-> > This patch will correct the mac address and set a flag to indicate that 
-> > it is already corrected in case nv_probe is called again. For example, 
-> > when you use kexec to restart the kernel.
-> > 
-> > Signed-Off-By: Ayaz Abdulla <aabdulla@nvidia.com>
-> > 
+Arjan van de Ven <arjan@infradead.org> wrote:
 > 
-> Have you found other situations where this patch is critical other than
-> when kevec is used to restart the kernel?
-> 
+> we fixed lockdep to have this lock key to be per skb queue ... didn't
+> you put that patch in rawhide Dave (J) ?
 
-s/kevec/kexec/g
+I've only briefly looked at the lockdep_set_class code so I might be
+way off here.
 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It seems that for lockdep_set_class to work its second argument should
+be distinct for each class of locks that you wish to distinguish.  So
+shouldn't we be putting the key into struct sk_buff_head rather than
+having one key (skb_queue_lock_key) for all sk_buff_head's?
+
+Cheers
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
