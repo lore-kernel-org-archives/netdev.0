@@ -1,53 +1,55 @@
-From: Ulrich Kunitz <kune@deine-taler.de>
-Subject: [PATCH 5/6] zd1211rw: Fixed endianess issue with length info tag detection
-Date: Tue, 01 Aug 2006 23:43:34 +0200
-Message-ID: <1154468616527-git-send-email-kune@deine-taler.de>
-References: <1154468615618-git-send-email-kune@deine-taler.de>
-Reply-To: Ulrich Kunitz <kune@deine-taler.de>
-Cc: netdev@vger.kernel.org, dsd@gentoo.org,
-	Ulrich Kunitz <kune@deine-taler.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Regarding offloading IPv6 addrconf and ndisc
+Date: Tue, 01 Aug 2006 14:54:34 -0700 (PDT)
+Message-ID: <20060801.145434.25473901.davem@davemloft.net>
+References: <20060730113050.GL8334@innerghost.net>
+	<20060731.142307.35014994.davem@davemloft.net>
+	<20060801115002.GX8334@innerghost.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kazunori@miyazawa.org, hadi@cyberus.ca, shemminger@osdl.org,
+	herbert@gondor.apana.org.au, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:29636 "EHLO
-	p15091797.pureserver.info") by vger.kernel.org with ESMTP
-	id S1751132AbWHAVnh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 17:43:37 -0400
-To: linville@tuxdriver.com
-In-Reply-To: <1154468615618-git-send-email-kune@deine-taler.de>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:27783
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750948AbWHAVyd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 17:54:33 -0400
+To: hsantos@av.it.pt
+In-Reply-To: <20060801115002.GX8334@innerghost.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Discovered a problem while accessing www.python.org on my PPC32.
-The problem was pretty consistent for all sticks. The reason was
-that while testing for the length info tag, I ignored the
-endianess of the host system.
+From: Hugo Santos <hsantos@av.it.pt>
+Date: Tue, 1 Aug 2006 12:50:02 +0100
 
-Please recognize that converting the constant to little endian, we
-create faster code.
+>    I might have some cycles during the month to code up something in
+>  this direction, at least for an initial review, i'll try to do so.
 
-Signed-off-by: Ulrich Kunitz <kune@deine-taler.de>
----
- drivers/net/wireless/zd1211rw/zd_usb.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+Great.  I prefer to talk about code anyways :)
 
-diff --git a/drivers/net/wireless/zd1211rw/zd_usb.c b/drivers/net/wireless/zd1211rw/zd_usb.c
-index 2e3d77e..96551da 100644
---- a/drivers/net/wireless/zd1211rw/zd_usb.c
-+++ b/drivers/net/wireless/zd1211rw/zd_usb.c
-@@ -546,11 +546,11 @@ static void handle_rx_packet(struct zd_u
- 	 * be padded. Unaligned access might also happen if the length_info
- 	 * structure is not present.
- 	 */
--	if (get_unaligned(&length_info->tag) == RX_LENGTH_INFO_TAG) {
-+	if (get_unaligned(&length_info->tag) == cpu_to_le16(RX_LENGTH_INFO_TAG))
-+	{
- 		unsigned int l, k, n;
- 		for (i = 0, l = 0;; i++) {
--			k = le16_to_cpu(get_unaligned(
--				&length_info->length[i]));
-+			k = le16_to_cpu(get_unaligned(&length_info->length[i]));
- 			n = l+k;
- 			if (n > length)
- 				return;
--- 
-1.4.1
+>    Also, the reliability of a system depends on a lot of things, but
+>  please, let's not use the assumption that because everything sits in
+>  the kernel, it will be stable as the number of 'points of failure' is
+>  smaller; this is only true as long as people work to have stable
+>  components -- and this is independent of where the components sit.
 
+This disagrees with my experience.  Things in the kernel tend to get
+noticed fast and fixed, whereas things in userspace can stay broken
+for a long period of time.
+
+Everything is about momentum, and the kernel is where all the
+development momentum is.  It's not in these userland components.
+
+People are running semantic checkers on the kernel constantly,
+the kernel has all sorts of automatic locking, memory allocation,
+et. al verifications and assertions.
+
+A particular userland components might have this treatment and checks,
+but the kernel has them going all the time and people are looking at
+the output of these tools and checks constantly.  You cannot get the
+kind of coverage the kernel gets.
+
+As Andrew Morton says, userland is just a testsuite for the kernel.
+:-)
