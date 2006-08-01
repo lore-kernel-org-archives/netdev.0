@@ -1,42 +1,57 @@
-From: Paying-Hyip <412salif@gmail.com>
-Subject: PAYING
-Date: Tue, 01 Aug 2006 14:41:57 +0200
-Message-ID: <200608011243.k71Cgrqm015233@zeus1.kernel.org>
-Reply-To: 412salif@gmail.com
+From: Jamal Hadi Salim <hadi@cyberus.ca>
+Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help()
+	2.6.18-rc3
+Date: Tue, 01 Aug 2006 08:55:18 -0400
+Message-ID: <1154436918.5170.125.camel@jzny2>
+References: <44CE4DCA.8000609@trash.net> <44CF0086.1030404@trash.net>
+	 <20060801072358.GB3802@gondor.apana.org.au>
+	 <20060801.003614.54188740.davem@davemloft.net>
+	 <20060801074504.GA4272@gondor.apana.org.au>
+	 <1154433648.5170.84.camel@jzny2>
+	 <20060801123408.GB6177@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="f1c8c6f6-0236-4429-932b-e7b183865427"
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus1.kernel.org ([204.152.191.4]:37304 "EHLO zeus1.kernel.org")
-	by vger.kernel.org with ESMTP id S1751098AbWHAMnL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 08:43:11 -0400
-Received: from gmail108.com (AMontpellier-252-1-13-40.w81-251.abo.wanadoo.fr [81.251.55.40])
-	by zeus1.kernel.org (8.13.7/8.13.1) with SMTP id k71Cgrqm015233
-	for <netdev@vger.kernel.org>; Tue, 1 Aug 2006 12:43:09 GMT
-To: netdev@vger.kernel.org
+Received: from mx02.cybersurf.com ([209.197.145.105]:26821 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1751591AbWHAMzY
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 08:55:24 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1G7tmQ-00070m-3V
+	for netdev@vger.kernel.org; Tue, 01 Aug 2006 08:55:26 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060801123408.GB6177@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 2006-01-08 at 22:34 +1000, Herbert Xu wrote:
 
-This is a multi-part message in MIME format
+> What I'd like to know is do we really need to preserve
+> 
+> 	tc_verd/tc_index/input_dev
+> 
+> for a packet crossing loopback's xmit function?
+> 
 
---f1c8c6f6-0236-4429-932b-e7b183865427
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+My instinctive reaction is to say no. Heres a (slightly complex)
+example:
 
-DOLLARS MAKER
+--> eth0(GSO ON) ---> lo --> eth1(GSO off) --> eth3(GSO ON)
 
-Special Plan : 200-400 % after 1 day
+When we get to lo in the above graph, input_dev=eth0 and when we leave
+that info will be overwritten to be input_dev=lo. 
 
-150-230 % after 1 day
-210-290 % after 2 days
-270-350 % after 3 days
+I just added the GSO markers (incase that info is useful) to show that
+we could move in the same topology between GSO and non-GSO devices.
 
-min spend: 1 USD
-max spend: 5000 USD
+I believe it would be fine for lo not to preserve. Not sure if it is ok
+as a general rule though. 
 
-REF:6-12-24 %
-
-Sign Up
-http://www.dollars-maker.com/?ref=3Dsalif  
---f1c8c6f6-0236-4429-932b-e7b183865427--
+cheers,
+jamal
 
