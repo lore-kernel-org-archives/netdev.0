@@ -1,153 +1,68 @@
 From: Venkat Yekkirala <vyekkirala@trustedcs.com>
-Subject: [RFC 2/3] secid reconciliation on inbound: add LSM hooks
-Date: Tue, 01 Aug 2006 17:08:34 -0500
-Message-ID: <44CFD0E2.9070709@trustedcs.com>
+Subject: [RFC 1/3] secid reconciliation on inbound
+Date: Tue, 01 Aug 2006 17:08:26 -0500
+Message-ID: <44CFD0DA.9060205@trustedcs.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: jmorris@namei.org, sds@tycho.nsa.gov, chanson@trustedcs.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:42675 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1751225AbWHAWIu
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:12366 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1751216AbWHAWIu
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 1 Aug 2006 18:08:50 -0400
 To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add skb_policy_check hook to LSM to enable reconciliation of the
-various security identifiers as well as enforce flow control on
-inbound (INPUT/FORWARD) traffic.
+Currently a packet accumulates multiple security identifiers, each of a
+different class, as it enters the system. This patch set reconciles these
+identifiers into a single identifier while also allowing LSM (SELinux is
+addressed in this patch set) to impose flow control checks based on the
+identifiers.
 
-Also defines reconciliation for SELinux.
+The reconciliation steps for SELinux are explained in the Labeled Networking
+document at:
+http://marc.theaimsgroup.com/?l=linux-netdev&m=115136637800361&w=2
+
+The following are the identifiers handled here:
+
+1. secmark on the skb
+2. xfrm security identifier associated with the skb if it used any xfrms,
+   a zero secid otherwise.
+
+This patch: Add new flask definitions to SELinux
+
+Adds a new avperm "come_thru" to arbitrate among the identifiers on the
+inbound (input/forward). Also adds a new avperm "go_thru" to enable flow
+control checks on the outbound (output/forward), addressed in a later
+patch.
 
 Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
 ---
- dummy.c    |    7 ++
- hooks.c    |   30 ++++++++--
- security.h |   16 +++++
- 3 files changed, 49 insertions(+), 4 deletions(-)
+ av_perm_to_string.h |    2 ++
+ av_permissions.h    |    2 ++
+ 2 files changed, 4 insertions(+)
 
---- linux-2.6.17.child_sock/include/linux/security.h	2006-07-31 10:03:26.000000000 -0500
-+++ linux-2.6.17/include/linux/security.h	2006-08-01 10:57:15.000000000 -0500
-@@ -828,6 +828,9 @@ struct request_sock;
-  *	Sets the new child socket's sid to the openreq sid.
-  * @req_classify_flow:
-  *	Sets the flow's sid to the openreq sid.
-+ * @skb_policy_check:
-+ *	Checks to see if security policy would allow skb into the system.
-+ *	Returns 1 if skb is allowed, 0 otherwise.
-  *
-  * Security hooks for XFRM operations.
-  *
-@@ -1360,6 +1363,7 @@ struct security_operations {
- 					struct request_sock *req);
- 	void (*inet_csk_clone)(struct sock *newsk, const struct request_sock *req);
- 	void (*req_classify_flow)(const struct request_sock *req, struct flowi *fl);
-+	int (*skb_policy_check)(struct sk_buff *skb, unsigned short family);
- #endif	/* CONFIG_SECURITY_NETWORK */
+--- linux-2.6.17.child_sock/security/selinux/include/av_permissions.h	2006-07-31 09:36:24.000000000 -0500
++++ linux-2.6.17/security/selinux/include/av_permissions.h	2006-07-31 10:20:16.000000000 -0500
+@@ -962,6 +962,8 @@
+ #define PACKET__SEND                              0x00000001UL
+ #define PACKET__RECV                              0x00000002UL
+ #define PACKET__RELABELTO                         0x00000004UL
++#define PACKET__COME_THRU                         0x00000008UL
++#define PACKET__GO_THRU                           0x00000010UL
  
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
-@@ -2917,6 +2921,12 @@ static inline void security_req_classify
- 	security_ops->req_classify_flow(req, fl);
- }
- 
-+static inline int security_skb_policy_check(struct sk_buff *skb,
-+					unsigned short family)
-+{
-+	return security_ops->skb_policy_check(skb, family);
-+}
-+
- static inline void security_sock_graft(struct sock* sk, struct socket *parent)
- {
- 	security_ops->sock_graft(sk, parent);
-@@ -3068,6 +3078,12 @@ static inline void security_req_classify
- {
- }
- 
-+static inline int security_skb_policy_check(struct sk_buff *skb,
-+					unsigned short family)
-+{
-+	return 1;
-+}
-+
- static inline void security_sock_graft(struct sock* sk, struct socket *parent)
- {
- }
---- linux-2.6.17.child_sock/security/dummy.c	2006-07-31 10:03:26.000000000 -0500
-+++ linux-2.6.17/security/dummy.c	2006-08-01 10:57:37.000000000 -0500
-@@ -833,6 +833,12 @@ static inline void dummy_req_classify_fl
- 			struct flowi *fl)
- {
- }
-+
-+static inline int dummy_skb_policy_check(struct sk_buff *skb,
-+			unsigned short family)
-+{
-+	return 1;
-+}
- #endif	/* CONFIG_SECURITY_NETWORK */
- 
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
-@@ -1098,6 +1104,7 @@ void security_fixup_ops (struct security
- 	set_to_dummy_if_null(ops, inet_conn_request);
- 	set_to_dummy_if_null(ops, inet_csk_clone);
- 	set_to_dummy_if_null(ops, req_classify_flow);
-+	set_to_dummy_if_null(ops, skb_policy_check);
-  #endif	/* CONFIG_SECURITY_NETWORK */
- #ifdef  CONFIG_SECURITY_NETWORK_XFRM
- 	set_to_dummy_if_null(ops, xfrm_policy_alloc_security);
---- linux-2.6.17.child_sock/security/selinux/hooks.c	2006-07-31 10:04:31.000000000 -0500
-+++ linux-2.6.17/security/selinux/hooks.c	2006-08-01 10:33:43.000000000 -0500
-@@ -3465,11 +3465,11 @@ static int selinux_socket_sock_rcv_skb(s
- 	else
- 		err = avc_has_perm(sksec->sid, skb->secmark, SECCLASS_PACKET,
- 				   PACKET__RECV, &ad);
--	if (err)
--		goto out;
-+	/* if (err) */
-+	/*	goto out; */
- 
--	err = selinux_xfrm_sock_rcv_skb(sksec->sid, skb, &ad);
--out:	
-+	/* err = selinux_xfrm_sock_rcv_skb(sksec->sid, skb, &ad); */
-+out:	 
- 	return err;
- }
- 
-@@ -3624,6 +3624,27 @@ void selinux_req_classify_flow(const str
- 	fl->secid = req->secid;
- }
- 
-+static int selinux_skb_policy_check(struct sk_buff *skb, unsigned short family)
-+{
-+	u32 xfrm_sid;
-+	int err;
-+
-+	err = selinux_xfrm_decode_session(skb, &xfrm_sid, 0);
-+	BUG_ON(err);
-+
-+	err = avc_has_perm(xfrm_sid, skb->secmark, SECCLASS_PACKET,
-+					PACKET__COME_THRU, NULL);
-+	if (err)
-+		goto out;
-+
-+	skb->secmark = xfrm_sid;
-+
-+	/* See if CIPSO can COME_THRU the current secmark here */
-+
-+out:
-+	return err ? 0 : 1;
-+}
-+
- static int selinux_nlmsg_perm(struct sock *sk, struct sk_buff *skb)
- {
- 	int err = 0;
-@@ -4667,6 +4688,7 @@ static struct security_operations selinu
- 	.inet_conn_request =		selinux_inet_conn_request,
- 	.inet_csk_clone =		selinux_inet_csk_clone,
- 	.req_classify_flow =		selinux_req_classify_flow,
-+	.skb_policy_check =		selinux_skb_policy_check,
- 
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
- 	.xfrm_policy_alloc_security =	selinux_xfrm_policy_alloc,
+ #define KEY__VIEW                                 0x00000001UL
+ #define KEY__READ                                 0x00000002UL
+--- linux-2.6.17.child_sock/security/selinux/include/av_perm_to_string.h	2006-07-31 09:36:24.000000000 -0500
++++ linux-2.6.17/security/selinux/include/av_perm_to_string.h	2006-07-31 10:20:16.000000000 -0500
+@@ -245,6 +245,8 @@
+    S_(SECCLASS_PACKET, PACKET__SEND, "send")
+    S_(SECCLASS_PACKET, PACKET__RECV, "recv")
+    S_(SECCLASS_PACKET, PACKET__RELABELTO, "relabelto")
++   S_(SECCLASS_PACKET, PACKET__COME_THRU, "come_thru")
++   S_(SECCLASS_PACKET, PACKET__GO_THRU, "go_thru")
+    S_(SECCLASS_KEY, KEY__VIEW, "view")
+    S_(SECCLASS_KEY, KEY__READ, "read")
+    S_(SECCLASS_KEY, KEY__WRITE, "write")
