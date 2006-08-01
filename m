@@ -1,77 +1,64 @@
-From: Hugo Santos <hsantos@av.it.pt>
-Subject: Re: Regarding offloading IPv6 addrconf and ndisc
-Date: Tue, 1 Aug 2006 12:50:02 +0100
-Message-ID: <20060801115002.GX8334@innerghost.net>
-References: <20060729133442.GI8334@innerghost.net> <44CC2741.4050706@miyazawa.org> <20060730113050.GL8334@innerghost.net> <20060731.142307.35014994.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help() 2.6.18-rc3
+Date: Tue, 1 Aug 2006 21:51:02 +1000
+Message-ID: <20060801115102.GA5638@gondor.apana.org.au>
+References: <44CD8415.2020403@davidcoulson.net> <44CD85FF.9010607@trash.net> <20060730.215907.58439803.davem@davemloft.net> <44CD9013.7020401@trash.net> <44CDDDF7.70004@trash.net> <20060731113050.GA25972@gondor.apana.org.au> <44CE4DCA.8000609@trash.net> <44CF0086.1030404@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="s8wpp40TDz0KNMmP"
-Cc: kazunori@miyazawa.org, hadi@cyberus.ca, shemminger@osdl.org,
-	herbert@gondor.apana.org.au, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.av.it.pt ([193.136.92.53]:6616 "EHLO av.it.pt")
-	by vger.kernel.org with ESMTP id S932671AbWHALuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 07:50:05 -0400
-To: David Miller <davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:54033 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932674AbWHALvR
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 07:51:17 -0400
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20060731.142307.35014994.davem@davemloft.net>
+In-Reply-To: <44CF0086.1030404@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Aug 01, 2006 at 09:19:34AM +0200, Patrick McHardy wrote:
+> 
+> - nfct/nfctinfo/nfct_reasm: the xfrm output path does an immediate
+>   nf_reset, so they were not necessary until now. Queueing can happen
+>   on any hook, so we need to preserve them.
 
---s8wpp40TDz0KNMmP
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+This looks OK to me.  However, we should do this in a wrapper around
+skb_gso_segment rather than in skb_segment.
 
-David,
+The idea with skb_gso_segment is that it's the most generic (or basic)
+level of service which is needed by everyone.  If you need anything
+more specific, you can do it around skb_gso_segment.
 
-> So all of you userland control-plane fanatics, how will you handle
-> things like NFS root with these daemon-required variants of NDISC and
-> ARP?
+For exmample, dev_gso_segment is the version that's tailored for
+device transmission.
 
-   Do it in the initial ramdisk, we only need the daemon to setup the
- NDISC entries to talk to the NFS server. :-)
+So I'd imagine something like
 
-   There is obviously a cost associated with this, a deployment cost.
- But there are additional factors we must consider. In a later e-mail
- you state that Linux is a generic purpose operating system; how many
- users need to boot from a NFS root (besides myself :-)? I think that we
- must take into consideration that currently Linux is used in lots of
- distinct environments, not only Desktop computers, and servers, but
- also smaller devices. Configuration/Flexibility vs. optimization is
- something that varies a lot depending on the deployment you are talking
- about, and in most of my scenarios, a small mobile device isn't
- required at the moment to push 100Mbps (optimization) but must be
- capable of verifying it's peers and maintaining secure connections
- (flexibility). So, let's be generic?
+nf_gso_segment(skb)
+{
+	segs = skb_gso_segment(skb, 0);
+	if (IS_ERR(segs))
+		goto out;
 
-   I might have some cycles during the month to code up something in
- this direction, at least for an initial review, i'll try to do so.
+	nskb = segs;
+	do {
+		copy_nf_attributes(nskb, skb);
+	} while ((nskb = nskb->next));
 
-   Also, the reliability of a system depends on a lot of things, but
- please, let's not use the assumption that because everything sits in
- the kernel, it will be stable as the number of 'points of failure' is
- smaller; this is only true as long as people work to have stable
- components -- and this is independent of where the components sit. A
- few kernel versions ago (2.6.8 if i remember correctly) i couldn't even
- remove a used network interface safely from the system without hanging
- the network stack. It is possible to have stable user-space code, if
- people developing it work to and make sure it is stable.
+out:
+	kfree_skb(skb);
+	return segs;
+}
 
-   Hugo
+> - nf_bridge: needed for GSO on a bridge device until the deferred
+>   hooks are removed
 
---s8wpp40TDz0KNMmP
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+I presume this is only needed for netfilter queueing as well?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFEzz/q7asb/itUNKwRAkVzAJ9Ry+yhPmxz+mJdjer61ARrnBOTLQCaAs4t
-qUXXDbMH82pHNW/TvaNmobA=
-=9xlx
------END PGP SIGNATURE-----
-
---s8wpp40TDz0KNMmP--
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
