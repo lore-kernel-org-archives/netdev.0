@@ -1,28 +1,46 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help() 2.6.18-rc3
-Date: Tue, 01 Aug 2006 09:22:04 +0200
-Message-ID: <44CF011C.8040305@trash.net>
-References: <44CDDDF7.70004@trash.net>	<20060731113050.GA25972@gondor.apana.org.au>	<44CE4DCA.8000609@trash.net> <20060801.000059.57444384.davem@davemloft.net>
+Date: Tue, 1 Aug 2006 17:23:58 +1000
+Message-ID: <20060801072358.GB3802@gondor.apana.org.au>
+References: <44CD8415.2020403@davidcoulson.net> <44CD85FF.9010607@trash.net> <20060730.215907.58439803.davem@davemloft.net> <44CD9013.7020401@trash.net> <44CDDDF7.70004@trash.net> <20060731113050.GA25972@gondor.apana.org.au> <44CE4DCA.8000609@trash.net> <44CF0086.1030404@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37865 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932571AbWHAHWF
+Received: from rhun.apana.org.au ([64.62.148.172]:33293 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1161123AbWHAHYN
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 03:22:05 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060801.000059.57444384.davem@davemloft.net>
+	Tue, 1 Aug 2006 03:24:13 -0400
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <44CF0086.1030404@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> I'm going to kill the warning for 2.6.18, using the patch below.
-> We can queue up Patrick's changes for 2.6.19, just give me the
-> word and I'll apply it to net-2.6.19
+Hi Patrick:
 
+On Tue, Aug 01, 2006 at 09:19:34AM +0200, Patrick McHardy wrote:
+> 
+> - nfct/nfctinfo/nfct_reasm: the xfrm output path does an immediate
+>   nf_reset, so they were not necessary until now. Queueing can happen
+>   on any hook, so we need to preserve them.
+> 
+> - nf_bridge: needed for GSO on a bridge device until the deferred
+>   hooks are removed
 
-Besides the problem I mentioned in the mail I just wrote everything
-looks good so far. I'll probably send you the final version sometimes
-today.
+I need to think a bit more about these two cases.
+
+> - tc_verd/tc_index/input_dev: when directing a packet from a device
+>   supporting GSO to a device not supporting GSO using tc actions,
+>   these fields may be set.
+
+This doesn't look right though.  GSO should occur just before
+hard_start_xmit (after all tc actions have taken place) so we
+shouldn't have any more tc actions to perform.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
