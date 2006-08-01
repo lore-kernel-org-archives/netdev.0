@@ -1,98 +1,84 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC] gre: transparent ethernet bridging
-Date: Mon, 31 Jul 2006 22:08:22 -0700
-Message-ID: <20060731220822.444f04e4@localhost.localdomain>
-References: <44CDD631.5030008@snapgear.com>
-	<20060731091423.3327f85e@dxpl.pdx.osdl.net>
-	<44CEAB31.5090501@snapgear.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: FACK and CWND
+Date: Mon, 31 Jul 2006 23:07:16 -0700 (PDT)
+Message-ID: <20060731.230716.125566410.davem@davemloft.net>
+References: <c583c3410607280337y5a9b1276gda0f00259ce1995f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:64652 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1161038AbWHAFIf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 01:08:35 -0400
-To: Philip Craig <philipc@snapgear.com>
-In-Reply-To: <44CEAB31.5090501@snapgear.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:6796
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1161134AbWHAGH7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 02:07:59 -0400
+To: gavin.malin@gmail.com
+In-Reply-To: <c583c3410607280337y5a9b1276gda0f00259ce1995f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 01 Aug 2006 11:15:29 +1000
-Philip Craig <philipc@snapgear.com> wrote:
+From: "Ma Lin" <gavin.malin@gmail.com>
+Date: Fri, 28 Jul 2006 18:37:15 +0800
 
-> Stephen Hemminger wrote:
-> > On Mon, 31 Jul 2006 20:06:41 +1000
-> > Philip Craig <philipc@snapgear.com> wrote:
-> > 
-> >> This patch implements transparent ethernet bridging for gre tunnels.
-> >> There are a few outstanding issues.
-> > 
-> > Why not use existing bridge code?
-> 
-> It does use the existing bridge code.  Perhaps the name is misleading.
-> All it does is encapsulate the full ethernet header in a gre packet,
-> rather than only layer 3.  That is, currently gre uses ARPHRD_IPGRE,
-> but bridging requires ARPHRD_ETHER.
-> 
+> In FACK, the holes between SACK blocks are considered as loss. To a
+> sender, when SACK comes in, loss_out would be non-zero. According to
+> linux-2.6.17.7/net/ipv4/tcp_input.c, function tcp_time_to_recover(),
+> this non-zero loss_out will send the sender into "Recovery" state,
+> in which, CWND could be reduced. In one word, it seems that, FACK
+> would allow SACK holes to reduce CWND.
 
-I am not against making the bridge code smarter to handle other
-encapsulation.
+That's right, because when tp->lost_out is set we have some form
+of absolute proof that packets were lost.
 
-> >> Some routers set LLC_SAP_BSPAN in the gre protocol field, and then
-> >> give the bpdu packet without any other ethernet/llc header. This patch
-> >> currently tries to fake the ethernet/llc header before passing the
-> >> packet up, but it is buggy (mac addresses are wrong at least). Maybe a
-> >> better approach is to call directly into the bridging code. I didn't try
-> >> that at first because it isn't modular, and may break other things that
-> >> want to see the packet.
-> > 
-> > Existing bridge code already has spanning tree.
-> 
-> Yes, and I want to use that.  But this packet is a bit strange in
-> that it does not have the ethernet header on it.   So what is the
-> best way to pass it to existing code?  Either fake the ethernet
-> header, or pass it directly?
+Note that even when not receiving SACK blocks, ie. pure Reno,
+we emulate the SACK information the best we can.
 
-Likewise if the bridge STP bpdu input code was smarter, it could
-deal with it maybe?
+So, if we have real SACK blocks, tcp_update_scoreboard() will
+mark all packets in the retransmit queue up to "fackets_out"
+minus "reordering" as lost.
 
-> 
-> >> +#if 0
-> >>  	dev = alloc_netdev(sizeof(*t), name, ipgre_tunnel_setup);
-> >> +#else
-> >> +	dev = alloc_netdev(sizeof(*t), name, ipgre_ether_tunnel_setup);
-> >> +#endif
-> > 
-> > "Do, or do not there is no try"
-> 
-> I am looking for comments as to whether adding a netlink interface
-> to control this is appropriate.
+Else, for non-SACK, only the head packet in the retransmit queue
+will be marked as lost.
 
-If we make bridge code type aware, then the ipgre tunnel wouldn't have to change.
+> However, in the paper "Congestion Control in Linux TCP", Section 3,
+> subsection Recovery, it says that Recovery state is triggered by
+> "sufficient amount of successive duplicate ACK", to my understand,
+> that means 3-dup.
 
-> >> +__be16 ipgre_type_trans(struct sk_buff *skb, int offset)
-> >> +{
-> >> +	u8     *h = skb->data;
-> >> +	__be16 flags = *(__be16*)h;
-> >> +	__be16 proto = *(__be16*)(h + 2);
-> >> +
-> >> +	/* WCCP version 1 and 2 protocol decoding.
-> >> +	 * - Change protocol to IP
-> >> +	 * - When dealing with WCCPv2, Skip extra 4 bytes in GRE header
-> >> +	 */
-> >> +	if (flags == 0 &&
-> >> +	    proto == __constant_htons(ETH_P_WCCP)) {
-> >> +		proto = __constant_htons(ETH_P_IP);
-> >> +		if ((*(h + offset) & 0xF0) != 0x40)
-> >> +			offset += 4;
-> >> +	}
-> > 
-> > Don't use __constant_htons() except in initializers and switch cases
-> > (where gcc is too stupid to optimize the macro).
-> > 
-> 
-> This is a problem in the existing code, which I am simply moving
-> around.  Should I fix it at the same time?
+Under Linux it has more complicated definition.  We wait until
+we see at least "tp->reordering" packets lost.
 
-Usually if a diff touches some code, I try to make it use current practice.
+Dynamically we try to determine how deeply packets are being
+reordered on the connection.
+
+Using this value, we use "tp->fackets_out - tp->reordering"
+as how many packets we think have been proven as lost.
+
+You will note that any code path that falls through to to end
+tcp_fastretrans_alert() will retransmit one packet using a call
+to tcp_xmit_retransmit_queue().  And one such code path is the
+transition to TCP_CA_Recovery which is guarded by the
+tcp_time_to_recover() check, which encapsulates the two tests
+we've discussed as:
+
+	if (tp->lost_out)
+		return 1;
+	if (tcp_fackets_out(tp) > tp->reordering)
+		return 1;
+
+The next few checks try to handle some fringe cases, such as the head
+packet in the retransmit queue having been sent more than an RTO ago,
+and also having so few packets in the retransmit queue that normal
+recovery mechanisms cannot function properly:
+
+	if (tcp_head_timedout(sk, tp))
+		return 1;
+	packets_out = tp->packets_out;
+	if (packets_out <= tp->reordering &&
+	    tp->sacked_out >= max_t(__u32, packets_out/2, sysctl_tcp_reordering) &&
+	    !tcp_may_send_now(sk, tp)) {
+		return 1;
+	}
+
+Hope this helps.
+
