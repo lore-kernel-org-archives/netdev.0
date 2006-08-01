@@ -1,43 +1,53 @@
 From: Ulrich Kunitz <kune@deine-taler.de>
-Subject: [PATCH 4/6] zd1211rw: Remove bogus assert
-Date: Tue, 01 Aug 2006 23:43:33 +0200
-Message-ID: <11544686162131-git-send-email-kune@deine-taler.de>
+Subject: [PATCH 5/6] zd1211rw: Fixed endianess issue with length info tag detection
+Date: Tue, 01 Aug 2006 23:43:34 +0200
+Message-ID: <1154468616527-git-send-email-kune@deine-taler.de>
 References: <1154468615618-git-send-email-kune@deine-taler.de>
 Reply-To: Ulrich Kunitz <kune@deine-taler.de>
-Cc: netdev@vger.kernel.org, dsd@gentoo.org
+Cc: netdev@vger.kernel.org, dsd@gentoo.org,
+	Ulrich Kunitz <kune@deine-taler.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:29124 "EHLO
+Received: from deine-taler.de ([217.160.107.63]:29636 "EHLO
 	p15091797.pureserver.info") by vger.kernel.org with ESMTP
-	id S1751080AbWHAVng (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 17:43:36 -0400
+	id S1751132AbWHAVnh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 17:43:37 -0400
 To: linville@tuxdriver.com
 In-Reply-To: <1154468615618-git-send-email-kune@deine-taler.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Daniel Drake <dsd@gentoo.org>
+Discovered a problem while accessing www.python.org on my PPC32.
+The problem was pretty consistent for all sticks. The reason was
+that while testing for the length info tag, I ignored the
+endianess of the host system.
 
-This function is never called in interrupt context, and it doesn't
-matter if it is called in IRQ context or not.
+Please recognize that converting the constant to little endian, we
+create faster code.
 
-Signed-off-by: Daniel Drake <dsd@gentoo.org>
 Signed-off-by: Ulrich Kunitz <kune@deine-taler.de>
 ---
- drivers/net/wireless/zd1211rw/zd_usb.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ drivers/net/wireless/zd1211rw/zd_usb.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/wireless/zd1211rw/zd_usb.c b/drivers/net/wireless/zd1211rw/zd_usb.c
-index c68b9f8..2e3d77e 100644
+index 2e3d77e..96551da 100644
 --- a/drivers/net/wireless/zd1211rw/zd_usb.c
 +++ b/drivers/net/wireless/zd1211rw/zd_usb.c
-@@ -325,7 +325,6 @@ static void disable_read_regs_int(struct
- {
- 	struct zd_usb_interrupt *intr = &usb->intr;
- 
--	ZD_ASSERT(in_interrupt());
- 	spin_lock(&intr->lock);
- 	intr->read_regs_enabled = 0;
- 	spin_unlock(&intr->lock);
+@@ -546,11 +546,11 @@ static void handle_rx_packet(struct zd_u
+ 	 * be padded. Unaligned access might also happen if the length_info
+ 	 * structure is not present.
+ 	 */
+-	if (get_unaligned(&length_info->tag) == RX_LENGTH_INFO_TAG) {
++	if (get_unaligned(&length_info->tag) == cpu_to_le16(RX_LENGTH_INFO_TAG))
++	{
+ 		unsigned int l, k, n;
+ 		for (i = 0, l = 0;; i++) {
+-			k = le16_to_cpu(get_unaligned(
+-				&length_info->length[i]));
++			k = le16_to_cpu(get_unaligned(&length_info->length[i]));
+ 			n = l+k;
+ 			if (n > length)
+ 				return;
 -- 
 1.4.1
 
