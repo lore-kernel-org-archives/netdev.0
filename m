@@ -1,68 +1,51 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Linville's L2 rant... -- Re: PATCH Fix bonding active-backup
- behavior for VLAN interfaces
-Date: Tue, 01 Aug 2006 10:04:24 -0700
-Message-ID: <44CF8998.3000408@candelatech.com>
-References: <44CA34D0.1070507@candelatech.com> <44CA87C5.1060905@candelatech.com> <20060730.205032.130618331.davem@davemloft.net> <200607311015.40255.Christophe.Devriese@eurid.eu> <20060731123038.GA10138@tuxdriver.com> <1154396348.5170.43.camel@jzny2> <20060801120836.GA29208@tuxdriver.com> <1154435614.5170.111.camel@jzny2> <44CF7CDE.4080601@candelatech.com> <20060801165218.GF29208@tuxdriver.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH] IPv6: only set err in rawv6_bind() when necessary
+Date: Tue, 01 Aug 2006 13:06:03 -0400
+Message-ID: <44CF89FB.2060208@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Christophe Devriese <Christophe.Devriese@eurid.eu>
+Content-Type: multipart/mixed;
+ boundary="------------090901070102000200040401"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:38813 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1750866AbWHARFI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 13:05:08 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060801165218.GF29208@tuxdriver.com>
+Received: from atlrel8.hp.com ([156.153.255.206]:40884 "EHLO atlrel8.hp.com")
+	by vger.kernel.org with ESMTP id S1751668AbWHARGq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 13:06:46 -0400
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> On Tue, Aug 01, 2006 at 09:10:06AM -0700, Ben Greear wrote:
-> 
->>Jamal Hadi Salim wrote:
-> 
-> 
->>>Agreed. I have some very strong opinions on this subject that i could
->>>share with you if you want. For example, IMO, I think it would be a lot
->>>reasonable to assume that a VLAN or VLANS are attributes of a netdevice
->>>(just like IP addresses or MAC addresses are). 
->>
->>As might be expected, I feel that VLANs are much more
->>useful as full-featured net devices.  I do not believe it is worth
->>decreasing functionality to try to 'clean up' the code.
-> 
-> 
-> In general, I agree that we shouldn't lose functionality.
-> 
-> I'm curious as to what particularly functionality you fear would be
-> lost if VLANs were not implemented the way they are now?
+This is a multi-part message in MIME format.
+--------------090901070102000200040401
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Well, Jamal and I and others discussed this in depth in the 2.4.12 time frame
-when VLANs where about to go into the kernel.  Basically, my point is that
-if VLANs are true devices, they will just work with all of the user-space protocols
-and they will easily handle abstractions such as bridges, (multiple) IP addresses, MAC addresses,
-net-filter, and all the rest.
+The variable 'err' is set in rawv6_bind() before the address check fails 
+instead of after, moved inside if() statement.
 
-Sounds like Jamal still remembers his reasons for wanting it otherwise...so
-will let him describe his reasons.
+Signed-off-by: Brian Haley <brian.haley@hp.com>
 
-Nothing is set in stone in Linux, and I am certainly not the final arbiter of
-what gets into the linux kernel, but in my opinion, the current VLAN architecture
-is supperior to the ip-alias model, and I see no reason to make any significant
-changes.
+--------------090901070102000200040401
+Content-Type: text/x-patch;
+ name="raw.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="raw.patch"
 
-Ben
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 8a30cd8..072b28b 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -240,10 +240,10 @@ static int rawv6_bind(struct sock *sk, s
+ 		 */
+ 		v4addr = LOOPBACK4_IPV6;
+ 		if (!(addr_type & IPV6_ADDR_MULTICAST))	{
+-			err = -EADDRNOTAVAIL;
+ 			if (!ipv6_chk_addr(&addr->sin6_addr, dev, 0)) {
+ 				if (dev)
+ 					dev_put(dev);
++				err = -EADDRNOTAVAIL;
+ 				goto out;
+ 			}
+ 		}
 
-> 
-> Thanks,
-> 
-> John
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+--------------090901070102000200040401--
