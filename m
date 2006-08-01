@@ -1,40 +1,56 @@
-From: Ulrich Kunitz <kune@deine-taler.de>
-Subject: Re: [PATCH dscape] d80211: Switch d80211.h to IEEE80211_ style names
-Date: Tue, 1 Aug 2006 21:13:41 +0200
-Message-ID: <20060801191341.GA15662@p15091797.pureserver.info>
-References: <200607270037.22384.flamingice@sourmilk.net> <20060731203113.GG10138@tuxdriver.com> <200607311351.35757.flamingice@sourmilk.net> <20060801095650.GA6831@infradead.org> <20060801122142.GB29208@tuxdriver.com> <20060801155837.4c3210aa@griffin.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: Jiri Benc <jbenc@suse.cz>
+Subject: [PATCH 0/5] d80211: pull request
+Date: Tue,  1 Aug 2006 21:16:54 +0200 (CEST)
+Message-ID: <20060801211530.150852000.midnight@suse.cz>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:31206 "EHLO
-	p15091797.pureserver.info") by vger.kernel.org with ESMTP
-	id S1751813AbWHATNl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 15:13:41 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20060801155837.4c3210aa@griffin.suse.cz>
+Received: from styx.suse.cz ([82.119.242.94]:48600 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S1751819AbWHATQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 15:16:54 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06-08-01 15:58 Jiri Benc wrote:
+Please pull from
+git://git.kernel.org/pub/scm/linux/kernel/git/jbenc/dscape.git up
+to obtain following patches:
 
-> > pointing non-migrated drivers (ipw2[12]00, zd1211rw) at the old
-> > code,
-> 
-> Yes. Rather than moving, zd1211 should be ported to d80211 - this will
-> also allow using of more advanced features of the hw.
+Jiri Benc:
+      d80211: make sleeping in hw->config possible
+      d80211: return correct error codes for scan requests
+      d80211: Switch d80211 drivers to IEEE80211_ style definitions
 
-I have currently no idea, when this will happen. Currently we are
-still working on the basic plumbing of the driver.
+Karol Lewandowski:
+      d80211: return correct value when loading of rate control module fails
 
-However I would support the descape-preparing clean-up, if
-pointless renaming is minimized. In the ideal case only header
-includes should be changed. I would support a split between
-protocol related headers and stack-related stuff.
+Michael Wu:
+      d80211: Switch d80211 to IEEE80211_ style names
 
-Cheers,
+ drivers/net/wireless/d80211/adm8211/adm8211.c      |   10 -
+ drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |   12 -
+ drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c |   15 -
+ drivers/net/wireless/d80211/rt2x00/rt2400pci.c     |   12 -
+ drivers/net/wireless/d80211/rt2x00/rt2500pci.c     |   12 -
+ drivers/net/wireless/d80211/rt2x00/rt2500usb.c     |   12 -
+ drivers/net/wireless/d80211/rt2x00/rt61pci.c       |   10 -
+ drivers/net/wireless/d80211/rt2x00/rt73usb.c       |   10 -
+ include/net/d80211.h                               |  125 ++++---
+ net/d80211/ieee80211.c                             |  343 ++++++++++----------
+ net/d80211/ieee80211_i.h                           |    6 
+ net/d80211/ieee80211_iface.c                       |   10 -
+ net/d80211/ieee80211_ioctl.c                       |   22 +
+ net/d80211/ieee80211_scan.c                        |    2 
+ net/d80211/ieee80211_sta.c                         |  259 ++++++++-------
+ net/d80211/ieee80211_sysfs.c                       |    2 
+ net/d80211/rate_control.c                          |   10 -
+ net/d80211/sta_info.c                              |   16 -
+ net/d80211/tkip.c                                  |    8 
+ net/d80211/wep.c                                   |    8 
+ net/d80211/wme.c                                   |    8 
+ net/d80211/wpa.c                                   |   72 ++--
+ 22 files changed, 508 insertions(+), 476 deletions(-)
 
-Uli
 
 -- 
-Uli Kunitz
+Jiri Benc
+SUSE Labs
