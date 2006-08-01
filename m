@@ -1,42 +1,45 @@
-From: Stephane Doyon <sdoyon@max-t.com>
-Subject: E1000: bug on error path in e1000_probe()
-Date: Tue, 1 Aug 2006 11:16:24 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0607311522200.3139@madrid.max-t.internal>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: Runtime power management for network interfaces
+Date: Tue, 1 Aug 2006 17:18:12 +0200
+Message-ID: <20060801151812.GA17791@xi.wantstofly.org>
+References: <Pine.LNX.4.44L0.0607251147040.6498-100000@iolanthe.rowland.org> <20060731091728.4d992cf1@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+	Network development list <netdev@vger.kernel.org>,
+	David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h216-18-124-229.gtcust.grouptelecom.net ([216.18.124.229]:23459
-	"EHLO mail.max-t.com") by vger.kernel.org with ESMTP
-	id S1751455AbWHAPRt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 11:17:49 -0400
-To: linux.nics@intel.com, netdev@vger.kernel.org
+Received: from alephnull.demon.nl ([83.160.184.112]:42183 "EHLO
+	xi.wantstofly.org") by vger.kernel.org with ESMTP id S1751630AbWHAPSO
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 11:18:14 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060731091728.4d992cf1@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Mon, Jul 31, 2006 at 09:17:28AM -0700, Stephen Hemminger wrote:
 
-The e1000_probe() function passes references to the netdev structure 
-before it's actually registered. In the (admittedly obscure) case where 
-the netdev registration fails, we are left with a dangling reference.
+> > During a Power Management session at the Ottawa Linux Symposium, it was
+> > generally agreed that network interface drivers ought to automatically
+> > suspend their devices (if possible) whenever:
+> > 
+> >     (1) The interface is ifconfig'ed down, or
+> > 
+> >     (2) No link is available.
+> 
+> This is hard because most of the power may be consumed by the PHY
+> interface and it needs to be alive to see link.
 
-Specifically, e1000_probe() calls
-         netif_carrier_off(netdev);
-before register_netdev(netdev).
+At least some Davicom PHYs (IIRC) have an 'energy detect' bit, which
+allows you to very quickly see whether there is a link partner without
+waiting for autonegotiation to complete.
 
-(It also calls pci_set_drvdata(pdev, netdev) rather early, not sure how 
-important that is.)
+So, you could just power on the PHY only once every couple of seconds,
+and instantly power it down again if the 'energy detect' bit doesn't go
+on within some short time interval.
 
-netif_carrier_off() does linkwatch_fire_event(dev);, which in turn does 
-dev_hold(dev); and queues up an event with a reference to the netdev.
 
-But the net_device reference counting mechanism only works on registered 
-netdevs.
-
-Should the register_netdev() call fail, the error path does 
-free_netdev(netdev);, and when the event goes off, it accesses random 
-memory through the dangling reference.
-
-I would recommend moving the register_netdev() call earlier.
-
-Thanks
-
+cheers,
+Lennert
