@@ -1,54 +1,40 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: E1000: bug on error path in e1000_probe()
-Date: Tue, 01 Aug 2006 11:54:58 -0700
-Message-ID: <44CFA382.7040703@intel.com>
-References: <Pine.LNX.4.64.0607311522200.3139@madrid.max-t.internal>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: [PATCH dscape] d80211: Switch d80211.h to IEEE80211_ style names
+Date: Tue, 1 Aug 2006 21:13:41 +0200
+Message-ID: <20060801191341.GA15662@p15091797.pureserver.info>
+References: <200607270037.22384.flamingice@sourmilk.net> <20060731203113.GG10138@tuxdriver.com> <200607311351.35757.flamingice@sourmilk.net> <20060801095650.GA6831@infradead.org> <20060801122142.GB29208@tuxdriver.com> <20060801155837.4c3210aa@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"Cramer, Jeb J" <jeb.j.cramer@intel.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:59144 "EHLO
-	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
-	id S1751791AbWHAS4B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 14:56:01 -0400
-To: Stephane Doyon <sdoyon@max-t.com>
-In-Reply-To: <Pine.LNX.4.64.0607311522200.3139@madrid.max-t.internal>
+Received: from deine-taler.de ([217.160.107.63]:31206 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1751813AbWHATNl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 15:13:41 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20060801155837.4c3210aa@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephane Doyon wrote:
-> The e1000_probe() function passes references to the netdev structure 
-> before it's actually registered. In the (admittedly obscure) case where 
-> the netdev registration fails, we are left with a dangling reference.
-> 
-> Specifically, e1000_probe() calls
->         netif_carrier_off(netdev);
-> before register_netdev(netdev).
-> 
-> (It also calls pci_set_drvdata(pdev, netdev) rather early, not sure how 
-> important that is.)
-> 
-> netif_carrier_off() does linkwatch_fire_event(dev);, which in turn does 
-> dev_hold(dev); and queues up an event with a reference to the netdev.
-> 
-> But the net_device reference counting mechanism only works on registered 
-> netdevs.
-> 
-> Should the register_netdev() call fail, the error path does 
-> free_netdev(netdev);, and when the event goes off, it accesses random 
-> memory through the dangling reference.
-> 
-> I would recommend moving the register_netdev() call earlier.
+On 06-08-01 15:58 Jiri Benc wrote:
 
-We agree that this may be an issue and we're looking at how this mis-ordering 
-entered the code in the first place. I'm probably going to send a patch later 
-today or include it in this week-worths upstream patches later this week.
+> > pointing non-migrated drivers (ipw2[12]00, zd1211rw) at the old
+> > code,
+> 
+> Yes. Rather than moving, zd1211 should be ported to d80211 - this will
+> also allow using of more advanced features of the hw.
 
-We were wondering however how you encountered this problem? Did you see a case 
-where this race actually happened? it might be an interesting case to look at. 
-Or did you do this by code review only?
+I have currently no idea, when this will happen. Currently we are
+still working on the basic plumbing of the driver.
 
-Auke
+However I would support the descape-preparing clean-up, if
+pointless renaming is minimized. In the ideal case only header
+includes should be changed. I would support a split between
+protocol related headers and stack-related stuff.
+
+Cheers,
+
+Uli
+
+-- 
+Uli Kunitz
