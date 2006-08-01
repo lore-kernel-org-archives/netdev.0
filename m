@@ -1,26 +1,37 @@
-From: "Lana" <alyssumcreole@loveable.com>
-Subject: Just published But without any  =?ISO-8859-1?Q?=20results=85?= Feel Pleasure from
-Date: Tue, 1 Aug 2006 21:36:02 +0800
-Message-ID: <30345719873102.198A78CC6C@U9LSVSDJ>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [take2 1/4] kevent: core files.
+Date: Tue, 1 Aug 2006 09:46:58 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0608010945090.10827@d.namei>
+References: <11544248451203@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.90.8.142] ([222.90.8.142]:21776 "EHLO
-	WINDOWSXPSP1.o1g1vn47.net") by vger.kernel.org with ESMTP
-	id S932673AbWHANfz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 09:35:55 -0400
-To: <newbie@vger.kernel.org>
+Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:40837 "EHLO
+	mail3.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1751574AbWHANrC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 09:47:02 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <11544248451203@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Good Day to you!
+On Tue, 1 Aug 2006, Evgeniy Polyakov wrote:
 
-Have you ever dreamt to have a very hard penis during all process? 
-Now it’s possible to do with magic tab
+> +	u->ready_num = 0;
+> +#ifdef CONFIG_KEVENT_USER_STAT
+> +	u->wait_num = u->im_num = u->total = 0;
+> +#endif
 
- Worried it won't work?
- Come in here: http://capbas.com/gall/gsm/ 
- We thank you for your interest!
+Generally, #ifdefs in the body of the kernel code are discouraged.  Can 
+you abstract these out as static inlines?
 
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
