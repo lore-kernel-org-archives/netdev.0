@@ -1,89 +1,54 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] sky2: status interrupt handling improvement
-Date: Tue, 1 Aug 2006 11:55:23 -0700
-Message-ID: <20060801115523.0ce0a690@localhost.localdomain>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: E1000: bug on error path in e1000_probe()
+Date: Tue, 01 Aug 2006 11:54:58 -0700
+Message-ID: <44CFA382.7040703@intel.com>
+References: <Pine.LNX.4.64.0607311522200.3139@madrid.max-t.internal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Cramer, Jeb J" <jeb.j.cramer@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:32957 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751785AbWHASz1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 14:55:27 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from mga01.intel.com ([192.55.52.88]:59144 "EHLO
+	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
+	id S1751791AbWHAS4B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 14:56:01 -0400
+To: Stephane Doyon <sdoyon@max-t.com>
+In-Reply-To: <Pine.LNX.4.64.0607311522200.3139@madrid.max-t.internal>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-More changes to prevent losing status and causing hangs.
-The hardware is smarter than I gave it credit for. 
-Clearing the status IRQ causes the status state machine to
-toggle an IRQ if needed and post any more transmits.
+Stephane Doyon wrote:
+> The e1000_probe() function passes references to the netdev structure 
+> before it's actually registered. In the (admittedly obscure) case where 
+> the netdev registration fails, we are left with a dangling reference.
+> 
+> Specifically, e1000_probe() calls
+>         netif_carrier_off(netdev);
+> before register_netdev(netdev).
+> 
+> (It also calls pci_set_drvdata(pdev, netdev) rather early, not sure how 
+> important that is.)
+> 
+> netif_carrier_off() does linkwatch_fire_event(dev);, which in turn does 
+> dev_hold(dev); and queues up an event with a reference to the netdev.
+> 
+> But the net_device reference counting mechanism only works on registered 
+> netdevs.
+> 
+> Should the register_netdev() call fail, the error path does 
+> free_netdev(netdev);, and when the event goes off, it accesses random 
+> memory through the dangling reference.
+> 
+> I would recommend moving the register_netdev() call earlier.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+We agree that this may be an issue and we're looking at how this mis-ordering 
+entered the code in the first place. I'm probably going to send a patch later 
+today or include it in this week-worths upstream patches later this week.
 
----
- drivers/net/sky2.c |   30 ++++++++++++------------------
- 1 file changed, 12 insertions(+), 18 deletions(-)
+We were wondering however how you encountered this problem? Did you see a case 
+where this race actually happened? it might be an interesting case to look at. 
+Or did you do this by code review only?
 
---- sky2.orig/drivers/net/sky2.c	2006-07-31 08:46:43.000000000 -0700
-+++ sky2/drivers/net/sky2.c	2006-07-31 14:51:40.000000000 -0700
-@@ -50,7 +50,7 @@
- #include "sky2.h"
- 
- #define DRV_NAME		"sky2"
--#define DRV_VERSION		"1.5"
-+#define DRV_VERSION		"1.6"
- #define PFX			DRV_NAME " "
- 
- /*
-@@ -1932,12 +1932,6 @@
- 	}
- }
- 
--/* Is status ring empty or is there more to do? */
--static inline int sky2_more_work(const struct sky2_hw *hw)
--{
--	return (hw->st_idx != sky2_read16(hw, STAT_PUT_IDX));
--}
--
- /* Process status response ring */
- static int sky2_status_intr(struct sky2_hw *hw, int to_do)
- {
-@@ -2028,6 +2022,9 @@
- 		}
- 	}
- 
-+	/* Fully processed status ring so clear irq */
-+	sky2_write32(hw, STAT_CTRL, SC_STAT_CLR_IRQ);
-+
- exit_loop:
- 	if (buf_write[0]) {
- 		sky2 = netdev_priv(hw->dev[0]);
-@@ -2237,19 +2234,16 @@
- 		sky2_descriptor_error(hw, 1, "transmit", Y2_IS_CHK_TXA2);
- 
- 	work_done = sky2_status_intr(hw, work_limit);
--	*budget -= work_done;
--	dev0->quota -= work_done;
--
--	if (status & Y2_IS_STAT_BMU)
--		sky2_write32(hw, STAT_CTRL, SC_STAT_CLR_IRQ);
-+	if (work_done < work_limit) {
-+		netif_rx_complete(dev0);
- 
--	if (sky2_more_work(hw))
-+		sky2_read32(hw, B0_Y2_SP_LISR);
-+		return 0;
-+	} else {
-+		*budget -= work_done;
-+		dev0->quota -= work_done;
- 		return 1;
--
--	netif_rx_complete(dev0);
--
--	sky2_read32(hw, B0_Y2_SP_LISR);
--	return 0;
-+	}
- }
- 
- static irqreturn_t sky2_intr(int irq, void *dev_id, struct pt_regs *regs)
+Auke
