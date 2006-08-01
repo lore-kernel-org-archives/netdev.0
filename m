@@ -1,52 +1,87 @@
-From: Oumer Teyeb <oumer@kom.aau.dk>
-Subject: Re: Linux TCP in the presence of delays or drops...
-Date: Tue, 01 Aug 2006 08:44:58 +0200
-Message-ID: <44CEF86A.8070401@kom.aau.dk>
-References: <44CD0D58.7050207@kom.aau.dk>	<44CE42A8.7090305@kom.aau.dk> <20060731.131249.21928475.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help()
+ 2.6.18-rc3
+Date: Tue, 01 Aug 2006 00:00:59 -0700 (PDT)
+Message-ID: <20060801.000059.57444384.davem@davemloft.net>
+References: <44CDDDF7.70004@trash.net>
+	<20060731113050.GA25972@gondor.apana.org.au>
+	<44CE4DCA.8000609@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zaz.kom.auc.dk ([130.225.51.10]:53703 "EHLO zaz.kom.auc.dk")
-	by vger.kernel.org with ESMTP id S1161208AbWHAGpY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 02:45:24 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060731.131249.21928475.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:55463
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932447AbWHAHBn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 03:01:43 -0400
+To: kaber@trash.net
+In-Reply-To: <44CE4DCA.8000609@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 31 Jul 2006 20:36:58 +0200
 
-My intention when I wrote the second mail was just to provide some more 
-examples that further elaborate my first question. But as you noticed, I 
-couldnt resist the temptation to slip in a couple of new questions on 
-the new post :-(...sorry and will take your advice into consideration on 
-my future postings.
+> Herbert Xu wrote:
+> > So I'd rather see a patch to disable the warnings for 2.6.18 so that
+> > the proper fix can be tested more thoroughly.  We should remember that
+> > the 2.6.18 minus the warning is still going to be heaps better in this
+> > regard compared to 2.6.17 where all TSO packets were essentially
+> > discarded due to the incorrect checksum (when the NAT module is loaded).
+> 
+> I'm fine either way.
 
-Thanks for the tip!!
+I'm going to kill the warning for 2.6.18, using the patch below.
+We can queue up Patrick's changes for 2.6.19, just give me the
+word and I'll apply it to net-2.6.19
 
-Regards,
-Oumer
+commit 9133d3d0619e637f2e05bf574af4b7a16319e3ca
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Tue Aug 1 00:00:12 2006 -0700
 
-David Miller wrote:
+    [NET]: Kill the WARN_ON() calls for checksum fixups.
+    
+    We have a more complete solution in the works, involving
+    the seperation of CHECKSUM_HW on input vs. output, and
+    having netfilter properly do incremental checksums.
+    
+    But that is a very involved patch and is thus 2.6.19
+    material.
+    
+    What we have now is infinitely better than the past,
+    wherein all TSO packets were dropped due to corrupt
+    checksums as soon at the NAT module was loaded.  At
+    least now, the checksums do get fixed up, it just
+    isn't the cleanest nor most optimal solution.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
->From: Oumer Teyeb <oumer@kom.aau.dk>
->Date: Mon, 31 Jul 2006 19:49:28 +0200
->
->  
->
->>it would be so great if some of you could spare a few minutes and take a 
->>look at the traces I provided.....see below for the original postng...
->>    
->>
->
->If people are too backlogged and busy to reply to your original
->posting, you will only ensure that it will take even longer by
->bombarding the list with even more information and questions on
->top of your original large query.
->
->Just be patient.
->  
->
-
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4d2b516..5b630ce 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1166,11 +1166,6 @@ int skb_checksum_help(struct sk_buff *sk
+ 		goto out_set_summed;
+ 
+ 	if (unlikely(skb_shinfo(skb)->gso_size)) {
+-		static int warned;
+-
+-		WARN_ON(!warned);
+-		warned = 1;
+-
+ 		/* Let GSO fix up the checksum. */
+ 		goto out_set_summed;
+ 	}
+@@ -1220,11 +1215,6 @@ struct sk_buff *skb_gso_segment(struct s
+ 	__skb_pull(skb, skb->mac_len);
+ 
+ 	if (unlikely(skb->ip_summed != CHECKSUM_HW)) {
+-		static int warned;
+-
+-		WARN_ON(!warned);
+-		warned = 1;
+-
+ 		if (skb_header_cloned(skb) &&
+ 		    (err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
+ 			return ERR_PTR(err);
