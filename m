@@ -1,45 +1,77 @@
-From: "Jeff Kirsher" <tarbal@gmail.com>
-Subject: Re: e1000 speed/duplex error
-Date: Tue, 1 Aug 2006 04:20:28 -0700
-Message-ID: <9929d2390608010420t60bd44d7o4e522c6edc0a677e@mail.gmail.com>
-References: <1301563340.20060801141827@mail.ru>
+From: Hugo Santos <hsantos@av.it.pt>
+Subject: Re: Regarding offloading IPv6 addrconf and ndisc
+Date: Tue, 1 Aug 2006 12:50:02 +0100
+Message-ID: <20060801115002.GX8334@innerghost.net>
+References: <20060729133442.GI8334@innerghost.net> <44CC2741.4050706@miyazawa.org> <20060730113050.GL8334@innerghost.net> <20060731.142307.35014994.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="s8wpp40TDz0KNMmP"
+Cc: kazunori@miyazawa.org, hadi@cyberus.ca, shemminger@osdl.org,
+	herbert@gondor.apana.org.au, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:55481 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S932641AbWHALUa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 07:20:30 -0400
-Received: by ug-out-1314.google.com with SMTP id m3so1247683ugc
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2006 04:20:28 -0700 (PDT)
-To: a1 <a1k@mail.ru>
-In-Reply-To: <1301563340.20060801141827@mail.ru>
+Received: from mail.av.it.pt ([193.136.92.53]:6616 "EHLO av.it.pt")
+	by vger.kernel.org with ESMTP id S932671AbWHALuF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 07:50:05 -0400
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
+In-Reply-To: <20060731.142307.35014994.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/1/06, a1 <a1k@mail.ru> wrote:
-> I'm trying to set my nic to force 100Mb/FD, but I'm constantly getting 100/HD on
-> other side of the link.
->
-> The command is:
-> ethtool -s eth0 speed 100 duplex full autoneg off
->
-> e1000 driver version 7.1.9 (latest) downloaded from sourceforge.
->
 
-What are you linking to? And what is the link partner set to?
+--s8wpp40TDz0KNMmP
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-If one link partner is set to auto-negotiate, and the other partner
-forced, it is common to see this issue no matter what the two link
-partners are.
+David,
 
-> Are there any problems?
+> So all of you userland control-plane fanatics, how will you handle
+> things like NFS root with these daemon-required variants of NDISC and
+> ARP?
 
-Not that I am aware of.
+   Do it in the initial ramdisk, we only need the daemon to setup the
+ NDISC entries to talk to the NFS server. :-)
 
--- 
-Cheers,
-Jeff
+   There is obviously a cost associated with this, a deployment cost.
+ But there are additional factors we must consider. In a later e-mail
+ you state that Linux is a generic purpose operating system; how many
+ users need to boot from a NFS root (besides myself :-)? I think that we
+ must take into consideration that currently Linux is used in lots of
+ distinct environments, not only Desktop computers, and servers, but
+ also smaller devices. Configuration/Flexibility vs. optimization is
+ something that varies a lot depending on the deployment you are talking
+ about, and in most of my scenarios, a small mobile device isn't
+ required at the moment to push 100Mbps (optimization) but must be
+ capable of verifying it's peers and maintaining secure connections
+ (flexibility). So, let's be generic?
+
+   I might have some cycles during the month to code up something in
+ this direction, at least for an initial review, i'll try to do so.
+
+   Also, the reliability of a system depends on a lot of things, but
+ please, let's not use the assumption that because everything sits in
+ the kernel, it will be stable as the number of 'points of failure' is
+ smaller; this is only true as long as people work to have stable
+ components -- and this is independent of where the components sit. A
+ few kernel versions ago (2.6.8 if i remember correctly) i couldn't even
+ remove a used network interface safely from the system without hanging
+ the network stack. It is possible to have stable user-space code, if
+ people developing it work to and make sure it is stable.
+
+   Hugo
+
+--s8wpp40TDz0KNMmP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFEzz/q7asb/itUNKwRAkVzAJ9Ry+yhPmxz+mJdjer61ARrnBOTLQCaAs4t
+qUXXDbMH82pHNW/TvaNmobA=
+=9xlx
+-----END PGP SIGNATURE-----
+
+--s8wpp40TDz0KNMmP--
