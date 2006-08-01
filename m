@@ -1,36 +1,26 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: neigh_lookup lockdep bug.
-Date: Tue, 01 Aug 2006 23:19:43 +1000
-Message-ID: <E1G7u9v-0001mL-00@gondolin.me.apana.org.au>
-References: <1154437278.3113.0.camel@laptopd505.fenrus.org>
-Cc: davem@davemloft.net, davej@redhat.com, netdev@vger.kernel.org,
-	mingo@redhat.com
+From: "Lana" <alyssumcreole@loveable.com>
+Subject: Just published But without any  =?ISO-8859-1?Q?=20results=85?= Feel Pleasure from
+Date: Tue, 1 Aug 2006 21:36:02 +0800
+Message-ID: <30345719873102.198A78CC6C@U9LSVSDJ>
+Mime-Version: 1.0
+Content-Type: text/plain;
+        charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4883 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751192AbWHANUD
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 09:20:03 -0400
-To: arjan@infradead.org (Arjan van de Ven)
-In-Reply-To: <1154437278.3113.0.camel@laptopd505.fenrus.org>
+Received: from [222.90.8.142] ([222.90.8.142]:21776 "EHLO
+	WINDOWSXPSP1.o1g1vn47.net") by vger.kernel.org with ESMTP
+	id S932673AbWHANfz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 09:35:55 -0400
+To: <newbie@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arjan van de Ven <arjan@infradead.org> wrote:
-> 
-> we fixed lockdep to have this lock key to be per skb queue ... didn't
-> you put that patch in rawhide Dave (J) ?
+Good Day to you!
 
-I've only briefly looked at the lockdep_set_class code so I might be
-way off here.
+Have you ever dreamt to have a very hard penis during all process? 
+Now it’s possible to do with magic tab
 
-It seems that for lockdep_set_class to work its second argument should
-be distinct for each class of locks that you wish to distinguish.  So
-shouldn't we be putting the key into struct sk_buff_head rather than
-having one key (skb_queue_lock_key) for all sk_buff_head's?
+ Worried it won't work?
+ Come in here: http://capbas.com/gall/gsm/ 
+ We thank you for your interest!
 
-Cheers
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
