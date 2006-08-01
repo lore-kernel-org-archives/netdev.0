@@ -1,53 +1,38 @@
-From: Hugo Santos <hsantos@av.it.pt>
-Subject: Re: Regarding offloading IPv6 addrconf and ndisc
-Date: Tue, 1 Aug 2006 13:13:01 +0100
-Message-ID: <20060801121301.GZ8334@innerghost.net>
-References: <E1G6Fic-0005py-00@gondolin.me.apana.org.au> <20060727.183415.104032934.davem@davemloft.net> <200608010231.58339.ak@suse.de> <20060731.174641.99457765.davem@davemloft.net> <ada7j1t700x.fsf@cisco.com> <1154395467.5170.31.camel@jzny2> <20060801013033.GA1280@gondor.apana.org.au> <1154396860.5170.51.camel@jzny2>
+From: a1 <a1k@mail.ru>
+Subject: Re[4]: e1000 speed/duplex error
+Date: Tue, 1 Aug 2006 16:20:06 +0400
+Message-ID: <911206621.20060801162006@mail.ru>
+References: <1301563340.20060801141827@mail.ru> <9929d2390608010420t60bd44d7o4e522c6edc0a677e@mail.gmail.com> <793732866.20060801153230@mail.ru> <9929d2390608010445w4fd81b64g310ae90a423e1a7d@mail.gmail.com>
+Reply-To: a1 <a1k@mail.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="abYdCjSRCBwcb+dP"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	ak@suse.de, David Miller <davem@davemloft.net>,
-	Roland Dreier <rdreier@cisco.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.av.it.pt ([193.136.92.53]:20952 "EHLO av.it.pt")
-	by vger.kernel.org with ESMTP id S1751263AbWHAMNC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 08:13:02 -0400
-To: Jamal Hadi Salim <hadi@znyx.com>
-Content-Disposition: inline
-In-Reply-To: <1154396860.5170.51.camel@jzny2>
+Received: from mx1.mail.ru ([194.67.23.121]:43892 "EHLO mx1.mail.ru")
+	by vger.kernel.org with ESMTP id S1751265AbWHAMTn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 08:19:43 -0400
+To: "Jeff Kirsher" <tarbal@gmail.com>
+In-Reply-To: <9929d2390608010445w4fd81b64g310ae90a423e1a7d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi, Jeff.
 
---abYdCjSRCBwcb+dP
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
 
-Jamal,
+JK> OPTION 2: Turn auto-negotiate on the e1000 card and tell it to only
+JK> advertise 100 Full Duplex.  This will allow negotiation between the
+JK> two lnk partners and the e1000 will advertise that it is only able to
+JK> do 100 Full duplex.
 
-> nice to know ;-> At least you can protect some apps if you need to.
-> Only racoon and quagga are important for me.
-> But what happens then if you have a beast that just chews memory
-> forever? I suppose other poor apps will just get shot.
+Is there any way i could do this with ethtool? It only allows force
+spd/dplx , but not set it for advertising...
 
-   You should push QoS and differentiation into the memory-subsystem :-)
- Give a priority flag to mmap(). It's not simple to degrade existing
- allocations, but taking into consideration the OOM killer...
+If i do as follows other side reports 1000/FD:
 
-   Hugo
+ethtool -s eth0 speed 100 duplex full autoneg on
 
---abYdCjSRCBwcb+dP
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+-- 
+Best Regards,
+ a1                          mailto:a1k@mail.ru
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFEz0VN7asb/itUNKwRAl0jAJ9/ja/DUGO+sqOjB/99qQKrT8t2OQCg5B1M
-6Ef3Bzeo751KXCgdXkHRKzM=
-=zNQs
------END PGP SIGNATURE-----
-
---abYdCjSRCBwcb+dP--
