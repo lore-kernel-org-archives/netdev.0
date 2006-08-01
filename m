@@ -1,82 +1,75 @@
-From: Philip Craig <philipc@snapgear.com>
-Subject: Re: [RFC] gre: transparent ethernet bridging
-Date: Tue, 01 Aug 2006 11:15:29 +1000
-Message-ID: <44CEAB31.5090501@snapgear.com>
-References: <44CDD631.5030008@snapgear.com> <20060731091423.3327f85e@dxpl.pdx.osdl.net>
+From: Jamal Hadi Salim <hadi@cyberus.ca>
+Subject: Re: Regarding offloading IPv6 addrconf and ndisc
+Date: Mon, 31 Jul 2006 21:24:27 -0400
+Message-ID: <1154395467.5170.31.camel@jzny2>
+References: <E1G6Fic-0005py-00@gondolin.me.apana.org.au>
+	 <20060727.183415.104032934.davem@davemloft.net>
+	 <200608010231.58339.ak@suse.de>
+	 <20060731.174641.99457765.davem@davemloft.net>  <ada7j1t700x.fsf@cisco.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, ak@suse.de,
+	herbert@gondor.apana.org.au, kazunori@miyazawa.org,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.snapgear.com ([203.143.235.140]:2209 "EHLO
-	cyberguard.com.au") by vger.kernel.org with ESMTP id S1030382AbWHABPe
+Received: from mx02.cybersurf.com ([209.197.145.105]:48062 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1751450AbWHABYf
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jul 2006 21:15:34 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060731091423.3327f85e@dxpl.pdx.osdl.net>
+	Mon, 31 Jul 2006 21:24:35 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1G7izx-0003SK-5X
+	for netdev@vger.kernel.org; Mon, 31 Jul 2006 21:24:41 -0400
+To: Roland Dreier <rdreier@cisco.com>
+In-Reply-To: <ada7j1t700x.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Mon, 31 Jul 2006 20:06:41 +1000
-> Philip Craig <philipc@snapgear.com> wrote:
+On Mon, 2006-31-07 at 17:49 -0700, Roland Dreier wrote:
+>     David> Why is this a relevant analogy?  Well, you have physical
+>     David> hard-disks in your computer today, but at some point that
+>     David> device becomes largely superfluous.  It makes more sense to
+>     David> have just a cpu with a 10-gigabit ethernet interface
+>     David> incorporated onto the cpu die, and the majority if not all
+>     David> of your disk access is remote.
 > 
->> This patch implements transparent ethernet bridging for gre tunnels.
->> There are a few outstanding issues.
-> 
-> Why not use existing bridge code?
+> Isn't most of the iSCSI control plane in userspace right now?
 
-It does use the existing bridge code.  Perhaps the name is misleading.
-All it does is encapsulate the full ethernet header in a gre packet,
-rather than only layer 3.  That is, currently gre uses ARPHRD_IPGRE,
-but bridging requires ARPHRD_ETHER.
+I know iscsi is supposed to integrate with ipsec as well (and SLP for
+discovery) - does that happen in user space as well?
 
->> Some routers set LLC_SAP_BSPAN in the gre protocol field, and then
->> give the bpdu packet without any other ethernet/llc header. This patch
->> currently tries to fake the ethernet/llc header before passing the
->> packet up, but it is buggy (mac addresses are wrong at least). Maybe a
->> better approach is to call directly into the bridging code. I didn't try
->> that at first because it isn't modular, and may break other things that
->> want to see the packet.
-> 
-> Existing bridge code already has spanning tree.
+Dave (I am under heavy flu dose, so I may be incoherent;->) but heres a
+devils advocate bit for you:
+TCP FIN/SYN are just control packets - so move the connection
+setup/teardown out to user space;->. You can then add all sorts of funky
+DOS detection/prevention schemes as needed - makes it easy to experiment with. 
+Actually move the slow path as well, SACK processing etc (i know it is in process
+context today, but thats in the kernel). Just leave VJs fast path in the
+kernel. Extend the user space bit to be the new VJ (channels stuff but
+just for control) - asynch notification to carry the control/slow path
+packets to user space.
 
-Yes, and I want to use that.  But this packet is a bit strange in
-that it does not have the ethernet header on it.   So what is the
-best way to pass it to existing code?  Either fake the ethernet
-header, or pass it directly?
+In regards to ARP/NDISC being in user space: note people are talking
+about secure DHCP or some form of initial pre-layer2 addressing over EAP
+or something along those lines; i.e if you are not securely validated at
+the L2 level you are not even getting an IP address. 
+ 
+In regards to reliability: The thing that really fscks people using
+daemons from what i have seen is the oom killer policies and the lack of
+correlation by apps. I just watched quagga die horribly on a 256M
+machine on friday once we hit around 100K routes and a lot of route
+cache hits. So apps like that may need a total rewrite. I am not looking
+forward to trying to get racoon to do 50K SAs and 100K SPDs on the same
+machine ;->
 
->> +#if 0
->>  	dev = alloc_netdev(sizeof(*t), name, ipgre_tunnel_setup);
->> +#else
->> +	dev = alloc_netdev(sizeof(*t), name, ipgre_ether_tunnel_setup);
->> +#endif
-> 
-> "Do, or do not there is no try"
+I think I like what Hugo is saying ;-> I just hope he has time and
+resources to produce code. 
 
-I am looking for comments as to whether adding a netlink interface
-to control this is appropriate.
+cheers,
+jamal
 
->> +__be16 ipgre_type_trans(struct sk_buff *skb, int offset)
->> +{
->> +	u8     *h = skb->data;
->> +	__be16 flags = *(__be16*)h;
->> +	__be16 proto = *(__be16*)(h + 2);
->> +
->> +	/* WCCP version 1 and 2 protocol decoding.
->> +	 * - Change protocol to IP
->> +	 * - When dealing with WCCPv2, Skip extra 4 bytes in GRE header
->> +	 */
->> +	if (flags == 0 &&
->> +	    proto == __constant_htons(ETH_P_WCCP)) {
->> +		proto = __constant_htons(ETH_P_IP);
->> +		if ((*(h + offset) & 0xF0) != 0x40)
->> +			offset += 4;
->> +	}
-> 
-> Don't use __constant_htons() except in initializers and switch cases
-> (where gcc is too stupid to optimize the macro).
-> 
 
-This is a problem in the existing code, which I am simply moving
-around.  Should I fix it at the same time?
+
