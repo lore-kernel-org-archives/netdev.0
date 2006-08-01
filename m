@@ -1,54 +1,31 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] NET: fix kernel panic from no dev->hard_header_len space
-Date: Tue, 01 Aug 2006 03:04:28 +0200
-Message-ID: <m3fyghz2oz.fsf@defiant.localdomain>
-References: <20060730.153004.45876935.davem@davemloft.net>
-	<20060731153948.GB17540@ms2.inr.ac.ru>
-	<m3r701zgku.fsf@defiant.localdomain>
-	<20060731.132324.65197403.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC 1/4] kevent: core files.
+Date: Mon, 31 Jul 2006 18:05:18 -0700 (PDT)
+Message-ID: <20060731.180518.66061450.davem@davemloft.net>
+References: <20060727200655.GA4586@2ka.mipt.ru>
+	<44C930D5.9020704@oracle.com>
+	<20060728052312.GB11210@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: zach.brown@oracle.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:57281 "EHLO khc.piap.pl")
-	by vger.kernel.org with ESMTP id S1751550AbWHABEb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 21:04:31 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060731.132324.65197403.davem@davemloft.net> (David Miller's message of "Mon, 31 Jul 2006 13:23:24 -0700 (PDT)")
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:3233
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030375AbWHABGB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jul 2006 21:06:01 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20060728052312.GB11210@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Fri, 28 Jul 2006 09:23:12 +0400
 
-> Krzysztof, which device driver exactly creates this problem
-> in the first place?
+> I completely agree that existing kevent interface is not the best, so
+> I'm opened for any suggestions.
+> Should kevent creation/removing/modification be separated too?
 
-I have a report (not sure but I think it's that) with hdlc_fr (Frame
-Relay).
-
-Grepping through the tree there might be problems with:
-- net/8021q/vlan.c (probably not with normal Ethernet, but there is
-  a code path which could potentially be a problem with
-  NETIF_F_HW_VLAN_TX)
-- net/atm/clip.c
-- net/appletalk/*
-- drivers/net/gianfar.c
-- drivers/net/wan/lapbether.c
-- drivers/s390/net/netiucv.c will not oops but merely drop the packet
-  and print a warning.
-
-and possibly others, I haven't checked the whole tree.
-Some (not all) of them might be false positives, though.
-
-Fortunately most of the time skb comes with preallocated header space
-(that common skb_reserve(2) I think) and thus the reports aren't
-frequent (personally I have never seen that).
-
-> If you have headers to prepend for your device, why do you set the
-> header building function to NULL? :-)
-
-hdlc_fr: logical PVC devices have no headers (plain IPv4 etc. as seen
-by tcpdump), but they append FR headers (4 or 10 bytes long) just
-before passing the skb to physical device.
--- 
-Krzysztof Halasa
+I do not think so, object for these 3 operations are the same,
+so there are no typing issues.
