@@ -1,32 +1,33 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH dscape] d80211: Switch d80211.h to IEEE80211_ style names
-Date: Tue, 1 Aug 2006 10:56:50 +0100
-Message-ID: <20060801095650.GA6831@infradead.org>
-References: <200607270037.22384.flamingice@sourmilk.net> <20060731203113.GG10138@tuxdriver.com> <200607311351.35757.flamingice@sourmilk.net>
+From: a1 <a1k@mail.ru>
+Subject: e1000 speed/duplex error
+Date: Tue, 1 Aug 2006 14:18:27 +0400
+Message-ID: <1301563340.20060801141827@mail.ru>
+Reply-To: a1 <a1k@mail.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:27803 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S932517AbWHAJ5E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 05:57:04 -0400
-To: Michael Wu <flamingice@sourmilk.net>
-Content-Disposition: inline
-In-Reply-To: <200607311351.35757.flamingice@sourmilk.net>
+Received: from mx1.mail.ru ([194.67.23.121]:49287 "EHLO mx1.mail.ru")
+	by vger.kernel.org with ESMTP id S932556AbWHAKSE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 06:18:04 -0400
+Received: from [217.171.5.250] (port=53152 helo=kot)
+	by mx1.mail.ru with psmtp
+	id 1G7rK6-000B7B-00
+	for netdev@vger.kernel.org; Tue, 01 Aug 2006 14:18:02 +0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 31, 2006 at 01:51:31PM -0700, Michael Wu wrote:
-> On Monday 31 July 2006 13:31, John W. Linville wrote:
-> > As usual I'll depend on Jiri to merge d80211 stack patches, then
-> > send me a pull request.  If I apply your "Switch drivers to d80211"
-> > series now, that will undoutedly cause a breakage when Jiri asks me
-> > to pull this later.
-> >
-> Yeah, there needs to be a new (and smaller) set of patches to switch drivers 
-> to the d80211.h header.
+I'm trying to set my nic to force 100Mb/FD, but I'm constantly getting 100/HD on
+other side of the link.
 
-NACK again.  Driver should continue to use the ieee80211.h header forever.
+The command is:
+ethtool -s eth0 speed 100 duplex full autoneg off
+
+e1000 driver version 7.1.9 (latest) downloaded from sourceforge.
+
+Are there any problems?
+
+-- 
+ alkot                          mailto:a1k@mail.ru
 
