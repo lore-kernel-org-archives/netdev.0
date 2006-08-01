@@ -1,46 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help() 2.6.18-rc3
-Date: Tue, 1 Aug 2006 17:23:58 +1000
-Message-ID: <20060801072358.GB3802@gondor.apana.org.au>
-References: <44CD8415.2020403@davidcoulson.net> <44CD85FF.9010607@trash.net> <20060730.215907.58439803.davem@davemloft.net> <44CD9013.7020401@trash.net> <44CDDDF7.70004@trash.net> <20060731113050.GA25972@gondor.apana.org.au> <44CE4DCA.8000609@trash.net> <44CF0086.1030404@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help()
+ 2.6.18-rc3
+Date: Tue, 01 Aug 2006 00:36:14 -0700 (PDT)
+Message-ID: <20060801.003614.54188740.davem@davemloft.net>
+References: <44CE4DCA.8000609@trash.net>
+	<44CF0086.1030404@trash.net>
+	<20060801072358.GB3802@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33293 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1161123AbWHAHYN
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 03:24:13 -0400
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <44CF0086.1030404@trash.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:29917
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1161345AbWHAHg4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 03:36:56 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060801072358.GB3802@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Patrick:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 1 Aug 2006 17:23:58 +1000
 
-On Tue, Aug 01, 2006 at 09:19:34AM +0200, Patrick McHardy wrote:
+> > - tc_verd/tc_index/input_dev: when directing a packet from a device
+> >   supporting GSO to a device not supporting GSO using tc actions,
+> >   these fields may be set.
 > 
-> - nfct/nfctinfo/nfct_reasm: the xfrm output path does an immediate
->   nf_reset, so they were not necessary until now. Queueing can happen
->   on any hook, so we need to preserve them.
-> 
-> - nf_bridge: needed for GSO on a bridge device until the deferred
->   hooks are removed
+> This doesn't look right though.  GSO should occur just before
+> hard_start_xmit (after all tc actions have taken place) so we
+> shouldn't have any more tc actions to perform.
 
-I need to think a bit more about these two cases.
-
-> - tc_verd/tc_index/input_dev: when directing a packet from a device
->   supporting GSO to a device not supporting GSO using tc actions,
->   these fields may be set.
-
-This doesn't look right though.  GSO should occur just before
-hard_start_xmit (after all tc actions have taken place) so we
-shouldn't have any more tc actions to perform.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Hmmm, what about loopback?  Yeah yeah, LOOPBACK_TSO is not defined :)
+but what I'm really referring to is that loopback preserves the
+traffic classifier bits of the skb.
