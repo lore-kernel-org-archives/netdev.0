@@ -1,81 +1,68 @@
-From: Hugo Santos <hsantos@av.it.pt>
-Subject: Re: Regarding offloading IPv6 addrconf and ndisc
-Date: Tue, 1 Aug 2006 13:00:03 +0100
-Message-ID: <20060801120003.GY8334@innerghost.net>
-References: <E1G6Fic-0005py-00@gondolin.me.apana.org.au> <20060727.183415.104032934.davem@davemloft.net> <200608010231.58339.ak@suse.de> <20060731.174641.99457765.davem@davemloft.net>
+From: Jamal Hadi Salim <hadi@cyberus.ca>
+Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help()
+	2.6.18-rc3
+Date: Tue, 01 Aug 2006 08:00:48 -0400
+Message-ID: <1154433648.5170.84.camel@jzny2>
+References: <44CE4DCA.8000609@trash.net> <44CF0086.1030404@trash.net>
+	 <20060801072358.GB3802@gondor.apana.org.au>
+	 <20060801.003614.54188740.davem@davemloft.net>
+	 <20060801074504.GA4272@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="XZLT0nNRngx3qG4/"
-Cc: ak@suse.de, herbert@gondor.apana.org.au, kazunori@miyazawa.org,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.av.it.pt ([193.136.92.53]:14552 "EHLO av.it.pt")
-	by vger.kernel.org with ESMTP id S1750761AbWHAMAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 08:00:05 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060731.174641.99457765.davem@davemloft.net>
+Received: from mx02.cybersurf.com ([209.197.145.105]:55021 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1750773AbWHAMA5
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 08:00:57 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1G7svi-0003cr-DI
+	for netdev@vger.kernel.org; Tue, 01 Aug 2006 08:00:58 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060801074504.GA4272@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---XZLT0nNRngx3qG4/
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-David,
-
-> To drive this home even more, I do not believe that the people who
-> advocate pushing NDISC and ARP policy into userspace would be very
-> happy if something like the RAID transformations were moved into
-> userspace and they were not able to access their disks if the RAID
-> transformer process in userspace died.
-
-   How would you restart the RAID controller daemon if it's stored
- in the RAID itself? Also, assuming the same code quality (and ignoring
- OOM killer for a moment), if the RAID controller daemon dies, if that
- code was in the kernel, it would also possibly crash the whole kernel.
-
-> At that point, network access equals disk access.  It would be amusing
-> to need to restart such an NDISC/ARP daemon if it were to live on a
-> remote volume. :-)
-
-   What you are saying is that, well, the NDISC handling is already in
- the host's memory (kernel text), so the connection could be restarted
- with the remote storage facility. So, let's be fair, and say that
- somehow the NDISC daemon would be available localy?
-
-> I understand full well that on special purpose network devices this
-> control vs. data plane seperation into userspace might make a lot of
-> sense.  But for a general purpose operating system, such as Linux, the
-> greater concern is resiliency to failures and each piece of core
-> functionality you move to userspace is a new potential point of
-> failure.
-
-   I think 100% of Linux's users want stability. Resiliency to failure
- is not something that depends on the kernel. If the code in question is
- in the kernel, and it crashes, how will you recover?
-
-   Please note that i'm not making this a monolithic vs. micro- kernel
- discussion (i wouldn't want Linus to step in and kick me to hell), but
- if we have the possibility of not having _complex_ interactions within
- the kernel, we are making the kernel itself more resilient to failure.
-
-   Hugo
+On Tue, 2006-01-08 at 17:45 +1000, Herbert Xu wrote:
+> On Tue, Aug 01, 2006 at 12:36:14AM -0700, David Miller wrote:
+> > 
+> > > > - tc_verd/tc_index/input_dev: when directing a packet from a device
+> > > >   supporting GSO to a device not supporting GSO using tc actions,
+> > > >   these fields may be set.
+> > > 
+> > > This doesn't look right though.  GSO should occur just before
+> > > hard_start_xmit (after all tc actions have taken place) so we
+> > > shouldn't have any more tc actions to perform.
+> > 
+> > Hmmm, what about loopback?  Yeah yeah, LOOPBACK_TSO is not defined :)
+> > but what I'm really referring to is that loopback preserves the
+> > traffic classifier bits of the skb.
+> 
+> I don't know.  Jamal, is there a scenario where these three attributes
+> are needed for loopback packets?
 
 
---XZLT0nNRngx3qG4/
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+I didnt fully understand the scope of the discussion, but a little
+explanation may help answer the question:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
+If the only spot where the GSO kicks in is at or after qdisc_is_running
+level, then the redirect will happen way before that point at
+qdisc->enqueue time.
+When we redirect or mirror, the packet is cloned and any metadata
+preserved at clone time needs to stay intact before dev_queue_xmit is
+hit for the destination device. 
+And of course we have no checks for whether we are redirecting from a
+device that is GSO capable to one that is not (or vice-versa). If thats
+important, we could add a check.
 
-iD8DBQFEz0JD7asb/itUNKwRAkAEAJwIM2oieNDDYrJKeZFFweXi0INS7wCfbr1D
-exqxAHKqYd1FHNeaRjoOa4s=
-=mKZL
------END PGP SIGNATURE-----
+I am not sure if I answered the question ;->
 
---XZLT0nNRngx3qG4/--
+cheers,
+jamal
+
+
+
