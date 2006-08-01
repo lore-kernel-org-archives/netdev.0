@@ -1,108 +1,81 @@
-From: Oumer Teyeb <oumer@kom.aau.dk>
-Subject: Re: Linux TCP in the presence of delays or drops...
-Date: Tue, 01 Aug 2006 13:56:33 +0200
-Message-ID: <44CF4171.8050205@kom.aau.dk>
-References: <44CD0D58.7050207@kom.aau.dk> <44CE42A8.7090305@kom.aau.dk> <Pine.LNX.4.58.0608011041090.3911@kivilampi-30.cs.helsinki.fi>
+From: Hugo Santos <hsantos@av.it.pt>
+Subject: Re: Regarding offloading IPv6 addrconf and ndisc
+Date: Tue, 1 Aug 2006 13:00:03 +0100
+Message-ID: <20060801120003.GY8334@innerghost.net>
+References: <E1G6Fic-0005py-00@gondolin.me.apana.org.au> <20060727.183415.104032934.davem@davemloft.net> <200608010231.58339.ak@suse.de> <20060731.174641.99457765.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="XZLT0nNRngx3qG4/"
+Cc: ak@suse.de, herbert@gondor.apana.org.au, kazunori@miyazawa.org,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zaz.kom.auc.dk ([130.225.51.10]:17304 "EHLO zaz.kom.auc.dk")
-	by vger.kernel.org with ESMTP id S1422785AbWHAL4i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 07:56:38 -0400
-To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-In-Reply-To: <Pine.LNX.4.58.0608011041090.3911@kivilampi-30.cs.helsinki.fi>
+Received: from mail.av.it.pt ([193.136.92.53]:14552 "EHLO av.it.pt")
+	by vger.kernel.org with ESMTP id S1750761AbWHAMAF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 08:00:05 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060731.174641.99457765.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks Ilpo for the info!
 
-I am trying out the tests now using timestamps only and without FRTO,=20
-and vice versa and see if there is any change.
-Actually, I have also noticed in some of the traces also this behaviour=
-=20
-of FRTO where it mistook a loss as spurious which leads to further=20
-performance degradtion. but I was also using timestamps, so I dont know=
-=20
-if it also occurs without timestamps.  I will try it out and let you=20
-know. I will send you the traces I just mentioned (FRTO+timestamps=20
-leading to a loss being mistaken for a spurious one..)..
+--XZLT0nNRngx3qG4/
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Regards,
-Oumer
+David,
 
-Ilpo J=E4rvinen wrote:
+> To drive this home even more, I do not believe that the people who
+> advocate pushing NDISC and ARP policy into userspace would be very
+> happy if something like the RAID transformations were moved into
+> userspace and they were not able to access their disks if the RAID
+> transformer process in userspace died.
 
->On Mon, 31 Jul 2006, Oumer Teyeb wrote:
->
-> =20
->
->>-If multiple timeouts occur for one packet then even if we are using =
-the
->>timestamp option or FRTO TCP linux is not able to detect spurious
->>retransmissions... and TCP linux is able to detect spurious retransmi=
-ssions
->>only for a single timeout for one packet or fast retransmissions that=
- are
->>caused by duplicate ACK reception.....I have some traces that show th=
-is
->>behaviour, let me know if you are interested.
->>   =20
->>
->
->I have come across this same issue. I can confirm that multiple RTOs i=
-s=20
->not handled correctly. But there are some other issues in FRTO as=20
->well... nothing extremely dangerous though. In one of the cases, the=20
->current FRTO algorithm could miss real losses, but you luckily need to=
- be=20
->quite clever to trigger that, and due to very conservative response us=
-ed=20
->in case spurious RTO is detected, it has no significant danger in it e=
-ven=20
->then. The other flaws cause too conservative behavior.
-> =20
->
+   How would you restart the RAID controller daemon if it's stored
+ in the RAID itself? Also, assuming the same code quality (and ignoring
+ OOM killer for a moment), if the RAID controller daemon dies, if that
+ code was in the kernel, it would also possibly crash the whole kernel.
 
->We have a set of fixes to F-RTO, but part of them have not yet been=20
->tested. Since the fixes include 4-5 independent changes to handle also=
-=20
->rare cases, it takes some time to test. Besides, I'll probably have to=
-=20
->talk with Pasi Sarolahti (author of FRTO) on couple of interpretation=20
->issues in RFC4138 as soon as his vacation ends (mid August if I rememb=
-er=20
->correctly) to verify some of the changes.
->
->I expect that I'll get some actual results after two weeks or so... I =
-case=20
->you're are in hurry and are interested on the fixes, I could prepare a=
-n=20
->independent patch quite soon and release it (untested) on our projects=
- web=20
->site (if you are interested, ask off-list so that we don't bother othe=
-rs=20
->:-)). But the kernel inclusion of the fixes should IMO wait at least u=
-ntil=20
->I get some decent test cases analyzed, which will take at least two we=
-eks=20
->or so due to my schedule.
->
-> =20
->
+> At that point, network access equals disk access.  It would be amusing
+> to need to restart such an NDISC/ARP daemon if it were to live on a
+> remote volume. :-)
 
->>-In the cases where TCP timestamp or FRTO is not able to detect spuri=
-ous
->>retransmissions, the performance degrades even more than when TCP tim=
-estamp
->>or FRTO option are not used....
->>   =20
->>
->
->That's one of the FRTO "features", we have a fix (I cannot say about=20
->timestamps since we've been running our tests without tstamps for year=
-s).
-> =20
->
+   What you are saying is that, well, the NDISC handling is already in
+ the host's memory (kernel text), so the connection could be restarted
+ with the remote storage facility. So, let's be fair, and say that
+ somehow the NDISC daemon would be available localy?
+
+> I understand full well that on special purpose network devices this
+> control vs. data plane seperation into userspace might make a lot of
+> sense.  But for a general purpose operating system, such as Linux, the
+> greater concern is resiliency to failures and each piece of core
+> functionality you move to userspace is a new potential point of
+> failure.
+
+   I think 100% of Linux's users want stability. Resiliency to failure
+ is not something that depends on the kernel. If the code in question is
+ in the kernel, and it crashes, how will you recover?
+
+   Please note that i'm not making this a monolithic vs. micro- kernel
+ discussion (i wouldn't want Linus to step in and kick me to hell), but
+ if we have the possibility of not having _complex_ interactions within
+ the kernel, we are making the kernel itself more resilient to failure.
+
+   Hugo
+
+
+--XZLT0nNRngx3qG4/
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFEz0JD7asb/itUNKwRAkAEAJwIM2oieNDDYrJKeZFFweXi0INS7wCfbr1D
+exqxAHKqYd1FHNeaRjoOa4s=
+=mKZL
+-----END PGP SIGNATURE-----
+
+--XZLT0nNRngx3qG4/--
