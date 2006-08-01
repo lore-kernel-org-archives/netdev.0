@@ -1,61 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help() 2.6.18-rc3
-Date: Tue, 1 Aug 2006 22:34:08 +1000
-Message-ID: <20060801123408.GB6177@gondor.apana.org.au>
-References: <44CE4DCA.8000609@trash.net> <44CF0086.1030404@trash.net> <20060801072358.GB3802@gondor.apana.org.au> <20060801.003614.54188740.davem@davemloft.net> <20060801074504.GA4272@gondor.apana.org.au> <1154433648.5170.84.camel@jzny2>
+From: "Jeff Kirsher" <tarbal@gmail.com>
+Subject: Re: Re[4]: e1000 speed/duplex error
+Date: Tue, 1 Aug 2006 05:34:43 -0700
+Message-ID: <9929d2390608010534x54324569ja70b1fcbdc23c097@mail.gmail.com>
+References: <1301563340.20060801141827@mail.ru>
+	 <9929d2390608010420t60bd44d7o4e522c6edc0a677e@mail.gmail.com>
+	 <793732866.20060801153230@mail.ru>
+	 <9929d2390608010445w4fd81b64g310ae90a423e1a7d@mail.gmail.com>
+	 <911206621.20060801162006@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:32530 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751452AbWHAMeW
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 08:34:22 -0400
-To: Jamal Hadi Salim <hadi@cyberus.ca>
+Received: from ug-out-1314.google.com ([66.249.92.172]:8059 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1751508AbWHAMep (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 08:34:45 -0400
+Received: by ug-out-1314.google.com with SMTP id m3so1278943ugc
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2006 05:34:44 -0700 (PDT)
+To: a1 <a1k@mail.ru>
+In-Reply-To: <911206621.20060801162006@mail.ru>
 Content-Disposition: inline
-In-Reply-To: <1154433648.5170.84.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 01, 2006 at 08:00:48AM -0400, Jamal Hadi Salim wrote:
-> > > 
-> > > > > - tc_verd/tc_index/input_dev: when directing a packet from a device
-> > > > >   supporting GSO to a device not supporting GSO using tc actions,
-> > > > >   these fields may be set.
-> > > > 
-> > > > This doesn't look right though.  GSO should occur just before
-> > > > hard_start_xmit (after all tc actions have taken place) so we
-> > > > shouldn't have any more tc actions to perform.
-> > > 
-> > > Hmmm, what about loopback?  Yeah yeah, LOOPBACK_TSO is not defined :)
-> > > but what I'm really referring to is that loopback preserves the
-> > > traffic classifier bits of the skb.
-> > 
-> > I don't know.  Jamal, is there a scenario where these three attributes
-> > are needed for loopback packets?
-> 
-> I didnt fully understand the scope of the discussion, but a little
-> explanation may help answer the question:
+On 8/1/06, a1 <a1k@mail.ru> wrote:
+> Hi, Jeff.
+>
+>
+> JK> OPTION 2: Turn auto-negotiate on the e1000 card and tell it to only
+> JK> advertise 100 Full Duplex.  This will allow negotiation between the
+> JK> two lnk partners and the e1000 will advertise that it is only able to
+> JK> do 100 Full duplex.
+>
+> Is there any way i could do this with ethtool? It only allows force
+> spd/dplx , but not set it for advertising...
 
-My question isn't really about GSO as such.
+Not currently.  That would be a nice feature though... :)
 
-What I'd like to know is do we really need to preserve
+>
+> If i do as follows other side reports 1000/FD:
+>
+> ethtool -s eth0 speed 100 duplex full autoneg on
+>
 
-	tc_verd/tc_index/input_dev
+Which is what I would expect.  I have to step away for a bit, but if
+no one responds with how to load the driver with auto-negotiate
+advertising only 100 Full Duplex, I will do so when I return.
 
-for a packet crossing loopback's xmit function?
-
-The reason I'm asking is because currently they're preserved as a matter
-of course since loopback just shoves the same packet down the other end.
-
-If we were to apply GSO to loopback (purely as a thought exercise since
-loopback can handle large frames just fine without segmenting it :) would
-we need to copy those attriutes?
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Cheers,
+Jeff
