@@ -1,35 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 1/4] kevent: core files.
-Date: Tue, 01 Aug 2006 00:58:09 -0700 (PDT)
-Message-ID: <20060801.005809.102616533.davem@davemloft.net>
-References: <20060731.035716.39159213.davem@davemloft.net>
-	<20060731105943.GA26114@gondor.apana.org.au>
-	<44CF0866.3000505@redhat.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: Linux TCP in the presence of delays or drops...
+Date: Tue, 1 Aug 2006 11:23:53 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0608011041090.3911@kivilampi-30.cs.helsinki.fi>
+References: <44CD0D58.7050207@kom.aau.dk> <44CE42A8.7090305@kom.aau.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, johnpol@2ka.mipt.ru,
-	zach.brown@oracle.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:19081
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1422769AbWHAH6v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 03:58:51 -0400
-To: drepper@redhat.com
-In-Reply-To: <44CF0866.3000505@redhat.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:26085 "EHLO
+	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP
+	id S1750724AbWHAIXz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 04:23:55 -0400
+To: Oumer Teyeb <oumer@kom.aau.dk>
+In-Reply-To: <44CE42A8.7090305@kom.aau.dk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ulrich Drepper <drepper@redhat.com>
-Date: Tue, 01 Aug 2006 00:53:10 -0700
+On Mon, 31 Jul 2006, Oumer Teyeb wrote:
 
-> This is the case to keep in mind here.  I thought Zach and the other
-> involved in the discussions in Ottawa said this has been shown to be a
-> problem and that a ring buffer implementation with something other than
-> simple front and back pointers is preferable.
+> -If multiple timeouts occur for one packet then even if we are using the
+> timestamp option or FRTO TCP linux is not able to detect spurious
+> retransmissions... and TCP linux is able to detect spurious retransmissions
+> only for a single timeout for one packet or fast retransmissions that are
+> caused by duplicate ACK reception.....I have some traces that show this
+> behaviour, let me know if you are interested.
 
-This is part of why I suggested VJ style channel data
-structure.  At worst, the cachelines for the entries get
-into shared modified state when the remove userland cpu
-reads the slot.
+I have come across this same issue. I can confirm that multiple RTOs is 
+not handled correctly. But there are some other issues in FRTO as 
+well... nothing extremely dangerous though. In one of the cases, the 
+current FRTO algorithm could miss real losses, but you luckily need to be 
+quite clever to trigger that, and due to very conservative response used 
+in case spurious RTO is detected, it has no significant danger in it even 
+then. The other flaws cause too conservative behavior.
+
+We have a set of fixes to F-RTO, but part of them have not yet been 
+tested. Since the fixes include 4-5 independent changes to handle also 
+rare cases, it takes some time to test. Besides, I'll probably have to 
+talk with Pasi Sarolahti (author of FRTO) on couple of interpretation 
+issues in RFC4138 as soon as his vacation ends (mid August if I remember 
+correctly) to verify some of the changes.
+
+I expect that I'll get some actual results after two weeks or so... I case 
+you're are in hurry and are interested on the fixes, I could prepare an 
+independent patch quite soon and release it (untested) on our projects web 
+site (if you are interested, ask off-list so that we don't bother others 
+:-)). But the kernel inclusion of the fixes should IMO wait at least until 
+I get some decent test cases analyzed, which will take at least two weeks 
+or so due to my schedule.
+
+> -In the cases where TCP timestamp or FRTO is not able to detect spurious
+> retransmissions, the performance degrades even more than when TCP timestamp
+> or FRTO option are not used....
+
+That's one of the FRTO "features", we have a fix (I cannot say about 
+timestamps since we've been running our tests without tstamps for years).
+
+
+-- 
+ i.
