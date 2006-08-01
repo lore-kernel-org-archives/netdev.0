@@ -1,58 +1,61 @@
-From: Jamal Hadi Salim <hadi@cyberus.ca>
-Subject: Re: Linville's L2 rant... -- Re: PATCH Fix bonding active-backup
-	behavior for VLAN interfaces
-Date: Tue, 01 Aug 2006 08:33:34 -0400
-Message-ID: <1154435614.5170.111.camel@jzny2>
-References: <44CA34D0.1070507@candelatech.com>
-	 <44CA87C5.1060905@candelatech.com>
-	 <20060730.205032.130618331.davem@davemloft.net>
-	 <200607311015.40255.Christophe.Devriese@eurid.eu>
-	 <20060731123038.GA10138@tuxdriver.com> <1154396348.5170.43.camel@jzny2>
-	 <20060801120836.GA29208@tuxdriver.com>
-Reply-To: hadi@cyberus.ca
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help() 2.6.18-rc3
+Date: Tue, 1 Aug 2006 22:34:08 +1000
+Message-ID: <20060801123408.GB6177@gondor.apana.org.au>
+References: <44CE4DCA.8000609@trash.net> <44CF0086.1030404@trash.net> <20060801072358.GB3802@gondor.apana.org.au> <20060801.003614.54188740.davem@davemloft.net> <20060801074504.GA4272@gondor.apana.org.au> <1154433648.5170.84.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Christophe Devriese <Christophe.Devriese@eurid.eu>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:25515 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1751184AbWHAMdi
+Received: from rhun.apana.org.au ([64.62.148.172]:32530 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751452AbWHAMeW
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 08:33:38 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1G7tRM-0007ug-1r
-	for netdev@vger.kernel.org; Tue, 01 Aug 2006 08:33:40 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060801120836.GA29208@tuxdriver.com>
+	Tue, 1 Aug 2006 08:34:22 -0400
+To: Jamal Hadi Salim <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1154433648.5170.84.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-01-08 at 08:08 -0400, John W. Linville wrote:
-[..]
-> There is no doubt that we need to be able to do all three (vlan,
-> bridge, bond) at once.  I'm just not convinced we need to support
-> stacking them in every conceivable order.  
+On Tue, Aug 01, 2006 at 08:00:48AM -0400, Jamal Hadi Salim wrote:
+> > > 
+> > > > > - tc_verd/tc_index/input_dev: when directing a packet from a device
+> > > > >   supporting GSO to a device not supporting GSO using tc actions,
+> > > > >   these fields may be set.
+> > > > 
+> > > > This doesn't look right though.  GSO should occur just before
+> > > > hard_start_xmit (after all tc actions have taken place) so we
+> > > > shouldn't have any more tc actions to perform.
+> > > 
+> > > Hmmm, what about loopback?  Yeah yeah, LOOPBACK_TSO is not defined :)
+> > > but what I'm really referring to is that loopback preserves the
+> > > traffic classifier bits of the skb.
+> > 
+> > I don't know.  Jamal, is there a scenario where these three attributes
+> > are needed for loopback packets?
+> 
+> I didnt fully understand the scope of the discussion, but a little
+> explanation may help answer the question:
 
-In theory there should be no issues stacking netdevices in any order
-you want. In other words the hooks for doing so exist (albeit in some
-limited way[1]). Practically, some of the topologies of interconnected
-netdevices dont make a lot of sense. The danger is in restricting how
-the stacking happens and overlooking some future creative use.
-Safer to let the user own the policy and configure any way they want aka
-"shoot themselves in the foot".
+My question isn't really about GSO as such.
 
-> And, I think that a
-> reconsideration of all three functions as a group could lead to
-> better/cleaner functionality with easier support for extension (e.g.
-> 802.1s).
+What I'd like to know is do we really need to preserve
 
-Agreed. I have some very strong opinions on this subject that i could
-share with you if you want. For example, IMO, I think it would be a lot
-reasonable to assume that a VLAN or VLANS are attributes of a netdevice
-(just like IP addresses or MAC addresses are). 
+	tc_verd/tc_index/input_dev
 
-cheers,
-jamal
+for a packet crossing loopback's xmit function?
 
+The reason I'm asking is because currently they're preserved as a matter
+of course since loopback just shoves the same packet down the other end.
+
+If we were to apply GSO to loopback (purely as a thought exercise since
+loopback can handle large frames just fine without segmenting it :) would
+we need to copy those attriutes?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
