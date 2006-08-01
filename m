@@ -1,50 +1,68 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Linville's L2 rant... -- Re: PATCH Fix bonding active-backup
- behavior for VLAN interfaces
-Date: Tue, 01 Aug 2006 10:21:14 -0700
-Message-ID: <44CF8D8A.5080101@candelatech.com>
-References: <44CA34D0.1070507@candelatech.com> <44CA87C5.1060905@candelatech.com> <20060730.205032.130618331.davem@davemloft.net> <200607311015.40255.Christophe.Devriese@eurid.eu> <20060731123038.GA10138@tuxdriver.com> <1154396348.5170.43.camel@jzny2> <20060801120836.GA29208@tuxdriver.com> <44CF7E8B.9030407@candelatech.com> <20060801170329.GG29208@tuxdriver.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [IPV6]: Audit all ip6_dst_lookup/ip6_dst_store calls
+Date: Tue, 1 Aug 2006 19:24:10 +0200
+Message-ID: <200608011924.10534.ak@suse.de>
+References: <20060728194531.GA17744@lists.us.dell.com> <20060731090433.GA25192@gondor.apana.org.au> <20060801074133.b5b96f11.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
-	Christophe Devriese <Christophe.Devriese@eurid.eu>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:64725 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1750925AbWHARV7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 13:21:59 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060801170329.GG29208@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Jan Beulich <jbeulich@novell.com>, mingo@elte.hu,
+	arjan@infradead.org, Matt_Domsch@dell.com, davem@davemloft.net,
+	yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751694AbWHAR1G@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060801074133.b5b96f11.akpm@osdl.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-
->>>I'm just not sure that cleverness is worth the headache, especially
->>>since the most clever things usually only work by accident...
->>
->>Or, work by solid, modular design and small tweaks!
+On Tuesday 01 August 2006 16:41, Andrew Morton wrote:
+> On Mon, 31 Jul 2006 19:04:33 +1000
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
 > 
+> > 2) There is something broken in the x86_64 unwind code which is causing
+> > it to panic just about everytime somebody calls dump_stack().
+> > 
+> > Andi, this is the second time I've seen a report where an otherwise
+> > harmless dump_stack call (the other one was caused by a WARN_ON) gets
+> > turned into a panic by the stack unwind code on x86_64.  This particular
+> > report is with 2.6.18-rc3 so it looks like whatever bug is causing it
+> > hasn't been fixed yet.
+> > 
+> > Could you please have a look at it? Thanks.
 > 
-> Point taken.  But stashing little hacks in the networking core for
-> specific virtual drivers isn't totally modular either.  And even if
-> it were, "modular design" probably belongs on the list of "things
-> that can be taken too far", like "everything in userland", "never
-> use ioctl", and "microkernels are superior". :-)
+> Jan thinks this might have been fixed by a patch which he sent Andi a
+> couple of days ago.  Andi has sent that patch to Linus
 
-To be honest, I'm not over-joyed to see bridging hooks included
-in the VLAN code..but if that is what it takes to get bridging
-and VLANs to play well and be flexible, I think it is a fair price.
+I didn't send that particular patch before, just queued it, because I didn't realize
+that particular crash, but I have now send it yesterday. So far L. hasn't merged
+it unfortunately, but I will resend.
 
-It certainly wouldn't hurt to have someone take a holistic view of the
-various L2 device interactions.  Just documenting current functionality
-on, say, the netdev wiki would be a good first step.
+> but I'm not sure 
+> which patch it was
+ 
+"entry-more-unwind" was my version, there was another one from Jan
 
-Thanks,
-Ben
+> and I'm not sure whether it has been merged into 
+> mainline.
+> 
+> But yes, -rc3 unwind has problems.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+"unwinder stuck" messages are expected and not really fatal because they
+don't lose any information. I expect it will need some releases to work
+them all out fully, but then we'll hopefully have a much better unwinder
+that doesn't generate any false positives anymore.
 
+New crashes during unwinding are fatal though and I plan to fix them.
+So far this one was the only known one.
+
+I already got a lot of patches queued for .19 that fix more unwind
+information in a lot of assembly files. Still not fully complete though.
+Fixing it all properly unfortunately requires undoing some stuff, e.g.
+the unwinder cannot deal with separate lock sections, so I was slowly
+removing them.
+
+-Andi
