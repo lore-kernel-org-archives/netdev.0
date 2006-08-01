@@ -1,46 +1,59 @@
-From: "Ivo Van Doorn" <ivdoorn@gmail.com>
-Subject: Re: [PATCH dscape] d80211: Switch d80211.h to IEEE80211_ style names
-Date: Tue, 1 Aug 2006 16:25:05 +0200
-Message-ID: <a32f33a40608010725m247304a5vda49207c8f36cf62@mail.gmail.com>
-References: <200607270037.22384.flamingice@sourmilk.net>
-	 <20060731203113.GG10138@tuxdriver.com>
-	 <200607311351.35757.flamingice@sourmilk.net>
-	 <20060801095650.GA6831@infradead.org>
-	 <20060801122142.GB29208@tuxdriver.com>
-	 <20060801155837.4c3210aa@griffin.suse.cz>
-	 <20060801140720.GC29208@tuxdriver.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [take2 1/4] kevent: core files.
+Date: Tue, 1 Aug 2006 10:27:36 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0608011024380.11168@d.namei>
+References: <11544248451203@2ka.mipt.ru> <Pine.LNX.4.64.0608010945090.10827@d.namei>
+ <20060801135538.GA356@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Jiri Benc" <jbenc@suse.cz>,
-	"Christoph Hellwig" <hch@infradead.org>,
-	"Michael Wu" <flamingice@sourmilk.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.180]:15255 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S1751610AbWHAOZG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 10:25:06 -0400
-Received: by py-out-1112.google.com with SMTP id t32so1205353pyc
-        for <netdev@vger.kernel.org>; Tue, 01 Aug 2006 07:25:05 -0700 (PDT)
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060801140720.GC29208@tuxdriver.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751628AbWHAO1l@vger.kernel.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060801135538.GA356@2ka.mipt.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 1 Aug 2006, Evgeniy Polyakov wrote:
 
-> > Do you have a plan when you will merge rt2x00 patches so I can apply
-> > Michael's renaming patch(es) without risk of conflicts?
->
-> Working on it ~now.  I hit a snag in that Ivo's patches seem to rely on
-> his radio button patch, which I had ignored until now.  I'll probably
-> pull that in this morning (or figure-out how to not need it) and get
-> something pushed to wireless-dev sometime today.
+> On Tue, Aug 01, 2006 at 09:46:58AM -0400, James Morris (jmorris@namei.org) wrote:
+> > On Tue, 1 Aug 2006, Evgeniy Polyakov wrote:
+> > 
+> > > +	u->ready_num = 0;
+> > > +#ifdef CONFIG_KEVENT_USER_STAT
+> > > +	u->wait_num = u->im_num = u->total = 0;
+> > > +#endif
+> > 
+> > Generally, #ifdefs in the body of the kernel code are discouraged.  Can 
+> > you abstract these out as static inlines?
+> 
+> Yes, it is possible.
+> I would ask is it needed at all?
 
-Ehm, that should not have happened. The rt2x00 version I had send as patches
-had the radio button integrated as they had been in wireless-dev already.
-The patch to convert it to the rfkill driver is one of the patches
-I'll send later.
+Yes, please, it is standard kernel development practice.
 
-Ivo
+Otherwise, the kernel will turn into an unmaintainable #ifdef jungle.
+
+> It contains number of immediately fired
+> events (i.e. those which were ready when event was added and thus
+> syscall returned immediately showing that it is ready), total number of
+> events, which were inserted in the given queue and number of events
+> which were marked as ready after they were inserted.
+> Currently it is compilation option which ends up in printk with above
+> info when kevent queue is removed.
+
+Fine, make 
+
+static inline void kevent_user_stat_reset(u);
+
+etc.
+
+which compile to nothing when it's not confifgured.
+
+
+-- 
+James Morris
+<jmorris@namei.org>
