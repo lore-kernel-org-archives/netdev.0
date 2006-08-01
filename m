@@ -1,33 +1,46 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH dscape] d80211: Switch d80211.h to IEEE80211_ style names
-Date: Tue, 1 Aug 2006 10:07:26 -0400
-Message-ID: <20060801140720.GC29208@tuxdriver.com>
-References: <200607270037.22384.flamingice@sourmilk.net> <20060731203113.GG10138@tuxdriver.com> <200607311351.35757.flamingice@sourmilk.net> <20060801095650.GA6831@infradead.org> <20060801122142.GB29208@tuxdriver.com> <20060801155837.4c3210aa@griffin.suse.cz>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [DSCAPE] rate_control needs some form of reference counting
+Date: Tue, 1 Aug 2006 16:10:23 +0200
+Message-ID: <20060801161023.1e66d844@griffin.suse.cz>
+References: <20060729215645.GE1464@riddly.domek.prywatny>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>,
-	Michael Wu <flamingice@sourmilk.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:2571 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1750709AbWHAOHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 10:07:46 -0400
-To: Jiri Benc <jbenc@suse.cz>
-Content-Disposition: inline
-In-Reply-To: <20060801155837.4c3210aa@griffin.suse.cz>
+Received: from styx.suse.cz ([82.119.242.94]:392 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751624AbWHAOK1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 10:10:27 -0400
+To: Karol Lewandowski <kl@jasmine.eu.org>
+In-Reply-To: <20060729215645.GE1464@riddly.domek.prywatny>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 01, 2006 at 03:58:37PM +0200, Jiri Benc wrote:
+On Sat, 29 Jul 2006 23:56:45 +0200, Karol Lewandowski wrote:
+> I'm getting reproductible oops when removing rt2500pci module
+> (which uses devicescape ieee802.11 stack):
 
-> Do you have a plan when you will merge rt2x00 patches so I can apply
-> Michael's renaming patch(es) without risk of conflicts?
+Thanks for the report and nice description how to reproduce the problem.
 
-Working on it ~now.  I hit a snag in that Ivo's patches seem to rely on
-his radio button patch, which I had ignored until now.  I'll probably
-pull that in this morning (or figure-out how to not need it) and get
-something pushed to wireless-dev sometime today.
+The fix is not easy. In fact, it's as hard as to fix it by implementing
+a feature that allows to use different rate control algorithm for each
+device. Given the fact the problem doesn't occur in normal conditions,
+it's a low priority for me (unless there is a volunteer to fix it). It
+needs to be fixed before d80211 is merged, though (sigh).
 
-John
+>   # modprobe rt2500pci
+> 
+> Loading module: rt2500pci - CVS (N/A) by http://rt2x00.serialmonkey.com.
+> ACPI: PCI Interrupt 0000:03:00.0[A] -> GSI 21 (level, low) -> IRQ 18
+> wmaster0: Failed to select rate control algorithm
+> wmaster0: Failed to initialize rate control algorithm
+
+I suppose you don't have automatic loading of modules enabled, right?
+
+Thanks,
+
+ Jiri
+
 -- 
-John W. Linville
-linville@tuxdriver.com
+Jiri Benc
+SUSE Labs
