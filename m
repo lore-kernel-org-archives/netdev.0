@@ -1,47 +1,55 @@
-From: Jamal Hadi Salim <hadi@znyx.com>
-Subject: Re: Regarding offloading IPv6 addrconf and ndisc
-Date: Mon, 31 Jul 2006 21:47:40 -0400
-Message-ID: <1154396860.5170.51.camel@jzny2>
-References: <E1G6Fic-0005py-00@gondolin.me.apana.org.au>
-	 <20060727.183415.104032934.davem@davemloft.net>
-	 <200608010231.58339.ak@suse.de>
-	 <20060731.174641.99457765.davem@davemloft.net> <ada7j1t700x.fsf@cisco.com>
-	 <1154395467.5170.31.camel@jzny2>
-	 <20060801013033.GA1280@gondor.apana.org.au>
-Reply-To: hadi@znyx.com
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] NET: fix kernel panic from no dev->hard_header_len space
+Date: Tue, 01 Aug 2006 03:56:22 +0200
+Message-ID: <m3bqr5z0ah.fsf@defiant.localdomain>
+References: <m3r701zgku.fsf@defiant.localdomain>
+	<20060731.132324.65197403.davem@davemloft.net>
+	<m3fyghz2oz.fsf@defiant.localdomain>
+	<20060731.181314.27783697.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: usagi-core@linux-ipv6.org, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, kazunori@miyazawa.org, ak@suse.de,
-	David Miller <davem@davemloft.net>,
-	Roland Dreier <rdreier@cisco.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.znyx.com ([208.2.156.141]:63494 "EHLO mailhub.znyx.com")
-	by vger.kernel.org with ESMTP id S1030215AbWHABrq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 21:47:46 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060801013033.GA1280@gondor.apana.org.au>
+Received: from khc.piap.pl ([195.187.100.11]:48605 "EHLO khc.piap.pl")
+	by vger.kernel.org with ESMTP id S1030330AbWHAB4Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jul 2006 21:56:25 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060731.181314.27783697.davem@davemloft.net> (David Miller's message of "Mon, 31 Jul 2006 18:13:14 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-01-08 at 11:30 +1000, Herbert Xu wrote:
+David Miller <davem@davemloft.net> writes:
 
-> 
-> You can now disable the OOM killer on a per-process basis by
-> 
-> echo -17 > /proc/<pid>/oom_adj
-> 
+>> hdlc_fr: logical PVC devices have no headers (plain IPv4 etc. as seen
+>> by tcpdump), but they append FR headers (4 or 10 bytes long) just
+>> before passing the skb to physical device.
+>
+> If you hooked up fr_hard_header into dev->hard_header instead of
+> invoking it via pvc_xmit(), everything would be fine.
 
-nice to know ;-> At least you can protect some apps if you need to.
-Only racoon and quagga are important for me.
-But what happens then if you have a beast that just chews memory
-forever? I suppose other poor apps will just get shot.
+That would have to be master_device->hard_header(), but the network
+stack (IP and friends) has to send packets to pvc_device.
+I can't make the headers show up on pvc device - that would break
+packet interface and Ethernet framing. The headers have to be
+visible only on master (physical) device.
 
-My plan was just to write a simple daemon that uses the genetlink API
-that Shailabh (IBM) and company wrote and just restart the app if i see
-it disappear. 
+> The complexity of this function arises from the fact that it prepends
+> headers of differing lengths depending upon the protocol type
+> being encapsulated, and this is the problem you should aim to
+> solve.
 
-cheers,
-jamal
+Actually I don't think there is a problem with different header
+lengths. The driver indicates it wants 10 bytes and that's enough
+for all cases (except Ethernet framing where it indicates and uses
+14 bytes and reallocs before prepending another 10 bytes).
 
+> Alexey, any suggestions on how to handle this kind of thing?
+
+What's wrong with my patch?
+
+If it can's be accepted I can just add an empty pvc->hard_header().
+That won't make other drivers work reliably, though, and it's IMHO
+hardly their author's fault. I don't think we've ever advertised
+"hard_header_len is valid only with non-NULL hard_header".
+-- 
+Krzysztof Halasa
