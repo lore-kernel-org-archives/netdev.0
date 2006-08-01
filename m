@@ -1,48 +1,84 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH dscape] d80211: Switch d80211.h to IEEE80211_ style names
-Date: Tue, 1 Aug 2006 13:11:04 -0400
-Message-ID: <20060801171058.GH29208@tuxdriver.com>
-References: <200607270037.22384.flamingice@sourmilk.net> <20060731203113.GG10138@tuxdriver.com> <200607311351.35757.flamingice@sourmilk.net> <20060801095650.GA6831@infradead.org> <20060801122142.GB29208@tuxdriver.com> <20060801155837.4c3210aa@griffin.suse.cz> <20060801140720.GC29208@tuxdriver.com> <a32f33a40608010725m247304a5vda49207c8f36cf62@mail.gmail.com>
+From: "Jeff Kirsher" <tarbal@gmail.com>
+Subject: Re: e1000 speed/duplex error
+Date: Tue, 1 Aug 2006 10:15:14 -0700
+Message-ID: <9929d2390608011015h32c034bdt2b6bd89f4ade972e@mail.gmail.com>
+References: <1301563340.20060801141827@mail.ru>
+	 <9929d2390608010420t60bd44d7o4e522c6edc0a677e@mail.gmail.com>
+	 <793732866.20060801153230@mail.ru>
+	 <9929d2390608010445w4fd81b64g310ae90a423e1a7d@mail.gmail.com>
+	 <911206621.20060801162006@mail.ru>
+	 <9929d2390608010534x54324569ja70b1fcbdc23c097@mail.gmail.com>
+	 <44CF66AD.1030901@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Benc <jbenc@suse.cz>, Christoph Hellwig <hch@infradead.org>,
-	Michael Wu <flamingice@sourmilk.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: a1 <a1k@mail.ru>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:2062 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S932544AbWHARL3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 13:11:29 -0400
-To: Ivo Van Doorn <ivdoorn@gmail.com>
+Received: from ug-out-1314.google.com ([66.249.92.175]:6015 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1750884AbWHARPQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 13:15:16 -0400
+Received: by ug-out-1314.google.com with SMTP id m3so1401313ugc
+        for <netdev@vger.kernel.org>; Tue, 01 Aug 2006 10:15:14 -0700 (PDT)
+To: "Auke Kok" <auke-jan.h.kok@intel.com>
+In-Reply-To: <44CF66AD.1030901@intel.com>
 Content-Disposition: inline
-In-Reply-To: <a32f33a40608010725m247304a5vda49207c8f36cf62@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 01, 2006 at 04:25:05PM +0200, Ivo Van Doorn wrote:
-> Hi,
-> 
-> >> Do you have a plan when you will merge rt2x00 patches so I can apply
-> >> Michael's renaming patch(es) without risk of conflicts?
+On 8/1/06, Auke Kok <auke-jan.h.kok@intel.com> wrote:
+> Jeff Kirsher wrote:
+> > On 8/1/06, a1 <a1k@mail.ru> wrote:
+> >> Hi, Jeff.
+> >>
+> >>
+> >> JK> OPTION 2: Turn auto-negotiate on the e1000 card and tell it to only
+> >> JK> advertise 100 Full Duplex.  This will allow negotiation between the
+> >> JK> two lnk partners and the e1000 will advertise that it is only able to
+> >> JK> do 100 Full duplex.
+> >>
+> >> Is there any way i could do this with ethtool? It only allows force
+> >> spd/dplx , but not set it for advertising...
 > >
-> >Working on it ~now.  I hit a snag in that Ivo's patches seem to rely on
-> >his radio button patch, which I had ignored until now.  I'll probably
-> >pull that in this morning (or figure-out how to not need it) and get
-> >something pushed to wireless-dev sometime today.
-> 
-> Ehm, that should not have happened. The rt2x00 version I had send as patches
-> had the radio button integrated as they had been in wireless-dev already.
-> The patch to convert it to the rfkill driver is one of the patches
-> I'll send later.
+> > Not currently.  That would be a nice feature though... :)
+> >
+> >>
+> >> If i do as follows other side reports 1000/FD:
+> >>
+> >> ethtool -s eth0 speed 100 duplex full autoneg on
+> >>
+> >
+> > Which is what I would expect.  I have to step away for a bit, but if
+> > no one responds with how to load the driver with auto-negotiate
+> > advertising only 100 Full Duplex, I will do so when I return.
+>
+> Here's that part of the driver documentation:
+>
+> $ modprobe e1000 AutoNeg=0x08
+> e1000: 0000:00:00.0: e1000_validate_option: AutoNeg advertising 100/FD
+>
+>
+>   99 /* Auto-negotiation Advertisement Override
+> 100  *
+> 101  * Valid Range: 0x01-0x0F, 0x20-0x2F (copper); 0x20 (fiber)
+> 102  *
+> 103  * The AutoNeg value is a bit mask describing which speed and duplex
+> 104  * combinations should be advertised during auto-negotiation.
+> 105  * The supported speed and duplex modes are listed below
+> 106  *
+> 107  * Bit           7     6     5      4      3     2     1      0
+> 108  * Speed (Mbps)  N/A   N/A   1000   N/A    100   100   10     10
+> 109  * Duplex                    Full          Full  Half  Full   Half
+> 110  *
+> 111  * Default Value: 0x2F (copper); 0x20 (fiber)
+> 112  */
+>
+> hth,
+>
+> Auke
+>
+Thanks Auke.  I got tied up longer than expected.
 
-The rfkill stuff seems to be behind a CONFIG_RT2X00_BUTTON define,
-which keys off some driver-specific Kconfig stuff.  They were
-getting turned-on by default w/ 'allmodconfig' and 'allyesconfig'.
-Turning them off in .config lets them compile.
-
-In general, I'd prefer not to have Kconfig-settable options that
-don't compile.  But in this case I guess we'll just live with it.
-After all, it is a development tree... :-)
-
-John
 -- 
-John W. Linville
-linville@tuxdriver.com
+Cheers,
+Jeff
