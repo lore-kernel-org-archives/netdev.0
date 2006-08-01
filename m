@@ -1,104 +1,98 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Netchannles: first stage has been completed. Further ideas.
-Date: Mon, 31 Jul 2006 21:47:29 -0700 (PDT)
-Message-ID: <20060731.214729.35358981.davem@davemloft.net>
-References: <1153979173.6904.100.camel@localhost.localdomain>
-	<20060726.230028.00077989.davem@davemloft.net>
-	<1154066044.5159.130.camel@localhost.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [RFC] gre: transparent ethernet bridging
+Date: Mon, 31 Jul 2006 22:08:22 -0700
+Message-ID: <20060731220822.444f04e4@localhost.localdomain>
+References: <44CDD631.5030008@snapgear.com>
+	<20060731091423.3327f85e@dxpl.pdx.osdl.net>
+	<44CEAB31.5090501@snapgear.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, johnpol@2ka.mipt.ru, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36549
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751565AbWHAEsM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 00:48:12 -0400
-To: rusty@rustcorp.com.au
-In-Reply-To: <1154066044.5159.130.camel@localhost.localdomain>
+Received: from smtp.osdl.org ([65.172.181.4]:64652 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1161038AbWHAFIf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 01:08:35 -0400
+To: Philip Craig <philipc@snapgear.com>
+In-Reply-To: <44CEAB31.5090501@snapgear.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Fri, 28 Jul 2006 15:54:04 +1000
+On Tue, 01 Aug 2006 11:15:29 +1000
+Philip Craig <philipc@snapgear.com> wrote:
 
-> (1) I am imagining some Grand Unified Flow Cache (Olsson trie?) that
-> holds (some subset of?) flows.  A successful lookup immediately after
-> packet comes off NIC gives destiny for packet: what route, (optionally)
-> what socket, what filtering, what connection tracking (& what NAT), etc?
-> I don't know if this should be a general array of fn & data ptrs, or
-> specialized fields for each one, or a mix.  Maybe there's a "too hard,
-> do slow path" bit, or maybe hard cases just never get put in the cache.
-> Perhaps we need a separate one for locally-generated packets, a-la
-> ip_route_output().  Anyway, we trade slightly more expensive flow setup
-> for faster packet processing within flows.
+> Stephen Hemminger wrote:
+> > On Mon, 31 Jul 2006 20:06:41 +1000
+> > Philip Craig <philipc@snapgear.com> wrote:
+> > 
+> >> This patch implements transparent ethernet bridging for gre tunnels.
+> >> There are a few outstanding issues.
+> > 
+> > Why not use existing bridge code?
+> 
+> It does use the existing bridge code.  Perhaps the name is misleading.
+> All it does is encapsulate the full ethernet header in a gre packet,
+> rather than only layer 3.  That is, currently gre uses ARPHRD_IPGRE,
+> but bridging requires ARPHRD_ETHER.
+> 
 
-So, specifically, one of the methods you are thinking about might
-be implemented by adding:
+I am not against making the bridge code smarter to handle other
+encapsulation.
 
-	void (*input)(struct sk_buff *, void *);
-	void *input_data;
+> >> Some routers set LLC_SAP_BSPAN in the gre protocol field, and then
+> >> give the bpdu packet without any other ethernet/llc header. This patch
+> >> currently tries to fake the ethernet/llc header before passing the
+> >> packet up, but it is buggy (mac addresses are wrong at least). Maybe a
+> >> better approach is to call directly into the bridging code. I didn't try
+> >> that at first because it isn't modular, and may break other things that
+> >> want to see the packet.
+> > 
+> > Existing bridge code already has spanning tree.
+> 
+> Yes, and I want to use that.  But this packet is a bit strange in
+> that it does not have the ethernet header on it.   So what is the
+> best way to pass it to existing code?  Either fake the ethernet
+> header, or pass it directly?
 
-to "struct flow_cache_entry" or whatever replaces it?
+Likewise if the bridge STP bpdu input code was smarter, it could
+deal with it maybe?
 
-This way we don't need some kind of "type" information in
-the flow cache entry, since the input handler knows the type.
+> 
+> >> +#if 0
+> >>  	dev = alloc_netdev(sizeof(*t), name, ipgre_tunnel_setup);
+> >> +#else
+> >> +	dev = alloc_netdev(sizeof(*t), name, ipgre_ether_tunnel_setup);
+> >> +#endif
+> > 
+> > "Do, or do not there is no try"
+> 
+> I am looking for comments as to whether adding a netlink interface
+> to control this is appropriate.
 
-> One way to do this is to add a "have_interest" callback into the
-> hook_ops, which takes each about-to-be-inserted GUFC entry and adds any
-> destinies this hook cares about.  In the case of packet filtering this
-> would do a traversal and append a fn/data ptr to the entry for each rule
-> which could effect it.  
+If we make bridge code type aware, then the ipgre tunnel wouldn't have to change.
 
-Can you give a concrete example of how the GUFC might make use
-of this?  Just some small abstract code snippets will do.
+> >> +__be16 ipgre_type_trans(struct sk_buff *skb, int offset)
+> >> +{
+> >> +	u8     *h = skb->data;
+> >> +	__be16 flags = *(__be16*)h;
+> >> +	__be16 proto = *(__be16*)(h + 2);
+> >> +
+> >> +	/* WCCP version 1 and 2 protocol decoding.
+> >> +	 * - Change protocol to IP
+> >> +	 * - When dealing with WCCPv2, Skip extra 4 bytes in GRE header
+> >> +	 */
+> >> +	if (flags == 0 &&
+> >> +	    proto == __constant_htons(ETH_P_WCCP)) {
+> >> +		proto = __constant_htons(ETH_P_IP);
+> >> +		if ((*(h + offset) & 0xF0) != 0x40)
+> >> +			offset += 4;
+> >> +	}
+> > 
+> > Don't use __constant_htons() except in initializers and switch cases
+> > (where gcc is too stupid to optimize the macro).
+> > 
+> 
+> This is a problem in the existing code, which I am simply moving
+> around.  Should I fix it at the same time?
 
-> The other way is to have the hooks register what they are interested in
-> into a general data structure which GUFC entry creation then looks up
-> itself.  This general data structure will need to support wildcards
-> though.
-
-My gut reaction is that imposing a global data structure on all object
-classes is not prudent.  When we take a GUFC miss, it seems better we
-call into the subsystems to resolve things.  It can implement whatever
-slow path lookup algorithm is most appropriate for it's data.
-
-> We also need efficient ways of reflecting rule changes into the GUFC.
-> We can be pretty slack with conntrack timeouts, but we either need to
-> flush or handle callbacks from GUFC on timed-out entries.  Packet
-> filtering changes need to be synchronous, definitely.
-
-This, I will remind, is similar to the problem of doing RCU locking
-of the TCP hash tables.
-
-> (3) Smart NICs that do some flowid work themselves can accelerate lookup
-> implicitly (same flow goes to same CPU/thread) or explicitly (each
-> CPU/thread maintains only part of GUFC which it needs, or even NIC
-> returns flow cookie which is pointer to GUFC entry or subtree?).  AFAICT
-> this will magnify the payoff from the GUFC.
-
-I want to warn you about HW issues that I mentioned to Alexey the
-other week.  If we are not careful, we can run into the same issues
-TOE cards run into, performance wise.
-
-Namely, it is important to be careful about how the GUFC table entries
-get updated in the card.  If you add them synchronously, your
-connection rates will deteriorate dramatically.
-
-I had the idea of a lazy scheme.  When we create a GUFC entry, we
-tack it onto a DMA'able linked list the card uses.  We do not
-notify the card, we just entail the update onto the list.
-
-Then, if the card misses it's on-chip GUFC table on an incoming
-packet, it checks the DMA update list by reading it in from memory.
-It updates it's GUFC table with whatever entries are found on this
-list, then it retries to classify the packet.
-
-This seems like a possible good solution until we try to address GUFC
-entry deletion, which unfortunately cannot be evaluated in a lazy
-fashion.  It must be synchronous.  This is because if, for example, we
-just killed off a TCP socket we must make sure we don't hit the GUFC
-entry for the TCP identity of that socket any longer.
-
-Just something to think about, when considering how to translate these
-ideas into hardware.
+Usually if a diff touches some code, I try to make it use current practice.
