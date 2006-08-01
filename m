@@ -1,36 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help() 2.6.18-rc3
-Date: Wed, 2 Aug 2006 08:04:27 +1000
-Message-ID: <20060801220427.GA11025@gondor.apana.org.au>
-References: <44CDDDF7.70004@trash.net> <20060731113050.GA25972@gondor.apana.org.au> <44CE4DCA.8000609@trash.net> <20060801.000059.57444384.davem@davemloft.net> <20060801153405.GA6259@linuxace.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: don't call upper-layer disconnect function if
+ not connected
+Date: Tue, 01 Aug 2006 15:07:53 -0700 (PDT)
+Message-ID: <20060801.150753.78709843.davem@davemloft.net>
+References: <44CFB026.7050907@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:60685 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751214AbWHAWEj
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 18:04:39 -0400
-To: Phil Oester <kernel@linuxace.com>
-Content-Disposition: inline
-In-Reply-To: <20060801153405.GA6259@linuxace.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48345
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751209AbWHAWH5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 18:07:57 -0400
+To: brian.haley@hp.com
+In-Reply-To: <44CFB026.7050907@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 01, 2006 at 08:34:05AM -0700, Phil Oester wrote:
-> On Tue, Aug 01, 2006 at 12:00:59AM -0700, David Miller wrote:
-> >     What we have now is infinitely better than the past,
-> >     wherein all TSO packets were dropped due to corrupt
-> >     checksums as soon at the NAT module was loaded.
+From: Brian Haley <brian.haley@hp.com>
+Date: Tue, 01 Aug 2006 15:48:54 -0400
+
+> Calling connect() with AF_UNSPEC will disconnect a socket, but we don't 
+> need to do any work if the socket isn't currently connected.
 > 
-> At what point did this problem begin?  2.6.18-rc or prior?
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
 
-Since we had TSO.
+The socket could have been bind()'d to, in which case it will
+not move to connected state and we still need to invoke
+the disconnect methods such as udp_disconnect() to clear out
+that binding.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+You seem to be groveling in random areas of the ipv4 and ipv6 stack,
+what are you working on?
