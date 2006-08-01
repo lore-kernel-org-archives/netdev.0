@@ -1,40 +1,73 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: Linville's L2 rant... -- Re: PATCH Fix bonding active-backup behavior for VLAN interfaces
-Date: Tue, 01 Aug 2006 21:47:57 +0200
-Message-ID: <m3bqr4z18y.fsf@defiant.localdomain>
-References: <44CA34D0.1070507@candelatech.com>
-	<44CA87C5.1060905@candelatech.com>
-	<20060730.205032.130618331.davem@davemloft.net>
-	<200607311015.40255.Christophe.Devriese@eurid.eu>
-	<20060731123038.GA10138@tuxdriver.com>
-	<1154396348.5170.43.camel@jzny2>
-	<20060801120836.GA29208@tuxdriver.com>
-	<1154435614.5170.111.camel@jzny2> <44CF7CDE.4080601@candelatech.com>
-	<20060801165218.GF29208@tuxdriver.com>
-	<44CF8998.3000408@candelatech.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH] ipv4: don't call upper-layer disconnect function if not connected
+Date: Tue, 01 Aug 2006 15:48:54 -0400
+Message-ID: <44CFB026.7050907@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>, hadi@cyberus.ca,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Christophe Devriese <Christophe.Devriese@eurid.eu>
+Content-Type: multipart/mixed;
+ boundary="------------070704090401030102080907"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:22994 "EHLO khc.piap.pl")
-	by vger.kernel.org with ESMTP id S1751831AbWHATsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 15:48:00 -0400
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <44CF8998.3000408@candelatech.com> (Ben Greear's message of "Tue, 01 Aug 2006 10:04:24 -0700")
+Received: from atlrel6.hp.com ([156.153.255.205]:11708 "EHLO atlrel6.hp.com")
+	by vger.kernel.org with ESMTP id S1751857AbWHATs4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 15:48:56 -0400
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear <greearb@candelatech.com> writes:
+This is a multi-part message in MIME format.
+--------------070704090401030102080907
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Basically, my point is that
-> if VLANs are true devices, they will just work with all of the
-> user-space protocols
-> and they will easily handle abstractions such as bridges, (multiple)
-> IP addresses, MAC addresses,
-> net-filter, and all the rest.
+Calling connect() with AF_UNSPEC will disconnect a socket, but we don't 
+need to do any work if the socket isn't currently connected.
 
-<AOL mode> I think the same.
--- 
-Krzysztof Halasa
+Signed-off-by: Brian Haley <brian.haley@hp.com>
+
+--------------070704090401030102080907
+Content-Type: text/x-patch;
+ name="disconn.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="disconn.patch"
+
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index c84a320..b294b92 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -480,12 +480,16 @@ int inet_dgram_connect(struct socket *so
+ {
+ 	struct sock *sk = sock->sk;
+ 
+-	if (uaddr->sa_family == AF_UNSPEC)
+-		return sk->sk_prot->disconnect(sk, flags);
++	if (uaddr->sa_family == AF_UNSPEC) {
++		if (sock->state != SS_UNCONNECTED)
++			return sk->sk_prot->disconnect(sk, flags);
++		else
++			return 0;
++	}
+ 
+ 	if (!inet_sk(sk)->num && inet_autobind(sk))
+ 		return -EAGAIN;
+-	return sk->sk_prot->connect(sk, (struct sockaddr *)uaddr, addr_len);
++	return sk->sk_prot->connect(sk, uaddr, addr_len);
+ }
+ 
+ static long inet_wait_for_connect(struct sock *sk, long timeo)
+@@ -525,8 +529,11 @@ int inet_stream_connect(struct socket *s
+ 	lock_sock(sk);
+ 
+ 	if (uaddr->sa_family == AF_UNSPEC) {
+-		err = sk->sk_prot->disconnect(sk, flags);
+-		sock->state = err ? SS_DISCONNECTING : SS_UNCONNECTED;
++		if (sock->state != SS_UNCONNECTED) {
++			err = sk->sk_prot->disconnect(sk, flags);
++			sock->state = err ? SS_DISCONNECTING : SS_UNCONNECTED;
++		} else
++			err = 0;
+ 		goto out;
+ 	}
+ 
+
+--------------070704090401030102080907--
