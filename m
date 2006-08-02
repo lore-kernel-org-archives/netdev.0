@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Fix ___pskb_trim when entire frag_list needs dropping
-Date: Wed, 02 Aug 2006 14:15:16 -0700 (PDT)
-Message-ID: <20060802.141516.56862365.davem@davemloft.net>
-References: <20060729114525.GA10549@gondor.apana.org.au>
-	<BAY103-F18A6256BE13955FA46DA0DB2520@phx.gbl>
+Subject: Re: [Patch] kernel memory leak fix for af_unix datagram getpeersec
+ patch
+Date: Wed, 02 Aug 2006 14:32:04 -0700 (PDT)
+Message-ID: <20060802.143204.16511279.davem@davemloft.net>
+References: <20060802.141103.35507776.davem@davemloft.net>
+	<OF2188FBCE.E3CAA317-ON852571BE.00749BCD-852571BE.0074B02B@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp-2
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+Cc: catalin.marinas@gmail.com, cxzhang@watson.ibm.com,
+	czhang.us@gmail.com, jmorris@namei.org,
+	linux-kernel@vger.kernel.org, michal.k.k.piotrowski@gmail.com,
+	netdev@vger.kernel.org, sds@tycho.nsa.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28064
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:13986
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932191AbWHBVPG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Aug 2006 17:15:06 -0400
-To: pupilla@hotmail.com
-In-Reply-To: <BAY103-F18A6256BE13955FA46DA0DB2520@phx.gbl>
+	id S932203AbWHBVbz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Aug 2006 17:31:55 -0400
+To: cxzhang@us.ibm.com
+In-Reply-To: <OF2188FBCE.E3CAA317-ON852571BE.00749BCD-852571BE.0074B02B@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Date: Wed, 02 Aug 2006 17:01:17 +0200
+From: Xiaolan Zhang <cxzhang@us.ibm.com>
+Date: Wed, 2 Aug 2006 17:14:31 -0400
 
-> The problem is fixed now. I have applied this
-> patch to 2.6.18-rc2
-> Many thanks Herbert for all the time spent
-> to debug this problem.
+> I will remember this in the future, I promise.
 
-Thank you for testing.
+Can you also remember to test your patches with CONFIG_SECURITY
+disabled, as you also promised in the past several times?!??!?!
+
+In file included from init/main.c:34:
+include/linux/security.h: In function $,1rx(Bsecurity_release_secctx$,1ry(B:
+include/linux/security.h:2757: warning: $,1rx(Breturn$,1ry(B with a value, in function returning void
+
+I'll fix this one up, but this is getting rediculious.
