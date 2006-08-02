@@ -1,59 +1,88 @@
 From: Balazs Scheidler <bazsi@balabit.hu>
 Subject: Re: [patch] RFC: matching interface groups
-Date: Wed, 02 Aug 2006 09:04:29 +0200
-Message-ID: <1154502269.6241.11.camel@bzorp.balabit>
+Date: Wed, 02 Aug 2006 09:18:44 +0200
+Message-ID: <1154503124.6241.21.camel@bzorp.balabit>
 References: <1154452209.6395.77.camel@bzorp.balabit>
-	 <20060801184655.GA7452@linuxace.com>
-	 <20060801191805.GA28649@zion.homelinux.com>
+	 <20060801112919.765eb831@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Phil Oester <kernel@linuxace.com>,
-	netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org,
-	shemminger@osdl.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from balabit.hu ([82.141.167.23]:47529 "EHLO balabit.hu")
-	by vger.kernel.org with ESMTP id S1751282AbWHBHEc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 03:04:32 -0400
-To: Sven Schuster <schuster.sven@gmx.de>
-In-Reply-To: <20060801191805.GA28649@zion.homelinux.com>
+Received: from balabit.hu ([82.141.167.23]:65454 "EHLO balabit.hu")
+	by vger.kernel.org with ESMTP id S1751309AbWHBHT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 03:19:26 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060801112919.765eb831@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-08-01 at 21:18 +0200, Sven Schuster wrote:
-> Hi Phil,
+On Tue, 2006-08-01 at 11:29 -0700, Stephen Hemminger wrote:
+> On Tue, 01 Aug 2006 19:10:09 +0200
+> Balazs Scheidler <bazsi@balabit.hu> wrote:
 > 
-> On Tue, Aug 01, 2006 at 11:46:55AM -0700, Phil Oester told us:
-> > Since in this scenario userspace is able to determine ppp vs pptp, 
-> > could you not also do something like have an inbound_ppp and inbound_pptp
-> > chain, then jump to the appropriate chain depending on type?  If you
-> > need per-interface rules, then create an inbound_pppX chain, populate
-> > it with rules, then jump to that chain if -i pppX.  In ip-down, just
-> > delete the chain as well as the jump.
+> > Hi,
+> > 
+> > I would like to easily match a set of dynamically created interfaces
+> > from my packet filter rules. The attached patch forms the basis of my
+> > implementation and I would like to know whether something like this is
+> > mergeable to mainline.
+> > 
+> > The use-case is as follows:
+> > 
+> > * I have two different subsystems creating interfaces dynamically (for
+> > example pptpd and serial pppd lines, each creating dynamic pppX
+> > interfaces),
+> > * I would like to assign a different set of iptables rules for these
+> > clients,
+> > * I would like to react to a new interface being added to a specific set
+> > in a userspace application,
+> > 
+> > The reasons I see this needs new kernel functionality:
+> > 
+> > * iptables supports wildcard interface matching (for example "iptables
+> > -i ppp+"), but as the names of the interfaces used by PPTPD and PPPD
+> > cannot be distinguished this way, this is not enough,
+> > * Reloading the iptables ruleset everytime a new interface comes up is
+> > not really feasible, as it abrupts packet processing, and validating the
+> > ruleset in the kernel can take significant amount of time,
+> > * the kernel change is very simple, adapting userspace to this change is
+> > also very simple, and in userspace various software packages can easily
+> > interoperate with each-other once this is merged.
+> > 
+> > The implementation:
+> > 
+> > Each interface can belong to a single "group" at a time, an interface
+> > comes up without being a member in any of the groups.
+> > 
+> > Userspace can assign interfaces to groups after being created, this
+> > would typically be performed in /etc/ppp/ip-up.d (and similar) scripts.
+> > 
+> > In spirit "interface group" is somewhat similar to the "routing
+> > protocol" field for routing entries, which contains information on which
+> > routing daemon was responsible for adding the given route entry.
+> > 
+> > [snip]
+
+> I like the concept, but it probably needs more review.
 > 
-> if I understood Balazs correctly, one of the things he wanted to
-> avoid is addition/deletion of iptables rules on every pppX interface
-> up/down 
+> There is a bigger issue, which is how should the network device namespace
+> exist? There are virtualization efforts, that want to virtualize it,
+> and network device names have always lived in a parallel universe.
+> I don't expect your patch to solve this...
 
-Exactly.
+I have read the OLS paper on virtualization, it states that the current
+state of affairs is that struct net_device will be assigned to one
+specific namespace. As my change changes struct net_device itself, I
+expect to work without problems when virtualization comes, the interface
+group can be interpreted on a per-namespace basis.
 
-> as this would require the complete chain (say, INPUT or
-> OUTPUT) to be "downloaded" to userspace, modified and then again
-> "uploaded" to the kernel. At least until iptables redesign to
-> allow replacement/insertion/deletion of single rules is completed
-> which if started at all will take quite some more time :-)
+There probably will be several iptables rulesets when the time comes,
+one for each namespace, but again, struct net_device will be assigned to
+a namespace, and the proper iptables tables will be iterated based on
+the net_device assignment.
 
-Iptables operates on a per-table basis, so it is not only the INPUT or
-OUTPUT chain that needs to be down and uploaded, but the whole filter
-table.
-
-And in addition, in my humble opinion the iptables ruleset should be up
-to the user to maintain, once some kind of automatism starts to
-add/remove rules on the fly, it becomes more difficult to do other
-changes to add independent rules to the table. For example the user
-needs to save the current ruleset using iptables-save, then modify the
-resulting file, and then load it again. If the ruleset is generated as
-it happens with a lot of tools, this might not be so easy.
+Am I missing something?
 
 -- 
 Bazsi
