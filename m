@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] DECnet Fix for DECnet routing bug
-Date: Wed, 02 Aug 2006 14:14:56 -0700 (PDT)
-Message-ID: <20060802.141456.18710574.davem@davemloft.net>
-References: <44D0B46C.2040500@tykepenguin.com>
+Subject: Re: [NET]: Fix ___pskb_trim when entire frag_list needs dropping
+Date: Wed, 02 Aug 2006 14:15:16 -0700 (PDT)
+Message-ID: <20060802.141516.56862365.davem@davemloft.net>
+References: <20060729114525.GA10549@gondor.apana.org.au>
+	<BAY103-F18A6256BE13955FA46DA0DB2520@phx.gbl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steve@chygwyn.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:27040
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28064
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932132AbWHBVOq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Aug 2006 17:14:46 -0400
-To: patrick@tykepenguin.com
-In-Reply-To: <44D0B46C.2040500@tykepenguin.com>
+	id S932191AbWHBVPG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Aug 2006 17:15:06 -0400
+To: pupilla@hotmail.com
+In-Reply-To: <BAY103-F18A6256BE13955FA46DA0DB2520@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick Caulfield <patrick@tykepenguin.com>
-Date: Wed, 02 Aug 2006 15:19:24 +0100
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Date: Wed, 02 Aug 2006 17:01:17 +0200
 
-> This patch fixes a bug in the DECnet routing code where we were selecting
-> a loopback device in preference to an outward facing device even when
-> the destination was known non-local. This patch should fix the problem.
-> 
-> Signed-off-by: Patrick Caulfield <patrick@tykepenguin.com>
-> Signed-off-by: Steven Whitehouse <steve@chygwyn.com>
+> The problem is fixed now. I have applied this
+> patch to 2.6.18-rc2
+> Many thanks Herbert for all the time spent
+> to debug this problem.
 
-Applied, thanks Patrick.
+Thank you for testing.
