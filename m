@@ -1,36 +1,45 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [RFC 1/3] secid reconciliation on inbound
-Date: Wed, 2 Aug 2006 00:19:33 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0608020018410.16774@d.namei>
-References: <44CFD0DA.9060205@trustedcs.com> <Pine.LNX.4.64.0608011912130.14724@d.namei>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, sds@tycho.nsa.gov,
-	chanson@trustedcs.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 1/23] [PATCH] [XFRM]: Add XFRM_MODE_xxx for future use.
+Date: Wed, 02 Aug 2006 14:53:40 +1000
+Message-ID: <E1G88jk-0003bi-00@gondolin.me.apana.org.au>
+References: <11541653852481-git-send-email-nakam@linux-ipv6.org>
+Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi,
+	vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org, nakam@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.sea5.speakeasy.net ([69.17.117.6]:21736 "EHLO
-	mail4.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1751130AbWHBETg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Aug 2006 00:19:36 -0400
-To: Venkat Yekkirala <vyekkirala@trustedcs.com>
-In-Reply-To: <Pine.LNX.4.64.0608011912130.14724@d.namei>
+Received: from rhun.apana.org.au ([64.62.148.172]:30981 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751165AbWHBEyB
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Aug 2006 00:54:01 -0400
+To: Masahide NAKAMURA <nakam@linux-ipv6.org>
+In-Reply-To: <11541653852481-git-send-email-nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 1 Aug 2006, James Morris wrote:
-
-> On Tue, 1 Aug 2006, Venkat Yekkirala wrote:
+Masahide NAKAMURA <nakam@linux-ipv6.org> wrote:
 > 
-> > +#define PACKET__COME_THRU                         0x00000008UL
-> > +#define PACKET__GO_THRU                           0x00000010UL
+> diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+> index 6b42cc4..7dff1c8 100644
+> --- a/include/linux/xfrm.h
+> +++ b/include/linux/xfrm.h
+> @@ -178,6 +178,13 @@ struct xfrm_user_sec_ctx {
+>        __u16                   ctx_len;
+> };
 > 
-> These names seem awkward, and do we really need a separate perm for each 
-> direction?
+> +enum {
+> +       XFRM_MODE_TRANSPORT = 0,
+> +       XFRM_MODE_TUNNEL = 1,
+> +       XFRM_MODE_ROUTEOPTIMIZATION = 2,
+> +       XFRM_MODE_IN_TRIGGER = 3,
+> +};
+> +
 
-Ok, I see we need separate permissions.  The naming, still...
+Please rebase your tree on something that's more recent.  We've had
+xfrm modes for more than two months now.
 
-
-- James
+Cheers,
 -- 
-James Morris
-<jmorris@namei.org>
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
