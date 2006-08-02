@@ -1,7 +1,7 @@
 From: Rainer Baumann <baumann@tik.ee.ethz.ch>
-Subject: [PATCH 2.6.16.19 1/2] LARTC: trace control for netem: userspace
-Date: Wed, 02 Aug 2006 19:21:43 +0200
-Message-ID: <44D0DF27.5000403@tik.ee.ethz.ch>
+Subject: [PATCH 2.6.16.19 2/2] LARTC: trace control for netem: kernelspace
+Date: Wed, 02 Aug 2006 19:21:56 +0200
+Message-ID: <44D0DF34.4020405@tik.ee.ethz.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -13,22 +13,25 @@ List-Id: netdev.vger.kernel.org
 Trace Control for Netem: Emulate network properties such as
 long-dependency and self-similarity of cross-traffic.
 
-The directory tc/netem was split in two parts, one containing the
-original distributions and the other the tools to generate trace files
-as well as the program responsible for reading the delay values from the
-trace file and sending them to the kernel (called flowseed).
-If the trace option is set, netem starts the flowseedprocess and
-initializes the kernel. To be able to kill the flowseedprocess, in case
-the command was faulty, the PID of the flowseedprocess is passed to the
-netem kernel module. If the kernel receives packet delay data from a not
-registered PID, the Process will be killed. The flowseedprocess does not
-send data to the kernel until the registration is completed.
+The delay, drop, duplication and corruption values are readout in user
+space and sent to kernel space via procfs.
+The kernel determines the time when new values should be sent by the use
+of SIGSTOP and SIGCONT signals.
+In order to have always packet action values ready to apply, there are
+two buffers that hold these values.
+Packet action values can be read from one buffer and the other buffer
+can be refilled with new values simultaneously.
+If a buffer is empty it will be switched to the other buffer and a
+SIGCONT signal is sent in order to receive new packet action values.
+
+Having applied the delay value to a packet, the packet gets processed by
+the original netem functions.
 
 Signed-off-by: Rainer Baumann <baumann@tik.ee.ethz.ch>
 
 ---
 
-Patch for iproute2-2.6.16-060323: http://tcn.hypert.net/tcnIproute.patch
+Patch for linux kernel 2.6.16.19: http://tcn.hypert.net/tcnKernel.patch
 
 
 
