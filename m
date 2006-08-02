@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] htb: cleanup
-Date: Wed, 02 Aug 2006 15:18:16 -0700 (PDT)
-Message-ID: <20060802.151816.30182208.davem@davemloft.net>
-References: <20060802125636.3028ba91@dxpl.pdx.osdl.net>
+Subject: Re: [Patch] kernel memory leak fix for af_unix datagram getpeersec
+ patch
+Date: Wed, 02 Aug 2006 15:19:06 -0700 (PDT)
+Message-ID: <20060802.151906.21953222.davem@davemloft.net>
+References: <20060802.143204.16511279.davem@davemloft.net>
+	<OF4882A75D.C66DD3D0-ON852571BE.007A0271-852571BE.007A82C3@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lartc@mailman.ds9a.nl
+Cc: catalin.marinas@gmail.com, cxzhang@watson.ibm.com,
+	czhang.us@gmail.com, jmorris@namei.org,
+	linux-kernel@vger.kernel.org, michal.k.k.piotrowski@gmail.com,
+	netdev@vger.kernel.org, sds@tycho.nsa.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36481
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:37505
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932277AbWHBWSS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Aug 2006 18:18:18 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060802125636.3028ba91@dxpl.pdx.osdl.net>
+	id S932277AbWHBWTJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Aug 2006 18:19:09 -0400
+To: cxzhang@us.ibm.com
+In-Reply-To: <OF4882A75D.C66DD3D0-ON852571BE.007A0271-852571BE.007A82C3@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Wed, 2 Aug 2006 12:56:36 -0700
+From: Xiaolan Zhang <cxzhang@us.ibm.com>
+Date: Wed, 2 Aug 2006 18:18:07 -0400
 
-> The HTB scheduler code is a mess, this patch set does some basic
-> house cleaning.  The first four should cause no code change, but the
-> last two need more testing.
+> I did test it with CONFIG_SECURITY disabled, but did not catch the warning 
+> -- I verified that the build completes with a valid vmlinux image.  There 
+> are many warnings (device drivers, and others) during the build and I 
+> didn't do a grep to find which one is specific to my patch.  Next time 
+> I'll do a diff on warnings too.
 
-These patches look fine to me.  Once everyone think's they
-are ready just let me know and I'll push them into net-2.6.19
+Some platforms build their platform code under arch/${ARCH}/foo with
+-Werror added to CFLAGS, sparc64 is one such platform.  So the build
+did break for me.
