@@ -1,34 +1,27 @@
 From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] ipv4: don't call upper-layer disconnect function if not
- connected
-Date: Wed, 02 Aug 2006 12:04:22 -0400
-Message-ID: <44D0CD06.3020201@hp.com>
-References: <44CFB026.7050907@hp.com> <20060801.150753.78709843.davem@davemloft.net>
+Subject: Re: [PATCH] IPv6: only set err in rawv6_bind() when necessary
+Date: Wed, 02 Aug 2006 12:04:18 -0400
+Message-ID: <44D0CD02.1060109@hp.com>
+References: <44CF89FB.2060208@hp.com> <20060801.150352.104034113.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:28845 "EHLO atlrel9.hp.com")
-	by vger.kernel.org with ESMTP id S932083AbWHBQEZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 12:04:25 -0400
+Received: from atlrel7.hp.com ([156.153.255.213]:24032 "EHLO atlrel7.hp.com")
+	by vger.kernel.org with ESMTP id S932081AbWHBQEW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 12:04:22 -0400
 To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060801.150753.78709843.davem@davemloft.net>
+In-Reply-To: <20060801.150352.104034113.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-> The socket could have been bind()'d to, in which case it will
-> not move to connected state and we still need to invoke
-> the disconnect methods such as udp_disconnect() to clear out
-> that binding.
+> Every other path going from this location in rawv6_bind()
+> will clear err to zero, so your patch also doesn't fix any
+> bug.
 
-Ok.
-
-> You seem to be groveling in random areas of the ipv4 and ipv6 stack,
-> what are you working on?
-
-Was looking into a customer-reported memory leak that seemed to be in 
-this code path.  It wasn't, but this tweak seemed sane at the time.
+I knew it didn't fix a bug, I just hadn't noticed the C idiom you 
+pointed-out until I knew to look for it.  rawv6_bind() even does this, duh.
 
 -Brian
