@@ -1,27 +1,41 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] IPv6: only set err in rawv6_bind() when necessary
-Date: Wed, 02 Aug 2006 12:04:18 -0400
-Message-ID: <44D0CD02.1060109@hp.com>
-References: <44CF89FB.2060208@hp.com> <20060801.150352.104034113.davem@davemloft.net>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH 20/23] [PATCH] [XFRM] POLICY: sub policy support.
+Date: Wed, 2 Aug 2006 12:04:31 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0608021152060.21751@d.namei>
+References: <1154165451738-git-send-email-nakam@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi,
+	vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:24032 "EHLO atlrel7.hp.com")
-	by vger.kernel.org with ESMTP id S932081AbWHBQEW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 12:04:22 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060801.150352.104034113.davem@davemloft.net>
+Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:13235 "EHLO
+	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S932085AbWHBQEd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Aug 2006 12:04:33 -0400
+To: Masahide NAKAMURA <nakam@linux-ipv6.org>
+In-Reply-To: <1154165451738-git-send-email-nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, 29 Jul 2006, Masahide NAKAMURA wrote:
 
-> Every other path going from this location in rawv6_bind()
-> will clear err to zero, so your patch also doesn't fix any
-> bug.
+> Sub policy is introduced. Main and sub policy are applied the same flow.
+> (Policy that current kernel uses is named as main.)
+> It is required another transformation policy management to keep IPsec
+> and Mobile IPv6 lives separate.
+> Policy which lives shorter time in kernel should be a sub i.e. normally
+> main is for IPsec and sub is for Mobile IPv6.
+> (Such usage as two IPsec policies on different database can be used, too.)
 
-I knew it didn't fix a bug, I just hadn't noticed the C idiom you 
-pointed-out until I knew to look for it.  rawv6_bind() even does this, duh.
+Why can't IPSec & MIP transforms be bundled on the same policy?
 
--Brian
+Or, perhaps a different approach is needed, where the disposition of a 
+policy can be to re-submit a packet for another policy match after the 
+current bundle has been traversed (something like NF_REPEAT).
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
