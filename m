@@ -1,49 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [take2 1/4] kevent: core files.
-Date: Tue, 01 Aug 2006 17:01:38 -0700 (PDT)
-Message-ID: <20060801.170138.107248641.davem@davemloft.net>
-References: <11544248451203@2ka.mipt.ru>
-	<44CFEA4B.3060200@oracle.com>
+Subject: Re: [PATCH 6/23] [PATCH] [XFRM] STATE: Search by address using
+ source address list.
+Date: Tue, 01 Aug 2006 17:06:18 -0700 (PDT)
+Message-ID: <20060801.170618.75430766.davem@davemloft.net>
+References: <11541654182334-git-send-email-nakam@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, linux-kernel@vger.kernel.org,
-	drepper@redhat.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750838AbWHBACh@vger.kernel.org>
-To: zach.brown@oracle.com
-In-Reply-To: <44CFEA4B.3060200@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:44424
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750771AbWHBAGS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 20:06:18 -0400
+To: nakam@linux-ipv6.org
+In-Reply-To: <11541654182334-git-send-email-nakam@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Zach Brown <zach.brown@oracle.com>
-Date: Tue, 01 Aug 2006 16:56:59 -0700
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Date: Sat, 29 Jul 2006 18:30:18 +0900
 
-> Even if we only have one syscall with a cmd multiplexer (which I'm not
-> thrilled with), we should at least make these arguments explicit in the
-> system call.  It's weird to hide them in a struct.  We could also think
-> about making them u32 or u64 so that we don't need compat wrappers, but
-> maybe that's overkill.
+> +#ifdef CONFIG_XFRM_ADVANCED
+> +	struct xfrm_state	*(*state_lookup_byaddr)(xfrm_address_t *daddr, xfrm_address_t *saddr, u8 proto);
+> +#endif
 
-I think making the userspace data structure not require any compat
-handling is a must, thanks for pointing this out Zach.
+I think we should delete XFRM_ADVANCED config option, it is only
+serving to make the code very ugly and full of ifdefs.
 
-> It'd be great if these struct members could get a prefix (ala: inode ->
-> i_, socket -> sk_) so that it's less painful getting tags helpers to
-> look up instances for us.  Asking for 'lock' is hilarious.
+> +#ifdef CONFIG_XFRM_ADVANCED
+> +	int use_spi = xfrm_id_proto_match(x->id.proto, IPSEC_PROTO_ANY);
+> +#else
+> +	int use_spi = 1;
+> +#endif
 
-Agreed.
+Why this transformation?  In fact, you added several others.
+xfrm_id_proto_match() with userproto argument IPSEC_PROTO_ANY
+always evaluates to one.
 
-> Hmm.  I think the current preference is not to have a lock per bucket.
-
-Yes, it loses badly, that's why we undid this in the routing cache
-and just have a fixed sized array of locks which is hashed into.
-
-For kevents, I think a single spinlock initially is fine and
-if we hit performance problems on SMP we can fix it.  We should
-not implement complexity we have no proof of needing yet :)
-
-> > +#define KEVENT_MAX_REQUESTS		PAGE_SIZE/sizeof(struct kevent)
-> 
-> This is unused?
-
-It is probably groundwork for the mmap() ring buffer... :)
+If you intend to change the userproto argument in some future
+changeset, then add the xfrm_id_proto_match() call in that
+changeset.
