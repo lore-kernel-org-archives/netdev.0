@@ -1,62 +1,35 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: Re: [PATCH 7/23] [PATCH] [XFRM] STATE: Add a hook to find where to
- be inserted header in outbound.
-Date: Wed, 02 Aug 2006 11:20:30 +0900
-Message-ID: <44D00BEE.8090504@linux-ipv6.org>
-References: <11541654231584-git-send-email-nakam@linux-ipv6.org> <20060801.170916.21925105.davem@davemloft.net>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: neigh_lookup lockdep bug.
+Date: Wed, 02 Aug 2006 04:20:46 +0200
+Message-ID: <1154485266.3030.17.camel@laptopd505.fenrus.org>
+References: <E1G7u9v-0001mL-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Cc: davem@davemloft.net, davej@redhat.com, netdev@vger.kernel.org,
+	mingo@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.178.140.9] ([203.178.140.9]:61073 "EHLO mail.gomagoma.org")
-	by vger.kernel.org with ESMTP id S1751047AbWHBCUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 22:20:33 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060801.170916.21925105.davem@davemloft.net>
+Received: from e-nvb.com ([69.27.17.200]:46491 "EHLO e-nvb.com")
+	by vger.kernel.org with ESMTP id S1751055AbWHBCV1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 22:21:27 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1G7u9v-0001mL-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-> Date: Sat, 29 Jul 2006 18:30:23 +0900
+On Tue, 2006-08-01 at 23:19 +1000, Herbert Xu wrote:
 > 
->> @@ -270,6 +270,7 @@ struct xfrm_type
->>  	void			(*destructor)(struct xfrm_state *);
->>  	int			(*input)(struct xfrm_state *, struct sk_buff *skb);
->>  	int			(*output)(struct xfrm_state *, struct sk_buff *pskb);
->> +	int			(*place_find)(struct xfrm_state *, struct sk_buff *, u8 **);
->>  	/* Estimate maximal size of result of transformation of a dgram */
->>  	u32			(*get_max_size)(struct xfrm_state *, int size);
->>  };
-> 
-> I see a dangerous pattern of adding many, many, many methods
-> to the xfrm_type structure which are only used by ipv6.
-> But I cannot suggest another method.
+> I've only briefly looked at the lockdep_set_class code so I might be
+> way off here.
 
-Sometimes this is a difficult point for me to design.
+your reading of the code is right, and in fact this is what the code in
+-mm does, and is waiting for the networking guys or Andrew to send it to
+Linus (hint hint)
 
 
-> There are frequent calls of the form:
-> 
-> 	if (x->type->op != NULL)
-> 		x->type->op(x, y, z);
-> 	else
-> 		foo(y, z);
-> 
-> it might be nicer to hide all of this behind carefully crafted
-> inline functions.
-
-I'll fix it. James gave me this comment, too.
-
-BTW he also gave me another point:
-
-> Maybe also change the naming of ->place_find to ->hdr_offset
-
-I'll use this idea, too.
-
-Thank you.
+Greetings,
+   Arjan van de Ven
 
 -- 
-Masahide NAKAMURA
+if you want to mail me at work (you don't), use arjan (at) linux.intel.com
+
