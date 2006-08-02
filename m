@@ -1,59 +1,37 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] NET: fix kernel panic from no dev->hard_header_len space
-Date: Wed, 02 Aug 2006 02:24:43 +0200
-Message-ID: <m37j1sc7ck.fsf@defiant.localdomain>
-References: <m3r701zgku.fsf@defiant.localdomain>
-	<20060731.132324.65197403.davem@davemloft.net>
-	<m3fyghz2oz.fsf@defiant.localdomain>
-	<20060731.181314.27783697.davem@davemloft.net>
-	<m3bqr5z0ah.fsf@defiant.localdomain>
-	<20060801195431.GA29335@ms2.inr.ac.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/20][IPV6/XFRM] MIPv6 CN (part B)
+Date: Tue, 01 Aug 2006 17:30:51 -0700 (PDT)
+Message-ID: <20060801.173051.35665426.davem@davemloft.net>
+References: <44CB2914.9010803@linux-ipv6.org>
+	<44CB2A2D.4090808@linux-ipv6.org>
+	<44CB2C40.9040900@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:45528 "EHLO khc.piap.pl")
-	by vger.kernel.org with ESMTP id S1750767AbWHBAYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 20:24:47 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20060801195431.GA29335@ms2.inr.ac.ru> (Alexey Kuznetsov's message of "Tue, 1 Aug 2006 23:54:31 +0400")
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:45193
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750772AbWHBAav (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Aug 2006 20:30:51 -0400
+To: nakam@linux-ipv6.org
+In-Reply-To: <44CB2C40.9040900@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Date: Sat, 29 Jul 2006 18:37:04 +0900
 
-Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> writes:
+> Here is Part B patches, following this mail.
+> 
+> Part B is also available as mip6cn-20060716-review branch at:
+> 
+> git://git.skbuff.net:9419/gitroot/nakam/linux-2.6-mip6cn
+> 
+> This tree includes part A, then it has all patches about
+> "Advanced XFRM for CN".
 
-> As I already said there is nothing wrong with the first chunk.
-> Except that it hides the real problem.
-
-The problem is already very well hidden :-) I have seen just two
-reports of this problem since 1994, and I believe both of them
-were related to a device without hard_header() (i.e., it probably
-wouldn't show with the patch applied).
-I have never seen this problem personally, and I've been using
-FR for about 10 years (in 1-3 locations - though I think at first it
-did use hard_header()).
-
-
-How about the second part of the patch? I know the second part isn't
-related to kernel panic but don't you think hard_header_len
-should be treated uniformly across the tree (i.e., shouldn't depend
-on hard_header() being non-NULL)?
-
-If not, fine.
-
-> Do not get it wrong. dev->hard_header_len is _NEVER_ guaranteed.
-> The places, which allocate skb, take it as a hint to avoid reallocation.
-> But each place which stuffs something at head, still must check the space.
->
-> The only difference between the situation with dev->hard_header,
-> is that when dev->hard_header != NULL, the header is added by IP itself.
-> That's why IP checks it.
-
-Do you mean IP calls hard_header() which, in turn, does skb_push()?
-
-How about Ethernet - is it safe? There is hard_header() which blindly
-adds 14 bytes.
--- 
-Krzysztof Halasa
+These patches mainly deal with the specifics of ipv6
+mobility processing, they look mostly fine to me and
+I could not spot any obvious errors.
