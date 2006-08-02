@@ -1,107 +1,81 @@
 From: Steve.Glendinning@smsc.com
 Subject: Re: [PATCH] SMSC LAN911x and LAN921x vendor driver
-Date: Wed, 2 Aug 2006 20:23:40 +0100
-Message-ID: <OF9CB563CF.865D1AC6-ON802571BE.006924E4-802571BE.006A884B@smsc.com>
-References: <20060801153313.GD29208@tuxdriver.com>
+Date: Wed, 2 Aug 2006 20:39:33 +0100
+Message-ID: <OF9B6DF52E.7B28B6F4-ON802571BE.006AB3BD-802571BE.006BFCA5@smsc.com>
+References: <20060801214055.GA27595@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Cc: Bahadir Balban <Bahadir.Balban@arm.com>, ian.saturley@smsc.com,
-	netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>,
-	Stephen Hemminger <shemminger@osdl.org>
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:44306 "EHLO smsc.com")
-	by vger.kernel.org with ESMTP id S932150AbWHBTYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 15:24:05 -0400
-In-Reply-To: <20060801153313.GD29208@tuxdriver.com>
-To: "John W. Linville" <linville@tuxdriver.com>
+Received: from mail.smsc.com ([170.129.50.11]:59659 "EHLO smsc.com")
+	by vger.kernel.org with ESMTP id S932129AbWHBTj5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 15:39:57 -0400
+In-Reply-To: <20060801214055.GA27595@electric-eye.fr.zoreil.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi John,
+Hi Francois,
 
-Thanks for all your feedback.
+Thanks again for all your feedback.  I have implemented most of your 
+suggestions, 
 
-> > +/* waits for MAC not busy, with timeout.  Assumes MacPhyAccessLock 
-has
-> > + * already been acquired */
-> > +static int smsc911x_mac_notbusy(struct smsc911x_data *pdata)
-> > +{
-> > +            int i;
-> > +
-> > +            for (i = 0; i < 40; i++) {
-> > +                            if ((smsc911x_reg_read(pdata, 
-MAC_CSR_CMD)
-> > +                                 & MAC_CSR_CMD_CSR_BUSY_) == 0) {
-> > +                                            return 1;
-> > +                            }
-> > +            }
-> > +            SMSC_WARNING("Timed out waiting for MAC not BUSY. "
-> > +                                 "MAC_CSR_CMD: 0x%08X", 
-smsc911x_reg_read(pdata,
-> > +                                  MAC_CSR_CMD));
-> > +            return 0;
-> > +}
+> >                              /* Enable phy clocks to the MAC */
+> >                              hwcfg &= (~HW_CFG_PHY_CLK_SEL_);
+> >                              hwcfg |= HW_CFG_PHY_CLK_SEL_EXT_PHY_;
+> >                              smsc911x_reg_write(hwcfg, pdata, HW_CFG);
+> >                              udelay(10);             /* Enough time 
+for clocks to restart */
 > 
-> How is the length of this timeout controlled?  IOW, what prevents
-> it from being too short when the Omegatron 128 running at 10GHz hits
-> the market?  Are you relying on the MII clock rate?
-
-The LAN911x and LAN921x devices uses an SRAM-like bus interface with a 
-minimum cycle time of 45ns, so smsc_reg_read() and smsc_reg_write() are 
-guaranteed to take at least 45ns.  The MAC operates a little slower, but 
-the operation shouldn't take longer than 225ns (5 read cycles).
-
-The PHY is accessed via slave registers in the MAC (which then relays the 
-command over mii), so its timeout works in the same way.
-
-The timeouts are only there to prevent total lockup if the hardware fails, 
-if the part is working it should take nowhere near 40 iterations.
-
-
-> > +                            /* Auto-detect PHY */
-> > +                            for (address = 0; address <= 31; 
-address++) {
-> > +                                            pdata->phy_address = 
-address;
-> > +                                            phyid1 = 
-smsc911x_phy_read(pdata, MII_PHYSID1);
-> > +                                            phyid2 = 
-smsc911x_phy_read(pdata, MII_PHYSID2);
-> > +                                            if ((phyid1 != 0xFFFFU) 
-|| (phyid2 != 0xFFFFU)) {
-> > + SMSC_TRACE("Detected PHY at address = "
-> > +     "0x%02X = %d", address, address);
-> > +                                                            break;
-> > +                                            }
-> > +                            }
+> (back to my original question that I should have reworded in a different
+> thread)
 > 
-> Does this need the magic "for (addr=1; addr <=32; addr++)" trick that
-> has become idiomatic for PHY discovery in our drivers?
+> Does the platform guarantees that the register write has actually 
+reached
+> the real register when the udelay is issued ?
 
-I don't understand the question - surely 32 is not a valid PHY address?
+I think so, but maybe you can help me check.  The LAN911x device is always 
+directly connected to a simple SRAM-like host bus, and smsc911x_reg_write 
+is implemented using readl.  Does this implicitly guarantee it to be 
+volatile?
 
 
-> > +/* SMSC911x registers and bitfields */
-> > +#define RX_DATA_FIFO                        0x00
-> > +
-> > +#define TX_DATA_FIFO                        0x20
-> > +#define TX_CMD_A_ON_COMP_   0x80000000
-> > +#define TX_CMD_A_BUF_END_ALGN_              0x03000000
-> > +#define TX_CMD_A_4_BYTE_ALGN_               0x00000000
-> > +#define TX_CMD_A_16_BYTE_ALGN_              0x01000000
-> > +#define TX_CMD_A_32_BYTE_ALGN_              0x02000000
-> > +#define TX_CMD_A_DATA_OFFSET_               0x001F0000
-> > +#define TX_CMD_A_FIRST_SEG_                 0x00002000
-> > +#define TX_CMD_A_LAST_SEG_          0x00001000
-> > +#define TX_CMD_A_BUF_SIZE_          0x000007FF
-> > +#define TX_CMD_B_PKT_TAG_   0xFFFF0000
-> > +#define TX_CMD_B_ADD_CRC_DISABLE_  0x00002000
-> > +#define TX_CMD_B_DISABLE_PADDING_  0x00001000
-> > +#define TX_CMD_B_PKT_BYTE_LENGTH_  0x000007FF
+> > 
+> >              if (!pdata->software_irq_signal) {
+> >                              printk(KERN_WARNING "%s: ISR failed 
+signaling test (IRQ %d)\n",
+> >                                     dev->name, dev->irq);
+> >                              return -ENODEV;
+> >              }
+> >              SMSC_TRACE("IRQ handler passed test using IRQ %d", 
+dev->irq);
+> > 
+> >              printk(KERN_INFO "%s: SMSC911x/921x identified at %#08lx, 
+IRQ: %d\n",
+> >                     dev->name, (unsigned long)pdata->ioaddr, 
+dev->irq);
+> > 
+> >              spin_lock_irqsave(&pdata->phy_lock, flags);
 > 
-> Looks like something went haywire w/ your tabbing in this file...?
+> flags useless: ->open() is issued in irq-enabled context.
 
-Its just the "+ " in the patch, once applied it looks quite pretty!
+How do you mean? I thought an irq-enabled context meant i DO have to 
+disable irqs?
+
+
+> >              unsigned long flags;
+> > 
+> >              SMSC_TRACE("ioctl cmd 0x%x", cmd);
+> >              switch (cmd) {
+> >              case SIOCGMIIPHY:
+> >              case SIOCDEVPRIVATE:
+> 
+> The SIOCDEVPRIVATE can/should be removed.
+
+I have removed these, they were only in as a quick fix because mii-tool 
+here sends SIOCDEVPRIVATE instead of SIOCGMIIPHY.  I fixed my copy of 
+mii-tool instead :o)
 
 Best Regards,
 --
@@ -109,5 +83,4 @@ Steve Glendinning
 SMSC GmbH
 m: +44 777 933 9124
 e: steve.glendinning@smsc.com
-
 
