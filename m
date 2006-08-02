@@ -1,37 +1,54 @@
 From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: Re: [PATCH 5/23] [PATCH] [XFRM] STATE: Add source address list.
-Date: Wed, 02 Aug 2006 10:42:51 +0900
-Message-ID: <44D0031B.8050509@linux-ipv6.org>
-References: <11541654121350-git-send-email-nakam@linux-ipv6.org> <20060801.165728.18308673.davem@davemloft.net>
+Subject: Re: [PATCH 22/23] [PATCH] [XFRM] POLICY: Support netlink socket interface
+ for sub policy.
+Date: Wed, 02 Aug 2006 10:46:50 +0900
+Message-ID: <44D0040A.6040908@linux-ipv6.org>
+References: <1154165455769-git-send-email-nakam@linux-ipv6.org> <20060801.172403.64001463.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
 	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.178.140.9] ([203.178.140.9]:57489 "EHLO mail.gomagoma.org")
-	by vger.kernel.org with ESMTP id S1750967AbWHBBmx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 21:42:53 -0400
+Received: from [203.178.140.9] ([203.178.140.9]:58769 "EHLO mail.gomagoma.org")
+	by vger.kernel.org with ESMTP id S1750972AbWHBBqx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 21:46:53 -0400
 To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060801.165728.18308673.davem@davemloft.net>
+In-Reply-To: <20060801.172403.64001463.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 David Miller wrote:
-> This is a userspace exported structure, therefore you cannot
-> make changes to it like this, it will break the userland API.
+> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> Date: Sat, 29 Jul 2006 18:30:55 +0900
+> 
+>> diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
+>> index 901bb65..68d3443 100644
+>> --- a/include/linux/xfrm.h
+>> +++ b/include/linux/xfrm.h
+>> @@ -303,12 +303,14 @@ #define XFRM_POLICY_BLOCK	1
+>>  	__u8				flags;
+>>  #define XFRM_POLICY_LOCALOK	1	/* Allow user to override global policy */
+>>  	__u8				share;
+>> +	__u8				type;
+>>  };
+>>  
+>>  struct xfrm_userpolicy_id {
+>>  	struct xfrm_selector		sel;
+>>  	__u32				index;
+>>  	__u8				dir;
+>> +	__u8				type;
+>>  };
+>>  
+>>  struct xfrm_user_acquire {
+> 
+> Again, these are user visible data structures which cannot be
+> modified without changing the API.  Please use another xfrm
+> netlink attribute or similar to pass this information.
 
-OK.
+I'll try to add XFRMA_POLICY_TYPE for this case.
+Thanks,
 
-> If you need to provide the source address, you need to pass it in via
-> a new xfrm netlink attribute or use an existing data structure member
-> which records the source address (if any such thing does exist).
-
-There is no xfrm netlink attribute to carry source address.
-I'll add it like XFRMA_SRCADDR.
-
-BTW another patch newly defined XFRMA_ADDR to carry care-of address.
-This would be changed e.g. XFRMA_COADDR or something, too.
 
 -- 
 Masahide NAKAMURA
