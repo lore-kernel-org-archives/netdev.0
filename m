@@ -1,36 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] kernel memory leak fix for af_unix datagram getpeersec
- patch
-Date: Wed, 02 Aug 2006 15:19:06 -0700 (PDT)
-Message-ID: <20060802.151906.21953222.davem@davemloft.net>
-References: <20060802.143204.16511279.davem@davemloft.net>
-	<OF4882A75D.C66DD3D0-ON852571BE.007A0271-852571BE.007A82C3@us.ibm.com>
+From: Xiaolan Zhang <cxzhang@us.ibm.com>
+Subject: Re: [Patch] kernel memory leak fix for af_unix datagram getpeersec patch
+Date: Wed, 2 Aug 2006 18:21:51 -0400
+Message-ID: <OFB994A805.0392D443-ON852571BE.007AA6ED-852571BE.007ADA31@us.ibm.com>
+References: <20060802.151906.21953222.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="US-ASCII"
 Cc: catalin.marinas@gmail.com, cxzhang@watson.ibm.com,
 	czhang.us@gmail.com, jmorris@namei.org,
 	linux-kernel@vger.kernel.org, michal.k.k.piotrowski@gmail.com,
-	netdev@vger.kernel.org, sds@tycho.nsa.org
+	netdev@vger.kernel.org, sds@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:37505
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932277AbWHBWTJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Aug 2006 18:19:09 -0400
-To: cxzhang@us.ibm.com
-In-Reply-To: <OF4882A75D.C66DD3D0-ON852571BE.007A0271-852571BE.007A82C3@us.ibm.com>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:32459 "EHLO e3.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S932279AbWHBWV6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 18:21:58 -0400
+In-Reply-To: <20060802.151906.21953222.davem@davemloft.net>
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Xiaolan Zhang <cxzhang@us.ibm.com>
-Date: Wed, 2 Aug 2006 18:18:07 -0400
+I see.  The build was fine under x86 and there are so many warnings that a 
+-Werror probably won't work for me.
 
-> I did test it with CONFIG_SECURITY disabled, but did not catch the warning 
-> -- I verified that the build completes with a valid vmlinux image.  There 
-> are many warnings (device drivers, and others) during the build and I 
-> didn't do a grep to find which one is specific to my patch.  Next time 
-> I'll do a diff on warnings too.
+thanks,
+Catherine
 
-Some platforms build their platform code under arch/${ARCH}/foo with
--Werror added to CFLAGS, sparc64 is one such platform.  So the build
-did break for me.
+David Miller <davem@davemloft.net> wrote on 08/02/2006 06:19:06 PM:
+
+> From: Xiaolan Zhang <cxzhang@us.ibm.com>
+> Date: Wed, 2 Aug 2006 18:18:07 -0400
+> 
+> > I did test it with CONFIG_SECURITY disabled, but did not catch the 
+warning 
+> > -- I verified that the build completes with a valid vmlinux image. 
+There 
+> > are many warnings (device drivers, and others) during the build and I 
+> > didn't do a grep to find which one is specific to my patch.  Next time 
+
+> > I'll do a diff on warnings too.
+> 
+> Some platforms build their platform code under arch/${ARCH}/foo with
+> -Werror added to CFLAGS, sparc64 is one such platform.  So the build
+> did break for me.
+
