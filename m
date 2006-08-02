@@ -1,37 +1,38 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: means to artificially alter the bandwidth of a system
-Date: Wed, 2 Aug 2006 22:10:51 +0200
-Message-ID: <20060802201051.GA3790@c3po.0xdef.net>
-References: <3420082f0608021104u1f914d44rfbc672aff104924b@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [PATCH v4 0/2][RFC] iWARP Core Support
+Date: Wed, 02 Aug 2006 15:27:47 -0500
+Message-ID: <20060802202747.24212.10931.stgit@dell3.ogc.int>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, openib-general@openib.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c3po.0xdef.net ([217.172.181.57]:18187 "EHLO c3po.0xdef.net")
-	by vger.kernel.org with ESMTP id S932146AbWHBUKw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 16:10:52 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <3420082f0608021104u1f914d44rfbc672aff104924b@mail.gmail.com>
+Received: from rrcs-24-153-218-104.sw.biz.rr.com ([24.153.218.104]:6109 "EHLO
+	dell3.ogc.int") by vger.kernel.org with ESMTP id S932167AbWHBU1t
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Aug 2006 16:27:49 -0400
+To: rdreier@cisco.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Irfan Habib | 2006-08-02 23:04:41 [+0500]:
 
->Hi,
->
->For research purposes we are considering to develop a program to alter
->the bandwidth of a system via the software, so instance: a machine has
->100 MB/s and we change it to 1MB/s.
->
->Does something like this already exist? Or is there a way to do this
->without creating a program/kernel module
+Roland, 
 
-Of course: see http://linux-net.osdl.org/index.php/Iproute2 (especially tc)
+Here is the iWARP Core Support patchset merged to your latest for-2.6.19
+branch.  It has gone through 3 reviews on lklm and netdev a while ago, and
+I think its ready to be pulled in.
 
->Any help will be highly appreciated!
->
->Irfan Habib
+Steve.
 
-HGN
+----
 
+This patchset defines the modifications to the Linux infiniband subsystem
+to support iWARP devices.  
 
+The patchset consists of 2 patches:
+
+        1 - New iWARP CM implementation.  
+        2 - Core changes to support iWARP.
+
+Signed-off-by: Tom Tucker <tom@opengridcomputing.com>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
