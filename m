@@ -1,36 +1,37 @@
 From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-Subject: RE: [RFC 2/3] secid reconciliation on inbound: add LSM hooks
-Date: Wed, 2 Aug 2006 08:49:22 -0400
-Message-ID: <36282A1733C57546BE392885C061859201466C09@chaos.tcs.tcs-sec.com>
+Subject: RE: [RFC 1/3] secid reconciliation on inbound
+Date: Wed, 2 Aug 2006 08:57:55 -0400
+Message-ID: <36282A1733C57546BE392885C061859201466C0E@chaos.tcs.tcs-sec.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="iso-8859-1"
 Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, sds@tycho.nsa.gov,
 	Chad Hanson <chanson@TrustedCS.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:40965 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1750895AbWHBMtu
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:12122 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1750908AbWHBM6M
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Aug 2006 08:49:50 -0400
+	Wed, 2 Aug 2006 08:58:12 -0400
 To: James Morris <jmorris@namei.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > -	if (err)
-> > -		goto out;
-> > +	/* if (err) */
-> > +	/*	goto out; */
+> On Tue, 1 Aug 2006, James Morris wrote:
+> 
+> > On Tue, 1 Aug 2006, Venkat Yekkirala wrote:
 > > 
-> > -	err = selinux_xfrm_sock_rcv_skb(sksec->sid, skb, &ad);
-> > -out:	+	/* err = 
-> selinux_xfrm_sock_rcv_skb(sksec->sid, skb, &ad); */
-> > +out:	 	return err;
-> > }
+> > > +#define PACKET__COME_THRU                         0x00000008UL
+> > > +#define PACKET__GO_THRU                           0x00000010UL
+> > 
+> > These names seem awkward, and do we really need a separate 
+> perm for each 
+> > direction?
 > 
-> 
-> Did you mean to leave the call to selinux_xfrm_sock_rcv_skb() 
-> commented 
-> out?
+> Ok, I see we need separate permissions.  The naming, still...
 
-I actually meant to take the call out entirely. Will fix this in
-the next round.
+You are probably seeing something I haven't :), because I did
+consider using just one perm such as flow_thru for both directions
+but then thought separate perms would make things easier to understand.
+
+As for naming, how about "enter" and "leave"? Or "flow_in" and "flow_out".
+Any other suggestions out there?
