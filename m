@@ -1,46 +1,47 @@
-From: Patrick Caulfield <patrick@tykepenguin.com>
-Subject: [PATCH] DECnet Fix for DECnet routing bug
-Date: Wed, 02 Aug 2006 15:19:24 +0100
-Message-ID: <44D0B46C.2040500@tykepenguin.com>
+From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
+Subject: Re: [Patch] kernel memory leak fix for af_unix datagram getpeersec patch
+Date: Wed, 2 Aug 2006 16:52:27 +0200
+Message-ID: <6bffcb0e0608020752h3a10e153id9561935a024cd09@mail.gmail.com>
+References: <20060802064752.GA21407@jiayuguan.watson.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: steve@chygwyn.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jmorris@namei.org, sds@tycho.nsa.org, davem@davemloft.net,
+	catalin.marinas@gmail.com, czhang.us@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spc1-leed3-0-0-cust958.seac.broadband.ntl.com ([82.8.19.191]:55286
-	"EHLO fentible.pjc.net") by vger.kernel.org with ESMTP
-	id S1750882AbWHBOTc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Aug 2006 10:19:32 -0400
-To: davem@davemloft.net, netdev@vger.kernel.org
+Received: from nf-out-0910.google.com ([64.233.182.191]:48743 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1751132AbWHBOw3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Aug 2006 10:52:29 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so661926nfa
+        for <netdev@vger.kernel.org>; Wed, 02 Aug 2006 07:52:27 -0700 (PDT)
+To: "Catherine Zhang" <cxzhang@watson.ibm.com>
+In-Reply-To: <20060802064752.GA21407@jiayuguan.watson.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes a bug in the DECnet routing code where we were selecting
-a loopback device in preference to an outward facing device even when
-the destination was known non-local. This patch should fix the problem.
+Hi Catherine,
 
-Signed-off-by: Patrick Caulfield <patrick@tykepenguin.com>
-Signed-off-by: Steven Whitehouse <steve@chygwyn.com>
+On 02/08/06, Catherine Zhang <cxzhang@watson.ibm.com> wrote:
+> Hi, all,
+>
+> Enclosed please find the updated patch incorporating comments from
+> Stephen and Dave.
 
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index 1355614..743e9fc 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -925,8 +925,13 @@ static int dn_route_output_slow(struct d
- 		for(dev_out = dev_base; dev_out; dev_out = dev_out->next) {
- 			if (!dev_out->dn_ptr)
- 				continue;
--			if (dn_dev_islocal(dev_out, oldflp->fld_src))
--				break;
-+			if (!dn_dev_islocal(dev_out, oldflp->fld_src))
-+				continue;
-+			if ((dev_out->flags & IFF_LOOPBACK) &&
-+			    oldflp->fld_dst &&
-+			    !dn_dev_islocal(dev_out, oldflp->fld_dst))
-+				continue;
-+			break;
- 		}
- 		read_unlock(&dev_base_lock);
- 		if (dev_out == NULL)
+Thanks!
 
+>
+> Again thanks for your help!
+> Catherine
+>
+> --
 
+Regards,
+Michal
+
+-- 
+Michal K. K. Piotrowski
+LTG - Linux Testers Group
+(http://www.stardust.webpages.pl/ltg/wiki/)
