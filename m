@@ -1,39 +1,37 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] SMSC LAN911x and LAN921x vendor driver
-Date: Wed, 2 Aug 2006 15:51:33 -0400
-Message-ID: <20060802195128.GA7204@tuxdriver.com>
-References: <20060801153313.GD29208@tuxdriver.com> <OF9CB563CF.865D1AC6-ON802571BE.006924E4-802571BE.006A884B@smsc.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: means to artificially alter the bandwidth of a system
+Date: Wed, 2 Aug 2006 22:10:51 +0200
+Message-ID: <20060802201051.GA3790@c3po.0xdef.net>
+References: <3420082f0608021104u1f914d44rfbc672aff104924b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bahadir Balban <Bahadir.Balban@arm.com>, ian.saturley@smsc.com,
-	netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>,
-	Stephen Hemminger <shemminger@osdl.org>
+Content-Type: text/plain; charset=iso-8859-1
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:6919 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S932195AbWHBTv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 15:51:58 -0400
-To: Steve.Glendinning@smsc.com
+Received: from c3po.0xdef.net ([217.172.181.57]:18187 "EHLO c3po.0xdef.net")
+	by vger.kernel.org with ESMTP id S932146AbWHBUKw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 16:10:52 -0400
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <OF9CB563CF.865D1AC6-ON802571BE.006924E4-802571BE.006A884B@smsc.com>
+In-Reply-To: <3420082f0608021104u1f914d44rfbc672aff104924b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 02, 2006 at 08:23:40PM +0100, Steve.Glendinning@smsc.com wrote:
+* Irfan Habib | 2006-08-02 23:04:41 [+0500]:
 
-> > Does this need the magic "for (addr=1; addr <=32; addr++)" trick that
-> > has become idiomatic for PHY discovery in our drivers?
-> 
-> I don't understand the question - surely 32 is not a valid PHY address?
+>Hi,
+>
+>For research purposes we are considering to develop a program to alter
+>the bandwidth of a system via the software, so instance: a machine has
+>100 MB/s and we change it to 1MB/s.
+>
+>Does something like this already exist? Or is there a way to do this
+>without creating a program/kernel module
 
-That's why it is magic! :-)
+Of course: see http://linux-net.osdl.org/index.php/Iproute2 (especially tc)
 
-The idea is to probe PHY addr 0 last in the series.  Apparently some
-PHYs don't like seeing addr 0 or somesuch, so you try it last to avoid
-screwing them up.  It may well be folklore and legend at this point.
-Still, you will find several examples in the various drivers.
-The sundance driver is one example.
+>Any help will be highly appreciated!
+>
+>Irfan Habib
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+HGN
+
+
