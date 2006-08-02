@@ -1,41 +1,58 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 20/23] [PATCH] [XFRM] POLICY: sub policy support.
-Date: Wed, 2 Aug 2006 12:04:31 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0608021152060.21751@d.namei>
-References: <1154165451738-git-send-email-nakam@linux-ipv6.org>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: e1000 speed/duplex error
+Date: Wed, 02 Aug 2006 09:19:03 -0700
+Message-ID: <44D0D077.9020909@intel.com>
+References: <1301563340.20060801141827@mail.ru>  <9929d2390608010420t60bd44d7o4e522c6edc0a677e@mail.gmail.com>  <793732866.20060801153230@mail.ru>  <9929d2390608010445w4fd81b64g310ae90a423e1a7d@mail.gmail.com>  <911206621.20060801162006@mail.ru> <9929d2390608010534x54324569ja70b1fcbdc23c097@mail.gmail.com> <44CF66AD.1030901@intel.com> <168330902.20060802113402@mail.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi,
-	vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:13235 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S932085AbWHBQEd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Aug 2006 12:04:33 -0400
-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
-In-Reply-To: <1154165451738-git-send-email-nakam@linux-ipv6.org>
+Received: from mga01.intel.com ([192.55.52.88]:48766 "EHLO
+	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
+	id S932084AbWHBQUR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Aug 2006 12:20:17 -0400
+To: a1 <a1k@mail.ru>
+In-Reply-To: <168330902.20060802113402@mail.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 29 Jul 2006, Masahide NAKAMURA wrote:
+a1 wrote:
+> Hi, Auke.
+> 
+> Auke Kok wrote:
+> AK> Here's that part of the driver documentation:
+> 
+> AK> $ modprobe e1000 AutoNeg=0x08
+> AK> e1000: 0000:00:00.0: e1000_validate_option: AutoNeg advertising 100/FD
+> 
+> 
+> AK>   99 /* Auto-negotiation Advertisement Override
+> AK> 100  *
+> AK> 101  * Valid Range: 0x01-0x0F, 0x20-0x2F (copper); 0x20 (fiber)
+> AK> 102  *
+> AK> 103  * The AutoNeg value is a bit mask describing which speed and duplex
+> AK> 104  * combinations should be advertised during auto-negotiation.
+> AK> 105  * The supported speed and duplex modes are listed below
+> AK> 106  *
+> AK> 107  * Bit           7     6     5      4      3     2     1      0
+> AK> 108  * Speed (Mbps)  N/A   N/A   1000   N/A    100   100   10     10
+> AK> 109  * Duplex                    Full          Full  Half  Full   Half
+> AK> 110  *
+> AK> 111  * Default Value: 0x2F (copper); 0x20 (fiber)
+> AK> 112  */
+> 
+> This is not what I'm thinking of. Say, for example, I have a bunch of
+> e1000 adapters in my box and want to dynamically change one's spd/dplx.
+> For that works in the way you described I need to stop all of them and
+> load with autoneg parameter (can I pass this parameter only to single
+> card?) and loose all connection I had on other adapters.
 
-> Sub policy is introduced. Main and sub policy are applied the same flow.
-> (Policy that current kernel uses is named as main.)
-> It is required another transformation policy management to keep IPsec
-> and Mobile IPv6 lives separate.
-> Policy which lives shorter time in kernel should be a sub i.e. normally
-> main is for IPsec and sub is for Mobile IPv6.
-> (Such usage as two IPsec policies on different database can be used, too.)
+you can pass these parameters per card as such:
 
-Why can't IPSec & MIP transforms be bundled on the same policy?
+$ modprobe e1000 AutoNeg=0x2f,0x28,0x2f,0x2f
 
-Or, perhaps a different approach is needed, where the disposition of a 
-policy can be to re-submit a packet for another policy match after the 
-current bundle has been traversed (something like NF_REPEAT).
+this way card #2 will see the non-default value, the other 3 will run with the 
+default value (0x2f).
 
-
-- James
--- 
-James Morris
-<jmorris@namei.org>
+Auke
