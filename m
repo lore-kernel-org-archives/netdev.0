@@ -1,45 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/23] [PATCH] [XFRM]: Add XFRM_MODE_xxx for future use.
-Date: Wed, 02 Aug 2006 14:53:40 +1000
-Message-ID: <E1G88jk-0003bi-00@gondolin.me.apana.org.au>
-References: <11541653852481-git-send-email-nakam@linux-ipv6.org>
-Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi,
-	vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org, nakam@linux-ipv6.org
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: (usagi-core 30280) Re: [PATCH 10/23] [PATCH] [XFRM]: Trace which
+ secpath state is reject factor.
+Date: Wed, 02 Aug 2006 15:07:46 +0900
+Message-ID: <44D04132.3050505@linux-ipv6.org>
+References: <11541654291610-git-send-email-nakam@linux-ipv6.org> <20060801.171501.95894508.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:30981 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751165AbWHBEyB
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Aug 2006 00:54:01 -0400
-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
-In-Reply-To: <11541653852481-git-send-email-nakam@linux-ipv6.org>
+Received: from [203.178.140.9] ([203.178.140.9]:13970 "EHLO mail.gomagoma.org")
+	by vger.kernel.org with ESMTP id S1750836AbWHBGHw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 02:07:52 -0400
+To: usagi-core@linux-ipv6.org
+In-Reply-To: <20060801.171501.95894508.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Masahide NAKAMURA <nakam@linux-ipv6.org> wrote:
+David Miller wrote:
+> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> Date: Sat, 29 Jul 2006 18:30:29 +0900
 > 
-> diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-> index 6b42cc4..7dff1c8 100644
-> --- a/include/linux/xfrm.h
-> +++ b/include/linux/xfrm.h
-> @@ -178,6 +178,13 @@ struct xfrm_user_sec_ctx {
->        __u16                   ctx_len;
-> };
+>> @@ -272,6 +272,9 @@ #define XFRM_TYPE_NON_FRAGMENT	1
+>>  	void			(*destructor)(struct xfrm_state *);
+>>  	int			(*input)(struct xfrm_state *, struct sk_buff *skb);
+>>  	int			(*output)(struct xfrm_state *, struct sk_buff *pskb);
+>> +#ifdef CONFIG_XFRM_ADVANCED
+>> +	int			(*reject)(struct xfrm_state *, struct sk_buff *skb, struct flowi *);
+>> +#endif
 > 
-> +enum {
-> +       XFRM_MODE_TRANSPORT = 0,
-> +       XFRM_MODE_TUNNEL = 1,
-> +       XFRM_MODE_ROUTEOPTIMIZATION = 2,
-> +       XFRM_MODE_IN_TRIGGER = 3,
-> +};
-> +
+> xfrm_secpath_reject() unconditionally dereferences this new reject
+> operation pointer, but this patch contains no assignments of it.
+> 
+> Please send incremental patches that are fully functional all by
+> themselves, so that if each one is applied, it would compile and
+> work.
 
-Please rebase your tree on something that's more recent.  We've had
-xfrm modes for more than two months now.
+Thanks, I'll send so next time.
 
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Masahide NAKAMURA
