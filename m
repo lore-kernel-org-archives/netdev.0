@@ -1,410 +1,614 @@
-From: Catherine Zhang <cxzhang@watson.ibm.com>
-Subject: [Patch] kernel memory leak fix for af_unix datagram getpeersec patch
-Date: Wed, 2 Aug 2006 02:47:52 -0400
-Message-ID: <20060802064752.GA21407@jiayuguan.watson.ibm.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take2 1/4] kevent: core files.
+Date: Wed, 2 Aug 2006 10:39:18 +0400
+Message-ID: <20060802063918.GB6378@2ka.mipt.ru>
+References: <11544248451203@2ka.mipt.ru> <44CFEA4B.3060200@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: catalin.marinas@gmail.com, michal.k.k.piotrowski@gmail.com,
-	czhang.us@gmail.com
+Content-Type: text/plain; charset=koi8-r
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev and <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from igw2.watson.ibm.com ([129.34.20.6]:28847 "EHLO
-	igw2.watson.ibm.com") by vger.kernel.org with ESMTP
-	id S1751270AbWHBGf6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Aug 2006 02:35:58 -0400
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jmorris@namei.org, sds@tycho.nsa.org, davem@davemloft.net
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:33712 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1750857AbWHBGkI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 02:40:08 -0400
+To: Zach Brown <zach.brown@oracle.com>
 Content-Disposition: inline
+In-Reply-To: <44CFEA4B.3060200@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, all,
+On Tue, Aug 01, 2006 at 04:56:59PM -0700, Zach Brown (zach.brown@oracle.com) wrote:
+> 
+> OK, here's some of my reactions to the core part.
 
-Enclosed please find the updated patch incorporating comments from
-Stephen and Dave.
+Thanks.
 
-Again thanks for your help!
-Catherine
+> > +#define KEVENT_SOCKET 		0
+> > +#define KEVENT_INODE		1
+> > +#define KEVENT_TIMER		2
+> > +#define KEVENT_POLL		3
+> > +#define KEVENT_NAIO		4
+> > +#define KEVENT_AIO		5
+> 
+> I guess we can't really avoid some form of centralized list of the
+> constants in the API if we're going for a flat constant namespace.
+> It'll be irritating to manage this list over time, just like it's
+> irritating to manage syscall numbers now.
+> 
+> > +/*
+> > + * Socket/network asynchronous IO events.
+> > + */
+> > +#define	KEVENT_SOCKET_RECV	0x1
+> > +#define	KEVENT_SOCKET_ACCEPT	0x2
+> > +#define	KEVENT_SOCKET_SEND	0x4
+> 
+> I wonder if these shouldn't live in the subsystems instead of in kevent.h.
 
---
+Yes it could, but it requires including those files in kevent.h, which
+is exported to userspace, and it is not always possible to publish
+included file there.
 
+> > +/*
+> > + * Poll events.
+> > + */
+> > +#define	KEVENT_POLL_POLLIN	0x0001
+> > +#define	KEVENT_POLL_POLLPRI	0x0002
+> > +#define	KEVENT_POLL_POLLOUT	0x0004
+> > +#define	KEVENT_POLL_POLLERR	0x0008
+> > +#define	KEVENT_POLL_POLLHUP	0x0010
+> > +#define	KEVENT_POLL_POLLNVAL	0x0020
+> > +
+> > +#define	KEVENT_POLL_POLLRDNORM	0x0040
+> > +#define	KEVENT_POLL_POLLRDBAND	0x0080
+> > +#define	KEVENT_POLL_POLLWRNORM	0x0100
+> > +#define	KEVENT_POLL_POLLWRBAND	0x0200
+> > +#define	KEVENT_POLL_POLLMSG	0x0400
+> > +#define	KEVENT_POLL_POLLREMOVE	0x1000
+> 
+> And couldn't we just use the existing poll bit definitions for this?
 
-From: cxzhang@watson.ibm.com
+asm/poll.h I expect.
+linux/poll.h is too heavy or not?
 
-This patch implements a cleaner fix for the memory leak problem of the original 
-unix datagram getpeersec patch.  Instead of creating a security context each
-time a unix datagram is sent, we only create the security context when the
-receiver requests it.
+> > +struct kevent_id
+> > +{
+> > +	__u32		raw[2];
+> > +};
+> 
+> Why not a simple u64?  Users can play games with packing it into other
+> types if they want.
+> 
+> > +		__u32		user[2];		/* User's data. It is not used, just copied to/from user. */
+> > +		void		*ptr;
+> > +	};
+> 
+> Again just a u64 seems like it would be simpler.  userspace library
+> wrappers can help massage it, but the kernel is just treating it as an
+> opaque data blob.
 
-This new design requires modification of the current unix_getsecpeer_dgram
-LSM hook and addition of two new hooks, namely, secid_to_secctx and
-release_secctx.  The former retrieves the security context and the latter
-releases it.  A hook is required for releasing the security context because
-it is up to the security module to decide how that's done.  In the case of
-Selinux, it's a simple kfree operation.
+u64 is not aligned, so I prefer to use u32 as much as possible.
 
+> > +};
+> > +
+> > +#define	KEVENT_CTL_ADD 		0
+> > +#define	KEVENT_CTL_REMOVE	1
+> > +#define	KEVENT_CTL_MODIFY	2
+> > +#define	KEVENT_CTL_INIT		3
+> > +
+> > +struct kevent_user_control
+> > +{
+> > +	unsigned int		cmd;			/* Control command, e.g. KEVENT_ADD, KEVENT_REMOVE... */
+> > +	unsigned int		num;			/* Number of ukevents this strucutre controls. */
+> > +	unsigned int		timeout;		/* Timeout in milliseconds waiting for "num" events to become ready. */
+> > +};
+> 
+> Even if we only have one syscall with a cmd multiplexer (which I'm not
+> thrilled with), we should at least make these arguments explicit in the
+> system call.  It's weird to hide them in a struct.  We could also think
+> about making them u32 or u64 so that we don't need compat wrappers, but
+> maybe that's overkill.
 
----
+Ok.
 
- include/linux/security.h |   41 +++++++++++++++++++++++++++++++++++------
- include/net/af_unix.h    |    6 ++----
- include/net/scm.h        |   29 +++++++++++++++++++++++++----
- net/ipv4/ip_sockglue.c   |    9 +++++++--
- net/unix/af_unix.c       |   17 +++++------------
- security/dummy.c         |   14 ++++++++++++--
- security/selinux/hooks.c |   38 ++++++++++++++++++++++++--------------
- 7 files changed, 110 insertions(+), 44 deletions(-)
+> Also, can we please use a struct timespec for the timeout?  Then the
+> kernel will have the luxury of using whatever mechanism it wants to
+> satisfy the user's precision desires.  Just like sys_nanosleep() uses
+> timespec and so can be implemented with hrtimers.
 
-diff -puN include/net/scm.h~af_unix-datagram-getpeersec-ml-fix include/net/scm.h
---- linux-2.6.18-rc2/include/net/scm.h~af_unix-datagram-getpeersec-ml-fix	2006-07-22 21:28:21.000000000 -0400
-+++ linux-2.6.18-rc2-cxzhang/include/net/scm.h	2006-08-01 22:43:50.000000000 -0400
-@@ -3,6 +3,7 @@
- 
- #include <linux/limits.h>
- #include <linux/net.h>
-+#include <linux/security.h>
- 
- /* Well, we should have at least one descriptor open
-  * to accept passed FDs 8)
-@@ -20,8 +21,7 @@ struct scm_cookie
- 	struct ucred		creds;		/* Skb credentials	*/
- 	struct scm_fp_list	*fp;		/* Passed files		*/
- #ifdef CONFIG_SECURITY_NETWORK
--	char			*secdata;	/* Security context	*/
--	u32			seclen;		/* Security length	*/
-+	u32			secid;		/* Passed security ID 	*/
- #endif
- 	unsigned long		seq;		/* Connection seqno	*/
- };
-@@ -32,6 +32,16 @@ extern int __scm_send(struct socket *soc
- extern void __scm_destroy(struct scm_cookie *scm);
- extern struct scm_fp_list * scm_fp_dup(struct scm_fp_list *fpl);
- 
-+#ifdef CONFIG_SECURITY_NETWORK
-+static __inline__ void unix_get_peersec_dgram(struct socket *sock, struct scm_cookie *scm)
-+{
-+	security_socket_getpeersec_dgram(sock, NULL, &scm->secid);
-+}
-+#else
-+static __inline__ void unix_get_peersec_dgram(struct socket *sock, struct scm_cookie *scm)
-+{ }
-+#endif /* CONFIG_SECURITY_NETWORK */
-+
- static __inline__ void scm_destroy(struct scm_cookie *scm)
- {
- 	if (scm && scm->fp)
-@@ -47,6 +57,7 @@ static __inline__ int scm_send(struct so
- 	scm->creds.pid = p->tgid;
- 	scm->fp = NULL;
- 	scm->seq = 0;
-+	unix_get_peersec_dgram(sock, scm);
- 	if (msg->msg_controllen <= 0)
- 		return 0;
- 	return __scm_send(sock, msg, scm);
-@@ -55,8 +66,18 @@ static __inline__ int scm_send(struct so
- #ifdef CONFIG_SECURITY_NETWORK
- static inline void scm_passec(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm)
- {
--	if (test_bit(SOCK_PASSSEC, &sock->flags) && scm->secdata != NULL)
--		put_cmsg(msg, SOL_SOCKET, SCM_SECURITY, scm->seclen, scm->secdata);
-+	char *secdata;
-+	u32 seclen;
-+	int err;
-+
-+	if (test_bit(SOCK_PASSSEC, &sock->flags)) {
-+		err = security_secid_to_secctx(scm->secid, &secdata, &seclen);
-+
-+		if (!err) {
-+			put_cmsg(msg, SOL_SOCKET, SCM_SECURITY, seclen, secdata);
-+			security_release_secctx(secdata, seclen);
-+		}
-+	}
- }
- #else
- static inline void scm_passec(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm)
-diff -puN net/unix/af_unix.c~af_unix-datagram-getpeersec-ml-fix net/unix/af_unix.c
---- linux-2.6.18-rc2/net/unix/af_unix.c~af_unix-datagram-getpeersec-ml-fix	2006-07-22 23:01:26.000000000 -0400
-+++ linux-2.6.18-rc2-cxzhang/net/unix/af_unix.c	2006-08-02 02:25:00.454243480 -0400
-@@ -128,23 +128,17 @@ static atomic_t unix_nr_socks = ATOMIC_I
- #define UNIX_ABSTRACT(sk)	(unix_sk(sk)->addr->hash != UNIX_HASH_SIZE)
- 
- #ifdef CONFIG_SECURITY_NETWORK
--static void unix_get_peersec_dgram(struct sk_buff *skb)
-+static void unix_get_secdata(struct scm_cookie *scm, struct sk_buff *skb)
- {
--	int err;
--
--	err = security_socket_getpeersec_dgram(skb, UNIXSECDATA(skb),
--					       UNIXSECLEN(skb));
--	if (err)
--		*(UNIXSECDATA(skb)) = NULL;
-+	memcpy(UNIXSID(skb), &scm->secid, sizeof(u32));
- }
- 
- static inline void unix_set_secdata(struct scm_cookie *scm, struct sk_buff *skb)
- {
--	scm->secdata = *UNIXSECDATA(skb);
--	scm->seclen = *UNIXSECLEN(skb);
-+	scm->secid = *UNIXSID(skb);
- }
- #else
--static inline void unix_get_peersec_dgram(struct sk_buff *skb)
-+static inline void unix_get_secdata(struct scm_cookie *scm, struct sk_buff *skb)
- { }
- 
- static inline void unix_set_secdata(struct scm_cookie *scm, struct sk_buff *skb)
-@@ -1323,8 +1317,7 @@ static int unix_dgram_sendmsg(struct kio
- 	memcpy(UNIXCREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
- 	if (siocb->scm->fp)
- 		unix_attach_fds(siocb->scm, skb);
--
--	unix_get_peersec_dgram(skb);
-+	unix_get_secdata(siocb->scm, skb);
- 
- 	skb->h.raw = skb->data;
- 	err = memcpy_fromiovec(skb_put(skb,len), msg->msg_iov, len);
-diff -puN include/net/af_unix.h~af_unix-datagram-getpeersec-ml-fix include/net/af_unix.h
---- linux-2.6.18-rc2/include/net/af_unix.h~af_unix-datagram-getpeersec-ml-fix	2006-07-22 23:41:05.000000000 -0400
-+++ linux-2.6.18-rc2-cxzhang/include/net/af_unix.h	2006-08-01 22:50:20.000000000 -0400
-@@ -54,15 +54,13 @@ struct unix_skb_parms {
- 	struct ucred		creds;		/* Skb credentials	*/
- 	struct scm_fp_list	*fp;		/* Passed files		*/
- #ifdef CONFIG_SECURITY_NETWORK
--	char			*secdata;	/* Security context	*/
--	u32			seclen;		/* Security length	*/
-+	u32			secid;		/* Security ID		*/
- #endif
- };
- 
- #define UNIXCB(skb) 	(*(struct unix_skb_parms*)&((skb)->cb))
- #define UNIXCREDS(skb)	(&UNIXCB((skb)).creds)
--#define UNIXSECDATA(skb)	(&UNIXCB((skb)).secdata)
--#define UNIXSECLEN(skb)		(&UNIXCB((skb)).seclen)
-+#define UNIXSID(skb)	(&UNIXCB((skb)).secid)
- 
- #define unix_state_rlock(s)	spin_lock(&unix_sk(s)->lock)
- #define unix_state_runlock(s)	spin_unlock(&unix_sk(s)->lock)
-diff -puN include/linux/security.h~af_unix-datagram-getpeersec-ml-fix include/linux/security.h
---- linux-2.6.18-rc2/include/linux/security.h~af_unix-datagram-getpeersec-ml-fix	2006-07-23 17:49:18.000000000 -0400
-+++ linux-2.6.18-rc2-cxzhang/include/linux/security.h	2006-08-01 23:30:32.000000000 -0400
-@@ -1109,6 +1109,16 @@ struct swap_info_struct;
-  *	@name contains the name of the security module being unstacked.
-  *	@ops contains a pointer to the struct security_operations of the module to unstack.
-  * 
-+ * @secid_to_secctx:
-+ *	Convert secid to security context.
-+ *	@secid contains the security ID.
-+ *	@secdata contains the pointer that stores the converted security context.
-+ *
-+ * @release_secctx:
-+ *	Release the security context.
-+ *	@secdata contains the security context.
-+ *	@seclen contains the length of the security context.
-+ *
-  * This is the main security structure.
-  */
- struct security_operations {
-@@ -1289,6 +1299,8 @@ struct security_operations {
- 
-  	int (*getprocattr)(struct task_struct *p, char *name, void *value, size_t size);
-  	int (*setprocattr)(struct task_struct *p, char *name, void *value, size_t size);
-+	int (*secid_to_secctx)(u32 secid, char **secdata, u32 *seclen);
-+	void (*release_secctx)(char *secdata, u32 seclen);
- 
- #ifdef CONFIG_SECURITY_NETWORK
- 	int (*unix_stream_connect) (struct socket * sock,
-@@ -1317,7 +1329,7 @@ struct security_operations {
- 	int (*socket_shutdown) (struct socket * sock, int how);
- 	int (*socket_sock_rcv_skb) (struct sock * sk, struct sk_buff * skb);
- 	int (*socket_getpeersec_stream) (struct socket *sock, char __user *optval, int __user *optlen, unsigned len);
--	int (*socket_getpeersec_dgram) (struct sk_buff *skb, char **secdata, u32 *seclen);
-+	int (*socket_getpeersec_dgram) (struct socket *sock, struct sk_buff *skb, u32 *secid);
- 	int (*sk_alloc_security) (struct sock *sk, int family, gfp_t priority);
- 	void (*sk_free_security) (struct sock *sk);
- 	unsigned int (*sk_getsid) (struct sock *sk, struct flowi *fl, u8 dir);
-@@ -2059,6 +2071,16 @@ static inline int security_netlink_recv(
- 	return security_ops->netlink_recv(skb, cap);
- }
- 
-+static inline int security_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
-+{
-+	return security_ops->secid_to_secctx(secid, secdata, seclen);
-+}
-+
-+static inline void security_release_secctx(char *secdata, u32 seclen)
-+{
-+	return security_ops->release_secctx(secdata, seclen);
-+}
-+
- /* prototypes */
- extern int security_init	(void);
- extern int register_security	(struct security_operations *ops);
-@@ -2725,6 +2747,15 @@ static inline void securityfs_remove(str
- {
- }
- 
-+static inline int security_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static inline void security_release_secctx(char *secdata, u32 seclen)
-+{
-+	return -EOPNOTSUPP;
-+}
- #endif	/* CONFIG_SECURITY */
- 
- #ifdef CONFIG_SECURITY_NETWORK
-@@ -2840,10 +2871,9 @@ static inline int security_socket_getpee
- 	return security_ops->socket_getpeersec_stream(sock, optval, optlen, len);
- }
- 
--static inline int security_socket_getpeersec_dgram(struct sk_buff *skb, char **secdata,
--						   u32 *seclen)
-+static inline int security_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb, u32 *secid)
- {
--	return security_ops->socket_getpeersec_dgram(skb, secdata, seclen);
-+	return security_ops->socket_getpeersec_dgram(sock, skb, secid);
- }
- 
- static inline int security_sk_alloc(struct sock *sk, int family, gfp_t priority)
-@@ -2968,8 +2998,7 @@ static inline int security_socket_getpee
- 	return -ENOPROTOOPT;
- }
- 
--static inline int security_socket_getpeersec_dgram(struct sk_buff *skb, char **secdata,
--						   u32 *seclen)
-+static inline int security_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb, u32 *secid)
- {
- 	return -ENOPROTOOPT;
- }
-diff -puN security/selinux/hooks.c~af_unix-datagram-getpeersec-ml-fix security/selinux/hooks.c
---- linux-2.6.18-rc2/security/selinux/hooks.c~af_unix-datagram-getpeersec-ml-fix	2006-07-24 00:55:21.000000000 -0400
-+++ linux-2.6.18-rc2-cxzhang/security/selinux/hooks.c	2006-08-01 23:58:17.000000000 -0400
-@@ -3524,25 +3524,21 @@ out:	
- 	return err;
- }
- 
--static int selinux_socket_getpeersec_dgram(struct sk_buff *skb, char **secdata, u32 *seclen)
-+static int selinux_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb, u32 *secid)
- {
-+	u32 peer_secid = SECSID_NULL;
- 	int err = 0;
--	u32 peer_sid;
- 
--	if (skb->sk->sk_family == PF_UNIX)
--		selinux_get_inode_sid(SOCK_INODE(skb->sk->sk_socket),
--				      &peer_sid);
--	else
--		peer_sid = selinux_socket_getpeer_dgram(skb);
--
--	if (peer_sid == SECSID_NULL)
--		return -EINVAL;
-+	if (sock && (sock->sk->sk_family == PF_UNIX))
-+		selinux_get_inode_sid(SOCK_INODE(sock), &peer_secid);
-+	else if (skb)
-+		peer_secid = selinux_socket_getpeer_dgram(skb);
- 
--	err = security_sid_to_context(peer_sid, secdata, seclen);
--	if (err)
--		return err;
-+	if (peer_secid == SECSID_NULL)
-+		err = -EINVAL;
-+	*secid = peer_secid;
- 
--	return 0;
-+	return err;
- }
- 
- static int selinux_sk_alloc_security(struct sock *sk, int family, gfp_t priority)
-@@ -4407,6 +4403,17 @@ static int selinux_setprocattr(struct ta
- 	return size;
- }
- 
-+static int selinux_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
-+{
-+	return security_sid_to_context(secid, secdata, seclen);
-+}
-+
-+static void selinux_release_secctx(char *secdata, u32 seclen)
-+{
-+	if (secdata)
-+		kfree(secdata);
-+}
-+
- #ifdef CONFIG_KEYS
- 
- static int selinux_key_alloc(struct key *k, struct task_struct *tsk,
-@@ -4587,6 +4594,9 @@ static struct security_operations selinu
- 	.getprocattr =                  selinux_getprocattr,
- 	.setprocattr =                  selinux_setprocattr,
- 
-+	.secid_to_secctx =		selinux_secid_to_secctx,
-+	.release_secctx =		selinux_release_secctx,
-+
-         .unix_stream_connect =		selinux_socket_unix_stream_connect,
- 	.unix_may_send =		selinux_socket_unix_may_send,
- 
-diff -puN security/dummy.c~af_unix-datagram-getpeersec-ml-fix security/dummy.c
---- linux-2.6.18-rc2/security/dummy.c~af_unix-datagram-getpeersec-ml-fix	2006-07-24 01:01:07.000000000 -0400
-+++ linux-2.6.18-rc2-cxzhang/security/dummy.c	2006-08-01 23:37:48.000000000 -0400
-@@ -791,8 +791,7 @@ static int dummy_socket_getpeersec_strea
- 	return -ENOPROTOOPT;
- }
- 
--static int dummy_socket_getpeersec_dgram(struct sk_buff *skb, char **secdata,
--					 u32 *seclen)
-+static int dummy_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb, u32 *secid)
- {
- 	return -ENOPROTOOPT;
- }
-@@ -876,6 +875,15 @@ static int dummy_setprocattr(struct task
- 	return -EINVAL;
- }
- 
-+static int dummy_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static void dummy_release_secctx(char *secdata, u32 seclen)
-+{
-+}
-+
- #ifdef CONFIG_KEYS
- static inline int dummy_key_alloc(struct key *key, struct task_struct *ctx,
- 				  unsigned long flags)
-@@ -1028,6 +1036,8 @@ void security_fixup_ops (struct security
- 	set_to_dummy_if_null(ops, d_instantiate);
-  	set_to_dummy_if_null(ops, getprocattr);
-  	set_to_dummy_if_null(ops, setprocattr);
-+ 	set_to_dummy_if_null(ops, secid_to_secctx);
-+ 	set_to_dummy_if_null(ops, release_secctx);
- #ifdef CONFIG_SECURITY_NETWORK
- 	set_to_dummy_if_null(ops, unix_stream_connect);
- 	set_to_dummy_if_null(ops, unix_may_send);
-diff -puN net/ipv4/ip_sockglue.c~af_unix-datagram-getpeersec-ml-fix net/ipv4/ip_sockglue.c
---- linux-2.6.18-rc2/net/ipv4/ip_sockglue.c~af_unix-datagram-getpeersec-ml-fix	2006-07-24 18:42:18.000000000 -0400
-+++ linux-2.6.18-rc2-cxzhang/net/ipv4/ip_sockglue.c	2006-08-01 23:09:50.000000000 -0400
-@@ -112,14 +112,19 @@ static void ip_cmsg_recv_retopts(struct 
- static void ip_cmsg_recv_security(struct msghdr *msg, struct sk_buff *skb)
- {
- 	char *secdata;
--	u32 seclen;
-+	u32 seclen, secid;
- 	int err;
- 
--	err = security_socket_getpeersec_dgram(skb, &secdata, &seclen);
-+	err = security_socket_getpeersec_dgram(NULL, skb, &secid);
-+	if (err)
-+		return;
-+
-+	err = security_secid_to_secctx(secid, &secdata, &seclen);
- 	if (err)
- 		return;
- 
- 	put_cmsg(msg, SOL_IP, SCM_SECURITY, seclen, secdata);
-+	security_release_secctx(secdata, seclen);
- }
- 
- 
-_
+It has variable size, I strongly against such things between kernel and
+userspace.
+
+> > +struct kevent
+> > +{
+> 
+> (trivial nit, "struct kevent {" is the preferred form.)
+
+Ok.
+
+> > +	struct ukevent		event;
+> > +	spinlock_t		lock;			/* This lock protects ukevent manipulations, e.g. ret_flags changes. */
+> 
+> 
+> It'd be great if these struct members could get a prefix (ala: inode ->
+> i_, socket -> sk_) so that it's less painful getting tags helpers to
+> look up instances for us.  Asking for 'lock' is hilarious.
+
+But it requires much less typing :)
+Will update.
+
+> > +struct kevent_list
+> > +{
+> > +	struct list_head	kevent_list;		/* List of all kevents. */
+> > +	spinlock_t 		kevent_lock;		/* Protects all manipulations with queue of kevents. */
+> > +};
+> > +
+> > +struct kevent_user
+> > +{
+> > +	struct kevent_list	kqueue[KEVENT_HASH_MASK+1];
+> 
+> Hmm.  I think the current preference is not to have a lock per bucket.
+> It doesn't scale nearly as well as it seems like it should as the cache
+> footprint is higher and as cacheline contention hits as there are
+> multiple buckets per cacheline.  For now I'd simplify the hash into a
+> single lock and an array of struct hlist_head.  In the future it could
+> be another user of some kind of relatively-generic hash implementation
+> based on rcu that has been talked about for a while.
+
+Well, it scales better than one lock per the whole queue, but we can
+see how it looks with one lock.
+
+I used RCU hash table in kevents, but it scales very bad for things like
+inode removal, which can not be done (at least when kevent was initially
+created) in rcu callback context, so it required sycnhronize)rcu() which
+broke latencies to unacceptible level.
+
+> > +#define KEVENT_MAX_REQUESTS		PAGE_SIZE/sizeof(struct kevent)
+> 
+> This is unused?
+
+As David mentioned, I expect it to be base for mapped ring, although it
+should be PAGE_SIZE/sizeof(struct ukevent). I will remove for now.
+
+> > +#define list_for_each_entry_reverse_safe(pos, n, head, member)		\
+> > +	for (pos = list_entry((head)->prev, typeof(*pos), member),	\
+> > +		n = list_entry(pos->member.prev, typeof(*pos), member);	\
+> > +	     prefetch(pos->member.prev), &pos->member != (head); 	\
+> > +	     pos = n, n = list_entry(pos->member.prev, typeof(*pos), member))
+> 
+> If anyone was calling this they could use
+> list_for_each_entry_safe_reverse() in list.h but nothing is calling it?
+>  Either way, it should be removed :).
+
+It is from the past life, I will remove it.
+
+> > +#define sock_async(__sk)	0
+> 
+> It's a minor complaint, but these kinds of ifdefs that drop arguments
+> can cause unused argument warnings if they're the only user of the given
+> argument.  It'd be nicer to do something like ({ (void)_sk; 0; }) .
+
+Ok.
+
+> > +struct kevent_storage
+> > +{
+> > +	void			*origin;		/* Originator's pointer, e.g. struct sock or struct file. Can be NULL. */
+> 
+> Do we really need this pointer?  When the kevent_storage is embedded in
+> the origin, like struct inode in your patch sets, you can use
+> container_of() to get back to the inode.  For sources that aren't built
+> like that, like the timer_list, you could introduce a parent structure
+> that has the timer_list and the _storage embedded in it.
+
+Well, the idea was to be able not only to embed kevent_storage, but to
+have a pointer to it, so some users can allocate it as addon.
+If we strongly decide, that it will not used that way, this pointer can
+be removed.
+
+> > +obj-$(CONFIG_KEVENT_SOCKET) += kevent_socket.o
+> > +obj-$(CONFIG_KEVENT_INODE) += kevent_inode.o
+> > +obj-$(CONFIG_KEVENT_TIMER) += kevent_timer.o
+> > +obj-$(CONFIG_KEVENT_POLL) += kevent_poll.o
+> > +obj-$(CONFIG_KEVENT_NAIO) += kevent_naio.o
+> > +obj-$(CONFIG_KEVENT_AIO) += kevent_aio.o
+> 
+> I suspect that we won't want this configurable if it gets merged, but I
+> could be wrong and don't feel strongly about it.
+
+For example epoll is configurable for embedded systems, so it might be a
+good ide to be possible to remove something that will not be 100% in
+use.
+
+> > +	switch (k->event.type) {
+> > +		case KEVENT_NAIO:
+> > +			err = kevent_init_naio(k);
+> > +			break;
+> > +		case KEVENT_SOCKET:
+> > +			err = kevent_init_socket(k);
+> > +			break;
+> 
+> I wonder if it wouldn't be less noisy to have something like
+> 
+> struct kevent_callbacks {
+> 	kevent_callback_t	callback, enqueue, dequeue;
+> } kev_callbacks[] = {
+> 	[ KEVENT_NAIO ] = &kevent_naio_callbacks,
+> };
+> 
+> 	k->callbacks = kev_callbacks[k->event.type];
+> 
+> Then you'd also have one pointer per kevent instead of three.
+
+Ok, I will create such table.
+
+> > +void kevent_storage_dequeue(struct kevent_storage *st, struct kevent *k)
+> > +{
+> > +	unsigned long flags;
+> > +
+> > +	spin_lock_irqsave(&st->lock, flags);
+> > +	if (k->storage_entry.next != LIST_POISON1) {
+> > +		list_del(&k->storage_entry);
+> > +		st->qlen--;
+> > +	}
+> 
+> Is this relying on list_del() having set LIST_POISON1?  If so, please
+> use list_del_init() and list_empty() instead.
+
+Yes, POISON is a flag, that keven is or is not in the appropriate list.
+It could be done by wasting some bits, but I decided to not do it since
+list poison is always there.
+
+> > +static void __kevent_requeue(struct kevent *k, u32 event)
+> > +{
+> 
+> A few things here.  First, the event argument isn't used?
+
+Tss, it was used for printk when it was there :)
+
+> > +	err = k->callback(k);
+> 
+> This is being called while holding both the kevent_list->kevent_lock and
+> the k->st->lock.  So ->callback is being called with locks held and
+> interrupts blocked which is going to greatly restrict what can be done
+> there.  If that's what we want to do we should document the heck out of it.
+
+No, interrupts and bh a not blocked there, when it is called from
+origin's state machine.
+locking is following:
+
+storage_lock (interrupts and bh are in the state which was in a origin's
+state machine, for example socket code has bh disabled, but block layer
+has interrupts disabled here)
+check if at aleast one event in storage queue is requested for 
+	that event
+call callback
+It is possible to mark event as broken or done in callback, so we need
+to check event's flags. It does not actually require irqsave lock, since
+the same kevent can not live in several storages.
+We hold a lock to protect against userspace which can change that flags.
+If it is marked as ready we queue that event into ready list under
+ready list lock. That requires irq disabling, since that queue can be
+accessed from any context.
+So there are maximum 2 embedded locks.
+
+When userspace modifies kevent, it must protect against access from the
+origin, so it disables interrupt.
+
+> > +	spin_lock_irqsave(&k->lock, flags);
+> 
+> > +		spin_lock_irqsave(&k->user->ready_lock, flags);
+> 
+> It also now creates lock nesting three deep, which starts to feel
+> uncomfortable.  Have you run this under lockdep?  It might be fine, but
+> this kind of depth means those of us auditing have to stare very very
+> closely at the locks that paths acquire.  The fewer locks that are held
+> at a time, the better.
+
+Above sequence is only possible when userspace modifies kevent which was
+not fired yet, and that modification ends up in immediat fire.
+When it is called from origin's state machine irqs are disabled only
+when kevent is moved into the ready queue, since that queue can be
+accessed from different CPU or from irq on the same one.
+
+> > +void kevent_storage_ready(struct kevent_storage *st, 
+> > +		kevent_callback_t ready_callback, u32 event)
+> 
+> Hmm, the only caller that provides a callback is using it to call
+> kevent_break() on each event.  Could that not be done by the helper
+> itself if the caller provides the right event?  Is there some more
+> complicated use of the callback on the horizon?  Not a big deal, but
+> there are those who prefer to avoid code paths that nest lots of
+> callbacks in sequence.
+
+kevent users can call any callback they want here, for example it can
+mark all events as ready, not only broken, or all mark as one-shot if
+origin is going to be removed and so on.
+
+> > +	struct kevent *k, *n;
+> 
+> In general, it's nicer to user longer names please.  You'll notice
+> throughout the kernel that we use things like dentry, inode, page, sock,
+> etc, instead of d, i, p, and s.
+
+But we have 'sk' :)
+
+> > +struct kevent *kevent_alloc(gfp_t mask)
+> > +{
+> > +	return kmem_cache_alloc(kevent_cache, mask);
+> > +}
+> > +
+> > +void kevent_free(struct kevent *k)
+> > +{
+> > +	kmem_cache_free(kevent_cache, k);
+> > +}
+> 
+> We probably don't need these wrappers, just call the kmem_cache_*
+> functions directly.
+
+Ok.
+
+> > +static unsigned int kevent_user_poll(struct file *file, struct poll_table_struct *wait)
+> > +{
+> > +	struct kevent_user *u = file->private_data;
+> > +	unsigned int mask;
+> > +	
+> > +	poll_wait(file, &u->wait, wait);
+> > +	mask = 0;
+> > +
+> > +	if (u->ready_num)
+> > +		mask |= POLLIN | POLLRDNORM;
+> 
+> Shouldn't this be testing ready_num while holding the ready_lock?
+
+Integer read is atomic, so no need to wrap a lock around it.
+
+> > +	for (i=0; i<KEVENT_HASH_MASK+1; ++i) {
+> > +		INIT_LIST_HEAD(&u->kqueue[i].kevent_list);
+> > +		spin_lock_init(&u->kqueue[i].kevent_lock);
+> > +	}
+> 
+> ARRAY_SIZE(u->kqueue) should probably be used instead of trying to keep
+> (KEVENT_HASH_MASK + 1) in sync with the kqueue definition.
+
+Ok.
+
+> > +static inline void kevent_user_put(struct kevent_user *u)
+> > +{
+> > +	if (atomic_dec_and_test(&u->refcnt)) {
+> > +#ifdef CONFIG_KEVENT_USER_STAT
+> > +		printk("%s: u=%p, wait=%lu, immediately=%lu, total=%lu.\n", 
+> > +				__func__, u, u->wait_num, u->im_num, u->total);
+> > +#endif
+> 
+> printk() seems like a poor choice if this is meant to be a more formal
+> functionality.  If it's just a debugging aid then pr_debug() and DEBUG
+> might be nicer.
+
+Yes, I will wrap it into some nice function.
+
+> > +/*
+> > + * Remove kevent from user's list of all events, 
+> > + * dequeue it from storage and decrease user's reference counter,
+> > + * since this kevent does not exist anymore. That is why it is freed here.
+> > + */
+> > +static void kevent_finish_user(struct kevent *k, int lock, int deq)
+> 
+> How about providing locked and unlocked prototypes instead of an
+> argument that says whether to lock or not?  You know, the usual:
+> 
+> void __thingy() {
+> 	doit();
+> }
+> 
+> void thingy() {
+> 	lock();
+> 	__thingy();
+> 	unlock();
+> }
+
+Ok.
+
+> > +		list_del(&k->kevent_entry);
+> > +		u->kevent_num--;
+> 
+> I wonder if these shouldn't get micro helpers that then have BUG_ON()s
+> to test bad conditions.  like BUG_ON(list_empty() && kevent_num), that
+> sort of thing.
+
+Well, if list is empty that means that kevent_entry has a broken links,
+which will will fire on list_del.
+And having a lot of BUGs is not a good sign.
+But I do not care much actually about it, let's have couple...
+
+> > +static struct kevent *__kqueue_dequeue_one_ready(struct list_head *q, 
+> > +		unsigned int *qlen)
+> > +{
+> > +	struct kevent *k = NULL;
+> > +	unsigned int len = *qlen;
+> > +	
+> > +	if (len && !list_empty(q)) {
+> > +		k = list_entry(q->next, struct kevent, ready_entry);
+> > +		list_del(&k->ready_entry);
+> > +		*qlen = len - 1;
+> > +	}
+> > +	
+> > +	return k;
+> > +}
+> 
+> Hmm, this is only called in one place?  I'd either make the list_head
+> and lock into one struct (like struct sk_buff_head) or hoist the code
+> into the caller.
+
+No problem.
+
+> > +	list_for_each_entry(k, &l->kevent_list, kevent_entry) {
+> > +		spin_lock(&k->lock);
+> > +		if (k->event.user[0] == uk->user[0] && k->event.user[1] == uk->user[1] &&
+> > +				k->event.id.raw[0] == uk->id.raw[0] && 
+> > +				k->event.id.raw[1] == uk->id.raw[1]) {
+> > +			found = 1;
+> > +			spin_unlock(&k->lock);
+> 
+> Ahhh, it's fs/aio.c:lookup_kiocb() all over again :) :).  I guess we'll
+> get this in a hash, or something, before merging.
+
+Please note that it is searching inside hash bucket :)
+
+> > +	mutex_lock(&u->ctl_mutex);
+> > +
+> > +	for (i=0; i<ctl->num; ++i) {
+> > +		if (copy_from_user(&uk, arg, sizeof(struct ukevent))) {
+> > +			err = -EINVAL;
+> > +			break;
+> > +		}
+> > +
+> > +		if (kevent_modify(&uk, u))
+> 
+> So there are a bunch of these.  The internal list and kevents and such
+> have their own locks.  What are the mutexes serializing?  Why can't we
+> rely on the finger-grained object locking to make sure that concurrent
+> operations behave resonably?  One can imagine wanting to modify two
+> kevents in a context that have nothing to do with each other and not
+> wanting to serialize them at the context.
+
+Each lock is hosted inside a bucket, but kevent itself is protected by
+that mutex. lock is being held for relatively small operations, but
+mutex protects against the whole sequence of them (select bucket,
+search, hash and so on).
+
+> > +int kevent_user_add_ukevent(struct ukevent *uk, struct kevent_user *u)
+> > +{
+> > +	struct kevent *k;
+> > +	int err;
+> > +
+> > +	k = kevent_alloc(GFP_KERNEL);
+> > +	if (!k) {
+> > +		err = -ENOMEM;
+> > +		goto err_out_exit;
+> > +	}
+> > +
+> > +	memcpy(&k->event, uk, sizeof(struct ukevent));
+> 
+> This path is copying the ukevents twice.  First from userspace back up
+> in kevent_user_ctl_add() and then here into the kevent.  We should
+> rework things a bit so that we only copy it once.
+
+struct ukevent here can be allocated in stack and filled by naio or aio.
+I would not allow them to allocate and link kevents by itself, so I
+created this function.
+
+> > +#ifdef CONFIG_KEVENT_USER_STAT
+> > +	u->total++;
+> > +#endif
+> 
+> FWIW, this could hide behind some kevent_user_stat_inc(u) that could be
+> ifdefed away in the header.
+
+Ok.
+
+> > +	{
+> > +		unsigned long flags;
+> > +		unsigned int hash = kevent_user_hash(&k->event);
+> > +		struct kevent_list *l = &u->kqueue[hash];
+> > +		
+> > +		spin_lock_irqsave(&l->kevent_lock, flags);
+> > +		list_add_tail(&k->kevent_entry, &l->kevent_list);
+> > +		u->kevent_num++;
+> > +		kevent_user_get(u);
+> > +		spin_unlock_irqrestore(&l->kevent_lock, flags);
+> > +	}
+> 
+> Hmm, please don't indent things like this.  Add a little helper function
+> or hoist the locals up into the main function and lose the braces.
+
+Ok.
+
+> > +static int kevent_user_ctl_add(struct kevent_user *u, 
+> > +		struct kevent_user_control *ctl, void __user *arg)
+> > +{
+> 
+> > +	orig = arg;
+> > +	ctl_addr = arg - sizeof(struct kevent_user_control);
+> 
+> Ugh.  This is more awkwardness that comes from packing the system call
+> arguments in neighbouring structs behind a void *.  We should really
+> have explicit typed args.
+
+kevent_user_control will be replaced with explicit syscall parameters,
+so it will be removed.
+
+> > +	for (i=0; i<ctl->num; ++i) {
+> > +		if (copy_from_user(&uk, arg, sizeof(struct ukevent))) {
+> > +			cerr = -EINVAL;
+> > +			break;
+> > +		}
+> > +		arg += sizeof(struct ukevent);
+> > +
+> > +		err = kevent_user_add_ukevent(&uk, u);
+> 
+> There are some users that will want to add thousands of events at a
+> time.  (Like, say, a certain database writing back lots of cached
+> dirtied database blocks.)  I wonder if we should arrange this so that we
+> can get some batching done and reduce the amount of lock traffic per
+> event added.
+
+Well, it is possible with additional GPF_KERNEL allocation of the buffer, 
+do we want that cost?
+
+> > +/*
+> > + * In nonblocking mode it returns as many events as possible, but not more than @max_nr.
+> > + * In blocking mode it waits until timeout or if at least @min_nr events are ready,
+> > + * if timeout is zero, than it waits no more than 1 second or if at least one event
+> > + * is ready.
+> 
+> That's odd.  Why not have a timeout of 0 mean a timeout of 0?  Where did
+> 1 second come from? :)  It seems pretty crazy to require programmers to
+> check that their timer math didn't just end up at 0 and magically tell
+> the kernel to wait a second.
+
+Zero timeout means that we want as much as we have, but not less than one kevent.
+So we sleep one second for them :)
+I will use min_nr for that, i.e. if it is zero, than it meanst at least
+onee and less than max_nr.
+
+> > +	mutex_lock(&u->ctl_mutex);
+> > +	while (num < max_nr && ((k = kqueue_dequeue_ready(u)) != NULL)) {
+> > +		if (copy_to_user(buf + num*sizeof(struct ukevent), 
+> > +					&k->event, sizeof(struct ukevent))) {
+> > +			cerr = -EINVAL;
+> > +			break;
+> > +		}
+> 
+> Again, this a great opportunity to copy more than one at a time with
+> some refactoring.
+
+If we are going to remove ability to get events by ssycall it will be
+pure memcpy without additional overhead.
+
+> > +asmlinkage long sys_kevent_ctl(int fd, void __user *arg)
+> > +{
+> > +	int err = -EINVAL, fput_needed;
+> > +	struct kevent_user_control ctl;
+> > +	struct file *file;
+> > +
+> > +	if (copy_from_user(&ctl, arg, sizeof(struct kevent_user_control)))
+> > +		return -EINVAL;
+> > +
+> > +	if (ctl.cmd == KEVENT_CTL_INIT)
+> > +		return kevent_ctl_init();
+> 
+> Hmm.  So we can get one of these fds both by opening the device file or
+> by calling _CTL_INIT (which then magically ignores the fd argument?).
+> That seems confusing.
+
+So we want additional syscall? :)
+
+> Anyway, that's enough for now.  I hope this helps.
+
+Thanks Zach.
+
+> - z
+
+-- 
+	Evgeniy Polyakov
