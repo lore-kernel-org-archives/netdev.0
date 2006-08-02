@@ -1,44 +1,18 @@
-From: Xiaolan Zhang <cxzhang@us.ibm.com>
-Subject: Re: [Patch] kernel memory leak fix for af_unix datagram getpeersec patch
-Date: Wed, 2 Aug 2006 18:21:51 -0400
-Message-ID: <OFB994A805.0392D443-ON852571BE.007AA6ED-852571BE.007ADA31@us.ibm.com>
-References: <20060802.151906.21953222.davem@davemloft.net>
+From: "Rice" <Riceaugean@columnist.com>
+Subject: Every day you loose the sensations of seex!
+Date: Thu, 3 Aug 2006 00:47:08 +0200
+Message-ID: <61810190760875.1507AC5487@7NV3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: catalin.marinas@gmail.com, cxzhang@watson.ibm.com,
-	czhang.us@gmail.com, jmorris@namei.org,
-	linux-kernel@vger.kernel.org, michal.k.k.piotrowski@gmail.com,
-	netdev@vger.kernel.org, sds@tycho.nsa.gov
+Content-Type: text/plain;
+        charset="Windows-1252"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:32459 "EHLO e3.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S932279AbWHBWV6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 18:21:58 -0400
-In-Reply-To: <20060802.151906.21953222.davem@davemloft.net>
-To: David Miller <davem@davemloft.net>
+Received: from 196.Red-80-33-104.staticIP.rima-tde.net ([80.33.104.196]:50952
+	"EHLO 402") by vger.kernel.org with ESMTP id S932298AbWHBWnl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 18:43:41 -0400
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I see.  The build was fine under x86 and there are so many warnings that a 
--Werror probably won't work for me.
-
-thanks,
-Catherine
-
-David Miller <davem@davemloft.net> wrote on 08/02/2006 06:19:06 PM:
-
-> From: Xiaolan Zhang <cxzhang@us.ibm.com>
-> Date: Wed, 2 Aug 2006 18:18:07 -0400
-> 
-> > I did test it with CONFIG_SECURITY disabled, but did not catch the 
-warning 
-> > -- I verified that the build completes with a valid vmlinux image. 
-There 
-> > are many warnings (device drivers, and others) during the build and I 
-> > didn't do a grep to find which one is specific to my patch.  Next time 
-
-> > I'll do a diff on warnings too.
-> 
-> Some platforms build their platform code under arch/${ARCH}/foo with
-> -Werror added to CFLAGS, sparc64 is one such platform.  So the build
-> did break for me.
+Good day, You have a unique chance to forget this distress forever. Stop being a two pump chump. Extra-Time gives you not only extra time, but extra pleasure and extra confidence as well. Lack control over your squirting? Partner unhappy with the time you last in bed? Enter: http://aspento.com/gal/get/ Confidence and affection of your partner are the greatest things you get.
 
