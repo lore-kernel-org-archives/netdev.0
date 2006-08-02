@@ -1,70 +1,46 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [bug] e100: checksum mismatch on 82551ER rev10
-Date: Wed, 02 Aug 2006 09:50:18 -0700
-Message-ID: <44D0D7CA.2060001@intel.com>
-References: <Pine.LNX.4.61.0607311653360.24450@e-smith.charlieb.ott.istop.com>
+From: Rainer Baumann <baumann@tik.ee.ethz.ch>
+Subject: [PATCH 2.6.16.19 0/2] LARTC: trace control for netem
+Date: Wed, 02 Aug 2006 19:21:27 +0200
+Message-ID: <44D0DF17.6060809@tik.ee.ethz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	molle.bestefich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34938 "EHLO
-	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
-	id S1750955AbWHBQvb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Aug 2006 12:51:31 -0400
-To: Charlie Brady <charlieb@budge.apana.org.au>
-In-Reply-To: <Pine.LNX.4.61.0607311653360.24450@e-smith.charlieb.ott.istop.com>
+To: Stephen Hemminger <shemminger@osdl.org>, netdev@VGER.KERNEL.ORG
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[cc-ing netdev]
-[adding original thread authors back, please do not strip CC]
+Hi,
 
-Charlie Brady wrote:
->> Molle Bestefich wrote:
->>> The NICs are working perfectly.
->> How can you tell? Do you know if jumbo frames work correctly? Is the
->> device properly checksumming? is flow control working properly? These
->> and many, many more settings are determined by the EEPROM. Seemingly it
->> may work correctly, but there is no guarantee whatsoever that it will 
->> work
->> correctly at all if the checksum is bad. Again, you can lose data, or
->> worse, you could corrupt memory in the system causing massive failure 
->> (DMA
->> timings, etc). Unlikely? sure, but not impossible.
-> 
-> Let's assume that these things are all true, and the NIC currently does 
-> not work perfectly, just imperfectly, but acceptably. With the recent 
-> driver change, it now does not work at all. That's surely a bug in the 
-> driver.
+We developed an extension to the network emulator netem, that provides
+emulation of long term network properties such as long-range dependence
+and self-similarity of cross-traffic. It is not possible to emulate
+these properties with the  statistical tables for the packet delay
+values used by the original netem.
 
-There is no logic in that sentence at all. You're saying that the driver is 
-broken because it doesn't fix an error in the EEPROM?
+We read the values for the packet delay, drop, loss and corruption from
+a pre-generated trace file. This trace file is obtained by monitoring
+network traffic and writing all actions to a trace file. During the
+emulation the packets get processed according the values in such a trace
+file. Detailed information are available on our
+Webseitehttp://tcn.hypert.net
 
-We're trying extremely hard to fix real errors here (especially when we find 
-that hardware resellers send out hardware with EEPROM problems) and you are 
-asking for a workaround that will (likely) introduce random errors and failure 
-into your kernel. I do not want to accept responsability for that and I also 
-do not think any other kernel developer would like me to release such a risk 
-into the kernel. I'd probably get whistled back instantly :)
+A new option (trace) has been added to the netem command. If the trace
+option is used, the values for packet delay etc. are read from a trace
+file, afterwards the packets are processed by the normal netem functions.
+The packet action values are readout from the trace file in user space
+and sent to kernel space via procfs.
 
-If you want to edit your own kernel then I am fine with it. If you want to 
-recalculate the checksum yourself and put it in the EEPROM then I am also fine 
-with that. As long as you never ask for support for that NIC. But we can't 
-support an option that allows all users to willingly enable a piece of 
-non-properly-working hardware. Because that is what it is: Not properly 
-configured hardware.
+The evaluation results show similar behavior for our enhancement and the
+original netem with respect to packet delay precision and packet loss at
+high load (e.g. 80'000 packets per second).
+It is possible to add, change or delete multiple netem qdiscs on-the-fly
+(original netem qdiscs and trace qdiscs mixed).
 
-The bottom line is that your problem is that a specific hardware vendor is/was 
-selling badly configured hardware, and you buy it from them, even after it's 
-End Of Lifed for that vendor. Even though that vendor did buy the units 
-properly configured and had all the tools needed to configure them properly. I 
-can maybe fix your problem by seeing if we can get you an eeprom update, but I 
-can not break everyone elses kernel for that.
+We are looking forward for any comments, feedback and suggestions!
 
-Auke
+Thanks,
+Rainer
 
 
 
