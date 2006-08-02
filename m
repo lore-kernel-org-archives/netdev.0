@@ -1,37 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Mobile IPv6 introduction
-Date: Wed, 02 Aug 2006 14:14:01 -0700 (PDT)
-Message-ID: <20060802.141401.105110100.davem@davemloft.net>
-References: <44D01AEE.3030606@linux-ipv6.org>
-	<20060802104756.GN8334@innerghost.net>
-	<44D0A294.5000208@linux-ipv6.org>
+From: Xiaolan Zhang <cxzhang@us.ibm.com>
+Subject: Re: [Patch] kernel memory leak fix for af_unix datagram getpeersec patch
+Date: Wed, 2 Aug 2006 17:14:31 -0400
+Message-ID: <OF2188FBCE.E3CAA317-ON852571BE.00749BCD-852571BE.0074B02B@us.ibm.com>
+References: <20060802.141103.35507776.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hsantos@av.it.pt, yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi,
-	vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: catalin.marinas@gmail.com, cxzhang@watson.ibm.com,
+	czhang.us@gmail.com, jmorris@namei.org,
+	linux-kernel@vger.kernel.org, michal.k.k.piotrowski@gmail.com,
+	netdev@vger.kernel.org, sds@tycho.nsa.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:25504
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932176AbWHBVNw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Aug 2006 17:13:52 -0400
-To: nakam@linux-ipv6.org
-In-Reply-To: <44D0A294.5000208@linux-ipv6.org>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:62390 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S932191AbWHBVOg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 17:14:36 -0400
+In-Reply-To: <20060802.141103.35507776.davem@davemloft.net>
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Date: Wed, 02 Aug 2006 22:03:16 +0900
+David,
 
-> If there is much requirement to add new type number without any
-> modification of kernel code at all I would support ICMPv6 filter
-> approach, too.
+I will remember this in the future, I promise.
 
-There is no such requirement, please just continue to prepare
-your current patches for inclusion.
+thank you,
+Catherine
 
-There is a limit to how much nit-picking we can do for such
-a large body of work, and we should thus take evolutionary
-approach to this work.  We can make all kinds of refinements
-later to improve the implementation.
+David Miller <davem@davemloft.net> wrote on 08/02/2006 05:11:03 PM:
+
+> 
+> Catherine you really must begin to remember to add
+> proper "Signed-off-by: " lines to your patch submissions.
+> 
+> I'll sign off on this bug fix, but in the future I will not
+> do so for you any more as you've been told at least 3 or 4
+> times about this.
+> 
+> Thank you.
+
