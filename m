@@ -1,83 +1,113 @@
-From: Rainer Baumann <baumann@tik.ee.ethz.ch>
-Subject: Re: [PATCH 2.6.16.19 0/2] LARTC: trace control for netem
-Date: Wed, 02 Aug 2006 21:02:55 +0200
-Message-ID: <44D0F6DF.9060408@tik.ee.ethz.ch>
-References: <44D0DF17.6060809@tik.ee.ethz.ch> <20060802111921.31906ea1@dxpl.pdx.osdl.net>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH] SMSC LAN911x and LAN921x vendor driver
+Date: Wed, 2 Aug 2006 20:23:40 +0100
+Message-ID: <OF9CB563CF.865D1AC6-ON802571BE.006924E4-802571BE.006A884B@smsc.com>
+References: <20060801153313.GD29208@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@VGER.KERNEL.ORG, netem@osdl.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Bahadir Balban <Bahadir.Balban@arm.com>, ian.saturley@smsc.com,
+	netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>,
+	Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060802111921.31906ea1@dxpl.pdx.osdl.net>
+Received: from mail.smsc.com ([170.129.50.11]:44306 "EHLO smsc.com")
+	by vger.kernel.org with ESMTP id S932150AbWHBTYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 15:24:05 -0400
+In-Reply-To: <20060801153313.GD29208@tuxdriver.com>
+To: "John W. Linville" <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanx for your feedback! We will try to fix this.
-Rainer
+Hi John,
 
-Stephen Hemminger wrote:
-> On Wed, 02 Aug 2006 19:21:27 +0200
-> Rainer Baumann <baumann@tik.ee.ethz.ch> wrote:
->
->   
->> Hi,
->>
->> We developed an extension to the network emulator netem, that provides
->> emulation of long term network properties such as long-range dependence
->> and self-similarity of cross-traffic. It is not possible to emulate
->> these properties with the  statistical tables for the packet delay
->> values used by the original netem.
->>
->> We read the values for the packet delay, drop, loss and corruption from
->> a pre-generated trace file. This trace file is obtained by monitoring
->> network traffic and writing all actions to a trace file. During the
->> emulation the packets get processed according the values in such a trace
->> file. Detailed information are available on our
->> Webseitehttp://tcn.hypert.net
->>
->> A new option (trace) has been added to the netem command. If the trace
->> option is used, the values for packet delay etc. are read from a trace
->> file, afterwards the packets are processed by the normal netem functions.
->> The packet action values are readout from the trace file in user space
->> and sent to kernel space via procfs.
->>
->> The evaluation results show similar behavior for our enhancement and the
->> original netem with respect to packet delay precision and packet loss at
->> high load (e.g. 80'000 packets per second).
->> It is possible to add, change or delete multiple netem qdiscs on-the-fly
->> (original netem qdiscs and trace qdiscs mixed).
->>
->> We are looking forward for any comments, feedback and suggestions!
->>
->> Thanks,
->> Rainer
->>     
->
-> I like the idea and want to get it incorporated.
->
-> Major things that need fixing:
-> * Don't extend size of tc_netem_qopt instead use a new netlink
->   payload.
->     + add type to TCA_NETEM_ enum
->     + new structure containing the payload
->   This allows for binary compatiablity.
->
-> * Don't use proc for a interface to netem features. Use netlink.
->   Either add a new command (or option) to the iproute2 commands
->   to handle flow table, or add a new payload.
->
->
-> Minor stuff:
-> * the bzero macro in netem is a BSDism, just use memset
-> * bad indentation and style issues.
-> * minor whitespace damage in several places in patch
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->   
+Thanks for all your feedback.
 
+> > +/* waits for MAC not busy, with timeout.  Assumes MacPhyAccessLock 
+has
+> > + * already been acquired */
+> > +static int smsc911x_mac_notbusy(struct smsc911x_data *pdata)
+> > +{
+> > +            int i;
+> > +
+> > +            for (i = 0; i < 40; i++) {
+> > +                            if ((smsc911x_reg_read(pdata, 
+MAC_CSR_CMD)
+> > +                                 & MAC_CSR_CMD_CSR_BUSY_) == 0) {
+> > +                                            return 1;
+> > +                            }
+> > +            }
+> > +            SMSC_WARNING("Timed out waiting for MAC not BUSY. "
+> > +                                 "MAC_CSR_CMD: 0x%08X", 
+smsc911x_reg_read(pdata,
+> > +                                  MAC_CSR_CMD));
+> > +            return 0;
+> > +}
+> 
+> How is the length of this timeout controlled?  IOW, what prevents
+> it from being too short when the Omegatron 128 running at 10GHz hits
+> the market?  Are you relying on the MII clock rate?
+
+The LAN911x and LAN921x devices uses an SRAM-like bus interface with a 
+minimum cycle time of 45ns, so smsc_reg_read() and smsc_reg_write() are 
+guaranteed to take at least 45ns.  The MAC operates a little slower, but 
+the operation shouldn't take longer than 225ns (5 read cycles).
+
+The PHY is accessed via slave registers in the MAC (which then relays the 
+command over mii), so its timeout works in the same way.
+
+The timeouts are only there to prevent total lockup if the hardware fails, 
+if the part is working it should take nowhere near 40 iterations.
+
+
+> > +                            /* Auto-detect PHY */
+> > +                            for (address = 0; address <= 31; 
+address++) {
+> > +                                            pdata->phy_address = 
+address;
+> > +                                            phyid1 = 
+smsc911x_phy_read(pdata, MII_PHYSID1);
+> > +                                            phyid2 = 
+smsc911x_phy_read(pdata, MII_PHYSID2);
+> > +                                            if ((phyid1 != 0xFFFFU) 
+|| (phyid2 != 0xFFFFU)) {
+> > + SMSC_TRACE("Detected PHY at address = "
+> > +     "0x%02X = %d", address, address);
+> > +                                                            break;
+> > +                                            }
+> > +                            }
+> 
+> Does this need the magic "for (addr=1; addr <=32; addr++)" trick that
+> has become idiomatic for PHY discovery in our drivers?
+
+I don't understand the question - surely 32 is not a valid PHY address?
+
+
+> > +/* SMSC911x registers and bitfields */
+> > +#define RX_DATA_FIFO                        0x00
+> > +
+> > +#define TX_DATA_FIFO                        0x20
+> > +#define TX_CMD_A_ON_COMP_   0x80000000
+> > +#define TX_CMD_A_BUF_END_ALGN_              0x03000000
+> > +#define TX_CMD_A_4_BYTE_ALGN_               0x00000000
+> > +#define TX_CMD_A_16_BYTE_ALGN_              0x01000000
+> > +#define TX_CMD_A_32_BYTE_ALGN_              0x02000000
+> > +#define TX_CMD_A_DATA_OFFSET_               0x001F0000
+> > +#define TX_CMD_A_FIRST_SEG_                 0x00002000
+> > +#define TX_CMD_A_LAST_SEG_          0x00001000
+> > +#define TX_CMD_A_BUF_SIZE_          0x000007FF
+> > +#define TX_CMD_B_PKT_TAG_   0xFFFF0000
+> > +#define TX_CMD_B_ADD_CRC_DISABLE_  0x00002000
+> > +#define TX_CMD_B_DISABLE_PADDING_  0x00001000
+> > +#define TX_CMD_B_PKT_BYTE_LENGTH_  0x000007FF
+> 
+> Looks like something went haywire w/ your tabbing in this file...?
+
+Its just the "+ " in the patch, once applied it looks quite pretty!
+
+Best Regards,
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
 
 
