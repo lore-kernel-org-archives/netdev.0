@@ -1,55 +1,83 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help() 2.6.18-rc3
-Date: Wed, 2 Aug 2006 10:49:29 +1000
-Message-ID: <20060802004929.GA12404@gondor.apana.org.au>
-References: <44CD8415.2020403@davidcoulson.net> <44CD85FF.9010607@trash.net> <20060730.215907.58439803.davem@davemloft.net> <44CD9013.7020401@trash.net> <44CDDDF7.70004@trash.net> <20060731113050.GA25972@gondor.apana.org.au>
+From: Hugo Santos <hsantos@av.it.pt>
+Subject: Re: [RFC] Mobile IPv6 introduction
+Date: Wed, 2 Aug 2006 01:58:49 +0100
+Message-ID: <20060802005849.GK8334@innerghost.net>
+References: <44CB2914.9010803@linux-ipv6.org> <20060729141244.GJ8334@innerghost.net> <20060801.173535.38709014.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="cO2ZlOvi7VNgmdOy"
+Cc: nakam@linux-ipv6.org, yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi,
+	vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:24850 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750885AbWHBAtp
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Aug 2006 20:49:45 -0400
-To: Patrick McHardy <kaber@trash.net>
+Received: from mail.av.it.pt ([193.136.92.53]:46813 "EHLO av.it.pt")
+	by vger.kernel.org with ESMTP id S1750882AbWHBA6v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Aug 2006 20:58:51 -0400
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20060731113050.GA25972@gondor.apana.org.au>
+In-Reply-To: <20060801.173535.38709014.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 31, 2006 at 09:30:50PM +1000, herbert wrote:
->
-> > diff --git a/net/ipv4/netfilter/ip_nat_core.c b/net/ipv4/netfilter/ip_nat_core.c
-> > index 1741d55..731efbb 100644
-> > --- a/net/ipv4/netfilter/ip_nat_core.c
-> > +++ b/net/ipv4/netfilter/ip_nat_core.c
-> > @@ -443,7 +443,9 @@ int ip_nat_icmp_reply_translation(struct
-> >  
-> >  	/* We're actually going to mangle it beyond trivial checksum
-> >  	   adjustment, so make sure the current checksum is correct. */
-> > -	if ((*pskb)->ip_summed != CHECKSUM_UNNECESSARY) {
-> > +
-> > +	if ((*pskb)->ip_summed != CHECKSUM_UNNECESSARY &&
-> > +	    (*pskb)->ip_summed != CHECKSUM_PARTIAL) {
-> >  		hdrlen = (*pskb)->nh.iph->ihl * 4;
-> >  		if ((u16)csum_fold(skb_checksum(*pskb, hdrlen,
-> >  						(*pskb)->len - hdrlen, 0)))
 
-Actually, we could drop this chunk of code altogether.
+--cO2ZlOvi7VNgmdOy
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-The reason is that if the packet comes in with the correct checksum,
-it'll go out of NAT with the correct checksum.  If it came in with
-the wrong checksum, it'll go out with the wrong checksum.
+David,
 
-We let TCP packets with incorrect checksums pass through NAT, so why
-not do the same here?
+On Tue, Aug 01, 2006 at 05:35:35PM -0700, David Miller wrote:
+> This is partly why the multiple routing table code is being
+> added as the initial infrastrucutre, so that source based
+> things are possible.
 
-After all, we're here to do NAT, not verify checksums.  We charge extra
-for that :)
+   There have been other approaches for partial source-based stuff. For
+ instance, in my tree i brought Subtrees back to a point of being
+ usable. But what i was refering to was route-caching (some places only
+ check cookies based on dst because we "don't support source routing"),
+ APIs, etc. A few mails back you pointed the extension of a public
+ structure to include a "source" attribute -- this is the kind of stuff
+ we must add and that i think it's an independent work (read: even if
+ the rest isn't merged, this should).
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+   Still regarding Subtrees, is there any interest in revitalizing that
+ code? I have a couple patches that i could submit.
+
+> Such a scheme would need provisions for handling the case where
+> the user eats the message, but never tells us what to do.
+> In such a case we'd need to emit some kind of ICMPv6 message,
+> even if it would be just a timeout generated parameter problem.
+
+   As i see it, the moment there is a raw socket open for dealing with a
+ particular protocol, whoever opened that socket (handling the protocol)
+ is responsible of generating any error messages associated with the
+ protocol running.  Which is the case, the kernel shouldn't need to know
+ whether any of the Mobile IPv6 specific messages have problems. The
+ particular patch i was refering to does partial MIPv6 message
+ processing inside the kernel before handing it to the socket as you
+ only have access to the full received headers there.
+
+> Such a layer would be needed if we ever put some kernel level
+> components of Mobile IPv4 into the tree, which I see no reason
+> not to, since it has this route optimization as well.
+
+   Yes, the functionality is needed. My only problem is with exposing
+ MODE_ROUTEOPTIMIZATION, it isn't modular. But it's something i can live
+ with.
+
+   Hugo
+
+--cO2ZlOvi7VNgmdOy
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFEz/jJ7asb/itUNKwRAozyAJ0ccr1uCkvGx2V4laoctNyTYcMhTACeIRlX
+MTaAPzy6ZgsDvRjtfRp1phU=
+=P9cj
+-----END PGP SIGNATURE-----
+
+--cO2ZlOvi7VNgmdOy--
