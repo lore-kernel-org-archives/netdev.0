@@ -1,35 +1,43 @@
-From: "Myrna" <bedpostbark@adexec.com>
-Subject: Enjoy the newest Make your girlfriend or wife speechless with increased hardness, richer orgsms and more power in bed
-Date: Thu, 3 Aug 2006 21:17:54 +0800
-Message-ID: <54515228793650.2E0F0049AA@TQNQ0R>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: Regarding offloading IPv6 addrconf and ndisc
+Date: Thu, 3 Aug 2006 15:28:57 +0200
+Message-ID: <200608031528.57668.netdev@axxeo.de>
+References: <200608010231.58339.ak@suse.de> <20060801120003.GY8334@innerghost.net> <20060801.145705.71091996.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
-        charset="Windows-1252"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
+Cc: hsantos@av.it.pt, ak@suse.de, herbert@gondor.apana.org.au,
+	kazunori@miyazawa.org, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus1.kernel.org ([204.152.191.4]:33193 "EHLO zeus1.kernel.org")
-	by vger.kernel.org with ESMTP id S932400AbWHCNRw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 09:17:52 -0400
-Received: from S-FCEA62EE28764 ([222.46.52.231])
-	by zeus1.kernel.org (8.13.7/8.13.1) with ESMTP id k73DHTEK003599
-	for <netdev@vger.kernel.org>; Thu, 3 Aug 2006 13:17:50 GMT
-To: <netdev@vger.kernel.org>
+Received: from mail.axxeo.de ([82.100.226.146]:979 "EHLO mail.axxeo.de")
+	by vger.kernel.org with ESMTP id S932085AbWHCN3t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 09:29:49 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060801.145705.71091996.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear member,
+Hi,
 
- Rock hard manhood, multiple explosions and several times more semen volumeAchieve astounding results in bed with these products designed to make any man a winner
+David Miller wrote:
+> Developer momentum means that the kernel is likely to get fixed
+> whereas the userland component will more likely rot and not get
+> fixed.
+> 
+> So in this sense resiliency does depend upon something being in
+> the kernel or not.
 
-Make your girlfriend or wife speechless with increased hardness, richer orgsms and more power in bed
+I can only agree here. Lots of users use their own kernels instead 
+of distribution kernels. Much less users divert core software from 
+their distribution.
+
+The big binary called bzImage/vmlinux whatever is a huge usability
+advantage here :-)
 
 
- You may find what you need here: http://www.audionjn.com
+Regards
 
-Myrna Delacruz
-
-
-Experience is a great servantWatch your thoughts, they become words Watch your words, they become actions, watch your actions, they become habits, watch your habits, they become characer Watch your character, it becomes your destiny 
-
-Actions speak louder than words. Fools and madmen speak the truth
-
+Ingo Oeser
