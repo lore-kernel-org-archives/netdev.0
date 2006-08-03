@@ -1,128 +1,157 @@
-From: Arnd Hannemann <arnd@arndnet.de>
-Subject: Re: problems with e1000 and jumboframes
-Date: Thu, 03 Aug 2006 20:09:07 +0200
-Message-ID: <44D23BC3.7040707@arndnet.de>
-References: <44D1FEB7.2050703@arndnet.de> <20060803135925.GA28348@2ka.mipt.ru>
- <44D20A2F.3090005@arndnet.de> <20060803150330.GB12915@2ka.mipt.ru>
- <Pine.LNX.4.64.0608031705560.8443@bizon.gios.gov.pl>
- <20060803151631.GA14774@2ka.mipt.ru> <20060803154125.GA9745@2ka.mipt.ru>
+From: Sean Hefty <mshefty@ichips.intel.com>
+Subject: Re: [openib-general] [PATCH v4 2/2] iWARP Core Changes.
+Date: Thu, 03 Aug 2006 11:11:11 -0700
+Message-ID: <44D23C3F.3000204@ichips.intel.com>
+References: <20060802202747.24212.10931.stgit@dell3.ogc.int> <20060802202752.24212.73349.stgit@dell3.ogc.int>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Boundary_(ID_0KsYae0UblYfSKytDfHLSw)"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org, olel@ans.pl
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rdreier@cisco.com, netdev@vger.kernel.org, davem@davemloft.net,
+	openib-general@openib.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms-2.rz.RWTH-Aachen.DE ([134.130.3.131]:53152 "EHLO
-	ms-dienst.rz.rwth-aachen.de") by vger.kernel.org with ESMTP
-	id S932429AbWHCSJA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 14:09:00 -0400
-Received: from circe (circe.rz.RWTH-Aachen.DE [134.130.3.36])
- by ms-dienst.rz.rwth-aachen.de
- (iPlanet Messaging Server 5.2 Patch 2 (built Jul 14 2004))
- with ESMTP id <0J3F00HJQP2Y9T@ms-dienst.rz.rwth-aachen.de> for
- netdev@vger.kernel.org; Thu, 03 Aug 2006 20:08:58 +0200 (MEST)
-Received: from dustpuppy.kawo2.rwth-aachen.de
- (dustpuppy.kawo2.RWTH-Aachen.DE [134.130.180.5])	by smarthost.rwth-aachen.de
- (8.13.7/8.13.1/1) with ESMTP id k73I8uKf030746	for <netdev@vger.kernel.org>;
- Thu, 03 Aug 2006 20:08:56 +0200
-Received: from dustpuppy.kawo2.rwth-aachen.de (localhost [127.0.0.1])
-	by dustpuppy.kawo2.rwth-aachen.de (Postfix) with ESMTP id 942D51FC29E	for
- <netdev@vger.kernel.org>; Thu, 03 Aug 2006 20:08:57 +0200 (CEST)
-In-reply-to: <20060803154125.GA9745@2ka.mipt.ru>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Received: from mga09.intel.com ([134.134.136.24]:28026 "EHLO
+	orsmga102-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S964777AbWHCSOj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 14:14:39 -0400
+To: Steve Wise <swise@opengridcomputing.com>
+In-Reply-To: <20060802202752.24212.73349.stgit@dell3.ogc.int>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+Steve Wise wrote:
+> diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
+> index d294bbc..83f84ef 100644
+> --- a/drivers/infiniband/core/addr.c
+> +++ b/drivers/infiniband/core/addr.c
+> @@ -32,6 +32,7 @@ #include <linux/mutex.h>
+>  #include <linux/inetdevice.h>
+>  #include <linux/workqueue.h>
+>  #include <linux/if_arp.h>
+> +#include <linux/inetdevice.h>
 
---Boundary_(ID_0KsYae0UblYfSKytDfHLSw)
-Content-type: text/plain; charset=KOI8-R
-Content-transfer-encoding: 7BIT
+File is included 3 lines up.
 
-Evgeniy Polyakov schrieb:
-> On Thu, Aug 03, 2006 at 07:16:31PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
->>>> then skb_alloc adds a little
->>>> (sizeof(struct skb_shared_info)) at the end, and this ends up
->>>> in 32k request just for 9k jumbo frame.
->>> Strange, why this skb_shared_info cannon be added before first alignment? 
->>> And what about smaller frames like 1500, does this driver behave similar 
->>> (first align then add)?
->> It can be.
->> Could attached  (completely untested) patch help?
-> 
-> Actually this patch will not help, this new one could.
-> 
+> diff --git a/drivers/infiniband/core/cache.c b/drivers/infiniband/core/cache.c
+> index e05ca2c..061858c 100644
+>  #include <linux/module.h>
+>  #include <linux/errno.h>
+>  #include <linux/slab.h>
+> -#include <linux/sched.h>	/* INIT_WORK, schedule_work(), flush_scheduled_work() */
 
-I applied the attached pachted. And got this output:
+I'm guessing that the include isn't currently needed, since none of the other 
+changes to the file should have removed its dependency.  Should this be put into 
+a separate patch?
 
-> Intel(R) PRO/1000 Network Driver - bufsz 13762
-> Intel(R) PRO/1000 Network Driver - bufsz 16222
-> Intel(R) PRO/1000 Network Driver - bufsz 16058
-> Intel(R) PRO/1000 Network Driver - bufsz 15894
-> Intel(R) PRO/1000 Network Driver - bufsz 15730
-> Intel(R) PRO/1000 Network Driver - bufsz 15566
-> Intel(R) PRO/1000 Network Driver - bufsz 15402
-> Intel(R) PRO/1000 Network Driver - bufsz 15238
-> Intel(R) PRO/1000 Network Driver - bufsz 15074
-> Intel(R) PRO/1000 Network Driver - bufsz 14910
-> Intel(R) PRO/1000 Network Driver - bufsz 14746
-> Intel(R) PRO/1000 Network Driver - bufsz 14582
-> Intel(R) PRO/1000 Network Driver - bufsz 14418
-> Intel(R) PRO/1000 Network Driver - bufsz 14254
-> Intel(R) PRO/1000 Network Driver - bufsz 14090
-> Intel(R) PRO/1000 Network Driver - bufsz 13926
-> Intel(R) PRO/1000 Network Driver - bufsz 13762
-> Intel(R) PRO/1000 Network Driver - bufsz 16222
-> Intel(R) PRO/1000 Network Driver - bufsz 16058
-> Intel(R) PRO/1000 Network Driver - bufsz 15894
-> Intel(R) PRO/1000 Network Driver - bufsz 15730
-> Intel(R) PRO/1000 Network Driver - bufsz 15566
-> Intel(R) PRO/1000 Network Driver - bufsz 15402
-> Intel(R) PRO/1000 Network Driver - bufsz 15238
-> Intel(R) PRO/1000 Network Driver - bufsz 15074
-> Intel(R) PRO/1000 Network Driver - bufsz 14910
-> Intel(R) PRO/1000 Network Driver - bufsz 14746
-> Intel(R) PRO/1000 Network Driver - bufsz 14582
-> Intel(R) PRO/1000 Network Driver - bufsz 14418
-> Intel(R) PRO/1000 Network Driver - bufsz 16222
-> Intel(R) PRO/1000 Network Driver - bufsz 16222
-> Intel(R) PRO/1000 Network Driver - bufsz 16222
-> Intel(R) PRO/1000 Network Driver - bufsz 16222
-> Intel(R) PRO/1000 Network Driver - bufsz 16222
-> Intel(R) PRO/1000 Network Driver - bufsz 16222
-> Intel(R) PRO/1000 Network Driver - bufsz 16222
-> Intel(R) PRO/1000 Network Driver - bufsz 16222
-> Intel(R) PRO/1000 Network Driver - bufsz 16222
-> Intel(R) PRO/1000 Network Driver - bufsz 16222
-> Intel(R) PRO/1000 Network Driver - bufsz 16222
+> +static int iw_conn_req_handler(struct iw_cm_id *cm_id, 
+> +			       struct iw_cm_event *iw_event)
+> +{
+> +	struct rdma_cm_id *new_cm_id;
+> +	struct rdma_id_private *listen_id, *conn_id;
+> +	struct sockaddr_in *sin;
+> +	struct net_device *dev = NULL;
+> +	int ret;
+> +
+> +	listen_id = cm_id->context;
+> +	atomic_inc(&listen_id->dev_remove);
+> +	if (!cma_comp(listen_id, CMA_LISTEN)) {
+> +		ret = -ECONNABORTED;
+> +		goto out;
+> +	}
+> +
+> +	/* Create a new RDMA id for the new IW CM ID */
+> +	new_cm_id = rdma_create_id(listen_id->id.event_handler, 
+> +				   listen_id->id.context,
+> +				   RDMA_PS_TCP);
+> +	if (!new_cm_id) {
+> +		ret = -ENOMEM;
+> +		goto out;
+> +	}
+> +	conn_id = container_of(new_cm_id, struct rdma_id_private, id);
+> +	atomic_inc(&conn_id->dev_remove);
 
-I'm a bit puzzled that there are so much allocations. However the patch
-seems to work. (at least not obviously breaks things for me yet)
+This is not released in error cases.  See below.
 
-Best regards
-Arnd
+> +	conn_id->state = CMA_CONNECT;
+> +
+> +	dev = ip_dev_find(iw_event->local_addr.sin_addr.s_addr);
+> +	if (!dev) {
+> +		ret = -EADDRNOTAVAIL;
 
+cma_release_remove(conn_id);
 
---Boundary_(ID_0KsYae0UblYfSKytDfHLSw)
-Content-type: text/plain; name=patch.txt
-Content-transfer-encoding: 7BIT
-Content-disposition: inline; filename=patch.txt
+> +		rdma_destroy_id(new_cm_id);
+> +		goto out;
+> +	}
+> +	ret = rdma_copy_addr(&conn_id->id.route.addr.dev_addr, dev, NULL);
+> +	if (ret) {
 
---- linux-2.6.17.6/drivers/net/e1000/e1000_main.c	2006-08-03 17:38:53.000000000 +0200
-+++ linux-2.6.17.6.patched/drivers/net/e1000/e1000_main.c	2006-08-03 19:38:53.000000000 +0200
-@@ -3843,9 +3843,13 @@
- 	buffer_info = &rx_ring->buffer_info[i];
- 
- 	while (cleaned_count--) {
--		if (!(skb = buffer_info->skb))
-+		if (!(skb = buffer_info->skb)) {
-+			if (SKB_DATA_ALIGN(adapter->hw.max_frame_size) + sizeof(struct skb_shared_info) <= bufsz) {
-+				bufsz -= sizeof(struct skb_shared_info);
-+				printk(KERN_INFO "%s - bufsz %d\n",e1000_driver_string, bufsz);
-+			}
- 			skb = dev_alloc_skb(bufsz);
--		else {
-+		} else {
- 			skb_trim(skb, 0);
- 			goto map_skb;
- 		}
+cma_release_remove(conn_id);
 
---Boundary_(ID_0KsYae0UblYfSKytDfHLSw)--
+> +		rdma_destroy_id(new_cm_id);
+> +		goto out;
+> +	}
+> +
+> +	ret = cma_acquire_dev(conn_id);
+> +	if (ret) {
+
+cma_release_remove(conn_id);
+
+> +		rdma_destroy_id(new_cm_id);
+> +		goto out;
+> +	}
+> +
+> +	conn_id->cm_id.iw = cm_id;
+> +	cm_id->context = conn_id;
+> +	cm_id->cm_handler = cma_iw_handler;
+> +
+> +	sin = (struct sockaddr_in *) &new_cm_id->route.addr.src_addr;
+> +	*sin = iw_event->local_addr;
+> +	sin = (struct sockaddr_in *) &new_cm_id->route.addr.dst_addr;
+> +	*sin = iw_event->remote_addr;
+> +
+> +	ret = cma_notify_user(conn_id, RDMA_CM_EVENT_CONNECT_REQUEST, 0,
+> +			      iw_event->private_data,
+> +			      iw_event->private_data_len);
+> +	if (ret) {
+> +		/* User wants to destroy the CM ID */
+> +		conn_id->cm_id.iw = NULL;
+> +		cma_exch(conn_id, CMA_DESTROYING);
+> +		cma_release_remove(conn_id);
+> +		rdma_destroy_id(&conn_id->id);
+> +	}
+> +
+> +out:
+> +	if (!dev)
+> +		dev_put(dev);
+
+Shouldn't this be: if (dev)?
+
+> +	cma_release_remove(listen_id);
+> +	return ret;
+> +}
+> @@ -1357,8 +1552,8 @@ static int cma_resolve_loopback(struct r
+>  	ib_addr_set_dgid(&id_priv->id.route.addr.dev_addr, &gid);
+>  
+>  	if (cma_zero_addr(&id_priv->id.route.addr.src_addr)) {
+> -		src_in = (struct sockaddr_in *)&id_priv->id.route.addr.src_addr;
+> -		dst_in = (struct sockaddr_in *)&id_priv->id.route.addr.dst_addr;
+> +		src_in = (struct sockaddr_in *) &id_priv->id.route.addr.src_addr;
+> +		dst_in = (struct sockaddr_in *) &id_priv->id.route.addr.dst_addr;
+
+trivial spacing change only
+
+> +static inline void iw_addr_get_sgid(struct rdma_dev_addr* rda, 
+> +				    union ib_gid *gid)
+> +{
+> +	memcpy(gid, rda->src_dev_addr, sizeof *gid);
+> +}
+> +
+> +static inline union ib_gid* iw_addr_get_dgid(struct rdma_dev_addr* rda)
+> +{
+> +	return (union ib_gid *) rda->dst_dev_addr;
+> +}
+
+Minor personal nit: for consistency with the rest of the file, can you use 
+dev_addr in place of rda?
+
+- Sean
