@@ -1,65 +1,99 @@
-From: Martin Michlmayr <tbm@cyrius.com>
-Subject: Re: r8169 driver problem with RTL8110SB chip (on iop3xx ARM board)
-Date: Thu, 3 Aug 2006 18:21:08 +0200
-Message-ID: <20060803162108.GK31534@deprecation.cyrius.com>
-References: <20060728104946.GA6710@electric-eye.fr.zoreil.com> <20060728111534.GD25854@xi.wantstofly.org> <20060728115237.GF21733@deprecation.cyrius.com> <20060728194933.GA14222@electric-eye.fr.zoreil.com> <20060728203437.GA6253@deprecation.cyrius.com> <20060802180244.GA32235@deprecation.cyrius.com> <20060802221629.GB28282@electric-eye.fr.zoreil.com> <20060803135349.GH31534@deprecation.cyrius.com> <20060803142309.GA17166@deprecation.cyrius.com> <20060803150556.GA9433@electric-eye.fr.zoreil.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] llc: SOCK_DGRAM interface fixes
+Date: Thu, 3 Aug 2006 09:21:17 -0700
+Message-ID: <20060803092117.5726b4d7@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sorrow.cyrius.com ([65.19.161.204]:12301 "EHLO
-	sorrow.cyrius.com") by vger.kernel.org with ESMTP id S932527AbWHCQVL
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 12:21:11 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-Content-Disposition: inline
-In-Reply-To: <20060803150556.GA9433@electric-eye.fr.zoreil.com>
+Received: from smtp.osdl.org ([65.172.181.4]:35468 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932567AbWHCQWQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 12:22:16 -0400
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Francois Romieu <romieu@fr.zoreil.com> [2006-08-03 17:05]:
-> Btw, can you pass the module a 'debug=32767' option when it is loaded to
-> increase its verbosity.
+The datagram interface of LLC is broken in a couple of ways.
+These were discovered when trying to use it to build an out-of-kernel
+version of STP.
 
-That doesn't give me much more messages but now I get one error
-message that is probably significant:
+First it didn't pass the source address of the received packet
+in recvfrom(). It needs to copy the source address of received LLC packets
+into the socket control block. At the same time fix a security issue
+because there was uninitialized data leakage. Every recvfrom call
+was just copying out old data.
 
-eth0: PCI error (cmd = 0x0157, status = 0x6238).
+Second, LLC should not merge multiple packets in one receive call
+on datagram sockets. LLC should preserve packet boundaries on
+SOCK_DGRAM. 
+
+This fix goes against the old historical comments about UNIX98 semantics
+but without this fix SOCK_DGRAM is broken and useless. So either ANK's
+interpretation was incorect or UNIX98 standard was wrong.
 
 
-Full log:
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+---
+ net/llc/af_llc.c  |   20 ++++++++------------
+ net/llc/llc_sap.c |    4 ++--
+ 2 files changed, 10 insertions(+), 14 deletions(-)
 
-r8169 Gigabit Ethernet driver 2.2LK-NAPI loaded
-mac_version == Unknown
-phy_version == RTL_GIGA_PHY_VER_D (0000)
-eth0: Identified chip type is 'RTL8169s/8110s'.
-eth0: RTL8169 at 0xc885e200, 00:14:fd:10:27:74, IRQ 27
-mac_version == Unknown
-phy_version == RTL_GIGA_PHY_VER_D (0000)
-MAC version != 0 && PHY version == 0 or 1
-Do final_reg2.cfg
-Set MAC Reg C+CR Offset 0x82h = 0x01h
-r8169 Gigabit Ethernet driver 2.2LK-NAPI loaded
-mac_version == Unknown
-phy_version == RTL_GIGA_PHY_VER_D (0000)
-eth1: Identified chip type is 'RTL8169s/8110s'.
-eth1: RTL8169 at 0xc8860300, 00:14:fd:10:00:00, IRQ 28
-mac_version == Unknown
-phy_version == RTL_GIGA_PHY_VER_D (0000)
-MAC version != 0 && PHY version == 0 or 1
-Do final_reg2.cfg
-Set MAC Reg C+CR Offset 0x82h = 0x01h
-libata version 1.20 loaded.
-...
-Freeing init memory: 88K
-Adding 506008k swap on /dev/sda5.  Priority:-1 extents:1
-across:506008k
-EXT3 FS on sda3, internal journal
-r8169: eth0: link up
-eth0: PCI error (cmd = 0x0157, status = 0x6238).
-NETDEV WATCHDOG: eth0: transmit timed out
-eth0: PCI error (cmd = 0x0157, status = 0x6238).
-
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+index d6cfe84..2652ead 100644
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -784,24 +784,20 @@ static int llc_ui_recvmsg(struct kiocb *
+ 		copied += used;
+ 		len -= used;
+ 
+-		if (used + offset < skb->len)
+-			continue;
+-
+ 		if (!(flags & MSG_PEEK)) {
+ 			sk_eat_skb(sk, skb, 0);
+ 			*seq = 0;
+ 		}
++
++		/* For non stream protcols we get one packet per recvmsg call */
++		if (sk->sk_type != SOCK_STREAM)
++			goto copy_uaddr;
++
++		/* Partial read */
++		if (used + offset < skb->len)
++			continue;
+ 	} while (len > 0);
+ 
+-	/* 
+-	 * According to UNIX98, msg_name/msg_namelen are ignored
+-	 * on connected socket. -ANK
+-	 * But... af_llc still doesn't have separate sets of methods for
+-	 * SOCK_DGRAM and SOCK_STREAM :-( So we have to do this test, will
+-	 * eventually fix this tho :-) -acme
+-	 */
+-	if (sk->sk_type == SOCK_DGRAM)
+-		goto copy_uaddr;
+ out:
+ 	release_sock(sk);
+ 	return copied;
+diff --git a/net/llc/llc_sap.c b/net/llc/llc_sap.c
+index 20c4eb5..42eb0c3 100644
+--- a/net/llc/llc_sap.c
++++ b/net/llc/llc_sap.c
+@@ -51,10 +51,10 @@ void llc_save_primitive(struct sock *sk,
+ {
+ 	struct sockaddr_llc *addr;
+ 
+-	if (skb->sk->sk_type == SOCK_STREAM) /* See UNIX98 */
+-		return;
+        /* save primitive for use by the user. */
+ 	addr		  = llc_ui_skb_cb(skb);
++
++	memset(addr, 0, sizeof(*addr));
+ 	addr->sllc_family = sk->sk_family;
+ 	addr->sllc_arphrd = skb->dev->type;
+ 	addr->sllc_test   = prim == LLC_TEST_PRIM;
 -- 
-Martin Michlmayr
-http://www.cyrius.com/
+1.4.0
+
