@@ -1,64 +1,31 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
+From: Arjan van de Ven <arjan@linux.intel.com>
 Subject: Re: orinoco driver causes *lots* of lockdep spew
-Date: Thu, 3 Aug 2006 12:40:19 -0700
-Message-ID: <20060803194019.GA12152@bougret.hpl.hp.com>
-References: <1154607380.2965.25.camel@laptopd505.fenrus.org> <E1G8der-0001fm-00@gondolin.me.apana.org.au> <20060803141153.GB20405@infradead.org> <20060803185800.GB12062@bougret.hpl.hp.com> <20060803185958.GC11577@redhat.com>
-Reply-To: jt@hpl.hp.com
+Date: Thu, 03 Aug 2006 12:45:05 -0700
+Message-ID: <44D25241.6040906@linux.intel.com>
+References: <1154607380.2965.25.camel@laptopd505.fenrus.org> <E1G8der-0001fm-00@gondolin.me.apana.org.au> <20060803141153.GB20405@infradead.org> <20060803185800.GB12062@bougret.hpl.hp.com> <20060803185958.GC11577@redhat.com> <20060803194019.GA12152@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Christoph Hellwig <hch@infradead.org>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
+	Christoph Hellwig <hch@infradead.org>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
 	Arjan van de Ven <arjan@infradead.org>,
 	linux-kernel@vger.kernel.org, davem@davemloft.net,
 	linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ccerelbas02.cce.hp.com ([161.114.21.105]:44243 "EHLO
-	ccerelbas02.cce.hp.com") by vger.kernel.org with ESMTP
-	id S1030213AbWHCTkb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 15:40:31 -0400
-To: Dave Jones <davej@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20060803185958.GC11577@redhat.com>
+Received: from mga07.intel.com ([143.182.124.22]:15460 "EHLO
+	azsmga101.ch.intel.com") by vger.kernel.org with ESMTP
+	id S964870AbWHCTqd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 15:46:33 -0400
+To: jt@hpl.hp.com
+In-Reply-To: <20060803194019.GA12152@bougret.hpl.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 03, 2006 at 02:59:58PM -0400, Dave Jones wrote:
-> On Thu, Aug 03, 2006 at 11:58:00AM -0700, Jean Tourrilhes wrote:
->  > On Thu, Aug 03, 2006 at 03:11:53PM +0100, Christoph Hellwig wrote:
->  > > On Thu, Aug 03, 2006 at 11:54:41PM +1000, Herbert Xu wrote:
->  > > > Arjan van de Ven <arjan@infradead.org> wrote:
->  > > > > 
->  > > > > this is another one of those nasty buggers;
->  > > > 
->  > > > Good catch.  It's really time that we fix this properly rather than
->  > > > adding more kludges to the core code.
->  > > > 
->  > > > Dave, once this goes in you can revert the previous netlink workaround
->  > > > that added the _bh suffix.
->  > > > 
->  > > > [WIRELESS]: Send wireless netlink events with a clean slate
->  > > 
->  > > Could we please just get rid of the wireless extensions over netlink code
->  > > again?  It doesn't help to solve anything and just creates a bigger mess
->  > > to untangle when switching to a fully fledged wireless stack.
->  > 
->  > 	That's not going to happen any time soon, NetworkManager
->  > depends on Wireless Events, as well as many other apps. And there is
->  > not many mechanisms you can use in the kernel to generate events from
->  > driver to userspace.
+Jean Tourrilhes wrote:
+> 	Jean
 > 
-> It seemed to cope pretty well before we had this ?
+> P.S. : By the way, don't ask me why it took four years for this bug to
+> get discovered...
 
-	Wireless Events were introduced in kernel 2.4.20 and 2.5.7,
-which means 2002. NetworkManager and WPA Supplicant were based from
-the very start on the availability of Wireless Events.
-	You are confusing different things...
-
-> 		Dave
-
-	Have fun...
-
-	Jean
-
-P.S. : By the way, don't ask me why it took four years for this bug to
-get discovered...
+that I could answer: Only from 2.6.18-rc1 onwards does the kernel have a built in deadlock finder :)
