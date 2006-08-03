@@ -1,45 +1,37 @@
 From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [PATCH] e1000: add forgotten PCI ID for supported device
-Date: Thu, 3 Aug 2006 00:17:42 -0700
-Message-ID: <20060803071742.GL26354@kroah.com>
-References: <44CA8A59.40002@intel.com> <20060728231837.GA2109@kroah.com> <Pine.WNT.4.63.0607281659480.2660@jbrandeb-desk.amr.corp.intel.com> <20060729002440.GA3284@kroah.com> <20060729031859.GA23779@tuxdriver.com>
+Subject: Re: [stable] [NET]: Update frag_list in pskb_trim
+Date: Thu, 3 Aug 2006 00:19:00 -0700
+Message-ID: <20060803071900.GM26354@kroah.com>
+References: <20060713090341.GA28426@gondor.apana.org.au> <20060713.220526.55726160.davem@davemloft.net> <20060715001003.GD9334@gondor.apana.org.au> <20060717152244.GA2174@kroah.com> <20060717181329.GA5934@gondor.apana.org.au> <20060730225037.GA21685@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	NetDev <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>, stable@kernel.org
+Cc: netdev@vger.kernel.org, stable@kernel.org,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:61666 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S932357AbWHCHWV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 03:22:21 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
+Received: from mail.suse.de ([195.135.220.2]:9868 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S932363AbWHCHX2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 03:23:28 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <20060729031859.GA23779@tuxdriver.com>
+In-Reply-To: <20060730225037.GA21685@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 28, 2006 at 11:19:05PM -0400, John W. Linville wrote:
-> On Fri, Jul 28, 2006 at 05:24:40PM -0700, Greg KH wrote:
-> > On Fri, Jul 28, 2006 at 05:04:49PM -0700, Brandeburg, Jesse wrote:
+On Mon, Jul 31, 2006 at 08:50:37AM +1000, Herbert Xu wrote:
+> For stable only:
 > 
-> > > The kernel driver advertises through our probe table and in our readme 
-> > > that we support this device (code is in e1000_main.c) but we don't load on 
-> > > it correctly due to an error when we submitted the patches (e1000_hw.c/h).
-> > > 
-> > > Patch is very simple and low risk, but it is your call.
+> On Tue, Jul 18, 2006 at 04:13:29AM +1000, herbert wrote:
 > > 
-> > Sorry, but for now, no.  Users should be able to use the sysfs bind and
-> > new_id interface to add new device support for your driver, if it's
-> > written properly :)
+> > Here is a second attempt:
+> > 
+> > [NET]: Update frag_list in pskb_trim
 > 
-> In this case it isn't an addition to the PCI ID table, but an actual
-> added check in the code.  You could make the argument that it is a
-> bug since the PCI ID table says the device is supported, but it won't
-> work w/o this additional check.
+> Unfortunately there was a bug in the fix which is now fixed.  I presume
+> this hasn't been included yet so I'm simply regenerating the whole patch.
+> Let me know if you want an incremental version instead.
+> 
+> [NET]: Update frag_list in pskb_trim
 
-Ok, fine, you all convinced me :)
 
 Queued to -stable.
 
