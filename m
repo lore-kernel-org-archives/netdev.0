@@ -1,63 +1,59 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Resend [PKT_SCHED]: Return ENOENT if qdisc module is unavailable
-Date: Thu, 03 Aug 2006 09:20:10 -0400
-Message-ID: <1154611210.5205.43.camel@jzny2>
-Reply-To: hadi@cyberus.ca
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Re: problems with e1000 and jumboframes
+Date: Thu, 3 Aug 2006 16:49:15 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0608031646110.8443@bizon.gios.gov.pl>
+References: <44D1FEB7.2050703@arndnet.de> <20060803142412.GA14997@kvack.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-l6Z54Vv0EdAFyuXOGtUo"
-Cc: netdev@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-1911520086-1154616555=:8443"
+Cc: Arnd Hannemann <arnd@arndnet.de>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:20458 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932534AbWHCOl4
+Received: from bizon.gios.gov.pl ([212.244.124.8]:41683 "EHLO
+	bizon.gios.gov.pl") by vger.kernel.org with ESMTP id S932510AbWHCOtX
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 10:41:56 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1G8eOP-0003Gj-1E
-	for netdev@vger.kernel.org; Thu, 03 Aug 2006 10:41:45 -0400
-To: "David S. Miller" <davem@davemloft.net>
+	Thu, 3 Aug 2006 10:49:23 -0400
+To: Benjamin LaHaise <bcrl@kvack.org>
+In-Reply-To: <20060803142412.GA14997@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
---=-l6Z54Vv0EdAFyuXOGtUo
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-
-
-Dave,
-
-Old patch - didnt see it reflected in this mornings sync with linus tree
-and dont wanna loose it (git is great at reminding me); if queued
-already, just ignore. 
-
-cheers,
-jamal
-
---=-l6Z54Vv0EdAFyuXOGtUo
-Content-Disposition: attachment; filename=sch-ne
-Content-Type: text/plain; name=sch-ne; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+---187430788-1911520086-1154616555=:8443
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
 
-Return ENOENT if qdisc module is unavailable
 
-Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+On Thu, 3 Aug 2006, Benjamin LaHaise wrote:
 
----
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 31570b9..44724c6 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -431,7 +431,7 @@ #ifdef CONFIG_KMOD
- 	}
- #endif
- 
--	err = -EINVAL;
-+	err = -ENOENT;
- 	if (ops == NULL)
- 		goto err_out;
- 
+> On Thu, Aug 03, 2006 at 03:48:39PM +0200, Arnd Hannemann wrote:
+>> However the box is a VIA Epia MII12000 with 1 GB of Ram and 1 GB of swap
+>> enabled, so there should be plenty of memory available. HIGHMEM support
+>> is off. The e1000 nic seems to be an 82540EM, which to my knowledge
+>> should support jumboframes.
+>
+>> However I can't always reproduce this on a freshly booted system, so
+>> someone else may be the culprit and leaking pages?
+>>
+>> Any ideas how to debug this?
+>
+> This is memory fragmentation, and all you can do is work around it until
+> the e1000 driver is changed to split jumbo frames up on rx.  Here are a
+> few ideas that should improve things for you:
+>
+> =09- switch to a 2GB/2GB split to recover the memory lost to highmem
+> =09  (see Processor Type and Features / Memory split)
+With 1 GB of RAM full 1GB/3GB (CONFIG_VMSPLIT_3G_OPT) seems to be=20
+enough...
 
---=-l6Z54Vv0EdAFyuXOGtUo--
+> =09- increase /proc/sys/vm/min_free_kbytes -- more free memory will
+> =09  improve the odds that enough unfragmented memory is available for
+> =09  incoming network packets
 
+True. IMO, 65535 is a good starting point.
+
+Best regards,
+ =09=09=09=09Krzysztof Ol=EAdzki
+---187430788-1911520086-1154616555=:8443--
