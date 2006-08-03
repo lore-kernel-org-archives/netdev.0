@@ -1,38 +1,35 @@
-From: David Miller <davem@davemloft.net>
+From: Theodore Tso <tytso@mit.edu>
 Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
-Date: Thu, 03 Aug 2006 16:43:11 -0700 (PDT)
-Message-ID: <20060803.164311.91310742.davem@davemloft.net>
-References: <20060803201741.GA7894@thunk.org>
-	<20060803.144845.66061203.davem@davemloft.net>
-	<1154647699.3117.26.camel@rh4>
+Date: Thu, 3 Aug 2006 19:53:26 -0400
+Message-ID: <20060803235326.GC7894@thunk.org>
+References: <E1G8a0J-0002Pn-00@gondolin.me.apana.org.au> <1154630207.3117.17.camel@rh4> <20060803201741.GA7894@thunk.org> <20060803.144845.66061203.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tytso@mit.edu, herbert@gondor.apana.org.au,
+Content-Type: text/plain; charset=us-ascii
+Cc: mchan@broadcom.com, herbert@gondor.apana.org.au,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:47842
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751380AbWHCXnJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 19:43:09 -0400
-To: mchan@broadcom.com
-In-Reply-To: <1154647699.3117.26.camel@rh4>
+Received: from thunk.org ([69.25.196.29]:21644 "EHLO thunker.thunk.org")
+	by vger.kernel.org with ESMTP id S1751403AbWHCXxf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 19:53:35 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060803.144845.66061203.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 03 Aug 2006 16:28:19 -0700
-
-> > eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] Split[0] WireSpeed[0] TSOcap[0]
+On Thu, Aug 03, 2006 at 02:48:45PM -0700, David Miller wrote:
+> > eth0: Tigon3 [partno(BCM95704s) rev 2100 PHY(serdes)] (PCIX:100MHz:64-bit) 10/100/1000BaseT Ethernet 00:14:5e:86:44:24
 > 
-> We'll see if we can do away with the timer-based heartbeat.  That's
-> probably the best solution.
+> The 5704 chip will set TG3_FLAG_TAGGED_STATUS, and therefore
+> doesn't need the periodic poking done by tg3_timer().
 
-The tg3 driver is not the only device in the world that requires a
-timer based "ping" to work.  The watchdog drivers and the softlockup
-detector are other instances which require a timer to not be delayed
-an unreasonable amount of time.
+Hmm.... all I can say is that I could reliably knock the box off the
+network by running a four processes that tied up all CPU's at high
+real-time priorities, and after I applied the horrible hack that
+guaranteed that tg3_timer() was run every 0.128 seconds, the system
+stayed on the network.  I'm not sure why, but it did fix the problem.  
 
-Therefore TG3 is not unique in this regard, and I thus don't think
-it's worthwhile to change tg3 just to accomodate this broken behavior
-of the RT patches.
+Any suggestions on how I could figure out what was really going on and
+what would be a better fix would be greatly appreciated.
+
+					- Ted
