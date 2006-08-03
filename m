@@ -1,43 +1,55 @@
-From: Philip Craig <philipc@snapgear.com>
-Subject: Re: [RFC] gre: transparent ethernet bridging
-Date: Thu, 03 Aug 2006 11:33:25 +1000
-Message-ID: <44D15265.4090905@snapgear.com>
-References: <44CDD631.5030008@snapgear.com> <20060731091423.3327f85e@dxpl.pdx.osdl.net> <44CEAB31.5090501@snapgear.com> <20060731220822.444f04e4@localhost.localdomain> <20060802074223.GA23715@xi.wantstofly.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+From: "Jesse Huang" <jesse@icplus.com.tw>
+Subject: Re: [PATCH] Create IP100A Driver
+Date: Thu, 3 Aug 2006 10:03:17 +0800
+Message-ID: <024c01c6b6a0$fcf783e0$4964a8c0@icplus.com.tw>
+References: <1154030065.5967.15.camel@localhost.localdomain> <20060727125421.GB22935@tuxdriver.com> <044901c6b1ec$d0f5b680$4964a8c0@icplus.com.tw> <44C9E369.7070703@pobox.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<akpm@osdl.org>, "Francois Romieu" <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.snapgear.com ([203.143.235.140]:732 "EHLO cyberguard.com.au")
-	by vger.kernel.org with ESMTP id S932136AbWHCBd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 21:33:26 -0400
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20060802074223.GA23715@xi.wantstofly.org>
+Received: from msr49.hinet.net ([168.95.4.149]:27847 "EHLO msr49.hinet.net")
+	by vger.kernel.org with ESMTP id S1751290AbWHCCEQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 22:04:16 -0400
+To: "Jeff Garzik" <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek wrote:
-> On Mon, Jul 31, 2006 at 10:08:22PM -0700, Stephen Hemminger wrote:
-> 
->>>> Why not use existing bridge code?
->>> It does use the existing bridge code.  Perhaps the name is misleading.
->>> All it does is encapsulate the full ethernet header in a gre packet,
->>> rather than only layer 3.  That is, currently gre uses ARPHRD_IPGRE,
->>> but bridging requires ARPHRD_ETHER.
->> I am not against making the bridge code smarter to handle other
->> encapsulation.
-> 
-> What if you want to run ethernet directly over a GRE tunnel, without
-> using bridging?
+Dear Jeff:
 
-But on the other hand, this method allows you to send both ethernet
-and non-ethernet traffic over the same GRE tunnel.  Is that useful?
-Actually, this feature is what makes the handling of the LLC_SAP_BSPAN
-packets simple.
+    I had discuss with our peoples. We decided to use sundance.c to support
+IP100A. We will also update some bug fix to this driver.
 
-The patch to bridging is a lot cleaner than the patch to GRE, and it
-also sidesteps the userspace configuration issues, so I don't want to
-go back to modifying the GRE device.
+Thanks for your suggestion.
 
-Both could be achieved by creating a new virtual device that sits
-between GRE and bridging.
+Best Regards,
+Jesse Huang
+
+----- Original Message ----- 
+From: "Jeff Garzik" <jgarzik@pobox.com>
+To: "Jesse Huang" <jesse@icplus.com.tw>
+Cc: "John W. Linville" <linville@tuxdriver.com>;
+<linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>; <akpm@osdl.org>
+Sent: Friday, July 28, 2006 6:14 PM
+Subject: Re: [PATCH] Create IP100A Driver
+
+Although it is occasionally OK to duplicate a driver, I do not see a
+compelling case with ip100a.
+
+The stronger case for a single codebase is won on the strengths of lower
+long-term maintenance costs, increased strength of review, doesn't break
+existing sundance driver uses, and re-use of existing testing benefits.
+
+If you feel strongly about not showing "sundance" to your users, you can
+always submit a one-line MODULE_ALIAS() change which permits users to
+load "ip100a" (really sundance.c).  Using MODULE_ALIAS() seems quite
+reasonable, given that IC Plus appears to be taking the lead in future
+Sundance-like chip development.
+
+So, please resubmit as changes to the existing sundance.c.  This is
+better for the standard Linux kernel engineering process.
+
+Thanks,
+
+Jeff
+
+
