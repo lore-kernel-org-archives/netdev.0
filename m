@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Resend [PKT_SCHED]: Return ENOENT if qdisc module is
- unavailable
-Date: Thu, 03 Aug 2006 16:37:06 -0700 (PDT)
-Message-ID: <20060803.163706.13771201.davem@davemloft.net>
-References: <1154611210.5205.43.camel@jzny2>
+Subject: Re: [PATCH] llc: SOCK_DGRAM interface fixes
+Date: Thu, 03 Aug 2006 16:39:38 -0700 (PDT)
+Message-ID: <20060803.163938.125565151.davem@davemloft.net>
+References: <20060803092117.5726b4d7@localhost.localdomain>
+	<44D2269B.4030205@mandriva.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: shemminger@osdl.org, acme@ghostprotocols.net,
+	netdev@vger.kernel.org, stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:12240
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:45015
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751392AbWHCXhE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 19:37:04 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1154611210.5205.43.camel@jzny2>
+	id S1751393AbWHCXjo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 19:39:44 -0400
+To: acme@mandriva.com
+In-Reply-To: <44D2269B.4030205@mandriva.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 03 Aug 2006 09:20:10 -0400
+From: Arnaldo Carvalho de Melo <acme@mandriva.com>
+Date: Thu, 03 Aug 2006 13:38:51 -0300
 
-> Old patch - didnt see it reflected in this mornings sync with linus tree
-> and dont wanna loose it (git is great at reminding me); if queued
-> already, just ignore. 
+> Dave, please apply.
+> 
+> Acked-by: Arnaldo Carvalho de Melo <acme@mandriva.com>
 
-Applied, thanks Jamal.
+Applied, thanks everyone.
