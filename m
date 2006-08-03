@@ -1,61 +1,47 @@
-From: a1 <a1k@mail.ru>
-Subject: Re: e1000 speed/duplex error
-Date: Thu, 3 Aug 2006 11:51:18 +0400
-Message-ID: <1141838417.20060803115118@mail.ru>
-References: <1301563340.20060801141827@mail.ru> <9929d2390608010420t60bd44d7o4e522c6edc0a677e@mail.gmail.com> <793732866.20060801153230@mail.ru> <9929d2390608010445w4fd81b64g310ae90a423e1a7d@mail.gmail.com> <911206621.20060801162006@mail.ru> <9929d2390608010534x54324569ja70b1fcbdc23c097@mail.gmail.com> <44CF66AD.1030901@intel.com> <168330902.20060802113402@mail.ru> <9929d2390608020043y75b487c4ge5a02e7a6c96cb9b@mail.gmail.com> <1556642230.20060802123908@mail.ru> <44D0BE71.9080205@intel.com>
-Reply-To: a1 <a1k@mail.ru>
+From: Philip Craig <philipc@snapgear.com>
+Subject: Re: [RFC] gre: transparent ethernet bridging
+Date: Thu, 03 Aug 2006 19:14:59 +1000
+Message-ID: <44D1BE93.1080308@snapgear.com>
+References: <44CDD631.5030008@snapgear.com> <20060731091423.3327f85e@dxpl.pdx.osdl.net> <44CEAB31.5090501@snapgear.com> <20060731220822.444f04e4@localhost.localdomain> <20060802074223.GA23715@xi.wantstofly.org> <44D15265.4090905@snapgear.com> <20060803073307.GA29775@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx6.mail.ru ([194.67.23.26]:8516 "EHLO mx6.mail.ru")
-	by vger.kernel.org with ESMTP id S932376AbWHCHuu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 03:50:50 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <44D0BE71.9080205@intel.com>
+Received: from rex.snapgear.com ([203.143.235.140]:35747 "EHLO
+	cyberguard.com.au") by vger.kernel.org with ESMTP id S932363AbWHCJPG
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 05:15:06 -0400
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20060803073307.GA29775@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Auke.
+Lennert Buytenhek wrote:
+> So now you _need_ bridging in the middle to send ethernet traffic over
+> a GRE tunnel?  Ugh.
 
-Auke Kok wrote:
-AK> Don't you mean this? :
+Agreed that would not be nice.  What is the usage scenario for this?
+At least one end of the tunnel will be bridged?
 
-AK> +                       hw->autoneg_advertised = ecmd->advertising |
-AK> +                                                ADVERTISED_Autoneg |
-AK> +                                                ADVERTISED_TP;
+> If you really want to send ethernet and non-ethernet traffic over the
+> same tunnel, can't you make multiple devices?
 
-AK> and we'd also have to do this for fibre...
-Yep. I've noticed that but I already sent message...
+Do you mean make multiple GRE devices, where one has an ethernet mode set?
+That would require more extensive changes to GRE than my original patch.
+I don't think being able to send both is important enough to justify that.
+Better to just use my original patch if that is acceptable.  There are
+parts of it I can clean up more, but nothing major.  And it still needs
+some userspace modifications.
 
- >>
->>                 ecmd->advertising = hw->autoneg_advertised;
->>         } else
->>                 if (e1000_set_spd_dplx(adapter, ecmd->speed + ecmd->duplex))
+Or create a new virtual device to sit between gre and bridging that
+simply adds the ethernet header?  This is the most modular approach,
+but it seems like overkill for such a simple thing.
 
+> If GRE generally transmits BPDUs without ethernet header, the handling
+> for that ought to be in GRE, IMHO.
 
-AK> but that's not really what you want: the way ethtool works currently only
-AK> allows you to pass *one* speed/duplex tuple and autonegotiate with that, or
-AK> all (by omitting any speed/duplex tuple).
-
-AK> ethtool needs some code that allows you to specify "autonegotiate 10_half or
-AK> 100_full or 1000_full" (3 tuples, but not implying 100_half or 10_full). This
-AK> is something mii-tool was able to do but this functionality never made it into
-AK> ethtool AFAIK :)
-
-AK> This is the most useful case for everyone, you can omit advertising gig link
-AK> if you only have 100mbit switches and speed up link times that way etc.
-
-I'm sure of that, but today before actual ethtool patch released will
-this changes be included in the driver sources? In that case IMO no other
-changes need to be done to support what you've been writing of...
-
-AK> Auke
-
-
-
--- 
-Best regards,
-Alexandr Kotov                          mailto:a1k@mail.ru
+I don't think this is normal behaviour.  At least, not all routers do it.
+More likely some routers have done it as an optimisation.  It does appear
+to be specific to GRE.
 
