@@ -1,37 +1,34 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help() 2.6.18-rc3
-Date: Thu, 3 Aug 2006 19:57:03 +1000
-Message-ID: <20060803095703.GA9082@gondor.apana.org.au>
-References: <44CD85FF.9010607@trash.net> <20060730.215907.58439803.davem@davemloft.net> <44CD9013.7020401@trash.net> <44CDDDF7.70004@trash.net> <20060731113050.GA25972@gondor.apana.org.au> <44CE4DCA.8000609@trash.net> <20060801122916.GA6177@gondor.apana.org.au> <44D1C205.4010509@trash.net> <20060803093309.GB8808@gondor.apana.org.au> <44D1C471.2050503@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
+Date: Thu, 03 Aug 2006 20:00:35 +1000
+Message-ID: <E1G8a0J-0002Pn-00@gondolin.me.apana.org.au>
+References: <20060803075704.GC27835@thunk.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:31238 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932449AbWHCJ5O
+Received: from rhun.apana.org.au ([64.62.148.172]:35078 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932454AbWHCKAo
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 05:57:14 -0400
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <44D1C471.2050503@trash.net>
+	Thu, 3 Aug 2006 06:00:44 -0400
+To: tytso@mit.edu (Theodore Tso)
+In-Reply-To: <20060803075704.GC27835@thunk.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 03, 2006 at 11:40:01AM +0200, Patrick McHardy wrote:
->
-> > Are you sure? If ip_summed is CHECKSUM_COMPLETE then skb->csum is the
-> > checksum of the payload *without* the pseudo header.
+Theodore Tso <tytso@mit.edu> wrote:
 > 
-> The pseudohdr is included indirectly through the tcp/udp checksum.
+> I'm sending this on mostly because it was a bit of a pain to track down,
+> and hopefully it will save time if anyone else hits this while playing
+> with the -rt kernel.  It is NOT the right way to fix things, so please
+> don't even think of applying this patch (unless you need it, in your own
+> local tree :-).
+> 
+> One of these days when we have time to breath we'll look into fixing
+> this the right way, if someone doesn't beat us to it first.  :-)
 
-Yes of course, the payload gets balanced out by the header checksum,
-but not the pseudoheader.  Now I get you :)
-
-> Yes, the 32-bit thing is a bug, I meant it works fine without inverting
-> the checksum.
-
-Right, I forgot about the checksum invariance under negation.  In that
-case we can get rid of the tildes two lines down as well for consistency.
+You probably should resend the patch to netdev and Michael Chan
+<mchan@broadcom.com>.  He might have ideas on how this could be
+avoided.
 
 Cheers,
 -- 
