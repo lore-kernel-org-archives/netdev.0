@@ -1,50 +1,48 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: orinoco driver causes *lots* of lockdep spew
-Date: Thu, 03 Aug 2006 08:22:58 -0700
-Message-ID: <44D214D2.70206@linux.intel.com>
-References: <E1G8der-0001fm-00@gondolin.me.apana.org.au>
+From: Steve.Glendinning@smsc.com
+Subject: Re: [PATCH] SMSC LAN911x and LAN921x vendor driver
+Date: Thu, 3 Aug 2006 16:26:38 +0100
+Message-ID: <OF4718982E.55599219-ON802571BF.0054A92B-802571BF.0054D4BB@smsc.com>
+References: <Pine.LNX.4.64.0608011710341.23546@godzilla.spiteful.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arjan van de Ven <arjan@infradead.org>, davej@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, linville@tuxdriver.com, jt@hpl.hp.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Bahadir Balban <Bahadir.Balban@arm.com>, ian.saturley@smsc.com,
+	netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>,
+	Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:11708 "EHLO
-	azsmga101.ch.intel.com") by vger.kernel.org with ESMTP
-	id S964783AbWHCPYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 11:24:09 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1G8der-0001fm-00@gondolin.me.apana.org.au>
+Received: from mail.smsc.com ([170.129.50.11]:51730 "EHLO smsc.com")
+	by vger.kernel.org with ESMTP id S964788AbWHCP07 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 11:26:59 -0400
+In-Reply-To: <Pine.LNX.4.64.0608011710341.23546@godzilla.spiteful.org>
+To: Scott Murray <scott@spiteful.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
+Hi Scott,
 
-Hi,
+> I think the main concern that my co-workers here at SOMA Networks
+> and I have is that having two drivers dilutes the community effort.
+> There's also the fact that smc911x seems to have DMA support, which
+> smsc911x does not.  Unless there are plans to enhance smsc911x with
+> DMA support, it would seem to me to make more sense to apply the
+> LAN921x support and hardware workaround changes to smc911x.
 
-> Arjan van de Ven <arjan@infradead.org> wrote:
->> this is another one of those nasty buggers;
-> 
-> Good catch.  It's really time that we fix this properly rather than
-> adding more kludges to the core code.
+I have kept this driver simple for now, focussing on stable support for 
+multiple platforms.  While arm is certainly popular, we also have a large 
+number of customers on sh, x86 and others, and currently there is no 
+in-kernel support (DMA or not) for these people.
 
-however I'm not quite yet convinced that this patch is going to solve
-this particular deadlock.
-(I agree with the principle of it and I think it's really needed,
-I just don't yet see how it's going to solve this specific deadlock. But
-then again it's early and I've not had sufficient coffee yet so I could
-well be wrong)
+Many of our customers use our proprietary drivers (which support DMA on 
+many platforms), and we would like to migrate them over to a standard 
+in-kernel driver - it would make support easier and everyone can benefit 
+from ongoing driver improvements.  The DMA code within these proprietary 
+drivers is the next target for submission, although I would like to defer 
+additional complexity until we are all happy with the current PIO-only 
+implementation.
 
-> [WIRELESS]: Send wireless netlink events with a clean slate
-> 
-> Drivers expect to be able to call wireless_send_event in arbitrary
-> contexts.  On the other hand, netlink really doesn't like being
-> invoked in an IRQ context.  So we need to postpone the sending of
-> netlink skb's to a tasklet.
+Regards,
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
 
-it's not just about irq context, it's about being called with any lock that's
-used in IRQ context; that is what makes this double nasty...
-
-Greetings,
-    Arjan van de Ven
