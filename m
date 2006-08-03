@@ -1,63 +1,45 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Thu, 03 Aug 2006 10:24:15 -0400
-Message-ID: <1154615055.5155.19.camel@jzny2>
-References: <E1G8dmn-0001hH-00@gondolin.me.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: problems with e1000 and jumboframes
+Date: Thu, 3 Aug 2006 10:24:12 -0400
+Message-ID: <20060803142412.GA14997@kvack.org>
+References: <44D1FEB7.2050703@arndnet.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jesse.brandeburg@intel.com, auke-jan.h.kok@intel.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:52632 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932440AbWHCOYS
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 10:24:18 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1G8e7Y-0007Bp-AI
-	for netdev@vger.kernel.org; Thu, 03 Aug 2006 10:24:20 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1G8dmn-0001hH-00@gondolin.me.apana.org.au>
+Received: from kanga.kvack.org ([66.96.29.28]:34488 "EHLO kanga.kvack.org")
+	by vger.kernel.org with ESMTP id S932508AbWHCOY1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 10:24:27 -0400
+To: Arnd Hannemann <arnd@arndnet.de>
+Content-Disposition: inline
+In-Reply-To: <44D1FEB7.2050703@arndnet.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-04-08 at 00:02 +1000, Herbert Xu wrote:
+On Thu, Aug 03, 2006 at 03:48:39PM +0200, Arnd Hannemann wrote:
+> However the box is a VIA Epia MII12000 with 1 GB of Ram and 1 GB of swap
+> enabled, so there should be plenty of memory available. HIGHMEM support
+> is off. The e1000 nic seems to be an 82540EM, which to my knowledge
+> should support jumboframes.
 
-> Even if we get it wrong and wake up something that we shouldn't have,
-> the xmit function will simply bail out and stop the queue for us.
+> However I can't always reproduce this on a freshly booted system, so
+> someone else may be the culprit and leaking pages?
 > 
+> Any ideas how to debug this?
 
-Infact thats close to what i was seeing. setup is:
-eth0 tied to cpu 0
-eth1 tied to cpu1
+This is memory fragmentation, and all you can do is work around it until 
+the e1000 driver is changed to split jumbo frames up on rx.  Here are a 
+few ideas that should improve things for you:
 
---> eth0 -- forward --> eth1
---> eth1 -- forward --> eth0
+	- switch to a 2GB/2GB split to recover the memory lost to highmem
+	  (see Processor Type and Features / Memory split)
+	- increase /proc/sys/vm/min_free_kbytes -- more free memory will 
+	  improve the odds that enough unfragmented memory is available for 
+	  incoming network packets
 
-Take the example of eth1:
-* It is actually being fed packets by cpu0 but is tied to cpu1.
+I hope this helps.
 
-The stop happens in cpu0 (99.99999% of the time) and the wake happens in
-cpu1 (100% of the time)[1]. The wakes on most occasions dont even get to
-run tx softirq on cpu1 since there is constant activity already
-happening on cpu0. So that lock being grabbed was causing a collision on
-the tx path which caused a requeue which caused a reschedule on cpu0 -
-all this unnecessarily.
-
-> Since this is exceedingly unlikely we should drop the locks rather
-> than bother about it.
-
-I should say that the fact that e1000 does its pruning of descriptors
-only on the tx path makes the locking unnecessary when stopped.
-
-cheers,
-jamal
-
-[1] As you may know this comes from testing your qdisc_is_running
-change. I was hoping to induce a DOS attack such that a cpuX is busy
-processing packets from another CPU (eg eth1 on cpu1) so that it forgets
-to process its own receive path ;-> This is a theoretical possibility
-with that change ;-> Clearly i failed given the % above ;->
-
+		-ben
+-- 
+"Time is of no importance, Mr. President, only life is important."
+Don't Email: <dont@kvack.org>.
