@@ -1,46 +1,48 @@
-From: Alistair John Strachan <s0348365@sms.ed.ac.uk>
-Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
-Date: Thu, 3 Aug 2006 18:04:55 +0100
-Message-ID: <200608031804.55292.s0348365@sms.ed.ac.uk>
-References: <20060803075704.GC27835@thunk.org> <20060803163204.GB20603@thunk.org> <20060803094917.8280f5ff.rdunlap@xenotime.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] llc: multicast receive device match
+Date: Thu, 3 Aug 2006 10:05:58 -0700
+Message-ID: <20060803100558.72ff1863@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Theodore Tso <tytso@mit.edu>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, mchan@broadcom.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964795AbWHCRFM@vger.kernel.org>
-To: "Randy.Dunlap" <rdunlap@xenotime.net>
-In-Reply-To: <20060803094917.8280f5ff.rdunlap@xenotime.net>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:37531 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S964861AbWHCRGY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 13:06:24 -0400
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"David S. Miller" <davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 03 August 2006 17:49, Randy.Dunlap wrote:
-[snip]
-> > This only shows up with the real-time kernel where timer softirq's run
-> > in their own processes, and a high priority process preempts the timer
-> > softirq.  I don't really consider this a networking bug, or even
-> > driver bug, although it does seem unfortunate that Broadcom hardware
-> > locks up and goes unresponsive if the OS doesn't tickle it every tenth
-> > of a second or so.  (Definitely a bad idea if the tg3 gets used on any
-> > laptops, from a power usage perspective.)  But that seems like a
-> > (lame) hardware bug, not a driver bug....
->
-> Interesting.  On my Dell D610 notebook with tg3 and vpn,
-> I have to ping a server on the vpn to keep it alive, otherwise
-> it disappears soon and I have to restart the vpn.  Of course,
-> this could just be the vpn or some other software problem
-> instead of a tg3 problem.
+Fix from Aji_Srinivas@emc.com, STP packets are incorrectly received on all
+LLC datagram sockets, whichever interface they are bound to. 
+The llc_sap datagram receive logic sends packets with a unicast destination 
+MAC to one socket bound to that SAP and MAC, and multicast packets to all sockets
+bound to that SAP. STP packets are multicast, and we do need to know
+on which interface they were received.
 
-Probably. I have an NC6000 with a tg3 and have never experienced link failure 
-problems, even under -rt.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+---
+ net/llc/llc_sap.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/net/llc/llc_sap.c b/net/llc/llc_sap.c
+index 42eb0c3..61cb8cf 100644
+--- a/net/llc/llc_sap.c
++++ b/net/llc/llc_sap.c
+@@ -330,6 +330,9 @@ static void llc_sap_mcast(struct llc_sap
+ 		if (llc->laddr.lsap != laddr->lsap)
+ 			continue;
+ 
++		if (llc->dev != skb->dev)
++			continue;
++
+ 		skb1 = skb_clone(skb, GFP_ATOMIC);
+ 		if (!skb1)
+ 			break;
+-- 
+1.4.0
+
 
 -- 
-Cheers,
-Alistair.
-
-Final year Computer Science undergraduate.
-1F2 55 South Clerk Street, Edinburgh, UK.
