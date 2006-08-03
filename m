@@ -1,48 +1,66 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: [PATCH] SMSC LAN911x and LAN921x vendor driver
-Date: Thu, 3 Aug 2006 16:26:38 +0100
-Message-ID: <OF4718982E.55599219-ON802571BF.0054A92B-802571BF.0054D4BB@smsc.com>
-References: <Pine.LNX.4.64.0608011710341.23546@godzilla.spiteful.org>
+From: Arnd Hannemann <arnd@arndnet.de>
+Subject: Re: problems with e1000 and jumboframes
+Date: Thu, 03 Aug 2006 17:32:48 +0200
+Message-ID: <44D21720.6080202@arndnet.de>
+References: <44D1FEB7.2050703@arndnet.de> <20060803142412.GA14997@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Bahadir Balban <Bahadir.Balban@arm.com>, ian.saturley@smsc.com,
-	netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>,
-	Stephen Hemminger <shemminger@osdl.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:51730 "EHLO smsc.com")
-	by vger.kernel.org with ESMTP id S964788AbWHCP07 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 11:26:59 -0400
-In-Reply-To: <Pine.LNX.4.64.0608011710341.23546@godzilla.spiteful.org>
-To: Scott Murray <scott@spiteful.org>
+Received: from ms-2.rz.RWTH-Aachen.DE ([134.130.3.131]:54983 "EHLO
+	ms-dienst.rz.rwth-aachen.de") by vger.kernel.org with ESMTP
+	id S964793AbWHCPcv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 11:32:51 -0400
+Received: from circe (circe.rz.RWTH-Aachen.DE [134.130.3.36])
+ by ms-dienst.rz.rwth-aachen.de
+ (iPlanet Messaging Server 5.2 Patch 2 (built Jul 14 2004))
+ with ESMTP id <0J3F00HSNHUEFD@ms-dienst.rz.rwth-aachen.de> for
+ netdev@vger.kernel.org; Thu, 03 Aug 2006 17:32:39 +0200 (MEST)
+Received: from dustpuppy.kawo2.rwth-aachen.de
+ (dustpuppy.kawo2.RWTH-Aachen.DE [134.130.180.5])	by smarthost.rwth-aachen.de
+ (8.13.7/8.13.1/1) with ESMTP id k73FWb6K014166	for <netdev@vger.kernel.org>;
+ Thu, 03 Aug 2006 17:32:37 +0200
+Received: from dustpuppy.kawo2.rwth-aachen.de (localhost [127.0.0.1])
+	by dustpuppy.kawo2.rwth-aachen.de (Postfix) with ESMTP id 0387E1FC2A3	for
+ <netdev@vger.kernel.org>; Thu, 03 Aug 2006 17:32:37 +0200 (CEST)
+In-reply-to: <20060803142412.GA14997@kvack.org>
+To: Benjamin LaHaise <bcrl@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Scott,
+Benjamin LaHaise schrieb:
+> On Thu, Aug 03, 2006 at 03:48:39PM +0200, Arnd Hannemann wrote:
+>> However the box is a VIA Epia MII12000 with 1 GB of Ram and 1 GB of swap
+>> enabled, so there should be plenty of memory available. HIGHMEM support
+>> is off. The e1000 nic seems to be an 82540EM, which to my knowledge
+>> should support jumboframes.
+> 
+>> However I can't always reproduce this on a freshly booted system, so
+>> someone else may be the culprit and leaking pages?
+>>
+>> Any ideas how to debug this?
+> 
+> This is memory fragmentation, and all you can do is work around it until 
+> the e1000 driver is changed to split jumbo frames up on rx.  Here are a 
+> few ideas that should improve things for you:
+> 
+> 	- switch to a 2GB/2GB split to recover the memory lost to highmem
+> 	  (see Processor Type and Features / Memory split)
+> 	- increase /proc/sys/vm/min_free_kbytes -- more free memory will 
+> 	  improve the odds that enough unfragmented memory is available for 
+> 	  incoming network packets
+> 
+> I hope this helps.
 
-> I think the main concern that my co-workers here at SOMA Networks
-> and I have is that having two drivers dilutes the community effort.
-> There's also the fact that smc911x seems to have DMA support, which
-> smsc911x does not.  Unless there are plans to enhance smsc911x with
-> DMA support, it would seem to me to make more sense to apply the
-> LAN921x support and hardware workaround changes to smc911x.
+:-) Yes it did. I increased /proc/sys/vm/min_free_kbytes to 65000 and
+now it works. Thank you!
 
-I have kept this driver simple for now, focussing on stable support for 
-multiple platforms.  While arm is certainly popular, we also have a large 
-number of customers on sh, x86 and others, and currently there is no 
-in-kernel support (DMA or not) for these people.
+> 
+> 		-ben
 
-Many of our customers use our proprietary drivers (which support DMA on 
-many platforms), and we would like to migrate them over to a standard 
-in-kernel driver - it would make support easier and everyone can benefit 
-from ongoing driver improvements.  The DMA code within these proprietary 
-drivers is the next target for submission, although I would like to defer 
-additional complexity until we are all happy with the current PIO-only 
-implementation.
+Best regards,
+Arnd Hannemann
 
-Regards,
---
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
+
 
