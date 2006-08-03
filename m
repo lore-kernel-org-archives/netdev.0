@@ -1,37 +1,50 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: bonding questions: carrier based link monitoring / slave device
- state flags
-Date: Thu, 3 Aug 2006 08:59:31 +0300 (IDT)
-Message-ID: <Pine.LNX.4.64.0608030815270.32510@zuben>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: [PATCH 2/6] zd1211rw: Pass more management frame types up to host
+Date: Thu, 3 Aug 2006 08:09:06 +0200
+Message-ID: <20060803060905.GA1622@p15091797.pureserver.info>
+References: <1154468615618-git-send-email-kune@deine-taler.de> <1154468615613-git-send-email-kune@deine-taler.de> <20060802215828.GB5084@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: rdreier@cisco.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dsd@gentoo.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from taurus.voltaire.com ([193.47.165.240]:7385 "EHLO
-	taurus.voltaire.com") by vger.kernel.org with ESMTP
-	id S1751379AbWHCF7d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 01:59:33 -0400
-To: netdev@vger.kernel.org
+Received: from deine-taler.de ([217.160.107.63]:62946 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S932369AbWHCGJH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 02:09:07 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+Content-Disposition: inline
+In-Reply-To: <20060802215828.GB5084@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-First, i'd like to verify what is the parameter setting to have the
-bonding driver use netif_carrier_ok(slave_device) as the means for
-link detection. Is setting use_carrier = 1 enough or one needs to set
-miimon to non-zero as well??? (where the value of miimon translates
-to the link monitoring frequency).
+On 06-08-02 17:58 John W. Linville wrote:
 
-Second, I understand that an enslaved device must **not** be UP, so
-when enslaving a device the bonding driver calls dev_open(slave_device),
-and make sure the device is UP, correct?
+> On Tue, Aug 01, 2006 at 11:43:31PM +0200, Ulrich Kunitz wrote:
+> > From: Daniel Drake <dsd@gentoo.org>
+> > 
+> > We'll be needing these at some point...
+> 
+> This one doesn't really seem like a fix.  But since the later fixes
+> seem to depend on it, I guess it makes sense to take it.
+> 
+> I just didn't want you to think I wasn't looking... :-)
 
-What i want to better understand here, is whether for the bonding driver
-to declare a slave as "being able to carry traffic" it assumes the slave
-will move from UP to RUNNING state (and later netif_carrier_ok would
-return TRUE) without an IP address being set for the slave device ???
+John,
 
-Is (per the bonding driver) the **time** it should take the slave to get
-from UP to (RUNNING && carrier_ok) state limited and/or controlled?
+you are absolutely right. The patch is needed, because the patch
+sequence would break without it.
 
-Or.
+Would it be acceptable if I hint on such "bridge" patches in the
+futture or should we create a clean patch sequence? The latter would
+require us to rewrite patches manually.
 
+BTW we will have a greater number of patches for 2.6.19 (around 30),
+which supports more devices and also cleans stuff. Some work is
+however still required.
+
+Regards,
+
+Uli
+
+-- 
+Uli Kunitz
