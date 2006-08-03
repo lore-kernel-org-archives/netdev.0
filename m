@@ -1,40 +1,94 @@
-From: Martin Michlmayr <tbm@cyrius.com>
-Subject: Re: r8169 driver problem with RTL8110SB chip (on iop3xx ARM board)
-Date: Thu, 3 Aug 2006 15:53:49 +0200
-Message-ID: <20060803135349.GH31534@deprecation.cyrius.com>
-References: <20060728101109.GA25854@xi.wantstofly.org> <20060728104946.GA6710@electric-eye.fr.zoreil.com> <20060728111534.GD25854@xi.wantstofly.org> <20060728115237.GF21733@deprecation.cyrius.com> <20060728194933.GA14222@electric-eye.fr.zoreil.com> <20060728203437.GA6253@deprecation.cyrius.com> <20060802180244.GA32235@deprecation.cyrius.com> <20060802221629.GB28282@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: orinoco driver causes *lots* of lockdep spew
+Date: Thu, 03 Aug 2006 23:54:41 +1000
+Message-ID: <E1G8der-0001fm-00@gondolin.me.apana.org.au>
+References: <1154607380.2965.25.camel@laptopd505.fenrus.org>
+Cc: davej@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	linville@tuxdriver.com, jt@hpl.hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sorrow.cyrius.com ([65.19.161.204]:38411 "EHLO
-	sorrow.cyrius.com") by vger.kernel.org with ESMTP id S932139AbWHCNyA
+Received: from rhun.apana.org.au ([64.62.148.172]:20491 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932401AbWHCNzP
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 09:54:00 -0400
-To: Francois Romieu <romieu@fr.zoreil.com>
-Content-Disposition: inline
-In-Reply-To: <20060802221629.GB28282@electric-eye.fr.zoreil.com>
+	Thu, 3 Aug 2006 09:55:15 -0400
+To: arjan@infradead.org (Arjan van de Ven)
+In-Reply-To: <1154607380.2965.25.camel@laptopd505.fenrus.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Francois Romieu <romieu@fr.zoreil.com> [2006-08-03 00:16]:
-> 0x37: Command                                       0x00
->       Rx off, Tx off
-> > 55	0x0c
->           ^^ -> CmdRxEnb | CmdTxEnb
+Arjan van de Ven <arjan@infradead.org> wrote:
 > 
-> If ChipCmd is not set, the driver will hardly work.
+> this is another one of those nasty buggers;
 
-I put in a printk and ChipCmd is definitely being set but when I query
-it with ethtool later it is 0x00.  What might reset it?
+Good catch.  It's really time that we fix this properly rather than
+adding more kludges to the core code.
 
+Dave, once this goes in you can revert the previous netlink workaround
+that added the _bh suffix.
 
-CmdTxEnb: 0x4
-CmdTxEnb: 0x8
-ChipCmd (before): 0x0
-ChipCmd (after): 0xc
-r8169: eth0: link up
+[WIRELESS]: Send wireless netlink events with a clean slate
 
+Drivers expect to be able to call wireless_send_event in arbitrary
+contexts.  On the other hand, netlink really doesn't like being
+invoked in an IRQ context.  So we need to postpone the sending of
+netlink skb's to a tasklet.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au> 
+
+Cheers,
 -- 
-Martin Michlmayr
-http://www.cyrius.com/
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/core/wireless.c b/net/core/wireless.c
+index d2bc72d..de0bde4 100644
+--- a/net/core/wireless.c
++++ b/net/core/wireless.c
+@@ -82,6 +82,7 @@ #include <linux/seq_file.h>
+ #include <linux/init.h>			/* for __init */
+ #include <linux/if_arp.h>		/* ARPHRD_ETHER */
+ #include <linux/etherdevice.h>		/* compare_ether_addr */
++#include <linux/interrupt.h>
+ 
+ #include <linux/wireless.h>		/* Pretty obvious */
+ #include <net/iw_handler.h>		/* New driver API */
+@@ -1842,6 +1843,18 @@ #endif	/* CONFIG_NET_WIRELESS_RTNETLINK 
+  */
+ 
+ #ifdef WE_EVENT_RTNETLINK
++static struct sk_buff_head wireless_nlevent_queue;
++
++static void wireless_nlevent_process(unsigned long data)
++{
++	struct sk_buff *skb;
++
++	while ((skb = skb_dequeue(&wireless_nlevent_queue)))
++		netlink_broadcast(rtnl, skb, 0, RTNLGRP_LINK, GFP_ATOMIC);
++}
++
++static DECLARE_TASKLET(wireless_nlevent_tasklet, wireless_nlevent_process, 0);
++
+ /* ---------------------------------------------------------------- */
+ /*
+  * Fill a rtnetlink message with our event data.
+@@ -1904,8 +1917,17 @@ static inline void rtmsg_iwinfo(struct n
+ 		return;
+ 	}
+ 	NETLINK_CB(skb).dst_group = RTNLGRP_LINK;
+-	netlink_broadcast(rtnl, skb, 0, RTNLGRP_LINK, GFP_ATOMIC);
++	skb_queue_tail(&wireless_nlevent_queue, skb);
++	tasklet_schedule(&wireless_nlevent_tasklet);
++}
++
++static int __init wireless_nlevent_init(void)
++{
++	skb_queue_head_init(&wireless_nlevent_queue);
++	return 0;
+ }
++
++subsys_initcall(wireless_nlevent_init);
+ #endif	/* WE_EVENT_RTNETLINK */
+ 
+ /* ---------------------------------------------------------------- */
