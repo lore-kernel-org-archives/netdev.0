@@ -1,48 +1,57 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] llc: multicast receive device match
-Date: Thu, 3 Aug 2006 10:05:58 -0700
-Message-ID: <20060803100558.72ff1863@localhost.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take3 2/4] kevent: AIO, aio_sendfile() implementation.
+Date: Thu, 3 Aug 2006 21:13:40 +0400
+Message-ID: <20060803171340.GA10698@2ka.mipt.ru>
+References: <11545983603452@2ka.mipt.ru> <44D22CA4.5090405@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:37531 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964861AbWHCRGY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 13:06:24 -0400
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"David S. Miller" <davem@davemloft.net>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:57801 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932583AbWHCROn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 13:14:43 -0400
+To: Badari Pulavarty <pbadari@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <44D22CA4.5090405@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix from Aji_Srinivas@emc.com, STP packets are incorrectly received on all
-LLC datagram sockets, whichever interface they are bound to. 
-The llc_sap datagram receive logic sends packets with a unicast destination 
-MAC to one socket bound to that SAP and MAC, and multicast packets to all sockets
-bound to that SAP. STP packets are multicast, and we do need to know
-on which interface they were received.
+On Thu, Aug 03, 2006 at 10:04:36AM -0700, Badari Pulavarty (pbadari@us.ibm.com) wrote:
+> Evgeniy Polyakov wrote:
+> >AIO, aio_sendfile() implementation.
+> >
+> >This patch includes asynchronous propagation of file's data into VFS
+> >cache and aio_sendfile() implementation.
+> >Network aio_sendfile() works lazily - it asynchronously populates pages
+> >into the VFS cache (which can be used for various tricks with adaptive
+> >readahead) and then uses usual ->sendfile() callback.
+> >
+> >...
+> >--- /dev/null
+> >+++ b/kernel/kevent/kevent_aio.c
+> >@@ -0,0 +1,584 @@
+> >+/*
+> >+ * 	kevent_aio.c
+> >+ * 
+> >  
+> Since this is *almost* same as mpage.c code, wondering if its possible 
+> to make common
+> generic/helper routines in mpage.c and use it here ?
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
----
- net/llc/llc_sap.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+Yes, as I mentioned in mail to Christoph, I did it just to separate
+kevent as much as possible (so I introduced ->get_block() based
+approach). It can be safely moved into mpage code and used from more
+clear callback like ->readpage().
+Since this AIO code was decided to be postponed for a while, I'm not
+updating it (just make sure that it compiles with new changes), since
+overall design of AIO changes (if any) is not 100% completed.
 
-diff --git a/net/llc/llc_sap.c b/net/llc/llc_sap.c
-index 42eb0c3..61cb8cf 100644
---- a/net/llc/llc_sap.c
-+++ b/net/llc/llc_sap.c
-@@ -330,6 +330,9 @@ static void llc_sap_mcast(struct llc_sap
- 		if (llc->laddr.lsap != laddr->lsap)
- 			continue;
- 
-+		if (llc->dev != skb->dev)
-+			continue;
-+
- 		skb1 = skb_clone(skb, GFP_ATOMIC);
- 		if (!skb1)
- 			break;
+> Thanks,
+> Badari
+
 -- 
-1.4.0
-
-
--- 
+	Evgeniy Polyakov
