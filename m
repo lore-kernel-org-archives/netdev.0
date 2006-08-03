@@ -1,65 +1,41 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take3 1/4] kevent: Core files.
-Date: Thu, 3 Aug 2006 19:21:42 +0400
-Message-ID: <20060803152142.GB14774@2ka.mipt.ru>
-References: <11545983603399@2ka.mipt.ru> <200608031640.34513.dada1@cosmosbay.com> <20060803145553.GA12915@2ka.mipt.ru> <200608031711.59261.dada1@cosmosbay.com>
+Subject: Re: problems with e1000 and jumboframes
+Date: Thu, 3 Aug 2006 19:23:42 +0400
+Message-ID: <20060803152342.GC14774@2ka.mipt.ru>
+References: <44D1FEB7.2050703@arndnet.de> <20060803135925.GA28348@2ka.mipt.ru> <44D20A2F.3090005@arndnet.de> <20060803150330.GB12915@2ka.mipt.ru> <Pine.LNX.4.64.0608031705560.8443@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964779AbWHCPWh@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnd Hannemann <arnd@arndnet.de>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:15814 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S964777AbWHCPX6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 11:23:58 -0400
+To: Krzysztof Oledzki <olel@ans.pl>
 Content-Disposition: inline
-In-Reply-To: <200608031711.59261.dada1@cosmosbay.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <Pine.LNX.4.64.0608031705560.8443@bizon.gios.gov.pl>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 03, 2006 at 05:11:58PM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> On Thursday 03 August 2006 16:55, Evgeniy Polyakov wrote:
-> > On Thu, Aug 03, 2006 at 04:40:34PM +0200, Eric Dumazet (dada1@cosmosbay.com) 
-> wrote:
-> > > > +	mutex_lock(&u->ctl_mutex);
-> > > > +	while (num < max_nr && ((k = kqueue_dequeue_ready(u)) != NULL)) {
-> > > > +		if (copy_to_user(buf + num*sizeof(struct ukevent),
-> > > > +					&k->event, sizeof(struct ukevent))) {
-> > > > +			cerr = -EINVAL;
-> > > > +			break;
-> > > > +		}
-> > >
-> > > It seems quite wrong to hold ctl_mutex while doing a copy_to_user() (of
-> > > possibly a large amount of data) : A thread can sleep on a page fault and
-> > > other threads cannot make progress.
-> >
-> > I would not call that wrong - system prevents some threads from removing
-> > kevents which are counted to be transfered to the userspace, i.e. when
-> > dequeuing was awakened and it had seen some events it is possible, that
-> > when it will dequeue them part will be removed by other thread, so I
-> > prevent this.
-> 
-> Hum, "wrong" was maybe not the good word.... but kqueue_dequeue_ready() uses a 
-> spinlock (ready_lock) to protect ready_list. One particular struct kevent is 
-> given to one thread, one at a time.
+On Thu, Aug 03, 2006 at 05:08:51PM +0200, Krzysztof Oledzki (olel@ans.p=
+l) wrote:
+> >then skb_alloc adds a little
+> >(sizeof(struct skb_shared_info)) at the end, and this ends up
+> >in 32k request just for 9k jumbo frame.
+>=20
+> Strange, why this skb_shared_info cannon be added before first alignm=
+ent?=20
+> And what about smaller frames like 1500, does this driver behave simi=
+lar=20
+> (first align then add)?
 
-I mean that wait_event logic will see that there are requested number of
-events, and when it starts to get them, it is possible that there will
-be no events at all. 
+e1000 aligns it to 2k, which will be transformed into 4k allocation.
 
-> If you look at fs/eventpoll.c, you can see how carefull is ep_send_events() so 
-> that multiple threads can in the same time transfer different items to user 
-> memory.
+> Best regards,
+>=20
+> 				Krzysztof Ol=C4=99dzki
 
-It is done under the same logic under ep->sem semaphore, which is being
-held for del and read operations.
-Or do you mean to have rw semahore instead of mutex here?
 
-> In a model where several threads are servicing events collected by a single 
-> point (epoll, or kevent), this is important to not block all threads because 
-> of a single thread waiting a swapin (trigered by copy_to_user() )
- 
-> Eric
-
--- 
+--=20
 	Evgeniy Polyakov
