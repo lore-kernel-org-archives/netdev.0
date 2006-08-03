@@ -1,42 +1,38 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] bridge: netlink status fix
-Date: Wed, 2 Aug 2006 16:53:23 -0700
-Message-ID: <20060802165323.39c66900@localhost.localdomain>
+From: Philip Craig <philipc@snapgear.com>
+Subject: Re: [RFC] gre: transparent ethernet bridging
+Date: Thu, 03 Aug 2006 11:08:43 +1000
+Message-ID: <44D14C9B.2030706@snapgear.com>
+References: <44CDD631.5030008@snapgear.com>	<20060731091423.3327f85e@dxpl.pdx.osdl.net>	<44CEAB31.5090501@snapgear.com>	<20060731220822.444f04e4@localhost.localdomain>	<44CF1EF8.2090800@snapgear.com>	<44D04386.2040705@snapgear.com> <20060802102337.7ba32020@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:7910 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750728AbWHBXxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 19:53:49 -0400
-To: "David S. Miller" <davem@davemloft.net>
+Received: from rex.snapgear.com ([203.143.235.140]:42967 "EHLO
+	cyberguard.com.au") by vger.kernel.org with ESMTP id S932085AbWHCBIr
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Aug 2006 21:08:47 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060802102337.7ba32020@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix code that passes back netlink status messages about
-bridge changes. Submitted by Aji_Srinivas@emc.com
+Stephen Hemminger wrote:
+> On Wed, 02 Aug 2006 16:17:42 +1000
+> Philip Craig <philipc@snapgear.com> wrote:
+>> It generates a random mac address for gre ports, and also stores
+>> a copy of the mac address for ethernet ports, rather than checking
+>> dev->type everywhere.
+>
+> That looks cleaner. I wonder if using a fixed OUI would be better
+> than random addresses but then choosing an OUI would be a problem.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
----
- net/bridge/br_netlink.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+random_ether_addr() sets the local assignment bit. This is what
+various other virtual devices do (including tap devices, which can
+also be bridged).
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 06abb66..53086fb 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -85,7 +85,7 @@ void br_ifinfo_notify(int event, struct 
- 		goto err_out;
- 
- 	err = br_fill_ifinfo(skb, port, current->pid, 0, event, 0);
--	if (err)
-+	if (err < 0)
- 		goto err_kfree;
- 
- 	NETLINK_CB(skb).dst_group = RTNLGRP_LINK;
--- 
-1.4.0
+> You probably should add a comment about what this function is doing,
+> and why.
 
+Okay.
 
--- 
