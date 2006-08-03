@@ -1,99 +1,72 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] llc: SOCK_DGRAM interface fixes
-Date: Thu, 3 Aug 2006 09:21:17 -0700
-Message-ID: <20060803092117.5726b4d7@localhost.localdomain>
+From: Arnd Hannemann <arnd@arndnet.de>
+Subject: Re: problems with e1000 and jumboframes
+Date: Thu, 03 Aug 2006 18:24:48 +0200
+Message-ID: <44D22350.5070709@arndnet.de>
+References: <44D1FEB7.2050703@arndnet.de> <20060803135925.GA28348@2ka.mipt.ru>
+ <44D20A2F.3090005@arndnet.de> <20060803150330.GB12915@2ka.mipt.ru>
+ <Pine.LNX.4.64.0608031705560.8443@bizon.gios.gov.pl>
+ <20060803151631.GA14774@2ka.mipt.ru>
+ <41b516cb0608030857h1d55820rfd4ccd0cc56dd71d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:35468 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932567AbWHCQWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 12:22:16 -0400
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"David S. Miller" <davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Krzysztof Oledzki <olel@ans.pl>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964786AbWHCQZw@vger.kernel.org>
+In-reply-to: <41b516cb0608030857h1d55820rfd4ccd0cc56dd71d@mail.gmail.com>
+To: Chris Leech <chris.leech@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The datagram interface of LLC is broken in a couple of ways.
-These were discovered when trying to use it to build an out-of-kernel
-version of STP.
+Chris Leech schrieb:
+> On 8/3/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> 
+>> > Strange, why this skb_shared_info cannon be added before first
+>> alignment?
+>> > And what about smaller frames like 1500, does this driver behave
+>> similar
+>> > (first align then add)?
+>>
+>> It can be.
+>> Could attached  (completely untested) patch help?
+> 
+> Note that e1000 uses power of two buffers because that's what the
+> hardware supports.  Also, there's no program able MTU - only a single
+> bit for "long packet enable" that disables frame length checks when
+> using jumbo frames.  That means that if you tell the e1000 it has a
+> 16k buffer, and a 16k frame shows up on the wire, it's going to write
+> to the entire 16k regardless of your 9k MTU setting.  If a 32k frame
+> shows up, two full 16k buffers get written to (OK, assuming the frame
+> can fit into the receive FIFO)
+> 
+> That's why I've always been against trying to optimize the allocation
+> sizes in the driver, even with your small change the skb_shinfo area
+> can get corrupted.  It may be unlikely, because the frame still has to
+> be valid, but some switches aren't real picky about what sized frame
+> they'll forward on if you enable jumbo support either.  So any box on
+> the LAN could send you larger than MTU frames in an attempt to corrupt
+> memory.
+> 
+> I believe that if you tell a hardware device it has a buffer of a
+> certain size, you need to be prepared for that entire buffer to get
+> written to.  Unfortunately that means wasteful allocations for e1000
+> if a single buffer per frame is going to be used.
 
-First it didn't pass the source address of the received packet
-in recvfrom(). It needs to copy the source address of received LLC packets
-into the socket control block. At the same time fix a security issue
-because there was uninitialized data leakage. Every recvfrom call
-was just copying out old data.
+Well you say "if a single buffer per frame is going to be used". Well,
+if I understood you correctly i could set the MTU to, lets say 4000.
+Then the driver would enable the "jumbo frame bit" of the hardware, and
+allocate only a 4k rx buffer, right? (and allocate 16k, because of
+skb_shinfo)
+Now if a new 9k frame arrives the hardware will accept it regardless of
+the 2k MTU and will split it into 3x 4k rx buffers?
+Does the current driver work in this way? That would be great.
 
-Second, LLC should not merge multiple packets in one receive call
-on datagram sockets. LLC should preserve packet boundaries on
-SOCK_DGRAM. 
+Perhaps then one should change the driver in a way that the MTU can
+changed independently of the buffer size?
 
-This fix goes against the old historical comments about UNIX98 semantics
-but without this fix SOCK_DGRAM is broken and useless. So either ANK's
-interpretation was incorect or UNIX98 standard was wrong.
+> - Chris
+> -
 
-
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
----
- net/llc/af_llc.c  |   20 ++++++++------------
- net/llc/llc_sap.c |    4 ++--
- 2 files changed, 10 insertions(+), 14 deletions(-)
-
-diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
-index d6cfe84..2652ead 100644
---- a/net/llc/af_llc.c
-+++ b/net/llc/af_llc.c
-@@ -784,24 +784,20 @@ static int llc_ui_recvmsg(struct kiocb *
- 		copied += used;
- 		len -= used;
- 
--		if (used + offset < skb->len)
--			continue;
--
- 		if (!(flags & MSG_PEEK)) {
- 			sk_eat_skb(sk, skb, 0);
- 			*seq = 0;
- 		}
-+
-+		/* For non stream protcols we get one packet per recvmsg call */
-+		if (sk->sk_type != SOCK_STREAM)
-+			goto copy_uaddr;
-+
-+		/* Partial read */
-+		if (used + offset < skb->len)
-+			continue;
- 	} while (len > 0);
- 
--	/* 
--	 * According to UNIX98, msg_name/msg_namelen are ignored
--	 * on connected socket. -ANK
--	 * But... af_llc still doesn't have separate sets of methods for
--	 * SOCK_DGRAM and SOCK_STREAM :-( So we have to do this test, will
--	 * eventually fix this tho :-) -acme
--	 */
--	if (sk->sk_type == SOCK_DGRAM)
--		goto copy_uaddr;
- out:
- 	release_sock(sk);
- 	return copied;
-diff --git a/net/llc/llc_sap.c b/net/llc/llc_sap.c
-index 20c4eb5..42eb0c3 100644
---- a/net/llc/llc_sap.c
-+++ b/net/llc/llc_sap.c
-@@ -51,10 +51,10 @@ void llc_save_primitive(struct sock *sk,
- {
- 	struct sockaddr_llc *addr;
- 
--	if (skb->sk->sk_type == SOCK_STREAM) /* See UNIX98 */
--		return;
-        /* save primitive for use by the user. */
- 	addr		  = llc_ui_skb_cb(skb);
-+
-+	memset(addr, 0, sizeof(*addr));
- 	addr->sllc_family = sk->sk_family;
- 	addr->sllc_arphrd = skb->dev->type;
- 	addr->sllc_test   = prim == LLC_TEST_PRIM;
--- 
-1.4.0
-
+Thanks,
+Arnd Hannemann.
