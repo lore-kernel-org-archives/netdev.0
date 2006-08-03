@@ -1,46 +1,33 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 2/6] zd1211rw: Pass more management frame types up to host
-Date: Thu, 3 Aug 2006 09:32:42 -0400
-Message-ID: <20060803133237.GA7079@tuxdriver.com>
-References: <1154468615618-git-send-email-kune@deine-taler.de> <1154468615613-git-send-email-kune@deine-taler.de> <20060802215828.GB5084@tuxdriver.com> <20060803060905.GA1622@p15091797.pureserver.info>
+From: "Keven" <convulsiondefault@witty.com>
+Subject: Fill up your supplies with our secure ordering, cost saving and fast delivery. Revel in
+Date: Thu, 3 Aug 2006 21:35:44 +0800
+Message-ID: <11866871033936.E64FFA7411@ES8LUZB>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+        charset="Windows-1252"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:44038 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S932358AbWHCNcx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 09:32:53 -0400
-To: netdev@vger.kernel.org, dsd@gentoo.org
-Content-Disposition: inline
-In-Reply-To: <20060803060905.GA1622@p15091797.pureserver.info>
+Received: from zeus2.kernel.org ([204.152.191.36]:6881 "EHLO zeus2.kernel.org")
+	by vger.kernel.org with ESMTP id S932392AbWHCNe3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 09:34:29 -0400
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 03, 2006 at 08:09:06AM +0200, Ulrich Kunitz wrote:
+Yo! 
+ You gape for shooting like you had seen in those films… Now you could grant your wish 
+ Order our magical stuff now for the amazing prices, and we will dispatch it right away Boost your manhood to astonishing levels Everything a real man would ever need. 
 
-> Would it be acceptable if I hint on such "bridge" patches in the
-> futture or should we create a clean patch sequence? The latter would
-> require us to rewrite patches manually.
 
-I was mostly just poking fun at you. :-)  Still, I suppose it wouldn't
-hurt to acknowledge when a "not really a fix" patch is being included.
+ Check up: http://www.wangheeni.com
 
-When the trivial "not really a fix" patch becomes a non-trivial "really
-a new feature" patch, then we create a situation that may force the
-feature patch and all it's dependant patches to be pushed to the next
-merge window.  In that case, if the later fixes are important than
-the patch sequence may need to be rewritten.
 
-> BTW we will have a greater number of patches for 2.6.19 (around 30),
-> which supports more devices and also cleans stuff. Some work is
-> however still required.
+ World’s greatest brands produce these goods in top class labs with latest technologies. 
 
-That sounds great.  Please do get them in ASAP (after reasonable
-testing, of course).  There was some talk at the kernel summit of
-requiring all feature patches to be in the sub-maintainer trees BEFORE
-Linus opens the merge window.  I'm not sure that was fully agreed upon,
-but still earlier is better.
+Keven Corbett
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+A bird in the hand is worth two in the bush. A sly rabbit will have three openings to its den. A man is known by the company he keeps.
+There's a light at the end of the tunnel. One who has the reputation of an early riser may safely lie in bed until noon  Let us swallow them up alive as the grave; and whole, as those that go down into the pit.
+
+Don't put all your hypes in one home page. Its a dogs life
+
