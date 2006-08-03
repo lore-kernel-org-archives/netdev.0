@@ -1,74 +1,65 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: problems with e1000 and jumboframes
-Date: Thu, 3 Aug 2006 20:10:47 +0400
-Message-ID: <20060803161046.GA703@2ka.mipt.ru>
-References: <44D1FEB7.2050703@arndnet.de> <20060803135925.GA28348@2ka.mipt.ru> <44D20A2F.3090005@arndnet.de> <20060803150330.GB12915@2ka.mipt.ru> <Pine.LNX.4.64.0608031705560.8443@bizon.gios.gov.pl> <20060803151631.GA14774@2ka.mipt.ru> <41b516cb0608030857h1d55820rfd4ccd0cc56dd71d@mail.gmail.com>
+From: Martin Michlmayr <tbm@cyrius.com>
+Subject: Re: r8169 driver problem with RTL8110SB chip (on iop3xx ARM board)
+Date: Thu, 3 Aug 2006 18:21:08 +0200
+Message-ID: <20060803162108.GK31534@deprecation.cyrius.com>
+References: <20060728104946.GA6710@electric-eye.fr.zoreil.com> <20060728111534.GD25854@xi.wantstofly.org> <20060728115237.GF21733@deprecation.cyrius.com> <20060728194933.GA14222@electric-eye.fr.zoreil.com> <20060728203437.GA6253@deprecation.cyrius.com> <20060802180244.GA32235@deprecation.cyrius.com> <20060802221629.GB28282@electric-eye.fr.zoreil.com> <20060803135349.GH31534@deprecation.cyrius.com> <20060803142309.GA17166@deprecation.cyrius.com> <20060803150556.GA9433@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Krzysztof Oledzki <olel@ans.pl>, Arnd Hannemann <arnd@arndnet.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:16268 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S964836AbWHCQLG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 12:11:06 -0400
-To: Chris Leech <chris.leech@gmail.com>
+Received: from sorrow.cyrius.com ([65.19.161.204]:12301 "EHLO
+	sorrow.cyrius.com") by vger.kernel.org with ESMTP id S932527AbWHCQVL
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 12:21:11 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
 Content-Disposition: inline
-In-Reply-To: <41b516cb0608030857h1d55820rfd4ccd0cc56dd71d@mail.gmail.com>
+In-Reply-To: <20060803150556.GA9433@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 03, 2006 at 08:57:36AM -0700, Chris Leech (chris.leech@gmail.com) wrote:
-> On 8/3/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> 
-> >> Strange, why this skb_shared_info cannon be added before first alignment?
-> >> And what about smaller frames like 1500, does this driver behave similar
-> >> (first align then add)?
-> >
-> >It can be.
-> >Could attached  (completely untested) patch help?
-> 
-> Note that e1000 uses power of two buffers because that's what the
-> hardware supports.  Also, there's no program able MTU - only a single
-> bit for "long packet enable" that disables frame length checks when
-> using jumbo frames.  That means that if you tell the e1000 it has a
-> 16k buffer, and a 16k frame shows up on the wire, it's going to write
-> to the entire 16k regardless of your 9k MTU setting.  If a 32k frame
-> shows up, two full 16k buffers get written to (OK, assuming the frame
-> can fit into the receive FIFO)
+* Francois Romieu <romieu@fr.zoreil.com> [2006-08-03 17:05]:
+> Btw, can you pass the module a 'debug=32767' option when it is loaded to
+> increase its verbosity.
 
-Maximum e1000 frame is 16128 bytes, which is enough before being rounded
-to 16k to have a space for shared info.
-My patch just tricks refilling logic to request to allocate slightly less
-than was setup when mtu was changed.
+That doesn't give me much more messages but now I get one error
+message that is probably significant:
 
-> That's why I've always been against trying to optimize the allocation
-> sizes in the driver, even with your small change the skb_shinfo area
-> can get corrupted.  It may be unlikely, because the frame still has to
-> be valid, but some switches aren't real picky about what sized frame
-> they'll forward on if you enable jumbo support either.  So any box on
-> the LAN could send you larger than MTU frames in an attempt to corrupt
-> memory.
+eth0: PCI error (cmd = 0x0157, status = 0x6238).
 
-It is trivial patch and it can be incorrect (especially for small sized
-packets), but it is a hint, that 9k jumbo frame should not require 32k
-allocation.
 
-> I believe that if you tell a hardware device it has a buffer of a
-> certain size, you need to be prepared for that entire buffer to get
-> written to.  Unfortunately that means wasteful allocations for e1000
-> if a single buffer per frame is going to be used.
+Full log:
 
-Hardware is not affected, second patch just checks if there is enough
-space (e1000 stores real mtu). I can not believe that such modern NIC
-like e1000 can not know in receive interrupt size of the received
-packet, if it is true, than in generel you are right and some more 
-clever mechanisms shoud be used (at least turn hack off for small
-packets and only enable it for less than 16 jumbo frames wheere place 
-always is), if size of the received packet is known, then it is enough
-to compare aligned size and size of the packet to make a decision for
-allocation.
-
-> - Chris
+r8169 Gigabit Ethernet driver 2.2LK-NAPI loaded
+mac_version == Unknown
+phy_version == RTL_GIGA_PHY_VER_D (0000)
+eth0: Identified chip type is 'RTL8169s/8110s'.
+eth0: RTL8169 at 0xc885e200, 00:14:fd:10:27:74, IRQ 27
+mac_version == Unknown
+phy_version == RTL_GIGA_PHY_VER_D (0000)
+MAC version != 0 && PHY version == 0 or 1
+Do final_reg2.cfg
+Set MAC Reg C+CR Offset 0x82h = 0x01h
+r8169 Gigabit Ethernet driver 2.2LK-NAPI loaded
+mac_version == Unknown
+phy_version == RTL_GIGA_PHY_VER_D (0000)
+eth1: Identified chip type is 'RTL8169s/8110s'.
+eth1: RTL8169 at 0xc8860300, 00:14:fd:10:00:00, IRQ 28
+mac_version == Unknown
+phy_version == RTL_GIGA_PHY_VER_D (0000)
+MAC version != 0 && PHY version == 0 or 1
+Do final_reg2.cfg
+Set MAC Reg C+CR Offset 0x82h = 0x01h
+libata version 1.20 loaded.
+...
+Freeing init memory: 88K
+Adding 506008k swap on /dev/sda5.  Priority:-1 extents:1
+across:506008k
+EXT3 FS on sda3, internal journal
+r8169: eth0: link up
+eth0: PCI error (cmd = 0x0157, status = 0x6238).
+NETDEV WATCHDOG: eth0: transmit timed out
+eth0: PCI error (cmd = 0x0157, status = 0x6238).
 
 -- 
-	Evgeniy Polyakov
+Martin Michlmayr
+http://www.cyrius.com/
