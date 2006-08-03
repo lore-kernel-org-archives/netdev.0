@@ -1,60 +1,77 @@
-From: Philippe De Muyter <phdm@macqel.be>
-Subject: [PATCH] sundance: small cleanup
-Date: Thu, 3 Aug 2006 18:42:15 +0200
-Message-ID: <20060803184215.A23519@mail.macqel.be>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
+Date: Thu, 3 Aug 2006 09:36:21 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.63.0608030925100.3396@jbrandeb-desk.amr.corp.intel.com>
+References: <E1G8dmn-0001hH-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: hadi@cyberus.ca, jesse.brandeburg@intel.com,
+	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.macqel.be ([194.78.208.39]:47630 "EHLO mail.macqel.be")
-	by vger.kernel.org with ESMTP id S964851AbWHCQmR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 12:42:17 -0400
-Received: (from phdm@localhost)
-	by mail.macqel.be (8.11.0/8.11.0/SuSE Linux 8.11.0-0.4) id k73GgFk23716
-	for netdev@vger.kernel.org; Thu, 3 Aug 2006 18:42:15 +0200
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from mga09.intel.com ([134.134.136.24]:32588 "EHLO
+	orsmga102-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S964850AbWHCQoC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 12:44:02 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1G8dmn-0001hH-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch uses the sundance_reset function everywhere a reset is done,
-and adds a link to the archives of the original mailing list.
+On Fri, 4 Aug 2006, Herbert Xu wrote:
+> jamal <hadi@cyberus.ca> wrote:
+> > 
+> > There is no need for tx_locking if you are already netif stopped
+> > (transmit path will never be entered).
+> > With this change under high speed forwarding i see anywhere
+> > between 2-4Kpps improvement on a 2 CPU environment with twoo e1000s tied
+> > to different CPUs forwarding between each other. Actually the
+> > performance improvement should be attributed to the use of
+> > TX_WAKE_THRESHOLD - more drivers should use that technique.
+> > 
+> > diff --git a/drivers/net/e1000/e1000_main.c 
+> > b/drivers/net/e1000/e1000_main.c
+> > index da62db8..559e334 100644
+> > --- a/drivers/net/e1000/e1000_main.c
+> > +++ b/drivers/net/e1000/e1000_main.c
+> > @@ -3517,11 +3517,8 @@ #endif
+> >  #define TX_WAKE_THRESHOLD 32
+> >  	if (unlikely(cleaned && netif_queue_stopped(netdev) &&
+> >  	             netif_carrier_ok(netdev))) {
+> > -		spin_lock(&tx_ring->tx_lock);
+> > -		if (netif_queue_stopped(netdev) &&
+> > -		    (E1000_DESC_UNUSED(tx_ring) >= TX_WAKE_THRESHOLD))
+> > +		if (E1000_DESC_UNUSED(tx_ring) >= TX_WAKE_THRESHOLD)
+> >  			netif_wake_queue(netdev);
+> > -		spin_unlock(&tx_ring->tx_lock);
+> >  	}
+> >  
+> >  	if (adapter->detect_tx_hung) {
+> 
+> Looks good to me.
 
-Signed-off-by: Philippe De Muyter <phdm@macqel.be>
+jamal, thanks for the investigation, but this doesn't look so good to me.
 
-diff -r 9062402c439c drivers/net/sundance.c
---- a/drivers/net/sundance.c	Thu Aug  3 12:35:26 2006 +0700
-+++ b/drivers/net/sundance.c	Thu Aug  3 18:17:31 2006 +0200
-@@ -17,6 +17,8 @@
- 	Support and updates available at
- 	http://www.scyld.com/network/sundance.html
- 	[link no longer provides useful info -jgarzik]
-+	Archives of the mailing list are still available at
-+	http://www.beowulf.org/pipermail/netdrivers/
- 
- */
- 
-@@ -646,7 +648,7 @@ static int __devinit sundance_probe1 (st
- 	/* Reset the chip to erase previous misconfiguration. */
- 	if (netif_msg_hw(np))
- 		printk("ASIC Control is %x.\n", ioread32(ioaddr + ASICCtrl));
--	iowrite16(0x00ff, ioaddr + ASICCtrl + 2);
-+	sundance_reset(dev, 0x00ff << 16);
- 	if (netif_msg_hw(np))
- 		printk("ASIC Control is now %x.\n", ioread32(ioaddr + ASICCtrl));
- 
-@@ -1075,13 +1077,8 @@ reset_tx (struct net_device *dev)
- 	
- 	/* Reset tx logic, TxListPtr will be cleaned */
- 	iowrite16 (TxDisable, ioaddr + MACCtrl1);
--	iowrite16 (TxReset | DMAReset | FIFOReset | NetworkReset,
--			ioaddr + ASICCtrl + 2);
--	for (i=50; i > 0; i--) {
--		if ((ioread16(ioaddr + ASICCtrl + 2) & ResetBusy) == 0)
--			break;
--		mdelay(1);
--	}
-+	sundance_reset(dev, (NetworkReset|FIFOReset|DMAReset|TxReset) << 16);
-+
- 	/* free all tx skbuff */
- 	for (i = 0; i < TX_RING_SIZE; i++) {
- 		skb = np->tx_skbuff[i];
+> Even if we get it wrong and wake up something that we shouldn't have,
+> the xmit function will simply bail out and stop the queue for us.
+
+I followed the example of tg3 when attempting to optimize this code.  For 
+the normal case we remove a lock acquisition.  Jamals case is not normal. 
+:-)
+
+we specifically added this lock originally to fix a problem we saw where 
+the netif_stop and netif_start would race, and we would end up with a 
+queue that was stopped, and no way to restart it because we didn't have 
+any more TX packets to clean up (even if we DID get an interrupt from a 
+receive)
+
+> Since this is exceedingly unlikely we should drop the locks rather
+> than bother about it.
+
+I think that would be nice, but I still think the current driver solution 
+is a good stable solution that has made it through several rounds of 
+testing here, not to mention is in the tg3.c code.  Unless someone can 
+come up with a way to avoid the race between start and stop *inside* the 
+start and stop code (which would be ideal) then I think we have to have a 
+solution like this in the driver.
+
+Jesse
