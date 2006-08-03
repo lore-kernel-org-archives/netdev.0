@@ -1,33 +1,37 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
-Date: Thu, 03 Aug 2006 16:56:54 -0700 (PDT)
-Message-ID: <20060803.165654.45876296.davem@davemloft.net>
-References: <20060803201741.GA7894@thunk.org>
-	<20060803.144845.66061203.davem@davemloft.net>
-	<20060803235326.GC7894@thunk.org>
+Date: Fri, 4 Aug 2006 09:59:27 +1000
+Message-ID: <20060803235927.GB10932@gondor.apana.org.au>
+References: <20060803201741.GA7894@thunk.org> <20060803.144845.66061203.davem@davemloft.net> <20060803235326.GC7894@thunk.org> <20060803.165654.45876296.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, herbert@gondor.apana.org.au,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: tytso@mit.edu, mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:31672
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030230AbWHCX4w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 19:56:52 -0400
-To: tytso@mit.edu
-In-Reply-To: <20060803235326.GC7894@thunk.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:12296 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1030233AbWHCX7j
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 19:59:39 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060803.165654.45876296.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Theodore Tso <tytso@mit.edu>
-Date: Thu, 3 Aug 2006 19:53:26 -0400
+On Thu, Aug 03, 2006 at 04:56:54PM -0700, David Miller wrote:
+> 
+> As Michael explained, it's the ASF heartbeat sent by tg3_timer() that
+> must be delivered to the chip within certain timing constraints.
+> 
+> If you had any watchdog devices on this machine, they would likely
+> trigger too and reset your machine :)
 
-> Any suggestions on how I could figure out what was really going on and
-> what would be a better fix would be greatly appreciated.
+Watchdogs usually require one heartbeat every 30 seconds or so.  Does
+the ASF heartbeat need to be that frequent?
 
-As Michael explained, it's the ASF heartbeat sent by tg3_timer() that
-must be delivered to the chip within certain timing constraints.
-
-If you had any watchdog devices on this machine, they would likely
-trigger too and reset your machine :)
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
