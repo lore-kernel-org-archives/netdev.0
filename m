@@ -1,84 +1,70 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH] d80211: more correct WE support on master interface
-Date: Thu, 3 Aug 2006 14:03:04 +0200
-Message-ID: <20060803140304.24157844@griffin.suse.cz>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: orinoco driver causes *lots* of lockdep spew
+Date: Thu, 03 Aug 2006 14:15:59 +0200
+Message-ID: <1154607380.2965.25.camel@laptopd505.fenrus.org>
+References: <20060802215932.GE3639@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:37795 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S932380AbWHCMDG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 08:03:06 -0400
-To: NetDev <netdev@vger.kernel.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932382AbWHCMQo@vger.kernel.org>
+To: Dave Jones <davej@redhat.com>
+In-Reply-To: <20060802215932.GE3639@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Master interface needs to have different WE support than virtual interfaces.
-The current situation leads to Oopses and other strange behaviours because
-of calling WE functions that shouldn't be supported on master interface.
+On Wed, 2006-08-02 at 17:59 -0400, Dave Jones wrote:
+> Wow. Nearly 400 lines of debug spew, from a simple 'ifup eth1'.
+> 
+> 		Dave
+> 
+> 
+> ADDRCONF(NETDEV_UP): eth1: link is not ready
+> eth1: New link status: Disconnected (0002)
+> 
+> ======================================================
+> [ INFO: hard-safe -> hard-unsafe lock order detected ]
+> ------------------------------------------------------
+> events/0/5 [HC0[0]:SC0[0]:HE0:SE1] is trying to acquire:
+>  (af_callback_keys + sk->sk_family){-.--}, at: [<ffffffff802136b1>] sock_def_readable+0x19/0x6f
+> 
+> and this task is already holding:
+>  (&priv->lock){++..}, at: [<ffffffff8824f70e>] orinoco_send_wevents+0x28/0x8b [orinoco]
+> which would create a new lock dependency:
+>  (&priv->lock){++..} -> (af_callback_keys + sk->sk_family){-.--}
 
-Signed-off-by: Jiri Benc <jbenc@suse.cz>
+>  [<ffffffff80267948>] _read_lock+0x28/0x34
+>  [<ffffffff802136b1>] sock_def_readable+0x19/0x6f
+>  [<ffffffff80259ad7>] netlink_broadcast+0x222/0x2e2
+>  [<ffffffff804287eb>] wireless_send_event+0x300/0x317
+>  [<ffffffff8824f732>] :orinoco:orinoco_send_wevents+0x4c/0x8b
+>  [<ffffffff8024f99c>] run_workqueue+0xa8/0xfb
+>  [<ffffffff8024c180>] worker_thread+0xef/0x122
+>  [<ffffffff80235437>] kthread+0x100/0x136
+>  [<ffffffff802613de>] child_rip+0x8/0x12
 
----
-Larry, this should fix both problems you reported.
 
- net/d80211/ieee80211.c       |    2 +-
- net/d80211/ieee80211_i.h     |    1 +
- net/d80211/ieee80211_ioctl.c |   22 ++++++++++++++++++++++
- 3 files changed, 24 insertions(+), 1 deletion(-)
 
---- dscape.orig/net/d80211/ieee80211.c
-+++ dscape/net/d80211/ieee80211.c
-@@ -4379,7 +4379,7 @@ struct net_device *ieee80211_alloc_hw(si
- 
- 	mdev->hard_start_xmit = ieee80211_master_start_xmit;
- 	mdev->wireless_handlers =
--		(struct iw_handler_def *) &ieee80211_iw_handler_def;
-+		(struct iw_handler_def *) &ieee80211_iw_master_handler_def;
-         mdev->do_ioctl = ieee80211_ioctl;
- 	mdev->change_mtu = ieee80211_change_mtu;
-         mdev->tx_timeout = ieee80211_tx_timeout;
---- dscape.orig/net/d80211/ieee80211_i.h
-+++ dscape/net/d80211/ieee80211_i.h
-@@ -569,6 +569,7 @@ void ieee80211_if_mgmt_setup(struct net_
- /* ieee80211_ioctl.c */
- int ieee80211_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
- extern const struct iw_handler_def ieee80211_iw_handler_def;
-+extern const struct iw_handler_def ieee80211_iw_master_handler_def;
- 
- /* Set hw encryption from ieee80211 */
- int ieee80211_set_hw_encryption(struct net_device *dev,
---- dscape.orig/net/d80211/ieee80211_ioctl.c
-+++ dscape/net/d80211/ieee80211_ioctl.c
-@@ -3129,3 +3129,25 @@ const struct iw_handler_def ieee80211_iw
- 	.private	= (iw_handler *) ieee80211_private_handler,
- 	.private_args	= (struct iw_priv_args *) ieee80211_ioctl_priv,
- };
-+
-+/* Wireless handlers for master interface */
-+
-+static const iw_handler ieee80211_master_handler[] =
-+{
-+	[SIOCGIWNAME  - SIOCIWFIRST] = (iw_handler) ieee80211_ioctl_giwname,
-+	[SIOCSIWFREQ  - SIOCIWFIRST] = (iw_handler) ieee80211_ioctl_siwfreq,
-+	[SIOCGIWFREQ  - SIOCIWFIRST] = (iw_handler) ieee80211_ioctl_giwfreq,
-+	[SIOCGIWRANGE - SIOCIWFIRST] = (iw_handler) ieee80211_ioctl_giwrange,
-+	[SIOCSIWRTS   - SIOCIWFIRST] = (iw_handler) ieee80211_ioctl_siwrts,
-+	[SIOCGIWRTS   - SIOCIWFIRST] = (iw_handler) ieee80211_ioctl_giwrts,
-+	[SIOCSIWFRAG  - SIOCIWFIRST] = (iw_handler) ieee80211_ioctl_siwfrag,
-+	[SIOCGIWFRAG  - SIOCIWFIRST] = (iw_handler) ieee80211_ioctl_giwfrag,
-+	[SIOCSIWRETRY - SIOCIWFIRST] = (iw_handler) ieee80211_ioctl_siwretry,
-+	[SIOCGIWRETRY - SIOCIWFIRST] = (iw_handler) ieee80211_ioctl_giwretry,
-+};
-+
-+const struct iw_handler_def ieee80211_iw_master_handler_def =
-+{
-+	.num_standard	= sizeof(ieee80211_master_handler) / sizeof(iw_handler),
-+	.standard	= ieee80211_master_handler,
-+};
+this is another one of those nasty buggers;
 
+Lock A = the sk->sk_callback_lock
+Lock B = priv->lock in the driver
+
+Lock A is only BH safe 
+Lock B is hardirq safe and used in the hardirq
+
+
+Cpu 0			cpu 1
+                        user closes the netlink socket
+takes lock B in orinoco_send_events 
+                        takes lock A  in user context in netlink_release() (for write)
+                        interrupt happens
+                        takes lock B in hardirq handler (spins)
+
+calls netlink_broadcast
+which takes lock A for read (spins)
+
+and you have a nice classical AB-BA deadlock
 
 -- 
-Jiri Benc
-SUSE Labs
+if you want to mail me at work (you don't), use arjan (at) linux.intel.com
