@@ -1,54 +1,63 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [take3 1/4] kevent: Core files.
-Date: Thu, 3 Aug 2006 16:40:34 +0200
-Message-ID: <200608031640.34513.dada1@cosmosbay.com>
-References: <11545983603399@2ka.mipt.ru>
+From: jamal <hadi@cyberus.ca>
+Subject: Resend [PKT_SCHED]: Return ENOENT if qdisc module is unavailable
+Date: Thu, 03 Aug 2006 09:20:10 -0400
+Message-ID: <1154611210.5205.43.camel@jzny2>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>
+Content-Type: multipart/mixed; boundary="=-l6Z54Vv0EdAFyuXOGtUo"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:14234 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S932420AbWHCOkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 10:40:43 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <11545983603399@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from mx03.cybersurf.com ([209.197.145.106]:20458 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932534AbWHCOl4
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 10:41:56 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1G8eOP-0003Gj-1E
+	for netdev@vger.kernel.org; Thu, 03 Aug 2006 10:41:45 -0400
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 03 August 2006 11:46, Evgeniy Polyakov wrote:
-> Core files.
->
-> This patch includes core kevent files:
->  - userspace controlling
->  - kernelspace interfaces
->  - initialization
->  - notification state machines
->
 
-> +static int kevent_user_wait(struct file *file, struct kevent_user *u,
-> +		unsigned int min_nr, unsigned int max_nr, unsigned int timeout,
-> +		void __user *buf)
-> +{
->
-
-> +	mutex_lock(&u->ctl_mutex);
-> +	while (num < max_nr && ((k = kqueue_dequeue_ready(u)) != NULL)) {
-> +		if (copy_to_user(buf + num*sizeof(struct ukevent),
-> +					&k->event, sizeof(struct ukevent))) {
-> +			cerr = -EINVAL;
-> +			break;
-> +		}
+--=-l6Z54Vv0EdAFyuXOGtUo
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
 
-It seems quite wrong to hold ctl_mutex while doing a copy_to_user() (of 
-possibly a large amount of data) : A thread can sleep on a page fault and 
-other threads cannot make progress.
+Dave,
 
-Eric
+Old patch - didnt see it reflected in this mornings sync with linus tree
+and dont wanna loose it (git is great at reminding me); if queued
+already, just ignore. 
+
+cheers,
+jamal
+
+--=-l6Z54Vv0EdAFyuXOGtUo
+Content-Disposition: attachment; filename=sch-ne
+Content-Type: text/plain; name=sch-ne; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+
+Return ENOENT if qdisc module is unavailable
+
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+---
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 31570b9..44724c6 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -431,7 +431,7 @@ #ifdef CONFIG_KMOD
+ 	}
+ #endif
+ 
+-	err = -EINVAL;
++	err = -ENOENT;
+ 	if (ops == NULL)
+ 		goto err_out;
+ 
+
+--=-l6Z54Vv0EdAFyuXOGtUo--
+
