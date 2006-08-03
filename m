@@ -1,62 +1,64 @@
-From: Theodore Tso <tytso@mit.edu>
-Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
-Date: Thu, 3 Aug 2006 16:17:41 -0400
-Message-ID: <20060803201741.GA7894@thunk.org>
-References: <E1G8a0J-0002Pn-00@gondolin.me.apana.org.au> <1154630207.3117.17.camel@rh4>
+From: "Chris Leech" <chris.leech@gmail.com>
+Subject: Re: problems with e1000 and jumboframes
+Date: Thu, 3 Aug 2006 13:32:10 -0700
+Message-ID: <41b516cb0608031332v9cc383bq37a13254f25f45a9@mail.gmail.com>
+References: <44D1FEB7.2050703@arndnet.de> <20060803135925.GA28348@2ka.mipt.ru>
+	 <44D20A2F.3090005@arndnet.de> <20060803150330.GB12915@2ka.mipt.ru>
+	 <Pine.LNX.4.64.0608031705560.8443@bizon.gios.gov.pl>
+	 <20060803151631.GA14774@2ka.mipt.ru>
+	 <41b516cb0608030857h1d55820rfd4ccd0cc56dd71d@mail.gmail.com>
+	 <20060803161046.GA703@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Krzysztof Oledzki" <olel@ans.pl>,
+	"Arnd Hannemann" <arnd@arndnet.de>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from thunk.org ([69.25.196.29]:15744 "EHLO thunker.thunk.org")
-	by vger.kernel.org with ESMTP id S964777AbWHCURu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 16:17:50 -0400
-To: Michael Chan <mchan@broadcom.com>
+Received: from ug-out-1314.google.com ([66.249.92.169]:63902 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1751056AbWHCUcO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 16:32:14 -0400
+Received: by ug-out-1314.google.com with SMTP id m3so965365ugc
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2006 13:32:10 -0700 (PDT)
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060803161046.GA703@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <1154630207.3117.17.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 03, 2006 at 11:36:47AM -0700, Michael Chan wrote:
-> On Thu, 2006-08-03 at 20:00 +1000, Herbert Xu wrote:
-> > Theodore Tso <tytso@mit.edu> wrote:
-> > > 
-> > > I'm sending this on mostly because it was a bit of a pain to track down,
-> > > and hopefully it will save time if anyone else hits this while playing
-> > > with the -rt kernel.  It is NOT the right way to fix things, so please
-> > > don't even think of applying this patch (unless you need it, in your own
-> > > local tree :-).
-> > > 
-> > > One of these days when we have time to breath we'll look into fixing
-> > > this the right way, if someone doesn't beat us to it first.  :-)
-> > 
-> Ted, what tg3 hardware is having this timer related problem?  Can you
-> send me the tg3 probing output?
+> Maximum e1000 frame is 16128 bytes, which is enough before being rounded
+> to 16k to have a space for shared info.
+> My patch just tricks refilling logic to request to allocate slightly less
+> than was setup when mtu was changed.
 
-tg3.c:v3.49 (Feb 2, 2006)
-ACPI: PCI Interrupt 0000:02:01.0[A] -> GSI 24 (level, low) -> IRQ 17
-eth0: Tigon3 [partno(BCM95704s) rev 2100 PHY(serdes)] (PCIX:100MHz:64-bit) 10/100/1000BaseT Ethernet 00:14:5e:86:44:24
-eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] Split[0] WireSpeed[0] TSOcap[0]
-eth0: dma_rwctrl[769f4000] dma_mask[64-bit]
+The maximum supported MTU size differs between e1000 devices due to
+differences in FIFO size.  For performance reasons the driver won't
+enable a MTU that doesn't allow for at least two frames in the Tx FIFO
+at once - you really want e1000 to be able to DMA the next frame into
+Tx FIFO while the current one is going out on the wire.  This doesn't
+change the fact that with LPE set, anything that can fit into the Rx
+FIFO and has a valid CRC will be DMAed into buffers regardless of
+length.
 
-02:01.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5704S Gigabit Ethernet (rev 10)
-        Subsystem: IBM: Unknown device 0301
-        Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 17
-        Memory at efff0000 (64-bit, non-prefetchable) [size=64K]
-        Capabilities: [40] PCI-X non-bridge device.
-        Capabilities: [48] Power Management version 2
-        Capabilities: [50] Vital Product Data
-        Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/3 Enable-
+> Hardware is not affected, second patch just checks if there is enough
+> space (e1000 stores real mtu). I can not believe that such modern NIC
+> like e1000 can not know in receive interrupt size of the received
+> packet, if it is true, than in generel you are right and some more
+> clever mechanisms shoud be used (at least turn hack off for small
+> packets and only enable it for less than 16 jumbo frames wheere place
+> always is), if size of the received packet is known, then it is enough
+> to compare aligned size and size of the packet to make a decision for
+> allocation.
 
-The other interesting bit of information is that after networking card
-goes dead and I do the "ifdown eth0; ifup eth0", the following printk
-shows up:
+You're changing the size of the buffer without telling the hardware.
+In the interrupt context e1000 knows the size of what was DMAed into
+the skb, but that's after the fact.  So e1000 could detect that memory
+was corrupted, but not prevent it if you don't give it power of 2
+buffers.  Actually, the power of 2 thing doesn't hold true for all
+e1000 devices.  Some have 1k granularity, but not Arnd's 82540.
 
-tg3: tg3_abort_hw timed out for eth0, TX_MODE_ENABLE will not clear MAC_TX_MODE=ffffffff
+You can't know the size of a received packet before it's DMAed into
+host memory, no high performance network controller works that way.
 
-This is from an IBM LS-20 blade.
-
-Is this helpful?
-
-							- Ted
+- Chris
