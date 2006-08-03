@@ -1,50 +1,49 @@
-From: Ulrich Kunitz <kune@deine-taler.de>
-Subject: Re: [PATCH 2/6] zd1211rw: Pass more management frame types up to host
-Date: Thu, 3 Aug 2006 08:09:06 +0200
-Message-ID: <20060803060905.GA1622@p15091797.pureserver.info>
-References: <1154468615618-git-send-email-kune@deine-taler.de> <1154468615613-git-send-email-kune@deine-taler.de> <20060802215828.GB5084@tuxdriver.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [PATCH] e1000: add forgotten PCI ID for supported device
+Date: Thu, 3 Aug 2006 00:17:42 -0700
+Message-ID: <20060803071742.GL26354@kroah.com>
+References: <44CA8A59.40002@intel.com> <20060728231837.GA2109@kroah.com> <Pine.WNT.4.63.0607281659480.2660@jbrandeb-desk.amr.corp.intel.com> <20060729002440.GA3284@kroah.com> <20060729031859.GA23779@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dsd@gentoo.org
+Cc: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	NetDev <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>, stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:62946 "EHLO
-	p15091797.pureserver.info") by vger.kernel.org with ESMTP
-	id S932369AbWHCGJH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 02:09:07 -0400
+Received: from cantor2.suse.de ([195.135.220.15]:61666 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S932357AbWHCHWV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 03:22:21 -0400
 To: "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
-In-Reply-To: <20060802215828.GB5084@tuxdriver.com>
+In-Reply-To: <20060729031859.GA23779@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06-08-02 17:58 John W. Linville wrote:
-
-> On Tue, Aug 01, 2006 at 11:43:31PM +0200, Ulrich Kunitz wrote:
-> > From: Daniel Drake <dsd@gentoo.org>
+On Fri, Jul 28, 2006 at 11:19:05PM -0400, John W. Linville wrote:
+> On Fri, Jul 28, 2006 at 05:24:40PM -0700, Greg KH wrote:
+> > On Fri, Jul 28, 2006 at 05:04:49PM -0700, Brandeburg, Jesse wrote:
+> 
+> > > The kernel driver advertises through our probe table and in our readme 
+> > > that we support this device (code is in e1000_main.c) but we don't load on 
+> > > it correctly due to an error when we submitted the patches (e1000_hw.c/h).
+> > > 
+> > > Patch is very simple and low risk, but it is your call.
 > > 
-> > We'll be needing these at some point...
+> > Sorry, but for now, no.  Users should be able to use the sysfs bind and
+> > new_id interface to add new device support for your driver, if it's
+> > written properly :)
 > 
-> This one doesn't really seem like a fix.  But since the later fixes
-> seem to depend on it, I guess it makes sense to take it.
-> 
-> I just didn't want you to think I wasn't looking... :-)
+> In this case it isn't an addition to the PCI ID table, but an actual
+> added check in the code.  You could make the argument that it is a
+> bug since the PCI ID table says the device is supported, but it won't
+> work w/o this additional check.
 
-John,
+Ok, fine, you all convinced me :)
 
-you are absolutely right. The patch is needed, because the patch
-sequence would break without it.
+Queued to -stable.
 
-Would it be acceptable if I hint on such "bridge" patches in the
-futture or should we create a clean patch sequence? The latter would
-require us to rewrite patches manually.
+thanks,
 
-BTW we will have a greater number of patches for 2.6.19 (around 30),
-which supports more devices and also cleans stuff. Some work is
-however still required.
+greg k-h
 
-Regards,
-
-Uli
-
--- 
-Uli Kunitz
