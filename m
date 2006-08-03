@@ -1,48 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Bug in IPSEC?
-Date: Thu, 3 Aug 2006 11:19:59 +1000
-Message-ID: <20060803011959.GB4958@gondor.apana.org.au>
-References: <34d8b2fe0608020808r7539ccc9h3f9a0beb5819d0a0@mail.gmail.com>
+From: Philip Craig <philipc@snapgear.com>
+Subject: Re: [RFC] gre: transparent ethernet bridging
+Date: Thu, 03 Aug 2006 11:33:25 +1000
+Message-ID: <44D15265.4090905@snapgear.com>
+References: <44CDD631.5030008@snapgear.com> <20060731091423.3327f85e@dxpl.pdx.osdl.net> <44CEAB31.5090501@snapgear.com> <20060731220822.444f04e4@localhost.localdomain> <20060802074223.GA23715@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	James Morris <jmorris@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:28687 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932105AbWHCBUJ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Aug 2006 21:20:09 -0400
-To: Louis Croisez <louis.croisez@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <34d8b2fe0608020808r7539ccc9h3f9a0beb5819d0a0@mail.gmail.com>
+Received: from rex.snapgear.com ([203.143.235.140]:732 "EHLO cyberguard.com.au")
+	by vger.kernel.org with ESMTP id S932136AbWHCBd0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Aug 2006 21:33:26 -0400
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20060802074223.GA23715@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 02, 2006 at 05:08:39PM +0200, Louis Croisez wrote:
+Lennert Buytenhek wrote:
+> On Mon, Jul 31, 2006 at 10:08:22PM -0700, Stephen Hemminger wrote:
 > 
-> I think that 96 bits for the truncated version of the hmac is not
-> enough with respect to RFC 2104, p5 ?1 :
-> "... We recommend that the output length to be not less than half the
-> length of the hash output ... and not less than 80 bits ..."
+>>>> Why not use existing bridge code?
+>>> It does use the existing bridge code.  Perhaps the name is misleading.
+>>> All it does is encapsulate the full ethernet header in a gre packet,
+>>> rather than only layer 3.  That is, currently gre uses ARPHRD_IPGRE,
+>>> but bridging requires ARPHRD_ETHER.
+>> I am not against making the bridge code smarter to handle other
+>> encapsulation.
 > 
-> I thing that the truncated length should be 128 bits in this case...
-> Do you agree?
+> What if you want to run ethernet directly over a GRE tunnel, without
+> using bridging?
 
-(To recap our sha256 IPsec implementation truncates the output to 96
-bits while the last IETF draft on sha256 and the general HMAC RFC
-requires 128 bits)
+But on the other hand, this method allows you to send both ethernet
+and non-ethernet traffic over the same GRE tunnel.  Is that useful?
+Actually, this feature is what makes the handling of the LLC_SAP_BSPAN
+packets simple.
 
-Yes I agree with your assessment.
+The patch to bridging is a lot cleaner than the patch to GRE, and it
+also sidesteps the userspace configuration issues, so I don't want to
+go back to modifying the GRE device.
 
-Changing it is nasty though since we don't know how many Linux users
-have deployed this.
-
-Also, we should keep in mind that the IETF has given up on sha256
-altogether.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Both could be achieved by creating a new virtual device that sits
+between GRE and bridging.
