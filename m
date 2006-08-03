@@ -1,41 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Fri, 04 Aug 2006 00:02:53 +1000
-Message-ID: <E1G8dmn-0001hH-00@gondolin.me.apana.org.au>
-References: <1154610922.5205.38.camel@jzny2>
-Cc: jesse.brandeburg@intel.com, auke-jan.h.kok@intel.com,
-	netdev@vger.kernel.org
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: orinoco driver causes *lots* of lockdep spew
+Date: Thu, 3 Aug 2006 15:11:53 +0100
+Message-ID: <20060803141153.GB20405@infradead.org>
+References: <1154607380.2965.25.camel@laptopd505.fenrus.org> <E1G8der-0001fm-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Arjan van de Ven <arjan@infradead.org>, davej@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, linville@tuxdriver.com, jt@hpl.hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:29963 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932482AbWHCODH
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 10:03:07 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1154610922.5205.38.camel@jzny2>
+Received: from pentafluge.infradead.org ([213.146.154.40]:24032 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S932485AbWHCOME (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 10:12:04 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1G8der-0001fm-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal <hadi@cyberus.ca> wrote:
+On Thu, Aug 03, 2006 at 11:54:41PM +1000, Herbert Xu wrote:
+> Arjan van de Ven <arjan@infradead.org> wrote:
+> > 
+> > this is another one of those nasty buggers;
 > 
-> There is no need for tx_locking if you are already netif stopped
-> (transmit path will never be entered).
-> With this change under high speed forwarding i see anywhere
-> between 2-4Kpps improvement on a 2 CPU environment with twoo e1000s tied
-> to different CPUs forwarding between each other. Actually the
-> performance improvement should be attributed to the use of
-> TX_WAKE_THRESHOLD - more drivers should use that technique.
+> Good catch.  It's really time that we fix this properly rather than
+> adding more kludges to the core code.
+> 
+> Dave, once this goes in you can revert the previous netlink workaround
+> that added the _bh suffix.
+> 
+> [WIRELESS]: Send wireless netlink events with a clean slate
 
-Looks good to me.
+Could we please just get rid of the wireless extensions over netlink code
+again?  It doesn't help to solve anything and just creates a bigger mess
+to untangle when switching to a fully fledged wireless stack.
 
-Even if we get it wrong and wake up something that we shouldn't have,
-the xmit function will simply bail out and stop the queue for us.
-
-Since this is exceedingly unlikely we should drop the locks rather
-than bother about it.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
