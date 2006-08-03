@@ -1,32 +1,52 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help() 2.6.18-rc3
-Date: Thu, 03 Aug 2006 11:30:55 +0200
-Message-ID: <44D1C24F.2080403@trash.net>
-References: <44CD8415.2020403@davidcoulson.net> <44CD85FF.9010607@trash.net> <20060730.215907.58439803.davem@davemloft.net> <44CD9013.7020401@trash.net> <44CDDDF7.70004@trash.net> <20060731113050.GA25972@gondor.apana.org.au> <44CE4DCA.8000609@trash.net> <20060801220338.GA11032@gondor.apana.org.au>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH 5/6] htb: use hlist for hash lists.
+Date: Thu, 3 Aug 2006 11:34:44 +0200
+Message-ID: <20060803093444.GA2941@ff.dom.local>
+References: <20060802150340.7faabd1d@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44539 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932428AbWHCJa5
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 05:30:57 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060801220338.GA11032@gondor.apana.org.au>
+Received: from mx2.go2.pl ([193.17.41.42]:5610 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S932430AbWHCJc3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 05:32:29 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20060802150340.7faabd1d@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Mon, Jul 31, 2006 at 08:36:58PM +0200, Patrick McHardy wrote:
-> 
->>diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
->>index 662a869..df1f4e5 100644
->>--- a/net/netfilter/nf_queue.c
->>+++ b/net/netfilter/nf_queue.c
-> 
-> 
-> I presume we need similar patches for the old ipv4/ipv6 versions as well?
+On 03-08-2006 00:03, Stephen Hemminger wrote:
+...
 
-This is code is used for all queueing mechanisms, so they are already
-covered by this.
+Hi,
+
+By the way, isn't htb supposed to recognize here ids 
+got like this: tc filter add ... classid 0:1 
+Some qdisc like prio do this and it is mentioned in
+sch_api.c which is passing this without error code:
+
+> @@ -220,12 +220,13 @@ #endif
+>  static inline struct htb_class *htb_find(u32 handle, struct Qdisc *sch)
+>  {
+>  	struct htb_sched *q = qdisc_priv(sch);
+> -	struct list_head *p;
+> +	struct hlist_node *p;
+> +	struct htb_class *cl;
+> +
+>  	if (TC_H_MAJ(handle) != sch->handle)
+>  		return NULL;
+
+I've tried this for example:
+
+-	if (TC_H_MAJ(handle) != sch->handle) 
++	if (TC_H_MAJ(handle) == 0) /* 0:Y class is X:Y, where X:0 is qdisc */
++		handle += sch->handle;
++	else if (TC_H_MAJ(handle) != sch->handle)
+ 		return NULL;
+ 	
+On the other hand I don't understand why it should be good
+if there could be the real priority(from tos) only by accident
+equal to the classid?
+
+Jarek P.
+
