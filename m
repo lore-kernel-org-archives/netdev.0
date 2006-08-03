@@ -1,72 +1,46 @@
-From: Arnd Hannemann <arnd@arndnet.de>
-Subject: Re: problems with e1000 and jumboframes
-Date: Thu, 03 Aug 2006 18:24:48 +0200
-Message-ID: <44D22350.5070709@arndnet.de>
-References: <44D1FEB7.2050703@arndnet.de> <20060803135925.GA28348@2ka.mipt.ru>
- <44D20A2F.3090005@arndnet.de> <20060803150330.GB12915@2ka.mipt.ru>
- <Pine.LNX.4.64.0608031705560.8443@bizon.gios.gov.pl>
- <20060803151631.GA14774@2ka.mipt.ru>
- <41b516cb0608030857h1d55820rfd4ccd0cc56dd71d@mail.gmail.com>
+From: Theodore Tso <tytso@mit.edu>
+Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
+Date: Thu, 3 Aug 2006 12:32:05 -0400
+Message-ID: <20060803163204.GB20603@thunk.org>
+References: <20060803075704.GC27835@thunk.org> <E1G8a0J-0002Pn-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Krzysztof Oledzki <olel@ans.pl>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964786AbWHCQZw@vger.kernel.org>
-In-reply-to: <41b516cb0608030857h1d55820rfd4ccd0cc56dd71d@mail.gmail.com>
-To: Chris Leech <chris.leech@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from thunk.org ([69.25.196.29]:64989 "EHLO thunker.thunk.org")
+	by vger.kernel.org with ESMTP id S964833AbWHCQcK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 12:32:10 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1G8a0J-0002Pn-00@gondolin.me.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Leech schrieb:
-> On 8/3/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+On Thu, Aug 03, 2006 at 08:00:35PM +1000, Herbert Xu wrote:
+> Theodore Tso <tytso@mit.edu> wrote:
+> > 
+> > I'm sending this on mostly because it was a bit of a pain to track down,
+> > and hopefully it will save time if anyone else hits this while playing
+> > with the -rt kernel.  It is NOT the right way to fix things, so please
+> > don't even think of applying this patch (unless you need it, in your own
+> > local tree :-).
+> > 
+> > One of these days when we have time to breath we'll look into fixing
+> > this the right way, if someone doesn't beat us to it first.  :-)
 > 
->> > Strange, why this skb_shared_info cannon be added before first
->> alignment?
->> > And what about smaller frames like 1500, does this driver behave
->> similar
->> > (first align then add)?
->>
->> It can be.
->> Could attached  (completely untested) patch help?
-> 
-> Note that e1000 uses power of two buffers because that's what the
-> hardware supports.  Also, there's no program able MTU - only a single
-> bit for "long packet enable" that disables frame length checks when
-> using jumbo frames.  That means that if you tell the e1000 it has a
-> 16k buffer, and a 16k frame shows up on the wire, it's going to write
-> to the entire 16k regardless of your 9k MTU setting.  If a 32k frame
-> shows up, two full 16k buffers get written to (OK, assuming the frame
-> can fit into the receive FIFO)
-> 
-> That's why I've always been against trying to optimize the allocation
-> sizes in the driver, even with your small change the skb_shinfo area
-> can get corrupted.  It may be unlikely, because the frame still has to
-> be valid, but some switches aren't real picky about what sized frame
-> they'll forward on if you enable jumbo support either.  So any box on
-> the LAN could send you larger than MTU frames in an attempt to corrupt
-> memory.
-> 
-> I believe that if you tell a hardware device it has a buffer of a
-> certain size, you need to be prepared for that entire buffer to get
-> written to.  Unfortunately that means wasteful allocations for e1000
-> if a single buffer per frame is going to be used.
+> You probably should resend the patch to netdev and Michael Chan
+> <mchan@broadcom.com>.  He might have ideas on how this could be
+> avoided.
 
-Well you say "if a single buffer per frame is going to be used". Well,
-if I understood you correctly i could set the MTU to, lets say 4000.
-Then the driver would enable the "jumbo frame bit" of the hardware, and
-allocate only a 4k rx buffer, right? (and allocate 16k, because of
-skb_shinfo)
-Now if a new 9k frame arrives the hardware will accept it regardless of
-the 2k MTU and will split it into 3x 4k rx buffers?
-Does the current driver work in this way? That would be great.
+This only shows up with the real-time kernel where timer softirq's run
+in their own processes, and a high priority process preempts the timer
+softirq.  I don't really consider this a networking bug, or even
+driver bug, although it does seem unfortunate that Broadcom hardware
+locks up and goes unresponsive if the OS doesn't tickle it every tenth
+of a second or so.  (Definitely a bad idea if the tg3 gets used on any
+laptops, from a power usage perspective.)  But that seems like a
+(lame) hardware bug, not a driver bug....
 
-Perhaps then one should change the driver in a way that the MTU can
-changed independently of the buffer size?
+						- Ted
 
-> - Chris
-> -
-
-Thanks,
-Arnd Hannemann.
