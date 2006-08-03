@@ -1,28 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: netlink status fix
-Date: Thu, 03 Aug 2006 16:24:57 -0700 (PDT)
-Message-ID: <20060803.162457.40574357.davem@davemloft.net>
-References: <20060802165323.39c66900@localhost.localdomain>
+Subject: Re: Bug in IPSEC?
+Date: Thu, 03 Aug 2006 16:26:36 -0700 (PDT)
+Message-ID: <20060803.162636.31753120.davem@davemloft.net>
+References: <34d8b2fe0608020808r7539ccc9h3f9a0beb5819d0a0@mail.gmail.com>
+	<20060803011959.GB4958@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: louis.croisez@gmail.com, netdev@vger.kernel.org, jmorris@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:32429
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:33453
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751385AbWHCXYz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 19:24:55 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060802165323.39c66900@localhost.localdomain>
+	id S1751386AbWHCX0e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 19:26:34 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060803011959.GB4958@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Wed, 2 Aug 2006 16:53:23 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 3 Aug 2006 11:19:59 +1000
 
-> Fix code that passes back netlink status messages about
-> bridge changes. Submitted by Aji_Srinivas@emc.com
+> (To recap our sha256 IPsec implementation truncates the output to 96
+> bits while the last IETF draft on sha256 and the general HMAC RFC
+> requires 128 bits)
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> Yes I agree with your assessment.
+> 
+> Changing it is nasty though since we don't know how many Linux users
+> have deployed this.
+> 
+> Also, we should keep in mind that the IETF has given up on sha256
+> altogether.
 
-Applied, thanks Stephen.
+I think we have to leave things as is by default, and find some
+way to provide a 128-bits mode that can be selected by the user.
