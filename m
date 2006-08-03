@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
-Date: Thu, 03 Aug 2006 14:45:58 -0700 (PDT)
-Message-ID: <20060803.144558.02298663.davem@davemloft.net>
-References: <20060803163204.GB20603@thunk.org>
-	<1154623598.19547.52.camel@c-67-188-28-158.hsd1.ca.comcast.net>
-	<20060803171731.GE20603@thunk.org>
+Date: Thu, 03 Aug 2006 14:48:45 -0700 (PDT)
+Message-ID: <20060803.144845.66061203.davem@davemloft.net>
+References: <E1G8a0J-0002Pn-00@gondolin.me.apana.org.au>
+	<1154630207.3117.17.camel@rh4>
+	<20060803201741.GA7894@thunk.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dwalker@mvista.com, herbert@gondor.apana.org.au,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mchan@broadcom.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030187AbWHCVqm@vger.kernel.org>
+Cc: mchan@broadcom.com, herbert@gondor.apana.org.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:62695
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030199AbWHCVt2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 17:49:28 -0400
 To: tytso@mit.edu
-In-Reply-To: <20060803171731.GE20603@thunk.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20060803201741.GA7894@thunk.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Theodore Tso <tytso@mit.edu>
-Date: Thu, 3 Aug 2006 13:17:31 -0400
+Date: Thu, 3 Aug 2006 16:17:41 -0400
 
-> The tg3_timer() code, for example, is trigger by the device driver but
-> isn't associated with a process for boosting purposes, and creating a
-> process just so that tg3_timer() can be boosted seems like the Wrong
+> eth0: Tigon3 [partno(BCM95704s) rev 2100 PHY(serdes)] (PCIX:100MHz:64-bit) 10/100/1000BaseT Ethernet 00:14:5e:86:44:24
 
-Ted please make sure the tg3 chips you have actually do need
-that periodic poking code that tg3_timer() has, most chips do
-not.
-
-You don't need the periodic poke unless TG3_FLAG_TAGGED_STATUS is
-cleared, and that is only the case for two chips 1) 5700 and 2) 5788.
-
-The only thing left is the link status and that is not so concerned
-about mild forms of latency in the timer firing.
+The 5704 chip will set TG3_FLAG_TAGGED_STATUS, and therefore
+doesn't need the periodic poking done by tg3_timer().
