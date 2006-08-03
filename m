@@ -1,64 +1,65 @@
 From: "Chris Leech" <chris.leech@gmail.com>
 Subject: Re: problems with e1000 and jumboframes
-Date: Thu, 3 Aug 2006 13:32:10 -0700
-Message-ID: <41b516cb0608031332v9cc383bq37a13254f25f45a9@mail.gmail.com>
+Date: Thu, 3 Aug 2006 13:34:12 -0700
+Message-ID: <41b516cb0608031334s6e159e99tb749240f44ae608d@mail.gmail.com>
 References: <44D1FEB7.2050703@arndnet.de> <20060803135925.GA28348@2ka.mipt.ru>
 	 <44D20A2F.3090005@arndnet.de> <20060803150330.GB12915@2ka.mipt.ru>
 	 <Pine.LNX.4.64.0608031705560.8443@bizon.gios.gov.pl>
 	 <20060803151631.GA14774@2ka.mipt.ru>
 	 <41b516cb0608030857h1d55820rfd4ccd0cc56dd71d@mail.gmail.com>
-	 <20060803161046.GA703@2ka.mipt.ru>
+	 <44D22350.5070709@arndnet.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Krzysztof Oledzki" <olel@ans.pl>,
-	"Arnd Hannemann" <arnd@arndnet.de>, linux-kernel@vger.kernel.org,
+Cc: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
+	"Krzysztof Oledzki" <olel@ans.pl>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:63902 "EHLO
+Received: from ug-out-1314.google.com ([66.249.92.172]:43427 "EHLO
 	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1751056AbWHCUcO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 16:32:14 -0400
-Received: by ug-out-1314.google.com with SMTP id m3so965365ugc
-        for <netdev@vger.kernel.org>; Thu, 03 Aug 2006 13:32:10 -0700 (PDT)
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060803161046.GA703@2ka.mipt.ru>
+	id S1751320AbWHCUeQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 16:34:16 -0400
+Received: by ug-out-1314.google.com with SMTP id m3so966168ugc
+        for <netdev@vger.kernel.org>; Thu, 03 Aug 2006 13:34:12 -0700 (PDT)
+To: "Arnd Hannemann" <arnd@arndnet.de>
+In-Reply-To: <44D22350.5070709@arndnet.de>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Maximum e1000 frame is 16128 bytes, which is enough before being rounded
-> to 16k to have a space for shared info.
-> My patch just tricks refilling logic to request to allocate slightly less
-> than was setup when mtu was changed.
+On 8/3/06, Arnd Hannemann <arnd@arndnet.de> wrote:
+> Well you say "if a single buffer per frame is going to be used". Well,
+> if I understood you correctly i could set the MTU to, lets say 4000.
+> Then the driver would enable the "jumbo frame bit" of the hardware, and
+> allocate only a 4k rx buffer, right? (and allocate 16k, because of
+> skb_shinfo)
+> Now if a new 9k frame arrives the hardware will accept it regardless of
+> the 2k MTU and will split it into 3x 4k rx buffers?
+> Does the current driver work in this way? That would be great.
+>
+> Perhaps then one should change the driver in a way that the MTU can
+> changed independently of the buffer size?
 
-The maximum supported MTU size differs between e1000 devices due to
-differences in FIFO size.  For performance reasons the driver won't
-enable a MTU that doesn't allow for at least two frames in the Tx FIFO
-at once - you really want e1000 to be able to DMA the next frame into
-Tx FIFO while the current one is going out on the wire.  This doesn't
-change the fact that with LPE set, anything that can fit into the Rx
-FIFO and has a valid CRC will be DMAed into buffers regardless of
-length.
+Yes, e1000 devices will spill over and use multiple buffers for a
+single frame.  We've been trying to find a good way to use multiple
+buffers to take care of these allocation problems.  The structure of
+the sk_buff does not make it easy.  Or should I say that it's the
+limitation that drivers are not allowed to chain together multiple
+sk_buffs to represent a single frame that does not make it easy.
 
-> Hardware is not affected, second patch just checks if there is enough
-> space (e1000 stores real mtu). I can not believe that such modern NIC
-> like e1000 can not know in receive interrupt size of the received
-> packet, if it is true, than in generel you are right and some more
-> clever mechanisms shoud be used (at least turn hack off for small
-> packets and only enable it for less than 16 jumbo frames wheere place
-> always is), if size of the received packet is known, then it is enough
-> to compare aligned size and size of the packet to make a decision for
-> allocation.
+PCI-Express e1000 devices support a feature called header split, where
+the protocol headers go into a different buffer from the payload.  We
+use that today to put headers into the kmalloc() allocated skb->data
+area, and payload into one or more skb->frags[] pages.  You don't ever
+have multiple page allocations from the driver in this mode.
 
-You're changing the size of the buffer without telling the hardware.
-In the interrupt context e1000 knows the size of what was DMAed into
-the skb, but that's after the fact.  So e1000 could detect that memory
-was corrupted, but not prevent it if you don't give it power of 2
-buffers.  Actually, the power of 2 thing doesn't hold true for all
-e1000 devices.  Some have 1k granularity, but not Arnd's 82540.
+We could try and only use page allocations for older e1000 devices,
+putting headers and payload into skb->frags and copying the headers
+out into the skb->data area as needed for processing.  That would do
+away with large allocations, but in Jesse's experiments calling
+alloc_page() is slower than kmalloc(), so there can actually be a
+performance hit from trying to use page allocations all the time.
 
-You can't know the size of a received packet before it's DMAed into
-host memory, no high performance network controller works that way.
+It's an interesting problem.
 
 - Chris
