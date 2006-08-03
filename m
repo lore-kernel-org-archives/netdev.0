@@ -1,54 +1,34 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: problems with e1000 and jumboframes
-Date: Thu, 3 Aug 2006 19:41:26 +0400
-Message-ID: <20060803154125.GA9745@2ka.mipt.ru>
-References: <44D1FEB7.2050703@arndnet.de> <20060803135925.GA28348@2ka.mipt.ru> <44D20A2F.3090005@arndnet.de> <20060803150330.GB12915@2ka.mipt.ru> <Pine.LNX.4.64.0608031705560.8443@bizon.gios.gov.pl> <20060803151631.GA14774@2ka.mipt.ru>
+Date: Thu, 3 Aug 2006 19:43:09 +0400
+Message-ID: <20060803154309.GB9745@2ka.mipt.ru>
+References: <44D1FEB7.2050703@arndnet.de> <20060803135925.GA28348@2ka.mipt.ru> <44D20A2F.3090005@arndnet.de> <20060803150330.GB12915@2ka.mipt.ru> <Pine.LNX.4.64.0608031705560.8443@bizon.gios.gov.pl> <20060803151631.GA14774@2ka.mipt.ru> <44D21845.6020703@arndnet.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
-Cc: Arnd Hannemann <arnd@arndnet.de>, linux-kernel@vger.kernel.org,
+Cc: Krzysztof Oledzki <olel@ans.pl>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:38111 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S964809AbWHCPlh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 11:41:37 -0400
-To: Krzysztof Oledzki <olel@ans.pl>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:57234 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S964814AbWHCPnd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 11:43:33 -0400
+To: Arnd Hannemann <arnd@arndnet.de>
 Content-Disposition: inline
-In-Reply-To: <20060803151631.GA14774@2ka.mipt.ru>
+In-Reply-To: <44D21845.6020703@arndnet.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 03, 2006 at 07:16:31PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > >then skb_alloc adds a little
-> > >(sizeof(struct skb_shared_info)) at the end, and this ends up
-> > >in 32k request just for 9k jumbo frame.
-> > 
-> > Strange, why this skb_shared_info cannon be added before first alignment? 
-> > And what about smaller frames like 1500, does this driver behave similar 
-> > (first align then add)?
+On Thu, Aug 03, 2006 at 05:37:41PM +0200, Arnd Hannemann (arnd@arndnet.de) wrote:
+> > It can be.
+> > Could attached  (completely untested) patch help?
 > 
-> It can be.
-> Could attached  (completely untested) patch help?
+> I will try this in a minute. However is there any way to see which
+> allocation e1000 does without triggering allocation failures? ;-)
 
-Actually this patch will not help, this new one could.
+One can add a printk at the end of e1000_change_mtu() and dump
+adapter->rx_buffer_len + NET_IP_ALIGN there.
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index da62db8..1514628 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3978,9 +3978,11 @@ e1000_alloc_rx_buffers(struct e1000_adap
- 	buffer_info = &rx_ring->buffer_info[i];
- 
- 	while (cleaned_count--) {
--		if (!(skb = buffer_info->skb))
-+		if (!(skb = buffer_info->skb)) {
-+			if (SKB_DATA_ALIGN(adapter->hw.max_frame_size) + sizeof(struct skb_shared_info) <= bufsz)
-+				bufsz -= sizeof(struct skb_shared_info);
- 			skb = dev_alloc_skb(bufsz);
--		else {
-+		} else {
- 			skb_trim(skb, 0);
- 			goto map_skb;
- 		}
+> Thanks,
+> Arnd Hannemann
 
 -- 
 	Evgeniy Polyakov
