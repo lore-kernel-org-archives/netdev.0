@@ -1,38 +1,48 @@
-From: Philip Craig <philipc@snapgear.com>
-Subject: Re: [RFC] gre: transparent ethernet bridging
-Date: Thu, 03 Aug 2006 11:08:43 +1000
-Message-ID: <44D14C9B.2030706@snapgear.com>
-References: <44CDD631.5030008@snapgear.com>	<20060731091423.3327f85e@dxpl.pdx.osdl.net>	<44CEAB31.5090501@snapgear.com>	<20060731220822.444f04e4@localhost.localdomain>	<44CF1EF8.2090800@snapgear.com>	<44D04386.2040705@snapgear.com> <20060802102337.7ba32020@dxpl.pdx.osdl.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Bug in IPSEC?
+Date: Thu, 3 Aug 2006 11:19:59 +1000
+Message-ID: <20060803011959.GB4958@gondor.apana.org.au>
+References: <34d8b2fe0608020808r7539ccc9h3f9a0beb5819d0a0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	James Morris <jmorris@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.snapgear.com ([203.143.235.140]:42967 "EHLO
-	cyberguard.com.au") by vger.kernel.org with ESMTP id S932085AbWHCBIr
+Received: from rhun.apana.org.au ([64.62.148.172]:28687 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932105AbWHCBUJ
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Aug 2006 21:08:47 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060802102337.7ba32020@dxpl.pdx.osdl.net>
+	Wed, 2 Aug 2006 21:20:09 -0400
+To: Louis Croisez <louis.croisez@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <34d8b2fe0608020808r7539ccc9h3f9a0beb5819d0a0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Wed, 02 Aug 2006 16:17:42 +1000
-> Philip Craig <philipc@snapgear.com> wrote:
->> It generates a random mac address for gre ports, and also stores
->> a copy of the mac address for ethernet ports, rather than checking
->> dev->type everywhere.
->
-> That looks cleaner. I wonder if using a fixed OUI would be better
-> than random addresses but then choosing an OUI would be a problem.
+On Wed, Aug 02, 2006 at 05:08:39PM +0200, Louis Croisez wrote:
+> 
+> I think that 96 bits for the truncated version of the hmac is not
+> enough with respect to RFC 2104, p5 ?1 :
+> "... We recommend that the output length to be not less than half the
+> length of the hash output ... and not less than 80 bits ..."
+> 
+> I thing that the truncated length should be 128 bits in this case...
+> Do you agree?
 
-random_ether_addr() sets the local assignment bit. This is what
-various other virtual devices do (including tap devices, which can
-also be bridged).
+(To recap our sha256 IPsec implementation truncates the output to 96
+bits while the last IETF draft on sha256 and the general HMAC RFC
+requires 128 bits)
 
-> You probably should add a comment about what this function is doing,
-> and why.
+Yes I agree with your assessment.
 
-Okay.
+Changing it is nasty though since we don't know how many Linux users
+have deployed this.
 
+Also, we should keep in mind that the IETF has given up on sha256
+altogether.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
