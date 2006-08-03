@@ -1,56 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help() 2.6.18-rc3
-Date: Thu, 03 Aug 2006 11:40:01 +0200
-Message-ID: <44D1C471.2050503@trash.net>
-References: <44CD8415.2020403@davidcoulson.net> <44CD85FF.9010607@trash.net> <20060730.215907.58439803.davem@davemloft.net> <44CD9013.7020401@trash.net> <44CDDDF7.70004@trash.net> <20060731113050.GA25972@gondor.apana.org.au> <44CE4DCA.8000609@trash.net> <20060801122916.GA6177@gondor.apana.org.au> <44D1C205.4010509@trash.net> <20060803093309.GB8808@gondor.apana.org.au>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take3 0/4] kevent: Generic event handling mechanism.
+Date: Thu, 3 Aug 2006 13:40:55 +0400
+Message-ID: <20060803094055.GA19635@2ka.mipt.ru>
+References: <20060731103322.GA1898@2ka.mipt.ru> <11545983592236@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:15612 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S932442AbWHCJkD
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 05:40:03 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060803093309.GB8808@gondor.apana.org.au>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:34713 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932443AbWHCJlj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 05:41:39 -0400
+To: lkml <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <11545983592236@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Thu, Aug 03, 2006 at 11:29:41AM +0200, Patrick McHardy wrote:
-> 
->>>>+u_int16_t nf_proto_csum_update(struct sk_buff *skb,
->>>>+			       u_int32_t oldval, u_int32_t newval,
->>>>+			       u_int16_t csum, int pseudohdr)
->>>>+{
->>>>+	if (skb->ip_summed != CHECKSUM_PARTIAL) {
->>>>+		csum = nf_csum_update(oldval, newval, csum);
->>>>+		if (skb->ip_summed == CHECKSUM_COMPLETE && pseudohdr)
->>>
->>>
->>>Shouldn't that be !pseudohdr?
->>
->>No, if the changed data is part of the pseudo-hdr, we need to update
->>skb->csum so the skb passes later checksum checks.
-> 
-> 
-> Are you sure? If ip_summed is CHECKSUM_COMPLETE then skb->csum is the
-> checksum of the payload *without* the pseudo header.
+On Thu, Aug 03, 2006 at 01:45:59PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> Changes from 'take2' patchset:
+>  * split kevent_finish_user() to locked and unlocked variants
+>  * do not use KEVENT_STAT ifdefs, use inline functions instead
+>  * use array of callbacks of each type instead of each kevent callback initialization
+>  * changed name of ukevent guarding lock
+>  * use only one kevent lock in kevent_user for all hash buckets instead of per-bucket locks
+>  * do not use kevent_user_ctl structure instead provide needed arguments as syscall parameters
+>  * various indent cleanups
+>  * mapped buffer (initial) implementation (no userspace yet)
 
-The pseudohdr is included indirectly through the tcp/udp checksum.
+Also added optimisation aimed to help when a lot of kevents are being
+copied from userspace in one syscall.
 
->>>This is a 32-bit quantity so nf_csum_update should eat a 32-bit quantity
->>>as well.  Also, this checksum is not inverted so you need
->>>
->>>			skb->csum = ~nf_csum_update(oldval, newval, ~skb->csum);
->>
->>I'll change it to 32-bit and try the inversion, but it works fine this
->>way.
-> 
-> 
-> It'll break for e1000 at least since it puts the checksum into the
-> high 16 bits of skb->csum (on i386).
-
-Yes, the 32-bit thing is a bug, I meant it works fine without inverting
-the checksum.
+-- 
+	Evgeniy Polyakov
