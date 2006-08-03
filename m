@@ -1,66 +1,41 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [take3 3/4] kevent: Network AIO, socket notifications.
-Date: Thu, 3 Aug 2006 11:54:26 +0200
-Message-ID: <200608031154.27152.dada1@cosmosbay.com>
-References: <11545983601447@2ka.mipt.ru>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help() 2.6.18-rc3
+Date: Thu, 3 Aug 2006 19:57:03 +1000
+Message-ID: <20060803095703.GA9082@gondor.apana.org.au>
+References: <44CD85FF.9010607@trash.net> <20060730.215907.58439803.davem@davemloft.net> <44CD9013.7020401@trash.net> <44CDDDF7.70004@trash.net> <20060731113050.GA25972@gondor.apana.org.au> <44CE4DCA.8000609@trash.net> <20060801122916.GA6177@gondor.apana.org.au> <44D1C205.4010509@trash.net> <20060803093309.GB8808@gondor.apana.org.au> <44D1C471.2050503@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:8082 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S932362AbWHCJya (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 05:54:30 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <11545983601447@2ka.mipt.ru>
+Received: from rhun.apana.org.au ([64.62.148.172]:31238 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932449AbWHCJ5O
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 05:57:14 -0400
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
+In-Reply-To: <44D1C471.2050503@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 03 August 2006 11:46, Evgeniy Polyakov wrote:
-> Network AIO, socket notifications.
+On Thu, Aug 03, 2006 at 11:40:01AM +0200, Patrick McHardy wrote:
 >
-> This patchset includes socket notifications and network asynchronous IO.
-> Network AIO is based on kevent and works as usual kevent storage on top
-> of inode.
->  						          (3 * TCP_RTO_MIN) / 4,
-> diff --git a/kernel/kevent/kevent_naio.c b/kernel/kevent/kevent_naio.c
-+
-> +static int kevent_naio_enqueue(struct kevent *k)
-> +{
-> +	int err, i;
-> +	struct page **page;
-> +	void *addr;
-> +	unsigned int size = k->event.id.raw[1];
-> +	int num = size/PAGE_SIZE;
-> +	struct file *file;
-> +	struct sock *sk = NULL;
-> +	int fput_needed;
-> +
-> +	file = fget_light(k->event.id.raw[0], &fput_needed);
-> +	if (!file)
-> +		return -ENODEV;
-> +
-> +	err = -EINVAL;
-> +	if (!file->f_dentry || !file->f_dentry->d_inode)
-> +		goto err_out_fput;
+> > Are you sure? If ip_summed is CHECKSUM_COMPLETE then skb->csum is the
+> > checksum of the payload *without* the pseudo header.
+> 
+> The pseudohdr is included indirectly through the tcp/udp checksum.
 
-How can you be 100% sure this file is actually a socket here ?
-(Another thread could close the fd and this fd can now point to another file)
+Yes of course, the payload gets balanced out by the header checksum,
+but not the pseudoheader.  Now I get you :)
 
-You should do
-if (file->f_op != &socket_file_ops)
-	goto err_out_fput;
-sk = file->private_data;  /* set in sock_map_fd */ 
+> Yes, the 32-bit thing is a bug, I meant it works fine without inverting
+> the checksum.
 
-> +
-> +	sk = SOCKET_I(file->f_dentry->d_inode)->sk;
-> +
+Right, I forgot about the checksum invariance under negation.  In that
+case we can get rid of the tildes two lines down as well for consistency.
 
-
-Eric
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
