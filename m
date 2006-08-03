@@ -1,68 +1,35 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Thu, 03 Aug 2006 09:15:21 -0400
-Message-ID: <1154610922.5205.38.camel@jzny2>
-Reply-To: hadi@cyberus.ca
+From: "Myrna" <bedpostbark@adexec.com>
+Subject: Enjoy the newest Make your girlfriend or wife speechless with increased hardness, richer orgsms and more power in bed
+Date: Thu, 3 Aug 2006 21:17:54 +0800
+Message-ID: <54515228793650.2E0F0049AA@TQNQ0R>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-n2BdpEw2IF0AlW2XlOWZ"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+        charset="Windows-1252"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:4240 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932320AbWHCNP2
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 09:15:28 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1G8d2w-0006bu-A2
-	for netdev@vger.kernel.org; Thu, 03 Aug 2006 09:15:30 -0400
-To: jesse.brandeburg@intel.com, Auke Kok <auke-jan.h.kok@intel.com>
+Received: from zeus1.kernel.org ([204.152.191.4]:33193 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S932400AbWHCNRw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 09:17:52 -0400
+Received: from S-FCEA62EE28764 ([222.46.52.231])
+	by zeus1.kernel.org (8.13.7/8.13.1) with ESMTP id k73DHTEK003599
+	for <netdev@vger.kernel.org>; Thu, 3 Aug 2006 13:17:50 GMT
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Dear member,
 
---=-n2BdpEw2IF0AlW2XlOWZ
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+ Rock hard manhood, multiple explosions and several times more semen volumeAchieve astounding results in bed with these products designed to make any man a winner
 
-
-There is no need for tx_locking if you are already netif stopped
-(transmit path will never be entered).
-With this change under high speed forwarding i see anywhere
-between 2-4Kpps improvement on a 2 CPU environment with twoo e1000s tied
-to different CPUs forwarding between each other. Actually the
-performance improvement should be attributed to the use of
-TX_WAKE_THRESHOLD - more drivers should use that technique.
-
-cheers,
-jamal
-
-signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-
------
+Make your girlfriend or wife speechless with increased hardness, richer orgsms and more power in bed
 
 
---=-n2BdpEw2IF0AlW2XlOWZ
-Content-Disposition: attachment; filename=e1000_wq
-Content-Type: text/x-patch; name=e1000_wq; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+ You may find what you need here: http://www.audionjn.com
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index da62db8..559e334 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3517,11 +3517,8 @@ #endif
- #define TX_WAKE_THRESHOLD 32
- 	if (unlikely(cleaned && netif_queue_stopped(netdev) &&
- 	             netif_carrier_ok(netdev))) {
--		spin_lock(&tx_ring->tx_lock);
--		if (netif_queue_stopped(netdev) &&
--		    (E1000_DESC_UNUSED(tx_ring) >= TX_WAKE_THRESHOLD))
-+		if (E1000_DESC_UNUSED(tx_ring) >= TX_WAKE_THRESHOLD)
- 			netif_wake_queue(netdev);
--		spin_unlock(&tx_ring->tx_lock);
- 	}
- 
- 	if (adapter->detect_tx_hung) {
+Myrna Delacruz
 
---=-n2BdpEw2IF0AlW2XlOWZ--
+
+Experience is a great servantWatch your thoughts, they become words Watch your words, they become actions, watch your actions, they become habits, watch your habits, they become characer Watch your character, it becomes your destiny 
+
+Actions speak louder than words. Fools and madmen speak the truth
 
