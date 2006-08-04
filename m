@@ -1,29 +1,55 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [RFC] irqbalance: Mark in-kernel irqbalance as obsolete, set to
- N by default
-Date: Thu, 3 Aug 2006 19:45:50 -0700
-Message-ID: <20060803194550.9ff31bc1.akpm@osdl.org>
-References: <44CE3F5E.4010305@intel.com>
+From: James Morris <jmorris@namei.org>
+Subject: [Patch] fix potential stack overflow in net/core/utils.c (fwd)
+Date: Thu, 3 Aug 2006 23:00:45 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0608032300390.4343@d.namei>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com, auke-jan.h.kok@intel.com,
-	netdev@vger.kernel.org, arjan@linux.intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030296AbWHDCpx@vger.kernel.org>
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <44CE3F5E.4010305@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:34797 "EHLO
+	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S1030301AbWHDDAs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 23:00:48 -0400
+Received: from megaweapon.nightmoose.net (HELO d.namei) ([66.92.66.197])
+          (envelope-sender <jmorris@namei.org>)
+          by mail8.sea5.speakeasy.net (qmail-ldap-1.03) with AES256-SHA encrypted SMTP
+          for <netdev@vger.kernel.org>; 4 Aug 2006 03:00:47 -0000
+To: netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 31 Jul 2006 10:35:26 -0700
-Auke Kok <auke-jan.h.kok@intel.com> wrote:
+---------- Forwarded message ----------
+Date: Thu, 3 Aug 2006 18:35:45 -0700
+From: "Siddha, Suresh B" <suresh.b.siddha@intel.com>
+To: akpm@osdl.org
+Cc: alan@lxorguk.ukuu.org.uk, linux-kernel@vger.kernel.org
+Subject: [Patch] fix potential stack overflow in net/core/utils.c
 
-> We've recently seen a number of user bug reports against e1000 that the 
-> in-kernel irqbalance code is detrimental to network latency. The algorithm 
-> keeps swapping irq's for NICs from cpu to cpu causing extremely high network 
-> latency (>1000ms).
+On High end systems (1024 or so cpus) this can potentially cause stack
+overflow. Fix the stack usage.
 
-What kernel versions?  Some IRQ balancer fixes went in shortly after 2.6.17.
+Signed-off-by: Suresh Siddha <suresh.b.siddha@intel.com>
 
-It would be better if poss to fix the balancer rather than deprecating it.
+--- linux-2.6.18-rc3/net/core/utils.c~	2006-08-03 14:50:28.341080424 -0700
++++ linux-2.6.18-rc3/net/core/utils.c	2006-08-03 14:50:51.222601904 -0700
+@@ -130,12 +130,13 @@ void __init net_random_init(void)
+ static int net_random_reseed(void)
+ {
+ 	int i;
+-	unsigned long seed[NR_CPUS];
++	unsigned long seed;
+ 
+-	get_random_bytes(seed, sizeof(seed));
+ 	for_each_possible_cpu(i) {
+ 		struct nrnd_state *state = &per_cpu(net_rand_state,i);
+-		__net_srandom(state, seed[i]);
++
++		get_random_bytes(&seed, sizeof(seed));
++		__net_srandom(state, seed);
+ 	}
+ 	return 0;
+ }
+-
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
