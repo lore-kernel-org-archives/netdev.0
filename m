@@ -1,32 +1,43 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: orinoco driver causes *lots* of lockdep spew
-Date: Fri, 4 Aug 2006 11:06:22 +1000
-Message-ID: <20060804010622.GB12085@gondor.apana.org.au>
-References: <1154607380.2965.25.camel@laptopd505.fenrus.org> <E1G8der-0001fm-00@gondolin.me.apana.org.au> <20060803195306.GB7079@tuxdriver.com>
+Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
+Date: Fri, 4 Aug 2006 11:10:27 +1000
+Message-ID: <20060804011027.GC12085@gondor.apana.org.au>
+References: <E1G8dmn-0001hH-00@gondolin.me.apana.org.au> <Pine.WNT.4.63.0608030925100.3396@jbrandeb-desk.amr.corp.intel.com> <1154628302.3117.15.camel@rh4> <1154642918.5187.13.camel@jzny2> <1154650197.3117.32.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arjan van de Ven <arjan@infradead.org>, davej@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, jt@hpl.hp.com
+Cc: hadi@cyberus.ca, "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35081 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751407AbWHDBGl
+Received: from rhun.apana.org.au ([64.62.148.172]:39433 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751413AbWHDBKq
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 21:06:41 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
+	Thu, 3 Aug 2006 21:10:46 -0400
+To: Michael Chan <mchan@broadcom.com>
 Content-Disposition: inline
-In-Reply-To: <20060803195306.GB7079@tuxdriver.com>
+In-Reply-To: <1154650197.3117.32.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 03, 2006 at 03:53:13PM -0400, John W. Linville wrote:
+On Thu, Aug 03, 2006 at 05:09:57PM -0700, Michael Chan wrote:
 > 
-> Does anyone have any objection to Herbert's patch?  It seems
-> appropriate to me.
+> tg3_start_xmit()
+> 
+> 	if (tx_ring_empty)
+> 				<-  tg3_tx()
+> 		netif_stop_queue()
 
-I have no objections!
+Good point.  I missed that.  However, this only goes to show that
+even the current code (e1000 that is, I haven't checked tg3) is
+also unsafe.
 
-:)
+Why? Because the tx_lock is only taken in e1000_clean_tx_irq if
+the queue is stopped.  As you can see in your diagram above, the
+queue could well be awake at the point where e1000_clean_tx_irq
+runs.
+
+So we need to fix e1000 anyway.
+
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
