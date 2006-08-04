@@ -1,83 +1,53 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Please pull 'upstream-fixes' branch of wireless-2.6
-Date: Fri, 4 Aug 2006 16:58:41 -0400
-Message-ID: <20060804205835.GC24136@tuxdriver.com>
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Subject: Re: problems with e1000 and jumboframes
+Date: Fri, 4 Aug 2006 14:02:51 -0700
+Message-ID: <4807377b0608041402p10149bfbrd9e5f3b8849d3f56@mail.gmail.com>
+References: <41b516cb0608031334s6e159e99tb749240f44ae608d@mail.gmail.com>
+	 <E1G8sif-0003oY-00@gondolin.me.apana.org.au>
+	 <20060804061513.GB413@2ka.mipt.ru>
+	 <41b516cb0608040834o1d433f23v2f2ba1a1b05ccbc6@mail.gmail.com>
+	 <20060804194209.GA25167@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Chris Leech" <chris.leech@gmail.com>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>, arnd@arndnet.de,
+	olel@ans.pl, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:50692 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1161410AbWHDU7S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2006 16:59:18 -0400
-To: jeff@garzik.org
+Received: from nf-out-0910.google.com ([64.233.182.189]:7405 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1161407AbWHDVCx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Aug 2006 17:02:53 -0400
+Received: by nf-out-0910.google.com with SMTP id k26so20671nfc
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2006 14:02:51 -0700 (PDT)
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060804194209.GA25167@2ka.mipt.ru>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following changes since commit efe78cda3596f8a6d1c2d4a6b1a221bafa3e1a48:
-  Linus Torvalds:
-        Merge branch 'upstream-linus' of master.kernel.org:/.../jgarzik/libata-dev
+On 8/4/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> On Fri, Aug 04, 2006 at 08:34:46AM -0700, Chris Leech (chris.leech@gmail.com) wrote:
+> > So how many skb allocation schemes do you code into a single driver?
+> > Kmalloc everything, page alloc everything, combination of kmalloc and
+> > page buffers for hardware that does header split?  That's three
+> > versions of the drivers receive processing and skb allocation that
+> > need to be maintained.
+>
+> At least try to create scheme which will not end up in 32k allocation in
+> atomic context. Generally I would recommend to use frag_list as much as
+> possible (or you can reuse skb list).
 
-are found in the git repository at:
+this is exactly what we ran into, you can't use skb list because the
+ip fragmentation reassembly code overwrites it.  If someone is feeling
+particularly miffed by this i would love to see a patch that used
+alloc_page() for all of our receive buffers for the legacy receive
+path (e1000_clean_rx_irq) then we would be able to use nr_frags and
+frag_list for receives.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-fixes
+Oh, except that eth_type_trans can't handle the entire packet in the
+frag_list (it wants the header in the skb->data)
 
-Herbert Xu:
-      Send wireless netlink events with a clean slate
+anyway, this is not as easy a problem to solve as it would seem on the surface.
 
- net/core/wireless.c |   24 +++++++++++++++++++++++-
- 1 files changed, 23 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/wireless.c b/net/core/wireless.c
-index d2bc72d..de0bde4 100644
---- a/net/core/wireless.c
-+++ b/net/core/wireless.c
-@@ -82,6 +82,7 @@ #include <linux/seq_file.h>
- #include <linux/init.h>			/* for __init */
- #include <linux/if_arp.h>		/* ARPHRD_ETHER */
- #include <linux/etherdevice.h>		/* compare_ether_addr */
-+#include <linux/interrupt.h>
- 
- #include <linux/wireless.h>		/* Pretty obvious */
- #include <net/iw_handler.h>		/* New driver API */
-@@ -1842,6 +1843,18 @@ #endif	/* CONFIG_NET_WIRELESS_RTNETLINK 
-  */
- 
- #ifdef WE_EVENT_RTNETLINK
-+static struct sk_buff_head wireless_nlevent_queue;
-+
-+static void wireless_nlevent_process(unsigned long data)
-+{
-+	struct sk_buff *skb;
-+
-+	while ((skb = skb_dequeue(&wireless_nlevent_queue)))
-+		netlink_broadcast(rtnl, skb, 0, RTNLGRP_LINK, GFP_ATOMIC);
-+}
-+
-+static DECLARE_TASKLET(wireless_nlevent_tasklet, wireless_nlevent_process, 0);
-+
- /* ---------------------------------------------------------------- */
- /*
-  * Fill a rtnetlink message with our event data.
-@@ -1904,8 +1917,17 @@ static inline void rtmsg_iwinfo(struct n
- 		return;
- 	}
- 	NETLINK_CB(skb).dst_group = RTNLGRP_LINK;
--	netlink_broadcast(rtnl, skb, 0, RTNLGRP_LINK, GFP_ATOMIC);
-+	skb_queue_tail(&wireless_nlevent_queue, skb);
-+	tasklet_schedule(&wireless_nlevent_tasklet);
-+}
-+
-+static int __init wireless_nlevent_init(void)
-+{
-+	skb_queue_head_init(&wireless_nlevent_queue);
-+	return 0;
- }
-+
-+subsys_initcall(wireless_nlevent_init);
- #endif	/* WE_EVENT_RTNETLINK */
- 
- /* ---------------------------------------------------------------- */
--- 
-John W. Linville
-linville@tuxdriver.com
+Jesse
