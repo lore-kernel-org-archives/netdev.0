@@ -1,60 +1,54 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Thu, 03 Aug 2006 21:25:00 -0400
-Message-ID: <1154654700.5187.35.camel@jzny2>
-References: <E1G8dmn-0001hH-00@gondolin.me.apana.org.au>
-	 <Pine.WNT.4.63.0608030925100.3396@jbrandeb-desk.amr.corp.intel.com>
-	 <1154628302.3117.15.camel@rh4> <1154642918.5187.13.camel@jzny2>
-	 <1154650197.3117.32.camel@rh4> <1154654164.5187.28.camel@jzny2>
-	 <20060804011805.GA12331@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] [TCP]: Fixes IW > 2 cases when TCP is application
+ limited
+Date: Thu, 3 Aug 2006 18:45:34 -0700
+Message-ID: <20060803184534.1ecb8546@localhost.localdomain>
+References: <11546407561210-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:35237 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1751414AbWHDBZF
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 21:25:05 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1G8oR5-00030E-6L
-	for netdev@vger.kernel.org; Thu, 03 Aug 2006 21:25:11 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060804011805.GA12331@gondor.apana.org.au>
+Received: from smtp.osdl.org ([65.172.181.4]:18363 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030280AbWHDBpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 21:45:47 -0400
+To: Ilpo =?UTF-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>
+In-Reply-To: <11546407561210-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-04-08 at 11:18 +1000, Herbert Xu wrote:
-> On Thu, Aug 03, 2006 at 09:16:04PM -0400, jamal wrote:
-> > 
-> > and in tg3_tx():
-> > 
-> >      if likely(stopped) {  
-> >        // essentially no lock needed here ....
-> >        prune tx ring
-> >        if prunned > threshold
-> >            wake
-> >      } else if not stopped { 
-> >           // need a lock here ...
-> >          grab ring tx lock irq safe
-> >          prune tx ring
-> >          release ring tx lock
-> >      }
-> 
-> The problem is that the !stopped case may be the common path for a
-> lot of workloads so it'd be good to avoid taking the lock there if
-> we can.
+On Fri, 04 Aug 2006 00:32:36 +0300
+Ilpo  J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi> wrote:
 
-True.
+> Whenever a transfer is application limited, we are allowed at least
+> initial window worth of data per window unless cwnd is previously
+> less than that.
+>=20
+> Signed-off-by: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
+> ---
+>  net/ipv4/tcp_input.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 738dad9..104af5d 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -3541,7 +3541,8 @@ void tcp_cwnd_application_limited(struct
+>  	if (inet_csk(sk)->icsk_ca_state =3D=3D TCP_CA_Open &&
+>  	    sk->sk_socket && !test_bit(SOCK_NOSPACE, &sk->sk_socket->flags)=
+) {
+>  		/* Limited by application or receiver window. */
+> -		u32 win_used =3D max(tp->snd_cwnd_used, 2U);
+> +		u32 init_win =3D tcp_init_cwnd(tp, __sk_dst_get(sk));
+> +		u32 win_used =3D max(tp->snd_cwnd_used, init_win);
+>  		if (win_used < tp->snd_cwnd) {
+>  			tp->snd_ssthresh =3D tcp_current_ssthresh(sk);
+>  			tp->snd_cwnd =3D (tp->snd_cwnd + win_used) >> 1;
 
-Although i cant think of a clever way to do the inverse....
-The heuristic i was using to avoid the lock on tx at pruning time was
-knowledge that tx was not being entered at all on stop.
+This looks correct.
 
-cheers,
-jamal
-
+Some code reorganization would help. This function is only called on th=
+e
+output side and could be moved over to tcp_output.c and made static.
+This would allow for a greater possibility of compiler inlining (if it =
+wants).
