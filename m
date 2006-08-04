@@ -1,70 +1,93 @@
-From: Philip Craig <philipc@snapgear.com>
-Subject: Re: [RFC] gre: transparent ethernet bridging
-Date: Fri, 04 Aug 2006 11:00:55 +1000
-Message-ID: <44D29C47.6080407@snapgear.com>
-References: <44CDD631.5030008@snapgear.com> <20060731091423.3327f85e@dxpl.pdx.osdl.net> <44CEAB31.5090501@snapgear.com> <20060731220822.444f04e4@localhost.localdomain> <20060802074223.GA23715@xi.wantstofly.org> <44D15265.4090905@snapgear.com> <20060803073307.GA29775@xi.wantstofly.org> <44D1BE93.1080308@snapgear.com> <20060803194016.GC527@xi.wantstofly.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: PATCH Fix bonding active-backup behavior for VLAN interfaces
+Date: Thu, 03 Aug 2006 18:01:35 -0700
+Message-ID: <200608040101.k7411ZZt013801@death.nxdomain.ibm.com>
+References: <44CA87C5.1060905@candelatech.com> <20060730.205032.130618331.davem@davemloft.net> <200607311015.40255.Christophe.Devriese@eurid.eu> <20060802.135859.91441473.davem@davemloft.net>
+Cc: Christophe.Devriese@eurid.eu, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.snapgear.com ([203.143.235.140]:56034 "EHLO
-	cyberguard.com.au") by vger.kernel.org with ESMTP id S1030266AbWHDBBK
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 21:01:10 -0400
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20060803194016.GC527@xi.wantstofly.org>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:54169 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1030271AbWHDBBj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 21:01:39 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e2.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k7411cje004015
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Thu, 3 Aug 2006 21:01:38 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay04.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k7411c76266502
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 3 Aug 2006 21:01:38 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7411bel014018
+	for <netdev@vger.kernel.org>; Thu, 3 Aug 2006 21:01:38 -0400
+To: David Miller <davem@davemloft.net>
+In-reply-to: <20060802.135859.91441473.davem@davemloft.net> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek wrote:
-> On Thu, Aug 03, 2006 at 07:14:59PM +1000, Philip Craig wrote:
-> 
->>> So now you _need_ bridging in the middle to send ethernet traffic over
->>> a GRE tunnel?  Ugh.
->> Agreed that would not be nice.  What is the usage scenario for this?
->> At least one end of the tunnel will be bridged?
-> 
-> For example for VPN purposes, I could imagine that you wouldn't want
-> to use bridging.
+David Miller <davem@davemloft.net> wrote:
 
-What is the purpose of including the ethernet header if it only exists
-on the tunnel?  I have used GRE tunnels for VPNs, but they have always
-needed bridging.  If I don't need bridging, then the VPN is only passing
-IP traffic and I just send that without GRE at all.
+>> The same struct vlan_group is assigned to all slave devices and so the only 
+>> vlan subinterfaces that exist in this case are the bond<x>.<vlan> 
+>> subinterfaces, and the vlan path for both slaves will assign the 
+>> bond<x>.<vlan> interface to skb->dev, thereby erasing the information about 
+>> where the packet came from.
+>
+>Assuming it is correct to do the skb_bond() here in the VLAN hwaccel
+>RX path, then there is still one piece missing from what I can see.
 
->>> If you really want to send ethernet and non-ethernet traffic over the
->>> same tunnel, can't you make multiple devices?
->> Do you mean make multiple GRE devices, where one has an ethernet mode set?
-> 
-> For example.  If you want to send ethernet-encapsulated and other-protocol-
-> encapsulated traffic over the same GRE tunnel, that would seem like the
-> cleanest solution to me.
+	I'm not sure it's correct to do everything that skb_bond() does
+(I've been away on family business, and I'm a bit rusty coming back to
+this), but it is correct to do the "should we drop this packet because
+it's a duplicate because bonding is involved" logic (because the VLAN
+acceleration processing is indavertently bypassing that step).
 
-It is fine for sending, but when receiving, which packets go to which
-device?  Does a packet appear on only one device when sending, but both
-devices when receiving?  Or does the operation of the non-ethernet device
-change based on whether an ethernet device exists?  Modifying GRE to handle
-multiple GRE tunnels that are actually the same does not seem clean.
+>Notice that in the netif_receive_skb() path, the return value from
+>skb_bond() is used as the third argument to the deliver_skb() routine
+>and friends which in turn gets passed to the packet_type functions.
+>
+>Bonding, in particular, makes use of this third argument, see:
+>
+>bond_3ad_lacpdu_recv()
 
-This seems cleaner to me:
-The GRE tunnel receives a packet of any protocol (ethernet included),
-and adds the IP/GRE header.  Anything else is done above GRE.
-Whatever needs the ethernet header should add it.
+	This function expects the third argument to be the the device
+that is actually enslaved to the bond and is acting as the endpoint for
+the 802.3ad protocol negotiations.  If it's a VLAN interface under
+there, that's what it needs.
 
-And then the decision is, how do we add the ethernet header?
-- an option to GRE to always add the ethernet header
-- a new virtual device
-- as part of bridging
+>rlb_arp_recv()
 
-Any of these will work for me.
+	This function doesn't actually use the third argument that I'm
+seeing.
 
-> Hmm, so it depends on the device whether BPDUs are sent with or without
-> an ethernet header?  Do the devices that send BPDUs without ethernet
-> header at least accept a BPDU with an ethernet header (and vice versa),
-> or aren't the two modes compatible at all?
+>So if the new "orig_dev" you are computing in the VLAN hwaccel RX path
+>is the correct one, somehow this has to propagate down to the third
+>argument of the packet type ->func() invocations, right?
+>
+>Finally, I'm still a little stumped about why this change is necessary
+>still, to be honest.  When you configure the bond, the slaves should
+>be the VLAN devices as far as I can tell.  Therefore it should be the
+>"vlan_device->masster" that we are interested in not the top-level
+>"dev->master".
+>
+>If the ethernet is on a VLAN, and the administrator configures the
+>underlying ethernet device as the slaves of the bond, this to me seems
+>like a misconfiguration rather than something we should put hacks in
+>to support.
 
-I don't have any to test with currently, but we only had complaints about
-us not receiving them, and only at some sites.  So I assume that devices
-can accept either format.
+	Not necessarily.  For a configuration with redundant paths
+(either multiple ports or multiple switches) or multiple VLANs over the
+same physical ports, it's also plausible to configure the vlan
+interfaces above bonding, and make the ethernet devices direct slaves of
+bonding.  In that configuration, the vlan interfaces are on top,
+followed by the bonding device, and the ethernet devices at the bottom.
 
+	In this case (bond0.555 above bond0 above eth0,eth1,etc),
+skb_bond doesn't suppress duplicates because skb_bond is called with the
+skb->dev set to the bond0.555 dev, not the ethX dev.  Non-accelerated
+VLAN devices don't do this; they'll come in with skb->dev set to ethX
+and will go through skb_bond as expected.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
