@@ -1,37 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [XFRM]: Improve MTU estimation
-Date: Fri, 4 Aug 2006 21:16:04 +1000
-Message-ID: <20060804111604.GA25693@gondor.apana.org.au>
-References: <44D30A48.4050403@trash.net> <44D312EF.8010202@trash.net> <20060804100121.GA17239@gondor.apana.org.au> <44D31CCE.7020301@trash.net> <20060804101345.GA17583@gondor.apana.org.au> <44D32B57.2000304@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: e100: checksum mismatch on 82551ER rev10
+Date: Fri, 04 Aug 2006 04:20:24 -0700 (PDT)
+Message-ID: <20060804.042024.63108922.davem@davemloft.net>
+References: <Pine.LNX.4.61.0607311653360.24450@e-smith.charlieb.ott.istop.com>
+	<44D0D7CA.2060001@intel.com>
+	<62b0912f0608040404p59545a0asc7f5fc5f537ec32c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: auke-jan.h.kok@intel.com, charlieb@budge.apana.org.au,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:46354 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932359AbWHDLQG
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Aug 2006 07:16:06 -0400
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <44D32B57.2000304@trash.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:49795
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932403AbWHDLUU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Aug 2006 07:20:20 -0400
+To: molle.bestefich@gmail.com
+In-Reply-To: <62b0912f0608040404p59545a0asc7f5fc5f537ec32c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 04, 2006 at 01:11:19PM +0200, Patrick McHardy wrote:
->
-> > Of course it gets hairier if you have ESP padding.  I'm not even sure
-> > if the current code gets that right.
-> 
-> Unless I'm missing something, the padding caused by IP options
-> is always less than the worst case that can happen anyway
-> (max(block size, padlen)-1), so it can simply be ignored.
+From: "Molle Bestefich" <molle.bestefich@gmail.com>
+Date: Fri, 4 Aug 2006 13:04:07 +0200
 
-Are you talking about the ESP padding case, or transport mode in
-general?
+> You're trying to pull Linux end users into a war between Intel and
+> it's vendors, so you can make end users scream at the vendors when
+> they forget to run the checksum tool.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I totally agree, Intel driver maintainers generally act like complete
+idiots in these kinds of situations.
+
+If the EEPROM has a broken checksum, the user should have an option
+that allows him to try and use the device anyways, end of story.
+
+It is only self serving to not provide this option to the user.
+
+People make errors, EEPROM's get shipped with bad checksums but the
+device might still be usable.  That is life get over it.
