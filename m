@@ -1,37 +1,34 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [IPROUTE2]:  documentation bug fix on mirred
-Date: Fri, 4 Aug 2006 10:52:50 -0700
-Message-ID: <20060804105250.00c9a427@dxpl.pdx.osdl.net>
-References: <1153914729.5202.21.camel@jzny2>
+From: "benson lucas" <benson_lucas2006@yahoo.com>
+Subject: urgent reply from benson
+Date: Fri, 4 Aug 2006 18:04:47 +0200
+Message-ID: <200608041802.k74I2BRC012165@zeus1.kernel.org>
+Reply-To: benson_lucas2006@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lists@andyfurniss.entadsl.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:60292 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1161354AbWHDRwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2006 13:52:53 -0400
-To: hadi@znyx.com
-In-Reply-To: <1153914729.5202.21.camel@jzny2>
+Received: from zeus1.kernel.org ([204.152.191.4]:13522 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1161346AbWHDSC0 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Aug 2006 14:02:26 -0400
+Received: from mrson2083.com ([196.207.227.10])
+	by zeus1.kernel.org (8.13.7/8.13.1) with SMTP id k74I2BRC012165
+	for <netdev@vger.kernel.org>; Fri, 4 Aug 2006 18:02:24 GMT
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 26 Jul 2006 07:52:09 -0400
-Jamal Hadi Salim <hadi@znyx.com> wrote:
+HELLO, 
+FIRST AND FORMOST I APOLOGIZED BY USING THIS MEDIUM TO REACH YOU FOR A TRNSACTION/BUSINESS OF THIS MAGNITUDE,WELL I GOT YOUR EMAIL ADDRESS THROUGH INTERNET, 
+I AM COLONEL Mr, BENSON LUCAS I'M ARMY CHIEF FROM SUDAN,
+PLEASE I WANT TO INVEST IN YOUR COUNTRY THEN I DESIDED TO CONTACT YOU HOPING YOU CAN GIVE ME SOME IDEAS ON WHAT TO DO,SOME TOP OFFICERS FROM AFRICA NEVER LIKE TO INVEST IN THERE COUNTRY BECAUSE OF WAR, I WANT TO INVEST 26M U.S DOLLARS IN YOUR COUNTRY INTO BUSINESS SUCH AS REAL ESTATE MANAGEMENT OR HOTEL BUSINESS AND ALSO BUYING SHARES FROM COMPANYS,PLEASE I NEED YOUR ADVICE,AND I WILL NEED SOMEONE WHO CAN MANAGE IT FOR ME.I WILL NOT HAVE THE CHANCE TO MANAGE IT MYSELF.I CAME TO DAKAR SENEGAL FOR A MEETING AND I WILL BE GOING BACK SOON TO MY COUNTRY SUDAN I HAVE ONLY TWO WEEKS MORE TO STAY BEFORE I WILL GO BACK,SO TRY TO CONTACT ME ONCE YOU GOT THIS MAIL. 
+HOW MUCH CAN TAX COST ME? BEFORE I CAN HAVE MY OWN HOTEL. 
+I'M A SOLDIER I DONT HAVE ANY IDEA ABOUT BUSINESS,
+PLEASE YOUR IDEAS WILL BE HIGHLY REGARDED.
 
-> 
-> Stephen,
-> 
-> Heres another on top of the others i sent. If you get the time, can
-> update your git tree with these patches?
-> If you are planning to make a release soon, please ping me - I have at
-> least one more patch that i need to work on.
-> 
-> cheers,
-> jamal
-> 
-applied
+THANKS YOURS REGARD
+COL MR BENSON LUCAS.
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
-"And in the Packet there writ down that doome"
+
+
+
