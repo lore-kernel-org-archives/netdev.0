@@ -1,54 +1,51 @@
-From: Erik Mouw <erik@harddisk-recovery.com>
-Subject: Re: Private driver support emails should be avoided.
-Date: Fri, 4 Aug 2006 17:41:47 +0200
-Message-ID: <20060804154146.GM31998@harddisk-recovery.com>
-References: <44C3F2C6.5010001@garzik.org> <yq0hd0sv9sk.fsf@jaguar.mkp.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH v2] [PKT_SCHED] RED: Fix overflow in calculation of queue
+ average
+Date: Fri, 4 Aug 2006 18:44:20 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0608041836490.8526@kivilampi-30.cs.helsinki.fi>
+References: <11546408123792-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <20060803184656.55da3939@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>,
-	"linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-ide-owner@vger.kernel.org>
-To: Jes Sorensen <jes@sgi.com>
-Content-Disposition: inline
-In-Reply-To: <yq0hd0sv9sk.fsf@jaguar.mkp.net>
-Sender: linux-ide-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45445 "EHLO
+	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP
+	id S1161257AbWHDPoV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2006 11:44:21 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060803184656.55da3939@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 04, 2006 at 10:46:03AM -0400, Jes Sorensen wrote:
-> >>>>> "Jeff" == Jeff Garzik <jeff@garzik.org> writes:
-> 
-> Jeff> Just a reminder to folks out there...  Don't send private driver
-> Jeff> support emails.
-> 
-> Jeff> I receive a lot of email.  A lot.  Not as much as Linus or
-> Jeff> Andrew probably, but still sizable.  And quite regularly, I will
-> Jeff> receive a private email asking for help on a SATA or net driver
-> Jeff> problem.  The poster will include various details on their
-> Jeff> problem, and ask for help debugging the problem.  While the
-> Jeff> email will indeed be skimmed -- looking at a mass of bug
-> Jeff> reports, one can better detect patterns -- the people seeking
-> Jeff> support privately will almost NEVER RECEIVE A RESPONSE.
-> 
-> Very sane - I get some of it too, though less so these days :)
-> 
-> What about writing this up and sticking it under
-> Documentation/Reporting-Bugs or something so there's an easy reference
-> to it?
+Overflow can occur very easily with 32 bits, e.g., with 1 second
+us_idle is approx. 2^20, which leaves only 11-Wlog bits for queue
+length. Since the EWMA exponent is typically around 9, queue
+lengths larger than 2^2 cause overflow. Whether the affected
+branch is taken when us_idle is as high as 1 second, depends on
+Scell_log, but with rather reasonable configuration Scell_log is
+large enough to cause p->Stab to have zero index, which always
+results zero shift (typically also few other small indices result
+in zero shift).
 
-The question came up on the linux-arm-kernel list as well. In
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+---
+ include/net/red.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-  http://lists.arm.linux.org.uk/pipermail/linux-arm-kernel/2006-August/035259.html
-
-Daniel Jacobowitz came up with this URL which could be uses as a
-starting point:
-
-  http://www.eyrie.org/~eagle/faqs/questions.html
-
-
-Erik
-
--- 
-+-- Erik Mouw -- www.harddisk-recovery.com -- +31 70 370 12 90 --
-| Lab address: Delftechpark 26, 2628 XH, Delft, The Netherlands
+diff --git a/include/net/red.h b/include/net/red.h
+index 2ed4358..cfc2625 100644
+--- a/include/net/red.h
++++ b/include/net/red.h
+@@ -213,7 +213,7 @@ static inline unsigned long red_calc_qav
+ 		 * Seems, it is the best solution to
+ 		 * problem of too coarse exponent tabulation.
+ 		 */
+-		us_idle =3D (p->qavg * us_idle) >> p->Scell_log;
++		us_idle =3D (p->qavg * (u64)us_idle) >> p->Scell_log;
+=20
+ 		if (us_idle < (p->qavg >> 1))
+ 			return p->qavg - us_idle;
+--=20
+1.4.0
