@@ -1,39 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: e100: checksum mismatch on 82551ER rev10
-Date: Fri, 04 Aug 2006 04:20:24 -0700 (PDT)
-Message-ID: <20060804.042024.63108922.davem@davemloft.net>
-References: <Pine.LNX.4.61.0607311653360.24450@e-smith.charlieb.ott.istop.com>
-	<44D0D7CA.2060001@intel.com>
-	<62b0912f0608040404p59545a0asc7f5fc5f537ec32c@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [XFRM]: Improve MTU estimation
+Date: Fri, 04 Aug 2006 13:21:32 +0200
+Message-ID: <44D32DBC.8070607@trash.net>
+References: <44D30A48.4050403@trash.net> <44D312EF.8010202@trash.net> <20060804100121.GA17239@gondor.apana.org.au> <44D31CCE.7020301@trash.net> <20060804101345.GA17583@gondor.apana.org.au> <44D32B57.2000304@trash.net> <20060804111604.GA25693@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, charlieb@budge.apana.org.au,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:49795
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932403AbWHDLUU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Aug 2006 07:20:20 -0400
-To: molle.bestefich@gmail.com
-In-Reply-To: <62b0912f0608040404p59545a0asc7f5fc5f537ec32c@mail.gmail.com>
+Received: from stinky.trash.net ([213.144.137.162]:17365 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S932479AbWHDLXZ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Aug 2006 07:23:25 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060804111604.GA25693@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Molle Bestefich" <molle.bestefich@gmail.com>
-Date: Fri, 4 Aug 2006 13:04:07 +0200
+Herbert Xu wrote:
+> On Fri, Aug 04, 2006 at 01:11:19PM +0200, Patrick McHardy wrote:
+> 
+>>>Of course it gets hairier if you have ESP padding.  I'm not even sure
+>>>if the current code gets that right.
+>>
+>>Unless I'm missing something, the padding caused by IP options
+>>is always less than the worst case that can happen anyway
+>>(max(block size, padlen)-1), so it can simply be ignored.
+> 
+> 
+> Are you talking about the ESP padding case, or transport mode in
+> general?
 
-> You're trying to pull Linux end users into a war between Intel and
-> it's vendors, so you can make end users scream at the vendors when
-> they forget to run the checksum tool.
+Transport mode in general.
 
-I totally agree, Intel driver maintainers generally act like complete
-idiots in these kinds of situations.
-
-If the EEPROM has a broken checksum, the user should have an option
-that allows him to try and use the device anyways, end of story.
-
-It is only self serving to not provide this option to the user.
-
-People make errors, EEPROM's get shipped with bad checksums but the
-device might still be usable.  That is life get over it.
