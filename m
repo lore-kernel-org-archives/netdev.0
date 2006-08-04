@@ -1,43 +1,47 @@
-From: Daniel Walker <dwalker@mvista.com>
+From: Theodore Tso <tytso@mit.edu>
 Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
-Date: Thu, 03 Aug 2006 17:03:05 -0700
-Message-ID: <1154649785.16126.3.camel@dwalker1.mvista.com>
-References: <20060803201741.GA7894@thunk.org>
-	 <20060803.144845.66061203.davem@davemloft.net>
-	 <20060803235326.GC7894@thunk.org>
-	 <20060803.165654.45876296.davem@davemloft.net>
-Reply-To: dwalker@mvista.com
+Date: Thu, 3 Aug 2006 20:07:07 -0400
+Message-ID: <20060804000707.GA15342@thunk.org>
+References: <20060803201741.GA7894@thunk.org> <20060803.144845.66061203.davem@davemloft.net> <1154647699.3117.26.camel@rh4> <20060803.164311.91310742.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: tytso@mit.edu, mchan@broadcom.com, herbert@gondor.apana.org.au,
+Content-Type: text/plain; charset=us-ascii
+Cc: mchan@broadcom.com, herbert@gondor.apana.org.au,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway-1237.mvista.com ([63.81.120.158]:11382 "EHLO
-	gateway-1237.mvista.com") by vger.kernel.org with ESMTP
-	id S1030238AbWHDADH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 20:03:07 -0400
+Received: from thunk.org ([69.25.196.29]:33201 "EHLO thunker.thunk.org")
+	by vger.kernel.org with ESMTP id S932193AbWHDAHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 20:07:15 -0400
 To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060803.165654.45876296.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060803.164311.91310742.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-08-03 at 16:56 -0700, David Miller wrote:
-> From: Theodore Tso <tytso@mit.edu>
-> Date: Thu, 3 Aug 2006 19:53:26 -0400
+On Thu, Aug 03, 2006 at 04:43:11PM -0700, David Miller wrote:
+> From: "Michael Chan" <mchan@broadcom.com>
+> Date: Thu, 03 Aug 2006 16:28:19 -0700
 > 
-> > Any suggestions on how I could figure out what was really going on and
-> > what would be a better fix would be greatly appreciated.
+> > > eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] Split[0] WireSpeed[0] TSOcap[0]
+> > 
+> > We'll see if we can do away with the timer-based heartbeat.  That's
+> > probably the best solution.
 > 
-> As Michael explained, it's the ASF heartbeat sent by tg3_timer() that
-> must be delivered to the chip within certain timing constraints.
+> The tg3 driver is not the only device in the world that requires a
+> timer based "ping" to work.  The watchdog drivers and the softlockup
+> detector are other instances which require a timer to not be delayed
+> an unreasonable amount of time.
 > 
-> If you had any watchdog devices on this machine, they would likely
-> trigger too and reset your machine :)
+> Therefore TG3 is not unique in this regard, and I thus don't think
+> it's worthwhile to change tg3 just to accomodate this broken behavior
+> of the RT patches.
 
-That's not broken behavior in RT .. That's just plain old task
-priorities. Some high priority task (SCHED_FIFO prio 99) is sucking up a
-lot of the CPU. But that's 100% legal in SCHED_FIFO.
+Removing the timer-based "ping" might be a good thing to do from the
+point of view of reducing power utilization of laptops (but hey, I
+don't have a tg3 in my laptop, so I won't worry about it a whole lot :-), 
+but I agree that in general the RT patches need to be able to
+call functions such as tg3_timer() reliably even when under a high
+real-time process workload, without needing to use the blunt hammer of
+"chrt -f 95 `pidof softirq-timer`".  (Since not all timer callbacks
+need to be run at rt prio 95.)
 
-Daniel
-
+						- Ted
