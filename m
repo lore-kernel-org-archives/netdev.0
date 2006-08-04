@@ -1,47 +1,41 @@
-From: Theodore Tso <tytso@mit.edu>
-Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
-Date: Thu, 3 Aug 2006 20:07:07 -0400
-Message-ID: <20060804000707.GA15342@thunk.org>
-References: <20060803201741.GA7894@thunk.org> <20060803.144845.66061203.davem@davemloft.net> <1154647699.3117.26.camel@rh4> <20060803.164311.91310742.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
+Date: Thu, 03 Aug 2006 17:09:57 -0700
+Message-ID: <1154650197.3117.32.camel@rh4>
+References: <E1G8dmn-0001hH-00@gondolin.me.apana.org.au>
+ <Pine.WNT.4.63.0608030925100.3396@jbrandeb-desk.amr.corp.intel.com>
+ <1154628302.3117.15.camel@rh4> <1154642918.5187.13.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mchan@broadcom.com, herbert@gondor.apana.org.au,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>,
+	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from thunk.org ([69.25.196.29]:33201 "EHLO thunker.thunk.org")
-	by vger.kernel.org with ESMTP id S932193AbWHDAHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 20:07:15 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060803.164311.91310742.davem@davemloft.net>
+Received: from mms1.broadcom.com ([216.31.210.17]:10767 "EHLO
+	mms1.broadcom.com") by vger.kernel.org with ESMTP id S932293AbWHDAIa
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 20:08:30 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1154642918.5187.13.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 03, 2006 at 04:43:11PM -0700, David Miller wrote:
-> From: "Michael Chan" <mchan@broadcom.com>
-> Date: Thu, 03 Aug 2006 16:28:19 -0700
-> 
-> > > eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] Split[0] WireSpeed[0] TSOcap[0]
-> > 
-> > We'll see if we can do away with the timer-based heartbeat.  That's
-> > probably the best solution.
-> 
-> The tg3 driver is not the only device in the world that requires a
-> timer based "ping" to work.  The watchdog drivers and the softlockup
-> detector are other instances which require a timer to not be delayed
-> an unreasonable amount of time.
-> 
-> Therefore TG3 is not unique in this regard, and I thus don't think
-> it's worthwhile to change tg3 just to accomodate this broken behavior
-> of the RT patches.
+On Thu, 2006-08-03 at 18:08 -0400, jamal wrote:
 
-Removing the timer-based "ping" might be a good thing to do from the
-point of view of reducing power utilization of laptops (but hey, I
-don't have a tg3 in my laptop, so I won't worry about it a whole lot :-), 
-but I agree that in general the RT patches need to be able to
-call functions such as tg3_timer() reliably even when under a high
-real-time process workload, without needing to use the blunt hammer of
-"chrt -f 95 `pidof softirq-timer`".  (Since not all timer callbacks
-need to be run at rt prio 95.)
+> 
+> Yes in your case you need to hold the lock but not in the e1000 case.
+> I dont understand though why you need to check for wake in the tx path.
+> 
 
-						- Ted
+tg3_start_xmit()
+
+	if (tx_ring_empty)
+				<-  tg3_tx()
+		netif_stop_queue()
+
+
+At the arrow, tg3_tx() can come in and clean up the entire ring but will
+not see that the queue is stopped and therefore will not call
+netif_wake_queue().  As a result, the tx_queue is stopped forever.
+
