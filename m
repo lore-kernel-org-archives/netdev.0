@@ -1,39 +1,40 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [RFC] irqbalance: Mark in-kernel irqbalance as obsolete, set
- to N by default
-Date: Fri, 04 Aug 2006 07:25:10 -0700
-Message-ID: <44D358C6.3080406@intel.com>
-References: <44CE3F5E.4010305@intel.com> <20060803194550.9ff31bc1.akpm@osdl.org>
+From: Jes Sorensen <jes@sgi.com>
+Subject: Re: Private driver support emails should be avoided.
+Date: 04 Aug 2006 10:46:03 -0400
+Message-ID: <yq0hd0sv9sk.fsf@jaguar.mkp.net>
+References: <44C3F2C6.5010001@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>, linux-kernel@vger.kernel.org,
-	jesse.brandeburg@intel.com, john.ronciak@intel.com,
-	netdev@vger.kernel.org, arjan@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:40868 "EHLO
-	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
-	id S1030239AbWHDO0d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Aug 2006 10:26:33 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060803194550.9ff31bc1.akpm@osdl.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Netdev List <netdev@vger.kernel.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <44C3F2C6.5010001@garzik.org>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> On Mon, 31 Jul 2006 10:35:26 -0700
-> Auke Kok <auke-jan.h.kok@intel.com> wrote:
-> 
->> We've recently seen a number of user bug reports against e1000 that the 
->> in-kernel irqbalance code is detrimental to network latency. The algorithm 
->> keeps swapping irq's for NICs from cpu to cpu causing extremely high network 
->> latency (>1000ms).
-> 
-> What kernel versions?  Some IRQ balancer fixes went in shortly after 2.6.17.
+>>>>> "Jeff" == Jeff Garzik <jeff@garzik.org> writes:
 
-user reports show 2.6.17.1 having the problem, I'm trying to get more details 
-information, and will ask if 2.6.18rc3 or so does better for them.
+Jeff> Just a reminder to folks out there...  Don't send private driver
+Jeff> support emails.
+
+Jeff> I receive a lot of email.  A lot.  Not as much as Linus or
+Jeff> Andrew probably, but still sizable.  And quite regularly, I will
+Jeff> receive a private email asking for help on a SATA or net driver
+Jeff> problem.  The poster will include various details on their
+Jeff> problem, and ask for help debugging the problem.  While the
+Jeff> email will indeed be skimmed -- looking at a mass of bug
+Jeff> reports, one can better detect patterns -- the people seeking
+Jeff> support privately will almost NEVER RECEIVE A RESPONSE.
+
+Jeff,
+
+Very sane - I get some of it too, though less so these days :)
+
+What about writing this up and sticking it under
+Documentation/Reporting-Bugs or something so there's an easy reference
+to it?
 
 Cheers,
-
-Auke
+Jes
