@@ -1,76 +1,196 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [RFC] gre: transparent ethernet bridging
-Date: Fri, 4 Aug 2006 10:02:36 +0200
-Message-ID: <20060804080236.GA4106@xi.wantstofly.org>
-References: <44CDD631.5030008@snapgear.com> <20060731091423.3327f85e@dxpl.pdx.osdl.net> <44CEAB31.5090501@snapgear.com> <20060731220822.444f04e4@localhost.localdomain> <20060802074223.GA23715@xi.wantstofly.org> <44D15265.4090905@snapgear.com> <20060803073307.GA29775@xi.wantstofly.org> <44D1BE93.1080308@snapgear.com> <20060803194016.GC527@xi.wantstofly.org> <44D29C47.6080407@snapgear.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
+Date: Fri, 4 Aug 2006 18:37:35 +1000
+Message-ID: <20060804083734.GA16082@gondor.apana.org.au>
+References: <E1G8dmn-0001hH-00@gondolin.me.apana.org.au> <Pine.WNT.4.63.0608030925100.3396@jbrandeb-desk.amr.corp.intel.com> <1154628302.3117.15.camel@rh4> <1154642918.5187.13.camel@jzny2> <1154650197.3117.32.camel@rh4> <20060804011027.GC12085@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+Cc: hadi@cyberus.ca, "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:29657 "EHLO
-	xi.wantstofly.org") by vger.kernel.org with ESMTP id S1161098AbWHDICl
+Received: from rhun.apana.org.au ([64.62.148.172]:39184 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1161108AbWHDIhy
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Aug 2006 04:02:41 -0400
-To: Philip Craig <philipc@snapgear.com>
+	Fri, 4 Aug 2006 04:37:54 -0400
+To: Michael Chan <mchan@broadcom.com>
 Content-Disposition: inline
-In-Reply-To: <44D29C47.6080407@snapgear.com>
+In-Reply-To: <20060804011027.GC12085@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 04, 2006 at 11:00:55AM +1000, Philip Craig wrote:
-
-> >>> So now you _need_ bridging in the middle to send ethernet traffic over
-> >>> a GRE tunnel?  Ugh.
-> >> Agreed that would not be nice.  What is the usage scenario for this?
-> >> At least one end of the tunnel will be bridged?
-> > 
-> > For example for VPN purposes, I could imagine that you wouldn't want
-> > to use bridging.
+On Fri, Aug 04, 2006 at 11:10:27AM +1000, herbert wrote:
 > 
-> What is the purpose of including the ethernet header if it only
-> exists on the tunnel?
+> So we need to fix e1000 anyway.
 
-I have one machine at home that appears to be on my employer's network
-via such a tunnel.  I don't use bridging, because I don't need any other
-machine at home to access this tunnel.  I do want bridging, and not proxy
-ARP, because it allows me to run arpwatch, and doesn't require me to
-reconfigure something at the remote end if I, for example, want to add
-another IP address to my home box.
+Here is a fix that also gets rid of the tx_lock on the wake up side.
+Please scrutinise this as much as you can.  Jamal, please run this
+through your performance test to see if it has a similar effect as
+your original patch.
 
+A similar patch is needed for tg3.
 
-> >>> If you really want to send ethernet and non-ethernet traffic over the
-> >>> same tunnel, can't you make multiple devices?
-> >> Do you mean make multiple GRE devices, where one has an ethernet mode set?
-> > 
-> > For example.  If you want to send ethernet-encapsulated and other-protocol-
-> > encapsulated traffic over the same GRE tunnel, that would seem like the
-> > cleanest solution to me.
-> 
-> It is fine for sending, but when receiving, which packets go to which
-> device?  Does a packet appear on only one device when sending, but both
-> devices when receiving?
+[NETDRV] e1000: Fix potential tx wake up race
 
-No, just send it to the device that matches the lower-level protocol.
-So if you receive an ethernet packet, make it be received on the ethernet
-sub-device, if it's IP, make it be received on the IP sub-device, etc.
+Jamal posted a patch which improved e1000 TX performance.  That in
+turn spawned a discussion on potential tx wake up races caused by
+the change.  During that discussion, Michael Chan posted the following
+scenario (redrawn by me for e1000):
 
-Note that I'm not saying that this is necessarily a good idea, it's just
-what I would suggest if you want to run both 'bare IP' and ethernet
-encapsulated traffic over the same GRE tunnel at the same time.  (Not sure
-why you'd want that.)
+CPU0					CPU1
+e1000_xmit_frame
+	tx_lock
+	if (tx_ring_empty)
+					e1000_clean_tx_irq
+						if (netif_queue_stopped)
+							tx_lock
+							netif_wake_queue
+							tx_unlock
+		netif_stop_queue
+	tx_unlock
 
+As you can see, even with the locks around netif_wake_queue this still
+allows the race to occur because the netif_wake_queue code path is
+conditional on netif_queue_stopped.
 
-> This seems cleaner to me:
-> The GRE tunnel receives a packet of any protocol (ethernet included),
-> and adds the IP/GRE header.  Anything else is done above GRE.
-> Whatever needs the ethernet header should add it.
-> 
-> And then the decision is, how do we add the ethernet header?
-> - an option to GRE to always add the ethernet header
+So here is a patch that uses the memory barriers rather than spin locks
+to solve the problem.
 
-I think I lost you here.  You surely can't just 'make up' any ethernet
-header?
+First of all I've made netif_wake_queue independent of netif_queue_stopped.
+This means that we operate on the stopped bit only once which closes a race
+window.
 
+Furthermore, netif_wake_queue itself is already a memory barrier because
+it does a test_and_clear_bit.  This means that if the other side can
+observe the netif_wake_queue then it can observe the extra room we've
+made on the
+queue.
 
-cheers,
-Lennert
+On the e1000_xmit_frame side, I've changed netif_stop_queue into a new
+function netif_test_and_stop_queue which does test_and_set_bit.  This
+means that it also is a full memory barrier.
+
+In order to close the race then, we simply recheck the tx queue size
+if netif_test_and_stop_queue returns 0 indicating that the queue was
+previously started.  There are two possibilities:
+
+1) netif_wake_queue is about to occur.  In this case it doesn't really
+matter what we do as netif_wake_queue will always wake the queue for us.
+In the worst case, it'll wake up the queue with too little room but that's
+really uncommon and we can cope with that anyway.
+
+2) netif_wake_queue has just occured.  Because it is a memory barrier,
+when we recheck the queue size we're guaranteed to see the new indices
+which means that we'll see the extra room it has made for us.  As a
+result we'll simply restart the queue.
+
+The one wart in the patch is that we now have an unconditional atomic
+operation in e1000_clean_tx_irq (netif_wake_queue).  If anyone can
+think of a way to get rid of it without opening up the race, please
+let us know.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 627f224..a22c01f 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -2861,6 +2861,34 @@ e1000_transfer_dhcp_info(struct e1000_ad
+ 	return 0;
+ }
+ 
++static int __e1000_maybe_stop_tx(struct net_device *netdev, int size)
++{
++	struct e1000_adapter *adapter = netdev_priv(netdev);
++	struct e1000_tx_ring *tx_ring = adapter->tx_ring;
++
++	if (unlikely(netif_test_and_stop_queue(netdev)))
++		return -EBUSY;
++
++	/* netif_test_and_stop_queue acts as a memory barrier.
++	 * We need to check again in a case another CPU has just
++	 * made room available.
++	 */
++	if (likely(E1000_DESC_UNUSED(tx_ring) < size))
++		return -EBUSY;
++
++	/* A reprieve! */
++	netif_start_queue(netdev);
++	return 0;
++}
++
++static inline int e1000_maybe_stop_tx(struct net_device *netdev,
++				      struct e1000_tx_ring *tx_ring, int size)
++{
++	if (likely(E1000_DESC_UNUSED(tx_ring) >= size))
++		return 0;
++	return __e1000_maybe_stop_tx(netdev, size);
++}
++
+ #define TXD_USE_COUNT(S, X) (((S) >> (X)) + 1 )
+ static int
+ e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+@@ -2974,8 +3002,7 @@ #endif
+ 
+ 	/* need: count + 2 desc gap to keep tail from touching
+ 	 * head, otherwise try next time */
+-	if (unlikely(E1000_DESC_UNUSED(tx_ring) < count + 2)) {
+-		netif_stop_queue(netdev);
++	if (unlikely(e1000_maybe_stop_tx(netdev, tx_ring, count + 2))) {
+ 		spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
+ 		return NETDEV_TX_BUSY;
+ 	}
+@@ -3022,8 +3049,7 @@ #endif
+ 	netdev->trans_start = jiffies;
+ 
+ 	/* Make sure there is space in the ring for the next send. */
+-	if (unlikely(E1000_DESC_UNUSED(tx_ring) < MAX_SKB_FRAGS + 2))
+-		netif_stop_queue(netdev);
++	e1000_maybe_stop_tx(netdev, tx_ring, MAX_SKB_FRAGS + 2);
+ 
+ 	spin_unlock_irqrestore(&tx_ring->tx_lock, flags);
+ 	return NETDEV_TX_OK;
+@@ -3515,14 +3541,9 @@ #endif
+ 	tx_ring->next_to_clean = i;
+ 
+ #define TX_WAKE_THRESHOLD 32
+-	if (unlikely(cleaned && netif_queue_stopped(netdev) &&
+-	             netif_carrier_ok(netdev))) {
+-		spin_lock(&tx_ring->tx_lock);
+-		if (netif_queue_stopped(netdev) &&
+-		    (E1000_DESC_UNUSED(tx_ring) >= TX_WAKE_THRESHOLD))
+-			netif_wake_queue(netdev);
+-		spin_unlock(&tx_ring->tx_lock);
+-	}
++	if (unlikely(cleaned && netif_carrier_ok(netdev) &&
++		     E1000_DESC_UNUSED(tx_ring) >= TX_WAKE_THRESHOLD))
++		netif_wake_queue(netdev);
+ 
+ 	if (adapter->detect_tx_hung) {
+ 		/* Detect a transmit hang in hardware, this serializes the
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 75f02d8..b8714b4 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -652,6 +652,15 @@ #endif
+ 	set_bit(__LINK_STATE_XOFF, &dev->state);
+ }
+ 
++static inline int netif_test_and_stop_queue(struct net_device *dev)
++{
++#ifdef CONFIG_NETPOLL_TRAP
++	if (netpoll_trap())
++		return;
++#endif
++	return test_and_set_bit(__LINK_STATE_XOFF, &dev->state);
++}
++
+ static inline int netif_queue_stopped(const struct net_device *dev)
+ {
+ 	return test_bit(__LINK_STATE_XOFF, &dev->state);
