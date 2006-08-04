@@ -1,68 +1,74 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [XFRM]: Improve MTU estimation
-Date: Fri, 4 Aug 2006 20:01:21 +1000
-Message-ID: <20060804100121.GA17239@gondor.apana.org.au>
-References: <44D30A48.4050403@trash.net> <44D312EF.8010202@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch] RFC: matching interface groups
+Date: Fri, 04 Aug 2006 12:06:39 +0200
+Message-ID: <44D31C2F.2050702@trash.net>
+References: <1154452209.6395.77.camel@bzorp.balabit>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:35601 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1030217AbWHDKBY
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Aug 2006 06:01:24 -0400
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <44D312EF.8010202@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:720 "EHLO stinky.trash.net")
+	by vger.kernel.org with ESMTP id S1030217AbWHDKIf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2006 06:08:35 -0400
+To: Balazs Scheidler <bazsi@balabit.hu>
+In-Reply-To: <1154452209.6395.77.camel@bzorp.balabit>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 04, 2006 at 11:27:11AM +0200, Patrick McHardy wrote:
->
-> [XFRM]: Improve MTU estimation
+Balazs Scheidler wrote:
+> The use-case is as follows:
 > 
-> Replace the probing based MTU estimation, which usually takes 2-3
-> iterations to find a fitting value and may underestimate the MTU,
-> by an exact calculation.
+> * I have two different subsystems creating interfaces dynamically (for
+> example pptpd and serial pppd lines, each creating dynamic pppX
+> interfaces),
+> * I would like to assign a different set of iptables rules for these
+> clients,
+> * I would like to react to a new interface being added to a specific set
+> in a userspace application,
+> 
+> The reasons I see this needs new kernel functionality:
+> 
+> * iptables supports wildcard interface matching (for example "iptables
+> -i ppp+"), but as the names of the interfaces used by PPTPD and PPPD
+> cannot be distinguished this way, this is not enough,
+> * Reloading the iptables ruleset everytime a new interface comes up is
+> not really feasible, as it abrupts packet processing, and validating the
+> ruleset in the kernel can take significant amount of time,
+> * the kernel change is very simple, adapting userspace to this change is
+> also very simple, and in userspace various software packages can easily
+> interoperate with each-other once this is merged.
+> 
+> The implementation:
+> 
+> Each interface can belong to a single "group" at a time, an interface
+> comes up without being a member in any of the groups.
+> 
+> Userspace can assign interfaces to groups after being created, this
+> would typically be performed in /etc/ppp/ip-up.d (and similar) scripts.
+> 
+> In spirit "interface group" is somewhat similar to the "routing
+> protocol" field for routing entries, which contains information on which
+> routing daemon was responsible for adding the given route entry.
+> 
+> Things to be done if you like this approach:
+> 
+> * interface group match in iptables,
+> * support for naming interface groups in userspace, a'la routing
+> protocols,
+> * emitting a netlink notification when the group of an interface
+> changes,
+> * possibly converting the "ip link" command to use NETLINK messages,
+> instead of using ioctl()
+> 
+> What do you think?
 
-Thanks Patrick, this is definitely the better way to do it.
-  
-> -static u32 esp4_get_max_size(struct xfrm_state *x, int mtu)
-> +static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
->  {
->  	struct esp_data *esp = x->data;
-> -	u32 blksize = ALIGN(crypto_tfm_alg_blocksize(esp->conf.tfm), 4);
-> +	u32 align = ALIGN(crypto_tfm_alg_blocksize(esp->conf.tfm), 4);
->  
-> -	if (x->props.mode) {
-> -		mtu = ALIGN(mtu + 2, blksize);
-> -	} else {
-> -		/* The worst case. */
-> -		mtu = ALIGN(mtu + 2, 4) + blksize - 4;
-> -	}
-> -	if (esp->conf.padlen)
-> -		mtu = ALIGN(mtu, esp->conf.padlen);
-> +	if (esp->conf.padlen > align)
-> +		align = esp->conf.padlen;
->  
-> -	return mtu + x->props.header_len + esp->auth.icv_trunc_len;
-> +	mtu -= x->props.header_len + esp->auth.icv_trunc_len;
-> +	mtu &= ~(align - 1);
-> +	mtu -= 2;
-> +
-> +	return mtu;
 
-I haven't actually done the math, but I don't think this can be right
-from a quick look.  The reason is that transport mode is fundamentally
-different from tunnel mode in that the IP options are not encrypted and
-therefore do not contribute to the encryption block padding.
+I like it .. kind of like routing realms. For your specific case there
+is a possible solution already supported by the kernel, you can
+pre-allocate ppp devices using PPPIOCNEWUNIT, rename them and later
+attach to individual units in the ppp daemon using PPPIOCATTACH
+(I have a patch for this somewhere if you're interested). But that
+only works for PPP devices and the group idea looks more flexible.
 
-So as the code doesn't distinguish between transport mode and tunnel
-mode, you might be producing an overestimate for transport mode.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
