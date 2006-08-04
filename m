@@ -1,55 +1,31 @@
-From: James Morris <jmorris@namei.org>
-Subject: [Patch] fix potential stack overflow in net/core/utils.c (fwd)
-Date: Thu, 3 Aug 2006 23:00:45 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0608032300390.4343@d.namei>
+From: Theodore Tso <tytso@mit.edu>
+Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
+Date: Thu, 3 Aug 2006 23:23:49 -0400
+Message-ID: <20060804032348.GA16313@thunk.org>
+References: <E1G8a0J-0002Pn-00@gondolin.me.apana.org.au> <1154630207.3117.17.camel@rh4> <20060803201741.GA7894@thunk.org> <20060803.144845.66061203.davem@davemloft.net> <1154647699.3117.26.camel@rh4>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail8.sea5.speakeasy.net ([69.17.117.10]:34797 "EHLO
-	mail8.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1030301AbWHDDAs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 23:00:48 -0400
-Received: from megaweapon.nightmoose.net (HELO d.namei) ([66.92.66.197])
-          (envelope-sender <jmorris@namei.org>)
-          by mail8.sea5.speakeasy.net (qmail-ldap-1.03) with AES256-SHA encrypted SMTP
-          for <netdev@vger.kernel.org>; 4 Aug 2006 03:00:47 -0000
-To: netdev@vger.kernel.org
+Received: from thunk.org ([69.25.196.29]:59095 "EHLO thunker.thunk.org")
+	by vger.kernel.org with ESMTP id S1751420AbWHDDY1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Aug 2006 23:24:27 -0400
+To: Michael Chan <mchan@broadcom.com>
+Content-Disposition: inline
+In-Reply-To: <1154647699.3117.26.camel@rh4>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
----------- Forwarded message ----------
-Date: Thu, 3 Aug 2006 18:35:45 -0700
-From: "Siddha, Suresh B" <suresh.b.siddha@intel.com>
-To: akpm@osdl.org
-Cc: alan@lxorguk.ukuu.org.uk, linux-kernel@vger.kernel.org
-Subject: [Patch] fix potential stack overflow in net/core/utils.c
+On Thu, Aug 03, 2006 at 04:28:19PM -0700, Michael Chan wrote:
+> True.  But they also have ASF enabled which requires tg3_timer() to send
+> the heartbeat periodically.  If the heartbeat is late, ASF may reset the
+> chip believing that the system has crashed.
 
-On High end systems (1024 or so cpus) this can potentially cause stack
-overflow. Fix the stack usage.
+Parden me for asking a dumb question, but what's being accomplished by
+resetting the chip if the system has crashed?  Why not reset the chip
+when the system reboots and it sees the PCI bus reset?  I guess I'm
+missing the purpose of the ASF heartbeat; why does the networking chip
+need a chip-specific watchdog?
 
-Signed-off-by: Suresh Siddha <suresh.b.siddha@intel.com>
-
---- linux-2.6.18-rc3/net/core/utils.c~	2006-08-03 14:50:28.341080424 -0700
-+++ linux-2.6.18-rc3/net/core/utils.c	2006-08-03 14:50:51.222601904 -0700
-@@ -130,12 +130,13 @@ void __init net_random_init(void)
- static int net_random_reseed(void)
- {
- 	int i;
--	unsigned long seed[NR_CPUS];
-+	unsigned long seed;
- 
--	get_random_bytes(seed, sizeof(seed));
- 	for_each_possible_cpu(i) {
- 		struct nrnd_state *state = &per_cpu(net_rand_state,i);
--		__net_srandom(state, seed[i]);
-+
-+		get_random_bytes(&seed, sizeof(seed));
-+		__net_srandom(state, seed);
- 	}
- 	return 0;
- }
--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
+						- Ted
