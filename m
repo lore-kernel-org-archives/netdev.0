@@ -1,35 +1,68 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [XFRM]: Improve MTU estimation
-Date: Fri, 04 Aug 2006 10:50:16 +0200
-Message-ID: <44D30A48.4050403@trash.net>
+Subject: Re: [XFRM]: Improve MTU estimation
+Date: Fri, 04 Aug 2006 11:27:11 +0200
+Message-ID: <44D312EF.8010202@trash.net>
+References: <44D30A48.4050403@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------020002000807000705020603"
+ boundary="------------040507060508090009020303"
 Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:30666 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1030209AbWHDIwK
+Received: from stinky.trash.net ([213.144.137.162]:59084 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1030250AbWHDJ3E
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Aug 2006 04:52:10 -0400
+	Fri, 4 Aug 2006 05:29:04 -0400
 To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <44D30A48.4050403@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------020002000807000705020603
+--------------040507060508090009020303
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 
-While trying to track down a PMTUD problem with IPsec, I
-misread the current MTU estimation code and initially thought
-it would overestimate the MTU. I then noticed that this was
-wrong, but by that time had already replaced it by an exact
-calculation. It fixes the common underestimation of the MTU
-by two bytes with ESP and should be a bit faster, so it still
-looks useful.
+Patrick McHardy wrote:
+>  int xfrm_state_mtu(struct xfrm_state *x, int mtu)
+>  {
+> -	int res = mtu;
+> -
+> -	res -= x->props.header_len;
+> -
+> -	for (;;) {
+> -		int m = res;
+> -
+> -		if (m < 68)
+> -			return 68;
+> -
+> -		spin_lock_bh(&x->lock);
+> -		if (x->km.state == XFRM_STATE_VALID &&
+> -		    x->type && x->type->get_max_size)
+> -			m = x->type->get_max_size(x, m);
+> -		else
+> -			m += x->props.header_len;
+> -		spin_unlock_bh(&x->lock);
+> -
+> -		if (m <= mtu)
+> -			break;
+> -		res -= (m - mtu);
+> -	}
+> +	int res;
+>  
+> +	spin_lock_bh(&x->lock);
+> +	if (x->km.state == XFRM_STATE_VALID &&
+> +	    x->type && x->type->get_mtu)
+> +		res = x->type->get_mtu(x, mtu);
+> +	else
+> +		res = mtu;
+> +	spin_unlock_bh(&x->lock);
+>  	return res;
+>  }
 
 
---------------020002000807000705020603
+That broke estimation for AH. This one should be fine.
+
+--------------040507060508090009020303
 Content-Type: text/plain;
  name="x"
 Content-Transfer-Encoding: 7bit
@@ -45,17 +78,17 @@ by an exact calculation.
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit d5722ea7c8c7d3526788cd4fc3ab3e1237273fa8
-tree 56ddec256902370864e93bb7bd095281162aea3b
+commit 503d86d9420b2c21121a5c2cbda9e42cc559031f
+tree a65939379cd3f200070a784fb079854270d26940
 parent a205729e2cd8e51257cd0ea738524c64da99b9e0
-author Patrick McHardy <kaber@trash.net> Fri, 04 Aug 2006 10:37:09 +0200
-committer Patrick McHardy <kaber@trash.net> Fri, 04 Aug 2006 10:37:09 +0200
+author Patrick McHardy <kaber@trash.net> Fri, 04 Aug 2006 11:27:20 +0200
+committer Patrick McHardy <kaber@trash.net> Fri, 04 Aug 2006 11:27:20 +0200
 
  include/net/xfrm.h    |    3 +--
  net/ipv4/esp4.c       |   28 +++++++++++++++-------------
  net/ipv6/esp6.c       |   25 +++++++++++--------------
- net/xfrm/xfrm_state.c |   36 ++++++++----------------------------
- 4 files changed, 35 insertions(+), 57 deletions(-)
+ net/xfrm/xfrm_state.c |   37 ++++++++++---------------------------
+ 4 files changed, 37 insertions(+), 56 deletions(-)
 
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
 index 9c5ee9f..ea1b028 100644
@@ -182,10 +215,10 @@ index a278d5e..b8d0a05 100644
  	.output		= esp6_output
  };
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 0021aad..39d9169 100644
+index 0021aad..7b0b100 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
-@@ -1129,37 +1129,17 @@ void xfrm_state_delete_tunnel(struct xfr
+@@ -1129,37 +1129,20 @@ void xfrm_state_delete_tunnel(struct xfr
  }
  EXPORT_SYMBOL(xfrm_state_delete_tunnel);
  
@@ -214,22 +247,24 @@ index 0021aad..39d9169 100644
 -		else
 -			m += x->props.header_len;
 -		spin_unlock_bh(&x->lock);
--
++	int res;
+ 
 -		if (m <= mtu)
 -			break;
 -		res -= (m - mtu);
 -	}
-+	int res;
- 
 +	spin_lock_bh(&x->lock);
 +	if (x->km.state == XFRM_STATE_VALID &&
 +	    x->type && x->type->get_mtu)
 +		res = x->type->get_mtu(x, mtu);
 +	else
-+		res = mtu;
++		res = mtu - x->props.header_len;
 +	spin_unlock_bh(&x->lock);
+ 
++	if (res < 68)
++		res = 68;
  	return res;
  }
  
 
---------------020002000807000705020603--
+--------------040507060508090009020303--
