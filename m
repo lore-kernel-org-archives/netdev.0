@@ -1,82 +1,69 @@
-From: "Jesper Juhl" <jesper.juhl@gmail.com>
-Subject: Re: [PATCH] fix memory leak in net/ipv4/tcp_probe.c::tcpprobe_read()
-Date: Sat, 5 Aug 2006 01:30:49 +0200
-Message-ID: <9a8748490608041630t5e667bf5k3a50dcf148187e6c@mail.gmail.com>
-References: <20060730142922.7c1d4f7d@localhost.localdomain>
-	 <Pine.LNX.4.64.0607301747170.26424@d.namei>
-	 <9a8748490607301451j21589110ifd8677f328b7eba6@mail.gmail.com>
-	 <20060730.155640.10246145.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
+Date: Fri, 04 Aug 2006 16:31:11 -0700 (PDT)
+Message-ID: <20060804.163111.85390037.davem@davemloft.net>
+References: <20060804101017.GA17393@gondor.apana.org.au>
+	<1154712532.3117.43.camel@rh4>
+	<20060804110829.62136ebb@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, shemminger@osdl.org, kuznet@ms2.inr.ac.ru,
-	yoshfuji@linux-ipv6.org, pekkas@netcore.fi, kaber@coreworks.de,
+Cc: mchan@broadcom.com, herbert@gondor.apana.org.au, hadi@cyberus.ca,
+	jesse.brandeburg@intel.com, auke-jan.h.kok@intel.com,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:52175 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1161473AbWHDXav (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Aug 2006 19:30:51 -0400
-Received: by nf-out-0910.google.com with SMTP id k26so56049nfc
-        for <netdev@vger.kernel.org>; Fri, 04 Aug 2006 16:30:49 -0700 (PDT)
-To: "David Miller" <davem@davemloft.net>
-In-Reply-To: <20060730.155640.10246145.davem@davemloft.net>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:13026
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1161578AbWHDXbF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Aug 2006 19:31:05 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060804110829.62136ebb@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 31/07/06, David Miller <davem@davemloft.net> wrote:
-> From: "Jesper Juhl" <jesper.juhl@gmail.com>
-> Date: Sun, 30 Jul 2006 23:51:20 +0200
->
-> > Looks ok to me.
->
-> I've applied James's version of the fix, thanks everyone.
->
-Hmm, if you are refering to commit
-118075b3cdc90e0815362365f3fc64d672ace0d6 -
-http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=118075b3cdc90e0815362365f3fc64d672ace0d6
-then I think a mistake has crept in. That commit only initializes
-'cnt' to 0 - I don't see how that would fix the leak - looks like you
-forgot the business end of the patch...
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Fri, 4 Aug 2006 11:08:29 -0700
 
-The function still looks like this after that commit :
+> On Fri, 04 Aug 2006 10:28:52 -0700
+> "Michael Chan" <mchan@broadcom.com> wrote:
+> 
+> > May be David can explain why it is undesirable to wake up the queue when
+> > it is full?
 
-114 static ssize_t tcpprobe_read(struct file *file, char __user *buf,
-115 size_t len, loff_t *ppos)
-116 {
-117 int error = 0, cnt = 0;
-118 unsigned char *tbuf;
-119
-120 if (!buf || len < 0)
-121 return -EINVAL;
-122
-123 if (len == 0)
-124 return 0;
-125
-126 tbuf = vmalloc(len);
-127 if (!tbuf)
-128 return -ENOMEM;
-129
-130 error = wait_event_interruptible(tcpw.wait,
-131 __kfifo_len(tcpw.fifo) != 0);
-132 if (error)
-133 return error;
-134
+Why does Michael ask all the difficult questions? :-)
 
-    ^^^--- we are still leaking 'tbuf' here.
+> Because it means that there was a race hole in the normal sleep/wakeup code.
+> Some drivers just spin (see acenic.c) but that's ugly.
+> 
+> The real risk is that the transmit routine will decide it's busy, but
+> at the same time an IRQ on another CPU will clean up the whole ring
+> and make the queue available again. Then the transmit routine exits and
+> says its busy, and the higher level will decide it is permanently stopped.
 
+Yes, it's meant to catch unintented races.
 
-135 cnt = kfifo_get(tcpw.fifo, tbuf, len);
-136 error = copy_to_user(buf, tbuf, cnt);
-137
-138 vfree(tbuf);
-139
-140 return error ? error : cnt;
-141 }
+The queueing layer that calls ->hard_start_xmit() technically has no
+need to support NETDEV_TX_BUSY as a return value, since the device
+is able to prevent this.
 
+If we could avoid NETDEV_TX_BUSY et al. from happening, the idea is
+that we could eliminate all of the requeueing logic in the packet
+scheduler layer.  It is a pipe dream from many years ago.
 
--- 
-Jesper Juhl <jesper.juhl@gmail.com>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+But this may never be realized because now we have things like LLTX
+which can return NETDEV_TX_LOCKED which also requires a requeue.
+Also, several specialized devices can return NETDEV_TX_BUSY in ways
+which are hard to prevent.  I'll reproduce Alexey's comments from
+qdisc_restart():
+
+		/* Device kicked us out :(
+		   This is possible in three cases:
+
+		   0. driver is locked
+		   1. fastroute is enabled
+		   2. device cannot determine busy state
+		      before start of transmission (f.e. dialout)
+		   3. device is buggy (ppp)
+		 */
+
+Hmmm, another remnant reference to fastroute which we should delete :-)
