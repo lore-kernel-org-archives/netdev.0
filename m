@@ -1,53 +1,45 @@
 From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
-Subject: Re: problems with e1000 and jumboframes
-Date: Fri, 4 Aug 2006 14:02:51 -0700
-Message-ID: <4807377b0608041402p10149bfbrd9e5f3b8849d3f56@mail.gmail.com>
-References: <41b516cb0608031334s6e159e99tb749240f44ae608d@mail.gmail.com>
-	 <E1G8sif-0003oY-00@gondolin.me.apana.org.au>
-	 <20060804061513.GB413@2ka.mipt.ru>
-	 <41b516cb0608040834o1d433f23v2f2ba1a1b05ccbc6@mail.gmail.com>
-	 <20060804194209.GA25167@2ka.mipt.ru>
+Subject: Re: [RFC] driver adjusts qlen, increases CPU
+Date: Fri, 4 Aug 2006 14:07:48 -0700
+Message-ID: <4807377b0608041407r3d27805aw649b4103bca97614@mail.gmail.com>
+References: <Pine.WNT.4.63.0605100905150.1804@jbrandeb-desk.amr.corp.intel.com>
+	 <44D39539.5040805@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Chris Leech" <chris.leech@gmail.com>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>, arnd@arndnet.de,
-	olel@ans.pl, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: "Jesse Brandeburg" <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.189]:7405 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1161407AbWHDVCx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Aug 2006 17:02:53 -0400
-Received: by nf-out-0910.google.com with SMTP id k26so20671nfc
-        for <netdev@vger.kernel.org>; Fri, 04 Aug 2006 14:02:51 -0700 (PDT)
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060804194209.GA25167@2ka.mipt.ru>
+Received: from ug-out-1314.google.com ([66.249.92.168]:6176 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1161462AbWHDVHu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Aug 2006 17:07:50 -0400
+Received: by ug-out-1314.google.com with SMTP id m3so194338ugc
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2006 14:07:48 -0700 (PDT)
+To: "Rick Jones" <rick.jones2@hp.com>
+In-Reply-To: <44D39539.5040805@hp.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/4/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> On Fri, Aug 04, 2006 at 08:34:46AM -0700, Chris Leech (chris.leech@gmail.com) wrote:
-> > So how many skb allocation schemes do you code into a single driver?
-> > Kmalloc everything, page alloc everything, combination of kmalloc and
-> > page buffers for hardware that does header split?  That's three
-> > versions of the drivers receive processing and skb allocation that
-> > need to be maintained.
+On 8/4/06, Rick Jones <rick.jones2@hp.com> wrote:
+> > Problem we've seen is that setting this shorter queue causes a large spike
+> > in cpu when transmitting using UDP:
+> >
+> > 100Mb/s link
+> > txqueuelen: 1000 Throughput: 92.44 CPU: 5.00
+> > txqueuelen: 100 Throughput: 93.80 CPU: 61.59
+> >
+> > Is this expected? any comments?
 >
-> At least try to create scheme which will not end up in 32k allocation in
-> atomic context. Generally I would recommend to use frag_list as much as
-> possible (or you can reuse skb list).
+> Triggering intra-stack flow-control perhaps?  Perhaps 10X more often
+> than before if the queue is 1/10th what it was before?
 
-this is exactly what we ran into, you can't use skb list because the
-ip fragmentation reassembly code overwrites it.  If someone is feeling
-particularly miffed by this i would love to see a patch that used
-alloc_page() for all of our receive buffers for the legacy receive
-path (e1000_clean_rx_irq) then we would be able to use nr_frags and
-frag_list for receives.
+yes, that is my guess too, lock thrash coming into and out of qdisc full?
 
-Oh, except that eth_type_trans can't handle the entire packet in the
-frag_list (it wants the header in the skb->data)
+> Out of curiousity, how does the UDP socket's SO_SNDBUF compare to the
+> queue depth?
 
-anyway, this is not as easy a problem to solve as it would seem on the surface.
+forgive my ignorance, how do i measure that?
 
 Jesse
