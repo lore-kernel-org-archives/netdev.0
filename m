@@ -1,51 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [XFRM]: Improve MTU estimation
-Date: Fri, 4 Aug 2006 21:25:44 +1000
-Message-ID: <20060804112544.GA28774@gondor.apana.org.au>
-References: <44D30A48.4050403@trash.net> <44D312EF.8010202@trash.net> <20060804100121.GA17239@gondor.apana.org.au> <44D31CCE.7020301@trash.net> <20060804101345.GA17583@gondor.apana.org.au> <44D32B57.2000304@trash.net> <20060804111604.GA25693@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: e100: checksum mismatch on 82551ER rev10
+Date: Fri, 04 Aug 2006 04:28:34 -0700 (PDT)
+Message-ID: <20060804.042834.78730901.davem@davemloft.net>
+References: <44D0D7CA.2060001@intel.com>
+	<62b0912f0608040404p59545a0asc7f5fc5f537ec32c@mail.gmail.com>
+	<20060804.042024.63108922.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kernel Netdev Mailing List <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: auke-jan.h.kok@intel.com, charlieb@budge.apana.org.au,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:55826 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932493AbWHDLZs
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Aug 2006 07:25:48 -0400
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <20060804111604.GA25693@gondor.apana.org.au>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:43195
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932594AbWHDL23 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Aug 2006 07:28:29 -0400
+To: molle.bestefich@gmail.com
+In-Reply-To: <20060804.042024.63108922.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 04, 2006 at 09:16:04PM +1000, herbert wrote:
->
-> Are you talking about the ESP padding case, or transport mode in
-> general?
+From: David Miller <davem@davemloft.net>
+Date: Fri, 04 Aug 2006 04:20:24 -0700 (PDT)
 
-I've reread your patches and your handling of ESP padding is spot on.
-It's anyone's guess whether the current code gets it right or not :)
+> I totally agree, Intel driver maintainers generally act like complete
+> idiots in these kinds of situations.
+> 
+> If the EEPROM has a broken checksum, the user should have an option
+> that allows him to try and use the device anyways, end of story.
 
-However, I believe that the transport mode handling does run into
-problems with IP options.  Basically, your calculation returns a
-length that is a precise multiple of block size minus 2.
+And BTW I want to remind the entire world that the last time Intel
+cried wolf to all of us about vendors using broken EEPROMs with their
+networking chips it turned out to be a bug in one of the patches Intel
+put into the Linux driver. :-)
 
-Now imagine that we have 4 bytes of IP options, given a block size
-of 8 taking away 4 bytes from inside the encrypted area simply causes
-them to be padded out so the encrypted length does not change.  However,
-we have to put those 4 bytes outside the encrypted area.  The problem is
-that we may not have those 4 bytes given the MTU.
+Intel should really humble themselves and help users instead of hinder
+them.  Putting the blame on other vendors does not help users, I don't
+care how you spin it.  It only serves to make Intel look like a bunch
+of control freaks, and that pisses off users to no end.
 
-For a standard 1500 MTU and the block size of 8 it just happens that
-we do have 4 bytes (because 1500 % 8 == 4).  However, this breaks down
-if you start with say 1480 (standard MTU for 1500 with IPIP on the
-outside).
+Please put the option into the e100 driver to allow trying to use the
+device even if the EEPROM checksum is wrong.
 
-You run into problems even with 1500 if your block size happens to be
-16 (AES).
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+If an Intel developer doesn't do it, I will.
