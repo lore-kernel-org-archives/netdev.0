@@ -1,66 +1,76 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: problems with e1000 and jumboframes
-Date: Fri, 4 Aug 2006 10:20:08 +0400
-Message-ID: <20060804062008.GC413@2ka.mipt.ru>
-References: <44D1FEB7.2050703@arndnet.de> <20060803135925.GA28348@2ka.mipt.ru> <44D20A2F.3090005@arndnet.de> <20060803150330.GB12915@2ka.mipt.ru> <Pine.LNX.4.64.0608031705560.8443@bizon.gios.gov.pl> <20060803151631.GA14774@2ka.mipt.ru> <41b516cb0608030857h1d55820rfd4ccd0cc56dd71d@mail.gmail.com> <20060803161046.GA703@2ka.mipt.ru> <41b516cb0608031332v9cc383bq37a13254f25f45a9@mail.gmail.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [RFC] gre: transparent ethernet bridging
+Date: Fri, 4 Aug 2006 10:02:36 +0200
+Message-ID: <20060804080236.GA4106@xi.wantstofly.org>
+References: <44CDD631.5030008@snapgear.com> <20060731091423.3327f85e@dxpl.pdx.osdl.net> <44CEAB31.5090501@snapgear.com> <20060731220822.444f04e4@localhost.localdomain> <20060802074223.GA23715@xi.wantstofly.org> <44D15265.4090905@snapgear.com> <20060803073307.GA29775@xi.wantstofly.org> <44D1BE93.1080308@snapgear.com> <20060803194016.GC527@xi.wantstofly.org> <44D29C47.6080407@snapgear.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Krzysztof Oledzki <olel@ans.pl>, Arnd Hannemann <arnd@arndnet.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:25301 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751138AbWHDGUk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2006 02:20:40 -0400
-To: Chris Leech <chris.leech@gmail.com>
+Received: from alephnull.demon.nl ([83.160.184.112]:29657 "EHLO
+	xi.wantstofly.org") by vger.kernel.org with ESMTP id S1161098AbWHDICl
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Aug 2006 04:02:41 -0400
+To: Philip Craig <philipc@snapgear.com>
 Content-Disposition: inline
-In-Reply-To: <41b516cb0608031332v9cc383bq37a13254f25f45a9@mail.gmail.com>
+In-Reply-To: <44D29C47.6080407@snapgear.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 03, 2006 at 01:32:10PM -0700, Chris Leech (chris.leech@gmail.com) wrote:
-> >Maximum e1000 frame is 16128 bytes, which is enough before being rounded
-> >to 16k to have a space for shared info.
-> >My patch just tricks refilling logic to request to allocate slightly less
-> >than was setup when mtu was changed.
+On Fri, Aug 04, 2006 at 11:00:55AM +1000, Philip Craig wrote:
+
+> >>> So now you _need_ bridging in the middle to send ethernet traffic over
+> >>> a GRE tunnel?  Ugh.
+> >> Agreed that would not be nice.  What is the usage scenario for this?
+> >> At least one end of the tunnel will be bridged?
+> > 
+> > For example for VPN purposes, I could imagine that you wouldn't want
+> > to use bridging.
 > 
-> The maximum supported MTU size differs between e1000 devices due to
-> differences in FIFO size.  For performance reasons the driver won't
-> enable a MTU that doesn't allow for at least two frames in the Tx FIFO
-> at once - you really want e1000 to be able to DMA the next frame into
-> Tx FIFO while the current one is going out on the wire.  This doesn't
-> change the fact that with LPE set, anything that can fit into the Rx
-> FIFO and has a valid CRC will be DMAed into buffers regardless of
-> length.
+> What is the purpose of including the ethernet header if it only
+> exists on the tunnel?
 
-But still it must be less than MAX_JUMBO_FRAME_SIZE, which is 16128
-bytes, at least it is maxiumum allowed mtu in e1000_change_mtu().
+I have one machine at home that appears to be on my employer's network
+via such a tunnel.  I don't use bridging, because I don't need any other
+machine at home to access this tunnel.  I do want bridging, and not proxy
+ARP, because it allows me to run arpwatch, and doesn't require me to
+reconfigure something at the remote end if I, for example, want to add
+another IP address to my home box.
 
-> >Hardware is not affected, second patch just checks if there is enough
-> >space (e1000 stores real mtu). I can not believe that such modern NIC
-> >like e1000 can not know in receive interrupt size of the received
-> >packet, if it is true, than in generel you are right and some more
-> >clever mechanisms shoud be used (at least turn hack off for small
-> >packets and only enable it for less than 16 jumbo frames wheere place
-> >always is), if size of the received packet is known, then it is enough
-> >to compare aligned size and size of the packet to make a decision for
-> >allocation.
+
+> >>> If you really want to send ethernet and non-ethernet traffic over the
+> >>> same tunnel, can't you make multiple devices?
+> >> Do you mean make multiple GRE devices, where one has an ethernet mode set?
+> > 
+> > For example.  If you want to send ethernet-encapsulated and other-protocol-
+> > encapsulated traffic over the same GRE tunnel, that would seem like the
+> > cleanest solution to me.
 > 
-> You're changing the size of the buffer without telling the hardware.
-> In the interrupt context e1000 knows the size of what was DMAed into
-> the skb, but that's after the fact.  So e1000 could detect that memory
-> was corrupted, but not prevent it if you don't give it power of 2
-> buffers.  Actually, the power of 2 thing doesn't hold true for all
-> e1000 devices.  Some have 1k granularity, but not Arnd's 82540.
+> It is fine for sending, but when receiving, which packets go to which
+> device?  Does a packet appear on only one device when sending, but both
+> devices when receiving?
 
-I can not change it - code checks if requested mtu and additional size
-is less than allocated aligned buffer it tricks allocator.
-Or do you mean that even after 9k mtu was setup it is possible that card
-can receive packets up to 16k?
+No, just send it to the device that matches the lower-level protocol.
+So if you receive an ethernet packet, make it be received on the ethernet
+sub-device, if it's IP, make it be received on the IP sub-device, etc.
 
-> You can't know the size of a received packet before it's DMAed into
-> host memory, no high performance network controller works that way.
+Note that I'm not saying that this is necessarily a good idea, it's just
+what I would suggest if you want to run both 'bare IP' and ethernet
+encapsulated traffic over the same GRE tunnel at the same time.  (Not sure
+why you'd want that.)
 
-> - Chris
 
--- 
-	Evgeniy Polyakov
+> This seems cleaner to me:
+> The GRE tunnel receives a packet of any protocol (ethernet included),
+> and adds the IP/GRE header.  Anything else is done above GRE.
+> Whatever needs the ethernet header should add it.
+> 
+> And then the decision is, how do we add the ethernet header?
+> - an option to GRE to always add the ethernet header
+
+I think I lost you here.  You surely can't just 'make up' any ethernet
+header?
+
+
+cheers,
+Lennert
