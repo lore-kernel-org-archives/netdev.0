@@ -1,51 +1,34 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH v2] [PKT_SCHED] RED: Fix overflow in calculation of queue
- average
-Date: Fri, 4 Aug 2006 18:44:20 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0608041836490.8526@kivilampi-30.cs.helsinki.fi>
-References: <11546408123792-git-send-email-ilpo.jarvinen@helsinki.fi>
- <20060803184656.55da3939@localhost.localdomain>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: [RFC] driver adjusts qlen, increases CPU
+Date: Fri, 4 Aug 2006 08:45:28 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.63.0605100905150.1804@jbrandeb-desk.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:45445 "EHLO
-	mail.cs.helsinki.fi") by vger.kernel.org with ESMTP
-	id S1161257AbWHDPoV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2006 11:44:21 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060803184656.55da3939@localhost.localdomain>
+Received: from mga03.intel.com ([143.182.124.21]:5155 "EHLO
+	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
+	id S1161258AbWHDPpa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Aug 2006 11:45:30 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Overflow can occur very easily with 32 bits, e.g., with 1 second
-us_idle is approx. 2^20, which leaves only 11-Wlog bits for queue
-length. Since the EWMA exponent is typically around 9, queue
-lengths larger than 2^2 cause overflow. Whether the affected
-branch is taken when us_idle is as high as 1 second, depends on
-Scell_log, but with rather reasonable configuration Scell_log is
-large enough to cause p->Stab to have zero index, which always
-results zero shift (typically also few other small indices result
-in zero shift).
+So we've recently put a bit of code in our e1000 driver to decrease the 
+qlen based on the speed of the link.
 
-Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
----
- include/net/red.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+On the surface it seems like a great idea.  A driver knows when the link 
+speed changed, and having a 1000 packet deep queue (the default for most 
+kernels now) on top of a 100Mb/s link (or 10Mb/s worst case for us) makes 
+for a *lot* of latency if many packets are queued up in the qdisc.
 
-diff --git a/include/net/red.h b/include/net/red.h
-index 2ed4358..cfc2625 100644
---- a/include/net/red.h
-+++ b/include/net/red.h
-@@ -213,7 +213,7 @@ static inline unsigned long red_calc_qav
- 		 * Seems, it is the best solution to
- 		 * problem of too coarse exponent tabulation.
- 		 */
--		us_idle =3D (p->qavg * us_idle) >> p->Scell_log;
-+		us_idle =3D (p->qavg * (u64)us_idle) >> p->Scell_log;
-=20
- 		if (us_idle < (p->qavg >> 1))
- 			return p->qavg - us_idle;
---=20
-1.4.0
+Problem we've seen is that setting this shorter queue causes a large spike 
+in cpu when transmitting using UDP:
+
+100Mb/s link
+txqueuelen: 1000 Throughput: 92.44 CPU: 5.00
+txqueuelen: 100 Throughput: 93.80 CPU: 61.59
+
+Is this expected? any comments?
+
+Jesse
