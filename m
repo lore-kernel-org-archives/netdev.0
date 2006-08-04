@@ -1,80 +1,56 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 1/5] [IPV6]: Remove ndiscs rt6_lock dependency
-Date: Fri, 04 Aug 2006 00:00:01 +0200
-Message-ID: <20060804102635.954856322@postel.suug.ch>
-References: <20060804102308.711837665@postel.suug.ch>
+Subject: [PATCHSET] Multiple IPV6 Routing Tables & Policy Routing
+Date: Fri, 04 Aug 2006 12:23:08 +0200
+Message-ID: <20060804102308.711837665@postel.suug.ch>
 Cc: vnuorval@tcs.hut.fi, usagi-core@linux-ipv6.org,
 	yoshfuji@linux-ipv6.org, davem@davemloft.net, anttit@tcs.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:40922 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1161137AbWHDK1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2006 06:27:11 -0400
+Received: from postel.suug.ch ([194.88.212.233]:38874 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1161135AbWHDK1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Aug 2006 06:27:07 -0400
 To: netdev@vger.kernel.org
-Content-Disposition: inline; filename=ip6_mrt_ndisc_lock
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(Ab)using rt6_lock wouldn't work anymore if rt6_lock is
-converted into a per table lock.
+Hello,
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+This patchset implements multiple IPv6 routing tables and
+policy routing. Even though the code is almost rewritten
+entirely the work is based on the MIPL patch found on
+mobile-ipv6.org which is being jointly developed by Helsinki
+University of Technology (HUT) and the USAGI/WIDE Project.
 
-Index: net-2.6.19/net/ipv6/route.c
-===================================================================
---- net-2.6.19.orig/net/ipv6/route.c
-+++ net-2.6.19/net/ipv6/route.c
-@@ -745,8 +745,6 @@ static void ip6_rt_update_pmtu(struct ds
- 	}
- }
- 
--/* Protected by rt6_lock.  */
--static struct dst_entry *ndisc_dst_gc_list;
- static int ipv6_get_mtu(struct net_device *dev);
- 
- static inline unsigned int ipv6_advmss(unsigned int mtu)
-@@ -767,6 +765,9 @@ static inline unsigned int ipv6_advmss(u
- 	return mtu;
- }
- 
-+static struct dst_entry *ndisc_dst_gc_list;
-+DEFINE_SPINLOCK(ndisc_lock);
-+
- struct dst_entry *ndisc_dst_alloc(struct net_device *dev, 
- 				  struct neighbour *neigh,
- 				  struct in6_addr *addr,
-@@ -807,10 +808,10 @@ struct dst_entry *ndisc_dst_alloc(struct
- 	rt->rt6i_dst.plen = 128;
- #endif
- 
--	write_lock_bh(&rt6_lock);
-+	spin_lock_bh(&ndisc_lock);
- 	rt->u.dst.next = ndisc_dst_gc_list;
- 	ndisc_dst_gc_list = &rt->u.dst;
--	write_unlock_bh(&rt6_lock);
-+	spin_unlock_bh(&ndisc_lock);
- 
- 	fib6_force_start_gc();
- 
-@@ -824,8 +825,11 @@ int ndisc_dst_gc(int *more)
- 	int freed;
- 
- 	next = NULL;
-+ 	freed = 0;
-+
-+	spin_lock_bh(&ndisc_lock);
- 	pprev = &ndisc_dst_gc_list;
--	freed = 0;
-+
- 	while ((dst = *pprev) != NULL) {
- 		if (!atomic_read(&dst->__refcnt)) {
- 			*pprev = dst->next;
-@@ -837,6 +841,8 @@ int ndisc_dst_gc(int *more)
- 		}
- 	}
- 
-+	spin_unlock_bh(&ndisc_lock);
-+
- 	return freed;
- }
- 
+Reference counting on routing tables was removed to decrease
+the number of required atomic operations during route lookup.
+
+The tables are now organized in a hashtable to prepare for
+the change in supporting more than 255 tables.
+
+Matching sources address in policy rules is no longer dependant
+on CONFIG_SUBTREES.
+
+Git tree with changes:
+master.kernel.org:/pub/scm/linux/kernel/git/tgraf/net-2.6.19-mrt.git
+
+ include/linux/fib_rules.h |   60 ++++
+ include/linux/rtnetlink.h |    2 
+ include/net/fib_rules.h   |   90 +++++++
+ include/net/ip6_fib.h     |   46 +++
+ include/net/ip6_route.h   |    8 +
+ include/net/ip_fib.h      |   14 +
+ net/Kconfig               |    3 
+ net/core/Makefile         |    1 
+ net/core/fib_rules.c      |  416 +++++++++++++++++++++++++++++++
+ net/core/rtnetlink.c      |    9 +
+ net/ipv4/Kconfig          |    1 
+ net/ipv4/devinet.c        |    4 
+ net/ipv4/fib_frontend.c   |    2 
+ net/ipv4/fib_rules.c      |  613 ++++++++++++++++++---------------------------
+ net/ipv6/Kconfig          |    7 +
+ net/ipv6/Makefile         |    1 
+ net/ipv6/addrconf.c       |    7 -
+ net/ipv6/fib6_rules.c     |  251 ++++++++++++++++++
+ net/ipv6/ip6_fib.c        |  143 ++++++++++
+ net/ipv6/route.c          |  442 +++++++++++++++++++++++---------
+ 20 files changed, 1597 insertions(+), 523 deletions(-
 
