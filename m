@@ -1,59 +1,82 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH 4/5] d80211: Switch d80211 to IEEE80211_ style names
-Date: Fri, 4 Aug 2006 15:10:32 -0700
-Message-ID: <200608041510.38765.flamingice@sourmilk.net>
-References: <20060801211530.150852000.midnight@suse.cz> <20060801191659.59FED483A8@silver.suse.cz> <20060804192040.GA10764@instant802.com>
+From: "Jesper Juhl" <jesper.juhl@gmail.com>
+Subject: Re: [PATCH] fix memory leak in net/ipv4/tcp_probe.c::tcpprobe_read()
+Date: Sat, 5 Aug 2006 01:30:49 +0200
+Message-ID: <9a8748490608041630t5e667bf5k3a50dcf148187e6c@mail.gmail.com>
+References: <20060730142922.7c1d4f7d@localhost.localdomain>
+	 <Pine.LNX.4.64.0607301747170.26424@d.namei>
+	 <9a8748490607301451j21589110ifd8677f328b7eba6@mail.gmail.com>
+	 <20060730.155640.10246145.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2481535.OM5fTdjieC";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Cc: jmorris@namei.org, shemminger@osdl.org, kuznet@ms2.inr.ac.ru,
+	yoshfuji@linux-ipv6.org, pekkas@netcore.fi, kaber@coreworks.de,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:16519 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S1161525AbWHDWKz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Aug 2006 18:10:55 -0400
-To: "Jouni Malinen" <jkm@devicescape.com>
-In-Reply-To: <20060804192040.GA10764@instant802.com>
+Received: from nf-out-0910.google.com ([64.233.182.186]:52175 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1161473AbWHDXav (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Aug 2006 19:30:51 -0400
+Received: by nf-out-0910.google.com with SMTP id k26so56049nfc
+        for <netdev@vger.kernel.org>; Fri, 04 Aug 2006 16:30:49 -0700 (PDT)
+To: "David Miller" <davem@davemloft.net>
+In-Reply-To: <20060730.155640.10246145.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2481535.OM5fTdjieC
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-On Friday 04 August 2006 12:20, Jouni Malinen wrote:
-> On Tue, Aug 01, 2006 at 09:16:59PM +0200, Jiri Benc wrote:
-> This kind of change is more than just search-and-replace since frame
-> type and subtype macros were using different style (not shifted left in
-> WLAN_FC_{TYPE,STYPE}_* and shifted left in IEEE80211_{FTYPE,STYPE}_*.
-> Some of these seemed to be caught in the patch, but not all. At least
-> the following changes look incorrect. I'm not sure whether this is a
-> complete list of issues, though, so going through all IEEE80211_STYPE_*
-> and IEEE80211_FTYPE_* cases again could be a worthwhile exercise.
+On 31/07/06, David Miller <davem@davemloft.net> wrote:
+> From: "Jesper Juhl" <jesper.juhl@gmail.com>
+> Date: Sun, 30 Jul 2006 23:51:20 +0200
 >
-Thanks for the heads up. I tried to make sure everything using=20
-IEEE80211_[FS]TYPE_* was correct, but I'm not very familiar with the QoS=20
-stuff, so those got through. I'll patch up the QoS problems tonight and loo=
-k=20
-through any other problem areas.
+> > Looks ok to me.
+>
+> I've applied James's version of the fix, thanks everyone.
+>
+Hmm, if you are refering to commit
+118075b3cdc90e0815362365f3fc64d672ace0d6 -
+http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=118075b3cdc90e0815362365f3fc64d672ace0d6
+then I think a mistake has crept in. That commit only initializes
+'cnt' to 0 - I don't see how that would fix the leak - looks like you
+forgot the business end of the patch...
 
-=2DMichael Wu
+The function still looks like this after that commit :
 
---nextPart2481535.OM5fTdjieC
-Content-Type: application/pgp-signature
+114 static ssize_t tcpprobe_read(struct file *file, char __user *buf,
+115 size_t len, loff_t *ppos)
+116 {
+117 int error = 0, cnt = 0;
+118 unsigned char *tbuf;
+119
+120 if (!buf || len < 0)
+121 return -EINVAL;
+122
+123 if (len == 0)
+124 return 0;
+125
+126 tbuf = vmalloc(len);
+127 if (!tbuf)
+128 return -ENOMEM;
+129
+130 error = wait_event_interruptible(tcpw.wait,
+131 __kfifo_len(tcpw.fifo) != 0);
+132 if (error)
+133 return error;
+134
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+    ^^^--- we are still leaking 'tbuf' here.
 
-iD8DBQBE08XeT3Oqt9AH4aERAu8iAJ9Q9Lm9gDSzTIN2Dke6xkYfckocCgCfX9Wm
-PSeNlG3kJggKxzJBWMW/UQw=
-=8+E9
------END PGP SIGNATURE-----
 
---nextPart2481535.OM5fTdjieC--
+135 cnt = kfifo_get(tcpw.fifo, tbuf, len);
+136 error = copy_to_user(buf, tbuf, cnt);
+137
+138 vfree(tbuf);
+139
+140 return error ? error : cnt;
+141 }
+
+
+-- 
+Jesper Juhl <jesper.juhl@gmail.com>
+Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please      http://www.expita.com/nomime.html
