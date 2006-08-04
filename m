@@ -1,34 +1,33 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: [RFC] driver adjusts qlen, increases CPU
-Date: Fri, 4 Aug 2006 08:45:28 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.63.0605100905150.1804@jbrandeb-desk.amr.corp.intel.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCHSET] Multiple IPV6 Routing Tables & Policy Routing
+Date: Sat, 05 Aug 2006 00:58:55 +0900 (JST)
+Message-ID: <20060805.005855.08672511.yoshfuji@linux-ipv6.org>
+References: <20060804102308.711837665@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: jesse.brandeburg@intel.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, vnuorval@tcs.hut.fi,
+	usagi-core@linux-ipv6.org, davem@davemloft.net, anttit@tcs.hut.fi,
+	yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:5155 "EHLO
-	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
-	id S1161258AbWHDPpa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Aug 2006 11:45:30 -0400
-To: netdev@vger.kernel.org
+Received: from yue.linux-ipv6.org ([203.178.140.15]:35083 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1161268AbWHDP5W
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Aug 2006 11:57:22 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20060804102308.711837665@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-So we've recently put a bit of code in our e1000 driver to decrease the 
-qlen based on the speed of the link.
+In article <20060804102308.711837665@postel.suug.ch> (at Fri, 04 Aug 2006 12:23:08 +0200), Thomas Graf <tgraf@suug.ch> says:
 
-On the surface it seems like a great idea.  A driver knows when the link 
-speed changed, and having a 1000 packet deep queue (the default for most 
-kernels now) on top of a 100Mb/s link (or 10Mb/s worst case for us) makes 
-for a *lot* of latency if many packets are queued up in the qdisc.
+> This patchset implements multiple IPv6 routing tables and
+> policy routing. Even though the code is almost rewritten
+:
 
-Problem we've seen is that setting this shorter queue causes a large spike 
-in cpu when transmitting using UDP:
+Thomas, there are some coflicts with current net-2.6 tree.
+Would you please sync with latest net-2.6 tree.
+Thank you.
 
-100Mb/s link
-txqueuelen: 1000 Throughput: 92.44 CPU: 5.00
-txqueuelen: 100 Throughput: 93.80 CPU: 61.59
-
-Is this expected? any comments?
-
-Jesse
+--yoshfuji
