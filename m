@@ -1,53 +1,54 @@
-From: "Chris Leech" <chris.leech@gmail.com>
-Subject: Re: problems with e1000 and jumboframes
-Date: Fri, 4 Aug 2006 08:34:46 -0700
-Message-ID: <41b516cb0608040834o1d433f23v2f2ba1a1b05ccbc6@mail.gmail.com>
-References: <41b516cb0608031334s6e159e99tb749240f44ae608d@mail.gmail.com>
-	 <E1G8sif-0003oY-00@gondolin.me.apana.org.au>
-	 <20060804061513.GB413@2ka.mipt.ru>
+From: Erik Mouw <erik@harddisk-recovery.com>
+Subject: Re: Private driver support emails should be avoided.
+Date: Fri, 4 Aug 2006 17:41:47 +0200
+Message-ID: <20060804154146.GM31998@harddisk-recovery.com>
+References: <44C3F2C6.5010001@garzik.org> <yq0hd0sv9sk.fsf@jaguar.mkp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Herbert Xu" <herbert@gondor.apana.org.au>, arnd@arndnet.de,
-	olel@ans.pl, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:9025 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1161244AbWHDPes (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Aug 2006 11:34:48 -0400
-Received: by ug-out-1314.google.com with SMTP id q2so228811uge
-        for <netdev@vger.kernel.org>; Fri, 04 Aug 2006 08:34:46 -0700 (PDT)
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060804061513.GB413@2ka.mipt.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>,
+	"linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Netdev List <netdev@vger.kernel.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
+To: Jes Sorensen <jes@sgi.com>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <yq0hd0sv9sk.fsf@jaguar.mkp.net>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/3/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> On Fri, Aug 04, 2006 at 03:59:37PM +1000, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> > Interesting.  Could you guys post figures on alloc_page speed vs. kmalloc?
->
-> They probalby measured kmalloc cache access, which only falls to
-> alloc_pages when cache is refilled, so it will be faster for some short
-> period of time, but in general (especially for such big-sized
-> allocations) it is essencially the same.
+On Fri, Aug 04, 2006 at 10:46:03AM -0400, Jes Sorensen wrote:
+> >>>>> "Jeff" == Jeff Garzik <jeff@garzik.org> writes:
+> 
+> Jeff> Just a reminder to folks out there...  Don't send private driver
+> Jeff> support emails.
+> 
+> Jeff> I receive a lot of email.  A lot.  Not as much as Linus or
+> Jeff> Andrew probably, but still sizable.  And quite regularly, I will
+> Jeff> receive a private email asking for help on a SATA or net driver
+> Jeff> problem.  The poster will include various details on their
+> Jeff> problem, and ask for help debugging the problem.  While the
+> Jeff> email will indeed be skimmed -- looking at a mass of bug
+> Jeff> reports, one can better detect patterns -- the people seeking
+> Jeff> support privately will almost NEVER RECEIVE A RESPONSE.
+> 
+> Very sane - I get some of it too, though less so these days :)
+> 
+> What about writing this up and sticking it under
+> Documentation/Reporting-Bugs or something so there's an easy reference
+> to it?
 
-I think you're right about that.  In particular, I think Jesse was
-looking at the impact that changing the drivers buffer allocation
-method would have on 1500 byte MTU users.  With a running network
-driver you should see lots of fixed size allocations hitting the slab
-cache, and occasionally causing an alloc_pages.  If you replace that
-with a call to alloc_pages for every packet that ever gets received
-it's a performance hit.
+The question came up on the linux-arm-kernel list as well. In
 
-So how many skb allocation schemes do you code into a single driver?
-Kmalloc everything, page alloc everything, combination of kmalloc and
-page buffers for hardware that does header split?  That's three
-versions of the drivers receive processing and skb allocation that
-need to be maintained.
+  http://lists.arm.linux.org.uk/pipermail/linux-arm-kernel/2006-August/035259.html
 
-> > Also, getting memory slower is better than not getting them at all :)
+Daniel Jacobowitz came up with this URL which could be uses as a
+starting point:
 
-Yep.
+  http://www.eyrie.org/~eagle/faqs/questions.html
 
-- Chris
+
+Erik
+
+-- 
++-- Erik Mouw -- www.harddisk-recovery.com -- +31 70 370 12 90 --
+| Lab address: Delftechpark 26, 2628 XH, Delft, The Netherlands
