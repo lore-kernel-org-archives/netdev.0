@@ -1,38 +1,31 @@
-From: "Michael Chan" <mchan@broadcom.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
-Date: Thu, 03 Aug 2006 17:16:40 -0700
-Message-ID: <1154650600.3117.36.camel@rh4>
-References: <20060803235326.GC7894@thunk.org>
- <20060803.165654.45876296.davem@davemloft.net>
- <20060803235927.GB10932@gondor.apana.org.au>
- <20060803.170143.20633018.davem@davemloft.net>
+Date: Thu, 03 Aug 2006 17:20:10 -0700 (PDT)
+Message-ID: <20060803.172010.102611616.davem@davemloft.net>
+References: <1154647699.3117.26.camel@rh4>
+	<20060803.164311.91310742.davem@davemloft.net>
+	<20060804000707.GA15342@thunk.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, tytso@mit.edu,
+Cc: mchan@broadcom.com, herbert@gondor.apana.org.au,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:47112 "EHLO
-	mms2.broadcom.com") by vger.kernel.org with ESMTP id S932350AbWHDAPG
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 20:15:06 -0400
-To: "David Miller" <davem@davemloft.net>
-In-Reply-To: <20060803.170143.20633018.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:41965
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932373AbWHDAUJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 20:20:09 -0400
+To: tytso@mit.edu
+In-Reply-To: <20060804000707.GA15342@thunk.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-08-03 at 17:01 -0700, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Fri, 4 Aug 2006 09:59:27 +1000
-> 
-> > Watchdogs usually require one heartbeat every 30 seconds or so.  Does
-> > the ASF heartbeat need to be that frequent?
-> 
-> The ASF heartbeat needs to be sent every 2 seconds.
-> 
+From: Theodore Tso <tytso@mit.edu>
+Date: Thu, 3 Aug 2006 20:07:07 -0400
 
-Yep, we send it every 2 seconds and it will reset in 5 seconds after the
-last heartbeat.  So the margin is 3 seconds.  These numbers are somewhat
-arbitrary and the goal is to allow ASF to function properly without too
-much delay after the system has crashed.
+> Removing the timer-based "ping" might be a good thing to do from the
+> point of view of reducing power utilization of laptops (but hey, I
+> don't have a tg3 in my laptop, so I won't worry about it a whole lot :-), 
 
+You won't have "ASF" in your laptop tg3. ASF, as the second character
+it's acronym implies is for "Servers".
