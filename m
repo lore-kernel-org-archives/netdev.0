@@ -1,41 +1,38 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Thu, 03 Aug 2006 17:09:57 -0700
-Message-ID: <1154650197.3117.32.camel@rh4>
-References: <E1G8dmn-0001hH-00@gondolin.me.apana.org.au>
- <Pine.WNT.4.63.0608030925100.3396@jbrandeb-desk.amr.corp.intel.com>
- <1154628302.3117.15.camel@rh4> <1154642918.5187.13.camel@jzny2>
+Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
+Date: Thu, 03 Aug 2006 17:16:40 -0700
+Message-ID: <1154650600.3117.36.camel@rh4>
+References: <20060803235326.GC7894@thunk.org>
+ <20060803.165654.45876296.davem@davemloft.net>
+ <20060803235927.GB10932@gondor.apana.org.au>
+ <20060803.170143.20633018.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>,
-	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, tytso@mit.edu,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:10767 "EHLO
-	mms1.broadcom.com") by vger.kernel.org with ESMTP id S932293AbWHDAIa
+Received: from mms2.broadcom.com ([216.31.210.18]:47112 "EHLO
+	mms2.broadcom.com") by vger.kernel.org with ESMTP id S932350AbWHDAPG
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 20:08:30 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1154642918.5187.13.camel@jzny2>
+	Thu, 3 Aug 2006 20:15:06 -0400
+To: "David Miller" <davem@davemloft.net>
+In-Reply-To: <20060803.170143.20633018.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-08-03 at 18:08 -0400, jamal wrote:
-
+On Thu, 2006-08-03 at 17:01 -0700, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Fri, 4 Aug 2006 09:59:27 +1000
 > 
-> Yes in your case you need to hold the lock but not in the e1000 case.
-> I dont understand though why you need to check for wake in the tx path.
+> > Watchdogs usually require one heartbeat every 30 seconds or so.  Does
+> > the ASF heartbeat need to be that frequent?
+> 
+> The ASF heartbeat needs to be sent every 2 seconds.
 > 
 
-tg3_start_xmit()
-
-	if (tx_ring_empty)
-				<-  tg3_tx()
-		netif_stop_queue()
-
-
-At the arrow, tg3_tx() can come in and clean up the entire ring but will
-not see that the queue is stopped and therefore will not call
-netif_wake_queue().  As a result, the tx_queue is stopped forever.
+Yep, we send it every 2 seconds and it will reset in 5 seconds after the
+last heartbeat.  So the margin is 3 seconds.  These numbers are somewhat
+arbitrary and the goal is to allow ASF to function properly without too
+much delay after the system has crashed.
 
