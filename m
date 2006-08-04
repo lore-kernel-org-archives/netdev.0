@@ -1,37 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
-Date: Fri, 4 Aug 2006 09:59:27 +1000
-Message-ID: <20060803235927.GB10932@gondor.apana.org.au>
-References: <20060803201741.GA7894@thunk.org> <20060803.144845.66061203.davem@davemloft.net> <20060803235326.GC7894@thunk.org> <20060803.165654.45876296.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH-v01 0/7] Latest NetLabel patchset against net-2.6.19
+Date: Thu, 03 Aug 2006 17:00:45 -0700 (PDT)
+Message-ID: <20060803.170045.91444340.davem@davemloft.net>
+References: <20060803200928.721027000@flek.zko.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tytso@mit.edu, mchan@broadcom.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
+	linda.knippers@hp.com, sds@tycho.nsa.gov, jmorris@namei.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:12296 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1030233AbWHCX7j
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 19:59:39 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060803.165654.45876296.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:51859
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030235AbWHDAAo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 20:00:44 -0400
+To: paul.moore@hp.com
+In-Reply-To: <20060803200928.721027000@flek.zko.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 03, 2006 at 04:56:54PM -0700, David Miller wrote:
-> 
-> As Michael explained, it's the ASF heartbeat sent by tg3_timer() that
-> must be delivered to the chip within certain timing constraints.
-> 
-> If you had any watchdog devices on this machine, they would likely
-> trigger too and reset your machine :)
+From: paul.moore@hp.com
+Date: Thu, 03 Aug 2006 16:09:28 -0400
 
-Watchdogs usually require one heartbeat every 30 seconds or so.  Does
-the ASF heartbeat need to be that frequent?
+> This is the NetLabel patchset backed against DaveM's net-2.6.19
+> tree.  The major changes from the last version have been the
+> conversion to the new LSM hooks that were introduced with the
+> MLSXFRM patchset and the shift to using Netlink attributes.  I've
+> also done some work to reduce the amount of overhead when categories
+> are used.
+>
+> Please consider this for inclusion into 2.6.19.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+This looks good, thanks for fixing everything up.
+
+I've queued all 7 patches to my net-2.6.19 tree at:
+
+	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.19.git
+
+Thanks again.
