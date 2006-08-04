@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH-v01 0/7] Latest NetLabel patchset against net-2.6.19
-Date: Thu, 03 Aug 2006 17:00:45 -0700 (PDT)
-Message-ID: <20060803.170045.91444340.davem@davemloft.net>
-References: <20060803200928.721027000@flek.zko.hp.com>
+Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
+Date: Thu, 03 Aug 2006 17:01:43 -0700 (PDT)
+Message-ID: <20060803.170143.20633018.davem@davemloft.net>
+References: <20060803235326.GC7894@thunk.org>
+	<20060803.165654.45876296.davem@davemloft.net>
+	<20060803235927.GB10932@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
-	linda.knippers@hp.com, sds@tycho.nsa.gov, jmorris@namei.org
+Cc: tytso@mit.edu, mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:51859
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52883
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030235AbWHDAAo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Aug 2006 20:00:44 -0400
-To: paul.moore@hp.com
-In-Reply-To: <20060803200928.721027000@flek.zko.hp.com>
+	id S1030239AbWHDABl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Aug 2006 20:01:41 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060803235927.GB10932@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: paul.moore@hp.com
-Date: Thu, 03 Aug 2006 16:09:28 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 4 Aug 2006 09:59:27 +1000
 
-> This is the NetLabel patchset backed against DaveM's net-2.6.19
-> tree.  The major changes from the last version have been the
-> conversion to the new LSM hooks that were introduced with the
-> MLSXFRM patchset and the shift to using Netlink attributes.  I've
-> also done some work to reduce the amount of overhead when categories
-> are used.
->
-> Please consider this for inclusion into 2.6.19.
+> Watchdogs usually require one heartbeat every 30 seconds or so.  Does
+> the ASF heartbeat need to be that frequent?
 
-This looks good, thanks for fixing everything up.
-
-I've queued all 7 patches to my net-2.6.19 tree at:
-
-	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.19.git
-
-Thanks again.
+The ASF heartbeat needs to be sent every 2 seconds.
