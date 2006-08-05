@@ -1,41 +1,28 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take4 1/4] kevent: Core files.
-Date: Sat, 5 Aug 2006 22:10:47 +0400
-Message-ID: <20060805181047.GA22177@2ka.mipt.ru>
-References: <11547829553148@2ka.mipt.ru> <11547829581556@2ka.mipt.ru> <20060805175702.GA27992@kroah.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [3/7] [CRYPTO] api: Split out low-level API
+Date: Sat, 05 Aug 2006 13:05:46 -0700 (PDT)
+Message-ID: <20060805.130546.78471367.davem@davemloft.net>
+References: <20060805.032454.68062638.davem@davemloft.net>
+	<20060805103201.GA21184@gondor.apana.org.au>
+	<20060805103623.GA21257@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422659AbWHESLR@vger.kernel.org>
-To: Greg KH <greg@kroah.com>
-Content-Disposition: inline
-In-Reply-To: <20060805175702.GA27992@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:50319
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932306AbWHEUFf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Aug 2006 16:05:35 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060805103623.GA21257@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 05, 2006 at 10:57:02AM -0700, GregKH (greg@kroah.com) wrote:
-> > +	dev = class_device_create(kevent_user_class, NULL, 
-> > +			MKDEV(kevent_user_major, 0), NULL, kevent_name);
-> > +	if (IS_ERR(dev)) {
-> > +		printk(KERN_ERR "Failed to create %d.%d class device in \"%s\" class: err=%ld.\n", 
-> > +				kevent_user_major, 0, kevent_name, PTR_ERR(dev));
-> > +		err = PTR_ERR(dev);
-> > +		goto err_out_class_destroy;
-> > +	}
-> 
-> As you are only using 1 minor number in this code, why not just use a
-> miscdevice instead?  It saves a bit of overhead and makes the code a
-> tiny bit smaller :)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 5 Aug 2006 20:36:23 +1000
 
-No problem. I will move it to miscdevice instead of full chardev.
+> So in order to avoid us being crucified by Andrew :), it'd be
+> great if you could back out those two patches from net-2.6.19.
 
-> thanks,
-> 
-> greg k-h
-
--- 
-	Evgeniy Polyakov
+Done.
