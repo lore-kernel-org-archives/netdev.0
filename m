@@ -1,62 +1,32 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [NETFILTER]: netbios conntrack: fix compile
-Date: Sat, 05 Aug 2006 09:08:27 +0200
-Message-ID: <44D443EB.1050006@trash.net>
+Subject: Re: BUG: warning at net/core/dev.c:1171/skb_checksum_help() 2.6.18-rc3
+Date: Sat, 05 Aug 2006 09:13:51 +0200
+Message-ID: <44D4452F.5090406@trash.net>
+References: <44CD85FF.9010607@trash.net> <20060730.215907.58439803.davem@davemloft.net> <44CD9013.7020401@trash.net> <44CDDDF7.70004@trash.net> <20060731113050.GA25972@gondor.apana.org.au> <44CE4DCA.8000609@trash.net> <20060801122916.GA6177@gondor.apana.org.au> <44D1C205.4010509@trash.net> <20060803093309.GB8808@gondor.apana.org.au> <44D1C471.2050503@trash.net> <20060803095703.GA9082@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040400070305090908050302"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34707 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1422674AbWHEHI1
+Received: from stinky.trash.net ([213.144.137.162]:48787 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1422676AbWHEHNv
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Aug 2006 03:08:27 -0400
-To: "David S. Miller" <davem@davemloft.net>
+	Sat, 5 Aug 2006 03:13:51 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060803095703.GA9082@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040400070305090908050302
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Herbert Xu wrote:
+> On Thu, Aug 03, 2006 at 11:40:01AM +0200, Patrick McHardy wrote:
+> 
+>>Yes, the 32-bit thing is a bug, I meant it works fine without inverting
+>>the checksum.
+> 
+> 
+> Right, I forgot about the checksum invariance under negation.  In that
+> case we can get rid of the tildes two lines down as well for consistency.
 
-Fix compilation of the netbios_ns helper in the net-2.6.19 tree.
-
-
---------------040400070305090908050302
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[NETFILTER]: netbios conntrack: fix compile
-
-Fix compile breakage caused by move of IFA_F_SECONDARY to new header file.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit 94f26313abdf7169af0a4afa0c3046927892f22c
-tree 1a86a591f06f3da549a23308ca73a8e44f829259
-parent 10365c03ef65f5bccc992d6b78f7ef037cb4f0e9
-author Patrick McHardy <kaber@trash.net> Sat, 05 Aug 2006 09:07:30 +0200
-committer Patrick McHardy <kaber@trash.net> Sat, 05 Aug 2006 09:07:30 +0200
-
- net/ipv4/netfilter/ip_conntrack_netbios_ns.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv4/netfilter/ip_conntrack_netbios_ns.c b/net/ipv4/netfilter/ip_conntrack_netbios_ns.c
-index a566a81..3d0b438 100644
---- a/net/ipv4/netfilter/ip_conntrack_netbios_ns.c
-+++ b/net/ipv4/netfilter/ip_conntrack_netbios_ns.c
-@@ -21,6 +21,7 @@ #include <linux/init.h>
- #include <linux/skbuff.h>
- #include <linux/netdevice.h>
- #include <linux/inetdevice.h>
-+#include <linux/if_addr.h>
- #include <linux/in.h>
- #include <linux/ip.h>
- #include <net/route.h>
-
---------------040400070305090908050302--
+I've made the other changes you suggested, but removing the tildes here
+didn't work, so I left them in. I'll send the new patches in a few
+minutes.
