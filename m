@@ -1,52 +1,40 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [SELinux]: selinux_socket_getpeersec_dgram() compile fix
-Date: Sat, 5 Aug 2006 09:02:47 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0608050902330.18307@d.namei>
-References: <20060805115620.GO14627@postel.suug.ch>
+From: "Molle Bestefich" <molle.bestefich@gmail.com>
+Subject: Re: e100: checksum mismatch on 82551ER rev10
+Date: Sat, 5 Aug 2006 15:28:40 +0200
+Message-ID: <62b0912f0608050628v78dcc5c2k75970d6d32f90748@mail.gmail.com>
+References: <44D0D7CA.2060001@intel.com>
+	 <62b0912f0608040404p59545a0asc7f5fc5f537ec32c@mail.gmail.com>
+	 <20060804.042024.63108922.davem@davemloft.net>
+	 <20060804.042834.78730901.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, paul.moore@hp.com, cxzhang@watson.ibm.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: auke-jan.h.kok@intel.com, charlieb@budge.apana.org.au,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.sea5.speakeasy.net ([69.17.117.7]:52649 "EHLO
-	mail5.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S1161433AbWHENCu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Aug 2006 09:02:50 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060805115620.GO14627@postel.suug.ch>
+Received: from nf-out-0910.google.com ([64.233.182.186]:57987 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S1422649AbWHEN2m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Aug 2006 09:28:42 -0400
+Received: by nf-out-0910.google.com with SMTP id k26so196866nfc
+        for <netdev@vger.kernel.org>; Sat, 05 Aug 2006 06:28:41 -0700 (PDT)
+To: "David Miller" <davem@davemloft.net>
+In-Reply-To: <20060804.042834.78730901.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 5 Aug 2006, Thomas Graf wrote:
+David Miller wrote:
+> Please put the option into the e100 driver to allow trying to use the
+> device even if the EEPROM checksum is wrong.
 
-> Collision between "[NetLabel]: SELinux support"  and
-> "[AF_UNIX]: Kernel memory leak fix for af_unix datagram getpeersec"
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Whee, the users win! :-)
 
-Acked-by: James Morris <jmorris@namei.org>
+> If an Intel developer doesn't do it, I will.
 
+I hope you don't piss off the nice guys at Intel who contribute source
+code to the Linux kernel so much that they go away.
 
-> 
-> Index: net-2.6.19.git/security/selinux/hooks.c
-> ===================================================================
-> --- net-2.6.19.git.orig/security/selinux/hooks.c
-> +++ net-2.6.19.git/security/selinux/hooks.c
-> @@ -3556,9 +3556,9 @@ static int selinux_socket_getpeersec_dgr
->  	if (sock && (sock->sk->sk_family == PF_UNIX))
->  		selinux_get_inode_sid(SOCK_INODE(sock), &peer_secid);
->  	else if (skb) {
-> -		peer_sid = selinux_netlbl_socket_getpeersec_dgram(skb);
-> -		if (peer_sid == SECSID_NULL)
-> -			peer_sid = selinux_socket_getpeer_dgram(skb);
-> +		peer_secid = selinux_netlbl_socket_getpeersec_dgram(skb);
-> +		if (peer_secid == SECSID_NULL)
-> +			peer_secid = selinux_socket_getpeer_dgram(skb);
->  	}
->  
->  	if (peer_secid == SECSID_NULL)
-> 
-
--- 
-James Morris
-<jmorris@namei.org>
+For what it's worth, a redistributable utility to fix the EEPROM
+checksum would be just as fine a solution (for me)...  if only one was
+available.
