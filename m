@@ -1,28 +1,60 @@
-From: "June" <clobberchaos@cheerful.com>
-Subject: Hottest new offer I think, yes.
-Date: Sat, 5 Aug 2006 11:28:14 +0200
-Message-ID: <25153899330988.3A25595DEE@5R4PPPU>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: problems with e1000 and jumboframes
+Date: Sat, 5 Aug 2006 13:58:46 +0400
+Message-ID: <20060805095846.GA17867@2ka.mipt.ru>
+References: <41b516cb0608031334s6e159e99tb749240f44ae608d@mail.gmail.com> <E1G8sif-0003oY-00@gondolin.me.apana.org.au> <20060804061513.GB413@2ka.mipt.ru> <41b516cb0608040834o1d433f23v2f2ba1a1b05ccbc6@mail.gmail.com> <20060804194209.GA25167@2ka.mipt.ru> <4807377b0608041402p10149bfbrd9e5f3b8849d3f56@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="Windows-1252"
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zux221-157-001.adsl.green.ch ([81.221.157.1]:2393 "EHLO
-	OEM-NLG7XFRHK0B.ortybo.net") by vger.kernel.org with ESMTP
-	id S1422770AbWHEJZx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Aug 2006 05:25:53 -0400
-To: <newbie@vger.kernel.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Chris Leech <chris.leech@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, arnd@arndnet.de,
+	olel@ans.pl, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422799AbWHEJ7j@vger.kernel.org>
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <4807377b0608041402p10149bfbrd9e5f3b8849d3f56@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Good Day to you! 
+On Fri, Aug 04, 2006 at 02:02:51PM -0700, Jesse Brandeburg (jesse.brandeburg@gmail.com) wrote:
+> >> So how many skb allocation schemes do you code into a single driver?
+> >> Kmalloc everything, page alloc everything, combination of kmalloc and
+> >> page buffers for hardware that does header split?  That's three
+> >> versions of the drivers receive processing and skb allocation that
+> >> need to be maintained.
+> >
+> >At least try to create scheme which will not end up in 32k allocation in
+> >atomic context. Generally I would recommend to use frag_list as much as
+> >possible (or you can reuse skb list).
+> 
+> this is exactly what we ran into, you can't use skb list because the
+> ip fragmentation reassembly code overwrites it.  If someone is feeling
+> particularly miffed by this i would love to see a patch that used
+> alloc_page() for all of our receive buffers for the legacy receive
+> path (e1000_clean_rx_irq) then we would be able to use nr_frags and
+> frag_list for receives.
+> 
+> Oh, except that eth_type_trans can't handle the entire packet in the
+> frag_list (it wants the header in the skb->data)
 
- Most quality products for anyone who wants to become a champion in bed 
+Yes, part of the packet must live in skb->data, but it does not differ
+from frag_list management - place part of the data in skb->data and the
+rest into frag_list.
+If you can create several skbs and link them togeter you defenitely can
+organize pages into frag_list, just get pages from different skb->data
+and free those skbs.
 
- Enjoy secure ordering, lowest possible prices and almost instant shipment. 
- World famous brands which keep men happy all over the world 
+> anyway, this is not as easy a problem to solve as it would seem on the 
+> surface.
 
- Just take a look: http://www.remeltib.com
+No one says it is easy or not, but I'me 100% sure that 32k allocation
+for 9k jumbo frame in atomic context is not what people expect from
+high-performance NIC.
 
- Come on in and get it all very cheap!
+> Jesse
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
+-- 
+	Evgeniy Polyakov
