@@ -1,118 +1,46 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH wireless-dev] Use IRQF_SHARED instead of SA_SHIRQ
-Date: Sat, 5 Aug 2006 12:37:36 +0200
-Message-ID: <200608051237.36995.mb@bu3sch.de>
-References: <200608050057.09787.flamingice@sourmilk.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: problems with e1000 and jumboframes
+Date: Sat, 5 Aug 2006 14:41:36 +0400
+Message-ID: <20060805104136.GA32598@2ka.mipt.ru>
+References: <41b516cb0608031334s6e159e99tb749240f44ae608d@mail.gmail.com> <E1G8sif-0003oY-00@gondolin.me.apana.org.au> <20060804061513.GB413@2ka.mipt.ru> <41b516cb0608040834o1d433f23v2f2ba1a1b05ccbc6@mail.gmail.com> <20060804194209.GA25167@2ka.mipt.ru> <4807377b0608041402p10149bfbrd9e5f3b8849d3f56@mail.gmail.com> <20060805095846.GA17867@2ka.mipt.ru> <20060805100954.GB20939@gondor.apana.org.au> <20060805102435.GA15740@2ka.mipt.ru> <20060805103307.GB21184@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Chris Leech <chris.leech@gmail.com>, arnd@arndnet.de,
+	olel@ans.pl, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:8080
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1161162AbWHEKjH
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Aug 2006 06:39:07 -0400
-To: Michael Wu <flamingice@sourmilk.net>
-In-Reply-To: <200608050057.09787.flamingice@sourmilk.net>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:43744 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751417AbWHEKlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2006 06:41:55 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
+In-Reply-To: <20060805103307.GB21184@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 05 August 2006 09:57, Michael Wu wrote:
-> Use IRQF_SHARED instead of SA_SHIRQ
+On Sat, Aug 05, 2006 at 08:33:07PM +1000, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> On Sat, Aug 05, 2006 at 02:24:36PM +0400, Evgeniy Polyakov wrote:
+> >
+> > > If we had a flag to indicate writability we could also have a flag to
+> > > indicate that the memory comes from kmalloc rather than alloc_page.
+> > 
+> > Yes, that would be good, but who will give us a bit in the struct page?
+> > Can we recreate frag_list elements to be a bitmasks and steal couple
+> > of them there, so we would not increase fragment's structure size?
 > 
-> This patch switches all instances of SA_SHIRQ to IRQF_SHARED for drivers in 
-> the drivers/net/wireless/d80211 directory. According to 
-> feature-removal-schedule.txt, the interrupt related SA_* flags are obsolete 
-> and should be replaced by the appropriate IRQF_* version before January 2007.
-> 
-> Signed-off-by: Michael Wu <flamingice@sourmilk.net>
+> I wasn't thinking of a bit in struct page, but rather a bit in skb_frag_t.
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+Actually we can look into struct page, namely into page->lru.next,
+PG_slab bit or page->private (for combined pages), which are pointers to 
+the appropriate cache, if given page was obtained through kmalloc.
+Or we can create bitmaks in fragments.
 
-Are you also planning to do such a patch against softmac-bcm43xx? (Mainline)
-
-> ---
-> 
->  drivers/net/wireless/d80211/adm8211/adm8211.c      |    2 +-
->  drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c |    2 +-
->  drivers/net/wireless/d80211/rt2x00/rt2400pci.c     |    2 +-
->  drivers/net/wireless/d80211/rt2x00/rt2500pci.c     |    2 +-
->  drivers/net/wireless/d80211/rt2x00/rt61pci.c       |    2 +-
->  5 files changed, 5 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/d80211/adm8211/adm8211.c 
-> b/drivers/net/wireless/d80211/adm8211/adm8211.c
-> index 339b69c..dcabeab 100644
-> --- a/drivers/net/wireless/d80211/adm8211/adm8211.c
-> +++ b/drivers/net/wireless/d80211/adm8211/adm8211.c
-> @@ -1627,7 +1627,7 @@ static int adm8211_open(struct net_devic
->  	adm8211_rf_set_channel(dev, priv->channel);
->  
->  	retval = request_irq(dev->irq, &adm8211_interrupt,
-> -			     SA_SHIRQ, dev->name, dev);
-> +			     IRQF_SHARED, dev->name, dev);
->  	if (retval) {
->  		printk(KERN_ERR "%s: failed to register IRQ handler\n",
->  		       dev->name);
-> diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c 
-> b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-> index 59d137b..6366020 100644
-> --- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-> +++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-> @@ -2295,7 +2295,7 @@ #ifdef CONFIG_BCM947XX
->  	}
->  #endif
->  	err = request_irq(bcm->irq, bcm43xx_interrupt_handler,
-> -			  SA_SHIRQ, KBUILD_MODNAME, bcm);
-> +			  IRQF_SHARED, KBUILD_MODNAME, bcm);
->  	if (err)
->  		printk(KERN_ERR PFX "Cannot register IRQ%d\n", bcm->irq);
->  
-> diff --git a/drivers/net/wireless/d80211/rt2x00/rt2400pci.c 
-> b/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
-> index 709cdbf..16e78b9 100644
-> --- a/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
-> +++ b/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
-> @@ -1356,7 +1356,7 @@ static int rt2400pci_initialize(struct r
->  	 * Register interrupt handler.
->  	 */
->  	if (request_irq(rt2x00dev_pci(rt2x00dev)->irq, rt2400pci_interrupt,
-> -		SA_SHIRQ, net_dev->name, rt2x00dev)) {
-> +		IRQF_SHARED, net_dev->name, rt2x00dev)) {
->  		ERROR("IRQ %d allocation failed.\n",
->  			rt2x00dev_pci(rt2x00dev)->irq);
->  		goto exit_fail;
-> diff --git a/drivers/net/wireless/d80211/rt2x00/rt2500pci.c 
-> b/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
-> index 8a22968..f79d386 100644
-> --- a/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
-> +++ b/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
-> @@ -1476,7 +1476,7 @@ static int rt2500pci_initialize(struct r
->  	 * Register interrupt handler.
->  	 */
->  	if (request_irq(rt2x00dev_pci(rt2x00dev)->irq, rt2500pci_interrupt,
-> -		SA_SHIRQ, net_dev->name, rt2x00dev)) {
-> +		IRQF_SHARED, net_dev->name, rt2x00dev)) {
->  		ERROR("IRQ %d allocation failed.\n",
->  			rt2x00dev_pci(rt2x00dev)->irq);
->  		goto exit_fail;
-> diff --git a/drivers/net/wireless/d80211/rt2x00/rt61pci.c 
-> b/drivers/net/wireless/d80211/rt2x00/rt61pci.c
-> index 8bb9de9..b28e113 100644
-> --- a/drivers/net/wireless/d80211/rt2x00/rt61pci.c
-> +++ b/drivers/net/wireless/d80211/rt2x00/rt61pci.c
-> @@ -1902,7 +1902,7 @@ static int rt61pci_initialize(struct rt2
->  	 * Register interrupt handler.
->  	 */
->  	if (request_irq(rt2x00dev_pci(rt2x00dev)->irq, rt61pci_interrupt,
-> -		SA_SHIRQ, net_dev->name, rt2x00dev)) {
-> +		IRQF_SHARED, net_dev->name, rt2x00dev)) {
->  		ERROR("IRQ %d allocation failed.\n",
->  			rt2x00dev_pci(rt2x00dev)->irq);
->  		goto exit_fail;
-> 
+> Cheers,
+> -- 
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
 -- 
-Greetings Michael.
+	Evgeniy Polyakov
