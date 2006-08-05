@@ -1,39 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [SELinux]: selinux_socket_getpeersec_dgram() compile fix
-Date: Sat, 05 Aug 2006 13:16:55 -0700 (PDT)
-Message-ID: <20060805.131655.02275931.davem@davemloft.net>
-References: <20060805115620.GO14627@postel.suug.ch>
-	<200608051612.52528.paul.moore@hp.com>
+From: Theodore Tso <tytso@mit.edu>
+Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
+Date: Sat, 5 Aug 2006 16:26:03 -0400
+Message-ID: <20060805202603.GA9740@thunk.org>
+References: <20060804032348.GA16313@thunk.org> <1551EAE59135BE47B544934E30FC4FC093FA11@NT-IRVA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, cxzhang@watson.ibm.com, jmorris@namei.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:21917
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751234AbWHEUQq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Aug 2006 16:16:46 -0400
-To: paul.moore@hp.com
-In-Reply-To: <200608051612.52528.paul.moore@hp.com>
+Received: from thunk.org ([69.25.196.29]:27567 "EHLO thunker.thunk.org")
+	by vger.kernel.org with ESMTP id S1751484AbWHEU0R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2006 16:26:17 -0400
+To: Michael Chan <mchan@broadcom.com>
+Content-Disposition: inline
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC093FA11@NT-IRVA-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Sat, 5 Aug 2006 16:12:51 -0400
+On Thu, Aug 03, 2006 at 08:45:31PM -0700, Michael Chan wrote:
+> ASF is firmware that monitors the system and sends out alerts whenever
+> certain events happen.  So it needs to run before the OS boots or after
+> it has crashed.  When the driver is up and running, the driver and ASF
+> run independently sending and receiving traffic on the same wire.  Of
+> course, the bandwidth that is used by ASF is a very tiny fraction of the
+> host traffic.  If the system crashes, the FIFO and other resources on
+> the NIC will be backed up and ASF can no longer function without
+> resetting the chip.
 
-> On Saturday 05 August 2006 7:56 am, Thomas Graf wrote:
-> > Collision between "[NetLabel]: SELinux support"  and
-> > "[AF_UNIX]: Kernel memory leak fix for af_unix datagram getpeersec"
-> >
-> > Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> 
-> I have no idea what the correct protocol is here, i.e. do I need to Ack this?  
-> However, I've never "Ack'd" anything before and I figure an extra Ack won't 
-> hurt anything :)
-> 
-> Acked-by: Paul Moore <paul.moore@hp.com>
+Thanks, that description was very helpful.  Would you accept a patch
+with adding a comment describing this?  I couldn't figure it out from
+looking at the source and googling "ASF" turned up lots of other uses
+for that particular acronym.
 
-You don't have to, but it's nice as it adds assurance to other
-reviews that the patch might be correct because someone else
-thinks it is :)
+It appears that there is no way of disabling ASF; is that a true
+statement?
+
+Thanks, regards,
+
+						- Ted
