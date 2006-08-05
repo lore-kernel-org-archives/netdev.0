@@ -1,46 +1,60 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: problems with e1000 and jumboframes
-Date: Sat, 5 Aug 2006 14:41:36 +0400
-Message-ID: <20060805104136.GA32598@2ka.mipt.ru>
-References: <41b516cb0608031334s6e159e99tb749240f44ae608d@mail.gmail.com> <E1G8sif-0003oY-00@gondolin.me.apana.org.au> <20060804061513.GB413@2ka.mipt.ru> <41b516cb0608040834o1d433f23v2f2ba1a1b05ccbc6@mail.gmail.com> <20060804194209.GA25167@2ka.mipt.ru> <4807377b0608041402p10149bfbrd9e5f3b8849d3f56@mail.gmail.com> <20060805095846.GA17867@2ka.mipt.ru> <20060805100954.GB20939@gondor.apana.org.au> <20060805102435.GA15740@2ka.mipt.ru> <20060805103307.GB21184@gondor.apana.org.au>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH dscape] d80211: Switch d80211.h to IEEE80211_ style names
+Date: Sat, 5 Aug 2006 12:46:50 +0100
+Message-ID: <20060805114650.GC21135@infradead.org>
+References: <200607270037.22384.flamingice@sourmilk.net> <20060731203113.GG10138@tuxdriver.com> <200607311351.35757.flamingice@sourmilk.net> <20060801095650.GA6831@infradead.org> <20060801122142.GB29208@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Chris Leech <chris.leech@gmail.com>, arnd@arndnet.de,
-	olel@ans.pl, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:43744 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751417AbWHEKlz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2006 06:41:55 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Received: from pentafluge.infradead.org ([213.146.154.40]:2494 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1161253AbWHELrB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Aug 2006 07:47:01 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
-In-Reply-To: <20060805103307.GB21184@gondor.apana.org.au>
+In-Reply-To: <20060801122142.GB29208@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 05, 2006 at 08:33:07PM +1000, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> On Sat, Aug 05, 2006 at 02:24:36PM +0400, Evgeniy Polyakov wrote:
-> >
-> > > If we had a flag to indicate writability we could also have a flag to
-> > > indicate that the memory comes from kmalloc rather than alloc_page.
-> > 
-> > Yes, that would be good, but who will give us a bit in the struct page?
-> > Can we recreate frag_list elements to be a bitmasks and steal couple
-> > of them there, so we would not increase fragment's structure size?
-> 
-> I wasn't thinking of a bit in struct page, but rather a bit in skb_frag_t.
+On Tue, Aug 01, 2006 at 08:21:49AM -0400, John W. Linville wrote:
+> I don't anticipate the d80211 naming conventions to ever make it out
+> of wireless-dev.  By the time we are ready to push that stuff upstream,
+> we will have cleaned-up our messes.
 
-Actually we can look into struct page, namely into page->lru.next,
-PG_slab bit or page->private (for combined pages), which are pointers to 
-the appropriate cache, if given page was obtained through kmalloc.
-Or we can create bitmaks in fragments.
+Yes, absolutely.
 
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> This does raise the question: Should we start taking patches to
+> wireless-dev that migrate the current (i.e. ieee80211/softmac) stack
+> out of the kernel?  This would include (re-)moving the current stack
+> code, pointing non-migrated drivers (ipw2[12]00, zd1211rw) at the old
+> code, moving drivers out of drivers/net/wireless/d80211 up a level,
+> removing the softmac-based version of the bcm43xx driver, etc.
 
--- 
-	Evgeniy Polyakov
+I think you first need to come up with a way to deal with ipw2[12]00,
+dealing with that kind of devices is priority number one before the
+devicescape stack can go anywhere.  Once that is handled all software
+MAC drivers in wireless-dev should be migrated to the device-scape based
+stack.
+
+After that we're in the right position to deal with last big step of
+the merge:
+
+ a) deal with the userspace interface issue.  Either rever to the single
+    network device and eth%d name interface (at least for the non-AP case)
+    so existing userspace won't know about the name underlying stack at
+    all or alternatively go through the painfull design process for a new
+    userspace interface.  I think the first variant will be a lot easier..
+ b) do all the small compare and review work.  See how different the interface
+    for software mac devices are for softmac vs dscape.  See if any of the
+    old code should be reintegrated into dcape, port forward dscape API
+    changes to mainline to make merging more gradually.  In the best case
+    we'd migrate the current mainline code fully to the finally dscape
+    revisited API so the new code really is a drop in, but I don't expect
+    that happen, the concepts are just too different.  At least we should
+    try to make the interface diff as small a possible.
+
+Once we're there I'm happy to help out on that step b) as much as I can.
+
