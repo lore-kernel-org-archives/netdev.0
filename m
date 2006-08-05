@@ -1,35 +1,37 @@
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [3/7] [CRYPTO] api: Split out low-level API
-Date: Sat, 05 Aug 2006 03:24:54 -0700 (PDT)
-Message-ID: <20060805.032454.68062638.davem@davemloft.net>
-References: <20060804133426.GB12832@gondor.apana.org.au>
-	<20060805.014958.26300600.davem@davemloft.net>
-	<20060805100652.GA20939@gondor.apana.org.au>
+Date: Sat, 5 Aug 2006 20:32:01 +1000
+Message-ID: <20060805103201.GA21184@gondor.apana.org.au>
+References: <20060804133426.GB12832@gondor.apana.org.au> <20060805.014958.26300600.davem@davemloft.net> <20060805100652.GA20939@gondor.apana.org.au> <20060805.032454.68062638.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:65442
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1422805AbWHEKYp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Aug 2006 06:24:45 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060805100652.GA20939@gondor.apana.org.au>
+Received: from rhun.apana.org.au ([64.62.148.172]:57100 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1422811AbWHEKcE
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Aug 2006 06:32:04 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060805.032454.68062638.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 5 Aug 2006 20:06:52 +1000
-
-> Sorry Dave, these patches weren't meant for the net-2.6.19 tree.
-> They were supposed to enter -mm via the cryptodev tree.
+On Sat, Aug 05, 2006 at 03:24:54AM -0700, David Miller wrote:
 > 
-> I was just posting them for review.  I should've made that clearer
-> at the start.
+> If I'm an explicit recipient and there's no "RFC" moniker in
+> the subject line I assume I should apply it :-)
 
-If I'm an explicit recipient and there's no "RFC" moniker in
-the subject line I assume I should apply it :-)
+I'll make sure that future crypto patches are more clearly marked :)
 
-The two patches I did apply were benign, so I'll leave them
-in the net-2.6.19 tree
+> The two patches I did apply were benign, so I'll leave them
+> in the net-2.6.19 tree
+
+No problems.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
