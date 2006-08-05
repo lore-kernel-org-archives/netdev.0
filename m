@@ -1,140 +1,45 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [Fwd: [IPROUTE2]: Explicit BNF definition for actions]
-Date: Sat, 05 Aug 2006 12:42:35 -0400
-Message-ID: <1154796155.5081.6.camel@jzny2>
+Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
+Date: Sat, 05 Aug 2006 12:45:06 -0400
+Message-ID: <1154796306.5081.10.camel@jzny2>
+References: <E1G8dmn-0001hH-00@gondolin.me.apana.org.au>
+	 <Pine.WNT.4.63.0608030925100.3396@jbrandeb-desk.amr.corp.intel.com>
+	 <1154628302.3117.15.camel@rh4> <1154642918.5187.13.camel@jzny2>
+	 <1154650197.3117.32.camel@rh4> <20060804011027.GC12085@gondor.apana.org.au>
+	 <20060804083734.GA16082@gondor.apana.org.au>
+	 <20060804101017.GA17393@gondor.apana.org.au>
+	 <1154686563.5187.43.camel@jzny2>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-grM1z/WjCAY2T9UJsZQW"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Michael Chan <mchan@broadcom.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:57762 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932418AbWHEQmi
+Received: from mx03.cybersurf.com ([209.197.145.106]:24014 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1161190AbWHEQpL
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Aug 2006 12:42:38 -0400
+	Sat, 5 Aug 2006 12:45:11 -0400
 Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1G9PEW-0001Ca-Tc
-	for netdev@vger.kernel.org; Sat, 05 Aug 2006 12:42:40 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1G9PH1-0003Cs-6d
+	for netdev@vger.kernel.org; Sat, 05 Aug 2006 12:45:15 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <1154686563.5187.43.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2006-04-08 at 06:16 -0400, jamal wrote:
 
---=-grM1z/WjCAY2T9UJsZQW
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+> I still have my setup intact, so i will give this a whirl in about 3-4
+> hours. 
 
+Sorry, I had a really shitty work day i didnt get around to it. I have 3
+days off so will get it done either later today or tomorrow.
 
-Stephen,
-
-This is the one after the last one you responded to. Your git tree is
-not uptodate so i cant tell if you are missing it or not ;->
-
-I dont think i will be making more updates for this release - more to
-come later.
 
 cheers,
 jamal
-
--------- Forwarded Message --------
-From: jamal <hadi@cyberus.ca>
-Reply-To: hadi@cyberus.ca
-To: Stephen Hemminger <shemminger@osdl.org>
-Subject: [IPROUTE2]: Explicit BNF definition for actions
-Date: Sun, 30 Jul 2006 20:04:41 -0400
-
-Stephen,
-Patch attached. I wanted to send more but my body decided to get sick. 
-So go ahead and make a release with just this - In the future i should
-be able to send more. If you sync all the patches with your tree, when i
-git i should be able to tell if you are missing any..
-
-cheers,
-jamal
-
---=-grM1z/WjCAY2T9UJsZQW
-Content-Disposition: attachment; filename=act_u11
-Content-Type: text/plain; name=act_u11; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-
-Add explicit help text for actions
-
----
-commit 87d5ee5fddd9476bd720ea339f6ddb237d6eb99c
-tree 1888b85dbb7a724df0a215c7f1a07b857a3cd00b
-parent e2e0fac73a39bc6878f93cd7698f4c823ef85546
-author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 30 Jul 2006 20:00:37 -0400
-committer Jamal Hadi Salim <hadi@jzny2.(none)> Sun, 30 Jul 2006 20:00:37 -0400
-
- tc/m_action.c |   25 +++++++++++++++++++++++--
- tc/m_gact.c   |    4 +++-
- 2 files changed, 26 insertions(+), 3 deletions(-)
-
-diff --git a/tc/m_action.c b/tc/m_action.c
-index c612069..3808a86 100644
---- a/tc/m_action.c
-+++ b/tc/m_action.c
-@@ -37,7 +37,28 @@ int tab_flush = 0;
- 
- void act_usage(void)
- {
--	fprintf (stderr, "action usage improper\n");
-+	/*XXX: In the near future add a action->print_help to improve
-+	 * usability
-+	 * This would mean new tc will not be backward compatible
-+	 * with any action .so from the old days. But if someone really
-+	 * does that, they would know how to fix this ..
-+	 *
-+	*/
-+	fprintf (stderr, "usage: tc actions <ACTSPECOP>*\n");
-+	fprintf(stderr,
-+		"Where: \tACTSPECOP := ACR | GD | FL\n"
-+			"\tACR := add | change | replace <ACTSPEC>* \n"
-+			"\tGD := get | delete | <ACTISPEC>*\n"
-+			"\tFL := ls | list | flush | <ACTNAMESPEC>\n"
-+			"\tACTNAMESPEC :=  action <ACTNAME>\n"
-+			"\tACTISPEC := <ACTNAMESPEC> <INDEXSPEC>\n"
-+			"\tACTSPEC := action <ACTDETAIL> [INDEXSPEC]\n"
-+			"\tINDEXSPEC := index <32 bit indexvalue>\n"
-+			"\tACTDETAIL := <ACTNAME> <ACTPARAMS>\n"
-+			"\t\tExample ACTNAME is gact, mirred etc\n"
-+			"\t\tEach action has its own parameters (ACTPARAMS)\n"
-+			"\n");
-+
- 	exit(-1);
- }
- 
-@@ -599,7 +620,7 @@ int do_action(int argc, char **argv)
- 		}
- 
- 		if (ret < 0) {
--			fprintf(stderr, "Command \"%s\" is unknown, try \"tc action help\".\n", *argv);
-+			fprintf(stderr, "Command \"%s\" is unknown, try \"tc actions help\".\n", *argv);
- 			return -1;
- 		}
- 	}
-diff --git a/tc/m_gact.c b/tc/m_gact.c
-index 4e3f3c7..cfbaf87 100644
---- a/tc/m_gact.c
-+++ b/tc/m_gact.c
-@@ -56,7 +56,7 @@ #else
- 	fprintf(stderr,
- 		"Where: \tACTION := reclassify | drop | continue | pass \n"
- 		"\tINDEX := index value used\n"
--			"\n");
-+		"\n");
- #endif
- }
- 
-@@ -179,6 +179,8 @@ #endif
- 			argc--;
- 			argv++;
- 			ok++;
-+		} else if (matches(*argv, "help") == 0) {
-+				usage();
- 		}
- 	}
- 
-
---=-grM1z/WjCAY2T9UJsZQW--
 
