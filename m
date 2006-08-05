@@ -1,67 +1,68 @@
-From: Jason Lunz <lunz@falooley.org>
-Subject: Re: e100: checksum mismatch on 82551ER rev10
-Date: Sat, 5 Aug 2006 17:21:57 +0000 (UTC)
-Message-ID: <eb2k3k$qnd$1@sea.gmane.org>
-References: <44D0D7CA.2060001@intel.com> <62b0912f0608040404p59545a0asc7f5fc5f537ec32c@mail.gmail.com> <20060804.042024.63108922.davem@davemloft.net> <20060804.042834.78730901.davem@davemloft.net>
-Cc: linux-kernel@vger.kernel.org
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH dscape] d80211: Switch d80211.h to IEEE80211_ style names
+Date: Sat, 5 Aug 2006 19:30:55 +0200
+Message-ID: <200608051930.55792.mb@bu3sch.de>
+References: <200607270037.22384.flamingice@sourmilk.net> <20060801122142.GB29208@tuxdriver.com> <20060805114650.GC21135@infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:34221 "EHLO ciao.gmane.org")
-	by vger.kernel.org with ESMTP id S1030257AbWHERWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2006 13:22:16 -0400
-Received: from list by ciao.gmane.org with local (Exim 4.43)
-	id 1G9Pqf-0001HO-3X
-	for netdev@vger.kernel.org; Sat, 05 Aug 2006 19:22:05 +0200
-Received: from adsl-065-013-029-145.sip.asm.bellsouth.net ([65.13.29.145])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 05 Aug 2006 19:22:05 +0200
-Received: from lunz by adsl-065-013-029-145.sip.asm.bellsouth.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 05 Aug 2006 19:22:05 +0200
-To: netdev@vger.kernel.org
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:32180
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1422637AbWHERbi
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Aug 2006 13:31:38 -0400
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20060805114650.GC21135@infradead.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-davem@davemloft.net said:
-> And BTW I want to remind the entire world that the last time Intel
-> cried wolf to all of us about vendors using broken EEPROMs with their
-> networking chips it turned out to be a bug in one of the patches Intel
-> put into the Linux driver. :-)
->
-> Intel should really humble themselves and help users instead of hinder
-> them.  Putting the blame on other vendors does not help users, I don't
-> care how you spin it.  It only serves to make Intel look like a bunch
-> of control freaks, and that pisses off users to no end.
+On Saturday 05 August 2006 13:46, Christoph Hellwig wrote:
+> On Tue, Aug 01, 2006 at 08:21:49AM -0400, John W. Linville wrote:
+> > I don't anticipate the d80211 naming conventions to ever make it out
+> > of wireless-dev.  By the time we are ready to push that stuff upstream,
+> > we will have cleaned-up our messes.
+> 
+> Yes, absolutely.
+> 
+> > This does raise the question: Should we start taking patches to
+> > wireless-dev that migrate the current (i.e. ieee80211/softmac) stack
+> > out of the kernel?  This would include (re-)moving the current stack
+> > code, pointing non-migrated drivers (ipw2[12]00, zd1211rw) at the old
+> > code, moving drivers out of drivers/net/wireless/d80211 up a level,
+> > removing the softmac-based version of the bcm43xx driver, etc.
 
-The real problem here is neither Intel nor users. It's crappy vendor
-QA.  I recently had to deal with a batch of e1000 cards that had the
-*wrong* EEPROMs, with *correct* checksums.
+Yes, I personally would like to see that happen now.
 
-So of course the driver didn't complain - nevermind the fact that the
-EEPROMs might claim you have a copper card when it's really fiber. And
-that's best case, because it fails obviously. Far worse is when an
-EEPROM is close enough to "work", but claim the wrong chipset revision
-and cause the driver to do totally wrong things in strange
-circumstances.
+> I think you first need to come up with a way to deal with ipw2[12]00,
+> dealing with that kind of devices is priority number one before the
+> devicescape stack can go anywhere.  Once that is handled all software
+> MAC drivers in wireless-dev should be migrated to the device-scape based
+> stack.
 
-I think this is what Auke is worried about. If you can't trust the
-EEPROM, all sorts of maddeningly subtle things can go wrong. And it
-isn't likely to be properly diagnosed by an end user.
+Well, I think we all agreed on what to do with ipw at the wireless summit.
+As far as I remember all agreed to move the softmac-only drivers to their
+own directory. Simply the reverse of what is currently in wireless-dev.
+Currently we have d80211 drivers in their own dir.
+After that move was done, we port softmac drivers over to d80211
+and delete the softmac version once it's stabilized. If no softmac
+driver is left, we delete the old ieee80211 subsystem.
 
-The sad thing is that the checksum can only protect against a subset of
-EEPROM problems. But it does help. As a counterexample, a power failure
-last weekend corrupted the EEPROM of the onboard e100 in one of my
-servers, and this EEPROM check led to an immediate diagnosis of the
-problem.
+> After that we're in the right position to deal with last big step of
+> the merge:
+> 
+>  a) deal with the userspace interface issue.  Either rever to the single
+>     network device and eth%d name interface (at least for the non-AP case)
+>     so existing userspace won't know about the name underlying stack at
+>     all or alternatively go through the painfull design process for a new
+>     userspace interface.  I think the first variant will be a lot easier..
 
-> Please put the option into the e100 driver to allow trying to use the
-> device even if the EEPROM checksum is wrong.
+Not in the long term, IMHO.
 
-There is already support for EEPROM read/write in ethtool. I used it to
-fix the e1000 cards in question. If e100 implements ethtool -E, all
-that's needed is documentation on where in the EEPROM the checksum is
-stored and how to calculate it. I don't doubt the freely-available pdfs
-for e100 chipsets cover this.
-
-Jason
-
+-- 
+Greetings Michael.
