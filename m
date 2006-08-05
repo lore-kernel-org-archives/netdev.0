@@ -1,41 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/5] [IPV6]: Multiple Routing Tables
-Date: Sat, 05 Aug 2006 02:21:11 -0700 (PDT)
-Message-ID: <20060805.022111.17843589.davem@davemloft.net>
-References: <20060804102308.711837665@postel.suug.ch>
-	<20060804102636.322297243@postel.suug.ch>
-	<44D45E34.9030607@trash.net>
+From: "June" <clobberchaos@cheerful.com>
+Subject: Hottest new offer I think, yes.
+Date: Sat, 5 Aug 2006 11:28:14 +0200
+Message-ID: <25153899330988.3A25595DEE@5R4PPPU>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+        charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, vnuorval@tcs.hut.fi,
-	usagi-core@linux-ipv6.org, yoshfuji@linux-ipv6.org,
-	anttit@tcs.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:7627
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1422772AbWHEJVD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Aug 2006 05:21:03 -0400
-To: kaber@trash.net
-In-Reply-To: <44D45E34.9030607@trash.net>
+Received: from zux221-157-001.adsl.green.ch ([81.221.157.1]:2393 "EHLO
+	OEM-NLG7XFRHK0B.ortybo.net") by vger.kernel.org with ESMTP
+	id S1422770AbWHEJZx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Aug 2006 05:25:53 -0400
+To: <newbie@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Sat, 05 Aug 2006 11:00:36 +0200
+Good Day to you! 
 
-> Thomas Graf wrote:
-> > +	if (rt->rt6i_table)
-> > +		rtm->rtm_table = rt->rt6i_table->tb6_id;
-> > +	else
-> > +		rtm->rtm_table = RT6_TABLE_UNSPEC;
-> >  	rtm->rtm_table = RT_TABLE_MAIN;
-> 
-> 
-> This looks like a mistake, the table ID is overwritten again.
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+ Most quality products for anyone who wants to become a champion in bed 
 
-Good catch Patrick, patch applied.
+ Enjoy secure ordering, lowest possible prices and almost instant shipment. 
+ World famous brands which keep men happy all over the world 
 
-Thanks a lot.
+ Just take a look: http://www.remeltib.com
+
+ Come on in and get it all very cheap!
+
