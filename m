@@ -1,42 +1,50 @@
-From: "Bret Washington" <BretWashington@0668.com>
-Subject: Your money, ox team
-Date: Sat, 5 Aug 2006 10:14:27 +0000 (UTC)
-Message-ID: <38455362.20060805101415@0668.com>
-Reply-To: "Bret Washington" <BretWashington@0668.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: problems with e1000 and jumboframes
+Date: Sat, 5 Aug 2006 14:24:36 +0400
+Message-ID: <20060805102435.GA15740@2ka.mipt.ru>
+References: <41b516cb0608031334s6e159e99tb749240f44ae608d@mail.gmail.com> <E1G8sif-0003oY-00@gondolin.me.apana.org.au> <20060804061513.GB413@2ka.mipt.ru> <41b516cb0608040834o1d433f23v2f2ba1a1b05ccbc6@mail.gmail.com> <20060804194209.GA25167@2ka.mipt.ru> <4807377b0608041402p10149bfbrd9e5f3b8849d3f56@mail.gmail.com> <20060805095846.GA17867@2ka.mipt.ru> <20060805100954.GB20939@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=koi8-r
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Chris Leech <chris.leech@gmail.com>, arnd@arndnet.de,
+	olel@ans.pl, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus1.kernel.org ([204.152.191.4]:39087 "EHLO zeus1.kernel.org")
-	by vger.kernel.org with ESMTP id S1422800AbWHEKOR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2006 06:14:17 -0400
-Date: Sat, 5 Aug 2006 10:14:15 -0060
-To: netdev-owner@vger.kernel.org
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:9440 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1422808AbWHEKZB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Aug 2006 06:25:01 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <20060805100954.GB20939@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Even if you have no erectin problems SOFT CIANLIS 
-would help you to make BETTER SEOX MORE OFTEN!
-and to bring  unimagnable plesure to her.
+On Sat, Aug 05, 2006 at 08:09:54PM +1000, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> > If you can create several skbs and link them togeter you defenitely can
+> > organize pages into frag_list, just get pages from different skb->data
+> > and free those skbs.
+> 
+> Having a more flexible mechanism for managing skb_shared_info->frags
+> would definitely be an improvement.  At the moment we can't indicate
+> whether the individual frags are writable so we assume every frag to
+> be read-only.
 
-Just disolve half a pil under your tongue 
-and get ready for action in 15 minutes. 
+Having one page inside frag_list writable does not make a lot of sence,
+so we really need either all of them writable, or nothing.
+And it is much less error-prone to assume that every page is read-only.
 
-The tests showed that the majority of men 
-after taking this medic ation were able to have 
-PERFECT ER1ECTION during 36 hours!
+> If we had a flag to indicate writability we could also have a flag to
+> indicate that the memory comes from kmalloc rather than alloc_page.
 
-VISIT US, AND GET OUR SPECIAL 70% DISCSOUNT OFER!
+Yes, that would be good, but who will give us a bit in the struct page?
+Can we recreate frag_list elements to be a bitmasks and steal couple
+of them there, so we would not increase fragment's structure size?
 
-http://icbcsb.fliphold.com/?88743333
+> Cheers,
+> -- 
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-==========
-all, yet curious about this strange new idea of  flight  for  the  joy  of
-lot easier working in the daylight  than at night! I  remember lying in that
-     "Also known as the Son of the Great Gull " his instructor said dryly,
-     "Follow me  step for step, two steps behind  me,  keep your  eyes on my
-that moment for Jonathan Seagull. They were right. He  could  fly  higher,
-     "Well, if you can't, you can't. I understand you, Red, and I can't pass
-
-popular with other birds. Even his parents were dismayed as Jonathan spent
-     "All right, let's heave-ho."
+-- 
+	Evgeniy Polyakov
