@@ -1,252 +1,253 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 4/7] [NEIGH]: Move netlink neighbour bits to linux/neighbour.h
-Date: Mon, 07 Aug 2006 00:00:04 +0200
-Message-ID: <20060807171050.534616070@postel.suug.ch>
+Subject: [PATCH 6/7] [NEIGH]: Convert neighbour table dumping to new netlink api
+Date: Mon, 07 Aug 2006 00:00:06 +0200
+Message-ID: <20060807171051.145432807@postel.suug.ch>
 References: <20060807170944.259251279@postel.suug.ch>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:4302 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S932142AbWHGRMZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 13:12:25 -0400
+Received: from postel.suug.ch ([194.88.212.233]:6606 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932142AbWHGRMg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 13:12:36 -0400
 To: davem@davemloft.net
-Content-Disposition: inline; filename=nl_neigh_header
+Content-Disposition: inline; filename=nl_neightbl_dump
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Moves netlink neighbour bits to linux/neighbour.h. Also
-moves bits to be exported to userspace from net/neighbour.h
-to linux/neighbour.h and removes __KERNEL__ guards, userspace
-is not supposed to be using it.
-
-rtnetlink_rcv_msg() is not longer required to parse attributes
-for the neighbour layer, remove dependency on obsolete and
-buggy rta_buf.
+Also fixes skipping of already dumped neighbours.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Index: net-2.6.19.git/include/linux/neighbour.h
+Index: net-2.6.19.git/net/core/neighbour.c
 ===================================================================
---- /dev/null
-+++ net-2.6.19.git/include/linux/neighbour.h
-@@ -0,0 +1,65 @@
-+#ifndef __LINUX_NEIGHBOUR_H
-+#define __LINUX_NEIGHBOUR_H
-+
-+#include <linux/netlink.h>
-+
-+struct ndmsg
-+{
-+	__u8		ndm_family;
-+	__u8		ndm_pad1;
-+	__u16		ndm_pad2;
-+	__s32		ndm_ifindex;
-+	__u16		ndm_state;
-+	__u8		ndm_flags;
-+	__u8		ndm_type;
-+};
-+
-+enum
-+{
-+	NDA_UNSPEC,
-+	NDA_DST,
-+	NDA_LLADDR,
-+	NDA_CACHEINFO,
-+	NDA_PROBES,
-+	__NDA_MAX
-+};
-+
-+#define NDA_MAX (__NDA_MAX - 1)
-+
-+/*
-+ *	Neighbor Cache Entry Flags
-+ */
-+
-+#define NTF_PROXY	0x08	/* == ATF_PUBL */
-+#define NTF_ROUTER	0x80
-+
-+/*
-+ *	Neighbor Cache Entry States.
-+ */
-+
-+#define NUD_INCOMPLETE	0x01
-+#define NUD_REACHABLE	0x02
-+#define NUD_STALE	0x04
-+#define NUD_DELAY	0x08
-+#define NUD_PROBE	0x10
-+#define NUD_FAILED	0x20
-+
-+/* Dummy states */
-+#define NUD_NOARP	0x40
-+#define NUD_PERMANENT	0x80
-+#define NUD_NONE	0x00
-+
-+/* NUD_NOARP & NUD_PERMANENT are pseudostates, they never change
-+   and make no address resolution or NUD.
-+   NUD_PERMANENT is also cannot be deleted by garbage collectors.
-+ */
-+
-+struct nda_cacheinfo
-+{
-+	__u32		ndm_confirmed;
-+	__u32		ndm_used;
-+	__u32		ndm_updated;
-+	__u32		ndm_refcnt;
-+};
-+
-+#endif
-Index: net-2.6.19.git/include/linux/rtnetlink.h
-===================================================================
---- net-2.6.19.git.orig/include/linux/rtnetlink.h
-+++ net-2.6.19.git/include/linux/rtnetlink.h
-@@ -386,69 +386,6 @@ struct rta_session
+--- net-2.6.19.git.orig/net/core/neighbour.c
++++ net-2.6.19.git/net/core/neighbour.c
+@@ -1594,56 +1594,59 @@ out:
  
- 
- 
--/**************************************************************
-- *		Neighbour discovery.
-- ****/
--
--struct ndmsg
--{
--	unsigned char	ndm_family;
--	unsigned char	ndm_pad1;
--	unsigned short	ndm_pad2;
--	int		ndm_ifindex;	/* Link index			*/
--	__u16		ndm_state;
--	__u8		ndm_flags;
--	__u8		ndm_type;
--};
--
--enum
--{
--	NDA_UNSPEC,
--	NDA_DST,
--	NDA_LLADDR,
--	NDA_CACHEINFO,
--	NDA_PROBES,
--	__NDA_MAX
--};
--
--#define NDA_MAX (__NDA_MAX - 1)
--
--#define NDA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ndmsg))))
--#define NDA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ndmsg))
--
--/*
-- *	Neighbor Cache Entry Flags
-- */
--
--#define NTF_PROXY	0x08	/* == ATF_PUBL */
--#define NTF_ROUTER	0x80
--
--/*
-- *	Neighbor Cache Entry States.
-- */
--
--#define NUD_INCOMPLETE	0x01
--#define NUD_REACHABLE	0x02
--#define NUD_STALE	0x04
--#define NUD_DELAY	0x08
--#define NUD_PROBE	0x10
--#define NUD_FAILED	0x20
--
--/* Dummy states */
--#define NUD_NOARP	0x40
--#define NUD_PERMANENT	0x80
--#define NUD_NONE	0x00
--
--
--struct nda_cacheinfo
--{
--	__u32		ndm_confirmed;
--	__u32		ndm_used;
--	__u32		ndm_updated;
--	__u32		ndm_refcnt;
--};
--
--
- /*****************************************************************
-  *		Neighbour tables specific messages.
-  *
-Index: net-2.6.19.git/include/net/neighbour.h
-===================================================================
---- net-2.6.19.git.orig/include/net/neighbour.h
-+++ net-2.6.19.git/include/net/neighbour.h
-@@ -1,6 +1,8 @@
- #ifndef _NET_NEIGHBOUR_H
- #define _NET_NEIGHBOUR_H
- 
-+#include <linux/neighbour.h>
+ static int neightbl_fill_parms(struct sk_buff *skb, struct neigh_parms *parms)
+ {
+-	struct rtattr *nest = NULL;
+-	
+-	nest = RTA_NEST(skb, NDTA_PARMS);
++	struct nlattr *nest;
 +
- /*
-  *	Generic neighbour manipulation
-  *
-@@ -14,40 +16,6 @@
-  *		- Add neighbour cache statistics like rtstat
-  */
++	nest = nla_nest_start(skb, NDTA_PARMS);
++	if (nest == NULL)
++		return -ENOBUFS;
  
--/* The following flags & states are exported to user space,
--   so that they should be moved to include/linux/ directory.
-- */
--
--/*
-- *	Neighbor Cache Entry Flags
-- */
--
--#define NTF_PROXY	0x08	/* == ATF_PUBL */
--#define NTF_ROUTER	0x80
--
--/*
-- *	Neighbor Cache Entry States.
-- */
--
--#define NUD_INCOMPLETE	0x01
--#define NUD_REACHABLE	0x02
--#define NUD_STALE	0x04
--#define NUD_DELAY	0x08
--#define NUD_PROBE	0x10
--#define NUD_FAILED	0x20
--
--/* Dummy states */
--#define NUD_NOARP	0x40
--#define NUD_PERMANENT	0x80
--#define NUD_NONE	0x00
--
--/* NUD_NOARP & NUD_PERMANENT are pseudostates, they never change
--   and make no address resolution or NUD.
--   NUD_PERMANENT is also cannot be deleted by garbage collectors.
-- */
--
--#ifdef __KERNEL__
--
- #include <asm/atomic.h>
- #include <linux/netdevice.h>
- #include <linux/skbuff.h>
-@@ -374,6 +342,3 @@ struct neighbour_cb {
- #define NEIGH_CB(skb)	((struct neighbour_cb *)(skb)->cb)
+ 	if (parms->dev)
+-		RTA_PUT_U32(skb, NDTPA_IFINDEX, parms->dev->ifindex);
++		NLA_PUT_U32(skb, NDTPA_IFINDEX, parms->dev->ifindex);
  
- #endif
--#endif
+-	RTA_PUT_U32(skb, NDTPA_REFCNT, atomic_read(&parms->refcnt));
+-	RTA_PUT_U32(skb, NDTPA_QUEUE_LEN, parms->queue_len);
+-	RTA_PUT_U32(skb, NDTPA_PROXY_QLEN, parms->proxy_qlen);
+-	RTA_PUT_U32(skb, NDTPA_APP_PROBES, parms->app_probes);
+-	RTA_PUT_U32(skb, NDTPA_UCAST_PROBES, parms->ucast_probes);
+-	RTA_PUT_U32(skb, NDTPA_MCAST_PROBES, parms->mcast_probes);
+-	RTA_PUT_MSECS(skb, NDTPA_REACHABLE_TIME, parms->reachable_time);
+-	RTA_PUT_MSECS(skb, NDTPA_BASE_REACHABLE_TIME,
++	NLA_PUT_U32(skb, NDTPA_REFCNT, atomic_read(&parms->refcnt));
++	NLA_PUT_U32(skb, NDTPA_QUEUE_LEN, parms->queue_len);
++	NLA_PUT_U32(skb, NDTPA_PROXY_QLEN, parms->proxy_qlen);
++	NLA_PUT_U32(skb, NDTPA_APP_PROBES, parms->app_probes);
++	NLA_PUT_U32(skb, NDTPA_UCAST_PROBES, parms->ucast_probes);
++	NLA_PUT_U32(skb, NDTPA_MCAST_PROBES, parms->mcast_probes);
++	NLA_PUT_MSECS(skb, NDTPA_REACHABLE_TIME, parms->reachable_time);
++	NLA_PUT_MSECS(skb, NDTPA_BASE_REACHABLE_TIME,
+ 		      parms->base_reachable_time);
+-	RTA_PUT_MSECS(skb, NDTPA_GC_STALETIME, parms->gc_staletime);
+-	RTA_PUT_MSECS(skb, NDTPA_DELAY_PROBE_TIME, parms->delay_probe_time);
+-	RTA_PUT_MSECS(skb, NDTPA_RETRANS_TIME, parms->retrans_time);
+-	RTA_PUT_MSECS(skb, NDTPA_ANYCAST_DELAY, parms->anycast_delay);
+-	RTA_PUT_MSECS(skb, NDTPA_PROXY_DELAY, parms->proxy_delay);
+-	RTA_PUT_MSECS(skb, NDTPA_LOCKTIME, parms->locktime);
++	NLA_PUT_MSECS(skb, NDTPA_GC_STALETIME, parms->gc_staletime);
++	NLA_PUT_MSECS(skb, NDTPA_DELAY_PROBE_TIME, parms->delay_probe_time);
++	NLA_PUT_MSECS(skb, NDTPA_RETRANS_TIME, parms->retrans_time);
++	NLA_PUT_MSECS(skb, NDTPA_ANYCAST_DELAY, parms->anycast_delay);
++	NLA_PUT_MSECS(skb, NDTPA_PROXY_DELAY, parms->proxy_delay);
++	NLA_PUT_MSECS(skb, NDTPA_LOCKTIME, parms->locktime);
+ 
+-	return RTA_NEST_END(skb, nest);
++	return nla_nest_end(skb, nest);
+ 
+-rtattr_failure:
+-	return RTA_NEST_CANCEL(skb, nest);
++nla_put_failure:
++	return nla_nest_cancel(skb, nest);
+ }
+ 
+-static int neightbl_fill_info(struct neigh_table *tbl, struct sk_buff *skb,
+-			      struct netlink_callback *cb)
++static int neightbl_fill_info(struct sk_buff *skb, struct neigh_table *tbl,
++			      u32 pid, u32 seq, int type, int flags)
+ {
+ 	struct nlmsghdr *nlh;
+ 	struct ndtmsg *ndtmsg;
+ 
+-	nlh = NLMSG_NEW_ANSWER(skb, cb, RTM_NEWNEIGHTBL, sizeof(struct ndtmsg),
+-			       NLM_F_MULTI);
++	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ndtmsg), flags);
++	if (nlh == NULL)
++		return -ENOBUFS;
+ 
+-	ndtmsg = NLMSG_DATA(nlh);
++	ndtmsg = nlmsg_data(nlh);
+ 
+ 	read_lock_bh(&tbl->lock);
+ 	ndtmsg->ndtm_family = tbl->family;
+ 	ndtmsg->ndtm_pad1   = 0;
+ 	ndtmsg->ndtm_pad2   = 0;
+ 
+-	RTA_PUT_STRING(skb, NDTA_NAME, tbl->id);
+-	RTA_PUT_MSECS(skb, NDTA_GC_INTERVAL, tbl->gc_interval);
+-	RTA_PUT_U32(skb, NDTA_THRESH1, tbl->gc_thresh1);
+-	RTA_PUT_U32(skb, NDTA_THRESH2, tbl->gc_thresh2);
+-	RTA_PUT_U32(skb, NDTA_THRESH3, tbl->gc_thresh3);
++	NLA_PUT_STRING(skb, NDTA_NAME, tbl->id);
++	NLA_PUT_MSECS(skb, NDTA_GC_INTERVAL, tbl->gc_interval);
++	NLA_PUT_U32(skb, NDTA_THRESH1, tbl->gc_thresh1);
++	NLA_PUT_U32(skb, NDTA_THRESH2, tbl->gc_thresh2);
++	NLA_PUT_U32(skb, NDTA_THRESH3, tbl->gc_thresh3);
+ 
+ 	{
+ 		unsigned long now = jiffies;
+@@ -1662,7 +1665,7 @@ static int neightbl_fill_info(struct nei
+ 			.ndtc_proxy_qlen	= tbl->proxy_queue.qlen,
+ 		};
+ 
+-		RTA_PUT(skb, NDTA_CONFIG, sizeof(ndc), &ndc);
++		NLA_PUT(skb, NDTA_CONFIG, sizeof(ndc), &ndc);
+ 	}
+ 
+ 	{
+@@ -1687,55 +1690,50 @@ static int neightbl_fill_info(struct nei
+ 			ndst.ndts_forced_gc_runs	+= st->forced_gc_runs;
+ 		}
+ 
+-		RTA_PUT(skb, NDTA_STATS, sizeof(ndst), &ndst);
++		NLA_PUT(skb, NDTA_STATS, sizeof(ndst), &ndst);
+ 	}
+ 
+ 	BUG_ON(tbl->parms.dev);
+ 	if (neightbl_fill_parms(skb, &tbl->parms) < 0)
+-		goto rtattr_failure;
++		goto nla_put_failure;
+ 
+ 	read_unlock_bh(&tbl->lock);
+-	return NLMSG_END(skb, nlh);
++	return nlmsg_end(skb, nlh);
+ 
+-rtattr_failure:
++nla_put_failure:
+ 	read_unlock_bh(&tbl->lock);
+-	return NLMSG_CANCEL(skb, nlh);
+- 
+-nlmsg_failure:
+-	return -1;
++	return nlmsg_cancel(skb, nlh);
+ }
+ 
+-static int neightbl_fill_param_info(struct neigh_table *tbl,
++static int neightbl_fill_param_info(struct sk_buff *skb,
++				    struct neigh_table *tbl,
+ 				    struct neigh_parms *parms,
+-				    struct sk_buff *skb,
+-				    struct netlink_callback *cb)
++				    u32 pid, u32 seq, int type,
++				    unsigned int flags)
+ {
+ 	struct ndtmsg *ndtmsg;
+ 	struct nlmsghdr *nlh;
+ 
+-	nlh = NLMSG_NEW_ANSWER(skb, cb, RTM_NEWNEIGHTBL, sizeof(struct ndtmsg),
+-			       NLM_F_MULTI);
++	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ndtmsg), flags);
++	if (nlh == NULL)
++		return -ENOBUFS;
+ 
+-	ndtmsg = NLMSG_DATA(nlh);
++	ndtmsg = nlmsg_data(nlh);
+ 
+ 	read_lock_bh(&tbl->lock);
+ 	ndtmsg->ndtm_family = tbl->family;
+ 	ndtmsg->ndtm_pad1   = 0;
+ 	ndtmsg->ndtm_pad2   = 0;
+-	RTA_PUT_STRING(skb, NDTA_NAME, tbl->id);
+ 
+-	if (neightbl_fill_parms(skb, parms) < 0)
+-		goto rtattr_failure;
++	if (nla_put_string(skb, NDTA_NAME, tbl->id) < 0 ||
++	    neightbl_fill_parms(skb, parms) < 0)
++		goto errout;
+ 
+ 	read_unlock_bh(&tbl->lock);
+-	return NLMSG_END(skb, nlh);
 -
+-rtattr_failure:
++	return nlmsg_end(skb, nlh);
++errout:
+ 	read_unlock_bh(&tbl->lock);
+-	return NLMSG_CANCEL(skb, nlh);
 -
-Index: net-2.6.19.git/net/core/rtnetlink.c
-===================================================================
---- net-2.6.19.git.orig/net/core/rtnetlink.c
-+++ net-2.6.19.git/net/core/rtnetlink.c
-@@ -104,7 +104,6 @@ static const int rtm_min[RTM_NR_FAMILIES
- 	[RTM_FAM(RTM_NEWLINK)]      = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
- 	[RTM_FAM(RTM_NEWADDR)]      = NLMSG_LENGTH(sizeof(struct ifaddrmsg)),
- 	[RTM_FAM(RTM_NEWROUTE)]     = NLMSG_LENGTH(sizeof(struct rtmsg)),
--	[RTM_FAM(RTM_NEWNEIGH)]     = NLMSG_LENGTH(sizeof(struct ndmsg)),
- 	[RTM_FAM(RTM_NEWRULE)]      = NLMSG_LENGTH(sizeof(struct fib_rule_hdr)),
- 	[RTM_FAM(RTM_NEWQDISC)]     = NLMSG_LENGTH(sizeof(struct tcmsg)),
- 	[RTM_FAM(RTM_NEWTCLASS)]    = NLMSG_LENGTH(sizeof(struct tcmsg)),
-@@ -121,7 +120,6 @@ static const int rta_max[RTM_NR_FAMILIES
- 	[RTM_FAM(RTM_NEWLINK)]      = IFLA_MAX,
- 	[RTM_FAM(RTM_NEWADDR)]      = IFA_MAX,
- 	[RTM_FAM(RTM_NEWROUTE)]     = RTA_MAX,
--	[RTM_FAM(RTM_NEWNEIGH)]     = NDA_MAX,
- 	[RTM_FAM(RTM_NEWRULE)]      = FRA_MAX,
- 	[RTM_FAM(RTM_NEWQDISC)]     = TCA_MAX,
- 	[RTM_FAM(RTM_NEWTCLASS)]    = TCA_MAX,
+-nlmsg_failure:
+-	return -1;
++	return nlmsg_cancel(skb, nlh);
+ }
+  
+ static inline struct neigh_parms *lookup_neigh_params(struct neigh_table *tbl,
+@@ -1902,34 +1900,43 @@ errout:
+ 
+ int neightbl_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+-	int idx, family;
+-	int s_idx = cb->args[0];
++	int family, tidx, nidx = 0;
++	int tbl_skip = cb->args[0];
++	int neigh_skip = cb->args[1];
+ 	struct neigh_table *tbl;
+ 
+-	family = ((struct rtgenmsg *)NLMSG_DATA(cb->nlh))->rtgen_family;
++	family = ((struct rtgenmsg *) nlmsg_data(cb->nlh))->rtgen_family;
+ 
+ 	read_lock(&neigh_tbl_lock);
+-	for (tbl = neigh_tables, idx = 0; tbl; tbl = tbl->next) {
++	for (tbl = neigh_tables, tidx = 0; tbl; tbl = tbl->next, tidx++) {
+ 		struct neigh_parms *p;
+ 
+-		if (idx < s_idx || (family && tbl->family != family))
++		if (tidx < tbl_skip || (family && tbl->family != family))
+ 			continue;
+ 
+-		if (neightbl_fill_info(tbl, skb, cb) <= 0)
++		if (neightbl_fill_info(skb, tbl, NETLINK_CB(cb->skb).pid,
++				       cb->nlh->nlmsg_seq, RTM_NEWNEIGHTBL,
++				       NLM_F_MULTI) <= 0)
+ 			break;
+ 
+-		for (++idx, p = tbl->parms.next; p; p = p->next, idx++) {
+-			if (idx < s_idx)
++		for (nidx = 0, p = tbl->parms.next; p; p = p->next, nidx++) {
++			if (nidx < neigh_skip)
+ 				continue;
+ 
+-			if (neightbl_fill_param_info(tbl, p, skb, cb) <= 0)
++			if (neightbl_fill_param_info(skb, tbl, p,
++						     NETLINK_CB(cb->skb).pid,
++						     cb->nlh->nlmsg_seq,
++						     RTM_NEWNEIGHTBL,
++						     NLM_F_MULTI) <= 0)
+ 				goto out;
+ 		}
+ 
++		neigh_skip = 0;
+ 	}
+ out:
+ 	read_unlock(&neigh_tbl_lock);
+-	cb->args[0] = idx;
++	cb->args[0] = tidx;
++	cb->args[1] = nidx;
+ 
+ 	return skb->len;
+ }
 
