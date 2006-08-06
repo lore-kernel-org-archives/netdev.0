@@ -1,26 +1,30 @@
-From: "Chelsea Friend" <sterling@ringve.com>
-Subject: Trick Mother Nature!
-Date: Sun, 6 Aug 2006 18:01:38 +0200
-Message-ID: <16023558919973.F9CE5AF6D2@IQ8COOW9>
+From: Diego Calleja <diegocg@gmail.com>
+Subject: Re: please type "make"
+Date: Sun, 6 Aug 2006 17:08:25 +0200
+Message-ID: <20060806170825.b08ba94d.diegocg@gmail.com>
+References: <20060805.211449.61357275.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="Windows-1252"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m22.net81-65-75.noos.fr ([81.65.75.22]:46866 "EHLO
-	PATIBIKI-Z93UJZ") by vger.kernel.org with ESMTP id S932258AbWHFOb0
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Aug 2006 10:31:26 -0400
-To: <netdev@vger.kernel.org>
+Received: from py-out-1112.google.com ([64.233.166.177]:40867 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S1751329AbWHFPJT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Aug 2006 11:09:19 -0400
+Received: by py-out-1112.google.com with SMTP id z74so1000596pyg
+        for <netdev@vger.kernel.org>; Sun, 06 Aug 2006 08:09:19 -0700 (PDT)
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060805.211449.61357275.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi there! 
-Want to live forever? Or at least, longer than you was to? Here is the way to trick Mother Nature! 
+El Sat, 05 Aug 2006 21:14:49 -0700 (PDT),
+David Miller <davem@davemloft.net> escribi=F3:
 
-Its widely known, that there is a special hormone, which is responsible for the rejuvenation and growth of human tissues. Its produced by your anterior pituitary gland in the brain, and as you grow older its produced less and less by your body. 
+>=20
+> on any patches you submit.  I'm fixing it this time, but I
+> won't next time.
 
-But what if bring this Human Growth Hormone from somewhere outside and into your body? The scientists has found a formula for a rejuvenation course, so dont wait and find the solution of the eternal problem here! 
-
-http://wfi5.welguide.com/hgh
-
+Sorry, I copy-pasted it from the bugzilla without looking too much the =
+patch :/
