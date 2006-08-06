@@ -1,21 +1,17 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2/7] [NEIGH]: Convert neighbour addition to new netlink api
-Date: Mon, 07 Aug 2006 00:00:02 +0200
-Message-ID: <20060807171049.902566143@postel.suug.ch>
+Subject: [PATCH 3/7] [NEIGH]: Convert neighbour dumping to new netlink api
+Date: Mon, 07 Aug 2006 00:00:03 +0200
+Message-ID: <20060807171050.299057210@postel.suug.ch>
 References: <20060807170944.259251279@postel.suug.ch>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:1998 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1750797AbWHGRMP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 13:12:15 -0400
+Received: from postel.suug.ch ([194.88.212.233]:2510 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932066AbWHGRMU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 13:12:20 -0400
 To: davem@davemloft.net
-Content-Disposition: inline; filename=nl_neigh_add
+Content-Disposition: inline; filename=nl_neigh_dump
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
-
-Fixes:
-    Return EAFNOSUPPORT if no table matches the specified
-    address family.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
@@ -23,132 +19,152 @@ Index: net-2.6.19.git/net/core/neighbour.c
 ===================================================================
 --- net-2.6.19.git.orig/net/core/neighbour.c
 +++ net-2.6.19.git/net/core/neighbour.c
-@@ -1503,76 +1503,88 @@ out:
+@@ -1898,48 +1898,49 @@ out:
+ 	return skb->len;
+ }
  
- int neigh_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+-static int neigh_fill_info(struct sk_buff *skb, struct neighbour *n,
+-			   u32 pid, u32 seq, int event, unsigned int flags)
++static int neigh_fill_info(struct sk_buff *skb, struct neighbour *neigh,
++			   u32 pid, u32 seq, int type, unsigned int flags)
  {
+ 	unsigned long now = jiffies;
+-	unsigned char *b = skb->tail;
+ 	struct nda_cacheinfo ci;
+-	int locked = 0;
+-	u32 probes;
+-	struct nlmsghdr *nlh = NLMSG_NEW(skb, pid, seq, event,
+-					 sizeof(struct ndmsg), flags);
 -	struct ndmsg *ndm = NLMSG_DATA(nlh);
--	struct rtattr **nda = arg;
++	struct nlmsghdr *nlh;
 +	struct ndmsg *ndm;
-+	struct nlattr *tb[NDA_MAX+1];
- 	struct neigh_table *tbl;
- 	struct net_device *dev = NULL;
--	int err = -ENODEV;
-+	int err;
 +
-+	err = nlmsg_parse(nlh, sizeof(*ndm), tb, NDA_MAX, NULL);
-+	if (err < 0)
-+		goto out;
++	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ndm), flags);
++	if (nlh == NULL)
++		return -ENOBUFS;
  
--	if (ndm->ndm_ifindex &&
--	    (dev = dev_get_by_index(ndm->ndm_ifindex)) == NULL)
-+	err = -EINVAL;
-+	if (tb[NDA_DST] == NULL)
- 		goto out;
- 
+-	ndm->ndm_family	 = n->ops->family;
 +	ndm = nlmsg_data(nlh);
-+	if (ndm->ndm_ifindex) {
-+		dev = dev_get_by_index(ndm->ndm_ifindex);
-+		if (dev == NULL) {
-+			err = -ENODEV;
-+			goto out;
-+		}
++	ndm->ndm_family	 = neigh->ops->family;
+ 	ndm->ndm_pad1    = 0;
+ 	ndm->ndm_pad2    = 0;
+-	ndm->ndm_flags	 = n->flags;
+-	ndm->ndm_type	 = n->type;
+-	ndm->ndm_ifindex = n->dev->ifindex;
+-	RTA_PUT(skb, NDA_DST, n->tbl->key_len, n->primary_key);
+-	read_lock_bh(&n->lock);
+-	locked		 = 1;
+-	ndm->ndm_state	 = n->nud_state;
+-	if (n->nud_state & NUD_VALID)
+-		RTA_PUT(skb, NDA_LLADDR, n->dev->addr_len, n->ha);
+-	ci.ndm_used	 = now - n->used;
+-	ci.ndm_confirmed = now - n->confirmed;
+-	ci.ndm_updated	 = now - n->updated;
+-	ci.ndm_refcnt	 = atomic_read(&n->refcnt) - 1;
+-	probes = atomic_read(&n->probes);
+-	read_unlock_bh(&n->lock);
+-	locked		 = 0;
+-	RTA_PUT(skb, NDA_CACHEINFO, sizeof(ci), &ci);
+-	RTA_PUT(skb, NDA_PROBES, sizeof(probes), &probes);
+-	nlh->nlmsg_len	 = skb->tail - b;
+-	return skb->len;
++	ndm->ndm_flags	 = neigh->flags;
++	ndm->ndm_type	 = neigh->type;
++	ndm->ndm_ifindex = neigh->dev->ifindex;
 +
-+		if (tb[NDA_LLADDR] && nla_len(tb[NDA_LLADDR]) < dev->addr_len)
-+			goto out_dev_put;
++	NLA_PUT(skb, NDA_DST, neigh->tbl->key_len, neigh->primary_key);
++
++	read_lock_bh(&neigh->lock);
++	ndm->ndm_state	 = neigh->nud_state;
++	if ((neigh->nud_state & NUD_VALID) &&
++	    nla_put(skb, NDA_LLADDR, neigh->dev->addr_len, neigh->ha) < 0) {
++		read_unlock_bh(&neigh->lock);
++		goto nla_put_failure;
 +	}
+ 
+-nlmsg_failure:
+-rtattr_failure:
+-	if (locked)
+-		read_unlock_bh(&n->lock);
+-	skb_trim(skb, b - skb->data);
+-	return -1;
++	ci.ndm_used	 = now - neigh->used;
++	ci.ndm_confirmed = now - neigh->confirmed;
++	ci.ndm_updated	 = now - neigh->updated;
++	ci.ndm_refcnt	 = atomic_read(&neigh->refcnt) - 1;
++	read_unlock_bh(&neigh->lock);
 +
++	NLA_PUT_U32(skb, NDA_PROBES, atomic_read(&neigh->probes));
++	NLA_PUT(skb, NDA_CACHEINFO, sizeof(ci), &ci);
++
++	return nlmsg_end(skb, nlh);
++
++nla_put_failure:
++	return nlmsg_cancel(skb, nlh);
+ }
+ 
+ 
+@@ -1983,7 +1984,7 @@ int neigh_dump_info(struct sk_buff *skb,
+ 	int t, family, s_t;
+ 
  	read_lock(&neigh_tbl_lock);
- 	for (tbl = neigh_tables; tbl; tbl = tbl->next) {
--		struct rtattr *lladdr_attr = nda[NDA_LLADDR - 1];
--		struct rtattr *dst_attr = nda[NDA_DST - 1];
--		int override = 1;
--		struct neighbour *n;
-+		int flags = NEIGH_UPDATE_F_ADMIN | NEIGH_UPDATE_F_OVERRIDE;
-+		struct neighbour *neigh;
-+		void *dst, *lladdr;
+-	family = ((struct rtgenmsg *)NLMSG_DATA(cb->nlh))->rtgen_family;
++	family = ((struct rtgenmsg *) nlmsg_data(cb->nlh))->rtgen_family;
+ 	s_t = cb->args[0];
  
- 		if (tbl->family != ndm->ndm_family)
- 			continue;
- 		read_unlock(&neigh_tbl_lock);
+ 	for (tbl = neigh_tables, t = 0; tbl; tbl = tbl->next, t++) {
+@@ -2364,39 +2365,34 @@ static struct file_operations neigh_stat
+ #ifdef CONFIG_ARPD
+ void neigh_app_ns(struct neighbour *n)
+ {
+-	struct nlmsghdr  *nlh;
+-	int size = NLMSG_SPACE(sizeof(struct ndmsg) + 256);
+-	struct sk_buff *skb = alloc_skb(size, GFP_ATOMIC);
++	struct sk_buff *skb;
  
--		err = -EINVAL;
--		if (!dst_attr || RTA_PAYLOAD(dst_attr) < tbl->key_len)
-+		if (nla_len(tb[NDA_DST]) < tbl->key_len)
- 			goto out_dev_put;
-+		dst = nla_data(tb[NDA_DST]);
-+		lladdr = tb[NDA_LLADDR] ? nla_data(tb[NDA_LLADDR]) : NULL;
+-	if (!skb)
++	skb = nlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
++	if (skb == NULL)
+ 		return;
  
- 		if (ndm->ndm_flags & NTF_PROXY) {
--			err = -ENOBUFS;
--			if (pneigh_lookup(tbl, RTA_DATA(dst_attr), dev, 1))
--				err = 0;
-+			err = 0;
-+			if (pneigh_lookup(tbl, dst, dev, 1) == NULL)
-+				err = -ENOBUFS;
- 			goto out_dev_put;
- 		}
- 
--		err = -EINVAL;
--		if (!dev)
--			goto out;
--		if (lladdr_attr && RTA_PAYLOAD(lladdr_attr) < dev->addr_len)
-+		if (dev == NULL)
- 			goto out_dev_put;
-+
-+		neigh = neigh_lookup(tbl, dst, dev);
-+		if (neigh == NULL) {
-+			if (!(nlh->nlmsg_flags & NLM_F_CREATE)) {
-+				err = -ENOENT;
-+				goto out_dev_put;
-+			}
- 	
--		n = neigh_lookup(tbl, RTA_DATA(dst_attr), dev);
--		if (n) {
--			if (nlh->nlmsg_flags & NLM_F_EXCL) {
--				err = -EEXIST;
--				neigh_release(n);
-+			neigh = __neigh_lookup_errno(tbl, dst, dev);
-+			if (IS_ERR(neigh)) {
-+				err = PTR_ERR(neigh);
- 				goto out_dev_put;
- 			}
--			
--			override = nlh->nlmsg_flags & NLM_F_REPLACE;
--		} else if (!(nlh->nlmsg_flags & NLM_F_CREATE)) {
--			err = -ENOENT;
--			goto out_dev_put;
- 		} else {
--			n = __neigh_lookup_errno(tbl, RTA_DATA(dst_attr), dev);
--			if (IS_ERR(n)) {
--				err = PTR_ERR(n);
-+			if (nlh->nlmsg_flags & NLM_F_EXCL) {
-+				err = -EEXIST;
-+				neigh_release(neigh);
- 				goto out_dev_put;
- 			}
--		}
- 
--		err = neigh_update(n,
--				   lladdr_attr ? RTA_DATA(lladdr_attr) : NULL,
--				   ndm->ndm_state,
--				   (override ? NEIGH_UPDATE_F_OVERRIDE : 0) |
--				   NEIGH_UPDATE_F_ADMIN);
-+			if (!(nlh->nlmsg_flags & NLM_F_REPLACE))
-+				flags &= ~NEIGH_UPDATE_F_OVERRIDE;
-+		}
- 
--		neigh_release(n);
-+		err = neigh_update(neigh, lladdr, ndm->ndm_state, flags);
-+		neigh_release(neigh);
- 		goto out_dev_put;
+-	if (neigh_fill_info(skb, n, 0, 0, RTM_GETNEIGH, 0) < 0) {
++	if (neigh_fill_info(skb, n, 0, 0, RTM_GETNEIGH, NLM_F_REQUEST) <= 0)
+ 		kfree_skb(skb);
+-		return;
++	else {
++		NETLINK_CB(skb).dst_group  = RTNLGRP_NEIGH;
++		netlink_broadcast(rtnl, skb, 0, RTNLGRP_NEIGH, GFP_ATOMIC);
  	}
+-	nlh			   = (struct nlmsghdr *)skb->data;
+-	nlh->nlmsg_flags	   = NLM_F_REQUEST;
+-	NETLINK_CB(skb).dst_group  = RTNLGRP_NEIGH;
+-	netlink_broadcast(rtnl, skb, 0, RTNLGRP_NEIGH, GFP_ATOMIC);
+ }
  
- 	read_unlock(&neigh_tbl_lock);
--	err = -EADDRNOTAVAIL;
-+	err = -EAFNOSUPPORT;
-+
- out_dev_put:
- 	if (dev)
- 		dev_put(dev);
+ static void neigh_app_notify(struct neighbour *n)
+ {
+-	struct nlmsghdr *nlh;
+-	int size = NLMSG_SPACE(sizeof(struct ndmsg) + 256);
+-	struct sk_buff *skb = alloc_skb(size, GFP_ATOMIC);
++	struct sk_buff *skb;
+ 
+-	if (!skb)
++	skb = nlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
++	if (skb == NULL)
+ 		return;
+ 
+-	if (neigh_fill_info(skb, n, 0, 0, RTM_NEWNEIGH, 0) < 0) {
++	if (neigh_fill_info(skb, n, 0, 0, RTM_NEWNEIGH, 0) <= 0)
+ 		kfree_skb(skb);
+-		return;
++	else {
++		NETLINK_CB(skb).dst_group  = RTNLGRP_NEIGH;
++		netlink_broadcast(rtnl, skb, 0, RTNLGRP_NEIGH, GFP_ATOMIC);
+ 	}
+-	nlh			   = (struct nlmsghdr *)skb->data;
+-	NETLINK_CB(skb).dst_group  = RTNLGRP_NEIGH;
+-	netlink_broadcast(rtnl, skb, 0, RTNLGRP_NEIGH, GFP_ATOMIC);
+ }
+ 
+ #endif /* CONFIG_ARPD */
 
