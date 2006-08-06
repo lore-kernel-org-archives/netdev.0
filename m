@@ -1,55 +1,57 @@
-From: jamal <hadi@cyberus.ca>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Sun, 06 Aug 2006 15:22:15 -0400
-Message-ID: <1154892135.11649.8.camel@jzny2>
-References: <20060804101017.GA17393@gondor.apana.org.au>
-	 <1154712532.3117.43.camel@rh4> <20060804110829.62136ebb@dxpl.pdx.osdl.net>
-	 <20060804.163111.85390037.davem@davemloft.net>
-	 <1154797002.5081.21.camel@jzny2>
-	 <20060805230517.GA25468@gondor.apana.org.au>
-	 <1154819868.5517.34.camel@jzny2>
-	 <20060805231959.GA25768@gondor.apana.org.au>
-	 <1154821010.5517.48.camel@jzny2>
-	 <20060806025123.GA27051@gondor.apana.org.au>
-	 <1154867083.6269.35.camel@jzny2>
-Reply-To: hadi@cyberus.ca
+Date: Mon, 7 Aug 2006 09:04:07 +1000
+Message-ID: <20060806230406.GA1413@gondor.apana.org.au>
+References: <20060805230517.GA25468@gondor.apana.org.au> <1551EAE59135BE47B544934E30FC4FC093FA17@NT-IRVA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, shemminger@osdl.org,
-	mchan@broadcom.com, jesse.brandeburg@intel.com,
-	auke-jan.h.kok@intel.com,
-	"Edgar E. Iglesias" <edgar.iglesias@axis.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, David Miller <davem@davemloft.net>,
+	shemminger@osdl.org, jesse.brandeburg@intel.com,
+	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:38294 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1751683AbWHFTWc
+Received: from rhun.apana.org.au ([64.62.148.172]:33042 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750758AbWHFXGY
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Aug 2006 15:22:32 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1G9oCg-000330-Ct
-	for netdev@vger.kernel.org; Sun, 06 Aug 2006 15:22:26 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <1154867083.6269.35.camel@jzny2>
+	Sun, 6 Aug 2006 19:06:24 -0400
+To: Michael Chan <mchan@broadcom.com>
+Content-Disposition: inline
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC093FA17@NT-IRVA-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2006-06-08 at 08:24 -0400, jamal wrote:
+On Sun, Aug 06, 2006 at 10:20:12AM -0700, Michael Chan wrote:
+> 
+> Do you mean the same race condition bug between tg3_start_xmit()
+> and tg3_tx() that I brought up?  I don't think tg3 has that problem.
+> Did I miss something?
 
-> Will try it before end of day. 
+Yes it has the problem in two places.  First of all the first
+netif_stop_queue in tg3_start_xmit doesn't take the tx_lock at
+all so it's obviously vulnerable.
 
-Looks good performance-wise; almost as good as the version i had.
-Certainly better than the original e1000 (of course i am talking about
-the overload case ;->).
+The last netif_stop_queue is susceptible to a more subtle problem:
 
-Interesting thing to note:
-only 0.001% of the time and only on one CPU was the
- __e1000_maybe_stop_tx::netif_start_queue() ever hit.
-I guess that is sufficient to convince someone of the possibility of a
-race ;-> Note, these C3s are damn slow CPUs by todays standards so i am
-suspecting that % will be higher with faster CPUs.
+CPU0					CPU1
+tg3_start_xmit
+	TX_BUFF_AVAIL <= threshold
+		tx_lock
+					tg3_tx
+						!netif_queue_stopped
+		netif_stop_queue
+		BUFF_AVAIL <= threshold
+						tx_cons = sw_idx
+		tx_unlock
 
-cheers,
-jamal
+Because netif_queue_stopped is *not* a memory barrier, it can float
+above the assignment to tx_cons.  So even though netif_stop_queue *is*
+a memory barrier on x86, the second BUFF_AVAIL test can still fail to
+see the updated index.
 
+The fix here is obviously to add a memory barrier in tg3_tx.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
