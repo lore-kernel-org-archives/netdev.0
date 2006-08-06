@@ -1,55 +1,52 @@
-From: "Edgar E. Iglesias" <edgar.iglesias@axis.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Sun, 6 Aug 2006 09:30:57 +0200
-Message-ID: <20060806073057.GC20432@edgar.underground.se.axis.com>
-References: <20060806071418.GB20432@edgar.underground.se.axis.com> <E1G9d05-0007SR-00@gondolin.me.apana.org.au>
+Date: Sun, 6 Aug 2006 17:36:55 +1000
+Message-ID: <20060806073655.GA28735@gondor.apana.org.au>
+References: <1154821010.5517.48.camel@jzny2> <20060806025123.GA27051@gondor.apana.org.au> <20060806071418.GB20432@edgar.underground.se.axis.com> <20060806.002644.26512828.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Edgar E. Iglesias" <edgar.iglesias@axis.com>, hadi@cyberus.ca,
-	davem@davemloft.net, shemminger@osdl.org, mchan@broadcom.com,
-	jesse.brandeburg@intel.com, auke-jan.h.kok@intel.com,
-	netdev@vger.kernel.org
+Cc: edgar.iglesias@axis.com, hadi@cyberus.ca, shemminger@osdl.org,
+	mchan@broadcom.com, jesse.brandeburg@intel.com,
+	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from miranda.se.axis.com ([193.13.178.8]:20633 "EHLO
-	miranda.se.axis.com") by vger.kernel.org with ESMTP id S932377AbWHFHa7
+Received: from rhun.apana.org.au ([64.62.148.172]:36114 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932543AbWHFHhW
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Aug 2006 03:30:59 -0400
-Received: from axis.com (edgar.se.axis.com [10.92.151.1])
-	by miranda.se.axis.com (8.12.9/8.12.9/Debian-5local0.1) with ESMTP id k767UvP0024887
-	for <netdev@vger.kernel.org>; Sun, 6 Aug 2006 09:30:57 +0200
-To: Herbert Xu <herbert@gondor.apana.org.au>
+	Sun, 6 Aug 2006 03:37:22 -0400
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <E1G9d05-0007SR-00@gondolin.me.apana.org.au>
+In-Reply-To: <20060806.002644.26512828.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 06, 2006 at 05:24:41PM +1000, Herbert Xu wrote:
-> Edgar E. Iglesias <edgar.iglesias@axis.com> wrote:
-> > 
-> > Not sure what you mean with "most of the time" but a while a go I played 
-> > around with a something like this for another driver. The tx path was cleaning 
-> > up the tx ring at certain intervals while the tx irq-handler was not touching 
-> > the ring unless it had become full. Actually the tx irq was disabled most of 
-> > the time and ring manipulation became simpler. 
+On Sun, Aug 06, 2006 at 12:26:44AM -0700, David Miller wrote:
 > 
-> Yes that's exactly what I mean :)
-> 
-> > Later I ended up throwing this away as it was causing some TCP connections to
-> > deadlock. If you let skb's sit in the tx-ring indefintely, the 
-> > sk->sk_wmem_queued accounting will be inacurate and this was causing the TCP 
-> > retransmit logic to deadlock. 
-> 
-> Yes you need to clean the ring if the TX queue becomes empty or you'll
-> risk dead locks.
-> 
-> What driver was this and did you do any performance measurements?
-> 
+> Increasingly I find that orphan'ing an SKB once it hits the real
+> device for transmit is something to seriously consider.
 
-It was for the cris/eth_v10.c driver. Performance bumped with 20% for UDP if I remember correctly, TCP was much less. I'll try to dig up the numbers.
+Yes that certainly makes a lot of sense.
 
-On UP non-preemptive kenrnels the tx-path used no interrupts and had no locks to manipulate the ring. But I am guessing that part of the performance win also came by freeing the skb's in chunks.
+Actually, why do we charge the memory to the socket at all between
+the packet leaving the TCP stack and it entering the device? Most
+packets spend a tiny amount of time on this journey so it seems
+silly to do atomic operations as they leave the stack only to undo
+it when they enter the device.
 
-Best regards
+The biggest reason packets spend a non-trivial amount of time on
+this journey is traffic shaping.  In that case the memory is already
+accounted to the device anyway (in terms of queue length) so it would
+seem unfair to charge the socket as well.
+
+So how about simply charging the socket for the retransmit queue
+as we do now and skip the caharge for packets leaving the stack?
+
+For UDP it's different since it doesn't have a retransmit queue.
+However, I'm unsure how much of a positive effect the socket charge
+actually has for UDP.
+
+Cheers,
 -- 
-        Programmer
-        Edgar E. Iglesias <edgar.iglesias@axis.com> 46.46.272.1946
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
