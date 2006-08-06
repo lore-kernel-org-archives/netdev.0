@@ -1,73 +1,117 @@
-From: "Edgar E. Iglesias" <edgar.iglesias@axis.com>
-Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Mon, 7 Aug 2006 19:04:03 +0200
-Message-ID: <20060807170403.GA10818@edgar.underground.se.axis.com>
-References: <1154821010.5517.48.camel@jzny2> <20060806025123.GA27051@gondor.apana.org.au> <1154867083.6269.35.camel@jzny2> <1154867589.6269.40.camel@jzny2> <4807377b0608061616p5731524fvb0612bdbc32e59b@mail.gmail.com> <1154955036.5246.32.camel@jzny2> <20060807152126.GL24653@edgar.underground.se.axis.com> <1154965249.5446.15.camel@jzny2> <20060807155929.GM24653@edgar.underground.se.axis.com> <1154968319.5446.30.camel@jzny2>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, auke-jan.h.kok@intel.com,
-	jesse.brandeburg@intel.com, mchan@broadcom.com,
-	shemminger@osdl.org, David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 1/7] [NEIGH]: Convert neighbour deletion to new netlink api
+Date: Mon, 07 Aug 2006 00:00:01 +0200
+Message-ID: <20060807171049.731389201@postel.suug.ch>
+References: <20060807170944.259251279@postel.suug.ch>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from miranda.se.axis.com ([193.13.178.8]:60348 "EHLO
-	miranda.se.axis.com") by vger.kernel.org with ESMTP id S932227AbWHGREF
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 13:04:05 -0400
-Received: from axis.com (edgar.se.axis.com [10.92.151.1])
-	by miranda.se.axis.com (8.12.9/8.12.9/Debian-5local0.1) with ESMTP id k77H43P0011517
-	for <netdev@vger.kernel.org>; Mon, 7 Aug 2006 19:04:03 +0200
-To: Jamal Hadi Salim <hadi@znyx.com>
-Content-Disposition: inline
-In-Reply-To: <1154968319.5446.30.camel@jzny2>
+Received: from postel.suug.ch ([194.88.212.233]:462 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1750793AbWHGRMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 13:12:10 -0400
+To: davem@davemloft.net
+Content-Disposition: inline; filename=nl_neigh_del
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 07, 2006 at 12:31:59PM -0400, Jamal Hadi Salim wrote:
-> On Mon, 2006-07-08 at 17:59 +0200, Edgar E. Iglesias wrote:
-> 
-> > Ok, I thought you wanted the code inside the ifdefs to be considered. If not,
-> > I guess there is no problem. Yes, the forwarding case does not suffer from
-> > any deadlocks issues that I am aware of.
-> > 
-> 
-> >From my tests:
-> It does _not_ provide any performance improvements and at some point i decided
-> i didnt want to add more variables to analyze, so i got rid of it; I would have 
-> had to hand edit the patch to totally remove it; so that why you still see the 
-> ifdefed out variant.
-> 
-> > No, the deadlock happens only if you don't prune the descriptors. If the host
-> > sends some data and then goes quite, fdesc < tx_ring->prunet might not be
-> > true for a long time and skbs will end up sitting in the tx ring indefinitely,
-> > charging the socket's sndbuf.
-> > 
-> 
-> Note: I didnt get rid of the rx path pruning. i.e that is still on. It
-> just prunes lesser descriptors with that change on the tx. So not very
-> different from before.
-> 
-> I think i may be getting a gist now of the discussion after a re-read; 
-> while packets are still charged to TCP may have been transmitted they may sit
-> on the tx ring forever. They will only be pruned if we had netif_stopped
-> (and even that is not good enough with Jesse's threshold check) or if a
-> new packet comes in destined for us. 
-> Did i understand correctly? If yes, i didnt introduce this challenge it
-> has always been there. I think i understand the suggestion now from
-> Dave/Herbert to orphan those skbs... 
+Fixes:
+  Return ENOENT if the neighbour is not found (was EINVAL)
+  Return EAFNOSUPPORT if no table matches the specified
+  address family.
 
-I'll give you an example.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-A TCP flow sends X data and later waits for a response, host is now quietly
-waiting. Assume fdesc >= tx_ring->prunet, so we dont free any skbs, right?
+Index: net-2.6.19.git/net/core/neighbour.c
+===================================================================
+--- net-2.6.19.git.orig/net/core/neighbour.c
++++ net-2.6.19.git/net/core/neighbour.c
+@@ -30,6 +30,7 @@
+ #include <net/dst.h>
+ #include <net/sock.h>
+ #include <net/netevent.h>
++#include <net/netlink.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/random.h>
+ #include <linux/string.h>
+@@ -1437,48 +1438,62 @@ int neigh_table_clear(struct neigh_table
+ 
+ int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
+-	struct ndmsg *ndm = NLMSG_DATA(nlh);
+-	struct rtattr **nda = arg;
++	struct ndmsg *ndm;
++	struct nlattr *dst_attr;
+ 	struct neigh_table *tbl;
+ 	struct net_device *dev = NULL;
+-	int err = -ENODEV;
++	int err = -EINVAL;
+ 
+-	if (ndm->ndm_ifindex &&
+-	    (dev = dev_get_by_index(ndm->ndm_ifindex)) == NULL)
++	if (nlmsg_len(nlh) < sizeof(*ndm))
++		goto out;
++
++	dst_attr = nlmsg_find_attr(nlh, sizeof(*ndm), NDA_DST);
++	if (dst_attr == NULL)
+ 		goto out;
+ 
++	ndm = nlmsg_data(nlh);
++	if (ndm->ndm_ifindex) {
++		dev = dev_get_by_index(ndm->ndm_ifindex);
++		if (dev == NULL) {
++			err = -ENODEV;
++			goto out;
++		}
++	}
++
+ 	read_lock(&neigh_tbl_lock);
+ 	for (tbl = neigh_tables; tbl; tbl = tbl->next) {
+-		struct rtattr *dst_attr = nda[NDA_DST - 1];
+-		struct neighbour *n;
++		struct neighbour *neigh;
+ 
+ 		if (tbl->family != ndm->ndm_family)
+ 			continue;
+ 		read_unlock(&neigh_tbl_lock);
+ 
+-		err = -EINVAL;
+-		if (!dst_attr || RTA_PAYLOAD(dst_attr) < tbl->key_len)
++		if (nla_len(dst_attr) < tbl->key_len)
+ 			goto out_dev_put;
+ 
+ 		if (ndm->ndm_flags & NTF_PROXY) {
+-			err = pneigh_delete(tbl, RTA_DATA(dst_attr), dev);
++			err = pneigh_delete(tbl, nla_data(dst_attr), dev);
+ 			goto out_dev_put;
+ 		}
+ 
+-		if (!dev)
+-			goto out;
++		if (dev == NULL)
++			goto out_dev_put;
+ 
+-		n = neigh_lookup(tbl, RTA_DATA(dst_attr), dev);
+-		if (n) {
+-			err = neigh_update(n, NULL, NUD_FAILED, 
+-					   NEIGH_UPDATE_F_OVERRIDE|
+-					   NEIGH_UPDATE_F_ADMIN);
+-			neigh_release(n);
++		neigh = neigh_lookup(tbl, nla_data(dst_attr), dev);
++		if (neigh == NULL) {
++			err = -ENOENT;
++			goto out_dev_put;
+ 		}
++
++		err = neigh_update(neigh, NULL, NUD_FAILED,
++				   NEIGH_UPDATE_F_OVERRIDE |
++				   NEIGH_UPDATE_F_ADMIN);
++		neigh_release(neigh);
+ 		goto out_dev_put;
+ 	}
+ 	read_unlock(&neigh_tbl_lock);
+-	err = -EADDRNOTAVAIL;
++	err = -EAFNOSUPPORT;
++
+ out_dev_put:
+ 	if (dev)
+ 		dev_put(dev);
 
-Now assume that some part of X data gets lost, our retransmit timer hits and
-we want to retransmit but our socket is charged with too much data sitting on
-the nics tx-ring, so we don't send anything. By orphaning, those skbs won't
-charge the socket and the flow can retransmit.
-
-Best regards
--- 
-        Programmer
-        Edgar E. Iglesias <edgar.iglesias@axis.com> 46.46.272.1946
