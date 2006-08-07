@@ -1,206 +1,142 @@
-From: Frank v Waveren <fvw@var.cx>
-Subject: forcedeth gigabit detection
-Date: Mon, 7 Aug 2006 17:42:35 +0200
-Message-ID: <20060807154235.GA26603@var.cx>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] net/: make code static
+Date: Mon, 7 Aug 2006 17:49:47 +0200
+Message-ID: <20060807154947.GE3691@stusta.de>
+References: <20060806030809.2cfb0b1e.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="YiEDa0DAkWCtVeE4"
-Cc: c-d.hailfinger.kernel.2004@gmx.net
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from adsl-230-146.dsl.uva.nl ([146.50.230.146]:58024 "EHLO
-	hypnos.var.cx") by vger.kernel.org with ESMTP id S932171AbWHGPmh
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 11:42:37 -0400
-To: netdev@vger.kernel.org
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:10255 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S932187AbWHGPtt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Aug 2006 11:49:49 -0400
+To: Andrew Morton <akpm@osdl.org>, davem@davemloft.net
 Content-Disposition: inline
+In-Reply-To: <20060806030809.2cfb0b1e.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This patch makes needlessly global code static.
 
---YiEDa0DAkWCtVeE4
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-(sorry about sending this to you twice Carl-Daniel, I sent this to
-@oss.sgi.com by accident)
+---
 
-The nforce2 builtin network on my A7N8X-delux motherboard won't detect
-as gigabit-capable using the forcedeth driver.=20
+BTW:
+It doesn't seem to be intended that the new
+ipv4/fib_rules.c:fib4_rules_cleanup() is completely unused?
 
-I'm using the forcedeth driver that comes with linux 2.6.17 (which is
-0.54).
+ include/net/ip6_fib.h              |    4 ----
+ net/ipv4/cipso_ipv4.c              |    2 +-
+ net/ipv4/fib_rules.c               |    4 ++--
+ net/ipv6/fib6_rules.c              |    4 ++--
+ net/ipv6/ip6_fib.c                 |    6 +++---
+ net/ipv6/route.c                   |    6 +++---
+ net/netlabel/netlabel_domainhash.c |    4 ++--
+ 7 files changed, 13 insertions(+), 17 deletions(-)
 
-Ethtool gives:
-Settings for eth1:
-        Supported ports: [ MII ]
-        Supported link modes:   10baseT/Half 10baseT/Full=20
-                                100baseT/Half 100baseT/Full=20
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full=20
-                                100baseT/Half 100baseT/Full=20
-        Advertised auto-negotiation: Yes
-        Speed: 100Mb/s
-        Duplex: Full
-        Port: MII
-        PHYAD: 1
-        Transceiver: external
-        Auto-negotiation: on
-        Supports Wake-on: g
-        Wake-on: d
-        Link detected: yes
+--- linux-2.6.18-rc3-mm2-full/net/ipv4/cipso_ipv4.c.old	2006-08-07 16:39:05.000000000 +0200
++++ linux-2.6.18-rc3-mm2-full/net/ipv4/cipso_ipv4.c	2006-08-07 16:39:15.000000000 +0200
+@@ -60,7 +60,7 @@
+  * if in practice there are a lot of different DOIs this list should
+  * probably be turned into a hash table or something similar so we
+  * can do quick lookups. */
+-DEFINE_SPINLOCK(cipso_v4_doi_list_lock);
++static DEFINE_SPINLOCK(cipso_v4_doi_list_lock);
+ static struct list_head cipso_v4_doi_list = LIST_HEAD_INIT(cipso_v4_doi_list);
+ 
+ /* Label mapping cache */
+--- linux-2.6.18-rc3-mm2-full/net/ipv4/fib_rules.c.old	2006-08-07 16:39:33.000000000 +0200
++++ linux-2.6.18-rc3-mm2-full/net/ipv4/fib_rules.c	2006-08-07 16:39:51.000000000 +0200
+@@ -101,8 +101,8 @@
+ 	return err;
+ }
+ 
+-int fib4_rule_action(struct fib_rule *rule, struct flowi *flp, int flags,
+-		     struct fib_lookup_arg *arg)
++static int fib4_rule_action(struct fib_rule *rule, struct flowi *flp,
++			    int flags, struct fib_lookup_arg *arg)
+ {
+ 	int err = -EAGAIN;
+ 	struct fib_table *tbl;
+--- linux-2.6.18-rc3-mm2-full/net/ipv6/fib6_rules.c.old	2006-08-07 16:41:07.000000000 +0200
++++ linux-2.6.18-rc3-mm2-full/net/ipv6/fib6_rules.c	2006-08-07 16:41:16.000000000 +0200
+@@ -66,8 +66,8 @@
+ 	return (struct dst_entry *) arg.result;
+ }
+ 
+-int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
+-		     int flags, struct fib_lookup_arg *arg)
++static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
++			    int flags, struct fib_lookup_arg *arg)
+ {
+ 	struct rt6_info *rt = NULL;
+ 	struct fib6_table *table;
+--- linux-2.6.18-rc3-mm2-full/include/net/ip6_fib.h.old	2006-08-07 16:41:36.000000000 +0200
++++ linux-2.6.18-rc3-mm2-full/include/net/ip6_fib.h	2006-08-07 16:41:43.000000000 +0200
+@@ -192,10 +192,6 @@
+ 					     struct in6_addr *daddr, int dst_len,
+ 					     struct in6_addr *saddr, int src_len);
+ 
+-extern void			fib6_clean_tree(struct fib6_node *root,
+-						int (*func)(struct rt6_info *, void *arg),
+-						int prune, void *arg);
+-
+ extern void			fib6_clean_all(int (*func)(struct rt6_info *, void *arg),
+ 					       int prune, void *arg);
+ 
+--- linux-2.6.18-rc3-mm2-full/net/ipv6/ip6_fib.c.old	2006-08-07 16:41:51.000000000 +0200
++++ linux-2.6.18-rc3-mm2-full/net/ipv6/ip6_fib.c	2006-08-07 16:42:05.000000000 +0200
+@@ -1169,9 +1169,9 @@
+  *	ignoring pure split nodes) will be scanned.
+  */
+ 
+-void fib6_clean_tree(struct fib6_node *root,
+-		     int (*func)(struct rt6_info *, void *arg),
+-		     int prune, void *arg)
++static void fib6_clean_tree(struct fib6_node *root,
++			    int (*func)(struct rt6_info *, void *arg),
++			    int prune, void *arg)
+ {
+ 	struct fib6_cleaner_t c;
+ 
+--- linux-2.6.18-rc3-mm2-full/net/ipv6/route.c.old	2006-08-07 16:42:24.000000000 +0200
++++ linux-2.6.18-rc3-mm2-full/net/ipv6/route.c	2006-08-07 16:43:05.000000000 +0200
+@@ -613,8 +613,8 @@
+ 	return rt;
+ }
+ 
+-struct rt6_info *ip6_pol_route_input(struct fib6_table *table, struct flowi *fl,
+-				     int flags)
++static struct rt6_info *ip6_pol_route_input(struct fib6_table *table,
++					    struct flowi *fl, int flags)
+ {
+ 	struct fib6_node *fn;
+ 	struct rt6_info *rt, *nrt;
+@@ -872,7 +872,7 @@
+ }
+ 
+ static struct dst_entry *ndisc_dst_gc_list;
+-DEFINE_SPINLOCK(ndisc_lock);
++static DEFINE_SPINLOCK(ndisc_lock);
+ 
+ struct dst_entry *ndisc_dst_alloc(struct net_device *dev, 
+ 				  struct neighbour *neigh,
+--- linux-2.6.18-rc3-mm2-full/net/netlabel/netlabel_domainhash.c.old	2006-08-07 16:43:27.000000000 +0200
++++ linux-2.6.18-rc3-mm2-full/net/netlabel/netlabel_domainhash.c	2006-08-07 16:43:53.000000000 +0200
+@@ -50,11 +50,11 @@
+ /* Domain hash table */
+ /* XXX - updates should be so rare that having one spinlock for the entire
+  * hash table should be okay */
+-DEFINE_SPINLOCK(netlbl_domhsh_lock);
++static DEFINE_SPINLOCK(netlbl_domhsh_lock);
+ static struct netlbl_domhsh_tbl *netlbl_domhsh = NULL;
+ 
+ /* Default domain mapping */
+-DEFINE_SPINLOCK(netlbl_domhsh_def_lock);
++static DEFINE_SPINLOCK(netlbl_domhsh_def_lock);
+ static struct netlbl_dom_map *netlbl_domhsh_def = NULL;
+ 
+ /*
 
-I assume the supported link modes are those supported by the NIC, not
-the link (It's a short piece of cat5 between the two cards (no
-switch/hub), it should support gigabit but you never know)?
-
-The odd thing is the NIC on the other side of the cable (which is also
-a forcedeth from the nforce3 chipset) detects as:
-Settings for eth0:
-        Supported ports: [ MII ]
-        Supported link modes:   10baseT/Half 10baseT/Full=20
-                                100baseT/Half 100baseT/Full=20
-                                1000baseT/Full=20
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full=20
-                                100baseT/Half 100baseT/Full=20
-                                1000baseT/Full=20
-        Advertised auto-negotiation: Yes
-        Speed: 100Mb/s
-        Duplex: Full
-        Port: MII
-        PHYAD: 1
-        Transceiver: externel
-        Auto-negotiation: on
-        Supports Wake-on: g
-        Wake-on: d
-        Link detected: yes
-
-Here's the debugging output from the forcedeth that won't do gigabit
-on module load and bringing the interface up:
-Aug  7 15:52:46 jupiter kernel: PCI: Setting latency timer of device 0000:0=
-0:04.0 to 64
-Aug  7 15:52:46 jupiter kernel: 0000:00:04.0: resource 0 start df083000 len=
- 4096 flags 0x00000200.
-Aug  7 15:52:46 jupiter kernel: 0000:00:04.0: MAC Address 00:0e:a6:0b:6f:73
-Aug  7 15:52:46 jupiter kernel: eth%%d: mii_rw read from reg 2 at PHY 1: 0x=
-0.
-Aug  7 15:52:46 jupiter kernel: eth%%d: mii_rw read from reg 3 at PHY 1: 0x=
-8201.
-Aug  7 15:52:46 jupiter kernel: 0000:00:04.0: open: Found PHY 0000:0020 at =
-address 1.
-Aug  7 15:52:46 jupiter kernel: eth%%d: mii_rw read from reg 4 at PHY 1: 0x=
-1e1.
-Aug  7 15:52:46 jupiter kernel: eth%%d: mii_rw wrote 0xde1 to reg 4 at PHY 1
-Aug  7 15:52:46 jupiter kernel: eth%%d: mii_rw read from reg 1 at PHY 1: 0x=
-786d.
-Aug  7 15:52:46 jupiter kernel: eth%%d: mii_rw read from reg 0 at PHY 1: 0x=
-3100.
-Aug  7 15:52:46 jupiter kernel: eth%%d: mii_rw wrote 0xb100 to reg 0 at PHY=
- 1
-Aug  7 15:52:46 jupiter kernel: eth%%d: mii_rw read from reg 0 at PHY 1: 0x=
-3000.
-Aug  7 15:52:46 jupiter kernel: eth%%d: mii_rw read from reg 0 at PHY 1: 0x=
-3000.
-Aug  7 15:52:46 jupiter kernel: eth%%d: mii_rw wrote 0x3200 to reg 0 at PHY=
- 1
-Aug  7 15:53:03 jupiter kernel: nv_open: begin
-Aug  7 15:53:03 jupiter kernel: eth1: nv_alloc_rx: Packet 0 marked as Avail=
-able
-=2E..
-Aug  7 15:53:03 jupiter kernel: eth1: nv_alloc_rx: Packet 127 marked as Ava=
-ilable
-Aug  7 15:53:03 jupiter kernel: eth1: nv_txrx_reset
-Aug  7 15:53:03 jupiter kernel: eth1: mii_rw read from reg 1 at PHY 1: 0x78=
-6d.
-Aug  7 15:53:03 jupiter kernel: eth1: mii_rw read from reg 1 at PHY 1: 0x78=
-6d.
-Aug  7 15:53:03 jupiter kernel: eth1: mii_rw read from reg 4 at PHY 1: 0x1e=
-1.
-Aug  7 15:53:03 jupiter kernel: eth1: mii_rw read from reg 5 at PHY 1: 0xc5=
-e1.
-Aug  7 15:53:03 jupiter kernel: eth1: nv_update_linkspeed: PHY advertises 0=
-x01e1, lpa 0xc5e1.
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_rx
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_rx to duplex 1, speed 0x0001=
-0064.
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_tx
-Aug  7 15:53:03 jupiter kernel: eth1: nv_stop_rx
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_rx
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_rx to duplex 1, speed 0x0001=
-0064.
-Aug  7 15:53:03 jupiter kernel: eth1: nv_stop_rx
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_rx
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_rx to duplex 1, speed 0x0001=
-0064.
-Aug  7 15:53:03 jupiter kernel: eth1: nv_stop_rx
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_rx
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_rx to duplex 1, speed 0x0001=
-0064.
-Aug  7 15:53:03 jupiter kernel: eth1: nv_stop_rx
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_rx
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_rx to duplex 1, speed 0x0001=
-0064.
-Aug  7 15:53:03 jupiter kernel: eth1: nv_stop_rx
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_rx
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_rx to duplex 1, speed 0x0001=
-0064.
-Aug  7 15:53:03 jupiter kernel: eth1: nv_stop_rx
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_rx
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_rx to duplex 1, speed 0x0001=
-0064.
-Aug  7 15:53:03 jupiter kernel: eth1: nv_nic_irq
-Aug  7 15:53:03 jupiter kernel: eth1: irq: 00000020
-Aug  7 15:53:03 jupiter kernel: eth1: nv_rx_process: looking at packet 128,=
- Flags 0x8000061c.
-Aug  7 15:53:03 jupiter kernel: eth1: mii_rw read from reg 1 at PHY 1: 0x78=
-6d.
-Aug  7 15:53:03 jupiter kernel: eth1: mii_rw read from reg 1 at PHY 1: 0x78=
-6d.
-Aug  7 15:53:03 jupiter kernel: eth1: mii_rw read from reg 4 at PHY 1: 0x1e=
-1.
-Aug  7 15:53:03 jupiter kernel: eth1: mii_rw read from reg 5 at PHY 1: 0xc5=
-e1.
-Aug  7 15:53:03 jupiter kernel: eth1: nv_update_linkspeed: PHY advertises 0=
-x01e1, lpa 0xc5e1.
-Aug  7 15:53:03 jupiter kernel: eth1: irq: 00000000
-Aug  7 15:53:03 jupiter kernel: eth1: nv_nic_irq completed
-Aug  7 15:53:03 jupiter kernel: eth1: nv_start_xmit: packet 0 (entries 1) q=
-ueued for transmission. tx_flags_extra: 0
-Aug  7 15:53:03 jupiter kernel: eth1: nv_nic_irq
-Aug  7 15:53:03 jupiter kernel: eth1: irq: 00000010
-Aug  7 15:53:03 jupiter kernel: eth1: nv_tx_done: looking at packet 0, Flag=
-s 0x1005e.
-Aug  7 15:53:03 jupiter kernel: eth1: nv_rx_process: looking at packet 128,=
- Flags 0x8000061c.
-Aug  7 15:53:03 jupiter kernel: eth1: irq: 00000000
-Aug  7 15:53:03 jupiter kernel: eth1: nv_nic_irq completed
-Aug  7 15:53:03 jupiter kernel: eth1: nv_nic_irq
-Aug  7 15:53:03 jupiter kernel: eth1: irq: 00000020
-
-I haven't tried the old closed-source nvnet driver yet as it won't
-compile with gcc 4, but I can get an older gcc and recompile
-the kernel if necessary.
-
-I'd be most grateful for any advice you might have on getting things
-working, if anyone needs any further information please let me know.
-
---=20
-Frank v Waveren                                  Key fingerprint: BDD7 D61E
-fvw@var.cx                                              5D39 CF05 4BFC F57A
-Public key: hkp://wwwkeys.pgp.net/468D62C8              FA00 7D51 468D 62C8
-
---YiEDa0DAkWCtVeE4
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.3 (GNU/Linux)
-
-iD8DBQFE119r+gB9UUaNYsgRAg3RAJ91YsBpLxpfTf4VIz+bU/hGQs/xaQCfeCkK
-jqWnbDzfdUUVdCX4dGa0Vko=
-=B7AG
------END PGP SIGNATURE-----
-
---YiEDa0DAkWCtVeE4--
