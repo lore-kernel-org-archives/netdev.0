@@ -1,55 +1,63 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Tue, 8 Aug 2006 09:23:40 +1000
-Message-ID: <20060807232340.GA11088@gondor.apana.org.au>
-References: <4807377b0608061616p5731524fvb0612bdbc32e59b@mail.gmail.com> <1154955036.5246.32.camel@jzny2> <20060807152126.GL24653@edgar.underground.se.axis.com> <1154965249.5446.15.camel@jzny2> <20060807155929.GM24653@edgar.underground.se.axis.com> <1154968319.5446.30.camel@jzny2> <20060807170403.GA10818@edgar.underground.se.axis.com> <1154973625.5446.56.camel@jzny2> <20060807184748.GA10909@edgar.underground.se.axis.com> <1154977413.5446.83.camel@jzny2>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Edgar E. Iglesias" <edgar.iglesias@axis.com>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	David Miller <davem@davemloft.net>, shemminger@osdl.org,
-	mchan@broadcom.com, jesse.brandeburg@intel.com,
-	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
+From: Jouni Malinen <jkm@devicescape.com>
+Subject: [PATCH wireless-dev 5/6] d80211: Fix ieee80211_remove_tx_extra() if key not configured
+Date: Mon, 07 Aug 2006 16:16:13 -0700
+Message-ID: <20060807231938.892291916@localhost>
+References: <20060807231608.888744720@localhost>
+Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
+	jkm@devicescape.com, jkmaline@cc.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:50181 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932291AbWHGXZB
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 19:25:01 -0400
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1154977413.5446.83.camel@jzny2>
+Received: from dhost002-17.dex002.intermedia.net ([64.78.21.83]:370 "EHLO
+	dhost002-17.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S932338AbWHGX05 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Aug 2006 19:26:57 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+Content-Disposition: inline; filename=remove_tx_extra.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 07, 2006 at 03:03:33PM -0400, jamal wrote:
-> 
-> -#define E1000_TX_WEIGHT 64
-> -               /* weight of a sort for tx, to avoid endless transmit
-> cleanup */
-> -               if (count++ == E1000_TX_WEIGHT) break;
-> +               /* avoid endless transmit cleanup */
-> +               if (count++ == tx_ring->prunet) break;
-> 
-> As you can see E1000_TX_WEIGHT threshold exists today and you are right
-> if no TX interupts, packet arrivals or scheduled wakes happen the that
-> descriptor that was not pruned will sit there forever (which is a bad
-> thing for TCP). Are we in sync?
-> If yes, what is the likelihood they will sit there forever? I think
-> perhaps some TX interupts will happen, no?
+QoS header processing mangled unencrypted WMM frames on software
+retry. The QoS data needs to be removed even when encryption key is
+not configured.
 
-I thought this code is only used for NAPI so as long as work was done
-it'll keep calling this.
+Signed-off-by: Jouni Malinen <jkm@devicescape.com>
 
-One thing I'm not sure about though is the time between it decides that
-there is no work and the point where the interrupts are reenabled.
+Index: wireless-dev/net/d80211/ieee80211.c
+===================================================================
+--- wireless-dev.orig/net/d80211/ieee80211.c
++++ wireless-dev/net/d80211/ieee80211.c
+@@ -3977,11 +3977,11 @@ static void ieee80211_remove_tx_extra(st
+ 	pkt_data->requeue = control->requeue;
+ 	pkt_data->queue = control->queue;
+ 
+-	if (key == NULL)
+-		return;
+-
+ 	hdrlen = ieee80211_get_hdrlen_from_skb(skb);
+ 
++	if (key == NULL)
++		goto no_key;
++
+ 	switch (key->alg) {
+ 	case ALG_WEP:
+ 		iv_len = WEP_IV_LEN;
+@@ -3996,7 +3996,7 @@ static void ieee80211_remove_tx_extra(st
+ 		mic_len = CCMP_MIC_LEN;
+ 		break;
+ 	default:
+-		return;
++		goto no_key;
+ 	}
+ 
+ 	if (skb->len >= mic_len && key->force_sw_encrypt)
+@@ -4006,6 +4006,7 @@ static void ieee80211_remove_tx_extra(st
+ 		skb_pull(skb, iv_len);
+ 	}
+ 
++no_key:
+ 	{
+ 		struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
+ 		u16 fc = le16_to_cpu(hdr->frame_control);
 
-What if work arrives in that time and no work ever arrives after the
-interrupts are turned on again? Does that mean the work will sit there
-forever?
-
-Cheers,
+--
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Jouni Malinen                                            PGP id EFC895FA
