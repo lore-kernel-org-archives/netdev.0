@@ -1,50 +1,76 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Mon, 7 Aug 2006 13:53:14 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.63.0608071350510.3576@jbrandeb-desk.amr.corp.intel.com>
-References: <1154867083.6269.35.camel@jzny2>  <1154867589.6269.40.camel@jzny2>
-  <4807377b0608061616p5731524fvb0612bdbc32e59b@mail.gmail.com>
- <1154955036.5246.32.camel@jzny2>  <20060807152126.GL24653@edgar.underground.se.axis.com>
-  <1154965249.5446.15.camel@jzny2>  <20060807155929.GM24653@edgar.underground.se.axis.com>
-  <1154968319.5446.30.camel@jzny2>  <20060807170403.GA10818@edgar.underground.se.axis.com>
-  <1154973625.5446.56.camel@jzny2>  <20060807184748.GA10909@edgar.underground.se.axis.com>
- <1154977413.5446.83.camel@jzny2>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [RFC: -mm patch] bcm43xx_main.c: remove 3 functions
+Date: Mon, 7 Aug 2006 23:04:15 +0200
+Message-ID: <20060807210415.GO3691@stusta.de>
+References: <20060806030809.2cfb0b1e.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Edgar E. Iglesias" <edgar.iglesias@axis.com>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, shemminger@osdl.org,
-	mchan@broadcom.com, jesse.brandeburg@intel.com,
-	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:46226 "EHLO
-	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
-	id S932364AbWHGU5g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 16:57:36 -0400
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <1154977413.5446.83.camel@jzny2>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:35345 "HELO
+	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
+	id S932282AbWHGVES (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Aug 2006 17:04:18 -0400
+To: Andrew Morton <akpm@osdl.org>, Michael Buesch <mb@bu3sch.de>,
+	linville@tuxdriver.com, jgarzik@pobox.com
+Content-Disposition: inline
+In-Reply-To: <20060806030809.2cfb0b1e.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 7 Aug 2006, jamal wrote:
-> -#define E1000_TX_WEIGHT 64
-> -               /* weight of a sort for tx, to avoid endless transmit
-> cleanup */
-> -               if (count++ == E1000_TX_WEIGHT) break;
-> +               /* avoid endless transmit cleanup */
-> +               if (count++ == tx_ring->prunet) break;
-> 
-> As you can see E1000_TX_WEIGHT threshold exists today and you are right
-> if no TX interupts, packet arrivals or scheduled wakes happen the that
-> descriptor that was not pruned will sit there forever (which is a bad
-> thing for TCP). Are we in sync?
-> If yes, what is the likelihood they will sit there forever? I think
-> perhaps some TX interupts will happen, no?
+This patch removes three no longer used functions (that are even 
+generating gcc warnings).
 
-we don't enable it right now, but you could use the TXQE (tx queue empty) 
-interrupt to avoid the starvation case.  I think it might flood you with 
-TXQE interrupts however, so we'd probably have to figure out some way to 
-turn it on occasionally.
+This patch doesn't look right, but it is the result of 
+58e5528ee464d38040b9489e10033c9387a10d56 in git-netdev...
 
-Jesse
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+ drivers/net/wireless/bcm43xx/bcm43xx_main.c |   33 --------------------
+ 1 file changed, 33 deletions(-)
+
+--- linux-2.6.18-rc3-mm2-full/drivers/net/wireless/bcm43xx/bcm43xx_main.c.old	2006-08-07 18:21:31.000000000 +0200
++++ linux-2.6.18-rc3-mm2-full/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-08-07 18:23:36.000000000 +0200
+@@ -3194,39 +3194,6 @@
+ 	bcm43xx_clear_keys(bcm);
+ }
+ 
+-static int bcm43xx_rng_read(struct hwrng *rng, u32 *data)
+-{
+-	struct bcm43xx_private *bcm = (struct bcm43xx_private *)rng->priv;
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&(bcm)->irq_lock, flags);
+-	*data = bcm43xx_read16(bcm, BCM43xx_MMIO_RNG);
+-	spin_unlock_irqrestore(&(bcm)->irq_lock, flags);
+-
+-	return (sizeof(u16));
+-}
+-
+-static void bcm43xx_rng_exit(struct bcm43xx_private *bcm)
+-{
+-	hwrng_unregister(&bcm->rng);
+-}
+-
+-static int bcm43xx_rng_init(struct bcm43xx_private *bcm)
+-{
+-	int err;
+-
+-	snprintf(bcm->rng_name, ARRAY_SIZE(bcm->rng_name),
+-		 "%s_%s", KBUILD_MODNAME, bcm->net_dev->name);
+-	bcm->rng.name = bcm->rng_name;
+-	bcm->rng.data_read = bcm43xx_rng_read;
+-	bcm->rng.priv = (unsigned long)bcm;
+-	err = hwrng_register(&bcm->rng);
+-	if (err)
+-		printk(KERN_ERR PFX "RNG init failed (%d)\n", err);
+-
+-	return err;
+-}
+-
+ static int bcm43xx_shutdown_all_wireless_cores(struct bcm43xx_private *bcm)
+ {
+ 	int ret = 0;
+
