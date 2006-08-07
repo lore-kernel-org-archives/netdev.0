@@ -1,56 +1,42 @@
-From: Xiaolan Zhang <cxzhang@us.ibm.com>
-Subject: Re: [SELinux]: selinux_socket_getpeersec_dgram() compile fix
-Date: Mon, 7 Aug 2006 00:07:10 -0400
-Message-ID: <OFCA41DD70.986D1781-ON852571C3.00168B57-852571C3.0016A014@us.ibm.com>
-References: <20060805115620.GO14627@postel.suug.ch>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
+Date: Mon, 7 Aug 2006 14:21:30 +1000
+Message-ID: <20060807042130.GA3943@gondor.apana.org.au>
+References: <20060806230406.GA1413@gondor.apana.org.au> <1551EAE59135BE47B544934E30FC4FC093FA18@NT-IRVA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: cxzhang@watson.ibm.com, davem@davemloft.net, jmorris@namei.org,
-	netdev@vger.kernel.org, paul.moore@hp.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, David Miller <davem@davemloft.net>,
+	shemminger@osdl.org, jesse.brandeburg@intel.com,
+	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:37318 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1751010AbWHGEHO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 00:07:14 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e2.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k7747EMu028209
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 7 Aug 2006 00:07:14 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay04.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k7747DDR222220
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 7 Aug 2006 00:07:13 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7747Ccv023709
-	for <netdev@vger.kernel.org>; Mon, 7 Aug 2006 00:07:13 -0400
-In-Reply-To: <20060805115620.GO14627@postel.suug.ch>
-To: Thomas Graf <tgraf@suug.ch>
+Received: from rhun.apana.org.au ([64.62.148.172]:38152 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751042AbWHGFIl
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Aug 2006 01:08:41 -0400
+To: Michael Chan <mchan@broadcom.com>
+Content-Disposition: inline
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC093FA18@NT-IRVA-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Acked-by: Catherine Zhang <cxzhang@watson.ibm.com>
-
-Thomas Graf <tgraf@suug.ch> wrote on 08/05/2006 07:56:20 AM:
-
-> Collision between "[NetLabel]: SELinux support"  and
-> "[AF_UNIX]: Kernel memory leak fix for af_unix datagram getpeersec"
+On Sun, Aug 06, 2006 at 08:56:31PM -0700, Michael Chan wrote:
+>
+> > Because netif_queue_stopped is *not* a memory barrier, it can float
+> > above the assignment to tx_cons.  So even though netif_stop_queue *is*
+> > a memory barrier on x86, the second BUFF_AVAIL test can still fail to
+> > see the updated index.
+> > 
+> > The fix here is obviously to add a memory barrier in tg3_tx.
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> 
-> Index: net-2.6.19.git/security/selinux/hooks.c
-> ===================================================================
-> --- net-2.6.19.git.orig/security/selinux/hooks.c
-> +++ net-2.6.19.git/security/selinux/hooks.c
-> @@ -3556,9 +3556,9 @@ static int selinux_socket_getpeersec_dgr
->     if (sock && (sock->sk->sk_family == PF_UNIX))
->        selinux_get_inode_sid(SOCK_INODE(sock), &peer_secid);
->     else if (skb) {
-> -      peer_sid = selinux_netlbl_socket_getpeersec_dgram(skb);
-> -      if (peer_sid == SECSID_NULL)
-> -         peer_sid = selinux_socket_getpeer_dgram(skb);
-> +      peer_secid = selinux_netlbl_socket_getpeersec_dgram(skb);
-> +      if (peer_secid == SECSID_NULL)
-> +         peer_secid = selinux_socket_getpeer_dgram(skb);
->     }
-> 
->     if (peer_secid == SECSID_NULL)
+> You are absolutely right and I missed it.  We should add a wmb()
+> after the tx_cons update in tg3_tx().  Thanks.
 
+A wmb() only prevents stores from passing stores.  We need to prevent
+a load from passing a store so you need a full memory barrier (smp_mb).
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
