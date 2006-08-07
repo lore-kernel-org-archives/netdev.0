@@ -1,45 +1,86 @@
-From: "MRS.JARIATU AL YASSIF" <jariatu_alyassif5@yahoo.com>
-Subject: GOD BLESSED YOU.
-Date: Mon, 7 Aug 2006 09:18:25 +0200
-Message-ID: <200608070912.k779C3S9027304@zeus1.kernel.org>
-Reply-To: jariatu_alyassif4@yahoo.com
+From: Balazs Scheidler <bazsi@balabit.hu>
+Subject: Re: [patch] RFC: matching interface groups
+Date: Mon, 07 Aug 2006 13:44:10 +0200
+Message-ID: <1154951050.18676.12.camel@bzorp.balabit>
+References: <1154452209.6395.77.camel@bzorp.balabit>
+	 <44D31C2F.2050702@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus1.kernel.org ([204.152.191.4]:64979 "EHLO zeus1.kernel.org")
-	by vger.kernel.org with ESMTP id S1751170AbWHGJMZ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 05:12:25 -0400
-Received: from ok6552.com ([196.207.208.33])
-	by zeus1.kernel.org (8.13.7/8.13.1) with SMTP id k779C3S9027304
-	for <netdev@vger.kernel.org>; Mon, 7 Aug 2006 09:12:22 GMT
-To: netdev@vger.kernel.org
+Received: from balabit.hu ([82.141.167.23]:59096 "EHLO balabit.hu")
+	by vger.kernel.org with ESMTP id S1750711AbWHGLoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 07:44:13 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <44D31C2F.2050702@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-FROM MRS.JARIATU AL YASSIF
-CITE AIR FRANCE YOFF DAKAR 
-SENEGAL.
+On Fri, 2006-08-04 at 12:06 +0200, Patrick McHardy wrote:
+> Balazs Scheidler wrote:
+> > The use-case is as follows:
+> > 
+> > * I have two different subsystems creating interfaces dynamically (for
+> > example pptpd and serial pppd lines, each creating dynamic pppX
+> > interfaces),
+> > * I would like to assign a different set of iptables rules for these
+> > clients,
+> > * I would like to react to a new interface being added to a specific set
+> > in a userspace application,
+> > 
+> > The reasons I see this needs new kernel functionality:
+> > 
+> > * iptables supports wildcard interface matching (for example "iptables
+> > -i ppp+"), but as the names of the interfaces used by PPTPD and PPPD
+> > cannot be distinguished this way, this is not enough,
+> > * Reloading the iptables ruleset everytime a new interface comes up is
+> > not really feasible, as it abrupts packet processing, and validating the
+> > ruleset in the kernel can take significant amount of time,
+> > * the kernel change is very simple, adapting userspace to this change is
+> > also very simple, and in userspace various software packages can easily
+> > interoperate with each-other once this is merged.
+> > 
+> > The implementation:
+> > 
+> > Each interface can belong to a single "group" at a time, an interface
+> > comes up without being a member in any of the groups.
+> > 
+> > Userspace can assign interfaces to groups after being created, this
+> > would typically be performed in /etc/ppp/ip-up.d (and similar) scripts.
+> > 
+> > In spirit "interface group" is somewhat similar to the "routing
+> > protocol" field for routing entries, which contains information on which
+> > routing daemon was responsible for adding the given route entry.
+> > 
+> > Things to be done if you like this approach:
+> > 
+> > * interface group match in iptables,
+> > * support for naming interface groups in userspace, a'la routing
+> > protocols,
+> > * emitting a netlink notification when the group of an interface
+> > changes,
+> > * possibly converting the "ip link" command to use NETLINK messages,
+> > instead of using ioctl()
+> > 
+> > What do you think?
+> 
+> 
+> I like it .. kind of like routing realms. For your specific case there
+> is a possible solution already supported by the kernel, you can
+> pre-allocate ppp devices using PPPIOCNEWUNIT, rename them and later
+> attach to individual units in the ppp daemon using PPPIOCATTACH
+> (I have a patch for this somewhere if you're interested). But that
+> only works for PPP devices and the group idea looks more flexible.
 
-Dear Friend,
-I know you will be surprised to read a letter from me but please. Consider this as a request from a family in dare need of assistance. I am the wife of late Brigadier AL-Jubril Yassif from Dafur Region, Sudan. My name is Jariatu al- Yassif Writing to you from Sudan.
-My son got your contact information from a business directory in Dakar Chamber of Commerce and Industry. And I on behalf of my late husband and my only son, decided to solicit for your assistance to transfer the sum of US$9 million dollars, from my late  husband's trust account  with a bank in London, into your company or Private bank 
-account.
-Before the death of my husband, he was a Brigadier in-charge of Arms 
-and ammunition procurement for the Darfur Liberation Front (D. L. F.). In his will, he specifically drew my son's attention to the sum of US$9 million, which he had deposited, in the vault of a Bank in London  as a family treasure, but it is truly cash while he boxed in it the bank as a family treasure due to security reasons.In fact, he said and I quote,"My beloved son, I wish to draw your attention to the sum of US$9 million. I deposited the said fund in a private account of a Bank in London; all the documents regarding the fund are with your mother.I was very dedicated and committed to wining the ongoing war against the rebels until when I found out that some senior army officers and government functionaries were busy helping themselves with government funds and properties, sending them to foreign countries. Due to this, when I, and a former special adviser to the President were assig
- ned by the 
-President (Hassan al-Bashir) to purchase arms in South Africa, we saw this as an opportunity to divert the money for our personal use.
-When we divided the money, my share was US$9 million. I did this in case of my absence due to death so that you Abubakar, your two sisters, and your mother wouldn't suffer. Take my advice my son; and please be serious with your Studies. I will like you to please take careof this money properly for your future. And of your mother's and sisters.
-You should solicit for assistance of a reliable and sincere foreign partner to assist you to transfer this money out of London for investment. I deposited the money in your name and you alone with the deposit code, for you to claim it. Your mother is with all the documents. 
-Take good care of your mother and your two sisters. Do not disappoint me! Good-bye."
->From this word of my late husband, you will understand that the lives and future of my family depend on this fund as such I will be grateful if you can assist us. Now what I want you to do for us is to help us clear this sum from the bank using your name which should be as the foreign partner of my late husband.  
- I am preparing to travel to Senegal before the transaction continues, as the war is worsening more and more.
-Though I have never meet with you before,but I do belived that one's has to risk confidencing to succeed sometimes in life.
-Therefore,we have agreed to give you 20% of the total sum for your assistance and 5% for the expenses that might be incurred in the course of the transfer and the remaining 75% for the family investment abroad, (in your country)which you will also assist us to materialize. Further information and Discussion about this transaction will commence as soon as you give us the assurance and confidence that this money will be safe when transferred to your account.  please treat this matter with urgency. Note that this transaction is 100% free from risk as our banker   have taking care of all the arrangements.
-Thanks and May Allah Bless us.
-jariatu_alyassif1@yahoo.com
-Best Regards, 
-Mrs.Jariatu al-Yassif.
+Thanks for liking it :) I'm going to implement a complete patch with
+iptables match and support for naming interface groups like routing
+realms and post it when I'm ready.
 
+I'd go for the more general solution as I have other interfaces not just
+ppp, it was just a trivial example.
+
+-- 
+Bazsi
 
