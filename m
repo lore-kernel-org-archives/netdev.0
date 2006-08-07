@@ -1,63 +1,23 @@
-From: Jouni Malinen <jkm@devicescape.com>
-Subject: [PATCH wireless-dev 5/6] d80211: Fix ieee80211_remove_tx_extra() if key not configured
-Date: Mon, 07 Aug 2006 16:16:13 -0700
-Message-ID: <20060807231938.892291916@localhost>
-References: <20060807231608.888744720@localhost>
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
-	jkm@devicescape.com, jkmaline@cc.hut.fi
+From: Vitaly Bordug <vbordug@ru.mvista.com>
+Subject: [PATCH 0/3] FS_ENET: move to the PAL api
+Date: Tue, 08 Aug 2006 03:14:41 +0400
+Message-ID: <20060807231441.13683.70528.stgit@localhost.localdomain>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-17.dex002.intermedia.net ([64.78.21.83]:370 "EHLO
-	dhost002-17.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S932338AbWHGX05 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 19:26:57 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-Content-Disposition: inline; filename=remove_tx_extra.patch
+Received: from cdma-45-249.msk.skylink.ru ([83.217.45.249]:37852 "EHLO
+	localhost.localdomain") by vger.kernel.org with ESMTP
+	id S932402AbWHGXbV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Aug 2006 19:31:21 -0400
+To: Jeff Garzik <jeff@garzik.org>
+Cc: linux-kernel@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-QoS header processing mangled unencrypted WMM frames on software
-retry. The QoS data needs to be removed even when encryption key is
-not configured.
-
-Signed-off-by: Jouni Malinen <jkm@devicescape.com>
-
-Index: wireless-dev/net/d80211/ieee80211.c
-===================================================================
---- wireless-dev.orig/net/d80211/ieee80211.c
-+++ wireless-dev/net/d80211/ieee80211.c
-@@ -3977,11 +3977,11 @@ static void ieee80211_remove_tx_extra(st
- 	pkt_data->requeue = control->requeue;
- 	pkt_data->queue = control->queue;
- 
--	if (key == NULL)
--		return;
--
- 	hdrlen = ieee80211_get_hdrlen_from_skb(skb);
- 
-+	if (key == NULL)
-+		goto no_key;
-+
- 	switch (key->alg) {
- 	case ALG_WEP:
- 		iv_len = WEP_IV_LEN;
-@@ -3996,7 +3996,7 @@ static void ieee80211_remove_tx_extra(st
- 		mic_len = CCMP_MIC_LEN;
- 		break;
- 	default:
--		return;
-+		goto no_key;
- 	}
- 
- 	if (skb->len >= mic_len && key->force_sw_encrypt)
-@@ -4006,6 +4006,7 @@ static void ieee80211_remove_tx_extra(st
- 		skb_pull(skb, iv_len);
- 	}
- 
-+no_key:
- 	{
- 		struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
- 		u16 fc = le16_to_cpu(hdr->frame_control);
+These are patches, that utilize Phy Abstraction Layer API in the fs_enet
+Freescale SoC Ethernet driver. Comments gavered from the community addressed,
++ minor fixes and improvements.
 
 --
--- 
-Jouni Malinen                                            PGP id EFC895FA
+Sincerely, Vitaly
