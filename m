@@ -1,67 +1,47 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Mon, 07 Aug 2006 15:34:30 -0400
-Message-ID: <1154979270.5446.97.camel@jzny2>
-References: <4807377b0608061616p5731524fvb0612bdbc32e59b@mail.gmail.com>
-	 <1154955036.5246.32.camel@jzny2>
-	 <20060807152126.GL24653@edgar.underground.se.axis.com>
-	 <1154965249.5446.15.camel@jzny2>
-	 <20060807155929.GM24653@edgar.underground.se.axis.com>
-	 <1154968319.5446.30.camel@jzny2>
-	 <20060807170403.GA10818@edgar.underground.se.axis.com>
-	 <1154973625.5446.56.camel@jzny2>
-	 <20060807184748.GA10909@edgar.underground.se.axis.com>
-	 <1154977413.5446.83.camel@jzny2>
-	 <20060807191413.GB10909@edgar.underground.se.axis.com>
-Reply-To: hadi@cyberus.ca
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: [PATCH]: e1000: Janitor: Use #defined values for literals
+Date: Mon, 7 Aug 2006 15:16:58 -0500
+Message-ID: <20060807201658.GP10638@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, shemminger@osdl.org,
-	mchan@broadcom.com, jesse.brandeburg@intel.com,
-	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, john.ronciak@intel.com,
+	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com,
+	"Zhang, Yanmin" <yanmin.zhang@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.cybersurf.com ([209.197.145.105]:14224 "EHLO
-	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932238AbWHGTed
+Received: from e36.co.us.ibm.com ([32.97.110.154]:29071 "EHLO
+	e36.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750875AbWHGUSB
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 15:34:33 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx02.cybersurf.com with esmtp (Exim 4.30)
-	id 1GAAs1-0004yA-SF
-	for netdev@vger.kernel.org; Mon, 07 Aug 2006 15:34:37 -0400
-To: "Edgar E. Iglesias" <edgar.iglesias@axis.com>
-In-Reply-To: <20060807191413.GB10909@edgar.underground.se.axis.com>
+	Mon, 7 Aug 2006 16:18:01 -0400
+To: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	Auke Kok <sofar@foo-projects.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-07-08 at 21:14 +0200, Edgar E. Iglesias wrote:
 
-> > If yes, what is the likelihood they will sit there forever? I think
-> > perhaps some TX interupts will happen, no?
-> 
-> with jamal undefined, absolutely. With jamal defined, TX interrupts will come
-> but I couldnt find a way into e1000_prune_tx_ring unless fdesc met the 
-> conditions. Correct? 
-> 
+Resending patch from 23 June 2006; there was some confusion about
+whether a similar patch had already been applied; seems it wasn't.
 
-Forgive me since i am still missing something ..
+Minor janitorial patch: use #defines for literal values.
 
-Observe that the same threshold used in two different ways:
+Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
 
-1) in tx path tx_ring->prunet is to check on when we should _start_ to
-prune.
-2) on rx path tx_ring->prunet is to check when to _stop_ pruning.
+----
+ drivers/net/e1000/e1000_main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-i.e #1 is a preemptive action.
-
-You seem to suggest doing it the way i was it made things worse?
-
-Note that TX interrupts will happen as long as you dont prune some
-descriptors (I am assuming this, I havent checked the settings).
-
-cheers,
-jamal
-
-
+Index: linux-2.6.18-rc3-mm2/drivers/net/e1000/e1000_main.c
+===================================================================
+--- linux-2.6.18-rc3-mm2.orig/drivers/net/e1000/e1000_main.c	2006-08-07 14:39:37.000000000 -0500
++++ linux-2.6.18-rc3-mm2/drivers/net/e1000/e1000_main.c	2006-08-07 15:06:31.000000000 -0500
+@@ -4955,8 +4955,8 @@ static pci_ers_result_t e1000_io_slot_re
+ 	}
+ 	pci_set_master(pdev);
+ 
+-	pci_enable_wake(pdev, 3, 0);
+-	pci_enable_wake(pdev, 4, 0); /* 4 == D3 cold */
++	pci_enable_wake(pdev, PCI_D3hot, 0);
++	pci_enable_wake(pdev, PCI_D3cold, 0);
+ 
+ 	/* Perform card reset only on one instance of the card */
+ 	if (PCI_FUNC (pdev->devfn) != 0)
