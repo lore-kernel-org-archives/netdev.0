@@ -1,38 +1,48 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [Fwd: [IPROUTE2]: Explicit BNF definition for actions]
-Date: Mon, 7 Aug 2006 10:49:57 -0700
-Message-ID: <20060807104957.7e57eab6@dxpl.pdx.osdl.net>
-References: <1154796155.5081.6.camel@jzny2>
+Subject: Re: [PATCH 9/9] [NET]: Move netlink interface bits to linux/if.h
+Date: Mon, 7 Aug 2006 10:57:23 -0700
+Message-ID: <20060807105723.29d2fd72@dxpl.pdx.osdl.net>
+References: <20060805003452.493542515@postel.suug.ch>
+	<20060805003538.106022871@postel.suug.ch>
+	<44D5813A.1070309@osdl.org>
+	<20060804.232314.105406244.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:49806 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750807AbWHGRu2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 13:50:28 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1154796155.5081.6.camel@jzny2>
+Received: from smtp.osdl.org ([65.172.181.4]:12433 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750826AbWHGR50 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 13:57:26 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060804.232314.105406244.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 05 Aug 2006 12:42:35 -0400
-jamal <hadi@cyberus.ca> wrote:
+On Fri, 04 Aug 2006 23:23:14 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Sat, 05 Aug 2006 22:42:18 -0700
 > 
-> Stephen,
+> > Thomas Graf wrote:
+> > > -/* The struct should be in sync with struct net_device_stats */
+> > > -struct rtnl_link_stats
+> > > -{
+> > > -	__u32	rx_packets;		/* total packets received	*/
+> > > -	__u32	tx_packets;		/* total packets transmitted	*/
+> > > -	__u32	rx_bytes;		/* total bytes received 	*/
+> > > -	__u32	tx_bytes;		/* total bytes transmitted	*/
+> > >   
+> > 
+> > Make the packets and byte counts __u64 so if/when we extend net_device 
+> > stats to bigger
+> > values, the message format doesn't have to change.
 > 
-> This is the one after the last one you responded to. Your git tree is
-> not uptodate so i cant tell if you are missing it or not ;->
-> 
-> I dont think i will be making more updates for this release - more to
-> come later.
-> 
-> cheers,
-> jamal
-> 
+> It's an existing ABI that he is just moving from one place
+> to another, we are not at liberty to change it's layout.
 
-I needed to merge the branch in, the git tree is now up to date.
+Yeah that makes sense, I thought it was a new interface.
 
 -- 
 Stephen Hemminger <shemminger@osdl.org>
