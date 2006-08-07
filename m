@@ -1,59 +1,25 @@
-From: Kyle McMartin <kyle@parisc-linux.org>
-Subject: [PATCH 0/9] tulip patches from parisc-linux
-Date: Mon, 7 Aug 2006 16:44:18 -0400
-Message-ID: <20060807204418.GE401@athena.road.mcmartin.ca>
+From: moto@arba.com
+Subject: Reboot-Shutdown signal through net device.
+Date: Mon, 07 Aug 2006 13:49:22 -0700
+Message-ID: <20060807134922.eaa6a190c7abddfed9ba5ffb54cc233d.2f0ff9250f.wbe@email.secureserver.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, grundler@parisc-linux.org,
-	val_henson@linux.intel.com, varenet@parisc-linux.org,
-	jeff@garzik.org
+Content-Type: TEXT/plain; CHARSET=US-ASCII
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stout.engsoc.carleton.ca ([134.117.69.22]:14294 "EHLO
-	stout.engsoc.carleton.ca") by vger.kernel.org with ESMTP
-	id S932267AbWHGUo6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 16:44:58 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from smtpout12-02.prod.mesa1.secureserver.net ([68.178.232.4]:39316
+	"HELO smtpout12-02.prod.mesa1.secureserver.net") by vger.kernel.org
+	with SMTP id S932353AbWHGUtX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Aug 2006 16:49:23 -0400
+To: NetDev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[Val asked that I split this out, instead of just publishing a git tree,
-so here goes nothing. I don't think I've ever used git-send-email before,
-but hopefully I won't screw up too badly.]
+Within our PCI Network Device there is a special feature, that allows
+out-of-band signaling-messeging (by using special interrupt and shared
+registers) to control system state: Reboot, Shutdown.
+What would be an acceptable method of executing such controls?
+So, the sequence is: 
+     1. Device Driver receives Reboot-or-Shutdown message.
+     2. Device Driver initiates Reboot-or-Shutdown sequence (how?).
+I have cosidere usermode helper, looks like this solution is favored...
+Any recommendations?
 
-The following patch series brings the mainline tulip driver in synch
-with the modifications made in parisc-linux. Most of these patches
-have been in parisc-linux cvs for the better part of several years,
-so they are quite well tested.
-
-It contains the following changes,
-
- 21142.c       |    4 +-
- de2104x.c     |    6 +--
- interrupt.c   |    4 ++
- media.c       |   40 +++++++++++++++++++++-
- timer.c       |   14 ++++++-
- tulip.h       |   43 ++++++++++++++++++------
- tulip_core.c  |  102 ++++++++++++++++++++++++++++------------------------------
- winbond-840.c |   68 +++++++++++++-------------------------
- 8 files changed, 164 insertions(+), 117 deletions(-)
-
-Francois Romieu:
-      [TULIP] Defer tulip_select_media() to process context
-
-Grant Grundler:
-      [TULIP] Fix PHY init and reset
-      [TULIP] Print physical address in tulip_init_one
-      [TULIP] Make tulip_stop_rxtx() failure case slightly more informative
-      [TULIP] Clean tulip.h so it can be used by winbond-840.c
-      [TULIP] Flush MMIO writes in reset sequence
-      [TULIP] Fix IRQ/DMA race
-
-Helge Deller:
-      [TULIP] Fix section mismatch in de2104x.c
-
-Thibaut Varene:
-      [TULIP] Make DS21143 printout match lspci output
-
-Cheers!
-	Kyle M.
