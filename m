@@ -1,70 +1,68 @@
-From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
-Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Sun, 6 Aug 2006 16:16:19 -0700
-Message-ID: <4807377b0608061616p5731524fvb0612bdbc32e59b@mail.gmail.com>
-References: <20060804101017.GA17393@gondor.apana.org.au>
-	 <20060804.163111.85390037.davem@davemloft.net>
-	 <1154797002.5081.21.camel@jzny2>
-	 <20060805230517.GA25468@gondor.apana.org.au>
-	 <1154819868.5517.34.camel@jzny2>
-	 <20060805231959.GA25768@gondor.apana.org.au>
-	 <1154821010.5517.48.camel@jzny2>
-	 <20060806025123.GA27051@gondor.apana.org.au>
-	 <1154867083.6269.35.camel@jzny2> <1154867589.6269.40.camel@jzny2>
+From: Philip Craig <philipc@snapgear.com>
+Subject: Re: [RFC] gre: transparent ethernet bridging
+Date: Mon, 07 Aug 2006 11:55:14 +1000
+Message-ID: <44D69D82.1090407@snapgear.com>
+References: <44CDD631.5030008@snapgear.com> <20060731091423.3327f85e@dxpl.pdx.osdl.net> <44CEAB31.5090501@snapgear.com> <20060731220822.444f04e4@localhost.localdomain> <20060802074223.GA23715@xi.wantstofly.org> <44D15265.4090905@snapgear.com> <20060803073307.GA29775@xi.wantstofly.org> <44D1BE93.1080308@snapgear.com> <20060803194016.GC527@xi.wantstofly.org> <44D29C47.6080407@snapgear.com> <20060804080236.GA4106@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Herbert Xu" <herbert@gondor.apana.org.au>,
-	"David Miller" <davem@davemloft.net>, shemminger@osdl.org,
-	mchan@broadcom.com, jesse.brandeburg@intel.com,
-	auke-jan.h.kok@intel.com,
-	"Edgar E. Iglesias" <edgar.iglesias@axis.com>,
-	netdev@vger.kernel.org
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:7877 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1750762AbWHFXQV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Aug 2006 19:16:21 -0400
-Received: by nf-out-0910.google.com with SMTP id p46so260647nfa
-        for <netdev@vger.kernel.org>; Sun, 06 Aug 2006 16:16:19 -0700 (PDT)
-To: hadi@cyberus.ca
-In-Reply-To: <1154867589.6269.40.camel@jzny2>
-Content-Disposition: inline
+Received: from rex.snapgear.com ([203.143.235.140]:9934 "EHLO
+	cyberguard.com.au") by vger.kernel.org with ESMTP id S1750883AbWHGBzQ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Aug 2006 21:55:16 -0400
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20060804080236.GA4106@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/6/06, jamal <hadi@cyberus.ca> wrote:
-> Q: Do you know the historical context of why TX_WAKE_THRESHOLD and
-> E1000_TX_WEIGHT are hard-coded (and not for example related to the size
-> of the ring)? Jesse?
-> Otherwise i would like to submit a patch for the above. eventually
-> probably even allow the setting via ethtool.
+Lennert Buytenhek wrote:
+> I have one machine at home that appears to be on my employer's network
+> via such a tunnel.  I don't use bridging, because I don't need any other
+> machine at home to access this tunnel.  I do want bridging, and not proxy
+> ARP, because it allows me to run arpwatch, and doesn't require me to
+> reconfigure something at the remote end if I, for example, want to add
+> another IP address to my home box.
 
-Yeah those are both created by me, interestingly up until a couple of
-releases ago we had neither.
+Okay.
+If this is using Linux, do you have a patch that does this already?
 
-To answer your question of context, I noticed very specific problems
-and fixed them with the simplest method that worked.  I figure we can
-address it as time goes on (like we are now) with improvements.
+> No, just send it to the device that matches the lower-level protocol.
+> So if you receive an ethernet packet, make it be received on the ethernet
+> sub-device, if it's IP, make it be received on the IP sub-device, etc.
+> 
+> Note that I'm not saying that this is necessarily a good idea, it's just
+> what I would suggest if you want to run both 'bare IP' and ethernet
+> encapsulated traffic over the same GRE tunnel at the same time.  (Not sure
+> why you'd want that.)
 
-As for specifics, for TX_WAKE_THRESHOLD, i noticed that we were
-starting the queue after every packet was cleaned, so when the ring
-went full there was a lot of queue thrash.  tg3 seemed to fix it in a
-smart way and so I did a similar fix.  Note we should have at least
-MAX_SKB_FRAGS (usually 32) + a few descriptors free before we should
-start the tx again, otherwise we run the risk of a maximum fragmented
-packet being unable to fit in the tx ring.
+I still don't understand what the IP sub-device is, or whether
+this is different from the options I list below.
+But I don't have a good reason for wanting this either.
+So lets forget about this and talk about the three options below.
 
-now, for E1000_TX_WEIGHT, that was more of an experiment as i noticed
-we could stay in transmit clean up forEVER (okay not literally) which
-would really violate our NAPI timeslice.  I messed with some values
-and 64 didn't really seem like too bad a compromise (it does slow
-things down just a tad in the general case) while really helping a
-couple of tests where there were lots of outstanding transmits
-happening at the same time as lots of receives.
+>> This seems cleaner to me:
+>> The GRE tunnel receives a packet of any protocol (ethernet included),
+>> and adds the IP/GRE header.  Anything else is done above GRE.
+>> Whatever needs the ethernet header should add it.
+>>
+>> And then the decision is, how do we add the ethernet header?
+>> - an option to GRE to always add the ethernet header
+> 
+> I think I lost you here.  You surely can't just 'make up' any ethernet
+> header?
 
-This need for a tx weight is yet another global (design) problem with
-NAPI enabled drivers, but someday I'll try to document some of the
-issues I've seen.
+No, you need a device that looks like an ethernet device.
+We can modify the GRE device to look like ethernet (as an option).
+Or we can create a new ethernet device stacked on top of the GRE device.
+Or we can use the bridge device, which already looks like ethernet.
 
-Jesse
+My first patch in this thread did it by modifying the GRE device.
+Look at that patch if my explanation still doesn't make sense.
+The option part is controlled by the "#if 0" in that patch
+(which needs fixing of course).
+
+You have a valid use that doesn't need bridging, so IMO we can rule
+out doing it in the bridging code.
+
