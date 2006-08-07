@@ -1,47 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] avoid unnecessary alignement overhead in skb->data
- allocation.
-Date: Sun, 06 Aug 2006 23:23:39 -0700 (PDT)
-Message-ID: <20060806.232339.30184217.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] avoid unnecessary alignement overhead in skb->data allocation.
+Date: Mon, 07 Aug 2006 16:29:09 +1000
+Message-ID: <E1G9ybt-0001GT-00@gondolin.me.apana.org.au>
 References: <20060807060155.GA6487@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:54966
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751107AbWHGGXk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 02:23:40 -0400
-To: johnpol@2ka.mipt.ru
+Received: from rhun.apana.org.au ([64.62.148.172]:12298 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750887AbWHGG3Z
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Aug 2006 02:29:25 -0400
+To: johnpol@2ka.mipt.ru (Evgeniy Polyakov)
 In-Reply-To: <20060807060155.GA6487@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Mon, 7 Aug 2006 10:01:56 +0400
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> 
+> Attached patch allows to avoid unnecessary alignment overhead
+> in skb->data allocation.
+> Main idea is to allocate struct skb_shared_info from cache when
+> addition of sizeof(struct skb_shared_info) ens up in different order
+> allocation than initial size order.
+> This allows to solve problem with 4k allocations for 1500 MTU and 32k
+> allocations for 9k jumbo frames for some chips.
+> Patch was not tested, so if idea worth it I will complete it.
 
-> +	int order = get_order(size + sizeof(void *));
-> +	struct skb_shared_info *sh;
->  
->  	cache = fclone ? skbuff_fclone_cache : skbuff_head_cache;
->  
-> @@ -156,11 +159,28 @@ struct sk_buff *__alloc_skb(unsigned int
->  
->  	/* Get the DATA. Size must match skb_add_mtu(). */
->  	size = SKB_DATA_ALIGN(size);
-> -	data = ____kmalloc(size + sizeof(struct skb_shared_info), gfp_mask);
-> -	if (!data)
-> -		goto nodata;
-> +	if ((1UL << order) > size + sizeof(void *) + sizeof(struct skb_shared_info)) {
+I thought the Intel guys were saying that their NIC could write the
+full 16KB which means it it's unsafe to use the last four bytes, no?
 
-get_order() returns a PAGE_SIZE order not a byte one.  So this test
-here at the end is incorrect.  It should probably be something
-like "if ((PAGE_SIZE << order) > ..."
-
-I don't know if I want to eat an entire extra allocation for every SKB
-just to handle broken e1000 cards that can't be bothered to support
-non-power-of-2 receive buffer sizes and a proper MTU setting.
-
-I guess we might have to, but this is extremely unfortunate. :-/
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
