@@ -1,142 +1,61 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] net/: make code static
-Date: Mon, 7 Aug 2006 17:49:47 +0200
-Message-ID: <20060807154947.GE3691@stusta.de>
-References: <20060806030809.2cfb0b1e.akpm@osdl.org>
+From: "Edgar E. Iglesias" <edgar.iglesias@axis.com>
+Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
+Date: Mon, 7 Aug 2006 17:59:29 +0200
+Message-ID: <20060807155929.GM24653@edgar.underground.se.axis.com>
+References: <1154819868.5517.34.camel@jzny2> <20060805231959.GA25768@gondor.apana.org.au> <1154821010.5517.48.camel@jzny2> <20060806025123.GA27051@gondor.apana.org.au> <1154867083.6269.35.camel@jzny2> <1154867589.6269.40.camel@jzny2> <4807377b0608061616p5731524fvb0612bdbc32e59b@mail.gmail.com> <1154955036.5246.32.camel@jzny2> <20060807152126.GL24653@edgar.underground.se.axis.com> <1154965249.5446.15.camel@jzny2>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, shemminger@osdl.org,
+	mchan@broadcom.com, jesse.brandeburg@intel.com,
+	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:10255 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S932187AbWHGPtt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 11:49:49 -0400
-To: Andrew Morton <akpm@osdl.org>, davem@davemloft.net
+Received: from miranda.se.axis.com ([193.13.178.8]:14237 "EHLO
+	miranda.se.axis.com") by vger.kernel.org with ESMTP
+	id S1750777AbWHGP7c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Aug 2006 11:59:32 -0400
+Received: from axis.com (edgar.se.axis.com [10.92.151.1])
+	by miranda.se.axis.com (8.12.9/8.12.9/Debian-5local0.1) with ESMTP id k77FxTP0001825
+	for <netdev@vger.kernel.org>; Mon, 7 Aug 2006 17:59:29 +0200
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <20060806030809.2cfb0b1e.akpm@osdl.org>
+In-Reply-To: <1154965249.5446.15.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes needlessly global code static.
+On Mon, Aug 07, 2006 at 11:40:49AM -0400, jamal wrote:
+> 
+> On Mon, 2006-07-08 at 17:21 +0200, Edgar E. Iglesias wrote:
+> [..]
+> > I have a question regarding your patch. In clean_tx_irq, it seems you dont
+> > clean the ring unless fdesc < tx_ring->prunet. Won't this cause deadlocks for
+> > local TCP connections if transmit goes quiet?
+> > 
+> 
+> I have not tested the TCP case; however, note that the specific part you
+> reference is commented out. There are no deadlock issues in the case of
+> forwarding (as in my testcases). 
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Ok, I thought you wanted the code inside the ifdefs to be considered. If not,
+I guess there is no problem. Yes, the forwarding case does not suffer from
+any deadlocks issues that I am aware of.
 
----
+> 
+> I did not quiet follow the ensuing discussion after your post:
+> These descriptors being pruned in the tx path happen only after the
+> packets have been sent out on the wire. Why would this contribute to a
+> deadlock but not when it happens on the receive path? It is true that
+> tcp retransmit queue will still be referencing the skbs, but why is it
+> any different because in one case it happens in the tx and in the other
+> on the receive? Is there dependency on waking up the queue?
 
-BTW:
-It doesn't seem to be intended that the new
-ipv4/fib_rules.c:fib4_rules_cleanup() is completely unused?
+No, the deadlock happens only if you don't prune the descriptors. If the host
+sends some data and then goes quite, fdesc < tx_ring->prunet might not be
+true for a long time and skbs will end up sitting in the tx ring indefinitely,
+charging the socket's sndbuf.
 
- include/net/ip6_fib.h              |    4 ----
- net/ipv4/cipso_ipv4.c              |    2 +-
- net/ipv4/fib_rules.c               |    4 ++--
- net/ipv6/fib6_rules.c              |    4 ++--
- net/ipv6/ip6_fib.c                 |    6 +++---
- net/ipv6/route.c                   |    6 +++---
- net/netlabel/netlabel_domainhash.c |    4 ++--
- 7 files changed, 13 insertions(+), 17 deletions(-)
-
---- linux-2.6.18-rc3-mm2-full/net/ipv4/cipso_ipv4.c.old	2006-08-07 16:39:05.000000000 +0200
-+++ linux-2.6.18-rc3-mm2-full/net/ipv4/cipso_ipv4.c	2006-08-07 16:39:15.000000000 +0200
-@@ -60,7 +60,7 @@
-  * if in practice there are a lot of different DOIs this list should
-  * probably be turned into a hash table or something similar so we
-  * can do quick lookups. */
--DEFINE_SPINLOCK(cipso_v4_doi_list_lock);
-+static DEFINE_SPINLOCK(cipso_v4_doi_list_lock);
- static struct list_head cipso_v4_doi_list = LIST_HEAD_INIT(cipso_v4_doi_list);
- 
- /* Label mapping cache */
---- linux-2.6.18-rc3-mm2-full/net/ipv4/fib_rules.c.old	2006-08-07 16:39:33.000000000 +0200
-+++ linux-2.6.18-rc3-mm2-full/net/ipv4/fib_rules.c	2006-08-07 16:39:51.000000000 +0200
-@@ -101,8 +101,8 @@
- 	return err;
- }
- 
--int fib4_rule_action(struct fib_rule *rule, struct flowi *flp, int flags,
--		     struct fib_lookup_arg *arg)
-+static int fib4_rule_action(struct fib_rule *rule, struct flowi *flp,
-+			    int flags, struct fib_lookup_arg *arg)
- {
- 	int err = -EAGAIN;
- 	struct fib_table *tbl;
---- linux-2.6.18-rc3-mm2-full/net/ipv6/fib6_rules.c.old	2006-08-07 16:41:07.000000000 +0200
-+++ linux-2.6.18-rc3-mm2-full/net/ipv6/fib6_rules.c	2006-08-07 16:41:16.000000000 +0200
-@@ -66,8 +66,8 @@
- 	return (struct dst_entry *) arg.result;
- }
- 
--int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
--		     int flags, struct fib_lookup_arg *arg)
-+static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
-+			    int flags, struct fib_lookup_arg *arg)
- {
- 	struct rt6_info *rt = NULL;
- 	struct fib6_table *table;
---- linux-2.6.18-rc3-mm2-full/include/net/ip6_fib.h.old	2006-08-07 16:41:36.000000000 +0200
-+++ linux-2.6.18-rc3-mm2-full/include/net/ip6_fib.h	2006-08-07 16:41:43.000000000 +0200
-@@ -192,10 +192,6 @@
- 					     struct in6_addr *daddr, int dst_len,
- 					     struct in6_addr *saddr, int src_len);
- 
--extern void			fib6_clean_tree(struct fib6_node *root,
--						int (*func)(struct rt6_info *, void *arg),
--						int prune, void *arg);
--
- extern void			fib6_clean_all(int (*func)(struct rt6_info *, void *arg),
- 					       int prune, void *arg);
- 
---- linux-2.6.18-rc3-mm2-full/net/ipv6/ip6_fib.c.old	2006-08-07 16:41:51.000000000 +0200
-+++ linux-2.6.18-rc3-mm2-full/net/ipv6/ip6_fib.c	2006-08-07 16:42:05.000000000 +0200
-@@ -1169,9 +1169,9 @@
-  *	ignoring pure split nodes) will be scanned.
-  */
- 
--void fib6_clean_tree(struct fib6_node *root,
--		     int (*func)(struct rt6_info *, void *arg),
--		     int prune, void *arg)
-+static void fib6_clean_tree(struct fib6_node *root,
-+			    int (*func)(struct rt6_info *, void *arg),
-+			    int prune, void *arg)
- {
- 	struct fib6_cleaner_t c;
- 
---- linux-2.6.18-rc3-mm2-full/net/ipv6/route.c.old	2006-08-07 16:42:24.000000000 +0200
-+++ linux-2.6.18-rc3-mm2-full/net/ipv6/route.c	2006-08-07 16:43:05.000000000 +0200
-@@ -613,8 +613,8 @@
- 	return rt;
- }
- 
--struct rt6_info *ip6_pol_route_input(struct fib6_table *table, struct flowi *fl,
--				     int flags)
-+static struct rt6_info *ip6_pol_route_input(struct fib6_table *table,
-+					    struct flowi *fl, int flags)
- {
- 	struct fib6_node *fn;
- 	struct rt6_info *rt, *nrt;
-@@ -872,7 +872,7 @@
- }
- 
- static struct dst_entry *ndisc_dst_gc_list;
--DEFINE_SPINLOCK(ndisc_lock);
-+static DEFINE_SPINLOCK(ndisc_lock);
- 
- struct dst_entry *ndisc_dst_alloc(struct net_device *dev, 
- 				  struct neighbour *neigh,
---- linux-2.6.18-rc3-mm2-full/net/netlabel/netlabel_domainhash.c.old	2006-08-07 16:43:27.000000000 +0200
-+++ linux-2.6.18-rc3-mm2-full/net/netlabel/netlabel_domainhash.c	2006-08-07 16:43:53.000000000 +0200
-@@ -50,11 +50,11 @@
- /* Domain hash table */
- /* XXX - updates should be so rare that having one spinlock for the entire
-  * hash table should be okay */
--DEFINE_SPINLOCK(netlbl_domhsh_lock);
-+static DEFINE_SPINLOCK(netlbl_domhsh_lock);
- static struct netlbl_domhsh_tbl *netlbl_domhsh = NULL;
- 
- /* Default domain mapping */
--DEFINE_SPINLOCK(netlbl_domhsh_def_lock);
-+static DEFINE_SPINLOCK(netlbl_domhsh_def_lock);
- static struct netlbl_dom_map *netlbl_domhsh_def = NULL;
- 
- /*
-
+Best regards
+-- 
+        Programmer
+        Edgar E. Iglesias <edgar.iglesias@axis.com> 46.46.272.1946
