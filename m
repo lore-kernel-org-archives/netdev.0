@@ -1,37 +1,43 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] ipx: header length validation needed
-Date: Mon, 7 Aug 2006 16:36:02 -0700
-Message-ID: <20060807163602.5c7a4a65@localhost.localdomain>
-References: <20060807134636.30f8b779@localhost.localdomain>
-	<20060807.162433.26101101.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
+Date: Tue, 8 Aug 2006 09:40:49 +1000
+Message-ID: <20060807234049.GA11611@gondor.apana.org.au>
+References: <20060807152126.GL24653@edgar.underground.se.axis.com> <1154965249.5446.15.camel@jzny2> <20060807155929.GM24653@edgar.underground.se.axis.com> <1154968319.5446.30.camel@jzny2> <20060807170403.GA10818@edgar.underground.se.axis.com> <1154973625.5446.56.camel@jzny2> <20060807184748.GA10909@edgar.underground.se.axis.com> <1154977413.5446.83.camel@jzny2> <20060807232340.GA11088@gondor.apana.org.au> <Pine.WNT.4.63.0608071628370.3576@jbrandeb-desk.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: acme@ghostprotocols.net, netdev@vger.kernel.org, stable@kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>,
+	"Edgar E. Iglesias" <edgar.iglesias@axis.com>,
+	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	David Miller <davem@davemloft.net>, shemminger@osdl.org,
+	mchan@broadcom.com, auke-jan.h.kok@intel.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:30186 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932411AbWHGXgq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 19:36:46 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060807.162433.26101101.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:12038 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932419AbWHGXlY
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Aug 2006 19:41:24 -0400
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.WNT.4.63.0608071628370.3576@jbrandeb-desk.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch will linearize and check there is enough data.
-It handles the pprop case as well as avoiding a whole audit of
-the routing code.
+On Mon, Aug 07, 2006 at 04:35:36PM -0700, Brandeburg, Jesse wrote:
+> 
+> e1000 only clears the interrupts when it reads ICR in e1000_intr (before 
+> scheduling napi poll) so any interrupts that occur while polling (and 
+> interrupts are disabled) will cause a new assertion once interrupts are 
+> re-enabled.  Sometimes a little bit inefficient due to extra trips through 
+> poll, but guarantees never to miss an int.  I'm open to creative ways to 
+> avoid this, but adding an I/O read in e1000_clean would be pretty yucky.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+The standard solution in Linux is to clear and recheck.  So just before
+you reenable the interrupts you'd clear pending interrupts again and
+check for rx/tx work, if there is work then you just go back to polling.
 
---- a/net/ipx/af_ipx.c	2006-08-07 13:45:59.000000000 -0700
-+++ b/net/ipx/af_ipx.c	2006-08-07 16:34:00.000000000 -0700
-@@ -1649,7 +1649,8 @@
- 	ipx_pktsize	= ntohs(ipx->ipx_pktsize);
- 	
- 	/* Too small or invalid header? */
--	if (ipx_pktsize < sizeof(struct ipxhdr) || ipx_pktsize > skb->len)
-+	if (ipx_pktsize < sizeof(struct ipxhdr)
-+	   || !pskb_may_pull(skb, ipx_pktsize))
- 		goto drop;
-                         
- 	if (ipx->ipx_checksum != IPX_NO_CHECKSUM &&
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
