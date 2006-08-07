@@ -1,68 +1,68 @@
-From: Jamal Hadi Salim <hadi@znyx.com>
-Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Mon, 07 Aug 2006 12:31:59 -0400
-Message-ID: <1154968319.5446.30.camel@jzny2>
-References: <1154819868.5517.34.camel@jzny2>
-	 <20060805231959.GA25768@gondor.apana.org.au>
-	 <1154821010.5517.48.camel@jzny2>
-	 <20060806025123.GA27051@gondor.apana.org.au>
-	 <1154867083.6269.35.camel@jzny2> <1154867589.6269.40.camel@jzny2>
-	 <4807377b0608061616p5731524fvb0612bdbc32e59b@mail.gmail.com>
-	 <1154955036.5246.32.camel@jzny2>
-	 <20060807152126.GL24653@edgar.underground.se.axis.com>
-	 <1154965249.5446.15.camel@jzny2>
-	 <20060807155929.GM24653@edgar.underground.se.axis.com>
-Reply-To: hadi@znyx.com
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH] limit rt cache size
+Date: Mon, 7 Aug 2006 20:48:42 +0400
+Message-ID: <20060807164842.GA3412@ms2.inr.ac.ru>
+References: <44D75EF8.1070901@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, auke-jan.h.kok@intel.com,
-	jesse.brandeburg@intel.com, mchan@broadcom.com,
-	shemminger@osdl.org, David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.znyx.com ([208.2.156.141]:29706 "EHLO mailhub.znyx.com")
-	by vger.kernel.org with ESMTP id S932211AbWHGQcE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 12:32:04 -0400
-To: "Edgar E. Iglesias" <edgar.iglesias@axis.com>
-In-Reply-To: <20060807155929.GM24653@edgar.underground.se.axis.com>
+Received: from minus.inr.ac.ru ([194.67.69.97]:4309 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S932216AbWHGQtJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 12:49:09 -0400
+To: Kirill Korotaev <dev@sw.ru>
+Content-Disposition: inline
+In-Reply-To: <44D75EF8.1070901@sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-07-08 at 17:59 +0200, Edgar E. Iglesias wrote:
+Hello!
 
-> Ok, I thought you wanted the code inside the ifdefs to be considered. If not,
-> I guess there is no problem. Yes, the forwarding case does not suffer from
-> any deadlocks issues that I am aware of.
+> During OpenVZ stress testing we found that UDP traffic with
+> random src can generate too much excessive rt hash growing
+> leading finally to OOM and kernel panics.
 > 
+> It was found that for 4GB i686 system (having 1048576 total pages and
+>  225280 normal zone pages) kernel allocates the following route hash:
+> syslog: IP route cache hash table entries: 262144 (order: 8, 1048576 bytes)
+> => ip_rt_max_size = 4194304 entries, i.e.
+> max rt size is 4194304 * 256b = 1Gb of RAM > normal_zone
 
->From my tests:
-It does _not_ provide any performance improvements and at some point i decided
-i didnt want to add more variables to analyze, so i got rid of it; I would have 
-had to hand edit the patch to totally remove it; so that why you still see the 
-ifdefed out variant.
+Grrr... Indeed.
 
-> No, the deadlock happens only if you don't prune the descriptors. If the host
-> sends some data and then goes quite, fdesc < tx_ring->prunet might not be
-> true for a long time and skbs will end up sitting in the tx ring indefinitely,
-> charging the socket's sndbuf.
-> 
 
-Note: I didnt get rid of the rx path pruning. i.e that is still on. It
-just prunes lesser descriptors with that change on the tx. So not very
-different from before.
+> Attached the patch which removes HASH_HIGHMEM flag from
+> alloc_large_system_hash() call. However, I'm not sure whether
+> it should be removed as well for TCP tcp_hashinfo.ehash and
+> tcp_hashinfo.bhash (as those are probably limited by number of files?).
 
-I think i may be getting a gist now of the discussion after a re-read; 
-while packets are still charged to TCP may have been transmitted they may sit
-on the tx ring forever. They will only be pruned if we had netif_stopped
-(and even that is not good enough with Jesse's threshold check) or if a
-new packet comes in destined for us. 
-Did i understand correctly? If yes, i didnt introduce this challenge it
-has always been there. I think i understand the suggestion now from
-Dave/Herbert to orphan those skbs... 
+The patch looks OK. But I am not sure too.
 
-cheers,
-jamal
+To be honest, I do not understand the sense of HASH_HIGHMEM flag.
+At the first sight, hash table eats low memory, objects hashed in this table
+also eat low memory. Why is its size calculated from total memory?
+But taking into account that this flag is used only by tcp.c and route.c,
+both of which feed on low memory, I miss something important.
 
+Let's ask people on netdev.
+
+
+What's about routing cache size, it looks like it is another bug.
+route.c should not force rt_max_size = 16*rt_hash_size.
+I think it should consult available memory and to limit rt_max_size
+to some reasonable value, even if hash size is too high.
+
+
+
+> --- ./net/ipv4/route.c.xrt	2006-07-14 19:08:33.000000000 +0400
+> +++ ./net/ipv4/route.c	2006-08-07 18:25:37.000000000 +0400
+> @@ -3149,7 +3149,7 @@ int __init ip_rt_init(void)
+>  					rhash_entries,
+>  					(num_physpages >= 128 * 1024) ?
+>  					15 : 17,
+> -					HASH_HIGHMEM,
+> +					0,
+>  					&rt_hash_log,
+>  					&rt_hash_mask,
+>  					0);
 
