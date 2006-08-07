@@ -1,33 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RFC] avoid unnecessary alignement overhead in skb->data allocation.
-Date: Mon, 7 Aug 2006 16:42:33 +1000
-Message-ID: <20060807064233.GA4993@gondor.apana.org.au>
-References: <20060807060155.GA6487@2ka.mipt.ru> <E1G9ybt-0001GT-00@gondolin.me.apana.org.au> <20060807063636.GB11483@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
+Date: Mon, 07 Aug 2006 17:17:13 +1000
+Message-ID: <E1G9zMP-0001MO-00@gondolin.me.apana.org.au>
+References: <20060806.232339.30184217.davem@davemloft.net>
+Cc: johnpol@2ka.mipt.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:40970 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751109AbWHGGml
+Received: from rhun.apana.org.au ([64.62.148.172]:25611 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751119AbWHGHRY
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 02:42:41 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20060807063636.GB11483@2ka.mipt.ru>
+	Mon, 7 Aug 2006 03:17:24 -0400
+To: davem@davemloft.net (David Miller)
+In-Reply-To: <20060806.232339.30184217.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 07, 2006 at 10:36:36AM +0400, Evgeniy Polyakov wrote:
+David Miller <davem@davemloft.net> wrote:
 > 
-> Well, theirs comments in code say, that maximum allowed frame size is
-> 0x3f00, so there is a little place at the end to put there a pointer,
-> so I allocate size + sizeof(void *).
-> If they actually can eat all 16k, then we need a pointer somewhere in
-> the skb for shared_info, since 16k + sizeof(void *) will be aligned to
-> 32k.
+> I don't know if I want to eat an entire extra allocation for every SKB
+> just to handle broken e1000 cards that can't be bothered to support
+> non-power-of-2 receive buffer sizes and a proper MTU setting.
+> 
+> I guess we might have to, but this is extremely unfortunate. :-/
 
-It would be good to get a definitive statement from them before we go
-down this track.
+I'd hope not.  Apparently they are capable of putting data into
+individual pages and chaining them together.  The only problem
+is that half a page is wasted for 1500-byte packets.
+
+However, allocating 16KB packets would waste even more memory
+if only 1500 bytes end up getting used.
 
 Cheers,
 -- 
