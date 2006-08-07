@@ -1,66 +1,289 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Mon, 07 Aug 2006 14:00:24 -0400
-Message-ID: <1154973625.5446.56.camel@jzny2>
-References: <1154821010.5517.48.camel@jzny2>
-	 <20060806025123.GA27051@gondor.apana.org.au>
-	 <1154867083.6269.35.camel@jzny2> <1154867589.6269.40.camel@jzny2>
-	 <4807377b0608061616p5731524fvb0612bdbc32e59b@mail.gmail.com>
-	 <1154955036.5246.32.camel@jzny2>
-	 <20060807152126.GL24653@edgar.underground.se.axis.com>
-	 <1154965249.5446.15.camel@jzny2>
-	 <20060807155929.GM24653@edgar.underground.se.axis.com>
-	 <1154968319.5446.30.camel@jzny2>
-	 <20060807170403.GA10818@edgar.underground.se.axis.com>
-Reply-To: hadi@cyberus.ca
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: [PATCH] tiacx sparse cleanups
+Date: Mon, 7 Aug 2006 11:20:33 -0700
+Message-ID: <20060807112033.193f03d0.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>, shemminger@osdl.org,
-	mchan@broadcom.com, jesse.brandeburg@intel.com,
-	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
+Cc: vda.linux@googlemail.com, akpm <akpm@osdl.org>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:23959 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932256AbWHGSA2
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 14:00:28 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1GA9Oy-00067R-ML
-	for netdev@vger.kernel.org; Mon, 07 Aug 2006 14:00:32 -0400
-To: "Edgar E. Iglesias" <edgar.iglesias@axis.com>
-In-Reply-To: <20060807170403.GA10818@edgar.underground.se.axis.com>
+Received: from xenotime.net ([66.160.160.81]:15784 "HELO xenotime.net")
+	by vger.kernel.org with SMTP id S932084AbWHGSRx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 14:17:53 -0400
+Received: from midway.site ([71.117.253.75]) by xenotime.net for <netdev@vger.kernel.org>; Mon, 7 Aug 2006 11:17:49 -0700
+To: acx100-devel@lists.sourceforge.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-07-08 at 19:04 +0200, Edgar E. Iglesias wrote:
+From: Randy Dunlap <rdunlap@xenotime.net>
 
-> 
-> I'll give you an example.
+tiacx sparse cleanups:
+- use NULL instead of 0 for pointer value
+- use C99 struct initializers
+- use ANSI function declaration
 
-Thanks - that matches my understanding.
+Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+---
+ drivers/net/wireless/tiacx/common.c |    2 
+ drivers/net/wireless/tiacx/ioctl.c  |  202 ++++++++++++++++++------------------
+ drivers/net/wireless/tiacx/pci.c    |    2 
+ drivers/net/wireless/tiacx/usb.c    |    2 
+ 4 files changed, 104 insertions(+), 104 deletions(-)
 
-> A TCP flow sends X data and later waits for a response, host is now quietly
-> waiting. Assume fdesc >= tx_ring->prunet, so we dont free any skbs, right?
-> 
 
-I am hoping they will be freed by a tx interrupt that will force poll to
-happen. Or a new packet arrival etc. Just like before. Why do you see
-the two as different? (the tx path pruning is still going on as i noted
-before). If all you are looking for is a scheme to quickly free the skbs
-so that TCP doesnt get charged, I am not sure if this is the right one.
+--- linux-2618-rc3mm2.orig/drivers/net/wireless/tiacx/common.c
++++ linux-2618-rc3mm2/drivers/net/wireless/tiacx/common.c
+@@ -1396,7 +1396,7 @@ manage_proc_entries(const struct net_dev
+ 		log(L_INIT, "%sing /proc entry %s\n",
+ 			remove ? "remov" : "creat", procbuf);
+ 		if (!remove) {
+-			if (!create_proc_read_entry(procbuf, 0, 0, proc_funcs[i], adev)) {
++			if (!create_proc_read_entry(procbuf, 0, NULL, proc_funcs[i], adev)) {
+ 				printk("acx: cannot register /proc entry %s\n", procbuf);
+ 				return NOT_OK;
+ 			}
+--- linux-2618-rc3mm2.orig/drivers/net/wireless/tiacx/ioctl.c
++++ linux-2618-rc3mm2/drivers/net/wireless/tiacx/ioctl.c
+@@ -2163,7 +2163,7 @@ acx_ioctl_set_rates(struct net_device *n
+ 
+ 	log(L_IOCTL, "set_rates %s\n", extra);
+ 	result = fill_ratemasks(extra, &brate, &orate,
+-				acx111_supported, acx111_gen_mask, 0);
++				acx111_supported, acx111_gen_mask, NULL);
+ 	if (result) goto end;
+ 	SET_BIT(orate, brate);
+ 	log(L_IOCTL, "brate %08X orate %08X\n", brate, orate);
+@@ -2615,107 +2615,107 @@ static const iw_handler acx_ioctl_privat
+ 
+ static const struct iw_priv_args acx_ioctl_private_args[] = {
+ #if ACX_DEBUG
+-{ cmd : ACX100_IOCTL_DEBUG,
+-	set_args : IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
+-	get_args : 0,
+-	name : "SetDebug" },
++{	.cmd = ACX100_IOCTL_DEBUG,
++	.set_args = IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
++	.get_args = 0,
++	.name = "SetDebug" },
+ #endif
+-{ cmd : ACX100_IOCTL_SET_PLED,
+-	set_args : IW_PRIV_TYPE_BYTE | 2,
+-	get_args : 0,
+-	name : "SetLEDPower" },
+-{ cmd : ACX100_IOCTL_GET_PLED,
+-	set_args : 0,
+-	get_args : IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 2,
+-	name : "GetLEDPower" },
+-{ cmd : ACX100_IOCTL_SET_RATES,
+-	set_args : IW_PRIV_TYPE_CHAR | 256,
+-	get_args : 0,
+-	name : "SetRates" },
+-{ cmd : ACX100_IOCTL_LIST_DOM,
+-	set_args : 0,
+-	get_args : 0,
+-	name : "ListRegDomain" },
+-{ cmd : ACX100_IOCTL_SET_DOM,
+-	set_args : IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
+-	get_args : 0,
+-	name : "SetRegDomain" },
+-{ cmd : ACX100_IOCTL_GET_DOM,
+-	set_args : 0,
+-	get_args : IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
+-	name : "GetRegDomain" },
+-{ cmd : ACX100_IOCTL_SET_SCAN_PARAMS,
+-	set_args : IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 4,
+-	get_args : 0,
+-	name : "SetScanParams" },
+-{ cmd : ACX100_IOCTL_GET_SCAN_PARAMS,
+-	set_args : 0,
+-	get_args : IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 4,
+-	name : "GetScanParams" },
+-{ cmd : ACX100_IOCTL_SET_PREAMB,
+-	set_args : IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
+-	get_args : 0,
+-	name : "SetSPreamble" },
+-{ cmd : ACX100_IOCTL_GET_PREAMB,
+-	set_args : 0,
+-	get_args : IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
+-	name : "GetSPreamble" },
+-{ cmd : ACX100_IOCTL_SET_ANT,
+-	set_args : IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
+-	get_args : 0,
+-	name : "SetAntenna" },
+-{ cmd : ACX100_IOCTL_GET_ANT,
+-	set_args : 0,
+-	get_args : 0,
+-	name : "GetAntenna" },
+-{ cmd : ACX100_IOCTL_RX_ANT,
+-	set_args : IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
+-	get_args : 0,
+-	name : "SetRxAnt" },
+-{ cmd : ACX100_IOCTL_TX_ANT,
+-	set_args : IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
+-	get_args : 0,
+-	name : "SetTxAnt" },
+-{ cmd : ACX100_IOCTL_SET_PHY_AMP_BIAS,
+-	set_args : IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
+-	get_args : 0,
+-	name : "SetPhyAmpBias"},
+-{ cmd : ACX100_IOCTL_GET_PHY_CHAN_BUSY,
+-	set_args : 0,
+-	get_args : 0,
+-	name : "GetPhyChanBusy" },
+-{ cmd : ACX100_IOCTL_SET_ED,
+-	set_args : IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
+-	get_args : 0,
+-	name : "SetED" },
+-{ cmd : ACX100_IOCTL_SET_CCA,
+-	set_args : IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
+-	get_args : 0,
+-	name : "SetCCA" },
+-{ cmd : ACX100_IOCTL_MONITOR,
+-	set_args : IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 2,
+-	get_args : 0,
+-	name : "monitor" },
+-{ cmd : ACX100_IOCTL_TEST,
+-	set_args : 0,
+-	get_args : 0,
+-	name : "Test" },
+-{ cmd : ACX100_IOCTL_DBG_SET_MASKS,
+-	set_args : IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 2,
+-	get_args : 0,
+-	name : "DbgSetMasks" },
+-{ cmd : ACX111_IOCTL_INFO,
+-	set_args : 0,
+-	get_args : 0,
+-	name : "GetAcx111Info" },
+-{ cmd : ACX100_IOCTL_DBG_SET_IO,
+-	set_args : IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 4,
+-	get_args : 0,
+-	name : "DbgSetIO" },
+-{ cmd : ACX100_IOCTL_DBG_GET_IO,
+-	set_args : IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 3,
+-	get_args : 0,
+-	name : "DbgGetIO" },
++{	.cmd = ACX100_IOCTL_SET_PLED,
++	.set_args = IW_PRIV_TYPE_BYTE | 2,
++	.get_args = 0,
++	.name = "SetLEDPower" },
++{	.cmd = ACX100_IOCTL_GET_PLED,
++	.set_args = 0,
++	.get_args = IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 2,
++	.name = "GetLEDPower" },
++{	.cmd = ACX100_IOCTL_SET_RATES,
++	.set_args = IW_PRIV_TYPE_CHAR | 256,
++	.get_args = 0,
++	.name = "SetRates" },
++{	.cmd = ACX100_IOCTL_LIST_DOM,
++	.set_args = 0,
++	.get_args = 0,
++	.name = "ListRegDomain" },
++{	.cmd = ACX100_IOCTL_SET_DOM,
++	.set_args = IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
++	.get_args = 0,
++	.name = "SetRegDomain" },
++{	.cmd = ACX100_IOCTL_GET_DOM,
++	.set_args = 0,
++	.get_args = IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
++	.name = "GetRegDomain" },
++{	.cmd = ACX100_IOCTL_SET_SCAN_PARAMS,
++	.set_args = IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 4,
++	.get_args = 0,
++	.name = "SetScanParams" },
++{	.cmd = ACX100_IOCTL_GET_SCAN_PARAMS,
++	.set_args = 0,
++	.get_args = IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 4,
++	.name = "GetScanParams" },
++{	.cmd = ACX100_IOCTL_SET_PREAMB,
++	.set_args = IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
++	.get_args = 0,
++	.name = "SetSPreamble" },
++{	.cmd = ACX100_IOCTL_GET_PREAMB,
++	.set_args = 0,
++	.get_args = IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
++	.name = "GetSPreamble" },
++{	.cmd = ACX100_IOCTL_SET_ANT,
++	.set_args = IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
++	.get_args = 0,
++	.name = "SetAntenna" },
++{	.cmd = ACX100_IOCTL_GET_ANT,
++	.set_args = 0,
++	.get_args = 0,
++	.name = "GetAntenna" },
++{	.cmd = ACX100_IOCTL_RX_ANT,
++	.set_args = IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
++	.get_args = 0,
++	.name = "SetRxAnt" },
++{	.cmd = ACX100_IOCTL_TX_ANT,
++	.set_args = IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
++	.get_args = 0,
++	.name = "SetTxAnt" },
++{	.cmd = ACX100_IOCTL_SET_PHY_AMP_BIAS,
++	.set_args = IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
++	.get_args = 0,
++	.name = "SetPhyAmpBias"},
++{	.cmd = ACX100_IOCTL_GET_PHY_CHAN_BUSY,
++	.set_args = 0,
++	.get_args = 0,
++	.name = "GetPhyChanBusy" },
++{	.cmd = ACX100_IOCTL_SET_ED,
++	.set_args = IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
++	.get_args = 0,
++	.name = "SetED" },
++{	.cmd = ACX100_IOCTL_SET_CCA,
++	.set_args = IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 1,
++	.get_args = 0,
++	.name = "SetCCA" },
++{	.cmd = ACX100_IOCTL_MONITOR,
++	.set_args = IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 2,
++	.get_args = 0,
++	.name = "monitor" },
++{	.cmd = ACX100_IOCTL_TEST,
++	.set_args = 0,
++	.get_args = 0,
++	.name = "Test" },
++{	.cmd = ACX100_IOCTL_DBG_SET_MASKS,
++	.set_args = IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 2,
++	.get_args = 0,
++	.name = "DbgSetMasks" },
++{	.cmd = ACX111_IOCTL_INFO,
++	.set_args = 0,
++	.get_args = 0,
++	.name = "GetAcx111Info" },
++{	.cmd = ACX100_IOCTL_DBG_SET_IO,
++	.set_args = IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 4,
++	.get_args = 0,
++	.name = "DbgSetIO" },
++{	.cmd = ACX100_IOCTL_DBG_GET_IO,
++	.set_args = IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 3,
++	.get_args = 0,
++	.name = "DbgGetIO" },
+ };
+ 
+ 
+--- linux-2618-rc3mm2.orig/drivers/net/wireless/tiacx/pci.c
++++ linux-2618-rc3mm2/drivers/net/wireless/tiacx/pci.c
+@@ -1351,7 +1351,7 @@ acxpci_free_desc_queues(acx_device_t *ad
+ {
+ #define ACX_FREE_QUEUE(size, ptr, phyaddr) \
+ 	if (ptr) { \
+-		free_coherent(0, size, ptr, phyaddr); \
++		free_coherent(NULL, size, ptr, phyaddr); \
+ 		ptr = NULL; \
+ 		size = 0; \
+ 	}
+--- linux-2618-rc3mm2.orig/drivers/net/wireless/tiacx/usb.c
++++ linux-2618-rc3mm2/drivers/net/wireless/tiacx/usb.c
+@@ -1587,7 +1587,7 @@ acxusb_e_init_module(void)
+ ** deregisters this module at the kernel's USB subsystem.
+ */
+ void __exit
+-acxusb_e_cleanup_module()
++acxusb_e_cleanup_module(void)
+ {
+ 	usb_deregister(&acxusb_driver);
+ }
 
-> Now assume that some part of X data gets lost, our retransmit timer hits and
-> we want to retransmit but our socket is charged with too much data sitting on
-> the nics tx-ring, so we don't send anything. By orphaning, those skbs won't
-> charge the socket and the flow can retransmit.
 
-I understand that as well as the dilemma that TCP not being charged for
-skbs (if you decide to orphan) it holds in its retransmit queue ;->
-Which is not a problem unless that queueu grows to be a huge one ;->
-
-cheers,
-jamal
-
+---
