@@ -1,40 +1,202 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Excess use of packed attribute
-Date: Mon, 07 Aug 2006 16:20:26 -0700 (PDT)
-Message-ID: <20060807.162026.106265856.davem@davemloft.net>
-References: <20060807133423.11bfbff3@localhost.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH RESEND 1/2] in-kernel sockets API
+Date: Mon, 7 Aug 2006 16:20:33 -0700
+Message-ID: <20060807162033.3685924e@localhost.localdomain>
+References: <1154991629.11916.5.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:1424
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751179AbWHGXUY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 19:20:24 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060807133423.11bfbff3@localhost.localdomain>
+Received: from smtp.osdl.org ([65.172.181.4]:12518 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751183AbWHGXUo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 19:20:44 -0400
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <1154991629.11916.5.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Mon, 7 Aug 2006 13:34:23 -0700
+On Mon, 07 Aug 2006 16:00:29 -0700
+Sridhar Samudrala <sri@us.ibm.com> wrote:
 
-> Silly offenders:	include/net/ipx.h
-> 			include/net/ieee80211.h
-> 			include/net/ip6_tunnel.h
-> 			include/net/ndisc.h
-> 			include/linux/if_ether.h
-> 			include/linux/if_fddi.h
-> 		
-> 			include/linux/sctp.h -- really bad
+> Dave,
+> 
+> Could you consider this for inclusion into 2.6.19 tree?
+> 
+> Thanks
+> Sridhar
+> 
+> This patch implements wrapper functions that provide a convenient way to
+> access the sockets API for in-kernel users like sunrpc, cifs & ocfs2 etc
+> and any future users.
+> 
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> Acked-by: James Morris <jmorris@namei.org>
+> 
+> ---
+> 
+>  include/linux/net.h |   19 +++++++++
+>  net/socket.c        |  113 +++++++++++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 132 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/net.h b/include/linux/net.h
+> index b20c53c..19da2c0 100644
+> --- a/include/linux/net.h
+> +++ b/include/linux/net.h
+> @@ -208,6 +208,25 @@ extern int   	     kernel_recvmsg(struct
+>  				    struct kvec *vec, size_t num,
+>  				    size_t len, int flags);
+>  
+> +extern int kernel_bind(struct socket *sock, struct sockaddr *addr,
+> +		       int addrlen);
+> +extern int kernel_listen(struct socket *sock, int backlog);
+> +extern int kernel_accept(struct socket *sock, struct socket **newsock,
+> +			 int flags);
+> +extern int kernel_connect(struct socket *sock, struct sockaddr *addr,
+> +			  int addrlen, int flags);
+> +extern int kernel_getsockname(struct socket *sock, struct sockaddr *addr,
+> +			      int *addrlen);
+> +extern int kernel_getpeername(struct socket *sock, struct sockaddr *addr,
+> +			      int *addrlen);
+> +extern int kernel_getsockopt(struct socket *sock, int level, int optname,
+> +			     char *optval, int *optlen);
+> +extern int kernel_setsockopt(struct socket *sock, int level, int optname,
+> +			     char *optval, int optlen);
+> +extern int kernel_sendpage(struct socket *sock, struct page *page, int offset,
+> +			   size_t size, int flags);
+> +extern int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg);
+> +
+>  #ifndef CONFIG_SMP
+>  #define SOCKOPS_WRAPPED(name) name
+>  #define SOCKOPS_WRAP(name, fam)
+> diff --git a/net/socket.c b/net/socket.c
+> index b4848ce..0c9d01d 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -2160,6 +2160,109 @@ static long compat_sock_ioctl(struct fil
+>  }
+>  #endif
+>  
+> +int kernel_bind(struct socket *sock, struct sockaddr *addr, int addrlen)
+> +{
+> +	return sock->ops->bind(sock, addr, addrlen);
+> +}
+> +
+> +int kernel_listen(struct socket *sock, int backlog)
+> +{
+> +	return sock->ops->listen(sock, backlog);
+> +}
+> +
+> +int kernel_accept(struct socket *sock, struct socket **newsock, int flags)
+> +{
+> +	struct sock *sk = sock->sk;
+> +	int err;
+> +
+> +	err = sock_create_lite(sk->sk_family, sk->sk_type, sk->sk_protocol,
+> +			       newsock);
+> +	if (err < 0)
+> +		goto done;
+> +
+> +	err = sock->ops->accept(sock, *newsock, flags);
+> +	if (err < 0) {
+> +		sock_release(*newsock);
+> +		goto done;
+> +	}
+> +
+> +	(*newsock)->ops = sock->ops;
+> +
+> +done:
+> +	return err;
+> +}
+> +
+> +int kernel_connect(struct socket *sock, struct sockaddr *addr, int addrlen,
+> +                   int flags)
+> +{
+> +	return sock->ops->connect(sock, addr, addrlen, flags);
+> +}
+> +
+> +int kernel_getsockname(struct socket *sock, struct sockaddr *addr,
+> +			 int *addrlen)
+> +{
+> +	return sock->ops->getname(sock, addr, addrlen, 0);
+> +}
+> +
+> +int kernel_getpeername(struct socket *sock, struct sockaddr *addr,
+> +			 int *addrlen)
+> +{
+> +	return sock->ops->getname(sock, addr, addrlen, 1);
+> +}
+> +
+> +int kernel_getsockopt(struct socket *sock, int level, int optname,
+> +			char *optval, int *optlen)
+> +{
+> +	mm_segment_t oldfs = get_fs();
+> +	int err;
+> +
+> +	set_fs(KERNEL_DS);
+> +	if (level == SOL_SOCKET)
+> +		err = sock_getsockopt(sock, level, optname, optval, optlen);
+> +	else
+> +		err = sock->ops->getsockopt(sock, level, optname, optval,
+> +					    optlen);
+> +	set_fs(oldfs);
+> +	return err;
+> +}
+> +
+> +int kernel_setsockopt(struct socket *sock, int level, int optname,
+> +			char *optval, int optlen)
+> +{
+> +	mm_segment_t oldfs = get_fs();
+> +	int err;
+> +
+> +	set_fs(KERNEL_DS);
+> +	if (level == SOL_SOCKET)
+> +		err = sock_setsockopt(sock, level, optname, optval, optlen);
+> +	else
+> +		err = sock->ops->setsockopt(sock, level, optname, optval,
+> +					    optlen);
+> +	set_fs(oldfs);
+> +	return err;
+> +}
+> +
+> +int kernel_sendpage(struct socket *sock, struct page *page, int offset,
+> +		    size_t size, int flags)
+> +{
+> +	if (sock->ops->sendpage)
+> +		return sock->ops->sendpage(sock, page, offset, size, flags);
+> +
+> +	return sock_no_sendpage(sock, page, offset, size, flags);
+> +}
+> +
+> +int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg)
+> +{
+> +	mm_segment_t oldfs = get_fs();
+> +	int err;
+> +
+> +	set_fs(KERNEL_DS);
+> +	err = sock->ops->ioctl(sock, cmd, arg);
+> +	set_fs(oldfs);
+> +
+> +	return err;
+> +}
+> +
+>  /* ABI emulation layers need these two */
+>  EXPORT_SYMBOL(move_addr_to_kernel);
+>  EXPORT_SYMBOL(move_addr_to_user);
+> @@ -2176,3 +2279,13 @@ EXPORT_SYMBOL(sock_wake_async);
+>  EXPORT_SYMBOL(sockfd_lookup);
+>  EXPORT_SYMBOL(kernel_sendmsg);
+>  EXPORT_SYMBOL(kernel_recvmsg);
+> +EXPORT_SYMBOL(kernel_bind);
+> +EXPORT_SYMBOL(kernel_listen);
+> +EXPORT_SYMBOL(kernel_accept);
+> +EXPORT_SYMBOL(kernel_connect);
+> +EXPORT_SYMBOL(kernel_getsockname);
+> +EXPORT_SYMBOL(kernel_getpeername);
+> +EXPORT_SYMBOL(kernel_getsockopt);
+> +EXPORT_SYMBOL(kernel_setsockopt);
+> +EXPORT_SYMBOL(kernel_sendpage);
+> +EXPORT_SYMBOL(kernel_sock_ioctl);
 
-The ndisc.h one, for example, is needed for cases like ARM.
-
-The if_ether.h one is also needed, or else for:
-
-	struct ethhdr *eth;
-
-"eth + 1" would do the wrong thing as the compiler would
-align the structure to the native pointer size or similar.
-This is an issue because ethhdr is 14 bytes in size.
+Please consider EXPORT_SYMBOL_GPL because this interface would be a obvious
+target for binary modules writers to use.
