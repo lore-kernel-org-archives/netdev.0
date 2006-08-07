@@ -1,39 +1,32 @@
-From: Jouni Malinen <jkm@devicescape.com>
-Subject: [PATCH wireless-dev 6/6] d80211: Fix TKIP replay protection
-Date: Mon, 07 Aug 2006 16:16:14 -0700
-Message-ID: <20060807231939.314173160@localhost>
-References: <20060807231608.888744720@localhost>
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
-	jkm@devicescape.com, jkmaline@cc.hut.fi
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipx: header length validation needed
+Date: Mon, 07 Aug 2006 16:24:33 -0700 (PDT)
+Message-ID: <20060807.162433.26101101.davem@davemloft.net>
+References: <20060807134636.30f8b779@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: acme@ghostprotocols.net, netdev@vger.kernel.org, stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-32.dex002.intermedia.net ([64.78.21.117]:22277 "EHLO
-	dhost002-32.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1751199AbWHGXYA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 19:24:00 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-Content-Disposition: inline; filename=tkip_replay_prot.patch
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:55783
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751201AbWHGXYd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Aug 2006 19:24:33 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060807134636.30f8b779@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixed TKIP replay protection for the case where hwaccel is enabled.
-rx_initialized flag was not set in this case and the TSC validation
-was skipped for the frames.
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Mon, 7 Aug 2006 13:46:36 -0700
 
-Signed-off-by: Jouni Malinen <jkm@devicescape.com>
+> IPX is not checking for non-linear (and short packets) in it's
+> receive routine.  This is serious because it may mean it ends up
+> reading past end of skb.
 
-Index: wireless-dev/net/d80211/tkip.c
-===================================================================
---- wireless-dev.orig/net/d80211/tkip.c
-+++ wireless-dev/net/d80211/tkip.c
-@@ -286,6 +286,7 @@ int ieee80211_tkip_decrypt_data(struct c
- 
- 	if (only_iv) {
- 		res = TKIP_DECRYPT_OK;
-+		key->u.tkip.rx_initialized[queue] = 1;
- 		goto done;
- 	}
- 
+This takes care of ipx_rcv() but the rest of the IPX protocol
+handling still has the problem, so you'll need to meticuliously
+follow the whole receive path and fix up all the spots that
+parse subsequent parts of the IPX packet to fix this properly.
 
---
--- 
-Jouni Malinen                                            PGP id EFC895FA
+For example, take a look at ipxitf_pprop().
