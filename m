@@ -1,45 +1,42 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [RFC] avoid unnecessary alignement overhead in skb->data allocation.
-Date: Mon, 7 Aug 2006 12:14:47 +0400
-Message-ID: <20060807081447.GA22282@2ka.mipt.ru>
-References: <20060807060155.GA6487@2ka.mipt.ru> <200608071005.57517.dada1@cosmosbay.com>
+From: "Lindsey Cameron" <LindseyCameron@1000augen.com>
+Subject: Hi, much-lauded
+Date: Mon, 7 Aug 2006 08:35:50 +0000 (UTC)
+Message-ID: <1183569358.20060807083536@1000augen.com>
+Reply-To: "Lindsey Cameron" <LindseyCameron@1000augen.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:37295 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751150AbWHGIPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 04:15:17 -0400
-To: Eric Dumazet <dada1@cosmosbay.com>
-Content-Disposition: inline
-In-Reply-To: <200608071005.57517.dada1@cosmosbay.com>
+Received: from zeus1.kernel.org ([204.152.191.4]:33944 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1751159AbWHGIfe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Aug 2006 04:35:34 -0400
+Date: Mon, 7 Aug 2006 08:35:36 -0480
+To: netdev-owner@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 07, 2006 at 10:05:57AM +0200, Eric Dumazet (dada1@cosmosbay.com) wrote:
-> > +	if ((1UL << order) > size + sizeof(void *) + sizeof(struct
-> > skb_shared_info)) { +		data = ____kmalloc(size + sizeof(struct
-> > skb_shared_info), gfp_mask); +		if (!data)
-> > +			goto nodata;
-> > +		memset(skb, 0, offsetof(struct sk_buff, truesize));
-> > +	} else {
-> > +		unsigned long *ptr;
-> > +
-> > +		data = ____kmalloc(size, gfp_mask);
-> 
-> You certainly want to kmalloc(size + sizeof(void *)) here, dont you ?
+Even if you have no erectin problems SOFT CIA2LIS 
+would help you to make BETTER SE5X MORE OFTEN!
+and to bring  unimagnable plesure to her.
 
-Yep.
-I think in next iteration of this patch I will add additional argument
-which will present order of aligned size (to eliminate get_order() loop
-for those who know it in advance like e1000). In case there are no
-place even for sizeof(void *) (what happens with e1000) and allocation 
-order is quite high (more than half of the page), then additional field 
-in skb can be used (or we can reuse it unconditionally to store pointer
-to shared info if skb is being allocated through alloc_skb_aligned()
-function).
+Just disolve half a pil under your tongue 
+and get ready for action in 15 minutes. 
 
-> Eric
+The tests showed that the majority of men 
+after taking this medic ation were able to have 
+PERFECT ERSECTION during 36 hours!
 
--- 
-	Evgeniy Polyakov
+VISIT US, AND GET OUR SPECIAL 70% DISCYOUNT OFER!
+
+http://pqrnrn.truedwell.net/?18964477
+
+==========
+     "I suppose that  your  first  serious  discovery, Dr. Pilman, should be
+I went on, rummaging for a cigarette in my pocket. Someone caught up with me
+cinema and television productions in the field
+stalker."
+forgotten its insanity, but Fletcher had not. "Jonathan, remember what you
+move around. There it was, the  pussycat, shiny new  and  clean, the  copper
+
+so  important to  know just who  these visitors were. It's not important  to
+it?--and slithered into the field, behind the  hushes and the rotten fences,
