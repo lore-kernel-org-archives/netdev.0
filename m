@@ -1,68 +1,78 @@
-From: Philip Craig <philipc@snapgear.com>
-Subject: Re: [RFC] gre: transparent ethernet bridging
-Date: Mon, 07 Aug 2006 11:55:14 +1000
-Message-ID: <44D69D82.1090407@snapgear.com>
-References: <44CDD631.5030008@snapgear.com> <20060731091423.3327f85e@dxpl.pdx.osdl.net> <44CEAB31.5090501@snapgear.com> <20060731220822.444f04e4@localhost.localdomain> <20060802074223.GA23715@xi.wantstofly.org> <44D15265.4090905@snapgear.com> <20060803073307.GA29775@xi.wantstofly.org> <44D1BE93.1080308@snapgear.com> <20060803194016.GC527@xi.wantstofly.org> <44D29C47.6080407@snapgear.com> <20060804080236.GA4106@xi.wantstofly.org>
+From: Wei Yongjun <yjwei@nanjing-fnst.com>
+Subject: Re: [PATCH] SNMPv2 tcpOutSegs counter error
+Date: Sun, 06 Aug 2006 23:17:37 -0400
+Message-ID: <1154920659.3388.4.camel@LINE>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rex.snapgear.com ([203.143.235.140]:9934 "EHLO
-	cyberguard.com.au") by vger.kernel.org with ESMTP id S1750883AbWHGBzQ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Aug 2006 21:55:16 -0400
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20060804080236.GA4106@xi.wantstofly.org>
+Received: from [221.6.14.228] ([221.6.14.228]:50104 "EHLO
+	localmail.nanjing-fnst.com") by vger.kernel.org with ESMTP
+	id S1750904AbWHGCYt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Aug 2006 22:24:49 -0400
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek wrote:
-> I have one machine at home that appears to be on my employer's network
-> via such a tunnel.  I don't use bridging, because I don't need any other
-> machine at home to access this tunnel.  I do want bridging, and not proxy
-> ARP, because it allows me to run arpwatch, and doesn't require me to
-> reconfigure something at the remote end if I, for example, want to add
-> another IP address to my home box.
+Patch has been fixed.
 
-Okay.
-If this is using Linux, do you have a patch that does this already?
+On Friday 04 August 2006 07:23, David Miller wrote:
+> From: Wei Yongjun <yjwei@nanjing-fnst.com>
+> Date: Fri, 04 Aug 2006 08:46:13 -0400
+>
+> > This always correct except when do active open in tcp client, which
+will
+> > send a SYN, that segment will not be counted, even if it is not
+> > restrained. Maybe I can do following to fix this:
+> >
+> >
+> > Do you agree with me? If It is correctly, I will send this patch
+soon.
+>
+> This looks fine and should work.
+>
+> Please add some comments in tcp_connect() explaining the ordering of
+> assignments, so that a future developer does not break things by
+> accident.
 
-> No, just send it to the device that matches the lower-level protocol.
-> So if you receive an ethernet packet, make it be received on the ethernet
-> sub-device, if it's IP, make it be received on the IP sub-device, etc.
-> 
-> Note that I'm not saying that this is necessarily a good idea, it's just
-> what I would suggest if you want to run both 'bare IP' and ethernet
-> encapsulated traffic over the same GRE tunnel at the same time.  (Not sure
-> why you'd want that.)
+Signed-off-by: Wei Yongjun <yjwei@nanjing-fnst.com>
 
-I still don't understand what the IP sub-device is, or whether
-this is different from the options I list below.
-But I don't have a good reason for wanting this either.
-So lets forget about this and talk about the three options below.
+--- a/net/ipv4/tcp_output.c	2006-08-03 18:05:22.425081936 -0400
++++ b/net/ipv4/tcp_output.c	2006-08-07 09:48:41.186372896 -0400
+@@ -462,7 +462,8 @@ static int tcp_transmit_skb(struct sock 
+ 	if (skb->len != tcp_header_size)
+ 		tcp_event_data_sent(tp, skb, sk);
+ 
+-	TCP_INC_STATS(TCP_MIB_OUTSEGS);
++	if(!before(tcb->seq, tp->snd_nxt))
++		TCP_INC_STATS(TCP_MIB_OUTSEGS);
+ 
+ 	err = icsk->icsk_af_ops->queue_xmit(skb, 0);
+ 	if (likely(err <= 0))
+@@ -2151,10 +2152,9 @@ int tcp_connect(struct sock *sk)
+ 	skb_shinfo(buff)->tso_segs = 1;
+ 	skb_shinfo(buff)->tso_size = 0;
+ 	buff->csum = 0;
++	tp->snd_nxt = tp->write_seq;
+ 	TCP_SKB_CB(buff)->seq = tp->write_seq++;
+ 	TCP_SKB_CB(buff)->end_seq = tp->write_seq;
+-	tp->snd_nxt = tp->write_seq;
+-	tp->pushed_seq = tp->write_seq;
+ 
+ 	/* Send it off. */
+ 	TCP_SKB_CB(buff)->when = tcp_time_stamp;
+@@ -2164,6 +2164,11 @@ int tcp_connect(struct sock *sk)
+ 	sk_charge_skb(sk, buff);
+ 	tp->packets_out += tcp_skb_pcount(buff);
+ 	tcp_transmit_skb(sk, buff, 1, GFP_KERNEL);
++	/* change tp->snd_nxt after tcp_transmit_skb() to make this packet to be
++	 * counted to tcpOutSegs
++	 */
++	tp->snd_nxt = tp->write_seq;
++	tp->pushed_seq = tp->write_seq;
+ 	TCP_INC_STATS(TCP_MIB_ACTIVEOPENS);
+ 
+ 	/* Timer for repeating the SYN until an answer. */
 
->> This seems cleaner to me:
->> The GRE tunnel receives a packet of any protocol (ethernet included),
->> and adds the IP/GRE header.  Anything else is done above GRE.
->> Whatever needs the ethernet header should add it.
->>
->> And then the decision is, how do we add the ethernet header?
->> - an option to GRE to always add the ethernet header
-> 
-> I think I lost you here.  You surely can't just 'make up' any ethernet
-> header?
-
-No, you need a device that looks like an ethernet device.
-We can modify the GRE device to look like ethernet (as an option).
-Or we can create a new ethernet device stacked on top of the GRE device.
-Or we can use the bridge device, which already looks like ethernet.
-
-My first patch in this thread did it by modifying the GRE device.
-Look at that patch if my explanation still doesn't make sense.
-The option part is controlled by the "#if 0" in that patch
-(which needs fixing of course).
-
-You have a valid use that doesn't need bridging, so IMO we can rule
-out doing it in the bridging code.
 
