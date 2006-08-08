@@ -1,7 +1,7 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 2/2] rfkill - rt2x00 should use rfkill
-Date: Tue, 8 Aug 2006 16:30:13 +0200
-Message-ID: <200608081630.13432.IvDoorn@gmail.com>
+Subject: [PATCH 1/2] rfkill - Add rfkill driver to misc input devices
+Date: Tue, 8 Aug 2006 16:30:12 +0200
+Message-ID: <200608081630.12467.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -10,567 +10,388 @@ Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from nf-out-0910.google.com ([64.233.182.186]:20693 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S964919AbWHHOan (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 10:30:43 -0400
+	id S964912AbWHHOam (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 10:30:42 -0400
 Received: by nf-out-0910.google.com with SMTP id q29so188381nfc
-        for <netdev@vger.kernel.org>; Tue, 08 Aug 2006 07:30:42 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Tue, 08 Aug 2006 07:30:40 -0700 (PDT)
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now rfkill is available rt2x00 should make use of it let
-the hardware button status be periodically probed by rfkill.
-This makes the ACPI implementation as done in rt2x00 no longer required.
+This will add the rfkill driver to the input/misc section of the kernel.
+rfkill is usefull for newtwork devices that contain a hardware button
+to enable or disable the radio.
+With rfkill a generic interface is created for the network drivers,
+as well as providing a  uniform way for userspace to listen
+to the hardware button events.
 
 Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
 
 ---
 
-diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/Kconfig wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/Kconfig
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/Kconfig	2006-08-08 16:09:13.000000000 +0200
-+++ wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/Kconfig	2006-08-08 16:03:41.000000000 +0200
-@@ -17,12 +17,12 @@
+diff --git a/drivers/input/misc/Kconfig b/drivers/input/misc/Kconfig
+index a6dfc74..ac10c02 100644
+--- a/drivers/input/misc/Kconfig
++++ b/drivers/input/misc/Kconfig
+@@ -79,4 +79,19 @@ config HP_SDC_RTC
+ 	  Say Y here if you want to support the built-in real time clock
+ 	  of the HP SDC controller.
  
- config RT2400PCI_BUTTON
- 	bool "Ralink rt2400 hardware button support"
--	depends on RT2400PCI && X86
-+	depends on RT2400PCI && RFKILL
- 	---help---
- 	In some notebooks the rt2400 chipset is integrated in the machine,
--	with this option enabled the device will periodically poll the
--	the status of this button and will send and ACPI event when
--	the button has been pressed.
-+	with this option enabled the driver will register itself to the
-+	rfkill driver for periodical polling of the hardware button
-+	status, and the correct handling of button press events.
- 
- config RT2400PCI_DEBUG
- 	bool "Ralink rt2400 debug output"
-@@ -40,12 +40,12 @@
- 
- config RT2500PCI_BUTTON
- 	bool "Ralink rt2500 hardware button support"
--	depends on RT2500PCI && X86
-+	depends on RT2500PCI && RFKILL
- 	---help---
- 	In some notebooks the rt2500 chipset is integrated in the machine,
--	with this option enabled the device will periodically poll the
--	the status of this button and will send and ACPI event when
--	the button has been pressed.
-+	with this option enabled the driver will register itself to the
-+	rfkill driver for periodical polling of the hardware button
-+	status, and the correct handling of button press events.
- 
- config RT2500PCI_DEBUG
- 	bool "Ralink rt2500 debug output"
-@@ -64,12 +64,12 @@
- 
- config RT61PCI_BUTTON
- 	bool "Ralink rt61 hardware button support"
--	depends on RT61PCI && X86
-+	depends on RT61PCI && RFKILL
- 	---help---
- 	In some notebooks the rt61 chipset is integrated in the machine,
--	with this option enabled the device will periodically poll the
--	the status of this button and will send and ACPI event when
--	the button has been pressed.
-+	with this option enabled the driver will register itself to the
-+	rfkill driver for periodical polling of the hardware button
-+	status, and the correct handling of button press events.
- 
- config RT61PCI_DEBUG
- 	bool "Ralink rt61 debug output"
-diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-08-08 16:09:02.000000000 +0200
-+++ wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-08-08 16:00:28.000000000 +0200
-@@ -346,23 +346,6 @@
- 		rt2x00_eeprom_read(rt2x00dev, word + i, data++);
- }
- 
--#ifdef CONFIG_RT2400PCI_BUTTON
--/*
-- * Hardware button poll handler.
-- */
--static void rt2400pci_button_poll(unsigned long data)
--{
--	struct rt2x00_dev *rt2x00dev = (struct rt2x00_dev*)data;
--	u32 reg;
--
--	rt2x00_register_read(rt2x00dev, GPIOCSR, &reg);
--	rt2x00pci_button_status(
--		rt2x00dev, rt2x00_get_field32(reg, GPIOCSR_BIT0));
--}
--#else /* CONFIG_RT2400PCI_BUTTON */
--static void rt2400pci_button_poll(unsigned long data){}
--#endif /* CONFIG_RT2400PCI_BUTTON */
--
- /*
-  * Ethtool handlers.
-  */
-@@ -437,6 +420,60 @@
- 	.get_perm_addr	= ethtool_op_get_perm_addr,
- };
- 
-+#ifdef CONFIG_RT2400PCI_BUTTON
-+static int rt2400pci_button_poll(unsigned long data)
-+{
-+	struct rt2x00_dev *rt2x00dev = (struct rt2x00_dev*)data;
-+	u32 reg;
++config RFKILL
++	tristate "RF button support"
++	help
++	  If you say yes here, the rfkill driver will be build
++	  which allowed network devices to register their hardware
++	  RF button which controls the radio state. This driver
++	  will then create an input device for it.
 +
-+	rt2x00_register_read(rt2x00dev, GPIOCSR, &reg);
-+	return rt2x00_get_field32(reg, GPIOCSR_BIT0);
-+}
++	  When the input device is not used, the rfkill driver
++	  will make sure that when the RF button is pressed the radio
++	  is enabled or disabled accordingly. When the input device
++	  has been opened by the user this radio control will be left
++	  to the user, and rfkill will only send the RF button status
++	  change to userspace.
 +
-+static void rt2400pci_button_enable_radio(unsigned long data)
-+{
-+	rt2400pci_enable_radio((struct rt2x00_dev*)data);
-+}
+ endif
+diff --git a/drivers/input/misc/Makefile b/drivers/input/misc/Makefile
+index 415c491..e788a1b 100644
+--- a/drivers/input/misc/Makefile
++++ b/drivers/input/misc/Makefile
+@@ -11,3 +11,4 @@ obj-$(CONFIG_INPUT_UINPUT)		+= uinput.o
+ obj-$(CONFIG_INPUT_WISTRON_BTNS)	+= wistron_btns.o
+ obj-$(CONFIG_HP_SDC_RTC)		+= hp_sdc_rtc.o
+ obj-$(CONFIG_INPUT_IXP4XX_BEEPER)	+= ixp4xx-beeper.o
++obj-$(CONFIG_RFKILL)			+= rfkill.o
+diff --git a/drivers/input/misc/rfkill.c b/drivers/input/misc/rfkill.c
+new file mode 100644
+index 0000000..5fbe320
+--- /dev/null
++++ b/drivers/input/misc/rfkill.c
+@@ -0,0 +1,210 @@
++/*
++	Copyright (C) 2006 Ivo van Doorn
 +
-+static void rt2400pci_button_disable_radio(unsigned long data)
-+{
-+	rt2400pci_disable_radio((struct rt2x00_dev*)data);
-+}
++	This program is free software; you can redistribute it and/or modify
++	it under the terms of the GNU General Public License as published by
++	the Free Software Foundation; either version 2 of the License, or
++	(at your option) any later version.
 +
-+static void rt2400pci_button_start(struct rt2x00_dev *rt2x00dev)
-+{
-+	struct rfkill *rfkill = &rt2x00dev->rfkill;
++	This program is distributed in the hope that it will be useful,
++	but WITHOUT ANY WARRANTY; without even the implied warranty of
++	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++	GNU General Public License for more details.
 +
-+	/*
-+	 * Only start the button polling when
-+	 * the hardware button is present.
-+	 */
-+	if (!GET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON))
-+		return;
-+
-+	rfkill->dev_name	= "rt2400pci";
-+	rfkill->data		= (unsigned long)rt2x00dev;
-+	rfkill->poll		= rt2400pci_button_poll;
-+	rfkill->enable_radio	= rt2400pci_button_enable_radio;
-+	rfkill->disable_radio	= rt2400pci_button_disable_radio;
-+	rfkill->current_status	= !!rt2400pci_button_poll(rfkill->data);
-+
-+	if (rfkill_add_device(rfkill))
-+		ERROR("Failed to register button handler.\n");
-+}
-+
-+static void rt2400pci_button_stop(struct rt2x00_dev *rt2x00dev)
-+{
-+	if (!GET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON))
-+		return;
-+
-+	rfkill_del_device(&rt2x00dev->rfkill);
-+}
-+#else /* CONFIG_RT2400PCI_BUTTON */
-+static void rt2400pci_button_start(struct rt2x00_dev *rt2x00dev){}
-+static void rt2400pci_button_stop(struct rt2x00_dev *rt2x00dev){}
-+#endif /* CONFIG_RT2400PCI_BUTTON */
-+
- /*
-  * Configuration handlers.
-  */
-@@ -2714,7 +2751,7 @@
- 	/*
- 	 * Shutdown poll_timer for hardware button.
- 	 */
--	rt2x00pci_button_stop(rt2x00dev);
-+	rt2400pci_button_stop(rt2x00dev);
- 
- 	/*
- 	 * Free ring structures.
-@@ -2803,7 +2840,7 @@
- 	/*
- 	 * If required start hardware button polling.
- 	 */
--	rt2x00pci_button_start(rt2x00dev, rt2400pci_button_poll);
-+	rt2400pci_button_start(rt2x00dev);
- 
- 	return 0;
- 
-@@ -2995,11 +3032,6 @@
- MODULE_PARM_DESC(debug, "Set this parameter to 1 to enable debug output.");
- #endif /* CONFIG_RT2400PCI_DEBUG */
- 
--#ifdef CONFIG_RT2400PCI_BUTTON
--module_param_named(poll_delay, rt2x00_poll_delay, short, S_IRUGO);
--MODULE_PARM_DESC(debug, "Delay between WiFi button pollings (in 100ms).");
--#endif /* CONFIG_RT2400PCI_BUTTON */
--
- static struct pci_driver rt2400pci_driver = {
- 	.name		= DRV_NAME,
- 	.id_table	= rt2400pci_device_table,
-diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-08-08 16:09:03.000000000 +0200
-+++ wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-08-08 16:00:26.000000000 +0200
-@@ -346,23 +346,6 @@
- 		rt2x00_eeprom_read(rt2x00dev, word + i, data++);
- }
- 
--#ifdef CONFIG_RT2500PCI_BUTTON
--/*
-- * Hardware button poll handler.
-- */
--static void rt2500pci_button_poll(unsigned long data)
--{
--	struct rt2x00_dev *rt2x00dev = (struct rt2x00_dev*)data;
--	u32 reg;
--
--	rt2x00_register_read(rt2x00dev, GPIOCSR, &reg);
--	rt2x00pci_button_status(
--		rt2x00dev, rt2x00_get_field32(reg, GPIOCSR_BIT0));
--}
--#else /* CONFIG_RT2500PCI_BUTTON */
--static void rt2500pci_button_poll(unsigned long data){}
--#endif /* CONFIG_RT2500PCI_BUTTON */
--
- /*
-  * Ethtool handlers.
-  */
-@@ -437,6 +420,60 @@
- 	.get_perm_addr	= ethtool_op_get_perm_addr,
- };
- 
-+#ifdef CONFIG_RT2500PCI_BUTTON
-+static int rt2500pci_button_poll(unsigned long data)
-+{
-+	struct rt2x00_dev *rt2x00dev = (struct rt2x00_dev*)data;
-+	u32 reg;
-+
-+	rt2x00_register_read(rt2x00dev, GPIOCSR, &reg);
-+	return rt2x00_get_field32(reg, GPIOCSR_BIT0);
-+}
-+
-+static void rt2500pci_button_enable_radio(unsigned long data)
-+{
-+	rt2500pci_enable_radio((struct rt2x00_dev*)data);
-+}
-+
-+static void rt2500pci_button_disable_radio(unsigned long data)
-+{
-+	rt2500pci_disable_radio((struct rt2x00_dev*)data);
-+}
-+
-+static void rt2500pci_button_start(struct rt2x00_dev *rt2x00dev)
-+{
-+	struct rfkill *rfkill = &rt2x00dev->rfkill;
-+
-+	/*
-+	 * Only start the button polling when
-+	 * the hardware button is present.
-+	 */
-+	if (!GET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON))
-+		return;
-+
-+	rfkill->dev_name	= "rt2500pci";
-+	rfkill->data		= (unsigned long)rt2x00dev;
-+	rfkill->poll		= rt2500pci_button_poll;
-+	rfkill->enable_radio	= rt2500pci_button_enable_radio;
-+	rfkill->disable_radio	= rt2500pci_button_disable_radio;
-+	rfkill->current_status	= !!rt2500pci_button_poll(rfkill->data);
-+
-+	if (rfkill_add_device(rfkill))
-+		ERROR("Failed to register button handler.\n");
-+}
-+
-+static void rt2500pci_button_stop(struct rt2x00_dev *rt2x00dev)
-+{
-+	if (!GET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON))
-+		return;
-+
-+	rfkill_del_device(&rt2x00dev->rfkill);
-+}
-+#else /* CONFIG_RT2500PCI_BUTTON */
-+static void rt2500pci_button_start(struct rt2x00_dev *rt2x00dev){}
-+static void rt2500pci_button_stop(struct rt2x00_dev *rt2x00dev){}
-+#endif /* CONFIG_RT2500PCI_BUTTON */
-+
- /*
-  * Configuration handlers.
-  */
-@@ -2997,7 +3034,7 @@
- 	/*
- 	 * Shutdown poll_timer for hardware button.
- 	 */
--	rt2x00pci_button_stop(rt2x00dev);
-+	rt2500pci_button_stop(rt2x00dev);
- 
- 	/*
- 	 * Free ring structures.
-@@ -3086,7 +3123,7 @@
- 	/*
- 	 * If required start hardware button polling.
- 	 */
--	rt2x00pci_button_start(rt2x00dev, rt2500pci_button_poll);
-+	rt2500pci_button_start(rt2x00dev);
- 
- 	return 0;
- 
-@@ -3278,11 +3315,6 @@
- MODULE_PARM_DESC(debug, "Set this parameter to 1 to enable debug output.");
- #endif /* CONFIG_RT2500PCI_DEBUG */
- 
--#ifdef CONFIG_RT2500PCI_BUTTON
--module_param_named(poll_delay, rt2x00_poll_delay, short, S_IRUGO);
--MODULE_PARM_DESC(debug, "Delay between WiFi button pollings (in 100ms).");
--#endif /* CONFIG_RT2500PCI_BUTTON */
--
- static struct pci_driver rt2500pci_driver = {
- 	.name		= DRV_NAME,
- 	.id_table	= rt2500pci_device_table,
-diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2x00.h wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2x00.h
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-08-08 16:09:03.000000000 +0200
-+++ wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-08-08 16:00:57.000000000 +0200
-@@ -82,6 +82,16 @@
- 		__FUNCTION__, ##__args);
- 
- /*
-+ * Hardware button support (through radiobtn)
-+ * The delay between each poll can be set by the user
-+ * using the module parameter. Default value is 0,
-+ * which means polling is disabled.
++	You should have received a copy of the GNU General Public License
++	along with this program; if not, write to the
++	Free Software Foundation, Inc.,
++	59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 + */
-+#ifdef CONFIG_RT2X00_BUTTON
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/timer.h>
 +#include <linux/rfkill.h>
-+#endif /* CONFIG_RT2X00_BUTTON */
++
++#include <asm/atomic.h>
++
++MODULE_AUTHOR("Ivo van Doorn <IvDoorn@gmail.com>");
++MODULE_VERSION("1.0");
++MODULE_DESCRIPTION("RF button support");
++MODULE_LICENSE("GPL");
 +
 +/*
-  * Ring sizes.
-  * Ralink PCI devices demand the Frame size to be a multiple of 128 bytes.
-  * DATA_FRAME_SIZE is used for TX, RX, ATIM and PRIO rings.
-diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h	2006-08-01 19:30:38.000000000 +0200
-+++ wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h	2006-08-08 16:01:16.000000000 +0200
-@@ -44,115 +44,4 @@
- #define EEPROM_WRITE_OPCODE	0x05
- #define EEPROM_READ_OPCODE	0x06
- 
--/*
-- * HW button structure.
-- */
--#ifdef CONFIG_RT2X00_BUTTON
--#include <acpi/acpi_bus.h>
--
--struct rt2x00_button {
--	/*
--	 * ACPI device for generation of ACPI events.
--	 */
--	struct acpi_device acpi_dev;
--
--	/*
--	 * Timer for register polling.
--	 */
--	struct timer_list poll_timer;
--
--	/*
--	 * Timer delay.
--	 */
--	short poll_delay;
--
--	/*
--	 * Current status of button.
--	 */
--	short button_status:1;
--	short active_poll:1;
--	short __pad:14;
--};
--#endif /* CONFIG_RT2X00_BUTTON */
--
--/*
-- * HW button variables & functions.
-- * The delay between each poll is set by the module parameter.
-- */
--#ifdef CONFIG_RT2X00_BUTTON
--/*
-- * Module parameter.
-- */
--static short rt2x00_poll_delay = 0;
--
--static inline void rt2x00pci_button_status(struct rt2x00_dev *rt2x00dev,
--	char status)
--{
--	struct rt2x00_button *button = &rt2x00dev->button;
--
--	if (!button->active_poll)
--		return;
--
--	if (status != button->button_status) {
--		button->button_status = status;
--		acpi_bus_generate_event(
--			&button->acpi_dev, ACPI_TYPE_EVENT, status);
--	}
--
--	button->poll_timer.expires = jiffies + button->poll_delay;
--
--	if (button->active_poll)
--		add_timer(&button->poll_timer);
--}
--
--static inline void rt2x00pci_button_start(struct rt2x00_dev *rt2x00dev,
--	void (*handler)(unsigned long data))
--{
--	struct rt2x00_button *button = &rt2x00dev->button;
--
--	/*
--	 * Only enable polling when the user has
--	 * set the poll delay module parameter,
--	 * and the device contains a hardware button.
--	 */
--	if(!GET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON) ||
--	   !rt2x00_poll_delay)
--		return;
--
--	strcpy(acpi_device_class(&button->acpi_dev), DRV_NAME "_button");
--	strcpy(acpi_device_bid(&button->acpi_dev), DRV_NAME);
--	strcpy(acpi_device_name(&button->acpi_dev), DRV_NAME);
--
--	init_timer(&button->poll_timer);
--
--	button->poll_delay = rt2x00_poll_delay * (HZ / 10);
--	button->button_status = 0;
--	button->active_poll = 1;
--
--	button->poll_timer.function = handler;
--	button->poll_timer.data = (unsigned long)rt2x00dev;
--	button->poll_timer.expires = jiffies + button->poll_delay;
--
--	add_timer(&button->poll_timer);
--}
--
--static inline void rt2x00pci_button_stop(struct rt2x00_dev *rt2x00dev)
--{
--	/*
--	 * Shutdown poll_timer for hardware button,
--	 * make sure only to disable polling when
--	 * it was enabled in the first place.
--	 */
--	if(!rt2x00dev->button.active_poll)
--		return;
--
--	rt2x00dev->button.active_poll = 0;
--	del_timer_sync(&rt2x00dev->button.poll_timer);
--}
--#else /* CONFIG_RT2X00_BUTTON */
--static inline void rt2x00pci_button_start(struct rt2x00_dev *rt2x00dev,
--	void (*handler)(unsigned long data)){}
--static inline void rt2x00pci_button_stop(struct rt2x00_dev *rt2x00dev){}
--#endif /* CONFIG_RT2X00_BUTTON */
--
- #endif /* RT2X00PCI_H */
-diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-08-08 16:09:13.000000000 +0200
-+++ wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-08-08 16:02:22.000000000 +0200
-@@ -377,23 +377,6 @@
- 		rt2x00_eeprom_read(rt2x00dev, word + i, data++);
- }
- 
--#ifdef CONFIG_RT61PCI_BUTTON
--/*
-- * Hardware button poll handler.
-- */
--static void rt61pci_button_poll(unsigned long data)
--{
--	struct rt2x00_dev *rt2x00dev = (struct rt2x00_dev*)data;
--	u32 reg;
--
--	rt2x00_register_read(rt2x00dev, MAC_CSR13, &reg);
--	rt2x00pci_button_status(
--		rt2x00dev, rt2x00_get_field32(reg, MAC_CSR13_BIT5));
--}
--#else /* CONFIG_RT61PCI_BUTTON */
--static void rt61pci_button_poll(unsigned long data){}
--#endif /* CONFIG_RT61PCI_BUTTON */
--
- /*
-  * Ethtool handlers.
-  */
-@@ -468,6 +451,60 @@
- 	.get_perm_addr	= ethtool_op_get_perm_addr,
- };
- 
-+#ifdef CONFIG_RT61PCI_BUTTON
-+static int rt61pci_button_poll(unsigned long data)
-+{
-+	struct rt2x00_dev *rt2x00dev = (struct rt2x00_dev*)data;
-+	u32 reg;
++ * List of all registered buttons.
++ */
++static struct list_head rfkill_list;
++static spinlock_t rfkill_list_lock;
 +
-+	rt2x00_register_read(rt2x00dev, MAC_CSR13, &reg);
-+	return rt2x00_get_field32(reg, MAC_CSR13_BIT5);
-+}
++/*
++ * Polling timer, poll_delay and use count.
++ */
++static struct timer_list poll_timer;
++static atomic_t poll_required;
 +
-+static void rt61pci_button_enable_radio(unsigned long data)
++static void rfkill_toggle_radio(int new_status)
 +{
-+	rt61pci_enable_radio((struct rt2x00_dev*)data);
-+}
-+
-+static void rt61pci_button_disable_radio(unsigned long data)
-+{
-+	rt61pci_disable_radio((struct rt2x00_dev*)data);
-+}
-+
-+static void rt61pci_button_start(struct rt2x00_dev *rt2x00dev)
-+{
-+	struct rfkill *rfkill = &rt2x00dev->rfkill;
++	struct list_head *entry;
++	struct rfkill *rfkill;
 +
 +	/*
-+	 * Only start the button polling when
-+	 * the hardware button is present.
++	 * Go through the list of all radio's to toggle the radio state.
 +	 */
-+	if (!GET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON))
-+		return;
++	list_for_each(entry, &rfkill_list) {
++		rfkill =  list_entry(entry, struct rfkill, entry);
 +
-+	rfkill->dev_name	= "rt61pci";
-+	rfkill->data		= (unsigned long)rt2x00dev;
-+	rfkill->poll		= rt61pci_button_poll;
-+	rfkill->enable_radio	= rt61pci_button_enable_radio;
-+	rfkill->disable_radio	= rt61pci_button_disable_radio;
-+	rfkill->current_status	= !!rt61pci_button_poll(rfkill->data);
++		rfkill->current_status = new_status;
 +
-+	if (rfkill_add_device(rfkill))
-+		ERROR("Failed to register button handler.\n");
++		/*
++		 * If the input_device has been opened
++		 * all radio events should be send to user space.
++		 */
++		if (rfkill->input_dev->users) {
++			input_report_key(rfkill->input_dev,
++				KEY_RFKILL, new_status);
++			input_sync(rfkill->input_dev);
++			continue;
++		}
++
++		/*
++		 * If the hardware does not toggle the radio status automaticly,
++		 * we should take care of it.
++		 */
++		if (new_status && rfkill->enable_radio)
++			rfkill->enable_radio(rfkill->data);
++		else if (!new_status && rfkill->disable_radio)
++			rfkill->disable_radio(rfkill->data);
++	}
 +}
 +
-+static void rt61pci_button_stop(struct rt2x00_dev *rt2x00dev)
++static void rfkill_poll_button(unsigned long data)
 +{
-+	if (!GET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON))
-+		return;
++	struct list_head *entry;
++	struct rfkill *rfkill;
++	int status;
 +
-+	rfkill_del_device(&rt2x00dev->rfkill);
++	spin_lock(&rfkill_list_lock);
++
++	list_for_each(entry, &rfkill_list) {
++		rfkill =  list_entry(entry, struct rfkill, entry);
++
++		if (!rfkill->poll)
++			continue;
++
++		status = !!rfkill->poll(rfkill->data);
++
++		if (status != rfkill->current_status) {
++			rfkill_toggle_radio(status);
++			break;
++		}
++	}
++
++	spin_unlock(&rfkill_list_lock);
++
++	/*
++	 * Check if polling is still required.
++	 */
++	if (atomic_read(&poll_required)) {
++		poll_timer.expires = jiffies + RFKILL_POLL_DELAY;
++		add_timer(&poll_timer);
++	}
 +}
-+#else /* CONFIG_RT61PCI_BUTTON */
-+static void rt61pci_button_start(struct rt2x00_dev *rt2x00dev){}
-+static void rt61pci_button_stop(struct rt2x00_dev *rt2x00dev){}
-+#endif /* CONFIG_RT61PCI_BUTTON */
 +
- /*
-  * Configuration handlers.
-  */
-@@ -3514,7 +3551,7 @@
- 	/*
- 	 * Shutdown poll_timer for hardware button.
- 	 */
--	rt2x00pci_button_stop(rt2x00dev);
-+	rt61pci_button_stop(rt2x00dev);
++void rfkill_button_event(struct rfkill *rfkill, int status)
++{
++	if (status != rfkill->current_status) {
++		spin_lock(&rfkill_list_lock);
++		rfkill_toggle_radio(status);
++		spin_unlock(&rfkill_list_lock);
++	}
++}
++EXPORT_SYMBOL(rfkill_button_event);
++
++int rfkill_add_device(struct rfkill *rfkill)
++{
++	int status;
++
++	/*
++	 * Allocate, initialize and register input device.
++	 */
++	rfkill->input_dev = input_allocate_device();
++	if (!rfkill->input_dev) {
++		printk(KERN_ERR "Failed to allocate input device %s.\n",
++			rfkill->dev_name);
++		return -ENOMEM;
++	}
++
++	rfkill->input_dev->name = "Radio button";
++	rfkill->input_dev->phys = rfkill->dev_name;
++	rfkill->input_dev->id.bustype = BUS_HOST;
++	set_bit(KEY_RFKILL, rfkill->input_dev->keybit);
++
++	status = input_register_device(rfkill->input_dev);
++	if (status) {
++		printk(KERN_ERR "Failed to register input device %s.\n",
++			rfkill->dev_name);
++		input_free_device(rfkill->input_dev);
++		return status;
++	}
++
++	INIT_LIST_HEAD(&rfkill->entry);
++
++	spin_lock(&rfkill_list_lock);
++	list_add(&rfkill->entry, &rfkill_list);
++	spin_unlock(&rfkill_list_lock);
++
++	/*
++	 * If polling is required the poll_required counter should be
++	 * increased. If it was previously 0 we should start the polling timer.
++	 */
++	if (rfkill->poll) {
++		if (!atomic_read(&poll_required)) {
++			poll_timer.expires = jiffies + RFKILL_POLL_DELAY;
++			add_timer(&poll_timer);
++		}
++		atomic_inc(&poll_required);
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL(rfkill_add_device);
++
++void rfkill_del_device(struct rfkill *rfkill)
++{
++	spin_lock(&rfkill_list_lock);
++
++	/*
++	 * Check if this button required polling and if this
++	 * was the last button that required polling.
++	 */
++	if (rfkill->poll && atomic_dec_and_test(&poll_required))
++		del_timer(&poll_timer);
++
++	list_del(&rfkill->entry);
++
++	spin_unlock(&rfkill_list_lock);
++}
++EXPORT_SYMBOL(rfkill_del_device);
++
++static int __init radiobtn_init(void)
++{
++	printk(KERN_INFO "Loading rfkill driver.\n");
++
++	INIT_LIST_HEAD(&rfkill_list);
++	spin_lock_init(&rfkill_list_lock);
++
++	init_timer(&poll_timer);
++	poll_timer.function = rfkill_poll_button;
++	poll_timer.data = 0;
++	atomic_set(&poll_required, 0);
++
++	return 0;
++}
++
++static void __exit radiobtn_exit(void)
++{
++	printk(KERN_INFO "Unloading rfkill driver.\n");
++}
++
++module_init(radiobtn_init);
++module_exit(radiobtn_exit);
+diff --git a/include/linux/input.h b/include/linux/input.h
+index 56f1e0e..3c21480 100644
+--- a/include/linux/input.h
++++ b/include/linux/input.h
+@@ -488,6 +488,7 @@ #define KEY_PREVIOUS		0x19c
+ #define KEY_DIGITS		0x19d
+ #define KEY_TEEN		0x19e
+ #define KEY_TWEN		0x19f
++#define KEY_RFKILL		0x1a0
  
- 	/*
- 	 * Free ring structures.
-@@ -3608,7 +3645,7 @@
- 	/*
- 	 * If required start hardware button polling.
- 	 */
--	rt2x00pci_button_start(rt2x00dev, rt61pci_button_poll);
-+	rt61pci_button_start(rt2x00dev);
- 
- 	return 0;
- 
-@@ -3806,11 +3843,6 @@
- MODULE_PARM_DESC(debug, "Set this parameter to 1 to enable debug output.");
- #endif /* CONFIG_RT61PCI_DEBUG */
- 
--#ifdef CONFIG_RT61PCI_BUTTON
--module_param_named(poll_delay, rt2x00_poll_delay, short, S_IRUGO);
--MODULE_PARM_DESC(debug, "Delay between WiFi button pollings (in 100ms).");
--#endif /* CONFIG_RT61PCI_BUTTON */
--
- static struct pci_driver rt61pci_driver = {
- 	.name		= DRV_NAME,
- 	.id_table	= rt61pci_device_table,
+ #define KEY_DEL_EOL		0x1c0
+ #define KEY_DEL_EOS		0x1c1
+diff --git a/include/linux/rfkill.h b/include/linux/rfkill.h
+new file mode 100644
+index 0000000..2e1c740
+--- /dev/null
++++ b/include/linux/rfkill.h
+@@ -0,0 +1,98 @@
++/*
++	Copyright (C) 2006 Ivo van Doorn
++
++	This program is free software; you can redistribute it and/or modify
++	it under the terms of the GNU General Public License as published by
++	the Free Software Foundation; either version 2 of the License, or
++	(at your option) any later version.
++
++	This program is distributed in the hope that it will be useful,
++	but WITHOUT ANY WARRANTY; without even the implied warranty of
++	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++	GNU General Public License for more details.
++
++	You should have received a copy of the GNU General Public License
++	along with this program; if not, write to the
++	Free Software Foundation, Inc.,
++	59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ */
++
++/*
++	RF button support
++	Laptops are quite often equiped with a RF button to enable or
++	disable the radio of the network device attached to that button.
++	This network device usually is an integrated wireless network device,
++	or bluetooth device.
++	Some of these devices will disable the radio automaticly when the
++	RF button has been pressed, while other devices need to be polled
++	for the RF button status.
++	But in all cases the only interface that will have its radio disabled
++	will be the device that has the RF button attached to it. But it could
++	be desired that userspace performs this disabling of all radios in case
++	there are also interfaces without a RF button that need to be disabled.
++
++	The rfkill driver will contain a list of all devices with a RF button,
++	hardware drivers need to register their hardware to teh rfkill
++	interface it can take care of everything. If the RF button requires
++	polling to obtain the status this will be handled by rfkill as well.
++	Once the status of the button has changed and the hardware does not
++	automaticly enable or disable the radio rfkill provides with the
++	interface to do this correctly.
++
++	For each registered hardware button an input device will be created.
++	If this input device has been opened by the user, rfkill will send a
++	signal to userspace instead of the hardware about the new button
++	status. This will allow userpace to perform the correct steps
++	in order to bring down all interfaces.
++ */
++
++#ifndef RFKILL_H
++#define RFKILL_H
++
++#include <linux/list.h>
++#include <linux/input.h>
++
++#define RFKILL_POLL_DELAY	( HZ / 10 ) /* 100 ms */
++
++/**
++ * struct rfkill - rfkill button control structure.
++ * @dev_name: Name of the interface. This will become the name
++ * 	of the input device which will be created for this button.
++ * @data: Private data which will be passed along with the radio and polling
++ * 	handlers.
++ * @poll(unsigned long data): Optional handler which will frequently be
++ * 	called to determine the current status of the RF button.
++ * @enable_radio(unsigned long data): Optional handler to enable the radio
++ * 	once the RF button has been pressed and the hardware does enable
++ * 	the radio automaticly.
++ * @disable_radio(unsigned long data): Optional handler to disable the radio
++ * 	once the RF button has been pressed and the hardware does disable
++ * 	the radio automaticly.
++ * @current_status: Contains the current status of the radio as it was
++ * 	previously indicated by the radio. This field may only be changed
++ * 	by the driver at initialization time.
++ */
++struct rfkill {
++	const char *dev_name;
++
++	unsigned long data;
++
++	int (*poll)(unsigned long data);
++	void (*enable_radio)(unsigned long data);
++	void (*disable_radio)(unsigned long data);
++
++	unsigned int current_status;
++
++	/*
++	 * These fields are private to rfkill, and
++	 * should not be used by the RF button driver.
++	 */
++	struct list_head entry;
++	struct input_dev *input_dev;
++};
++
++void rfkill_button_event(struct rfkill *rfkill, int status);
++int rfkill_add_device(struct rfkill *rfkill);
++void rfkill_del_device(struct rfkill *rfkill);
++
++#endif /* RFKILL_H */
