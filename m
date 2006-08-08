@@ -1,61 +1,37 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: 3945 driver using d80211
-Date: Tue, 8 Aug 2006 14:40:43 -0700
-Message-ID: <200608081440.48623.flamingice@sourmilk.net>
-References: <44D901C9.6090304@linux.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
+Date: Tue, 08 Aug 2006 15:00:06 -0700 (PDT)
+Message-ID: <20060808.150006.48399434.davem@davemloft.net>
+References: <Pine.LNX.4.58.0608070124340.15870@gandalf.stny.rr.com>
+	<20060806.231846.71090637.davem@davemloft.net>
+	<Pine.LNX.4.58.0608080819080.7917@gandalf.stny.rr.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1799954.gXElGGFlfq";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: tytso@mit.edu, mchan@broadcom.com, herbert@gondor.apana.org.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	tglx@linutronix.de, mingo@elte.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:39595 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S965055AbWHHVky (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 17:40:54 -0400
-To: Mohamed Abbas <mabbas@linux.intel.com>
-In-Reply-To: <44D901C9.6090304@linux.intel.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:44717
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030278AbWHHWAC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 18:00:02 -0400
+To: rostedt@goodmis.org
+In-Reply-To: <Pine.LNX.4.58.0608080819080.7917@gandalf.stny.rr.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1799954.gXElGGFlfq
-Content-Type: text/plain;
-  charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+From: Steven Rostedt <rostedt@goodmis.org>
+Date: Tue, 8 Aug 2006 08:24:10 -0400 (EDT)
 
-On Tuesday 08 August 2006 14:27, Mohamed Abbas wrote:
-> 2- Scanning; in 3945 driver, we can not tune to other channels while we
-> are connected, this will cause a firmware error. The firmware provides a
-> scanning command we call so the firmware will take care of switching of
-> the available channels and gather beacons and probe responses. The
-> current d80211 the stack will call config callback to switch to
-> different channel and send the probe requests. One of our engineers did
-> come up with a patch to add one more callback function if provided the
-> d80211 will call this function to allow the registered driver to perform
-> the scanning functionalities. For work around I currently check inside
-> config callback if the scanning flag set I will issues the scan command
-> then ignore the next config callback.
->
-I think it would be best if you made the firmware not be aware of a=20
-connection, and let the d80211 code take care of all the=20
-scanning/authenticating/associating. Of course, I know nothing about 3945, =
-so=20
-I don't know if that's possible.
+> Of the 4 timers, only one is a timeout. The other three expire every time,
+> forcing the timer wheel into effect.  Even though it's one timer
+> implementing 4, it's expensive to use it as a watchdog.
 
-=2DMichael Wu
+It's not a watchdog, the timer continually fires.
 
---nextPart1799954.gXElGGFlfq
-Content-Type: application/pgp-signature
+It is the on-chip ASF firmware that "times out" if it does not
+see  the heartbeat message from the driver within 5 seconds.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBE2QTgT3Oqt9AH4aERAogwAKC7SKv3GAW45ZWejqVzvJm+klL2agCeJrwf
-Z8diruaBZDXlT3VGYEy7p14=
-=plYt
------END PGP SIGNATURE-----
-
---nextPart1799954.gXElGGFlfq--
+The driver timer in question runs every 2 seconds to write this
+heartbeat message to the chip.
