@@ -1,41 +1,148 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [RFC][PATCH 4/9] e100 driver conversion
-Date: Tue, 08 Aug 2006 22:18:03 +0200
-Message-ID: <1155068284.23134.23.camel@lappy>
-References: <20060808193325.1396.58813.sendpatchset@lappy>
-	 <20060808193405.1396.14701.sendpatchset@lappy> <44D8F074.8060001@intel.com>
+From: akepner@sgi.com
+Subject: Re: [PATCH] limit rt cache size
+Date: Tue, 8 Aug 2006 13:37:10 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0608081316330.2452@localhost.localdomain>
+References: <44D75EF8.1070901@sw.ru> <20060807164842.GA3412@ms2.inr.ac.ru>
+ <20060807.204214.68039839.davem@davemloft.net> <200608080711.06788.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Daniel Phillips <phillips@google.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	dev@sw.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:1567 "EHLO
-	amsfep18-int.chello.nl") by vger.kernel.org with ESMTP
-	id S964955AbWHHUSp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 16:18:45 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <44D8F074.8060001@intel.com>
+Received: from omx2-ext.sgi.com ([192.48.171.19]:34243 "EHLO omx2.sgi.com")
+	by vger.kernel.org with ESMTP id S964911AbWHHUq4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 16:46:56 -0400
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <200608080711.06788.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-08-08 at 13:13 -0700, Auke Kok wrote:
-> Peter Zijlstra wrote:
-> > Update the driver to make use of the netdev_alloc_skb() API and the
-> > NETIF_F_MEMALLOC feature.
-> 
-> this should be done in two separate patches. I should take care of the netdev_alloc_skb()
-> part too for e100 (which I've already queued internally), also since ixgb still needs it.
-> 
-> do you have any plans to visit ixgb for this change too?
+On Tue, 8 Aug 2006, Andi Kleen wrote:
 
-Well, all drivers are queued, these were just the ones I have hardware
-for in running systems (except wireless).
+>
+> The hash sizing code needs far more tweaks. iirc it can still allocate
+> several GB hash tables on large memory systems (i've seen that once in 
+> the boot log  of a 2TB system).  Even on smaller systems it is usually 
+> too much.
 
-Since this patch-set is essentially a RFC, your patch will likely hit
-mainline ere this one, at that point I'll rebase.
+Yes. Linear growth with memory is not a good algorithm for
+sizing hashes on a machine with ~TB... SGI has recommended
+booting with "thash_entries=2097152", but that's often much
+bigger than needed, too.
 
-For future patches I'll split up in two if people are so inclined.
+>
+> IMHO there needs to be a maximum size (maybe related to the sum of
+> caches of all CPUs in the system?)
+>
+> Best would be to fix this for all large system hashes together.
+
+How about using an algorithm like this: up to a certain "size"
+(memory size, cache size,...), scale the hash tables linearly; 
+but for larger sizes, scale logarithmically (or approximately
+logarithmically)
+
+Code that implements this is below. (It's not perfect, but mostly
+works. Just trying to get the idea across....) "struct hash_sizer"
+has fields that fix the linear/logarithmic crossover point. And
+size_system_hash() recommends the number of hash table entries
+based the amount of memory.
+
+
+#include <stdio.h>
+
+unsigned long nr_all_pages;
+#define PAGE_SHIFT 12
+#define PAGE_SIZE (1UL << PAGE_SHIFT)
+
+static int 
+long_log2 (unsigned long x)
+{
+ 	int r = 0;
+ 	for (x >>= 1; x > 0; x >>= 1)
+ 		r++;
+ 	return r;
+}
+
+/*
+  * scale linearly 64Kibuckets/GiByte up to 1 GiByte,
+  * and (sort of) logarithmically thereafter
+  */
+struct hash_sizer {
+ 	unsigned long buckets; /* power of 2 */
+ 	unsigned long bytes;   /* multiple of PAGE_SIZE */
+} tcp_hash_sizer = {
+ 	(1UL << 16), /* 64 Kibuckets */
+ 	(1UL << 30)  /* GiByte */
+};
+
+unsigned long 
+size_system_hash (struct hash_sizer *hs) 
+{
+ 	unsigned long size;
+ 	unsigned long long slog;
+ 	unsigned long scale, tmp;
+ 	int log2, i = 0;
+
+ 	if ( nr_all_pages < (hs->bytes/PAGE_SIZE)) {
+ 		/* linear scaling */
+ 		unsigned long long tmp = nr_all_pages;
+ 		tmp *= hs->buckets;
+ 		tmp /= (hs->bytes/PAGE_SIZE);
+ 		return (unsigned long)tmp;
+ 	}
+
+ 	/* logarithmic scaling */
+ 	log2 = long_log2(nr_all_pages);
+ 	scale  = (1 << log2);
+
+ 	slog = log2 * scale;
+
+ 	tmp = nr_all_pages;
+ 	tmp &= ~(1 << log2);
+
+ 	while (tmp) {
+
+ 		i++;
+ 		tmp <<= 1;
+ 		if (tmp & (1 << log2))
+ 			slog += (scale / (1 << i));
+ 	}
+
+ 	/* slog/scale is approximately log2(nr_all_pages)
+ 	 */
+
+ 	size = (hs->buckets * slog)/scale;
+ 	size -= hs->buckets * (long_log2(hs->bytes) - PAGE_SHIFT);
+ 	size += hs->buckets;
+
+ 	return size;
+
+}
+
+int 
+main(void) 
+{
+
+ 	unsigned long hash_size;
+
+ 	printf("# nr_all_pages memory_size [bytes] hash_size\n");
+
+ 	for (nr_all_pages = 1; nr_all_pages < (1UL << 26);
+ 		//nr_all_pages <<= 1) {
+ 		nr_all_pages += 7919) {
+
+ 		hash_size = size_system_hash(&tcp_hash_sizer);
+ 		printf("  %lu          %llu                %lu\n",
+ 			nr_all_pages,
+ 			(unsigned long long)(nr_all_pages)*PAGE_SIZE,
+ 			hash_size);
+ 	}
+
+ 	return 0;
+}
+
+
+-- 
+Arthur
 
 
