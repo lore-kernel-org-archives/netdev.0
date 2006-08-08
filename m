@@ -1,80 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] limit rt cache size
-Date: Mon, 07 Aug 2006 20:42:14 -0700 (PDT)
-Message-ID: <20060807.204214.68039839.davem@davemloft.net>
-References: <44D75EF8.1070901@sw.ru>
-	<20060807164842.GA3412@ms2.inr.ac.ru>
+Subject: Re: [PATCH RESEND 1/2] in-kernel sockets API
+Date: Mon, 07 Aug 2006 20:58:25 -0700 (PDT)
+Message-ID: <20060807.205825.02302232.davem@davemloft.net>
+References: <1154991629.11916.5.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev@sw.ru, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:35032
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:4993
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932330AbWHHDmM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 23:42:12 -0400
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <20060807164842.GA3412@ms2.inr.ac.ru>
+	id S932428AbWHHD6k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Aug 2006 23:58:40 -0400
+To: sri@us.ibm.com
+In-Reply-To: <1154991629.11916.5.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Date: Mon, 7 Aug 2006 20:48:42 +0400
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Mon, 07 Aug 2006 16:00:29 -0700
 
-> The patch looks OK. But I am not sure too.
+> This patch implements wrapper functions that provide a convenient way to
+> access the sockets API for in-kernel users like sunrpc, cifs & ocfs2 etc
+> and any future users.
 > 
-> To be honest, I do not understand the sense of HASH_HIGHMEM flag.
-> At the first sight, hash table eats low memory, objects hashed in this table
-> also eat low memory. Why is its size calculated from total memory?
-> But taking into account that this flag is used only by tcp.c and route.c,
-> both of which feed on low memory, I miss something important.
-> 
-> Let's ask people on netdev.
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> Acked-by: James Morris <jmorris@namei.org>
 
-Is it not so hard to check history of the change to see where these
-things come from?  :-) If we study the output of command:
-
-	git whatchanged net/core/route.c
-
-we quickly discover this GIT commit:
-
-424c4b70cc4ff3930ee36a2ef7b204e4d704fd26
-
-[IPV4]: Use the fancy alloc_large_system_hash() function for route hash table
-
-- rt hash table allocated using alloc_large_system_hash() function.
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-And it is clear that old code used num_physpages, which counts low
-memory only.  This shows clearly that Eric's usage of the HASH_HIGHMEM
-flag here is erroneous.  So we should remove it.
-
-Look!  This thing even uses num_physpages in current code to compute
-the "scale" argument to alloc_large_system_hash() :)))
-
-> What's about routing cache size, it looks like it is another bug.
-> route.c should not force rt_max_size = 16*rt_hash_size.
-> I think it should consult available memory and to limit rt_max_size
-> to some reasonable value, even if hash size is too high.
-
-Sure.  This current setting of 16*rt_hash_size is meant to
-try to limit hash chain lengths I guess.  2.4.x does the same
-thing.  Note also that by basing it upon number of routing cache
-hash chains, it is effectively consulting available memory.
-This is why when hash table sizing is crap so it rt_max_size
-calculation.  Fix one and you fix them both :)
-
-Once the HASH_HIGHMEM flag is removed, assuming system has > 128K of
-memory, what we get is:
-
-	hash_chains = lowmem / 128K
-	rt_max_size = ((lowmem / 128K) * 16) == lowmem / 8K
-
-So we allow one routing cache entry for each 8K of lowmem we have :)
-
-So for now it is probably sufficient to just get rid of the
-HASH_HIGHMEM flag here.  Later we can try changing this multiplier
-of "16" to something like "8" or even "4".
-
+Applied, thanks Sridhar.
