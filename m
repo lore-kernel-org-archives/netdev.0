@@ -1,44 +1,59 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Tue, 8 Aug 2006 13:04:32 -0400
-Message-ID: <20060808170432.GD27383@kvack.org>
-References: <20060804101017.GA17393@gondor.apana.org.au> <1154712532.3117.43.camel@rh4> <20060804110829.62136ebb@dxpl.pdx.osdl.net> <20060804.163111.85390037.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, mchan@broadcom.com,
-	herbert@gondor.apana.org.au, hadi@cyberus.ca,
-	jesse.brandeburg@intel.com, auke-jan.h.kok@intel.com,
-	netdev@vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: bonding questions: "replaying" call to set_multicast_list and sending IGMP doing Fail-Over
+Date: Tue, 08 Aug 2006 10:20:28 -0700
+Message-ID: <200608081720.k78HKSZt020293@death.nxdomain.ibm.com>
+References: <Pine.LNX.4.64.0608030815270.32510@zuben> <44D89A10.10701@voltaire.com>
+Cc: netdev@vger.kernel.org, rdreier@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:10671 "EHLO kanga.kvack.org")
-	by vger.kernel.org with ESMTP id S1030196AbWHHRJO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 13:09:14 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060804.163111.85390037.davem@davemloft.net>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:36546 "EHLO
+	e31.co.us.ibm.com") by vger.kernel.org with ESMTP id S965001AbWHHRVB
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 13:21:01 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e31.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k78HKllF025236
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
+	for <netdev@vger.kernel.org>; Tue, 8 Aug 2006 13:20:53 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k78HKUZp120764
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 8 Aug 2006 11:20:32 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k78HKU3n012935
+	for <netdev@vger.kernel.org>; Tue, 8 Aug 2006 11:20:30 -0600
+To: Or Gerlitz <ogerlitz@voltaire.com>
+In-reply-to: <44D89A10.10701@voltaire.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 04, 2006 at 04:31:11PM -0700, David Miller wrote:
-> Yes, it's meant to catch unintented races.
-> 
-> The queueing layer that calls ->hard_start_xmit() technically has no
-> need to support NETDEV_TX_BUSY as a return value, since the device
-> is able to prevent this.
-> 
-> If we could avoid NETDEV_TX_BUSY et al. from happening, the idea is
-> that we could eliminate all of the requeueing logic in the packet
-> scheduler layer.  It is a pipe dream from many years ago.
+Or Gerlitz <ogerlitz@voltaire.com> wrote:
+[...]
+>As i don't see any buffering of the IGMP packets, i understand there's no
+>"reply" of sending them during fail-over and this means that only when the
+>router would do IGMP query on this node it will learn on the fail-over. Is
+>it indeed what's going on? if i understand correct it would take some
+>meaningful time for the fail-over to be externally visible in this respect.
 
-Maybe the way NETDEV_TX_BUSY is implemented is wrong -- that is, it should 
-be possible to return a result saying "we sent the packet, but the queue is 
-now full".  That would eliminate the atomic op that netif_queue_stop() 
-performs and allow higher layers to merge the necessary barrier on the full 
-case with the op on the tx lock.  That way we could have lockless queue 
-handling within the driver.  This might need start/stop sequence counters, 
-though.
+	As I recall, the intent is to keep switches up to date all the
+time, so that there is no delay during a failover.  I.e., at every IGMP
+query, the switch is answered on all possible ports.
 
-		-ben
--- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <dont@kvack.org>.
+>Also assuming it does exactly what the comment says, another issue i see
+>here is that in the case of not only the active_slave being UP, the code
+>would TX the IGMP packets over > 1 slave, and hence multicast packets
+>would be sent by the switch also to ports "connected to" non-active
+>slaves, something which will hurt the system performance!?
+
+	I haven't studied the effects of having large amounts of
+multicast traffic coming in under this situation.
+
+	However, I would suspect that the MAC filters found on
+sufficiently modern network adapters would drop the incoming multicast
+traffic on the backup slaves, as only the active slave in active-backup
+mode has its multicast list set.  That information is sent to a slave
+when it becomes the active slave; see the call to bond_mc_swap() made by
+bond_change_active_slave().
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
