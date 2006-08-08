@@ -1,267 +1,576 @@
-From: Lutz Urban <lurban@lurban.de>
-Subject: Re: pci=routeirq solves EHCI-problem
-Date: Tue, 08 Aug 2006 16:27:41 +0200
-Message-ID: <44D89F5D.2000106@lurban.de>
-References: <44D83CB6.7030406@lurban.de>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: [PATCH 2/2] rfkill - rt2x00 should use rfkill
+Date: Tue, 8 Aug 2006 16:30:13 +0200
+Message-ID: <200608081630.13432.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca
+Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay05.ispgateway.de ([80.67.18.43]:36770 "EHLO
-	smtprelay05.ispgateway.de") by vger.kernel.org with ESMTP
-	id S964919AbWHHO1p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 10:27:45 -0400
-Received: from unknown (HELO [192.168.97.34]) (101583@[85.182.8.141])
-          (envelope-sender <lurban@lurban.de>)
-          by smtprelay05.ispgateway.de (qmail-ldap-1.03) with SMTP
-          for <netdev@vger.kernel.org>; 8 Aug 2006 14:27:42 -0000
+Received: from nf-out-0910.google.com ([64.233.182.186]:20693 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S964919AbWHHOan (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 10:30:43 -0400
+Received: by nf-out-0910.google.com with SMTP id q29so188381nfc
+        for <netdev@vger.kernel.org>; Tue, 08 Aug 2006 07:30:42 -0700 (PDT)
 To: netdev@vger.kernel.org
-In-Reply-To: <44D83CB6.7030406@lurban.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Now rfkill is available rt2x00 should make use of it let
+the hardware button status be periodically probed by rfkill.
+This makes the ACPI implementation as done in rt2x00 no longer required.
 
-I'm sorry to tell you that my previous message was bogus. The problem 
-still persists.
+Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
 
-Sorry to have bothered you.
+---
 
-Regards,
-Lutz Urban
-
-
-Lutz Urban schrieb:
-> Hello,
-> 
-> I got your email-addresses from my /var/log/boot.msg.
-> 
-> The kernel switch 'pci=routeirq' solved the following problem:
-> 
-> Setup:
-> - VIA KT880 mainboard with a Geode-CPU
-> - SUSE Linux 10.0, kernel 2.6.13-15-default
-> - USB-mass storage device (2.5' Samsung disk, chipset can presumably be 
-> identified if needed)
-> 
-> Booting WITHOUT 'pci=routeirq':
-> - When the USB-disk had been connected BEFORE booting, the device would 
-> freeze upon loading ehci-hcd and usb-storage. usb-storage would be 
-> unable to read the partion table.
-> - After physically disconnecting and reconnecting the device everything 
-> would be fine.
-> - This problem would not occur with uhci-hcd instead of ehci-hcd.
-> 
-> Booting WITH 'pci=routeirq':
-> - Everything works fine also when the USB-disk was connected BEFORE boot.
-> 
-> I enclose the output of 'lspci -bvv' (booted with 'pci=routeirq') as a 
-> text file. If you want further info, I'm very willing to help. (I have 
-> benefitted a lot from the work of the Open Source Community and given 
-> very little back)
-> 
-> Kind regards,
-> Lutz Urban, Germany
-> 
-> phone: +49-208-4459550
-> 
-> 
-> 
-> ------------------------------------------------------------------------
-> 
-> 00:00.0 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
-> 	Subsystem: VIA Technologies, Inc. KT880 Host Bridge
-> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort+ >SERR- <PERR-
-> 	Latency: 8
-> 	Region 0: Memory at e0000000 (32-bit, prefetchable)
-> 	Capabilities: [80] AGP version 3.5
-> 		Status: RQ=32 Iso- ArqSz=0 Cal=0 SBA+ ITACoh- GART64- HTrans- 64bit- FW- AGP3- Rate=x4
-> 		Command: RQ=1 ArqSz=0 Cal=0 SBA- AGP- GART64- 64bit- FW- Rate=<none>
-> 	Capabilities: [50] Power Management version 2
-> 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
-> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 
-> 00:00.1 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
-> 	Subsystem: VIA Technologies, Inc. KT880 Host Bridge
-> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 0
-> 
-> 00:00.2 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
-> 	Subsystem: VIA Technologies, Inc. KT880 Host Bridge
-> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 0
-> 
-> 00:00.3 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
-> 	Subsystem: VIA Technologies, Inc. KT880 Host Bridge
-> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 0
-> 
-> 00:00.4 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
-> 	Subsystem: VIA Technologies, Inc. KT880 Host Bridge
-> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 0
-> 
-> 00:00.7 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
-> 	Subsystem: VIA Technologies, Inc. KT880 Host Bridge
-> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 0
-> 
-> 00:01.0 PCI bridge: VIA Technologies, Inc. VT8237 PCI Bridge (prog-if 00 [Normal decode])
-> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
-> 	Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 0
-> 	Bus: primary=00, secondary=01, subordinate=01, sec-latency=0
-> 	Memory behind bridge: fca00000-feafffff
-> 	Prefetchable memory behind bridge: bff00000-cfefffff
-> 	Secondary status: 66MHz+ FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort+ <SERR- <PERR-
-> 	BridgeCtl: Parity+ SERR+ NoISA- VGA+ MAbort- >Reset- FastB2B-
-> 	Capabilities: [70] Power Management version 2
-> 		Flags: PMEClk- DSI- D1+ D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
-> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 
-> 00:06.0 Network controller: AVM Audiovisuelles MKTG & Computer System GmbH A1 ISDN [Fritz] (rev 02)
-> 	Subsystem: AVM Audiovisuelles MKTG & Computer System GmbH FRITZ!Card ISDN Controller
-> 	Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
-> 	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Interrupt: pin A routed to IRQ 10
-> 	Region 0: Memory at febffc00 (32-bit, non-prefetchable)
-> 	Region 1: I/O ports at ec00
-> 
-> 00:08.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8139/8139C/8139C+ (rev 10)
-> 	Subsystem: Compex FN22-3(A) LinxPRO Ethernet Adapter
-> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
-> 	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 64 (8000ns min, 16000ns max)
-> 	Interrupt: pin A routed to IRQ 10
-> 	Region 0: I/O ports at e800
-> 	Region 1: Memory at febff800 (32-bit, non-prefetchable)
-> 	Expansion ROM at febe0000 [disabled]
-> 	Capabilities: [50] Power Management version 2
-> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0-,D1+,D2+,D3hot+,D3cold+)
-> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 
-> 00:0b.0 Ethernet controller: VIA Technologies, Inc. VT6120/VT6121/VT6122 Gigabit Ethernet Adapter (rev 11)
-> 	Subsystem: Micro-Star International Co., Ltd.: Unknown device 0470
-> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR+ FastB2B-
-> 	Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 64 (750ns min, 2000ns max), Cache Line Size 08
-> 	Interrupt: pin A routed to IRQ 10
-> 	Region 0: I/O ports at e400
-> 	Region 1: Memory at febff400 (32-bit, non-prefetchable)
-> 	Capabilities: [50] Power Management version 2
-> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 
-> 00:0f.0 IDE interface: VIA Technologies, Inc. VIA VT6420 SATA RAID Controller (rev 80) (prog-if 8f [Master SecP SecO PriP PriO])
-> 	Subsystem: Micro-Star International Co., Ltd.: Unknown device 0470
-> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 64
-> 	Interrupt: pin B routed to IRQ 10
-> 	Region 0: I/O ports at e000
-> 	Region 1: I/O ports at dc00
-> 	Region 2: I/O ports at d800
-> 	Region 3: I/O ports at d400
-> 	Region 4: I/O ports at d000
-> 	Region 5: I/O ports at c800
-> 	Capabilities: [c0] Power Management version 2
-> 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
-> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 
-> 00:0f.1 IDE interface: VIA Technologies, Inc. VT82C586A/B/VT82C686/A/B/VT823x/A/C PIPC Bus Master IDE (rev 06) (prog-if 8a [Master SecP PriP])
-> 	Subsystem: VIA Technologies, Inc. VT82C586/B/VT82C686/A/B/VT8233/A/C/VT8235 PIPC Bus Master IDE
-> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 32
-> 	Interrupt: pin A routed to IRQ 10
-> 	Region 4: I/O ports at fc00
-> 	Capabilities: [c0] Power Management version 2
-> 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
-> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 
-> 00:10.0 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 81) (prog-if 00 [UHCI])
-> 	Subsystem: Micro-Star International Co., Ltd.: Unknown device 0470
-> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 64, Cache Line Size 08
-> 	Interrupt: pin A routed to IRQ 11
-> 	Region 4: I/O ports at bc00
-> 	Capabilities: [80] Power Management version 2
-> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 
-> 00:10.1 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 81) (prog-if 00 [UHCI])
-> 	Subsystem: Micro-Star International Co., Ltd.: Unknown device 0470
-> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 64, Cache Line Size 08
-> 	Interrupt: pin A routed to IRQ 11
-> 	Region 4: I/O ports at c000
-> 	Capabilities: [80] Power Management version 2
-> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 
-> 00:10.2 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 81) (prog-if 00 [UHCI])
-> 	Subsystem: Micro-Star International Co., Ltd.: Unknown device 0470
-> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 64, Cache Line Size 08
-> 	Interrupt: pin B routed to IRQ 10
-> 	Region 4: I/O ports at c400
-> 	Capabilities: [80] Power Management version 2
-> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 
-> 00:10.3 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 81) (prog-if 00 [UHCI])
-> 	Subsystem: Micro-Star International Co., Ltd.: Unknown device 0470
-> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 64, Cache Line Size 08
-> 	Interrupt: pin B routed to IRQ 10
-> 	Region 4: I/O ports at cc00
-> 	Capabilities: [80] Power Management version 2
-> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 
-> 00:10.4 USB Controller: VIA Technologies, Inc. USB 2.0 (rev 86) (prog-if 20 [EHCI])
-> 	Subsystem: Micro-Star International Co., Ltd.: Unknown device 0470
-> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 64, Cache Line Size 10
-> 	Interrupt: pin C routed to IRQ 10
-> 	Region 0: Memory at febff000 (32-bit, non-prefetchable)
-> 	Capabilities: [80] Power Management version 2
-> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 
-> 00:11.0 ISA bridge: VIA Technologies, Inc. VT8237 ISA bridge [KT600/K8T800/K8T890 South]
-> 	Subsystem: VIA Technologies, Inc. DFI KT600-AL Motherboard
-> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 0
-> 	Capabilities: [c0] Power Management version 2
-> 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
-> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 
-> 01:00.0 VGA compatible controller: nVidia Corporation NV11 [GeForce2 MX/MX 400] (rev a1) (prog-if 00 [VGA])
-> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-> 	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-> 	Latency: 0 (1250ns min, 250ns max)
-> 	Interrupt: pin A routed to IRQ 11
-> 	Region 0: Memory at fd000000 (32-bit, non-prefetchable)
-> 	Region 1: Memory at c0000000 (32-bit, prefetchable)
-> 	Expansion ROM at feaf0000 [disabled]
-> 	Capabilities: [60] Power Management version 2
-> 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
-> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 	Capabilities: [44] AGP version 2.0
-> 		Status: RQ=32 Iso- ArqSz=0 Cal=0 SBA- ITACoh- GART64- HTrans- 64bit- FW+ AGP3- Rate=x1,x2,x4
-> 		Command: RQ=1 ArqSz=0 Cal=0 SBA- AGP- GART64- 64bit- FW- Rate=<none>
-> 
+diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/Kconfig wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/Kconfig
+--- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/Kconfig	2006-08-08 16:09:13.000000000 +0200
++++ wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/Kconfig	2006-08-08 16:03:41.000000000 +0200
+@@ -17,12 +17,12 @@
+ 
+ config RT2400PCI_BUTTON
+ 	bool "Ralink rt2400 hardware button support"
+-	depends on RT2400PCI && X86
++	depends on RT2400PCI && RFKILL
+ 	---help---
+ 	In some notebooks the rt2400 chipset is integrated in the machine,
+-	with this option enabled the device will periodically poll the
+-	the status of this button and will send and ACPI event when
+-	the button has been pressed.
++	with this option enabled the driver will register itself to the
++	rfkill driver for periodical polling of the hardware button
++	status, and the correct handling of button press events.
+ 
+ config RT2400PCI_DEBUG
+ 	bool "Ralink rt2400 debug output"
+@@ -40,12 +40,12 @@
+ 
+ config RT2500PCI_BUTTON
+ 	bool "Ralink rt2500 hardware button support"
+-	depends on RT2500PCI && X86
++	depends on RT2500PCI && RFKILL
+ 	---help---
+ 	In some notebooks the rt2500 chipset is integrated in the machine,
+-	with this option enabled the device will periodically poll the
+-	the status of this button and will send and ACPI event when
+-	the button has been pressed.
++	with this option enabled the driver will register itself to the
++	rfkill driver for periodical polling of the hardware button
++	status, and the correct handling of button press events.
+ 
+ config RT2500PCI_DEBUG
+ 	bool "Ralink rt2500 debug output"
+@@ -64,12 +64,12 @@
+ 
+ config RT61PCI_BUTTON
+ 	bool "Ralink rt61 hardware button support"
+-	depends on RT61PCI && X86
++	depends on RT61PCI && RFKILL
+ 	---help---
+ 	In some notebooks the rt61 chipset is integrated in the machine,
+-	with this option enabled the device will periodically poll the
+-	the status of this button and will send and ACPI event when
+-	the button has been pressed.
++	with this option enabled the driver will register itself to the
++	rfkill driver for periodical polling of the hardware button
++	status, and the correct handling of button press events.
+ 
+ config RT61PCI_DEBUG
+ 	bool "Ralink rt61 debug output"
+diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+--- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-08-08 16:09:02.000000000 +0200
++++ wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-08-08 16:00:28.000000000 +0200
+@@ -346,23 +346,6 @@
+ 		rt2x00_eeprom_read(rt2x00dev, word + i, data++);
+ }
+ 
+-#ifdef CONFIG_RT2400PCI_BUTTON
+-/*
+- * Hardware button poll handler.
+- */
+-static void rt2400pci_button_poll(unsigned long data)
+-{
+-	struct rt2x00_dev *rt2x00dev = (struct rt2x00_dev*)data;
+-	u32 reg;
+-
+-	rt2x00_register_read(rt2x00dev, GPIOCSR, &reg);
+-	rt2x00pci_button_status(
+-		rt2x00dev, rt2x00_get_field32(reg, GPIOCSR_BIT0));
+-}
+-#else /* CONFIG_RT2400PCI_BUTTON */
+-static void rt2400pci_button_poll(unsigned long data){}
+-#endif /* CONFIG_RT2400PCI_BUTTON */
+-
+ /*
+  * Ethtool handlers.
+  */
+@@ -437,6 +420,60 @@
+ 	.get_perm_addr	= ethtool_op_get_perm_addr,
+ };
+ 
++#ifdef CONFIG_RT2400PCI_BUTTON
++static int rt2400pci_button_poll(unsigned long data)
++{
++	struct rt2x00_dev *rt2x00dev = (struct rt2x00_dev*)data;
++	u32 reg;
++
++	rt2x00_register_read(rt2x00dev, GPIOCSR, &reg);
++	return rt2x00_get_field32(reg, GPIOCSR_BIT0);
++}
++
++static void rt2400pci_button_enable_radio(unsigned long data)
++{
++	rt2400pci_enable_radio((struct rt2x00_dev*)data);
++}
++
++static void rt2400pci_button_disable_radio(unsigned long data)
++{
++	rt2400pci_disable_radio((struct rt2x00_dev*)data);
++}
++
++static void rt2400pci_button_start(struct rt2x00_dev *rt2x00dev)
++{
++	struct rfkill *rfkill = &rt2x00dev->rfkill;
++
++	/*
++	 * Only start the button polling when
++	 * the hardware button is present.
++	 */
++	if (!GET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON))
++		return;
++
++	rfkill->dev_name	= "rt2400pci";
++	rfkill->data		= (unsigned long)rt2x00dev;
++	rfkill->poll		= rt2400pci_button_poll;
++	rfkill->enable_radio	= rt2400pci_button_enable_radio;
++	rfkill->disable_radio	= rt2400pci_button_disable_radio;
++	rfkill->current_status	= !!rt2400pci_button_poll(rfkill->data);
++
++	if (rfkill_add_device(rfkill))
++		ERROR("Failed to register button handler.\n");
++}
++
++static void rt2400pci_button_stop(struct rt2x00_dev *rt2x00dev)
++{
++	if (!GET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON))
++		return;
++
++	rfkill_del_device(&rt2x00dev->rfkill);
++}
++#else /* CONFIG_RT2400PCI_BUTTON */
++static void rt2400pci_button_start(struct rt2x00_dev *rt2x00dev){}
++static void rt2400pci_button_stop(struct rt2x00_dev *rt2x00dev){}
++#endif /* CONFIG_RT2400PCI_BUTTON */
++
+ /*
+  * Configuration handlers.
+  */
+@@ -2714,7 +2751,7 @@
+ 	/*
+ 	 * Shutdown poll_timer for hardware button.
+ 	 */
+-	rt2x00pci_button_stop(rt2x00dev);
++	rt2400pci_button_stop(rt2x00dev);
+ 
+ 	/*
+ 	 * Free ring structures.
+@@ -2803,7 +2840,7 @@
+ 	/*
+ 	 * If required start hardware button polling.
+ 	 */
+-	rt2x00pci_button_start(rt2x00dev, rt2400pci_button_poll);
++	rt2400pci_button_start(rt2x00dev);
+ 
+ 	return 0;
+ 
+@@ -2995,11 +3032,6 @@
+ MODULE_PARM_DESC(debug, "Set this parameter to 1 to enable debug output.");
+ #endif /* CONFIG_RT2400PCI_DEBUG */
+ 
+-#ifdef CONFIG_RT2400PCI_BUTTON
+-module_param_named(poll_delay, rt2x00_poll_delay, short, S_IRUGO);
+-MODULE_PARM_DESC(debug, "Delay between WiFi button pollings (in 100ms).");
+-#endif /* CONFIG_RT2400PCI_BUTTON */
+-
+ static struct pci_driver rt2400pci_driver = {
+ 	.name		= DRV_NAME,
+ 	.id_table	= rt2400pci_device_table,
+diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+--- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-08-08 16:09:03.000000000 +0200
++++ wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-08-08 16:00:26.000000000 +0200
+@@ -346,23 +346,6 @@
+ 		rt2x00_eeprom_read(rt2x00dev, word + i, data++);
+ }
+ 
+-#ifdef CONFIG_RT2500PCI_BUTTON
+-/*
+- * Hardware button poll handler.
+- */
+-static void rt2500pci_button_poll(unsigned long data)
+-{
+-	struct rt2x00_dev *rt2x00dev = (struct rt2x00_dev*)data;
+-	u32 reg;
+-
+-	rt2x00_register_read(rt2x00dev, GPIOCSR, &reg);
+-	rt2x00pci_button_status(
+-		rt2x00dev, rt2x00_get_field32(reg, GPIOCSR_BIT0));
+-}
+-#else /* CONFIG_RT2500PCI_BUTTON */
+-static void rt2500pci_button_poll(unsigned long data){}
+-#endif /* CONFIG_RT2500PCI_BUTTON */
+-
+ /*
+  * Ethtool handlers.
+  */
+@@ -437,6 +420,60 @@
+ 	.get_perm_addr	= ethtool_op_get_perm_addr,
+ };
+ 
++#ifdef CONFIG_RT2500PCI_BUTTON
++static int rt2500pci_button_poll(unsigned long data)
++{
++	struct rt2x00_dev *rt2x00dev = (struct rt2x00_dev*)data;
++	u32 reg;
++
++	rt2x00_register_read(rt2x00dev, GPIOCSR, &reg);
++	return rt2x00_get_field32(reg, GPIOCSR_BIT0);
++}
++
++static void rt2500pci_button_enable_radio(unsigned long data)
++{
++	rt2500pci_enable_radio((struct rt2x00_dev*)data);
++}
++
++static void rt2500pci_button_disable_radio(unsigned long data)
++{
++	rt2500pci_disable_radio((struct rt2x00_dev*)data);
++}
++
++static void rt2500pci_button_start(struct rt2x00_dev *rt2x00dev)
++{
++	struct rfkill *rfkill = &rt2x00dev->rfkill;
++
++	/*
++	 * Only start the button polling when
++	 * the hardware button is present.
++	 */
++	if (!GET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON))
++		return;
++
++	rfkill->dev_name	= "rt2500pci";
++	rfkill->data		= (unsigned long)rt2x00dev;
++	rfkill->poll		= rt2500pci_button_poll;
++	rfkill->enable_radio	= rt2500pci_button_enable_radio;
++	rfkill->disable_radio	= rt2500pci_button_disable_radio;
++	rfkill->current_status	= !!rt2500pci_button_poll(rfkill->data);
++
++	if (rfkill_add_device(rfkill))
++		ERROR("Failed to register button handler.\n");
++}
++
++static void rt2500pci_button_stop(struct rt2x00_dev *rt2x00dev)
++{
++	if (!GET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON))
++		return;
++
++	rfkill_del_device(&rt2x00dev->rfkill);
++}
++#else /* CONFIG_RT2500PCI_BUTTON */
++static void rt2500pci_button_start(struct rt2x00_dev *rt2x00dev){}
++static void rt2500pci_button_stop(struct rt2x00_dev *rt2x00dev){}
++#endif /* CONFIG_RT2500PCI_BUTTON */
++
+ /*
+  * Configuration handlers.
+  */
+@@ -2997,7 +3034,7 @@
+ 	/*
+ 	 * Shutdown poll_timer for hardware button.
+ 	 */
+-	rt2x00pci_button_stop(rt2x00dev);
++	rt2500pci_button_stop(rt2x00dev);
+ 
+ 	/*
+ 	 * Free ring structures.
+@@ -3086,7 +3123,7 @@
+ 	/*
+ 	 * If required start hardware button polling.
+ 	 */
+-	rt2x00pci_button_start(rt2x00dev, rt2500pci_button_poll);
++	rt2500pci_button_start(rt2x00dev);
+ 
+ 	return 0;
+ 
+@@ -3278,11 +3315,6 @@
+ MODULE_PARM_DESC(debug, "Set this parameter to 1 to enable debug output.");
+ #endif /* CONFIG_RT2500PCI_DEBUG */
+ 
+-#ifdef CONFIG_RT2500PCI_BUTTON
+-module_param_named(poll_delay, rt2x00_poll_delay, short, S_IRUGO);
+-MODULE_PARM_DESC(debug, "Delay between WiFi button pollings (in 100ms).");
+-#endif /* CONFIG_RT2500PCI_BUTTON */
+-
+ static struct pci_driver rt2500pci_driver = {
+ 	.name		= DRV_NAME,
+ 	.id_table	= rt2500pci_device_table,
+diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2x00.h wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2x00.h
+--- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-08-08 16:09:03.000000000 +0200
++++ wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-08-08 16:00:57.000000000 +0200
+@@ -82,6 +82,16 @@
+ 		__FUNCTION__, ##__args);
+ 
+ /*
++ * Hardware button support (through radiobtn)
++ * The delay between each poll can be set by the user
++ * using the module parameter. Default value is 0,
++ * which means polling is disabled.
++ */
++#ifdef CONFIG_RT2X00_BUTTON
++#include <linux/rfkill.h>
++#endif /* CONFIG_RT2X00_BUTTON */
++
++/*
+  * Ring sizes.
+  * Ralink PCI devices demand the Frame size to be a multiple of 128 bytes.
+  * DATA_FRAME_SIZE is used for TX, RX, ATIM and PRIO rings.
+diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h
+--- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h	2006-08-01 19:30:38.000000000 +0200
++++ wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt2x00pci.h	2006-08-08 16:01:16.000000000 +0200
+@@ -44,115 +44,4 @@
+ #define EEPROM_WRITE_OPCODE	0x05
+ #define EEPROM_READ_OPCODE	0x06
+ 
+-/*
+- * HW button structure.
+- */
+-#ifdef CONFIG_RT2X00_BUTTON
+-#include <acpi/acpi_bus.h>
+-
+-struct rt2x00_button {
+-	/*
+-	 * ACPI device for generation of ACPI events.
+-	 */
+-	struct acpi_device acpi_dev;
+-
+-	/*
+-	 * Timer for register polling.
+-	 */
+-	struct timer_list poll_timer;
+-
+-	/*
+-	 * Timer delay.
+-	 */
+-	short poll_delay;
+-
+-	/*
+-	 * Current status of button.
+-	 */
+-	short button_status:1;
+-	short active_poll:1;
+-	short __pad:14;
+-};
+-#endif /* CONFIG_RT2X00_BUTTON */
+-
+-/*
+- * HW button variables & functions.
+- * The delay between each poll is set by the module parameter.
+- */
+-#ifdef CONFIG_RT2X00_BUTTON
+-/*
+- * Module parameter.
+- */
+-static short rt2x00_poll_delay = 0;
+-
+-static inline void rt2x00pci_button_status(struct rt2x00_dev *rt2x00dev,
+-	char status)
+-{
+-	struct rt2x00_button *button = &rt2x00dev->button;
+-
+-	if (!button->active_poll)
+-		return;
+-
+-	if (status != button->button_status) {
+-		button->button_status = status;
+-		acpi_bus_generate_event(
+-			&button->acpi_dev, ACPI_TYPE_EVENT, status);
+-	}
+-
+-	button->poll_timer.expires = jiffies + button->poll_delay;
+-
+-	if (button->active_poll)
+-		add_timer(&button->poll_timer);
+-}
+-
+-static inline void rt2x00pci_button_start(struct rt2x00_dev *rt2x00dev,
+-	void (*handler)(unsigned long data))
+-{
+-	struct rt2x00_button *button = &rt2x00dev->button;
+-
+-	/*
+-	 * Only enable polling when the user has
+-	 * set the poll delay module parameter,
+-	 * and the device contains a hardware button.
+-	 */
+-	if(!GET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON) ||
+-	   !rt2x00_poll_delay)
+-		return;
+-
+-	strcpy(acpi_device_class(&button->acpi_dev), DRV_NAME "_button");
+-	strcpy(acpi_device_bid(&button->acpi_dev), DRV_NAME);
+-	strcpy(acpi_device_name(&button->acpi_dev), DRV_NAME);
+-
+-	init_timer(&button->poll_timer);
+-
+-	button->poll_delay = rt2x00_poll_delay * (HZ / 10);
+-	button->button_status = 0;
+-	button->active_poll = 1;
+-
+-	button->poll_timer.function = handler;
+-	button->poll_timer.data = (unsigned long)rt2x00dev;
+-	button->poll_timer.expires = jiffies + button->poll_delay;
+-
+-	add_timer(&button->poll_timer);
+-}
+-
+-static inline void rt2x00pci_button_stop(struct rt2x00_dev *rt2x00dev)
+-{
+-	/*
+-	 * Shutdown poll_timer for hardware button,
+-	 * make sure only to disable polling when
+-	 * it was enabled in the first place.
+-	 */
+-	if(!rt2x00dev->button.active_poll)
+-		return;
+-
+-	rt2x00dev->button.active_poll = 0;
+-	del_timer_sync(&rt2x00dev->button.poll_timer);
+-}
+-#else /* CONFIG_RT2X00_BUTTON */
+-static inline void rt2x00pci_button_start(struct rt2x00_dev *rt2x00dev,
+-	void (*handler)(unsigned long data)){}
+-static inline void rt2x00pci_button_stop(struct rt2x00_dev *rt2x00dev){}
+-#endif /* CONFIG_RT2X00_BUTTON */
+-
+ #endif /* RT2X00PCI_H */
+diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-08-08 16:09:13.000000000 +0200
++++ wireless-dev-rt2x00-rfkill/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-08-08 16:02:22.000000000 +0200
+@@ -377,23 +377,6 @@
+ 		rt2x00_eeprom_read(rt2x00dev, word + i, data++);
+ }
+ 
+-#ifdef CONFIG_RT61PCI_BUTTON
+-/*
+- * Hardware button poll handler.
+- */
+-static void rt61pci_button_poll(unsigned long data)
+-{
+-	struct rt2x00_dev *rt2x00dev = (struct rt2x00_dev*)data;
+-	u32 reg;
+-
+-	rt2x00_register_read(rt2x00dev, MAC_CSR13, &reg);
+-	rt2x00pci_button_status(
+-		rt2x00dev, rt2x00_get_field32(reg, MAC_CSR13_BIT5));
+-}
+-#else /* CONFIG_RT61PCI_BUTTON */
+-static void rt61pci_button_poll(unsigned long data){}
+-#endif /* CONFIG_RT61PCI_BUTTON */
+-
+ /*
+  * Ethtool handlers.
+  */
+@@ -468,6 +451,60 @@
+ 	.get_perm_addr	= ethtool_op_get_perm_addr,
+ };
+ 
++#ifdef CONFIG_RT61PCI_BUTTON
++static int rt61pci_button_poll(unsigned long data)
++{
++	struct rt2x00_dev *rt2x00dev = (struct rt2x00_dev*)data;
++	u32 reg;
++
++	rt2x00_register_read(rt2x00dev, MAC_CSR13, &reg);
++	return rt2x00_get_field32(reg, MAC_CSR13_BIT5);
++}
++
++static void rt61pci_button_enable_radio(unsigned long data)
++{
++	rt61pci_enable_radio((struct rt2x00_dev*)data);
++}
++
++static void rt61pci_button_disable_radio(unsigned long data)
++{
++	rt61pci_disable_radio((struct rt2x00_dev*)data);
++}
++
++static void rt61pci_button_start(struct rt2x00_dev *rt2x00dev)
++{
++	struct rfkill *rfkill = &rt2x00dev->rfkill;
++
++	/*
++	 * Only start the button polling when
++	 * the hardware button is present.
++	 */
++	if (!GET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON))
++		return;
++
++	rfkill->dev_name	= "rt61pci";
++	rfkill->data		= (unsigned long)rt2x00dev;
++	rfkill->poll		= rt61pci_button_poll;
++	rfkill->enable_radio	= rt61pci_button_enable_radio;
++	rfkill->disable_radio	= rt61pci_button_disable_radio;
++	rfkill->current_status	= !!rt61pci_button_poll(rfkill->data);
++
++	if (rfkill_add_device(rfkill))
++		ERROR("Failed to register button handler.\n");
++}
++
++static void rt61pci_button_stop(struct rt2x00_dev *rt2x00dev)
++{
++	if (!GET_FLAG(rt2x00dev, DEVICE_SUPPORT_HW_BUTTON))
++		return;
++
++	rfkill_del_device(&rt2x00dev->rfkill);
++}
++#else /* CONFIG_RT61PCI_BUTTON */
++static void rt61pci_button_start(struct rt2x00_dev *rt2x00dev){}
++static void rt61pci_button_stop(struct rt2x00_dev *rt2x00dev){}
++#endif /* CONFIG_RT61PCI_BUTTON */
++
+ /*
+  * Configuration handlers.
+  */
+@@ -3514,7 +3551,7 @@
+ 	/*
+ 	 * Shutdown poll_timer for hardware button.
+ 	 */
+-	rt2x00pci_button_stop(rt2x00dev);
++	rt61pci_button_stop(rt2x00dev);
+ 
+ 	/*
+ 	 * Free ring structures.
+@@ -3608,7 +3645,7 @@
+ 	/*
+ 	 * If required start hardware button polling.
+ 	 */
+-	rt2x00pci_button_start(rt2x00dev, rt61pci_button_poll);
++	rt61pci_button_start(rt2x00dev);
+ 
+ 	return 0;
+ 
+@@ -3806,11 +3843,6 @@
+ MODULE_PARM_DESC(debug, "Set this parameter to 1 to enable debug output.");
+ #endif /* CONFIG_RT61PCI_DEBUG */
+ 
+-#ifdef CONFIG_RT61PCI_BUTTON
+-module_param_named(poll_delay, rt2x00_poll_delay, short, S_IRUGO);
+-MODULE_PARM_DESC(debug, "Delay between WiFi button pollings (in 100ms).");
+-#endif /* CONFIG_RT61PCI_BUTTON */
+-
+ static struct pci_driver rt61pci_driver = {
+ 	.name		= DRV_NAME,
+ 	.id_table	= rt61pci_device_table,
