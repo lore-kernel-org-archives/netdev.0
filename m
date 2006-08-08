@@ -1,41 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] avoid unnecessary alignement overhead in skb->data allocation.
-Date: Tue, 8 Aug 2006 15:41:15 +1000
-Message-ID: <20060808054115.GA14544@gondor.apana.org.au>
-References: <20060806.232339.30184217.davem@davemloft.net> <E1G9zMP-0001MO-00@gondolin.me.apana.org.au> <20060807072423.GA2078@2ka.mipt.ru> <20060807072816.GA5404@gondor.apana.org.au> <20060807073103.GA11283@2ka.mipt.ru> <20060807073919.GA5582@gondor.apana.org.au> <4807377b0608071709j26da1092la20f1589c7b90df7@mail.gmail.com> <20060808052408.GA7279@2ka.mipt.ru>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [PATCH] [e1000]: Remove unnecessary tx_lock
+Date: Mon, 7 Aug 2006 22:43:41 -0700
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5256B1EB@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	chris.leech@gmail.com,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Edgar E. Iglesias" <edgar.iglesias@axis.com>,
+	"Jesse Brandeburg" <jesse.brandeburg@gmail.com>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>,
+	"David Miller" <davem@davemloft.net>, <shemminger@osdl.org>,
+	<mchan@broadcom.com>, "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:26637 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932080AbWHHFlc
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 01:41:32 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20060808052408.GA7279@2ka.mipt.ru>
+Received: from mga03.intel.com ([143.182.124.21]:42086 "EHLO
+	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
+	id S932201AbWHHFn7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 01:43:59 -0400
+Content-class: urn:content-classes:message
+To: <hadi@cyberus.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 08, 2006 at 09:24:08AM +0400, Evgeniy Polyakov wrote:
+> -----Original Message-----
+> From: jamal [mailto:hadi@cyberus.ca]
+> On Mon, 2006-07-08 at 13:53 -0700, Brandeburg, Jesse wrote:
 > 
-> So there is no place at the end of skb for additional pointer.
-> And new question arises - until what Jesse suggested is implemented in
-> some way, do we need to store a pointer to shared info inside skb and
-> allocate it from cache in case it does no fit into aligned buffer (in
-> case of e1000 it happens all the time exept 1500 MTU)?
-> David, Herbert?
+> > we don't enable it right now, but you could use the TXQE (tx queue
+> empty)
+> > interrupt to avoid the starvation case.  I think it might flood you
+with
+> > TXQE interrupts however, so we'd probably have to figure out some
+way to
+> > turn it on occasionally.
+> >
+> 
+> I think it may make sense to set on netif_stop and reset on wake. I
+take
+> it "empty" means all the descriptors for sending are gone?
 
-I'm not sure whether this is really worth it.  After all, the only
-order of allocation that's really likely to succeed is 0.  So going
-from order 3 to order 2 probably doesn't make that big a difference.
+We can try it.  Empty means that the adapter has completed all transmit
+work and has no more to do (register TDH == TDT)
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Jesse
