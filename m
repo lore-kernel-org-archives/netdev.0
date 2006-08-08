@@ -1,32 +1,37 @@
-From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
-Subject: Re: [PATCH] Replace pci_module_init with pci_register_driver in drivers/net
-Date: Mon, 7 Aug 2006 17:39:02 -0700
-Message-ID: <4807377b0608071739y5ec9b324g7e1aa0e442f8c03b@mail.gmail.com>
-References: <20060807222119.15758.72708.stgit@dv.roinet.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Excess use of packed attribute
+Date: Mon, 07 Aug 2006 17:39:20 -0700 (PDT)
+Message-ID: <20060807.173920.102575221.davem@davemloft.net>
+References: <20060807133423.11bfbff3@localhost.localdomain>
+	<1154995328.11916.24.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: shemminger@osdl.org, rdreier@cisco.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:56957 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S932461AbWHHAjD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Aug 2006 20:39:03 -0400
-Received: by nf-out-0910.google.com with SMTP id x37so29747nfc
-        for <netdev@vger.kernel.org>; Mon, 07 Aug 2006 17:39:02 -0700 (PDT)
-To: "Pavel Roskin" <proski@gnu.org>
-In-Reply-To: <20060807222119.15758.72708.stgit@dv.roinet.com>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:16526
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932462AbWHHAjc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Aug 2006 20:39:32 -0400
+To: sri@us.ibm.com
+In-Reply-To: <1154995328.11916.24.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/7/06, Pavel Roskin <proski@gnu.org> wrote:
-> -       pci_rc = pci_module_init(&vortex_driver);
-> +       pci_rc = pci_register_driver(&vortex_driver);
->         eisa_rc = vortex_eisa_init();
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Mon, 07 Aug 2006 17:02:08 -0700
 
-not sure why this *function name change* really matters, but
-technically I'm okay with the e100/e1000/ixgb changes. (Jesse heads
-off to change his out of tree driver kcompat.h)
+> All the structures in sctp.h that use packed atrribute define
+> standard on-wire SCTP chunk/parameter formats. They need to be at the
+> exact offsets as they go on wire.
+> I think we saw some issues without the packed attribute on 64-bit archs
+> and just to be safe we added packed to all the on-wire structures.
 
-Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+For the cases where it is no actually necessary, the code generation
+cost on RISC cpus is very high.  Byte loads and stores will be used to
+access _every_ member of such structures on RISC machines because
+the compiler cannot guarentee the alignment of any data object
+when packed is specified.
+
+It's OK to do this when it's really needed, but when it's not it
+should be heavily avoided.
