@@ -1,68 +1,61 @@
-From: Zach Brown <zach.brown@oracle.com>
-Subject: Re: [take5 0/4] kevent: Generic event handling mechanism.
-Date: Tue, 08 Aug 2006 14:32:31 -0700
-Message-ID: <44D902EF.8070809@oracle.com>
-References: <11550230861383@2ka.mipt.ru>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: 3945 driver using d80211
+Date: Tue, 8 Aug 2006 14:40:43 -0700
+Message-ID: <200608081440.48623.flamingice@sourmilk.net>
+References: <44D901C9.6090304@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: multipart/signed;
+  boundary="nextPart1799954.gXElGGFlfq";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tetsuo.zabbo.net ([207.173.201.20]:31360 "EHLO tetsuo.zabbo.net")
-	by vger.kernel.org with ESMTP id S964951AbWHHVcf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 17:32:35 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <11550230861383@2ka.mipt.ru>
+Received: from server8.tchmachines.com ([216.180.241.250]:39595 "EHLO
+	server8.tchmachines.com") by vger.kernel.org with ESMTP
+	id S965055AbWHHVky (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 17:40:54 -0400
+To: Mohamed Abbas <mabbas@linux.intel.com>
+In-Reply-To: <44D901C9.6090304@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> Generic event handling mechanism.
-> 
-> I send this patchset for comments and review, it still contains AIO and 
-> aio_sendfile() implementation on top of get_block() abstraction, which was
-> decided to postpone for a while (it is simpler right now to generate patchset as a whole,
-> when kevent will be ready for merge, I will generate patchset without AIO stuff).
+--nextPart1799954.gXElGGFlfq
+Content-Type: text/plain;
+  charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-I think that's the wrong order.  Let's see the clean patch before
-deciding to merge it.  Just remove the current aio_sendfile
-implementation.  We can build up one that is suitable for merging once
-the kevent core is ready for merging.
+On Tuesday 08 August 2006 14:27, Mohamed Abbas wrote:
+> 2- Scanning; in 3945 driver, we can not tune to other channels while we
+> are connected, this will cause a firmware error. The firmware provides a
+> scanning command we call so the firmware will take care of switching of
+> the available channels and gather beacons and probe responses. The
+> current d80211 the stack will call config callback to switch to
+> different channel and send the probe requests. One of our engineers did
+> come up with a patch to add one more callback function if provided the
+> d80211 will call this function to allow the registered driver to perform
+> the scanning functionalities. For work around I currently check inside
+> config callback if the scanning flag set I will issues the scan command
+> then ignore the next config callback.
+>
+I think it would be best if you made the firmware not be aware of a=20
+connection, and let the d80211 code take care of all the=20
+scanning/authenticating/associating. Of course, I know nothing about 3945, =
+so=20
+I don't know if that's possible.
 
-> Since number of suggested changes goes from 'several' to 'very small', I'm asking for 
-> inclusion or declining.
+=2DMichael Wu
 
-Well, I'm a little confused.  It still seems like we have a long way to
-go before having something that we'll want to merge.  There's still
-trivial things that need fixing like using LIST_POISON outside list.h
-and that nutty 1 second "default" timeout thing, both previously
-mentioned.  Then there's much more fundamental stuff like still
-returning events from the _wait() syscall.  I thought the notion was
-that the wait syscall would only wait and that events were always to be
-collected from the ring.
+--nextPart1799954.gXElGGFlfq
+Content-Type: application/pgp-signature
 
-David, what do you think about the networking calls in here?  Are they
-suitable for merging?  I've been assuming that you'll want much more
-code re-use, but I don't remember seeing you say either way.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
-There's also something that's been bugging me that I want to ask the
-crowd.  The kevent work is doing the same thing fs/aio.c did: for an API
-to support async operation we duplicate its existing system call API.
-In fs/aio.c it was IO_CMD_* and struct uiocb members, with kevent it's a
-system call like sys_aio_sendfile().  This seems like it might get to be
-a little much if we bring async support to much of networking, disk io,
-and say timers.  That's a lot of interfaces to duplicate.  Is this the
-direction we want to take?  One could imagine doing a wrapper syscall
-that might allocate a kevent struct and hang it off task_struct for
-subsystems to recognize and work with, but that'd bring different
-trade-offs.
+iD8DBQBE2QTgT3Oqt9AH4aERAogwAKC7SKv3GAW45ZWejqVzvJm+klL2agCeJrwf
+Z8diruaBZDXlT3VGYEy7p14=
+=plYt
+-----END PGP SIGNATURE-----
 
-> Should I prepare final patchset and what should it include?
-
-Can you address the things I mentioned last time I looked through the
-code and remove the parts of the patch that we know aren't going to be
-merged?
-
-- z
+--nextPart1799954.gXElGGFlfq--
