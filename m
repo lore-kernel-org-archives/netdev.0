@@ -1,37 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
-Date: Tue, 08 Aug 2006 15:00:06 -0700 (PDT)
-Message-ID: <20060808.150006.48399434.davem@davemloft.net>
-References: <Pine.LNX.4.58.0608070124340.15870@gandalf.stny.rr.com>
-	<20060806.231846.71090637.davem@davemloft.net>
-	<Pine.LNX.4.58.0608080819080.7917@gandalf.stny.rr.com>
+From: Russell Stuart <russell-tcatm@stuart.id.au>
+Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
+Date: Wed, 09 Aug 2006 08:01:16 +1000
+Message-ID: <1155074476.4270.16.camel@ras.pc.brisbane.lube>
+References: <1150278004.26181.35.camel@localhost.localdomain>
+	 <1150286766.5233.15.camel@jzny2>
+	 <1150287983.3246.27.camel@ras.pc.brisbane.lube>
+	 <1150292693.5197.1.camel@jzny2>
+	 <1150843471.17455.2.camel@ras.pc.brisbane.lube>
+	 <15653CE98281AD4FBD7F70BCEE3666E53CD54A@comxexch01.comx.local>
+	 <1151000966.5392.34.camel@jzny2>
+	 <1151066247.4217.254.camel@ras.pc.brisbane.lube>
+	 <1151158431.6716.95.camel@jzny2>
+	 <1153188409.13145.5.camel@ras.pc.brisbane.lube>
+	 <44BD56A4.9090002@andyfurniss.entadsl.com>
+	 <1153270932.4242.60.camel@ras.pc.brisbane.lube>
+	 <44BE46A6.8000207@trash.net>
+	 <1153371364.4231.61.camel@ras.pc.brisbane.lube>
+	 <1154300766.4236.5.camel@ras.pc.brisbane.lube>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: tytso@mit.edu, mchan@broadcom.com, herbert@gondor.apana.org.au,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	tglx@linutronix.de, mingo@elte.hu
+Cc: lists@andyfurniss.entadsl.com,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:44717
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030278AbWHHWAC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 18:00:02 -0400
-To: rostedt@goodmis.org
-In-Reply-To: <Pine.LNX.4.58.0608080819080.7917@gandalf.stny.rr.com>
+Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:42148 "EHLO
+	adsl-kenny.stuart.id.au") by vger.kernel.org with ESMTP
+	id S1030305AbWHHWCX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 18:02:23 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1154300766.4236.5.camel@ras.pc.brisbane.lube>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Tue, 8 Aug 2006 08:24:10 -0400 (EDT)
+On Mon, 2006-07-31 at 09:06 +1000, Russell Stuart wrote:
+> It has gone quiet again.  In my mind the one unresolved issue
+> is whether Patrick intended to remove RTAB with his patch.
+> If not, the ATM patch as it stands will have to go in.
+> 
+> Patrick - it would be nice to hear from you.
 
-> Of the 4 timers, only one is a timeout. The other three expire every time,
-> forcing the timer wheel into effect.  Even though it's one timer
-> implementing 4, it's expensive to use it as a watchdog.
+It appears Patrick isn't going to reply.  The situation as
+I see it is:
 
-It's not a watchdog, the timer continually fires.
+- Patrick's last post said his STAB patch wasn't going to
+  touch RTAB, so regardless of whether Patrick's STAB
+  patch proceeds or not the ATM patch will be needed to
+  make the current kernel work with ATM.
 
-It is the on-chip ASF firmware that "times out" if it does not
-see  the heartbeat message from the driver within 5 seconds.
+- If I read Jesper's last post correctly, he said Patrick
+  acknowledged to him in a private email that RTAB had to 
+  change to accommodate ATM, and in fact called it a bug
+  in RTAB.  Fixing this "bug" is what the kernel part of
+  the current ATM patch does - and it does it in a 
+  backward compatible way.
 
-The driver timer in question runs every 2 seconds to write this
-heartbeat message to the chip.
+- Jamal, you said that this ATM patch should go in if 
+  Patrick didn't come up with a better solution.
+
+Jamal - unless there are other outstanding issues I have 
+missed or someone has had second thoughts this means you
+should be OK with the patch going in.  Can we get it into
+Dave M's tree now?
+
