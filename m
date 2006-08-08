@@ -1,66 +1,109 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH RESEND 2/2] update sunrpc to use in-kernel sockets API
-Date: Tue, 08 Aug 2006 10:19:51 -0700
-Message-ID: <1155057591.26188.5.camel@w-sridhar2.beaverton.ibm.com>
-References: <1154991632.11916.6.camel@w-sridhar2.beaverton.ibm.com>
-	 <20060807.205910.68157131.davem@davemloft.net>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [Fwd: Fwd: [PATCH] ethtool v4: add full autoneg specify feature]
+Date: Tue, 08 Aug 2006 10:36:21 -0700
+Message-ID: <44D8CB95.1060203@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>, auke@foo-projects.org,
+	tarbal@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:1921 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S965006AbWHHRZG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 13:25:06 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e2.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k78HOxiY031250
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Tue, 8 Aug 2006 13:25:00 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay02.pok.ibm.com (8.13.6/NCO/VER7.0) with ESMTP id k78HOx7u285420
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 8 Aug 2006 13:24:59 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k78HOx0G010248
-	for <netdev@vger.kernel.org>; Tue, 8 Aug 2006 13:24:59 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060807.205910.68157131.davem@davemloft.net>
+Received: from mga01.intel.com ([192.55.52.88]:52303 "EHLO
+	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
+	id S1030200AbWHHRho (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 13:37:44 -0400
+To: NetDev <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-08-07 at 20:59 -0700, David Miller wrote:
-> From: Sridhar Samudrala <sri@us.ibm.com>
-> Date: Mon, 07 Aug 2006 16:00:32 -0700
-> 
-> > Update sunrpc to use in-kernel sockets API.
-> > 
-> > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-> > Acked-by: James Morris <jmorris@namei.org>
-> 
-> Applied, thanks.
-> 
-> > @@ -207,7 +207,7 @@ static inline int xs_sendpages(struct so
-> >  		base &= ~PAGE_CACHE_MASK;
-> >  	}
-> >  
-> > -	sendpage = sock->ops->sendpage ? : sock_no_sendpage;
-> > +	sendpage = kernel_sendpage;
-> >  	do {
-> >  		int flags = XS_SENDMSG_FLAGS;
-> >  
-> 
-> Seemingly this chunk could be simplified further, by
-> just invoking kernel_sendpage() directly?
 
-We cannot do this as xs_sendpages() doesn't like to use sendpage()
-with highmem pages and has the following check before making the
-actual call.
-                /* Hmm... We might be dealing with highmem pages */
-                if (PageHighMem(*ppage))
-                        sendpage = sock_no_sendpage;
-                err = sendpage(sock, *ppage, base, len, flags);
+I figured that the word "ad" "ver" "tise" must throw off the spam filter,
+so I hope this gets through now that I've removed it from the subject.
 
-Thanks
-Sridhar
+Note this is an ethtool patch, not a kernel one :)
+
+Cheers,
+
+Auke
+
+---------- Forwarded message ----------
+From: Jeff Kirsher <tarbal@gmail.com>
+Date: Aug 7, 2006 9:53 PM
+Subject: [PATCH] ethtool v4: add autoneg --------- feature
+To: netdev@vger.kernel.org
 
 
+adds the ability to change the advertised speed and duplex for a network
+interfce.  Previously, a network interface was only able to advertise all
+supported speed's and duplex's, or one individual speed and duplex.  This
+feature allows the user to choose which supported speed's and duplex's to
+advertise by using the hex value.
+--
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
+
+ethtool.c |   30 +++++++++++-------------------
+1 files changed, 11 insertions(+), 19 deletions(-)
+
+diff --git a/ethtool.c b/ethtool.c
+index 7d408be..2ad2f99 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -99,6 +99,7 @@ static struct option {
+                "               [ duplex half|full ]\n"
+                "               [ port tp|aui|bnc|mii|fibre ]\n"
+                "               [ autoneg on|off ]\n"
++               "               [ advertise %%x ]\n"
+                "               [ phyad %%d ]\n"
+                "               [ xcvr internal|external ]\n"
+                "               [ wol p|u|m|b|a|g|s|d... ]\n"
+@@ -546,6 +547,15 @@ static void parse_cmdline(int argc, char
+                                        show_usage(1);
+                                }
+                                break;
++                       } else if (!strcmp(argp[i], "advertise")) {
++                               gset_changed = 1;
++                               i += 1;
++                               if (i >= argc)
++                                       show_usage(1);
++                               advertising_wanted = strtol(argp[i], NULL, 6);
++                               if (advertising_wanted < 0)
++                                       show_usage(1);
++                               break;
+                        } else if (!strcmp(argp[i], "phyad")) {
+                                gset_changed = 1;
+                                i += 1;
+@@ -598,25 +608,7 @@ static void parse_cmdline(int argc, char
+                }
+        }
+
+-       if (autoneg_wanted == AUTONEG_ENABLE){
+-               if (speed_wanted == SPEED_10 && duplex_wanted == DUPLEX_HALF)
+-                       advertising_wanted = ADVERTISED_10baseT_Half;
+-               else if (speed_wanted == SPEED_10 &&
+-                        duplex_wanted == DUPLEX_FULL)
+-                       advertising_wanted = ADVERTISED_10baseT_Full;
+-               else if (speed_wanted == SPEED_100 &&
+-                        duplex_wanted == DUPLEX_HALF)
+-                       advertising_wanted = ADVERTISED_100baseT_Half;
+-               else if (speed_wanted == SPEED_100 &&
+-                        duplex_wanted == DUPLEX_FULL)
+-                       advertising_wanted = ADVERTISED_100baseT_Full;
+-               else if (speed_wanted == SPEED_1000 &&
+-                        duplex_wanted == DUPLEX_HALF)
+-                       advertising_wanted = ADVERTISED_1000baseT_Half;
+-               else if (speed_wanted == SPEED_1000 &&
+-                        duplex_wanted == DUPLEX_FULL)
+-                       advertising_wanted = ADVERTISED_1000baseT_Full;
+-               else
++       if ((autoneg_wanted == AUTONEG_ENABLE) && (advertising_wanted < 0)) {
+                        /* auto negotiate without forcing,
+                         * all supported speed will be assigned in do_sset()
+                         */
+
+
+-- 
+Cheers,
+Jeff
