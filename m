@@ -1,97 +1,43 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 8/8] d80211/bcm43xx: Modify ieee80211_ioctl.c for wireless
- statistics.
-Date: Tue, 08 Aug 2006 19:00:08 -0500
-Message-ID: <44D92588.5070102@lwfinger.net>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] limit rt cache size
+Date: Wed, 9 Aug 2006 01:23:01 +0200
+Message-ID: <200608090123.01123.ak@suse.de>
+References: <44D75EF8.1070901@sw.ru> <200608080711.06788.ak@suse.de> <Pine.LNX.4.61.0608081316330.2452@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	dev@sw.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:23967 "EHLO
-	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1030356AbWHIAAJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 20:00:09 -0400
-To: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
+Received: from mx2.suse.de ([195.135.220.15]:14012 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1030357AbWHIAAi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 20:00:38 -0400
+To: akepner@sgi.com
+In-Reply-To: <Pine.LNX.4.61.0608081316330.2452@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Part 8 of 8 to add wireless statistics to the bcm43xx-d80211 system.
-This patch adds the appropriate range parameters and routine
-ieee80211_get_wireless_stats to ieee80211_ioctl.c.
 
-The patch is for the August 8 version of Linville's wireless-dev tree.
+> >
+> > IMHO there needs to be a maximum size (maybe related to the sum of
+> > caches of all CPUs in the system?)
+> >
+> > Best would be to fix this for all large system hashes together.
+> 
+> How about using an algorithm like this: up to a certain "size"
+> (memory size, cache size,...), scale the hash tables linearly; 
+> but for larger sizes, scale logarithmically (or approximately
+> logarithmically)
 
-Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
+I don't think it makes any sense to continue scaling at all after
+some point - you won't get better shorter hash chains anymore and the 
+large hash tables actually cause problems: e.g. there are situations where we walk
+the complete tables and that takes longer and longer.
 
+Also does a 1TB machine really need bigger hash tables than a 100GB one?
 
-diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
-index dd52555..3a1b97f 100644
---- a/net/d80211/ieee80211_ioctl.c
-+++ b/net/d80211/ieee80211_ioctl.c
-@@ -1525,6 +1525,16 @@ static int ieee80211_ioctl_giwrange(stru
-  	range->min_frag = 256;
-  	range->max_frag = 2346;
+The problem is to find out what a good boundary is.
 
-+	range->max_qual.qual = 100;
-+	range->max_qual.level = 152;  /* set floor at -104 dBm (152 - 256) */
-+	range->max_qual.noise = 152;
-+	range->max_qual.updated = IW_QUAL_ALL_UPDATED;
-+
-+	range->avg_qual.qual = 50;
-+	range->avg_qual.level = 0;
-+	range->avg_qual.noise = 0;
-+	range->avg_qual.updated = IW_QUAL_ALL_UPDATED;
-+
-  	return 0;
-  }
-
-@@ -2963,6 +2973,39 @@ static int ieee80211_ioctl_giwauth(struc
-  	return ret;
-  }
-
-+/* Get wireless statistics.  Called by /proc/net/wireless and by SIOCGIWSTATS */
-+static struct iw_statistics *ieee80211_get_wireless_stats(struct net_device *net_dev)
-+{
-+	struct ieee80211_local *local = net_dev->ieee80211_ptr;
-+	struct iw_statistics * wstats = &local->wstats;
-+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(net_dev);
-+	struct sta_info *sta;
-+	static int tmp_level = 0;
-+	static int tmp_qual = 0;
-+
-+	sta = sta_info_get(local, sdata->u.wds.remote_addr);
-+	if (!sta) {
-+		wstats->discard.fragment = 0;
-+		wstats->discard.misc = 0;
-+		wstats->qual.qual = 0;
-+		wstats->qual.level = 0;
-+		wstats->qual.noise = 0;
-+		wstats->qual.updated |= IW_QUAL_ALL_UPDATED;
-+	} else {
-+		if (!tmp_level) {       /* get initial values */
-+			tmp_level = sta->last_signal;
-+			tmp_qual = sta->last_rssi;
-+		} else {                        /* smooth results */
-+			tmp_level = (15 * tmp_level + sta->last_signal)/16;
-+			tmp_qual = (15 * tmp_qual + sta->last_rssi)/16;
-+		}
-+		wstats->qual.level = tmp_level;
-+		wstats->qual.qual = 100*tmp_qual/sta->max_rssi;
-+		wstats->qual.noise = sta->last_noise;
-+		wstats->qual.updated = IW_QUAL_ALL_UPDATED | IW_QUAL_DBM;
-+	}
-+	return wstats;
-+}
-
-  static int ieee80211_ioctl_siwencodeext(struct net_device *dev,
-  					struct iw_request_info *info,
-@@ -3128,4 +3171,5 @@ const struct iw_handler_def ieee80211_iw
-  	.standard	= (iw_handler *) ieee80211_handler,
-  	.private	= (iw_handler *) ieee80211_private_handler,
-  	.private_args	= (struct iw_priv_args *) ieee80211_ioctl_priv,
-+	.get_wireless_stats = ieee80211_get_wireless_stats,
-  };
-
-
-
-
+-Andi
