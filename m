@@ -1,48 +1,34 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
-Date: Tue, 8 Aug 2006 08:24:10 -0400 (EDT)
-Message-ID: <Pine.LNX.4.58.0608080819080.7917@gandalf.stny.rr.com>
-References: <20060803.144845.66061203.davem@davemloft.net>
- <20060803235326.GC7894@thunk.org> <Pine.LNX.4.58.0608070124340.15870@gandalf.stny.rr.com>
- <20060806.231846.71090637.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
+Date: Tue, 8 Aug 2006 22:39:19 +1000
+Message-ID: <20060808123919.GA15625@gondor.apana.org.au>
+References: <1154712532.3117.43.camel@rh4> <20060804110829.62136ebb@dxpl.pdx.osdl.net> <20060804.163111.85390037.davem@davemloft.net> <1154797002.5081.21.camel@jzny2> <20060805230517.GA25468@gondor.apana.org.au> <1154819868.5517.34.camel@jzny2> <20060805231959.GA25768@gondor.apana.org.au> <1154821010.5517.48.camel@jzny2> <20060806025123.GA27051@gondor.apana.org.au> <1155039718.5138.58.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: tytso@mit.edu, mchan@broadcom.com, herbert@gondor.apana.org.au,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	tglx@linutronix.de, mingo@elte.hu
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, shemminger@osdl.org,
+	mchan@broadcom.com, jesse.brandeburg@intel.com,
+	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms-smtp-03.nyroc.rr.com ([24.24.2.57]:62962 "EHLO
-	ms-smtp-03.nyroc.rr.com") by vger.kernel.org with ESMTP
-	id S964833AbWHHMZn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 08:25:43 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060806.231846.71090637.davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:11525 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S964868AbWHHMkS
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 08:40:18 -0400
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1155039718.5138.58.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Aug 08, 2006 at 08:21:58AM -0400, jamal wrote:
+> 
+> Is the patch below making it in? As i pointed out in another email
+> tests reveal it is good.
 
-On Sun, 6 Aug 2006, David Miller wrote:
+I'll write up a proper description and submit it.
 
-> From: Steven Rostedt <rostedt@goodmis.org>
-> Date: Mon, 7 Aug 2006 01:34:56 -0400 (EDT)
->
-> > My suggestion would be to separate that tg3_timer into 4 different
-> > timers, which is what it actually looks like.
->
-> Timers have non-trivial cost.  It's cheaper to have one and
-> vector off to the necessary operations each tick internalls.
->
-> That's why it's implemented as one timer.
->
-
-hrtimers don't have the cost of a normal timer. And that's why I suggested
-to convert them.  There's a much bigger cost in a single timer that always
-times out than 3 hrtimers.  hrtimers are expected to timeout, but timers
-are not.
-
-Of the 4 timers, only one is a timeout. The other three expire every time,
-forcing the timer wheel into effect.  Even though it's one timer
-implementing 4, it's expensive to use it as a watchdog.
-
--- Steve
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
