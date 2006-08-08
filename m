@@ -1,58 +1,47 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] yet another IPX nonlinear receive fix
-Date: Tue, 8 Aug 2006 16:18:24 -0700
-Message-ID: <20060808161824.5727f57d@localhost.localdomain>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
+Date: Tue, 8 Aug 2006 19:21:08 -0400
+Message-ID: <20060808232108.GA16059@kvack.org>
+References: <20060804110829.62136ebb@dxpl.pdx.osdl.net> <20060804.163111.85390037.davem@davemloft.net> <20060808170432.GD27383@kvack.org> <20060808.150607.10247901.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@osdl.org, mchan@broadcom.com,
+	herbert@gondor.apana.org.au, hadi@cyberus.ca,
+	jesse.brandeburg@intel.com, auke-jan.h.kok@intel.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:63418 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965069AbWHHXSh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 19:18:37 -0400
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"David S. Miller" <davem@davemloft.net>
+Received: from kanga.kvack.org ([66.96.29.28]:13770 "EHLO kanga.kvack.org")
+	by vger.kernel.org with ESMTP id S965071AbWHHXVW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 19:21:22 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060808.150607.10247901.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Need to check some more cases in IPX receive.
-If the skb is purely fragments, the IPX header needs to
-be extracted. The function pskb_may_pull() may in theory invalidate
-all the pointers in the skb, so references to ipx header must be
-refreshed.
+On Tue, Aug 08, 2006 at 03:06:07PM -0700, David Miller wrote:
+> The driver ->hard_start_xmit() method is invoked with the queue
+> unlocked, so this kind of scheme would not be workable.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Looking at e1000, NETIF_F_LLTX is a waste -- the driver takes a spinlock 
+almost immediately after entering.  Taking the spinlock higher up in the 
+network stack, preferably for multiple packets, would at least let the 
+CPU deal with things sooner.  tg3 doesn't use LLTX and thus holds the lock 
+over hard_start_xmit().  bonding is atrocious and uses a read lock and unlock 
+in many of the xmit routines.  The only true lockless tx seems to be 
+loopback.
 
----
+> While the queue is unlocked, another cpu could empty entries in the
+> TX queue making it not-full, which invalidates this "queue is now
+> full" return value the driver just gave.
+> 
+> We don't do things the way we do it now for fun, it's just the most
+> reasonable scheme we've come up with given the locking constraints.
 
- net/ipx/af_ipx.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+Given that the vast majority of drivers are locked during their xmit 
+routine, it is probably worth implementing at some point.
 
-675a6798f7a587cae7acf1ad795366ee201e1a41
-diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
-index c13e86b..4019642 100644
---- a/net/ipx/af_ipx.c
-+++ b/net/ipx/af_ipx.c
-@@ -1642,14 +1642,17 @@ static int ipx_rcv(struct sk_buff *skb, 
- 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
- 		goto out;
- 
--	ipx		= ipx_hdr(skb);
--	ipx_pktsize	= ntohs(ipx->ipx_pktsize);
-+	if (!pskb_may_pull(skb, sizeof(struct ipxhdr)))
-+		goto drop;
-+
-+	ipx_pktsize = ntohs(ipxhdr(skb)->ipx_pktsize);
- 	
- 	/* Too small or invalid header? */
- 	if (ipx_pktsize < sizeof(struct ipxhdr) ||
- 	    !pskb_may_pull(skb, ipx_pktsize))
- 		goto drop;
-                         
-+	ipx = ipx_hdr(skb);
- 	if (ipx->ipx_checksum != IPX_NO_CHECKSUM &&
- 	   ipx->ipx_checksum != ipx_cksum(ipx, ipx_pktsize))
- 		goto drop;
+		-ben
 -- 
-1.2.4
-
+"Time is of no importance, Mr. President, only life is important."
+Don't Email: <dont@kvack.org>.
