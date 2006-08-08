@@ -1,193 +1,267 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 2/2] crc-itu-t - rt2x00 should use crc-itu-t
-Date: Tue, 8 Aug 2006 16:21:53 +0200
-Message-ID: <200608081621.53504.IvDoorn@gmail.com>
+From: Lutz Urban <lurban@lurban.de>
+Subject: Re: pci=routeirq solves EHCI-problem
+Date: Tue, 08 Aug 2006 16:27:41 +0200
+Message-ID: <44D89F5D.2000106@lurban.de>
+References: <44D83CB6.7030406@lurban.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com
+Cc: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:10155 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S964910AbWHHOWa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 10:22:30 -0400
-Received: by nf-out-0910.google.com with SMTP id q29so185802nfc
-        for <netdev@vger.kernel.org>; Tue, 08 Aug 2006 07:22:24 -0700 (PDT)
+Received: from smtprelay05.ispgateway.de ([80.67.18.43]:36770 "EHLO
+	smtprelay05.ispgateway.de") by vger.kernel.org with ESMTP
+	id S964919AbWHHO1p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 10:27:45 -0400
+Received: from unknown (HELO [192.168.97.34]) (101583@[85.182.8.141])
+          (envelope-sender <lurban@lurban.de>)
+          by smtprelay05.ispgateway.de (qmail-ldap-1.03) with SMTP
+          for <netdev@vger.kernel.org>; 8 Aug 2006 14:27:42 -0000
 To: netdev@vger.kernel.org
-Content-Disposition: inline
+In-Reply-To: <44D83CB6.7030406@lurban.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now crc-itu-t is available rt2x00 should use that implementation
-instead of its own private version.
+Hello,
 
-Signed-off-by Ivo van Doorn <IvDoorn@gmail.com>
+I'm sorry to tell you that my previous message was bogus. The problem 
+still persists.
 
----
+Sorry to have bothered you.
 
-diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/Kconfig wireless-dev-rt2x00-crc/drivers/net/wireless/d80211/rt2x00/Kconfig
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/Kconfig	2006-08-01 19:30:38.000000000 +0200
-+++ wireless-dev-rt2x00-crc/drivers/net/wireless/d80211/rt2x00/Kconfig	2006-08-08 15:53:50.000000000 +0200
-@@ -56,6 +56,7 @@
- config RT61PCI
- 	tristate "Ralink rt61 pci/pcmcia support"
- 	depends on RT2X00 && FW_LOADER && PCI
-+	select CRC_ITU_T
- 	---help---
- 	This is an experimental driver for the Ralink rt61 wireless chip.
- 
-@@ -93,6 +94,7 @@
- config RT73USB
- 	tristate "Ralink rt73 usb support"
- 	depends on RT2X00 && FW_LOADER && USB
-+	select CRC_ITU_T
- 	---help---
- 	This is an experimental driver for the Ralink rt73 wireless chip.
- 
-diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2x00crc.h wireless-dev-rt2x00-crc/drivers/net/wireless/d80211/rt2x00/rt2x00crc.h
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2x00crc.h	2006-08-01 19:30:38.000000000 +0200
-+++ wireless-dev-rt2x00-crc/drivers/net/wireless/d80211/rt2x00/rt2x00crc.h	1970-01-01 01:00:00.000000000 +0100
-@@ -1,82 +0,0 @@
--/*
--	Copyright (C) 2004 - 2006 rt2x00 SourceForge Project
--	<http://rt2x00.serialmonkey.com>
--
--	This program is free software; you can redistribute it and/or modify
--	it under the terms of the GNU General Public License as published by
--	the Free Software Foundation; either version 2 of the License, or
--	(at your option) any later version.
--
--	This program is distributed in the hope that it will be useful,
--	but WITHOUT ANY WARRANTY; without even the implied warranty of
--	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
--	GNU General Public License for more details.
--
--	You should have received a copy of the GNU General Public License
--	along with this program; if not, write to the
--	Free Software Foundation, Inc.,
--	59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-- */
--
--/*
--	Module: rt2x00
--	Abstract: rt2x00 CRC implementation for firmware validation.
--	Supported chipsets: rt2561, rt2561s, rt2661 & rt2573
-- */
--
--#ifndef RT2X00CRC_H
--#define RT2X00CRC_H
--
--static const u16 rt2x00crc_table[256] = {
--	0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50a5, 0x60c6, 0x70e7,
--	0x8108, 0x9129, 0xa14a, 0xb16b, 0xc18c, 0xd1ad, 0xe1ce, 0xf1ef,
--	0x1231, 0x0210, 0x3273, 0x2252, 0x52b5, 0x4294, 0x72f7, 0x62d6,
--	0x9339, 0x8318, 0xb37b, 0xa35a, 0xd3bd, 0xc39c, 0xf3ff, 0xe3de,
--	0x2462, 0x3443, 0x0420, 0x1401, 0x64e6, 0x74c7, 0x44a4, 0x5485,
--	0xa56a, 0xb54b, 0x8528, 0x9509, 0xe5ee, 0xf5cf, 0xc5ac, 0xd58d,
--	0x3653, 0x2672, 0x1611, 0x0630, 0x76d7, 0x66f6, 0x5695, 0x46b4,
--	0xb75b, 0xa77a, 0x9719, 0x8738, 0xf7df, 0xe7fe, 0xd79d, 0xc7bc,
--	0x48c4, 0x58e5, 0x6886, 0x78a7, 0x0840, 0x1861, 0x2802, 0x3823,
--	0xc9cc, 0xd9ed, 0xe98e, 0xf9af, 0x8948, 0x9969, 0xa90a, 0xb92b,
--	0x5af5, 0x4ad4, 0x7ab7, 0x6a96, 0x1a71, 0x0a50, 0x3a33, 0x2a12,
--	0xdbfd, 0xcbdc, 0xfbbf, 0xeb9e, 0x9b79, 0x8b58, 0xbb3b, 0xab1a,
--	0x6ca6, 0x7c87, 0x4ce4, 0x5cc5, 0x2c22, 0x3c03, 0x0c60, 0x1c41,
--	0xedae, 0xfd8f, 0xcdec, 0xddcd, 0xad2a, 0xbd0b, 0x8d68, 0x9d49,
--	0x7e97, 0x6eb6, 0x5ed5, 0x4ef4, 0x3e13, 0x2e32, 0x1e51, 0x0e70,
--	0xff9f, 0xefbe, 0xdfdd, 0xcffc, 0xbf1b, 0xaf3a, 0x9f59, 0x8f78,
--	0x9188, 0x81a9, 0xb1ca, 0xa1eb, 0xd10c, 0xc12d, 0xf14e, 0xe16f,
--	0x1080, 0x00a1, 0x30c2, 0x20e3, 0x5004, 0x4025, 0x7046, 0x6067,
--	0x83b9, 0x9398, 0xa3fb, 0xb3da, 0xc33d, 0xd31c, 0xe37f, 0xf35e,
--	0x02b1, 0x1290, 0x22f3, 0x32d2, 0x4235, 0x5214, 0x6277, 0x7256,
--	0xb5ea, 0xa5cb, 0x95a8, 0x8589, 0xf56e, 0xe54f, 0xd52c, 0xc50d,
--	0x34e2, 0x24c3, 0x14a0, 0x0481, 0x7466, 0x6447, 0x5424, 0x4405,
--	0xa7db, 0xb7fa, 0x8799, 0x97b8, 0xe75f, 0xf77e, 0xc71d, 0xd73c,
--	0x26d3, 0x36f2, 0x0691, 0x16b0, 0x6657, 0x7676, 0x4615, 0x5634,
--	0xd94c, 0xc96d, 0xf90e, 0xe92f, 0x99c8, 0x89e9, 0xb98a, 0xa9ab,
--	0x5844, 0x4865, 0x7806, 0x6827, 0x18c0, 0x08e1, 0x3882, 0x28a3,
--	0xcb7d, 0xdb5c, 0xeb3f, 0xfb1e, 0x8bf9, 0x9bd8, 0xabbb, 0xbb9a,
--	0x4a75, 0x5a54, 0x6a37, 0x7a16, 0x0af1, 0x1ad0, 0x2ab3, 0x3a92,
--	0xfd2e, 0xed0f, 0xdd6c, 0xcd4d, 0xbdaa, 0xad8b, 0x9de8, 0x8dc9,
--	0x7c26, 0x6c07, 0x5c64, 0x4c45, 0x3ca2, 0x2c83, 0x1ce0, 0x0cc1,
--	0xef1f, 0xff3e, 0xcf5d, 0xdf7c, 0xaf9b, 0xbfba, 0x8fd9, 0x9ff8,
--	0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0
--};
--
--static inline u16
--rt2x00crc_byte(u16 crc, const u8 data)
--{
--	return (crc << 8) ^ rt2x00crc_table[((crc >> 8) ^ data) & 0xff];
--}
--
--/*
-- * Compute the rt2x00 CRC for the data buffer
-- */
--static inline u16
--rt2x00crc(u16 crc, const u8 *buffer, size_t len)
--{
--	while (len--)
--		crc = rt2x00crc_byte(crc, *buffer++);
--	return crc;
--}
--
--#endif /* RT2X00CRC_H */
-diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-rt2x00-crc/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-08-08 15:47:53.000000000 +0200
-+++ wireless-dev-rt2x00-crc/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-08-08 15:51:57.000000000 +0200
-@@ -37,6 +37,7 @@
- #include <linux/wireless.h>
- #include <linux/firmware.h>
- #include <linux/ethtool.h>
-+#include <linux/crc-itu-t.h>
- 
- #include <net/iw_handler.h>
- #include <net/d80211.h>
-@@ -58,7 +59,6 @@
- 
- #include "rt2x00.h"
- #include "rt2x00pci.h"
--#include "rt2x00crc.h"
- #include "rt61pci.h"
- 
- /*
-@@ -1351,8 +1351,8 @@
- 	 * and set those 2 bytes to 0 when calculating CRC.
- 	 */
- 	reg = 0;
--	crc = rt2x00crc(0, fw->data, fw->size - 2);
--	crc = rt2x00crc(crc, (u8*)&reg, 2);
-+	crc = crc_itu_t(0, fw->data, fw->size - 2);
-+	crc = crc_itu_t(crc, (u8*)&reg, 2);
- 
- 	if (crc != (fw->data[fw->size - 2] << 8 | fw->data[fw->size - 1])) {
- 		ERROR("Firmware CRC error.\n");
-diff -rNU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-rt2x00-crc/drivers/net/wireless/d80211/rt2x00/rt73usb.c
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-08-08 15:47:53.000000000 +0200
-+++ wireless-dev-rt2x00-crc/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-08-08 15:51:56.000000000 +0200
-@@ -36,6 +36,7 @@
- #include <linux/wireless.h>
- #include <linux/firmware.h>
- #include <linux/ethtool.h>
-+#include <linux/crc-itu-t.h>
- 
- #include <net/iw_handler.h>
- #include <net/d80211.h>
-@@ -51,7 +52,6 @@
- 
- #include "rt2x00.h"
- #include "rt2x00usb.h"
--#include "rt2x00crc.h"
- #include "rt73usb.h"
- 
- /*
-@@ -1062,8 +1062,8 @@
- 	 * and set those 2 bytes to 0 when calculating CRC.
- 	 */
- 	reg = 0;
--	crc = rt2x00crc(0, fw->data, fw->size - 2);
--	crc = rt2x00crc(crc, (u8*)&reg, 2);
-+	crc = crc_itu_t(0, fw->data, fw->size - 2);
-+	crc = crc_itu_t(crc, (u8*)&reg, 2);
- 
- 	if (crc != (fw->data[fw->size - 2] << 8 | fw->data[fw->size - 1])) {
- 		ERROR("Firmware CRC error.\n");
+Regards,
+Lutz Urban
+
+
+Lutz Urban schrieb:
+> Hello,
+> 
+> I got your email-addresses from my /var/log/boot.msg.
+> 
+> The kernel switch 'pci=routeirq' solved the following problem:
+> 
+> Setup:
+> - VIA KT880 mainboard with a Geode-CPU
+> - SUSE Linux 10.0, kernel 2.6.13-15-default
+> - USB-mass storage device (2.5' Samsung disk, chipset can presumably be 
+> identified if needed)
+> 
+> Booting WITHOUT 'pci=routeirq':
+> - When the USB-disk had been connected BEFORE booting, the device would 
+> freeze upon loading ehci-hcd and usb-storage. usb-storage would be 
+> unable to read the partion table.
+> - After physically disconnecting and reconnecting the device everything 
+> would be fine.
+> - This problem would not occur with uhci-hcd instead of ehci-hcd.
+> 
+> Booting WITH 'pci=routeirq':
+> - Everything works fine also when the USB-disk was connected BEFORE boot.
+> 
+> I enclose the output of 'lspci -bvv' (booted with 'pci=routeirq') as a 
+> text file. If you want further info, I'm very willing to help. (I have 
+> benefitted a lot from the work of the Open Source Community and given 
+> very little back)
+> 
+> Kind regards,
+> Lutz Urban, Germany
+> 
+> phone: +49-208-4459550
+> 
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> 00:00.0 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
+> 	Subsystem: VIA Technologies, Inc. KT880 Host Bridge
+> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort+ >SERR- <PERR-
+> 	Latency: 8
+> 	Region 0: Memory at e0000000 (32-bit, prefetchable)
+> 	Capabilities: [80] AGP version 3.5
+> 		Status: RQ=32 Iso- ArqSz=0 Cal=0 SBA+ ITACoh- GART64- HTrans- 64bit- FW- AGP3- Rate=x4
+> 		Command: RQ=1 ArqSz=0 Cal=0 SBA- AGP- GART64- 64bit- FW- Rate=<none>
+> 	Capabilities: [50] Power Management version 2
+> 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:00.1 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
+> 	Subsystem: VIA Technologies, Inc. KT880 Host Bridge
+> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 0
+> 
+> 00:00.2 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
+> 	Subsystem: VIA Technologies, Inc. KT880 Host Bridge
+> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 0
+> 
+> 00:00.3 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
+> 	Subsystem: VIA Technologies, Inc. KT880 Host Bridge
+> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 0
+> 
+> 00:00.4 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
+> 	Subsystem: VIA Technologies, Inc. KT880 Host Bridge
+> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 0
+> 
+> 00:00.7 Host bridge: VIA Technologies, Inc. KT880 Host Bridge
+> 	Subsystem: VIA Technologies, Inc. KT880 Host Bridge
+> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 0
+> 
+> 00:01.0 PCI bridge: VIA Technologies, Inc. VT8237 PCI Bridge (prog-if 00 [Normal decode])
+> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+> 	Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 0
+> 	Bus: primary=00, secondary=01, subordinate=01, sec-latency=0
+> 	Memory behind bridge: fca00000-feafffff
+> 	Prefetchable memory behind bridge: bff00000-cfefffff
+> 	Secondary status: 66MHz+ FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort+ <SERR- <PERR-
+> 	BridgeCtl: Parity+ SERR+ NoISA- VGA+ MAbort- >Reset- FastB2B-
+> 	Capabilities: [70] Power Management version 2
+> 		Flags: PMEClk- DSI- D1+ D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:06.0 Network controller: AVM Audiovisuelles MKTG & Computer System GmbH A1 ISDN [Fritz] (rev 02)
+> 	Subsystem: AVM Audiovisuelles MKTG & Computer System GmbH FRITZ!Card ISDN Controller
+> 	Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+> 	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Interrupt: pin A routed to IRQ 10
+> 	Region 0: Memory at febffc00 (32-bit, non-prefetchable)
+> 	Region 1: I/O ports at ec00
+> 
+> 00:08.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8139/8139C/8139C+ (rev 10)
+> 	Subsystem: Compex FN22-3(A) LinxPRO Ethernet Adapter
+> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+> 	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 64 (8000ns min, 16000ns max)
+> 	Interrupt: pin A routed to IRQ 10
+> 	Region 0: I/O ports at e800
+> 	Region 1: Memory at febff800 (32-bit, non-prefetchable)
+> 	Expansion ROM at febe0000 [disabled]
+> 	Capabilities: [50] Power Management version 2
+> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0-,D1+,D2+,D3hot+,D3cold+)
+> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:0b.0 Ethernet controller: VIA Technologies, Inc. VT6120/VT6121/VT6122 Gigabit Ethernet Adapter (rev 11)
+> 	Subsystem: Micro-Star International Co., Ltd.: Unknown device 0470
+> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+> 	Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 64 (750ns min, 2000ns max), Cache Line Size 08
+> 	Interrupt: pin A routed to IRQ 10
+> 	Region 0: I/O ports at e400
+> 	Region 1: Memory at febff400 (32-bit, non-prefetchable)
+> 	Capabilities: [50] Power Management version 2
+> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:0f.0 IDE interface: VIA Technologies, Inc. VIA VT6420 SATA RAID Controller (rev 80) (prog-if 8f [Master SecP SecO PriP PriO])
+> 	Subsystem: Micro-Star International Co., Ltd.: Unknown device 0470
+> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 64
+> 	Interrupt: pin B routed to IRQ 10
+> 	Region 0: I/O ports at e000
+> 	Region 1: I/O ports at dc00
+> 	Region 2: I/O ports at d800
+> 	Region 3: I/O ports at d400
+> 	Region 4: I/O ports at d000
+> 	Region 5: I/O ports at c800
+> 	Capabilities: [c0] Power Management version 2
+> 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:0f.1 IDE interface: VIA Technologies, Inc. VT82C586A/B/VT82C686/A/B/VT823x/A/C PIPC Bus Master IDE (rev 06) (prog-if 8a [Master SecP PriP])
+> 	Subsystem: VIA Technologies, Inc. VT82C586/B/VT82C686/A/B/VT8233/A/C/VT8235 PIPC Bus Master IDE
+> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 32
+> 	Interrupt: pin A routed to IRQ 10
+> 	Region 4: I/O ports at fc00
+> 	Capabilities: [c0] Power Management version 2
+> 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:10.0 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 81) (prog-if 00 [UHCI])
+> 	Subsystem: Micro-Star International Co., Ltd.: Unknown device 0470
+> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 64, Cache Line Size 08
+> 	Interrupt: pin A routed to IRQ 11
+> 	Region 4: I/O ports at bc00
+> 	Capabilities: [80] Power Management version 2
+> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:10.1 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 81) (prog-if 00 [UHCI])
+> 	Subsystem: Micro-Star International Co., Ltd.: Unknown device 0470
+> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 64, Cache Line Size 08
+> 	Interrupt: pin A routed to IRQ 11
+> 	Region 4: I/O ports at c000
+> 	Capabilities: [80] Power Management version 2
+> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:10.2 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 81) (prog-if 00 [UHCI])
+> 	Subsystem: Micro-Star International Co., Ltd.: Unknown device 0470
+> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 64, Cache Line Size 08
+> 	Interrupt: pin B routed to IRQ 10
+> 	Region 4: I/O ports at c400
+> 	Capabilities: [80] Power Management version 2
+> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:10.3 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 81) (prog-if 00 [UHCI])
+> 	Subsystem: Micro-Star International Co., Ltd.: Unknown device 0470
+> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 64, Cache Line Size 08
+> 	Interrupt: pin B routed to IRQ 10
+> 	Region 4: I/O ports at cc00
+> 	Capabilities: [80] Power Management version 2
+> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:10.4 USB Controller: VIA Technologies, Inc. USB 2.0 (rev 86) (prog-if 20 [EHCI])
+> 	Subsystem: Micro-Star International Co., Ltd.: Unknown device 0470
+> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 64, Cache Line Size 10
+> 	Interrupt: pin C routed to IRQ 10
+> 	Region 0: Memory at febff000 (32-bit, non-prefetchable)
+> 	Capabilities: [80] Power Management version 2
+> 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 00:11.0 ISA bridge: VIA Technologies, Inc. VT8237 ISA bridge [KT600/K8T800/K8T890 South]
+> 	Subsystem: VIA Technologies, Inc. DFI KT600-AL Motherboard
+> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 0
+> 	Capabilities: [c0] Power Management version 2
+> 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 
+> 01:00.0 VGA compatible controller: nVidia Corporation NV11 [GeForce2 MX/MX 400] (rev a1) (prog-if 00 [VGA])
+> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+> 	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+> 	Latency: 0 (1250ns min, 250ns max)
+> 	Interrupt: pin A routed to IRQ 11
+> 	Region 0: Memory at fd000000 (32-bit, non-prefetchable)
+> 	Region 1: Memory at c0000000 (32-bit, prefetchable)
+> 	Expansion ROM at feaf0000 [disabled]
+> 	Capabilities: [60] Power Management version 2
+> 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+> 		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+> 	Capabilities: [44] AGP version 2.0
+> 		Status: RQ=32 Iso- ArqSz=0 Cal=0 SBA- ITACoh- GART64- HTrans- 64bit- FW+ AGP3- Rate=x1,x2,x4
+> 		Command: RQ=1 ArqSz=0 Cal=0 SBA- AGP- GART64- 64bit- FW- Rate=<none>
+> 
