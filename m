@@ -1,56 +1,29 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [RFC: -mm patch] bcm43xx_main.c: remove 3 functions
-Date: Tue, 08 Aug 2006 18:14:01 -0400
-Message-ID: <44D90CA9.1040807@pobox.com>
-References: <20060806030809.2cfb0b1e.akpm@osdl.org> <20060807210415.GO3691@stusta.de> <200608082032.38365.mb@bu3sch.de>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH][IPV6]: Make sure fib6_rule_lookup doesn't return NULL
+Date: Wed, 9 Aug 2006 00:16:51 +0200
+Message-ID: <20060808221651.GS14627@postel.suug.ch>
+References: <44D90AA0.1000408@tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@stusta.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	linville@tuxdriver.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60301 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1030315AbWHHWOK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 18:14:10 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200608082032.38365.mb@bu3sch.de>
+Received: from postel.suug.ch ([194.88.212.233]:57476 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1030324AbWHHWQa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 18:16:30 -0400
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Content-Disposition: inline
+In-Reply-To: <44D90AA0.1000408@tcs.hut.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> On Monday 07 August 2006 23:04, Adrian Bunk wrote:
->> This patch removes three no longer used functions (that are even 
->> generating gcc warnings).
->>
->> This patch doesn't look right, but it is the result of 
->> 58e5528ee464d38040b9489e10033c9387a10d56 in git-netdev...
-> 
-> Hm, can't find that commit in a tree.
-> I looked at linus', netdev-2.6.
+* Ville Nuorvala <vnuorval@tcs.hut.fi> 2006-08-09 01:05
+>     [IPV6]: Make sure fib6_rule_lookup doesn't return NULL
+>     
+>     The callers of fib6_rule_lookup don't expect it to return NULL,
+>     therefore it must return ip6_null_entry whenever fib_rule_lookup fails.
+>     
+>     Signed-off-by: Ville Nuorvala <vnuorval@tcs.hut.fi>
 
-It's clearly in netdev-2.6.git#upstream:
-
-commit 58e5528ee464d38040b9489e10033c9387a10d56
-Author: Michael Buesch <mb@bu3sch.de>
-Date:   Sat Jul 8 22:02:18 2006 +0200
-
-     [PATCH] bcm43xx: init routine rewrite
-
-     Rewrite of the bcm43xx initialization routines.
-     This fixes several issues:
-     * up-down-up-down-up... stale data issue
-       (May fix some DHCP issues)
-     * Fix the init vs IRQ handler race (and remove the workaround)
-     * Fix init for cards with multiple cores (APHY)
-       As softmac has no internal PHY handling (unlike dscape),
-       this adds the file "phymode" to sysfs.
-       The active PHY can be selected by writing either a, b or g
-       to this file. Current PHY can be determined by reading from it.
-     * Fix the controller restart code.
-       Controller restart can now also be triggered through
-       echo 1 > /debug/bcm43xx/ethX/restart
-
-     Signed-off-by: Michael Buesch <mb@bu3sch.de>
-     Signed-off-by: John W. Linville <linville@tuxdriver.com>
-
+I think it would be a lot cleaner to return an error code
+like fib_lookup() and save the atomic operations. We only
+destroy the dst again anyway in case of a failure.
