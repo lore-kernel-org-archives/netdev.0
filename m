@@ -1,33 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: remove is_setbyuser patch
-Date: Tue, 08 Aug 2006 00:56:37 -0700 (PDT)
-Message-ID: <20060808.005637.124551821.davem@davemloft.net>
-References: <20060808080231.GB13512@prozac>
+From: "Knapp" <brokenbetony@hot-shot.com>
+Subject: Have all delights using this wonderful product!
+Date: Tue, 8 Aug 2006 10:57:33 +0300
+Message-ID: <53542340368325.BD7594CC5D@D26MT0>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+        charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:18123
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932262AbWHHH4e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 03:56:34 -0400
-To: louis.nyffenegger@gmail.com
-In-Reply-To: <20060808080231.GB13512@prozac>
+Received: from host-84-21-219-6.online.bg ([84.21.219.6]:14341 "EHLO
+	1-71ABRKHI7DDPH") by vger.kernel.org with ESMTP id S932536AbWHHH6T
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 03:58:19 -0400
+To: <newbie@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: louis.nyffenegger@gmail.com
-Date: Tue, 8 Aug 2006 10:02:31 +0200
+Woo-hooo! Studies show this is the most common disorder affecting millions of men - and women, too! Extra-Time - the name says it. It gives you extra time of pleasure and extra confidence. It is obvious that a man lasting longer is the man women prefer. Don't try once again - solve this problem! Find what you need here: http://mebimbts.com/gal/get/ Girls will start spreading rumors about the duration they got with you.
 
-> The same without gmail problems
-> 
-> == Changelog ==
-> 
-> The value is_setbyuser from struct ip_options is never used and set
-> only one time (http://linux-net.osdl.org/index.php/TODO#IPV4).
-> This little patch removes it from the kernel source.
-> 
-> Signed-off-by: Louis Nyffenegger <louis.nyffenegger@gmail.com>
-
-Applied, thanks a lot.
