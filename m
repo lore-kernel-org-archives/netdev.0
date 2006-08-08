@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] yet another IPX nonlinear receive fix
-Date: Tue, 08 Aug 2006 16:49:09 -0700 (PDT)
-Message-ID: <20060808.164909.65821183.davem@davemloft.net>
-References: <20060808161824.5727f57d@localhost.localdomain>
+Subject: Re: [PATCH] fib: convert reader/writer to spinlock
+Date: Tue, 08 Aug 2006 16:52:29 -0700 (PDT)
+Message-ID: <20060808.165229.75503720.davem@davemloft.net>
+References: <20060808110100.7fb24faf@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: acme@ghostprotocols.net, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:42430
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:23181
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030342AbWHHXtE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 19:49:04 -0400
+	id S1030343AbWHHXwY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 19:52:24 -0400
 To: shemminger@osdl.org
-In-Reply-To: <20060808161824.5727f57d@localhost.localdomain>
+In-Reply-To: <20060808110100.7fb24faf@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Stephen Hemminger <shemminger@osdl.org>
-Date: Tue, 8 Aug 2006 16:18:24 -0700
+Date: Tue, 8 Aug 2006 11:01:00 -0700
 
-> Need to check some more cases in IPX receive.
-> If the skb is purely fragments, the IPX header needs to
-> be extracted. The function pskb_may_pull() may in theory invalidate
-> all the pointers in the skb, so references to ipx header must be
-> refreshed.
+> Ther is no point in using a more expensive reader/writer lock
+> for a low contention lock like the fib_info_lock. The only
+> reader case is in handling route redirects.
 > 
 > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
