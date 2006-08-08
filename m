@@ -1,159 +1,100 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [2/2] [IPV4]: Use network-order dport for all visible inet_lookup_*
-Date: Tue, 8 Aug 2006 18:47:29 +1000
-Message-ID: <20060808084729.GA8085@gondor.apana.org.au>
-References: <20060808084614.GA6651@gondor.apana.org.au>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH] limit rt cache size
+Date: Tue, 8 Aug 2006 10:57:31 +0200
+Message-ID: <200608081057.32022.dada1@cosmosbay.com>
+References: <44D75EF8.1070901@sw.ru> <20060807164842.GA3412@ms2.inr.ac.ru> <20060807.204214.68039839.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, dev@sw.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:52495 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932453AbWHHIre
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 04:47:34 -0400
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Received: from pfx2.jmh.fr ([194.153.89.55]:2207 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S932540AbWHHI5f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 04:57:35 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060807.204214.68039839.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20060808084614.GA6651@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi:
+On Tuesday 08 August 2006 05:42, David Miller wrote:
+> From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Date: Mon, 7 Aug 2006 20:48:42 +0400
+>
+> > The patch looks OK. But I am not sure too.
+> >
+> > To be honest, I do not understand the sense of HASH_HIGHMEM flag.
+> > At the first sight, hash table eats low memory, objects hashed in this
+> > table also eat low memory. Why is its size calculated from total memory?
+> > But taking into account that this flag is used only by tcp.c and route.c,
+> > both of which feed on low memory, I miss something important.
+> >
+> > Let's ask people on netdev.
+>
+> Is it not so hard to check history of the change to see where these
+> things come from?  :-) If we study the output of command:
+>
+> 	git whatchanged net/core/route.c
+>
+> we quickly discover this GIT commit:
+>
+> 424c4b70cc4ff3930ee36a2ef7b204e4d704fd26
+>
+> [IPV4]: Use the fancy alloc_large_system_hash() function for route hash
+> table
+>
+> - rt hash table allocated using alloc_large_system_hash() function.
+>
+> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> And it is clear that old code used num_physpages, which counts low
+> memory only.  This shows clearly that Eric's usage of the HASH_HIGHMEM
+> flag here is erroneous.  So we should remove it.
 
-[IPV4]: Use network-order dport for all visible inet_lookup_*
+Yes probably.
 
-Right now most inet_lookup_* functions take a host-order hnum instead
-of a network-order dport because that's how it is represented internally.
+If I recall well, I blindly copied code from net/ipv4/tcp.c (tcp ehash table 
+allocation). I was not aware of this HASH_HIGHMEM part.
 
-This means that users of these functions have to be careful about using
-the right byte-order.  To add more confusion, inet_lookup takes a
-network-order dport unlike all other functions.
+As the allocation of routes are SLAB_ATOMIC, while TCP sockets are allocated 
+SLAB_KERNEL , it makes sense to size the route hash table accordingly to 
+nr_kernel_pages instead of nr_all_pages
 
-So this patch changes all visible inet_lookup functions to take a dport
-and move all dport->hnum conversion inside them.
+For TCP, an OOM is OK since sock_alloc_inode() should returns NULL and this 
+should be handled fine.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+I think we had discussion about being able to dynamically resize route hash 
+table (or tcp hash table), using RCU. Did someone worked on this ?
+For most current machines (ram size >= 1GB) , the default hash table sizes are 
+just insane for 99% of uses.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -274,7 +274,7 @@ static inline int inet_iif(const struct 
- extern struct sock *
- 		inet_lookup_listener(struct inet_hashinfo *hashinfo,
- 				     const u32 daddr,
--				     const unsigned short hnum, const int dif);
-+				     const u16 dport, const int dif);
- 
- /* Socket demux engine toys. */
- #ifdef __BIG_ENDIAN
-@@ -328,10 +328,11 @@ extern struct sock *
- static inline struct sock *
- 	__inet_lookup_established(struct inet_hashinfo *hashinfo,
- 				  const u32 saddr, const u16 sport,
--				  const u32 daddr, const u16 hnum,
-+				  const u32 daddr, const u16 dport,
- 				  const int dif)
- {
- 	INET_ADDR_COOKIE(acookie, saddr, daddr)
-+	u16 hnum = ntohs(dport);
- 	const __u32 ports = INET_COMBINED_PORTS(sport, hnum);
- 	struct sock *sk;
- 	const struct hlist_node *node;
-@@ -364,12 +365,12 @@ hit:
- 
- static inline struct sock *__inet_lookup(struct inet_hashinfo *hashinfo,
- 					 const u32 saddr, const u16 sport,
--					 const u32 daddr, const u16 hnum,
-+					 const u32 daddr, const u16 dport,
- 					 const int dif)
- {
- 	struct sock *sk = __inet_lookup_established(hashinfo, saddr, sport, daddr,
--						    hnum, dif);
--	return sk ? : inet_lookup_listener(hashinfo, daddr, hnum, dif);
-+						    dport, dif);
-+	return sk ? : inet_lookup_listener(hashinfo, daddr, dport, dif);
- }
- 
- static inline struct sock *inet_lookup(struct inet_hashinfo *hashinfo,
-@@ -380,7 +381,7 @@ static inline struct sock *inet_lookup(s
- 	struct sock *sk;
- 
- 	local_bh_disable();
--	sk = __inet_lookup(hashinfo, saddr, sport, daddr, ntohs(dport), dif);
-+	sk = __inet_lookup(hashinfo, saddr, sport, daddr, dport, dif);
- 	local_bh_enable();
- 
- 	return sk;
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -607,7 +607,7 @@ static struct sock *dccp_v4_hnd_req(stru
- 
- 	nsk = __inet_lookup_established(&dccp_hashinfo,
- 					iph->saddr, dh->dccph_sport,
--					iph->daddr, ntohs(dh->dccph_dport),
-+					iph->daddr, dh->dccph_dport,
- 					inet_iif(skb));
- 	if (nsk != NULL) {
- 		if (nsk->sk_state != DCCP_TIME_WAIT) {
-@@ -921,7 +921,7 @@ static int dccp_v4_rcv(struct sk_buff *s
- 	 * 	Look up flow ID in table and get corresponding socket */
- 	sk = __inet_lookup(&dccp_hashinfo,
- 			   skb->nh.iph->saddr, dh->dccph_sport,
--			   skb->nh.iph->daddr, ntohs(dh->dccph_dport),
-+			   skb->nh.iph->daddr, dh->dccph_dport,
- 			   inet_iif(skb));
- 
- 	/* 
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -163,11 +163,12 @@ static struct sock *__inet_lookup_listen
- 
- /* Optimize the common listener case. */
- struct sock *inet_lookup_listener(struct inet_hashinfo *hashinfo,
--				  const u32 daddr, const unsigned short hnum,
-+				  const u32 daddr, const u16 dport,
- 				  const int dif)
- {
- 	struct sock *sk = NULL;
- 	const struct hlist_head *head;
-+	u16 hnum = ntohs(dport);
- 
- 	read_lock(&hashinfo->lhash_lock);
- 	head = &hashinfo->listening_hash[inet_lhashfn(hnum)];
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -950,7 +950,7 @@ static struct sock *tcp_v4_hnd_req(struc
- 
- 	nsk = __inet_lookup_established(&tcp_hashinfo, skb->nh.iph->saddr,
- 					th->source, skb->nh.iph->daddr,
--					ntohs(th->dest), inet_iif(skb));
-+					th->dest, inet_iif(skb));
- 
- 	if (nsk) {
- 		if (nsk->sk_state != TCP_TIME_WAIT) {
-@@ -1087,7 +1087,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 	TCP_SKB_CB(skb)->sacked	 = 0;
- 
- 	sk = __inet_lookup(&tcp_hashinfo, skb->nh.iph->saddr, th->source,
--			   skb->nh.iph->daddr, ntohs(th->dest),
-+			   skb->nh.iph->daddr, th->dest,
- 			   inet_iif(skb));
- 
- 	if (!sk)
-@@ -1165,7 +1165,7 @@ do_time_wait:
- 	case TCP_TW_SYN: {
- 		struct sock *sk2 = inet_lookup_listener(&tcp_hashinfo,
- 							skb->nh.iph->daddr,
--							ntohs(th->dest),
-+							th->dest,
- 							inet_iif(skb));
- 		if (sk2) {
- 			inet_twsk_deschedule((struct inet_timewait_sock *)sk,
+
+>
+> Look!  This thing even uses num_physpages in current code to compute
+> the "scale" argument to alloc_large_system_hash() :)))
+>
+> > What's about routing cache size, it looks like it is another bug.
+> > route.c should not force rt_max_size = 16*rt_hash_size.
+> > I think it should consult available memory and to limit rt_max_size
+> > to some reasonable value, even if hash size is too high.
+>
+> Sure.  This current setting of 16*rt_hash_size is meant to
+> try to limit hash chain lengths I guess.  2.4.x does the same
+> thing.  Note also that by basing it upon number of routing cache
+> hash chains, it is effectively consulting available memory.
+> This is why when hash table sizing is crap so it rt_max_size
+> calculation.  Fix one and you fix them both :)
+>
+> Once the HASH_HIGHMEM flag is removed, assuming system has > 128K of
+> memory, what we get is:
+>
+> 	hash_chains = lowmem / 128K
+> 	rt_max_size = ((lowmem / 128K) * 16) == lowmem / 8K
+>
+> So we allow one routing cache entry for each 8K of lowmem we have :)
+>
+> So for now it is probably sufficient to just get rid of the
+> HASH_HIGHMEM flag here.  Later we can try changing this multiplier
+> of "16" to something like "8" or even "4".
