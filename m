@@ -1,48 +1,44 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] llc: SOCK_DGRAM interface fixes
-Date: Tue, 8 Aug 2006 09:42:10 -0700
-Message-ID: <20060808094210.34afd2a5@localhost.localdomain>
-References: <20060803092117.5726b4d7@localhost.localdomain>
-	<20060808163618.GA1992@ms2.inr.ac.ru>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
+Date: Tue, 8 Aug 2006 13:04:32 -0400
+Message-ID: <20060808170432.GD27383@kvack.org>
+References: <20060804101017.GA17393@gondor.apana.org.au> <1154712532.3117.43.camel@rh4> <20060804110829.62136ebb@dxpl.pdx.osdl.net> <20060804.163111.85390037.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	stable@kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@osdl.org, mchan@broadcom.com,
+	herbert@gondor.apana.org.au, hadi@cyberus.ca,
+	jesse.brandeburg@intel.com, auke-jan.h.kok@intel.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:51105 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S964998AbWHHQnc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 12:43:32 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20060808163618.GA1992@ms2.inr.ac.ru>
+Received: from kanga.kvack.org ([66.96.29.28]:10671 "EHLO kanga.kvack.org")
+	by vger.kernel.org with ESMTP id S1030196AbWHHRJO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 13:09:14 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060804.163111.85390037.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 8 Aug 2006 20:36:18 +0400
-Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
-
-> Hello!
+On Fri, Aug 04, 2006 at 04:31:11PM -0700, David Miller wrote:
+> Yes, it's meant to catch unintented races.
 > 
-> > This fix goes against the old historical comments about UNIX98 semantics
-> > but without this fix SOCK_DGRAM is broken and useless. So either ANK's
-> > interpretation was incorect or UNIX98 standard was wrong.
+> The queueing layer that calls ->hard_start_xmit() technically has no
+> need to support NETDEV_TX_BUSY as a return value, since the device
+> is able to prevent this.
 > 
-> Just found this reference to me. :-)
-> 
-> The comment migrated from tcp.c. It is only about connected SOCK_STREAM
-> sockets, I do not see how it can make SOCK_DGRAM broken or useless.
+> If we could avoid NETDEV_TX_BUSY et al. from happening, the idea is
+> that we could eliminate all of the requeueing logic in the packet
+> scheduler layer.  It is a pipe dream from many years ago.
 
-The code was in the place where the source information was being copied
-from the data portion to the cb portion of the skb. The original code
-did the save only for SOCK_STREAM.
-The cb portion is needed later to produce the address portion of the
-receive handling which is critical with SOCK_DGRAM in LLC.
+Maybe the way NETDEV_TX_BUSY is implemented is wrong -- that is, it should 
+be possible to return a result saying "we sent the packet, but the queue is 
+now full".  That would eliminate the atomic op that netif_queue_stop() 
+performs and allow higher layers to merge the necessary barrier on the full 
+case with the op on the tx lock.  That way we could have lockless queue 
+handling within the driver.  This might need start/stop sequence counters, 
+though.
 
-> That UNIX98 statement allowed to avoid expensive callback to protocol
-> specific setup of address in tcp_recvmsg().
-
-So the comment made sense for TCP but not LLC.
-
-
+		-ben
 -- 
+"Time is of no importance, Mr. President, only life is important."
+Don't Email: <dont@kvack.org>.
