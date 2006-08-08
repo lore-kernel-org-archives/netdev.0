@@ -1,19 +1,15 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [RFC][PATCH 5/9] r8169 driver conversion
-Date: Tue, 08 Aug 2006 21:34:15 +0200
-Message-ID: <20060808193415.1396.26744.sendpatchset@lappy>
+Subject: [RFC][PATCH 8/9] 3c59x driver conversion
+Date: Tue, 08 Aug 2006 21:34:47 +0200
+Message-ID: <20060808193447.1396.59301.sendpatchset@lappy>
 References: <20060808193325.1396.58813.sendpatchset@lappy>
 Cc: Daniel Phillips <phillips@google.com>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:20384 "EHLO
-	amsfep12-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1030241AbWHHTex (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 15:34:53 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030250AbWHHTfp@vger.kernel.org>
 To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 In-Reply-To: <20060808193325.1396.58813.sendpatchset@lappy>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
@@ -24,74 +20,55 @@ Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Signed-off-by: Daniel Phillips <phillips@google.com>
 
 ---
- drivers/net/r8169.c |   16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
+ drivers/net/3c59x.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-Index: linux-2.6/drivers/net/r8169.c
+Index: linux-2.6/drivers/net/3c59x.c
 ===================================================================
---- linux-2.6.orig/drivers/net/r8169.c
-+++ linux-2.6/drivers/net/r8169.c
-@@ -1480,6 +1480,8 @@ rtl8169_init_board(struct pci_dev *pdev,
- 		}
+--- linux-2.6.orig/drivers/net/3c59x.c
++++ linux-2.6/drivers/net/3c59x.c
+@@ -1383,6 +1383,8 @@ static int __devinit vortex_probe1(struc
+ 				(dev->features & NETIF_F_IP_CSUM) ? "en":"dis");
  	}
  
 +	dev->features |= NETIF_F_MEMALLOC;
 +
- 	pci_set_master(pdev);
+ 	dev->stop = vortex_close;
+ 	dev->get_stats = vortex_get_stats;
+ #ifdef CONFIG_PCI
+@@ -1680,7 +1682,7 @@ vortex_open(struct net_device *dev)
+ 			vp->rx_ring[i].next = cpu_to_le32(vp->rx_ring_dma + sizeof(struct boom_rx_desc) * (i+1));
+ 			vp->rx_ring[i].status = 0;	/* Clear complete bit. */
+ 			vp->rx_ring[i].length = cpu_to_le32(PKT_BUF_SZ | LAST_FRAG);
+-			skb = dev_alloc_skb(PKT_BUF_SZ);
++			skb = netdev_alloc_skb(dev, PKT_BUF_SZ);
+ 			vp->rx_skbuff[i] = skb;
+ 			if (skb == NULL)
+ 				break;			/* Bad news!  */
+@@ -2405,7 +2407,7 @@ static int vortex_rx(struct net_device *
+ 			int pkt_len = rx_status & 0x1fff;
+ 			struct sk_buff *skb;
  
- 	/* ioremap MMIO region */
-@@ -1909,14 +1911,15 @@ static inline void rtl8169_map_to_asic(s
- 	rtl8169_mark_to_asic(desc, rx_buf_sz);
- }
+-			skb = dev_alloc_skb(pkt_len + 5);
++			skb = netdev_alloc_skb(dev, pkt_len + 5);
+ 			if (vortex_debug > 4)
+ 				printk(KERN_DEBUG "Receiving packet size %d status %4.4x.\n",
+ 					   pkt_len, rx_status);
+@@ -2486,7 +2488,7 @@ boomerang_rx(struct net_device *dev)
  
--static int rtl8169_alloc_rx_skb(struct pci_dev *pdev, struct sk_buff **sk_buff,
-+static int rtl8169_alloc_rx_skb(struct net_device *dev, struct pci_dev *pdev,
-+				struct sk_buff **sk_buff,
- 				struct RxDesc *desc, int rx_buf_sz)
- {
- 	struct sk_buff *skb;
- 	dma_addr_t mapping;
- 	int ret = 0;
- 
--	skb = dev_alloc_skb(rx_buf_sz + NET_IP_ALIGN);
-+	skb = netdev_alloc_skb(dev, rx_buf_sz + NET_IP_ALIGN);
- 	if (!skb)
- 		goto err_out;
- 
-@@ -1960,7 +1963,7 @@ static u32 rtl8169_rx_fill(struct rtl816
- 		if (tp->Rx_skbuff[i])
- 			continue;
- 			
--		ret = rtl8169_alloc_rx_skb(tp->pci_dev, tp->Rx_skbuff + i,
-+		ret = rtl8169_alloc_rx_skb(dev, tp->pci_dev, tp->Rx_skbuff + i,
- 					   tp->RxDescArray + i, tp->rx_buf_sz);
- 		if (ret < 0)
- 			break;
-@@ -2371,7 +2374,8 @@ static inline void rtl8169_rx_csum(struc
- 		skb->ip_summed = CHECKSUM_NONE;
- }
- 
--static inline int rtl8169_try_rx_copy(struct sk_buff **sk_buff, int pkt_size,
-+static inline int rtl8169_try_rx_copy(struct net_device *dev,
-+				      struct sk_buff **sk_buff, int pkt_size,
- 				      struct RxDesc *desc, int rx_buf_sz)
- {
- 	int ret = -1;
-@@ -2379,7 +2383,7 @@ static inline int rtl8169_try_rx_copy(st
- 	if (pkt_size < rx_copybreak) {
+ 			/* Check if the packet is long enough to just accept without
+ 			   copying to a properly sized skbuff. */
+-			if (pkt_len < rx_copybreak && (skb = dev_alloc_skb(pkt_len + 2)) != 0) {
++			if (pkt_len < rx_copybreak && (skb = netdev_alloc_skb(dev, pkt_len + 2)) != 0) {
+ 				skb->dev = dev;
+ 				skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
+ 				pci_dma_sync_single_for_cpu(VORTEX_PCI(vp), dma, PKT_BUF_SZ, PCI_DMA_FROMDEVICE);
+@@ -2525,7 +2527,7 @@ boomerang_rx(struct net_device *dev)
  		struct sk_buff *skb;
- 
--		skb = dev_alloc_skb(pkt_size + NET_IP_ALIGN);
-+		skb = netdev_alloc_skb(dev, pkt_size + NET_IP_ALIGN);
- 		if (skb) {
- 			skb_reserve(skb, NET_IP_ALIGN);
- 			eth_copy_and_sum(skb, sk_buff[0]->data, pkt_size, 0);
-@@ -2452,7 +2456,7 @@ rtl8169_rx_interrupt(struct net_device *
- 				le64_to_cpu(desc->addr), tp->rx_buf_sz,
- 				PCI_DMA_FROMDEVICE);
- 
--			if (rtl8169_try_rx_copy(&skb, pkt_size, desc,
-+			if (rtl8169_try_rx_copy(dev, &skb, pkt_size, desc,
- 						tp->rx_buf_sz)) {
- 				pci_action = pci_unmap_single;
- 				tp->Rx_skbuff[entry] = NULL;
+ 		entry = vp->dirty_rx % RX_RING_SIZE;
+ 		if (vp->rx_skbuff[entry] == NULL) {
+-			skb = dev_alloc_skb(PKT_BUF_SZ);
++			skb = netdev_alloc_skb(dev, PKT_BUF_SZ);
+ 			if (skb == NULL) {
+ 				static unsigned long last_jif;
+ 				if (time_after(jiffies, last_jif + 10 * HZ)) {
