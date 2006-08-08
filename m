@@ -1,33 +1,32 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [RFC][PATCH 3/9] e1000 driver conversion
-Date: Tue, 08 Aug 2006 15:42:25 -0700
-Message-ID: <44D91351.2020702@intel.com>
-References: <20060808193325.1396.58813.sendpatchset@lappy>	<20060808193355.1396.71047.sendpatchset@lappy>	<44D8F919.7000006@intel.com> <20060808.153210.52118365.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RFC][PATCH 8/9] 3c59x driver conversion
+Date: Tue, 08 Aug 2006 19:07:10 -0400
+Message-ID: <44D9191E.7080203@garzik.org>
+References: <20060808193325.1396.58813.sendpatchset@lappy> <20060808193447.1396.59301.sendpatchset@lappy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: a.p.zijlstra@chello.nl, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	phillips@google.com, jesse.brandeburg@intel.com
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	Daniel Phillips <phillips@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:24215 "EHLO
-	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
-	id S965064AbWHHWnW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 18:43:22 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060808.153210.52118365.davem@davemloft.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:45967 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932237AbWHHXHO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 19:07:14 -0400
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20060808193447.1396.59301.sendpatchset@lappy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Auke Kok <auke-jan.h.kok@intel.com>
-> Date: Tue, 08 Aug 2006 13:50:33 -0700
-> 
->> can we really delete these??
-> 
-> netdev_alloc_skb() does it for you
+Peter Zijlstra wrote:
+> Update the driver to make use of the netdev_alloc_skb() API and the
+> NETIF_F_MEMALLOC feature.
 
-yeah I didn't spot that patch #2 in that series introduces that code - my bad. 
-Thanks.
+NETIF_F_MEMALLOC does not exist in the upstream tree...  nor should it, IMO.
 
-Auke
+netdev_alloc_skb() is in the tree, and that's fine.
+
+	Jeff
+
+
+
