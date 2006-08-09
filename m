@@ -1,52 +1,45 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: skb_shared_info()
-Date: Wed, 9 Aug 2006 09:35:24 +0400
-Message-ID: <20060809053524.GC17446@2ka.mipt.ru>
-References: <20060808.163915.03600382.davem@davemloft.net> <20060809003616.GC19881@gondor.apana.org.au> <20060808.175839.85396148.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 8/9] [TULIP] Make DS21143 printout match lspci output
+Date: Wed, 09 Aug 2006 01:36:27 -0400
+Message-ID: <44D9745B.1040609@garzik.org>
+References: <20060807204418.GE401@athena.road.mcmartin.ca> <11549840122892-git-send-email-kyle@parisc-linux.org> <11549840321096-git-send-email-kyle@parisc-linux.org> <1154984032324-git-send-email-kyle@parisc-linux.org> <115498403384-git-send-email-kyle@parisc-linux.org> <11549840341728-git-send-email-kyle@parisc-linux.org> <11549840343640-git-send-email-kyle@parisc-linux.org> <11549840351899-git-send-email-kyle@parisc-linux.org> <11549840361794-git-send-email-kyle@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, grundler@parisc-linux.org,
+	val_henson@linux.intel.com, akpm@osdl.org,
+	Thibaut Varene <varenet@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:29421 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S965067AbWHIFfv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 01:35:51 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060808.175839.85396148.davem@davemloft.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:10656 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S965074AbWHIFga (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 01:36:30 -0400
+To: Kyle McMartin <kyle@parisc-linux.org>
+In-Reply-To: <11549840361794-git-send-email-kyle@parisc-linux.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 08, 2006 at 05:58:39PM -0700, David Miller (davem@davemloft.net) wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Wed, 9 Aug 2006 10:36:16 +1000
+Kyle McMartin wrote:
+> From: Thibaut Varene <varenet@parisc-linux.org>
 > 
-> > I'm not sure whether the problem is where we store skb_shared_info,
-> > or the fact that we can't put kmalloc'ed memory into
-> > skb_shinfo->frags.
+> Signed-off-by: Thibaut Varene <varenet@parisc-linux.org>
+> Signed-off-by: Kyle McMartin <kyle@parisc-linux.org>
+> ---
+>  drivers/net/tulip/tulip_core.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> That's a good point.
+> diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
+> index bdb6698..21eaeb2 100644
+> --- a/drivers/net/tulip/tulip_core.c
+> +++ b/drivers/net/tulip/tulip_core.c
+> @@ -155,7 +155,7 @@ struct tulip_chip_table tulip_tbl[] = {
+>  	tulip_media_task },
+>  
+>    /* DC21142, DC21143 */
+> -  { "Digital DS21143 Tulip", 128, 0x0801fbff,
+> +  { "Digital DS21142/43 Tulip", 128, 0x0801fbff,
+>  	HAS_MII | HAS_MEDIA_TABLE | ALWAYS_CHECK_MII | HAS_ACPI | HAS_NWAY
+>  	| HAS_INTR_MITIGATION | HAS_PCI_MWI, tulip_timer, t21142_media_task },
 
-It is second problem actually.
-If we want to change memory usage in skbs, we have problems with
-frag_list and place where shared info lives, since it's addon only for
-1500 MTU does not change alignment.
+ACK patches 7-8
 
-> I guess we could do something like:
-> 
-> struct skb_frag_struct {
-> 	union {
-> 		struct page *page;
-> 		void *data;
-> 	} u;
-> 	__u16 page_offset;
-> 	__u16 size;
-> };
-> 
-> and something clever like a special page_offset encoding
-> means "use data, not page".
 
-We can separate kmalloced data from page by using internal page structures
-(lru pointers and PG_slab bit).
-
--- 
-	Evgeniy Polyakov
