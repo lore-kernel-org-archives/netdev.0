@@ -1,86 +1,175 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Wed, 09 Aug 2006 14:54:06 +0200
-Message-ID: <1155128046.12225.40.camel@twins>
-References: <20060808193325.1396.58813.sendpatchset@lappy>
-	 <20060808193345.1396.16773.sendpatchset@lappy>
-	 <42414.81.207.0.53.1155080443.squirrel@81.207.0.53>
-	 <44D92B78.20408@google.com>
-	 <35608.81.207.0.53.1155124956.squirrel@81.207.0.53>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH 1/6] ehea: interface to network stack
+Date: Wed, 9 Aug 2006 17:06:46 +0400
+Message-ID: <20060809130646.GA6846@martell.zuzino.mipt.ru>
+References: <44D99EFC.3000105@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Phillips <phillips@google.com>, netdev@vger.kernel.org,
-	linux-mm@kvack.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	linux-kernel@vger.kernel.org, Marcus Eder <meder@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:54740 "EHLO
-	amsfep11-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1750739AbWHIM62 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 08:58:28 -0400
-To: Indan Zupancic <indan@nul.nu>
-In-Reply-To: <35608.81.207.0.53.1155124956.squirrel@81.207.0.53>
+Received: from ug-out-1314.google.com ([66.249.92.173]:59814 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S1750752AbWHINGw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 09:06:52 -0400
+Received: by ug-out-1314.google.com with SMTP id m3so119807ugc
+        for <netdev@vger.kernel.org>; Wed, 09 Aug 2006 06:06:51 -0700 (PDT)
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <44D99EFC.3000105@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-08-09 at 14:02 +0200, Indan Zupancic wrote:
-> On Wed, August 9, 2006 2:25, Daniel Phillips said:
-> >  .... We want the atomic op that some people call
-> > "monus": decrement unless zero.
-> 
-> Currently atomic_inc_not_zero(), atomic_add_unless() and atomic_cmpxchg()
-> exist, so making an atomic_dec_not_zero() should be easy.
+On Wed, Aug 09, 2006 at 10:38:20AM +0200, Jan-Bernd Themann wrote:
+> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea_main.c
+> +++ kernel/drivers/net/ehea/ehea_main.c
 
-atomic_add_unless() - will nicely do, thanks.
+> +static inline u64 get_swqe_addr(u64 tmp_addr, int addr_seg)
+> +{
+> +	u64 addr;
+> +	addr = tmp_addr;
+> +	return addr;
+> +}
+> +
+> +static inline u64 get_rwqe_addr(u64 tmp_addr)
+> +{
+> +	return tmp_addr;
+> +}
 
-> I'm not sure, to me it looks like dev_unreserve_skb() is always called
-> without really knowing if it is justified or not, or else there wouldn't
-> be a chance that the counter became negative. So avoiding the negative
-> reserve usage seems like papering over bad accounting.
+The point of this exercise?
 
-It was indeed called too often it seems, once when deciding to drop the
-skb
-and again then actually freeing the skb.
+> +static inline int ehea_refill_rq3_def(struct ehea_port_res *pr, int nr_of_wqes)
 
-> The assumption made seems to be that if there's reserve used, then it must
-> be us using it, and it's unreserved. So it appears that either that
-> assumption is wrong, and we can unreserve for others while we never
-> reserved for ourselves, or it is correct, in which case it probably makes
-> more sense to check for the IFF_MEMALLOC flag.
+Way too big to be inline function.
 
-Changed it to only dec_not_zero on free for IFF_MEMALLOC devices.
-I'm thinking of making kfree_skbmem -> skb_release_data return whether
-they
-released the actual data and also depend on that.
+> +{
+> +	int i;
+> +	int ret = 0;
+> +	struct ehea_qp *qp;
+> +	struct ehea_rwqe *rwqe;
+> +	int skb_arr_rq3_len = pr->skb_arr_rq3_len;
+> +	struct sk_buff **skb_arr_rq3 = pr->skb_arr_rq3;
+> +	EDEB_EN(8, "pr=%p, nr_of_wqes=%d", pr, nr_of_wqes);
+> +	if (nr_of_wqes == 0)
+> +		return -EINVAL;
+> +	qp = pr->qp;
+> +	for (i = 0; i < nr_of_wqes; i++) {
+> +		int index = pr->skb_rq3_index++;
+> +		struct sk_buff *skb = dev_alloc_skb(EHEA_MAX_PACKET_SIZE
+> +						    + NET_IP_ALIGN);
+> +
+> +		if (!skb) {
+> +			EDEB_ERR(4, "No memory for skb. Only %d rwqe 
+> filled.",
+> +				 i);
+> +			ret = -ENOMEM;
+> +			break;
+> +		}
+> +		skb_reserve(skb, NET_IP_ALIGN);
+> +
+> +		rwqe = ehea_get_next_rwqe(qp, 3);
+> +		pr->skb_rq3_index %= skb_arr_rq3_len;
+> +		skb_arr_rq3[index] = skb;
+> +		rwqe->wr_id = EHEA_BMASK_SET(EHEA_WR_ID_TYPE, 
+> EHEA_RWQE3_TYPE)
+> +		    | EHEA_BMASK_SET(EHEA_WR_ID_INDEX, index);
+> +		rwqe->sg_list[0].l_key = ehea_get_recv_lkey(pr);
+> +		rwqe->sg_list[0].vaddr = get_rwqe_addr((u64)skb->data);
+> +		rwqe->sg_list[0].len = EHEA_MAX_PACKET_SIZE;
+> +		rwqe->data_segments = 1;
+> +	}
+> +
+> +	/* Ring doorbell */
+> +	iosync();
+> +	ehea_update_rq3a(qp, i);
+> +	EDEB_EX(8, "");
+> +	return ret;
+> +}
+> +
+> +
+> +static inline int ehea_refill_rq3(struct ehea_port_res *pr, int nr_of_wqes)
+> +{
+> +	return ehea_refill_rq3_def(pr, nr_of_wqes);
+> +}
 
-> All in all it seems like a per skb flag which tells us if this skb was the
-> one reserving anything is missing.
+ehea_refill_rq3[123] appears to be 1:1 wrappers around
+ehea_refill_rq3[123]_def. Any idea behind them?
 
-struct sk_buff::memalloc
+> +	init_attr = (struct ehea_qp_init_attr*)
+> +	    kzalloc(sizeof(struct ehea_qp_init_attr), GFP_KERNEL);
 
-However the idea is that freeing non memalloc skbs also returns memory
-(albeit
-to the slab and not the free page list).
+Useless cast.
 
->  Or rx_reserve_used must be updated for
-> all in flight skbs whenever the IFF_MEMALLOC flag changes, so that we can
-> be sure that the accounting works correctly. 
+> +	pr->skb_arr_sq = (struct sk_buff**)vmalloc(sizeof(struct sk_buff*)
+> +						    * (max_rq_entries + 1));
 
-Yes
+Useless cast
 
-> Oh wait, isn't that what the
-> memalloc flag is for? So shouldn't it be sufficient to check only with
-> sk_is_memalloc()?
+> +	pr->skb_arr_rq1 = (struct sk_buff**)vmalloc(sizeof(struct sk_buff*)
+> +						     * (max_rq_entries + 1));
 
-See previous comment.
+> +	pr->skb_arr_rq2 = (struct sk_buff**)vmalloc(sizeof(struct sk_buff*)
+> +						     * (max_rq_entries + 1));
 
->  That avoids lots of checks and should guarantee that the
-> accounting is correct, except in the case when the IFF_MEMALLOC flag is
-> cleared and the counter is set to zero manually. Can't that be avoided and
-> just let it decrease to zero naturally?
+> +	pr->skb_arr_rq3 = (struct sk_buff**)vmalloc(sizeof(struct sk_buff*)
+> +						     * (max_rq_entries + 1));
 
-That would put the atomic op on the free path unconditionally, I think
-davem
-gets nightmares from that.
+> +static int ehea_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+> +{
+> +	EDEB_ERR(4, "ioctl not supported: dev=%s cmd=%d", dev->name, cmd);
 
-Thanks
+Then copy NULL into ->do_ioctl!
+
+> +	return -EOPNOTSUPP;
+> +}
+
+> +	ehea_port_cb_0 = kzalloc(H_CB_ALIGNMENT, GFP_KERNEL);
+> +
+> +	if (!ehea_port_cb_0) {
+> +		EDEB_ERR(4, "No memory for ehea_port control block");
+> +		ret = -ENOMEM;
+> +		goto kzalloc_failed;
+> +	}
+> +
+> +	memcpy((u8*)(&(ehea_port_cb_0->port_mac_addr)),
+> +	       (u8*)&(mac_addr->sa_data[0]), 6);
+
+No casts on memcpy arguments.
+
+> +	memcpy((u8*)&ehea_mcl_entry->macaddr, mc_mac_addr, ETH_ALEN);
+
+> +static inline void ehea_xmit2(struct sk_buff *skb,
+> +			      struct net_device *dev, struct ehea_swqe *swqe,
+> +			      u32 lkey)
+> +{
+> +	int nfrags;
+> +	unsigned short skb_protocol = skb->protocol;
+
+Useless variable. And it should be __be16, FYI.
+
+> +	nfrags = skb_shinfo(skb)->nr_frags;
+> +	EDEB_EN(7, "skb->nfrags=%d (0x%X)", nfrags, nfrags);
+> +
+> +	if (skb_protocol == ETH_P_IP) {
+
+ITYM, htons(ETH_P_IP).
+
+> +static inline void ehea_xmit3(struct sk_buff *skb,
+> +			      struct net_device *dev, struct ehea_swqe *swqe)
+> +{
+> +	int i;
+> +	skb_frag_t *frag;
+> +	int nfrags = skb_shinfo(skb)->nr_frags;
+> +	u8 *imm_data = &swqe->u.immdata_nodesc.immediate_data[0];
+> +	u64 skb_protocol = skb->protocol;
+
+Useless var.
+
+> +
+> +	EDEB_EN(7, "");
+> +	if (likely(skb_protocol == ETH_P_IP)) {
+
+				   htons(ETH_P_IP)
 
