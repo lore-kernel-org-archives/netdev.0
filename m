@@ -1,30 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2/2] [IPV4]: Use network-order dport for all visible
- inet_lookup_*
-Date: Wed, 09 Aug 2006 15:47:40 -0700 (PDT)
-Message-ID: <20060809.154740.111206880.davem@davemloft.net>
-References: <20060808084729.GA8085@gondor.apana.org.au>
-	<20060808.022443.62664150.davem@davemloft.net>
-	<20060808111140.GA15028@gondor.apana.org.au>
+Subject: Re: Rules and groups
+Date: Wed, 09 Aug 2006 16:00:34 -0700 (PDT)
+Message-ID: <20060809.160034.63994773.davem@davemloft.net>
+References: <20060809080139.GA19555@souterrain.chygwyn.com>
+	<20060809.010125.78708459.davem@davemloft.net>
+	<20060809100326.GA23935@souterrain.chygwyn.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: tgraf@suug.ch, netdev@vger.kernel.org, patrick@tykepenguin.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61393
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:57752
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751415AbWHIWrx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 18:47:53 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060808111140.GA15028@gondor.apana.org.au>
+	id S1751419AbWHIXAx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 19:00:53 -0400
+To: steve@chygwyn.com
+In-Reply-To: <20060809100326.GA23935@souterrain.chygwyn.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 8 Aug 2006 21:11:40 +1000
+From: Steven Whitehouse <steve@chygwyn.com>
+Date: Wed, 9 Aug 2006 11:03:26 +0100
 
-> Good point.  This patch eliminates the double swap for __inet_lookup.
+> [DECnet] Covert rules to use generic code
 > 
-> [IPV4]: Use network-order dport for all visible inet_lookup_*
+> This patch converts the DECnet rules code to use the generic
+> rules system created by Thomas Graf <tgraf@suug.ch>.
+> 
+> Signed-off-by: Steven Whitehouse <steve@chygwyn.com>
 
-Applied, thanks Herbert.
+Patch applied, thanks Steven.
+
+I know it may seem like a minor detail, but can you format your top
+comment line like this:
+
+[DECNET]: Covert rules to use generic code
+
+I've been making this transformation by hand.
+
+The important parts for me are:
+
+[X]: blah
+
+Where X is the main subsystem name in all capital letters,
+and there is a colon after the closing right bracket.  If
+there is a specific sub-area being effected, the following
+is a nice way to show that:
+
+[X] subarea: blah
+
+This makes all of the networking changesets look consistent
+and it's easier for human eyes to scan the changeset lines
+if we make an effort to do it this way.
+
+Thanks!
+
