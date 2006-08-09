@@ -1,17 +1,23 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2/4] [RTNETLINK]: Use rtnl_multicast()/rtnl_unicast()
-Date: Wed, 09 Aug 2006 00:00:02 +0200
-Message-ID: <20060809205439.725451037@postel.suug.ch>
-References: <20060809204821.216122988@postel.suug.ch>
+Subject: [RESEND 2/4] [RTNETLINK]: Use rtnl_multicast()/rtnl_unicast()
+Date: Wed, 9 Aug 2006 23:00:36 +0200
+Message-ID: <20060809210036.GB14627@postel.suug.ch>
+References: <20060809204821.216122988@postel.suug.ch> <20060809205439.725451037@postel.suug.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:19874 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1751370AbWHIUzP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 16:55:15 -0400
+Received: from postel.suug.ch ([194.88.212.233]:30882 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1751374AbWHIVAR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 17:00:17 -0400
 To: davem@davemloft.net
-Content-Disposition: inline; filename=nl_msg
+Content-Disposition: inline
+In-Reply-To: <20060809205439.725451037@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+
+... forgot to export the new symbols.
 
 Introduces rtnl_multicast() to broadcast events and rtnl_unicast()
 to send unicast messages via the rtnl socket.
@@ -98,6 +104,12 @@ Index: net-2.6.19.git/net/core/rtnetlink.c
  }
  
  /* Protected by RTNL sempahore.  */
+@@ -811,3 +806,5 @@ EXPORT_SYMBOL(rtnl);
+ EXPORT_SYMBOL(rtnl_lock);
+ EXPORT_SYMBOL(rtnl_trylock);
+ EXPORT_SYMBOL(rtnl_unlock);
++EXPORT_SYMBOL(rtnl_multicast);
++EXPORT_SYMBOL(rtnl_unicast);
 Index: net-2.6.19.git/net/decnet/dn_table.c
 ===================================================================
 --- net-2.6.19.git.orig/net/decnet/dn_table.c
@@ -537,4 +549,3 @@ Index: net-2.6.19.git/net/ipv6/route.c
  }
  
  /*
-
