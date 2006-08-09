@@ -1,60 +1,59 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Wed, 09 Aug 2006 16:07:20 +0200
-Message-ID: <1155132440.12225.70.camel@twins>
-References: <20060808193345.1396.16773.sendpatchset@lappy>
-	 <20060808211731.GR14627@postel.suug.ch> <44D93BB3.5070507@google.com>
-	 <20060808.183920.41636471.davem@davemloft.net>
-	 <44D976E6.5010106@google.com>  <20060809131942.GY14627@postel.suug.ch>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 1/8] d80211/bcm43xx: Modify struct ieee80211_rx_status
+	for wireless statistics.
+Date: Wed, 09 Aug 2006 10:22:26 -0400
+Message-ID: <1155133346.3615.1.camel@localhost.localdomain>
+References: <44D92535.8090303@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Phillips <phillips@google.com>,
-	David Miller <davem@davemloft.net>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750880AbWHIOLp@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060809131942.GY14627@postel.suug.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:36790 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1750889AbWHIOVd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 10:21:33 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <44D92535.8090303@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-08-09 at 15:19 +0200, Thomas Graf wrote:
-> * Daniel Phillips <phillips@google.com> 2006-08-08 22:47
-> > David Miller wrote:
-> > >From: Daniel Phillips <phillips@google.com>
-> >  >>Can you please characterize the conditions under which skb->dev changes
-> > >>after the alloc?  Are there writings on this subtlety?
-> > >
-> > >The packet scheduler and classifier can redirect packets to different
-> > >devices, and can the netfilter layer.
-> > >
-> > >The setting of skb->dev is wholly transient and you cannot rely upon
-> > >it to be the same as when you set it on allocation.
-> > >
-> > >Even simple things like the bonding device change skb->dev on every
-> > >receive.
-> > 
-> > Thankyou, this is easily fixed.
+On Tue, 2006-08-08 at 18:58 -0500, Larry Finger wrote:
+> Part 1 of 8 to add wireless statistics to the bcm43xx-d80211 system. This patch adds new variables
+> to struct ieee80211_rx_status to contain the latest values for signal, noise, and the maximum value
+> of the received ssi. These could be u8's, but I left them as integers in case other drivers needed
+> larger values.
 > 
-> It's not that simple, in order to just fix the most obvious case
-> being packet forwarding when skb->dev changes its meaning from
-> device the packet is coming from to device the packet will be leaving
-> on is difficult.
+> The patch is for the August 8 version of Linville's wireless-dev tree.
 > 
-> You can't unreserve at that point so you need to keep the original
-> skb->dev. Since the packet is mostly likely queued before freeing
-> you will lose the refcnt on the original skb->dev. Keeping a
-> refcnt just for this memalloc stuff is out of question. Even keeping
-> the ifindex on a best effort basis is unlikely an option, sk_buff is
-> way overweight already.
+> Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
+> 
+> 
+> 
+> 
+> diff --git a/include/net/d80211.h b/include/net/d80211.h
+> index ba5cb4c..8479b58 100644
+> --- a/include/net/d80211.h
+> +++ b/include/net/d80211.h
+> @@ -205,6 +205,9 @@ struct ieee80211_rx_status {
+>           int channel;
+>           int phymode;
+>           int ssi;
+> +	int maxssi;
+> +	int signal;
+> +	int noise;
 
-I think Daniel was thinking of adding struct net_device *
-sk_buff::alloc_dev,
-I know I was after reading the first few mails. However if adding a
-field 
-there is strict no-no....
+Spacing?  Looks like you're using real tabs here, but the current code
+uses 8 spaces instead.  Not sure if that's a problem.
 
-/me takes a look at struct sk_buff
+Dan
 
-Hmm, what does sk_buff::input_dev do? That seems to store the initial
-device?
+>           int antenna;
+>           int rate;
+>           int flag;
+> 
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
