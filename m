@@ -1,43 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] limit rt cache size
-Date: Tue, 08 Aug 2006 17:32:56 -0700 (PDT)
-Message-ID: <20060808.173256.64863348.davem@davemloft.net>
-References: <200608090123.01123.ak@suse.de>
-	<20060808.171152.58440635.davem@davemloft.net>
-	<200608090224.04158.ak@suse.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: skb_shared_info()
+Date: Wed, 9 Aug 2006 10:36:16 +1000
+Message-ID: <20060809003616.GC19881@gondor.apana.org.au>
+References: <20060808.163915.03600382.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akepner@sgi.com, kuznet@ms2.inr.ac.ru, dev@sw.ru,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, johnpol@2ka.mipt.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:23728
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030261AbWHIAdQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 20:33:16 -0400
-To: ak@suse.de
-In-Reply-To: <200608090224.04158.ak@suse.de>
+Received: from rhun.apana.org.au ([64.62.148.172]:58887 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1030377AbWHIAxP
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 20:53:15 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060808.163915.03600382.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <ak@suse.de>
-Date: Wed, 9 Aug 2006 02:24:04 +0200
+On Tue, Aug 08, 2006 at 04:39:15PM -0700, David Miller wrote:
+> 
+> I'm beginning to think that where we store the
+> skb_shared_info() is a weakness of the SKB design.
 
-> Yes, but even with dynamic growth you still need some upper boundary 
-> (otherwise a DOS could eat all your memory). And it would need
-> to be figured out what it is.
+I'm not sure whether the problem is where we store skb_shared_info,
+or the fact that we can't put kmalloc'ed memory into skb_shinfo->frags.
 
-Absolutely.  Otherwise the GC'ing of the routing cache would
-break horribly.
-
-> BTW does dynamic shrink after a load spike make sense too?
-
-I'm not sure about that bit yet.
-
-> Or do some cheesy default and document the options to change
-> it clearly and wait for feedback from users on what works for
-> them?
-
-I think this makes sense.  An initial upper limit of 1 million hash
-table slots seems reasonable at first.  That's 8MB on a 64-bit
-machine.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
