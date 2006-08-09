@@ -1,31 +1,37 @@
-From: Dave Jones <davej@redhat.com>
-Subject: IPX changes introduce warning.
-Date: Wed, 9 Aug 2006 19:44:17 -0400
-Message-ID: <20060809234417.GA23634@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: another networking lockdep trace.
+Date: Wed, 09 Aug 2006 16:52:22 -0700 (PDT)
+Message-ID: <20060809.165222.32095748.davem@davemloft.net>
+References: <20060808184157.GB4880@redhat.com>
+	<E1GAmbn-0006Ts-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, acme@ghostprotocols.net,
-	netdev@vger.kernel.org, greg@kroah.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davej@redhat.com, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	mingo@elte.hu, arjan@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:63902 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751174AbWHIXpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 19:45:16 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:31189
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751330AbWHIXwe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 19:52:34 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <E1GAmbn-0006Ts-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We've just added an implicit declaration in the latest tree..
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 09 Aug 2006 21:52:23 +1000
 
-net/ipx/af_ipx.c: In function 'ipx_rcv':
-net/ipx/af_ipx.c:1648: error: implicit declaration of function 'ipxhdr'
+> Nice.  This is a bug introduced less than 2 weeks ago.  We're finally
+> getting some dividends from the lock validator :) Thanks guys!
 
-(Yes, my builds fail on -Werror-implicit, so that things like this get caught early)
+Horray! :-)
 
-Probably something simple like a missing #include, but I'm heading out
-the door right now :)  I'll poke at it later if no-one has beaten me to it.
+> [IPV6]: The ifa lock is a BH lock
+> 
+> The ifa lock is expected to be taken in BH context (by addrconf timers)
+> so we must disable BH when accessing it from user context.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-		Dave
-
--- 
-http://www.codemonkey.org.uk
+Applied, thanks Herbert.
