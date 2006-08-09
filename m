@@ -1,31 +1,40 @@
-From: Stuart Peloquin <peloquin@MIT.EDU>
-Subject: Bug report for MV643XX driver
-Date: Wed, 9 Aug 2006 10:47:28 -0400
-Message-ID: <200608091047.28571.peloquin@mit.edu>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: 3945 driver using d80211
+Date: Wed, 9 Aug 2006 10:50:47 -0400
+Message-ID: <20060809145042.GA2570@tuxdriver.com>
+References: <44D901C9.6090304@linux.intel.com> <200608081440.48623.flamingice@sourmilk.net> <44D99558.1000507@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: josejx@gentoo.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Wu <flamingice@sourmilk.net>,
+	Mohamed Abbas <mabbas@linux.intel.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from BISCAYNE-ONE-STATION.MIT.EDU ([18.7.7.80]:60549 "EHLO
-	biscayne-one-station.mit.edu") by vger.kernel.org with ESMTP
-	id S1750893AbWHIOsY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 10:48:24 -0400
-To: dale@farnsworth.org, mlachwani@mvista.com, netdev@vger.kernel.org
+Received: from ra.tuxdriver.com ([70.61.120.52]:56071 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S1750907AbWHIOvz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 10:51:55 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
 Content-Disposition: inline
+In-Reply-To: <44D99558.1000507@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kernel oops during heavy load downloads with the MV643XX driver on a PegII.  
-I've replicated the problem on 2.6.17_gentoo-4, vanilla 2.6.17.1, vanilla 
-2.6.18_rc3.  When downloading a large file from any fast mirror (I tested 
-getting around 2.0MB/s) the system crashes after a random amount of time.  
-Usually after 30seconds to a couple of minutes.
+On Wed, Aug 09, 2006 at 09:57:12AM +0200, Johannes Berg wrote:
+> Michael Wu wrote:
+> >I think it would be best if you made the firmware not be aware of a 
+> >connection, and let the d80211 code take care of all the 
+> >scanning/authenticating/associating. Of course, I know nothing about 3945, 
+> >so I don't know if that's possible.
+> >  
+> Please not, for now. We need someone pushing for fullmac features in 
+> d80211, we need those anyway for embedded systems that can't afford 
+> running all of it on the main CPU. While obviously Intel would benefit 
+> from doing this since a lot more d80211 features would come available, 
+> the greater good would be having a main-stream card that someone cares 
+> about and helps making d80211 full-mac capable.
 
-I took pictures of the call trace, I'm sorry about the quality, they were 
-taken with a phone camera.  They can be viewed at 
-http://web.mit.edu/peloquin/marvell
+I second this opinion.  It would be good to make d80211 more capable
+of dealing with these cards.
 
-Thanks,
--Stuart
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
