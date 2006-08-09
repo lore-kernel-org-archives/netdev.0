@@ -1,43 +1,28 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: Re: Bug report for MV643XX driver
-Date: Wed, 9 Aug 2006 10:18:39 -0700
-Message-ID: <20060809171839.GA12251@xyzzy.farnsworth.org>
-References: <200608091047.28571.peloquin@mit.edu> <20060809162425.GA7464@xyzzy.farnsworth.org> <94266083-92C0-4771-8572-46C6B032E9EE@mit.edu>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: 3945 driver using d80211
+Date: Wed, 9 Aug 2006 18:26:17 +0100
+Message-ID: <20060809172617.GA5431@infradead.org>
+References: <44D901C9.6090304@linux.intel.com> <200608081440.48623.flamingice@sourmilk.net> <44D99558.1000507@sipsolutions.net> <200608090947.20291.flamingice@sourmilk.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dale Farnsworth <dale@farnsworth.org>, mlachwani@mvista.com,
-	netdev@vger.kernel.org, josejx@gentoo.org
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Mohamed Abbas <mabbas@linux.intel.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw-az.mvista.com ([65.200.49.142]:28680 "HELO farnsworth.org")
-	by vger.kernel.org with SMTP id S1751271AbWHIRSk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 13:18:40 -0400
-To: Stuart Peloquin <peloquin@MIT.EDU>
+Received: from pentafluge.infradead.org ([213.146.154.40]:26791 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1751270AbWHIR0Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 13:26:25 -0400
+To: Michael Wu <flamingice@sourmilk.net>
 Content-Disposition: inline
-In-Reply-To: <94266083-92C0-4771-8572-46C6B032E9EE@mit.edu>
+In-Reply-To: <200608090947.20291.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 12:53:27PM -0400, Stuart Peloquin wrote:
-> Hi Dale,
-> 
-> Thank you for responding quickly.
-> 
-> This is with gcc 4.1.1 and the config file has been added to the web  
-> directory at http://web.mit.edu/peloquin/marvell/
-> 
-> Please let me know if I can provide anything else.
+On Wed, Aug 09, 2006 at 09:47:15AM -0700, Michael Wu wrote:
+> probe response handling to complete the picture. What other half-fullmac, 
+> half-softmac card besides the other IPW cards splits card/host 802.11 duties 
+> along those lines? What other splits between card and host are out there? I 
+> would be very reluctant to make changes to the 802.11 stack to support 
+> "fullmac" without evidence that other drivers need the change.
 
-Can you test with an earlier version of the toolchain?  Maybe gcc-3.3?
-
-Just this week I rebuilt a kernel for one of my Debian x86 server boxes
-with gcc-4.1, and the tulip driver died early on.  When I rebuilt with
-gcc-3.3, all was well.  I haven't had time to look for the details yet.
-
-I'm not saying that gcc-4.1 is buggy, but this will help us narrow it
-down.
-
-BTW, I'm up against a deadline on another project, so I won't be able
-to devote a lot of time to this today.
-
-Thanks,
--Dale
+You need to support ipw2[12]00 anyway.
