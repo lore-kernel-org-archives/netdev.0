@@ -1,46 +1,26 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
+From: Michael Tokarev <mjt@tls.msk.ru>
 Subject: Re: [PATCH 2/2] [IPV4] route: Dynamic hash table sizing.
-Date: Wed, 9 Aug 2006 12:09:28 +0200
-Message-ID: <200608091209.29231.dada1@cosmosbay.com>
-References: <20060809.004920.59469729.davem@davemloft.net> <20060809.005337.104642177.davem@davemloft.net>
+Date: Wed, 09 Aug 2006 14:12:43 +0400
+Message-ID: <44D9B51B.5060004@tls.msk.ru>
+References: <20060809.004920.59469729.davem@davemloft.net> <20060809.005337.104642177.davem@davemloft.net> <200608091209.29231.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:40895 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S1030583AbWHIKJa convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 06:09:30 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060809.005337.104642177.davem@davemloft.net>
-Content-Disposition: inline
+Received: from hobbit.corpit.ru ([81.13.94.6]:37728 "EHLO hobbit.corpit.ru")
+	by vger.kernel.org with ESMTP id S1030634AbWHIKMt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 06:12:49 -0400
+In-Reply-To: <200608091209.29231.dada1@cosmosbay.com>
+To: unlisted-recipients:; (no To-header on input)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Wednesday 09 August 2006 09:53, David Miller wrote:
+[]
+> -       mult = ((u64)ip_rt_gc_interval) << long_log2(hmask + 1);
+> +       mult = ((u64)(hmask + 1)) << (u64)ip_rt_gc_interval;
 
-> +	if (atomic_read(&ipv4_dst_ops.entries) >=3D (hmask + 1) &&
-> +	    (hmask + 1) < ip_rt_hashsz_limit)
-> +		schedule_work(&rtcache_work);
-> +	return 0;
->  }
->
+Hmm.. shift *by* a 64-bit number?
 
-I wonder if you should not replicate this test (against (hmask + 1) <=20
-ip_rt_hashsz_limit) in rtcache_resize() itself, because we might end ca=
-lling=20
-rthash_new_size() while (hmask +1 ) =3D ip_rt_hashsz_limit
-
-> -=A0=A0=A0=A0=A0=A0=A0mult =3D ((u64)ip_rt_gc_interval) << long_log2(=
-hmask + 1);
-> +=A0=A0=A0=A0=A0=A0=A0mult =3D ((u64)(hmask + 1)) << (u64)ip_rt_gc_in=
-terval;
-
-Not sure I understand what you did here (in rt_check_expire()), could y=
-ou=20
-please explain the math ? (I may be wrong but (x * 2^y) !=3D (y * 2^x) =
-for=20
-general values of x and y)
-
-Eric
+/mjt
