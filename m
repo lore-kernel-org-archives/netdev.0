@@ -1,78 +1,36 @@
-From: Valerie Henson <val_henson@linux.intel.com>
-Subject: Re: [PATCH 6/9] [TULIP] Fix IRQ/DMA race
-Date: Tue, 8 Aug 2006 23:44:00 -0700
-Message-ID: <20060809064359.GB13474@goober>
-References: <20060807204418.GE401@athena.road.mcmartin.ca> <11549840122892-git-send-email-kyle@parisc-linux.org> <11549840321096-git-send-email-kyle@parisc-linux.org> <1154984032324-git-send-email-kyle@parisc-linux.org> <115498403384-git-send-email-kyle@parisc-linux.org> <11549840341728-git-send-email-kyle@parisc-linux.org> <11549840343640-git-send-email-kyle@parisc-linux.org> <44D97409.1050002@garzik.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take5 0/4] kevent: Generic event handling mechanism.
+Date: Wed, 9 Aug 2006 10:49:23 +0400
+Message-ID: <20060809064923.GB7154@2ka.mipt.ru>
+References: <20060808.225230.104030885.davem@davemloft.net> <20060809061159.GA5979@2ka.mipt.ru> <20060809062515.GA23527@2ka.mipt.ru> <20060808.233156.74748104.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kyle McMartin <kyle@parisc-linux.org>, netdev@vger.kernel.org,
-	grundler@parisc-linux.org, akpm@osdl.org
+Content-Type: text/plain; charset=koi8-r
+Cc: zach.brown@oracle.com, drepper@redhat.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:517 "EHLO
-	orsmga102-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S965084AbWHIGoF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 02:44:05 -0400
-To: Jeff Garzik <jeff@garzik.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:45741 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S965081AbWHIGtx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 02:49:53 -0400
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <44D97409.1050002@garzik.org>
+In-Reply-To: <20060808.233156.74748104.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 01:35:05AM -0400, Jeff Garzik wrote:
-> Kyle McMartin wrote:
-> >From: Grant Grundler <grundler@parisc-linux.org>
-> >
-> >IRQs are racing with tulip_down().
-> >DMA can be restarted by tulip_interrupt() _after_ we call
-> >tulip_stop_rxtx() and the DMA buffers are unmapped.  The result
-> >is an MCA (hard crash on ia64) because of an IO TLB miss.
-> >
-> >Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
-> >Signed-off-by: Kyle McMartin <kyle@parisc-linux.org>
-> >---
-> > drivers/net/tulip/interrupt.c  |    4 ++++
-> > drivers/net/tulip/tulip_core.c |   17 +++++++----------
-> > 2 files changed, 11 insertions(+), 10 deletions(-)
-> >
-> >diff --git a/drivers/net/tulip/interrupt.c b/drivers/net/tulip/interrupt.c
-> >index 99ccf2e..19faa0e 100644
-> >--- a/drivers/net/tulip/interrupt.c
-> >+++ b/drivers/net/tulip/interrupt.c
-> >@@ -87,6 +87,10 @@ int tulip_refill_rx(struct net_device *d
-> > 		}
-> > 		tp->rx_ring[entry].status = cpu_to_le32(DescOwned);
-> > 	}
-> >+
-> >+/* FIXME: restarting DMA breaks tulip_down() code path.
-> >+   tulip_down() will unmap the RX and TX descriptors.
-> >+ */
-> > 	if(tp->chip_id == LC82C168) {
-> > 		if(((ioread32(tp->base_addr + CSR5)>>17)&0x07) == 4) {
-> > 			/* Rx stopped due to out of buffers,
-> >diff --git a/drivers/net/tulip/tulip_core.c 
-> >b/drivers/net/tulip/tulip_core.c
-> >index 81905f4..363e5f6 100644
-> >--- a/drivers/net/tulip/tulip_core.c
-> >+++ b/drivers/net/tulip/tulip_core.c
-> >@@ -742,21 +742,20 @@ #endif
-> > 
-> > 	/* Disable interrupts by clearing the interrupt mask. */
-> > 	iowrite32 (0x00000000, ioaddr + CSR7);
-> >+	ioread32 (ioaddr + CSR7);	/* flush posted write */
-> > 
-> >-	/* Stop the Tx and Rx processes. */
-> >-	tulip_stop_rxtx(tp);
-> >+	spin_unlock_irqrestore (&tp->lock, flags);
-> > 
-> >-	/* prepare receive buffers */
-> >-	tulip_refill_rx(dev);
-> >+	free_irq (dev->irq, dev);	/* no more races after this */
-> >+	tulip_stop_rxtx(tp);		/* Stop DMA */
+On Tue, Aug 08, 2006 at 11:31:56PM -0700, David Miller (davem@davemloft.net) wrote:
+> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> Date: Wed, 9 Aug 2006 10:25:15 +0400
 > 
-> same old comment:  need to stop DMA before releasing interrupt handler.
+> > Unfortunately it is impossible to use list_empty(), since due to RCU
+> > issues kevent can not use list_del_init(), so list_empty() will
+> > always show that list is not empty.
+> 
+> I see, just use the LIST_POISON* scheme for now, it's something
+> we can refine later.
 
-I'm testing my implementation of a version that checks for in-progress
-shutdown in the interupt handler; unfortunately TX died in overnight
-testing so there's more work to do.
+I've fixed timout issue Zach pointed, and will reend kevent 'take6'
+patchset without AIO stuff soon.
+Question with kevents removal from syscall stays open until Ulrich
+accepts or declines mapped buffer implementation.
 
--VAL
+-- 
+	Evgeniy Polyakov
