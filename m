@@ -1,65 +1,57 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [RFC][PATCH 8/9] 3c59x driver conversion
-Date: Wed, 09 Aug 2006 03:20:11 -0400
-Message-ID: <44D98CAB.8090202@garzik.org>
-References: <20060808193447.1396.59301.sendpatchset@lappy>	 <44D9191E.7080203@garzik.org>	<44D977D8.5070306@google.com>	 <20060808.225537.112622421.davem@davemloft.net>	 <44D980EB.5010608@garzik.org> <1155107002.23134.40.camel@lappy>
+From: Jan Kasprzak <kas@fi.muni.cz>
+Subject: [PATCH] terminology in ip-sysctl.txt
+Date: Wed, 9 Aug 2006 09:24:06 +0200
+Message-ID: <20060809072406.GL29602@fi.muni.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, phillips@google.com,
-	netdev@vger.kernel.org, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:25764 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1030574AbWHIHUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 03:20:33 -0400
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-In-Reply-To: <1155107002.23134.40.camel@lappy>
+Received: from tirith.ics.muni.cz ([147.251.4.36]:36301 "EHLO
+	tirith.ics.muni.cz") by vger.kernel.org with ESMTP id S1030577AbWHIHYl
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 03:24:41 -0400
+To: davem@davemloft.net
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Peter Zijlstra wrote:
-> On Wed, 2006-08-09 at 02:30 -0400, Jeff Garzik wrote:
->> David Miller wrote:
->>> From: Daniel Phillips <phillips@google.com>
->>> Date: Tue, 08 Aug 2006 22:51:20 -0700
->>>
->>>> Elaborate please.  Do you think that all drivers should be updated to
->>>> fix the broken blockdev semantics, making NETIF_F_MEMALLOC redundant?
->>>> If so, I trust you will help audit for it?
->>> I think he's saying that he doesn't think your code is yet a
->>> reasonable way to solve the problem, and therefore doesn't belong
->>> upstream.
->> Pretty much.  It is completely non-sensical to add NETIF_F_MEMALLOC, 
->> when it should be blindingly obvious that every net driver will be 
->> allocating memory, and every net driver could potentially be used with 
->> NBD and similar situations.
-> 
-> Sure, but until every single driver is converted I'd like to warn people
-> about the fact that their setups is not up to expectations. Iff all
-> drivers are converted I'll be the forst to submit a patch that removes
-> the feature flag.
+	Hello,
 
-A temporary-for-years flag is not a good approach.  The flag is not 
-_needed_ for technical reasons, but for supposed user expectation reasons.
+this minor patch fixes the description of net.ipv4.tcp_mem sysctl
+in ip-sysctl.txt - the headline names the values "min, pressure, max",
+while the description uses the "low, pressure, high" values.
+Both tcp_rmem and tcp_wmem descriptions use the "min, pressure, max"
+values, so I have changed the tcp_mem to match this and not vice versa.
 
-Rather, just go ahead and convert drivers to netdev_alloc_skb() where 
-people care.  If someone suddenly gets a burr up their ass about the 
-sunlance or epic100 driver deadlocking on NBD, then they can convert it 
-or complain loudly themselves.
+Signed-Off-By: Jan "Yenya" Kasprzak <kas@fi.muni.cz>
 
-Overall, a good solution needs to be uniform across all net drivers. 
-NETIF_F_MEMALLOC is just _encouraging_ people to be slackers and delay 
-converting other drivers, creating two classes of drivers, the "haves" 
-and the "have nots".
+--- a/Documentation/networking/ip-sysctl.txt.orig	2006-08-09 09:14:29.000000000 +0200
++++ b/Documentation/networking/ip-sysctl.txt	2006-08-09 09:21:01.000000000 +0200
+@@ -294,15 +294,15 @@
+ 	Default: 87380*2 bytes.
+ 
+ tcp_mem - vector of 3 INTEGERs: min, pressure, max
+-	low: below this number of pages TCP is not bothered about its
++	min: below this number of pages TCP is not bothered about its
+ 	memory appetite.
+ 
+ 	pressure: when amount of memory allocated by TCP exceeds this number
+ 	of pages, TCP moderates its memory consumption and enters memory
+ 	pressure mode, which is exited when memory consumption falls
+-	under "low".
++	under "min".
+ 
+-	high: number of pages allowed for queueing by all TCP sockets.
++	max: number of pages allowed for queueing by all TCP sockets.
+ 
+ 	Defaults are calculated at boot time from amount of available
+ 	memory.
 
-Just make a big netdev_alloc_skb() patch that converts most users. 
-netdev_alloc_skb() is a good thing to use, because it builds an 
-association with struct net_device and the allocation.
+-Yenya
 
-	Jeff
-
-
-
-P.S.  Since netdev_alloc_skb() calls skb_reserve(), you need to take 
-that into account.  That's a bug in current patches.
+-- 
+| Jan "Yenya" Kasprzak  <kas at {fi.muni.cz - work | yenya.net - private}> |
+| GPG: ID 1024/D3498839      Fingerprint 0D99A7FB206605D7 8B35FCDE05B18A5E |
+| http://www.fi.muni.cz/~kas/    Journal: http://www.fi.muni.cz/~kas/blog/ |
+> I will never go to meetings again because I think  face to face meetings <
+> are the biggest waste of time you can ever have.        --Linus Torvalds <
