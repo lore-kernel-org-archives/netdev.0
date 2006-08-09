@@ -1,55 +1,47 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: d80211 merge plans
-Date: Wed, 9 Aug 2006 07:03:41 +0200
-Message-ID: <200608090703.45651.mb@bu3sch.de>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take5 1/4] kevent: Core files.
+Date: Wed, 9 Aug 2006 09:22:11 +0400
+Message-ID: <20060809052209.GA17446@2ka.mipt.ru>
+References: <11550230871019@2ka.mipt.ru> <44D90A13.4070704@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:54983
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1030476AbWHIFEC
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 01:04:02 -0400
-To: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:32235 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1030456AbWHIFWk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 01:22:40 -0400
+To: Zach Brown <zach.brown@oracle.com>
 Content-Disposition: inline
+In-Reply-To: <44D90A13.4070704@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, Aug 08, 2006 at 03:02:59PM -0700, Zach Brown (zach.brown@oracle.com) wrote:
+> 
+> > +++ b/include/linux/kevent.h
+> 
+>  ...
+> 
+> > +#ifdef CONFIG_KEVENT_SOCKET
+> > +
+> > +extern struct file_operations socket_file_ops;
+> 
+> This doesn't build because socket_file_ops was left static in net/socket.c.
 
-I am wondering about d80211 mainline merge plans.
+I exported it. It just sneaked out of patchset.
 
-Short:
-I would like to see a mainline merge of d80211 happening
-as soon as possible (next feature merge window).
+> In any case, kevent.h has no business exposing socket_file_ops to users
+> of the kevent api just so the kevent core can test files as being backed
+> by sockets.  It'd be more appropriate to call into the socket layer with
+> the filp and let it return -EINVAL or -ESOCKNOOPT instead of trying to
+> do that in the kevent layer.
 
-Long:
-I, as one of the main maintainers of the bcm43xx driver, am
-maintaining two different branches of the driver at the moment.
-It's getting harder and harder, but it's still ok.
-But: We are so --><-- close before another branch of the project
-must happen. That would mean we would have to maintain four
-different branches. I am certainly not going to do this.
+Ok, I will move to use some functions from socket code without exporting
+socket_file_ops.
 
-One might wonder why we require yet another branch of the driver.
-It's simple. Broadcom effectively branched their driver, too. The
-new 4.x binary driver version has _many_ differences and does not
-even support older chipsets. That makes it necessary for our open
-source driver to branch, too. At least for several months. We don't
-know, if we are going to branch forever, or if we are going to merge
-them after some months when it's stabilized, yet.
-
-To heavily reduce maintainance burden I would like to see d80211
-going mainline as soon as possible, so that we can feature-freeze
-the softmac port of bcm43xx and reduce maintainance to next to zero
-there. So if people want freaky features, we simply point them
-to the d80211 port, which would coexist in mainline.
-
-d80211 in mainline would clearly marked as experimental, for sure.
-Notes must be added for possibly breaking usermode interfaces.
+> - z
 
 -- 
-Greetings Michael.
+	Evgeniy Polyakov
