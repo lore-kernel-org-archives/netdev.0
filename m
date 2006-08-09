@@ -1,86 +1,57 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
-Date: Wed, 9 Aug 2006 17:07:52 +0400
-Message-ID: <20060809130752.GA17953@2ka.mipt.ru>
-References: <20060808193325.1396.58813.sendpatchset@lappy> <20060809054648.GD17446@2ka.mipt.ru> <1155127040.12225.25.camel@twins>
+From: Arnd Bergmann <arnd.bergmann@de.ibm.com>
+Subject: Re: [PATCH 2/6] ehea: pHYP interface
+Date: Wed, 9 Aug 2006 15:14:46 +0200
+Message-ID: <200608091514.46861.arnd.bergmann@de.ibm.com>
+References: <44D99F1A.4080905@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Daniel Phillips <phillips@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:7315 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1750753AbWHINIb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 09:08:31 -0400
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Thomas Klein <tklein@de.ibm.com>, netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>, Marcus Eder <meder@de.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: linuxppc-dev@ozlabs.org
+In-Reply-To: <44D99F1A.4080905@de.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <1155127040.12225.25.camel@twins>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 02:37:20PM +0200, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
-> On Wed, 2006-08-09 at 09:46 +0400, Evgeniy Polyakov wrote:
-> > On Tue, Aug 08, 2006 at 09:33:25PM +0200, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
-> > >    http://lwn.net/Articles/144273/
-> > >    "Kernel Summit 2005: Convergence of network and storage paths"
-> > > 
-> > > We believe that an approach very much like today's patch set is
-> > > necessary for NBD, iSCSI, AoE or the like ever to work reliably. 
-> > > We further believe that a properly working version of at least one of
-> > > these subsystems is critical to the viability of Linux as a modern
-> > > storage platform.
-> > 
-> > There is another approach for that - do not use slab allocator for
-> > network dataflow at all. It automatically has all you pros amd if
-> > implemented correctly can have a lot of additional usefull and
-> > high-performance features like full zero-copy and total fragmentation
-> > avoidance.
-> 
-> On your site where you explain the Network Tree Allocator:
-> 
->  http://tservice.net.ru/~s0mbre/blog/devel/networking/nta/index.html
-> 
-> You only test the fragmentation scenario with the full scale of sizes.
-> Fragmentation will look different if you use a limited number of sizes
-> that share no factors (other than the block size); try 19, 37 and 79 
-> blocks with 1:1:1 ratio.
+On Wednesday 09 August 2006 10:38, Jan-Bernd Themann wrote:
+> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea_hcall.h=A01969-12-31 16:0=
+0:00.000000000 -0800
+> +++ kernel/drivers/net/ehea/ehea_hcall.h=A0=A0=A0=A0=A0=A0=A0=A02006-08-0=
+8 23:59:38.111462960 -0700
+> @@ -0,0 +1,52 @@
 
-19, 37 and 79 will be rounded by SLAB to 32, 64 and 128 bytes, with NTA it 
-will be 32, 64 and 96 bytes. NTA wins in each allocation which is not
-power-of-two (I use 32 bytes alignemnt, as the smallest one which SLAB
-uses). And as you saw in the blog, network tree allocator is faster
-than SLAB one, although it can have different side effects which are not
-yet 100% discovered.
+> +
+> +/**
+> + * This file contains HCALL defines that are to be included in the appro=
+priate
+> + * kernel files later
+> + */
+> +
+> +#define H_ALLOC_HEA_RESOURCE =A0 0x278
+> +#define H_MODIFY_HEA_QP =A0 =A0 =A0 =A00x250
+> +#define H_QUERY_HEA_QP =A0 =A0 =A0 =A0 0x254
+> +#define H_QUERY_HEA =A0 =A0 =A0 =A0 =A0 =A00x258
+> +#define H_QUERY_HEA_PORT =A0 =A0 =A0 0x25C
+> +#define H_MODIFY_HEA_PORT =A0 =A0 =A00x260
+> +#define H_REG_BCMC =A0 =A0 =A0 =A0 =A0 =A0 0x264
+> +#define H_DEREG_BCMC =A0 =A0 =A0 =A0 =A0 0x268
+> +#define H_REGISTER_HEA_RPAGES =A00x26C
+> +#define H_DISABLE_AND_GET_HEA =A00x270
+> +#define H_GET_HEA_INFO =A0 =A0 =A0 =A0 0x274
+> +#define H_ADD_CONN =A0 =A0 =A0 =A0 =A0 =A0 0x284
+> +#define H_DEL_CONN =A0 =A0 =A0 =A0 =A0 =A0 0x288
 
-> Also, I have yet to see how you will do full zero-copy receives; full 
-> zero-copy would mean getting the data from driver DMA to user-space
-> without
-> a single copy. The to user-space part almost requires that each packet
-> live
-> on its own page.
+I  guess these should go to include/asm-powerpc/hvcall.h instead.
 
-Each page can easily have several packets inside.
-
-> As for the VM deadlock avoidance; I see no zero overhead allocation path
-> - you do not want to deadlock your allocator. I see no critical resource 
-> isolation (our SOCK_MEMALLOC). Without these things your allocator might
-> improve the status quo but it will not aid in avoiding the deadlock we
-> try to tackle here.
-
-Because such reservation is not needed at all.
-SLAB OOM can be handled by reserving pool using SOCK_MEMALLOC and
-similar hacks, and different allocator, which obviously work with own
-pool of pages, can not suffer from SLAB problems.
-
-You say "critical resource isolation", but it is not the case - consider
-NFS over UDP - remote side will not stop sending just because receiving 
-socket code drops data due to OOM, or IPsec or compression, which can
-requires reallocation. There is no "critical resource isolation", since
-reserved pool _must_ be used by everyone in the kernel network stack.
-
-And as you saw fragmentation issues are handled very good in NTA, just
-consider usual packet with data with 1500 MTU - 500 bytes are wasted.
-If you use jumbo frames... it is posible to end up with 32k allocation
-for 9k jumbo frame with some hardware.
-
--- 
-	Evgeniy Polyakov
+	Arnd <><
