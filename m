@@ -1,33 +1,38 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [git patches] net driver fixes
-Date: Wed, 9 Aug 2006 11:48:15 -0700
-Message-ID: <20060809184815.GB12941@kroah.com>
-References: <20060809062539.GA27541@havoc.gtf.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take6 1/3] kevent: Core files.
+Date: Wed, 9 Aug 2006 23:17:18 +0400
+Message-ID: <20060809191718.GA2102@2ka.mipt.ru>
+References: <11551105592821@2ka.mipt.ru> <11551105602734@2ka.mipt.ru> <20060809104738.1498723f@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:33513 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S1751317AbWHISsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 14:48:33 -0400
-To: Jeff Garzik <jeff@garzik.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:20199 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751290AbWHITR4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 15:17:56 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20060809062539.GA27541@havoc.gtf.org>
+In-Reply-To: <20060809104738.1498723f@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 02:25:39AM -0400, Jeff Garzik wrote:
+On Wed, Aug 09, 2006 at 10:47:38AM -0700, Stephen Hemminger (shemminger@osdl.org) wrote:
+> > +static inline void kevent_user_stat_increase_total(struct kevent_user *u)
+> > +{
+> > +	u->total++;
+> > +}
+> >
 > 
-> Please pull from 'upstream-greg' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-greg
-> 
-> to receive the following updates:
-> 
->  drivers/net/myri10ge/myri10ge.c |    2 +-
->  net/core/wireless.c             |   24 +++++++++++++++++++++++-
->  2 files changed, 24 insertions(+), 2 deletions(-)
+> static wrapper_functions_with_execessive_long_names(struct i_really_hate *this)
+> {
+> 	suck();
+> }
 
-Applied, thanks.
+Understood...
 
-greg k-h
+-- 
+	Evgeniy Polyakov
