@@ -1,52 +1,73 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [PATCH 6/6] ehea: Kernel build (Kconfig / Makefile)
-Date: Wed, 9 Aug 2006 11:33:13 -0500
-Message-ID: <20060809163313.GC29823@pb15.lixom.net>
-References: <44D99F92.60407@de.ibm.com>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: 3945 driver using d80211
+Date: Wed, 9 Aug 2006 09:47:15 -0700
+Message-ID: <200608090947.20291.flamingice@sourmilk.net>
+References: <44D901C9.6090304@linux.intel.com> <200608081440.48623.flamingice@sourmilk.net> <44D99558.1000507@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Marcus Eder <meder@de.ibm.com>
+Content-Type: multipart/signed;
+  boundary="nextPart2671336.cfW7sWxpVj";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Mohamed Abbas <mabbas@linux.intel.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:48261 "EHLO mail.lixom.net")
-	by vger.kernel.org with ESMTP id S1750740AbWHIQeL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 12:34:11 -0400
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <44D99F92.60407@de.ibm.com>
+Received: from server8.tchmachines.com ([216.180.241.250]:60633 "EHLO
+	server8.tchmachines.com") by vger.kernel.org with ESMTP
+	id S1751020AbWHIQrX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 12:47:23 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <44D99558.1000507@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 10:40:50AM +0200, Jan-Bernd Themann wrote:
-> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
-> 
-> 
->   drivers/net/Kconfig  |    6 ++++++
->   drivers/net/Makefile |    1 +
->   2 files changed, 7 insertions(+)
-> 
-> 
-> 
-> diff -Nurp -X dontdiff linux-2.6.18-rc4/drivers/net/Kconfig patched_kernel/drivers/net/Kconfig
-> --- linux-2.6.18-rc4/drivers/net/Kconfig	2006-08-06 11:20:11.000000000 -0700
-> +++ patched_kernel/drivers/net/Kconfig	2006-08-08 03:00:49.526421944 -0700
-> @@ -2277,6 +2277,12 @@ config CHELSIO_T1
->             To compile this driver as a module, choose M here: the module
->             will be called cxgb.
-> 
-> +config EHEA
-> +        tristate "eHEA Ethernet support"
-> +        depends on IBMEBUS
-> +        ---help---
-> +          This driver supports the IBM pSeries ethernet adapter
+--nextPart2671336.cfW7sWxpVj
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Does this adapter really not have a better name for the option
-description? That's a very vague description given that IBM pSeries
-machines have had all sorts of ethernet adapters through the years.
+On Wednesday 09 August 2006 00:57, Johannes Berg wrote:
+> Please not, for now. We need someone pushing for fullmac features in
+> d80211, we need those anyway for embedded systems that can't afford
+> running all of it on the main CPU. While obviously Intel would benefit
+> from doing this since a lot more d80211 features would come available,
+> the greater good would be having a main-stream card that someone cares
+> about and helps making d80211 full-mac capable.
+>
+It's not that hard to generate probe, authentication, and association frame=
+s,=20
+and it isn't done frequently enough to stress any embedded system that can=
+=20
+run linux. Doing this would let 3945 take advantage of all the d80211=20
+features, so why not?
 
+What level of fullmac support are we talking about? True fullmac cards (as =
+I=20
+define them) do not need to use d80211. WE19 is all they need, to add=20
+WPA/WPA2 support. The IPW cards have a particularly unique split between=20
+firmware and host 802.11 duties which I haven't seen in any other cards. Th=
+ey=20
+aren't quite fullmac enough to interface with WE directly, yet they only ne=
+ed=20
+probe response handling to complete the picture. What other half-fullmac,=20
+half-softmac card besides the other IPW cards splits card/host 802.11 dutie=
+s=20
+along those lines? What other splits between card and host are out there? I=
+=20
+would be very reluctant to make changes to the 802.11 stack to support=20
+"fullmac" without evidence that other drivers need the change.
 
+=2DMichael Wu
 
--Olof
+--nextPart2671336.cfW7sWxpVj
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBE2hGXT3Oqt9AH4aERAocVAKDZMkF/kOia/gYrwpCuv9pAQUzQAgCgkazZ
++RL1wSIV9yk3HuKSZb+YQeg=
+=yUeb
+-----END PGP SIGNATURE-----
+
+--nextPart2671336.cfW7sWxpVj--
