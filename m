@@ -1,39 +1,44 @@
-From: Kirill Korotaev <dev@sw.ru>
-Subject: Re: [PATCH] limit rt cache size
-Date: Wed, 09 Aug 2006 12:09:49 +0400
-Message-ID: <44D9984D.9040304@sw.ru>
-References: <200608080711.06788.ak@suse.de> <200608090123.01123.ak@suse.de> <20060808.171152.58440635.davem@davemloft.net> <200608090224.04158.ak@suse.de>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take6 0/3] kevent: Generic event handling mechanism.
+Date: Wed, 9 Aug 2006 12:07:57 +0400
+Message-ID: <20060809080754.GA29783@2ka.mipt.ru>
+References: <20060731103322.GA1898@2ka.mipt.ru> <11551105592821@2ka.mipt.ru> <20060809.005856.104034268.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, akepner@sgi.com,
-	kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: linux-kernel@vger.kernel.org, drepper@redhat.com,
+	netdev@vger.kernel.org, zach.brown@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:6503 "EHLO relay.sw.ru")
-	by vger.kernel.org with ESMTP id S965095AbWHIIJK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 04:09:10 -0400
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <200608090224.04158.ak@suse.de>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:14761 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S965088AbWHIIJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 04:09:11 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060809.005856.104034268.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>2) for cases where we haven't implemented dynamic
->>   table growth, specifying a proper limit argument
->>   to the hash table allocation is a sufficient
->>   solution for the time being
+On Wed, Aug 09, 2006 at 12:58:56AM -0700, David Miller (davem@davemloft.net) wrote:
+> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> Date: Wed, 9 Aug 2006 12:02:39 +0400
 > 
+> Evgeniy, it's things like the following that make it very draining
+> mentally to review your work.
 > 
-> Agreed, just we don't know what the proper limits are. 
+> >  * removed AIO stuff from patchset
 > 
-> I guess it would need someone running quite a lot of benchmarks.
-> Anyone volunteering? @)
-In my original post I noted how it is quite easy to consume
-the whole 1Gb of RAM on i686 PC (and it's only 4,194,304 entries)
-it looks like with more IP addresses it is not that hard to
-consume much more memory.
+> You didn't really do this, you leave the aio_* syscalls and stubs in
+> there, and you also left things like tcp_async_send() in there.
 
-> Or do some cheesy default and document the options to change
-> it clearly and wait for feedback from users on what works for
-> them?
+By AIO I meant VFS AIO, not network stuff, exactly that part was frown 
+upon in reviews.
 
-Kirill
+> All the foo_naio_*() stuff is still in there to.
+> 
+> Please remove all of async business we've asked you to.
+
+So you want to review kevent core only at the first point and postpone
+network AIO and the rest implementation after core is correct.
+Should I remove poll/timer notifications too?
+
+-- 
+	Evgeniy Polyakov
