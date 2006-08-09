@@ -1,34 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2]: [IPV4] route: Locking infrastructure for dynamic
- routing cache sizing.
-Date: Wed, 09 Aug 2006 16:05:00 -0700 (PDT)
-Message-ID: <20060809.160500.95505425.davem@davemloft.net>
-References: <20060809.005310.108740577.davem@davemloft.net>
-	<E1GAmHp-0006RS-00@gondolin.me.apana.org.au>
+From: Dave Jones <davej@redhat.com>
+Subject: IPX changes introduce warning.
+Date: Wed, 9 Aug 2006 19:44:17 -0400
+Message-ID: <20060809234417.GA23634@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, acme@ghostprotocols.net,
+	netdev@vger.kernel.org, greg@kroah.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36561
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751429AbWHIXFI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 19:05:08 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <E1GAmHp-0006RS-00@gondolin.me.apana.org.au>
+Received: from mx1.redhat.com ([66.187.233.31]:63902 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751174AbWHIXpQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 19:45:16 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 09 Aug 2006 21:31:45 +1000
+We've just added an implicit declaration in the latest tree..
 
-> If we hit a writer just as they begin resizing, we could be here for
-> quite a while.
+net/ipx/af_ipx.c: In function 'ipx_rcv':
+net/ipx/af_ipx.c:1648: error: implicit declaration of function 'ipxhdr'
 
-Yes, we discussed this a bit on IRC.
+(Yes, my builds fail on -Werror-implicit, so that things like this get caught early)
 
-> In fact because we expect each writer to stick around for a
-> relatively long time, we could use a new seqlock primitive that just
-> spun until the LSB becomes zero again.
+Probably something simple like a missing #include, but I'm heading out
+the door right now :)  I'll poke at it later if no-one has beaten me to it.
 
-Indeed, and put a cpu_relax() in there.
+		Dave
+
+-- 
+http://www.codemonkey.org.uk
