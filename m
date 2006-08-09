@@ -1,28 +1,36 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: 3945 driver using d80211
-Date: Wed, 9 Aug 2006 18:26:17 +0100
-Message-ID: <20060809172617.GA5431@infradead.org>
-References: <44D901C9.6090304@linux.intel.com> <200608081440.48623.flamingice@sourmilk.net> <44D99558.1000507@sipsolutions.net> <200608090947.20291.flamingice@sourmilk.net>
+From: Stuart Peloquin <peloquin@MIT.EDU>
+Subject: Re: Bug report for MV643XX driver
+Date: Wed, 9 Aug 2006 10:57:11 -0400
+Message-ID: <200608091057.11665.peloquin@mit.edu>
+References: <200608091047.28571.peloquin@mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Mohamed Abbas <mabbas@linux.intel.com>, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: mlachwani@mvista.com, netdev@vger.kernel.org, josejx@gentoo.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:26791 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1751270AbWHIR0Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 13:26:25 -0400
-To: Michael Wu <flamingice@sourmilk.net>
+Received: from BISCAYNE-ONE-STATION.MIT.EDU ([18.7.7.80]:32478 "EHLO
+	biscayne-one-station.mit.edu") by vger.kernel.org with ESMTP
+	id S1751276AbWHIRa3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 13:30:29 -0400
+To: dale@farnsworth.org
+In-Reply-To: <200608091047.28571.peloquin@mit.edu>
 Content-Disposition: inline
-In-Reply-To: <200608090947.20291.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 09:47:15AM -0700, Michael Wu wrote:
-> probe response handling to complete the picture. What other half-fullmac, 
-> half-softmac card besides the other IPW cards splits card/host 802.11 duties 
-> along those lines? What other splits between card and host are out there? I 
-> would be very reluctant to make changes to the 802.11 stack to support 
-> "fullmac" without evidence that other drivers need the change.
+Sorry,  the revised URL is http://web.mit.edu/peloquin/www/marvell/
 
-You need to support ipw2[12]00 anyway.
+On Wednesday 09 August 2006 10:47, Stuart Peloquin wrote:
+> Kernel oops during heavy load downloads with the MV643XX driver on a PegII.
+> I've replicated the problem on 2.6.17_gentoo-4, vanilla 2.6.17.1, vanilla
+> 2.6.18_rc3.  When downloading a large file from any fast mirror (I tested
+> getting around 2.0MB/s) the system crashes after a random amount of time.
+> Usually after 30seconds to a couple of minutes.
+>
+> I took pictures of the call trace, I'm sorry about the quality, they were
+> taken with a phone camera.  They can be viewed at
+> http://web.mit.edu/peloquin/marvell
+>
+> Thanks,
+> -Stuart
