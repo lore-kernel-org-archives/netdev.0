@@ -1,64 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] [IPV4] route: Dynamic hash table sizing.
-Date: Wed, 09 Aug 2006 04:14:52 -0700 (PDT)
-Message-ID: <20060809.041452.102575985.davem@davemloft.net>
-References: <20060809.004920.59469729.davem@davemloft.net>
-	<20060809.005337.104642177.davem@davemloft.net>
-	<200608091209.29231.dada1@cosmosbay.com>
+From: Kazunori MIYAZAWA <kazunori@miyazawa.org>
+Subject: Re: [RFC][PATCH] XCBC support with new crypto framework
+Date: Wed, 9 Aug 2006 20:19:33 +0900
+Message-ID: <20060809201933.0025ba18.kazunori@miyazawa.org>
+References: <20060809191451.f36b558c.kazunori@miyazawa.org>
+	<20060809102300.GA23593@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:15751
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030687AbWHILOs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 07:14:48 -0400
-To: dada1@cosmosbay.com
-In-Reply-To: <200608091209.29231.dada1@cosmosbay.com>
+Received: from 221x116x13x66.ap221.ftth.ucom.ne.jp ([221.116.13.66]:40614 "EHLO
+	miyazawa.org") by vger.kernel.org with ESMTP id S1030689AbWHILUI
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 07:20:08 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060809102300.GA23593@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 9 Aug 2006 12:09:28 +0200
+Thank you for your comment.
 
-> On Wednesday 09 August 2006 09:53, David Miller wrote:
->=20
-> > +	if (atomic_read(&ipv4_dst_ops.entries) >=3D (hmask + 1) &&
-> > +	    (hmask + 1) < ip_rt_hashsz_limit)
-> > +		schedule_work(&rtcache_work);
-> > +	return 0;
-> >  }
-> >
->=20
-> I wonder if you should not replicate this test (against (hmask + 1) <=
-=20
-> ip_rt_hashsz_limit) in rtcache_resize() itself, because we might end =
-calling=20
-> rthash_new_size() while (hmask +1 ) =3D ip_rt_hashsz_limit
+OK, I should wait the parameterised CBC change.
+I will consider the setkey issue.
 
-That's a good point, let me think about that.
+On Wed, 9 Aug 2006 20:23:00 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> > -=A0=A0=A0=A0=A0=A0=A0mult =3D ((u64)ip_rt_gc_interval) << long_log=
-2(hmask + 1);
-> > +=A0=A0=A0=A0=A0=A0=A0mult =3D ((u64)(hmask + 1)) << (u64)ip_rt_gc_=
-interval;
->=20
-> Not sure I understand what you did here (in rt_check_expire()), could=
- you=20
-> please explain the math ? (I may be wrong but (x * 2^y) !=3D (y * 2^x=
-) for=20
-> general values of x and y)
-
-Indeed I'm a retard.
-
-I made the same error in another location:
-
-@@ -857,7 +984,7 @@ static int rt_garbage_collect(void)
-=20
- 	/* Calculate number of entries, which we want to expire now. */
- 	goal =3D atomic_read(&ipv4_dst_ops.entries) -
--		(ip_rt_gc_elasticity << long_log2(hmask + 1));
-+		((hmask + 1) << ip_rt_gc_elasticity);
-
-I'll revert both of those changes, thanks.
+> On Wed, Aug 09, 2006 at 07:14:51PM +0900, Kazunori MIYAZAWA wrote:
+> > 
+> > I make a patch set of introducing XCBC with your new crypto framework.
+> > I checked the patches work well with the tcrypt module.
+> > However I can not make sure that I completely understand the API.
+> > 
+> > So I would appreciate if you would give me some comments.
+> 
+> It looks great to me!
+> 
+> > +void crypto_xcbc_digest_final(struct crypto_tfm *parent, u8 *out)
+> > +{
+> > +	int bs = crypto_tfm_alg_blocksize(parent);
+> > +	u8 *prev = crypto_tfm_ctx_aligned(parent);
+> > +	u8 *key = prev + bs;
+> > +	u8 *consts = key + bs;
+> > +	struct crypto_xcbc_ctx *ctx = (struct crypto_xcbc_ctx*)(prev + bs * 5);
+> > +	struct crypto_tfm *tfm = ctx->child;
+> > +
+> > +	if (ctx->len == bs) {
+> > +		u8 key2[bs];
+> > +
+> > +		if ((crypto_cipher_setkey(tfm, key, ctx->keylen)) != 0)
+> 
+> Setkey is a relatively expensive operation so it's best to not do
+> it for every digest operation.  How about keeping two child tfm's,
+> one for each key?
+> 
+> > +	ctx->child = crypto_spawn_tfm(spawn, CRYPTO_TFM_MODE_CBC);
+> 
+> The mode can go away as soon as I get the parameterised CBC patches
+> out (i.e., you'd allocate "cbc(aes)" instead of "aes").
+>   
+> > diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
+> > index 2783d4e..6c48292 100644
+> > --- a/net/xfrm/xfrm_algo.c
+> > +++ b/net/xfrm/xfrm_algo.c
+> > @@ -119,6 +119,24 @@ static struct xfrm_algo_desc aalg_list[]
+> >  		.sadb_alg_maxbits = 160
+> >  	}
+> >  },
+> > +{
+> > +	.name = "xcbc(aes)",
+> > +	.compat = "aes_xcbc_128",
+> 
+> No need for a compat name since this never existed before.
+> 
+> Thanks,
+> -- 
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
