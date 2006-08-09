@@ -1,47 +1,68 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] limit rt cache size
-Date: Wed, 9 Aug 2006 10:53:18 +0200
-Message-ID: <200608091053.18861.dada1@cosmosbay.com>
-References: <200608080711.06788.ak@suse.de> <200608090224.04158.ak@suse.de> <44D9984D.9040304@sw.ru>
+From: Kirill Korotaev <dev@openvz.org>
+Subject: [PATCH] add_timer -> mod_timer() in dst_run_gc()
+Date: Wed, 09 Aug 2006 13:01:32 +0400
+Message-ID: <44D9A46C.9070108@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, David Miller <davem@davemloft.net>,
-	akepner@sgi.com, kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:9406 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S965103AbWHIIxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 04:53:19 -0400
-To: Kirill Korotaev <dev@sw.ru>
-In-Reply-To: <44D9984D.9040304@sw.ru>
-Content-Disposition: inline
+Received: from mailhub.sw.ru ([195.214.233.200]:56933 "EHLO relay.sw.ru")
+	by vger.kernel.org with ESMTP id S965106AbWHIJAT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 05:00:19 -0400
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	netdev@vger.kernel.org, "Dmitry Mishin" <dim@sw.ru>,
+	devel@openvz.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 09 August 2006 10:09, Kirill Korotaev wrote:
-> >>2) for cases where we haven't implemented dynamic
-> >>   table growth, specifying a proper limit argument
-> >>   to the hash table allocation is a sufficient
-> >>   solution for the time being
-> >
-> > Agreed, just we don't know what the proper limits are.
-> >
-> > I guess it would need someone running quite a lot of benchmarks.
-> > Anyone volunteering? @)
->
-> In my original post I noted how it is quite easy to consume
-> the whole 1Gb of RAM on i686 PC (and it's only 4,194,304 entries)
-> it looks like with more IP addresses it is not that hard to
-> consume much more memory.
+Patch from Dmitry Mishin <dim@openvz.org>:
+Replace add_timer() by mod_timer() in dst_run_gc
+in order to avoid BUG message.
 
-If MAX_ORDER = 11, we have a max hash table of 8 MB : 2097152 slots
-But even 2097152 dst need 139810 pages (560 MB of low mem), so 16 times 
-needs... too much ram.
+       CPU1                            CPU2
+dst_run_gc()  entered           dst_run_gc() entered
+spin_lock(&dst_lock)                   .....
+del_timer(&dst_gc_timer)         fail to get lock
+       ....                         mod_timer() <--- puts 
+                                                 timer back
+                                                 to the list
+add_timer(&dst_gc_timer) <--- BUG because timer is in list already.
 
-Probably a test like this is necessary :
+Found during OpenVZ internal testing.
 
-if (ip_rt_max_size > (nr_kernel_pages/8))
-    ip_rt_max_size = (nr_kernel_pages/8);
+At first we thought that it is OpenVZ specific as we
+added dst_run_gc(0) call in dst_dev_event(),
+but as Alexey pointed to me it is possible to trigger
+this condition in mainstream kernel.
 
-Eric
+F.e. timer has fired on CPU2, but the handler was preeempted
+by an irq before dst_lock is tried.
+Meanwhile, someone on CPU1 adds an entry to gc list and
+starts the timer.
+If CPU2 was preempted long enough, this timer can expire
+simultaneously with resuming timer handler on CPU1, arriving
+exactly to the situation described.
+
+Signed-Off-By: Dmitry Mishin <dim@openvz.org>
+Signed-Off-By: Kirill Korotaev <dev@openvz.org>
+Signed-Off-By: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+
+
+--- ./net/core/dst.c.dst	2006-05-19 13:12:34.000000000 +0400
++++ ./net/core/dst.c	2006-05-22 14:29:50.000000000 +0400
+@@ -95,12 +95,11 @@ static void dst_run_gc(unsigned long dum
+ 		dst_gc_timer_inc = DST_GC_INC;
+ 		dst_gc_timer_expires = DST_GC_MIN;
+ 	}
+-	dst_gc_timer.expires = jiffies + dst_gc_timer_expires;
+ #if RT_CACHE_DEBUG >= 2
+ 	printk("dst_total: %d/%d %ld\n",
+ 	       atomic_read(&dst_total), delayed,  dst_gc_timer_expires);
+ #endif
+-	add_timer(&dst_gc_timer);
++	mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
+ 
+ out:
+ 	spin_unlock(&dst_lock);
+
