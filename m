@@ -1,68 +1,32 @@
-From: Kirill Korotaev <dev@openvz.org>
-Subject: [PATCH] add_timer -> mod_timer() in dst_run_gc()
-Date: Wed, 09 Aug 2006 13:01:32 +0400
-Message-ID: <44D9A46C.9070108@openvz.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: d80211: bitfield usage should go
+Date: Wed, 09 Aug 2006 05:07:41 -0400
+Message-ID: <44D9A5DD.8080103@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:56933 "EHLO relay.sw.ru")
-	by vger.kernel.org with ESMTP id S965106AbWHIJAT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 05:00:19 -0400
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	netdev@vger.kernel.org, "Dmitry Mishin" <dim@sw.ru>,
-	devel@openvz.org
+Received: from srv5.dvmed.net ([207.36.208.214]:40871 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1030586AbWHIJHn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 05:07:43 -0400
+Received: from cpe-065-190-194-075.nc.res.rr.com ([65.190.194.75] helo=[10.10.10.99])
+	by mail.dvmed.net with esmtpsa (Exim 4.62 #1 (Red Hat Linux))
+	id 1GAk2Q-0004TM-6e
+	for netdev@vger.kernel.org; Wed, 09 Aug 2006 09:07:42 +0000
+To: Netdev List <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patch from Dmitry Mishin <dim@openvz.org>:
-Replace add_timer() by mod_timer() in dst_run_gc
-in order to avoid BUG message.
+I'm doing an in-depth review of d80211 right now.
 
-       CPU1                            CPU2
-dst_run_gc()  entered           dst_run_gc() entered
-spin_lock(&dst_lock)                   .....
-del_timer(&dst_gc_timer)         fail to get lock
-       ....                         mod_timer() <--- puts 
-                                                 timer back
-                                                 to the list
-add_timer(&dst_gc_timer) <--- BUG because timer is in list already.
+One issue that leaps out:  use of bitfields.
 
-Found during OpenVZ internal testing.
+1) single-bit signed bitfields are undefined
 
-At first we thought that it is OpenVZ specific as we
-added dst_run_gc(0) call in dst_dev_event(),
-but as Alexey pointed to me it is possible to trigger
-this condition in mainstream kernel.
+	int wep_include_iv:1;
 
-F.e. timer has fired on CPU2, but the handler was preeempted
-by an irq before dst_lock is tried.
-Meanwhile, someone on CPU1 adds an entry to gc list and
-starts the timer.
-If CPU2 was preempted long enough, this timer can expire
-simultaneously with resuming timer handler on CPU1, arriving
-exactly to the situation described.
+2) bitfields in general generate HORRIBLE code.  Just don't use them. 
+Compilers often fail to use even the most obvious simplifications.
 
-Signed-Off-By: Dmitry Mishin <dim@openvz.org>
-Signed-Off-By: Kirill Korotaev <dev@openvz.org>
-Signed-Off-By: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-
-
---- ./net/core/dst.c.dst	2006-05-19 13:12:34.000000000 +0400
-+++ ./net/core/dst.c	2006-05-22 14:29:50.000000000 +0400
-@@ -95,12 +95,11 @@ static void dst_run_gc(unsigned long dum
- 		dst_gc_timer_inc = DST_GC_INC;
- 		dst_gc_timer_expires = DST_GC_MIN;
- 	}
--	dst_gc_timer.expires = jiffies + dst_gc_timer_expires;
- #if RT_CACHE_DEBUG >= 2
- 	printk("dst_total: %d/%d %ld\n",
- 	       atomic_read(&dst_total), delayed,  dst_gc_timer_expires);
- #endif
--	add_timer(&dst_gc_timer);
-+	mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
- 
- out:
- 	spin_unlock(&dst_lock);
+Use flags and bitwise operators instead, like most other Linux code.
 
