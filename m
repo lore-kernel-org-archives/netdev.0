@@ -1,41 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Tue, 08 Aug 2006 18:41:44 -0700 (PDT)
-Message-ID: <20060808.184144.71088399.davem@davemloft.net>
-References: <20060808193345.1396.16773.sendpatchset@lappy>
-	<20060808.151020.94555184.davem@davemloft.net>
-	<44D93BEE.4000001@google.com>
+From: Trond Myklebust <trond.myklebust@fys.uio.no>
+Subject: Re: [PATCH RESEND 2/2] update sunrpc to use in-kernel sockets API
+Date: Tue, 08 Aug 2006 23:16:42 -0400
+Message-ID: <1155093402.5731.35.camel@localhost>
+References: <1154991632.11916.6.camel@w-sridhar2.beaverton.ibm.com>
+	 <20060807.205910.68157131.davem@davemloft.net>
+	 <1155057591.26188.5.camel@w-sridhar2.beaverton.ibm.com>
+	 <20060808.170941.71164303.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: a.p.zijlstra@chello.nl, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: sri@us.ibm.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:13798
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030410AbWHIBm2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 21:42:28 -0400
-To: phillips@google.com
-In-Reply-To: <44D93BEE.4000001@google.com>
+Received: from pat.uio.no ([129.240.10.4]:14027 "EHLO pat.uio.no")
+	by vger.kernel.org with ESMTP id S1030436AbWHIDRO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 23:17:14 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060808.170941.71164303.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Daniel Phillips <phillips@google.com>
-Date: Tue, 08 Aug 2006 18:35:42 -0700
+On Tue, 2006-08-08 at 17:09 -0700, David Miller wrote:
 
-> David Miller wrote:
-> > I think the new atomic operation that will seemingly occur on every
-> > device SKB free is unacceptable.
+> Trond, I think the highmem check in xs_sendpages() is completely
+> bogus, do you mind if we remove it? :-)
 > 
-> Alternate suggestion?
+> The socket layer will properly check the device to make sure it
+> can handle highmem pages, and if not it will copy the data into
+> a low-mem page as-needed.
 
-Sorry, I have none.  But you're unlikely to get your changes
-considered seriously unless you can avoid any new overhead your patch
-has which is of this level.
+If the special case is no longer useful, then I for one am quite happy
+to get rid of it.
 
-We're busy trying to make these data structures smaller, and eliminate
-atomic operations, as much as possible.  Therefore anything which adds
-new datastructure elements and new atomic operations will be met with
-fierce resistence unless it results an equal or greater shrink of
-datastructures elsewhere or removes atomic operations elsewhere in
-the critical path.
+Cheers,
+  Trond
+
