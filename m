@@ -1,54 +1,86 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] limit rt cache size
-Date: Wed, 9 Aug 2006 02:24:04 +0200
-Message-ID: <200608090224.04158.ak@suse.de>
-References: <200608080711.06788.ak@suse.de> <200608090123.01123.ak@suse.de> <20060808.171152.58440635.davem@davemloft.net>
+From: Daniel Phillips <phillips@google.com>
+Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
+Date: Tue, 08 Aug 2006 17:25:28 -0700
+Message-ID: <44D92B78.20408@google.com>
+References: <20060808193325.1396.58813.sendpatchset@lappy>    <20060808193345.1396.16773.sendpatchset@lappy> <42414.81.207.0.53.1155080443.squirrel@81.207.0.53>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akepner@sgi.com, kuznet@ms2.inr.ac.ru, dev@sw.ru,
-	netdev@vger.kernel.org
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:32926 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1030370AbWHIAYe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 20:24:34 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060808.171152.58440635.davem@davemloft.net>
-Content-Disposition: inline
+Received: from smtp-out.google.com ([216.239.45.12]:35257 "EHLO
+	smtp-out.google.com") by vger.kernel.org with ESMTP
+	id S1030372AbWHIAZt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 20:25:49 -0400
+To: Indan Zupancic <indan@nul.nu>, netdev@vger.kernel.org
+In-Reply-To: <42414.81.207.0.53.1155080443.squirrel@81.207.0.53>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 09 August 2006 02:11, David Miller wrote:
-> From: Andi Kleen <ak@suse.de>
-> Date: Wed, 9 Aug 2006 01:23:01 +0200
+Indan Zupancic wrote:
+> Hello,
+> Saw the patch on lkml, and wondered about some things.
+> On Tue, August 8, 2006 21:33, Peter Zijlstra said:
 > 
-> > The problem is to find out what a good boundary is.
+>>+static inline void dev_unreserve_skb(struct net_device *dev)
+>>+{
+>>+	if (atomic_dec_return(&dev->rx_reserve_used) < 0)
+>>+		atomic_inc(&dev->rx_reserve_used);
+>>+}
+>>+
 > 
-> The more I think about this the more I lean towards
-> two conclusions:
+> This looks strange. Is it possible for rx_reserve_used to become negative?
+> A quick look at the code says no, except in the one case where there isn't a
+> "if (unlikely(dev_reserve_used(skb->dev)))" check:
+
+Yes, you can see what I'm trying to do there, I was short an atomic op to
+do it,  My ugly solution may well be... probably is racy.  Let's rewrite
+it with something better.  We want the atomic op that some people call
+"monus": decrement unless zero.
+
+>>@@ -389,6 +480,8 @@ void __kfree_skb(struct sk_buff *skb)
+>> #endif
+>>
+>> 	kfree_skbmem(skb);
+>>+	if (dev && (dev->flags & IFF_MEMALLOC))
+>>+		dev_unreserve_skb(dev);
+>> }
 > 
-> 1) dynamic table growth is the only reasonable way to
->    handle this and not waste memory in all cases
+> So it seems that that < 0 check in dev_unreserve_skb() was only added to handle
+> this case (though there seems to be a race between those two atomic ops).
+> Isn't it better to remove that check and just do:
+> 
+> if (dev && (dev->flags & IFF_MEMALLOC) && dev_reserve_used(dev))
 
-Yes, but even with dynamic growth you still need some upper boundary 
-(otherwise a DOS could eat all your memory). And it would need
-to be figured out what it is.
+Seems to me that unreserve is also called from each protocol handler.
+Agreed, the < 0 check is fairly sickening.
 
-BTW does dynamic shrink after a load spike make sense too?
+> The use of atomic seems a bit dubious. Either it's necessary, in which case
+> changes depending on tests seem unsafe as they're not atomic and something
+> crucial could change between the read and the check, or normal reads and writes
+> combined with barriers would be sufficient. All in all it seems better to
+> move that "if (unlikely(dev_reserve_used(skb->dev)))" check into
+> dev_unreserve_skb(), and make the whole atomic if necessary. Then let
+> dev_unreserve_skb() return wether rx_reserve_used was positive.
+> Getting rid of dev_reserve_used() and using the atomic_read directly might be
+> better, as it is set with the bare atomic instructions too and rarely used without
+> dev_unreserve_skb().
 
-> 2) for cases where we haven't implemented dynamic
->    table growth, specifying a proper limit argument
->    to the hash table allocation is a sufficient
->    solution for the time being
+Barriers should work for this reserve accounting, but is that better than
+an atomic op?  I don't know, let's let the barrier mavens opine.
 
-Agreed, just we don't know what the proper limits are. 
+IMHO the cleanest thing to do is code up "monus", in fact I dimly recall
+somebody already added something similar.
 
-I guess it would need someone running quite a lot of benchmarks.
-Anyone volunteering? @)
+Side note: please don't be shy, just reply-all in future so the discussion
+stays public.  Part of what we do is try to share our development process
+so people see not only what we have done, but why we did it.  (And sometimes
+so they can see what dumb mistakes we make, but I won't get into that...)
 
-Or do some cheesy default and document the options to change
-it clearly and wait for feedback from users on what works for
-them?
+I beg for forgiveness in advance having taken the liberty of CCing this
+reply to lkml.
 
--Andi
+Regards,
+
+Daniel
