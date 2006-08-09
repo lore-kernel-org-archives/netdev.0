@@ -1,73 +1,48 @@
-From: Arnd Bergmann <arnd.bergmann@de.ibm.com>
-Subject: Re: [PATCH 4/6] ehea: header files
-Date: Wed, 9 Aug 2006 15:17:36 +0200
-Message-ID: <200608091517.37379.arnd.bergmann@de.ibm.com>
-References: <44D99F56.7010201@de.ibm.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
+Date: Wed, 9 Aug 2006 15:19:42 +0200
+Message-ID: <20060809131942.GY14627@postel.suug.ch>
+References: <20060808193345.1396.16773.sendpatchset@lappy> <20060808211731.GR14627@postel.suug.ch> <44D93BB3.5070507@google.com> <20060808.183920.41636471.davem@davemloft.net> <44D976E6.5010106@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan-Bernd Themann <ossthema@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Marcus Eder <meder@de.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, a.p.zijlstra@chello.nl,
+	linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:12748 "EHLO e1.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1750763AbWHINRk convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 09:17:40 -0400
-To: linuxppc-dev@ozlabs.org
-In-Reply-To: <44D99F56.7010201@de.ibm.com>
+Received: from postel.suug.ch ([194.88.212.233]:31640 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1750764AbWHINTW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 09:19:22 -0400
+To: Daniel Phillips <phillips@google.com>
 Content-Disposition: inline
+In-Reply-To: <44D976E6.5010106@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 09 August 2006 10:39, Jan-Bernd Themann wrote:
-> +extern int ehea_trace_level;
-> +
-> +#ifdef EHEA_NO_EDEB
-> +#define EDEB_P_GENERIC(level, idstring, format, args...) \
-> +=A0=A0=A0=A0=A0=A0=A0while (0 =3D=3D 1) { \
-> +=A0=A0=A0=A0=A0=A0=A0 =A0 =A0if(unlikely (level <=3D ehea_trace_leve=
-l)) { \
-> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-printk("%s " idstring " "format "\n", \
-> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0=A0__func__, ##args); \
-> +=A0=A0=A0=A0=A0=A0=A0 =A0} \
-> +=A0=A0=A0=A0=A0=A0=A0} \
-> +
-> +#else
-> +
-> +#define EDEB_P_GENERIC(level,idstring,format,args...) \
-> +if (level < KEEP_EDEBS_BELOW) { \
-> +=A0=A0=A0=A0=A0=A0=A0do { \
-> +=A0=A0=A0=A0=A0=A0=A0 =A0 =A0if(unlikely (level <=3D ehea_trace_leve=
-l)) { \
-> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-printk("%s " idstring " "format "\n", \
-> +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0=A0__func__, ##args); \
-> +=A0=A0=A0=A0=A0=A0=A0 =A0} \
-> +=A0=A0=A0=A0=A0=A0=A0} while (1 =3D=3D 0); \
-> +}
-> +#endif
-> +
-> +#define EDEB(level, format, args...) \
-> + =A0 =A0 =A0 =A0EDEB_P_GENERIC(level, "", format, ##args)
-> +
-> +#define EDEB_ERR(level, format, args...) \
-> + =A0 =A0 =A0 =A0EDEB_P_GENERIC(level, "EHEA_ERROR", format, ##args)
-> +
-> +#define EDEB_EN(level, format, args...) \
-> + =A0 =A0 =A0 =A0EDEB_P_GENERIC(level, ">>>", format, ##args)
-> +
-> +#define EDEB_EX(level, format, args...) \
-> + =A0 =A0 =A0 =A0EDEB_P_GENERIC(level, "<<<", format, ##args)
+* Daniel Phillips <phillips@google.com> 2006-08-08 22:47
+> David Miller wrote:
+> >From: Daniel Phillips <phillips@google.com>
+>  >>Can you please characterize the conditions under which skb->dev changes
+> >>after the alloc?  Are there writings on this subtlety?
+> >
+> >The packet scheduler and classifier can redirect packets to different
+> >devices, and can the netfilter layer.
+> >
+> >The setting of skb->dev is wholly transient and you cannot rely upon
+> >it to be the same as when you set it on allocation.
+> >
+> >Even simple things like the bonding device change skb->dev on every
+> >receive.
+> 
+> Thankyou, this is easily fixed.
 
-Please don't invent your own debugging macros. You can either use the
-pr_debug/pr_info facility from <linux/kernel.h> or get rid of those
-completely. The latter is probably preferred for most of your calls.
+It's not that simple, in order to just fix the most obvious case
+being packet forwarding when skb->dev changes its meaning from
+device the packet is coming from to device the packet will be leaving
+on is difficult.
 
-	Arnd <><
+You can't unreserve at that point so you need to keep the original
+skb->dev. Since the packet is mostly likely queued before freeing
+you will lose the refcnt on the original skb->dev. Keeping a
+refcnt just for this memalloc stuff is out of question. Even keeping
+the ifindex on a best effort basis is unlikely an option, sk_buff is
+way overweight already.
