@@ -1,39 +1,37 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [PATCH] [e1000]: Remove unnecessary tx_lock
-Date: Tue, 8 Aug 2006 21:25:11 -0400
-Message-ID: <20060809012511.GB16059@kvack.org>
-References: <20060804110829.62136ebb@dxpl.pdx.osdl.net> <20060804.163111.85390037.davem@davemloft.net> <20060808170432.GD27383@kvack.org> <20060808.150607.10247901.davem@davemloft.net> <20060808232108.GA16059@kvack.org> <20060809002530.GA19881@gondor.apana.org.au>
+From: Daniel Phillips <phillips@google.com>
+Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
+Date: Tue, 08 Aug 2006 18:33:20 -0700
+Message-ID: <44D93B60.7030507@google.com>
+References: <20060808193325.1396.58813.sendpatchset@lappy>	<20060808193345.1396.16773.sendpatchset@lappy> <20060808135721.5af713fb@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, shemminger@osdl.org,
-	mchan@broadcom.com, hadi@cyberus.ca, jesse.brandeburg@intel.com,
-	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:28365 "EHLO kanga.kvack.org")
-	by vger.kernel.org with ESMTP id S1030393AbWHIBZT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 21:25:19 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <20060809002530.GA19881@gondor.apana.org.au>
+Received: from smtp-out.google.com ([216.239.45.12]:60649 "EHLO
+	smtp-out.google.com") by vger.kernel.org with ESMTP
+	id S1030400AbWHIBeP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 21:34:15 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060808135721.5af713fb@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 10:25:30AM +1000, Herbert Xu wrote:
-> The problem here is that the TX clean function does not take the lock
-> (nor do we want it to).  It can thus come in while you're transmitting
-> and empty the queue.
+Stephen Hemminger wrote:
+> How much of this is just building special case support for large allocations
+> for jumbo frames? Wouldn't it make more sense to just fix those drivers to
+> do scatter and add the support hooks for that?
 
-That can be solved with sequence numbers -- ie, we keep track of the number 
-of packets queued to the hardware, as well as tracking the number of tx 
-completions that have been reaped.  Because those numbers are flushed to 
-memory by other locks (barriers) taken during processing, the code in 
-hard_start_xmit() and the actual tx completion reaping could be done without 
-the atomic ops.  The key thing is that the higher level code in the network 
-stack calling dev->hard_start_xmit() would know that it needs to retry if 
-the tx complete sequence changes.  I'll ponder this a bit more and try to 
-come up with some sample code.
+Short answer: none of it is.  If it happens to handle jumbo frames nicely
+that is mainly a lucky accident, and we do need to check that they actually
+works.
 
-		-ben
--- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <dont@kvack.org>.
+Minor rant: the whole skb_alloc familly has degenerated into an unholy
+mess and could use some rethinking.  I believe the current patch gets as
+far as three _'s at the beginning of a function, this shows it is high
+time to reroll the api.
+
+Regards,
+
+Daniel
