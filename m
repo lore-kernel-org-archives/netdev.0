@@ -1,54 +1,50 @@
-From: Stuart Peloquin <peloquin@MIT.EDU>
-Subject: Re: Bug report for MV643XX driver
-Date: Wed, 9 Aug 2006 13:30:47 -0400
-Message-ID: <30B59DB8-9EEF-4BB2-A894-399662DFECA0@MIT.EDU>
-References: <200608091047.28571.peloquin@mit.edu> <20060809162425.GA7464@xyzzy.farnsworth.org> <94266083-92C0-4771-8572-46C6B032E9EE@mit.edu> <20060809171839.GA12251@xyzzy.farnsworth.org>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Patrick Caulfield <patrick@tykepenguin.com>
+Subject: Re: Rules and groups
+Date: Wed, 09 Aug 2006 17:20:00 +0100
+Message-ID: <44DA0B30.7070100@tykepenguin.com>
+References: <20060809080139.GA19555@souterrain.chygwyn.com> <20060809.010125.78708459.davem@davemloft.net> <20060809100326.GA23935@souterrain.chygwyn.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mlachwani@mvista.com, netdev@vger.kernel.org, josejx@gentoo.org
+Cc: David Miller <davem@davemloft.net>, tgraf@suug.ch,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from BISCAYNE-ONE-STATION.MIT.EDU ([18.7.7.80]:20191 "EHLO
-	biscayne-one-station.mit.edu") by vger.kernel.org with ESMTP
-	id S1751277AbWHIRbH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 13:31:07 -0400
-In-Reply-To: <20060809171839.GA12251@xyzzy.farnsworth.org>
-To: "Dale Farnsworth" <dale@farnsworth.org>
+Received: from spc1-leed3-0-0-cust958.seac.broadband.ntl.com ([82.8.19.191]:45560
+	"EHLO fentible.pjc.net") by vger.kernel.org with ESMTP
+	id S1751279AbWHIReG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 13:34:06 -0400
+To: Steven Whitehouse <steve@chygwyn.com>
+In-Reply-To: <20060809100326.GA23935@souterrain.chygwyn.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Time is not an issue, I'm filing this after some drawn out testing.   
-It won't be right away that I get it built under 3.3 either.
-
-Thanks again,
--Stuart
-
-On Aug 9, 2006, at 1:18 PM, Dale Farnsworth wrote:
-
-> On Wed, Aug 09, 2006 at 12:53:27PM -0400, Stuart Peloquin wrote:
->> Hi Dale,
+Steven Whitehouse wrote:
+> Hi,
+> 
+> On Wed, Aug 09, 2006 at 01:01:25AM -0700, David Miller wrote:
+>> From: Steven Whitehouse <steve@chygwyn.com>
+>> Date: Wed, 9 Aug 2006 09:01:39 +0100
 >>
->> Thank you for responding quickly.
+>>> Is there anything to stop me using RTNLGRP_NOP3 for that? (suitable
+>>> renamed of course!) So far as I can see its never been assigned to
+>>> anything else...
+>> I have no objection to you using it.
 >>
->> This is with gcc 4.1.1 and the config file has been added to the web
->> directory at http://web.mit.edu/peloquin/marvell/
->>
->> Please let me know if I can provide anything else.
->
-> Can you test with an earlier version of the toolchain?  Maybe gcc-3.3?
->
-> Just this week I rebuilt a kernel for one of my Debian x86 server  
-> boxes
-> with gcc-4.1, and the tulip driver died early on.  When I rebuilt with
-> gcc-3.3, all was well.  I haven't had time to look for the details  
-> yet.
->
-> I'm not saying that gcc-4.1 is buggy, but this will help us narrow it
-> down.
->
-> BTW, I'm up against a deadline on another project, so I won't be able
-> to devote a lot of time to this today.
->
-> Thanks,
-> -Dale
+> Excellent. Please find attached my attempt at doing the conversion to the
+> generic rules code. It appears to work ok for me. You can also pull this
+> patch from the decnet git tree at:
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/steve/decnet-2.6.19.git
+> 
+> which was cloned from net-2.6.19.git quite recently. In addition the
+> git tree has another patch which is in a following email.
+> 
+> Patrick: does this patch get your blessing?
+> 
 
+
+Yes, that works fine for me.
+
+
+-- 
+patrick
