@@ -1,35 +1,40 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take5 0/4] kevent: Generic event handling mechanism.
-Date: Wed, 9 Aug 2006 10:25:15 +0400
-Message-ID: <20060809062515.GA23527@2ka.mipt.ru>
-References: <11550230861383@2ka.mipt.ru> <44D902EF.8070809@oracle.com> <20060809053113.GB17446@2ka.mipt.ru> <20060808.225230.104030885.davem@davemloft.net> <20060809061159.GA5979@2ka.mipt.ru>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RFC][PATCH 8/9] 3c59x driver conversion
+Date: Wed, 09 Aug 2006 02:30:03 -0400
+Message-ID: <44D980EB.5010608@garzik.org>
+References: <20060808193447.1396.59301.sendpatchset@lappy>	<44D9191E.7080203@garzik.org>	<44D977D8.5070306@google.com> <20060808.225537.112622421.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: zach.brown@oracle.com, drepper@redhat.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: phillips@google.com, a.p.zijlstra@chello.nl,
+	netdev@vger.kernel.org, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:23476 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1030531AbWHIGZd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 02:25:33 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:50594 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1030546AbWHIGaJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 02:30:09 -0400
 To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060809061159.GA5979@2ka.mipt.ru>
+In-Reply-To: <20060808.225537.112622421.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 10:11:59AM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> On Tue, Aug 08, 2006 at 10:52:30PM -0700, David Miller (davem@davemloft.net) wrote:
-> > > Using LIST_POISON is a flag that kevent is in appropriate queue or not,
-> > > I can add some flag into the structure, but why, if it is clear just by
-> > > looking into list's pointers.
-> > 
-> > What is wrong with using list_empty() as this indicator?
+David Miller wrote:
+> From: Daniel Phillips <phillips@google.com>
+> Date: Tue, 08 Aug 2006 22:51:20 -0700
 > 
-> RCU only replaces ->prev pointer, and list_empty(entry) checks for
-> entry->next == head, but actually I do not see how kevent entry can
-> point to itself, so I will try this.
+>> Elaborate please.  Do you think that all drivers should be updated to
+>> fix the broken blockdev semantics, making NETIF_F_MEMALLOC redundant?
+>> If so, I trust you will help audit for it?
+> 
+> I think he's saying that he doesn't think your code is yet a
+> reasonable way to solve the problem, and therefore doesn't belong
+> upstream.
 
-Unfortunately it is impossible to use list_empty(), since due to RCU issues kevent
-can not use list_del_init(), so list_empty() will always show that list is not empty.
+Pretty much.  It is completely non-sensical to add NETIF_F_MEMALLOC, 
+when it should be blindingly obvious that every net driver will be 
+allocating memory, and every net driver could potentially be used with 
+NBD and similar situations.
 
--- 
-	Evgeniy Polyakov
+	Jeff
+
+
