@@ -1,37 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [take6 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 09 Aug 2006 00:58:56 -0700 (PDT)
-Message-ID: <20060809.005856.104034268.davem@davemloft.net>
-References: <20060731103322.GA1898@2ka.mipt.ru>
-	<11551105592821@2ka.mipt.ru>
+Subject: Re: Rules and groups
+Date: Wed, 09 Aug 2006 01:01:25 -0700 (PDT)
+Message-ID: <20060809.010125.78708459.davem@davemloft.net>
+References: <20060809080139.GA19555@souterrain.chygwyn.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, drepper@redhat.com,
-	netdev@vger.kernel.org, zach.brown@oracle.com
+Cc: tgraf@suug.ch, netdev@vger.kernel.org, patrick@tykepenguin.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63367
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:64903
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965053AbWHIH7H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 03:59:07 -0400
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <11551105592821@2ka.mipt.ru>
+	id S1030434AbWHIIBp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 04:01:45 -0400
+To: steve@chygwyn.com
+In-Reply-To: <20060809080139.GA19555@souterrain.chygwyn.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Wed, 9 Aug 2006 12:02:39 +0400
+From: Steven Whitehouse <steve@chygwyn.com>
+Date: Wed, 9 Aug 2006 09:01:39 +0100
 
-Evgeniy, it's things like the following that make it very draining
-mentally to review your work.
+> Is there anything to stop me using RTNLGRP_NOP3 for that? (suitable
+> renamed of course!) So far as I can see its never been assigned to
+> anything else...
 
->  * removed AIO stuff from patchset
+I have no objection to you using it.
 
-You didn't really do this, you leave the aio_* syscalls and stubs in
-there, and you also left things like tcp_async_send() in there.
+These nops exist because the table used to be a bunch of bitmask
+defines instead of the present enum:
 
-All the foo_naio_*() stuff is still in there to.
+#define RTMGRP_LINK		1
+#define RTMGRP_NOTIFY		2
+#define RTMGRP_NEIGH		4
+#define RTMGRP_TC		8
 
-Please remove all of async business we've asked you to.
+#define RTMGRP_IPV4_IFADDR	0x10
+#define RTMGRP_IPV4_MROUTE	0x20
+#define RTMGRP_IPV4_ROUTE	0x40
 
-Thanks.
+#define RTMGRP_IPV6_IFADDR	0x100
+#define RTMGRP_IPV6_MROUTE	0x200
+#define RTMGRP_IPV6_ROUTE	0x400
+
+#define RTMGRP_DECnet_IFADDR    0x1000
+#define RTMGRP_DECnet_ROUTE     0x4000
+
+That is from 2.4.x
