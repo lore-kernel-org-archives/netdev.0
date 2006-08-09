@@ -1,47 +1,45 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take5 1/4] kevent: Core files.
-Date: Wed, 9 Aug 2006 09:22:11 +0400
-Message-ID: <20060809052209.GA17446@2ka.mipt.ru>
-References: <11550230871019@2ka.mipt.ru> <44D90A13.4070704@oracle.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/9] [TULIP] Fix PHY init and reset
+Date: Wed, 09 Aug 2006 01:29:33 -0400
+Message-ID: <44D972BD.6020108@garzik.org>
+References: <20060807204418.GE401@athena.road.mcmartin.ca> <11549840122892-git-send-email-kyle@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, grundler@parisc-linux.org,
+	val_henson@linux.intel.com, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:32235 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1030456AbWHIFWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 01:22:40 -0400
-To: Zach Brown <zach.brown@oracle.com>
-Content-Disposition: inline
-In-Reply-To: <44D90A13.4070704@oracle.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:52127 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1030475AbWHIF3g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 01:29:36 -0400
+To: Kyle McMartin <kyle@parisc-linux.org>
+In-Reply-To: <11549840122892-git-send-email-kyle@parisc-linux.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 08, 2006 at 03:02:59PM -0700, Zach Brown (zach.brown@oracle.com) wrote:
+Kyle McMartin wrote:
+> From: Grant Grundler <grundler@parisc-linux.org>
 > 
-> > +++ b/include/linux/kevent.h
+> A whole slew of fixes for tulip_select_media for:
+>  - Flush posted MMIO writes as per PCI spec
+>  - Polling the reset bit (bit 15) is required to determine when
+>    the "init" sequence can be sent.
 > 
->  ...
+> This fixes tulip on HP PA-RISC systems, which use DP83840A and
+> LXT971D PHYs. Tested for several years on a variety of HP PA-RISC
+> systems.
 > 
-> > +#ifdef CONFIG_KEVENT_SOCKET
-> > +
-> > +extern struct file_operations socket_file_ops;
+> [Initial work done by Grant Grundler, DS21142 support added by
+> Thibaut Varene.]
 > 
-> This doesn't build because socket_file_ops was left static in net/socket.c.
+> Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
+> Signed-off-by: Thibaut Varene <varenet@parisc-linux.org>
+> Signed-off-by: Kyle McMartin <kyle@parisc-linux.org>
 
-I exported it. It just sneaked out of patchset.
+seems OK except for two details:
 
-> In any case, kevent.h has no business exposing socket_file_ops to users
-> of the kevent api just so the kevent core can test files as being backed
-> by sockets.  It'd be more appropriate to call into the socket layer with
-> the filp and let it return -EINVAL or -ESOCKNOOPT instead of trying to
-> do that in the kevent layer.
+* [old news]  the delays should turn into sleeps, once Francois's patch 
+is applied
+* seems like you should be using get_u16() etc. for possibly-unaligned data
 
-Ok, I will move to use some functions from socket code without exporting
-socket_file_ops.
 
-> - z
-
--- 
-	Evgeniy Polyakov
