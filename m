@@ -1,35 +1,37 @@
-From: Steven Whitehouse <steve@chygwyn.com>
-Subject: Rules and groups
-Date: Wed, 9 Aug 2006 09:01:39 +0100
-Message-ID: <20060809080139.GA19555@souterrain.chygwyn.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [take6 0/3] kevent: Generic event handling mechanism.
+Date: Wed, 09 Aug 2006 00:58:56 -0700 (PDT)
+Message-ID: <20060809.005856.104034268.davem@davemloft.net>
+References: <20060731103322.GA1898@2ka.mipt.ru>
+	<11551105592821@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Patrick Caulfield <patrick@tykepenguin.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, drepper@redhat.com,
+	netdev@vger.kernel.org, zach.brown@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from souterrain.chygwyn.com ([194.39.143.233]:20904 "EHLO
-	souterrain.chygwyn.com") by vger.kernel.org with ESMTP
-	id S1030439AbWHIH5e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 03:57:34 -0400
-To: Thomas Graf <tgraf@suug.ch>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63367
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965053AbWHIH7H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 03:59:07 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <11551105592821@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Wed, 9 Aug 2006 12:02:39 +0400
 
-With your new protocol independent rules code, I see that there is an
-entry in struct fib_rules_ops for a netlink group for notification of
-rule changes. For whatever reason (historical I guess) DECnet has never
-had a nl group assigned for this, so I'm left with two choices when moving
-the code over to ues your new scheme.
+Evgeniy, it's things like the following that make it very draining
+mentally to review your work.
 
-Either I could send a patch to put the content of notify_rule_change()
-conditional on nlgroup being non-zero, or I could assign a suitable
-group for DECnet rule changes. I'm leaning towards the latter as the
-best solution, so that at least it matches up with the other protocols.
+>  * removed AIO stuff from patchset
 
-Is there anything to stop me using RTNLGRP_NOP3 for that? (suitable renamed
-of course!) So far as I can see its never been assigned to anything else...
+You didn't really do this, you leave the aio_* syscalls and stubs in
+there, and you also left things like tcp_async_send() in there.
 
-Steve.
+All the foo_naio_*() stuff is still in there to.
 
+Please remove all of async business we've asked you to.
+
+Thanks.
