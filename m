@@ -1,116 +1,65 @@
 From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 8/8] d80211/bcm43xx: Modify ieee80211_ioctl.c for
-	wireless statistics.
-Date: Wed, 09 Aug 2006 10:28:18 -0400
-Message-ID: <1155133698.3615.6.camel@localhost.localdomain>
-References: <44D92588.5070102@lwfinger.net>
+Subject: Re: d80211 merge plans
+Date: Wed, 09 Aug 2006 10:37:55 -0400
+Message-ID: <1155134276.3615.16.camel@localhost.localdomain>
+References: <200608090703.45651.mb@bu3sch.de>  <44D9754B.3060909@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
+Cc: Michael Buesch <mb@bu3sch.de>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:62394 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1750891AbWHIO1H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 10:27:07 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <44D92588.5070102@lwfinger.net>
+Received: from mx1.redhat.com ([66.187.233.31]:30658 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1750897AbWHIOhE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 10:37:04 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <44D9754B.3060909@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-08-08 at 19:00 -0500, Larry Finger wrote:
-> Part 8 of 8 to add wireless statistics to the bcm43xx-d80211 system.
-> This patch adds the appropriate range parameters and routine
-> ieee80211_get_wireless_stats to ieee80211_ioctl.c.
+On Wed, 2006-08-09 at 01:40 -0400, Jeff Garzik wrote:
+> Michael Buesch wrote:
+> > To heavily reduce maintainance burden I would like to see d80211
+> > going mainline as soon as possible, so that we can feature-freeze
+> > the softmac port of bcm43xx and reduce maintainance to next to zero
+> > there. So if people want freaky features, we simply point them
+> > to the d80211 port, which would coexist in mainline.
+> > 
+> > d80211 in mainline would clearly marked as experimental, for sure.
+> > Notes must be added for possibly breaking usermode interfaces.
 > 
-> The patch is for the August 8 version of Linville's wireless-dev tree.
 > 
-> Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
+> Does it have active maintainers?
 > 
+> The DeviceScape people seem to have disappeared for months, except for a 
+> rare appearance recently by Jouni.
 > 
-> diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
-> index dd52555..3a1b97f 100644
-> --- a/net/d80211/ieee80211_ioctl.c
-> +++ b/net/d80211/ieee80211_ioctl.c
-> @@ -1525,6 +1525,16 @@ static int ieee80211_ioctl_giwrange(stru
->   	range->min_frag = 256;
->   	range->max_frag = 2346;
-> 
-> +	range->max_qual.qual = 100;
-> +	range->max_qual.level = 152;  /* set floor at -104 dBm (152 - 256) */
-> +	range->max_qual.noise = 152;
-> +	range->max_qual.updated = IW_QUAL_ALL_UPDATED;
-> +
-> +	range->avg_qual.qual = 50;
-> +	range->avg_qual.level = 0;
-> +	range->avg_qual.noise = 0;
-> +	range->avg_qual.updated = IW_QUAL_ALL_UPDATED;
-> +
->   	return 0;
->   }
-> 
-> @@ -2963,6 +2973,39 @@ static int ieee80211_ioctl_giwauth(struc
->   	return ret;
->   }
-> 
-> +/* Get wireless statistics.  Called by /proc/net/wireless and by SIOCGIWSTATS */
-> +static struct iw_statistics *ieee80211_get_wireless_stats(struct net_device *net_dev)
-> +{
-> +	struct ieee80211_local *local = net_dev->ieee80211_ptr;
-> +	struct iw_statistics * wstats = &local->wstats;
-> +	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(net_dev);
-> +	struct sta_info *sta;
-> +	static int tmp_level = 0;
-> +	static int tmp_qual = 0;
-> +
-> +	sta = sta_info_get(local, sdata->u.wds.remote_addr);
-> +	if (!sta) {
-> +		wstats->discard.fragment = 0;
-> +		wstats->discard.misc = 0;
-> +		wstats->qual.qual = 0;
-> +		wstats->qual.level = 0;
-> +		wstats->qual.noise = 0;
-> +		wstats->qual.updated |= IW_QUAL_ALL_UPDATED;
+> Did anyone ever come up with a list of why d80211 is superior?
 
-What does the 'if (!sta)' check do?  What's the case here?  If the card
-is not connected an access point or otherwise unconnected to anything
-else, you should use IW_QUAL_ALL_INVALID here I think, because signal
-quality has no meaning when you're disconnected (except possibly
-background noise).
+For one, it's got a _much_ more flexible device model than the current
+hostap/ipw-based stack, more like the net80211 stack for
+Atheros/madwifi.  I think that's one of the main benefits.  i.e., you
+can have the d80211 cards be any combination of [AP | client | wds? ] at
+any given time.  Think of a repeater node, which is both an AP and
+client at the same time, all with one card.  That's one of the things a
+lot of people like about net80211.
 
-> +	} else {
-> +		if (!tmp_level) {       /* get initial values */
-> +			tmp_level = sta->last_signal;
-> +			tmp_qual = sta->last_rssi;
-> +		} else {                        /* smooth results */
-> +			tmp_level = (15 * tmp_level + sta->last_signal)/16;
-> +			tmp_qual = (15 * tmp_qual + sta->last_rssi)/16;
-> +		}
-> +		wstats->qual.level = tmp_level;
-> +		wstats->qual.qual = 100*tmp_qual/sta->max_rssi;
-> +		wstats->qual.noise = sta->last_noise;
-> +		wstats->qual.updated = IW_QUAL_ALL_UPDATED | IW_QUAL_DBM;
+Secondly, DS is also working hard on moving a lot of the higher-level
+processing to user space.  Management frames and other more complex
+operations will eventually be pushed up to a fused wpa_supplicant
++hostapd running in user space, which should (a) reduce the amount of
+kernel driver code, (b) increase flexibility of configuration, and (c)
+make any kernel API/ABI/etc much smaller since you don't have to push so
+much configuration down into the kernel itself.
 
-By using IW_QUAL_DBM, you're forcing all cards that use d80211 to report
-statistics in dBm.  I think that's a _good_ thing personally (it brings
-some consistency to the whole wireless quality pit-of-doom), but I want
-to make sure this is actually what you want to do here.
+That's a start (please correct me if I'm wrong on any of this).
 
 Dan
 
-> +	}
-> +	return wstats;
-> +}
+> What are the remaining d80211 issues?
 > 
->   static int ieee80211_ioctl_siwencodeext(struct net_device *dev,
->   					struct iw_request_info *info,
-> @@ -3128,4 +3171,5 @@ const struct iw_handler_def ieee80211_iw
->   	.standard	= (iw_handler *) ieee80211_handler,
->   	.private	= (iw_handler *) ieee80211_private_handler,
->   	.private_args	= (struct iw_priv_args *) ieee80211_ioctl_priv,
-> +	.get_wireless_stats = ieee80211_get_wireless_stats,
->   };
-> 
-> 
+> 	Jeff
 > 
 > 
 > -
