@@ -1,39 +1,65 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take6 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 9 Aug 2006 12:24:42 +0400
-Message-ID: <20060809082442.GA18957@2ka.mipt.ru>
-References: <11551105592821@2ka.mipt.ru> <20060809.005856.104034268.davem@davemloft.net> <20060809080754.GA29783@2ka.mipt.ru> <20060809.012045.21594448.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 2/2] [IPV4] route: Dynamic hash table sizing.
+Date: Wed, 9 Aug 2006 10:32:54 +0200
+Message-ID: <200608091032.55232.dada1@cosmosbay.com>
+References: <20060809.004920.59469729.davem@davemloft.net> <20060809.005337.104642177.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: linux-kernel@vger.kernel.org, drepper@redhat.com,
-	netdev@vger.kernel.org, zach.brown@oracle.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:64978 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S965101AbWHIIZL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 04:25:11 -0400
+Received: from pfx2.jmh.fr ([194.153.89.55]:43197 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S1030451AbWHIIc4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 04:32:56 -0400
 To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060809.005337.104642177.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20060809.012045.21594448.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 01:20:45AM -0700, David Miller (davem@davemloft.net) wrote:
-> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> Date: Wed, 9 Aug 2006 12:07:57 +0400
-> 
-> > So you want to review kevent core only at the first point and postpone
-> > network AIO and the rest implementation after core is correct.
-> 
-> That's the idea
-> 
-> > Should I remove poll/timer notifications too?
-> 
-> That can stay
+On Wednesday 09 August 2006 09:53, David Miller wrote:
+> [IPV4] route: Dynamic hash table sizing.
+>
+
+ Excellent work David, Thank you !!!
+
+> +static int ip_rt_hashsz_limit		= (8 * 1024 * 1024) / sizeof(void *);
+
+__read_mostly ?
 
 
-Ok, I will regenerate the lastest patchset completely without AIO stuff
-(both network and VFS) and resend it soon.
-Thank you.
 
--- 
-	Evgeniy Polyakov
+
+> +		hash = __rt_hash_code(list->fl.fl4_dst,
+> +				      list->fl.fl4_src &
+> +				      (iface << 5),
+> +				      nhashmask);
+
+I thought it was a XOR (^) , not a AND (&)
+
+
+>  static int __init set_rhash_entries(char *str)
+>  {
+> +	unsigned long val;
+> +
+>  	if (!str)
+>  		return 0;
+> -	rhash_entries = simple_strtoul(str, &str, 0);
+> +	val = simple_strtoul(str, &str, 0);
+> +
+> +	/* Only use it if it's a power-of-2. */
+> +	if (!(val & (val - 1)))
+> +		rhash_entries = val;
+> +
+
+Well, it breaks x86_64 machines that currently do rhash_entries=2000000
+Why not round to the next/previous power of two as before ?
+
+>  	return 1;
+>  }
+>  __setup("rhash_entries=", set_rhash_entries);
+>
+
+Thank you
+Eric
