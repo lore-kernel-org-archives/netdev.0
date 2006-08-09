@@ -1,38 +1,48 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take6 1/3] kevent: Core files.
-Date: Wed, 9 Aug 2006 23:17:18 +0400
-Message-ID: <20060809191718.GA2102@2ka.mipt.ru>
-References: <11551105592821@2ka.mipt.ru> <11551105602734@2ka.mipt.ru> <20060809104738.1498723f@localhost.localdomain>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: Excess use of packed attribute
+Date: Wed, 09 Aug 2006 22:17:56 +0300
+Message-ID: <44DA34E4.1030501@tcs.hut.fi>
+References: <20060807133423.11bfbff3@localhost.localdomain> <20060807.162026.106265856.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, rdreier@cisco.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:20199 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751290AbWHITR4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 15:17:56 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060809104738.1498723f@localhost.localdomain>
+Received: from neon.tcs.hut.fi ([130.233.215.20]:35593 "EHLO neon.tcs.hut.fi")
+	by vger.kernel.org with ESMTP id S1751292AbWHITR6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 15:17:58 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060807.162026.106265856.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 10:47:38AM -0700, Stephen Hemminger (shemminger@osdl.org) wrote:
-> > +static inline void kevent_user_stat_increase_total(struct kevent_user *u)
-> > +{
-> > +	u->total++;
-> > +}
-> >
+David Miller wrote:
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Mon, 7 Aug 2006 13:34:23 -0700
 > 
-> static wrapper_functions_with_execessive_long_names(struct i_really_hate *this)
-> {
-> 	suck();
-> }
+>> Silly offenders:	include/net/ipx.h
+>> 			include/net/ieee80211.h
+>> 			include/net/ip6_tunnel.h
+>> 			include/net/ndisc.h
+>> 			include/linux/if_ether.h
+>> 			include/linux/if_fddi.h
+>> 		
+>> 			include/linux/sctp.h -- really bad
+> 
+> The ndisc.h one, for example, is needed for cases like ARM.
+> 
+> The if_ether.h one is also needed, or else for:
+> 
+> 	struct ethhdr *eth;
+> 
+> "eth + 1" would do the wrong thing as the compiler would
+> align the structure to the native pointer size or similar.
+> This is an issue because ethhdr is 14 bytes in size.
 
-Understood...
+Similarly the ipv6_tlv_tnl_enc_lim in ip6_tunnel.h is a 3-octet IPv6
+destination sub-option. The sub-option can be located anywhere inside
+the destination option header and can only be found by parsing
+the whole header.
 
--- 
-	Evgeniy Polyakov
+Regards,
+Ville
