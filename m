@@ -1,72 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC][PATCH] XCBC support with new crypto framework
-Date: Wed, 9 Aug 2006 20:23:00 +1000
-Message-ID: <20060809102300.GA23593@gondor.apana.org.au>
-References: <20060809191451.f36b558c.kazunori@miyazawa.org>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: [PATCH][IPV6]: Make sure fib6_rule_lookup doesn't return NULL
+Date: Wed, 09 Aug 2006 13:45:48 +0300
+Message-ID: <44D9BCDC.2070107@tcs.hut.fi>
+References: <20060808221651.GS14627@postel.suug.ch> <20060808.164345.91207648.davem@davemloft.net> <44D98133.8040707@tcs.hut.fi> <20060808.233442.41636358.davem@davemloft.net> <44D99E73.1060305@tcs.hut.fi> <20060809092311.GU14627@postel.suug.ch> <44D9ADFB.90200@tcs.hut.fi> <20060809094818.GW14627@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:41233 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1030653AbWHIKXQ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 06:23:16 -0400
-To: Kazunori MIYAZAWA <kazunori@miyazawa.org>
-Content-Disposition: inline
-In-Reply-To: <20060809191451.f36b558c.kazunori@miyazawa.org>
+Received: from neon.tcs.hut.fi ([130.233.215.20]:20488 "EHLO neon.tcs.hut.fi")
+	by vger.kernel.org with ESMTP id S1030673AbWHIKpu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 06:45:50 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060809094818.GW14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 07:14:51PM +0900, Kazunori MIYAZAWA wrote:
+Thomas Graf wrote:
+> * Ville Nuorvala <vnuorval@tcs.hut.fi> 2006-08-09 12:42
+>> Ok, it might require quite big changes to the existing code, but if
+>> someone is willing to take a look at it I wouldn't be against it :-)
 > 
-> I make a patch set of introducing XCBC with your new crypto framework.
-> I checked the patches work well with the tcrypt module.
-> However I can not make sure that I completely understand the API.
-> 
-> So I would appreciate if you would give me some comments.
+> I'll provide a patch soon.
 
-It looks great to me!
+Great, but just out of curiosity: about when is soon? My source address
+routing changes are likely to cause some conflicts with your code, so
+I'm just trying to plan ahead so I don't need to spend half an eternity
+merging the afore mentioned conflicts.
 
-> +void crypto_xcbc_digest_final(struct crypto_tfm *parent, u8 *out)
-> +{
-> +	int bs = crypto_tfm_alg_blocksize(parent);
-> +	u8 *prev = crypto_tfm_ctx_aligned(parent);
-> +	u8 *key = prev + bs;
-> +	u8 *consts = key + bs;
-> +	struct crypto_xcbc_ctx *ctx = (struct crypto_xcbc_ctx*)(prev + bs * 5);
-> +	struct crypto_tfm *tfm = ctx->child;
-> +
-> +	if (ctx->len == bs) {
-> +		u8 key2[bs];
-> +
-> +		if ((crypto_cipher_setkey(tfm, key, ctx->keylen)) != 0)
-
-Setkey is a relatively expensive operation so it's best to not do
-it for every digest operation.  How about keeping two child tfm's,
-one for each key?
-
-> +	ctx->child = crypto_spawn_tfm(spawn, CRYPTO_TFM_MODE_CBC);
-
-The mode can go away as soon as I get the parameterised CBC patches
-out (i.e., you'd allocate "cbc(aes)" instead of "aes").
-  
-> diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
-> index 2783d4e..6c48292 100644
-> --- a/net/xfrm/xfrm_algo.c
-> +++ b/net/xfrm/xfrm_algo.c
-> @@ -119,6 +119,24 @@ static struct xfrm_algo_desc aalg_list[]
->  		.sadb_alg_maxbits = 160
->  	}
->  },
-> +{
-> +	.name = "xcbc(aes)",
-> +	.compat = "aes_xcbc_128",
-
-No need for a compat name since this never existed before.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards,
+Ville
