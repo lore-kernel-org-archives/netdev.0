@@ -1,89 +1,74 @@
-From: "Indan Zupancic" <indan@nul.nu>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Wed, 9 Aug 2006 20:34:02 +0200 (CEST)
-Message-ID: <62411.194.109.238.121.1155148442.squirrel@194.109.238.121>
-References: <20060808193325.1396.58813.sendpatchset@lappy>
-    <20060808193345.1396.16773.sendpatchset@lappy>
-    <42414.81.207.0.53.1155080443.squirrel@81.207.0.53>
-    <44D92B78.20408@google.com>
-    <35608.81.207.0.53.1155124956.squirrel@81.207.0.53>
-    <1155128046.12225.40.camel@twins>
-    <39903.81.207.0.53.1155131329.squirrel@81.207.0.53>
-    <1155132032.12225.65.camel@twins>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: Excess use of packed attribute
+Date: Wed, 09 Aug 2006 11:37:31 -0700
+Message-ID: <ada3bc5sql0.fsf@cisco.com>
+References: <20060807133423.11bfbff3@localhost.localdomain>
+	<1154995328.11916.24.camel@w-sridhar2.beaverton.ibm.com>
+	<20060807.173920.102575221.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Daniel Phillips" <phillips@google.com>, netdev@vger.kernel.org,
-	linux-mm@kvack.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751305AbWHISeS@vger.kernel.org>
-In-Reply-To: <1155132032.12225.65.camel@twins>
-To: "Peter Zijlstra" <a.p.zijlstra@chello.nl>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: sri@us.ibm.com, shemminger@osdl.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-1-in.cisco.com ([171.71.176.70]:59177 "EHLO
+	sj-iport-1.cisco.com") by vger.kernel.org with ESMTP
+	id S1751304AbWHIShg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 14:37:36 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060807.173920.102575221.davem@davemloft.net> (David Miller's message of "Mon, 07 Aug 2006 17:39:20 -0700 (PDT)")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, August 9, 2006 16:00, Peter Zijlstra said:
-> On Wed, 2006-08-09 at 15:48 +0200, Indan Zupancic wrote:
->> On Wed, August 9, 2006 14:54, Peter Zijlstra said:
->> > On Wed, 2006-08-09 at 14:02 +0200, Indan Zupancic wrote:
->> >>  That avoids lots of checks and should guarantee that the
->> >> accounting is correct, except in the case when the IFF_MEMALLOC flag is
->> >> cleared and the counter is set to zero manually. Can't that be avoided and
->> >> just let it decrease to zero naturally?
->> >
->> > That would put the atomic op on the free path unconditionally, I think
->> > davem gets nightmares from that.
->>
->> I confused SOCK_MEMALLOC with sk_buff::memalloc, sorry. What I meant was
->> to unconditionally decrement the reserved usage only when memalloc is true
->> on the free path. That way all skbs that increased the reserve also decrease
->> it, and the counter should never go below zero.
->
-> OK, so far so good, except we loose the notion of getting memory back
-> from regular skbs.
+    David> For the cases where it is no actually necessary, the code
+    David> generation cost on RISC cpus is very high.  Byte loads and
+    David> stores will be used to access _every_ member of such
+    David> structures on RISC machines because the compiler cannot
+    David> guarentee the alignment of any data object when packed is
+    David> specified.
 
-I don't understand this, regular skbs don't have anything to do with
-rx_reserve_used as far as I can see. I'm only talking about keeping
-that field up to date and correct. rx_reserve_used is only increased
-by a skb when memalloc is set to true on that skb, so only if that field
-is set rx_reserve_used needs to be reduced when the skb is freed.
+Agreed (although not really RISC -- sparc64 and ia64 have this
+problem, while ppc is fine with unaligned access).  However
+__attribute__((packed,aligned)) has just been brought to my attention.
+For example, on sparc64,
 
-Why is it needed for the protocol specific code to call dev_unreserve_skb?
+	struct foo { char x; int a; } __attribute__((packed,aligned));
+	struct bar { char x; int b; } __attribute__((packed));
+	
+	int c(struct foo *x) { return x->a; }
+	int d(struct bar *x) { return x->b; }
 
-Only problem is if the device can change. rx_reserve_used should probably
-be updated when that happens, as a skb can't use reserved memory on a device
-it was moved away from. (right?)
+compiles to:
 
->> Also as far as I can see it should be possible to replace all atomic
->> "if (unlikely(dev_reserve_used(skb->dev)))" checks witha check if
->> memalloc is set. That should make davem happy, as there aren't any
->> atomic instructions left in hot paths.
->
-> dev_reserve_used() uses atomic_read() which isn't actually a LOCK'ed
-> instruction, so that should not matter.
+	0000000000000000 <c>:
+	   0:   d0 5a 00 00     ldx  [ %o0 ], %o0
+	   4:   91 2a 30 08     sllx  %o0, 8, %o0
+	   8:   81 c3 e0 08     retl
+	   c:   91 3a 30 20     srax  %o0, 0x20, %o0
+	  10:   30 68 00 04     b,a   %xcc, 20 <d>
+	  14:   01 00 00 00     nop
+	  18:   01 00 00 00     nop
+	  1c:   01 00 00 00     nop
+	
+	0000000000000020 <d>:
+	  20:   c6 0a 20 01     ldub  [ %o0 + 1 ], %g3
+	  24:   c2 0a 20 02     ldub  [ %o0 + 2 ], %g1
+	  28:   c4 0a 20 03     ldub  [ %o0 + 3 ], %g2
+	  2c:   87 28 f0 18     sllx  %g3, 0x18, %g3
+	  30:   d0 0a 20 04     ldub  [ %o0 + 4 ], %o0
+	  34:   83 28 70 10     sllx  %g1, 0x10, %g1
+	  38:   82 10 40 03     or  %g1, %g3, %g1
+	  3c:   85 28 b0 08     sllx  %g2, 8, %g2
+	  40:   84 10 80 01     or  %g2, %g1, %g2
+	  44:   90 12 00 02     or  %o0, %g2, %o0
+	  48:   81 c3 e0 08     retl
+	  4c:   91 3a 20 00     sra  %o0, 0, %o0
+	  50:   30 68 00 04     b,a   %xcc, 60 <d+0x40>
+	  54:   01 00 00 00     nop
+	  58:   01 00 00 00     nop
+	  5c:   01 00 00 00     nop
 
-Perhaps, but the main reason to check memalloc instead of using
-dev_reserve_used is because the latter doesn't tell which skb did the
-reservation.
+which suggests that adding "aligned" is a good idea for many of the
+uses of "packed".  However I don't know how all gcc version do with
+this.  Anyone have any comments on "__attribute__((packed,aligned))"?
 
->> If IFF_MEMALLOC is set new skbs set memalloc and increase the reserve.
->
-> Not quite, if IFF_MEMALLOC is set new skbs _could_ get memalloc set. We
-> only fall back to alloc_pages() if the regular path fails to alloc. If the
-> skb is backed by a page (as opposed to kmem_cache fluff) sk_buff::memalloc
-> is set.
-
-Yes, true. But doesn't matter for the rx_reserve_used accounting, as long as
-memalloc set means that it did increase rx_reserve_used.
-
-> Also, I've been thinking (more pain), should I not up the reserve for
-> each SOCK_MEMALLOC socket.
-
-Up rx_reserve_used or the total ammount of reserved memory? Probably 'no' for
-both though, as it's either device specific or skb dependent.
-
-I'm slowly getting a clearer image of the big picture, I'll take another look
-when you post the updated code.
-
-Greetings,
-
-Indan
+Thanks,
+  Roland
