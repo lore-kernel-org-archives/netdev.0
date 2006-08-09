@@ -1,42 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: skb_shared_info()
-Date: Tue, 08 Aug 2006 17:58:39 -0700 (PDT)
-Message-ID: <20060808.175839.85396148.davem@davemloft.net>
-References: <20060808.163915.03600382.davem@davemloft.net>
-	<20060809003616.GC19881@gondor.apana.org.au>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] limit rt cache size
+Date: Wed, 9 Aug 2006 03:02:19 +0200
+Message-ID: <200608090302.19634.ak@suse.de>
+References: <200608080711.06788.ak@suse.de> <20060808.171152.58440635.davem@davemloft.net> <Pine.LNX.4.61.0608081707410.2452@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, johnpol@2ka.mipt.ru
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	dev@sw.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:7613
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030381AbWHIA6t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Aug 2006 20:58:49 -0400
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20060809003616.GC19881@gondor.apana.org.au>
+Received: from mail.suse.de ([195.135.220.2]:51106 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S1030386AbWHIBD2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 21:03:28 -0400
+To: akepner@sgi.com
+In-Reply-To: <Pine.LNX.4.61.0608081707410.2452@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 9 Aug 2006 10:36:16 +1000
 
-> I'm not sure whether the problem is where we store skb_shared_info,
-> or the fact that we can't put kmalloc'ed memory into
-> skb_shinfo->frags.
+> But there's alot of state to update (more or less
+> atomically, too) 
 
-That's a good point.
+Why does it need to be atomic? It might be enough
+to just check a flag and poll for it in the readers and then redo the 
+lookup.
 
-I guess we could do something like:
+> in the TCP hashes. Looks tricky to 
+> do that without hurting performance, especially since
+> you'll probably want to resize the tables when you've
+> discovered they're full and busy....
 
-struct skb_frag_struct {
-	union {
-		struct page *page;
-		void *data;
-	} u;
-	__u16 page_offset;
-	__u16 size;
-};
+There will be some hickup, but as long as the downtime
+is limited it shouldn't be too bad.
 
-and something clever like a special page_offset encoding
-means "use data, not page".
+-Andi
+
+ 
