@@ -1,29 +1,39 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: d80211 merge plans
-Date: Wed, 9 Aug 2006 10:16:29 +0100
-Message-ID: <20060809091629.GA31005@infradead.org>
-References: <200608090703.45651.mb@bu3sch.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] limit rt cache size
+Date: Wed, 09 Aug 2006 02:22:17 -0700 (PDT)
+Message-ID: <20060809.022217.59657932.davem@davemloft.net>
+References: <200608090224.04158.ak@suse.de>
+	<44D9984D.9040304@sw.ru>
+	<200608091053.18861.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dev@sw.ru, ak@suse.de, akepner@sgi.com, kuznet@ms2.inr.ac.ru,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:60584 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1030602AbWHIJQl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 05:16:41 -0400
-To: Michael Buesch <mb@bu3sch.de>
-Content-Disposition: inline
-In-Reply-To: <200608090703.45651.mb@bu3sch.de>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:37017
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030605AbWHIJWN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 05:22:13 -0400
+To: dada1@cosmosbay.com
+In-Reply-To: <200608091053.18861.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 07:03:41AM +0200, Michael Buesch wrote:
-> Hi,
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Wed, 9 Aug 2006 10:53:18 +0200
+
+> If MAX_ORDER = 11, we have a max hash table of 8 MB : 2097152 slots
+> But even 2097152 dst need 139810 pages (560 MB of low mem), so 16 times 
+> needs... too much ram.
 > 
-> I am wondering about d80211 mainline merge plans.
+> Probably a test like this is necessary :
+> 
+> if (ip_rt_max_size > (nr_kernel_pages/8))
+>     ip_rt_max_size = (nr_kernel_pages/8);
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=115477844206917&w=2
-has the highlevel merge requirement.  Only mentioned there as a side-note
-we'll of course need a full codereview like the one Jeff is doing now.
+Perhaps the 8MB limit in my patches is not so arbitrary :-)
 
+But it should be based upon nr_kernel_pages for sure, and
+we'd need to kill the __meminidata tag on that thing if
+we started to use it like this.
