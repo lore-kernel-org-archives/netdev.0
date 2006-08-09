@@ -1,100 +1,68 @@
-From: "Indan Zupancic" <indan@nul.nu>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Wed, 9 Aug 2006 15:48:49 +0200 (CEST)
-Message-ID: <39903.81.207.0.53.1155131329.squirrel@81.207.0.53>
-References: <20060808193325.1396.58813.sendpatchset@lappy>
-    <20060808193345.1396.16773.sendpatchset@lappy>
-    <42414.81.207.0.53.1155080443.squirrel@81.207.0.53>
-    <44D92B78.20408@google.com>
-    <35608.81.207.0.53.1155124956.squirrel@81.207.0.53>
-    <1155128046.12225.40.camel@twins>
+From: Christophe Devriese <Christophe.Devriese@eurid.eu>
+Subject: Re: Stackable devices.
+Date: Wed, 9 Aug 2006 15:57:09 +0200
+Message-ID: <200608091557.09249.Christophe.Devriese@eurid.eu>
+References: <44CA34D0.1070507@candelatech.com> <20060808120307.GA17547@walrus.eth1.org> <44D8BD99.1090505@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Daniel Phillips" <phillips@google.com>, netdev@vger.kernel.org,
-	linux-mm@kvack.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helium.samage.net ([83.149.67.129]:59840 "EHLO
-	helium.samage.net") by vger.kernel.org with ESMTP id S1750822AbWHINtO
+Received: from uu212-190-206-99.unknown.uunet.be ([212.190.206.99]:36283 "EHLO
+	smtp.eurid.eu") by vger.kernel.org with ESMTP id S1750834AbWHIN5O
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 09:49:14 -0400
-In-Reply-To: <1155128046.12225.40.camel@twins>
-To: "Peter Zijlstra" <a.p.zijlstra@chello.nl>
+	Wed, 9 Aug 2006 09:57:14 -0400
+Received: from localhost (smtp.eurid.eu [127.0.0.1])
+	by smtp.eurid.eu (Postfix) with ESMTP id B570D1252C4
+	for <netdev@vger.kernel.org>; Wed,  9 Aug 2006 15:57:13 +0200 (CEST)
+To: netdev@vger.kernel.org
+In-Reply-To: <44D8BD99.1090505@candelatech.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, August 9, 2006 14:54, Peter Zijlstra said:
-> On Wed, 2006-08-09 at 14:02 +0200, Indan Zupancic wrote:
->>  That avoids lots of checks and should guarantee that the
->> accounting is correct, except in the case when the IFF_MEMALLOC flag is
->> cleared and the counter is set to zero manually. Can't that be avoided and
->> just let it decrease to zero naturally?
+It would however be considerable effort to do this. Is this going to end up 
+unapplied like my last patch, or ?
+
+Regards,
+
+Christophe
+
+On Tuesday 08 August 2006 18:36, you wrote:
+> Christophe Devriese wrote:
+> > On Wed, Aug 02, 2006 at 10:50:08AM -0700, Ben Greear wrote:
+> >>Currently, the bridge hook logic is something like:
+> >>
+> >>if (bridge-consumed-pkt) {
+> >>	return
+> >>}
+> >>
+> >>// drop through to other layers
+> >>
+> >>
+> >>There are several other hooks I'd like to see added (pktgen receive
+> >>processing,
+> >>mac-vlans, etc).  Each of these hooks are logically similar to the bridge
+> >>hook,
+> >>ie if it consumes the pkt, return, else, drop through to the next hook
+> >>untill
+> >>we get to the regular protocol processing logic.
+> >>
+> >>I would like to be able to chain layer-2 handlers, such as bridge,
+> >> mac-vlan, pktgen such that if one consumed, you break out of the
+> >> handling, else, you try the next handler.  The handlers can be
+> >> dynamically registered and inserted
+> >>in any order, controllable by user-space and/or module load/unload.
+> >>
+> >>For many of the handlers, the logic will re-insert the packet by
+> >> re-calling the
+> >>netif-rx logic, so there would need to be some protection to keep loops
+> >> from occurring that would recurse too much and overflow the stack.
+> >
+> > I'm also a big fan of a generalized system like this. It would need to
+> > catch both the vlan accelerated path and the normal path.
 >
-> That would put the atomic op on the free path unconditionally, I think
-> davem gets nightmares from that.
-
-I confused SOCK_MEMALLOC with sk_buff::memalloc, sorry. What I meant was
-to unconditionally decrement the reserved usage only when memalloc is true
-on the free path. That way all skbs that increased the reserve also decrease
-it, and the counter should never go below zero.
-
-Also as far as I can see it should be possible to replace all atomic
-"if (unlikely(dev_reserve_used(skb->dev)))" checks witha check if
-memalloc is set. That should make davem happy, as there aren't any
-atomic instructions left in hot paths.
-
-If IFF_MEMALLOC is set new skbs set memalloc and increase the reserve.
-When the skb is being destroyed it doesn't matter if IFF_MEMALLOC is set
-or not, only if that skb used reserves and thus only the memalloc flag
-needs to be checked. This means that changing the IFF_MEMALLOC doesn't
-affect in-flight skbs but only newly created ones, and there's no need to
-update in-flight skbs whenever the flag is changed as all should go well.
-
-+int sk_set_memalloc(struct sock *sk)
-+{
-+	struct inet_sock *inet = inet_sk(sk);
-+	struct net_device *dev = ip_dev_find(inet->rcv_saddr);
-+	int err = 0;
-+
-+	if (!dev)
-+		return -ENODEV;
-+
-+	if (!(dev->features & NETIF_F_MEMALLOC)) {
-+		err = -EPERM;
-+		goto out;
-+	}
-+
-+	if (atomic_read(&dev->memalloc_socks) == 0) {
-+		spin_lock(&dev->memalloc_lock);
-+		if (atomic_read(&dev->memalloc_socks) == 0) {
-+			dev->memalloc_reserve =
-+				dev->rx_reserve * skb_pages(dev->mtu);
-+			err = adjust_memalloc_reserve(dev->memalloc_reserve);
-+			if (err) {
-+				spin_unlock(&dev->memalloc_lock);
-+				printk(KERN_WARNING
-+			"%s: Unable to allocate RX reserve, error: %d\n",
-+					dev->name, err);
-+				goto out;
-+			}
-+			sock_set_flag(sk, SOCK_MEMALLOC);
-+			dev->flags |= IFF_MEMALLOC;
-+		}
-+		atomic_inc(&dev->memalloc_socks);
-+		spin_unlock(&dev->memalloc_lock);
-+	} else
-+		atomic_inc(&dev->memalloc_socks);
-+
-+out:
-+	dev_put(dev);
-+	return err;
-+}
-
-It seems that here SOCK_MEMALLOC is only set on the first socket.
-Shouldn't it be set on all sockets instead?
-
-Greetings,
-
-Indan
-
-
+> Well, it isn't actually needed for VLANs since VLAN's hook is a protocol
+> handler....
+>
+> Ben
