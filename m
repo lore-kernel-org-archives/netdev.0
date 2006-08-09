@@ -1,44 +1,35 @@
-From: akepner@sgi.com
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] limit rt cache size
-Date: Tue, 8 Aug 2006 17:11:29 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0608081707410.2452@localhost.localdomain>
-References: <200608080711.06788.ak@suse.de> <Pine.LNX.4.61.0608081316330.2452@localhost.localdomain>
- <200608090123.01123.ak@suse.de> <20060808.171152.58440635.davem@davemloft.net>
+Date: Tue, 08 Aug 2006 17:22:41 -0700 (PDT)
+Message-ID: <20060808.172241.51700454.davem@davemloft.net>
+References: <200608090123.01123.ak@suse.de>
+	<20060808.171152.58440635.davem@davemloft.net>
+	<Pine.LNX.4.61.0608081707410.2452@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: ak@suse.de, kuznet@ms2.inr.ac.ru, dev@sw.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omx2-ext.sgi.com ([192.48.171.19]:8143 "EHLO omx2.sgi.com")
-	by vger.kernel.org with ESMTP id S1030369AbWHIAVH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 20:21:07 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060808.171152.58440635.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:56971
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030368AbWHIAWh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 20:22:37 -0400
+To: akepner@sgi.com
+In-Reply-To: <Pine.LNX.4.61.0608081707410.2452@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 8 Aug 2006, David Miller wrote:
+From: akepner@sgi.com
+Date: Tue, 8 Aug 2006 17:11:29 -0700 (PDT)
 
-> From: Andi Kleen <ak@suse.de>
-> Date: Wed, 9 Aug 2006 01:23:01 +0200
->
->> The problem is to find out what a good boundary is.
->
-> The more I think about this the more I lean towards
-> two conclusions:
->
-> 1) dynamic table growth is the only reasonable way to
->   handle this and not waste memory in all cases
-> ....
+> But there's alot of state to update (more or less
+> atomically, too) in the TCP hashes. Looks tricky to
+> do that without hurting performance, especially since
+> you'll probably want to resize the tables when you've
+> discovered they're full and busy....
 
-Definitely that's the ideal way to go.
+There have been two failed attempts at this :)
 
-But there's alot of state to update (more or less
-atomically, too) in the TCP hashes. Looks tricky to
-do that without hurting performance, especially since
-you'll probably want to resize the tables when you've
-discovered they're full and busy....
-
--- 
-Arthur
-
-
+For the time being I think the routing cache can be
+dynamically sized with less effort, and I might take
+a stab at that today.
