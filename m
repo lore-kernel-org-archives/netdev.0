@@ -1,31 +1,29 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take5 0/4] kevent: Generic event handling mechanism.
-Date: Wed, 9 Aug 2006 10:11:59 +0400
-Message-ID: <20060809061159.GA5979@2ka.mipt.ru>
-References: <11550230861383@2ka.mipt.ru> <44D902EF.8070809@oracle.com> <20060809053113.GB17446@2ka.mipt.ru> <20060808.225230.104030885.davem@davemloft.net>
+From: "Carlo Ware" <968jessie@inodes.org>
+Subject: Fwd:  You Need a Better Degree,{} and we can Help!
+Date: Wed, 9 Aug 2006 09:12:35 +0300
+Message-ID: <200608090613.k796D3wR011806@zeus1.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: zach.brown@oracle.com, drepper@redhat.com, netdev@vger.kernel.org
+Content-Type: text/plain;
+        charset="Windows-1251"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:57794 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1030509AbWHIGMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 02:12:17 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060808.225230.104030885.davem@davemloft.net>
+Received: from zeus1.kernel.org ([204.152.191.4]:24743 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1030523AbWHIGNa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 02:13:30 -0400
+To: <msdos@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 08, 2006 at 10:52:30PM -0700, David Miller (davem@davemloft.net) wrote:
-> > Using LIST_POISON is a flag that kevent is in appropriate queue or not,
-> > I can add some flag into the structure, but why, if it is clear just by
-> > looking into list's pointers.
-> 
-> What is wrong with using list_empty() as this indicator?
+In just 2 years you can have a masters degree from a national university. 
+A better job, more income and a better life can all be yours in just 2 years. 
+No books to buy, no classes to go to, and no entrance exams. 
+Learn in your own home at your own pace. We supply all the study materials, all you have to do is study and complete 2 tests per month. 
 
-RCU only replaces ->prev pointer, and list_empty(entry) checks for
-entry->next == head, but actually I do not see how kevent entry can
-point to itself, so I will try this.
 
--- 
-	Evgeniy Polyakov
+
+Call Us Today +1   (831) 3O2          66        63
+Good 24 hours
+
+________------------__________
+bowline abbas bookbind added disturb cetera allot debater
+
