@@ -1,34 +1,39 @@
-From: Daniel Phillips <phillips@google.com>
-Subject: Re: [RFC][PATCH 8/9] 3c59x driver conversion
-Date: Tue, 08 Aug 2006 22:51:20 -0700
-Message-ID: <44D977D8.5070306@google.com>
-References: <20060808193325.1396.58813.sendpatchset@lappy> <20060808193447.1396.59301.sendpatchset@lappy> <44D9191E.7080203@garzik.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [take5 0/4] kevent: Generic event handling mechanism.
+Date: Tue, 08 Aug 2006 22:52:30 -0700 (PDT)
+Message-ID: <20060808.225230.104030885.davem@davemloft.net>
+References: <11550230861383@2ka.mipt.ru>
+	<44D902EF.8070809@oracle.com>
+	<20060809053113.GB17446@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org
+Cc: zach.brown@oracle.com, drepper@redhat.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.12]:49225 "EHLO
-	smtp-out.google.com") by vger.kernel.org with ESMTP
-	id S1030492AbWHIFvi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 01:51:38 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <44D9191E.7080203@garzik.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:60550
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030489AbWHIFw3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 01:52:29 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20060809053113.GB17446@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Peter Zijlstra wrote:
->> Update the driver to make use of the netdev_alloc_skb() API and the
->> NETIF_F_MEMALLOC feature.
-> 
-> NETIF_F_MEMALLOC does not exist in the upstream tree...  nor should it, 
-> IMO.
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Wed, 9 Aug 2006 09:31:14 +0400
 
-Elaborate please.  Do you think that all drivers should be updated to
-fix the broken blockdev semantics, making NETIF_F_MEMALLOC redundant?
-If so, I trust you will help audit for it?
+I am burnt out on reviewing this endless kevent patch resubmissions,
+so I will only comment briefly.
 
-> netdev_alloc_skb() is in the tree, and that's fine.
+> That's why I'm asking for what exactly should be moved into the
+> patchset. I.e. do we need poll/select (it is the same as what epoll
+> does), timer, network AIO? How they should be splitted?
+
+I would suggest removing all of the file I/O and network AIO since
+they are logically seperate from kevent.
+
+> Using LIST_POISON is a flag that kevent is in appropriate queue or not,
+> I can add some flag into the structure, but why, if it is clear just by
+> looking into list's pointers.
+
+What is wrong with using list_empty() as this indicator?
