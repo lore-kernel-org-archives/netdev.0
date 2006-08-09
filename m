@@ -1,33 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][IPV6]: Make sure fib6_rule_lookup doesn't return NULL
-Date: Tue, 08 Aug 2006 23:34:42 -0700 (PDT)
-Message-ID: <20060808.233442.41636358.davem@davemloft.net>
-References: <20060808221651.GS14627@postel.suug.ch>
-	<20060808.164345.91207648.davem@davemloft.net>
-	<44D98133.8040707@tcs.hut.fi>
+From: Valerie Henson <val_henson@linux.intel.com>
+Subject: Re: [PATCH 6/9] [TULIP] Fix IRQ/DMA race
+Date: Tue, 8 Aug 2006 23:44:00 -0700
+Message-ID: <20060809064359.GB13474@goober>
+References: <20060807204418.GE401@athena.road.mcmartin.ca> <11549840122892-git-send-email-kyle@parisc-linux.org> <11549840321096-git-send-email-kyle@parisc-linux.org> <1154984032324-git-send-email-kyle@parisc-linux.org> <115498403384-git-send-email-kyle@parisc-linux.org> <11549840341728-git-send-email-kyle@parisc-linux.org> <11549840343640-git-send-email-kyle@parisc-linux.org> <44D97409.1050002@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Kyle McMartin <kyle@parisc-linux.org>, netdev@vger.kernel.org,
+	grundler@parisc-linux.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:6627
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030553AbWHIGel (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 02:34:41 -0400
-To: vnuorval@tcs.hut.fi
-In-Reply-To: <44D98133.8040707@tcs.hut.fi>
+Received: from mga09.intel.com ([134.134.136.24]:517 "EHLO
+	orsmga102-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S965084AbWHIGoF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 02:44:05 -0400
+To: Jeff Garzik <jeff@garzik.org>
+Content-Disposition: inline
+In-Reply-To: <44D97409.1050002@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Date: Wed, 09 Aug 2006 09:31:15 +0300
+On Wed, Aug 09, 2006 at 01:35:05AM -0400, Jeff Garzik wrote:
+> Kyle McMartin wrote:
+> >From: Grant Grundler <grundler@parisc-linux.org>
+> >
+> >IRQs are racing with tulip_down().
+> >DMA can be restarted by tulip_interrupt() _after_ we call
+> >tulip_stop_rxtx() and the DMA buffers are unmapped.  The result
+> >is an MCA (hard crash on ia64) because of an IO TLB miss.
+> >
+> >Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
+> >Signed-off-by: Kyle McMartin <kyle@parisc-linux.org>
+> >---
+> > drivers/net/tulip/interrupt.c  |    4 ++++
+> > drivers/net/tulip/tulip_core.c |   17 +++++++----------
+> > 2 files changed, 11 insertions(+), 10 deletions(-)
+> >
+> >diff --git a/drivers/net/tulip/interrupt.c b/drivers/net/tulip/interrupt.c
+> >index 99ccf2e..19faa0e 100644
+> >--- a/drivers/net/tulip/interrupt.c
+> >+++ b/drivers/net/tulip/interrupt.c
+> >@@ -87,6 +87,10 @@ int tulip_refill_rx(struct net_device *d
+> > 		}
+> > 		tp->rx_ring[entry].status = cpu_to_le32(DescOwned);
+> > 	}
+> >+
+> >+/* FIXME: restarting DMA breaks tulip_down() code path.
+> >+   tulip_down() will unmap the RX and TX descriptors.
+> >+ */
+> > 	if(tp->chip_id == LC82C168) {
+> > 		if(((ioread32(tp->base_addr + CSR5)>>17)&0x07) == 4) {
+> > 			/* Rx stopped due to out of buffers,
+> >diff --git a/drivers/net/tulip/tulip_core.c 
+> >b/drivers/net/tulip/tulip_core.c
+> >index 81905f4..363e5f6 100644
+> >--- a/drivers/net/tulip/tulip_core.c
+> >+++ b/drivers/net/tulip/tulip_core.c
+> >@@ -742,21 +742,20 @@ #endif
+> > 
+> > 	/* Disable interrupts by clearing the interrupt mask. */
+> > 	iowrite32 (0x00000000, ioaddr + CSR7);
+> >+	ioread32 (ioaddr + CSR7);	/* flush posted write */
+> > 
+> >-	/* Stop the Tx and Rx processes. */
+> >-	tulip_stop_rxtx(tp);
+> >+	spin_unlock_irqrestore (&tp->lock, flags);
+> > 
+> >-	/* prepare receive buffers */
+> >-	tulip_refill_rx(dev);
+> >+	free_irq (dev->irq, dev);	/* no more races after this */
+> >+	tulip_stop_rxtx(tp);		/* Stop DMA */
+> 
+> same old comment:  need to stop DMA before releasing interrupt handler.
 
-> But the ip6_null_entry not always discarded after a failed route lookup!
-> On a forwarding router it triggers the ICMPv6 Destination Unreachable
-> message to the sender.
+I'm testing my implementation of a version that checks for in-progress
+shutdown in the interupt handler; unfortunately TX died in overnight
+testing so there's more work to do.
 
-Good point, but I remember that in some cases the caller only wants a
-real entry or an error.
-
-Perhaps both cases can be accomodated with a SHIM inline for the
-forwarding case that returns &ip6_null_entry when IS_ERR(retval).
+-VAL
