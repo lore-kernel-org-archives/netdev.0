@@ -1,47 +1,59 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [RFC][PATCH 8/9] 3c59x driver conversion
-Date: Wed, 09 Aug 2006 09:03:21 +0200
-Message-ID: <1155107002.23134.40.camel@lappy>
-References: <20060808193447.1396.59301.sendpatchset@lappy>
-	 <44D9191E.7080203@garzik.org>	<44D977D8.5070306@google.com>
-	 <20060808.225537.112622421.davem@davemloft.net>
-	 <44D980EB.5010608@garzik.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take5 0/4] kevent: Generic event handling mechanism.
+Date: Wed, 9 Aug 2006 11:00:57 +0400
+Message-ID: <20060809070057.GA25675@2ka.mipt.ru>
+References: <20060808.225230.104030885.davem@davemloft.net> <20060809061159.GA5979@2ka.mipt.ru> <20060809062515.GA23527@2ka.mipt.ru> <20060808.233156.74748104.davem@davemloft.net> <20060809064923.GB7154@2ka.mipt.ru> <44D9874E.4020402@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, phillips@google.com,
-	netdev@vger.kernel.org, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, zach.brown@oracle.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:10381 "EHLO
-	amsfep20-int.chello.nl") by vger.kernel.org with ESMTP
-	id S965093AbWHIHEI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 03:04:08 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <44D980EB.5010608@garzik.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:43221 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1030563AbWHIHEh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 03:04:37 -0400
+To: Ulrich Drepper <drepper@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <44D9874E.4020402@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-08-09 at 02:30 -0400, Jeff Garzik wrote:
-> David Miller wrote:
-> > From: Daniel Phillips <phillips@google.com>
-> > Date: Tue, 08 Aug 2006 22:51:20 -0700
-> > 
-> >> Elaborate please.  Do you think that all drivers should be updated to
-> >> fix the broken blockdev semantics, making NETIF_F_MEMALLOC redundant?
-> >> If so, I trust you will help audit for it?
-> > 
-> > I think he's saying that he doesn't think your code is yet a
-> > reasonable way to solve the problem, and therefore doesn't belong
-> > upstream.
-> 
-> Pretty much.  It is completely non-sensical to add NETIF_F_MEMALLOC, 
-> when it should be blindingly obvious that every net driver will be 
-> allocating memory, and every net driver could potentially be used with 
-> NBD and similar situations.
+On Tue, Aug 08, 2006 at 11:57:18PM -0700, Ulrich Drepper (drepper@redha=
+t.com) wrote:
+> Evgeniy Polyakov wrote:
+> > Question with kevents removal from syscall stays open until Ulrich
+> > accepts or declines mapped buffer implementation.
+>=20
+> It was my idea in the first place to use the ring buffer.  I'm sure
+> others had the same idea but that's what I presented.  So, I see no
+> reason you should delay making this change because of me.
 
-Sure, but until every single driver is converted I'd like to warn people
-about the fact that their setups is not up to expectations. Iff all
-drivers are converted I'll be the forst to submit a patch that removes
-the feature flag.
+I did it already :)
+So I'm waiting for you to decide if it is what you want, or it should b=
+e
+implemented in a different way.
 
+> The only important thing is that we need to get a useful semantics fo=
+r
+> fork and exec.  For fork, it must be possible to "dequeue" entries fr=
+om
+> the ring buffer in a thread-safe way.  For exec (where a file descrip=
+tor
+> might survive) we likely need a mechanism to mmap the ring buffer onl=
+y
+> based on the file descriptor.  I'm not sure about this, though.
+
+Since reading of events from tha mapped ring can be unlimited and they
+are supposed to be removed only by syscall (but not copy them), and
+syscall itself is thread safe, there should be no problems with fork
+case.
+
+> --=20
+> =E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro=
+ St =E2=9E=A7 Mountain View, CA =E2=9D=96
+>=20
+
+
+
+--=20
+	Evgeniy Polyakov
