@@ -1,33 +1,41 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 9/9] [TULIP] Fix section mismatch in de2104x.c
-Date: Wed, 09 Aug 2006 01:37:35 -0400
-Message-ID: <44D9749F.8040206@garzik.org>
-References: <20060807204418.GE401@athena.road.mcmartin.ca> <11549840122892-git-send-email-kyle@parisc-linux.org> <11549840321096-git-send-email-kyle@parisc-linux.org> <1154984032324-git-send-email-kyle@parisc-linux.org> <115498403384-git-send-email-kyle@parisc-linux.org> <11549840341728-git-send-email-kyle@parisc-linux.org> <11549840343640-git-send-email-kyle@parisc-linux.org> <11549840351899-git-send-email-kyle@parisc-linux.org> <11549840361794-git-send-email-kyle@parisc-linux.org> <11549840363242-git-send-email-kyle@parisc-linux.org>
+Subject: Re: d80211 merge plans
+Date: Wed, 09 Aug 2006 01:40:27 -0400
+Message-ID: <44D9754B.3060909@garzik.org>
+References: <200608090703.45651.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, grundler@parisc-linux.org,
-	val_henson@linux.intel.com, akpm@osdl.org,
-	Helge Deller <deller@parisc-linux.org>
+Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:15008 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S965075AbWHIFhh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 01:37:37 -0400
-To: Kyle McMartin <kyle@parisc-linux.org>
-In-Reply-To: <11549840363242-git-send-email-kyle@parisc-linux.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:18592 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S965077AbWHIFkm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 01:40:42 -0400
+To: Michael Buesch <mb@bu3sch.de>,
+	"John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <200608090703.45651.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kyle McMartin wrote:
-> From: Helge Deller <deller@parisc-linux.org>
+Michael Buesch wrote:
+> To heavily reduce maintainance burden I would like to see d80211
+> going mainline as soon as possible, so that we can feature-freeze
+> the softmac port of bcm43xx and reduce maintainance to next to zero
+> there. So if people want freaky features, we simply point them
+> to the d80211 port, which would coexist in mainline.
 > 
-> WARNING: drivers/net/tulip/de2104x.o - Section mismatch: reference to .init.text:de_init_one from .data.rel.local after 'de_driver' (at offset 0x20)
-> WARNING: drivers/net/tulip/de2104x.o - Section mismatch: reference to .exit.text:de_remove_one from .data.rel.local after 'de_driver' (at offset 0x28)
-> 
-> Signed-off-by: Helge Deller <deller@parisc-linux.org>
-> Signed-off-by: Kyle McMartin <kyle@parisc-linux.org>
+> d80211 in mainline would clearly marked as experimental, for sure.
+> Notes must be added for possibly breaking usermode interfaces.
 
-Look deeper into the problem...  Use of __init and __exit was 
-intentional, as this card is never used in a hotplug situation AFAIK
+
+Does it have active maintainers?
+
+The DeviceScape people seem to have disappeared for months, except for a 
+rare appearance recently by Jouni.
+
+Did anyone ever come up with a list of why d80211 is superior?
+What are the remaining d80211 issues?
+
+	Jeff
 
 
