@@ -1,37 +1,52 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] limit rt cache size
-Date: Wed, 9 Aug 2006 18:32:26 +0200
-Message-ID: <200608091832.26492.ak@suse.de>
-References: <200608080711.06788.ak@suse.de> <200608090302.19634.ak@suse.de> <Pine.LNX.4.61.0608090913410.2452@localhost.localdomain>
+From: Olof Johansson <olof@lixom.net>
+Subject: Re: [PATCH 6/6] ehea: Kernel build (Kconfig / Makefile)
+Date: Wed, 9 Aug 2006 11:33:13 -0500
+Message-ID: <20060809163313.GC29823@pb15.lixom.net>
+References: <44D99F92.60407@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	dev@sw.ru, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Marcus Eder <meder@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.suse.de ([195.135.220.2]:63686 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1750740AbWHIQcq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 12:32:46 -0400
-To: akepner@sgi.com
-In-Reply-To: <Pine.LNX.4.61.0608090913410.2452@localhost.localdomain>
+Received: from lixom.net ([66.141.50.11]:48261 "EHLO mail.lixom.net")
+	by vger.kernel.org with ESMTP id S1750740AbWHIQeL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 12:34:11 -0400
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Content-Disposition: inline
+In-Reply-To: <44D99F92.60407@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-> > There will be some hickup, but as long as the downtime
-> > is limited it shouldn't be too bad.
-> >
+On Wed, Aug 09, 2006 at 10:40:50AM +0200, Jan-Bernd Themann wrote:
+> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 > 
-> Benchmarks are in order....
+> 
+>   drivers/net/Kconfig  |    6 ++++++
+>   drivers/net/Makefile |    1 +
+>   2 files changed, 7 insertions(+)
+> 
+> 
+> 
+> diff -Nurp -X dontdiff linux-2.6.18-rc4/drivers/net/Kconfig patched_kernel/drivers/net/Kconfig
+> --- linux-2.6.18-rc4/drivers/net/Kconfig	2006-08-06 11:20:11.000000000 -0700
+> +++ patched_kernel/drivers/net/Kconfig	2006-08-08 03:00:49.526421944 -0700
+> @@ -2277,6 +2277,12 @@ config CHELSIO_T1
+>             To compile this driver as a module, choose M here: the module
+>             will be called cxgb.
+> 
+> +config EHEA
+> +        tristate "eHEA Ethernet support"
+> +        depends on IBMEBUS
+> +        ---help---
+> +          This driver supports the IBM pSeries ethernet adapter
 
-One issue I forgot earlier and Kirill pointed out is that the
-reallocation would require vmalloc because memory will be too fragmented
-to get a big piece of physical memory. So it would add TLB pressure. 
+Does this adapter really not have a better name for the option
+description? That's a very vague description given that IBM pSeries
+machines have had all sorts of ethernet adapters through the years.
 
-Can't think of a good way around that.
 
-You might have been right with being sceptical.
 
--Andi
+-Olof
