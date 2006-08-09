@@ -1,36 +1,44 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: Re: Bug report for MV643XX driver
-Date: Wed, 9 Aug 2006 09:24:25 -0700
-Message-ID: <20060809162425.GA7464@xyzzy.farnsworth.org>
-References: <200608091047.28571.peloquin@mit.edu>
+From: akepner@sgi.com
+Subject: Re: [PATCH] limit rt cache size
+Date: Wed, 9 Aug 2006 09:16:33 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0608090913410.2452@localhost.localdomain>
+References: <200608080711.06788.ak@suse.de> <20060808.171152.58440635.davem@davemloft.net>
+ <Pine.LNX.4.61.0608081707410.2452@localhost.localdomain> <200608090302.19634.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dale@farnsworth.org, mlachwani@mvista.com, netdev@vger.kernel.org,
-	josejx@gentoo.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	dev@sw.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h142-az.mvista.com ([65.200.49.142]:10761 "HELO farnsworth.org")
-	by vger.kernel.org with SMTP id S1750787AbWHIQY2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 12:24:28 -0400
-To: Stuart Peloquin <peloquin@MIT.EDU>
-Content-Disposition: inline
-In-Reply-To: <200608091047.28571.peloquin@mit.edu>
+Received: from omx2-ext.sgi.com ([192.48.171.19]:27280 "EHLO omx2.sgi.com")
+	by vger.kernel.org with ESMTP id S1751127AbWHIQ0V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 12:26:21 -0400
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <200608090302.19634.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 10:47:28AM -0400, Stuart Peloquin wrote:
-> Kernel oops during heavy load downloads with the MV643XX driver on a PegII.  
-> I've replicated the problem on 2.6.17_gentoo-4, vanilla 2.6.17.1, vanilla 
-> 2.6.18_rc3.  When downloading a large file from any fast mirror (I tested 
-> getting around 2.0MB/s) the system crashes after a random amount of time.  
-> Usually after 30seconds to a couple of minutes.
-> 
-> I took pictures of the call trace, I'm sorry about the quality, they were 
-> taken with a phone camera.  They can be viewed at 
-> http://web.mit.edu/peloquin/marvell
+On Wed, 9 Aug 2006, Andi Kleen wrote:
 
-Thanks for the report Stuart.  I'm investigating this now.  Would you
-mind sending me the config file used to build the kernel?  Also, which
-version of gcc are you using?
+>
+>> But there's alot of state to update (more or less
+>> atomically, too)
+>
+> Why does it need to be atomic? It might be enough
+> to just check a flag and poll for it in the readers and then redo the
+> lookup.
+> ....
 
-Thanks,
--Dale
+(I qualified "atomic" with "more or less" :-)
+
+Sure, something like that could work.
+
+>
+> There will be some hickup, but as long as the downtime
+> is limited it shouldn't be too bad.
+>
+
+Benchmarks are in order....
+
+-- 
+Arthur
+
