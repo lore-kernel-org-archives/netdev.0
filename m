@@ -1,39 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [take5 0/4] kevent: Generic event handling mechanism.
-Date: Tue, 08 Aug 2006 22:52:30 -0700 (PDT)
-Message-ID: <20060808.225230.104030885.davem@davemloft.net>
-References: <11550230861383@2ka.mipt.ru>
-	<44D902EF.8070809@oracle.com>
-	<20060809053113.GB17446@2ka.mipt.ru>
+From: Daniel Phillips <phillips@google.com>
+Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
+Date: Tue, 08 Aug 2006 22:52:34 -0700
+Message-ID: <44D97822.5010007@google.com>
+References: <20060808193325.1396.58813.sendpatchset@lappy> <20060809054648.GD17446@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=KOI8-R; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: zach.brown@oracle.com, drepper@redhat.com, netdev@vger.kernel.org
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:60550
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030489AbWHIFw3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 01:52:29 -0400
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20060809053113.GB17446@2ka.mipt.ru>
+Received: from smtp-out.google.com ([216.239.45.12]:11594 "EHLO
+	smtp-out.google.com") by vger.kernel.org with ESMTP
+	id S1030493AbWHIFwv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 01:52:51 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060809054648.GD17446@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Wed, 9 Aug 2006 09:31:14 +0400
+Evgeniy Polyakov wrote:
+> On Tue, Aug 08, 2006 at 09:33:25PM +0200, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
+> 
+>>   http://lwn.net/Articles/144273/
+>>   "Kernel Summit 2005: Convergence of network and storage paths"
+>>
+>>We believe that an approach very much like today's patch set is
+>>necessary for NBD, iSCSI, AoE or the like ever to work reliably. 
+>>We further believe that a properly working version of at least one of
+>>these subsystems is critical to the viability of Linux as a modern
+>>storage platform.
+> 
+> There is another approach for that - do not use slab allocator for
+> network dataflow at all. It automatically has all you pros amd if
+> implemented correctly can have a lot of additional usefull and
+> high-performance features like full zero-copy and total fragmentation
+> avoidance.
 
-I am burnt out on reviewing this endless kevent patch resubmissions,
-so I will only comment briefly.
+Agreed.  But probably more intrusive than davem would be happy with
+at this point.
 
-> That's why I'm asking for what exactly should be moved into the
-> patchset. I.e. do we need poll/select (it is the same as what epoll
-> does), timer, network AIO? How they should be splitted?
+Regards,
 
-I would suggest removing all of the file I/O and network AIO since
-they are logically seperate from kevent.
-
-> Using LIST_POISON is a flag that kevent is in appropriate queue or not,
-> I can add some flag into the structure, but why, if it is clear just by
-> looking into list's pointers.
-
-What is wrong with using list_empty() as this indicator?
+Daniel
