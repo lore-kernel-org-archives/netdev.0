@@ -1,41 +1,57 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: d80211 merge plans
-Date: Wed, 09 Aug 2006 01:40:27 -0400
-Message-ID: <44D9754B.3060909@garzik.org>
-References: <200608090703.45651.mb@bu3sch.de>
+From: Daniel Phillips <phillips@google.com>
+Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
+Date: Tue, 08 Aug 2006 22:44:37 -0700
+Message-ID: <44D97645.90104@google.com>
+References: <20060808193345.1396.16773.sendpatchset@lappy>	<20060808.151020.94555184.davem@davemloft.net>	<44D93BEE.4000001@google.com> <20060808.184144.71088399.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
+Cc: a.p.zijlstra@chello.nl, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:18592 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S965077AbWHIFkm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 01:40:42 -0400
-To: Michael Buesch <mb@bu3sch.de>,
-	"John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <200608090703.45651.mb@bu3sch.de>
+Received: from smtp-out.google.com ([216.239.45.12]:54087 "EHLO
+	smtp-out.google.com") by vger.kernel.org with ESMTP id S965075AbWHIFos
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 01:44:48 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060808.184144.71088399.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> To heavily reduce maintainance burden I would like to see d80211
-> going mainline as soon as possible, so that we can feature-freeze
-> the softmac port of bcm43xx and reduce maintainance to next to zero
-> there. So if people want freaky features, we simply point them
-> to the d80211 port, which would coexist in mainline.
+David Miller wrote:
+>From: Daniel Phillips <phillips@google.com>
+>>David Miller wrote:
+>>>I think the new atomic operation that will seemingly occur on every
+>>>device SKB free is unacceptable.
+>>
+>>Alternate suggestion?
 > 
-> d80211 in mainline would clearly marked as experimental, for sure.
-> Notes must be added for possibly breaking usermode interfaces.
+> Sorry, I have none.  But you're unlikely to get your changes
+> considered seriously unless you can avoid any new overhead your patch
+> has which is of this level.
 
+We just skip anything new unless the socket is actively carrying block
+IO traffic, in which case we pay a miniscule price to avoid severe
+performance artifacts or in the worst case, deadlock.  So in this design
+the new atomic operation does not occur on every device SKP free.
 
-Does it have active maintainers?
+All atomic ops sit behind the cheap test:
 
-The DeviceScape people seem to have disappeared for months, except for a 
-rare appearance recently by Jouni.
+    (dev->flags & IFF_MEMALLOC)
 
-Did anyone ever come up with a list of why d80211 is superior?
-What are the remaining d80211 issues?
+or if any have escaped that is just an oversight.   Peter?
 
-	Jeff
+> We're busy trying to make these data structures smaller, and eliminate
+> atomic operations, as much as possible.  Therefore anything which adds
+> new datastructure elements and new atomic operations will be met with
+> fierce resistence unless it results an equal or greater shrink of
+> datastructures elsewhere or removes atomic operations elsewhere in
+> the critical path.
 
+Right now we have a problem because our network stack cannot support
+block IO reliably.  Without that, Linux is no enterprise storage
+platform.
 
+Regards,
+
+Daniel
