@@ -1,50 +1,30 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: 3945 driver using d80211
-Date: Wed, 9 Aug 2006 15:42:09 -0700
-Message-ID: <200608091542.13687.flamingice@sourmilk.net>
-References: <44D901C9.6090304@linux.intel.com> <200608090947.20291.flamingice@sourmilk.net> <1155151351.5788.8.camel@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [2/2] [IPV4]: Use network-order dport for all visible
+ inet_lookup_*
+Date: Wed, 09 Aug 2006 15:47:40 -0700 (PDT)
+Message-ID: <20060809.154740.111206880.davem@davemloft.net>
+References: <20060808084729.GA8085@gondor.apana.org.au>
+	<20060808.022443.62664150.davem@davemloft.net>
+	<20060808111140.GA15028@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1467657.3amHeYbG3f";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Mohamed Abbas <mabbas@linux.intel.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:9936 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S1751410AbWHIWm1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 18:42:27 -0400
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <1155151351.5788.8.camel@localhost.localdomain>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61393
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751415AbWHIWrx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 18:47:53 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060808111140.GA15028@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1467657.3amHeYbG3f
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 8 Aug 2006 21:11:40 +1000
 
-On Wednesday 09 August 2006 12:22, Dan Williams wrote:
-> The atmel driver is somewhat of a hybrid.
+> Good point.  This patch eliminates the double swap for __inet_lookup.
+> 
+> [IPV4]: Use network-order dport for all visible inet_lookup_*
 
-I dunno - the last time I checked atmel, it seemed to have quite a bit of=20
-softmac code. If atmel isn't actually a softmac card, um.. I dunno. What=20
-parts of it is fullmac?
-
-=2DMichael Wu
-
---nextPart1467657.3amHeYbG3f
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBE2mTFT3Oqt9AH4aERAohVAJsGcIvaJ5wneu4rgJbj2XcBYI3MrACgnFUZ
-OSXeh9+33KmpstZJBcrLCy8=
-=t2yM
------END PGP SIGNATURE-----
-
---nextPart1467657.3amHeYbG3f--
+Applied, thanks Herbert.
