@@ -1,31 +1,34 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Rules and groups
-Date: Wed, 9 Aug 2006 11:25:37 +0200
-Message-ID: <20060809092537.GV14627@postel.suug.ch>
-References: <20060809080139.GA19555@souterrain.chygwyn.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] add_timer -> mod_timer() in dst_run_gc()
+Date: Wed, 09 Aug 2006 02:26:12 -0700 (PDT)
+Message-ID: <20060809.022612.18310364.davem@davemloft.net>
+References: <44D9A46C.9070108@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Patrick Caulfield <patrick@tykepenguin.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org, dim@sw.ru,
+	devel@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:27539 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1030607AbWHIJZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 05:25:17 -0400
-To: Steven Whitehouse <steve@chygwyn.com>
-Content-Disposition: inline
-In-Reply-To: <20060809080139.GA19555@souterrain.chygwyn.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:39089
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030608AbWHIJ0I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 05:26:08 -0400
+To: dev@openvz.org
+In-Reply-To: <44D9A46C.9070108@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Steven Whitehouse <steve@chygwyn.com> 2006-08-09 09:01
-> With your new protocol independent rules code, I see that there is an
-> entry in struct fib_rules_ops for a netlink group for notification of
-> rule changes. For whatever reason (historical I guess) DECnet has never
-> had a nl group assigned for this, so I'm left with two choices when moving
-> the code over to ues your new scheme.
-> 
-> Either I could send a patch to put the content of notify_rule_change()
-> conditional on nlgroup being non-zero, or I could assign a suitable
-> group for DECnet rule changes. I'm leaning towards the latter as the
-> best solution, so that at least it matches up with the other protocols.
+From: Kirill Korotaev <dev@openvz.org>
+Date: Wed, 09 Aug 2006 13:01:32 +0400
 
-Absolutely, notification for DECnet rule changes would be nice to have.
+> F.e. timer has fired on CPU2, but the handler was preeempted
+> by an irq before dst_lock is tried.
+> Meanwhile, someone on CPU1 adds an entry to gc list and
+> starts the timer.
+> If CPU2 was preempted long enough, this timer can expire
+> simultaneously with resuming timer handler on CPU1, arriving
+> exactly to the situation described.
+
+Makes sense.
+
+Patch applied, thanks.
