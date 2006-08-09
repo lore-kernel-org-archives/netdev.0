@@ -1,43 +1,58 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] limit rt cache size
-Date: Wed, 9 Aug 2006 01:23:01 +0200
-Message-ID: <200608090123.01123.ak@suse.de>
-References: <44D75EF8.1070901@sw.ru> <200608080711.06788.ak@suse.de> <Pine.LNX.4.61.0608081316330.2452@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RESEND 2/2] update sunrpc to use in-kernel sockets API
+Date: Tue, 08 Aug 2006 17:09:41 -0700 (PDT)
+Message-ID: <20060808.170941.71164303.davem@davemloft.net>
+References: <1154991632.11916.6.camel@w-sridhar2.beaverton.ibm.com>
+	<20060807.205910.68157131.davem@davemloft.net>
+	<1155057591.26188.5.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	dev@sw.ru, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, trond.myklebust@fys.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:14012 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S1030357AbWHIAAi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Aug 2006 20:00:38 -0400
-To: akepner@sgi.com
-In-Reply-To: <Pine.LNX.4.61.0608081316330.2452@localhost.localdomain>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:29649
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030332AbWHIAJi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Aug 2006 20:09:38 -0400
+To: sri@us.ibm.com
+In-Reply-To: <1155057591.26188.5.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Tue, 08 Aug 2006 10:19:51 -0700
 
-> >
-> > IMHO there needs to be a maximum size (maybe related to the sum of
-> > caches of all CPUs in the system?)
-> >
-> > Best would be to fix this for all large system hashes together.
-> 
-> How about using an algorithm like this: up to a certain "size"
-> (memory size, cache size,...), scale the hash tables linearly; 
-> but for larger sizes, scale logarithmically (or approximately
-> logarithmically)
+> We cannot do this as xs_sendpages() doesn't like to use sendpage()
+> with highmem pages and has the following check before making the
+> actual call.
+>                 /* Hmm... We might be dealing with highmem pages */
+>                 if (PageHighMem(*ppage))
+>                         sendpage = sock_no_sendpage;
+>                 err = sendpage(sock, *ppage, base, len, flags);
 
-I don't think it makes any sense to continue scaling at all after
-some point - you won't get better shorter hash chains anymore and the 
-large hash tables actually cause problems: e.g. there are situations where we walk
-the complete tables and that takes longer and longer.
+The question is why doesn't it "like" highmem pages?
 
-Also does a 1TB machine really need bigger hash tables than a 100GB one?
+The kernel socket operation will handle highmem pages just fine and in
+fact this sock_no_sendpage bit in xs_sendpages() has a negative
+performance impact when it does trigger.
 
-The problem is to find out what a good boundary is.
+What's more this code is even worse than it appears at first, because
+it will use sock_no_sendpage for _every_ page after the first highmem
+one it sees.
 
--Andi
+I tried to figure out the origin of this highmem test.  It comes from
+before all this code was moved from net/sunrpc/xdr.c into
+net/sunrpc/xprtsock.c
+
+Looking further in history, it even predates GIT :)
+
+So I went through the pre-GIT history and it shows that this test was
+there from the very beginning when xdr_sendpage and zerocopy sunrpc
+support was added.
+
+Trond, I think the highmem check in xs_sendpages() is completely
+bogus, do you mind if we remove it? :-)
+
+The socket layer will properly check the device to make sure it
+can handle highmem pages, and if not it will copy the data into
+a low-mem page as-needed.
