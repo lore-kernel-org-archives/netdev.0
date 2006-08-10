@@ -1,44 +1,65 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH 1/4] [NETLINK]: Handle NLM_F_ECHO in netlink_rcv_skb()
-Date: Thu, 10 Aug 2006 19:51:20 +0400
-Message-ID: <20060810155120.GA494@ms2.inr.ac.ru>
-References: <20060809204821.216122988@postel.suug.ch> <20060809205439.434010049@postel.suug.ch>
+From: "Michal Ruzicka" <michal.ruzicka@comstar.cz>
+Subject: Possible leak of multicast source filter sctructure #2
+Date: Thu, 10 Aug 2006 17:57:38 +0100
+Message-ID: <200608101557.k7AFvc6u004054@gateplz.comstar.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:34021 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1161363AbWHJPwC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 11:52:02 -0400
-To: Thomas Graf <tgraf@suug.ch>
+Received: from gateplz-adsl.comstar.cz ([193.179.24.196]:61885 "EHLO
+	gateplz.comstar.cz") by vger.kernel.org with ESMTP id S1161362AbWHJP6Q convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Aug 2006 11:58:16 -0400
 Content-Disposition: inline
-In-Reply-To: <20060809205439.434010049@postel.suug.ch>
+To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Took some time but this time the inlined patch should be OK.
 
-> This patch handles NLM_F_ECHO in netlink_rcv_skb() to
-> handle it in a central point. Most subsystems currently
-> interpret NLM_F_ECHO as to just unicast events to the
-> originator of the change while the real meaning of the
-> flag is to echo the request.
+Hi all!
+It seems to me that there is a leak of struct ip_sf_socklist in the 
+ip_mc_drop_socket function (in net/ipv4/igmp.c) which is called on socket 
+close.
 
-Do not you think it is useless to echo something back to originator,
-who just sent it?
+This patch corrects it:
 
-Actually, the sense of NLM_F_ECHO was to tell user what happened due to
-his request. The answer is not original request, which can contain
-some incomplete fields etc., but full information about object
-deleted/added/changed. Moreover, the feedback can contain several
-messages (though accurately it is done only in net/sched/), f.e. when
-the request triggered deletion of one object and addition of another.
+diff -Naur linux-2.6.17.8.orig/net/ipv4/igmp.c linux-2.6.17.8/net/ipv4/igmp.c
+--- linux-2.6.17.8.orig/net/ipv4/igmp.c	2006-08-07 06:18:54.000000000 +0200
++++ linux-2.6.17.8/net/ipv4/igmp.c	2006-08-10 10:38:04.000000000 +0200
+@@ -2206,9 +2206,10 @@
+ 			(void) ip_mc_leave_src(sk, iml, in_dev);
+ 			ip_mc_dec_group(in_dev, iml->multi.imr_multiaddr.s_addr);
+ 			in_dev_put(in_dev);
+-		}
+-		sock_kfree_s(sk, iml, sizeof(*iml));
++		} else if (iml->sflist != NULL)
++			sock_kfree_s(sk, iml->sflist, IP_SFLSIZE(iml->sflist->sl_max));
+ 
++		sock_kfree_s(sk, iml, sizeof(*iml));
+ 	}
+ 	rtnl_unlock();
+ }
 
-Obviously, it cannot be done in a central place.
 
-Normally, it is not needed, "ip route add" does not tell user, what
-actually was done, so that it suppresses echo. But for multistage
-operation it is absolutely necessary: the answer contains f.e. auto-allocated
-handles, which should be given in subsequent requests.
+The leak only happens if there are some multicast source filters set on a 
+socket wich are bound to an interface that does not exist any more, as in 
+the following scenario:
+1. create a temporary interface (say GRE tunnel)
+2. create a socket
+3. join a multicast group and set a source filter on the temporary interface 
+via MCAST_JOIN_SOURCE_GROUP setsockopt call
+4. destroy the temporary interface
+5. close the socket
 
-Alexey
+This sequence of things eventually leads to a call of ip_mc_drop_socket 
+function, which fails to free the soucre filter structure ip_sf_socklist 
+pointed to from members of socket's multicast addresses list. This structure 
+is normally freed in ip_mc_leave_src function but this function is not 
+called in this scenario because the interface that the multicast group is 
+joined on does not exist any more.
+
+Thanks
+Michal Ruzicka 
+
