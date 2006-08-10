@@ -1,47 +1,108 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 1/5] sock_create bad error return
-Date: Thu, 10 Aug 2006 10:06:08 -0700
-Message-ID: <20060810100608.2737bee5@localhost.localdomain>
-References: <20060809183138.332023530@localhost.localdomain>
-	<20060809183348.999358659@localhost.localdomain>
-	<20060809.204745.102463311.davem@davemloft.net>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: 2.6.18-rc3-mm2 - IPV6_MULTIPLE_TABLES borked....
+Date: Thu, 10 Aug 2006 13:38:59 -0400
+Message-ID: <200608101738.k7AHcx9V004680@turing-police.cc.vt.edu>
+References: <20060806030809.2cfb0b1e.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed; boundary="==_Exmh_1155231538_3998P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: paulmck@us.ibm.com, netdev@vger.kernel.org, akpm@osdl.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:45540 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1161465AbWHJRKP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 13:10:15 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060809.204745.102463311.davem@davemloft.net>
+Received: from turing-police.cc.vt.edu ([128.173.14.107]:5869 "EHLO
+	turing-police.cc.vt.edu") by vger.kernel.org with ESMTP
+	id S1422651AbWHJRjX (ORCPT <RFC822;netdev@vger.kernel.org>);
+	Thu, 10 Aug 2006 13:39:23 -0400
+To: Andrew Morton <akpm@osdl.org>, davem@davemloft.net,
+	Thomas Graf <tgraf@suug.ch>
+In-Reply-To: Your message of "Sun, 06 Aug 2006 03:08:09 PDT."
+             <20060806030809.2cfb0b1e.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 09 Aug 2006 20:47:45 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+--==_Exmh_1155231538_3998P
+Content-Type: text/plain; charset=us-ascii
 
-> From: Stephen Hemminger <shemminger@osdl.org>
-> Date: Wed, 09 Aug 2006 11:31:39 -0700
-> 
-> > If socket create call races with module unload, it correctly
-> > fails the socket call but doesn't return an error. This race
-> > is theoritical because the sock->ops are always the same and
-> > non-modular.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> 
-> I think the intention of the code is to return
-> -EAFNOSUPPORT which is set explicitly some lines
-> above, and this makes sense because if we can't grab
-> onto the module reference count it means the module
-> is in the process of being unloaded.
+On Sun, 06 Aug 2006 03:08:09 PDT, Andrew Morton said:
+> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18-rc3/2.6.18-rc3-mm2/
 
-It is the module reference count of the socket file ops, not the
-protocol family reference count.  The protocol family code is
-already handled a few lines above.
+Building a kernel with IPV6_MULTIPLE_TABLES=y breaks my IPv6 connectivity
+quite badly.  It basically totally refuses to answer an IPv6 Neighbor Solicit
+packet or IPv6 Echo Request packet.  I run a 'tcpdump -n ipv6', and I see the
+requests come in, and no packets leaving.  Interestingly enough, if I try to
+ping6 *out* of the box, it's totally willing to send a Neighbor Solicit outbound
+(although it appears to totally ignore the Neighbor Advert packet that comes
+back). Of course, things don't work very well at all with busticated Neighbor
+Solicit.
 
-Since the socket code can't be built as a module, it is a dead end. I think
-in-olden-times the idea was that networking could be built as a module
-so that inode ops would have to be ref counted.
+A kernel built with IPV6_MULTIPLE_TABLES=n works just fine.
 
+The relevant ifconfig (eth3 is a 100mbit port, eth5 is a wireless card):
+
+eth3      Link encap:Ethernet  HWaddr 00:06:5B:EA:8E:4E  
+          inet addr:128.173.14.107  Bcast:128.173.15.255  Mask:255.255.252.0
+          inet6 addr: 2001:468:c80:2103:206:5bff:feea:8e4e/64 Scope:Global
+          inet6 addr: fe80::206:5bff:feea:8e4e/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:15529 errors:0 dropped:0 overruns:1 frame:0
+          TX packets:2073 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:2333290 (2.2 MiB)  TX bytes:228862 (223.4 KiB)
+          Interrupt:11 Base address:0x6800 
+
+eth5      Link encap:Ethernet  HWaddr 00:02:2D:5C:11:48  
+          inet addr:198.82.168.129  Bcast:198.82.168.255  Mask:255.255.255.0
+          inet6 addr: 2001:468:c80:2181:202:2dff:fe5c:1148/64 Scope:Global
+          inet6 addr: fe80::202:2dff:fe5c:1148/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:2096 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:144 errors:1 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:280919 (274.3 KiB)  TX bytes:22184 (21.6 KiB)
+          Interrupt:11 Base address:0xe100 
+
+lo        Link encap:Local Loopback  
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          inet6 addr: ::1/128 Scope:Host
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:1583 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:1583 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:642598 (627.5 KiB)  TX bytes:642598 (627.5 KiB)
+
+A working routing table:
+
+netstat -r -n -A inet6
+Kernel IPv6 routing table
+Destination                                 Next Hop                                Flags Metric Ref    Use Iface
+::1/128                                     ::                                      U     0      12       1 lo      
+2001:468:c80:2103:206:5bff:feea:8e4e/128    ::                                      U     0      4        1 lo      
+2001:468:c80:2103::/64                      ::                                      UA    256    113       0 eth3    
+2001:468:c80:2181:202:2dff:fe5c:1148/128    ::                                      U     0      0        1 lo      
+2001:468:c80:2181::/64                      ::                                      UA    256    11       0 eth5    
+fe80::202:2dff:fe5c:1148/128                ::                                      U     0      0        1 lo      
+fe80::206:5bff:feea:8e4e/128                ::                                      U     0      2        1 lo      
+fe80::/64                                   ::                                      U     256    0        0 eth3    
+fe80::/64                                   ::                                      U     256    0        0 eth5    
+ff02::1/128                                 ff02::1                                 UC    0      113       0 eth3    
+ff02::1/128                                 ff02::1                                 UC    0      1        0 eth5    
+ff00::/8                                    ::                                      U     256    0        0 eth3    
+ff00::/8                                    ::                                      U     256    0        0 eth5    
+::/0                                        fe80::20f:35ff:fe3e:d41a                UGDA  1024   1        0 eth3    
+::/0                                        fe80::20f:35ff:fe3e:d41a                UGDA  1024   1        0 eth5    
+
+
+
+--==_Exmh_1155231538_3998P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFE228ycC3lWbTT17ARAhscAJ9/RA53+ch/Lt8YOfleahwHmWMrlgCeOcIc
+JlXBxM41kYlsfb4py+K4eHw=
+=rpFI
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1155231538_3998P--
