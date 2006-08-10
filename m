@@ -1,35 +1,65 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 3/4] [NETLINK]: Dont set socket error for failed event notifications
-Date: Thu, 10 Aug 2006 21:23:23 +0200
-Message-ID: <20060810192323.GJ14627@postel.suug.ch>
-References: <20060809204821.216122988@postel.suug.ch> <20060809205440.025848027@postel.suug.ch> <44DB765B.4020500@trash.net> <20060810190455.GI14627@postel.suug.ch> <44DB8425.8020108@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: [NET 00/06]: Increase number of possible routing tables
+Date: Thu, 10 Aug 2006 21:29:57 +0200 (MEST)
+Message-ID: <20060810192957.14867.71965.sendpatchset@localhost.localdomain>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	patrick@tykepenguin.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:18110 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1751031AbWHJTXD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 15:23:03 -0400
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <44DB8425.8020108@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:38618 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751240AbWHJT37
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Aug 2006 15:29:59 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <kaber@trash.net> 2006-08-10 21:08
-> The error code (-ENOMEM) gives it a pretty good idea what went
-> wrong. Its true that it doesn't know which group was affected
-> (that could be fixed), but at least it knows that something
-> went wrong and it needs to resync. If that fails due to memory
-> shortage as well it can schedule a delayed resync or something,
-> but without getting notified it has no chance of doing anything
-> useful. This makes notification essentially useless. If I can't
-> rely on either getting either a notification or an error, I can't
-> rely on them at all.
-> 
-> Please put this back in.
+These are the updated patches (against net-2.6.19) to increase the number
+of possible routing tables to 2^32. They basically consist of four parts:
 
-Alright, I think it's pretty much theoretical but it doesn't
-really matter to me.
+- Use u32 for routing table IDs everywhere inside the kernel
 
-Dave, please revert the whole patchset.
+- Introduce new netlink attributes to carry extended table IDs and add
+  compatibility functions to use either rtm_table or the new attributes
+  if given.
+
+- Prepare IPv4/IPv6/DecNET for increasing RT_TABLE_MAX to 2^32 by using
+  hash tables instead of a fixed size array of pointers (IPv4 and DecNET,
+  IPv6 already contains that part) and replacing iterations over all
+  possible table IDs by hash walking.
+
+- Finally, increase RT_TABLE_MAX to 2^32
+
+IPv4 and IPv6 are tested with and without CONFIG_MULTIPLE_TABLES, DecNET
+is only compile tested.
+
+
+ include/linux/fib_rules.h |    4 +
+ include/linux/rtnetlink.h |   12 ++-
+ include/net/dn_fib.h      |    7 -
+ include/net/fib_rules.h   |    7 +
+ include/net/ip6_route.h   |    7 +
+ include/net/ip_fib.h      |   39 +++-------
+ net/core/fib_rules.c      |    5 -
+ net/decnet/dn_fib.c       |   62 +---------------
+ net/decnet/dn_route.c     |    1 
+ net/decnet/dn_rules.c     |    2 
+ net/decnet/dn_table.c     |  136 ++++++++++++++++++++++++++----------
+ net/ipv4/fib_frontend.c   |  117 ++++++++++++++++++++-----------
+ net/ipv4/fib_hash.c       |   30 ++++----
+ net/ipv4/fib_lookup.h     |    4 -
+ net/ipv4/fib_rules.c      |    7 +
+ net/ipv4/fib_semantics.c  |    5 -
+ net/ipv4/fib_trie.c       |   32 ++++----
+ net/ipv4/route.c          |    1 
+ net/ipv6/fib6_rules.c     |    1 
+ net/ipv6/ip6_fib.c        |  171 ++++++++++++++++++++++++++++++++++++++++------
+ net/ipv6/route.c          |  141 ++-----------------------------------
+ 21 files changed, 430 insertions(+), 361 deletions(-)
+
+Patrick McHardy:
+      [NET]: Use u32 for routing table IDs
+      [NET]: Introduce RTA_TABLE/FRA_TABLE attributes
+      [IPV4]: Increase number of possible routing tables to 2^32
+      [IPV6]: Increase number of possible routing tables to 2^32
+      [DECNET]: Increase number of possible routing tables to 2^32
+      [NET]: Increate RT_TABLE_MAX to 2^32
