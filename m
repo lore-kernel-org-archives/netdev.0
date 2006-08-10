@@ -1,63 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IPX changes introduce warning.
-Date: Wed, 09 Aug 2006 17:36:48 -0700 (PDT)
-Message-ID: <20060809.173648.77057307.davem@davemloft.net>
-References: <20060809234417.GA23634@redhat.com>
+From: "Indan Zupancic" <indan@nul.nu>
+Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
+Date: Thu, 10 Aug 2006 03:21:25 +0200 (CEST)
+Message-ID: <62799.194.109.238.121.1155172885.squirrel@194.109.238.121>
+References: <20060808193325.1396.58813.sendpatchset@lappy>
+    <20060808193345.1396.16773.sendpatchset@lappy>
+    <42414.81.207.0.53.1155080443.squirrel@81.207.0.53>
+    <44D92B78.20408@google.com>
+    <35608.81.207.0.53.1155124956.squirrel@81.207.0.53>
+    <1155128046.12225.40.camel@twins>
+    <39903.81.207.0.53.1155131329.squirrel@81.207.0.53>
+    <1155132032.12225.65.camel@twins>
+    <62411.194.109.238.121.1155148442.squirrel@194.109.238.121>
+    <1155152744.23134.67.camel@lappy>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, acme@ghostprotocols.net,
-	netdev@vger.kernel.org, greg@kroah.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52875
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932448AbWHJAhB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 20:37:01 -0400
-To: davej@redhat.com
-In-Reply-To: <20060809234417.GA23634@redhat.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Daniel Phillips" <phillips@google.com>, netdev@vger.kernel.org,
+	linux-mm@kvack.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030568AbWHJBX1@vger.kernel.org>
+In-Reply-To: <1155152744.23134.67.camel@lappy>
+To: "Peter Zijlstra" <a.p.zijlstra@chello.nl>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dave Jones <davej@redhat.com>
-Date: Wed, 9 Aug 2006 19:44:17 -0400
+On Wed, August 9, 2006 21:45, Peter Zijlstra said:
+> On Wed, 2006-08-09 at 20:34 +0200, Indan Zupancic wrote:
+>> Why is it needed for the protocol specific code to call dev_unreserve_skb?
+>
+> It uses this to get an indication of memory pressure; if we have
+> memalloc'ed skbs memory pressure must be high, hence we must drop all
+> non critical packets. But you are right in that this is a problematic
+> area; the mapping from skb to device is non trivial.
+>
+> Your suggestion of testing skb->memalloc might work just as good; indeed
+> if we have regressed into the fallback allocator we know we have
+> pressure.
 
-> We've just added an implicit declaration in the latest tree..
-> 
-> net/ipx/af_ipx.c: In function 'ipx_rcv':
-> net/ipx/af_ipx.c:1648: error: implicit declaration of function 'ipxhdr'
-> 
-> (Yes, my builds fail on -Werror-implicit, so that things like this get caught early)
-> 
-> Probably something simple like a missing #include, but I'm heading out
-> the door right now :)  I'll poke at it later if no-one has beaten me to it.
+You seem to have explained dev_reserve_used usage, not the dev_unreserve_skb calls.
+But I've just found -v2 and see that they're gone now, great. -v2 looks much better.
 
-I could have sworn this compiled in my tree, sorry.
+>> Only problem is if the device can change. rx_reserve_used should probably
+>> be updated when that happens, as a skb can't use reserved memory on a device
+>> it was moved away from. (right?)
+>
+> Well yes, this is a problem, only today have I understood how volatile
+> the mapping actually is. I think you are right in that transferring the
+> accounting from the old to the new device is correct solution.
+>
+> However this brings us the problem of limiting the fallback allocator;
+> currently this is done in __netdev_alloc_skb where rx_reserve_used it
+> compared against rx_reserve. If we transfer accounting away this will
+> not work anymore. I'll have to think about this case, perhaps we already
+> have a problem here.
 
-Fix below.  Greg, I'll queue this up to you in a GIT tree along
-with another fix later tonight.
+The point of the reservations is to avoid deadlocks, and they're always big
+enough to hold all in-flight skbs, right? So what about solving the whole
+device problem by using a global counter and limit instead of per device?
 
-Thanks Dave.
+The question is whether traffic on one device can starve traffic on other
+devices or not, and how big a problem that is. It probably can, tricky stuff.
+Though getting rid of the per device stuff would simplify a lot...
 
-commit fff642570dc47ab76491fe81ee6599269c4eb13e
-Author: David S. Miller <davem@sunset.davemloft.net>
-Date:   Wed Aug 9 17:36:15 2006 -0700
+>> > Also, I've been thinking (more pain), should I not up the reserve for
+>> > each SOCK_MEMALLOC socket.
+>>
+>> Up rx_reserve_used or the total ammount of reserved memory? Probably 'no' for
+>> both though, as it's either device specific or skb dependent.
+>
+> I came up with yes, if for each socket you gain a request queue, the
+> number of in-flight pages is proportional to the number of sockets.
 
-    [IPX]: Fix typo, ipxhdr() --> ipx_hdr()
-    
-    Noticed by Dave Jones.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Yes, seems so.
 
-diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
-index 4019642..bef3f61 100644
---- a/net/ipx/af_ipx.c
-+++ b/net/ipx/af_ipx.c
-@@ -1645,7 +1645,7 @@ static int ipx_rcv(struct sk_buff *skb, 
- 	if (!pskb_may_pull(skb, sizeof(struct ipxhdr)))
- 		goto drop;
- 
--	ipx_pktsize = ntohs(ipxhdr(skb)->ipx_pktsize);
-+	ipx_pktsize = ntohs(ipx_hdr(skb)->ipx_pktsize);
- 	
- 	/* Too small or invalid header? */
- 	if (ipx_pktsize < sizeof(struct ipxhdr) ||
+Good night,
+
+Indan
