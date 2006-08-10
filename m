@@ -1,87 +1,192 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: 2.6.18-rc3-mm2 - IPV6_MULTIPLE_TABLES borked....
-Date: Thu, 10 Aug 2006 22:02:03 +0200
-Message-ID: <44DB90BB.7050302@trash.net>
-References: <20060806030809.2cfb0b1e.akpm@osdl.org> <200608101738.k7AHcx9V004680@turing-police.cc.vt.edu>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 4/5] net: socket family using RCU
+Date: Thu, 10 Aug 2006 13:28:27 -0700
+Message-ID: <20060810132827.481e8a6b@localhost.localdomain>
+References: <20060809183138.332023530@localhost.localdomain>
+	<20060809183349.528294134@localhost.localdomain>
+	<20060810183658.GA1771@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000109090601030905050201"
-Cc: Andrew Morton <akpm@osdl.org>, davem@davemloft.net,
-	Thomas Graf <tgraf@suug.ch>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932161AbWHJUCk@vger.kernel.org>
-To: Valdis.Kletnieks@vt.edu
-In-Reply-To: <200608101738.k7AHcx9V004680@turing-police.cc.vt.edu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	akpm@osdl.org, josht@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:55224 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751582AbWHJU2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 16:28:48 -0400
+To: paulmck@us.ibm.com
+In-Reply-To: <20060810183658.GA1771@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000109090601030905050201
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+>
+>On Wed, Aug 09, 2006 at 11:31:42AM -0700, Stephen Hemminger wrote:
+>> Replace the gross custom locking done in socket code for net_family[]
+>> with simple RCU usage. Some reordering necessary to avoid sleep
+>> issues with sock_alloc.
+>
+>Definitely a good use of RCU from a read-intensive standpoint -- does
+>anyone other than Linux-kernel networking developers change the elements
+>of the net_family[] array except at boot and shutdown?  ;-)
+>
+>Some comments included below.  Looks good, but one question about
+>things like atalk_create() being able to sleep and a place or two
+>where a comment would be good.
+>
 
-Valdis.Kletnieks@vt.edu wrote:
-> On Sun, 06 Aug 2006 03:08:09 PDT, Andrew Morton said:
-> 
->>ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18-rc3/2.6.18-rc3-mm2/
-> 
-> 
-> Building a kernel with IPV6_MULTIPLE_TABLES=y breaks my IPv6 connectivity
-> quite badly.  It basically totally refuses to answer an IPv6 Neighbor Solicit
-> packet or IPv6 Echo Request packet.  I run a 'tcpdump -n ipv6', and I see the
-> requests come in, and no packets leaving.  Interestingly enough, if I try to
-> ping6 *out* of the box, it's totally willing to send a Neighbor Solicit outbound
-> (although it appears to totally ignore the Neighbor Advert packet that comes
-> back). Of course, things don't work very well at all with busticated Neighbor
-> Solicit.
-> 
-> A kernel built with IPV6_MULTIPLE_TABLES=n works just fine.
+...
 
-It should be fixed by this patch (already contained in net-2.6.19).
+>>  
+>> +	/*
+>> +	 *	Allocate the socket and allow the family to set things up. if
+>> +	 *	the protocol is 0, the family is instructed to select an appropriate
+>> +	 *	default.
+>> +	 */
+>> +	sock = sock_alloc();
+>> +	if (!sock) {
+>> +		printk(KERN_WARNING "socket: no more sockets\n");
+>> +		return -ENFILE;	/* Not exactly a match, but its the
+>> +				   closest posix thing */
+>> +	}
+>> +
+>> +	sock->type = type;
+>> +
+>>  #if defined(CONFIG_KMOD)
+>>  	/* Attempt to load a protocol module if the find failed.
+>>  	 *
+>> @@ -1166,70 +1138,59 @@
+>>  	 * requested real, full-featured networking support upon configuration.
+>>  	 * Otherwise module support will break!
+>>  	 */
+>> -	if (net_families[family] == NULL) {
+>> +	if (net_families[family] == NULL)
+>>  		request_module("net-pf-%d", family);
+>
+>OK, I'll bite...
+>
+>What happens if the module is not present?  Or is this what the
+>"Otherwise module support will break" comment is getting at?
 
+request_module loads the module (and blocks). One would
+expect that the module loaded would set net_families[] via
+sock_register, so later reference would succeed. Comment is
+historical since intention was to make base socket code itself modular
+which never was done, and is probably a bad idea to even consider.
 
+If module is not present, then net_families[] will still be NULL.
 
---------------000109090601030905050201
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+>Also, this reference to "net_families[family]" is done without
+>rcu_dereference() and without any clear update-side lock.  This
+>just happens to be OK, since we are only testing for NULL, but
+>should at least have a comment.
 
-[IPV6]: Fix policy routing lookup
+>> -	}
+>>  #endif
+>>  
+>> -	net_family_read_lock();
+>> -	if (net_families[family] == NULL) {
+>> -		err = -EAFNOSUPPORT;
+>> -		goto out;
+>> -	}
+>> -
+>> -/*
+>> - *	Allocate the socket and allow the family to set things up. if
+>> - *	the protocol is 0, the family is instructed to select an appropriate
+>> - *	default.
+>> - */
+>> -
+>> -	if (!(sock = sock_alloc())) {
+>> -		printk(KERN_WARNING "socket: no more sockets\n");
+>> -		err = -ENFILE;	/* Not exactly a match, but its the
+>> -				   closest posix thing */
+>> -		goto out;
+>> -	}
+>> -
+>> -	sock->type = type;
+>> +	rcu_read_lock();
+>> +	pf = rcu_dereference(net_families[family]);
+>
+>OK, so the elements of the net_families array are protected by RCU.
+>All references should either be under rcu_read_lock() and accessed
+>via rcu_dereference() or under the update-side lock, whatever that
+>might be.
+>
 
-When the lookup in a table returns ip6_null_entry the policy routing lookup
-returns it instead of continuing in the next table, which effectively means
-it only searches the local table.
+Yes, the net_family_lock
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+>>  
+>> -/*
+>> +/**
+>> + *	sock_unregister - remove a protocol handler
+>> + *	@family: protocol family to remove
+>> + *
+>>   *	This function is called by a protocol handler that wants to
+>>   *	remove its address family, and have it unlinked from the
+>> - *	SOCKET module.
+>> + *	new socket creation.
+>> + *
+>> + *	If protocol handler is a module, then it can use module reference
+>> + *	counts to protect against new references. If protocol handler is not
+>> + *	a module then it needs to provide its own protection in
+>> + *	the ops->create routine.
+>>   */
+>> -
+>>  int sock_unregister(int family)
+>>  {
+>>  	if (family < 0 || family >= NPROTO)
+>> -		return -1;
+>> +		return -EINVAL;
+>>  
+>> -	net_family_write_lock();
+>> +	spin_lock(&net_family_lock);
+>>  	net_families[family] = NULL;
+>
+>And this one is covered by net_families_lock, so we are set, since this
+>is the last one.
+>
+>> -	net_family_write_unlock();
+>> +	spin_unlock(&net_family_lock);
+>> +
+>> +	synchronize_rcu();
+>
+>OK, and the caller is presumably going to free up whatever needs to be
+>freed.
+>
+>Or, if nothing need be freed, beyond this point, we know that all
+>non-sleeping code paths through any of the net_protocol_family
+>functions have completed.
+>
+>(So, are all of the functions non-sleeping, or do we care?  The
+>definition of net_protocol_family in include/linux/net.h doesn't say
+>that they need to be non-sleeping...)
+>
+>atalk_create() can potentially sleep in the following line of code:
+>
+>	sk = sk_alloc(PF_APPLETALK, GFP_KERNEL, &ddp_proto, 1);
 
----
-commit 2b885e76c2b2c74d2dfe86a8140f0b41149f327c
-tree 767711f03ea3e990ce02b3720718b77490027793
-parent 5bd721a145d02a89a9b69adf3ede9d0b3647ae8b
-author Patrick McHardy <kaber@trash.net> Sun, 06 Aug 2006 22:24:08 -0700
-committer David S. Miller <davem@davemloft.net> Sun, 06 Aug 2006 22:24:08 -0700
+The module reference counts are used to prevent that. Since
+appletalk module can't be unloaded until there are no more appletalk
+sockets open (ie ref count of appletalk module is zero). To prevent
+new references there is a call to try_module_get() before the
+net_families[family]->create() call. This happens inside
+rcu_read_lock.
 
- net/ipv6/fib6_rules.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+>What prevents atalk_create() running concurrently with sock_unregister()?
 
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index c3c8195..94a46ec 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -94,8 +94,10 @@ int fib6_rule_action(struct fib_rule *ru
- 
- 	if (rt != &ip6_null_entry)
- 		goto out;
--
- 	dst_release(&rt->u.dst);
-+	rt = NULL;
-+	goto out;
-+
- discard_pkt:
- 	dst_hold(&rt->u.dst);
- out:
+Module ref counts. I didn't want to start ref counting the net_families
+because that would cause another atomic op, and would penalize the normal
+case of non-modular IPV4 (and non-moduler IPV6).
 
---------------000109090601030905050201--
+>(One possible reason is that ->create is only called in __sock_create(),
+>and that there is something preventing sock_unregister() from being called
+>before __sock_create() returns -- but I must defer to people who understand
+>networking better than do I.)
+
+That is why I added a comment to sock_unregister() describing how for the
+normal case of protocol as module, this is safe. But if protocol wants
+to call sock_unregister() other times it needs to do it's own ref counting.
+
+There are a couple of calls to sock_unregister() from module init routines,
+but these are in benign error unwind cases. The code in these cases
+could be reorganized to do sock_register() last during initilization,
+but it hardly matters.
