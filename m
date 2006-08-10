@@ -1,48 +1,30 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take6 1/3] kevent: Core files.
-Date: Thu, 10 Aug 2006 10:48:39 +0400
-Message-ID: <20060810064839.GA11845@2ka.mipt.ru>
-References: <11551105602734@2ka.mipt.ru> <20060809152127.481fb346.akpm@osdl.org> <20060810061433.GA4689@2ka.mipt.ru> <20060809.234235.71555079.davem@davemloft.net>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [PATCH] ipx: header length validation needed
+Date: Wed, 9 Aug 2006 23:50:02 -0700
+Message-ID: <20060810065002.GH3986@kroah.com>
+References: <20060807134636.30f8b779@localhost.localdomain> <20060807.162433.26101101.davem@davemloft.net> <20060807163602.5c7a4a65@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, drepper@redhat.com,
-	netdev@vger.kernel.org, zach.brown@oracle.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	stable@kernel.org, acme@ghostprotocols.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:51170 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751187AbWHJGs7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 02:48:59 -0400
-To: David Miller <davem@davemloft.net>
+Received: from ns.suse.de ([195.135.220.2]:9188 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S1161048AbWHJGuZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 02:50:25 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20060809.234235.71555079.davem@davemloft.net>
+In-Reply-To: <20060807163602.5c7a4a65@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 11:42:35PM -0700, David Miller (davem@davemloft.net) wrote:
-> > > > +	k->kevent_entry.next = LIST_POISON1;
-> > > > +	k->storage_entry.prev = LIST_POISON2;
-> > > > +	k->ready_entry.next = LIST_POISON1;
-> > > 
-> > > Nope ;)
-> > 
-> > I use pointer checks to determine if entry is in the list or not, why it
-> > is frowned upon here?
+On Mon, Aug 07, 2006 at 04:36:02PM -0700, Stephen Hemminger wrote:
+> This patch will linearize and check there is enough data.
+> It handles the pprop case as well as avoiding a whole audit of
+> the routing code.
 > 
-> As Andrew mentioned in another posting, these poison macros
-> are likely to simply go away some day, so you should not use
-> them.
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-They exist for ages and sudently can go away?..
- 
-> If you want pointer encoded tags you use internally, define your own.
+queued to -stable, thanks.
 
-I think if I will add code like this
-list_del(&k->entry);
-k->entry.prev = KEVENT_POISON1;
-k->entry.next = KEVENT_POISON2;
+greg k-h
 
-I will be suggested to make myself a lobotomy.
-
-I have enough space in flags in each kevent, so I will use some bits there.
-
--- 
-	Evgeniy Polyakov
