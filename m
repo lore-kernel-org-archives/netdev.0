@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND 2/2] update sunrpc to use in-kernel sockets API
-Date: Wed, 09 Aug 2006 17:03:47 -0700 (PDT)
-Message-ID: <20060809.170347.122832529.davem@davemloft.net>
-References: <20060808.170941.71164303.davem@davemloft.net>
-	<1155093402.5731.35.camel@localhost>
-	<1155144878.3049.8.camel@w-sridhar2.beaverton.ibm.com>
+Subject: Re: [take6 1/3] kevent: Core files.
+Date: Wed, 09 Aug 2006 17:04:45 -0700 (PDT)
+Message-ID: <20060809.170445.10299521.davem@davemloft.net>
+References: <11551105592821@2ka.mipt.ru>
+	<11551105602734@2ka.mipt.ru>
+	<20060809104738.1498723f@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: trond.myklebust@fys.uio.no, netdev@vger.kernel.org
+Cc: johnpol@2ka.mipt.ru, linux-kernel@vger.kernel.org,
+	drepper@redhat.com, netdev@vger.kernel.org, zach.brown@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:3040
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:4576
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932083AbWHJADx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 20:03:53 -0400
-To: sri@us.ibm.com
-In-Reply-To: <1155144878.3049.8.camel@w-sridhar2.beaverton.ibm.com>
+	id S932079AbWHJAEu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 20:04:50 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060809104738.1498723f@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Wed, 09 Aug 2006 10:34:38 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 9 Aug 2006 10:47:38 -0700
 
-> [SUNRPC]: Remove the unnecessary check for highmem in xs_sendpages()
-> and call kernel_sendpage() directly.
-> 
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> static wrapper_functions_with_execessive_long_names(struct i_really_hate *this)
+> {
+> 	suck();
+> }
 
-Applied to net-2.6.19, thanks a lot Sridhar.
+Yes, typing 50 characters just to bump a counter, it's beyond
+rediculious.
+
+Go hack on the X server if you like long-winded function names
+that do trivial operations :-)
