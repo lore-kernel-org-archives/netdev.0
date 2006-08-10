@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] limit rt cache size
-Date: Wed, 09 Aug 2006 17:02:29 -0700 (PDT)
-Message-ID: <20060809.170229.68041648.davem@davemloft.net>
-References: <200608090302.19634.ak@suse.de>
-	<Pine.LNX.4.61.0608090913410.2452@localhost.localdomain>
-	<200608091832.26492.ak@suse.de>
+Subject: Re: [PATCH RESEND 2/2] update sunrpc to use in-kernel sockets API
+Date: Wed, 09 Aug 2006 17:03:47 -0700 (PDT)
+Message-ID: <20060809.170347.122832529.davem@davemloft.net>
+References: <20060808.170941.71164303.davem@davemloft.net>
+	<1155093402.5731.35.camel@localhost>
+	<1155144878.3049.8.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akepner@sgi.com, kuznet@ms2.inr.ac.ru, dev@sw.ru,
-	netdev@vger.kernel.org
+Cc: trond.myklebust@fys.uio.no, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:60036
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:3040
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932076AbWHJACl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Aug 2006 20:02:41 -0400
-To: ak@suse.de
-In-Reply-To: <200608091832.26492.ak@suse.de>
+	id S932083AbWHJADx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 20:03:53 -0400
+To: sri@us.ibm.com
+In-Reply-To: <1155144878.3049.8.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <ak@suse.de>
-Date: Wed, 9 Aug 2006 18:32:26 +0200
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Wed, 09 Aug 2006 10:34:38 -0700
 
-> One issue I forgot earlier and Kirill pointed out is that the
-> reallocation would require vmalloc because memory will be too fragmented
-> to get a big piece of physical memory. So it would add TLB pressure. 
+> [SUNRPC]: Remove the unnecessary check for highmem in xs_sendpages()
+> and call kernel_sendpage() directly.
 > 
-> Can't think of a good way around that.
-> 
-> You might have been right with being sceptical.
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-For NUMA this already happens, is it a problem in practice?
+Applied to net-2.6.19, thanks a lot Sridhar.
