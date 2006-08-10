@@ -1,48 +1,99 @@
-From: Mithlesh Thukral <mithlesh@linsyssoft.com>
-Subject: Doubt about locking in ixgb driver
-Date: Wed, 9 Aug 2006 18:54:14 +0530
-Message-ID: <200608091854.14584.mithlesh@linsyssoft.com>
+From: =?iso-8859-1?Q?Michal_Ruzicka?= <michal.ruzicka@comstar.cz>
+Subject: Possible leak of multicast source filter sctructure
+Date: Thu, 10 Aug 2006 14:07:06 +0200
+Message-ID: <019901c6bc75$872ee1f0$2303a8c0@mruzicka>
+References: <20060809.195627.59155708.yoshfuji@linux-ipv6.org>	<44D9D431.10101@tcs.hut.fi>	<44DA558A.1080706@tcs.hut.fi> <20060810.174635.42119608.yoshfuji@linux-ipv6.org> <44DB0870.6000902@tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0196_01C6BC86.43766530"
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svr68.ehostpros.com ([67.15.48.48]:15018 "EHLO
-	svr68.ehostpros.com") by vger.kernel.org with ESMTP
-	id S1161187AbWHJLmV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Aug 2006 07:42:21 -0400
-Received: from [59.95.4.207] (helo=titan.linsyssoft.com)
-	by svr68.ehostpros.com with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.52)
-	id 1GB8va-00024B-3f
-	for netdev@vger.kernel.org; Thu, 10 Aug 2006 04:42:19 -0700
-Received: from athena (athena [192.168.1.31] (may be forged))
-	by titan.linsyssoft.com (8.13.1/8.13.1) with ESMTP id k7ABNSNR005486
-	for <netdev@vger.kernel.org>; Thu, 10 Aug 2006 16:53:28 +0530
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from gateplz-adsl.comstar.cz ([193.179.24.196]:9902 "EHLO
+	gateplz.comstar.cz") by vger.kernel.org with ESMTP id S1161193AbWHJMIT
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Aug 2006 08:08:19 -0400
+To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hi all,
+This is a multi-part message in MIME format.
 
-The transmit functions of ethernet drivers (dev->hard_start_xmit) are 
-protected to prevent multiple execution of transmits going  in parallel. The 
-general scheme used by most of driver is :
-1. Reset NETIF_F_LLTX flag in dev->features and then use kernel locking given 
-through HARD_TX_LOCK (net/core/dev.c:3417)
-		OR
-2. Use a internal lock of driver generally kept in adapter to prevent multiple 
-accesses.
+------=_NextPart_000_0196_01C6BC86.43766530
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
+Content-Transfer-Encoding: 7bit
 
-In ixgb driver (drivers/net/ixgb/), there is a lock in adapter of driver 
-(adapter->tx_lock). But this is left before the ixgb_xmit_frame() function 
-returns. The access to adapter->tx_ring.next_to_use which i suppose will be 
-the index of next element to use from tx_ring is accessed outside the area 
-where lock is held. What will prevent race condition during accessing 
-adapter->tx_ring.next_to_use ?
-How does multiple instances of xmit not run or multiple instances of xmit 
-running is fine ?
+Hi all!
+It seems to me that there is a leak of struct ip_sf_socklist in the 
+ip_mc_drop_socket function (in net/ipv4/igmp.c) which is called on socket 
+close.
 
-Regards,
-Mithlesh Thukral
+This patch corrects it:
+
+diff -Naur linux-2.6.17.8.orig/net/ipv4/igmp.c 
+linux-2.6.17.8/net/ipv4/igmp.c
+--- linux-2.6.17.8.orig/net/ipv4/igmp.c 2006-08-07 06:18:54.000000000 +0200
++++ linux-2.6.17.8/net/ipv4/igmp.c 2006-08-10 10:38:04.000000000 +0200
+@@ -2206,9 +2206,10 @@
+    (void) ip_mc_leave_src(sk, iml, in_dev);
+    ip_mc_dec_group(in_dev, iml->multi.imr_multiaddr.s_addr);
+    in_dev_put(in_dev);
+-  }
+-  sock_kfree_s(sk, iml, sizeof(*iml));
++  } else if (iml->sflist != NULL)
++   sock_kfree_s(sk, iml->sflist, IP_SFLSIZE(iml->sflist->sl_max));
+
++  sock_kfree_s(sk, iml, sizeof(*iml));
+  }
+  rtnl_unlock();
+ }
+
+The leak only happens if there are some multicast source filters set on a 
+socket wich are bound to an interface that does not exist any more, as in 
+the following scenario:
+1. create a temporary interface (say GRE tunnel)
+3. join a multicast group an set a source filter on the temporary interface 
+via MCAST_JOIN_SOURCE_GROUP setsockopt call
+4. destroy the temporary interface
+5. close the socket
+
+This sequence of things eventually leads to a call of ip_mc_drop_socket 
+function, which fails to free the soucre filter structure ip_sf_socklist 
+pointed to from members of socket's multicast addresses list. This structure 
+is normally freed in ip_mc_leave_src function but this function is not 
+called in this scenario because the interface that the multicast group is 
+joined on does not exist any more.
+
+Thanks
+Michal Ruzicka 
+
+------=_NextPart_000_0196_01C6BC86.43766530
+Content-Type: application/octet-stream;
+	name="linux-2.6.17.8-mc_sf_leak.patch"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+	filename="linux-2.6.17.8-mc_sf_leak.patch"
+
+diff -Naur linux-2.6.17.8.orig/net/ipv4/igmp.c =
+linux-2.6.17.8/net/ipv4/igmp.c=0A=
+--- linux-2.6.17.8.orig/net/ipv4/igmp.c	2006-08-07 06:18:54.000000000 =
++0200=0A=
++++ linux-2.6.17.8/net/ipv4/igmp.c	2006-08-10 10:38:04.000000000 +0200=0A=
+@@ -2206,9 +2206,10 @@=0A=
+ 			(void) ip_mc_leave_src(sk, iml, in_dev);=0A=
+ 			ip_mc_dec_group(in_dev, iml->multi.imr_multiaddr.s_addr);=0A=
+ 			in_dev_put(in_dev);=0A=
+-		}=0A=
+-		sock_kfree_s(sk, iml, sizeof(*iml));=0A=
++		} else if (iml->sflist !=3D NULL)=0A=
++			sock_kfree_s(sk, iml->sflist, IP_SFLSIZE(iml->sflist->sl_max));=0A=
+ =0A=
++		sock_kfree_s(sk, iml, sizeof(*iml));=0A=
+ 	}=0A=
+ 	rtnl_unlock();=0A=
+ }=0A=
+
+------=_NextPart_000_0196_01C6BC86.43766530--
+
