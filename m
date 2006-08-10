@@ -1,43 +1,31 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [IPROUTE 00/03]: Increase number of possible routing tables
-Date: Thu, 10 Aug 2006 16:13:20 -0700
-Message-ID: <20060810161320.168674c8@localhost.localdomain>
-References: <20060810221447.9060.5563.sendpatchset@localhost.localdomain>
+Date: Fri, 11 Aug 2006 01:23:47 +0200
+Message-ID: <44DBC003.50107@trash.net>
+References: <20060810221447.9060.5563.sendpatchset@localhost.localdomain> <20060810161320.168674c8@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:55779 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932250AbWHJXNZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 19:13:25 -0400
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <20060810221447.9060.5563.sendpatchset@localhost.localdomain>
+Received: from stinky.trash.net ([213.144.137.162]:28904 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S932286AbWHJXXu
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Aug 2006 19:23:50 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060810161320.168674c8@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Aug 2006 00:14:47 +0200 (MEST)
-Patrick McHardy <kaber@trash.net> wrote:
+Stephen Hemminger wrote:
+> Applied thanks. Let me know when your done, it has been too long
+> since a real release of iproute2. I'll roll one as soon as the flow subsides.
 
-> These patches add support for a larger number of routing tables to iproute
-> and are needed for the patches doing the same for the kernel I just sent.
-> They apply on top of the "[IPROUTE]: Support IPv6 routing table filter" patch.
-> 
-> Please apply, thanks.
-> 
-> 
->  include/linux/rtnetlink.h |    4 -
->  include/rt_names.h        |    2 
->  ip/ip_common.h            |    8 +++
->  ip/iproute.c              |   63 ++++++++++++++++------------
->  ip/iprule.c               |   14 +++++-
->  lib/rt_names.c            |  100 ++++++++++++++++++++++++++++++++++------------
->  6 files changed, 133 insertions(+), 58 deletions(-)
-> 
-> Patrick McHardy:
->       [IPROUTE]: Preparation for 32 bit table IDs
->       [IPROUTE]: Use hash for routing table name cache
->       [IPROUTE]: Add support for larger number of routing tables
 
-Applied thanks. Let me know when your done, it has been too long
-since a real release of iproute2. I'll roll one as soon as the flow subsides.
+I only have one more patchset I would like to submit soon, the time
+cleanups. But they are only meant to make auditing for integer overflows
+easier, so we can one day switch to a higher clock resolution. iproute
+seems to be mostly fine, but the kernel will probably take a bit longer,
+so I wouldn't mind missing this release. I'll submit them in the next
+days anyway, but feel free to release without them.
+
