@@ -1,65 +1,53 @@
-From: "Michal Ruzicka" <michal.ruzicka@comstar.cz>
-Subject: Possible leak of multicast source filter sctructure #2
-Date: Thu, 10 Aug 2006 17:57:38 +0100
-Message-ID: <200608101557.k7AFvc6u004054@gateplz.comstar.cz>
+From: Ryan Nowakowski <ryan@britestream.com>
+Subject: ipvs locahost client patch for 2.6?
+Date: Thu, 10 Aug 2006 11:18:38 -0500
+Message-ID: <20060810161838.GD5088@britestream.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateplz-adsl.comstar.cz ([193.179.24.196]:61885 "EHLO
-	gateplz.comstar.cz") by vger.kernel.org with ESMTP id S1161362AbWHJP6Q convert rfc822-to-8bit
+Received: from gateway.britestream.com ([207.191.53.98]:61363 "EHLO
+	gateway.layern.com") by vger.kernel.org with ESMTP id S1161421AbWHJQSi
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Aug 2006 11:58:16 -0400
+	Thu, 10 Aug 2006 12:18:38 -0400
+Received: from pineapple.layern.com (pineapple.layern.com [192.168.1.233])
+	by gateway.layern.com (8.12.11.20060308/8.12.11) with ESMTP id k7AGIcxq011263
+	for <netdev@vger.kernel.org>; Thu, 10 Aug 2006 11:18:38 -0500
+Received: from ryan by pineapple.layern.com with local (Exim 4.62)
+	(envelope-from <ryan@britestream.com>)
+	id 1GBDF0-00060P-59
+	for netdev@vger.kernel.org; Thu, 10 Aug 2006 11:18:38 -0500
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Took some time but this time the inlined patch should be OK.
+I found this patch for 2.4 that allows the host running ipvs to act
+as it's own client via loopback connection.  Does anyone have a similar
+patch for 2.6?
 
-Hi all!
-It seems to me that there is a leak of struct ip_sf_socklist in the 
-ip_mc_drop_socket function (in net/ipv4/igmp.c) which is called on socket 
-close.
-
-This patch corrects it:
-
-diff -Naur linux-2.6.17.8.orig/net/ipv4/igmp.c linux-2.6.17.8/net/ipv4/igmp.c
---- linux-2.6.17.8.orig/net/ipv4/igmp.c	2006-08-07 06:18:54.000000000 +0200
-+++ linux-2.6.17.8/net/ipv4/igmp.c	2006-08-10 10:38:04.000000000 +0200
-@@ -2206,9 +2206,10 @@
- 			(void) ip_mc_leave_src(sk, iml, in_dev);
- 			ip_mc_dec_group(in_dev, iml->multi.imr_multiaddr.s_addr);
- 			in_dev_put(in_dev);
--		}
--		sock_kfree_s(sk, iml, sizeof(*iml));
-+		} else if (iml->sflist != NULL)
-+			sock_kfree_s(sk, iml->sflist, IP_SFLSIZE(iml->sflist->sl_max));
+--- ip_vs_core.c.orig	2003-11-28 19:26:21.000000000 +0100
++++ ip_vs_core.c.list	2004-07-02 11:13:51.000000000 +0200
+@@ -1036,7 +1036,7 @@
+ 	 *	Big tappo: only PACKET_HOST (nor loopback neither mcasts)
+ 	 *	... don't know why 1st test DOES NOT include 2nd (?)
+ 	 */
+-	if (skb->pkt_type != PACKET_HOST || skb->dev == &loopback_dev) {
++	if (skb->pkt_type != PACKET_HOST) { /* || skb->dev == &loopback_dev) { */
+ 		IP_VS_DBG(12, "packet type=%d proto=%d daddr=%d.%d.%d.%d ignored\n",
+ 			  skb->pkt_type,
+ 			  iph->protocol,
+@@ -1059,6 +1059,13 @@
+ 	iph = skb->nh.iph;
+ 	h.raw = (char*) iph + ihl;
  
-+		sock_kfree_s(sk, iml, sizeof(*iml));
- 	}
- 	rtnl_unlock();
- }
-
-
-The leak only happens if there are some multicast source filters set on a 
-socket wich are bound to an interface that does not exist any more, as in 
-the following scenario:
-1. create a temporary interface (say GRE tunnel)
-2. create a socket
-3. join a multicast group and set a source filter on the temporary interface 
-via MCAST_JOIN_SOURCE_GROUP setsockopt call
-4. destroy the temporary interface
-5. close the socket
-
-This sequence of things eventually leads to a call of ip_mc_drop_socket 
-function, which fails to free the soucre filter structure ip_sf_socklist 
-pointed to from members of socket's multicast addresses list. This structure 
-is normally freed in ip_mc_leave_src function but this function is not 
-called in this scenario because the interface that the multicast group is 
-joined on does not exist any more.
-
-Thanks
-Michal Ruzicka 
++        cp = ip_vs_conn_out_get(iph->protocol, iph->saddr, h.portp[0],
++                               iph->daddr, h.portp[1]);
++        if (cp) {
++           __ip_vs_conn_put(cp);
++           return (ip_vs_out(hooknum,skb_p,in,out,okfn));
++        }
++
+ 	/*
+ 	 * Check if the packet belongs to an existing connection entry
+ 	 */
 
