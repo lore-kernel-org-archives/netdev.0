@@ -1,46 +1,30 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sky2: phy power problems on 88e805X chips
-Date: Thu, 10 Aug 2006 08:32:43 -0400
-Message-ID: <44DB276B.9010505@pobox.com>
-References: <20060809141450.2e104dfe@localhost.localdomain>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 0/6] htb: cleanup
+Date: Thu, 10 Aug 2006 14:36:02 +0200
+Message-ID: <20060810123602.GE14627@postel.suug.ch>
+References: <20060802125636.3028ba91@dxpl.pdx.osdl.net> <20060802.151816.30182208.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@osdl.org, netdev@vger.kernel.org, lartc@mailman.ds9a.nl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45534 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1161225AbWHJMcp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 08:32:45 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060809141450.2e104dfe@localhost.localdomain>
+Received: from postel.suug.ch ([194.88.212.233]:38069 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1161226AbWHJMfm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 08:35:42 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060802.151816.30182208.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On the 88E805X chipsets (used in laptops), the PHY was not getting powered
-> out of shutdown properly. The variable reg1 was getting reused incorrectly.
-> This is probably the cause of the bug.
-> 	http://bugzilla.kernel.org/show_bug.cgi?id=6471
+* David Miller <davem@davemloft.net> 2006-08-02 15:18
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Wed, 2 Aug 2006 12:56:36 -0700
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> > The HTB scheduler code is a mess, this patch set does some basic
+> > house cleaning.  The first four should cause no code change, but the
+> > last two need more testing.
 > 
-> --- netdev-2.6.orig/drivers/net/sky2.c	2006-08-09 14:13:36.000000000 -0700
-> +++ netdev-2.6/drivers/net/sky2.c	2006-08-09 14:14:07.000000000 -0700
-> @@ -233,6 +233,8 @@
->  			if (hw->ports > 1)
->  				reg1 |= PCI_Y2_PHY2_COMA;
->  		}
-> +		sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
-> +		udelay(100);
->  
->  		if (hw->chip_id == CHIP_ID_YUKON_EC_U) {
+> These patches look fine to me.  Once everyone think's they
+> are ready just let me know and I'll push them into net-2.6.19
 
-applied to #upstream-fixes, though I note that the obvious PCI posting 
-bug remains.
-
-You cannot be assured that the udelay(100) is truly effective without a 
-flushing readl().
-
-	Jeff
-
-
+I think they are ready.
