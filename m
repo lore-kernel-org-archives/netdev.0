@@ -1,1248 +1,1733 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take6 1/3] kevent: Core files.
-Date: Thu, 10 Aug 2006 10:14:33 +0400
-Message-ID: <20060810061433.GA4689@2ka.mipt.ru>
-References: <11551105592821@2ka.mipt.ru> <11551105602734@2ka.mipt.ru> <20060809152127.481fb346.akpm@osdl.org>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: [PATCH 1/6] ehea: interface to network stack
+Date: Thu, 10 Aug 2006 16:15:53 +1000
+Message-ID: <1155190553.9801.38.camel@localhost.localdomain>
+References: <44D99EFC.3000105@de.ibm.com>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-TUnqmavuSnyxbG+I5G3D"
+Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Marcus Eder <meder@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:61933 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1161065AbWHJGPT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 02:15:19 -0400
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060809152127.481fb346.akpm@osdl.org>
+Received: from ozlabs.org ([203.10.76.45]:6116 "EHLO ozlabs.org")
+	by vger.kernel.org with ESMTP id S1161066AbWHJGP5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 02:15:57 -0400
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
+In-Reply-To: <44D99EFC.3000105@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 09, 2006 at 03:21:27PM -0700, Andrew Morton (akpm@osdl.org) wrote:
-> On Wed, 9 Aug 2006 12:02:40 +0400
-> Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> 
-> > 
-> > Core files.
-> > 
-> > This patch includes core kevent files:
-> >  - userspace controlling
-> >  - kernelspace interfaces
-> >  - initialization
-> >  - notification state machines
-> > 
-> > It might also inlclude parts from other subsystem (like network related
-> > syscalls, so it is possible that it will not compile without other
-> > patches applied).
-> 
-> Summary:
-> 
-> - has serious bugs which indicate that much better testing is needed.
-> 
-> - All -EFOO return values need to be reviewed for appropriateness
-> 
-> - needs much better commenting before I can do more than a local-level review.
-> 
-> 
-> > --- /dev/null
-> > +++ b/include/linux/kevent.h
-> > ...
-> >
-> > +/*
-> > + * Poll events.
-> > + */
-> > +#define	KEVENT_POLL_POLLIN	0x0001
-> > +#define	KEVENT_POLL_POLLPRI	0x0002
-> > +#define	KEVENT_POLL_POLLOUT	0x0004
-> > +#define	KEVENT_POLL_POLLERR	0x0008
-> > +#define	KEVENT_POLL_POLLHUP	0x0010
-> > +#define	KEVENT_POLL_POLLNVAL	0x0020
-> > +
-> > +#define	KEVENT_POLL_POLLRDNORM	0x0040
-> > +#define	KEVENT_POLL_POLLRDBAND	0x0080
-> > +#define	KEVENT_POLL_POLLWRNORM	0x0100
-> > +#define	KEVENT_POLL_POLLWRBAND	0x0200
-> > +#define	KEVENT_POLL_POLLMSG	0x0400
-> > +#define	KEVENT_POLL_POLLREMOVE	0x1000
-> 
-> 0x0800 got lost.
-
-I will use usual poll definitions.
-
-> > +struct ukevent
-> > +{
-> > +	struct kevent_id	id;			/* Id of this request, e.g. socket number, file descriptor and so on... */
-> > +	__u32			type;			/* Event type, e.g. KEVENT_SOCK, KEVENT_INODE, KEVENT_TIMER and so on... */
-> > +	__u32			event;			/* Event itself, e.g. SOCK_ACCEPT, INODE_CREATED, TIMER_FIRED... */
-> > +	__u32			req_flags;		/* Per-event request flags */
-> > +	__u32			ret_flags;		/* Per-event return flags */
-> > +	__u32			ret_data[2];		/* Event return data. Event originator fills it with anything it likes. */
-> > +	union {
-> > +		__u32		user[2];		/* User's data. It is not used, just copied to/from user. */
-> > +		void		*ptr;
-> > +	};
-> > +};
-> 
-> What is this union for?
-> 
-> `ptr' needs a __user tag, does it not?
-
-Not, it is never touched by kernel.
-
-> `ptr' will be 64-bit in-kernel and 64-bit for 64-bit userspace, but 32-bit
-> for 32-bit userspace.  I guess that's why user[] is there.
-
-Exactly.
-
-> On big-endian machines, this pointer will appear to be word-swapped as far
-> as a 64-bit kernel is concerned.  Or something.
-> 
-> IOW: What's going on here??
-
-It is user data - I put there a union just to simplify userspace, so it
-sould not require some typecasting.
-
-> > +#ifdef CONFIG_KEVENT_INODE
-> > +void kevent_inode_notify(struct inode *inode, u32 event);
-> > +void kevent_inode_notify_parent(struct dentry *dentry, u32 event);
-> > +void kevent_inode_remove(struct inode *inode);
-> > +#else
-> > +static inline void kevent_inode_notify(struct inode *inode, u32 event)
-> > +{
-> > +}
-> > +static inline void kevent_inode_notify_parent(struct dentry *dentry, u32 event)
-> > +{
-> > +}
-> > +static inline void kevent_inode_remove(struct inode *inode)
-> > +{
-> > +}
-> > +#endif /* CONFIG_KEVENT_INODE */
-> > +#ifdef CONFIG_KEVENT_SOCKET
-> > +#ifdef CONFIG_LOCKDEP
-> > +void kevent_socket_reinit(struct socket *sock);
-> > +void kevent_sk_reinit(struct sock *sk);
-> > +#else
-> > +static inline void kevent_socket_reinit(struct socket *sock)
-> > +{
-> > +}
-> > +static inline void kevent_sk_reinit(struct sock *sk)
-> > +{
-> > +}
-> > +#endif
-> > +void kevent_socket_notify(struct sock *sock, u32 event);
-> > +int kevent_socket_dequeue(struct kevent *k);
-> > +int kevent_socket_enqueue(struct kevent *k);
-> > +#define sock_async(__sk) sock_flag(__sk, SOCK_ASYNC)
-> 
-> Is this header the correct place to be implementing sock_async()?
-
-I decided to have kevent as much separate as possible, so I put a lot
-there. When people decide that it is ok, than it can be moved into
-appropriate network header file - here it is much easier to review.
-
-> > --- /dev/null
-> > +++ b/kernel/kevent/Kconfig
-> > @@ -0,0 +1,50 @@
-> > +config KEVENT
-> > +	bool "Kernel event notification mechanism"
-> > +	help
-> > +	  This option enables event queue mechanism.
-> > +	  It can be used as replacement for poll()/select(), AIO callback invocations,
-> > +	  advanced timer notifications and other kernel object status changes.
-> 
-> Please squeeze all the help text into 80-columns.  Or at least check that
-> it looks OK in menuconfig in an 80-col xterm,
-
-Ok.
-
-> > --- /dev/null
-> > +++ b/kernel/kevent/kevent.c
-> > @@ -0,0 +1,238 @@
-> > +/*
-> > + * 	kevent.c
-> > + * 
-> > + * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> > + * All rights reserved.
-> > + * 
-> > + * This program is free software; you can redistribute it and/or modify
-> > + * it under the terms of the GNU General Public License as published by
-> > + * the Free Software Foundation; either version 2 of the License, or
-> > + * (at your option) any later version.
-> > + *
-> > + * This program is distributed in the hope that it will be useful,
-> > + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> > + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> > + * GNU General Public License for more details.
-> > + *
-> > + * You should have received a copy of the GNU General Public License
-> > + * along with this program; if not, write to the Free Software
-> > + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-> > + */
-> > +
-> > +#include <linux/kernel.h>
-> > +#include <linux/types.h>
-> > +#include <linux/list.h>
-> > +#include <linux/slab.h>
-> > +#include <linux/spinlock.h>
-> > +#include <linux/mempool.h>
-> > +#include <linux/sched.h>
-> > +#include <linux/wait.h>
-> > +#include <linux/kevent.h>
-> > +
-> > +kmem_cache_t *kevent_cache;
-> > +
-> > +/*
-> > + * Attempts to add an event into appropriate origin's queue.
-> > + * Returns positive value if this event is ready immediately,
-> > + * negative value in case of error and zero if event has been queued.
-> > + * ->enqueue() callback must increase origin's reference counter.
-> > + */
-> > +int kevent_enqueue(struct kevent *k)
-> > +{
-> > +	if (k->event.type >= KEVENT_MAX)
-> > +		return -E2BIG;
-> 
-> E2BIG is "Argument list too long".  EINVAL is appropriate here.
-
-No problem.
-
-> > +	if (!k->callbacks.enqueue) {
-> > +		kevent_break(k);
-> > +		return -EINVAL;
-> > +	}
-> > +	
-> > +	return k->callbacks.enqueue(k);
-> > +}
-> > +
-> > +/*
-> > + * Remove event from the appropriate queue.
-> > + * ->dequeue() callback must decrease origin's reference counter.
-> > + */
-> > +int kevent_dequeue(struct kevent *k)
-> > +{
-> > +	if (k->event.type >= KEVENT_MAX)
-> > +		return -E2BIG;
-> > +	
-> > +	if (!k->callbacks.dequeue) {
-> > +		kevent_break(k);
-> > +		return -EINVAL;
-> > +	}
-> > +
-> > +	return k->callbacks.dequeue(k);
-> > +}
-> > +
-> > +int kevent_break(struct kevent *k)
-> > +{
-> > +	unsigned long flags;
-> > +
-> > +	spin_lock_irqsave(&k->ulock, flags);
-> > +	k->event.ret_flags |= KEVENT_RET_BROKEN;
-> > +	spin_unlock_irqrestore(&k->ulock, flags);
-> > +	return 0;
-> > +}
-> > +
-> > +struct kevent_callbacks kevent_registered_callbacks[KEVENT_MAX];
-> > +
-> > +/*
-> > + * Must be called before event is going to be added into some origin's queue.
-> > + * Initializes ->enqueue(), ->dequeue() and ->callback() callbacks.
-> > + * If failed, kevent should not be used or kevent_enqueue() will fail to add
-> > + * this kevent into origin's queue with setting
-> > + * KEVENT_RET_BROKEN flag in kevent->event.ret_flags.
-> > + */
-> > +int kevent_init(struct kevent *k)
-> > +{
-> > +	spin_lock_init(&k->ulock);
-> > +	k->kevent_entry.next = LIST_POISON1;
-> > +	k->storage_entry.prev = LIST_POISON2;
-> > +	k->ready_entry.next = LIST_POISON1;
-> 
-> Nope ;)
-
-I use pointer checks to determine if entry is in the list or not, why it
-is frowned upon here?
-Please do not say about poisoning which takes a lot of cpu cycles to get
-new cachelines and so on - everything in that entry is in the cache,
-since entry was added/deleted/accessed through list walk macro.
-
-> > +	if (k->event.type >= KEVENT_MAX)
-> > +		return -E2BIG;
-> > +
-> > +	k->callbacks = kevent_registered_callbacks[k->event.type];
-> > +	if (!k->callbacks.callback) {
-> > +		kevent_break(k);
-> > +		return -EINVAL;
-> > +	}
-> > +
-> > +	return 0;
-> > +}
-> > +
-> > +/*
-> > + * Called from ->enqueue() callback when reference counter for given
-> > + * origin (socket, inode...) has been increased.
-> > + */
-> > +int kevent_storage_enqueue(struct kevent_storage *st, struct kevent *k)
-> > +{
-> > +	unsigned long flags;
-> > +
-> > +	k->st = st;
-> > +	spin_lock_irqsave(&st->lock, flags);
-> > +	list_add_tail_rcu(&k->storage_entry, &st->list);
-> > +	st->qlen++;
-> > +	spin_unlock_irqrestore(&st->lock, flags);
-> > +	return 0;
-> > +}
-> 
-> Is the _rcu variant needed here?
-
-Yes, storage list is protected by RCU.
-st->lock is used to remove race between several "writers".
-
-> > +/*
-> > + * Dequeue kevent from origin's queue. 
-> > + * It does not decrease origin's reference counter in any way 
-> > + * and must be called before it, so storage itself must be valid.
-> > + * It is called from ->dequeue() callback.
-> > + */
-> > +void kevent_storage_dequeue(struct kevent_storage *st, struct kevent *k)
-> > +{
-> > +	unsigned long flags;
-> > +
-> > +	spin_lock_irqsave(&st->lock, flags);
-> > +	if (k->storage_entry.prev != LIST_POISON2) {
-> 
-> Nope, as discussed earlier.
-
-Sorry, but I do not agree, that lsit poisoning costs something and I
-explained why. It can be wrong from some arcitechtural point of view,
-but I can crate a macros and place them into list.h which will do just
-the same.
-
-The problem is how to determine if entry is in the list or not
-regardless kevent code.
-
-> > +		list_del_rcu(&k->storage_entry);
-> > +		st->qlen--;
-> > +	}
-> > +	spin_unlock_irqrestore(&st->lock, flags);
-> > +}
-> > +
-> > +static void __kevent_requeue(struct kevent *k, u32 event)
-> > +{
-> > +	int err, rem = 0;
-> > +	unsigned long flags;
-> > +
-> > +	err = k->callbacks.callback(k);
-> > +
-> > +	spin_lock_irqsave(&k->ulock, flags);
-> > +	if (err > 0) {
-> > +		k->event.ret_flags |= KEVENT_RET_DONE;
-> > +	} else if (err < 0) {
-> > +		k->event.ret_flags |= KEVENT_RET_BROKEN;
-> > +		k->event.ret_flags |= KEVENT_RET_DONE;
-> > +	}
-> > +	rem = (k->event.req_flags & KEVENT_REQ_ONESHOT);
-> > +	if (!err)
-> > +		err = (k->event.ret_flags & (KEVENT_RET_BROKEN|KEVENT_RET_DONE));
-> > +	spin_unlock_irqrestore(&k->ulock, flags);
-> 
-> Local variable `err' no longer actually indicates an error, does it?
-> 
-> If not, a differently-named local would be appropriate here.
-
-Ok, I will rename it.
-
-> > +	if (err) {
-> > +		if ((rem || err < 0) && k->storage_entry.prev != LIST_POISON2) {
-> > +			list_del_rcu(&k->storage_entry);
-> > +			k->st->qlen--;
-> 
-> ->qlen was previously modified under spinlock.  Here it is not.
-
-It is tricky part - this part of the code can not be reentered (by
-design of all storages which are used with kevents), and different CPUs
-can not access the same list due to RCU rules - i.e. it is perfectly ok,
-if different CPU sees old value of the queue length.
-
-> > +		}
-> > +		
-> > +		spin_lock_irqsave(&k->user->ready_lock, flags);
-> > +		if (k->ready_entry.next == LIST_POISON1) {
-> > +			kevent_user_ring_add_event(k);
-> > +			list_add_tail(&k->ready_entry, &k->user->ready_list);
-> > +			k->user->ready_num++;
-> > +		}
-> > +		spin_unlock_irqrestore(&k->user->ready_lock, flags);
-> > +		wake_up(&k->user->wait);
-> > +	}
-> > +}
-> > +
-> > +void kevent_requeue(struct kevent *k)
-> > +{
-> > +	unsigned long flags;
-> > +	
-> > +	spin_lock_irqsave(&k->st->lock, flags);
-> > +	__kevent_requeue(k, 0);
-> > +	spin_unlock_irqrestore(&k->st->lock, flags);
-> > +}
-> > +
-> > +/*
-> > + * Called each time some activity in origin (socket, inode...) is noticed.
-> > + */
-> > +void kevent_storage_ready(struct kevent_storage *st, 
-> > +		kevent_callback_t ready_callback, u32 event)
-> > +{
-> > +	struct kevent *k;
-> > +
-> > +	rcu_read_lock();
-> > +	list_for_each_entry_rcu(k, &st->list, storage_entry) {
-> > +		if (ready_callback)
-> > +			ready_callback(k);
-> 
-> For readability reasons I prefer the old-style
-> 
-> 		(*ready_callback)(k);
-> 
-> so the reader knows not to go off hunting for the function "ready_callback".
-> Minor point.
-> 
-> So the kevent_callback_t handlers are not allowed to sleep.
-
-No, since they are called from internals of state machines of the
-origins - it is either softirqs (network) or hard irqs (block layer).
-
-> > +		if (event & k->event.event)
-> > +			__kevent_requeue(k, event);
-> > +	}
-> 
-> Under what circumstances will `event' be zero??
-
-It is a bit AND, requeing happens only when requested event matches at
-least one produced event.
-
-> > +	rcu_read_unlock();
-> > +}
-> > +
-> > +int kevent_storage_init(void *origin, struct kevent_storage *st)
-> > +{
-> > +	spin_lock_init(&st->lock);
-> > +	st->origin = origin;
-> > +	st->qlen = 0;
-> > +	INIT_LIST_HEAD(&st->list);
-> > +	return 0;
-> > +}
-> > +
-> > +void kevent_storage_fini(struct kevent_storage *st)
-> > +{
-> > +	kevent_storage_ready(st, kevent_break, KEVENT_MASK_ALL);
-> > +}
-> > +
-> > +static int __init kevent_sys_init(void)
-> > +{
-> > +	int i;
-> > +
-> > +	kevent_cache = kmem_cache_create("kevent_cache", 
-> > +			sizeof(struct kevent), 0, 0, NULL, NULL);
-> > +	if (!kevent_cache)
-> > +		panic("kevent: Unable to create a cache.\n");
-> 
-> Can use SLAB_PANIC (a silly thing I added to avoid code duplication).
-
-Ok.
-
-> > +	for (i=0; i<ARRAY_SIZE(kevent_registered_callbacks); ++i) {
-> > +		struct kevent_callbacks *c = &kevent_registered_callbacks[i];
-> > +
-> > +		c->callback = c->enqueue = c->dequeue = NULL;
-> > +	}
-> 
-> This zeroing is redundant.
-
-It is not static, I you sure it will be zeroed?
-
-> > +	return 0;
-> > +}
-> > +
-> > +late_initcall(kevent_sys_init);
-> 
-> Why is it late_initcall?  (A comment is needed)
-
-Why not?
-It can be any initcall or __init.
-
-> > diff --git a/kernel/kevent/kevent_user.c b/kernel/kevent/kevent_user.c
-> > new file mode 100644
-> > index 0000000..7b6374b
-> > --- /dev/null
-> > +++ b/kernel/kevent/kevent_user.c
-> > @@ -0,0 +1,857 @@
-> > +/*
-> > + * 	kevent_user.c
-> > + * 
-> > + * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> > + * All rights reserved.
-> > + * 
-> > + * This program is free software; you can redistribute it and/or modify
-> > + * it under the terms of the GNU General Public License as published by
-> > + * the Free Software Foundation; either version 2 of the License, or
-> > + * (at your option) any later version.
-> > + *
-> > + * This program is distributed in the hope that it will be useful,
-> > + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> > + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> > + * GNU General Public License for more details.
-> > + *
-> > + * You should have received a copy of the GNU General Public License
-> > + * along with this program; if not, write to the Free Software
-> > + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-> > + */
-> > +
-> > +#include <linux/kernel.h>
-> > +#include <linux/module.h>
-> > +#include <linux/types.h>
-> > +#include <linux/list.h>
-> > +#include <linux/slab.h>
-> > +#include <linux/spinlock.h>
-> > +#include <linux/fs.h>
-> > +#include <linux/file.h>
-> > +#include <linux/mount.h>
-> > +#include <linux/device.h>
-> > +#include <linux/poll.h>
-> > +#include <linux/kevent.h>
-> > +#include <linux/jhash.h>
-> > +#include <linux/miscdevice.h>
-> > +#include <asm/io.h>
-> > +
-> > +static char kevent_name[] = "kevent";
-> > +
-> > +static int kevent_user_open(struct inode *, struct file *);
-> > +static int kevent_user_release(struct inode *, struct file *);
-> > +static unsigned int kevent_user_poll(struct file *, struct poll_table_struct *);
-> > +static int kevnet_user_mmap(struct file *, struct vm_area_struct *);
-> > +
-> > +static struct file_operations kevent_user_fops = {
-> > +	.mmap		= kevnet_user_mmap,
-> > +	.open		= kevent_user_open,
-> > +	.release	= kevent_user_release,
-> > +	.poll		= kevent_user_poll,
-> > +	.owner		= THIS_MODULE,
-> > +};
-> > +
-> > +static struct miscdevice kevent_miscdev = {
-> > +	.minor = MISC_DYNAMIC_MINOR,
-> > +	.name = kevent_name,
-> > +	.fops = &kevent_user_fops,
-> > +};
-> > +
-> > +static int kevent_get_sb(struct file_system_type *fs_type, 
-> > +		int flags, const char *dev_name, void *data, struct vfsmount *mnt)
-> > +{
-> > +	/* So original magic... */
-> > +	return get_sb_pseudo(fs_type, kevent_name, NULL, 0xabcdef, mnt);	
-> > +}
-> 
-> That doesn't look like a well-chosen magic number...
-> 
-> > +static struct file_system_type kevent_fs_type = {
-> > +	.name		= kevent_name,
-> > +	.get_sb		= kevent_get_sb,
-> > +	.kill_sb	= kill_anon_super,
-> > +};
-> > +
-> > +static struct vfsmount *kevent_mnt;
-> > +
-> > +static unsigned int kevent_user_poll(struct file *file, struct poll_table_struct *wait)
-> > +{
-> > +	struct kevent_user *u = file->private_data;
-> > +	unsigned int mask;
-> > +	
-> > +	poll_wait(file, &u->wait, wait);
-> > +	mask = 0;
-> > +
-> > +	if (u->ready_num)
-> > +		mask |= POLLIN | POLLRDNORM;
-> > +
-> > +	return mask;
-> > +}
-> > +
-> > +static inline void kevent_user_ring_set(struct kevent_user *u, unsigned int num)
-> > +{
-> > +	unsigned int *idx;
-> > +	
-> > +	idx = (unsigned int *)u->pring[0];
-> 
-> This is a bit ugly.
-
-I specially use first 4 bytes in the first page to store index there,
-since it must be accessed from userspace and kernelspace.
- 
-> > +	idx[0] = num;
-> > +}
-> > +
-> > +/*
-> > + * Note that kevents does not exactly fill the page (each ukevent is 40 bytes),
-> > + * so we reuse 4 bytes at the begining of the first page to store index.
-> > + * Take that into account if you want to change size of struct ukevent.
-> > + */
-> > +#define KEVENTS_ON_PAGE (PAGE_SIZE/sizeof(struct ukevent))
-> 
-> How about doing
-> 
-> 	struct ukevent_ring {
-> 		unsigned int index;
-> 		struct ukevent[0];
-> 	}
-> 
-> and removing all those nasty typeasting and offsetting games?
-> 
-> In fact you can even do
-> 
-> 	struct ukevent_ring {
-> 		struct ukevent[(PAGE_SIZE - sizeof(unsigned int)) /
-> 				sizeof(struct ukevent)];
-> 		unsigned int index;
-> 	};
-> 
-> if you're careful ;)
-
-Ring takes more than one page, so it will be 
-struct ukevent_ring_0 and struct ukevent_ring_other.
-Does it really needed?
-Not a big problem, if you do thing it worse it.
-
-> > +/*
-> > + * Called under kevent_user->ready_lock, so updates are always protected.
-> > + */
-> > +void kevent_user_ring_add_event(struct kevent *k)
-> > +{
-> > +	unsigned int *idx_ptr, idx, pidx, off;
-> > +	struct ukevent *ukev;
-> > +	
-> > +	idx_ptr = (unsigned int *)k->user->pring[0];
-> > +	idx = idx_ptr[0];
-> > +
-> > +	pidx = idx/KEVENTS_ON_PAGE;
-> > +	off = idx%KEVENTS_ON_PAGE;
-> > +
-> > +	if (pidx == 0)
-> > +		ukev = (struct ukevent *)(k->user->pring[pidx] + sizeof(unsigned int));
-> > +	else
-> > +		ukev = (struct ukevent *)(k->user->pring[pidx]);
-> 
-> Such as these.
-> 
-> > +	memcpy(&ukev[off], &k->event, sizeof(struct ukevent));
-> > +
-> > +	idx++;
-> > +	if (idx >= KEVENT_MAX_EVENTS)
-> > +		idx = 0;
-> > +
-> > +	idx_ptr[0] = idx;
-> > +}
-> > +
-> > +static int kevent_user_ring_init(struct kevent_user *u)
-> > +{
-> > +	int i, pnum;
-> > +
-> > +	pnum = ALIGN(KEVENT_MAX_EVENTS*sizeof(struct ukevent) + sizeof(unsigned int), PAGE_SIZE)/PAGE_SIZE;
-> 
-> And these.
-> 
-> > +	u->pring = kmalloc(pnum * sizeof(unsigned long), GFP_KERNEL);
-> > +	if (!u->pring)
-> > +		return -ENOMEM;
-> > +
-> > +	for (i=0; i<pnum; ++i) {
-> > +		u->pring[i] = __get_free_page(GFP_KERNEL);
-> > +		if (!u->pring)
-> 
-> bug: this is testing the wrong thing.
-
-HOw come?
-__get_free_page() can return 0 if page was not allocated.
-
-> > +			break;
-> > +	}
-> > +
-> > +	if (i != pnum) {
-> > +		pnum = i;
-> > +		goto err_out_free;
-> > +	}
-> 
-> Move this logic into the `if (!u->pring)' logic, above.
-
-Ok.
-
-> > +	kevent_user_ring_set(u, 0);
-> > +
-> > +	return 0;
-> > +
-> > +err_out_free:
-> > +	for (i=0; i<pnum; ++i)
-> > +		free_page(u->pring[i]);
-> > +
-> > +	kfree(u->pring);
-> > +
-> > +	return -ENOMEM;
-> > +}
-> > +
-> > +static void kevent_user_ring_fini(struct kevent_user *u)
-> > +{
-> > +	int i, pnum;
-> > +
-> > +	pnum = ALIGN(KEVENT_MAX_EVENTS*sizeof(struct ukevent) + sizeof(unsigned int), PAGE_SIZE)/PAGE_SIZE;
-> > +	
-> > +	for (i=0; i<pnum; ++i)
-> > +		free_page(u->pring[i]);
-> > +
-> > +	kfree(u->pring);
-> > +}
-> > +
-> > +static struct kevent_user *kevent_user_alloc(void)
-> > +{
-> > +	struct kevent_user *u;
-> > +	int i;
-> > +
-> > +	u = kzalloc(sizeof(struct kevent_user), GFP_KERNEL);
-> > +	if (!u)
-> > +		return NULL;
-> > +
-> > +	INIT_LIST_HEAD(&u->ready_list);
-> > +	spin_lock_init(&u->ready_lock);
-> > +	u->ready_num = 0;
-> > +	kevent_user_stat_init(u);
-> > +	spin_lock_init(&u->kevent_lock);
-> > +	for (i=0; i<ARRAY_SIZE(u->kevent_list); ++i)
-> > +		INIT_LIST_HEAD(&u->kevent_list[i]);
-> > +	u->kevent_num = 0;
-> > +	
-> > +	mutex_init(&u->ctl_mutex);
-> > +	init_waitqueue_head(&u->wait);
-> > +	u->max_ready_num = 0;
-> 
-> The above zeroes out a bunch of known-to-already-be-zero things.
-
-Ok, I will remove redundant settings.
-
-> > +static int kevnet_user_mmap(struct file *file, struct vm_area_struct *vma)
-> 
-> The function name is mistyped.
-> 
-> This code doesn't have many comments, does it?  What are we mapping here,
-> and why would an application want to map it?
-
-That code waits comments from people who requested it.
-It is ring of the ready events, which can be read by userspace instead
-of calling syscall, so syscall just becomes "wait until there is a
-place" or something like that.
-
-> And what are the portability implications?  Does userspace need to know the
-> 64-bitness of its kernel to be able to work out the alignment of things? 
-> If so, what happens if a later/different compiler aligns things
-> differently?
-
-There are no alignment issues - I use 32bit values anywhere.
-
-> > +{
-> > +	size_t size = vma->vm_end - vma->vm_start, psize;
-> > +	int pnum = size/PAGE_SIZE, i;
-> > +	unsigned long start = vma->vm_start;
-> > +	struct kevent_user *u = file->private_data;
-> > +
-> > +	psize = ALIGN(KEVENT_MAX_EVENTS*sizeof(struct ukevent) + sizeof(unsigned int), PAGE_SIZE);
-> > +
-> > +	if (size + vma->vm_pgoff*PAGE_SIZE != psize)
-> > +		return -EINVAL;
-> > +
-> > +	if (vma->vm_flags & VM_WRITE)
-> > +		return -EPERM;
-> > +
-> > +	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-> > +
-> > +	for (i=0; i<pnum; ++i) {
-> > +		if (remap_pfn_range(vma, start, virt_to_phys((void *)u->pring[i+vma->vm_pgoff]), PAGE_SIZE,
-> > +					vma->vm_page_prot))
-> > +			return -EAGAIN;
-> > +		start += PAGE_SIZE;
-> > +	}
-> > +
-> > +	return 0;
-> > +}
-> 
-> Is EAGAIN an appropriate return value?
-> 
-> If this function had a decent comment we could ask Hugh to review it.
-
-It is trivial ->mmap() implementation - ring buffer, which contains of
-several pages (allocated through __get_free_page()) is mapped into
-userspace.
-vm_pgoff shows offset inside that ring.
-
-> > +#if 0
-> > +static inline unsigned int kevent_user_hash(struct ukevent *uk)
-> > +{
-> > +	unsigned int h = (uk->user[0] ^ uk->user[1]) ^ (uk->id.raw[0] ^ uk->id.raw[1]);
-> > +	
-> > +	h = (((h >> 16) & 0xffff) ^ (h & 0xffff)) & 0xffff;
-> > +	h = (((h >> 8) & 0xff) ^ (h & 0xff)) & KEVENT_HASH_MASK;
-> > +
-> > +	return h;
-> > +}
-> > +#else
-> > +static inline unsigned int kevent_user_hash(struct ukevent *uk)
-> > +{
-> > +	return jhash_1word(uk->id.raw[0], 0) & KEVENT_HASH_MASK;
-> > +}
-> > +#endif
-> > +
-> > +static void kevent_free_rcu(struct rcu_head *rcu)
-> > +{
-> > +	struct kevent *kevent = container_of(rcu, struct kevent, rcu_head);
-> > +	kmem_cache_free(kevent_cache, kevent);
-> > +}
-> > +
-> > +static void kevent_finish_user_complete(struct kevent *k, int deq)
-> > +{
-> > +	struct kevent_user *u = k->user;
-> > +	unsigned long flags;
-> > +
-> > +	if (deq)
-> > +		kevent_dequeue(k);
-> > +
-> > +	spin_lock_irqsave(&u->ready_lock, flags);
-> > +	if (k->ready_entry.next != LIST_POISON1) {
-> > +		list_del(&k->ready_entry);
-> 
-> list_del_rcu()?
-
-No, ready list does not need RCU protection.
-
-> > +		u->ready_num--;
-> > +	}
-> > +	spin_unlock_irqrestore(&u->ready_lock, flags);
-> > +
-> > +	kevent_user_put(u);
-> > +	call_rcu(&k->rcu_head, kevent_free_rcu);
-> > +}
-> > +
-> > +static void __kevent_finish_user(struct kevent *k, int deq)
-> > +{
-> > +	struct kevent_user *u = k->user;
-> > +
-> > +	list_del(&k->kevent_entry);
-> > +	u->kevent_num--;
-> > +	kevent_finish_user_complete(k, deq);
-> > +}
-> 
-> No locking needed?
-
-It is special function which is called without lock, function without __
-prefix holds appropriate lock.
-
-> It's hard to review uncommented code.  And the review is less useful if the
-> reviewer cannot determine what the developer was attempting to do.
-
-Comment is 5 lines below, where that function is called wrapped with
-appropriate lock.
-
-> > +/*
-> > + * Remove kevent from user's list of all events, 
-> > + * dequeue it from storage and decrease user's reference counter,
-> > + * since this kevent does not exist anymore. That is why it is freed here.
-> > + */
-> 
-> That's nice.
-
-Here it is.
-
-> > +static void kevent_finish_user(struct kevent *k, int deq)
-> > +{
-> > +	struct kevent_user *u = k->user;
-> > +	unsigned long flags;
-> > +
-> > +	spin_lock_irqsave(&u->kevent_lock, flags);
-> > +	list_del(&k->kevent_entry);
-> 
-> list_del_rcu()?
-
-No, this list does not require RCU protection, only storage_list
-(storage_entry) requires that.
-
-> > +	u->kevent_num--;
-> > +	spin_unlock_irqrestore(&u->kevent_lock, flags);
-> > +	kevent_finish_user_complete(k, deq);
-> > +}
-> > +
-> > +/*
-> > + * Dequeue one entry from user's ready queue.
-> > + */
-> > +
-> > +static struct kevent *kqueue_dequeue_ready(struct kevent_user *u)
-> > +{
-> > +	unsigned long flags;
-> > +	struct kevent *k = NULL;
-> > +
-> > +	spin_lock_irqsave(&u->ready_lock, flags);
-> > +	if (u->ready_num && !list_empty(&u->ready_list)) {
-> > +		k = list_entry(u->ready_list.next, struct kevent, ready_entry);
-> > +		list_del(&k->ready_entry);
-> > +		u->ready_num--;
-> > +	}
-> > +	spin_unlock_irqrestore(&u->ready_lock, flags);
-> > +
-> > +	return k;
-> > +}
-> > +
-> > +static struct kevent *__kevent_search(struct list_head *head, struct ukevent *uk, 
-> > +		struct kevent_user *u)
-> > +{
-> > +	struct kevent *k;
-> > +	int found = 0;
-> > +	
-> > +	list_for_each_entry(k, head, kevent_entry) {
-> > +		spin_lock(&k->ulock);
-> > +		if (k->event.user[0] == uk->user[0] && k->event.user[1] == uk->user[1] &&
-> > +				k->event.id.raw[0] == uk->id.raw[0] && 
-> > +				k->event.id.raw[1] == uk->id.raw[1]) {
-> > +			found = 1;
-> > +			spin_unlock(&k->ulock);
-> > +			break;
-> > +		}
-> > +		spin_unlock(&k->ulock);
-> > +	}
-> > +
-> > +	return (found)?k:NULL;
-> > +}
-> 
-> Remove `found', do
-> 
-> 	struct kevent *ret = NULL;
-> 
-> 	...
-> 		ret = k;
-> 		break;
-> 	...
-> 	return ret;
-
-Ok.
- 
-> > +static int kevent_modify(struct ukevent *uk, struct kevent_user *u)
-> 
-> <wonders what this function does>
-
-Let me guess... It modifies kevent? :)
-I will add comments.
-
-> > +{
-> > +	struct kevent *k;
-> > +	unsigned int hash = kevent_user_hash(uk);
-> > +	int err = -ENODEV;
-> > +	unsigned long flags;
-> > +	
-> > +	spin_lock_irqsave(&u->kevent_lock, flags);
-> > +	k = __kevent_search(&u->kevent_list[hash], uk, u);
-> > +	if (k) {
-> > +		spin_lock(&k->ulock);
-> > +		k->event.event = uk->event;
-> > +		k->event.req_flags = uk->req_flags;
-> > +		k->event.ret_flags = 0;
-> > +		spin_unlock(&k->ulock);
-> > +		kevent_requeue(k);
-> > +		err = 0;
-> > +	}
-> > +	spin_unlock_irqrestore(&u->kevent_lock, flags);
-> > +	
-> > +	return err;
-> > +}
-> 
-> ENODEV: "No such device".  Doesn't sound appropriate.
-
-ENOKEVENT? I expect ENODEV means "there is no requested thing".
-
-> > +static int kevent_remove(struct ukevent *uk, struct kevent_user *u)
-> > +{
-> > +	int err = -ENODEV;
-> > +	struct kevent *k;
-> > +	unsigned int hash = kevent_user_hash(uk);
-> > +	unsigned long flags;
-> > +
-> > +	spin_lock_irqsave(&u->kevent_lock, flags);
-> > +	k = __kevent_search(&u->kevent_list[hash], uk, u);
-> > +	if (k) {
-> > +		__kevent_finish_user(k, 1);
-> > +		err = 0;
-> > +	}
-> > +	spin_unlock_irqrestore(&u->kevent_lock, flags);
-> > +
-> > +	return err;
-> > +}
-> > +
-> > +/*
-> > + * No new entry can be added or removed from any list at this point.
-> > + * It is not permitted to call ->ioctl() and ->release() in parallel.
-> > + */
-> > +static int kevent_user_release(struct inode *inode, struct file *file)
-> > +{
-> > +	struct kevent_user *u = file->private_data;
-> > +	struct kevent *k, *n;
-> > +	int i;
-> > +
-> > +	for (i=0; i<KEVENT_HASH_MASK+1; ++i) {
-> 
-> ARRAY_SIZE
-
-Ok.
-
-> > +		list_for_each_entry_safe(k, n, &u->kevent_list[i], kevent_entry)
-> > +			kevent_finish_user(k, 1);
-> > +	}
-> > +
-> > +	kevent_user_put(u);
-> > +	file->private_data = NULL;
-> > +
-> > +	return 0;
-> > +}
-> > +
-> > +static struct ukevent *kevent_get_user(unsigned int num, void __user *arg)
-> > +{
-> > +	struct ukevent *ukev;
-> > +
-> > +	ukev = kmalloc(sizeof(struct ukevent) * num, GFP_KERNEL);
-> > +	if (!ukev)
-> > +		return NULL;
-> > +
-> > +	if (copy_from_user(arg, ukev, sizeof(struct ukevent) * num)) {
-> > +		kfree(ukev);
-> > +		return NULL;
-> > +	}
-> > +
-> > +	return ukev;
-> > +}
-> 
-> The copy_fom_user() args are reversed.
-> 
-> This is serious breakage and raises concerns about the amount of testing
-> which has been performed.
-
-It is typo in the new code, which was added by request in this thread.
-
-> AFAICT there is no bounds checking on `num', so the user can force a
-> deliberate multiplication overflow and cause havoc here.
-
-It is checked when it is added into the ring, if kevent was not added
-and is going to be removed or modified, it will be just thrown with
-appropriate return code.
-It should be checked against u->kevent_num here.
-
-> > +static int kevent_user_ctl_modify(struct kevent_user *u, unsigned int num, void __user *arg)
-> > +{
-> > +	int err = 0, i;
-> > +	struct ukevent uk;
-> > +
-> > +	mutex_lock(&u->ctl_mutex);
-> > +	
-> > +	if (num > KEVENT_MIN_BUFFS_ALLOC) {
-> > +		struct ukevent *ukev;
-> > +
-> > +		ukev = kevent_get_user(num, arg);
-> > +		if (ukev) {
-> > +			for (i=0; i<num; ++i) {
-> > +				if (kevent_modify(&ukev[i], u))
-> > +					ukev[i].ret_flags |= KEVENT_RET_BROKEN;
-> > +				ukev[i].ret_flags |= KEVENT_RET_DONE;
-> > +			}
-> > +			if (copy_to_user(arg, ukev, num*sizeof(struct ukevent)))
-> > +				err = -EINVAL;
-> 
-> EFAULT
-
-Ok.
-
-> > +			kfree(ukev);
-> > +			goto out;
-> > +		}
-> > +	}
-> > +
-> > +	for (i=0; i<num; ++i) {
-> > +		if (copy_from_user(&uk, arg, sizeof(struct ukevent))) {
-> > +			err = -EINVAL;
-> 
-> EFAULT
-> 
-> > +			break;
-> > +		}
-> > +
-> > +		if (kevent_modify(&uk, u))
-> > +			uk.ret_flags |= KEVENT_RET_BROKEN;
-> > +		uk.ret_flags |= KEVENT_RET_DONE;
-> > +
-> > +		if (copy_to_user(arg, &uk, sizeof(struct ukevent))) {
-> > +			err = -EINVAL;
-> 
-> EFAULT.
-> 
-> > +		if (copy_from_user(&uk, arg, sizeof(struct ukevent))) {
-> > +			err = -EINVAL;
-> 
-> EFAULT (all over the place).
-
-Ok, I will return EFAULT when copy*user fails.
-
-> > +static void kevent_user_enqueue(struct kevent_user *u, struct kevent *k)
-> > +{
-> > +	unsigned long flags;
-> > +	unsigned int hash = kevent_user_hash(&k->event);
-> > +
-> > +	spin_lock_irqsave(&u->kevent_lock, flags);
-> > +	list_add_tail(&k->kevent_entry, &u->kevent_list[hash]);
-> > +	u->kevent_num++;
-> > +	kevent_user_get(u);
-> > +	spin_unlock_irqrestore(&u->kevent_lock, flags);
-> > +}
-> 
-> kevent_user_get() can be moved outside the lock?
-
-Yes.
-
-> > +/*
-> > + * Copy all ukevents from userspace, allocate kevent for each one 
-> > + * and add them into appropriate kevent_storages, 
-> > + * e.g. sockets, inodes and so on...
-> > + * If something goes wrong, all events will be dequeued and 
-> > + * negative error will be returned. 
-> > + * On success number of finished events is returned and 
-> > + * Array of finished events (struct ukevent) will be placed behind 
-> > + * kevent_user_control structure. User must run through that array and check 
-> > + * ret_flags field of each ukevent structure to determine if it is fired or failed event.
-> > + */
-> > +static int kevent_user_ctl_add(struct kevent_user *u, unsigned int num, void __user *arg)
-> > +{
-> > +	int err, cerr = 0, knum = 0, rnum = 0, i;
-> > +	void __user *orig = arg;
-> > +	struct ukevent uk;
-> > +
-> > +	mutex_lock(&u->ctl_mutex);
-> > +
-> > +	err = -ENFILE;
-> > +	if (u->kevent_num + num >= KEVENT_MAX_EVENTS)
-> 
-> Can a malicious user force an arithmetic overflow here?
-
-All numbers here are unsigned and are compared against 4096.
-So, answer is no.
-
-> > +		goto out_remove;
-> > +
-> > +	if (num > KEVENT_MIN_BUFFS_ALLOC) {
-> > +		struct ukevent *ukev;
-> > +
-> > +		ukev = kevent_get_user(num, arg);
-> > +		if (ukev) {
-> > +			for (i=0; i<num; ++i) {
-> > +				err = kevent_user_add_ukevent(&ukev[i], u);
-> > +				if (err) {
-> > +					kevent_user_stat_increase_im(u);
-> > +					if (i != rnum)
-> > +						memcpy(&ukev[rnum], &ukev[i], sizeof(struct ukevent));
-> > +					rnum++;
-> 
-> What's happening here?  The games with `rnum' and comparing it with `i'??
-> 
-> Perhaps these are not the best-chosen identifiers..
-
-When kevent is ready immediately it is copied into the same buffer into
-previous (rnum ready num) position. kevent at "rpos" was not ready
-immediately (otherwise it would be copied and rnum increased) and thus
-it is copied into the queue and can be overwritten here.
-
-> > +/*
-> > + * In nonblocking mode it returns as many events as possible, but not more than @max_nr.
-> > + * In blocking mode it waits until timeout or if at least @min_nr events are ready.
-> > + */
-> > +static int kevent_user_wait(struct file *file, struct kevent_user *u, 
-> > +		unsigned int min_nr, unsigned int max_nr, unsigned int timeout, 
-> > +		void __user *buf)
-> > +{
-> > +	struct kevent *k;
-> > +	int cerr = 0, num = 0;
-> > +
-> > +	if (!(file->f_flags & O_NONBLOCK)) {
-> > +		wait_event_interruptible_timeout(u->wait, 
-> > +			u->ready_num >= min_nr, msecs_to_jiffies(timeout));
-> > +	}
-> > +	
-> > +	while (num < max_nr && ((k = kqueue_dequeue_ready(u)) != NULL)) {
-> > +		if (copy_to_user(buf + num*sizeof(struct ukevent), 
-> > +					&k->event, sizeof(struct ukevent))) {
-> > +			cerr = -EINVAL;
-> > +			break;
-> > +		}
-> > +
-> > +		/*
-> > +		 * If it is one-shot kevent, it has been removed already from
-> > +		 * origin's queue, so we can easily free it here.
-> > +		 */
-> > +		if (k->event.req_flags & KEVENT_REQ_ONESHOT)
-> > +			kevent_finish_user(k, 1);
-> > +		++num;
-> > +		kevent_user_stat_increase_wait(u);
-> > +	}
-> > +
-> > +	return (cerr)?cerr:num;
-> > +}
-> 
-> So if this returns an error, the user doesn't know how many events were
-> actually completed?   That doesn't seem good.
-
-What is the alternative?
-read() work the same way - either error or number of bytes read.
-
-> > +asmlinkage long sys_kevent_ctl(int fd, unsigned int cmd, unsigned int num, void __user *arg)
-> 
-> At some point Michael will want to be writing the manpages for things like
-> this.  He'll start out by reading the comment block, poor guy.
-
-I will add comments.
-
-> > +{
-> > +	int err = -EINVAL;
-> > +	struct file *file;
-> > +
-> > +	if (cmd == KEVENT_CTL_INIT)
-> > +		return kevent_ctl_init();
-> > +
-> > +	file = fget(fd);
-> > +	if (!file)
-> > +		return -ENODEV;
-> > +
-> > +	if (file->f_op != &kevent_user_fops)
-> > +		goto out_fput;
-> > +
-> > +	err = kevent_ctl_process(file, cmd, num, arg);
-> > +
-> > +out_fput:
-> > +	fput(file);
-> > +	return err;
-> > +}
-
-So let me quote your first words about kevent:
-
-> Summary:
-> 
-> - has serious bugs which indicate that much better testing is needed.
-> 
-> - All -EFOO return values need to be reviewed for appropriateness
-> 
-> - needs much better commenting before I can do more than a local-level review.
-
-As far as I can see there are no serious bugs except absence of two
-checks for and typo in function order, which abviously will be fixed.
-All EFOO will be changed according to comments and better comments will
-be added.
-
-Thank you for review, Andrew.
-
--- 
-	Evgeniy Polyakov
+
+--=-TUnqmavuSnyxbG+I5G3D
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+
+Hi Jan-Bernd,
+
+Comments below the code they refer to.
+
+On Wed, 2006-08-09 at 10:38 +0200, Jan-Bernd Themann wrote:=20
+> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
+
+>   drivers/net/ehea/ehea_main.c | 2738 +++++++++++++++++++++++++++++++++++=
+++++++++
+>   1 file changed, 2738 insertions(+)
+
+> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea_main.c	1969-12-31 16:00:0=
+0.000000000 -0800
+> +++ kernel/drivers/net/ehea/ehea_main.c	2006-08-08 23:59:39.683357016 -07=
+00
+> @@ -0,0 +1,2738 @@
+> +/*
+> + *  linux/drivers/net/ehea/ehea_main.c
+
+Putting the file name in the file is fairly redundant IMHO.
+
+> + *  eHEA ethernet device driver for IBM eServer System p
+
+What's the actual hardware that this is for? System p covers a whole
+range of machines, do they really all support this driver?
+
+> + *  (C) Copyright IBM Corp. 2006
+> + *
+> + *  Authors:
+> + *       Christoph Raisch <raisch@de.ibm.com>
+> + *       Jan-Bernd Themann <themann@de.ibm.com>
+> + *       Heiko-Joerg Schick <schickhj@de.ibm.com>
+> + *       Thomas Klein <tklein@de.ibm.com>
+> + *
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2, or (at your option)
+> + * any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+> + * GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program; if not, write to the Free Software
+> + * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+> + */
+> +
+> +#define DEB_PREFIX "main"
+> +
+> +#include <linux/in.h>
+> +#include <linux/ip.h>
+> +#include <linux/tcp.h>
+> +#include <linux/udp.h>
+> +#include <linux/if.h>
+> +#include <linux/list.h>
+> +#include <net/ip.h>
+> +
+> +#include "ehea.h"
+> +#include "ehea_qmr.h"
+> +#include "ehea_phyp.h"
+> +
+> +
+> +MODULE_LICENSE("GPL");
+> +MODULE_AUTHOR("Christoph Raisch <raisch@de.ibm.com>");
+> +MODULE_DESCRIPTION("IBM eServer HEA Driver");
+> +MODULE_VERSION(EHEA_DRIVER_VERSION);
+> +
+> +static int __devinit ehea_probe(struct ibmebus_dev *dev,
+> +				const struct of_device_id *id);
+> +static int __devexit ehea_remove(struct ibmebus_dev *dev);
+> +static int ehea_sense_port_attr(struct ehea_adapter *adapter, int portnu=
+m);
+
+I haven't looked closely, but can you rearrange the functions so you
+don't need these forward declarations?
+
+> +int ehea_trace_level =3D 5;
+> +
+> +static struct net_device_stats *ehea_get_stats(struct net_device *dev)
+> +{
+> +	int i;
+> +	u64 hret =3D H_HARDWARE;
+
+You unconditionally assign to hret below.
+
+> +	u64 rx_packets =3D 0;
+
+Why not just update stats->rx_packets directly?
+
+> +	struct ehea_port *port =3D (struct ehea_port*)dev->priv;
+> +	struct ehea_adapter *adapter =3D port->adapter;
+
+I don't think you need adapter, you only use it in one place, just
+access it through port->adapter->handle (below).
+
+> +	struct hcp_query_ehea_port_cb_2 *cb2 =3D NULL;
+> +	struct net_device_stats *stats =3D &port->stats;
+> +
+> +	EDEB_EN(7, "net_device=3D%p", dev);
+> +
+> +	cb2 =3D kzalloc(H_CB_ALIGNMENT, GFP_KERNEL);
+> +	if (!cb2) {
+> +		EDEB_ERR(4, "No memory for cb2");
+> +		goto get_stat_exit;
+
+You leak cb2 here.
+
+> +	}
+> +
+> +	hret =3D ehea_h_query_ehea_port(adapter->handle,
+> +				      port->logical_port_id,
+> +				      H_PORT_CB2,
+> +				      H_PORT_CB2_ALL,
+> +				      cb2);
+> +
+> +	if (hret !=3D H_SUCCESS) {
+> +		EDEB_ERR(4, "query_ehea_port failed for cb2");
+> +		goto get_stat_exit;
+> +	}
+> +
+> +	EDEB_DMP(7, (u8*)cb2,
+> +		 sizeof(struct hcp_query_ehea_port_cb_2), "After HCALL");
+> +
+> +	for (i =3D 0; i < port->num_def_qps; i++) {
+> +		rx_packets +=3D port->port_res[i].rx_packets;
+> +	}
+> +
+> +	stats->tx_packets =3D cb2->txucp + cb2->txmcp + cb2->txbcp;
+> +	stats->multicast =3D cb2->rxmcp;
+> +	stats->rx_errors =3D cb2->rxuerr;
+> +	stats->rx_bytes =3D cb2->rxo;
+> +	stats->tx_bytes =3D cb2->txo;
+> +	stats->rx_packets =3D rx_packets;
+> +
+> +get_stat_exit:
+> +	EDEB_EX(7, "");
+> +	return stats;
+> +}
+> +
+> +static inline u32 ehea_get_send_lkey(struct ehea_port_res *pr)
+> +{
+> +	return pr->send_mr.lkey;
+> +}
+
+Get rid of this, it's only used once.
+
+> +static inline u32 ehea_get_recv_lkey(struct ehea_port_res *pr)
+> +{
+> +	return pr->recv_mr.lkey;
+> +}
+
+And this one only twice? Is it really useful?
+
+> +
+> +#define EHEA_OD_ADDR(address, segment) (((address) & (PAGE_SIZE - 1)) \
+> +					| ((segment) << 12));
+> +
+> +static inline u64 get_swqe_addr(u64 tmp_addr, int addr_seg)
+> +{
+> +	u64 addr;
+> +	addr =3D tmp_addr;
+> +	return addr;
+> +}
+> +
+> +static inline u64 get_rwqe_addr(u64 tmp_addr)
+> +{
+> +	return tmp_addr;
+> +}
+
+This two functions seem useless or wrong.
+
+> +static inline int ehea_refill_rq1(struct ehea_port_res *port_res, int ar=
+r_index,
+> +				  int nr_of_wqes)
+> +{
+> +	int i;
+> +	int ret =3D 0;
+> +	struct ehea_qp *qp;
+> +	int skb_arr_rq1_len =3D port_res->skb_arr_rq1_len;
+> +	struct sk_buff **skb_arr_rq1 =3D port_res->skb_arr_rq1;
+> +	EDEB_EN(7, "port_res=3D%p, arr_index=3D%d, nr_of_wqes=3D%d, arr_rq1_len=
+=3D%d",
+> +		port_res, arr_index, nr_of_wqes, skb_arr_rq1_len);
+> +
+> +	qp =3D port_res->qp;
+
+You don't need the qp variable, just use port_res->qp below.
+
+> +	if (unlikely(nr_of_wqes =3D=3D 0))
+> +		return -EINVAL;
+
+Newline needed here.
+
+> +	for (i =3D 0; i < nr_of_wqes; i++) {
+> +		int index =3D ((skb_arr_rq1_len + arr_index) - i)
+> +		    % skb_arr_rq1_len;
+
+The wrapped line should be indented further to the right.
+
+> +		if (!skb_arr_rq1[index]) {
+> +			skb_arr_rq1[index] =3D dev_alloc_skb(EHEA_LL_PKT_SIZE);
+> +
+> +			if (!skb_arr_rq1[index]) {
+> +				EDEB_ERR(4, "No mem for skb/%d wqes filled", i);
+> +				ret =3D -ENOMEM;
+> +				break;
+> +			}
+> +		}
+> +	}
+> +	/* Ring doorbell */
+> +	ehea_update_rq1a(qp, nr_of_wqes);
+> +	EDEB_EX(7, "");
+> +	return ret;
+> +}
+> +
+> +static int ehea_init_fill_rq1(struct ehea_port_res *port_res, int nr_rq1=
+a)
+> +{
+> +	int i;
+> +	int ret =3D 0;
+> +	struct ehea_qp *qp;
+> +	EDEB_EN(7, "port_res=3D%p, nr_rq1a=3D%d", port_res, nr_rq1a);
+> +	qp =3D port_res->qp;
+> +
+> +	for (i =3D 0; i < port_res->skb_arr_rq1_len; i++) {
+> +		port_res->skb_arr_rq1[i] =3D dev_alloc_skb(EHEA_LL_PKT_SIZE);
+> +		if (!port_res->skb_arr_rq1[i]) {
+> +			EDEB_ERR(4, "dev_alloc_skb failed. Only %d skb filled.",
+> +				 i);
+> +			ret =3D -ENOMEM;
+> +			break;
+> +		}
+> +	}
+> +	/* Ring doorbell */
+> +	ehea_update_rq1a(qp, nr_rq1a);
+> +	EDEB_EX(7, "");
+> +	return ret;
+> +}
+> +
+> +static inline int ehea_refill_rq2_def(struct ehea_port_res *pr, int nr_o=
+f_wqes)
+> +{
+> +	int i;
+> +	int ret =3D 0;
+> +	struct ehea_qp *qp;
+> +	struct ehea_rwqe *rwqe;
+> +	int skb_arr_rq2_len =3D pr->skb_arr_rq2_len;
+> +	struct sk_buff **skb_arr_rq2 =3D pr->skb_arr_rq2;
+> +
+> +	EDEB_EN(8, "pr=3D%p, nr_of_wqes=3D%d", pr, nr_of_wqes);
+> +	if (nr_of_wqes =3D=3D 0)
+> +		return -EINVAL;
+> +	qp =3D pr->qp;
+> +	for (i =3D 0; i < nr_of_wqes; i++) {
+> +		int index =3D pr->skb_rq2_index++;
+> +		struct sk_buff *skb =3D dev_alloc_skb(EHEA_RQ2_PKT_SIZE
+> +						    + NET_IP_ALIGN);
+> +
+> +		if (!skb) {
+> +			EDEB_ERR(4, "dev_alloc_skb nr %d failed", i);
+> +			ret =3D -ENOMEM;
+> +			break;
+> +		}
+> +		skb_reserve(skb, NET_IP_ALIGN);
+> +		pr->skb_rq2_index %=3D skb_arr_rq2_len;
+> +		skb_arr_rq2[index] =3D skb;
+> +		rwqe =3D ehea_get_next_rwqe(qp, 2);
+> +		rwqe->wr_id =3D EHEA_BMASK_SET(EHEA_WR_ID_TYPE, EHEA_RWQE2_TYPE)
+> +		            | EHEA_BMASK_SET(EHEA_WR_ID_INDEX, index);
+> +		rwqe->sg_list[0].l_key =3D ehea_get_recv_lkey(pr);
+> +		rwqe->sg_list[0].vaddr =3D get_rwqe_addr((u64)skb->data);
+> +		rwqe->sg_list[0].len =3D EHEA_RQ2_PKT_SIZE;
+> +		rwqe->data_segments =3D 1;
+> +	}
+> +
+> +	/* Ring doorbell */
+> +	iosync();
+> +	ehea_update_rq2a(qp, i);
+> +	EDEB_EX(8, "");
+> +	return ret;
+> +}
+> +
+> +
+> +static inline int ehea_refill_rq2(struct ehea_port_res *pr, int nr_of_wq=
+es)
+> +{
+> +	return ehea_refill_rq2_def(pr, nr_of_wqes);
+> +}
+
+Why do you need this function?
+
+> +static inline int ehea_refill_rq3_def(struct ehea_port_res *pr, int nr_o=
+f_wqes)
+> +{
+> +	int i;
+> +	int ret =3D 0;
+> +	struct ehea_qp *qp;
+> +	struct ehea_rwqe *rwqe;
+> +	int skb_arr_rq3_len =3D pr->skb_arr_rq3_len;
+> +	struct sk_buff **skb_arr_rq3 =3D pr->skb_arr_rq3;
+> +	EDEB_EN(8, "pr=3D%p, nr_of_wqes=3D%d", pr, nr_of_wqes);
+> +	if (nr_of_wqes =3D=3D 0)
+> +		return -EINVAL;
+> +	qp =3D pr->qp;
+> +	for (i =3D 0; i < nr_of_wqes; i++) {
+> +		int index =3D pr->skb_rq3_index++;
+> +		struct sk_buff *skb =3D dev_alloc_skb(EHEA_MAX_PACKET_SIZE
+> +						    + NET_IP_ALIGN);
+> +
+> +		if (!skb) {
+> +			EDEB_ERR(4, "No memory for skb. Only %d rwqe filled.",
+> +				 i);
+> +			ret =3D -ENOMEM;
+> +			break;
+> +		}
+> +		skb_reserve(skb, NET_IP_ALIGN);
+> +
+> +		rwqe =3D ehea_get_next_rwqe(qp, 3);
+> +		pr->skb_rq3_index %=3D skb_arr_rq3_len;
+> +		skb_arr_rq3[index] =3D skb;
+> +		rwqe->wr_id =3D EHEA_BMASK_SET(EHEA_WR_ID_TYPE, EHEA_RWQE3_TYPE)
+> +		    | EHEA_BMASK_SET(EHEA_WR_ID_INDEX, index);
+> +		rwqe->sg_list[0].l_key =3D ehea_get_recv_lkey(pr);
+> +		rwqe->sg_list[0].vaddr =3D get_rwqe_addr((u64)skb->data);
+> +		rwqe->sg_list[0].len =3D EHEA_MAX_PACKET_SIZE;
+> +		rwqe->data_segments =3D 1;
+> +	}
+> +
+> +	/* Ring doorbell */
+> +	iosync();
+> +	ehea_update_rq3a(qp, i);
+> +	EDEB_EX(8, "");
+> +	return ret;
+> +}
+
+You "Ring doorbell" in four places, but only in two do you do iosync(),
+that might be ok, but it looks suspicious. Also, what is the iosync
+trying to achieve?
+
+ehea_refill_rq3_def() and ehea_refill_rq2_def() look quite similar, can
+they be combined?
+
+> +
+> +
+> +static inline int ehea_refill_rq3(struct ehea_port_res *pr, int nr_of_wq=
+es)
+> +{
+> +	return ehea_refill_rq3_def(pr, nr_of_wqes);
+> +}
+> +
+> +
+> +static inline int ehea_check_cqe(struct ehea_cqe *cqe, int *rq_num)
+> +{
+> +	*rq_num =3D (cqe->type & EHEA_CQE_TYPE_RQ) >> 5;
+> +	EDEB(7, "RQ used=3D%d, status=3D%X", *rq_num, cqe->status);
+> +	if ((cqe->status & EHEA_CQE_STAT_ERR_MASK) =3D=3D 0)
+> +		return 0;
+> +	if (((cqe->status & EHEA_CQE_STAT_ERR_TCP) !=3D 0)
+> +	    && (cqe->header_length =3D=3D 0))
+> +		return 0;
+> +	else
+> +		printk("WARNING: Packet discarded. Wrong TCP/UDP chksum"
+> +		       "and header_length !=3D 0. cqe->status=3D%X", cqe->status);
+> +
+> +	return -EINVAL;
+> +}
+> +
+> +static inline void ehea_fill_skb_ll(struct net_device *dev,
+> +				    struct sk_buff *skb, struct ehea_cqe *cqe)
+> +{
+> +	int length =3D cqe->num_bytes_transfered - 4;	/*remove CRC */
+> +	EDEB_EN(7, "dev=3D%p, skb=3D%p, cqe=3D%p", dev, skb, cqe);
+> +	memcpy(skb->data, ((char*)cqe) + 64, length);
+> +	skb_put(skb, length);
+> +	skb->dev =3D dev;
+> +	skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+> +	skb->protocol =3D eth_type_trans(skb, dev);
+> +	EDEB_EX(7, "");
+> +}
+> +
+> +static inline void ehea_fill_skb(struct net_device *dev,
+> +				 struct sk_buff *skb, struct ehea_cqe *cqe)
+> +{
+> +	int length =3D cqe->num_bytes_transfered - 4;	/*remove CRC */
+> +	EDEB_EN(7, "dev=3D%p, skb=3D%p, cqe=3D%p", dev, skb, cqe);
+> +	skb_put(skb, length);
+> +	skb->dev =3D dev;
+> +	skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+> +	skb->protocol =3D eth_type_trans(skb, dev);
+> +	EDEB_EX(7, "");
+> +}
+
+What's the difference between the above two functions?
+
+> +#define EHEA_MAX_RWQE 1000
+
+Should probably be in a header.
+
+> +static int ehea_poll(struct net_device *dev, int *budget)
+> +{
+> +	struct ehea_port *port =3D (struct ehea_port*)dev->priv;
+> +	struct ehea_port_res *port_res =3D &port->port_res[0];
+> +	struct ehea_cqe *cqe;
+> +	struct ehea_qp *qp =3D port_res->qp;
+> +	int wqe_index =3D 0;
+> +	int last_wqe_index =3D 0;
+> +	int x =3D 0;
+> +	int processed =3D 0;
+> +	int processed_RQ1 =3D 0;
+> +	int processed_RQ2 =3D 0;
+> +	int processed_RQ3 =3D 0;
+> +	int rq;
+> +	int intreq;
+> +	struct sk_buff **skb_arr_rq1 =3D port_res->skb_arr_rq1;
+> +	struct sk_buff **skb_arr_rq2 =3D port_res->skb_arr_rq2;
+> +	struct sk_buff **skb_arr_rq3 =3D port_res->skb_arr_rq3;
+> +	int skb_arr_rq1_len =3D port_res->skb_arr_rq1_len;
+> +	int my_quota =3D min(*budget, dev->quota);
+> +
+> +	EDEB_EN(7, "dev=3D%p, port_res=3D%p, budget=3D%d, quota=3D%d, qp_nr=3D%=
+x",
+> +		dev, port_res, *budget, dev->quota,
+> +		port_res->qp->init_attr.qp_nr);
+> +	my_quota =3D min(my_quota, EHEA_MAX_RWQE);
+> +
+> +	/* rq0 is low latency RQ */
+> +	cqe =3D ehea_poll_rq1(qp, &wqe_index);
+> +	while ((my_quota > 0) && cqe) {
+> +		ehea_inc_rq1(qp);
+> +		processed_RQ1++;
+> +		processed++;
+> +		my_quota--;
+> +
+> +		EDEB_DMP(6, (u8*)cqe, 4 * 16, "CQE");
+> +		last_wqe_index =3D wqe_index;
+> +		rmb();
+> +		if (!ehea_check_cqe(cqe, &rq)) {
+> +			struct sk_buff *skb;
+> +			if (rq =3D=3D 1) {	/* LL RQ1 */
+> +				void *pref;
+> +
+> +				x =3D (wqe_index + 1) % skb_arr_rq1_len;
+> +				pref =3D (void*)skb_arr_rq1[x];
+> +				prefetchw(pref);
+> +				prefetchw(pref + EHEA_CACHE_LINE);
+> +
+> +				x =3D (wqe_index + 1) % skb_arr_rq1_len;
+> +				pref =3D (void*)(skb_arr_rq1[x]->data);
+> +				prefetchw(pref);
+> +				prefetchw(pref + EHEA_CACHE_LINE);
+> +
+> +				skb =3D skb_arr_rq1[wqe_index];
+> +				if (unlikely(!skb)) {
+> +					EDEB_ERR(4, "LL SBK=3DNULL, wqe_index=3D%d",
+> +						 wqe_index);
+> +					skb =3D dev_alloc_skb(EHEA_LL_PKT_SIZE);
+> +					if (!skb)
+> +						panic("Alloc SKB failed");
+> +				}
+> +				skb_arr_rq1[wqe_index] =3D NULL;
+> +				ehea_fill_skb_ll(dev, skb, cqe);
+> +			} else if (rq =3D=3D 2) {	/* RQ2 */
+> +				void *pref;
+> +				int skb_index =3D EHEA_BMASK_GET(EHEA_WR_ID_INDEX,
+> +							       cqe->wr_id);
+> +				x =3D (skb_index + 1) % port_res->skb_arr_rq2_len;
+> +				pref =3D (void*)skb_arr_rq2[x];
+> +				prefetchw(pref);
+> +				prefetchw(pref + EHEA_CACHE_LINE);
+> +
+> +				x =3D (skb_index + 1) % port_res->skb_arr_rq2_len;
+> +				pref =3D (void*)(skb_arr_rq2[x]->data);
+> +
+> +				prefetch(pref);
+> +				prefetch(pref + EHEA_CACHE_LINE);
+> +				prefetch(pref + EHEA_CACHE_LINE * 2);
+> +				prefetch(pref + EHEA_CACHE_LINE * 3);
+> +				skb =3D skb_arr_rq2[skb_index];
+> +
+> +				if (unlikely(!skb)) {
+> +					EDEB_ERR(4, "rq2: SKB=3DNULL, index=3D%d",
+> +						 skb_index);
+> +					break;
+> +				}
+> +				skb_arr_rq2[skb_index] =3D NULL;
+> +				ehea_fill_skb(dev, skb, cqe);
+> +				processed_RQ2++;
+> +			} else {
+> +				void *pref;
+> +				int skb_index =3D EHEA_BMASK_GET(EHEA_WR_ID_INDEX,
+> +							       cqe->wr_id);
+> +				x =3D (skb_index + 1) % port_res->skb_arr_rq3_len;
+> +				pref =3D (void*)skb_arr_rq3[x];
+> +				prefetchw(pref);
+> +				prefetchw(pref + EHEA_CACHE_LINE);
+> +
+> +				x =3D (skb_index + 1) % port_res->skb_arr_rq3_len;
+> +				pref =3D (void*)(skb_arr_rq3[x]->data);
+> +				prefetch(pref);
+> +				prefetch(pref + EHEA_CACHE_LINE);
+> +				prefetch(pref + EHEA_CACHE_LINE * 2);
+> +				prefetch(pref + EHEA_CACHE_LINE * 3);
+> +
+> +				skb =3D skb_arr_rq3[skb_index];
+> +				if (unlikely(!skb)) {
+> +					EDEB_ERR(4, "rq3: SKB=3DNULL, index=3D%d",
+> +						 skb_index);
+> +					break;
+> +				}
+> +				skb_arr_rq3[skb_index] =3D NULL;
+> +				ehea_fill_skb(dev, skb, cqe);
+> +				processed_RQ3++;
+> +			}
+> +
+> +			EDEB(6, "About to pass SKB: dev=3D%p\n"
+> +			     "skb=3D%p skb->data=3D%p skb->len=3D%d"
+> +			     " skb->data_len=3D0x%x nr_frags=3D%d",
+> +			     dev,
+> +			     skb,
+> +			     skb->data,
+> +			     skb->len,
+> +			     skb->data_len, skb_shinfo(skb)->nr_frags);
+> +			if (cqe->status & EHEA_CQE_VLAN_TAG_XTRACT) {
+> +				EDEB(7, "VLAN TAG extracted: %4x, vgrp=3D%p",
+> +				     cqe->vlan_tag, port->vgrp);
+> +				EDEB(7, "vlan_devices[vlan_tag]=3D%p",
+> +				     port->vgrp->vlan_devices[cqe->vlan_tag]);
+> +				vlan_hwaccel_receive_skb(skb, port->vgrp,
+> +							 cqe->vlan_tag);
+> +			} else {
+> +				EDEB(7, "netif_receive_skb");
+> +				netif_receive_skb(skb);
+> +			}
+> +			EDEB(7, "SKB passed (netif_receive(skb) called)");
+> +
+> +		} else {
+> +			struct sk_buff *skb;
+> +
+> +			EDEB_ERR(4, "cqe->status indicating error: CQE:");
+> +			EDEB_DMP(4, (u8*)cqe, 4 * 16, "");
+> +			if (rq =3D=3D 2) {
+> +				processed_RQ2++;
+> +				skb =3D skb_arr_rq2[
+> +					EHEA_BMASK_GET(EHEA_WR_ID_INDEX,
+> +							  cqe->wr_id)];
+> +				skb_arr_rq2[EHEA_BMASK_GET(EHEA_WR_ID_INDEX,
+> +							  cqe->wr_id)] =3D NULL;
+> +				dev_kfree_skb(skb);
+> +			}
+> +			if (rq =3D=3D 3) {
+> +				processed_RQ3++;
+> +				skb =3D skb_arr_rq3[
+> +					EHEA_BMASK_GET(EHEA_WR_ID_INDEX,
+> +								cqe->wr_id)];
+> +				skb_arr_rq3[EHEA_BMASK_GET(EHEA_WR_ID_INDEX,
+> +							  cqe->wr_id)] =3D NULL;
+> +				dev_kfree_skb(skb);
+> +			}
+> +		}
+> +		cqe =3D ehea_poll_rq1(qp, &wqe_index);
+> +	}
+> +
+> +	dev->quota -=3D processed;
+> +	*budget -=3D processed;
+> +
+> +	port_res->p_state.ehea_poll +=3D 1;
+> +
+> +	port_res->rx_packets +=3D processed;
+> +
+> +	ehea_refill_rq1(port_res, last_wqe_index, processed_RQ1);
+> +	ehea_refill_rq2(port_res, processed_RQ2);
+> +	ehea_refill_rq3(port_res, processed_RQ3);
+> +
+> +	intreq =3D ((port_res->p_state.ehea_poll & 0xF) =3D=3D 0xF);
+> +
+> +	EDEB_EX(7, "processed=3D%d, *budget=3D%d, dev->quota=3D%d",
+> +		processed, *budget, dev->quota);
+> +
+> +	if (!cqe || intreq) {
+> +		netif_rx_complete(dev);
+> +		ehea_reset_cq_ep(port_res->recv_cq);
+> +		ehea_reset_cq_n1(port_res->recv_cq);
+> +		cqe =3D ipz_qeit_get_valid(&qp->ipz_rqueue1);
+> +		EDEB(7, "CQE=3D%p, break ehea_poll while loop", cqe);
+> +		if (!cqe || intreq)
+> +			return 0;
+> +		if (!netif_rx_reschedule(dev, my_quota))
+> +			return 0;
+> +	}
+> +	return 1;
+> +}
+
+This function is _way_ too big.
+
+> +#define MAX_SENDCOMP_QUOTA 400
+> +void ehea_send_irq_tasklet(unsigned long data)
+> +{
+> +	int quota =3D MAX_SENDCOMP_QUOTA;
+> +	int skb_index;
+> +	int cqe_counter =3D 0;
+> +	int swqe_av =3D 0;
+> +	unsigned long flags;
+> +	struct sk_buff *skb;
+> +	struct ehea_cqe *cqe;
+> +	struct ehea_port_res *port_res =3D (struct ehea_port_res*)data;
+> +	struct ehea_cq *send_cq =3D port_res->send_cq;
+> +	struct net_device *dev =3D port_res->port->netdev;
+> +
+> +	EDEB_EN(7, "port_res=3D%p", port_res);
+> +
+> +	do {
+> +		cqe =3D ehea_poll_cq(send_cq);
+> +		if (!cqe) {
+> +			EDEB(7, "No further cqe found");
+> +			ehea_reset_cq_ep(send_cq);
+> +			ehea_reset_cq_n1(send_cq);
+> +			cqe =3D ehea_poll_cq(send_cq);
+> +			if (!cqe) {
+> +				EDEB(7, "No cqe found after having"
+> +				     " reset N1/EP\n");
+> +				break;
+> +			}
+> +		}
+> +		cqe_counter++;
+> +		EDEB(7, "CQE found on Send-CQ:");
+> +		EDEB_DMP(7, (u8*)cqe, 4 * 16, "");
+> +		rmb();
+> +		if (likely(EHEA_BMASK_GET(EHEA_WR_ID_TYPE, cqe->wr_id)
+> +			   =3D=3D EHEA_SWQE2_TYPE)) {	/* is swqe format 2 */
+> +			int i;
+> +			int index =3D EHEA_BMASK_GET(EHEA_WR_ID_INDEX,
+> +						     cqe->wr_id);
+> +			for (i =3D 0; i < EHEA_BMASK_GET(EHEA_WR_ID_REFILL,
+> +						       cqe->wr_id); i++) {
+> +
+> +				skb_index =3D ((index - i
+> +					      + port_res->skb_arr_sq_len)
+> +					     % port_res->skb_arr_sq_len);
+> +				skb =3D port_res->skb_arr_sq[skb_index];
+> +				port_res->skb_arr_sq[skb_index] =3D NULL;
+> +
+> +				if (unlikely(!skb)) {
+> +					EDEB_ERR(4, "s_irq_tasklet: SKB=3DNULL "
+> +						 "WQ_ID=3D%lX, loop=3D%d, index=3D%d",
+> +						 cqe->wr_id, i, skb_index);
+> +					break;
+> +				}
+> +				dev_kfree_skb(skb);
+> +			}
+> +		}
+> +		swqe_av +=3D EHEA_BMASK_GET(EHEA_WR_ID_REFILL, cqe->wr_id);
+> +		quota--;
+> +	} while (quota > 0);
+> +
+> +	ehea_update_feca(send_cq, cqe_counter);
+> +
+> +	atomic_add(swqe_av, &port_res->swqe_avail);
+> +	EDEB(7, "port_res->swqe_avail=3D%d",
+> +	     atomic_read(&port_res->swqe_avail));
+> +
+> +	if (unlikely(netif_queue_stopped(dev))) {
+> +		spin_lock_irqsave(&port_res->netif_queue, flags);
+> +		if (unlikely((atomic_read(&port_res->swqe_avail)
+> +			      >=3D EHEA_SWQE_REFILL_TH))) {
+> +			EDEB(7, "port %d swqes_avail >=3D10 (%d),"
+> +			     "netif_wake_queue called",
+> +			     port_res->port->logical_port_id,
+> +			     atomic_read(&port_res->swqe_avail));
+> +			netif_wake_queue(port_res->port->netdev);
+> +		}
+> +		spin_unlock_irqrestore(&port_res->netif_queue, flags);
+> +	}
+> +
+> +	if (unlikely(cqe))
+> +		tasklet_hi_schedule(&port_res->send_comp_task);
+> +
+> +	EDEB_EX(7, "");
+> +}
+
+This one's pretty big too.
+
+> +
+> +irqreturn_t ehea_send_irq_handler(int irq, void *param, struct pt_regs *=
+regs)
+> +{
+> +	struct ehea_port_res *pr =3D (struct ehea_port_res*)param;
+> +	EDEB_EN(7, "irq=3D%d, param=3D%p, pt_regs=3D%p", irq, param, regs);
+> +	tasklet_hi_schedule(&pr->send_comp_task);
+> +	EDEB_EX(7, "");
+> +	return IRQ_HANDLED;
+> +}
+> +
+> +irqreturn_t ehea_recv_irq_handler(int irq, void *param, struct pt_regs *=
+ regs)
+> +{
+> +	struct ehea_port_res *pr =3D (struct ehea_port_res*)param;
+> +	struct ehea_port *port =3D pr->port;
+> +	EDEB_EN(7, "irq=3D%d, param=3D%p, pt_regs=3D%p", irq, param, regs);
+> +	netif_rx_schedule(port->netdev);
+> +	EDEB_EX(7, "");
+> +	return IRQ_HANDLED;
+> +}
+> +
+> +irqreturn_t ehea_qp_aff_irq_handler(int irq, void *param, struct pt_regs=
+ * regs)
+> +{
+> +	struct ehea_port *port =3D (struct ehea_port*)param;
+> +	struct ehea_eqe *eqe;
+> +	u32 qp_token;
+> +
+> +	EDEB_EN(7, "irq=3D%d, param=3D%p, pt_regs=3D%p", irq, param, regs);
+> +	eqe =3D (struct ehea_eqe*)ehea_poll_eq(port->qp_eq);
+
+Suspicious cast?
+
+> +	EDEB(7, "eqe=3D%p", eqe);
+> +	while (eqe) {
+> +		EDEB(7, "*eqe=3D%lx", *(u64*)eqe);
+> +		eqe =3D (struct ehea_eqe*)ehea_poll_eq(port->qp_eq);
+> +		qp_token =3D EHEA_BMASK_GET(EHEA_EQE_QP_TOKEN, eqe->entry);
+
+You don't seem to use qp_token?
+
+> +		EDEB(7, "next eqe=3D%p", eqe);
+> +	}
+> +
+> +	EDEB_EX(7, "");
+> +	return IRQ_HANDLED;
+> +}
+> +
+> +static struct ehea_port *ehea_get_port(struct ehea_adapter *adapter,
+> +				       int logical_port)
+> +{
+> +	int i;
+> +
+> +	for (i =3D 0; i < adapter->num_ports; i++)
+> +		if (adapter->port[i]->logical_port_id =3D=3D logical_port)
+> +			return adapter->port[i];
+> +	return NULL;
+> +}
+> +
+> +static void ehea_parse_eqe(struct ehea_adapter *adapter, u64 eqe)
+> +{
+> +	int ret =3D -EINVAL;
+> +	u8 ec =3D 0;
+> +	u8 portnum =3D 0;
+> +	struct ehea_port *port =3D NULL;
+
+You don't need to initialise these three variables.
+
+> +
+> +	EDEB_EN(7, "eqe=3D%lx", eqe);
+> +
+> +	ec =3D EHEA_BMASK_GET(NEQE_EVENT_CODE, eqe);
+> +
+> +	switch (ec) {
+> +	case EHEA_EC_PORTSTATE_CHG:	/* port state change */
+> +		EDEB(7, "Port state change");
+> +		portnum =3D EHEA_BMASK_GET(NEQE_PORTNUM, eqe);
+> +		port =3D ehea_get_port(adapter, portnum);
+> +
+> +		if (!port) {
+> +			EDEB_ERR(4, "Unknown portnum %x", portnum);
+> +			break;
+> +		}
+> +
+> +		if (EHEA_BMASK_GET(NEQE_PORT_UP, eqe)) {
+> +			if (!netif_carrier_ok(port->netdev)) {
+> +				ret =3D ehea_sense_port_attr(adapter, portnum);
+> +				if (ret) {
+> +					EDEB_ERR(4, "Failed resensing port");
+> +					break;
+> +				}
+> +
+> +				printk("%s: Logical port up: %dMbps %s Duplex",
+> +				       port->netdev->name,
+> +				       port->port_speed,
+> +				       port->full_duplex =3D=3D
+> +				       1 ? "Full" : "Half");
+> +
+> +				netif_carrier_on(port->netdev);
+> +				netif_wake_queue(port->netdev);
+> +			}
+> +		} else
+> +			if (netif_carrier_ok(port->netdev)) {
+> +				printk("%s: Logical port down",
+> +				       port->netdev->name);
+> +				netif_carrier_off(port->netdev);
+> +				netif_stop_queue(port->netdev);
+> +			}
+> +
+> +		if (EHEA_BMASK_GET(NEQE_EXTSWITCH_PORT_UP, eqe))
+> +			printk("%s: Physical port up", port->netdev->name);
+> +		else
+> +			printk("%s: Physical port down", port->netdev->name);
+> +
+> +		if (EHEA_BMASK_GET(NEQE_EXTSWITCH_PRIMARY, eqe))
+> +			printk("Externel switch port is primary port");
+> +		else
+> +			printk("Externel switch port is backup port");
+
+These printks should probably use KERN_DEBUG, or netif_msg_foo().
+
+> +		break;
+> +	case EHEA_EC_ADAPTER_MALFUNC:	/* adapter malfunction */
+> +		EDEB_ERR(4, "Adapter malfunction");
+> +		break;
+> +	case EHEA_EC_PORT_MALFUNC:	/* port malfunction */
+> +		EDEB_ERR(4, "Port malfunction");
+> +		/* TODO Determine the port structure of the malfunctioning port
+> +		 * netif_carrier_off(port->netdev);
+> +		 * netif_stop_queue(port->netdev);
+> +		 */
+> +		break;
+
+The two malfunction states could probably use a printk(KERN_WARNING .. )
+for now.
+
+> +	default:
+> +		EDEB_ERR(4, "Unknown event code %x", ec);
+> +		break;
+> +	}
+> +
+> +	EDEB_EX(7, "");
+> +}
+> +
+> +void ehea_neq_tasklet(unsigned long data)
+> +{
+> +	struct ehea_adapter *adapter =3D (struct ehea_adapter*)data;
+> +	struct ehea_eqe *eqe;
+> +	u64 event_mask;
+> +
+> +	EDEB_EN(7, "");
+> +	eqe =3D (struct ehea_eqe*)ehea_poll_eq(adapter->neq);
+> +	EDEB(7, "eqe=3D%p", eqe);
+> +
+> +	while (eqe) {
+> +		EDEB(7, "*eqe=3D%lx", eqe->entry);
+> +		ehea_parse_eqe(adapter, eqe->entry);
+> +		eqe =3D (struct ehea_eqe*)ehea_poll_eq(adapter->neq);
+> +		EDEB(7, "next eqe=3D%p", eqe);
+> +	}
+
+I think I've seen this code before.
+
+> +
+> +	event_mask =3D EHEA_BMASK_SET(NELR_PORTSTATE_CHG, 1)
+> +		   | EHEA_BMASK_SET(NELR_ADAPTER_MALFUNC, 1)
+> +		   | EHEA_BMASK_SET(NELR_PORT_MALFUNC, 1);
+> +
+> +	ehea_h_reset_events(adapter->handle,
+> +			    adapter->neq->ipz_eq_handle, event_mask);
+> +	EDEB_EX(7, "");
+> +}
+> +
+> +irqreturn_t ehea_interrupt_neq(int irq, void *param, struct pt_regs *reg=
+s)
+> +{
+> +	struct ehea_adapter *adapter =3D (struct ehea_adapter*)param;
+> +	EDEB_EN(7, "dev_id=3D%p", adapter);
+> +	tasklet_hi_schedule(&adapter->neq_tasklet);
+> +	EDEB_EX(7, "");
+> +	return IRQ_HANDLED;
+> +}
+> +
+> +
+> +
+> +static void ehea_fill_port_res(struct ehea_port_res *pr)
+> +{
+> +	struct ehea_qp_init_attr *init_attr =3D &pr->qp->init_attr;
+> +
+> +	/* RQ 1 */
+> +	ehea_init_fill_rq1(pr, init_attr->act_nr_rwqes_rq1
+> +			   - init_attr->act_nr_rwqes_rq2
+> +			   - init_attr->act_nr_rwqes_rq3 - 1);
+> +
+> +	/* RQ 2 */
+> +	ehea_refill_rq2(pr, init_attr->act_nr_rwqes_rq2);
+> +
+> +	/* RQ 3 */
+> +	ehea_refill_rq3(pr, init_attr->act_nr_rwqes_rq3);
+> +}
+> +
+> +static int ehea_reg_interrupts(struct net_device *dev)
+> +{
+> +	int ret =3D -EINVAL;
+> +	int i;
+> +	struct ehea_port *port =3D (struct ehea_port*)dev->priv;
+> +	struct ehea_port_res *pr =3D &port->port_res[0];
+
+Don't need to initalise pr.
+
+> +
+> +	EDEB_EN(7, "");
+> +	for (i =3D 0; i < port->num_def_qps; i++) {
+> +		pr =3D &port->port_res[i];
+> +		snprintf(pr->int_recv_name, EHEA_IRQ_NAME_SIZE - 1
+> +			 , "%s-recv%d", dev->name, i);
+> +		ret =3D ibmebus_request_irq(NULL,
+> +					  pr->recv_eq->attr.ist1,
+> +					  ehea_recv_irq_handler,
+> +					  SA_INTERRUPT, pr->int_recv_name, pr);
+> +		if (ret) {
+> +			EDEB_ERR(4, "Failed registering irq for ehea_recv_int:"
+> +				 "port_res_nr:%d, ist=3D%X", i,
+> +				 pr->recv_eq->attr.ist1);
+> +			goto failure;
+> +		}
+> +		EDEB(7, "irq_handle 0x%X for function ehea_recv_int %d "
+> +		     " registered", pr->recv_eq->attr.ist1, i);
+> +	}
+> +
+> +	snprintf(port->int_aff_name, EHEA_IRQ_NAME_SIZE - 1,
+> +		 "%s-aff", dev->name);
+> +	ret =3D ibmebus_request_irq(NULL,
+> +				  port->qp_eq->attr.ist1,
+> +				  ehea_qp_aff_irq_handler,
+> +				  SA_INTERRUPT, port->int_aff_name, port);
+> +	if (ret) {
+> +		EDEB_ERR(4, "Failed registering irq for qp_aff_irq_handler:"
+> +			 " ist=3D%X", port->qp_eq->attr.ist1);
+> +		goto failure;
+> +	}
+> +	EDEB(7, "irq_handle 0x%X for function qp_aff_irq_handler registered",
+> +	     port->qp_eq->attr.ist1);
+> +
+> +	for (i =3D 0; i < port->num_def_qps + port->num_tx_qps; i++) {
+> +		pr =3D &port->port_res[i];
+> +		snprintf(pr->int_send_name, EHEA_IRQ_NAME_SIZE - 1,
+> +			 "%s-send%d", dev->name, i);
+> +		ret =3D ibmebus_request_irq(NULL,
+> +					  pr->send_eq->attr.ist1,
+> +					  ehea_send_irq_handler,
+> +					  SA_INTERRUPT, pr->int_send_name,
+> +					  pr);
+> +		if (ret) {
+> +			EDEB_ERR(4, "Registering irq for ehea_send failed"
+> +				 " port_res_nr:%d, ist=3D%X", i,
+> +				 pr->send_eq->attr.ist1);
+> +			goto failure;
+> +		}
+> +		EDEB(7, "irq_handle 0x%X for function ehea_send_int %d"
+> +		     " registered", pr->send_eq->attr.ist1, i);
+> +	}
+
+You seem to be iterating over some of the port_res structs twice, is
+that what you intended?
+
+> +failure:
+> +	EDEB_EX(7, "ret=3D%d", ret);
+> +	return ret;
+
+No further cleanup required? Should you be calling ehea_free_interrupts?
+
+> +}
+> +
+> +static void ehea_free_interrupts(struct net_device *dev)
+> +{
+> +	struct ehea_port *port =3D (struct ehea_port*)dev->priv;
+> +	int i;
+> +
+> +	EDEB_EN(7, "");
+> +	/* send */
+> +	for (i =3D 0; i < port->num_def_qps + port->num_tx_qps; i++) {
+> +		ibmebus_free_irq(NULL, port->port_res[i].send_eq->attr.ist1,
+> +				 &port->port_res[i]);
+> +		EDEB(7, "free send interrupt for res %d with handle 0x%X",
+> +		     i, port->port_res[i].send_eq->attr.ist1);
+> +	}
+> +
+> +	/* receive */
+> +	for (i =3D 0; i < port->num_def_qps; i++) {
+> +		ibmebus_free_irq(NULL, port->port_res[i].recv_eq->attr.ist1,
+> +				 &port->port_res[i]);
+> +		EDEB(7, "free recv intterupt for res %d with handle 0x%X",
+> +		     i, port->port_res[i].recv_eq->attr.ist1);
+> +	}
+> +	/* associated events */
+> +	ibmebus_free_irq(NULL, port->qp_eq->attr.ist1, port);
+> +	EDEB(7, "associated event interrupt for handle 0x%X freed",
+> +	     port->qp_eq->attr.ist1);
+> +	EDEB_EX(7, "");
+> +}
+> +
+> +static int ehea_configure_port(struct ehea_port *port)
+> +{
+> +	int ret =3D -EINVAL;
+> +	u64 hret =3D H_HARDWARE;
+> +	struct hcp_query_ehea_port_cb_0 *ehea_port_cb_0 =3D NULL;
+> +	u64 mask =3D 0;
+> +	int i;
+> +
+> +	EDEB_EN(7, "");
+> +
+> +	ehea_port_cb_0 =3D kzalloc(H_CB_ALIGNMENT, GFP_KERNEL);
+> +
+> +	if (!ehea_port_cb_0) {
+> +		EDEB_ERR(4, "No memory for ehea_port control block");
+> +		ret =3D -ENOMEM;
+> +		goto kzalloc_failed;
+> +	}
+> +
+> +	ehea_port_cb_0->port_rc =3D EHEA_BMASK_SET(PXLY_RC_VALID, 1)
+> +				| EHEA_BMASK_SET(PXLY_RC_IP_CHKSUM, 1)
+> +				| EHEA_BMASK_SET(PXLY_RC_TCP_UDP_CHKSUM, 1)
+> +                		| EHEA_BMASK_SET(PXLY_RC_VLAN_XTRACT, 1)
+> +                		| EHEA_BMASK_SET(PXLY_RC_VLAN_TAG_FILTER,
+> +				                 PXLY_RC_VLAN_FILTER)
+> +				| EHEA_BMASK_SET(PXLY_RC_JUMBO_FRAME, 1);
+> +
+> +	for (i =3D 0; i < port->num_def_qps; i++) {
+> +		ehea_port_cb_0->default_qpn_array[i] =3D
+> +		    port->port_res[i].qp->init_attr.qp_nr;
+> +
+> +		EDEB(7, "default_qpn_array[%d]=3D%d",
+> +		     i, port->port_res[i].qp->init_attr.qp_nr);
+> +	}
+> +
+> +	EDEB(7, "ehea_port_cb_0");
+> +	EDEB_DMP(7, (u8*)ehea_port_cb_0, sizeof(*ehea_port_cb_0), "");
+> +
+> +	mask =3D EHEA_BMASK_SET(H_PORT_CB0_PRC, 1)
+> +	       | EHEA_BMASK_SET(H_PORT_CB0_DEFQPNARRAY, 1);
+> +
+> +	hret =3D ehea_h_modify_ehea_port(port->adapter->handle,
+> +				       port->logical_port_id,
+> +				       H_PORT_CB0,
+> +				       mask,
+> +				       (void*)ehea_port_cb_0);
+> +
+> +	if (hret !=3D H_SUCCESS) {
+> +		goto modify_ehea_port_failed;
+> +	}
+> +
+> +	ret =3D 0;
+> +
+> +modify_ehea_port_failed:
+> +	kfree(ehea_port_cb_0);
+> +
+> +kzalloc_failed:
+> +	EDEB_EX(7, "ret=3D%d", ret);
+> +	return ret;
+> +}
+> +
+> +
+> +static int ehea_gen_smrs(struct ehea_port_res *pr)
+> +{
+> +	u64 hret =3D H_HARDWARE;
+
+No need to set hret. You do that a lot, int foo =3D 0; foo =3D bar();
+
+> +	struct ehea_adapter *adapter =3D pr->port->adapter;
+> +	EDEB_EN(7, "ehea_port_res=3D%p", pr);
+> +	hret =3D hipz_h_register_smr(adapter->handle,
+> +				   adapter->mr.handle,
+> +				   adapter->mr.vaddr,
+> +				   EHEA_MR_ACC_CTRL,
+> +				   adapter->pd,
+> +				   &pr->send_mr);
+> +	if (hret !=3D H_SUCCESS)
+> +		goto ehea_gen_smrs_err1;
+> +
+> +	hret =3D hipz_h_register_smr(adapter->handle,
+> +				   adapter->mr.handle,
+> +				   adapter->mr.vaddr,
+> +				   EHEA_MR_ACC_CTRL,
+> +				   adapter->pd,
+> +				   &pr->recv_mr);
+> +	if (hret !=3D H_SUCCESS)
+> +		goto ehea_gen_smrs_err2;
+> +	EDEB_EX(7, "");
+> +	return 0;
+> +
+> +ehea_gen_smrs_err2:
+> +	hret =3D ehea_h_free_resource_mr(adapter->handle, pr->send_mr.handle);
+> +	if (hret !=3D H_SUCCESS)
+> +		EDEB_ERR(4, "Could not free SMR");
+> +ehea_gen_smrs_err1:
+> +	return -EINVAL;
+> +}
+> +
+> +static void ehea_rem_smrs(struct ehea_port_res *pr)
+> +{
+> +	u64 hret =3D H_HARDWARE;
+> +	struct ehea_adapter *adapter =3D pr->port->adapter;
+> +	EDEB_EN(7, "ehea_port_res=3D%p", pr);
+> +	hret =3D ehea_h_free_resource_mr(adapter->handle, pr->send_mr.handle);
+> +	if (hret !=3D H_SUCCESS)
+> +		EDEB_ERR(4, "Could not free send SMR for pr=3D%p", pr);
+> +
+> +	hret =3D ehea_h_free_resource_mr(adapter->handle, pr->recv_mr.handle);
+> +	if (hret !=3D H_SUCCESS)
+> +		EDEB_ERR(4, "Could not free receive SMR for pr=3D%p", pr);
+> +	EDEB_EX(7, "");
+> +}
+
+It's a bit worrying that this routine can fail, but returns void, ie. it
+can't report failure to its caller. (but perhaps it's ok).
+
+> +
+> +static int ehea_init_port_res(struct ehea_port *port, struct ehea_port_r=
+es *pr,
+> +			      struct port_res_cfg *pr_cfg, int queue_token)
+> +{
+> +	int ret =3D -EINVAL;
+> +	int max_rq_entries =3D 0;
+> +	enum ehea_eq_type eq_type =3D EHEA_EQ;
+> +	struct ehea_qp_init_attr *init_attr;
+> +	struct ehea_adapter *adapter =3D port->adapter;
+> +
+> +	EDEB_EN(7, "port=3D%p, pr=3D%p", port, pr);
+> +
+> +	memset(pr, 0, sizeof(struct ehea_port_res));
+> +
+> +	pr->port =3D port;
+> +	spin_lock_init(&pr->send_lock);
+> +	spin_lock_init(&pr->recv_lock);
+> +	spin_lock_init(&pr->xmit_lock);
+> +	spin_lock_init(&pr->netif_queue);
+> +
+> +	pr->recv_eq =3D ehea_create_eq(adapter, eq_type,
+> +				     EHEA_MAX_ENTRIES_EQ, 0);
+> +	if (!pr->recv_eq) {
+> +		EDEB_ERR(4, "ehea_create_eq failed (recv_eq)");
+> +		goto ehea_init_port_res_err1;
+> +	}
+> +	pr->send_eq =3D ehea_create_eq(adapter, eq_type,
+> +				     EHEA_MAX_ENTRIES_EQ, 0);
+> +	if (!pr->send_eq) {
+> +		EDEB_ERR(4, "ehea_create_eq failed (send_eq)");
+> +		goto ehea_init_port_res_err2;
+> +	}
+> +
+> +	pr->recv_cq =3D ehea_create_cq(adapter, pr_cfg->max_entries_rcq,
+> +				     pr->recv_eq->ipz_eq_handle,
+> +				     port->logical_port_id);
+> +	if (!pr->recv_cq) {
+> +		EDEB_ERR(4, "ehea_create_cq failed (cq_recv)");
+> +		goto ehea_init_port_res_err3;
+> +	}
+> +
+> +	pr->send_cq =3D ehea_create_cq(adapter, pr_cfg->max_entries_scq,
+> +				     pr->send_eq->ipz_eq_handle,
+> +				     port->logical_port_id);
+> +	if (!pr->send_cq) {
+> +		EDEB_ERR(4, "ehea_create_cq failed (cq_send)");
+> +		goto ehea_init_port_res_err4;
+> +	}
+> +
+> +	init_attr =3D (struct ehea_qp_init_attr*)
+> +	    kzalloc(sizeof(struct ehea_qp_init_attr), GFP_KERNEL);
+> +
+> +	if (!init_attr) {
+> +		EDEB_ERR(4, "no mem for init_attr struct");
+> +		ret =3D -ENOMEM;
+> +		goto ehea_init_port_res_err5;
+> +	}
+> +
+> +	init_attr->low_lat_rq1 =3D 1;
+> +	init_attr->signalingtype =3D 1;	/* generate CQE if specified in WQE */
+> +	init_attr->rq_count =3D 3;
+> +	init_attr->qp_token =3D queue_token;
+> +
+> +	init_attr->max_nr_send_wqes =3D pr_cfg->max_entries_sq;
+> +	init_attr->max_nr_rwqes_rq1 =3D pr_cfg->max_entries_rq1;
+> +	init_attr->max_nr_rwqes_rq2 =3D pr_cfg->max_entries_rq2;
+> +	init_attr->max_nr_rwqes_rq3 =3D pr_cfg->max_entries_rq3;
+> +
+> +	init_attr->wqe_size_enc_sq =3D EHEA_SG_SQ;
+> +	init_attr->wqe_size_enc_rq1 =3D EHEA_SG_RQ1;
+> +	init_attr->wqe_size_enc_rq2 =3D EHEA_SG_RQ2;
+> +	init_attr->wqe_size_enc_rq3 =3D EHEA_SG_RQ3;
+> +
+> +	init_attr->rq2_threshold =3D EHEA_RQ2_THRESHOLD;
+> +	init_attr->rq3_threshold =3D EHEA_RQ3_THRESHOLD;
+> +	init_attr->port_nr =3D port->logical_port_id;
+> +	init_attr->send_cq_handle =3D pr->send_cq->ipz_cq_handle;
+> +	init_attr->recv_cq_handle =3D pr->recv_cq->ipz_cq_handle;
+> +	init_attr->aff_eq_handle =3D port->qp_eq->ipz_eq_handle;
+> +
+> +	pr->qp =3D ehea_create_qp(adapter, adapter->pd, init_attr);
+> +	if (!pr->qp) {
+> +		EDEB_ERR(4, "could not create queue pair");
+> +		goto ehea_init_port_res_err6;
+> +	}
+> +
+> +	/* SQ */
+> +	max_rq_entries =3D init_attr->act_nr_send_wqes;
+> +	pr->skb_arr_sq =3D (struct sk_buff**)vmalloc(sizeof(struct sk_buff*)
+> +						    * (max_rq_entries + 1));
+> +	if (!pr->skb_arr_sq) {
+> +		EDEB_ERR(4, "vmalloc for skb_arr_sq failed");
+> +		goto ehea_init_port_res_err7;
+> +	}
+> +	memset(pr->skb_arr_sq, 0, sizeof(void*) * (max_rq_entries + 1));
+> +	pr->skb_sq_index =3D 0;
+> +	pr->skb_arr_sq_len =3D max_rq_entries + 1;
+> +
+> +	/* RQ 1 */
+> +	max_rq_entries =3D init_attr->act_nr_rwqes_rq1;
+> +	pr->skb_arr_rq1 =3D (struct sk_buff**)vmalloc(sizeof(struct sk_buff*)
+> +						     * (max_rq_entries + 1));
+> +	if (!pr->skb_arr_rq1) {
+> +		EDEB_ERR(4, "vmalloc for skb_arr_rq1 failed");
+> +		goto ehea_init_port_res_err8;
+> +	}
+> +	memset(pr->skb_arr_rq1, 0, sizeof(void*) * (max_rq_entries + 1));
+> +	pr->skb_arr_rq1_len =3D max_rq_entries + 1;
+> +
+> +	/* RQ 2 */
+> +	max_rq_entries =3D init_attr->act_nr_rwqes_rq2;
+> +	pr->skb_arr_rq2 =3D (struct sk_buff**)vmalloc(sizeof(struct sk_buff*)
+> +						     * (max_rq_entries + 1));
+> +	if (!pr->skb_arr_rq2) {
+> +		EDEB_ERR(4, "vmalloc for skb_arr_rq2 failed");
+> +		goto ehea_init_port_res_err9;
+> +	}
+> +	memset(pr->skb_arr_rq2, 0, sizeof(void*) * (max_rq_entries + 1));
+> +	pr->skb_arr_rq2_len =3D max_rq_entries;
+> +	pr->skb_rq2_index =3D 0;
+> +
+> +	/* RQ 3 */
+> +	max_rq_entries =3D init_attr->act_nr_rwqes_rq3;
+> +	pr->skb_arr_rq3 =3D (struct sk_buff**)vmalloc(sizeof(struct sk_buff*)
+> +						     * (max_rq_entries + 1));
+> +	if (!pr->skb_arr_rq3) {
+> +		EDEB_ERR(4, "vmalloc for skb_arr_rq3 failed");
+> +		goto ehea_init_port_res_err10;
+> +	}
+> +	memset(pr->skb_arr_rq3, 0, sizeof(void*) * (max_rq_entries + 1));
+> +	pr->skb_arr_rq3_len =3D max_rq_entries;
+> +	pr->skb_rq3_index =3D 0;
+
+You shouldn't need the sk_buff** casts here. You probably should use
+kzalloc here, instead of vmalloc + memset. Depends on how big
+max_rq_entries can be.
+
+> +
+> +	if (ehea_gen_smrs(pr) !=3D 0)
+> +		goto ehea_init_port_res_err11;
+> +	tasklet_init(&pr->send_comp_task, ehea_send_irq_tasklet,
+> +		     (unsigned long)pr);
+> +	atomic_set(&pr->swqe_avail, EHEA_MAX_ENTRIES_SQ - 1);
+> +
+> +	kfree(init_attr);
+> +	ret =3D 0;
+> +	goto done;
+> +
+> +ehea_init_port_res_err11:
+> +	vfree(pr->skb_arr_rq3);
+> +ehea_init_port_res_err10:
+> +	vfree(pr->skb_arr_rq2);
+> +ehea_init_port_res_err9:
+> +	vfree(pr->skb_arr_rq1);
+> +ehea_init_port_res_err8:
+> +	vfree(pr->skb_arr_sq);
+> +ehea_init_port_res_err7:
+> +	ehea_destroy_qp(pr->qp);
+> +ehea_init_port_res_err6:
+> +	kfree(init_attr);
+> +ehea_init_port_res_err5:
+> +	ehea_destroy_cq(pr->send_cq);
+> +ehea_init_port_res_err4:
+> +	ehea_destroy_cq(pr->recv_cq);
+> +ehea_init_port_res_err3:
+> +	ehea_destroy_eq(pr->send_eq);
+> +ehea_init_port_res_err2:
+> +	ehea_destroy_eq(pr->recv_eq);
+> +ehea_init_port_res_err1:
+> +done:
+> +	EDEB_EX(7, "ret=3D%d", ret);
+> +	return ret;
+> +}
+
+You can vfree/kfree a NULL pointer, so you can probably amalgamate some
+of these error cases if you initialise the pointers to NULL at the
+beginning.
+
+> +
+> +static int ehea_clean_port_res(struct ehea_port *port, struct ehea_port_=
+res *pr)
+> +{
+> +	int i;
+> +	int ret =3D -EINVAL;
+> +
+> +	EDEB_EN(7, "Not completed yet...");
+> +
+> +	ret =3D ehea_destroy_qp(pr->qp);
+> +	if (ret)
+> +		EDEB_ERR(4, "could not destroy queue pair");
+> +
+> +	ret =3D ehea_destroy_cq(pr->send_cq);
+> +	if (ret)
+> +		EDEB_ERR(4, "could not destroy send_cq");
+> +
+> +	ret =3D ehea_destroy_cq(pr->recv_cq);
+> +	if (ret)
+> +		EDEB_ERR(4, "could not destroy recv_cq");
+> +
+> +	ret =3D ehea_destroy_eq(pr->send_eq);
+> +	if (ret)
+> +		EDEB_ERR(4, "could not destroy send_eq");
+> +
+> +	ret =3D ehea_destroy_eq(pr->recv_eq);
+> +	if (ret)
+> +		EDEB_ERR(4, "could not destroy recv_eq");
+
+If these are leaking memory they're probably worth a printk.
+
+> +	for (i =3D 0; i < pr->skb_arr_rq1_len; i++) {
+> +		if (pr->skb_arr_rq1[i])
+> +			dev_kfree_skb(pr->skb_arr_rq1[i]);
+> +	}
+> +
+> +	for (i =3D 0; i < pr->skb_arr_rq2_len; i++)
+> +		if (pr->skb_arr_rq2[i])
+> +			dev_kfree_skb(pr->skb_arr_rq2[i]);
+> +
+> +	for (i =3D 0; i < pr->skb_arr_rq3_len; i++)
+> +		if (pr->skb_arr_rq3[i])
+> +			dev_kfree_skb(pr->skb_arr_rq3[i]);
+> +
+> +	for (i =3D 0; i < pr->skb_arr_sq_len; i++)
+> +		if (pr->skb_arr_sq[i])
+> +			dev_kfree_skb(pr->skb_arr_sq[i]);
+> +
+> +	vfree(pr->skb_arr_sq);
+> +	vfree(pr->skb_arr_rq1);
+> +	vfree(pr->skb_arr_rq2);
+> +	vfree(pr->skb_arr_rq3);
+> +
+> +	ehea_rem_smrs(pr);
+> +	EDEB_EX(7, "ret=3D%d", ret);
+> +	return ret;
+> +}
+> +
+> +static inline void write_ip_start_end(struct ehea_swqe *swqe,
+> +				      const struct sk_buff *skb)
+> +{
+> +
+> +	swqe->ip_start =3D (u8)(((u64)skb->nh.iph) - ((u64)skb->data));
+> +	swqe->ip_end =3D (u8)(swqe->ip_start + skb->nh.iph->ihl * 4 - 1);
+> +}
+
+> +static inline void write_tcp_offset_end(struct ehea_swqe *swqe,
+> +					const struct sk_buff *skb)
+> +{
+> +	swqe->tcp_offset =3D (u8)(swqe->ip_end + 1 + offsetof(struct tcphdr,
+> +							    check));
+> +	swqe->tcp_end =3D (u16)skb->len - 1;
+> +}
+> +
+> +static inline void write_udp_offset_end(struct ehea_swqe *swqe,
+> +					const struct sk_buff *skb)
+> +{
+> +	swqe->tcp_offset =3D (u8)(swqe->ip_end + 1 + offsetof(struct udphdr,
+> +							    check));
+> +	swqe->tcp_end =3D (u16)skb->len - 1;
+> +}
+
+These three need some explanation at best.
+
+> +
+> +static inline void write_swqe2_data(struct sk_buff *skb,
+> +				    struct net_device *dev,
+> +				    struct ehea_swqe *swqe,
+> +				    u32 lkey)
+> +{
+> +	int skb_data_size, nfrags, headersize, i, sg1entry_contains_frag_data;
+> +	struct ehea_vsgentry *sg_list;
+> +	struct ehea_vsgentry *sg1entry;
+> +	struct ehea_vsgentry *sgentry;
+> +	u8 *imm_data;
+> +	u64 tmp_addr;
+> +	skb_frag_t *frag;
+> +	EDEB_EN(7, "");
+> +
+> +	skb_data_size =3D skb->len - skb->data_len;
+> +	nfrags =3D skb_shinfo(skb)->nr_frags;
+> +	sg1entry =3D &swqe->u.immdata_desc.sg_entry;
+> +	sg_list =3D (struct ehea_vsgentry*)&swqe->u.immdata_desc.sg_list;
+> +	imm_data =3D &swqe->u.immdata_desc.immediate_data[0];
+> +	swqe->descriptors =3D 0;
+> +	sg1entry_contains_frag_data =3D 0;
+> +
+> +	if ((dev->features & NETIF_F_TSO) && skb_shinfo(skb)->gso_size) {
+> +		/* Packet is TCP with TSO enabled */
+> +		swqe->tx_control |=3D EHEA_SWQE_TSO;
+> +		swqe->mss =3D skb_shinfo(skb)->gso_size;
+> +		/* copy only eth/ip/tcp headers to immediate data and
+> +		 * the rest of skb->data to sg1entry
+> +		 */
+> +		headersize =3D ETH_HLEN + (skb->nh.iph->ihl * 4)
+> +		    + skb->h.th->doff * 4;
+> +		skb_data_size =3D skb->len - skb->data_len;
+> +
+> +		if (skb_data_size >=3D headersize) {
+> +			/* copy immediate data */
+> +			memcpy(imm_data, skb->data, headersize);
+> +			swqe->immediate_data_length =3D headersize;
+> +
+> +			if (skb_data_size > headersize) {
+> +				/* set sg1entry data */
+> +				sg1entry->l_key =3D lkey;
+> +				sg1entry->len =3D skb_data_size - headersize;
+> +
+> +				tmp_addr =3D (u64)(skb->data + headersize);
+> +				sg1entry->vaddr =3D
+> +					get_swqe_addr(tmp_addr, 0);
+> +
+> +				swqe->descriptors++;
+> +			}
+> +		} else
+> +			EDEB_ERR(4, "Cannot handle fragmented headers");
+> +	} else {
+> +		/* Packet is any nonTSO type
+> +		 *
+> +		 * Copy as much as possible skb->data to immediate data and
+> +		 * the rest to sg1entry
+> +		 */
+> +		if (skb_data_size >=3D SWQE2_MAX_IMM) {
+> +			/* copy immediate data */
+> +			memcpy(imm_data, skb->data, SWQE2_MAX_IMM);
+> +
+> +			swqe->immediate_data_length =3D SWQE2_MAX_IMM;
+> +
+> +			if (skb_data_size > SWQE2_MAX_IMM) {
+> +				/* copy sg1entry data */
+> +				sg1entry->l_key =3D lkey;
+> +				sg1entry->len =3D skb_data_size - SWQE2_MAX_IMM;
+> +				tmp_addr =3D (u64)(skb->data + SWQE2_MAX_IMM);
+> +				sg1entry->vaddr =3D get_swqe_addr(tmp_addr, 0);
+> +				swqe->descriptors++;
+> +			}
+> +		} else {
+> +			memcpy(imm_data, skb->data, skb_data_size);
+> +			swqe->immediate_data_length =3D skb_data_size;
+> +		}
+> +	}
+> +
+> +	/* write descriptors */
+> +	if (nfrags > 0) {
+> +		if (swqe->descriptors =3D=3D 0) {
+> +			/* sg1entry not yet used */
+> +			frag =3D &skb_shinfo(skb)->frags[0];
+> +
+> +			/* copy sg1entry data */
+> +			sg1entry->l_key =3D lkey;
+> +			sg1entry->len =3D frag->size;
+> +			tmp_addr =3D  (u64)(page_address(frag->page) +
+> +					    frag->page_offset);
+> +			sg1entry->vaddr =3D get_swqe_addr(tmp_addr,
+> +							EHEA_MR_TX_DATA_PN);
+> +			swqe->descriptors++;
+> +			sg1entry_contains_frag_data =3D 1;
+> +		}
+> +
+> +		for (i =3D sg1entry_contains_frag_data; i < nfrags; i++) {
+> +
+> +			frag =3D &skb_shinfo(skb)->frags[i];
+> +			sgentry =3D &sg_list[i - sg1entry_contains_frag_data];
+> +
+> +			sgentry->l_key =3D lkey;
+> +			sgentry->len =3D frag->size;
+> +
+> +			tmp_addr =3D (u64)(page_address(frag->page)
+> +					 + frag->page_offset);
+> +			sgentry->vaddr =3D get_swqe_addr(tmp_addr,
+> +						       EHEA_MR_TX_DATA_PN + i);
+> +		}
+> +	}
+> +
+> +	EDEB_EX(7, "");
+> +}
+> +
+> +static int ehea_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd=
+)
+> +{
+> +	EDEB_ERR(4, "ioctl not supported: dev=3D%s cmd=3D%d", dev->name, cmd);
+> +	return -EOPNOTSUPP;
+> +}
+> +
+> +static u64 ehea_broadcast_reg_helper(struct ehea_port *port, u32 hcallid=
+)
+> +{
+> +	u64 hret =3D H_HARDWARE;
+> +	u8 reg_type =3D 0;
+> +
+> +	if (hcallid =3D=3D H_REG_BCMC) {
+> +		EDEB(7, "REGistering MAC for broadcast");
+> +	} else {
+> +		EDEB(7, "DEREGistering MAC for broadcast");
+> +	}
+> +
+> +	/* De/Register untagged packets */
+> +	reg_type =3D EHEA_BCMC_BROADCAST | EHEA_BCMC_UNTAGGED;
+> +	hret =3D ehea_h_reg_dereg_bcmc(port->adapter->handle,
+> +				     port->logical_port_id,
+> +				     reg_type, port->mac_addr, 0, hcallid);
+> +	if (hret !=3D H_SUCCESS)
+> +		goto hcall_failed;
+> +
+> +	/* De/Register VLAN packets */
+> +	reg_type =3D EHEA_BCMC_BROADCAST | EHEA_BCMC_VLANID_ALL;
+> +	hret =3D ehea_h_reg_dereg_bcmc(port->adapter->handle,
+> +				     port->logical_port_id,
+> +				     reg_type, port->mac_addr, 0, hcallid);
+> +hcall_failed:
+
+unregister here?
+
+> +	return hret;
+> +}
+> +
+> +static int ehea_set_mac_addr(struct net_device *dev, void *sa)
+> +{
+> +	int ret =3D -EOPNOTSUPP;
+> +	u64 hret =3D H_HARDWARE;
+> +	struct hcp_query_ehea_port_cb_0 *ehea_port_cb_0 =3D NULL;
+> +	struct ehea_port *port =3D (struct ehea_port*)dev->priv;
+> +	struct sockaddr *mac_addr =3D (struct sockaddr*)sa;
+> +
+> +	EDEB_EN(7, "devname=3D%s", dev->name);
+> +	EDEB_DMP(7, (u8*)&(mac_addr->sa_data[0]), 14, "");
+> +
+> +	if (!is_valid_ether_addr(mac_addr->sa_data)) {
+> +		ret =3D -EADDRNOTAVAIL;
+> +		goto invalid_mac;
+> +	}
+> +
+> +	ehea_port_cb_0 =3D kzalloc(H_CB_ALIGNMENT, GFP_KERNEL);
+> +
+> +	if (!ehea_port_cb_0) {
+> +		EDEB_ERR(4, "No memory for ehea_port control block");
+> +		ret =3D -ENOMEM;
+> +		goto kzalloc_failed;
+> +	}
+> +
+> +	memcpy((u8*)(&(ehea_port_cb_0->port_mac_addr)),
+> +	       (u8*)&(mac_addr->sa_data[0]), 6);
+
+Don't need casts, memcpy takes void *. You should use ETH_ALEN
+(include/linux/if_ether.h) instead of 6.
+
+> +
+> +	ehea_port_cb_0->port_mac_addr =3D ehea_port_cb_0->port_mac_addr >> 16;
+> +
+> +	EDEB(7, "ehea_port_cb_0");
+> +	EDEB_DMP(7, (u8*)ehea_port_cb_0,
+> +		 sizeof(struct hcp_query_ehea_port_cb_0), "");
+> +
+> +	hret =3D ehea_h_modify_ehea_port(port->adapter->handle,
+> +				       port->logical_port_id,
+> +				       H_PORT_CB0,
+> +				       EHEA_BMASK_SET(H_PORT_CB0_MAC, 1),
+> +				       (void*)ehea_port_cb_0);
+> +	if (hret !=3D H_SUCCESS) {
+> +		ret =3D -EOPNOTSUPP;
+> +		goto hcall_failed;
+> +	}
+> +
+> +	memcpy(dev->dev_addr, mac_addr->sa_data, dev->addr_len);
+> +
+> +	/* Deregister old MAC in PHYP */
+> +	hret =3D ehea_broadcast_reg_helper(port, H_DEREG_BCMC);
+> +	if (hret) {
+> +		ret =3D -EOPNOTSUPP;
+> +		goto hcall_failed;
+
+What happens here? No mac? Old mac?
+
+> +	}
+> +
+> +	port->mac_addr =3D ehea_port_cb_0->port_mac_addr << 16;
+> +
+> +	/* Register new MAC in PHYP */
+> +	hret =3D ehea_broadcast_reg_helper(port, H_REG_BCMC);
+> +	if (hret) {
+> +		ret =3D -EOPNOTSUPP;
+> +		goto hcall_failed;
+> +	}
+> +
+> +	ret =3D 0;
+> +
+> +hcall_failed:
+> +	kfree(ehea_port_cb_0);
+> +
+> +kzalloc_failed:
+> +invalid_mac:
+> +	EDEB_EX(7, "ret=3D%d", ret);
+> +	return ret;
+> +}
+> +
+> +static void ehea_promiscuous(struct net_device *dev, int enable)
+> +{
+> +	struct ehea_port *port =3D dev->priv;
+> +
+> +	if (!port->promisc) {
+> +		if (enable) {
+> +			/* Enable promiscuous mode */
+> +			EDEB(7, "Enabling IFF_PROMISC");
+> +			EDEB_ERR(4, "Enable promiscuous mode: "
+> +				 "not yet implemented");
+> +			port->promisc =3D EHEA_ENABLE;
+> +		}
+> +	} else {
+> +		if (!enable) {
+> +			/* Disable promiscuous mode */
+> +			EDEB(7, "Disabling IFF_PROMISC");
+> +			EDEB_ERR(4, "Disable promiscuous mode: "
+> +				 "not yet implemented");
+> +			port->promisc =3D EHEA_DISABLE;
+> +		}
+> +	}
+> +}
+> +
+> +static u64 ehea_multicast_reg_helper(struct ehea_port *port,
+> +				     u64 mc_mac_addr,
+> +				     u32 hcallid)
+> +{
+> +	u64 hret =3D H_HARDWARE;
+> +	u8 reg_type =3D 0;
+> +
+> +	reg_type =3D EHEA_BCMC_SCOPE_ALL | EHEA_BCMC_MULTICAST
+> +		 | EHEA_BCMC_UNTAGGED;
+> +
+> +	hret =3D ehea_h_reg_dereg_bcmc(port->adapter->handle,
+> +				     port->logical_port_id,
+> +				     reg_type, mc_mac_addr, 0, hcallid);
+> +	if (hret)
+> +		goto hcall_failed;
+> +
+> +	reg_type =3D EHEA_BCMC_SCOPE_ALL | EHEA_BCMC_MULTICAST
+> +		 | EHEA_BCMC_VLANID_ALL;
+> +
+> +	hret =3D ehea_h_reg_dereg_bcmc(port->adapter->handle,
+> +				     port->logical_port_id,
+> +				     reg_type, mc_mac_addr, 0, hcallid);
+> +hcall_failed:
+> +	return hret;
+> +}
+> +
+> +static int ehea_drop_multicast_list(struct net_device *dev)
+> +{
+> +	int ret =3D 0;
+> +	u64 hret =3D H_HARDWARE;
+> +	struct ehea_port *port =3D dev->priv;
+> +	struct ehea_mc_list *mc_entry =3D port->mc_list;
+> +	struct list_head *pos;
+> +	struct list_head *temp;
+> +
+> +	EDEB_EN(7, "devname=3D%s", dev->name);
+> +
+> +	if (!list_empty(&mc_entry->list)) {
+> +		list_for_each_safe(pos, temp, &(port->mc_list->list)) {
+> +			mc_entry =3D list_entry(pos, struct ehea_mc_list, list);
+> +
+> +			EDEB(7, "Deregistering MAC %lx", mc_entry->macaddr);
+> +
+> +			hret =3D ehea_multicast_reg_helper(port,
+> +							 mc_entry->macaddr,
+> +							 H_DEREG_BCMC);
+> +			if (hret) {
+> +				EDEB_ERR(4, "Failed deregistering mcast MAC");
+> +				ret =3D -EINVAL;
+> +			}
+> +
+> +			list_del(pos);
+> +			kfree(mc_entry);
+> +		}
+> +	}
+
+You don't need the if.
+
+
+Ok, I'm tired now, I might read the rest later.
+
+cheers
+
+--=20
+Michael Ellerman
+IBM OzLabs
+
+wwweb: http://michael.ellerman.id.au
+phone: +61 2 6212 1183 (tie line 70 21183)
+
+We do not inherit the earth from our ancestors,
+we borrow it from our children. - S.M.A.R.T Person
+
+--=-TUnqmavuSnyxbG+I5G3D
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2.2 (GNU/Linux)
+
+iD8DBQBE2s8ZdSjSd0sB4dIRAmobAJsFAzH3OcNt21Lc8KZwOuWz69kgwwCgi8e8
+AM169yfx7336gkkiXy6XYfY=
+=FmcU
+-----END PGP SIGNATURE-----
+
+--=-TUnqmavuSnyxbG+I5G3D--
+
