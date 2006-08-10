@@ -1,51 +1,53 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Thu, 10 Aug 2006 08:25:59 +0200
-Message-ID: <1155191159.12225.108.camel@twins>
-References: <44D976E6.5010106@google.com>
-	 <20060809131942.GY14627@postel.suug.ch> <1155132440.12225.70.camel@twins>
-	 <20060809.165846.107940575.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [take6 1/3] kevent: Core files.
+Date: Wed, 09 Aug 2006 23:42:35 -0700 (PDT)
+Message-ID: <20060809.234235.71555079.davem@davemloft.net>
+References: <11551105602734@2ka.mipt.ru>
+	<20060809152127.481fb346.akpm@osdl.org>
+	<20060810061433.GA4689@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, phillips@google.com, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, drepper@redhat.com,
+	netdev@vger.kernel.org, zach.brown@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep19-int.chello.nl ([213.46.243.16]:12142 "EHLO
-	amsfep17-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1161060AbWHJGai (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Aug 2006 02:30:38 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060809.165846.107940575.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:26576
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1161099AbWHJGm2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Aug 2006 02:42:28 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20060810061433.GA4689@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-08-09 at 16:58 -0700, David Miller wrote:
-> From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> Date: Wed, 09 Aug 2006 16:07:20 +0200
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Thu, 10 Aug 2006 10:14:33 +0400
+
+> On Wed, Aug 09, 2006 at 03:21:27PM -0700, Andrew Morton (akpm@osdl.org) wrote:
+> > On big-endian machines, this pointer will appear to be word-swapped as far
+> > as a 64-bit kernel is concerned.  Or something.
+> > 
+> > IOW: What's going on here??
 > 
-> > Hmm, what does sk_buff::input_dev do? That seems to store the initial
-> > device?
+> It is user data - I put there a union just to simplify userspace, so it
+> sould not require some typecasting.
+
+And this is consistent with similar mechianism we use for
+netlink socket dumping, so that we don't have compat layer
+crap just because we provide a place for the user to store
+his pointer or whatever there.
+
+> > > +	k->kevent_entry.next = LIST_POISON1;
+> > > +	k->storage_entry.prev = LIST_POISON2;
+> > > +	k->ready_entry.next = LIST_POISON1;
+> > 
+> > Nope ;)
 > 
-> You can run grep on the tree just as easily as I can which is what I
-> did to answer this question.  It only takes a few seconds of your
-> time to grep the source tree for things like "skb->input_dev", so
-> would you please do that before asking more questions like this?
+> I use pointer checks to determine if entry is in the list or not, why it
+> is frowned upon here?
 
-That is exactly what I did, but I wanted a bit of confirmation. Sorry if
-it 
-offends you, but I'm a bit new to this network thing.
+As Andrew mentioned in another posting, these poison macros
+are likely to simply go away some day, so you should not use
+them.
 
-> It does store the initial device, but as Thomas tried so hard to
-> explain to you guys these device pointers in the skb are transient and
-> you cannot refer to them outside of packet receive processing.
-
-Yes, I understood that after Thomas' last mail.
-
-> The reason is that there is no refcounting performed on these devices
-> when they are attached to the skb, for performance reasons, and thus
-> the device can be downed, the module for it removed, etc. long before
-> the skb is freed up.
-
-I understood that, thanks.
-
+If you want pointer encoded tags you use internally, define your own.
