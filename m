@@ -1,64 +1,43 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [PATCH 0/5] net socket family patches
-Date: Thu, 10 Aug 2006 11:55:59 -0700
-Message-ID: <20060810115559.deba44fd.rdunlap@xenotime.net>
-References: <20060809183138.332023530@localhost.localdomain>
-	<20060809.170641.02297593.davem@davemloft.net>
-	<Pine.NEB.4.64.0608100532010.9039@ukato.freeshell.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 1/4] [NETLINK]: Handle NLM_F_ECHO in netlink_rcv_skb()
+Date: Thu, 10 Aug 2006 21:02:10 +0200
+Message-ID: <20060810190210.GH14627@postel.suug.ch>
+References: <20060809204821.216122988@postel.suug.ch> <20060809205439.434010049@postel.suug.ch> <20060810155120.GA494@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:60856 "HELO xenotime.net")
-	by vger.kernel.org with SMTP id S1161177AbWHJSxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 14:53:17 -0400
-Received: from midway.site ([71.117.253.75]) by xenotime.net for <netdev@vger.kernel.org>; Thu, 10 Aug 2006 11:53:12 -0700
-To: Alexey Toptygin <alexeyt@freeshell.org>
-In-Reply-To: <Pine.NEB.4.64.0608100532010.9039@ukato.freeshell.org>
+Received: from postel.suug.ch ([194.88.212.233]:49085 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1750955AbWHJTBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 15:01:49 -0400
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Disposition: inline
+In-Reply-To: <20060810155120.GA494@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 10 Aug 2006 05:36:13 +0000 (UTC) Alexey Toptygin wrote:
-
-> On Wed, 9 Aug 2006, David Miller wrote:
+* Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> 2006-08-10 19:51
+> > This patch handles NLM_F_ECHO in netlink_rcv_skb() to
+> > handle it in a central point. Most subsystems currently
+> > interpret NLM_F_ECHO as to just unicast events to the
+> > originator of the change while the real meaning of the
+> > flag is to echo the request.
 > 
-> > From: Stephen Hemminger <shemminger@osdl.org>
-> > Date: Wed, 09 Aug 2006 11:31:38 -0700
-> >
-> >> These patches cleanup the net socket family interface and
-> >> convert it to RCU. This is new stuff that should go into 2.6.19
-> >> (if it is ready). Andrew could you put it in -mm as well?
-> >
-> > Andrew pulls net-2.6.19 so there is no need to ask him to
-> > put networking patches explicitly into -mm
+> Do not you think it is useless to echo something back to originator,
+> who just sent it?
 > 
-> I've been wondering - are the relationships of which of the various kernel 
-> trees pull patches from which other ones documented anywhere? If so, I'd 
-> love to read about it.
+> Actually, the sense of NLM_F_ECHO was to tell user what happened due to
+> his request. The answer is not original request, which can contain
+> some incomplete fields etc., but full information about object
+> deleted/added/changed. Moreover, the feedback can contain several
+> messages (though accurately it is done only in net/sched/), f.e. when
+> the request triggered deletion of one object and addition of another.
+> 
+> Obviously, it cannot be done in a central place.
+> 
+> Normally, it is not needed, "ip route add" does not tell user, what
+> actually was done, so that it suppresses echo. But for multistage
+> operation it is absolutely necessary: the answer contains f.e. auto-allocated
+> handles, which should be given in subsequent requests.
 
-Not really documented AFAIK, except what Andrew pulls into his -mm tree
-for testing.  His announcements [used to] list which (git or other) trees that
-he has merged, along with non-tree patches.  Now that is just in the
-patch-list file, e.g., see
-  ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18-rc3/2.6.18-rc3-mm2/patch-list
-and then search for "git-" to see which git trees it contains.
-
-If you go down the maintainer's hierarchy, it gets more fuzzy. :)
-Jeff Garzik pulls the wireless tree from John Linville and several
-net driver trees from Francois Romieu, e.g.  And Jeff pulls SATA
-patches from Tejun Heo.
-
-DaveM pulls net patches from Yoshifuji etc.
-
-James Bottomley usually maintains 2 SCSI git trees:  one for
-2.6.current-rc fixes and one for 2.6.next merges.  He recently documented
-that in email to linux-scsi@vger.kernel.org.
-
-Most kernel git trees can be seen at www.kernel.org/git/.
-Most kernel patch trees (git or other) are now listed in the
-MAINTAINERS file.
-
-HTH.
----
-~Randy
+What's wrong with listening to the notification for that purpose?
