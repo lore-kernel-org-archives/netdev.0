@@ -1,30 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/5] socket: code style cleanup
-Date: Thu, 10 Aug 2006 01:55:31 -0700 (PDT)
-Message-ID: <20060810.015531.18711825.davem@davemloft.net>
-References: <20060809183138.332023530@localhost.localdomain>
-	<20060809183349.177095462@localhost.localdomain>
-	<20060810011950.0a56760a.akpm@osdl.org>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: [RFC] [GIT PATCH] IPv6 Routing / Ndisc Fixes
+Date: Thu, 10 Aug 2006 13:20:32 +0300
+Message-ID: <44DB0870.6000902@tcs.hut.fi>
+References: <20060809.195627.59155708.yoshfuji@linux-ipv6.org>	<44D9D431.10101@tcs.hut.fi>	<44DA558A.1080706@tcs.hut.fi> <20060810.174635.42119608.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, paulmck@us.ibm.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:58804
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751471AbWHJIzi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Aug 2006 04:55:38 -0400
-To: akpm@osdl.org
-In-Reply-To: <20060810011950.0a56760a.akpm@osdl.org>
+Received: from neon.tcs.hut.fi ([130.233.215.20]:49163 "EHLO neon.tcs.hut.fi")
+	by vger.kernel.org with ESMTP id S1161145AbWHJKUe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 06:20:34 -0400
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20060810.174635.42119608.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@osdl.org>
-Date: Thu, 10 Aug 2006 01:19:50 -0700
+YOSHIFUJI Hideaki wrote:
 
-> <goes off to fix the rejects>
+> As a result of original lookup (with possible ambiguous outout interface),
+> one interface for original output is selected.
+> Which means, we have a route for the (original) destination through that
+> interface.
+> 
+> Redirects shall come from that interface.
+> So, it is enough to lookup routes on that interface.
 
-Just pull from net-2.6.19, Stephen's stuff is all merged in
-there.
+Yes, exactly.
 
-I'll fix the "* var" stuff, I hate that too :-)
+Regards,
+Ville
