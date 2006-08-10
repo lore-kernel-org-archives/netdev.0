@@ -1,57 +1,59 @@
 From: Thomas Klein <osstklei@de.ibm.com>
-Subject: Re: [PATCH 5/6] ehea: makefile
-Date: Thu, 10 Aug 2006 17:06:50 +0200
-Message-ID: <44DB4B8A.60006@de.ibm.com>
-References: <44D99F74.1000704@de.ibm.com> <20060809095047.GA11555@mars.ravnborg.org>
+Subject: Re: [PATCH 2/6] ehea: pHYP interface
+Date: Thu, 10 Aug 2006 17:12:55 +0200
+Message-ID: <44DB4CF7.9080905@de.ibm.com>
+References: <44D99F1A.4080905@de.ibm.com> <200608091514.46861.arnd.bergmann@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=iso-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jan-Bernd Themann <ossthema@de.ibm.com>,
+Cc: linuxppc-dev@ozlabs.org, Jan-Bernd Themann <ossthema@de.ibm.com>,
 	netdev <netdev@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Thomas Klein <tklein@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
 	linux-kernel <linux-kernel@vger.kernel.org>,
 	Marcus Eder <meder@de.ibm.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Thomas Klein <osstklei@de.ibm.com>
+	Jan-Bernd Themann <themann@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([195.212.29.136]:36307 "EHLO
-	mtagate3.uk.ibm.com") by vger.kernel.org with ESMTP
-	id S1161322AbWHJPGx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Aug 2006 11:06:53 -0400
-To: Sam Ravnborg <sam@ravnborg.org>
-In-Reply-To: <20060809095047.GA11555@mars.ravnborg.org>
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:32041 "EHLO
+	mtagate6.de.ibm.com") by vger.kernel.org with ESMTP
+	id S1751263AbWHJPM6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Aug 2006 11:12:58 -0400
+To: Arnd Bergmann <arnd.bergmann@de.ibm.com>
+In-Reply-To: <200608091514.46861.arnd.bergmann@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sam Ravnborg wrote:
-> On Wed, Aug 09, 2006 at 10:40:20AM +0200, Jan-Bernd Themann wrote:
->   
->> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
->>
->>
->>  drivers/net/ehea/Makefile |    7 +++++++
->>  1 file changed, 7 insertions(+)
->>
->>
->>
->> --- linux-2.6.18-rc4-orig/drivers/net/ehea/Makefile	1969-12-31 
->> 16:00:00.000000000 -0800
->> +++ kernel/drivers/net/ehea/Makefile	2006-08-08 23:59:38.083467216 -0700
->> @@ -0,0 +1,7 @@
->> +#
->> +# Makefile for the eHEA ethernet device driver for IBM eServer System p
->> +#
->> +
->> +ehea_mod-objs = ehea_main.o ehea_phyp.o ehea_qmr.o ehea_ethtool.o 
->> ehea_phyp.o
->> +obj-$(CONFIG_EHEA) += ehea_mod.o
->> +
->>     
+Arnd Bergmann wrote:
+> On Wednesday 09 August 2006 10:38, Jan-Bernd Themann wrote:
+>> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea_hcall.h 1969-12-31 16:00:00.000000000 -0800
+>> +++ kernel/drivers/net/ehea/ehea_hcall.h        2006-08-08 23:59:38.111462960 -0700
+>> @@ -0,0 +1,52 @@
 >
-> Using -objs is deprecated, please use ehea_mod-y.
-> This needs to be documented and later warned upon which I will do soon.
+>> +
+>> +/**
+>> + * This file contains HCALL defines that are to be included in the appropriate
+>> + * kernel files later
+>> + */
+>> +
+>> +#define H_ALLOC_HEA_RESOURCE   0x278
+>> +#define H_MODIFY_HEA_QP        0x250
+>> +#define H_QUERY_HEA_QP         0x254
+>> +#define H_QUERY_HEA            0x258
+>> +#define H_QUERY_HEA_PORT       0x25C
+>> +#define H_MODIFY_HEA_PORT      0x260
+>> +#define H_REG_BCMC             0x264
+>> +#define H_DEREG_BCMC           0x268
+>> +#define H_REGISTER_HEA_RPAGES  0x26C
+>> +#define H_DISABLE_AND_GET_HEA  0x270
+>> +#define H_GET_HEA_INFO         0x274
+>> +#define H_ADD_CONN             0x284
+>> +#define H_DEL_CONN             0x288
 >
-> 	Sam
->   
-Done. Will be included in next patch.
+> I  guess these should go to include/asm-powerpc/hvcall.h instead.
+>
+>       Arnd <><
+
+We posted a separate patch for hvcall.h (http://ozlabs.org/pipermail/linuxppc-dev/2006-August/025000.html).
+As soon as this patch is accepted we'll remove the ehea_hcall.h headerfile.
+
 
