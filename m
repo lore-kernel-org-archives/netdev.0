@@ -1,41 +1,54 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 1/4] [NETLINK]: Handle NLM_F_ECHO in netlink_rcv_skb()
-Date: Thu, 10 Aug 2006 23:18:33 +0200
-Message-ID: <20060810211833.GK14627@postel.suug.ch>
-References: <20060809204821.216122988@postel.suug.ch> <20060809205439.434010049@postel.suug.ch> <20060810155120.GA494@ms2.inr.ac.ru> <20060810190210.GH14627@postel.suug.ch> <20060810203252.GA6414@ms2.inr.ac.ru>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: 2.6.18-rc3-mm2 - IPV6_MULTIPLE_TABLES borked....
+Date: Thu, 10 Aug 2006 17:44:54 -0400
+Message-ID: <200608102144.k7ALisOD003046@turing-police.cc.vt.edu>
+References: <20060806030809.2cfb0b1e.akpm@osdl.org> <200608101738.k7AHcx9V004680@turing-police.cc.vt.edu>
+            <44DB90BB.7050302@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: multipart/signed; boundary="==_Exmh_1155246294_2992P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, davem@davemloft.net,
+	Thomas Graf <tgraf@suug.ch>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:48832 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S932070AbWHJVSN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 17:18:13 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Content-Disposition: inline
-In-Reply-To: <20060810203252.GA6414@ms2.inr.ac.ru>
+Received: from turing-police.cc.vt.edu ([128.173.14.107]:13750 "EHLO
+	turing-police.cc.vt.edu") by vger.kernel.org with ESMTP
+	id S932092AbWHJVpK (ORCPT <RFC822;netdev@vger.kernel.org>);
+	Thu, 10 Aug 2006 17:45:10 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: Your message of "Thu, 10 Aug 2006 22:02:03 +0200."
+             <44DB90BB.7050302@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello
+--==_Exmh_1155246294_2992P
+Content-Type: text/plain; charset=us-ascii
 
-* Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> 2006-08-11 00:32
-> Nothing! NLM_F_ECHO _is_ listening for notifications without subscription
-> to multicast groups and need to figure out what messages are yours.
-> But beyond this NLM_F_ECHO is totally subset of this.
-> Which still makes much more sense then echoing of a know thing, does not it?
+On Thu, 10 Aug 2006 22:02:03 +0200, Patrick McHardy said:
 
-I get your point and I see the value. Unfortunately, probably due to
-lack of documentation, this feature isn't used by any applications I
-know of. We even put in the hacks to make identification of own caused
-notifications easier by storing the netlink pid of the originator in
-the notification message.
+> Valdis.Kletnieks@vt.edu wrote:
+> > On Sun, 06 Aug 2006 03:08:09 PDT, Andrew Morton said:
+> > 
+> >>ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18-rc3/2.6.18-rc3-mm2/
+> > 
+> > 
+> > Building a kernel with IPV6_MULTIPLE_TABLES=y breaks my IPv6 connectivity
 
-I will put this back in (document it! :) and hide it behind
-nlmsg_notify() so we do it for all notifications for consistency.
+> It should be fixed by this patch (already contained in net-2.6.19).
 
-I use echoing of the original request for debuging purposes, it allows
-to verify what is actually being parsed at the netlink family specific
-parsing function. Using libnl a flag enables NLM_F_ECHO in all messages
-and it gets simple to verify what exactly is being seen in the kernel side
-parser by looking at the messages log. I agree, there is no functional
-value besides the possibility to implement a netlink ping with NLMSG_NOOP.
+Confirmed fixed, thanks...
+
+--==_Exmh_1155246294_2992P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFE26jWcC3lWbTT17ARAn2tAKDgjOFosjADrGkLbgmS3xNtaGP0sgCbB6oS
+BOIR2nEnd7K7V+q7qzXX4+s=
+=CgWp
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1155246294_2992P--
