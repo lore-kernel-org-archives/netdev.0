@@ -1,192 +1,30 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 4/5] net: socket family using RCU
-Date: Thu, 10 Aug 2006 13:28:27 -0700
-Message-ID: <20060810132827.481e8a6b@localhost.localdomain>
-References: <20060809183138.332023530@localhost.localdomain>
-	<20060809183349.528294134@localhost.localdomain>
-	<20060810183658.GA1771@us.ibm.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH 1/4] [NETLINK]: Handle NLM_F_ECHO in netlink_rcv_skb()
+Date: Fri, 11 Aug 2006 00:32:53 +0400
+Message-ID: <20060810203252.GA6414@ms2.inr.ac.ru>
+References: <20060809204821.216122988@postel.suug.ch> <20060809205439.434010049@postel.suug.ch> <20060810155120.GA494@ms2.inr.ac.ru> <20060810190210.GH14627@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	akpm@osdl.org, josht@us.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:55224 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751582AbWHJU2s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 16:28:48 -0400
-To: paulmck@us.ibm.com
-In-Reply-To: <20060810183658.GA1771@us.ibm.com>
+Received: from minus.inr.ac.ru ([194.67.69.97]:33693 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S1751591AbWHJUdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 16:33:24 -0400
+To: Thomas Graf <tgraf@suug.ch>
+Content-Disposition: inline
+In-Reply-To: <20060810190210.GH14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->
->On Wed, Aug 09, 2006 at 11:31:42AM -0700, Stephen Hemminger wrote:
->> Replace the gross custom locking done in socket code for net_family[]
->> with simple RCU usage. Some reordering necessary to avoid sleep
->> issues with sock_alloc.
->
->Definitely a good use of RCU from a read-intensive standpoint -- does
->anyone other than Linux-kernel networking developers change the elements
->of the net_family[] array except at boot and shutdown?  ;-)
->
->Some comments included below.  Looks good, but one question about
->things like atalk_create() being able to sleep and a place or two
->where a comment would be good.
->
+Hello!
 
-...
+> What's wrong with listening to the notification for that purpose?
 
->>  
->> +	/*
->> +	 *	Allocate the socket and allow the family to set things up. if
->> +	 *	the protocol is 0, the family is instructed to select an appropriate
->> +	 *	default.
->> +	 */
->> +	sock = sock_alloc();
->> +	if (!sock) {
->> +		printk(KERN_WARNING "socket: no more sockets\n");
->> +		return -ENFILE;	/* Not exactly a match, but its the
->> +				   closest posix thing */
->> +	}
->> +
->> +	sock->type = type;
->> +
->>  #if defined(CONFIG_KMOD)
->>  	/* Attempt to load a protocol module if the find failed.
->>  	 *
->> @@ -1166,70 +1138,59 @@
->>  	 * requested real, full-featured networking support upon configuration.
->>  	 * Otherwise module support will break!
->>  	 */
->> -	if (net_families[family] == NULL) {
->> +	if (net_families[family] == NULL)
->>  		request_module("net-pf-%d", family);
->
->OK, I'll bite...
->
->What happens if the module is not present?  Or is this what the
->"Otherwise module support will break" comment is getting at?
+Nothing! NLM_F_ECHO _is_ listening for notifications without subscription
+to multicast groups and need to figure out what messages are yours.
+But beyond this NLM_F_ECHO is totally subset of this.
+Which still makes much more sense then echoing of a know thing, does not it?
 
-request_module loads the module (and blocks). One would
-expect that the module loaded would set net_families[] via
-sock_register, so later reference would succeed. Comment is
-historical since intention was to make base socket code itself modular
-which never was done, and is probably a bad idea to even consider.
+Alexey
 
-If module is not present, then net_families[] will still be NULL.
 
->Also, this reference to "net_families[family]" is done without
->rcu_dereference() and without any clear update-side lock.  This
->just happens to be OK, since we are only testing for NULL, but
->should at least have a comment.
-
->> -	}
->>  #endif
->>  
->> -	net_family_read_lock();
->> -	if (net_families[family] == NULL) {
->> -		err = -EAFNOSUPPORT;
->> -		goto out;
->> -	}
->> -
->> -/*
->> - *	Allocate the socket and allow the family to set things up. if
->> - *	the protocol is 0, the family is instructed to select an appropriate
->> - *	default.
->> - */
->> -
->> -	if (!(sock = sock_alloc())) {
->> -		printk(KERN_WARNING "socket: no more sockets\n");
->> -		err = -ENFILE;	/* Not exactly a match, but its the
->> -				   closest posix thing */
->> -		goto out;
->> -	}
->> -
->> -	sock->type = type;
->> +	rcu_read_lock();
->> +	pf = rcu_dereference(net_families[family]);
->
->OK, so the elements of the net_families array are protected by RCU.
->All references should either be under rcu_read_lock() and accessed
->via rcu_dereference() or under the update-side lock, whatever that
->might be.
->
-
-Yes, the net_family_lock
-
->>  
->> -/*
->> +/**
->> + *	sock_unregister - remove a protocol handler
->> + *	@family: protocol family to remove
->> + *
->>   *	This function is called by a protocol handler that wants to
->>   *	remove its address family, and have it unlinked from the
->> - *	SOCKET module.
->> + *	new socket creation.
->> + *
->> + *	If protocol handler is a module, then it can use module reference
->> + *	counts to protect against new references. If protocol handler is not
->> + *	a module then it needs to provide its own protection in
->> + *	the ops->create routine.
->>   */
->> -
->>  int sock_unregister(int family)
->>  {
->>  	if (family < 0 || family >= NPROTO)
->> -		return -1;
->> +		return -EINVAL;
->>  
->> -	net_family_write_lock();
->> +	spin_lock(&net_family_lock);
->>  	net_families[family] = NULL;
->
->And this one is covered by net_families_lock, so we are set, since this
->is the last one.
->
->> -	net_family_write_unlock();
->> +	spin_unlock(&net_family_lock);
->> +
->> +	synchronize_rcu();
->
->OK, and the caller is presumably going to free up whatever needs to be
->freed.
->
->Or, if nothing need be freed, beyond this point, we know that all
->non-sleeping code paths through any of the net_protocol_family
->functions have completed.
->
->(So, are all of the functions non-sleeping, or do we care?  The
->definition of net_protocol_family in include/linux/net.h doesn't say
->that they need to be non-sleeping...)
->
->atalk_create() can potentially sleep in the following line of code:
->
->	sk = sk_alloc(PF_APPLETALK, GFP_KERNEL, &ddp_proto, 1);
-
-The module reference counts are used to prevent that. Since
-appletalk module can't be unloaded until there are no more appletalk
-sockets open (ie ref count of appletalk module is zero). To prevent
-new references there is a call to try_module_get() before the
-net_families[family]->create() call. This happens inside
-rcu_read_lock.
-
->What prevents atalk_create() running concurrently with sock_unregister()?
-
-Module ref counts. I didn't want to start ref counting the net_families
-because that would cause another atomic op, and would penalize the normal
-case of non-modular IPV4 (and non-moduler IPV6).
-
->(One possible reason is that ->create is only called in __sock_create(),
->and that there is something preventing sock_unregister() from being called
->before __sock_create() returns -- but I must defer to people who understand
->networking better than do I.)
-
-That is why I added a comment to sock_unregister() describing how for the
-normal case of protocol as module, this is safe. But if protocol wants
-to call sock_unregister() other times it needs to do it's own ref counting.
-
-There are a couple of calls to sock_unregister() from module init routines,
-but these are in benign error unwind cases. The code in these cases
-could be reorganized to do sock_register() last during initilization,
-but it hardly matters.
