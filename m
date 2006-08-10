@@ -1,58 +1,35 @@
-From: "Jesse Huang" <jesse@icplus.com.tw>
-Subject: Hello, We had some patch need to submit for sundance.c
-Date: Thu, 10 Aug 2006 10:24:54 +0800
-Message-ID: <002701c6bc24$2a9f10f0$4964a8c0@icplus.com.tw>
-References: <02fb01c6b147$b15b8fc0$4964a8c0@icplus.com.tw> <20060727190707.GA24157@electric-eye.fr.zoreil.com>
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	"Andrew Morton" <akpm@osdl.org>, "Jeff Garzik" <jgarzik@pobox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/5] sock_create bad error return
+Date: Wed, 09 Aug 2006 20:47:45 -0700 (PDT)
+Message-ID: <20060809.204745.102463311.davem@davemloft.net>
+References: <20060809183138.332023530@localhost.localdomain>
+	<20060809183348.999358659@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: paulmck@us.ibm.com, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr26.hinet.net ([168.95.4.126]:24246 "EHLO msr26.hinet.net")
-	by vger.kernel.org with ESMTP id S1030543AbWHJCZJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Aug 2006 22:25:09 -0400
-To: "Francois Romieu" <romieu@fr.zoreil.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48033
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932287AbWHJDrj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Aug 2006 23:47:39 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060809183348.999358659@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear All:
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 09 Aug 2006 11:31:39 -0700
 
-We had some patch need to submit. Would you tell me where to get current
-sundance.c for myself to generate those patch files.
+> If socket create call races with module unload, it correctly
+> fails the socket call but doesn't return an error. This race
+> is theoritical because the sock->ops are always the same and
+> non-modular.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Sorry, I only got this link:
-http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=blob;h=f13b2a195c708fe32d8c53d05988875a51bd52e1;hb=1668b19f75cb949f930814a23b74201ad6f76a53;f=drivers/net/sundance.c
-
-Thanks for everybody.
-
-Best Regards,
-Jesse Huang
-
------ Original Message ----- 
-From: "Francois Romieu" <romieu@fr.zoreil.com>
-To: "Jesse Huang" <jesse@icplus.com.tw>
-Cc: <linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>; "Andrew
-Morton" <akpm@osdl.org>; "Jeff Garzik" <jgarzik@pobox.com>
-Sent: Friday, July 28, 2006 3:07 AM
-Subject: Re: Hello, We have IP100A Linux driver need to submit to 2.6.x
-kernel
-
-
-Jesse Huang <jesse@icplus.com.tw> :
-[...]
-> I am IC Plus software engineer. We have IP100A 10/100 fast network adapter
-> driver need to submit to Linux 2.6.x kernel. Please tell me who should I
-> submit to.
->
-> IP100A's device ID is 0x13f0 0200.
-
-You do not need to do anything:
-
-http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=1668b19f75cb949f930814a23b74201ad6f76a53
-
-As far as I have checked before forwarding Pedro Alejandro's patch, the
-out-of-tree IP100 driver exhibited no significant difference with the
-sundance driver.
-
--- 
-Ueimor
-
-
+I think the intention of the code is to return
+-EAFNOSUPPORT which is set explicitly some lines
+above, and this makes sense because if we can't grab
+onto the module reference count it means the module
+is in the process of being unloaded.
