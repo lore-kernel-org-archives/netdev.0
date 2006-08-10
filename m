@@ -1,429 +1,327 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [IPV6 04/06]: Increase number of possible routing tables to 2^32
-Date: Thu, 10 Aug 2006 21:30:03 +0200 (MEST)
-Message-ID: <20060810193003.14867.80798.sendpatchset@localhost.localdomain>
+Subject: [NET 01/06]: Use u32 for routing table IDs
+Date: Thu, 10 Aug 2006 21:29:59 +0200 (MEST)
+Message-ID: <20060810192959.14867.66066.sendpatchset@localhost.localdomain>
 References: <20060810192957.14867.71965.sendpatchset@localhost.localdomain>
 Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
 	patrick@tykepenguin.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44762 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1751459AbWHJTaE
+Received: from stinky.trash.net ([213.144.137.162]:39642 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751240AbWHJTaA
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Aug 2006 15:30:04 -0400
+	Thu, 10 Aug 2006 15:30:00 -0400
 To: davem@davemloft.net
 In-Reply-To: <20060810192957.14867.71965.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPV6]: Increase number of possible routing tables to 2^32
+[NET]: Use u32 for routing table IDs
 
-Increase number of possible routing tables to 2^32 by replacing iterations
-over all possible table IDs by hash table walking.
+Use u32 for routing table IDs in net/ipv4 and net/decnet in preparation of
+support for a larger number of routing tables. net/ipv6 already uses u32
+everywhere and needs no further changes. No functional changes are made by
+this patch.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit cad398a8f3ef363abba9e6450dded94a022c96fa
-tree 4fea9c50650ab65d942dca9c2545d1810b227839
-parent 148d1ca7c199005b5a92f8154a7caf3f78529672
-author Patrick McHardy <kaber@trash.net> Thu, 10 Aug 2006 20:53:33 +0200
-committer Patrick McHardy <kaber@trash.net> Thu, 10 Aug 2006 20:53:33 +0200
+commit 29a0f4a779543907ddf8fbca55b6f1d0e0017f64
+tree c559ca79c2d6ab28ceb4a4c1d5ecd5ea81264f0d
+parent 1b471cd32acdff18786bc06542c686d52decbc5a
+author Patrick McHardy <kaber@trash.net> Thu, 10 Aug 2006 20:45:22 +0200
+committer Patrick McHardy <kaber@trash.net> Thu, 10 Aug 2006 20:45:22 +0200
 
- include/net/ip6_route.h |    7 ++
- net/ipv6/ip6_fib.c      |  171 ++++++++++++++++++++++++++++++++++++++++++-----
- net/ipv6/route.c        |  128 -----------------------------------
- 3 files changed, 159 insertions(+), 147 deletions(-)
+ include/net/dn_fib.h     |    4 ++--
+ include/net/ip_fib.h     |   14 +++++++-------
+ net/decnet/dn_fib.c      |    6 +++---
+ net/decnet/dn_table.c    |   10 +++++-----
+ net/ipv4/fib_frontend.c  |    8 ++++----
+ net/ipv4/fib_hash.c      |    4 ++--
+ net/ipv4/fib_lookup.h    |    4 ++--
+ net/ipv4/fib_rules.c     |    2 +-
+ net/ipv4/fib_semantics.c |    4 ++--
+ net/ipv4/fib_trie.c      |    6 +++---
+ 10 files changed, 31 insertions(+), 31 deletions(-)
 
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index 9bfa3cc..01bfe40 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -137,6 +137,13 @@ extern int inet6_rtm_newroute(struct sk_
- extern int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg);
- extern int inet6_rtm_getroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg);
+diff --git a/include/net/dn_fib.h b/include/net/dn_fib.h
+index 32bc8ce..cd9c378 100644
+--- a/include/net/dn_fib.h
++++ b/include/net/dn_fib.h
+@@ -94,7 +94,7 @@ #define DN_FIB_INFO(f) ((f)->fn_info)
  
-+struct rt6_rtnl_dump_arg
-+{
-+	struct sk_buff *skb;
-+	struct netlink_callback *cb;
-+};
-+
-+extern int rt6_dump_route(struct rt6_info *rt, void *p_arg);
- extern void rt6_ifdown(struct net_device *dev);
- extern void rt6_mtu_change(struct net_device *dev, unsigned mtu);
  
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 1f23161..bececbe 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -158,7 +158,26 @@ static struct fib6_table fib6_main_tbl =
- };
+ struct dn_fib_table {
+-	int n;
++	u32 n;
  
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
-+#define FIB_TABLE_HASHSZ 256
-+#else
-+#define FIB_TABLE_HASHSZ 1
-+#endif
-+static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
-+
-+static void fib6_link_table(struct fib6_table *tb)
-+{
-+	unsigned int h;
-+
-+	h = tb->tb6_id & (FIB_TABLE_HASHSZ - 1);
- 
-+	/*
-+	 * No protection necessary, this is the only list mutatation
-+	 * operation, tables never disappear once they exist.
-+	 */
-+	hlist_add_head_rcu(&tb->tb6_hlist, &fib_table_hash[h]);
-+}
-+
-+#ifdef CONFIG_IPV6_MULTIPLE_TABLES
- static struct fib6_table fib6_local_tbl = {
- 	.tb6_id		= RT6_TABLE_LOCAL,
- 	.tb6_lock	= RW_LOCK_UNLOCKED,
-@@ -168,9 +187,6 @@ static struct fib6_table fib6_local_tbl 
- 	},
- };
- 
--#define FIB_TABLE_HASHSZ 256
--static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
--
- static struct fib6_table *fib6_alloc_table(u32 id)
- {
- 	struct fib6_table *table;
-@@ -186,19 +202,6 @@ static struct fib6_table *fib6_alloc_tab
- 	return table;
- }
- 
--static void fib6_link_table(struct fib6_table *tb)
--{
--	unsigned int h;
--
--	h = tb->tb6_id & (FIB_TABLE_HASHSZ - 1);
--
--	/*
--	 * No protection necessary, this is the only list mutatation
--	 * operation, tables never disappear once they exist.
--	 */
--	hlist_add_head_rcu(&tb->tb6_hlist, &fib_table_hash[h]);
--}
--
- struct fib6_table *fib6_new_table(u32 id)
- {
- 	struct fib6_table *tb;
-@@ -263,10 +266,135 @@ struct dst_entry *fib6_rule_lookup(struc
- 
- static void __init fib6_tables_init(void)
- {
-+	fib6_link_table(&fib6_main_tbl);
- }
- 
- #endif
- 
-+static int fib6_dump_node(struct fib6_walker_t *w)
-+{
-+	int res;
-+	struct rt6_info *rt;
-+
-+	for (rt = w->leaf; rt; rt = rt->u.next) {
-+		res = rt6_dump_route(rt, w->args);
-+		if (res < 0) {
-+			/* Frame is full, suspend walking */
-+			w->leaf = rt;
-+			return 1;
-+		}
-+		BUG_TRAP(res!=0);
-+	}
-+	w->leaf = NULL;
-+	return 0;
-+}
-+
-+static void fib6_dump_end(struct netlink_callback *cb)
-+{
-+	struct fib6_walker_t *w = (void*)cb->args[2];
-+
-+	if (w) {
-+		cb->args[2] = 0;
-+		kfree(w);
-+	}
-+	cb->done = (void*)cb->args[3];
-+	cb->args[1] = 3;
-+}
-+
-+static int fib6_dump_done(struct netlink_callback *cb)
-+{
-+	fib6_dump_end(cb);
-+	return cb->done ? cb->done(cb) : 0;
-+}
-+
-+static int fib6_dump_table(struct fib6_table *table, struct sk_buff *skb,
-+			   struct netlink_callback *cb)
-+{
-+	struct fib6_walker_t *w;
-+	int res;
-+
-+	w = (void *)cb->args[2];
-+	w->root = &table->tb6_root;
-+
-+	if (cb->args[4] == 0) {
-+		read_lock_bh(&table->tb6_lock);
-+		res = fib6_walk(w);
-+		read_unlock_bh(&table->tb6_lock);
-+		if (res > 0)
-+			cb->args[4] = 1;
-+	} else {
-+		read_lock_bh(&table->tb6_lock);
-+		res = fib6_walk_continue(w);
-+		read_unlock_bh(&table->tb6_lock);
-+		if (res != 0) {
-+			if (res < 0)
-+				fib6_walker_unlink(w);
-+			goto end;
-+		}
-+		fib6_walker_unlink(w);
-+		cb->args[4] = 0;
-+	}
-+end:
-+	return res;
-+}
-+
-+int inet6_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
-+{
-+	unsigned int h, s_h;
-+	unsigned int e = 0, s_e;
-+	struct rt6_rtnl_dump_arg arg;
-+	struct fib6_walker_t *w;
-+	struct fib6_table *tb;
-+	struct hlist_node *node;
-+	int res = 0;
-+
-+	s_h = cb->args[0];
-+	s_e = cb->args[1];
-+
-+	w = (void *)cb->args[2];
-+	if (w == NULL) {
-+		/* New dump:
-+		 *
-+		 * 1. hook callback destructor.
-+		 */
-+		cb->args[3] = (long)cb->done;
-+		cb->done = fib6_dump_done;
-+
-+		/*
-+		 * 2. allocate and initialize walker.
-+		 */
-+		w = kzalloc(sizeof(*w), GFP_ATOMIC);
-+		if (w == NULL)
-+			return -ENOMEM;
-+		w->func = fib6_dump_node;
-+		cb->args[2] = (long)w;
-+	}
-+
-+	arg.skb = skb;
-+	arg.cb = cb;
-+	w->args = &arg;
-+
-+	for (h = s_h; h < FIB_TABLE_HASHSZ; h++, s_e = 0) {
-+		e = 0;
-+		hlist_for_each_entry(tb, node, &fib_table_hash[h], tb6_hlist) {
-+			if (e < s_e)
-+				goto next;
-+			res = fib6_dump_table(tb, skb, cb);
-+			if (res != 0)
-+				goto out;
-+next:
-+			e++;
-+		}
-+	}
-+out:
-+	cb->args[1] = e;
-+	cb->args[0] = h;
-+
-+	res = res < 0 ? res : skb->len;
-+	if (res <= 0)
-+		fib6_dump_end(cb);
-+	return res;
-+}
- 
+ 	int (*insert)(struct dn_fib_table *t, struct rtmsg *r, 
+ 			struct dn_kern_rta *rta, struct nlmsghdr *n, 
+@@ -137,7 +137,7 @@ extern int dn_fib_sync_up(struct net_dev
  /*
-  *	Routing Table
-@@ -1187,17 +1315,20 @@ static void fib6_clean_tree(struct fib6_
- void fib6_clean_all(int (*func)(struct rt6_info *, void *arg),
- 		    int prune, void *arg)
+  * dn_tables.c
+  */
+-extern struct dn_fib_table *dn_fib_get_table(int n, int creat);
++extern struct dn_fib_table *dn_fib_get_table(u32 n, int creat);
+ extern struct dn_fib_table *dn_fib_empty_table(void);
+ extern void dn_fib_table_init(void);
+ extern void dn_fib_table_cleanup(void);
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index adf7358..0dcbf16 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -150,7 +150,7 @@ #define FIB_RES_NETMASK(res)	        (0)
+ #endif /* CONFIG_IP_ROUTE_MULTIPATH_WRANDOM */
+ 
+ struct fib_table {
+-	unsigned char	tb_id;
++	u32		tb_id;
+ 	unsigned	tb_stamp;
+ 	int		(*tb_lookup)(struct fib_table *tb, const struct flowi *flp, struct fib_result *res);
+ 	int		(*tb_insert)(struct fib_table *table, struct rtmsg *r,
+@@ -173,14 +173,14 @@ #ifndef CONFIG_IP_MULTIPLE_TABLES
+ extern struct fib_table *ip_fib_local_table;
+ extern struct fib_table *ip_fib_main_table;
+ 
+-static inline struct fib_table *fib_get_table(int id)
++static inline struct fib_table *fib_get_table(u32 id)
  {
--	int i;
- 	struct fib6_table *table;
-+	struct hlist_node *node;
-+	unsigned int h;
- 
--	for (i = FIB6_TABLE_MIN; i <= FIB6_TABLE_MAX; i++) {
--		table = fib6_get_table(i);
--		if (table != NULL) {
-+	rcu_read_lock();
-+	for (h = 0; h < FIB_TABLE_HASHSZ; h++) {
-+		hlist_for_each_entry_rcu(table, node, &fib_table_hash[h],
-+					 tb6_hlist) {
- 			write_lock_bh(&table->tb6_lock);
- 			fib6_clean_tree(&table->tb6_root, func, prune, arg);
- 			write_unlock_bh(&table->tb6_lock);
- 		}
- 	}
-+	rcu_read_unlock();
+ 	if (id != RT_TABLE_LOCAL)
+ 		return ip_fib_main_table;
+ 	return ip_fib_local_table;
  }
  
- static int fib6_prune_clone(struct rt6_info *rt, void *arg)
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index b8b5132..191d12f 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1870,12 +1870,6 @@ int inet6_rtm_newroute(struct sk_buff *s
- 			     rtm_get_table(arg, r->rtm_table));
- }
- 
--struct rt6_rtnl_dump_arg
--{
--	struct sk_buff *skb;
--	struct netlink_callback *cb;
--};
--
- static int rt6_fill_node(struct sk_buff *skb, struct rt6_info *rt,
- 			 struct in6_addr *dst, struct in6_addr *src,
- 			 int iif, int type, u32 pid, u32 seq,
-@@ -1972,7 +1966,7 @@ rtattr_failure:
- 	return -1;
- }
- 
--static int rt6_dump_route(struct rt6_info *rt, void *p_arg)
-+int rt6_dump_route(struct rt6_info *rt, void *p_arg)
+-static inline struct fib_table *fib_new_table(int id)
++static inline struct fib_table *fib_new_table(u32 id)
  {
- 	struct rt6_rtnl_dump_arg *arg = (struct rt6_rtnl_dump_arg *) p_arg;
- 	int prefix;
-@@ -1988,126 +1982,6 @@ static int rt6_dump_route(struct rt6_inf
- 		     prefix, NLM_F_MULTI);
+ 	return fib_get_table(id);
+ }
+@@ -205,9 +205,9 @@ #define ip_fib_main_table (fib_tables[RT
+ 
+ extern struct fib_table * fib_tables[RT_TABLE_MAX+1];
+ extern int fib_lookup(struct flowi *flp, struct fib_result *res);
+-extern struct fib_table *__fib_new_table(int id);
++extern struct fib_table *__fib_new_table(u32 id);
+ 
+-static inline struct fib_table *fib_get_table(int id)
++static inline struct fib_table *fib_get_table(u32 id)
+ {
+ 	if (id == 0)
+ 		id = RT_TABLE_MAIN;
+@@ -215,7 +215,7 @@ static inline struct fib_table *fib_get_
+ 	return fib_tables[id];
  }
  
--static int fib6_dump_node(struct fib6_walker_t *w)
--{
--	int res;
--	struct rt6_info *rt;
--
--	for (rt = w->leaf; rt; rt = rt->u.next) {
--		res = rt6_dump_route(rt, w->args);
--		if (res < 0) {
--			/* Frame is full, suspend walking */
--			w->leaf = rt;
--			return 1;
--		}
--		BUG_TRAP(res!=0);
--	}
--	w->leaf = NULL;
--	return 0;
--}
--
--static void fib6_dump_end(struct netlink_callback *cb)
--{
--	struct fib6_walker_t *w = (void*)cb->args[0];
--
--	if (w) {
--		cb->args[0] = 0;
--		kfree(w);
--	}
--	cb->done = (void*)cb->args[1];
--	cb->args[1] = 0;
--}
--
--static int fib6_dump_done(struct netlink_callback *cb)
--{
--	fib6_dump_end(cb);
--	return cb->done ? cb->done(cb) : 0;
--}
--
--int inet6_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
--{
--	struct fib6_table *table;
--	struct rt6_rtnl_dump_arg arg;
--	struct fib6_walker_t *w;
--	int i, res = 0;
--
--	arg.skb = skb;
--	arg.cb = cb;
--
--	/*
--	 * cb->args[0] = pointer to walker structure
--	 * cb->args[1] = saved cb->done() pointer
--	 * cb->args[2] = current table being dumped
--	 */
--
--	w = (void*)cb->args[0];
--	if (w == NULL) {
--		/* New dump:
--		 * 
--		 * 1. hook callback destructor.
--		 */
--		cb->args[1] = (long)cb->done;
--		cb->done = fib6_dump_done;
--
--		/*
--		 * 2. allocate and initialize walker.
--		 */
--		w = kzalloc(sizeof(*w), GFP_ATOMIC);
--		if (w == NULL)
--			return -ENOMEM;
--		w->func = fib6_dump_node;
--		w->args = &arg;
--		cb->args[0] = (long)w;
--		cb->args[2] = FIB6_TABLE_MIN;
--	} else {
--		w->args = &arg;
--		i = cb->args[2];
--		if (i > FIB6_TABLE_MAX)
--			goto end;
--
--		table = fib6_get_table(i);
--		if (table != NULL) {
--			read_lock_bh(&table->tb6_lock);
--			w->root = &table->tb6_root;
--			res = fib6_walk_continue(w);
--			read_unlock_bh(&table->tb6_lock);
--			if (res != 0) {
--				if (res < 0)
--					fib6_walker_unlink(w);
--				goto end;
--			}
--		}
--
--		fib6_walker_unlink(w);
--		cb->args[2] = ++i;
--	}
--
--	for (i = cb->args[2]; i <= FIB6_TABLE_MAX; i++) {
--		table = fib6_get_table(i);
--		if (table == NULL)
--			continue;
--
--		read_lock_bh(&table->tb6_lock);
--		w->root = &table->tb6_root;
--		res = fib6_walk(w);
--		read_unlock_bh(&table->tb6_lock);
--		if (res)
--			break;
--	}
--end:
--	cb->args[2] = i;
--
--	res = res < 0 ? res : skb->len;
--	/* res < 0 is an error. (really, impossible)
--	   res == 0 means that dump is complete, but skb still can contain data.
--	   res > 0 dump is not complete, but frame is full.
--	 */
--	/* Destroy walker, if dump of this table is complete. */
--	if (res <= 0)
--		fib6_dump_end(cb);
--	return res;
--}
--
- int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void *arg)
+-static inline struct fib_table *fib_new_table(int id)
++static inline struct fib_table *fib_new_table(u32 id)
  {
- 	struct rtattr **rta = arg;
+ 	if (id == 0)
+ 		id = RT_TABLE_MAIN;
+@@ -248,7 +248,7 @@ extern int fib_convert_rtentry(int cmd, 
+ extern u32  __fib_res_prefsrc(struct fib_result *res);
+ 
+ /* Exported by fib_hash.c */
+-extern struct fib_table *fib_hash_init(int id);
++extern struct fib_table *fib_hash_init(u32 id);
+ 
+ #ifdef CONFIG_IP_MULTIPLE_TABLES
+ extern int fib4_rules_dump(struct sk_buff *skb, struct netlink_callback *cb);
+diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
+index ed5fb5c..7b3bf5c 100644
+--- a/net/decnet/dn_fib.c
++++ b/net/decnet/dn_fib.c
+@@ -534,8 +534,8 @@ int dn_fib_rtm_newroute(struct sk_buff *
+ 
+ int dn_fib_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+-	int t;
+-	int s_t;
++	u32 t;
++	u32 s_t;
+ 	struct dn_fib_table *tb;
+ 
+ 	if (NLMSG_PAYLOAD(cb->nlh, 0) >= sizeof(struct rtmsg) &&
+@@ -765,7 +765,7 @@ void dn_fib_flush(void)
+ {
+         int flushed = 0;
+         struct dn_fib_table *tb;
+-        int id;
++        u32 id;
+ 
+         for(id = RT_TABLE_MAX; id > 0; id--) {
+                 if ((tb = dn_fib_get_table(id, 0)) == NULL)
+diff --git a/net/decnet/dn_table.c b/net/decnet/dn_table.c
+index c6a2e41..b7c6c06 100644
+--- a/net/decnet/dn_table.c
++++ b/net/decnet/dn_table.c
+@@ -264,7 +264,7 @@ static int dn_fib_nh_match(struct rtmsg 
+ }
+ 
+ static int dn_fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
+-                        u8 tb_id, u8 type, u8 scope, void *dst, int dst_len,
++                        u32 tb_id, u8 type, u8 scope, void *dst, int dst_len,
+                         struct dn_fib_info *fi, unsigned int flags)
+ {
+         struct rtmsg *rtm;
+@@ -327,7 +327,7 @@ rtattr_failure:
+ }
+ 
+ 
+-static void dn_rtmsg_fib(int event, struct dn_fib_node *f, int z, int tb_id,
++static void dn_rtmsg_fib(int event, struct dn_fib_node *f, int z, u32 tb_id,
+                         struct nlmsghdr *nlh, struct netlink_skb_parms *req)
+ {
+         struct sk_buff *skb;
+@@ -736,7 +736,7 @@ out:
+ }
+ 
+ 
+-struct dn_fib_table *dn_fib_get_table(int n, int create)
++struct dn_fib_table *dn_fib_get_table(u32 n, int create)
+ {
+         struct dn_fib_table *t;
+ 
+@@ -773,7 +773,7 @@ struct dn_fib_table *dn_fib_get_table(in
+         return t;
+ }
+ 
+-static void dn_fib_del_tree(int n)
++static void dn_fib_del_tree(u32 n)
+ {
+ 	struct dn_fib_table *t;
+ 
+@@ -787,7 +787,7 @@ static void dn_fib_del_tree(int n)
+ 
+ struct dn_fib_table *dn_fib_empty_table(void)
+ {
+-        int id;
++        u32 id;
+ 
+         for(id = RT_TABLE_MIN; id <= RT_TABLE_MAX; id++)
+                 if (dn_fib_tables[id] == NULL)
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index a83f1aa..06f4b23 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -62,7 +62,7 @@ #define RT_TABLE_MIN 1
+ 
+ struct fib_table *fib_tables[RT_TABLE_MAX+1];
+ 
+-struct fib_table *__fib_new_table(int id)
++struct fib_table *__fib_new_table(u32 id)
+ {
+ 	struct fib_table *tb;
+ 
+@@ -82,7 +82,7 @@ static void fib_flush(void)
+ 	int flushed = 0;
+ #ifdef CONFIG_IP_MULTIPLE_TABLES
+ 	struct fib_table *tb;
+-	int id;
++	u32 id;
+ 
+ 	for (id = RT_TABLE_MAX; id>0; id--) {
+ 		if ((tb = fib_get_table(id))==NULL)
+@@ -333,8 +333,8 @@ int inet_rtm_newroute(struct sk_buff *sk
+ 
+ int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+-	int t;
+-	int s_t;
++	u32 t;
++	u32 s_t;
+ 	struct fib_table *tb;
+ 
+ 	if (NLMSG_PAYLOAD(cb->nlh, 0) >= sizeof(struct rtmsg) &&
+diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+index 72c633b..f8d5c80 100644
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -765,9 +765,9 @@ static int fn_hash_dump(struct fib_table
+ }
+ 
+ #ifdef CONFIG_IP_MULTIPLE_TABLES
+-struct fib_table * fib_hash_init(int id)
++struct fib_table * fib_hash_init(u32 id)
+ #else
+-struct fib_table * __init fib_hash_init(int id)
++struct fib_table * __init fib_hash_init(u32 id)
+ #endif
+ {
+ 	struct fib_table *tb;
+diff --git a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
+index ef6609e..ddd5249 100644
+--- a/net/ipv4/fib_lookup.h
++++ b/net/ipv4/fib_lookup.h
+@@ -30,11 +30,11 @@ extern struct fib_info *fib_create_info(
+ extern int fib_nh_match(struct rtmsg *r, struct nlmsghdr *,
+ 			struct kern_rta *rta, struct fib_info *fi);
+ extern int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
+-			 u8 tb_id, u8 type, u8 scope, void *dst,
++			 u32 tb_id, u8 type, u8 scope, void *dst,
+ 			 int dst_len, u8 tos, struct fib_info *fi,
+ 			 unsigned int);
+ extern void rtmsg_fib(int event, u32 key, struct fib_alias *fa,
+-		      int z, int tb_id,
++		      int z, u32 tb_id,
+ 		      struct nlmsghdr *n, struct netlink_skb_parms *req);
+ extern struct fib_alias *fib_find_alias(struct list_head *fah,
+ 					u8 tos, u32 prio);
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index d242e52..58fb91b 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -169,7 +169,7 @@ #endif
+ 
+ static struct fib_table *fib_empty_table(void)
+ {
+-	int id;
++	u32 id;
+ 
+ 	for (id = 1; id <= RT_TABLE_MAX; id++)
+ 		if (fib_tables[id] == NULL)
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 8aa6014..17c7974 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -273,7 +273,7 @@ int ip_fib_check_default(u32 gw, struct 
+ }
+ 
+ void rtmsg_fib(int event, u32 key, struct fib_alias *fa,
+-	       int z, int tb_id,
++	       int z, u32 tb_id,
+ 	       struct nlmsghdr *n, struct netlink_skb_parms *req)
+ {
+ 	struct sk_buff *skb;
+@@ -935,7 +935,7 @@ u32 __fib_res_prefsrc(struct fib_result 
+ 
+ int
+ fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
+-	      u8 tb_id, u8 type, u8 scope, void *dst, int dst_len, u8 tos,
++	      u32 tb_id, u8 type, u8 scope, void *dst, int dst_len, u8 tos,
+ 	      struct fib_info *fi, unsigned int flags)
+ {
+ 	struct rtmsg *rtm;
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 23fb9d9..b98f211 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1148,7 +1148,7 @@ fn_trie_insert(struct fib_table *tb, str
+ 
+ 	key = ntohl(key);
+ 
+-	pr_debug("Insert table=%d %08x/%d\n", tb->tb_id, key, plen);
++	pr_debug("Insert table=%u %08x/%d\n", tb->tb_id, key, plen);
+ 
+ 	mask = ntohl(inet_make_mask(plen));
+ 
+@@ -1943,9 +1943,9 @@ out:
+ /* Fix more generic FIB names for init later */
+ 
+ #ifdef CONFIG_IP_MULTIPLE_TABLES
+-struct fib_table * fib_hash_init(int id)
++struct fib_table * fib_hash_init(u32 id)
+ #else
+-struct fib_table * __init fib_hash_init(int id)
++struct fib_table * __init fib_hash_init(u32 id)
+ #endif
+ {
+ 	struct fib_table *tb;
