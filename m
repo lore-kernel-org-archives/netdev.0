@@ -1,40 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] htb: cleanup
-Date: Thu, 10 Aug 2006 23:39:26 -0700 (PDT)
-Message-ID: <20060810.233926.99286527.davem@davemloft.net>
-References: <20060802125636.3028ba91@dxpl.pdx.osdl.net>
-	<20060802.151816.30182208.davem@davemloft.net>
-	<20060810123602.GE14627@postel.suug.ch>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: [NET 00/06]: Increase number of possible routing tables
+Date: Fri, 11 Aug 2006 10:39:19 +0400
+Message-ID: <44DC2617.7020200@tls.msk.ru>
+References: <20060810192957.14867.71965.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org, lartc@mailman.ds9a.nl
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	patrick@tykepenguin.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:49124
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932261AbWHKGjQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Aug 2006 02:39:16 -0400
-To: tgraf@suug.ch
-In-Reply-To: <20060810123602.GE14627@postel.suug.ch>
+Received: from hobbit.corpit.ru ([81.13.94.6]:31312 "EHLO hobbit.corpit.ru")
+	by vger.kernel.org with ESMTP id S932195AbWHKGj0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 02:39:26 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <20060810192957.14867.71965.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 10 Aug 2006 14:36:02 +0200
-
-> * David Miller <davem@davemloft.net> 2006-08-02 15:18
-> > From: Stephen Hemminger <shemminger@osdl.org>
-> > Date: Wed, 2 Aug 2006 12:56:36 -0700
-> > 
-> > > The HTB scheduler code is a mess, this patch set does some basic
-> > > house cleaning.  The first four should cause no code change, but the
-> > > last two need more testing.
-> > 
-> > These patches look fine to me.  Once everyone think's they
-> > are ready just let me know and I'll push them into net-2.6.19
+Patrick McHardy wrote:
+> These are the updated patches (against net-2.6.19) to increase the number
+> of possible routing tables to 2^32. They basically consist of four parts:
 > 
-> I think they are ready.
+> - Use u32 for routing table IDs everywhere inside the kernel
 
-Thanks for taking a look.
+Just out of curiocity: why current limit of 2^31 isn't sufficient?
+Or am I missing the point?
 
-I've merged all 6 of Stephen's HTB patches into net-2.6.19
+Thanks.
+
+/mjt
