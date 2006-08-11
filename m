@@ -1,88 +1,120 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: skb_shared_info()
-Date: Fri, 11 Aug 2006 18:00:19 +0400
-Message-ID: <20060811140019.GA8611@ms2.inr.ac.ru>
-References: <20060808.163915.03600382.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [RFC PPP]: carrier/operstate support
+Date: Fri, 11 Aug 2006 16:03:09 +0200
+Message-ID: <44DC8E1D.9020907@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	johnpol@2ka.mipt.ru
+Content-Type: multipart/mixed;
+ boundary="------------080302010009040204030906"
+Cc: paulus@samba.org, linux-ppp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:45212 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1751123AbWHKOAe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 10:00:34 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060808.163915.03600382.davem@davemloft.net>
+Received: from stinky.trash.net ([213.144.137.162]:15772 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751118AbWHKODO
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Aug 2006 10:03:14 -0400
+To: Linux Netdev List <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
-
->> management schemes and to just wrap SKB's around
->> arbitrary pieces of data.
-+
-> and something clever like a special page_offset encoding
-> means "use data, not page".
-
-But for what purpose do you plan to use it?
+This is a multi-part message in MIME format.
+--------------080302010009040204030906
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
 
-> The e1000 issue is just one example of this, another
+--------------080302010009040204030906
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-What is this issue?
+[PPP]: carrier/operstate support
 
+Add support for setting carrier state and operstate of ppp devices.
+The patch works as follows:
 
-What's about aggregated tcp queue, I can guess you did not find place
-where to add protocol headers, but cannot figure out how adding non-pagecache
-references could help.
+- Initially, ppp devices come up with carrier off and npmode set to NPMODE_DROP
 
-You would rather want more then one skb_shared_info(): at least two,
-one is immutable, another is for headers.
+- In non-demand mode (dialin or permanent connection), when the IP*CP
+  protocols transition to UP state, the ppp daemon will change the npmode
+  to NPMODE_PASS, at which point the carrier state is set to "on".
+  On hangup the ppp daemon will change it back to NPMODE_DROP and the
+  carrier state is changed back to "off".
 
-I think Evgeniy's idea about inlining skb_shared_info to skb head
-is promising and simple enough. All the point of shared skb_shared_info
-was to make cloning fast. But it makes lots of sense to inline some short
-vector inot skb head (and, probably, even a MAX_HEADER space _instead_
-of space for fclone).
+- In demand mode, the PPP daemon will set npmode to NPMODE_PASS immediately
+  (moving the interface to "carrier up" state) and set the SC_LOOP_TRAFFIC
+  flag until demand is signalled. While SC_LOOP_TRAFFIC is set, the interface
+  is put in dormant state. As soon as demand is signaled this flag will get
+  cleared and npmode set to NPMODE_QUEUE (which is unsupported by the kernel),
+  so the carrier state is changed to "off" until the IP*CB protocols
+  transition to UP.
 
-With aggregated tcp send queue, when transmitting a segment, you could
-allocate new skb head with space for header and either take existing
-skb_shared_info from queue, attach it to head and set offset/length.
-Or, alternatively, set one or two of page pointers in array, inlined in head.
-(F.e. in the case of AF_UNIX socket, mentioned by Evgeniy, we would keep data
-in pages and attach it directly to skb head).
+So simply put: a non-demand interface in in "carrier off" state until its
+able to pass traffic, demand interfaces are in "carrier on, dormant" state
+while waiting for demand, "carrier off" state while connecting and "carrier on"
+state when able to pass traffic.
 
-Cloning becomes more expensive, but who needs it cheap, if tcp does not?
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
+---
+commit 821791c11bee40ec1bedbb86a03a995475c85b2c
+tree 4c466550537e6bf4bc4b8f32171caf7d7349ca81
+parent 99c4451081b0ea2107ba4827f7d518e1c739cf1b
+author Patrick McHardy <kaber@trash.net> Fri, 11 Aug 2006 16:01:15 +0200
+committer Patrick McHardy <kaber@trash.net> Fri, 11 Aug 2006 16:01:15 +0200
 
+ drivers/net/ppp_generic.c |   24 +++++++++++++++++++++---
+ 1 files changed, 21 insertions(+), 3 deletions(-)
 
-Returning to "arbitrary pieces of data".
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+index 0ec6e9d..e01b7e9 100644
+--- a/drivers/net/ppp_generic.c
++++ b/drivers/net/ppp_generic.c
+@@ -639,6 +639,12 @@ static int ppp_ioctl(struct inode *inode
+ 		ppp_lock(ppp);
+ 		cflags = ppp->flags & ~val;
+ 		ppp->flags = val & SC_FLAG_BITS;
++		if (ppp->dev != NULL) {
++			if (ppp->flags & SC_LOOP_TRAFFIC)
++				netif_dormant_on(ppp->dev);
++			else
++				netif_dormant_off(ppp->dev);
++		}
+ 		ppp_unlock(ppp);
+ 		if (cflags & SC_CCP_OPEN)
+ 			ppp_ccp_closed(ppp);
+@@ -719,9 +725,20 @@ static int ppp_ioctl(struct inode *inode
+ 			if (copy_to_user(argp, &npi, sizeof(npi)))
+ 				break;
+ 		} else {
++			ppp_lock(ppp);
+ 			ppp->npmode[i] = npi.mode;
+-			/* we may be able to transmit more packets now (??) */
+-			netif_wake_queue(ppp->dev);
++			if (ppp->dev != NULL) {
++				for (i = 0; i < NUM_NP; i++) {
++					if (ppp->npmode[i] == NPMODE_PASS) {
++						netif_carrier_on(ppp->dev);
++						netif_wake_queue(ppp->dev);
++						break;
++					}
++				}
++				if (i == NUM_NP)
++					netif_carrier_off(ppp->dev);
++			}
++			ppp_unlock(ppp);
+ 		}
+ 		err = 0;
+ 		break;
+@@ -2420,7 +2437,8 @@ ppp_create_interface(int unit, int *retp
+ 	init_ppp_file(&ppp->file, INTERFACE);
+ 	ppp->file.hdrlen = PPP_HDRLEN - 2;	/* don't count proto bytes */
+ 	for (i = 0; i < NUM_NP; ++i)
+-		ppp->npmode[i] = NPMODE_PASS;
++		ppp->npmode[i] = NPMODE_DROP;
++	netif_carrier_off(dev);
+ 	INIT_LIST_HEAD(&ppp->channels);
+ 	spin_lock_init(&ppp->rlock);
+ 	spin_lock_init(&ppp->wlock);
 
-Page cache references in skb_shared_info are unique thing,
-get_page()/page_cache_release() are enough to clone data.
-
-But it is not enough even for such simple thing as splice().
-It wants we remembered some strange "pipe_buffer", where each page
-is wrapped together with some ops, flags and even pipe_inode_info :-),
-and called some destructor, when it is released. First thought is that
-it is insane: it does not respect page cache logic, requires we implemented
-additional level of refcounting, abuses amount of information, which
-have to be stored in skb beyond all the limits of sanity.
-
-But the second thought is that something like this is required in any case.
-At least we must report to someone when a page is not in use and
-can be recycled. I think Evgeniy knows more about this, AIO has
-the same issue. But this is simpler, because release callback can be done
-not per fragment or even per-skb, but actually per-transaction.
-
-One idea is to announce (some) skb_shared_info completely immutable,
-force each layer who needs to add a header or to fragment to refer
-to original skb_shared_info as whole, using for modifications
-another skb_shared_info() or area inlined in skb head.
-And if someone is not able to, he must reallocate all the pages.
-In this case destructor/notification can be done not for fragment,
-but for whole aggregated skb_shared_info. Seems, it will work both
-with aggregated tcp queue and with udp.
-
-Alexey
+--------------080302010009040204030906--
