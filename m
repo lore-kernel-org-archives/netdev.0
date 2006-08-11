@@ -1,30 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: PATCH Fix bonding active-backup behavior for VLAN interfaces
-Date: Thu, 10 Aug 2006 23:45:38 -0700 (PDT)
-Message-ID: <20060810.234538.00788063.davem@davemloft.net>
-References: <20060802.135859.91441473.davem@davemloft.net>
-	<Pine.LNX.4.64.0608031101220.14955@bizon.gios.gov.pl>
-	<Pine.LNX.4.64.0608102013020.9012@bizon.gios.gov.pl>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take6 1/3] kevent: Core files.
+Date: Fri, 11 Aug 2006 10:55:10 +0400
+Message-ID: <20060811065509.GA13413@2ka.mipt.ru>
+References: <20060811061535.GA11230@2ka.mipt.ru> <44DC22C1.1060200@redhat.com> <20060811063353.GC11230@2ka.mipt.ru> <20060810.233826.24610567.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Christophe.Devriese@eurid.eu, fubar@us.ibm.com,
-	k-iwami@cj.jp.nec.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:56036
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932313AbWHKGp3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Aug 2006 02:45:29 -0400
-To: olel@ans.pl
-In-Reply-To: <Pine.LNX.4.64.0608102013020.9012@bizon.gios.gov.pl>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: drepper@redhat.com, akpm@osdl.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, zach.brown@oracle.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1161114AbWHKGzl@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060810.233826.24610567.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Krzysztof Oledzki <olel@ans.pl>
-Date: Thu, 10 Aug 2006 20:18:23 +0200 (CEST)
+On Thu, Aug 10, 2006 at 11:38:26PM -0700, David Miller (davem@davemloft.net) wrote:
+> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> Date: Fri, 11 Aug 2006 10:33:53 +0400
+> 
+> > That requires mmap hacks to substitute pages in run-time without user
+> > notifications. I do not expect it is a good solution, since on x86 it
+> > requires full TLB flush (at least when I did it there were no exported
+> > methods to flush separate addresses).
+> 
+> You just need to provide a do_no_page method, the VM layer will
+> take care of the page level flushing or whatever else might be
+> needed.
 
-> OK, this patch really solves the bug from my report. Are there any chances 
-> for similar fix in the net-2.6.19.git?
+Yes, it is the simplest way to extend mapping but not to replace pages
+which are successfully mapped, but such hacks are not needed for kevent
+which only expects to extend mapping when number of ready kevents
+increases.
 
-I'm still thinking about this patch and what various people have
-explained about the situation.
+So I will create such implementation and will place a reduced amount of
+info into that pages.
+
+-- 
+	Evgeniy Polyakov
