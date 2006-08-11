@@ -1,68 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.18-rc3-mm2 - BUG in rt6_lookup() from ipv6_del_addr()
-Date: Thu, 10 Aug 2006 21:20:40 -0700 (PDT)
-Message-ID: <20060810.212040.133762526.davem@davemloft.net>
-References: <20060806030809.2cfb0b1e.akpm@osdl.org>
-	<200608110215.k7B2FQPu006243@turing-police.cc.vt.edu>
+Subject: Re: [PATCH 3/4] [NETLINK]: Dont set socket error for failed event
+ notifications
+Date: Thu, 10 Aug 2006 23:02:42 -0700 (PDT)
+Message-ID: <20060810.230242.42459982.davem@davemloft.net>
+References: <20060810190455.GI14627@postel.suug.ch>
+	<44DB8425.8020108@trash.net>
+	<20060810192323.GJ14627@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: kaber@trash.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:6859
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:48613
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751225AbWHKEUc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Aug 2006 00:20:32 -0400
-To: Valdis.Kletnieks@vt.edu
-In-Reply-To: <200608110215.k7B2FQPu006243@turing-police.cc.vt.edu>
+	id S1750984AbWHKGCf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Aug 2006 02:02:35 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20060810192323.GJ14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Valdis.Kletnieks@vt.edu
-Date: Thu, 10 Aug 2006 22:15:26 -0400
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 10 Aug 2006 21:23:23 +0200
 
-> On Sun, 06 Aug 2006 03:08:09 PDT, Andrew Morton said:
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18-rc3/2.6.18-rc3-mm2/
-> 
-> After applying the patch that Patrick McHardy pointed me at, it lived
-> longer.  However, I'm now seeing problems at system shutdown (or anytime
-> you try to 'ifdown ethX' where ethX has an IPv6 address attached to it):
+> Dave, please revert the whole patchset.
 
-This is cured by yet another fix already in the net-2.6.19
-tree:
+Done and I've rebased the net-2.6.19 tree as well at:
 
->From 7a3a5e6b0e6847749c756cbe4bf554eda063a577 Mon Sep 17 00:00:00 2001
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Date: Tue, 8 Aug 2006 16:44:17 -0700
-Subject: [PATCH] [IPV6]: Make sure fib6_rule_lookup doesn't return NULL
+	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.19.git
 
-The callers of fib6_rule_lookup don't expect it to return NULL,
-therefore it must return ip6_null_entry whenever fib_rule_lookup fails.
+Thomas, there was a conflict which I did expect since I added
+all the 2.6.18 bug fixes into the tree.  The conflict is for
+your netlink conversion of the iflink stuff.
 
-Signed-off-by: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv6/fib6_rules.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+I had to fix the -stable tree IFLA_ADDRESS handling because
+dev->set_mac_address expects a sockaddr not a raw MAC
+address.
 
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index bf9bba8..22a2fdb 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -63,7 +63,11 @@ struct dst_entry *fib6_rule_lookup(struc
- 	if (arg.rule)
- 		fib_rule_put(arg.rule);
- 
--	return (struct dst_entry *) arg.result;
-+	if (arg.result)
-+		return (struct dst_entry *) arg.result;
-+
-+	dst_hold(&ip6_null_entry.u.dst);
-+	return &ip6_null_entry.u.dst;
- }
- 
- static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
--- 
-1.4.2.rc2.g3e042
+I think I resolved the conflict while applying the patch
+properly, but if you could take a look I'd appreciate it.
 
-
+Thanks.
