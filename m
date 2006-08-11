@@ -1,53 +1,39 @@
-From: Thomas Klein <osstklei@de.ibm.com>
-Subject: Re: [PATCH 3/6] ehea: queue management
-Date: Fri, 11 Aug 2006 09:28:26 +0200
-Message-ID: <44DC319A.10802@de.ibm.com>
-References: <44D99F38.8010306@de.ibm.com> <20060811000540.200CE67B6B@ozlabs.org> <20060811003204.GA6935@martell.zuzino.mipt.ru> <20060811004602.23EB467B64@ozlabs.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [NET 02/06]: Introduce RTA_TABLE/FRA_TABLE attributes
+Date: Fri, 11 Aug 2006 00:33:56 -0700 (PDT)
+Message-ID: <20060811.003356.20894129.davem@davemloft.net>
+References: <20060810192957.14867.71965.sendpatchset@localhost.localdomain>
+	<20060810193000.14867.49807.sendpatchset@localhost.localdomain>
+	<44DC2B93.3000605@tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	Jan-Bernd Themann <ossthema@de.ibm.com>,
-	netdev@vger.kernel.org, Thomas Klein <tklein@de.ibm.com>,
-	linuxppc-dev@ozlabs.org, Christoph Raisch <raisch@de.ibm.com>,
-	linux-kernel@vger.kernel.org, Marcus Eder <meder@de.ibm.com>
+Cc: kaber@trash.net, netdev@vger.kernel.org, patrick@tykepenguin.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:12614 "EHLO
-	mtagate1.de.ibm.com") by vger.kernel.org with ESMTP
-	id S1161173AbWHKH22 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Aug 2006 03:28:28 -0400
-To: Michael Neuling <mikey@neuling.org>
-In-Reply-To: <20060811004602.23EB467B64@ozlabs.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:11448
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1161146AbWHKHd5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Aug 2006 03:33:57 -0400
+To: mjt@tls.msk.ru
+In-Reply-To: <44DC2B93.3000605@tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Neuling wrote:
->>>> +static inline u32 map_swqe_size(u8 swqe_enc_size)
->>>> +{
->>>> +	return 128 << swqe_enc_size;
->>>> +}		      ^
->>>> +		      |
->>>> +static inline u32|map_rwqe_size(u8 rwqe_enc_size)
->>>> +{		      |
->>>> +	return 128 << rwqe_enc_size;
->>>>         
->> 		      ^
->>     
->>>> +}		      |
->>>>         
->>> 		      |
->>> Snap!  These are ide|tical...
->>>       
->> 		      |
->> No, they aren't. -----+
->>     
->
-> Functionally identical.
->
-> Mikey
->
->   
-Agreed. Functions were replaced by a single map_wqe_size() function.
+From: Michael Tokarev <mjt@tls.msk.ru>
+Date: Fri, 11 Aug 2006 11:02:43 +0400
 
-Thomas
+> Patrick McHardy wrote:
+> > --- a/include/linux/rtnetlink.h
+> > +++ b/include/linux/rtnetlink.h
+> 
+> > +static inline u32 rtm_get_table(struct rtattr **rta, u8 table)
+> > +{
+> > +	return RTA_GET_U32(rta[RTA_TABLE-1]);
+> > +rtattr_failure:
+> > +	return table;
+> > +}
+> > +
+> 
+> What's that ?  ;)
 
+The RTA_GET_U32 macro internally branches to rtattr_failure.
