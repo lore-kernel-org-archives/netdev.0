@@ -1,61 +1,134 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH 1/4] [NETLINK]: Handle NLM_F_ECHO in netlink_rcv_skb()
-Date: Fri, 11 Aug 2006 19:35:49 +0400
-Message-ID: <20060811153549.GA16351@ms2.inr.ac.ru>
-References: <20060809204821.216122988@postel.suug.ch> <20060809205439.434010049@postel.suug.ch> <20060810155120.GA494@ms2.inr.ac.ru> <20060810190210.GH14627@postel.suug.ch> <20060810203252.GA6414@ms2.inr.ac.ru> <20060810211833.GK14627@postel.suug.ch>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [take8 2/2] kevent: poll/select() notifications. Timer
+ notifications.
+Date: Fri, 11 Aug 2006 08:45:31 -0700
+Message-ID: <20060811084531.ac727a7b.akpm@osdl.org>
+References: <11552856103972@2ka.mipt.ru>
+	<11552856102674@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:48297 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S932127AbWHKPgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 11:36:08 -0400
-To: Thomas Graf <tgraf@suug.ch>
-Content-Disposition: inline
-In-Reply-To: <20060810211833.GK14627@postel.suug.ch>
+Received: from smtp.osdl.org ([65.172.181.4]:12782 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932071AbWHKPpv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 11:45:51 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <11552856102674@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Fri, 11 Aug 2006 12:40:10 +0400
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 
-> I get your point and I see the value. Unfortunately, probably due to
-> lack of documentation, this feature isn't used by any applications I
-> know of.
+> 
+> poll/select() notifications. Timer notifications.
+> 
+> This patch includes generic poll/select and timer notifications.
+> 
+> kevent_poll works simialr to epoll and has the same issues (callback
+> is invoked not from internal state machine of the caller, but through
+> process awake).
+> 
+> Timer notifications can be used for fine grained per-process time 
+> management, since interval timers are very inconvenient to use, 
+> and they are limited.
+> 
+> ...
+>
+> +static struct lock_class_key kevent_poll_key;
+> +
+> +void kevent_poll_reinit(struct file *file)
+> +{
+> +	lockdep_set_class(&file->st.lock, &kevent_poll_key);
+> +}
 
-Well, tc was supposed to use it, but this did not happen and
-it remained deficient.
+Why is this necessary?
 
+> +#include <linux/kernel.h>
+> +#include <linux/types.h>
+> +#include <linux/list.h>
+> +#include <linux/slab.h>
+> +#include <linux/spinlock.h>
+> +#include <linux/timer.h>
+> +#include <linux/jiffies.h>
+> +#include <linux/kevent.h>
+> +
+> +static void kevent_timer_func(unsigned long data)
+> +{
+> +	struct kevent *k = (struct kevent *)data;
+> +	struct timer_list *t = k->st->origin;
+> +
+> +	kevent_storage_ready(k->st, NULL, KEVENT_MASK_ALL);
+> +	mod_timer(t, jiffies + msecs_to_jiffies(k->event.id.raw[0]));
+> +}
+> +
+> +static struct lock_class_key kevent_timer_key;
+> +
+> +static int kevent_timer_enqueue(struct kevent *k)
+> +{
+> +	struct timer_list *t;
+> +	struct kevent_storage *st;
+> +	int err;
+> +
+> +	t = kmalloc(sizeof(struct timer_list) + sizeof(struct kevent_storage), 
+> +			GFP_KERNEL);
+> +	if (!t)
+> +		return -ENOMEM;
+> +
+> +	init_timer(t);
+> +	t->function = kevent_timer_func;
+> +	t->expires = jiffies + msecs_to_jiffies(k->event.id.raw[0]);
+> +	t->data = (unsigned long)k;
 
-> We even put in the hacks to make identification of own caused
-> notifications easier by storing the netlink pid of the originator in
-> the notification message.
+setup_timer().
 
-Actually, it was supposed to be done everywhere, but originator info
-did not propagate deep enough in many cases, especially in IPv6.
-So, this is not a hack, it is a good work. :-)
+> +	st = (struct kevent_storage *)(t+1);
 
+It would be cleaner to create
 
-BTW I have just remembered why it was especially important,
-this should be documented as well.
+	struct <something> {
+		struct timer_list timer;
+		struct kevent_storage storage;
+	};
 
-Each socket, which subscribes to multicasts becomes sensitive
-to rcvbuf overflows. F.e. when you do control operations on a socket,
-which is subscribed to multicasts, the response can be lost in stream
-of events and -ENOBUFS generated instead. If it is a daemon, it can resync
-the state, but if it is a simple utility, it cannot recover.
+> +	err = kevent_storage_init(t, st);
+> +	if (err)
+> +		goto err_out_free;
+> +	lockdep_set_class(&st->lock, &kevent_timer_key);
 
-Probably, unicasts sent due to NLM_F_ECHO should somehow override
-rcvbuf limits.
+Why is this necesary?
 
-This reminded me about a capital problem, found by openvz people.
-Frankly speaking, I still have no idea how to repair this, probably you
-will find a solution.
+> +	
+> +	kevent_storage_dequeue(st, k);
+> +	
+> +	kfree(t);
+> +
+> +	return 0;
+> +}
+> +
+> +static int kevent_timer_callback(struct kevent *k)
+> +{
+> +	struct kevent_storage *st = k->st;
+> +	struct timer_list *t = st->origin;
+> +
+> +	if (!t)
+> +		return -ENODEV;
+> +	
+> +	k->event.ret_data[0] = (__u32)jiffies;
 
-Look: while a dump, skb allocation can fail (because of many reasons,
-the most obvious is that rcvbuf space was eaten by multicasts).
-But error is not reported! Oops. The worst thing is that even if an error
-is reported, iproute would ignore it.
+What does this do?
 
-Alexey
+Does it expose jiffies to userspace?
 
+It truncates jiffies on 64-bit machines.
+
+> +late_initcall(kevent_init_timer);
+
+module_init() would be more typical.  If there was a reason for using
+late_initcall(), that reason should be commented.
 
