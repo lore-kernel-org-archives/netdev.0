@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET 00/06]: Increase number of possible routing tables
-Date: Thu, 10 Aug 2006 23:44:14 -0700 (PDT)
-Message-ID: <20060810.234414.89236927.davem@davemloft.net>
-References: <20060810192957.14867.71965.sendpatchset@localhost.localdomain>
-	<44DC2617.7020200@tls.msk.ru>
+Subject: Re: PATCH Fix bonding active-backup behavior for VLAN interfaces
+Date: Thu, 10 Aug 2006 23:45:38 -0700 (PDT)
+Message-ID: <20060810.234538.00788063.davem@davemloft.net>
+References: <20060802.135859.91441473.davem@davemloft.net>
+	<Pine.LNX.4.64.0608031101220.14955@bizon.gios.gov.pl>
+	<Pine.LNX.4.64.0608102013020.9012@bizon.gios.gov.pl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org, patrick@tykepenguin.com
+Cc: Christophe.Devriese@eurid.eu, fubar@us.ibm.com,
+	k-iwami@cj.jp.nec.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:55012
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:56036
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932308AbWHKGoE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Aug 2006 02:44:04 -0400
-To: mjt@tls.msk.ru
-In-Reply-To: <44DC2617.7020200@tls.msk.ru>
+	id S932313AbWHKGp3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Aug 2006 02:45:29 -0400
+To: olel@ans.pl
+In-Reply-To: <Pine.LNX.4.64.0608102013020.9012@bizon.gios.gov.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michael Tokarev <mjt@tls.msk.ru>
-Date: Fri, 11 Aug 2006 10:39:19 +0400
+From: Krzysztof Oledzki <olel@ans.pl>
+Date: Thu, 10 Aug 2006 20:18:23 +0200 (CEST)
 
-> Patrick McHardy wrote:
-> > These are the updated patches (against net-2.6.19) to increase the number
-> > of possible routing tables to 2^32. They basically consist of four parts:
-> > 
-> > - Use u32 for routing table IDs everywhere inside the kernel
-> 
-> Just out of curiocity: why current limit of 2^31 isn't sufficient?
-> Or am I missing the point?
+> OK, this patch really solves the bug from my report. Are there any chances 
+> for similar fix in the net-2.6.19.git?
 
-The current limit is 256 because the table member of the struct
-used to configure them is an 8-bit quantity.
-
-That's the whole purpose of Patrick's patch set, to provide a new
-optional attribute that allows specifying a 32-bit rather than
-the 8-bit table ID.
+I'm still thinking about this patch and what various people have
+explained about the situation.
