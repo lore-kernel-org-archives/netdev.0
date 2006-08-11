@@ -1,83 +1,40 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 4/4]: powerpc/cell spidernet ethtool -i version number info.
-Date: Fri, 11 Aug 2006 12:11:17 -0500
-Message-ID: <20060811171117.GL10638@austin.ibm.com>
+From: jschopp <jschopp@austin.ibm.com>
+Subject: Re: [PATCH 0/4]:  powerpc/cell spidernet ethernet driver fixes
+Date: Fri, 11 Aug 2006 12:42:39 -0500
+Message-ID: <44DCC18F.3030201@austin.ibm.com>
 References: <20060811170337.GH10638@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James K Lewis <jklewis@us.ibm.com>, Arnd Bergmann <arnd@arndb.de>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, James K Lewis <jklewis@us.ibm.com>,
+	Arnd Bergmann <arnd@arndb.de>,
 	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:3802 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1751207AbWHKRLT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 13:11:19 -0400
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-Content-Disposition: inline
+Received: from e36.co.us.ibm.com ([32.97.110.154]:8893 "EHLO e36.co.us.ibm.com")
+	by vger.kernel.org with ESMTP id S932256AbWHKRm6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 13:42:58 -0400
+To: Linas Vepstas <linas@austin.ibm.com>
 In-Reply-To: <20060811170337.GH10638@austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Linas Vepstas wrote:
+> The following series of patches implement some fixes and performance
+> improvements for the Spedernet ethernet device driver. The high point
+> of the patch series is some code to implement a low-watermark interrupt
+> on the transmit queue. The bundle of patches raises transmit performance 
+> from some embarassingly low value to a reasonable 730 Megabits per
+> second for 1500 byte packets.
+> 
+> Please note that the spider is an ethernet controller that is 
+> integrated into the south bridge, and is thus available only on
+> Cell-based platforms.
+> 
+> These have been well-tested over the last few weeks. Please apply. 
 
+With these patches the spidernet driver performance goes from bad to usable.  They are all 
+good changes.  I'd expect some more bottlnecks to be identified now that these are 
+cleared.  Maybe Jim and Linas can get the driver performance up from usable to good next.
 
-This patch adds version information as reported by 
-ethtool -i to the Spidernet driver.
-
-Signed-off-by: James K Lewis <jklewis@us.ibm.com>
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Cc: Utz Bacher <utz.bacher@de.ibm.com>
-Cc: Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
-
-----
- drivers/net/spider_net.c         |    3 +++
- drivers/net/spider_net.h         |    2 ++
- drivers/net/spider_net_ethtool.c |    2 +-
- 3 files changed, 6 insertions(+), 1 deletion(-)
-
-Index: linux-2.6.18-rc3-mm2/drivers/net/spider_net.c
-===================================================================
---- linux-2.6.18-rc3-mm2.orig/drivers/net/spider_net.c	2006-08-11 11:34:16.000000000 -0500
-+++ linux-2.6.18-rc3-mm2/drivers/net/spider_net.c	2006-08-11 11:38:48.000000000 -0500
-@@ -55,6 +55,7 @@ MODULE_AUTHOR("Utz Bacher <utz.bacher@de
- 	      "<Jens.Osterkamp@de.ibm.com>");
- MODULE_DESCRIPTION("Spider Southbridge Gigabit Ethernet driver");
- MODULE_LICENSE("GPL");
-+MODULE_VERSION(VERSION);
- 
- static int rx_descriptors = SPIDER_NET_RX_DESCRIPTORS_DEFAULT;
- static int tx_descriptors = SPIDER_NET_TX_DESCRIPTORS_DEFAULT;
-@@ -2293,6 +2294,8 @@ static struct pci_driver spider_net_driv
-  */
- static int __init spider_net_init(void)
- {
-+	printk("spidernet Version %s.\n",VERSION);
-+
- 	if (rx_descriptors < SPIDER_NET_RX_DESCRIPTORS_MIN) {
- 		rx_descriptors = SPIDER_NET_RX_DESCRIPTORS_MIN;
- 		pr_info("adjusting rx descriptors to %i.\n", rx_descriptors);
-Index: linux-2.6.18-rc3-mm2/drivers/net/spider_net.h
-===================================================================
---- linux-2.6.18-rc3-mm2.orig/drivers/net/spider_net.h	2006-08-11 11:19:47.000000000 -0500
-+++ linux-2.6.18-rc3-mm2/drivers/net/spider_net.h	2006-08-11 11:38:48.000000000 -0500
-@@ -24,6 +24,8 @@
- #ifndef _SPIDER_NET_H
- #define _SPIDER_NET_H
- 
-+#define VERSION "1.1 A"
-+
- #include "sungem_phy.h"
- 
- extern int spider_net_stop(struct net_device *netdev);
-Index: linux-2.6.18-rc3-mm2/drivers/net/spider_net_ethtool.c
-===================================================================
---- linux-2.6.18-rc3-mm2.orig/drivers/net/spider_net_ethtool.c	2006-06-17 20:49:35.000000000 -0500
-+++ linux-2.6.18-rc3-mm2/drivers/net/spider_net_ethtool.c	2006-08-11 11:38:48.000000000 -0500
-@@ -55,7 +55,7 @@ spider_net_ethtool_get_drvinfo(struct ne
- 	/* clear and fill out info */
- 	memset(drvinfo, 0, sizeof(struct ethtool_drvinfo));
- 	strncpy(drvinfo->driver, spider_net_driver_name, 32);
--	strncpy(drvinfo->version, "0.1", 32);
-+	strncpy(drvinfo->version, VERSION, 32);
- 	strcpy(drvinfo->fw_version, "no information");
- 	strncpy(drvinfo->bus_info, pci_name(card->pdev), 32);
- }
+Acked-by: Joel Schopp <jschopp@austin.ibm.com>
