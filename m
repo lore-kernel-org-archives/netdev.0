@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [DECNET] Fix to multiple tables routing
-Date: Fri, 11 Aug 2006 16:43:54 -0700 (PDT)
-Message-ID: <20060811.164354.85546402.davem@davemloft.net>
-References: <20060811142742.GA31748@souterrain.chygwyn.com>
+Subject: Re: [DECNET] Fix to decnet rules compare function
+Date: Fri, 11 Aug 2006 16:44:49 -0700 (PDT)
+Message-ID: <20060811.164449.13027314.davem@davemloft.net>
+References: <20060811155406.GA560@souterrain.chygwyn.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: patrick@tykepenguin.com, kaber@trash.net, netdev@vger.kernel.org
+Cc: kaber@trash.net, patrick@tykepenguin.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:62424
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:64728
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751253AbWHKXnl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Aug 2006 19:43:41 -0400
+	id S1751254AbWHKXog (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Aug 2006 19:44:36 -0400
 To: steve@chygwyn.com
-In-Reply-To: <20060811142742.GA31748@souterrain.chygwyn.com>
+In-Reply-To: <20060811155406.GA560@souterrain.chygwyn.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Steven Whitehouse <steve@chygwyn.com>
-Date: Fri, 11 Aug 2006 15:27:42 +0100
+Date: Fri, 11 Aug 2006 16:54:06 +0100
 
-> Here is a fix to Patrick McHardy's increase number of routing tables patch
-> for DECnet. I did just test this and it appears to be working fine with
-> this patch.
+> Here is a fix to the DECnet rules compare function where we used
+> 32bit values rather than 16bit values. Spotted by Patrick McHardy.
 > 
 > Cc: Patrick McHardy <kaber@trash.net>
 > Cc: Patrick Caulfield <patrick@tykepenguin.com>
 > Signed-off-by: Steven Whitehouse <steve@chygwyn.com>
 
-Applied, thanks Steven.
+Applied, thanks a lot.
