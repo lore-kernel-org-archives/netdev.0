@@ -1,29 +1,39 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: the mystery that is sock_fasync
-Date: Fri, 11 Aug 2006 17:35:13 +0400
-Message-ID: <20060811133513.GA3983@ms2.inr.ac.ru>
-References: <20060811.031516.38316536.davem@davemloft.net>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: Re: [PATCH 3/6] ehea: queue management
+Date: Fri, 11 Aug 2006 15:04:11 +0200
+Message-ID: <44DC804B.70609@de.ibm.com>
+References: <44D99F38.8010306@de.ibm.com> <20060811000540.200CE67B6B@ozlabs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:44185 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1751114AbWHKNft (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 09:35:49 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060811.031516.38316536.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Marcus Eder <meder@de.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751119AbWHKNmm@vger.kernel.org>
+To: Michael Neuling <mikey@neuling.org>
+In-Reply-To: <20060811000540.200CE67B6B@ozlabs.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Hi,
 
-> Did I miss some way that multiple file objects can point to the
-> same socket inode?
+>
+>> +#define EHEA_EQE_SM_MECH_NUMBER  EHEA_BMASK_IBM(48, 55)
+>> +#define EHEA_EQE_SM_PORT_NUMBER  EHEA_BMASK_IBM(56, 63)
+>> +
+>> +struct ehea_eqe {
+>> +	u64 entry;
+>> +};
+> 
+> ehea_ege.. what is that and why a struct if only 1 item?  Comments
+> please.  
+> 
 
-Absolutely prohibited. Always was.
+There are send / receive queue elements (ehea_swqe, ehea_rwqe),
+completion queue elements (ehea_cqe) and event queue elements (ehea_eqe).
+We introduced struct ehea_eqe to get a consistent description for all
+queue elements.
 
-Apparently, sock_fasync() was cloned from tty_fasync(), that's the only
-reason why it is so creepy.
-
-Alexey
+Jan-Bernd
