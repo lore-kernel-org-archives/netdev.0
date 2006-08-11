@@ -1,43 +1,60 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 0/4]:  powerpc/cell spidernet ethernet driver fixes
-Date: Fri, 11 Aug 2006 22:27:22 +0200
-Message-ID: <200608112227.24140.arnd@arndb.de>
-References: <20060811170337.GH10638@austin.ibm.com> <20060811174439.GA30191@mars.ravnborg.org> <20060811193102.GN10638@austin.ibm.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: [PATCH 1/6] ehea: interface to network stack
+Date: Sat, 12 Aug 2006 06:56:24 +1000
+Message-ID: <20060811205624.GE479@krispykreme>
+References: <44D99EFC.3000105@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Sam Ravnborg <sam@ravnborg.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	James K Lewis <jklewis@us.ibm.com>,
-	Utz Bacher <utz.bacher@de.ibm.com>,
-	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S964775AbWHKU2M@vger.kernel.org>
-To: Linas Vepstas <linas@austin.ibm.com>
-In-Reply-To: <20060811193102.GN10638@austin.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:53725 "EHLO ozlabs.org")
+	by vger.kernel.org with ESMTP id S932418AbWHKU6q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 16:58:46 -0400
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <44D99EFC.3000105@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 11 August 2006 21:31, Linas Vepstas wrote:
-> I put my name at the top when I was the primary author. 
-> I put Jim's name at the top when he was the primary author. 
-> 
-> Both names are there because I sat in Jim's office and used
-> his keyboard. I got him to compile and run the tests on
-> his hardware, and we'd then debate the results.
 
-When the patch gets added to a git repository, they end up
-having your name on it, because the author is determined
-from the person who sent the patch.
+Hi,
 
-For the patches where Jim is the main author, you should put a 
+> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea_main.c	1969-12-31 
 
-From: James K Lewis <jklewis@us.ibm.com>
+> +#define DEB_PREFIX "main"
 
-into the first line of the email body. That will make the
-scripts do the right thing. The order of the Signed-off-by:
-lines is used is independant from authorship and should
-list the name of the submitter last.
+Doesnt appear to be used.
 
-	Arnd <><
+> +static struct net_device_stats *ehea_get_stats(struct net_device *dev)
+...
+> +	cb2 = kzalloc(H_CB_ALIGNMENT, GFP_KERNEL);
+
+I cant see where this gets freed.
+
+> +
+> +				skb_index = ((index - i
+> +					      + port_res->skb_arr_sq_len)
+> +					     % port_res->skb_arr_sq_len);
+
+This is going to force an expensive divide. Its much better to change
+this to the simpler and quicker:
+
+i++;
+if (i > max)
+	i = 0;
+
+There are a few places in the driver can be changed to do this.
+
+> +static int ehea_setup_single_port(struct ehea_adapter *adapter,A
+> +				  int portnum, struct device_node *dn)
+...
+> +	cb4 = kzalloc(H_CB_ALIGNMENT, GFP_KERNEL);
+
+I cant see where this is freed.
+
+Anton
