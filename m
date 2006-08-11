@@ -1,104 +1,98 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: Re: [PATCH 1/6] ehea: interface to network stack
-Date: Fri, 11 Aug 2006 13:02:12 +0200
-Message-ID: <44DC63B4.9070405@de.ibm.com>
-References: <44D99EFC.3000105@de.ibm.com> <200608091108.51774.borntrae@de.ibm.com>
+From: Steffen Maier <smaier@users.sourceforge.net>
+Subject: sender throttling for unreliable protocols not garuanteed? (different
+ units in sock->wmem_alloc and net_devive->tx_queue_len)
+Date: Fri, 11 Aug 2006 14:22:31 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0608111418260.10347@nettc.informatik.uni-stuttgart.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Steffen Maier <smaier@users.sourceforge.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([195.212.29.136]:42329 "EHLO
-	mtagate3.uk.ibm.com") by vger.kernel.org with ESMTP id S932143AbWHKLkj
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Aug 2006 07:40:39 -0400
-To: Christian Borntraeger <borntrae@de.ibm.com>
-In-Reply-To: <200608091108.51774.borntrae@de.ibm.com>
+Received: from mx3.informatik.uni-stuttgart.de ([129.69.211.42]:38353 "EHLO
+	mx3.informatik.uni-stuttgart.de") by vger.kernel.org with ESMTP
+	id S932199AbWHKMWf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Aug 2006 08:22:35 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Christian,
+Hello,
 
-thanks for your comments, we'll send an updated patch set soon.
+a while ago I wrote a simple network load generator to inject datagrams or 
+frames at maximum rate into a network. Maybe I was mistaken but I expected 
+the socket's send operation to block, if the transmitting network device 
+becomes saturated (no matter if using UDP or PF_PACKET). However, 
+sometimes the send operation just returned ENOBUFS immediately without 
+blocking.
 
-Jan-Bernd
+If I understood Wright&Stevens' TCP/IP Illustrated Vol.2 correctly, BSD 
+(at least 4.4 BSD Lite 1) never throttles a UDP sender, since it does not 
+account bytes to transmit in any queue on egress path it could block on. 
+On the other hand, Linux does in certain cases (details later). Even 
+though I found out about the implementation details, I would still like to 
+know, if there is any specification or common agreement on the semantics 
+of socket send operation blocking (back pressure) with saturated network 
+devices?
 
-Christian Borntraeger wrote:
-> Hi Jan-Bernd,
-> 
-> I had some minutes, here are some finding after a quick look.
-> 
-> On Wednesday 09 August 2006 10:38, you wrote:
->> +static struct net_device_stats *ehea_get_stats(struct net_device *dev)
->> +{
->> +	int i;
->> +	u64 hret = H_HARDWARE;
->> +	u64 rx_packets = 0;
->> +	struct ehea_port *port = (struct ehea_port*)dev->priv;
-> 
-> dev->priv is a void pointer, this cast is unnecessary. When we are at it, have 
-> you considered the netdev_priv macro? This will require some prep in 
-> alloc_netdev and might not always pe possible. 
+Please keep me in CC since I lurk and am not subscribed at the moment.
 
-good point, we'll use alloc_etherdev / netdev_priv
+In order to understand why and under what circumstances blocking or 
+non-blocking happens, I dug into the protocol stack code. The 
+corresponding call traces look as follows (Linux 2.6, similar in 2.4):
 
->> +
->> +	EDEB_DMP(7, (u8*)cb2,
->> +		 sizeof(struct hcp_query_ehea_port_cb_2), "After HCALL");
->> +
->> +	for (i = 0; i < port->num_def_qps; i++) {
->> +		rx_packets += port->port_res[i].rx_packets;
->> +	}
->> +
->> +	stats->tx_packets = cb2->txucp + cb2->txmcp + cb2->txbcp;
->> +	stats->multicast = cb2->rxmcp;
->> +	stats->rx_errors = cb2->rxuerr;
->> +	stats->rx_bytes = cb2->rxo;
->> +	stats->tx_bytes = cb2->txo;
->> +	stats->rx_packets = rx_packets;
->> +
->> +get_stat_exit:
->> +	EDEB_EX(7, "");
->> +	return stats;
->> +}
-> 
-> again, cb2 is not freed.
-> [...]
+sock_sendmsg
+  __sock_sendmsg
+   socket->ops->sendmsg: e.g. inet_sendmsg or packet_sendmsg
+either:
+    inet_sendmsg
+     sock->sk_prot->sendmsg: e.g. udp_sendmsg
+      udp_sendmsg
+       ip_append_data
+        sock_alloc_send_skb
+         sock_alloc_send_pskb
+          sock_wait_for_wmem
+or:
+    packet_sendmsg
+     sock_alloc_send_skb
+      sock_alloc_send_pskb
+       sock_wait_for_wmem
 
-yep, done
+Now this is where a process might block, if the socket send buffer is full 
+(atomic_read(&sk->sk_wmem_alloc) >= sk->sk_sndbuf). Suppose sndbuf is 
+large enough and it won't block. Then the allocated sk_buff will be 
+processed further in udp_sendmsg or packet_sendmsg and finally find its 
+way into the device queue. Since we were using an unreliable (transport) 
+protocol, the sk_buffs are not actually stored in the socket send buffer 
+(there is no need for possible retransmissions). They are only accounted 
+for the sndbuf, but they are stored in the device queue:
 
-> 
->> +static inline u64 get_swqe_addr(u64 tmp_addr, int addr_seg)
->> +{
->> +	u64 addr;
->> +	addr = tmp_addr;
->> +	return addr;
->> +}
-> 
-> This is suppsed to change in the future? If not you can get rid of it. 
-> 
->> +
->> +static inline u64 get_rwqe_addr(u64 tmp_addr)
->> +{
->> +	return tmp_addr;
->> +}
-> 
-> same here. 
+dev_queue_xmit
+  q->enqueue: e.g. pfifo_fast_enqueue
+   pfifo_fast_enqueue
 
-removed
+This is where the sk_buff may be dropped, if the device queue is full 
+(list->qlen >= qdisc->dev->tx_queue_len). Suppose this bad case(?) 
+happens, then the code path would return NET_XMIT_DROP. Packet_sendmsg 
+would convert this via net_xmit_errno into a -ENOBUFS and finally return 
+this as result of the socket send operation to the calling user process. 
+Similar thing with the same effect is done for UDP messages.
 
+This means, that there are cases where a socket send operation may just 
+not block and immediately return ENOBUFS. If a process wanted to inject 
+messages into the network at maximum line speed (or whatever less the NIC 
+supports), this would in turn lead to "busy sending". Even worse, I didn't 
+come up with a sane configuration of sndbuf and txqueuelen, that could 
+prevent this possibly unexpected behavior. If there was only one socket 
+transmitting over a certain network device, you could roughly configure 
+sndbuf <= txqueuelen / MTU. For a fixed number of sockets we could use 
+sndbuf <= txqueuelen / MTU / #sockets. But this breaks as soon as you have 
+arbitrarily many sockets transmitting over the same device.
 
->> + ehea_poll()
-> 
-> The poll function seems too long and therefore hard to review. Please consider 
-> splitting it. 
-> 
-> 
+In other words this all just happens because sndbuf accounts in bytes 
+but the device queue measures in frames. But frames can have arbitrary 
+size within an interval given by the network technology and thus there is 
+no fixed relation between those two measurements.
 
-done
+I'd be interested in any opinions on the above mentioned effect.
 
+Thanks,
+Steffen.
