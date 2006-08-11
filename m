@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [take6 1/3] kevent: Core files.
-Date: Thu, 10 Aug 2006 23:38:26 -0700 (PDT)
-Message-ID: <20060810.233826.24610567.davem@davemloft.net>
-References: <20060811061535.GA11230@2ka.mipt.ru>
-	<44DC22C1.1060200@redhat.com>
-	<20060811063353.GC11230@2ka.mipt.ru>
+Subject: Re: [PATCH 0/6] htb: cleanup
+Date: Thu, 10 Aug 2006 23:39:26 -0700 (PDT)
+Message-ID: <20060810.233926.99286527.davem@davemloft.net>
+References: <20060802125636.3028ba91@dxpl.pdx.osdl.net>
+	<20060802.151816.30182208.davem@davemloft.net>
+	<20060810123602.GE14627@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: drepper@redhat.com, akpm@osdl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, zach.brown@oracle.com
+Cc: shemminger@osdl.org, netdev@vger.kernel.org, lartc@mailman.ds9a.nl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:16555
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:49124
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932114AbWHKGiR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Aug 2006 02:38:17 -0400
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20060811063353.GC11230@2ka.mipt.ru>
+	id S932261AbWHKGjQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Aug 2006 02:39:16 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20060810123602.GE14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Fri, 11 Aug 2006 10:33:53 +0400
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 10 Aug 2006 14:36:02 +0200
 
-> That requires mmap hacks to substitute pages in run-time without user
-> notifications. I do not expect it is a good solution, since on x86 it
-> requires full TLB flush (at least when I did it there were no exported
-> methods to flush separate addresses).
+> * David Miller <davem@davemloft.net> 2006-08-02 15:18
+> > From: Stephen Hemminger <shemminger@osdl.org>
+> > Date: Wed, 2 Aug 2006 12:56:36 -0700
+> > 
+> > > The HTB scheduler code is a mess, this patch set does some basic
+> > > house cleaning.  The first four should cause no code change, but the
+> > > last two need more testing.
+> > 
+> > These patches look fine to me.  Once everyone think's they
+> > are ready just let me know and I'll push them into net-2.6.19
+> 
+> I think they are ready.
 
-You just need to provide a do_no_page method, the VM layer will
-take care of the page level flushing or whatever else might be
-needed.
+Thanks for taking a look.
 
+I've merged all 6 of Stephen's HTB patches into net-2.6.19
