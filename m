@@ -1,30 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET 06/06]: Increate RT_TABLE_MAX to 2^32
-Date: Thu, 10 Aug 2006 23:12:18 -0700 (PDT)
-Message-ID: <20060810.231218.127673635.davem@davemloft.net>
-References: <20060810192957.14867.71965.sendpatchset@localhost.localdomain>
-	<20060810193006.14867.57446.sendpatchset@localhost.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take6 1/3] kevent: Core files.
+Date: Fri, 11 Aug 2006 10:15:35 +0400
+Message-ID: <20060811061535.GA11230@2ka.mipt.ru>
+References: <11551105592821@2ka.mipt.ru> <11551105602734@2ka.mipt.ru> <20060809152127.481fb346.akpm@osdl.org> <20060810061433.GA4689@2ka.mipt.ru> <20060810001844.ff5e7429.akpm@osdl.org> <20060810075047.GB24370@2ka.mipt.ru> <20060810010254.3b52682f.akpm@osdl.org> <20060810082235.GA21025@2ka.mipt.ru> <20060810175639.b64faaa9.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, patrick@tykepenguin.com
+Content-Type: text/plain; charset=koi8-r
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:39109
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751590AbWHKGMJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Aug 2006 02:12:09 -0400
-To: kaber@trash.net
-In-Reply-To: <20060810193006.14867.57446.sendpatchset@localhost.localdomain>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:41350 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751595AbWHKGQR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 02:16:17 -0400
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060810175639.b64faaa9.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 10 Aug 2006 21:30:06 +0200 (MEST)
-
-> [NET]: Increate RT_TABLE_MAX to 2^32
+On Thu, Aug 10, 2006 at 05:56:39PM -0700, Andrew Morton (akpm@osdl.org) wrote:
+> > Per kevent fd.
+> > I have some ideas about better mmap ring implementation, which would
+> > dinamically grow it's buffer when events are added and reuse the same
+> > place for next events, but there are some nitpics unresolved yet.
+> > Let's not see there in next releases (no merge of course), until better 
+> > solution is ready. I will change that area when other things are ready.
 > 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> This is not a problem with the mmap interface per-se.  If the proposed
+> event code permits each user to pin 160MB of kernel memory then that would
+> be a serious problem.
 
-2^32-1 :-)
+The main disadvantage is that all memory is allocated on the start even
+if it will not be used later. I think dynamic grow is appropriate
+solution, since user will have that memory used anyway, since kevents
+are allocated, just part of them will be allocated from possibly 
+mmaped memory.
 
-Applied, thanks Patrick.
+-- 
+	Evgeniy Polyakov
