@@ -1,37 +1,104 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: the mystery that is sock_fasync
-Date: Fri, 11 Aug 2006 04:35:39 -0700 (PDT)
-Message-ID: <20060811.043539.50338105.davem@davemloft.net>
-References: <20060811.031516.38316536.davem@davemloft.net>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: Re: [PATCH 1/6] ehea: interface to network stack
+Date: Fri, 11 Aug 2006 13:02:12 +0200
+Message-ID: <44DC63B4.9070405@de.ibm.com>
+References: <44D99EFC.3000105@de.ibm.com> <200608091108.51774.borntrae@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:47536
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932149AbWHKLf3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Aug 2006 07:35:29 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 88EFCAE43C3
-	for <netdev@vger.kernel.org>; Fri, 11 Aug 2006 04:35:39 -0700 (PDT)
-To: netdev@vger.kernel.org
-In-Reply-To: <20060811.031516.38316536.davem@davemloft.net>
+Received: from mtagate3.uk.ibm.com ([195.212.29.136]:42329 "EHLO
+	mtagate3.uk.ibm.com") by vger.kernel.org with ESMTP id S932143AbWHKLkj
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Aug 2006 07:40:39 -0400
+To: Christian Borntraeger <borntrae@de.ibm.com>
+In-Reply-To: <200608091108.51774.borntrae@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 11 Aug 2006 03:15:16 -0700 (PDT)
+Hi Christian,
 
-> If my analysis is correct we can incredibly simplify sock_fasync().
+thanks for your comments, we'll send an updated patch set soon.
 
-I've also found more bugs in sock_fasync(), it's a real can of worms
-:-)
+Jan-Bernd
 
-It deviates from the return value policies used by othe
-file_ops->fasync() implementations.  For example, if we look at
-fasync_helper() it clearly shows that we should return 1 if a list
-manipulation (insert of delete) happened else it should return 0.
+Christian Borntraeger wrote:
+> Hi Jan-Bernd,
+> 
+> I had some minutes, here are some finding after a quick look.
+> 
+> On Wednesday 09 August 2006 10:38, you wrote:
+>> +static struct net_device_stats *ehea_get_stats(struct net_device *dev)
+>> +{
+>> +	int i;
+>> +	u64 hret = H_HARDWARE;
+>> +	u64 rx_packets = 0;
+>> +	struct ehea_port *port = (struct ehea_port*)dev->priv;
+> 
+> dev->priv is a void pointer, this cast is unnecessary. When we are at it, have 
+> you considered the netdev_priv macro? This will require some prep in 
+> alloc_netdev and might not always pe possible. 
 
-Also, my theory about struct file<-->struct socket being a one-to-one
-mapping is fully supported by the fact that struct socket has a "file"
-member that can only take on one value.
+good point, we'll use alloc_etherdev / netdev_priv
+
+>> +
+>> +	EDEB_DMP(7, (u8*)cb2,
+>> +		 sizeof(struct hcp_query_ehea_port_cb_2), "After HCALL");
+>> +
+>> +	for (i = 0; i < port->num_def_qps; i++) {
+>> +		rx_packets += port->port_res[i].rx_packets;
+>> +	}
+>> +
+>> +	stats->tx_packets = cb2->txucp + cb2->txmcp + cb2->txbcp;
+>> +	stats->multicast = cb2->rxmcp;
+>> +	stats->rx_errors = cb2->rxuerr;
+>> +	stats->rx_bytes = cb2->rxo;
+>> +	stats->tx_bytes = cb2->txo;
+>> +	stats->rx_packets = rx_packets;
+>> +
+>> +get_stat_exit:
+>> +	EDEB_EX(7, "");
+>> +	return stats;
+>> +}
+> 
+> again, cb2 is not freed.
+> [...]
+
+yep, done
+
+> 
+>> +static inline u64 get_swqe_addr(u64 tmp_addr, int addr_seg)
+>> +{
+>> +	u64 addr;
+>> +	addr = tmp_addr;
+>> +	return addr;
+>> +}
+> 
+> This is suppsed to change in the future? If not you can get rid of it. 
+> 
+>> +
+>> +static inline u64 get_rwqe_addr(u64 tmp_addr)
+>> +{
+>> +	return tmp_addr;
+>> +}
+> 
+> same here. 
+
+removed
+
+
+>> + ehea_poll()
+> 
+> The poll function seems too long and therefore hard to review. Please consider 
+> splitting it. 
+> 
+> 
+
+done
+
