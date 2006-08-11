@@ -1,174 +1,164 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [3/4] kevent: AIO, aio_sendfile() implementation.
-Date: Fri, 11 Aug 2006 12:45:55 -0700
-Message-ID: <44DCDE73.9030901@redhat.com>
-References: <1153905495613@2ka.mipt.ru> <11539054952574@2ka.mipt.ru>	 <20060726100431.GA7518@infradead.org> <20060726101919.GB2715@2ka.mipt.ru>	 <20060726103001.GA10139@infradead.org> <44C77C23.7000803@redhat.com>	 <44C796C3.9030404@us.ibm.com> <1153982954.3887.9.camel@frecb000686>	 <44C8DB80.6030007@us.ibm.com>  <44C9029A.4090705@oracle.com>	 <1154024943.29920.3.camel@dyn9047017100.beaverton.ibm.com>	 <44C90987.1040200@redhat.com>	 <1154034164.29920.22.camel@dyn9047017100.beaverton.ibm.com> <1154091500.13577.14.camel@frecb000686>
+From: Andreas Mohr <andi@rhlx01.fht-esslingen.de>
+Subject: [PATCH -mm] constify Tigon3 ether firmware structs
+Date: Fri, 11 Aug 2006 22:04:51 +0200
+Message-ID: <20060811200451.GA10504@rhlx01.fht-esslingen.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig8BF53928B0710FA9EF4AED6D"
-Cc: Badari Pulavarty <pbadari@us.ibm.com>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Suparna Bhattacharya <suparna@in.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932458AbWHKTsS@vger.kernel.org>
-To: =?UTF-8?B?U8OpYmFzdGllbiBEdWd1w6k=?= <sebastien.dugue@bull.net>
-In-Reply-To: <1154091500.13577.14.camel@frecb000686>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: mchan@broadcom.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhlx01.fht-esslingen.de ([129.143.116.10]:62624 "EHLO
+	rhlx01.fht-esslingen.de") by vger.kernel.org with ESMTP
+	id S964782AbWHKUE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Aug 2006 16:04:56 -0400
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig8BF53928B0710FA9EF4AED6D
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-S=C3=A9bastien Dugu=C3=A9 wrote:
-> 		     aio completion notification
-
-I looked over this now but I don't think I understand everything.  Or I
-don't see how it all is integrated.  And no, I'm not looking at the
-proposed glibc code since would mean being tainted.
+Constify largish areas of firmware data in Tigon3 ethernet driver.
 
 
-> Details:
-> -------
->=20
->   A struct sigevent *aio_sigeventp is added to struct iocb in
-> include/linux/aio_abi.h
->=20
->   An enum {IO_NOTIFY_SIGNAL =3D 0, IO_NOTIFY_THREAD_ID =3D 1} is added =
-in
-> include/linux/aio.h:
->=20
-> 	- IO_NOTIFY_SIGNAL means that the signal is to be sent to the
-> 	  requesting thread=20
->=20
-> 	- IO_NOTIFY_THREAD_ID means that the signal is to be sent to a
-> 	  specifi thread.
+non-const:
 
-This has been proved to be sufficient in the timer code which basically
-has the same problem.  But why do you need separate constants?  We have
-the various SIGEV_* constants, among them SIGEV_THREAD_ID.  Just use
-these constants for the values of ki_notify.
+lsmod:
+tg3                   101404  0
+
+objdump -x:
+.rodata 000003e8
+.data 00004a0c
+
+ls -l:
+-rw-r--r-- 1 root root 114404 2006-08-19 21:36 drivers/net/tg3.ko
 
 
->   The following fields are added to struct kiocb in include/linux/aio.h=
-:
->=20
-> 	- pid_t ki_pid: target of the signal
->=20
-> 	- __u16 ki_signo: signal number
->=20
-> 	- __u16 ki_notify: kind of notification, IO_NOTIFY_SIGNAL or
-> 			   IO_NOTIFY_THREAD_ID
->=20
-> 	- uid_t ki_uid, ki_euid: filled with the submitter credentials
+const:
 
-These two fields aren't needed for the POSIX interfaces.  Where does the
-requirement come from?  I don't say they should be removed, they might
-be useful, but if the costs are non-negligible then they could go away.
+lsmod:
+tg3                   101404  0
+
+objdump -x:
+.rodata 000042c8
+.data 00000b4c
+
+ls -l:
+-rw-r--r-- 1 root root 114532 2006-08-19 21:06 drivers/net/tg3.ko
 
 
-> 	- check whether the submitting thread wants to be notified directly
-> 	  (sigevent->sigev_notify_thread_id is 0) or wants the signal to be se=
-nt
-> 	  to another thread.
-> 	  In the latter case a check is made to assert that the target thread
-> 	  is in the same thread group
 
-Is this really how it's implemented?  This is not how it should be.
-Either a signal is sent to a specific thread in the same process (this
-is what SIGEV_THREAD_ID is for) or the signal is sent to a calling
-process.  Sending a signal to the process means that from the kernel's
-POV any thread which doesn't have the signal blocked can receive it.
-The final decision is made by the kernel.  There is no mechanism to send
-the signal to another process.
+Compile- and run-tested with tg3 card on 2.6.18-rc3-mm2.
 
-So, for the purpose of the POSIX AIO code the ki_pid value is only
-needed when the SIGEV_THREAD_ID bit is set.
-
-It could be an extension and I don't mind it being introduced.  But
-again, it's not necessary and if it adds costs then it could be left
-out.  It is something which could easily be introduced later if the need
-arises.
+Any objections?
 
 
-> 			    listio support
->=20
-
-I really don't understand the kernel interface for this feature.
+Signed-off-by: Andreas Mohr <andi@lisas.de>
 
 
-> Details:
-> -------
->=20
->   An IOCB_CMD_GROUP is added to the IOCB_CMD enum in include/linux/aio_=
-abi.h
->=20
->   A struct lio_event is added in include/linux/aio.h
->=20
->   A struct lio_event *ki_lio is added to struct iocb in include/linux/a=
-io.h
-
-So you have a pointer in the structure for the individual requests.  I
-assume you use the atomic counter to trigger the final delivery.  I
-further assume that if lio_wait is set the calling thread is suspended
-until all requests are handled and that the final notification in this
-case means that thread gets woken.
-
-This is all fine.
-
-But how do you pass the requests to the kernel?  If you have a new
-lio_listio-like syscall it'll be easy.  But I haven't seen anything like
-this mentioned.
-
-The alternative is to pass the requests one-by-one in which case I don't
-see how you create the reference to the lio_listio control block.  This
-approach seems to be slower.
-
-If all requests are passed at once, do you have the equivalent of
-LIO_NOP entries?
-
-
-How can we support the extension where we wait for a number of requests
-which need not be all of them.  I.e., I submit N requests and want to be
-notified when at least M (M <=3D N) notified.  I am not yet clear about
-the actual semantics we should implement (e.g., do we send another
-notification after the first one?) but it's something which IMO should
-be taken into account in the design.
-
-
-Finally, and this is very important, does you code send out the
-individual requests notification and then in the end the lio_listio
-completion?  I think Suparna wrote this is the case but I want to make su=
-re.
-
-
-Overall, this looks much better than the old code.  If the answers to my
-questions show that the behavior is compatible with the POSIX AIO code
-I'm certainly very much in favor of adding the kernel code.
-
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
-=E2=9E=A7 Mountain View, CA =E2=9D=96
-
-
---------------enig8BF53928B0710FA9EF4AED6D
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
-
-iD8DBQFE3N5z2ijCOnn/RHQRAqngAKC2d9fT0FIgpBsc7V9XTSF30CQNnACgnQMg
-c/G7OpttcRpslUmGyyi2ipk=
-=aEZf
------END PGP SIGNATURE-----
-
---------------enig8BF53928B0710FA9EF4AED6D--
+diff -urN linux-2.6.18-rc3-mm2.orig/drivers/net/tg3.c linux-2.6.18-rc3-mm2/drivers/net/tg3.c
+--- linux-2.6.18-rc3-mm2.orig/drivers/net/tg3.c	2006-08-07 11:15:17.000000000 +0200
++++ linux-2.6.18-rc3-mm2/drivers/net/tg3.c	2006-08-08 16:49:43.000000000 +0200
+@@ -267,7 +267,7 @@
+ 
+ MODULE_DEVICE_TABLE(pci, tg3_pci_tbl);
+ 
+-static struct {
++static const struct {
+ 	const char string[ETH_GSTRING_LEN];
+ } ethtool_stats_keys[TG3_NUM_STATS] = {
+ 	{ "rx_octets" },
+@@ -348,7 +348,7 @@
+ 	{ "nic_tx_threshold_hit" }
+ };
+ 
+-static struct {
++static const struct {
+ 	const char string[ETH_GSTRING_LEN];
+ } ethtool_test_keys[TG3_NUM_TEST] = {
+ 	{ "nvram test     (online) " },
+@@ -4963,7 +4963,7 @@
+ #define TG3_FW_BSS_ADDR		0x08000a70
+ #define TG3_FW_BSS_LEN		0x10
+ 
+-static u32 tg3FwText[(TG3_FW_TEXT_LEN / sizeof(u32)) + 1] = {
++static const u32 tg3FwText[(TG3_FW_TEXT_LEN / sizeof(u32)) + 1] = {
+ 	0x00000000, 0x10000003, 0x00000000, 0x0000000d, 0x0000000d, 0x3c1d0800,
+ 	0x37bd3ffc, 0x03a0f021, 0x3c100800, 0x26100000, 0x0e000018, 0x00000000,
+ 	0x0000000d, 0x3c1d0800, 0x37bd3ffc, 0x03a0f021, 0x3c100800, 0x26100034,
+@@ -5057,7 +5057,7 @@
+ 	0x27bd0008, 0x03e00008, 0x00000000, 0x00000000, 0x00000000
+ };
+ 
+-static u32 tg3FwRodata[(TG3_FW_RODATA_LEN / sizeof(u32)) + 1] = {
++static const u32 tg3FwRodata[(TG3_FW_RODATA_LEN / sizeof(u32)) + 1] = {
+ 	0x35373031, 0x726c7341, 0x00000000, 0x00000000, 0x53774576, 0x656e7430,
+ 	0x00000000, 0x726c7045, 0x76656e74, 0x31000000, 0x556e6b6e, 0x45766e74,
+ 	0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x66617461, 0x6c457272,
+@@ -5122,13 +5122,13 @@
+ struct fw_info {
+ 	unsigned int text_base;
+ 	unsigned int text_len;
+-	u32 *text_data;
++	const u32 *text_data;
+ 	unsigned int rodata_base;
+ 	unsigned int rodata_len;
+-	u32 *rodata_data;
++	const u32 *rodata_data;
+ 	unsigned int data_base;
+ 	unsigned int data_len;
+-	u32 *data_data;
++	const u32 *data_data;
+ };
+ 
+ /* tp->lock is held. */
+@@ -5260,7 +5260,7 @@
+ #define TG3_TSO_FW_BSS_ADDR		0x08001b80
+ #define TG3_TSO_FW_BSS_LEN		0x894
+ 
+-static u32 tg3TsoFwText[(TG3_TSO_FW_TEXT_LEN / 4) + 1] = {
++static const u32 tg3TsoFwText[(TG3_TSO_FW_TEXT_LEN / 4) + 1] = {
+ 	0x0e000003, 0x00000000, 0x08001b24, 0x00000000, 0x10000003, 0x00000000,
+ 	0x0000000d, 0x0000000d, 0x3c1d0800, 0x37bd4000, 0x03a0f021, 0x3c100800,
+ 	0x26100000, 0x0e000010, 0x00000000, 0x0000000d, 0x27bdffe0, 0x3c04fefe,
+@@ -5547,7 +5547,7 @@
+ 	0xac470014, 0xac4a0018, 0x03e00008, 0xac4b001c, 0x00000000, 0x00000000,
+ };
+ 
+-static u32 tg3TsoFwRodata[] = {
++static const u32 tg3TsoFwRodata[] = {
+ 	0x4d61696e, 0x43707542, 0x00000000, 0x4d61696e, 0x43707541, 0x00000000,
+ 	0x00000000, 0x00000000, 0x73746b6f, 0x66666c64, 0x496e0000, 0x73746b6f,
+ 	0x66662a2a, 0x00000000, 0x53774576, 0x656e7430, 0x00000000, 0x00000000,
+@@ -5555,7 +5555,7 @@
+ 	0x00000000,
+ };
+ 
+-static u32 tg3TsoFwData[] = {
++static const u32 tg3TsoFwData[] = {
+ 	0x00000000, 0x73746b6f, 0x66666c64, 0x5f76312e, 0x362e3000, 0x00000000,
+ 	0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+ 	0x00000000,
+@@ -5577,7 +5577,7 @@
+ #define TG3_TSO5_FW_BSS_ADDR		0x00010f50
+ #define TG3_TSO5_FW_BSS_LEN		0x88
+ 
+-static u32 tg3Tso5FwText[(TG3_TSO5_FW_TEXT_LEN / 4) + 1] = {
++static const u32 tg3Tso5FwText[(TG3_TSO5_FW_TEXT_LEN / 4) + 1] = {
+ 	0x0c004003, 0x00000000, 0x00010f04, 0x00000000, 0x10000003, 0x00000000,
+ 	0x0000000d, 0x0000000d, 0x3c1d0001, 0x37bde000, 0x03a0f021, 0x3c100001,
+ 	0x26100000, 0x0c004010, 0x00000000, 0x0000000d, 0x27bdffe0, 0x3c04fefe,
+@@ -5736,14 +5736,14 @@
+ 	0x00000000, 0x00000000, 0x00000000,
+ };
+ 
+-static u32 tg3Tso5FwRodata[(TG3_TSO5_FW_RODATA_LEN / 4) + 1] = {
++static const u32 tg3Tso5FwRodata[(TG3_TSO5_FW_RODATA_LEN / 4) + 1] = {
+ 	0x4d61696e, 0x43707542, 0x00000000, 0x4d61696e, 0x43707541, 0x00000000,
+ 	0x00000000, 0x00000000, 0x73746b6f, 0x66666c64, 0x00000000, 0x00000000,
+ 	0x73746b6f, 0x66666c64, 0x00000000, 0x00000000, 0x66617461, 0x6c457272,
+ 	0x00000000, 0x00000000, 0x00000000,
+ };
+ 
+-static u32 tg3Tso5FwData[(TG3_TSO5_FW_DATA_LEN / 4) + 1] = {
++static const u32 tg3Tso5FwData[(TG3_TSO5_FW_DATA_LEN / 4) + 1] = {
+ 	0x00000000, 0x73746b6f, 0x66666c64, 0x5f76312e, 0x322e3000, 0x00000000,
+ 	0x00000000, 0x00000000, 0x00000000,
+ };
