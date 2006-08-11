@@ -1,66 +1,61 @@
-From: Steven Whitehouse <steve@chygwyn.com>
-Subject: Re: [DECNET] Fix to multiple tables routing
-Date: Fri, 11 Aug 2006 16:30:56 +0100
-Message-ID: <20060811153056.GA32708@souterrain.chygwyn.com>
-References: <20060811142742.GA31748@souterrain.chygwyn.com> <44DCA0A9.7010800@trash.net>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH 1/4] [NETLINK]: Handle NLM_F_ECHO in netlink_rcv_skb()
+Date: Fri, 11 Aug 2006 19:35:49 +0400
+Message-ID: <20060811153549.GA16351@ms2.inr.ac.ru>
+References: <20060809204821.216122988@postel.suug.ch> <20060809205439.434010049@postel.suug.ch> <20060810155120.GA494@ms2.inr.ac.ru> <20060810190210.GH14627@postel.suug.ch> <20060810203252.GA6414@ms2.inr.ac.ru> <20060810211833.GK14627@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Patrick Caulfield <patrick@tykepenguin.com>,
-	netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from souterrain.chygwyn.com ([194.39.143.233]:18115 "EHLO
-	souterrain.chygwyn.com") by vger.kernel.org with ESMTP
-	id S1751188AbWHKP0t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Aug 2006 11:26:49 -0400
-To: Patrick McHardy <kaber@trash.net>
+Received: from minus.inr.ac.ru ([194.67.69.97]:48297 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S932127AbWHKPgI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 11:36:08 -0400
+To: Thomas Graf <tgraf@suug.ch>
 Content-Disposition: inline
-In-Reply-To: <44DCA0A9.7010800@trash.net>
+In-Reply-To: <20060810211833.GK14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello!
 
-On Fri, Aug 11, 2006 at 05:22:17PM +0200, Patrick McHardy wrote:
-> Steven Whitehouse wrote:
-> > Here is a fix to Patrick McHardy's increase number of routing tables patch
-> > for DECnet. I did just test this and it appears to be working fine with
-> > this patch.
-> > 
-> > Cc: Patrick McHardy <kaber@trash.net>
-> > Cc: Patrick Caulfield <patrick@tykepenguin.com>
-> > Signed-off-by: Steven Whitehouse <steve@chygwyn.com>
-> > 
-> > diff --git a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
-> > index 878312f..c8d9411 100644
-> > --- a/net/decnet/dn_rules.c
-> > +++ b/net/decnet/dn_rules.c
-> > @@ -116,6 +116,7 @@ static struct nla_policy dn_fib_rule_pol
-> >  	[FRA_SRC]	= { .type = NLA_U16 },
-> >  	[FRA_DST]	= { .type = NLA_U16 },
-> >  	[FRA_FWMARK]	= { .type = NLA_U32 },
-> > +	[FRA_TABLE]     = { .type = NLA_U32 },
-> >  };
-> 
-> Looks good. BTW, I noticed something in the DecNET fib_rule conversion
-> that looks like a bug:
-> 
-> The policy includes this for FRA_SRC/FRA_DST:
-> 
->         [FRA_SRC]       = { .type = NLA_U16 },
->         [FRA_DST]       = { .type = NLA_U16 },
-> 
-> But in dn_fib_rule_compare it is used like this:
-> 
->         if (tb[FRA_SRC] && (r->src != nla_get_u32(tb[FRA_SRC])))
->                 return 0;
-> 
->         if (tb[FRA_DST] && (r->dst != nla_get_u32(tb[FRA_DST])))
->                 return 0;
-> 
-> I think this might create problems depending on the endianness.
+> I get your point and I see the value. Unfortunately, probably due to
+> lack of documentation, this feature isn't used by any applications I
+> know of.
 
-Yes, good spotting :-) I'll send a patch shortly,
+Well, tc was supposed to use it, but this did not happen and
+it remained deficient.
 
-Steve.
+
+> We even put in the hacks to make identification of own caused
+> notifications easier by storing the netlink pid of the originator in
+> the notification message.
+
+Actually, it was supposed to be done everywhere, but originator info
+did not propagate deep enough in many cases, especially in IPv6.
+So, this is not a hack, it is a good work. :-)
+
+
+BTW I have just remembered why it was especially important,
+this should be documented as well.
+
+Each socket, which subscribes to multicasts becomes sensitive
+to rcvbuf overflows. F.e. when you do control operations on a socket,
+which is subscribed to multicasts, the response can be lost in stream
+of events and -ENOBUFS generated instead. If it is a daemon, it can resync
+the state, but if it is a simple utility, it cannot recover.
+
+Probably, unicasts sent due to NLM_F_ECHO should somehow override
+rcvbuf limits.
+
+This reminded me about a capital problem, found by openvz people.
+Frankly speaking, I still have no idea how to repair this, probably you
+will find a solution.
+
+Look: while a dump, skb allocation can fail (because of many reasons,
+the most obvious is that rcvbuf space was eaten by multicasts).
+But error is not reported! Oops. The worst thing is that even if an error
+is reported, iproute would ignore it.
+
+Alexey
+
 
