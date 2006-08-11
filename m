@@ -1,45 +1,52 @@
 From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH 0/4]:  powerpc/cell spidernet ethernet driver fixes
-Date: Fri, 11 Aug 2006 14:31:02 -0500
-Message-ID: <20060811193102.GN10638@austin.ibm.com>
-References: <20060811170337.GH10638@austin.ibm.com> <20060811174439.GA30191@mars.ravnborg.org>
+Subject: Re: [PATCH 4/4]: powerpc/cell spidernet ethtool -i version number info.
+Date: Fri, 11 Aug 2006 14:46:47 -0500
+Message-ID: <20060811194647.GO10638@austin.ibm.com>
+References: <20060811180013.GB6550@pb15.lixom.net> <OF934FE4E3.EEC44FDD-ON872571C7.00668651-862571C7.00677A44@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, James K Lewis <jklewis@us.ibm.com>,
-	Utz Bacher <utz.bacher@de.ibm.com>,
+Cc: Arnd Bergmann <arnd@arndb.de>,
 	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>,
-	Arnd Bergmann <arnd@arndb.de>
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:56719 "EHLO
-	e32.co.us.ibm.com") by vger.kernel.org with ESMTP id S932241AbWHKTbF
+Received: from e32.co.us.ibm.com ([32.97.110.150]:19902 "EHLO
+	e32.co.us.ibm.com") by vger.kernel.org with ESMTP id S932370AbWHKTqx
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Aug 2006 15:31:05 -0400
-To: Sam Ravnborg <sam@ravnborg.org>
+	Fri, 11 Aug 2006 15:46:53 -0400
+To: Olof Johansson <olof@lixom.net>
 Content-Disposition: inline
-In-Reply-To: <20060811174439.GA30191@mars.ravnborg.org>
+In-Reply-To: <OF934FE4E3.EEC44FDD-ON872571C7.00668651-862571C7.00677A44@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 11, 2006 at 07:44:39PM +0200, Sam Ravnborg wrote:
-> > 
-> > These have been well-tested over the last few weeks. Please apply. 
-> Hi Linas.
-> Just noticed a nit-pick detail.
-> The general rule is to add your Signed-off-by: at the bottom of the
-> patch, so the top-most Signed-of-by: is also the original author whereas
-> the last Signed-of-by: is the one that added this patch to the kernel.
 
-I put my name at the top when I was the primary author. 
-I put Jim's name at the top when he was the primary author. 
+Hi Olof,
 
-Both names are there because I sat in Jim's office and used
-his keyboard. I got him to compile and run the tests on
-his hardware, and we'd then debate the results.
+Olof Johansson <olof@lixom.net> writes:
+> On Fri, Aug 11, 2006 at 12:11:17PM -0500, Linas Vepstas wrote:
+> 
+> > This patch adds version information as reported by 
+> > ethtool -i to the Spidernet driver.
+> 
+> Why does a driver that's in the mainline kernel need to have a version
+> number besides the kernel version?
 
-> Likewise you add Cc: before your Signed-off-by: line.
+I'll let Jim be the primary defender. From what I can tell, "that's the
+way its done".  For example:
 
-The patches I ave from akpm have the CC's after the 
-signed-off by line, not before.
+linux-2.6.18-rc3-mm2 $ grep MODULE_VERSION */*/*.c |wc
+     164     245    9081
+
+> I can understand it for drivers like e1000 that Intel maintain outside
+> of the kernel as well. But spidernet is a fully mainline maintained
+> driver, right?
+
+Yes, the spidernet is a Linux-kernel only driver.
 
 --linas
+
+p.s. very strange, but I did not see your original email;  
+only saw Jim's reply.
+
+
