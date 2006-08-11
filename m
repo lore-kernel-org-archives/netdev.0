@@ -1,108 +1,38 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: 2.6.18-rc3-mm2 - BUG in rt6_lookup() from ipv6_del_addr()
-Date: Thu, 10 Aug 2006 22:15:26 -0400
-Message-ID: <200608110215.k7B2FQPu006243@turing-police.cc.vt.edu>
-References: <20060806030809.2cfb0b1e.akpm@osdl.org>
+From: Rik van Riel <riel@redhat.com>
+Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
+Date: Thu, 10 Aug 2006 22:37:00 -0400
+Message-ID: <44DBED4C.6040604@redhat.com>
+References: <20060808193325.1396.58813.sendpatchset@lappy> <20060808193345.1396.16773.sendpatchset@lappy> <20060808211731.GR14627@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1155262526_2846P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Daniel Phillips <phillips@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pool-72-66-192-75.ronkva.east.verizon.net ([72.66.192.75]:59846
-	"EHLO turing-police.cc.vt.edu") by vger.kernel.org with ESMTP
-	id S1030651AbWHKCQN (ORCPT <RFC822;netdev@vger.kernel.org>);
-	Thu, 10 Aug 2006 22:16:13 -0400
-To: Andrew Morton <akpm@osdl.org>, davem@davemloft.net
-In-Reply-To: Your message of "Sun, 06 Aug 2006 03:08:09 PDT."
-             <20060806030809.2cfb0b1e.akpm@osdl.org>
+Received: from mx1.redhat.com ([66.187.233.31]:26269 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1750783AbWHKChK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 22:37:10 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060808211731.GR14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1155262526_2846P
-Content-Type: text/plain; charset=us-ascii
+Thomas Graf wrote:
 
-On Sun, 06 Aug 2006 03:08:09 PDT, Andrew Morton said:
-> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18-rc3/2.6.18-rc3-mm2/
+> skb->dev is not guaranteed to still point to the "allocating" device
+> once the skb is freed again so reserve/unreserve isn't symmetric.
+> You'd need skb->alloc_dev or something.
 
-After applying the patch that Patrick McHardy pointed me at, it lived
-longer.  However, I'm now seeing problems at system shutdown (or anytime
-you try to 'ifdown ethX' where ethX has an IPv6 address attached to it):
+There's another consequence of this property of the network
+stack.
 
-[  196.346000] BUG: unable to handle kernel NULL pointer dereference at virtual address 00000014
-[  196.347000]  printing eip:
-[  196.348000] c032c436
-[  196.348000] *pde = 00000000
-[  196.349000] Oops: 0000 [#1]
-[  196.349000] 4K_STACKS PREEMPT 
-[  196.349000] last sysfs file: /class/net/eth1/address
-[  196.349000] Modules linked in: thermal sony_acpi processor fan button battery ac nfnetlink i8k floppy nvram orinoco_cs orinoco hermes pcmcia firmware_class ohci1394 ieee1394 intel_agp agpgart iTCO_wdt yenta_socket rsrc_nonstatic pcmcia_core rtc
-[  196.349000] CPU:    0
-[  196.349000] EIP:    0060:[<c032c436>]    Not tainted VLI
-[  196.349000] EFLAGS: 00010246   (2.6.18-rc3-mm2 #4) 
-[  196.349000] EIP is at rt6_lookup+0x47/0x83
-[  196.349000] eax: 00000000   ebx: 00000000   ecx: 00000005   edx: 00000000
-[  196.349000] esi: e8b25c98   edi: e8b25c20   ebp: e8b25c78   esp: e8b25c20
-[  196.349000] ds: 007b   es: 007b   ss: 0068
-[  196.349000] Process ip (pid: 2511, ti=e8b25000 task=effb0aa0 task.ti=e8b25000)
-[  196.349000] Stack: 00000005 00000000 000080fe 00000000 00000000 00000000 00000000 00000000 
-[  196.349000]        00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 
-[  196.349000]        00000000 00000000 00000000 00000008 eb6e98c8 e8b25ca8 e8b25cb4 c0327c04 
-[  196.349000] Call Trace:
-[  196.349000]  [<c0327c04>] ipv6_del_addr+0x2ef/0x3a7
-[  196.349000]  [<c0327d3f>] inet6_addr_del+0x83/0xbb
-[  196.349000]  [<c0327dd6>] inet6_rtm_deladdr+0x5f/0x6b
-[  196.349000]  [<c02da097>] rtnetlink_rcv_msg+0x1b3/0x1d6
-[  196.349000]  [<c02e011c>] netlink_run_queue+0x5a/0xc6
-[  196.349000]  [<c02d9e9d>] rtnetlink_rcv+0x29/0x42
-[  196.349000]  [<c02e0576>] netlink_data_ready+0x12/0x49
-[  196.349000]  [<c02df518>] netlink_sendskb+0x1c/0x4d
-[  196.349000]  [<c02dfea0>] netlink_unicast+0x1c4/0x1d0
-[  196.349000]  [<c02e0557>] netlink_sendmsg+0x274/0x281
-[  196.349000]  [<c02ca57e>] sock_sendmsg+0xeb/0x106
-[  196.349000]  [<c02cad99>] sys_sendto+0xbe/0xdc
-[  196.349000]  [<c02cb522>] sys_socketcall+0xfb/0x186
-[  196.349000]  [<c0102849>] sysenter_past_esp+0x56/0x79
-[  196.349000] DWARF2 unwinder stuck at sysenter_past_esp+0x56/0x79
-[  196.349000] Leftover inexact backtrace:
-[  196.349000]  [<c01036c7>] show_stack_log_lvl+0x8c/0x97
-[  196.349000]  [<c010381f>] show_registers+0x14d/0x1de
-[  196.349000]  [<c0103a5b>] die+0x1ab/0x26d
-[  196.349000]  [<c0352205>] do_page_fault+0x3f8/0x4c5
-[  196.349000]  [<c0351271>] error_code+0x39/0x40
-[  196.349000]  [<c0327c04>] ipv6_del_addr+0x2ef/0x3a7
-[  196.349000]  [<c0327d3f>] inet6_addr_del+0x83/0xbb
-[  196.349000]  [<c0327dd6>] inet6_rtm_deladdr+0x5f/0x6b
-[  196.349000]  [<c02da097>] rtnetlink_rcv_msg+0x1b3/0x1d6
-[  196.349000]  [<c02e011c>] netlink_run_queue+0x5a/0xc6
-[  196.349000]  [<c02d9e9d>] rtnetlink_rcv+0x29/0x42
-[  196.349000]  [<c02e0576>] netlink_data_ready+0x12/0x49
-[  196.349000]  [<c02df518>] netlink_sendskb+0x1c/0x4d
-[  196.349000]  [<c02dfea0>] netlink_unicast+0x1c4/0x1d0
-[  196.349000]  [<c02e0557>] netlink_sendmsg+0x274/0x281
-[  196.349000]  [<c02ca57e>] sock_sendmsg+0xeb/0x106
-[  196.349000]  [<c02cad99>] sys_sendto+0xbe/0xdc
-[  196.349000]  [<c02cb522>] sys_socketcall+0xfb/0x186
-[  196.349000]  [<c0102849>] sysenter_past_esp+0x56/0x79
-[  196.349000] Code: eb ff 89 5d a8 8d 45 b0 b9 10 00 00 00 89 f2 e8 c9 e0 eb ff 31 d2 83 7d 08 00 0f 95 c2 b9 ad cc 32 c0 89 f8 e8 47 7c 01 00 89 c3 <66> 83 7b 14 00 74 2d 8b 43 04 85 c0 7f 21 68 c4 19 37 c0 68 99 
-[  196.349000] EIP: [<c032c436>] rt6_lookup+0x47/0x83 SS:ESP 0068:e8b25c20
+Every network interface must be able to fall back to these
+MEMALLOC allocations, because the memory critical socket
+could be on another network interface.  Hence, we cannot
+know which network interfaces should (not) be marked MEMALLOC.
 
-The unlucky 'ip' process then gets a SIGSEGV and dies while holding a lock
-of some sort, so later 'ip' processes get hung in 'D' state.
-
-Checking the lkml and netdev archives didn't find any useful hits for
-'ipv6_addr_rel'...
-
---==_Exmh_1155262526_2846P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFE2+g+cC3lWbTT17ARAiWYAJ47vEdJ+r0SUW3GA3AK4VVUI11HDACfUOxB
-aDPKlwLBrqeXzQ7eHePSDOM=
-=Oyw7
------END PGP SIGNATURE-----
-
---==_Exmh_1155262526_2846P--
+-- 
+"Debugging is twice as hard as writing the code in the first place.
+Therefore, if you write the code as cleverly as possible, you are,
+by definition, not smart enough to debug it." - Brian W. Kernighan
