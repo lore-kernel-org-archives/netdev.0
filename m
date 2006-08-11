@@ -1,33 +1,39 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: sender throttling for unreliable protocols not garuanteed? (different units in sock->wmem_alloc and net_devive->tx_queue_len)
-Date: Fri, 11 Aug 2006 18:07:46 +0400
-Message-ID: <20060811140746.GA9209@ms2.inr.ac.ru>
-References: <Pine.LNX.4.64.0608111418260.10347@nettc.informatik.uni-stuttgart.de>
+From: Steven Whitehouse <steve@chygwyn.com>
+Subject: [DECNET] Fix to multiple tables routing
+Date: Fri, 11 Aug 2006 15:27:42 +0100
+Message-ID: <20060811142742.GA31748@souterrain.chygwyn.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: Patrick Caulfield <patrick@tykepenguin.com>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:4766 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1751139AbWHKOIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 10:08:32 -0400
-To: Steffen Maier <smaier@users.sourceforge.net>
+Received: from souterrain.chygwyn.com ([194.39.143.233]:40642 "EHLO
+	souterrain.chygwyn.com") by vger.kernel.org with ESMTP
+	id S1751149AbWHKOXg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Aug 2006 10:23:36 -0400
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0608111418260.10347@nettc.informatik.uni-stuttgart.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
 
-> I'd be interested in any opinions on the above mentioned effect.
+Here is a fix to Patrick McHardy's increase number of routing tables patch
+for DECnet. I did just test this and it appears to be working fine with
+this patch.
 
-Everything is right, it is exactly how it works.
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Patrick Caulfield <patrick@tykepenguin.com>
+Signed-off-by: Steven Whitehouse <steve@chygwyn.com>
 
-Well, use another qdisc, which counts in bytes rather than in frames
-(f.e. bfifo)
-
-Set sndbuf small enough.
-
-And if sndbuf*#senders is still too large, you have to use fair queueing,
-sfq is quite good for this purpose.
-
-Alexey
+diff --git a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
+index 878312f..c8d9411 100644
+--- a/net/decnet/dn_rules.c
++++ b/net/decnet/dn_rules.c
+@@ -116,6 +116,7 @@ static struct nla_policy dn_fib_rule_pol
+ 	[FRA_SRC]	= { .type = NLA_U16 },
+ 	[FRA_DST]	= { .type = NLA_U16 },
+ 	[FRA_FWMARK]	= { .type = NLA_U32 },
++	[FRA_TABLE]     = { .type = NLA_U32 },
+ };
+ 
+ static int dn_fib_rule_match(struct fib_rule *rule, struct flowi *fl, int flags)
