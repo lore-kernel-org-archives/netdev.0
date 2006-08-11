@@ -1,118 +1,290 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: crash with bcm43xx_dscape and multiple interfaces
-Date: Fri, 11 Aug 2006 09:53:17 +0200
-Message-ID: <44DC376D.6030408@sipsolutions.net>
+Subject: [RFC] d80211 LED handling
+Date: Fri, 11 Aug 2006 09:55:53 +0200
+Message-ID: <44DC3809.10705@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+ boundary="------------040007080201080901090603"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:37348 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750752AbWHKHxa
+Received: from crystal.sipsolutions.net ([195.210.38.204]:62139 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750763AbWHKH4K
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Aug 2006 03:53:30 -0400
-To: mbuesch@freenet.de, netdev <netdev@vger.kernel.org>,
-	bcm43xx-dev@lists.berlios.de
+	Fri, 11 Aug 2006 03:56:10 -0400
+To: Jiri Benc <jbenc@suse.cz>, netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hey,
+This is a multi-part message in MIME format.
+--------------040007080201080901090603
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I managed to crash it again :P
+Attached (sorry, can't seem to figure out how to convince thunderbird to 
+not mangle things under windows) is a patch to make d80211 have some LED 
+triggers.
 
-Here's approximately what I did:
+However, I'm not sure where I should call the _init and _exit functions 
+and if I really should be using the local struct. It seems I shouldn't 
+be and should be using the master interface directly or something.
 
+Anyway, food for though and comments.
 
-johannes:/home/johannes# ifconfig wlan0 down
+johannes
 
-johannes:/home/johannes# cd /sys/class/ieee80211/phy0/
+--------------040007080201080901090603
+Content-Type: text/plain;
+ name="d80211-led.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="d80211-led.patch"
 
-johannes:/sys/class/ieee80211/phy0# echo -n moni0 > add_iface
+--- wireless-dev.orig/include/net/d80211.h	2006-08-10 20:02:20.159652863 +0200
++++ wireless-dev/include/net/d80211.h	2006-08-10 20:02:22.439652863 +0200
+@@ -884,16 +884,6 @@ enum {
+ 	IEEE80211_TEST_PARAM_TX_ANT_SEL_RAW = 5,
+ };
+ 
+-/* ieee80211_tx_led called with state == 1 when the first frame is queued
+- *   with state == 0 when the last frame is transmitted and tx queue is empty
+- */
+-void ieee80211_tx_led(int state, struct net_device *dev);
+-/* ieee80211_rx_led is called each time frame is received, state is not used
+- * (== 2)
+- */
+-void ieee80211_rx_led(int state, struct net_device *dev);
+-
+-
+ /* IEEE 802.11 defines */
+ 
+ #define FCS_LEN 4
+--- wireless-dev.orig/net/d80211/Kconfig	2006-08-10 20:02:20.199652863 +0200
++++ wireless-dev/net/d80211/Kconfig	2006-08-10 20:02:22.439652863 +0200
+@@ -7,6 +7,13 @@ config D80211
+ 	This option enables the hardware independent IEEE 802.11
+ 	networking stack.
+ 
++config D80211_LEDS
++	bool "Enable LED triggers"
++	select LEDS_TRIGGERS
++	---help---
++	This option enables a few LED triggers for different
++	packet receive/transmit events.
++
+ config D80211_DEBUG
+ 	bool "Enable debugging output"
+ 	depends on D80211
+--- wireless-dev.orig/net/d80211/ieee80211.c	2006-08-10 20:02:20.279652863 +0200
++++ wireless-dev/net/d80211/ieee80211.c	2006-08-10 20:02:22.449652863 +0200
+@@ -31,7 +31,7 @@
+ #include "tkip.h"
+ #include "wme.h"
+ #include "aes_ccm.h"
+-
++#include "ieee80211_led.h"
+ 
+ /* See IEEE 802.1H for LLC/SNAP encapsulation/decapsulation */
+ /* Ethernet-II snap header (RFC1042 for most EtherTypes) */
+@@ -1181,11 +1181,7 @@ static int __ieee80211_tx(struct ieee802
+ 		ret = local->hw->tx(local->mdev, skb, control);
+ 		if (ret)
+ 			return IEEE80211_TX_AGAIN;
+-#ifdef IEEE80211_LEDS
+-		if (local->tx_led_counter++ == 0) {
+-			ieee80211_tx_led(1, local->mdev);
+-		}
+-#endif /* IEEE80211_LEDS */
++		ieee80211_led_tx(local, 1);
+ 	}
+ 	if (tx->u.tx.extra_frag) {
+ 		control->use_rts_cts = 0;
+@@ -1210,11 +1206,7 @@ static int __ieee80211_tx(struct ieee802
+ 					    control);
+ 			if (ret)
+ 				return IEEE80211_TX_FRAG_AGAIN;
+-#ifdef IEEE80211_LEDS
+-			if (local->tx_led_counter++ == 0) {
+-				ieee80211_tx_led(1, local->mdev);
+-			}
+-#endif /* IEEE80211_LEDS */
++			ieee80211_led_tx(local, 1);
+ 			tx->u.tx.extra_frag[i] = NULL;
+ 		}
+ 		kfree(tx->u.tx.extra_frag);
+@@ -2998,10 +2990,8 @@ ieee80211_rx_h_defragment(struct ieee802
+ 		rx->sta->rx_packets++;
+ 	if (is_multicast_ether_addr(hdr->addr1))
+ 		rx->local->dot11MulticastReceivedFrameCount++;
+-#ifdef IEEE80211_LEDS
+         else
+-		ieee80211_rx_led(2, rx->dev);
+-#endif /* IEEE80211_LEDS */
++		ieee80211_led_rx(rx->local);
+ 	return TXRX_CONTINUE;
+ }
+ 
+@@ -4104,11 +4094,8 @@ void ieee80211_tx_status(struct net_devi
+ 		rate_control_tx_status(dev, skb, status);
+ 	}
+ 
+-#ifdef IEEE80211_LEDS
+-        if (local->tx_led_counter && (local->tx_led_counter-- == 1)) {
+-                ieee80211_tx_led(0, dev);
+-        }
+-#endif /* IEEE80211_LEDS */
++	ieee80211_led_tx(local, 0);
++
+         /* SNMP counters
+ 	 * Fragments are passed to low-level drivers as separate skbs, so these
+ 	 * are actually fragments, not frames. Update frame counters only for
+--- wireless-dev.orig/net/d80211/ieee80211_dev.c	2006-08-10 20:02:20.309652863 +0200
++++ wireless-dev/net/d80211/ieee80211_dev.c	2006-08-10 21:54:44.300216256 +0200
+@@ -13,6 +13,7 @@
+ #include <linux/netdevice.h>
+ #include <net/d80211.h>
+ #include "ieee80211_i.h"
++#include "ieee80211_led.h"
+ 
+ struct ieee80211_dev_list {
+ 	struct list_head list;
+--- wireless-dev.orig/net/d80211/ieee80211_i.h	2006-08-10 20:02:20.399652863 +0200
++++ wireless-dev/net/d80211/ieee80211_i.h	2006-08-10 20:03:22.939652863 +0200
+@@ -460,7 +460,10 @@ struct ieee80211_local {
+         u32 dot11TransmittedFrameCount;
+         u32 dot11WEPUndecryptableCount;
+ 
+-        int tx_led_counter;
++#ifdef CONFIG_D80211_LEDS
++	int tx_led_counter, rx_led_counter;
++	struct led_trigger *tx_led, *rx_led;
++#endif
+ 
+ 	u32 channel_use;
+ 	u32 channel_use_raw;
+--- wireless-dev.orig/net/d80211/ieee80211_led.c	2006-08-10 20:02:20.429652863 +0200
++++ wireless-dev/net/d80211/ieee80211_led.c	2006-08-10 20:25:19.659652863 +0200
+@@ -1,32 +1,70 @@
+ /*
+- * Copyright 2002-2004, Instant802 Networks, Inc.
++ * Copyright 2006, Johannes Berg <johannes@sipsolutions.net>
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
+ 
+-#include <linux/config.h>
+-#include <linux/netdevice.h>
+-#include <linux/types.h>
+-
+-#ifdef CONFIG_OAP_LEDS_WLAN
+-extern void leds_wlan_set(int unit, int tx, int state);
+-#endif
+-
+-void ieee80211_rx_led(int state, struct net_device *dev) {
+-#ifdef CONFIG_OAP_LEDS_WLAN
+-	static unsigned int count = 0;
++/* just for IFNAMSIZ */
++#include <linux/if.h>
++#include "ieee80211_led.h"
++
++void ieee80211_led_rx(struct ieee80211_local *local)
++{
++	if (unlikely(!local->rx_led))
++		return;
++	if (local->rx_led_counter++ % 2 == 0)
++		led_trigger_event(local->rx_led, LED_OFF);
++	else
++		led_trigger_event(local->rx_led, LED_FULL);
++}
+ 
+-	if (state == 2) {
+-		leds_wlan_set(0, 0, (++count) & 1);
+-	}
+-#endif
++/* q is 1 if a packet was enqueued, 0 if it has been transmitted */
++void ieee80211_led_tx(struct ieee80211_local *local, int q)
++{
++	if (unlikely(!local->tx_led))
++		return;
++	/* not sure how this is supposed to work ... */
++	local->tx_led_counter += 2*q-1;
++	if (local->tx_led_counter % 2 == 0)
++		led_trigger_event(local->tx_led, LED_OFF);
++	else
++		led_trigger_event(local->tx_led, LED_FULL);
+ }
+ 
+-void ieee80211_tx_led(int state, struct net_device *dev) {
+-#ifdef CONFIG_OAP_LEDS_WLAN
+-        leds_wlan_set(0, 1, state);
+-#endif
++void ieee80211_led_init(struct ieee80211_local *local)
++{
++	char *name;
++	local->rx_led = kzalloc(sizeof(struct led_trigger) + IFNAMSIZ + 2, GFP_KERNEL);
++	if (!local->rx_led)
++		return;
++	name = (char*) local->rx_led+1;
++	snprintf(name, IFNAMSIZ + 2, "%srx", local->mdev->name);
++	if (led_trigger_register(local->rx_led)) {
++		kfree(local->rx_led);
++		local->rx_led = NULL;
++	}
++
++	local->tx_led = kzalloc(sizeof(struct led_trigger) + IFNAMSIZ + 2, GFP_KERNEL);
++	if (!local->tx_led)
++		return;
++	name = (char*) local->tx_led+1;
++	snprintf(name, IFNAMSIZ + 2, "%stx", local->mdev->name);
++	if (led_trigger_register(local->tx_led)) {
++		kfree(local->tx_led);
++		local->tx_led = NULL;
++	}
+ }
+ 
++void ieee80211_led_exit(struct ieee80211_local *local)
++{
++	if (local->tx_led) {
++		led_trigger_unregister(local->tx_led);
++		kfree(local->tx_led);
++	}
++	if (local->rx_led) {
++		led_trigger_unregister(local->rx_led);
++		kfree(local->rx_led);
++	}
++}
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ wireless-dev/net/d80211/ieee80211_led.h	2006-08-10 20:24:54.849652863 +0200
+@@ -0,0 +1,30 @@
++/*
++ * Copyright 2006, Johannes Berg <johannes@sipsolutions.net>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/leds.h>
++#include "ieee80211_i.h"
++
++#ifdef CONFIG_D80211_LEDS
++extern void ieee80211_led_rx(struct ieee80211_local *local);
++extern void ieee80211_led_tx(struct ieee80211_local *local, int q);
++extern void ieee80211_led_init(struct ieee80211_local *local);
++extern void ieee80211_led_exit(struct ieee80211_local *local);
++#else
++static inline void ieee80211_led_rx(struct ieee80211_local *local)
++{
++}
++static inline void ieee80211_led_tx(struct ieee80211_local *local, int q)
++{
++}
++static inline void ieee80211_led_init(struct ieee80211_local *local)
++{
++}
++static inline void ieee80211_led_exit(struct ieee80211_local *local)
++{
++}
++#endif
 
-johannes:/sys/class/ieee80211/phy0# iwconfig wlan0 mode master
-
-johannes:/sys/class/ieee80211/phy0# iwconfig wlan0 essid test
-
-johannes:/sys/class/ieee80211/phy0# ifconfig moni0 down
-
-johannes:/sys/class/ieee80211/phy0# iwconfig moni0 mode monitor
-
-johannes:/sys/class/ieee80211/phy0# ifconfig wlan0 up
-
-johannes:/sys/class/ieee80211/phy0# ifconfig moni0 up
-
-Segmentation fault
-
-bcm43xx_d80211: ASSERTION FAILED (bcm->cached_beacon) at: drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c:1754:bcm43xx_update_templates()
-
-bcm43xx_d80211: ASSERTION FAILED (bcm->cached_beacon) at: drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c:1603:bcm43xx_write_beacon_template()
-
-Unable to handle kernel paging request for data at address 0x00000060
-
-Faulting instruction address: 0xf24cf308
-
-Oops: Kernel access of bad area, sig: 11 [#1]
-
-Aug 10 20:55:18 johannes kernel: [ 1095.326784]
-
-Modules linked in: af_packet radeon drm binfmt_misc hci_usb rfcomm l2cap bluetooth nls_utf8 hfsplus nls_base joydev appletouch usbhid snd_aoa_codec_tas snd_aoa_fabric_layout snd_aoa arc4 rate_control evdev bcm43xx_d80211 firmware_class snd_aoa_i2sbus snd_pcm snd_timer snd_page_alloc snd uninorth_agp ohci1394 ieee1394 agpgart soundcore snd_aoa_soundbus yenta_socket rsrc_nonstatic pcmcia_core ohci_hcd ehci_hcd usbcore 80211 unix
-
-NIP: F24CF308 LR: F24CF348 CTR: C01BACA4
-
-REGS: c1e83c70 TRAP: 0300   Not tainted  (2.6.18-rc4)
-
-MSR: 00001032 <ME,IR,DR>  CR: 24008422  XER: 00000000
-
-DAR: 00000060, DSISR: 40000000
-
-TASK = e8b88070[3419] 'ifconfig' THREAD: c1e82000
-
-GPR00: F24CF348 C1E83D20 E8B88070 000000A4 0000A2E8 FFFFFFFF C0560000 00200000
-
-GPR08: 00000033 00000000 00200000 C0510000 44008488 10018A14 28004422 00000000
-
-GPR16: 1023D638 100D0000 100B0000 100D0000 10010474 E5A48000 C1E83E58 FFFF8914
-
-GPR24: E5A48280 EFEC2400 00000004 00000000 00000068 00000002 00000018 EFEC2400
-
-NIP [F24CF308] bcm43xx_write_beacon_template+0x50/0x98 [bcm43xx_d80211]
-
-LR [F24CF348] bcm43xx_write_beacon_template+0x90/0x98 [bcm43xx_d80211]
-
-Call Trace:
-
-[C1E83D20] [F24CF348] bcm43xx_write_beacon_template+0x90/0x98 [bcm43xx_d80211] (unreliable)
-
-[C1E83D40] [F24CFE44] bcm43xx_refresh_templates+0x48/0x268 [bcm43xx_d80211]
-
-[C1E83D70] [F24D24AC] bcm43xx_add_interface+0xe4/0x118 [bcm43xx_d80211]
-
-[C1E83DA0] [F20BDFD4] ieee80211_open+0x120/0x398 [80211]
-
-[C1E83DF0] [C021E8C8] dev_open+0x78/0xcc
-
-[C1E83E10] [C021C7E0] dev_change_flags+0x13c/0x168
-
-[C1E83E30] [C0261C80] devinet_ioctl+0x5bc/0x71c
-
-[C1E83EA0] [C02623F8] inet_ioctl+0xb0/0xdc
-
-[C1E83EB0] [C0210810] sock_ioctl+0x160/0x28c
-
-[C1E83ED0] [C0096604] do_ioctl+0x38/0x84
-
-[C1E83EE0] [C00966D4] vfs_ioctl+0x84/0x43c
-
-[C1E83F10] [C0096ACC] sys_ioctl+0x40/0x74
-
-[C1E83F40] [C0010C88] ret_from_syscall+0x0/0x38
-
---- Exception: c01 at 0xff62780
-
-    LR = 0xffecf54
-
-Instruction dump:
-
-3c80f24f 7cbe2b78 3ca0f24f 7cdd3378 3884c650 38a5c3f8 812304f8 3c60f24f
-
-38c00643 3863c3b8 2f890000 419e0040 <80a90060> 7fe3fb78 7f86e378 7fc7f378
-
+--------------040007080201080901090603--
