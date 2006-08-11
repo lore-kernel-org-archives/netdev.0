@@ -1,290 +1,392 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [RFC] d80211 LED handling
-Date: Fri, 11 Aug 2006 09:55:53 +0200
-Message-ID: <44DC3809.10705@sipsolutions.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [take8 2/2] kevent: poll/select() notifications. Timer notifications.
+Date: Fri, 11 Aug 2006 12:40:10 +0400
+Message-ID: <11552856102674@2ka.mipt.ru>
+References: <11552856103972@2ka.mipt.ru>
+Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040007080201080901090603"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:62139 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750763AbWHKH4K
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Aug 2006 03:56:10 -0400
-To: Jiri Benc <jbenc@suse.cz>, netdev <netdev@vger.kernel.org>
+Received: from user-edvans3.msk.internet2.ru ([217.25.93.4]:58801 "EHLO
+	uganda.factory.vocord.ru") by vger.kernel.org with ESMTP
+	id S1750776AbWHKIPr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 04:15:47 -0400
+In-Reply-To: <11552856103972@2ka.mipt.ru>
+To: lkml <linux-kernel@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040007080201080901090603
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Attached (sorry, can't seem to figure out how to convince thunderbird to 
-not mangle things under windows) is a patch to make d80211 have some LED 
-triggers.
+poll/select() notifications. Timer notifications.
 
-However, I'm not sure where I should call the _init and _exit functions 
-and if I really should be using the local struct. It seems I shouldn't 
-be and should be using the master interface directly or something.
+This patch includes generic poll/select and timer notifications.
 
-Anyway, food for though and comments.
+kevent_poll works simialr to epoll and has the same issues (callback
+is invoked not from internal state machine of the caller, but through
+process awake).
 
-johannes
+Timer notifications can be used for fine grained per-process time 
+management, since interval timers are very inconvenient to use, 
+and they are limited.
 
---------------040007080201080901090603
-Content-Type: text/plain;
- name="d80211-led.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="d80211-led.patch"
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mitp.ru>
 
---- wireless-dev.orig/include/net/d80211.h	2006-08-10 20:02:20.159652863 +0200
-+++ wireless-dev/include/net/d80211.h	2006-08-10 20:02:22.439652863 +0200
-@@ -884,16 +884,6 @@ enum {
- 	IEEE80211_TEST_PARAM_TX_ANT_SEL_RAW = 5,
- };
- 
--/* ieee80211_tx_led called with state == 1 when the first frame is queued
-- *   with state == 0 when the last frame is transmitted and tx queue is empty
-- */
--void ieee80211_tx_led(int state, struct net_device *dev);
--/* ieee80211_rx_led is called each time frame is received, state is not used
-- * (== 2)
-- */
--void ieee80211_rx_led(int state, struct net_device *dev);
--
--
- /* IEEE 802.11 defines */
- 
- #define FCS_LEN 4
---- wireless-dev.orig/net/d80211/Kconfig	2006-08-10 20:02:20.199652863 +0200
-+++ wireless-dev/net/d80211/Kconfig	2006-08-10 20:02:22.439652863 +0200
-@@ -7,6 +7,13 @@ config D80211
- 	This option enables the hardware independent IEEE 802.11
- 	networking stack.
- 
-+config D80211_LEDS
-+	bool "Enable LED triggers"
-+	select LEDS_TRIGGERS
-+	---help---
-+	This option enables a few LED triggers for different
-+	packet receive/transmit events.
-+
- config D80211_DEBUG
- 	bool "Enable debugging output"
- 	depends on D80211
---- wireless-dev.orig/net/d80211/ieee80211.c	2006-08-10 20:02:20.279652863 +0200
-+++ wireless-dev/net/d80211/ieee80211.c	2006-08-10 20:02:22.449652863 +0200
-@@ -31,7 +31,7 @@
- #include "tkip.h"
- #include "wme.h"
- #include "aes_ccm.h"
--
-+#include "ieee80211_led.h"
- 
- /* See IEEE 802.1H for LLC/SNAP encapsulation/decapsulation */
- /* Ethernet-II snap header (RFC1042 for most EtherTypes) */
-@@ -1181,11 +1181,7 @@ static int __ieee80211_tx(struct ieee802
- 		ret = local->hw->tx(local->mdev, skb, control);
- 		if (ret)
- 			return IEEE80211_TX_AGAIN;
--#ifdef IEEE80211_LEDS
--		if (local->tx_led_counter++ == 0) {
--			ieee80211_tx_led(1, local->mdev);
--		}
--#endif /* IEEE80211_LEDS */
-+		ieee80211_led_tx(local, 1);
- 	}
- 	if (tx->u.tx.extra_frag) {
- 		control->use_rts_cts = 0;
-@@ -1210,11 +1206,7 @@ static int __ieee80211_tx(struct ieee802
- 					    control);
- 			if (ret)
- 				return IEEE80211_TX_FRAG_AGAIN;
--#ifdef IEEE80211_LEDS
--			if (local->tx_led_counter++ == 0) {
--				ieee80211_tx_led(1, local->mdev);
--			}
--#endif /* IEEE80211_LEDS */
-+			ieee80211_led_tx(local, 1);
- 			tx->u.tx.extra_frag[i] = NULL;
- 		}
- 		kfree(tx->u.tx.extra_frag);
-@@ -2998,10 +2990,8 @@ ieee80211_rx_h_defragment(struct ieee802
- 		rx->sta->rx_packets++;
- 	if (is_multicast_ether_addr(hdr->addr1))
- 		rx->local->dot11MulticastReceivedFrameCount++;
--#ifdef IEEE80211_LEDS
-         else
--		ieee80211_rx_led(2, rx->dev);
--#endif /* IEEE80211_LEDS */
-+		ieee80211_led_rx(rx->local);
- 	return TXRX_CONTINUE;
- }
- 
-@@ -4104,11 +4094,8 @@ void ieee80211_tx_status(struct net_devi
- 		rate_control_tx_status(dev, skb, status);
- 	}
- 
--#ifdef IEEE80211_LEDS
--        if (local->tx_led_counter && (local->tx_led_counter-- == 1)) {
--                ieee80211_tx_led(0, dev);
--        }
--#endif /* IEEE80211_LEDS */
-+	ieee80211_led_tx(local, 0);
-+
-         /* SNMP counters
- 	 * Fragments are passed to low-level drivers as separate skbs, so these
- 	 * are actually fragments, not frames. Update frame counters only for
---- wireless-dev.orig/net/d80211/ieee80211_dev.c	2006-08-10 20:02:20.309652863 +0200
-+++ wireless-dev/net/d80211/ieee80211_dev.c	2006-08-10 21:54:44.300216256 +0200
-@@ -13,6 +13,7 @@
- #include <linux/netdevice.h>
- #include <net/d80211.h>
- #include "ieee80211_i.h"
-+#include "ieee80211_led.h"
- 
- struct ieee80211_dev_list {
- 	struct list_head list;
---- wireless-dev.orig/net/d80211/ieee80211_i.h	2006-08-10 20:02:20.399652863 +0200
-+++ wireless-dev/net/d80211/ieee80211_i.h	2006-08-10 20:03:22.939652863 +0200
-@@ -460,7 +460,10 @@ struct ieee80211_local {
-         u32 dot11TransmittedFrameCount;
-         u32 dot11WEPUndecryptableCount;
- 
--        int tx_led_counter;
-+#ifdef CONFIG_D80211_LEDS
-+	int tx_led_counter, rx_led_counter;
-+	struct led_trigger *tx_led, *rx_led;
-+#endif
- 
- 	u32 channel_use;
- 	u32 channel_use_raw;
---- wireless-dev.orig/net/d80211/ieee80211_led.c	2006-08-10 20:02:20.429652863 +0200
-+++ wireless-dev/net/d80211/ieee80211_led.c	2006-08-10 20:25:19.659652863 +0200
-@@ -1,32 +1,70 @@
- /*
-- * Copyright 2002-2004, Instant802 Networks, Inc.
-+ * Copyright 2006, Johannes Berg <johannes@sipsolutions.net>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-  * published by the Free Software Foundation.
-  */
- 
--#include <linux/config.h>
--#include <linux/netdevice.h>
--#include <linux/types.h>
--
--#ifdef CONFIG_OAP_LEDS_WLAN
--extern void leds_wlan_set(int unit, int tx, int state);
--#endif
--
--void ieee80211_rx_led(int state, struct net_device *dev) {
--#ifdef CONFIG_OAP_LEDS_WLAN
--	static unsigned int count = 0;
-+/* just for IFNAMSIZ */
-+#include <linux/if.h>
-+#include "ieee80211_led.h"
-+
-+void ieee80211_led_rx(struct ieee80211_local *local)
-+{
-+	if (unlikely(!local->rx_led))
-+		return;
-+	if (local->rx_led_counter++ % 2 == 0)
-+		led_trigger_event(local->rx_led, LED_OFF);
-+	else
-+		led_trigger_event(local->rx_led, LED_FULL);
-+}
- 
--	if (state == 2) {
--		leds_wlan_set(0, 0, (++count) & 1);
--	}
--#endif
-+/* q is 1 if a packet was enqueued, 0 if it has been transmitted */
-+void ieee80211_led_tx(struct ieee80211_local *local, int q)
-+{
-+	if (unlikely(!local->tx_led))
-+		return;
-+	/* not sure how this is supposed to work ... */
-+	local->tx_led_counter += 2*q-1;
-+	if (local->tx_led_counter % 2 == 0)
-+		led_trigger_event(local->tx_led, LED_OFF);
-+	else
-+		led_trigger_event(local->tx_led, LED_FULL);
- }
- 
--void ieee80211_tx_led(int state, struct net_device *dev) {
--#ifdef CONFIG_OAP_LEDS_WLAN
--        leds_wlan_set(0, 1, state);
--#endif
-+void ieee80211_led_init(struct ieee80211_local *local)
-+{
-+	char *name;
-+	local->rx_led = kzalloc(sizeof(struct led_trigger) + IFNAMSIZ + 2, GFP_KERNEL);
-+	if (!local->rx_led)
-+		return;
-+	name = (char*) local->rx_led+1;
-+	snprintf(name, IFNAMSIZ + 2, "%srx", local->mdev->name);
-+	if (led_trigger_register(local->rx_led)) {
-+		kfree(local->rx_led);
-+		local->rx_led = NULL;
-+	}
-+
-+	local->tx_led = kzalloc(sizeof(struct led_trigger) + IFNAMSIZ + 2, GFP_KERNEL);
-+	if (!local->tx_led)
-+		return;
-+	name = (char*) local->tx_led+1;
-+	snprintf(name, IFNAMSIZ + 2, "%stx", local->mdev->name);
-+	if (led_trigger_register(local->tx_led)) {
-+		kfree(local->tx_led);
-+		local->tx_led = NULL;
-+	}
- }
- 
-+void ieee80211_led_exit(struct ieee80211_local *local)
-+{
-+	if (local->tx_led) {
-+		led_trigger_unregister(local->tx_led);
-+		kfree(local->tx_led);
-+	}
-+	if (local->rx_led) {
-+		led_trigger_unregister(local->rx_led);
-+		kfree(local->rx_led);
-+	}
-+}
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ wireless-dev/net/d80211/ieee80211_led.h	2006-08-10 20:24:54.849652863 +0200
-@@ -0,0 +1,30 @@
+diff --git a/kernel/kevent/kevent_poll.c b/kernel/kevent/kevent_poll.c
+new file mode 100644
+index 0000000..8a4f863
+--- /dev/null
++++ b/kernel/kevent/kevent_poll.c
+@@ -0,0 +1,220 @@
 +/*
-+ * Copyright 2006, Johannes Berg <johannes@sipsolutions.net>
-+ *
++ * 	kevent_poll.c
++ * 
++ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * All rights reserved.
++ * 
 + * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
 + */
 +
-+#include <linux/leds.h>
-+#include "ieee80211_i.h"
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/list.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/timer.h>
++#include <linux/file.h>
++#include <linux/kevent.h>
++#include <linux/poll.h>
++#include <linux/fs.h>
 +
-+#ifdef CONFIG_D80211_LEDS
-+extern void ieee80211_led_rx(struct ieee80211_local *local);
-+extern void ieee80211_led_tx(struct ieee80211_local *local, int q);
-+extern void ieee80211_led_init(struct ieee80211_local *local);
-+extern void ieee80211_led_exit(struct ieee80211_local *local);
-+#else
-+static inline void ieee80211_led_rx(struct ieee80211_local *local)
++static kmem_cache_t *kevent_poll_container_cache;
++static kmem_cache_t *kevent_poll_priv_cache;
++
++struct kevent_poll_ctl
 +{
-+}
-+static inline void ieee80211_led_tx(struct ieee80211_local *local, int q)
++	struct poll_table_struct 	pt;
++	struct kevent			*k;
++};
++
++struct kevent_poll_wait_container
 +{
-+}
-+static inline void ieee80211_led_init(struct ieee80211_local *local)
++	struct list_head		container_entry;
++	wait_queue_head_t		*whead;
++	wait_queue_t			wait;
++	struct kevent			*k;
++};
++
++struct kevent_poll_private
 +{
-+}
-+static inline void ieee80211_led_exit(struct ieee80211_local *local)
++	struct list_head		container_list;
++	spinlock_t			container_lock;
++};
++
++static int kevent_poll_enqueue(struct kevent *k);
++static int kevent_poll_dequeue(struct kevent *k);
++static int kevent_poll_callback(struct kevent *k);
++
++static int kevent_poll_wait_callback(wait_queue_t *wait, 
++		unsigned mode, int sync, void *key)
 +{
++	struct kevent_poll_wait_container *cont = 
++		container_of(wait, struct kevent_poll_wait_container, wait);
++	struct kevent *k = cont->k;
++	struct file *file = k->st->origin;
++	u32 revents;
++
++	revents = file->f_op->poll(file, NULL);
++
++	kevent_storage_ready(k->st, NULL, revents);
++
++	return 0;
 +}
-+#endif
++
++static void kevent_poll_qproc(struct file *file, wait_queue_head_t *whead, 
++		struct poll_table_struct *poll_table)
++{
++	struct kevent *k = 
++		container_of(poll_table, struct kevent_poll_ctl, pt)->k;
++	struct kevent_poll_private *priv = k->priv;
++	struct kevent_poll_wait_container *cont;
++	unsigned long flags;
++
++	cont = kmem_cache_alloc(kevent_poll_container_cache, SLAB_KERNEL);
++	if (!cont) {
++		kevent_break(k);
++		return;
++	}
++		
++	cont->k = k;
++	init_waitqueue_func_entry(&cont->wait, kevent_poll_wait_callback);
++	cont->whead = whead;
++
++	spin_lock_irqsave(&priv->container_lock, flags);
++	list_add_tail(&cont->container_entry, &priv->container_list);
++	spin_unlock_irqrestore(&priv->container_lock, flags);
++
++	add_wait_queue(whead, &cont->wait);
++}
++
++static int kevent_poll_enqueue(struct kevent *k)
++{
++	struct file *file;
++	int err, ready = 0;
++	unsigned int revents;
++	struct kevent_poll_ctl ctl;
++	struct kevent_poll_private *priv;
++
++	file = fget(k->event.id.raw[0]);
++	if (!file)
++		return -ENODEV;
++
++	err = -EINVAL;
++	if (!file->f_op || !file->f_op->poll)
++		goto err_out_fput;
++
++	err = -ENOMEM;
++	priv = kmem_cache_alloc(kevent_poll_priv_cache, SLAB_KERNEL);
++	if (!priv)
++		goto err_out_fput;
++
++	spin_lock_init(&priv->container_lock);
++	INIT_LIST_HEAD(&priv->container_list);
++
++	k->priv = priv;
++
++	ctl.k = k;
++	init_poll_funcptr(&ctl.pt, &kevent_poll_qproc);
++
++	err = kevent_storage_enqueue(&file->st, k);
++	if (err)
++		goto err_out_free;
++
++	revents = file->f_op->poll(file, &ctl.pt);
++	if (revents & k->event.event) {
++		ready = 1;
++		kevent_poll_dequeue(k);
++	}
++	
++	return ready;
++
++err_out_free:
++	kmem_cache_free(kevent_poll_priv_cache, priv);
++err_out_fput:
++	fput(file);
++	return err;
++}
++
++static int kevent_poll_dequeue(struct kevent *k)
++{
++	struct file *file = k->st->origin;
++	struct kevent_poll_private *priv = k->priv;
++	struct kevent_poll_wait_container *w, *n;
++	unsigned long flags;
++
++	kevent_storage_dequeue(k->st, k);
++
++	spin_lock_irqsave(&priv->container_lock, flags);
++	list_for_each_entry_safe(w, n, &priv->container_list, container_entry) {
++		list_del(&w->container_entry);
++		remove_wait_queue(w->whead, &w->wait);
++		kmem_cache_free(kevent_poll_container_cache, w);
++	}
++	spin_unlock_irqrestore(&priv->container_lock, flags);
++	
++	kmem_cache_free(kevent_poll_priv_cache, priv);
++	k->priv = NULL;
++	
++	fput(file);
++
++	return 0;
++}
++
++static int kevent_poll_callback(struct kevent *k)
++{
++	struct file *file = k->st->origin;
++	unsigned int revents = file->f_op->poll(file, NULL);
++	return (revents & k->event.event);
++}
++
++static int __init kevent_poll_sys_init(void)
++{
++	struct kevent_callbacks *pc = &kevent_registered_callbacks[KEVENT_POLL];
++
++	kevent_poll_container_cache = kmem_cache_create("kevent_poll_container_cache", 
++			sizeof(struct kevent_poll_wait_container), 0, 0, NULL, NULL);
++	if (!kevent_poll_container_cache) {
++		printk(KERN_ERR "Failed to create kevent poll container cache.\n");
++		return -ENOMEM;
++	}
++	
++	kevent_poll_priv_cache = kmem_cache_create("kevent_poll_priv_cache", 
++			sizeof(struct kevent_poll_private), 0, 0, NULL, NULL);
++	if (!kevent_poll_priv_cache) {
++		printk(KERN_ERR "Failed to create kevent poll private data cache.\n");
++		kmem_cache_destroy(kevent_poll_container_cache);
++		kevent_poll_container_cache = NULL;
++		return -ENOMEM;
++	}
++	
++	pc->enqueue = &kevent_poll_enqueue;
++	pc->dequeue = &kevent_poll_dequeue;
++	pc->callback = &kevent_poll_callback;
++
++	printk(KERN_INFO "Kevent poll()/select() subsystem has been initialized.\n");
++	return 0;
++}
++
++static struct lock_class_key kevent_poll_key;
++
++void kevent_poll_reinit(struct file *file)
++{
++	lockdep_set_class(&file->st.lock, &kevent_poll_key);
++}
++
++static void __exit kevent_poll_sys_fini(void)
++{
++	kmem_cache_destroy(kevent_poll_priv_cache);
++	kmem_cache_destroy(kevent_poll_container_cache);
++}
++
++module_init(kevent_poll_sys_init);
++module_exit(kevent_poll_sys_fini);
+diff --git a/kernel/kevent/kevent_timer.c b/kernel/kevent/kevent_timer.c
+new file mode 100644
+index 0000000..f175edd
+--- /dev/null
++++ b/kernel/kevent/kevent_timer.c
+@@ -0,0 +1,119 @@
++/*
++ * 	kevent_timer.c
++ * 
++ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * All rights reserved.
++ * 
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/list.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/timer.h>
++#include <linux/jiffies.h>
++#include <linux/kevent.h>
++
++static void kevent_timer_func(unsigned long data)
++{
++	struct kevent *k = (struct kevent *)data;
++	struct timer_list *t = k->st->origin;
++
++	kevent_storage_ready(k->st, NULL, KEVENT_MASK_ALL);
++	mod_timer(t, jiffies + msecs_to_jiffies(k->event.id.raw[0]));
++}
++
++static struct lock_class_key kevent_timer_key;
++
++static int kevent_timer_enqueue(struct kevent *k)
++{
++	struct timer_list *t;
++	struct kevent_storage *st;
++	int err;
++
++	t = kmalloc(sizeof(struct timer_list) + sizeof(struct kevent_storage), 
++			GFP_KERNEL);
++	if (!t)
++		return -ENOMEM;
++
++	init_timer(t);
++	t->function = kevent_timer_func;
++	t->expires = jiffies + msecs_to_jiffies(k->event.id.raw[0]);
++	t->data = (unsigned long)k;
++
++	st = (struct kevent_storage *)(t+1);
++	err = kevent_storage_init(t, st);
++	if (err)
++		goto err_out_free;
++	lockdep_set_class(&st->lock, &kevent_timer_key);
++
++	err = kevent_storage_enqueue(st, k);
++	if (err)
++		goto err_out_st_fini;
++	
++	add_timer(t);
++
++	return 0;
++
++err_out_st_fini:	
++	kevent_storage_fini(st);
++err_out_free:
++	kfree(t);
++
++	return err;
++}
++
++static int kevent_timer_dequeue(struct kevent *k)
++{
++	struct kevent_storage *st = k->st;
++	struct timer_list *t = st->origin;
++
++	if (!t)
++		return -ENODEV;
++
++	del_timer_sync(t);
++	
++	kevent_storage_dequeue(st, k);
++	
++	kfree(t);
++
++	return 0;
++}
++
++static int kevent_timer_callback(struct kevent *k)
++{
++	struct kevent_storage *st = k->st;
++	struct timer_list *t = st->origin;
++
++	if (!t)
++		return -ENODEV;
++	
++	k->event.ret_data[0] = (__u32)jiffies;
++	return 1;
++}
++
++static int __init kevent_init_timer(void)
++{
++	struct kevent_callbacks *tc = &kevent_registered_callbacks[KEVENT_TIMER];
++
++	tc->enqueue = &kevent_timer_enqueue;
++	tc->dequeue = &kevent_timer_dequeue;
++	tc->callback = &kevent_timer_callback;
++
++	return 0;
++}
++late_initcall(kevent_init_timer);
 
---------------040007080201080901090603--
