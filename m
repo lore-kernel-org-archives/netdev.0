@@ -1,180 +1,101 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 1/2] [BNX2]: Fix tx race condition
-Date: Thu, 10 Aug 2006 17:14:36 -0700
-Message-ID: <1155255276.11815.3.camel@rh4>
+From: Andy Gay <andy@andynet.net>
+Subject: [IPROUTE]: Fix struct alignment with cris architecture
+Date: Thu, 10 Aug 2006 20:25:40 -0400
+Message-ID: <1155255940.7302.18.camel@tahini.andynet.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:16 "EHLO mms1.broadcom.com")
-	by vger.kernel.org with ESMTP id S932368AbWHKAOC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Aug 2006 20:14:02 -0400
-To: davem@davemloft.net
+Received: from vms048pub.verizon.net ([206.46.252.48]:31164 "EHLO
+	vms048pub.verizon.net") by vger.kernel.org with ESMTP
+	id S932323AbWHKA0B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Aug 2006 20:26:01 -0400
+Received: from andyhp.tranquilitynj.net ([138.89.7.39])
+ by vms048.mailsrvcs.net (Sun Java System Messaging Server 6.2-4.02 (built Sep
+ 9 2005)) with ESMTPA id <0J3T000YV56TBKC2@vms048.mailsrvcs.net> for
+ netdev@vger.kernel.org; Thu, 10 Aug 2006 19:25:42 -0500 (CDT)
+To: shemminger@osdl.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[BNX2]: Fix tx race condition.
+[IPROUTE]: Fix struct alignment with cris architecture
 
-Fix a subtle race condition between bnx2_start_xmit() and bnx2_tx_int()
-similar to the one in tg3 discovered by Herbert Xu:
+gcc for the cris arch does not pad structures to the next multiple of 4
+bytes, as the i386 gcc does.
 
-CPU0					CPU1
-bnx2_start_xmit()
-	if (tx_ring_full) {
-		tx_lock
-					bnx2_tx()
-						if (!netif_queue_stopped)
-		netif_stop_queue()
-		if (!tx_ring_full)
-						update_tx_ring 
-			netif_wake_queue()
-		tx_unlock
-	}
+This causes errors like this when displaying xfrm policies:
 
-Even though tx_ring is updated before the if statement in bnx2_tx_int() in
-program order, it can be re-ordered by the CPU as shown above.  This
-scenario can cause the tx queue to be stopped forever if bnx2_tx_int() has
-just freed up the entire tx_ring.  The possibility of this happening
-should be very rare though.
+# ip x p
+!!!Deficit 3, rta_len=300
+src 192.168.251.32/29 dst 192.168.251.32/29 
+        dir in priority 0 
+!!!Deficit 3, rta_len=180
+src 0.0.0.0/0 dst 192.168.251.32/29 
+        dir in priority 2208 
+....
 
-The following changes are made, very much identical to the tg3 fix:
+Similar errors are seen from ip x s.
 
-1. Add memory barrier to fix the above race condition.
+This patch fixes the errors when printing. I'm not sure whether we
+should worry about other uses of the affected structs, I've not seen any
+other bad effects from this though, so hopefully this is enough.
 
-2. Eliminate the private tx_lock altogether and rely solely on
-netif_tx_lock.  This eliminates one spinlock in bnx2_start_xmit()
-when the ring is full.
+(Thanks to Herbert Xu for pointing out that NLMSG_SPACE is the correct
+macro to use here.)
 
-3. Because of 2, use netif_tx_lock in bnx2_tx_int() before calling
-netif_wake_queue().
+Tested against 2.6.17.6 kernel on i386, and 2.6.16.1 kernel on cris.
 
-4. Add memory barrier to bnx2_tx_avail().
+Signed-off-by: Andy Gay <andy@andynet.net>
 
-5. Add bp->tx_wake_thresh which is set to half the tx ring size.
+---
 
-6. Check for the full wake queue condition before getting
-netif_tx_lock in tg3_tx().  This reduces the number of unnecessary
-spinlocks when the tx ring is full in a steady-state condition.
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index db73de0..2099edb 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -209,8 +209,10 @@ MODULE_DEVICE_TABLE(pci, bnx2_pci_tbl);
+diff --git a/ip/xfrm_policy.c b/ip/xfrm_policy.c
+index 433b513..340e7df 100644
+--- a/ip/xfrm_policy.c
++++ b/ip/xfrm_policy.c
+@@ -354,15 +354,15 @@ int xfrm_policy_print(const struct socka
  
- static inline u32 bnx2_tx_avail(struct bnx2 *bp)
- {
--	u32 diff = TX_RING_IDX(bp->tx_prod) - TX_RING_IDX(bp->tx_cons);
-+	u32 diff;
- 
-+	smp_mb();
-+	diff = TX_RING_IDX(bp->tx_prod) - TX_RING_IDX(bp->tx_cons);
- 	if (diff > MAX_TX_DESC_CNT)
- 		diff = (diff & MAX_TX_DESC_CNT) - 1;
- 	return (bp->tx_ring_size - diff);
-@@ -1686,15 +1688,20 @@ bnx2_tx_int(struct bnx2 *bp)
+ 	if (n->nlmsg_type == XFRM_MSG_DELPOLICY)  {
+ 		xpid = NLMSG_DATA(n);
+-		len -= NLMSG_LENGTH(sizeof(*xpid));
++		len -= NLMSG_SPACE(sizeof(*xpid));
+ 	} else if (n->nlmsg_type == XFRM_MSG_POLEXPIRE) {
+ 		xpexp = NLMSG_DATA(n);
+ 		xpinfo = &xpexp->pol;
+-		len -= NLMSG_LENGTH(sizeof(*xpexp));
++		len -= NLMSG_SPACE(sizeof(*xpexp));
+ 	} else {
+ 		xpexp = NULL;
+ 		xpinfo = NLMSG_DATA(n);
+-		len -= NLMSG_LENGTH(sizeof(*xpinfo));
++		len -= NLMSG_SPACE(sizeof(*xpinfo));
  	}
  
- 	bp->tx_cons = sw_cons;
-+	/* Need to make the tx_cons update visible to bnx2_start_xmit()
-+	 * before checking for netif_queue_stopped().  Without the
-+	 * memory barrier, there is a small possibility that bnx2_start_xmit()
-+	 * will miss it and cause the queue to be stopped forever.
-+	 */
-+	smp_mb();
- 
--	if (unlikely(netif_queue_stopped(bp->dev))) {
--		spin_lock(&bp->tx_lock);
-+	if (unlikely(netif_queue_stopped(bp->dev)) &&
-+		     (bnx2_tx_avail(bp) > bp->tx_wake_thresh)) {
-+		netif_tx_lock(bp->dev);
- 		if ((netif_queue_stopped(bp->dev)) &&
--		    (bnx2_tx_avail(bp) > MAX_SKB_FRAGS)) {
--
-+		    (bnx2_tx_avail(bp) > bp->tx_wake_thresh))
- 			netif_wake_queue(bp->dev);
--		}
--		spin_unlock(&bp->tx_lock);
-+		netif_tx_unlock(bp->dev);
- 	}
- }
- 
-@@ -3503,6 +3510,8 @@ bnx2_init_tx_ring(struct bnx2 *bp)
- 	struct tx_bd *txbd;
- 	u32 val;
- 
-+	bp->tx_wake_thresh = bp->tx_ring_size / 2;
-+
- 	txbd = &bp->tx_desc_ring[MAX_TX_DESC_CNT];
- 		
- 	txbd->tx_bd_haddr_hi = (u64) bp->tx_desc_mapping >> 32;
-@@ -4390,10 +4399,8 @@ bnx2_vlan_rx_kill_vid(struct net_device 
- #endif
- 
- /* Called with netif_tx_lock.
-- * hard_start_xmit is pseudo-lockless - a lock is only required when
-- * the tx queue is full. This way, we get the benefit of lockless
-- * operations most of the time without the complexities to handle
-- * netif_stop_queue/wake_queue race conditions.
-+ * bnx2_tx_int() runs without netif_tx_lock unless it needs to call
-+ * netif_wake_queue().
-  */
- static int
- bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
-@@ -4512,12 +4519,9 @@ bnx2_start_xmit(struct sk_buff *skb, str
- 	dev->trans_start = jiffies;
- 
- 	if (unlikely(bnx2_tx_avail(bp) <= MAX_SKB_FRAGS)) {
--		spin_lock(&bp->tx_lock);
- 		netif_stop_queue(dev);
--		
--		if (bnx2_tx_avail(bp) > MAX_SKB_FRAGS)
-+		if (bnx2_tx_avail(bp) > bp->tx_wake_thresh)
- 			netif_wake_queue(dev);
--		spin_unlock(&bp->tx_lock);
+ 	if (len < 0) {
+diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
+index 3eefaff..1d61685 100644
+--- a/ip/xfrm_state.c
++++ b/ip/xfrm_state.c
+@@ -575,15 +575,15 @@ int xfrm_state_print(const struct sockad
+ 	if (n->nlmsg_type == XFRM_MSG_DELSA) {
+ 		/* Dont blame me for this .. Herbert made me do it */
+ 		xsid = NLMSG_DATA(n);
+-		len -= NLMSG_LENGTH(sizeof(*xsid));
++		len -= NLMSG_SPACE(sizeof(*xsid));
+ 	} else if (n->nlmsg_type == XFRM_MSG_EXPIRE) {
+ 		xexp = NLMSG_DATA(n);
+ 		xsinfo = &xexp->state;
+-		len -= NLMSG_LENGTH(sizeof(*xexp));
++		len -= NLMSG_SPACE(sizeof(*xexp));
+ 	} else {
+ 		xexp = NULL;
+ 		xsinfo = NLMSG_DATA(n);
+-		len -= NLMSG_LENGTH(sizeof(*xsinfo));
++		len -= NLMSG_SPACE(sizeof(*xsinfo));
  	}
  
- 	return NETDEV_TX_OK;
-@@ -5628,7 +5632,6 @@ bnx2_init_board(struct pci_dev *pdev, st
- 	bp->pdev = pdev;
- 
- 	spin_lock_init(&bp->phy_lock);
--	spin_lock_init(&bp->tx_lock);
- 	INIT_WORK(&bp->reset_task, bnx2_reset_task, bp);
- 
- 	dev->base_addr = dev->mem_start = pci_resource_start(pdev, 0);
-diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
-index 658c5ee..fe80476 100644
---- a/drivers/net/bnx2.h
-+++ b/drivers/net/bnx2.h
-@@ -3890,10 +3890,6 @@ struct bnx2 {
- 	u32		tx_prod_bseq __attribute__((aligned(L1_CACHE_BYTES)));
- 	u16		tx_prod;
- 
--	struct tx_bd	*tx_desc_ring;
--	struct sw_bd	*tx_buf_ring;
--	int		tx_ring_size;
--
- 	u16		tx_cons __attribute__((aligned(L1_CACHE_BYTES)));
- 	u16		hw_tx_cons;
- 
-@@ -3916,9 +3912,11 @@ struct bnx2 {
- 	struct sw_bd		*rx_buf_ring;
- 	struct rx_bd		*rx_desc_ring[MAX_RX_RINGS];
- 
--	/* Only used to synchronize netif_stop_queue/wake_queue when tx */
--	/* ring is full */
--	spinlock_t		tx_lock;
-+	/* TX constants */
-+	struct tx_bd	*tx_desc_ring;
-+	struct sw_bd	*tx_buf_ring;
-+	int		tx_ring_size;
-+	u32		tx_wake_thresh;
- 
- 	/* End of fields used in the performance code paths. */
- 
+ 	if (len < 0) {
+
 
 
