@@ -1,31 +1,38 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [NET 00/06]: Increase number of possible routing tables
-Date: Fri, 11 Aug 2006 10:39:19 +0400
-Message-ID: <44DC2617.7020200@tls.msk.ru>
+Date: Thu, 10 Aug 2006 23:44:14 -0700 (PDT)
+Message-ID: <20060810.234414.89236927.davem@davemloft.net>
 References: <20060810192957.14867.71965.sendpatchset@localhost.localdomain>
+	<44DC2617.7020200@tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	patrick@tykepenguin.com
+Cc: kaber@trash.net, netdev@vger.kernel.org, patrick@tykepenguin.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hobbit.corpit.ru ([81.13.94.6]:31312 "EHLO hobbit.corpit.ru")
-	by vger.kernel.org with ESMTP id S932195AbWHKGj0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 02:39:26 -0400
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <20060810192957.14867.71965.sendpatchset@localhost.localdomain>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:55012
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932308AbWHKGoE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Aug 2006 02:44:04 -0400
+To: mjt@tls.msk.ru
+In-Reply-To: <44DC2617.7020200@tls.msk.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> These are the updated patches (against net-2.6.19) to increase the number
-> of possible routing tables to 2^32. They basically consist of four parts:
+From: Michael Tokarev <mjt@tls.msk.ru>
+Date: Fri, 11 Aug 2006 10:39:19 +0400
+
+> Patrick McHardy wrote:
+> > These are the updated patches (against net-2.6.19) to increase the number
+> > of possible routing tables to 2^32. They basically consist of four parts:
+> > 
+> > - Use u32 for routing table IDs everywhere inside the kernel
 > 
-> - Use u32 for routing table IDs everywhere inside the kernel
+> Just out of curiocity: why current limit of 2^31 isn't sufficient?
+> Or am I missing the point?
 
-Just out of curiocity: why current limit of 2^31 isn't sufficient?
-Or am I missing the point?
+The current limit is 256 because the table member of the struct
+used to configure them is an 8-bit quantity.
 
-Thanks.
-
-/mjt
+That's the whole purpose of Patrick's patch set, to provide a new
+optional attribute that allows specifying a 32-bit rather than
+the 8-bit table ID.
