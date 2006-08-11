@@ -1,7 +1,7 @@
-From: Anton Blanchard <anton@samba.org>
+From: Nathan Lynch <ntl@pobox.com>
 Subject: Re: [PATCH 2/6] ehea: pHYP interface
-Date: Sat, 12 Aug 2006 07:13:14 +1000
-Message-ID: <20060811211314.GF479@krispykreme>
+Date: Fri, 11 Aug 2006 16:19:15 -0500
+Message-ID: <20060811211915.GL3233@localdomain>
 References: <44D99F1A.4080905@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,31 +11,69 @@ Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
 	linux-kernel <linux-kernel@vger.kernel.org>,
 	Marcus Eder <meder@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.tip.net.au ([203.10.76.45]:33250 "EHLO ozlabs.org")
-	by vger.kernel.org with ESMTP id S932083AbWHKVOI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 17:14:08 -0400
+Received: from rune.pobox.com ([208.210.124.79]:63890 "EHLO rune.pobox.com")
+	by vger.kernel.org with ESMTP id S932088AbWHKVTZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 17:19:25 -0400
 To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Content-Disposition: inline
 In-Reply-To: <44D99F1A.4080905@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi-
 
-Hi,
+Jan-Bernd Themann wrote:
+> +static inline long ehea_hcall_9arg_9ret(unsigned long opcode,
+> +					unsigned long arg1,
+> +					unsigned long arg2,
+> +					unsigned long arg3,
+> +					unsigned long arg4,
+> +					unsigned long arg5,
+> +					unsigned long arg6,
+> +					unsigned long arg7,
+> +					unsigned long arg8,
+> +					unsigned long arg9,
+> +					unsigned long *out1,
+> +					unsigned long *out2,
+> +					unsigned long *out3,
+> +					unsigned long *out4,
+> +					unsigned long *out5,
+> +					unsigned long *out6,
+> +					unsigned long *out7,
+> +					unsigned long *out8,
+> +					unsigned long *out9)
+> +{
+> +	long hret = H_SUCCESS;
+> +	int i, sleep_msecs;
+> +
+> +	EDEB_EN(7, "opcode=%lx arg1=%lx arg2=%lx arg3=%lx arg4=%lx "
+> +		"arg5=%lx arg6=%lx arg7=%lx arg8=%lx arg9=%lx",
+> +		opcode, arg1, arg2, arg3, arg4, arg5, arg6, arg7,
+> +		arg8, arg9);
+> +
+> +
+> +	for (i = 0; i < 5; i++) {
+> +		hret = plpar_hcall_9arg_9ret(opcode,
+> +					    arg1, arg2, arg3, arg4,
+> +					    arg5, arg6, arg7, arg8,
+> +					    arg9,
+> +					    out1, out2, out3, out4,
+> +					    out5, out6, out7, out8,
+> +					    out9);
+> +
+> +		if (H_IS_LONG_BUSY(hret)) {
+> +			sleep_msecs = get_longbusy_msecs(hret);
+> +			msleep_interruptible(sleep_msecs);
+> +			continue;
+> +		}
 
-> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea_phyp.c	1969-12-31 16:00:00.000000000 -0800
+Looping five times before giving up seems arbitrary and failure-prone
+on busy systems.
 
-> +u64 ehea_h_alloc_resource_eq(const u64 hcp_adapter_handle,
-...
-> +u64 hipz_h_reregister_pmr(const u64 adapter_handle,
-...
-> +static inline int hcp_galpas_ctor(struct h_galpas *galpas,
+Is msleep_interruptible (as opposed to msleep) really appropriate?
 
-Be nice to have some consistent names, hipz_ and hcp_ is kind of
-cryptic.
+Hope all the callers of this function are in non-atomic context (but I
+wasn't able to find any callers?).
 
-> +#define H_QP_CR_STATE_RESET	    0x0000010000000000	/*  Reset */
+And this function is too big to be inline.
 
-Probably want ULL on here and the other 64bit constants.
-
-Anton
