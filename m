@@ -1,365 +1,114 @@
 From: Daniel Drake <dsd@gentoo.org>
-Subject: [PATCH] zd1211rw: Support AL7230B RF
-Date: Sat, 12 Aug 2006 17:59:46 +0100 (BST)
-Message-ID: <20060812165946.27E418E776D@zog.reactivated.net>
+Subject: [PATCH] zd1211rw: Firmware version vs bootcode version mismatch handling
+Date: Sat, 12 Aug 2006 17:59:59 +0100 (BST)
+Message-ID: <20060812165959.6C8858E776C@zog.reactivated.net>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtaout01-winn.ispmail.ntl.com ([81.103.221.47]:28016 "EHLO
-	mtaout01-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S932566AbWHLQ7o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Aug 2006 12:59:44 -0400
+Received: from mtaout03-winn.ispmail.ntl.com ([81.103.221.49]:43788 "EHLO
+	mtaout03-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S932568AbWHLQ74 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Aug 2006 12:59:56 -0400
 To: linville@tuxdriver.com
 Cc: kune@deine-taler.de
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds support for another Airoha RF which is present in some
-ZD1211 adapters. This RF supports 802.11a as well as 802.11b/g, but 802.11a
-connectivity is not yet supported by this driver.
+This is needed for my G220F, otherwise it fails to initialize after the
+existing firmware upload routine.
+
+The vendor driver actually does more than what I have done here: it
+downloads the firmware + boot code, modifies it, and uploads it again
+(really messy). I have not copied that part over, as my device can get
+on its feet without it.
 
 Signed-off-by: Daniel Drake <dsd@gentoo.org>
 
-Index: linux-2.6/drivers/net/wireless/zd1211rw/Makefile
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/zd1211rw/Makefile
-+++ linux-2.6/drivers/net/wireless/zd1211rw/Makefile
-@@ -3,6 +3,7 @@ obj-$(CONFIG_ZD1211RW) += zd1211rw.o
- zd1211rw-objs := zd_chip.o zd_ieee80211.o \
- 		zd_mac.o zd_netdev.o \
- 		zd_rf_al2230.o zd_rf_rf2959.o \
-+		zd_rf_al7230b.o \
- 		zd_rf.o zd_usb.o zd_util.o
- 
- ifeq ($(CONFIG_ZD1211RW_DEBUG),y)
-Index: linux-2.6/drivers/net/wireless/zd1211rw/zd_chip.c
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/zd1211rw/zd_chip.c
-+++ linux-2.6/drivers/net/wireless/zd1211rw/zd_chip.c
-@@ -1624,7 +1624,7 @@ int zd_rfwritev_locked(struct zd_chip *c
-  * We can optionally program the RF directly through CR regs, if supported by
-  * the hardware. This is much faster than the older method.
-  */
--static int zd_rfwrite_cr_locked(struct zd_chip *chip, u32 value)
-+int zd_rfwrite_cr_locked(struct zd_chip *chip, u32 value)
- {
- 	struct zd_ioreq16 ioreqs[] = {
- 		{ CR244, (value >> 16) & 0xff },
 Index: linux-2.6/drivers/net/wireless/zd1211rw/zd_chip.h
 ===================================================================
 --- linux-2.6.orig/drivers/net/wireless/zd1211rw/zd_chip.h
 +++ linux-2.6/drivers/net/wireless/zd1211rw/zd_chip.h
-@@ -747,6 +747,8 @@ static inline int zd_rfwrite_locked(stru
- 	return zd_usb_rfwrite(&chip->usb, value, bits);
+@@ -638,6 +638,7 @@ enum {
+ 	LOAD_CODE_SIZE			= 0xe, /* words */
+ 	LOAD_VECT_SIZE			= 0x10000 - 0xfff7, /* words */
+ 	EEPROM_REGS_OFFSET		= LOAD_CODE_SIZE + LOAD_VECT_SIZE,
++	EEPROM_REGS_SIZE		= 0x7e, /* words */
+ 	E2P_BASE_OFFSET			= EEPROM_START_OFFSET +
+ 		                          EEPROM_REGS_OFFSET,
+ };
+Index: linux-2.6/drivers/net/wireless/zd1211rw/zd_usb.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/zd1211rw/zd_usb.c
++++ linux-2.6/drivers/net/wireless/zd1211rw/zd_usb.c
+@@ -16,6 +16,7 @@
+  */
+ 
+ #include <asm/unaligned.h>
++#include <linux/kernel.h>
+ #include <linux/init.h>
+ #include <linux/module.h>
+ #include <linux/firmware.h>
+@@ -269,6 +270,39 @@ static char *get_fw_name(char *buffer, s
+ 	return buffer;
  }
  
-+int zd_rfwrite_cr_locked(struct zd_chip *chip, u32 value);
-+
- int zd_rfwritev_locked(struct zd_chip *chip,
- 	               const u32* values, unsigned int count, u8 bits);
- int zd_rfwritev_cr_locked(struct zd_chip *chip,
-Index: linux-2.6/drivers/net/wireless/zd1211rw/zd_rf_al7230b.c
-===================================================================
---- /dev/null
-+++ linux-2.6/drivers/net/wireless/zd1211rw/zd_rf_al7230b.c
-@@ -0,0 +1,274 @@
-+/* zd_rf_al7230b.c: Functions for the AL7230B RF controller
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-+ */
-+
-+#include <linux/kernel.h>
-+
-+#include "zd_rf.h"
-+#include "zd_usb.h"
-+#include "zd_chip.h"
-+
-+static const u32 chan_rv[][2] = {
-+	RF_CHANNEL( 1) = { 0x09ec00, 0x8cccc8 },
-+	RF_CHANNEL( 2) = { 0x09ec00, 0x8cccd8 },
-+	RF_CHANNEL( 3) = { 0x09ec00, 0x8cccc0 },
-+	RF_CHANNEL( 4) = { 0x09ec00, 0x8cccd0 },
-+	RF_CHANNEL( 5) = { 0x05ec00, 0x8cccc8 },
-+	RF_CHANNEL( 6) = { 0x05ec00, 0x8cccd8 },
-+	RF_CHANNEL( 7) = { 0x05ec00, 0x8cccc0 },
-+	RF_CHANNEL( 8) = { 0x05ec00, 0x8cccd0 },
-+	RF_CHANNEL( 9) = { 0x0dec00, 0x8cccc8 },
-+	RF_CHANNEL(10) = { 0x0dec00, 0x8cccd8 },
-+	RF_CHANNEL(11) = { 0x0dec00, 0x8cccc0 },
-+	RF_CHANNEL(12) = { 0x0dec00, 0x8cccd0 },
-+	RF_CHANNEL(13) = { 0x03ec00, 0x8cccc8 },
-+	RF_CHANNEL(14) = { 0x03ec00, 0x866660 },
-+};
-+
-+static const u32 std_rv[] = {
-+	0x4ff821,
-+	0xc5fbfc,
-+	0x21ebfe,
-+	0xafd401, /* freq shift 0xaad401 */
-+	0x6cf56a,
-+	0xe04073,
-+	0x193d76,
-+	0x9dd844,
-+	0x500007,
-+	0xd8c010,
-+};
-+
-+static int al7230b_init_hw(struct zd_rf *rf)
++static int handle_version_mismatch(struct usb_device *udev, u8 device_type,
++	const struct firmware *ub_fw)
 +{
-+	int i, r;
-+	struct zd_chip *chip = zd_rf_to_chip(rf);
++	const struct firmware *ur_fw = NULL;
++	int offset;
++	int r = 0;
++	char fw_name[128];
 +
-+	/* All of these writes are identical to AL2230 unless otherwise
-+	 * specified */
-+	static const struct zd_ioreq16 ioreqs_1[] = {
-+		/* This one is 7230-specific, and happens before the rest */
-+		{ CR240,  0x57 },
-+		{ },
++	r = request_fw_file(&ur_fw,
++		get_fw_name(fw_name, sizeof(fw_name), device_type, "ur"),
++		&udev->dev);
++	if (r)
++		goto error;
 +
-+		{ CR15,   0x20 }, { CR23,   0x40 }, { CR24,  0x20 },
-+		{ CR26,   0x11 }, { CR28,   0x3e }, { CR29,  0x00 },
-+		{ CR44,   0x33 },
-+		/* This value is different for 7230 (was: 0x2a) */
-+		{ CR106,  0x22 },
-+		{ CR107,  0x1a }, { CR109,  0x09 }, { CR110,  0x27 },
-+		{ CR111,  0x2b }, { CR112,  0x2b }, { CR119,  0x0a },
-+		/* This happened further down in AL2230,
-+		 * and the value changed (was: 0xe0) */
-+		{ CR122,  0xfc },
-+		{ CR10,   0x89 },
-+		/* for newest (3rd cut) AL2300 */
-+		{ CR17,   0x28 },
-+		{ CR26,   0x93 }, { CR34,   0x30 },
-+		/* for newest (3rd cut) AL2300 */
-+		{ CR35,   0x3e },
-+		{ CR41,   0x24 }, { CR44,   0x32 },
-+		/* for newest (3rd cut) AL2300 */
-+		{ CR46,   0x96 },
-+		{ CR47,   0x1e }, { CR79,   0x58 }, { CR80,  0x30 },
-+		{ CR81,   0x30 }, { CR87,   0x0a }, { CR89,  0x04 },
-+		{ CR92,   0x0a }, { CR99,   0x28 },
-+		/* This value is different for 7230 (was: 0x00) */
-+		{ CR100,  0x02 },
-+		{ CR101,  0x13 }, { CR102,  0x27 },
-+		/* This value is different for 7230 (was: 0x24) */
-+		{ CR106,  0x22 },
-+		/* This value is different for 7230 (was: 0x2a) */
-+		{ CR107,  0x3f },
-+		{ CR109,  0x09 },
-+		/* This value is different for 7230 (was: 0x13) */
-+		{ CR110,  0x1f },
-+		{ CR111,  0x1f }, { CR112,  0x1f }, { CR113, 0x27 },
-+		{ CR114,  0x27 },
-+		/* for newest (3rd cut) AL2300 */
-+		{ CR115,  0x24 },
-+		/* This value is different for 7230 (was: 0x24) */
-+		{ CR116,  0x3f },
-+		/* This value is different for 7230 (was: 0xf4) */
-+		{ CR117,  0xfa },
-+		{ CR118,  0xfc }, { CR119,  0x10 }, { CR120, 0x4f },
-+		{ CR121,  0x77 }, { CR137,  0x88 },
-+		/* This one is 7230-specific */
-+		{ CR138,  0xa8 },
-+		/* This value is different for 7230 (was: 0xff) */
-+		{ CR252,  0x34 },
-+		/* This value is different for 7230 (was: 0xff) */
-+		{ CR253,  0x34 },
++	r = upload_code(udev, ur_fw->data, ur_fw->size, FW_START_OFFSET,
++		REBOOT);
++	if (r)
++		goto error;
 +
-+		/* PLL_OFF */
-+		{ CR251, 0x2f },
-+	};
++	offset = ((EEPROM_REGS_OFFSET + EEPROM_REGS_SIZE) * sizeof(u16));
++	r = upload_code(udev, ub_fw->data + offset, ub_fw->size - offset,
++		E2P_BASE_OFFSET + EEPROM_REGS_SIZE, REBOOT);
 +
-+	static const struct zd_ioreq16 ioreqs_2[] = {
-+		/* PLL_ON */
-+		{ CR251, 0x3f },
-+		{ CR128, 0x14 }, { CR129, 0x12 }, { CR130, 0x10 },
-+		{ CR38, 0x38 }, { CR136, 0xdf },
-+	};
-+
-+	r = zd_iowrite16a_locked(chip, ioreqs_1, ARRAY_SIZE(ioreqs_1));
-+	if (r)
-+		return r;
-+
-+	r = zd_rfwrite_cr_locked(chip, 0x09ec04);
-+	if (r)
-+		return r;
-+	r = zd_rfwrite_cr_locked(chip, 0x8cccc8);
-+	if (r)
-+		return r;
-+
-+	for (i = 0; i < ARRAY_SIZE(std_rv); i++) {
-+		r = zd_rfwrite_cr_locked(chip, std_rv[i]);
-+		if (r)
-+			return r;
-+	}
-+
-+	r = zd_rfwrite_cr_locked(chip, 0x3c9000);
-+	if (r)
-+		return r;
-+	r = zd_rfwrite_cr_locked(chip, 0xbfffff);
-+	if (r)
-+		return r;
-+	r = zd_rfwrite_cr_locked(chip, 0x700000);
-+	if (r)
-+		return r;
-+	r = zd_rfwrite_cr_locked(chip, 0xf15d58);
-+	if (r)
-+		return r;
-+
-+	r = zd_iowrite16a_locked(chip, ioreqs_2, ARRAY_SIZE(ioreqs_2));
-+	if (r)
-+		return r;
-+
-+	r = zd_rfwrite_cr_locked(chip, 0xf15d59);
-+	if (r)
-+		return r;
-+	r = zd_rfwrite_cr_locked(chip, 0xf15d5c);
-+	if (r)
-+		return r;
-+	r = zd_rfwrite_cr_locked(chip, 0xf15d58);
-+	if (r)
-+		return r;
-+
-+	r = zd_iowrite16_locked(chip, 0x06, CR203);
-+	if (r)
-+		return r;
-+	r = zd_iowrite16_locked(chip, 0x80, CR240);
-+	if (r)
-+		return r;
-+
-+	return 0;
++	/* At this point, the vendor driver downloads the whole firmware
++	 * image, hacks around with version IDs, and uploads it again,
++	 * completely overwriting the boot code. We do not do this here as
++	 * it is not required on any tested devices, and it is suspected to
++	 * cause problems. */
++error:
++	release_firmware(ur_fw);
++	return r;
 +}
 +
-+static int al7230b_set_channel(struct zd_rf *rf, u8 channel)
-+{
-+	int i, r;
-+	const u32 *rv = chan_rv[channel-1];
-+	struct zd_chip *chip = zd_rf_to_chip(rf);
-+
-+	struct zd_ioreq16 ioreqs_1[] = {
-+		{ CR128, 0x14 }, { CR129, 0x12 }, { CR130, 0x10 },
-+		{ CR38,  0x38 }, { CR136, 0xdf },
-+	};
-+
-+	struct zd_ioreq16 ioreqs_2[] = {
-+		/* PLL_ON */
-+		{ CR251, 0x3f },
-+		{ CR203, 0x06 }, { CR240, 0x08 },
-+	};
-+
-+	r = zd_iowrite16_locked(chip, 0x57, CR240);
-+	if (r)
-+		return r;
-+
-+	/* PLL_OFF */
-+	r = zd_iowrite16_locked(chip, 0x2f, CR251);
-+	if (r)
-+		return r;
-+
-+	for (i = 0; i < ARRAY_SIZE(std_rv); i++) {
-+		r = zd_rfwrite_cr_locked(chip, std_rv[i]);
-+		if (r)
-+			return r;
-+	}
-+
-+	r = zd_rfwrite_cr_locked(chip, 0x3c9000);
-+	if (r)
-+		return r;
-+	r = zd_rfwrite_cr_locked(chip, 0xf15d58);
-+	if (r)
-+		return r;
-+
-+	r = zd_iowrite16a_locked(chip, ioreqs_1, ARRAY_SIZE(ioreqs_1));
-+	if (r)
-+		return r;
-+
-+	for (i = 0; i < 2; i++) {
-+		r = zd_rfwrite_cr_locked(chip, rv[i]);
-+		if (r)
-+			return r;
-+	}
-+
-+	r = zd_rfwrite_cr_locked(chip, 0x3c9000);
-+	if (r)
-+		return r;
-+
-+	return zd_iowrite16a_locked(chip, ioreqs_2, ARRAY_SIZE(ioreqs_2));
-+}
-+
-+static int al7230b_switch_radio_on(struct zd_rf *rf)
-+{
-+	struct zd_chip *chip = zd_rf_to_chip(rf);
-+	static const struct zd_ioreq16 ioreqs[] = {
-+		{ CR11,  0x00 },
-+		{ CR251, 0x3f },
-+	};
-+
-+	return zd_iowrite16a_locked(chip, ioreqs, ARRAY_SIZE(ioreqs));
-+}
-+
-+static int al7230b_switch_radio_off(struct zd_rf *rf)
-+{
-+	struct zd_chip *chip = zd_rf_to_chip(rf);
-+	static const struct zd_ioreq16 ioreqs[] = {
-+		{ CR11,  0x04 },
-+		{ CR251, 0x2f },
-+	};
-+
-+	return zd_iowrite16a_locked(chip, ioreqs, ARRAY_SIZE(ioreqs));
-+}
-+
-+int zd_rf_init_al7230b(struct zd_rf *rf)
-+{
-+	struct zd_chip *chip = zd_rf_to_chip(rf);
-+
-+	if (chip->is_zd1211b) {
-+		dev_err(zd_chip_dev(chip), "AL7230B is currently not "
-+			"supported for ZD1211B devices\n");
-+		return -ENODEV;
-+	}
-+
-+	rf->init_hw = al7230b_init_hw;
-+	rf->set_channel = al7230b_set_channel;
-+	rf->switch_radio_on = al7230b_switch_radio_on;
-+	rf->switch_radio_off = al7230b_switch_radio_off;
-+	rf->patch_6m_band_edge = 1;
-+	return 0;
-+}
-Index: linux-2.6/drivers/net/wireless/zd1211rw/zd_rf.c
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/zd1211rw/zd_rf.c
-+++ linux-2.6/drivers/net/wireless/zd1211rw/zd_rf.c
-@@ -76,6 +76,11 @@ int zd_rf_init_hw(struct zd_rf *rf, u8 t
- 		if (r)
- 			return r;
- 		break;
-+	case AL7230B_RF:
-+		r = zd_rf_init_al7230b(rf);
-+		if (r)
-+			return r;
-+		break;
- 	default:
- 		dev_err(zd_chip_dev(chip),
- 			"RF %s %#x is not supported\n", zd_rf_name(type), type);
-Index: linux-2.6/drivers/net/wireless/zd1211rw/zd_rf.h
-===================================================================
---- linux-2.6.orig/drivers/net/wireless/zd1211rw/zd_rf.h
-+++ linux-2.6/drivers/net/wireless/zd1211rw/zd_rf.h
-@@ -78,5 +78,6 @@ int zd_switch_radio_off(struct zd_rf *rf
+ static int upload_firmware(struct usb_device *udev, u8 device_type)
+ {
+ 	int r;
+@@ -288,15 +322,17 @@ static int upload_firmware(struct usb_de
  
- int zd_rf_init_rf2959(struct zd_rf *rf);
- int zd_rf_init_al2230(struct zd_rf *rf);
-+int zd_rf_init_al7230b(struct zd_rf *rf);
+ 	fw_bcdDevice = get_word(ub_fw->data, EEPROM_REGS_OFFSET);
  
- #endif /* _ZD_RF_H */
+-	/* FIXME: do we have any reason to perform the kludge that the vendor
+-	 * driver does when there is a version mismatch? (their driver uploads
+-	 * different firmwares and stuff)
+-	 */
+ 	if (fw_bcdDevice != bcdDevice) {
+ 		dev_info(&udev->dev,
+-			"firmware device id %#06x and actual device id "
+-			"%#06x differ, continuing anyway\n",
+-			fw_bcdDevice, bcdDevice);
++			"firmware version %#06x and device bootcode version "
++			"%#06x differ\n", fw_bcdDevice, bcdDevice);
++		if (bcdDevice <= 0x4313)
++			dev_warn(&udev->dev, "device has old bootcode, please "
++				"report success or failure\n");
++
++		r = handle_version_mismatch(udev, device_type, ub_fw);
++		if (r)
++			goto error;
+ 	} else {
+ 		dev_dbg_f(&udev->dev,
+ 			"firmware device id %#06x is equal to the "
