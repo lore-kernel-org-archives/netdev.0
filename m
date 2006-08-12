@@ -1,33 +1,54 @@
-From: Chris Wedgwood <cw@f00f.org>
-Subject: Re: pci=routeirq solves EHCI-problem
-Date: Sat, 12 Aug 2006 10:28:08 -0700
-Message-ID: <20060812172808.GA14668@tuatara.stupidest.org>
-References: <44D83CB6.7030406@lurban.de> <44D89F5D.2000106@lurban.de>
+From: "Indan Zupancic" <indan@nul.nu>
+Subject: Re: [RFC][PATCH 3/4] deadlock prevention core
+Date: Sat, 12 Aug 2006 19:31:02 +0200 (CEST)
+Message-ID: <44640.81.207.0.53.1155403862.squirrel@81.207.0.53>
+References: <20060812141415.30842.78695.sendpatchset@lappy>
+    <20060812141445.30842.47336.sendpatchset@lappy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "Peter Zijlstra" <a.p.zijlstra@chello.nl>,
+	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
+	"Daniel Phillips" <phillips@google.com>,
+	"Rik van Riel" <riel@redhat.com>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp111.sbc.mail.mud.yahoo.com ([68.142.198.210]:53946 "HELO
-	smtp111.sbc.mail.mud.yahoo.com") by vger.kernel.org with SMTP
-	id S932142AbWHLR2L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Aug 2006 13:28:11 -0400
-To: Lutz Urban <lurban@lurban.de>
-Content-Disposition: inline
-In-Reply-To: <44D89F5D.2000106@lurban.de>
+Received: from helium.samage.net ([83.149.67.129]:30897 "EHLO
+	helium.samage.net") by vger.kernel.org with ESMTP id S964926AbWHLRbP
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Aug 2006 13:31:15 -0400
+In-Reply-To: <20060812141445.30842.47336.sendpatchset@lappy>
+To: "Peter Zijlstra" <a.p.zijlstra@chello.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 08, 2006 at 04:27:41PM +0200, Lutz Urban wrote:
+On Sat, August 12, 2006 16:14, Peter Zijlstra said:
+> +struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask, int fclone)
+> +{
+> +	struct sk_buff *skb;
+> +
+> +	skb = ___alloc_skb(size, gfp_mask & ~__GFP_MEMALLOC, fclone);
+> +
+> +	if (!skb && (gfp_mask & __GFP_MEMALLOC) && memalloc_skbs_available())
+> +		skb = ___alloc_skb(size, gfp_mask, fclone);
+> +
+> +	return skb;
+> +}
+> +
 
-> I'm sorry to tell you that my previous message was bogus. The problem 
-> still persists.
+I'd drop the memalloc_skbs_available() check, as that's already done by
+___alloc_skb.
 
-Daniel Drake has posted a fix that's in -mm you can try.  It's
-probably the least painful solution to date, can you please try that:
+> +static DEFINE_SPINLOCK(memalloc_lock);
+> +static int memalloc_socks;
+> +static unsigned long memalloc_reserve;
 
-    http://kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18-rc2/2.6.18-rc2-mm1/broken-out/pci-quirk_via_irq-behaviour-change.patch
+Why is this a long? adjust_memalloc_reserve() takes an int.
+Is it needed at all, considering var_free_kbytes already exists?
 
-and let us know how it works for you.
+Greetings,
 
-I'd like to see this or something similar merged into mainline and
--stable pretty soon (pending problem reports from people).
+Indan
+
+
