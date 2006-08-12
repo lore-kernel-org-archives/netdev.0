@@ -1,76 +1,50 @@
-From: "Indan Zupancic" <indan@nul.nu>
-Subject: Re: [RFC][PATCH 3/4] deadlock prevention core
-Date: Sat, 12 Aug 2006 20:32:12 +0200 (CEST)
-Message-ID: <57504.81.207.0.53.1155407532.squirrel@81.207.0.53>
-References: <20060812141415.30842.78695.sendpatchset@lappy>
-    <20060812141445.30842.47336.sendpatchset@lappy>
-    <44640.81.207.0.53.1155403862.squirrel@81.207.0.53>
-    <1155404697.13508.81.camel@lappy>
-    <40048.81.207.0.53.1155405282.squirrel@81.207.0.53>
-    <1155406120.13508.87.camel@lappy>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH] CONFIG_PM=n slim: drivers/net/*
+Date: Sat, 12 Aug 2006 11:39:25 -0700
+Message-ID: <20060812113925.1acfaf36.akpm@osdl.org>
+References: <20060812004623.GM6847@martell.zuzino.mipt.ru>
+	<20060811184943.96419537.akpm@osdl.org>
+	<20060812023014.GP6847@martell.zuzino.mipt.ru>
+	<20060811194952.9d664698.akpm@osdl.org>
+	<adar6zlnasq.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
-	"Daniel Phillips" <phillips@google.com>,
-	"Rik van Riel" <riel@redhat.com>,
-	"David Miller" <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: Alexey Dobriyan <adobriyan@gmail.com>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helium.samage.net ([83.149.67.129]:32663 "EHLO
-	helium.samage.net") by vger.kernel.org with ESMTP id S1030240AbWHLSc1
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Aug 2006 14:32:27 -0400
-In-Reply-To: <1155406120.13508.87.camel@lappy>
-To: "Peter Zijlstra" <a.p.zijlstra@chello.nl>
+Received: from smtp.osdl.org ([65.172.181.4]:11413 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030248AbWHLSjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 14:39:36 -0400
+To: Roland Dreier <rdreier@cisco.com>
+In-Reply-To: <adar6zlnasq.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, August 12, 2006 20:08, Peter Zijlstra said:
-> On Sat, 2006-08-12 at 19:54 +0200, Indan Zupancic wrote:
->> True, but currently memalloc_reserve isn't used in a sensible way,
->> or I'm missing something.
->
-> Well, I'm somewhat reluctant to stick network related code into mm/, it
-> seems well separated now.
+On Sat, 12 Aug 2006 10:06:29 -0700
+Roland Dreier <rdreier@cisco.com> wrote:
 
-What I had in mind was something like:
+>  > > Also this won't allow
+>  > > 
+>  > > 	struct pci_driver {
+>  > > 		...
+>  > > 	#ifdef CONFIG_PM
+>  > > 		int (*suspend)(...);
+>  > > 		int (*resume)(...);
+>  > > 	#endif
+>  > > 		...
+>  > > 	};
+>  > > 
+>  > > which is good for a) space savings in CONFIG_PM=n case, and
+>  > > b) making drivers care about CONFIG_PM=n users hard way aka compilation
+>  > > failure.
+>  > 
+>  > eh?  Both versions will generate identical code.
+> 
+> I think his point was that by #ifdef-ing out the assignment to
+> .suspend/.resume, then the actual suspend/resume members of struct
+> pci_driver could be removed in the CONFIG_PM=n case -- which would
+> shrink sizeof (struct pci_driver).
+> 
 
-+static DEFINE_SPINLOCK(memalloc_lock);
-+static int memalloc_socks;
-+
-+atomic_t memalloc_skbs_used;
-+EXPORT_SYMBOL_GPL(memalloc_skbs_used);
-+
-+int sk_adjust_memalloc(int nr_socks)
-+{
-+	unsigned long flags;
-+	unsigned int reserve;
-+	int err;
-+
-+	spin_lock_irqsave(&memalloc_lock, flags);
-+
-+	memalloc_socks += nr_socks;
-+	BUG_ON(memalloc_socks < 0);
-+
-+	reserve = nr_socks * (2 * MAX_PHYS_SEGMENTS + 	/* outbound */
-+			      5 * MAX_CONCURRENT_SKBS);	/* inbound */
-+
-+	err = adjust_memalloc_reserve(reserve);
-+	spin_unlock_irqrestore(&memalloc_lock, flags);
-+	if (err) {
-+		printk(KERN_WARNING
-+			"Unable to change RX reserve to: %lu, error: %d\n",
-+			reserve, err);
-+	}
-+	return err;
-+}
-
-The original code missed the brackets, so 5 * MAX_CONCURRENT_SKBS wasn't done
-per socket. But the comment said it was per socket, so I added in this version.
-
-Greetings,
-
-Indan
-
-
+OIC.  Yes, that would be useful.
