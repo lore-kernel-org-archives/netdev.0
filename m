@@ -1,73 +1,25 @@
-From: Rik van Riel <riel@redhat.com>
-Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
-Date: Fri, 11 Aug 2006 23:42:50 -0400
-Message-ID: <44DD4E3A.4040000@redhat.com>
-References: <20060808193325.1396.58813.sendpatchset@lappy>	 <20060809054648.GD17446@2ka.mipt.ru> <1155127040.12225.25.camel@twins>	 <20060809130752.GA17953@2ka.mipt.ru> <1155130353.12225.53.camel@twins>
+From: "Harriet" <augendcaputo@writeme.com>
+Subject: Delight This costs much less than a luxury car - but makes you a lot more confident and attractive.
+Date: Fri, 11 Aug 2006 21:13:06 -0700
+Message-ID: <25912639459849.A7898CD102@17YHMOA>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain;
+        charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Daniel Phillips <phillips@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:56748 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751288AbWHLDnG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Aug 2006 23:43:06 -0400
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-In-Reply-To: <1155130353.12225.53.camel@twins>
+Received: from pool-71-113-65-148.sttlwa.dsl-w.verizon.net ([71.113.65.148]:64838
+	"EHLO KATIE-1F7BCD648") by vger.kernel.org with ESMTP
+	id S1751292AbWHLEJU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Aug 2006 00:09:20 -0400
+To: <newbie-owner@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Peter Zijlstra wrote:
+Hot and new
+ Had doubts that these things really work? Check this out and join the thousands of happy men! Prepare to see chicks going crazy after you flash your improved tool - more inches in just months!
 
->> You say "critical resource isolation", but it is not the case - consider
->> NFS over UDP - remote side will not stop sending just because receiving 
->> socket code drops data due to OOM, or IPsec or compression, which can
->> requires reallocation. There is no "critical resource isolation", since
->> reserved pool _must_ be used by everyone in the kernel network stack.
+ Just show her how big it is, and she will forget everybody she met before. She will love the new you, increased in size and a much better male in terms of confidence. Come in: http://www.mettodd.com/gal/ms/ 
+Act while others wait! Increase your confidence to enormous levels!
 
-> The idea is to drop all !NFS packets (or even more specific only keep
->  those NFS packets that belong to the critical mount), and everybody
-> doing critical IO over layered networks like IPSec or other tunnel
-> constructs asks for trouble - Just DON'T do that.
+ When dog hungry he ah nyam calabash. The best advice is found on the pillow Tomorrow never comes An old fox is not easily snared Rained on ground hardens (Japanese Proverb)
 
-The only problem with things like IPSec is renegotiation, which
-can take up memory right at the time you don't have any extra
-memory available.
-
-Decrypting individual IPSec packets during normal operation and
-then dropping the ones for non-critical sockets should work just
-fine.
-
-The problem is layered networks over TCP, where you have to
-process the packets in-order and may have no choice but to hold
-onto data for non-critical sockets, at least for a while.
-
-> Dropping these non-essential packets makes sure the reserve memory 
-> doesn't get stuck in some random blocked user-space process, hence
-> you can make progress.
-
-In short:
-  - every incoming packet needs to be received at the packet level
-  - when memory is low, we only deliver data to memory critical sockets
-  - packets to other sockets get dropped, so the memory can be reused
-    for receiving other packets, including the packets needed for the
-    memory critical sockets to make progress
-
-Forwarding packets while in low memory mode should not be a problem
-at all, since forwarded packets get freed quickly.
-
-The memory pool for receiving packets does not need much accounting
-of any kind, since every packet will end up coming from that pool
-when normal allocations start failing.   Maybe Evgeniy's allocator
-can do something smarter internally, and mark skbuffs as MEMALLOC
-when the number of available skbuffs is getting low?
-
-Part (most?) of the problem space is explained here:
-
-http://linux-mm.org/NetworkStorageDeadlock
-
--- 
-"Debugging is twice as hard as writing the code in the first place.
-Therefore, if you write the code as cleverly as possible, you are,
-by definition, not smart enough to debug it." - Brian W. Kernighan
