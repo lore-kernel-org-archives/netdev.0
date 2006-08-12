@@ -1,47 +1,39 @@
-From: "Indan Zupancic" <indan@nul.nu>
-Subject: Re: [RFC][PATCH 0/4] VM deadlock prevention -v4
-Date: Sat, 12 Aug 2006 18:51:29 +0200 (CEST)
-Message-ID: <33471.81.207.0.53.1155401489.squirrel@81.207.0.53>
-References: <20060812141415.30842.78695.sendpatchset@lappy>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, "Peter Zijlstra" <a.p.zijlstra@chello.nl>,
-	"Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
-	"Daniel Phillips" <phillips@google.com>,
-	"Rik van Riel" <riel@redhat.com>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932562AbWHLQvh@vger.kernel.org>
-In-Reply-To: <20060812141415.30842.78695.sendpatchset@lappy>
-To: "Peter Zijlstra" <a.p.zijlstra@chello.nl>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH] zd1211rw: ZD1211B ASIC/FWT, not jointly decoder
+Date: Sat, 12 Aug 2006 17:59:12 +0100 (BST)
+Message-ID: <20060812165912.ABD018E776C@zog.reactivated.net>
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtaout03-winn.ispmail.ntl.com ([81.103.221.49]:52574 "EHLO
+	mtaout03-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S932560AbWHLQ7J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Aug 2006 12:59:09 -0400
+To: linville@tuxdriver.com
+Cc: kune@deine-taler.de
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, August 12, 2006 16:14, Peter Zijlstra said:
-> Hi,
->
-> here the latest effort, it includes a whole new trivial allocator with a
-> horrid name and an almost full rewrite of the deadlock prevention core.
-> This version does not do anything per device and hence does not depend
-> on the new netdev_alloc_skb() API.
->
-> The reason to add a second allocator to the receive side is twofold:
-> 1) it allows easy detection of the memory pressure / OOM situation;
-> 2) it allows the receive path to be unbounded and go at full speed when
->    resources permit.
->
-> The choice of using the global memalloc reserve as a mempool makes that
-> the new allocator has to release pages as soon as possible; if we were
-> to hoard pages in the allocator the memalloc reserve would not get
-> replenished readily.
+The vendor driver chooses this value based on an ifndef ASIC,
+and ASIC is never defined.
 
-Version 2 had about 250 new lines of code, while v3 has close to 600, when
-including the SROG code. And that while things should have become simpler.
-So why use SROG instead of the old alloc_pages() based code? And why couldn't
-you use a slightly modified SLOB instead of writing a new allocator?
-It looks like overkill to me.
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
+---
 
-Greetings,
+This should go into 2.6.18 as it fixed TX on one of my devices.
 
-Indan
+ zd_chip.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+Index: linux-2.6/drivers/net/wireless/zd1211rw/zd_chip.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/zd1211rw/zd_chip.c
++++ linux-2.6/drivers/net/wireless/zd1211rw/zd_chip.c
+@@ -717,7 +717,7 @@ static int zd1211b_hw_reset_phy(struct z
+ 		{ CR21,  0x0e }, { CR22,  0x23 }, { CR23,  0x90 },
+ 		{ CR24,  0x14 }, { CR25,  0x40 }, { CR26,  0x10 },
+ 		{ CR27,  0x10 }, { CR28,  0x7f }, { CR29,  0x80 },
+-		{ CR30,  0x49 }, /* jointly decoder, no ASIC */
++		{ CR30,  0x4b }, /* ASIC/FWT, no jointly decoder */
+ 		{ CR31,  0x60 }, { CR32,  0x43 }, { CR33,  0x08 },
+ 		{ CR34,  0x06 }, { CR35,  0x0a }, { CR36,  0x00 },
+ 		{ CR37,  0x00 }, { CR38,  0x38 }, { CR39,  0x0c },
