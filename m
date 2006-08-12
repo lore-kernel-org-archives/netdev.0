@@ -1,65 +1,42 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: [PATCH] cleanup of the NETIF_F_* flag definitions
-Date: Sat, 12 Aug 2006 21:24:06 +0200
-Message-ID: <1155410647.13508.119.camel@lappy>
+From: Jakub Jelinek <jakub@redhat.com>
+Subject: Re: Kernel patches enabling better POSIX AIO (Was Re: [3/4] kevent: AIO, aio_sendfile)
+Date: Sat, 12 Aug 2006 15:28:02 -0400
+Message-ID: <20060812192802.GO32572@devserv.devel.redhat.com>
+References: <1153982954.3887.9.camel@frecb000686> <44C8DB80.6030007@us.ibm.com> <44C9029A.4090705@oracle.com> <1154024943.29920.3.camel@dyn9047017100.beaverton.ibm.com> <44C90987.1040200@redhat.com> <1154034164.29920.22.camel@dyn9047017100.beaverton.ibm.com> <1154091500.13577.14.camel@frecb000686> <44DCDE73.9030901@redhat.com> <20060812182928.GA1989@in.ibm.com> <44DE27AB.7040507@redhat.com>
+Reply-To: Jakub Jelinek <jakub@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: suparna@in.ibm.com, sebastien.dugue@bull.net,
+	Badari Pulavarty <pbadari@us.ibm.com>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, linux-aio@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:6313 "EHLO
-	amsfep16-int.chello.nl") by vger.kernel.org with ESMTP
-	id S964941AbWHLTYz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Aug 2006 15:24:55 -0400
-To: netdev@vger.kernel.org
+Received: from mx1.redhat.com ([66.187.233.31]:51169 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S964942AbWHLT2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 15:28:25 -0400
+To: Ulrich Drepper <drepper@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <44DE27AB.7040507@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, Aug 12, 2006 at 12:10:35PM -0700, Ulrich Drepper wrote:
+> > I am wondering about that too. IIRC, the IO_NOTIFY_* constants are not
+> > part of the ABI, but only internal to the kernel implementation. I think
+> > Zach had suggested inferring THREAD_ID notification if the pid specified
+> > is not zero. But, I don't see why ->sigev_notify couldn't used directly
+> > (just like the POSIX timers code does) thus doing away with the 
+> > new constants altogether. Sebestian/Laurent, do you recall?
+> 
+> I suggest to model the implementation after the timer code which does
+> exactly what we need.
 
-Cleanup the NETIF_F_ flag definitions
+Yeah, and if at all possible we want to use just one helper thread for
+SIGEV_THREAD notification of timers/aio/etc., so it really should behave the
+same as timer thread notification.
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-
----
- include/linux/netdevice.h |   26 ++++++++++++++------------
- 1 file changed, 14 insertions(+), 12 deletions(-)
-
-Index: linux-2.6/include/linux/netdevice.h
-===================================================================
---- linux-2.6.orig/include/linux/netdevice.h
-+++ linux-2.6/include/linux/netdevice.h
-@@ -298,18 +298,20 @@ struct net_device
- 
- 	/* Net device features */
- 	unsigned long		features;
--#define NETIF_F_SG		1	/* Scatter/gather IO. */
--#define NETIF_F_IP_CSUM		2	/* Can checksum only TCP/UDP over IPv4. */
--#define NETIF_F_NO_CSUM		4	/* Does not require checksum. F.e. loopack. */
--#define NETIF_F_HW_CSUM		8	/* Can checksum all the packets. */
--#define NETIF_F_HIGHDMA		32	/* Can DMA to high memory. */
--#define NETIF_F_FRAGLIST	64	/* Scatter/gather IO. */
--#define NETIF_F_HW_VLAN_TX	128	/* Transmit VLAN hw acceleration */
--#define NETIF_F_HW_VLAN_RX	256	/* Receive VLAN hw acceleration */
--#define NETIF_F_HW_VLAN_FILTER	512	/* Receive filtering on VLAN */
--#define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN packets */
--#define NETIF_F_GSO		2048	/* Enable software GSO. */
--#define NETIF_F_LLTX		4096	/* LockLess TX */
-+#define NETIF_F_SG		0x0001	/* Scatter/gather IO. */
-+#define NETIF_F_IP_CSUM		0x0002	/* Can checksum only TCP/UDP over IPv4. */
-+#define NETIF_F_NO_CSUM		0x0004	/* Does not require checksum. F.e. loopack. */
-+#define NETIF_F_HW_CSUM		0x0008	/* Can checksum all the packets. */
-+
-+#define NETIF_F_HIGHDMA		0x0010	/* Can DMA to high memory. */
-+#define NETIF_F_FRAGLIST	0x0020	/* Scatter/gather IO. */
-+#define NETIF_F_HW_VLAN_TX	0x0040	/* Transmit VLAN hw acceleration */
-+#define NETIF_F_HW_VLAN_RX	0x0080	/* Receive VLAN hw acceleration */
-+
-+#define NETIF_F_HW_VLAN_FILTER	0x0100	/* Receive filtering on VLAN */
-+#define NETIF_F_VLAN_CHALLENGED	0x0200	/* Device cannot handle VLAN packets */
-+#define NETIF_F_GSO		0x0400	/* Enable software GSO. */
-+#define NETIF_F_LLTX		0x0800	/* LockLess TX */
- 
- 	/* Segmentation offload features */
- #define NETIF_F_GSO_SHIFT	16
-
-
+	Jakub
