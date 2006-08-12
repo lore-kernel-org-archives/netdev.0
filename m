@@ -1,76 +1,38 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
-Date: Sat, 12 Aug 2006 11:19:49 +0200
-Message-ID: <1155374390.13508.15.camel@lappy>
-References: <20060808193325.1396.58813.sendpatchset@lappy>
-	 <20060809054648.GD17446@2ka.mipt.ru> <1155127040.12225.25.camel@twins>
-	 <20060809130752.GA17953@2ka.mipt.ru> <1155130353.12225.53.camel@twins>
-	 <44DD4E3A.4040000@redhat.com>  <20060812084713.GA29523@2ka.mipt.ru>
+From: Muli Ben-Yehuda <muli@il.ibm.com>
+Subject: Re: [PATCH,RESEND] smc91x: disable DMA mode on the logicpd pxa270
+Date: Sat, 12 Aug 2006 12:27:52 +0300
+Message-ID: <20060812092752.GN4745@rhun.haifa.ibm.com>
+References: <20060812085506.GA650@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Rik van Riel <riel@redhat.com>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Daniel Phillips <phillips@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, nico@cam.org,
+	mikee@logicpd.com, peterb@logicpd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:49649 "EHLO
-	amsfep11-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1751410AbWHLJUj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Aug 2006 05:20:39 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060812084713.GA29523@2ka.mipt.ru>
+Received: from mtagate5.de.ibm.com ([195.212.29.154]:22305 "EHLO
+	mtagate5.de.ibm.com") by vger.kernel.org with ESMTP
+	id S1751380AbWHLJ14 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Aug 2006 05:27:56 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate5.de.ibm.com (8.13.7/8.13.7) with ESMTP id k7C9RsnM046486
+	for <netdev@vger.kernel.org>; Sat, 12 Aug 2006 09:27:54 GMT
+Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7C9VdkE128568
+	for <netdev@vger.kernel.org>; Sat, 12 Aug 2006 11:31:39 +0200
+Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7C9RsKb031228
+	for <netdev@vger.kernel.org>; Sat, 12 Aug 2006 11:27:54 +0200
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Disposition: inline
+In-Reply-To: <20060812085506.GA650@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2006-08-12 at 12:47 +0400, Evgeniy Polyakov wrote:
-> On Fri, Aug 11, 2006 at 11:42:50PM -0400, Rik van Riel (riel@redhat.com) wrote:
-> > >Dropping these non-essential packets makes sure the reserve memory 
-> > >doesn't get stuck in some random blocked user-space process, hence
-> > >you can make progress.
-> > 
-> > In short:
-> >  - every incoming packet needs to be received at the packet level
-> >  - when memory is low, we only deliver data to memory critical sockets
-> >  - packets to other sockets get dropped, so the memory can be reused
-> >    for receiving other packets, including the packets needed for the
-> >    memory critical sockets to make progress
-> > 
-> > Forwarding packets while in low memory mode should not be a problem
-> > at all, since forwarded packets get freed quickly.
-> > 
-> > The memory pool for receiving packets does not need much accounting
-> > of any kind, since every packet will end up coming from that pool
-> > when normal allocations start failing.   Maybe Evgeniy's allocator
-> > can do something smarter internally, and mark skbuffs as MEMALLOC
-> > when the number of available skbuffs is getting low?
-> 
-> As you described above, memory for each packet must be allocated (either
-> from SLAB or from reserve), so network needs special allocator in OOM
-> condition, and that allocator should be separated from SLAB's one which 
-> got OOM, so my purpose is just to use that different allocator (with
-> additional features) for netroking always. Since every piece of
-> networking is limited (socket queues, socket numbers, hardware queues,
-> hardware wire speeds an so on) there is always a maximum amount of
-> memory it can consume and can never exceed, so if network allocator will 
-> get that amount of memory at the begining, it will never meet OOM, 
-> so it will _always_ work and thus can allow to make slow progress for 
-> OOM-capable things like block devices and swap issues. 
-> There are no special reserve and no need to switch to/from it and 
-> no possibility to have OOM by design.
+On Sat, Aug 12, 2006 at 10:55:07AM +0200, Lennert Buytenhek wrote:
+> Enabling PXA DMA for the smc91x on the logicpd pxa270 produces
+> unacceptable interference with the TFT panel, so disable it.
 
-I'm not sure if the network stack is bounded as you say; for instance
-imagine you taking a lot of packets for blocked user-space processes,
-these will just accumulate in the network stack and go nowhere. In that
-case memory usage is very much unbounded.
+Doesn't this disable it for all users, though? are there any other
+users? should this be changed from a #define to a run-time toggle?
 
-Even if blocked sockets would only accept a limited amount of packets,
-it would then become a function of the amount of open sockets, which is
-again unbounded.
-
-In any scheme you need to bound the amount of memory, and in low memory
-situations it is very usefull to return memory as soon as possible.
-
-Hence this approach, it uses the global memory reserve, and a page based
-allocator that does indeed return memory instantly (yes the one I have
-show so far is ghastly, I've since written a nice one).
-
+Cheers,
+Muli
