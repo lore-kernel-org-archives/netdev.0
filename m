@@ -1,74 +1,61 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: rename *MEMALLOC flags (was: Re: [RFC][PATCH 3/4] deadlock
-	prevention core)
-Date: Sat, 12 Aug 2006 17:34:36 +0200
-Message-ID: <1155396877.13508.58.camel@lappy>
-References: <20060812141415.30842.78695.sendpatchset@lappy>
-	 <20060812141445.30842.47336.sendpatchset@lappy>
-	 <44DDE8B6.8000900@garzik.org> <1155395201.13508.44.camel@lappy>
-	 <33037.81.207.0.53.1155396500.squirrel@81.207.0.53>
+From: "Edgar E. Iglesias" <edgar.iglesias@axis.com>
+Subject: Re: 2.6.18-rc3-mm2 (+ hotfixes): GPF related to skge on suspend
+Date: Sat, 12 Aug 2006 18:12:53 +0200
+Message-ID: <20060812161253.GA30691@edgar.underground.se.axis.com>
+References: <200608121207.42268.rjw@sisk.pl> <20060812052853.f9e5d648.akpm@osdl.org> <200608121631.18603.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Daniel Phillips <phillips@google.com>,
-	Rik van Riel <riel@redhat.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, LKML <linux-kernel@vger.kernel.org>,
+	Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:49703 "EHLO
-	amsfep18-int.chello.nl") by vger.kernel.org with ESMTP
-	id S932510AbWHLPfZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Aug 2006 11:35:25 -0400
-To: Indan Zupancic <indan@nul.nu>
-In-Reply-To: <33037.81.207.0.53.1155396500.squirrel@81.207.0.53>
+Received: from miranda.se.axis.com ([193.13.178.8]:44202 "EHLO
+	miranda.se.axis.com") by vger.kernel.org with ESMTP id S964878AbWHLQM4
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Aug 2006 12:12:56 -0400
+Received: from axis.com (edgar.se.axis.com [10.92.151.1])
+	by miranda.se.axis.com (8.12.9/8.12.9/Debian-5local0.1) with ESMTP id k7CGCsP0019097
+	for <netdev@vger.kernel.org>; Sat, 12 Aug 2006 18:12:54 +0200
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Content-Disposition: inline
+In-Reply-To: <200608121631.18603.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2006-08-12 at 17:28 +0200, Indan Zupancic wrote:
-> On Sat, August 12, 2006 17:06, Peter Zijlstra said:
-> > On Sat, 2006-08-12 at 10:41 -0400, Jeff Garzik wrote:
-> >> Peter Zijlstra wrote:
-> >> > Index: linux-2.6/include/linux/gfp.h
-> >> > ===================================================================
-> >> > --- linux-2.6.orig/include/linux/gfp.h	2006-08-12 12:56:06.000000000 +0200
-> >> > +++ linux-2.6/include/linux/gfp.h	2006-08-12 12:56:09.000000000 +0200
-> >> > @@ -46,6 +46,7 @@ struct vm_area_struct;
-> >> >  #define __GFP_ZERO	((__force gfp_t)0x8000u)/* Return zeroed page on success */
-> >> >  #define __GFP_NOMEMALLOC ((__force gfp_t)0x10000u) /* Don't use emergency reserves */
-> >> >  #define __GFP_HARDWALL   ((__force gfp_t)0x20000u) /* Enforce hardwall cpuset memory allocs
-> >> */
-> >> > +#define __GFP_MEMALLOC  ((__force gfp_t)0x40000u) /* Use emergency reserves */
-> >>
-> >> This symbol name has nothing to do with its purpose.  The entire area of
-> >> code you are modifying could be described as having something to do with
-> >> 'memalloc'.
-> >>
-> >> GFP_EMERGENCY or GFP_USE_RESERVES or somesuch would be a far better
-> >> symbol name.
-> >>
-> >> I recognize that is matches with GFP_NOMEMALLOC, but that doesn't change
-> >> the situation anyway.  In fact, a cleanup patch to rename GFP_NOMEMALLOC
-> >> would be nice.
-> >
-> > I'm rather bad at picking names, but here goes:
-> >
-> > PF_MEMALLOC      -> PF_EMERGALLOC
-> > __GFP_NOMEMALLOC -> __GFP_NOEMERGALLOC
-> > __GFP_MEMALLOC   -> __GFP_EMERGALLOC
-    SOCK_MEMALLOC    -> SOCK_EMERGALLOC
-> >
-> > Is that suitable and shall I prepare patches? Or do we want more ppl to
-> > chime in and have a few more rounds?
+On Sat, Aug 12, 2006 at 04:31:18PM +0200, Rafael J. Wysocki wrote:
+> On Saturday 12 August 2006 14:28, Andrew Morton wrote:
+> > On Sat, 12 Aug 2006 12:07:42 +0200
+> > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+> > 
+> > > Hi,
+> > > 
+> > > On 2.6.18-rc3-mm2 with hotfixes I get things like the appended one on attempts
+> > > to suspend to disk.  It occurs while devices are being suspended and is fairly
+> > > reproducible.
+> > > 
+> > > Greetings,
+> > > Rafael
+> > > 
+> > > 
+> > > Suspending device 0000:01:00.0
+> > > Suspending device 0000:02:02.0
+> > > Suspending device 0000:02:01.4
+> > > Suspending device 0000:02:01.3
+> > > Suspending device 0000:02:01.2
+> > > Suspending device 0000:02:01.1
+> > > Suspending device 0000:02:01.0
+> > > Suspending device 0000:02:00.0
+> > > skge Ram read data parity error
+> > > skge Ram write data parity error
+> > > skge eth0: receive queue parity error
+> > > skge <NULL>: receive queue parity error
 > 
-> Pardon my ignorance, but if we're doing cleanup anyway, why not use only one flag instead of two?
-> Why is __GFP_NOMEMALLOC needed when not setting __GFP_MEMALLOC could mean the same? Or else what
-> is the expected behaviour if both flags are set?
+> This stuff comes from the interrupt handler which apparently races with
+> something.
 
-__GFP_NOMEMALLOC is most authorative; its use is (afaik) to negate
-PF_MEMALLOC.
+Maybe the skge driver is not doing netif_poll_disable before clearing the rx 
+ring at suspend/down?
 
-I agree that having both seems odd, but I haven't spend any significant
-time on trying to find a 'nicer' solution.
-
+Best regards
+-- 
+        Programmer
+        Edgar E. Iglesias <edgar.iglesias@axis.com> 46.46.272.1946
