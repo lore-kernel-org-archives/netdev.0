@@ -1,61 +1,42 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 1/4] [NETLINK]: Handle NLM_F_ECHO in netlink_rcv_skb()
-Date: Sat, 12 Aug 2006 13:19:08 +0200
-Message-ID: <20060812111908.GP14627@postel.suug.ch>
-References: <20060809204821.216122988@postel.suug.ch> <20060809205439.434010049@postel.suug.ch> <20060810155120.GA494@ms2.inr.ac.ru> <20060810190210.GH14627@postel.suug.ch> <20060810203252.GA6414@ms2.inr.ac.ru> <20060810211833.GK14627@postel.suug.ch> <20060811153549.GA16351@ms2.inr.ac.ru> <20060811214744.GO14627@postel.suug.ch> <20060812110331.GA31479@ms2.inr.ac.ru>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
+Date: Sat, 12 Aug 2006 13:40:29 +0200
+Message-ID: <1155382830.13508.38.camel@lappy>
+References: <20060808193325.1396.58813.sendpatchset@lappy>
+	 <20060809054648.GD17446@2ka.mipt.ru> <1155127040.12225.25.camel@twins>
+	 <20060809130752.GA17953@2ka.mipt.ru> <1155130353.12225.53.camel@twins>
+	 <44DD4E3A.4040000@redhat.com> <20060812084713.GA29523@2ka.mipt.ru>
+	 <1155374390.13508.15.camel@lappy> <20060812093706.GA13554@2ka.mipt.ru>
+	 <1155377887.13508.27.camel@lappy>  <20060812104224.GA12353@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:51843 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1750849AbWHLLSs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 07:18:48 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Content-Disposition: inline
-In-Reply-To: <20060812110331.GA31479@ms2.inr.ac.ru>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Rik van Riel <riel@redhat.com>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Daniel Phillips <phillips@google.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751380AbWHLLlT@vger.kernel.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060812104224.GA12353@2ka.mipt.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> 2006-08-12 15:03
-> Actually, it was the idea. If requestor asked NLM_F_ECHO and subscribed
-> to muticasts, it suppresses double notifications. If it did not ask
-> NLM_F_ECHO, he is not interested in results, he knows what's going on
-> without this.
-> 
-> F.e. it was used by my implementation in gated: it did not set either
-> NLM_F_ECHO or even NLM_F_ACK. And when making massive batch updates,
-> it received nothing back: only errors and updates made by someone else.
+On Sat, 2006-08-12 at 14:42 +0400, Evgeniy Polyakov wrote:
 
-So we do something like this:
+> When network uses the same allocator, it depends on it, and thus it is
+> possible to have (cut by you) a situation when reserve (which depends on
+> SLAB and it's OOM too) is not filled or even does not exist.
 
-/**
- * nlmsg_notify - send a notification netlink message
- * @sk: netlink socket to use
- * @skb: notification message
- * @pid: destination netlink pid for reports or 0
- * @group: destination multicast group or 0
- * @report: 1 to report back, 0 to disable
- * @flags: allocation flags
- */
-int nlmsg_notify(struct sock *sk, struct sk_buff *skb, u32 pid,
-		 unsigned int group, int report, gfp_t flags)
-{
-	int err = 0;
+No, the reserve does not depend on SLAB, and I totally short-circuit the
+SLAB allocator for skbs and related on memory pressure.
 
-	if (group) {
-		int exclude_pid = 0;
+The memalloc reserve is on the page allocator level and is only
+accessable for PF_MEMALLOC processes or __GFP_MEMALLOC (new in my
+patches) allocations. (arguably there could be some more deadlocks wrt.
+PF_MEMALLOC where the code under PF_MEMALLOC is not properly bounded,
+those would be bugs and should be fixed if present/found)
 
-		if (report) {
-			atomic_inc(&skb->users);
-			exclude_pid = pid;
-		}
+> If transferred to your implementation, then just steal some pages from
+> SLAB when new network device is added and use them when OOM happens.
+> It is much simpler and can help in the most of situations.
 
-		/* errors reported via destination sk->sk_err */
-		nlmsg_multicast(sk, skb, exclude_pid, group, flags);
-	}
-
-	if (report)
-		err = nlmsg_unicast(sk, skb, pid);
-
-	return err;
-}
+SLAB reclaim is painfull and has been tried by the time you OOM.
