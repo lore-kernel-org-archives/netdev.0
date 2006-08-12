@@ -1,45 +1,110 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: How does Linux do RTTM?
-Date: Sat, 12 Aug 2006 17:53:32 +0400
-Message-ID: <20060812135332.GA27390@2ka.mipt.ru>
-References: <44DACA22.6090701@comcast.net> <20060809.231244.35509467.davem@davemloft.net> <44DAF559.8010705@comcast.net> <20060810.020205.10245646.davem@davemloft.net> <44DDD83E.9010307@comcast.net>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH] move skb->dev assignment into netdev_alloc_skb
+Date: Sat, 12 Aug 2006 15:57:08 +0200
+Message-ID: <20060812135707.GA5950@lst.de>
+References: <20060805130109.GB24121@lst.de> <20060807.161056.85410448.davem@davemloft.net> <4807377b0608071729p3c744d1fn6859178874019418@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932516AbWHLNyG@vger.kernel.org>
-To: John Richard Moser <nigelenki@comcast.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, hch@lst.de,
+	netdev@vger.kernel.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from verein.lst.de ([213.95.11.210]:49847 "EHLO mail.lst.de")
+	by vger.kernel.org with ESMTP id S932520AbWHLN5W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 09:57:22 -0400
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <44DDD83E.9010307@comcast.net>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <4807377b0608071729p3c744d1fn6859178874019418@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 12, 2006 at 09:31:42AM -0400, John Richard Moser (nigelenki@comcast.net) wrote:
-> I'm told now that it uses Jiffies for TCP timestamps.  I've had thoughts
-> on this:
+On Mon, Aug 07, 2006 at 05:29:54PM -0700, Jesse Brandeburg wrote:
+> On 8/7/06, David Miller <davem@davemloft.net> wrote:
+> >From: Christoph Hellwig <hch@lst.de>
+> >Date: Sat, 5 Aug 2006 15:01:09 +0200
+> >
+> >> All caller of netdev_alloc_skb need to assign skb->dev shortly
+> >> afterwards.  Move it into common code.
+> >>
+> >> I also had to fixup a little bit of the surrounding control flow in
+> >> e1000 - it was just too convoluted.
+> >>
+> >> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> >
+> >Since the e1000 change is non-trivial I'm not going to bypass
+> >the driver author on it, sorry.
+> >
+> >What I did do was put the netdev_alloc_skb() change into my
+> >tree, and since I'm co-author of the tg3 driver I'll apply
+> >that bit too.
+> >
+> >The e1000 bit will need to go through the e1000 maintainers.
 > 
->  - I figured a random timestamp with random microsecond skew would be
-> nice but this might expose internals of the RNG; amusingly I'm trying
-> not to expose internals of the RNG by exposing system time.
-> 
->  - Someone recommended starting at zero.  This would work, really,
-> there's no attacks based on guessing the TCP timestamp value.  This is
-> nice since if I want to hax0rz then I might make a connection and see
-> how many jiffies there are to get a feel for the system's uptime; this
-> tells me how long since you upgraded your kernel, so I have an arsenal
-> of vulns I KNOW you haven't fixed ready ;)  Starting at 0 doesn't give
-> that information.
-> 
-> Comments?
+> Thank you, I'll take a look at this tomorrow, as I need to digest the
+> patch in context.
 
-Starting TCP timestamp from zero or any other arbitrary value for each 
-new connection will not give you any security benefits. There is no 
-simple way aleph1 or e-eye will get a remote shell or steal your credit 
-card number if there is a buffer overflow in kernel and they will know 
-it's release.
-So your proposals just are not needed for majority of people, but if you
-strongly feel it will help to find a cure for cancer, implement it and
-prove it's usefullness to netdev community.
+Did you get a chance to look at it?  For your conveniance here's just
+the e1000 bits, without the hunks Dave has commited already:
 
--- 
-	Evgeniy Polyakov
+
+Index: linux-2.6/drivers/net/e1000/e1000_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/e1000/e1000_main.c	2006-08-04 19:06:09.000000000 +0200
++++ linux-2.6/drivers/net/e1000/e1000_main.c	2006-08-05 14:18:32.000000000 +0200
+@@ -3711,7 +3711,6 @@
+ 			    netdev_alloc_skb(netdev, length + NET_IP_ALIGN);
+ 			if (new_skb) {
+ 				skb_reserve(new_skb, NET_IP_ALIGN);
+-				new_skb->dev = netdev;
+ 				memcpy(new_skb->data - NET_IP_ALIGN,
+ 				       skb->data - NET_IP_ALIGN,
+ 				       length + NET_IP_ALIGN);
+@@ -3978,13 +3977,13 @@
+ 	buffer_info = &rx_ring->buffer_info[i];
+ 
+ 	while (cleaned_count--) {
+-		if (!(skb = buffer_info->skb))
+-			skb = netdev_alloc_skb(netdev, bufsz);
+-		else {
++		skb = buffer_info->skb;
++		if (skb) {
+ 			skb_trim(skb, 0);
+ 			goto map_skb;
+ 		}
+ 
++		skb = netdev_alloc_skb(netdev, bufsz);
+ 		if (unlikely(!skb)) {
+ 			/* Better luck next round */
+ 			adapter->alloc_rx_buff_failed++;
+@@ -4009,10 +4008,10 @@
+ 				dev_kfree_skb(skb);
+ 				dev_kfree_skb(oldskb);
+ 				break; /* while !buffer_info->skb */
+-			} else {
+-				/* Use new allocation */
+-				dev_kfree_skb(oldskb);
+ 			}
++
++			/* Use new allocation */
++			dev_kfree_skb(oldskb);
+ 		}
+ 		/* Make buffer alignment 2 beyond a 16 byte boundary
+ 		 * this will result in a 16 byte aligned IP header after
+@@ -4020,8 +4019,6 @@
+ 		 */
+ 		skb_reserve(skb, NET_IP_ALIGN);
+ 
+-		skb->dev = netdev;
+-
+ 		buffer_info->skb = skb;
+ 		buffer_info->length = adapter->rx_buffer_len;
+ map_skb:
+@@ -4135,8 +4132,6 @@
+ 		 */
+ 		skb_reserve(skb, NET_IP_ALIGN);
+ 
+-		skb->dev = netdev;
+-
+ 		buffer_info->skb = skb;
+ 		buffer_info->length = adapter->rx_ps_bsize0;
+ 		buffer_info->dma = pci_map_single(pdev, skb->data,
