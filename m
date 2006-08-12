@@ -1,8 +1,8 @@
 From: Thomas Klein <osstklei@de.ibm.com>
-Subject: Re: [PATCH 3/6] ehea: queue management
-Date: Sat, 12 Aug 2006 18:37:04 +0200
-Message-ID: <44DE03B0.1060607@de.ibm.com>
-References: <44D99F38.8010306@de.ibm.com> <20060811215225.GH479@krispykreme>
+Subject: Re: [PATCH 4/6] ehea: header files
+Date: Sat, 12 Aug 2006 18:40:13 +0200
+Message-ID: <44DE046D.2050304@de.ibm.com>
+References: <44D99F56.7010201@de.ibm.com> <20060811220728.GI479@krispykreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -14,37 +14,29 @@ Cc: Jan-Bernd Themann <ossthema@de.ibm.com>,
 	Christoph Raisch <raisch@de.ibm.com>,
 	Thomas Klein <tklein@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:27333 "EHLO
-	mtagate1.de.ibm.com") by vger.kernel.org with ESMTP id S964881AbWHLQhG
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:60761 "EHLO
+	mtagate4.de.ibm.com") by vger.kernel.org with ESMTP id S964887AbWHLQkQ
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Aug 2006 12:37:06 -0400
+	Sat, 12 Aug 2006 12:40:16 -0400
 To: Anton Blanchard <anton@samba.org>,
 	Jan-Bernd Themann <themann@de.ibm.com>
-In-Reply-To: <20060811215225.GH479@krispykreme>
+In-Reply-To: <20060811220728.GI479@krispykreme>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Anton Blanchard wrote:
-> Hi,
->
->   
->> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea_ethtool.c	1969-12-31 
+>> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea.h	1969-12-31 
 >>     
 >
 >   
->> +static void netdev_get_pauseparam(struct net_device *dev,
->> +				  struct ethtool_pauseparam *pauseparam)
->> +{
->> +	printk("get pauseparam\n");
->> +}
+>> +extern void exit(int);
 >>     
 >
-> There are a number of stubbed out ethtool functions like this. Best not
-> to implement them and allow the upper layers to return a correct error.
+> Should be able to remove that prototype :) 
 >
 > Anton
 >   
-I agree, stubbs were removed.
+Indeed :-) It's gone.
 
 Thomas
 
