@@ -1,110 +1,38 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: [PATCH] move skb->dev assignment into netdev_alloc_skb
-Date: Sat, 12 Aug 2006 15:57:08 +0200
-Message-ID: <20060812135707.GA5950@lst.de>
-References: <20060805130109.GB24121@lst.de> <20060807.161056.85410448.davem@davemloft.net> <4807377b0608071729p3c744d1fn6859178874019418@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, hch@lst.de,
-	netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: [RFC][PATCH 0/4] VM deadlock prevention -v4
+Date: Sat, 12 Aug 2006 16:14:15 +0200
+Message-ID: <20060812141415.30842.78695.sendpatchset@lappy>
+Cc: Indan Zupancic <indan@nul.nu>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Daniel Phillips <phillips@google.com>,
+	Rik van Riel <riel@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from verein.lst.de ([213.95.11.210]:49847 "EHLO mail.lst.de")
-	by vger.kernel.org with ESMTP id S932520AbWHLN5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 09:57:22 -0400
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <4807377b0608071729p3c744d1fn6859178874019418@mail.gmail.com>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:28083 "EHLO
+	amsfep20-int.chello.nl") by vger.kernel.org with ESMTP
+	id S932517AbWHLOPE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Aug 2006 10:15:04 -0400
+To: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 07, 2006 at 05:29:54PM -0700, Jesse Brandeburg wrote:
-> On 8/7/06, David Miller <davem@davemloft.net> wrote:
-> >From: Christoph Hellwig <hch@lst.de>
-> >Date: Sat, 5 Aug 2006 15:01:09 +0200
-> >
-> >> All caller of netdev_alloc_skb need to assign skb->dev shortly
-> >> afterwards.  Move it into common code.
-> >>
-> >> I also had to fixup a little bit of the surrounding control flow in
-> >> e1000 - it was just too convoluted.
-> >>
-> >> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> >
-> >Since the e1000 change is non-trivial I'm not going to bypass
-> >the driver author on it, sorry.
-> >
-> >What I did do was put the netdev_alloc_skb() change into my
-> >tree, and since I'm co-author of the tg3 driver I'll apply
-> >that bit too.
-> >
-> >The e1000 bit will need to go through the e1000 maintainers.
-> 
-> Thank you, I'll take a look at this tomorrow, as I need to digest the
-> patch in context.
+Hi,
 
-Did you get a chance to look at it?  For your conveniance here's just
-the e1000 bits, without the hunks Dave has commited already:
+here the latest effort, it includes a whole new trivial allocator with a
+horrid name and an almost full rewrite of the deadlock prevention core.
+This version does not do anything per device and hence does not depend 
+on the new netdev_alloc_skb() API.
 
+The reason to add a second allocator to the receive side is twofold:
+1) it allows easy detection of the memory pressure / OOM situation;
+2) it allows the receive path to be unbounded and go at full speed when
+   resources permit.
 
-Index: linux-2.6/drivers/net/e1000/e1000_main.c
-===================================================================
---- linux-2.6.orig/drivers/net/e1000/e1000_main.c	2006-08-04 19:06:09.000000000 +0200
-+++ linux-2.6/drivers/net/e1000/e1000_main.c	2006-08-05 14:18:32.000000000 +0200
-@@ -3711,7 +3711,6 @@
- 			    netdev_alloc_skb(netdev, length + NET_IP_ALIGN);
- 			if (new_skb) {
- 				skb_reserve(new_skb, NET_IP_ALIGN);
--				new_skb->dev = netdev;
- 				memcpy(new_skb->data - NET_IP_ALIGN,
- 				       skb->data - NET_IP_ALIGN,
- 				       length + NET_IP_ALIGN);
-@@ -3978,13 +3977,13 @@
- 	buffer_info = &rx_ring->buffer_info[i];
- 
- 	while (cleaned_count--) {
--		if (!(skb = buffer_info->skb))
--			skb = netdev_alloc_skb(netdev, bufsz);
--		else {
-+		skb = buffer_info->skb;
-+		if (skb) {
- 			skb_trim(skb, 0);
- 			goto map_skb;
- 		}
- 
-+		skb = netdev_alloc_skb(netdev, bufsz);
- 		if (unlikely(!skb)) {
- 			/* Better luck next round */
- 			adapter->alloc_rx_buff_failed++;
-@@ -4009,10 +4008,10 @@
- 				dev_kfree_skb(skb);
- 				dev_kfree_skb(oldskb);
- 				break; /* while !buffer_info->skb */
--			} else {
--				/* Use new allocation */
--				dev_kfree_skb(oldskb);
- 			}
-+
-+			/* Use new allocation */
-+			dev_kfree_skb(oldskb);
- 		}
- 		/* Make buffer alignment 2 beyond a 16 byte boundary
- 		 * this will result in a 16 byte aligned IP header after
-@@ -4020,8 +4019,6 @@
- 		 */
- 		skb_reserve(skb, NET_IP_ALIGN);
- 
--		skb->dev = netdev;
--
- 		buffer_info->skb = skb;
- 		buffer_info->length = adapter->rx_buffer_len;
- map_skb:
-@@ -4135,8 +4132,6 @@
- 		 */
- 		skb_reserve(skb, NET_IP_ALIGN);
- 
--		skb->dev = netdev;
--
- 		buffer_info->skb = skb;
- 		buffer_info->length = adapter->rx_ps_bsize0;
- 		buffer_info->dma = pci_map_single(pdev, skb->data,
+The choice of using the global memalloc reserve as a mempool makes that
+the new allocator has to release pages as soon as possible; if we were
+to hoard pages in the allocator the memalloc reserve would not get 
+replenished readily.
+
+Peter
