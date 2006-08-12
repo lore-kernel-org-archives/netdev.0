@@ -1,51 +1,48 @@
-From: Rik van Riel <riel@redhat.com>
-Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
-Date: Sat, 12 Aug 2006 10:40:23 -0400
-Message-ID: <44DDE857.3080703@redhat.com>
-References: <20060808193325.1396.58813.sendpatchset@lappy> <20060809054648.GD17446@2ka.mipt.ru> <1155127040.12225.25.camel@twins> <20060809130752.GA17953@2ka.mipt.ru> <1155130353.12225.53.camel@twins> <44DD4E3A.4040000@redhat.com> <20060812084713.GA29523@2ka.mipt.ru> <1155374390.13508.15.camel@lappy> <20060812093706.GA13554@2ka.mipt.ru>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RFC][PATCH 3/4] deadlock prevention core
+Date: Sat, 12 Aug 2006 10:41:58 -0400
+Message-ID: <44DDE8B6.8000900@garzik.org>
+References: <20060812141415.30842.78695.sendpatchset@lappy> <20060812141445.30842.47336.sendpatchset@lappy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Daniel Phillips <phillips@google.com>
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Indan Zupancic <indan@nul.nu>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Daniel Phillips <phillips@google.com>,
+	Rik van Riel <riel@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:44768 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S964835AbWHLOkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 10:40:37 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060812093706.GA13554@2ka.mipt.ru>
+Received: from srv5.dvmed.net ([207.36.208.214]:961 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932537AbWHLOmG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 10:42:06 -0400
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+In-Reply-To: <20060812141445.30842.47336.sendpatchset@lappy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> On Sat, Aug 12, 2006 at 11:19:49AM +0200, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
->>> As you described above, memory for each packet must be allocated (either
->>> from SLAB or from reserve), so network needs special allocator in OOM
->>> condition, and that allocator should be separated from SLAB's one which 
->>> got OOM, so my purpose is just to use that different allocator (with
->>> additional features) for netroking always.
-> 
-> No it is not. There are socket queues and they are limited. Things like
-> TCP behave even better.
+Peter Zijlstra wrote:
+> Index: linux-2.6/include/linux/gfp.h
+> ===================================================================
+> --- linux-2.6.orig/include/linux/gfp.h	2006-08-12 12:56:06.000000000 +0200
+> +++ linux-2.6/include/linux/gfp.h	2006-08-12 12:56:09.000000000 +0200
+> @@ -46,6 +46,7 @@ struct vm_area_struct;
+>  #define __GFP_ZERO	((__force gfp_t)0x8000u)/* Return zeroed page on success */
+>  #define __GFP_NOMEMALLOC ((__force gfp_t)0x10000u) /* Don't use emergency reserves */
+>  #define __GFP_HARDWALL   ((__force gfp_t)0x20000u) /* Enforce hardwall cpuset memory allocs */
+> +#define __GFP_MEMALLOC  ((__force gfp_t)0x40000u) /* Use emergency reserves */
 
-Ahhh, but there are two allocators in play here.
+This symbol name has nothing to do with its purpose.  The entire area of 
+code you are modifying could be described as having something to do with 
+'memalloc'.
 
-The first one allocates the memory for receiving packets.
-This can be one pool, as long as it is isolated from
-other things in the system it is fine.
+GFP_EMERGENCY or GFP_USE_RESERVES or somesuch would be a far better 
+symbol name.
 
-The second allocator allocates more memory for socket
-buffers.  The memory critical sockets should get their
-memory from a mempool, once normal socket memory
-allocations start failing.
+I recognize that is matches with GFP_NOMEMALLOC, but that doesn't change 
+the situation anyway.  In fact, a cleanup patch to rename GFP_NOMEMALLOC 
+would be nice.
 
-This means our allocation differentiation only needs
-to happen at the socket stage.
+	Jeff
 
-Or am I overlooking something?
 
--- 
-"Debugging is twice as hard as writing the code in the first place.
-Therefore, if you write the code as cleverly as possible, you are,
-by definition, not smart enough to debug it." - Brian W. Kernighan
