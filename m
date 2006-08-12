@@ -1,9 +1,10 @@
 From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [RFC][PATCH 0/4] VM deadlock prevention -v4
-Date: Sat, 12 Aug 2006 19:33:34 +0200
-Message-ID: <1155404014.13508.72.camel@lappy>
+Subject: Re: [RFC][PATCH 3/4] deadlock prevention core
+Date: Sat, 12 Aug 2006 19:44:56 +0200
+Message-ID: <1155404697.13508.81.camel@lappy>
 References: <20060812141415.30842.78695.sendpatchset@lappy>
-	 <33471.81.207.0.53.1155401489.squirrel@81.207.0.53>
+	 <20060812141445.30842.47336.sendpatchset@lappy>
+	 <44640.81.207.0.53.1155403862.squirrel@81.207.0.53>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -13,56 +14,48 @@ Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
 	Rik van Riel <riel@redhat.com>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [213.46.243.16] ([213.46.243.16]:11084 "EHLO
-	amsfep17-int.chello.nl") by vger.kernel.org with ESMTP
-	id S932296AbWHLReY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Aug 2006 13:34:24 -0400
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:46502 "EHLO
+	amsfep20-int.chello.nl") by vger.kernel.org with ESMTP
+	id S964919AbWHLRp5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Aug 2006 13:45:57 -0400
 To: Indan Zupancic <indan@nul.nu>
-In-Reply-To: <33471.81.207.0.53.1155401489.squirrel@81.207.0.53>
+In-Reply-To: <44640.81.207.0.53.1155403862.squirrel@81.207.0.53>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2006-08-12 at 18:51 +0200, Indan Zupancic wrote:
+On Sat, 2006-08-12 at 19:31 +0200, Indan Zupancic wrote:
 > On Sat, August 12, 2006 16:14, Peter Zijlstra said:
-> > Hi,
-> >
-> > here the latest effort, it includes a whole new trivial allocator with a
-> > horrid name and an almost full rewrite of the deadlock prevention core.
-> > This version does not do anything per device and hence does not depend
-> > on the new netdev_alloc_skb() API.
-> >
-> > The reason to add a second allocator to the receive side is twofold:
-> > 1) it allows easy detection of the memory pressure / OOM situation;
-> > 2) it allows the receive path to be unbounded and go at full speed when
-> >    resources permit.
-> >
-> > The choice of using the global memalloc reserve as a mempool makes that
-> > the new allocator has to release pages as soon as possible; if we were
-> > to hoard pages in the allocator the memalloc reserve would not get
-> > replenished readily.
+> > +struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask, int fclone)
+> > +{
+> > +	struct sk_buff *skb;
+> > +
+> > +	skb = ___alloc_skb(size, gfp_mask & ~__GFP_MEMALLOC, fclone);
+> > +
+> > +	if (!skb && (gfp_mask & __GFP_MEMALLOC) && memalloc_skbs_available())
+> > +		skb = ___alloc_skb(size, gfp_mask, fclone);
+> > +
+> > +	return skb;
+> > +}
+> > +
 > 
-> Version 2 had about 250 new lines of code, while v3 has close to 600, when
-> including the SROG code. And that while things should have become simpler.
-> So why use SROG instead of the old alloc_pages() based code? And why couldn't
-> you use a slightly modified SLOB instead of writing a new allocator?
-> It looks like overkill to me.
+> I'd drop the memalloc_skbs_available() check, as that's already done by
+> ___alloc_skb.
 
-Of the 611 new lines about 150 are new comments.
+Right, thanks. Hmm, its the last occurence of that function, even
+better.
 
-Simpler yes, but also more complete; the old patches had serious issues
-with the alternative allocation scheme.
+> > +static DEFINE_SPINLOCK(memalloc_lock);
+> > +static int memalloc_socks;
+> > +static unsigned long memalloc_reserve;
+> 
+> Why is this a long? adjust_memalloc_reserve() takes an int.
 
-As for why SROG, because trying to stick all the semantics needed for
-all skb operations into the old approach was nasty, I had it almost
-complete but it was horror (and more code than the SROG approach).
+Euhm, right :-) long comes naturaly when I think about quantities op
+pages. The adjust_memalloc_reserve() argument is an increment, a delta;
+perhaps I should change that to long.
 
-Why not SLOB, well, I mistakenly assumed that it was a simpler SLAB
-allocator, my bad. However after having had a quick peek at it; whereas
-it seems similar in intent it does not provide the things I look for.
-Making it so and keep the old semantics and make it compile along side
-of SLAB will take quite some effort.
+> Is it needed at all, considering var_free_kbytes already exists?
 
-
-
-
+Having them separate would allow ajust_memalloc_reserve() to be used by
+other callers too (would need some extra locking).
 
