@@ -1,34 +1,62 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
-Date: Sat, 12 Aug 2006 14:51:19 +0400
-Message-ID: <20060812105119.GA378@2ka.mipt.ru>
-References: <20060809054648.GD17446@2ka.mipt.ru> <1155127040.12225.25.camel@twins> <20060809130752.GA17953@2ka.mipt.ru> <1155130353.12225.53.camel@twins> <44DD4E3A.4040000@redhat.com> <20060812084713.GA29523@2ka.mipt.ru> <1155374390.13508.15.camel@lappy> <20060812093706.GA13554@2ka.mipt.ru> <1155377887.13508.27.camel@lappy> <20060812104224.GA12353@2ka.mipt.ru>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH 1/4] [NETLINK]: Handle NLM_F_ECHO in netlink_rcv_skb()
+Date: Sat, 12 Aug 2006 15:03:31 +0400
+Message-ID: <20060812110331.GA31479@ms2.inr.ac.ru>
+References: <20060809204821.216122988@postel.suug.ch> <20060809205439.434010049@postel.suug.ch> <20060810155120.GA494@ms2.inr.ac.ru> <20060810190210.GH14627@postel.suug.ch> <20060810203252.GA6414@ms2.inr.ac.ru> <20060810211833.GK14627@postel.suug.ch> <20060811153549.GA16351@ms2.inr.ac.ru> <20060811214744.GO14627@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Rik van Riel <riel@redhat.com>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Daniel Phillips <phillips@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:60876 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S964823AbWHLKwF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 06:52:05 -0400
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Received: from minus.inr.ac.ru ([194.67.69.97]:7832 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S964819AbWHLLD7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 07:03:59 -0400
+To: Thomas Graf <tgraf@suug.ch>
 Content-Disposition: inline
-In-Reply-To: <20060812104224.GA12353@2ka.mipt.ru>
+In-Reply-To: <20060811214744.GO14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 12, 2006 at 02:42:26PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > Hence the alternative allocator to use on tight memory conditions.
-> 
-> If transferred to your implementation, then just steal some pages from
-> SLAB when new network device is added and use them when OOM happens.
-> It is much simpler and can help in the most of situations.
+Hello!
 
-And just to make things clear - I do not insult your implementation 
-in any way, it can be 100% correct and behave perfectly.
-I'm just saying that there are other methods to solve the problem which
-seems to me more appropriate.
+> Makes sense, especially for auto generated handles. I've been listening
+> to the notifications on a separate socket for this purpose.
 
--- 
-	Evgeniy Polyakov
+That's... complicated. But cool. :-)
+
+
+> It does make sense, the way it has been implemented if at all is
+> creepy. Even worse, IPv6 is using current->pid, some other code
+> has been using the pid from NETLINK_CREDS() :-)
+
+Yeah, some time ago I sent a path replacing those with 0, but
+apparently I forgot to grep IPv6. And did not even search for NETLINK_CREDS().
+
+
+> when receiving multicasts. Also because some of the multicast
+> code is buggy and provides the pid of the requestor's socket to
+> netlink_broadcast() leading to excluding that socket.
+
+Actually, it was the idea. If requestor asked NLM_F_ECHO and subscribed
+to muticasts, it suppresses double notifications. If it did not ask
+NLM_F_ECHO, he is not interested in results, he knows what's going on
+without this.
+
+F.e. it was used by my implementation in gated: it did not set either
+NLM_F_ECHO or even NLM_F_ACK. And when making massive batch updates,
+it received nothing back: only errors and updates made by someone else.
+
+
+> I'm not sure I understand this correctly, if rcvbuf space was eaten
+> by multicasts subsequent recvmsg() will follow invoking netlink_dump()
+> again and the dump continues.
+
+Indeed. I forgot how it works. :-)
+
+I understood what is happening there. sock_rmalloc() fails not due
+to rcvbuf, but because of global resource limiting. Grr... it does not
+look solvable. Luckily, in normal kernel this can happen only if 0-order
+GFP_KERNEL allocation fails. Not impossible with oom_killer, but it
+definitely moves the status of the problem to marginal.
+
+Alexey
+
