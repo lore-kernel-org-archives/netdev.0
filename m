@@ -1,49 +1,76 @@
-From: Daniele Venzano <venza@brownhat.org>
-Subject: [PATCH] Add new PHY to sis900 supported list
-Date: Sat, 12 Aug 2006 11:17:03 +0200
-Message-ID: <20060812091703.GA741@renditai.milesteg.arr>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
+Date: Sat, 12 Aug 2006 11:19:49 +0200
+Message-ID: <1155374390.13508.15.camel@lappy>
+References: <20060808193325.1396.58813.sendpatchset@lappy>
+	 <20060809054648.GD17446@2ka.mipt.ru> <1155127040.12225.25.camel@twins>
+	 <20060809130752.GA17953@2ka.mipt.ru> <1155130353.12225.53.camel@twins>
+	 <44DD4E3A.4040000@redhat.com>  <20060812084713.GA29523@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="5mCyUwZo2JvN/JJP"
-Cc: Jools Smyth <jools@oxfordinspire.co.uk>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Rik van Riel <riel@redhat.com>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Daniel Phillips <phillips@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 81-174-42-79.f5.ngi.it ([81.174.42.79]:65190 "HELO
-	renditai.milesteg.arr") by vger.kernel.org with SMTP
-	id S1751373AbWHLJRP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Aug 2006 05:17:15 -0400
-To: NetDev <netdev@vger.kernel.org>, Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:49649 "EHLO
+	amsfep11-int.chello.nl") by vger.kernel.org with ESMTP
+	id S1751410AbWHLJUj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Aug 2006 05:20:39 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060812084713.GA29523@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, 2006-08-12 at 12:47 +0400, Evgeniy Polyakov wrote:
+> On Fri, Aug 11, 2006 at 11:42:50PM -0400, Rik van Riel (riel@redhat.com) wrote:
+> > >Dropping these non-essential packets makes sure the reserve memory 
+> > >doesn't get stuck in some random blocked user-space process, hence
+> > >you can make progress.
+> > 
+> > In short:
+> >  - every incoming packet needs to be received at the packet level
+> >  - when memory is low, we only deliver data to memory critical sockets
+> >  - packets to other sockets get dropped, so the memory can be reused
+> >    for receiving other packets, including the packets needed for the
+> >    memory critical sockets to make progress
+> > 
+> > Forwarding packets while in low memory mode should not be a problem
+> > at all, since forwarded packets get freed quickly.
+> > 
+> > The memory pool for receiving packets does not need much accounting
+> > of any kind, since every packet will end up coming from that pool
+> > when normal allocations start failing.   Maybe Evgeniy's allocator
+> > can do something smarter internally, and mark skbuffs as MEMALLOC
+> > when the number of available skbuffs is getting low?
+> 
+> As you described above, memory for each packet must be allocated (either
+> from SLAB or from reserve), so network needs special allocator in OOM
+> condition, and that allocator should be separated from SLAB's one which 
+> got OOM, so my purpose is just to use that different allocator (with
+> additional features) for netroking always. Since every piece of
+> networking is limited (socket queues, socket numbers, hardware queues,
+> hardware wire speeds an so on) there is always a maximum amount of
+> memory it can consume and can never exceed, so if network allocator will 
+> get that amount of memory at the begining, it will never meet OOM, 
+> so it will _always_ work and thus can allow to make slow progress for 
+> OOM-capable things like block devices and swap issues. 
+> There are no special reserve and no need to switch to/from it and 
+> no possibility to have OOM by design.
 
---5mCyUwZo2JvN/JJP
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I'm not sure if the network stack is bounded as you say; for instance
+imagine you taking a lot of packets for blocked user-space processes,
+these will just accumulate in the network stack and go nowhere. In that
+case memory usage is very much unbounded.
 
-Please include the attached patch that adds support for a new PHY to the
-sis900 driver. See also Bugzilla 6919.
+Even if blocked sockets would only accept a limited amount of packets,
+it would then become a function of the amount of open sockets, which is
+again unbounded.
 
-Signed-off-by: Daniele Venzano <venza@brownhat.org>
+In any scheme you need to bound the amount of memory, and in low memory
+situations it is very usefull to return memory as soon as possible.
 
--- 
-------------------------------
-Daniele Venzano
-Web: http://teg.homeunix.org
+Hence this approach, it uses the global memory reserve, and a page based
+allocator that does indeed return memory instantly (yes the one I have
+show so far is ghastly, I've since written a nice one).
 
---5mCyUwZo2JvN/JJP
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="patch.diff"
-
-diff -urN linux-source-2.6.15/drivers/net/sis900.c linux-src-modified/drivers/net/sis900.c
---- linux-source-2.6.15/drivers/net/sis900.c	2006-03-02 21:18:37.000000000 +0000
-+++ linux-src-modified/drivers/net/sis900.c	2006-07-29 14:46:51.000000000 +0100
-@@ -131,6 +131,7 @@
- 	{ "AMD 79C901 10BASE-T PHY",  		0x0000, 0x6B70, LAN },
- 	{ "AMD 79C901 HomePNA PHY",		0x0000, 0x6B90, HOME},
- 	{ "ICS LAN PHY",			0x0015, 0xF440, LAN },
-+	{ "ICS LAN PHY",			0x0143, 0xBC70, LAN },
- 	{ "NS 83851 PHY",			0x2000, 0x5C20, MIX },
- 	{ "NS 83847 PHY",                       0x2000, 0x5C30, MIX },
- 	{ "Realtek RTL8201 PHY",		0x0000, 0x8200, LAN },
-
---5mCyUwZo2JvN/JJP--
