@@ -1,43 +1,130 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH,RESEND] smc91x: disable DMA mode on the logicpd pxa270
-Date: Sat, 12 Aug 2006 10:55:07 +0200
-Message-ID: <20060812085506.GA650@xi.wantstofly.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take8 2/2] kevent: poll/select() notifications. Timer notifications.
+Date: Sat, 12 Aug 2006 12:55:02 +0400
+Message-ID: <20060812085502.GB29523@2ka.mipt.ru>
+References: <11552856103972@2ka.mipt.ru> <11552856102674@2ka.mipt.ru> <20060811084531.ac727a7b.akpm@osdl.org> <20060812081835.GA30248@2ka.mipt.ru> <20060812013835.b4b6b815.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nico@cam.org, mikee@logicpd.com, peterb@logicpd.com
+Content-Type: text/plain; charset=koi8-r
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:40359 "EHLO
-	xi.wantstofly.org") by vger.kernel.org with ESMTP id S932371AbWHLIzJ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Aug 2006 04:55:09 -0400
-To: jgarzik@pobox.com, netdev@vger.kernel.org
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:22400 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932481AbWHLIzr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 04:55:47 -0400
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
+In-Reply-To: <20060812013835.b4b6b815.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Enabling PXA DMA for the smc91x on the logicpd pxa270 produces
-unacceptable interference with the TFT panel, so disable it.  Also
-delete the lpd270 versions of the SMC_{in,out}[bl]() macros, as they
-aren't used, since the board only supports 16bit accesses.
+On Sat, Aug 12, 2006 at 01:38:35AM -0700, Andrew Morton (akpm@osdl.org) wrote:
+> On Sat, 12 Aug 2006 12:18:35 +0400
+> Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> 
+> > On Fri, Aug 11, 2006 at 08:45:31AM -0700, Andrew Morton (akpm@osdl.org) wrote:
+> > > > +static struct lock_class_key kevent_poll_key;
+> > > > +
+> > > > +void kevent_poll_reinit(struct file *file)
+> > > > +{
+> > > > +	lockdep_set_class(&file->st.lock, &kevent_poll_key);
+> > > > +}
+> > > 
+> > > Why is this necessary?
+> > 
+> > Locks for all storages are initialized in the same function, so lockdep thinks 
+> > they are the same, so when later one lock is being held in proces
+> > context and other in BH or IRQ lockdep screams, so I reinitialize locks
+> > after spin_lock_init().
+> 
+> So why not simply run spin_lock_init() in the kevent_storage_init() caller?
 
-Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
+I separated storage initialization into special function, although it is
+quite simple, but it allows not to have a lot of duplicated steps in
+each origin (inode, socket, file, AIO, network AIO, poll, timer and so
+on). If later some members will be changed or added/removed there will
+be no need to change them all instead change one function.
 
---- linux-2.6.18-rc4.orig/drivers/net/smc91x.h	2006-08-12 10:45:45.000000000 +0200
-+++ linux-2.6.18-rc4/drivers/net/smc91x.h	2006-08-12 10:46:00.000000000 +0200
-@@ -135,16 +135,11 @@
- #define SMC_CAN_USE_16BIT	1
- #define SMC_CAN_USE_32BIT	0
- #define SMC_IO_SHIFT		0
- #define SMC_NOWAIT		1
--#define SMC_USE_PXA_DMA		1
+> Does kevent_poll_reinit() have any callers?
+
+Only poll nitialization.
+
+> > > > +	st = (struct kevent_storage *)(t+1);
+> > > 
+> > > It would be cleaner to create
+> > > 
+> > > 	struct <something> {
+> > > 		struct timer_list timer;
+> > > 		struct kevent_storage storage;
+> > > 	};
+> 
+> You missed this?
+
+No problem, I will create such structure instead of pointer-based
+scheme.
  
--#define SMC_inb(a, r)		readb((a) + (r))
- #define SMC_inw(a, r)		readw((a) + (r))
--#define SMC_inl(a, r)		readl((a) + (r))
--#define SMC_outb(v, a, r)	writeb(v, (a) + (r))
- #define SMC_outw(v, a, r)	writew(v, (a) + (r))
--#define SMC_outl(v, a, r)	writel(v, (a) + (r))
- #define SMC_insw(a, r, p, l)	readsw((a) + (r), p, l)
- #define SMC_outsw(a, r, p, l)	writesw((a) + (r), p, l)
- 
- #elif	defined(CONFIG_ARCH_INNOKOM) || \
+> > > > +	
+> > > > +	kevent_storage_dequeue(st, k);
+> > > > +	
+> > > > +	kfree(t);
+> > > > +
+> > > > +	return 0;
+> > > > +}
+> > > > +
+> > > > +static int kevent_timer_callback(struct kevent *k)
+> > > > +{
+> > > > +	struct kevent_storage *st = k->st;
+> > > > +	struct timer_list *t = st->origin;
+> > > > +
+> > > > +	if (!t)
+> > > > +		return -ENODEV;
+> > > > +	
+> > > > +	k->event.ret_data[0] = (__u32)jiffies;
+> > > 
+> > > What does this do?
+> > > 
+> > > Does it expose jiffies to userspace?
+> > > 
+> > > It truncates jiffies on 64-bit machines.
+> > 
+> > It is a hint when timer was stopped.
+> 
+> What does that mean?  What is it for?
+
+My test code prints it to stdout and I can show a nice graph of how
+precise timer is.
+
+> Does it expose jiffies to userspace?
+
+It is a timestamp of fired condition (measured in jiffies), I can not
+say if it exposes jiffies to userspace or not.
+It is not a requirement to use that field, it can contain zero or any
+other number, I placed jiffies there.
+
+> It truncates jiffies on 64-bit machines.
+
+For the purpose of evnt timestamp it is more than enough.
+
+> Please respond to all review comments and questions.
+
+Sorry if something got lost.
+
+> > > > +late_initcall(kevent_init_timer);
+> > > 
+> > > module_init() would be more typical.  If there was a reason for using
+> > > late_initcall(), that reason should be commented.
+> > 
+> > No, there are no reasons to use late_initcall() in any kevent
+> > initialization function, I do not use module_init() since kevent can not
+> > be modular. It can be replaced with pure __init function.
+> > Should it?
+> 
+> We use module_init() for non-modular modules all the time.  Try doing
+> grep module_init */*.c
+
+Ok, I will use it instead late_initcall().
+
+-- 
+	Evgeniy Polyakov
