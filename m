@@ -1,45 +1,62 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH] CONFIG_PM=n slim: drivers/net/*
-Date: Sat, 12 Aug 2006 10:06:29 -0700
-Message-ID: <adar6zlnasq.fsf@cisco.com>
-References: <20060812004623.GM6847@martell.zuzino.mipt.ru>
-	<20060811184943.96419537.akpm@osdl.org>
-	<20060812023014.GP6847@martell.zuzino.mipt.ru>
-	<20060811194952.9d664698.akpm@osdl.org>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.18-rc3-mm2 (+ hotfixes): GPF related to skge on suspend
+Date: Sat, 12 Aug 2006 19:13:01 +0200
+Message-ID: <200608121913.01139.rjw@sisk.pl>
+References: <200608121207.42268.rjw@sisk.pl> <200608121631.18603.rjw@sisk.pl> <20060812161253.GA30691@edgar.underground.se.axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, LKML <linux-kernel@vger.kernel.org>,
+	Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-4.cisco.com ([171.68.10.86]:13632 "EHLO
-	sj-iport-4.cisco.com") by vger.kernel.org with ESMTP
-	id S964916AbWHLRGc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Aug 2006 13:06:32 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060811194952.9d664698.akpm@osdl.org> (Andrew Morton's message of "Fri, 11 Aug 2006 19:49:52 -0700")
+Received: from ogre.sisk.pl ([217.79.144.158]:8591 "EHLO ogre.sisk.pl")
+	by vger.kernel.org with ESMTP id S964921AbWHLRON (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 13:14:13 -0400
+To: "Edgar E. Iglesias" <edgar.iglesias@axis.com>
+In-Reply-To: <20060812161253.GA30691@edgar.underground.se.axis.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > > Also this won't allow
- > > 
- > > 	struct pci_driver {
- > > 		...
- > > 	#ifdef CONFIG_PM
- > > 		int (*suspend)(...);
- > > 		int (*resume)(...);
- > > 	#endif
- > > 		...
- > > 	};
- > > 
- > > which is good for a) space savings in CONFIG_PM=n case, and
- > > b) making drivers care about CONFIG_PM=n users hard way aka compilation
- > > failure.
- > 
- > eh?  Both versions will generate identical code.
+On Saturday 12 August 2006 18:12, Edgar E. Iglesias wrote:
+> On Sat, Aug 12, 2006 at 04:31:18PM +0200, Rafael J. Wysocki wrote:
+> > On Saturday 12 August 2006 14:28, Andrew Morton wrote:
+> > > On Sat, 12 Aug 2006 12:07:42 +0200
+> > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+> > > 
+> > > > Hi,
+> > > > 
+> > > > On 2.6.18-rc3-mm2 with hotfixes I get things like the appended one on attempts
+> > > > to suspend to disk.  It occurs while devices are being suspended and is fairly
+> > > > reproducible.
+> > > > 
+> > > > Greetings,
+> > > > Rafael
+> > > > 
+> > > > 
+> > > > Suspending device 0000:01:00.0
+> > > > Suspending device 0000:02:02.0
+> > > > Suspending device 0000:02:01.4
+> > > > Suspending device 0000:02:01.3
+> > > > Suspending device 0000:02:01.2
+> > > > Suspending device 0000:02:01.1
+> > > > Suspending device 0000:02:01.0
+> > > > Suspending device 0000:02:00.0
+> > > > skge Ram read data parity error
+> > > > skge Ram write data parity error
+> > > > skge eth0: receive queue parity error
+> > > > skge <NULL>: receive queue parity error
+> > 
+> > This stuff comes from the interrupt handler which apparently races with
+> > something.
+> 
+> Maybe the skge driver is not doing netif_poll_disable before clearing the rx 
+> ring at suspend/down?
 
-I think his point was that by #ifdef-ing out the assignment to
-.suspend/.resume, then the actual suspend/resume members of struct
-pci_driver could be removed in the CONFIG_PM=n case -- which would
-shrink sizeof (struct pci_driver).
+Apparently it doesn't.
 
- - R.
+At least netif_poll_disable is not referenced anywhere in skge.c .
+
+Greetings,
+Rafael
