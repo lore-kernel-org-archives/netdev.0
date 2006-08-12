@@ -1,62 +1,33 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.18-rc3-mm2 (+ hotfixes): GPF related to skge on suspend
-Date: Sat, 12 Aug 2006 19:13:01 +0200
-Message-ID: <200608121913.01139.rjw@sisk.pl>
-References: <200608121207.42268.rjw@sisk.pl> <200608121631.18603.rjw@sisk.pl> <20060812161253.GA30691@edgar.underground.se.axis.com>
+From: Chris Wedgwood <cw@f00f.org>
+Subject: Re: pci=routeirq solves EHCI-problem
+Date: Sat, 12 Aug 2006 10:28:08 -0700
+Message-ID: <20060812172808.GA14668@tuatara.stupidest.org>
+References: <44D83CB6.7030406@lurban.de> <44D89F5D.2000106@lurban.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, LKML <linux-kernel@vger.kernel.org>,
-	Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:8591 "EHLO ogre.sisk.pl")
-	by vger.kernel.org with ESMTP id S964921AbWHLRON (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 13:14:13 -0400
-To: "Edgar E. Iglesias" <edgar.iglesias@axis.com>
-In-Reply-To: <20060812161253.GA30691@edgar.underground.se.axis.com>
+Received: from smtp111.sbc.mail.mud.yahoo.com ([68.142.198.210]:53946 "HELO
+	smtp111.sbc.mail.mud.yahoo.com") by vger.kernel.org with SMTP
+	id S932142AbWHLR2L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Aug 2006 13:28:11 -0400
+To: Lutz Urban <lurban@lurban.de>
 Content-Disposition: inline
+In-Reply-To: <44D89F5D.2000106@lurban.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 12 August 2006 18:12, Edgar E. Iglesias wrote:
-> On Sat, Aug 12, 2006 at 04:31:18PM +0200, Rafael J. Wysocki wrote:
-> > On Saturday 12 August 2006 14:28, Andrew Morton wrote:
-> > > On Sat, 12 Aug 2006 12:07:42 +0200
-> > > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > > 
-> > > > Hi,
-> > > > 
-> > > > On 2.6.18-rc3-mm2 with hotfixes I get things like the appended one on attempts
-> > > > to suspend to disk.  It occurs while devices are being suspended and is fairly
-> > > > reproducible.
-> > > > 
-> > > > Greetings,
-> > > > Rafael
-> > > > 
-> > > > 
-> > > > Suspending device 0000:01:00.0
-> > > > Suspending device 0000:02:02.0
-> > > > Suspending device 0000:02:01.4
-> > > > Suspending device 0000:02:01.3
-> > > > Suspending device 0000:02:01.2
-> > > > Suspending device 0000:02:01.1
-> > > > Suspending device 0000:02:01.0
-> > > > Suspending device 0000:02:00.0
-> > > > skge Ram read data parity error
-> > > > skge Ram write data parity error
-> > > > skge eth0: receive queue parity error
-> > > > skge <NULL>: receive queue parity error
-> > 
-> > This stuff comes from the interrupt handler which apparently races with
-> > something.
-> 
-> Maybe the skge driver is not doing netif_poll_disable before clearing the rx 
-> ring at suspend/down?
+On Tue, Aug 08, 2006 at 04:27:41PM +0200, Lutz Urban wrote:
 
-Apparently it doesn't.
+> I'm sorry to tell you that my previous message was bogus. The problem 
+> still persists.
 
-At least netif_poll_disable is not referenced anywhere in skge.c .
+Daniel Drake has posted a fix that's in -mm you can try.  It's
+probably the least painful solution to date, can you please try that:
 
-Greetings,
-Rafael
+    http://kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18-rc2/2.6.18-rc2-mm1/broken-out/pci-quirk_via_irq-behaviour-change.patch
+
+and let us know how it works for you.
+
+I'd like to see this or something similar merged into mainline and
+-stable pretty soon (pending problem reports from people).
