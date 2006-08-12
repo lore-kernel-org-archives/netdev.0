@@ -1,57 +1,43 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
-Date: Sat, 12 Aug 2006 12:47:13 +0400
-Message-ID: <20060812084713.GA29523@2ka.mipt.ru>
-References: <20060808193325.1396.58813.sendpatchset@lappy> <20060809054648.GD17446@2ka.mipt.ru> <1155127040.12225.25.camel@twins> <20060809130752.GA17953@2ka.mipt.ru> <1155130353.12225.53.camel@twins> <44DD4E3A.4040000@redhat.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH,RESEND] smc91x: disable DMA mode on the logicpd pxa270
+Date: Sat, 12 Aug 2006 10:55:07 +0200
+Message-ID: <20060812085506.GA650@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Daniel Phillips <phillips@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: nico@cam.org, mikee@logicpd.com, peterb@logicpd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:49360 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932403AbWHLIrr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 04:47:47 -0400
-To: Rik van Riel <riel@redhat.com>
+Received: from alephnull.demon.nl ([83.160.184.112]:40359 "EHLO
+	xi.wantstofly.org") by vger.kernel.org with ESMTP id S932371AbWHLIzJ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Aug 2006 04:55:09 -0400
+To: jgarzik@pobox.com, netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <44DD4E3A.4040000@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 11, 2006 at 11:42:50PM -0400, Rik van Riel (riel@redhat.com) wrote:
-> >Dropping these non-essential packets makes sure the reserve memory 
-> >doesn't get stuck in some random blocked user-space process, hence
-> >you can make progress.
-> 
-> In short:
->  - every incoming packet needs to be received at the packet level
->  - when memory is low, we only deliver data to memory critical sockets
->  - packets to other sockets get dropped, so the memory can be reused
->    for receiving other packets, including the packets needed for the
->    memory critical sockets to make progress
-> 
-> Forwarding packets while in low memory mode should not be a problem
-> at all, since forwarded packets get freed quickly.
-> 
-> The memory pool for receiving packets does not need much accounting
-> of any kind, since every packet will end up coming from that pool
-> when normal allocations start failing.   Maybe Evgeniy's allocator
-> can do something smarter internally, and mark skbuffs as MEMALLOC
-> when the number of available skbuffs is getting low?
+Enabling PXA DMA for the smc91x on the logicpd pxa270 produces
+unacceptable interference with the TFT panel, so disable it.  Also
+delete the lpd270 versions of the SMC_{in,out}[bl]() macros, as they
+aren't used, since the board only supports 16bit accesses.
 
-As you described above, memory for each packet must be allocated (either
-from SLAB or from reserve), so network needs special allocator in OOM
-condition, and that allocator should be separated from SLAB's one which 
-got OOM, so my purpose is just to use that different allocator (with
-additional features) for netroking always. Since every piece of
-networking is limited (socket queues, socket numbers, hardware queues,
-hardware wire speeds an so on) there is always a maximum amount of
-memory it can consume and can never exceed, so if network allocator will 
-get that amount of memory at the begining, it will never meet OOM, 
-so it will _always_ work and thus can allow to make slow progress for 
-OOM-capable things like block devices and swap issues. 
-There are no special reserve and no need to switch to/from it and 
-no possibility to have OOM by design.
+Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
 
--- 
-	Evgeniy Polyakov
+--- linux-2.6.18-rc4.orig/drivers/net/smc91x.h	2006-08-12 10:45:45.000000000 +0200
++++ linux-2.6.18-rc4/drivers/net/smc91x.h	2006-08-12 10:46:00.000000000 +0200
+@@ -135,16 +135,11 @@
+ #define SMC_CAN_USE_16BIT	1
+ #define SMC_CAN_USE_32BIT	0
+ #define SMC_IO_SHIFT		0
+ #define SMC_NOWAIT		1
+-#define SMC_USE_PXA_DMA		1
+ 
+-#define SMC_inb(a, r)		readb((a) + (r))
+ #define SMC_inw(a, r)		readw((a) + (r))
+-#define SMC_inl(a, r)		readl((a) + (r))
+-#define SMC_outb(v, a, r)	writeb(v, (a) + (r))
+ #define SMC_outw(v, a, r)	writew(v, (a) + (r))
+-#define SMC_outl(v, a, r)	writel(v, (a) + (r))
+ #define SMC_insw(a, r, p, l)	readsw((a) + (r), p, l)
+ #define SMC_outsw(a, r, p, l)	writesw((a) + (r), p, l)
+ 
+ #elif	defined(CONFIG_ARCH_INNOKOM) || \
