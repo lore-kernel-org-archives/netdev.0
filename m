@@ -1,32 +1,51 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.18-rc3-mm2 (+ hotfixes): GPF related to skge on suspend
-Date: Sat, 12 Aug 2006 16:32:19 +0200
-Message-ID: <200608121632.19070.rjw@sisk.pl>
-References: <200608121207.42268.rjw@sisk.pl> <20060812052853.f9e5d648.akpm@osdl.org> <44DDDA2F.4080404@garzik.org>
+From: Rik van Riel <riel@redhat.com>
+Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
+Date: Sat, 12 Aug 2006 10:40:23 -0400
+Message-ID: <44DDE857.3080703@redhat.com>
+References: <20060808193325.1396.58813.sendpatchset@lappy> <20060809054648.GD17446@2ka.mipt.ru> <1155127040.12225.25.camel@twins> <20060809130752.GA17953@2ka.mipt.ru> <1155130353.12225.53.camel@twins> <44DD4E3A.4040000@redhat.com> <20060812084713.GA29523@2ka.mipt.ru> <1155374390.13508.15.camel@lappy> <20060812093706.GA13554@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, LKML <linux-kernel@vger.kernel.org>,
-	Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Daniel Phillips <phillips@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:22158 "EHLO ogre.sisk.pl")
-	by vger.kernel.org with ESMTP id S964835AbWHLOdB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 10:33:01 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <44DDDA2F.4080404@garzik.org>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([66.187.233.31]:44768 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S964835AbWHLOkh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 10:40:37 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060812093706.GA13554@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 12 August 2006 15:39, Jeff Garzik wrote:
-> Andrew Morton wrote:
-> > It would be good if you could poke around in gdb, work out exactly which
-> > statement it's oopsing at, please.
+Evgeniy Polyakov wrote:
+> On Sat, Aug 12, 2006 at 11:19:49AM +0200, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
+>>> As you described above, memory for each packet must be allocated (either
+>>> from SLAB or from reserve), so network needs special allocator in OOM
+>>> condition, and that allocator should be separated from SLAB's one which 
+>>> got OOM, so my purpose is just to use that different allocator (with
+>>> additional features) for netroking always.
 > 
-> I'm also interested to know if the problem goes away when you disable 
-> preempt...
+> No it is not. There are socket queues and they are limited. Things like
+> TCP behave even better.
 
-That will take some time to test. :-)
+Ahhh, but there are two allocators in play here.
 
-Rafael
+The first one allocates the memory for receiving packets.
+This can be one pool, as long as it is isolated from
+other things in the system it is fine.
+
+The second allocator allocates more memory for socket
+buffers.  The memory critical sockets should get their
+memory from a mempool, once normal socket memory
+allocations start failing.
+
+This means our allocation differentiation only needs
+to happen at the socket stage.
+
+Or am I overlooking something?
+
+-- 
+"Debugging is twice as hard as writing the code in the first place.
+Therefore, if you write the code as cleverly as possible, you are,
+by definition, not smart enough to debug it." - Brian W. Kernighan
