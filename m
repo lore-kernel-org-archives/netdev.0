@@ -1,61 +1,50 @@
-From: "Edgar E. Iglesias" <edgar.iglesias@axis.com>
-Subject: Re: 2.6.18-rc3-mm2 (+ hotfixes): GPF related to skge on suspend
-Date: Sat, 12 Aug 2006 18:12:53 +0200
-Message-ID: <20060812161253.GA30691@edgar.underground.se.axis.com>
-References: <200608121207.42268.rjw@sisk.pl> <20060812052853.f9e5d648.akpm@osdl.org> <200608121631.18603.rjw@sisk.pl>
+From: Thomas Klein <osstklei@de.ibm.com>
+Subject: Re: [PATCH 3/6] ehea: queue management
+Date: Sat, 12 Aug 2006 18:37:04 +0200
+Message-ID: <44DE03B0.1060607@de.ibm.com>
+References: <44D99F38.8010306@de.ibm.com> <20060811215225.GH479@krispykreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, LKML <linux-kernel@vger.kernel.org>,
-	Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jan-Bernd Themann <ossthema@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from miranda.se.axis.com ([193.13.178.8]:44202 "EHLO
-	miranda.se.axis.com") by vger.kernel.org with ESMTP id S964878AbWHLQM4
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:27333 "EHLO
+	mtagate1.de.ibm.com") by vger.kernel.org with ESMTP id S964881AbWHLQhG
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Aug 2006 12:12:56 -0400
-Received: from axis.com (edgar.se.axis.com [10.92.151.1])
-	by miranda.se.axis.com (8.12.9/8.12.9/Debian-5local0.1) with ESMTP id k7CGCsP0019097
-	for <netdev@vger.kernel.org>; Sat, 12 Aug 2006 18:12:54 +0200
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Content-Disposition: inline
-In-Reply-To: <200608121631.18603.rjw@sisk.pl>
+	Sat, 12 Aug 2006 12:37:06 -0400
+To: Anton Blanchard <anton@samba.org>,
+	Jan-Bernd Themann <themann@de.ibm.com>
+In-Reply-To: <20060811215225.GH479@krispykreme>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 12, 2006 at 04:31:18PM +0200, Rafael J. Wysocki wrote:
-> On Saturday 12 August 2006 14:28, Andrew Morton wrote:
-> > On Sat, 12 Aug 2006 12:07:42 +0200
-> > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> > 
-> > > Hi,
-> > > 
-> > > On 2.6.18-rc3-mm2 with hotfixes I get things like the appended one on attempts
-> > > to suspend to disk.  It occurs while devices are being suspended and is fairly
-> > > reproducible.
-> > > 
-> > > Greetings,
-> > > Rafael
-> > > 
-> > > 
-> > > Suspending device 0000:01:00.0
-> > > Suspending device 0000:02:02.0
-> > > Suspending device 0000:02:01.4
-> > > Suspending device 0000:02:01.3
-> > > Suspending device 0000:02:01.2
-> > > Suspending device 0000:02:01.1
-> > > Suspending device 0000:02:01.0
-> > > Suspending device 0000:02:00.0
-> > > skge Ram read data parity error
-> > > skge Ram write data parity error
-> > > skge eth0: receive queue parity error
-> > > skge <NULL>: receive queue parity error
-> 
-> This stuff comes from the interrupt handler which apparently races with
-> something.
+Anton Blanchard wrote:
+> Hi,
+>
+>   
+>> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea_ethtool.c	1969-12-31 
+>>     
+>
+>   
+>> +static void netdev_get_pauseparam(struct net_device *dev,
+>> +				  struct ethtool_pauseparam *pauseparam)
+>> +{
+>> +	printk("get pauseparam\n");
+>> +}
+>>     
+>
+> There are a number of stubbed out ethtool functions like this. Best not
+> to implement them and allow the upper layers to return a correct error.
+>
+> Anton
+>   
+I agree, stubbs were removed.
 
-Maybe the skge driver is not doing netif_poll_disable before clearing the rx 
-ring at suspend/down?
+Thomas
 
-Best regards
--- 
-        Programmer
-        Edgar E. Iglesias <edgar.iglesias@axis.com> 46.46.272.1946
