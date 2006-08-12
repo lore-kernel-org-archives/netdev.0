@@ -1,42 +1,84 @@
-From: Jakub Jelinek <jakub@redhat.com>
-Subject: Re: Kernel patches enabling better POSIX AIO (Was Re: [3/4] kevent: AIO, aio_sendfile)
-Date: Sat, 12 Aug 2006 15:28:02 -0400
-Message-ID: <20060812192802.GO32572@devserv.devel.redhat.com>
-References: <1153982954.3887.9.camel@frecb000686> <44C8DB80.6030007@us.ibm.com> <44C9029A.4090705@oracle.com> <1154024943.29920.3.camel@dyn9047017100.beaverton.ibm.com> <44C90987.1040200@redhat.com> <1154034164.29920.22.camel@dyn9047017100.beaverton.ibm.com> <1154091500.13577.14.camel@frecb000686> <44DCDE73.9030901@redhat.com> <20060812182928.GA1989@in.ibm.com> <44DE27AB.7040507@redhat.com>
-Reply-To: Jakub Jelinek <jakub@redhat.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Stackable devices.
+Date: Sat, 12 Aug 2006 11:43:58 -0700
+Message-ID: <44DE216E.4020609@candelatech.com>
+References: <44CA34D0.1070507@candelatech.com> <20060808120307.GA17547@walrus.eth1.org> <44D8BD99.1090505@candelatech.com> <200608091557.09249.Christophe.Devriese@eurid.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: suparna@in.ibm.com, sebastien.dugue@bull.net,
-	Badari Pulavarty <pbadari@us.ibm.com>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linux-aio@kvack.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:51169 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S964942AbWHLT2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 15:28:25 -0400
-To: Ulrich Drepper <drepper@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <44DE27AB.7040507@redhat.com>
+Received: from ns2.lanforge.com ([66.165.47.211]:13219 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S1422646AbWHLTeJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 15:34:09 -0400
+To: Christophe Devriese <Christophe.Devriese@eurid.eu>
+In-Reply-To: <200608091557.09249.Christophe.Devriese@eurid.eu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 12, 2006 at 12:10:35PM -0700, Ulrich Drepper wrote:
-> > I am wondering about that too. IIRC, the IO_NOTIFY_* constants are not
-> > part of the ABI, but only internal to the kernel implementation. I think
-> > Zach had suggested inferring THREAD_ID notification if the pid specified
-> > is not zero. But, I don't see why ->sigev_notify couldn't used directly
-> > (just like the POSIX timers code does) thus doing away with the 
-> > new constants altogether. Sebestian/Laurent, do you recall?
+Christophe Devriese wrote:
+> It would however be considerable effort to do this. Is this going to end up 
+> unapplied like my last patch, or ?
+
+I don't get to make this decision..and when I ask such questions...they
+are usually ignored unless I also post a working patch....
+
+I think you could start with just supporting bridging without too
+much code.
+
+Ben
+
 > 
-> I suggest to model the implementation after the timer code which does
-> exactly what we need.
+> Regards,
+> 
+> Christophe
+> 
+> On Tuesday 08 August 2006 18:36, you wrote:
+> 
+>>Christophe Devriese wrote:
+>>
+>>>On Wed, Aug 02, 2006 at 10:50:08AM -0700, Ben Greear wrote:
+>>>
+>>>>Currently, the bridge hook logic is something like:
+>>>>
+>>>>if (bridge-consumed-pkt) {
+>>>>	return
+>>>>}
+>>>>
+>>>>// drop through to other layers
+>>>>
+>>>>
+>>>>There are several other hooks I'd like to see added (pktgen receive
+>>>>processing,
+>>>>mac-vlans, etc).  Each of these hooks are logically similar to the bridge
+>>>>hook,
+>>>>ie if it consumes the pkt, return, else, drop through to the next hook
+>>>>untill
+>>>>we get to the regular protocol processing logic.
+>>>>
+>>>>I would like to be able to chain layer-2 handlers, such as bridge,
+>>>>mac-vlan, pktgen such that if one consumed, you break out of the
+>>>>handling, else, you try the next handler.  The handlers can be
+>>>>dynamically registered and inserted
+>>>>in any order, controllable by user-space and/or module load/unload.
+>>>>
+>>>>For many of the handlers, the logic will re-insert the packet by
+>>>>re-calling the
+>>>>netif-rx logic, so there would need to be some protection to keep loops
+>>>>from occurring that would recurse too much and overflow the stack.
+>>>
+>>>I'm also a big fan of a generalized system like this. It would need to
+>>>catch both the vlan accelerated path and the normal path.
+>>
+>>Well, it isn't actually needed for VLANs since VLAN's hook is a protocol
+>>handler....
+>>
+>>Ben
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-Yeah, and if at all possible we want to use just one helper thread for
-SIGEV_THREAD notification of timers/aio/etc., so it really should behave the
-same as timer thread notification.
 
-	Jakub
