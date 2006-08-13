@@ -1,35 +1,119 @@
-From: Nix <nix@esperi.org.uk>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [2.6.17.8] NFS stall / BUG in UDP fragment processing / SKB trimming
-Date: Sun, 13 Aug 2006 13:29:55 +0100
-Message-ID: <87psf4zum4.fsf@hades.wkstn.nix>
-References: <87zme9fy94.fsf@hades.wkstn.nix> <87d5b5vbtk.fsf@hades.wkstn.nix>
+Date: Sun, 13 Aug 2006 22:59:11 +1000
+Message-ID: <20060813125910.GA18463@gondor.apana.org.au>
+References: <87zme9fy94.fsf@hades.wkstn.nix>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Neil Brown <neilb@suse.de>, netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 41-052.adsl.zetnet.co.uk ([194.247.41.52]:48146 "EHLO
-	mail.esperi.org.uk") by vger.kernel.org with ESMTP id S1751148AbWHMMaR
+Received: from rhun.apana.org.au ([64.62.148.172]:41738 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751172AbWHMNAA
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 08:30:17 -0400
-To: linux-kernel@vger.kernel.org
-In-Reply-To: <87d5b5vbtk.fsf@hades.wkstn.nix> (nix@esperi.org.uk's message of "12 Aug 2006 23:17:42 +0100")
+	Sun, 13 Aug 2006 09:00:00 -0400
+To: "David S. Miller" <davem@davemloft.net>, Greg KH <greg@kroah.com>,
+	Nix <nix@esperi.org.uk>
+Content-Disposition: inline
+In-Reply-To: <87zme9fy94.fsf@hades.wkstn.nix>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12 Aug 2006, nix@esperi.org.uk wrote:
-> On 12 Aug 2006, nix@esperi.org.uk mused:
->> Then the build froze. I couldn't very well ignore *that*. Perhaps I
->> couldn't blame XEmacs after all.
+On Sat, Aug 12, 2006 at 09:19:19PM +0000, Nix wrote:
 > 
-> It just happened again. It's reproducibly triggered, at least on this
-> system, by the ocaml-3.09.02 configure script running over NFS (probably
-> NFS over UDP is necessary as well).
+> The kernel log showed a heap of BUGs from somewhere inside the skb
+> management layer, somewhere in UDP fragment processing while
+> handling NFS requests. It starts like this:
+> 
+> Aug 12 21:31:08 hades warning: kernel: BUG: warning at include/linux/skbuff.h:975/__skb_trim()
+> Aug 12 21:31:08 hades warning: kernel: <c030ed39> ip_append_data+0x5b3/0x951  <c030fc18> ip_generic_getfrag+0x0/0x96
 
-... also triggered by running a CVS update on a large tree, and pretty
-much by doing anything heavy-duty with NFS on UDP at all.
+Oops, I missed this code path when I disallowed skb_trim from operating
+on a paged skb.  This patch should fix the problem.
 
-NFS on TCP is, as expected, unaffected by this bug.
+Greg, we need this for 2.6.17 stable as well if Dave is OK with it.
 
+[INET]: Use pskb_trim_unique when trimming paged unique skbs
+
+The IPv4/IPv6 datagram output path was using skb_trim to trim paged
+packets because they know that the packet has not been cloned yet
+(since the packet hasn't been given to anything else in the system).
+
+This broke because skb_trim no longer allows paged packets to be
+trimmed.  Paged packets must be given to one of the pskb_trim functions
+instead.
+
+This patch adds a new pskb_trim_unique function to cover the IPv4/IPv6
+datagram output path scenario and replaces the corresponding skb_trim
+calls with it.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
 -- 
-`We're sysadmins. We deal with the inconceivable so often I can clearly 
- see the need to define levels of inconceivability.' --- Rik Steenwinkel
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 19c96d4..7f99995 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1040,6 +1040,21 @@ static inline int pskb_trim(struct sk_bu
+ }
+ 
+ /**
++ *	pskb_trim_unique - remove end from a paged unique (not cloned) buffer
++ *	@skb: buffer to alter
++ *	@len: new length
++ *
++ *	This is identical to pskb_trim except that the caller knows that
++ *	the skb is not cloned so we should never get an error due to out-
++ *	of-memory.
++ */
++static inline void pskb_trim_unique(struct sk_buff *skb, unsigned int len)
++{
++	int err = pskb_trim(skb, len);
++	BUG_ON(err);
++}
++
++/**
+  *	skb_orphan - orphan a buffer
+  *	@skb: buffer to orphan
+  *
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 9bf307a..4c20f55 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -947,7 +947,7 @@ alloc_new_skb:
+ 				skb_prev->csum = csum_sub(skb_prev->csum,
+ 							  skb->csum);
+ 				data += fraggap;
+-				skb_trim(skb_prev, maxfraglen);
++				pskb_trim_unique(skb_prev, maxfraglen);
+ 			}
+ 
+ 			copy = datalen - transhdrlen - fraggap;
+@@ -1142,7 +1142,7 @@ ssize_t	ip_append_page(struct sock *sk, 
+ 					data, fraggap, 0);
+ 				skb_prev->csum = csum_sub(skb_prev->csum,
+ 							  skb->csum);
+-				skb_trim(skb_prev, maxfraglen);
++				pskb_trim_unique(skb_prev, maxfraglen);
+ 			}
+ 
+ 			/*
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 69451af..4fb47a2 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1095,7 +1095,7 @@ alloc_new_skb:
+ 				skb_prev->csum = csum_sub(skb_prev->csum,
+ 							  skb->csum);
+ 				data += fraggap;
+-				skb_trim(skb_prev, maxfraglen);
++				pskb_trim_unique(skb_prev, maxfraglen);
+ 			}
+ 			copy = datalen - transhdrlen - fraggap;
+ 			if (copy < 0) {
