@@ -1,35 +1,151 @@
-From: "Mr Richard Williams" <richardwilliams2001@web2mail.com>
-Subject: +From Portugal & Urgent Reply Needed +
-Date: Sun, 13 Aug 2006 14:06:21 -0600
-Message-ID: <200608131406.AA58261698__49354.607347823$1155502998$gmane$org@web1.belizeweb.com>
-Reply-To: <richardwilliams2001@web2mail.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] net/ipv6/ip6_fib.c: make code static
+Date: Sun, 13 Aug 2006 23:01:16 +0200
+Message-ID: <20060813210116.GQ3543@stusta.de>
+References: <20060813012454.f1d52189.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.belizeweb.com ([206.27.238.23]:45581 "EHLO
-	web1.belizeweb.com") by vger.kernel.org with ESMTP id S1751435AbWHMVBn
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 17:01:43 -0400
-To: <richardwilliams2001@web2mail.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751523AbWHMVCF@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, davem@davemloft.net
+Content-Disposition: inline
+In-Reply-To: <20060813012454.f1d52189.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From . Mr. Richard Williams.
-13 - 8 - 2006.
+On Sun, Aug 13, 2006 at 01:24:54AM -0700, Andrew Morton wrote:
+>...
+> Changes since 2.6.18-rc3-mm2:
+>...
+>  git-net.patch
+>...
+>  git trees
+>...
 
-Kindest Attention:
+This patch makes the following needlessly global code static:
+- fib6_walker_lock
+- struct fib6_walker_list
+- fib6_walk_continue()
+- fib6_walk()
 
-My name is Mr. Richard Williams . I am from Portugal .  I have been diagnosed with Esophageal cancer. It has defiled all forms of medical treatment, and right now I have only about a few months to live, according to medical experts. I have not particularly lived my life so well, as I never really cared for anyone (not even myself)but my business.  Though I am very rich, I was never generous, I was always hostile to people and only focused on my business as that was the only thing I cared for. But now I regret all this as I now know that there is more to life than just wanting to have or make all the money in the world. I believe when God gives me a second chance to come to this world I would live my life a different way from how I have lived it.
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Now that God has called me, I have willed and given most of my property and assets to my immediate and extended family members as well as few close friends .I want God to be merciful to me and accept my soul so, I have decided to give alms to charity organizations and those in Need, as I want this to be one of the last good deeds I do on earth. So far, I have Distributed money to some charity organizations when I was well. Now that my health has deteriorated so badly, I cannot do this myself anymore. I once asked members of my family to close one of my accounts and distribute the money which I have there to charity organization in United States, Asia, Middle East & Europe, they refused and kept the money to themselves. 
+---
 
-Hence, I do not trust them anymore, as they seem not to be contended with what I have left for them. The last of my money which no one knows of is the huge cash deposit of Twenty Million United States Dollars ($20, 000, 000.00) that I have with an Asset Management / Vaulting Company Abroad. I will want you to help me collect this deposit and dispatch it to charity organizations and use it to help those in Need.
+ include/net/ip6_fib.h |   25 -------------------------
+ net/ipv6/ip6_fib.c    |   29 ++++++++++++++++++++++++-----
+ 2 files changed, 24 insertions(+), 30 deletions(-)
 
-N/B:Kindly note that  40% of this funds must go to  victims of Tsunami, Hurricane Katrina , Hurricane Wilma and South Asia Earthquake , 55% to other Charity Organizations around the World and 5%  for your effort and time.
-
-I cannot talk with you on the phone due to my health situation, as I am using my Lap Top Computer to communicate with you. You should respond to this e-mail if you are interested in carrying out this assignment on my behalf.
-
-God be with you.
-
-Mr. Richard Williams.
-
+--- linux-2.6.18-rc4-mm1/include/net/ip6_fib.h.old	2006-08-13 20:25:29.000000000 +0200
++++ linux-2.6.18-rc4-mm1/include/net/ip6_fib.h	2006-08-13 20:29:34.000000000 +0200
+@@ -92,28 +92,6 @@
+ 	void *args;
+ };
+ 
+-extern struct fib6_walker_t fib6_walker_list;
+-extern rwlock_t fib6_walker_lock;
+-
+-static inline void fib6_walker_link(struct fib6_walker_t *w)
+-{
+-	write_lock_bh(&fib6_walker_lock);
+-	w->next = fib6_walker_list.next;
+-	w->prev = &fib6_walker_list;
+-	w->next->prev = w;
+-	w->prev->next = w;
+-	write_unlock_bh(&fib6_walker_lock);
+-}
+-
+-static inline void fib6_walker_unlink(struct fib6_walker_t *w)
+-{
+-	write_lock_bh(&fib6_walker_lock);
+-	w->next->prev = w->prev;
+-	w->prev->next = w->next;
+-	w->prev = w->next = w;
+-	write_unlock_bh(&fib6_walker_lock);
+-}
+-
+ struct rt6_statistics {
+ 	__u32		fib_nodes;
+ 	__u32		fib_route_nodes;
+@@ -195,9 +173,6 @@
+ extern void			fib6_clean_all(int (*func)(struct rt6_info *, void *arg),
+ 					       int prune, void *arg);
+ 
+-extern int			fib6_walk(struct fib6_walker_t *w);
+-extern int			fib6_walk_continue(struct fib6_walker_t *w);
+-
+ extern int			fib6_add(struct fib6_node *root,
+ 					 struct rt6_info *rt,
+ 					 struct nlmsghdr *nlh,
+--- linux-2.6.18-rc4-mm1/net/ipv6/ip6_fib.c.old	2006-08-13 20:26:04.000000000 +0200
++++ linux-2.6.18-rc4-mm1/net/ipv6/ip6_fib.c	2006-08-13 20:29:35.000000000 +0200
+@@ -69,8 +69,7 @@
+ 	void *arg;
+ };
+ 
+-DEFINE_RWLOCK(fib6_walker_lock);
+-
++static DEFINE_RWLOCK(fib6_walker_lock);
+ 
+ #ifdef CONFIG_IPV6_SUBTREES
+ #define FWS_INIT FWS_S
+@@ -82,6 +81,8 @@
+ 
+ static void fib6_prune_clones(struct fib6_node *fn, struct rt6_info *rt);
+ static struct fib6_node * fib6_repair_tree(struct fib6_node *fn);
++static int fib6_walk(struct fib6_walker_t *w);
++static int fib6_walk_continue(struct fib6_walker_t *w);
+ 
+ /*
+  *	A routing update causes an increase of the serial number on the
+@@ -94,13 +95,31 @@
+ 
+ static DEFINE_TIMER(ip6_fib_timer, fib6_run_gc, 0, 0);
+ 
+-struct fib6_walker_t fib6_walker_list = {
++static struct fib6_walker_t fib6_walker_list = {
+ 	.prev	= &fib6_walker_list,
+ 	.next	= &fib6_walker_list, 
+ };
+ 
+ #define FOR_WALKERS(w) for ((w)=fib6_walker_list.next; (w) != &fib6_walker_list; (w)=(w)->next)
+ 
++static inline void fib6_walker_link(struct fib6_walker_t *w)
++{
++	write_lock_bh(&fib6_walker_lock);
++	w->next = fib6_walker_list.next;
++	w->prev = &fib6_walker_list;
++	w->next->prev = w;
++	w->prev->next = w;
++	write_unlock_bh(&fib6_walker_lock);
++}
++
++static inline void fib6_walker_unlink(struct fib6_walker_t *w)
++{
++	write_lock_bh(&fib6_walker_lock);
++	w->next->prev = w->prev;
++	w->prev->next = w->next;
++	w->prev = w->next = w;
++	write_unlock_bh(&fib6_walker_lock);
++}
+ static __inline__ u32 fib6_new_sernum(void)
+ {
+ 	u32 n = ++rt_sernum;
+@@ -1173,7 +1192,7 @@
+  *	<0  -> walk is terminated by an error.
+  */
+ 
+-int fib6_walk_continue(struct fib6_walker_t *w)
++static int fib6_walk_continue(struct fib6_walker_t *w)
+ {
+ 	struct fib6_node *fn, *pn;
+ 
+@@ -1247,7 +1266,7 @@
+ 	}
+ }
+ 
+-int fib6_walk(struct fib6_walker_t *w)
++static int fib6_walk(struct fib6_walker_t *w)
+ {
+ 	int res;
+ 
