@@ -1,38 +1,35 @@
-From: "Dale Owens" <DaleOwens@0733.com>
-Subject: Better Life, well-sufficing
-Date: Sun, 13 Aug 2006 18:25:05 +0000 (UTC)
-Message-ID: <662161c80604gdfm755ykrn9dis7mp16p23pcadc5bfh@61.187.98.10>
+From: Nix <nix@esperi.org.uk>
+Subject: Re: [2.6.17.8] NFS stall / BUG in UDP fragment processing / SKB trimming
+Date: Sun, 13 Aug 2006 19:24:33 +0100
+Message-ID: <87wt9cqyse.fsf@hades.wkstn.nix>
+References: <87zme9fy94.fsf@hades.wkstn.nix>
+	<20060813125910.GA18463@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, Greg KH <greg@kroah.com>,
+	linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus1.kernel.org ([204.152.191.4]:33968 "EHLO zeus1.kernel.org")
-	by vger.kernel.org with ESMTP id S1750712AbWHMSYn convert rfc822-to-8bit
+Received: from 41-052.adsl.zetnet.co.uk ([194.247.41.52]:48914 "EHLO
+	mail.esperi.org.uk") by vger.kernel.org with ESMTP id S1750718AbWHMSZP
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 14:24:43 -0400
-Date: Sun, 13 Aug 2006 18:24:44 -0060
-To: netdev-owner@vger.kernel.org
-Content-Disposition: inline
+	Sun, 13 Aug 2006 14:25:15 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060813125910.GA18463@gondor.apana.org.au> (Herbert Xu's message of "Sun, 13 Aug 2006 22:59:11 +1000")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We sent you an email a while ago, because you qualified for a   
-much lower rate based on our records from a national database.   
-Why is this? Because currently it is a buyers market with the   
-lowest rates in years.
-   
-You can now get $325,000 for as little as $709 a month at as low as 3.75%!   
-We realize many homeowners struggle and that makes it difficult   
-to maintain good credit. But we specialize in poor credit cases- helping you   
-to refinance even with bad credt, helping you lower your monthly   
-burden and build back your credt.   
+On Sun, 13 Aug 2006, Herbert Xu suggested tentatively:
+> Oops, I missed this code path when I disallowed skb_trim from operating
+> on a paged skb.  This patch should fix the problem.
+> 
+> Greg, we need this for 2.6.17 stable as well if Dave is OK with it.
+> 
+> [INET]: Use pskb_trim_unique when trimming paged unique skbs
+[...]
 
-You will receive the lowest rate possible in your special circumstance   
-   
-You can fill out this quick form and be approved within 24 hours:  
+Yes, that seems to have fixed it. Thank you!
 
-http://37GK.cnf2e.com
-
-=======================
-teeth--a fantastic  herd of titans and giants gathered at the watering hole,
-with  sandwiches and a thermos of coffee. While Arthur set up the sandwiches
+-- 
+`We're sysadmins. We deal with the inconceivable so often I can clearly 
+ see the need to define levels of inconceivability.' --- Rik Steenwinkel
