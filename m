@@ -1,25 +1,24 @@
-From: "Romero" <americananaerobic@usa.com>
-Subject: Fatblaster combines a variety of herbal ingredients that maximize your body's ability to absorb food and increase energy expenditure.
-Date: Sun, 13 Aug 2006 02:15:01 +0100
-Message-ID: <54619574557027.6257124EE9@JK4OJA>
+From: "Jones" <autobiographybundestag@archaeologist.com>
+Subject: Fatblaster remains a top seller among competitive brands, making it the #1 choice for those seeking safe and effective weight loss solution.
+Date: Sun, 13 Aug 2006 10:16:21 +0900
+Message-ID: <94309678138312.6E6016C926@P453Q1IR>
 Mime-Version: 1.0
 Content-Type: text/plain;
         charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus1.kernel.org ([204.152.191.4]:64933 "EHLO zeus1.kernel.org")
-	by vger.kernel.org with ESMTP id S932650AbWHMBOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 21:14:30 -0400
-To: <newbie@vger.kernel.org>
+Received: from softbank219061218158.bbtec.net ([219.61.218.158]:33811 "EHLO
+	HIROKI") by vger.kernel.org with ESMTP id S1030201AbWHMBP7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 21:15:59 -0400
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello bro, 
+Hello, 
 
- This means you can still eat all the burgers, pizza you want without and gains in weight, infact you will lose weight. Fatblaster combines a variety of herbal ingredients that maximize your body's ability to absorb food and increase energy expenditure.  With every order guaranteed, you have nothing to lose! (except weight) See our offer: http://erritans.com/gall/fb/ 
+ Supplement your life today! Join thousands of satisfied customers and experience for yourself the proven benefits of Fatblaster.  Fatblaster is a thermogenic weight loss formula designed to naturally assist the body in burning more calories by efficiently using stored body fat for energy. Fuel for this increased metabolic rate can be provided by stored body fat.  Check up here: http://kimetion.com/gall/fb/ 
 
+ He who is ABSENT is always in the Wrong A fly will not get into a closed mouth. Fish and cast-net nah friend.
 
- Rain, Rain, go away, come back another day Strike while the.. bug is close. Great minds think alike Corporations have neither bodies to be punished nor souls to be damned 
-
- Mouth cut trousers nah ah fit Massa. Never eat an oyster unless there is an R in the month Facts are stubborn things Belly full behind drunk.
+ Blue are the hills that are far away A sprat to catch a mackerel. To give subtilty to the simple, to the young man knowledge and discretion.
 
