@@ -1,238 +1,263 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 2/16] [CRYPTO] cipher: Added encrypt_one/decrypt_one
-Date: Sun, 13 Aug 2006 22:20:03 +1000
-Message-ID: <E1GCEwk-0004fu-00@gondolin.me.apana.org.au>
+Subject: [PATCH 6/16] [CRYPTO] padlock: Added block cipher versions of CBC/ECB
+Date: Sun, 13 Aug 2006 22:20:11 +1000
+Message-ID: <E1GCEwt-0004g6-00@gondolin.me.apana.org.au>
 References: <20060813121722.GA16115@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:5641 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751041AbWHMMUF
+Received: from rhun.apana.org.au ([64.62.148.172]:10249 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751097AbWHMMUZ
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 08:20:05 -0400
+	Sun, 13 Aug 2006 08:20:25 -0400
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[CRYPTO] cipher: Added encrypt_one/decrypt_one
+[CRYPTO] padlock: Added block cipher versions of CBC/ECB
 
-This patch adds two new operations for the simple cipher that encrypts or
-decrypts a single block at a time.  This will be the main interface after
-the existing block operations have moved over to the new block ciphers.
-
-It also adds the crypto_cipher type which is currently only used on the
-new operations but will be extended to setkey as well once existing users
-have been converted to use block ciphers where applicable.
+This patch adds block cipher algorithms for cbc(aes) and ecb(aes) for
+the PadLock device.  Once all users to the old cipher type have been
+converted the old cbc/ecb PadLock operations will be removed.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- crypto/cipher.c         |   48 ++++++++++++++++++++++++
- include/crypto/algapi.h |    5 ++
- include/linux/crypto.h  |   96 ++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 149 insertions(+)
+ drivers/crypto/padlock-aes.c |  174 +++++++++++++++++++++++++++++++++++++++++--
+ drivers/crypto/padlock.h     |    1 
+ 2 files changed, 168 insertions(+), 7 deletions(-)
 
-diff --git a/crypto/cipher.c b/crypto/cipher.c
---- a/crypto/cipher.c
-+++ b/crypto/cipher.c
-@@ -388,12 +388,60 @@ int crypto_init_cipher_flags(struct cryp
+diff --git a/drivers/crypto/padlock-aes.c b/drivers/crypto/padlock-aes.c
+--- a/drivers/crypto/padlock-aes.c
++++ b/drivers/crypto/padlock-aes.c
+@@ -43,11 +43,11 @@
+  * ---------------------------------------------------------------------------
+  */
+ 
++#include <crypto/algapi.h>
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/types.h>
+ #include <linux/errno.h>
+-#include <linux/crypto.h>
+ #include <linux/interrupt.h>
+ #include <linux/kernel.h>
+ #include <asm/byteorder.h>
+@@ -297,9 +297,9 @@ aes_hw_extkey_available(uint8_t key_len)
  	return 0;
  }
  
-+static void cipher_crypt_unaligned(void (*fn)(struct crypto_tfm *, u8 *,
-+					      const u8 *),
-+				   struct crypto_tfm *tfm,
-+				   u8 *dst, const u8 *src)
-+{
-+	unsigned long alignmask = crypto_tfm_alg_alignmask(tfm);
-+	unsigned int size = crypto_tfm_alg_blocksize(tfm);
-+	u8 buffer[size + alignmask];
-+	u8 *tmp = (u8 *)ALIGN((unsigned long)buffer, alignmask + 1);
-+
-+	memcpy(tmp, src, size);
-+	fn(tfm, tmp, tmp);
-+	memcpy(dst, tmp, size);
-+}
-+
-+static void cipher_encrypt_unaligned(struct crypto_tfm *tfm,
-+				     u8 *dst, const u8 *src)
-+{
-+	unsigned long alignmask = crypto_tfm_alg_alignmask(tfm);
-+	struct cipher_alg *cipher = &tfm->__crt_alg->cra_cipher;
-+
-+	if (unlikely(((unsigned long)dst | (unsigned long)src) & alignmask)) {
-+		cipher_crypt_unaligned(cipher->cia_encrypt, tfm, dst, src);
-+		return;
-+	}
-+
-+	cipher->cia_encrypt(tfm, dst, src);
-+}
-+
-+static void cipher_decrypt_unaligned(struct crypto_tfm *tfm,
-+				     u8 *dst, const u8 *src)
-+{
-+	unsigned long alignmask = crypto_tfm_alg_alignmask(tfm);
-+	struct cipher_alg *cipher = &tfm->__crt_alg->cra_cipher;
-+
-+	if (unlikely(((unsigned long)dst | (unsigned long)src) & alignmask)) {
-+		cipher_crypt_unaligned(cipher->cia_decrypt, tfm, dst, src);
-+		return;
-+	}
-+
-+	cipher->cia_decrypt(tfm, dst, src);
-+}
-+
- int crypto_init_cipher_ops(struct crypto_tfm *tfm)
+-static inline struct aes_ctx *aes_ctx(struct crypto_tfm *tfm)
++static inline struct aes_ctx *aes_ctx_common(void *ctx)
  {
- 	int ret = 0;
- 	struct cipher_tfm *ops = &tfm->crt_cipher;
-+	struct cipher_alg *cipher = &tfm->__crt_alg->cra_cipher;
+-	unsigned long addr = (unsigned long)crypto_tfm_ctx(tfm);
++	unsigned long addr = (unsigned long)ctx;
+ 	unsigned long align = PADLOCK_ALIGNMENT;
  
- 	ops->cit_setkey = setkey;
-+	ops->cit_encrypt_one = crypto_tfm_alg_alignmask(tfm) ?
-+		cipher_encrypt_unaligned : cipher->cia_encrypt;
-+	ops->cit_decrypt_one = crypto_tfm_alg_alignmask(tfm) ?
-+		cipher_decrypt_unaligned : cipher->cia_decrypt;
- 
- 	switch (tfm->crt_cipher.cit_mode) {
- 	case CRYPTO_TFM_MODE_ECB:
-diff --git a/include/crypto/algapi.h b/include/crypto/algapi.h
---- a/include/crypto/algapi.h
-+++ b/include/crypto/algapi.h
-@@ -67,5 +67,10 @@ static inline void *crypto_instance_ctx(
- 	return inst->__ctx;
+ 	if (align <= crypto_tfm_ctx_alignment())
+@@ -307,6 +307,16 @@ static inline struct aes_ctx *aes_ctx(st
+ 	return (struct aes_ctx *)ALIGN(addr, align);
  }
  
-+static inline struct cipher_alg *crypto_cipher_alg(struct crypto_cipher *tfm)
++static inline struct aes_ctx *aes_ctx(struct crypto_tfm *tfm)
 +{
-+	return &crypto_cipher_tfm(tfm)->__crt_alg->cra_cipher;
++	return aes_ctx_common(crypto_tfm_ctx(tfm));
 +}
 +
- #endif	/* _CRYPTO_ALGAPI_H */
- 
-diff --git a/include/linux/crypto.h b/include/linux/crypto.h
---- a/include/linux/crypto.h
-+++ b/include/linux/crypto.h
-@@ -212,6 +212,8 @@ struct cipher_tfm {
- 			   struct scatterlist *src,
- 			   unsigned int nbytes, u8 *iv);
- 	void (*cit_xor_block)(u8 *dst, const u8 *src);
-+	void (*cit_encrypt_one)(struct crypto_tfm *tfm, u8 *dst, const u8 *src);
-+	void (*cit_decrypt_one)(struct crypto_tfm *tfm, u8 *dst, const u8 *src);
- };
- 
- struct digest_tfm {
-@@ -256,6 +258,8 @@ struct crypto_tfm {
- 	void *__crt_ctx[] CRYPTO_MINALIGN_ATTR;
- };
- 
-+#define crypto_cipher crypto_tfm
++static inline struct aes_ctx *blk_aes_ctx(struct crypto_blkcipher *tfm)
++{
++	return aes_ctx_common(crypto_blkcipher_ctx(tfm));
++}
 +
- enum {
- 	CRYPTOA_UNSPEC,
- 	CRYPTOA_ALG,
-@@ -335,6 +339,21 @@ static inline unsigned int crypto_tfm_al
- 	return tfm->__crt_alg->cra_alignmask;
+ static int aes_set_key(struct crypto_tfm *tfm, const u8 *in_key,
+ 		       unsigned int key_len)
+ {
+@@ -507,6 +517,141 @@ static struct crypto_alg aes_alg = {
+ 	}
+ };
+ 
++static int ecb_aes_encrypt(struct blkcipher_desc *desc,
++			   struct scatterlist *dst, struct scatterlist *src,
++			   unsigned int nbytes)
++{
++	struct aes_ctx *ctx = blk_aes_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++	int err;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	err = blkcipher_walk_virt(desc, &walk);
++
++	while ((nbytes = walk.nbytes)) {
++		padlock_xcrypt_ecb(walk.src.virt.addr, walk.dst.virt.addr,
++				   ctx->E, &ctx->cword.encrypt,
++				   nbytes / AES_BLOCK_SIZE);
++		nbytes &= AES_BLOCK_SIZE - 1;
++		err = blkcipher_walk_done(desc, &walk, nbytes);
++	}
++
++	return err;
++}
++
++static int ecb_aes_decrypt(struct blkcipher_desc *desc,
++			   struct scatterlist *dst, struct scatterlist *src,
++			   unsigned int nbytes)
++{
++	struct aes_ctx *ctx = blk_aes_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++	int err;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	err = blkcipher_walk_virt(desc, &walk);
++
++	while ((nbytes = walk.nbytes)) {
++		padlock_xcrypt_ecb(walk.src.virt.addr, walk.dst.virt.addr,
++				   ctx->D, &ctx->cword.decrypt,
++				   nbytes / AES_BLOCK_SIZE);
++		nbytes &= AES_BLOCK_SIZE - 1;
++		err = blkcipher_walk_done(desc, &walk, nbytes);
++	}
++
++	return err;
++}
++
++static struct crypto_alg ecb_aes_alg = {
++	.cra_name		=	"ecb(aes)",
++	.cra_driver_name	=	"ecb-aes-padlock",
++	.cra_priority		=	PADLOCK_COMPOSITE_PRIORITY,
++	.cra_flags		=	CRYPTO_ALG_TYPE_BLKCIPHER,
++	.cra_blocksize		=	AES_BLOCK_SIZE,
++	.cra_ctxsize		=	sizeof(struct aes_ctx),
++	.cra_alignmask		=	PADLOCK_ALIGNMENT - 1,
++	.cra_type		=	&crypto_blkcipher_type,
++	.cra_module		=	THIS_MODULE,
++	.cra_list		=	LIST_HEAD_INIT(ecb_aes_alg.cra_list),
++	.cra_u			=	{
++		.blkcipher = {
++			.min_keysize		=	AES_MIN_KEY_SIZE,
++			.max_keysize		=	AES_MAX_KEY_SIZE,
++			.setkey	   		= 	aes_set_key,
++			.encrypt		=	ecb_aes_encrypt,
++			.decrypt		=	ecb_aes_decrypt,
++		}
++	}
++};
++
++static int cbc_aes_encrypt(struct blkcipher_desc *desc,
++			   struct scatterlist *dst, struct scatterlist *src,
++			   unsigned int nbytes)
++{
++	struct aes_ctx *ctx = blk_aes_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++	int err;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	err = blkcipher_walk_virt(desc, &walk);
++
++	while ((nbytes = walk.nbytes)) {
++		u8 *iv = padlock_xcrypt_cbc(walk.src.virt.addr,
++					    walk.dst.virt.addr, ctx->E,
++					    walk.iv, &ctx->cword.encrypt,
++					    nbytes / AES_BLOCK_SIZE);
++		memcpy(walk.iv, iv, AES_BLOCK_SIZE);
++		nbytes &= AES_BLOCK_SIZE - 1;
++		err = blkcipher_walk_done(desc, &walk, nbytes);
++	}
++
++	return err;
++}
++
++static int cbc_aes_decrypt(struct blkcipher_desc *desc,
++			   struct scatterlist *dst, struct scatterlist *src,
++			   unsigned int nbytes)
++{
++	struct aes_ctx *ctx = blk_aes_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++	int err;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	err = blkcipher_walk_virt(desc, &walk);
++
++	while ((nbytes = walk.nbytes)) {
++		padlock_xcrypt_cbc(walk.src.virt.addr, walk.dst.virt.addr,
++				   ctx->D, walk.iv, &ctx->cword.decrypt,
++				   nbytes / AES_BLOCK_SIZE);
++		nbytes &= AES_BLOCK_SIZE - 1;
++		err = blkcipher_walk_done(desc, &walk, nbytes);
++	}
++
++	return err;
++}
++
++static struct crypto_alg cbc_aes_alg = {
++	.cra_name		=	"cbc(aes)",
++	.cra_driver_name	=	"cbc-aes-padlock",
++	.cra_priority		=	PADLOCK_COMPOSITE_PRIORITY,
++	.cra_flags		=	CRYPTO_ALG_TYPE_BLKCIPHER,
++	.cra_blocksize		=	AES_BLOCK_SIZE,
++	.cra_ctxsize		=	sizeof(struct aes_ctx),
++	.cra_alignmask		=	PADLOCK_ALIGNMENT - 1,
++	.cra_type		=	&crypto_blkcipher_type,
++	.cra_module		=	THIS_MODULE,
++	.cra_list		=	LIST_HEAD_INIT(cbc_aes_alg.cra_list),
++	.cra_u			=	{
++		.blkcipher = {
++			.min_keysize		=	AES_MIN_KEY_SIZE,
++			.max_keysize		=	AES_MAX_KEY_SIZE,
++			.ivsize			=	AES_BLOCK_SIZE,
++			.setkey	   		= 	aes_set_key,
++			.encrypt		=	cbc_aes_encrypt,
++			.decrypt		=	cbc_aes_decrypt,
++		}
++	}
++};
++
+ static int __init padlock_init(void)
+ {
+ 	int ret;
+@@ -522,18 +667,33 @@ static int __init padlock_init(void)
+ 	}
+ 
+ 	gen_tabs();
+-	if ((ret = crypto_register_alg(&aes_alg))) {
+-		printk(KERN_ERR PFX "VIA PadLock AES initialization failed.\n");
+-		return ret;
+-	}
++	if ((ret = crypto_register_alg(&aes_alg)))
++		goto aes_err;
++
++	if ((ret = crypto_register_alg(&ecb_aes_alg)))
++		goto ecb_aes_err;
++
++	if ((ret = crypto_register_alg(&cbc_aes_alg)))
++		goto cbc_aes_err;
+ 
+ 	printk(KERN_NOTICE PFX "Using VIA PadLock ACE for AES algorithm.\n");
+ 
++out:
+ 	return ret;
++
++cbc_aes_err:
++	crypto_unregister_alg(&ecb_aes_alg);
++ecb_aes_err:
++	crypto_unregister_alg(&aes_alg);
++aes_err:
++	printk(KERN_ERR PFX "VIA PadLock AES initialization failed.\n");
++	goto out;
  }
  
-+static inline u32 crypto_tfm_get_flags(struct crypto_tfm *tfm)
-+{
-+	return tfm->crt_flags;
-+}
-+
-+static inline void crypto_tfm_set_flags(struct crypto_tfm *tfm, u32 flags)
-+{
-+	tfm->crt_flags |= flags;
-+}
-+
-+static inline void crypto_tfm_clear_flags(struct crypto_tfm *tfm, u32 flags)
-+{
-+	tfm->crt_flags &= ~flags;
-+}
-+
- static inline void *crypto_tfm_ctx(struct crypto_tfm *tfm)
+ static void __exit padlock_fini(void)
  {
- 	return tfm->__crt_ctx;
-@@ -349,6 +368,83 @@ static inline unsigned int crypto_tfm_ct
- /*
-  * API wrappers.
-  */
-+static inline struct crypto_cipher *__crypto_cipher_cast(struct crypto_tfm *tfm)
-+{
-+	return (struct crypto_cipher *)tfm;
-+}
-+
-+static inline struct crypto_cipher *crypto_cipher_cast(struct crypto_tfm *tfm)
-+{
-+	BUG_ON(crypto_tfm_alg_type(tfm) != CRYPTO_ALG_TYPE_CIPHER);
-+	return __crypto_cipher_cast(tfm);
-+}
-+
-+static inline struct crypto_cipher *crypto_alloc_cipher(const char *alg_name,
-+							u32 type, u32 mask)
-+{
-+	type &= ~CRYPTO_ALG_TYPE_MASK;
-+	type |= CRYPTO_ALG_TYPE_CIPHER;
-+	mask |= CRYPTO_ALG_TYPE_MASK;
-+
-+	return __crypto_cipher_cast(crypto_alloc_base(alg_name, type, mask));
-+}
-+
-+static inline struct crypto_tfm *crypto_cipher_tfm(struct crypto_cipher *tfm)
-+{
-+	return tfm;
-+}
-+
-+static inline void crypto_free_cipher(struct crypto_cipher *tfm)
-+{
-+	crypto_free_tfm(crypto_cipher_tfm(tfm));
-+}
-+
-+static inline struct cipher_tfm *crypto_cipher_crt(struct crypto_cipher *tfm)
-+{
-+	return &crypto_cipher_tfm(tfm)->crt_cipher;
-+}
-+
-+static inline unsigned int crypto_cipher_blocksize(struct crypto_cipher *tfm)
-+{
-+	return crypto_tfm_alg_blocksize(crypto_cipher_tfm(tfm));
-+}
-+
-+static inline unsigned int crypto_cipher_alignmask(struct crypto_cipher *tfm)
-+{
-+	return crypto_tfm_alg_alignmask(crypto_cipher_tfm(tfm));
-+}
-+
-+static inline u32 crypto_cipher_get_flags(struct crypto_cipher *tfm)
-+{
-+	return crypto_tfm_get_flags(crypto_cipher_tfm(tfm));
-+}
-+
-+static inline void crypto_cipher_set_flags(struct crypto_cipher *tfm,
-+					   u32 flags)
-+{
-+	crypto_tfm_set_flags(crypto_cipher_tfm(tfm), flags);
-+}
-+
-+static inline void crypto_cipher_clear_flags(struct crypto_cipher *tfm,
-+					     u32 flags)
-+{
-+	crypto_tfm_clear_flags(crypto_cipher_tfm(tfm), flags);
-+}
-+
-+static inline void crypto_cipher_encrypt_one(struct crypto_cipher *tfm,
-+					     u8 *dst, const u8 *src)
-+{
-+	crypto_cipher_crt(tfm)->cit_encrypt_one(crypto_cipher_tfm(tfm),
-+						dst, src);
-+}
-+
-+static inline void crypto_cipher_decrypt_one(struct crypto_cipher *tfm,
-+					     u8 *dst, const u8 *src)
-+{
-+	crypto_cipher_crt(tfm)->cit_decrypt_one(crypto_cipher_tfm(tfm),
-+						dst, src);
-+}
-+
- static inline void crypto_digest_init(struct crypto_tfm *tfm)
- {
- 	BUG_ON(crypto_tfm_alg_type(tfm) != CRYPTO_ALG_TYPE_DIGEST);
++	crypto_unregister_alg(&cbc_aes_alg);
++	crypto_unregister_alg(&ecb_aes_alg);
+ 	crypto_unregister_alg(&aes_alg);
+ }
+ 
+diff --git a/drivers/crypto/padlock.h b/drivers/crypto/padlock.h
+--- a/drivers/crypto/padlock.h
++++ b/drivers/crypto/padlock.h
+@@ -18,5 +18,6 @@
+ #define PFX	"padlock: "
+ 
+ #define PADLOCK_CRA_PRIORITY	300
++#define PADLOCK_COMPOSITE_PRIORITY 400
+ 
+ #endif	/* _CRYPTO_PADLOCK_H */
