@@ -1,107 +1,55 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] net/decnet/: cleanups
-Date: Sun, 13 Aug 2006 23:01:12 +0200
-Message-ID: <20060813210112.GP3543@stusta.de>
-References: <20060813012454.f1d52189.akpm@osdl.org>
+From: Daniel Phillips <phillips@google.com>
+Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
+Date: Sun, 13 Aug 2006 14:22:31 -0700
+Message-ID: <44DF9817.8070509@google.com>
+References: <44D976E6.5010106@google.com>	<20060809131942.GY14627@postel.suug.ch>	<1155132440.12225.70.camel@twins> <20060809.165846.107940575.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-decnet-user@lists.sourceforge.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751482AbWHMVBT@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>, davem@davemloft.net,
-	patrick@tykepenguin.com
-Content-Disposition: inline
-In-Reply-To: <20060813012454.f1d52189.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: a.p.zijlstra@chello.nl, tgraf@suug.ch, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.45.12]:16235 "EHLO
+	smtp-out.google.com") by vger.kernel.org with ESMTP
+	id S1751479AbWHMVWt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Aug 2006 17:22:49 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060809.165846.107940575.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 13, 2006 at 01:24:54AM -0700, Andrew Morton wrote:
->...
-> Changes since 2.6.18-rc3-mm2:
->...
->  git-net.patch
->...
->  git trees
->...
+David Miller wrote:
+> From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+>>Hmm, what does sk_buff::input_dev do? That seems to store the initial
+>>device?
+> 
+> You can run grep on the tree just as easily as I can which is what I
+> did to answer this question.  It only takes a few seconds of your
+> time to grep the source tree for things like "skb->input_dev", so
+> would you please do that before asking more questions like this?
+> 
+> It does store the initial device, but as Thomas tried so hard to
+> explain to you guys these device pointers in the skb are transient and
+> you cannot refer to them outside of packet receive processing.
 
-This patch contains the following cleanups:
-- make the following needlessly global functions static:
-  - dn_fib.c: dn_fib_sync_down()
-  - dn_fib.c: dn_fib_sync_up()
-  - dn_rules.c: dn_fib_rule_action()
-- remove the following unneeded prototype:
-  - dn_fib.c: dn_cache_dump()
+Thomas did a great job of explaining and without any flaming or ad
+hominem attacks.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+We have now formed a decent plan for doing the accounting in a stable
+way without adding new fields to sk_buff, thankyou for the catch.
 
----
+> The reason is that there is no refcounting performed on these devices
+> when they are attached to the skb, for performance reasons, and thus
+> the device can be downed, the module for it removed, etc. long before
+> the skb is freed up.
 
- include/net/dn_fib.h  |    3 ---
- net/decnet/dn_fib.c   |    9 +++++----
- net/decnet/dn_rules.c |    4 ++--
- 3 files changed, 7 insertions(+), 9 deletions(-)
+The virtual block device can refcount the network device on virtual
+device create and un-refcount on virtual device delete.  We need to
+add that to the core patch and maybe package it nicely so the memalloc
+reserve/unreserve happens at the same time, in a tidy little library
+function to share with other virtual devices like iSCSI that also need
+some anti-deadlock lovin.
 
---- linux-2.6.18-rc4-mm1/include/net/dn_fib.h.old	2006-08-13 20:18:58.000000000 +0200
-+++ linux-2.6.18-rc4-mm1/include/net/dn_fib.h	2006-08-13 20:19:08.000000000 +0200
-@@ -131,9 +131,6 @@
- extern void dn_fib_flush(void);
- extern void dn_fib_select_multipath(const struct flowi *fl,
- 					struct dn_fib_res *res);
--extern int dn_fib_sync_down(__le16 local, struct net_device *dev,
--				int force);
--extern int dn_fib_sync_up(struct net_device *dev);
- 
- /*
-  * dn_tables.c
---- linux-2.6.18-rc4-mm1/net/decnet/dn_fib.c.old	2006-08-13 20:20:05.000000000 +0200
-+++ linux-2.6.18-rc4-mm1/net/decnet/dn_fib.c	2006-08-13 20:22:40.000000000 +0200
-@@ -55,8 +55,6 @@
- 
- #define endfor_nexthops(fi) }
- 
--extern int dn_cache_dump(struct sk_buff *skb, struct netlink_callback *cb);
--
- static DEFINE_SPINLOCK(dn_fib_multipath_lock);
- static struct dn_fib_info *dn_fib_info_list;
- static DEFINE_SPINLOCK(dn_fib_info_lock);
-@@ -80,6 +78,9 @@
- 	[RTN_XRESOLVE] =    { .error = -EINVAL, .scope = RT_SCOPE_NOWHERE },
- };
- 
-+static int dn_fib_sync_down(__le16 local, struct net_device *dev, int force);
-+static int dn_fib_sync_up(struct net_device *dev);
-+
- void dn_fib_free_info(struct dn_fib_info *fi)
- {
- 	if (fi->fib_dead == 0) {
-@@ -651,7 +652,7 @@
- 	return NOTIFY_DONE;
- }
- 
--int dn_fib_sync_down(__le16 local, struct net_device *dev, int force)
-+static int dn_fib_sync_down(__le16 local, struct net_device *dev, int force)
- {
-         int ret = 0;
-         int scope = RT_SCOPE_NOWHERE;
-@@ -695,7 +696,7 @@
- }
- 
- 
--int dn_fib_sync_up(struct net_device *dev)
-+static int dn_fib_sync_up(struct net_device *dev)
- {
-         int ret = 0;
- 
---- linux-2.6.18-rc4-mm1/net/decnet/dn_rules.c.old	2006-08-13 20:22:45.000000000 +0200
-+++ linux-2.6.18-rc4-mm1/net/decnet/dn_rules.c	2006-08-13 20:23:02.000000000 +0200
-@@ -75,8 +75,8 @@
- 	return err;
- }
- 
--int dn_fib_rule_action(struct fib_rule *rule, struct flowi *flp, int flags,
--		       struct fib_lookup_arg *arg)
-+static int dn_fib_rule_action(struct fib_rule *rule, struct flowi *flp,
-+			      int flags, struct fib_lookup_arg *arg)
- {
- 	int err = -EAGAIN;
- 	struct dn_fib_table *tbl;
+Regards,
+
+Daniel
