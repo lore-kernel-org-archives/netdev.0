@@ -1,470 +1,727 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 12/16] [IPSEC] ESP: Use block ciphers where applicable
-Date: Sun, 13 Aug 2006 22:20:20 +1000
-Message-ID: <E1GCEx2-0004gP-00@gondolin.me.apana.org.au>
+Subject: [PATCH 7/16] [CRYPTO] s390: Added block cipher versions of CBC/ECB
+Date: Sun, 13 Aug 2006 22:20:12 +1000
+Message-ID: <E1GCEwu-0004g9-00@gondolin.me.apana.org.au>
 References: <20060813121722.GA16115@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:15881 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751099AbWHMMUa
+Received: from rhun.apana.org.au ([64.62.148.172]:11017 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751090AbWHMMU2
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 08:20:30 -0400
+	Sun, 13 Aug 2006 08:20:28 -0400
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC] ESP: Use block ciphers where applicable
+[CRYPTO] s390: Added block cipher versions of CBC/ECB
 
-This patch converts IPSec/ESP to use the new block cipher type where
-applicable.  Similar to the HMAC conversion, existing algorithm names
-have been kept for compatibility.
+This patch adds block cipher algorithms for S390.  Once all users of the
+old cipher type have been converted the existing CBC/ECB non-block cipher
+operations will be removed.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/esp.h    |    2 +-
- net/ipv4/Kconfig     |    1 +
- net/ipv4/esp4.c      |   49 +++++++++++++++++++++++++++++--------------------
- net/ipv6/Kconfig     |    1 +
- net/ipv6/esp6.c      |   48 ++++++++++++++++++++++++++++--------------------
- net/xfrm/xfrm_algo.c |   24 ++++++++++++++++--------
- 6 files changed, 76 insertions(+), 49 deletions(-)
+ arch/s390/crypto/aes_s390.c   |  218 +++++++++++++++++++++++
+ arch/s390/crypto/crypt_s390.h |    1 
+ arch/s390/crypto/des_s390.c   |  385 ++++++++++++++++++++++++++++++++++++++++--
+ 3 files changed, 590 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/esp.h b/include/net/esp.h
---- a/include/net/esp.h
-+++ b/include/net/esp.h
-@@ -22,7 +22,7 @@ struct esp_data
- 		 * >= crypto_tfm_alg_ivsize(tfm). */
- 		int			ivlen;
- 		int			padlen;		/* 0..255 */
--		struct crypto_tfm	*tfm;		/* crypto handle */
-+		struct crypto_blkcipher	*tfm;		/* crypto handle */
- 	} conf;
- 
- 	/* Integrity. It is active when icv_full_len != 0 */
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -386,6 +386,7 @@ config INET_ESP
- 	select CRYPTO
- 	select CRYPTO_HMAC
- 	select CRYPTO_MD5
-+	select CRYPTO_CBC
- 	select CRYPTO_SHA1
- 	select CRYPTO_DES
- 	---help---
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -1,3 +1,4 @@
-+#include <linux/err.h>
- #include <linux/module.h>
- #include <net/ip.h>
- #include <net/xfrm.h>
-@@ -16,7 +17,8 @@ static int esp_output(struct xfrm_state 
- 	int err;
- 	struct iphdr *top_iph;
- 	struct ip_esp_hdr *esph;
--	struct crypto_tfm *tfm;
-+	struct crypto_blkcipher *tfm;
-+	struct blkcipher_desc desc;
- 	struct esp_data *esp;
- 	struct sk_buff *trailer;
- 	int blksize;
-@@ -36,7 +38,9 @@ static int esp_output(struct xfrm_state 
- 	esp = x->data;
- 	alen = esp->auth.icv_trunc_len;
- 	tfm = esp->conf.tfm;
--	blksize = ALIGN(crypto_tfm_alg_blocksize(tfm), 4);
-+	desc.tfm = tfm;
-+	desc.flags = 0;
-+	blksize = ALIGN(crypto_blkcipher_blocksize(tfm), 4);
- 	clen = ALIGN(clen + 2, blksize);
- 	if (esp->conf.padlen)
- 		clen = ALIGN(clen, esp->conf.padlen);
-@@ -92,7 +96,7 @@ static int esp_output(struct xfrm_state 
- 	xfrm_aevent_doreplay(x);
- 
- 	if (esp->conf.ivlen)
--		crypto_cipher_set_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
-+		crypto_blkcipher_set_iv(tfm, esp->conf.ivec, esp->conf.ivlen);
- 
- 	do {
- 		struct scatterlist *sg = &esp->sgbuf[0];
-@@ -103,14 +107,17 @@ static int esp_output(struct xfrm_state 
- 				goto error;
- 		}
- 		skb_to_sgvec(skb, sg, esph->enc_data+esp->conf.ivlen-skb->data, clen);
--		crypto_cipher_encrypt(tfm, sg, sg, clen);
-+		err = crypto_blkcipher_encrypt(&desc, sg, sg, clen);
- 		if (unlikely(sg != &esp->sgbuf[0]))
- 			kfree(sg);
- 	} while (0);
- 
-+	if (unlikely(err))
-+		goto error;
-+
- 	if (esp->conf.ivlen) {
--		memcpy(esph->enc_data, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
--		crypto_cipher_get_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
-+		memcpy(esph->enc_data, esp->conf.ivec, esp->conf.ivlen);
-+		crypto_blkcipher_get_iv(tfm, esp->conf.ivec, esp->conf.ivlen);
- 	}
- 
- 	if (esp->auth.icv_full_len) {
-@@ -121,8 +128,6 @@ static int esp_output(struct xfrm_state 
- 
- 	ip_send_check(top_iph);
- 
--	err = 0;
--
- error:
- 	return err;
- }
-@@ -137,8 +142,10 @@ static int esp_input(struct xfrm_state *
- 	struct iphdr *iph;
- 	struct ip_esp_hdr *esph;
- 	struct esp_data *esp = x->data;
-+	struct crypto_blkcipher *tfm = esp->conf.tfm;
-+	struct blkcipher_desc desc = { .tfm = tfm };
- 	struct sk_buff *trailer;
--	int blksize = ALIGN(crypto_tfm_alg_blocksize(esp->conf.tfm), 4);
-+	int blksize = ALIGN(crypto_blkcipher_blocksize(tfm), 4);
- 	int alen = esp->auth.icv_trunc_len;
- 	int elen = skb->len - sizeof(struct ip_esp_hdr) - esp->conf.ivlen - alen;
- 	int nfrags;
-@@ -146,6 +153,7 @@ static int esp_input(struct xfrm_state *
- 	u8 nexthdr[2];
- 	struct scatterlist *sg;
- 	int padlen;
-+	int err;
- 
- 	if (!pskb_may_pull(skb, sizeof(struct ip_esp_hdr)))
- 		goto out;
-@@ -178,7 +186,7 @@ static int esp_input(struct xfrm_state *
- 
- 	/* Get ivec. This can be wrong, check against another impls. */
- 	if (esp->conf.ivlen)
--		crypto_cipher_set_iv(esp->conf.tfm, esph->enc_data, crypto_tfm_alg_ivsize(esp->conf.tfm));
-+		crypto_blkcipher_set_iv(tfm, esph->enc_data, esp->conf.ivlen);
- 
- 	sg = &esp->sgbuf[0];
- 
-@@ -188,9 +196,11 @@ static int esp_input(struct xfrm_state *
- 			goto out;
- 	}
- 	skb_to_sgvec(skb, sg, sizeof(struct ip_esp_hdr) + esp->conf.ivlen, elen);
--	crypto_cipher_decrypt(esp->conf.tfm, sg, sg, elen);
-+	err = crypto_blkcipher_decrypt(&desc, sg, sg, elen);
- 	if (unlikely(sg != &esp->sgbuf[0]))
- 		kfree(sg);
-+	if (unlikely(err))
-+		return err;
- 
- 	if (skb_copy_bits(skb, skb->len-alen-2, nexthdr, 2))
- 		BUG();
-@@ -254,7 +264,7 @@ out:
- static u32 esp4_get_max_size(struct xfrm_state *x, int mtu)
- {
- 	struct esp_data *esp = x->data;
--	u32 blksize = ALIGN(crypto_tfm_alg_blocksize(esp->conf.tfm), 4);
-+	u32 blksize = ALIGN(crypto_blkcipher_blocksize(esp->conf.tfm), 4);
- 
- 	if (x->props.mode) {
- 		mtu = ALIGN(mtu + 2, blksize);
-@@ -293,7 +303,7 @@ static void esp_destroy(struct xfrm_stat
- 	if (!esp)
- 		return;
- 
--	crypto_free_tfm(esp->conf.tfm);
-+	crypto_free_blkcipher(esp->conf.tfm);
- 	esp->conf.tfm = NULL;
- 	kfree(esp->conf.ivec);
- 	esp->conf.ivec = NULL;
-@@ -307,6 +317,7 @@ static void esp_destroy(struct xfrm_stat
- static int esp_init_state(struct xfrm_state *x)
- {
- 	struct esp_data *esp = NULL;
-+	struct crypto_blkcipher *tfm;
- 
- 	/* null auth and encryption can have zero length keys */
- 	if (x->aalg) {
-@@ -353,13 +364,11 @@ static int esp_init_state(struct xfrm_st
- 	}
- 	esp->conf.key = x->ealg->alg_key;
- 	esp->conf.key_len = (x->ealg->alg_key_len+7)/8;
--	if (x->props.ealgo == SADB_EALG_NULL)
--		esp->conf.tfm = crypto_alloc_tfm(x->ealg->alg_name, CRYPTO_TFM_MODE_ECB);
--	else
--		esp->conf.tfm = crypto_alloc_tfm(x->ealg->alg_name, CRYPTO_TFM_MODE_CBC);
--	if (esp->conf.tfm == NULL)
-+	tfm = crypto_alloc_blkcipher(x->ealg->alg_name, 0, CRYPTO_ALG_ASYNC);
-+	if (IS_ERR(tfm))
- 		goto error;
--	esp->conf.ivlen = crypto_tfm_alg_ivsize(esp->conf.tfm);
-+	esp->conf.tfm = tfm;
-+	esp->conf.ivlen = crypto_blkcipher_ivsize(tfm);
- 	esp->conf.padlen = 0;
- 	if (esp->conf.ivlen) {
- 		esp->conf.ivec = kmalloc(esp->conf.ivlen, GFP_KERNEL);
-@@ -367,7 +376,7 @@ static int esp_init_state(struct xfrm_st
- 			goto error;
- 		get_random_bytes(esp->conf.ivec, esp->conf.ivlen);
- 	}
--	if (crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len))
-+	if (crypto_blkcipher_setkey(tfm, esp->conf.key, esp->conf.key_len))
- 		goto error;
- 	x->props.header_len = sizeof(struct ip_esp_hdr) + esp->conf.ivlen;
- 	if (x->props.mode)
-diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
---- a/net/ipv6/Kconfig
-+++ b/net/ipv6/Kconfig
-@@ -77,6 +77,7 @@ config INET6_ESP
- 	select CRYPTO
- 	select CRYPTO_HMAC
- 	select CRYPTO_MD5
-+	select CRYPTO_CBC
- 	select CRYPTO_SHA1
- 	select CRYPTO_DES
- 	---help---
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -24,6 +24,7 @@
-  * 	This file is derived from net/ipv4/esp.c
+diff --git a/arch/s390/crypto/aes_s390.c b/arch/s390/crypto/aes_s390.c
+--- a/arch/s390/crypto/aes_s390.c
++++ b/arch/s390/crypto/aes_s390.c
+@@ -16,9 +16,9 @@
+  *
   */
  
-+#include <linux/err.h>
++#include <crypto/algapi.h>
  #include <linux/module.h>
- #include <net/ip.h>
- #include <net/xfrm.h>
-@@ -44,7 +45,8 @@ static int esp6_output(struct xfrm_state
- 	int hdr_len;
- 	struct ipv6hdr *top_iph;
- 	struct ipv6_esp_hdr *esph;
--	struct crypto_tfm *tfm;
-+	struct crypto_blkcipher *tfm;
-+	struct blkcipher_desc desc;
- 	struct esp_data *esp;
- 	struct sk_buff *trailer;
- 	int blksize;
-@@ -67,7 +69,9 @@ static int esp6_output(struct xfrm_state
+ #include <linux/init.h>
+-#include <linux/crypto.h>
+ #include "crypt_s390.h"
  
- 	alen = esp->auth.icv_trunc_len;
- 	tfm = esp->conf.tfm;
--	blksize = ALIGN(crypto_tfm_alg_blocksize(tfm), 4);
-+	desc.tfm = tfm;
-+	desc.flags = 0;
-+	blksize = ALIGN(crypto_blkcipher_blocksize(tfm), 4);
- 	clen = ALIGN(clen + 2, blksize);
- 	if (esp->conf.padlen)
- 		clen = ALIGN(clen, esp->conf.padlen);
-@@ -96,7 +100,7 @@ static int esp6_output(struct xfrm_state
- 	xfrm_aevent_doreplay(x);
+ #define AES_MIN_KEY_SIZE	16
+@@ -34,6 +34,8 @@ int has_aes_256 = 0;
+ struct s390_aes_ctx {
+ 	u8 iv[AES_BLOCK_SIZE];
+ 	u8 key[AES_MAX_KEY_SIZE];
++	long enc;
++	long dec;
+ 	int key_len;
+ };
  
- 	if (esp->conf.ivlen)
--		crypto_cipher_set_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
-+		crypto_blkcipher_set_iv(tfm, esp->conf.ivec, esp->conf.ivlen);
+@@ -244,6 +246,189 @@ static struct crypto_alg aes_alg = {
+ 	}
+ };
  
- 	do {
- 		struct scatterlist *sg = &esp->sgbuf[0];
-@@ -107,14 +111,17 @@ static int esp6_output(struct xfrm_state
- 				goto error;
- 		}
- 		skb_to_sgvec(skb, sg, esph->enc_data+esp->conf.ivlen-skb->data, clen);
--		crypto_cipher_encrypt(tfm, sg, sg, clen);
-+		err = crypto_blkcipher_encrypt(&desc, sg, sg, clen);
- 		if (unlikely(sg != &esp->sgbuf[0]))
- 			kfree(sg);
- 	} while (0);
- 
-+	if (unlikely(err))
-+		goto error;
++static int ecb_aes_set_key(struct crypto_tfm *tfm, const u8 *in_key,
++			   unsigned int key_len)
++{
++	struct s390_aes_ctx *sctx = crypto_tfm_ctx(tfm);
 +
- 	if (esp->conf.ivlen) {
--		memcpy(esph->enc_data, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
--		crypto_cipher_get_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
-+		memcpy(esph->enc_data, esp->conf.ivec, esp->conf.ivlen);
-+		crypto_blkcipher_get_iv(tfm, esp->conf.ivec, esp->conf.ivlen);
- 	}
++	switch (key_len) {
++	case 16:
++		sctx->enc = KM_AES_128_ENCRYPT;
++		sctx->dec = KM_AES_128_DECRYPT;
++		break;
++	case 24:
++		sctx->enc = KM_AES_192_ENCRYPT;
++		sctx->dec = KM_AES_192_DECRYPT;
++		break;
++	case 32:
++		sctx->enc = KM_AES_256_ENCRYPT;
++		sctx->dec = KM_AES_256_DECRYPT;
++		break;
++	}
++
++	return aes_set_key(tfm, in_key, key_len);
++}
++
++static int ecb_aes_crypt(struct blkcipher_desc *desc, long func, void *param,
++			 struct blkcipher_walk *walk)
++{
++	int ret = blkcipher_walk_virt(desc, walk);
++	unsigned int nbytes;
++
++	while ((nbytes = walk->nbytes)) {
++		/* only use complete blocks */
++		unsigned int n = nbytes & ~(AES_BLOCK_SIZE - 1);
++		u8 *out = walk->dst.virt.addr;
++		u8 *in = walk->src.virt.addr;
++
++		ret = crypt_s390_km(func, param, out, in, n);
++		BUG_ON((ret < 0) || (ret != n));
++
++		nbytes &= AES_BLOCK_SIZE - 1;
++		ret = blkcipher_walk_done(desc, walk, nbytes);
++	}
++
++	return ret;
++}
++
++static int ecb_aes_encrypt(struct blkcipher_desc *desc,
++			   struct scatterlist *dst, struct scatterlist *src,
++			   unsigned int nbytes)
++{
++	struct s390_aes_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return ecb_aes_crypt(desc, sctx->enc, sctx->key, &walk);
++}
++
++static int ecb_aes_decrypt(struct blkcipher_desc *desc,
++			   struct scatterlist *dst, struct scatterlist *src,
++			   unsigned int nbytes)
++{
++	struct s390_aes_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return ecb_aes_crypt(desc, sctx->dec, sctx->key, &walk);
++}
++
++static struct crypto_alg ecb_aes_alg = {
++	.cra_name		=	"ecb(aes)",
++	.cra_driver_name	=	"ecb-aes-s390",
++	.cra_priority		=	CRYPT_S390_COMPOSITE_PRIORITY,
++	.cra_flags		=	CRYPTO_ALG_TYPE_BLKCIPHER,
++	.cra_blocksize		=	AES_BLOCK_SIZE,
++	.cra_ctxsize		=	sizeof(struct s390_aes_ctx),
++	.cra_type		=	&crypto_blkcipher_type,
++	.cra_module		=	THIS_MODULE,
++	.cra_list		=	LIST_HEAD_INIT(ecb_aes_alg.cra_list),
++	.cra_u			=	{
++		.blkcipher = {
++			.min_keysize		=	AES_MIN_KEY_SIZE,
++			.max_keysize		=	AES_MAX_KEY_SIZE,
++			.setkey			=	ecb_aes_set_key,
++			.encrypt		=	ecb_aes_encrypt,
++			.decrypt		=	ecb_aes_decrypt,
++		}
++	}
++};
++
++static int cbc_aes_set_key(struct crypto_tfm *tfm, const u8 *in_key,
++			   unsigned int key_len)
++{
++	struct s390_aes_ctx *sctx = crypto_tfm_ctx(tfm);
++
++	switch (key_len) {
++	case 16:
++		sctx->enc = KMC_AES_128_ENCRYPT;
++		sctx->dec = KMC_AES_128_DECRYPT;
++		break;
++	case 24:
++		sctx->enc = KMC_AES_192_ENCRYPT;
++		sctx->dec = KMC_AES_192_DECRYPT;
++		break;
++	case 32:
++		sctx->enc = KMC_AES_256_ENCRYPT;
++		sctx->dec = KMC_AES_256_DECRYPT;
++		break;
++	}
++
++	return aes_set_key(tfm, in_key, key_len);
++}
++
++static int cbc_aes_crypt(struct blkcipher_desc *desc, long func, void *param,
++			 struct blkcipher_walk *walk)
++{
++	int ret = blkcipher_walk_virt(desc, walk);
++	unsigned int nbytes = walk->nbytes;
++
++	if (!nbytes)
++		goto out;
++
++	memcpy(param, walk->iv, AES_BLOCK_SIZE);
++	do {
++		/* only use complete blocks */
++		unsigned int n = nbytes & ~(AES_BLOCK_SIZE - 1);
++		u8 *out = walk->dst.virt.addr;
++		u8 *in = walk->src.virt.addr;
++
++		ret = crypt_s390_kmc(func, param, out, in, n);
++		BUG_ON((ret < 0) || (ret != n));
++
++		nbytes &= AES_BLOCK_SIZE - 1;
++		ret = blkcipher_walk_done(desc, walk, nbytes);
++	} while ((nbytes = walk->nbytes));
++	memcpy(walk->iv, param, AES_BLOCK_SIZE);
++
++out:
++	return ret;
++}
++
++static int cbc_aes_encrypt(struct blkcipher_desc *desc,
++			   struct scatterlist *dst, struct scatterlist *src,
++			   unsigned int nbytes)
++{
++	struct s390_aes_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return cbc_aes_crypt(desc, sctx->enc, sctx->iv, &walk);
++}
++
++static int cbc_aes_decrypt(struct blkcipher_desc *desc,
++			   struct scatterlist *dst, struct scatterlist *src,
++			   unsigned int nbytes)
++{
++	struct s390_aes_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return cbc_aes_crypt(desc, sctx->dec, sctx->iv, &walk);
++}
++
++static struct crypto_alg cbc_aes_alg = {
++	.cra_name		=	"cbc(aes)",
++	.cra_driver_name	=	"cbc-aes-s390",
++	.cra_priority		=	CRYPT_S390_COMPOSITE_PRIORITY,
++	.cra_flags		=	CRYPTO_ALG_TYPE_BLKCIPHER,
++	.cra_blocksize		=	AES_BLOCK_SIZE,
++	.cra_ctxsize		=	sizeof(struct s390_aes_ctx),
++	.cra_type		=	&crypto_blkcipher_type,
++	.cra_module		=	THIS_MODULE,
++	.cra_list		=	LIST_HEAD_INIT(cbc_aes_alg.cra_list),
++	.cra_u			=	{
++		.blkcipher = {
++			.min_keysize		=	AES_MIN_KEY_SIZE,
++			.max_keysize		=	AES_MAX_KEY_SIZE,
++			.ivsize			=	AES_BLOCK_SIZE,
++			.setkey			=	cbc_aes_set_key,
++			.encrypt		=	cbc_aes_encrypt,
++			.decrypt		=	cbc_aes_decrypt,
++		}
++	}
++};
++
+ static int __init aes_init(void)
+ {
+ 	int ret;
+@@ -259,13 +444,40 @@ static int __init aes_init(void)
+ 		return -ENOSYS;
  
- 	if (esp->auth.icv_full_len) {
-@@ -123,8 +130,6 @@ static int esp6_output(struct xfrm_state
- 		pskb_put(skb, trailer, alen);
- 	}
- 
--	err = 0;
--
- error:
- 	return err;
+ 	ret = crypto_register_alg(&aes_alg);
+-	if (ret != 0)
+-		printk(KERN_INFO "crypt_s390: aes_s390 couldn't be loaded.\n");
++	if (ret != 0) {
++		printk(KERN_INFO "crypt_s390: aes-s390 couldn't be loaded.\n");
++		goto aes_err;
++	}
++
++	ret = crypto_register_alg(&ecb_aes_alg);
++	if (ret != 0) {
++		printk(KERN_INFO
++		       "crypt_s390: ecb-aes-s390 couldn't be loaded.\n");
++		goto ecb_aes_err;
++	}
++
++	ret = crypto_register_alg(&cbc_aes_alg);
++	if (ret != 0) {
++		printk(KERN_INFO
++		       "crypt_s390: cbc-aes-s390 couldn't be loaded.\n");
++		goto cbc_aes_err;
++	}
++
++out:
+ 	return ret;
++
++cbc_aes_err:
++	crypto_unregister_alg(&ecb_aes_alg);
++ecb_aes_err:
++	crypto_unregister_alg(&aes_alg);
++aes_err:
++	goto out;
  }
-@@ -134,8 +139,10 @@ static int esp6_input(struct xfrm_state 
- 	struct ipv6hdr *iph;
- 	struct ipv6_esp_hdr *esph;
- 	struct esp_data *esp = x->data;
-+	struct crypto_blkcipher *tfm = esp->conf.tfm;
-+	struct blkcipher_desc desc = { .tfm = tfm };
- 	struct sk_buff *trailer;
--	int blksize = ALIGN(crypto_tfm_alg_blocksize(esp->conf.tfm), 4);
-+	int blksize = ALIGN(crypto_blkcipher_blocksize(tfm), 4);
- 	int alen = esp->auth.icv_trunc_len;
- 	int elen = skb->len - sizeof(struct ipv6_esp_hdr) - esp->conf.ivlen - alen;
  
-@@ -182,7 +189,7 @@ static int esp6_input(struct xfrm_state 
- 
- 	/* Get ivec. This can be wrong, check against another impls. */
- 	if (esp->conf.ivlen)
--		crypto_cipher_set_iv(esp->conf.tfm, esph->enc_data, crypto_tfm_alg_ivsize(esp->conf.tfm));
-+		crypto_blkcipher_set_iv(tfm, esph->enc_data, esp->conf.ivlen);
- 
-         {
- 		u8 nexthdr[2];
-@@ -197,9 +204,11 @@ static int esp6_input(struct xfrm_state 
- 			}
- 		}
- 		skb_to_sgvec(skb, sg, sizeof(struct ipv6_esp_hdr) + esp->conf.ivlen, elen);
--		crypto_cipher_decrypt(esp->conf.tfm, sg, sg, elen);
-+		ret = crypto_blkcipher_decrypt(&desc, sg, sg, elen);
- 		if (unlikely(sg != &esp->sgbuf[0]))
- 			kfree(sg);
-+		if (unlikely(ret))
-+			goto out;
- 
- 		if (skb_copy_bits(skb, skb->len-alen-2, nexthdr, 2))
- 			BUG();
-@@ -225,7 +234,7 @@ out:
- static u32 esp6_get_max_size(struct xfrm_state *x, int mtu)
+ static void __exit aes_fini(void)
  {
- 	struct esp_data *esp = x->data;
--	u32 blksize = ALIGN(crypto_tfm_alg_blocksize(esp->conf.tfm), 4);
-+	u32 blksize = ALIGN(crypto_blkcipher_blocksize(esp->conf.tfm), 4);
++	crypto_unregister_alg(&cbc_aes_alg);
++	crypto_unregister_alg(&ecb_aes_alg);
+ 	crypto_unregister_alg(&aes_alg);
+ }
  
- 	if (x->props.mode) {
- 		mtu = ALIGN(mtu + 2, blksize);
-@@ -266,7 +275,7 @@ static void esp6_destroy(struct xfrm_sta
- 	if (!esp)
- 		return;
+diff --git a/arch/s390/crypto/crypt_s390.h b/arch/s390/crypto/crypt_s390.h
+--- a/arch/s390/crypto/crypt_s390.h
++++ b/arch/s390/crypto/crypt_s390.h
+@@ -21,6 +21,7 @@
+ #define CRYPT_S390_FUNC_MASK 0x00FF
  
--	crypto_free_tfm(esp->conf.tfm);
-+	crypto_free_blkcipher(esp->conf.tfm);
- 	esp->conf.tfm = NULL;
- 	kfree(esp->conf.ivec);
- 	esp->conf.ivec = NULL;
-@@ -280,6 +289,7 @@ static void esp6_destroy(struct xfrm_sta
- static int esp6_init_state(struct xfrm_state *x)
- {
- 	struct esp_data *esp = NULL;
-+	struct crypto_blkcipher *tfm;
+ #define CRYPT_S390_PRIORITY 300
++#define CRYPT_S390_COMPOSITE_PRIORITY 400
  
- 	/* null auth and encryption can have zero length keys */
- 	if (x->aalg) {
-@@ -327,13 +337,11 @@ static int esp6_init_state(struct xfrm_s
+ /* s930 cryptographic operations */
+ enum crypt_s390_operations {
+diff --git a/arch/s390/crypto/des_s390.c b/arch/s390/crypto/des_s390.c
+--- a/arch/s390/crypto/des_s390.c
++++ b/arch/s390/crypto/des_s390.c
+@@ -13,9 +13,10 @@
+  * (at your option) any later version.
+  *
+  */
++
++#include <crypto/algapi.h>
+ #include <linux/init.h>
+ #include <linux/module.h>
+-#include <linux/crypto.h>
+ 
+ #include "crypt_s390.h"
+ #include "crypto_des.h"
+@@ -157,6 +158,143 @@ static struct crypto_alg des_alg = {
  	}
- 	esp->conf.key = x->ealg->alg_key;
- 	esp->conf.key_len = (x->ealg->alg_key_len+7)/8;
--	if (x->props.ealgo == SADB_EALG_NULL)
--		esp->conf.tfm = crypto_alloc_tfm(x->ealg->alg_name, CRYPTO_TFM_MODE_ECB);
--	else
--		esp->conf.tfm = crypto_alloc_tfm(x->ealg->alg_name, CRYPTO_TFM_MODE_CBC);
--	if (esp->conf.tfm == NULL)
-+	tfm = crypto_alloc_blkcipher(x->ealg->alg_name, 0, CRYPTO_ALG_ASYNC);
-+	if (IS_ERR(tfm))
- 		goto error;
--	esp->conf.ivlen = crypto_tfm_alg_ivsize(esp->conf.tfm);
-+	esp->conf.tfm = tfm;
-+	esp->conf.ivlen = crypto_blkcipher_ivsize(tfm);
- 	esp->conf.padlen = 0;
- 	if (esp->conf.ivlen) {
- 		esp->conf.ivec = kmalloc(esp->conf.ivlen, GFP_KERNEL);
-@@ -341,7 +349,7 @@ static int esp6_init_state(struct xfrm_s
- 			goto error;
- 		get_random_bytes(esp->conf.ivec, esp->conf.ivlen);
- 	}
--	if (crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len))
-+	if (crypto_blkcipher_setkey(tfm, esp->conf.key, esp->conf.key_len))
- 		goto error;
- 	x->props.header_len = sizeof(struct ipv6_esp_hdr) + esp->conf.ivlen;
- 	if (x->props.mode)
-diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
---- a/net/xfrm/xfrm_algo.c
-+++ b/net/xfrm/xfrm_algo.c
-@@ -118,7 +118,8 @@ static struct xfrm_algo_desc aalg_list[]
+ };
  
- static struct xfrm_algo_desc ealg_list[] = {
- {
--	.name = "cipher_null",
-+	.name = "ecb(cipher_null)",
-+	.compat = "cipher_null",
- 	
- 	.uinfo = {
- 		.encr = {
-@@ -135,7 +136,8 @@ static struct xfrm_algo_desc ealg_list[]
++static int ecb_desall_crypt(struct blkcipher_desc *desc, long func,
++			    void *param, struct blkcipher_walk *walk)
++{
++	int ret = blkcipher_walk_virt(desc, walk);
++	unsigned int nbytes;
++
++	while ((nbytes = walk->nbytes)) {
++		/* only use complete blocks */
++		unsigned int n = nbytes & ~(DES_BLOCK_SIZE - 1);
++		u8 *out = walk->dst.virt.addr;
++		u8 *in = walk->src.virt.addr;
++
++		ret = crypt_s390_km(func, param, out, in, n);
++		BUG_ON((ret < 0) || (ret != n));
++
++		nbytes &= DES_BLOCK_SIZE - 1;
++		ret = blkcipher_walk_done(desc, walk, nbytes);
++	}
++
++	return ret;
++}
++
++static int cbc_desall_crypt(struct blkcipher_desc *desc, long func,
++			    void *param, struct blkcipher_walk *walk)
++{
++	int ret = blkcipher_walk_virt(desc, walk);
++	unsigned int nbytes = walk->nbytes;
++
++	if (!nbytes)
++		goto out;
++
++	memcpy(param, walk->iv, DES_BLOCK_SIZE);
++	do {
++		/* only use complete blocks */
++		unsigned int n = nbytes & ~(DES_BLOCK_SIZE - 1);
++		u8 *out = walk->dst.virt.addr;
++		u8 *in = walk->src.virt.addr;
++
++		ret = crypt_s390_kmc(func, param, out, in, n);
++		BUG_ON((ret < 0) || (ret != n));
++
++		nbytes &= DES_BLOCK_SIZE - 1;
++		ret = blkcipher_walk_done(desc, walk, nbytes);
++	} while ((nbytes = walk->nbytes));
++	memcpy(walk->iv, param, DES_BLOCK_SIZE);
++
++out:
++	return ret;
++}
++
++static int ecb_des_encrypt(struct blkcipher_desc *desc,
++			   struct scatterlist *dst, struct scatterlist *src,
++			   unsigned int nbytes)
++{
++	struct crypt_s390_des_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return ecb_desall_crypt(desc, KM_DEA_ENCRYPT, sctx->key, &walk);
++}
++
++static int ecb_des_decrypt(struct blkcipher_desc *desc,
++			   struct scatterlist *dst, struct scatterlist *src,
++			   unsigned int nbytes)
++{
++	struct crypt_s390_des_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return ecb_desall_crypt(desc, KM_DEA_DECRYPT, sctx->key, &walk);
++}
++
++static struct crypto_alg ecb_des_alg = {
++	.cra_name		=	"ecb(des)",
++	.cra_driver_name	=	"ecb-des-s390",
++	.cra_priority		=	CRYPT_S390_COMPOSITE_PRIORITY,
++	.cra_flags		=	CRYPTO_ALG_TYPE_BLKCIPHER,
++	.cra_blocksize		=	DES_BLOCK_SIZE,
++	.cra_ctxsize		=	sizeof(struct crypt_s390_des_ctx),
++	.cra_type		=	&crypto_blkcipher_type,
++	.cra_module		=	THIS_MODULE,
++	.cra_list		=	LIST_HEAD_INIT(ecb_des_alg.cra_list),
++	.cra_u			=	{
++		.blkcipher = {
++			.min_keysize		=	DES_KEY_SIZE,
++			.max_keysize		=	DES_KEY_SIZE,
++			.setkey			=	des_setkey,
++			.encrypt		=	ecb_des_encrypt,
++			.decrypt		=	ecb_des_decrypt,
++		}
++	}
++};
++
++static int cbc_des_encrypt(struct blkcipher_desc *desc,
++			   struct scatterlist *dst, struct scatterlist *src,
++			   unsigned int nbytes)
++{
++	struct crypt_s390_des_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return cbc_desall_crypt(desc, KMC_DEA_ENCRYPT, sctx->iv, &walk);
++}
++
++static int cbc_des_decrypt(struct blkcipher_desc *desc,
++			   struct scatterlist *dst, struct scatterlist *src,
++			   unsigned int nbytes)
++{
++	struct crypt_s390_des_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return cbc_desall_crypt(desc, KMC_DEA_DECRYPT, sctx->iv, &walk);
++}
++
++static struct crypto_alg cbc_des_alg = {
++	.cra_name		=	"cbc(des)",
++	.cra_driver_name	=	"cbc-des-s390",
++	.cra_priority		=	CRYPT_S390_COMPOSITE_PRIORITY,
++	.cra_flags		=	CRYPTO_ALG_TYPE_BLKCIPHER,
++	.cra_blocksize		=	DES_BLOCK_SIZE,
++	.cra_ctxsize		=	sizeof(struct crypt_s390_des_ctx),
++	.cra_type		=	&crypto_blkcipher_type,
++	.cra_module		=	THIS_MODULE,
++	.cra_list		=	LIST_HEAD_INIT(cbc_des_alg.cra_list),
++	.cra_u			=	{
++		.blkcipher = {
++			.min_keysize		=	DES_KEY_SIZE,
++			.max_keysize		=	DES_KEY_SIZE,
++			.ivsize			=	DES_BLOCK_SIZE,
++			.setkey			=	des_setkey,
++			.encrypt		=	cbc_des_encrypt,
++			.decrypt		=	cbc_des_decrypt,
++		}
++	}
++};
++
+ /*
+  * RFC2451:
+  *
+@@ -295,6 +433,95 @@ static struct crypto_alg des3_128_alg = 
  	}
- },
- {
--	.name = "des",
-+	.name = "cbc(des)",
-+	.compat = "des",
+ };
  
- 	.uinfo = {
- 		.encr = {
-@@ -152,7 +154,8 @@ static struct xfrm_algo_desc ealg_list[]
++static int ecb_des3_128_encrypt(struct blkcipher_desc *desc,
++				struct scatterlist *dst,
++				struct scatterlist *src, unsigned int nbytes)
++{
++	struct crypt_s390_des3_128_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return ecb_desall_crypt(desc, KM_TDEA_128_ENCRYPT, sctx->key, &walk);
++}
++
++static int ecb_des3_128_decrypt(struct blkcipher_desc *desc,
++				struct scatterlist *dst,
++				struct scatterlist *src, unsigned int nbytes)
++{
++	struct crypt_s390_des3_128_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return ecb_desall_crypt(desc, KM_TDEA_128_DECRYPT, sctx->key, &walk);
++}
++
++static struct crypto_alg ecb_des3_128_alg = {
++	.cra_name		=	"ecb(des3_ede128)",
++	.cra_driver_name	=	"ecb-des3_ede128-s390",
++	.cra_priority		=	CRYPT_S390_COMPOSITE_PRIORITY,
++	.cra_flags		=	CRYPTO_ALG_TYPE_BLKCIPHER,
++	.cra_blocksize		=	DES3_128_BLOCK_SIZE,
++	.cra_ctxsize		=	sizeof(struct crypt_s390_des3_128_ctx),
++	.cra_type		=	&crypto_blkcipher_type,
++	.cra_module		=	THIS_MODULE,
++	.cra_list		=	LIST_HEAD_INIT(
++						ecb_des3_128_alg.cra_list),
++	.cra_u			=	{
++		.blkcipher = {
++			.min_keysize		=	DES3_128_KEY_SIZE,
++			.max_keysize		=	DES3_128_KEY_SIZE,
++			.setkey			=	des3_128_setkey,
++			.encrypt		=	ecb_des3_128_encrypt,
++			.decrypt		=	ecb_des3_128_decrypt,
++		}
++	}
++};
++
++static int cbc_des3_128_encrypt(struct blkcipher_desc *desc,
++				struct scatterlist *dst,
++				struct scatterlist *src, unsigned int nbytes)
++{
++	struct crypt_s390_des3_128_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return cbc_desall_crypt(desc, KMC_TDEA_128_ENCRYPT, sctx->iv, &walk);
++}
++
++static int cbc_des3_128_decrypt(struct blkcipher_desc *desc,
++				struct scatterlist *dst,
++				struct scatterlist *src, unsigned int nbytes)
++{
++	struct crypt_s390_des3_128_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return cbc_desall_crypt(desc, KMC_TDEA_128_DECRYPT, sctx->iv, &walk);
++}
++
++static struct crypto_alg cbc_des3_128_alg = {
++	.cra_name		=	"cbc(des3_ede128)",
++	.cra_driver_name	=	"cbc-des3_ede128-s390",
++	.cra_priority		=	CRYPT_S390_COMPOSITE_PRIORITY,
++	.cra_flags		=	CRYPTO_ALG_TYPE_BLKCIPHER,
++	.cra_blocksize		=	DES3_128_BLOCK_SIZE,
++	.cra_ctxsize		=	sizeof(struct crypt_s390_des3_128_ctx),
++	.cra_type		=	&crypto_blkcipher_type,
++	.cra_module		=	THIS_MODULE,
++	.cra_list		=	LIST_HEAD_INIT(
++						cbc_des3_128_alg.cra_list),
++	.cra_u			=	{
++		.blkcipher = {
++			.min_keysize		=	DES3_128_KEY_SIZE,
++			.max_keysize		=	DES3_128_KEY_SIZE,
++			.ivsize			=	DES3_128_BLOCK_SIZE,
++			.setkey			=	des3_128_setkey,
++			.encrypt		=	cbc_des3_128_encrypt,
++			.decrypt		=	cbc_des3_128_decrypt,
++		}
++	}
++};
++
+ /*
+  * RFC2451:
+  *
+@@ -437,6 +664,95 @@ static struct crypto_alg des3_192_alg = 
  	}
- },
- {
--	.name = "des3_ede",
-+	.name = "cbc(des3_ede)",
-+	.compat = "des3_ede",
+ };
  
- 	.uinfo = {
- 		.encr = {
-@@ -169,7 +172,8 @@ static struct xfrm_algo_desc ealg_list[]
- 	}
- },
++static int ecb_des3_192_encrypt(struct blkcipher_desc *desc,
++				struct scatterlist *dst,
++				struct scatterlist *src, unsigned int nbytes)
++{
++	struct crypt_s390_des3_192_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return ecb_desall_crypt(desc, KM_TDEA_192_ENCRYPT, sctx->key, &walk);
++}
++
++static int ecb_des3_192_decrypt(struct blkcipher_desc *desc,
++				struct scatterlist *dst,
++				struct scatterlist *src, unsigned int nbytes)
++{
++	struct crypt_s390_des3_192_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return ecb_desall_crypt(desc, KM_TDEA_192_DECRYPT, sctx->key, &walk);
++}
++
++static struct crypto_alg ecb_des3_192_alg = {
++	.cra_name		=	"ecb(des3_ede)",
++	.cra_driver_name	=	"ecb-des3_ede-s390",
++	.cra_priority		=	CRYPT_S390_COMPOSITE_PRIORITY,
++	.cra_flags		=	CRYPTO_ALG_TYPE_BLKCIPHER,
++	.cra_blocksize		=	DES3_192_BLOCK_SIZE,
++	.cra_ctxsize		=	sizeof(struct crypt_s390_des3_192_ctx),
++	.cra_type		=	&crypto_blkcipher_type,
++	.cra_module		=	THIS_MODULE,
++	.cra_list		=	LIST_HEAD_INIT(
++						ecb_des3_192_alg.cra_list),
++	.cra_u			=	{
++		.blkcipher = {
++			.min_keysize		=	DES3_192_KEY_SIZE,
++			.max_keysize		=	DES3_192_KEY_SIZE,
++			.setkey			=	des3_192_setkey,
++			.encrypt		=	ecb_des3_192_encrypt,
++			.decrypt		=	ecb_des3_192_decrypt,
++		}
++	}
++};
++
++static int cbc_des3_192_encrypt(struct blkcipher_desc *desc,
++				struct scatterlist *dst,
++				struct scatterlist *src, unsigned int nbytes)
++{
++	struct crypt_s390_des3_192_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return cbc_desall_crypt(desc, KMC_TDEA_192_ENCRYPT, sctx->iv, &walk);
++}
++
++static int cbc_des3_192_decrypt(struct blkcipher_desc *desc,
++				struct scatterlist *dst,
++				struct scatterlist *src, unsigned int nbytes)
++{
++	struct crypt_s390_des3_192_ctx *sctx = crypto_blkcipher_ctx(desc->tfm);
++	struct blkcipher_walk walk;
++
++	blkcipher_walk_init(&walk, dst, src, nbytes);
++	return cbc_desall_crypt(desc, KMC_TDEA_192_DECRYPT, sctx->iv, &walk);
++}
++
++static struct crypto_alg cbc_des3_192_alg = {
++	.cra_name		=	"cbc(des3_ede)",
++	.cra_driver_name	=	"cbc-des3_ede-s390",
++	.cra_priority		=	CRYPT_S390_COMPOSITE_PRIORITY,
++	.cra_flags		=	CRYPTO_ALG_TYPE_BLKCIPHER,
++	.cra_blocksize		=	DES3_192_BLOCK_SIZE,
++	.cra_ctxsize		=	sizeof(struct crypt_s390_des3_192_ctx),
++	.cra_type		=	&crypto_blkcipher_type,
++	.cra_module		=	THIS_MODULE,
++	.cra_list		=	LIST_HEAD_INIT(
++						cbc_des3_192_alg.cra_list),
++	.cra_u			=	{
++		.blkcipher = {
++			.min_keysize		=	DES3_192_KEY_SIZE,
++			.max_keysize		=	DES3_192_KEY_SIZE,
++			.ivsize			=	DES3_192_BLOCK_SIZE,
++			.setkey			=	des3_192_setkey,
++			.encrypt		=	cbc_des3_192_encrypt,
++			.decrypt		=	cbc_des3_192_decrypt,
++		}
++	}
++};
++
+ static int init(void)
  {
--	.name = "cast128",
-+	.name = "cbc(cast128)",
-+	.compat = "cast128",
+ 	int ret = 0;
+@@ -446,22 +762,69 @@ static int init(void)
+ 	    !crypt_s390_func_available(KM_TDEA_192_ENCRYPT))
+ 		return -ENOSYS;
  
- 	.uinfo = {
- 		.encr = {
-@@ -186,7 +190,8 @@ static struct xfrm_algo_desc ealg_list[]
- 	}
- },
- {
--	.name = "blowfish",
-+	.name = "cbc(blowfish)",
-+	.compat = "blowfish",
+-	ret |= (crypto_register_alg(&des_alg) == 0) ? 0:1;
+-	ret |= (crypto_register_alg(&des3_128_alg) == 0) ? 0:2;
+-	ret |= (crypto_register_alg(&des3_192_alg) == 0) ? 0:4;
+-	if (ret) {
+-		crypto_unregister_alg(&des3_192_alg);
+-		crypto_unregister_alg(&des3_128_alg);
+-		crypto_unregister_alg(&des_alg);
+-		return -EEXIST;
+-	}
+-	return 0;
++	ret = crypto_register_alg(&des_alg);
++	if (ret)
++		goto des_err;
++	ret = crypto_register_alg(&ecb_des_alg);
++	if (ret)
++		goto ecb_des_err;
++	ret = crypto_register_alg(&cbc_des_alg);
++	if (ret)
++		goto cbc_des_err;
++
++	ret = crypto_register_alg(&des3_128_alg);
++	if (ret)
++		goto des3_128_err;
++	ret = crypto_register_alg(&ecb_des3_128_alg);
++	if (ret)
++		goto ecb_des3_128_err;
++	ret = crypto_register_alg(&cbc_des3_128_alg);
++	if (ret)
++		goto cbc_des3_128_err;
++
++	ret = crypto_register_alg(&des3_192_alg);
++	if (ret)
++		goto des3_192_err;
++	ret = crypto_register_alg(&ecb_des3_192_alg);
++	if (ret)
++		goto ecb_des3_192_err;
++	ret = crypto_register_alg(&cbc_des3_192_alg);
++	if (ret)
++		goto cbc_des3_192_err;
++
++out:
++	return ret;
++
++cbc_des3_192_err:
++	crypto_unregister_alg(&ecb_des3_192_alg);
++ecb_des3_192_err:
++	crypto_unregister_alg(&des3_192_alg);
++des3_192_err:
++	crypto_unregister_alg(&cbc_des3_128_alg);
++cbc_des3_128_err:
++	crypto_unregister_alg(&ecb_des3_128_alg);
++ecb_des3_128_err:
++	crypto_unregister_alg(&des3_128_alg);
++des3_128_err:
++	crypto_unregister_alg(&cbc_des_alg);
++cbc_des_err:
++	crypto_unregister_alg(&ecb_des_alg);
++ecb_des_err:
++	crypto_unregister_alg(&des_alg);
++des_err:
++	goto out;
+ }
  
- 	.uinfo = {
- 		.encr = {
-@@ -203,7 +208,8 @@ static struct xfrm_algo_desc ealg_list[]
- 	}
- },
+ static void __exit fini(void)
  {
--	.name = "aes",
-+	.name = "cbc(aes)",
-+	.compat = "aes",
++	crypto_unregister_alg(&cbc_des3_192_alg);
++	crypto_unregister_alg(&ecb_des3_192_alg);
+ 	crypto_unregister_alg(&des3_192_alg);
++	crypto_unregister_alg(&cbc_des3_128_alg);
++	crypto_unregister_alg(&ecb_des3_128_alg);
+ 	crypto_unregister_alg(&des3_128_alg);
++	crypto_unregister_alg(&cbc_des_alg);
++	crypto_unregister_alg(&ecb_des_alg);
+ 	crypto_unregister_alg(&des_alg);
+ }
  
- 	.uinfo = {
- 		.encr = {
-@@ -220,7 +226,8 @@ static struct xfrm_algo_desc ealg_list[]
- 	}
- },
- {
--        .name = "serpent",
-+        .name = "cbc(serpent)",
-+        .compat = "serpent",
- 
-         .uinfo = {
-                 .encr = {
-@@ -237,7 +244,8 @@ static struct xfrm_algo_desc ealg_list[]
-         }
- },
- {
--        .name = "twofish",
-+        .name = "cbc(twofish)",
-+        .compat = "twofish",
-                  
-         .uinfo = {
-                 .encr = {
