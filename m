@@ -1,773 +1,526 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 16/16] [CRYPTO] cipher: Remove obsolete block cipher operations
-Date: Sun, 13 Aug 2006 22:20:30 +1000
-Message-ID: <E1GCExC-0004gb-00@gondolin.me.apana.org.au>
+Subject: [PATCH 14/16] [CRYPTO] users: Use block ciphers where applicable
+Date: Sun, 13 Aug 2006 22:20:24 +1000
+Message-ID: <E1GCEx6-0004gV-00@gondolin.me.apana.org.au>
 References: <20060813121722.GA16115@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:23305 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751103AbWHMMW1
+Received: from rhun.apana.org.au ([64.62.148.172]:24585 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751032AbWHMMWg
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 08:22:27 -0400
+	Sun, 13 Aug 2006 08:22:36 -0400
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[CRYPTO] cipher: Remove obsolete block cipher operations
+[CRYPTO] users: Use block ciphers where applicable
 
-This patch removes obsolete block operations from the simple cipher type.
-All block operations are now performed through the new block cipher type.
-
-It also changes crypto_cipher into a proper type so that type checking
-is done at compile time.
+This patch converts all remaining users to use the new block cipher type
+where applicable.  It also changes all simple cipher operations to use
+the new encrypt_one/decrypt_one interface.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- crypto/api.c           |    4 
- crypto/cipher.c        |  430 -------------------------------------------------
- crypto/internal.h      |   13 -
- crypto/scatterwalk.h   |    7 
- include/linux/crypto.h |  134 +--------------
- 5 files changed, 15 insertions(+), 573 deletions(-)
+ drivers/net/ppp_mppe.c               |   32 +++++++++++++++++++-------------
+ drivers/net/wireless/airo.c          |   18 +++++++++---------
+ net/ieee80211/ieee80211_crypt_ccmp.c |   28 +++++++++-------------------
+ net/ieee80211/ieee80211_crypt_tkip.c |   34 ++++++++++++++++++++++------------
+ net/ieee80211/ieee80211_crypt_wep.c  |   25 ++++++++++++++-----------
+ 5 files changed, 73 insertions(+), 64 deletions(-)
 
-diff --git a/crypto/api.c b/crypto/api.c
---- a/crypto/api.c
-+++ b/crypto/api.c
-@@ -218,9 +218,6 @@ static int crypto_init_flags(struct cryp
- 	flags &= ~CRYPTO_TFM_REQ_MASK;
- 	
- 	switch (crypto_tfm_alg_type(tfm)) {
--	case CRYPTO_ALG_TYPE_CIPHER:
--		return crypto_init_cipher_flags(tfm, flags);
--		
- 	case CRYPTO_ALG_TYPE_DIGEST:
- 		return crypto_init_digest_flags(tfm, flags);
- 		
-@@ -268,7 +265,6 @@ static void crypto_exit_ops(struct crypt
- 
- 	switch (crypto_tfm_alg_type(tfm)) {
- 	case CRYPTO_ALG_TYPE_CIPHER:
--		crypto_exit_cipher_ops(tfm);
- 		break;
- 		
- 	case CRYPTO_ALG_TYPE_DIGEST:
-diff --git a/crypto/cipher.c b/crypto/cipher.c
---- a/crypto/cipher.c
-+++ b/crypto/cipher.c
-@@ -12,252 +12,12 @@
-  * any later version.
-  *
+diff --git a/drivers/net/ppp_mppe.c b/drivers/net/ppp_mppe.c
+--- a/drivers/net/ppp_mppe.c
++++ b/drivers/net/ppp_mppe.c
+@@ -43,6 +43,7 @@
+  *                    deprecated in 2.6
   */
--#include <linux/compiler.h>
-+
+ 
++#include <linux/err.h>
+ #include <linux/module.h>
  #include <linux/kernel.h>
- #include <linux/crypto.h>
- #include <linux/errno.h>
--#include <linux/mm.h>
--#include <linux/slab.h>
--#include <linux/string.h>
--#include <asm/scatterlist.h>
--#include "internal.h"
--#include "scatterwalk.h"
--
--static inline void xor_64(u8 *a, const u8 *b)
--{
--	((u32 *)a)[0] ^= ((u32 *)b)[0];
--	((u32 *)a)[1] ^= ((u32 *)b)[1];
--}
--
--static inline void xor_128(u8 *a, const u8 *b)
--{
--	((u32 *)a)[0] ^= ((u32 *)b)[0];
--	((u32 *)a)[1] ^= ((u32 *)b)[1];
--	((u32 *)a)[2] ^= ((u32 *)b)[2];
--	((u32 *)a)[3] ^= ((u32 *)b)[3];
--}
--
--static unsigned int crypt_slow(const struct cipher_desc *desc,
--			       struct scatter_walk *in,
--			       struct scatter_walk *out, unsigned int bsize)
--{
--	unsigned long alignmask = crypto_tfm_alg_alignmask(desc->tfm);
--	u8 buffer[bsize * 2 + alignmask];
--	u8 *src = (u8 *)ALIGN((unsigned long)buffer, alignmask + 1);
--	u8 *dst = src + bsize;
--
--	scatterwalk_copychunks(src, in, bsize, 0);
--	desc->prfn(desc, dst, src, bsize);
--	scatterwalk_copychunks(dst, out, bsize, 1);
--
--	return bsize;
--}
--
--static inline unsigned int crypt_fast(const struct cipher_desc *desc,
--				      struct scatter_walk *in,
--				      struct scatter_walk *out,
--				      unsigned int nbytes, u8 *tmp)
--{
--	u8 *src, *dst;
--	u8 *real_src, *real_dst;
--
--	real_src = scatterwalk_map(in, 0);
--	real_dst = scatterwalk_map(out, 1);
--
--	src = real_src;
--	dst = scatterwalk_samebuf(in, out) ? src : real_dst;
--
--	if (tmp) {
--		memcpy(tmp, src, nbytes);
--		src = tmp;
--		dst = tmp;
--	}
--
--	nbytes = desc->prfn(desc, dst, src, nbytes);
--
--	if (tmp)
--		memcpy(real_dst, tmp, nbytes);
--
--	scatterwalk_unmap(real_src, 0);
--	scatterwalk_unmap(real_dst, 1);
--
--	scatterwalk_advance(in, nbytes);
--	scatterwalk_advance(out, nbytes);
--
--	return nbytes;
--}
--
--/* 
-- * Generic encrypt/decrypt wrapper for ciphers, handles operations across
-- * multiple page boundaries by using temporary blocks.  In user context,
-- * the kernel is given a chance to schedule us once per page.
-- */
--static int crypt(const struct cipher_desc *desc,
--		 struct scatterlist *dst,
--		 struct scatterlist *src,
--		 unsigned int nbytes)
--{
--	struct scatter_walk walk_in, walk_out;
--	struct crypto_tfm *tfm = desc->tfm;
--	const unsigned int bsize = crypto_tfm_alg_blocksize(tfm);
--	unsigned int alignmask = crypto_tfm_alg_alignmask(tfm);
--	unsigned long buffer = 0;
--
--	if (!nbytes)
--		return 0;
--
--	if (nbytes % bsize) {
--		tfm->crt_flags |= CRYPTO_TFM_RES_BAD_BLOCK_LEN;
--		return -EINVAL;
--	}
--
--	scatterwalk_start(&walk_in, src);
--	scatterwalk_start(&walk_out, dst);
--
--	for(;;) {
--		unsigned int n = nbytes;
--		u8 *tmp = NULL;
--
--		if (!scatterwalk_aligned(&walk_in, alignmask) ||
--		    !scatterwalk_aligned(&walk_out, alignmask)) {
--			if (!buffer) {
--				buffer = __get_free_page(GFP_ATOMIC);
--				if (!buffer)
--					n = 0;
--			}
--			tmp = (u8 *)buffer;
--		}
--
--		n = scatterwalk_clamp(&walk_in, n);
--		n = scatterwalk_clamp(&walk_out, n);
--
--		if (likely(n >= bsize))
--			n = crypt_fast(desc, &walk_in, &walk_out, n, tmp);
--		else
--			n = crypt_slow(desc, &walk_in, &walk_out, bsize);
--
--		nbytes -= n;
--
--		scatterwalk_done(&walk_in, 0, nbytes);
--		scatterwalk_done(&walk_out, 1, nbytes);
--
--		if (!nbytes)
--			break;
--
--		crypto_yield(tfm->crt_flags);
--	}
--
--	if (buffer)
--		free_page(buffer);
--
--	return 0;
--}
--
--static int crypt_iv_unaligned(struct cipher_desc *desc,
--			      struct scatterlist *dst,
--			      struct scatterlist *src,
--			      unsigned int nbytes)
--{
--	struct crypto_tfm *tfm = desc->tfm;
--	unsigned long alignmask = crypto_tfm_alg_alignmask(tfm);
--	u8 *iv = desc->info;
--
--	if (unlikely(((unsigned long)iv & alignmask))) {
--		unsigned int ivsize = tfm->crt_cipher.cit_ivsize;
--		u8 buffer[ivsize + alignmask];
--		u8 *tmp = (u8 *)ALIGN((unsigned long)buffer, alignmask + 1);
--		int err;
--
--		desc->info = memcpy(tmp, iv, ivsize);
--		err = crypt(desc, dst, src, nbytes);
--		memcpy(iv, tmp, ivsize);
--
--		return err;
--	}
--
--	return crypt(desc, dst, src, nbytes);
--}
--
--static unsigned int cbc_process_encrypt(const struct cipher_desc *desc,
--					u8 *dst, const u8 *src,
--					unsigned int nbytes)
--{
--	struct crypto_tfm *tfm = desc->tfm;
--	void (*xor)(u8 *, const u8 *) = tfm->crt_u.cipher.cit_xor_block;
--	int bsize = crypto_tfm_alg_blocksize(tfm);
--
--	void (*fn)(struct crypto_tfm *, u8 *, const u8 *) = desc->crfn;
--	u8 *iv = desc->info;
--	unsigned int done = 0;
--
--	nbytes -= bsize;
--
--	do {
--		xor(iv, src);
--		fn(tfm, dst, iv);
--		memcpy(iv, dst, bsize);
--
--		src += bsize;
--		dst += bsize;
--	} while ((done += bsize) <= nbytes);
--
--	return done;
--}
--
--static unsigned int cbc_process_decrypt(const struct cipher_desc *desc,
--					u8 *dst, const u8 *src,
--					unsigned int nbytes)
--{
--	struct crypto_tfm *tfm = desc->tfm;
--	void (*xor)(u8 *, const u8 *) = tfm->crt_u.cipher.cit_xor_block;
--	int bsize = crypto_tfm_alg_blocksize(tfm);
--	unsigned long alignmask = crypto_tfm_alg_alignmask(desc->tfm);
--
--	u8 stack[src == dst ? bsize + alignmask : 0];
--	u8 *buf = (u8 *)ALIGN((unsigned long)stack, alignmask + 1);
--	u8 **dst_p = src == dst ? &buf : &dst;
--
--	void (*fn)(struct crypto_tfm *, u8 *, const u8 *) = desc->crfn;
--	u8 *iv = desc->info;
--	unsigned int done = 0;
--
--	nbytes -= bsize;
--
--	do {
--		u8 *tmp_dst = *dst_p;
--
--		fn(tfm, tmp_dst, src);
--		xor(tmp_dst, iv);
--		memcpy(iv, src, bsize);
--		if (tmp_dst != dst)
--			memcpy(dst, tmp_dst, bsize);
--
--		src += bsize;
--		dst += bsize;
--	} while ((done += bsize) <= nbytes);
--
--	return done;
--}
--
--static unsigned int ecb_process(const struct cipher_desc *desc, u8 *dst,
--				const u8 *src, unsigned int nbytes)
--{
--	struct crypto_tfm *tfm = desc->tfm;
--	int bsize = crypto_tfm_alg_blocksize(tfm);
--	void (*fn)(struct crypto_tfm *, u8 *, const u8 *) = desc->crfn;
--	unsigned int done = 0;
--
--	nbytes -= bsize;
- 
--	do {
--		fn(tfm, dst, src);
--
--		src += bsize;
--		dst += bsize;
--	} while ((done += bsize) <= nbytes);
--
--	return done;
--}
-+#include "internal.h"
- 
- static int setkey(struct crypto_tfm *tfm, const u8 *key, unsigned int keylen)
+ #include <linux/version.h>
+@@ -95,7 +96,7 @@ static inline void sha_pad_init(struct s
+  * State for an MPPE (de)compressor.
+  */
+ struct ppp_mppe_state {
+-	struct crypto_tfm *arc4;
++	struct crypto_blkcipher *arc4;
+ 	struct crypto_tfm *sha1;
+ 	unsigned char *sha1_digest;
+ 	unsigned char master_key[MPPE_MAX_KEY_LEN];
+@@ -156,14 +157,15 @@ static void mppe_rekey(struct ppp_mppe_s
  {
-@@ -271,122 +31,6 @@ static int setkey(struct crypto_tfm *tfm
- 		return cia->cia_setkey(tfm, key, keylen);
+ 	unsigned char InterimKey[MPPE_MAX_KEY_LEN];
+ 	struct scatterlist sg_in[1], sg_out[1];
++	struct blkcipher_desc desc = { .tfm = state->arc4 };
+ 
+ 	get_new_key_from_sha(state, InterimKey);
+ 	if (!initial_key) {
+-		crypto_cipher_setkey(state->arc4, InterimKey, state->keylen);
++		crypto_blkcipher_setkey(state->arc4, InterimKey, state->keylen);
+ 		setup_sg(sg_in, InterimKey, state->keylen);
+ 		setup_sg(sg_out, state->session_key, state->keylen);
+-		if (crypto_cipher_encrypt(state->arc4, sg_out, sg_in,
+-				      state->keylen) != 0) {
++		if (crypto_blkcipher_encrypt(&desc, sg_out, sg_in,
++					     state->keylen) != 0) {
+     		    printk(KERN_WARNING "mppe_rekey: cipher_encrypt failed\n");
+ 		}
+ 	} else {
+@@ -175,7 +177,7 @@ static void mppe_rekey(struct ppp_mppe_s
+ 		state->session_key[1] = 0x26;
+ 		state->session_key[2] = 0x9e;
+ 	}
+-	crypto_cipher_setkey(state->arc4, state->session_key, state->keylen);
++	crypto_blkcipher_setkey(state->arc4, state->session_key, state->keylen);
  }
  
--static int ecb_encrypt(struct crypto_tfm *tfm,
--		       struct scatterlist *dst,
--                       struct scatterlist *src, unsigned int nbytes)
--{
--	struct cipher_desc desc;
--	struct cipher_alg *cipher = &tfm->__crt_alg->cra_cipher;
--
--	desc.tfm = tfm;
--	desc.crfn = cipher->cia_encrypt;
--	desc.prfn = cipher->cia_encrypt_ecb ?: ecb_process;
--
--	return crypt(&desc, dst, src, nbytes);
--}
--
--static int ecb_decrypt(struct crypto_tfm *tfm,
--                       struct scatterlist *dst,
--                       struct scatterlist *src,
--		       unsigned int nbytes)
--{
--	struct cipher_desc desc;
--	struct cipher_alg *cipher = &tfm->__crt_alg->cra_cipher;
--
--	desc.tfm = tfm;
--	desc.crfn = cipher->cia_decrypt;
--	desc.prfn = cipher->cia_decrypt_ecb ?: ecb_process;
--
--	return crypt(&desc, dst, src, nbytes);
--}
--
--static int cbc_encrypt(struct crypto_tfm *tfm,
--                       struct scatterlist *dst,
--                       struct scatterlist *src,
--		       unsigned int nbytes)
--{
--	struct cipher_desc desc;
--	struct cipher_alg *cipher = &tfm->__crt_alg->cra_cipher;
--
--	desc.tfm = tfm;
--	desc.crfn = cipher->cia_encrypt;
--	desc.prfn = cipher->cia_encrypt_cbc ?: cbc_process_encrypt;
--	desc.info = tfm->crt_cipher.cit_iv;
--
--	return crypt(&desc, dst, src, nbytes);
--}
--
--static int cbc_encrypt_iv(struct crypto_tfm *tfm,
--                          struct scatterlist *dst,
--                          struct scatterlist *src,
--                          unsigned int nbytes, u8 *iv)
--{
--	struct cipher_desc desc;
--	struct cipher_alg *cipher = &tfm->__crt_alg->cra_cipher;
--
--	desc.tfm = tfm;
--	desc.crfn = cipher->cia_encrypt;
--	desc.prfn = cipher->cia_encrypt_cbc ?: cbc_process_encrypt;
--	desc.info = iv;
--
--	return crypt_iv_unaligned(&desc, dst, src, nbytes);
--}
--
--static int cbc_decrypt(struct crypto_tfm *tfm,
--                       struct scatterlist *dst,
--                       struct scatterlist *src,
--		       unsigned int nbytes)
--{
--	struct cipher_desc desc;
--	struct cipher_alg *cipher = &tfm->__crt_alg->cra_cipher;
--
--	desc.tfm = tfm;
--	desc.crfn = cipher->cia_decrypt;
--	desc.prfn = cipher->cia_decrypt_cbc ?: cbc_process_decrypt;
--	desc.info = tfm->crt_cipher.cit_iv;
--
--	return crypt(&desc, dst, src, nbytes);
--}
--
--static int cbc_decrypt_iv(struct crypto_tfm *tfm,
--                          struct scatterlist *dst,
--                          struct scatterlist *src,
--                          unsigned int nbytes, u8 *iv)
--{
--	struct cipher_desc desc;
--	struct cipher_alg *cipher = &tfm->__crt_alg->cra_cipher;
--
--	desc.tfm = tfm;
--	desc.crfn = cipher->cia_decrypt;
--	desc.prfn = cipher->cia_decrypt_cbc ?: cbc_process_decrypt;
--	desc.info = iv;
--
--	return crypt_iv_unaligned(&desc, dst, src, nbytes);
--}
--
--static int nocrypt(struct crypto_tfm *tfm,
--                   struct scatterlist *dst,
--                   struct scatterlist *src,
--		   unsigned int nbytes)
--{
--	return -ENOSYS;
--}
--
--static int nocrypt_iv(struct crypto_tfm *tfm,
--                      struct scatterlist *dst,
--                      struct scatterlist *src,
--                      unsigned int nbytes, u8 *iv)
--{
--	return -ENOSYS;
--}
--
--int crypto_init_cipher_flags(struct crypto_tfm *tfm, u32 flags)
--{
--	u32 mode = flags & CRYPTO_TFM_MODE_MASK;
--	tfm->crt_cipher.cit_mode = mode ? mode : CRYPTO_TFM_MODE_ECB;
--	return 0;
--}
--
- static void cipher_crypt_unaligned(void (*fn)(struct crypto_tfm *, u8 *,
- 					      const u8 *),
- 				   struct crypto_tfm *tfm,
-@@ -432,7 +76,6 @@ static void cipher_decrypt_unaligned(str
- 
- int crypto_init_cipher_ops(struct crypto_tfm *tfm)
- {
--	int ret = 0;
- 	struct cipher_tfm *ops = &tfm->crt_cipher;
- 	struct cipher_alg *cipher = &tfm->__crt_alg->cra_cipher;
- 
-@@ -442,72 +85,5 @@ int crypto_init_cipher_ops(struct crypto
- 	ops->cit_decrypt_one = crypto_tfm_alg_alignmask(tfm) ?
- 		cipher_decrypt_unaligned : cipher->cia_decrypt;
- 
--	switch (tfm->crt_cipher.cit_mode) {
--	case CRYPTO_TFM_MODE_ECB:
--		ops->cit_encrypt = ecb_encrypt;
--		ops->cit_decrypt = ecb_decrypt;
--		ops->cit_encrypt_iv = nocrypt_iv;
--		ops->cit_decrypt_iv = nocrypt_iv;
--		break;
--		
--	case CRYPTO_TFM_MODE_CBC:
--		ops->cit_encrypt = cbc_encrypt;
--		ops->cit_decrypt = cbc_decrypt;
--		ops->cit_encrypt_iv = cbc_encrypt_iv;
--		ops->cit_decrypt_iv = cbc_decrypt_iv;
--		break;
--		
--	case CRYPTO_TFM_MODE_CFB:
--		ops->cit_encrypt = nocrypt;
--		ops->cit_decrypt = nocrypt;
--		ops->cit_encrypt_iv = nocrypt_iv;
--		ops->cit_decrypt_iv = nocrypt_iv;
--		break;
--	
--	case CRYPTO_TFM_MODE_CTR:
--		ops->cit_encrypt = nocrypt;
--		ops->cit_decrypt = nocrypt;
--		ops->cit_encrypt_iv = nocrypt_iv;
--		ops->cit_decrypt_iv = nocrypt_iv;
--		break;
--
--	default:
--		BUG();
--	}
--	
--	if (ops->cit_mode == CRYPTO_TFM_MODE_CBC) {
--		unsigned long align;
--		unsigned long addr;
--	    	
--	    	switch (crypto_tfm_alg_blocksize(tfm)) {
--	    	case 8:
--	    		ops->cit_xor_block = xor_64;
--	    		break;
--	    		
--	    	case 16:
--	    		ops->cit_xor_block = xor_128;
--	    		break;
--	    		
--	    	default:
--	    		printk(KERN_WARNING "%s: block size %u not supported\n",
--	    		       crypto_tfm_alg_name(tfm),
--	    		       crypto_tfm_alg_blocksize(tfm));
--	    		ret = -EINVAL;
--	    		goto out;
--	    	}
--	    	
--		ops->cit_ivsize = crypto_tfm_alg_blocksize(tfm);
--		align = crypto_tfm_alg_alignmask(tfm) + 1;
--		addr = (unsigned long)crypto_tfm_ctx(tfm);
--		addr = ALIGN(addr, align);
--		addr += ALIGN(tfm->__crt_alg->cra_ctxsize, align);
--		ops->cit_iv = (void *)addr;
--	}
--
--out:	
--	return ret;
--}
--
--void crypto_exit_cipher_ops(struct crypto_tfm *tfm)
--{
-+	return 0;
- }
-diff --git a/crypto/internal.h b/crypto/internal.h
---- a/crypto/internal.h
-+++ b/crypto/internal.h
-@@ -112,16 +112,7 @@ static inline unsigned int crypto_digest
- static inline unsigned int crypto_cipher_ctxsize(struct crypto_alg *alg,
- 						 int flags)
- {
--	unsigned int len = alg->cra_ctxsize;
--	
--	switch (flags & CRYPTO_TFM_MODE_MASK) {
--	case CRYPTO_TFM_MODE_CBC:
--		len = ALIGN(len, (unsigned long)alg->cra_alignmask + 1);
--		len += alg->cra_blocksize;
--		break;
--	}
--
--	return len;
-+	return alg->cra_ctxsize;
- }
- 
- static inline unsigned int crypto_compress_ctxsize(struct crypto_alg *alg,
-@@ -135,7 +126,6 @@ struct crypto_alg *__crypto_alg_lookup(c
- struct crypto_alg *crypto_alg_mod_lookup(const char *name, u32 type, u32 mask);
- 
- int crypto_init_digest_flags(struct crypto_tfm *tfm, u32 flags);
--int crypto_init_cipher_flags(struct crypto_tfm *tfm, u32 flags);
- int crypto_init_compress_flags(struct crypto_tfm *tfm, u32 flags);
- 
- int crypto_init_digest_ops(struct crypto_tfm *tfm);
-@@ -143,7 +133,6 @@ int crypto_init_cipher_ops(struct crypto
- int crypto_init_compress_ops(struct crypto_tfm *tfm);
- 
- void crypto_exit_digest_ops(struct crypto_tfm *tfm);
--void crypto_exit_cipher_ops(struct crypto_tfm *tfm);
- void crypto_exit_compress_ops(struct crypto_tfm *tfm);
- 
- void crypto_larval_error(const char *name, u32 type, u32 mask);
-diff --git a/crypto/scatterwalk.h b/crypto/scatterwalk.h
---- a/crypto/scatterwalk.h
-+++ b/crypto/scatterwalk.h
-@@ -27,13 +27,6 @@ static inline struct scatterlist *sg_nex
- 	return sg + 1;
- }
- 
--static inline unsigned long scatterwalk_samebuf(struct scatter_walk *walk_in,
--						struct scatter_walk *walk_out)
--{
--	return !(((walk_in->sg->page - walk_out->sg->page) << PAGE_SHIFT) +
--		 (int)(walk_in->offset - walk_out->offset));
--}
--
- static inline unsigned int scatterwalk_pagelen(struct scatter_walk *walk)
- {
- 	unsigned int len = walk->sg->offset + walk->sg->length - walk->offset;
-diff --git a/include/linux/crypto.h b/include/linux/crypto.h
---- a/include/linux/crypto.h
-+++ b/include/linux/crypto.h
-@@ -47,11 +47,6 @@
- #define CRYPTO_TFM_REQ_MASK		0x000fff00
- #define CRYPTO_TFM_RES_MASK		0xfff00000
- 
--#define CRYPTO_TFM_MODE_ECB		0x00000001
--#define CRYPTO_TFM_MODE_CBC		0x00000002
--#define CRYPTO_TFM_MODE_CFB		0x00000004
--#define CRYPTO_TFM_MODE_CTR		0x00000008
--
- #define CRYPTO_TFM_REQ_WEAK_KEY		0x00000100
- #define CRYPTO_TFM_REQ_MAY_SLEEP	0x00000200
- #define CRYPTO_TFM_RES_WEAK_KEY		0x00100000
-@@ -88,14 +83,6 @@ struct blkcipher_desc {
- 	u32 flags;
- };
- 
--struct cipher_desc {
--	struct crypto_tfm *tfm;
--	void (*crfn)(struct crypto_tfm *tfm, u8 *dst, const u8 *src);
--	unsigned int (*prfn)(const struct cipher_desc *desc, u8 *dst,
--			     const u8 *src, unsigned int nbytes);
--	void *info;
--};
--
  /*
-  * Algorithms: modular crypto algorithm implementations, managed
-  * via crypto_register_alg() and crypto_unregister_alg().
-@@ -122,19 +109,6 @@ struct cipher_alg {
- 	                  unsigned int keylen);
- 	void (*cia_encrypt)(struct crypto_tfm *tfm, u8 *dst, const u8 *src);
- 	void (*cia_decrypt)(struct crypto_tfm *tfm, u8 *dst, const u8 *src);
--
--	unsigned int (*cia_encrypt_ecb)(const struct cipher_desc *desc,
--					u8 *dst, const u8 *src,
--					unsigned int nbytes);
--	unsigned int (*cia_decrypt_ecb)(const struct cipher_desc *desc,
--					u8 *dst, const u8 *src,
--					unsigned int nbytes);
--	unsigned int (*cia_encrypt_cbc)(const struct cipher_desc *desc,
--					u8 *dst, const u8 *src,
--					unsigned int nbytes);
--	unsigned int (*cia_decrypt_cbc)(const struct cipher_desc *desc,
--					u8 *dst, const u8 *src,
--					unsigned int nbytes);
- };
+@@ -196,9 +198,11 @@ static void *mppe_alloc(unsigned char *o
  
- struct digest_alg {
-@@ -225,28 +199,8 @@ struct blkcipher_tfm {
- };
+ 	memset(state, 0, sizeof(*state));
  
- struct cipher_tfm {
--	void *cit_iv;
--	unsigned int cit_ivsize;
--	u32 cit_mode;
- 	int (*cit_setkey)(struct crypto_tfm *tfm,
- 	                  const u8 *key, unsigned int keylen);
--	int (*cit_encrypt)(struct crypto_tfm *tfm,
--			   struct scatterlist *dst,
--			   struct scatterlist *src,
--			   unsigned int nbytes);
--	int (*cit_encrypt_iv)(struct crypto_tfm *tfm,
--	                      struct scatterlist *dst,
--	                      struct scatterlist *src,
--	                      unsigned int nbytes, u8 *iv);
--	int (*cit_decrypt)(struct crypto_tfm *tfm,
--			   struct scatterlist *dst,
--			   struct scatterlist *src,
--			   unsigned int nbytes);
--	int (*cit_decrypt_iv)(struct crypto_tfm *tfm,
--			   struct scatterlist *dst,
--			   struct scatterlist *src,
--			   unsigned int nbytes, u8 *iv);
--	void (*cit_xor_block)(u8 *dst, const u8 *src);
- 	void (*cit_encrypt_one)(struct crypto_tfm *tfm, u8 *dst, const u8 *src);
- 	void (*cit_decrypt_one)(struct crypto_tfm *tfm, u8 *dst, const u8 *src);
- };
-@@ -295,7 +249,9 @@ struct crypto_tfm {
- 	void *__crt_ctx[] CRYPTO_MINALIGN_ATTR;
- };
+-	state->arc4 = crypto_alloc_tfm("arc4", 0);
+-	if (!state->arc4)
++	state->arc4 = crypto_alloc_blkcipher("ecb(arc4)", 0, CRYPTO_ALG_ASYNC);
++	if (IS_ERR(state->arc4)) {
++		state->arc4 = NULL;
+ 		goto out_free;
++	}
  
--#define crypto_cipher crypto_tfm
-+struct crypto_cipher {
-+	struct crypto_tfm base;
-+};
- 
- struct crypto_blkcipher {
- 	struct crypto_tfm base;
-@@ -346,24 +302,6 @@ static inline u32 crypto_tfm_alg_type(st
- 	return tfm->__crt_alg->cra_flags & CRYPTO_ALG_TYPE_MASK;
+ 	state->sha1 = crypto_alloc_tfm("sha1", 0);
+ 	if (!state->sha1)
+@@ -231,7 +235,7 @@ static void *mppe_alloc(unsigned char *o
+ 	    if (state->sha1)
+ 		crypto_free_tfm(state->sha1);
+ 	    if (state->arc4)
+-		crypto_free_tfm(state->arc4);
++		crypto_free_blkcipher(state->arc4);
+ 	    kfree(state);
+ 	out:
+ 	return NULL;
+@@ -249,7 +253,7 @@ static void mppe_free(void *arg)
+ 	    if (state->sha1)
+ 		crypto_free_tfm(state->sha1);
+ 	    if (state->arc4)
+-		crypto_free_tfm(state->arc4);
++		crypto_free_blkcipher(state->arc4);
+ 	    kfree(state);
+ 	}
  }
- 
--static inline unsigned int crypto_tfm_alg_min_keysize(struct crypto_tfm *tfm)
--{
--	BUG_ON(crypto_tfm_alg_type(tfm) != CRYPTO_ALG_TYPE_CIPHER);
--	return tfm->__crt_alg->cra_cipher.cia_min_keysize;
--}
--
--static inline unsigned int crypto_tfm_alg_max_keysize(struct crypto_tfm *tfm)
--{
--	BUG_ON(crypto_tfm_alg_type(tfm) != CRYPTO_ALG_TYPE_CIPHER);
--	return tfm->__crt_alg->cra_cipher.cia_max_keysize;
--}
--
--static inline unsigned int crypto_tfm_alg_ivsize(struct crypto_tfm *tfm)
--{
--	BUG_ON(crypto_tfm_alg_type(tfm) != CRYPTO_ALG_TYPE_CIPHER);
--	return tfm->crt_cipher.cit_ivsize;
--}
--
- static inline unsigned int crypto_tfm_alg_blocksize(struct crypto_tfm *tfm)
+@@ -356,6 +360,7 @@ mppe_compress(void *arg, unsigned char *
+ 	      int isize, int osize)
  {
- 	return tfm->__crt_alg->cra_blocksize;
-@@ -570,7 +508,7 @@ static inline struct crypto_cipher *cryp
+ 	struct ppp_mppe_state *state = (struct ppp_mppe_state *) arg;
++	struct blkcipher_desc desc = { .tfm = state->arc4 };
+ 	int proto;
+ 	struct scatterlist sg_in[1], sg_out[1];
  
- static inline struct crypto_tfm *crypto_cipher_tfm(struct crypto_cipher *tfm)
+@@ -413,7 +418,7 @@ mppe_compress(void *arg, unsigned char *
+ 	/* Encrypt packet */
+ 	setup_sg(sg_in, ibuf, isize);
+ 	setup_sg(sg_out, obuf, osize);
+-	if (crypto_cipher_encrypt(state->arc4, sg_out, sg_in, isize) != 0) {
++	if (crypto_blkcipher_encrypt(&desc, sg_out, sg_in, isize) != 0) {
+ 		printk(KERN_DEBUG "crypto_cypher_encrypt failed\n");
+ 		return -1;
+ 	}
+@@ -462,6 +467,7 @@ mppe_decompress(void *arg, unsigned char
+ 		int osize)
  {
--	return tfm;
-+	return &tfm->base;
- }
- 
- static inline void crypto_free_cipher(struct crypto_cipher *tfm)
-@@ -610,6 +548,13 @@ static inline void crypto_cipher_clear_f
- 	crypto_tfm_clear_flags(crypto_cipher_tfm(tfm), flags);
- }
- 
-+static inline int crypto_cipher_setkey(struct crypto_cipher *tfm,
-+				       const u8 *key, unsigned int keylen)
-+{
-+	return crypto_cipher_crt(tfm)->cit_setkey(crypto_cipher_tfm(tfm),
-+						  key, keylen);
-+}
-+
- static inline void crypto_cipher_encrypt_one(struct crypto_cipher *tfm,
- 					     u8 *dst, const u8 *src)
+ 	struct ppp_mppe_state *state = (struct ppp_mppe_state *) arg;
++	struct blkcipher_desc desc = { .tfm = state->arc4 };
+ 	unsigned ccount;
+ 	int flushed = MPPE_BITS(ibuf) & MPPE_BIT_FLUSHED;
+ 	int sanity = 0;
+@@ -599,7 +605,7 @@ mppe_decompress(void *arg, unsigned char
+ 	 */
+ 	setup_sg(sg_in, ibuf, 1);
+ 	setup_sg(sg_out, obuf, 1);
+-	if (crypto_cipher_decrypt(state->arc4, sg_out, sg_in, 1) != 0) {
++	if (crypto_blkcipher_decrypt(&desc, sg_out, sg_in, 1) != 0) {
+ 		printk(KERN_DEBUG "crypto_cypher_decrypt failed\n");
+ 		return DECOMP_ERROR;
+ 	}
+@@ -619,7 +625,7 @@ mppe_decompress(void *arg, unsigned char
+ 	/* And finally, decrypt the rest of the packet. */
+ 	setup_sg(sg_in, ibuf + 1, isize - 1);
+ 	setup_sg(sg_out, obuf + 1, osize - 1);
+-	if (crypto_cipher_decrypt(state->arc4, sg_out, sg_in, isize - 1) != 0) {
++	if (crypto_blkcipher_decrypt(&desc, sg_out, sg_in, isize - 1)) {
+ 		printk(KERN_DEBUG "crypto_cypher_decrypt failed\n");
+ 		return DECOMP_ERROR;
+ 	}
+@@ -694,7 +700,7 @@ static struct compressor ppp_mppe = {
+ static int __init ppp_mppe_init(void)
  {
-@@ -659,63 +604,6 @@ static inline int crypto_digest_setkey(s
- 	return tfm->crt_digest.dit_setkey(tfm, key, keylen);
+ 	int answer;
+-	if (!(crypto_alg_available("arc4", 0) &&
++	if (!(crypto_alg_available("ecb(arc4)", 0) &&
+ 	      crypto_alg_available("sha1", 0)))
+ 		return -ENODEV;
+ 
+diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
+--- a/drivers/net/wireless/airo.c
++++ b/drivers/net/wireless/airo.c
+@@ -1203,7 +1203,7 @@ struct airo_info {
+ 	struct iw_spy_data	spy_data;
+ 	struct iw_public_data	wireless_data;
+ 	/* MIC stuff */
+-	struct crypto_tfm	*tfm;
++	struct crypto_cipher	*tfm;
+ 	mic_module		mod[2];
+ 	mic_statistics		micstats;
+ 	HostRxDesc rxfids[MPI_MAX_FIDS]; // rx/tx/config MPI350 descriptors
+@@ -1271,7 +1271,8 @@ static int flashrestart(struct airo_info
+ 
+ static int RxSeqValid (struct airo_info *ai,miccntx *context,int mcast,u32 micSeq);
+ static void MoveWindow(miccntx *context, u32 micSeq);
+-static void emmh32_setseed(emmh32_context *context, u8 *pkey, int keylen, struct crypto_tfm *);
++static void emmh32_setseed(emmh32_context *context, u8 *pkey, int keylen,
++			   struct crypto_cipher *tfm);
+ static void emmh32_init(emmh32_context *context);
+ static void emmh32_update(emmh32_context *context, u8 *pOctets, int len);
+ static void emmh32_final(emmh32_context *context, u8 digest[4]);
+@@ -1339,7 +1340,7 @@ static int micsetup(struct airo_info *ai
+ 	int i;
+ 
+ 	if (ai->tfm == NULL)
+-	        ai->tfm = crypto_alloc_tfm("aes", CRYPTO_TFM_REQ_MAY_SLEEP);
++	        ai->tfm = crypto_alloc_cipher("aes", 0, CRYPTO_ALG_ASYNC);
+ 
+         if (ai->tfm == NULL) {
+                 airo_print_err(ai->dev->name, "failed to load transform for AES");
+@@ -1608,7 +1609,8 @@ static void MoveWindow(miccntx *context,
+ static unsigned char aes_counter[16];
+ 
+ /* expand the key to fill the MMH coefficient array */
+-static void emmh32_setseed(emmh32_context *context, u8 *pkey, int keylen, struct crypto_tfm *tfm)
++static void emmh32_setseed(emmh32_context *context, u8 *pkey, int keylen,
++			   struct crypto_cipher *tfm)
+ {
+   /* take the keying material, expand if necessary, truncate at 16-bytes */
+   /* run through AES counter mode to generate context->coeff[] */
+@@ -1616,7 +1618,6 @@ static void emmh32_setseed(emmh32_contex
+ 	int i,j;
+ 	u32 counter;
+ 	u8 *cipher, plain[16];
+-	struct scatterlist sg[1];
+ 
+ 	crypto_cipher_setkey(tfm, pkey, 16);
+ 	counter = 0;
+@@ -1627,9 +1628,8 @@ static void emmh32_setseed(emmh32_contex
+ 		aes_counter[12] = (u8)(counter >> 24);
+ 		counter++;
+ 		memcpy (plain, aes_counter, 16);
+-		sg_set_buf(sg, plain, 16);
+-		crypto_cipher_encrypt(tfm, sg, sg, 16);
+-		cipher = kmap(sg->page) + sg->offset;
++		crypto_cipher_encrypt_one(tfm, plain, plain);
++		cipher = plain;
+ 		for (j=0; (j<16) && (i< (sizeof(context->coeff)/sizeof(context->coeff[0]))); ) {
+ 			context->coeff[i++] = ntohl(*(u32 *)&cipher[j]);
+ 			j += 4;
+@@ -2432,7 +2432,7 @@ void stop_airo_card( struct net_device *
+ 				ai->shared, ai->shared_dma);
+ 		}
+         }
+-	crypto_free_tfm(ai->tfm);
++	crypto_free_cipher(ai->tfm);
+ 	del_airo_dev( dev );
+ 	free_netdev( dev );
+ }
+diff --git a/net/ieee80211/ieee80211_crypt_ccmp.c b/net/ieee80211/ieee80211_crypt_ccmp.c
+--- a/net/ieee80211/ieee80211_crypt_ccmp.c
++++ b/net/ieee80211/ieee80211_crypt_ccmp.c
+@@ -48,7 +48,7 @@ struct ieee80211_ccmp_data {
+ 
+ 	int key_idx;
+ 
+-	struct crypto_tfm *tfm;
++	struct crypto_cipher *tfm;
+ 
+ 	/* scratch buffers for virt_to_page() (crypto API) */
+ 	u8 tx_b0[AES_BLOCK_LEN], tx_b[AES_BLOCK_LEN],
+@@ -56,20 +56,10 @@ struct ieee80211_ccmp_data {
+ 	u8 rx_b0[AES_BLOCK_LEN], rx_b[AES_BLOCK_LEN], rx_a[AES_BLOCK_LEN];
+ };
+ 
+-static void ieee80211_ccmp_aes_encrypt(struct crypto_tfm *tfm,
+-				       const u8 pt[16], u8 ct[16])
++static inline void ieee80211_ccmp_aes_encrypt(struct crypto_cipher *tfm,
++					      const u8 pt[16], u8 ct[16])
+ {
+-	struct scatterlist src, dst;
+-
+-	src.page = virt_to_page(pt);
+-	src.offset = offset_in_page(pt);
+-	src.length = AES_BLOCK_LEN;
+-
+-	dst.page = virt_to_page(ct);
+-	dst.offset = offset_in_page(ct);
+-	dst.length = AES_BLOCK_LEN;
+-
+-	crypto_cipher_encrypt(tfm, &dst, &src, AES_BLOCK_LEN);
++	crypto_cipher_encrypt_one(tfm, ct, pt);
  }
  
--static inline int crypto_cipher_setkey(struct crypto_tfm *tfm,
--                                       const u8 *key, unsigned int keylen)
--{
--	BUG_ON(crypto_tfm_alg_type(tfm) != CRYPTO_ALG_TYPE_CIPHER);
--	return tfm->crt_cipher.cit_setkey(tfm, key, keylen);
--}
+ static void *ieee80211_ccmp_init(int key_idx)
+@@ -82,7 +72,7 @@ static void *ieee80211_ccmp_init(int key
+ 	memset(priv, 0, sizeof(*priv));
+ 	priv->key_idx = key_idx;
+ 
+-	priv->tfm = crypto_alloc_tfm("aes", 0);
++	priv->tfm = crypto_alloc_cipher("aes", 0, CRYPTO_ALG_ASYNC);
+ 	if (priv->tfm == NULL) {
+ 		printk(KERN_DEBUG "ieee80211_crypt_ccmp: could not allocate "
+ 		       "crypto API aes\n");
+@@ -94,7 +84,7 @@ static void *ieee80211_ccmp_init(int key
+       fail:
+ 	if (priv) {
+ 		if (priv->tfm)
+-			crypto_free_tfm(priv->tfm);
++			crypto_free_cipher(priv->tfm);
+ 		kfree(priv);
+ 	}
+ 
+@@ -105,7 +95,7 @@ static void ieee80211_ccmp_deinit(void *
+ {
+ 	struct ieee80211_ccmp_data *_priv = priv;
+ 	if (_priv && _priv->tfm)
+-		crypto_free_tfm(_priv->tfm);
++		crypto_free_cipher(_priv->tfm);
+ 	kfree(priv);
+ }
+ 
+@@ -116,7 +106,7 @@ static inline void xor_block(u8 * b, u8 
+ 		b[i] ^= a[i];
+ }
+ 
+-static void ccmp_init_blocks(struct crypto_tfm *tfm,
++static void ccmp_init_blocks(struct crypto_cipher *tfm,
+ 			     struct ieee80211_hdr_4addr *hdr,
+ 			     u8 * pn, size_t dlen, u8 * b0, u8 * auth, u8 * s0)
+ {
+@@ -378,7 +368,7 @@ static int ieee80211_ccmp_set_key(void *
+ {
+ 	struct ieee80211_ccmp_data *data = priv;
+ 	int keyidx;
+-	struct crypto_tfm *tfm = data->tfm;
++	struct crypto_cipher *tfm = data->tfm;
+ 
+ 	keyidx = data->key_idx;
+ 	memset(data, 0, sizeof(*data));
+diff --git a/net/ieee80211/ieee80211_crypt_tkip.c b/net/ieee80211/ieee80211_crypt_tkip.c
+--- a/net/ieee80211/ieee80211_crypt_tkip.c
++++ b/net/ieee80211/ieee80211_crypt_tkip.c
+@@ -9,6 +9,7 @@
+  * more details.
+  */
+ 
++#include <linux/err.h>
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/slab.h>
+@@ -52,7 +53,7 @@ struct ieee80211_tkip_data {
+ 
+ 	int key_idx;
+ 
+-	struct crypto_tfm *tfm_arc4;
++	struct crypto_blkcipher *tfm_arc4;
+ 	struct crypto_tfm *tfm_michael;
+ 
+ 	/* scratch buffers for virt_to_page() (crypto API) */
+@@ -85,10 +86,12 @@ static void *ieee80211_tkip_init(int key
+ 
+ 	priv->key_idx = key_idx;
+ 
+-	priv->tfm_arc4 = crypto_alloc_tfm("arc4", 0);
+-	if (priv->tfm_arc4 == NULL) {
++	priv->tfm_arc4 = crypto_alloc_blkcipher("ecb(arc4)", 0,
++						CRYPTO_ALG_ASYNC);
++	if (IS_ERR(priv->tfm_arc4)) {
+ 		printk(KERN_DEBUG "ieee80211_crypt_tkip: could not allocate "
+ 		       "crypto API arc4\n");
++		priv->tfm_arc4 = NULL;
+ 		goto fail;
+ 	}
+ 
+@@ -106,7 +109,7 @@ static void *ieee80211_tkip_init(int key
+ 		if (priv->tfm_michael)
+ 			crypto_free_tfm(priv->tfm_michael);
+ 		if (priv->tfm_arc4)
+-			crypto_free_tfm(priv->tfm_arc4);
++			crypto_free_blkcipher(priv->tfm_arc4);
+ 		kfree(priv);
+ 	}
+ 
+@@ -119,7 +122,7 @@ static void ieee80211_tkip_deinit(void *
+ 	if (_priv && _priv->tfm_michael)
+ 		crypto_free_tfm(_priv->tfm_michael);
+ 	if (_priv && _priv->tfm_arc4)
+-		crypto_free_tfm(_priv->tfm_arc4);
++		crypto_free_blkcipher(_priv->tfm_arc4);
+ 	kfree(priv);
+ }
+ 
+@@ -318,6 +321,7 @@ static int ieee80211_tkip_hdr(struct sk_
+ static int ieee80211_tkip_encrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ {
+ 	struct ieee80211_tkip_data *tkey = priv;
++	struct blkcipher_desc desc = { .tfm = tkey->tfm_arc4 };
+ 	int len;
+ 	u8 rc4key[16], *pos, *icv;
+ 	u32 crc;
+@@ -351,18 +355,17 @@ static int ieee80211_tkip_encrypt(struct
+ 	icv[2] = crc >> 16;
+ 	icv[3] = crc >> 24;
+ 
+-	crypto_cipher_setkey(tkey->tfm_arc4, rc4key, 16);
++	crypto_blkcipher_setkey(tkey->tfm_arc4, rc4key, 16);
+ 	sg.page = virt_to_page(pos);
+ 	sg.offset = offset_in_page(pos);
+ 	sg.length = len + 4;
+-	crypto_cipher_encrypt(tkey->tfm_arc4, &sg, &sg, len + 4);
 -
--static inline int crypto_cipher_encrypt(struct crypto_tfm *tfm,
--                                        struct scatterlist *dst,
--                                        struct scatterlist *src,
--                                        unsigned int nbytes)
--{
--	BUG_ON(crypto_tfm_alg_type(tfm) != CRYPTO_ALG_TYPE_CIPHER);
--	return tfm->crt_cipher.cit_encrypt(tfm, dst, src, nbytes);
--}                                        
+-	return 0;
++	return crypto_blkcipher_encrypt(&desc, &sg, &sg, len + 4);
+ }
+ 
+ static int ieee80211_tkip_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ {
+ 	struct ieee80211_tkip_data *tkey = priv;
++	struct blkcipher_desc desc = { .tfm = tkey->tfm_arc4 };
+ 	u8 rc4key[16];
+ 	u8 keyidx, *pos;
+ 	u32 iv32;
+@@ -434,11 +437,18 @@ static int ieee80211_tkip_decrypt(struct
+ 
+ 	plen = skb->len - hdr_len - 12;
+ 
+-	crypto_cipher_setkey(tkey->tfm_arc4, rc4key, 16);
++	crypto_blkcipher_setkey(tkey->tfm_arc4, rc4key, 16);
+ 	sg.page = virt_to_page(pos);
+ 	sg.offset = offset_in_page(pos);
+ 	sg.length = plen + 4;
+-	crypto_cipher_decrypt(tkey->tfm_arc4, &sg, &sg, plen + 4);
++	if (crypto_blkcipher_decrypt(&desc, &sg, &sg, plen + 4)) {
++		if (net_ratelimit()) {
++			printk(KERN_DEBUG ": TKIP: failed to decrypt "
++			       "received packet from " MAC_FMT "\n",
++			       MAC_ARG(hdr->addr2));
++		}
++		return -7;
++	}
+ 
+ 	crc = ~crc32_le(~0, pos, plen);
+ 	icv[0] = crc;
+@@ -619,7 +629,7 @@ static int ieee80211_tkip_set_key(void *
+ 	struct ieee80211_tkip_data *tkey = priv;
+ 	int keyidx;
+ 	struct crypto_tfm *tfm = tkey->tfm_michael;
+-	struct crypto_tfm *tfm2 = tkey->tfm_arc4;
++	struct crypto_blkcipher *tfm2 = tkey->tfm_arc4;
+ 
+ 	keyidx = tkey->key_idx;
+ 	memset(tkey, 0, sizeof(*tkey));
+diff --git a/net/ieee80211/ieee80211_crypt_wep.c b/net/ieee80211/ieee80211_crypt_wep.c
+--- a/net/ieee80211/ieee80211_crypt_wep.c
++++ b/net/ieee80211/ieee80211_crypt_wep.c
+@@ -9,6 +9,7 @@
+  * more details.
+  */
+ 
++#include <linux/err.h>
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/slab.h>
+@@ -32,7 +33,7 @@ struct prism2_wep_data {
+ 	u8 key[WEP_KEY_LEN + 1];
+ 	u8 key_len;
+ 	u8 key_idx;
+-	struct crypto_tfm *tfm;
++	struct crypto_blkcipher *tfm;
+ };
+ 
+ static void *prism2_wep_init(int keyidx)
+@@ -45,10 +46,11 @@ static void *prism2_wep_init(int keyidx)
+ 	memset(priv, 0, sizeof(*priv));
+ 	priv->key_idx = keyidx;
+ 
+-	priv->tfm = crypto_alloc_tfm("arc4", 0);
+-	if (priv->tfm == NULL) {
++	priv->tfm = crypto_alloc_blkcipher("ecb(arc4)", 0, CRYPTO_ALG_ASYNC);
++	if (IS_ERR(priv->tfm)) {
+ 		printk(KERN_DEBUG "ieee80211_crypt_wep: could not allocate "
+ 		       "crypto API arc4\n");
++		priv->tfm = NULL;
+ 		goto fail;
+ 	}
+ 
+@@ -60,7 +62,7 @@ static void *prism2_wep_init(int keyidx)
+       fail:
+ 	if (priv) {
+ 		if (priv->tfm)
+-			crypto_free_tfm(priv->tfm);
++			crypto_free_blkcipher(priv->tfm);
+ 		kfree(priv);
+ 	}
+ 	return NULL;
+@@ -70,7 +72,7 @@ static void prism2_wep_deinit(void *priv
+ {
+ 	struct prism2_wep_data *_priv = priv;
+ 	if (_priv && _priv->tfm)
+-		crypto_free_tfm(_priv->tfm);
++		crypto_free_blkcipher(_priv->tfm);
+ 	kfree(priv);
+ }
+ 
+@@ -121,6 +123,7 @@ static int prism2_wep_build_iv(struct sk
+ static int prism2_wep_encrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ {
+ 	struct prism2_wep_data *wep = priv;
++	struct blkcipher_desc desc = { .tfm = wep->tfm };
+ 	u32 crc, klen, len;
+ 	u8 *pos, *icv;
+ 	struct scatterlist sg;
+@@ -152,13 +155,11 @@ static int prism2_wep_encrypt(struct sk_
+ 	icv[2] = crc >> 16;
+ 	icv[3] = crc >> 24;
+ 
+-	crypto_cipher_setkey(wep->tfm, key, klen);
++	crypto_blkcipher_setkey(wep->tfm, key, klen);
+ 	sg.page = virt_to_page(pos);
+ 	sg.offset = offset_in_page(pos);
+ 	sg.length = len + 4;
+-	crypto_cipher_encrypt(wep->tfm, &sg, &sg, len + 4);
 -
--static inline int crypto_cipher_encrypt_iv(struct crypto_tfm *tfm,
--                                           struct scatterlist *dst,
--                                           struct scatterlist *src,
--                                           unsigned int nbytes, u8 *iv)
--{
--	BUG_ON(crypto_tfm_alg_type(tfm) != CRYPTO_ALG_TYPE_CIPHER);
--	return tfm->crt_cipher.cit_encrypt_iv(tfm, dst, src, nbytes, iv);
--}                                        
--
--static inline int crypto_cipher_decrypt(struct crypto_tfm *tfm,
--                                        struct scatterlist *dst,
--                                        struct scatterlist *src,
--                                        unsigned int nbytes)
--{
--	BUG_ON(crypto_tfm_alg_type(tfm) != CRYPTO_ALG_TYPE_CIPHER);
--	return tfm->crt_cipher.cit_decrypt(tfm, dst, src, nbytes);
--}
--
--static inline int crypto_cipher_decrypt_iv(struct crypto_tfm *tfm,
--                                           struct scatterlist *dst,
--                                           struct scatterlist *src,
--                                           unsigned int nbytes, u8 *iv)
--{
--	BUG_ON(crypto_tfm_alg_type(tfm) != CRYPTO_ALG_TYPE_CIPHER);
--	return tfm->crt_cipher.cit_decrypt_iv(tfm, dst, src, nbytes, iv);
--}
--
--static inline void crypto_cipher_set_iv(struct crypto_tfm *tfm,
--                                        const u8 *src, unsigned int len)
--{
--	BUG_ON(crypto_tfm_alg_type(tfm) != CRYPTO_ALG_TYPE_CIPHER);
--	memcpy(tfm->crt_cipher.cit_iv, src, len);
--}
--
--static inline void crypto_cipher_get_iv(struct crypto_tfm *tfm,
--                                        u8 *dst, unsigned int len)
--{
--	BUG_ON(crypto_tfm_alg_type(tfm) != CRYPTO_ALG_TYPE_CIPHER);
--	memcpy(dst, tfm->crt_cipher.cit_iv, len);
--}
--
- static inline int crypto_comp_compress(struct crypto_tfm *tfm,
-                                        const u8 *src, unsigned int slen,
-                                        u8 *dst, unsigned int *dlen)
+-	return 0;
++	return crypto_blkcipher_encrypt(&desc, &sg, &sg, len + 4);
+ }
+ 
+ /* Perform WEP decryption on given buffer. Buffer includes whole WEP part of
+@@ -171,6 +172,7 @@ static int prism2_wep_encrypt(struct sk_
+ static int prism2_wep_decrypt(struct sk_buff *skb, int hdr_len, void *priv)
+ {
+ 	struct prism2_wep_data *wep = priv;
++	struct blkcipher_desc desc = { .tfm = wep->tfm };
+ 	u32 crc, klen, plen;
+ 	u8 key[WEP_KEY_LEN + 3];
+ 	u8 keyidx, *pos, icv[4];
+@@ -195,11 +197,12 @@ static int prism2_wep_decrypt(struct sk_
+ 	/* Apply RC4 to data and compute CRC32 over decrypted data */
+ 	plen = skb->len - hdr_len - 8;
+ 
+-	crypto_cipher_setkey(wep->tfm, key, klen);
++	crypto_blkcipher_setkey(wep->tfm, key, klen);
+ 	sg.page = virt_to_page(pos);
+ 	sg.offset = offset_in_page(pos);
+ 	sg.length = plen + 4;
+-	crypto_cipher_decrypt(wep->tfm, &sg, &sg, plen + 4);
++	if (crypto_blkcipher_decrypt(&desc, &sg, &sg, plen + 4))
++		return -7;
+ 
+ 	crc = ~crc32_le(~0, pos, plen);
+ 	icv[0] = crc;
