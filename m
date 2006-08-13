@@ -1,223 +1,51 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: [PATCH wireless-dev] d80211: switch status codes, reason codes, and EIDs to enums
-Date: Sun, 13 Aug 2006 12:43:46 -0700
-Message-ID: <200608131243.51185.flamingice@sourmilk.net>
+From: "Mr. Garcia Duarte." <duarte22@katamail.com>
+Subject: Get Back To Me Very Urgent Please....
+Date: Sun, 13 Aug 2006 21:49:46 +0200
+Message-ID: <200608131949.k7DJnkEZ026063@ducky.eatserver.nl>
+Reply-To: duarte22@katamail.com
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart9553137.5j6rFQUJkr";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
-	Jouni Malinen <jkm@devicescape.com>, jkmaline@cc.hut.fi
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:61078 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S1751381AbWHMTnu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 15:43:50 -0400
-To: John Linville <linville@tuxdriver.com>
+Received: from ducky.eatserver.nl ([212.203.14.99]:3236 "EHLO
+	ducky.eatserver.nl") by vger.kernel.org with ESMTP id S1751375AbWHMTts
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Aug 2006 15:49:48 -0400
+Received: from ducky.eatserver.nl (localhost [127.0.0.1])
+	by ducky.eatserver.nl (8.12.10/8.12.10/SuSE Linux 0.7) with ESMTP id k7DJnk9n026064
+	for <netdev@vger.kernel.org>; Sun, 13 Aug 2006 21:49:46 +0200
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart9553137.5j6rFQUJkr
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
 
-d80211: switch status codes, reason codes, and EIDs to enums
+Kindest Attention:
 
-This patch converts the status code, reason code, and EID defines in=20
-d80211_mgmt.h to enums. It also adds some status and reason codes, fixes so=
-me=20
-typos (DENOED, QUITE), and uses the ieee80211.h version of the name where=20
-reasonable.
 
-Signed-off-by: Michael Wu <flamingice@sourmilk.net>
-=2D--
+My name is Mr. Garcia Duarte, I am from Portugal
+Please take this serious. I have been diagnosed with Esophageal cancer.
+It has defied all forms of medical treatment, and right now I have only about a few months to live,according to medical experts. I have not particularly lived my life so well, as I never really cared for anyone (not even myself) but my business.Though I am very rich, I was never 
+generous, I was always hostile to people and only focused on my business as that was the only thing I cared for.But now I regret all this as I now know that there is more to life than just wanting to have or make all the money in the world. I believe when God gives me a second chance 
+to come to this world I would live my life a different way from how I have lived it.
 
- include/net/d80211_mgmt.h |  149=20
-++++++++++++++++++++++++++-------------------
- 1 files changed, 87 insertions(+), 62 deletions(-)
+Now that God has called me, I have willed and given most of my property and assets to my immediate and extended family members as well as few close friends .I want God to be merciful to me and accept my soul so, I have decided to give alms to charity organizations, as I want this to 
+be one of the last good deeds I do on earth. So far, I have Distributed money to some charity 
+organizations in the U.A.E, Somalia and Malaysia.
 
-diff --git a/include/net/d80211_mgmt.h b/include/net/d80211_mgmt.h
-index f623db3..6981c6f 100644
-=2D-- a/include/net/d80211_mgmt.h
-+++ b/include/net/d80211_mgmt.h
-@@ -119,76 +119,101 @@ #define WLAN_CAPABILITY_SHORT_SLOT_TIME=20
- #define WLAN_CAPABILITY_DSSS_OFDM BIT(13)
-=20
- /* Status codes */
-=2D#define WLAN_STATUS_SUCCESS 0
-=2D#define WLAN_STATUS_UNSPECIFIED_FAILURE 1
-=2D#define WLAN_STATUS_CAPS_UNSUPPORTED 10
-=2D#define WLAN_STATUS_REASSOC_NO_ASSOC 11
-=2D#define WLAN_STATUS_ASSOC_DENIED_UNSPEC 12
-=2D#define WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG 13
-=2D#define WLAN_STATUS_UNKNOWN_AUTH_TRANSACTION 14
-=2D#define WLAN_STATUS_CHALLENGE_FAIL 15
-=2D#define WLAN_STATUS_AUTH_TIMEOUT 16
-=2D#define WLAN_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA 17
-=2D#define WLAN_STATUS_ASSOC_DENIED_RATES 18
-=2D/* 802.11b */
-=2D#define WLAN_STATUS_ASSOC_DENIED_NOSHORT 19
-=2D#define WLAN_STATUS_ASSOC_DENIED_NOPBCC 20
-=2D#define WLAN_STATUS_ASSOC_DENIED_NOAGILITY 21
-=2D/* 802.11h */
-=2D#define WLAN_STATUS_SPEC_MGMT_REQUIRED 22
-=2D#define WLAN_STATUS_PWR_CAPABILITY_NOT_VALID 23
-=2D#define WLAN_STATUS_SUPPORTED_CHANNEL_NOT_VALID 24
-=2D/* 802.11g */
-=2D#define WLAN_STATUS_ASSOC_DENOED_NO_SHORT_SLOT_TIME 25
-=2D#define WLAN_STATUS_ASSOC_DENOED_NO_ER_PBCC 26
-=2D#define WLAN_STATUS_ASSOC_DENOED_NO_DSSS_OFDM 27
-+enum ieee80211_statuscode {
-+	WLAN_STATUS_SUCCESS =3D 0,
-+	WLAN_STATUS_UNSPECIFIED_FAILURE =3D 1,
-+	WLAN_STATUS_CAPS_UNSUPPORTED =3D 10,
-+	WLAN_STATUS_REASSOC_NO_ASSOC =3D 11,
-+	WLAN_STATUS_ASSOC_DENIED_UNSPEC =3D 12,
-+	WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG =3D 13,
-+	WLAN_STATUS_UNKNOWN_AUTH_TRANSACTION =3D 14,
-+	WLAN_STATUS_CHALLENGE_FAIL =3D 15,
-+	WLAN_STATUS_AUTH_TIMEOUT =3D 16,
-+	WLAN_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA =3D 17,
-+	WLAN_STATUS_ASSOC_DENIED_RATES =3D 18,
-+	/* 802.11b */
-+	WLAN_STATUS_ASSOC_DENIED_NOSHORTPREAMBLE =3D 19,
-+	WLAN_STATUS_ASSOC_DENIED_NOPBCC =3D 20,
-+	WLAN_STATUS_ASSOC_DENIED_NOAGILITY =3D 21,
-+	/* 802.11h */
-+	WLAN_STATUS_ASSOC_DENIED_NOSPECTRUM =3D 22,
-+	WLAN_STATUS_ASSOC_REJECTED_BAD_POWER =3D 23,
-+	WLAN_STATUS_ASSOC_REJECTED_BAD_SUPP_CHAN =3D 24,
-+	/* 802.11g */
-+	WLAN_STATUS_ASSOC_DENIED_NOSHORTTIME =3D 25,
-+	WLAN_STATUS_ASSOC_DENIED_NODSSSOFDM =3D 26,
-+	/* 802.11i */
-+	WLAN_STATUS_INVALID_IE =3D 40,
-+	WLAN_STATUS_INVALID_GROUP_CIPHER =3D 41,
-+	WLAN_STATUS_INVALID_PAIRWISE_CIPHER =3D 42,
-+	WLAN_STATUS_INVALID_AKMP =3D 43,
-+	WLAN_STATUS_UNSUPP_RSN_VERSION =3D 44,
-+	WLAN_STATUS_INVALID_RSN_IE_CAP =3D 45,
-+	WLAN_STATUS_CIPHER_SUITE_REJECTED =3D 46,
-+};
-=20
-=20
- /* Reason codes */
-=2D#define WLAN_REASON_UNSPECIFIED 1
-=2D#define WLAN_REASON_PREV_AUTH_NOT_VALID 2
-=2D#define WLAN_REASON_DEAUTH_LEAVING 3
-=2D#define WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY 4
-=2D#define WLAN_REASON_DISASSOC_AP_BUSY 5
-=2D#define WLAN_REASON_CLASS2_FRAME_FROM_NONAUTH_STA 6
-=2D#define WLAN_REASON_CLASS3_FRAME_FROM_NONASSOC_STA 7
-=2D#define WLAN_REASON_DISASSOC_STA_HAS_LEFT 8
-=2D#define WLAN_REASON_STA_REQ_ASSOC_WITHOUT_AUTH 9
-=2D/* 802.11h */
-=2D#define WLAN_REASON_PWR_CAPABILITY_NOT_VALID 10
-=2D#define WLAN_REASON_SUPPORTED_CHANNEL_NOT_VALID 11
-=2D
-=2D#define WLAN_REASON_MIC_FAILURE 14
-+enum ieee80211_reasoncode {
-+	WLAN_REASON_UNSPECIFIED =3D 1,
-+	WLAN_REASON_PREV_AUTH_NOT_VALID =3D 2,
-+	WLAN_REASON_DEAUTH_LEAVING =3D 3,
-+	WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY =3D 4,
-+	WLAN_REASON_DISASSOC_AP_BUSY =3D 5,
-+	WLAN_REASON_CLASS2_FRAME_FROM_NONAUTH_STA =3D 6,
-+	WLAN_REASON_CLASS3_FRAME_FROM_NONASSOC_STA =3D 7,
-+	WLAN_REASON_DISASSOC_STA_HAS_LEFT =3D 8,
-+	WLAN_REASON_STA_REQ_ASSOC_WITHOUT_AUTH =3D 9,
-+	/* 802.11h */
-+	WLAN_REASON_DISASSOC_BAD_POWER =3D 10,
-+	WLAN_REASON_DISASSOC_BAD_SUPP_CHAN =3D 11,
-+	/* 802.11i */
-+	WLAN_REASON_INVALID_IE =3D 13,
-+	WLAN_REASON_MIC_FAILURE =3D 14,
-+	WLAN_REASON_4WAY_HANDSHAKE_TIMEOUT =3D 15,
-+	WLAN_REASON_GROUP_KEY_HANDSHAKE_TIMEOUT =3D 16,
-+	WLAN_REASON_IE_DIFFERENT =3D 17,
-+	WLAN_REASON_INVALID_GROUP_CIPHER =3D 18,
-+	WLAN_REASON_INVALID_PAIRWISE_CIPHER =3D 19,
-+	WLAN_REASON_INVALID_AKMP =3D 20,
-+	WLAN_REASON_UNSUPP_RSN_VERSION =3D 21,
-+	WLAN_REASON_INVALID_RSN_IE_CAP =3D 22,
-+	WLAN_REASON_IEEE8021X_FAILED =3D 23,
-+	WLAN_REASON_CIPHER_SUITE_REJECTED =3D 24,
-+};
-=20
-=20
- /* Information Element IDs */
-=2D#define WLAN_EID_SSID 0
-=2D#define WLAN_EID_SUPP_RATES 1
-=2D#define WLAN_EID_FH_PARAMS 2
-=2D#define WLAN_EID_DS_PARAMS 3
-=2D#define WLAN_EID_CF_PARAMS 4
-=2D#define WLAN_EID_TIM 5
-=2D#define WLAN_EID_IBSS_PARAMS 6
-=2D#define WLAN_EID_COUNTRY 7
-=2D#define WLAN_EID_CHALLENGE 16
-+enum ieee80211_eid {
-+	WLAN_EID_SSID =3D 0,
-+	WLAN_EID_SUPP_RATES =3D 1,
-+	WLAN_EID_FH_PARAMS =3D 2,
-+	WLAN_EID_DS_PARAMS =3D 3,
-+	WLAN_EID_CF_PARAMS =3D 4,
-+	WLAN_EID_TIM =3D 5,
-+	WLAN_EID_IBSS_PARAMS =3D 6,
-+	WLAN_EID_COUNTRY =3D 7,
-+	WLAN_EID_CHALLENGE =3D 16,
- /* EIDs defined as part fo 11h - starts */
-=2D#define WLAN_EID_PWR_CONSTRAINT	32
-=2D#define WLAN_EID_PWR_CAPABILITY	33
-=2D#define WLAN_EID_TPC_REQUEST	34
-=2D#define WLAN_EID_TPC_REPORT	35
-=2D#define WLAN_EID_SUPPORTED_CHANNELS	36
-=2D#define WLAN_EID_CHANNEL_SWITCH	37
-=2D#define WLAN_EID_MEASURE_REQUEST	38
-=2D#define WLAN_EID_MEASURE_REPORT	39
-=2D#define WLAN_EID_QUITE	40
-=2D#define WLAN_EID_IBSS_DFS	41
-+	WLAN_EID_PWR_CONSTRAINT =3D 32,
-+	WLAN_EID_PWR_CAPABILITY =3D 33,
-+	WLAN_EID_TPC_REQUEST =3D 34,
-+	WLAN_EID_TPC_REPORT =3D 35,
-+	WLAN_EID_SUPPORTED_CHANNELS =3D 36,
-+	WLAN_EID_CHANNEL_SWITCH =3D 37,
-+	WLAN_EID_MEASURE_REQUEST =3D 38,
-+	WLAN_EID_MEASURE_REPORT =3D 39,
-+	WLAN_EID_QUIET =3D 40,
-+	WLAN_EID_IBSS_DFS =3D 41,
- /* EIDs defined as part fo 11h - ends */
-=2D#define WLAN_EID_ERP_INFO 42
-=2D#define WLAN_EID_RSN 48
-=2D#define WLAN_EID_EXT_SUPP_RATES 50
-=2D#define WLAN_EID_WPA 221
-=2D#define WLAN_EID_GENERIC 221
-=2D#define WLAN_EID_VENDOR_SPECIFIC 221
-+	WLAN_EID_ERP_INFO =3D 42,
-+	WLAN_EID_RSN =3D 48,
-+	WLAN_EID_EXT_SUPP_RATES =3D 50,
-+	WLAN_EID_WPA =3D 221,
-+	WLAN_EID_GENERIC =3D 221,
-+	WLAN_EID_VENDOR_SPECIFIC =3D 221,
-+	WLAN_EID_QOS_PARAMETER =3D 222
-+};
-=20
-=20
-=20
+Now that my health has deteriorated so badly, I cannot do this myself anymore. I once asked members of my family to close one of my accounts and distribute the money which I have there to charity organization in Bulgaria and Pakistan, they refused and kept the money to themselves.
 
---nextPart9553137.5j6rFQUJkr
-Content-Type: application/pgp-signature
+Hence, I do not trust them anymore, as they seem not to be contended with what I have left for them. The last of my money which no one knows of is the huge cash deposit of Thirty Million United States Dollars ($30,000,000,00) that I have with an Finance Vaulting Unit Abroad. I will 
+want you to help me collect this deposit and dispatch it to charity organizations.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+N/B:
 
-iD8DBQBE34D2T3Oqt9AH4aERAthDAKDBi+OaT1NP8PlyCgxdzfJlD8fC7wCdGnJe
-FoXDWgwq0inYRDoeL6lZYS8=
-=dm8n
------END PGP SIGNATURE-----
+Kindly note that 35% of this funds must go to the tsunami victims,55% to other Charity Organization and 10% for your effort and time.
 
---nextPart9553137.5j6rFQUJkr--
+I cannot talk with you on the phone due to my health situation, as I am using my Lap Top Computer to communicate with you. You should respond to this e-mail if you are interested in carrying out this assignment on my behalf.
+
+God be with you.
+
+Mr. Garcia Duarte.
+
+
+
