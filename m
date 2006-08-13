@@ -1,34 +1,18 @@
-From: "Hank Marcus" <HankMarcus@mail.ru>
-Subject: Your health, orderly room
-Date: Sun, 13 Aug 2006 20:29:59 +0300
-Message-ID: <662161c80604elgfsc43yntp950t9m4bktzpqsamfelba7@mxs.mail.ru>
+From: "Waddell" <cliffordcomma@graphic-designer.com>
+Subject: Buy Exttra-Time and forget your fears!
+Date: Sun, 13 Aug 2006 16:55:02 -0400
+Message-ID: <47620606358652.31396795C3@UOVIGAP>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain;
+        charset="Windows-1252"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pool-129-44-110-99.pghk.east.verizon.net ([129.44.110.99]:7697
-	"EHLO pool-129-44-110-99.pghk.east.verizon.net") by vger.kernel.org
-	with ESMTP id S1751411AbWHMUaA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2006 16:30:00 -0400
-To: netdev-owner@vger.kernel.org
-Content-Disposition: inline
+Received: from h213.131.140.67.ip.alltel.net ([67.140.131.213]:61422 "EHLO
+	HOME") by vger.kernel.org with ESMTP id S1751434AbWHMUyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2006 16:54:50 -0400
+To: <newbie-owner@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Worried about the loss of erectoin? EVEN if you have no 
-erectoin problems SOFT CIA9LIS would help you to bring 
-back some romantic moments that u lost in past.
+Good day Bro, Thousands of couples broke down because of them, making both parties unhappy. Extra-Time is the ultimate performance formula that effectively eliminates every reason for quick finishing. Everything has its time, and climax in bed shouldn't also happen too soon. Find what you need here: http://baxeler.com/gal/get/ It's obvious that a satisfied woman will be addicted to you like never before.
 
-Just disolve half a pil under your tongue and get ready for action 
-in 15 minutes. SOFT CIA7LIS! It makes your lovemaking incredible!
-
-VISIT US TODAY, AND GET OUR SPECIAL 70% DISC3OUNT OFER!
-
-http://qaartm.beamglow.com/?76864450
-
-Instant shipping worldwide. Absolutely CONFIDENTIAL and SECURE purchase.
-
-------------------
-Great Gull!"
-
-Input and Output Ports 
