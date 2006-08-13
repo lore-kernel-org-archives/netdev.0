@@ -1,43 +1,223 @@
-From: Daniel Phillips <phillips@google.com>
-Subject: Re: [RFC][PATCH 8/9] 3c59x driver conversion
-Date: Sun, 13 Aug 2006 12:38:33 -0700
-Message-ID: <44DF7FB9.8020003@google.com>
-References: <20060808193447.1396.59301.sendpatchset@lappy>	<44D9191E.7080203@garzik.org>	<44D977D8.5070306@google.com> <20060808.225537.112622421.davem@davemloft.net>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: [PATCH wireless-dev] d80211: switch status codes, reason codes, and EIDs to enums
+Date: Sun, 13 Aug 2006 12:43:46 -0700
+Message-ID: <200608131243.51185.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart9553137.5j6rFQUJkr";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, a.p.zijlstra@chello.nl, netdev@vger.kernel.org,
-	linux-mm@kvack.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>,
+	Jouni Malinen <jkm@devicescape.com>, jkmaline@cc.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.12]:64845 "EHLO
-	smtp-out.google.com") by vger.kernel.org with ESMTP
-	id S1751372AbWHMTjk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 15:39:40 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060808.225537.112622421.davem@davemloft.net>
+Received: from server8.tchmachines.com ([216.180.241.250]:61078 "EHLO
+	server8.tchmachines.com") by vger.kernel.org with ESMTP
+	id S1751381AbWHMTnu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Aug 2006 15:43:50 -0400
+To: John Linville <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> I think he's saying that he doesn't think your code is yet a
-> reasonable way to solve the problem, and therefore doesn't belong
-> upstream.
+--nextPart9553137.5j6rFQUJkr
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-That is why it has not yet been submitted upstream.  Respectfully, I
-do not think that jgarzik has yet put in the work to know if this anti
-deadlock technique is reasonable or not, and he was only commenting
-on some superficial blemish.  I still don't get his point, if there
-was one.  He seems to be arguing in favor of a jump-off-the-cliff
-approach to driver conversion.  If he wants to do the work and take
-the blame when some driver inevitably breaks because of being edited
-in a hurry then he is welcome to submit the necessary additional
-patches.  Until then, there are about 3 nics that actually matter to
-network storage at the moment, all of them GigE.
+d80211: switch status codes, reason codes, and EIDs to enums
 
-The layer 2 blemishes can be fixed easily, including avoiding the
-atomic op stall and the ->dev volatility .  Thankyou for pointing
-those out.
+This patch converts the status code, reason code, and EID defines in=20
+d80211_mgmt.h to enums. It also adds some status and reason codes, fixes so=
+me=20
+typos (DENOED, QUITE), and uses the ieee80211.h version of the name where=20
+reasonable.
 
-Regards,
+Signed-off-by: Michael Wu <flamingice@sourmilk.net>
+=2D--
 
-Daniel
+ include/net/d80211_mgmt.h |  149=20
+++++++++++++++++++++++++++-------------------
+ 1 files changed, 87 insertions(+), 62 deletions(-)
+
+diff --git a/include/net/d80211_mgmt.h b/include/net/d80211_mgmt.h
+index f623db3..6981c6f 100644
+=2D-- a/include/net/d80211_mgmt.h
++++ b/include/net/d80211_mgmt.h
+@@ -119,76 +119,101 @@ #define WLAN_CAPABILITY_SHORT_SLOT_TIME=20
+ #define WLAN_CAPABILITY_DSSS_OFDM BIT(13)
+=20
+ /* Status codes */
+=2D#define WLAN_STATUS_SUCCESS 0
+=2D#define WLAN_STATUS_UNSPECIFIED_FAILURE 1
+=2D#define WLAN_STATUS_CAPS_UNSUPPORTED 10
+=2D#define WLAN_STATUS_REASSOC_NO_ASSOC 11
+=2D#define WLAN_STATUS_ASSOC_DENIED_UNSPEC 12
+=2D#define WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG 13
+=2D#define WLAN_STATUS_UNKNOWN_AUTH_TRANSACTION 14
+=2D#define WLAN_STATUS_CHALLENGE_FAIL 15
+=2D#define WLAN_STATUS_AUTH_TIMEOUT 16
+=2D#define WLAN_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA 17
+=2D#define WLAN_STATUS_ASSOC_DENIED_RATES 18
+=2D/* 802.11b */
+=2D#define WLAN_STATUS_ASSOC_DENIED_NOSHORT 19
+=2D#define WLAN_STATUS_ASSOC_DENIED_NOPBCC 20
+=2D#define WLAN_STATUS_ASSOC_DENIED_NOAGILITY 21
+=2D/* 802.11h */
+=2D#define WLAN_STATUS_SPEC_MGMT_REQUIRED 22
+=2D#define WLAN_STATUS_PWR_CAPABILITY_NOT_VALID 23
+=2D#define WLAN_STATUS_SUPPORTED_CHANNEL_NOT_VALID 24
+=2D/* 802.11g */
+=2D#define WLAN_STATUS_ASSOC_DENOED_NO_SHORT_SLOT_TIME 25
+=2D#define WLAN_STATUS_ASSOC_DENOED_NO_ER_PBCC 26
+=2D#define WLAN_STATUS_ASSOC_DENOED_NO_DSSS_OFDM 27
++enum ieee80211_statuscode {
++	WLAN_STATUS_SUCCESS =3D 0,
++	WLAN_STATUS_UNSPECIFIED_FAILURE =3D 1,
++	WLAN_STATUS_CAPS_UNSUPPORTED =3D 10,
++	WLAN_STATUS_REASSOC_NO_ASSOC =3D 11,
++	WLAN_STATUS_ASSOC_DENIED_UNSPEC =3D 12,
++	WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG =3D 13,
++	WLAN_STATUS_UNKNOWN_AUTH_TRANSACTION =3D 14,
++	WLAN_STATUS_CHALLENGE_FAIL =3D 15,
++	WLAN_STATUS_AUTH_TIMEOUT =3D 16,
++	WLAN_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA =3D 17,
++	WLAN_STATUS_ASSOC_DENIED_RATES =3D 18,
++	/* 802.11b */
++	WLAN_STATUS_ASSOC_DENIED_NOSHORTPREAMBLE =3D 19,
++	WLAN_STATUS_ASSOC_DENIED_NOPBCC =3D 20,
++	WLAN_STATUS_ASSOC_DENIED_NOAGILITY =3D 21,
++	/* 802.11h */
++	WLAN_STATUS_ASSOC_DENIED_NOSPECTRUM =3D 22,
++	WLAN_STATUS_ASSOC_REJECTED_BAD_POWER =3D 23,
++	WLAN_STATUS_ASSOC_REJECTED_BAD_SUPP_CHAN =3D 24,
++	/* 802.11g */
++	WLAN_STATUS_ASSOC_DENIED_NOSHORTTIME =3D 25,
++	WLAN_STATUS_ASSOC_DENIED_NODSSSOFDM =3D 26,
++	/* 802.11i */
++	WLAN_STATUS_INVALID_IE =3D 40,
++	WLAN_STATUS_INVALID_GROUP_CIPHER =3D 41,
++	WLAN_STATUS_INVALID_PAIRWISE_CIPHER =3D 42,
++	WLAN_STATUS_INVALID_AKMP =3D 43,
++	WLAN_STATUS_UNSUPP_RSN_VERSION =3D 44,
++	WLAN_STATUS_INVALID_RSN_IE_CAP =3D 45,
++	WLAN_STATUS_CIPHER_SUITE_REJECTED =3D 46,
++};
+=20
+=20
+ /* Reason codes */
+=2D#define WLAN_REASON_UNSPECIFIED 1
+=2D#define WLAN_REASON_PREV_AUTH_NOT_VALID 2
+=2D#define WLAN_REASON_DEAUTH_LEAVING 3
+=2D#define WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY 4
+=2D#define WLAN_REASON_DISASSOC_AP_BUSY 5
+=2D#define WLAN_REASON_CLASS2_FRAME_FROM_NONAUTH_STA 6
+=2D#define WLAN_REASON_CLASS3_FRAME_FROM_NONASSOC_STA 7
+=2D#define WLAN_REASON_DISASSOC_STA_HAS_LEFT 8
+=2D#define WLAN_REASON_STA_REQ_ASSOC_WITHOUT_AUTH 9
+=2D/* 802.11h */
+=2D#define WLAN_REASON_PWR_CAPABILITY_NOT_VALID 10
+=2D#define WLAN_REASON_SUPPORTED_CHANNEL_NOT_VALID 11
+=2D
+=2D#define WLAN_REASON_MIC_FAILURE 14
++enum ieee80211_reasoncode {
++	WLAN_REASON_UNSPECIFIED =3D 1,
++	WLAN_REASON_PREV_AUTH_NOT_VALID =3D 2,
++	WLAN_REASON_DEAUTH_LEAVING =3D 3,
++	WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY =3D 4,
++	WLAN_REASON_DISASSOC_AP_BUSY =3D 5,
++	WLAN_REASON_CLASS2_FRAME_FROM_NONAUTH_STA =3D 6,
++	WLAN_REASON_CLASS3_FRAME_FROM_NONASSOC_STA =3D 7,
++	WLAN_REASON_DISASSOC_STA_HAS_LEFT =3D 8,
++	WLAN_REASON_STA_REQ_ASSOC_WITHOUT_AUTH =3D 9,
++	/* 802.11h */
++	WLAN_REASON_DISASSOC_BAD_POWER =3D 10,
++	WLAN_REASON_DISASSOC_BAD_SUPP_CHAN =3D 11,
++	/* 802.11i */
++	WLAN_REASON_INVALID_IE =3D 13,
++	WLAN_REASON_MIC_FAILURE =3D 14,
++	WLAN_REASON_4WAY_HANDSHAKE_TIMEOUT =3D 15,
++	WLAN_REASON_GROUP_KEY_HANDSHAKE_TIMEOUT =3D 16,
++	WLAN_REASON_IE_DIFFERENT =3D 17,
++	WLAN_REASON_INVALID_GROUP_CIPHER =3D 18,
++	WLAN_REASON_INVALID_PAIRWISE_CIPHER =3D 19,
++	WLAN_REASON_INVALID_AKMP =3D 20,
++	WLAN_REASON_UNSUPP_RSN_VERSION =3D 21,
++	WLAN_REASON_INVALID_RSN_IE_CAP =3D 22,
++	WLAN_REASON_IEEE8021X_FAILED =3D 23,
++	WLAN_REASON_CIPHER_SUITE_REJECTED =3D 24,
++};
+=20
+=20
+ /* Information Element IDs */
+=2D#define WLAN_EID_SSID 0
+=2D#define WLAN_EID_SUPP_RATES 1
+=2D#define WLAN_EID_FH_PARAMS 2
+=2D#define WLAN_EID_DS_PARAMS 3
+=2D#define WLAN_EID_CF_PARAMS 4
+=2D#define WLAN_EID_TIM 5
+=2D#define WLAN_EID_IBSS_PARAMS 6
+=2D#define WLAN_EID_COUNTRY 7
+=2D#define WLAN_EID_CHALLENGE 16
++enum ieee80211_eid {
++	WLAN_EID_SSID =3D 0,
++	WLAN_EID_SUPP_RATES =3D 1,
++	WLAN_EID_FH_PARAMS =3D 2,
++	WLAN_EID_DS_PARAMS =3D 3,
++	WLAN_EID_CF_PARAMS =3D 4,
++	WLAN_EID_TIM =3D 5,
++	WLAN_EID_IBSS_PARAMS =3D 6,
++	WLAN_EID_COUNTRY =3D 7,
++	WLAN_EID_CHALLENGE =3D 16,
+ /* EIDs defined as part fo 11h - starts */
+=2D#define WLAN_EID_PWR_CONSTRAINT	32
+=2D#define WLAN_EID_PWR_CAPABILITY	33
+=2D#define WLAN_EID_TPC_REQUEST	34
+=2D#define WLAN_EID_TPC_REPORT	35
+=2D#define WLAN_EID_SUPPORTED_CHANNELS	36
+=2D#define WLAN_EID_CHANNEL_SWITCH	37
+=2D#define WLAN_EID_MEASURE_REQUEST	38
+=2D#define WLAN_EID_MEASURE_REPORT	39
+=2D#define WLAN_EID_QUITE	40
+=2D#define WLAN_EID_IBSS_DFS	41
++	WLAN_EID_PWR_CONSTRAINT =3D 32,
++	WLAN_EID_PWR_CAPABILITY =3D 33,
++	WLAN_EID_TPC_REQUEST =3D 34,
++	WLAN_EID_TPC_REPORT =3D 35,
++	WLAN_EID_SUPPORTED_CHANNELS =3D 36,
++	WLAN_EID_CHANNEL_SWITCH =3D 37,
++	WLAN_EID_MEASURE_REQUEST =3D 38,
++	WLAN_EID_MEASURE_REPORT =3D 39,
++	WLAN_EID_QUIET =3D 40,
++	WLAN_EID_IBSS_DFS =3D 41,
+ /* EIDs defined as part fo 11h - ends */
+=2D#define WLAN_EID_ERP_INFO 42
+=2D#define WLAN_EID_RSN 48
+=2D#define WLAN_EID_EXT_SUPP_RATES 50
+=2D#define WLAN_EID_WPA 221
+=2D#define WLAN_EID_GENERIC 221
+=2D#define WLAN_EID_VENDOR_SPECIFIC 221
++	WLAN_EID_ERP_INFO =3D 42,
++	WLAN_EID_RSN =3D 48,
++	WLAN_EID_EXT_SUPP_RATES =3D 50,
++	WLAN_EID_WPA =3D 221,
++	WLAN_EID_GENERIC =3D 221,
++	WLAN_EID_VENDOR_SPECIFIC =3D 221,
++	WLAN_EID_QOS_PARAMETER =3D 222
++};
+=20
+=20
+=20
+
+--nextPart9553137.5j6rFQUJkr
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBE34D2T3Oqt9AH4aERAthDAKDBi+OaT1NP8PlyCgxdzfJlD8fC7wCdGnJe
+FoXDWgwq0inYRDoeL6lZYS8=
+=dm8n
+-----END PGP SIGNATURE-----
+
+--nextPart9553137.5j6rFQUJkr--
