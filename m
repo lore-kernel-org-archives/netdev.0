@@ -1,39 +1,40 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
-Date: Sun, 13 Aug 2006 13:06:21 +0400
-Message-ID: <20060813090620.GB14960@2ka.mipt.ru>
-References: <20060812084713.GA29523@2ka.mipt.ru> <1155374390.13508.15.camel@lappy> <20060812093706.GA13554@2ka.mipt.ru> <20060812.174607.44371641.davem@davemloft.net>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] zd1211rw: cleanups
+Date: Sun, 13 Aug 2006 11:24:34 +0200
+Message-ID: <200608131124.34935.mb@bu3sch.de>
+References: <20060812170017.278D08E7782@zog.reactivated.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: a.p.zijlstra@chello.nl, riel@redhat.com, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	phillips@google.com
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org, kune@deine-taler.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:39366 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1750770AbWHMJHJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2006 05:07:09 -0400
-To: David Miller <davem@davemloft.net>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:35726
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750822AbWHMJZz
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Aug 2006 05:25:55 -0400
+To: Daniel Drake <dsd@gentoo.org>
+In-Reply-To: <20060812170017.278D08E7782@zog.reactivated.net>
 Content-Disposition: inline
-In-Reply-To: <20060812.174607.44371641.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 12, 2006 at 05:46:07PM -0700, David Miller (davem@davemloft.net) wrote:
-> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> Date: Sat, 12 Aug 2006 13:37:06 +0400
-> 
-> > Does it? I though it is possible to only have 64k of working sockets per
-> > device in TCP.
-> 
-> Where does this limit come from?
-> 
-> You think there is something magic about 64K local ports,
-> but if remote IP addresses in the TCP socket IDs are all
-> different, number of possible TCP sockets is only limited
-> by "number of client IPs * 64K" and ram :-)
+On Saturday 12 August 2006 19:00, Daniel Drake wrote:
+> --- linux-2.6.orig/drivers/net/wireless/zd1211rw/zd_mac.c
+> +++ linux-2.6/drivers/net/wireless/zd1211rw/zd_mac.c
+> @@ -127,11 +127,9 @@ out:
+>  
+>  void zd_mac_clear(struct zd_mac *mac)
+>  {
+> -	/* Aquire the lock. */
+> -	spin_lock(&mac->lock);
+> -	spin_unlock(&mac->lock);
+>  	zd_chip_clear(&mac->chip);
+> -	memset(mac, 0, sizeof(*mac));
+> +	ZD_ASSERT(!spin_is_locked(&mac->lock));
 
-I talked about working sockets, but not about how many of them system
-can have at all :)
+I think this assertion will always trigger on UP kernels
+with spinlock debugging disabled.
 
 -- 
-	Evgeniy Polyakov
+Greetings Michael.
