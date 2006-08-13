@@ -1,28 +1,41 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH 1/4] [NETLINK]: Handle NLM_F_ECHO in netlink_rcv_skb()
-Date: Sun, 13 Aug 2006 17:45:23 +0400
-Message-ID: <20060813134523.GA15671@ms2.inr.ac.ru>
-References: <20060809204821.216122988@postel.suug.ch> <20060809205439.434010049@postel.suug.ch> <20060810155120.GA494@ms2.inr.ac.ru> <20060810190210.GH14627@postel.suug.ch> <20060810203252.GA6414@ms2.inr.ac.ru> <20060810211833.GK14627@postel.suug.ch> <20060811153549.GA16351@ms2.inr.ac.ru> <20060811214744.GO14627@postel.suug.ch> <20060812110331.GA31479@ms2.inr.ac.ru> <20060812111908.GP14627@postel.suug.ch>
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: [PATCH 3/6] ehea: queue management
+Date: Mon, 14 Aug 2006 00:44:00 +1000
+Message-ID: <20060813144400.GJ479@krispykreme>
+References: <44D99F38.8010306@de.ibm.com> <20060811215225.GH479@krispykreme> <44DE03B0.1060607@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Cc: Jan-Bernd Themann <themann@de.ibm.com>,
+	Jan-Bernd Themann <ossthema@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>, roland@topspin.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:42152 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1751169AbWHMNqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2006 09:46:08 -0400
-To: Thomas Graf <tgraf@suug.ch>
+Received: from ozlabs.org ([203.10.76.45]:27857 "EHLO ozlabs.org")
+	by vger.kernel.org with ESMTP id S1751264AbWHMOpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2006 10:45:03 -0400
+To: Thomas Klein <osstklei@de.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <20060812111908.GP14627@postel.suug.ch>
+In-Reply-To: <44DE03B0.1060607@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
 
-> So we do something like this:
+Hi,
 
-Yes, exactly.
+> I agree, stubbs were removed.
 
-Actually, there was a function with similar functionality: rtnetlink_send().
-net/sched/* used it, older net/ipv4/ still did this directly.
+Thanks.
 
-Alexey
+What is going to be done about the debug infrastructure in the ehea
+driver? The entry and exit traces really need to go, and any other debug
+you think is important to users needs to go into debugfs or something
+similar.
+
+I see a similar issue in the ehca driver that I am in the middle of
+reviewing.
+
+Anton
