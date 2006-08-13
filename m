@@ -1,44 +1,35 @@
-From: =?ISO-8859-1?Q?=20=22=C3=F0=E8=E3=EE=F0=E8=E9?=
-	  =?ISO-8859-1?Q?=20=D0=E0=F1=EF=F3=F2=E8=ED?=
-	  =?ISO-8859-1?Q?=22?= <JerryShort@fcbayern.de>
-Subject: =?ISO-8859-1?Q?=20=D0=C0=D1=D1=DB=CB=CA=C8?=  =?ISO-8859-1?Q?=20=CE=D2?= 100$
-Date: Sun, 13 Aug 2006 19:44:12 -0200
-Message-ID: <KAYFDKIAUFYYMEPUVRJKUU@flying.to>
-Reply-To: =?ISO-8859-1?Q?=20=22=C3=F0=E8=E3=EE=F0=E8=E9?=
-	    =?ISO-8859-1?Q?=20=D0=E0=F1=EF=F3=F2?=
-	    =?ISO-8859-1?Q?=E8=ED=22?= <JerryShort@fcbayern.de>
+From: "Mr Richard Williams" <richardwilliams2001@web2mail.com>
+Subject: +From Portugal & Urgent Reply Needed +
+Date: Sun, 13 Aug 2006 14:06:21 -0600
+Message-ID: <200608131406.AA58261698__49354.607347823$1155502998$gmane$org@web1.belizeweb.com>
+Reply-To: <richardwilliams2001@web2mail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=Windows-1251;
-	boundary="--01132876671500067144"
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c-24-91-152-88.hsd1.ma.comcast.net ([24.91.152.88]:62320 "HELO
-	209.132.176.167") by vger.kernel.org with SMTP id S1751450AbWHMVAJ
+Received: from mail.belizeweb.com ([206.27.238.23]:45581 "EHLO
+	web1.belizeweb.com") by vger.kernel.org with ESMTP id S1751435AbWHMVBn
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 17:00:09 -0400
-To: netdev@vger.kernel.org
+	Sun, 13 Aug 2006 17:01:43 -0400
+To: <richardwilliams2001@web2mail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+>From . Mr. Richard Williams.
+13 - 8 - 2006.
 
-МАССОВЫЕ РАССЫЛКИ ПО РОССИИ:
+Kindest Attention:
 
-1 000 000 адресов (Москва) 125$
-3 000 000 адресов (Москва и Область) 200$
-5 000 000 адресов (Центральный регион) 300$ 
-8 000 000 адресов (Вся Россия) 500$
-12 000 000 адресов (Вся Россия и сраны СНГ) 800$
+My name is Mr. Richard Williams . I am from Portugal .  I have been diagnosed with Esophageal cancer. It has defiled all forms of medical treatment, and right now I have only about a few months to live, according to medical experts. I have not particularly lived my life so well, as I never really cared for anyone (not even myself)but my business.  Though I am very rich, I was never generous, I was always hostile to people and only focused on my business as that was the only thing I cared for. But now I regret all this as I now know that there is more to life than just wanting to have or make all the money in the world. I believe when God gives me a second chance to come to this world I would live my life a different way from how I have lived it.
 
-Офис рядом с м. Электрозаводская
+Now that God has called me, I have willed and given most of my property and assets to my immediate and extended family members as well as few close friends .I want God to be merciful to me and accept my soul so, I have decided to give alms to charity organizations and those in Need, as I want this to be one of the last good deeds I do on earth. So far, I have Distributed money to some charity organizations when I was well. Now that my health has deteriorated so badly, I cannot do this myself anymore. I once asked members of my family to close one of my accounts and distribute the money which I have there to charity organization in United States, Asia, Middle East & Europe, they refused and kept the money to themselves. 
 
-Способы оплаты:
+Hence, I do not trust them anymore, as they seem not to be contended with what I have left for them. The last of my money which no one knows of is the huge cash deposit of Twenty Million United States Dollars ($20, 000, 000.00) that I have with an Asset Management / Vaulting Company Abroad. I will want you to help me collect this deposit and dispatch it to charity organizations and use it to help those in Need.
 
-- Через Сбербанк
-- WebMoney
-- Яндекс.Деньги
-- Банковский перевод (для юр. лиц)
-- Наличные в Москве через курьера или в офисе
+N/B:Kindly note that  40% of this funds must go to  victims of Tsunami, Hurricane Katrina , Hurricane Wilma and South Asia Earthquake , 55% to other Charity Organizations around the World and 5%  for your effort and time.
 
-Звоните сейчас!
+I cannot talk with you on the phone due to my health situation, as I am using my Lap Top Computer to communicate with you. You should respond to this e-mail if you are interested in carrying out this assignment on my behalf.
 
-Тел.:(495)223 17 68(Работаем без выходных!)
+God be with you.
+
+Mr. Richard Williams.
 
