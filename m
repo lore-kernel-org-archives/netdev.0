@@ -1,150 +1,89 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 02/16] [NETLINK]: Add notification message sending interface
-Date: Mon, 14 Aug 2006 00:00:02 +0200
-Message-ID: <20060814214339.439998107@postel.suug.ch>
+Subject: [PATCH 04/16] [NET] fib_rules: Convert fib rule notification to use rtnl_notify()
+Date: Mon, 14 Aug 2006 00:00:04 +0200
+Message-ID: <20060814214340.099350250@postel.suug.ch>
 References: <20060814213718.580598840@postel.suug.ch>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:13774 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S964974AbWHNVo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 17:44:26 -0400
+Received: from postel.suug.ch ([194.88.212.233]:15822 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S964977AbWHNVog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 17:44:36 -0400
 To: davem@davemloft.net
-Content-Disposition: inline; filename=nlmsg_notify
+Content-Disposition: inline; filename=rtnl_convert_fib_rules
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adds nlmsg_notify() implementing proper notification logic. The
-message is multicasted to all listeners in the group. The
-applications the requests orignates from can request a unicast
-back report in which case said socket will be excluded from the
-multicast to avoid duplicated notifications.
-
-nlmsg_multicast() is extended to take allocation flags to
-allow notification in atomic contexts.
+Adds support for NLM_F_ECHO to simplify the process of identifying
+inserted rules with an auto generated priority.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Index: net-2.6.19.git/include/net/netlink.h
+Index: net-2.6.19.git/net/core/fib_rules.c
 ===================================================================
---- net-2.6.19.git.orig/include/net/netlink.h
-+++ net-2.6.19.git/include/net/netlink.h
-@@ -43,6 +43,7 @@
-  * Message Sending:
-  *   nlmsg_multicast()			multicast message to several groups
-  *   nlmsg_unicast()			unicast a message to a single socket
-+ *   nlmsg_notify()			send notification message
-  *
-  * Message Length Calculations:
-  *   nlmsg_msg_size(payload)		length of message w/o padding
-@@ -545,15 +546,16 @@ static inline void nlmsg_free(struct sk_
-  * @skb: netlink message as socket buffer
-  * @pid: own netlink pid to avoid sending to yourself
-  * @group: multicast group id
-+ * @flags: allocation flags
-  */
- static inline int nlmsg_multicast(struct sock *sk, struct sk_buff *skb,
--				  u32 pid, unsigned int group)
-+				  u32 pid, unsigned int group, gfp_t flags)
+--- net-2.6.19.git.orig/net/core/fib_rules.c
++++ net-2.6.19.git/net/core/fib_rules.c
+@@ -18,7 +18,8 @@ static LIST_HEAD(rules_ops);
+ static DEFINE_SPINLOCK(rules_mod_lock);
+ 
+ static void notify_rule_change(int event, struct fib_rule *rule,
+-			       struct fib_rules_ops *ops);
++			       struct fib_rules_ops *ops, struct nlmsghdr *nlh,
++			       u32 pid);
+ 
+ static struct fib_rules_ops *lookup_rules_ops(int family)
  {
- 	int err;
+@@ -209,7 +210,7 @@ int fib_nl_newrule(struct sk_buff *skb, 
+ 	else
+ 		list_add_rcu(&rule->list, ops->rules_list);
  
- 	NETLINK_CB(skb).dst_group = group;
+-	notify_rule_change(RTM_NEWRULE, rule, ops);
++	notify_rule_change(RTM_NEWRULE, rule, ops, nlh, NETLINK_CB(skb).pid);
+ 	rules_ops_put(ops);
+ 	return 0;
  
--	err = netlink_broadcast(sk, skb, pid, group, GFP_KERNEL);
-+	err = netlink_broadcast(sk, skb, pid, group, flags);
- 	if (err > 0)
- 		err = 0;
+@@ -266,7 +267,8 @@ int fib_nl_delrule(struct sk_buff *skb, 
  
-Index: net-2.6.19.git/net/netlink/af_netlink.c
-===================================================================
---- net-2.6.19.git.orig/net/netlink/af_netlink.c
-+++ net-2.6.19.git/net/netlink/af_netlink.c
-@@ -1550,6 +1550,38 @@ void netlink_queue_skip(struct nlmsghdr 
- 	skb_pull(skb, msglen);
- }
+ 		list_del_rcu(&rule->list);
+ 		synchronize_rcu();
+-		notify_rule_change(RTM_DELRULE, rule, ops);
++		notify_rule_change(RTM_DELRULE, rule, ops, nlh,
++				   NETLINK_CB(skb).pid);
+ 		fib_rule_put(rule);
+ 		rules_ops_put(ops);
+ 		return 0;
+@@ -344,18 +346,26 @@ skip:
+ EXPORT_SYMBOL_GPL(fib_rules_dump);
  
-+/**
-+ * nlmsg_notify - send a notification netlink message
-+ * @sk: netlink socket to use
-+ * @skb: notification message
-+ * @pid: destination netlink pid for reports or 0
-+ * @group: destination multicast group or 0
-+ * @report: 1 to report back, 0 to disable
-+ * @flags: allocation flags
-+ */
-+int nlmsg_notify(struct sock *sk, struct sk_buff *skb, u32 pid,
-+		 unsigned int group, int report, gfp_t flags)
-+{
-+	int err = 0;
+ static void notify_rule_change(int event, struct fib_rule *rule,
+-			       struct fib_rules_ops *ops)
++			       struct fib_rules_ops *ops, struct nlmsghdr *nlh,
++			       u32 pid)
+ {
+-	int size = nlmsg_total_size(sizeof(struct fib_rule_hdr) + 128);
+-	struct sk_buff *skb = alloc_skb(size, GFP_KERNEL);
++	struct sk_buff *skb;
++	int err = -ENOBUFS;
+ 
++	skb = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
+ 	if (skb == NULL)
+-		netlink_set_err(rtnl, 0, ops->nlgroup, ENOBUFS);
+-	else if (fib_nl_fill_rule(skb, rule, 0, 0, event, 0, ops) < 0) {
++		goto errout;
 +
-+	if (group) {
-+		int exclude_pid = 0;
-+
-+		if (report) {
-+			atomic_inc(&skb->users);
-+			exclude_pid = pid;
-+		}
-+
-+		/* errors reported via destination sk->sk_err */
-+		nlmsg_multicast(sk, skb, exclude_pid, group, flags);
++	err = fib_nl_fill_rule(skb, rule, pid, nlh->nlmsg_seq, event, 0, ops);
++	if (err < 0) {
+ 		kfree_skb(skb);
+-		netlink_set_err(rtnl, 0, ops->nlgroup, EINVAL);
+-	} else
+-		netlink_broadcast(rtnl, skb, 0, ops->nlgroup, GFP_KERNEL);
++		goto errout;
 +	}
 +
-+	if (report)
-+		err = nlmsg_unicast(sk, skb, pid);
-+
-+	return err;
-+}
-+
- #ifdef CONFIG_PROC_FS
- struct nl_seq_iter {
- 	int link;
-@@ -1804,4 +1836,4 @@ EXPORT_SYMBOL(netlink_set_err);
- EXPORT_SYMBOL(netlink_set_nonroot);
- EXPORT_SYMBOL(netlink_unicast);
- EXPORT_SYMBOL(netlink_unregister_notifier);
--
-+EXPORT_SYMBOL(nlmsg_notify);
-Index: net-2.6.19.git/include/net/genetlink.h
-===================================================================
---- net-2.6.19.git.orig/include/net/genetlink.h
-+++ net-2.6.19.git/include/net/genetlink.h
-@@ -133,11 +133,12 @@ static inline int genlmsg_cancel(struct 
-  * @skb: netlink message as socket buffer
-  * @pid: own netlink pid to avoid sending to yourself
-  * @group: multicast group id
-+ * @flags: allocation flags
-  */
- static inline int genlmsg_multicast(struct sk_buff *skb, u32 pid,
--				    unsigned int group)
-+				    unsigned int group, gfp_t flags)
- {
--	return nlmsg_multicast(genl_sock, skb, pid, group);
-+	return nlmsg_multicast(genl_sock, skb, pid, group, flags);
++	err = rtnl_notify(skb, pid, ops->nlgroup, nlh, GFP_KERNEL);
++errout:
++	if (err < 0)
++		rtnl_set_sk_err(ops->nlgroup, err);
  }
  
- /**
-Index: net-2.6.19.git/net/netlabel/netlabel_user.c
-===================================================================
---- net-2.6.19.git.orig/net/netlabel/netlabel_user.c
-+++ net-2.6.19.git/net/netlabel/netlabel_user.c
-@@ -154,5 +154,5 @@ int netlbl_netlink_snd(struct sk_buff *s
-  */
- int netlbl_netlink_snd_multicast(struct sk_buff *skb, u32 pid, u32 group)
- {
--	return genlmsg_multicast(skb, pid, group);
-+	return genlmsg_multicast(skb, pid, group, GFP_KERNEL);
- }
-Index: net-2.6.19.git/net/netlink/genetlink.c
-===================================================================
---- net-2.6.19.git.orig/net/netlink/genetlink.c
-+++ net-2.6.19.git/net/netlink/genetlink.c
-@@ -510,7 +510,7 @@ static int genl_ctrl_event(int event, vo
- 		if (IS_ERR(msg))
- 			return PTR_ERR(msg);
- 
--		genlmsg_multicast(msg, 0, GENL_ID_CTRL);
-+		genlmsg_multicast(msg, 0, GENL_ID_CTRL, GFP_KERNEL);
- 		break;
- 	}
- 
+ static void attach_rules(struct list_head *rules, struct net_device *dev)
 
