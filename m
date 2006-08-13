@@ -1,33 +1,35 @@
-From: Nix <nix@esperi.org.uk>
-Subject: Re: [2.6.17.8] NFS stall / BUG in UDP fragment processing / SKB trimming
-Date: Sat, 12 Aug 2006 23:17:11 +0100
-Message-ID: <87d5b5vbtk.fsf@hades.wkstn.nix>
-References: <87zme9fy94.fsf@hades.wkstn.nix>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
+Date: Sat, 12 Aug 2006 17:46:07 -0700 (PDT)
+Message-ID: <20060812.174607.44371641.davem@davemloft.net>
+References: <20060812084713.GA29523@2ka.mipt.ru>
+	<1155374390.13508.15.camel@lappy>
+	<20060812093706.GA13554@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Brown <neilb@suse.de>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: a.p.zijlstra@chello.nl, riel@redhat.com, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	phillips@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 41-052.adsl.zetnet.co.uk ([194.247.41.52]:59406 "EHLO
-	mail.esperi.org.uk") by vger.kernel.org with ESMTP id S964956AbWHLWRP
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Aug 2006 18:17:15 -0400
-To: linux-kernel@vger.kernel.org
-In-Reply-To: <87zme9fy94.fsf@hades.wkstn.nix> (nix@esperi.org.uk's message of "12 Aug 2006 22:21:26 +0100")
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:19101
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932621AbWHMAps (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Aug 2006 20:45:48 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20060812093706.GA13554@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12 Aug 2006, nix@esperi.org.uk mused:
-> Then the build froze. I couldn't very well ignore *that*. Perhaps I
-> couldn't blame XEmacs after all.
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Sat, 12 Aug 2006 13:37:06 +0400
 
-It just happened again. It's reproducibly triggered, at least on this
-system, by the ocaml-3.09.02 configure script running over NFS (probably
-NFS over UDP is necessary as well).
+> Does it? I though it is possible to only have 64k of working sockets per
+> device in TCP.
 
-In theory I could now use this to minimise the problem, but the sheer
-number of reboots this is likely to need is dissuading me: I'll put it
-off until someone actually wants such a minimal crash case :)
+Where does this limit come from?
 
--- 
-`We're sysadmins. We deal with the inconceivable so often I can clearly 
- see the need to define levels of inconceivability.' --- Rik Steenwinkel
+You think there is something magic about 64K local ports,
+but if remote IP addresses in the TCP socket IDs are all
+different, number of possible TCP sockets is only limited
+by "number of client IPs * 64K" and ram :-)
