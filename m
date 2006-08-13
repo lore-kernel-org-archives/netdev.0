@@ -1,801 +1,469 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 8/16] [CRYPTO] tcrypt: Use block ciphers where applicable
-Date: Sun, 13 Aug 2006 22:20:14 +1000
-Message-ID: <E1GCEww-0004gC-00@gondolin.me.apana.org.au>
+Subject: [PATCH 13/16] [SUNRPC] GSS: Use block ciphers where applicable
+Date: Sun, 13 Aug 2006 22:20:22 +1000
+Message-ID: <E1GCEx4-0004gS-00@gondolin.me.apana.org.au>
 References: <20060813121722.GA16115@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:11785 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751077AbWHMMUW
+Received: from rhun.apana.org.au ([64.62.148.172]:17161 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751097AbWHMMUe
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 08:20:22 -0400
+	Sun, 13 Aug 2006 08:20:34 -0400
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[CRYPTO] tcrypt: Use block ciphers where applicable
+[SUNRPC] GSS: Use block ciphers where applicable
 
-This patch converts tcrypt to use the new block cipher type where
+This patch converts SUNRPC/GSS to use the new block cipher type where
 applicable.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- crypto/tcrypt.c |  439 +++++++++++++++++++++++++++++++++-----------------------
- 1 files changed, 261 insertions(+), 178 deletions(-)
+ include/linux/sunrpc/gss_krb5.h       |   19 +++++------
+ include/linux/sunrpc/gss_spkm3.h      |    4 +-
+ net/sunrpc/auth_gss/gss_krb5_crypto.c |   57 +++++++++++++++++++---------------
+ net/sunrpc/auth_gss/gss_krb5_mech.c   |   22 ++++++-------
+ net/sunrpc/auth_gss/gss_krb5_seqnum.c |    4 +-
+ net/sunrpc/auth_gss/gss_krb5_wrap.c   |    4 +-
+ net/sunrpc/auth_gss/gss_spkm3_mech.c  |   27 +++++++---------
+ 7 files changed, 72 insertions(+), 65 deletions(-)
 
-diff --git a/crypto/tcrypt.c b/crypto/tcrypt.c
---- a/crypto/tcrypt.c
-+++ b/crypto/tcrypt.c
-@@ -17,6 +17,7 @@
-  *
-  */
+diff --git a/include/linux/sunrpc/gss_krb5.h b/include/linux/sunrpc/gss_krb5.h
+--- a/include/linux/sunrpc/gss_krb5.h
++++ b/include/linux/sunrpc/gss_krb5.h
+@@ -46,8 +46,8 @@ struct krb5_ctx {
+ 	unsigned char		seed[16];
+ 	int			signalg;
+ 	int			sealalg;
+-	struct crypto_tfm	*enc;
+-	struct crypto_tfm	*seq;
++	struct crypto_blkcipher	*enc;
++	struct crypto_blkcipher	*seq;
+ 	s32			endtime;
+ 	u32			seq_send;
+ 	struct xdr_netobj	mech_used;
+@@ -136,26 +136,27 @@ gss_unwrap_kerberos(struct gss_ctx *ctx_
  
-+#include <linux/err.h>
- #include <linux/init.h>
- #include <linux/module.h>
- #include <linux/mm.h>
-@@ -54,8 +55,6 @@
- */
- #define ENCRYPT 1
- #define DECRYPT 0
--#define MODE_ECB 1
--#define MODE_CBC 0
  
- static unsigned int IDX[8] = { IDX1, IDX2, IDX3, IDX4, IDX5, IDX6, IDX7, IDX8 };
+ u32
+-krb5_encrypt(struct crypto_tfm * key,
++krb5_encrypt(struct crypto_blkcipher *key,
+ 	     void *iv, void *in, void *out, int length);
  
-@@ -250,28 +249,27 @@ out:
+ u32
+-krb5_decrypt(struct crypto_tfm * key,
++krb5_decrypt(struct crypto_blkcipher *key,
+ 	     void *iv, void *in, void *out, int length); 
  
- #endif	/* CONFIG_CRYPTO_HMAC */
+ int
+-gss_encrypt_xdr_buf(struct crypto_tfm *tfm, struct xdr_buf *outbuf, int offset,
+-		struct page **pages);
++gss_encrypt_xdr_buf(struct crypto_blkcipher *tfm, struct xdr_buf *outbuf,
++		    int offset, struct page **pages);
  
--static void test_cipher(char *algo, int mode, int enc,
-+static void test_cipher(char *algo, int enc,
- 			struct cipher_testvec *template, unsigned int tcount)
- {
- 	unsigned int ret, i, j, k, temp;
- 	unsigned int tsize;
-+	unsigned int iv_len;
-+	unsigned int len;
- 	char *q;
--	struct crypto_tfm *tfm;
-+	struct crypto_blkcipher *tfm;
- 	char *key;
- 	struct cipher_testvec *cipher_tv;
-+	struct blkcipher_desc desc;
- 	struct scatterlist sg[8];
--	const char *e, *m;
-+	const char *e;
+ int
+-gss_decrypt_xdr_buf(struct crypto_tfm *tfm, struct xdr_buf *inbuf, int offset);
++gss_decrypt_xdr_buf(struct crypto_blkcipher *tfm, struct xdr_buf *inbuf,
++		    int offset);
  
- 	if (enc == ENCRYPT)
- 	        e = "encryption";
- 	else
- 		e = "decryption";
--	if (mode == MODE_ECB)
--		m = "ECB";
--	else
--		m = "CBC";
+ s32
+-krb5_make_seq_num(struct crypto_tfm * key,
++krb5_make_seq_num(struct crypto_blkcipher *key,
+ 		int direction,
+ 		s32 seqnum, unsigned char *cksum, unsigned char *buf);
  
--	printk("\ntesting %s %s %s\n", algo, m, e);
-+	printk("\ntesting %s %s\n", algo, e);
+ s32
+-krb5_get_seq_num(struct crypto_tfm * key,
++krb5_get_seq_num(struct crypto_blkcipher *key,
+ 	       unsigned char *cksum,
+ 	       unsigned char *buf, int *direction, s32 * seqnum);
+diff --git a/include/linux/sunrpc/gss_spkm3.h b/include/linux/sunrpc/gss_spkm3.h
+--- a/include/linux/sunrpc/gss_spkm3.h
++++ b/include/linux/sunrpc/gss_spkm3.h
+@@ -19,9 +19,9 @@ struct spkm3_ctx {
+ 	unsigned int		req_flags ;
+ 	struct xdr_netobj	share_key;
+ 	int			conf_alg;
+-	struct crypto_tfm*	derived_conf_key;
++	struct crypto_blkcipher	*derived_conf_key;
+ 	int			intg_alg;
+-	struct crypto_tfm*	derived_integ_key;
++	struct crypto_blkcipher	*derived_integ_key;
+ 	int			keyestb_alg;   /* alg used to get share_key */
+ 	int			owf_alg;   /* one way function */
+ };
+diff --git a/net/sunrpc/auth_gss/gss_krb5_crypto.c b/net/sunrpc/auth_gss/gss_krb5_crypto.c
+--- a/net/sunrpc/auth_gss/gss_krb5_crypto.c
++++ b/net/sunrpc/auth_gss/gss_krb5_crypto.c
+@@ -49,7 +49,7 @@
  
- 	tsize = sizeof (struct cipher_testvec);
- 	tsize *= tcount;
-@@ -285,15 +283,15 @@ static void test_cipher(char *algo, int 
- 	memcpy(tvmem, template, tsize);
- 	cipher_tv = (void *)tvmem;
+ u32
+ krb5_encrypt(
+-	struct crypto_tfm *tfm,
++	struct crypto_blkcipher *tfm,
+ 	void * iv,
+ 	void * in,
+ 	void * out,
+@@ -58,26 +58,27 @@ krb5_encrypt(
+ 	u32 ret = -EINVAL;
+         struct scatterlist sg[1];
+ 	u8 local_iv[16] = {0};
++	struct blkcipher_desc desc = { .tfm = tfm, .info = local_iv };
  
--	if (mode)
--		tfm = crypto_alloc_tfm(algo, 0);
--	else
--		tfm = crypto_alloc_tfm(algo, CRYPTO_TFM_MODE_CBC);
-+	tfm = crypto_alloc_blkcipher(algo, 0, CRYPTO_ALG_ASYNC);
+ 	dprintk("RPC:      krb5_encrypt: input data:\n");
+ 	print_hexl((u32 *)in, length, 0);
  
--	if (tfm == NULL) {
--		printk("failed to load transform for %s %s\n", algo, m);
-+	if (IS_ERR(tfm)) {
-+		printk("failed to load transform for %s: %ld\n", algo,
-+		       PTR_ERR(tfm));
- 		return;
- 	}
-+	desc.tfm = tfm;
-+	desc.flags = 0;
+-	if (length % crypto_tfm_alg_blocksize(tfm) != 0)
++	if (length % crypto_blkcipher_blocksize(tfm) != 0)
+ 		goto out;
  
- 	j = 0;
- 	for (i = 0; i < tcount; i++) {
-@@ -302,14 +300,17 @@ static void test_cipher(char *algo, int 
- 			printk("test %u (%d bit key):\n",
- 			j, cipher_tv[i].klen * 8);
- 
--			tfm->crt_flags = 0;
-+			crypto_blkcipher_clear_flags(tfm, ~0);
- 			if (cipher_tv[i].wk)
--				tfm->crt_flags |= CRYPTO_TFM_REQ_WEAK_KEY;
-+				crypto_blkcipher_set_flags(
-+					tfm, CRYPTO_TFM_REQ_WEAK_KEY);
- 			key = cipher_tv[i].key;
- 
--			ret = crypto_cipher_setkey(tfm, key, cipher_tv[i].klen);
-+			ret = crypto_blkcipher_setkey(tfm, key,
-+						      cipher_tv[i].klen);
- 			if (ret) {
--				printk("setkey() failed flags=%x\n", tfm->crt_flags);
-+				printk("setkey() failed flags=%x\n",
-+				       crypto_blkcipher_get_flags(tfm));
- 
- 				if (!cipher_tv[i].fail)
- 					goto out;
-@@ -318,19 +319,19 @@ static void test_cipher(char *algo, int 
- 			sg_set_buf(&sg[0], cipher_tv[i].input,
- 				   cipher_tv[i].ilen);
- 
--			if (!mode) {
--				crypto_cipher_set_iv(tfm, cipher_tv[i].iv,
--					crypto_tfm_alg_ivsize(tfm));
--			}
--
--			if (enc)
--				ret = crypto_cipher_encrypt(tfm, sg, sg, cipher_tv[i].ilen);
--			else
--				ret = crypto_cipher_decrypt(tfm, sg, sg, cipher_tv[i].ilen);
--
-+			iv_len = crypto_blkcipher_ivsize(tfm);
-+			if (iv_len)
-+				crypto_blkcipher_set_iv(tfm, cipher_tv[i].iv,
-+							iv_len);
-+
-+			len = cipher_tv[i].ilen;
-+			ret = enc ?
-+				crypto_blkcipher_encrypt(&desc, sg, sg, len) :
-+				crypto_blkcipher_decrypt(&desc, sg, sg, len);
- 
- 			if (ret) {
--				printk("%s () failed flags=%x\n", e, tfm->crt_flags);
-+				printk("%s () failed flags=%x\n", e,
-+				       desc.flags);
- 				goto out;
- 			}
- 
-@@ -343,7 +344,7 @@ static void test_cipher(char *algo, int 
- 		}
+-	if (crypto_tfm_alg_ivsize(tfm) > 16) {
++	if (crypto_blkcipher_ivsize(tfm) > 16) {
+ 		dprintk("RPC:      gss_k5encrypt: tfm iv size to large %d\n",
+-		         crypto_tfm_alg_ivsize(tfm));
++		         crypto_blkcipher_ivsize(tfm));
+ 		goto out;
  	}
  
--	printk("\ntesting %s %s %s across pages (chunking)\n", algo, m, e);
-+	printk("\ntesting %s %s across pages (chunking)\n", algo, e);
- 	memset(xbuf, 0, XBUFSIZE);
+ 	if (iv)
+-		memcpy(local_iv, iv, crypto_tfm_alg_ivsize(tfm));
++		memcpy(local_iv, iv, crypto_blkcipher_ivsize(tfm));
  
- 	j = 0;
-@@ -353,14 +354,17 @@ static void test_cipher(char *algo, int 
- 			printk("test %u (%d bit key):\n",
- 			j, cipher_tv[i].klen * 8);
+ 	memcpy(out, in, length);
+ 	sg_set_buf(sg, out, length);
  
--			tfm->crt_flags = 0;
-+			crypto_blkcipher_clear_flags(tfm, ~0);
- 			if (cipher_tv[i].wk)
--				tfm->crt_flags |= CRYPTO_TFM_REQ_WEAK_KEY;
-+				crypto_blkcipher_set_flags(
-+					tfm, CRYPTO_TFM_REQ_WEAK_KEY);
- 			key = cipher_tv[i].key;
+-	ret = crypto_cipher_encrypt_iv(tfm, sg, sg, length, local_iv);
++	ret = crypto_blkcipher_encrypt_iv(&desc, sg, sg, length);
  
--			ret = crypto_cipher_setkey(tfm, key, cipher_tv[i].klen);
-+			ret = crypto_blkcipher_setkey(tfm, key,
-+						      cipher_tv[i].klen);
- 			if (ret) {
--				printk("setkey() failed flags=%x\n", tfm->crt_flags);
-+				printk("setkey() failed flags=%x\n",
-+				       crypto_blkcipher_get_flags(tfm));
+ 	dprintk("RPC:      krb5_encrypt: output data:\n");
+ 	print_hexl((u32 *)out, length, 0);
+@@ -90,7 +91,7 @@ EXPORT_SYMBOL(krb5_encrypt);
  
- 				if (!cipher_tv[i].fail)
- 					goto out;
-@@ -376,18 +380,19 @@ static void test_cipher(char *algo, int 
- 					   cipher_tv[i].tap[k]);
- 			}
- 
--			if (!mode) {
--				crypto_cipher_set_iv(tfm, cipher_tv[i].iv,
--						crypto_tfm_alg_ivsize(tfm));
--			}
--
--			if (enc)
--				ret = crypto_cipher_encrypt(tfm, sg, sg, cipher_tv[i].ilen);
--			else
--				ret = crypto_cipher_decrypt(tfm, sg, sg, cipher_tv[i].ilen);
-+			iv_len = crypto_blkcipher_ivsize(tfm);
-+			if (iv_len)
-+				crypto_blkcipher_set_iv(tfm, cipher_tv[i].iv,
-+							iv_len);
-+
-+			len = cipher_tv[i].ilen;
-+			ret = enc ?
-+				crypto_blkcipher_encrypt(&desc, sg, sg, len) :
-+				crypto_blkcipher_decrypt(&desc, sg, sg, len);
- 
- 			if (ret) {
--				printk("%s () failed flags=%x\n", e, tfm->crt_flags);
-+				printk("%s () failed flags=%x\n", e,
-+				       desc.flags);
- 				goto out;
- 			}
- 
-@@ -406,10 +411,10 @@ static void test_cipher(char *algo, int 
- 	}
- 
- out:
--	crypto_free_tfm(tfm);
-+	crypto_free_blkcipher(tfm);
- }
- 
--static int test_cipher_jiffies(struct crypto_tfm *tfm, int enc, char *p,
-+static int test_cipher_jiffies(struct blkcipher_desc *desc, int enc, char *p,
- 			       int blen, int sec)
- {
+ u32
+ krb5_decrypt(
+-     struct crypto_tfm *tfm,
++     struct crypto_blkcipher *tfm,
+      void * iv,
+      void * in,
+      void * out,
+@@ -99,25 +100,26 @@ krb5_decrypt(
+ 	u32 ret = -EINVAL;
  	struct scatterlist sg[1];
-@@ -422,9 +427,9 @@ static int test_cipher_jiffies(struct cr
- 	for (start = jiffies, end = start + sec * HZ, bcount = 0;
- 	     time_before(jiffies, end); bcount++) {
- 		if (enc)
--			ret = crypto_cipher_encrypt(tfm, sg, sg, blen);
-+			ret = crypto_blkcipher_encrypt(desc, sg, sg, blen);
- 		else
--			ret = crypto_cipher_decrypt(tfm, sg, sg, blen);
-+			ret = crypto_blkcipher_decrypt(desc, sg, sg, blen);
+ 	u8 local_iv[16] = {0};
++	struct blkcipher_desc desc = { .tfm = tfm, .info = local_iv };
  
- 		if (ret)
- 			return ret;
-@@ -435,7 +440,7 @@ static int test_cipher_jiffies(struct cr
- 	return 0;
- }
+ 	dprintk("RPC:      krb5_decrypt: input data:\n");
+ 	print_hexl((u32 *)in, length, 0);
  
--static int test_cipher_cycles(struct crypto_tfm *tfm, int enc, char *p,
-+static int test_cipher_cycles(struct blkcipher_desc *desc, int enc, char *p,
- 			      int blen)
- {
- 	struct scatterlist sg[1];
-@@ -451,9 +456,9 @@ static int test_cipher_cycles(struct cry
- 	/* Warm-up run. */
- 	for (i = 0; i < 4; i++) {
- 		if (enc)
--			ret = crypto_cipher_encrypt(tfm, sg, sg, blen);
-+			ret = crypto_blkcipher_encrypt(desc, sg, sg, blen);
- 		else
--			ret = crypto_cipher_decrypt(tfm, sg, sg, blen);
-+			ret = crypto_blkcipher_decrypt(desc, sg, sg, blen);
+-	if (length % crypto_tfm_alg_blocksize(tfm) != 0)
++	if (length % crypto_blkcipher_blocksize(tfm) != 0)
+ 		goto out;
  
- 		if (ret)
- 			goto out;
-@@ -465,9 +470,9 @@ static int test_cipher_cycles(struct cry
- 
- 		start = get_cycles();
- 		if (enc)
--			ret = crypto_cipher_encrypt(tfm, sg, sg, blen);
-+			ret = crypto_blkcipher_encrypt(desc, sg, sg, blen);
- 		else
--			ret = crypto_cipher_decrypt(tfm, sg, sg, blen);
-+			ret = crypto_blkcipher_decrypt(desc, sg, sg, blen);
- 		end = get_cycles();
- 
- 		if (ret)
-@@ -487,35 +492,32 @@ out:
- 	return ret;
- }
- 
--static void test_cipher_speed(char *algo, int mode, int enc, unsigned int sec,
-+static void test_cipher_speed(char *algo, int enc, unsigned int sec,
- 			      struct cipher_testvec *template,
- 			      unsigned int tcount, struct cipher_speed *speed)
- {
- 	unsigned int ret, i, j, iv_len;
- 	unsigned char *key, *p, iv[128];
--	struct crypto_tfm *tfm;
--	const char *e, *m;
-+	struct crypto_blkcipher *tfm;
-+	struct blkcipher_desc desc;
-+	const char *e;
- 
- 	if (enc == ENCRYPT)
- 	        e = "encryption";
- 	else
- 		e = "decryption";
--	if (mode == MODE_ECB)
--		m = "ECB";
--	else
--		m = "CBC";
- 
--	printk("\ntesting speed of %s %s %s\n", algo, m, e);
-+	printk("\ntesting speed of %s %s\n", algo, e);
- 
--	if (mode)
--		tfm = crypto_alloc_tfm(algo, 0);
--	else
--		tfm = crypto_alloc_tfm(algo, CRYPTO_TFM_MODE_CBC);
-+	tfm = crypto_alloc_blkcipher(algo, 0, CRYPTO_ALG_ASYNC);
- 
--	if (tfm == NULL) {
--		printk("failed to load transform for %s %s\n", algo, m);
-+	if (IS_ERR(tfm)) {
-+		printk("failed to load transform for %s: %ld\n", algo,
-+		       PTR_ERR(tfm));
- 		return;
+-	if (crypto_tfm_alg_ivsize(tfm) > 16) {
++	if (crypto_blkcipher_ivsize(tfm) > 16) {
+ 		dprintk("RPC:      gss_k5decrypt: tfm iv size to large %d\n",
+-			crypto_tfm_alg_ivsize(tfm));
++			crypto_blkcipher_ivsize(tfm));
+ 		goto out;
  	}
-+	desc.tfm = tfm;
-+	desc.flags = 0;
+ 	if (iv)
+-		memcpy(local_iv,iv, crypto_tfm_alg_ivsize(tfm));
++		memcpy(local_iv,iv, crypto_blkcipher_ivsize(tfm));
  
- 	for (i = 0; speed[i].klen != 0; i++) {
- 		if ((speed[i].blen + speed[i].klen) > TVMEMSIZE) {
-@@ -539,32 +541,33 @@ static void test_cipher_speed(char *algo
- 		}
- 		p = (unsigned char *)tvmem + speed[i].klen;
+ 	memcpy(out, in, length);
+ 	sg_set_buf(sg, out, length);
  
--		ret = crypto_cipher_setkey(tfm, key, speed[i].klen);
-+		ret = crypto_blkcipher_setkey(tfm, key, speed[i].klen);
- 		if (ret) {
--			printk("setkey() failed flags=%x\n", tfm->crt_flags);
-+			printk("setkey() failed flags=%x\n",
-+			       crypto_blkcipher_get_flags(tfm));
- 			goto out;
- 		}
+-	ret = crypto_cipher_decrypt_iv(tfm, sg, sg, length, local_iv);
++	ret = crypto_blkcipher_decrypt_iv(&desc, sg, sg, length);
  
--		if (!mode) {
--			iv_len = crypto_tfm_alg_ivsize(tfm);
-+		iv_len = crypto_blkcipher_ivsize(tfm);
-+		if (iv_len) {
- 			memset(&iv, 0xff, iv_len);
--			crypto_cipher_set_iv(tfm, iv, iv_len);
-+			crypto_blkcipher_set_iv(tfm, iv, iv_len);
- 		}
+ 	dprintk("RPC:      krb5_decrypt: output_data:\n");
+ 	print_hexl((u32 *)out, length, 0);
+@@ -240,7 +242,7 @@ EXPORT_SYMBOL(make_checksum);
  
- 		if (sec)
--			ret = test_cipher_jiffies(tfm, enc, p, speed[i].blen,
-+			ret = test_cipher_jiffies(&desc, enc, p, speed[i].blen,
- 						  sec);
- 		else
--			ret = test_cipher_cycles(tfm, enc, p, speed[i].blen);
-+			ret = test_cipher_cycles(&desc, enc, p, speed[i].blen);
+ struct encryptor_desc {
+ 	u8 iv[8]; /* XXX hard-coded blocksize */
+-	struct crypto_tfm *tfm;
++	struct blkcipher_desc desc;
+ 	int pos;
+ 	struct xdr_buf *outbuf;
+ 	struct page **pages;
+@@ -285,8 +287,8 @@ encryptor(struct scatterlist *sg, void *
+ 	if (thislen == 0)
+ 		return 0;
  
- 		if (ret) {
--			printk("%s() failed flags=%x\n", e, tfm->crt_flags);
-+			printk("%s() failed flags=%x\n", e, desc.flags);
+-	ret = crypto_cipher_encrypt_iv(desc->tfm, desc->outfrags, desc->infrags,
+-					thislen, desc->iv);
++	ret = crypto_blkcipher_encrypt_iv(&desc->desc, desc->outfrags,
++					  desc->infrags, thislen);
+ 	if (ret)
+ 		return ret;
+ 	if (fraglen) {
+@@ -305,16 +307,18 @@ encryptor(struct scatterlist *sg, void *
+ }
+ 
+ int
+-gss_encrypt_xdr_buf(struct crypto_tfm *tfm, struct xdr_buf *buf, int offset,
+-		struct page **pages)
++gss_encrypt_xdr_buf(struct crypto_blkcipher *tfm, struct xdr_buf *buf,
++		    int offset, struct page **pages)
+ {
+ 	int ret;
+ 	struct encryptor_desc desc;
+ 
+-	BUG_ON((buf->len - offset) % crypto_tfm_alg_blocksize(tfm) != 0);
++	BUG_ON((buf->len - offset) % crypto_blkcipher_blocksize(tfm) != 0);
+ 
+ 	memset(desc.iv, 0, sizeof(desc.iv));
+-	desc.tfm = tfm;
++	desc.desc.tfm = tfm;
++	desc.desc.info = desc.iv;
++	desc.desc.flags = 0;
+ 	desc.pos = offset;
+ 	desc.outbuf = buf;
+ 	desc.pages = pages;
+@@ -329,7 +333,7 @@ EXPORT_SYMBOL(gss_encrypt_xdr_buf);
+ 
+ struct decryptor_desc {
+ 	u8 iv[8]; /* XXX hard-coded blocksize */
+-	struct crypto_tfm *tfm;
++	struct blkcipher_desc desc;
+ 	struct scatterlist frags[4];
+ 	int fragno;
+ 	int fraglen;
+@@ -355,8 +359,8 @@ decryptor(struct scatterlist *sg, void *
+ 	if (thislen == 0)
+ 		return 0;
+ 
+-	ret = crypto_cipher_decrypt_iv(desc->tfm, desc->frags, desc->frags,
+-					thislen, desc->iv);
++	ret = crypto_blkcipher_decrypt_iv(&desc->desc, desc->frags,
++					  desc->frags, thislen);
+ 	if (ret)
+ 		return ret;
+ 	if (fraglen) {
+@@ -373,15 +377,18 @@ decryptor(struct scatterlist *sg, void *
+ }
+ 
+ int
+-gss_decrypt_xdr_buf(struct crypto_tfm *tfm, struct xdr_buf *buf, int offset)
++gss_decrypt_xdr_buf(struct crypto_blkcipher *tfm, struct xdr_buf *buf,
++		    int offset)
+ {
+ 	struct decryptor_desc desc;
+ 
+ 	/* XXXJBF: */
+-	BUG_ON((buf->len - offset) % crypto_tfm_alg_blocksize(tfm) != 0);
++	BUG_ON((buf->len - offset) % crypto_blkcipher_blocksize(tfm) != 0);
+ 
+ 	memset(desc.iv, 0, sizeof(desc.iv));
+-	desc.tfm = tfm;
++	desc.desc.tfm = tfm;
++	desc.desc.info = desc.iv;
++	desc.desc.flags = 0;
+ 	desc.fragno = 0;
+ 	desc.fraglen = 0;
+ 	return process_xdr_buf(buf, offset, buf->len - offset, decryptor, &desc);
+diff --git a/net/sunrpc/auth_gss/gss_krb5_mech.c b/net/sunrpc/auth_gss/gss_krb5_mech.c
+--- a/net/sunrpc/auth_gss/gss_krb5_mech.c
++++ b/net/sunrpc/auth_gss/gss_krb5_mech.c
+@@ -78,10 +78,10 @@ simple_get_netobj(const void *p, const v
+ }
+ 
+ static inline const void *
+-get_key(const void *p, const void *end, struct crypto_tfm **res)
++get_key(const void *p, const void *end, struct crypto_blkcipher **res)
+ {
+ 	struct xdr_netobj	key;
+-	int			alg, alg_mode;
++	int			alg;
+ 	char			*alg_name;
+ 
+ 	p = simple_get_bytes(p, end, &alg, sizeof(alg));
+@@ -93,18 +93,18 @@ get_key(const void *p, const void *end, 
+ 
+ 	switch (alg) {
+ 		case ENCTYPE_DES_CBC_RAW:
+-			alg_name = "des";
+-			alg_mode = CRYPTO_TFM_MODE_CBC;
++			alg_name = "cbc(des)";
  			break;
- 		}
+ 		default:
+ 			printk("gss_kerberos_mech: unsupported algorithm %d\n", alg);
+ 			goto out_err_free_key;
  	}
+-	if (!(*res = crypto_alloc_tfm(alg_name, alg_mode))) {
++	*res = crypto_alloc_blkcipher(alg_name, 0, CRYPTO_ALG_ASYNC);
++	if (IS_ERR(*res)) {
+ 		printk("gss_kerberos_mech: unable to initialize crypto algorithm %s\n", alg_name);
+ 		goto out_err_free_key;
+ 	}
+-	if (crypto_cipher_setkey(*res, key.data, key.len)) {
++	if (crypto_blkcipher_setkey(*res, key.data, key.len)) {
+ 		printk("gss_kerberos_mech: error setting key for crypto algorithm %s\n", alg_name);
+ 		goto out_err_free_tfm;
+ 	}
+@@ -113,7 +113,7 @@ get_key(const void *p, const void *end, 
+ 	return p;
  
- out:
--	crypto_free_tfm(tfm);
-+	crypto_free_blkcipher(tfm);
+ out_err_free_tfm:
+-	crypto_free_tfm(*res);
++	crypto_free_blkcipher(*res);
+ out_err_free_key:
+ 	kfree(key.data);
+ 	p = ERR_PTR(-EINVAL);
+@@ -173,9 +173,9 @@ gss_import_sec_context_kerberos(const vo
+ 	return 0;
+ 
+ out_err_free_key2:
+-	crypto_free_tfm(ctx->seq);
++	crypto_free_blkcipher(ctx->seq);
+ out_err_free_key1:
+-	crypto_free_tfm(ctx->enc);
++	crypto_free_blkcipher(ctx->enc);
+ out_err_free_mech:
+ 	kfree(ctx->mech_used.data);
+ out_err_free_ctx:
+@@ -188,8 +188,8 @@ static void
+ gss_delete_sec_context_kerberos(void *internal_ctx) {
+ 	struct krb5_ctx *kctx = internal_ctx;
+ 
+-	crypto_free_tfm(kctx->seq);
+-	crypto_free_tfm(kctx->enc);
++	crypto_free_blkcipher(kctx->seq);
++	crypto_free_blkcipher(kctx->enc);
+ 	kfree(kctx->mech_used.data);
+ 	kfree(kctx);
  }
- 
- static void test_digest_jiffies(struct crypto_tfm *tfm, char *p, int blen,
-@@ -784,79 +787,119 @@ static void do_test(void)
- 		test_hash("sha1", sha1_tv_template, SHA1_TEST_VECTORS);
- 
- 		//DES
--		test_cipher ("des", MODE_ECB, ENCRYPT, des_enc_tv_template, DES_ENC_TEST_VECTORS);
--		test_cipher ("des", MODE_ECB, DECRYPT, des_dec_tv_template, DES_DEC_TEST_VECTORS);
--		test_cipher ("des", MODE_CBC, ENCRYPT, des_cbc_enc_tv_template, DES_CBC_ENC_TEST_VECTORS);
--		test_cipher ("des", MODE_CBC, DECRYPT, des_cbc_dec_tv_template, DES_CBC_DEC_TEST_VECTORS);
-+		test_cipher("ecb(des)", ENCRYPT, des_enc_tv_template,
-+			    DES_ENC_TEST_VECTORS);
-+		test_cipher("ecb(des)", DECRYPT, des_dec_tv_template,
-+			    DES_DEC_TEST_VECTORS);
-+		test_cipher("cbc(des)", ENCRYPT, des_cbc_enc_tv_template,
-+			    DES_CBC_ENC_TEST_VECTORS);
-+		test_cipher("cbc(des)", DECRYPT, des_cbc_dec_tv_template,
-+			    DES_CBC_DEC_TEST_VECTORS);
- 
- 		//DES3_EDE
--		test_cipher ("des3_ede", MODE_ECB, ENCRYPT, des3_ede_enc_tv_template, DES3_EDE_ENC_TEST_VECTORS);
--		test_cipher ("des3_ede", MODE_ECB, DECRYPT, des3_ede_dec_tv_template, DES3_EDE_DEC_TEST_VECTORS);
-+		test_cipher("ecb(des3_ede)", ENCRYPT, des3_ede_enc_tv_template,
-+			    DES3_EDE_ENC_TEST_VECTORS);
-+		test_cipher("ecb(des3_ede)", DECRYPT, des3_ede_dec_tv_template,
-+			    DES3_EDE_DEC_TEST_VECTORS);
- 
- 		test_hash("md4", md4_tv_template, MD4_TEST_VECTORS);
- 
- 		test_hash("sha256", sha256_tv_template, SHA256_TEST_VECTORS);
- 
- 		//BLOWFISH
--		test_cipher ("blowfish", MODE_ECB, ENCRYPT, bf_enc_tv_template, BF_ENC_TEST_VECTORS);
--		test_cipher ("blowfish", MODE_ECB, DECRYPT, bf_dec_tv_template, BF_DEC_TEST_VECTORS);
--		test_cipher ("blowfish", MODE_CBC, ENCRYPT, bf_cbc_enc_tv_template, BF_CBC_ENC_TEST_VECTORS);
--		test_cipher ("blowfish", MODE_CBC, DECRYPT, bf_cbc_dec_tv_template, BF_CBC_DEC_TEST_VECTORS);
-+		test_cipher("ecb(blowfish)", ENCRYPT, bf_enc_tv_template,
-+			    BF_ENC_TEST_VECTORS);
-+		test_cipher("ecb(blowfish)", DECRYPT, bf_dec_tv_template,
-+			    BF_DEC_TEST_VECTORS);
-+		test_cipher("cbc(blowfish)", ENCRYPT, bf_cbc_enc_tv_template,
-+			    BF_CBC_ENC_TEST_VECTORS);
-+		test_cipher("cbc(blowfish)", DECRYPT, bf_cbc_dec_tv_template,
-+			    BF_CBC_DEC_TEST_VECTORS);
- 
- 		//TWOFISH
--		test_cipher ("twofish", MODE_ECB, ENCRYPT, tf_enc_tv_template, TF_ENC_TEST_VECTORS);
--		test_cipher ("twofish", MODE_ECB, DECRYPT, tf_dec_tv_template, TF_DEC_TEST_VECTORS);
--		test_cipher ("twofish", MODE_CBC, ENCRYPT, tf_cbc_enc_tv_template, TF_CBC_ENC_TEST_VECTORS);
--		test_cipher ("twofish", MODE_CBC, DECRYPT, tf_cbc_dec_tv_template, TF_CBC_DEC_TEST_VECTORS);
-+		test_cipher("ecb(twofish)", ENCRYPT, tf_enc_tv_template,
-+			    TF_ENC_TEST_VECTORS);
-+		test_cipher("ecb(twofish)", DECRYPT, tf_dec_tv_template,
-+			    TF_DEC_TEST_VECTORS);
-+		test_cipher("cbc(twofish)", ENCRYPT, tf_cbc_enc_tv_template,
-+			    TF_CBC_ENC_TEST_VECTORS);
-+		test_cipher("cbc(twofish)", DECRYPT, tf_cbc_dec_tv_template,
-+			    TF_CBC_DEC_TEST_VECTORS);
- 
- 		//SERPENT
--		test_cipher ("serpent", MODE_ECB, ENCRYPT, serpent_enc_tv_template, SERPENT_ENC_TEST_VECTORS);
--		test_cipher ("serpent", MODE_ECB, DECRYPT, serpent_dec_tv_template, SERPENT_DEC_TEST_VECTORS);
-+		test_cipher("ecb(serpent)", ENCRYPT, serpent_enc_tv_template,
-+			    SERPENT_ENC_TEST_VECTORS);
-+		test_cipher("ecb(serpent)", DECRYPT, serpent_dec_tv_template,
-+			    SERPENT_DEC_TEST_VECTORS);
- 
- 		//TNEPRES
--		test_cipher ("tnepres", MODE_ECB, ENCRYPT, tnepres_enc_tv_template, TNEPRES_ENC_TEST_VECTORS);
--		test_cipher ("tnepres", MODE_ECB, DECRYPT, tnepres_dec_tv_template, TNEPRES_DEC_TEST_VECTORS);
-+		test_cipher("ecb(tnepres)", ENCRYPT, tnepres_enc_tv_template,
-+			    TNEPRES_ENC_TEST_VECTORS);
-+		test_cipher("ecb(tnepres)", DECRYPT, tnepres_dec_tv_template,
-+			    TNEPRES_DEC_TEST_VECTORS);
- 
- 		//AES
--		test_cipher ("aes", MODE_ECB, ENCRYPT, aes_enc_tv_template, AES_ENC_TEST_VECTORS);
--		test_cipher ("aes", MODE_ECB, DECRYPT, aes_dec_tv_template, AES_DEC_TEST_VECTORS);
--		test_cipher ("aes", MODE_CBC, ENCRYPT, aes_cbc_enc_tv_template, AES_CBC_ENC_TEST_VECTORS);
--		test_cipher ("aes", MODE_CBC, DECRYPT, aes_cbc_dec_tv_template, AES_CBC_DEC_TEST_VECTORS);
-+		test_cipher("ecb(aes)", ENCRYPT, aes_enc_tv_template,
-+			    AES_ENC_TEST_VECTORS);
-+		test_cipher("ecb(aes)", DECRYPT, aes_dec_tv_template,
-+			    AES_DEC_TEST_VECTORS);
-+		test_cipher("cbc(aes)", ENCRYPT, aes_cbc_enc_tv_template,
-+			    AES_CBC_ENC_TEST_VECTORS);
-+		test_cipher("cbc(aes)", DECRYPT, aes_cbc_dec_tv_template,
-+			    AES_CBC_DEC_TEST_VECTORS);
- 
- 		//CAST5
--		test_cipher ("cast5", MODE_ECB, ENCRYPT, cast5_enc_tv_template, CAST5_ENC_TEST_VECTORS);
--		test_cipher ("cast5", MODE_ECB, DECRYPT, cast5_dec_tv_template, CAST5_DEC_TEST_VECTORS);
-+		test_cipher("ecb(cast5)", ENCRYPT, cast5_enc_tv_template,
-+			    CAST5_ENC_TEST_VECTORS);
-+		test_cipher("ecb(cast5)", DECRYPT, cast5_dec_tv_template,
-+			    CAST5_DEC_TEST_VECTORS);
- 
- 		//CAST6
--		test_cipher ("cast6", MODE_ECB, ENCRYPT, cast6_enc_tv_template, CAST6_ENC_TEST_VECTORS);
--		test_cipher ("cast6", MODE_ECB, DECRYPT, cast6_dec_tv_template, CAST6_DEC_TEST_VECTORS);
-+		test_cipher("ecb(cast6)", ENCRYPT, cast6_enc_tv_template,
-+			    CAST6_ENC_TEST_VECTORS);
-+		test_cipher("ecb(cast6)", DECRYPT, cast6_dec_tv_template,
-+			    CAST6_DEC_TEST_VECTORS);
- 
- 		//ARC4
--		test_cipher ("arc4", MODE_ECB, ENCRYPT, arc4_enc_tv_template, ARC4_ENC_TEST_VECTORS);
--		test_cipher ("arc4", MODE_ECB, DECRYPT, arc4_dec_tv_template, ARC4_DEC_TEST_VECTORS);
-+		test_cipher("ecb(arc4)", ENCRYPT, arc4_enc_tv_template,
-+			    ARC4_ENC_TEST_VECTORS);
-+		test_cipher("ecb(arc4)", DECRYPT, arc4_dec_tv_template,
-+			    ARC4_DEC_TEST_VECTORS);
- 
- 		//TEA
--		test_cipher ("tea", MODE_ECB, ENCRYPT, tea_enc_tv_template, TEA_ENC_TEST_VECTORS);
--		test_cipher ("tea", MODE_ECB, DECRYPT, tea_dec_tv_template, TEA_DEC_TEST_VECTORS);
-+		test_cipher("ecb(tea)", ENCRYPT, tea_enc_tv_template,
-+			    TEA_ENC_TEST_VECTORS);
-+		test_cipher("ecb(tea)", DECRYPT, tea_dec_tv_template,
-+			    TEA_DEC_TEST_VECTORS);
- 
- 
- 		//XTEA
--		test_cipher ("xtea", MODE_ECB, ENCRYPT, xtea_enc_tv_template, XTEA_ENC_TEST_VECTORS);
--		test_cipher ("xtea", MODE_ECB, DECRYPT, xtea_dec_tv_template, XTEA_DEC_TEST_VECTORS);
-+		test_cipher("ecb(xtea)", ENCRYPT, xtea_enc_tv_template,
-+			    XTEA_ENC_TEST_VECTORS);
-+		test_cipher("ecb(xtea)", DECRYPT, xtea_dec_tv_template,
-+			    XTEA_DEC_TEST_VECTORS);
- 
- 		//KHAZAD
--		test_cipher ("khazad", MODE_ECB, ENCRYPT, khazad_enc_tv_template, KHAZAD_ENC_TEST_VECTORS);
--		test_cipher ("khazad", MODE_ECB, DECRYPT, khazad_dec_tv_template, KHAZAD_DEC_TEST_VECTORS);
-+		test_cipher("ecb(khazad)", ENCRYPT, khazad_enc_tv_template,
-+			    KHAZAD_ENC_TEST_VECTORS);
-+		test_cipher("ecb(khazad)", DECRYPT, khazad_dec_tv_template,
-+			    KHAZAD_DEC_TEST_VECTORS);
- 
- 		//ANUBIS
--		test_cipher ("anubis", MODE_ECB, ENCRYPT, anubis_enc_tv_template, ANUBIS_ENC_TEST_VECTORS);
--		test_cipher ("anubis", MODE_ECB, DECRYPT, anubis_dec_tv_template, ANUBIS_DEC_TEST_VECTORS);
--		test_cipher ("anubis", MODE_CBC, ENCRYPT, anubis_cbc_enc_tv_template, ANUBIS_CBC_ENC_TEST_VECTORS);
--		test_cipher ("anubis", MODE_CBC, DECRYPT, anubis_cbc_dec_tv_template, ANUBIS_CBC_ENC_TEST_VECTORS);
-+		test_cipher("ecb(anubis)", ENCRYPT, anubis_enc_tv_template,
-+			    ANUBIS_ENC_TEST_VECTORS);
-+		test_cipher("ecb(anubis)", DECRYPT, anubis_dec_tv_template,
-+			    ANUBIS_DEC_TEST_VECTORS);
-+		test_cipher("cbc(anubis)", ENCRYPT, anubis_cbc_enc_tv_template,
-+			    ANUBIS_CBC_ENC_TEST_VECTORS);
-+		test_cipher("cbc(anubis)", DECRYPT, anubis_cbc_dec_tv_template,
-+			    ANUBIS_CBC_ENC_TEST_VECTORS);
- 
- 		//XETA
--		test_cipher ("xeta", MODE_ECB, ENCRYPT, xeta_enc_tv_template, XETA_ENC_TEST_VECTORS);
--		test_cipher ("xeta", MODE_ECB, DECRYPT, xeta_dec_tv_template, XETA_DEC_TEST_VECTORS);
-+		test_cipher("ecb(xeta)", ENCRYPT, xeta_enc_tv_template,
-+			    XETA_ENC_TEST_VECTORS);
-+		test_cipher("ecb(xeta)", DECRYPT, xeta_dec_tv_template,
-+			    XETA_DEC_TEST_VECTORS);
- 
- 		test_hash("sha384", sha384_tv_template, SHA384_TEST_VECTORS);
- 		test_hash("sha512", sha512_tv_template, SHA512_TEST_VECTORS);
-@@ -886,15 +929,21 @@ static void do_test(void)
- 		break;
- 
- 	case 3:
--		test_cipher ("des", MODE_ECB, ENCRYPT, des_enc_tv_template, DES_ENC_TEST_VECTORS);
--		test_cipher ("des", MODE_ECB, DECRYPT, des_dec_tv_template, DES_DEC_TEST_VECTORS);
--		test_cipher ("des", MODE_CBC, ENCRYPT, des_cbc_enc_tv_template, DES_CBC_ENC_TEST_VECTORS);
--		test_cipher ("des", MODE_CBC, DECRYPT, des_cbc_dec_tv_template, DES_CBC_DEC_TEST_VECTORS);
-+		test_cipher("ecb(des)", ENCRYPT, des_enc_tv_template,
-+			    DES_ENC_TEST_VECTORS);
-+		test_cipher("ecb(des)", DECRYPT, des_dec_tv_template,
-+			    DES_DEC_TEST_VECTORS);
-+		test_cipher("cbc(des)", ENCRYPT, des_cbc_enc_tv_template,
-+			    DES_CBC_ENC_TEST_VECTORS);
-+		test_cipher("cbc(des)", DECRYPT, des_cbc_dec_tv_template,
-+			    DES_CBC_DEC_TEST_VECTORS);
- 		break;
- 
- 	case 4:
--		test_cipher ("des3_ede", MODE_ECB, ENCRYPT, des3_ede_enc_tv_template, DES3_EDE_ENC_TEST_VECTORS);
--		test_cipher ("des3_ede", MODE_ECB, DECRYPT, des3_ede_dec_tv_template, DES3_EDE_DEC_TEST_VECTORS);
-+		test_cipher("ecb(des3_ede)", ENCRYPT, des3_ede_enc_tv_template,
-+			    DES3_EDE_ENC_TEST_VECTORS);
-+		test_cipher("ecb(des3_ede)", DECRYPT, des3_ede_dec_tv_template,
-+			    DES3_EDE_DEC_TEST_VECTORS);
- 		break;
- 
- 	case 5:
-@@ -906,29 +955,43 @@ static void do_test(void)
- 		break;
- 
- 	case 7:
--		test_cipher ("blowfish", MODE_ECB, ENCRYPT, bf_enc_tv_template, BF_ENC_TEST_VECTORS);
--		test_cipher ("blowfish", MODE_ECB, DECRYPT, bf_dec_tv_template, BF_DEC_TEST_VECTORS);
--		test_cipher ("blowfish", MODE_CBC, ENCRYPT, bf_cbc_enc_tv_template, BF_CBC_ENC_TEST_VECTORS);
--		test_cipher ("blowfish", MODE_CBC, DECRYPT, bf_cbc_dec_tv_template, BF_CBC_DEC_TEST_VECTORS);
-+		test_cipher("ecb(blowfish)", ENCRYPT, bf_enc_tv_template,
-+			    BF_ENC_TEST_VECTORS);
-+		test_cipher("ecb(blowfish)", DECRYPT, bf_dec_tv_template,
-+			    BF_DEC_TEST_VECTORS);
-+		test_cipher("cbc(blowfish)", ENCRYPT, bf_cbc_enc_tv_template,
-+			    BF_CBC_ENC_TEST_VECTORS);
-+		test_cipher("cbc(blowfish)", DECRYPT, bf_cbc_dec_tv_template,
-+			    BF_CBC_DEC_TEST_VECTORS);
- 		break;
- 
- 	case 8:
--		test_cipher ("twofish", MODE_ECB, ENCRYPT, tf_enc_tv_template, TF_ENC_TEST_VECTORS);
--		test_cipher ("twofish", MODE_ECB, DECRYPT, tf_dec_tv_template, TF_DEC_TEST_VECTORS);
--		test_cipher ("twofish", MODE_CBC, ENCRYPT, tf_cbc_enc_tv_template, TF_CBC_ENC_TEST_VECTORS);
--		test_cipher ("twofish", MODE_CBC, DECRYPT, tf_cbc_dec_tv_template, TF_CBC_DEC_TEST_VECTORS);
-+		test_cipher("ecb(twofish)", ENCRYPT, tf_enc_tv_template,
-+			    TF_ENC_TEST_VECTORS);
-+		test_cipher("ecb(twofish)", DECRYPT, tf_dec_tv_template,
-+			    TF_DEC_TEST_VECTORS);
-+		test_cipher("cbc(twofish)", ENCRYPT, tf_cbc_enc_tv_template,
-+			    TF_CBC_ENC_TEST_VECTORS);
-+		test_cipher("cbc(twofish)", DECRYPT, tf_cbc_dec_tv_template,
-+			    TF_CBC_DEC_TEST_VECTORS);
- 		break;
- 
- 	case 9:
--		test_cipher ("serpent", MODE_ECB, ENCRYPT, serpent_enc_tv_template, SERPENT_ENC_TEST_VECTORS);
--		test_cipher ("serpent", MODE_ECB, DECRYPT, serpent_dec_tv_template, SERPENT_DEC_TEST_VECTORS);
-+		test_cipher("ecb(serpent)", ENCRYPT, serpent_enc_tv_template,
-+			    SERPENT_ENC_TEST_VECTORS);
-+		test_cipher("ecb(serpent)", DECRYPT, serpent_dec_tv_template,
-+			    SERPENT_DEC_TEST_VECTORS);
- 		break;
- 
- 	case 10:
--		test_cipher ("aes", MODE_ECB, ENCRYPT, aes_enc_tv_template, AES_ENC_TEST_VECTORS);
--		test_cipher ("aes", MODE_ECB, DECRYPT, aes_dec_tv_template, AES_DEC_TEST_VECTORS);
--		test_cipher ("aes", MODE_CBC, ENCRYPT, aes_cbc_enc_tv_template, AES_CBC_ENC_TEST_VECTORS);
--		test_cipher ("aes", MODE_CBC, DECRYPT, aes_cbc_dec_tv_template, AES_CBC_DEC_TEST_VECTORS);
-+		test_cipher("ecb(aes)", ENCRYPT, aes_enc_tv_template,
-+			    AES_ENC_TEST_VECTORS);
-+		test_cipher("ecb(aes)", DECRYPT, aes_dec_tv_template,
-+			    AES_DEC_TEST_VECTORS);
-+		test_cipher("cbc(aes)", ENCRYPT, aes_cbc_enc_tv_template,
-+			    AES_CBC_ENC_TEST_VECTORS);
-+		test_cipher("cbc(aes)", DECRYPT, aes_cbc_dec_tv_template,
-+			    AES_CBC_DEC_TEST_VECTORS);
- 		break;
- 
- 	case 11:
-@@ -944,18 +1007,24 @@ static void do_test(void)
- 		break;
- 
- 	case 14:
--		test_cipher ("cast5", MODE_ECB, ENCRYPT, cast5_enc_tv_template, CAST5_ENC_TEST_VECTORS);
--		test_cipher ("cast5", MODE_ECB, DECRYPT, cast5_dec_tv_template, CAST5_DEC_TEST_VECTORS);
-+		test_cipher("ecb(cast5)", ENCRYPT, cast5_enc_tv_template,
-+			    CAST5_ENC_TEST_VECTORS);
-+		test_cipher("ecb(cast5)", DECRYPT, cast5_dec_tv_template,
-+			    CAST5_DEC_TEST_VECTORS);
- 		break;
- 
- 	case 15:
--		test_cipher ("cast6", MODE_ECB, ENCRYPT, cast6_enc_tv_template, CAST6_ENC_TEST_VECTORS);
--		test_cipher ("cast6", MODE_ECB, DECRYPT, cast6_dec_tv_template, CAST6_DEC_TEST_VECTORS);
-+		test_cipher("ecb(cast6)", ENCRYPT, cast6_enc_tv_template,
-+			    CAST6_ENC_TEST_VECTORS);
-+		test_cipher("ecb(cast6)", DECRYPT, cast6_dec_tv_template,
-+			    CAST6_DEC_TEST_VECTORS);
- 		break;
- 
- 	case 16:
--		test_cipher ("arc4", MODE_ECB, ENCRYPT, arc4_enc_tv_template, ARC4_ENC_TEST_VECTORS);
--		test_cipher ("arc4", MODE_ECB, DECRYPT, arc4_dec_tv_template, ARC4_DEC_TEST_VECTORS);
-+		test_cipher("ecb(arc4)", ENCRYPT, arc4_enc_tv_template,
-+			    ARC4_ENC_TEST_VECTORS);
-+		test_cipher("ecb(arc4)", DECRYPT, arc4_dec_tv_template,
-+			    ARC4_DEC_TEST_VECTORS);
- 		break;
- 
- 	case 17:
-@@ -967,18 +1036,24 @@ static void do_test(void)
- 		break;
- 
- 	case 19:
--		test_cipher ("tea", MODE_ECB, ENCRYPT, tea_enc_tv_template, TEA_ENC_TEST_VECTORS);
--		test_cipher ("tea", MODE_ECB, DECRYPT, tea_dec_tv_template, TEA_DEC_TEST_VECTORS);
-+		test_cipher("ecb(tea)", ENCRYPT, tea_enc_tv_template,
-+			    TEA_ENC_TEST_VECTORS);
-+		test_cipher("ecb(tea)", DECRYPT, tea_dec_tv_template,
-+			    TEA_DEC_TEST_VECTORS);
- 		break;
- 
- 	case 20:
--		test_cipher ("xtea", MODE_ECB, ENCRYPT, xtea_enc_tv_template, XTEA_ENC_TEST_VECTORS);
--		test_cipher ("xtea", MODE_ECB, DECRYPT, xtea_dec_tv_template, XTEA_DEC_TEST_VECTORS);
-+		test_cipher("ecb(xtea)", ENCRYPT, xtea_enc_tv_template,
-+			    XTEA_ENC_TEST_VECTORS);
-+		test_cipher("ecb(xtea)", DECRYPT, xtea_dec_tv_template,
-+			    XTEA_DEC_TEST_VECTORS);
- 		break;
- 
- 	case 21:
--		test_cipher ("khazad", MODE_ECB, ENCRYPT, khazad_enc_tv_template, KHAZAD_ENC_TEST_VECTORS);
--		test_cipher ("khazad", MODE_ECB, DECRYPT, khazad_dec_tv_template, KHAZAD_DEC_TEST_VECTORS);
-+		test_cipher("ecb(khazad)", ENCRYPT, khazad_enc_tv_template,
-+			    KHAZAD_ENC_TEST_VECTORS);
-+		test_cipher("ecb(khazad)", DECRYPT, khazad_dec_tv_template,
-+			    KHAZAD_DEC_TEST_VECTORS);
- 		break;
- 
- 	case 22:
-@@ -994,15 +1069,21 @@ static void do_test(void)
- 		break;
- 
- 	case 25:
--		test_cipher ("tnepres", MODE_ECB, ENCRYPT, tnepres_enc_tv_template, TNEPRES_ENC_TEST_VECTORS);
--		test_cipher ("tnepres", MODE_ECB, DECRYPT, tnepres_dec_tv_template, TNEPRES_DEC_TEST_VECTORS);
-+		test_cipher("ecb(tnepres)", ENCRYPT, tnepres_enc_tv_template,
-+			    TNEPRES_ENC_TEST_VECTORS);
-+		test_cipher("ecb(tnepres)", DECRYPT, tnepres_dec_tv_template,
-+			    TNEPRES_DEC_TEST_VECTORS);
- 		break;
- 
- 	case 26:
--		test_cipher ("anubis", MODE_ECB, ENCRYPT, anubis_enc_tv_template, ANUBIS_ENC_TEST_VECTORS);
--		test_cipher ("anubis", MODE_ECB, DECRYPT, anubis_dec_tv_template, ANUBIS_DEC_TEST_VECTORS);
--		test_cipher ("anubis", MODE_CBC, ENCRYPT, anubis_cbc_enc_tv_template, ANUBIS_CBC_ENC_TEST_VECTORS);
--		test_cipher ("anubis", MODE_CBC, DECRYPT, anubis_cbc_dec_tv_template, ANUBIS_CBC_ENC_TEST_VECTORS);
-+		test_cipher("ecb(anubis)", ENCRYPT, anubis_enc_tv_template,
-+			    ANUBIS_ENC_TEST_VECTORS);
-+		test_cipher("ecb(anubis)", DECRYPT, anubis_dec_tv_template,
-+			    ANUBIS_DEC_TEST_VECTORS);
-+		test_cipher("cbc(anubis)", ENCRYPT, anubis_cbc_enc_tv_template,
-+			    ANUBIS_CBC_ENC_TEST_VECTORS);
-+		test_cipher("cbc(anubis)", DECRYPT, anubis_cbc_dec_tv_template,
-+			    ANUBIS_CBC_ENC_TEST_VECTORS);
- 		break;
- 
- 	case 27:
-@@ -1019,8 +1100,10 @@ static void do_test(void)
- 		break;
- 		
- 	case 30:
--		test_cipher ("xeta", MODE_ECB, ENCRYPT, xeta_enc_tv_template, XETA_ENC_TEST_VECTORS);
--		test_cipher ("xeta", MODE_ECB, DECRYPT, xeta_dec_tv_template, XETA_DEC_TEST_VECTORS);
-+		test_cipher("ecb(xeta)", ENCRYPT, xeta_enc_tv_template,
-+			    XETA_ENC_TEST_VECTORS);
-+		test_cipher("ecb(xeta)", DECRYPT, xeta_dec_tv_template,
-+			    XETA_DEC_TEST_VECTORS);
- 		break;
- 
- #ifdef CONFIG_CRYPTO_HMAC
-@@ -1039,65 +1122,65 @@ static void do_test(void)
+diff --git a/net/sunrpc/auth_gss/gss_krb5_seqnum.c b/net/sunrpc/auth_gss/gss_krb5_seqnum.c
+--- a/net/sunrpc/auth_gss/gss_krb5_seqnum.c
++++ b/net/sunrpc/auth_gss/gss_krb5_seqnum.c
+@@ -41,7 +41,7 @@
  #endif
  
- 	case 200:
--		test_cipher_speed("aes", MODE_ECB, ENCRYPT, sec, NULL, 0,
-+		test_cipher_speed("ecb(aes)", ENCRYPT, sec, NULL, 0,
- 				  aes_speed_template);
--		test_cipher_speed("aes", MODE_ECB, DECRYPT, sec, NULL, 0,
-+		test_cipher_speed("ecb(aes)", DECRYPT, sec, NULL, 0,
- 				  aes_speed_template);
--		test_cipher_speed("aes", MODE_CBC, ENCRYPT, sec, NULL, 0,
-+		test_cipher_speed("cbc(aes)", ENCRYPT, sec, NULL, 0,
- 				  aes_speed_template);
--		test_cipher_speed("aes", MODE_CBC, DECRYPT, sec, NULL, 0,
-+		test_cipher_speed("cbc(aes)", DECRYPT, sec, NULL, 0,
- 				  aes_speed_template);
- 		break;
+ s32
+-krb5_make_seq_num(struct crypto_tfm *key,
++krb5_make_seq_num(struct crypto_blkcipher *key,
+ 		int direction,
+ 		s32 seqnum,
+ 		unsigned char *cksum, unsigned char *buf)
+@@ -62,7 +62,7 @@ krb5_make_seq_num(struct crypto_tfm *key
+ }
  
- 	case 201:
--		test_cipher_speed("des3_ede", MODE_ECB, ENCRYPT, sec,
-+		test_cipher_speed("ecb(des3_ede)", ENCRYPT, sec,
- 				  des3_ede_enc_tv_template,
- 				  DES3_EDE_ENC_TEST_VECTORS,
- 				  des3_ede_speed_template);
--		test_cipher_speed("des3_ede", MODE_ECB, DECRYPT, sec,
-+		test_cipher_speed("ecb(des3_ede)", DECRYPT, sec,
- 				  des3_ede_dec_tv_template,
- 				  DES3_EDE_DEC_TEST_VECTORS,
- 				  des3_ede_speed_template);
--		test_cipher_speed("des3_ede", MODE_CBC, ENCRYPT, sec,
-+		test_cipher_speed("cbc(des3_ede)", ENCRYPT, sec,
- 				  des3_ede_enc_tv_template,
- 				  DES3_EDE_ENC_TEST_VECTORS,
- 				  des3_ede_speed_template);
--		test_cipher_speed("des3_ede", MODE_CBC, DECRYPT, sec,
-+		test_cipher_speed("cbc(des3_ede)", DECRYPT, sec,
- 				  des3_ede_dec_tv_template,
- 				  DES3_EDE_DEC_TEST_VECTORS,
- 				  des3_ede_speed_template);
- 		break;
+ s32
+-krb5_get_seq_num(struct crypto_tfm *key,
++krb5_get_seq_num(struct crypto_blkcipher *key,
+ 	       unsigned char *cksum,
+ 	       unsigned char *buf,
+ 	       int *direction, s32 * seqnum)
+diff --git a/net/sunrpc/auth_gss/gss_krb5_wrap.c b/net/sunrpc/auth_gss/gss_krb5_wrap.c
+--- a/net/sunrpc/auth_gss/gss_krb5_wrap.c
++++ b/net/sunrpc/auth_gss/gss_krb5_wrap.c
+@@ -149,7 +149,7 @@ gss_wrap_kerberos(struct gss_ctx *ctx, i
+ 		goto out_err;
+ 	}
  
- 	case 202:
--		test_cipher_speed("twofish", MODE_ECB, ENCRYPT, sec, NULL, 0,
-+		test_cipher_speed("ecb(twofish)", ENCRYPT, sec, NULL, 0,
- 				  twofish_speed_template);
--		test_cipher_speed("twofish", MODE_ECB, DECRYPT, sec, NULL, 0,
-+		test_cipher_speed("ecb(twofish)", DECRYPT, sec, NULL, 0,
- 				  twofish_speed_template);
--		test_cipher_speed("twofish", MODE_CBC, ENCRYPT, sec, NULL, 0,
-+		test_cipher_speed("cbc(twofish)", ENCRYPT, sec, NULL, 0,
- 				  twofish_speed_template);
--		test_cipher_speed("twofish", MODE_CBC, DECRYPT, sec, NULL, 0,
-+		test_cipher_speed("cbc(twofish)", DECRYPT, sec, NULL, 0,
- 				  twofish_speed_template);
- 		break;
+-	blocksize = crypto_tfm_alg_blocksize(kctx->enc);
++	blocksize = crypto_blkcipher_blocksize(kctx->enc);
+ 	gss_krb5_add_padding(buf, offset, blocksize);
+ 	BUG_ON((buf->len - offset) % blocksize);
+ 	plainlen = blocksize + buf->len - offset;
+@@ -346,7 +346,7 @@ gss_unwrap_kerberos(struct gss_ctx *ctx,
+ 	/* Copy the data back to the right position.  XXX: Would probably be
+ 	 * better to copy and encrypt at the same time. */
  
- 	case 203:
--		test_cipher_speed("blowfish", MODE_ECB, ENCRYPT, sec, NULL, 0,
-+		test_cipher_speed("ecb(blowfish)", ENCRYPT, sec, NULL, 0,
- 				  blowfish_speed_template);
--		test_cipher_speed("blowfish", MODE_ECB, DECRYPT, sec, NULL, 0,
-+		test_cipher_speed("ecb(blowfish)", DECRYPT, sec, NULL, 0,
- 				  blowfish_speed_template);
--		test_cipher_speed("blowfish", MODE_CBC, ENCRYPT, sec, NULL, 0,
-+		test_cipher_speed("cbc(blowfish)", ENCRYPT, sec, NULL, 0,
- 				  blowfish_speed_template);
--		test_cipher_speed("blowfish", MODE_CBC, DECRYPT, sec, NULL, 0,
-+		test_cipher_speed("cbc(blowfish)", DECRYPT, sec, NULL, 0,
- 				  blowfish_speed_template);
- 		break;
+-	blocksize = crypto_tfm_alg_blocksize(kctx->enc);
++	blocksize = crypto_blkcipher_blocksize(kctx->enc);
+ 	data_start = ptr + 22 + blocksize;
+ 	orig_start = buf->head[0].iov_base + offset;
+ 	data_len = (buf->head[0].iov_base + buf->head[0].iov_len) - data_start;
+diff --git a/net/sunrpc/auth_gss/gss_spkm3_mech.c b/net/sunrpc/auth_gss/gss_spkm3_mech.c
+--- a/net/sunrpc/auth_gss/gss_spkm3_mech.c
++++ b/net/sunrpc/auth_gss/gss_spkm3_mech.c
+@@ -83,10 +83,11 @@ simple_get_netobj(const void *p, const v
+ }
  
- 	case 204:
--		test_cipher_speed("des", MODE_ECB, ENCRYPT, sec, NULL, 0,
-+		test_cipher_speed("ecb(des)", ENCRYPT, sec, NULL, 0,
- 				  des_speed_template);
--		test_cipher_speed("des", MODE_ECB, DECRYPT, sec, NULL, 0,
-+		test_cipher_speed("ecb(des)", DECRYPT, sec, NULL, 0,
- 				  des_speed_template);
--		test_cipher_speed("des", MODE_CBC, ENCRYPT, sec, NULL, 0,
-+		test_cipher_speed("cbc(des)", ENCRYPT, sec, NULL, 0,
- 				  des_speed_template);
--		test_cipher_speed("des", MODE_CBC, DECRYPT, sec, NULL, 0,
-+		test_cipher_speed("cbc(des)", DECRYPT, sec, NULL, 0,
- 				  des_speed_template);
- 		break;
+ static inline const void *
+-get_key(const void *p, const void *end, struct crypto_tfm **res, int *resalg)
++get_key(const void *p, const void *end, struct crypto_blkcipher **res,
++	int *resalg)
+ {
+ 	struct xdr_netobj	key = { 0 };
+-	int			alg_mode,setkey = 0;
++	int			setkey = 0;
+ 	char			*alg_name;
  
+ 	p = simple_get_bytes(p, end, resalg, sizeof(*resalg));
+@@ -98,14 +99,12 @@ get_key(const void *p, const void *end, 
+ 
+ 	switch (*resalg) {
+ 		case NID_des_cbc:
+-			alg_name = "des";
+-			alg_mode = CRYPTO_TFM_MODE_CBC;
++			alg_name = "cbc(des)";
+ 			setkey = 1;
+ 			break;
+ 		case NID_cast5_cbc:
+ 			/* XXXX here in name only, not used */
+-			alg_name = "cast5";
+-			alg_mode = CRYPTO_TFM_MODE_CBC;
++			alg_name = "cbc(cast5)";
+ 			setkey = 0; /* XXX will need to set to 1 */
+ 			break;
+ 		case NID_md5:
+@@ -113,19 +112,19 @@ get_key(const void *p, const void *end, 
+ 				dprintk("RPC: SPKM3 get_key: NID_md5 zero Key length\n");
+ 			}
+ 			alg_name = "md5";
+-			alg_mode = 0;
+ 			setkey = 0;
+ 			break;
+ 		default:
+ 			dprintk("gss_spkm3_mech: unsupported algorithm %d\n", *resalg);
+ 			goto out_err_free_key;
+ 	}
+-	if (!(*res = crypto_alloc_tfm(alg_name, alg_mode))) {
++	*res = crypto_alloc_blkcipher(alg_name, 0, CRYPTO_ALG_ASYNC);
++	if (IS_ERR(*res)) {
+ 		printk("gss_spkm3_mech: unable to initialize crypto algorthm %s\n", alg_name);
+ 		goto out_err_free_key;
+ 	}
+ 	if (setkey) {
+-		if (crypto_cipher_setkey(*res, key.data, key.len)) {
++		if (crypto_blkcipher_setkey(*res, key.data, key.len)) {
+ 			printk("gss_spkm3_mech: error setting key for crypto algorthm %s\n", alg_name);
+ 			goto out_err_free_tfm;
+ 		}
+@@ -136,7 +135,7 @@ get_key(const void *p, const void *end, 
+ 	return p;
+ 
+ out_err_free_tfm:
+-	crypto_free_tfm(*res);
++	crypto_free_blkcipher(*res);
+ out_err_free_key:
+ 	if(key.len > 0)
+ 		kfree(key.data);
+@@ -205,9 +204,9 @@ gss_import_sec_context_spkm3(const void 
+ 	return 0;
+ 
+ out_err_free_key2:
+-	crypto_free_tfm(ctx->derived_integ_key);
++	crypto_free_blkcipher(ctx->derived_integ_key);
+ out_err_free_key1:
+-	crypto_free_tfm(ctx->derived_conf_key);
++	crypto_free_blkcipher(ctx->derived_conf_key);
+ out_err_free_s_key:
+ 	kfree(ctx->share_key.data);
+ out_err_free_mech:
+@@ -224,8 +223,8 @@ static void
+ gss_delete_sec_context_spkm3(void *internal_ctx) {
+ 	struct spkm3_ctx *sctx = internal_ctx;
+ 
+-	crypto_free_tfm(sctx->derived_integ_key);
+-	crypto_free_tfm(sctx->derived_conf_key);
++	crypto_free_blkcipher(sctx->derived_integ_key);
++	crypto_free_blkcipher(sctx->derived_conf_key);
+ 	kfree(sctx->share_key.data);
+ 	kfree(sctx->mech_used.data);
+ 	kfree(sctx);
