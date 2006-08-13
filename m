@@ -1,64 +1,266 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 11/16] [IPSEC]: Add compatibility algorithm name support
-Date: Sun, 13 Aug 2006 22:20:19 +1000
-Message-ID: <E1GCEx1-0004gM-00@gondolin.me.apana.org.au>
+Subject: [PATCH 10/16] [BLOCK] dm-crypt: Use block ciphers where applicable
+Date: Sun, 13 Aug 2006 22:20:17 +1000
+Message-ID: <E1GCEwz-0004gJ-00@gondolin.me.apana.org.au>
 References: <20060813121722.GA16115@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:13833 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751085AbWHMMUV
+Received: from rhun.apana.org.au ([64.62.148.172]:13065 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751089AbWHMMUX
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 08:20:21 -0400
+	Sun, 13 Aug 2006 08:20:23 -0400
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Add compatibility algorithm name support
+[BLOCK] dm-crypt: Use block ciphers where applicable
 
-This patch adds a compatibility name field for each IPsec algorithm.  This
-is needed when parameterised algorithms are used.  For example, "md5" will
-become "hmac(md5)", and "aes" will become "cbc(aes)".
+This patch converts dm-crypt to use the new block cipher type where
+applicable.  It also changes simple cipher operations to use the new
+encrypt_one/decrypt_one interface.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/xfrm.h   |    1 +
- net/xfrm/xfrm_algo.c |    3 ++-
- net/xfrm/xfrm_user.c |    1 +
- 3 files changed, 4 insertions(+), 1 deletion(-)
+ drivers/md/dm-crypt.c |   97 ++++++++++++++++++++------------------------------
+ 1 files changed, 40 insertions(+), 57 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -854,6 +854,7 @@ struct xfrm_algo_comp_info {
+diff --git a/drivers/md/dm-crypt.c b/drivers/md/dm-crypt.c
+--- a/drivers/md/dm-crypt.c
++++ b/drivers/md/dm-crypt.c
+@@ -78,11 +78,13 @@ struct crypt_config {
+ 	 */
+ 	struct crypt_iv_operations *iv_gen_ops;
+ 	char *iv_mode;
+-	void *iv_gen_private;
++	struct crypto_cipher *iv_gen_private;
+ 	sector_t iv_offset;
+ 	unsigned int iv_size;
  
- struct xfrm_algo_desc {
- 	char *name;
-+	char *compat;
- 	u8 available:1;
- 	union {
- 		struct xfrm_algo_auth_info auth;
-diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
---- a/net/xfrm/xfrm_algo.c
-+++ b/net/xfrm/xfrm_algo.c
-@@ -359,7 +359,8 @@ static struct xfrm_algo_desc *xfrm_get_b
- 		return NULL;
+-	struct crypto_tfm *tfm;
++	char cipher[CRYPTO_MAX_ALG_NAME];
++	char chainmode[CRYPTO_MAX_ALG_NAME];
++	struct crypto_blkcipher *tfm;
+ 	unsigned int key_size;
+ 	u8 key[0];
+ };
+@@ -118,7 +120,7 @@ static int crypt_iv_plain_gen(struct cry
+ static int crypt_iv_essiv_ctr(struct crypt_config *cc, struct dm_target *ti,
+ 	                      const char *opts)
+ {
+-	struct crypto_tfm *essiv_tfm;
++	struct crypto_cipher *essiv_tfm;
+ 	struct crypto_tfm *hash_tfm;
+ 	struct scatterlist sg;
+ 	unsigned int saltsize;
+@@ -155,51 +157,43 @@ static int crypt_iv_essiv_ctr(struct cry
+ 	crypto_free_tfm(hash_tfm);
  
- 	for (i = 0; i < entries; i++) {
--		if (strcmp(name, list[i].name))
-+		if (strcmp(name, list[i].name) &&
-+		    (!list[i].compat || strcmp(name, list[i].compat)))
- 			continue;
+ 	/* Setup the essiv_tfm with the given salt */
+-	essiv_tfm = crypto_alloc_tfm(crypto_tfm_alg_name(cc->tfm),
+-	                             CRYPTO_TFM_MODE_ECB |
+-	                             CRYPTO_TFM_REQ_MAY_SLEEP);
++	essiv_tfm = crypto_alloc_cipher(cc->cipher, 0, CRYPTO_ALG_ASYNC);
+ 	if (essiv_tfm == NULL) {
+ 		ti->error = "Error allocating crypto tfm for ESSIV";
+ 		kfree(salt);
+ 		return -EINVAL;
+ 	}
+-	if (crypto_tfm_alg_blocksize(essiv_tfm)
+-	    != crypto_tfm_alg_ivsize(cc->tfm)) {
++	if (crypto_cipher_blocksize(essiv_tfm) !=
++	    crypto_blkcipher_ivsize(cc->tfm)) {
+ 		ti->error = "Block size of ESSIV cipher does "
+ 			        "not match IV size of block cipher";
+-		crypto_free_tfm(essiv_tfm);
++		crypto_free_cipher(essiv_tfm);
+ 		kfree(salt);
+ 		return -EINVAL;
+ 	}
+ 	if (crypto_cipher_setkey(essiv_tfm, salt, saltsize) < 0) {
+ 		ti->error = "Failed to set key for ESSIV cipher";
+-		crypto_free_tfm(essiv_tfm);
++		crypto_free_cipher(essiv_tfm);
+ 		kfree(salt);
+ 		return -EINVAL;
+ 	}
+ 	kfree(salt);
  
- 		if (list[i].available)
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -213,6 +213,7 @@ static int attach_one_algo(struct xfrm_a
- 		return -ENOMEM;
- 
- 	memcpy(p, ualg, len);
-+	strcpy(p->alg_name, algo->name);
- 	*algpp = p;
+-	cc->iv_gen_private = (void *)essiv_tfm;
++	cc->iv_gen_private = essiv_tfm;
  	return 0;
  }
+ 
+ static void crypt_iv_essiv_dtr(struct crypt_config *cc)
+ {
+-	crypto_free_tfm((struct crypto_tfm *)cc->iv_gen_private);
++	crypto_free_cipher(cc->iv_gen_private);
+ 	cc->iv_gen_private = NULL;
+ }
+ 
+ static int crypt_iv_essiv_gen(struct crypt_config *cc, u8 *iv, sector_t sector)
+ {
+-	struct scatterlist sg;
+-
+ 	memset(iv, 0, cc->iv_size);
+ 	*(u64 *)iv = cpu_to_le64(sector);
+-
+-	sg_set_buf(&sg, iv, cc->iv_size);
+-	crypto_cipher_encrypt((struct crypto_tfm *)cc->iv_gen_private,
+-	                      &sg, &sg, cc->iv_size);
+-
++	crypto_cipher_encrypt_one(cc->iv_gen_private, iv, iv);
+ 	return 0;
+ }
+ 
+@@ -220,6 +214,11 @@ crypt_convert_scatterlist(struct crypt_c
+                           int write, sector_t sector)
+ {
+ 	u8 iv[cc->iv_size];
++	struct blkcipher_desc desc = {
++		.tfm = cc->tfm,
++		.info = iv,
++		.flags = CRYPTO_TFM_REQ_MAY_SLEEP,
++	};
+ 	int r;
+ 
+ 	if (cc->iv_gen_ops) {
+@@ -228,14 +227,14 @@ crypt_convert_scatterlist(struct crypt_c
+ 			return r;
+ 
+ 		if (write)
+-			r = crypto_cipher_encrypt_iv(cc->tfm, out, in, length, iv);
++			r = crypto_blkcipher_encrypt_iv(&desc, out, in, length);
+ 		else
+-			r = crypto_cipher_decrypt_iv(cc->tfm, out, in, length, iv);
++			r = crypto_blkcipher_decrypt_iv(&desc, out, in, length);
+ 	} else {
+ 		if (write)
+-			r = crypto_cipher_encrypt(cc->tfm, out, in, length);
++			r = crypto_blkcipher_encrypt(&desc, out, in, length);
+ 		else
+-			r = crypto_cipher_decrypt(cc->tfm, out, in, length);
++			r = crypto_blkcipher_decrypt(&desc, out, in, length);
+ 	}
+ 
+ 	return r;
+@@ -510,13 +509,12 @@ static void crypt_encode_key(char *hex, 
+ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
+ {
+ 	struct crypt_config *cc;
+-	struct crypto_tfm *tfm;
++	struct crypto_blkcipher *tfm;
+ 	char *tmp;
+ 	char *cipher;
+ 	char *chainmode;
+ 	char *ivmode;
+ 	char *ivopts;
+-	unsigned int crypto_flags;
+ 	unsigned int key_size;
+ 	unsigned long long tmpll;
+ 
+@@ -556,31 +554,25 @@ static int crypt_ctr(struct dm_target *t
+ 		ivmode = "plain";
+ 	}
+ 
+-	/* Choose crypto_flags according to chainmode */
+-	if (strcmp(chainmode, "cbc") == 0)
+-		crypto_flags = CRYPTO_TFM_MODE_CBC;
+-	else if (strcmp(chainmode, "ecb") == 0)
+-		crypto_flags = CRYPTO_TFM_MODE_ECB;
+-	else {
+-		ti->error = "Unknown chaining mode";
++	if (strcmp(chainmode, "ecb") && !ivmode) {
++		ti->error = "This chaining mode requires an IV mechanism";
+ 		goto bad1;
+ 	}
+ 
+-	if (crypto_flags != CRYPTO_TFM_MODE_ECB && !ivmode) {
+-		ti->error = "This chaining mode requires an IV mechanism";
++	if (snprintf(cc->cipher, CRYPTO_MAX_ALG_NAME, "%s(%s)", chainmode, 
++		     cipher) >= CRYPTO_MAX_ALG_NAME) {
++		ti->error = "Chain mode + cipher name is too long";
+ 		goto bad1;
+ 	}
+ 
+-	tfm = crypto_alloc_tfm(cipher, crypto_flags | CRYPTO_TFM_REQ_MAY_SLEEP);
+-	if (!tfm) {
++	tfm = crypto_alloc_blkcipher(cc->cipher, 0, CRYPTO_ALG_ASYNC);
++	if (IS_ERR(tfm)) {
+ 		ti->error = "Error allocating crypto tfm";
+ 		goto bad1;
+ 	}
+-	if (crypto_tfm_alg_type(tfm) != CRYPTO_ALG_TYPE_CIPHER) {
+-		ti->error = "Expected cipher algorithm";
+-		goto bad2;
+-	}
+ 
++	strcpy(cc->cipher, cipher);
++	strcpy(cc->chainmode, chainmode);
+ 	cc->tfm = tfm;
+ 
+ 	/*
+@@ -603,12 +595,12 @@ static int crypt_ctr(struct dm_target *t
+ 	    cc->iv_gen_ops->ctr(cc, ti, ivopts) < 0)
+ 		goto bad2;
+ 
+-	if (tfm->crt_cipher.cit_decrypt_iv && tfm->crt_cipher.cit_encrypt_iv)
++	cc->iv_size = crypto_blkcipher_ivsize(tfm);
++	if (cc->iv_size)
+ 		/* at least a 64 bit sector number should fit in our buffer */
+-		cc->iv_size = max(crypto_tfm_alg_ivsize(tfm),
++		cc->iv_size = max(cc->iv_size,
+ 		                  (unsigned int)(sizeof(u64) / sizeof(u8)));
+ 	else {
+-		cc->iv_size = 0;
+ 		if (cc->iv_gen_ops) {
+ 			DMWARN("Selected cipher does not support IVs");
+ 			if (cc->iv_gen_ops->dtr)
+@@ -629,7 +621,7 @@ static int crypt_ctr(struct dm_target *t
+ 		goto bad4;
+ 	}
+ 
+-	if (tfm->crt_cipher.cit_setkey(tfm, cc->key, key_size) < 0) {
++	if (crypto_blkcipher_setkey(tfm, cc->key, key_size) < 0) {
+ 		ti->error = "Error setting key";
+ 		goto bad5;
+ 	}
+@@ -675,7 +667,7 @@ bad3:
+ 	if (cc->iv_gen_ops && cc->iv_gen_ops->dtr)
+ 		cc->iv_gen_ops->dtr(cc);
+ bad2:
+-	crypto_free_tfm(tfm);
++	crypto_free_blkcipher(tfm);
+ bad1:
+ 	/* Must zero key material before freeing */
+ 	memset(cc, 0, sizeof(*cc) + cc->key_size * sizeof(u8));
+@@ -693,7 +685,7 @@ static void crypt_dtr(struct dm_target *
+ 	kfree(cc->iv_mode);
+ 	if (cc->iv_gen_ops && cc->iv_gen_ops->dtr)
+ 		cc->iv_gen_ops->dtr(cc);
+-	crypto_free_tfm(cc->tfm);
++	crypto_free_blkcipher(cc->tfm);
+ 	dm_put_device(ti, cc->dev);
+ 
+ 	/* Must zero key material before freeing */
+@@ -858,18 +850,9 @@ static int crypt_status(struct dm_target
+ 		break;
+ 
+ 	case STATUSTYPE_TABLE:
+-		cipher = crypto_tfm_alg_name(cc->tfm);
++		cipher = crypto_blkcipher_name(cc->tfm);
+ 
+-		switch(cc->tfm->crt_cipher.cit_mode) {
+-		case CRYPTO_TFM_MODE_CBC:
+-			chainmode = "cbc";
+-			break;
+-		case CRYPTO_TFM_MODE_ECB:
+-			chainmode = "ecb";
+-			break;
+-		default:
+-			BUG();
+-		}
++		chainmode = cc->chainmode;
+ 
+ 		if (cc->iv_mode)
+ 			DMEMIT("%s-%s-%s ", cipher, chainmode, cc->iv_mode);
