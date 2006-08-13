@@ -1,80 +1,67 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 08/16] [IPv4] route: Convert route notifications to use rtnl_notify()
-Date: Mon, 14 Aug 2006 00:00:08 +0200
-Message-ID: <20060814214341.521300269@postel.suug.ch>
+Subject: [PATCH 09/16] [IPv6] address: Convert address notification to use rtnl_notify()
+Date: Mon, 14 Aug 2006 00:00:09 +0200
+Message-ID: <20060814214341.834971519@postel.suug.ch>
 References: <20060814213718.580598840@postel.suug.ch>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:21710 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S964985AbWHNVo5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 17:44:57 -0400
+Received: from postel.suug.ch ([194.88.212.233]:22222 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S964979AbWHNVpC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 17:45:02 -0400
 To: davem@davemloft.net
-Content-Disposition: inline; filename=rtnl_convert_ip4_route
+Content-Disposition: inline; filename=rtnl_convert_ip6_addr
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Fixes a wrong use of current->pid as netlink pid.
+
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Index: net-2.6.19.git/net/ipv4/fib_semantics.c
+Index: net-2.6.19.git/net/ipv6/addrconf.c
 ===================================================================
---- net-2.6.19.git.orig/net/ipv4/fib_semantics.c
-+++ net-2.6.19.git/net/ipv4/fib_semantics.c
-@@ -33,7 +33,6 @@
- #include <linux/if_arp.h>
- #include <linux/proc_fs.h>
- #include <linux/skbuff.h>
--#include <linux/netlink.h>
- #include <linux/init.h>
- 
- #include <net/arp.h>
-@@ -44,6 +43,7 @@
- #include <net/sock.h>
- #include <net/ip_fib.h>
- #include <net/ip_mp_alg.h>
+--- net-2.6.19.git.orig/net/ipv6/addrconf.c
++++ net-2.6.19.git/net/ipv6/addrconf.c
+@@ -73,6 +73,7 @@
+ #include <net/addrconf.h>
+ #include <net/tcp.h>
+ #include <net/ip.h>
 +#include <net/netlink.h>
+ #include <linux/if_tunnel.h>
+ #include <linux/rtnetlink.h>
  
- #include "fib_lookup.h"
- 
-@@ -278,25 +278,25 @@ void rtmsg_fib(int event, u32 key, struc
+@@ -3280,20 +3281,23 @@ out_free:
+ static void inet6_ifa_notify(int event, struct inet6_ifaddr *ifa)
  {
  	struct sk_buff *skb;
- 	u32 pid = req ? req->pid : n->nlmsg_pid;
--	int size = NLMSG_SPACE(sizeof(struct rtmsg)+256);
-+	int payload = sizeof(struct rtmsg) + 256;
+-	int size = NLMSG_SPACE(sizeof(struct ifaddrmsg) + INET6_IFADDR_RTA_SPACE);
++	int payload = sizeof(struct ifaddrmsg) + INET6_IFADDR_RTA_SPACE;
 +	int err = -ENOBUFS;
  
--	skb = alloc_skb(size, GFP_KERNEL);
--	if (!skb)
+-	skb = alloc_skb(size, GFP_ATOMIC);
+-	if (!skb) {
+-		netlink_set_err(rtnl, 0, RTNLGRP_IPV6_IFADDR, ENOBUFS);
 -		return;
--
--	if (fib_dump_info(skb, pid, n->nlmsg_seq, event, tb_id,
--			  fa->fa_type, fa->fa_scope, &key, z,
--			  fa->fa_tos,
--			  fa->fa_info, 0) < 0) {
-+	skb = nlmsg_new(nlmsg_total_size(payload), GFP_KERNEL);
+-	}
+-	if (inet6_fill_ifaddr(skb, ifa, current->pid, 0, event, 0) < 0) {
++	skb = nlmsg_new(nlmsg_total_size(payload), GFP_ATOMIC);
 +	if (skb == NULL)
 +		goto errout;
 +
-+	err = fib_dump_info(skb, pid, n->nlmsg_seq, event, tb_id,
-+			    fa->fa_type, fa->fa_scope, &key, z, fa->fa_tos,
-+			    fa->fa_info, 0);
++	err = inet6_fill_ifaddr(skb, ifa, 0, 0, event, 0);
 +	if (err < 0) {
  		kfree_skb(skb);
+-		netlink_set_err(rtnl, 0, RTNLGRP_IPV6_IFADDR, EINVAL);
 -		return;
 +		goto errout;
  	}
--	NETLINK_CB(skb).dst_group = RTNLGRP_IPV4_ROUTE;
--	if (n->nlmsg_flags&NLM_F_ECHO)
--		atomic_inc(&skb->users);
--	netlink_broadcast(rtnl, skb, pid, RTNLGRP_IPV4_ROUTE, GFP_KERNEL);
--	if (n->nlmsg_flags&NLM_F_ECHO)
--		netlink_unicast(rtnl, skb, pid, MSG_DONTWAIT);
+-	NETLINK_CB(skb).dst_group = RTNLGRP_IPV6_IFADDR;
+-	netlink_broadcast(rtnl, skb, 0, RTNLGRP_IPV6_IFADDR, GFP_ATOMIC);
 +
-+	err = rtnl_notify(skb, pid, RTNLGRP_IPV4_ROUTE, n, GFP_KERNEL);
++	err = rtnl_notify(skb, 0, RTNLGRP_IPV6_IFADDR, NULL, GFP_ATOMIC);
 +errout:
 +	if (err < 0)
-+		rtnl_set_sk_err(RTNLGRP_IPV4_ROUTE, err);
++		rtnl_set_sk_err(RTNLGRP_IPV6_IFADDR, err);
  }
  
- /* Return the first fib alias matching TOS with
+ static void inline ipv6_store_devconf(struct ipv6_devconf *cnf,
 
