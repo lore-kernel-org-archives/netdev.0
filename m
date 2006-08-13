@@ -1,24 +1,38 @@
-From: "Jones" <autobiographybundestag@archaeologist.com>
-Subject: Fatblaster remains a top seller among competitive brands, making it the #1 choice for those seeking safe and effective weight loss solution.
-Date: Sun, 13 Aug 2006 10:16:21 +0900
-Message-ID: <94309678138312.6E6016C926@P453Q1IR>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: 2.6.18-rc3-mm2 (+ hotfixes): GPF related to skge on suspend
+Date: Sat, 12 Aug 2006 22:56:46 -0700
+Message-ID: <20060812225646.73b1ac2b@localhost.localdomain>
+References: <200608121207.42268.rjw@sisk.pl>
+	<200608121631.18603.rjw@sisk.pl>
+	<20060812161253.GA30691@edgar.underground.se.axis.com>
+	<200608121913.01139.rjw@sisk.pl>
+	<20060812181603.GA31106@edgar.underground.se.axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="Windows-1252"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, Andrew Morton <akpm@osdl.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from softbank219061218158.bbtec.net ([219.61.218.158]:33811 "EHLO
-	HIROKI") by vger.kernel.org with ESMTP id S1030201AbWHMBP7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Aug 2006 21:15:59 -0400
-To: <netdev@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:26791 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750702AbWHMF45 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2006 01:56:57 -0400
+To: "Edgar E. Iglesias" <edgar.iglesias@axis.com>
+In-Reply-To: <20060812181603.GA31106@edgar.underground.se.axis.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, 
+On Sat, 12 Aug 2006 20:16:03 +0200
+"Edgar E. Iglesias" <edgar.iglesias@axis.com> wrote:
 
- Supplement your life today! Join thousands of satisfied customers and experience for yourself the proven benefits of Fatblaster.  Fatblaster is a thermogenic weight loss formula designed to naturally assist the body in burning more calories by efficiently using stored body fat for energy. Fuel for this increased metabolic rate can be provided by stored body fat.  Check up here: http://kimetion.com/gall/fb/ 
+> On Sat, Aug 12, 2006 at 07:13:01PM +0200, Rafael J. Wysocki wrote:
+> > Apparently it doesn't.
+> 
+> Hi, could you try and see if this helps?
+> 
+> Best regards
 
- He who is ABSENT is always in the Wrong A fly will not get into a closed mouth. Fish and cast-net nah friend.
+That looks good, but needs a few more changes for full safety.
+Kind of like the sky2 changes needed to get Mac Mini to work.
 
- Blue are the hills that are far away A sprat to catch a mackerel. To give subtilty to the simple, to the young man knowledge and discretion.
-
+The machine I have with skge boards don't suspend right but that is because
+of other problems.
