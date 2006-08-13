@@ -1,266 +1,470 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 10/16] [BLOCK] dm-crypt: Use block ciphers where applicable
-Date: Sun, 13 Aug 2006 22:20:17 +1000
-Message-ID: <E1GCEwz-0004gJ-00@gondolin.me.apana.org.au>
+Subject: [PATCH 12/16] [IPSEC] ESP: Use block ciphers where applicable
+Date: Sun, 13 Aug 2006 22:20:20 +1000
+Message-ID: <E1GCEx2-0004gP-00@gondolin.me.apana.org.au>
 References: <20060813121722.GA16115@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:13065 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751089AbWHMMUX
+Received: from rhun.apana.org.au ([64.62.148.172]:15881 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751099AbWHMMUa
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 08:20:23 -0400
+	Sun, 13 Aug 2006 08:20:30 -0400
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[BLOCK] dm-crypt: Use block ciphers where applicable
+[IPSEC] ESP: Use block ciphers where applicable
 
-This patch converts dm-crypt to use the new block cipher type where
-applicable.  It also changes simple cipher operations to use the new
-encrypt_one/decrypt_one interface.
+This patch converts IPSec/ESP to use the new block cipher type where
+applicable.  Similar to the HMAC conversion, existing algorithm names
+have been kept for compatibility.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- drivers/md/dm-crypt.c |   97 ++++++++++++++++++++------------------------------
- 1 files changed, 40 insertions(+), 57 deletions(-)
+ include/net/esp.h    |    2 +-
+ net/ipv4/Kconfig     |    1 +
+ net/ipv4/esp4.c      |   49 +++++++++++++++++++++++++++++--------------------
+ net/ipv6/Kconfig     |    1 +
+ net/ipv6/esp6.c      |   48 ++++++++++++++++++++++++++++--------------------
+ net/xfrm/xfrm_algo.c |   24 ++++++++++++++++--------
+ 6 files changed, 76 insertions(+), 49 deletions(-)
 
-diff --git a/drivers/md/dm-crypt.c b/drivers/md/dm-crypt.c
---- a/drivers/md/dm-crypt.c
-+++ b/drivers/md/dm-crypt.c
-@@ -78,11 +78,13 @@ struct crypt_config {
- 	 */
- 	struct crypt_iv_operations *iv_gen_ops;
- 	char *iv_mode;
--	void *iv_gen_private;
-+	struct crypto_cipher *iv_gen_private;
- 	sector_t iv_offset;
- 	unsigned int iv_size;
+diff --git a/include/net/esp.h b/include/net/esp.h
+--- a/include/net/esp.h
++++ b/include/net/esp.h
+@@ -22,7 +22,7 @@ struct esp_data
+ 		 * >= crypto_tfm_alg_ivsize(tfm). */
+ 		int			ivlen;
+ 		int			padlen;		/* 0..255 */
+-		struct crypto_tfm	*tfm;		/* crypto handle */
++		struct crypto_blkcipher	*tfm;		/* crypto handle */
+ 	} conf;
  
--	struct crypto_tfm *tfm;
-+	char cipher[CRYPTO_MAX_ALG_NAME];
-+	char chainmode[CRYPTO_MAX_ALG_NAME];
-+	struct crypto_blkcipher *tfm;
- 	unsigned int key_size;
- 	u8 key[0];
- };
-@@ -118,7 +120,7 @@ static int crypt_iv_plain_gen(struct cry
- static int crypt_iv_essiv_ctr(struct crypt_config *cc, struct dm_target *ti,
- 	                      const char *opts)
- {
--	struct crypto_tfm *essiv_tfm;
-+	struct crypto_cipher *essiv_tfm;
- 	struct crypto_tfm *hash_tfm;
- 	struct scatterlist sg;
- 	unsigned int saltsize;
-@@ -155,51 +157,43 @@ static int crypt_iv_essiv_ctr(struct cry
- 	crypto_free_tfm(hash_tfm);
- 
- 	/* Setup the essiv_tfm with the given salt */
--	essiv_tfm = crypto_alloc_tfm(crypto_tfm_alg_name(cc->tfm),
--	                             CRYPTO_TFM_MODE_ECB |
--	                             CRYPTO_TFM_REQ_MAY_SLEEP);
-+	essiv_tfm = crypto_alloc_cipher(cc->cipher, 0, CRYPTO_ALG_ASYNC);
- 	if (essiv_tfm == NULL) {
- 		ti->error = "Error allocating crypto tfm for ESSIV";
- 		kfree(salt);
- 		return -EINVAL;
- 	}
--	if (crypto_tfm_alg_blocksize(essiv_tfm)
--	    != crypto_tfm_alg_ivsize(cc->tfm)) {
-+	if (crypto_cipher_blocksize(essiv_tfm) !=
-+	    crypto_blkcipher_ivsize(cc->tfm)) {
- 		ti->error = "Block size of ESSIV cipher does "
- 			        "not match IV size of block cipher";
--		crypto_free_tfm(essiv_tfm);
-+		crypto_free_cipher(essiv_tfm);
- 		kfree(salt);
- 		return -EINVAL;
- 	}
- 	if (crypto_cipher_setkey(essiv_tfm, salt, saltsize) < 0) {
- 		ti->error = "Failed to set key for ESSIV cipher";
--		crypto_free_tfm(essiv_tfm);
-+		crypto_free_cipher(essiv_tfm);
- 		kfree(salt);
- 		return -EINVAL;
- 	}
- 	kfree(salt);
- 
--	cc->iv_gen_private = (void *)essiv_tfm;
-+	cc->iv_gen_private = essiv_tfm;
- 	return 0;
- }
- 
- static void crypt_iv_essiv_dtr(struct crypt_config *cc)
- {
--	crypto_free_tfm((struct crypto_tfm *)cc->iv_gen_private);
-+	crypto_free_cipher(cc->iv_gen_private);
- 	cc->iv_gen_private = NULL;
- }
- 
- static int crypt_iv_essiv_gen(struct crypt_config *cc, u8 *iv, sector_t sector)
- {
--	struct scatterlist sg;
--
- 	memset(iv, 0, cc->iv_size);
- 	*(u64 *)iv = cpu_to_le64(sector);
--
--	sg_set_buf(&sg, iv, cc->iv_size);
--	crypto_cipher_encrypt((struct crypto_tfm *)cc->iv_gen_private,
--	                      &sg, &sg, cc->iv_size);
--
-+	crypto_cipher_encrypt_one(cc->iv_gen_private, iv, iv);
- 	return 0;
- }
- 
-@@ -220,6 +214,11 @@ crypt_convert_scatterlist(struct crypt_c
-                           int write, sector_t sector)
- {
- 	u8 iv[cc->iv_size];
-+	struct blkcipher_desc desc = {
-+		.tfm = cc->tfm,
-+		.info = iv,
-+		.flags = CRYPTO_TFM_REQ_MAY_SLEEP,
-+	};
- 	int r;
- 
- 	if (cc->iv_gen_ops) {
-@@ -228,14 +227,14 @@ crypt_convert_scatterlist(struct crypt_c
- 			return r;
- 
- 		if (write)
--			r = crypto_cipher_encrypt_iv(cc->tfm, out, in, length, iv);
-+			r = crypto_blkcipher_encrypt_iv(&desc, out, in, length);
- 		else
--			r = crypto_cipher_decrypt_iv(cc->tfm, out, in, length, iv);
-+			r = crypto_blkcipher_decrypt_iv(&desc, out, in, length);
- 	} else {
- 		if (write)
--			r = crypto_cipher_encrypt(cc->tfm, out, in, length);
-+			r = crypto_blkcipher_encrypt(&desc, out, in, length);
- 		else
--			r = crypto_cipher_decrypt(cc->tfm, out, in, length);
-+			r = crypto_blkcipher_decrypt(&desc, out, in, length);
- 	}
- 
- 	return r;
-@@ -510,13 +509,12 @@ static void crypt_encode_key(char *hex, 
- static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
- {
- 	struct crypt_config *cc;
+ 	/* Integrity. It is active when icv_full_len != 0 */
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -386,6 +386,7 @@ config INET_ESP
+ 	select CRYPTO
+ 	select CRYPTO_HMAC
+ 	select CRYPTO_MD5
++	select CRYPTO_CBC
+ 	select CRYPTO_SHA1
+ 	select CRYPTO_DES
+ 	---help---
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -1,3 +1,4 @@
++#include <linux/err.h>
+ #include <linux/module.h>
+ #include <net/ip.h>
+ #include <net/xfrm.h>
+@@ -16,7 +17,8 @@ static int esp_output(struct xfrm_state 
+ 	int err;
+ 	struct iphdr *top_iph;
+ 	struct ip_esp_hdr *esph;
 -	struct crypto_tfm *tfm;
 +	struct crypto_blkcipher *tfm;
- 	char *tmp;
- 	char *cipher;
- 	char *chainmode;
- 	char *ivmode;
- 	char *ivopts;
--	unsigned int crypto_flags;
- 	unsigned int key_size;
- 	unsigned long long tmpll;
++	struct blkcipher_desc desc;
+ 	struct esp_data *esp;
+ 	struct sk_buff *trailer;
+ 	int blksize;
+@@ -36,7 +38,9 @@ static int esp_output(struct xfrm_state 
+ 	esp = x->data;
+ 	alen = esp->auth.icv_trunc_len;
+ 	tfm = esp->conf.tfm;
+-	blksize = ALIGN(crypto_tfm_alg_blocksize(tfm), 4);
++	desc.tfm = tfm;
++	desc.flags = 0;
++	blksize = ALIGN(crypto_blkcipher_blocksize(tfm), 4);
+ 	clen = ALIGN(clen + 2, blksize);
+ 	if (esp->conf.padlen)
+ 		clen = ALIGN(clen, esp->conf.padlen);
+@@ -92,7 +96,7 @@ static int esp_output(struct xfrm_state 
+ 	xfrm_aevent_doreplay(x);
  
-@@ -556,31 +554,25 @@ static int crypt_ctr(struct dm_target *t
- 		ivmode = "plain";
+ 	if (esp->conf.ivlen)
+-		crypto_cipher_set_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
++		crypto_blkcipher_set_iv(tfm, esp->conf.ivec, esp->conf.ivlen);
+ 
+ 	do {
+ 		struct scatterlist *sg = &esp->sgbuf[0];
+@@ -103,14 +107,17 @@ static int esp_output(struct xfrm_state 
+ 				goto error;
+ 		}
+ 		skb_to_sgvec(skb, sg, esph->enc_data+esp->conf.ivlen-skb->data, clen);
+-		crypto_cipher_encrypt(tfm, sg, sg, clen);
++		err = crypto_blkcipher_encrypt(&desc, sg, sg, clen);
+ 		if (unlikely(sg != &esp->sgbuf[0]))
+ 			kfree(sg);
+ 	} while (0);
+ 
++	if (unlikely(err))
++		goto error;
++
+ 	if (esp->conf.ivlen) {
+-		memcpy(esph->enc_data, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
+-		crypto_cipher_get_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
++		memcpy(esph->enc_data, esp->conf.ivec, esp->conf.ivlen);
++		crypto_blkcipher_get_iv(tfm, esp->conf.ivec, esp->conf.ivlen);
  	}
  
--	/* Choose crypto_flags according to chainmode */
--	if (strcmp(chainmode, "cbc") == 0)
--		crypto_flags = CRYPTO_TFM_MODE_CBC;
--	else if (strcmp(chainmode, "ecb") == 0)
--		crypto_flags = CRYPTO_TFM_MODE_ECB;
--	else {
--		ti->error = "Unknown chaining mode";
-+	if (strcmp(chainmode, "ecb") && !ivmode) {
-+		ti->error = "This chaining mode requires an IV mechanism";
- 		goto bad1;
+ 	if (esp->auth.icv_full_len) {
+@@ -121,8 +128,6 @@ static int esp_output(struct xfrm_state 
+ 
+ 	ip_send_check(top_iph);
+ 
+-	err = 0;
+-
+ error:
+ 	return err;
+ }
+@@ -137,8 +142,10 @@ static int esp_input(struct xfrm_state *
+ 	struct iphdr *iph;
+ 	struct ip_esp_hdr *esph;
+ 	struct esp_data *esp = x->data;
++	struct crypto_blkcipher *tfm = esp->conf.tfm;
++	struct blkcipher_desc desc = { .tfm = tfm };
+ 	struct sk_buff *trailer;
+-	int blksize = ALIGN(crypto_tfm_alg_blocksize(esp->conf.tfm), 4);
++	int blksize = ALIGN(crypto_blkcipher_blocksize(tfm), 4);
+ 	int alen = esp->auth.icv_trunc_len;
+ 	int elen = skb->len - sizeof(struct ip_esp_hdr) - esp->conf.ivlen - alen;
+ 	int nfrags;
+@@ -146,6 +153,7 @@ static int esp_input(struct xfrm_state *
+ 	u8 nexthdr[2];
+ 	struct scatterlist *sg;
+ 	int padlen;
++	int err;
+ 
+ 	if (!pskb_may_pull(skb, sizeof(struct ip_esp_hdr)))
+ 		goto out;
+@@ -178,7 +186,7 @@ static int esp_input(struct xfrm_state *
+ 
+ 	/* Get ivec. This can be wrong, check against another impls. */
+ 	if (esp->conf.ivlen)
+-		crypto_cipher_set_iv(esp->conf.tfm, esph->enc_data, crypto_tfm_alg_ivsize(esp->conf.tfm));
++		crypto_blkcipher_set_iv(tfm, esph->enc_data, esp->conf.ivlen);
+ 
+ 	sg = &esp->sgbuf[0];
+ 
+@@ -188,9 +196,11 @@ static int esp_input(struct xfrm_state *
+ 			goto out;
+ 	}
+ 	skb_to_sgvec(skb, sg, sizeof(struct ip_esp_hdr) + esp->conf.ivlen, elen);
+-	crypto_cipher_decrypt(esp->conf.tfm, sg, sg, elen);
++	err = crypto_blkcipher_decrypt(&desc, sg, sg, elen);
+ 	if (unlikely(sg != &esp->sgbuf[0]))
+ 		kfree(sg);
++	if (unlikely(err))
++		return err;
+ 
+ 	if (skb_copy_bits(skb, skb->len-alen-2, nexthdr, 2))
+ 		BUG();
+@@ -254,7 +264,7 @@ out:
+ static u32 esp4_get_max_size(struct xfrm_state *x, int mtu)
+ {
+ 	struct esp_data *esp = x->data;
+-	u32 blksize = ALIGN(crypto_tfm_alg_blocksize(esp->conf.tfm), 4);
++	u32 blksize = ALIGN(crypto_blkcipher_blocksize(esp->conf.tfm), 4);
+ 
+ 	if (x->props.mode) {
+ 		mtu = ALIGN(mtu + 2, blksize);
+@@ -293,7 +303,7 @@ static void esp_destroy(struct xfrm_stat
+ 	if (!esp)
+ 		return;
+ 
+-	crypto_free_tfm(esp->conf.tfm);
++	crypto_free_blkcipher(esp->conf.tfm);
+ 	esp->conf.tfm = NULL;
+ 	kfree(esp->conf.ivec);
+ 	esp->conf.ivec = NULL;
+@@ -307,6 +317,7 @@ static void esp_destroy(struct xfrm_stat
+ static int esp_init_state(struct xfrm_state *x)
+ {
+ 	struct esp_data *esp = NULL;
++	struct crypto_blkcipher *tfm;
+ 
+ 	/* null auth and encryption can have zero length keys */
+ 	if (x->aalg) {
+@@ -353,13 +364,11 @@ static int esp_init_state(struct xfrm_st
+ 	}
+ 	esp->conf.key = x->ealg->alg_key;
+ 	esp->conf.key_len = (x->ealg->alg_key_len+7)/8;
+-	if (x->props.ealgo == SADB_EALG_NULL)
+-		esp->conf.tfm = crypto_alloc_tfm(x->ealg->alg_name, CRYPTO_TFM_MODE_ECB);
+-	else
+-		esp->conf.tfm = crypto_alloc_tfm(x->ealg->alg_name, CRYPTO_TFM_MODE_CBC);
+-	if (esp->conf.tfm == NULL)
++	tfm = crypto_alloc_blkcipher(x->ealg->alg_name, 0, CRYPTO_ALG_ASYNC);
++	if (IS_ERR(tfm))
+ 		goto error;
+-	esp->conf.ivlen = crypto_tfm_alg_ivsize(esp->conf.tfm);
++	esp->conf.tfm = tfm;
++	esp->conf.ivlen = crypto_blkcipher_ivsize(tfm);
+ 	esp->conf.padlen = 0;
+ 	if (esp->conf.ivlen) {
+ 		esp->conf.ivec = kmalloc(esp->conf.ivlen, GFP_KERNEL);
+@@ -367,7 +376,7 @@ static int esp_init_state(struct xfrm_st
+ 			goto error;
+ 		get_random_bytes(esp->conf.ivec, esp->conf.ivlen);
+ 	}
+-	if (crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len))
++	if (crypto_blkcipher_setkey(tfm, esp->conf.key, esp->conf.key_len))
+ 		goto error;
+ 	x->props.header_len = sizeof(struct ip_esp_hdr) + esp->conf.ivlen;
+ 	if (x->props.mode)
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -77,6 +77,7 @@ config INET6_ESP
+ 	select CRYPTO
+ 	select CRYPTO_HMAC
+ 	select CRYPTO_MD5
++	select CRYPTO_CBC
+ 	select CRYPTO_SHA1
+ 	select CRYPTO_DES
+ 	---help---
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -24,6 +24,7 @@
+  * 	This file is derived from net/ipv4/esp.c
+  */
+ 
++#include <linux/err.h>
+ #include <linux/module.h>
+ #include <net/ip.h>
+ #include <net/xfrm.h>
+@@ -44,7 +45,8 @@ static int esp6_output(struct xfrm_state
+ 	int hdr_len;
+ 	struct ipv6hdr *top_iph;
+ 	struct ipv6_esp_hdr *esph;
+-	struct crypto_tfm *tfm;
++	struct crypto_blkcipher *tfm;
++	struct blkcipher_desc desc;
+ 	struct esp_data *esp;
+ 	struct sk_buff *trailer;
+ 	int blksize;
+@@ -67,7 +69,9 @@ static int esp6_output(struct xfrm_state
+ 
+ 	alen = esp->auth.icv_trunc_len;
+ 	tfm = esp->conf.tfm;
+-	blksize = ALIGN(crypto_tfm_alg_blocksize(tfm), 4);
++	desc.tfm = tfm;
++	desc.flags = 0;
++	blksize = ALIGN(crypto_blkcipher_blocksize(tfm), 4);
+ 	clen = ALIGN(clen + 2, blksize);
+ 	if (esp->conf.padlen)
+ 		clen = ALIGN(clen, esp->conf.padlen);
+@@ -96,7 +100,7 @@ static int esp6_output(struct xfrm_state
+ 	xfrm_aevent_doreplay(x);
+ 
+ 	if (esp->conf.ivlen)
+-		crypto_cipher_set_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
++		crypto_blkcipher_set_iv(tfm, esp->conf.ivec, esp->conf.ivlen);
+ 
+ 	do {
+ 		struct scatterlist *sg = &esp->sgbuf[0];
+@@ -107,14 +111,17 @@ static int esp6_output(struct xfrm_state
+ 				goto error;
+ 		}
+ 		skb_to_sgvec(skb, sg, esph->enc_data+esp->conf.ivlen-skb->data, clen);
+-		crypto_cipher_encrypt(tfm, sg, sg, clen);
++		err = crypto_blkcipher_encrypt(&desc, sg, sg, clen);
+ 		if (unlikely(sg != &esp->sgbuf[0]))
+ 			kfree(sg);
+ 	} while (0);
+ 
++	if (unlikely(err))
++		goto error;
++
+ 	if (esp->conf.ivlen) {
+-		memcpy(esph->enc_data, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
+-		crypto_cipher_get_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
++		memcpy(esph->enc_data, esp->conf.ivec, esp->conf.ivlen);
++		crypto_blkcipher_get_iv(tfm, esp->conf.ivec, esp->conf.ivlen);
  	}
  
--	if (crypto_flags != CRYPTO_TFM_MODE_ECB && !ivmode) {
--		ti->error = "This chaining mode requires an IV mechanism";
-+	if (snprintf(cc->cipher, CRYPTO_MAX_ALG_NAME, "%s(%s)", chainmode, 
-+		     cipher) >= CRYPTO_MAX_ALG_NAME) {
-+		ti->error = "Chain mode + cipher name is too long";
- 		goto bad1;
+ 	if (esp->auth.icv_full_len) {
+@@ -123,8 +130,6 @@ static int esp6_output(struct xfrm_state
+ 		pskb_put(skb, trailer, alen);
  	}
  
--	tfm = crypto_alloc_tfm(cipher, crypto_flags | CRYPTO_TFM_REQ_MAY_SLEEP);
--	if (!tfm) {
-+	tfm = crypto_alloc_blkcipher(cc->cipher, 0, CRYPTO_ALG_ASYNC);
-+	if (IS_ERR(tfm)) {
- 		ti->error = "Error allocating crypto tfm";
- 		goto bad1;
+-	err = 0;
+-
+ error:
+ 	return err;
+ }
+@@ -134,8 +139,10 @@ static int esp6_input(struct xfrm_state 
+ 	struct ipv6hdr *iph;
+ 	struct ipv6_esp_hdr *esph;
+ 	struct esp_data *esp = x->data;
++	struct crypto_blkcipher *tfm = esp->conf.tfm;
++	struct blkcipher_desc desc = { .tfm = tfm };
+ 	struct sk_buff *trailer;
+-	int blksize = ALIGN(crypto_tfm_alg_blocksize(esp->conf.tfm), 4);
++	int blksize = ALIGN(crypto_blkcipher_blocksize(tfm), 4);
+ 	int alen = esp->auth.icv_trunc_len;
+ 	int elen = skb->len - sizeof(struct ipv6_esp_hdr) - esp->conf.ivlen - alen;
+ 
+@@ -182,7 +189,7 @@ static int esp6_input(struct xfrm_state 
+ 
+ 	/* Get ivec. This can be wrong, check against another impls. */
+ 	if (esp->conf.ivlen)
+-		crypto_cipher_set_iv(esp->conf.tfm, esph->enc_data, crypto_tfm_alg_ivsize(esp->conf.tfm));
++		crypto_blkcipher_set_iv(tfm, esph->enc_data, esp->conf.ivlen);
+ 
+         {
+ 		u8 nexthdr[2];
+@@ -197,9 +204,11 @@ static int esp6_input(struct xfrm_state 
+ 			}
+ 		}
+ 		skb_to_sgvec(skb, sg, sizeof(struct ipv6_esp_hdr) + esp->conf.ivlen, elen);
+-		crypto_cipher_decrypt(esp->conf.tfm, sg, sg, elen);
++		ret = crypto_blkcipher_decrypt(&desc, sg, sg, elen);
+ 		if (unlikely(sg != &esp->sgbuf[0]))
+ 			kfree(sg);
++		if (unlikely(ret))
++			goto out;
+ 
+ 		if (skb_copy_bits(skb, skb->len-alen-2, nexthdr, 2))
+ 			BUG();
+@@ -225,7 +234,7 @@ out:
+ static u32 esp6_get_max_size(struct xfrm_state *x, int mtu)
+ {
+ 	struct esp_data *esp = x->data;
+-	u32 blksize = ALIGN(crypto_tfm_alg_blocksize(esp->conf.tfm), 4);
++	u32 blksize = ALIGN(crypto_blkcipher_blocksize(esp->conf.tfm), 4);
+ 
+ 	if (x->props.mode) {
+ 		mtu = ALIGN(mtu + 2, blksize);
+@@ -266,7 +275,7 @@ static void esp6_destroy(struct xfrm_sta
+ 	if (!esp)
+ 		return;
+ 
+-	crypto_free_tfm(esp->conf.tfm);
++	crypto_free_blkcipher(esp->conf.tfm);
+ 	esp->conf.tfm = NULL;
+ 	kfree(esp->conf.ivec);
+ 	esp->conf.ivec = NULL;
+@@ -280,6 +289,7 @@ static void esp6_destroy(struct xfrm_sta
+ static int esp6_init_state(struct xfrm_state *x)
+ {
+ 	struct esp_data *esp = NULL;
++	struct crypto_blkcipher *tfm;
+ 
+ 	/* null auth and encryption can have zero length keys */
+ 	if (x->aalg) {
+@@ -327,13 +337,11 @@ static int esp6_init_state(struct xfrm_s
  	}
--	if (crypto_tfm_alg_type(tfm) != CRYPTO_ALG_TYPE_CIPHER) {
--		ti->error = "Expected cipher algorithm";
--		goto bad2;
--	}
- 
-+	strcpy(cc->cipher, cipher);
-+	strcpy(cc->chainmode, chainmode);
- 	cc->tfm = tfm;
- 
- 	/*
-@@ -603,12 +595,12 @@ static int crypt_ctr(struct dm_target *t
- 	    cc->iv_gen_ops->ctr(cc, ti, ivopts) < 0)
- 		goto bad2;
- 
--	if (tfm->crt_cipher.cit_decrypt_iv && tfm->crt_cipher.cit_encrypt_iv)
-+	cc->iv_size = crypto_blkcipher_ivsize(tfm);
-+	if (cc->iv_size)
- 		/* at least a 64 bit sector number should fit in our buffer */
--		cc->iv_size = max(crypto_tfm_alg_ivsize(tfm),
-+		cc->iv_size = max(cc->iv_size,
- 		                  (unsigned int)(sizeof(u64) / sizeof(u8)));
- 	else {
--		cc->iv_size = 0;
- 		if (cc->iv_gen_ops) {
- 			DMWARN("Selected cipher does not support IVs");
- 			if (cc->iv_gen_ops->dtr)
-@@ -629,7 +621,7 @@ static int crypt_ctr(struct dm_target *t
- 		goto bad4;
+ 	esp->conf.key = x->ealg->alg_key;
+ 	esp->conf.key_len = (x->ealg->alg_key_len+7)/8;
+-	if (x->props.ealgo == SADB_EALG_NULL)
+-		esp->conf.tfm = crypto_alloc_tfm(x->ealg->alg_name, CRYPTO_TFM_MODE_ECB);
+-	else
+-		esp->conf.tfm = crypto_alloc_tfm(x->ealg->alg_name, CRYPTO_TFM_MODE_CBC);
+-	if (esp->conf.tfm == NULL)
++	tfm = crypto_alloc_blkcipher(x->ealg->alg_name, 0, CRYPTO_ALG_ASYNC);
++	if (IS_ERR(tfm))
+ 		goto error;
+-	esp->conf.ivlen = crypto_tfm_alg_ivsize(esp->conf.tfm);
++	esp->conf.tfm = tfm;
++	esp->conf.ivlen = crypto_blkcipher_ivsize(tfm);
+ 	esp->conf.padlen = 0;
+ 	if (esp->conf.ivlen) {
+ 		esp->conf.ivec = kmalloc(esp->conf.ivlen, GFP_KERNEL);
+@@ -341,7 +349,7 @@ static int esp6_init_state(struct xfrm_s
+ 			goto error;
+ 		get_random_bytes(esp->conf.ivec, esp->conf.ivlen);
  	}
+-	if (crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len))
++	if (crypto_blkcipher_setkey(tfm, esp->conf.key, esp->conf.key_len))
+ 		goto error;
+ 	x->props.header_len = sizeof(struct ipv6_esp_hdr) + esp->conf.ivlen;
+ 	if (x->props.mode)
+diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
+--- a/net/xfrm/xfrm_algo.c
++++ b/net/xfrm/xfrm_algo.c
+@@ -118,7 +118,8 @@ static struct xfrm_algo_desc aalg_list[]
  
--	if (tfm->crt_cipher.cit_setkey(tfm, cc->key, key_size) < 0) {
-+	if (crypto_blkcipher_setkey(tfm, cc->key, key_size) < 0) {
- 		ti->error = "Error setting key";
- 		goto bad5;
+ static struct xfrm_algo_desc ealg_list[] = {
+ {
+-	.name = "cipher_null",
++	.name = "ecb(cipher_null)",
++	.compat = "cipher_null",
+ 	
+ 	.uinfo = {
+ 		.encr = {
+@@ -135,7 +136,8 @@ static struct xfrm_algo_desc ealg_list[]
  	}
-@@ -675,7 +667,7 @@ bad3:
- 	if (cc->iv_gen_ops && cc->iv_gen_ops->dtr)
- 		cc->iv_gen_ops->dtr(cc);
- bad2:
--	crypto_free_tfm(tfm);
-+	crypto_free_blkcipher(tfm);
- bad1:
- 	/* Must zero key material before freeing */
- 	memset(cc, 0, sizeof(*cc) + cc->key_size * sizeof(u8));
-@@ -693,7 +685,7 @@ static void crypt_dtr(struct dm_target *
- 	kfree(cc->iv_mode);
- 	if (cc->iv_gen_ops && cc->iv_gen_ops->dtr)
- 		cc->iv_gen_ops->dtr(cc);
--	crypto_free_tfm(cc->tfm);
-+	crypto_free_blkcipher(cc->tfm);
- 	dm_put_device(ti, cc->dev);
+ },
+ {
+-	.name = "des",
++	.name = "cbc(des)",
++	.compat = "des",
  
- 	/* Must zero key material before freeing */
-@@ -858,18 +850,9 @@ static int crypt_status(struct dm_target
- 		break;
+ 	.uinfo = {
+ 		.encr = {
+@@ -152,7 +154,8 @@ static struct xfrm_algo_desc ealg_list[]
+ 	}
+ },
+ {
+-	.name = "des3_ede",
++	.name = "cbc(des3_ede)",
++	.compat = "des3_ede",
  
- 	case STATUSTYPE_TABLE:
--		cipher = crypto_tfm_alg_name(cc->tfm);
-+		cipher = crypto_blkcipher_name(cc->tfm);
+ 	.uinfo = {
+ 		.encr = {
+@@ -169,7 +172,8 @@ static struct xfrm_algo_desc ealg_list[]
+ 	}
+ },
+ {
+-	.name = "cast128",
++	.name = "cbc(cast128)",
++	.compat = "cast128",
  
--		switch(cc->tfm->crt_cipher.cit_mode) {
--		case CRYPTO_TFM_MODE_CBC:
--			chainmode = "cbc";
--			break;
--		case CRYPTO_TFM_MODE_ECB:
--			chainmode = "ecb";
--			break;
--		default:
--			BUG();
--		}
-+		chainmode = cc->chainmode;
+ 	.uinfo = {
+ 		.encr = {
+@@ -186,7 +190,8 @@ static struct xfrm_algo_desc ealg_list[]
+ 	}
+ },
+ {
+-	.name = "blowfish",
++	.name = "cbc(blowfish)",
++	.compat = "blowfish",
  
- 		if (cc->iv_mode)
- 			DMEMIT("%s-%s-%s ", cipher, chainmode, cc->iv_mode);
+ 	.uinfo = {
+ 		.encr = {
+@@ -203,7 +208,8 @@ static struct xfrm_algo_desc ealg_list[]
+ 	}
+ },
+ {
+-	.name = "aes",
++	.name = "cbc(aes)",
++	.compat = "aes",
+ 
+ 	.uinfo = {
+ 		.encr = {
+@@ -220,7 +226,8 @@ static struct xfrm_algo_desc ealg_list[]
+ 	}
+ },
+ {
+-        .name = "serpent",
++        .name = "cbc(serpent)",
++        .compat = "serpent",
+ 
+         .uinfo = {
+                 .encr = {
+@@ -237,7 +244,8 @@ static struct xfrm_algo_desc ealg_list[]
+         }
+ },
+ {
+-        .name = "twofish",
++        .name = "cbc(twofish)",
++        .compat = "twofish",
+                  
+         .uinfo = {
+                 .encr = {
