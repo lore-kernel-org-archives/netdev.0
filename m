@@ -1,35 +1,40 @@
-From: Nix <nix@esperi.org.uk>
-Subject: Re: [2.6.17.8] NFS stall / BUG in UDP fragment processing / SKB trimming
-Date: Sun, 13 Aug 2006 19:24:33 +0100
-Message-ID: <87wt9cqyse.fsf@hades.wkstn.nix>
-References: <87zme9fy94.fsf@hades.wkstn.nix>
-	<20060813125910.GA18463@gondor.apana.org.au>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] fix use after free in netlink_kernel_create()
+Date: Sun, 13 Aug 2006 20:49:06 +0200
+Message-ID: <44DF7422.2090904@trash.net>
+References: <20060813101535.GA8703@miraclelinux.com>	<44DF129A.6060607@trash.net> <20060813104405.a5c8db00.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, Greg KH <greg@kroah.com>,
-	linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Akinobu Mita <mita@miraclelinux.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 41-052.adsl.zetnet.co.uk ([194.247.41.52]:48914 "EHLO
-	mail.esperi.org.uk") by vger.kernel.org with ESMTP id S1750718AbWHMSZP
+Received: from stinky.trash.net ([213.144.137.162]:44240 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751340AbWHMSvL
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 14:25:15 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060813125910.GA18463@gondor.apana.org.au> (Herbert Xu's message of "Sun, 13 Aug 2006 22:59:11 +1000")
+	Sun, 13 Aug 2006 14:51:11 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060813104405.a5c8db00.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 13 Aug 2006, Herbert Xu suggested tentatively:
-> Oops, I missed this code path when I disallowed skb_trim from operating
-> on a paged skb.  This patch should fix the problem.
+Andrew Morton wrote:
+> On Sun, 13 Aug 2006 13:52:58 +0200
+> Patrick McHardy <kaber@trash.net> wrote:
 > 
-> Greg, we need this for 2.6.17 stable as well if Dave is OK with it.
+>>Quite a few users of netlink_kernel_create will panic when creating
+>>the socket fails (rtnetlink for example, which is always present),
+>>so you might as well call panic here directly.
 > 
-> [INET]: Use pskb_trim_unique when trimming paged unique skbs
-[...]
+> 
+> That's a bit lame.  Panicing at do_initcalls() time is OK (something is
+> seriously screwed anyway) but we usually try to handle the ENOMEM nicely if
+> it happens at modprobe-time.
 
-Yes, that seems to have fixed it. Thank you!
 
--- 
-`We're sysadmins. We deal with the inconceivable so often I can clearly 
- see the need to define levels of inconceivability.' --- Rik Steenwinkel
+The users I looked at can't be built as modules (rtnetlink, genetlink,
+audit subsystem), I'm not aware of any modules panicing on
+netlink_kernel_create failure. But all of netlink, genetlink and
+rtnetlink are always built-in when CONFIG_NET=y, so we might as well
+panic here.
+
