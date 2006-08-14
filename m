@@ -1,42 +1,58 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: network manager confused with bcm43xx-d80211?
-Date: Mon, 14 Aug 2006 07:46:51 -0400
-Message-ID: <1155556011.2885.3.camel@localhost.localdomain>
-References: <44E02F41.2060300@sipsolutions.net>
-	 <44E031D2.8070106@sipsolutions.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH 1/1] network memory allocator.
+Date: Mon, 14 Aug 2006 15:46:16 +0400
+Message-ID: <20060814114615.GA18321@2ka.mipt.ru>
+References: <20060814110359.GA27704@2ka.mipt.ru> <p73k65ba6l6.fsf@verdi.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mbuesch@freenet.de>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:41354 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1752008AbWHNLpk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 07:45:40 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <44E031D2.8070106@sipsolutions.net>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:23003 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1750727AbWHNLqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 07:46:34 -0400
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <p73k65ba6l6.fsf@verdi.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-08-14 at 10:18 +0200, Johannes Berg wrote:
-> For whatever reason, nm always thinks that my default wlan0 device is a 
-> *wired* device. I do wonder where the bug is, but couldn't pinpoint it 
-> yet, any ideas? mm version is 0.6.3. I'd have thought it would go by the 
-> presence of wireless extensions, but if so it uses some call to detect 
-> it that isn't implemented here...
+On Mon, Aug 14, 2006 at 01:40:21PM +0200, Andi Kleen (ak@suse.de) wrote:
+> Evgeniy Polyakov <johnpol@2ka.mipt.ru> writes:
+> 
+> > Design notes.
+> > Original idea was to store meta information used for allocation in an
+> > AVL tree [1], but since I found a way to use some "unused" fields in struct page,
+> > tree is unused in the allocator.
+> 
+> But there seems to be still an AVL tree in there?
 
-No, it asks HAL what the device type is actually.  HAL looks for the
-interface in /proc/net/wireless currently, and if it's not there, says
-the device is wired.  Run 'lshal', look for your wlan device, and see if
-info.capabilities includes 'net.80211'.
+Yep.
+Tree structure can be used for simpler memory addon/removal from
+hotplug, but I have not that in mind.
+It will be removed soon.
+ 
+> > Benchmarks with trivial epoll based web server showed noticeble (more
+> > than 40%) imrovements of the request rates (1600-1800 requests per
+> > second vs. more than 2300 ones). It can be described by more
+> > cache-friendly freeing algorithm, by tighter objects packing and thus
+> > reduced cache line ping-pongs, reduced lookups into higher-layer caches
+> > and so on.
+> 
+> So what are its drawbacks compared to slab/kmalloc? 
 
-So if the wlanX interface isn't in /proc/net/wireless, you lose.  I
-think we discussed this in the private rt2x00 thread about a month ago?
-Some patches came out of that one, specifically the SET_NETDEV_DEV ones
-for rt2x00 and d80211.  The problem with d80211 was that it didn't
-implement the get_wireless_stats() handler function, and that function
-(I think?) is the one that lets the wlanX device show up
-in /proc/net/wireless.
+Hmm... Bigger per-page overhead (additional bitmask of free/used
+objects). More complex algorithm behind freeing.
 
-Dan
+> Also if it really performs that much better it might be a good
+> idea to replace all of kmalloc() with it, but doing that
+> would require a lot more benchmarks with various workloads
+> and small and big machines first.
 
+First user can be MMU-less systems which suffer noticebly from
+fragmentations and power-of-two overhead.
 
+> -Andi
+
+-- 
+	Evgeniy Polyakov
