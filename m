@@ -1,65 +1,41 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: rename *MEMALLOC flags
-Date: Mon, 14 Aug 2006 13:42:20 +1000
-Message-ID: <44DFF11C.406@yahoo.com.au>
-References: <20060812141415.30842.78695.sendpatchset@lappy>	<20060812141445.30842.47336.sendpatchset@lappy>	<44DDE8B6.8000900@garzik.org>	<1155395201.13508.44.camel@lappy>	<44DFBEA3.5070305@google.com> <20060813180054.65201239.pj@sgi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Possible leak of multicast source filter sctructure
+Date: Sun, 13 Aug 2006 20:44:05 -0700 (PDT)
+Message-ID: <20060813.204405.28205494.davem@davemloft.net>
+References: <200608111004.k7BA4s6u009263@gateplz.comstar.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Phillips <phillips@google.com>, a.p.zijlstra@chello.nl,
-	jeff@garzik.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, indan@nul.nu, johnpol@2ka.mipt.ru,
-	riel@redhat.com, davem@davemloft.net
+Cc: dlstevens@us.ibm.com, kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.mail.mud.yahoo.com ([209.191.85.215]:18326 "HELO
-	smtp105.mail.mud.yahoo.com") by vger.kernel.org with SMTP
-	id S1751831AbWHNDni (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 23:43:38 -0400
-To: Paul Jackson <pj@sgi.com>
-In-Reply-To: <20060813180054.65201239.pj@sgi.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:47772
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751833AbWHNDnm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Aug 2006 23:43:42 -0400
+To: michal.ruzicka@comstar.cz
+In-Reply-To: <200608111004.k7BA4s6u009263@gateplz.comstar.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Paul Jackson wrote:
-> Daniel wrote:
-> 
->>Inventing a new name for an existing thing is very poor taste on grounds of
->>grepability alone.
-> 
-> 
-> I wouldn't say 'very poor taste' -- just something that should be
-> done infrequently, with good reason, and with reasonable concensus,
-> especially from the key maintainers in the affected area.
-> 
-> Good names are good taste, in my book.  But stable naming is good too.
-> 
-> I wonder what Nick thinks of this?  Looks like he added
-> __GFP_NOMEMALLOC a year ago, following the naming style of PF_MEMALLOC.
-> 
-> I added him to the cc list.
-> 
+From: "Michal Ruzicka" <michal.ruzicka@comstar.cz>
+Date: Fri, 11 Aug 2006 12:04:53 +0100
 
-__GFP_NOMEMALLOC was added to prevent mempool backed allocations from
-accessing the emergency reserve. Because that would just shift deadlocks
-from mempool "safe" sites to those which have not been converted.
+> You are absolutely right, I just failed to notice that -ENODEV return value
+> from ip_mc_del_src()/ip_mc_leave_src() is ignored.
+> Here comes the patch:
+ ...
+> >         Also, ip_mc_leave_group() has the same issue; looks
+> > like it just needs the "if (in_dev)" removed before the call to
+> > ip_mc_leave_src().
+> 
+> In fact it is a slightly different issue, there is no leak in this
+> function. Rather the function completely fails to leave a multicast
+> group joined on an interface that does not exist any more.
+ ...
+> Here comes a patch for that:
 
-PF_MEMALLOC is a good name: PF_MEMALLOC says that the task is currently
-allocating memory. It does not say anything about the actual allocator
-implementation details to handle this (1. don't recurse into reclaim; 2.
-allow access to reserves), but that is a good thing.
+Both of these fixes look fine to me.  David?
 
-__GFP_NOMEMALLOC and __GFP_MEMALLOC are poorly named (I take the blame).
-It isn't that the task is suddenly no longer allocating in the context
-of an allocation, it is just that you want to allow or deny access to
-the reserve.
-
-__GFP_NOMEMALLOC should be something like __GFP_EMERG_NEVER and
-__GFP_MEMALLOC should be _ALWAYS. Or something like that.
-
-NOMEMALLOC is specific enough that I don't mind a rename at this stage.
-Renaming PF_MEMALLOC would be wrong, however.
-
--- 
-SUSE Labs, Novell Inc.
-Send instant messages to your online friends http://au.messenger.yahoo.com 
-
+(Meanwhile, Michal, can I get a Signed-off-by: line from you for these
+ patches?  Thanks a lot.)
