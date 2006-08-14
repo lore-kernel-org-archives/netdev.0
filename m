@@ -1,41 +1,44 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: [PATCH 1/1] network memory allocator.
-Date: Mon, 14 Aug 2006 15:32:56 +0400
-Message-ID: <20060814113256.GB27132@2ka.mipt.ru>
-References: <20060814110359.GA27704@2ka.mipt.ru> <20060814.042206.85411651.davem@davemloft.net>
+Date: 14 Aug 2006 13:40:21 +0200
+Message-ID: <p73k65ba6l6.fsf@verdi.suse.de>
+References: <20060814110359.GA27704@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	linux-mm@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:24793 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1752001AbWHNLdV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 07:33:21 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060814.042206.85411651.davem@davemloft.net>
+Received: from cantor.suse.de ([195.135.220.2]:35250 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S1752007AbWHNLkX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 07:40:23 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060814110359.GA27704@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 14, 2006 at 04:22:06AM -0700, David Miller (davem@davemloft.net) wrote:
-> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-> Date: Mon, 14 Aug 2006 15:04:03 +0400
-> 
-> >  	/* These elements must be at the end, see alloc_skb() for details.  */
-> > -	unsigned int		truesize;
-> > +	unsigned int		truesize, __tsize;
-> 
-> There is no real need for new member.
-> 
-> > -		kfree(skb->head);
-> > +		avl_free(skb->head, skb->__tsize);
-> 
-> Just use "skb->end - skb->head + sizeof(struct skb_shared_info)"
-> as the size argument.
-> 
-> Then, there is no reason for skb->__tsize :-)
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> writes:
 
-Oh, my fault - that simple calculation dropped out of my head...
+> Design notes.
+> Original idea was to store meta information used for allocation in an
+> AVL tree [1], but since I found a way to use some "unused" fields in struct page,
+> tree is unused in the allocator.
 
--- 
-	Evgeniy Polyakov
+But there seems to be still an AVL tree in there?
+
+
+> Benchmarks with trivial epoll based web server showed noticeble (more
+> than 40%) imrovements of the request rates (1600-1800 requests per
+> second vs. more than 2300 ones). It can be described by more
+> cache-friendly freeing algorithm, by tighter objects packing and thus
+> reduced cache line ping-pongs, reduced lookups into higher-layer caches
+> and so on.
+
+So what are its drawbacks compared to slab/kmalloc? 
+
+Also if it really performs that much better it might be a good
+idea to replace all of kmalloc() with it, but doing that
+would require a lot more benchmarks with various workloads
+and small and big machines first.
+
+-Andi
+
