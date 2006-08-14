@@ -1,39 +1,52 @@
-From: "Vince Porter" <camelliademolition@accountant.com>
-Subject: Tonight youll prove your volume
-Date: Mon, 14 Aug 2006 10:11:57 -0700
-Message-ID: <48105077177487.E1A80180A9@PCLV>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH 1/1] network memory allocator.
+Date: Mon, 14 Aug 2006 10:42:55 -0700
+Message-ID: <44E0B61F.3000706@hp.com>
+References: <20060814110359.GA27704@2ka.mipt.ru>	<9286.1155557268@ocs10w.ocs.com.au> <20060814122049.GC18321@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="Windows-1252"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: Keith Owens <kaos@ocs.com.au>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus1.kernel.org ([204.152.191.4]:27825 "EHLO zeus1.kernel.org")
-	by vger.kernel.org with ESMTP id S932437AbWHNRKV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 13:10:21 -0400
-To: <newbie@vger.kernel.org>
+Received: from palrel11.hp.com ([156.153.255.246]:37089 "EHLO palrel11.hp.com")
+	by vger.kernel.org with ESMTP id S932321AbWHNRnC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 13:43:02 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060814122049.GC18321@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Happy day!
+Evgeniy Polyakov wrote:
+> On Mon, Aug 14, 2006 at 10:07:48PM +1000, Keith Owens (kaos@ocs.com.au) wrote:
+> 
+>>Evgeniy Polyakov (on Mon, 14 Aug 2006 15:04:03 +0400) wrote:
+>>
+>>>Network tree allocator can be used to allocate memory for all network
+>>>operations from any context....
+>>>...
+>>>Design of allocator allows to map all node's pages into userspace thus
+>>>allows to have true zero-copy support for both sending and receiving
+>>>dataflows.
+>>
+>>Is that true for architectures with virtually indexed caches?  How do
+>>you avoid the cache aliasing problems?
+> 
+> 
+> Pages are preallocated and stolen from main memory allocator, what is
+> the problem with that caches? Userspace can provide enough offset so
+> that pages would not create aliases - it is usuall mmap.
 
+That may depend heavily on the architecture.  PA-RISC has the concept of 
+spaceid's, and bits from the spaceid can be included in the hash along 
+with bits from the offset.  So, it is not possible to simply match the 
+offset, one has to make sure that hash bits from the spaceid hash the 
+same as well.
 
-Let’s make our ejaculation like steel Have you ever wished to have more intense final? Buy this product now and all women will be yours 
+Now, PA-RISC CPUs have the ability to disable spaceid hashing, and it is 
+entirely possible that the PA-RISC linux port does that, but I thought I 
+would mention it as an example.  I'm sure the "official" PA-RISC linux 
+folks can expand on that much much better than I can.
 
-
-You may find what you need here: http://nedsareas.com/gal/gsm/ 
-
-
-Now you have chance to do it
-
-
-
-Vince Porter
-
-
-Life is like a drawing pin - sharp at one end, and flat at the otherEvery body wants to go to heaven but nobody wants to die
-
-  Actions speak louder than words.There will be rubs in the smoothest road
- Aaah, a man who runs through airport swing-doors is going to Bangkok.
-
-
-
+rick jones
