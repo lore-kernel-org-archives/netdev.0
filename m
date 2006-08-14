@@ -1,32 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: skb_shared_info()
-Date: Mon, 14 Aug 2006 17:50:45 +1000
-Message-ID: <20060814075045.GA1437@gondor.apana.org.au>
-References: <20060808.163915.03600382.davem@davemloft.net> <200608140704.01533.ak@suse.de> <20060814072903.GA14138@gondor.apana.org.au> <200608140945.53713.ak@suse.de>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH wireless-dev] d80211: switch status codes, reason codes,
+ and EIDs to enums
+Date: Mon, 14 Aug 2006 09:54:18 +0200
+Message-ID: <44E02C2A.2010701@sipsolutions.net>
+References: <200608131243.51185.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	johnpol@2ka.mipt.ru
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org,
+	Jiri Benc <jbenc@suse.cz>, Jouni Malinen <jkm@devicescape.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:526 "EHLO arnor.apana.org.au")
-	by vger.kernel.org with ESMTP id S1751920AbWHNHu5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 03:50:57 -0400
-To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <200608140945.53713.ak@suse.de>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:45020 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751923AbWHNHzV
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Aug 2006 03:55:21 -0400
+To: Michael Wu <flamingice@sourmilk.net>
+In-Reply-To: <200608131243.51185.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 14, 2006 at 09:45:53AM +0200, Andi Kleen wrote:
-> 
-> Even for 1.5k MTU? (which is still the most common case after all)
+Michael Wu wrote:
+> +	WLAN_EID_QUIET = 40,
+>   
+I was about to send a patch fixing this as well :)
+> +	WLAN_EID_IBSS_DFS = 41,
+>  /* EIDs defined as part fo 11h - ends */
+Care to fix the two occurrences of this typo in a respun patch? (should 
+be 'of' instead of 'fo')
+If you can't easily recreate that patch I'll send one after this goes in.
 
-Ideally they would stay in kmalloc memory.  Could you explain the cache
-colouring problem for 1500-byte packets?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+johannes
