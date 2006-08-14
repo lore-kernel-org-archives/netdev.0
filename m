@@ -1,123 +1,269 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.18-rc4-mm1: eth0: trigger_send() called with the transmitter busy
-Date: Mon, 14 Aug 2006 23:25:59 +0200
-Message-ID: <200608142325.59054.rjw@sisk.pl>
-References: <20060813012454.f1d52189.akpm@osdl.org> <44E0B72C.6010503@free.fr> <44E0D7C1.7040509@free.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@osdl.org>,
-	Kernel development list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [RFC 1/7] net neighbor: convert top level list to RCU
+Date: Mon, 14 Aug 2006 14:20:05 -0700
+Message-ID: <20060814212142.992058651@localhost.localdomain>
+References: <20060814212004.606140865@localhost.localdomain>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:30623 "EHLO ogre.sisk.pl")
-	by vger.kernel.org with ESMTP id S964936AbWHNVWG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 17:22:06 -0400
-To: Laurent Riffard <laurent.riffard@free.fr>
-In-Reply-To: <44E0D7C1.7040509@free.fr>
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:58345 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S964964AbWHNVYZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 17:24:25 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline; filename=neigh-top-lock.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 14 August 2006 22:06, Laurent Riffard wrote:
-> Le 14.08.2006 19:47, Laurent Riffard a =E9crit :
-> > Le 14.08.2006 18:50, Andrew Morton a =E9crit :
-> >> On Mon, 14 Aug 2006 16:38:47 +0200
-> >> Laurent Riffard <laurent.riffard@free.fr> wrote:
-> >>
-> >>> Le 13.08.2006 10:24, Andrew Morton a __crit :
-> >>>> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.=
-6.18-rc4/2.6.18-rc4-mm1/
-> >>> Hello,
-> >>>
-> >>> This morning, while trying to suspend to disk, my box started to =
-loop=20
-> >>> displaying the following message:
-> >>> eth0: trigger_send() called with the transmitter busy.
-> >>>
-> >>> Here is the scenario. I booted 2.6.18-rc4-mm1 with this command l=
-ine:
-> >>> root=3D/dev/vglinux1/lvroot video=3Dvesafb:ywrap,mtrr splash=3Dsi=
-lent resume=3D/dev/hdb7 netconsole=3D@192.163.0.3/,@192.168.0.1/00:0E:9=
-B:91:ED:72 init 1
-> >>>
-> >>> Then I issued:
-> >>> # echo 6 > /proc/sys/kernel/printk
-> >>> # echo disk > /sys/power/state
-> >> ne2k isn't <ahem> the most actively-maintained driver.
-> >>
-> >> But most (I think all) net drivers have problems during suspend wh=
-en
-> >> netconsole is active.  Does disabling netconsole help?
-> >=20
-> > Yes it does.=20
-> > =20
-> >> Did this operation work OK in earlier kernels, with netconsole ena=
-bled?
-> >=20
-> > It's the first time I see such a message. I can't speak for 2.6.18-=
-rc3-mm2=20
-> > because it could not suspend at all (did hang right after=20
-> > "echo disk > /sys/power/state"), but it worked in earlier kernels.
-> >=20
-> > I'll try with plain 2.6.18-rc4.
->=20
-> Same problem with 2.6.18-rc4.
+Change the top level list of neighbor tables to use RCU.
+Minor change to BUG() if a neighbor table is registered twice.
 
-I think something like this will help (untested):
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
- kernel/power/disk.c |    7 +++++++
- 1 files changed, 7 insertions(+)
+---
+ include/net/neighbour.h |    2 -
+ net/core/neighbour.c    |   89 ++++++++++++++++++++++--------------------------
+ 2 files changed, 42 insertions(+), 49 deletions(-)
 
-Index: linux-2.6.18-rc4-mm1/kernel/power/disk.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- linux-2.6.18-rc4-mm1.orig/kernel/power/disk.c
-+++ linux-2.6.18-rc4-mm1/kernel/power/disk.c
-@@ -119,8 +119,10 @@ int pm_suspend_disk(void)
- 	if (error)
- 		return error;
-=20
-+	suspend_console();
- 	error =3D device_suspend(PMSG_FREEZE);
- 	if (error) {
-+		resume_console();
- 		printk("Some devices failed to suspend\n");
- 		unprepare_processes();
- 		return error;
-@@ -133,6 +135,7 @@ int pm_suspend_disk(void)
-=20
- 	if (in_suspend) {
- 		device_resume();
-+		resume_console();
- 		pr_debug("PM: writing image.\n");
- 		error =3D swsusp_write();
- 		if (!error)
-@@ -148,6 +151,7 @@ int pm_suspend_disk(void)
- 	swsusp_free();
-  Done:
- 	device_resume();
-+	resume_console();
- 	unprepare_processes();
- 	return error;
+--- net-2.6.19.orig/net/core/neighbour.c
++++ net-2.6.19/net/core/neighbour.c
+@@ -61,7 +61,7 @@ static void neigh_app_notify(struct neig
+ static int pneigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
+ void neigh_changeaddr(struct neigh_table *tbl, struct net_device *dev);
+ 
+-static struct neigh_table *neigh_tables;
++static LIST_HEAD(neigh_tables);
+ #ifdef CONFIG_PROC_FS
+ static struct file_operations neigh_stat_seq_fops;
+ #endif
+@@ -93,11 +93,11 @@ static struct file_operations neigh_stat
+    It is supposed, that dev->hard_header is simplistic and does
+    not make callbacks to neighbour tables.
+ 
+-   The last lock is neigh_tbl_lock. It is pure SMP lock, protecting
+-   list of neighbour tables. This list is used only in process context,
++   The last lock is neigh_tbl_lock. It controls update to the
++   set of neighbor tables. Typically used during initialization
+  */
+ 
+-static DEFINE_RWLOCK(neigh_tbl_lock);
++static DEFINE_SPINLOCK(neigh_tbl_lock);
+ 
+ static int neigh_blackhole(struct sk_buff *skb)
+ {
+@@ -1391,26 +1391,18 @@ void neigh_table_init(struct neigh_table
+ 	struct neigh_table *tmp;
+ 
+ 	neigh_table_init_no_netlink(tbl);
+-	write_lock(&neigh_tbl_lock);
+-	for (tmp = neigh_tables; tmp; tmp = tmp->next) {
+-		if (tmp->family == tbl->family)
+-			break;
+-	}
+-	tbl->next	= neigh_tables;
+-	neigh_tables	= tbl;
+-	write_unlock(&neigh_tbl_lock);
+-
+-	if (unlikely(tmp)) {
+-		printk(KERN_ERR "NEIGH: Registering multiple tables for "
+-		       "family %d\n", tbl->family);
+-		dump_stack();
++
++	spin_lock(&neigh_tbl_lock);
++	list_for_each_entry(tmp, &neigh_tables, list) {
++		BUG_ON(tmp->family == tbl->family);
+ 	}
++
++	list_add_rcu(&tbl->list, &neigh_tables);
++	spin_unlock(&neigh_tbl_lock);
  }
-@@ -212,7 +216,9 @@ static int software_resume(void)
-=20
- 	pr_debug("PM: Preparing devices for restore.\n");
-=20
-+	suspend_console();
- 	if ((error =3D device_suspend(PMSG_PRETHAW))) {
-+		resume_console();
- 		printk("Some devices failed to suspend\n");
- 		swsusp_free();
- 		goto Thaw;
-@@ -224,6 +230,7 @@ static int software_resume(void)
- 	swsusp_resume();
- 	pr_debug("PM: Restore failed, recovering.n");
- 	device_resume();
-+	resume_console();
-  Thaw:
- 	unprepare_processes();
-  Done:
+ 
+ int neigh_table_clear(struct neigh_table *tbl)
+ {
+-	struct neigh_table **tp;
+-
+ 	/* It is not clean... Fix it to unload IPv6 module safely */
+ 	del_timer_sync(&tbl->gc_timer);
+ 	del_timer_sync(&tbl->proxy_timer);
+@@ -1418,14 +1410,12 @@ int neigh_table_clear(struct neigh_table
+ 	neigh_ifdown(tbl, NULL);
+ 	if (atomic_read(&tbl->entries))
+ 		printk(KERN_CRIT "neighbour leakage\n");
+-	write_lock(&neigh_tbl_lock);
+-	for (tp = &neigh_tables; *tp; tp = &(*tp)->next) {
+-		if (*tp == tbl) {
+-			*tp = tbl->next;
+-			break;
+-		}
+-	}
+-	write_unlock(&neigh_tbl_lock);
++
++	spin_lock(&neigh_tbl_lock);
++	list_del_rcu(&tbl->list);
++	spin_unlock(&neigh_tbl_lock);
++
++	synchronize_rcu();
+ 
+ 	neigh_hash_free(tbl->hash_buckets, tbl->hash_mask + 1);
+ 	tbl->hash_buckets = NULL;
+@@ -1460,13 +1450,12 @@ int neigh_delete(struct sk_buff *skb, st
+ 		}
+ 	}
+ 
+-	read_lock(&neigh_tbl_lock);
+-	for (tbl = neigh_tables; tbl; tbl = tbl->next) {
++	rcu_read_lock();
++	list_for_each_entry_rcu(tbl, &neigh_tables, list) {
+ 		struct neighbour *neigh;
+ 
+ 		if (tbl->family != ndm->ndm_family)
+ 			continue;
+-		read_unlock(&neigh_tbl_lock);
+ 
+ 		if (nla_len(dst_attr) < tbl->key_len)
+ 			goto out_dev_put;
+@@ -1491,12 +1480,12 @@ int neigh_delete(struct sk_buff *skb, st
+ 		neigh_release(neigh);
+ 		goto out_dev_put;
+ 	}
+-	read_unlock(&neigh_tbl_lock);
+ 	err = -EAFNOSUPPORT;
+ 
+ out_dev_put:
+ 	if (dev)
+ 		dev_put(dev);
++	rcu_read_unlock();
+ out:
+ 	return err;
+ }
+@@ -1529,15 +1518,14 @@ int neigh_add(struct sk_buff *skb, struc
+ 			goto out_dev_put;
+ 	}
+ 
+-	read_lock(&neigh_tbl_lock);
+-	for (tbl = neigh_tables; tbl; tbl = tbl->next) {
++	rcu_read_lock();
++	list_for_each_entry_rcu(tbl, &neigh_tables, list) {
+ 		int flags = NEIGH_UPDATE_F_ADMIN | NEIGH_UPDATE_F_OVERRIDE;
+ 		struct neighbour *neigh;
+ 		void *dst, *lladdr;
+ 
+ 		if (tbl->family != ndm->ndm_family)
+ 			continue;
+-		read_unlock(&neigh_tbl_lock);
+ 
+ 		if (nla_len(tb[NDA_DST]) < tbl->key_len)
+ 			goto out_dev_put;
+@@ -1582,12 +1570,12 @@ int neigh_add(struct sk_buff *skb, struc
+ 		goto out_dev_put;
+ 	}
+ 
+-	read_unlock(&neigh_tbl_lock);
+ 	err = -EAFNOSUPPORT;
+ 
+ out_dev_put:
+ 	if (dev)
+ 		dev_put(dev);
++	rcu_read_unlock();
+ out:
+ 	return err;
+ }
+@@ -1792,8 +1780,8 @@ int neightbl_set(struct sk_buff *skb, st
+ 	}
+ 
+ 	ndtmsg = nlmsg_data(nlh);
+-	read_lock(&neigh_tbl_lock);
+-	for (tbl = neigh_tables; tbl; tbl = tbl->next) {
++	rcu_read_lock();
++	list_for_each_entry_rcu(tbl, &neigh_tables, list) {
+ 		if (ndtmsg->ndtm_family && tbl->family != ndtmsg->ndtm_family)
+ 			continue;
+ 
+@@ -1893,26 +1881,26 @@ int neightbl_set(struct sk_buff *skb, st
+ errout_tbl_lock:
+ 	write_unlock_bh(&tbl->lock);
+ errout_locked:
+-	read_unlock(&neigh_tbl_lock);
++	rcu_read_unlock();
+ errout:
+ 	return err;
+ }
+ 
+ int neightbl_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+-	int family, tidx, nidx = 0;
++	int family, tidx = 0, nidx = 0;
+ 	int tbl_skip = cb->args[0];
+ 	int neigh_skip = cb->args[1];
+ 	struct neigh_table *tbl;
+ 
+ 	family = ((struct rtgenmsg *) nlmsg_data(cb->nlh))->rtgen_family;
+ 
+-	read_lock(&neigh_tbl_lock);
+-	for (tbl = neigh_tables, tidx = 0; tbl; tbl = tbl->next, tidx++) {
++	rcu_read_lock();
++	list_for_each_entry_rcu(tbl, &neigh_tables, list) {
+ 		struct neigh_parms *p;
+ 
+ 		if (tidx < tbl_skip || (family && tbl->family != family))
+-			continue;
++			goto next_tbl;
+ 
+ 		if (neightbl_fill_info(skb, tbl, NETLINK_CB(cb->skb).pid,
+ 				       cb->nlh->nlmsg_seq, RTM_NEWNEIGHTBL,
+@@ -1932,9 +1920,11 @@ int neightbl_dump_info(struct sk_buff *s
+ 		}
+ 
+ 		neigh_skip = 0;
++next_tbl:
++		++tidx;
+ 	}
+ out:
+-	read_unlock(&neigh_tbl_lock);
++	rcu_read_unlock();
+ 	cb->args[0] = tidx;
+ 	cb->args[1] = nidx;
+ 
+@@ -2024,22 +2014,25 @@ out:
+ int neigh_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	struct neigh_table *tbl;
+-	int t, family, s_t;
++	int t = 0, family, s_t;
++
+ 
+-	read_lock(&neigh_tbl_lock);
+ 	family = ((struct rtgenmsg *) nlmsg_data(cb->nlh))->rtgen_family;
+ 	s_t = cb->args[0];
+ 
+-	for (tbl = neigh_tables, t = 0; tbl; tbl = tbl->next, t++) {
++	rcu_read_lock();
++	list_for_each_entry_rcu(tbl, &neigh_tables, list) {
+ 		if (t < s_t || (family && tbl->family != family))
+-			continue;
++			goto next;
+ 		if (t > s_t)
+ 			memset(&cb->args[1], 0, sizeof(cb->args) -
+ 						sizeof(cb->args[0]));
+ 		if (neigh_dump_table(tbl, skb, cb) < 0)
+ 			break;
++next:
++		++t;
+ 	}
+-	read_unlock(&neigh_tbl_lock);
++	rcu_read_unlock();
+ 
+ 	cb->args[0] = t;
+ 	return skb->len;
+--- net-2.6.19.orig/include/net/neighbour.h
++++ net-2.6.19/include/net/neighbour.h
+@@ -136,7 +136,7 @@ struct pneigh_entry
+ 
+ struct neigh_table
+ {
+-	struct neigh_table	*next;
++	struct list_head	list;
+ 	int			family;
+ 	int			entry_size;
+ 	int			key_len;
+
+--
+
