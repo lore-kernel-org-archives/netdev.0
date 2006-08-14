@@ -1,34 +1,34 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/3] myri10ge: allow to disable link status change reporting
-Date: Mon, 14 Aug 2006 18:02:30 -0400
-Message-ID: <44E0F2F6.7020403@garzik.org>
-References: <44E0DA08.9080304@myri.com> <44E0F0C1.8000408@myri.com>
+Subject: Re: [PATCH 0/3] myri10ge update
+Date: Mon, 14 Aug 2006 18:03:45 -0400
+Message-ID: <44E0F341.1090907@garzik.org>
+References: <44E0F0A1.2000104@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:62884 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S964986AbWHNWCd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 18:02:33 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:933 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S964999AbWHNWDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 18:03:47 -0400
 To: Brice Goglin <brice@myri.com>
-In-Reply-To: <44E0F0C1.8000408@myri.com>
+In-Reply-To: <44E0F0A1.2000104@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Brice Goglin wrote:
-> Add myri10ge_verbose module parameter to disable reporting of
-> link status change since some Ethernet switches seem to generate
-> a lot of status changes under some circumstances and some people
-> want to avoid useless flooding in the logs.
+> Hi,
 > 
-> Also add a counter for link status changes to statistics.
+> Here's 3 new minor updates for the myri10ge driver:
 > 
-> Signed-off-by: Brice Goglin <brice@myri.com>
+> 1) define some previously hardwired firmware constants
+> 2) allow to disable link status change reporting
+> 3) convert to netdev_alloc_skb
 
-NAK - use the standard netif_msg_xxx and the msg_enable style variable 
-found in many drivers.  No need for a module parameter, ethtool already 
-covers this type of need.
+Patches 1 and 3 look OK.  They are cleanups, and will need to go into 
+#upstream (2.6.19) rather than #upstream-fixes (2.6.18-rc).
+
+Should I go ahead and attempt to apply 1 and 3, or wait?
 
 	Jeff
 
