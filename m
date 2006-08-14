@@ -1,61 +1,39 @@
-From: Arnd Bergmann <arnd.bergmann@de.ibm.com>
-Subject: Re: [PATCH 1/6] ehea: interface to network stack
-Date: Mon, 14 Aug 2006 18:59:47 +0200
-Message-ID: <200608141859.48868.arnd.bergmann@de.ibm.com>
-References: <44D99EFC.3000105@de.ibm.com> <20060814143842.GM479@krispykreme>
-	<44E09A19.9050205@de.ibm.com>
+From: "Vince Porter" <camelliademolition@accountant.com>
+Subject: Tonight youll prove your volume
+Date: Mon, 14 Aug 2006 10:11:57 -0700
+Message-ID: <48105077177487.E1A80180A9@PCLV>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+        charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Klein <tklein@de.ibm.com>, netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>, Anton Blanchard <anton@samba.org>,
-	=?iso-8859-1?q?J=F6rn_Engel?= <joern@wohnheim.fh-wedel.de>,
-	Marcus Eder <meder@de.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: linuxppc-dev@ozlabs.org
-In-Reply-To: <44E09A19.9050205@de.ibm.com>
-Content-Disposition: inline
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeus1.kernel.org ([204.152.191.4]:27825 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S932437AbWHNRKV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 13:10:21 -0400
+To: <newbie@vger.kernel.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 14 August 2006 17:43, Jan-Bernd Themann wrote:
-> as our queue size is always a power of 2, we simply use:
-> i++;
-> i &= (ringbufferlength - 1)
-> 
-> So we can get along without the if.
-> 
+Happy day!
 
-The recommended (by Linus) way for dealing with ring buffers
-like that is to always read the counter through an accessor
-and don't care about the overflow when updating it.
 
-You can write small access functions for that:
+Let’s make our ejaculation like steel Have you ever wished to have more intense final? Buy this product now and all women will be yours 
 
-struct my_struct {
-	...
-	unsigned rbuf_index;
-	unsigned rbuf_mask;
-	...
-};
 
-static inline unsigned int my_index(struct my_struct *p)
-{
-	return p->rb_index & p->rb_mask;
-}
+You may find what you need here: http://nedsareas.com/gal/gsm/ 
 
-static inline unsigned int my_index_next(struct my_struct *p)
-{
-	return (++p->rb_index) & p->rb_mask;
-}
 
-	Arnd <><
+Now you have chance to do it
+
+
+
+Vince Porter
+
+
+Life is like a drawing pin - sharp at one end, and flat at the otherEvery body wants to go to heaven but nobody wants to die
+
+  Actions speak louder than words.There will be rubs in the smoothest road
+ Aaah, a man who runs through airport swing-doors is going to Bangkok.
+
+
+
