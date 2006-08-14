@@ -1,65 +1,18 @@
-From: "Mrs.Teressa Stevens." <sealed@kaixo.com>
-Subject: Mrs Teressa Stevens.
-Date: Mon, 14 Aug 2006 16:15:54 +0200
-Message-ID: <1155564954.44e0859ad8588@imp6-g19.free.fr>
-Reply-To: mrs_teressastevens@myway.com
+From: "Preston" <calciumcohn@mindless.com>
+Subject: Just take this and become a real man!
+Date: Mon, 14 Aug 2006 10:14:53 -0400
+Message-ID: <12506641762720.93FEADEF35@VH0K5>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain;
+        charset="Windows-1252"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3-g19.free.fr ([212.27.42.29]:40663 "EHLO smtp3-g19.free.fr")
-	by vger.kernel.org with ESMTP id S932202AbWHNOQB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 10:16:01 -0400
-To: undisclosed-recipients:;
+Received: from pool-72-64-33-169.nrflva.east.verizon.net ([72.64.33.169]:56006
+	"EHLO REX") by vger.kernel.org with ESMTP id S932250AbWHNOQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 10:16:25 -0400
+To: <newbie@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-My Dear Friend in the Lord,
-
-In a brief, I am Mrs Teressa Stevens, Wife of late Mr Stevens James, a white
-farmer, murdered by unknown assailants 2003 in Zimbabwe.
-
-My husband was a white farmer in Zimbabwe who was brutally murdered in the land
-dispute in Zimbabwe by the agents of the ruling government of President ROBERT
-MUGABE for his alleged support and sympathy for the opposition MDC PARTY led by
-the minority white farmers. My husband was among the few white rich farmers
-murdered in cold blood by the war veterans backed by the government. Before the
-death of my husband, he deposit the sum of US$20.5M (Twenty Million Five hundred
-thousand United State Dollars) with one of the Financial Institution, as if he
-knew the looming danger in ZIMBABWE. We were married for twelve years and God
-blessed us with two children.
-
-Presently this money is still with the Financial Institution. Recently, my
-Doctor told me that I might not last for the next Eight months due to an
-inflammation of my liver. This has led to my being on 24 hours intensive care,
-in a private clinic here in Cotonou Rep. of Benin. I am tired of living like
-this.
-
-I have decided to donate part of this fund to an individual, group or a charity
-organisation that will utilize this money the way I am going to instruct herein
-while half of the money shall be kept for the betterment of my children. I want
-an individual, or Charity Organisation that will use this fund for orphanages,
-widows, and helping land mine victims worldwide.
-
-I took this decision because my husband's relatives are Trouble Makers and I
-don't want my husband's efforts to be used for trivialities I do not want a
-situation where my husband's sweat will be used in material pursuits. This is
-why I am taking this decision.
-
-As soon as I receive your reply I shall give you the contact name of my lawyer,
-telephone number and email address who will issue you a letter of authority
-that will prove you the present beneficiary of this fund.
-
-Please ensure to contact me immediately to enable me direct you to my lawyer.
-
-Any delay in your reply will give me room in sourcing another person for this
-same purpose. Please assure me that you will act accordingly as I stated
-herein.
-
-Hope to receive your reply.
-
-Remain blessed.
-
-Yours Sister,
-Mrs Teressa Stevens.
+Hello! Go and tell her you're not among those who try to combat this for years. >From 5 to 10 minutes of extra time and more - now real with Extra-Time. Have your partners ever told you they would like you to finish later? Chances are they did. Come in here: http://selmir.com/gal/get/ Get the courage and performance you need to be the best man of her life.
 
