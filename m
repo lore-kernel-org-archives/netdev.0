@@ -1,26 +1,65 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: wlan#ap seems bogus
-Date: Mon, 14 Aug 2006 16:04:10 +0200
-Message-ID: <44E082DA.8070606@sipsolutions.net>
-References: <44E02F41.2060300@sipsolutions.net> <44E032CA.4040107@sipsolutions.net>
+From: "Mrs.Teressa Stevens." <sealed@kaixo.com>
+Subject: Mrs Teressa Stevens.
+Date: Mon, 14 Aug 2006 16:15:54 +0200
+Message-ID: <1155564954.44e0859ad8588@imp6-g19.free.fr>
+Reply-To: mrs_teressastevens@myway.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jouni Malinen <jkm@devicescape.com>, Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:63621 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751580AbWHNOEO
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 10:04:14 -0400
-To: netdev@vger.kernel.org
-In-Reply-To: <44E032CA.4040107@sipsolutions.net>
+Received: from smtp3-g19.free.fr ([212.27.42.29]:40663 "EHLO smtp3-g19.free.fr")
+	by vger.kernel.org with ESMTP id S932202AbWHNOQB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 10:16:01 -0400
+To: undisclosed-recipients:;
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Johannes Berg wrote:
-> Hence, I think it ought to be named 'wlan#mgmt' instead.
+My Dear Friend in the Lord,
 
-I see it's actually called wmgmt# now. Sorry. The rest of this mail 
-still holds though.
+In a brief, I am Mrs Teressa Stevens, Wife of late Mr Stevens James, a white
+farmer, murdered by unknown assailants 2003 in Zimbabwe.
 
-johannes
+My husband was a white farmer in Zimbabwe who was brutally murdered in the land
+dispute in Zimbabwe by the agents of the ruling government of President ROBERT
+MUGABE for his alleged support and sympathy for the opposition MDC PARTY led by
+the minority white farmers. My husband was among the few white rich farmers
+murdered in cold blood by the war veterans backed by the government. Before the
+death of my husband, he deposit the sum of US$20.5M (Twenty Million Five hundred
+thousand United State Dollars) with one of the Financial Institution, as if he
+knew the looming danger in ZIMBABWE. We were married for twelve years and God
+blessed us with two children.
+
+Presently this money is still with the Financial Institution. Recently, my
+Doctor told me that I might not last for the next Eight months due to an
+inflammation of my liver. This has led to my being on 24 hours intensive care,
+in a private clinic here in Cotonou Rep. of Benin. I am tired of living like
+this.
+
+I have decided to donate part of this fund to an individual, group or a charity
+organisation that will utilize this money the way I am going to instruct herein
+while half of the money shall be kept for the betterment of my children. I want
+an individual, or Charity Organisation that will use this fund for orphanages,
+widows, and helping land mine victims worldwide.
+
+I took this decision because my husband's relatives are Trouble Makers and I
+don't want my husband's efforts to be used for trivialities I do not want a
+situation where my husband's sweat will be used in material pursuits. This is
+why I am taking this decision.
+
+As soon as I receive your reply I shall give you the contact name of my lawyer,
+telephone number and email address who will issue you a letter of authority
+that will prove you the present beneficiary of this fund.
+
+Please ensure to contact me immediately to enable me direct you to my lawyer.
+
+Any delay in your reply will give me room in sourcing another person for this
+same purpose. Please assure me that you will act accordingly as I stated
+herein.
+
+Hope to receive your reply.
+
+Remain blessed.
+
+Yours Sister,
+Mrs Teressa Stevens.
+
