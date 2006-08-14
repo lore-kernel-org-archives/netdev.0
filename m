@@ -1,39 +1,47 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH 1/1] network memory allocator.
-Date: Mon, 14 Aug 2006 16:38:58 +0400
-Message-ID: <20060814123858.GA16954@2ka.mipt.ru>
-References: <20060814110359.GA27704@2ka.mipt.ru> <1155558313.5696.167.camel@twins> <20060814123530.GA5019@2ka.mipt.ru>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: network manager confused with bcm43xx-d80211?
+Date: Mon, 14 Aug 2006 07:48:22 -0500
+Message-ID: <44E07116.6060208@lwfinger.net>
+References: <44E02F41.2060300@sipsolutions.net> <44E031D2.8070106@sipsolutions.net> <1155556011.2885.3.camel@localhost.localdomain> <44E06C8B.1040400@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dan Williams <dcbw@redhat.com>,
+	Michael Buesch <mbuesch@freenet.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:33946 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1752033AbWHNMjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 08:39:22 -0400
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Content-Disposition: inline
-In-Reply-To: <20060814123530.GA5019@2ka.mipt.ru>
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:61395 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1750716AbWHNMsW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Aug 2006 08:48:22 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <44E06C8B.1040400@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 14, 2006 at 04:35:30PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > I'm still not clear on how you want to do this, only the trivial case of
-> > a sniffer was mentioned by you. To be able to do true zero-copy receive
-> > each packet will have to have its own page(s). Simply because you do not
-> > know the destination before you receive it, the packet could end up
-> > going to a whole different socket that the prev/next. As soon as you
-> > start packing multiple packets on 1 page, you've lost the zero-copy
-> > receive game.
-> 
-> Userspace can sak for next packet and pointer to the new location will
-> be removed.
+Johannes Berg wrote:
+> Dan Williams wrote:
+> Yeah, I noticed it wasn't in /proc/net/wireless. Should've tipped me off 
+> I guess. And I probably also should've thought that nm would ask HAL. 
+> Looks like I wasn't really on track when I wrote this yesterday ;)
+>> So if the wlanX interface isn't in /proc/net/wireless, you lose.  I
+>> think we discussed this in the private rt2x00 thread about a month ago?
+>> Some patches came out of that one, specifically the SET_NETDEV_DEV ones
+>> for rt2x00 and d80211.  The problem with d80211 was that it didn't
+>> implement the get_wireless_stats() handler function, and that function
+>> (I think?) is the one that lets the wlanX device show up
+>> in /proc/net/wireless.
+>>   
+> Yeah, that sounds about right. Larry, do you remember/know more about 
+> this? I think you were working in this area?
 
-... returned.
+Yes, get_wireless_stats is needed for the device to show up in /proc/net/wireless.
 
-The same will be applied for sending support - userspace will request
-new packet with given size and pointer to some chunk inside mapped area
-will be returned.
+The RFCd patch to add wireless stats to d80211 received only minor comments, 
+which have all been addressed. I will be submitting a proper patch to Linville's 
+tree today. In addition, I have reached an agreement with the authors of all 
+other drivers that use d80211 on a scheme that will implement the stats code for 
+them as well. Unfortunately, none of them provide such useful quantities as 
+noise values, but perhaps the prominent FIXMEs will spur action by those who 
+have detailed device specifications.
 
--- 
-	Evgeniy Polyakov
+Larry
