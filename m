@@ -1,37 +1,29 @@
-From: Alexey Toptygin <alexeyt@freeshell.org>
-Subject: Re: sysfs vs. d80211 configuration
-Date: Mon, 14 Aug 2006 23:05:15 +0000 (UTC)
-Message-ID: <Pine.NEB.4.64.0608142302560.21364@otaku.freeshell.org>
-References: <44E07662.8070506@sipsolutions.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC 5/7] neighbour: convert lookup to sequence lock
+Date: Tue, 15 Aug 2006 01:17:18 +0200
+Message-ID: <20060814231718.GS14627@postel.suug.ch>
+References: <20060814212004.606140865@localhost.localdomain> <20060814212143.845202090@localhost.localdomain> <20060814222220.GQ14627@postel.suug.ch> <20060814153743.0ab60955@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.freeshell.ORG ([192.94.73.18]:32487 "EHLO sdf.lonestar.org")
-	by vger.kernel.org with ESMTP id S965043AbWHNXGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 19:06:33 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <44E07662.8070506@sipsolutions.net>
+Received: from postel.suug.ch ([194.88.212.233]:30672 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S965054AbWHNXQ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 19:16:57 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060814153743.0ab60955@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 14 Aug 2006, Johannes Berg wrote:
+* Stephen Hemminger <shemminger@osdl.org> 2006-08-14 15:37
+> On Tue, 15 Aug 2006 00:22:20 +0200
+> Thomas Graf <tgraf@suug.ch> wrote:
+> > Don't you need to pull in order to undo the push that probably
+> > happened in dev->hard_header()?
+> 
+> Probably just record the headroom() and undo that?
 
-> In my seemingly never-ending quest to actually use the d80211 stack for 
-> something useful I just wanted to write a small setuid tool that:
-> * creates and opens a new monitor interface
-> * drops priviledges
-> * ... does things with received frames ... (not interesting for this 
-> discussion)
-> * removes new monitor interface
->
-> So I figured I'd just keep an fd open to 
-> /sys/class/net/mymonitorinterface/remove_iface to which I could write the 
-> interfaces name after I was done with it. However, when writing to that fd I 
-> got -EACCESS because it checks for CAP_NET_ADMIN.
-
-Why not have the tool create a monitor interface, open it, and fork; the 
-child drops privileges and does the reading, and the parent wait(2)s for 
-the child and removes the interface once it has collected the child?
-
- 			Alexey
+That wouldn't work if hard_header() ever expands the head. Fortunately
+hard_header() returns the length added even in case of an error so we
+can undo the absolute value returned.
