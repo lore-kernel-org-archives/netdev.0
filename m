@@ -1,31 +1,26 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Sun, 13 Aug 2006 18:53:09 -0700
-Message-ID: <20060813185309.928472f9.akpm@osdl.org>
-References: <20060808211731.GR14627@postel.suug.ch>
-	<44DBED4C.6040604@redhat.com>
-	<44DFA225.1020508@google.com>
-	<20060813.165540.56347790.davem@davemloft.net>
-	<44DFD262.5060106@google.com>
+From: "Mathew Aguilar" <leta@ringve.com>
+Subject: shame of sex? we can change it
+Date: Sun, 13 Aug 2006 21:32:06 -0700
+Message-ID: <53055807267858.572CBAA0D8@TEO6XM9>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+        charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, riel@redhat.com, tgraf@suug.ch,
-	a.p.zijlstra@chello.nl, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:8578 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751786AbWHNBxk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2006 21:53:40 -0400
-To: Daniel Phillips <phillips@google.com>
-In-Reply-To: <44DFD262.5060106@google.com>
+Received: from c-69-244-42-28.hsd1.az.comcast.net ([69.244.42.28]:12306 "EHLO
+	ueuhyt.jmaj.ameritech.net") by vger.kernel.org with ESMTP
+	id S1751826AbWHNC7V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Aug 2006 22:59:21 -0400
+To: <net@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 13 Aug 2006 18:31:14 -0700
-Daniel Phillips <phillips@google.com> wrote:
+Cialis Soft Tabs is the new impotence treatment drug that everyone is talking about. It has benefits over Viagra and other ED treatment solutions. Here goes some reasons to choose Cialis Soft Tabs: 
+1. You can mix alcohol drinks with Cialis Soft Tabs without any undesired effects. 
+2.Cialis Soft Tabs does not make you feel dizzy or make vision blurred, so you can easily drive a car or operate heavy machinery. 
+3.Cialis soft tabs works much faster than any known ED treatment solution. Cialis Soft Tabs enters the bloodstream directly instead of going through the stomach, thus you need only 15 minutes till you feel the effect. Just look at the graph below 
+If you are interested ? Just click here and Read more about it 
+http://4jr.cancanwieldy.com/ct
+AND ALSO 
+Cialis Soft Tabs formula is effective for 95% of the patients. If this treatment is not effective for you, we will refund you for every unopened pack. All you have to do is send them back, and we will immediatley refund your account! 
 
-> But to solve the whole problem
-
-What problem?  Has anyone come up with a testcase which others can
-reproduce?
