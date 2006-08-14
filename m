@@ -1,48 +1,38 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Mon, 14 Aug 2006 10:35:40 +0200
-Message-ID: <1155544540.5696.144.camel@twins>
-References: <20060813.165540.56347790.davem@davemloft.net>
-	 <44DFD262.5060106@google.com> <20060813185309.928472f9.akpm@osdl.org>
-	 <1155530453.5696.98.camel@twins> <20060813215853.0ed0e973.akpm@osdl.org>
-	 <1155531835.5696.103.camel@twins> <20060813222208.7e8583ac.akpm@osdl.org>
-	 <1155537940.5696.117.camel@twins> <20060814000736.80e652bb.akpm@osdl.org>
-	 <1155543352.5696.137.camel@twins>  <20060814082555.GA27999@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: PATCH Fix bonding active-backup behavior for VLAN interfaces
+Date: Mon, 14 Aug 2006 01:47:10 -0700 (PDT)
+Message-ID: <20060814.014710.78711315.davem@davemloft.net>
+References: <Pine.LNX.4.64.0608102013020.9012@bizon.gios.gov.pl>
+	<20060810.234538.00788063.davem@davemloft.net>
+	<200608141016.37016.Christophe.Devriese@eurid.eu>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>,
-	Daniel Phillips <phillips@google.com>,
-	David Miller <davem@davemloft.net>, riel@redhat.com,
-	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:21404 "EHLO
-	amsfep20-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1751947AbWHNIgt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 04:36:49 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060814082555.GA27999@2ka.mipt.ru>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:31433
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751960AbWHNIrM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Aug 2006 04:47:12 -0400
+To: Christophe.Devriese@eurid.eu
+In-Reply-To: <200608141016.37016.Christophe.Devriese@eurid.eu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-08-14 at 12:25 +0400, Evgeniy Polyakov wrote:
-> On Mon, Aug 14, 2006 at 10:15:52AM +0200, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
-> > > If this refers to the socket buffers, they're mostly allocated with
-> > > at least __GFP_WAIT, aren't they?
-> > 
-> > Wherever it is that packets go if the local end is tied up and cannot
-> > accept them instantly. The simple but prob wrong calculation I made for
-> > evgeniy is: suppose we have 64k sockets, each socket can buffer up to
-> > 128 packets, and each packet can be up to 16k (roundup for jumboframes)
-> > large, that makes for 128G of memory. This calculation is wrong on
-> > several points (we can have >64k sockets, and I have no idea on the 128)
-> > but the order of things doesn't get better.
+From: Christophe Devriese <Christophe.Devriese@eurid.eu>
+Date: Mon, 14 Aug 2006 10:16:36 +0200
+
+> On Friday 11 August 2006 08:45, you wrote:
+> > From: Krzysztof Oledzki <olel@ans.pl>
+> > Date: Thu, 10 Aug 2006 20:18:23 +0200 (CEST)
+> >
+> > > OK, this patch really solves the bug from my report. Are there any
+> > > chances for similar fix in the net-2.6.19.git?
+> >
+> > I'm still thinking about this patch and what various people have
+> > explained about the situation.
 > 
-> TCP memory is limited for all sockets - it is tcp_*mem parameters.
-> tcp_mem max on my amd64 with 1gb of ram is 768 kb for _all_ sockets.
+> Anything I can do ? I need this bug fixed.
 
-Yes, I've said as much a few emails back, but that does not make the
-theoretical limit any lower.
-
+Then patch your kernel, you don't need my permission for that.
 
