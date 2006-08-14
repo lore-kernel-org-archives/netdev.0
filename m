@@ -1,42 +1,38 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Andrew Morton <akpm@osdl.org>
 Subject: Re: Patch to add ethtool -g to Spidernet network driver
-Date: Mon, 14 Aug 2006 14:02:26 -0400
-Message-ID: <44E0BAB2.6090800@pobox.com>
+Date: Mon, 14 Aug 2006 11:14:32 -0700
+Message-ID: <20060814111432.d496f4d3.akpm@osdl.org>
 References: <1154792185.3692.68.camel@localhost.localdomain>
+	<44E0BAB2.6090800@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Andrew Morton <akpm@osdl.org>
+Cc: jim@jklewis.com, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:16797 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932612AbWHNSC3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 14:02:29 -0400
-To: jim@jklewis.com
-In-Reply-To: <1154792185.3692.68.camel@localhost.localdomain>
+Received: from smtp.osdl.org ([65.172.181.4]:26027 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1752037AbWHNSSb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 14:18:31 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <44E0BAB2.6090800@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jim Lewis wrote:
+On Mon, 14 Aug 2006 14:02:26 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
+
+> Jim Lewis wrote:
+> > 
+> > This patch adds ethtool -g (show ring sizes) support to the Spidernet
+> > network driver.
+> > 
+> > Signed-off-by: James K Lewis <jklewis@us.ibm.com>
 > 
-> This patch adds ethtool -g (show ring sizes) support to the Spidernet
-> network driver.
-> 
-> Signed-off-by: James K Lewis <jklewis@us.ibm.com>
+> ACK, but does not apply:
 
-ACK, but does not apply:
+I added it to rc4-mm1.  I probably fixed it up by hand - I forget - it
+happens so often :(
 
+I have a really large pile of patches to send out to the subsystem
+maintainers, so this'll be coming back at you soon via that route.
 
-Applying 'Patch to add ethtool -g to Spidernet network driver'
-
-error: patch fragment without header at line 13: @@ -1612,13 +1612,12 @@ 
-spider_net_open(struct net_device *netde
-error: patch fragment without header at line 31: @@ -2006,6 +2005,9 @@ 
-spider_net_setup_netdev(struct spider_ne
-error: patch fragment without header at line 47: @@ -441,6 +441,9 @@ 
-struct spider_net_card {
-error: patch fragment without header at line 63: @@ -130,6 +130,18 @@ 
-spider_net_ethtool_set_tx_csum(struct ne
-error: patch fragment without header at line 82: @@ -141,5 +153,6 @@ 
-struct ethtool_ops spider_net_ethtool_op
-fatal: No changes
 
