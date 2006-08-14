@@ -1,55 +1,64 @@
-From: Keith Owens <kaos@ocs.com.au>
-Subject: Re: 2.6.18-rc3-mm2 (+ hotfixes): GPF related to skge on suspend
-Date: Mon, 14 Aug 2006 11:10:19 +1000
-Message-ID: <17997.1155517819@ocs10w.ocs.com.au>
-References: <20060813180602.630e60e3.akpm@osdl.org>
+From: Daniel Phillips <phillips@google.com>
+Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
+Date: Sun, 13 Aug 2006 18:15:08 -0700
+Message-ID: <44DFCE9C.402@google.com>
+References: <1155132440.12225.70.camel@twins>	<20060809.165846.107940575.davem@davemloft.net>	<44DF9817.8070509@google.com> <20060813.164934.00081381.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chuck Ebbert <76306.1226@compuserve.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: a.p.zijlstra@chello.nl, tgraf@suug.ch, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ocs.com.au ([202.147.117.210]:30768 "EHLO mail.ocs.com.au")
-	by vger.kernel.org with ESMTP id S1751416AbWHNBKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2006 21:10:13 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-reply-to: Your message of "Sun, 13 Aug 2006 18:06:02 MST."
-             <20060813180602.630e60e3.akpm@osdl.org>
+Received: from smtp-out.google.com ([216.239.45.12]:2222 "EHLO
+	smtp-out.google.com") by vger.kernel.org with ESMTP
+	id S1751609AbWHNBPp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Aug 2006 21:15:45 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060813.164934.00081381.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton (on Sun, 13 Aug 2006 18:06:02 -0700) wrote:
->On Mon, 14 Aug 2006 10:54:21 +1000
->Keith Owens <kaos@ocs.com.au> wrote:
->
->> >Code: 44 8b 28 c7 45 d0 00 00 00 00 45 85 ed 0f 89 29 fb ff ff e9
->> >Error (Oops_bfd_perror): /tmp/ksymoops.0lrVNY Invalid bfd target
->> >
->> >box:/home/akpm> rpm -qi ksymoops 
->> >Name        : ksymoops                     Relocations: (not relocatable)
->> >Version     : 2.4.11                            Vendor: (none)
->> >Release     : 1                             Build Date: Sat Jan  8 05:43:45 2005
->> >Install Date: Wed Jun 28 16:59:45 2006      Build Host: ocs3.ocs.com.au
->> >Group       : Utilities/System              Source RPM: ksymoops-2.4.11-1.src.rpm
->> 
->> Back in 2000 there were a lot of version problems between ksymoops and
->> libbfd and libiberty, so I statically link against these libraries when
->> I build the rpm.  You have an i386 version of ksymoops, which was built
->> against an i386 only version of libbfd, it does not support target
->> elf64-x86-64.  Grab the ksymoops src.rpm and rebuild on x86_64, or use
->> a binary rpm from an x86_64 distribution.
->
->But would such a binary be able to decode i386 oopses?
+David Miller wrote:
+>From: Daniel Phillips <phillips@google.com>
+>>David Miller wrote:
+>>
+>>>The reason is that there is no refcounting performed on these devices
+>>>when they are attached to the skb, for performance reasons, and thus
+>>>the device can be downed, the module for it removed, etc. long before
+>>>the skb is freed up.
+>>
+>>The virtual block device can refcount the network device on virtual
+>>device create and un-refcount on virtual device delete.
+> 
+> What if the packet is originally received on the device in question,
+> and then gets redirected to another device by a packet scheduler
+> traffic classifier action or a netfilter rule?
+> 
+> It is necessary to handle the case where the device changes on the
+> skb, and the skb gets freed up in a context and assosciation different
+> from when the skb was allocated (for example, different from the
+> device attached to the virtual block device).
 
-It depends on your versions of bfdutils and binutils.  ksymoops does
-not decode the object itself, it uses bfd and objdump to do the work.
-FWIW, the version of ksymoops in suselinux 10.0 for x86_64 will handle
-both i386 and x86_64.
+This aspect of the patch became moot because of the change to a single
+reserve for all layer 2 delivery in Peter's more recent revisions.
 
->ftp://ftp.kernel.org/pub/linux/utils/kernel/ksymoops/v2.4/ksymoops-2.4.11-1.src.rpm
->fails to build, btw.  Had to do s/Copyright/License/ in the spec file.
+*However* maybe it is worth mentioning that I intended to provide a
+pointer from each sk_buff to a common accounting struct.  This pointer
+is set by the device driver.  If the driver knows nothing about memory
+accounting then the pointer is null, no accounting is done, and block
+IO over the interface will be dangerous.  Otherwise, if the system is
+in reclaim (which we currently detect crudely when a normal allocation
+fails) then atomic ops will be done on the accounting structure.
 
-Ah, the joys of changing RPM standards.
+I planned to use the (struct sock *)sk_buff->sk field for this, which
+is unused during layer 2 delivery as far as I can see.  The accounting
+struct can look somewhat like a struct sock if we like, size doesn't
+really matter, and it might make the code more robust.  Or the field
+could become a union.
 
+Anyway, this bit doesn't matter any more, the single global packet
+delivery reserve is better and simpler.
+
+Regards,
+
+Daniel
