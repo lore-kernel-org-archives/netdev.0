@@ -1,38 +1,33 @@
-From: Christophe Devriese <Christophe.Devriese@eurid.eu>
-Subject: Re: PATCH Fix bonding active-backup behavior for VLAN interfaces
-Date: Mon, 14 Aug 2006 10:16:36 +0200
-Message-ID: <200608141016.37016.Christophe.Devriese@eurid.eu>
-References: <20060802.135859.91441473.davem@davemloft.net> <Pine.LNX.4.64.0608102013020.9012@bizon.gios.gov.pl> <20060810.234538.00788063.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: ieee80211_set_encryption...
+Date: Mon, 14 Aug 2006 10:16:53 +0200
+Message-ID: <44E03175.6070804@sipsolutions.net>
+References: <44E02F41.2060300@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from uu212-190-206-99.unknown.uunet.be ([212.190.206.99]:41654 "EHLO
-	smtp.eurid.eu") by vger.kernel.org with ESMTP id S1751729AbWHNIQn
+Received: from crystal.sipsolutions.net ([195.210.38.204]:57988 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751813AbWHNIQ5
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 04:16:43 -0400
-Received: from localhost (smtp.eurid.eu [127.0.0.1])
-	by smtp.eurid.eu (Postfix) with ESMTP id 20A031252A0
-	for <netdev@vger.kernel.org>; Mon, 14 Aug 2006 10:16:42 +0200 (CEST)
-To: netdev@vger.kernel.org
-In-Reply-To: <20060810.234538.00788063.davem@davemloft.net>
-Content-Disposition: inline
+	Mon, 14 Aug 2006 04:16:57 -0400
+To: Jiri Benc <jbenc@suse.cz>, Jouni Malinen <jkm@devicescape.com>
+In-Reply-To: <44E02F41.2060300@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 11 August 2006 08:45, you wrote:
-> From: Krzysztof Oledzki <olel@ans.pl>
-> Date: Thu, 10 Aug 2006 20:18:23 +0200 (CEST)
->
-> > OK, this patch really solves the bug from my report. Are there any
-> > chances for similar fix in the net-2.6.19.git?
->
-> I'm still thinking about this patch and what various people have
-> explained about the situation.
+... is a big mess.
 
-Anything I can do ? I need this bug fixed.
+What's with all the comments saying 'maybe with blabla hardware that can 
+be done in hw but disable here now' etc? Can't we just have a 'please 
+decide' callback in the driver that tells us whether this can be done in 
+hw or sw?
 
-Regards,
+Or how about no_tkip_wmm_hwaccel? That seems pretty weird too.
 
-Christophe
+I do realize that key management in the face of wpa2 and similar is 
+difficult, but this seems overly complex. Comments?
+
+johannes
+
