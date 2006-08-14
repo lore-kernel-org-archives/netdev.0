@@ -1,72 +1,80 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: [PATCH wireless-2.6] ray_cs: Remove dependency on ieee80211
-Date: Sun, 13 Aug 2006 23:27:17 -0700
-Message-ID: <200608132327.24363.flamingice@sourmilk.net>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
+Date: Mon, 14 Aug 2006 08:45:40 +0200
+Message-ID: <1155537940.5696.117.camel@twins>
+References: <20060808211731.GR14627@postel.suug.ch>
+	 <44DBED4C.6040604@redhat.com> <44DFA225.1020508@google.com>
+	 <20060813.165540.56347790.davem@davemloft.net>
+	 <44DFD262.5060106@google.com> <20060813185309.928472f9.akpm@osdl.org>
+	 <1155530453.5696.98.camel@twins> <20060813215853.0ed0e973.akpm@osdl.org>
+	 <1155531835.5696.103.camel@twins>  <20060813222208.7e8583ac.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2703417.ftNIZoKkcB";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Daniel Phillips <phillips@google.com>,
+	David Miller <davem@davemloft.net>, riel@redhat.com,
+	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:2755 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S1751876AbWHNG12 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 02:27:28 -0400
-To: John Linville <linville@tuxdriver.com>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:62122 "EHLO
+	amsfep20-int.chello.nl") by vger.kernel.org with ESMTP
+	id S1751874AbWHNGqr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Aug 2006 02:46:47 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060813222208.7e8583ac.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2703417.ftNIZoKkcB
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Sun, 2006-08-13 at 22:22 -0700, Andrew Morton wrote:
+> On Mon, 14 Aug 2006 07:03:55 +0200
+> Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+> 
+> > On Sun, 2006-08-13 at 21:58 -0700, Andrew Morton wrote:
+> > > On Mon, 14 Aug 2006 06:40:53 +0200
+> > > Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+> > > 
+> > > > Testcase:
+> > > > 
+> > > > Mount an NBD device as sole swap device and mmap > physical RAM, then
+> > > > loop through touching pages only once.
+> > > 
+> > > Fix: don't try to swap over the network.  Yes, there may be some scenarios
+> > > where people have no local storage, but it's reasonable to expect anyone
+> > > who is using Linux as an "enterprise storage platform" to stick a local
+> > > disk on the thing for swap.
+> > 
+> > I wish you were right, however there seems to be a large demand to go
+> > diskless and swap over iSCSI because disks seem to be the nr. 1 failing
+> > piece of hardware in systems these days.
+> 
+> We could track dirty anonymous memory and throttle.
+> 
+> Also, there must be some value of /proc/sys/vm/min_free_kbytes at which a
+> machine is no longer deadlockable with any of these tricks.  Do we know
+> what level that is?
 
-(This patch was originally sent as part of the patch series that converted=
-=20
-drivers using ieee80211.h to d80211.h. This patch is still valid because=20
-ray_cs does not need ieee80211.h - it needs iw_handler.h. The dependency on=
-=20
-ieee80211.h was added as part of a build fix patch following the merge of=20
-WE-19)
+Not sure, the theoretical max amount of memory one can 'lose' in socket
+wait queues is well over the amount of physical memory we have in
+machines today (even for SGI); this combined with the fact that we limit
+the memory in some way to avoid DoS attacks, could make for all memory
+to be stuck in wait queues. Of course this becomes rather more unlikely
+for ever larger amounts of memory. But unlikely is never a guarantee.
 
-ray_cs: Remove dependency on ieee80211
+> 
+> > > That leaves MAP_SHARED, but mm-tracking-shared-dirty-pages.patch will fix
+> > > that, will it not?
+> > 
+> > Will makes it less likely. One can still have memory pressure, the
+> > remaining bits of memory can still get stuck in socket queues for
+> > blocked processes.
+> 
+> But there's lots of reclaimable pagecache around and kswapd will free it
+> up?
 
-This patch removes the dependency on ieee80211.h from
-the ray_cs driver. ray_cs only needs iw_handler.h.
+Yes, however it is possible for kswapd and direct reclaim to block on
+get_request_wait() for the nbd/iscsi request queue by sheer misfortune.
+In that case there will be no more reclaim; of course the more active
+processes we have the unlikelier this will be. Still with the sheer
+amount of cpu time invested in Linux its not a gamble we're likely to
+never lose.
 
-Signed-off-by: Michael Wu <flamingice@sourmilk.net>
-=2D--
-
- drivers/net/wireless/ray_cs.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/wireless/ray_cs.c b/drivers/net/wireless/ray_cs.c
-index 61b83a5..8e112d1 100644
-=2D-- a/drivers/net/wireless/ray_cs.c
-+++ b/drivers/net/wireless/ray_cs.c
-@@ -52,8 +52,8 @@ #include <pcmcia/cisreg.h>
- #include <pcmcia/ds.h>
- #include <pcmcia/mem_op.h>
-=20
-=2D#include <net/ieee80211.h>
- #include <linux/wireless.h>
-+#include <net/iw_handler.h>
-=20
- #include <asm/io.h>
- #include <asm/system.h>
-
---nextPart2703417.ftNIZoKkcB
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD8DBQBE4BfMT3Oqt9AH4aERAtjlAKDXhb0BEMt+JIvKjgxKc/ha/NS4mgCgg+CX
-7B4ES8g/yQ2hy28YhJUGU1I=
-=kks1
------END PGP SIGNATURE-----
-
---nextPart2703417.ftNIZoKkcB--
