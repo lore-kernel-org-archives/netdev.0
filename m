@@ -1,49 +1,88 @@
-From: "Jouni Malinen" <jkm@devicescape.com>
-Subject: Re: wlan#ap seems bogus
-Date: Mon, 14 Aug 2006 08:58:47 -0700
-Message-ID: <20060814155847.GC1196@instant802.com>
-References: <44E02F41.2060300@sipsolutions.net> <44E032CA.4040107@sipsolutions.net>
+From: "magret salam" <magret_salam_ouga9@hotmail.com>
+Subject: THANKS AND GOD BLESS YOU & YOUR FAMILY.
+Date: Mon, 14 Aug 2006 16:02:10 +0000
+Message-ID: <BAY21-F6FB1999C4173327F2FD51904E0@phx.gbl>
+Reply-To: magret_salam_ouga@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org
+Content-Type: text/plain; format=flowed
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-5.dex002.intermedia.net ([64.78.21.20]:5572 "EHLO
-	dhost002-5.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1751185AbWHNP6x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 11:58:53 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <44E032CA.4040107@sipsolutions.net>
+Received: from bay0-omc2-s39.bay0.hotmail.com ([65.54.246.175]:30082 "EHLO
+	bay0-omc2-s39.bay0.hotmail.com") by vger.kernel.org with ESMTP
+	id S1751474AbWHNQCM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Aug 2006 12:02:12 -0400
+To: unlisted-recipients:; (no To-header on input)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 14, 2006 at 10:22:34AM +0200, Johannes Berg wrote:
-> As far as I understand the entire point of the wlan#ap interface is to
-> receive all management relevant management frames. (If that's wrong, reply
-> now and don't read the rest)
-> 
-> Hence, I think it ought to be named 'wlan#mgmt' instead. However, I think
-> it's hard-coded existence is bogus.
-> 
-> How about we just add a new interface mode called MGT_MONITOR and
-> wpa_supplicant simply creates a new device via the regular sysfs mechanism,
-> and then sets that MGT_MONITOR mode via the relevant WEXT ioctl? iwconfig
-> doesn't even need to be taught about this mode except for display
-> purposes...
+FROM MRS MAGRET SALAM.
+AUDITING AND ACCOUNTING UNIT
+FOREIGN REMITTANCE DEPT
+BANK OF AFRICA (BOA)
+OUAGA-BURKINA FASO
 
-Isn't this already done? I don't remember what happened with client mode
-case, but at least hostapd is requesting the management interface
-dynamically at startup time.
+PLEASE READ THIS MESSAGE CAREFULLY.
 
-> Also, like I mentioned previously, the device naming can be changed by the
-> user and there's no guarantee that wlan0ap corresponds to wmaster0. Etc. But
-> if wpa_supplicant simply created the device itself, it could give it any
-> name, say wlan0_mgt (if it was controlling wlan0), but if that name is
-> already taken it simply appends a number or something until it hits a device
-> name that's still free (or gives up after 100 tries or so...) :)
+I KNOW THIS PROPOSAL WILL COME TO YOU AS A SURPRISE EXPECIALLY WHEN YOU DO 
+NOT KNOW ME, WHEN I WAS SEACHING IN OURCHAMBER OF COMMENCE AND INDUSTRY HERE 
+IN BURKINA-FASO, I COME ACCROSS
+YOUR EMAIL ADDRESS AND I DECIDE TO CONTACT YOU TO BE MY PARTINER IN THIS 
+TRANSACTION.
 
-Same here.. hostapd gets the ifindex from kernel and doesn't care about
-the name.
+I AM MAGRET SALAM (MRS) STAFF OF BANK OF AFRICA (BOA) 
+OUGADOUGOU,BURKINA-FASO. I FIND YOUR CONTACT IN MY PRIVATE SEARCHING  IN 
+CHAMBER OF COMMENCE AND INDUSTRY HERE IN BURKINA-FASO, AND I WANT TO BELIEVE 
+THAT YOU WILL BE HONEST, COMMITTED
+AND CAPABLE OF ASSISTING ME IN THIS TRANSACTION.
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+LET ME EXPLAIN THE SOURCE OF THIS FUNDS AND WHAT YOU ARE EXPECTED TO DO, MR 
+ANDREASE SCHRANNER.IS OUR OLD CUSTOMER IN THE BANK BEFORE HE DIED AND HE WAS 
+A GOLD MERCHANT, INDUSTRIALIST AND CONTRACTOR.
+
+MR.ANDREAS SCHRANNER IS FROM MUNICH, GERMANY DIED WITH HIS ENTIRE FAMILY ON 
+31,JULY,2002,IN A PLANE CRASH.
+
+MR.ANDREAS SCHRANNER BANKED WITH US AND HAS A CLOSING BALANCE ACCOUNTAS AT 
+JULY 2000 WORTH $22.4M (TWENTY TWO MILLION FOUR HUNDRED THOUSAND USD).WHICH 
+BANK,NOW EXPECTS A NEXT-OF-KIN TO CLAIM AS THE BENEFICIARY OF THE FUNDS, 
+EFFORTS HAS BEEN MADE BY BANK OF AFRICA (BOA) TO GET IN TOUCH WITH THE 
+ANDREAS'S FAMILY OR RELATIVE BUT TO NO SUCCESS.
+
+BASED ON THE PERCEIVED POSSIBILITY OF NOT BEING ABLE TO LOCATE MR.ANDREAS 
+NEXT-OF-KIN, THE MANAGEMENT UNDER THE INFLUENCE OF THE CHAIRMAN AND THE 
+BOARD OF DIRECTORS ARE MAKING
+ARRANGEMENTS FOR THE FUNDS TO BE DECLARE UNCLAIMED AND CHANNELED TO AN 
+UNKNOWN ACCOUNT.
+
+IT IS  BASED ON THIS THAT I HAVE CONTACTED YOU TO ACT AS THE NEXT-OF-KIN OF 
+LATE MR.ANDREAS SO THAT THE FUNDS, WILL BE RELEASED AND PAID INTO YOUR 
+ACCOUNT AS THE BENEFICIARY AND THE NEXT-OF-KIN TO THE DECEASED.
+
+ALL INFORMATIONS, AND PROOF TO ENABLE US GET THE FUNDS HAVE BEEN CAREFULLY 
+WORKED OUT AS I HAVE SECURED FROM THE DIFFERENT OFFICES CONCERNED FOR THE 
+SMOOTH TRANSFER OF THE FUND TO YOUR NOMINATED ACCOUNT. YOU BEEN THE OWNER OF 
+THE ACCOUNT WILL BE  HAVE SHARE OF 40% OF THE REMITTED FUNDS, WHILE I WILL 
+TAKE  55% AND 5% WILL BE SET ASIDE TO OFFSET EXPENSES BOTH LOCALLY AND 
+INTERNATIONAL,IF YOU AGRRE I WILL SEND TO YOU THE ONLINE TEXT OF APPLICATION 
+INWICH YOU WILL FILL AND SEND TO BANK  AS THE  NEXT OF KIN, THE BANK 
+MANNAGEMENT WILL IDENTIFY YOU OFFICIALLY AS THE NEXT OF KIN TO MR ANDREAS.
+
+PLEASE, YOUR URGENT REPLY NEEDED TO ENABLE US COMMENCE THIS TRANSACTION, I 
+WILL SEND TO YOU THE ONLINE TEXT OF APPLICATION INWHICH YOU WILL FILL AND 
+SEND TO THE BANK, THIS WILL IDENTIFY YOU AS NEXT OF KIN TO  MR.ANDREAS 
+SCHRANNER.
+
+I WILL BE WAITING TO HEAR FROM YOU TO ENABLE ME SEND TO YOU THE ONLINE TEXT 
+OF APPLICATION INWHICHYOU WILL FILL AND FORWARD TO BANK, FOR THE 
+COMMENCEMENT OF THE TRANSACTION.
+
+THANKS AND GOD BLESS YOU & YOUR FAMILY.
+
+MY REGARDS TO YOUR ENTIRE FAMILY.
+
+YOURS FAITHFULLY,
+MRS M. SALAM.
+
+_________________________________________________________________
+Don't just search. Find. Check out the new MSN Search! 
+http://search.msn.click-url.com/go/onm00200636ave/direct/01/
+
