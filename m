@@ -1,40 +1,45 @@
-From: Daniel Phillips <phillips@google.com>
-Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
-Date: Sun, 13 Aug 2006 17:56:08 -0700
-Message-ID: <44DFCA28.7040808@google.com>
-References: <1155127040.12225.25.camel@twins> <20060809130752.GA17953@2ka.mipt.ru> <1155130353.12225.53.camel@twins> <44DD4E3A.4040000@redhat.com> <20060812084713.GA29523@2ka.mipt.ru> <1155374390.13508.15.camel@lappy> <20060812093706.GA13554@2ka.mipt.ru> <44DDE857.3080703@redhat.com> <20060812144921.GA25058@2ka.mipt.ru> <44DDEC1F.6010603@redhat.com> <20060812150842.GA5638@2ka.mipt.ru>
+From: Paul Jackson <pj@sgi.com>
+Subject: Re: rename *MEMALLOC flags
+Date: Sun, 13 Aug 2006 18:00:54 -0700
+Message-ID: <20060813180054.65201239.pj@sgi.com>
+References: <20060812141415.30842.78695.sendpatchset@lappy>
+	<20060812141445.30842.47336.sendpatchset@lappy>
+	<44DDE8B6.8000900@garzik.org>
+	<1155395201.13508.44.camel@lappy>
+	<44DFBEA3.5070305@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Rik van Riel <riel@redhat.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: a.p.zijlstra@chello.nl, jeff@garzik.org, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org, indan@nul.nu,
+	johnpol@2ka.mipt.ru, riel@redhat.com, davem@davemloft.net,
+	Nick Piggin <nickpiggin@yahoo.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.12]:16040 "EHLO
-	smtp-out.google.com") by vger.kernel.org with ESMTP
-	id S1751177AbWHNA4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 20:56:25 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060812150842.GA5638@2ka.mipt.ru>
+Received: from omx1-ext.sgi.com ([192.48.179.11]:10660 "EHLO
+	omx1.americas.sgi.com") by vger.kernel.org with ESMTP
+	id S1751181AbWHNBBb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Aug 2006 21:01:31 -0400
+To: Daniel Phillips <phillips@google.com>
+In-Reply-To: <44DFBEA3.5070305@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> One must receive a packet to determine if that packet must be dropped
-> until tricky hardware with header split capabilities or MMIO copying is
-> used. Peter uses special pool to get data from when system is in OOM (at
-> least in his latest patchset), so allocations are separated and thus
-> network code is not affected by OOM condition, which allows to make
-> forward progress.
+Daniel wrote:
+> Inventing a new name for an existing thing is very poor taste on grounds of
+> grepability alone.
 
-Nice executive summary.  Crucial point: you want to say "in reclaim"
-not "in OOM".
+I wouldn't say 'very poor taste' -- just something that should be
+done infrequently, with good reason, and with reasonable concensus,
+especially from the key maintainers in the affected area.
 
-Yes, right from the beginning the patch set got its sk_buff memory
-from a special pool when the system is in reclaim, however the exact
-nature of the pool and how/where it is accounted has evolved... mostly
-forward.
+Good names are good taste, in my book.  But stable naming is good too.
 
-Regards,
+I wonder what Nick thinks of this?  Looks like he added
+__GFP_NOMEMALLOC a year ago, following the naming style of PF_MEMALLOC.
 
-Daniel
+I added him to the cc list.
+
+-- 
+                  I won't rest till it's the best ...
+                  Programmer, Linux Scalability
+                  Paul Jackson <pj@sgi.com> 1.925.600.0401
