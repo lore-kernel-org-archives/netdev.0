@@ -1,74 +1,70 @@
-From: Daniel Phillips <phillips@google.com>
-Subject: Re: rename *MEMALLOC flags
-Date: Sun, 13 Aug 2006 17:06:59 -0700
-Message-ID: <44DFBEA3.5070305@google.com>
-References: <20060812141415.30842.78695.sendpatchset@lappy>	 <20060812141445.30842.47336.sendpatchset@lappy>	 <44DDE8B6.8000900@garzik.org> <1155395201.13508.44.camel@lappy>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: New driver questions: Attansic L1 gigabit NIC
+Date: Sun, 13 Aug 2006 19:11:42 -0500
+Message-ID: <44DFBFBE.1070201@bellsouth.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Indan Zupancic <indan@nul.nu>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Rik van Riel <riel@redhat.com>,
-	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.12]:51354 "EHLO
-	smtp-out.google.com") by vger.kernel.org with ESMTP
-	id S1751438AbWHNAH5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 20:07:57 -0400
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-In-Reply-To: <1155395201.13508.44.camel@lappy>
+Received: from imf23aec.mail.bellsouth.net ([205.152.59.71]:53703 "EHLO
+	imf23aec.mail.bellsouth.net") by vger.kernel.org with ESMTP
+	id S1751756AbWHNALo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Aug 2006 20:11:44 -0400
+Received: from ibm66aec.bellsouth.net ([70.152.106.237])
+          by imf23aec.mail.bellsouth.net with ESMTP
+          id <20060814001143.CEEC5233.imf23aec.mail.bellsouth.net@ibm66aec.bellsouth.net>
+          for <netdev@vger.kernel.org>; Sun, 13 Aug 2006 20:11:43 -0400
+Received: from [192.168.1.3] (really [70.152.106.237])
+          by ibm66aec.bellsouth.net with ESMTP
+          id <20060814001143.UBRS828.ibm66aec.bellsouth.net@[192.168.1.3]>
+          for <netdev@vger.kernel.org>; Sun, 13 Aug 2006 20:11:43 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Peter Zijlstra wrote:
->Jeff Garzik in his infinite wisdom spake thusly:
->>Peter Zijlstra wrote:
->>
->>>Index: linux-2.6/include/linux/gfp.h
->>>===================================================================
->>>--- linux-2.6.orig/include/linux/gfp.h	2006-08-12 12:56:06.000000000 +0200
->>>+++ linux-2.6/include/linux/gfp.h	2006-08-12 12:56:09.000000000 +0200
->>>@@ -46,6 +46,7 @@ struct vm_area_struct;
->>> #define __GFP_ZERO	((__force gfp_t)0x8000u)/* Return zeroed page on success */
->>> #define __GFP_NOMEMALLOC ((__force gfp_t)0x10000u) /* Don't use emergency reserves */
->>> #define __GFP_HARDWALL   ((__force gfp_t)0x20000u) /* Enforce hardwall cpuset memory allocs */
->>>+#define __GFP_MEMALLOC  ((__force gfp_t)0x40000u) /* Use emergency reserves */
->>
->>This symbol name has nothing to do with its purpose.  The entire area of 
->>code you are modifying could be described as having something to do with 
->>'memalloc'.
->>
->>GFP_EMERGENCY or GFP_USE_RESERVES or somesuch would be a far better 
->>symbol name.
->>
->>I recognize that is matches with GFP_NOMEMALLOC, but that doesn't change 
->>the situation anyway.  In fact, a cleanup patch to rename GFP_NOMEMALLOC 
->>would be nice.
-> 
-> I'm rather bad at picking names, but here goes:
-> 
-> PF_MEMALLOC      -> PF_EMERGALLOC
-> __GFP_NOMEMALLOC -> __GFP_NOEMERGALLOC
-> __GFP_MEMALLOC   -> __GFP_EMERGALLOC
-> 
-> Is that suitable and shall I prepare patches? Or do we want more ppl to
-> chime in and have a few more rounds?
+I recently purchased an Asus M2V socket AM2 motherboard that comes with
+an onboard Attansic L1 Gigabit Ethernet Controller.  The CD that came
+with the motherboard contains GPL'd driver source for the NIC.  The
+driver builds, installs, and functions cleanly in Fedora Core 5. Despite
+the clear assertion of GPL licensing in the license file[1], an
+accompanying readme file says:
 
-MEMALLOC is the name Linus chose to name exactly the reserve from which we
-are allocating.  Perhaps that was just Linus being denser than jgarzik and
-not realizing that he should have called it EMERGALLOC right from the start.
+     This driver is only supported as a loadable
+     module at this time. Attansic is not supplying
+     patches against the kernel source to allow for
+     static linking of the driver.
 
-BUT since Linus did call it MEMALLOC, we should too.  Or just email Linus
-and tell him how much better EMERGALLOC rolls off the tongue, and could we
-please change all occurances of MEMALLOC to EMERGALLOC.  Then don't read
-your email for a week ;-)
+I've read the LKML FAQ regarding new driver submissions, but it implies
+that the submitter be willing to maintain the driver, which I'm not
+qualified to do.  I haven't contacted Attansic to request a change to
+the above support statement, because my past attempts to contact vendors
+on matters of this tenor have been greeted with silence.
 
-Inventing a new name for an existing thing is very poor taste on grounds of
-grepability alone.
+First question: Can anyone who purchases a device that ships with GPL'd
+driver source code submit said source code for inclusion in the kernel?
 
-Regards,
+Second question: If I'm not qualified to maintain the driver, what are
+its prospects for inclusion in the kernel?  How does one go about
+soliciting a maintainer?
 
-Daniel
+
+[1] [root@osprey atl1]# head -n 15 license
+
+"This software program is licensed subject to the GNU General Public
+License (GPL). Version 2, June 1991, available at
+<http://www.fsf.org/copyleft/gpl.html>"
+
+GNU General Public License
+
+Version 2, June 1991
+
+Copyright (C) 1989, 1991 Free Software Foundation, Inc.
+59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
+
+Everyone is permitted to copy and distribute verbatim copies of this
+license document, but changing it is not allowed.
+
+---
+Thanks,
+Jay
 
