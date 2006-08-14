@@ -1,52 +1,95 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: Re: [PATCH 2/6] ehea: pHYP interface
-Date: Mon, 14 Aug 2006 15:14:26 +0200
-Message-ID: <44E07732.4010508@de.ibm.com>
-References: <44D99F1A.4080905@de.ibm.com> <20060811211314.GF479@krispykreme>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [d80211 rfc] link master interface from wiphy
+Date: Mon, 14 Aug 2006 08:01:02 -0400
+Message-ID: <1155556862.2885.8.camel@localhost.localdomain>
+References: <44E02F41.2060300@sipsolutions.net>
+	 <44E03051.8030808@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Marcus Eder <meder@de.ibm.com>
+Cc: netdev@vger.kernel.org, Jouni Malinen <jkm@devicescape.com>,
+	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.de.ibm.com ([195.212.29.153]:22773 "EHLO
-	mtagate4.de.ibm.com") by vger.kernel.org with ESMTP
-	id S1751467AbWHNNxV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 09:53:21 -0400
-To: Anton Blanchard <anton@samba.org>
-In-Reply-To: <20060811211314.GF479@krispykreme>
+Received: from mx1.redhat.com ([66.187.233.31]:27013 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751821AbWHNN5t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 09:57:49 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <44E03051.8030808@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi
+On Mon, 2006-08-14 at 10:12 +0200, Johannes Berg wrote:
+> I'd like to see a link from the wiphy to the master interface that 
+> belongs to it so one can tell this easily on systems that have multiple 
+> wireless devices. wpa_supplicant could use this, I guess. I think 
+> another link to wlan#ap should be created (or does wpa_supplicant set 
+> the name of that so it knows which one it will get?), or something like 
+> that anyway.
 
-Anton Blanchard wrote:
- > Hi,
- >
- >> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea_phyp.c       1969-12-31 16:00:00.000000000 -0800
- >
- >> +u64 ehea_h_alloc_resource_eq(const u64 hcp_adapter_handle,
- > ...
- >> +u64 hipz_h_reregister_pmr(const u64 adapter_handle,
- > ...
- >> +static inline int hcp_galpas_ctor(struct h_galpas *galpas,
- >
- > Be nice to have some consistent names, hipz_ and hcp_ is kind of
- > cryptic.
+HAL can certainly use this as well.  Two of the most useful things for
+HAL (and by extension NetworkManager) were the 'device' and 'driver'
+links, and this is certainly in the same class as those two.
 
-We choose some more meaningful names and added comments to explain those.
+Dan
 
- >
- >> +#define H_QP_CR_STATE_RESET     0x0000010000000000  /*  Reset */
- >
- > Probably want ULL on here and the other 64bit constants.
- >
+> Here's a patch to just create the master link:
+> 
+> --- wireless-dev.orig/net/d80211/ieee80211.c    2006-08-11 
+> 20:54:09.409674798 +0200
+> +++ wireless-dev/net/d80211/ieee80211.c    2006-08-11 21:26:22.629674798 
+> +0200
+> @@ -4449,6 +4449,7 @@ int ieee80211_register_hw(struct net_dev
+>          rtnl_unlock();
+>          goto fail_dev;
+>      }
+> +    sysfs_create_link(&local->class_dev.kobj, &dev->class_dev.kobj, 
+> "master");
+>      result = ieee80211_sysfs_add_netdevice(dev);
+>      rtnl_unlock();
+>      if (result < 0)
+> 
+> 
+> On the other hand, is there any real reason we have this code:
+>         ndev->base_addr = dev->base_addr;
+>         ndev->irq = dev->irq;
+>         ndev->mem_start = dev->mem_start;
+>         ndev->mem_end = dev->mem_end;
+>         ndev->flags = dev->flags & IFF_MULTICAST;
+>         SET_NETDEV_DEV(ndev, dev->class_dev.dev);
+> 
+> in ieee80211_if_add? Maybe we should make the virtual devices all 
+> children of the wiphy (struct ieee80211_local) instead of making them 
+> children of the physical device? I don't really know though. This is too 
+> dark magic for me ;)
+> 
+> However, I do know that I can trivially rename the wmaster0 interface 
+> using just 'ip link set wmaster0 name wlan3' and things will probably be 
+> very confusing for any program that relies on the naming to know which 
+> device is which. Hence, I think we need some symlinks here to be able to 
+> tell which device is which. Or maybe we should directly surface the 
+> ifindex in some sysfs attributes ;)
+> 
+> Comments welcome. Userspace comments as well, I'm programming something 
+> that'll use a bunch of interfaces (wmaster, a monitor one and a sta one 
+> probably) and I want the user to just select the physical interface, not 
+> all these three logical ones... (in fact, I'm creating the logical 
+> monitor interface myself in code).
+> 
+> johannes
+> 
+> PS: Yes, I do realize that doing
+> ip link set wlan0 name xxx
+> ip link set wmaster0 name wlan0
+> ip link set xxx name wmaster0
+> 
+> is confusing. But since it is possible things shouldn't fall over if the 
+> user decides for some weird local device naming. And wpa_supplicant 
+> shouldn't need to require being configured all the device names either. 
+> In fact IMHO just giving it a physical device (say via mac address) 
+> ought to be enough...
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-ULL added
-
- > Anton
-
-Jan-Bernd
