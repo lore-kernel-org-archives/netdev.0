@@ -1,30 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][NET::SCHED]: cleanup qdisc_restart
-Date: Mon, 14 Aug 2006 16:00:16 -0700 (PDT)
-Message-ID: <20060814.160016.23014480.davem@davemloft.net>
-References: <44E1DD5F.4020603@osdl.org>
-	<20060814.140136.88477982.davem@davemloft.net>
-	<1155596247.6946.9.camel@jzny2>
+From: Alexey Toptygin <alexeyt@freeshell.org>
+Subject: Re: sysfs vs. d80211 configuration
+Date: Mon, 14 Aug 2006 23:05:15 +0000 (UTC)
+Message-ID: <Pine.NEB.4.64.0608142302560.21364@otaku.freeshell.org>
+References: <44E07662.8070506@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	herbert@gondor.apana.org.au
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30627
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965032AbWHNXAR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 19:00:17 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1155596247.6946.9.camel@jzny2>
+Received: from mx.freeshell.ORG ([192.94.73.18]:32487 "EHLO sdf.lonestar.org")
+	by vger.kernel.org with ESMTP id S965043AbWHNXGd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 19:06:33 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <44E07662.8070506@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Mon, 14 Aug 2006 18:57:27 -0400
+On Mon, 14 Aug 2006, Johannes Berg wrote:
 
-> The question to ask though is: shouldnt we be having drivers use the
-> mnemonics instead of values like 1? 
+> In my seemingly never-ending quest to actually use the d80211 stack for 
+> something useful I just wanted to write a small setuid tool that:
+> * creates and opens a new monitor interface
+> * drops priviledges
+> * ... does things with received frames ... (not interesting for this 
+> discussion)
+> * removes new monitor interface
+>
+> So I figured I'd just keep an fd open to 
+> /sys/class/net/mymonitorinterface/remove_iface to which I could write the 
+> interfaces name after I was done with it. However, when writing to that fd I 
+> got -EACCESS because it checks for CAP_NET_ADMIN.
 
-Absolutely, but while such conversions still remain undone
-we shouldn't knowingly break stuff :)
+Why not have the tool create a monitor interface, open it, and fork; the 
+child drops privileges and does the reading, and the parent wait(2)s for 
+the child and removes the interface once it has collected the child?
+
+ 			Alexey
