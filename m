@@ -1,35 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC][PATCH 0/4] VM deadlock prevention -v4
-Date: Mon, 14 Aug 2006 22:51:43 +1000
-Message-ID: <E1GCbux-0005CO-00@gondolin.me.apana.org.au>
-References: <44E06AC7.6090301@redhat.com>
-Cc: johnpol@2ka.mipt.ru, phillips@google.com, a.p.zijlstra@chello.nl,
-	indan@nul.nu, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: network manager confused with bcm43xx-d80211?
+Date: Mon, 14 Aug 2006 14:54:39 +0200
+Message-ID: <44E0728F.10103@sipsolutions.net>
+References: <44E02F41.2060300@sipsolutions.net> <44E031D2.8070106@sipsolutions.net> <1155556011.2885.3.camel@localhost.localdomain> <44E06C8B.1040400@sipsolutions.net> <44E07116.6060208@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dan Williams <dcbw@redhat.com>,
+	Michael Buesch <mbuesch@freenet.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:20996 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1752017AbWHNMwT
+Received: from crystal.sipsolutions.net ([195.210.38.204]:42137 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1752019AbWHNMyw
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 08:52:19 -0400
-To: riel@redhat.com (Rik van Riel)
-In-Reply-To: <44E06AC7.6090301@redhat.com>
+	Mon, 14 Aug 2006 08:54:52 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <44E07116.6060208@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rik van Riel <riel@redhat.com> wrote:
-> 
-> That should not be any problem, since skb's (including cowed ones)
-> are short lived anyway.  Allocating a little bit more memory is
-> fine when we have a guarantee that the memory will be freed again
-> shortly.
+Larry Finger wrote:
+> The RFCd patch to add wireless stats to d80211 received only minor 
+> comments, which have all been addressed. I will be submitting a proper 
+> patch to Linville's tree today. In addition, I have reached an 
+> agreement with the authors of all other drivers that use d80211 on a 
+> scheme that will implement the stats code for them as well. 
+> Unfortunately, none of them provide such useful quantities as noise 
+> values, but perhaps the prominent FIXMEs will spur action by those who 
+> have detailed device specifications.
 
-I'm not sure about the context the comment applies to, but skb's are
-not necessarily short-lived.  For example, they could be queued for
-a few seconds for ARP/NDISC and even longer for IPsec SA resolution.
+Sounds good to me, thanks :) I'll take a look at bcm43xx signal 
+strength/quality reverse engineering, I promise. Just have to get to it, 
+right now I'm using a rt2500usb device which doesn't seem to give any 
+useful values.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+johannes
