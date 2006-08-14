@@ -1,7 +1,7 @@
 From: Michael Buesch <mb@bu3sch.de>
-Subject: [patch RFC 1/3] add Sonics Silicon Backplane module
-Date: Tue, 15 Aug 2006 00:15:37 +0200
-Message-ID: <200608150015.38510.mb@bu3sch.de>
+Subject: [patch RFC 2/3] bcm43xx-d80211: convert to ssb module
+Date: Tue, 15 Aug 2006 00:17:27 +0200
+Message-ID: <200608150017.28615.mb@bu3sch.de>
 References: <200608150014.19661.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -9,874 +9,1628 @@ Content-Type: text/plain;
 Content-Transfer-Encoding: 7bit
 Cc: bcm43xx-dev@lists.berlios.de, zambrano@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:10473
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965014AbWHNWXl
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:11241
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965015AbWHNWXp
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 18:23:41 -0400
+	Mon, 14 Aug 2006 18:23:45 -0400
 To: netdev@vger.kernel.org
 In-Reply-To: <200608150014.19661.mb@bu3sch.de>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+More #defines in bcm43xx.h can be deleted and the corresponding
+#defines in ssh.h can be used instead. But I leave this alone for now...
 
-Index: wireless-dev/drivers/misc/Kconfig
+Signed-off-by: Michael Buesch <mb@bu3sch>
+
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h
 ===================================================================
---- wireless-dev.orig/drivers/misc/Kconfig	2006-08-14 15:31:50.000000000 +0200
-+++ wireless-dev/drivers/misc/Kconfig	2006-08-14 22:02:07.000000000 +0200
-@@ -28,5 +28,16 @@
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h	2006-08-14 22:05:06.000000000 +0200
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h	2006-08-14 23:19:39.000000000 +0200
+@@ -11,6 +11,7 @@
+ #include <asm/atomic.h>
+ #include <asm/io.h>
  
- 	  If unsure, say N.
- 
-+config SONICS_SILICON_BACKPLANE
-+	tristate "Sonics Silicon Backplane support"
-+	depends on PCI && EXPERIMENTAL
-+	default m
-+	---help---
-+	  The Sonics Silicon Backplane is used in some chips such
-+	  as the Broadcom 43xx and 44xx series.
-+	  The Backplane ties several chip-cores together.
-+
-+	  If unsure, say M.
-+
- endmenu
- 
-Index: wireless-dev/drivers/misc/Makefile
-===================================================================
---- wireless-dev.orig/drivers/misc/Makefile	2006-08-14 15:31:50.000000000 +0200
-+++ wireless-dev/drivers/misc/Makefile	2006-08-14 22:02:07.000000000 +0200
-@@ -3,5 +3,6 @@
- #
- obj- := misc.o	# Dummy rule to force built-in.o to be made
- 
--obj-$(CONFIG_IBM_ASM)	+= ibmasm/
--obj-$(CONFIG_HDPU_FEATURES)	+= hdpuftrs/
-+obj-$(CONFIG_IBM_ASM)			+= ibmasm/
-+obj-$(CONFIG_HDPU_FEATURES)		+= hdpuftrs/
-+obj-$(CONFIG_SONICS_SILICON_BACKPLANE)	+= ssb.o
-Index: wireless-dev/drivers/misc/ssb.c
-===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ wireless-dev/drivers/misc/ssb.c	2006-08-14 23:19:34.000000000 +0200
-@@ -0,0 +1,502 @@
-+/*
-+ * Sonics Silicon Backplane backend.
-+ *
-+ * Copyright (C) 2005-2006 Michael Buesch <mb@bu3sch.de>
-+ * Copyright (C) 2005 Martin Langer <martin-langer@gmx.de>
-+ * Copyright (C) 2005 Stefano Brivio <st3@riseup.net>
-+ * Copyright (C) 2005 Danny van Dyk <kugelfang@gentoo.org>
-+ * Copyright (C) 2005 Andreas Jaggi <andreas.jaggi@waterwave.ch>
-+ *
-+ * Derived from the Broadcom 4400 device driver.
-+ * Copyright (C) 2002 David S. Miller (davem@redhat.com)
-+ * Fixed by Pekka Pietikainen (pp@ee.oulu.fi)
-+ * Copyright (C) 2006 Broadcom Corporation.
-+ *
-+ * Licensed under the GNU/GPL. See COPYING for details.
-+ */
-+
 +#include <linux/ssb.h>
-+#include <linux/pci.h>
-+#include <linux/delay.h>
-+
-+#define SSB_DEBUG	1
-+#define PFX		"ssb: "
-+
-+#if SSB_DEBUG
-+# define dprintk(f, x...)	do { printk(f ,##x); } while (0)
-+#else
-+# define dprintk(f, x...)	do { /* nothing */ } while (0)
-+#endif
-+
-+static inline int ssb_pci_read_config32(struct ssb *ssb, int offset,
-+					u32 *value)
-+{
-+	return pci_read_config_dword(ssb->pci_dev, offset, value);
-+}
-+
-+static inline int ssb_pci_read_config16(struct ssb *ssb, int offset,
-+					u16 *value)
-+{
-+	return pci_read_config_word(ssb->pci_dev, offset, value);
-+}
-+
-+static inline int ssb_pci_write_config32(struct ssb *ssb, int offset,
-+					 u32 value)
-+{
-+	return pci_write_config_dword(ssb->pci_dev, offset, value);
-+}
-+
-+static inline u32 ssb_read32(struct ssb *ssb, u16 offset)
-+{
-+	return ioread32(ssb->mmio + offset + ssb_core_offset(ssb));
-+}
-+
-+static inline void ssb_write32(struct ssb *ssb, u16 offset,
-+			       u32 value)
-+{
-+	iowrite32(value, ssb->mmio + offset + ssb_core_offset(ssb));
-+}
-+
-+
-+struct ssb * ssb_alloc(struct pci_dev *pci_dev,
-+		       void __iomem *mmio)
-+{
+ #include <linux/wireless.h>
+ #include <net/d80211.h>
+ #include <net/d80211_mgmt.h>
+@@ -186,25 +187,7 @@
+ #define BCM43xx_PCTL_FORCE_PLL		0x1000
+ #define BCM43xx_PCTL_DYN_XTAL		0x2000
+ 
+-/* COREIDs */
+-#define BCM43xx_COREID_CHIPCOMMON	0x800
+-#define BCM43xx_COREID_ILINE20          0x801
+-#define BCM43xx_COREID_SDRAM            0x803
+-#define BCM43xx_COREID_PCI		0x804
+-#define BCM43xx_COREID_MIPS             0x805
+-#define BCM43xx_COREID_ETHERNET         0x806
+-#define BCM43xx_COREID_V90		0x807
+-#define BCM43xx_COREID_USB11_HOSTDEV    0x80a
+-#define BCM43xx_COREID_IPSEC            0x80b
+-#define BCM43xx_COREID_PCMCIA		0x80d
+-#define BCM43xx_COREID_EXT_IF           0x80f
+-#define BCM43xx_COREID_80211		0x812
+-#define BCM43xx_COREID_MIPS_3302        0x816
+-#define BCM43xx_COREID_USB11_HOST       0x817
+-#define BCM43xx_COREID_USB11_DEV        0x818
+-#define BCM43xx_COREID_USB20_HOST       0x819
+-#define BCM43xx_COREID_USB20_DEV        0x81a
+-#define BCM43xx_COREID_SDIO_HOST        0x81b
++// FIXME: deletes SSB duplicates.
+ 
+ /* Core Information Registers */
+ #define BCM43xx_CIR_BASE		0xf00
+@@ -578,29 +561,9 @@
+ 
+ #define BCM43xx_MAX_80211_CORES		2
+ 
+-#ifdef CONFIG_BCM947XX
+-#define core_offset(bcm) (bcm)->current_core_offset
+-#else
+-#define core_offset(bcm) 0
+-#endif
+-
+-/* Generic information about a core. */
+-struct bcm43xx_coreinfo {
+-	u8 available:1,
+-	   enabled:1,
+-	   initialized:1;
+-	/** core_rev revision number */
+-	u8 rev;
+-	/** Index number for _switch_core() */
+-	u8 index;
+-	/** core_id ID number */
+-	u16 id;
+-	/** Core-specific data. */
+-	void *priv;
+-};
+-
+ /* Additional information for each 80211 core. */
+-struct bcm43xx_coreinfo_80211 {
++struct bcm43xx_corepriv_80211 {
++	u8 initialized:1;
+ 	/* PHY device. */
+ 	struct bcm43xx_phyinfo phy;
+ 	/* Radio device. */
+@@ -615,7 +578,7 @@
+ 
+ /* Context information for a noise calculation (Link Quality). */
+ struct bcm43xx_noise_calculation {
+-	struct bcm43xx_coreinfo *core_at_start;
++	struct ssb_core *core_at_start;
+ 	u8 channel_at_start;
+ 	u8 calculation_running:1;
+ 	u8 nr_samples;
+@@ -685,6 +648,8 @@
+  */
+ 
+ struct bcm43xx_private {
++	/* Pointer to the Sonics Silicon Backplane. */
 +	struct ssb *ssb;
+ 	struct ieee80211_hw *ieee;
+ 	struct ieee80211_low_level_stats ieee_stats;
+ 
+@@ -735,27 +700,19 @@
+ 	struct bcm43xx_led leds[BCM43xx_NR_LEDS];
+ 	spinlock_t leds_lock;
+ 
+-	/* The currently active core. */
+-	struct bcm43xx_coreinfo *current_core;
+-#ifdef CONFIG_BCM947XX
+-	/** current core memory offset */
+-	u32 current_core_offset;
+-#endif
+-	struct bcm43xx_coreinfo *active_80211_core;
+-	/* coreinfo structs for all possible cores follow.
+-	 * Note that a core might not exist.
+-	 * So check the coreinfo flags before using it.
++	/* Pointers to the available cores.
++	 * If a core is not available, this is NULL.
+ 	 */
+-	struct bcm43xx_coreinfo core_chipcommon;
+-	struct bcm43xx_coreinfo core_pci;
+-	struct bcm43xx_coreinfo core_80211[ BCM43xx_MAX_80211_CORES ];
++	struct ssb_core *core_80211[ BCM43xx_MAX_80211_CORES ];
++	struct ssb_core *active_80211_core;//FIXME remove?
++	struct ssb_core *core_chipcommon;
++	struct ssb_core *core_pci;
 +
-+	ssb = kzalloc(sizeof(*ssb), GFP_KERNEL);
-+	if (!ssb)
-+		return NULL;
-+
-+	ssb->pci_dev = pci_dev;
-+	ssb->mmio = mmio;
-+
-+	return ssb;
-+}
-+EXPORT_SYMBOL(ssb_alloc);
-+
-+void ssb_free(struct ssb *ssb)
-+{
-+	kfree(ssb->cores);
-+	kfree(ssb);
-+}
-+EXPORT_SYMBOL(ssb_free);
-+
-+static int do_switch_core(struct ssb *ssb, u8 coreidx)
-+{
-+	int err;
-+	int attempts = 0;
-+	u32 cur_core;
-+
-+	while (1) {
-+		err = ssb_pci_write_config32(ssb, SSB_BAR0_WIN,
-+					     (coreidx * 0x1000) + 0x18000000);
-+		if (unlikely(err))
-+			goto error;
-+		err = ssb_pci_read_config32(ssb, SSB_BAR0_WIN,
-+					    &cur_core);
-+		if (unlikely(err))
-+			goto error;
-+		cur_core = (cur_core - 0x18000000) / 0x1000;
-+		if (cur_core == coreidx)
-+			break;
-+
-+		if (unlikely(attempts++ > SSB_BAR0_MAX_RETRIES))
-+			goto error;
-+		udelay(10);
-+	}
-+#ifdef CONFIG_BCM947XX
-+	ssb->current_core_offset = 0;
-+	if (ssb->pci_dev->bus->number == 0)
-+		ssb->current_core_offset = 0x1000 * coreidx;
-+#endif /* CONFIG_BCM947XX */
-+
-+	return 0;
-+error:
-+	printk(KERN_ERR PFX "Failed to switch to core %u\n", coreidx);
-+	return -ENODEV;
-+}
-+
-+int ssb_switch_core(struct ssb *ssb,
-+		    struct ssb_core *new_core)
-+{
-+	int err;
-+
-+	if (unlikely(!new_core))
-+		return -EINVAL;
-+	if (ssb->current_core == new_core)
-+		return 0;
-+	err = do_switch_core(ssb, new_core->index);
-+	if (likely(!err))
-+		ssb->current_core = new_core;
-+
-+	return err;
-+}
-+EXPORT_SYMBOL(ssb_switch_core);
-+
-+int ssb_probe_cores(struct ssb *ssb,
-+		    u16 chipid_fallback,
-+		    const struct ssb_nrcores_elem *nrcores_fallback,
-+		    size_t nrcores_fb_size)
-+{
-+	struct ssb_core *core;
+ 	/* Additional information, specific to the 80211 cores. */
+-	struct bcm43xx_coreinfo_80211 core_80211_ext[ BCM43xx_MAX_80211_CORES ];
++	struct bcm43xx_corepriv_80211 corepriv_80211[ BCM43xx_MAX_80211_CORES ];
+ 	/* Number of available 80211 cores. */
+ 	int nr_80211_available;
+ 
+-	u32 chipcommon_capabilities;
+-
+ 	/* Reason code of the last interrupt. */
+ 	u32 irq_reason;
+ 	u32 dma_reason[4];
+@@ -829,11 +786,11 @@
+  * any of these functions.
+  */
+ static inline
+-struct bcm43xx_coreinfo_80211 *
++struct bcm43xx_corepriv_80211 *
+ bcm43xx_current_80211_priv(struct bcm43xx_private *bcm)
+ {
+-	assert(bcm->current_core->id == BCM43xx_COREID_80211);
+-	return bcm->current_core->priv;
++	assert(bcm->ssb->current_core->cc == SSB_CC_80211);
++	return bcm->ssb->current_core->priv;
+ }
+ static inline
+ struct bcm43xx_pio * bcm43xx_current_pio(struct bcm43xx_private *bcm)
+@@ -894,25 +851,25 @@
+ static inline
+ u16 bcm43xx_read16(struct bcm43xx_private *bcm, u16 offset)
+ {
+-	return ioread16(bcm->mmio_addr + core_offset(bcm) + offset);
++	return ioread16(bcm->mmio_addr + ssb_core_offset(bcm->ssb) + offset);
+ }
+ 
+ static inline
+ void bcm43xx_write16(struct bcm43xx_private *bcm, u16 offset, u16 value)
+ {
+-	iowrite16(value, bcm->mmio_addr + core_offset(bcm) + offset);
++	iowrite16(value, bcm->mmio_addr + ssb_core_offset(bcm->ssb) + offset);
+ }
+ 
+ static inline
+ u32 bcm43xx_read32(struct bcm43xx_private *bcm, u16 offset)
+ {
+-	return ioread32(bcm->mmio_addr + core_offset(bcm) + offset);
++	return ioread32(bcm->mmio_addr + ssb_core_offset(bcm->ssb) + offset);
+ }
+ 
+ static inline
+ void bcm43xx_write32(struct bcm43xx_private *bcm, u16 offset, u32 value)
+ {
+-	iowrite32(value, bcm->mmio_addr + core_offset(bcm) + offset);
++	iowrite32(value, bcm->mmio_addr + ssb_core_offset(bcm->ssb) + offset);
+ }
+ 
+ static inline
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c	2006-08-14 22:05:06.000000000 +0200
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c	2006-08-14 23:20:59.000000000 +0200
+@@ -341,7 +341,7 @@
+ 	 * We try to be atomic here, by restaring the read process,
+ 	 * if any of the high registers changed (overflew).
+ 	 */
+-	if (bcm->current_core->rev >= 3) {
++	if (bcm->ssb->current_core->rev >= 3) {
+ 		u32 low, high, high2;
+ 
+ 		do {
+@@ -406,7 +406,7 @@
+ 	 * First zero out the low register, so we have a full
+ 	 * register-overflow duration to complete the operation.
+ 	 */
+-	if (bcm->current_core->rev >= 3) {
++	if (bcm->ssb->current_core->rev >= 3) {
+ 		u32 lo = (tsf & 0x00000000FFFFFFFFULL);
+ 		u32 hi = (tsf & 0xFFFFFFFF00000000ULL) >> 32;
+ 
+@@ -1079,7 +1079,7 @@
+ 		return;
+ 
+ 	index -= 4;
+-	if (bcm->current_core->rev >= 5) {
++	if (bcm->ssb->current_core->rev >= 5) {
+ 		bcm43xx_shm_write32(bcm,
+ 				    BCM43xx_SHM_HWMAC,
+ 				    index * 2,
+@@ -1128,7 +1128,7 @@
+ 	unsigned int i,j, nr_keys = 54;
+ 	u16 offset;
+ 
+-	if (bcm->current_core->rev < 5)
++	if (bcm->ssb->current_core->rev < 5)
+ 		nr_keys = 16;
+ 	assert(nr_keys <= ARRAY_SIZE(bcm->key));
+ 
+@@ -1147,194 +1147,12 @@
+ 	dprintk(KERN_INFO PFX "Keys cleared\n");
+ }
+ 
+-/* Lowlevel core-switch function. This is only to be used in
+- * bcm43xx_switch_core() and bcm43xx_probe_cores()
+- */
+-static int _switch_core(struct bcm43xx_private *bcm, int core)
+-{
+-	int err;
+-	int attempts = 0;
+-	u32 current_core;
+-
+-	assert(core >= 0);
+-	while (1) {
+-		err = bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_ACTIVE_CORE,
+-						 (core * 0x1000) + 0x18000000);
+-		if (unlikely(err))
+-			goto error;
+-		err = bcm43xx_pci_read_config32(bcm, BCM43xx_PCICFG_ACTIVE_CORE,
+-						&current_core);
+-		if (unlikely(err))
+-			goto error;
+-		current_core = (current_core - 0x18000000) / 0x1000;
+-		if (current_core == core)
+-			break;
+-
+-		if (unlikely(attempts++ > BCM43xx_SWITCH_CORE_MAX_RETRIES))
+-			goto error;
+-		udelay(10);
+-	}
+-#ifdef CONFIG_BCM947XX
+-	if (bcm->pci_dev->bus->number == 0)
+-		bcm->current_core_offset = 0x1000 * core;
+-	else
+-		bcm->current_core_offset = 0;
+-#endif
+-
+-	return 0;
+-error:
+-	printk(KERN_ERR PFX "Failed to switch to core %d\n", core);
+-	return -ENODEV;
+-}
+-
+-int bcm43xx_switch_core(struct bcm43xx_private *bcm, struct bcm43xx_coreinfo *new_core)
+-{
+-	int err;
+-
+-	if (unlikely(!new_core))
+-		return 0;
+-	if (!new_core->available)
+-		return -ENODEV;
+-	if (bcm->current_core == new_core)
+-		return 0;
+-	err = _switch_core(bcm, new_core->index);
+-	if (unlikely(err))
+-		goto out;
+-
+-	bcm->current_core = new_core;
+-out:
+-	return err;
+-}
+-
+-static int bcm43xx_core_enabled(struct bcm43xx_private *bcm)
+-{
+-	u32 value;
+-
+-	value = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+-	value &= BCM43xx_SBTMSTATELOW_CLOCK | BCM43xx_SBTMSTATELOW_RESET
+-		 | BCM43xx_SBTMSTATELOW_REJECT;
+-
+-	return (value == BCM43xx_SBTMSTATELOW_CLOCK);
+-}
+-
+-/* disable current core */
+-static int bcm43xx_core_disable(struct bcm43xx_private *bcm, u32 core_flags)
+-{
+-	u32 sbtmstatelow;
+-	u32 sbtmstatehigh;
+-	int i;
+-
+-	/* fetch sbtmstatelow from core information registers */
+-	sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+-
+-	/* core is already in reset */
+-	if (sbtmstatelow & BCM43xx_SBTMSTATELOW_RESET)
+-		goto out;
+-
+-	if (sbtmstatelow & BCM43xx_SBTMSTATELOW_CLOCK) {
+-		sbtmstatelow = BCM43xx_SBTMSTATELOW_CLOCK |
+-			       BCM43xx_SBTMSTATELOW_REJECT;
+-		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+-
+-		for (i = 0; i < 1000; i++) {
+-			sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+-			if (sbtmstatelow & BCM43xx_SBTMSTATELOW_REJECT) {
+-				i = -1;
+-				break;
+-			}
+-			udelay(10);
+-		}
+-		if (i != -1) {
+-			printk(KERN_ERR PFX "Error: core_disable() REJECT timeout!\n");
+-			return -EBUSY;
+-		}
+-
+-		for (i = 0; i < 1000; i++) {
+-			sbtmstatehigh = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH);
+-			if (!(sbtmstatehigh & BCM43xx_SBTMSTATEHIGH_BUSY)) {
+-				i = -1;
+-				break;
+-			}
+-			udelay(10);
+-		}
+-		if (i != -1) {
+-			printk(KERN_ERR PFX "Error: core_disable() BUSY timeout!\n");
+-			return -EBUSY;
+-		}
+-
+-		sbtmstatelow = BCM43xx_SBTMSTATELOW_FORCE_GATE_CLOCK |
+-			       BCM43xx_SBTMSTATELOW_REJECT |
+-			       BCM43xx_SBTMSTATELOW_RESET |
+-			       BCM43xx_SBTMSTATELOW_CLOCK |
+-			       core_flags;
+-		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+-		udelay(10);
+-	}
+-
+-	sbtmstatelow = BCM43xx_SBTMSTATELOW_RESET |
+-		       BCM43xx_SBTMSTATELOW_REJECT |
+-		       core_flags;
+-	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+-
+-out:
+-	bcm->current_core->enabled = 0;
+-
+-	return 0;
+-}
+-
+-/* enable (reset) current core */
+-static int bcm43xx_core_enable(struct bcm43xx_private *bcm, u32 core_flags)
+-{
+-	u32 sbtmstatelow;
+-	u32 sbtmstatehigh;
+-	u32 sbimstate;
+-	int err;
+-
+-	err = bcm43xx_core_disable(bcm, core_flags);
+-	if (err)
+-		goto out;
+-
+-	sbtmstatelow = BCM43xx_SBTMSTATELOW_CLOCK |
+-		       BCM43xx_SBTMSTATELOW_RESET |
+-		       BCM43xx_SBTMSTATELOW_FORCE_GATE_CLOCK |
+-		       core_flags;
+-	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+-	udelay(1);
+-
+-	sbtmstatehigh = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH);
+-	if (sbtmstatehigh & BCM43xx_SBTMSTATEHIGH_SERROR) {
+-		sbtmstatehigh = 0x00000000;
+-		bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATEHIGH, sbtmstatehigh);
+-	}
+-
+-	sbimstate = bcm43xx_read32(bcm, BCM43xx_CIR_SBIMSTATE);
+-	if (sbimstate & (BCM43xx_SBIMSTATE_IB_ERROR | BCM43xx_SBIMSTATE_TIMEOUT)) {
+-		sbimstate &= ~(BCM43xx_SBIMSTATE_IB_ERROR | BCM43xx_SBIMSTATE_TIMEOUT);
+-		bcm43xx_write32(bcm, BCM43xx_CIR_SBIMSTATE, sbimstate);
+-	}
+-
+-	sbtmstatelow = BCM43xx_SBTMSTATELOW_CLOCK |
+-		       BCM43xx_SBTMSTATELOW_FORCE_GATE_CLOCK |
+-		       core_flags;
+-	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+-	udelay(1);
+-
+-	sbtmstatelow = BCM43xx_SBTMSTATELOW_CLOCK | core_flags;
+-	bcm43xx_write32(bcm, BCM43xx_CIR_SBTMSTATELOW, sbtmstatelow);
+-	udelay(1);
+-
+-	bcm->current_core->enabled = 1;
+-	assert(err == 0);
+-out:
+-	return err;
+-}
+-
+ /* http://bcm-specs.sipsolutions.net/80211CoreReset */
+ void bcm43xx_wireless_core_reset(struct bcm43xx_private *bcm, int connect_phy)
+ {
+ 	u32 flags = 0x00040000;
+ 
+-	if ((bcm43xx_core_enabled(bcm)) &&
++	if ((ssb_core_is_enabled(bcm->ssb)) &&
+ 	    !bcm43xx_using_pio(bcm)) {
+ //FIXME: Do we _really_ want #ifndef CONFIG_BCM947XX here?
+ #ifndef CONFIG_BCM947XX
+@@ -1344,7 +1162,7 @@
+ 		bcm43xx_dmacontroller_tx_reset(bcm, BCM43xx_MMIO_DMA3_BASE);
+ 		bcm43xx_dmacontroller_tx_reset(bcm, BCM43xx_MMIO_DMA4_BASE);
+ 		bcm43xx_dmacontroller_rx_reset(bcm, BCM43xx_MMIO_DMA1_BASE);
+-		if (bcm->current_core->rev < 5)
++		if (bcm->ssb->current_core->rev < 5)
+ 			bcm43xx_dmacontroller_rx_reset(bcm, BCM43xx_MMIO_DMA4_BASE);
+ #endif
+ 	}
+@@ -1356,7 +1174,7 @@
+ 		if (connect_phy)
+ 			flags |= 0x20000000;
+ 		bcm43xx_phy_connect(bcm, connect_phy);
+-		bcm43xx_core_enable(bcm, flags);
++		ssb_core_enable(bcm->ssb, flags);
+ 		bcm43xx_write16(bcm, 0x03E6, 0x0000);
+ 		bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD,
+ 				bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD)
+@@ -1368,7 +1186,7 @@
+ {
+ 	bcm43xx_radio_turn_off(bcm);
+ 	bcm43xx_write16(bcm, 0x03E6, 0x00F4);
+-	bcm43xx_core_disable(bcm, 0);
++	ssb_core_disable(bcm->ssb, 0);
+ }
+ 
+ /* Mark the current 80211 core inactive. */
+@@ -1431,7 +1249,7 @@
+ 	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x40A, 0x7F7F);
+ 	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD,
+ 			bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS2_BITFIELD) | (1 << 4));
+-	assert(bcm->noisecalc.core_at_start == bcm->current_core);
++	assert(bcm->noisecalc.core_at_start == bcm->ssb->current_core);
+ 	assert(bcm->noisecalc.channel_at_start == bcm43xx_current_radio(bcm)->channel);
+ }
+ 
+@@ -1441,7 +1259,7 @@
+ 
+ 	if (bcm->noisecalc.calculation_running)
+ 		return;
+-	bcm->noisecalc.core_at_start = bcm->current_core;
++	bcm->noisecalc.core_at_start = bcm->ssb->current_core;
+ 	bcm->noisecalc.channel_at_start = bcm43xx_current_radio(bcm)->channel;
+ 	bcm->noisecalc.calculation_running = 1;
+ 	bcm->noisecalc.nr_samples = 0;
+@@ -1460,7 +1278,7 @@
+ 	/* Bottom half of Link Quality calculation. */
+ 
+ 	assert(bcm->noisecalc.calculation_running);
+-	if (bcm->noisecalc.core_at_start != bcm->current_core ||
++	if (bcm->noisecalc.core_at_start != bcm->ssb->current_core ||
+ 	    bcm->noisecalc.channel_at_start != radio->channel)
+ 		goto drop_calculation;
+ 	tmp = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED, 0x408);
+@@ -1802,7 +1620,7 @@
+ static void bcm43xx_set_beacon_int(struct bcm43xx_private *bcm, u16 beacon_int)
+ {
+ 	bcm43xx_time_lock(bcm);
+-	if (bcm->current_core->rev >= 3) {
++	if (bcm->ssb->current_core->rev >= 3) {
+ 		bcm43xx_write32(bcm, 0x188, (beacon_int << 16));
+ 	} else {
+ 		bcm43xx_write16(bcm, 0x606, (beacon_int >> 6));
+@@ -1989,7 +1807,7 @@
+ static void bcm43xx_interrupt_ack(struct bcm43xx_private *bcm, u32 reason)
+ {
+ 	if (bcm43xx_using_pio(bcm) &&
+-	    (bcm->current_core->rev < 3) &&
++	    (bcm->ssb->current_core->rev < 3) &&
+ 	    (!(reason & BCM43xx_IRQ_PIO_WORKAROUND))) {
+ 		/* Apply a PIO specific workaround to the dma_reasons */
+ 		pio_irq_workaround(bcm, BCM43xx_MMIO_PIO1_BASE, 0);
+@@ -2023,7 +1841,7 @@
+ 	spin_lock(&bcm->irq_lock);
+ 
+ 	assert(bcm43xx_status(bcm) == BCM43xx_STAT_INITIALIZED);
+-	assert(bcm->current_core->id == BCM43xx_COREID_80211);
++	assert(bcm->ssb->current_core->cc == SSB_CC_80211);
+ 
+ 	reason = bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON);
+ 	if (reason == 0xffffffff) {
+@@ -2076,7 +1894,7 @@
+ static int bcm43xx_request_firmware(struct bcm43xx_private *bcm)
+ {
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+-	u8 rev = bcm->current_core->rev;
++	u8 rev = bcm->ssb->current_core->rev;
+ 	int err = 0;
+ 	int nr;
+ 	char buf[22 + sizeof(modparam_fwpostfix) - 1] = { 0 };
+@@ -2308,22 +2126,26 @@
+  */
+ static int switch_to_gpio_core(struct bcm43xx_private *bcm)
+ {
+-	int err;
 +	int err = -ENODEV;
-+	u32 idhi;
-+	u32 cc, rev;
-+	u32 tmp;
-+	int i;
-+
-+	WARN_ON(ssb->cores);
-+
-+	err = do_switch_core(ssb, 0);
-+	if (err)
-+		goto error;
-+
-+	idhi = ssb_read32(ssb, SSB_IDHIGH);
-+	cc = (idhi & SSB_IDHIGH_CC_MASK) >> SSB_IDHIGH_CC_SHIFT;
-+	rev = (idhi & SSB_IDHIGH_RC_MASK);
-+
-+	ssb->chipcommon_capabilities = 0;
-+	ssb->nr_cores = 0;
-+	if (cc == SSB_CC_CHIPCOMMON) {
-+		tmp = ssb_read32(ssb, SSB_CHIPCOMMON_CHIPID);
-+
-+		ssb->chip_id = (tmp & SSB_CHIPCOMMON_IDMASK);
-+		ssb->chip_rev = (tmp & SSB_CHIPCOMMON_REVMASK) >>
-+				SSB_CHIPCOMMON_REVSHIFT;
-+		ssb->chip_package = (tmp & SSB_CHIPCOMMON_PACKMASK) >>
-+				    SSB_CHIPCOMMON_PACKSHIFT;
-+		if (rev >= 4) {
-+			ssb->nr_cores = (tmp & SSB_CHIPCOMMON_NRCORESMASK) >>
-+					SSB_CHIPCOMMON_NRCORESSHIFT;
-+		}
-+		tmp = ssb_read32(ssb, SSB_CHIPCOMMON_CAPABILITIES);
-+		ssb->chipcommon_capabilities = tmp;
+ 
+ 	/* Where to find the GPIO register depends on the chipset.
+ 	 * If it has a ChipCommon, its register at offset 0x6c is the GPIO
+ 	 * control register. Otherwise the register at offset 0x6c in the
+ 	 * PCI core is the GPIO control register.
+ 	 */
+-	err = bcm43xx_switch_core(bcm, &bcm->core_chipcommon);
+-	if (err == -ENODEV) {
+-		err = bcm43xx_switch_core(bcm, &bcm->core_pci);
+-		if (unlikely(err == -ENODEV)) {
+-			printk(KERN_ERR PFX "gpio error: "
+-			       "Neither ChipCommon nor PCI core available!\n");
+-		}
++	if (bcm->core_chipcommon) {
++		err = ssb_switch_core(bcm->ssb, bcm->core_chipcommon);
++		if (err)
++			goto out;
++	} else if (bcm->core_pci) {
++		err = ssb_switch_core(bcm->ssb, bcm->core_pci);
++		if (err)
++			goto out;
 +	} else {
-+		u16 revtmp;
-+
-+		if (chipid_fallback == 0) {
-+			printk(KERN_ERR PFX "No ChipCommon rev >= 4 present and "
-+					    "chipid_fallback == 0\n");
-+			goto error;
-+		}
-+		ssb->chip_id = chipid_fallback;
-+		err = ssb_pci_read_config16(ssb, PCI_REVISION_ID, &revtmp);
-+		if (err)
-+			goto error;
-+		ssb->chip_rev = revtmp;
-+		ssb->chip_package = 0;
-+	}
-+	if (!ssb->nr_cores) {
-+		const struct ssb_nrcores_elem *elem;
-+
-+		/* Search the fallback array. */
-+		if (!nrcores_fallback) {
-+			printk(KERN_ERR PFX "Could not read number of cores from "
-+					    "ChipCommon and no nrcores_fallback "
-+					    "available\n");
-+			goto error;
-+		}
-+		for (i = 0; i < nrcores_fb_size; i++) {
-+			elem = &(nrcores_fallback[i]);
-+			if (elem->chip_id_key == ssb->chip_id) {
-+				ssb->nr_cores = elem->nr_cores_value;
-+				break;
-+			}
-+		}
-+	}
-+	if (!ssb->nr_cores) {
-+		printk(KERN_ERR PFX "Could not determine number of cores.\n");
-+		goto error;
-+	}
-+
-+	ssb->cores = kcalloc(ssb->nr_cores, sizeof(struct ssb_core),
-+			     GFP_KERNEL);
-+	if (!ssb->cores)
-+		goto error;
-+
-+	for (i = 0; i < ssb->nr_cores; i++) {
-+		err == do_switch_core(ssb, i);
-+		if (err)
-+			goto error;
-+		core = &(ssb->cores[i]);
-+
-+		idhi = ssb_read32(ssb, SSB_IDHIGH);
-+		core->cc = (idhi & SSB_IDHIGH_CC_MASK) >> SSB_IDHIGH_CC_SHIFT;
-+		core->rev = (idhi & SSB_IDHIGH_RC_MASK);
-+		core->vendor = (idhi & SSB_IDHIGH_VC_MASK) >> SSB_IDHIGH_VC_SHIFT;
-+		core->index = i;
-+
-+		dprintk(KERN_DEBUG PFX "Core %d found: "
-+				       "cc %04X, rev %02X, vendor %04X\n",
-+			i, core->cc, core->rev, core->vendor);
-+	}
-+
-+	return 0;
-+error:
-+	printk(KERN_ERR PFX "Failed to probe cores\n");
-+	return err;
-+}
-+EXPORT_SYMBOL(ssb_probe_cores);
-+
-+int ssb_core_is_enabled(struct ssb *ssb)
-+{
-+	u32 val;
-+
-+	val = ssb_read32(ssb, SSB_TMSLOW);
-+	val &= SSB_TMSLOW_CLOCK | SSB_TMSLOW_RESET | SSB_TMSLOW_REJECT;
-+
-+	return (val == SSB_TMSLOW_CLOCK);
-+}
-+EXPORT_SYMBOL(ssb_core_is_enabled);
-+
-+void ssb_core_enable(struct ssb *ssb, u32 core_specific_flags)
-+{
-+	u32 val;
-+
-+	ssb_core_disable(ssb, core_specific_flags);
-+	ssb_write32(ssb, SSB_TMSLOW,
-+		    SSB_TMSLOW_RESET | SSB_TMSLOW_CLOCK |
-+		    SSB_TMSLOW_FGC | core_specific_flags);
-+	/* flush */
-+	ssb_read32(ssb, SSB_TMSLOW);
-+	udelay(1);
-+
-+	/* Clear SERR if set. This is a hw bug workaround. */
-+	if (ssb_read32(ssb, SSB_TMSHIGH) & SSB_TMSHIGH_SERR)
-+		ssb_write32(ssb, SSB_TMSHIGH, 0);
-+
-+	val = ssb_read32(ssb, SSB_IMSTATE);
-+	if (val & (SSB_IMSTATE_IBE | SSB_IMSTATE_TO)) {
-+		val &= ~(SSB_IMSTATE_IBE | SSB_IMSTATE_TO);
-+		ssb_write32(ssb, SSB_IMSTATE, val);
-+	}
-+
-+	ssb_write32(ssb, SSB_TMSLOW,
-+		    SSB_TMSLOW_CLOCK | SSB_TMSLOW_FGC |
-+		    core_specific_flags);
-+	/* flush */
-+	ssb_read32(ssb, SSB_TMSLOW);
-+	udelay(1);
-+
-+	ssb_write32(ssb, SSB_TMSLOW, SSB_TMSLOW_CLOCK |
-+		    core_specific_flags);
-+	/* flush */
-+	ssb_read32(ssb, SSB_TMSLOW);
-+	udelay(1);
-+}
-+EXPORT_SYMBOL(ssb_core_enable);
-+
-+static int ssb_wait_bit(struct ssb *ssb, u16 reg, u32 bitmask,
-+			int timeout, int set)
-+{
-+	int i;
-+	u32 val;
-+
-+	for (i = 0; i < timeout; i++) {
-+		val = ssb_read32(ssb, reg);
-+		if (set) {
-+			if (val & bitmask)
-+				return 0;
-+		} else {
-+			if (!(val & bitmask))
-+				return 0;
-+		}
-+		udelay(10);
-+	}
-+	printk(KERN_ERR PFX "Timeout waiting for bitmask %08X on "
-+			    "register %04X to %s.\n",
-+	       bitmask, reg, (set ? "set" : "clear"));
-+
-+	return -ETIMEDOUT;
-+}
-+
-+void ssb_core_disable(struct ssb *ssb, u32 core_specific_flags)
-+{
-+	if (ssb_read32(ssb, SSB_TMSLOW) & SSB_TMSLOW_RESET)
-+		return;
-+
-+	ssb_write32(ssb, SSB_TMSLOW, SSB_TMSLOW_REJECT | SSB_TMSLOW_CLOCK);
-+	ssb_wait_bit(ssb, SSB_TMSLOW, SSB_TMSLOW_REJECT, 1000, 1);
-+	ssb_wait_bit(ssb, SSB_TMSHIGH, SSB_TMSHIGH_BUSY, 1000, 0);
-+	ssb_write32(ssb, SSB_TMSLOW,
-+		    SSB_TMSLOW_FGC | SSB_TMSLOW_CLOCK |
-+		    SSB_TMSLOW_REJECT | SSB_TMSLOW_RESET |
-+		    core_specific_flags);
-+	/* flush */
-+	ssb_read32(ssb, SSB_TMSLOW);
-+	udelay(1);
-+
-+	ssb_write32(ssb, SSB_TMSLOW,
-+		    SSB_TMSLOW_REJECT | SSB_TMSLOW_RESET |
-+		    core_specific_flags);
-+	/* flush */
-+	ssb_read32(ssb, SSB_TMSLOW);
-+	udelay(1);
-+}
-+EXPORT_SYMBOL(ssb_core_disable);
-+
-+static u32 ssb_pcie_read(struct ssb *ssb, u32 address)
-+{
-+	ssb_write32(ssb, 0x130, address);
-+	return ssb_read32(ssb, 0x134);
-+}
-+
-+static void ssb_pcie_write(struct ssb *ssb, u32 address, u32 data)
-+{
-+	ssb_write32(ssb, 0x130, address);
-+	ssb_write32(ssb, 0x134, data);
-+}
-+
-+static void ssb_pcie_mdio_write(struct ssb *ssb, u8 device,
-+				u8 address, u16 data)
-+{
-+	const u16 mdio_control = 0x128;
-+	const u16 mdio_data = 0x12C;
-+	u32 v;
-+	int i;
-+
-+	v = 0x80; /* Enable Preamble Sequence */
-+	v |= 0x2; /* MDIO Clock Divisor */
-+	ssb_write32(ssb, mdio_control, v);
-+
-+	v = (1 << 30); /* Start of Transaction */
-+	v |= (1 << 28); /* Write Transaction */
-+	v |= (1 << 17); /* Turnaround */
-+	v |= (u32)device << 22;
-+	v |= (u32)address << 18;
-+	v |= data;
-+	ssb_write32(ssb, mdio_data, v);
-+	udelay(10);
-+	for (i = 0; i < 10; i++) {
-+		v = ssb_read32(ssb, mdio_control);
-+		if (v & 0x100 /* Trans complete */)
-+			break;
-+		msleep(1);
-+	}
-+	ssb_write32(ssb, mdio_control, 0);
-+}
-+
-+static void ssb_broadcast_value(struct ssb *ssb,
-+				u32 address, u32 data)
-+{
-+	/* This is for both, PCI and ChipCommon core, so be careful. */
-+	ssb_write32(ssb, 0x50, address);
-+	ssb_read32(ssb, 0x0); /* flush */
-+	ssb_write32(ssb, 0x54, data);
-+	ssb_read32(ssb, 0x0); /* flush */
-+}
-+
-+static int ssb_pcicore_commit_settings(struct ssb *ssb,
-+				       struct ssb_core *chipcommon_core)
-+{
-+	struct ssb_core *old_core = NULL;
-+	int err;
-+
-+	if (chipcommon_core) {
-+		old_core = ssb->current_core;
-+		err = ssb_switch_core(ssb, chipcommon_core);
-+		if (err)
-+			goto out;
-+	}
-+	/* This forces an update of the cached registers. */
-+	ssb_broadcast_value(ssb, 0xFD8, 0);
-+	if (old_core) {
-+		err = ssb_switch_core(ssb, old_core);
-+		if (err)
-+			goto out;
-+	}
++		printk(KERN_ERR PFX "gpio error: "
++				    "Neither ChipCommon nor PCI core available!\n");
+ 	}
+-
 +out:
-+	return err;
-+}
-+
-+int ssb_cores_connect(struct ssb *ssb, u32 coremask)
-+{
+ 	return err;
+ }
+ 
+@@ -2332,7 +2154,7 @@
+  */
+ static int bcm43xx_gpio_init(struct bcm43xx_private *bcm)
+ {
+-	struct bcm43xx_coreinfo *old_core;
 +	struct ssb_core *old_core;
-+	struct ssb_core *pci_core = NULL;
-+	struct ssb_core *chipcommon_core = NULL;
-+	u32 backplane_flag_nr;
-+	u32 value;
-+	int i, err;
-+
-+	might_sleep();
-+
-+	for (i = 0; i < ssb->nr_cores; i++) {
-+		if (ssb->cores[i].cc == SSB_CC_PCI ||
-+		    ssb->cores[i].cc == SSB_CC_PCIE)
-+			pci_core = &(ssb->cores[i]);
-+		else if (ssb->cores[i].cc == SSB_CC_CHIPCOMMON)
-+			chipcommon_core = &(ssb->cores[i]);
-+	}
-+
-+	value = ssb_read32(ssb, SSB_TPSFLAG);
-+	backplane_flag_nr = value & SSB_TPSFLAG_BPFLAG;
-+
-+	old_core = ssb->current_core;
-+	err = ssb_switch_core(ssb, pci_core);
+ 	int err;
+ 	u32 mask, set;
+ 
+@@ -2364,16 +2186,16 @@
+ 		mask |= 0x0200;
+ 		set |= 0x0200;
+ 	}
+-	if (bcm->current_core->rev >= 2)
++	if (bcm->ssb->current_core->rev >= 2)
+ 		mask  |= 0x0010; /* FIXME: This is redundant. */
+ 
+-	old_core = bcm->current_core;
++	old_core = bcm->ssb->current_core;
+ 	err = switch_to_gpio_core(bcm);
+ 	if (err)
+ 		goto out;
+ 	bcm43xx_write32(bcm, BCM43xx_GPIO_CONTROL,
+ 	                (bcm43xx_read32(bcm, BCM43xx_GPIO_CONTROL) & mask) | set);
+-	err = bcm43xx_switch_core(bcm, old_core);
++	err = ssb_switch_core(bcm->ssb, old_core);
+ out:
+ 	return err;
+ }
+@@ -2381,15 +2203,15 @@
+ /* Turn off all GPIO stuff. Call this on module unload, for example. */
+ static int bcm43xx_gpio_cleanup(struct bcm43xx_private *bcm)
+ {
+-	struct bcm43xx_coreinfo *old_core;
++	struct ssb_core *old_core;
+ 	int err;
+ 
+-	old_core = bcm->current_core;
++	old_core = bcm->ssb->current_core;
+ 	err = switch_to_gpio_core(bcm);
+ 	if (err)
+ 		return err;
+ 	bcm43xx_write32(bcm, BCM43xx_GPIO_CONTROL, 0x00000000);
+-	err = bcm43xx_switch_core(bcm, old_core);
++	err = ssb_switch_core(bcm->ssb, old_core);
+ 	assert(err == 0);
+ 
+ 	return 0;
+@@ -2601,7 +2423,7 @@
+ 		bcm43xx_write16(bcm, 0x005E, value16);
+ 	}
+ 	bcm43xx_write32(bcm, 0x0100, 0x01000000);
+-	if (bcm->current_core->rev < 5)
++	if (bcm->ssb->current_core->rev < 5)
+ 		bcm43xx_write32(bcm, 0x010C, 0x01000000);
+ 
+ 	value32 = bcm43xx_read32(bcm, BCM43xx_MMIO_STATUS_BITFIELD);
+@@ -2630,7 +2452,7 @@
+ 	/* Initially set the wireless operation mode. */
+ 	bcm43xx_select_opmode(bcm);
+ 
+-	if (bcm->current_core->rev < 3) {
++	if (bcm->ssb->current_core->rev < 3) {
+ 		bcm43xx_write16(bcm, 0x060E, 0x0000);
+ 		bcm43xx_write16(bcm, 0x0610, 0x8000);
+ 		bcm43xx_write16(bcm, 0x0604, 0x0000);
+@@ -2671,7 +2493,7 @@
+ 	bcm43xx_pio_free(bcm);
+ 	bcm43xx_dma_free(bcm);
+ 
+-	bcm->current_core->initialized = 0;
++	bcm43xx_current_80211_priv(bcm)->initialized = 0;
+ }
+ 
+ /* http://bcm-specs.sipsolutions.net/80211Init */
+@@ -2703,7 +2525,7 @@
+ 	if (err)
+ 		goto out;
+ 
+-	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0016, bcm->current_core->rev);
++	bcm43xx_shm_write16(bcm, BCM43xx_SHM_SHARED, 0x0016, bcm->ssb->current_core->rev);
+ 	ucodeflags = bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, BCM43xx_UCODEFLAGS_OFFSET);
+ 
+ 	if (0 /*FIXME: which condition has to be used here? */)
+@@ -2754,7 +2576,7 @@
+ 
+ 	bcm43xx_write_mac_bssid_templates(bcm);
+ 
+-	if (bcm->current_core->rev >= 5)
++	if (bcm->ssb->current_core->rev >= 5)
+ 		bcm43xx_write16(bcm, 0x043C, 0x000C);
+ 
+ 	if (active_wlcore) {
+@@ -2777,7 +2599,7 @@
+ 	/* Don't enable MAC/IRQ here, as it will race with the IRQ handler.
+ 	 * We enable it later.
+ 	 */
+-	bcm->current_core->initialized = 1;
++	bcm43xx_current_80211_priv(bcm)->initialized = 1;
+ out:
+ 	return err;
+ 
+@@ -2949,15 +2771,16 @@
+ {
+ 	int ret = 0;
+ 	int i, err;
+-	struct bcm43xx_coreinfo *core;
++	struct ssb_core *core;
++	struct bcm43xx_corepriv_80211 *wlpriv;
+ 
+ 	bcm43xx_set_status(bcm, BCM43xx_STAT_SHUTTINGDOWN);
+ 	for (i = 0; i < bcm->nr_80211_available; i++) {
+-		core = &(bcm->core_80211[i]);
+-		assert(core->available);
+-		if (!core->initialized)
++		core = bcm->core_80211[i];
++		wlpriv = core->priv;
++		if (!wlpriv->initialized)
+ 			continue;
+-		err = bcm43xx_switch_core(bcm, core);
++		err = ssb_switch_core(bcm->ssb, core);
+ 		if (err) {
+ 			dprintk(KERN_ERR PFX "shutdown_all_wireless_cores "
+ 					     "switch_core failed (%d)\n", err);
+@@ -3041,162 +2864,74 @@
+ 
+ static int bcm43xx_probe_cores(struct bcm43xx_private *bcm)
+ {
+-	int err, i;
+-	int current_core;
+-	u32 core_vendor, core_id, core_rev;
+-	u32 sb_id_hi, chip_id_32 = 0;
+-	u16 pci_device, chip_id_16;
+-	u8 core_count;
+-
+-	memset(&bcm->core_chipcommon, 0, sizeof(struct bcm43xx_coreinfo));
+-	memset(&bcm->core_pci, 0, sizeof(struct bcm43xx_coreinfo));
+-	memset(&bcm->core_80211, 0, sizeof(struct bcm43xx_coreinfo)
+-				    * BCM43xx_MAX_80211_CORES);
+-	memset(&bcm->core_80211_ext, 0, sizeof(struct bcm43xx_coreinfo_80211)
+-					* BCM43xx_MAX_80211_CORES);
+-	bcm->nr_80211_available = 0;
+-	bcm->current_core = NULL;
+-	bcm->active_80211_core = NULL;
+-
+-	/* map core 0 */
+-	err = _switch_core(bcm, 0);
+-	if (err)
+-		goto out;
++	struct ssb *ssb = bcm->ssb;
++	int err;
++	u16 chipid_fallback = 0;
++	struct ssb_core *core;
++	struct bcm43xx_corepriv_80211 *priv_80211;
++	int i;
+ 
+-	/* fetch sb_id_hi from core information registers */
+-	sb_id_hi = bcm43xx_read32(bcm, BCM43xx_CIR_SB_ID_HI);
++	static const struct ssb_nrcores_elem nrcores_fallback[] = {
++		{ .chip_id_key = 0x5365, .nr_cores_value = 7, },
++		{ .chip_id_key = 0x4306, .nr_cores_value = 6, },
++		{ .chip_id_key = 0x4310, .nr_cores_value = 8, },
++		{ .chip_id_key = 0x4307, .nr_cores_value = 5, },
++		{ .chip_id_key = 0x4301, .nr_cores_value = 5, },
++		{ .chip_id_key = 0x4402, .nr_cores_value = 3, },
++		{ .chip_id_key = 0x4710, .nr_cores_value = 9, },
++		{ .chip_id_key = 0x4610, .nr_cores_value = 9, },
++		{ .chip_id_key = 0x4704, .nr_cores_value = 9, },
++	};
+ 
+-	core_id = (sb_id_hi & 0xFFF0) >> 4;
+-	core_rev = (sb_id_hi & 0xF);
+-	core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
+-
+-	/* if present, chipcommon is always core 0; read the chipid from it */
+-	if (core_id == BCM43xx_COREID_CHIPCOMMON) {
+-		chip_id_32 = bcm43xx_read32(bcm, 0);
+-		chip_id_16 = chip_id_32 & 0xFFFF;
+-		bcm->core_chipcommon.available = 1;
+-		bcm->core_chipcommon.id = core_id;
+-		bcm->core_chipcommon.rev = core_rev;
+-		bcm->core_chipcommon.index = 0;
+-		/* While we are at it, also read the capabilities. */
+-		bcm->chipcommon_capabilities = bcm43xx_read32(bcm, BCM43xx_CHIPCOMMON_CAPABILITIES);
+-	} else {
+-		/* without a chipCommon, use a hard coded table. */
+-		pci_device = bcm->pci_dev->device;
+-		if (pci_device == 0x4301)
+-			chip_id_16 = 0x4301;
+-		else if ((pci_device >= 0x4305) && (pci_device <= 0x4307))
+-			chip_id_16 = 0x4307;
+-		else if ((pci_device >= 0x4402) && (pci_device <= 0x4403))
+-			chip_id_16 = 0x4402;
+-		else if ((pci_device >= 0x4610) && (pci_device <= 0x4615))
+-			chip_id_16 = 0x4610;
+-		else if ((pci_device >= 0x4710) && (pci_device <= 0x4715))
+-			chip_id_16 = 0x4710;
++	switch (bcm->pci_dev->device) {
++	case 0x4301:
++		chipid_fallback = 0x4301;
++		break;
++	case 0x4305 ... 0x4307:
++		chipid_fallback = 0x4307;
++		break;
++	case 0x4402 ... 0x4403:
++		chipid_fallback = 0x4402;
++		break;
++	case 0x4610 ... 0x4615:
++		chipid_fallback = 0x4610;
++		break;
++	case 0x4710 ... 0x4715:
++		chipid_fallback = 0x4710;
++		break;
+ #ifdef CONFIG_BCM947XX
+-		else if ((pci_device >= 0x4320) && (pci_device <= 0x4325))
+-			chip_id_16 = 0x4309;
++	case 0x4320 ... 0x4325:
++		chipid_fallback = 0x4309;
++		break;
+ #endif
+-		else {
+-			printk(KERN_ERR PFX "Could not determine Chip ID\n");
+-			return -ENODEV;
+-		}
+-	}
+-
+-	/* ChipCommon with Core Rev >=4 encodes number of cores,
+-	 * otherwise consult hardcoded table */
+-	if ((core_id == BCM43xx_COREID_CHIPCOMMON) && (core_rev >= 4)) {
+-		core_count = (chip_id_32 & 0x0F000000) >> 24;
+-	} else {
+-		switch (chip_id_16) {
+-			case 0x4610:
+-			case 0x4704:
+-			case 0x4710:
+-				core_count = 9;
+-				break;
+-			case 0x4310:
+-				core_count = 8;
+-				break;
+-			case 0x5365:
+-				core_count = 7;
+-				break;
+-			case 0x4306:
+-				core_count = 6;
+-				break;
+-			case 0x4301:
+-			case 0x4307:
+-				core_count = 5;
+-				break;
+-			case 0x4402:
+-				core_count = 3;
+-				break;
+-			default:
+-				/* SOL if we get here */
+-				assert(0);
+-				core_count = 1;
+-		}
+-	}
+-
+-	bcm->chip_id = chip_id_16;
+-	bcm->chip_rev = (chip_id_32 & 0x000F0000) >> 16;
+-	bcm->chip_package = (chip_id_32 & 0x00F00000) >> 20;
+-
+-	dprintk(KERN_INFO PFX "Chip ID 0x%x, rev 0x%x\n",
+-		bcm->chip_id, bcm->chip_rev);
+-	dprintk(KERN_INFO PFX "Number of cores: %d\n", core_count);
+-	if (bcm->core_chipcommon.available) {
+-		dprintk(KERN_INFO PFX "Core 0: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
+-			core_id, core_rev, core_vendor,
+-			bcm43xx_core_enabled(bcm) ? "enabled" : "disabled");
+ 	}
++	err = ssb_probe_cores(ssb, chipid_fallback,
++			      nrcores_fallback,
++			      ARRAY_SIZE(nrcores_fallback));
 +	if (err)
 +		goto out;
-+	if ((pci_core->rev >= 6) || (pci_core->cc == SSB_CC_PCIE)) {
-+		err = ssb_pci_read_config32(ssb, SSB_PCI_IRQMASK, &value);
-+		if (err)
-+			goto out_switch_back;
-+		value |= coremask << 8;
-+		err = ssb_pci_write_config32(ssb, SSB_PCI_IRQMASK, value);
-+		if (err)
-+			goto out_switch_back;
-+	} else {
-+		value = ssb_read32(ssb, SSB_INTVEC);
-+		value |= (1 << backplane_flag_nr);
-+		ssb_write32(ssb, SSB_INTVEC, value);
-+	}
-+	if (pci_core->cc == SSB_CC_PCI) {
-+		value = ssb_read32(ssb, 0x108 /* sbtopci2 */);
-+		value |= 0x4 /* prefetch */ | 0x8 /* burst */;
-+		ssb_write32(ssb, 0x108, value);
-+		if (pci_core->rev < 5) {
-+			value = ssb_read32(ssb, SSB_IMCFGLO);
-+			value &= ~SSB_IMCFGLO_SERTO;
-+			value |= 2;
-+			value &= ~SSB_IMCFGLO_REQTO;
-+			value |= 3 << SSB_IMCFGLO_REQTO_SHIFT;
-+			ssb_write32(ssb, SSB_IMCFGLO, value);
-+			err = ssb_pcicore_commit_settings(ssb, chipcommon_core);
-+			if (err)
-+				goto out_switch_back;
-+		} else if (pci_core->rev >= 11) {
-+			value = ssb_read32(ssb, 0x108 /* sbtopci2 */);
-+			value |= 0x20 /* Memory Read Multiple */;
-+			ssb_write32(ssb, 0x108, value);
-+		}
-+	} else {
-+		if ((pci_core->rev == 0) || (pci_core->rev == 1)) {
-+			/* TLP Workaround register. */
-+			value = ssb_pcie_read(ssb, 0x4);
-+			value |= 0x8;
-+			ssb_pcie_write(ssb, 0x4, value);
-+		}
-+		if (pci_core->rev == 0) {
-+			const u8 serdes_rx_device = 0x1F;
+ 
+-	if (bcm->core_chipcommon.available)
+-		current_core = 1;
+-	else
+-		current_core = 0;
+-	for ( ; current_core < core_count; current_core++) {
+-		struct bcm43xx_coreinfo *core;
+-		struct bcm43xx_coreinfo_80211 *ext_80211;
++	bcm->nr_80211_available = 0;
++	bcm->active_80211_core = NULL;
++	for (i = 0; i < ssb->nr_cores; i++) {
++		core = &(ssb->cores[i]);
+ 
+-		err = _switch_core(bcm, current_core);
+-		if (err)
+-			goto out;
+-		/* Gather information */
+-		/* fetch sb_id_hi from core information registers */
+-		sb_id_hi = bcm43xx_read32(bcm, BCM43xx_CIR_SB_ID_HI);
+-
+-		/* extract core_id, core_rev, core_vendor */
+-		core_id = (sb_id_hi & 0xFFF0) >> 4;
+-		core_rev = (sb_id_hi & 0xF);
+-		core_vendor = (sb_id_hi & 0xFFFF0000) >> 16;
+-
+-		dprintk(KERN_INFO PFX "Core %d: ID 0x%x, rev 0x%x, vendor 0x%x, %s\n",
+-			current_core, core_id, core_rev, core_vendor,
+-			bcm43xx_core_enabled(bcm) ? "enabled" : "disabled" );
+-
+-		core = NULL;
+-		switch (core_id) {
+-		case BCM43xx_COREID_PCI:
+-			core = &bcm->core_pci;
+-			if (core->available) {
++		switch (core->cc) {
++		case SSB_CC_PCI:
++			if (bcm->core_pci) {
+ 				printk(KERN_WARNING PFX "Multiple PCI cores found.\n");
+-				continue;
++				break;
+ 			}
++			bcm->core_pci = core;
+ 			break;
+-		case BCM43xx_COREID_80211:
+-			for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
+-				core = &(bcm->core_80211[i]);
+-				ext_80211 = &(bcm->core_80211_ext[i]);
+-				if (!core->available)
+-					break;
+-				core = NULL;
+-			}
+-			if (!core) {
+-				printk(KERN_WARNING PFX "More than %d cores of type 802.11 found.\n",
++		case SSB_CC_80211:
++			if (bcm->nr_80211_available == BCM43xx_MAX_80211_CORES) {
++				printk(KERN_WARNING PFX "More tham %d cores of "
++							"type 802.11 found.\n",
+ 				       BCM43xx_MAX_80211_CORES);
+-				continue;
++				break;
+ 			}
+-			if (i != 0) {
++			if (bcm->nr_80211_available == 1) {
+ 				/* More than one 80211 core is only supported
+ 				 * by special chips.
+ 				 * There are chips with two 80211 cores, but with
+@@ -3205,49 +2940,46 @@
+ 				 */
+ 				if (bcm->pci_dev->device != 0x4324) {
+ 					dprintk(KERN_INFO PFX "Ignoring additional 802.11 core.\n");
+-					continue;
++					break;
+ 				}
+ 			}
+-			switch (core_rev) {
+-			case 2:
+-			case 4:
+-			case 5:
+-			case 6:
+-			case 7:
+-			case 9:
 +
-+			ssb_pcie_mdio_write(ssb, serdes_rx_device,
-+					    2 /* Timer */, 0x8128);
-+			ssb_pcie_mdio_write(ssb, serdes_rx_device,
-+					    6 /* CDR */, 0x0100);
-+			ssb_pcie_mdio_write(ssb, serdes_rx_device,
-+					    7 /* CDR BW */, 0x1466);
-+		} else if (pci_core->rev == 1) {
-+			/* DLLP Link Control register. */
-+			value = ssb_pcie_read(ssb, 0x100);
-+			value |= 0x40;
-+			ssb_pcie_write(ssb, 0x100, value);
-+		}
-+	}
-+out_switch_back:
-+	err = ssb_switch_core(ssb, old_core);
-+out:
-+	return err;
-+}
-+EXPORT_SYMBOL(ssb_cores_connect);
++			bcm->core_80211[bcm->nr_80211_available] = core;
++			priv_80211 = &(bcm->corepriv_80211[bcm->nr_80211_available]);
++			bcm->nr_80211_available++;
 +
++			switch (core->rev) {
++			case 2: case 4: case 5: case 6:
++			case 7: case 9:
+ 				break;
+ 			default:
+ 				printk(KERN_ERR PFX "Error: Unsupported 80211 core revision %u\n",
+-				       core_rev);
++				       core->rev);
+ 				err = -ENODEV;
+ 				goto out;
+ 			}
+-			bcm->nr_80211_available++;
+-			core->priv = ext_80211;
+-			bcm43xx_init_struct_phyinfo(&ext_80211->phy);
+-			bcm43xx_init_struct_radioinfo(&ext_80211->radio);
++			core->priv = priv_80211;
++			bcm43xx_init_struct_phyinfo(&priv_80211->phy);
++			bcm43xx_init_struct_radioinfo(&priv_80211->radio);
+ 			break;
+-		case BCM43xx_COREID_CHIPCOMMON:
+-			printk(KERN_WARNING PFX "Multiple CHIPCOMMON cores found.\n");
++		case SSB_CC_CHIPCOMMON:
++			if (bcm->core_chipcommon) {
++				printk(KERN_WARNING PFX "Multiple CHIPCOMMON cores found.\n");
++				break;
++			}
++			bcm->core_chipcommon = core;
+ 			break;
+ 		}
+-		if (core) {
+-			core->available = 1;
+-			core->id = core_id;
+-			core->rev = core_rev;
+-			core->index = current_core;
+-		}
+ 	}
+-
+-	if (!bcm->core_80211[0].available) {
++	if (!bcm->core_80211[0]) {
+ 		printk(KERN_ERR PFX "Error: No 80211 core found!\n");
+ 		err = -ENODEV;
+ 		goto out;
+ 	}
++	err = ssb_switch_core(ssb, bcm->core_80211[0]);
++	if (err)
++		goto out;
+ 
+-	err = bcm43xx_switch_core(bcm, &bcm->core_80211[0]);
+-
+-	assert(err == 0);
+ out:
+ 	return err;
+ }
+@@ -3273,90 +3005,6 @@
+ 	bcm43xx_pctl_set_crystal(bcm, 0);
+ }
+ 
+-static void bcm43xx_pcicore_broadcast_value(struct bcm43xx_private *bcm,
+-					    u32 address,
+-					    u32 data)
+-{
+-	bcm43xx_write32(bcm, BCM43xx_PCICORE_BCAST_ADDR, address);
+-	bcm43xx_write32(bcm, BCM43xx_PCICORE_BCAST_DATA, data);
+-}
+-
+-static int bcm43xx_pcicore_commit_settings(struct bcm43xx_private *bcm)
+-{
+-	int err;
+-	struct bcm43xx_coreinfo *old_core;
+-
+-	old_core = bcm->current_core;
+-	err = bcm43xx_switch_core(bcm, &bcm->core_pci);
+-	if (err)
+-		goto out;
+-
+-	bcm43xx_pcicore_broadcast_value(bcm, 0xfd8, 0x00000000);
+-
+-	bcm43xx_switch_core(bcm, old_core);
+-	assert(err == 0);
+-out:
+-	return err;
+-}
+-
+-/* Make an I/O Core usable. "core_mask" is the bitmask of the cores to enable.
+- * To enable core 0, pass a core_mask of 1<<0
+- */
+-static int bcm43xx_setup_backplane_pci_connection(struct bcm43xx_private *bcm,
+-						  u32 core_mask)
+-{
+-	u32 backplane_flag_nr;
+-	u32 value;
+-	struct bcm43xx_coreinfo *old_core;
+-	int err = 0;
+-
+-	value = bcm43xx_read32(bcm, BCM43xx_CIR_SBTPSFLAG);
+-	backplane_flag_nr = value & BCM43xx_BACKPLANE_FLAG_NR_MASK;
+-
+-	old_core = bcm->current_core;
+-	err = bcm43xx_switch_core(bcm, &bcm->core_pci);
+-	if (err)
+-		goto out;
+-
+-	if (bcm->core_pci.rev < 6) {
+-		value = bcm43xx_read32(bcm, BCM43xx_CIR_SBINTVEC);
+-		value |= (1 << backplane_flag_nr);
+-		bcm43xx_write32(bcm, BCM43xx_CIR_SBINTVEC, value);
+-	} else {
+-		err = bcm43xx_pci_read_config32(bcm, BCM43xx_PCICFG_ICR, &value);
+-		if (err) {
+-			printk(KERN_ERR PFX "Error: ICR setup failure!\n");
+-			goto out_switch_back;
+-		}
+-		value |= core_mask << 8;
+-		err = bcm43xx_pci_write_config32(bcm, BCM43xx_PCICFG_ICR, value);
+-		if (err) {
+-			printk(KERN_ERR PFX "Error: ICR setup failure!\n");
+-			goto out_switch_back;
+-		}
+-	}
+-
+-	value = bcm43xx_read32(bcm, BCM43xx_PCICORE_SBTOPCI2);
+-	value |= BCM43xx_SBTOPCI2_PREFETCH | BCM43xx_SBTOPCI2_BURST;
+-	bcm43xx_write32(bcm, BCM43xx_PCICORE_SBTOPCI2, value);
+-
+-	if (bcm->core_pci.rev < 5) {
+-		value = bcm43xx_read32(bcm, BCM43xx_CIR_SBIMCONFIGLOW);
+-		value |= (2 << BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_SHIFT)
+-			 & BCM43xx_SBIMCONFIGLOW_SERVICE_TOUT_MASK;
+-		value |= (3 << BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_SHIFT)
+-			 & BCM43xx_SBIMCONFIGLOW_REQUEST_TOUT_MASK;
+-		bcm43xx_write32(bcm, BCM43xx_CIR_SBIMCONFIGLOW, value);
+-		err = bcm43xx_pcicore_commit_settings(bcm);
+-		assert(err == 0);
+-	}
+-
+-out_switch_back:
+-	err = bcm43xx_switch_core(bcm, old_core);
+-out:
+-	return err;
+-}
+-
+ static void bcm43xx_free_modes(struct bcm43xx_private *bcm)
+ {
+ 	struct ieee80211_hw *ieee = bcm->ieee;
+@@ -3418,8 +3066,8 @@
+ {
+ 	int err = -ENOMEM;
+ 	struct ieee80211_hw *ieee = bcm->ieee;
+-	struct bcm43xx_coreinfo *core;
+-	struct bcm43xx_coreinfo_80211 *wlext;
++	struct ssb_core *core;
++	struct bcm43xx_corepriv_80211 *wlpriv;
+ 	int i, nr_modes;
+ 
+ 	nr_modes = bcm->nr_80211_available;
+@@ -3430,10 +3078,10 @@
+ 	ieee->num_modes = 0;
+ 
+ 	for (i = 0; i < bcm->nr_80211_available; i++) {
+-		core = &(bcm->core_80211[i]);
+-		wlext = core->priv;
++		core = bcm->core_80211[i];
++		wlpriv = core->priv;
+ 
+-		switch (wlext->phy.type) {
++		switch (wlpriv->phy.type) {
+ 		case BCM43xx_PHYTYPE_A:
+ 			err = bcm43xx_append_mode(bcm->ieee, MODE_IEEE80211A,
+ 						  ARRAY_SIZE(bcm43xx_a_chantable),
+@@ -3527,8 +3175,8 @@
+ static void prepare_priv_for_init(struct bcm43xx_private *bcm)
+ {
+ 	int i;
+-	struct bcm43xx_coreinfo *core;
+-	struct bcm43xx_coreinfo_80211 *wlext;
++	struct ssb_core *core;
++	struct bcm43xx_corepriv_80211 *wlpriv;
+ 
+ 	assert(!bcm->active_80211_core);
+ 
+@@ -3542,16 +3190,13 @@
+ 	memset(&bcm->stats, 0, sizeof(bcm->stats));
+ 
+ 	/* Wireless core data */
+-	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
+-		core = &(bcm->core_80211[i]);
+-		wlext = core->priv;
+-
+-		if (!core->available)
+-			continue;
+-		assert(wlext == &(bcm->core_80211_ext[i]));
++	for (i = 0; i < bcm->nr_80211_available; i++) {
++		core = bcm->core_80211[i];
++		wlpriv = core->priv;
++		assert(wlpriv == &(bcm->corepriv_80211[i]));
+ 
+-		prepare_phydata_for_init(&wlext->phy);
+-		prepare_radiodata_for_init(bcm, &wlext->radio);
++		prepare_phydata_for_init(&wlpriv->phy);
++		prepare_radiodata_for_init(bcm, &wlpriv->radio);
+ 	}
+ 
+ 	/* IRQ related flags */
+@@ -3573,7 +3218,7 @@
+ {
+ 	int err;
+ 
+-	if (!bcm43xx_core_enabled(bcm))
++	if (!ssb_core_is_enabled(bcm->ssb))
+ 		bcm43xx_wireless_core_reset(bcm, 1);
+ 	if (!active_wlcore)
+ 		bcm43xx_wireless_core_mark_inactive(bcm);
+@@ -3594,27 +3239,27 @@
+ 				 int phytype)
+ {
+ 	int i, err;
+-	struct bcm43xx_coreinfo *active_core = NULL;
+-	struct bcm43xx_coreinfo_80211 *active_wlext = NULL;
+-	struct bcm43xx_coreinfo *core;
+-	struct bcm43xx_coreinfo_80211 *wlext;
++	struct ssb_core *active_core = NULL;
++	struct bcm43xx_corepriv_80211 *active_wlpriv = NULL;
++	struct ssb_core *core;
++	struct bcm43xx_corepriv_80211 *wlpriv;
+ 	int adjust_active_sbtmstatelow = 0;
+ 
+ 	might_sleep();
+ 
+ 	if (phytype < 0) {
+ 		/* If no phytype is requested, select the first core. */
+-		assert(bcm->core_80211[0].available);
+-		wlext = bcm->core_80211[0].priv;
+-		phytype = wlext->phy.type;
++		assert(bcm->nr_80211_available != 0);
++		wlpriv = bcm->core_80211[0]->priv;
++		phytype = wlpriv->phy.type;
+ 	}
+ 	/* Find the requested core. */
+ 	for (i = 0; i < bcm->nr_80211_available; i++) {
+-		core = &(bcm->core_80211[i]);
+-		wlext = core->priv;
+-		if (wlext->phy.type == phytype) {
++		core = bcm->core_80211[i];
++		wlpriv = core->priv;
++		if (wlpriv->phy.type == phytype) {
+ 			active_core = core;
+-			active_wlext = wlext;
++			active_wlpriv = wlpriv;
+ 			break;
+ 		}
+ 	}
+@@ -3651,12 +3296,12 @@
+ 
+ 	/* Mark all unused cores "inactive". */
+ 	for (i = 0; i < bcm->nr_80211_available; i++) {
+-		core = &(bcm->core_80211[i]);
+-		wlext = core->priv;
++		core = bcm->core_80211[i];
++		wlpriv = core->priv;
+ 
+ 		if (core == active_core)
+ 			continue;
+-		err = bcm43xx_switch_core(bcm, core);
++		err = ssb_switch_core(bcm->ssb, core);
+ 		if (err) {
+ 			dprintk(KERN_ERR PFX "Could not switch to inactive "
+ 					     "802.11 core (%d)\n", err);
+@@ -3672,14 +3317,14 @@
+ 	}
+ 
+ 	/* Now initialize the active 802.11 core. */
+-	err = bcm43xx_switch_core(bcm, active_core);
++	err = ssb_switch_core(bcm->ssb, active_core);
+ 	if (err) {
+ 		dprintk(KERN_ERR PFX "Could not switch to active "
+ 				     "802.11 core (%d)\n", err);
+ 		goto error;
+ 	}
+ 	if (adjust_active_sbtmstatelow &&
+-	    active_wlext->phy.type == BCM43xx_PHYTYPE_G) {
++	    active_wlpriv->phy.type == BCM43xx_PHYTYPE_G) {
+ 		u32 sbtmstatelow;
+ 
+ 		sbtmstatelow = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATELOW);
+@@ -3716,7 +3361,7 @@
+ 	bcm43xx_interrupt_enable(bcm, bcm->irq_savedstate);
+ 
+ 	dprintk(KERN_INFO PFX "Selected 802.11 core (phytype %d)\n",
+-		active_wlext->phy.type);
++		active_wlpriv->phy.type);
+ 
+ 	return 0;
+ 
+@@ -3766,6 +3411,7 @@
+ 	int i;
+ 
+ 	bcm43xx_chipset_detach(bcm);
++	ssb_free(bcm->ssb);
+ 	/* Do _not_ access the chip, after it is detached. */
+ 	pci_iounmap(pci_dev, bcm->mmio_addr);
+ 	pci_release_regions(pci_dev);
+@@ -3773,9 +3419,9 @@
+ 
+ 	/* Free allocated structures/fields */
+ 	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
+-		kfree(bcm->core_80211_ext[i].phy._lo_pairs);
+-		if (bcm->core_80211_ext[i].phy.dyn_tssi_tbl)
+-			kfree(bcm->core_80211_ext[i].phy.tssi2dbm);
++		kfree(bcm->corepriv_80211[i].phy._lo_pairs);
++		if (bcm->corepriv_80211[i].phy.dyn_tssi_tbl)
++			kfree(bcm->corepriv_80211[i].phy.tssi2dbm);
+ 	}
+ 	bcm43xx_free_modes(bcm);
+ }
+@@ -3843,6 +3489,7 @@
+ 	int err;
+ 	int i;
+ 	u32 coremask;
++	struct ssb *ssb;
+ 
+ 	err = pci_enable_device(pci_dev);
+ 	if (err) {
+@@ -3864,6 +3511,11 @@
+ 	}
+ 	net_dev->base_addr = (unsigned long)bcm->mmio_addr;
+ 
++	ssb = ssb_alloc(pci_dev, bcm->mmio_addr);
++	if (!ssb)
++		goto err_iounmap;
++	bcm->ssb = ssb;
 +
-+MODULE_DESCRIPTION("Sonics Silicon Backplane driver");
-+MODULE_LICENSE("GPL");
-Index: wireless-dev/include/linux/ssb.h
+ 	bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_VENDOR_ID,
+ 	                          &bcm->board_vendor);
+ 	bcm43xx_pci_read_config16(bcm, PCI_SUBSYSTEM_ID,
+@@ -3873,7 +3525,7 @@
+ 
+ 	err = bcm43xx_chipset_attach(bcm);
+ 	if (err)
+-		goto err_iounmap;
++		goto err_free_ssb;
+ 	err = bcm43xx_pctl_init(bcm);
+ 	if (err)
+ 		goto err_chipset_detach;
+@@ -3884,9 +3536,9 @@
+ 	/* Attach all IO cores to the backplane. */
+ 	coremask = 0;
+ 	for (i = 0; i < bcm->nr_80211_available; i++)
+-		coremask |= (1 << bcm->core_80211[i].index);
++		coremask |= (1 << bcm->core_80211[i]->index);
+ 	//FIXME: Also attach some non80211 cores?
+-	err = bcm43xx_setup_backplane_pci_connection(bcm, coremask);
++	err = ssb_cores_connect(bcm->ssb, coremask);
+ 	if (err) {
+ 		printk(KERN_ERR PFX "Backplane->PCI connection failed!\n");
+ 		goto err_chipset_detach;
+@@ -3900,7 +3552,7 @@
+ 		goto err_chipset_detach;
+ 
+ 	for (i = 0; i < bcm->nr_80211_available; i++) {
+-		err = bcm43xx_switch_core(bcm, &bcm->core_80211[i]);
++		err = ssb_switch_core(bcm->ssb, bcm->core_80211[i]);
+ 		assert(err != -ENODEV);
+ 		if (err)
+ 			goto err_80211_unwind;
+@@ -3946,12 +3598,14 @@
+ 
+ err_80211_unwind:
+ 	for (i = 0; i < BCM43xx_MAX_80211_CORES; i++) {
+-		kfree(bcm->core_80211_ext[i].phy._lo_pairs);
+-		if (bcm->core_80211_ext[i].phy.dyn_tssi_tbl)
+-			kfree(bcm->core_80211_ext[i].phy.tssi2dbm);
++		kfree(bcm->corepriv_80211[i].phy._lo_pairs);
++		if (bcm->corepriv_80211[i].phy.dyn_tssi_tbl)
++			kfree(bcm->corepriv_80211[i].phy.tssi2dbm);
+ 	}
+ err_chipset_detach:
+ 	bcm43xx_chipset_detach(bcm);
++err_free_ssb:
++	ssb_free(ssb);
+ err_iounmap:
+ 	pci_iounmap(pci_dev, bcm->mmio_addr);
+ err_pci_release:
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c
 ===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ wireless-dev/include/linux/ssb.h	2006-08-14 23:15:38.000000000 +0200
-@@ -0,0 +1,309 @@
-+#ifndef LINUX__SONICS_SILICON_BACKPLANE_H_
-+#define LINUX__SONICS_SILICON_BACKPLANE_H_
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c	2006-08-14 22:05:06.000000000 +0200
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_debugfs.c	2006-08-14 23:19:39.000000000 +0200
+@@ -95,21 +95,21 @@
+ 	fappend("IRQ: %d\n", bcm->irq);
+ 	fappend("mmio_addr: 0x%p\n", bcm->mmio_addr);
+ 	fappend("chip_id: 0x%04x   chip_rev: 0x%02x\n", bcm->chip_id, bcm->chip_rev);
+-	if ((bcm->core_80211[0].rev >= 3) && (bcm43xx_read32(bcm, 0x0158) & (1 << 16)))
++	if ((bcm->core_80211[0]->rev >= 3) && (bcm43xx_read32(bcm, 0x0158) & (1 << 16)))
+ 		fappend("Radio disabled by hardware!\n");
+-	if ((bcm->core_80211[0].rev < 3) && !(bcm43xx_read16(bcm, 0x049A) & (1 << 4)))
++	if ((bcm->core_80211[0]->rev < 3) && !(bcm43xx_read16(bcm, 0x049A) & (1 << 4)))
+ 		fappend("Radio disabled by hardware!\n");
+ 	fappend("board_vendor: 0x%04x   board_type: 0x%04x\n", bcm->board_vendor,
+ 	        bcm->board_type);
+ 
+ 	fappend("\nCores:\n");
+-#define fappend_core(name, info) fappend("core \"" name "\" %s, %s, id: 0x%04x, "	\
++#define fappend_core(name, info) fappend("core \"" name "\" %s, id: 0x%04x, "		\
+ 					 "rev: 0x%02x, index: 0x%02x\n",		\
+-					 (info).available				\
++					 (info)						\
+ 						? "available" : "nonavailable",		\
+-					 (info).enabled					\
+-						? "enabled" : "disabled",		\
+-					 (info).id, (info).rev, (info).index)
++					 (info) ? (info)->cc : 0,			\
++					 (info) ? (info)->rev : 0,			\
++					 (info) ? (info)->index : 0)
+ 	fappend_core("CHIPCOMMON", bcm->core_chipcommon);
+ 	fappend_core("PCI", bcm->core_pci);
+ 	fappend_core("first 80211", bcm->core_80211[0]);
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c	2006-08-14 22:05:06.000000000 +0200
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_dma.c	2006-08-14 23:19:39.000000000 +0200
+@@ -569,7 +569,7 @@
+ 		goto err_destroy_tx3;
+ 	dma->rx_ring0 = ring;
+ 
+-	if (bcm->current_core->rev < 5) {
++	if (bcm->ssb->current_core->rev < 5) {
+ 		ring = bcm43xx_setup_dmaring(bcm, BCM43xx_MMIO_DMA4_BASE,
+ 					     BCM43xx_RXRING_SLOTS, 0);
+ 		if (!ring)
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.h
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.h	2006-08-14 22:05:06.000000000 +0200
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.h	2006-08-14 23:19:39.000000000 +0200
+@@ -128,8 +128,6 @@
+ 
+ void bcm43xx_dummy_transmission(struct bcm43xx_private *bcm);
+ 
+-int bcm43xx_switch_core(struct bcm43xx_private *bcm, struct bcm43xx_coreinfo *new_core);
+-
+ int bcm43xx_select_wireless_core(struct bcm43xx_private *bcm,
+ 				 int phytype);
+ 
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c	2006-08-14 22:05:06.000000000 +0200
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_phy.c	2006-08-14 23:19:39.000000000 +0200
+@@ -90,7 +90,7 @@
+ 		phy->is_locked = 0;
+ 		return;
+ 	}
+-	if (bcm->current_core->rev < 3) {
++	if (bcm->ssb->current_core->rev < 3) {
+ 		bcm43xx_mac_suspend(bcm);
+ 		spin_lock(&phy->lock);
+ 	} else {
+@@ -105,7 +105,7 @@
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 
+ 	assert(irqs_disabled());
+-	if (bcm->current_core->rev < 3) {
++	if (bcm->ssb->current_core->rev < 3) {
+ 		if (phy->is_locked) {
+ 			spin_unlock(&phy->lock);
+ 			bcm43xx_mac_enable(bcm);
+@@ -161,7 +161,7 @@
+ 	struct bcm43xx_phyinfo *phy = bcm43xx_current_phy(bcm);
+ 	u32 flags;
+ 
+-	if (bcm->current_core->rev < 5)
++	if (bcm->ssb->current_core->rev < 5)
+ 		goto out;
+ 
+ 	flags = bcm43xx_read32(bcm, BCM43xx_CIR_SBTMSTATEHIGH);
+@@ -2329,7 +2329,7 @@
+ 		}
+ 		break;
+ 	case BCM43xx_PHYTYPE_B:
+-		if (bcm->current_core->rev == 2)
++		if (bcm->ssb->current_core->rev == 2)
+ 			value = (3/*automatic*/ << 7);
+ 		else
+ 			value = (antennadiv << 7);
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.c	2006-08-14 22:05:06.000000000 +0200
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_pio.c	2006-08-14 23:19:39.000000000 +0200
+@@ -316,7 +316,7 @@
+ 
+ 	queue->bcm = bcm;
+ 	queue->mmio_base = pio_mmio_base;
+-	queue->need_workarounds = (bcm->current_core->rev < 3);
++	queue->need_workarounds = (bcm->ssb->current_core->rev < 3);
+ 
+ 	INIT_LIST_HEAD(&queue->txfree);
+ 	INIT_LIST_HEAD(&queue->txqueue);
+@@ -420,7 +420,7 @@
+ 		goto err_destroy2;
+ 	pio->queue3 = queue;
+ 
+-	if (bcm->current_core->rev < 3)
++	if (bcm->ssb->current_core->rev < 3)
+ 		bcm->irq_savedstate |= BCM43xx_IRQ_PIO_WORKAROUND;
+ 
+ 	dprintk(KERN_INFO PFX "PIO initialized\n");
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_power.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_power.c	2006-08-14 22:05:06.000000000 +0200
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_power.c	2006-08-14 23:19:39.000000000 +0200
+@@ -41,8 +41,8 @@
+ 	u32 tmp;
+ 	int err;
+ 
+-	assert(bcm->current_core == &bcm->core_chipcommon);
+-	if (bcm->current_core->rev < 6) {
++	assert(bcm->ssb->current_core == bcm->core_chipcommon);
++	if (bcm->ssb->current_core->rev < 6) {
+ 		if (bcm->bustype == BCM43xx_BUSTYPE_PCMCIA ||
+ 		    bcm->bustype == BCM43xx_BUSTYPE_SB)
+ 			return BCM43xx_PCTL_CLKSRC_XTALOS;
+@@ -54,7 +54,7 @@
+ 			return BCM43xx_PCTL_CLKSRC_XTALOS;
+ 		}
+ 	}
+-	if (bcm->current_core->rev < 10) {
++	if (bcm->ssb->current_core->rev < 10) {
+ 		tmp = bcm43xx_read32(bcm, BCM43xx_CHIPCOMMON_SLOWCLKCTL);
+ 		tmp &= 0x7;
+ 		if (tmp == 0)
+@@ -79,11 +79,11 @@
+ 	int divisor;
+ 	u32 tmp;
+ 
+-	assert(bcm->chipcommon_capabilities & BCM43xx_CAPABILITIES_PCTL);
+-	assert(bcm->current_core == &bcm->core_chipcommon);
++	assert(bcm->ssb->chipcommon_capabilities & BCM43xx_CAPABILITIES_PCTL);
++	assert(bcm->ssb->current_core == bcm->core_chipcommon);
+ 
+ 	clocksrc = bcm43xx_pctl_get_slowclksrc(bcm);
+-	if (bcm->current_core->rev < 6) {
++	if (bcm->ssb->current_core->rev < 6) {
+ 		switch (clocksrc) {
+ 		case BCM43xx_PCTL_CLKSRC_PCI:
+ 			divisor = 64;
+@@ -95,7 +95,7 @@
+ 			assert(0);
+ 			divisor = 1;
+ 		}
+-	} else if (bcm->current_core->rev < 10) {
++	} else if (bcm->ssb->current_core->rev < 10) {
+ 		switch (clocksrc) {
+ 		case BCM43xx_PCTL_CLKSRC_LOPWROS:
+ 			divisor = 1;
+@@ -151,14 +151,15 @@
+ int bcm43xx_pctl_init(struct bcm43xx_private *bcm)
+ {
+ 	int err, maxfreq;
+-	struct bcm43xx_coreinfo *old_core;
++	struct ssb_core *old_core;
+ 
+-	if (!(bcm->chipcommon_capabilities & BCM43xx_CAPABILITIES_PCTL))
++	if (!(bcm->ssb->chipcommon_capabilities & BCM43xx_CAPABILITIES_PCTL))
+ 		return 0;
+-	old_core = bcm->current_core;
+-	err = bcm43xx_switch_core(bcm, &bcm->core_chipcommon);
+-	if (err == -ENODEV)
++	if (!bcm->core_chipcommon)
+ 		return 0;
 +
-+/* Sonics SiliconBackplane support routines. */
++	old_core = bcm->ssb->current_core;
++	err = ssb_switch_core(bcm->ssb, bcm->core_chipcommon);
+ 	if (err)
+ 		goto out;
+ 
+@@ -168,7 +169,7 @@
+ 	bcm43xx_write32(bcm, BCM43xx_CHIPCOMMON_FREFSELDELAY,
+ 			(maxfreq * 15 + 999999) / 1000000);
+ 
+-	err = bcm43xx_switch_core(bcm, old_core);
++	err = ssb_switch_core(bcm->ssb, old_core);
+ 	assert(err == 0);
+ 
+ out:
+@@ -180,23 +181,26 @@
+ 	u16 delay = 0;
+ 	int err;
+ 	u32 pll_on_delay;
+-	struct bcm43xx_coreinfo *old_core;
++	struct ssb_core *old_core;
+ 	int minfreq;
+ 
+ 	if (bcm->bustype != BCM43xx_BUSTYPE_PCI)
+ 		goto out;
+-	if (!(bcm->chipcommon_capabilities & BCM43xx_CAPABILITIES_PCTL))
++	if (!(bcm->ssb->chipcommon_capabilities & BCM43xx_CAPABILITIES_PCTL))
+ 		goto out;
+-	old_core = bcm->current_core;
+-	err = bcm43xx_switch_core(bcm, &bcm->core_chipcommon);
+-	if (err == -ENODEV)
++	if (!bcm->core_chipcommon)
++		goto out;
 +
-+#include <linux/types.h>
++	old_core = bcm->ssb->current_core;
++	err = ssb_switch_core(bcm->ssb, bcm->core_chipcommon);
++	if (err)
+ 		goto out;
+ 
+ 	minfreq = bcm43xx_pctl_clockfreqlimit(bcm, 0);
+ 	pll_on_delay = bcm43xx_read32(bcm, BCM43xx_CHIPCOMMON_PLLONDELAY);
+ 	delay = (((pll_on_delay + 2) * 1000000) + (minfreq - 1)) / minfreq;
+ 
+-	err = bcm43xx_switch_core(bcm, old_core);
++	err = ssb_switch_core(bcm->ssb, old_core);
+ 	assert(err == 0);
+ 
+ out:
+@@ -209,25 +213,26 @@
+ int bcm43xx_pctl_set_clock(struct bcm43xx_private *bcm, u16 mode)
+ {
+ 	int err;
+-	struct bcm43xx_coreinfo *old_core;
++	struct ssb_core *old_core;
+ 	u32 tmp;
+ 
+-	old_core = bcm->current_core;
+-	err = bcm43xx_switch_core(bcm, &bcm->core_chipcommon);
+-	if (err == -ENODEV)
++	if (!bcm->core_chipcommon)
+ 		return 0;
 +
-+/* SSB PCI config space registers. */
-+#define SSB_PMCSR		0x44
-+#define  SSB_PE			0x100
-+#define	SSB_BAR0_WIN		0x80
-+#define	SSB_BAR1_WIN		0x84
-+#define	SSB_SPROM_CONTROL	0x88
-+#define	SSB_BAR1_CONTROL	0x8c
-+#define SSB_PCI_IRQS		0x90
-+#define SSB_PCI_IRQMASK		0x94
-+#define SSB_BACKPLANE_IRQS	0x98
-+#define SSB_GPIO_IN		0xB0
-+#define SSB_GPIO_OUT		0xB4
-+#define SSB_GPIO_OUT_ENABLE	0xB8
-+
-+#define SSB_BAR0_MAX_RETRIES	50
-+
-+/* SSB core and host control registers. */
-+#define SSB_CONTROL		0x0000
-+#define SSB_ARBCONTROL		0x0010
-+#define SSB_ISTAT		0x0020
-+#define SSB_IMASK		0x0024
-+#define SSB_MBOX		0x0028
-+#define SSB_BCAST_ADDR		0x0050
-+#define SSB_BCAST_DATA		0x0054
-+#define SSB_PCI_TRANS_0		0x0100
-+#define SSB_PCI_TRANS_1		0x0104
-+#define SSB_PCI_TRANS_2		0x0108
-+#define SSB_SPROM		0x0800
-+
-+#define SSB_PCI_MEM		0x00000000
-+#define SSB_PCI_IO		0x00000001
-+#define SSB_PCI_CFG0		0x00000002
-+#define SSB_PCI_CFG1		0x00000003
-+#define SSB_PCI_PREF		0x00000004
-+#define SSB_PCI_BURST		0x00000008
-+#define SSB_PCI_MASK0		0xfc000000
-+#define SSB_PCI_MASK1		0xfc000000
-+#define SSB_PCI_MASK2		0xc0000000
-+
-+/* Silicon backplane register definitions */
-+#define SSB_IPSFLAG		0x0F08
-+#define SSB_TPSFLAG		0x0F18
-+#define  SSB_TPSFLAG_BPFLAG	0x0000003F /* Backplane flag # */
-+#define  SSB_TPSFLAG_ALWAYSIRQ	0x00000040 /* IRQ is always sent on the Backplane */
-+#define SSB_TMERRLOGA		0x0F48
-+#define SSB_TMERRLOG		0x0F50
-+#define SSB_ADMATCH3		0x0F60
-+#define SSB_ADMATCH2		0x0F68
-+#define SSB_ADMATCH1		0x0F70
-+#define SSB_IMSTATE		0x0F90     /* SB Initiator Agent State */
-+#define  SSB_IMSTATE_PC		0x0000000f /* Pipe Count */
-+#define  SSB_IMSTATE_AP_MASK	0x00000030 /* Arbitration Priority */
-+#define  SSB_IMSTATE_AP_BOTH	0x00000000 /* Use both timeslices and token */
-+#define  SSB_IMSTATE_AP_TS	0x00000010 /* Use timeslices only */
-+#define  SSB_IMSTATE_AP_TK	0x00000020 /* Use token only */
-+#define  SSB_IMSTATE_AP_RSV	0x00000030 /* Reserved */
-+#define  SSB_IMSTATE_IBE	0x00020000 /* In Band Error */
-+#define  SSB_IMSTATE_TO		0x00040000 /* Timeout */
-+#define SSB_INTVEC		0x0F94     /* SB Interrupt Mask */
-+#define  SSB_INTVEC_PCI		0x00000001 /* Enable interrupts for PCI */
-+#define  SSB_INTVEC_ENET0	0x00000002 /* Enable interrupts for enet 0 */
-+#define  SSB_INTVEC_ILINE20	0x00000004 /* Enable interrupts for iline20 */
-+#define  SSB_INTVEC_CODEC	0x00000008 /* Enable interrupts for v90 codec */
-+#define  SSB_INTVEC_USB		0x00000010 /* Enable interrupts for usb */
-+#define  SSB_INTVEC_EXTIF	0x00000020 /* Enable interrupts for external i/f */
-+#define  SSB_INTVEC_ENET1	0x00000040 /* Enable interrupts for enet 1 */
-+#define SSB_TMSLOW		0x0F98     /* SB Target State Low */
-+#define  SSB_TMSLOW_RESET	0x00000001 /* Reset */
-+#define  SSB_TMSLOW_REJECT	0x00000002 /* Reject */
-+#define  SSB_TMSLOW_CLOCK	0x00010000 /* Clock Enable */
-+#define  SSB_TMSLOW_FGC		0x00020000 /* Force Gated Clocks On */
-+#define  SSB_TMSLOW_PE		0x40000000 /* Power Management Enable */
-+#define  SSB_TMSLOW_BE		0x80000000 /* BIST Enable */
-+#define SSB_TMSHIGH		0x0F9C     /* SB Target State High */
-+#define  SSB_TMSHIGH_SERR	0x00000001 /* S-error */
-+#define  SSB_TMSHIGH_INT	0x00000002 /* Interrupt */
-+#define  SSB_TMSHIGH_BUSY	0x00000004 /* Busy */
-+#define  SSB_TMSHIGH_GCR	0x20000000 /* Gated Clock Request */
-+#define  SSB_TMSHIGH_BISTF	0x40000000 /* BIST Failed */
-+#define  SSB_TMSHIGH_BISTD	0x80000000 /* BIST Done */
-+#define SSB_BWA0		0x0FA0
-+#define SSB_IMCFGLO		0x0FA8
-+#define  SSB_IMCFGLO_SERTO	0x00000007 /* Service timeout */
-+#define  SSB_IMCFGLO_REQTO	0x00000070 /* Request timeout */
-+#define  SSB_IMCFGLO_REQTO_SHIFT	4
-+#define  SSB_IMCFGLO_CONNID	0x00FF0000 /* Connection ID */
-+#define  SSB_IMCFGLO_CONNID_SHIFT	16
-+#define SSB_IMCFGHI		0x0FAC
-+#define SSB_BCONFIG		0x0FC0
-+#define SSB_BSTATE		0x0FC8
-+#define SSB_ACTCFG		0x0FD8
-+#define SSB_FLAGST		0x0FE8
-+#define SSB_IDLOW		0x0FF8
-+//TODO
-+#define SSB_IDHIGH		0x0FFC     /* SB Identification High */
-+#define  SSB_IDHIGH_RC_MASK	0x0000000f /* Revision Code */
-+#define  SSB_IDHIGH_CC_MASK	0x0000fff0 /* Core Code */
-+#define  SSB_IDHIGH_CC_SHIFT	4
-+#define  SSB_IDHIGH_VC_MASK	0xffff0000 /* Vendor Code */
-+#define  SSB_IDHIGH_VC_SHIFT	16
-+
-+/* Core Code values. */
-+#define SSB_CC_CHIPCOMMON	0x800
-+#define SSB_CC_ILINE20		0x801
-+#define SSB_CC_SDRAM		0x803
-+#define SSB_CC_PCI		0x804
-+#define SSB_CC_MIPS		0x805
-+#define SSB_CC_ETHERNET		0x806
-+#define SSB_CC_V90		0x807
-+#define SSB_CC_USB11_HOSTDEV	0x808
-+#define SSB_CC_ADSL		0x809
-+#define SSB_CC_ILINE100		0x80A
-+#define SSB_CC_IPSEC		0x80B
-+#define SSB_CC_PCMCIA		0x80D
-+#define SSB_CC_INTERNAL_MEM	0x80E
-+#define SSB_CC_MEMC_SDRAM	0x80F
-+#define SSB_CC_EXTIF		0x811
-+#define SSB_CC_80211		0x812
-+#define SSB_CC_MIPS_3302	0x816
-+#define SSB_CC_USB11_HOST	0x817
-+#define SSB_CC_USB11_DEV	0x818
-+#define SSB_CC_USB20_HOST	0x819
-+#define SSB_CC_USB20_DEV	0x81A
-+#define SSB_CC_SDIO_HOST	0x81B
-+#define SSB_CC_ROBOSWITCH	0x81C
-+#define SSB_CC_PARA_ATA		0x81D
-+#define SSB_CC_SATA_XORDMA	0x81E
-+#define SSB_CC_ETHERNET_GBIT	0x81F
-+#define SSB_CC_PCIE		0x820
-+#define SSB_CC_MIMO_PHY		0x821
-+#define SSB_CC_SRAM_CTRLR	0x822
-+#define SSB_CC_MINI_MACPHY	0x823
-+#define SSB_CC_ARM_1176		0x824
-+#define SSB_CC_ARM_7TDMI	0x825
-+
-+/* ChipCommon registers. */
-+#define SSB_CHIPCOMMON_CHIPID		0x0000
-+#define  SSB_CHIPCOMMON_IDMASK		0x0000FFFF
-+#define  SSB_CHIPCOMMON_REVMASK		0x000F0000
-+#define  SSB_CHIPCOMMON_REVSHIFT	16
-+#define  SSB_CHIPCOMMON_PACKMASK	0x00F00000
-+#define  SSB_CHIPCOMMON_PACKSHIFT	20
-+#define  SSB_CHIPCOMMON_NRCORESMASK	0x0F000000
-+#define  SSB_CHIPCOMMON_NRCORESSHIFT	24
-+#define SSB_CHIPCOMMON_CAPABILITIES 	0x0004
-+#define SSB_CHIPCOMMON_CORECTL		0x0008
-+#define SSB_CHIPCOMMON_BIST		0x000C
-+#define SSB_CHIPCOMMON_PLLONDELAY	0x00B0
-+#define SSB_CHIPCOMMON_FREFSELDELAY	0x00B4
-+#define SSB_CHIPCOMMON_SLOWCLKCTL	0x00B8
-+#define SSB_CHIPCOMMON_SYSCLKCTL	0x00C0
-+
-+
-+struct pci_dev;
-+
-+
-+/**
-+ * struct ssb_core - Sonics Silicon Backplane core
-+ * @cc:		CoreCode ID. See SSB_CC_???
-+ * @vendor:	Core vendor ID number.
-+ * @rev:	Core revision code.
-+ * @index:	Index in the ssb->cores array.
-+ * @priv:	Private data for use by the driver.
-+ * 		This is not touched by the ssb subsystem (except
-+ * 		initialized to NULL in ssb_probe_cores()).
-+ */
-+struct ssb_core {
-+	u16 cc;
-+	u16 vendor;
-+	u8 rev;
-+	u8 index;
-+
-+	void *priv;
-+};
-+
-+/**
-+ * struct ssb - Sonics Silicon Backplane
-+ * @chip_id:			Chip ID. Assigned by the ssb subsystem.
-+ * @chip_rev:			Chip Revision. Assigned by the ssb subsystem.
-+ * @chip_package:		Chip Package. Assigned by the ssb subsystem.
-+ * @cores:			Array of all available cores.
-+ * @nr_cores:			Arraysize of "cores".
-+ * @current_core:		Pointer to the currently mapped core. Don't
-+ * 				modify directly. Use ssb_switch_core().
-+ *
-+ * @current_core_offset:	Internal. Use ssb_core_offset().
-+ * @pci_dev:			Internal.
-+ * @mmio:			Internal. Pointer to the MMIO area.
-+ */
-+struct ssb {
-+	u16 chip_id;
-+	u8 chip_rev;
-+	u8 chip_package;
-+	u32 chipcommon_capabilities;
-+
-+	struct ssb_core	*cores;
-+	int nr_cores;
-+	struct ssb_core *current_core;
-+#ifdef CONFIG_BCM947XX
-+	u16 current_core_offset;
-+#endif
-+	struct pci_dev *pci_dev;
-+	void __iomem *mmio;
-+};
-+
-+/**
-+ * ssb_core_offset - Get the MMIO corespecific offset.
-+ * Add this offset to all MMIO offsets on every MMIO
-+ * access on the core.
-+ * @ssb:	Pointer to struct ssb.
-+ */
-+static inline u16 ssb_core_offset(struct ssb *ssb)
-+{
-+#ifdef CONFIG_BCM947XX
-+	return ssb->current_core_offset;
-+#else
-+	return 0;
-+#endif
-+}
-+
-+/**
-+ * ssb_alloc - Allocate struct ssb.
-+ * This does not init hardware. May fail and return NULL.
-+ * @pci_dev:	Pointer to the PCI device.
-+ * @mmio:	Pointer to the MMIO area of the device.
-+ */
-+struct ssb * ssb_alloc(struct pci_dev *pci_dev,
-+		       void __iomem *mmio);
-+/** ssb_free - Free struct ssb. */
-+void ssb_free(struct ssb *ssb);
-+
-+/**
-+ * struct ssb_nrcores_elem - Array element of the
-+ * "number of cores" fallback array.
-+ * This array is browsed, if there is no ChipCommon rev >= 4
-+ * core available.
-+ * @chip_id_key:	The CHIPID key value for browsing the array.
-+ * @nr_cores_value:	The number of available cores on this CHIPID.
-+ */
-+struct ssb_nrcores_elem {
-+	u16 chip_id_key;
-+	u8 nr_cores_value;
-+};
-+
-+/**
-+ * ssb_probe_cores - Search and probe all available cores.
-+ * Returns 0 on success or an error code on failure.
-+ * @ssb:		Pointer to struct ssb.
-+ * @chipid_fallback:	Fallback CHIPID value. This is only used,
-+ * 			if there is no ChipCommon to read the
-+ * 			CHIPID from.
-+ * @nrcores_fallback:	An array of struct ssb_nrcores_elem to determine
-+ * 			the number of cores on a given CHIPID, if there
-+ * 			is no ChipCommon rev >= 4.
-+ * @nrcores_fb_size:	ARRAY_SIZE(nrcores_fallback)
-+ */
-+int ssb_probe_cores(struct ssb *ssb,
-+		    u16 chipid_fallback,
-+		    const struct ssb_nrcores_elem *nrcores_fallback,
-+		    size_t nrcores_fb_size);
-+/**
-+ * ssb_switch_core - Switch the "current_core" to another
-+ * one out of the ssb->cores array.
-+ * Returns 0 on success or an error code on failure.
-+ * @ssb:	Pointer to struct ssb.
-+ * @new_core:	The new core to switch to.
-+ */
-+int ssb_switch_core(struct ssb *ssb,
-+		    struct ssb_core *new_core);
-+
-+/**
-+ * ssb_core_is_enabled - Check if current_core is enabled in hardware.
-+ * Returns a boolean.
-+ * @ssb:	Pointer to struct ssb.
-+ */
-+int ssb_core_is_enabled(struct ssb *ssb);
-+/**
-+ * ssb_core_enable - Reset and enable current_core.
-+ * @ssb:	Pointer to struct ssb.
-+ * @core_specific_flags:	Additional SSB_TMSLOW flags for
-+ * 				this core. Pass 0 for none.
-+ */
-+void ssb_core_enable(struct ssb *ssb, u32 core_specific_flags);
-+/**
-+ * ssb_core_disable - Disable current_core.
-+ * @ssb:	Pointer to struct ssb.
-+ * @core_specific_flags:	Additional SSB_TMSLOW flags for
-+ * 				this core. Pass 0 for none.
-+ */
-+void ssb_core_disable(struct ssb *ssb, u32 core_specific_flags);
-+/**
-+ * ssb_cores_connect - Connect I/O cores to the backplane.
-+ * Cores need to be connected to the backplane in order
-+ * to route interrupts, for example.
-+ * This function might sleep.
-+ * Returns 0 on success or an error code on failure.
-+ * @ssb:	Pointer to struct ssb.
-+ * @coremask:	Bitmask of cores to connect.
-+ */
-+int ssb_cores_connect(struct ssb *ssb, u32 coremask);
-+
-+#endif /* LINUX__SONICS_SILICON_BACKPLANE_H_ */
-
++	old_core = bcm->ssb->current_core;
++	err = ssb_switch_core(bcm->ssb, bcm->core_chipcommon);
+ 	if (err)
+ 		goto out;
+ 	
+-	if (bcm->core_chipcommon.rev < 6) {
++	if (bcm->core_chipcommon->rev < 6) {
+ 		if (mode == BCM43xx_PCTL_CLK_FAST) {
+ 			err = bcm43xx_pctl_set_crystal(bcm, 1);
+ 			if (err)
+ 				goto out;
+ 		}
+ 	} else {
+-		if ((bcm->chipcommon_capabilities & BCM43xx_CAPABILITIES_PCTL) &&
+-			(bcm->core_chipcommon.rev < 10)) {
++		if ((bcm->ssb->chipcommon_capabilities & BCM43xx_CAPABILITIES_PCTL) &&
++		    (bcm->core_chipcommon->rev < 10)) {
+ 			switch (mode) {
+ 			case BCM43xx_PCTL_CLK_FAST:
+ 				tmp = bcm43xx_read32(bcm, BCM43xx_CHIPCOMMON_SLOWCLKCTL);
+@@ -249,7 +254,7 @@
+ 		}
+ 	}
+ 	
+-	err = bcm43xx_switch_core(bcm, old_core);
++	err = ssb_switch_core(bcm->ssb, old_core);
+ 	assert(err == 0);
+ 
+ out:
+@@ -293,7 +298,7 @@
+ 			goto err_pci;
+ 		udelay(5000);
+ 	} else {
+-		if (bcm->current_core->rev < 5)
++		if (bcm->ssb->current_core->rev < 5)
+ 			return 0;
+ 		if (bcm->sprom.boardflags & BCM43xx_BFL_XTAL_NOSLOW)
+ 			return 0;
+@@ -302,9 +307,9 @@
+  *		err = bcm43xx_switch_core(bcm, bcm->active_80211_core);
+  *		if (err)
+  *			return err;
+- *		if (((bcm->current_core->rev >= 3) &&
++ *		if (((bcm->ssb->current_core->rev >= 3) &&
+  *			(bcm43xx_read32(bcm, BCM43xx_MMIO_RADIO_HWENABLED_HI) & (1 << 16))) ||
+- *		      ((bcm->current_core->rev < 3) &&
++ *		      ((bcm->ssb->current_core->rev < 3) &&
+  *			!(bcm43xx_read16(bcm, BCM43xx_MMIO_RADIO_HWENABLED_LO) & (1 << 4))))
+  *			return 0;
+  *		err = bcm43xx_switch_core(bcm, &bcm->core_chipcommon);
+@@ -369,7 +374,7 @@
+ 	else
+ 		status &= ~BCM43xx_SBF_PS2;
+ 	bcm43xx_write32(bcm, BCM43xx_MMIO_STATUS_BITFIELD, status);
+-	if (bit26 && bcm->current_core->rev >= 5) {
++	if (bit26 && bcm->ssb->current_core->rev >= 5) {
+ 		for (i = 0; i < 100; i++) {
+ 			if (bcm43xx_shm_read32(bcm, BCM43xx_SHM_SHARED, 0x0040) != 4)
+ 				break;
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_radio.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_radio.c	2006-08-14 22:05:06.000000000 +0200
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_radio.c	2006-08-14 23:19:39.000000000 +0200
+@@ -1997,7 +1997,7 @@
+ 		bcm43xx_phy_write(bcm, 0x0010, bcm43xx_phy_read(bcm, 0x0010) | 0x0008);
+ 		bcm43xx_phy_write(bcm, 0x0011, bcm43xx_phy_read(bcm, 0x0011) | 0x0008);
+ 	}
+-	if (phy->type == BCM43xx_PHYTYPE_G && bcm->current_core->rev >= 5) {
++	if (phy->type == BCM43xx_PHYTYPE_G && bcm->ssb->current_core->rev >= 5) {
+ 		bcm43xx_phy_write(bcm, 0x0811, bcm43xx_phy_read(bcm, 0x0811) | 0x008C);
+ 		bcm43xx_phy_write(bcm, 0x0812, bcm43xx_phy_read(bcm, 0x0812) & 0xFF73);
+ 	} else
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/Kconfig
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/Kconfig	2006-08-14 22:05:06.000000000 +0200
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/Kconfig	2006-08-14 23:19:39.000000000 +0200
+@@ -1,6 +1,6 @@
+ config BCM43XX_D80211
+ 	tristate "Broadcom BCM43xx wireless support (DeviceScape stack)"
+-	depends on PCI && D80211 && NET_RADIO && EXPERIMENTAL
++	depends on PCI && SONICS_SILICON_BACKPLANE && D80211 && NET_RADIO && EXPERIMENTAL
+ 	select FW_LOADER
+ 	---help---
+ 	  This is an experimental driver for the Broadcom 43xx wireless chip,
 
 -- 
 Greetings Michael.
