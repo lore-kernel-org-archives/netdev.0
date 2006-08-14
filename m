@@ -1,94 +1,64 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: Re: [PATCH 4/6] ehea: header files
-Date: Mon, 14 Aug 2006 14:53:59 +0200
-Message-ID: <44E07267.7070007@de.ibm.com>
-References: <44D99F56.7010201@de.ibm.com> <1155190921.9801.43.camel@localhost.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: skb_shared_info()
+Date: Mon, 14 Aug 2006 17:38:43 +0400
+Message-ID: <20060814133843.GA30374@2ka.mipt.ru>
+References: <20060808.163915.03600382.davem@davemloft.net> <20060811140019.GA8611@ms2.inr.ac.ru> <20060811.172730.34542868.davem@davemloft.net> <20060813130431.GA14138@ms2.inr.ac.ru> <20060814080120.GA20053@2ka.mipt.ru> <20060814131919.GA13064@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Marcus Eder <meder@de.ibm.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([195.212.29.137]:54960 "EHLO
-	mtagate4.uk.ibm.com") by vger.kernel.org with ESMTP
-	id S1751316AbWHNNcz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 09:32:55 -0400
-To: michael@ellerman.id.au
-In-Reply-To: <1155190921.9801.43.camel@localhost.localdomain>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:50873 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751338AbWHNNjk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 09:39:40 -0400
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Disposition: inline
+In-Reply-To: <20060814131919.GA13064@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Ellerman wrote:
->> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea.h	1969-12-31 16:00:00.000000000 -0800
->> +++ kernel/drivers/net/ehea/ehea.h	2006-08-08 23:59:39.927452928 -0700
->> +
->> +#define EHEA_PAGESHIFT  12
->> +#define EHEA_PAGESIZE   4096UL
->> +#define EHEA_CACHE_LINE 128
+On Mon, Aug 14, 2006 at 05:19:19PM +0400, Alexey Kuznetsov (kuznet@ms2.inr.ac.ru) wrote:
+> > What if we will store array of pages and in shared info
+> > just like we have right now. So there will only one destructor.
 > 
-> This looks like a very bad idea, what happens if you're running on a
-> machine with 64K pages?
+> Seems, this is not enough. Actually, I was asking for your experience
+> with aio.
 > 
+> The simplest situation, which confuses me, translated to aio language:
+> two senders send two pages. Those pages are to be recycled, when we
+> are done. We have to notify both. And we have to merge both those pages
+> in one segment.
 
-The EHEA_PAGESIZE define is needed for queue management to hardware side.
+Since they will be sent from different users it will be separate chunks,
+each of which has own destructor, so yes one destructor per page in
+described case, but in general it will be one per block of pages.
+Blocks can then be combined into queue with additional blocks of
+kmalloced data...
+Mda, sounds not very good.
 
->> +
->> +#define EHEA_ENABLE	1
->> +#define EHEA_DISABLE	0
-> 
-> Do you really need hash defines for 0 and 1 ? They're fairly well
-> understood in C as meaning true and false.
-> 
+> The second half of that mail suggested three different solutions,
+> all of them creepy. :-)
 
-removed
+I still like existing way - it is much simpler (I hope :) to convince
+e1000 developers to fix driver's memory usage with help of putting
+skb_shared_info() or only pointer into skb.
+With pointer it would be simpler to do refcounting, but it requires
+additional allocation which is not cheap.
+Inlining skb_shared_info can lead to troubles with cloning/sharing,
+although it is also possible to do.
 
->> +
->> +/*
->> + *  h_galpa:
->> + *  for pSeries this is a 64bit memory address where
->> + *  I/O memory is mapped into CPU address space
->> + */
->> +
->> +struct h_galpa {
->> +	u64 fw_handle;
->> +};
-> 
-> What is a h_galpa? And why does it need a struct if it's just a u64?
-> 
+Idea of having header inside struct sk_buff is good until we strike
+something, which will create a header which size exceeds preallocated
+area (does MAX_TCP_HEADER enough for all, what about ipv6 options?)...
 
-The eHEA chip is not PCI attached but directly connected to a proprietary
-bus. Currently, we can access it by a simple 64 bit address, but this is not
-true in all cases. Having a struct here allows us to encapsulate the chip
-register access and to respond to changes to system hardware.
+So as first step I would try to create extended alloc_skb() with a
+pointer to shared_info (crap) (in case of appropriate sizes, i.e. when
+aligned one exceeds power-of-two and so on), and let's e1000 and unix 
+socket use that. If there will be additional requirements for other
+global changes like you suggested, we can break things more
+fundamentally :)
 
-We'll change the name to h_epa meaning "ehea physical address"
+> Alexey
 
->> +
->> +struct h_galpas {
->> +	struct h_galpa kernel;	/* kernel space accessible resource,
->> +				   set to 0 if unused */
->> +	struct h_galpa user;	/* user space accessible resource
->> +				   set to 0 if unused */
->> +	u32 pid;		/* PID of userspace galpa checking */
->> +};
->> +
-
->> +struct port_res_cfg {
->> +	int max_entries_rcq;
->> +	int max_entries_scq;
->> +	int max_entries_sq;
->> +	int max_entries_rq1;
->> +	int max_entries_rq2;
->> +	int max_entries_rq3;
->> +};
-> 
-> Enormous structs with no comments.
-> 
-
-changed
-
-Regards,
-Jan-Bernd
+-- 
+	Evgeniy Polyakov
