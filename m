@@ -1,36 +1,56 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 0/3] myri10ge update
-Date: Mon, 14 Aug 2006 18:03:45 -0400
-Message-ID: <44E0F341.1090907@garzik.org>
-References: <44E0F0A1.2000104@myri.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: Possible leak of multicast source filter sctructure
+Date: Mon, 14 Aug 2006 15:07:08 -0700
+Message-ID: <OF76CDD1A8.A722B591-ON882571CA.00781509-882571CA.007980C0@us.ibm.com>
+References: <20060813.204405.28205494.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: kuznet@ms2.inr.ac.ru, michal.ruzicka@comstar.cz,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:933 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S964999AbWHNWDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 18:03:47 -0400
-To: Brice Goglin <brice@myri.com>
-In-Reply-To: <44E0F0A1.2000104@myri.com>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:47065 "EHLO e4.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S965002AbWHNWH6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 18:07:58 -0400
+In-Reply-To: <20060813.204405.28205494.davem@davemloft.net>
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brice Goglin wrote:
-> Hi,
+netdev-owner@vger.kernel.org wrote on 08/13/2006 08:44:05 PM:
+
+> From: "Michal Ruzicka" <michal.ruzicka@comstar.cz>
+> Date: Fri, 11 Aug 2006 12:04:53 +0100
 > 
-> Here's 3 new minor updates for the myri10ge driver:
+> > You are absolutely right, I just failed to notice that -ENODEV return 
+value
+> > from ip_mc_del_src()/ip_mc_leave_src() is ignored.
+> > Here comes the patch:
+>  ...
+> > >         Also, ip_mc_leave_group() has the same issue; looks
+> > > like it just needs the "if (in_dev)" removed before the call to
+> > > ip_mc_leave_src().
+> > 
+> > In fact it is a slightly different issue, there is no leak in this
+> > function. Rather the function completely fails to leave a multicast
+> > group joined on an interface that does not exist any more.
+>  ...
+> > Here comes a patch for that:
 > 
-> 1) define some previously hardwired firmware constants
-> 2) allow to disable link status change reporting
-> 3) convert to netdev_alloc_skb
+> Both of these fixes look fine to me.  David?
 
-Patches 1 and 3 look OK.  They are cleanups, and will need to go into 
-#upstream (2.6.19) rather than #upstream-fixes (2.6.18-rc).
+        The first patch in that, yes.
 
-Should I go ahead and attempt to apply 1 and 3, or wait?
+Acked-by: David L Stevens <dlstevens@us.ibm.com>
 
-	Jeff
+        I'm not sure the second one is quite right. The case of concern
+is where an interface is deleted. If you joined (or left) the group by
+address and then deleted the interface, then you wouldn't match the
+index (which wouldn't be set) so the leave wouldn't work, still.
+        Also, if you passed a completely bogus ifindex, it should return
+ENODEV, but with the patch it would return EADDRNOTAVAIL it appears.
+        So, I think the second patch needs some more work. I'll look at
+it some more and see if I can suggest something better.
 
 
+                                                        +-DLS
 
