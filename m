@@ -1,61 +1,40 @@
-From: Keith Owens <kaos@ocs.com.au>
-Subject: Re: 2.6.18-rc3-mm2 (+ hotfixes): GPF related to skge on suspend
-Date: Mon, 14 Aug 2006 10:54:21 +1000
-Message-ID: <17555.1155516861@ocs10w.ocs.com.au>
-References: <20060813173503.e009583c.akpm@osdl.org>
+From: Daniel Phillips <phillips@google.com>
+Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
+Date: Sun, 13 Aug 2006 17:56:08 -0700
+Message-ID: <44DFCA28.7040808@google.com>
+References: <1155127040.12225.25.camel@twins> <20060809130752.GA17953@2ka.mipt.ru> <1155130353.12225.53.camel@twins> <44DD4E3A.4040000@redhat.com> <20060812084713.GA29523@2ka.mipt.ru> <1155374390.13508.15.camel@lappy> <20060812093706.GA13554@2ka.mipt.ru> <44DDE857.3080703@redhat.com> <20060812144921.GA25058@2ka.mipt.ru> <44DDEC1F.6010603@redhat.com> <20060812150842.GA5638@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chuck Ebbert <76306.1226@compuserve.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Rik van Riel <riel@redhat.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ocs.com.au ([202.147.117.210]:28976 "EHLO mail.ocs.com.au")
-	by vger.kernel.org with ESMTP id S1750719AbWHNAyP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2006 20:54:15 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-reply-to: Your message of "Sun, 13 Aug 2006 17:35:03 MST."
-             <20060813173503.e009583c.akpm@osdl.org>
+Received: from smtp-out.google.com ([216.239.45.12]:16040 "EHLO
+	smtp-out.google.com") by vger.kernel.org with ESMTP
+	id S1751177AbWHNA4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Aug 2006 20:56:25 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060812150842.GA5638@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton (on Sun, 13 Aug 2006 17:35:03 -0700) wrote:
->On Mon, 14 Aug 2006 10:21:55 +1000
->Keith Owens <kaos@ocs.com.au> wrote:
->
->> ksymoops -VKLMO -t elf64-x86-64 -a i386:x86-64
->
->box:/home/akpm> ksymoops -VKLMO -t elf64-x86-64 -a i386:x86-64 < x
->ksymoops 2.4.11 on x86_64 2.6.17-rc5.  Options used
->     -V (specified)
->     -K (specified)
->     -L (specified)
->     -O (specified)
->     -M (specified)
->     -t elf64-x86-64 -a i386:x86-64
->
->Warning (merge_maps): no symbols in merged map
->CPU 0
->...
-> [<ffffffff80471e5b>] _spin_unlock_irq+0x2b/0x60
-> [<ffffffff8020a2c0>] restore_args+0x0/0x30
-> [<ffffffff80243620>] kthread+0x0/0x110
-> [<ffffffff8020a6fe>] child_rip+0x0/0x12
->Code: 44 8b 28 c7 45 d0 00 00 00 00 45 85 ed 0f 89 29 fb ff ff e9
->Error (Oops_bfd_perror): /tmp/ksymoops.0lrVNY Invalid bfd target
->
->box:/home/akpm> rpm -qi ksymoops 
->Name        : ksymoops                     Relocations: (not relocatable)
->Version     : 2.4.11                            Vendor: (none)
->Release     : 1                             Build Date: Sat Jan  8 05:43:45 2005
->Install Date: Wed Jun 28 16:59:45 2006      Build Host: ocs3.ocs.com.au
->Group       : Utilities/System              Source RPM: ksymoops-2.4.11-1.src.rpm
+Evgeniy Polyakov wrote:
+> One must receive a packet to determine if that packet must be dropped
+> until tricky hardware with header split capabilities or MMIO copying is
+> used. Peter uses special pool to get data from when system is in OOM (at
+> least in his latest patchset), so allocations are separated and thus
+> network code is not affected by OOM condition, which allows to make
+> forward progress.
 
-Back in 2000 there were a lot of version problems between ksymoops and
-libbfd and libiberty, so I statically link against these libraries when
-I build the rpm.  You have an i386 version of ksymoops, which was built
-against an i386 only version of libbfd, it does not support target
-elf64-x86-64.  Grab the ksymoops src.rpm and rebuild on x86_64, or use
-a binary rpm from an x86_64 distribution.
+Nice executive summary.  Crucial point: you want to say "in reclaim"
+not "in OOM".
 
+Yes, right from the beginning the patch set got its sk_buff memory
+from a special pool when the system is in reclaim, however the exact
+nature of the pool and how/where it is accounted has evolved... mostly
+forward.
+
+Regards,
+
+Daniel
