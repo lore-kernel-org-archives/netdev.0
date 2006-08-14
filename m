@@ -1,42 +1,39 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: wlan#ap seems bogus
-Date: Mon, 14 Aug 2006 10:22:34 +0200
-Message-ID: <44E032CA.4040107@sipsolutions.net>
-References: <44E02F41.2060300@sipsolutions.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
+Date: Mon, 14 Aug 2006 12:25:55 +0400
+Message-ID: <20060814082555.GA27999@2ka.mipt.ru>
+References: <20060813.165540.56347790.davem@davemloft.net> <44DFD262.5060106@google.com> <20060813185309.928472f9.akpm@osdl.org> <1155530453.5696.98.camel@twins> <20060813215853.0ed0e973.akpm@osdl.org> <1155531835.5696.103.camel@twins> <20060813222208.7e8583ac.akpm@osdl.org> <1155537940.5696.117.camel@twins> <20060814000736.80e652bb.akpm@osdl.org> <1155543352.5696.137.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Andrew Morton <akpm@osdl.org>,
+	Daniel Phillips <phillips@google.com>,
+	David Miller <davem@davemloft.net>, riel@redhat.com,
+	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:28108 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750861AbWHNIWh
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 04:22:37 -0400
-To: Jouni Malinen <jkm@devicescape.com>, Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <44E02F41.2060300@sipsolutions.net>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:57306 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751882AbWHNIdM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 04:33:12 -0400
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Content-Disposition: inline
+In-Reply-To: <1155543352.5696.137.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As far as I understand the entire point of the wlan#ap interface is to
-receive all management relevant management frames. (If that's wrong, reply
-now and don't read the rest)
+On Mon, Aug 14, 2006 at 10:15:52AM +0200, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
+> > If this refers to the socket buffers, they're mostly allocated with
+> > at least __GFP_WAIT, aren't they?
+> 
+> Wherever it is that packets go if the local end is tied up and cannot
+> accept them instantly. The simple but prob wrong calculation I made for
+> evgeniy is: suppose we have 64k sockets, each socket can buffer up to
+> 128 packets, and each packet can be up to 16k (roundup for jumboframes)
+> large, that makes for 128G of memory. This calculation is wrong on
+> several points (we can have >64k sockets, and I have no idea on the 128)
+> but the order of things doesn't get better.
 
-Hence, I think it ought to be named 'wlan#mgmt' instead. However, I think
-it's hard-coded existence is bogus.
+TCP memory is limited for all sockets - it is tcp_*mem parameters.
+tcp_mem max on my amd64 with 1gb of ram is 768 kb for _all_ sockets.
 
-How about we just add a new interface mode called MGT_MONITOR and
-wpa_supplicant simply creates a new device via the regular sysfs mechanism,
-and then sets that MGT_MONITOR mode via the relevant WEXT ioctl? iwconfig
-doesn't even need to be taught about this mode except for display
-purposes...
-
-Also, like I mentioned previously, the device naming can be changed by the
-user and there's no guarantee that wlan0ap corresponds to wmaster0. Etc. But
-if wpa_supplicant simply created the device itself, it could give it any
-name, say wlan0_mgt (if it was controlling wlan0), but if that name is
-already taken it simply appends a number or something until it hits a device
-name that's still free (or gives up after 100 tries or so...) :)
-
-johannes
-
-PS: In case you're wondering, this is the last mail in my series. Phew!
+-- 
+	Evgeniy Polyakov
