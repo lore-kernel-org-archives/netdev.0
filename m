@@ -1,58 +1,45 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC 5/7] neighbour: convert lookup to sequence lock
-Date: Mon, 14 Aug 2006 15:37:43 -0700
-Message-ID: <20060814153743.0ab60955@localhost.localdomain>
-References: <20060814212004.606140865@localhost.localdomain>
-	<20060814212143.845202090@localhost.localdomain>
-	<20060814222220.GQ14627@postel.suug.ch>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC][NET::SCHED]: cleanup qdisc_restart
+Date: Mon, 14 Aug 2006 18:57:27 -0400
+Message-ID: <1155596247.6946.9.camel@jzny2>
+References: <1155408186.5091.46.camel@jzny2> <44E1DD5F.4020603@osdl.org>
+	 <20060814.140136.88477982.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: shemminger@osdl.org, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:24463 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932734AbWHNWhu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 18:37:50 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060814222220.GQ14627@postel.suug.ch>
+Received: from mx02.cybersurf.com ([209.197.145.105]:14212 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S965023AbWHNW5d
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Aug 2006 18:57:33 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1GClNK-0007c0-4o
+	for netdev@vger.kernel.org; Mon, 14 Aug 2006 18:57:38 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060814.140136.88477982.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 15 Aug 2006 00:22:20 +0200
-Thomas Graf <tgraf@suug.ch> wrote:
-
-> * Stephen Hemminger <shemminger@osdl.org> 2006-08-14 14:20
-> > --- net-2.6.19.orig/net/core/neighbour.c
-> > +++ net-2.6.19/net/core/neighbour.c
-> > @@ -1160,19 +1164,24 @@ int neigh_resolve_output(struct sk_buff 
-> >  	if (!neigh_event_send(neigh, skb)) {
-> >  		int err;
-> >  		struct net_device *dev = neigh->dev;
-> > +		unsigned short type = ntohs(skb->protocol);
-> > +
-> >  		if (dev->hard_header_cache && !dst->hh) {
-> > -			write_lock_bh(&neigh->lock);
-> > +			write_seqlock_bh(&neigh->lock);
-> >  			if (!dst->hh)
-> >  				neigh_hh_init(neigh, dst, dst->ops->protocol);
-> > -			err = dev->hard_header(skb, dev, ntohs(skb->protocol),
-> > +			err = dev->hard_header(skb, dev, type,
-> >  					       neigh->ha, NULL, skb->len);
-> > -			write_unlock_bh(&neigh->lock);
-> > +			write_sequnlock_bh(&neigh->lock);
-> >  		} else {
-> > -			read_lock_bh(&neigh->lock);
-> > -			err = dev->hard_header(skb, dev, ntohs(skb->protocol),
-> > -					       neigh->ha, NULL, skb->len);
-> > -			read_unlock_bh(&neigh->lock);
-> > +			unsigned seq;
-> > +			do {
-> > +				seq = read_seqbegin(&neigh->lock);
-> > +				err = dev->hard_header(skb, dev, type,
-> > +						       neigh->ha, NULL, skb->len);
-> > +			} while (read_seqretry(&neigh->lock, seq));
+On Mon, 2006-14-08 at 14:01 -0700, David Miller wrote:
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Tue, 15 Aug 2006 07:42:39 -0700
 > 
-> Don't you need to pull in order to undo the push that probably
-> happened in dev->hard_header()?
+> > Please don't change the values because some older drvers still return 1 
+> > rather
+> > than NETDEV_TX_BUSY
+> 
+> Unfortunately, this is probably very true.  So we indeed cannot
+> change the NETDEV_TX_BUSY value.
 
-Probably just record the headroom() and undo that?
+That slipped from the experiments i was trying out. I can use valid
+return codes.
+The question to ask though is: shouldnt we be having drivers use the
+mnemonics instead of values like 1? 
+
+cheers,
+jamal
+
