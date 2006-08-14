@@ -1,70 +1,70 @@
-From: Jay Cliburn <jacliburn@bellsouth.net>
-Subject: New driver questions: Attansic L1 gigabit NIC
-Date: Sun, 13 Aug 2006 19:11:42 -0500
-Message-ID: <44DFBFBE.1070201@bellsouth.net>
+From: Keith Owens <kaos@ocs.com.au>
+Subject: Re: 2.6.18-rc3-mm2 (+ hotfixes): GPF related to skge on suspend
+Date: Mon, 14 Aug 2006 10:21:55 +1000
+Message-ID: <17002.1155514915@ocs10w.ocs.com.au>
+References: <200608130456_MC3-1-C7EE-44C8@compuserve.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imf23aec.mail.bellsouth.net ([205.152.59.71]:53703 "EHLO
-	imf23aec.mail.bellsouth.net") by vger.kernel.org with ESMTP
-	id S1751756AbWHNALo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Aug 2006 20:11:44 -0400
-Received: from ibm66aec.bellsouth.net ([70.152.106.237])
-          by imf23aec.mail.bellsouth.net with ESMTP
-          id <20060814001143.CEEC5233.imf23aec.mail.bellsouth.net@ibm66aec.bellsouth.net>
-          for <netdev@vger.kernel.org>; Sun, 13 Aug 2006 20:11:43 -0400
-Received: from [192.168.1.3] (really [70.152.106.237])
-          by ibm66aec.bellsouth.net with ESMTP
-          id <20060814001143.UBRS828.ibm66aec.bellsouth.net@[192.168.1.3]>
-          for <netdev@vger.kernel.org>; Sun, 13 Aug 2006 20:11:43 -0400
-To: netdev@vger.kernel.org
+Received: from mail.ocs.com.au ([202.147.117.210]:816 "EHLO mail.ocs.com.au")
+	by vger.kernel.org with ESMTP id S1751451AbWHNAVs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2006 20:21:48 -0400
+To: Chuck Ebbert <76306.1226@compuserve.com>
+In-reply-to: Your message of "Sun, 13 Aug 2006 04:53:09 -0400."
+             <200608130456_MC3-1-C7EE-44C8@compuserve.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I recently purchased an Asus M2V socket AM2 motherboard that comes with
-an onboard Attansic L1 Gigabit Ethernet Controller.  The CD that came
-with the motherboard contains GPL'd driver source for the NIC.  The
-driver builds, installs, and functions cleanly in Fedora Core 5. Despite
-the clear assertion of GPL licensing in the license file[1], an
-accompanying readme file says:
+Chuck Ebbert (on Sun, 13 Aug 2006 04:53:09 -0400) wrote:
+>In-Reply-To: <20060812052853.f9e5d648.akpm@osdl.org>
+>
+>On Sat, 12 Aug 2006 05:28:53 -0700, Andrew Morton wrote:
+>
+>> > Code: 44 8b 28 c7 45 d0 00 00 00 00 45 85 ed 0f 89 29 fb ff ff e9
+>>
+>> ksymoops says:
+>> 
+>> Code;  ffffffff88107287 <_end+7ac9287/7efc2000>
+>> 00000000 <_EIP>:
+>> Code;  ffffffff88107287 <_end+7ac9287/7efc2000>   <=====
+>>    0:   44                        inc    %esp   <=====
+>> Code;  ffffffff88107288 <_end+7ac9288/7efc2000>
+>>    1:   8b 28                     mov    (%eax),%ebp
+>
+>0x44 is a REX prefix in 64-bit mode, so somehow ksymoops got it
+>wrong and gave you an i386-mode decode instead of 64-bit mode.
+>Did you run it on a i386 machine and it assumed i386? Maybe you
+>need to use "-a x86-64"?  (I can't make it work on my setup.)
+>
+>So it's really "mov (%r8),%ebp" if I am reading the manual right.
 
-     This driver is only supported as a loadable
-     module at this time. Attansic is not supplying
-     patches against the kernel source to allow for
-     static linking of the driver.
+ksymoops -VKLMO -t elf64-x86-64 -a i386:x86-64
 
-I've read the LKML FAQ regarding new driver submissions, but it implies
-that the submitter be willing to maintain the driver, which I'm not
-qualified to do.  I haven't contacted Attansic to request a change to
-the above support statement, because my past attempts to contact vendors
-on matters of this tenor have been greeted with silence.
+ksymoops 2.4.11 on i686 2.6.16.21-0.13-smp.  Options used
+     -V (specified)
+     -K (specified)
+     -L (specified)
+     -O (specified)
+     -M (specified)
+     -t elf64-x86-64 -a i386:x86-64
 
-First question: Can anyone who purchases a device that ships with GPL'd
-driver source code submit said source code for inclusion in the kernel?
+Warning (merge_maps): no symbols in merged map
+Code: 44 8b 28 c7 45 d0 00 00 00 00 45 85 ed 0f 89 29 fb ff ff e9
 
-Second question: If I'm not qualified to maintain the driver, what are
-its prospects for inclusion in the kernel?  How does one go about
-soliciting a maintainer?
-
-
-[1] [root@osprey atl1]# head -n 15 license
-
-"This software program is licensed subject to the GNU General Public
-License (GPL). Version 2, June 1991, available at
-<http://www.fsf.org/copyleft/gpl.html>"
-
-GNU General Public License
-
-Version 2, June 1991
-
-Copyright (C) 1989, 1991 Free Software Foundation, Inc.
-59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
-
-Everyone is permitted to copy and distribute verbatim copies of this
-license document, but changing it is not allowed.
-
----
-Thanks,
-Jay
+Code;  0000000000000000 No symbols available
+0000000000000000 <_RIP>:
+Code;  0000000000000000 No symbols available
+   0:   44 8b 28                  mov    (%rax),%r13d
+Code;  0000000000000003 No symbols available
+   3:   c7 45 d0 00 00 00 00      movl   $0x0,0xffffffffffffffd0(%rbp)
+Code;  000000000000000a No symbols available
+   a:   45 85 ed                  test   %r13d,%r13d
+Code;  000000000000000d No symbols available
+   d:   0f 89 29 fb ff ff         jns    fffffffffffffb3c <_RIP+0xfffffffffffffb3c>
+Code;  0000000000000013 No symbols available
+  13:   e9 00 00 00 00            jmpq   18 <_RIP+0x18>
 
