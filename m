@@ -1,69 +1,65 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: Re: [PATCH 4/6] ehea: header files
-Date: Mon, 14 Aug 2006 13:20:11 +1000
-Message-ID: <1155525611.7807.4.camel@localhost.localdomain>
-References: <44D99F56.7010201@de.ibm.com> <20060811214020.GG479@krispykreme>
-Reply-To: michael@ellerman.id.au
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Subject: Re: rename *MEMALLOC flags
+Date: Mon, 14 Aug 2006 13:42:20 +1000
+Message-ID: <44DFF11C.406@yahoo.com.au>
+References: <20060812141415.30842.78695.sendpatchset@lappy>	<20060812141445.30842.47336.sendpatchset@lappy>	<44DDE8B6.8000900@garzik.org>	<1155395201.13508.44.camel@lappy>	<44DFBEA3.5070305@google.com> <20060813180054.65201239.pj@sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-3A6egLWVpu6081XYtX6J"
-Cc: Jan-Bernd Themann <ossthema@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Marcus Eder <meder@de.ibm.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Phillips <phillips@google.com>, a.p.zijlstra@chello.nl,
+	jeff@garzik.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, indan@nul.nu, johnpol@2ka.mipt.ru,
+	riel@redhat.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.tip.net.au ([203.10.76.45]:14470 "EHLO ozlabs.org")
-	by vger.kernel.org with ESMTP id S1751828AbWHNDUN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Aug 2006 23:20:13 -0400
-To: Anton Blanchard <anton@samba.org>
-In-Reply-To: <20060811214020.GG479@krispykreme>
+Received: from smtp105.mail.mud.yahoo.com ([209.191.85.215]:18326 "HELO
+	smtp105.mail.mud.yahoo.com") by vger.kernel.org with SMTP
+	id S1751831AbWHNDni (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Aug 2006 23:43:38 -0400
+To: Paul Jackson <pj@sgi.com>
+In-Reply-To: <20060813180054.65201239.pj@sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Paul Jackson wrote:
+> Daniel wrote:
+> 
+>>Inventing a new name for an existing thing is very poor taste on grounds of
+>>grepability alone.
+> 
+> 
+> I wouldn't say 'very poor taste' -- just something that should be
+> done infrequently, with good reason, and with reasonable concensus,
+> especially from the key maintainers in the affected area.
+> 
+> Good names are good taste, in my book.  But stable naming is good too.
+> 
+> I wonder what Nick thinks of this?  Looks like he added
+> __GFP_NOMEMALLOC a year ago, following the naming style of PF_MEMALLOC.
+> 
+> I added him to the cc list.
+> 
 
---=-3A6egLWVpu6081XYtX6J
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+__GFP_NOMEMALLOC was added to prevent mempool backed allocations from
+accessing the emergency reserve. Because that would just shift deadlocks
+from mempool "safe" sites to those which have not been converted.
 
-On Sat, 2006-08-12 at 07:40 +1000, Anton Blanchard wrote:
-> Hi,
->=20
-> >  drivers/net/ehea/ehea.h    |  452=20
->=20
-> > +#define EHEA_DRIVER_NAME	"IBM eHEA"
->=20
-> You are using this for ethtool get_drvinfo. Im not sure if it should
-> match the module name, and I worry about having a space in the name. Any
-> ideas on what we should be doing here?
+PF_MEMALLOC is a good name: PF_MEMALLOC says that the task is currently
+allocating memory. It does not say anything about the actual allocator
+implementation details to handle this (1. don't recurse into reclaim; 2.
+allow access to reserves), but that is a good thing.
 
-I believe it must match the module name. It also might be nice to call
-it "DRV_NAME" like most other network drivers do.
+__GFP_NOMEMALLOC and __GFP_MEMALLOC are poorly named (I take the blame).
+It isn't that the task is suddenly no longer allocating in the context
+of an allocation, it is just that you want to allow or deny access to
+the reserve.
 
-cheers
+__GFP_NOMEMALLOC should be something like __GFP_EMERG_NEVER and
+__GFP_MEMALLOC should be _ALWAYS. Or something like that.
 
---=20
-Michael Ellerman
-IBM OzLabs
+NOMEMALLOC is specific enough that I don't mind a rename at this stage.
+Renaming PF_MEMALLOC would be wrong, however.
 
-wwweb: http://michael.ellerman.id.au
-phone: +61 2 6212 1183 (tie line 70 21183)
-
-We do not inherit the earth from our ancestors,
-we borrow it from our children. - S.M.A.R.T Person
-
---=-3A6egLWVpu6081XYtX6J
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.2 (GNU/Linux)
-
-iD8DBQBE3+vrdSjSd0sB4dIRAleSAJ4pjJgmkcdfTSPqSNorBim1Yt/jOgCeJRI+
-ScHIOnwZsiu2/nB/yqIRH28=
-=osyf
------END PGP SIGNATURE-----
-
---=-3A6egLWVpu6081XYtX6J--
+-- 
+SUSE Labs, Novell Inc.
+Send instant messages to your online friends http://au.messenger.yahoo.com 
 
