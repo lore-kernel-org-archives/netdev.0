@@ -1,55 +1,64 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] Remove ugly TODO output from log files in bcm43xx-softmac
-Date: Mon, 14 Aug 2006 21:51:55 +0200
-Message-ID: <200608142151.56340.mb@bu3sch.de>
-References: <44DA4FF5.4020507@lwfinger.net> <20060814185456.GB13934@tuxdriver.com>
+From: Laurent Riffard <laurent.riffard@free.fr>
+Subject: Re: 2.6.18-rc4-mm1: eth0: trigger_send() called with the transmitter
+ busy
+Date: Mon, 14 Aug 2006 22:06:25 +0200
+Message-ID: <44E0D7C1.7040509@free.fr>
+References: <20060813012454.f1d52189.akpm@osdl.org>	<44E08AF7.9060508@free.fr> <20060814095016.04d178ab.akpm@osdl.org> <44E0B72C.6010503@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kernel development list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:49091
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751426AbWHNTwy
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 15:52:54 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060814185456.GB13934@tuxdriver.com>
-Content-Disposition: inline
+Received: from smtp5-g19.free.fr ([212.27.42.35]:65260 "EHLO smtp5-g19.free.fr")
+	by vger.kernel.org with ESMTP id S932625AbWHNUEy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 16:04:54 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <44E0B72C.6010503@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 14 August 2006 20:55, John W. Linville wrote:
-> On Wed, Aug 09, 2006 at 04:13:25PM -0500, Larry Finger wrote:
-> > This patch removes the ugly TODO output from the logs for bcm43xx-softmac. 
-> > The
-> > patch is for the latest version of Linville's wireless-2.6 tree.
-> 
-> I'm not sure if this is the right approach.  In fact I know it isn't --
-> the right approach would be to implement the missing code! :-)
-> 
-> But barring that, wouldn't it be better to change the TODO() macro
-> to key off a build-time definition like CONFIG_BCM43XX_DEBUG?
-> 
-> Michael, what do you think?
+Le 14.08.2006 19:47, Laurent Riffard a =E9crit :
+> Le 14.08.2006 18:50, Andrew Morton a =E9crit :
+>> On Mon, 14 Aug 2006 16:38:47 +0200
+>> Laurent Riffard <laurent.riffard@free.fr> wrote:
+>>
+>>> Le 13.08.2006 10:24, Andrew Morton a __crit :
+>>>> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.=
+18-rc4/2.6.18-rc4-mm1/
+>>> Hello,
+>>>
+>>> This morning, while trying to suspend to disk, my box started to lo=
+op=20
+>>> displaying the following message:
+>>> eth0: trigger_send() called with the transmitter busy.
+>>>
+>>> Here is the scenario. I booted 2.6.18-rc4-mm1 with this command lin=
+e:
+>>> root=3D/dev/vglinux1/lvroot video=3Dvesafb:ywrap,mtrr splash=3Dsile=
+nt resume=3D/dev/hdb7 netconsole=3D@192.163.0.3/,@192.168.0.1/00:0E:9B:=
+91:ED:72 init 1
+>>>
+>>> Then I issued:
+>>> # echo 6 > /proc/sys/kernel/printk
+>>> # echo disk > /sys/power/state
+>> ne2k isn't <ahem> the most actively-maintained driver.
+>>
+>> But most (I think all) net drivers have problems during suspend when
+>> netconsole is active.  Does disabling netconsole help?
+>=20
+> Yes it does.=20
+> =20
+>> Did this operation work OK in earlier kernels, with netconsole enabl=
+ed?
+>=20
+> It's the first time I see such a message. I can't speak for 2.6.18-rc=
+3-mm2=20
+> because it could not suspend at all (did hang right after=20
+> "echo disk > /sys/power/state"), but it worked in earlier kernels.
+>=20
+> I'll try with plain 2.6.18-rc4.
 
-Heh, well.
-Actually the TODO define should have died since months.
-BUT: There are still 11 uses of it and they are _all_ valid uses.
-_None_ of these should be removed without implementing the code
-at the same time.
-
-So, well. What about compiling it to a no-op if BCM43XX_DEBUG is
-not defined. I think this is a bad idea.
-These TODOs are there for a _very_ good reason. They say:
-"If you see this in dmesg, feature foobar does not work at all".
-They are a very good hint to the user (and escpecially to the
-developers when dealing with "bugreports").
-
-So: If someone would like that a TODO disappears in the logs,
-go forward and implement the code. (Actually, most TODOs are
-there because of incomplete specifications. But that might have
-changed inbetween).
-
--- 
-Greetings Michael.
+Same problem with 2.6.18-rc4. I'll try earlier -rc kernel tomorrow.
+--=20
+laurent
