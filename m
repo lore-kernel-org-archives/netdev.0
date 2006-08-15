@@ -1,32 +1,60 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH 1/1] network memory allocator.
-Date: Tue, 15 Aug 2006 21:49:06 +0400
-Message-ID: <20060815174906.GA28805@2ka.mipt.ru>
-References: <20060814123530.GA5019@2ka.mipt.ru> <1155639302.5696.210.camel@twins> <20060815112617.GB21736@2ka.mipt.ru> <1155643405.5696.236.camel@twins> <20060815123438.GA29896@2ka.mipt.ru> <1155649768.5696.262.camel@twins> <20060815141501.GA10998@2ka.mipt.ru> <1155653339.5696.282.camel@twins> <20060815150507.GA9734@2ka.mipt.ru> <1155663737.13508.127.camel@lappy>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] mark sk98lin driver for removal
+Date: Tue, 15 Aug 2006 11:03:40 -0700
+Message-ID: <20060815110340.2c60f842@dxpl.pdx.osdl.net>
+References: <20060815131852.GP2900@mathom.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:60558 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1030407AbWHORtm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 13:49:42 -0400
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Content-Disposition: inline
-In-Reply-To: <1155663737.13508.127.camel@lappy>
+Received: from smtp.osdl.org ([65.172.181.4]:26559 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030416AbWHOSDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 14:03:47 -0400
+To: Michael Stone <mstone@mathom.us>
+In-Reply-To: <20060815131852.GP2900@mathom.us>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 15, 2006 at 07:42:16PM +0200, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
-> Right, however I just realised that most storage protocols (level 7)
-> have their own ACK msgs and do not rely on TCP (level 4) ACKs like this.
+On Tue, 15 Aug 2006 09:18:54 -0400
+Michael Stone <mstone@mathom.us> wrote:
+
+> Hopefully the skge driver will be updated to support everything the 
+> sk98lin driver does before it is removed. Among other things, I don't 
+> see any documentation for the skge driver similar to that for the 
+> sk98lin driver.
+
+I don't see any need for additional documentation.
+What is in sk98lin:
+	* installation	--> already covered by normal kernel install
+	* compiling	--> ditto
+	* loading module --> ditto
+	* driver parameters 
+		skge/sky2 don't have many and most are standard across other drivers
+		This driver intentionally does not support configuration via module
+		parameters because it is better done through ethtool
+			
+
+> Is there some driver option to use both ports of a dual 
+> port card, as there was for the sk98lin module?
+
+The driver has always supported both ports as separate devices. If you want to
+use bonding or fail over that is available in generic kernel.
+
+> I tried testing the skge driver on one system and got this in dmesg:
 > 
-> So I would like to come back on this, I do need a full data channel
-> open.
+> skge 0000:03:0c.0: unsupported phy type 0x0
+> ACPI: PCI interrupt for device 0000:03:0c.0 disabled
+> skge: probe of 0000:03:0c.0 failed with error -95
+>
 
-In that case you can not solve problem with emergensy pool until you
-mark all needed sockets as capable to do it.
-Global socket limits are still there in sk_stream_alloc_pskb().
+What hardware was that? Please send me an lspci -vv output.
+I can add support for it. I avoided adding support for all the possible
+flavors because some of the variants seem to only have existed on a test bench.
 
--- 
-	Evgeniy Polyakov
+> the sk98lin driver says:
+> 
+> eth0: SysKonnect SK-NET Gigabit Ethernet Adapter SK-9843 SX
+>       PrefPort:A  RlmtMode:Check Link State
+> 
+> Mike Stone
