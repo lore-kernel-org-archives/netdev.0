@@ -1,41 +1,58 @@
-From: Pavel Machek <pavel@suse.cz>
-Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
-Date: Tue, 15 Aug 2006 19:17:55 +0000
-Message-ID: <20060815191754.GH4032@ucw.cz>
-References: <20060808193325.1396.58813.sendpatchset@lappy>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Daniel Phillips <phillips@google.com>
+From: Pavel Roskin <proski@gnu.org>
+Subject: [PATCH] Use __always_inline in orinoco_lock()/orinoco_unlock()
+Date: Tue, 15 Aug 2006 15:25:58 -0400
+Message-ID: <20060815192558.3590.63591.stgit@dv.roinet.com>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: Adrian Bunk <bunk@stusta.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:23046 "EHLO
-	spitz.ucw.cz") by vger.kernel.org with ESMTP id S965197AbWHOTUb
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 15:20:31 -0400
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Content-Disposition: inline
-In-Reply-To: <20060808193325.1396.58813.sendpatchset@lappy>
+Received: from h-64-105-159-118.phlapafg.covad.net ([64.105.159.118]:37019
+	"EHLO smtp.roinet.com") by vger.kernel.org with ESMTP
+	id S965126AbWHOT0A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 15:26:00 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+From: Pavel Roskin <proski@gnu.org>
 
-> Recently, Peter Zijlstra and I have been busily collaborating on a
-> solution to the memory deadlock problem described here:
-> 
->    http://lwn.net/Articles/144273/
->    "Kernel Summit 2005: Convergence of network and storage paths"
-> 
-> We believe that an approach very much like today's patch set is
-> necessary for NBD, iSCSI, AoE or the like ever to work reliably. 
-> We further believe that a properly working version of at least one of
-> these subsystems is critical to the viability of Linux as a modern
-> storage platform.
-...
-> Unfortunately, a particularly nasty form of memory deadlock arises from
-> the fact that receive side of the network stack is also a sort of
+This is exactly the case when they are needed.  This also fixed a
+warning with -Wmissing-prototypes
 
-What about transmit side? I believe you need to reply to ARPs or you
-will be unable to communicate over ethernet...
--- 
-Thanks for all the (sleeping) penguins.
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Signed-off-by: Pavel Roskin <proski@gnu.org>
+---
+
+ drivers/net/wireless/orinoco.h |   12 +++++-------
+ 1 files changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/wireless/orinoco.h b/drivers/net/wireless/orinoco.h
+index 16db3e1..8fd9b32 100644
+--- a/drivers/net/wireless/orinoco.h
++++ b/drivers/net/wireless/orinoco.h
+@@ -135,11 +135,9 @@ extern irqreturn_t orinoco_interrupt(int
+ /********************************************************************/
+ 
+ /* These functions *must* be inline or they will break horribly on
+- * SPARC, due to its weird semantics for save/restore flags. extern
+- * inline should prevent the kernel from linking or module from
+- * loading if they are not inlined. */
+-extern inline int orinoco_lock(struct orinoco_private *priv,
+-			       unsigned long *flags)
++ * SPARC, due to its weird semantics for save/restore flags. */
++static __always_inline int orinoco_lock(struct orinoco_private *priv,
++					unsigned long *flags)
+ {
+ 	spin_lock_irqsave(&priv->lock, *flags);
+ 	if (priv->hw_unavailable) {
+@@ -151,8 +149,8 @@ extern inline int orinoco_lock(struct or
+ 	return 0;
+ }
+ 
+-extern inline void orinoco_unlock(struct orinoco_private *priv,
+-				  unsigned long *flags)
++static __always_inline void orinoco_unlock(struct orinoco_private *priv,
++					   unsigned long *flags)
+ {
+ 	spin_unlock_irqrestore(&priv->lock, *flags);
+ }
