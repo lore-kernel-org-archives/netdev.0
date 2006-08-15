@@ -1,58 +1,118 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: [PATCH] Use __always_inline in orinoco_lock()/orinoco_unlock()
-Date: Tue, 15 Aug 2006 15:25:58 -0400
-Message-ID: <20060815192558.3590.63591.stgit@dv.roinet.com>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
-Cc: Adrian Bunk <bunk@stusta.de>
+From: "Simon Barber" <simon@devicescape.com>
+Subject: RE: proposal for new wireless configuration API
+Date: Tue, 15 Aug 2006 12:27:07 -0700
+Message-ID: <C86180A8C204554D8A3323D8F6B0A29F0165AE04@dhost002-46.dex002.intermedia.net>
+References: <200608152113.23697.mb@bu3sch.de>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, "Jean Tourrilhes" <jt@hpl.hp.com>,
+	"Johannes Berg" <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-64-105-159-118.phlapafg.covad.net ([64.105.159.118]:37019
-	"EHLO smtp.roinet.com") by vger.kernel.org with ESMTP
-	id S965126AbWHOT0A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 15:26:00 -0400
-To: netdev@vger.kernel.org
+Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:64278 "EHLO
+	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S965230AbWHOT1N convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 15:27:13 -0400
+Content-class: urn:content-classes:message
+in-reply-to: <200608152113.23697.mb@bu3sch.de>
+To: "Michael Buesch" <mb@bu3sch.de>, "Dan Williams" <dcbw@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Roskin <proski@gnu.org>
+A further complication happens in Japan with 802.11j, and now in the USA
+too - with 802.11y in the 3.65Ghz band - here there are some new channel
+widths that are possible. Normally 802.11 is 20 or 22Mhz wide (20Mhz for
+OFDM modulations - 11a/g, 22 for 11b). In Japan's 4.9Ghz band you can
+run the OFDM at half rate, giving a 10Mhz wide channel, or at quarter
+rate, giving a 5Mhz wide channel. Hence same frequency, different
+channel spec. Using a channel number is the way to go. If we need
+something to convert between the 2 it should probably be a library in
+user space (in hostapd or wpa_supplicant) - hostapd does have this
+today.
 
-This is exactly the case when they are needed.  This also fixed a
-warning with -Wmissing-prototypes
+It might be nice if other applications could access this data too - but
+I don't think it needs to be inside the kernel.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-Signed-off-by: Pavel Roskin <proski@gnu.org>
----
+Simon
 
- drivers/net/wireless/orinoco.h |   12 +++++-------
- 1 files changed, 5 insertions(+), 7 deletions(-)
+-----Original Message-----
+From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+On Behalf Of Michael Buesch
+Sent: Tuesday, August 15, 2006 12:13 PM
+To: Dan Williams
+Cc: netdev@vger.kernel.org; Jean Tourrilhes; Johannes Berg
+Subject: Re: proposal for new wireless configuration API
 
-diff --git a/drivers/net/wireless/orinoco.h b/drivers/net/wireless/orinoco.h
-index 16db3e1..8fd9b32 100644
---- a/drivers/net/wireless/orinoco.h
-+++ b/drivers/net/wireless/orinoco.h
-@@ -135,11 +135,9 @@ extern irqreturn_t orinoco_interrupt(int
- /********************************************************************/
- 
- /* These functions *must* be inline or they will break horribly on
-- * SPARC, due to its weird semantics for save/restore flags. extern
-- * inline should prevent the kernel from linking or module from
-- * loading if they are not inlined. */
--extern inline int orinoco_lock(struct orinoco_private *priv,
--			       unsigned long *flags)
-+ * SPARC, due to its weird semantics for save/restore flags. */
-+static __always_inline int orinoco_lock(struct orinoco_private *priv,
-+					unsigned long *flags)
- {
- 	spin_lock_irqsave(&priv->lock, *flags);
- 	if (priv->hw_unavailable) {
-@@ -151,8 +149,8 @@ extern inline int orinoco_lock(struct or
- 	return 0;
- }
- 
--extern inline void orinoco_unlock(struct orinoco_private *priv,
--				  unsigned long *flags)
-+static __always_inline void orinoco_unlock(struct orinoco_private *priv,
-+					   unsigned long *flags)
- {
- 	spin_unlock_irqrestore(&priv->lock, *flags);
- }
+On Tuesday 15 August 2006 20:14, Dan Williams wrote:
+> On Tue, 2006-08-15 at 18:38 +0200, Michael Buesch wrote:
+> > On Tuesday 15 August 2006 18:29, Dan Williams wrote:
+> > > o Separate attributes for channel and frequency
+> > 
+> > No, channel and freq is the same. It's just another name for the 
+> > same child. I would say we only want to deal with channel numbers in
+
+> > the API. That's much easier, as we don't have to deal with this 
+> > fixed-point (or even floating point) mess. Look at WE for the 
+> > fixed-point mess.
+> 
+> Right, I don't have a problem with only using one or the other; but we
+
+> _HAVE_ to provide a function in the driver that allows userspace 
+> programs to convert channel <-> frequency both ways, like you suggest 
+> below.  Obviously the channel/frequency mapping isn't the same 
+> everywhere.
+> 
+> [ or is it?  I'd be very uncomfortable using the same channel #s 
+> everywhere unless some IEEE spec states exactly what the channel #s 
+> are for every frequency range that wireless stuff operates in ]
+
+The channel<->freq mapping is stable.
+What is unstable is the allowed channels map.
+For APHY there are even many gaps in the map. For example channels 6, 40
+and 55 may be the only ones allowed
+
+(6, 40, 55 are generated by my /brain/random device ;) )
+
+The frequency range you mention is selected differently by another
+config option. In d80211 we call it the PHYMODE.
+Switching the PHYMODE changes the meaning of channel values and changes
+the output of the two functions below.
+
+So if I want to switch to channel 4 in the 2.4Ghz band, I would do:
+select PHYMODE B or G,
+select channel 4.
+
+That would lead to the card tuning to 2427 MHz.
+
+> > The userspace tools can easily convert freq to channel and back.
+> > And in the kernel, we can easily provide some small function to 
+> > convert from channel to khz and back, for example. But I would like 
+> > to see the fixed-point stuff in the API vanish.
+> 
+> No argument here; as long as we provide the mapping function in the 
+> driver for each card.
+
+Hm, I don't know if I understand this correctly.
+You want to implement the mapping function in every driver or in the
+d80211 stack?
+It belongs into a central place in the 80211 stack. There where
+regulatory domain stuff is managed, too.
+
+
+We need functions like:
+
+u32 ieee80211_channel_to_freq(struct ieee80211 *ieee, u8 channel);
+u8 ieee80211_freq_to_channel(struct ieee80211 *ieee, u32 channel);
+
+These would be used in drivers to convert values.
+The validity of the channel value passed from userspace would be checked
+in the _stack_. If the user passes an illegal value for his country, it
+would never reach the driver.
+
+--
+Greetings Michael.
+-
+To unsubscribe from this list: send the line "unsubscribe netdev" in the
+body of a message to majordomo@vger.kernel.org More majordomo info at
+http://vger.kernel.org/majordomo-info.html
