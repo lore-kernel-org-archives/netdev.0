@@ -1,50 +1,30 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [PATCH 4/4]: powerpc/cell spidernet ethtool -i version number info.
-Date: Tue, 15 Aug 2006 14:05:24 -0500
-Message-ID: <20060815190524.GW6603@pb15.lixom.net>
-References: <20060811180013.GB6550@pb15.lixom.net> <OF934FE4E3.EEC44FDD-ON872571C7.00668651-862571C7.00677A44@us.ibm.com>
+From: "kiran kandi" <kkiran78@hotmail.com>
+Subject: hard_start_xmit  conext
+Date: Tue, 15 Aug 2006 19:12:09 +0000
+Message-ID: <BAY119-F167D4D4A8CA125150C0A60D44F0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
-	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>,
-	Linas Vepstas <linas@austin.ibm.com>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; format=flowed
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:19420 "EHLO mail.lixom.net")
-	by vger.kernel.org with ESMTP id S1030409AbWHOTKT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 15:10:19 -0400
-To: James K Lewis <jklewis@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <OF934FE4E3.EEC44FDD-ON872571C7.00668651-862571C7.00677A44@us.ibm.com>
+Received: from bay0-omc1-s34.bay0.hotmail.com ([65.54.246.106]:32162 "EHLO
+	bay0-omc1-s34.bay0.hotmail.com") by vger.kernel.org with ESMTP
+	id S1030464AbWHOTMu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 15:12:50 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 11, 2006 at 01:50:19PM -0500, James K Lewis wrote:
->  Hi Olof,
-> 
->   There are several reasons why an Ethernet driver should have an up to 
-> date version number:
-> 
-> 1. Customers like to see they are really getting a new version.
-> 
-> 2. It makes it easier for support personnel (me in this case) to see which 
-> driver they have. Sure, sometimes I can talk them thru doing a "sum" on 
-> the .ko and all that, but why not just use the version number? That's what 
-> it is for. And no, you can't just assume they have the version that came 
-> with the kernel they are running. It doesn't work that way.
-> 
-> 3. It makes bug reporting easier. 
-> 
-> 4. I have already run into too many problems and wasted too much time 
-> working with drivers when the number was NOT getting updated. 
+Hi all,
 
-Thanks for the info, Jim.
+In what context hard_start_xmit  function is called. Is it called in soft 
+irq or a  processes context.
 
-Sounds like it's most useful if a customer (or distro) takes the driver
-out of the tree and run it with a different kernel, i.e. when kernel
-and driver versions no longer go together. Makes sense.
+Also can you call kfree_skb in  soft irq context.
 
+--
+Thanks
+kiran
 
--Olof
+_________________________________________________________________
+On the road to retirement? Check out MSN Life Events for advice on how to 
+get there! http://lifeevents.msn.com/category.aspx?cid=Retirement
 
