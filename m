@@ -1,119 +1,64 @@
 From: akpm@osdl.org
-Subject: [patch 04/13] IRDA: Replace hard-coded dev_self[] array sizes with ARRAY_SIZE()
-Date: Mon, 14 Aug 2006 23:03:39 -0700
-Message-ID: <200608150603.k7F63dbr012933@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, bjorn.helgaas@hp.com
+Subject: [patch 02/13] lockdep: annotate __icmpv6_socket
+Date: Mon, 14 Aug 2006 23:03:37 -0700
+Message-ID: <200608150603.k7F63b6P012927@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, mingo@elte.hu,
+	arjan@linux.intel.com, herbert@gondor.apana.org.au, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:40851 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965160AbWHOGDp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 02:03:45 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:52627 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965166AbWHOGD4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 02:03:56 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+From: Ingo Molnar <mingo@elte.hu>
 
-Several IR drivers used "for (i = 0; i < 4; i++)" to walk their dev_self[]
-table.  Better to use ARRAY_SIZE().  And fix ali-ircc so it won't run off
-the end if we find too many adapters.
+Split off __icmpv6_socket's sk->sk_dst_lock class, because it gets used
+from softirqs, which is safe for __icmpv6_sockets (because they never get
+directly used via userspace syscalls), but unsafe for normal sockets.
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Has no effect on non-lockdep kernels.
+
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Arjan van de Ven <arjan@linux.intel.com>
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/irda/ali-ircc.c    |    8 +++++++-
- drivers/net/irda/irport.c      |    4 ++--
- drivers/net/irda/via-ircc.c    |    5 ++++-
- drivers/net/irda/w83977af_ir.c |    4 ++--
- 4 files changed, 15 insertions(+), 6 deletions(-)
+ net/ipv6/icmp.c |   13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
-diff -puN drivers/net/irda/ali-ircc.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size drivers/net/irda/ali-ircc.c
---- a/drivers/net/irda/ali-ircc.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size
-+++ a/drivers/net/irda/ali-ircc.c
-@@ -249,7 +249,7 @@ static void __exit ali_ircc_cleanup(void
+diff -puN net/ipv6/icmp.c~lockdep-fix-sk_dst_check-deadlock net/ipv6/icmp.c
+--- a/net/ipv6/icmp.c~lockdep-fix-sk_dst_check-deadlock
++++ a/net/ipv6/icmp.c
+@@ -714,6 +714,11 @@ discard_it:
+ 	return 0;
+ }
  
- 	IRDA_DEBUG(2, "%s(), ---------------- Start ----------------\n", __FUNCTION__);	
- 
--	for (i=0; i < 4; i++) {
-+	for (i=0; i < ARRAY_SIZE(dev_self); i++) {
- 		if (dev_self[i])
- 			ali_ircc_close(dev_self[i]);
- 	}
-@@ -273,6 +273,12 @@ static int ali_ircc_open(int i, chipio_t
- 	int err;
- 			
- 	IRDA_DEBUG(2, "%s(), ---------------- Start ----------------\n", __FUNCTION__);	
++/*
++ * Special lock-class for __icmpv6_socket:
++ */
++static struct lock_class_key icmpv6_socket_sk_dst_lock_key;
 +
-+	if (i >= ARRAY_SIZE(dev_self)) {
-+		IRDA_ERROR("%s(), maximum number of supported chips reached!\n",
-+			   __FUNCTION__);
-+		return -ENOMEM;
-+	}
- 	
- 	/* Set FIR FIFO and DMA Threshold */
- 	if ((ali_ircc_setup(info)) == -1)
-diff -puN drivers/net/irda/irport.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size drivers/net/irda/irport.c
---- a/drivers/net/irda/irport.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size
-+++ a/drivers/net/irda/irport.c
-@@ -1090,7 +1090,7 @@ static int __init irport_init(void)
+ int __init icmpv6_init(struct net_proto_family *ops)
  {
-  	int i;
+ 	struct sock *sk;
+@@ -732,6 +737,14 @@ int __init icmpv6_init(struct net_proto_
  
-- 	for (i=0; (io[i] < 2000) && (i < 4); i++) {
-+ 	for (i=0; (io[i] < 2000) && (i < ARRAY_SIZE(dev_self)); i++) {
-  		if (irport_open(i, io[i], irq[i]) != NULL)
-  			return 0;
-  	}
-@@ -1112,7 +1112,7 @@ static void __exit irport_cleanup(void)
+ 		sk = per_cpu(__icmpv6_socket, i)->sk;
+ 		sk->sk_allocation = GFP_ATOMIC;
++		/*
++		 * Split off their lock-class, because sk->sk_dst_lock
++		 * gets used from softirqs, which is safe for
++		 * __icmpv6_socket (because those never get directly used
++		 * via userspace syscalls), but unsafe for normal sockets.
++		 */
++		lockdep_set_class(&sk->sk_dst_lock,
++				  &icmpv6_socket_sk_dst_lock_key);
  
-         IRDA_DEBUG( 4, "%s()\n", __FUNCTION__);
- 
--	for (i=0; i < 4; i++) {
-+	for (i=0; i < ARRAY_SIZE(dev_self); i++) {
-  		if (dev_self[i])
-  			irport_close(dev_self[i]);
-  	}
-diff -puN drivers/net/irda/via-ircc.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size drivers/net/irda/via-ircc.c
---- a/drivers/net/irda/via-ircc.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size
-+++ a/drivers/net/irda/via-ircc.c
-@@ -279,7 +279,7 @@ static void via_ircc_clean(void)
- 
- 	IRDA_DEBUG(3, "%s()\n", __FUNCTION__);
- 
--	for (i=0; i < 4; i++) {
-+	for (i=0; i < ARRAY_SIZE(dev_self); i++) {
- 		if (dev_self[i])
- 			via_ircc_close(dev_self[i]);
- 	}
-@@ -327,6 +327,9 @@ static __devinit int via_ircc_open(int i
- 
- 	IRDA_DEBUG(3, "%s()\n", __FUNCTION__);
- 
-+	if (i >= ARRAY_SIZE(dev_self))
-+		return -ENOMEM;
-+
- 	/* Allocate new instance of the driver */
- 	dev = alloc_irdadev(sizeof(struct via_ircc_cb));
- 	if (dev == NULL) 
-diff -puN drivers/net/irda/w83977af_ir.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size drivers/net/irda/w83977af_ir.c
---- a/drivers/net/irda/w83977af_ir.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size
-+++ a/drivers/net/irda/w83977af_ir.c
-@@ -116,7 +116,7 @@ static int __init w83977af_init(void)
- 
- 	IRDA_DEBUG(0, "%s()\n", __FUNCTION__ );
- 
--	for (i=0; (io[i] < 2000) && (i < 4); i++) { 
-+	for (i=0; (io[i] < 2000) && (i < ARRAY_SIZE(dev_self)); i++) {
- 		if (w83977af_open(i, io[i], irq[i], dma[i]) == 0)
- 			return 0;
- 	}
-@@ -135,7 +135,7 @@ static void __exit w83977af_cleanup(void
- 
-         IRDA_DEBUG(4, "%s()\n", __FUNCTION__ );
- 
--	for (i=0; i < 4; i++) {
-+	for (i=0; i < ARRAY_SIZE(dev_self); i++) {
- 		if (dev_self[i])
- 			w83977af_close(dev_self[i]);
- 	}
+ 		/* Enough space for 2 64K ICMP packets, including
+ 		 * sk_buff struct overhead.
 _
