@@ -1,48 +1,60 @@
 From: akpm@osdl.org
-Subject: [patch 16/41] ibmtr section fix
-Date: Mon, 14 Aug 2006 23:00:05 -0700
-Message-ID: <200608150600.k7F60506012648@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org
+Subject: [patch 26/41] Update smc91x driver with ARM Versatile board info
+Date: Mon, 14 Aug 2006 23:00:13 -0700
+Message-ID: <200608150600.k7F60D2f012678@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, dsaxena@plexity.net,
+	nico@cam.org, rmk@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:64402 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965156AbWHOGBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 02:01:50 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:65426 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965151AbWHOGBx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 02:01:53 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@osdl.org>
+From: Deepak Saxena <dsaxena@plexity.net>
 
-WARNING: drivers/net/tokenring/ibmtr.o - Section mismatch: reference to .init.data:ibmtr_mem_base from .text between 'ibmtr_probe1' (at offset 0x6e6) and 'ibmtr_probe_card'
-WARNING: drivers/net/tokenring/ibmtr.o - Section mismatch: reference to .init.data:ibmtr_mem_base from .text between 'ibmtr_probe1' (at offset 0x74a) and 'ibmtr_probe_card'
-WARNING: drivers/net/tokenring/ibmtr.o - Section mismatch: reference to .init.data:ibmtr_mem_base from .text between 'ibmtr_probe1' (at offset 0x7fd) and 'ibmtr_probe_card'
+We need to specify a Versatile-specific SMC_IRQ_FLAGS value or the new
+generic IRQ layer will complain thusly:
 
+No IRQF_TRIGGER set_type function for IRQ 25 (<NULL>)
+
+Signed-off-by: Deepak Saxena <dsaxena@plexity.net>
 Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Russell King <rmk@arm.linux.org.uk>
+Cc: Nicolas Pitre <nico@cam.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/tokenring/ibmtr.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/smc91x.h |   18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
 
-diff -puN drivers/net/tokenring/ibmtr.c~ibmtr-section-fix drivers/net/tokenring/ibmtr.c
---- a/drivers/net/tokenring/ibmtr.c~ibmtr-section-fix
-+++ a/drivers/net/tokenring/ibmtr.c
-@@ -140,7 +140,7 @@ in the event that chatty debug messages 
+diff -puN drivers/net/smc91x.h~update-smc91x-driver-with-arm-versatile-board-info drivers/net/smc91x.h
+--- a/drivers/net/smc91x.h~update-smc91x-driver-with-arm-versatile-board-info
++++ a/drivers/net/smc91x.h
+@@ -367,6 +367,24 @@ static inline void LPD7_SMC_outsw (unsig
  
- /* version and credits */
- #ifndef PCMCIA
--static char version[] __initdata =
-+static char version[] __devinitdata =
-     "\nibmtr.c: v1.3.57   8/ 7/94 Peter De Schrijver and Mark Swanson\n"
-     "         v2.1.125 10/20/98 Paul Norton    <pnorton@ieee.org>\n"
-     "         v2.2.0   12/30/98 Joel Sloan     <jjs@c-me.com>\n"
-@@ -216,7 +216,7 @@ static int __devinitdata turbo_irq[IBMTR
- static int __devinitdata turbo_searched = 0;
+ #define SMC_IRQ_FLAGS		(0)
  
- #ifndef PCMCIA
--static __u32 ibmtr_mem_base __initdata = 0xd0000;
-+static __u32 ibmtr_mem_base __devinitdata = 0xd0000;
- #endif
++#elif	defined(CONFIG_ARCH_VERSATILE)
++
++#define SMC_CAN_USE_8BIT	1
++#define SMC_CAN_USE_16BIT	1
++#define SMC_CAN_USE_32BIT	1
++#define SMC_NOWAIT		1
++
++#define SMC_inb(a, r)		readb((a) + (r))
++#define SMC_inw(a, r)		readw((a) + (r))
++#define SMC_inl(a, r)		readl((a) + (r))
++#define SMC_outb(v, a, r)	writeb(v, (a) + (r))
++#define SMC_outw(v, a, r)	writew(v, (a) + (r))
++#define SMC_outl(v, a, r)	writel(v, (a) + (r))
++#define SMC_insl(a, r, p, l)	readsl((a) + (r), p, l)
++#define SMC_outsl(a, r, p, l)	writesl((a) + (r), p, l)
++
++#define SMC_IRQ_FLAGS		(0)
++
+ #else
  
- static void __devinit PrtChanID(char *pcid, short stride)
+ #define SMC_CAN_USE_8BIT	1
 _
