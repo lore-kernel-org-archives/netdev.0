@@ -1,156 +1,81 @@
-From: Paul Mackerras <paulus@samba.org>
-Subject: [paulus@samba.org: [PATCH] ppp: handle kmalloc failures and convert to using kzalloc]
-Date: Tue, 15 Aug 2006 20:19:40 +1000
-Message-ID: <17633.40892.560487.785@cargo.ozlabs.ibm.com>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: Re: [PATCH 4/6] ehea: header files
+Date: Tue, 15 Aug 2006 11:44:05 +0200
+Message-ID: <44E19765.7030301@de.ibm.com>
+References: <44D99F56.7010201@de.ibm.com>	 <1155190921.9801.43.camel@localhost.localdomain>	 <44E07267.7070007@de.ibm.com> <1155600499.9047.13.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="eirAWswkje"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Marcus Eder <meder@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:31976 "EHLO ozlabs.org")
-	by vger.kernel.org with ESMTP id S965360AbWHOKTq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 06:19:46 -0400
-To: netdev@vger.kernel.org, takis@issaris.org
+Received: from mtagate6.uk.ibm.com ([195.212.29.139]:40770 "EHLO
+	mtagate6.uk.ibm.com") by vger.kernel.org with ESMTP id S965365AbWHOKXI
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 06:23:08 -0400
+To: michael@ellerman.id.au
+In-Reply-To: <1155600499.9047.13.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Michael Ellerman wrote:
+> On Mon, 2006-08-14 at 14:53 +0200, Jan-Bernd Themann wrote:
+>> Michael Ellerman wrote:
+>>>> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea.h	1969-12-31 16:00:00.000000000 -0800
+>>>> +++ kernel/drivers/net/ehea/ehea.h	2006-08-08 23:59:39.927452928 -0700
+>>>> +
+>>>> +#define EHEA_PAGESHIFT  12
+>>>> +#define EHEA_PAGESIZE   4096UL
+>>>> +#define EHEA_CACHE_LINE 128
+>>> This looks like a very bad idea, what happens if you're running on a
+>>> machine with 64K pages?
+>>>
+>> The EHEA_PAGESIZE define is needed for queue management to hardware side.
+> 
+> You mean the eHEA has its own concept of page size? Separate from the
+> page size used by the MMU?
+> 
 
---eirAWswkje
-Content-Type: text/plain; charset=us-ascii
-Content-Description: message body text
-Content-Transfer-Encoding: 7bit
+yes, the eHEA currently supports only 4K pages for queues
 
-Oops, forgot to cc netdev and Panagiotis Issaris...
+>>>> +/*
+>>>> + *  h_galpa:
+>>>> + *  for pSeries this is a 64bit memory address where
+>>>> + *  I/O memory is mapped into CPU address space
+>>>> + */
+>>>> +
+>>>> +struct h_galpa {
+>>>> +	u64 fw_handle;
+>>>> +};
+>>> What is a h_galpa? And why does it need a struct if it's just a u64?
+>>>
+>> The eHEA chip is not PCI attached but directly connected to a proprietary
+>> bus. Currently, we can access it by a simple 64 bit address, but this is not
+>> true in all cases. Having a struct here allows us to encapsulate the chip
+>> register access and to respond to changes to system hardware.
+>>
+>> We'll change the name to h_epa meaning "ehea physical address"
+> 
+> Hmm, I'm not convinced. Having the struct doesn't really encapsulate
+> much, because most of the places where you use the h_galpa struct just
+> pull out the fw_handle anyway. So if you change the layout of the struct
+> you're going to have to change most of the code anyway. And in the
+> meantime it makes the code a lot less readable, most people understand
+> what "u64 addr" is about, whereas "struct h_galpa" is much less
+> meaningful. </2c>
+> 
+> cheers
+> 
 
+We already use the h_galpa struct for simulation purposes where we use
+this encapsulation to add further required fields to be able to access
+the registers (h_galpa has been renamed to h_epa). The name of the
+fw_handle element will be changed. Instead of fw_handle, we'll call it
+ebus_addr which will make it more readable.
 
---eirAWswkje
-Content-Type: message/rfc822
-Content-Description: forwarded message
-Content-Transfer-Encoding: 7bit
+Regards,
+Jan-Bernd
 
-MIME-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Message-ID: <17633.40802.488566.572582@cargo.ozlabs.ibm.com>
-X-Mailer: VM 7.19 under Emacs 21.4.1
-From: Paul Mackerras <paulus@samba.org>
-To: akpm@osdl.org, davem@davemloft.net
-Subject: [PATCH] ppp: handle kmalloc failures and convert to using kzalloc
-Date: Tue, 15 Aug 2006 20:18:10 +1000
-
-From: Panagiotis Issaris <takis@issaris.org>
-
-The PPP code contains two kmalloc()s followed by memset()s without
-handling a possible memory allocation failure.  (Suggested by Joe
-Perches).
-
-And furthermore, conversions from kmalloc+memset to kzalloc.
-
-[akpm@osdl.org: fix error-path leak]
-[akpm@osdl.org: cleanups]
-[paulus@samba.org: don't add useless printk and cardmap_destroy calls]
-Signed-off-by: Panagiotis Issaris <takis@issaris.org>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
-Signed-off-by: Paul Mackerras <paulus@samba.org>
----
-diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-index 0ec6e9d..c872f7c 100644
---- a/drivers/net/ppp_generic.c
-+++ b/drivers/net/ppp_generic.c
-@@ -192,7 +192,7 @@ struct cardmap {
- 	void *ptr[CARDMAP_WIDTH];
- };
- static void *cardmap_get(struct cardmap *map, unsigned int nr);
--static void cardmap_set(struct cardmap **map, unsigned int nr, void *ptr);
-+static int cardmap_set(struct cardmap **map, unsigned int nr, void *ptr);
- static unsigned int cardmap_find_first_free(struct cardmap *map);
- static void cardmap_destroy(struct cardmap **map);
- 
-@@ -1995,10 +1995,9 @@ ppp_register_channel(struct ppp_channel 
- {
- 	struct channel *pch;
- 
--	pch = kmalloc(sizeof(struct channel), GFP_KERNEL);
-+	pch = kzalloc(sizeof(struct channel), GFP_KERNEL);
- 	if (pch == 0)
- 		return -ENOMEM;
--	memset(pch, 0, sizeof(struct channel));
- 	pch->ppp = NULL;
- 	pch->chan = chan;
- 	chan->ppp = pch;
-@@ -2408,13 +2407,12 @@ ppp_create_interface(int unit, int *retp
- 	int ret = -ENOMEM;
- 	int i;
- 
--	ppp = kmalloc(sizeof(struct ppp), GFP_KERNEL);
-+	ppp = kzalloc(sizeof(struct ppp), GFP_KERNEL);
- 	if (!ppp)
- 		goto out;
- 	dev = alloc_netdev(0, "", ppp_setup);
- 	if (!dev)
- 		goto out1;
--	memset(ppp, 0, sizeof(struct ppp));
- 
- 	ppp->mru = PPP_MRU;
- 	init_ppp_file(&ppp->file, INTERFACE);
-@@ -2454,11 +2452,16 @@ #endif /* CONFIG_PPP_MULTILINK */
- 	}
- 
- 	atomic_inc(&ppp_unit_count);
--	cardmap_set(&all_ppp_units, unit, ppp);
-+	ret = cardmap_set(&all_ppp_units, unit, ppp);
-+	if (ret != 0)
-+		goto out3;
-+
- 	mutex_unlock(&all_ppp_mutex);
- 	*retp = 0;
- 	return ppp;
- 
-+out3:
-+	atomic_dec(&ppp_unit_count);
- out2:
- 	mutex_unlock(&all_ppp_mutex);
- 	free_netdev(dev);
-@@ -2695,7 +2698,7 @@ static void *cardmap_get(struct cardmap 
- 	return NULL;
- }
- 
--static void cardmap_set(struct cardmap **pmap, unsigned int nr, void *ptr)
-+static int cardmap_set(struct cardmap **pmap, unsigned int nr, void *ptr)
- {
- 	struct cardmap *p;
- 	int i;
-@@ -2704,8 +2707,9 @@ static void cardmap_set(struct cardmap *
- 	if (p == NULL || (nr >> p->shift) >= CARDMAP_WIDTH) {
- 		do {
- 			/* need a new top level */
--			struct cardmap *np = kmalloc(sizeof(*np), GFP_KERNEL);
--			memset(np, 0, sizeof(*np));
-+			struct cardmap *np = kzalloc(sizeof(*np), GFP_KERNEL);
-+			if (!np)
-+				goto enomem;
- 			np->ptr[0] = p;
- 			if (p != NULL) {
- 				np->shift = p->shift + CARDMAP_ORDER;
-@@ -2719,8 +2723,9 @@ static void cardmap_set(struct cardmap *
- 	while (p->shift > 0) {
- 		i = (nr >> p->shift) & CARDMAP_MASK;
- 		if (p->ptr[i] == NULL) {
--			struct cardmap *np = kmalloc(sizeof(*np), GFP_KERNEL);
--			memset(np, 0, sizeof(*np));
-+			struct cardmap *np = kzalloc(sizeof(*np), GFP_KERNEL);
-+			if (!np)
-+				goto enomem;
- 			np->shift = p->shift - CARDMAP_ORDER;
- 			np->parent = p;
- 			p->ptr[i] = np;
-@@ -2735,6 +2740,9 @@ static void cardmap_set(struct cardmap *
- 		set_bit(i, &p->inuse);
- 	else
- 		clear_bit(i, &p->inuse);
-+	return 0;
-+ enomem:
-+	return -ENOMEM;
- }
- 
- static unsigned int cardmap_find_first_free(struct cardmap *map)
-
---eirAWswkje--
