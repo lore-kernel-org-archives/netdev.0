@@ -1,44 +1,40 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: Re: [PATCH] Use __always_inline in orinoco_lock()/orinoco_unlock()
-Date: Tue, 15 Aug 2006 19:14:32 -0400
-Message-ID: <1155683672.5140.1.camel@dv>
-References: <20060815192558.3590.63591.stgit@dv.roinet.com>
-	 <20060815225012.GA7612@redhat.com>
-	 <20060815.155417.112850438.davem@davemloft.net>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: Re: New driver questions: Attansic L1 gigabit NIC
+Date: Tue, 15 Aug 2006 18:23:19 -0500
+Message-ID: <44E25767.6010208@bellsouth.net>
+References: <44DFBFBE.1070201@bellsouth.net> <20060815143457.5fde176b@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, netdev@vger.kernel.org, bunk@stusta.de
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fencepost.gnu.org ([199.232.76.164]:59841 "EHLO
-	fencepost.gnu.org") by vger.kernel.org with ESMTP id S1750800AbWHOXPN
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 19:15:13 -0400
-Received: from proski by fencepost.gnu.org with local (Exim 4.34)
-	id 1GD87r-0002gq-Ot
-	for netdev@vger.kernel.org; Tue, 15 Aug 2006 19:15:12 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060815.155417.112850438.davem@davemloft.net>
+Received: from imf19aec.mail.bellsouth.net ([205.152.59.67]:25953 "EHLO
+	imf19aec.mail.bellsouth.net") by vger.kernel.org with ESMTP
+	id S1750802AbWHOXXW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 19:23:22 -0400
+Received: from ibm60aec.bellsouth.net ([72.147.232.152])
+          by imf19aec.mail.bellsouth.net with ESMTP
+          id <20060815232320.XBEM24571.imf19aec.mail.bellsouth.net@ibm60aec.bellsouth.net>
+          for <netdev@vger.kernel.org>; Tue, 15 Aug 2006 19:23:20 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060815143457.5fde176b@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-08-15 at 15:54 -0700, David Miller wrote:
-> >  >  /* These functions *must* be inline or they will break horribly on
-> >  > - * SPARC, due to its weird semantics for save/restore flags. extern
-> >  > - * inline should prevent the kernel from linking or module from
-> >  > - * loading if they are not inlined. */
-> >  > -extern inline int orinoco_lock(struct orinoco_private *priv,
-> >  > -			       unsigned long *flags)
-> >  > + * SPARC, due to its weird semantics for save/restore flags. */
-> > 
-> > Didn't that get fixed up for SPARC a year or so back?
+Stephen Hemminger wrote:
+> On Sun, 13 Aug 2006 19:11:42 -0500
+> Jay Cliburn <jacliburn@bellsouth.net> wrote:
+...snip...
+>> I've read the LKML FAQ regarding new driver submissions, but it implies
+>> that the submitter be willing to maintain the driver, which I'm not
+>> qualified to do.  I haven't contacted Attansic to request a change to
+>> the above support statement, because my past attempts to contact vendors
+>> on matters of this tenor have been greeted with silence.
 > 
-> That's right, this problem no longer exists.
+> I would recommend the module author to see if they would GPL it.
 
-Then, I guess, "static inline" would be just fine, right?
+Thank you for your reply.  I've contacted the author as you suggest.
 
--- 
-Regards,
-Pavel Roskin
+Jay
 
 
