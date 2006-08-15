@@ -1,229 +1,101 @@
 From: akpm@osdl.org
-Subject: [patch 30/41] via-rhine: NAPI support
-Date: Mon, 14 Aug 2006 23:00:17 -0700
-Message-ID: <200608150600.k7F60Htp012695@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, rl@hellgate.ch,
-	shemminger@osdl.org
+Subject: [patch 35/41] Add ethtool -g support to Spidernet network driver
+Date: Mon, 14 Aug 2006 23:00:23 -0700
+Message-ID: <200608150600.k7F60NET012727@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, jim@jklewis.com,
+	jklewis@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:34968 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965208AbWHOGRQ (ORCPT
+Received: from smtp.osdl.org ([65.172.181.4]:34200 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965207AbWHOGRQ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 02:17:16 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roger Luethi <rl@hellgate.ch>
+From: Jim Lewis <jim@jklewis.com>
 
-Add NAPI support to the via-rhine driver so that it can handle higher
-speeds and doesn't get overloaded by interrupts as easily.
+Add ethtool -g (show ring sizes) support to the Spidernet network driver.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-Signed-off-by: Roger Luethi <rl@hellgate.ch>
+Signed-off-by: James K Lewis <jklewis@us.ibm.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/Kconfig     |   14 ++++++
- drivers/net/via-rhine.c |   77 ++++++++++++++++++++++++++++++++------
- 2 files changed, 79 insertions(+), 12 deletions(-)
+ drivers/net/spider_net.c         |   12 +++++++-----
+ drivers/net/spider_net.h         |    3 +++
+ drivers/net/spider_net_ethtool.c |   13 +++++++++++++
+ 3 files changed, 23 insertions(+), 5 deletions(-)
 
-diff -puN drivers/net/Kconfig~via-rhine-napi-support drivers/net/Kconfig
---- a/drivers/net/Kconfig~via-rhine-napi-support
-+++ a/drivers/net/Kconfig
-@@ -1740,6 +1740,20 @@ config VIA_RHINE_MMIO
+diff -puN drivers/net/spider_net.c~add-ethtool-g-support-to-spidernet-network-driver drivers/net/spider_net.c
+--- a/drivers/net/spider_net.c~add-ethtool-g-support-to-spidernet-network-driver
++++ a/drivers/net/spider_net.c
+@@ -1611,13 +1611,12 @@ spider_net_open(struct net_device *netde
+ 	int result;
  
- 	  If unsure, say Y.
+ 	result = -ENOMEM;
+-	if (spider_net_init_chain(card, &card->tx_chain,
+-			card->descr,
+-			PCI_DMA_TODEVICE, tx_descriptors))
++	if (spider_net_init_chain(card, &card->tx_chain, card->descr,
++			PCI_DMA_TODEVICE, card->tx_desc))
+ 		goto alloc_tx_failed;
+ 	if (spider_net_init_chain(card, &card->rx_chain,
+-			card->descr + tx_descriptors,
+-			PCI_DMA_FROMDEVICE, rx_descriptors))
++			card->descr + card->rx_desc,
++			PCI_DMA_FROMDEVICE, card->rx_desc))
+ 		goto alloc_rx_failed;
  
-+config VIA_RHINE_NAPI
-+	bool "Use Rx Polling (NAPI)"
-+	depends on VIA_RHINE
-+	help
-+	  NAPI is a new driver API designed to reduce CPU and interrupt load
-+	  when the driver is receiving lots of packets from the card.
+ 	/* allocate rx skbs */
+@@ -2005,6 +2004,9 @@ spider_net_setup_netdev(struct spider_ne
+ 
+ 	card->options.rx_csum = SPIDER_NET_RX_CSUM_DEFAULT;
+ 
++	card->tx_desc = tx_descriptors;
++	card->rx_desc = rx_descriptors;
 +
-+	  If your estimated Rx load is 10kpps or more, or if the card will be
-+	  deployed on potentially unfriendly networks (e.g. in a firewall),
-+	  then say Y here.
+ 	spider_net_setup_netdev_ops(netdev);
+ 
+ 	netdev->features = NETIF_F_HW_CSUM | NETIF_F_LLTX;
+diff -puN drivers/net/spider_net.h~add-ethtool-g-support-to-spidernet-network-driver drivers/net/spider_net.h
+--- a/drivers/net/spider_net.h~add-ethtool-g-support-to-spidernet-network-driver
++++ a/drivers/net/spider_net.h
+@@ -440,6 +440,9 @@ struct spider_net_card {
+ 	/* for ethtool */
+ 	int msg_enable;
+ 
++	int rx_desc;
++	int tx_desc;
 +
-+	  See <file:Documentation/networking/NAPI_HOWTO.txt> for more
-+	  information.
-+
- config LAN_SAA9730
- 	bool "Philips SAA9730 Ethernet support (EXPERIMENTAL)"
- 	depends on NET_PCI && EXPERIMENTAL && MIPS
-diff -puN drivers/net/via-rhine.c~via-rhine-napi-support drivers/net/via-rhine.c
---- a/drivers/net/via-rhine.c~via-rhine-napi-support
-+++ a/drivers/net/via-rhine.c
-@@ -30,8 +30,8 @@
- */
+ 	struct spider_net_descr descr[0];
+ };
  
- #define DRV_NAME	"via-rhine"
--#define DRV_VERSION	"1.4.0"
--#define DRV_RELDATE	"June-27-2006"
-+#define DRV_VERSION	"1.4.1"
-+#define DRV_RELDATE	"July-24-2006"
- 
- 
- /* A few user-configurable values.
-@@ -63,7 +63,11 @@ static const int multicast_filter_limit 
-    There are no ill effects from too-large receive rings. */
- #define TX_RING_SIZE	16
- #define TX_QUEUE_LEN	10	/* Limit ring entries actually used. */
-+#ifdef CONFIG_VIA_RHINE_NAPI
-+#define RX_RING_SIZE	64
-+#else
- #define RX_RING_SIZE	16
-+#endif
- 
- 
- /* Operational parameters that usually are not changed. */
-@@ -396,7 +400,7 @@ static void rhine_tx_timeout(struct net_
- static int  rhine_start_tx(struct sk_buff *skb, struct net_device *dev);
- static irqreturn_t rhine_interrupt(int irq, void *dev_instance, struct pt_regs *regs);
- static void rhine_tx(struct net_device *dev);
--static void rhine_rx(struct net_device *dev);
-+static int rhine_rx(struct net_device *dev, int limit);
- static void rhine_error(struct net_device *dev, int intr_status);
- static void rhine_set_rx_mode(struct net_device *dev);
- static struct net_device_stats *rhine_get_stats(struct net_device *dev);
-@@ -564,6 +568,32 @@ static void rhine_poll(struct net_device
+diff -puN drivers/net/spider_net_ethtool.c~add-ethtool-g-support-to-spidernet-network-driver drivers/net/spider_net_ethtool.c
+--- a/drivers/net/spider_net_ethtool.c~add-ethtool-g-support-to-spidernet-network-driver
++++ a/drivers/net/spider_net_ethtool.c
+@@ -130,6 +130,18 @@ spider_net_ethtool_set_tx_csum(struct ne
+         return 0;
  }
- #endif
  
-+#ifdef CONFIG_VIA_RHINE_NAPI
-+static int rhine_napipoll(struct net_device *dev, int *budget)
++static void
++spider_net_ethtool_get_ringparam(struct net_device *netdev,
++				 struct ethtool_ringparam *ering)
 +{
-+	struct rhine_private *rp = netdev_priv(dev);
-+	void __iomem *ioaddr = rp->base;
-+	int done, limit = min(dev->quota, *budget);
++	struct spider_net_card *card = netdev->priv;
 +
-+	done = rhine_rx(dev, limit);
-+	*budget -= done;
-+	dev->quota -= done;
-+
-+	if (done < limit) {
-+		netif_rx_complete(dev);
-+
-+		iowrite16(IntrRxDone | IntrRxErr | IntrRxEmpty| IntrRxOverflow |
-+			  IntrRxDropped | IntrRxNoBuf | IntrTxAborted |
-+			  IntrTxDone | IntrTxError | IntrTxUnderrun |
-+			  IntrPCIErr | IntrStatsMax | IntrLinkChange,
-+			  ioaddr + IntrEnable);
-+		return 0;
-+	}
-+	else
-+		return 1;
++	ering->tx_max_pending = SPIDER_NET_TX_DESCRIPTORS_MAX;
++	ering->tx_pending = card->tx_desc;
++	ering->rx_max_pending = SPIDER_NET_RX_DESCRIPTORS_MAX;
++	ering->rx_pending = card->rx_desc;
 +}
-+#endif
 +
- static void rhine_hw_init(struct net_device *dev, long pioaddr)
- {
- 	struct rhine_private *rp = netdev_priv(dev);
-@@ -744,6 +774,10 @@ static int __devinit rhine_init_one(stru
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	dev->poll_controller = rhine_poll;
- #endif
-+#ifdef CONFIG_VIA_RHINE_NAPI
-+	dev->poll = rhine_napipoll;
-+	dev->weight = 64;
-+#endif
- 	if (rp->quirks & rqRhineI)
- 		dev->features |= NETIF_F_SG|NETIF_F_HW_CSUM;
+ struct ethtool_ops spider_net_ethtool_ops = {
+ 	.get_settings		= spider_net_ethtool_get_settings,
+ 	.get_drvinfo		= spider_net_ethtool_get_drvinfo,
+@@ -141,5 +153,6 @@ struct ethtool_ops spider_net_ethtool_op
+ 	.set_rx_csum		= spider_net_ethtool_set_rx_csum,
+ 	.get_tx_csum		= spider_net_ethtool_get_tx_csum,
+ 	.set_tx_csum		= spider_net_ethtool_set_tx_csum,
++	.get_ringparam          = spider_net_ethtool_get_ringparam,
+ };
  
-@@ -1165,6 +1199,7 @@ static void rhine_tx_timeout(struct net_
- 	dev->trans_start = jiffies;
- 	rp->stats.tx_errors++;
- 	netif_wake_queue(dev);
-+	netif_poll_enable(dev);
- }
- 
- static int rhine_start_tx(struct sk_buff *skb, struct net_device *dev)
-@@ -1268,8 +1303,18 @@ static irqreturn_t rhine_interrupt(int i
- 			       dev->name, intr_status);
- 
- 		if (intr_status & (IntrRxDone | IntrRxErr | IntrRxDropped |
--		    IntrRxWakeUp | IntrRxEmpty | IntrRxNoBuf))
--			rhine_rx(dev);
-+				   IntrRxWakeUp | IntrRxEmpty | IntrRxNoBuf)) {
-+#ifdef CONFIG_VIA_RHINE_NAPI
-+			iowrite16(IntrTxAborted |
-+				  IntrTxDone | IntrTxError | IntrTxUnderrun |
-+				  IntrPCIErr | IntrStatsMax | IntrLinkChange,
-+				  ioaddr + IntrEnable);
-+
-+			netif_rx_schedule(dev);
-+#else
-+			rhine_rx(dev, RX_RING_SIZE);
-+#endif
-+		}
- 
- 		if (intr_status & (IntrTxErrSummary | IntrTxDone)) {
- 			if (intr_status & IntrTxErrSummary) {
-@@ -1367,13 +1412,12 @@ static void rhine_tx(struct net_device *
- 	spin_unlock(&rp->lock);
- }
- 
--/* This routine is logically part of the interrupt handler, but isolated
--   for clarity and better register allocation. */
--static void rhine_rx(struct net_device *dev)
-+/* Process up to limit frames from receive ring */
-+static int rhine_rx(struct net_device *dev, int limit)
- {
- 	struct rhine_private *rp = netdev_priv(dev);
-+	int count;
- 	int entry = rp->cur_rx % RX_RING_SIZE;
--	int boguscnt = rp->dirty_rx + RX_RING_SIZE - rp->cur_rx;
- 
- 	if (debug > 4) {
- 		printk(KERN_DEBUG "%s: rhine_rx(), entry %d status %8.8x.\n",
-@@ -1382,16 +1426,18 @@ static void rhine_rx(struct net_device *
- 	}
- 
- 	/* If EOP is set on the next entry, it's a new packet. Send it up. */
--	while (!(rp->rx_head_desc->rx_status & cpu_to_le32(DescOwn))) {
-+	for (count = 0; count < limit; ++count) {
- 		struct rx_desc *desc = rp->rx_head_desc;
- 		u32 desc_status = le32_to_cpu(desc->rx_status);
- 		int data_size = desc_status >> 16;
- 
-+		if (desc_status & DescOwn)
-+			break;
-+
- 		if (debug > 4)
- 			printk(KERN_DEBUG "rhine_rx() status is %8.8x.\n",
- 			       desc_status);
--		if (--boguscnt < 0)
--			break;
-+
- 		if ((desc_status & (RxWholePkt | RxErr)) != RxWholePkt) {
- 			if ((desc_status & RxWholePkt) != RxWholePkt) {
- 				printk(KERN_WARNING "%s: Oversized Ethernet "
-@@ -1460,7 +1506,11 @@ static void rhine_rx(struct net_device *
- 						 PCI_DMA_FROMDEVICE);
- 			}
- 			skb->protocol = eth_type_trans(skb, dev);
-+#ifdef CONFIG_VIA_RHINE_NAPI
-+			netif_receive_skb(skb);
-+#else
- 			netif_rx(skb);
-+#endif
- 			dev->last_rx = jiffies;
- 			rp->stats.rx_bytes += pkt_len;
- 			rp->stats.rx_packets++;
-@@ -1487,6 +1537,8 @@ static void rhine_rx(struct net_device *
- 		}
- 		rp->rx_ring[entry].rx_status = cpu_to_le32(DescOwn);
- 	}
-+
-+	return count;
- }
- 
- /*
-@@ -1776,6 +1828,7 @@ static int rhine_close(struct net_device
- 	spin_lock_irq(&rp->lock);
- 
- 	netif_stop_queue(dev);
-+	netif_poll_disable(dev);
- 
- 	if (debug > 1)
- 		printk(KERN_DEBUG "%s: Shutting down ethercard, "
 _
