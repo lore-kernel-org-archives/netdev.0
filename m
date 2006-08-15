@@ -1,137 +1,123 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] move skb->dev assignment into netdev_alloc_skb
-Date: Tue, 15 Aug 2006 07:37:20 -0700
-Message-ID: <44E1DC20.3050605@intel.com>
-References: <20060805130109.GB24121@lst.de> <20060807.161056.85410448.davem@davemloft.net> <4807377b0608071729p3c744d1fn6859178874019418@mail.gmail.com> <20060812135707.GA5950@lst.de> <Pine.WNT.4.63.0608141742290.336@jbrandeb-desk.amr.corp.intel.com>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Subject: Re: [PATCH 1/1] network memory allocator.
+Date: Tue, 15 Aug 2006 16:48:59 +0200
+Message-ID: <1155653339.5696.282.camel@twins>
+References: <20060814110359.GA27704@2ka.mipt.ru>
+	 <1155558313.5696.167.camel@twins> <20060814123530.GA5019@2ka.mipt.ru>
+	 <1155639302.5696.210.camel@twins> <20060815112617.GB21736@2ka.mipt.ru>
+	 <1155643405.5696.236.camel@twins> <20060815123438.GA29896@2ka.mipt.ru>
+	 <1155649768.5696.262.camel@twins>  <20060815141501.GA10998@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@lst.de>,
-	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:51592 "EHLO
-	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
-	id S1030323AbWHOOj4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 10:39:56 -0400
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-In-Reply-To: <Pine.WNT.4.63.0608141742290.336@jbrandeb-desk.amr.corp.intel.com>
+Received: from amsfep17-int.chello.nl ([213.46.243.15]:65486 "EHLO
+	amsfep19-int.chello.nl") by vger.kernel.org with ESMTP
+	id S1030322AbWHOOub (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 10:50:31 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060815141501.GA10998@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brandeburg, Jesse wrote:
-> On Sat, 12 Aug 2006, Christoph Hellwig wrote:
->>>>> Signed-off-by: Christoph Hellwig <hch@lst.de>
->>>> Since the e1000 change is non-trivial I'm not going to bypass
->>>> the driver author on it, sorry.
->>>>
->>>> What I did do was put the netdev_alloc_skb() change into my
->>>> tree, and since I'm co-author of the tg3 driver I'll apply
->>>> that bit too.
->>>>
->>>> The e1000 bit will need to go through the e1000 maintainers.
->>> Thank you, I'll take a look at this tomorrow, as I need to digest the
->>> patch in context.
->> Did you get a chance to look at it?  For your conveniance here's just
->> the e1000 bits, without the hunks Dave has commited already:
->>
-> 
-> I'm okay with this change.  Auke will shortly be submitting a patch set 
-> for 2.6.19 and it should include this.
+On Tue, 2006-08-15 at 18:15 +0400, Evgeniy Polyakov wrote:
 
-Great, I was already waiting for this change to drip in but hadn't checked for 
-it. I've queued it and it will be included in this weeks' patch series git pull 
-request.
+> Kevent network AIO is completely different from network tree allocator.
 
-Cheers,
+How can that be? packets still need to be received, yes?
 
-Auke
+> So network allocator reserves above megabyte and works with it in a
+> smart way (without too much overhead).
+> Then system goes into OOM and requires to swap a page, which
+> notification was sent to remote swap storage.
+> Swap storage then sends an ack for that data, since network allocations
+> are separated from main system ones, network allocator easily gets 60
+> (or 4k, since it has a reserve, which exeeds maximum allowed TCP memory
+> limit) bytes for ack and process than notification thus "freeing" acked
+> data and main system can work with that free memory.
+> No need to detect OOM or something other - it just works.
+> 
+> I expect you will give me an example, when all above megabyte is going
+> to be stuck somewhere.
+> But... If it is not acked, each new packet goes slow path since VJ header 
+> prediction fails and falls into memory limit check which will drop that
+> packet immediately without event trying to select a socket.
 
+Not sure on the details; but you say: when we reach the threshold all
+following packets will be dropped. So if you provide enough memory to
+exceed the limit, you have some extra. If you then use that extra bit to
+allow ACKs to pass through, then you're set.
 
-> Thanks for the feedback Christoph!
+Sounds good, but you'd have to carve a path for the ACKs, right? Or is
+that already there?
+
+Also, I'm worried with the effects of external fragmentation esp. after
+long run times. Analysing non trivial memory allocators is hard, very
+often too hard.
+
+> > > > > And there is a simple task in TODO list to dynamically grow cache when
+> > > > > threshold of memory is in use. It is really simple task and will be
+> > > > > implemented as soon as I complete suggestions mentioned by Andrew Morton.
+> > > > 
+> > > > Growing will not help, the problem is you are out of memory, you cannot
+> > > > grow at that point.
+> > > 
+> > > You do not see the point of network tree allocator.
+> > > 
+> > > It can live with main system OOM since it has preallocated separate
+> > > pool, which can be increased when there is a requirement for that, for
+> > > example when system is not in OOM.
+> > 
+> > It cannot increase enough, ever. The total capacity of the network stack
+> > is huge.
+> > And the sole problem I'm addressing is getting the system to work
+> > reliably in tight memory situations, that is during reclaim; one cannot
+> > decide to grow then, nor postpone, too late.
 > 
-> Jesse
+> Network *is* limited, it is not terabyte array which is going to be
+> placed into VFS cache.
+
+No it is not, but you bound it.
+
+> > > > skbuff_head_cache and skbuff_fclone_cache are SLABs.
+> > > 
+> > > It is quite small part of the stack, isn't it?
+> > > And btw, they still suffer from SLAB design, since it is possibly to get
+> > > another smaller object right after all skbs are allocated from given page.
+> > > It is a minor thing of course, but nevertheless worh mentioning.
+> > 
+> > Small but crucial, that is why I've been replacing all.
 > 
-> for reference this is the patch, but like i said auke will enqueue it in 
-> GIT and send it to Jeff for inclusion.
+> Sigh, replace kmem_cache_alloc() with avl_alloc() - it does not matter.
+
+It does matter, you need the whole packet, if you cannot allocate a
+sk_buff you're still stuck.
+
+> > > > Yes SLAB is a horrid thing on some points but very good at a lot of
+> > > > other things. But surely there are frequently used sizes, kmalloc will
+> > > > not know, but a developer with profiling tools might.
+> > > 
+> > > Does not scale - admin must run system under profiling, add new
+> > > entries into kmalloc_sizes.h recompile the kernel... No way.
+> > 
+> > s/admin/developer/
+> > It has been the way so far.
 > 
-> e1000: clean up skb allocation code, patch submitted by Christoph
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> 
-> ---
-> 
->  drivers/net/e1000/e1000_main.c |   19 +++++++------------
->  1 files changed, 7 insertions(+), 12 deletions(-)
-> 
-> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-> index 627f224..66c0325 100644
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -36,7 +36,7 @@ static char e1000_driver_string[] = "Int
->  #else
->  #define DRIVERNAPI "-NAPI"
->  #endif
-> -#define DRV_VERSION "7.1.9-k4"DRIVERNAPI
-> +#define DRV_VERSION "7.1.9-k6"DRIVERNAPI
->  char e1000_driver_version[] = DRV_VERSION;
->  static char e1000_copyright[] = "Copyright (c) 1999-2006 Intel Corporation.";
->  
-> @@ -3711,7 +3711,6 @@ e1000_clean_rx_irq(struct e1000_adapter 
->  			    netdev_alloc_skb(netdev, length + NET_IP_ALIGN);
->  			if (new_skb) {
->  				skb_reserve(new_skb, NET_IP_ALIGN);
-> -				new_skb->dev = netdev;
->  				memcpy(new_skb->data - NET_IP_ALIGN,
->  				       skb->data - NET_IP_ALIGN,
->  				       length + NET_IP_ALIGN);
-> @@ -3978,13 +3977,13 @@ e1000_alloc_rx_buffers(struct e1000_adap
->  	buffer_info = &rx_ring->buffer_info[i];
->  
->  	while (cleaned_count--) {
-> -		if (!(skb = buffer_info->skb))
-> -			skb = netdev_alloc_skb(netdev, bufsz);
-> -		else {
-> +		skb = buffer_info->skb;
-> +		if (skb) {
->  			skb_trim(skb, 0);
->  			goto map_skb;
->  		}
->  
-> +		skb = netdev_alloc_skb(netdev, bufsz);
->  		if (unlikely(!skb)) {
->  			/* Better luck next round */
->  			adapter->alloc_rx_buff_failed++;
-> @@ -4009,10 +4008,10 @@ e1000_alloc_rx_buffers(struct e1000_adap
->  				dev_kfree_skb(skb);
->  				dev_kfree_skb(oldskb);
->  				break; /* while !buffer_info->skb */
-> -			} else {
-> -				/* Use new allocation */
-> -				dev_kfree_skb(oldskb);
->  			}
-> +
-> +			/* Use new allocation */
-> +			dev_kfree_skb(oldskb);
->  		}
->  		/* Make buffer alignment 2 beyond a 16 byte boundary
->  		 * this will result in a 16 byte aligned IP header after
-> @@ -4020,8 +4019,6 @@ e1000_alloc_rx_buffers(struct e1000_adap
->  		 */
->  		skb_reserve(skb, NET_IP_ALIGN);
->  
-> -		skb->dev = netdev;
-> -
->  		buffer_info->skb = skb;
->  		buffer_info->length = adapter->rx_buffer_len;
->  map_skb:
-> @@ -4135,8 +4132,6 @@ e1000_alloc_rx_buffers_ps(struct e1000_a
->  		 */
->  		skb_reserve(skb, NET_IP_ALIGN);
->  
-> -		skb->dev = netdev;
-> -
->  		buffer_info->skb = skb;
->  		buffer_info->length = adapter->rx_ps_bsize0;
->  		buffer_info->dma = pci_map_single(pdev, skb->data,
+> Could you say what are preferred sizes in my testing machines here? :)
+> For example MMIO-read based chips (excellent realtek 8139 adapter) can
+> allocate not only 1500 bytes of memory, but real size of received frame.
+> I even used it for receiving zero-copy (really excellent hardware
+> for it's price) into VFS cache implementation (without any kind of
+> page-per-packet stuff), but it is not related to our discussion.
+
+Well generally the developer of the driver can say, and very often it
+just doesn't matter, but see the wide spread use of private SLABs to see
+there is benefit in manually tuning stuff.
+
+> Have you seen how many adapters support packet split?
+
+Not many I guess. That does not make higher order allocations any more
+reliable.
+
