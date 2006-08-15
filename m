@@ -1,50 +1,28 @@
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Bill Nottingham <notting@redhat.com>
 Subject: Re: bonding: cannot remove certain named devices
-Date: Tue, 15 Aug 2006 13:39:03 -0700
-Message-ID: <Pine.CYG.4.58.0608151331220.3272@mawilli1-desk2.amr.corp.intel.com>
-References: <20060815194856.GA3869@nostromo.devel.redhat.com>
+Date: Tue, 15 Aug 2006 16:45:55 -0400
+Message-ID: <20060815204555.GB4434@nostromo.devel.redhat.com>
+References: <20060815194856.GA3869@nostromo.devel.redhat.com> <Pine.CYG.4.58.0608151331220.3272@mawilli1-desk2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:49831 "EHLO
-	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
-	id S1751205AbWHOUjI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 16:39:08 -0400
-To: Bill Nottingham <notting@redhat.com>
-In-Reply-To: <20060815194856.GA3869@nostromo.devel.redhat.com>
+Received: from mx1.redhat.com ([66.187.233.31]:30434 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1750725AbWHOUqB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 16:46:01 -0400
+To: Mitch Williams <mitch.a.williams@intel.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.CYG.4.58.0608151331220.3272@mawilli1-desk2.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Mitch Williams (mitch.a.williams@intel.com) said: 
+> Are spaces allowed in interface names anyway?  I can't believe that
+> bonding is the only area affected by this.
 
-On Tue, 15 Aug 2006, Bill Nottingham wrote:
+They're certainly allowed, and the sysfs directory structure, files,
+etc. handle it ok. Userspace tends to break in a variety of ways.
 
-> 2.6.17-rc4+.
->
-> Trivial example:
->
-> # modprobe bonding (creates bond0)
-> # ip link set bond0 name "a b"
-> # echo "-a b" > /sys/class/net/bonding_masters
-> bonding: unable to delete non-existent bond a
-> bash: echo: write error: No such device
->
+I believe the only invalid character in an interface name is '/'.
 
-Yuck.  The problem here is the space in the interface name, which the
-sysfs code chokes on.  The code just does
-
-	sscanf(buffer, "%16s", command); /* IFNAMSIZ*/
-
-and goes from there.  Because of the space, it only gets the first half of
-the interface name.
-
-Suggestions?  Do we just omit the sscanf and copy up to the newline (or
-EOF)?  Should there be another delimiter here?
-
-Are spaces allowed in interface names anyway?  I can't believe that
-bonding is the only area affected by this.
-
--Mitch
-
-BTW this will also break if you try to add/remove a slave with a space in
-the name through sysfs.
+Bill
