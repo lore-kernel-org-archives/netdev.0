@@ -1,48 +1,41 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: skb_shared_info()
-Date: Tue, 15 Aug 2006 15:30:46 +0400
-Message-ID: <20060815113046.GA1848@ms2.inr.ac.ru>
-References: <20060808.163915.03600382.davem@davemloft.net> <20060811140019.GA8611@ms2.inr.ac.ru> <20060811.172730.34542868.davem@davemloft.net> <20060813130431.GA14138@ms2.inr.ac.ru> <20060814080120.GA20053@2ka.mipt.ru> <20060814131919.GA13064@ms2.inr.ac.ru> <20060814133843.GA30374@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 0/10]: Improve SA insert/delete performance
+Date: Tue, 15 Aug 2006 04:37:18 -0700 (PDT)
+Message-ID: <20060815.043718.59464707.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:51426 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S965368AbWHOLbF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 07:31:05 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20060814133843.GA30374@2ka.mipt.ru>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:63450
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965361AbWHOLhU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 07:37:20 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
 
-> I still like existing way - it is much simpler (I hope :) to convince
-> e1000 developers to fix driver's memory usage
+[ Jamal, you saw the first 5 patches already, the rest is new
+  stuff. ]
 
-e1000 is not a problem at all. It just has to use pages.
-If it is going to use high order allocations, it will suck,
-be it order 3 or 2.
+These patches against the net-2.6 GIT tree try to address some
+serious IPSEC SA insert/delete performance problems noticed
+by Jamal.
 
+1) Use dynamic hash table sizing for the xfrm_state lookup
+   tables.
 
-> area (does MAX_TCP_HEADER enough for all, what about ipv6 options?)...
+2) Do not walk all policies and flush bundles on xfrm_state
+   changes, instead:
+   a) On delete, just allow pending references to deleted
+      xfrm_state objects to be handled by policy GC and
+      xfrm_dst_check() which runs on every use of a cached
+      xfrm dst route
+   b) On insert, find xfrm_state objects that might alias with
+      the one we are about to insert.  For all such aliases,
+      update their generation cound which will force
+      xfrm_bundle_ok() (and thus xfrm_dst_check) to consider
+      the route stale, forcing a relookup.
 
-This does not matter. All the cases with pathologically extended
-headers go slow path with non-trivial pskb_pull(). This is what all
-those options are invented for.
-
-
-> 								 unix 
-> socket use that.
-
-Totally does not worth it, unless it is a part of something bigger.
-
-
-> global changes like you suggested, we can break things more
-> fundamentally :)
-
-_You_ have to. :-) Sender zerocopy stalled only because of this. 
-
-Alexey
+Patches forthcoming.
