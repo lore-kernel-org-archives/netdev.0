@@ -1,34 +1,30 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 0/10]: Improve SA insert/delete performance
-Date: Tue, 15 Aug 2006 08:15:37 -0400
-Message-ID: <1155644137.6946.102.camel@jzny2>
-References: <20060815.043718.59464707.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 09/16] [IPv6] address: Convert address notification to use rtnl_notify()
+Date: Tue, 15 Aug 2006 14:23:00 +0200
+Message-ID: <20060815122300.GV14627@postel.suug.ch>
+References: <20060814213718.580598840@postel.suug.ch> <20060815003614.GA8677@ms2.inr.ac.ru> <20060815111735.GU14627@postel.suug.ch> <200608151508.36848.hasso@estpak.ee>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jamal <hadi@cyberus.ca>,
+	davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:23428 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932082AbWHOMPj
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 08:15:39 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1GCxpc-0008QB-VP
-	for netdev@vger.kernel.org; Tue, 15 Aug 2006 08:15:40 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060815.043718.59464707.davem@davemloft.net>
+Received: from postel.suug.ch ([194.88.212.233]:38113 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932509AbWHOMWk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 08:22:40 -0400
+To: Hasso Tepper <hasso@estpak.ee>
+Content-Disposition: inline
+In-Reply-To: <200608151508.36848.hasso@estpak.ee>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-15-08 at 04:37 -0700, David Miller wrote:
-> [ Jamal, you saw the first 5 patches already, the rest is new
->   stuff. ]
+* Hasso Tepper <hasso@estpak.ee> 2006-08-15 15:08
+> Thomas Graf wrote:
+> > However, I changed IPv4 addresses to provide the pid and support
+> > NLM_F_ECHO and the same will follow for IPv6 address notifications
+> > which will mean that quagga sees a different set of IPv4 address
+> > notifications.
+> 
+> Can you explain what exactly is changed?
 
-
-Very cool ;-> Will test today.
-
-cheers,
-jamal
-
+IPv4 address notifications originating from a netlink request now
+carry the netlink pid of the request instead of 0.
