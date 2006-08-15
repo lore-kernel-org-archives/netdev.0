@@ -1,35 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: XFRM_MSG_NEWAE
-Date: Tue, 15 Aug 2006 18:07:31 +1000
-Message-ID: <E1GCtxT-0000up-00@gondolin.me.apana.org.au>
-References: <20060815.002852.35359129.davem@davemloft.net>
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH 1/1] network memory allocator.
+Date: 15 Aug 2006 10:08:23 +0200
+Message-ID: <p738xlqa0aw.fsf@verdi.suse.de>
+References: <20060814110359.GA27704@2ka.mipt.ru>
+	<20060815002724.a635d775.akpm@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:60940 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S965287AbWHOIHs
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 04:07:48 -0400
-To: davem@davemloft.net (David Miller)
-In-Reply-To: <20060815.002852.35359129.davem@davemloft.net>
+Received: from cantor2.suse.de ([195.135.220.15]:56754 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S965288AbWHOIIe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 04:08:34 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060815002724.a635d775.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
+Andrew Morton <akpm@osdl.org> writes:
 > 
-> I think we need a way to tone this down, so that if there are no truly
-> interested parties we don't do the km->notify work at all.
+> There will be heaps of cacheline pingpong accessing these arrays.  I'd have
+> though that
+> 
+> static struct whatever {
+> 	avl_t avl_node_id;
+> 	struct avl_node **avl_node_array;
+> 	struct list_head *avl_container_array;
+> 	struct avl_node *avl_root;
+> 	struct avl_free_list *avl_free_list_head;
+> 	spinlock_t avl_free_lock;
+> } __cacheline_aligned_in_smp whatevers[NR_CPUS];
+> 
+> would be better.
 
-Actually, we do turn it off if nobody is listening, through
-xfrm_aevent_is_on().
+Or even better per cpu data. New global/static NR_CPUS arrays should be really discouraged.
 
-> Also it would be nice to add xfrm mon support to print out these
-> messages properly if you haven't coded that up already :-)
-
-Yes that would be good :)
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-Andi
