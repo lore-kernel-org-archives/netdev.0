@@ -1,54 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 11/13] constify Tigon3 ether firmware structs
-Date: Tue, 15 Aug 2006 00:11:27 -0700 (PDT)
-Message-ID: <20060815.001127.01051322.davem@davemloft.net>
-References: <200608150603.k7F63jC4012954@shell0.pdx.osdl.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] d80211: get rid of the WME bitfield
+Date: Tue, 15 Aug 2006 09:11:02 +0200
+Message-ID: <44E17386.70109@sipsolutions.net>
+References: <44E02F41.2060300@sipsolutions.net> <44E03112.9070002@sipsolutions.net> <20060814161210.GD1196@instant802.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andi@rhlx01.fht-esslingen.de, andi@lisas.de
+Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30644
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965266AbWHOHLZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 03:11:25 -0400
-To: akpm@osdl.org
-In-Reply-To: <200608150603.k7F63jC4012954@shell0.pdx.osdl.net>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:21898 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S965269AbWHOHLx
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 03:11:53 -0400
+To: Jouni Malinen <jkm@devicescape.com>
+In-Reply-To: <20060814161210.GD1196@instant802.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: akpm@osdl.org
-Date: Mon, 14 Aug 2006 23:03:45 -0700
+Jouni Malinen wrote:
+> I think that this is always 16-bit aligned in the current
+> implementation, but I would be a bit careful with this type of change
+> here. This can be done easily with u8 since the qos_control field has 8
+> bits of used data and 8 bits of reserved field. My change was handling
+> this as two separate 8-bit values, so no issues with potential unaligned
+> accesses.
+>   
+Good point, I forgot about that. Never mind this patch then, if I get to 
+it I'll make a new one.
 
-> From: Andreas Mohr <andi@rhlx01.fht-esslingen.de>
-> 
-> Constify largish areas of firmware data in Tigon3 ethernet driver.
-> 
-> non-const:
-> 
-> lsmod:
-> tg3                   101404  0
-> 
-> objdump -x:
-> .rodata 000003e8
-> .data 00004a0c
-> 
-> ls -l:
-> -rw-r--r-- 1 root root 114404 2006-08-19 21:36 drivers/net/tg3.ko
-> 
-> const:
-> 
-> lsmod:
-> tg3                   101404  0
-> 
-> objdump -x:
-> .rodata 000042c8
-> .data 00000b4c
-> 
-> ls -l:
-> -rw-r--r-- 1 root root 114532 2006-08-19 21:06 drivers/net/tg3.ko
-> 
-> Signed-off-by: Andreas Mohr <andi@lisas.de>
-> Signed-off-by: Andrew Morton <akpm@osdl.org>
+johannes
 
-Applied to net-2.6.19
