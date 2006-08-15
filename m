@@ -1,123 +1,48 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 1/1] network memory allocator.
-Date: Tue, 15 Aug 2006 16:48:59 +0200
-Message-ID: <1155653339.5696.282.camel@twins>
-References: <20060814110359.GA27704@2ka.mipt.ru>
-	 <1155558313.5696.167.camel@twins> <20060814123530.GA5019@2ka.mipt.ru>
-	 <1155639302.5696.210.camel@twins> <20060815112617.GB21736@2ka.mipt.ru>
-	 <1155643405.5696.236.camel@twins> <20060815123438.GA29896@2ka.mipt.ru>
-	 <1155649768.5696.262.camel@twins>  <20060815141501.GA10998@2ka.mipt.ru>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [patch RFC 3/3] b44: convert to ssb module
+Date: Tue, 15 Aug 2006 16:49:58 +0200
+Message-ID: <200608151649.58875.mb@bu3sch.de>
+References: <200608150014.19661.mb@bu3sch.de> <200608151614.16640.mb@bu3sch.de> <20060815143331.GC28544@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Cc: netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
+	zambrano@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:65486 "EHLO
-	amsfep19-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1030322AbWHOOub (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 10:50:31 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060815141501.GA10998@2ka.mipt.ru>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:962
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1030325AbWHOOvO
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 10:51:14 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20060815143331.GC28544@tuxdriver.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-08-15 at 18:15 +0400, Evgeniy Polyakov wrote:
-
-> Kevent network AIO is completely different from network tree allocator.
-
-How can that be? packets still need to be received, yes?
-
-> So network allocator reserves above megabyte and works with it in a
-> smart way (without too much overhead).
-> Then system goes into OOM and requires to swap a page, which
-> notification was sent to remote swap storage.
-> Swap storage then sends an ack for that data, since network allocations
-> are separated from main system ones, network allocator easily gets 60
-> (or 4k, since it has a reserve, which exeeds maximum allowed TCP memory
-> limit) bytes for ack and process than notification thus "freeing" acked
-> data and main system can work with that free memory.
-> No need to detect OOM or something other - it just works.
+On Tuesday 15 August 2006 16:33, John W. Linville wrote:
+> On Tue, Aug 15, 2006 at 04:14:16PM +0200, Michael Buesch wrote:
 > 
-> I expect you will give me an example, when all above megabyte is going
-> to be stuck somewhere.
-> But... If it is not acked, each new packet goes slow path since VJ header 
-> prediction fails and falls into memory limit check which will drop that
-> packet immediately without event trying to select a socket.
-
-Not sure on the details; but you say: when we reach the threshold all
-following packets will be dropped. So if you provide enough memory to
-exceed the limit, you have some extra. If you then use that extra bit to
-allow ACKs to pass through, then you're set.
-
-Sounds good, but you'd have to carve a path for the ACKs, right? Or is
-that already there?
-
-Also, I'm worried with the effects of external fragmentation esp. after
-long run times. Analysing non trivial memory allocators is hard, very
-often too hard.
-
-> > > > > And there is a simple task in TODO list to dynamically grow cache when
-> > > > > threshold of memory is in use. It is really simple task and will be
-> > > > > implemented as soon as I complete suggestions mentioned by Andrew Morton.
-> > > > 
-> > > > Growing will not help, the problem is you are out of memory, you cannot
-> > > > grow at that point.
-> > > 
-> > > You do not see the point of network tree allocator.
-> > > 
-> > > It can live with main system OOM since it has preallocated separate
-> > > pool, which can be increased when there is a requirement for that, for
-> > > example when system is not in OOM.
+> > You can take a look at the new DMA engine code of bcm43xx.
+> > It's the same engine.
 > > 
-> > It cannot increase enough, ever. The total capacity of the network stack
-> > is huge.
-> > And the sole problem I'm addressing is getting the system to work
-> > reliably in tight memory situations, that is during reclaim; one cannot
-> > decide to grow then, nor postpone, too late.
+> > BTW: John, I see that the new DMA engine code is not applied
+> > to wireless-dev (64-bit DMA and >1G support). But I think I
+> > already sent the patch. Where did it get lost? Was it my fault?
 > 
-> Network *is* limited, it is not terabyte array which is going to be
-> placed into VFS cache.
+> http://marc.theaimsgroup.com/?l=linux-netdev&m=115056542006772&w=2
 
-No it is not, but you bound it.
+Hm, I _think_ that was the right one.
+But I will dig out the right one and resend to make sure things don't
+randomly break.
 
-> > > > skbuff_head_cache and skbuff_fclone_cache are SLABs.
-> > > 
-> > > It is quite small part of the stack, isn't it?
-> > > And btw, they still suffer from SLAB design, since it is possibly to get
-> > > another smaller object right after all skbs are allocated from given page.
-> > > It is a minor thing of course, but nevertheless worh mentioning.
-> > 
-> > Small but crucial, that is why I've been replacing all.
+> Is this the patch?  I think this one is a victim of the "RFT" subject.
+> Oh, and the patch seemed to not be totally working based on this post:
 > 
-> Sigh, replace kmem_cache_alloc() with avl_alloc() - it does not matter.
+> 	http://marc.theaimsgroup.com/?l=linux-netdev&m=115075858220477&w=2
 
-It does matter, you need the whole packet, if you cannot allocate a
-sk_buff you're still stuck.
+I think this oops comes from buggy (or too new) firmware.
+I think we can ignore it for now.
 
-> > > > Yes SLAB is a horrid thing on some points but very good at a lot of
-> > > > other things. But surely there are frequently used sizes, kmalloc will
-> > > > not know, but a developer with profiling tools might.
-> > > 
-> > > Does not scale - admin must run system under profiling, add new
-> > > entries into kmalloc_sizes.h recompile the kernel... No way.
-> > 
-> > s/admin/developer/
-> > It has been the way so far.
-> 
-> Could you say what are preferred sizes in my testing machines here? :)
-> For example MMIO-read based chips (excellent realtek 8139 adapter) can
-> allocate not only 1500 bytes of memory, but real size of received frame.
-> I even used it for receiving zero-copy (really excellent hardware
-> for it's price) into VFS cache implementation (without any kind of
-> page-per-packet stuff), but it is not related to our discussion.
-
-Well generally the developer of the driver can say, and very often it
-just doesn't matter, but see the wide spread use of private SLABs to see
-there is benefit in manually tuning stuff.
-
-> Have you seen how many adapters support packet split?
-
-Not many I guess. That does not make higher order allocations any more
-reliable.
-
+-- 
+Greetings Michael.
