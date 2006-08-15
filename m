@@ -1,73 +1,99 @@
 From: akpm@osdl.org
-Subject: [patch 07/13] security/selinux/hooks.c: make 4 functions static
-Date: Mon, 14 Aug 2006 23:03:41 -0700
-Message-ID: <200608150603.k7F63f8D012942@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, bunk@stusta.de,
-	jmorris@namei.org
+Subject: [patch 12/13] net/decnet/: cleanups
+Date: Mon, 14 Aug 2006 23:03:46 -0700
+Message-ID: <200608150603.k7F63k5w012958@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, bunk@stusta.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:7317 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965173AbWHOGG7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 02:06:59 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:9109 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965174AbWHOGHC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 02:07:02 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Adrian Bunk <bunk@stusta.de>
 
-This patch makes four needlessly global functions static.
-
-(akpm: applicable to the selinux updates in net-2.6.19.git)
+- make the following needlessly global functions static:
+  - dn_fib.c: dn_fib_sync_down()
+  - dn_fib.c: dn_fib_sync_up()
+  - dn_rules.c: dn_fib_rule_action()
+- remove the following unneeded prototype:
+  - dn_fib.c: dn_cache_dump()
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
-Acked-by: James Morris <jmorris@namei.org>
-Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- security/selinux/hooks.c |   12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ include/net/dn_fib.h  |    3 ---
+ net/decnet/dn_fib.c   |    9 +++++----
+ net/decnet/dn_rules.c |    4 ++--
+ 3 files changed, 7 insertions(+), 9 deletions(-)
 
-diff -puN security/selinux/hooks.c~security-selinux-hooksc-make-4-functions-static security/selinux/hooks.c
---- a/security/selinux/hooks.c~security-selinux-hooksc-make-4-functions-static
-+++ a/security/selinux/hooks.c
-@@ -3598,7 +3598,7 @@ static void selinux_sk_getsecid(struct s
- 	}
- }
+diff -puN include/net/dn_fib.h~net-decnet-cleanups include/net/dn_fib.h
+--- a/include/net/dn_fib.h~net-decnet-cleanups
++++ a/include/net/dn_fib.h
+@@ -131,9 +131,6 @@ extern __le16 dn_fib_get_attr16(struct r
+ extern void dn_fib_flush(void);
+ extern void dn_fib_select_multipath(const struct flowi *fl,
+ 					struct dn_fib_res *res);
+-extern int dn_fib_sync_down(__le16 local, struct net_device *dev,
+-				int force);
+-extern int dn_fib_sync_up(struct net_device *dev);
  
--void selinux_sock_graft(struct sock* sk, struct socket *parent)
-+static void selinux_sock_graft(struct sock* sk, struct socket *parent)
+ /*
+  * dn_tables.c
+diff -puN net/decnet/dn_fib.c~net-decnet-cleanups net/decnet/dn_fib.c
+--- a/net/decnet/dn_fib.c~net-decnet-cleanups
++++ a/net/decnet/dn_fib.c
+@@ -55,8 +55,6 @@
+ 
+ #define endfor_nexthops(fi) }
+ 
+-extern int dn_cache_dump(struct sk_buff *skb, struct netlink_callback *cb);
+-
+ static DEFINE_SPINLOCK(dn_fib_multipath_lock);
+ static struct dn_fib_info *dn_fib_info_list;
+ static DEFINE_SPINLOCK(dn_fib_info_lock);
+@@ -80,6 +78,9 @@ static struct
+ 	[RTN_XRESOLVE] =    { .error = -EINVAL, .scope = RT_SCOPE_NOWHERE },
+ };
+ 
++static int dn_fib_sync_down(__le16 local, struct net_device *dev, int force);
++static int dn_fib_sync_up(struct net_device *dev);
++
+ void dn_fib_free_info(struct dn_fib_info *fi)
  {
- 	struct inode_security_struct *isec = SOCK_INODE(parent)->i_security;
- 	struct sk_security_struct *sksec = sk->sk_security;
-@@ -3608,8 +3608,8 @@ void selinux_sock_graft(struct sock* sk,
- 	selinux_netlbl_sock_graft(sk, parent);
+ 	if (fi->fib_dead == 0) {
+@@ -651,7 +652,7 @@ static int dn_fib_dnaddr_event(struct no
+ 	return NOTIFY_DONE;
  }
  
--int selinux_inet_conn_request(struct sock *sk, struct sk_buff *skb,
--					   struct request_sock *req)
-+static int selinux_inet_conn_request(struct sock *sk, struct sk_buff *skb,
-+				     struct request_sock *req)
+-int dn_fib_sync_down(__le16 local, struct net_device *dev, int force)
++static int dn_fib_sync_down(__le16 local, struct net_device *dev, int force)
  {
- 	struct sk_security_struct *sksec = sk->sk_security;
- 	int err;
-@@ -3638,7 +3638,8 @@ int selinux_inet_conn_request(struct soc
- 	return 0;
+         int ret = 0;
+         int scope = RT_SCOPE_NOWHERE;
+@@ -695,7 +696,7 @@ int dn_fib_sync_down(__le16 local, struc
  }
  
--void selinux_inet_csk_clone(struct sock *newsk, const struct request_sock *req)
-+static void selinux_inet_csk_clone(struct sock *newsk,
-+				   const struct request_sock *req)
+ 
+-int dn_fib_sync_up(struct net_device *dev)
++static int dn_fib_sync_up(struct net_device *dev)
  {
- 	struct sk_security_struct *newsksec = newsk->sk_security;
+         int ret = 0;
  
-@@ -3649,7 +3650,8 @@ void selinux_inet_csk_clone(struct sock 
- 	   time it will have been created and available. */
+diff -puN net/decnet/dn_rules.c~net-decnet-cleanups net/decnet/dn_rules.c
+--- a/net/decnet/dn_rules.c~net-decnet-cleanups
++++ a/net/decnet/dn_rules.c
+@@ -75,8 +75,8 @@ int dn_fib_lookup(struct flowi *flp, str
+ 	return err;
  }
  
--void selinux_req_classify_flow(const struct request_sock *req, struct flowi *fl)
-+static void selinux_req_classify_flow(const struct request_sock *req,
-+				      struct flowi *fl)
+-int dn_fib_rule_action(struct fib_rule *rule, struct flowi *flp, int flags,
+-		       struct fib_lookup_arg *arg)
++static int dn_fib_rule_action(struct fib_rule *rule, struct flowi *flp,
++			      int flags, struct fib_lookup_arg *arg)
  {
- 	fl->secid = req->secid;
- }
+ 	int err = -EAGAIN;
+ 	struct dn_fib_table *tbl;
 _
