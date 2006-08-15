@@ -1,51 +1,42 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [patch RFC 3/3] b44: convert to ssb module
-Date: Tue, 15 Aug 2006 16:14:16 +0200
-Message-ID: <200608151614.16640.mb@bu3sch.de>
-References: <200608150014.19661.mb@bu3sch.de> <200608150018.39548.mb@bu3sch.de> <20060815121248.GA28544@tuxdriver.com>
+From: Chris Lightfoot <chris@ex-parrot.com>
+Subject: Re: Fw: crash in ipt_do_table
+Date: Tue, 15 Aug 2006 15:29:18 +0100
+Message-ID: <3SmNv/haNWRU.dTuwTfL4X/51VCkr8nnANQ@sphinx.mythic-beasts.com>
+References: <20060815005422.0c47bddb.akpm@osdl.org> <44E1D3A2.3020604@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de,
-	zambrano@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:53688
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965374AbWHOOPw
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 10:15:52 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060815121248.GA28544@tuxdriver.com>
+Received: from wumpus.mythic-beasts.com ([212.69.37.9]:65168 "EHLO
+	wumpus.mythic-beasts.com") by vger.kernel.org with ESMTP
+	id S1030304AbWHOO3V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 10:29:21 -0400
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
+In-Reply-To: <44E1D3A2.3020604@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 15 August 2006 14:12, John W. Linville wrote:
-> On Tue, Aug 15, 2006 at 12:18:39AM +0200, Michael Buesch wrote:
+On Tue, Aug 15, 2006 at 04:01:06PM +0200, Patrick McHardy wrote:
+> Andrew Morton wrote:
+> > From: Chris Lightfoot <chris@ex-parrot.com>
+> >
+> > EIP is at ipt_do_table+0xa9/0x2fc [ip_tables]
+> >
+> > This has only happened once so far, so I'm not (yet) aware
+> > of any way to reproduce it. Unfortunately I don't have a
+> > copy of the iptables rules themselves at the time of the
+> > crash -- on that system they're created dynamically and
+> > the specific setup doesn't survive a reboot.
 > 
-> > @@ -2093,13 +2015,13 @@
-> >  	bp->imask = IMASK_DEF;
-> >  
-> >  	bp->core_unit = ssb_core_unit(bp);
-> > -	bp->dma_offset = SB_PCI_DMA;
-> > +	bp->dma_offset = 0x40000000; /* Client Mode PCI memory access space (1GB) */
-> 
-> Probably shouldn't change anything to a magic number...
+> Any chance you're also changing your ruleset dynamically? If yes
+> this patch might help.
 
-Well, SB_PCI_DMA wasn't really a useful name, too IMHO :)
-But you're right. We should use a define. And I know that.
-This is only a patch for testing if it actually works with the
-ssb module (I can not test this).
-
-Besides that, we should probably get rid of dma_offset completely,
-as it is not really an offset, but a routing bit.
-
-You can take a look at the new DMA engine code of bcm43xx.
-It's the same engine.
-
-BTW: John, I see that the new DMA engine code is not applied
-to wireless-dev (64-bit DMA and >1G support). But I think I
-already sent the patch. Where did it get lost? Was it my fault?
+yes, we are. Thanks for the patch -- I will apply it and
+see what happens.
 
 -- 
-Greetings Michael.
+``The fishy glitter in his eye became intensified. He looked like
+  a halibut which had been asked by another halibut to lend it a
+  couple of quid till next Wednesday.'' (P G Wodehouse)
