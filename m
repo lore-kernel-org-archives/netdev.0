@@ -1,51 +1,40 @@
-From: Hasso Tepper <hasso@estpak.ee>
-Subject: Re: [PATCH 09/16] [IPv6] address: Convert address notification to use rtnl_notify()
-Date: Tue, 15 Aug 2006 10:20:26 +0300
-Message-ID: <200608151020.26836.hasso@estpak.ee>
-References: <20060814213718.580598840@postel.suug.ch> <1155598991.6946.42.camel@jzny2> <1155599469.6946.46.camel@jzny2>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Possible leak of multicast source filter sctructure
+Date: Tue, 15 Aug 2006 00:21:39 -0700 (PDT)
+Message-ID: <20060815.002139.107685177.davem@davemloft.net>
+References: <20060813.204405.28205494.davem@davemloft.net>
+	<OF76CDD1A8.A722B591-ON882571CA.00781509-882571CA.007980C0@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Thomas Graf <tgraf@suug.ch>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Cc: kuznet@ms2.inr.ac.ru, michal.ruzicka@comstar.cz,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from test.estpak.ee ([194.126.115.47]:62441 "EHLO devy.estpak.ee")
-	by vger.kernel.org with ESMTP id S965268AbWHOHUa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 03:20:30 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1155599469.6946.46.camel@jzny2>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:32680
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965271AbWHOHVi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 03:21:38 -0400
+To: dlstevens@us.ibm.com
+In-Reply-To: <OF76CDD1A8.A722B591-ON882571CA.00781509-882571CA.007980C0@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> CCing Hasso Tepper <hasso@estpak.ee>
->
-> Hasso, please comment on this thread (apologies, I forgot the other
-> guy's name; so if you can CC all the necessary suspects to comment, it
-> would help).
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Mon, 14 Aug 2006 15:07:08 -0700
 
-I fully agree with Herbert Xu:
+>         The first patch in that, yes.
+> 
+> Acked-by: David L Stevens <dlstevens@us.ibm.com>
 
-> The pid field in the netlink header should be treated as an opaque 
-> value.  Any attempt to interpret it as the process ID is doomed to 
-> failure. 
+I've applied it and will push to net-2.6.18
 
-Zebra, Quagga and Xorp treat the pid field in the netlink header as 
-unicast address of the netlink socket. As far as I know, that was the 
-original idea:
+>         I'm not sure the second one is quite right. The case of concern
+> is where an interface is deleted. If you joined (or left) the group by
+> address and then deleted the interface, then you wouldn't match the
+> index (which wouldn't be set) so the leave wouldn't work, still.
+>         Also, if you passed a completely bogus ifindex, it should return
+> ENODEV, but with the patch it would return EADDRNOTAVAIL it appears.
+>         So, I think the second patch needs some more work. I'll look at
+> it some more and see if I can suggest something better.
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=113943269432327&w=2
-
-So, for Zebra, Quagga and Xorp users removals of current->pid mean just 
-closing potential races. You can't quarantee that ip/route/ifconfig will 
-not have the pid equal to the address of the netlink socket 
-Zebra/Quagga/Xorp owns.
-
-
-regards,
-
--- 
-Hasso
+Ok, this second patch does need to be refined a little bit.
