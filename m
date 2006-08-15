@@ -1,64 +1,37 @@
 From: akpm@osdl.org
-Subject: [patch 02/13] lockdep: annotate __icmpv6_socket
-Date: Mon, 14 Aug 2006 23:03:37 -0700
-Message-ID: <200608150603.k7F63b6P012927@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, mingo@elte.hu,
-	arjan@linux.intel.com, herbert@gondor.apana.org.au, jeff@garzik.org
+Subject: [patch 05/13] arcnet: SoHard PCI support
+Date: Mon, 14 Aug 2006 23:03:39 -0700
+Message-ID: <200608150603.k7F63dwC012936@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org,
+	stephane.witzmann@ubpmes.univ-bpclermont.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:52627 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965166AbWHOGD4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 02:03:56 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:41619 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965164AbWHOGDq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 02:03:46 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ingo Molnar <mingo@elte.hu>
+From: Stphane Witzmann <stephane.witzmann@ubpmes.univ-bpclermont.fr>
 
-Split off __icmpv6_socket's sk->sk_dst_lock class, because it gets used
-from softirqs, which is safe for __icmpv6_sockets (because they never get
-directly used via userspace syscalls), but unsafe for normal sockets.
+Add support for a SoHard PCI ARCnet card.
 
-Has no effect on non-lockdep kernels.
 
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Arjan van de Ven <arjan@linux.intel.com>
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- net/ipv6/icmp.c |   13 +++++++++++++
- 1 file changed, 13 insertions(+)
+ drivers/net/arcnet/com20020-pci.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff -puN net/ipv6/icmp.c~lockdep-fix-sk_dst_check-deadlock net/ipv6/icmp.c
---- a/net/ipv6/icmp.c~lockdep-fix-sk_dst_check-deadlock
-+++ a/net/ipv6/icmp.c
-@@ -714,6 +714,11 @@ discard_it:
- 	return 0;
- }
- 
-+/*
-+ * Special lock-class for __icmpv6_socket:
-+ */
-+static struct lock_class_key icmpv6_socket_sk_dst_lock_key;
-+
- int __init icmpv6_init(struct net_proto_family *ops)
- {
- 	struct sock *sk;
-@@ -732,6 +737,14 @@ int __init icmpv6_init(struct net_proto_
- 
- 		sk = per_cpu(__icmpv6_socket, i)->sk;
- 		sk->sk_allocation = GFP_ATOMIC;
-+		/*
-+		 * Split off their lock-class, because sk->sk_dst_lock
-+		 * gets used from softirqs, which is safe for
-+		 * __icmpv6_socket (because those never get directly used
-+		 * via userspace syscalls), but unsafe for normal sockets.
-+		 */
-+		lockdep_set_class(&sk->sk_dst_lock,
-+				  &icmpv6_socket_sk_dst_lock_key);
- 
- 		/* Enough space for 2 64K ICMP packets, including
- 		 * sk_buff struct overhead.
+diff -puN drivers/net/arcnet/com20020-pci.c~acrnet-sohard-pci-support drivers/net/arcnet/com20020-pci.c
+--- a/drivers/net/arcnet/com20020-pci.c~acrnet-sohard-pci-support
++++ a/drivers/net/arcnet/com20020-pci.c
+@@ -161,6 +161,7 @@ static struct pci_device_id com20020pci_
+ 	{ 0x1571, 0xa204, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
+ 	{ 0x1571, 0xa205, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
+ 	{ 0x1571, 0xa206, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
++	{ 0x10B5, 0x9030, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
+ 	{ 0x10B5, 0x9050, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
+ 	{0,}
+ };
 _
