@@ -1,93 +1,50 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: proposal for new wireless configuration API
-Date: Tue, 15 Aug 2006 17:28:48 +0200
-Message-ID: <1155655728.17742.30.camel@ux156>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH] bcm43xx-d80211: Init, shutdown and restart fixes
+Date: Tue, 15 Aug 2006 17:30:25 +0200
+Message-ID: <200608151730.26255.mb@bu3sch.de>
+References: <200608142132.25398.mb@bu3sch.de> <44E1E6E6.9000804@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jean Tourrilhes <jt@hpl.hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:47800 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1030344AbWHOP2Z
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 11:28:25 -0400
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+In-Reply-To: <44E1E6E6.9000804-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tuesday 15 August 2006 17:23, Larry Finger wrote:
+> Michael,
+> 
+> Michael Buesch wrote:
+> > Hi John,
+> > 
+> > Please apply this to wireless-dev.
+> > 
+> > --
+> > 
+> > This fixes various bugs in the init and shutdown code
+> > that would lead to lockups and crashes.
+> > This is best reproducable by receiving a timeout from
+> > the netdev watchdog.
+> 
+> Is a similar bug likely to be the cause of the netdev watchdog timeouts in 
+> bcm43xx-softmac? If so, will there be a patch for wireless-2.6?
 
-So I've thought about this all day long... After writing this mail I'll
-go home and hope my inbox collects some feedback ;)
+I don't know why the _timeouts_ itself happen, but maybe the
+lockup and crash bugs are in bcm43xx-softmac, too.
+I think it should be actually trivial to port this to bcm43xx-softmac.
+Care to do this, Larry?
 
-I've arrived at the following conclusions:
- * we want to use genetlink
- * we need an equivalent of the old commit() call,
-   but without all the stupidity
- * we want to do packet injection and many other advanced
-   features with it, and keep it extensible
-
-NB: I have some code, so don't start ;)
-
-Hence, I came up with the following system. Note that I don't use any
-private header for the netlink messages.
-
- - we implement a bunch of commands, for example NL80211_CMD_INJECT and
-   _SETATTR, _GETATTR[(attrnumber)] [easy with dumpit()],
-   _GETATTRGROUP, ...
-
- - we have a whole bunch of possible attributes:
-   NL80211_ATTR_FLAGS: flags for injecting a packet (e.g. want_notify)
-   NL80211_ATTR_IFINDEX: index of interface to use
-   (NL80211_ATTR_PHYIDX: (later) index of wiphy to configure)
-   NL80211_ATTR_ESSID,
-                FRAGTHRESHOLD,
-                CHANNEL,...: most of the old wext ioctls map to
-                             attributes now
-   NL80211_ATTR_FRAME: frame to inject, or received mgmt frame
-
- - we use a few multicast groups:
-    (a) one for management frames that are received
-    (b) one for scan results as they come available
-        (When, for example, someone requests scan results, they are
-         simply multicast to the group+the requester, if they come
-         available during operation they can also be multicast here)
-
-Note that I haven't mentioned commit(). NL80211_CMD_GETATTRGROUP returns
-a list of attributes that make sense to set with a single _SETATTR call
-and multiple attributes.
-
-an old sequence of
-  iwconfig eth0 essid 'lalala'
-  iwconfig eth0 channel 2
-  iwconfig eth0 commit
-would then be translated in the compat layer to a single _SETATTR
-message with the channel and essid attributes. Ultimately, we'll get rid
-of this, so a userspace tool using the netlink configuration would just
-tell the user via _GETATTRGROUP which attributes make sense to group
-together for optimal card behaviour.
-
-As for the inject command, it looks like on the current wmgmt# interface
-for d80211 has a bunch of implicit behaviour like looking into the
-transmitted frame to see what type it is etc. I'd like to get rid of it
-and stuff the information for that into ATTR_FLAGS instead.
-
-Oh and of course we'll have a structure somewhere that drivers and
-stacks register with the module that provides this netlink interface.
-That module will then also multiplex the commands to the drivers/stacks.
-I have that mostly figured out.
-
-Since it will be easy to tell if a specific driver/stack implements
-old-style wext or this new API we can allow drivers with both APIs to
-coexist for a while. I won't map the new API to the old wext one of
-course, but mapping the wext API to the new one we need anyway. Hence,
-we can change the wext code to call the new API if present and the old
-one otherwise (with a big fat printk), and then slowly migrate drivers
-over. Due to the reduced commit logic, it should become simpler too,
-even for old drivers.
-
-Anyway, comments appreciated. If we can agree on this general framework
-I'll start implementing the groundwork and some of the rest for d80211
-soon.
-
-johannes
+-- 
+Greetings Michael.
