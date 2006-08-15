@@ -1,241 +1,58 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] eth: indentation and cleanup
-Date: Tue, 15 Aug 2006 13:02:45 -0700
-Message-ID: <20060815130245.5e11807b@dxpl.pdx.osdl.net>
-References: <20060815125759.590a4a44@dxpl.pdx.osdl.net>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: proposal for new wireless configuration API
+Date: Tue, 15 Aug 2006 16:06:07 -0400
+Message-ID: <1155672367.19284.16.camel@localhost.localdomain>
+References: <C86180A8C204554D8A3323D8F6B0A29F0165AE04@dhost002-46.dex002.intermedia.net>
+	 <200608152135.54238.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Randy.Dunlap" <rdunlap@xenotime.net>, netdev@vger.kernel.org
+Cc: Simon Barber <simon@devicescape.com>, netdev@vger.kernel.org,
+	Jean Tourrilhes <jt@hpl.hp.com>,
+	Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:53126 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932777AbWHOUCr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 16:02:47 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060815125759.590a4a44@dxpl.pdx.osdl.net>
+Received: from mx1.redhat.com ([66.187.233.31]:33476 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S932785AbWHOUG7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 16:06:59 -0400
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200608152135.54238.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Run ethernet support through Lindent and fix up.
-Applies after docbook comments patch
+On Tue, 2006-08-15 at 21:35 +0200, Michael Buesch wrote:
+> On Tuesday 15 August 2006 21:27, Simon Barber wrote:
+> > A further complication happens in Japan with 802.11j, and now in the USA
+> > too - with 802.11y in the 3.65Ghz band - here there are some new channel
+> > widths that are possible. Normally 802.11 is 20 or 22Mhz wide (20Mhz for
+> > OFDM modulations - 11a/g, 22 for 11b). In Japan's 4.9Ghz band you can
+> > run the OFDM at half rate, giving a 10Mhz wide channel, or at quarter
+> > rate, giving a 5Mhz wide channel. Hence same frequency, different
+> > channel spec. Using a channel number is the way to go. If we need
+> > something to convert between the 2 it should probably be a library in
+> > user space (in hostapd or wpa_supplicant) - hostapd does have this
+> > today.
+> >
+> > It might be nice if other applications could access this data too - but
+> > I don't think it needs to be inside the kernel.
+> 
+> We need this conversion function, as most devices tune to frequencies,
+> not channels. So when a driver is instructed to tune to channel 2,
+> it must call back into the 80211 stack to ask for the frequency (based
+> on the current PHYMODE and the other parameters you mentioned above).
+> That call should IMO not result in a call to userspace. Userspace
+> should instead set flags _before_ in the stack and the conversion
+> callback would act on these flags.
+> That way userspace only has to tell the kernel once which frequency-band,
+> half, quater freq, or whatever it wants. The actual conversion
+> from channel number to freq (or the other way around) is trivial after
+> that, as it's only a few ifs and elses based on some cheap flags.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+As long as there's a way for userspace to convert channel <-> frequency
+and back using the _same_ values as the driver is using, that's all I
+care about.  I just don't want to have each userspace program have its
+own library of channel/frequency mappings simply because not enough
+information was exposed through the d80211 stack's API.
 
----
- net/ethernet/eth.c |   98 +++++++++++++++++++++++++----------------------------
- 1 file changed, 47 insertions(+), 51 deletions(-)
+Dan
 
---- net-2.6.19.orig/net/ethernet/eth.c
-+++ net-2.6.19/net/ethernet/eth.c
-@@ -78,39 +78,37 @@ __setup("ether=", netdev_boot_setup);
-  * in here instead. It is up to the 802.2 layer to carry protocol information.
-  */
- int eth_header(struct sk_buff *skb, struct net_device *dev, unsigned short type,
--	   void *daddr, void *saddr, unsigned len)
-+	       void *daddr, void *saddr, unsigned len)
- {
--	struct ethhdr *eth = (struct ethhdr *)skb_push(skb,ETH_HLEN);
-+	struct ethhdr *eth = (struct ethhdr *)skb_push(skb, ETH_HLEN);
- 
--	if(type!=ETH_P_802_3) 
-+	if (type != ETH_P_802_3)
- 		eth->h_proto = htons(type);
- 	else
- 		eth->h_proto = htons(len);
- 
- 	/*
--	 *	Set the source hardware address. 
-+	 *      Set the source hardware address.
- 	 */
--	 
--	if(!saddr)
-+
-+	if (!saddr)
- 		saddr = dev->dev_addr;
--	memcpy(eth->h_source,saddr,dev->addr_len);
-+	memcpy(eth->h_source, saddr, dev->addr_len);
- 
--	if(daddr)
--	{
--		memcpy(eth->h_dest,daddr,dev->addr_len);
-+	if (daddr) {
-+		memcpy(eth->h_dest, daddr, dev->addr_len);
- 		return ETH_HLEN;
- 	}
--	
-+
- 	/*
--	 *	Anyway, the loopback-device should never use this function... 
-+	 *      Anyway, the loopback-device should never use this function...
- 	 */
- 
--	if (dev->flags & (IFF_LOOPBACK|IFF_NOARP)) 
--	{
-+	if (dev->flags & (IFF_LOOPBACK | IFF_NOARP)) {
- 		memset(eth->h_dest, 0, dev->addr_len);
- 		return ETH_HLEN;
- 	}
--	
-+
- 	return -ETH_HLEN;
- }
- 
-@@ -129,17 +127,16 @@ int eth_rebuild_header(struct sk_buff *s
- 	struct ethhdr *eth = (struct ethhdr *)skb->data;
- 	struct net_device *dev = skb->dev;
- 
--	switch (eth->h_proto)
--	{
-+	switch (eth->h_proto) {
- #ifdef CONFIG_INET
- 	case __constant_htons(ETH_P_IP):
-- 		return arp_find(eth->h_dest, skb);
--#endif	
-+		return arp_find(eth->h_dest, skb);
-+#endif
- 	default:
- 		printk(KERN_DEBUG
--		       "%s: unable to resolve type %X addresses.\n", 
-+		       "%s: unable to resolve type %X addresses.\n",
- 		       dev->name, (int)eth->h_proto);
--		
-+
- 		memcpy(eth->h_source, dev->dev_addr, dev->addr_len);
- 		break;
- 	}
-@@ -147,7 +144,6 @@ int eth_rebuild_header(struct sk_buff *s
- 	return 0;
- }
- 
--
- /**
-  * eth_type_trans - determine the packet's protocol ID.
-  * @skb: received socket data
-@@ -157,54 +153,55 @@ int eth_rebuild_header(struct sk_buff *s
-  * assume 802.3 if the type field is short enough to be a length.
-  * This is normal practice and works for any 'now in use' protocol.
-  */
--__be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
-+__be16 eth_type_trans(struct sk_buff * skb, struct net_device * dev)
- {
- 	struct ethhdr *eth;
- 	unsigned char *rawp;
--	
-+
- 	skb->mac.raw = skb->data;
--	skb_pull(skb,ETH_HLEN);
-+	skb_pull(skb, ETH_HLEN);
- 	eth = eth_hdr(skb);
--	
-+
- 	if (is_multicast_ether_addr(eth->h_dest)) {
- 		if (!compare_ether_addr(eth->h_dest, dev->broadcast))
- 			skb->pkt_type = PACKET_BROADCAST;
- 		else
- 			skb->pkt_type = PACKET_MULTICAST;
- 	}
--	
-+
- 	/*
--	 *	This ALLMULTI check should be redundant by 1.4
--	 *	so don't forget to remove it.
-+	 *      This ALLMULTI check should be redundant by 1.4
-+	 *      so don't forget to remove it.
- 	 *
--	 *	Seems, you forgot to remove it. All silly devices
--	 *	seems to set IFF_PROMISC.
-+	 *      Seems, you forgot to remove it. All silly devices
-+	 *      seems to set IFF_PROMISC.
- 	 */
--	 
--	else if(1 /*dev->flags&IFF_PROMISC*/) {
-+
-+	else if (1 /*dev->flags&IFF_PROMISC */ ) {
- 		if (unlikely(compare_ether_addr(eth->h_dest, dev->dev_addr)))
- 			skb->pkt_type = PACKET_OTHERHOST;
- 	}
--	
-+
- 	if (ntohs(eth->h_proto) >= 1536)
- 		return eth->h_proto;
--		
-+
- 	rawp = skb->data;
--	
-+
- 	/*
--	 *	This is a magic hack to spot IPX packets. Older Novell breaks
--	 *	the protocol design and runs IPX over 802.3 without an 802.2 LLC
--	 *	layer. We look for FFFF which isn't a used 802.2 SSAP/DSAP. This
--	 *	won't work for fault tolerant netware but does for the rest.
-+	 *      This is a magic hack to spot IPX packets. Older Novell breaks
-+	 *      the protocol design and runs IPX over 802.3 without an 802.2 LLC
-+	 *      layer. We look for FFFF which isn't a used 802.2 SSAP/DSAP. This
-+	 *      won't work for fault tolerant netware but does for the rest.
- 	 */
- 	if (*(unsigned short *)rawp == 0xFFFF)
- 		return htons(ETH_P_802_3);
--		
-+
- 	/*
--	 *	Real 802.2 LLC
-+	 *      Real 802.2 LLC
- 	 */
- 	return htons(ETH_P_802_2);
- }
-+EXPORT_SYMBOL(eth_type_trans);
- 
- /**
-  * eth_header_parse - extract hardware address from packet
-@@ -230,8 +227,8 @@ int eth_header_cache(struct neighbour *n
- 	struct ethhdr *eth;
- 	struct net_device *dev = neigh->dev;
- 
--	eth = (struct ethhdr*)
--		(((u8*)hh->hh_data) + (HH_DATA_OFF(sizeof(*eth))));
-+	eth = (struct ethhdr *)
-+	    (((u8 *) hh->hh_data) + (HH_DATA_OFF(sizeof(*eth))));
- 
- 	if (type == __constant_htons(ETH_P_802_3))
- 		return -1;
-@@ -251,14 +248,13 @@ int eth_header_cache(struct neighbour *n
-  *
-  * Called by Address Resolution module to notify changes in address.
-  */
--void eth_header_cache_update(struct hh_cache *hh, struct net_device *dev, unsigned char * haddr)
-+void eth_header_cache_update(struct hh_cache *hh, struct net_device *dev,
-+			     unsigned char *haddr)
- {
--	memcpy(((u8*)hh->hh_data) + HH_DATA_OFF(sizeof(struct ethhdr)),
-+	memcpy(((u8 *) hh->hh_data) + HH_DATA_OFF(sizeof(struct ethhdr)),
- 	       haddr, dev->addr_len);
- }
- 
--EXPORT_SYMBOL(eth_type_trans);
--
- /**
-  * eth_mac_addr - set new Ethernet hardware address
-  * @dev: network device
-@@ -270,10 +266,10 @@ EXPORT_SYMBOL(eth_type_trans);
-  */
- static int eth_mac_addr(struct net_device *dev, void *p)
- {
--	struct sockaddr *addr=p;
-+	struct sockaddr *addr = p;
- 	if (netif_running(dev))
- 		return -EBUSY;
--	memcpy(dev->dev_addr, addr->sa_data,dev->addr_len);
-+	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
- 	return 0;
- }
- 
-@@ -315,7 +311,7 @@ void ether_setup(struct net_device *dev)
- 	dev->tx_queue_len	= 1000;	/* Ethernet wants good queues */	
- 	dev->flags		= IFF_BROADCAST|IFF_MULTICAST;
- 	
--	memset(dev->broadcast,0xFF, ETH_ALEN);
-+	memset(dev->broadcast, 0xFF, ETH_ALEN);
- 
- }
- EXPORT_SYMBOL(ether_setup);
+
