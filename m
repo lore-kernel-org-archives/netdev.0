@@ -1,78 +1,103 @@
-From: Mike Kershaw <dragorn@kismetwireless.net>
-Subject: Re: sysfs vs. d80211 configuration
-Date: Mon, 14 Aug 2006 20:07:06 -0400
-Message-ID: <20060815000706.GE5672@drd1812a>
-References: <44E07662.8070506@sipsolutions.net> <Pine.NEB.4.64.0608142302560.21364@otaku.freeshell.org>
-Reply-To: Mike Kershaw <dragorn@kismetwireless.net>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: [PATCH 4/6] ehea: header files
+Date: Tue, 15 Aug 2006 10:08:19 +1000
+Message-ID: <1155600499.9047.13.camel@localhost.localdomain>
+References: <44D99F56.7010201@de.ibm.com>
+	 <1155190921.9801.43.camel@localhost.localdomain>
+	 <44E07267.7070007@de.ibm.com>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="84ND8YJRMFlzkrP4"
-Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-mGWz1ApQ+VDu554yWbLm"
+Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Marcus Eder <meder@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from melchior.nerv-un.net ([216.179.125.34]:49416 "EHLO nerv-un.net")
-	by vger.kernel.org with ESMTP id S965079AbWHOAHx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 20:07:53 -0400
-To: Alexey Toptygin <alexeyt@freeshell.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.NEB.4.64.0608142302560.21364@otaku.freeshell.org>
+Received: from ozlabs.tip.net.au ([203.10.76.45]:65199 "EHLO ozlabs.org")
+	by vger.kernel.org with ESMTP id S965080AbWHOAIV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 20:08:21 -0400
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
+In-Reply-To: <44E07267.7070007@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---84ND8YJRMFlzkrP4
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+--=-mGWz1ApQ+VDu554yWbLm
+Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, Aug 14, 2006 at 11:05:15PM +0000, Alexey Toptygin wrote:
-> On Mon, 14 Aug 2006, Johannes Berg wrote:
+On Mon, 2006-08-14 at 14:53 +0200, Jan-Bernd Themann wrote:
+> Michael Ellerman wrote:
+> >> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea.h	1969-12-31 16:00:00.=
+000000000 -0800
+> >> +++ kernel/drivers/net/ehea/ehea.h	2006-08-08 23:59:39.927452928 -0700
+> >> +
+> >> +#define EHEA_PAGESHIFT  12
+> >> +#define EHEA_PAGESIZE   4096UL
+> >> +#define EHEA_CACHE_LINE 128
+> >=20
+> > This looks like a very bad idea, what happens if you're running on a
+> > machine with 64K pages?
+> >=20
 >=20
-> >In my seemingly never-ending quest to actually use the d80211 stack for=
-=20
-> >something useful I just wanted to write a small setuid tool that:
-> >* creates and opens a new monitor interface
-> >* drops priviledges
-> >* ... does things with received frames ... (not interesting for this=20
-> >discussion)
-> >* removes new monitor interface
-> >
-> >So I figured I'd just keep an fd open to=20
-> >/sys/class/net/mymonitorinterface/remove_iface to which I could write th=
-e=20
-> >interfaces name after I was done with it. However, when writing to that =
-fd=20
-> >I got -EACCESS because it checks for CAP_NET_ADMIN.
+> The EHEA_PAGESIZE define is needed for queue management to hardware side.
+
+You mean the eHEA has its own concept of page size? Separate from the
+page size used by the MMU?
+
+> >> +/*
+> >> + *  h_galpa:
+> >> + *  for pSeries this is a 64bit memory address where
+> >> + *  I/O memory is mapped into CPU address space
+> >> + */
+> >> +
+> >> +struct h_galpa {
+> >> +	u64 fw_handle;
+> >> +};
+> >=20
+> > What is a h_galpa? And why does it need a struct if it's just a u64?
+> >=20
 >=20
-> Why not have the tool create a monitor interface, open it, and fork; the=
-=20
-> child drops privileges and does the reading, and the parent wait(2)s for=
-=20
-> the child and removes the interface once it has collected the child?
+> The eHEA chip is not PCI attached but directly connected to a proprietary
+> bus. Currently, we can access it by a simple 64 bit address, but this is =
+not
+> true in all cases. Having a struct here allows us to encapsulate the chip
+> register access and to respond to changes to system hardware.
+>=20
+> We'll change the name to h_epa meaning "ehea physical address"
 
-Kismet achieves this nearly the same way -- It keeps a root process for
-channel control, and talks over IPC to a nonpriv process.  When it's
-done, it sends the shutdown command to the root process and restores the
-interface settings (or removes monitor interfaces, etc). =20
+Hmm, I'm not convinced. Having the struct doesn't really encapsulate
+much, because most of the places where you use the h_galpa struct just
+pull out the fw_handle anyway. So if you change the layout of the struct
+you're going to have to change most of the code anyway. And in the
+meantime it makes the code a lot less readable, most people understand
+what "u64 addr" is about, whereas "struct h_galpa" is much less
+meaningful. </2c>
 
-If you set up all your interfaces before the fork you can keep the IPC
-very simple.
-
--m
+cheers
 
 --=20
-Mike Kershaw/Dragorn <dragorn@kismetwireless.net>
-GPG Fingerprint: 3546 89DF 3C9D ED80 3381  A661 D7B2 8822 738B BDB1
+Michael Ellerman
+IBM OzLabs
 
---84ND8YJRMFlzkrP4
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+wwweb: http://michael.ellerman.id.au
+phone: +61 2 6212 1183 (tie line 70 21183)
+
+We do not inherit the earth from our ancestors,
+we borrow it from our children. - S.M.A.R.T Person
+
+--=-mGWz1ApQ+VDu554yWbLm
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
+Version: GnuPG v1.4.2.2 (GNU/Linux)
 
-iD8DBQFE4RAq17KIInOLvbERAo+XAKDUxhf8FKgTEPzZ3dCbE4gV5pAJSQCeIwLI
-tNZ0nsYMoCK0oj2498oXGCk=
-=b+nD
+iD8DBQBE4RBzdSjSd0sB4dIRAh2OAJ94ZbR53XYsEFcsxdnQnDiiiQHn2wCgpDm0
+bn0qC6IRF+LwDf/j5Ml119k=
+=aD/f
 -----END PGP SIGNATURE-----
 
---84ND8YJRMFlzkrP4--
+--=-mGWz1ApQ+VDu554yWbLm--
+
