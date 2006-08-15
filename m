@@ -1,34 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: bonding: cannot remove certain named devices
-Date: Tue, 15 Aug 2006 15:56:12 -0700 (PDT)
-Message-ID: <20060815.155612.111203542.davem@davemloft.net>
-References: <20060815214914.GA5307@nostromo.devel.redhat.com>
-	<Pine.CYG.4.58.0608151532070.2316@mawilli1-desk2.amr.corp.intel.com>
-	<20060815154444.286e12ed@localhost.localdomain>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: [PATCH] Use __always_inline in orinoco_lock()/orinoco_unlock()
+Date: Tue, 15 Aug 2006 19:14:32 -0400
+Message-ID: <1155683672.5140.1.camel@dv>
+References: <20060815192558.3590.63591.stgit@dv.roinet.com>
+	 <20060815225012.GA7612@redhat.com>
+	 <20060815.155417.112850438.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: mitch.a.williams@intel.com, notting@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: davej@redhat.com, netdev@vger.kernel.org, bunk@stusta.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28604
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750797AbWHOW5K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 18:57:10 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060815154444.286e12ed@localhost.localdomain>
+Received: from fencepost.gnu.org ([199.232.76.164]:59841 "EHLO
+	fencepost.gnu.org") by vger.kernel.org with ESMTP id S1750800AbWHOXPN
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 19:15:13 -0400
+Received: from proski by fencepost.gnu.org with local (Exim 4.34)
+	id 1GD87r-0002gq-Ot
+	for netdev@vger.kernel.org; Tue, 15 Aug 2006 19:15:12 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060815.155417.112850438.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Tue, 15 Aug 2006 15:44:44 -0700
+On Tue, 2006-08-15 at 15:54 -0700, David Miller wrote:
+> >  >  /* These functions *must* be inline or they will break horribly on
+> >  > - * SPARC, due to its weird semantics for save/restore flags. extern
+> >  > - * inline should prevent the kernel from linking or module from
+> >  > - * loading if they are not inlined. */
+> >  > -extern inline int orinoco_lock(struct orinoco_private *priv,
+> >  > -			       unsigned long *flags)
+> >  > + * SPARC, due to its weird semantics for save/restore flags. */
+> > 
+> > Didn't that get fixed up for SPARC a year or so back?
+> 
+> That's right, this problem no longer exists.
 
-> IMHO idiots who put space's in filenames should be ignored. As long
-> as the bonding code doesn't throw a fatal error, it has every right
-> to return "No such device" to the fool.
+Then, I guess, "static inline" would be just fine, right?
 
-I agree that whitespace in device names push the limits of sanity.
+-- 
+Regards,
+Pavel Roskin
 
-But if we believe that, we should enforce it in dev_valid_name().
 
-Does anyone really mind if I add the whitespace check there?
