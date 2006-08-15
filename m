@@ -1,213 +1,116 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] eth: docbook comments
-Date: Tue, 15 Aug 2006 12:57:59 -0700
-Message-ID: <20060815125759.590a4a44@dxpl.pdx.osdl.net>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: proposal for new wireless configuration API
+Date: Tue, 15 Aug 2006 15:59:54 -0400
+Message-ID: <1155671994.19284.13.camel@localhost.localdomain>
+References: <1155655728.17742.30.camel@ux156>
+	 <200608151838.58182.mb@bu3sch.de>
+	 <1155665688.8940.10.camel@localhost.localdomain>
+	 <200608152113.23697.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Randy.Dunlap" <rdunlap@xenotime.net>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Jean Tourrilhes <jt@hpl.hp.com>,
+	Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:18053 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932779AbWHOT6B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 15:58:01 -0400
-To: "David S. Miller" <davem@davemloft.net>
+Received: from mx1.redhat.com ([66.187.233.31]:38079 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S932782AbWHOUBk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 16:01:40 -0400
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200608152113.23697.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add docbook style comments to ethernet support.
+On Tue, 2006-08-15 at 21:13 +0200, Michael Buesch wrote:
+> On Tuesday 15 August 2006 20:14, Dan Williams wrote:
+> > On Tue, 2006-08-15 at 18:38 +0200, Michael Buesch wrote:
+> > > On Tuesday 15 August 2006 18:29, Dan Williams wrote:
+> > > > o Separate attributes for channel and frequency
+> > > 
+> > > No, channel and freq is the same. It's just another name
+> > > for the same child. I would say we only want to deal with channel numbers
+> > > in the API. That's much easier, as we don't have to deal with this
+> > > fixed-point (or even floating point) mess. Look at WE for the
+> > > fixed-point mess.
+> > 
+> > Right, I don't have a problem with only using one or the other; but we
+> > _HAVE_ to provide a function in the driver that allows userspace
+> > programs to convert channel <-> frequency both ways, like you suggest
+> > below.  Obviously the channel/frequency mapping isn't the same
+> > everywhere.
+> > 
+> > [ or is it?  I'd be very uncomfortable using the same channel #s
+> > everywhere unless some IEEE spec states exactly what the channel #s are
+> > for every frequency range that wireless stuff operates in ]
+> 
+> The channel<->freq mapping is stable.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Ok, so if somebody magically opens up new unlicensed ISM spectrum
+around, say, 7GHz, does that space get broken into channels and assigned
+specific numbers by the IEEE?
 
----
- net/ethernet/eth.c |   90 +++++++++++++++++++++++++++++++++++++----------------
- 1 file changed, 64 insertions(+), 26 deletions(-)
+I know there are stable channel #s for abg range.  What about the
+future? [1]  Can we guarantee that whenever new spectrum opens up that
+future 802.11 products may use, that the mappings are well-defined?
 
---- net-2.6.19.orig/net/ethernet/eth.c
-+++ net-2.6.19/net/ethernet/eth.c
-@@ -64,23 +64,24 @@
- 
- __setup("ether=", netdev_boot_setup);
- 
--/*
-- *	 Create the Ethernet MAC header for an arbitrary protocol layer 
-+/**
-+ * eth_header - create the Ethernet header
-+ * @skb:	buffer to alter
-+ * @dev:	source device
-+ * @type:	Ethernet type field
-+ * @daddr: destination address (NULL leave destination address)
-+ * @saddr: source address (NULL use device source address)
-+ * @len:   packet length (<= skb->len)
-+ *
-  *
-- *	saddr=NULL	means use device source address
-- *	daddr=NULL	means leave destination address (eg unresolved arp)
-+ * Set the protocol type. For a packet of type ETH_P_802_3 we put the length
-+ * in here instead. It is up to the 802.2 layer to carry protocol information.
-  */
--
- int eth_header(struct sk_buff *skb, struct net_device *dev, unsigned short type,
- 	   void *daddr, void *saddr, unsigned len)
- {
- 	struct ethhdr *eth = (struct ethhdr *)skb_push(skb,ETH_HLEN);
- 
--	/* 
--	 *	Set the protocol type. For a packet of type ETH_P_802_3 we put the length
--	 *	in here instead. It is up to the 802.2 layer to carry protocol information.
--	 */
--	
- 	if(type!=ETH_P_802_3) 
- 		eth->h_proto = htons(type);
- 	else
-@@ -113,16 +114,16 @@ int eth_header(struct sk_buff *skb, stru
- 	return -ETH_HLEN;
- }
- 
--
--/*
-- *	Rebuild the Ethernet MAC header. This is called after an ARP
-- *	(or in future other address resolution) has completed on this
-- *	sk_buff. We now let ARP fill in the other fields.
-+/**
-+ * eth_rebuild_header- rebuild the Ethernet MAC header.
-+ * @skb: socket buffer to update
-  *
-- *	This routine CANNOT use cached dst->neigh!
-- *	Really, it is used only when dst->neigh is wrong.
-+ * This is called after an ARP or IPV6 ndisc it's resolution on this
-+ * sk_buff. We now let protocol (ARP) fill in the other fields.
-+ *
-+ * This routine CANNOT use cached dst->neigh!
-+ * Really, it is used only when dst->neigh is wrong.
-  */
--
- int eth_rebuild_header(struct sk_buff *skb)
- {
- 	struct ethhdr *eth = (struct ethhdr *)skb->data;
-@@ -147,12 +148,15 @@ int eth_rebuild_header(struct sk_buff *s
- }
- 
- 
--/*
-- *	Determine the packet's protocol ID. The rule here is that we 
-- *	assume 802.3 if the type field is short enough to be a length.
-- *	This is normal practice and works for any 'now in use' protocol.
-+/**
-+ * eth_type_trans - determine the packet's protocol ID.
-+ * @skb: received socket data
-+ * @dev: receiving network device
-+ *
-+ * The rule here is that we
-+ * assume 802.3 if the type field is short enough to be a length.
-+ * This is normal practice and works for any 'now in use' protocol.
-  */
-- 
- __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct ethhdr *eth;
-@@ -202,6 +206,11 @@ __be16 eth_type_trans(struct sk_buff *sk
- 	return htons(ETH_P_802_2);
- }
- 
-+/**
-+ * eth_header_parse - extract hardware address from packet
-+ * @skb: packet to extract header from
-+ * @haddr: destination buffer
-+ */
- static int eth_header_parse(struct sk_buff *skb, unsigned char *haddr)
- {
- 	struct ethhdr *eth = eth_hdr(skb);
-@@ -209,6 +218,12 @@ static int eth_header_parse(struct sk_bu
- 	return ETH_ALEN;
- }
- 
-+/**
-+ * eth_header_cache - fill cache entry from neighbour
-+ * @neigh: source neighbour
-+ * @hh: destination cache entry
-+ * Create an Ethernet header template from the neighbour.
-+ */
- int eth_header_cache(struct neighbour *neigh, struct hh_cache *hh)
- {
- 	unsigned short type = hh->hh_type;
-@@ -228,10 +243,14 @@ int eth_header_cache(struct neighbour *n
- 	return 0;
- }
- 
--/*
-+/**
-+ * eth_header_cache_update - update cache entry
-+ * @hh: destination cache entry
-+ * @dev: network device
-+ * @haddr: new hardware address
-+ *
-  * Called by Address Resolution module to notify changes in address.
-  */
--
- void eth_header_cache_update(struct hh_cache *hh, struct net_device *dev, unsigned char * haddr)
- {
- 	memcpy(((u8*)hh->hh_data) + HH_DATA_OFF(sizeof(struct ethhdr)),
-@@ -240,6 +259,15 @@ void eth_header_cache_update(struct hh_c
- 
- EXPORT_SYMBOL(eth_type_trans);
- 
-+/**
-+ * eth_mac_addr - set new Ethernet hardware address
-+ * @dev: network device
-+ * @p: socket address
-+ * Change hardware address of device.
-+ *
-+ * This doesn't change hardware matching, so needs to be overridden
-+ * for most real devices.
-+ */
- static int eth_mac_addr(struct net_device *dev, void *p)
- {
- 	struct sockaddr *addr=p;
-@@ -249,6 +277,14 @@ static int eth_mac_addr(struct net_devic
- 	return 0;
- }
- 
-+/**
-+ * eth_change_mtu - set new MTU size
-+ * @dev: network device
-+ * @new_mtu: new Maximum Transfer Unit
-+ *
-+ * Allow changing MTU size. Needs to be overridden for devices
-+ * supporting jumbo frames.
-+ */
- static int eth_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	if (new_mtu < 68 || new_mtu > ETH_DATA_LEN)
-@@ -257,8 +293,10 @@ static int eth_change_mtu(struct net_dev
- 	return 0;
- }
- 
--/*
-- * Fill in the fields of the device structure with ethernet-generic values.
-+/**
-+ * ether_setup - setup Ethernet network device
-+ * @dev: network device
-+ * Fill in the fields of the device structure with Ethernet-generic values.
-  */
- void ether_setup(struct net_device *dev)
- {
-@@ -283,15 +321,15 @@ void ether_setup(struct net_device *dev)
- EXPORT_SYMBOL(ether_setup);
- 
- /**
-- * alloc_etherdev - Allocates and sets up an ethernet device
-+ * alloc_etherdev - Allocates and sets up an Ethernet device
-  * @sizeof_priv: Size of additional driver-private structure to be allocated
-- *	for this ethernet device
-+ *	for this Ethernet device
-  *
-- * Fill in the fields of the device structure with ethernet-generic
-+ * Fill in the fields of the device structure with Ethernet-generic
-  * values. Basically does everything except registering the device.
-  *
-  * Constructs a new net device, complete with a private data area of
-- * size @sizeof_priv.  A 32-byte (not bit) alignment is enforced for
-+ * size (sizeof_priv).  A 32-byte (not bit) alignment is enforced for
-  * this private data area.
-  */
- 
+That was my main question.
+
+> What is unstable is the allowed channels map.
+> For APHY there are even many gaps in the map. For example
+> channels 6, 40 and 55 may be the only ones allowed
+> 
+> (6, 40, 55 are generated by my /brain/random device ;) )
+> 
+> The frequency range you mention is selected differently by
+> another config option. In d80211 we call it the PHYMODE.
+> Switching the PHYMODE changes the meaning of channel values
+> and changes the output of the two functions below.
+> 
+> So if I want to switch to channel 4 in the 2.4Ghz band, I would do:
+> select PHYMODE B or G,
+> select channel 4.
+> 
+> That would lead to the card tuning to 2427 MHz.
+
+That sounds fine to me.
+
+> > > The userspace tools can easily convert freq to channel and back.
+> > > And in the kernel, we can easily provide some small function
+> > > to convert from channel to khz and back, for example. But I would
+> > > like to see the fixed-point stuff in the API vanish.
+> > 
+> > No argument here; as long as we provide the mapping function in the
+> > driver for each card.
+> 
+> Hm, I don't know if I understand this correctly.
+> You want to implement the mapping function in every driver
+> or in the d80211 stack?
+
+If we can assume that future spectrum will have well-defined channel
+numbers, then I don't have a problem with having the mapping function
+_once_ in d80211.
+
+Will the d80211 stack _only_ be used for 802.11 [a|b|g|n]
+implementations?  What if another implementation comes around that uses
+a different PHY but the same spectrum and same protocol?  Ultrawide Band
+using 802.11 protocol or something?  Who knows?
+
+> It belongs into a central place in the 80211 stack. There where
+> regulatory domain stuff is managed, too.
+
+No argument there.  I'm just wondering aloud if we can guarantee that
+the mappings will always be the same for stuff other than 802.11[abgn].
+Originally, Linux Wireless Extensions was designed with stuff in
+addition to 802.11.  It happened that 802.11 is pretty much the only
+thing that uses WE.  Since d80211 is by nature an _802.11_ stack, it's
+fine to restrict the configuration to 802.11 stuff.  But we can't
+necessarily say what every 802.11 substandard is going to do with
+channels and spectrum in the future, can we?  Making the mapping API
+flexible is one way to ensure that we don't get stuck a WE-type trap.
+
+Dan
+
+[1]  Obviously we cannot ever anticipate everything, and nobody should
+try to excessively future-proof d80211, or nothing will get done.  We
+need to balance extendability with over-anticipation.
+
+
