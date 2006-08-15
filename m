@@ -1,33 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 03/13] ppp: handle kmalloc() failures
-Date: Tue, 15 Aug 2006 03:29:08 -0700 (PDT)
-Message-ID: <20060815.032908.94558128.davem@davemloft.net>
-References: <200608150603.k7F63chF012930@shell0.pdx.osdl.net>
-	<17633.40289.120307.571499@cargo.ozlabs.ibm.com>
+From: "Jenkins, Clive" <Clive.Jenkins@xerox.com>
+Subject: RE: [PATCH 4/6] ehea: header files
+Date: Tue, 15 Aug 2006 11:53:05 +0100
+Message-ID: <35786B99AB3FDC45A821572461791973AC87D3@gbrwgceumf01.eu.xerox.net>
+References: <44E19765.7030301@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@vger.kernel.org, takis@issaris.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Thomas Klein" <tklein@de.ibm.com>,
+	"netdev" <netdev@vger.kernel.org>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"linux-ppc" <linuxppc-dev@ozlabs.org>,
+	"Christoph Raisch" <raisch@de.ibm.com>,
+	"Marcus Eder" <meder@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:3731
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965368AbWHOK3H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 06:29:07 -0400
-To: paulus@samba.org
-In-Reply-To: <17633.40289.120307.571499@cargo.ozlabs.ibm.com>
+Received: from wvmler4.mail.xerox.com ([13.8.138.219]:60550 "EHLO
+	wvmler4.mail.xerox.com") by vger.kernel.org with ESMTP
+	id S1030212AbWHOKxg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 06:53:36 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <44E19765.7030301@de.ibm.com>
+To: "Jan-Bernd Themann" <ossthema@de.ibm.com>, <michael@ellerman.id.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Mackerras <paulus@samba.org>
-Date: Tue, 15 Aug 2006 20:09:37 +1000
+> > You mean the eHEA has its own concept of page size? Separate from
+the
+> > page size used by the MMU?
+> > 
+> 
+> yes, the eHEA currently supports only 4K pages for queues
 
-> secondly, this is a bit rude, isn't it, destroying the whole thing
-> because one insertion failed?  Some existing pppd will come along and
-> try to use its (previously successfully created) ppp unit and get told
-> it doesn't exist any more!
+In that case, I suggest use the kernel's page size, but add a
+compile-time
+check, and quit with an error message if driver does not support it.
 
-Less rude than an OOPS from accessing NULL though :-)
-
-Ok, I'll wait for a better version of this patch, but
-I'd like to see a fixed up version soon because this
-does fix a real bug.
+Regards,
+Clive
