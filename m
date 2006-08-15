@@ -1,45 +1,35 @@
-From: Christoph Raisch <RAISCH@de.ibm.com>
-Subject: RE: [PATCH 4/6] ehea: header files
-Date: Tue, 15 Aug 2006 13:07:08 +0200
-Message-ID: <OF8C6BA147.30EE53F8-ONC12571CB.003C7748-C12571CB.003CBAA4@de.ibm.com>
-References: <35786B99AB3FDC45A821572461791973AC87D3@gbrwgceumf01.eu.xerox.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 09/16] [IPv6] address: Convert address notification to use rtnl_notify()
+Date: Tue, 15 Aug 2006 13:17:35 +0200
+Message-ID: <20060815111735.GU14627@postel.suug.ch>
+References: <20060814213718.580598840@postel.suug.ch> <20060814214341.834971519@postel.suug.ch> <1155598991.6946.42.camel@jzny2> <20060815003614.GA8677@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
-	"linux-ppc" <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>, michael@ellerman.id.au,
-	"netdev" <netdev@vger.kernel.org>, ossthema@de.ibm.com,
-	Thomas Q Klein <tklein@de.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:30662 "EHLO
-	mtagate1.de.ibm.com") by vger.kernel.org with ESMTP
-	id S1030218AbWHOLDW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 07:03:22 -0400
-In-Reply-To: <35786B99AB3FDC45A821572461791973AC87D3@gbrwgceumf01.eu.xerox.net>
-To: "Jenkins, Clive" <Clive.Jenkins@xerox.com>
+Received: from postel.suug.ch ([194.88.212.233]:4064 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932486AbWHOLRP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 07:17:15 -0400
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Disposition: inline
+In-Reply-To: <20060815003614.GA8677@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+* Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> 2006-08-15 04:36
+> > Some of these removals of current->pid will affect users such as quagga,
+> > zebra, vrrpd etc.
+> 
+> If they survived cleanup in IPv4, they definitely will not feel cleanup
+> in IPv6.
 
+That was exactly my thought, the notifications in question provide
+a pid of 0 for their IPv4 counterparts therefore I considered it
+safe.
 
-"Jenkins, Clive" wrote on 15.08.2006 12:53:05:
-
-> > > You mean the eHEA has its own concept of page size? Separate from
-> the
-> > > page size used by the MMU?
-> > >
-> >
-> > yes, the eHEA currently supports only 4K pages for queues
->
-> In that case, I suggest use the kernel's page size, but add a
-> compile-time
-> check, and quit with an error message if driver does not support it.
-
-eHEA does support other page sizes than 4k, but the HW interface expects to
-see 4k pages
-The adaption is done in the device driver, therefore we have a seperate 4k
-define.
-
-
-Regards . . . Christoph R.
-
+However, I changed IPv4 addresses to provide the pid and support
+NLM_F_ECHO and the same will follow for IPv6 address notifications
+which will mean that quagga sees a different set of IPv4 address
+notifications. It would be a bug on their side if that would cause
+failure though.
