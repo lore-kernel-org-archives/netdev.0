@@ -1,42 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHSET] rtnetlink notification rework
-Date: Tue, 15 Aug 2006 00:38:24 -0700 (PDT)
-Message-ID: <20060815.003824.26965635.davem@davemloft.net>
-References: <20060814213718.580598840@postel.suug.ch>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [PATCH 1/7] ehea: interface to network stack
+Date: Tue, 15 Aug 2006 09:39:59 +0200
+Message-ID: <20060815073959.GB6922@osiris.boeblingen.de.ibm.com>
+References: <44E0A4CC.4090705@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Thomas Klein <osstklei@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:33247
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965211AbWHOHiX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 03:38:23 -0400
-To: tgraf@suug.ch
-In-Reply-To: <20060814213718.580598840@postel.suug.ch>
+Received: from mtagate1.uk.ibm.com ([195.212.29.134]:11700 "EHLO
+	mtagate1.uk.ibm.com") by vger.kernel.org with ESMTP id S965221AbWHOHkI
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 03:40:08 -0400
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <44E0A4CC.4090705@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Mon, 14 Aug 2006 23:37:18 +0200
+> +int __init ehea_module_init(void)
+> +{
+> +	int ret = -EINVAL;
+> +
+> +	EDEB_EN(7, "");
+> +
+> +	printk(KERN_INFO "IBM eHEA Ethernet Device Driver (Release %s)\n",
+> +	       DRV_VERSION);
+> +
+> +
+> +	ret = ibmebus_register_driver(&ehea_driver);
+> +	if (ret) {
+> +		EDEB_ERR(4, "Failed registering eHEA device driver on ebus");
+> +		return -EINVAL;
+> +	}
+> +
+> +	EDEB_EX(7, "");
+> +	return 0;
+> +}
 
-> This patchset reworks rtnetlink notifications. Notification logic
-> is fixed and gets hidden behind nlmsg_notify() and the rtnl socket
-> is no longer directly accessed. All notification paths get
-> appropriate error handling. NLM_F_ECHO support is added where it
-> makes sense and no major surgery is required. Abuses of current->pid
-> for netlink pids are fixed. An exception is made for users of
-> rtnetlink_send() which will get converted in a second step as some
-> bigger code change are required.
+Function should be static and could be shortened to the single line
 
-Really nice work Thomas.  All patches applied to net-2.6.19:
+return ibmebus_register_driver(&ehea_driver);
 
--extern struct sock *rtnl;
--
-...
--struct sock *rtnl;
--
-...
--EXPORT_SYMBOL(rtnl);
-
-Let's party! :-)
+, I guess :)
