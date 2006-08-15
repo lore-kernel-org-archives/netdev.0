@@ -1,65 +1,53 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: [PATCH] Add Larry Finger to bcm43xx MAINTAINERS
-Date: Wed, 16 Aug 2006 00:39:36 +0200
-Message-ID: <200608160039.37200.mb@bu3sch.de>
+From: Mitch Williams <mitch.a.williams@intel.com>
+Subject: Re: bonding: cannot remove certain named devices
+Date: Tue, 15 Aug 2006 15:41:08 -0700
+Message-ID: <Pine.CYG.4.58.0608151532070.2316@mawilli1-desk2.amr.corp.intel.com>
+References: <20060815194856.GA3869@nostromo.devel.redhat.com>
+ <Pine.CYG.4.58.0608151331220.3272@mawilli1-desk2.amr.corp.intel.com>
+ <20060815204555.GB4434@nostromo.devel.redhat.com> <20060815140249.15472a82@dxpl.pdx.osdl.net>
+ <20060815214914.GA5307@nostromo.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:43895 "EHLO
+	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
+	id S1750757AbWHOWlZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 18:41:25 -0400
+To: Bill Nottingham <notting@redhat.com>
+In-Reply-To: <20060815214914.GA5307@nostromo.devel.redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 15 Aug 2006, Bill Nottingham wrote:
+>
+> Stephen Hemminger (shemminger@osdl.org) said:
+> > > They're certainly allowed, and the sysfs directory structure, files,
+> > > etc. handle it ok. Userspace tends to break in a variety of ways.
+> > >
+> > > I believe the only invalid character in an interface name is '/'.
+> > >
+> >
+> > The names "." and ".." are also verboten.
+>
+> Right. Well, I suspect they're verboten-because-some-code-breaks-making-the-directory.
+>
+> > Names with : in them are for IP aliases.
+>
 
-I officially drop my maintainance of the bcm43xx-softmac
-driver now with this mail. Larry will continue with my
-work on the bcm43xx-softmac driver.
+So can we use
+	sscanf(buffer, " %[^\n]", command);
+instead?  This should allow for whitespace in the filename.  Bad interface
+names will be caught by the call to dev_valid_name().
 
-I will instead focus on the bcm43xx-d80211 driver and on
-the implementation of the new v4 specs.
+(I think I'm reading the man page correctly.)
 
-So if someone wants to send some bcm43xx-softmac patch
-upstream, the person to send it to is Larry.
-Larry will also take care of backporting fixes from
-the bcm43xx-d80211 branch to bcm43xx-softmac.
+This could have the effect of making the parser way more finicky, though,
+since we would allow trailing whitespace.  Technically I suppose it's
+legal, but it's sure hard to see on the screen.
 
-So John, please apply the following patch to wireless-2.6.
+Anybody have a better solution?
 
---
-
-Remove Michael Buesch and add Larry Finger in the
-bcm43xx-softmac MAINTAINERS record.
-
-Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-
-Index: wireless-2.6/MAINTAINERS
-===================================================================
---- wireless-2.6.orig/MAINTAINERS	2006-08-15 16:51:43.000000000 +0200
-+++ wireless-2.6/MAINTAINERS	2006-08-16 00:32:46.000000000 +0200
-@@ -449,9 +449,9 @@
- W:	http://www.baycom.org/~tom/ham/ham.html
- S:	Maintained
- 
--BCM43XX WIRELESS DRIVER
--P:	Michael Buesch
--M:	mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org
-+BCM43XX WIRELESS DRIVER (SOFTMAC BASED VERSION)
-+P:	Larry Finger
-+M:	Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org
- P:	Stefano Brivio
- M:	st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org
- W:	http://bcm43xx.berlios.de/
-
--- 
-Greetings Michael.
+-Mitch
