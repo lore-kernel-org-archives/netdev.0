@@ -1,124 +1,134 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 6/10]: [XFRM]: Add generation count to xfrm_state and
- xfrm_dst.
-Date: Tue, 15 Aug 2006 04:39:27 -0700 (PDT)
-Message-ID: <20060815.043927.51857958.davem@davemloft.net>
+Subject: [PATCH 7/10]: [XFRM]: Put more keys into destination hash function.
+Date: Tue, 15 Aug 2006 04:39:47 -0700 (PDT)
+Message-ID: <20060815.043947.72711031.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:2779
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:3547
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030256AbWHOLj2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 07:39:28 -0400
+	id S1030257AbWHOLjt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 07:39:49 -0400
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-[XFRM]: Add generation count to xfrm_state and xfrm_dst.
+[XFRM]: Put more keys into destination hash function.
 
-Each xfrm_state inserted gets a new generation counter
-value.  When a bundle is created, the xfrm_dst objects
-get the current generation counter of the xfrm_state
-they will attach to at dst->xfrm.
-
-xfrm_bundle_ok() will return false if it sees an
-xfrm_dst with a generation count different from the
-generation count of the xfrm_state that dst points to.
-
-This provides a facility by which to passively and
-cheaply invalidate cached IPSEC routes during SA
-database changes.
+Besides the daddr, key the hash on family and reqid too.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/xfrm.h      |    3 +++
- net/ipv4/xfrm4_policy.c |    1 +
- net/ipv6/xfrm6_policy.c |    1 +
- net/xfrm/xfrm_policy.c  |    2 ++
- net/xfrm/xfrm_state.c   |    3 +++
- 5 files changed, 10 insertions(+), 0 deletions(-)
+ net/xfrm/xfrm_state.c |   44 +++++++++++++++++++++++---------------------
+ 1 files changed, 23 insertions(+), 21 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index e2bb0a9..7d18fff 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -103,6 +103,8 @@ struct xfrm_state
- 	struct xfrm_id		id;
- 	struct xfrm_selector	sel;
- 
-+	u32			genid;
-+
- 	/* Key manger bits */
- 	struct {
- 		u8		state;
-@@ -540,6 +542,7 @@ struct xfrm_dst
- 		struct rt6_info		rt6;
- 	} u;
- 	struct dst_entry *route;
-+	u32 genid;
- 	u32 route_mtu_cached;
- 	u32 child_mtu_cached;
- 	u32 route_cookie;
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 8f50eae..72b75b8 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -93,6 +93,7 @@ __xfrm4_bundle_create(struct xfrm_policy
- 
- 		xdst = (struct xfrm_dst *)dst1;
- 		xdst->route = &rt->u.dst;
-+		xdst->genid = xfrm[i]->genid;
- 
- 		dst1->next = dst_prev;
- 		dst_prev = dst1;
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 73cd250..e46a639 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -109,6 +109,7 @@ __xfrm6_bundle_create(struct xfrm_policy
- 
- 		xdst = (struct xfrm_dst *)dst1;
- 		xdst->route = &rt->u.dst;
-+		xdst->genid = xfrm[i]->genid;
- 		if (rt->rt6i_node)
- 			xdst->route_cookie = rt->rt6i_node->fn_sernum;
- 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 3da67ca..c504b9a 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1300,6 +1300,8 @@ int xfrm_bundle_ok(struct xfrm_dst *firs
- 			return 0;
- 		if (dst->xfrm->km.state != XFRM_STATE_VALID)
- 			return 0;
-+		if (xdst->genid != dst->xfrm->genid)
-+			return 0;
- 
- 		mtu = dst_mtu(dst->child);
- 		if (xdst->child_mtu_cached != mtu) {
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index af3f23e..eb17f1b 100644
+index eb17f1b..9b3ab5c 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
-@@ -52,6 +52,7 @@ static struct hlist_head *xfrm_state_bys
- static unsigned int xfrm_state_hmask __read_mostly;
- static unsigned int xfrm_state_hashmax __read_mostly = 1 * 1024 * 1024;
+@@ -35,7 +35,7 @@ EXPORT_SYMBOL(sysctl_xfrm_aevent_rseqth)
+ /* Each xfrm_state may be linked to two tables:
+ 
+    1. Hash table by (spi,daddr,ah/esp) to find SA by SPI. (input,ctl)
+-   2. Hash table by daddr to find what SAs exist for given
++   2. Hash table by (daddr,family,reqid) to find what SAs exist for given
+       destination/tunnel endpoint. (output)
+  */
+ 
+@@ -54,37 +54,36 @@ static unsigned int xfrm_state_hashmax _
  static unsigned int xfrm_state_num;
-+static unsigned int xfrm_state_genid;
+ static unsigned int xfrm_state_genid;
  
- static inline unsigned int __xfrm4_dst_hash(xfrm_address_t *addr, unsigned int hmask)
+-static inline unsigned int __xfrm4_dst_hash(xfrm_address_t *addr, unsigned int hmask)
++static inline unsigned int __xfrm4_addr_hash(xfrm_address_t *addr)
  {
-@@ -640,6 +641,8 @@ static void __xfrm_state_insert(struct x
- {
- 	unsigned h = xfrm_dst_hash(&x->id.daddr, x->props.family);
+-	unsigned int h;
+-	h = ntohl(addr->a4);
+-	h = (h ^ (h>>16)) & xfrm_state_hmask;
+-	return h;
++	return ntohl(addr->a4);
+ }
  
-+	x->genid = ++xfrm_state_genid;
+-static inline unsigned int __xfrm6_dst_hash(xfrm_address_t *addr, unsigned int hmask)
++static inline unsigned int __xfrm6_addr_hash(xfrm_address_t *addr)
+ {
+-	unsigned int h;
+-	h = ntohl(addr->a6[2]^addr->a6[3]);
+-	h = (h ^ (h>>16)) & hmask;
+-	return h;
++	return ntohl(addr->a6[2]^addr->a6[3]);
+ }
+ 
+-static inline unsigned int __xfrm_dst_hash(xfrm_address_t *addr, unsigned short family,
++static inline unsigned int __xfrm_dst_hash(xfrm_address_t *addr,
++					   u32 reqid, unsigned short family,
+ 					   unsigned int hmask)
+ {
++	unsigned int h = family ^ reqid;
+ 	switch (family) {
+ 	case AF_INET:
+-		return __xfrm4_dst_hash(addr, hmask);
++		h ^= __xfrm4_addr_hash(addr);
++		break;
+ 	case AF_INET6:
+-		return __xfrm6_dst_hash(addr, hmask);
++		h ^= __xfrm6_addr_hash(addr);
++		break;
+ 	}
+-	return 0;
++	return (h ^ (h >> 16)) & hmask;
+ }
+ 
+-static inline unsigned int xfrm_dst_hash(xfrm_address_t *addr, unsigned short family)
++static inline unsigned int xfrm_dst_hash(xfrm_address_t *addr,
++					 u32 reqid, unsigned short family)
+ {
+-	return __xfrm_dst_hash(addr, family, xfrm_state_hmask);
++	return __xfrm_dst_hash(addr, reqid, family, xfrm_state_hmask);
+ }
+ 
+ static inline unsigned int __xfrm4_spi_hash(xfrm_address_t *addr, u32 spi, u8 proto,
+@@ -163,7 +162,8 @@ static void xfrm_hash_transfer(struct hl
+ 	hlist_for_each_entry_safe(x, entry, tmp, list, bydst) {
+ 		unsigned int h;
+ 
+-		h = __xfrm_dst_hash(&x->id.daddr, x->props.family, nhashmask);
++		h = __xfrm_dst_hash(&x->id.daddr, x->props.reqid,
++				    x->props.family, nhashmask);
+ 		hlist_add_head(&x->bydst, ndsttable+h);
+ 
+ 		h = __xfrm_spi_hash(&x->id.daddr, x->id.spi, x->id.proto,
+@@ -542,7 +542,7 @@ xfrm_state_find(xfrm_address_t *daddr, x
+ 		struct xfrm_policy *pol, int *err,
+ 		unsigned short family)
+ {
+-	unsigned int h = xfrm_dst_hash(daddr, family);
++	unsigned int h = xfrm_dst_hash(daddr, tmpl->reqid, family);
+ 	struct hlist_node *entry;
+ 	struct xfrm_state *x, *x0;
+ 	int acquire_in_progress = 0;
+@@ -639,7 +639,9 @@ out:
+ 
+ static void __xfrm_state_insert(struct xfrm_state *x)
+ {
+-	unsigned h = xfrm_dst_hash(&x->id.daddr, x->props.family);
++	unsigned int h;
 +
- 	hlist_add_head(&x->bydst, xfrm_state_bydst+h);
- 	xfrm_state_hold(x);
++	h = xfrm_dst_hash(&x->id.daddr, x->props.reqid, x->props.family);
+ 
+ 	x->genid = ++xfrm_state_genid;
+ 
+@@ -681,7 +683,7 @@ EXPORT_SYMBOL(xfrm_state_insert);
+ /* xfrm_state_lock is held */
+ static struct xfrm_state *__find_acq_core(unsigned short family, u8 mode, u32 reqid, u8 proto, xfrm_address_t *daddr, xfrm_address_t *saddr, int create)
+ {
+-	unsigned int h = xfrm_dst_hash(daddr, family);
++	unsigned int h = xfrm_dst_hash(daddr, reqid, family);
+ 	struct hlist_node *entry;
+ 	struct xfrm_state *x;
  
 -- 
 1.4.2.rc2.g3e042
