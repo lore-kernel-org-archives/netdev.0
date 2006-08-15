@@ -1,37 +1,51 @@
 From: akpm@osdl.org
-Subject: [patch 05/13] arcnet: SoHard PCI support
-Date: Mon, 14 Aug 2006 23:03:39 -0700
-Message-ID: <200608150603.k7F63dwC012936@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org,
-	stephane.witzmann@ubpmes.univ-bpclermont.fr
+Subject: [patch 01/13] via-ircc: fix memory leak
+Date: Mon, 14 Aug 2006 23:03:36 -0700
+Message-ID: <200608150603.k7F63aZx012924@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, chuck@maggie,
+	bcollins@ubuntu.com, samuel@sortiz.org, zulcss@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:41619 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965164AbWHOGDq (ORCPT
+Received: from smtp.osdl.org ([65.172.181.4]:41107 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965162AbWHOGDq (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 02:03:46 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stphane Witzmann <stephane.witzmann@ubpmes.univ-bpclermont.fr>
+From: Chuck Short <chuck@maggie>
 
-Add support for a SoHard PCI ARCnet card.
+Fix memory leak.
 
+Coverity id# 653
 
+patch location:
+http://www.kernel.org/git/?p=linux/kernel/git/bcollins/ubuntu-dapper.git;a=commitdiff;h=a1f34cb68b16807ed9d5ebb0f6a6ec5ff8a5fc78
+
+Signed-off-by: Chuck Short <zulcss@gmail.com>
+Signed-off-by: Ben Collins <bcollins@ubuntu.com>
+Cc: Samuel Ortiz <samuel@sortiz.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/arcnet/com20020-pci.c |    1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/irda/via-ircc.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff -puN drivers/net/arcnet/com20020-pci.c~acrnet-sohard-pci-support drivers/net/arcnet/com20020-pci.c
---- a/drivers/net/arcnet/com20020-pci.c~acrnet-sohard-pci-support
-+++ a/drivers/net/arcnet/com20020-pci.c
-@@ -161,6 +161,7 @@ static struct pci_device_id com20020pci_
- 	{ 0x1571, 0xa204, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
- 	{ 0x1571, 0xa205, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
- 	{ 0x1571, 0xa206, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
-+	{ 0x10B5, 0x9030, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
- 	{ 0x10B5, 0x9050, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ARC_CAN_10MBIT },
- 	{0,}
- };
+diff -puN drivers/net/irda/via-ircc.c~via-ircc-fix-memory-leak drivers/net/irda/via-ircc.c
+--- a/drivers/net/irda/via-ircc.c~via-ircc-fix-memory-leak
++++ a/drivers/net/irda/via-ircc.c
+@@ -1220,8 +1220,13 @@ static int upload_rxdata(struct via_ircc
+ 
+ 	IRDA_DEBUG(2, "%s(): len=%x\n", __FUNCTION__, len);
+ 
++	if ((len - 4) < 2) {
++		self->stats.rx_dropped++;
++		return FALSE;
++	}
++
+ 	skb = dev_alloc_skb(len + 1);
+-	if ((skb == NULL) || ((len - 4) < 2)) {
++	if (skb == NULL) {
+ 		self->stats.rx_dropped++;
+ 		return FALSE;
+ 	}
 _
