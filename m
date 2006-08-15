@@ -1,62 +1,27 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: XFRM_MSG_NEWAE
-Date: Tue, 15 Aug 2006 06:02:04 -0400
-Message-ID: <1155636124.6946.98.camel@jzny2>
-References: <E1GCtxT-0000up-00@gondolin.me.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: sysfs vs. d80211 configuration
+Date: Tue, 15 Aug 2006 12:02:19 +0200
+Message-ID: <44E19BAB.1010507@sipsolutions.net>
+References: <44E07662.8070506@sipsolutions.net> <Pine.NEB.4.64.0608142302560.21364@otaku.freeshell.org> <44E17A95.2040006@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Alexey Toptygin <alexeyt@freeshell.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:51392 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S965332AbWHOKCH
+Received: from crystal.sipsolutions.net ([195.210.38.204]:2502 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S965348AbWHOKCc
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 06:02:07 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1GCvkO-0007ey-EJ
-	for netdev@vger.kernel.org; Tue, 15 Aug 2006 06:02:08 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1GCtxT-0000up-00@gondolin.me.apana.org.au>
+	Tue, 15 Aug 2006 06:02:32 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <44E17A95.2040006@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-15-08 at 18:07 +1000, Herbert Xu wrote:
-> David Miller <davem@davemloft.net> wrote:
-> > 
-> > I think we need a way to tone this down, so that if there are no truly
-> > interested parties we don't do the km->notify work at all.
-> 
-> Actually, we do turn it off if nobody is listening, through
-> xfrm_aevent_is_on().
-> 
+Johannes Berg wrote:
+> Good point, that'll work. Then again, I want this to run on really 
+> tiny architectures and I'm thinking some of them might not have 
+> fork(), just vfork(). Hmm.
+Then again, on those platforms there is no real benefit from dropping 
+privs, is there. Heh.
 
-You can also adjust the default timers/packet counts (according to
-Documentation/networking/xfrm_sync.txt):
-
-a) /proc/sys/net/core/sysctl_xfrm_aevent_etime
-used to provide default values for the XFRMA_ETIMER_THRESH in
-incremental units of time of 100ms. The default is 10 (1 second)
-
-b) /proc/sys/net/core/sysctl_xfrm_aevent_rseqth
-used to provide default values for XFRMA_REPLAY_THRESH parameter
-in incremental packet count. The default is two packets.
-
-If you set either to 0 before starting ipsec, you should not see those
-events being generated. You can also override the default values on a
-per SA basis when adding/updating.
-
-> > Also it would be nice to add xfrm mon support to print out these
-> > messages properly if you haven't coded that up already :-)
-> 
-> Yes that would be good :)
-
-I do have a few patches lined up. I was waiting for a sync with Stephen
-with the current patchset i sent before submitting them (actually i will
-wait until after him making a new release because there were just too
-many patches i sent in the current update).
-
-cheers,
-jamal
-
+johannes
