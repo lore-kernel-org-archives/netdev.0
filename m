@@ -1,81 +1,31 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: Re: [PATCH 4/6] ehea: header files
-Date: Tue, 15 Aug 2006 11:44:05 +0200
-Message-ID: <44E19765.7030301@de.ibm.com>
-References: <44D99F56.7010201@de.ibm.com>	 <1155190921.9801.43.camel@localhost.localdomain>	 <44E07267.7070007@de.ibm.com> <1155600499.9047.13.camel@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] network memory allocator.
+Date: Tue, 15 Aug 2006 03:27:40 -0700 (PDT)
+Message-ID: <20060815.032740.10248213.davem@davemloft.net>
+References: <20060815002724.a635d775.akpm@osdl.org>
+	<p738xlqa0aw.fsf@verdi.suse.de>
+	<20060815100228.GC1092@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Marcus Eder <meder@de.ibm.com>
+Cc: ak@suse.de, akpm@osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([195.212.29.139]:40770 "EHLO
-	mtagate6.uk.ibm.com") by vger.kernel.org with ESMTP id S965365AbWHOKXI
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 06:23:08 -0400
-To: michael@ellerman.id.au
-In-Reply-To: <1155600499.9047.13.camel@localhost.localdomain>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:49034
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965363AbWHOK1j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 06:27:39 -0400
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20060815100228.GC1092@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Ellerman wrote:
-> On Mon, 2006-08-14 at 14:53 +0200, Jan-Bernd Themann wrote:
->> Michael Ellerman wrote:
->>>> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea.h	1969-12-31 16:00:00.000000000 -0800
->>>> +++ kernel/drivers/net/ehea/ehea.h	2006-08-08 23:59:39.927452928 -0700
->>>> +
->>>> +#define EHEA_PAGESHIFT  12
->>>> +#define EHEA_PAGESIZE   4096UL
->>>> +#define EHEA_CACHE_LINE 128
->>> This looks like a very bad idea, what happens if you're running on a
->>> machine with 64K pages?
->>>
->> The EHEA_PAGESIZE define is needed for queue management to hardware side.
-> 
-> You mean the eHEA has its own concept of page size? Separate from the
-> page size used by the MMU?
-> 
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Tue, 15 Aug 2006 14:02:28 +0400
 
-yes, the eHEA currently supports only 4K pages for queues
+> I had a version with per-cpu data - it is not very convenient to use
+> here with it's per_cpu_ptr dereferencings....
 
->>>> +/*
->>>> + *  h_galpa:
->>>> + *  for pSeries this is a 64bit memory address where
->>>> + *  I/O memory is mapped into CPU address space
->>>> + */
->>>> +
->>>> +struct h_galpa {
->>>> +	u64 fw_handle;
->>>> +};
->>> What is a h_galpa? And why does it need a struct if it's just a u64?
->>>
->> The eHEA chip is not PCI attached but directly connected to a proprietary
->> bus. Currently, we can access it by a simple 64 bit address, but this is not
->> true in all cases. Having a struct here allows us to encapsulate the chip
->> register access and to respond to changes to system hardware.
->>
->> We'll change the name to h_epa meaning "ehea physical address"
-> 
-> Hmm, I'm not convinced. Having the struct doesn't really encapsulate
-> much, because most of the places where you use the h_galpa struct just
-> pull out the fw_handle anyway. So if you change the layout of the struct
-> you're going to have to change most of the code anyway. And in the
-> meantime it makes the code a lot less readable, most people understand
-> what "u64 addr" is about, whereas "struct h_galpa" is much less
-> meaningful. </2c>
-> 
-> cheers
-> 
-
-We already use the h_galpa struct for simulation purposes where we use
-this encapsulation to add further required fields to be able to access
-the registers (h_galpa has been renamed to h_epa). The name of the
-fw_handle element will be changed. Instead of fw_handle, we'll call it
-ebus_addr which will make it more readable.
-
-Regards,
-Jan-Bernd
-
+It does eat lots of space though, even for non-present cpus, and for
+local cpu case the access may even get optimized to a single register
++ offset computation on some platforms :-)
