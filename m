@@ -1,55 +1,31 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] orinoco.h: "extern inline" -> "static __always_inline"
-Date: Tue, 15 Aug 2006 02:40:46 +0200
-Message-ID: <20060815004046.GC3543@stusta.de>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [RFC 5/7] neighbour: convert lookup to sequence lock
+Date: Tue, 15 Aug 2006 04:42:58 +0400
+Message-ID: <20060815004258.GA10090@ms2.inr.ac.ru>
+References: <20060814212004.606140865@localhost.localdomain> <20060814212143.845202090@localhost.localdomain> <20060814222220.GQ14627@postel.suug.ch> <20060814153743.0ab60955@localhost.localdomain> <20060814231718.GS14627@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: orinoco-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linville@tuxdriver.com, jgarzik@pobox.com
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:56583 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S932763AbWHOAks (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 20:40:48 -0400
-To: proski@gnu.org, hermes@gibson.dropbear.id.au
+Received: from minus.inr.ac.ru ([194.67.69.97]:5515 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S965030AbWHOAnQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 20:43:16 -0400
+To: Thomas Graf <tgraf@suug.ch>
 Content-Disposition: inline
+In-Reply-To: <20060814231718.GS14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"extern inline" generates a warning with -Wmissing-prototypes and I'm 
-currently working on getting the kernel cleaned up for adding this to 
-the CFLAGS since it will help us to avoid a nasty class of runtime 
-errors.
+Hello!
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> That wouldn't work if hard_header() ever expands the head. Fortunately
+> hard_header() returns the length added even in case of an error so we
+> can undo the absolute value returned.
 
----
+Yes.
 
- drivers/net/wireless/orinoco.h |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Or probably it is safer to undo to skb->nh. Even if hard_header
+expands skb, skb->nh still remains valid.
 
---- linux-2.6.18-rc4-mm1/drivers/net/wireless/orinoco.h.old	2006-08-13 23:14:05.000000000 +0200
-+++ linux-2.6.18-rc4-mm1/drivers/net/wireless/orinoco.h	2006-08-13 23:14:39.000000000 +0200
-@@ -138,8 +138,8 @@
-  * SPARC, due to its weird semantics for save/restore flags. extern
-  * inline should prevent the kernel from linking or module from
-  * loading if they are not inlined. */
--extern inline int orinoco_lock(struct orinoco_private *priv,
--			       unsigned long *flags)
-+static __always_inline int orinoco_lock(struct orinoco_private *priv,
-+					unsigned long *flags)
- {
- 	spin_lock_irqsave(&priv->lock, *flags);
- 	if (priv->hw_unavailable) {
-@@ -151,8 +151,8 @@
- 	return 0;
- }
- 
--extern inline void orinoco_unlock(struct orinoco_private *priv,
--				  unsigned long *flags)
-+static __always_inline void orinoco_unlock(struct orinoco_private *priv,
-+					   unsigned long *flags)
- {
- 	spin_unlock_irqrestore(&priv->lock, *flags);
- }
-
+Alexey
