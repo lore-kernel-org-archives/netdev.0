@@ -1,124 +1,102 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 9/10]: [XFRM]: Do not flush all bundles on SA insert.
-Date: Tue, 15 Aug 2006 04:40:37 -0700 (PDT)
-Message-ID: <20060815.044037.15244425.davem@davemloft.net>
+Subject: [PATCH 10/10]: [XFRM]: Purge dst references to deleted SAs
+ passively.
+Date: Tue, 15 Aug 2006 04:41:01 -0700 (PDT)
+Message-ID: <20060815.044101.14976776.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5083
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5851
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030260AbWHOLkj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 07:40:39 -0400
+	id S1030265AbWHOLlD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 07:41:03 -0400
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-[XFRM]: Do not flush all bundles on SA insert.
+[XFRM]: Purge dst references to deleted SAs passively.
 
-Instead, simply set all potentially aliasing existing xfrm_state
-objects to have the current generation counter value.
-
-This will make routes get relooked up the next time an existing
-route mentioning these aliased xfrm_state objects gets used,
-via xfrm_dst_check().
+Just let GC and other normal mechanisms take care of getting
+rid of DST cache references to deleted xfrm_state objects
+instead of walking all the policy bundles.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
  include/net/xfrm.h     |    1 -
- net/xfrm/xfrm_policy.c |   10 ----------
- net/xfrm/xfrm_state.c  |   25 ++++++++++++++++++++-----
- 3 files changed, 20 insertions(+), 16 deletions(-)
+ net/xfrm/xfrm_policy.c |    2 +-
+ net/xfrm/xfrm_state.c  |   17 -----------------
+ 3 files changed, 1 insertions(+), 19 deletions(-)
 
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 7d18fff..3f54542 100644
+index 3f54542..8123d49 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -896,7 +896,6 @@ struct xfrm_state * xfrm_find_acq(u8 mod
+@@ -895,7 +895,6 @@ struct xfrm_state * xfrm_find_acq(u8 mod
+ 				  int create, unsigned short family);
  extern void xfrm_policy_flush(void);
  extern int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
- extern int xfrm_flush_bundles(void);
--extern void xfrm_flush_all_bundles(void);
+-extern int xfrm_flush_bundles(void);
  extern int xfrm_bundle_ok(struct xfrm_dst *xdst, struct flowi *fl, int family);
  extern void xfrm_init_pmtu(struct dst_entry *dst);
  
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index c504b9a..c16b30a 100644
+index c16b30a..bc4d66a 100644
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -1244,16 +1244,6 @@ int xfrm_flush_bundles(void)
- 	return 0;
+@@ -1238,7 +1238,7 @@ static void __xfrm_garbage_collect(void)
+ 	xfrm_prune_bundles(unused_bundle);
  }
  
--static int always_true(struct dst_entry *dst)
--{
--	return 1;
--}
--
--void xfrm_flush_all_bundles(void)
--{
--	xfrm_prune_bundles(always_true);
--}
--
- void xfrm_init_pmtu(struct dst_entry *dst)
+-int xfrm_flush_bundles(void)
++static int xfrm_flush_bundles(void)
  {
- 	do {
+ 	xfrm_prune_bundles(stale_bundle);
+ 	return 0;
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 3e8485a..a3a7396 100644
+index a3a7396..b1c0ae7 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
-@@ -655,13 +655,30 @@ static void __xfrm_state_insert(struct x
- 		schedule_work(&xfrm_hash_work);
- }
+@@ -219,8 +219,6 @@ static struct work_struct xfrm_state_gc_
+ static HLIST_HEAD(xfrm_state_gc_list);
+ static DEFINE_SPINLOCK(xfrm_state_gc_lock);
  
-+/* xfrm_state_lock is held */
-+static void __xfrm_state_bump_genids(struct xfrm_state *xnew)
-+{
-+	unsigned short family = xnew->props.family;
-+	u32 reqid = xnew->props.reqid;
-+	struct xfrm_state *x;
-+	struct hlist_node *entry;
-+	unsigned int h;
-+
-+	h = xfrm_dst_hash(&xnew->id.daddr, reqid, family);
-+	hlist_for_each_entry(x, entry, xfrm_state_bydst+h, bydst) {
-+		if (x->props.family	== family &&
-+		    x->props.reqid	== reqid &&
-+		    !xfrm_addr_cmp(&x->id.daddr, &xnew->id.daddr, family))
-+			x->genid = xfrm_state_genid;
-+	}
-+}
-+
- void xfrm_state_insert(struct xfrm_state *x)
- {
- 	spin_lock_bh(&xfrm_state_lock);
-+	__xfrm_state_bump_genids(x);
- 	__xfrm_state_insert(x);
- 	spin_unlock_bh(&xfrm_state_lock);
+-static int xfrm_state_gc_flush_bundles;
 -
--	xfrm_flush_all_bundles();
- }
- EXPORT_SYMBOL(xfrm_state_insert);
+ int __xfrm_state_delete(struct xfrm_state *x);
  
-@@ -779,15 +796,13 @@ int xfrm_state_add(struct xfrm_state *x)
- 				     x->id.proto,
- 				     &x->id.daddr, &x->props.saddr, 0);
+ static struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned short family);
+@@ -255,11 +253,6 @@ static void xfrm_state_gc_task(void *dat
+ 	struct hlist_node *entry, *tmp;
+ 	struct hlist_head gc_list;
  
-+	__xfrm_state_bump_genids(x);
- 	__xfrm_state_insert(x);
- 	err = 0;
- 
- out:
- 	spin_unlock_bh(&xfrm_state_lock);
- 
--	if (!err)
--		xfrm_flush_all_bundles();
+-	if (xfrm_state_gc_flush_bundles) {
+-		xfrm_state_gc_flush_bundles = 0;
+-		xfrm_flush_bundles();
+-	}
 -
- 	if (x1) {
- 		xfrm_state_delete(x1);
- 		xfrm_state_put(x1);
+ 	spin_lock_bh(&xfrm_state_gc_lock);
+ 	gc_list.first = xfrm_state_gc_list.first;
+ 	INIT_HLIST_HEAD(&xfrm_state_gc_list);
+@@ -413,16 +406,6 @@ int __xfrm_state_delete(struct xfrm_stat
+ 		if (del_timer(&x->rtimer))
+ 			__xfrm_state_put(x);
+ 
+-		/* The number two in this test is the reference
+-		 * mentioned in the comment below plus the reference
+-		 * our caller holds.  A larger value means that
+-		 * there are DSTs attached to this xfrm_state.
+-		 */
+-		if (atomic_read(&x->refcnt) > 2) {
+-			xfrm_state_gc_flush_bundles = 1;
+-			schedule_work(&xfrm_state_gc_work);
+-		}
+-
+ 		/* All xfrm_state objects are created by xfrm_state_alloc.
+ 		 * The xfrm_state_alloc call gives a reference, and that
+ 		 * is what we are dropping here.
 -- 
 1.4.2.rc2.g3e042
 
