@@ -1,67 +1,64 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH] bcm43xx-d80211: Init, shutdown and restart fixes
-Date: Tue, 15 Aug 2006 11:44:45 -0400
-Message-ID: <20060815154440.GD28544@tuxdriver.com>
-References: <200608142132.25398.mb@bu3sch.de> <44E1E6E6.9000804@lwfinger.net>
-	<200608151730.26255.mb@bu3sch.de>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: proposal for new wireless configuration API
+Date: Tue, 15 Aug 2006 12:14:17 -0400
+Message-ID: <43e72e890608150914v3b831c18sea283aa26528553b@mail.gmail.com>
+References: <1155655728.17742.30.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Cc: netdev@vger.kernel.org, "Jean Tourrilhes" <jt@hpl.hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.184]:26562 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S965382AbWHOQOS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 12:14:18 -0400
+Received: by nf-out-0910.google.com with SMTP id x30so374940nfb
+        for <netdev@vger.kernel.org>; Tue, 15 Aug 2006 09:14:17 -0700 (PDT)
+To: "Johannes Berg" <johannes@sipsolutions.net>
+In-Reply-To: <1155655728.17742.30.camel@ux156>
 Content-Disposition: inline
-In-Reply-To: <200608151730.26255.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 15, 2006 at 05:30:25PM +0200, Michael Buesch wrote:
-> On Tuesday 15 August 2006 17:23, Larry Finger wrote:
-> > Michael Buesch wrote:
+This all sounds good to me. A few comments here, to give you something
+to read when you get home.
 
-> > > This fixes various bugs in the init and shutdown code
-> > > that would lead to lockups and crashes.
-> > > This is best reproducable by receiving a timeout from
-> > > the netdev watchdog.
-> > 
-> > Is a similar bug likely to be the cause of the netdev watchdog timeouts in 
-> > bcm43xx-softmac? If so, will there be a patch for wireless-2.6?
-> 
-> I don't know why the _timeouts_ itself happen, but maybe the
-> lockup and crash bugs are in bcm43xx-softmac, too.
-> I think it should be actually trivial to port this to bcm43xx-softmac.
-> Care to do this, Larry?
+On 8/15/06, Johannes Berg <johannes@sipsolutions.net> wrote:
 
-Actually, this leads to a bigger question.  I noticed Michael
-pleading his support dilemma w.r.t. supporting both wireless-2.6
-and wirless-dev.  I'm sure he now regrets the "stunt" of trying to
-support both at the same time... :-)
+>  - we implement a bunch of commands, for example NL80211_CMD_INJECT and
+>    _SETATTR, _GETATTR[(attrnumber)] [easy with dumpit()],
+>    _GETATTRGROUP, ...
 
-Anyway, it would seem like many of these fixes would be readily ported
-between the trees.  It seems like we need someone to take-on this
-(admittedly thankless) maintainence task from now until the new stack
-merges into wireless-2.6.
+Basically redo WE completely from scratch using netlink.
 
-Larry, you seem like a great candidate for this role.  Are you
-interested?  If not, is there someone else in the bcm43xx camp that
-would oblige us?
+>  - we have a whole bunch of possible attributes:
+>    NL80211_ATTR_FLAGS: flags for injecting a packet (e.g. want_notify)
 
-Thanks in advance!
+For per packet this makes sense, for modification of all packets I
+think configfs would be more suitable. Then again this is just an
+addition, I'm not disagreeing here with the approach. The same goes
+for several common wireless settings -- we could also have a configfs
+directory for each device which would allow manual read/writing for
+setting/getting certain values; mind you that congifs does allow for
+setting/getting multiple values at the same time, for those of you who
+have wondered. This could just could easily go in as a wrapper for
+configfs->new NL API.
 
-John
+>    NL80211_ATTR_IFINDEX: index of interface to use
+>    (NL80211_ATTR_PHYIDX: (later) index of wiphy to configure)
 
-P.S.  FWIW, I definitely thank Michael for his work supporting both
-stack to date.  I think the dscape stack would be much farther behind
-w/o the users enabled by the bcm43xx-dscape driver.
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Do you mean to have a wireless device have its own device index,
+separate from the netdevice index? Can you elaborate a bit on this?
+
+>    NL80211_ATTR_ESSID,
+>                 FRAGTHRESHOLD,
+>                 CHANNEL,...: most of the old wext ioctls map to
+>                              attributes now
+
+With WE we were restricted to the number of attributes possibly
+changed by the number of ioctls and later by sub-ioctl hack
+restrictions. What restrictions are we to face with this? Do we want
+to map each attribute directly to the respective WE ioctl number to
+make it easy to do backward compatibility?
+
+  Luis
