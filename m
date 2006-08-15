@@ -1,180 +1,119 @@
 From: akpm@osdl.org
-Subject: [patch 02/41] ixgb: add PCI Error recovery callbacks
-Date: Mon, 14 Aug 2006 22:59:56 -0700
-Message-ID: <200608150559.k7F5xuAQ012577@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, linas@austin.ibm.com,
-	auke-jan.h.kok@intel.com, jesse.brandeburg@intel.com,
-	john.ronciak@intel.com, yanmin_zhang@linux.intel.com
+Subject: [patch 04/13] IRDA: Replace hard-coded dev_self[] array sizes with ARRAY_SIZE()
+Date: Mon, 14 Aug 2006 23:03:39 -0700
+Message-ID: <200608150603.k7F63dbr012933@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, bjorn.helgaas@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:25747 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965158AbWHOGDQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 02:03:16 -0400
-To: jeff@garzik.org
+Received: from smtp.osdl.org ([65.172.181.4]:40851 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965160AbWHOGDp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 02:03:45 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: linas@austin.ibm.com (Linas Vepstas)
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-Adds PCI Error recovery callbacks to the Intel 10-gigabit ethernet ixgb
-device driver.  Lightly tested, works.
+Several IR drivers used "for (i = 0; i < 4; i++)" to walk their dev_self[]
+table.  Better to use ARRAY_SIZE().  And fix ali-ircc so it won't run off
+the end if we find too many adapters.
 
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Cc: Auke Kok <auke-jan.h.kok@intel.com>
-Cc: John Ronciak <john.ronciak@intel.com>
-Cc: Jeff Garzik <jeff@garzik.org>
-
-"Zhang, Yanmin" <yanmin_zhang@linux.intel.com> wrote:
-
-Both pci_disable_device and ixgb_down would access the device.  It doesn't
-follow Documentation/pci-error-recovery.txt that error_detected shouldn't do
-any access to the device.
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/ixgb/ixgb_main.c |  112 ++++++++++++++++++++++++++++++++-
- 1 file changed, 111 insertions(+), 1 deletion(-)
+ drivers/net/irda/ali-ircc.c    |    8 +++++++-
+ drivers/net/irda/irport.c      |    4 ++--
+ drivers/net/irda/via-ircc.c    |    5 ++++-
+ drivers/net/irda/w83977af_ir.c |    4 ++--
+ 4 files changed, 15 insertions(+), 6 deletions(-)
 
-diff -puN drivers/net/ixgb/ixgb_main.c~ixgb-add-pci-error-recovery-callbacks drivers/net/ixgb/ixgb_main.c
---- a/drivers/net/ixgb/ixgb_main.c~ixgb-add-pci-error-recovery-callbacks
-+++ a/drivers/net/ixgb/ixgb_main.c
-@@ -118,15 +118,26 @@ static void ixgb_restore_vlan(struct ixg
- static void ixgb_netpoll(struct net_device *dev);
- #endif
+diff -puN drivers/net/irda/ali-ircc.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size drivers/net/irda/ali-ircc.c
+--- a/drivers/net/irda/ali-ircc.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size
++++ a/drivers/net/irda/ali-ircc.c
+@@ -249,7 +249,7 @@ static void __exit ali_ircc_cleanup(void
  
--/* Exported from other modules */
-+static pci_ers_result_t ixgb_io_error_detected (struct pci_dev *pdev,
-+	                     enum pci_channel_state state);
-+static pci_ers_result_t ixgb_io_slot_reset (struct pci_dev *pdev);
-+static void ixgb_io_resume (struct pci_dev *pdev);
+ 	IRDA_DEBUG(2, "%s(), ---------------- Start ----------------\n", __FUNCTION__);	
  
-+/* Exported from other modules */
- extern void ixgb_check_options(struct ixgb_adapter *adapter);
- 
-+static struct pci_error_handlers ixgb_err_handler = {
-+	.error_detected = ixgb_io_error_detected,
-+	.slot_reset = ixgb_io_slot_reset,
-+	.resume = ixgb_io_resume,
-+};
+-	for (i=0; i < 4; i++) {
++	for (i=0; i < ARRAY_SIZE(dev_self); i++) {
+ 		if (dev_self[i])
+ 			ali_ircc_close(dev_self[i]);
+ 	}
+@@ -273,6 +273,12 @@ static int ali_ircc_open(int i, chipio_t
+ 	int err;
+ 			
+ 	IRDA_DEBUG(2, "%s(), ---------------- Start ----------------\n", __FUNCTION__);	
 +
- static struct pci_driver ixgb_driver = {
- 	.name     = ixgb_driver_name,
- 	.id_table = ixgb_pci_tbl,
- 	.probe    = ixgb_probe,
- 	.remove   = __devexit_p(ixgb_remove),
-+	.err_handler = &ixgb_err_handler
- };
- 
- MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
-@@ -1543,6 +1554,11 @@ void
- ixgb_update_stats(struct ixgb_adapter *adapter)
++	if (i >= ARRAY_SIZE(dev_self)) {
++		IRDA_ERROR("%s(), maximum number of supported chips reached!\n",
++			   __FUNCTION__);
++		return -ENOMEM;
++	}
+ 	
+ 	/* Set FIR FIFO and DMA Threshold */
+ 	if ((ali_ircc_setup(info)) == -1)
+diff -puN drivers/net/irda/irport.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size drivers/net/irda/irport.c
+--- a/drivers/net/irda/irport.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size
++++ a/drivers/net/irda/irport.c
+@@ -1090,7 +1090,7 @@ static int __init irport_init(void)
  {
- 	struct net_device *netdev = adapter->netdev;
-+	struct pci_dev *pdev = adapter->pdev;
-+
-+	/* Prevent stats update while adapter is being reset */
-+	if (pdev->error_state && pdev->error_state != pci_channel_io_normal)
-+		return;
+  	int i;
  
- 	if((netdev->flags & IFF_PROMISC) || (netdev->flags & IFF_ALLMULTI) ||
- 	   (netdev->mc_count > IXGB_MAX_NUM_MULTICAST_ADDRESSES)) {
-@@ -2198,4 +2214,98 @@ static void ixgb_netpoll(struct net_devi
- }
- #endif
+- 	for (i=0; (io[i] < 2000) && (i < 4); i++) {
++ 	for (i=0; (io[i] < 2000) && (i < ARRAY_SIZE(dev_self)); i++) {
+  		if (irport_open(i, io[i], irq[i]) != NULL)
+  			return 0;
+  	}
+@@ -1112,7 +1112,7 @@ static void __exit irport_cleanup(void)
  
-+/**
-+ * ixgb_io_error_detected() - called when PCI error is detected
-+ * @pdev    pointer to pci device with error
-+ * @state   pci channel state after error
-+ *
-+ * This callback is called by the PCI subsystem whenever
-+ * a PCI bus error is detected.
-+ */
-+static pci_ers_result_t ixgb_io_error_detected (struct pci_dev *pdev,
-+			             enum pci_channel_state state)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct ixgb_adapter *adapter = netdev->priv;
+         IRDA_DEBUG( 4, "%s()\n", __FUNCTION__);
+ 
+-	for (i=0; i < 4; i++) {
++	for (i=0; i < ARRAY_SIZE(dev_self); i++) {
+  		if (dev_self[i])
+  			irport_close(dev_self[i]);
+  	}
+diff -puN drivers/net/irda/via-ircc.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size drivers/net/irda/via-ircc.c
+--- a/drivers/net/irda/via-ircc.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size
++++ a/drivers/net/irda/via-ircc.c
+@@ -279,7 +279,7 @@ static void via_ircc_clean(void)
+ 
+ 	IRDA_DEBUG(3, "%s()\n", __FUNCTION__);
+ 
+-	for (i=0; i < 4; i++) {
++	for (i=0; i < ARRAY_SIZE(dev_self); i++) {
+ 		if (dev_self[i])
+ 			via_ircc_close(dev_self[i]);
+ 	}
+@@ -327,6 +327,9 @@ static __devinit int via_ircc_open(int i
+ 
+ 	IRDA_DEBUG(3, "%s()\n", __FUNCTION__);
+ 
++	if (i >= ARRAY_SIZE(dev_self))
++		return -ENOMEM;
 +
-+	if(netif_running(netdev))
-+		ixgb_down(adapter, TRUE);
-+
-+	pci_disable_device(pdev);
-+
-+	/* Request a slot reset. */
-+	return PCI_ERS_RESULT_NEED_RESET;
-+}
-+
-+/**
-+ * ixgb_io_slot_reset - called after the pci bus has been reset.
-+ * @pdev    pointer to pci device with error
-+ *
-+ * This callback is called after the PCI buss has been reset.
-+ * Basically, this tries to restart the card from scratch.
-+ * This is a shortened version of the device probe/discovery code,
-+ * it resembles the first-half of the ixgb_probe() routine.
-+ */
-+static pci_ers_result_t ixgb_io_slot_reset (struct pci_dev *pdev)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct ixgb_adapter *adapter = netdev->priv;
-+
-+	if(pci_enable_device(pdev)) {
-+		DPRINTK(PROBE, ERR, "Cannot re-enable PCI device after reset.\n");
-+		return PCI_ERS_RESULT_DISCONNECT;
-+	}
-+
-+	/* Perform card reset only on one instance of the card */
-+	if (0 != PCI_FUNC (pdev->devfn))
-+		return PCI_ERS_RESULT_RECOVERED;
-+
-+	pci_set_master(pdev);
-+
-+	netif_carrier_off(netdev);
-+	netif_stop_queue(netdev);
-+	ixgb_reset(adapter);
-+
-+	/* Make sure the EEPROM is good */
-+	if(!ixgb_validate_eeprom_checksum(&adapter->hw)) {
-+		DPRINTK(PROBE, ERR, "After reset, the EEPROM checksum is not valid.\n");
-+		return PCI_ERS_RESULT_DISCONNECT;
-+	}
-+	ixgb_get_ee_mac_addr(&adapter->hw, netdev->dev_addr);
-+	memcpy(netdev->perm_addr, netdev->dev_addr, netdev->addr_len);
-+
-+	if(!is_valid_ether_addr(netdev->perm_addr)) {
-+		DPRINTK(PROBE, ERR, "After reset, invalid MAC address.\n");
-+		return PCI_ERS_RESULT_DISCONNECT;
-+	}
-+
-+	return PCI_ERS_RESULT_RECOVERED;
-+}
-+
-+/**
-+ * ixgb_io_resume - called when its OK to resume normal operations
-+ * @pdev    pointer to pci device with error
-+ *
-+ * The error recovery driver tells us that its OK to resume
-+ * normal operation. Implementation resembles the second-half
-+ * of the ixgb_probe() routine.
-+ */
-+static void ixgb_io_resume (struct pci_dev *pdev)
-+{
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct ixgb_adapter *adapter = netdev->priv;
-+
-+	pci_set_master(pdev);
-+
-+	if(netif_running(netdev)) {
-+		if(ixgb_up(adapter)) {
-+			printk ("ixgb: can't bring device back up after reset\n");
-+			return;
-+		}
-+	}
-+
-+	netif_device_attach(netdev);
-+	mod_timer(&adapter->watchdog_timer, jiffies);
-+}
-+
- /* ixgb_main.c */
+ 	/* Allocate new instance of the driver */
+ 	dev = alloc_irdadev(sizeof(struct via_ircc_cb));
+ 	if (dev == NULL) 
+diff -puN drivers/net/irda/w83977af_ir.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size drivers/net/irda/w83977af_ir.c
+--- a/drivers/net/irda/w83977af_ir.c~irda-replace-hard-coded-dev_self-array-sizes-with-array_size
++++ a/drivers/net/irda/w83977af_ir.c
+@@ -116,7 +116,7 @@ static int __init w83977af_init(void)
+ 
+ 	IRDA_DEBUG(0, "%s()\n", __FUNCTION__ );
+ 
+-	for (i=0; (io[i] < 2000) && (i < 4); i++) { 
++	for (i=0; (io[i] < 2000) && (i < ARRAY_SIZE(dev_self)); i++) {
+ 		if (w83977af_open(i, io[i], irq[i], dma[i]) == 0)
+ 			return 0;
+ 	}
+@@ -135,7 +135,7 @@ static void __exit w83977af_cleanup(void
+ 
+         IRDA_DEBUG(4, "%s()\n", __FUNCTION__ );
+ 
+-	for (i=0; i < 4; i++) {
++	for (i=0; i < ARRAY_SIZE(dev_self); i++) {
+ 		if (dev_self[i])
+ 			w83977af_close(dev_self[i]);
+ 	}
 _
