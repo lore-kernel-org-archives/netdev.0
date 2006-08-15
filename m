@@ -1,59 +1,63 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: proposal for new wireless configuration API
-Date: Tue, 15 Aug 2006 14:14:48 -0400
-Message-ID: <1155665688.8940.10.camel@localhost.localdomain>
-References: <1155655728.17742.30.camel@ux156>
-	 <1155659387.3005.15.camel@localhost.localdomain>
-	 <200608151838.58182.mb@bu3sch.de>
+From: Michael Stone <mstone@mathom.us>
+Subject: Re: [PATCH] mark sk98lin driver for removal
+Date: Tue, 15 Aug 2006 14:42:33 -0400
+Message-ID: <20060815184231.GV2900@mathom.us>
+References: <20060815131852.GP2900@mathom.us>
+ <20060815110340.2c60f842@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jean Tourrilhes <jt@hpl.hp.com>,
-	Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:31451 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1030434AbWHOSPx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 14:15:53 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200608151838.58182.mb@bu3sch.de>
+Received: from vms048pub.verizon.net ([206.46.252.48]:13450 "EHLO
+	vms048pub.verizon.net") by vger.kernel.org with ESMTP
+	id S965096AbWHOSnH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 14:43:07 -0400
+Received: from osgiliath.mathom.us ([72.66.19.42])
+ by vms048.mailsrvcs.net (Sun Java System Messaging Server 6.2-4.02 (built Sep
+ 9 2005)) with ESMTPA id <0J410018JYN2KNI1@vms048.mailsrvcs.net> for
+ netdev@vger.kernel.org; Tue, 15 Aug 2006 13:42:39 -0500 (CDT)
+In-reply-to: <20060815110340.2c60f842@dxpl.pdx.osdl.net>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-08-15 at 18:38 +0200, Michael Buesch wrote:
-> On Tuesday 15 August 2006 18:29, Dan Williams wrote:
-> > o Separate attributes for channel and frequency
-> 
-> No, channel and freq is the same. It's just another name
-> for the same child. I would say we only want to deal with channel numbers
-> in the API. That's much easier, as we don't have to deal with this
-> fixed-point (or even floating point) mess. Look at WE for the
-> fixed-point mess.
+On Tue, Aug 15, 2006 at 11:03:40AM -0700, Stephen Hemminger wrote:
+>	* driver parameters 
+>		skge/sky2 don't have many and most are standard across other drivers
+>		This driver intentionally does not support configuration via module
+>		parameters because it is better done through ethtool
 
-Right, I don't have a problem with only using one or the other; but we
-_HAVE_ to provide a function in the driver that allows userspace
-programs to convert channel <-> frequency both ways, like you suggest
-below.  Obviously the channel/frequency mapping isn't the same
-everywhere.
+Fair enough. It might be nice to mention that specifically somewhere, for 
+people transitioning from sk98lin (which required a special parameter in 
+order to use both ports).
 
-[ or is it?  I'd be very uncomfortable using the same channel #s
-everywhere unless some IEEE spec states exactly what the channel #s are
-for every frequency range that wireless stuff operates in ]
+>The driver has always supported both ports as separate devices. If you want to
+>use bonding or fail over that is available in generic kernel.
 
-> The userspace tools can easily convert freq to channel and back.
-> And in the kernel, we can easily provide some small function
-> to convert from channel to khz and back, for example. But I would
-> like to see the fixed-point stuff in the API vanish.
+ok, I'll test that in the next few days.
 
-No argument here; as long as we provide the mapping function in the
-driver for each card.
+>> I tried testing the skge driver on one system and got this in dmesg:
+>> 
+>> skge 0000:03:0c.0: unsupported phy type 0x0
+>> ACPI: PCI interrupt for device 0000:03:0c.0 disabled
+>> skge: probe of 0000:03:0c.0 failed with error -95
+>>
+>
+>What hardware was that? Please send me an lspci -vv output.
 
-> > o Method of finding out channel <-> frequency mapping (not all drivers
-> > support this in the SIOCGIWRANGE handler now)
-> 
-> Yes, that would be a good idea.
-> Comes next to the conversion function (see above).
+0000:03:0c.0 Ethernet controller: Syskonnect (Schneider & Koch) SK-98xx Gigabit Ethernet Server Adapter (rev 12)
+        Subsystem: Syskonnect (Schneider & Koch) SK-9843 Gigabit Ethernet Server Adapter (SK-NET GE-SX)
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+        Latency: 32 (5750ns min, 7750ns max), Cache Line Size: 0x10 (64 bytes)
+        Interrupt: pin A routed to IRQ 21
+        Region 0: Memory at dfddc000 (32-bit, non-prefetchable) [size=16K]
+        Region 1: I/O ports at e800 [size=256]
+        Expansion ROM at d8000000 [disabled] [size=128K]
+        Capabilities: [48] Power Management version 1
+                Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+                Status: D0 PME-Enable- DSel=0 DScale=1 PME-
+        Capabilities: [50] Vital Product Data
 
-Yep.
-
-Dan
-
+Mike Stone
