@@ -1,63 +1,50 @@
-From: Michael Stone <mstone@mathom.us>
-Subject: Re: [PATCH] mark sk98lin driver for removal
-Date: Tue, 15 Aug 2006 14:42:33 -0400
-Message-ID: <20060815184231.GV2900@mathom.us>
-References: <20060815131852.GP2900@mathom.us>
- <20060815110340.2c60f842@dxpl.pdx.osdl.net>
+From: Olof Johansson <olof@lixom.net>
+Subject: Re: [PATCH 4/4]: powerpc/cell spidernet ethtool -i version number info.
+Date: Tue, 15 Aug 2006 14:05:24 -0500
+Message-ID: <20060815190524.GW6603@pb15.lixom.net>
+References: <20060811180013.GB6550@pb15.lixom.net> <OF934FE4E3.EEC44FDD-ON872571C7.00668651-862571C7.00677A44@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
+	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>,
+	Linas Vepstas <linas@austin.ibm.com>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms048pub.verizon.net ([206.46.252.48]:13450 "EHLO
-	vms048pub.verizon.net") by vger.kernel.org with ESMTP
-	id S965096AbWHOSnH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 14:43:07 -0400
-Received: from osgiliath.mathom.us ([72.66.19.42])
- by vms048.mailsrvcs.net (Sun Java System Messaging Server 6.2-4.02 (built Sep
- 9 2005)) with ESMTPA id <0J410018JYN2KNI1@vms048.mailsrvcs.net> for
- netdev@vger.kernel.org; Tue, 15 Aug 2006 13:42:39 -0500 (CDT)
-In-reply-to: <20060815110340.2c60f842@dxpl.pdx.osdl.net>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-disposition: inline
+Received: from lixom.net ([66.141.50.11]:19420 "EHLO mail.lixom.net")
+	by vger.kernel.org with ESMTP id S1030409AbWHOTKT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 15:10:19 -0400
+To: James K Lewis <jklewis@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <OF934FE4E3.EEC44FDD-ON872571C7.00668651-862571C7.00677A44@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 15, 2006 at 11:03:40AM -0700, Stephen Hemminger wrote:
->	* driver parameters 
->		skge/sky2 don't have many and most are standard across other drivers
->		This driver intentionally does not support configuration via module
->		parameters because it is better done through ethtool
+On Fri, Aug 11, 2006 at 01:50:19PM -0500, James K Lewis wrote:
+>  Hi Olof,
+> 
+>   There are several reasons why an Ethernet driver should have an up to 
+> date version number:
+> 
+> 1. Customers like to see they are really getting a new version.
+> 
+> 2. It makes it easier for support personnel (me in this case) to see which 
+> driver they have. Sure, sometimes I can talk them thru doing a "sum" on 
+> the .ko and all that, but why not just use the version number? That's what 
+> it is for. And no, you can't just assume they have the version that came 
+> with the kernel they are running. It doesn't work that way.
+> 
+> 3. It makes bug reporting easier. 
+> 
+> 4. I have already run into too many problems and wasted too much time 
+> working with drivers when the number was NOT getting updated. 
 
-Fair enough. It might be nice to mention that specifically somewhere, for 
-people transitioning from sk98lin (which required a special parameter in 
-order to use both ports).
+Thanks for the info, Jim.
 
->The driver has always supported both ports as separate devices. If you want to
->use bonding or fail over that is available in generic kernel.
+Sounds like it's most useful if a customer (or distro) takes the driver
+out of the tree and run it with a different kernel, i.e. when kernel
+and driver versions no longer go together. Makes sense.
 
-ok, I'll test that in the next few days.
 
->> I tried testing the skge driver on one system and got this in dmesg:
->> 
->> skge 0000:03:0c.0: unsupported phy type 0x0
->> ACPI: PCI interrupt for device 0000:03:0c.0 disabled
->> skge: probe of 0000:03:0c.0 failed with error -95
->>
->
->What hardware was that? Please send me an lspci -vv output.
+-Olof
 
-0000:03:0c.0 Ethernet controller: Syskonnect (Schneider & Koch) SK-98xx Gigabit Ethernet Server Adapter (rev 12)
-        Subsystem: Syskonnect (Schneider & Koch) SK-9843 Gigabit Ethernet Server Adapter (SK-NET GE-SX)
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR+ FastB2B-
-        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-        Latency: 32 (5750ns min, 7750ns max), Cache Line Size: 0x10 (64 bytes)
-        Interrupt: pin A routed to IRQ 21
-        Region 0: Memory at dfddc000 (32-bit, non-prefetchable) [size=16K]
-        Region 1: I/O ports at e800 [size=256]
-        Expansion ROM at d8000000 [disabled] [size=128K]
-        Capabilities: [48] Power Management version 1
-                Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
-                Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-        Capabilities: [50] Vital Product Data
-
-Mike Stone
