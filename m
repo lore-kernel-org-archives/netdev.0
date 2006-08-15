@@ -1,40 +1,35 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 0/10]: Improve SA insert/delete performance
-Date: Tue, 15 Aug 2006 17:40:36 -0400
-Message-ID: <1155678036.5122.4.camel@jzny2>
-References: <20060815.043718.59464707.davem@davemloft.net>
-	 <1155644137.6946.102.camel@jzny2>
-Reply-To: hadi@cyberus.ca
+From: Bill Nottingham <notting@redhat.com>
+Subject: Re: bonding: cannot remove certain named devices
+Date: Tue, 15 Aug 2006 17:49:14 -0400
+Message-ID: <20060815214914.GA5307@nostromo.devel.redhat.com>
+References: <20060815194856.GA3869@nostromo.devel.redhat.com> <Pine.CYG.4.58.0608151331220.3272@mawilli1-desk2.amr.corp.intel.com> <20060815204555.GB4434@nostromo.devel.redhat.com> <20060815140249.15472a82@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:44464 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1750728AbWHOVkm
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 17:40:42 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1GD6eT-0001qe-23
-	for netdev@vger.kernel.org; Tue, 15 Aug 2006 17:40:45 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <1155644137.6946.102.camel@jzny2>
+Received: from mx1.redhat.com ([66.187.233.31]:13987 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1750738AbWHOVtX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 17:49:23 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060815140249.15472a82@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-15-08 at 08:15 -0400, jamal wrote:
-
-> Very cool ;-> Will test today.
+Stephen Hemminger (shemminger@osdl.org) said: 
+> > They're certainly allowed, and the sysfs directory structure, files,
+> > etc. handle it ok. Userspace tends to break in a variety of ways.
+> > 
+> > I believe the only invalid character in an interface name is '/'.
+> > 
 > 
+> The names "." and ".." are also verboten.
 
-I can see in the range of ~50K SA adds per second ;->
-I only went to about 350K SAs. A dual Xeon 2.6Ghz (sadly only with 1G
-RAM).
-So a small improvement from just the 5 initial patches; but nevertheless
-a huge improvement from the current status quo. 
-Good stuff!
+Right. Well, I suspect they're verboten-because-some-code-breaks-making-the-directory.
 
-cheers,
-jamal
+> Names with : in them are for IP aliases.
 
+That's certainly not enforced at the kernel level.
+
+Bill
