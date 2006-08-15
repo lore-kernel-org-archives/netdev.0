@@ -1,51 +1,29 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Subject: Re: [PATCH 1/7] ehea: interface to network stack
-Date: Tue, 15 Aug 2006 09:39:59 +0200
-Message-ID: <20060815073959.GB6922@osiris.boeblingen.de.ibm.com>
-References: <44E0A4CC.4090705@de.ibm.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: sysfs vs. d80211 configuration
+Date: Tue, 15 Aug 2006 09:41:09 +0200
+Message-ID: <44E17A95.2040006@sipsolutions.net>
+References: <44E07662.8070506@sipsolutions.net> <Pine.NEB.4.64.0608142302560.21364@otaku.freeshell.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Thomas Klein <osstklei@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([195.212.29.134]:11700 "EHLO
-	mtagate1.uk.ibm.com") by vger.kernel.org with ESMTP id S965221AbWHOHkI
+Received: from crystal.sipsolutions.net ([195.210.38.204]:25227 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S965262AbWHOHlN
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 03:40:08 -0400
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <44E0A4CC.4090705@de.ibm.com>
+	Tue, 15 Aug 2006 03:41:13 -0400
+To: Alexey Toptygin <alexeyt@freeshell.org>
+In-Reply-To: <Pine.NEB.4.64.0608142302560.21364@otaku.freeshell.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> +int __init ehea_module_init(void)
-> +{
-> +	int ret = -EINVAL;
-> +
-> +	EDEB_EN(7, "");
-> +
-> +	printk(KERN_INFO "IBM eHEA Ethernet Device Driver (Release %s)\n",
-> +	       DRV_VERSION);
-> +
-> +
-> +	ret = ibmebus_register_driver(&ehea_driver);
-> +	if (ret) {
-> +		EDEB_ERR(4, "Failed registering eHEA device driver on ebus");
-> +		return -EINVAL;
-> +	}
-> +
-> +	EDEB_EX(7, "");
-> +	return 0;
-> +}
+Alexey Toptygin wrote:
+> Why not have the tool create a monitor interface, open it, and fork; 
+> the child drops privileges and does the reading, and the parent 
+> wait(2)s for the child and removes the interface once it has collected 
+> the child?
+Good point, that'll work. Then again, I want this to run on really tiny 
+architectures and I'm thinking some of them might not have fork(), just 
+vfork(). Hmm.
 
-Function should be static and could be shortened to the single line
-
-return ibmebus_register_driver(&ehea_driver);
-
-, I guess :)
+johannes
