@@ -1,59 +1,48 @@
 From: akpm@osdl.org
-Subject: [patch 28/41] net: Add netconsole support to dm9000 driver
-Date: Mon, 14 Aug 2006 23:00:15 -0700
-Message-ID: <200608150600.k7F60Fkc012684@shell0.pdx.osdl.net>
-Cc: netdev@vger.kernel.org, akpm@osdl.org, haokexin@gmail.com,
-	ben-linux@fluff.org, s.hauer@pengutronix.de
+Subject: [patch 31/41] via-rhine: NAPI poll enable
+Date: Mon, 14 Aug 2006 23:00:18 -0700
+Message-ID: <200608150600.k7F60IXi012699@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org, shemminger@osdl.org,
+	rl@hellgate.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:37010 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965139AbWHOGAa (ORCPT
+Received: from smtp.osdl.org ([65.172.181.4]:36242 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965138AbWHOGAa (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 02:00:30 -0400
 To: jeff@garzik.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Kevin Hao" <haokexin@gmail.com>
+From: Stephen Hemminger <shemminger@osdl.org>
 
-Add netconsole support to dm9000 driver.
+The poll_enable should be in init_registers before enabling interrupts, not
+in tx_timeout.  Thanks for spotting it Roger.
 
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Sascha Hauer <s.hauer@pengutronix.de>
-Cc: Ben Dooks <ben-linux@fluff.org>
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Cc: Roger Luethi <rl@hellgate.ch>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- drivers/net/dm9000.c |   14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ drivers/net/via-rhine.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff -puN drivers/net/dm9000.c~net-add-netconsole-support-to-dm9000-driver drivers/net/dm9000.c
---- a/drivers/net/dm9000.c~net-add-netconsole-support-to-dm9000-driver
-+++ a/drivers/net/dm9000.c
-@@ -339,6 +339,17 @@ static void dm9000_timeout(struct net_de
- 	spin_unlock_irqrestore(&db->lock,flags);
+diff -puN drivers/net/via-rhine.c~via-rhine-napi-poll-enable drivers/net/via-rhine.c
+--- a/drivers/net/via-rhine.c~via-rhine-napi-poll-enable
++++ a/drivers/net/via-rhine.c
+@@ -1048,6 +1048,8 @@ static void init_registers(struct net_de
+ 
+ 	rhine_set_rx_mode(dev);
+ 
++	netif_poll_enable(dev);
++
+ 	/* Enable interrupts by setting the interrupt mask. */
+ 	iowrite16(IntrRxDone | IntrRxErr | IntrRxEmpty| IntrRxOverflow |
+ 	       IntrRxDropped | IntrRxNoBuf | IntrTxAborted |
+@@ -1199,7 +1201,6 @@ static void rhine_tx_timeout(struct net_
+ 	dev->trans_start = jiffies;
+ 	rp->stats.tx_errors++;
+ 	netif_wake_queue(dev);
+-	netif_poll_enable(dev);
  }
  
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+/*
-+ *Used by netconsole
-+ */
-+static void dm9000_poll_controller(struct net_device *dev)
-+{
-+	disable_irq(dev->irq);
-+	dm9000_interrupt(dev->irq,dev,NULL);
-+	enable_irq(dev->irq);
-+}
-+#endif
- 
- /* dm9000_release_board
-  *
-@@ -538,6 +549,9 @@ dm9000_probe(struct platform_device *pde
- 	ndev->stop		 = &dm9000_stop;
- 	ndev->get_stats		 = &dm9000_get_stats;
- 	ndev->set_multicast_list = &dm9000_hash_table;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	ndev->poll_controller	 = &dm9000_poll_controller;
-+#endif
- 
- #ifdef DM9000_PROGRAM_EEPROM
- 	program_eeprom(db);
+ static int rhine_start_tx(struct sk_buff *skb, struct net_device *dev)
 _
