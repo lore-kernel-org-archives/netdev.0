@@ -1,14 +1,13 @@
 From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: [PATCH] bcm43xx: re-add bcm43xx_rng_init() call
-Date: Wed, 16 Aug 2006 00:29:07 +0200
-Message-ID: <200608160029.07943.mb@bu3sch.de>
+Subject: [PATCH] Add Larry Finger to bcm43xx MAINTAINERS
+Date: Wed, 16 Aug 2006 00:39:36 +0200
+Message-ID: <200608160039.37200.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>,
-	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 Content-Disposition: inline
 List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
 	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
@@ -21,51 +20,46 @@ Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi John,
+Hi,
 
-Please apply this to wireless-2.6.
-Please also drop Adrian's patch (If you queued it somewhere):
-[RFC: -mm patch] bcm43xx_main.c: remove 3 functions
+I officially drop my maintainance of the bcm43xx-softmac
+driver now with this mail. Larry will continue with my
+work on the bcm43xx-softmac driver.
+
+I will instead focus on the bcm43xx-d80211 driver and on
+the implementation of the new v4 specs.
+
+So if someone wants to send some bcm43xx-softmac patch
+upstream, the person to send it to is Larry.
+Larry will also take care of backporting fixes from
+the bcm43xx-d80211 branch to bcm43xx-softmac.
+
+So John, please apply the following patch to wireless-2.6.
 
 --
 
-Calls to bcm43xx_rng_init() and bcm43xx_rng_exit() got
-lost due to merge trouble. Re-add them.
+Remove Michael Buesch and add Larry Finger in the
+bcm43xx-softmac MAINTAINERS record.
 
 Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+Index: wireless-2.6/MAINTAINERS
 ===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-08-15 23:27:13.000000000 +0200
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-08-16 00:14:00.000000000 +0200
-@@ -3274,6 +3274,7 @@
- /* This is the opposite of bcm43xx_init_board() */
- static void bcm43xx_free_board(struct bcm43xx_private *bcm)
- {
-+	bcm43xx_rng_exit(bcm);
- 	bcm43xx_sysfs_unregister(bcm);
- 	bcm43xx_periodic_tasks_delete(bcm);
+--- wireless-2.6.orig/MAINTAINERS	2006-08-15 16:51:43.000000000 +0200
++++ wireless-2.6/MAINTAINERS	2006-08-16 00:32:46.000000000 +0200
+@@ -449,9 +449,9 @@
+ W:	http://www.baycom.org/~tom/ham/ham.html
+ S:	Maintained
  
-@@ -3541,6 +3542,9 @@
- 	err = bcm43xx_sysfs_register(bcm);
- 	if (err)
- 		goto err_wlshutdown;
-+	err = bcm43xx_rng_init(bcm);
-+	if (err)
-+		goto err_sysfs_unreg;
- 
- 	/*FIXME: This should be handled by softmac instead. */
- 	schedule_work(&bcm->softmac->associnfo.work);
-@@ -3550,6 +3554,8 @@
- 
- 	return err;
- 
-+err_sysfs_unreg:
-+	bcm43xx_sysfs_unregister(bcm);
- err_wlshutdown:
- 	bcm43xx_shutdown_all_wireless_cores(bcm);
- err_crystal_off:
-
+-BCM43XX WIRELESS DRIVER
+-P:	Michael Buesch
+-M:	mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org
++BCM43XX WIRELESS DRIVER (SOFTMAC BASED VERSION)
++P:	Larry Finger
++M:	Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org
+ P:	Stefano Brivio
+ M:	st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org
+ W:	http://bcm43xx.berlios.de/
 
 -- 
 Greetings Michael.
