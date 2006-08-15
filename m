@@ -1,43 +1,58 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: bcm43xx-softmac maintainer
-Date: Tue, 15 Aug 2006 18:33:50 -0500
-Message-ID: <44E259DE.50806@lwfinger.net>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCH] WAN: fix C101 card carrier handling
+Date: Wed, 16 Aug 2006 01:52:23 +0200
+Message-ID: <m3ejvhftfs.fsf@defiant.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:32504 "EHLO
-	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1750815AbWHOXea (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 19:34:30 -0400
-To: John Linville <linville@tuxdriver.com>,
-	Bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750820AbWHOXw2@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As of today, I have taken on the duties of maintaining the bcm43xx-softmac code. 
-I thank Michael Buesch for the heroic job that he has done. He ruffled a few 
-feathers ;-) now and then, but he probably exhibited more patience than many 
-would have. Michael will be concentrating on the bcm43xx-dscape (AKA d80211) 
-code. It is expected that the many extra features of d80211 will eventually lead 
-to its acceptance as the "official" 802.11 stack of Linux, replacing 
-bcm43xx-softmac, which will probably die at that point. In the meantime, I'm 
-here to keep as good a product as possible for the users of mainline kernels. 
-Nearly everyone agrees that wireless networking is one area where Linux is 
-deficient; however, the situation has improved so much in the past year that I 
-have great hopes that it will soon be as easy to configure Wi-Fi in Linux as it 
-is in XP or Vista. I know that it will be more secure!
+Hi,
 
-Please send bug reports to me, with proposed fixes if available. Please include 
-any past reports that you think might have been lost. I admit that I didn't read 
-all the pertinent E-mails as studiously as I will now.
+One of my recent changes broke C101 carrier handling, this patch
+fixes it. Also fixes an old TX underrun checking bug.
 
-I am particularly interested in the "MAC suspend failure" messages as my own 
-interface is one that suffers from this problem. If you see this message, please 
-send me the chip ID line from your logs, which will look something like 
-"bcm43xx: Chip ID 0x4306, rev 0x2".
+2.6.18 material. Please apply.
+Thanks.
 
-Thanks,
+Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
 
-Larry
+diff --git a/drivers/net/wan/c101.c b/drivers/net/wan/c101.c
+index 435e91e..6b63b35 100644
+--- a/drivers/net/wan/c101.c
++++ b/drivers/net/wan/c101.c
+@@ -118,7 +118,7 @@ #include "hd6457x.c"
+ 
+ static inline void set_carrier(port_t *port)
+ {
+-	if (!sca_in(MSCI1_OFFSET + ST3, port) & ST3_DCD)
++	if (!(sca_in(MSCI1_OFFSET + ST3, port) & ST3_DCD))
+ 		netif_carrier_on(port_to_dev(port));
+ 	else
+ 		netif_carrier_off(port_to_dev(port));
+@@ -127,10 +127,10 @@ static inline void set_carrier(port_t *p
+ 
+ static void sca_msci_intr(port_t *port)
+ {
+-	u8 stat = sca_in(MSCI1_OFFSET + ST1, port); /* read MSCI ST1 status */
++	u8 stat = sca_in(MSCI0_OFFSET + ST1, port); /* read MSCI ST1 status */
+ 
+-	/* Reset MSCI TX underrun status bit */
+-	sca_out(stat & ST1_UDRN, MSCI0_OFFSET + ST1, port);
++	/* Reset MSCI TX underrun and CDCD (ignored) status bit */
++	sca_out(stat & (ST1_UDRN | ST1_CDCD), MSCI0_OFFSET + ST1, port);
+ 
+ 	if (stat & ST1_UDRN) {
+ 		struct net_device_stats *stats = hdlc_stats(port_to_dev(port));
+@@ -138,6 +138,7 @@ static void sca_msci_intr(port_t *port)
+ 		stats->tx_fifo_errors++;
+ 	}
+ 
++	stat = sca_in(MSCI1_OFFSET + ST1, port); /* read MSCI1 ST1 status */
+ 	/* Reset MSCI CDCD status bit - uses ch#2 DCD input */
+ 	sca_out(stat & ST1_CDCD, MSCI1_OFFSET + ST1, port);
+ 
