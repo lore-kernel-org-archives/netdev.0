@@ -1,49 +1,137 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [patch RFC 3/3] b44: convert to ssb module
-Date: Tue, 15 Aug 2006 10:33:39 -0400
-Message-ID: <20060815143331.GC28544@tuxdriver.com>
-References: <200608150014.19661.mb@bu3sch.de> <200608150018.39548.mb@bu3sch.de>
-	<20060815121248.GA28544@tuxdriver.com>
-	<200608151614.16640.mb@bu3sch.de>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] move skb->dev assignment into netdev_alloc_skb
+Date: Tue, 15 Aug 2006 07:37:20 -0700
+Message-ID: <44E1DC20.3050605@intel.com>
+References: <20060805130109.GB24121@lst.de> <20060807.161056.85410448.davem@davemloft.net> <4807377b0608071729p3c744d1fn6859178874019418@mail.gmail.com> <20060812135707.GA5950@lst.de> <Pine.WNT.4.63.0608141742290.336@jbrandeb-desk.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <200608151614.16640.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Christoph Hellwig <hch@lst.de>,
+	Jesse Brandeburg <jesse.brandeburg@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:51592 "EHLO
+	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
+	id S1030323AbWHOOj4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 10:39:56 -0400
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+In-Reply-To: <Pine.WNT.4.63.0608141742290.336@jbrandeb-desk.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 15, 2006 at 04:14:16PM +0200, Michael Buesch wrote:
-
-> You can take a look at the new DMA engine code of bcm43xx.
-> It's the same engine.
+Brandeburg, Jesse wrote:
+> On Sat, 12 Aug 2006, Christoph Hellwig wrote:
+>>>>> Signed-off-by: Christoph Hellwig <hch@lst.de>
+>>>> Since the e1000 change is non-trivial I'm not going to bypass
+>>>> the driver author on it, sorry.
+>>>>
+>>>> What I did do was put the netdev_alloc_skb() change into my
+>>>> tree, and since I'm co-author of the tg3 driver I'll apply
+>>>> that bit too.
+>>>>
+>>>> The e1000 bit will need to go through the e1000 maintainers.
+>>> Thank you, I'll take a look at this tomorrow, as I need to digest the
+>>> patch in context.
+>> Did you get a chance to look at it?  For your conveniance here's just
+>> the e1000 bits, without the hunks Dave has commited already:
+>>
 > 
-> BTW: John, I see that the new DMA engine code is not applied
-> to wireless-dev (64-bit DMA and >1G support). But I think I
-> already sent the patch. Where did it get lost? Was it my fault?
+> I'm okay with this change.  Auke will shortly be submitting a patch set 
+> for 2.6.19 and it should include this.
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=115056542006772&w=2
+Great, I was already waiting for this change to drip in but hadn't checked for 
+it. I've queued it and it will be included in this weeks' patch series git pull 
+request.
 
-Is this the patch?  I think this one is a victim of the "RFT" subject.
-Oh, and the patch seemed to not be totally working based on this post:
+Cheers,
 
-	http://marc.theaimsgroup.com/?l=linux-netdev&m=115075858220477&w=2
+Auke
 
-Was there a newer version that I missed?  Did you still want the
-older version applied anyway?
 
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+> Thanks for the feedback Christoph!
+> 
+> Jesse
+> 
+> for reference this is the patch, but like i said auke will enqueue it in 
+> GIT and send it to Jeff for inclusion.
+> 
+> e1000: clean up skb allocation code, patch submitted by Christoph
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> 
+> ---
+> 
+>  drivers/net/e1000/e1000_main.c |   19 +++++++------------
+>  1 files changed, 7 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+> index 627f224..66c0325 100644
+> --- a/drivers/net/e1000/e1000_main.c
+> +++ b/drivers/net/e1000/e1000_main.c
+> @@ -36,7 +36,7 @@ static char e1000_driver_string[] = "Int
+>  #else
+>  #define DRIVERNAPI "-NAPI"
+>  #endif
+> -#define DRV_VERSION "7.1.9-k4"DRIVERNAPI
+> +#define DRV_VERSION "7.1.9-k6"DRIVERNAPI
+>  char e1000_driver_version[] = DRV_VERSION;
+>  static char e1000_copyright[] = "Copyright (c) 1999-2006 Intel Corporation.";
+>  
+> @@ -3711,7 +3711,6 @@ e1000_clean_rx_irq(struct e1000_adapter 
+>  			    netdev_alloc_skb(netdev, length + NET_IP_ALIGN);
+>  			if (new_skb) {
+>  				skb_reserve(new_skb, NET_IP_ALIGN);
+> -				new_skb->dev = netdev;
+>  				memcpy(new_skb->data - NET_IP_ALIGN,
+>  				       skb->data - NET_IP_ALIGN,
+>  				       length + NET_IP_ALIGN);
+> @@ -3978,13 +3977,13 @@ e1000_alloc_rx_buffers(struct e1000_adap
+>  	buffer_info = &rx_ring->buffer_info[i];
+>  
+>  	while (cleaned_count--) {
+> -		if (!(skb = buffer_info->skb))
+> -			skb = netdev_alloc_skb(netdev, bufsz);
+> -		else {
+> +		skb = buffer_info->skb;
+> +		if (skb) {
+>  			skb_trim(skb, 0);
+>  			goto map_skb;
+>  		}
+>  
+> +		skb = netdev_alloc_skb(netdev, bufsz);
+>  		if (unlikely(!skb)) {
+>  			/* Better luck next round */
+>  			adapter->alloc_rx_buff_failed++;
+> @@ -4009,10 +4008,10 @@ e1000_alloc_rx_buffers(struct e1000_adap
+>  				dev_kfree_skb(skb);
+>  				dev_kfree_skb(oldskb);
+>  				break; /* while !buffer_info->skb */
+> -			} else {
+> -				/* Use new allocation */
+> -				dev_kfree_skb(oldskb);
+>  			}
+> +
+> +			/* Use new allocation */
+> +			dev_kfree_skb(oldskb);
+>  		}
+>  		/* Make buffer alignment 2 beyond a 16 byte boundary
+>  		 * this will result in a 16 byte aligned IP header after
+> @@ -4020,8 +4019,6 @@ e1000_alloc_rx_buffers(struct e1000_adap
+>  		 */
+>  		skb_reserve(skb, NET_IP_ALIGN);
+>  
+> -		skb->dev = netdev;
+> -
+>  		buffer_info->skb = skb;
+>  		buffer_info->length = adapter->rx_buffer_len;
+>  map_skb:
+> @@ -4135,8 +4132,6 @@ e1000_alloc_rx_buffers_ps(struct e1000_a
+>  		 */
+>  		skb_reserve(skb, NET_IP_ALIGN);
+>  
+> -		skb->dev = netdev;
+> -
+>  		buffer_info->skb = skb;
+>  		buffer_info->length = adapter->rx_ps_bsize0;
+>  		buffer_info->dma = pci_map_single(pdev, skb->data,
