@@ -1,52 +1,39 @@
-From: Michael Banck <mbanck@debian.org>
-Subject: Re: Bug#380411: 3c59x broken after swsuspend
-Date: Tue, 15 Aug 2006 15:16:16 +0200
-Message-ID: <20060815131614.GA31799@localhost.localdomain>
-References: <20060730002718.GA13889@nighthawk.chemicalconnection.dyndns.org> <20060730092512.GH8147@nancy>
+From: Michael Stone <mstone@mathom.us>
+Subject: Re: [PATCH] mark sk98lin driver for removal
+Date: Tue, 15 Aug 2006 09:18:54 -0400
+Message-ID: <20060815131852.GP2900@mathom.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: shemminger@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.theo.chemie.tu-muenchen.de ([129.187.122.133]:63378 "EHLO
-	mx1.theo.chemie.tu-muenchen.de") by vger.kernel.org with ESMTP
-	id S965107AbWHONQT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 09:16:19 -0400
-To: 380411@bugs.debian.org, netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20060730092512.GH8147@nancy>
+Received: from vms044pub.verizon.net ([206.46.252.44]:43938 "EHLO
+	vms044pub.verizon.net") by vger.kernel.org with ESMTP
+	id S1030239AbWHONTY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 09:19:24 -0400
+Received: from osgiliath.mathom.us ([72.66.19.42])
+ by vms044.mailsrvcs.net (Sun Java System Messaging Server 6.2-4.02 (built Sep
+ 9 2005)) with ESMTPA id <0J41003WEJNSRRP2@vms044.mailsrvcs.net> for
+ netdev@vger.kernel.org; Tue, 15 Aug 2006 08:19:05 -0500 (CDT)
+To: netdev@vger.kernel.org
+Content-disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 30, 2006 at 11:25:12AM +0200, maximilian attems wrote:
-> sending bugreport to netdev.
+Hopefully the skge driver will be updated to support everything the 
+sk98lin driver does before it is removed. Among other things, I don't 
+see any documentation for the skge driver similar to that for the 
+sk98lin driver. Is there some driver option to use both ports of a dual 
+port card, as there was for the sk98lin module?
 
-Thanks.
+I tried testing the skge driver on one system and got this in dmesg:
 
-> On Sun, 30 Jul 2006, Michael Banck wrote:
-> 
-> > Package: linux-2.6
-> > Version: 2.6.17-4
-> > 
-> > after hibernate, my 3Com Corporation 3c556 Hurricane CardBus [Cyclone]
-> > (rev 10) (3c59x driver) fails to come back up.
+skge 0000:03:0c.0: unsupported phy type 0x0
+ACPI: PCI interrupt for device 0000:03:0c.0 disabled
+skge: probe of 0000:03:0c.0 failed with error -95
 
-I just verfied that Suspend to RAM works fine.
+the sk98lin driver says:
 
-> > And this is in dmesg:
+eth0: SysKonnect SK-NET Gigabit Ethernet Adapter SK-9843 SX
+      PrefPort:A  RlmtMode:Check Link State
 
-There is one more line in front of that I missed last time:
-
-    ACPI: PCI Interrupt 0000:00:0b.0[A] -> Link [LNKA] -> GSI
-10 (level, low) -> IRQ 10
-> > 3c59x: Donald Becker and others. www.scyld.com/network/vortex.html
-> > 0000:00:0b.0: 3Com PCI 3c556 Laptop Tornado at c8830400.
-> > eth1: New link status: Connected (0001)
-> > *** EEPROM MAC address is invalid.
-> > 3c59x: vortex_probe1 fails.  Returns -22
-> > ACPI: PCI interrupt for device 0000:00:0b.0 disabled
-> > 3c59x: probe of 0000:00:0b.0 failed with error -22
-
-This additional line is also printed to the console if I unload the
-module, suspend to ram, and then modprobe it some time after resume.
-
-
-Michael
+Mike Stone
