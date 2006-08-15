@@ -1,103 +1,145 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: Re: [PATCH 4/6] ehea: header files
-Date: Tue, 15 Aug 2006 10:08:19 +1000
-Message-ID: <1155600499.9047.13.camel@localhost.localdomain>
-References: <44D99F56.7010201@de.ibm.com>
-	 <1155190921.9801.43.camel@localhost.localdomain>
-	 <44E07267.7070007@de.ibm.com>
-Reply-To: michael@ellerman.id.au
+From: David Miller <davem@davemloft.net>
+Subject: Re: PATCH Fix bonding active-backup behavior for VLAN interfaces
+Date: Mon, 14 Aug 2006 17:09:05 -0700 (PDT)
+Message-ID: <20060814.170905.69218340.davem@davemloft.net>
+References: <200607311015.40255.Christophe.Devriese@eurid.eu>
+	<20060802.135859.91441473.davem@davemloft.net>
+	<200608040101.k7411ZZt013801@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-mGWz1ApQ+VDu554yWbLm"
-Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Marcus Eder <meder@de.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Christophe.Devriese@eurid.eu, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.tip.net.au ([203.10.76.45]:65199 "EHLO ozlabs.org")
-	by vger.kernel.org with ESMTP id S965080AbWHOAIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 20:08:21 -0400
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-In-Reply-To: <44E07267.7070007@de.ibm.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:43177
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965081AbWHOAJJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Aug 2006 20:09:09 -0400
+To: fubar@us.ibm.com
+In-Reply-To: <200608040101.k7411ZZt013801@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Thu, 03 Aug 2006 18:01:35 -0700
 
---=-mGWz1ApQ+VDu554yWbLm
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> 	In this case (bond0.555 above bond0 above eth0,eth1,etc),
+> skb_bond doesn't suppress duplicates because skb_bond is called with the
+> skb->dev set to the bond0.555 dev, not the ethX dev.  Non-accelerated
+> VLAN devices don't do this; they'll come in with skb->dev set to ethX
+> and will go through skb_bond as expected.
 
-On Mon, 2006-08-14 at 14:53 +0200, Jan-Bernd Themann wrote:
-> Michael Ellerman wrote:
-> >> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea.h	1969-12-31 16:00:00.=
-000000000 -0800
-> >> +++ kernel/drivers/net/ehea/ehea.h	2006-08-08 23:59:39.927452928 -0700
-> >> +
-> >> +#define EHEA_PAGESHIFT  12
-> >> +#define EHEA_PAGESIZE   4096UL
-> >> +#define EHEA_CACHE_LINE 128
-> >=20
-> > This looks like a very bad idea, what happens if you're running on a
-> > machine with 64K pages?
-> >=20
->=20
-> The EHEA_PAGESIZE define is needed for queue management to hardware side.
+Ok, since __vlan_hwaccel_rx() bypasses the netif_receive_skb()
+that would normally occur, we have to duplicate the bonding
+drop checks.
 
-You mean the eHEA has its own concept of page size? Separate from the
-page size used by the MMU?
+The submitted patch put skb_bond() into if_vlan.h which is
+definitely the wrong thing to do.  This is a generic operation
+and therefore belongs in linux/netdevice.h at best.
 
-> >> +/*
-> >> + *  h_galpa:
-> >> + *  for pSeries this is a 64bit memory address where
-> >> + *  I/O memory is mapped into CPU address space
-> >> + */
-> >> +
-> >> +struct h_galpa {
-> >> +	u64 fw_handle;
-> >> +};
-> >=20
-> > What is a h_galpa? And why does it need a struct if it's just a u64?
-> >=20
->=20
-> The eHEA chip is not PCI attached but directly connected to a proprietary
-> bus. Currently, we can access it by a simple 64 bit address, but this is =
-not
-> true in all cases. Having a struct here allows us to encapsulate the chip
-> register access and to respond to changes to system hardware.
->=20
-> We'll change the name to h_epa meaning "ehea physical address"
+Furthermore, we're only interested in the packet drop check,
+so that's the only part of the logic we need to export,
+the rest can stay private to skb_bond() in net/core/dev.c
 
-Hmm, I'm not convinced. Having the struct doesn't really encapsulate
-much, because most of the places where you use the h_galpa struct just
-pull out the fw_handle anyway. So if you change the layout of the struct
-you're going to have to change most of the code anyway. And in the
-meantime it makes the code a lot less readable, most people understand
-what "u64 addr" is about, whereas "struct h_galpa" is much less
-meaningful. </2c>
+Can the folks who can reproduce this try this patch?
 
-cheers
+Thanks.
 
---=20
-Michael Ellerman
-IBM OzLabs
+commit 8a9583e08d0524e3bfe43a51af7c66ca21adf9f3
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Mon Aug 14 17:08:36 2006 -0700
 
-wwweb: http://michael.ellerman.id.au
-phone: +61 2 6212 1183 (tie line 70 21183)
+    [VLAN]: Make sure bonding packet drop checks get done in hwaccel RX path.
+    
+    Since __vlan_hwaccel_rx() is essentially bypassing the
+    netif_receive_skb() call that would have occurred if we did the VLAN
+    decapsulation in software, we are missing the skb_bond() call and the
+    assosciated checks it does.
+    
+    Export those checks via an inline function, skb_bond_should_drop(),
+    and use this in __vlan_hwaccel_rx().
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-We do not inherit the earth from our ancestors,
-we borrow it from our children. - S.M.A.R.T Person
-
---=-mGWz1ApQ+VDu554yWbLm
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.2 (GNU/Linux)
-
-iD8DBQBE4RBzdSjSd0sB4dIRAh2OAJ94ZbR53XYsEFcsxdnQnDiiiQHn2wCgpDm0
-bn0qC6IRF+LwDf/j5Ml119k=
-=aD/f
------END PGP SIGNATURE-----
-
---=-mGWz1ApQ+VDu554yWbLm--
-
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 383627a..ab27408 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -155,6 +155,11 @@ static inline int __vlan_hwaccel_rx(stru
+ {
+ 	struct net_device_stats *stats;
+ 
++	if (skb_bond_should_drop(skb)) {
++		dev_kfree_skb_any(skb);
++		return NET_RX_DROP;
++	}
++
+ 	skb->dev = grp->vlan_devices[vlan_tag & VLAN_VID_MASK];
+ 	if (skb->dev == NULL) {
+ 		dev_kfree_skb_any(skb);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 75f02d8..c0c2b46 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1012,6 +1012,30 @@ static inline int netif_needs_gso(struct
+ 		unlikely(skb->ip_summed != CHECKSUM_HW));
+ }
+ 
++/* On bonding slaves other than the currently active slave, suppress
++ * duplicates except for 802.3ad ETH_P_SLOW and alb non-mcast/bcast.
++ */
++static inline int skb_bond_should_drop(struct sk_buff *skb)
++{
++	struct net_device *dev = skb->dev;
++	struct net_device *master = dev->master;
++
++	if (master &&
++	    (dev->priv_flags & IFF_SLAVE_INACTIVE)) {
++		if (master->priv_flags & IFF_MASTER_ALB) {
++			if (skb->pkt_type != PACKET_BROADCAST &&
++			    skb->pkt_type != PACKET_MULTICAST)
++				return 0;
++		}
++		if (master->priv_flags & IFF_MASTER_8023AD &&
++		    skb->protocol == __constant_htons(ETH_P_SLOW))
++			return 0;
++
++		return 1;
++	}
++	return 0;
++}
++
+ #endif /* __KERNEL__ */
+ 
+ #endif	/* _LINUX_DEV_H */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d95e262..9fe96cd 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1619,26 +1619,10 @@ static inline struct net_device *skb_bon
+ 	struct net_device *dev = skb->dev;
+ 
+ 	if (dev->master) {
+-		/*
+-		 * On bonding slaves other than the currently active
+-		 * slave, suppress duplicates except for 802.3ad
+-		 * ETH_P_SLOW and alb non-mcast/bcast.
+-		 */
+-		if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
+-			if (dev->master->priv_flags & IFF_MASTER_ALB) {
+-				if (skb->pkt_type != PACKET_BROADCAST &&
+-				    skb->pkt_type != PACKET_MULTICAST)
+-					goto keep;
+-			}
+-
+-			if (dev->master->priv_flags & IFF_MASTER_8023AD &&
+-			    skb->protocol == __constant_htons(ETH_P_SLOW))
+-				goto keep;
+-		
++		if (skb_bond_should_drop(skb)) {
+ 			kfree_skb(skb);
+ 			return NULL;
+ 		}
+-keep:
+ 		skb->dev = dev->master;
+ 	}
+ 
