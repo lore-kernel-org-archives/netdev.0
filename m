@@ -1,58 +1,48 @@
-From: Nicholas Miell <nmiell@comcast.net>
-Subject: Re: Kernel patches enabling better POSIX AIO (Was Re: [3/4]
-	kevent: AIO, aio_sendfile)
-Date: Mon, 14 Aug 2006 19:06:56 -0700
-Message-ID: <1155607616.2468.1.camel@entropy>
-References: <1153982954.3887.9.camel@frecb000686>
-	 <44C8DB80.6030007@us.ibm.com> <44C9029A.4090705@oracle.com>
-	 <1154024943.29920.3.camel@dyn9047017100.beaverton.ibm.com>
-	 <44C90987.1040200@redhat.com>
-	 <1154034164.29920.22.camel@dyn9047017100.beaverton.ibm.com>
-	 <1154091500.13577.14.camel@frecb000686> <44DCDE73.9030901@redhat.com>
-	 <20060812182928.GA1989@in.ibm.com> <44DE27AB.7040507@redhat.com>
-	 <20060814070210.GA27005@in.ibm.com>  <44E0A6F6.509@redhat.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 09/16] [IPv6] address: Convert address notification to
+	use rtnl_notify()
+Date: Mon, 14 Aug 2006 22:46:05 -0400
+Message-ID: <1155609965.6946.74.camel@jzny2>
+References: <E1GCnEZ-0006XU-00@gondolin.me.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: suparna@in.ibm.com, sebastien.dugue@bull.net,
-	Badari Pulavarty <pbadari@us.ibm.com>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linux-aio@kvack.org,
-	mingo@elte.hu
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, tgraf@suug.ch,
+	davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alnrmhc12.comcast.net ([206.18.177.52]:20416 "EHLO
-	alnrmhc12.comcast.net") by vger.kernel.org with ESMTP
-	id S1751456AbWHOCHb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 22:07:31 -0400
-To: Ulrich Drepper <drepper@redhat.com>
-In-Reply-To: <44E0A6F6.509@redhat.com>
+Received: from mx02.cybersurf.com ([209.197.145.105]:64158 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1752003AbWHOCqJ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Aug 2006 22:46:09 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1GCowZ-0005J1-M7
+	for netdev@vger.kernel.org; Mon, 14 Aug 2006 22:46:15 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1GCnEZ-0006XU-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-08-14 at 09:38 -0700, Ulrich Drepper wrote:
-> Suparna Bhattacharya wrote:
-> > Is there a (remote) possibility that the thread could have died and its
-> > pid got reused by a new thread in another process ? Or is there a mechanism
-> > that prevents such a possibility from arising (not just in NPTL library,
-> > but at the kernel level) ?
-> 
-> The UID/GID won't help you with dying processes.  What if the same user
-> creates a process with the same PID?  That process will not expect the
-> notification and mustn't receive it.  If you cannot detect whether the
-> issuing process died you have problems which cannot be solved with a
-> uid/gid pair.
-> 
-> 
+On Tue, 2006-15-08 at 10:56 +1000, Herbert Xu wrote:
 
-Eric W. Biederman sent a series of patches that introduced a struct
-task_ref specifically to solve this sort of problem on January 28 of
-this year, but I don't think it went anywhere.
+> Agreed.  The pid field in the netlink header should be treated as an
+> opaque value.  Any attempt to interpret it as the process ID is doomed
+> to failure.
 
 
--- 
-Nicholas Miell <nmiell@comcast.net>
+Not necessarily as a processid ("PID" is a really bad noun in that
+sense); but rather as something meaningful of interpretation in regards
+to the real origin of the executed change. 
+The concept of "whodunnit" is invaluable. 
+And a processid tends to be useful when nothing else is there to
+identify the originator. Just saying "it is the kernel" (PID=0) when the
+kernel just acted as a proxy of some user space app, is not useful all
+the times, IMO.
+[Routes, but not other functional blocks in rtnetlink, actually have a
+field (called protocol) that says who added them]. Thats all the quagga
+and other folks were looking for in cases where it was ambigous. 
+
+cheers,
+jamal
 
