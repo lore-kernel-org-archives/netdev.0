@@ -1,46 +1,43 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 09/16] [IPv6] address: Convert address notification to
-	use rtnl_notify()
-Date: Mon, 14 Aug 2006 20:12:49 -0400
-Message-ID: <1155600769.6946.49.camel@jzny2>
-References: <20060814213718.580598840@postel.suug.ch>
-	 <20060814214341.834971519@postel.suug.ch> <1155598991.6946.42.camel@jzny2>
-	 <20060815000730.GT14627@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH 09/16] [IPv6] address: Convert address notification to use rtnl_notify()
+Date: Tue, 15 Aug 2006 04:36:14 +0400
+Message-ID: <20060815003614.GA8677@ms2.inr.ac.ru>
+References: <20060814213718.580598840@postel.suug.ch> <20060814214341.834971519@postel.suug.ch> <1155598991.6946.42.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Hasso Tepper <hasso@estpak.ee>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, davem@davemloft.net,
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:9444 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932753AbWHOAbW
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Aug 2006 20:31:22 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1GCmq8-0000Ux-QJ
-	for netdev@vger.kernel.org; Mon, 14 Aug 2006 20:31:28 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060815000730.GT14627@postel.suug.ch>
+Received: from minus.inr.ac.ru ([194.67.69.97]:12426 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S932760AbWHOAgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Aug 2006 20:36:47 -0400
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1155598991.6946.42.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-15-08 at 02:07 +0200, Thomas Graf wrote:
-> * jamal <hadi@cyberus.ca> 2006-08-14 19:43
+Hello!
 
-> > If i am not mistaken:
-> > Some of these removals of current->pid will affect users such as quagga,
-> > zebra, vrrpd etc. If those specific users are not affected, please
-> > ignore the rest of my comments.
-> 
-> I'm aware of that. The next patchset cleaning up fib6 and ifa6 will
-> provide means to pass on the required netlink information to these
-> notification functions.
+> Some of these removals of current->pid will affect users such as quagga,
+> zebra, vrrpd etc.
 
-Good nuf. Thanks Thomas.
+If they survived cleanup in IPv4, they definitely will not feel cleanup
+in IPv6.
 
-cheers,
-jamal
+Thomas does great work, Jamal, do not worry. :-)
 
+
+> IMO, I believe there is a strong case that can be made for events that
+> were caused by non-netlink users such as ioctls that could at least be
+> multicast with current->pid.
+
+Highly not desired.
+
+
+> It would also be acceptable if the quagga etc folks could meet their
+> goals some other way.
+
+To all that I remember, that past discussion essentially closed the question.
+
+Alexey
