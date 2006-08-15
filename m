@@ -1,49 +1,42 @@
-From: Paul Mackerras <paulus@samba.org>
-Subject: Re: ehea debug output discussion
-Date: Tue, 15 Aug 2006 15:10:25 +1000
-Message-ID: <17633.22337.802294.171558@cargo.ozlabs.ibm.com>
-References: <44D99F38.8010306@de.ibm.com> <20060811215225.GH479@krispykreme>
-	<44DE03B0.1060607@de.ibm.com> <20060813144400.GJ479@krispykreme>
-	<44E06EDA.6040404@de.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Klein <tklein@de.ibm.com>, Jan-Bernd Themann <themann@de.ibm.com>,
-	roland@topspin.com, netdev <netdev@vger.kernel.org>,
-	Thomas Klein <osstklei@de.ibm.com>, linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>, Anton Blanchard <anton@samba.org>,
-	Marcus Eder <meder@de.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-In-Reply-To: <44E06EDA.6040404@de.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+From: akpm@osdl.org
+Subject: [patch 12/41] eth16i section fix
+Date: Mon, 14 Aug 2006 23:00:03 -0700
+Message-ID: <200608150600.k7F603U1012636@shell0.pdx.osdl.net>
+Cc: netdev@vger.kernel.org, akpm@osdl.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:21138 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965129AbWHOGAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 02:00:11 -0400
+To: jeff@garzik.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jan-Bernd Themann writes:
+From: Andrew Morton <akpm@osdl.org>
 
-> The outcome of some internal discussions was that it is not acceptable for
-> our enterprise users of this type of driver on this target system to need a
-> recompile / reload of the driver for error analysis, so we need a mechanism
-> that allows us to switch on / off debug output at runtime. Therefore, we'd
-> introduce a stripped down version of EDEB.
+WARNING: drivers/net/eth16i.o - Section mismatch: reference to .init.data:cardname from .text between 'init_module' (at offset 0x6d2) and 'eth16i_multicast'
+WARNING: drivers/net/eth16i.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x6ef) and 'eth16i_multicast'
+WARNING: drivers/net/eth16i.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x702) and 'eth16i_multicast'
+WARNING: drivers/net/eth16i.o - Section mismatch: reference to .init.data:cardname from .text between 'init_module' (at offset 0x70e) and 'eth16i_multicast'
+WARNING: drivers/net/eth16i.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0x71d) and 'eth16i_multicast'
+WARNING: drivers/net/eth16i.o - Section mismatch: reference to .init.data:cardname from .text between 'init_module' (at offset 0x729) and 'eth16i_multicast'
 
-This is precisely what kprobes is for.  There is no need for
-EDEB-style debug code in the source given that kprobes gives you the
-ability to add logging in at (almost) arbitrary points at runtime.  In
-fact kprobes is more powerful because you don't have to specify the
-set of points of interest when the kernel is built--you can do it
-later, at the time of debugging.
+Cc: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
 
-Please look into providing a kprobes module and/or a systemtap script
-for the debugging points you want rather than cluttering up the source
-code with EDEB statements.
+ drivers/net/eth16i.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Paul.
+diff -puN drivers/net/eth16i.c~eth16i-section-fix drivers/net/eth16i.c
+--- a/drivers/net/eth16i.c~eth16i-section-fix
++++ a/drivers/net/eth16i.c
+@@ -1434,7 +1434,7 @@ MODULE_PARM_DESC(mediatype, "eth16i medi
+ module_param(debug, int, 0);
+ MODULE_PARM_DESC(debug, "eth16i debug level (0-6)");
+ 
+-int init_module(void)
++int __init init_module(void)
+ {
+ 	int this_dev, found = 0;
+ 	struct net_device *dev;
+_
