@@ -1,37 +1,79 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take9 1/2] kevent: Core files.
-Date: Wed, 16 Aug 2006 23:24:15 +0400
-Message-ID: <20060816192415.GA19537@2ka.mipt.ru>
-References: <11555364962921@2ka.mipt.ru> <1155536496588@2ka.mipt.ru> <20060816134550.GA12345@infradead.org> <20060816135642.GD4314@2ka.mipt.ru> <44E35F29.8010500@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Christoph Hellwig <hch@infradead.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>
+From: Michael Neuling <mikey@neuling.org>
+Subject: Re: [PATCH 7/7] ehea: Makefile & Kconfig
+Date: Wed, 16 Aug 2006 14:27:16 -0500
+Message-ID: <20060816192721.09C2967A3A@ozlabs.org>
+References: <44E0A580.9020507@de.ibm.com>
+Reply-To: Michael Neuling <mikey@neuling.org>
+Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Thomas Klein <osstklei@de.ibm.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Marcus Eder <meder@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:37085 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932184AbWHPTZR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 15:25:17 -0400
-To: Zach Brown <zach.brown@oracle.com>
-Content-Disposition: inline
-In-Reply-To: <44E35F29.8010500@oracle.com>
+Received: from ozlabs.tip.net.au ([203.10.76.45]:49896 "EHLO ozlabs.org")
+	by vger.kernel.org with ESMTP id S932188AbWHPT1W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 15:27:22 -0400
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
+In-reply-to: <44E0A580.9020507@de.ibm.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 16, 2006 at 11:08:41AM -0700, Zach Brown (zach.brown@oracle.com) wrote:
+This patch is still being white space munged so it doesn't apply.  
+
+The context is being shifted over 1 column.  All your other patches add
+new files so there is no context and hence they apply.
+
+Mikey
+
+In message <44E0A580.9020507@de.ibm.com> you wrote:
+> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 > 
-> >>> +	for (i=0; i<ARRAY_SIZE(u->kevent_list); ++i)
-> >> 	for (i = 0; i < ARRAY_SIZE(u->kevent_list); i++)
-> > 
-> > Ugh, no. It reduces readability due to exessive number of spaces.
 > 
-> Ihavetoverystronglydisagree.
-
-W e l l , i f y o u i n s i s t a n d a b s o l u t e l y s u r e.
-
-> - z
-
--- 
-	Evgeniy Polyakov
+>   drivers/net/Kconfig  |    6 ++++++
+>   drivers/net/Makefile |    1 +
+>   2 files changed, 7 insertions(+)
+> 
+> 
+> 
+> diff -Nurp -X dontdiff linux-2.6.18-rc4/drivers/net/Kconfig patched_kernel/dr
+ivers/net/Kconfig
+> --- linux-2.6.18-rc4/drivers/net/Kconfig	2006-08-06 11:20:11.000000000 -
+0700
+> +++ patched_kernel/drivers/net/Kconfig	2006-08-08 03:00:49.526421944 -
+0700
+> @@ -2277,6 +2277,12 @@ config CHELSIO_T1
+>             To compile this driver as a module, choose M here: the module
+>             will be called cxgb.
+> 
+> +config EHEA
+> +        tristate "eHEA Ethernet support"
+> +        depends on IBMEBUS
+> +        ---help---
+> +          This driver supports the IBM pSeries ethernet adapter
+> +
+>   config IXGB
+>   	tristate "Intel(R) PRO/10GbE support"
+>   	depends on PCI
+> diff -Nurp -X dontdiff linux-2.6.18-rc4/drivers/net/Makefile patched_kernel/d
+rivers/net/Makefile
+> --- linux-2.6.18-rc4/drivers/net/Makefile	2006-08-06 11:20:11.000000000 -
+0700
+> +++ patched_kernel/drivers/net/Makefile	2006-08-08 03:00:30.061451584 -
+0700
+> @@ -10,6 +10,7 @@ obj-$(CONFIG_E1000) += e1000/
+>   obj-$(CONFIG_IBM_EMAC) += ibm_emac/
+>   obj-$(CONFIG_IXGB) += ixgb/
+>   obj-$(CONFIG_CHELSIO_T1) += chelsio/
+> +obj-$(CONFIG_EHEA) += ehea/
+>   obj-$(CONFIG_BONDING) += bonding/
+>   obj-$(CONFIG_GIANFAR) += gianfar_driver.o
+> 
+> 
+> 
+> _______________________________________________
+> Linuxppc-dev mailing list
+> Linuxppc-dev@ozlabs.org
+> https://ozlabs.org/mailman/listinfo/linuxppc-dev
+> 
