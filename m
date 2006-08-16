@@ -1,39 +1,62 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH2 1/1] network memory allocator.
-Date: Wed, 16 Aug 2006 23:27:26 +0400
-Message-ID: <20060816192726.GB19537@2ka.mipt.ru>
-References: <20060814110359.GA27704@2ka.mipt.ru> <20060816075137.GA22397@2ka.mipt.ru> <20060816095712.120b3171@localhost.localdomain>
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Re: PATCH Fix bonding active-backup behavior for VLAN interfaces
+Date: Wed, 16 Aug 2006 21:30:46 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0608162118580.26987@bizon.gios.gov.pl>
+References: <200607311015.40255.Christophe.Devriese@eurid.eu>
+ <20060802.135859.91441473.davem@davemloft.net> <200608040101.k7411ZZt013801@death.nxdomain.ibm.com>
+ <20060814.170905.69218340.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-137179206-1155756646=:26987"
+Cc: fubar@us.ibm.com, Christophe.Devriese@eurid.eu,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:33998 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932187AbWHPT2L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 15:28:11 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060816095712.120b3171@localhost.localdomain>
+Received: from bizon.gios.gov.pl ([212.244.124.8]:178 "EHLO bizon.gios.gov.pl")
+	by vger.kernel.org with ESMTP id S932196AbWHPTbY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 15:31:24 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060814.170905.69218340.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 16, 2006 at 09:57:12AM -0700, Stephen Hemminger (shemminger@osdl.org) wrote:
-> IMHO the network memory allocator is being a little too focused on one problem,
-> rather than looking at a general enhancement.
-> 
-> Have you looked into something like the talloc used by Samba (and others)?
-> 	http://talloc.samba.org/
-> 	http://samba.org/ftp/unpacked/samba4/source/lib/talloc/talloc_guide.txt
-> 
-> By having a context, we could do better resource tracking and also cleanup
-> would be easier on removal.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Yes, I saw it - it is slow (not that big overhead, but it definitely not
-the case where we can slow things down more).
-Netwrok tree allocator can be used by other users too without any
-problems ,mmu-less systems will greatly benefit from it.
-There is nothing which prevent other than network cases, so I see no
-problems there.
+---187430788-137179206-1155756646=:26987
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
--- 
-	Evgeniy Polyakov
+
+
+On Mon, 14 Aug 2006, David Miller wrote:
+
+> From: Jay Vosburgh <fubar@us.ibm.com>
+> Date: Thu, 03 Aug 2006 18:01:35 -0700
+>
+>> =09In this case (bond0.555 above bond0 above eth0,eth1,etc),
+>> skb_bond doesn't suppress duplicates because skb_bond is called with the
+>> skb->dev set to the bond0.555 dev, not the ethX dev.  Non-accelerated
+>> VLAN devices don't do this; they'll come in with skb->dev set to ethX
+>> and will go through skb_bond as expected.
+>
+> Ok, since __vlan_hwaccel_rx() bypasses the netif_receive_skb()
+> that would normally occur, we have to duplicate the bonding
+> drop checks.
+>
+> The submitted patch put skb_bond() into if_vlan.h which is
+> definitely the wrong thing to do.  This is a generic operation
+> and therefore belongs in linux/netdevice.h at best.
+>
+> Furthermore, we're only interested in the packet drop check,
+> so that's the only part of the logic we need to export,
+> the rest can stay private to skb_bond() in net/core/dev.c
+>
+> Can the folks who can reproduce this try this patch?
+
+Works for me, thank you.
+
+Acked-by: Krzysztof Piotr Oledzki <ole@ans.pl>
+
+Best regards,
+
+ =09=09=09=09Krzysztof Ol=EAdzki
+---187430788-137179206-1155756646=:26987--
