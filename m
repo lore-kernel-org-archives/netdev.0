@@ -1,50 +1,33 @@
-From: Bodo Eggert <7eggert@gmx.de>
-Subject: Re: bonding: cannot remove certain named devices
-Date: Wed, 16 Aug 2006 17:11:19 +0200 (CEST)
-Message-ID: <Pine.LNX.4.58.0608161636250.2044@be1.lrz>
-References: <6KfTz-OX-11@gated-at.bofh.it> <6KfTA-OX-15@gated-at.bofh.it>
- <E1GD8rX-0001cA-CV@be1.lrz> <20060815.171002.104028951.davem@davemloft.net>
- <44E2BC9C.1000101@debian.org> <20060816133811.GA26471@nostromo.devel.redhat.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [RFC] network namespaces
+Date: Wed, 16 Aug 2006 19:12:26 +0400
+Message-ID: <20060816151226.GA11687@ms2.inr.ac.ru>
+References: <20060815182029.A1685@castle.nmd.msu.ru> <20060816115313.GC31810@sergelap.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Giacomo A. Catenazzi" <cate@debian.org>,
-	David Miller <davem@davemloft.net>, 7eggert@gmx.de,
-	7eggert@elstempel.de, shemminger@osdl.org,
-	mitch.a.williams@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Savochkin <saw@sw.ru>, netdev@vger.kernel.org,
+	dlezcano@fr.ibm.com, haveblue@us.ibm.com, clg@fr.ibm.com,
+	herbert@13thfloor.at, sam@vilain.net, ebiederm@xmission.com,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
+	alexey@sw.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.188]:5840 "EHLO
-	moutng.kundenserver.de") by vger.kernel.org with ESMTP
-	id S1751196AbWHPPRR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 11:17:17 -0400
-To: Bill Nottingham <notting@redhat.com>
-In-Reply-To: <20060816133811.GA26471@nostromo.devel.redhat.com>
+Received: from minus.inr.ac.ru ([194.67.69.97]:15790 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S932067AbWHPPTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 11:19:48 -0400
+To: "Serge E. Hallyn" <serue@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20060816115313.GC31810@sergelap.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Aug 2006, Bill Nottingham wrote:
-> Giacomo A. Catenazzi (cate@debian.org) said: 
+Hello!
 
-> > > Are you willing to work to add the special case code necessary to
-> > > handle whitespace characters in the device name over all of the kernel
-> > > code and also all of the userland tools too?
-> > 
-> > But if you don't handle spaces in userspace, you handle *, ?, [, ], $,
-> > ", ', \  in userspace? Should kernel disable also these (insane device
-> > chars) chars?
-> 
-> Don't forget unicode characters!
+> (application) containers.  Performance aside, are there any reasons why
+> this approach would be problematic for c/r?
 
-And long names or control characters.
+This approach is just perfect for c/r.
 
-> Seriously, while it might be insane to use some of these, I'm wondering
-> if trying to filter names is more work than fixing the tools.
+Probably, this is the only approach when migration can be done
+in a clean and self-consistent way.
 
-I think it's sane to avoid control characters and unicode/iso*, since they
-can interfere with log output or analysis. I only thought about the kernel
-itself and the corresponding userspace tools, which should handle any
-character sequence just fine or could be easily fixed.
-
--- 
-Top 100 things you don't want the sysadmin to say:
-14. Any more trouble from you and your account gets moved to the 750
+Alexey
