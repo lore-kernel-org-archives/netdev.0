@@ -1,7 +1,7 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 10/13] e1000: Increment driver version to 7.1.9-k6
-Date: Wed, 16 Aug 2006 14:56:38 -0700
-Message-ID: <20060816215637.27080.82656.stgit@gitlost.site>
+Subject: [PATCH 11/13] ixgb: Add CX4 PHY type detection and subdevice ID.
+Date: Wed, 16 Aug 2006 14:56:40 -0700
+Message-ID: <20060816215640.27080.24384.stgit@gitlost.site>
 References: <20060816215336.27080.56147.stgit@gitlost.site>
 Cc: netdev@vger.kernel.org, akpm@osdl.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
@@ -9,34 +9,57 @@ Cc: netdev@vger.kernel.org, akpm@osdl.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:65289 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S932258AbWHPVst (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 17:48:49 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:778 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S932261AbWHPVsv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 17:48:51 -0400
 To: "Garzik, Jeff" <jgarzik@pobox.com>
 In-Reply-To: <20060816215336.27080.56147.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
+Signed-off-by: Manasi Deval <manasi.deval@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000/e1000_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ixgb/ixgb_hw.c  |   11 +++++++++++
+ drivers/net/ixgb/ixgb_ids.h |    1 +
+ 2 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 978e3b7..815abe5 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -36,7 +36,7 @@ static char e1000_driver_string[] = "Int
- #else
- #define DRIVERNAPI "-NAPI"
- #endif
--#define DRV_VERSION "7.1.9-k4"DRIVERNAPI
-+#define DRV_VERSION "7.1.9-k6"DRIVERNAPI
- char e1000_driver_version[] = DRV_VERSION;
- static char e1000_copyright[] = "Copyright (c) 1999-2006 Intel Corporation.";
+diff --git a/drivers/net/ixgb/ixgb_hw.c b/drivers/net/ixgb/ixgb_hw.c
+index f7fa10e..2b15155 100644
+--- a/drivers/net/ixgb/ixgb_hw.c
++++ b/drivers/net/ixgb/ixgb_hw.c
+@@ -236,6 +236,17 @@ ixgb_identify_phy(struct ixgb_hw *hw)
+ 		DEBUGOUT("Identified G6104 optics\n");
+ 		phy_type = ixgb_phy_type_g6104;
+ 		break;
++	case IXGB_DEVICE_ID_82597EX_CX4:
++		DEBUGOUT("Identified CX4\n");
++		xpak_vendor = ixgb_identify_xpak_vendor(hw);
++		if (xpak_vendor == ixgb_xpak_vendor_intel) {
++			DEBUGOUT("Identified TXN17201 optics\n");
++			phy_type = ixgb_phy_type_txn17201;
++		} else {
++			DEBUGOUT("Identified G6005 optics\n");
++			phy_type = ixgb_phy_type_g6005;
++		}
++		break;
+ 	default:
+ 		DEBUGOUT("Unknown physical layer module\n");
+ 		phy_type = ixgb_phy_type_unknown;
+diff --git a/drivers/net/ixgb/ixgb_ids.h b/drivers/net/ixgb/ixgb_ids.h
+index 40a085f..9fd6118 100644
+--- a/drivers/net/ixgb/ixgb_ids.h
++++ b/drivers/net/ixgb/ixgb_ids.h
+@@ -45,6 +45,7 @@
  
+ #define IXGB_DEVICE_ID_82597EX_CX4   0x109E
+ #define IXGB_SUBDEVICE_ID_A00C  0xA00C
++#define IXGB_SUBDEVICE_ID_A01C  0xA01C
+ 
+ #endif /* #ifndef _IXGB_IDS_H_ */
+ /* End of File */
 
 
 
