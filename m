@@ -1,59 +1,37 @@
 From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [PATCH 7/7] [I/OAT] Add entries to MAINTAINERS for the DMA memcpy
- subsystem and ioatdma
-Date: Tue, 15 Aug 2006 21:52:12 -0700 (PDT)
-Message-ID: <Pine.LNX.4.58.0608152151430.7622@shark.he.net>
-References: <20060816005337.8634.70033.stgit@gitlost.site>
- <20060816005350.8634.68292.stgit@gitlost.site>
+Subject: Re: [PATCH] eth: docbook comments
+Date: Tue, 15 Aug 2006 22:07:39 -0700 (PDT)
+Message-ID: <Pine.LNX.4.58.0608152206300.7622@shark.he.net>
+References: <20060815125759.590a4a44@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750750AbWHPEwO@vger.kernel.org>
-To: Chris Leech <christopher.leech@intel.com>
-In-Reply-To: <20060816005350.8634.68292.stgit@gitlost.site>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Randy.Dunlap" <rdunlap@xenotime.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from xenotime.net ([66.160.160.81]:42418 "HELO xenotime.net")
+	by vger.kernel.org with SMTP id S1750771AbWHPFHo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 01:07:44 -0400
+Received: from shark.he.net ([66.160.160.2]) by xenotime.net for <netdev@vger.kernel.org>; Tue, 15 Aug 2006 22:07:39 -0700
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060815125759.590a4a44@dxpl.pdx.osdl.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 15 Aug 2006, Chris Leech wrote:
+On Tue, 15 Aug 2006, Stephen Hemminger wrote:
 
-> Signed-off-by: Chris Leech <christopher.leech@intel.com>
+>
+
+Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+
+
 > ---
+>  net/ethernet/eth.c |   90 +++++++++++++++++++++++++++++++++++++----------------
+>  1 file changed, 64 insertions(+), 26 deletions(-)
 >
->  MAINTAINERS |   10 ++++++++++
->  1 files changed, 10 insertions(+), 0 deletions(-)
->
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index 21116cc..9ae73c9 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -881,6 +881,11 @@ M:	tori@unhappy.mine.nu
->  L:	linux-kernel@vger.kernel.org
->  S:	Maintained
->
-> +DMA GENERIC MEMCPY SUBSYSTEM
-> +P:	Chris Leech
-> +M:	christopher.leech@intel.com
-> +S:	Maintained
-> +
->  DOCBOOK FOR DOCUMENTATION
->  P:	Martin Waitz
->  M:	tali@admingilde.org
-> @@ -1469,6 +1474,11 @@ P:	Tigran Aivazian
->  M:	tigran@veritas.com
->  S:	Maintained
->
-> +INTEL I/OAT DMA DRIVER
-> +P:	Chris Leech
-> +M:	christopher.leech@intel.com
-> +S:	Supported
-> +
->  INTEL IXP4XX RANDOM NUMBER GENERATOR SUPPORT
->  P:	Deepak Saxena
->  M:	dsaxena@plexity.net
+> --- net-2.6.19.orig/net/ethernet/eth.c
+> +++ net-2.6.19/net/ethernet/eth.c
 
-Can you also add an appropriate mailing list for these,
-such as netdev or lkml etc.?
+Thanks, Steve.
 
-Thanks,
 -- 
 ~Randy
