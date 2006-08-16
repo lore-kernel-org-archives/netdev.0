@@ -1,40 +1,37 @@
-From: Nicolas Pitre <nico@cam.org>
-Subject: Re: [patch 32/41] lockdep: fix smc91x
-Date: Wed, 16 Aug 2006 15:37:45 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0608161526260.3494@localhost.localdomain>
-References: <200608150600.k7F60KYL012708@shell0.pdx.osdl.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [take9 1/2] kevent: Core files.
+Date: Wed, 16 Aug 2006 12:45:54 -0700 (PDT)
+Message-ID: <20060816.124554.18301763.davem@davemloft.net>
+References: <20060816134550.GA12345@infradead.org>
+	<20060816135642.GD4314@2ka.mipt.ru>
+	<44E35F29.8010500@oracle.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: jeff@garzik.org, netdev@vger.kernel.org, rmk+lkml@arm.linux.org.uk,
-	rmk+kernel@arm.linux.org.uk
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johnpol@2ka.mipt.ru, hch@infradead.org,
+	linux-kernel@vger.kernel.org, drepper@redhat.com, akpm@osdl.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relais.videotron.ca ([24.201.245.36]:14189 "EHLO
-	relais.videotron.ca") by vger.kernel.org with ESMTP id S932193AbWHPTiB
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 15:38:01 -0400
-Received: from xanadu.home ([74.56.106.175]) by VL-MH-MR001.ip.videotron.ca
- (Sun Java System Messaging Server 6.2-2.05 (built Apr 28 2005))
- with ESMTP id <0J4300516VUXJJ60@VL-MH-MR001.ip.videotron.ca> for
- netdev@vger.kernel.org; Wed, 16 Aug 2006 15:37:45 -0400 (EDT)
-In-reply-to: <200608150600.k7F60KYL012708@shell0.pdx.osdl.net>
-To: Andrew Morton <akpm@osdl.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:60869
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932112AbWHPTpy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Aug 2006 15:45:54 -0400
+To: zach.brown@oracle.com
+In-Reply-To: <44E35F29.8010500@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 14 Aug 2006, akpm@osdl.org wrote:
+From: Zach Brown <zach.brown@oracle.com>
+Date: Wed, 16 Aug 2006 11:08:41 -0700
 
-> From: Russell King <rmk+lkml@arm.linux.org.uk>
+> >>> +	for (i=0; i<ARRAY_SIZE(u->kevent_list); ++i)
+> >> 	for (i = 0; i < ARRAY_SIZE(u->kevent_list); i++)
+> > 
+> > Ugh, no. It reduces readability due to exessive number of spaces.
 > 
-> When booting using root-nfs, I'm seeing (independently) two lockdep dumps
-> in the smc91x driver.  The patch below fixes both.  Both dumps look like
-> real locking issues.
-> 
-> Nico - please review and ack if you think the patch is correct.
+> Ihavetoverystronglydisagree.
 
-The lock validator is rightfully complaining and the patch is correct.
+Metoo. :-)
 
-Acked-by: Nicolas Pitre <nico@cam.org>
-
-
-Nicolas
+Spaces help humans parse out the syntactic structure of
+multi-token expressions.
