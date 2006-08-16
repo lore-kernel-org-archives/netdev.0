@@ -1,48 +1,34 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 09/13] e1000: Disable aggressive clocking on esb2 with SERDES port
-Date: Wed, 16 Aug 2006 14:56:35 -0700
-Message-ID: <20060816215635.27080.14955.stgit@gitlost.site>
-References: <20060816215336.27080.56147.stgit@gitlost.site>
-Cc: netdev@vger.kernel.org, akpm@osdl.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
+Subject: Re: skge crashes
+Date: Wed, 16 Aug 2006 23:54:05 +0200
+Message-ID: <664E3671B2B6DC439E0C9FFCF8E40CA205F501@exchange.I-BNEX>
+References: <20060816105752.717c3d86@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Krzysztof Oledzki" <olel@ans.pl>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:63753 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S932257AbWHPVsr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 17:48:47 -0400
-To: "Garzik, Jeff" <jgarzik@pobox.com>
-In-Reply-To: <20060816215336.27080.56147.stgit@gitlost.site>
+Received: from loewe.unit-netz.de ([212.202.148.42]:32949 "EHLO
+	loewe.unit-netz.de") by vger.kernel.org with ESMTP id S932271AbWHPVyR convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Aug 2006 17:54:17 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20060816105752.717c3d86@localhost.localdomain>
+To: "Stephen Hemminger" <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+>> Stephen,
+>> 
+>> the reproducible crashes with all skge versions (where sk98lin works
+>> fine) on my box are SMP related.
+>> I booted with maxcpus=1 and the box survived my usual crash test, I will
+>> keep an eye.
+>> 
+>> Daniel
+>> 
 
-Disable aggressive clocking on esb2 with SERDES port as it causes
-hardware problems.
+> Is this P3 SMP?
+> What form of IRQ balance are you using?
 
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
-
- drivers/net/e1000/e1000_main.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index b2caaa2..978e3b7 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -1498,8 +1498,6 @@ e1000_configure_tx(struct e1000_adapter 
- 	} else if (hw->mac_type == e1000_80003es2lan) {
- 		tarc = E1000_READ_REG(hw, TARC0);
- 		tarc |= 1;
--		if (hw->media_type == e1000_media_type_internal_serdes)
--			tarc |= (1 << 20);
- 		E1000_WRITE_REG(hw, TARC0, tarc);
- 		tarc = E1000_READ_REG(hw, TARC1);
- 		tarc |= 1;
-
-
-
---
-Auke Kok <auke-jan.h.kok@intel.com>
+Indeed, P3 SMP and the kernel balancer.
