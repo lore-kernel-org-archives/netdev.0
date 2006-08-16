@@ -1,34 +1,55 @@
-From: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
-Subject: Re: skge crashes
-Date: Wed, 16 Aug 2006 23:54:05 +0200
-Message-ID: <664E3671B2B6DC439E0C9FFCF8E40CA205F501@exchange.I-BNEX>
-References: <20060816105752.717c3d86@localhost.localdomain>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH 1/2]: powerpc/cell spidernet bottom half
+Date: Wed, 16 Aug 2006 16:58:39 -0500
+Message-ID: <20060816215839.GK20551@austin.ibm.com>
+References: <44E34825.2020105@garzik.org> <20060816203043.GJ20551@austin.ibm.com> <44E38157.4070805@garzik.org> <20060816.134640.115912460.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Krzysztof Oledzki" <olel@ans.pl>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	jklewis@us.ibm.com, arnd@arndb.de, Jens.Osterkamp@de.ibm.com,
+	akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from loewe.unit-netz.de ([212.202.148.42]:32949 "EHLO
-	loewe.unit-netz.de") by vger.kernel.org with ESMTP id S932271AbWHPVyR convert rfc822-to-8bit
+Received: from e36.co.us.ibm.com ([32.97.110.154]:10700 "EHLO
+	e36.co.us.ibm.com") by vger.kernel.org with ESMTP id S932275AbWHPV6l
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 17:54:17 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20060816105752.717c3d86@localhost.localdomain>
-To: "Stephen Hemminger" <shemminger@osdl.org>
+	Wed, 16 Aug 2006 17:58:41 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060816.134640.115912460.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> Stephen,
->> 
->> the reproducible crashes with all skge versions (where sk98lin works
->> fine) on my box are SMP related.
->> I booted with maxcpus=1 and the box survived my usual crash test, I will
->> keep an eye.
->> 
->> Daniel
->> 
+On Wed, Aug 16, 2006 at 01:46:40PM -0700, David Miller wrote:
+> From: Jeff Garzik <jeff@garzik.org>
+> Date: Wed, 16 Aug 2006 16:34:31 -0400
+> 
+> > Linas Vepstas wrote:
+> > > I was under the impression that NAPI was for the receive side only.
+> > 
+> > That depends on the driver implementation.
+> 
+> What Jeff is trying to say is that TX reclaim can occur in
+> the NAPI poll routine, and in fact this is what the vast
+> majority of NAPI drivers do.
 
-> Is this P3 SMP?
-> What form of IRQ balance are you using?
+I'll experiment with this.  When doing, say, an ftp, there are 
+enough TCP ack packets coming back to have NAPI netdev->poll 
+be called frequently enough? 
 
-Indeed, P3 SMP and the kernel balancer.
+> implied.  In fact, I get the impression that spidernet is limited
+> in some way and that's where all the strange approaches are coming
+> from :)
+
+Hmm. Or maybe I'm just getting old. Once upon a time, low watermarks
+were considered the "best" way of doing anything; never occurred to me
+it would be considered "strange".  Based on my probably obsolete idea
+of what constitutes "slick hardware", I was actually impressed by what
+the spidernet could do.
+
+Aside from cleaning up the transmit ring in the receive poll loop,
+what would be the not-so-strange way of doing things?
+
+--linas
+
+
