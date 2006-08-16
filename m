@@ -1,25 +1,37 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Possible leak of multicast source filter sctructure #3a
-Date: Wed, 16 Aug 2006 12:11:10 -0700
-Message-ID: <OF817D1232.FBDCF517-ON882571CC.0068EB5F-882571CC.00696412@us.ibm.com>
-References: <200608161501.k7GF1V6u022176@gateplz.comstar.cz>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take9 1/2] kevent: Core files.
+Date: Wed, 16 Aug 2006 23:24:15 +0400
+Message-ID: <20060816192415.GA19537@2ka.mipt.ru>
+References: <11555364962921@2ka.mipt.ru> <1155536496588@2ka.mipt.ru> <20060816134550.GA12345@infradead.org> <20060816135642.GD4314@2ka.mipt.ru> <44E35F29.8010500@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: "David Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Christoph Hellwig <hch@infradead.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:35489 "EHLO
-	e34.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750917AbWHPTLg
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 15:11:36 -0400
-In-Reply-To: <200608161501.k7GF1V6u022176@gateplz.comstar.cz>
-To: "Michal Ruzicka" <michal.ruzicka@comstar.cz>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:37085 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932184AbWHPTZR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 15:25:17 -0400
+To: Zach Brown <zach.brown@oracle.com>
+Content-Disposition: inline
+In-Reply-To: <44E35F29.8010500@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michal,
-        I believe the patch I submitted yesterday fixes this
-problem, and in a simpler way.
+On Wed, Aug 16, 2006 at 11:08:41AM -0700, Zach Brown (zach.brown@oracle.com) wrote:
+> 
+> >>> +	for (i=0; i<ARRAY_SIZE(u->kevent_list); ++i)
+> >> 	for (i = 0; i < ARRAY_SIZE(u->kevent_list); i++)
+> > 
+> > Ugh, no. It reduces readability due to exessive number of spaces.
+> 
+> Ihavetoverystronglydisagree.
 
-                                        +-DLS
+W e l l , i f y o u i n s i s t a n d a b s o l u t e l y s u r e.
 
+> - z
+
+-- 
+	Evgeniy Polyakov
