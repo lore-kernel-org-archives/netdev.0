@@ -1,45 +1,67 @@
 From: Chris Leech <christopher.leech@intel.com>
-Subject: [PATCH 1/7] [I/OAT] Push pending transactions to hardware more frequently
-Date: Tue, 15 Aug 2006 17:53:37 -0700
-Message-ID: <20060816005337.8634.70033.stgit@gitlost.site>
+Subject: [PATCH 2/7] [I/OAT] Only offload copies for TCP when there will be a context switch
+Date: Tue, 15 Aug 2006 17:53:39 -0700
+Message-ID: <20060816005339.8634.23929.stgit@gitlost.site>
+References: <20060816005337.8634.70033.stgit@gitlost.site>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:31753 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S1750750AbWHPApv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 20:45:51 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:32265 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S1750751AbWHPApw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 20:45:52 -0400
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+In-Reply-To: <20060816005337.8634.70033.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Every 20 descriptors turns out to be to few append commands with
-newer/faster CPUs.  Pushing every 4 still cuts down on MMIO writes to an
-acceptable level without letting the DMA engine run out of work.
+The performance wins come with having the DMA copy engine doing the copies
+in parallel with the context switch.  If there is enough data ready on the
+socket at recv time just use a regular copy.
 
 Signed-off-by: Chris Leech <christopher.leech@intel.com>
 ---
 
- drivers/dma/ioatdma.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/ipv4/tcp.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/dma/ioatdma.c b/drivers/dma/ioatdma.c
-index dbd4d6c..be4fdd7 100644
---- a/drivers/dma/ioatdma.c
-+++ b/drivers/dma/ioatdma.c
-@@ -310,7 +310,7 @@ static dma_cookie_t do_ioat_dma_memcpy(s
- 	list_splice_init(&new_chain, ioat_chan->used_desc.prev);
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 934396b..36f6b64 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1105,6 +1105,8 @@ int tcp_recvmsg(struct kiocb *iocb, stru
+ 	long timeo;
+ 	struct task_struct *user_recv = NULL;
+ 	int copied_early = 0;
++	int available = 0;
++	struct sk_buff *skb;
  
- 	ioat_chan->pending += desc_count;
--	if (ioat_chan->pending >= 20) {
-+	if (ioat_chan->pending >= 4) {
- 		append = 1;
- 		ioat_chan->pending = 0;
- 	}
-@@ -818,7 +818,7 @@ static void __devexit ioat_remove(struct
- }
+ 	lock_sock(sk);
  
- /* MODULE API */
--MODULE_VERSION("1.7");
-+MODULE_VERSION("1.9");
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Intel Corporation");
+@@ -1131,7 +1133,11 @@ int tcp_recvmsg(struct kiocb *iocb, stru
+ #ifdef CONFIG_NET_DMA
+ 	tp->ucopy.dma_chan = NULL;
+ 	preempt_disable();
+-	if ((len > sysctl_tcp_dma_copybreak) && !(flags & MSG_PEEK) &&
++	skb = skb_peek_tail(&sk->sk_receive_queue);
++	if (skb)
++		available = TCP_SKB_CB(skb)->seq + skb->len - (*seq);
++	if ((available < target) &&
++	    (len > sysctl_tcp_dma_copybreak) && !(flags & MSG_PEEK) &&
+ 	    !sysctl_tcp_low_latency && __get_cpu_var(softnet_data).net_dma) {
+ 		preempt_enable_no_resched();
+ 		tp->ucopy.pinned_list = dma_pin_iovec_pages(msg->msg_iov, len);
+@@ -1140,7 +1146,6 @@ int tcp_recvmsg(struct kiocb *iocb, stru
+ #endif
  
+ 	do {
+-		struct sk_buff *skb;
+ 		u32 offset;
+ 
+ 		/* Are we at urgent data? Stop if we have read anything or have SIGURG pending. */
+@@ -1428,7 +1433,6 @@ skip_copy:
+ 
+ #ifdef CONFIG_NET_DMA
+ 	if (tp->ucopy.dma_chan) {
+-		struct sk_buff *skb;
+ 		dma_cookie_t done, used;
+ 
+ 		dma_async_memcpy_issue_pending(tp->ucopy.dma_chan);
 
