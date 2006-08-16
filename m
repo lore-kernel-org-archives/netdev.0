@@ -1,64 +1,46 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Packet Corruption Support
-Date: Wed, 16 Aug 2006 15:59:58 -0700
-Message-ID: <20060816155958.2598bdff@localhost.localdomain>
-References: <44E3A132.7090302@aston.ac.uk>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 1/2]: powerpc/cell spidernet bottom half
+Date: Thu, 17 Aug 2006 01:03:20 +0200
+Message-ID: <200608170103.21097.arnd@arndb.de>
+References: <44E34825.2020105@garzik.org> <200608162324.47235.arnd@arndb.de> <20060816225558.GM20551@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: Linas Vepstas <linas@austin.ibm.com>, akpm@osdl.org,
+	jeff@garzik.org, netdev@vger.kernel.org, jklewis@us.ibm.com,
+	linux-kernel@vger.kernel.org, Jens.Osterkamp@de.ibm.com,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:44437 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932313AbWHPXAH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 19:00:07 -0400
-To: Ritesh Taank <taankr@aston.ac.uk>
-In-Reply-To: <44E3A132.7090302@aston.ac.uk>
+Received: from moutng.kundenserver.de ([212.227.126.187]:61660 "EHLO
+	moutng.kundenserver.de") by vger.kernel.org with ESMTP
+	id S932323AbWHPXDY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Aug 2006 19:03:24 -0400
+To: linuxppc-dev@ozlabs.org
+In-Reply-To: <20060816225558.GM20551@austin.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Aug 2006 23:50:26 +0100
-Ritesh Taank <taankr@aston.ac.uk> wrote:
+Am Thursday 17 August 2006 00:55 schrieb Linas Vepstas:
+> > it only
+> > seems to be hard to make it go fast using any of them.
+>
+> Last round of measurements seemed linear for packet sizes between
+> 60 and 600 bytes, suggesting that the hardware can handle a
+> maximum of 120K descriptors/second, independent of packet size.
+> I don't know why this is.
 
-> Hi there,
-> 
-> I am currently using netem that has been packaged with my linux kernel 
-> 2.6.17 (as part of the Knoppix 5.0.1 Boot CD), and the 'corrupt' 
-> parameter is not being recognised as a valid argument.
-> 
-> Having read many posts online, it appears that the Packet Corruption 
-> feature should be supported from kernel versions 2.6.16 onwards.
-> 
-> So I was wondering why my version does not support the corrupt feature?
-> 
-> Are there any kernel versions out there that do support it?
-> 
-> I was wondering if there was a way to patch my existing kernel do enable 
-> the corruption feature?
-> 
-> Any help/guidance is much appreciate.
-> 
-> Thanks in advance too.
-> 
-> Ritesh
+Could well be related to latencies when going to the remote
+node for descriptor DMAs. Have you tried if the hch's NUMA
+patch or using numactl makes a difference here?
 
-It was introduced with this change set.
+> > sounds like the right approach to simplify the code.
+>
+> Its not a big a driver. 'wc' says its 2.3 loc, which
+> is 1/3 or 1/5 the size of tg3.c or the e1000*c files.
 
-Author: Stephen Hemminger <shemminger@osdl.org>  2005-12-21 19:03:44
-Committer: David S. Miller <davem@sunset.davemloft.net>  2006-01-03 13:11:05
-Parent: aa8751667dcd757dd9a711b51140adf181501c44 ([PKT_SCHED]: sch_netem: correctly order packets to be sent simultaneously)
-Child:  6d037a26f08711a222ed0d3d12b09e93eed7d3e8 ([PKT_SCHED]: Qdisc drop operation is optional)
+Right, I was thinking of removing a lock or another, not
+throwing out half of the driver ;-)
 
-    [PKT_SCHED] netem: packet corruption option
-    
-    Here is a new feature for netem in 2.6.16. It adds the ability to
-    randomly corrupt packets with netem. A version was done by
-    Hagen Paul Pfeifer, but I redid it to handle the cases of backwards
-    compatibility with netlink interface and presence of hardware checksum
-    offload. It is useful for testing hardware offload in devices.
-    
-    Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-
-More likely the version if iproute2 utilities included with Knoppix is not
-up to date and doesn't understand the command line option.
+	Arnd <><
