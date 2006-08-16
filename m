@@ -1,52 +1,64 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH 1/2]: powerpc/cell spidernet bottom half
-Date: Wed, 16 Aug 2006 17:55:58 -0500
-Message-ID: <20060816225558.GM20551@austin.ibm.com>
-References: <44E34825.2020105@garzik.org> <44E38157.4070805@garzik.org> <20060816.134640.115912460.davem@davemloft.net> <200608162324.47235.arnd@arndb.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Packet Corruption Support
+Date: Wed, 16 Aug 2006 15:59:58 -0700
+Message-ID: <20060816155958.2598bdff@localhost.localdomain>
+References: <44E3A132.7090302@aston.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jeff@garzik.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, jklewis@us.ibm.com,
-	Jens.Osterkamp@de.ibm.com, akpm@osdl.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:20678 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S932320AbWHPW4B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 18:56:01 -0400
-To: Arnd Bergmann <arnd@arndb.de>
-Content-Disposition: inline
-In-Reply-To: <200608162324.47235.arnd@arndb.de>
+Received: from smtp.osdl.org ([65.172.181.4]:44437 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932313AbWHPXAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 19:00:07 -0400
+To: Ritesh Taank <taankr@aston.ac.uk>
+In-Reply-To: <44E3A132.7090302@aston.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 16, 2006 at 11:24:46PM +0200, Arnd Bergmann wrote:
+On Wed, 16 Aug 2006 23:50:26 +0100
+Ritesh Taank <taankr@aston.ac.uk> wrote:
+
+> Hi there,
 > 
-> it only
-> seems to be hard to make it go fast using any of them. 
+> I am currently using netem that has been packaged with my linux kernel 
+> 2.6.17 (as part of the Knoppix 5.0.1 Boot CD), and the 'corrupt' 
+> parameter is not being recognised as a valid argument.
+> 
+> Having read many posts online, it appears that the Packet Corruption 
+> feature should be supported from kernel versions 2.6.16 onwards.
+> 
+> So I was wondering why my version does not support the corrupt feature?
+> 
+> Are there any kernel versions out there that do support it?
+> 
+> I was wondering if there was a way to patch my existing kernel do enable 
+> the corruption feature?
+> 
+> Any help/guidance is much appreciate.
+> 
+> Thanks in advance too.
+> 
+> Ritesh
 
-Last round of measurements seemed linear for packet sizes between
-60 and 600 bytes, suggesting that the hardware can handle a 
-maximum of 120K descriptors/second, independent of packet size.
-I don't know why this is.
+It was introduced with this change set.
 
-> That may
-> be the fault of strange locking rules 
+Author: Stephen Hemminger <shemminger@osdl.org>  2005-12-21 19:03:44
+Committer: David S. Miller <davem@sunset.davemloft.net>  2006-01-03 13:11:05
+Parent: aa8751667dcd757dd9a711b51140adf181501c44 ([PKT_SCHED]: sch_netem: correctly order packets to be sent simultaneously)
+Child:  6d037a26f08711a222ed0d3d12b09e93eed7d3e8 ([PKT_SCHED]: Qdisc drop operation is optional)
 
-My fault; a few months ago, we were in panic mode trying to get
-the thing functioning reliably, and I put locks around anything
-and everything.  This last patch removes those locks, and protects
-only a few pointers (the incrementing of the head and the tail 
-pointers, and the location ofthe low watermark) that actually 
-needed protection. They need protection because the code can 
-get called in various different ways.
+    [PKT_SCHED] netem: packet corruption option
+    
+    Here is a new feature for netem in 2.6.16. It adds the ability to
+    randomly corrupt packets with netem. A version was done by
+    Hagen Paul Pfeifer, but I redid it to handle the cases of backwards
+    compatibility with netlink interface and presence of hardware checksum
+    offload. It is useful for testing hardware offload in devices.
+    
+    Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-> Cleaning up the TX queue only from ->poll() like all the others
 
-I'll try this ... 
-
-> sounds like the right approach to simplify the code.
-
-Its not a big a driver. 'wc' says its 2.3 loc, which 
-is 1/3 or 1/5 the size of tg3.c or the e1000*c files.
-
---linas
+More likely the version if iproute2 utilities included with Knoppix is not
+up to date and doesn't understand the command line option.
