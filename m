@@ -1,271 +1,38 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 2/2]:  powerpc/cell spidernet refine locking
-Date: Wed, 16 Aug 2006 11:23:52 -0500
-Message-ID: <20060816162352.GE20551@austin.ibm.com>
-References: <20060811170337.GH10638@austin.ibm.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/2]:  powerpc/cell spidernet bottom half
+Date: Wed, 16 Aug 2006 12:30:29 -0400
+Message-ID: <44E34825.2020105@garzik.org>
+References: <20060811170337.GH10638@austin.ibm.com> <20060816161856.GD20551@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, , Arnd Bergmann <arnd@arndb.de>, jeff@garzik.org,
-	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>,
-	James K Lewis <jklewis@us.ibm.com>, wq@austin.ibm.com
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-Content-Disposition: inline
-In-Reply-To: <20060811170337.GH10638@austin.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, James K Lewis <jklewis@us.ibm.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>, akpm@osdl.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932098AbWHPQax@vger.kernel.org>
+To: Linas Vepstas <linas@austin.ibm.com>
+In-Reply-To: <20060816161856.GD20551@austin.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Linas Vepstas wrote:
+> Please apply and forward upstream. This patch requires the previous
+> sequence of 4 spidernet patches to be applied.
+> 
+> --linas
+> 
+> 
+> The recent set of low-waterark patches for the spider result in a
+> significant amount of computing being done in an interrupt context.
+> This patch moves this to a "bottom half" aka work queue, so that
+> the code runs in a normal kernel context. Curiously, this seems to 
+> result in a performance boost of about 5% for large packets.
+> 
+> Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
+> Cc: Utz Bacher <utz.bacher@de.ibm.com>
+> Cc: Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
 
-Please apply and forward upstream. This patch requires the 
-pervious set of four spidernet patches to be applied.
+Let's not reinvented NAPI, shall we...
 
---linas
-
-The transmit side of the spider ethernet driver currently
-places locks around some very large chunks of code. This
-results in a fair amount of lock contention is some cases. 
-This patch makes the locks much more fine-grained, protecting
-only the cirtical sections (the queue head and tail pointers,
-and the queue low-watermark location).
-
-This, with the previous patches, result in the following 
-performance, using netperf, averaged over 5 minute runs:
-
-pkt size    rate
-========    ====
-1500        804 Mbits/sec
- 800        701 Mbits/sec
- 600        600 Mbits/sec
- 300        280 Mbits/sec
-  60         60 Mbits/sec
-
-
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Cc: Utz Bacher <utz.bacher@de.ibm.com>
-Cc: Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
-
-----
- drivers/net/spider_net.c |   77 ++++++++++++++++++++---------------------------
- drivers/net/spider_net.h |    2 -
- 2 files changed, 35 insertions(+), 44 deletions(-)
-
-Index: linux-2.6.18-rc3-mm2/drivers/net/spider_net.c
-===================================================================
---- linux-2.6.18-rc3-mm2.orig/drivers/net/spider_net.c	2006-08-15 14:28:56.000000000 -0500
-+++ linux-2.6.18-rc3-mm2/drivers/net/spider_net.c	2006-08-15 14:29:36.000000000 -0500
-@@ -644,8 +644,9 @@ static int
- spider_net_prepare_tx_descr(struct spider_net_card *card,
- 			    struct sk_buff *skb)
- {
--	struct spider_net_descr *descr = card->tx_chain.head;
-+	struct spider_net_descr *descr;
- 	dma_addr_t buf;
-+	unsigned long flags;
- 
- 	buf = pci_map_single(card->pdev, skb->data, skb->len, PCI_DMA_TODEVICE);
- 	if (buf == DMA_ERROR_CODE) {
-@@ -655,6 +656,10 @@ spider_net_prepare_tx_descr(struct spide
- 		return -ENOMEM;
- 	}
- 
-+	spin_lock_irqsave(&card->tx_chain.lock, flags);
-+	descr = card->tx_chain.head;
-+	card->tx_chain.head = card->tx_chain.head->next;
-+
- 	descr->buf_addr = buf;
- 	descr->buf_size = skb->len;
- 	descr->next_descr_addr = 0;
-@@ -663,6 +668,8 @@ spider_net_prepare_tx_descr(struct spide
- 
- 	descr->dmac_cmd_status =
- 			SPIDER_NET_DESCR_CARDOWNED | SPIDER_NET_DMAC_NOCS;
-+	spin_unlock_irqrestore(&card->tx_chain.lock, flags);
-+
- 	if (skb->protocol == htons(ETH_P_IP))
- 		switch (skb->nh.iph->protocol) {
- 		case IPPROTO_TCP:
-@@ -673,37 +680,16 @@ spider_net_prepare_tx_descr(struct spide
- 			break;
- 		}
- 
-+	/* Chain the bus address, so that the DMA engine finds this descr. */
- 	descr->prev->next_descr_addr = descr->bus_addr;
- 
- 	return 0;
- }
- 
--/**
-- * spider_net_release_tx_descr - processes a used tx descriptor
-- * @card: card structure
-- * @descr: descriptor to release
-- *
-- * releases a used tx descriptor (unmapping, freeing of skb)
-- */
--static inline void
--spider_net_release_tx_descr(struct spider_net_card *card)
--{
--	struct spider_net_descr *descr = card->tx_chain.tail;
--	struct sk_buff *skb;
--
--	card->tx_chain.tail = card->tx_chain.tail->next;
--	descr->dmac_cmd_status |= SPIDER_NET_DESCR_NOT_IN_USE;
--
--	/* unmap the skb */
--	skb = descr->skb;
--	pci_unmap_single(card->pdev, descr->buf_addr, skb->len,
--			PCI_DMA_TODEVICE);
--	dev_kfree_skb_any(skb);
--}
--
- static void
- spider_net_set_low_watermark(struct spider_net_card *card)
- {
-+	unsigned long flags;
- 	int status;
- 	int cnt=0;
- 	int i;
-@@ -727,11 +713,13 @@ spider_net_set_low_watermark(struct spid
- 		descr = descr->next;
- 
- 	/* Set the new watermark, clear the old wtermark */
-+	spin_lock_irqsave(&card->tx_chain.lock, flags);
- 	descr->dmac_cmd_status |= SPIDER_NET_DESCR_TXDESFLG;
- 	if (card->low_watermark && card->low_watermark != descr)
- 		card->low_watermark->dmac_cmd_status =
- 		     card->low_watermark->dmac_cmd_status & ~SPIDER_NET_DESCR_TXDESFLG;
- 	card->low_watermark = descr;
-+	spin_unlock_irqrestore(&card->tx_chain.lock, flags);
- }
- 
- /**
-@@ -750,22 +738,30 @@ static int
- spider_net_release_tx_chain(struct spider_net_card *card, int brutal)
- {
- 	struct spider_net_descr_chain *chain = &card->tx_chain;
-+	struct spider_net_descr *descr;
-+	struct sk_buff *skb;
-+	u32 buf_addr;
-+	unsigned long flags;
- 	int status;
- 	int rc=0;
- 
- 	spider_net_read_reg(card, SPIDER_NET_GDTDMACCNTR);
- 
- 	while (chain->tail != chain->head) {
--		status = spider_net_get_descr_status(chain->tail);
-+		spin_lock_irqsave(&chain->lock, flags);
-+		descr = chain->tail;
-+
-+		status = spider_net_get_descr_status(descr);
- 		switch (status) {
- 		case SPIDER_NET_DESCR_COMPLETE:
- 			card->netdev_stats.tx_packets++;
--			card->netdev_stats.tx_bytes += chain->tail->skb->len;
-+			card->netdev_stats.tx_bytes += descr->skb->len;
- 			break;
- 
- 		case SPIDER_NET_DESCR_CARDOWNED:
- 			if (!brutal) {
- 				rc = 1;
-+				spin_unlock_irqrestore(&chain->lock, flags);
- 				goto done;
- 			}
- 			/* fallthrough, if we release the descriptors
-@@ -785,9 +781,19 @@ spider_net_release_tx_chain(struct spide
- 		default:
- 			card->netdev_stats.tx_dropped++;
- 			rc = 1;
-+			spin_unlock_irqrestore(&chain->lock, flags);
- 			goto done;
- 		}
--		spider_net_release_tx_descr(card);
-+
-+		chain->tail = chain->tail->next;
-+		descr->dmac_cmd_status |= SPIDER_NET_DESCR_NOT_IN_USE;
-+		skb = descr->skb;
-+		buf_addr = descr->buf_addr;
-+		spin_unlock_irqrestore(&chain->lock, flags);
-+
-+		/* unmap the skb */
-+		pci_unmap_single(card->pdev, buf_addr, skb->len, PCI_DMA_TODEVICE);
-+		dev_kfree_skb_any(skb);
- 	}
- done:
- 	if (rc == 1)
-@@ -844,11 +850,8 @@ spider_net_xmit(struct sk_buff *skb, str
- 	struct spider_net_card *card = netdev_priv(netdev);
- 	struct spider_net_descr_chain *chain = &card->tx_chain;
- 	struct spider_net_descr *descr = chain->head;
--	unsigned long flags;
- 	int result;
-: 
--	spin_lock_irqsave(&chain->lock, flags);
--
- 	spider_net_release_tx_chain(card, 0);
- 
- 	if (chain->head->next == chain->tail->prev) {
-@@ -869,12 +872,9 @@ spider_net_xmit(struct sk_buff *skb, str
- 	}
- 
- 	result = NETDEV_TX_OK;
--
- 	spider_net_kick_tx_dma(card);
--	card->tx_chain.head = card->tx_chain.head->next;
- 
- out:
--	spin_unlock_irqrestore(&chain->lock, flags);
- 	netif_wake_queue(netdev);
- 	return result;
- }
-@@ -891,17 +891,11 @@ out:
- static void
- spider_net_cleanup_tx_ring(struct spider_net_card *card)
- {
--	unsigned long flags;
--
--	spin_lock_irqsave(&card->tx_chain.lock, flags);
--
- 	if ((spider_net_release_tx_chain(card, 0) != 0) &&
- 	    (card->netdev->flags & IFF_UP)) {
- 		spider_net_kick_tx_dma(card);
- 		netif_wake_queue(card->netdev);
- 	}
--
--	spin_unlock_irqrestore(&card->tx_chain.lock, flags);
- }
- 
- static void
-@@ -1932,10 +1926,7 @@ spider_net_stop(struct net_device *netde
- 	spider_net_disable_rxdmac(card);
- 
- 	/* release chains */
--	if (spin_trylock(&card->tx_chain.lock)) {
--		spider_net_release_tx_chain(card, 1);
--		spin_unlock(&card->tx_chain.lock);
--	}
-+	spider_net_release_tx_chain(card, 1);
- 
- 	spider_net_free_chain(card, &card->tx_chain);
- 	spider_net_free_chain(card, &card->rx_chain);
-Index: linux-2.6.18-rc3-mm2/drivers/net/spider_net.h
-===================================================================
---- linux-2.6.18-rc3-mm2.orig/drivers/net/spider_net.h	2006-08-15 14:28:56.000000000 -0500
-+++ linux-2.6.18-rc3-mm2/drivers/net/spider_net.h	2006-08-15 14:29:36.000000000 -0500
-@@ -24,7 +24,7 @@
- #ifndef _SPIDER_NET_H
- #define _SPIDER_NET_H
- 
--#define VERSION "1.1 B"
-+#define VERSION "1.1 C"
- 
- #include "sungem_phy.h"
+	Jeff
