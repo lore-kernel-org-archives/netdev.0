@@ -1,46 +1,49 @@
 From: Chris Leech <christopher.leech@intel.com>
-Subject: [PATCH 3/7] [I/OAT] Don't offload copies for loopback traffic
-Date: Tue, 15 Aug 2006 17:53:41 -0700
-Message-ID: <20060816005341.8634.10380.stgit@gitlost.site>
+Subject: [PATCH 7/7] [I/OAT] Add entries to MAINTAINERS for the DMA memcpy subsystem and ioatdma
+Date: Tue, 15 Aug 2006 17:53:50 -0700
+Message-ID: <20060816005350.8634.68292.stgit@gitlost.site>
 References: <20060816005337.8634.70033.stgit@gitlost.site>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:33289 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S1750756AbWHPApz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 20:45:55 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:36105 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S1750823AbWHPAqD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 20:46:03 -0400
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 In-Reply-To: <20060816005337.8634.70033.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Local traffic (loopback) is generally in cache anyway, and the overhead
-cost of offloading the copy is worse than just doing it with the CPU.
-
 Signed-off-by: Chris Leech <christopher.leech@intel.com>
 ---
 
- net/ipv4/tcp.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ MAINTAINERS |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 36f6b64..7971e73 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1107,6 +1107,7 @@ int tcp_recvmsg(struct kiocb *iocb, stru
- 	int copied_early = 0;
- 	int available = 0;
- 	struct sk_buff *skb;
-+	struct dst_entry *dst;
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 21116cc..9ae73c9 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -881,6 +881,11 @@ M:	tori@unhappy.mine.nu
+ L:	linux-kernel@vger.kernel.org
+ S:	Maintained
  
- 	lock_sock(sk);
++DMA GENERIC MEMCPY SUBSYSTEM
++P:	Chris Leech
++M:	christopher.leech@intel.com
++S:	Maintained
++
+ DOCBOOK FOR DOCUMENTATION
+ P:	Martin Waitz
+ M:	tali@admingilde.org
+@@ -1469,6 +1474,11 @@ P:	Tigran Aivazian
+ M:	tigran@veritas.com
+ S:	Maintained
  
-@@ -1136,7 +1137,8 @@ int tcp_recvmsg(struct kiocb *iocb, stru
- 	skb = skb_peek_tail(&sk->sk_receive_queue);
- 	if (skb)
- 		available = TCP_SKB_CB(skb)->seq + skb->len - (*seq);
--	if ((available < target) &&
-+	dst = __sk_dst_get(sk);
-+	if ((available < target) && (!dst || (dst->dev != &loopback_dev)) &&
- 	    (len > sysctl_tcp_dma_copybreak) && !(flags & MSG_PEEK) &&
- 	    !sysctl_tcp_low_latency && __get_cpu_var(softnet_data).net_dma) {
- 		preempt_enable_no_resched();
++INTEL I/OAT DMA DRIVER
++P:	Chris Leech
++M:	christopher.leech@intel.com
++S:	Supported
++
+ INTEL IXP4XX RANDOM NUMBER GENERATOR SUPPORT
+ P:	Deepak Saxena
+ M:	dsaxena@plexity.net
 
