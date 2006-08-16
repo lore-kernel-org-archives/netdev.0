@@ -1,98 +1,37 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: Re: [PATCH 4/4]: powerpc/cell spidernet ethtool -i version number
-	info.
-Date: Wed, 16 Aug 2006 10:29:05 +1000
-Message-ID: <1155688145.26911.5.camel@localhost.localdomain>
-References: <20060811180013.GB6550@pb15.lixom.net>
-	 <OF934FE4E3.EEC44FDD-ON872571C7.00668651-862571C7.00677A44@us.ibm.com>
-	 <20060815190524.GW6603@pb15.lixom.net>
-Reply-To: michael@ellerman.id.au
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-0hSfKaqUAvN8P1/CJO7c"
-Cc: James K Lewis <jklewis@us.ibm.com>, Arnd Bergmann <arnd@arndb.de>,
-	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: e1000: ethtool -p + cable pull = system wedges hard
+Date: Tue, 15 Aug 2006 17:37:55 -0700
+Message-ID: <200608160037.k7G0btZt002839@death.nxdomain.ibm.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:8891 "EHLO ozlabs.org")
-	by vger.kernel.org with ESMTP id S1750728AbWHPA3W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 20:29:22 -0400
-To: Olof Johansson <olof@lixom.net>
-In-Reply-To: <20060815190524.GW6603@pb15.lixom.net>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:41664 "EHLO e3.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1750751AbWHPAh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 20:37:59 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e3.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k7G0bv9u010346
+	for <netdev@vger.kernel.org>; Tue, 15 Aug 2006 20:37:57 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7G0bubC260630
+	for <netdev@vger.kernel.org>; Tue, 15 Aug 2006 20:37:56 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7G0buSX020231
+	for <netdev@vger.kernel.org>; Tue, 15 Aug 2006 20:37:56 -0400
+To: e1000-devel@lists.sourceforge.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-0hSfKaqUAvN8P1/CJO7c
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+	Running both 2.6.17.6 plus the e1000 7.2.7 from sourceforge, or
+the e1000 in netdev-2.6#upstream (7.1.9-k4).
 
-On Tue, 2006-08-15 at 14:05 -0500, Olof Johansson wrote:
-> On Fri, Aug 11, 2006 at 01:50:19PM -0500, James K Lewis wrote:
-> >  Hi Olof,
-> >=20
-> >   There are several reasons why an Ethernet driver should have an up to=
-=20
-> > date version number:
-> >=20
-> > 1. Customers like to see they are really getting a new version.
-> >=20
-> > 2. It makes it easier for support personnel (me in this case) to see wh=
-ich=20
-> > driver they have. Sure, sometimes I can talk them thru doing a "sum" on=
-=20
-> > the .ko and all that, but why not just use the version number? That's w=
-hat=20
-> > it is for. And no, you can't just assume they have the version that cam=
-e=20
-> > with the kernel they are running. It doesn't work that way.
-> >=20
-> > 3. It makes bug reporting easier.=20
-> >=20
-> > 4. I have already run into too many problems and wasted too much time=20
-> > working with drivers when the number was NOT getting updated.=20
->=20
-> Thanks for the info, Jim.
->=20
-> Sounds like it's most useful if a customer (or distro) takes the driver
-> out of the tree and run it with a different kernel, i.e. when kernel
-> and driver versions no longer go together. Makes sense.
+	Starting up "ethtool -p ethX" then unplugging the cable
+connected to the identified port is causing my system to completely
+freeze; even sysrq is unresponsive.  I'm running on a 2-way x86 box,
+with an 82545GM.
 
-It only makes sense in addition to the kernel version number (which in
-some cases can be meaningless), plus any distro and/or local patches,
-plus the kernel config.
+	Is this by any chance a known problem?
 
-Without all that information you don't really know what you're talking
-about, because any one of the many interfaces between the driver and the
-core kernel may have changed.
+	-J
 
-So in practice I find it's much simpler to just get the exact source
-that they're running, rather than trying to guess based on version
-numbers. But that's just me :)
-
-cheers
-
---=20
-Michael Ellerman
-IBM OzLabs
-
-wwweb: http://michael.ellerman.id.au
-phone: +61 2 6212 1183 (tie line 70 21183)
-
-We do not inherit the earth from our ancestors,
-we borrow it from our children. - S.M.A.R.T Person
-
---=-0hSfKaqUAvN8P1/CJO7c
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.2 (GNU/Linux)
-
-iD8DBQBE4mbRdSjSd0sB4dIRAvhKAKCA3hLLMSzx/yEn391sbCqBjBz94QCfdQmx
-48APrHG1VW4AMJbYwsld/6w=
-=8Kij
------END PGP SIGNATURE-----
-
---=-0hSfKaqUAvN8P1/CJO7c--
-
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
