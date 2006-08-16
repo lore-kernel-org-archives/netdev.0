@@ -1,36 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] keep track of network interface renaming
-Date: Wed, 16 Aug 2006 04:35:39 +0200
-Message-ID: <44E2847B.7050909@trash.net>
-References: <20060815165635.GA31291@aepfle.de>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH 1/1] network memory allocator.
+Date: Tue, 15 Aug 2006 22:52:37 -0400
+Message-ID: <20060815225237.03df7874.billfink@mindspring.com>
+References: <20060814110359.GA27704@2ka.mipt.ru>
+	<1155558313.5696.167.camel@twins>
+	<20060814123530.GA5019@2ka.mipt.ru>
+	<1155639302.5696.210.camel@twins>
+	<20060815112617.GB21736@2ka.mipt.ru>
+	<1155643405.5696.236.camel@twins>
+	<20060815123438.GA29896@2ka.mipt.ru>
+	<1155649768.5696.262.camel@twins>
+	<20060815141501.GA10998@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: a.p.zijlstra@chello.nl, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55207 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1750833AbWHPCfm
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 22:35:42 -0400
-To: Olaf Hering <olaf@aepfle.de>
-In-Reply-To: <20060815165635.GA31291@aepfle.de>
+Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:41398 "EHLO
+	elasmtp-scoter.atl.sa.earthlink.net") by vger.kernel.org with ESMTP
+	id S1750848AbWHPCwr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 22:52:47 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060815141501.GA10998@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Olaf Hering wrote:
-> Keep track about which network interface names were renamed after the
-> network device driver printed its banner. Previous kernel names will
-> be reused when new interfaces get registerd.
-> Recent udev scripts implement a stable kernel device name for network
-> interfaces.
-> This printk avoids confusion about what network hardware maps to what
-> kernel interface in later driver or network stack messages.
+On Tue, 15 Aug 2006, Evgeniy Polyakov wrote:
 
+> On Tue, Aug 15, 2006 at 03:49:28PM +0200, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
+> 
+> > It could if you can provide adequate detection of memory pressure and
+> > fallback to a degraded mode within the same allocator/stack and can
+> > guarantee limited service to critical parts.
+> 
+> It is not needed, since network allocations are separated from main
+> system ones.
+> I think I need to show an example here.
+> 
+> Let's main system works only with TCP for simplicity.
+> Let's maximum allowed memory is limited by 1mb (it is 768k on machine
+> with 1gb of ram).
 
-I think it would be even easier to follow, especially with many devices,
-if some stable identifier was included in messages relating to network
-devices, like ifindex or maybe the LL address. And it would avoid
-spamming the ringbuffer for people making use of this to implement
-alternative naming schemes.
+The maximum amount of memory available for TCP on a system with 1 GB
+of memory is 768 MB (not 768 KB).
 
+[bill@chance4 ~]$ cat /proc/meminfo
+MemTotal:      1034924 kB
+...
 
+[bill@chance4 ~]$ cat /proc/sys/net/ipv4/tcp_mem
+98304   131072  196608
+
+Since tcp_mem is in pages (4K in this case), maximum TCP memory
+is 196608*4K or 768 MB.
+
+Or am I missing something obvious.
+
+						-Bill
