@@ -1,58 +1,87 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH 1/1] network memory allocator.
-Date: Wed, 16 Aug 2006 16:00:26 +0400
-Message-ID: <20060816120026.GA30291@2ka.mipt.ru>
-References: <20060814110359.GA27704@2ka.mipt.ru> <20060816084808.GA7366@infradead.org> <20060816090028.GA25476@2ka.mipt.ru> <200608161327.02826.arnd@arndb.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 09/16] [IPv6] address: Convert address notification to
+	use rtnl_notify()
+Date: Wed, 16 Aug 2006 08:04:24 -0400
+Message-ID: <1155729864.5122.95.camel@jzny2>
+References: <20060815122300.GV14627@postel.suug.ch>
+	 <E1GDBbw-0006Kz-00@gondolin.me.apana.org.au>
+	 <20060816105856.GW14627@postel.suug.ch>
+	 <20060816111240.GA28846@gondor.apana.org.au>
+	 <20060816113950.GA29003@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Christoph Hellwig <hch@infradead.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, hasso@estpak.ee, kuznet@ms2.inr.ac.ru,
+	davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:15596 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751121AbWHPMDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 08:03:54 -0400
-To: Arnd Bergmann <arnd@arndb.de>
-Content-Disposition: inline
-In-Reply-To: <200608161327.02826.arnd@arndb.de>
+Received: from mx02.cybersurf.com ([209.197.145.105]:19078 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1751122AbWHPMEh
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Aug 2006 08:04:37 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1GDK8V-0001Ve-8s
+	for netdev@vger.kernel.org; Wed, 16 Aug 2006 08:04:39 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060816113950.GA29003@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 16, 2006 at 01:27:02PM +0200, Arnd Bergmann (arnd@arndb.de) wrote:
-> On Wednesday 16 August 2006 11:00, Evgeniy Polyakov wrote:
-> > There is drawback here - if data was allocated on CPU wheere NIC is
-> > "closer" and then processed on different CPU it will cost more than 
-> > in case where buffer was allocated on CPU where it will be processed.
-> > 
-> > But from other point of view, most of the adapters preallocate set of
-> > skbs, and with msi-x help there will be a possibility to bind irq and
-> > processing to the CPU where data was origianlly allocated.
-> > 
-> > So I would like to know how to determine which node should be used for
-> > allocation. Changes of __get_user_pages() to alloc_pages_node() are
-> > trivial.
-> 
-> There are two separate memory areas here: Your own metadata used by the
-> allocator and the memory used for skb data.
-> 
-> avl_node_array[cpu] and avl_container_array[cpu] are only designed to
-> be accessed only by the local cpu, so these should be done like
-> 
-> avl_node_array[cpu] = kmalloc_node(AVL_NODE_PAGES * sizeof(void *),
-> 			GFP_KERNEL, cpu_to_node(cpu));
-> 
-> or you could make the whole array DEFINE_PER_CPU(void *, which would
-> waste some space in the kernel object file.
-> 
-> Now for the actual pages you get with __get_free_pages(), doing the
-> same (alloc_pages_node), will help accessing your avl_container 
-> members, but may not be the best solution for getting the data
-> next to the network adapter.
+On Wed, 2006-16-08 at 21:39 +1000, Herbert Xu wrote:
 
-I can create it with numa_node_id() right now and later, if there will
-exsist some helper to match netdev->node, it can be used instead.
+> So let's step back a bit and think about where does this pid really
+> come from.  The field in question is nlmsg_pid.  Its primary purpose
+> is to identify unicast transactions along with the field nlmsg_seq.
+> It was not designed to identify the origin of a broadcast kernel
+> notification to a third party.
 
-> 	Arnd <><
+There are quiet a few things that netlink design intent was not
+intending to solve that became needed over time. This being one IMHO.
+Design intent and eventual (sometimes creative) use occasionally create
+an impedance ;-> Evolution is the only description i can think of.
 
--- 
-	Evgeniy Polyakov
+> For this purpose, the value of nlmsg_pid is set to the address of
+> the destination socket for a particular unicast message (also known
+> as the pid).
+
+Since we are talking history:
+The idea of it being a destination socket _was not_ design intent. It
+was evolution. I recall James Morris actually to be the first person
+whining about this ambiguity when coding up nfqueue. I cant remember who
+fixed it (I am inclined to think it was you;->)
+ 
+> That pid in turn has only a vague connection with the process ID
+> of the process owning the socket.  For practical purposes, we
+> should not treat it as a process ID it can easily be claimed by
+> another process (think socket + bind + fork).
+
+If you want to be complete the kernel should "fix" the pid in
+netlink::sendmsg().
+
+> For a broadcast notification, the nlmsg_pid field is meaningless
+> because the nlmsg_seq field is also meaningless.  
+
+nlmsg_seq is meaningless; "seq" is again a bad noun. It should be
+"cookie".
+
+> I'm not denying
+> that it wouldn't be useful to have the originator's socket address
+> in there.  What I'm saying is that it's the wrong place to put
+> that information.
+>
+> In any case, putting current->pid in this field is definitely
+> a bad idea because it only encourages people to confuse the
+> netlink pid with the process ID which can lead to security
+> problems later on.
+
+current->pid i think is coming out to be a bad idea. Thomas' patches
+revert it out. Again this has everything to do with the original idea
+what maps to pid now changing to socketid.
+
+What do you think of the idea of infact rewriting the pid to be that of
+the socket id?
+
+cheers,
+jamal
+
