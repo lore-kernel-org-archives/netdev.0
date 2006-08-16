@@ -1,45 +1,34 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 1/1] network memory allocator.
-Date: Wed, 16 Aug 2006 09:48:08 +0100
-Message-ID: <20060816084808.GA7366@infradead.org>
-References: <20060814110359.GA27704@2ka.mipt.ru> <200608152221.22883.arnd@arndb.de> <20060816053545.GB22921@2ka.mipt.ru>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: hard_start_xmit  conext
+Date: Wed, 16 Aug 2006 01:48:56 -0700
+Message-ID: <44E2DBF8.8040500@candelatech.com>
+References: <E1GDBlk-0006O1-00@gondolin.me.apana.org.au> <44E2CB10.9080701@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	kiran kandi <kkiran78@hotmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:35976 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1751013AbWHPIsW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 04:48:22 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20060816053545.GB22921@2ka.mipt.ru>
+Received: from ns2.lanforge.com ([66.165.47.211]:4777 "EHLO ns2.lanforge.com")
+	by vger.kernel.org with ESMTP id S1751018AbWHPIt2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 04:49:28 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <44E2CB10.9080701@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 16, 2006 at 09:35:46AM +0400, Evgeniy Polyakov wrote:
-> On Tue, Aug 15, 2006 at 10:21:22PM +0200, Arnd Bergmann (arnd@arndb.de) wrote:
-> > Am Monday 14 August 2006 13:04 schrieb Evgeniy Polyakov:
-> > > ?* full per CPU allocation and freeing (objects are never freed on
-> > > ????????different CPU)
-> > 
-> > Many of your data structures are per cpu, but your underlying allocations
-> > are all using regular kzalloc/__get_free_page/__get_free_pages functions.
-> > Shouldn't these be converted to calls to kmalloc_node and alloc_pages_node
-> > in order to get better locality on NUMA systems?
-> >
-> > OTOH, we have recently experimented with doing the dev_alloc_skb calls
-> > with affinity to the NUMA node that holds the actual network adapter, and
-> > got significant improvements on the Cell blade server. That of course
-> > may be a conflicting goal since it would mean having per-cpu per-node
-> > page pools if any CPU is supposed to be able to allocate pages for use
-> > as DMA buffers on any node.
+Jeff Garzik wrote:
+> Herbert Xu wrote:
 > 
-> Doesn't alloc_pages() automatically switches to alloc_pages_node() or
-> alloc_pages_current()?
+>> kiran kandi <kkiran78@hotmail.com> wrote:
+>>
+>>> In what context hard_start_xmit  function is called. Is it called in 
+>>> soft irq or a  processes context.
+>>
+>>
+>> softirq
 
-That's not what's wanted.  If you have a slow interconnect you always want
-to allocate memory on the node the network device is attached to.
+It can be process too...doesn't pktgen call it directly?
+
+Ben
 
