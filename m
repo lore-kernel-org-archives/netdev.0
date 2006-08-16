@@ -1,35 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 09/16] [IPv6] address: Convert address notification to use rtnl_notify()
-Date: Wed, 16 Aug 2006 22:08:03 +1000
-Message-ID: <20060816120803.GA29664@gondor.apana.org.au>
-References: <20060815122300.GV14627@postel.suug.ch> <E1GDBbw-0006Kz-00@gondolin.me.apana.org.au> <20060816105856.GW14627@postel.suug.ch> <20060816111240.GA28846@gondor.apana.org.au> <20060816113950.GA29003@gondor.apana.org.au> <1155729864.5122.95.camel@jzny2>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 09/16] [IPv6] address: Convert address notification to
+	use rtnl_notify()
+Date: Wed, 16 Aug 2006 08:08:57 -0400
+Message-ID: <1155730137.5122.99.camel@jzny2>
+References: <20060815122300.GV14627@postel.suug.ch>
+	 <E1GDBbw-0006Kz-00@gondolin.me.apana.org.au>
+	 <20060816105856.GW14627@postel.suug.ch>
+	 <20060816111240.GA28846@gondor.apana.org.au>
+	 <20060816114003.GY14627@postel.suug.ch>
+	 <20060816115747.GA29440@gondor.apana.org.au>
+	 <20060816120559.GZ14627@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, hasso@estpak.ee, kuznet@ms2.inr.ac.ru,
-	davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, hasso@estpak.ee,
+	kuznet@ms2.inr.ac.ru, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:12301 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751127AbWHPMIb
+Received: from mx03.cybersurf.com ([209.197.145.106]:13731 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1751137AbWHPMJE
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 08:08:31 -0400
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1155729864.5122.95.camel@jzny2>
+	Wed, 16 Aug 2006 08:09:04 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1GDKCp-0002Ly-5c
+	for netdev@vger.kernel.org; Wed, 16 Aug 2006 08:09:07 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060816120559.GZ14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 16, 2006 at 08:04:24AM -0400, jamal wrote:
-> 
-> What do you think of the idea of infact rewriting the pid to be that of
-> the socket id?
 
-Rewriting it with the netlink socket address? That's fine by me as
-long as there is a clear 1-to-1 relationship between the request
-and the notification.
+On Wed, 2006-16-08 at 14:05 +0200, Thomas Graf wrote:
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Right, but he forgot the bits in IPv6 which I now fixed. The
+> changeset introducing those current->pid uses was definitely
+> simply wrong. I'm not questioning that :)
+
+Herbert, if you look at the thread as well I am no longer questioning
+that either ;->
+
+cheers,
+jamal
+
+PS:- Would a topic of "things i wish netlink did better" be of interest
+for discussion (maybe for netconf)? (Un)fortunately, we are fixing some
+of them with genetlink;-> 
+
