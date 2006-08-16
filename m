@@ -1,7 +1,7 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 08/13] e1000: Force full DMA clocking for 10/100 speed
-Date: Wed, 16 Aug 2006 14:56:33 -0700
-Message-ID: <20060816215633.27080.15056.stgit@gitlost.site>
+Subject: [PATCH 13/13] ixgb: Increment version to 1.0.109-k4
+Date: Wed, 16 Aug 2006 14:56:44 -0700
+Message-ID: <20060816215644.27080.28268.stgit@gitlost.site>
 References: <20060816215336.27080.56147.stgit@gitlost.site>
 Cc: netdev@vger.kernel.org, akpm@osdl.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
@@ -9,44 +9,34 @@ Cc: netdev@vger.kernel.org, akpm@osdl.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:61961 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S932257AbWHPVsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 17:48:45 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:3850 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S932263AbWHPVs4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 17:48:56 -0400
 To: "Garzik, Jeff" <jgarzik@pobox.com>
 In-Reply-To: <20060816215336.27080.56147.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000/e1000_hw.c |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
+ drivers/net/ixgb/ixgb_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
-index 3728f33..8eddfdf 100644
---- a/drivers/net/e1000/e1000_hw.c
-+++ b/drivers/net/e1000/e1000_hw.c
-@@ -718,6 +718,17 @@ e1000_init_hw(struct e1000_hw *hw)
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+index 770eef2..b1cf852 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -36,7 +36,7 @@ static char ixgb_driver_string[] = "Inte
+ #else
+ #define DRIVERNAPI "-NAPI"
+ #endif
+-#define DRV_VERSION		"1.0.109-k2"DRIVERNAPI
++#define DRV_VERSION		"1.0.109-k4"DRIVERNAPI
+ char ixgb_driver_version[] = DRV_VERSION;
+ static char ixgb_copyright[] = "Copyright (c) 1999-2006 Intel Corporation.";
  
-     DEBUGFUNC("e1000_init_hw");
- 
-+    /* force full DMA clock frequency for 10/100 on ICH8 A0-B0 */
-+    if (hw->mac_type == e1000_ich8lan) {
-+        reg_data = E1000_READ_REG(hw, TARC0);
-+        reg_data |= 0x30000000;
-+        E1000_WRITE_REG(hw, TARC0, reg_data);
-+
-+        reg_data = E1000_READ_REG(hw, STATUS);
-+        reg_data &= ~0x80000000;
-+        E1000_WRITE_REG(hw, STATUS, reg_data);
-+    }
-+
-     /* Initialize Identification LED */
-     ret_val = e1000_id_led_init(hw);
-     if(ret_val) {
 
 
 
