@@ -1,41 +1,98 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: bonding: cannot remove certain named devices
-Date: Tue, 15 Aug 2006 17:10:02 -0700 (PDT)
-Message-ID: <20060815.171002.104028951.davem@davemloft.net>
-References: <6KfTz-OX-11@gated-at.bofh.it>
-	<6KfTA-OX-15@gated-at.bofh.it>
-	<E1GD8rX-0001cA-CV@be1.lrz>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: [PATCH 4/4]: powerpc/cell spidernet ethtool -i version number
+	info.
+Date: Wed, 16 Aug 2006 10:29:05 +1000
+Message-ID: <1155688145.26911.5.camel@localhost.localdomain>
+References: <20060811180013.GB6550@pb15.lixom.net>
+	 <OF934FE4E3.EEC44FDD-ON872571C7.00668651-862571C7.00677A44@us.ibm.com>
+	 <20060815190524.GW6603@pb15.lixom.net>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, mitch.a.williams@intel.com,
-	notting@redhat.com, mitch.a.williams@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-0hSfKaqUAvN8P1/CJO7c"
+Cc: James K Lewis <jklewis@us.ibm.com>, Arnd Bergmann <arnd@arndb.de>,
+	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:42221
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750712AbWHPAKB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 20:10:01 -0400
-To: 7eggert@gmx.de, 7eggert@elstempel.de
-In-Reply-To: <E1GD8rX-0001cA-CV@be1.lrz>
+Received: from ozlabs.org ([203.10.76.45]:8891 "EHLO ozlabs.org")
+	by vger.kernel.org with ESMTP id S1750728AbWHPA3W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 20:29:22 -0400
+To: Olof Johansson <olof@lixom.net>
+In-Reply-To: <20060815190524.GW6603@pb15.lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Bodo Eggert <7eggert@elstempel.de>
-Date: Wed, 16 Aug 2006 02:02:03 +0200
 
-> Stephen Hemminger <shemminger@osdl.org> wrote:
-> 
-> > IMHO idiots who put space's in filenames should be ignored. As long as the
-> > bonding code doesn't throw a fatal error, it has every right to return
-> > "No such device" to the fool.
-> 
-> Maybe you should limit device names to eight uppercase characters and up to
-> three characters extension, too. NOT! There is no reason to artificially
-> impose limitations on device names, so don't do that.
+--=-0hSfKaqUAvN8P1/CJO7c
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Are you willing to work to add the special case code necessary to
-handle whitespace characters in the device name over all of the kernel
-code and also all of the userland tools too?
+On Tue, 2006-08-15 at 14:05 -0500, Olof Johansson wrote:
+> On Fri, Aug 11, 2006 at 01:50:19PM -0500, James K Lewis wrote:
+> >  Hi Olof,
+> >=20
+> >   There are several reasons why an Ethernet driver should have an up to=
+=20
+> > date version number:
+> >=20
+> > 1. Customers like to see they are really getting a new version.
+> >=20
+> > 2. It makes it easier for support personnel (me in this case) to see wh=
+ich=20
+> > driver they have. Sure, sometimes I can talk them thru doing a "sum" on=
+=20
+> > the .ko and all that, but why not just use the version number? That's w=
+hat=20
+> > it is for. And no, you can't just assume they have the version that cam=
+e=20
+> > with the kernel they are running. It doesn't work that way.
+> >=20
+> > 3. It makes bug reporting easier.=20
+> >=20
+> > 4. I have already run into too many problems and wasted too much time=20
+> > working with drivers when the number was NOT getting updated.=20
+>=20
+> Thanks for the info, Jim.
+>=20
+> Sounds like it's most useful if a customer (or distro) takes the driver
+> out of the tree and run it with a different kernel, i.e. when kernel
+> and driver versions no longer go together. Makes sense.
 
-No?  Great, I'm glad that's settled.
+It only makes sense in addition to the kernel version number (which in
+some cases can be meaningless), plus any distro and/or local patches,
+plus the kernel config.
+
+Without all that information you don't really know what you're talking
+about, because any one of the many interfaces between the driver and the
+core kernel may have changed.
+
+So in practice I find it's much simpler to just get the exact source
+that they're running, rather than trying to guess based on version
+numbers. But that's just me :)
+
+cheers
+
+--=20
+Michael Ellerman
+IBM OzLabs
+
+wwweb: http://michael.ellerman.id.au
+phone: +61 2 6212 1183 (tie line 70 21183)
+
+We do not inherit the earth from our ancestors,
+we borrow it from our children. - S.M.A.R.T Person
+
+--=-0hSfKaqUAvN8P1/CJO7c
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2.2 (GNU/Linux)
+
+iD8DBQBE4mbRdSjSd0sB4dIRAvhKAKCA3hLLMSzx/yEn391sbCqBjBz94QCfdQmx
+48APrHG1VW4AMJbYwsld/6w=
+=8Kij
+-----END PGP SIGNATURE-----
+
+--=-0hSfKaqUAvN8P1/CJO7c--
+
