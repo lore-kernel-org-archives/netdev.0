@@ -1,42 +1,45 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: [PATCH 2/2] Don't rely on linux/if_arp.h being included by other headers
-Date: Tue, 15 Aug 2006 20:45:03 -0400
-Message-ID: <20060816004503.3035.14638.stgit@dv.roinet.com>
-References: <20060816004500.3035.77174.stgit@dv.roinet.com>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
+From: Chris Leech <christopher.leech@intel.com>
+Subject: [PATCH 1/7] [I/OAT] Push pending transactions to hardware more frequently
+Date: Tue, 15 Aug 2006 17:53:37 -0700
+Message-ID: <20060816005337.8634.70033.stgit@gitlost.site>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-64-105-159-118.phlapafg.covad.net ([64.105.159.118]:19686
-	"EHLO smtp.roinet.com") by vger.kernel.org with ESMTP
-	id S1750748AbWHPApJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 20:45:09 -0400
-Received: from dv.roinet.com (192.168.1.21 [192.168.1.21])
-    by smtp.roinet.com with SMTP;
-    for netdev@vger.kernel.org;
-    Tue, 15 Aug 2006 20:49:17 -0400 (EDT)
-    (envelope-from proski@gnu.org)
-To: netdev@vger.kernel.org
-In-Reply-To: <20060816004500.3035.77174.stgit@dv.roinet.com>
+Received: from [63.64.152.142] ([63.64.152.142]:31753 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S1750750AbWHPApv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 20:45:51 -0400
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Roskin <proski@gnu.org>
+Every 20 descriptors turns out to be to few append commands with
+newer/faster CPUs.  Pushing every 4 still cuts down on MMIO writes to an
+acceptable level without letting the DMA engine run out of work.
 
-
+Signed-off-by: Chris Leech <christopher.leech@intel.com>
 ---
 
- drivers/net/wireless/orinoco.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/dma/ioatdma.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoco.c
-index 317ace7..1174ff5 100644
---- a/drivers/net/wireless/orinoco.c
-+++ b/drivers/net/wireless/orinoco.c
-@@ -82,6 +82,7 @@ #include <linux/init.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/ethtool.h>
-+#include <linux/if_arp.h>
- #include <linux/wireless.h>
- #include <net/iw_handler.h>
- #include <net/ieee80211.h>
+diff --git a/drivers/dma/ioatdma.c b/drivers/dma/ioatdma.c
+index dbd4d6c..be4fdd7 100644
+--- a/drivers/dma/ioatdma.c
++++ b/drivers/dma/ioatdma.c
+@@ -310,7 +310,7 @@ static dma_cookie_t do_ioat_dma_memcpy(s
+ 	list_splice_init(&new_chain, ioat_chan->used_desc.prev);
+ 
+ 	ioat_chan->pending += desc_count;
+-	if (ioat_chan->pending >= 20) {
++	if (ioat_chan->pending >= 4) {
+ 		append = 1;
+ 		ioat_chan->pending = 0;
+ 	}
+@@ -818,7 +818,7 @@ static void __devexit ioat_remove(struct
+ }
+ 
+ /* MODULE API */
+-MODULE_VERSION("1.7");
++MODULE_VERSION("1.9");
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Intel Corporation");
+ 
+
