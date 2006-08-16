@@ -1,127 +1,172 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: [PATCH?] tcp and delayed acks
-Date: Wed, 16 Aug 2006 16:55:32 -0400
-Message-ID: <20060816205532.GF9519@kvack.org>
+From: Daniel Parthey <linux-networking@spambox.dyndns.org>
+Subject: PROBLEM: baycom_ser_fdx in kernel 2.6, transmit broken
+Date: Wed, 16 Aug 2006 23:05:25 +0200
+Message-ID: <20060816210525.GA13193@daniel.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([66.96.29.28]:40848 "EHLO kanga.kvack.org")
-	by vger.kernel.org with ESMTP id S932217AbWHPUzo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 16:55:44 -0400
-To: "David S. Miller" <davem@davemloft.net>
+Received: from mail.tnp-online.de ([212.80.247.147]:62369 "EHLO
+	relay2.gigamail.to") by vger.kernel.org with ESMTP id S932227AbWHPVFa
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Aug 2006 17:05:30 -0400
+Received: from scanner7.gigamail.to (content7.cluster.gigamail.to [192.168.254.202])
+	by mxout2.gigamail.to (Postfix) with ESMTP id 8A44BA774E
+	for <netdev@vger.kernel.org>; Wed, 16 Aug 2006 23:05:29 +0200 (CEST)
+Received: from chimp.subsystem.local (content7.cluster.gigamail.to [192.168.254.202])
+	by chimp.scanner7.gigamail.to (Postfix) with ESMTP id 7FE3D787AD
+	for <netdev@vger.kernel.org>; Wed, 16 Aug 2006 23:05:29 +0200 (CEST)
+Received: from localhost (localhost [127.0.0.1])
+	by chimpgate.scanner7.gigamail.to (Postfix) with ESMTP id 1B0E1787CF
+	for <netdev@vger.kernel.org>; Wed, 16 Aug 2006 23:05:29 +0200 (CEST)
+Received: from scanner7.gigamail.to ([127.0.0.1])
+ by localhost (scanner7.gigamail.to [127.0.0.1]) (amavisd-new, port 10024)
+ with ESMTP id 31628-01 for <netdev@vger.kernel.org>;
+ Wed, 16 Aug 2006 23:05:28 +0200 (CEST)
+Received: from relay2.gigamail.to (relay2.cluster.gigamail.to [192.168.254.16])
+	by scanner7.gigamail.to (Postfix) with ESMTP id E7B34787AD
+	for <netdev@vger.kernel.org>; Wed, 16 Aug 2006 23:05:28 +0200 (CEST)
+Received: from daniel.localdomain (unknown [84.19.218.176])
+	(using TLSv1 with cipher AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.chemonline.de (Postfix) with ESMTP id 8C21BA774E
+	for <netdev@vger.kernel.org>; Wed, 16 Aug 2006 23:05:26 +0200 (CEST)
+Received: from pada with local id 1GDSZp-0003RV-Q8
+	for netdev@vger.kernel.org; Wed, 16 Aug 2006 23:05:25 +0200
+To: Networking Team <netdev@vger.kernel.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello folks,
+Last year I reported to the linux-hams list and to Tom Sailer
+that I could not get AX25 to work using a serial baycom modem with
+baycom_ser_fdx under vanilla kernel 2.6.11.6 although it ran fine
+under kernel 2.4.30:
+http://he.fi/archive/linux-hams/200505/0021.html
 
-In looking at a few benchmarks (especially netperf) run locally, it seems 
-that tcp is unable to make full use of available CPU cycles as the sender 
-is throttled waiting for ACKs to arrive.  The problem is exacerbated when 
-the sender is using a small send buffer -- running netperf -C -c -- -s 1024 
-show a miserable 420Kbit/s at essentially 0% CPU usage.  Tests over gige 
-are similarly constrained to a mere 96Mbit/s.
+I got no answer, but other people experienced the same problem:
+http://he.fi/archive/linux-hams/200508/0108.html
 
-Since there is no way for the receiver to know if the sender is being 
-blocked on transmit space, would it not make sense for the receiver to 
-send out any delayed ACKs when it is clear that the receiving process is 
-waiting for more data?  The patch below attempts this (I make no guarantees 
-of its correctness with respect to the rest of the delayed ack code).  One 
-point I'm still contemplating is what to do if the receiver is waiting in 
-poll/select/epoll.
+Now, I quickly checked again with Debian Kernel linux-image-2.6.17-2-686
+(2.6.17-6) and the problem still persists.
 
-[All tests run with maxcpus=1 on a 2.67GHz Woodcrest system.]
+Receiving packets works without any problems, but the transmitted
+packets are erroneous.
 
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+I set up another testbox (situated in the same building) with a
+soundcard and the soundmodem tools to analyse this problem.
+I could only read some data after enabling "pass all" (no FCS check)
+and then it looked like some bytes were missing.
 
-Base (2.6.17-rc4):
-default send buffer size
-netperf -C -c
- 87380  16384  16384    10.02      14127.79   99.90    99.90    0.579   0.579 
- 87380  16384  16384    10.02      13875.28   99.90    99.90    0.590   0.590 
- 87380  16384  16384    10.01      13777.25   99.90    99.90    0.594   0.594 
- 87380  16384  16384    10.02      13796.31   99.90    99.90    0.593   0.593 
- 87380  16384  16384    10.01      13801.97   99.90    99.90    0.593   0.593 
+Packet: fm D0CHZ0-3 to IATEp-14 via B0STL0-3,H2NOD0-1 I35  pid=65
+          ^            ^
 
-netperf -C -c -- -s 1024
- 87380   2048   2048    10.02         0.43   -0.04    -0.04    -7.105  -7.377
- 87380   2048   2048    10.02         0.43   -0.01    -0.01    -2.337  -2.620
- 87380   2048   2048    10.02         0.43   -0.03    -0.03    -5.683  -5.940
- 87380   2048   2048    10.02         0.43   -0.05    -0.05    -9.373  -9.625
- 87380   2048   2048    10.02         0.43   -0.05    -0.05    -9.373  -9.625
+The correct frame header should look like:
 
-from a remote system over gigabit ethernet
-netperf -H woody -C -c
- 87380  16384  16384    10.03       936.23   19.32    20.47    3.382   1.791 
- 87380  16384  16384    10.03       936.27   17.67    20.95    3.091   1.833 
- 87380  16384  16384    10.03       936.17   19.18    20.77    3.356   1.817 
- 87380  16384  16384    10.03       936.26   18.22    20.26    3.188   1.773 
- 87380  16384  16384    10.03       936.26   17.35    20.54    3.036   1.797 
+Packet: fm ND0CHZ-0 to IGATE-0 via CB0STL-0,CH2NOD-0 I35  pid=65
 
-netperf -H woody -C -c -- -s 1024
- 87380   2048   2048    10.00        95.72   10.04    6.64     17.188  5.683 
- 87380   2048   2048    10.00        95.94   9.47     6.42     16.170  5.478 
- 87380   2048   2048    10.00        96.83   9.62     5.72     16.283  4.840 
- 87380   2048   2048    10.00        95.91   9.58     6.13     16.368  5.236 
- 87380   2048   2048    10.00        95.91   9.58     6.13     16.368  5.236 
+As far as I can tell from looking at the waveforms, my packets are
+complete and not cut off, neither at the beginning nor the end.
+
+Packets received from other stations are decoded correctly.
+
+[Sending station]
+
+  - Vanilla kernel (kernel.org) 2.6.11.6 with the configuration
+    adapted from the debian kernel
+  - Kernel compiled with gcc version 3.3.5
+  - Processor Intel Celeron (Mendocino) 450 MHz
+
+  - Serial configuration (Modem on ttyS0)
+    # setserial -g /dev/ttyS{0,1}
+    /dev/ttyS0, UART: unknown, Port: 0x03f8, IRQ: 4
+    /dev/ttyS1, UART: 16550A, Port: 0x02f8, IRQ: 3
+
+  - Baycom startup options:
+    sethdlc -p -i bcsf0 mode "ser12*" io 0x3f8 irq 4
+    ifup bcsf0
+    sethdlc -i bcsf0 -a half
+
+  - Module parameters for /etc/modules.conf
+    options baycom_ser_fdx mode="ser12*" iobase=0x3f8 irq=4
+    alias bcsf0 baycom_ser_fdx
+    alias nr0 netrom
+    alias tty-ldisc-5  mkiss
+
+  - Loaded modules:
+    hdlcdrv, baycom_ser_fdx, ax25, mkiss, af_packet
+
+  - /etc/ax25/axports
+    cb  CBPORT-0  19200 255 7 CB-Funk
+    axudp AXUDP-0   19200 255 7 Netzwerk AX25UDP Link
+    lokal CH0CON-0  19200 255 7 Lokal
+
+# cat /proc/ioports | grep baycom
+03f8-03ff : baycom_ser_fdx
+
+# cat /proc/interrupts 
+           CPU0       
+  0:     285101          XT-PIC  timer
+  1:        130          XT-PIC  i8042
+  2:          0          XT-PIC  cascade
+  4:      39576          XT-PIC  baycom_ser_fdx
+  7:          0          XT-PIC  parport0
+ 11:       3473          XT-PIC  Intel ICH 82801AA, eth0
+ 12:       9693          XT-PIC  HiSax, uhci_hcd, eth1
+ 14:      17651          XT-PIC  ide0
+ 15:         13          XT-PIC  ide1
+NMI:          0 
+LOC:          0 
+ERR:          0
+MIS:          0
 
 
-Patched:
-default send buffer size
-netperf -C -c
- 87380  16384  16384    10.01      13923.16   99.90    99.90    0.588   0.588 
- 87380  16384  16384    10.01      13854.59   99.90    99.90    0.591   0.591 
- 87380  16384  16384    10.02      13840.42   99.90    99.90    0.591   0.591 
- 87380  16384  16384    10.01      13810.96   99.90    99.90    0.593   0.593 
- 87380  16384  16384    10.01      13771.27   99.90    99.90    0.594   0.594 
+[Testbox]
 
-netperf -C -c -- -s 1024
- 87380   2048   2048    10.02      2473.48   99.90    99.90    3.309   3.309 
- 87380   2048   2048    10.02      2421.46   99.90    99.90    3.380   3.380 
- 87380   2048   2048    10.02      2288.07   99.90    99.90    3.577   3.577 
- 87380   2048   2048    10.02      2405.41   99.90    99.90    3.402   3.402 
- 87380   2048   2048    10.02      2284.41   99.90    99.90    3.582   3.582 
+- soundmodemconfig from debian package "soundmodem" version 0.9-1
 
-netperf -H woody -C -c
- 87380  16384  16384    10.04       936.10   23.04    21.60    4.033   1.890 
- 87380  16384  16384    10.03       936.20   18.52    21.06    3.242   1.843 
- 87380  16384  16384    10.03       936.52   17.61    21.05    3.082   1.841 
- 87380  16384  16384    10.03       936.18   18.24    20.73    3.191   1.814 
- 87380  16384  16384    10.03       936.28   18.30    21.04    3.202   1.841 
+The complete output of soundmodemconfig with "pass all" enabled:
 
-netperf -H woody -C -c -- -s 1024
- 87380   2048   2048    10.00       142.46   10.19    7.53     11.714  4.332 
- 87380   2048   2048    10.00       147.28   9.73     7.93     10.829  4.412 
- 87380   2048   2048    10.00       143.37   10.64    6.54     12.161  3.738 
- 87380   2048   2048    10.00       146.41   9.18     7.43     10.277  4.158 
- 87380   2048   2048    10.01       145.58   9.80     7.25     11.032  4.081 
+Modulator: afsk Demodulator: afsk
+Modulator: parameter bps value 1200
+Modulator: parameter f0 value 1200
+Modulator: parameter f1 value 2200
+Modulator: parameter diffenc value 1
+Demodulator: parameter bps value 1200
+Demodulator: parameter f0 value 1200
+Demodulator: parameter f1 value 2200
+Demodulator: parameter diffdec value 1
+Minimum sampling rate: 9600
+Audio IO: type soundcard
+sm[7286]: audio: starting "/dev/dsp"
+sm[7286]: audio: forcing half duplex mode
+sm[7286]: audio: sample rate 9600 input fragsz 256 numfrags 2 output fragsz 256 numfrags 256
+Real sampling rate: 9600
+passall: 1
+passall: 0
+passall: 1
+Packet: fm ND0CHZ-0 to kIATE-0 via CB0M0C-8,2NOD0-8,*42'2:-7,722&-4 I37^ pid=75
+x), 1.79dp02 (JO60JT:ND0CHZ)
+Internet-Node Chemnitz-Gruena - Mail DP9BOX
 
-Comments/thoughts?
+Packet: 
+Packet: 
+Packet: fm D0CHZ0-3 to IATEp-14 via B0STL0-3,H2NOD0-1 I35  pid=65
+NetNode (Linux), 1.79dp02 (JO60JT:ND0CHZ)
+Internet-Node Chemnitz-Gruena - Mail DP9BOX
 
-		-ben
+Packet: fm NXHZ0C-2 to kIATE-0 via 0STL0C-8,2NOD0-8,*42'2:-7,722&-4 I37  pid=75
+x), 1.79dp0(JO60JT:NdHZ)
+Internet-Node Chemnitz-Gruena - Mail DP9BOX
+
+Packet: 
+Joining TxThread
+Joining RxThread
+Releasing IO
+
+I would be happy to provide further information if necessary.
+
+Bye,
+Daniel.
 -- 
-"Time is of no importance, Mr. President, only life is important."
-Don't Email: <dont@kvack.org>.
-
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 934396b..e554ceb 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1277,8 +1277,11 @@ #endif
- 			/* Do not sleep, just process backlog. */
- 			release_sock(sk);
- 			lock_sock(sk);
--		} else
-+		} else {
-+			if (inet_csk_ack_scheduled(sk))
-+				tcp_send_ack(sk);
- 			sk_wait_data(sk, &timeo);
-+		}
- 
- #ifdef CONFIG_NET_DMA
- 		tp->ucopy.wakeup = 0;
+JabberID: pada@jabber.ccc.de
+http://de.wikipedia.org/wiki/Jabber
