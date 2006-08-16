@@ -1,73 +1,112 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 00/13] e100, e1000, ixgb fixes
-Date: Wed, 16 Aug 2006 14:53:36 -0700
-Message-ID: <20060816215336.27080.56147.stgit@gitlost.site>
+Subject: [PATCH 06/13] e1000: explicit locking for two ethtool path functions
+Date: Wed, 16 Aug 2006 14:56:28 -0700
+Message-ID: <20060816215628.27080.36223.stgit@gitlost.site>
+References: <20060816215336.27080.56147.stgit@gitlost.site>
 Cc: netdev@vger.kernel.org, akpm@osdl.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
 	"Kok, Auke" <auke-jan.h.kok@intel.com>,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:50441 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S932250AbWHPVs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 17:48:27 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:59401 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S932256AbWHPVsk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 17:48:40 -0400
 To: "Garzik, Jeff" <jgarzik@pobox.com>
+In-Reply-To: <20060816215336.27080.56147.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Hi,
+Explicitly lock two more ethtool entry points completely instead
+of the hardware reset only to prevent a race condition.
 
-Here are updates targeted to branch #upstream-fixes from netdev-2.6, including
-fixes to e100, e1000 and ixgb.
-
-Summary:
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
-Manasi Deval
-    ixgb: Add CX4 PHY type detection and subdevice ID.
+ drivers/net/e1000/e1000_ethtool.c |   33 +++++++++++++++++++++++----------
+ 1 files changed, 23 insertions(+), 10 deletions(-)
 
-Jesse Brandeburg
-    e1000: Explicitly power up the PHY during loopback testing.
-    e1000: Explicit locking for two ethtool path functions
-    ixgb:  Fix cache miss due to miscalculation
+diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e1000_ethtool.c
+index 8edbc6b..2baccf8 100644
+--- a/drivers/net/e1000/e1000_ethtool.c
++++ b/drivers/net/e1000/e1000_ethtool.c
+@@ -183,6 +183,9 @@ e1000_set_settings(struct net_device *ne
+ 		return -EINVAL;
+ 	}
+ 
++	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
++		msleep(1);
++
+ 	if (ecmd->autoneg == AUTONEG_ENABLE) {
+ 		hw->autoneg = 1;
+ 		if (hw->media_type == e1000_media_type_fiber)
+@@ -199,16 +202,20 @@ e1000_set_settings(struct net_device *ne
+ 						  ADVERTISED_TP;
+ 		ecmd->advertising = hw->autoneg_advertised;
+ 	} else
+-		if (e1000_set_spd_dplx(adapter, ecmd->speed + ecmd->duplex))
++		if (e1000_set_spd_dplx(adapter, ecmd->speed + ecmd->duplex)) {
++			clear_bit(__E1000_RESETTING, &adapter->flags);
+ 			return -EINVAL;
++		}
+ 
+ 	/* reset the link */
+ 
+-	if (netif_running(adapter->netdev))
+-		e1000_reinit_locked(adapter);
+-	else
++	if (netif_running(adapter->netdev)) {
++		e1000_down(adapter);
++		e1000_up(adapter);
++	} else
+ 		e1000_reset(adapter);
+ 
++	clear_bit(__E1000_RESETTING, &adapter->flags);
+ 	return 0;
+ }
+ 
+@@ -238,9 +245,13 @@ e1000_set_pauseparam(struct net_device *
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
++	int retval = 0;
+ 
+ 	adapter->fc_autoneg = pause->autoneg;
+ 
++	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
++		msleep(1);
++
+ 	if (pause->rx_pause && pause->tx_pause)
+ 		hw->fc = e1000_fc_full;
+ 	else if (pause->rx_pause && !pause->tx_pause)
+@@ -253,15 +264,17 @@ e1000_set_pauseparam(struct net_device *
+ 	hw->original_fc = hw->fc;
+ 
+ 	if (adapter->fc_autoneg == AUTONEG_ENABLE) {
+-		if (netif_running(adapter->netdev))
+-			e1000_reinit_locked(adapter);
+-		else
++		if (netif_running(adapter->netdev)) {
++			e1000_down(adapter);
++			e1000_up(adapter);
++		} else
+ 			e1000_reset(adapter);
+ 	} else
+-		return ((hw->media_type == e1000_media_type_fiber) ?
+-			e1000_setup_link(hw) : e1000_force_mac_fc(hw));
++		retval = ((hw->media_type == e1000_media_type_fiber) ?
++			   e1000_setup_link(hw) : e1000_force_mac_fc(hw));
+ 
+-	return 0;
++	clear_bit(__E1000_RESETTING, &adapter->flags);
++	return retval;
+ }
+ 
+ static uint32_t
 
-Jeff Kirsher
-    e1000: Remove 0x1000 as supported device
-    e1000: Allow NVM to setup LPLU for IGP2 and IGP3
-    e1000: Force full DMA clocking for 10/100 speed
-    e1000: Disable aggressive clocking on esb2 with SERDES port
-    e100:  Remove auto-MDIO/MDIO-X workaround
 
-Auke Kok
-    e1000: Same ntohs/htons cosmetic fix as for ipv6
-    e1000: Increment driver version to 7.1.9-k6
-    e100:  Increment version to 3.5.10-k4
-    ixgb:  Increment version to 1.0.109-k4
-
----
-
-These changes are available through git.
-
-git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream-fixes
-
-these patches are against
- netdev-2.6#upstream-fixes 09e590e5d5a93f2eaa748a89c623258e6bad1648
-
-
-Cheers,
-
-Auke
-
----
- drivers/net/e100.c                |   22 ++++++++------------
- drivers/net/e1000/e1000_ethtool.c |   40 ++++++++++++++++++++++++++++----------
- drivers/net/e1000/e1000_hw.c      |   24 ++++++++++++++++++----
- drivers/net/e1000/e1000_main.c    |    9 ++------
- drivers/net/ixgb/ixgb_hw.c        |   11 ++++++++++
- drivers/net/ixgb/ixgb_ids.h       |    1 
- drivers/net/ixgb/ixgb_main.c      |   14 ++++++-------
- 7 files changed, 80 insertions(+), 41 deletions(-)
 
 --
 Auke Kok <auke-jan.h.kok@intel.com>
