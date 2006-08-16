@@ -1,50 +1,56 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 1/1] network memory allocator.
-Date: Wed, 16 Aug 2006 13:27:02 +0200
-Message-ID: <200608161327.02826.arnd@arndb.de>
-References: <20060814110359.GA27704@2ka.mipt.ru> <20060816084808.GA7366@infradead.org> <20060816090028.GA25476@2ka.mipt.ru>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 09/16] [IPv6] address: Convert address notification to use rtnl_notify()
+Date: Wed, 16 Aug 2006 13:40:03 +0200
+Message-ID: <20060816114003.GY14627@postel.suug.ch>
+References: <20060815122300.GV14627@postel.suug.ch> <E1GDBbw-0006Kz-00@gondolin.me.apana.org.au> <20060816105856.GW14627@postel.suug.ch> <20060816111240.GA28846@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751036AbWHPL12@vger.kernel.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060816090028.GA25476@2ka.mipt.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: hasso@estpak.ee, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca,
+	davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from postel.suug.ch ([194.88.212.233]:33169 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1751109AbWHPLjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 07:39:43 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20060816111240.GA28846@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 16 August 2006 11:00, Evgeniy Polyakov wrote:
-> There is drawback here - if data was allocated on CPU wheere NIC is
-> "closer" and then processed on different CPU it will cost more than 
-> in case where buffer was allocated on CPU where it will be processed.
+* Herbert Xu <herbert@gondor.apana.org.au> 2006-08-16 21:12
+> On Wed, Aug 16, 2006 at 12:58:56PM +0200, Thomas Graf wrote:
+> > 
+> > All route and tc notifications already use the pid so applications
+> > can decide whether the event was caused by them. A notification
+> > is a reply to a request so it doesn't even violate RFC 2367.
 > 
-> But from other point of view, most of the adapters preallocate set of
-> skbs, and with msi-x help there will be a possibility to bind irq and
-> processing to the CPU where data was origianlly allocated.
+> Actually most IPv4 notifications *do* set the pid to zero which is
+> the right thing to do for kernel-generated messages.
 > 
-> So I would like to know how to determine which node should be used for
-> allocation. Changes of __get_user_pages() to alloc_pages_node() are
-> trivial.
+> You're right though that the IPv6 notification modified by this patch
+> does set the pid to the netlink originator.  Looking back in history
+> it seems that this behaviour was only introduced last year to a subset
+> of notifications.
 
-There are two separate memory areas here: Your own metadata used by the
-allocator and the memory used for skb data.
+It was added to help quagga identify which route modifications
+are self caused. It's not possible to use rtm_protocol for this
+purpose as other applications can delete routes added by quagga.
 
-avl_node_array[cpu] and avl_container_array[cpu] are only designed to
-be accessed only by the local cpu, so these should be done like
+> This inconsistency is very bad.  IMHO this change (made last year)
+> should be reverted so that all kernel generated (broadcast) notifications
+> have the originator set to zero to match the source address of the
+> message.
 
-avl_node_array[cpu] = kmalloc_node(AVL_NODE_PAGES * sizeof(void *),
-			GFP_KERNEL, cpu_to_node(cpu));
+We can't just knowingly break quagga.
 
-or you could make the whole array DEFINE_PER_CPU(void *, which would
-waste some space in the kernel object file.
+I think it's a good thing to include the pid, it's additional
+information that is helpful to userspace. Userspace is already
+aware that the notifications are orignating from the kernel,
+we can't do userspace -> userspace communication anymore anyway.
 
-Now for the actual pages you get with __get_free_pages(), doing the
-same (alloc_pages_node), will help accessing your avl_container 
-members, but may not be the best solution for getting the data
-next to the network adapter.
+> Any notification that sets the netlink pid to current->pid is
+> *completely* bogus.  Let me repeat this, the netlink pid is not
+> a process ID.
 
-	Arnd <><
+Everyone is aware of that, actually these patches fix all
+occurences of current->pid by replacing them with a pid of 0.
