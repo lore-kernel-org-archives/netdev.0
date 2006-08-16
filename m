@@ -1,36 +1,52 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: DEBUG_LOCKS_WARN_ON triggered by bcm43xx-SoftMAC
-Date: Wed, 16 Aug 2006 11:47:56 -0500
-Message-ID: <44E34C3C.8090406@lwfinger.net>
-References: <44E296DD.3040803@lwfinger.net> <200608161806.10348.mb@bu3sch.de> <1155745304.3023.55.camel@laptopd505.fenrus.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>, bcm43xx-dev@lists.berlios.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Chris Leech <christopher.leech@intel.com>
+Subject: [PATCH 7/7 v2] [I/OAT] Add entries to MAINTAINERS for the DMA memcpy subsystem and ioatdma
+Date: Wed, 16 Aug 2006 09:57:47 -0700
+Message-ID: <20060816165747.10162.11471.stgit@gitlost.site>
+References: <Pine.LNX.4.58.0608152151430.7622@shark.he.net>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:5311 "EHLO
-	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1751121AbWHPQsL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 12:48:11 -0400
-To: Arjan van de Ven <arjan@infradead.org>
-In-Reply-To: <1155745304.3023.55.camel@laptopd505.fenrus.org>
+Received: from [63.64.152.142] ([63.64.152.142]:40713 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S932108AbWHPQuA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 12:50:00 -0400
+To: rdunlap@xenotime.net
+In-Reply-To: <Pine.LNX.4.58.0608152151430.7622@shark.he.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arjan van de Ven wrote:
-> On Wed, 2006-08-16 at 18:06 +0200, Michael Buesch wrote:
->> On Wednesday 16 August 2006 05:54, Larry Finger wrote:
->>>
->>> I'm at a loss here. Can anyone explain how to interpret this dump? I
->>> think I see a general protection fault, but what to do from there is a
->>> mystery.
->> Hm, weird bug.
->> I can't reproduce this on i386 or PPC.
->> Could it be a bug in the lockdep code?
-> 
-> is there anything more in the trace???
+Signed-off-by: Chris Leech <christopher.leech@intel.com>
+---
 
-No - it picks up with regular log messages at that point.
+ MAINTAINERS |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
-Larry
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 21116cc..2d484aa 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -881,6 +881,12 @@ M:	tori@unhappy.mine.nu
+ L:	linux-kernel@vger.kernel.org
+ S:	Maintained
+ 
++DMA GENERIC MEMCPY SUBSYSTEM
++P:	Chris Leech
++M:	christopher.leech@intel.com
++L:	linux-kernel@vger.kernel.org
++S:	Maintained
++
+ DOCBOOK FOR DOCUMENTATION
+ P:	Martin Waitz
+ M:	tali@admingilde.org
+@@ -1469,6 +1475,12 @@ P:	Tigran Aivazian
+ M:	tigran@veritas.com
+ S:	Maintained
+ 
++INTEL I/OAT DMA DRIVER
++P:	Chris Leech
++M:	christopher.leech@intel.com
++L:	linux-kernel@vger.kernel.org
++S:	Supported
++
+ INTEL IXP4XX RANDOM NUMBER GENERATOR SUPPORT
+ P:	Deepak Saxena
+ M:	dsaxena@plexity.net
+
