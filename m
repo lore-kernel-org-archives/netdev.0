@@ -1,29 +1,47 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2]:  powerpc/cell spidernet bottom half
-Date: Wed, 16 Aug 2006 16:34:31 -0400
-Message-ID: <44E38157.4070805@garzik.org>
-References: <20060811170337.GH10638@austin.ibm.com> <20060816161856.GD20551@austin.ibm.com> <44E34825.2020105@garzik.org> <20060816203043.GJ20551@austin.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2]: powerpc/cell spidernet bottom half
+Date: Wed, 16 Aug 2006 13:46:40 -0700 (PDT)
+Message-ID: <20060816.134640.115912460.davem@davemloft.net>
+References: <44E34825.2020105@garzik.org>
+	<20060816203043.GJ20551@austin.ibm.com>
+	<44E38157.4070805@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, James K Lewis <jklewis@us.ibm.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>, akpm@osdl.org
+Cc: linas@austin.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	jklewis@us.ibm.com, arnd@arndb.de, Jens.Osterkamp@de.ibm.com,
+	akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:28042 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1750843AbWHPUei (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 16:34:38 -0400
-To: Linas Vepstas <linas@austin.ibm.com>
-In-Reply-To: <20060816203043.GJ20551@austin.ibm.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:15531
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750914AbWHPUqk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Aug 2006 16:46:40 -0400
+To: jeff@garzik.org
+In-Reply-To: <44E38157.4070805@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linas Vepstas wrote:
-> I was under the impression that NAPI was for the receive side only.
+From: Jeff Garzik <jeff@garzik.org>
+Date: Wed, 16 Aug 2006 16:34:31 -0400
 
-That depends on the driver implementation.
+> Linas Vepstas wrote:
+> > I was under the impression that NAPI was for the receive side only.
+> 
+> That depends on the driver implementation.
 
-	Jeff
+What Jeff is trying to say is that TX reclaim can occur in
+the NAPI poll routine, and in fact this is what the vast
+majority of NAPI drivers do.
 
+It also makes the locking simpler.
 
+In practice, the best thing seems to be to put both RX and TX
+work into ->poll() and have a very mild hw interrupt mitigation
+setting programmed into the chip.
+
+I'm not familiar with the spidernet TX side interrupt capabilities
+so I can't say whether that is something that can be directly
+implied.  In fact, I get the impression that spidernet is limited
+in some way and that's where all the strange approaches are coming
+from :)
