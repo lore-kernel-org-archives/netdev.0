@@ -1,34 +1,45 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: hard_start_xmit  conext
-Date: Wed, 16 Aug 2006 01:48:56 -0700
-Message-ID: <44E2DBF8.8040500@candelatech.com>
-References: <E1GDBlk-0006O1-00@gondolin.me.apana.org.au> <44E2CB10.9080701@garzik.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 2.6.17] net/ipv6/udp.c: remove duplicate udp_get_port
+ code
+Date: Wed, 16 Aug 2006 17:51:44 +0900 (JST)
+Message-ID: <20060816.175144.75075807.yoshfuji@linux-ipv6.org>
+References: <200608160846.48174@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	kiran kandi <kkiran78@hotmail.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:4777 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S1751018AbWHPIt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 04:49:28 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <44E2CB10.9080701@garzik.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:11792 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751020AbWHPIuC
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Aug 2006 04:50:02 -0400
+To: gerrit@erg.abdn.ac.uk
+In-Reply-To: <200608160846.48174@strip-the-willow>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Herbert Xu wrote:
-> 
->> kiran kandi <kkiran78@hotmail.com> wrote:
->>
->>> In what context hard_start_xmit  function is called. Is it called in 
->>> soft irq or a  processes context.
->>
->>
->> softirq
+Hello.
 
-It can be process too...doesn't pktgen call it directly?
+In article <200608160846.48174@strip-the-willow> (at Wed, 16 Aug 2006 08:46:48 +0100), gerrit@erg.abdn.ac.uk says:
 
-Ben
+> UDPv4 and UDPv6 use an almost identical version of the get_port function,
+> which is unnecessary since the (long) code differs in only one if-statement.
+:
 
+:
+> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+> +				else if(sk->sk_family == PF_INET6     &&
+> +					ipv6_rcv_saddr_equal(sk, sk2)     )
+> +					goto fail;
+> +			}
+> +#endif
+
+This is not good because you cannot link ipv6_rcv_saddr_equal()
+if you are compiling IPv6 as module.
+
+How about retaining udp_v{4,6}_get_port() and call
+common udp_get_port() from both functions?
+
+--yoshfuji
