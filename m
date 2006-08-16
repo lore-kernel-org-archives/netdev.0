@@ -1,37 +1,52 @@
-From: "Chris Leech" <christopher.leech@intel.com>
-Subject: Re: New driver questions: Attansic L1 gigabit NIC
-Date: Wed, 16 Aug 2006 15:54:54 -0700
-Message-ID: <41b516cb0608161554r1fe4468fnc7c2d4a0282c951c@mail.gmail.com>
-References: <44DFBFBE.1070201@bellsouth.net>
-	 <20060815143457.5fde176b@dxpl.pdx.osdl.net>
-	 <44E25767.6010208@bellsouth.net>
-	 <20060816110501.0d7502a8@localhost.localdomain>
-	 <44E3679B.4030603@lucent.com>
-	 <20060816141643.7ae773d6@dxpl.pdx.osdl.net>
-Reply-To: chris.leech@gmail.com
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH 1/2]: powerpc/cell spidernet bottom half
+Date: Wed, 16 Aug 2006 17:55:58 -0500
+Message-ID: <20060816225558.GM20551@austin.ibm.com>
+References: <44E34825.2020105@garzik.org> <44E38157.4070805@garzik.org> <20060816.134640.115912460.davem@davemloft.net> <200608162324.47235.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "John Haller" <jhaller@lucent.com>,
-	"Jay Cliburn" <jacliburn@bellsouth.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, jklewis@us.ibm.com,
+	Jens.Osterkamp@de.ibm.com, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:19645 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S932316AbWHPWy4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 18:54:56 -0400
-Received: by ug-out-1314.google.com with SMTP id m3so330766ugc
-        for <netdev@vger.kernel.org>; Wed, 16 Aug 2006 15:54:55 -0700 (PDT)
-To: "Stephen Hemminger" <shemminger@osdl.org>
-In-Reply-To: <20060816141643.7ae773d6@dxpl.pdx.osdl.net>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:20678 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S932320AbWHPW4B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 18:56:01 -0400
+To: Arnd Bergmann <arnd@arndb.de>
 Content-Disposition: inline
+In-Reply-To: <200608162324.47235.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I thought that support statement sounded familiar, large portions of
-the source code and documentation are modified from an older release
-of e1000.  Nothing wrong with that as it's released under the GPL,
-except that the copyright statements have mostly just been switched
-from Intel to Attansic.  It's interesting to see a company that was
-founded in 2000 claiming copyright back to 1999.
+On Wed, Aug 16, 2006 at 11:24:46PM +0200, Arnd Bergmann wrote:
+> 
+> it only
+> seems to be hard to make it go fast using any of them. 
 
-- Chris
+Last round of measurements seemed linear for packet sizes between
+60 and 600 bytes, suggesting that the hardware can handle a 
+maximum of 120K descriptors/second, independent of packet size.
+I don't know why this is.
+
+> That may
+> be the fault of strange locking rules 
+
+My fault; a few months ago, we were in panic mode trying to get
+the thing functioning reliably, and I put locks around anything
+and everything.  This last patch removes those locks, and protects
+only a few pointers (the incrementing of the head and the tail 
+pointers, and the location ofthe low watermark) that actually 
+needed protection. They need protection because the code can 
+get called in various different ways.
+
+> Cleaning up the TX queue only from ->poll() like all the others
+
+I'll try this ... 
+
+> sounds like the right approach to simplify the code.
+
+Its not a big a driver. 'wc' says its 2.3 loc, which 
+is 1/3 or 1/5 the size of tg3.c or the e1000*c files.
+
+--linas
