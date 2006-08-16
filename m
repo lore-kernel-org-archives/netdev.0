@@ -1,172 +1,50 @@
-From: "Michal Ruzicka" <michal.ruzicka@comstar.cz>
-Subject: Re: Possible leak of multicast source filter sctructure #3a
-Date: Wed, 16 Aug 2006 17:01:31 +0100
-Message-ID: <200608161501.k7GF1V6u022176@gateplz.comstar.cz>
+From: Bodo Eggert <7eggert@gmx.de>
+Subject: Re: bonding: cannot remove certain named devices
+Date: Wed, 16 Aug 2006 17:11:19 +0200 (CEST)
+Message-ID: <Pine.LNX.4.58.0608161636250.2044@be1.lrz>
+References: <6KfTz-OX-11@gated-at.bofh.it> <6KfTA-OX-15@gated-at.bofh.it>
+ <E1GD8rX-0001cA-CV@be1.lrz> <20060815.171002.104028951.davem@davemloft.net>
+ <44E2BC9C.1000101@debian.org> <20060816133811.GA26471@nostromo.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: <kuznet@ms2.inr.ac.ru>, <netdev@vger.kernel.org>,
-	<netdev-owner@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Giacomo A. Catenazzi" <cate@debian.org>,
+	David Miller <davem@davemloft.net>, 7eggert@gmx.de,
+	7eggert@elstempel.de, shemminger@osdl.org,
+	mitch.a.williams@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateplz-adsl.comstar.cz ([193.179.24.196]:33432 "EHLO
-	gateplz.comstar.cz") by vger.kernel.org with ESMTP id S1751201AbWHPPFQ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 11:05:16 -0400
-Content-Disposition: inline
-To: "David Stevens" <dlstevens@us.ibm.com>,
-	"David Miller" <davem@davemloft.net>
+Received: from moutng.kundenserver.de ([212.227.126.188]:5840 "EHLO
+	moutng.kundenserver.de") by vger.kernel.org with ESMTP
+	id S1751196AbWHPPRR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Aug 2006 11:17:17 -0400
+To: Bill Nottingham <notting@redhat.com>
+In-Reply-To: <20060816133811.GA26471@nostromo.devel.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The same patch as in previous e-mail with a few typos in comments corrected:
+On Wed, 16 Aug 2006, Bill Nottingham wrote:
+> Giacomo A. Catenazzi (cate@debian.org) said: 
 
-Signed-off-by: Michal Ruzicka <michal.ruzicka@comstar.cz>
+> > > Are you willing to work to add the special case code necessary to
+> > > handle whitespace characters in the device name over all of the kernel
+> > > code and also all of the userland tools too?
+> > 
+> > But if you don't handle spaces in userspace, you handle *, ?, [, ], $,
+> > ", ', \  in userspace? Should kernel disable also these (insane device
+> > chars) chars?
+> 
+> Don't forget unicode characters!
 
---- linux-2.6.17.8/net/ipv4/igmp.c.orig	2006-08-11 11:50:46.000000000 +0200
-+++ linux-2.6.17.8/net/ipv4/igmp.c	2006-08-16 16:53:08.000000000 +0200
-@@ -1369,13 +1369,15 @@
- 	struct flowi fl = { .nl_u = { .ip4_u =
- 				      { .daddr = imr->imr_multiaddr.s_addr } } };
- 	struct rtable *rt;
--	struct net_device *dev = NULL;
--	struct in_device *idev = NULL;
-+	struct net_device *dev;
- 
- 	if (imr->imr_ifindex) {
--		idev = inetdev_by_index(imr->imr_ifindex);
--		if (idev)
-+		struct in_device *idev = inetdev_by_index(imr->imr_ifindex);
-+
-+		if (idev) {
-+			imr->imr_address.s_addr = 0;
- 			__in_dev_put(idev);
-+		}
- 		return idev;
- 	}
- 	if (imr->imr_address.s_addr) {
-@@ -1383,17 +1385,16 @@
- 		if (!dev)
- 			return NULL;
- 		dev_put(dev);
--	}
--
--	if (!dev && !ip_route_output_key(&rt, &fl)) {
-+	} else if (!ip_route_output_key(&rt, &fl)) {
- 		dev = rt->u.dst.dev;
- 		ip_rt_put(rt);
--	}
--	if (dev) {
--		imr->imr_ifindex = dev->ifindex;
--		idev = __in_dev_get_rtnl(dev);
--	}
--	return idev;
-+		if (!dev)
-+			return NULL;
-+	} else
-+		return NULL;
-+
-+	imr->imr_ifindex = dev->ifindex;
-+	return __in_dev_get_rtnl(dev);
- }
- 
- /*
-@@ -1798,27 +1799,79 @@
- 	u32 ifindex;
- 
- 	rtnl_lock();
--	in_dev = ip_mc_find_dev(imr);
--	if (!in_dev) {
--		rtnl_unlock();
--		return -ENODEV;
--	}
- 	ifindex = imr->imr_ifindex;
--	for (imlp = &inet->mc_list; (iml = *imlp) != NULL; imlp = &iml->next) {
--		if (iml->multi.imr_multiaddr.s_addr == group &&
--		    iml->multi.imr_ifindex == ifindex) {
--			(void) ip_mc_leave_src(sk, iml, in_dev);
--
--			*imlp = iml->next;
--
--			ip_mc_dec_group(in_dev, group);
--			rtnl_unlock();
--			sock_kfree_s(sk, iml, sizeof(*iml));
--			return 0;
-+	in_dev = ip_mc_find_dev(imr);
-+	if (ifindex != 0) {
-+		/* leave by interface index */
-+		for (imlp = &inet->mc_list; (iml = *imlp) != NULL; imlp = &iml->next) {
-+			if (iml->multi.imr_multiaddr.s_addr != group)
-+				continue;
-+
-+			if (iml->multi.imr_ifindex == ifindex)
-+				goto leave;
-+		}
-+	} else {
-+		/* leave by address / multicast group route */
-+		struct ip_mc_socklist **cimlp = NULL;
-+		u32 address = imr->imr_address.s_addr;
-+
-+		ifindex = imr->imr_ifindex;
-+		for (imlp = &inet->mc_list; (iml = *imlp) != NULL; imlp = &iml->next) {
-+			if (iml->multi.imr_multiaddr.s_addr != group)
-+				continue;
-+
-+			if (iml->multi.imr_ifindex == ifindex)
-+				/* direct match
-+				 * NOTE: We do not have to test for in_dev != NULL
-+				 * since we know that ifindex was zero before call
-+				 * to ip_mc_find_dev() but is non-zero now (as
-+				 * it equals to an interface index which is never
-+				 * zero). The ip_mc_find_dev() function modifies
-+				 * the ifindex only if it finds an interface
-+				 * (in wich case it returns non-NULL). Thus the
-+				 * in_dev must be non-NULL.
-+				 */
-+				goto leave;
-+
-+			if (cimlp == NULL && iml->multi.imr_address.s_addr == address)
-+				cimlp = imlp;
-+		}
-+
-+		if (cimlp != NULL) {
-+			/* We have found at least one candidate interface
-+			 * for leaving by address but not a direct match.
-+			 * Since there is no way to tell what interface the user
-+			 * wnated to leave the multicast group on we are going
-+			 * to leave it on the first candidate interface found.
-+			 */
-+			iml = *(imlp = cimlp);
-+
-+			if (in_dev != NULL) {
-+				/* If we have found an interface matching the leave
-+				 * request chances are that the interface which we
-+				 * are about to leave the multicast group on still
-+				 * exists. Check if it is the case so as to call
-+				 * ip_mc_dec_group() properly.
-+				 */
-+				imr->imr_ifindex = iml->multi.imr_ifindex;
-+				in_dev = ip_mc_find_dev(imr);
-+			}
-+
-+			goto leave;
- 		}
- 	}
- 	rtnl_unlock();
--	return -EADDRNOTAVAIL;
-+	return (in_dev == NULL) ? -ENODEV : -EADDRNOTAVAIL;
-+
-+leave:
-+	*imlp = iml->next;
-+
-+	(void) ip_mc_leave_src(sk, iml, in_dev);
-+	if (in_dev != NULL)
-+		ip_mc_dec_group(in_dev, group);
-+	rtnl_unlock();
-+	sock_kfree_s(sk, iml, sizeof(*iml));
-+	return 0;
- }
- 
- int ip_mc_source(int add, int omode, struct sock *sk, struct
+And long names or control characters.
 
+> Seriously, while it might be insane to use some of these, I'm wondering
+> if trying to filter names is more work than fixing the tools.
 
-Michal
+I think it's sane to avoid control characters and unicode/iso*, since they
+can interfere with log output or analysis. I only thought about the kernel
+itself and the corresponding userspace tools, which should handle any
+character sequence just fine or could be easily fixed.
+
+-- 
+Top 100 things you don't want the sysadmin to say:
+14. Any more trouble from you and your account gets moved to the 750
