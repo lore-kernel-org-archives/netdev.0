@@ -1,46 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH][IPSEC]: Aggregate make_jiffies
-Date: Wed, 16 Aug 2006 12:33:49 +1000
-Message-ID: <20060816023349.GA24174@gondor.apana.org.au>
-References: <1155693500.5122.39.camel@jzny2>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] keep track of network interface renaming
+Date: Wed, 16 Aug 2006 04:35:39 +0200
+Message-ID: <44E2847B.7050909@trash.net>
+References: <20060815165635.GA31291@aepfle.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:42756 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750830AbWHPCeG
+Received: from stinky.trash.net ([213.144.137.162]:55207 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1750833AbWHPCfm
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 22:34:06 -0400
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1155693500.5122.39.camel@jzny2>
+	Tue, 15 Aug 2006 22:35:42 -0400
+To: Olaf Hering <olaf@aepfle.de>
+In-Reply-To: <20060815165635.GA31291@aepfle.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 15, 2006 at 09:58:19PM -0400, jamal wrote:
->
-> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-> index 8123d49..05444dd 100644
-> --- a/include/net/xfrm.h
-> +++ b/include/net/xfrm.h
-> @@ -619,6 +619,14 @@ xfrm_state_addr_cmp(struct xfrm_tmpl *tm
->  	return !0;
->  }
->  
-> +static inline unsigned long make_jiffies(long secs)
-> +{
-> +	if (secs >= (MAX_SCHEDULE_TIMEOUT-1)/HZ)
-> +		return MAX_SCHEDULE_TIMEOUT-1;
-> +	else
-> +		return secs*HZ;
-> +}
+Olaf Hering wrote:
+> Keep track about which network interface names were renamed after the
+> network device driver printed its banner. Previous kernel names will
+> be reused when new interfaces get registerd.
+> Recent udev scripts implement a stable kernel device name for network
+> interfaces.
+> This printk avoids confusion about what network hardware maps to what
+> kernel interface in later driver or network stack messages.
 
-This name is probably too generic for net/xfrm.h.  How about moving
-it to linux/jiffies.h and rewrite in the style of msec_to_jiffies?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I think it would be even easier to follow, especially with many devices,
+if some stable identifier was included in messages relating to network
+devices, like ifindex or maybe the LL address. And it would avoid
+spamming the ringbuffer for people making use of this to implement
+alternative naming schemes.
+
+
