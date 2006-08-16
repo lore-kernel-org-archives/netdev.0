@@ -1,45 +1,38 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2.6.17] net/ipv6/udp.c: remove duplicate udp_get_port
- code
-Date: Wed, 16 Aug 2006 17:51:44 +0900 (JST)
-Message-ID: <20060816.175144.75075807.yoshfuji@linux-ipv6.org>
-References: <200608160846.48174@strip-the-willow>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH 1/1] network memory allocator.
+Date: Wed, 16 Aug 2006 13:00:31 +0400
+Message-ID: <20060816090028.GA25476@2ka.mipt.ru>
+References: <20060814110359.GA27704@2ka.mipt.ru> <200608152221.22883.arnd@arndb.de> <20060816053545.GB22921@2ka.mipt.ru> <20060816084808.GA7366@infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:11792 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751020AbWHPIuC
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 04:50:02 -0400
-To: gerrit@erg.abdn.ac.uk
-In-Reply-To: <200608160846.48174@strip-the-willow>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751038AbWHPJEd@vger.kernel.org>
+To: Christoph Hellwig <hch@infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20060816084808.GA7366@infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Wed, Aug 16, 2006 at 09:48:08AM +0100, Christoph Hellwig (hch@infradead.org) wrote:
+> > Doesn't alloc_pages() automatically switches to alloc_pages_node() or
+> > alloc_pages_current()?
+> 
+> That's not what's wanted.  If you have a slow interconnect you always want
+> to allocate memory on the node the network device is attached to.
 
-In article <200608160846.48174@strip-the-willow> (at Wed, 16 Aug 2006 08:46:48 +0100), gerrit@erg.abdn.ac.uk says:
+There is drawback here - if data was allocated on CPU wheere NIC is
+"closer" and then processed on different CPU it will cost more than 
+in case where buffer was allocated on CPU where it will be processed.
 
-> UDPv4 and UDPv6 use an almost identical version of the get_port function,
-> which is unnecessary since the (long) code differs in only one if-statement.
-:
+But from other point of view, most of the adapters preallocate set of
+skbs, and with msi-x help there will be a possibility to bind irq and
+processing to the CPU where data was origianlly allocated.
 
-:
-> +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-> +				else if(sk->sk_family == PF_INET6     &&
-> +					ipv6_rcv_saddr_equal(sk, sk2)     )
-> +					goto fail;
-> +			}
-> +#endif
+So I would like to know how to determine which node should be used for
+allocation. Changes of __get_user_pages() to alloc_pages_node() are
+trivial.
 
-This is not good because you cannot link ipv6_rcv_saddr_equal()
-if you are compiling IPv6 as module.
-
-How about retaining udp_v{4,6}_get_port() and call
-common udp_get_port() from both functions?
-
---yoshfuji
+-- 
+	Evgeniy Polyakov
