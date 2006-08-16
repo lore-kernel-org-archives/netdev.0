@@ -1,39 +1,56 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 09/16] [IPv6] address: Convert address notification to use rtnl_notify()
-Date: Wed, 16 Aug 2006 14:13:56 +0200
-Message-ID: <20060816121356.GB14627@postel.suug.ch>
-References: <20060815122300.GV14627@postel.suug.ch> <E1GDBbw-0006Kz-00@gondolin.me.apana.org.au> <20060816105856.GW14627@postel.suug.ch> <20060816111240.GA28846@gondor.apana.org.au> <20060816113950.GA29003@gondor.apana.org.au>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH 1/1] network memory allocator.
+Date: Wed, 16 Aug 2006 14:25:57 +0200
+Message-ID: <20060816142557.acccdfcf.ak@suse.de>
+References: <20060814110359.GA27704@2ka.mipt.ru>
+	<200608152221.22883.arnd@arndb.de>
+	<20060816053545.GB22921@2ka.mipt.ru>
+	<20060816084808.GA7366@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hasso@estpak.ee, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca,
-	davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Arnd Bergmann <arnd@arndb.de>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:28050 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1751147AbWHPMNg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 08:13:36 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <20060816113950.GA29003@gondor.apana.org.au>
+Received: from ns2.suse.de ([195.135.220.15]:50378 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1751148AbWHPM0Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 08:26:25 -0400
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20060816084808.GA7366@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Herbert Xu <herbert@gondor.apana.org.au> 2006-08-16 21:39
-> For a broadcast notification, the nlmsg_pid field is meaningless
-> because the nlmsg_seq field is also meaningless.  I'm not denying
-> that it wouldn't be useful to have the originator's socket address
-> in there.  What I'm saying is that it's the wrong place to put
-> that information.
+On Wed, 16 Aug 2006 09:48:08 +0100
+Christoph Hellwig <hch@infradead.org> wrote:
 
-It might not be the best place to put it considering the original
-intend of nlmsg_pid as you explained correctly. However, as you
-state yourself, the nlmsg_pid field is meaningless/unused for
-notifications so extending the definition of nlmsg_pid to have
-a special meaning for broadcasts doesn't harm anyone.
+> On Wed, Aug 16, 2006 at 09:35:46AM +0400, Evgeniy Polyakov wrote:
+> > On Tue, Aug 15, 2006 at 10:21:22PM +0200, Arnd Bergmann (arnd@arndb.de) wrote:
+> > > Am Monday 14 August 2006 13:04 schrieb Evgeniy Polyakov:
+> > > > ?* full per CPU allocation and freeing (objects are never freed on
+> > > > ????????different CPU)
+> > > 
+> > > Many of your data structures are per cpu, but your underlying allocations
+> > > are all using regular kzalloc/__get_free_page/__get_free_pages functions.
+> > > Shouldn't these be converted to calls to kmalloc_node and alloc_pages_node
+> > > in order to get better locality on NUMA systems?
+> > >
+> > > OTOH, we have recently experimented with doing the dev_alloc_skb calls
+> > > with affinity to the NUMA node that holds the actual network adapter, and
+> > > got significant improvements on the Cell blade server. That of course
+> > > may be a conflicting goal since it would mean having per-cpu per-node
+> > > page pools if any CPU is supposed to be able to allocate pages for use
+> > > as DMA buffers on any node.
+> > 
+> > Doesn't alloc_pages() automatically switches to alloc_pages_node() or
+> > alloc_pages_current()?
+> 
+> That's not what's wanted.  If you have a slow interconnect you always want
+> to allocate memory on the node the network device is attached to.
 
-When setting nlmsg_seq to the seq of the request it becomes a
-meaning together with nlmsg_pid as applications can then easly
-assign notifications to their own sent requests.
+That's not true on all NUMA systems (that they have a slow interconnect)
+I think on x86-64 I would prefer if it was distributed evenly or maybe even 
+on the CPU who is finally going to process it.
 
-Secondly we already have applications depending on this whereas
-the eventual breaking of aplications depending on nlmsg_pid == 0
-is uncertain.
+-Andi "not all NUMA is an Altix"
