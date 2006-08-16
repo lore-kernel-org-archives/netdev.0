@@ -1,46 +1,102 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: [PATCH] Restore antenna selection settings after port reset
-Date: Tue, 15 Aug 2006 21:41:39 -0400
-Message-ID: <20060816014138.6036.74438.stgit@dv.roinet.com>
+From: jamal <hadi@cyberus.ca>
+Subject: [PATCH][IPSEC]: Aggregate make_jiffies
+Date: Tue, 15 Aug 2006 21:58:19 -0400
+Message-ID: <1155693500.5122.39.camel@jzny2>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
-To: Jouni Malinen <jkmaline@cc.hut.fi>, hostap@shmoo.com,
-	netdev@vger.kernel.org
-List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
-List-Archive: <http://lists.shmoo.com/pipermail/hostap>
-List-Post: <mailto:hostap@shmoo.com>
-List-Help: <mailto:hostap-request@shmoo.com?subject=help>
-List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=subscribe>
-Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
-Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Content-Type: multipart/mixed; boundary="=-asDMpWmo+1bHy7roN4My"
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx03.cybersurf.com ([209.197.145.106]:37583 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1750713AbWHPB6f
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 21:58:35 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1GDAfs-0001Ii-O1
+	for netdev@vger.kernel.org; Tue, 15 Aug 2006 21:58:28 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Roskin <proski@gnu.org>
 
-Intersil firmware 1.7.4 (and possibly others) loses the antenna
-selection settings when the port is reset.
+--=-asDMpWmo+1bHy7roN4My
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: David Acker <dacker@roinet.com>
-Signed-off-by: Pavel Roskin <proski@gnu.org>
----
 
- drivers/net/wireless/hostap/hostap_hw.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+make_jiffies definition is repeated in xfrm_state and xfrm_policy.
+Aggregate in header instead. Against Dave's last perf improvement
+patches.
 
-diff --git a/drivers/net/wireless/hostap/hostap_hw.c b/drivers/net/wireless/hostap/hostap_hw.c
-index dafaa5f..d500012 100644
---- a/drivers/net/wireless/hostap/hostap_hw.c
-+++ b/drivers/net/wireless/hostap/hostap_hw.c
-@@ -1042,6 +1042,9 @@ static int prism2_reset_port(struct net_
- 		       dev->name, local->fragm_threshold);
- 	}
- 
-+	/* Some firmwares lose antenna selection settings on reset */
-+	(void) hostap_set_antsel(local);
-+
- 	return res;
+signed-off-by: Jamal Hadi Salim<hadi@cyberus.ca>
+
+
+
+
+--=-asDMpWmo+1bHy7roN4My
+Content-Disposition: attachment; filename=ipsec-p111
+Content-Type: text/x-patch; name=ipsec-p111; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 8123d49..05444dd 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -619,6 +619,14 @@ xfrm_state_addr_cmp(struct xfrm_tmpl *tm
+ 	return !0;
  }
+ 
++static inline unsigned long make_jiffies(long secs)
++{
++	if (secs >= (MAX_SCHEDULE_TIMEOUT-1)/HZ)
++		return MAX_SCHEDULE_TIMEOUT-1;
++	else
++		return secs*HZ;
++}
++
+ #ifdef CONFIG_XFRM
+ 
+ extern int __xfrm_policy_check(struct sock *, int dir, struct sk_buff *skb, unsigned short family);
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index a378812..cd785be 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -220,14 +220,6 @@ void xfrm_put_mode(struct xfrm_mode *mod
+ 	module_put(mode->owner);
+ }
+ 
+-static inline unsigned long make_jiffies(long secs)
+-{
+-	if (secs >= (MAX_SCHEDULE_TIMEOUT-1)/HZ)
+-		return MAX_SCHEDULE_TIMEOUT-1;
+-	else
+-	        return secs*HZ;
+-}
+-
+ static void xfrm_policy_timer(unsigned long data)
+ {
+ 	struct xfrm_policy *xp = (struct xfrm_policy*)data;
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index b1c0ae7..00ae0f8 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -264,14 +264,6 @@ static void xfrm_state_gc_task(void *dat
+ 	wake_up(&km_waitq);
+ }
+ 
+-static inline unsigned long make_jiffies(long secs)
+-{
+-	if (secs >= (MAX_SCHEDULE_TIMEOUT-1)/HZ)
+-		return MAX_SCHEDULE_TIMEOUT-1;
+-	else
+-	        return secs*HZ;
+-}
+-
+ static void xfrm_timer_handler(unsigned long data)
+ {
+ 	struct xfrm_state *x = (struct xfrm_state*)data;
+
+--=-asDMpWmo+1bHy7roN4My--
+
