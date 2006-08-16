@@ -1,43 +1,38 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [E1000-devel] e1000: ethtool -p + cable pull = system wedges
- hard
-Date: Tue, 15 Aug 2006 20:01:41 -0700
-Message-ID: <44E28A95.9080802@intel.com>
-References: <200608160037.k7G0btZt002839@death.nxdomain.ibm.com> <44E26EE7.3000100@intel.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 09/16] [IPv6] address: Convert address notification to use rtnl_notify()
+Date: Wed, 16 Aug 2006 13:04:04 +1000
+Message-ID: <20060816030404.GA24441@gondor.apana.org.au>
+References: <20060815122300.GV14627@postel.suug.ch> <E1GDBbw-0006Kz-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: hasso@estpak.ee, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca,
+	davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:26481 "EHLO
-	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
-	id S1750851AbWHPDDF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 23:03:05 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <44E26EE7.3000100@intel.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:1797 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750862AbWHPDET
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 23:04:19 -0400
+To: Thomas Graf <tgraf@suug.ch>
+Content-Disposition: inline
+In-Reply-To: <E1GDBbw-0006Kz-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok wrote:
-> Jay Vosburgh wrote:
->> 	Running both 2.6.17.6 plus the e1000 7.2.7 from sourceforge, or
->> the e1000 in netdev-2.6#upstream (7.1.9-k4).
->>
->> 	Starting up "ethtool -p ethX" then unplugging the cable
->> connected to the identified port is causing my system to completely
->> freeze; even sysrq is unresponsive.  I'm running on a 2-way x86 box,
->> with an 82545GM.
->>
->> 	Is this by any chance a known problem?
+On Wed, Aug 16, 2006 at 12:58:28PM +1000, Herbert Xu wrote:
 > 
-> not at all.
+> I'm not comfortable with that change since it implies the message
+> originated from a user-space process.
+> 
+> The netlink header pid is really akin to sadb_msg_pid from RFC 2367.
+> IMHO it should always be zero if the kernel is the originator of the
+> message.
 
-One of my brain halves (the third one ;)) poked me and told me that it *is* a 
-known issue. Not good. Apparently as early as kernel 2.5.50 a change was 
-introduced that causes this. I am unsure what exactly caused it and I assume it 
-is generic (other nic's might also suffer). The issue is documented in our 
-standalone driver documentation. Not sure what to do with this.
+Actually I think this has the potential to break applications that
+ignore any messages with the original pid set to a non-zero value.
 
-Auke
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
