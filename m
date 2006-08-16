@@ -1,41 +1,32 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: New driver questions: Attansic L1 gigabit NIC
-Date: Wed, 16 Aug 2006 11:05:01 -0700
-Message-ID: <20060816110501.0d7502a8@localhost.localdomain>
-References: <44DFBFBE.1070201@bellsouth.net>
-	<20060815143457.5fde176b@dxpl.pdx.osdl.net>
-	<44E25767.6010208@bellsouth.net>
+From: Zach Brown <zach.brown@oracle.com>
+Subject: Re: [take9 1/2] kevent: Core files.
+Date: Wed, 16 Aug 2006 11:08:41 -0700
+Message-ID: <44E35F29.8010500@oracle.com>
+References: <11555364962921@2ka.mipt.ru> <1155536496588@2ka.mipt.ru> <20060816134550.GA12345@infradead.org> <20060816135642.GD4314@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=koi8-r
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Christoph Hellwig <hch@infradead.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:20126 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751237AbWHPSFF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 14:05:05 -0400
-To: Jay Cliburn <jacliburn@bellsouth.net>
-In-Reply-To: <44E25767.6010208@bellsouth.net>
+Received: from rgminet01.oracle.com ([148.87.113.118]:55415 "EHLO
+	rgminet01.oracle.com") by vger.kernel.org with ESMTP
+	id S1751242AbWHPSJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Aug 2006 14:09:28 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060816135642.GD4314@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 15 Aug 2006 18:23:19 -0500
-Jay Cliburn <jacliburn@bellsouth.net> wrote:
 
-> Stephen Hemminger wrote:
-> > On Sun, 13 Aug 2006 19:11:42 -0500
-> > Jay Cliburn <jacliburn@bellsouth.net> wrote:
-> ...snip...
-> >> I've read the LKML FAQ regarding new driver submissions, but it implies
-> >> that the submitter be willing to maintain the driver, which I'm not
-> >> qualified to do.  I haven't contacted Attansic to request a change to
-> >> the above support statement, because my past attempts to contact vendors
-> >> on matters of this tenor have been greeted with silence.
-> > 
-> > I would recommend the module author to see if they would GPL it.
+>>> +	for (i=0; i<ARRAY_SIZE(u->kevent_list); ++i)
+>> 	for (i = 0; i < ARRAY_SIZE(u->kevent_list); i++)
 > 
-> Thank you for your reply.  I've contacted the author as you suggest.
-> 
+> Ugh, no. It reduces readability due to exessive number of spaces.
 
-IANAL but because they used GPL code in the driver, one could argue
-that they created a derived work covered by GPL already. But I learned in
-preschool it is always better to ask than take.
+Ihavetoverystronglydisagree.
+
+- z
