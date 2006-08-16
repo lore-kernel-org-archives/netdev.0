@@ -1,18 +1,14 @@
 From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] bcm43xx-softmac: optimization of DMA bitfields.]
-Date: Wed, 16 Aug 2006 11:02:00 -0500
-Message-ID: <44E34178.8040303@lwfinger.net>
-References: <44E33B7A.3060804@lwfinger.net> <1155742963.3600.39.camel@ux156>
-	<44E33F3E.2000509@lwfinger.net> <200608161757.37807.mb@bu3sch.de>
+Subject: [PATCH] bcm43xx-softmac: optimization of DMA bitfields.]
+Date: Wed, 16 Aug 2006 11:05:16 -0500
+Message-ID: <44E3423C.8050507@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-In-Reply-To: <200608161757.37807.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
 	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
@@ -24,24 +20,45 @@ Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> On Wednesday 16 August 2006 17:52, Larry Finger wrote:
->> Johannes Berg wrote:
->>> On Wed, 2006-08-16 at 10:36 -0500, Larry Finger wrote:
->>>> +	/* Boolean. Is this a TX ring? */
->>>> +	u8 tx
->>>> +	/* Boolean. 64bit DMA if true, 32bit DMA otherwise. */
->>>> +	u8 dma64;
->>> does that compile?
->>>
->>> johannes
->>>
->> Yes, it did here. Did you have a problem?
-> 
-> You removed a ; by mistake.
-> Look, it's there in my original patch (which was compile tested).
-> 
-I saw that just after I sent the response to Johannes. I don't know
-how that ; got deleted, but a revised version will be on to John soon.
+John,
+
+Please pull this patch by MB for the wireless-2.6 tree. It
+replaces the one sent earlier today. Somehow, I managed to mangle
+it by deleting a semicolon.
 
 Larry
+
+========================================================
+
+This patch depends on the 64bit DMA patch, which is already
+submitted for inclusion.
+
+Convert the bitfields in the bcm43xx DMA code to properly
+aligned u8 booleans. These flags are accessed in the DMA
+hotpath, so it's a good idea to waste a few bytes of memory
+for the sake of speed by not requiring masking (and probably
+shifting) of the bitfields.
+
+Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Signed-Off-By: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.h
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_dma.h	2006-08-16 12:47:27.000000000 +0200
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_dma.h	2006-08-16 12:49:43.000000000 +0200
+@@ -235,9 +235,12 @@
+ 	u16 mmio_base;
+ 	/* DMA controller index number (0-5). */
+ 	int index;
+-	u8 tx:1,	/* TRUE, if this is a TX ring. */
+-	   dma64:1,	/* TRUE, if 64-bit DMA is enabled (FALSE if 32bit). */
+-	   suspended:1;	/* TRUE, if transfers are suspended on this ring. */
++	/* Boolean. Is this a TX ring? */
++	u8 tx;
++	/* Boolean. 64bit DMA if true, 32bit DMA otherwise. */
++	u8 dma64;
++	/* Boolean. Are transfers suspended on this ring? */
++	u8 suspended;
+ 	struct bcm43xx_private *bcm;
+ #ifdef CONFIG_BCM43XX_DEBUG
+ 	/* Maximum number of used slots. */
