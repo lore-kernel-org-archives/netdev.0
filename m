@@ -1,41 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2]: powerpc/cell spidernet bottom half
-Date: Wed, 16 Aug 2006 15:29:19 -0700 (PDT)
-Message-ID: <20060816.152919.88472383.davem@davemloft.net>
-References: <200608162324.47235.arnd@arndb.de>
-	<20060816.143203.11626235.davem@davemloft.net>
-	<200608170016.47072.arnd@arndb.de>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH?] tcp and delayed acks
+Date: Thu, 17 Aug 2006 02:39:57 +0400
+Message-ID: <20060816223957.GA13157@ms2.inr.ac.ru>
+References: <20060816205532.GF9519@kvack.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linuxppc-dev@ozlabs.org, akpm@osdl.org, jeff@garzik.org,
-	netdev@vger.kernel.org, jklewis@us.ibm.com,
-	linux-kernel@vger.kernel.org, Jens.Osterkamp@de.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:57758
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932298AbWHPWaD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 18:30:03 -0400
-To: arnd@arndb.de
-In-Reply-To: <200608170016.47072.arnd@arndb.de>
+Received: from minus.inr.ac.ru ([194.67.69.97]:12686 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S932307AbWHPWkT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 18:40:19 -0400
+To: Benjamin LaHaise <bcrl@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20060816205532.GF9519@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 17 Aug 2006 00:16:46 +0200
+Hello!
 
-> Am Wednesday 16 August 2006 23:32 schrieb David Miller:
-> > Can spidernet be told these kinds of parameters? =A0"N packets or
-> > X usecs"?
->=20
-> It can not do exactly this but probably we can get close to it by
+> send out any delayed ACKs when it is clear that the receiving process is 
+> waiting for more data?
 
-Oh, you can only control TX packet counts using bits in the TX ring
-entries :(
+It has just be done in tcp_cleanup_rbuf() a few lines before your chunk.
+There is some somplex condition to be satisfied there and it is
+impossible to relax it any further.
 
-Tigon3 can even be told to use different interrupt mitigation
-parameters when the cpu is actively servicing an interrupt for
-the chip.
+I do not know what is wrong in your case, check what of conditions
+in tcp_cleanup_rbuf() was not satisfied. Or just tcpdump a little.
 
-Didn't you say spidernet's facilities were sophisticated? :)
-This Tigon3 stuff is like 5+ year old technology.
+BTW what "buffer" do you mean? SO_SNDBUF? SO_RCVBUF? Something else?
+TCP tries to tune itself to weird buffer sizes to allow to have
+at least 2 segments in flight exactly to address the problem with delayed
+ACKs, but it is quite easy to confuse those heuristics.
+
+Alexey
