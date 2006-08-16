@@ -1,58 +1,60 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: New driver questions: Attansic L1 gigabit NIC
-Date: Wed, 16 Aug 2006 14:16:43 -0700
-Message-ID: <20060816141643.7ae773d6@dxpl.pdx.osdl.net>
-References: <44DFBFBE.1070201@bellsouth.net>
-	<20060815143457.5fde176b@dxpl.pdx.osdl.net>
-	<44E25767.6010208@bellsouth.net>
-	<20060816110501.0d7502a8@localhost.localdomain>
-	<44E3679B.4030603@lucent.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 1/2]: powerpc/cell spidernet bottom half
+Date: Wed, 16 Aug 2006 23:24:46 +0200
+Message-ID: <200608162324.47235.arnd@arndb.de>
+References: <44E34825.2020105@garzik.org> <44E38157.4070805@garzik.org>
+	<20060816.134640.115912460.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jay Cliburn <jacliburn@bellsouth.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:41703 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932234AbWHPVQw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 17:16:52 -0400
-To: John Haller <jhaller@lucent.com>
-In-Reply-To: <44E3679B.4030603@lucent.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: akpm@osdl.org, jeff@garzik.org, netdev@vger.kernel.org, jklewis@us.ibm.com,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Jens.Osterkamp@de.ibm.com
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060816.134640.115912460.davem@davemloft.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Aug 2006 13:44:43 -0500
-John Haller <jhaller@lucent.com> wrote:
+Am Wednesday 16 August 2006 22:46 schrieb David Miller:
+> I'm not familiar with the spidernet TX side interrupt capabilities
+> so I can't say whether that is something that can be directly
+> implied. =A0In fact, I get the impression that spidernet is limited
+> in some way and that's where all the strange approaches are coming
+> from :)
 
-> Stephen Hemminger wrote:
-> > On Tue, 15 Aug 2006 18:23:19 -0500
-> > Jay Cliburn <jacliburn@bellsouth.net> wrote:
-> > 
-> >> Stephen Hemminger wrote:
-> >>> On Sun, 13 Aug 2006 19:11:42 -0500
-> >>> Jay Cliburn <jacliburn@bellsouth.net> wrote:
-> >> ...snip...
-> >>>> I've read the LKML FAQ regarding new driver submissions, but it implies
-> >>>> that the submitter be willing to maintain the driver, which I'm not
-> >>>> qualified to do.  I haven't contacted Attansic to request a change to
-> >>>> the above support statement, because my past attempts to contact vendors
-> >>>> on matters of this tenor have been greeted with silence.
-> >>> I would recommend the module author to see if they would GPL it.
-> >> Thank you for your reply.  I've contacted the author as you suggest.
-> >>
-> > 
-> > IANAL but because they used GPL code in the driver, one could argue
-> > that they created a derived work covered by GPL already. But I learned in
-> > preschool it is always better to ask than take.
-> Not exactly.  What they wrote is covered by their copyright,
-> and there is no permission to use it in any way other than
-> how they licensed it.  Use of GPL code in their driver
-> would allow the author of the GPL code to sue them for
-> violating the license agreement, which would likely result
-> in the code being released under GPL.
-> 
-> IANAL either, but to paraphrase another preschool saying,
-> two wrongs (copyright violations) don't make a right
-> (legally licensed).
+Actually, the capabilities of the chip are quite powerful, it only
+seems to be hard to make it go fast using any of them. That may
+be the fault of strange locking rules and other bugs we had in
+the driver before, so maybe you can recommend which one to use.
 
-In this case, though the vendor put a license file in the source that says GPL.
-But they just forgot and put a different value in the MODULE_LICENSE().
+Cleaning up the TX queue only from ->poll() like all the others
+sounds like the right approach to simplify the code.
+
+The spider hardware offers at least these options:
+
+- end of TX queue interrupt
+- set a per-descriptor bit to fire an interrupt at a specific frame
+- an interrupt for each frame (may be multiple descriptors)
+- an interrupt for each descriptor
+- timers implemented in the spidernet hardware
+
+We first had an interrupt per descriptor, then got rid of all TX
+interrupts and replaced them by timers to reduce the interrupt load,
+but reducing throughput in the case where user space sleeps on a full
+socket buffer.
+
+The last patches that were suggested introduce marking a single descriptor
+(not the last one, but somewhere near the end of the queue) so we fire
+an interrupt just before the TX queue gets empty.
+
+	Arnd <><
