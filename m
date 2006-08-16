@@ -1,45 +1,41 @@
 From: linas@austin.ibm.com (Linas Vepstas)
 Subject: Re: [PATCH 1/2]: powerpc/cell spidernet bottom half
-Date: Wed, 16 Aug 2006 18:24:21 -0500
-Message-ID: <20060816232421.GN20551@austin.ibm.com>
-References: <44E38157.4070805@garzik.org> <20060816.134640.115912460.davem@davemloft.net> <200608162324.47235.arnd@arndb.de> <20060816.143203.11626235.davem@davemloft.net>
+Date: Wed, 16 Aug 2006 18:30:28 -0500
+Message-ID: <20060816233028.GO20551@austin.ibm.com>
+References: <44E38157.4070805@garzik.org> <200608162324.47235.arnd@arndb.de> <20060816.143203.11626235.davem@davemloft.net> <200608170016.47072.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: arnd@arndb.de, jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	jklewis@us.ibm.com, Jens.Osterkamp@de.ibm.com, akpm@osdl.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linuxppc-dev@ozlabs.org, akpm@osdl.org, jeff@garzik.org,
+	netdev@vger.kernel.org, jklewis@us.ibm.com,
+	linux-kernel@vger.kernel.org, Jens.Osterkamp@de.ibm.com,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:5564 "EHLO e32.co.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1750824AbWHPXYZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 19:24:25 -0400
-To: David Miller <davem@davemloft.net>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:20929 "EHLO
+	e36.co.us.ibm.com") by vger.kernel.org with ESMTP id S1750959AbWHPXaw
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Aug 2006 19:30:52 -0400
+To: Arnd Bergmann <arnd@arndb.de>
 Content-Disposition: inline
-In-Reply-To: <20060816.143203.11626235.davem@davemloft.net>
+In-Reply-To: <200608170016.47072.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 16, 2006 at 02:32:03PM -0700, David Miller wrote:
-> 
-> The best schemes seem to be to interrupt mitigate using a combination
-> of time and number of TX entries pending to be purged.  This is what
-> most gigabit chips seem to offer.
+On Thu, Aug 17, 2006 at 12:16:46AM +0200, Arnd Bergmann wrote:
+> Am Wednesday 16 August 2006 23:32 schrieb David Miller:
+> > Can spidernet be told these kinds of parameters? =A0"N packets or
+> > X usecs"?
+>=20
+> It can not do exactly this but probably we can get close to it by
 
-I seem to be having a multi-hour delay for email delivery, so maybe
-we've crossed emails.
-
-A "low watermark interrupt" is an interrupt that is generated when
-some queue is "almost empty". This last set of patches implement this
-for the TX queue. The interrupt pops when 3/4ths of the packets 
-in the queue have been processed.  Playing with ths setting
-(3/4ths or some other number) seemed to make little difference.
-
-> On Tigon3, for example, we tell the chip to interrupt if either 53
-> frames or 150usecs have passed since the first TX packet has become
-> available for reclaim.
-
-The nature of a low-watermark interrupt is that it NEVER pops, as long
-as the kernel keeps putting more stuff into the queue, so as to keep 
-the queue at least 1/4'th full. I don't know how to mitigate interrupts 
-more than that.
+Why would you want o do this? It seems like a cruddier strategy=20
+than what we can already do  (which is to never get an transmit
+interrupt, as long as the kernel can shove data into the device fast
+enough to keep the queue from going empty.)  The whole *point* of a=20
+low-watermark interrupt is to never have to actually get the interrupt,=
+=20
+if the rest of the system is on its toes and is supplying data fast
+enough.
 
 --linas
+
