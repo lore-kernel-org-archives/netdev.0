@@ -1,51 +1,54 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH 1/2]: powerpc/cell spidernet bottom half
-Date: Wed, 16 Aug 2006 18:47:28 -0500
-Message-ID: <20060816234728.GP20551@austin.ibm.com>
-References: <44E34825.2020105@garzik.org> <200608162324.47235.arnd@arndb.de> <20060816225558.GM20551@austin.ibm.com> <200608170103.21097.arnd@arndb.de>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 2/4]: powerpc/cell spidernet low watermark patch.
+Date: Thu, 17 Aug 2006 01:43:40 +0200
+Message-ID: <1155771820.11312.116.camel@localhost.localdomain>
+References: <20060811170337.GH10638@austin.ibm.com>
+	<20060811170813.GJ10638@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linuxppc-dev@ozlabs.org, akpm@osdl.org, jeff@garzik.org,
-	netdev@vger.kernel.org, jklewis@us.ibm.com,
-	linux-kernel@vger.kernel.org, Jens.Osterkamp@de.ibm.com,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:33439 "EHLO
-	e36.co.us.ibm.com") by vger.kernel.org with ESMTP id S932123AbWHPXsa
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 19:48:30 -0400
-To: Arnd Bergmann <arnd@arndb.de>
-Content-Disposition: inline
-In-Reply-To: <200608170103.21097.arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+	James K Lewis <jklewis@us.ibm.com>, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: Linas Vepstas <linas@austin.ibm.com>
+In-Reply-To: <20060811170813.GJ10638@austin.ibm.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 17, 2006 at 01:03:20AM +0200, Arnd Bergmann wrote:
+On Fri, 2006-08-11 at 12:08 -0500, Linas Vepstas wrote:
 > 
-> Could well be related to latencies when going to the remote
-> node for descriptor DMAs. Have you tried if the hch's NUMA
-> patch or using numactl makes a difference here?
-
-No. I guess I should try.
-
-> > > sounds like the right approach to simplify the code.
-> >
-> > Its not a big a driver. 'wc' says its 2.3 loc, which
-> > is 1/3 or 1/5 the size of tg3.c or the e1000*c files.
+> Implement basic low-watermark support for the transmit queue.
 > 
-> Right, I was thinking of removing a lock or another, not
-> throwing out half of the driver ;-)
+> The basic idea of a low-watermark interrupt is as follows.
+> The device driver queues up a bunch of packets for the hardware
+> to transmit, and then kicks he hardware to get it started.
+> As the hardware drains the queue of pending, untransmitted 
+> packets, the device driver will want to know when the queue
+> is almost empty, so that it can queue some more packets.
+> 
+> This is accomplished by setting the DESCR_TXDESFLG flag in
+> one of the packets. When the hardware sees this flag, it will 
+> interrupt the device driver. Because this flag is on a fixed
+> packet, rather than at  fixed location in the queue, the
+> code below needs to move the flag as more packets are
+> queued up. This implementation attempts to keep te flag 
+> at about 3/4's of the way into the queue.
+> 
+> This patch boosts driver performance from about 
+> 300-400Mbps for 1500 byte packets, to about 710-740Mbps.
 
-There's only four lock points grand total. 
--- One on the receive side,
--- one to protect the transmit head pointer, 
--- one to protect the transmit tail pointer, 
--- one to protect the location of the transmit low watermark.
+Sounds good (without actually looking at the code though :), that was a
+long required improvement to that driver. Also, we should probably look
+into using NAPI polling for tx completion queue as well, no ?
 
-The last three share the same lock. I tried using distinct
-locks, but this worsened things, probably due to cache-line 
-trashing. I tried removing the head pointer lock, but this
-failed. I don't know why, and was surprised by this. I thought
-hard_start_xmit() was serialized.
-
---linas
+Cheers,
+Ben.
