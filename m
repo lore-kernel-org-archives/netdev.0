@@ -1,36 +1,32 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 1/1] network memory allocator.
-Date: Wed, 16 Aug 2006 10:44:31 +0100
-Message-ID: <20060816094431.GA21118@infradead.org>
-References: <20060816091029.GA6375@infradead.org> <20060816093159.GA31882@2ka.mipt.ru> <20060816093837.GA11096@infradead.org> <20060816.024008.74744877.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: hard_start_xmit  conext
+Date: Wed, 16 Aug 2006 20:22:28 +1000
+Message-ID: <20060816102228.GA28398@gondor.apana.org.au>
+References: <E1GDBlk-0006O1-00@gondolin.me.apana.org.au> <44E2CB10.9080701@garzik.org> <44E2DBF8.8040500@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: hch@infradead.org, johnpol@2ka.mipt.ru, arnd@arndb.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org
+Cc: Jeff Garzik <jeff@garzik.org>, kiran kandi <kkiran78@hotmail.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:28899 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1751070AbWHPJoh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 05:44:37 -0400
-To: David Miller <davem@davemloft.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:43275 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750777AbWHPKWl
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Aug 2006 06:22:41 -0400
+To: Ben Greear <greearb@candelatech.com>
 Content-Disposition: inline
-In-Reply-To: <20060816.024008.74744877.davem@davemloft.net>
+In-Reply-To: <44E2DBF8.8040500@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 16, 2006 at 02:40:08AM -0700, David Miller wrote:
-> From: Christoph Hellwig <hch@infradead.org>
-> Date: Wed, 16 Aug 2006 10:38:37 +0100
+On Wed, Aug 16, 2006 at 01:48:56AM -0700, Ben Greear wrote:
+>
+> >>softirq
 > 
-> > We could, but I'd rather waste 4 bytes in struct net_device than
-> > having such ugly warts in common code.
-> 
-> Why not instead have struct device store some default node value?
-> The node decision will be sub-optimal on non-pci but it won't crash.
+> It can be process too...doesn't pktgen call it directly?
 
-Right now we don't even have the node stored in the pci_dev structure but
-only arch-specific accessor functions/macros.  We could change those to
-take a struct device instead and make them return -1 for everything non-pci
-as we already do in architectures that don't support those helpers.  -1
-means 'any node' for all common allocators.
+Only with BH disabled.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
