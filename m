@@ -1,40 +1,49 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 32/41] lockdep: fix smc91x
-Date: Wed, 16 Aug 2006 16:05:19 -0400
-Message-ID: <44E37A7F.6020709@garzik.org>
-References: <200608150600.k7F60KYL012708@shell0.pdx.osdl.net> <Pine.LNX.4.64.0608161526260.3494@localhost.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take9 1/2] kevent: Core files.
+Date: Thu, 17 Aug 2006 00:06:16 +0400
+Message-ID: <20060816200616.GA8253@2ka.mipt.ru>
+References: <20060816134550.GA12345@infradead.org> <20060816135642.GD4314@2ka.mipt.ru> <44E35F29.8010500@oracle.com> <20060816.124554.18301763.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	rmk+lkml@arm.linux.org.uk, rmk+kernel@arm.linux.org.uk
+Content-Type: text/plain; charset=koi8-r
+Cc: zach.brown@oracle.com, hch@infradead.org,
+	linux-kernel@vger.kernel.org, drepper@redhat.com, akpm@osdl.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33161 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932189AbWHPUFb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 16:05:31 -0400
-To: Nicolas Pitre <nico@cam.org>
-In-Reply-To: <Pine.LNX.4.64.0608161526260.3494@localhost.localdomain>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:18104 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932203AbWHPUHn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 16:07:43 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060816.124554.18301763.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Nicolas Pitre wrote:
-> On Mon, 14 Aug 2006, akpm@osdl.org wrote:
+On Wed, Aug 16, 2006 at 12:45:54PM -0700, David Miller (davem@davemloft.net) wrote:
+> > >>> +	for (i=0; i<ARRAY_SIZE(u->kevent_list); ++i)
+> > >> 	for (i = 0; i < ARRAY_SIZE(u->kevent_list); i++)
+> > > 
+> > > Ugh, no. It reduces readability due to exessive number of spaces.
+> > 
+> > Ihavetoverystronglydisagree.
 > 
->> From: Russell King <rmk+lkml@arm.linux.org.uk>
->>
->> When booting using root-nfs, I'm seeing (independently) two lockdep dumps
->> in the smc91x driver.  The patch below fixes both.  Both dumps look like
->> real locking issues.
->>
->> Nico - please review and ack if you think the patch is correct.
+> Metoo. :-)
 > 
-> The lock validator is rightfully complaining and the patch is correct.
-> 
-> Acked-by: Nicolas Pitre <nico@cam.org>
+> Spaces help humans parse out the syntactic structure of
+> multi-token expressions.
 
-thanks
+There is an anecdote:
+in a near future, when world crisis killed economy,
+russain scientists found a way to make time machine, so they 
+get some dictator from the past and ask him how to improve a situation.
+He quickly answers that it is only needed to shoot all opposition, kill
+the freedom and redraw Kremlin and Red Square into blue colour.
+People wonder "such tragic steps, so much blood, but why Red Square?"
+Dictator answers: well, if there are no objections about other issues,
+we will not change Red Square.
 
-	Jeff
+I'm telling it just because I would like to know if there are any issues
+which must be fixed in the tomorrow patchset except mentioned in
+previous e-mails... :)
 
-
-
+-- 
+	Evgeniy Polyakov
