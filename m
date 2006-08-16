@@ -1,7 +1,7 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 07/13] e1000: Allow NVM to setup LPLU for IGP2 and IGP3
-Date: Wed, 16 Aug 2006 14:56:31 -0700
-Message-ID: <20060816215630.27080.11706.stgit@gitlost.site>
+Subject: [PATCH 08/13] e1000: Force full DMA clocking for 10/100 speed
+Date: Wed, 16 Aug 2006 14:56:33 -0700
+Message-ID: <20060816215633.27080.15056.stgit@gitlost.site>
 References: <20060816215336.27080.56147.stgit@gitlost.site>
 Cc: netdev@vger.kernel.org, akpm@osdl.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
@@ -9,49 +9,44 @@ Cc: netdev@vger.kernel.org, akpm@osdl.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:60681 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S932258AbWHPVsm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 17:48:42 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:61961 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S932257AbWHPVsp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 17:48:45 -0400
 To: "Garzik, Jeff" <jgarzik@pobox.com>
 In-Reply-To: <20060816215336.27080.56147.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Allow NVM to setup LPLU for IGP2 and IGP3. Only IGP needs LPLU D3
-disabled during init here.
-
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000/e1000_hw.c |   13 ++++++++-----
- 1 files changed, 8 insertions(+), 5 deletions(-)
+ drivers/net/e1000/e1000_hw.c |   11 +++++++++++
+ 1 files changed, 11 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
-index 583518a..3728f33 100644
+index 3728f33..8eddfdf 100644
 --- a/drivers/net/e1000/e1000_hw.c
 +++ b/drivers/net/e1000/e1000_hw.c
-@@ -1324,11 +1324,14 @@ e1000_copper_link_igp_setup(struct e1000
-     E1000_WRITE_REG(hw, LEDCTL, led_ctrl);
-     }
+@@ -718,6 +718,17 @@ e1000_init_hw(struct e1000_hw *hw)
  
--    /* disable lplu d3 during driver init */
--    ret_val = e1000_set_d3_lplu_state(hw, FALSE);
--    if (ret_val) {
--        DEBUGOUT("Error Disabling LPLU D3\n");
--        return ret_val;
-+    /* The NVM settings will configure LPLU in D3 for IGP2 and IGP3 PHYs */
-+    if (hw->phy_type == e1000_phy_igp) {
-+        /* disable lplu d3 during driver init */
-+        ret_val = e1000_set_d3_lplu_state(hw, FALSE);
-+        if (ret_val) {
-+            DEBUGOUT("Error Disabling LPLU D3\n");
-+            return ret_val;
-+        }
-     }
+     DEBUGFUNC("e1000_init_hw");
  
-     /* disable lplu d0 during driver init */
++    /* force full DMA clock frequency for 10/100 on ICH8 A0-B0 */
++    if (hw->mac_type == e1000_ich8lan) {
++        reg_data = E1000_READ_REG(hw, TARC0);
++        reg_data |= 0x30000000;
++        E1000_WRITE_REG(hw, TARC0, reg_data);
++
++        reg_data = E1000_READ_REG(hw, STATUS);
++        reg_data &= ~0x80000000;
++        E1000_WRITE_REG(hw, STATUS, reg_data);
++    }
++
+     /* Initialize Identification LED */
+     ret_val = e1000_id_led_init(hw);
+     if(ret_val) {
 
 
 
