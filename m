@@ -1,113 +1,56 @@
-From: inkling <inkling@airmail.net>
-Subject: [PATCH] r8169 2.4.32 backport of change mtu
-Date: Wed, 16 Aug 2006 17:04:43 -0500
-Message-ID: <44E3967B.3090901@airmail.net>
-Reply-To: inkling@airmail.net
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 1/2]: powerpc/cell spidernet bottom half
+Date: Thu, 17 Aug 2006 00:16:46 +0200
+Message-ID: <200608170016.47072.arnd@arndb.de>
+References: <44E38157.4070805@garzik.org> <200608162324.47235.arnd@arndb.de>
+	<20060816.143203.11626235.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090706000009050901090001"
-Cc: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wmail-0.airmail.net ([209.196.70.87]:2007 "EHLO
-	wmail-0.airmail.net") by vger.kernel.org with ESMTP
-	id S1750883AbWHPWBj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 18:01:39 -0400
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: akpm@osdl.org, jeff@garzik.org, netdev@vger.kernel.org, jklewis@us.ibm.com,
+	linux-kernel@vger.kernel.org, Jens.Osterkamp@de.ibm.com,
+	David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: linuxppc-dev@ozlabs.org
+In-Reply-To: <20060816.143203.11626235.davem@davemloft.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090706000009050901090001
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Am Wednesday 16 August 2006 23:32 schrieb David Miller:
+> Can spidernet be told these kinds of parameters? =A0"N packets or
+> X usecs"?
 
-Kernel 2.4.32 r8169 driver was missing change MTU.
-It is back-ported from the kernel 2.6.16 r8169 driver.
-Performance went from 40 megabyte/second (MTU 1500) to 58 megabyte/second
-(MTU 7200) when testing with custom http server and wget for client.
-Target and destination were both tmpfs volumes.
+It can not do exactly this but probably we can get close to it by
 
-Feedback requested: Did I do it right? Does it work for you?
+1.) Setting a one-time interrupt to fire x*10=B5s after putting a
+   packet into the TX queue.
 
+and
 
+2.a) Enabling end of TX queue interrupts whenever more than y frames
+     have been queued for TX.
 
---------------090706000009050901090001
-Content-Type: application/gzip;
- name="r8169-change-mtu-2.4.32.diff.gz"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="r8169-change-mtu-2.4.32.diff.gz"
+or
 
-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
---------------090706000009050901090001--
+2.b) Marking frame number y in the TX to fire an interrupt when it
+     has been transmitted, and move the mark whenever we clean up
+     TX descriptors.
+
+or
+
+2.c) Marking frame number y to generate an interrupt, but counting
+     y from the end of the queue, and update the mark whenever we
+     add frames to the queue tail.
+
+I'm not sure which version of 2. would give us the best approximation.
+
+	Arnd <><
