@@ -1,61 +1,35 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH 1/1] network memory allocator.
-Date: Tue, 15 Aug 2006 22:52:37 -0400
-Message-ID: <20060815225237.03df7874.billfink@mindspring.com>
-References: <20060814110359.GA27704@2ka.mipt.ru>
-	<1155558313.5696.167.camel@twins>
-	<20060814123530.GA5019@2ka.mipt.ru>
-	<1155639302.5696.210.camel@twins>
-	<20060815112617.GB21736@2ka.mipt.ru>
-	<1155643405.5696.236.camel@twins>
-	<20060815123438.GA29896@2ka.mipt.ru>
-	<1155649768.5696.262.camel@twins>
-	<20060815141501.GA10998@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: a.p.zijlstra@chello.nl, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 09/16] [IPv6] address: Convert address notification to use rtnl_notify()
+Date: Wed, 16 Aug 2006 12:58:28 +1000
+Message-ID: <E1GDBbw-0006Kz-00@gondolin.me.apana.org.au>
+References: <20060815122300.GV14627@postel.suug.ch>
+Cc: hasso@estpak.ee, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca,
+	davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:41398 "EHLO
-	elasmtp-scoter.atl.sa.earthlink.net") by vger.kernel.org with ESMTP
-	id S1750848AbWHPCwr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Aug 2006 22:52:47 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060815141501.GA10998@2ka.mipt.ru>
+Received: from rhun.apana.org.au ([64.62.148.172]:58628 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750856AbWHPC7L
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 22:59:11 -0400
+To: tgraf@suug.ch (Thomas Graf)
+In-Reply-To: <20060815122300.GV14627@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 15 Aug 2006, Evgeniy Polyakov wrote:
+Thomas Graf <tgraf@suug.ch> wrote:
+>
+> IPv4 address notifications originating from a netlink request now
+> carry the netlink pid of the request instead of 0.
 
-> On Tue, Aug 15, 2006 at 03:49:28PM +0200, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
-> 
-> > It could if you can provide adequate detection of memory pressure and
-> > fallback to a degraded mode within the same allocator/stack and can
-> > guarantee limited service to critical parts.
-> 
-> It is not needed, since network allocations are separated from main
-> system ones.
-> I think I need to show an example here.
-> 
-> Let's main system works only with TCP for simplicity.
-> Let's maximum allowed memory is limited by 1mb (it is 768k on machine
-> with 1gb of ram).
+I'm not comfortable with that change since it implies the message
+originated from a user-space process.
 
-The maximum amount of memory available for TCP on a system with 1 GB
-of memory is 768 MB (not 768 KB).
+The netlink header pid is really akin to sadb_msg_pid from RFC 2367.
+IMHO it should always be zero if the kernel is the originator of the
+message.
 
-[bill@chance4 ~]$ cat /proc/meminfo
-MemTotal:      1034924 kB
-...
-
-[bill@chance4 ~]$ cat /proc/sys/net/ipv4/tcp_mem
-98304   131072  196608
-
-Since tcp_mem is in pages (4K in this case), maximum TCP memory
-is 196608*4K or 768 MB.
-
-Or am I missing something obvious.
-
-						-Bill
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
