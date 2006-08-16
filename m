@@ -1,37 +1,49 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: e1000: ethtool -p + cable pull = system wedges hard
-Date: Tue, 15 Aug 2006 17:37:55 -0700
-Message-ID: <200608160037.k7G0btZt002839@death.nxdomain.ibm.com>
-Cc: netdev@vger.kernel.org
+From: Pavel Roskin <proski@gnu.org>
+Subject: [PATCH] spectrum_cs: Fix incorrect use of pcmcia_dev_present()
+Date: Tue, 15 Aug 2006 20:42:20 -0400
+Message-ID: <20060816004220.2876.90069.stgit@dv.roinet.com>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:41664 "EHLO e3.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1750751AbWHPAh7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Aug 2006 20:37:59 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e3.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k7G0bv9u010346
-	for <netdev@vger.kernel.org>; Tue, 15 Aug 2006 20:37:57 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7G0bubC260630
-	for <netdev@vger.kernel.org>; Tue, 15 Aug 2006 20:37:56 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7G0buSX020231
-	for <netdev@vger.kernel.org>; Tue, 15 Aug 2006 20:37:56 -0400
-To: e1000-devel@lists.sourceforge.net
+Received: from h-64-105-159-118.phlapafg.covad.net ([64.105.159.118]:18150
+	"EHLO smtp.roinet.com") by vger.kernel.org with ESMTP
+	id S1750744AbWHPAm0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Aug 2006 20:42:26 -0400
+Received: from dv.roinet.com (192.168.1.21 [192.168.1.21])
+    by smtp.roinet.com with SMTP;
+    for netdev@vger.kernel.org;
+    Tue, 15 Aug 2006 20:46:34 -0400 (EDT)
+    (envelope-from proski@gnu.org)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Pavel Roskin <proski@gnu.org>
 
-	Running both 2.6.17.6 plus the e1000 7.2.7 from sourceforge, or
-the e1000 in netdev-2.6#upstream (7.1.9-k4).
+This bug was introduced during the PCMCIA API conversion and broke
+spectrum_cs completely.
 
-	Starting up "ethtool -p ethX" then unplugging the cable
-connected to the identified port is causing my system to completely
-freeze; even sysrq is unresponsive.  I'm running on a 2-way x86 box,
-with an 82545GM.
+Tracked down by Fredrik Tolf <fredrik@dolda2000.com>
 
-	Is this by any chance a known problem?
-
-	-J
+Signed-off-by: Pavel Roskin <proski@gnu.org>
 
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+This patch should go to 2.6.18 and 2.6.17.y.
+---
+
+ drivers/net/wireless/spectrum_cs.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/wireless/spectrum_cs.c b/drivers/net/wireless/spectrum_cs.c
+index 7f78b78..bcc7038 100644
+--- a/drivers/net/wireless/spectrum_cs.c
++++ b/drivers/net/wireless/spectrum_cs.c
+@@ -242,7 +242,7 @@ spectrum_reset(struct pcmcia_device *lin
+ 	u_int save_cor;
+ 
+ 	/* Doing it if hardware is gone is guaranteed crash */
+-	if (pcmcia_dev_present(link))
++	if (!pcmcia_dev_present(link))
+ 		return -ENODEV;
+ 
+ 	/* Save original COR value */
