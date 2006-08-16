@@ -1,47 +1,53 @@
-From: "Giacomo A. Catenazzi" <cate@debian.org>
-Subject: Re: bonding: cannot remove certain named devices
-Date: Wed, 16 Aug 2006 08:35:08 +0200
-Message-ID: <44E2BC9C.1000101@debian.org>
-References: <6KfTz-OX-11@gated-at.bofh.it>	<6KfTA-OX-15@gated-at.bofh.it>	<E1GD8rX-0001cA-CV@be1.lrz> <20060815.171002.104028951.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: proposal for new wireless configuration API
+Date: Wed, 16 Aug 2006 08:51:01 +0200
+Message-ID: <1155711061.3600.6.camel@ux156>
+References: <1155655728.17742.30.camel@ux156>
+	 <1155659387.3005.15.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: 7eggert@gmx.de, 7eggert@elstempel.de, shemminger@osdl.org,
-	mitch.a.williams@intel.com, notting@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, Jean Tourrilhes <jt@hpl.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orion2.pixelized.ch ([195.190.190.13]:38309 "EHLO
-	mail.pixelized.ch") by vger.kernel.org with ESMTP id S1750790AbWHPGfV
+Received: from crystal.sipsolutions.net ([195.210.38.204]:32219 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750865AbWHPGum
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 02:35:21 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060815.171002.104028951.davem@davemloft.net>
+	Wed, 16 Aug 2006 02:50:42 -0400
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1155659387.3005.15.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Bodo Eggert <7eggert@elstempel.de>
-> Date: Wed, 16 Aug 2006 02:02:03 +0200
-> 
->> Stephen Hemminger <shemminger@osdl.org> wrote:
->>
->>> IMHO idiots who put space's in filenames should be ignored. As long as the
->>> bonding code doesn't throw a fatal error, it has every right to return
->>> "No such device" to the fool.
->> Maybe you should limit device names to eight uppercase characters and up to
->> three characters extension, too. NOT! There is no reason to artificially
->> impose limitations on device names, so don't do that.
-> 
-> Are you willing to work to add the special case code necessary to
-> handle whitespace characters in the device name over all of the kernel
-> code and also all of the userland tools too?
+On Tue, 2006-08-15 at 12:29 -0400, Dan Williams wrote:
 
-But if you don't handle spaces in userspace, you handle *, ?, [, ], $,
-", ', \  in userspace? Should kernel disable also these (insane device
-chars) chars?
+> We might want to take the time to fix up a few of the ambiguities of
+> WEXT that we've encountered over the past few years:
 
-ciao
-	cate
-> 
-> No?  Great, I'm glad that's settled.
+Yes, I definitely agree.
 
+> o Separate attributes for signal strength units; signed integer type for
+> dBm, unsigned integer type for RSSI.  One 8-bit var to represent both is
+> just too confusing for people, evidently (which is true...)
+
+Yes, agreed, they should be separated. In general, I think that one
+attribute should always have a single meaning and unit attached, except
+for explicitly unit-less attributes (number of frames or whatever), or
+attributes that explicitly have no stable unit (raw rssi).
+
+> o Merge functionality ENCODE and ENCODEEXT handlers into one
+
+Good one. I'm still not sure whether we should have an attribute for
+this, or a command. The whole key business seems rather complex and it
+might be good to have a command 'set key' with say a possible attribute
+for the mac address of a pairwise key, a key material attribute and an
+IV attribute or something. Otherwise we'll end up parsing the contents
+of an attribute again, which rather sucks...
+
+On the other hand, having it as a command won't allow the user to
+optimize setting the key and other things at once. I'm not too sure we
+should pay all that much attention to this problem though, it can't take
+forever and typically a user with such a card won't be changing the key
+or parameters all the time, hence it's usually probably done only at boo
+or association time.
+
+johannes
