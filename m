@@ -1,35 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH][IPSEC]: Aggregate make_jiffies
-Date: Wed, 16 Aug 2006 23:24:34 +1000
-Message-ID: <20060816132434.GA30646@gondor.apana.org.au>
-References: <1155693500.5122.39.camel@jzny2> <20060816023349.GA24174@gondor.apana.org.au> <1155697186.5122.43.camel@jzny2> <1155733994.5122.140.camel@jzny2>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [take9 0/2] kevent: Generic event handling mechanism.
+Date: Wed, 16 Aug 2006 14:26:31 +0100
+Message-ID: <20060816132631.GA32499@infradead.org>
+References: <20060731103322.GA1898@2ka.mipt.ru> <11555364962921@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:33550 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750777AbWHPNYv
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 09:24:51 -0400
-To: jamal <hadi@cyberus.ca>
+Received: from pentafluge.infradead.org ([213.146.154.40]:32978 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1750956AbWHPN0x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Aug 2006 09:26:53 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <1155733994.5122.140.camel@jzny2>
+In-Reply-To: <11555364962921@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 16, 2006 at 09:13:14AM -0400, jamal wrote:
+On Mon, Aug 14, 2006 at 10:21:36AM +0400, Evgeniy Polyakov wrote:
 > 
-> Herbert, I actually dont know the answer that is why i am punting it to
-> you;-> I would just move the whole thing to linux/jiffies.h as is but
-> you seem to suggest there may be other boundary checks. If yes, go at
-> it ;->
+> Generic event handling mechanism.
 
-I think it's just the boundary check.  If you rewrite the function in
-the same fashion as msec_to_jiffies then it should be OK.
+Hi, I've just started looking into this, so some comments here first
+on the submission process:
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ - could you send new revisions of the patches in a new thread so one can
+   easily find them?
+ - the patch split is not very nice, your first patch adds Makefile and
+   Kconfig entries for files only in the second patch or not actually
+   submitted at all, that's a big no-no.
+
