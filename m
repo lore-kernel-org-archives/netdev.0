@@ -1,162 +1,145 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 1/5] [IPv6] route: Simplify ip6_del_rt()
-Date: Thu, 17 Aug 2006 00:00:01 +0200
-Message-ID: <20060816234342.443503114@postel.suug.ch>
+Subject: [PATCH 5/5] [IPv6] route: Convert GETROUTE to use new netlink api
+Date: Thu, 17 Aug 2006 00:00:05 +0200
+Message-ID: <20060816234343.744015147@postel.suug.ch>
 References: <20060816234038.106537101@postel.suug.ch>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:54689 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1751256AbWHPXoy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 19:44:54 -0400
+Received: from postel.suug.ch ([194.88.212.233]:59297 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932132AbWHPXpP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 19:45:15 -0400
 To: davem@davemloft.net
-Content-Disposition: inline; filename=nl_ip6_del_rt
+Content-Disposition: inline; filename=nl_ip6_getroute
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Provide a simple ip6_del_rt() for the majority of users and
-an alternative for the exception via netlink. Avoids code
-obfuscation.
+Fixes various unvalidated netlink attributes causing memory
+corruptions when left empty by userspace applications.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Index: net-2.6.19.git/include/net/ip6_route.h
-===================================================================
---- net-2.6.19.git.orig/include/net/ip6_route.h
-+++ net-2.6.19.git/include/net/ip6_route.h
-@@ -69,10 +69,7 @@ extern int			ip6_ins_rt(struct rt6_info 
- 					   struct nlmsghdr *,
- 					   void *rtattr,
- 					   struct netlink_skb_parms *req);
--extern int			ip6_del_rt(struct rt6_info *,
--					   struct nlmsghdr *,
--					   void *rtattr,
--					   struct netlink_skb_parms *req);
-+extern int			ip6_del_rt(struct rt6_info *);
- 
- extern int			ip6_rt_addr_add(struct in6_addr *addr,
- 						struct net_device *dev,
-Index: net-2.6.19.git/net/ipv6/addrconf.c
-===================================================================
---- net-2.6.19.git.orig/net/ipv6/addrconf.c
-+++ net-2.6.19.git/net/ipv6/addrconf.c
-@@ -736,7 +736,7 @@ static void ipv6_del_addr(struct inet6_i
- 
- 		if (rt && ((rt->rt6i_flags & (RTF_GATEWAY | RTF_DEFAULT)) == 0)) {
- 			if (onlink == 0) {
--				ip6_del_rt(rt, NULL, NULL, NULL);
-+				ip6_del_rt(rt);
- 				rt = NULL;
- 			} else if (!(rt->rt6i_flags & RTF_EXPIRES)) {
- 				rt->rt6i_expires = expires;
-@@ -1662,7 +1662,7 @@ void addrconf_prefix_rcv(struct net_devi
- 		if (rt && ((rt->rt6i_flags & (RTF_GATEWAY | RTF_DEFAULT)) == 0)) {
- 			if (rt->rt6i_flags&RTF_EXPIRES) {
- 				if (valid_lft == 0) {
--					ip6_del_rt(rt, NULL, NULL, NULL);
-+					ip6_del_rt(rt);
- 					rt = NULL;
- 				} else {
- 					rt->rt6i_expires = jiffies + rt_expires;
-@@ -3557,7 +3557,7 @@ static void __ipv6_ifa_notify(int event,
- 			addrconf_leave_anycast(ifp);
- 		addrconf_leave_solict(ifp->idev, &ifp->addr);
- 		dst_hold(&ifp->rt->u.dst);
--		if (ip6_del_rt(ifp->rt, NULL, NULL, NULL))
-+		if (ip6_del_rt(ifp->rt))
- 			dst_free(&ifp->rt->u.dst);
- 		break;
- 	}
-Index: net-2.6.19.git/net/ipv6/ndisc.c
-===================================================================
---- net-2.6.19.git.orig/net/ipv6/ndisc.c
-+++ net-2.6.19.git/net/ipv6/ndisc.c
-@@ -961,7 +961,7 @@ static void ndisc_recv_na(struct sk_buff
- 			struct rt6_info *rt;
- 			rt = rt6_get_dflt_router(saddr, dev);
- 			if (rt)
--				ip6_del_rt(rt, NULL, NULL, NULL);
-+				ip6_del_rt(rt);
- 		}
- 
- out:
-@@ -1114,7 +1114,7 @@ static void ndisc_router_discovery(struc
- 
- 	if (rt && lifetime == 0) {
- 		neigh_clone(neigh);
--		ip6_del_rt(rt, NULL, NULL, NULL);
-+		ip6_del_rt(rt);
- 		rt = NULL;
- 	}
- 
 Index: net-2.6.19.git/net/ipv6/route.c
 ===================================================================
 --- net-2.6.19.git.orig/net/ipv6/route.c
 +++ net-2.6.19.git/net/ipv6/route.c
-@@ -457,7 +457,7 @@ int rt6_route_rcv(struct net_device *dev
- 	rt = rt6_get_route_info(prefix, rinfo->prefix_len, gwaddr, dev->ifindex);
+@@ -1829,6 +1829,7 @@ void rt6_mtu_change(struct net_device *d
+ static struct nla_policy rtm_ipv6_policy[RTA_MAX+1] __read_mostly = {
+ 	[RTA_GATEWAY]           = { .minlen = sizeof(struct in6_addr) },
+ 	[RTA_OIF]               = { .type = NLA_U32 },
++	[RTA_IIF]		= { .type = NLA_U32 },
+ 	[RTA_PRIORITY]          = { .type = NLA_U32 },
+ 	[RTA_METRICS]           = { .type = NLA_NESTED },
+ };
+@@ -2044,68 +2045,75 @@ int rt6_dump_route(struct rt6_info *rt, 
  
- 	if (rt && !lifetime) {
--		ip6_del_rt(rt, NULL, NULL, NULL);
-+		ip6_del_rt(rt);
- 		rt = NULL;
- 	}
- 
-@@ -813,7 +813,7 @@ static struct dst_entry *ip6_negative_ad
- 
- 	if (rt) {
- 		if (rt->rt6i_flags & RTF_CACHE)
--			ip6_del_rt(rt, NULL, NULL, NULL);
-+			ip6_del_rt(rt);
- 		else
- 			dst_release(dst);
- 	}
-@@ -1218,7 +1218,8 @@ out:
- 	return err;
- }
- 
--int ip6_del_rt(struct rt6_info *rt, struct nlmsghdr *nlh, void *_rtattr, struct netlink_skb_parms *req)
-+static int __ip6_del_rt(struct rt6_info *rt, struct nlmsghdr *nlh,
-+			void *_rtattr, struct netlink_skb_parms *req)
+ int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void *arg)
  {
- 	int err;
- 	struct fib6_table *table;
-@@ -1237,6 +1238,11 @@ int ip6_del_rt(struct rt6_info *rt, stru
+-	struct rtattr **rta = arg;
+-	int iif = 0;
+-	int err = -ENOBUFS;
++	struct nlattr *tb[RTA_MAX+1];
++	struct rt6_info *rt;
+ 	struct sk_buff *skb;
++	struct rtmsg *rtm;
+ 	struct flowi fl;
+-	struct rt6_info *rt;
++	int err, iif = 0;
+ 
+-	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
+-	if (skb == NULL)
+-		goto out;
+-
+-	/* Reserve room for dummy headers, this skb can pass
+-	   through good chunk of routing engine.
+-	 */
+-	skb->mac.raw = skb->data;
+-	skb_reserve(skb, MAX_HEADER + sizeof(struct ipv6hdr));
++	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_ipv6_policy);
++	if (err < 0)
++		goto errout;
+ 
++	err = -EINVAL;
+ 	memset(&fl, 0, sizeof(fl));
+-	if (rta[RTA_SRC-1])
+-		ipv6_addr_copy(&fl.fl6_src,
+-			       (struct in6_addr*)RTA_DATA(rta[RTA_SRC-1]));
+-	if (rta[RTA_DST-1])
+-		ipv6_addr_copy(&fl.fl6_dst,
+-			       (struct in6_addr*)RTA_DATA(rta[RTA_DST-1]));
+ 
+-	if (rta[RTA_IIF-1])
+-		memcpy(&iif, RTA_DATA(rta[RTA_IIF-1]), sizeof(int));
++	if (tb[RTA_SRC]) {
++		if (nla_len(tb[RTA_SRC]) < sizeof(struct in6_addr))
++			goto errout;
++
++		ipv6_addr_copy(&fl.fl6_src, nla_data(tb[RTA_SRC]));
++	}
++
++	if (tb[RTA_DST]) {
++		if (nla_len(tb[RTA_DST]) < sizeof(struct in6_addr))
++			goto errout;
++
++		ipv6_addr_copy(&fl.fl6_dst, nla_data(tb[RTA_DST]));
++	}
++
++	if (tb[RTA_IIF])
++		iif = nla_get_u32(tb[RTA_IIF]);
++
++	if (tb[RTA_OIF])
++		fl.oif = nla_get_u32(tb[RTA_OIF]);
+ 
+ 	if (iif) {
+ 		struct net_device *dev;
+ 		dev = __dev_get_by_index(iif);
+ 		if (!dev) {
+ 			err = -ENODEV;
+-			goto out_free;
++			goto errout;
+ 		}
+ 	}
+ 
+-	fl.oif = 0;
+-	if (rta[RTA_OIF-1])
+-		memcpy(&fl.oif, RTA_DATA(rta[RTA_OIF-1]), sizeof(int));
++	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
++	if (skb == NULL) {
++		err = -ENOBUFS;
++		goto errout;
++	}
+ 
+-	rt = (struct rt6_info*)ip6_route_output(NULL, &fl);
++	/* Reserve room for dummy headers, this skb can pass
++	   through good chunk of routing engine.
++	 */
++	skb->mac.raw = skb->data;
++	skb_reserve(skb, MAX_HEADER + sizeof(struct ipv6hdr));
+ 
++	rt = (struct rt6_info*) ip6_route_output(NULL, &fl);
+ 	skb->dst = &rt->u.dst;
+ 
+-	NETLINK_CB(skb).dst_pid = NETLINK_CB(in_skb).pid;
+-	err = rt6_fill_node(skb, rt, 
+-			    &fl.fl6_dst, &fl.fl6_src,
+-			    iif,
++	err = rt6_fill_node(skb, rt, &fl.fl6_dst, &fl.fl6_src, iif,
+ 			    RTM_NEWROUTE, NETLINK_CB(in_skb).pid,
+ 			    nlh->nlmsg_seq, 0, 0);
+ 	if (err < 0) {
+-		err = -EMSGSIZE;
+-		goto out_free;
++		kfree_skb(skb);
++		goto errout;
+ 	}
+ 
+ 	err = rtnl_unicast(skb, NETLINK_CB(in_skb).pid);
+-out:
++errout:
  	return err;
+-out_free:
+-	kfree_skb(skb);
+-	goto out;	
  }
  
-+int ip6_del_rt(struct rt6_info *rt)
-+{
-+	return __ip6_del_rt(rt, NULL, NULL, NULL);
-+}
-+
- static int ip6_route_del(struct in6_rtmsg *rtmsg, struct nlmsghdr *nlh,
- 			 void *_rtattr, struct netlink_skb_parms *req,
- 			 u32 table_id)
-@@ -1271,7 +1277,7 @@ static int ip6_route_del(struct in6_rtms
- 			dst_hold(&rt->u.dst);
- 			read_unlock_bh(&table->tb6_lock);
- 
--			return ip6_del_rt(rt, nlh, _rtattr, req);
-+			return __ip6_del_rt(rt, nlh, _rtattr, req);
- 		}
- 	}
- 	read_unlock_bh(&table->tb6_lock);
-@@ -1395,7 +1401,7 @@ restart:
- 	call_netevent_notifiers(NETEVENT_REDIRECT, &netevent);
- 
- 	if (rt->rt6i_flags&RTF_CACHE) {
--		ip6_del_rt(rt, NULL, NULL, NULL);
-+		ip6_del_rt(rt);
- 		return;
- 	}
- 
-@@ -1631,7 +1637,7 @@ restart:
- 		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF)) {
- 			dst_hold(&rt->u.dst);
- 			read_unlock_bh(&table->tb6_lock);
--			ip6_del_rt(rt, NULL, NULL, NULL);
-+			ip6_del_rt(rt);
- 			goto restart;
- 		}
- 	}
+ void inet6_rt_notify(int event, struct rt6_info *rt, struct nl_info *info)
 
