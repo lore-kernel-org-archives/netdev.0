@@ -1,56 +1,70 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [d80211 rfc] link master interface from wiphy
-Date: Thu, 17 Aug 2006 09:18:08 +0200
-Message-ID: <1155799088.3653.1.camel@ux156>
-References: <44E02F41.2060300@sipsolutions.net>
-	 <44E03051.8030808@sipsolutions.net>
-	 <20060816190520.57cb676f@griffin.suse.cz>
+From: Jesse Huang <jesse@icplus.com.tw>
+Subject: [PATCH 3/6] IP100A Remove CONFIG_SUNDANCE_MMIO, mask of mapping
+	address
+Date: Thu, 17 Aug 2006 15:06:01 -0400
+Message-ID: <1155841561.4532.13.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jouni Malinen <jkm@devicescape.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:17094 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751217AbWHQHSY
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 03:18:24 -0400
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20060816190520.57cb676f@griffin.suse.cz>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932112AbWHQHSh@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@osdl.org, jgarzik@pobox.com, jesse@icplus.com.tw
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-08-16 at 19:05 +0200, Jiri Benc wrote:
+From: Jesse Huang <jesse@icplus.com.tw>
 
-> Btw, we will probably need some way to ask d80211 about all interfaces
-> belonging to given wiphy anyway. Crawling all network interfaces and
-> searching for correct wiphy symlinks is probably not the best way. I
-> think a new netlink interface can be used for this.
+Remove CONFIG_SUNDANCE_MMIO, mask of mapping address
 
-Yeah, that should be fairly easy.
+Change Logs:
+    Remove CONFIG_SUNDANCE_MMIO, mask of mapping address
 
-> > wpa_supplicant could use this, I guess. I think 
-> > another link to wlan#ap should be created (or does wpa_supplicant set 
-> > the name of that so it knows which one it will get?), or something like 
-> > that anyway.
-> 
-> wmgmt# will go away in future. There is an ioctl to get its ifindex, so
-> no need for the link.
+---
 
-Right, Jouni pointed that out already. Forget what I said :) Besides,
-I'm already working hard on deprecating it :P
+ drivers/net/sundance.c |   13 ++++++-------
+ 1 files changed, 6 insertions(+), 7 deletions(-)
 
-> What do you mean by "making the virtual devices all children of the
-> wiphy"? Currently, all virtual devices (of one physical device) have the
-> same pointer to ieee80211_local in their net_dev structure and pointers
-> to them are stored in the linked list in ieee80211_local.
-
-I was wondering why they in sysfs have their device link set to the
-physical device instead of the master wiphy. I'm not sure if the latter
-makes sense though.
-
-> Do you know about /sys/class/net/X/wiphy symlinks?
-
-yes, I'm actually using them :)
-
-Thanks,
-johannes
+dc932975858ae18801620d04212c516ced6920bd
+diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
+index 910ea17..2bde1b3 100755
+--- a/drivers/net/sundance.c
++++ b/drivers/net/sundance.c
+@@ -21,8 +21,8 @@
+ */
+ 
+ #define DRV_NAME	"sundance"
+-#define DRV_VERSION	"1.2"
+-#define DRV_RELDATE	"03-Aug-2006"
++#define DRV_VERSION	"1.01+LK1.13"
++#define DRV_RELDATE	"04-Aug-2006"
+ 
+ 
+ /* The user-configurable values.
+@@ -199,10 +199,6 @@ IVc. Errata
+ 
+ */
+ 
+-/* Work-around for Kendin chip bugs. */
+-#ifndef CONFIG_SUNDANCE_MMIO
+-#define USE_IO_OPS 1
+-#endif
+ 
+ static const struct pci_device_id sundance_pci_tbl[] = {
+ 	{ 0x1186, 0x1002, 0x1186, 0x1002, 0, 0, 0 },
+@@ -491,10 +487,13 @@ #endif
+ 	if (pci_request_regions(pdev, DRV_NAME))
+ 		goto err_out_netdev;
+ 
+-	ioaddr = pci_iomap(pdev, bar, netdev_io_size);
++	ioaddr =(void __iomem *)
++		 ((unsigned long)pci_iomap(pdev, bar, netdev_io_size) & 
++	          0xffffff80);
+ 	if (!ioaddr)
+ 		goto err_out_res;
+ 
++
+ 	for (i = 0; i < 3; i++)
+ 		((u16 *)dev->dev_addr)[i] =
+ 			le16_to_cpu(eeprom_read(ioaddr, i + EEPROM_SA_OFFSET));
+-- 
+1.3.GIT
