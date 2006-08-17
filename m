@@ -1,55 +1,54 @@
-From: Xavier Bestel <xavier.bestel@free.fr>
-Subject: Re: bonding: cannot remove certain named devices
-Date: Thu, 17 Aug 2006 09:29:43 +0200
-Message-ID: <1155799783.7566.5.camel@capoeira>
-References: <6KfTz-OX-11@gated-at.bofh.it> <6KfTA-OX-15@gated-at.bofh.it>
-	 <E1GD8rX-0001cA-CV@be1.lrz> <20060815.171002.104028951.davem@davemloft.net>
-	 <44E2BC9C.1000101@debian.org>
-	 <20060816133811.GA26471@nostromo.devel.redhat.com>
-	 <Pine.LNX.4.58.0608161636250.2044@be1.lrz>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: 802.11 headers
+Date: Thu, 17 Aug 2006 09:48:19 +0200
+Message-ID: <1155800899.3653.13.camel@ux156>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Bill Nottingham <notting@redhat.com>,
-	"Giacomo A. Catenazzi" <cate@debian.org>,
-	David Miller <davem@davemloft.net>, 7eggert@elstempel.de,
-	shemminger@osdl.org, mitch.a.williams@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Jiri Benc <jbenc@suse.cz>, Jouni Malinen <jkm@devicescape.com>,
+	David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.orange.fr ([193.252.22.28]:64533 "EHLO
-	smtp-msa-out03.orange.fr") by vger.kernel.org with ESMTP
-	id S932187AbWHQHaW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 03:30:22 -0400
-To: Bodo Eggert <7eggert@gmx.de>
-In-Reply-To: <Pine.LNX.4.58.0608161636250.2044@be1.lrz>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:17133 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S932209AbWHQHsG
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Aug 2006 03:48:06 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-08-16 at 17:11, Bodo Eggert wrote:
-> On Wed, 16 Aug 2006, Bill Nottingham wrote:
-> > Giacomo A. Catenazzi (cate@debian.org) said: 
-> 
-> > > > Are you willing to work to add the special case code necessary to
-> > > > handle whitespace characters in the device name over all of the kernel
-> > > > code and also all of the userland tools too?
-> > > 
-> > > But if you don't handle spaces in userspace, you handle *, ?, [, ], $,
-> > > ", ', \  in userspace? Should kernel disable also these (insane device
-> > > chars) chars?
-> > 
-> > Don't forget unicode characters!
-> 
-> And long names or control characters.
-> 
-> > Seriously, while it might be insane to use some of these, I'm wondering
-> > if trying to filter names is more work than fixing the tools.
-> 
-> I think it's sane to avoid control characters and unicode/iso*, since they
-> can interfere with log output or analysis. I only thought about the kernel
-> itself and the corresponding userspace tools, which should handle any
-> character sequence just fine or could be easily fixed.
+The d80211 headers are messy. Before merging, we definitely need to
+clean them up and split them between userland-visible and kernel-only
+headers, or else ... ;)
 
-Why not simply retricting chars to isalnum() ones ?
+My current thoughts:
+ - net/d80211_common.h can die sometime soon due to being replaced with
+   linux/nl80211.h (to be published today).
+ - net/d80211_mgmt.h needs cleaning up (I know Michael has been doing
+   some of that), and then should probably be renamed to
+   linux/ieee80211.h and be userland-visible, and contain a bunch of
+   other frame definitions as well. A bit like net/ieee80211.h now,
+   though more protocol-centric.
+ - net/ieee80211_radiotap.h should be userland-visible, and hence
+   linux/radiotap.h or such.
+ - net/d80211_shared.h probably has the same fate as
+   net/d80211_common.h, except for the _RATE_* thingies, but I'm not
+   sure why they should be userland-visible.
+ - net/d80211.h can stay there as-is, it's in-kernel only API.
+ 
+Or put another way, my suggestions:
+ - put all in-kernel API (for drivers) into net/d80211.h
+ - put stuff defined in the IEEE 802.11 specification series into
+   linux/ieee80211.h, make user-visible (headers-y in Kbuild!). This
+   serves just as a reference. It's not really necessary that the kernel
+   ships this, but we need it in the kernel and probably won't be
+   pulling it from some other source. Besides, I wouldn't know where
+   else to maintain it.
+ - radiotap simply moves to linux/ and gets to be userland-visible. Of
+   course, d80211 should actually start using it too ;)
+ - all the other userland stuff seems to be configuration related and
+   hence moves over to linux/nl80211.h
 
-	Xav
+Comments?
+
+johannes
 
