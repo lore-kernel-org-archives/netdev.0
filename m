@@ -1,75 +1,66 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: proposal for new wireless configuration API
-Date: Thu, 17 Aug 2006 23:24:08 +0200
-Message-ID: <200608172324.08556.mb@bu3sch.de>
-References: <1155655728.17742.30.camel@ux156> <200608152113.23697.mb@bu3sch.de> <20060817193938.GA29676@bougret.hpl.hp.com>
+From: "arrangeable" <diatomaceousbridgework@earthlink.net>
+Subject: canteen
+Date: Thu, 17 Aug 2006 17:42:27 -0500
+Message-ID: <82553872093072.4D6F626C64@944KG>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+        charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
-	Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:59016
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932216AbWHQVZu
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 17:25:50 -0400
-To: jt@hpl.hp.com
-In-Reply-To: <20060817193938.GA29676@bougret.hpl.hp.com>
-Content-Disposition: inline
+Received: from CPE-72-128-70-188.wi.res.rr.com ([72.128.70.188]:60932 "EHLO
+	kiya0.cfse21p.ameritech.net") by vger.kernel.org with ESMTP
+	id S1030279AbWHQWj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Aug 2006 18:39:27 -0400
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 17 August 2006 21:39, Jean Tourrilhes wrote:
-> On Tue, Aug 15, 2006 at 09:13:23PM +0200, Michael Buesch wrote:
-> > On Tuesday 15 August 2006 20:14, Dan Williams wrote:
-> > > On Tue, 2006-08-15 at 18:38 +0200, Michael Buesch wrote:
-> > > > On Tuesday 15 August 2006 18:29, Dan Williams wrote:
-> > > > > o Separate attributes for channel and frequency
-> > > > 
-> > > > No, channel and freq is the same. It's just another name
-> > > > for the same child. I would say we only want to deal with channel numbers
-> > > > in the API. That's much easier, as we don't have to deal with this
-> > > > fixed-point (or even floating point) mess. Look at WE for the
-> > > > fixed-point mess.
-> > > 
-> > > Right, I don't have a problem with only using one or the other; but we
-> > > _HAVE_ to provide a function in the driver that allows userspace
-> > > programs to convert channel <-> frequency both ways, like you suggest
-> > > below.  Obviously the channel/frequency mapping isn't the same
-> > > everywhere.
-> > > 
-> > > [ or is it?  I'd be very uncomfortable using the same channel #s
-> > > everywhere unless some IEEE spec states exactly what the channel #s are
-> > > for every frequency range that wireless stuff operates in ]
-> > 
-> > The channel<->freq mapping is stable.
-> 
-> 	We may need to double check this...
-> 	It is already clear that WiMax, ZigBee and pre-802.11 HW don't
-> use the same channel<->freq mapping as 802.11.
-> 	Further, I remember somebody (was it Jouni) mentioning that
-> some variations of 802.11 have different channel mappings. But, we
-> would need to check that.
+18 August! Attention!
+ 
+Get on B CLC first thing on friday, this one !
 
-Yes, I should have been more verbose here.
-What I meant is: In a particular PHYMODE the channel->freq mapping
-is stable. That is, if we are in G-PHY mode, the mapping is always
-stable with channels 1-14. Wimax and so on would be another PHYMODE.
-The PHYMODE would be selected otherwise (through other netlink attrs
-or whatever).
+CCompany: BICOASTAL COMMUNICAT
+Symobl:  B CLC 
+Currennt Priice: $0.0265
+Exxpecting priiceon Friday: $0.06-$0.08
 
-> > > No argument here; as long as we provide the mapping function in the
-> > > driver for each card.
-> > 
-> > Hm, I don't know if I understand this correctly.
-> > You want to implement the mapping function in every driver
-> > or in the d80211 stack?
-> 
-> 	A simple mapping table is probably enough, similar to what we
-> already have.
+The prcie is the minimum for last week and it will boom on friday!
+Worst Scenariio Target Pirce: $0.065
+Most Probable Scenraio Target Prrice: $0.099
+Best Scenario Target Pirce: $0.125
+Thursday's Volume: 8,725,600 (Heavy)
 
-Well, a mapping function, because we must look at the different PHYMODEs.
+Watch out for BC LC this friday, we see a great story in the making!
 
--- 
-Greetings Michael.
+Recommendation: "Sttrong Buyy" starting on Friday, August 18, 2006.
+
+Latest News
+
+Bicoastal Communications Inc. Announces E911 Service Agreement. Grand 
+Junction, Colo.--(Businness Wiire)--Aug. 15, 2006--Bicoastal Communications Inc.(Pink Sheets: B CLC - News) announces it has reached an agreement with Dialpoint Voice Service Inc. of Nevada to provide E911 services for its National VoIP (Voice over Internet Protocol) rollout through Callingpoint Communications.
+
+This will give Bicoastal the ability to provide E911 services to all of the lower 48 
+states via VoIP as required by the FCC. Upon successful testing of the system, Bicoastal will be in position to start offering Residential and Business VoIP 
+services through its Callingpoint Communications unit within the next two weeks. 
+
+About the Company:
+
+Bicoastal Communications Inc. is positioned to make substantial growth in the coming years. The company strategy is to deploy into non-primary cities with 
+population centers of less than one million people. Unlike the major metropolitan areas of the country, these cities have not seen the benefit of competitive product offerings. Bicoastal intends to address these deficiencies by encompassing its IP services, Traditional and VoIP Telephone services and Television (IPTV) services, securing revenues with the much-touted triple play.The strategic partnerships developed have already made it possible for Bicoastal to gain direct access to 25,000 fiber-connected homes throughout the United States.
+
+Members should pick up BC LC as early as possible on Friday.
+
+This news is going to send B CLC off the charts!  
+
+We all know that in the this busniess it's the big announcements that makes these stoccks expolde!!! 
+
+We see this as a hgue porfit taking a deal. Watch BC LC like a hawk!
+
+Watch this one Trrade on the 18 OF August. Go B CLC! 
+
+
+
+Who keeps company with the wolf will learn how to howl
+
+No wind, no waves. Love is like a fire, it can either warm your heart or burn your house down
+
