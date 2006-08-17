@@ -1,70 +1,31 @@
-From: Jesse Huang <jesse@icplus.com.tw>
-Subject: [PATCH 3/6] IP100A Remove CONFIG_SUNDANCE_MMIO, mask of mapping
-	address
-Date: Thu, 17 Aug 2006 15:06:01 -0400
-Message-ID: <1155841561.4532.13.camel@localhost.localdomain>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: RE: proposal for new wireless configuration API
+Date: Thu, 17 Aug 2006 09:19:38 +0200
+Message-ID: <1155799178.3653.4.camel@ux156>
+References: <C86180A8C204554D8A3323D8F6B0A29F0165AF0E@dhost002-46.dex002.intermedia.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932112AbWHQHSh@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@osdl.org, jgarzik@pobox.com, jesse@icplus.com.tw
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
+	Jean Tourrilhes <jt@hpl.hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:25542 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S932099AbWHQHTS
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Aug 2006 03:19:18 -0400
+To: Simon Barber <simon@devicescape.com>
+In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F0165AF0E@dhost002-46.dex002.intermedia.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesse Huang <jesse@icplus.com.tw>
+On Wed, 2006-08-16 at 11:02 -0700, Simon Barber wrote:
+> I'd suggest that the new signal strength measure should be defined as
+> 'RCPI' - the 'Received Channel Power Indicator' - which is defined in
+> IEEE 802.11k (the Radio Measurements amendment to 802.11).
 
-Remove CONFIG_SUNDANCE_MMIO, mask of mapping address
+Except that we unfortunately have no way of getting this with all the
+reverse engineered devices :) Hence, I guess we should then have
+multiple different possibilities. A device reporting RCPI would be
+better than just reporting RSSI, but that's still better than nothing...
 
-Change Logs:
-    Remove CONFIG_SUNDANCE_MMIO, mask of mapping address
-
----
-
- drivers/net/sundance.c |   13 ++++++-------
- 1 files changed, 6 insertions(+), 7 deletions(-)
-
-dc932975858ae18801620d04212c516ced6920bd
-diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
-index 910ea17..2bde1b3 100755
---- a/drivers/net/sundance.c
-+++ b/drivers/net/sundance.c
-@@ -21,8 +21,8 @@
- */
- 
- #define DRV_NAME	"sundance"
--#define DRV_VERSION	"1.2"
--#define DRV_RELDATE	"03-Aug-2006"
-+#define DRV_VERSION	"1.01+LK1.13"
-+#define DRV_RELDATE	"04-Aug-2006"
- 
- 
- /* The user-configurable values.
-@@ -199,10 +199,6 @@ IVc. Errata
- 
- */
- 
--/* Work-around for Kendin chip bugs. */
--#ifndef CONFIG_SUNDANCE_MMIO
--#define USE_IO_OPS 1
--#endif
- 
- static const struct pci_device_id sundance_pci_tbl[] = {
- 	{ 0x1186, 0x1002, 0x1186, 0x1002, 0, 0, 0 },
-@@ -491,10 +487,13 @@ #endif
- 	if (pci_request_regions(pdev, DRV_NAME))
- 		goto err_out_netdev;
- 
--	ioaddr = pci_iomap(pdev, bar, netdev_io_size);
-+	ioaddr =(void __iomem *)
-+		 ((unsigned long)pci_iomap(pdev, bar, netdev_io_size) & 
-+	          0xffffff80);
- 	if (!ioaddr)
- 		goto err_out_res;
- 
-+
- 	for (i = 0; i < 3; i++)
- 		((u16 *)dev->dev_addr)[i] =
- 			le16_to_cpu(eeprom_read(ioaddr, i + EEPROM_SA_OFFSET));
--- 
-1.3.GIT
+johannes
