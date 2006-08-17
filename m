@@ -1,70 +1,39 @@
-From: Daniel Phillips <phillips@google.com>
-Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
-Date: Thu, 17 Aug 2006 11:01:52 -0700
-Message-ID: <44E4AF10.5030308@google.com>
-References: <1155127040.12225.25.camel@twins> <20060809130752.GA17953@2ka.mipt.ru> <1155130353.12225.53.camel@twins> <20060809.165431.118952392.davem@davemloft.net> <1155189988.12225.100.camel@twins> <44DF888F.1010601@google.com> <20060814051323.GA1335@2ka.mipt.ru> <44E3F525.3060303@google.com> <20060817053636.GA30920@2ka.mipt.ru>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: d80211 and sta_aid for AP functionality
+Date: Thu, 17 Aug 2006 20:21:31 +0200
+Message-ID: <20060817202131.3456ce00@griffin.suse.cz>
+References: <44E02F41.2060300@sipsolutions.net>
+	<44E0320C.6090003@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	David Miller <davem@davemloft.net>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: Jouni Malinen <jkm@devicescape.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.12]:26554 "EHLO
-	smtp-out.google.com") by vger.kernel.org with ESMTP id S932556AbWHQSCL
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 14:02:11 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060817053636.GA30920@2ka.mipt.ru>
+Received: from styx.suse.cz ([82.119.242.94]:13294 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S932563AbWHQSVd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2006 14:21:33 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <44E0320C.6090003@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
->>>Just for clarification - it will be completely impossible to login using 
->>>openssh or some other priveledge separation protocol to the machine due
->>>to the nature of unix sockets. So you will be unable to manage your
->>>storage system just because it is in OOM - it is not what is expected
->>>from reliable system.
->>
->>The system is not OOM, it is in reclaim, a transient condition that will be
->>resolved in normal course by IO progress.  However you raise an excellent
->>point: if there is any remote management that we absolutely require to be
->>available while remote IO is interrupted - manual failover for example -
->>then we must supply a means of carrying out such remote administration, that
->>is guaranteed not to deadlock on a normal mode memory request.  This ends up
->>as a new network stack feature I think, and probably a theoretical one for
->>the time being since we don't actually know of any such mandatory login
->>that must be carried out while remote disk IO is suspended.
+On Mon, 14 Aug 2006 10:19:24 +0200, Johannes Berg wrote:
+> Looking through the code, I notice that above (a) and (b) can be 
+> collapsed into just keeping track of the TIM throughout the code. I 
+> suppose that's meant by the comment above? Then we can't add the check 
+> for saying 'hey you stupid userspace that AID is already used' but 
+> that's ok I guess.
 > 
-> That is why you are not allowed to depend on main system's allocator
-> problems. That is why network can have it's own allocator.
+> If you can confirm that my analysis is correct I'd be willing to try 
+> making this change.
 
-Please check your assumptions.  Do you understand how PF_MEMALLOC works,
-and where it gets its reserve memory from?
+You understand it right (or at least the same way as me :-)) and this
+effort would be highly appreciated.
 
->>>>But really, if you expect to run reliable block IO to Zanzibar over an ssh
->>>>tunnel through a firewall, then you might also consider taking up bungie
->>>>jumping with the cord tied to your neck.
->>>Just pure openssh for control connection (admin should be able to
->>>login).
->>
->>And the admin will be able to, but in the cluster stack itself we don't
->>bless such stupidity as emailing an admin to ask for a login in order to
->>break a tie over which node should take charge of DLM recovery.
-> 
-> No, you can't since openssh and any other priveledge separation
-> mechanisms use adtional sockets to transfer data between it's parts,
-> unix sockets require page sized allocation frequently which will endup
-> with 8k allocation in slab.
-> You will not be able to login using openssh.
+Thanks,
 
-*** The system is not OOM, it is in reclaim, a transient condition ***
+ Jiri
 
-Which Peter already told you!  Please, let's get our facts straight,
-then we can look intelligently at whether your work is appropriate to
-solve the block IO network starvation problem that Peter and I are
-working on.
-
-Regards,
-
-Daniel
+-- 
+Jiri Benc
+SUSE Labs
