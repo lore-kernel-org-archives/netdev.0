@@ -1,102 +1,59 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH 1/2]: powerpc/cell spidernet bottom half
-Date: Wed, 16 Aug 2006 19:23:07 -0500
-Message-ID: <20060817002307.GQ20551@austin.ibm.com>
-References: <20060816.143203.11626235.davem@davemloft.net> <200608170016.47072.arnd@arndb.de> <20060816233028.GO20551@austin.ibm.com> <20060816.163252.64000941.davem@davemloft.net>
+From: "ammunition" <automorphiccapacity@royalconsultores.com.br>
+Subject: adobe
+Date: Wed, 16 Aug 2006 21:14:08 -0400
+Message-ID: <25229510592171.8FA773A3E6@S4ON5N>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: arnd@arndb.de, linuxppc-dev@ozlabs.org, akpm@osdl.org,
-	jeff@garzik.org, netdev@vger.kernel.org, jklewis@us.ibm.com,
-	linux-kernel@vger.kernel.org, Jens.Osterkamp@de.ibm.com
+Content-Type: text/plain;
+        charset="Windows-1252"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:39333 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S932154AbWHQAXL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 20:23:11 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060816.163252.64000941.davem@davemloft.net>
+Received: from pool-72-64-158-12.tampfl.fios.verizon.net ([72.64.158.12]:4088
+	"EHLO PAUL-09RGWOR00L") by vger.kernel.org with ESMTP
+	id S932321AbWHQBQI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Aug 2006 21:16:08 -0400
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 16, 2006 at 04:32:52PM -0700, David Miller wrote:
-> From: linas@austin.ibm.com (Linas Vepstas)
-> > Why would you want to do this? It seems like a cruddier strategy 
-> > than what we can already do  (which is to never get an transmit
-> > interrupt, as long as the kernel can shove data into the device fast
-> > enough to keep the queue from going empty.)  The whole *point* of a 
-> > low-watermark interrupt is to never have to actually get the interrupt, 
-> > if the rest of the system is on its toes and is supplying data fast
-> > enough.
-> 
-> As long as TX packets get freed within a certain latency
-> boundary, this kind of scheme should be fine.
+Improve your yearly gains with expert stoock advice
 
-I just had some fun making sure I wasn't making a liar out of myself.
-So far, I'm good.
+Fellow Investorr, big news are hitting on thursday for AGA O!!!
 
-Did
+Somebody knows something...place AGA O on the radar!!!
 
-echo 768111 > /proc/sys/net/core/wmem_max
-echo 768111 > /proc/sys/net/core/wmem_default
+Get ready for a volatile 2nd half of 2006 - one where the Bulls and 
+Bears will BOTH be proved wrong. But odds are, we'll see another 
+year where the mraket indexes bounce around a lot without really going anywhere. And we'll also see certain sectors - favored at this point in the economic cycle - SOAR... 
 
-to make sure that the app never blocked on a full socket.
+Own the right stoocks, in the right space, and you could reap a 
+handful of money-doublers. But if you own the wrong investment, you could easly lose 25%-35% or more! 
 
-(If the socket is small, then the app blocks, 
-the transmit queue drains, and we do get an interupt -- 
-about 1K/sec, which is what is expected).
+Here is my Favorite Pick for the second half of 2006: A GAO!!!
 
-Ran 'vmstat 10' to watch the interrupts in real time. 
-Ran netperf, got 904 Mbits/sec, and *no* interrupts. 
-Yahoo!
+Trrade Aelrt: Thursday, August 17, 2006 
+---------------------------------------------
+Companyy: AAGA RESOURRCES NEWW
+Stcok: AGA O 
+Cuurrent Pricce: $1.69
+1 Week Target: $4.10
+Buy: "STTRONG" 
+Expectations: Max 
+---------------------------------------------
 
-Ran oprofile to see where he time went:
+When this Sotck moves - watch out! This is your chance to get in 
+the low. Big watch in play this Thursday morning! Out AG AO on your 
+radar's now and reap the benefits early. 
 
-CPU: ppc64 Cell Broadband Engine, speed 3200 MHz (estimated)
-Counted CYCLES events (Processor Cycles) with a unit mask of 0x00 (No unit mask) count 100000
-samples  %        image name               app name                 symbol name
-13748742 77.6620  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .cbe_idle
-936172    5.2881  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .__copy_tofrom_user
-569353    3.2161  spidernet.ko             spidernet                .spider_net_xmit
-450826    2.5466  spidernet.ko             spidernet                .spider_net_release_tx_chain
-220374    1.2448  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       ._spin_unlock_irqrestore
-112432    0.6351  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       ._spin_lock
-91328     0.5159  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .__qdisc_run
-84804     0.4790  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .packet_sendmsg
-76167     0.4302  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .kfree
-74321     0.4198  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .sock_alloc_send_skb
-65323     0.3690  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .kmem_cache_free
-60334     0.3408  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       ._read_lock
-60071     0.3393  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .dev_queue_xmit
-56900     0.3214  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .kmem_cache_alloc_node
-55281     0.3123  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .sock_wfree
-51242     0.2894  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .dev_get_by_index
-50438     0.2849  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .compat_sys_socketcall
-49247     0.2782  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .fput
-48589     0.2745  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .sync_buffer
-46055     0.2601  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       system_call_common
-40607     0.2294  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .local_bh_enable
-40273     0.2275  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .__might_sleep
-38757     0.2189  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .fget_light
-38219     0.2159  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .__kfree_skb
-36804     0.2079  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .sock_def_write_space
-36443     0.2059  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .skb_release_data
-32174     0.1817  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .sys_sendto
-31828     0.1798  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .sock_sendmsg
-30676     0.1733  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .pfifo_fast_dequeue
-29607     0.1672  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .add_event_entry
-25870     0.1461  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       syscall_exit
-25329     0.1431  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .__alloc_skb
-23885     0.1349  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .__do_softirq
-22046     0.1245  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .kmem_find_general_cachep
-21610     0.1221  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .__dev_get_by_index
-21059     0.1190  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .dma_map_single
-21044     0.1189  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       ._spin_lock_irqsave
-20105     0.1136  vmlinux-2.6.18-rc2       vmlinux-2.6.18-rc2       .memset
 
-.__copy_tofrom_user          -- ouch spider does not currently do scatter-gather
-.spider_net_xmit             -- hmmm ?? why is it this large ??
-.spider_net_release_tx_chain --  ?? a lot of time being spent cleaning up tx queues.
-._spin_unlock_irqrestore     -- hmm ? why so high? lock contention?
+There is a massive promotion underway this Thursday, August 17 
+apprising potential eager invesstors of this emerging situation. 
+When this sotck moves - watch out! sstoocks wee profilee sshow aa siggnificant increease inn stoock priice sometimes in days, not months or years, remember this is a sttrong pllay. 
 
-I presume the rest is normal.
+Massive news for AGA O this thursday! AGA O is a big mover in the SOTCK MAKRET!!! 
+
+
+
+Every dog has his day. Everyday is a fresh slate Lest thou give thine honour unto others, and thy years unto the cruel. Cast in thy lot among us; let us all have one purse. You cannot get to the top by sitting on your bottom.
+
+So long as you do your best in life, whatever happens will be for the best A bird in the hand is worth two in the bush..
 
