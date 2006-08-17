@@ -1,43 +1,155 @@
-From: Ulrich Kunitz <kune@deine-taler.de>
-Subject: Re: proposal for new wireless configuration API
-Date: Fri, 18 Aug 2006 01:23:56 +0200
-Message-ID: <20060817232355.GA23163@p15091797.pureserver.info>
-References: <1155799178.3653.4.camel@ux156> <C86180A8C204554D8A3323D8F6B0A29F0165B02D@dhost002-46.dex002.intermedia.net>
+From: Daniel Phillips <phillips@google.com>
+Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
+Date: Thu, 17 Aug 2006 16:24:26 -0700
+Message-ID: <44E4FAAA.2050104@google.com>
+References: <1155130353.12225.53.camel@twins> <20060809.165431.118952392.davem@davemloft.net> <1155189988.12225.100.camel@twins> <44DF888F.1010601@google.com> <20060814051323.GA1335@2ka.mipt.ru> <44E3F525.3060303@google.com> <20060817053636.GA30920@2ka.mipt.ru> <44E4AF10.5030308@google.com> <20060817184206.GA2873@2ka.mipt.ru> <1155842114.5696.310.camel@twins> <20060817194850.GA19647@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	David Miller <davem@davemloft.net>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:41678 "EHLO
-	p15091797.pureserver.info") by vger.kernel.org with ESMTP
-	id S965156AbWHQXX5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 19:23:57 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F0165B02D@dhost002-46.dex002.intermedia.net>
+Received: from smtp-out.google.com ([216.239.45.12]:31079 "EHLO
+	smtp-out.google.com") by vger.kernel.org with ESMTP
+	id S1030312AbWHQX0s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Aug 2006 19:26:48 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060817194850.GA19647@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06-08-17 09:42 Simon Barber wrote:
-
-> The spec for RSSI is very loose - RSSI is just a 8 bit unsigned number,
-> guaranteed to be a monotonically increasing function of signal strength.
-> You don't get to know anything about the scale, or linearity of the
-> function. In essence RSSI is a vendor specific value, of no known units.
-> Not very useful unless you know some card specific details to help
-> interpret it.
+Evgeniy Polyakov wrote:
+> On Thu, Aug 17, 2006 at 09:15:14PM +0200, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
 > 
-> Now some cards return a signal strength in dBm as the RSSI - note that
-> this fits the requirements of a RSSI measure just fine. RCPI is simply a
-> more tightly specified signal strength measure.
+>>>I got openssh as example of situation when system does not know in 
+>>>advance, what sockets must be marked as critical.
+>>>OpenSSH works with network and unix sockets in parallel, so you need to
+>>>hack openssh code to be able to allow it to use reserve when there is 
+>>>not enough memory.
+>>
+>>OpenSSH or any other user-space program will never ever have the problem
+>>we are trying to solve. Nor could it be fixed the way we are solving it,
+>>user-space programs can be stalled indefinite. We are concerned with
+>>kernel services, and the continued well being of the kernel, not
+>>user-space. (well therefore indirectly also user-space of course)
 > 
-> Just saying that a RSSI value is not very useful.
+> 
+> You limit your system here - it is possible that userspace should send
+> some command when kernel agent requires some negotiation.
+> And even for them it is possible to require ARP request and/or ICMP
+> processing.
+> 
+> 
+>>> Actually all sockets must be able to get data, since
+>>>kernel can not diffirentiate between telnetd and a process which will 
+>>>receive an ack for swapped page or other significant information.
+>>
+>>Oh, but it does, the kernel itself controls those sockets: NBD / iSCSI
+>>and AoE are all kernel services, not user-space. And it is the core of
+>>our work to provide this information to the kernel; to distinguish these
+>>few critical sockets.
+> 
+> 
+> As I stated above it is not enough.
+> And even if you will cover all kernel-only network allocations, which are
+> used for your selected datapath, problem still there - admin is unable
+> to connect although it can be critical connection too.
+> 
+> 
+>>>So network must behave separately from main allocator in that period of 
+>>>time, but since it is possible that reserve can be not filled or has not
+>>>enough space or something other, it must be preallocated in far advance
+>>>and should be quite big, but then why netwrok should use it at all, when
+>>>being separated from main allocations solves the problem?
+>>
+>>You still need to guarantee data-paths to these services, and you need
+>>to make absolutely sure that your last bit of memory is used to service
+>>these critical sockets, not some random blocked user-space process.
+>>
+>>You cannot pre-allocate enough memory _ever_ to satisfy the total
+>>capacity of the network stack. You _can_ allot a certain amount of
+>>memory to the network stack (avoiding DoS), and drop packets once you
+>>exceed that. But still, you need to make sure these few critical
+>>_kernel_ services get their data.
+> 
+> Feel free to implement any receiving policy inside _separated_ allocator
+> to meet your needs, but if allocator depends on main system's memory
+> conditions it is always possible that it will fail to make forward
+> progress.
 
-we are simply not able to deliver RCPI, because we have no idea
-how RSSI is measured for the ZD1211 device. We had discussions with the
-vendor developers, but it seemed that their understanding was not
-really more advanced than our's.
+Wrong.  Our main allocator has a special reserve that can be accessed
+only by a task that has its PF_MEMALLOC flag set.  This reserve exists
+in order to guarantee forward progress in just such situations as the
+network runs into when it is trying to receive responses from a remote
+disk.  Anything otherwise is a bug.
 
-There is the same issue for signal quality and signal-to-noise
-ratio.
+>>>I do not argue that your approach is bad or does not solve the problem,
+>>>I'm just trying to show that further evolution of that idea eventually
+>>>ends up in separated allocator (as long as all most robust systems
+>>>separate operations), which can improve things in a lot of other sides
+>>>too.
+>>
+>>Not a separate allocator per-se, separate socket group, they are
+>>serviced by the kernel, they will never refuse to process data, and it
+>>is critical for the continued well-being of your kernel that they get
+>>their data.
 
--- 
-Uli Kunitz
+The memalloc reserve is indeed a separate reserve, however it is a
+reserve that already exists, and you are busy creating another separate
+reserve to further partition memory.  Partitioning memory is not the
+direction we should be going, we should be trying to unify our reserves
+wherever possible, and find ways such as Andrew and others propose to
+implement "reserve on demand", or in other words, take advantage of
+"easily freeable" pages.
+
+If your allocation code is so much more efficient than slab then why
+don't you fix slab instead of replicating functionality that already
+exists elsewhere in the system, and has since day one?
+
+> You do not know in advance which sockets must be separated (since only
+> in the simplest situation it is the same as in NBD and is
+> kernelspace-only),
+
+Yes we do, they are exactly those sockets that lie in the block IO path.
+The VM cannot deadlock on any others.
+
+> you can not solve problem with ARP/ICMP/route changes and other control
+> messages, netfilter, IPsec and compression which still can happen in your 
+> setup, 
+
+If you bothered to read the patches you would know that ICMP is indeed
+handled.  ARP I don't think so, we may need to do that since ARP can
+believably be required for remote disk interface failover.  Anybody
+who designs ssh into remote disk failover is an idiot.  Ssh for
+configuration, monitoring and administration is fine.  Ssh for fencing
+or whatever is just plain stupid, unless the nodes running both server
+and client are not allowed to mount the remote disk.
+
+> if something goes wrong and receiving will require additional
+> allocation from network datapath, system is dead,
+> this strict conditions does not allow flexible control over possible
+> connections and does not allow to create additional connections.
+
+You know that how?
+
+>>Also, I do not think people would like it if say 100M of their 1G system
+>>just disappears, never to used again for eg. page-cache in periods of
+>>low network traffic.
+> 
+> Just for clarification: network tree allocator gets 512kb and then
+> increases cache size when it is required. Default value can be changed
+> of course.
+
+Great.  Now why does the network layer need its own, invented-in-netland
+allocator?  Why can't everybody use your allocator if it is better?
+
+Also, please don't get the idea that your allocator by itself solves the
+block IO receive starvation problem.  At the very least you need to do
+something about network traffic that is unrelated to forward progress of
+memory writeout, yet can starve the memory writeout.  Oh wait, our patch
+set already does that.
+
+Regards,
+
+Daniel
