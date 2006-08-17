@@ -1,42 +1,42 @@
-From: "ammunition" <automorphiccapacity@royalconsultores.com.br>
-Subject: adobe
-Date: Wed, 16 Aug 2006 21:14:08 -0400
-Message-ID: <25229510592171.8FA773A3E6@S4ON5N>
+From: "bohr" <acridbegun@rotarypalazzoloacreide.it>
+Subject: vast beadle
+Date: Thu, 17 Aug 2006 09:25:29 +0800
+Message-ID: <02179272294040.F451228171@S1UJEFR>
 Mime-Version: 1.0
 Content-Type: text/plain;
         charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pool-72-64-158-12.tampfl.fios.verizon.net ([72.64.158.12]:4088
-	"EHLO PAUL-09RGWOR00L") by vger.kernel.org with ESMTP
-	id S932321AbWHQBQI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 21:16:08 -0400
-To: <netdev@vger.kernel.org>
+Received: from [60.25.157.130] ([60.25.157.130]:782 "EHLO
+	la1eaaok.0lou3fh.adelphia.net") by vger.kernel.org with ESMTP
+	id S932338AbWHQB1h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Aug 2006 21:27:37 -0400
+To: <newbie-owner@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Improve your yearly gains with expert stoock advice
+stocck analysis tools and tips meant to increase long-term profits
 
-Fellow Investorr, big news are hitting on thursday for AGA O!!!
+Fellow Innvestor, big news are hitting on thursday for A GAO!!!
 
-Somebody knows something...place AGA O on the radar!!!
+Somebody knows something...place A GAO on the radar!!!
 
 Get ready for a volatile 2nd half of 2006 - one where the Bulls and 
 Bears will BOTH be proved wrong. But odds are, we'll see another 
-year where the mraket indexes bounce around a lot without really going anywhere. And we'll also see certain sectors - favored at this point in the economic cycle - SOAR... 
+year where the marekt indexes bounce around a lot without really going anywhere. And we'll also see certain sectors - favored at this point in the economic cycle - SOAR... 
 
-Own the right stoocks, in the right space, and you could reap a 
+Own the right stoccks, in the right space, and you could reap a 
 handful of money-doublers. But if you own the wrong investment, you could easly lose 25%-35% or more! 
 
 Here is my Favorite Pick for the second half of 2006: A GAO!!!
 
-Trrade Aelrt: Thursday, August 17, 2006 
+Traade Alret: Thursday, August 17, 2006 
 ---------------------------------------------
-Companyy: AAGA RESOURRCES NEWW
-Stcok: AGA O 
-Cuurrent Pricce: $1.69
+Companyy: AAGA REESOURCES NEWW
+Sotck: AGA O 
+CCurrent PPrice: $1.69
 1 Week Target: $4.10
-Buy: "STTRONG" 
+Buy: "STRONGG" 
 Expectations: Max 
 ---------------------------------------------
 
@@ -46,14 +46,13 @@ radar's now and reap the benefits early.
 
 
 There is a massive promotion underway this Thursday, August 17 
-apprising potential eager invesstors of this emerging situation. 
-When this sotck moves - watch out! sstoocks wee profilee sshow aa siggnificant increease inn stoock priice sometimes in days, not months or years, remember this is a sttrong pllay. 
+apprising potential eager iinvestors of this emerging situation. 
+When this stcok moves - watch out! stoockks wwe profiile shoow aa ssignificant iincrease inn sttock pprice sometimes in days, not months or years, remember this is a sttrong playy. 
 
-Massive news for AGA O this thursday! AGA O is a big mover in the SOTCK MAKRET!!! 
+Massive news for A GAO this thursday! AG AO is a big mover in the STCOK MAKRET!!! 
 
 
+The West Wind Always Brings Wet Weather, The East Wind Wet and Cold Together, the South Wind Surely Brings Us Rain, the North Wind Blows It Back Again The more the merrier . God is alive and well and working on something less ambitious There is no time like the present.
 
-Every dog has his day. Everyday is a fresh slate Lest thou give thine honour unto others, and thy years unto the cruel. Cast in thy lot among us; let us all have one purse. You cannot get to the top by sitting on your bottom.
-
-So long as you do your best in life, whatever happens will be for the best A bird in the hand is worth two in the bush..
+Christmas comes but once a year, but Hallmark makes sure it lasts three months Take care of the pennies and the pounds will take care of themselves .
 
