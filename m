@@ -1,35 +1,56 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: time stamps of skb packets in NF_HOOKS callbacks
-Date: Thu, 17 Aug 2006 19:58:35 +0400
-Message-ID: <20060817155835.GA11898@2ka.mipt.ru>
-References: <ada605fb0608170737m4c0096c4u33a70dcf37e09df8@mail.gmail.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [RFC][PATCH 0/75] pci_module_init to pci_register_driver conversion
+Date: Thu, 17 Aug 2006 08:52:07 -0700
+Message-ID: <20060817155207.GA7426@kroah.com>
+References: <20060817042634.0.CrzcY28443.28439.michal@ltg01-fedora.pl> <20060817055814.GA14950@kroah.com> <44E46280.2020109@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:32993 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932549AbWHQP6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2006 11:58:39 -0400
-To: John Que <qwejohn@gmail.com>
+Received: from mail.kroah.org ([69.55.234.183]:3537 "EHLO perch.kroah.org")
+	by vger.kernel.org with ESMTP id S932551AbWHQQCv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2006 12:02:51 -0400
+To: Jeff Garzik <jeff@garzik.org>
 Content-Disposition: inline
-In-Reply-To: <ada605fb0608170737m4c0096c4u33a70dcf37e09df8@mail.gmail.com>
+In-Reply-To: <44E46280.2020109@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 17, 2006 at 05:37:15PM +0300, John Que (qwejohn@gmail.com) wrote:
-> Hello,
-> I am using NF_HOOKS (a "PRE_ROUTING" hook).
-> When I try to print the time stamps (sec and usec) of skb packets
-> which I recieve
-> in the hook callback I get 0. Other skb fileds are correct.
-> According to my understanding, the time stamp should be updated
-> when the packet is received. Isn't it so ? Any idea why am I getting
-> "0" for tstamp fields (tstamp is a field in sk_buff and is  an intance
-> of skb_timeval).
+On Thu, Aug 17, 2006 at 08:35:12AM -0400, Jeff Garzik wrote:
+> Greg KH wrote:
+> >On Thu, Aug 17, 2006 at 04:26:35AM +0000, Michal Piotrowski wrote:
+> >>Hi,
+> >>
+> >>pci_module_init is obsolete.
+> >>
+> >>This patch series converts pci_module_init to pci_register_driver.
+> >>
+> >>
+> >>Can I remove this?
+> >>
+> >>include/linux/pci.h:385
+> >>/*
+> >> * pci_module_init is obsolete, this stays here till we fix up all usages 
+> >> of it
+> >> * in the tree.
+> >> */
+> >>#define pci_module_init pci_register_driver
+> >
+> >As repeated numerous times, it's up to the network developers if they
+> >will take this or not.
+> >
+> >I'll hold off on taking this series, please push it through the driver
+> >subsystem maintainers.
+> 
+> It's already in subsystem trees, in fact.
 
-Timestamps are disabled by default, if you have sockets which enable
-SO_TIMESTAMP or netfilter queue target and other agents which can enable
-it, you will see updated values in skb->tstamp.
+Great, it can wait until 2.6.19.
 
--- 
-	Evgeniy Polyakov
+> But it is most definitely not 2.6.18-rc material :)
+
+Agreed.
+
+thanks,
+
+greg k-h
