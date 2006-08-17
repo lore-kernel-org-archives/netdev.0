@@ -1,36 +1,41 @@
-From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Subject: [RFC][PATCH 0/8] [RFC][PATCH 0/8] Removal of old code
-Date: Thu, 17 Aug 2006 04:48:19 +0000
-Message-ID: <20060817044819.0.oIvGvh2320.2316.michal@euridica.enternet.net.pl>
+From: Daniel Phillips <phillips@google.com>
+Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
+Date: Wed, 16 Aug 2006 21:49:52 -0700
+Message-ID: <44E3F570.2020608@google.com>
+References: <1155127040.12225.25.camel@twins> <20060809130752.GA17953@2ka.mipt.ru> <1155130353.12225.53.camel@twins> <20060809.165431.118952392.davem@davemloft.net> <1155189988.12225.100.camel@twins> <44DF888F.1010601@google.com> <20060814051323.GA1335@2ka.mipt.ru> <1155537943.5696.118.camel@twins> <20060814065454.GA6356@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, jes@trained-monkey.org,
-	netdev@vger.kernel.org, davem@davemloft.net, tglx@linutronix.de,
-	Eric.Moore@lsil.com, linux-scsi@vger.kernel.org, mikep@linuxtr.net,
-	xfs-masters@oss.sgi.com, nathans@sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932430AbWHQEsJ@vger.kernel.org>
-To: akpm@osdl.org
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	David Miller <davem@davemloft.net>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.45.12]:41833 "EHLO
+	smtp-out.google.com") by vger.kernel.org with ESMTP id S932247AbWHQEvF
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Aug 2006 00:51:05 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060814065454.GA6356@2ka.mipt.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Evgeniy Polyakov wrote:
+> On Mon, Aug 14, 2006 at 08:45:43AM +0200, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
+>>>Just pure openssh for control connection (admin should be able to
+>>>login).
+>>
+>>These periods of degenerated functionality should be short and
+>>infrequent albeit critical for machine recovery. Would you rather have a
+>>slower ssh login (the machine will recover) or drive/fly to Zanzibar to
+>>physically reboot the machine?
+> 
+> It will not work, since you can not mark openssh sockets as those which
+> are able to get memory from reserved pool. So admin unable to check the
+> system status and make anything to turn system's life on.
 
-The patches have been tested with allmodconfig and allmodconfig.
-
-drivers/message/fusion/linux_compat.h |    9 -----
-drivers/mtd/nand/au1550nd.c           |   11 ------
-drivers/net/acenic.c                  |    4 --
-drivers/net/irda/vlsi_ir.h            |   17 ---------
-drivers/net/tokenring/lanstreamer.c   |   59 ----------------------------------
-drivers/net/tokenring/lanstreamer.h   |   12 ------
-drivers/net/typhoon.c                 |    4 --
-fs/xfs/xfs_dmapi.h                    |   17 ---------
-8 files changed, 1 insertion(+), 132 deletions(-)
+This is incorrect, please see my previous email.
 
 Regards,
-Michal
 
--- 
-Michal K. K. Piotrowski
-LTG - Linux Testers Group
-(http://www.stardust.webpages.pl/ltg/wiki/)
+Daniel
+
