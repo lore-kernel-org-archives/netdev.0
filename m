@@ -1,66 +1,44 @@
-From: "arrangeable" <diatomaceousbridgework@earthlink.net>
-Subject: canteen
-Date: Thu, 17 Aug 2006 17:42:27 -0500
-Message-ID: <82553872093072.4D6F626C64@944KG>
+From: David Miller <davem@davemloft.net>
+Subject: Re: bonding: cannot remove certain named devices
+Date: Thu, 17 Aug 2006 16:23:40 -0700 (PDT)
+Message-ID: <20060817.162340.74748342.davem@davemloft.net>
+References: <20060816133811.GA26471@nostromo.devel.redhat.com>
+	<Pine.LNX.4.58.0608161636250.2044@be1.lrz>
+	<1155799783.7566.5.camel@capoeira>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="Windows-1252"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: 7eggert@gmx.de, notting@redhat.com, cate@debian.org,
+	7eggert@elstempel.de, shemminger@osdl.org,
+	mitch.a.williams@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from CPE-72-128-70-188.wi.res.rr.com ([72.128.70.188]:60932 "EHLO
-	kiya0.cfse21p.ameritech.net") by vger.kernel.org with ESMTP
-	id S1030279AbWHQWj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 18:39:27 -0400
-To: <netdev@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61137
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965154AbWHQXXd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Aug 2006 19:23:33 -0400
+To: xavier.bestel@free.fr
+In-Reply-To: <1155799783.7566.5.camel@capoeira>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-18 August! Attention!
- 
-Get on B CLC first thing on friday, this one !
+From: Xavier Bestel <xavier.bestel@free.fr>
+Date: Thu, 17 Aug 2006 09:29:43 +0200
 
-CCompany: BICOASTAL COMMUNICAT
-Symobl:  B CLC 
-Currennt Priice: $0.0265
-Exxpecting priiceon Friday: $0.06-$0.08
+> Why not simply retricting chars to isalnum() ones ?
 
-The prcie is the minimum for last week and it will boom on friday!
-Worst Scenariio Target Pirce: $0.065
-Most Probable Scenraio Target Prrice: $0.099
-Best Scenario Target Pirce: $0.125
-Thursday's Volume: 8,725,600 (Heavy)
+As Bill said that would block things like "-" and "_" which are fine.
 
-Watch out for BC LC this friday, we see a great story in the making!
+Bill also mentioned something about "breaking configs going back to
+2.4.x" which is bogus because nothing broke when we started blocking
+"/" and "." and ".." in networking device names during the addition of
+sysfs support for net devices.
 
-Recommendation: "Sttrong Buyy" starting on Friday, August 18, 2006.
+Nobody in their right mind puts a space in their network device name.
 
-Latest News
+All you "name purists", go rename the block device name that is used
+for your root partition to something with a space in it, and watch how
+many startup scripts and command line invocations just explode.
 
-Bicoastal Communications Inc. Announces E911 Service Agreement. Grand 
-Junction, Colo.--(Businness Wiire)--Aug. 15, 2006--Bicoastal Communications Inc.(Pink Sheets: B CLC - News) announces it has reached an agreement with Dialpoint Voice Service Inc. of Nevada to provide E911 services for its National VoIP (Voice over Internet Protocol) rollout through Callingpoint Communications.
-
-This will give Bicoastal the ability to provide E911 services to all of the lower 48 
-states via VoIP as required by the FCC. Upon successful testing of the system, Bicoastal will be in position to start offering Residential and Business VoIP 
-services through its Callingpoint Communications unit within the next two weeks. 
-
-About the Company:
-
-Bicoastal Communications Inc. is positioned to make substantial growth in the coming years. The company strategy is to deploy into non-primary cities with 
-population centers of less than one million people. Unlike the major metropolitan areas of the country, these cities have not seen the benefit of competitive product offerings. Bicoastal intends to address these deficiencies by encompassing its IP services, Traditional and VoIP Telephone services and Television (IPTV) services, securing revenues with the much-touted triple play.The strategic partnerships developed have already made it possible for Bicoastal to gain direct access to 25,000 fiber-connected homes throughout the United States.
-
-Members should pick up BC LC as early as possible on Friday.
-
-This news is going to send B CLC off the charts!  
-
-We all know that in the this busniess it's the big announcements that makes these stoccks expolde!!! 
-
-We see this as a hgue porfit taking a deal. Watch BC LC like a hawk!
-
-Watch this one Trrade on the 18 OF August. Go B CLC! 
-
-
-
-Who keeps company with the wolf will learn how to howl
-
-No wind, no waves. Love is like a fire, it can either warm your heart or burn your house down
-
+There is absolutely no valid argument for allowing spaces in network
+device names.
