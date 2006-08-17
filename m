@@ -1,54 +1,78 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: 802.11 headers
-Date: Thu, 17 Aug 2006 09:48:19 +0200
-Message-ID: <1155800899.3653.13.camel@ux156>
+From: Jesse Huang <jesse@icplus.com.tw>
+Subject: [PATCH 1/7] ip1000: update maintainer information
+Date: Thu, 17 Aug 2006 15:42:23 -0400
+Message-ID: <1155843743.5006.3.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>, Jouni Malinen <jkm@devicescape.com>,
-	David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:17133 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S932209AbWHQHsG
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 03:48:06 -0400
-To: netdev@vger.kernel.org
+Received: from msr16.hinet.net ([168.95.4.116]:51199 "EHLO msr16.hinet.net")
+	by vger.kernel.org with ESMTP id S932229AbWHQHzY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2006 03:55:24 -0400
+To: romieu@fr.zoreil.com, penberg@cs.Helsinki.FI, akpm@osdl.org,
+	dvrabel@cantab.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, david@pleyades.net, jesse@icplus.com.tw
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The d80211 headers are messy. Before merging, we definitely need to
-clean them up and split them between userland-visible and kernel-only
-headers, or else ... ;)
+From: Jesse Huang <jesse@icplus.com.tw>
 
-My current thoughts:
- - net/d80211_common.h can die sometime soon due to being replaced with
-   linux/nl80211.h (to be published today).
- - net/d80211_mgmt.h needs cleaning up (I know Michael has been doing
-   some of that), and then should probably be renamed to
-   linux/ieee80211.h and be userland-visible, and contain a bunch of
-   other frame definitions as well. A bit like net/ieee80211.h now,
-   though more protocol-centric.
- - net/ieee80211_radiotap.h should be userland-visible, and hence
-   linux/radiotap.h or such.
- - net/d80211_shared.h probably has the same fate as
-   net/d80211_common.h, except for the _RATE_* thingies, but I'm not
-   sure why they should be userland-visible.
- - net/d80211.h can stay there as-is, it's in-kernel only API.
- 
-Or put another way, my suggestions:
- - put all in-kernel API (for drivers) into net/d80211.h
- - put stuff defined in the IEEE 802.11 specification series into
-   linux/ieee80211.h, make user-visible (headers-y in Kbuild!). This
-   serves just as a reference. It's not really necessary that the kernel
-   ships this, but we need it in the kernel and probably won't be
-   pulling it from some other source. Besides, I wouldn't know where
-   else to maintain it.
- - radiotap simply moves to linux/ and gets to be userland-visible. Of
-   course, d80211 should actually start using it too ;)
- - all the other userland stuff seems to be configuration related and
-   hence moves over to linux/nl80211.h
+update maintainer information
 
-Comments?
+Change Logs:
+    update maintainer information
 
-johannes
+---
+
+ drivers/net/ipg.c |   32 ++++++++++++++++++++------------
+ 1 files changed, 20 insertions(+), 12 deletions(-)
+
+11745492c8580b2e40764e7fcd6a7a35f28c7635
+diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
+index 754ddb5..67bf552 100644
+--- a/drivers/net/ipg.c
++++ b/drivers/net/ipg.c
+@@ -1,18 +1,26 @@
+-/*PCI_DEVICE_ID_IP1000
++/*
++ * ipg.c: Device Driver for the IP1000 Gigabit Ethernet Adapter
++ *
++ * Copyright (C) 2003, 2006  IC Plus Corp.
++ *
++ * Original Author:
+  *
+- * ipg.c
++ *   Craig Rich
++ *   Sundance Technology, Inc.
++ *   1485 Saratoga Avenue
++ *   Suite 200
++ *   San Jose, CA 95129
++ *   408 873 4117
++ *   www.sundanceti.com
++ *   craig_rich@sundanceti.com
+  *
+- * IC Plus IP1000 Gigabit Ethernet Adapter Linux Driver v2.01
+- * by IC Plus Corp. 2003
++ * Current Maintainer:
+  *
+- * Craig Rich
+- * Sundance Technology, Inc.
+- * 1485 Saratoga Avenue
+- * Suite 200
+- * San Jose, CA 95129
+- * 408 873 4117
+- * www.sundanceti.com
+- * craig_rich@sundanceti.com
++ *   Sorbica Shieh.
++ *   10F, No.47, Lane 2, Kwang-Fu RD.
++ *   Sec. 2, Hsin-Chu, Taiwan, R.O.C.
++ *   http://www.icplus.com.tw
++ *   sorbica@icplus.com.tw
+  */
+ #include <linux/crc32.h>
+ #include <linux/ethtool.h>
+-- 
+1.3.2
+
+
 
