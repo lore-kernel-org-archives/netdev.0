@@ -1,44 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: bonding: cannot remove certain named devices
-Date: Thu, 17 Aug 2006 16:23:40 -0700 (PDT)
-Message-ID: <20060817.162340.74748342.davem@davemloft.net>
-References: <20060816133811.GA26471@nostromo.devel.redhat.com>
-	<Pine.LNX.4.58.0608161636250.2044@be1.lrz>
-	<1155799783.7566.5.camel@capoeira>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: proposal for new wireless configuration API
+Date: Fri, 18 Aug 2006 01:23:56 +0200
+Message-ID: <20060817232355.GA23163@p15091797.pureserver.info>
+References: <1155799178.3653.4.camel@ux156> <C86180A8C204554D8A3323D8F6B0A29F0165B02D@dhost002-46.dex002.intermedia.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: 7eggert@gmx.de, notting@redhat.com, cate@debian.org,
-	7eggert@elstempel.de, shemminger@osdl.org,
-	mitch.a.williams@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:61137
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965154AbWHQXXd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 19:23:33 -0400
-To: xavier.bestel@free.fr
-In-Reply-To: <1155799783.7566.5.camel@capoeira>
+Received: from deine-taler.de ([217.160.107.63]:41678 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S965156AbWHQXX5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Aug 2006 19:23:57 -0400
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F0165B02D@dhost002-46.dex002.intermedia.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Xavier Bestel <xavier.bestel@free.fr>
-Date: Thu, 17 Aug 2006 09:29:43 +0200
+On 06-08-17 09:42 Simon Barber wrote:
 
-> Why not simply retricting chars to isalnum() ones ?
+> The spec for RSSI is very loose - RSSI is just a 8 bit unsigned number,
+> guaranteed to be a monotonically increasing function of signal strength.
+> You don't get to know anything about the scale, or linearity of the
+> function. In essence RSSI is a vendor specific value, of no known units.
+> Not very useful unless you know some card specific details to help
+> interpret it.
+> 
+> Now some cards return a signal strength in dBm as the RSSI - note that
+> this fits the requirements of a RSSI measure just fine. RCPI is simply a
+> more tightly specified signal strength measure.
+> 
+> Just saying that a RSSI value is not very useful.
 
-As Bill said that would block things like "-" and "_" which are fine.
+we are simply not able to deliver RCPI, because we have no idea
+how RSSI is measured for the ZD1211 device. We had discussions with the
+vendor developers, but it seemed that their understanding was not
+really more advanced than our's.
 
-Bill also mentioned something about "breaking configs going back to
-2.4.x" which is bogus because nothing broke when we started blocking
-"/" and "." and ".." in networking device names during the addition of
-sysfs support for net devices.
+There is the same issue for signal quality and signal-to-noise
+ratio.
 
-Nobody in their right mind puts a space in their network device name.
-
-All you "name purists", go rename the block device name that is used
-for your root partition to something with a space in it, and watch how
-many startup scripts and command line invocations just explode.
-
-There is absolutely no valid argument for allowing spaces in network
-device names.
+-- 
+Uli Kunitz
