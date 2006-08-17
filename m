@@ -1,48 +1,48 @@
-From: Piet Delaney <piet@bluelane.com>
-Subject: Re: Patch: Asynchronous IPI and e1000 Multiple Queues (aka Receive
-	Side Scaling)
-Date: Wed, 16 Aug 2006 18:40:48 -0700
-Message-ID: <1155778849.925.92.camel@piet2.bluelane.com>
-References: <1155778440.925.88.camel@piet2.bluelane.com>
-Reply-To: piet@bluelane.com
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: skge crashes
+Date: Wed, 16 Aug 2006 20:39:03 -0700
+Message-ID: <20060816203903.3a7b1d32@localhost.localdomain>
+References: <20060816105752.717c3d86@localhost.localdomain>
+	<664E3671B2B6DC439E0C9FFCF8E40CA205F501@exchange.I-BNEX>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Piet Delaney <piet@bluelane.com>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	Subhachandra Chandra <schandra@bluelane.com>
+Cc: "Krzysztof Oledzki" <olel@ans.pl>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mse2fe2.mse2.exchange.ms ([66.232.26.194]:61317 "EHLO
-	mse2fe2.mse2.exchange.ms") by vger.kernel.org with ESMTP
-	id S932361AbWHQBkx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Aug 2006 21:40:53 -0400
-To: cramerj <cramerj@intel.com>, netdev@vger.kernel.org
-In-Reply-To: <1155778440.925.88.camel@piet2.bluelane.com>
+Received: from smtp.osdl.org ([65.172.181.4]:8415 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751274AbWHQDj0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Aug 2006 23:39:26 -0400
+To: "Beschorner Daniel" <Daniel.Beschorner@facton.com>
+In-Reply-To: <664E3671B2B6DC439E0C9FFCF8E40CA205F501@exchange.I-BNEX>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-08-16 at 18:33 -0700, Piet Delaney wrote:
-> I came across your Sept 2005 LKML and NetDev posting:
-> 
-> 	http://lwn.net/Articles/152989/
-> 
-> and was wondering what's been going on with this
-> since your posting. Looks like an interesting
-> patch that may be useful in our environment.
+possible PCI posting bug?
 
-I just noticed this is for PCI-Express. Has anything
-similar been done for PCI-X?
-
--piet
-
-> 
-> -piet
-> 
--- 
-Piet Delaney
-BlueLane Teck
-W: (408) 200-5256; piet@bluelane.com
-H: (408) 243-8872; piet@piet.net
-
-
+--- linux-2.6.orig/drivers/net/skge.c
++++ linux-2.6/drivers/net/skge.c
+@@ -2745,7 +2745,7 @@ static int skge_poll(struct net_device *
+ 	spin_lock_irq(&hw->hw_lock);
+ 	hw->intr_mask |= rxirqmask[skge->port];
+   	skge_write32(hw, B0_IMSK, hw->intr_mask);
+-	mmiowb();
++	skge_read32(hw, B0_IMSK);
+ 	spin_unlock_irq(&hw->hw_lock);
+ 
+ 	return 0;
+@@ -2879,6 +2879,7 @@ static void skge_extirq(void *arg)
+ 	spin_lock_irq(&hw->hw_lock);
+ 	hw->intr_mask |= IS_EXT_REG;
+ 	skge_write32(hw, B0_IMSK, hw->intr_mask);
++	skge_read32(hw, B0_IMSK);
+ 	spin_unlock_irq(&hw->hw_lock);
+ }
+ 
+@@ -2953,6 +2954,7 @@ static irqreturn_t skge_intr(int irq, vo
+ 		skge_error_irq(hw);
+ 
+ 	skge_write32(hw, B0_IMSK, hw->intr_mask);
++	skge_read32(hw, B0_IMSK);
+ 	spin_unlock(&hw->hw_lock);
+ 
+ 	return IRQ_HANDLED;
