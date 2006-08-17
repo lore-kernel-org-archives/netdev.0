@@ -1,122 +1,134 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 3/15]: [XFRM]: Move SPI hashing functions local to
- xfrm_state.c
-Date: Thu, 17 Aug 2006 01:27:57 -0700 (PDT)
-Message-ID: <20060817.012757.104032156.davem@davemloft.net>
+Subject: [PATCH 7/15]: [XFRM]: Put more keys into destination hash function.
+Date: Thu, 17 Aug 2006 01:28:15 -0700 (PDT)
+Message-ID: <20060817.012815.39154068.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30906
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:33978
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932315AbWHQI1z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 04:27:55 -0400
+	id S932330AbWHQI2M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Aug 2006 04:28:12 -0400
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-[XFRM]: Move SPI hashing functions local to xfrm_state.c
+[XFRM]: Put more keys into destination hash function.
+
+Besides the daddr, key the hash on family and reqid too.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/xfrm.h    |   32 --------------------------------
- net/xfrm/xfrm_state.c |   32 ++++++++++++++++++++++++++++++++
- 2 files changed, 32 insertions(+), 32 deletions(-)
+ net/xfrm/xfrm_state.c |   44 +++++++++++++++++++++++---------------------
+ 1 files changed, 23 insertions(+), 21 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 00ae025..2cbaee7 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -382,38 +382,6 @@ static inline void xfrm_pol_put(struct x
- 		__xfrm_policy_destroy(policy);
- }
- 
--#define XFRM_DST_HSIZE		1024
--
--static __inline__
--unsigned __xfrm4_spi_hash(xfrm_address_t *addr, u32 spi, u8 proto)
--{
--	unsigned h;
--	h = ntohl(addr->a4^spi^proto);
--	h = (h ^ (h>>10) ^ (h>>20)) % XFRM_DST_HSIZE;
--	return h;
--}
--
--static __inline__
--unsigned __xfrm6_spi_hash(xfrm_address_t *addr, u32 spi, u8 proto)
--{
--	unsigned h;
--	h = ntohl(addr->a6[2]^addr->a6[3]^spi^proto);
--	h = (h ^ (h>>10) ^ (h>>20)) % XFRM_DST_HSIZE;
--	return h;
--}
--
--static __inline__
--unsigned xfrm_spi_hash(xfrm_address_t *addr, u32 spi, u8 proto, unsigned short family)
--{
--	switch (family) {
--	case AF_INET:
--		return __xfrm4_spi_hash(addr, spi, proto);
--	case AF_INET6:
--		return __xfrm6_spi_hash(addr, spi, proto);
--	}
--	return 0;	/*XXX*/
--}
--
- extern void __xfrm_state_destroy(struct xfrm_state *);
- 
- static inline void __xfrm_state_put(struct xfrm_state *x)
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 9da47aa..e4b0c6e 100644
+index eb17f1b..9b3ab5c 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
-@@ -38,6 +38,8 @@ EXPORT_SYMBOL(sysctl_xfrm_aevent_rseqth)
+@@ -35,7 +35,7 @@ EXPORT_SYMBOL(sysctl_xfrm_aevent_rseqth)
+ /* Each xfrm_state may be linked to two tables:
  
- static DEFINE_SPINLOCK(xfrm_state_lock);
+    1. Hash table by (spi,daddr,ah/esp) to find SA by SPI. (input,ctl)
+-   2. Hash table by daddr to find what SAs exist for given
++   2. Hash table by (daddr,family,reqid) to find what SAs exist for given
+       destination/tunnel endpoint. (output)
+  */
  
-+#define XFRM_DST_HSIZE		1024
-+
- /* Hash table to find appropriate SA towards given target (endpoint
-  * of tunnel or destination of transport mode) allowed by selector.
-  *
-@@ -77,6 +79,36 @@ unsigned xfrm_dst_hash(xfrm_address_t *a
- 	return 0;
+@@ -54,37 +54,36 @@ static unsigned int xfrm_state_hashmax _
+ static unsigned int xfrm_state_num;
+ static unsigned int xfrm_state_genid;
+ 
+-static inline unsigned int __xfrm4_dst_hash(xfrm_address_t *addr, unsigned int hmask)
++static inline unsigned int __xfrm4_addr_hash(xfrm_address_t *addr)
+ {
+-	unsigned int h;
+-	h = ntohl(addr->a4);
+-	h = (h ^ (h>>16)) & xfrm_state_hmask;
+-	return h;
++	return ntohl(addr->a4);
  }
  
-+static __inline__
-+unsigned __xfrm4_spi_hash(xfrm_address_t *addr, u32 spi, u8 proto)
-+{
-+	unsigned h;
-+	h = ntohl(addr->a4^spi^proto);
-+	h = (h ^ (h>>10) ^ (h>>20)) % XFRM_DST_HSIZE;
-+	return h;
-+}
+-static inline unsigned int __xfrm6_dst_hash(xfrm_address_t *addr, unsigned int hmask)
++static inline unsigned int __xfrm6_addr_hash(xfrm_address_t *addr)
+ {
+-	unsigned int h;
+-	h = ntohl(addr->a6[2]^addr->a6[3]);
+-	h = (h ^ (h>>16)) & hmask;
+-	return h;
++	return ntohl(addr->a6[2]^addr->a6[3]);
+ }
+ 
+-static inline unsigned int __xfrm_dst_hash(xfrm_address_t *addr, unsigned short family,
++static inline unsigned int __xfrm_dst_hash(xfrm_address_t *addr,
++					   u32 reqid, unsigned short family,
+ 					   unsigned int hmask)
+ {
++	unsigned int h = family ^ reqid;
+ 	switch (family) {
+ 	case AF_INET:
+-		return __xfrm4_dst_hash(addr, hmask);
++		h ^= __xfrm4_addr_hash(addr);
++		break;
+ 	case AF_INET6:
+-		return __xfrm6_dst_hash(addr, hmask);
++		h ^= __xfrm6_addr_hash(addr);
++		break;
+ 	}
+-	return 0;
++	return (h ^ (h >> 16)) & hmask;
+ }
+ 
+-static inline unsigned int xfrm_dst_hash(xfrm_address_t *addr, unsigned short family)
++static inline unsigned int xfrm_dst_hash(xfrm_address_t *addr,
++					 u32 reqid, unsigned short family)
+ {
+-	return __xfrm_dst_hash(addr, family, xfrm_state_hmask);
++	return __xfrm_dst_hash(addr, reqid, family, xfrm_state_hmask);
+ }
+ 
+ static inline unsigned int __xfrm4_spi_hash(xfrm_address_t *addr, u32 spi, u8 proto,
+@@ -163,7 +162,8 @@ static void xfrm_hash_transfer(struct hl
+ 	hlist_for_each_entry_safe(x, entry, tmp, list, bydst) {
+ 		unsigned int h;
+ 
+-		h = __xfrm_dst_hash(&x->id.daddr, x->props.family, nhashmask);
++		h = __xfrm_dst_hash(&x->id.daddr, x->props.reqid,
++				    x->props.family, nhashmask);
+ 		hlist_add_head(&x->bydst, ndsttable+h);
+ 
+ 		h = __xfrm_spi_hash(&x->id.daddr, x->id.spi, x->id.proto,
+@@ -542,7 +542,7 @@ xfrm_state_find(xfrm_address_t *daddr, x
+ 		struct xfrm_policy *pol, int *err,
+ 		unsigned short family)
+ {
+-	unsigned int h = xfrm_dst_hash(daddr, family);
++	unsigned int h = xfrm_dst_hash(daddr, tmpl->reqid, family);
+ 	struct hlist_node *entry;
+ 	struct xfrm_state *x, *x0;
+ 	int acquire_in_progress = 0;
+@@ -639,7 +639,9 @@ out:
+ 
+ static void __xfrm_state_insert(struct xfrm_state *x)
+ {
+-	unsigned h = xfrm_dst_hash(&x->id.daddr, x->props.family);
++	unsigned int h;
 +
-+static __inline__
-+unsigned __xfrm6_spi_hash(xfrm_address_t *addr, u32 spi, u8 proto)
-+{
-+	unsigned h;
-+	h = ntohl(addr->a6[2]^addr->a6[3]^spi^proto);
-+	h = (h ^ (h>>10) ^ (h>>20)) % XFRM_DST_HSIZE;
-+	return h;
-+}
-+
-+static __inline__
-+unsigned xfrm_spi_hash(xfrm_address_t *addr, u32 spi, u8 proto, unsigned short family)
-+{
-+	switch (family) {
-+	case AF_INET:
-+		return __xfrm4_spi_hash(addr, spi, proto);
-+	case AF_INET6:
-+		return __xfrm6_spi_hash(addr, spi, proto);
-+	}
-+	return 0;	/*XXX*/
-+}
-+
- DECLARE_WAIT_QUEUE_HEAD(km_waitq);
- EXPORT_SYMBOL(km_waitq);
++	h = xfrm_dst_hash(&x->id.daddr, x->props.reqid, x->props.family);
+ 
+ 	x->genid = ++xfrm_state_genid;
+ 
+@@ -681,7 +683,7 @@ EXPORT_SYMBOL(xfrm_state_insert);
+ /* xfrm_state_lock is held */
+ static struct xfrm_state *__find_acq_core(unsigned short family, u8 mode, u32 reqid, u8 proto, xfrm_address_t *daddr, xfrm_address_t *saddr, int create)
+ {
+-	unsigned int h = xfrm_dst_hash(daddr, family);
++	unsigned int h = xfrm_dst_hash(daddr, reqid, family);
+ 	struct hlist_node *entry;
+ 	struct xfrm_state *x;
  
 -- 
 1.4.2.rc2.g3e042
