@@ -1,45 +1,321 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [RFC][PATCH 0/75] pci_module_init to pci_register_driver conversion
-Date: Wed, 16 Aug 2006 22:58:14 -0700
-Message-ID: <20060817055814.GA14950@kroah.com>
-References: <20060817042634.0.CrzcY28443.28439.michal@ltg01-fedora.pl>
+From: gerrit@erg.abdn.ac.uk
+Subject: [PATCHv2 2.6.17] net/ipv6/udp.c: remove duplicate udp_get_port code
+Date: Thu, 17 Aug 2006 13:25:46 +0100
+Message-ID: <200608171325.47349@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kroah.org ([69.55.234.183]:16269 "EHLO perch.kroah.org")
-	by vger.kernel.org with ESMTP id S964823AbWHQLp6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2006 07:45:58 -0400
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:50570 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S932294AbWHQM0P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2006 08:26:15 -0400
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20060817042634.0.CrzcY28443.28439.michal@ltg01-fedora.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 17, 2006 at 04:26:35AM +0000, Michal Piotrowski wrote:
-> 
-> Hi,
-> 
-> pci_module_init is obsolete.
-> 
-> This patch series converts pci_module_init to pci_register_driver.
-> 
-> 
-> Can I remove this?
-> 
-> include/linux/pci.h:385
-> /*
->  * pci_module_init is obsolete, this stays here till we fix up all usages of it
->  * in the tree.
->  */
-> #define pci_module_init pci_register_driver
+[NET]: UDPv4 and UDPv6 use an almost identical version of the get_port function,
+which is unnecessary since the (long) code differs in only one if-statement.
 
-As repeated numerous times, it's up to the network developers if they
-will take this or not.
+This patch creates one common function which is called by udp_v4_get_port() and
+udp_v6_get_port(). As a result,
+  * duplicated code is removed
+  * udp_port_rover and local port lookup can now be removed from udp.h
+  * further savings follow since the same function will be used by UDP-Litev4 
+    and UDP-Litev6
 
-I'll hold off on taking this series, please push it through the driver
-subsystem maintainers.
+In contrast to the patch sent in response to Yoshifujis comments (fixed by this
+variant), the code below also removes the EXPORT_SYMBOL(udp_port_rover), since
+udp_port_rover can now remain local to net/ipv4/udp.c.
 
-thanks,
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
 
-greg k-h
+ include/net/udp.h |   18 +---------
+ net/ipv4/udp.c    |   96 +++++++++++++++++++++++++++++++++---------------------
+ net/ipv6/udp.c    |   76 +-----------------------------------------
+ 3 files changed, 64 insertions(+), 126 deletions(-)
+
+
+
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 766fba1..c490a0f 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -30,25 +30,9 @@ #include <linux/seq_file.h>
+ 
+ #define UDP_HTABLE_SIZE		128
+ 
+-/* udp.c: This needs to be shared by v4 and v6 because the lookup
+- *        and hashing code needs to work with different AF's yet
+- *        the port space is shared.
+- */
+ extern struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+ extern rwlock_t udp_hash_lock;
+ 
+-extern int udp_port_rover;
+-
+-static inline int udp_lport_inuse(u16 num)
+-{
+-	struct sock *sk;
+-	struct hlist_node *node;
+-
+-	sk_for_each(sk, node, &udp_hash[num & (UDP_HTABLE_SIZE - 1)])
+-		if (inet_sk(sk)->num == num)
+-			return 1;
+-	return 0;
+-}
+ 
+ /* Note: this must match 'valbool' in sock_setsockopt */
+ #define UDP_CSUM_NOXMIT		1
+@@ -63,6 +47,8 @@ extern struct proto udp_prot;
+ 
+ struct sk_buff;
+ 
++extern int	udp_get_port(struct sock *sk, unsigned short snum,
++			     int (*saddr_cmp)(struct sock *, struct sock *));
+ extern void	udp_err(struct sk_buff *, u32);
+ 
+ extern int	udp_sendmsg(struct kiocb *iocb, struct sock *sk,
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 3f93292..9d4e156 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -119,14 +119,34 @@ DEFINE_SNMP_STAT(struct udp_mib, udp_sta
+ struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+ DEFINE_RWLOCK(udp_hash_lock);
+ 
+-/* Shared by v4/v6 udp. */
++/* Shared by v4/v6 udp_get_port */
+ int udp_port_rover;
+ 
+-static int udp_v4_get_port(struct sock *sk, unsigned short snum)
++static inline int udp_lport_inuse(u16 num)
+ {
++	struct sock *sk;
+ 	struct hlist_node *node;
++
++	sk_for_each(sk, node, &udp_hash[num & (UDP_HTABLE_SIZE - 1)])
++		if (inet_sk(sk)->num == num)
++			return 1;
++	return 0;
++}
++
++/**
++ *  udp_get_port  -  common port lookup for IPv4 and IPv6
++ *
++ *  @sk:          socket struct in question
++ *  @snum:        port number to look up
++ *  @saddr_comp:  AF-dependent comparison of bound local IP addresses
++ */
++int udp_get_port(struct sock *sk, unsigned short snum,
++		 int (*saddr_cmp)(struct sock *sk1, struct sock *sk2))
++{
++	struct hlist_node *node;
++	struct hlist_head *head;
+ 	struct sock *sk2;
+-	struct inet_sock *inet = inet_sk(sk);
++	int    error = 1;
+ 
+ 	write_lock_bh(&udp_hash_lock);
+ 	if (snum == 0) {
+@@ -138,11 +158,10 @@ static int udp_v4_get_port(struct sock *
+ 		best_size_so_far = 32767;
+ 		best = result = udp_port_rover;
+ 		for (i = 0; i < UDP_HTABLE_SIZE; i++, result++) {
+-			struct hlist_head *list;
+ 			int size;
+ 
+-			list = &udp_hash[result & (UDP_HTABLE_SIZE - 1)];
+-			if (hlist_empty(list)) {
++			head = &udp_hash[result & (UDP_HTABLE_SIZE - 1)];
++			if (hlist_empty(head)) {
+ 				if (result > sysctl_local_port_range[1])
+ 					result = sysctl_local_port_range[0] +
+ 						((result - sysctl_local_port_range[0]) &
+@@ -150,12 +169,11 @@ static int udp_v4_get_port(struct sock *
+ 				goto gotit;
+ 			}
+ 			size = 0;
+-			sk_for_each(sk2, node, list)
+-				if (++size >= best_size_so_far)
+-					goto next;
+-			best_size_so_far = size;
+-			best = result;
+-		next:;
++			sk_for_each(sk2, node, head)
++				if (++size < best_size_so_far) {
++					best_size_so_far = size;
++					best = result;
++				}
+ 		}
+ 		result = best;
+ 		for(i = 0; i < (1 << 16) / UDP_HTABLE_SIZE; i++, result += UDP_HTABLE_SIZE) {
+@@ -171,38 +189,44 @@ static int udp_v4_get_port(struct sock *
+ gotit:
+ 		udp_port_rover = snum = result;
+ 	} else {
+-		sk_for_each(sk2, node,
+-			    &udp_hash[snum & (UDP_HTABLE_SIZE - 1)]) {
+-			struct inet_sock *inet2 = inet_sk(sk2);
+-
+-			if (inet2->num == snum &&
+-			    sk2 != sk &&
+-			    !ipv6_only_sock(sk2) &&
+-			    (!sk2->sk_bound_dev_if ||
+-			     !sk->sk_bound_dev_if ||
+-			     sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
+-			    (!inet2->rcv_saddr ||
+-			     !inet->rcv_saddr ||
+-			     inet2->rcv_saddr == inet->rcv_saddr) &&
+-			    (!sk2->sk_reuse || !sk->sk_reuse))
++		head = &udp_hash[snum & (UDP_HTABLE_SIZE - 1)];
++
++		sk_for_each(sk2, node, head)
++			if (inet_sk(sk2)->num == snum                        &&
++			    sk2 != sk                                        &&
++			    (!sk2->sk_reuse        || !sk->sk_reuse)         &&
++			    (!sk2->sk_bound_dev_if || !sk->sk_bound_dev_if
++			     || sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
++			    (*saddr_cmp)(sk, sk2)                              )
+ 				goto fail;
+-		}
+ 	}
+-	inet->num = snum;
++	inet_sk(sk)->num = snum;
+ 	if (sk_unhashed(sk)) {
+-		struct hlist_head *h = &udp_hash[snum & (UDP_HTABLE_SIZE - 1)];
+-
+-		sk_add_node(sk, h);
++		head = &udp_hash[snum & (UDP_HTABLE_SIZE - 1)];
++		sk_add_node(sk, head);
+ 		sock_prot_inc_use(sk->sk_prot);
+ 	}
+-	write_unlock_bh(&udp_hash_lock);
+-	return 0;
+-
++	error = 0;
+ fail:
+ 	write_unlock_bh(&udp_hash_lock);
+-	return 1;
++	return error;
++}
++
++static inline int  ipv4_rcv_saddr_equal(struct sock *sk1, struct sock *sk2)
++{
++	struct inet_sock *inet1 = inet_sk(sk1), *inet2 = inet_sk(sk2);
++
++	return 	( !ipv6_only_sock(sk2)  &&
++		  (!inet1->rcv_saddr || !inet2->rcv_saddr ||
++		   inet1->rcv_saddr == inet2->rcv_saddr      ));
++}
++
++static inline int udp_v4_get_port(struct sock *sk, unsigned short snum)
++{
++	return udp_get_port(sk, snum, ipv4_rcv_saddr_equal);
+ }
+ 
++
+ static void udp_v4_hash(struct sock *sk)
+ {
+ 	BUG();
+@@ -1583,7 +1607,7 @@ EXPORT_SYMBOL(udp_disconnect);
+ EXPORT_SYMBOL(udp_hash);
+ EXPORT_SYMBOL(udp_hash_lock);
+ EXPORT_SYMBOL(udp_ioctl);
+-EXPORT_SYMBOL(udp_port_rover);
++EXPORT_SYMBOL(udp_get_port);
+ EXPORT_SYMBOL(udp_prot);
+ EXPORT_SYMBOL(udp_sendmsg);
+ EXPORT_SYMBOL(udp_poll);
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 8d3432a..74fd59a 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -62,81 +62,9 @@ #include <linux/seq_file.h>
+ 
+ DEFINE_SNMP_STAT(struct udp_mib, udp_stats_in6) __read_mostly;
+ 
+-/* Grrr, addr_type already calculated by caller, but I don't want
+- * to add some silly "cookie" argument to this method just for that.
+- */
+-static int udp_v6_get_port(struct sock *sk, unsigned short snum)
++static inline int udp_v6_get_port(struct sock *sk, unsigned short snum)
+ {
+-	struct sock *sk2;
+-	struct hlist_node *node;
+-
+-	write_lock_bh(&udp_hash_lock);
+-	if (snum == 0) {
+-		int best_size_so_far, best, result, i;
+-
+-		if (udp_port_rover > sysctl_local_port_range[1] ||
+-		    udp_port_rover < sysctl_local_port_range[0])
+-			udp_port_rover = sysctl_local_port_range[0];
+-		best_size_so_far = 32767;
+-		best = result = udp_port_rover;
+-		for (i = 0; i < UDP_HTABLE_SIZE; i++, result++) {
+-			int size;
+-			struct hlist_head *list;
+-
+-			list = &udp_hash[result & (UDP_HTABLE_SIZE - 1)];
+-			if (hlist_empty(list)) {
+-				if (result > sysctl_local_port_range[1])
+-					result = sysctl_local_port_range[0] +
+-						((result - sysctl_local_port_range[0]) &
+-						 (UDP_HTABLE_SIZE - 1));
+-				goto gotit;
+-			}
+-			size = 0;
+-			sk_for_each(sk2, node, list)
+-				if (++size >= best_size_so_far)
+-					goto next;
+-			best_size_so_far = size;
+-			best = result;
+-		next:;
+-		}
+-		result = best;
+-		for(i = 0; i < (1 << 16) / UDP_HTABLE_SIZE; i++, result += UDP_HTABLE_SIZE) {
+-			if (result > sysctl_local_port_range[1])
+-				result = sysctl_local_port_range[0]
+-					+ ((result - sysctl_local_port_range[0]) &
+-					   (UDP_HTABLE_SIZE - 1));
+-			if (!udp_lport_inuse(result))
+-				break;
+-		}
+-		if (i >= (1 << 16) / UDP_HTABLE_SIZE)
+-			goto fail;
+-gotit:
+-		udp_port_rover = snum = result;
+-	} else {
+-		sk_for_each(sk2, node,
+-			    &udp_hash[snum & (UDP_HTABLE_SIZE - 1)]) {
+-			if (inet_sk(sk2)->num == snum &&
+-			    sk2 != sk &&
+-			    (!sk2->sk_bound_dev_if ||
+-			     !sk->sk_bound_dev_if ||
+-			     sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
+-			    (!sk2->sk_reuse || !sk->sk_reuse) &&
+-			    ipv6_rcv_saddr_equal(sk, sk2))
+-				goto fail;
+-		}
+-	}
+-
+-	inet_sk(sk)->num = snum;
+-	if (sk_unhashed(sk)) {
+-		sk_add_node(sk, &udp_hash[snum & (UDP_HTABLE_SIZE - 1)]);
+-		sock_prot_inc_use(sk->sk_prot);
+-	}
+-	write_unlock_bh(&udp_hash_lock);
+-	return 0;
+-
+-fail:
+-	write_unlock_bh(&udp_hash_lock);
+-	return 1;
++	return udp_get_port(sk, snum, ipv6_rcv_saddr_equal);
+ }
+ 
+ static void udp_v6_hash(struct sock *sk)
