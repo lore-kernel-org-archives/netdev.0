@@ -1,58 +1,45 @@
-From: "Michal Ruzicka" <michal.ruzicka@comstar.cz>
-Subject: Re: Possible leak of multicast source filter sctructure
-Date: Thu, 17 Aug 2006 13:26:35 +0100
-Message-ID: <200608171126.k7HBQZ6u031969@gateplz.comstar.cz>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [RFC][PATCH 0/75] pci_module_init to pci_register_driver conversion
+Date: Wed, 16 Aug 2006 22:58:14 -0700
+Message-ID: <20060817055814.GA14950@kroah.com>
+References: <20060817042634.0.CrzcY28443.28439.michal@ltg01-fedora.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>,
-	<netdev@vger.kernel.org>, <netdev-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateplz-adsl.comstar.cz ([193.179.24.196]:58565 "EHLO
-	gateplz.comstar.cz") by vger.kernel.org with ESMTP id S964804AbWHQL1w convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 07:27:52 -0400
+Received: from mail.kroah.org ([69.55.234.183]:16269 "EHLO perch.kroah.org")
+	by vger.kernel.org with ESMTP id S964823AbWHQLp6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2006 07:45:58 -0400
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
 Content-Disposition: inline
-To: "David Stevens" <dlstevens@us.ibm.com>
+In-Reply-To: <20060817042634.0.CrzcY28443.28439.michal@ltg01-fedora.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello David,
-
-> Michal,
->         I believe the patch I submitted yesterday fixes this
-> problem, and in a simpler way.
-
-Somehow I've missed that e-mail (It did not appear on the thread's list at MARC
-archives). Sorry for that.
-
+On Thu, Aug 17, 2006 at 04:26:35AM +0000, Michal Piotrowski wrote:
 > 
->                                         +-DLS
+> Hi,
+> 
+> pci_module_init is obsolete.
+> 
+> This patch series converts pci_module_init to pci_register_driver.
+> 
+> 
+> Can I remove this?
+> 
+> include/linux/pci.h:385
+> /*
+>  * pci_module_init is obsolete, this stays here till we fix up all usages of it
+>  * in the tree.
+>  */
+> #define pci_module_init pci_register_driver
 
-I've reviewed your patch (the IPv4 part of it) and I think I can say that
-our soulutions are actually quite similar.
-But I can come up with one difference that I'd like know your opinion on.
+As repeated numerous times, it's up to the network developers if they
+will take this or not.
 
-Suppose the following situatuion:
+I'll hold off on taking this series, please push it through the driver
+subsystem maintainers.
 
-1) create pppX interface:
-  IP: A.B.C.D
+thanks,
 
-2) join a multicast group by address: A.B.C.D
-  ASSUMPTION: no other interface with the same IP address exists;
-  the result should be that the group is joined on the pppX interface
-
-3) create pppY interface
-  IP: A.B.C.D (Yes the same IP, not unusual on ppp links.)
-
-4) delete the pppX interace
-
-5) attempt to leave the multicast group by address: A.B.C.D
-
-6) * if your algorthim is used -EADDRNOTAVAIL is returned
-   * if mine is used the multicast group is left on the pppX interface
-
-Surely this won't be a common problem but I think it's worth pointing out
-here.
-
-Michal
+greg k-h
