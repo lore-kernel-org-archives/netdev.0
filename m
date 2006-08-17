@@ -1,63 +1,107 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: proposal for new wireless configuration API
-Date: Thu, 17 Aug 2006 12:39:38 -0700
-Message-ID: <20060817193938.GA29676@bougret.hpl.hp.com>
-References: <1155655728.17742.30.camel@ux156> <200608151838.58182.mb@bu3sch.de> <1155665688.8940.10.camel@localhost.localdomain> <200608152113.23697.mb@bu3sch.de>
-Reply-To: jt@hpl.hp.com
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [RFC][PATCH 0/9] Network receive deadlock prevention for NBD
+Date: Thu, 17 Aug 2006 23:48:50 +0400
+Message-ID: <20060817194850.GA19647@2ka.mipt.ru>
+References: <1155130353.12225.53.camel@twins> <20060809.165431.118952392.davem@davemloft.net> <1155189988.12225.100.camel@twins> <44DF888F.1010601@google.com> <20060814051323.GA1335@2ka.mipt.ru> <44E3F525.3060303@google.com> <20060817053636.GA30920@2ka.mipt.ru> <44E4AF10.5030308@google.com> <20060817184206.GA2873@2ka.mipt.ru> <1155842114.5696.310.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
-	Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gundega.hpl.hp.com ([192.6.19.190]:14806 "EHLO
-	gundega.hpl.hp.com") by vger.kernel.org with ESMTP id S1751266AbWHQTla
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 15:41:30 -0400
-To: Michael Buesch <mb@bu3sch.de>
+Content-Type: text/plain; charset=koi8-r
+Cc: Daniel Phillips <phillips@google.com>,
+	David Miller <davem@davemloft.net>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1030214AbWHQTx2@vger.kernel.org>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Content-Disposition: inline
-In-Reply-To: <200608152113.23697.mb@bu3sch.de>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <1155842114.5696.310.camel@twins>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 15, 2006 at 09:13:23PM +0200, Michael Buesch wrote:
-> On Tuesday 15 August 2006 20:14, Dan Williams wrote:
-> > On Tue, 2006-08-15 at 18:38 +0200, Michael Buesch wrote:
-> > > On Tuesday 15 August 2006 18:29, Dan Williams wrote:
-> > > > o Separate attributes for channel and frequency
-> > > 
-> > > No, channel and freq is the same. It's just another name
-> > > for the same child. I would say we only want to deal with channel numbers
-> > > in the API. That's much easier, as we don't have to deal with this
-> > > fixed-point (or even floating point) mess. Look at WE for the
-> > > fixed-point mess.
-> > 
-> > Right, I don't have a problem with only using one or the other; but we
-> > _HAVE_ to provide a function in the driver that allows userspace
-> > programs to convert channel <-> frequency both ways, like you suggest
-> > below.  Obviously the channel/frequency mapping isn't the same
-> > everywhere.
-> > 
-> > [ or is it?  I'd be very uncomfortable using the same channel #s
-> > everywhere unless some IEEE spec states exactly what the channel #s are
-> > for every frequency range that wireless stuff operates in ]
+On Thu, Aug 17, 2006 at 09:15:14PM +0200, Peter Zijlstra (a.p.zijlstra@chello.nl) wrote:
+> > I got openssh as example of situation when system does not know in 
+> > advance, what sockets must be marked as critical.
+> > OpenSSH works with network and unix sockets in parallel, so you need to
+> > hack openssh code to be able to allow it to use reserve when there is 
+> > not enough memory.
 > 
-> The channel<->freq mapping is stable.
+> OpenSSH or any other user-space program will never ever have the problem
+> we are trying to solve. Nor could it be fixed the way we are solving it,
+> user-space programs can be stalled indefinite. We are concerned with
+> kernel services, and the continued well being of the kernel, not
+> user-space. (well therefore indirectly also user-space of course)
 
-	We may need to double check this...
-	It is already clear that WiMax, ZigBee and pre-802.11 HW don't
-use the same channel<->freq mapping as 802.11.
-	Further, I remember somebody (was it Jouni) mentioning that
-some variations of 802.11 have different channel mappings. But, we
-would need to check that.
+You limit your system here - it is possible that userspace should send
+some command when kernel agent requires some negotiation.
+And even for them it is possible to require ARP request and/or ICMP
+processing.
 
-> > No argument here; as long as we provide the mapping function in the
-> > driver for each card.
+> >  Actually all sockets must be able to get data, since
+> > kernel can not diffirentiate between telnetd and a process which will 
+> > receive an ack for swapped page or other significant information.
 > 
-> Hm, I don't know if I understand this correctly.
-> You want to implement the mapping function in every driver
-> or in the d80211 stack?
+> Oh, but it does, the kernel itself controls those sockets: NBD / iSCSI
+> and AoE are all kernel services, not user-space. And it is the core of
+> our work to provide this information to the kernel; to distinguish these
+> few critical sockets.
 
-	A simple mapping table is probably enough, similar to what we
-already have.
+As I stated above it is not enough.
+And even if you will cover all kernel-only network allocations, which are
+used for your selected datapath, problem still there - admin is unable
+to connect although it can be critical connection too.
 
-	Jean
+> > So network must behave separately from main allocator in that period of 
+> > time, but since it is possible that reserve can be not filled or has not
+> > enough space or something other, it must be preallocated in far advance
+> > and should be quite big, but then why netwrok should use it at all, when
+> > being separated from main allocations solves the problem?
+> 
+> You still need to guarantee data-paths to these services, and you need
+> to make absolutely sure that your last bit of memory is used to service
+> these critical sockets, not some random blocked user-space process.
+> 
+> You cannot pre-allocate enough memory _ever_ to satisfy the total
+> capacity of the network stack. You _can_ allot a certain amount of
+> memory to the network stack (avoiding DoS), and drop packets once you
+> exceed that. But still, you need to make sure these few critical
+> _kernel_ services get their data.
+
+Feel free to implement any receiving policy inside _separated_ allocator
+to meet your needs, but if allocator depends on main system's memory
+conditions it is always possible that it will fail to make forward
+progress.
+
+> > I do not argue that your approach is bad or does not solve the problem,
+> > I'm just trying to show that further evolution of that idea eventually
+> > ends up in separated allocator (as long as all most robust systems
+> > separate operations), which can improve things in a lot of other sides
+> > too.
+> 
+> Not a separate allocator per-se, separate socket group, they are
+> serviced by the kernel, they will never refuse to process data, and it
+> is critical for the continued well-being of your kernel that they get
+> their data.
+
+You do not know in advance which sockets must be separated (since only
+in the simplest situation it is the same as in NBD and is
+kernelspace-only),
+you can not solve problem with ARP/ICMP/route changes and other control
+messages, netfilter, IPsec and compression which still can happen in your 
+setup, 
+if something goes wrong and receiving will require additional
+allocation from network datapath, system is dead,
+this strict conditions does not allow flexible control over possible
+connections and does not allow to create additional connections.
+
+As far as I understood, it is ok to solve the problem in the exact your
+case without all or most of the above issues in the setup, but in
+general some other mechanism should be used, which will not suffer or
+will allow to control above issues.
+
+> Also, I do not think people would like it if say 100M of their 1G system
+> just disappears, never to used again for eg. page-cache in periods of
+> low network traffic.
+
+Just for clarification: network tree allocator gets 512kb and then
+increases cache size when it is required. Default value can be changed
+of course.
+
+-- 
+	Evgeniy Polyakov
