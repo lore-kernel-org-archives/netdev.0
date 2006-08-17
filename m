@@ -1,77 +1,72 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Possible leak of multicast source filter sctructure
-Date: Thu, 17 Aug 2006 08:26:06 -0700
-Message-ID: <OF083D59F3.3D70F47B-ON882571CD.0052BC5E-882571CD.0054C940@us.ibm.com>
-References: <200608171126.k7HBQZ6u031969@gateplz.comstar.cz>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [RFC] d80211 LED handling
+Date: Thu, 17 Aug 2006 17:30:30 +0200
+Message-ID: <20060817173030.6510e96d@griffin.suse.cz>
+References: <44DC3809.10705@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:43650 "EHLO e4.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S965139AbWHQP1S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2006 11:27:18 -0400
-In-Reply-To: <200608171126.k7HBQZ6u031969@gateplz.comstar.cz>
-To: "Michal Ruzicka" <michal.ruzicka@comstar.cz>
+Received: from styx.suse.cz ([82.119.242.94]:11232 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S965151AbWHQPac (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2006 11:30:32 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <44DC3809.10705@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Michal Ruzicka" <michal.ruzicka@comstar.cz> wrote on 08/17/2006 05:26:35 
-AM:
+On Fri, 11 Aug 2006 09:55:53 +0200, Johannes Berg wrote:
+> However, I'm not sure where I should call the _init and _exit functions 
+> and if I really should be using the local struct. It seems I shouldn't 
+> be and should be using the master interface directly or something.
 
-> I've reviewed your patch (the IPv4 part of it) and I think I can say 
-that
-> our soulutions are actually quite similar.
-> But I can come up with one difference that I'd like know your opinion 
-on.
+Leds are not interface-specific but card-specific, so using
+ieee80211_local is the right way.
 
-        If you have a duplicated address and the application is not using
-interface index to identify the interface, then which one you join or 
-leave
-on is not unique, and which one you'll get is not defined. It is, in fact,
-an error to leave the group on an interface with a different index, and
-the duplicate scenario has effectively changed the meaning of that 
-address's
-interface.
-        In the same scenario, if you have not deleted any interfaces and
-attempt to leave the group, your code may get the "pppY" interface from
-ip_mc_find_dev(), not have a matching index for the group you actually
-joined, and will return EADDRNOTAVAIL rather than leaving the group you
-joined on.
-        In both cases, it'd simply be an error for an application to be
-using address to identify the interface when that is not unique. If the
-addresses are used (or reused) on multiple interfaces, the application
-has to use interface index to work properly.
+Comments:
 
-                                                                +-DLS
+How is the driver supposed to add its led handlers?
 
+Using generic led triggers is probably interesting for cases when system
+has some separate led. It won't help drivers which need to handle leds
+on the card itself. In the former case you may want all of wireless
+cards in the system to be connected to one led. I don't see how this is
+easily possible with this patch. In the latter case, you want to call
+callback provided by the driver and not to use generic led triggers at
+all.
 
-> Suppose the following situatuion:
-> 
-> 1) create pppX interface:
->   IP: A.B.C.D
-> 
-> 2) join a multicast group by address: A.B.C.D
->   ASSUMPTION: no other interface with the same IP address exists;
->   the result should be that the group is joined on the pppX interface
-> 
-> 3) create pppY interface
->   IP: A.B.C.D (Yes the same IP, not unusual on ppp links.)
-> 
-> 4) delete the pppX interace
-> 
-> 5) attempt to leave the multicast group by address: A.B.C.D
-> 
-> 6) * if your algorthim is used -EADDRNOTAVAIL is returned
->    * if mine is used the multicast group is left on the pppX interface
-> 
-> Surely this won't be a common problem but I think it's worth pointing 
-out
-> here.
-> 
-> Michal
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> [...]
+> +config D80211_LEDS
+> +	bool "Enable LED triggers"
+> +	select LEDS_TRIGGERS
 
+Is it really necessary to have this as a configurable option?
+
+> [...]
+> +	name = (char*) local->rx_led+1;
+
+This doesn't seem correct.
+
+> +	snprintf(name, IFNAMSIZ + 2, "%srx", local->mdev->name);
+
+Name of interface may change at any time. Using it for fixed identifier
+is not a good idea. In addition, nothing prevents you from ending up
+with two different led triggers with the same name:
+
+1. modprobe card1
+2. ieee80211_led_init(card1)	<- card1 is "wmaster0"
+3. ip link set wmaster0 name mysupercard
+4. modprobe card2
+5. ieee80211_led_init(card2)	<- card2 is "wmaster0"
+
+> +	if (led_trigger_register(local->rx_led)) {
+> [...]
+
+Thanks,
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
