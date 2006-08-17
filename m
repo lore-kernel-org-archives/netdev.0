@@ -1,57 +1,40 @@
-From: Daniel Phillips <phillips@google.com>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Wed, 16 Aug 2006 21:27:34 -0700
-Message-ID: <44E3F036.2060900@google.com>
-References: <20060808211731.GR14627@postel.suug.ch>	<44DBED4C.6040604@redhat.com>	<44DFA225.1020508@google.com>	<20060813.165540.56347790.davem@davemloft.net>	<44DFD262.5060106@google.com>	<20060813185309.928472f9.akpm@osdl.org>	<1155530453.5696.98.camel@twins>	<20060813215853.0ed0e973.akpm@osdl.org>	<1155531835.5696.103.camel@twins>	<20060813222208.7e8583ac.akpm@osdl.org>	<1155537940.5696.117.camel@twins> <20060814000736.80e652bb.akpm@osdl.org>
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: [RFC][PATCH 0/1] [RFC][PATCH 0/8] Removal of old code
+Date: Thu, 17 Aug 2006 04:48:01 +0000
+Message-ID: <20060817044801.0.bQKWyd2269.2265.michal@euridica.enternet.net.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	David Miller <davem@davemloft.net>, riel@redhat.com,
-	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, jes@trained-monkey.org,
+	netdev@vger.kernel.org, davem@davemloft.net, tglx@linutronix.de,
+	Eric.Moore@lsil.com, linux-scsi@vger.kernel.org, mikep@linuxtr.net,
+	xfs-masters@oss.sgi.com, nathans@sgi.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.12]:35938 "EHLO
-	smtp-out.google.com") by vger.kernel.org with ESMTP
-	id S1751283AbWHQEbH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 00:31:07 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060814000736.80e652bb.akpm@osdl.org>
+Received: from euridica.enternet.net.pl ([62.233.231.82]:62882 "EHLO
+	euridica.enternet.net.pl") by vger.kernel.org with ESMTP
+	id S932270AbWHQEsB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Aug 2006 00:48:01 -0400
+To: akpm@osdl.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> What is a "socket wait queue" and how/why can it consume so much memory?
 
-Two things:
+The patches have been tested with allmodconfig and allmodconfig.
 
-   1) sk_buffs in flight between device receive interrupt and layer 3
-      protocol/socket identification.
-
-   2) sk_buffs queued onto a particular socket waiting for some task to
-      come along and pull them off via read or equivalent.
-
-Case (1) probably can't consume a unbounded amount of memory, but I
-would not swear to that with my current reading knowledge of the network
-stack.  The upper bound here is obscured by clever SMP device processing,
-netfilter options, softirq scheduling questions, probably other things.
-This needs a considered explanation from a network guru, or perhaps a
-pointer to documentation.
-
-Case (2) is the elephant under the rug.  Some form of TCP memory
-throttling exists, but there is no organized way to correlate that with
-actual memory conditions, and it appears to be exposed to user control.
-Memory throttling seems to be entirely absent for non-TCP protocols,
-e.g., UDP.
-
-> Can it be prevented from doing that?
-
-This patch set does that, and also provides an emergency reserve for
-network devices in order to prevent atomic allocation failures while
-trying to refill NIC DMA buffer rings.  It is the moral equivalent of
-our bio reservation scheme, but with additional twists specific to the
-network stack.
+drivers/message/fusion/linux_compat.h |    9 -----
+drivers/mtd/nand/au1550nd.c           |   11 ------
+drivers/net/acenic.c                  |    4 --
+drivers/net/irda/vlsi_ir.h            |   17 ---------
+drivers/net/tokenring/lanstreamer.c   |   59 ----------------------------------
+drivers/net/tokenring/lanstreamer.h   |   12 ------
+drivers/net/typhoon.c                 |    4 --
+fs/xfs/xfs_dmapi.h                    |   17 ---------
+8 files changed, 1 insertion(+), 132 deletions(-)
 
 Regards,
+Michal
 
-Daniel
+-- 
+Michal K. K. Piotrowski
+LTG - Linux Testers Group
+(http://www.stardust.webpages.pl/ltg/wiki/)
