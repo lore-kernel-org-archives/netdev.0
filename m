@@ -1,119 +1,102 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 15/15]: [IPSEC] esp: Defer output IV initialization to
- first use.
-Date: Thu, 17 Aug 2006 01:28:43 -0700 (PDT)
-Message-ID: <20060817.012843.88472740.davem@davemloft.net>
+Subject: [PATCH 10/15]: [XFRM]: Purge dst references to deleted SAs
+ passively.
+Date: Thu, 17 Aug 2006 01:28:25 -0700 (PDT)
+Message-ID: <20060817.012825.48533033.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:40122
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36282
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932447AbWHQI2k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 04:28:40 -0400
+	id S932344AbWHQI2W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Aug 2006 04:28:22 -0400
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-[IPSEC] esp: Defer output IV initialization to first use.
+[XFRM]: Purge dst references to deleted SAs passively.
 
-First of all, if the xfrm_state only gets used for input
-packets this entropy is a complete waste.
-
-Secondly, it is often the case that a configuration loads
-many rules (perhaps even dynamically) and they don't all
-necessarily ever get used.
-
-This get_random_bytes() call was showing up in the profiles
-for xfrm_state inserts which is how I noticed this.
+Just let GC and other normal mechanisms take care of getting
+rid of DST cache references to deleted xfrm_state objects
+instead of walking all the policy bundles.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/esp.h |    5 +++--
- net/ipv4/esp4.c   |   10 +++++++---
- net/ipv6/esp6.c   |    9 +++++++--
- 3 files changed, 17 insertions(+), 7 deletions(-)
+ include/net/xfrm.h     |    1 -
+ net/xfrm/xfrm_policy.c |    2 +-
+ net/xfrm/xfrm_state.c  |   17 -----------------
+ 3 files changed, 1 insertions(+), 19 deletions(-)
 
-diff --git a/include/net/esp.h b/include/net/esp.h
-index 90cd94f..636163c 100644
---- a/include/net/esp.h
-+++ b/include/net/esp.h
-@@ -14,13 +14,14 @@ struct esp_data
- 	struct {
- 		u8			*key;		/* Key */
- 		int			key_len;	/* Key length */
--		u8			*ivec;		/* ivec buffer */
-+		int			padlen;		/* 0..255 */
- 		/* ivlen is offset from enc_data, where encrypted data start.
- 		 * It is logically different of crypto_tfm_alg_ivsize(tfm).
- 		 * We assume that it is either zero (no ivec), or
- 		 * >= crypto_tfm_alg_ivsize(tfm). */
- 		int			ivlen;
--		int			padlen;		/* 0..255 */
-+		int			ivinitted;
-+		u8			*ivec;		/* ivec buffer */
- 		struct crypto_tfm	*tfm;		/* crypto handle */
- 	} conf;
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 3f54542..8123d49 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -895,7 +895,6 @@ struct xfrm_state * xfrm_find_acq(u8 mod
+ 				  int create, unsigned short family);
+ extern void xfrm_policy_flush(void);
+ extern int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
+-extern int xfrm_flush_bundles(void);
+ extern int xfrm_bundle_ok(struct xfrm_dst *xdst, struct flowi *fl, int family);
+ extern void xfrm_init_pmtu(struct dst_entry *dst);
  
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index fc2f8ce..1ceda9f 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -91,9 +91,13 @@ static int esp_output(struct xfrm_state 
- 	esph->seq_no = htonl(++x->replay.oseq);
- 	xfrm_aevent_doreplay(x);
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index c16b30a..bc4d66a 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1238,7 +1238,7 @@ static void __xfrm_garbage_collect(void)
+ 	xfrm_prune_bundles(unused_bundle);
+ }
  
--	if (esp->conf.ivlen)
-+	if (esp->conf.ivlen) {
-+		if (unlikely(!esp->conf.ivinitted)) {
-+			get_random_bytes(esp->conf.ivec, esp->conf.ivlen);
-+			esp->conf.ivinitted = 1;
-+		}
- 		crypto_cipher_set_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
+-int xfrm_flush_bundles(void)
++static int xfrm_flush_bundles(void)
+ {
+ 	xfrm_prune_bundles(stale_bundle);
+ 	return 0;
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index a3a7396..b1c0ae7 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -219,8 +219,6 @@ static struct work_struct xfrm_state_gc_
+ static HLIST_HEAD(xfrm_state_gc_list);
+ static DEFINE_SPINLOCK(xfrm_state_gc_lock);
+ 
+-static int xfrm_state_gc_flush_bundles;
 -
-+	}
- 	do {
- 		struct scatterlist *sg = &esp->sgbuf[0];
+ int __xfrm_state_delete(struct xfrm_state *x);
  
-@@ -363,7 +367,7 @@ static int esp_init_state(struct xfrm_st
- 		esp->conf.ivec = kmalloc(esp->conf.ivlen, GFP_KERNEL);
- 		if (unlikely(esp->conf.ivec == NULL))
- 			goto error;
--		get_random_bytes(esp->conf.ivec, esp->conf.ivlen);
-+		esp->conf.ivinitted = 0;
- 	}
- 	if (crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len))
- 		goto error;
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index a278d5e..efa6155 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -95,8 +95,13 @@ static int esp6_output(struct xfrm_state
- 	esph->seq_no = htonl(++x->replay.oseq);
- 	xfrm_aevent_doreplay(x);
+ static struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned short family);
+@@ -255,11 +253,6 @@ static void xfrm_state_gc_task(void *dat
+ 	struct hlist_node *entry, *tmp;
+ 	struct hlist_head gc_list;
  
--	if (esp->conf.ivlen)
-+	if (esp->conf.ivlen) {
-+		if (unlikely(!esp->conf.ivinitted)) {
-+			get_random_bytes(esp->conf.ivec, esp->conf.ivlen);
-+			esp->conf.ivinitted = 1;
-+		}
- 		crypto_cipher_set_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
-+	}
+-	if (xfrm_state_gc_flush_bundles) {
+-		xfrm_state_gc_flush_bundles = 0;
+-		xfrm_flush_bundles();
+-	}
+-
+ 	spin_lock_bh(&xfrm_state_gc_lock);
+ 	gc_list.first = xfrm_state_gc_list.first;
+ 	INIT_HLIST_HEAD(&xfrm_state_gc_list);
+@@ -413,16 +406,6 @@ int __xfrm_state_delete(struct xfrm_stat
+ 		if (del_timer(&x->rtimer))
+ 			__xfrm_state_put(x);
  
- 	do {
- 		struct scatterlist *sg = &esp->sgbuf[0];
-@@ -339,7 +344,7 @@ static int esp6_init_state(struct xfrm_s
- 		esp->conf.ivec = kmalloc(esp->conf.ivlen, GFP_KERNEL);
- 		if (unlikely(esp->conf.ivec == NULL))
- 			goto error;
--		get_random_bytes(esp->conf.ivec, esp->conf.ivlen);
-+		esp->conf.ivinitted = 0;
- 	}
- 	if (crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len))
- 		goto error;
+-		/* The number two in this test is the reference
+-		 * mentioned in the comment below plus the reference
+-		 * our caller holds.  A larger value means that
+-		 * there are DSTs attached to this xfrm_state.
+-		 */
+-		if (atomic_read(&x->refcnt) > 2) {
+-			xfrm_state_gc_flush_bundles = 1;
+-			schedule_work(&xfrm_state_gc_work);
+-		}
+-
+ 		/* All xfrm_state objects are created by xfrm_state_alloc.
+ 		 * The xfrm_state_alloc call gives a reference, and that
+ 		 * is what we are dropping here.
 -- 
 1.4.2.rc2.g3e042
 
