@@ -1,42 +1,44 @@
-From: Arnd Bergmann <arnd.bergmann@de.ibm.com>
-Subject: Re: [2.6.19 PATCH 3/7] ehea: queue management
-Date: Fri, 18 Aug 2006 15:47:46 +0200
-Message-ID: <200608181547.47081.arnd.bergmann@de.ibm.com>
-References: <200608181331.19501.ossthema@de.ibm.com> <1155903451.4494.168.camel@laptopd505.fenrus.org> <44E5BFB7.4000400@de.ibm.com>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [2.6.19 PATCH 1/7] ehea: interface to network stack
+Date: Fri, 18 Aug 2006 15:56:17 +0200
+Message-ID: <1155909377.4494.192.camel@laptopd505.fenrus.org>
+References: <200608181329.02042.ossthema@de.ibm.com>
+	 <20060818134728.GB5201@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Klein <osstklei@de.ibm.com>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
+Cc: Jan-Bernd Themann <ossthema@de.ibm.com>, netdev@vger.kernel.org,
 	Christoph Raisch <raisch@de.ibm.com>,
-	Marcus Eder <meder@de.ibm.com>
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <osstklei@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:10198 "EHLO e4.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1751388AbWHRNru (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 09:47:50 -0400
-To: linuxppc-dev@ozlabs.org
-In-Reply-To: <44E5BFB7.4000400@de.ibm.com>
-Content-Disposition: inline
+Received: from pentafluge.infradead.org ([213.146.154.40]:16291 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1030399AbWHRN4l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Aug 2006 09:56:41 -0400
+To: Alexey Dobriyan <adobriyan@gmail.com>
+In-Reply-To: <20060818134728.GB5201@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 18 August 2006 15:25, Thomas Klein wrote:
+On Fri, 2006-08-18 at 17:47 +0400, Alexey Dobriyan wrote:
+> On Fri, Aug 18, 2006 at 01:29:01PM +0200, Jan-Bernd Themann wrote:
 > 
-> > wow... is this really so large that it warrants a vmalloc()???
-> 
-> Agreed: Replaced with kmalloc()
+> Was there noticeable performance difference when explicit prefetching is
+> removed? At some (invisible) point CPUs will become smarter about prefetching
+> than programmers and this code will be slower than possible.
 
-My understanding from the previous discussion was that it actually
-is a multi-page power of two allocation, so the right choice might
-be __get_free_pages() instead of kmalloc, but it probably doesn't
-make much of a difference.
+Hi,
 
-You should really do some measurements to see what the minimal
-queue sizes are that can get you optimal throughput.
+what you say is true in general, however the packet response part of the
+kernel is special; the cpu just cannot know where your card just dma'd
+the packet to (and thus cleared it from any caches anywhere in the
+system) so it's going to be pretty much a 100% cachemiss always...
 
-	Arnd <><
+Greetings,
+   Arjan van de Ven
+
