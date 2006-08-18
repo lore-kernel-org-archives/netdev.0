@@ -1,96 +1,57 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH,RFC] Re: r8169 driver problem with RTL8110SB chip (on iop3xx ARM board)
-Date: Fri, 18 Aug 2006 23:28:52 +0200
-Message-ID: <20060818212852.GA5379@xi.wantstofly.org>
-References: <20060728101109.GA25854@xi.wantstofly.org>
+From: Ulrich Kunitz <kune@deine-taler.de>
+Subject: Re: proposal for new wireless configuration API
+Date: Fri, 18 Aug 2006 23:29:41 +0200
+Message-ID: <20060818212941.GB28711@p15091797.pureserver.info>
+References: <1155655728.17742.30.camel@ux156> <1155659387.3005.15.camel@localhost.localdomain> <200608151838.58182.mb@bu3sch.de> <20060817232941.GB23163@p15091797.pureserver.info> <1155885125.3425.11.camel@ux156>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, tbm@cyrius.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:46557 "EHLO
-	xi.wantstofly.org") by vger.kernel.org with ESMTP id S1751493AbWHRV2z
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Aug 2006 17:28:55 -0400
-To: romieu@fr.zoreil.com
+Received: from deine-taler.de ([217.160.107.63]:21490 "EHLO
+	p15091797.pureserver.info") by vger.kernel.org with ESMTP
+	id S1751496AbWHRV3m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Aug 2006 17:29:42 -0400
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20060728101109.GA25854@xi.wantstofly.org>
+In-Reply-To: <1155885125.3425.11.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 28, 2006 at 12:11:09PM +0200, Lennert Buytenhek wrote:
+On 06-08-18 09:12 Johannes Berg wrote:
 
-> We're currently working on getting the Thecus n2100 supported in 2.6.
+> On Fri, 2006-08-18 at 01:29 +0200, Ulrich Kunitz wrote:
+> > Or are here people, who
+> > really want to freely transmit on all frequencies their RF might
+> > be able to generate?
 > 
-> 	http://www.thecus.com/products_over.php?cid=1&pid=1
-> 
-> Amongst other nice goodies, it has two on-board RTL8110SB gigabit
-> controllers.  The realtek-supplied 'r1000' driver kind of sort of works,
-> if you don't mind the machine hanging or crashing if you unplug the cable
-> at the wrong moment.
-> 
-> The in-kernel 'r8169' drivers in 2.6.17 and 2.6.18-rc2 appear to work
-> initially, but they don't actually seem to transmit any packets on the
-> wire, nor do they receive any.
+> Yes :P
+> Some amateur radio people asked me about extending the spectrum a bit to
+> the top (apparently they're allowed to use the band just above the ISM
+> band as well).
 
-The hack patch below makes it work.  There's two issues here:
+I had some discussions with radio amateurs about the RFs in the
+ZD1211 devices. Even if I could transmit in their required bands,
+the RFs are so WLAN specific, that they don't fulfill their
+requirements. It's really funny, if somebody explains to you that
+these chips are of extremely low quality. I always try to explain
+to them that the complete devices are sold for only 17 Euros
+including VAT. You cannot expect for this price the quality
+required for long range transmissions at these high frequencies.
 
-1. Writing zero to the upper part of the TxDescStartAddr register (via
-   the MMIO region) somehow also clears the lower part, and writing the
-   upper and lower halves the other way round fixes it.  The RxDescAddr
-   register doesn't seem to suffer from this problem.
+I support the idea that radio amateurs should create their own
+patches if they need it. Supporting the frequencies in the
+interface, is a typical feature used by less than 1% of the user
+base, but would cost more than 80% of the effort. We should also not
+do anything, which would raise the impression, that we want to
+ignore regulatory rules.
 
-   The Realtek r1000 driver writes the two halves in the same order as
-   r8169, but it doesn't happen there, which is a bit of a mystery to
-   me.
+> However, I don't think we need to cater them in the API. I think they
+> ought to be able to live with kernel patches since we don't really know
+> how far up the frequency on say the bcm43xx can go anyway before the
+> card breaks/malfunctions.
 
-2. SYSErr asserts pretty soon after upping eth0, and the PCI status
-   register reports a parity error when this happens.  In this case,
-   the restart logic seems to make things worse, and in fact, when
-   commenting it out, things work a lot better.
+Do they have a separate RF? They data sheets are usually
+available, even if the not always explain the register
+programming.
 
-Have you ever seen these issues before?  Any suggestions on how to
-cleanly fix these issues?
-
-
-cheers,
-Lennert
-
-
-Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
-
-Index: linux-2.6.18-rc2/drivers/net/r8169.c
-===================================================================
---- linux-2.6.18-rc2.orig/drivers/net/r8169.c
-+++ linux-2.6.18-rc2/drivers/net/r8169.c
-@@ -484,7 +488,7 @@ static int rtl8169_poll(struct net_devic
- #endif
- 
- static const u16 rtl8169_intr_mask =
--	SYSErr | LinkChg | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
-+	LinkChg | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
- static const u16 rtl8169_napi_event =
- 	RxOK | RxOverflow | RxFIFOOver | TxOK | TxErr;
- static const unsigned int rtl8169_rx_config =
-@@ -1825,8 +1829,8 @@ rtl8169_hw_start(struct net_device *dev)
- 	 */
- 	RTL_W16(IntrMitigate, 0x0000);
- 
--	RTL_W32(TxDescStartAddrLow, ((u64) tp->TxPhyAddr & DMA_32BIT_MASK));
- 	RTL_W32(TxDescStartAddrHigh, ((u64) tp->TxPhyAddr >> 32));
-+	RTL_W32(TxDescStartAddrLow, ((u64) tp->TxPhyAddr & DMA_32BIT_MASK));
- 	RTL_W32(RxDescAddrLow, ((u64) tp->RxPhyAddr & DMA_32BIT_MASK));
- 	RTL_W32(RxDescAddrHigh, ((u64) tp->RxPhyAddr >> 32));
- 	RTL_W8(Cfg9346, Cfg9346_Lock);
-@@ -2527,10 +2531,12 @@ rtl8169_interrupt(int irq, void *dev_ins
- 		if (!(status & rtl8169_intr_mask))
- 			break;
- 
-+#if 0
- 		if (unlikely(status & SYSErr)) {
- 			rtl8169_pcierr_interrupt(dev);
- 			break;
- 		}
-+#endif
- 
- 		if (status & LinkChg)
- 			rtl8169_check_link_status(dev, tp, ioaddr);
+-- 
+Uli Kunitz
