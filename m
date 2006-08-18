@@ -1,7 +1,7 @@
 From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: [2.6.19 PATCH 6/7] ehea: eHEA Makefile
-Date: Fri, 18 Aug 2006 13:36:08 +0200
-Message-ID: <200608181336.08808.ossthema@de.ibm.com>
+Subject: [2.6.19 PATCH 7/7] ehea: Makefile & Kconfig
+Date: Fri, 18 Aug 2006 13:37:44 +0200
+Message-ID: <200608181337.44153.ossthema@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -14,10 +14,10 @@ Cc: Christoph Raisch <raisch@de.ibm.com>,
 	Thomas Klein <osstklei@de.ibm.com>,
 	Thomas Klein <tklein@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.de.ibm.com ([195.212.29.150]:14960 "EHLO
-	mtagate1.de.ibm.com") by vger.kernel.org with ESMTP
-	id S1030340AbWHRMPj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Aug 2006 08:15:39 -0400
+Received: from mtagate6.de.ibm.com ([195.212.29.155]:14470 "EHLO
+	mtagate6.de.ibm.com") by vger.kernel.org with ESMTP
+	id S1030347AbWHRMRO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Aug 2006 08:17:14 -0400
 Content-Disposition: inline
 To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
@@ -26,18 +26,36 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com> 
 
 
- drivers/net/ehea/Makefile |    7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/Kconfig  |    6 ++++++
+ drivers/net/Makefile |    1 +
+ 2 files changed, 7 insertions(+)
 
 
 
---- linux-2.6.18-rc4-orig/drivers/net/ehea/Makefile	1969-12-31 16:00:00.000000000 -0800
-+++ kernel/drivers/net/ehea/Makefile	2006-08-18 00:01:00.755974823 -0700
-@@ -0,0 +1,7 @@
-+#
-+# Makefile for the eHEA ethernet device driver for IBM eServer System p
-+#
+diff -Nurp -X dontdiff linux-2.6.18-rc4/drivers/net/Kconfig patched_kernel/drivers/net/Kconfig
+--- linux-2.6.18-rc4/drivers/net/Kconfig	2006-08-06 11:20:11.000000000 -0700
++++ patched_kernel/drivers/net/Kconfig	2006-08-08 03:00:49.526421944 -0700
+@@ -2277,6 +2277,12 @@ config CHELSIO_T1
+           To compile this driver as a module, choose M here: the module
+           will be called cxgb.
+ 
++config EHEA
++        tristate "eHEA Ethernet support"
++        depends on IBMEBUS
++        ---help---
++          This driver supports the IBM pSeries ethernet adapter
 +
-+ehea-y = ehea_main.o ehea_phyp.o ehea_qmr.o ehea_ethtool.o ehea_phyp.o
-+obj-$(CONFIG_EHEA) += ehea.o
-+
+ config IXGB
+ 	tristate "Intel(R) PRO/10GbE support"
+ 	depends on PCI
+diff -Nurp -X dontdiff linux-2.6.18-rc4/drivers/net/Makefile patched_kernel/drivers/net/Makefile
+--- linux-2.6.18-rc4/drivers/net/Makefile	2006-08-06 11:20:11.000000000 -0700
++++ patched_kernel/drivers/net/Makefile	2006-08-08 03:00:30.061451584 -0700
+@@ -10,6 +10,7 @@ obj-$(CONFIG_E1000) += e1000/
+ obj-$(CONFIG_IBM_EMAC) += ibm_emac/
+ obj-$(CONFIG_IXGB) += ixgb/
+ obj-$(CONFIG_CHELSIO_T1) += chelsio/
++obj-$(CONFIG_EHEA) += ehea/
+ obj-$(CONFIG_BONDING) += bonding/
+ obj-$(CONFIG_GIANFAR) += gianfar_driver.o
+ 
