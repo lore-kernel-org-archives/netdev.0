@@ -1,47 +1,48 @@
-From: "Leech, Christopher" <christopher.leech@intel.com>
-Subject: RE: I/OAT configuration ?
-Date: Fri, 18 Aug 2006 09:55:22 -0700
-Message-ID: <BD524EA7912ED5469DFD0BAEF6BC752F29656A@orsmsx411.amr.corp.intel.com>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [PATCH 1/1] network memory allocator.
+Date: Fri, 18 Aug 2006 10:04:14 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0608180959190.31844@schroedinger.engr.sgi.com>
+References: <20060814110359.GA27704@2ka.mipt.ru> <20060816142557.acccdfcf.ak@suse.de>
+ <Pine.LNX.4.64.0608171920220.28680@schroedinger.engr.sgi.com>
+ <200608181129.15075.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Arnd Bergmann <arnd@arndb.de>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:26665 "EHLO
-	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
-	id S1030498AbWHRQz0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 12:55:26 -0400
-Content-class: urn:content-classes:message
-To: <ravinandan.arakali@neterion.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
+Received: from omx1-ext.sgi.com ([192.48.179.11]:17825 "EHLO
+	omx1.americas.sgi.com") by vger.kernel.org with ESMTP
+	id S964913AbWHRRIn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Aug 2006 13:08:43 -0400
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <200608181129.15075.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: Ravinandan Arakali
->
-> Hi,
-> I am trying to use I/OAT on one of the newer woodcrest boxes.
-> But not sure if things are configured properly since there
-> seems to be no change in performance with I/OAT enabled
-> or disabled.
-> Following are the steps followed.
-> 1. MSI (CONFIG_PCI_MSI) is enabled in kernel(2.6.16.21).
-> 2. In kernel DMA configuration, following are enabled.
->      Support for DMA Engines
->      Network: TCP receive copy offload
->      Test DMA Client
->      Intel I/OAT DMA support
-> 3. I manually load the ioatdma driver (modprobe ioatdma)
-> 
-> As per some documentation I read, when step #3 is performed
-> successfully, directories dma0chanX is supposed to be created
-> under /sys/class/dma but in my case, this directory stays
-> empty. I don't see any messages in /var/log/messages.
-> Any idea what is missing ?
+On Fri, 18 Aug 2006, Andi Kleen wrote:
 
-Does a PCI device with vendor ID 8086 and device ID 1a38 show up in
-lspci?  That's the embedded DMA engine in the MCH.  It's only in the
-5000 series chipsets, and may require a BIOS setting to enable.  It
-should show up as bus 0 device 8 (00:08.0).
+> Also I must say it's still not quite clear to me if it's better to place
+> network packets on the node the device is connected to or on the 
+> node which contains the CPU who processes the packet data 
+> For RX this can be three different nodes in the worst case
+> (CPU processing is often split on different CPUs between softirq
+> and user context), for TX  two. Do you have some experience that shows 
+> that a particular placement is better than the other?
 
-- Chris
+The more nodes are involved the more numa traffic and the slower the 
+overall performance. It is best to place all control information on the 
+node of the network card. The actual data is read via DMA and one may
+place that local to the executing process. The DMA transfer will then have 
+to cross the NUMA interlink but that DMA transfer is a linear and 
+predictable stream that can often be optimized by hardware. If you 
+would create the data on the network node then you would have off 
+node overhead when creating the data (random acces to cache lines?) which 
+is likely worse.
+
+One should be able to place the process near the node that has the network 
+card. Our machines typically have multiple network cards. It would be best 
+if the network stack could choose the one that is nearest to the process.
+
