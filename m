@@ -1,41 +1,38 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: RE: proposal for new wireless configuration API
-Date: Fri, 18 Aug 2006 09:01:47 +0200
-Message-ID: <1155884507.3425.5.camel@ux156>
-References: <C86180A8C204554D8A3323D8F6B0A29F0165B02D@dhost002-46.dex002.intermedia.net>
+Subject: Re: proposal for new wireless configuration API
+Date: Fri, 18 Aug 2006 09:12:05 +0200
+Message-ID: <1155885125.3425.11.camel@ux156>
+References: <1155655728.17742.30.camel@ux156>
+	 <1155659387.3005.15.camel@localhost.localdomain>
+	 <200608151838.58182.mb@bu3sch.de>
+	 <20060817232941.GB23163@p15091797.pureserver.info>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
-	Jean Tourrilhes <jt@hpl.hp.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:54212 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750776AbWHRHCB
+Received: from crystal.sipsolutions.net ([195.210.38.204]:63149 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750794AbWHRHLh
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Aug 2006 03:02:01 -0400
-To: Simon Barber <simon@devicescape.com>
-In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F0165B02D@dhost002-46.dex002.intermedia.net>
+	Fri, 18 Aug 2006 03:11:37 -0400
+To: Ulrich Kunitz <kune@deine-taler.de>
+In-Reply-To: <20060817232941.GB23163@p15091797.pureserver.info>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-08-17 at 09:42 -0700, Simon Barber wrote:
-> The spec for RSSI is very loose - RSSI is just a 8 bit unsigned number,
-> guaranteed to be a monotonically increasing function of signal strength.
-> You don't get to know anything about the scale, or linearity of the
-> function. In essence RSSI is a vendor specific value, of no known units.
-> Not very useful unless you know some card specific details to help
-> interpret it.
+On Fri, 2006-08-18 at 01:29 +0200, Ulrich Kunitz wrote:
+> Or are here people, who
+> really want to freely transmit on all frequencies their RF might
+> be able to generate?
 
-Yeah, if you knew at least linearity it'd be more useful.
+Yes :P
+Some amateur radio people asked me about extending the spectrum a bit to
+the top (apparently they're allowed to use the band just above the ISM
+band as well).
 
-> Now some cards return a signal strength in dBm as the RSSI - note that
-> this fits the requirements of a RSSI measure just fine. RCPI is simply a
-                                  ^^^^
-did you mean to write RCPI there?
-
-> more tightly specified signal strength measure.
-
-Ah, ok. Yes, I think we almost know how to make the bcm card report dBm
-instead.
+However, I don't think we need to cater them in the API. I think they
+ought to be able to live with kernel patches since we don't really know
+how far up the frequency on say the bcm43xx can go anyway before the
+card breaks/malfunctions.
 
 johannes
