@@ -1,66 +1,102 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 4/6] IP100A Change search phy addr start form 0
-Date: Fri, 18 Aug 2006 07:20:22 -0400
-Message-ID: <44E5A276.3050708@pobox.com>
-References: <1155841636.4532.16.camel@localhost.localdomain>
+Subject: Re: [PATCH 2/6] IP100A Fix Tx pause bug
+Date: Fri, 18 Aug 2006 07:27:33 -0400
+Message-ID: <44E5A425.8020200@pobox.com>
+References: <1155841445.4532.10.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:8152 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932405AbWHRLUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 07:20:25 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:26840 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932426AbWHRL1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 07:27:36 -0400
 To: Jesse Huang <jesse@icplus.com.tw>
-In-Reply-To: <1155841636.4532.16.camel@localhost.localdomain>
+In-Reply-To: <1155841445.4532.10.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Jesse Huang wrote:
-> From: Jesse Huang <jesse@icplus.com.tw>
-> 
-> Change search phy addr start form 0
-> 
-> Change Logs:
->     Change search phy addr start form 0
-> 
-> ---
-> 
->  drivers/net/sundance.c |    5 +++--
->  1 files changed, 3 insertions(+), 2 deletions(-)
-> 
-> 212cd4ffa21a57300eae4254bf02e5b33b96f544
-> diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
-> index 2bde1b3..f63871a 100755
-> --- a/drivers/net/sundance.c
-> +++ b/drivers/net/sundance.c
-> @@ -21,7 +21,7 @@
->  */
->  
->  #define DRV_NAME	"sundance"
-> -#define DRV_VERSION	"1.01+LK1.13"
-> +#define DRV_VERSION	"1.01+LK1.14"
->  #define DRV_RELDATE	"04-Aug-2006"
->  
->  
-> @@ -559,8 +559,9 @@ #endif
->  	/*
->  	 * It seems some phys doesn't deal well with address 0 being accessed
->  	 * first, so leave address zero to the end of the loop (32 & 31).
-> +	 * for IP100A the phy should start from 0
->  	 */
-> -	for (phy = 1; phy <= 32 && phy_idx < MII_CNT; phy++) {
-> +	for (phy = 0; phy <= 32 && phy_idx < MII_CNT; phy++) {
->  		int phyx = phy & 0x1f;
->  		int mii_status = mdio_read(dev, phyx, MII_BMSR);
->  		if (mii_status != 0xffff  &&  mii_status != 0x0000) {
+> @@ -1099,6 +1099,10 @@ reset_tx (struct net_device *dev)
+>  	}
+>  	np->cur_tx = np->dirty_tx = 0;
+>  	np->cur_task = 0;
+> +	
+> +	np->last_tx=0;
 
-For IP100A, is the phy built into the chip?
+add whitespace, to make it look like all other assignments:
+s/=/ = /
 
-For a standard DP83840[A] phy, phy #0 is a "ghost" which mirrors another 
-phy.  For this reason, we scan phy #0 last.
 
-Does the above code not work?
+> +	iowrite8(127, ioaddr + TxDMAPollPeriod);	
+> +	
+
+what does the value 127 represent?
+
+
+>  	iowrite16 (StatsEnable | RxEnable | TxEnable, ioaddr + MACCtrl1);
+>  	return 0;
+>  }
+> @@ -1156,29 +1160,29 @@ static irqreturn_t intr_handler(int irq,
+>  						np->stats.tx_fifo_errors++;
+>  					if (tx_status & 0x02)
+>  						np->stats.tx_window_errors++;
+> -					/*
+> -					** This reset has been verified on
+> -					** DFE-580TX boards ! phdm@macqel.be.
+> -					*/
+> -					if (tx_status & 0x10) {	/* TxUnderrun */
+> -						unsigned short txthreshold;
+> -
+> -						txthreshold = ioread16 (ioaddr + TxStartThresh);
+> -						/* Restart Tx FIFO and transmitter */
+> -						sundance_reset(dev, (NetworkReset|FIFOReset|TxReset) << 16);
+> -						iowrite16 (txthreshold, ioaddr + TxStartThresh);
+> -						/* No need to reset the Tx pointer here */
+> +
+> +					/* FIFO ERROR need to be reset tx */
+> +					if (tx_status & 0x10) {	/* Reset the Tx. */
+> +						spin_lock(&np->lock);
+> +						reset_tx(dev);
+> +						spin_unlock(&np->lock);
+> +					}
+> +					if (tx_status & 0x1e) {
+> +					/* need to make sure tx enabled */
+> +						int i = 10;
+> +						do {
+> +							iowrite16 (ioread16(ioaddr + MACCtrl1) | TxEnable, ioaddr + MACCtrl1);
+> +							if (ioread16(ioaddr + MACCtrl1) & TxEnabled)
+> +								break;
+> +							mdelay(1);
+> +						} while (--i);
+>  					}
+> -					/* Restart the Tx. */
+> -					iowrite16 (TxEnable, ioaddr + MACCtrl1);
+>  				}
+> -				/* Yup, this is a documentation bug.  It cost me *hours*. */
+> +				
+>  				iowrite16 (0, ioaddr + TxStatus);
+> -				if (tx_cnt < 0) {
+> -					iowrite32(5000, ioaddr + DownCounter);
+> -					break;
+> -				}
+>  				tx_status = ioread16 (ioaddr + TxStatus);
+> +				if (tx_cnt < 0)
+> +					break;
+>  			}
+>  			hw_frame_id = (tx_status >> 8) & 0xff;
+>  		} else 	{
+> @@ -1244,6 +1248,9 @@ static irqreturn_t intr_handler(int irq,
+>  	if (netif_msg_intr(np))
+>  		printk(KERN_DEBUG "%s: exiting interrupt, status=%#4.4x.\n",
+>  			   dev->name, ioread16(ioaddr + IntrStatus));
+> +			   
+> +	iowrite32(5000, ioaddr + DownCounter); 
+> +				   
+>  	return IRQ_RETVAL(handled);
+
+DownCounter should not be written unconditionally.  Consider shared 
+interrupts, where sundance performs no work, and handled==0.
 
 	Jeff
 
