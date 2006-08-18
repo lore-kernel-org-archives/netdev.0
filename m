@@ -1,71 +1,90 @@
-From: "John Que" <qwejohn@gmail.com>
-Subject: Re: time stamps of skb packets in NF_HOOKS callbacks
-Date: Fri, 18 Aug 2006 08:43:08 +0300
-Message-ID: <ada605fb0608172243raeff154q728bdd026b5b1d31@mail.gmail.com>
-References: <ada605fb0608170737m4c0096c4u33a70dcf37e09df8@mail.gmail.com>
-	 <20060817155835.GA11898@2ka.mipt.ru>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: crash in ipt_do_table
+Date: Fri, 18 Aug 2006 07:45:59 +0200
+Message-ID: <44E55417.2000508@trash.net>
+References: <20060815005422.0c47bddb.akpm@osdl.org>	<44E1D3A2.3020604@trash.net> <20060817.181403.78708132.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------020105070000050109090809"
+Cc: chris@ex-parrot.com, akpm@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:36948 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S964804AbWHRFnJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Aug 2006 01:43:09 -0400
-Received: by nf-out-0910.google.com with SMTP id o25so1183142nfa
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2006 22:43:08 -0700 (PDT)
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060817155835.GA11898@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:26754 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S964808AbWHRFqD
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Aug 2006 01:46:03 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060817.181403.78708132.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy,
-Sorry ! ; last sentence in my reply was chopped so here is my message
-again with this last sentence (complete this time)
+This is a multi-part message in MIME format.
+--------------020105070000050109090809
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Thnks, I appreciate your (quick) answer;
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Tue, 15 Aug 2006 16:01:06 +0200
+> 
+> 
+>>Any chance you're also changing your ruleset dynamically? If yes
+>>this patch might help.
+> 
+> 
+> I've applied this.
 
+Thanks, but it seems you applied the first patch I sent, which was
+missing the same fix for arp_tables. This patch contains the missing
+bits.
 
-Following your answer I tried adding a call to net_enable_timestamp() in
-a module I wrote which use NF_HOOKS.
-This is what is done , for example, in ipq_rcv_skb(struct sk_buff *skb)
-in linux-2.6.14 in net/ipv4/netfilter/ip_queue.c.
-
-After doing so I get timestamps which are not 0.
-
-what I wonder now is :
-1) does this have ANY performance implication (when dealing with a
-high  network  load which can get to 50,000 packets per second?
-2) It does work as I said, but I want to be cautios: Am I permitted to
-add this method ? are  there any  implications for adding this method
-which can create troubles ?
-I must say that I am NOT changing anywhere the timestamp; it's only
-for statistics.
-
-Regards,
-John
+I'm going to send the (combined) patch to -stable as well, this bug
+seems to have hit quite a few people.
 
 
+--------------020105070000050109090809
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
+[NETFILTER]: arp_tables: fix table locking in arpt_do_table
 
-On 8/17/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> On Thu, Aug 17, 2006 at 05:37:15PM +0300, John Que (qwejohn@gmail.com) wrote:
-> > Hello,
-> > I am using NF_HOOKS (a "PRE_ROUTING" hook).
-> > When I try to print the time stamps (sec and usec) of skb packets
-> > which I recieve
-> > in the hook callback I get 0. Other skb fileds are correct.
-> > According to my understanding, the time stamp should be updated
-> > when the packet is received. Isn't it so ? Any idea why am I getting
-> > "0" for tstamp fields (tstamp is a field in sk_buff and is  an intance
-> > of skb_timeval).
->
-> Timestamps are disabled by default, if you have sockets which enable
-> SO_TIMESTAMP or netfilter queue target and other agents which can enable
-> it, you will see updated values in skb->tstamp.
->
-> --
->         Evgeniy Polyakov
->
+table->private might change because of ruleset changes, don't use it without
+holding the lock.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit 338fe5c67e8fb799c9e3470331db6f3c60a31b1e
+tree 2dc15d63244ed18a8035ae483ae2d722e7fbcf62
+parent 32ce9bc41528c327b1353713b2108d2213128dee
+author Patrick McHardy <kaber@trash.net> Tue, 15 Aug 2006 16:06:57 +0200
+committer Patrick McHardy <kaber@trash.net> Tue, 15 Aug 2006 16:06:57 +0200
+
+ net/ipv4/netfilter/arp_tables.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index df4854c..8d1d7a6 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -236,7 +236,7 @@ unsigned int arpt_do_table(struct sk_buf
+ 	struct arpt_entry *e, *back;
+ 	const char *indev, *outdev;
+ 	void *table_base;
+-	struct xt_table_info *private = table->private;
++	struct xt_table_info *private;
+ 
+ 	/* ARP header, plus 2 device addresses, plus 2 IP addresses.  */
+ 	if (!pskb_may_pull((*pskb), (sizeof(struct arphdr) +
+@@ -248,6 +248,7 @@ unsigned int arpt_do_table(struct sk_buf
+ 	outdev = out ? out->name : nulldevname;
+ 
+ 	read_lock_bh(&table->lock);
++	private = table->private;
+ 	table_base = (void *)private->entries[smp_processor_id()];
+ 	e = get_entry(table_base, private->hook_entry[hook]);
+ 	back = get_entry(table_base, private->underflow[hook]);
+
+--------------020105070000050109090809--
