@@ -1,38 +1,45 @@
-From: Daniel Phillips <phillips@google.com>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Thu, 17 Aug 2006 17:35:41 -0700
-Message-ID: <44E50B5D.9060506@google.com>
-References: <20060808211731.GR14627@postel.suug.ch>	<44DBED4C.6040604@redhat.com>	<44DFA225.1020508@google.com>	<20060813.165540.56347790.davem@davemloft.net>	<44DFD262.5060106@google.com>	<20060813185309.928472f9.akpm@osdl.org>	<1155530453.5696.98.camel@twins>	<20060813215853.0ed0e973.akpm@osdl.org>	<44E3E964.8010602@google.com> <20060816225726.3622cab1.akpm@osdl.org> <44E5015D.80606@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: bonding: cannot remove certain named devices
+Date: Thu, 17 Aug 2006 18:01:19 -0700 (PDT)
+Message-ID: <20060817.180119.74753683.davem@davemloft.net>
+References: <1155799783.7566.5.camel@capoeira>
+	<20060817.162340.74748342.davem@davemloft.net>
+	<1155861283.15195.112.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	David Miller <davem@davemloft.net>, riel@redhat.com,
-	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.12]:54662 "EHLO
-	smtp-out.google.com") by vger.kernel.org with ESMTP id S932099AbWHRAjH
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 20:39:07 -0400
-To: Daniel Phillips <phillips@google.com>
-In-Reply-To: <44E5015D.80606@google.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: xavier.bestel@free.fr, 7eggert@gmx.de, notting@redhat.com,
+	cate@debian.org, 7eggert@elstempel.de, shemminger@osdl.org,
+	mitch.a.williams@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932180AbWHRBBM@vger.kernel.org>
+To: alan@lxorguk.ukuu.org.uk
+In-Reply-To: <1155861283.15195.112.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniel Phillips wrote:
-> Andrew Morton wrote:
->> Processes which are dirtying those pages throttle at
->> /proc/sys/vm/dirty_ratio% of memory dirty.  So it is not possible to "fill"
->> memory with dirty pages.  If the amount of physical memory which is dirty
->> exceeds 40%: bug.
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Fri, 18 Aug 2006 01:34:43 +0100
+
+> Ar Iau, 2006-08-17 am 16:23 -0700, ysgrifennodd David Miller:
+> > All you "name purists", go rename the block device name that is used
+> > for your root partition to something with a space in it
 > 
-> So we make 400 MB of a 1 GB system unavailable for write caching just to
-> get around the network receive starvation issue?
+> Works fine. It doesn't work fine for non root volumes (except by label)
+> because of the fstab format but root is ok !
 
-Excuse me, 600 MB of a 1 GB system :-/
+Check out how your root device would be fsck'd.  The command line run
+by the /etc/init* scripts either doesn't quote the device argument or
+it consults fstab which as you said has limitations when dealing with
+spaces.
 
-Regards,
+It's either going to do something like $device (this is what debian
+derived systems do), unquoted, or it will do "fsck -A" which runs into
+said fstab format limitations (which is what fedora does).
 
-Daniel
+Either way the point is that this issue is scattered all over the
+place.
+
+Preventing spaces in the name doesn't prevent the use of names in non-
+romanized languages any moreso than preventing ".", "..", and "/"
+already does.
