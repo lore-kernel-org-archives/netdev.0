@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHSET] IPv4 FIB configuration conversions
-Date: Thu, 17 Aug 2006 18:16:09 -0700 (PDT)
-Message-ID: <20060817.181609.112622635.davem@davemloft.net>
-References: <20060815145723.147333034@postel.suug.ch>
+Subject: Re: [PATCH] neighbour: reduce exports
+Date: Thu, 17 Aug 2006 18:18:08 -0700 (PDT)
+Message-ID: <20060817.181808.85411328.davem@davemloft.net>
+References: <20060815125630.42ca9451@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:43731
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:44755
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932270AbWHRBQA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 21:16:00 -0400
-To: tgraf@suug.ch
-In-Reply-To: <20060815145723.147333034@postel.suug.ch>
+	id S932261AbWHRBR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Aug 2006 21:17:59 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060815125630.42ca9451@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Tue, 15 Aug 2006 16:57:23 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Tue, 15 Aug 2006 12:56:30 -0700
 
-> Replaces the rather ugly struct kern_rta + rtmsg with a new
-> struct fib_config while converting everything to the new netlink
-> api. Simplifies the FIB module interface quite a bit and allows
-> changing internals while keeping a stable netlink interface.
+> There are several symbols only used by rtnetlink and since it can
+> not be a module, there is no reason to export them.
 > 
-> Gets rid of things like passing on netlink_skb_parms all around
-> the fib code etc.
-> 
-> Also fixes some memory corruptions that could be triggered via
-> netlink messages, not sure which would actually lead to an oops
-> though.
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-All applied, thanks a lot Thomas.
+Applied.
+
+> -static __inline__ void neigh_update_hhs(struct neighbour *neigh)
+> +static void neigh_update_hhs(struct neighbour *neigh)
+ ...
+> -EXPORT_SYMBOL(neigh_update_hhs);
+
+Nice to see we were trying to export a static inline function :)
