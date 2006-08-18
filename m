@@ -1,406 +1,466 @@
 From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH 2/5][SCTP]: Cleanup nomem handling in the state functions.
-Date: Fri, 18 Aug 2006 11:22:33 -0700
-Message-ID: <1155925353.20802.26.camel@w-sridhar2.beaverton.ibm.com>
+Subject: [PATCH 3/5][SCTP]: Remove multiple levels of msecs to jiffies
+	conversions.
+Date: Fri, 18 Aug 2006 11:22:37 -0700
+Message-ID: <1155925357.20802.27.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:33978 "EHLO e4.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S964914AbWHRS2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 14:28:41 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e4.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k7IISeEA008193
-	for <netdev@vger.kernel.org>; Fri, 18 Aug 2006 14:28:40 -0400
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:25787 "EHLO e1.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S964912AbWHRS2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 14:28:46 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e1.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k7IISjB1032382
+	for <netdev@vger.kernel.org>; Fri, 18 Aug 2006 14:28:45 -0400
 Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7IISeXf295242
-	for <netdev@vger.kernel.org>; Fri, 18 Aug 2006 14:28:40 -0400
+	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7IISjTT259066
+	for <netdev@vger.kernel.org>; Fri, 18 Aug 2006 14:28:45 -0400
 Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7IISeqN009712
-	for <netdev@vger.kernel.org>; Fri, 18 Aug 2006 14:28:40 -0400
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7IISiqu009950
+	for <netdev@vger.kernel.org>; Fri, 18 Aug 2006 14:28:44 -0400
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[SCTP]: Cleanup nomem handling in the state functions.
+[SCTP]: Remove multiple levels of msecs to jiffies conversions.
 
-This patch cleans up the "nomem" conditions that may occur during the
-processing by the state machine functions. In most cases we delay adding
-side-effect commands until all memory allocations are done.
+The SCTP sysctl entries are displayed in milliseconds, but stored
+internally in jiffies. This results in multiple levels of msecs to
+jiffies conversion and as a result produces a truncation error. This
+patch makes things consistent in that we store and display defaults
+in milliseconds and only convert once for use by association.
+This patch also adds some sane min/max values so that we don't go off
+the deep end.
 
 Signed-off-by: Vladislav Yasevich <vladislav.yasevich@hp.com>
 Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
 ---
 
- net/sctp/sm_statefuns.c |  159 +++++++++++++++++++++++++----------------------
- 1 files changed, 86 insertions(+), 73 deletions(-)
+ include/net/sctp/constants.h |   13 ++--
+ include/net/sctp/structs.h   |   12 ++--
+ net/sctp/protocol.c          |    2 -
+ net/sctp/socket.c            |   15 ++---
+ net/sctp/sysctl.c            |  140 +++++++++++++++++++-----------------------
+ net/sctp/transport.c         |    2 -
+ 6 files changed, 84 insertions(+), 100 deletions(-)
 
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index f956c92..0f2dfa2 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -187,10 +187,9 @@ sctp_disposition_t sctp_sf_do_4_C(const 
+diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+index c51541e..df65a72 100644
+--- a/include/net/sctp/constants.h
++++ b/include/net/sctp/constants.h
+@@ -264,10 +264,10 @@ enum { SCTP_MAX_DUP_TSNS = 16 };
+ enum { SCTP_MAX_GABS = 16 };
+ 
+ /* Heartbeat interval - 30 secs */
+-#define SCTP_DEFAULT_TIMEOUT_HEARTBEAT	(30 * HZ)
++#define SCTP_DEFAULT_TIMEOUT_HEARTBEAT	(30*1000)
+ 
+ /* Delayed sack timer - 200ms */
+-#define SCTP_DEFAULT_TIMEOUT_SACK	((200 * HZ) / 1000)
++#define SCTP_DEFAULT_TIMEOUT_SACK	(200)
+ 
+ /* RTO.Initial              - 3  seconds
+  * RTO.Min                  - 1  second
+@@ -275,9 +275,9 @@ #define SCTP_DEFAULT_TIMEOUT_SACK	((200 
+  * RTO.Alpha                - 1/8
+  * RTO.Beta                 - 1/4
+  */
+-#define SCTP_RTO_INITIAL	(3 * HZ)
+-#define SCTP_RTO_MIN		(1 * HZ)
+-#define SCTP_RTO_MAX		(60 * HZ)
++#define SCTP_RTO_INITIAL	(3 * 1000)
++#define SCTP_RTO_MIN		(1 * 1000)
++#define SCTP_RTO_MAX		(60 * 1000)
+ 
+ #define SCTP_RTO_ALPHA          3   /* 1/8 when converted to right shifts. */
+ #define SCTP_RTO_BETA           2   /* 1/4 when converted to right shifts. */
+@@ -290,8 +290,7 @@ #define SCTP_CLOCK_GRANULARITY	1	/* 1 ji
+ #define SCTP_DEF_MAX_INIT 6
+ #define SCTP_DEF_MAX_SEND 10
+ 
+-#define SCTP_DEFAULT_COOKIE_LIFE_SEC	60 /* seconds */
+-#define SCTP_DEFAULT_COOKIE_LIFE_USEC	0  /* microseconds */
++#define SCTP_DEFAULT_COOKIE_LIFE	(60 * 1000) /* 60 seconds */
+ 
+ #define SCTP_DEFAULT_MINWINDOW	1500	/* default minimum rwnd size */
+ #define SCTP_DEFAULT_MAXWINDOW	65535	/* default rwnd size */
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index e5aa7ff..2243bb7 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -127,9 +127,9 @@ extern struct sctp_globals {
+ 	 * RTO.Alpha		    - 1/8  (3 when converted to right shifts.)
+ 	 * RTO.Beta		    - 1/4  (2 when converted to right shifts.)
  	 */
- 	ev = sctp_ulpevent_make_assoc_change(asoc, 0, SCTP_SHUTDOWN_COMP,
- 					     0, 0, 0, GFP_ATOMIC);
--	if (!ev)
--		goto nomem;
--
--	sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP, SCTP_ULPEVENT(ev));
-+	if (ev)
-+		sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
-+			        SCTP_ULPEVENT(ev));
+-	unsigned long rto_initial;
+-	unsigned long rto_min;
+-	unsigned long rto_max;
++	unsigned int rto_initial;
++	unsigned int rto_min;
++	unsigned int rto_max;
  
- 	/* Upon reception of the SHUTDOWN COMPLETE chunk the endpoint
- 	 * will verify that it is in SHUTDOWN-ACK-SENT state, if it is
-@@ -215,9 +214,6 @@ sctp_disposition_t sctp_sf_do_4_C(const 
- 	sctp_add_cmd_sf(commands, SCTP_CMD_DELETE_TCB, SCTP_NULL());
+ 	/* Note: rto_alpha and rto_beta are really defined as inverse
+ 	 * powers of two to facilitate integer operations.
+@@ -144,13 +144,13 @@ extern struct sctp_globals {
+ 	int cookie_preserve_enable;
  
- 	return SCTP_DISPOSITION_DELETE_TCB;
--
--nomem:
--	return SCTP_DISPOSITION_NOMEM;
- }
+ 	/* Valid.Cookie.Life	    - 60  seconds  */
+-	unsigned long valid_cookie_life;
++	unsigned int valid_cookie_life;
  
- /*
-@@ -347,8 +343,6 @@ sctp_disposition_t sctp_sf_do_5_1B_init(
- 			       GFP_ATOMIC))
- 		goto nomem_init;
+ 	/* Delayed SACK timeout  200ms default*/
+-	unsigned long sack_timeout;
++	unsigned int sack_timeout;
  
--	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_ASOC, SCTP_ASOC(new_asoc));
--
- 	/* B) "Z" shall respond immediately with an INIT ACK chunk.  */
+ 	/* HB.interval		    - 30 seconds  */
+-	unsigned long hb_interval;
++	unsigned int hb_interval;
  
- 	/* If there are errors need to be reported for unknown parameters,
-@@ -360,11 +354,11 @@ sctp_disposition_t sctp_sf_do_5_1B_init(
- 			sizeof(sctp_chunkhdr_t);
+ 	/* Association.Max.Retrans  - 10 attempts
+ 	 * Path.Max.Retrans	    - 5	 attempts (per destination address)
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 1ab03a2..5692ef5 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -1049,7 +1049,7 @@ SCTP_STATIC __init int sctp_init(void)
+ 	sctp_rto_beta			= SCTP_RTO_BETA;
  
- 	if (sctp_assoc_set_bind_addr_from_ep(new_asoc, GFP_ATOMIC) < 0)
--		goto nomem_ack;
-+		goto nomem_init;
+ 	/* Valid.Cookie.Life        - 60  seconds */
+-	sctp_valid_cookie_life		= 60 * HZ;
++	sctp_valid_cookie_life		= SCTP_DEFAULT_COOKIE_LIFE;
  
- 	repl = sctp_make_init_ack(new_asoc, chunk, GFP_ATOMIC, len);
- 	if (!repl)
--		goto nomem_ack;
-+		goto nomem_init;
+ 	/* Whether Cookie Preservative is enabled(1) or not(0) */
+ 	sctp_cookie_preserve_enable 	= 1;
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 54722e6..48eeb26 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -3033,14 +3033,14 @@ SCTP_STATIC int sctp_init_sock(struct so
+ 	sp->initmsg.sinit_num_ostreams   = sctp_max_outstreams;
+ 	sp->initmsg.sinit_max_instreams  = sctp_max_instreams;
+ 	sp->initmsg.sinit_max_attempts   = sctp_max_retrans_init;
+-	sp->initmsg.sinit_max_init_timeo = jiffies_to_msecs(sctp_rto_max);
++	sp->initmsg.sinit_max_init_timeo = sctp_rto_max;
  
- 	/* If there are errors need to be reported for unknown parameters,
- 	 * include them in the outgoing INIT ACK as "Unrecognized parameter"
-@@ -388,6 +382,8 @@ sctp_disposition_t sctp_sf_do_5_1B_init(
- 		sctp_chunk_free(err_chunk);
- 	}
- 
-+	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_ASOC, SCTP_ASOC(new_asoc));
-+
- 	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(repl));
- 
- 	/*
-@@ -400,12 +396,11 @@ sctp_disposition_t sctp_sf_do_5_1B_init(
- 
- 	return SCTP_DISPOSITION_DELETE_TCB;
- 
--nomem_ack:
--	if (err_chunk)
--		sctp_chunk_free(err_chunk);
- nomem_init:
- 	sctp_association_free(new_asoc);
- nomem:
-+	if (err_chunk)
-+		sctp_chunk_free(err_chunk);
- 	return SCTP_DISPOSITION_NOMEM;
- }
- 
-@@ -600,7 +595,7 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(co
- 	struct sctp_association *new_asoc;
- 	sctp_init_chunk_t *peer_init;
- 	struct sctp_chunk *repl;
--	struct sctp_ulpevent *ev;
-+	struct sctp_ulpevent *ev, *ai_ev = NULL;
- 	int error = 0;
- 	struct sctp_chunk *err_chk_p;
- 
-@@ -659,20 +654,10 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(co
- 		};
- 	}
- 
--	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_ASOC, SCTP_ASOC(new_asoc));
--	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_STATE,
--			SCTP_STATE(SCTP_STATE_ESTABLISHED));
--	SCTP_INC_STATS(SCTP_MIB_CURRESTAB);
--	SCTP_INC_STATS(SCTP_MIB_PASSIVEESTABS);
--	sctp_add_cmd_sf(commands, SCTP_CMD_HB_TIMERS_START, SCTP_NULL());
--
--	if (new_asoc->autoclose)
--		sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_START,
--				SCTP_TO(SCTP_EVENT_TIMEOUT_AUTOCLOSE));
- 
--	sctp_add_cmd_sf(commands, SCTP_CMD_TRANSMIT, SCTP_NULL());
--
--	/* Re-build the bind address for the association is done in
-+	/* Delay state machine commands until later.
-+	 *
-+	 * Re-build the bind address for the association is done in
- 	 * the sctp_unpack_cookie() already.
+ 	/* Initialize default RTO related parameters.  These parameters can
+ 	 * be modified for with the SCTP_RTOINFO socket option.
  	 */
- 	/* This is a brand-new association, so these are not yet side
-@@ -687,9 +672,7 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(co
+-	sp->rtoinfo.srto_initial = jiffies_to_msecs(sctp_rto_initial);
+-	sp->rtoinfo.srto_max     = jiffies_to_msecs(sctp_rto_max);
+-	sp->rtoinfo.srto_min     = jiffies_to_msecs(sctp_rto_min);
++	sp->rtoinfo.srto_initial = sctp_rto_initial;
++	sp->rtoinfo.srto_max     = sctp_rto_max;
++	sp->rtoinfo.srto_min     = sctp_rto_min;
  
- 	repl = sctp_make_cookie_ack(new_asoc, chunk);
- 	if (!repl)
--		goto nomem_repl;
--
--	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(repl));
-+		goto nomem_init;
+ 	/* Initialize default association related parameters. These parameters
+ 	 * can be modified with the SCTP_ASSOCINFO socket option.
+@@ -3049,8 +3049,7 @@ SCTP_STATIC int sctp_init_sock(struct so
+ 	sp->assocparams.sasoc_number_peer_destinations = 0;
+ 	sp->assocparams.sasoc_peer_rwnd = 0;
+ 	sp->assocparams.sasoc_local_rwnd = 0;
+-	sp->assocparams.sasoc_cookie_life = 
+-		jiffies_to_msecs(sctp_valid_cookie_life);
++	sp->assocparams.sasoc_cookie_life = sctp_valid_cookie_life;
  
- 	/* RFC 2960 5.1 Normal Establishment of an Association
- 	 *
-@@ -704,28 +687,53 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(co
- 	if (!ev)
- 		goto nomem_ev;
- 
--	sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP, SCTP_ULPEVENT(ev));
--
- 	/* Sockets API Draft Section 5.3.1.6 	
- 	 * When a peer sends a Adaption Layer Indication parameter , SCTP
- 	 * delivers this notification to inform the application that of the
- 	 * peers requested adaption layer.
+ 	/* Initialize default event subscriptions. By default, all the
+ 	 * options are off. 
+@@ -3060,10 +3059,10 @@ SCTP_STATIC int sctp_init_sock(struct so
+ 	/* Default Peer Address Parameters.  These defaults can
+ 	 * be modified via SCTP_PEER_ADDR_PARAMS
  	 */
- 	if (new_asoc->peer.adaption_ind) {
--		ev = sctp_ulpevent_make_adaption_indication(new_asoc,
-+		ai_ev = sctp_ulpevent_make_adaption_indication(new_asoc,
- 							    GFP_ATOMIC);
--		if (!ev)
--			goto nomem_ev;
-+		if (!ai_ev)
-+			goto nomem_aiev;
-+	}
+-	sp->hbinterval  = jiffies_to_msecs(sctp_hb_interval);
++	sp->hbinterval  = sctp_hb_interval;
+ 	sp->pathmaxrxt  = sctp_max_retrans_path;
+ 	sp->pathmtu     = 0; // allow default discovery
+-	sp->sackdelay   = jiffies_to_msecs(sctp_sack_timeout);
++	sp->sackdelay   = sctp_sack_timeout;
+ 	sp->param_flags = SPP_HB_ENABLE |
+ 	                  SPP_PMTUD_ENABLE |
+ 	                  SPP_SACKDELAY_ENABLE;
+diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+index dc6f3ff..633cd17 100644
+--- a/net/sctp/sysctl.c
++++ b/net/sctp/sysctl.c
+@@ -45,9 +45,10 @@ #include <net/sctp/structs.h>
+ #include <net/sctp/sctp.h>
+ #include <linux/sysctl.h>
  
-+	/* Add all the state machine commands now since we've created
-+	 * everything.  This way we don't introduce memory corruptions
-+	 * during side-effect processing and correclty count established
-+	 * associations.
-+	 */
-+	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_ASOC, SCTP_ASOC(new_asoc));
-+	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_STATE,
-+			SCTP_STATE(SCTP_STATE_ESTABLISHED));
-+	SCTP_INC_STATS(SCTP_MIB_CURRESTAB);
-+	SCTP_INC_STATS(SCTP_MIB_PASSIVEESTABS);
-+	sctp_add_cmd_sf(commands, SCTP_CMD_HB_TIMERS_START, SCTP_NULL());
-+
-+	if (new_asoc->autoclose)
-+		sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_START,
-+				SCTP_TO(SCTP_EVENT_TIMEOUT_AUTOCLOSE));
-+
-+	sctp_add_cmd_sf(commands, SCTP_CMD_TRANSMIT, SCTP_NULL());
-+
-+	/* This will send the COOKIE ACK */
-+	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(repl));
-+
-+	/* Queue the ASSOC_CHANGE event */
-+	sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP, SCTP_ULPEVENT(ev));
-+
-+	/* Send up the Adaptation Layer Indication event */
-+	if (ai_ev)
- 		sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
--				SCTP_ULPEVENT(ev));
--	}
-+				SCTP_ULPEVENT(ai_ev));
+-static ctl_handler sctp_sysctl_jiffies_ms;
+-static long rto_timer_min = 1;
+-static long rto_timer_max = 86400000; /* One day */
++static int zero = 0;
++static int one = 1;
++static int timer_max = 86400000; /* ms in one day */
++static int int_max = INT_MAX;
+ static long sack_timer_min = 1;
+ static long sack_timer_max = 500;
  
- 	return SCTP_DISPOSITION_CONSUME;
- 
-+nomem_aiev:
-+	sctp_ulpevent_free(ev);
- nomem_ev:
- 	sctp_chunk_free(repl);
--nomem_repl:
- nomem_init:
- 	sctp_association_free(new_asoc);
- nomem:
-@@ -1360,10 +1368,8 @@ static sctp_disposition_t sctp_sf_do_une
- 	if (!sctp_process_init(new_asoc, chunk->chunk_hdr->type,
- 			       sctp_source(chunk),
- 			       (sctp_init_chunk_t *)chunk->chunk_hdr,
--			       GFP_ATOMIC)) {
--		retval = SCTP_DISPOSITION_NOMEM;
--		goto nomem_init;
--	}
-+			       GFP_ATOMIC))
-+		goto nomem;
- 
- 	/* Make sure no new addresses are being added during the
- 	 * restart.   Do not do this check for COOKIE-WAIT state,
-@@ -1374,7 +1380,7 @@ static sctp_disposition_t sctp_sf_do_une
- 		if (!sctp_sf_check_restart_addrs(new_asoc, asoc, chunk,
- 						 commands)) {
- 			retval = SCTP_DISPOSITION_CONSUME;
--			goto cleanup_asoc;
-+			goto nomem_retval;
- 		}
- 	}
- 
-@@ -1430,17 +1436,17 @@ static sctp_disposition_t sctp_sf_do_une
- 	sctp_add_cmd_sf(commands, SCTP_CMD_DELETE_TCB, SCTP_NULL());
- 	retval = SCTP_DISPOSITION_CONSUME;
- 
-+	return retval;
-+
-+nomem:
-+	retval = SCTP_DISPOSITION_NOMEM;
-+nomem_retval:
-+	if (new_asoc)
-+		sctp_association_free(new_asoc);
- cleanup:
- 	if (err_chunk)
- 		sctp_chunk_free(err_chunk);
- 	return retval;
--nomem:
--	retval = SCTP_DISPOSITION_NOMEM;
--	goto cleanup;
--nomem_init:
--cleanup_asoc:
--	sctp_association_free(new_asoc);
--	goto cleanup;
- }
- 
- /*
-@@ -1611,15 +1617,10 @@ static sctp_disposition_t sctp_sf_do_dup
- 	 */
- 	sctp_add_cmd_sf(commands, SCTP_CMD_PURGE_OUTQUEUE, SCTP_NULL());
- 
--	/* Update the content of current association. */
--	sctp_add_cmd_sf(commands, SCTP_CMD_UPDATE_ASSOC, SCTP_ASOC(new_asoc));
--
- 	repl = sctp_make_cookie_ack(new_asoc, chunk);
- 	if (!repl)
- 		goto nomem;
- 
--	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(repl));
--
- 	/* Report association restart to upper layer. */
- 	ev = sctp_ulpevent_make_assoc_change(asoc, 0, SCTP_RESTART, 0,
- 					     new_asoc->c.sinit_num_ostreams,
-@@ -1628,6 +1629,9 @@ static sctp_disposition_t sctp_sf_do_dup
- 	if (!ev)
- 		goto nomem_ev;
- 
-+	/* Update the content of current association. */
-+	sctp_add_cmd_sf(commands, SCTP_CMD_UPDATE_ASSOC, SCTP_ASOC(new_asoc));
-+	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(repl));
- 	sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP, SCTP_ULPEVENT(ev));
- 	return SCTP_DISPOSITION_CONSUME;
- 
-@@ -1751,7 +1755,7 @@ static sctp_disposition_t sctp_sf_do_dup
- 					sctp_cmd_seq_t *commands,
- 					struct sctp_association *new_asoc)
+@@ -56,45 +57,45 @@ static ctl_table sctp_table[] = {
+ 		.ctl_name	= NET_SCTP_RTO_INITIAL,
+ 		.procname	= "rto_initial",
+ 		.data		= &sctp_rto_initial,
+-		.maxlen		= sizeof(long),
++		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_doulongvec_ms_jiffies_minmax,
+-		.strategy	= &sctp_sysctl_jiffies_ms,
+-		.extra1         = &rto_timer_min,
+-		.extra2         = &rto_timer_max
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1         = &one,
++		.extra2         = &timer_max
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_RTO_MIN,
+ 		.procname	= "rto_min",
+ 		.data		= &sctp_rto_min,
+-		.maxlen		= sizeof(long),
++		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_doulongvec_ms_jiffies_minmax,
+-		.strategy	= &sctp_sysctl_jiffies_ms,
+-		.extra1         = &rto_timer_min,
+-		.extra2         = &rto_timer_max
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1         = &one,
++		.extra2         = &timer_max
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_RTO_MAX,
+ 		.procname	= "rto_max",
+ 		.data		= &sctp_rto_max,
+-		.maxlen		= sizeof(long),
++		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_doulongvec_ms_jiffies_minmax,
+-		.strategy	= &sctp_sysctl_jiffies_ms,
+-		.extra1         = &rto_timer_min,
+-		.extra2         = &rto_timer_max
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1         = &one,
++		.extra2         = &timer_max
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_VALID_COOKIE_LIFE,
+ 		.procname	= "valid_cookie_life",
+ 		.data		= &sctp_valid_cookie_life,
+-		.maxlen		= sizeof(long),
++		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_doulongvec_ms_jiffies_minmax,
+-		.strategy	= &sctp_sysctl_jiffies_ms,
+-		.extra1         = &rto_timer_min,
+-		.extra2         = &rto_timer_max
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1         = &one,
++		.extra2         = &timer_max
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_MAX_BURST,
+@@ -102,7 +103,10 @@ static ctl_table sctp_table[] = {
+ 		.data		= &sctp_max_burst,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1		= &zero,
++		.extra2		= &int_max
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_ASSOCIATION_MAX_RETRANS,
+@@ -110,7 +114,10 @@ static ctl_table sctp_table[] = {
+ 		.data		= &sctp_max_retrans_association,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1		= &one,
++		.extra2		= &int_max
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_SNDBUF_POLICY,
+@@ -118,7 +125,8 @@ static ctl_table sctp_table[] = {
+ 		.data		= &sctp_sndbuf_policy,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec,
++		.strategy	= &sysctl_intvec
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_RCVBUF_POLICY,
+@@ -126,7 +134,8 @@ static ctl_table sctp_table[] = {
+ 		.data		= &sctp_rcvbuf_policy,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec,
++		.strategy	= &sysctl_intvec
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_PATH_MAX_RETRANS,
+@@ -134,7 +143,10 @@ static ctl_table sctp_table[] = {
+ 		.data		= &sctp_max_retrans_path,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1		= &one,
++		.extra2		= &int_max
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_MAX_INIT_RETRANSMITS,
+@@ -142,18 +154,21 @@ static ctl_table sctp_table[] = {
+ 		.data		= &sctp_max_retrans_init,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1		= &one,
++		.extra2		= &int_max
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_HB_INTERVAL,
+ 		.procname	= "hb_interval",
+ 		.data		= &sctp_hb_interval,
+-		.maxlen		= sizeof(long),
++		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_doulongvec_ms_jiffies_minmax,
+-		.strategy	= &sctp_sysctl_jiffies_ms,
+-		.extra1         = &rto_timer_min,
+-		.extra2         = &rto_timer_max
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
++		.extra1         = &one,
++		.extra2         = &timer_max
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_PRESERVE_ENABLE,
+@@ -161,23 +176,26 @@ static ctl_table sctp_table[] = {
+ 		.data		= &sctp_cookie_preserve_enable,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec,
++		.strategy	= &sysctl_intvec
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_RTO_ALPHA,
+ 		.procname	= "rto_alpha_exp_divisor",
+ 		.data		= &sctp_rto_alpha,
+ 		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.mode		= 0444,
++		.proc_handler	= &proc_dointvec,
++		.strategy	= &sysctl_intvec
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_RTO_BETA,
+ 		.procname	= "rto_beta_exp_divisor",
+ 		.data		= &sctp_rto_beta,
+ 		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.mode		= 0444,
++		.proc_handler	= &proc_dointvec,
++		.strategy	= &sysctl_intvec
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_ADDIP_ENABLE,
+@@ -185,7 +203,8 @@ static ctl_table sctp_table[] = {
+ 		.data		= &sctp_addip_enable,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec,
++		.strategy	= &sysctl_intvec
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_PRSCTP_ENABLE,
+@@ -193,7 +212,8 @@ static ctl_table sctp_table[] = {
+ 		.data		= &sctp_prsctp_enable,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec
++		.proc_handler	= &proc_dointvec,
++		.strategy	= &sysctl_intvec
+ 	},
+ 	{
+ 		.ctl_name	= NET_SCTP_SACK_TIMEOUT,
+@@ -201,8 +221,8 @@ static ctl_table sctp_table[] = {
+ 		.data		= &sctp_sack_timeout,
+ 		.maxlen		= sizeof(long),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_doulongvec_ms_jiffies_minmax,
+-		.strategy	= &sctp_sysctl_jiffies_ms,
++		.proc_handler	= &proc_dointvec_minmax,
++		.strategy	= &sysctl_intvec,
+ 		.extra1         = &sack_timer_min,
+ 		.extra2         = &sack_timer_max,
+ 	},
+@@ -242,37 +262,3 @@ void sctp_sysctl_unregister(void)
  {
--	struct sctp_ulpevent *ev = NULL;
-+	struct sctp_ulpevent *ev = NULL, *ai_ev = NULL;
- 	struct sctp_chunk *repl;
- 
- 	/* Clarification from Implementor's Guide:
-@@ -1778,29 +1782,25 @@ static sctp_disposition_t sctp_sf_do_dup
- 		 * SCTP user upon reception of a valid COOKIE
- 		 * ECHO chunk.
- 		 */
--		ev = sctp_ulpevent_make_assoc_change(new_asoc, 0,
-+		ev = sctp_ulpevent_make_assoc_change(asoc, 0,
- 					     SCTP_COMM_UP, 0,
--					     new_asoc->c.sinit_num_ostreams,
--					     new_asoc->c.sinit_max_instreams,
-+					     asoc->c.sinit_num_ostreams,
-+					     asoc->c.sinit_max_instreams,
-                                              GFP_ATOMIC);
- 		if (!ev)
- 			goto nomem;
--		sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
--				SCTP_ULPEVENT(ev));
- 
- 		/* Sockets API Draft Section 5.3.1.6
- 		 * When a peer sends a Adaption Layer Indication parameter,
- 		 * SCTP delivers this notification to inform the application
- 		 * that of the peers requested adaption layer.
- 		 */
--		if (new_asoc->peer.adaption_ind) {
--			ev = sctp_ulpevent_make_adaption_indication(new_asoc,
-+		if (asoc->peer.adaption_ind) {
-+			ai_ev = sctp_ulpevent_make_adaption_indication(asoc,
- 								 GFP_ATOMIC);
--			if (!ev)
-+			if (!ai_ev)
- 				goto nomem;
- 
--			sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
--					SCTP_ULPEVENT(ev));
- 		}
- 	}
- 	sctp_add_cmd_sf(commands, SCTP_CMD_TRANSMIT, SCTP_NULL());
-@@ -1809,12 +1809,21 @@ static sctp_disposition_t sctp_sf_do_dup
- 	if (!repl)
- 		goto nomem;
- 
-+	if (ev)
-+		sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
-+				SCTP_ULPEVENT(ev));
-+	if (ai_ev)
-+		sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
-+					SCTP_ULPEVENT(ai_ev));
-+
- 	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(repl));
- 	sctp_add_cmd_sf(commands, SCTP_CMD_TRANSMIT, SCTP_NULL());
- 
- 	return SCTP_DISPOSITION_CONSUME;
- 
- nomem:
-+	if (ai_ev)
-+		sctp_ulpevent_free(ai_ev);
- 	if (ev)
- 		sctp_ulpevent_free(ev);
- 	return SCTP_DISPOSITION_NOMEM;
-@@ -3019,7 +3028,6 @@ sctp_disposition_t sctp_sf_do_9_2_final(
- 	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
- 		return sctp_sf_violation_chunklen(ep, asoc, type, arg,
- 						  commands);
--
- 	/* 10.2 H) SHUTDOWN COMPLETE notification
- 	 *
- 	 * When SCTP completes the shutdown procedures (section 9.2) this
-@@ -3030,6 +3038,14 @@ sctp_disposition_t sctp_sf_do_9_2_final(
- 	if (!ev)
- 		goto nomem;
- 
-+	/* ...send a SHUTDOWN COMPLETE chunk to its peer, */
-+	reply = sctp_make_shutdown_complete(asoc, chunk);
-+	if (!reply)
-+		goto nomem_chunk;
-+
-+	/* Do all the commands now (after allocation), so that we
-+	 * have consistent state if memory allocation failes
-+	 */
- 	sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP, SCTP_ULPEVENT(ev));
- 
- 	/* Upon the receipt of the SHUTDOWN ACK, the SHUTDOWN sender shall
-@@ -3041,11 +3057,6 @@ sctp_disposition_t sctp_sf_do_9_2_final(
- 	sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_STOP,
- 			SCTP_TO(SCTP_EVENT_TIMEOUT_T5_SHUTDOWN_GUARD));
- 
--	/* ...send a SHUTDOWN COMPLETE chunk to its peer, */
--	reply = sctp_make_shutdown_complete(asoc, chunk);
--	if (!reply)
--		goto nomem;
--
- 	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_STATE,
- 			SCTP_STATE(SCTP_STATE_CLOSED));
- 	SCTP_INC_STATS(SCTP_MIB_SHUTDOWNS);
-@@ -3056,6 +3067,8 @@ sctp_disposition_t sctp_sf_do_9_2_final(
- 	sctp_add_cmd_sf(commands, SCTP_CMD_DELETE_TCB, SCTP_NULL());
- 	return SCTP_DISPOSITION_DELETE_TCB;
- 
-+nomem_chunk:
-+	sctp_ulpevent_free(ev);
- nomem:
- 	return SCTP_DISPOSITION_NOMEM;
+ 	unregister_sysctl_table(sctp_sysctl_header);
  }
+-
+-/* Strategy function to convert jiffies to milliseconds.  */
+-static int sctp_sysctl_jiffies_ms(ctl_table *table, int __user *name, int nlen,
+-		void __user *oldval, size_t __user *oldlenp,
+-		void __user *newval, size_t newlen, void **context) {
+-
+-	if (oldval) {
+-		size_t olen;
+-
+-		if (oldlenp) {
+-			if (get_user(olen, oldlenp))
+-				return -EFAULT;
+-
+-			if (olen != sizeof (int))
+-				return -EINVAL;
+-		}
+-		if (put_user((*(int *)(table->data) * 1000) / HZ,
+-			(int __user *)oldval) ||
+-		    (oldlenp && put_user(sizeof (int), oldlenp)))
+-			return -EFAULT;
+-	}
+-	if (newval && newlen) {
+-		int new;
+-
+-		if (newlen != sizeof (int))
+-			return -EINVAL;
+-
+-		if (get_user(new, (int __user *)newval))
+-			return -EFAULT;
+-
+-		*(int *)(table->data) = (new * HZ) / 1000;
+-	}
+-	return 1;
+-}
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index 2763aa9..3e5936a 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -75,7 +75,7 @@ static struct sctp_transport *sctp_trans
+ 	 * parameter 'RTO.Initial'.
+ 	 */
+ 	peer->rtt = 0;
+-	peer->rto = sctp_rto_initial;
++	peer->rto = msecs_to_jiffies(sctp_rto_initial);
+ 	peer->rttvar = 0;
+ 	peer->srtt = 0;
+ 	peer->rto_pending = 0;
 
 
