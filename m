@@ -1,64 +1,52 @@
-From: Vasily Averin <vvs@sw.ru>
-Subject: [PATCH] e1000: ring buffers resources cleanup
-Date: Fri, 18 Aug 2006 19:23:43 +0400
-Message-ID: <44E5DB7F.4040205@sw.ru>
+From: Thomas Klein <osstklei@de.ibm.com>
+Subject: Re: [2.6.19 PATCH 4/7] ehea: ethtool interface
+Date: Fri, 18 Aug 2006 17:41:26 +0200
+Message-ID: <44E5DFA6.7040707@de.ibm.com>
+References: <200608181333.23031.ossthema@de.ibm.com> <20060818140506.GC5201@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090301000203040009090007"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jan-Bernd Themann <ossthema@de.ibm.com>, netdev@vger.kernel.org,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:8498 "EHLO relay.sw.ru")
-	by vger.kernel.org with ESMTP id S1751398AbWHRPXg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 11:23:36 -0400
-To: netdev@vger.kernel.org, Jeb Cramer <cramerj@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
-	devel@openvz.org, e1000-devel@lists.sourceforge.net
+Received: from mtagate2.uk.ibm.com ([195.212.29.135]:33216 "EHLO
+	mtagate2.uk.ibm.com") by vger.kernel.org with ESMTP
+	id S1161029AbWHRPl3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Aug 2006 11:41:29 -0400
+To: Alexey Dobriyan <adobriyan@gmail.com>
+In-Reply-To: <20060818140506.GC5201@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090301000203040009090007
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Hi Alexey,
 
-irq leak was found in 2.6.18-rc4 and e1000 7.2.7 from sourceforge:
-if e1000_up fails in e1000_open() we do not free allocated irq
+first of all thanks a lot for the extensive review.
 
-Signed-off-by: Vasily Averin <vvs@sw.ru>
 
-Thank you,
-	Vasily Averin
-SWsoft Virtuozzo/OpenVZ Linux kernel team
+Alexey Dobriyan wrote:
+>> +	u64 hret = H_HARDWARE;
+> 
+> Useless assignment here and everywhere.
+> 
 
---------------090301000203040009090007
-Content-Type: text/plain;
- name="diff-e1000-irqleak-20060818"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="diff-e1000-irqleak-20060818"
+Initializing returncodes to errorstate is a cheap way to prevent
+accidentally returning (uninitalized) success returncodes which
+can lead to catastrophic misbehaviour.
 
---- linux-2.6.18-rc4/drivers/net/e1000/e1000_main.c.oirq	2006-08-18 18:53:05.000000000 +0400
-+++ linux-2.6.18-rc4/drivers/net/e1000/e1000_main.c	2006-08-18 19:18:22.000000000 +0400
-@@ -1208,7 +1208,7 @@ e1000_open(struct net_device *netdev)
- 
- 	err = e1000_request_irq(adapter);
- 	if (err)
--		goto err_up;
-+		goto err_req_irq;
- 
- 	e1000_power_up_phy(adapter);
- 
-@@ -1229,6 +1229,8 @@ e1000_open(struct net_device *netdev)
- 	return E1000_SUCCESS;
- 
- err_up:
-+	e1000_free_irq(adapter);
-+err_req_irq:
- 	e1000_free_all_rx_resources(adapter);
- err_setup_rx:
- 	e1000_free_all_tx_resources(adapter);
+>> +static void netdev_get_drvinfo(struct net_device *dev,
+>> +			       struct ethtool_drvinfo *info)
+>> +{
+>> +	strncpy(info->driver, DRV_NAME, sizeof(info->driver) - 1);
+>> +	strncpy(info->version, DRV_VERSION, sizeof(info->version) - 1);
+> 
+> Use strlcpy() to not forget -1 accidently.
 
---------------090301000203040009090007--
+I agree.
+
+Kind regards
+Thomas
