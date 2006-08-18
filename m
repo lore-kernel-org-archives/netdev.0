@@ -1,52 +1,55 @@
 From: "Jesse Huang" <jesse@icplus.com.tw>
-Subject: Re: [PATCH 1/6] IP100A, add end of pci id table
-Date: Fri, 18 Aug 2006 14:15:38 +0800
-Message-ID: <02f601c6c28d$b9986f30$4964a8c0@icplus.com.tw>
-References: <1155841247.4532.6.camel@localhost.localdomain> <20060817151945.GC5205@martell.zuzino.mipt.ru>
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<akpm@osdl.org>, <jgarzik@pobox.com>
+Subject: Re: [PATCH 2/7] ip1000: remove some default phy params
+Date: Fri, 18 Aug 2006 14:18:16 +0800
+Message-ID: <030001c6c28e$18008670$4964a8c0@icplus.com.tw>
+References: <1155843809.5006.6.camel@localhost.localdomain> <20060817110934.GA5504@fargo>
+Cc: <romieu@fr.zoreil.com>, <penberg@cs.Helsinki.FI>, <akpm@osdl.org>,
+	<dvrabel@cantab.net>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr20.hinet.net ([168.95.4.120]:62125 "EHLO msr20.hinet.net")
-	by vger.kernel.org with ESMTP id S1750704AbWHRGPu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 02:15:50 -0400
-To: "Alexey Dobriyan" <adobriyan@gmail.com>
+Received: from msr24.hinet.net ([168.95.4.124]:42119 "EHLO msr24.hinet.net")
+	by vger.kernel.org with ESMTP id S1750904AbWHRGSs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 02:18:48 -0400
+To: "David Gomez" <david@pleyades.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Alexey:
+Hi David:
 
-I will remove that. Thanks for that.
+Ok, I will add sign-off-by latter. Thanks for that.
 
 Jesse Huang
-
 ----- Original Message ----- 
-From: "Alexey Dobriyan" <adobriyan@gmail.com>
+From: "David Gomez" <david@pleyades.net>
 To: "Jesse Huang" <jesse@icplus.com.tw>
-Cc: <linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
-<akpm@osdl.org>; <jgarzik@pobox.com>
-Sent: Thursday, August 17, 2006 11:19 PM
-Subject: Re: [PATCH 1/6] IP100A, add end of pci id table
+Cc: <romieu@fr.zoreil.com>; <penberg@cs.Helsinki.FI>; <akpm@osdl.org>;
+<dvrabel@cantab.net>; <linux-kernel@vger.kernel.org>;
+<netdev@vger.kernel.org>
+Sent: Thursday, August 17, 2006 7:09 PM
+Subject: Re: [PATCH 2/7] ip1000: remove some default phy params
 
 
-On Thu, Aug 17, 2006 at 03:00:47PM -0400, Jesse Huang wrote:
-> Add "0," and "NULL," to sundance_pci_tbl and pci_id_table.
+Hi Jesse,
 
-> @@ -212,7 +212,7 @@ static const struct pci_device_id sundan
->  { 0x1186, 0x1002, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 4 },
->  { 0x13F0, 0x0201, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 5 },
->  { 0x13F0, 0x0200, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 6 },
-> - { }
-> + { 0,}
->  };
->  MODULE_DEVICE_TABLE(pci, sundance_pci_tbl);
+On Aug 17 at 03:43:29, Jesse Huang wrote:
+> From: Jesse Huang <jesse@icplus.com.tw>
 >
-> @@ -231,7 +231,7 @@ static const struct pci_id_info pci_id_t
->  {"D-Link DL10050-based FAST Ethernet Adapter"},
->  {"Sundance Technology Alta"},
->  {"IC Plus Corporation IP100A FAST Ethernet Adapter"},
-> - { } /* terminate list. */
-> + { NULL,} /* terminate list. */
+> remove some default phy params
+>
+> Change Logs:
+>     remove some default phy params
 
-They are already properly terminated. You don't have to do anything.
+First, thanks for finalling commiting this driver ;).
+
+But please resend the patches with "Signed-off-by:"
+line. I'm not much of a git hacker, but i think you
+can use 'git-applymbox' to put a signedoff line in your
+mbox-formatted patches.
+
+regards,
+
+-- 
+David Gomez                                      Jabber ID:
+davidge@jabber.org
 
 
