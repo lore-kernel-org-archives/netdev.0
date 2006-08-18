@@ -1,72 +1,38 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [take9 1/2] kevent: Core files.
-Date: Fri, 18 Aug 2006 11:46:07 +0100
-Message-ID: <20060818104607.GB20816@infradead.org>
-References: <11555364962921@2ka.mipt.ru> <1155536496588@2ka.mipt.ru> <20060816134550.GA12345@infradead.org> <20060816135642.GD4314@2ka.mipt.ru>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/6] IP100A, add end of pci id table
+Date: Fri, 18 Aug 2006 07:09:37 -0400
+Message-ID: <44E59FF1.6090703@pobox.com>
+References: <1155841247.4532.6.camel@localhost.localdomain> <44E480FA.70806@pobox.com> <02d101c6c28a$7c19d160$4964a8c0@icplus.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:65453 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1750942AbWHRKqZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Aug 2006 06:46:25 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20060816135642.GD4314@2ka.mipt.ru>
+Received: from srv5.dvmed.net ([207.36.208.214]:48855 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S932199AbWHRLJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 07:09:41 -0400
+To: Jesse Huang <jesse@icplus.com.tw>
+In-Reply-To: <02d101c6c28a$7c19d160$4964a8c0@icplus.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > > +#define KEVENT_READY		0x1
-> > > +#define KEVENT_STORAGE		0x2
-> > > +#define KEVENT_USER		0x4
-> > 
-> > Please use enums here.
+Jesse Huang wrote:
+> Hi Jeff:
 > 
-> I used, but I was sugested to use define in some previous releases :)
+>     Sorry for that. I will remove those. Am I need to resent all of those
+> patch or send all in one patch?
 
-defines make some sense for userspace-visible ABIs because then people
-can test for features with ifdef.  It doesn't make any sense for constants
-that are used purely in-kernel.  For those enums make more sense because
-you can for example looks at the symbolic names with a debugger.
+Normally, when I merged a patch, you will receive a one-word reply 
+"applied" or "merged".  Or for a series of patches, "applies patches 1-6".
 
-> > We were rather against these kind of odd multiplexers in the past.  For
-> > these three we at least have a common type beeing passed down so there's
-> > not compat handling problem, but I'm still not very happy with it..
-> 
-> I use one syscall for add/remove/modify, so it requires multiplexer.
+For this series of patches, you will need to resend the entire patchset, 
+modified with the comments so far.
 
-I noticed that you do it, but it's not exactly considered a nice design.
+It is quite normal for some patchsets to undergo several iterations 
+before being merged, when engineering review highlights issues.
 
-> > > +asmlinkage long sys_kevent_ctl(int fd, unsigned int cmd, unsigned int num, void __user *arg)
-> > > +{
-> > > +	int err = -EINVAL;
-> > > +	struct file *file;
-> > > +
-> > > +	if (cmd == KEVENT_CTL_INIT)
-> > > +		return kevent_ctl_init();
-> > 
-> > This one on the other hand is plain wrong. At least it should be a separate
-> > syscall.  But looking at the code I don't quite understand why you need
-> > a syscall at all, why can't kevent be implemented as a cloning chardevice
-> > (on where every open allocates a new structure and stores it into
-> > file->private_data?)
-> 
-> That requires separate syscall.
+Thanks and regards,
 
-Yes, it requires a separate syscall.
+	Jeff
 
-> I created a char device in first releases and was forced to not use it
-> at all.
 
-Do you have a reference to it?  In this case a char devices makes a lot of
-sense because you get a filedescriptor and have operations only defined on
-it.  In fact given that you have a multiplexer anyway there's really no
-point in adding a syscall for that aswell, you could rather use the existing
-and debugged ioctl() multiplexer.  Sure, it's still not what we consider
-nice, but better than adding even more odd multiplexer syscalls.
