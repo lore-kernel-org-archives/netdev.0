@@ -1,37 +1,64 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH] rtl8150: use default MTU of 1500
-Date: Fri, 18 Aug 2006 22:15:00 +0200
-Message-ID: <20060818201500.GA5152@xi.wantstofly.org>
+From: "cramerj" <cramerj@intel.com>
+Subject: RE: Patch: Asynchronous IPI and e1000 Multiple Queues (aka ReceiveSide Scaling)
+Date: Fri, 18 Aug 2006 13:50:20 -0700
+Message-ID: <F2C59D1E488E7A4FB7F6F673DAF832590179FED7@orsmsx413.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "David Miller" <davem@davemloft.net>,
+	"Stephen Hemminger" <shemminger@osdl.org>,
+	"Subhachandra Chandra" <schandra@bluelane.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:21213 "EHLO
-	xi.wantstofly.org") by vger.kernel.org with ESMTP id S932295AbWHRUPJ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Aug 2006 16:15:09 -0400
-To: petkan@users.sourceforge.net
-Content-Disposition: inline
+Received: from mga09.intel.com ([134.134.136.24]:41327 "EHLO
+	orsmga102-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S964786AbWHRUub convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 16:50:31 -0400
+Content-class: urn:content-classes:message
+To: <piet@bluelane.com>, <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The rtl8150 (ethernet) driver uses a default MTU of 1540, which causes
-all kinds of problems with for example booting off NFS root.  There isn't
-really any reason why we shouldn't use the default of 1500.
+Davem brought up the point of how expensive IPIs are.  Our own
+performance tests for multi-queue weren't all that impressive...which
+just proved his point.  So we decided not to go forward with the patch.
+Really, the hardware we coded multi-queue for was not ready for such a
+feature.  Hardware that supports MSI-X is really what makes sense for
+multi-queue.  Since the 8257x hardware was the first family to support
+multi-queue, all previous hardware generations (PCI or PCI-X) would not
+have benefited from that patch.
 
-Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
+Thanks,
+-Jeb
 
-Index: linux-2.6.18-rc2/drivers/usb/net/rtl8150.c
-===================================================================
---- linux-2.6.18-rc2.orig/drivers/usb/net/rtl8150.c
-+++ linux-2.6.18-rc2/drivers/usb/net/rtl8150.c
-@@ -867,9 +867,8 @@
- 	netdev->hard_start_xmit = rtl8150_start_xmit;
- 	netdev->set_multicast_list = rtl8150_set_multicast;
- 	netdev->set_mac_address = rtl8150_set_mac_address;
- 	netdev->get_stats = rtl8150_netdev_stats;
--	netdev->mtu = RTL8150_MTU;
- 	SET_ETHTOOL_OPS(netdev, &ops);
- 	dev->intr_interval = 100;	/* 100ms */
- 
- 	if (!alloc_all_urbs(dev)) {
+> -----Original Message-----
+> From: Piet Delaney [mailto:piet@bluelane.com]
+> Sent: Wednesday, August 16, 2006 6:41 PM
+> To: cramerj; netdev@vger.kernel.org
+> Cc: Piet Delaney; David Miller; Stephen Hemminger; Subhachandra
+Chandra
+> Subject: Re: Patch: Asynchronous IPI and e1000 Multiple Queues (aka
+> ReceiveSide Scaling)
+> 
+> On Wed, 2006-08-16 at 18:33 -0700, Piet Delaney wrote:
+> > I came across your Sept 2005 LKML and NetDev posting:
+> >
+> > 	http://lwn.net/Articles/152989/
+> >
+> > and was wondering what's been going on with this
+> > since your posting. Looks like an interesting
+> > patch that may be useful in our environment.
+> 
+> I just noticed this is for PCI-Express. Has anything
+> similar been done for PCI-X?
+> 
+> -piet
+> 
+> >
+> > -piet
+> >
+> --
+> Piet Delaney
+> BlueLane Teck
+> W: (408) 200-5256; piet@bluelane.com
+> H: (408) 243-8872; piet@piet.net
