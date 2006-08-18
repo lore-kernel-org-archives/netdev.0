@@ -1,45 +1,64 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: bonding: cannot remove certain named devices
-Date: Fri, 18 Aug 2006 20:58:06 -0700
-Message-ID: <44E68C4E.8070607@osdl.org>
-References: <20060816133811.GA26471@nostromo.devel.redhat.com> <Pine.LNX.4.58.0608161636250.2044@be1.lrz> <1155799783.7566.5.camel@capoeira> <20060817.162340.74748342.davem@davemloft.net> <20060818022057.GA27076@nostromo.devel.redhat.com>
+From: "John Que" <qwejohn@gmail.com>
+Subject: Re: time stamps of skb packets in NF_HOOKS callbacks
+Date: Fri, 18 Aug 2006 08:40:25 +0300
+Message-ID: <ada605fb0608172240s35b0a5f8q7ccff8ea541d52c1@mail.gmail.com>
+References: <ada605fb0608170737m4c0096c4u33a70dcf37e09df8@mail.gmail.com>
+	 <20060817155835.GA11898@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:60101 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932344AbWHRD6O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Aug 2006 23:58:14 -0400
-To: David Miller <davem@davemloft.net>, xavier.bestel@free.fr,
-	7eggert@gmx.de, cate@debian.org, 7eggert@elstempel.de,
-	shemminger@osdl.org, mitch.a.williams@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-In-Reply-To: <20060818022057.GA27076@nostromo.devel.redhat.com>
+Received: from nf-out-0910.google.com ([64.233.182.184]:49226 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S964799AbWHRFk0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Aug 2006 01:40:26 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so1182708nfa
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2006 22:40:25 -0700 (PDT)
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060817155835.GA11898@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bill Nottingham wrote:
-> David Miller (davem@davemloft.net) said: 
->   
->> From: Xavier Bestel <xavier.bestel@free.fr>
->> Date: Thu, 17 Aug 2006 09:29:43 +0200
->>
->>     
->>> Why not simply retricting chars to isalnum() ones ?
->>>       
->> As Bill said that would block things like "-" and "_" which are fine.
->>
->> Bill also mentioned something about "breaking configs going back to
->> 2.4.x" which is bogus because nothing broke when we started blocking
->> "/" and "." and ".." in networking device names during the addition of
->> sysfs support for net devices.
->>     
->
-> I was mainly referring to if we started to filter it out to isalnum() -
-> spaces/tab/CR etc. certainly could be filtered. (No idea what would
-> happen with unicode nbsp or other silly things.)
->
-> Bill
->   
-How just restrictiting to !isspace()
+Evgeniy,
+Thnks, I appreciate your (quick) answer;
 
+Following your answer I tried adding a call to net_enable_timestamp() in
+a module I wrote which use NF_HOOKS.
+This is what is done , for example, in ipq_rcv_skb(struct sk_buff *skb)
+in linux-2.6.14 in net/ipv4/netfilter/ip_queue.c.
+
+After doing so I get timestamps which are not 0.
+
+what I wonder now is :
+1) does this have ANY performance implication (when dealing with a
+high  network  load which can get to 50,000 packets per second?
+2) It does work as I said, but I want to be cautios: Am I permitted to
+add this method ? are  there any  implications for adding this method
+which can create troubles ?
+I must say that I am NOT
+
+
+
+
+
+On 8/17/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> On Thu, Aug 17, 2006 at 05:37:15PM +0300, John Que (qwejohn@gmail.com) wrote:
+> > Hello,
+> > I am using NF_HOOKS (a "PRE_ROUTING" hook).
+> > When I try to print the time stamps (sec and usec) of skb packets
+> > which I recieve
+> > in the hook callback I get 0. Other skb fileds are correct.
+> > According to my understanding, the time stamp should be updated
+> > when the packet is received. Isn't it so ? Any idea why am I getting
+> > "0" for tstamp fields (tstamp is a field in sk_buff and is  an intance
+> > of skb_timeval).
+>
+> Timestamps are disabled by default, if you have sockets which enable
+> SO_TIMESTAMP or netfilter queue target and other agents which can enable
+> it, you will see updated values in skb->tstamp.
+>
+> --
+>         Evgeniy Polyakov
+>
