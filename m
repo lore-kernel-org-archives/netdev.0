@@ -1,34 +1,72 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Reasons behind HAVE_TX_TIMEOUT
-Date: Fri, 18 Aug 2006 11:55:40 +0100
-Message-ID: <44E59CAC.9010300@gentoo.org>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [take9 1/2] kevent: Core files.
+Date: Fri, 18 Aug 2006 11:46:07 +0100
+Message-ID: <20060818104607.GB20816@infradead.org>
+References: <11555364962921@2ka.mipt.ru> <1155536496588@2ka.mipt.ru> <20060816134550.GA12345@infradead.org> <20060816135642.GD4314@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtaout02-winn.ispmail.ntl.com ([81.103.221.48]:64198 "EHLO
-	mtaout02-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
-	id S1751356AbWHRKoh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Aug 2006 06:44:37 -0400
-Received: from aamtaout03-winn.ispmail.ntl.com ([81.103.221.35])
-          by mtaout02-winn.ispmail.ntl.com with ESMTP
-          id <20060818104436.KFQS27023.mtaout02-winn.ispmail.ntl.com@aamtaout03-winn.ispmail.ntl.com>
-          for <netdev@vger.kernel.org>; Fri, 18 Aug 2006 11:44:36 +0100
-Received: from [192.168.0.2] (really [86.14.216.162])
-          by aamtaout03-winn.ispmail.ntl.com with ESMTP
-          id <20060818104436.LVJU11710.aamtaout03-winn.ispmail.ntl.com@[192.168.0.2]>
-          for <netdev@vger.kernel.org>; Fri, 18 Aug 2006 11:44:36 +0100
-To: Netdev list <netdev@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:65453 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1750942AbWHRKqZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Aug 2006 06:46:25 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Disposition: inline
+In-Reply-To: <20060816135642.GD4314@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+> > > +#define KEVENT_READY		0x1
+> > > +#define KEVENT_STORAGE		0x2
+> > > +#define KEVENT_USER		0x4
+> > 
+> > Please use enums here.
+> 
+> I used, but I was sugested to use define in some previous releases :)
 
-Just curious, why do we have an unconditional #define in netdevice.h for 
-HAVE_TX_TIMEOUT, and some drivers (e.g. xirc2ps_cs) using it 
-conditionally as if it might be disabled on some builds?
+defines make some sense for userspace-visible ABIs because then people
+can test for features with ifdef.  It doesn't make any sense for constants
+that are used purely in-kernel.  For those enums make more sense because
+you can for example looks at the symbolic names with a debugger.
 
-There are other similar defines in netdevice.h too.
+> > We were rather against these kind of odd multiplexers in the past.  For
+> > these three we at least have a common type beeing passed down so there's
+> > not compat handling problem, but I'm still not very happy with it..
+> 
+> I use one syscall for add/remove/modify, so it requires multiplexer.
 
-Thanks,
-Daniel
+I noticed that you do it, but it's not exactly considered a nice design.
+
+> > > +asmlinkage long sys_kevent_ctl(int fd, unsigned int cmd, unsigned int num, void __user *arg)
+> > > +{
+> > > +	int err = -EINVAL;
+> > > +	struct file *file;
+> > > +
+> > > +	if (cmd == KEVENT_CTL_INIT)
+> > > +		return kevent_ctl_init();
+> > 
+> > This one on the other hand is plain wrong. At least it should be a separate
+> > syscall.  But looking at the code I don't quite understand why you need
+> > a syscall at all, why can't kevent be implemented as a cloning chardevice
+> > (on where every open allocates a new structure and stores it into
+> > file->private_data?)
+> 
+> That requires separate syscall.
+
+Yes, it requires a separate syscall.
+
+> I created a char device in first releases and was forced to not use it
+> at all.
+
+Do you have a reference to it?  In this case a char devices makes a lot of
+sense because you get a filedescriptor and have operations only defined on
+it.  In fact given that you have a multiplexer anyway there's really no
+point in adding a syscall for that aswell, you could rather use the existing
+and debugged ioctl() multiplexer.  Sure, it's still not what we consider
+nice, but better than adding even more odd multiplexer syscalls.
