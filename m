@@ -1,48 +1,45 @@
-From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
-Subject: Re: [2.6.19 PATCH 3/7] ehea: queue management
-Date: Fri, 18 Aug 2006 16:33:28 +0200
-Message-ID: <20060818143328.GC6393@wohnheim.fh-wedel.de>
-References: <200608181331.19501.ossthema@de.ibm.com> <1155903451.4494.168.camel@laptopd505.fenrus.org> <44E5BFB7.4000400@de.ibm.com>
+From: "Jouni Malinen" <jkm@devicescape.com>
+Subject: Re: [clarification request] ieee80211_tx_control.pkt_type
+Date: Fri, 18 Aug 2006 07:33:21 -0700
+Message-ID: <20060818143321.GA23446@instant802.com>
+References: <1155901317.22520.2.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arjan van de Ven <arjan@infradead.org>,
-	Jan-Bernd Themann <ossthema@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Simon Barber <simon@devicescape.com>,
+	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wohnheim.fh-wedel.de ([213.39.233.138]:6294 "EHLO
-	wohnheim.fh-wedel.de") by vger.kernel.org with ESMTP
-	id S932458AbWHROdh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Aug 2006 10:33:37 -0400
-To: Thomas Klein <osstklei@de.ibm.com>
+Received: from dhost002-56.dex002.intermedia.net ([64.78.21.185]:55741 "EHLO
+	dhost002-56.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S932462AbWHROdl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Aug 2006 10:33:41 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
 Content-Disposition: inline
-In-Reply-To: <44E5BFB7.4000400@de.ibm.com>
+In-Reply-To: <1155901317.22520.2.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 18 August 2006 15:25:11 +0200, Thomas Klein wrote:
-> Arjan van de Ven wrote:
-> >>+	queue->queue_length =3D nr_of_pages * pagesize;
-> >>+	queue->queue_pages =3D vmalloc(nr_of_pages * sizeof(void *));
-> >
-> >
-> >wow... is this really so large that it warrants a vmalloc()???
->=20
-> Agreed: Replaced with kmalloc()
+On Fri, Aug 18, 2006 at 01:41:57PM +0200, Johannes Berg wrote:
 
-kzalloc() and you can remove the memset() as well.
+> I was pondering the ieee80211_tx_control type and don't see anyone using
+> the pkt_type field. d80211 makes great effort to have it correct, but no
+> driver uses it.
+> 
+> Hence, my question: What is the purpose of this field? Under what
+> circumstances would a driver have to know this? Especially considering
+> that it's only "normal" vs. "probe response"...
 
-J=F6rn
+Some hardware designs require this configuration for TX frames. It is
+used to select whether some of the fields are being filled in hardware
+(e.g., timestamp for Probe Response). This would only be needed for AP
+mode and IBSS (adhoc), so it is possible that not all low-level dirvers
+have yet been implemented to support such operation.
 
---=20
-Data dominates. If you've chosen the right data structures and organize=
-d
-things well, the algorithms will almost always be self-evident. Data
-structures, not algorithms, are central to programming.
--- Rob Pike
+This pkt_type was added at generic 802.11 layer in order to avoid
+forcing the low-level driver to even look at the 802.11 header when
+queuing the frame for transmission. Taken into account how simple
+operation it is to get the type and subtype from the frame control
+field, this tx ctrl pkt_type could be removed, if desired. However, it
+was added there for a reason.
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
