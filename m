@@ -1,46 +1,56 @@
 From: "Jesse Huang" <jesse@icplus.com.tw>
-Subject: Re: [PATCH 1/7] ip1000: update maintainer information
-Date: Fri, 18 Aug 2006 13:49:24 +0800
-Message-ID: <02cb01c6c28a$10c26ad0$4964a8c0@icplus.com.tw>
-References: <1155843743.5006.3.camel@localhost.localdomain> <84144f020608170126n37574012u1dd6756ea6ead061@mail.gmail.com>
-Cc: <romieu@fr.zoreil.com>, <akpm@osdl.org>, <dvrabel@cantab.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<david@pleyades.net>
+Subject: Re: [PATCH 1/6] IP100A, add end of pci id table
+Date: Fri, 18 Aug 2006 13:52:26 +0800
+Message-ID: <02d101c6c28a$7c19d160$4964a8c0@icplus.com.tw>
+References: <1155841247.4532.6.camel@localhost.localdomain> <44E480FA.70806@pobox.com>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr34.hinet.net ([168.95.4.134]:23006 "EHLO msr34.hinet.net")
-	by vger.kernel.org with ESMTP id S964813AbWHRFt5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 01:49:57 -0400
-To: "Pekka Enberg" <penberg@cs.helsinki.fi>
+Received: from msr3.hinet.net ([168.95.4.103]:49657 "EHLO msr3.hinet.net")
+	by vger.kernel.org with ESMTP id S964841AbWHRFwo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 01:52:44 -0400
+To: "Jeff Garzik" <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Pekka:
+Hi Jeff:
 
-    OK, I will generate a patch from to your git. And add sign-off-by in the
-mail.
+    Sorry for that. I will remove those. Am I need to resent all of those
+patch or send all in one patch?
 
-Thanks for that.
-
-Jesse Huang
+Jesse Huang.
 
 ----- Original Message ----- 
-From: "Pekka Enberg" <penberg@cs.helsinki.fi>
+From: "Jeff Garzik" <jgarzik@pobox.com>
 To: "Jesse Huang" <jesse@icplus.com.tw>
-Cc: <romieu@fr.zoreil.com>; <akpm@osdl.org>; <dvrabel@cantab.net>;
-<linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
-<david@pleyades.net>
-Sent: Thursday, August 17, 2006 4:26 PM
-Subject: Re: [PATCH 1/7] ip1000: update maintainer information
+Cc: <linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
+<akpm@osdl.org>
+Sent: Thursday, August 17, 2006 10:45 PM
+Subject: Re: [PATCH 1/6] IP100A, add end of pci id table
 
 
-The patches are missing signed-off-by so please resend. I am starting
-my vacation on friday so I suggest you send the whole driver as a
-patch for review at netdev@vger.kernel.org for inclusion. I can apply
-your patches to
-git://git.kernel.org/pub/scm/linux/kernel/git/penberg/netdev-ipg-2.6.git
-if you want, though. Only the first three patches apply and everything
-starting from "ipg_config_autoneg rewrite' fail.
+Jesse Huang wrote:
+> @@ -212,7 +212,7 @@ static const struct pci_device_id sundan
+>  { 0x1186, 0x1002, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 4 },
+>  { 0x13F0, 0x0201, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 5 },
+>  { 0x13F0, 0x0200, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 6 },
+> - { }
+> + { 0,}
+>  };
+>  MODULE_DEVICE_TABLE(pci, sundance_pci_tbl);
+>
+> @@ -231,7 +231,7 @@ static const struct pci_id_info pci_id_t
+>  {"D-Link DL10050-based FAST Ethernet Adapter"},
+>  {"Sundance Technology Alta"},
+>  {"IC Plus Corporation IP100A FAST Ethernet Adapter"},
+> - { } /* terminate list. */
+> + { NULL,} /* terminate list. */
 
-                                              Pekka
+NAK.
+
+An empty array element "{ }" implies NULL.  It is the kernel standard to
+prefer "{ }" over an explicit initialization.  Looks cleaner.
+
+Jeff
 
 
