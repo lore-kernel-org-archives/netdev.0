@@ -1,88 +1,66 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Fri, 18 Aug 2006 15:34:55 -0700
-Message-ID: <20060818153455.2a3f2bcb.akpm@osdl.org>
-References: <20060808211731.GR14627@postel.suug.ch>
-	<44DBED4C.6040604@redhat.com>
-	<44DFA225.1020508@google.com>
-	<20060813.165540.56347790.davem@davemloft.net>
-	<44DFD262.5060106@google.com>
-	<20060813185309.928472f9.akpm@osdl.org>
-	<1155530453.5696.98.camel@twins>
-	<20060813215853.0ed0e973.akpm@osdl.org>
-	<44E3E964.8010602@google.com>
-	<20060816225726.3622cab1.akpm@osdl.org>
-	<44E5015D.80606@google.com>
-	<20060817230556.7d16498e.akpm@osdl.org>
-	<44E62F7F.7010901@google.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH 2/4]: powerpc/cell spidernet low watermark patch.
+Date: Fri, 18 Aug 2006 17:46:18 -0500
+Message-ID: <20060818224618.GN26889@austin.ibm.com>
+References: <20060811170813.GJ10638@austin.ibm.com> <1155771820.11312.116.camel@localhost.localdomain> <20060818192356.GD26889@austin.ibm.com> <20060818.142513.29571851.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	David Miller <davem@davemloft.net>, riel@redhat.com,
-	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: benh@kernel.crashing.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Jens.Osterkamp@de.ibm.com, jklewis@us.ibm.com, arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:17887 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751156AbWHRWlw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 18:41:52 -0400
-To: Daniel Phillips <phillips@google.com>
-In-Reply-To: <44E62F7F.7010901@google.com>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:21199 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1751556AbWHRWqU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 18:46:20 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060818.142513.29571851.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 18 Aug 2006 14:22:07 -0700
-Daniel Phillips <phillips@google.com> wrote:
-
-> Andrew Morton wrote:
-> >Daniel Phillips wrote:
-> >>Andrew Morton wrote:
-> >
-> > ...it's runtime configurable.
+On Fri, Aug 18, 2006 at 02:25:13PM -0700, David Miller wrote:
+> From: linas@austin.ibm.com (Linas Vepstas)
+> Date: Fri, 18 Aug 2006 14:23:56 -0500
 > 
-> So we default to "less than the best" because we are too lazy to fix the
-> network starvation issue properly?  Maybe we don't really need a mempool for
-> struct bio either, isn't that one rather like the reserve pool we propose
-> for sk_buffs?  (And for that matter, isn't a bio rather more like an sk_buff
-> than one would think from the code we have written?)
-> 
-> >>unavailable for write caching just to get around the network receive
-> >> starvation issue?
+> > On Thu, Aug 17, 2006 at 01:43:40AM +0200, Benjamin Herrenschmidt wrote:
+> > > 
+> > > Sounds good (without actually looking at the code though :), that was a
+> > > long required improvement to that driver. Also, we should probably look
+> > > into using NAPI polling for tx completion queue as well, no ?
 > > 
-> > No, it's mainly to avoid latency: to prevent tasks which want to allocate
-> > pages from getting stuck behind writeback.
+> > Just for a lark, I tried using NAPI polling, while disabling all TX
+> > interrupts. Performance was a disaster: 8Mbits/sec, fom which I conclude
+> > that the tcp ack packets do not flow back fast enough to allw reliance
+> > on NAPI polling for transmit.
 > 
-> This seems like a great help for some common loads, but a regression for
-> other not-so-rare loads.  Regardless of whether or not marking 60% of memory
-> as unusable for write caching is a great idea, it is not a compelling reason
-> to fall for the hammer/nail trap.
-> 
-> >>What happens if some in kernel user grabs 68% of kernel memory to do some
-> >>very important thing, does this starvation avoidance scheme still work?
-> > 
-> > Well something has to give way.  The process might get swapped out a bit,
-> > or it might stall in the page allocator because of all the dirty memory.
-> 
-> It is that "something has to give way" that makes me doubt the efficacy of
-> our global write throttling scheme as a solution for network receive memory
-> starvation.  As it is, the thing that gives way may well be the network
-> stack.  Avoiding this hazard via a little bit of simple code is the whole
-> point of our patch set.
-> 
-> Yes, we did waltz off into some not-so-simple code at one point, but after
-> discussing it, Peter and I agree that the simple approach actually works
-> well enough, so we just need to trim down the patch set accordingly and
-> thus prove that our approach really is nice, light and tight.
-> 
-> Specifically, we do not actually need any fancy sk_buff sub-allocator
-> (either ours or the one proposed by davem).  We already got rid of the per
-> device reserve accounting in order to finesse away the sk_buff->dev oddity
-> and shorten the patch.  So the next rev will be rather lighter than the
-> original.
-> 
+> The idea is to use NAPI polling with TX interrupts disabled.
 
-Sigh.  Daniel, in my earlier emails I asked a number of questions regarding
-whether existing facilities, queued patches or further slight kernel
-changes could provide a sufficient solution to these problems.  The answer
-may well be "no".  But diligence requires that we be able to prove that,
-and handwaving doesn't provide that proof, does it?
+The idea of a low-watermark mark interrupt is that there are *zero*
+interrupts, as long as the kernel keeps feeding packets to the device.
+
+In my last email to you, I attached a real-life vmstat trace 
+showing exactly zero interrupts over a two minute period. 
+
+However, the zero-interrupt scenario only occurs if the kernel
+is actually feeding packets to the driver.  If the socket beffers
+are small, then the app blocks, the kernel is idle, and there
+are not enough tcp ack packets coming back the other way to 
+actually get the NAPI polling to keep the adapter fed.
+
+> We're not saying to use the RX interrupt as the trigger for
+> RX and TX work.  Rather, either of RX or TX interrupt will
+> schedule the NAPI poll.
+
+And, for a lark, this is exactly what I did. Just to see.
+Because there are so few ack packets, there are very few 
+RX interrupts -- not enough to get NAPI to actually keep
+the device busy.
+
+------
+I'm somewhat disoriened from this conversation. Its presumably
+clear that low-watermark mechanisms are superior to NAPI. 
+>From what I gather, NAPI was invented to deal with cheap 
+or low-function hardware; it adds nothing to this particular
+situation. Why are we talking about this?
+
+--linas
