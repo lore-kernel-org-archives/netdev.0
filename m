@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] neighbour: reduce exports
-Date: Thu, 17 Aug 2006 18:18:08 -0700 (PDT)
-Message-ID: <20060817.181808.85411328.davem@davemloft.net>
-References: <20060815125630.42ca9451@dxpl.pdx.osdl.net>
+Subject: Re: [PATCH] eth: docbook comments
+Date: Thu, 17 Aug 2006 18:19:06 -0700 (PDT)
+Message-ID: <20060817.181906.39155981.davem@davemloft.net>
+References: <20060815125759.590a4a44@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: rdunlap@xenotime.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:44755
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:6088
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932261AbWHRBR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 21:17:59 -0400
+	id S932312AbWHRBS5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Aug 2006 21:18:57 -0400
 To: shemminger@osdl.org
-In-Reply-To: <20060815125630.42ca9451@dxpl.pdx.osdl.net>
+In-Reply-To: <20060815125759.590a4a44@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Stephen Hemminger <shemminger@osdl.org>
-Date: Tue, 15 Aug 2006 12:56:30 -0700
+Date: Tue, 15 Aug 2006 12:57:59 -0700
 
-> There are several symbols only used by rtnetlink and since it can
-> not be a module, there is no reason to export them.
+> Add docbook style comments to ethernet support.
 > 
 > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Applied.
+Applied, thanks Stephen.
 
-> -static __inline__ void neigh_update_hhs(struct neighbour *neigh)
-> +static void neigh_update_hhs(struct neighbour *neigh)
- ...
-> -EXPORT_SYMBOL(neigh_update_hhs);
-
-Nice to see we were trying to export a static inline function :)
