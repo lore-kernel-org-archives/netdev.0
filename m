@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] eth: docbook comments
-Date: Thu, 17 Aug 2006 18:19:06 -0700 (PDT)
-Message-ID: <20060817.181906.39155981.davem@davemloft.net>
+Subject: Re: [PATCH] eth: indentation and cleanup (revised)
+Date: Thu, 17 Aug 2006 18:20:50 -0700 (PDT)
+Message-ID: <20060817.182050.59654051.davem@davemloft.net>
 References: <20060815125759.590a4a44@dxpl.pdx.osdl.net>
+	<20060815130245.5e11807b@dxpl.pdx.osdl.net>
+	<20060815140552.577a9117@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: rdunlap@xenotime.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:6088
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:7368
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932312AbWHRBS5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 21:18:57 -0400
+	id S932313AbWHRBUl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Aug 2006 21:20:41 -0400
 To: shemminger@osdl.org
-In-Reply-To: <20060815125759.590a4a44@dxpl.pdx.osdl.net>
+In-Reply-To: <20060815140552.577a9117@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Stephen Hemminger <shemminger@osdl.org>
-Date: Tue, 15 Aug 2006 12:57:59 -0700
+Date: Tue, 15 Aug 2006 14:05:52 -0700
 
-> Add docbook style comments to ethernet support.
-> 
+> Run ethernet support through Lindent and fix up.
+> Applies after docbook comments patch
+>  
 > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Applied, thanks Stephen.
-
+Applied, thanks a lot.
