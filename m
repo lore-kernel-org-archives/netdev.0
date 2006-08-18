@@ -1,101 +1,67 @@
-From: Gerd Hoffmann <kraxel@suse.de>
-Subject: [patch] bridge netfilter bug
-Date: Fri, 18 Aug 2006 10:23:35 +0200
-Message-ID: <44E57907.8000500@suse.de>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH 1/1] network memory allocator.
+Date: Fri, 18 Aug 2006 11:29:14 +0200
+Message-ID: <200608181129.15075.ak@suse.de>
+References: <20060814110359.GA27704@2ka.mipt.ru> <20060816142557.acccdfcf.ak@suse.de> <Pine.LNX.4.64.0608171920220.28680@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------070303060808070102050009"
-Cc: Xen devel list <xen-devel@lists.xensource.com>,
-	Jan Beulich <jbeulich@novell.com>
-Return-path: <xen-devel-bounces@lists.xensource.com>
-To: netdev@vger.kernel.org
-List-Unsubscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xensource.com>
-List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
-List-Subscribe: <http://lists.xensource.com/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
-Sender: xen-devel-bounces@lists.xensource.com
-Errors-To: xen-devel-bounces@lists.xensource.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Arnd Bergmann <arnd@arndb.de>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:30870 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1751072AbWHRIYc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 04:24:32 -0400
+To: Christoph Lameter <clameter@sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0608171920220.28680@schroedinger.engr.sgi.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070303060808070102050009
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+On Friday 18 August 2006 04:25, Christoph Lameter wrote:
+> On Wed, 16 Aug 2006, Andi Kleen wrote:
+> > That's not true on all NUMA systems (that they have a slow interconnect)
+> > I think on x86-64 I would prefer if it was distributed evenly or maybe
+> > even on the CPU who is finally going to process it.
+> >
+> > -Andi "not all NUMA is an Altix"
+>
+> The Altix NUMA interconnect has the same speed as far as I can recall as
+> Hypertransport. It is the distance (real physical cable length) that
+> creates latencies for huge systems. Sadly the Hypertransport is designed
+> to stay on the motherboard. Hypertransport can only be said to be fast
+> because its only used for tinzy winzy systems of a few processors. Are
+> you saying that the design limitations of Hypertransport are an
+> advantage?
 
-  Hi,
+Sorry, didn't want to state anything particular about advantages 
+or disadvantages of different interconnects. I just wanted to say
+that there are a lot of NUMA systems out there which have a very low
+NUMA factor (for whatever reason, including them being quite small)
+and that they should be considered for NUMA optimizations too.
 
-The bridging code copies 16 bytes unconditionally, where as the ethernet
-header is 14 bytes only.  In most cases it works ok nevertheless due to
-NET_IP_ALIGN, sometimes it doesn't though.  Fix is attached below.
+So if you really want strict IO placement at least allow an easy way 
+to turn it off even when CONFIG_NUMA is defined.
 
-please apply,
+BTW there are large x86-64 NUMA systems that don't use HyperTransport
+and have a varying NUMA factor, and also even HyperTransport
+based systems have a widely varying NUMA factor depending on machine
+size and hop distance (2-8 sockets and larger systems are in development)
 
-  Gerd
+So ideal would be something dynamic to turn on/off io placement, maybe based 
+on node_distance() again, with the threshold tweakable per architecture?
 
--- 
-Gerd Hoffmann <kraxel@suse.de>
-http://www.suse.de/~kraxel/julika-dora.jpeg
+Also I must say it's still not quite clear to me if it's better to place
+network packets on the node the device is connected to or on the 
+node which contains the CPU who processes the packet data 
+For RX this can be three different nodes in the worst case
+(CPU processing is often split on different CPUs between softirq
+and user context), for TX  two. Do you have some experience that shows 
+that a particular placement is better than the other?
 
---------------070303060808070102050009
-Content-Type: text/plain;
- name="nf_bridge-header-size"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="nf_bridge-header-size"
+-Andi
 
-Subject: nf_bridge: ethernet header is 14 not 16 bytes
-From: jbeulich@novell.com
-Acked-by: kraxel@suse.de
-References: 150410
-
-The bridge netfilter code saves two more bytes that it should.
-In most cases it doesn't hurt because many drivers use NET_IP_ALIGN
-to make the IP header aligned, so there are two extra bytes head room
-available.
-
-Some drivers don't do that though (sky2 for example), so copying
-accesses data outside the skbuff data allocation.  On xen kernels
-this can kill the machine with a page fault due to the way how
-skbuffs are allocated and the memory is managed.
-
----
- include/linux/netfilter_bridge.h |    2 +-
- net/bridge/br_netfilter.c        |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
---- linux-2.6.17.orig/include/linux/netfilter_bridge.h
-+++ linux-2.6.17/include/linux/netfilter_bridge.h
-@@ -57,7 +57,7 @@ void nf_bridge_maybe_copy_header(struct 
- 			memcpy(skb->data - 18, skb->nf_bridge->data, 18);
- 			skb_push(skb, 4);
- 		} else
--			memcpy(skb->data - 16, skb->nf_bridge->data, 16);
-+			memcpy(skb->data - 14, skb->nf_bridge->data, 14);
- 	}
- }
- 
---- linux-2.6.17.orig/net/bridge/br_netfilter.c
-+++ linux-2.6.17/net/bridge/br_netfilter.c
-@@ -124,7 +124,7 @@ static inline struct nf_bridge_info *nf_
- 
- static inline void nf_bridge_save_header(struct sk_buff *skb)
- {
--        int header_size = 16;
-+        int header_size = 14;
- 
- 	if (skb->protocol == htons(ETH_P_8021Q))
- 		header_size = 18;
-
---------------070303060808070102050009
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Xen-devel mailing list
-Xen-devel@lists.xensource.com
-http://lists.xensource.com/xen-devel
-
---------------070303060808070102050009--
