@@ -1,71 +1,96 @@
-From: Daniel Phillips <phillips@google.com>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Fri, 18 Aug 2006 14:22:07 -0700
-Message-ID: <44E62F7F.7010901@google.com>
-References: <20060808211731.GR14627@postel.suug.ch>	<44DBED4C.6040604@redhat.com>	<44DFA225.1020508@google.com>	<20060813.165540.56347790.davem@davemloft.net>	<44DFD262.5060106@google.com>	<20060813185309.928472f9.akpm@osdl.org>	<1155530453.5696.98.camel@twins>	<20060813215853.0ed0e973.akpm@osdl.org>	<44E3E964.8010602@google.com>	<20060816225726.3622cab1.akpm@osdl.org>	<44E5015D.80606@google.com> <20060817230556.7d16498e.akpm@osdl.org>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH,RFC] Re: r8169 driver problem with RTL8110SB chip (on iop3xx ARM board)
+Date: Fri, 18 Aug 2006 23:28:52 +0200
+Message-ID: <20060818212852.GA5379@xi.wantstofly.org>
+References: <20060728101109.GA25854@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	David Miller <davem@davemloft.net>, riel@redhat.com,
-	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, tbm@cyrius.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.12]:13391 "EHLO
-	smtp-out.google.com") by vger.kernel.org with ESMTP
-	id S1751476AbWHRVZv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Aug 2006 17:25:51 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060817230556.7d16498e.akpm@osdl.org>
+Received: from alephnull.demon.nl ([83.160.184.112]:46557 "EHLO
+	xi.wantstofly.org") by vger.kernel.org with ESMTP id S1751493AbWHRV2z
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Aug 2006 17:28:55 -0400
+To: romieu@fr.zoreil.com
+Content-Disposition: inline
+In-Reply-To: <20060728101109.GA25854@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
->Daniel Phillips wrote:
->>Andrew Morton wrote:
->
-> ...it's runtime configurable.
+On Fri, Jul 28, 2006 at 12:11:09PM +0200, Lennert Buytenhek wrote:
 
-So we default to "less than the best" because we are too lazy to fix the
-network starvation issue properly?  Maybe we don't really need a mempool for
-struct bio either, isn't that one rather like the reserve pool we propose
-for sk_buffs?  (And for that matter, isn't a bio rather more like an sk_buff
-than one would think from the code we have written?)
-
->>unavailable for write caching just to get around the network receive
->> starvation issue?
+> We're currently working on getting the Thecus n2100 supported in 2.6.
 > 
-> No, it's mainly to avoid latency: to prevent tasks which want to allocate
-> pages from getting stuck behind writeback.
-
-This seems like a great help for some common loads, but a regression for
-other not-so-rare loads.  Regardless of whether or not marking 60% of memory
-as unusable for write caching is a great idea, it is not a compelling reason
-to fall for the hammer/nail trap.
-
->>What happens if some in kernel user grabs 68% of kernel memory to do some
->>very important thing, does this starvation avoidance scheme still work?
+> 	http://www.thecus.com/products_over.php?cid=1&pid=1
 > 
-> Well something has to give way.  The process might get swapped out a bit,
-> or it might stall in the page allocator because of all the dirty memory.
+> Amongst other nice goodies, it has two on-board RTL8110SB gigabit
+> controllers.  The realtek-supplied 'r1000' driver kind of sort of works,
+> if you don't mind the machine hanging or crashing if you unplug the cable
+> at the wrong moment.
+> 
+> The in-kernel 'r8169' drivers in 2.6.17 and 2.6.18-rc2 appear to work
+> initially, but they don't actually seem to transmit any packets on the
+> wire, nor do they receive any.
 
-It is that "something has to give way" that makes me doubt the efficacy of
-our global write throttling scheme as a solution for network receive memory
-starvation.  As it is, the thing that gives way may well be the network
-stack.  Avoiding this hazard via a little bit of simple code is the whole
-point of our patch set.
+The hack patch below makes it work.  There's two issues here:
 
-Yes, we did waltz off into some not-so-simple code at one point, but after
-discussing it, Peter and I agree that the simple approach actually works
-well enough, so we just need to trim down the patch set accordingly and
-thus prove that our approach really is nice, light and tight.
+1. Writing zero to the upper part of the TxDescStartAddr register (via
+   the MMIO region) somehow also clears the lower part, and writing the
+   upper and lower halves the other way round fixes it.  The RxDescAddr
+   register doesn't seem to suffer from this problem.
 
-Specifically, we do not actually need any fancy sk_buff sub-allocator
-(either ours or the one proposed by davem).  We already got rid of the per
-device reserve accounting in order to finesse away the sk_buff->dev oddity
-and shorten the patch.  So the next rev will be rather lighter than the
-original.
+   The Realtek r1000 driver writes the two halves in the same order as
+   r8169, but it doesn't happen there, which is a bit of a mystery to
+   me.
 
-Regards,
+2. SYSErr asserts pretty soon after upping eth0, and the PCI status
+   register reports a parity error when this happens.  In this case,
+   the restart logic seems to make things worse, and in fact, when
+   commenting it out, things work a lot better.
 
-Daniel
+Have you ever seen these issues before?  Any suggestions on how to
+cleanly fix these issues?
+
+
+cheers,
+Lennert
+
+
+Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
+
+Index: linux-2.6.18-rc2/drivers/net/r8169.c
+===================================================================
+--- linux-2.6.18-rc2.orig/drivers/net/r8169.c
++++ linux-2.6.18-rc2/drivers/net/r8169.c
+@@ -484,7 +488,7 @@ static int rtl8169_poll(struct net_devic
+ #endif
+ 
+ static const u16 rtl8169_intr_mask =
+-	SYSErr | LinkChg | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
++	LinkChg | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
+ static const u16 rtl8169_napi_event =
+ 	RxOK | RxOverflow | RxFIFOOver | TxOK | TxErr;
+ static const unsigned int rtl8169_rx_config =
+@@ -1825,8 +1829,8 @@ rtl8169_hw_start(struct net_device *dev)
+ 	 */
+ 	RTL_W16(IntrMitigate, 0x0000);
+ 
+-	RTL_W32(TxDescStartAddrLow, ((u64) tp->TxPhyAddr & DMA_32BIT_MASK));
+ 	RTL_W32(TxDescStartAddrHigh, ((u64) tp->TxPhyAddr >> 32));
++	RTL_W32(TxDescStartAddrLow, ((u64) tp->TxPhyAddr & DMA_32BIT_MASK));
+ 	RTL_W32(RxDescAddrLow, ((u64) tp->RxPhyAddr & DMA_32BIT_MASK));
+ 	RTL_W32(RxDescAddrHigh, ((u64) tp->RxPhyAddr >> 32));
+ 	RTL_W8(Cfg9346, Cfg9346_Lock);
+@@ -2527,10 +2531,12 @@ rtl8169_interrupt(int irq, void *dev_ins
+ 		if (!(status & rtl8169_intr_mask))
+ 			break;
+ 
++#if 0
+ 		if (unlikely(status & SYSErr)) {
+ 			rtl8169_pcierr_interrupt(dev);
+ 			break;
+ 		}
++#endif
+ 
+ 		if (status & LinkChg)
+ 			rtl8169_check_link_status(dev, tp, ioaddr);
