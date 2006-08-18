@@ -1,75 +1,386 @@
-From: Michael Neuling <mikey@neuling.org>
-Subject: Re: [2.6.19 PATCH 5/7] ehea: main header files
-Date: Fri, 18 Aug 2006 13:03:41 -0500
-Message-ID: <20060818180345.9660E67B64@ozlabs.org>
-References: <200608181334.57701.ossthema@de.ibm.com>
-Reply-To: Michael Neuling <mikey@neuling.org>
-Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Thomas Klein <osstklei@de.ibm.com>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Marcus Eder <meder@de.ibm.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH 1/5][SCTP]: Extend /proc/net/sctp/snmp to provide more
+	statistics.
+Date: Fri, 18 Aug 2006 11:22:27 -0700
+Message-ID: <1155925347.20802.25.camel@w-sridhar2.beaverton.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:47026 "EHLO ozlabs.org")
-	by vger.kernel.org with ESMTP id S1751455AbWHRSDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 14:03:47 -0400
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-In-reply-to: <200608181334.57701.ossthema@de.ibm.com> 
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:13243 "EHLO e1.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S964912AbWHRS2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 14:28:37 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e1.ny.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k7IISaLr031802
+	for <netdev@vger.kernel.org>; Fri, 18 Aug 2006 14:28:36 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7IISaTB167706
+	for <netdev@vger.kernel.org>; Fri, 18 Aug 2006 14:28:36 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7IISZYS009446
+	for <netdev@vger.kernel.org>; Fri, 18 Aug 2006 14:28:36 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> +static inline void ehea_update_sqa(struct ehea_qp *qp, u16 nr_wqes)
-> +{
-> +	struct h_epa epa = qp->epas.kernel;
-> +	epa_store_acc(epa, QPTEMM_OFFSET(qpx_sqa),
-> +		      EHEA_BMASK_SET(QPX_SQA_VALUE, nr_wqes));
-> +}
-> +
-> +static inline void ehea_update_rq3a(struct ehea_qp *qp, u16 nr_wqes)
-> +{
-> +	struct h_epa epa = qp->epas.kernel;
-> +	epa_store_acc(epa, QPTEMM_OFFSET(qpx_rq3a),
-> +		      EHEA_BMASK_SET(QPX_RQ1A_VALUE, nr_wqes));
-> +}
-> +
-> +static inline void ehea_update_rq2a(struct ehea_qp *qp, u16 nr_wqes)
-> +{
-> +	struct h_epa epa = qp->epas.kernel;
-> +	epa_store_acc(epa, QPTEMM_OFFSET(qpx_rq2a),
-> +		      EHEA_BMASK_SET(QPX_RQ1A_VALUE, nr_wqes));
-> +}
-> +
-> +static inline void ehea_update_rq1a(struct ehea_qp *qp, u16 nr_wqes)
-> +{
-> +	struct h_epa epa = qp->epas.kernel;
-> +	epa_store_acc(epa, QPTEMM_OFFSET(qpx_rq1a),
-> +		      EHEA_BMASK_SET(QPX_RQ1A_VALUE, nr_wqes));
-> +}
-> +
-> +static inline void ehea_update_feca(struct ehea_cq *cq, u32 nr_cqes)
-> +{
-> +	struct h_epa epa = cq->epas.kernel;
-> +	epa_store_acc(epa, CQTEMM_OFFSET(cqx_feca),
-> +		      EHEA_BMASK_SET(CQX_FECADDER, nr_cqes));
-> +}
-> +
-> +static inline void ehea_reset_cq_n1(struct ehea_cq *cq)
-> +{
-> +	struct h_epa epa = cq->epas.kernel;
-> +	epa_store_cq(epa, cqx_n1,
-> +		     EHEA_BMASK_SET(CQX_N1_GENERATE_COMP_EVENT, 1));
-> +}
-> +
-> +static inline void ehea_reset_cq_ep(struct ehea_cq *my_cq)
-> +{
-> +	struct h_epa epa = my_cq->epas.kernel;
-> +	epa_store_acc(epa, CQTEMM_OFFSET(cqx_ep),
-> +		      EHEA_BMASK_SET(CQX_EP_EVENT_PENDING, 0));
-> +}
+Dave,
 
-These are almost identical... I'm sure most (if not all) could be merged
-into a single function or #define.
+Please apply the following set of 5 SCTP patches to 2.6.19 tree.
 
-Mikey
+Thanks
+Sridhar
+
+[SCTP]: Extend /proc/net/sctp/snmp to provide more statistics.
+
+This patch adds more statistics info under /proc/net/sctp/snmp
+that should be useful for debugging. The additional events that
+are counted now include timer expirations, retransmits, packet
+and data chunk discards.
+
+The Data chunk discards include all the cases where a data chunk
+is discarded including high tsn, bad stream, dup tsn and the most
+useful one(out of receive buffer/rwnd).
+
+Also moved the SCTP MIB data structures from the generic include
+directories to include/sctp/sctp.h.
+
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+
+---
+
+ include/linux/snmp.h    |   33 ---------------------------------
+ include/net/sctp/sctp.h |   44 ++++++++++++++++++++++++++++++++++++++++++++
+ include/net/snmp.h      |    6 ------
+ net/sctp/input.c        |    8 ++++++--
+ net/sctp/inqueue.c      |    4 ++--
+ net/sctp/outqueue.c     |    6 +++++-
+ net/sctp/proc.c         |   17 ++++++++++++++++-
+ net/sctp/sm_statefuns.c |   15 +++++++++++++++
+ 8 files changed, 88 insertions(+), 45 deletions(-)
+
+diff --git a/include/linux/snmp.h b/include/linux/snmp.h
+index 3015655..854aa6b 100644
+--- a/include/linux/snmp.h
++++ b/include/linux/snmp.h
+@@ -160,39 +160,6 @@ enum
+ 	__UDP_MIB_MAX
+ };
+ 
+-/* sctp mib definitions */
+-/*
+- * draft-ietf-sigtran-sctp-mib-07.txt
+- */
+-enum
+-{
+-	SCTP_MIB_NUM = 0,
+-	SCTP_MIB_CURRESTAB,			/* CurrEstab */
+-	SCTP_MIB_ACTIVEESTABS,			/* ActiveEstabs */
+-	SCTP_MIB_PASSIVEESTABS,			/* PassiveEstabs */
+-	SCTP_MIB_ABORTEDS,			/* Aborteds */
+-	SCTP_MIB_SHUTDOWNS,			/* Shutdowns */
+-	SCTP_MIB_OUTOFBLUES,			/* OutOfBlues */
+-	SCTP_MIB_CHECKSUMERRORS,		/* ChecksumErrors */
+-	SCTP_MIB_OUTCTRLCHUNKS,			/* OutCtrlChunks */
+-	SCTP_MIB_OUTORDERCHUNKS,		/* OutOrderChunks */
+-	SCTP_MIB_OUTUNORDERCHUNKS,		/* OutUnorderChunks */
+-	SCTP_MIB_INCTRLCHUNKS,			/* InCtrlChunks */
+-	SCTP_MIB_INORDERCHUNKS,			/* InOrderChunks */
+-	SCTP_MIB_INUNORDERCHUNKS,		/* InUnorderChunks */
+-	SCTP_MIB_FRAGUSRMSGS,			/* FragUsrMsgs */
+-	SCTP_MIB_REASMUSRMSGS,			/* ReasmUsrMsgs */
+-	SCTP_MIB_OUTSCTPPACKS,			/* OutSCTPPacks */
+-	SCTP_MIB_INSCTPPACKS,			/* InSCTPPacks */
+-	SCTP_MIB_RTOALGORITHM,			/* RtoAlgorithm */
+-	SCTP_MIB_RTOMIN,			/* RtoMin */
+-	SCTP_MIB_RTOMAX,			/* RtoMax */
+-	SCTP_MIB_RTOINITIAL,			/* RtoInitial */
+-	SCTP_MIB_VALCOOKIELIFE,			/* ValCookieLife */
+-	SCTP_MIB_MAXINITRETR,			/* MaxInitRetr */
+-	__SCTP_MIB_MAX
+-};
+-
+ /* linux mib definitions */
+ enum
+ {
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index a9663b4..0a42da7 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -216,6 +216,50 @@ #define SCTP_DEC_STATS(field)      SNMP_
+ 
+ #endif /* !TEST_FRAME */
+ 
++/* sctp mib definitions */
++enum
++{
++	SCTP_MIB_NUM = 0,
++	SCTP_MIB_CURRESTAB,			/* CurrEstab */
++	SCTP_MIB_ACTIVEESTABS,			/* ActiveEstabs */
++	SCTP_MIB_PASSIVEESTABS,			/* PassiveEstabs */
++	SCTP_MIB_ABORTEDS,			/* Aborteds */
++	SCTP_MIB_SHUTDOWNS,			/* Shutdowns */
++	SCTP_MIB_OUTOFBLUES,			/* OutOfBlues */
++	SCTP_MIB_CHECKSUMERRORS,		/* ChecksumErrors */
++	SCTP_MIB_OUTCTRLCHUNKS,			/* OutCtrlChunks */
++	SCTP_MIB_OUTORDERCHUNKS,		/* OutOrderChunks */
++	SCTP_MIB_OUTUNORDERCHUNKS,		/* OutUnorderChunks */
++	SCTP_MIB_INCTRLCHUNKS,			/* InCtrlChunks */
++	SCTP_MIB_INORDERCHUNKS,			/* InOrderChunks */
++	SCTP_MIB_INUNORDERCHUNKS,		/* InUnorderChunks */
++	SCTP_MIB_FRAGUSRMSGS,			/* FragUsrMsgs */
++	SCTP_MIB_REASMUSRMSGS,			/* ReasmUsrMsgs */
++	SCTP_MIB_OUTSCTPPACKS,			/* OutSCTPPacks */
++	SCTP_MIB_INSCTPPACKS,			/* InSCTPPacks */
++	SCTP_MIB_T1_INIT_EXPIREDS,
++	SCTP_MIB_T1_COOKIE_EXPIREDS,
++	SCTP_MIB_T2_SHUTDOWN_EXPIREDS,
++	SCTP_MIB_T3_RTX_EXPIREDS,
++	SCTP_MIB_T4_RTO_EXPIREDS,
++	SCTP_MIB_T5_SHUTDOWN_GUARD_EXPIREDS,
++	SCTP_MIB_DELAY_SACK_EXPIREDS,
++	SCTP_MIB_AUTOCLOSE_EXPIREDS,
++	SCTP_MIB_T3_RETRANSMITS,
++	SCTP_MIB_PMTUD_RETRANSMITS,
++	SCTP_MIB_FAST_RETRANSMITS,
++	SCTP_MIB_IN_PKT_SOFTIRQ,
++	SCTP_MIB_IN_PKT_BACKLOG,
++	SCTP_MIB_IN_PKT_DISCARDS,
++	SCTP_MIB_IN_DATA_CHUNK_DISCARDS,
++	__SCTP_MIB_MAX
++};
++
++#define SCTP_MIB_MAX    __SCTP_MIB_MAX
++struct sctp_mib {
++        unsigned long   mibs[SCTP_MIB_MAX];
++} __SNMP_MIB_ALIGN__;
++
+ 
+ /* Print debugging messages.  */
+ #if SCTP_DEBUG
+diff --git a/include/net/snmp.h b/include/net/snmp.h
+index a36bed8..464970e 100644
+--- a/include/net/snmp.h
++++ b/include/net/snmp.h
+@@ -100,12 +100,6 @@ struct udp_mib {
+ 	unsigned long	mibs[UDP_MIB_MAX];
+ } __SNMP_MIB_ALIGN__;
+ 
+-/* SCTP */
+-#define SCTP_MIB_MAX	__SCTP_MIB_MAX
+-struct sctp_mib {
+-	unsigned long	mibs[SCTP_MIB_MAX];
+-} __SNMP_MIB_ALIGN__;
+-
+ /* Linux */
+ #define LINUX_MIB_MAX	__LINUX_MIB_MAX
+ struct linux_mib {
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index 42b66e7..8a34d95 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -255,10 +255,13 @@ int sctp_rcv(struct sk_buff *skb)
+ 	 */
+ 	sctp_bh_lock_sock(sk);
+ 
+-	if (sock_owned_by_user(sk))
++	if (sock_owned_by_user(sk)) {
++		SCTP_INC_STATS_BH(SCTP_MIB_IN_PKT_BACKLOG);
+ 		sctp_add_backlog(sk, skb);
+-	else
++	} else {
++		SCTP_INC_STATS_BH(SCTP_MIB_IN_PKT_SOFTIRQ);
+ 		sctp_inq_push(&chunk->rcvr->inqueue, chunk);
++	}
+ 
+ 	sctp_bh_unlock_sock(sk);
+ 
+@@ -271,6 +274,7 @@ int sctp_rcv(struct sk_buff *skb)
+ 	return 0;
+ 
+ discard_it:
++	SCTP_INC_STATS_BH(SCTP_MIB_IN_PKT_DISCARDS);
+ 	kfree_skb(skb);
+ 	return 0;
+ 
+diff --git a/net/sctp/inqueue.c b/net/sctp/inqueue.c
+index cf0c767..cf6deed 100644
+--- a/net/sctp/inqueue.c
++++ b/net/sctp/inqueue.c
+@@ -87,7 +87,7 @@ void sctp_inq_free(struct sctp_inq *queu
+ /* Put a new packet in an SCTP inqueue.
+  * We assume that packet->sctp_hdr is set and in host byte order.
+  */
+-void sctp_inq_push(struct sctp_inq *q, struct sctp_chunk *packet)
++void sctp_inq_push(struct sctp_inq *q, struct sctp_chunk *chunk)
+ {
+ 	/* Directly call the packet handling routine. */
+ 
+@@ -96,7 +96,7 @@ void sctp_inq_push(struct sctp_inq *q, s
+ 	 * Eventually, we should clean up inqueue to not rely
+ 	 * on the BH related data structures.
+ 	 */
+-	list_add_tail(&packet->list, &q->in_chunk_list);
++	list_add_tail(&chunk->list, &q->in_chunk_list);
+ 	q->immediate.func(q->immediate.data);
+ }
+ 
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 30b710c..37074a3 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -467,6 +467,7 @@ void sctp_retransmit(struct sctp_outq *q
+ 
+ 	switch(reason) {
+ 	case SCTP_RTXR_T3_RTX:
++		SCTP_INC_STATS(SCTP_MIB_T3_RETRANSMITS);
+ 		sctp_transport_lower_cwnd(transport, SCTP_LOWER_CWND_T3_RTX);
+ 		/* Update the retran path if the T3-rtx timer has expired for
+ 		 * the current retran path.
+@@ -475,12 +476,15 @@ void sctp_retransmit(struct sctp_outq *q
+ 			sctp_assoc_update_retran_path(transport->asoc);
+ 		break;
+ 	case SCTP_RTXR_FAST_RTX:
++		SCTP_INC_STATS(SCTP_MIB_FAST_RETRANSMITS);
+ 		sctp_transport_lower_cwnd(transport, SCTP_LOWER_CWND_FAST_RTX);
+ 		fast_retransmit = 1;
+ 		break;
+ 	case SCTP_RTXR_PMTUD:
+-	default:
++		SCTP_INC_STATS(SCTP_MIB_PMTUD_RETRANSMITS);
+ 		break;
++	default:
++		BUG();
+ 	}
+ 
+ 	sctp_retransmit_mark(q, transport, fast_retransmit);
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index 5b3b0e0..a356d8d 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -57,6 +57,21 @@ static struct snmp_mib sctp_snmp_list[] 
+ 	SNMP_MIB_ITEM("SctpReasmUsrMsgs", SCTP_MIB_REASMUSRMSGS),
+ 	SNMP_MIB_ITEM("SctpOutSCTPPacks", SCTP_MIB_OUTSCTPPACKS),
+ 	SNMP_MIB_ITEM("SctpInSCTPPacks", SCTP_MIB_INSCTPPACKS),
++	SNMP_MIB_ITEM("SctpT1InitExpireds", SCTP_MIB_T1_INIT_EXPIREDS),
++	SNMP_MIB_ITEM("SctpT1CookieExpireds", SCTP_MIB_T1_COOKIE_EXPIREDS),
++	SNMP_MIB_ITEM("SctpT2ShutdownExpireds", SCTP_MIB_T2_SHUTDOWN_EXPIREDS),
++	SNMP_MIB_ITEM("SctpT3RtxExpireds", SCTP_MIB_T3_RTX_EXPIREDS),
++	SNMP_MIB_ITEM("SctpT4RtoExpireds", SCTP_MIB_T4_RTO_EXPIREDS),
++	SNMP_MIB_ITEM("SctpT5ShutdownGuardExpireds", SCTP_MIB_T5_SHUTDOWN_GUARD_EXPIREDS),
++	SNMP_MIB_ITEM("SctpDelaySackExpireds", SCTP_MIB_DELAY_SACK_EXPIREDS),
++	SNMP_MIB_ITEM("SctpAutocloseExpireds", SCTP_MIB_AUTOCLOSE_EXPIREDS),
++	SNMP_MIB_ITEM("SctpT3Retransmits", SCTP_MIB_T3_RETRANSMITS),
++	SNMP_MIB_ITEM("SctpPmtudRetransmits", SCTP_MIB_PMTUD_RETRANSMITS),
++	SNMP_MIB_ITEM("SctpFastRetransmits", SCTP_MIB_FAST_RETRANSMITS),
++	SNMP_MIB_ITEM("SctpInPktSoftirq", SCTP_MIB_IN_PKT_SOFTIRQ),
++	SNMP_MIB_ITEM("SctpInPktBacklog", SCTP_MIB_IN_PKT_BACKLOG),
++	SNMP_MIB_ITEM("SctpInPktDiscards", SCTP_MIB_IN_PKT_DISCARDS),
++	SNMP_MIB_ITEM("SctpInDataChunkDiscards", SCTP_MIB_IN_DATA_CHUNK_DISCARDS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+@@ -328,8 +343,8 @@ static int sctp_assocs_seq_show(struct s
+ 			   "%8p %8p %-3d %-3d %-2d %-4d %4d %8d %8d %7d %5lu %-5d %5d ",
+ 			   assoc, sk, sctp_sk(sk)->type, sk->sk_state,
+ 			   assoc->state, hash, assoc->assoc_id,
+-			   (sk->sk_rcvbuf - assoc->rwnd),
+ 			   assoc->sndbuf_used,
++			   (sk->sk_rcvbuf - assoc->rwnd),
+ 			   sock_i_uid(sk), sock_i_ino(sk),
+ 			   epb->bind_addr.port,
+ 			   assoc->peer.port);
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index ead3f1b..f956c92 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -2663,9 +2663,11 @@ sctp_disposition_t sctp_sf_eat_data_6_2(
+ 		break;
+ 	case SCTP_IERROR_HIGH_TSN:
+ 	case SCTP_IERROR_BAD_STREAM:
++		SCTP_INC_STATS(SCTP_MIB_IN_DATA_CHUNK_DISCARDS);
+ 		goto discard_noforce;
+ 	case SCTP_IERROR_DUP_TSN:
+ 	case SCTP_IERROR_IGNORE_TSN:
++		SCTP_INC_STATS(SCTP_MIB_IN_DATA_CHUNK_DISCARDS);
+ 		goto discard_force;
+ 	case SCTP_IERROR_NO_DATA:
+ 		goto consume;
+@@ -3652,6 +3654,7 @@ sctp_disposition_t sctp_sf_pdiscard(cons
+ 				    void *arg,
+ 				    sctp_cmd_seq_t *commands)
+ {
++	SCTP_INC_STATS(SCTP_MIB_IN_PKT_DISCARDS);
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_DISCARD_PACKET, SCTP_NULL());
+ 
+ 	return SCTP_DISPOSITION_CONSUME;
+@@ -4560,6 +4563,8 @@ sctp_disposition_t sctp_sf_do_6_3_3_rtx(
+ {
+ 	struct sctp_transport *transport = arg;
+ 
++	SCTP_INC_STATS(SCTP_MIB_T3_RTX_EXPIREDS);
++
+ 	if (asoc->overall_error_count >= asoc->max_retrans) {
+ 		sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
+ 				SCTP_ERROR(ETIMEDOUT));
+@@ -4628,6 +4633,7 @@ sctp_disposition_t sctp_sf_do_6_2_sack(c
+ 				       void *arg,
+ 				       sctp_cmd_seq_t *commands)
+ {
++	SCTP_INC_STATS(SCTP_MIB_DELAY_SACK_EXPIREDS);
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_GEN_SACK, SCTP_FORCE());
+ 	return SCTP_DISPOSITION_CONSUME;
+ }
+@@ -4662,6 +4668,7 @@ sctp_disposition_t sctp_sf_t1_init_timer
+ 	int attempts = asoc->init_err_counter + 1;
+ 
+ 	SCTP_DEBUG_PRINTK("Timer T1 expired (INIT).\n");
++	SCTP_INC_STATS(SCTP_MIB_T1_INIT_EXPIREDS);
+ 
+ 	if (attempts <= asoc->max_init_attempts) {
+ 		bp = (struct sctp_bind_addr *) &asoc->base.bind_addr;
+@@ -4721,6 +4728,7 @@ sctp_disposition_t sctp_sf_t1_cookie_tim
+ 	int attempts = asoc->init_err_counter + 1;
+ 
+ 	SCTP_DEBUG_PRINTK("Timer T1 expired (COOKIE-ECHO).\n");
++	SCTP_INC_STATS(SCTP_MIB_T1_COOKIE_EXPIREDS);
+ 
+ 	if (attempts <= asoc->max_init_attempts) {
+ 		repl = sctp_make_cookie_echo(asoc, NULL);
+@@ -4765,6 +4773,8 @@ sctp_disposition_t sctp_sf_t2_timer_expi
+ 	struct sctp_chunk *reply = NULL;
+ 
+ 	SCTP_DEBUG_PRINTK("Timer T2 expired.\n");
++	SCTP_INC_STATS(SCTP_MIB_T2_SHUTDOWN_EXPIREDS);
++
+ 	if (asoc->overall_error_count >= asoc->max_retrans) {
+ 		sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
+ 				SCTP_ERROR(ETIMEDOUT));
+@@ -4826,6 +4836,8 @@ sctp_disposition_t sctp_sf_t4_timer_expi
+ 	struct sctp_chunk *chunk = asoc->addip_last_asconf;
+ 	struct sctp_transport *transport = chunk->transport;
+ 
++	SCTP_INC_STATS(SCTP_MIB_T4_RTO_EXPIREDS);
++
+ 	/* ADDIP 4.1 B1) Increment the error counters and perform path failure
+ 	 * detection on the appropriate destination address as defined in
+ 	 * RFC2960 [5] section 8.1 and 8.2.
+@@ -4892,6 +4904,7 @@ sctp_disposition_t sctp_sf_t5_timer_expi
+ 	struct sctp_chunk *reply = NULL;
+ 
+ 	SCTP_DEBUG_PRINTK("Timer T5 expired.\n");
++	SCTP_INC_STATS(SCTP_MIB_T5_SHUTDOWN_GUARD_EXPIREDS);
+ 
+ 	reply = sctp_make_abort(asoc, NULL, 0);
+ 	if (!reply)
+@@ -4922,6 +4935,8 @@ sctp_disposition_t sctp_sf_autoclose_tim
+ {
+ 	int disposition;
+ 
++	SCTP_INC_STATS(SCTP_MIB_AUTOCLOSE_EXPIREDS);
++
+ 	/* From 9.2 Shutdown of an Association
+ 	 * Upon receipt of the SHUTDOWN primitive from its upper
+ 	 * layer, the endpoint enters SHUTDOWN-PENDING state and
+
+
