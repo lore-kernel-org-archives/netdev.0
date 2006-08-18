@@ -1,7 +1,7 @@
 From: "John Que" <qwejohn@gmail.com>
 Subject: Re: time stamps of skb packets in NF_HOOKS callbacks
-Date: Fri, 18 Aug 2006 08:40:25 +0300
-Message-ID: <ada605fb0608172240s35b0a5f8q7ccff8ea541d52c1@mail.gmail.com>
+Date: Fri, 18 Aug 2006 08:43:08 +0300
+Message-ID: <ada605fb0608172243raeff154q728bdd026b5b1d31@mail.gmail.com>
 References: <ada605fb0608170737m4c0096c4u33a70dcf37e09df8@mail.gmail.com>
 	 <20060817155835.GA11898@2ka.mipt.ru>
 Mime-Version: 1.0
@@ -9,12 +9,12 @@ Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:49226 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.186]:36948 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S964799AbWHRFk0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Aug 2006 01:40:26 -0400
-Received: by nf-out-0910.google.com with SMTP id o25so1182708nfa
-        for <netdev@vger.kernel.org>; Thu, 17 Aug 2006 22:40:25 -0700 (PDT)
+	id S964804AbWHRFnJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Aug 2006 01:43:09 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so1183142nfa
+        for <netdev@vger.kernel.org>; Thu, 17 Aug 2006 22:43:08 -0700 (PDT)
 To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
 In-Reply-To: <20060817155835.GA11898@2ka.mipt.ru>
 Content-Disposition: inline
@@ -22,7 +22,11 @@ Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Evgeniy,
+Sorry ! ; last sentence in my reply was chopped so here is my message
+again with this last sentence (complete this time)
+
 Thnks, I appreciate your (quick) answer;
+
 
 Following your answer I tried adding a call to net_enable_timestamp() in
 a module I wrote which use NF_HOOKS.
@@ -37,8 +41,11 @@ high  network  load which can get to 50,000 packets per second?
 2) It does work as I said, but I want to be cautios: Am I permitted to
 add this method ? are  there any  implications for adding this method
 which can create troubles ?
-I must say that I am NOT
+I must say that I am NOT changing anywhere the timestamp; it's only
+for statistics.
 
+Regards,
+John
 
 
 
