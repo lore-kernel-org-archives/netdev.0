@@ -1,54 +1,64 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2.6.17 4/9] NetXen: intr routines and niu handling
-Date: Fri, 18 Aug 2006 08:22:06 -0700
-Message-ID: <20060818082206.54f193ff@dxpl.pdx.osdl.net>
-References: <Pine.LNX.4.64.0608180713480.6875@dut39>
-	<Pine.LNX.4.64.0608180801340.6875@dut39>
+From: Vasily Averin <vvs@sw.ru>
+Subject: [PATCH] e1000: ring buffers resources cleanup
+Date: Fri, 18 Aug 2006 19:23:43 +0400
+Message-ID: <44E5DB7F.4040205@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, sanjeev@netxen.com,
-	unmproj@linsyssoft.com, rob@netxen.com
+Content-Type: multipart/mixed;
+ boundary="------------090301000203040009090007"
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:21683 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751282AbWHRPWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 11:22:37 -0400
-To: "Amit S. Kale" <amitkale@netxen.com>
-In-Reply-To: <Pine.LNX.4.64.0608180801340.6875@dut39>
+Received: from mailhub.sw.ru ([195.214.233.200]:8498 "EHLO relay.sw.ru")
+	by vger.kernel.org with ESMTP id S1751398AbWHRPXg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 11:23:36 -0400
+To: netdev@vger.kernel.org, Jeb Cramer <cramerj@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>,
+	Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
+	devel@openvz.org, e1000-devel@lists.sourceforge.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-O
-> + * netxen_nic_get_stats - Get System Network Statistics
-> + * @netdev: network interface device structure
-> + */
-> +struct net_device_stats *netxen_nic_get_stats(struct net_device *netdev)
-> +{
-> +	struct netxen_port *port = netdev_priv(netdev);
-> +	struct net_device_stats *stats = &port->net_stats;
-> +
-> +	memset(stats, 0, sizeof(*stats));
-> +
-> +	/* total packets received   */
-> +	stats->rx_packets = port->stats.no_rcv;
-> +	/* total packets transmitted    */
-> +	stats->tx_packets = port->stats.xmitedframes + port->stats.xmitfinished;
-> +	/* total bytes received     */
-> +	stats->rx_bytes = port->stats.rxbytes;
-> +	/* total bytes transmitted  */
-> +	stats->tx_bytes = port->stats.txbytes;
-> +	/* bad packets received     */
-> +	stats->rx_errors = port->stats.rcvdbadskb;
-> +	/* packet transmit problems */
-> +	stats->tx_errors = port->stats.nocmddescriptor;
-> +	/* no space in linux buffers    */
-> +	stats->rx_dropped = port->stats.updropped;
-> +	/* no space available in linux  */
-> +	stats->tx_dropped = port->stats.txdropped;
-> +
-> +	return stats;
-> +}
+This is a multi-part message in MIME format.
+--------------090301000203040009090007
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-Why keep track of statistics in one structure then copy out to net_device
-format? Instead just use original format.
+irq leak was found in 2.6.18-rc4 and e1000 7.2.7 from sourceforge:
+if e1000_up fails in e1000_open() we do not free allocated irq
 
+Signed-off-by: Vasily Averin <vvs@sw.ru>
+
+Thank you,
+	Vasily Averin
+SWsoft Virtuozzo/OpenVZ Linux kernel team
+
+--------------090301000203040009090007
+Content-Type: text/plain;
+ name="diff-e1000-irqleak-20060818"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="diff-e1000-irqleak-20060818"
+
+--- linux-2.6.18-rc4/drivers/net/e1000/e1000_main.c.oirq	2006-08-18 18:53:05.000000000 +0400
++++ linux-2.6.18-rc4/drivers/net/e1000/e1000_main.c	2006-08-18 19:18:22.000000000 +0400
+@@ -1208,7 +1208,7 @@ e1000_open(struct net_device *netdev)
+ 
+ 	err = e1000_request_irq(adapter);
+ 	if (err)
+-		goto err_up;
++		goto err_req_irq;
+ 
+ 	e1000_power_up_phy(adapter);
+ 
+@@ -1229,6 +1229,8 @@ e1000_open(struct net_device *netdev)
+ 	return E1000_SUCCESS;
+ 
+ err_up:
++	e1000_free_irq(adapter);
++err_req_irq:
+ 	e1000_free_all_rx_resources(adapter);
+ err_setup_rx:
+ 	e1000_free_all_tx_resources(adapter);
+
+--------------090301000203040009090007--
