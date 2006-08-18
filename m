@@ -1,48 +1,58 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: [PATCH 0/6]:  powerpc/cell spidernet ethernet driver update
-Date: Fri, 18 Aug 2006 17:07:00 -0500
-Message-ID: <20060818220700.GG26889@austin.ibm.com>
+From: Valerie Henson <val_henson@linux.intel.com>
+Subject: Re: [patch 38/41] xircom_cb: wire up errors from pci_register_driver()
+Date: Fri, 18 Aug 2006 15:15:36 -0700
+Message-ID: <20060818221536.GD20111@goober>
+References: <200608150600.k7F60TuO012760@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, akpm@osdl.org,
-	Arnd Bergmann <arnd@arndb.de>,
-	James K Lewis <jklewis@us.ibm.com>,
-	Utz Bacher <utz.bacher@de.ibm.com>,
-	ens Osterkamp <Jens.Osterkamp@de.ibm.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: jeff@garzik.org, netdev@vger.kernel.org, adobriyan@gmail.com,
+	linux@dominikbrodowski.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:52879 "EHLO
-	e35.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751510AbWHRWHE
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Aug 2006 18:07:04 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
+Received: from mga07.intel.com ([143.182.124.22]:2108 "EHLO
+	azsmga101.ch.intel.com") by vger.kernel.org with ESMTP
+	id S1751519AbWHRWPw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Aug 2006 18:15:52 -0400
+To: akpm@osdl.org
 Content-Disposition: inline
+In-Reply-To: <200608150600.k7F60TuO012760@shell0.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Aug 14, 2006 at 11:00:28PM -0700, akpm@osdl.org wrote:
+> From: Alexey Dobriyan <adobriyan@gmail.com>
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Cc: Dominik Brodowski <linux@dominikbrodowski.net>
+> Cc: Valerie Henson <val_henson@linux.intel.com>
+> Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-Jeff,
+Ack.  Add my:
 
-Can you apply and forward upstream the following series of patches?
-This is the same set of patches I sent only a few days ago; however,
-it appears that I failed to cc you on some of them, and I failed to
-ask anyone in particular to actually apply them. So I'm asking now. :-)
+Signed-off-by: Valerie Henson <val_henson@linux.intel.com>
 
-The maintainership of the spidernet driver is transitioning from
-Utz Bacher and Jens Osterkamp to Jim Lewis; you should be receiving
-a patch to the MAINTAINERS file from Jim, noting this, shortly.  
-I suspect that neither Utz nor Jens will be ack'ing or nack'ing 
-these patches unless prodded; let me know if you want some particlar
-ack from someone before you apply these. (BenH and Arnd Bergmann
-are the ones who usually keep us honest about these things.)
+-VAL
 
-Although these are based on a week-old mm tree, they should 
-apply cleanly just about anywhere, as there has been little/no 
-change to this code base in a long while. 
-
-The patches bring the transmit performance of the driver up
-to a decent level, as reviewed in greter detail in the patch
-descriptions.
-
---linas
+> ---
+> 
+>  drivers/net/tulip/xircom_cb.c |    3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff -puN drivers/net/tulip/xircom_cb.c~xircom_cb-wire-up-errors-from-pci_register_driver drivers/net/tulip/xircom_cb.c
+> --- a/drivers/net/tulip/xircom_cb.c~xircom_cb-wire-up-errors-from-pci_register_driver
+> +++ a/drivers/net/tulip/xircom_cb.c
+> @@ -1264,8 +1264,7 @@ static void investigate_write_descriptor
+>  
+>  static int __init xircom_init(void)
+>  {
+> -	pci_register_driver(&xircom_ops);
+> -	return 0;
+> +	return pci_register_driver(&xircom_ops);
+>  }
+>  
+>  static void __exit xircom_exit(void)
+> _
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
