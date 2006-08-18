@@ -1,38 +1,36 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: proposal for new wireless configuration API
-Date: Fri, 18 Aug 2006 09:12:05 +0200
-Message-ID: <1155885125.3425.11.camel@ux156>
-References: <1155655728.17742.30.camel@ux156>
-	 <1155659387.3005.15.camel@localhost.localdomain>
-	 <200608151838.58182.mb@bu3sch.de>
-	 <20060817232941.GB23163@p15091797.pureserver.info>
+From: Xavier Bestel <xavier.bestel@free.fr>
+Subject: Re: [PATCH] net: restrict device names from having whitespace
+Date: Fri, 18 Aug 2006 09:17:26 +0200
+Message-ID: <1155885446.7566.15.camel@capoeira>
+References: <20060816133811.GA26471@nostromo.devel.redhat.com>
+	 <Pine.LNX.4.58.0608161636250.2044@be1.lrz>
+	 <1155799783.7566.5.camel@capoeira>
+	 <20060817.162340.74748342.davem@davemloft.net>
+	 <20060818022057.GA27076@nostromo.devel.redhat.com>
+	 <44E68C4E.8070607@osdl.org> <20060817231127.6438324e@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, 7eggert@gmx.de,
+	cate@debian.org, 7eggert@elstempel.de, mitch.a.williams@intel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:63149 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750794AbWHRHLh
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Aug 2006 03:11:37 -0400
-To: Ulrich Kunitz <kune@deine-taler.de>
-In-Reply-To: <20060817232941.GB23163@p15091797.pureserver.info>
+Received: from smtp6.orange.fr ([193.252.22.25]:928 "EHLO
+	smtp-msa-out06.orange.fr") by vger.kernel.org with ESMTP
+	id S1750770AbWHRHRi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Aug 2006 03:17:38 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060817231127.6438324e@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-08-18 at 01:29 +0200, Ulrich Kunitz wrote:
-> Or are here people, who
-> really want to freely transmit on all frequencies their RF might
-> be able to generate?
+On Fri, 2006-08-18 at 08:11, Stephen Hemminger wrote:
+> Don't allow spaces in network device names because it makes
+> it difficult to provide text interfaces via sysfs.
 
-Yes :P
-Some amateur radio people asked me about extending the spectrum a bit to
-the top (apparently they're allowed to use the band just above the ISM
-band as well).
+Personally I would at least avoid all chars <= ' ', because an interface
+name is meant to be displayed and these control chars do no good on a
+console nor in X.
 
-However, I don't think we need to cater them in the API. I think they
-ought to be able to live with kernel patches since we don't really know
-how far up the frequency on say the bcm43xx can go anyway before the
-card breaks/malfunctions.
+	Xav
 
-johannes
