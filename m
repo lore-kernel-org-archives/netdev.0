@@ -1,45 +1,43 @@
-From: Christoph Raisch <RAISCH@de.ibm.com>
-Subject: Re: [2.6.19 PATCH 2/7] ehea: pHYP interface
-Date: Fri, 18 Aug 2006 18:02:17 +0200
-Message-ID: <OFF0CF1858.B1C22ED6-ONC12571CE.0056FB13-C12571CE.0057BEA6@de.ibm.com>
-References: <20060818151340.GB27947@krispykreme>
+From: Arnd Bergmann <arnd.bergmann@de.ibm.com>
+Subject: Re: [2.6.19 PATCH 3/7] ehea: queue management
+Date: Fri, 18 Aug 2006 18:16:51 +0200
+Message-ID: <200608181816.52079.arnd.bergmann@de.ibm.com>
+References: <OFC184057C.C58732A2-ONC12571CE.004E5EF6-C12571CE.004ED1D4@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Q Klein <tklein@de.ibm.com>, Jan-Bernd Themann <themann@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
 	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>, netdev@vger.kernel.org,
-	ossthema@de.ibm.com, Thomas Q Klein <tklein@de.ibm.com>,
-	tklein@linux.ibm.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932474AbWHRP61@vger.kernel.org>
-In-Reply-To: <20060818151340.GB27947@krispykreme>
-To: Anton Blanchard <anton@samba.org>
-Sender: linux-kernel-owner@vger.kernel.org
+	Christoph Raisch <RAISCH@de.ibm.com>,
+	Marcus Eder <meder@de.ibm.com>, tklein@linux.ibm.com,
+	abergman@de.ibm.com, Arjan van de Ven <arjan@infradead.org>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: linuxppc-dev@ozlabs.org
+In-Reply-To: <OFC184057C.C58732A2-ONC12571CE.004E5EF6-C12571CE.004ED1D4@de.ibm.com>
+Content-Disposition: inline
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
+On Friday 18 August 2006 16:24, Christoph Raisch wrote:
+> And as always in performance tuning... one size fits all unfortunately is
+> not the correct answer.
 
->
-> Hi,
->
-> > I asked SO to recount arguments and we've come to a conclusion that
-> > there're in fact 19 args not 18 as the name suggests. 19 args is
-> > I-N-S-A-N-E.
->
-> It will be partially cleaned up by:
->
-> http://ozlabs.org/pipermail/linuxppc-dev/2006-July/024556.html
->
-> However it doesnt fix the fact someone has architected such a crazy
-> interface :(
->
-> Anton
+Ah, good. What is the maximum sensible value that you came up with?
 
+> Therefore we'll leave that open to the user as most other new ethernet
+> driver did as well.
 
-well, just as background info, this is the wrapper around
-a single assembly instruction which calls system firmware and takes
-9 CPU registers for input and 9 CPU registers for output parameters.
-This definition by platform architecture won't change in the near future,
-but the good news is with Antons change the wrapper will look much nicer.
+Sure. The interesting question is whether you want to allow users
+to set it to a value that is no longer sensible to do with
+__get_free_pages() and requires vmalloc().
 
-Gruss / Regards . . . Christoph R
+	Arnd <><
