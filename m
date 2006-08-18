@@ -1,45 +1,39 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-Subject: I/OAT configuration ?
-Date: Thu, 17 Aug 2006 17:05:27 -0700
-Message-ID: <003701c6c25a$034b0090$4010100a@pc.s2io.com>
-References: <20060816005343.8634.21805.stgit@gitlost.site>
-Reply-To: <ravinandan.arakali@neterion.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: bonding: cannot remove certain named devices
+Date: Fri, 18 Aug 2006 01:34:43 +0100
+Message-ID: <1155861283.15195.112.camel@localhost.localdomain>
+References: <20060816133811.GA26471@nostromo.devel.redhat.com>
+	 <Pine.LNX.4.58.0608161636250.2044@be1.lrz>
+	 <1155799783.7566.5.camel@capoeira>
+	 <20060817.162340.74748342.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: xavier.bestel@free.fr, 7eggert@gmx.de, notting@redhat.com,
+	cate@debian.org, 7eggert@elstempel.de, shemminger@osdl.org,
+	mitch.a.williams@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:38855 "EHLO
-	barracuda.mail.s2io.com") by vger.kernel.org with ESMTP
-	id S1750843AbWHRAGp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Aug 2006 20:06:45 -0400
-To: "'Chris Leech'" <christopher.leech@intel.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-In-Reply-To: <20060816005343.8634.21805.stgit@gitlost.site>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:30909 "EHLO
+	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP id S932212AbWHRAOs
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Aug 2006 20:14:48 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060817.162340.74748342.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-I am trying to use I/OAT on one of the newer woodcrest boxes.
-But not sure if things are configured properly since there
-seems to be no change in performance with I/OAT enabled
-or disabled.
-Following are the steps followed.
-1. MSI (CONFIG_PCI_MSI) is enabled in kernel(2.6.16.21).
-2. In kernel DMA configuration, following are enabled.
-     Support for DMA Engines
-     Network: TCP receive copy offload
-     Test DMA Client
-     Intel I/OAT DMA support
-3. I manually load the ioatdma driver (modprobe ioatdma)
+Ar Iau, 2006-08-17 am 16:23 -0700, ysgrifennodd David Miller:
+> Nobody in their right mind puts a space in their network device name.
 
-As per some documentation I read, when step #3 is performed
-successfully, directories dma0chanX is supposed to be created
-under /sys/class/dma but in my case, this directory stays
-empty. I don't see any messages in /var/log/messages.
-Any idea what is missing ?
+It works fine. Been there done that. I'm probably not in my right mind
+but it causes no problems. Nor btw does UTF-8 naming which is handy if
+you want to name your devices in Japanese or Arabic...
 
-Thanks,
-Ravi
+> All you "name purists", go rename the block device name that is used
+> for your root partition to something with a space in it
 
+Works fine. It doesn't work fine for non root volumes (except by label)
+because of the fstab format but root is ok !
 
+Alan
