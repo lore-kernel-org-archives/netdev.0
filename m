@@ -1,40 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: limit window scaling if window is clamped
-Date: Fri, 18 Aug 2006 17:00:30 -0700 (PDT)
-Message-ID: <20060818.170030.74563682.davem@davemloft.net>
-References: <20060818102938.5abc1bcf@dxpl.pdx.osdl.net>
+From: "Troy" <aspirantcoachman@rossocorsa.jp>
+Subject: Delight This is what you always needed to lead a happier, more fulfilling life.
+Date: Sat, 19 Aug 2006 10:44:19 +1000
+Message-ID: <47539938683379.1991224DAB@PL5T>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+        charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:52913
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751592AbWHSAA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Aug 2006 20:00:28 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060818102938.5abc1bcf@dxpl.pdx.osdl.net>
+Received: from zeus1.kernel.org ([204.152.191.4]:59523 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1751610AbWHSAoy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 20:44:54 -0400
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Fri, 18 Aug 2006 10:29:38 -0700
+Get the freshest
 
-> This small change allows for easy per-route workarounds for broken hosts or
-> middleboxes that are not compliant with TCP standards for window scaling.
-> Rather than having to turn off window scaling globally. This patch allows
-> reducing or disabling window scaling if window clamp is present.
-> 
-> Example: Mark Lord reported a problem with 2.6.17 kernel being unable to
-> access http://www.everymac.com
-> 
-> # ip route add 216.145.246.23/32 via 10.8.0.1 window 65535
-> 
-> I would argue this ought to go in stable kernel as well.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+ There's a super-product waiting to turn you into Superman in bed, showers and locker rooms. You will have to learn to handle your thicker longer tool in just several weeks.
+ With every inch you'll be getting more and more success in relationships. You should be ready to witness females go wild because of you. The change that will happen will be obvious! Enter here:  http://www.gozolvor.com/gal/ms/ 
 
-I want to think about this some more, it might have unintended
-consequences.  I really am not all that thrilled about putting in
-workaround for this problem especially if it hurts a legitimate use of
-some kind.
+This is what you always needed to lead a happier, more fulfilling life.
+
+
+ When Mumma dead family done. Manners maketh man If yuh plant plantain yuh can't reap cassava. Let thy fountains be dispersed abroad, and rivers of waters in the streets. Fax is stranger than fiction.
+
