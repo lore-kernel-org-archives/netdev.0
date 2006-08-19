@@ -1,55 +1,63 @@
-From: Arnd Bergmann <arnd@arndb.de>
+From: Jeff Garzik <jeff@garzik.org>
 Subject: Re: [2.6.19 PATCH 4/7] ehea: ethtool interface
-Date: Sat, 19 Aug 2006 15:47:11 +0200
-Message-ID: <200608191547.12161.arnd@arndb.de>
-References: <200608181333.23031.ossthema@de.ibm.com> <1155970112.7302.434.camel@tahini.andynet.net> <1155976887.1388.17.camel@localhost.localdomain>
+Date: Sat, 19 Aug 2006 10:40:41 -0400
+Message-ID: <44E722E9.5090109@garzik.org>
+References: <200608181333.23031.ossthema@de.ibm.com>	<20060818140506.GC5201@martell.zuzino.mipt.ru>	<44E5DFA6.7040707@de.ibm.com>	<1155968305.1388.4.camel@localhost.localdomain> <1155970112.7302.434.camel@tahini.andynet.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Gay <andy@andynet.net>, Thomas Klein <tklein@de.ibm.com>,
+Cc: michael@ellerman.id.au, Thomas Klein <osstklei@de.ibm.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Thomas Klein <tklein@de.ibm.com>,
 	Jan-Bernd Themann <themann@de.ibm.com>, netdev@vger.kernel.org,
 	linux-kernel <linux-kernel@vger.kernel.org>,
-	Thomas Klein <osstklei@de.ibm.com>,
 	Christoph Raisch <raisch@de.ibm.com>,
-	Marcus Eder <meder@de.ibm.com>,
-	Alexey Dobriyan <adobriyan@gmail.com>
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:16859 "EHLO
-	moutng.kundenserver.de") by vger.kernel.org with ESMTP
-	id S1751402AbWHSNr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Aug 2006 09:47:28 -0400
-To: linuxppc-dev@ozlabs.org, michael@ellerman.id.au
-In-Reply-To: <1155976887.1388.17.camel@localhost.localdomain>
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:21910 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S1751366AbWHSOk7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Aug 2006 10:40:59 -0400
+To: Andy Gay <andy@andynet.net>
+In-Reply-To: <1155970112.7302.434.camel@tahini.andynet.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 19 August 2006 10:41, Michael Ellerman wrote:
-> A lot of these have started appearing recently, which I think is due to
-> GCC becoming more vocal. Unfortunately many of them are false positives
-> caused by GCC not seeming to grok that this is ok:
-> 
-> void foo(int *x) { *x = 1; }
-> ...
-> int x;
-> foo(&x);
-> return x;
-> 
+Andy Gay wrote:
+> fs/bio.c:169: warning: 'idx' may be used uninitialized in this function
+> fs/eventpoll.c:500: warning: 'fd' may be used uninitialized in this function
+> fs/isofs/namei.c:162: warning: 'offset' may be used uninitialized in this function
+> fs/isofs/namei.c:162: warning: 'block' may be used uninitialized in this function
+> fs/nfsd/nfsctl.c:292: warning: 'maxsize' may be used uninitialized in this function
+> fs/udf/balloc.c:751: warning: 'goal_eloc.logicalBlockNum' may be used uninitialized in this function
+> fs/udf/super.c:1358: warning: 'ino.partitionReferenceNum' may be used uninitialized in this function
+> fs/xfs/xfs_alloc_btree.c:611: warning: 'nkey.ar_startblock' may be used uninitialized in this function
+> fs/xfs/xfs_alloc_btree.c:611: warning: 'nkey.ar_blockcount' may be used uninitialized in this function
+> fs/xfs/xfs_bmap.c:2498: warning: 'rtx' is used uninitialized in this function
+> fs/xfs/xfs_bmap_btree.c:753: warning: 'nkey.br_startoff' may be used uninitialized in this function
+> fs/xfs/xfs_da_btree.c:151: warning: 'action' may be used uninitialized in this function
+> fs/xfs/xfs_dir.c:363: warning: 'totallen' may be used uninitialized in this function
+> fs/xfs/xfs_dir.c:363: warning: 'count' may be used uninitialized in this function
+> fs/xfs/xfs_ialloc_btree.c:545: warning: 'nkey.ir_startino' may be used uninitialized in this function
+> fs/xfs/xfs_inode.c:1958: warning: 'last_dip' may be used uninitialized in this function
+> fs/xfs/xfs_inode.c:1960: warning: 'last_offset' may be used uninitialized in this function
+> fs/xfs/xfs_log.c:1749: warning: 'iclog' may be used uninitialized in this function
+> fs/xfs/xfs_log_recover.c:523: warning: 'first_blk' may be used uninitialized in this function
+> ipc/msg.c:338: warning: 'setbuf.qbytes' may be used uninitialized in this function
+> ipc/msg.c:338: warning: 'setbuf.uid' may be used uninitialized in this function
+> ipc/msg.c:338: warning: 'setbuf.gid' may be used uninitialized in this function
+> ipc/msg.c:338: warning: 'setbuf.mode' may be used uninitialized in this function
+> ipc/sem.c:810: warning: 'setbuf.uid' may be used uninitialized in this function
+> ipc/sem.c:810: warning: 'setbuf.gid' may be used uninitialized in this function
+> ipc/sem.c:810: warning: 'setbuf.mode' may be used uninitialized in this function
+> drivers/md/dm-table.c:431: warning: 'dev' may be used uninitialized in this function
+> drivers/md/dm-ioctl.c:1388: warning: 'param' may be used uninitialized in this function
+> net/sched/sch_cbq.c:409: warning: 'ret' may be used uninitialized in this function
+> lib/zlib_inflate/inftrees.c:121: warning: 'r.base' may be used uninitialized in this function
 
-It's more subtle than this, gcc only gets it wrong when multiple
-things come together, the most common one seems to be:
 
-- it tries to inline foo()
-- foo has a path where it initializes *x and another one where it
-  doesn't
-- x is accessed after foo() returns, but only when foo indeed has
-  initialized it.
+These are gcc bugs.  We don't patch the kernel for gcc bugs.
 
-The problem is that gcc now is more aggressive about inlining
-functions. It used to assume that all functions initialize their
-pointer arguments, now it does some more checking, but not enough,
-so there are lots of false positives. Every gcc-4.x release seems
-to fix some of these cases, but a few others remain.
+	Jeff
 
-	Arnd <><
+
