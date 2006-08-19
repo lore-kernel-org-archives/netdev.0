@@ -1,61 +1,61 @@
 From: Michael Ellerman <michael@ellerman.id.au>
-Subject: Re: [2.6.19 PATCH 7/7] ehea: Makefile & Kconfig
-Date: Sat, 19 Aug 2006 15:25:57 +1000
-Message-ID: <1155965157.1388.1.camel@localhost.localdomain>
-References: <200608181337.44153.ossthema@de.ibm.com>
+Subject: Re: [2.6.19 PATCH 4/7] ehea: ethtool interface
+Date: Sat, 19 Aug 2006 16:18:24 +1000
+Message-ID: <1155968305.1388.4.camel@localhost.localdomain>
+References: <200608181333.23031.ossthema@de.ibm.com>
+	<20060818140506.GC5201@martell.zuzino.mipt.ru>
+	<44E5DFA6.7040707@de.ibm.com>
 Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-d/zVtJ0sXMaA9uYIOfCS"
-Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Thomas Klein <osstklei@de.ibm.com>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Marcus Eder <meder@de.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:41141 "EHLO ozlabs.org")
-	by vger.kernel.org with ESMTP id S1750763AbWHSFg7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Aug 2006 01:36:59 -0400
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-In-Reply-To: <200608181337.44153.ossthema@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============1039122238=="
+Cc: Thomas Klein <tklein@de.ibm.com>, Jan-Bernd Themann <themann@de.ibm.com>,
+	netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>, Christoph Raisch <raisch@de.ibm.com>,
+	Marcus Eder <meder@de.ibm.com>, Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: Thomas Klein <osstklei@de.ibm.com>
+In-Reply-To: <44E5DFA6.7040707@de.ibm.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Mime-version: 1.0
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
 
---=-d/zVtJ0sXMaA9uYIOfCS
+--===============1039122238==
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-NFcgwjM1giwsjnU4Nx34"
+
+
+--=-NFcgwjM1giwsjnU4Nx34
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2006-08-18 at 13:37 +0200, Jan-Bernd Themann wrote:
-> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>=20
+On Fri, 2006-08-18 at 17:41 +0200, Thomas Klein wrote:
+> Hi Alexey,
+>=20
+> first of all thanks a lot for the extensive review.
 >=20
 >=20
->  drivers/net/Kconfig  |    6 ++++++
->  drivers/net/Makefile |    1 +
->  2 files changed, 7 insertions(+)
+> Alexey Dobriyan wrote:
+> >> +	u64 hret =3D H_HARDWARE;
+> >=20
+> > Useless assignment here and everywhere.
+> >=20
 >=20
->=20
->=20
-> diff -Nurp -X dontdiff linux-2.6.18-rc4/drivers/net/Kconfig patched_kerne=
-l/drivers/net/Kconfig
-> --- linux-2.6.18-rc4/drivers/net/Kconfig	2006-08-06 11:20:11.000000000 -0=
-700
-> +++ patched_kernel/drivers/net/Kconfig	2006-08-08 03:00:49.526421944 -070=
-0
-> @@ -2277,6 +2277,12 @@ config CHELSIO_T1
->            To compile this driver as a module, choose M here: the module
->            will be called cxgb.
-> =20
-> +config EHEA
-> +        tristate "eHEA Ethernet support"
-> +        depends on IBMEBUS
-> +        ---help---
-> +          This driver supports the IBM pSeries ethernet adapter
-> +
+> Initializing returncodes to errorstate is a cheap way to prevent
+> accidentally returning (uninitalized) success returncodes which
+> can lead to catastrophic misbehaviour.
 
-Please give it a more detailed description. I have a pSeries machine
-here with three NICs and none of them are eHEA.
+If you try to return an uninitialized value the compiler will warn you,
+you'll then look at the code and realise you missed a case, you might
+save yourself a bug. By unconditionally initialising you are lying to
+the compiler, and it can no longer help you.
 
 cheers
 
@@ -69,17 +69,29 @@ phone: +61 2 6212 1183 (tie line 70 21183)
 We do not inherit the earth from our ancestors,
 we borrow it from our children. - S.M.A.R.T Person
 
---=-d/zVtJ0sXMaA9uYIOfCS
+--=-NFcgwjM1giwsjnU4Nx34
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.2.2 (GNU/Linux)
 
-iD8DBQBE5qDldSjSd0sB4dIRAjdxAKCPxNLMPLzPoSlWprLmOr8tzBMOwQCfR8zd
-bJUO/0D0cZJTpGHNTepB/08=
-=eqF6
+iD8DBQBE5q0wdSjSd0sB4dIRAl0lAKCckSJpdvVFn0urhSL2CWjX9M/E6wCfc8V6
+zPTSmq9+N6RQnWIopVsfV4U=
+=5H4K
 -----END PGP SIGNATURE-----
 
---=-d/zVtJ0sXMaA9uYIOfCS--
+--=-NFcgwjM1giwsjnU4Nx34--
 
+
+--===============1039122238==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Linuxppc-dev mailing list
+Linuxppc-dev@ozlabs.org
+https://ozlabs.org/mailman/listinfo/linuxppc-dev
+--===============1039122238==--
