@@ -1,70 +1,80 @@
-From: Daniel Phillips <phillips@google.com>
-Subject: Re: Network receive stall avoidance (was [PATCH 2/9] deadlock prevention
- core)
-Date: Fri, 18 Aug 2006 21:14:09 -0700
-Message-ID: <44E69011.4080604@google.com>
-References: <20060808211731.GR14627@postel.suug.ch>	<44DBED4C.6040604@redhat.com>	<44DFA225.1020508@google.com>	<20060813.165540.56347790.davem@davemloft.net>	<44DFD262.5060106@google.com>	<20060813185309.928472f9.akpm@osdl.org>	<1155530453.5696.98.camel@twins>	<20060813215853.0ed0e973.akpm@osdl.org>	<44E3E964.8010602@google.com>	<20060816225726.3622cab1.akpm@osdl.org>	<44E5015D.80606@google.com>	<20060817230556.7d16498e.akpm@osdl.org>	<44E62F7F.7010901@google.com>	<20060818153455.2a3f2bcb.akpm@osdl.org>	<44E650C1.80608@google.com> <20060818194435.25bacee0.akpm@osdl.org>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 2/4]: powerpc/cell spidernet low watermark patch.
+Date: Sat, 19 Aug 2006 14:31:20 +1000
+Message-ID: <1155961881.5803.65.camel@localhost.localdomain>
+References: <20060818192356.GD26889@austin.ibm.com>
+	 <20060818.142513.29571851.davem@davemloft.net>
+	 <20060818224618.GN26889@austin.ibm.com>
+	 <20060818.155116.112621100.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	David Miller <davem@davemloft.net>, riel@redhat.com,
-	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
+Cc: linas@austin.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Jens.Osterkamp@de.ibm.com, jklewis@us.ibm.com, arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.45.12]:5054 "EHLO
-	smtp-out.google.com") by vger.kernel.org with ESMTP
-	id S1030235AbWHSERr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Aug 2006 00:17:47 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060818194435.25bacee0.akpm@osdl.org>
+Received: from gate.crashing.org ([63.228.1.57]:47589 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S932335AbWHSEcM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Aug 2006 00:32:12 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060818.155116.112621100.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
->>handwaving
+On Fri, 2006-08-18 at 15:51 -0700, David Miller wrote:
+> From: linas@austin.ibm.com (Linas Vepstas)
+> Date: Fri, 18 Aug 2006 17:46:18 -0500
 > 
-> - The mmap(MAP_SHARED)-the-whole-world scenario should be fixed by
->   mm-tracking-shared-dirty-pages.patch.  Please test it and if you are
->   still able to demonstrate deadlocks, describe how, and why they
->   are occurring.
-
-OK, but please see "atomic 0 order allocation failure" below.
-
-> - We expect that the lots-of-dirty-anon-memory-over-swap-over-network
->   scenario might still cause deadlocks.  
+> > > We're not saying to use the RX interrupt as the trigger for
+> > > RX and TX work.  Rather, either of RX or TX interrupt will
+> > > schedule the NAPI poll.
+> > 
+> > And, for a lark, this is exactly what I did. Just to see.
+> > Because there are so few ack packets, there are very few 
+> > RX interrupts -- not enough to get NAPI to actually keep
+> > the device busy.
 > 
->   I assert that this can be solved by putting swap on local disks.  Peter
->   asserts that this isn't acceptable due to disk unreliability.  I point
->   out that local disk reliability can be increased via MD, all goes quiet.
+> You're misreading me.  TX interrupts are intended to be "enabled" and
+> trigger NAPI polls.  TX IRQ enabled, enabled :-)
+
+Maybe be because you actually typed "disabled" in your previous
+message ? :)
+
+>> The idea is to use NAPI polling with TX interrupts disabled.
+
+> If you want to eliminate them if the kernel keeps hopping into
+> the ->hard_start_xmit() via hw interrupt mitigation or whatever,
+> that's fine.  But if you do need to do TX interrupt processing,
+> do it in NAPI ->poll().
+
+Well, we do need to harvest descriptors of course, though I suppose that
+can be done in hard_xmit as well. I'm not sure if there is any real
+benefit in batching those.
+
+> > I'm somewhat disoriened from this conversation. Its presumably
+> > clear that low-watermark mechanisms are superior to NAPI. 
+> > >From what I gather, NAPI was invented to deal with cheap 
+> > or low-function hardware; it adds nothing to this particular
+> > situation. Why are we talking about this?
 > 
->   A good exposition which helps us to understand whether and why a
->   significant proportion of the target user base still wishes to do
->   swap-over-network would be useful.
+> NAPI is meant to give fairness to all devices receiving packets
+> in the system, particularly in times of high load or overload.
+> 
+> And equally importantly, it allows you to run the majority of your
+> interrupt handler in software IRQ context.
 
-I don't care much about swap-over-network, Peter does.  I care about
-reliable remote disks in general, and reliable nbd in particular.
+That is the most important point imho for the specific case of spidernet
+on cell.
 
-> - Assuming that exposition is convincing, I would ask that you determine
->   at what level of /proc/sys/vm/min_free_kbytes the swap-over-network
->   deadlock is no longer demonstrable.
+> This allows not only your
+> locking to be simpler, but it also allows things like oprofile to
+> monitor almost your entire IRQ processing path even with just timer
+> interrupt based oprofile profiling.
+> 
+> I see you moving TX reclaim into tasklets and stuff.  I've vehemently
+> against that because you wouldn't need it in order to move TX
+> processing into software interrupts if you did it all in NAPI
+> ->poll().
 
-Earlier, I wrote: "we need to actually fix the out of memory
-deadlock/performance bug right now so that remote storage works
-properly."  It is actually far more likely that memory reclaim stuffups
-will cause TCP to drop block IO packets here and there than that we
-will hit some endless retransmit deadlock.  But dropping packets and
-thus causing TCP stalls during block writeout is a very bad thing too,
-I do not think you could call a system that exhibits such behavior a
-particularly reliable one.
+Ben.
 
-So rather than just the word deadlock, let us add "or atomic 0 order
-alloc failure during TCP receive" to the challenge.  Fair?
-
-On the client send side, Peter already showed an easily reproducable
-deadlock which we avoid by using elevator-noop.  The bug is still
-there, it is just under a different rock now.
-
-Regards,
-
-Daniel
