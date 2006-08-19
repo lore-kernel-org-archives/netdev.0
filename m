@@ -1,50 +1,53 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] bcm43xx: return correct hard_start_xmit error code]
-Date: Sat, 19 Aug 2006 10:56:28 -0500
-Message-ID: <44E734AC.2090701@lwfinger.net>
+From: "Ray Lee" <madrabbit@gmail.com>
+Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
+Date: Sat, 19 Aug 2006 09:53:54 -0700
+Message-ID: <2c0942db0608190953r71ad8716vc2d11d9366894e40@mail.gmail.com>
+References: <20060808211731.GR14627@postel.suug.ch>
+	 <20060813215853.0ed0e973.akpm@osdl.org> <44E3E964.8010602@google.com>
+	 <20060816225726.3622cab1.akpm@osdl.org> <44E5015D.80606@google.com>
+	 <20060817230556.7d16498e.akpm@osdl.org> <44E62F7F.7010901@google.com>
+	 <20060818153455.2a3f2bcb.akpm@osdl.org> <44E650C1.80608@google.com>
+	 <20060818194435.25bacee0.akpm@osdl.org>
+Reply-To: ray-gmail@madrabbit.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Michael Buesch <mb@bu3sch.de>
+Cc: "Daniel Phillips" <phillips@google.com>,
+	"Peter Zijlstra" <a.p.zijlstra@chello.nl>,
+	"David Miller" <davem@davemloft.net>, riel@redhat.com,
+	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "Mike Christie" <michaelc@cs.wisc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:20432 "EHLO
-	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1750782AbWHSP4p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Aug 2006 11:56:45 -0400
-To: John Linville <linville@tuxdriver.com>
+Received: from py-out-1112.google.com ([64.233.166.179]:32462 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S1422711AbWHSQxz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Aug 2006 12:53:55 -0400
+Received: by py-out-1112.google.com with SMTP id n25so1628198pyg
+        for <netdev@vger.kernel.org>; Sat, 19 Aug 2006 09:53:54 -0700 (PDT)
+To: "Andrew Morton" <akpm@osdl.org>
+In-Reply-To: <20060818194435.25bacee0.akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 8/18/06, Andrew Morton <akpm@osdl.org> wrote:
+>   I assert that this can be solved by putting swap on local disks.  Peter
+>   asserts that this isn't acceptable due to disk unreliability.  I point
+>   out that local disk reliability can be increased via MD, all goes quiet.
+>
+>   A good exposition which helps us to understand whether and why a
+>   significant proportion of the target user base still wishes to do
+>   swap-over-network would be useful.
 
+Adding a hard drive adds $low per system, another failure point, and
+more importantly ~3-10 Watts which then has to be paid for twice (once
+to power it, again to cool it). For a hundred seats, that's
+significant. For 500, it's ranging toward fully painful.
 
-John,
+I'm in the process of designing the next upgrade for a VoIP call
+center, and we want to go entirely diskless in the agent systems. We'd
+also rather not swap over the network, but 'swap is as swap does.'
 
-Please apply the following patch by Michael Buesch to wireless-2.6.
+That said, it in no way invalidates using /proc/sys/vm/min_free_kbytes...
 
-Larry
-
-==============================
-
-hard_start_xmit should return a NETIF_TX_FOO error code.
-
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
-Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
-
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c	
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c	
-@@ -3918,7 +3918,9 @@
-  		err = bcm43xx_tx(bcm, txb);
-  	spin_unlock_irqrestore(&bcm->irq_lock, flags);
-
--	return err;
-+	if (unlikely(err))
-+		return NETDEV_TX_BUSY;
-+	return NETDEV_TX_OK;
-  }
-
-  static struct net_device_stats * bcm43xx_net_get_stats(struct net_device *net_dev)
-
-
-
+Ray
