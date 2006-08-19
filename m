@@ -1,68 +1,49 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Fri, 18 Aug 2006 19:44:35 -0700
-Message-ID: <20060818194435.25bacee0.akpm@osdl.org>
-References: <20060808211731.GR14627@postel.suug.ch>
-	<44DBED4C.6040604@redhat.com>
-	<44DFA225.1020508@google.com>
-	<20060813.165540.56347790.davem@davemloft.net>
-	<44DFD262.5060106@google.com>
-	<20060813185309.928472f9.akpm@osdl.org>
-	<1155530453.5696.98.camel@twins>
-	<20060813215853.0ed0e973.akpm@osdl.org>
-	<44E3E964.8010602@google.com>
-	<20060816225726.3622cab1.akpm@osdl.org>
-	<44E5015D.80606@google.com>
-	<20060817230556.7d16498e.akpm@osdl.org>
-	<44E62F7F.7010901@google.com>
-	<20060818153455.2a3f2bcb.akpm@osdl.org>
-	<44E650C1.80608@google.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] tcp: limit window scaling if window is clamped
+Date: Fri, 18 Aug 2006 20:03:23 -0700
+Message-ID: <20060818200323.40b1a74a@localhost.localdomain>
+References: <20060818102938.5abc1bcf@dxpl.pdx.osdl.net>
+	<20060818.170030.74563682.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	David Miller <davem@davemloft.net>, riel@redhat.com,
-	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:62879 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751422AbWHSCvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 22:51:32 -0400
-To: Daniel Phillips <phillips@google.com>
-In-Reply-To: <44E650C1.80608@google.com>
+Received: from smtp.osdl.org ([65.172.181.4]:58273 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751258AbWHSDED (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Aug 2006 23:04:03 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060818.170030.74563682.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 18 Aug 2006 16:44:01 -0700
-Daniel Phillips <phillips@google.com> wrote:
+On Fri, 18 Aug 2006 17:00:30 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> handwaving
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Fri, 18 Aug 2006 10:29:38 -0700
+> 
+> > This small change allows for easy per-route workarounds for broken hosts or
+> > middleboxes that are not compliant with TCP standards for window scaling.
+> > Rather than having to turn off window scaling globally. This patch allows
+> > reducing or disabling window scaling if window clamp is present.
+> > 
+> > Example: Mark Lord reported a problem with 2.6.17 kernel being unable to
+> > access http://www.everymac.com
+> > 
+> > # ip route add 216.145.246.23/32 via 10.8.0.1 window 65535
+> > 
+> > I would argue this ought to go in stable kernel as well.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> 
+> I want to think about this some more, it might have unintended
+> consequences.  I really am not all that thrilled about putting in
+> workaround for this problem especially if it hurts a legitimate use of
+> some kind.
 
-- The mmap(MAP_SHARED)-the-whole-world scenario should be fixed by
-  mm-tracking-shared-dirty-pages.patch.  Please test it and if you are
-  still able to demonstrate deadlocks, describe how, and why they
-  are occurring.
-
-- We expect that the lots-of-dirty-anon-memory-over-swap-over-network
-  scenario might still cause deadlocks.  
-
-  I assert that this can be solved by putting swap on local disks.  Peter
-  asserts that this isn't acceptable due to disk unreliability.  I point
-  out that local disk reliability can be increased via MD, all goes quiet.
-
-  A good exposition which helps us to understand whether and why a
-  significant proportion of the target user base still wishes to do
-  swap-over-network would be useful.
-
-- Assuming that exposition is convincing, I would ask that you determine
-  at what level of /proc/sys/vm/min_free_kbytes the swap-over-network
-  deadlock is no longer demonstrable.
-
-If there are any remaining demonstrable deadlock scenarios, please describe
-how they were created and, if possible, perform some analysis of them for
-us.  sysrq-T and sysrq-M traces would be helpful.
-
-Once we have this information in hand, we will be in a better position to
-work out how to solve these problems.
-
-Thanks.
+I was going for the least impact workaround using existing mechanisms.
+There already is a way to set metrics per route. The code already limits
+the window scale to the maximum possible window based on tcp memory limit
+so it made sense to clamp based on congestion window as well.
+It didn't make sense to add a new metric.
