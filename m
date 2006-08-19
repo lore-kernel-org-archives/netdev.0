@@ -1,80 +1,49 @@
-From: Andy Gay <andy@andynet.net>
-Subject: Re: [2.6.19 PATCH 4/7] ehea: ethtool interface
-Date: Sat, 19 Aug 2006 02:48:32 -0400
-Message-ID: <1155970112.7302.434.camel@tahini.andynet.net>
-References: <200608181333.23031.ossthema@de.ibm.com>
-	<20060818140506.GC5201@martell.zuzino.mipt.ru>	<44E5DFA6.7040707@de.ibm.com>
-	<1155968305.1388.4.camel@localhost.localdomain>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: Network receive stall avoidance (was [PATCH 2/9] deadlock
+ prevention core)
+Date: Sat, 19 Aug 2006 00:28:48 -0700
+Message-ID: <20060819002848.e6884792.akpm@osdl.org>
+References: <20060808211731.GR14627@postel.suug.ch>
+	<44DBED4C.6040604@redhat.com>
+	<44DFA225.1020508@google.com>
+	<20060813.165540.56347790.davem@davemloft.net>
+	<44DFD262.5060106@google.com>
+	<20060813185309.928472f9.akpm@osdl.org>
+	<1155530453.5696.98.camel@twins>
+	<20060813215853.0ed0e973.akpm@osdl.org>
+	<44E3E964.8010602@google.com>
+	<20060816225726.3622cab1.akpm@osdl.org>
+	<44E5015D.80606@google.com>
+	<20060817230556.7d16498e.akpm@osdl.org>
+	<44E62F7F.7010901@google.com>
+	<20060818153455.2a3f2bcb.akpm@osdl.org>
+	<44E650C1.80608@google.com>
+	<20060818194435.25bacee0.akpm@osdl.org>
+	<44E69011.4080604@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Klein <osstklei@de.ibm.com>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>, netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	David Miller <davem@davemloft.net>, riel@redhat.com,
+	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms046pub.verizon.net ([206.46.252.46]:13714 "EHLO
-	vms046pub.verizon.net") by vger.kernel.org with ESMTP
-	id S1030293AbWHSGsj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Aug 2006 02:48:39 -0400
-In-reply-to: <1155968305.1388.4.camel@localhost.localdomain>
-To: michael@ellerman.id.au
+Received: from smtp.osdl.org ([65.172.181.4]:25572 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932459AbWHSHfj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Aug 2006 03:35:39 -0400
+To: Daniel Phillips <phillips@google.com>
+In-Reply-To: <44E69011.4080604@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2006-08-19 at 16:18 +1000, Michael Ellerman wrote:
+On Fri, 18 Aug 2006 21:14:09 -0700
+Daniel Phillips <phillips@google.com> wrote:
 
-> 
-> If you try to return an uninitialized value the compiler will warn you,
-> you'll then look at the code and realise you missed a case, you might
-> save yourself a bug. 
+> So rather than just the word deadlock, let us add "or atomic 0 order
+> alloc failure during TCP receive" to the challenge.  Fair?
 
-You *should* look at the code :)
+If it's significantly performance-affecting in any way which is at all likely to 
+affect anyone, sure.
 
-So should we be reporting these as bugs?
-
-andy@cx02:~/linux/linux-2.6.17.6$ script make.script
-Script started, file is make.script
-andy@cx02:~/linux/linux-2.6.17.6$ make
-
-...
-
-Script done, file is make.script
-andy@cx02:~/linux/linux-2.6.17.6$ fgrep warning make.script
-arch/i386/kernel/cpu/transmeta.c:12: warning: 'cpu_freq' may be used uninitialized in this function
-fs/bio.c:169: warning: 'idx' may be used uninitialized in this function
-fs/eventpoll.c:500: warning: 'fd' may be used uninitialized in this function
-fs/isofs/namei.c:162: warning: 'offset' may be used uninitialized in this function
-fs/isofs/namei.c:162: warning: 'block' may be used uninitialized in this function
-fs/nfsd/nfsctl.c:292: warning: 'maxsize' may be used uninitialized in this function
-fs/udf/balloc.c:751: warning: 'goal_eloc.logicalBlockNum' may be used uninitialized in this function
-fs/udf/super.c:1358: warning: 'ino.partitionReferenceNum' may be used uninitialized in this function
-fs/xfs/xfs_alloc_btree.c:611: warning: 'nkey.ar_startblock' may be used uninitialized in this function
-fs/xfs/xfs_alloc_btree.c:611: warning: 'nkey.ar_blockcount' may be used uninitialized in this function
-fs/xfs/xfs_bmap.c:2498: warning: 'rtx' is used uninitialized in this function
-fs/xfs/xfs_bmap_btree.c:753: warning: 'nkey.br_startoff' may be used uninitialized in this function
-fs/xfs/xfs_da_btree.c:151: warning: 'action' may be used uninitialized in this function
-fs/xfs/xfs_dir.c:363: warning: 'totallen' may be used uninitialized in this function
-fs/xfs/xfs_dir.c:363: warning: 'count' may be used uninitialized in this function
-fs/xfs/xfs_ialloc_btree.c:545: warning: 'nkey.ir_startino' may be used uninitialized in this function
-fs/xfs/xfs_inode.c:1958: warning: 'last_dip' may be used uninitialized in this function
-fs/xfs/xfs_inode.c:1960: warning: 'last_offset' may be used uninitialized in this function
-fs/xfs/xfs_log.c:1749: warning: 'iclog' may be used uninitialized in this function
-fs/xfs/xfs_log_recover.c:523: warning: 'first_blk' may be used uninitialized in this function
-ipc/msg.c:338: warning: 'setbuf.qbytes' may be used uninitialized in this function
-ipc/msg.c:338: warning: 'setbuf.uid' may be used uninitialized in this function
-ipc/msg.c:338: warning: 'setbuf.gid' may be used uninitialized in this function
-ipc/msg.c:338: warning: 'setbuf.mode' may be used uninitialized in this function
-ipc/sem.c:810: warning: 'setbuf.uid' may be used uninitialized in this function
-ipc/sem.c:810: warning: 'setbuf.gid' may be used uninitialized in this function
-ipc/sem.c:810: warning: 'setbuf.mode' may be used uninitialized in this function
-drivers/md/dm-table.c:431: warning: 'dev' may be used uninitialized in this function
-drivers/md/dm-ioctl.c:1388: warning: 'param' may be used uninitialized in this function
-net/sched/sch_cbq.c:409: warning: 'ret' may be used uninitialized in this function
-lib/zlib_inflate/inftrees.c:121: warning: 'r.base' may be used uninitialized in this function
-
-
+You can get those warnings now with regular networking using e1000, due to
+a combination of excessive default rx ringsize and incorrect VM tuning.
