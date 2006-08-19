@@ -1,41 +1,50 @@
-From: Rik van Riel <riel@redhat.com>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Sat, 19 Aug 2006 11:06:10 -0400
-Message-ID: <44E728E2.4000804@redhat.com>
-References: <20060808211731.GR14627@postel.suug.ch>	<44DBED4C.6040604@redhat.com>	<44DFA225.1020508@google.com>	<20060813.165540.56347790.davem@davemloft.net>	<44DFD262.5060106@google.com>	<20060813185309.928472f9.akpm@osdl.org>	<1155530453.5696.98.camel@twins>	<20060813215853.0ed0e973.akpm@osdl.org>	<44E3E964.8010602@google.com>	<20060816225726.3622cab1.akpm@osdl.org>	<44E5015D.80606@google.com>	<20060817230556.7d16498e.akpm@osdl.org>	<44E62F7F.7010901@google.com>	<20060818153455.2a3f2bcb.akpm@osdl.org>	<44E650C1.80608@google.com> <20060818194435.25bacee0.akpm@osdl.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] bcm43xx: return correct hard_start_xmit error code]
+Date: Sat, 19 Aug 2006 10:56:28 -0500
+Message-ID: <44E734AC.2090701@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Phillips <phillips@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	David Miller <davem@davemloft.net>, tgraf@suug.ch,
-	linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
+Cc: netdev@vger.kernel.org, Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:52436 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751469AbWHSPIa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Aug 2006 11:08:30 -0400
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20060818194435.25bacee0.akpm@osdl.org>
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:20432 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1750782AbWHSP4p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Aug 2006 11:56:45 -0400
+To: John Linville <linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
 
-> - We expect that the lots-of-dirty-anon-memory-over-swap-over-network
->   scenario might still cause deadlocks.  
-> 
->   I assert that this can be solved by putting swap on local disks.  Peter
->   asserts that this isn't acceptable due to disk unreliability.  I point
->   out that local disk reliability can be increased via MD, all goes quiet.
-> 
->   A good exposition which helps us to understand whether and why a
->   significant proportion of the target user base still wishes to do
->   swap-over-network would be useful.
 
-You cannot put disks in many models of blade servers.
+John,
 
-At all.
+Please apply the following patch by Michael Buesch to wireless-2.6.
 
--- 
-What is important?  What you want to be true, or what is true?
+Larry
+
+==============================
+
+hard_start_xmit should return a NETIF_TX_FOO error code.
+
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c	
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c	
+@@ -3918,7 +3918,9 @@
+  		err = bcm43xx_tx(bcm, txb);
+  	spin_unlock_irqrestore(&bcm->irq_lock, flags);
+
+-	return err;
++	if (unlikely(err))
++		return NETDEV_TX_BUSY;
++	return NETDEV_TX_OK;
+  }
+
+  static struct net_device_stats * bcm43xx_net_get_stats(struct net_device *net_dev)
+
+
+
