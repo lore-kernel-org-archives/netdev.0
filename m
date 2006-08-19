@@ -1,42 +1,24 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: wireless: NETDEV_TX_LOCKED, use it or not?
-Date: Sat, 19 Aug 2006 12:22:42 +0200
-Message-ID: <200608191222.42899.mb@bu3sch.de>
+From: "Daren" <alsopagriculture@roughdrafts.com>
+Subject: Feel Pleasure from This is what you always needed to lead a happier, more fulfilling life.
+Date: Sat, 19 Aug 2006 03:27:26 -0700
+Message-ID: <76297634175102.6DC4F697C3@1B94RIFV>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="us-ascii"
+        charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:51937
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751699AbWHSKXr
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Aug 2006 06:23:47 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from ip-64-32-173-74.sjc.megapath.net ([64.32.173.74]:22540 "EHLO
+	SECONDARY") by vger.kernel.org with ESMTP id S964943AbWHSK2o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Aug 2006 06:28:44 -0400
+To: <newbie-owner@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+New’n’hot
+ You don't need to spend huge money on luxury items - it all will be worthless without decent physical equipment. You will have to learn to handle your thicker longer tool in just several weeks.
 
-I am currently wondering, if we should use NETDEV_TX_LOCKED
-in the bcm43xx wireless net driver.
+ By adding inches you are adding appeal, confidence and hype about you among women. Get ready to hear girls spreading gossip behind your back about your new size. Enter here:  http://www.posadroft.com/gal/ms/ 
+You are just a click away from something which will eliminate your most distressing trouble.
 
-I currently don't have an SMP machine with a bcm43xx card
-running, so I can't use benchmarks to find out.
+ To give subtilty to the simple, to the young man knowledge and discretion. A proverb never lies, it is only its meaning which deceives. The last drop makes the cup run over For the ways of man are before the eyes of the LORD, and he pondereth all his goings. When the student is ready, the master will appear  Keep your chin up
 
-There are various things to consider:
-* The RX and TX-status paths, which also must take the spinlock
-  aren't more expensive than on a normal Ethernet card (at least
-  with d80211 stack).
-* But the retry-path, when a NETDEV_TX_LOCKED is returned is
-  slightly more expensive.
-
-Well, the question is: Is it worth to return NETDEV_TX_LOCKED
-on spinlock contention, or is it better to spin?
-Is NETDEV_TX_LOCKED only desired on gigabit ethernet?
-
-Thanks.
-
--- 
-Greetings Michael.
