@@ -1,97 +1,80 @@
-From: Michael Ellerman <michael@ellerman.id.au>
+From: Andy Gay <andy@andynet.net>
 Subject: Re: [2.6.19 PATCH 4/7] ehea: ethtool interface
-Date: Sat, 19 Aug 2006 16:18:24 +1000
-Message-ID: <1155968305.1388.4.camel@localhost.localdomain>
+Date: Sat, 19 Aug 2006 02:48:32 -0400
+Message-ID: <1155970112.7302.434.camel@tahini.andynet.net>
 References: <200608181333.23031.ossthema@de.ibm.com>
-	<20060818140506.GC5201@martell.zuzino.mipt.ru>
-	<44E5DFA6.7040707@de.ibm.com>
-Reply-To: michael@ellerman.id.au
+	<20060818140506.GC5201@martell.zuzino.mipt.ru>	<44E5DFA6.7040707@de.ibm.com>
+	<1155968305.1388.4.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1039122238=="
-Cc: Thomas Klein <tklein@de.ibm.com>, Jan-Bernd Themann <themann@de.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>, Christoph Raisch <raisch@de.ibm.com>,
-	Marcus Eder <meder@de.ibm.com>, Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: Thomas Klein <osstklei@de.ibm.com>
-In-Reply-To: <44E5DFA6.7040707@de.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Mime-version: 1.0
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Klein <osstklei@de.ibm.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Thomas Klein <tklein@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>, netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vms046pub.verizon.net ([206.46.252.46]:13714 "EHLO
+	vms046pub.verizon.net") by vger.kernel.org with ESMTP
+	id S1030293AbWHSGsj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Aug 2006 02:48:39 -0400
+In-reply-to: <1155968305.1388.4.camel@localhost.localdomain>
+To: michael@ellerman.id.au
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, 2006-08-19 at 16:18 +1000, Michael Ellerman wrote:
 
---===============1039122238==
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-NFcgwjM1giwsjnU4Nx34"
+> 
+> If you try to return an uninitialized value the compiler will warn you,
+> you'll then look at the code and realise you missed a case, you might
+> save yourself a bug. 
 
+You *should* look at the code :)
 
---=-NFcgwjM1giwsjnU4Nx34
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+So should we be reporting these as bugs?
 
-On Fri, 2006-08-18 at 17:41 +0200, Thomas Klein wrote:
-> Hi Alexey,
->=20
-> first of all thanks a lot for the extensive review.
->=20
->=20
-> Alexey Dobriyan wrote:
-> >> +	u64 hret =3D H_HARDWARE;
-> >=20
-> > Useless assignment here and everywhere.
-> >=20
->=20
-> Initializing returncodes to errorstate is a cheap way to prevent
-> accidentally returning (uninitalized) success returncodes which
-> can lead to catastrophic misbehaviour.
+andy@cx02:~/linux/linux-2.6.17.6$ script make.script
+Script started, file is make.script
+andy@cx02:~/linux/linux-2.6.17.6$ make
 
-If you try to return an uninitialized value the compiler will warn you,
-you'll then look at the code and realise you missed a case, you might
-save yourself a bug. By unconditionally initialising you are lying to
-the compiler, and it can no longer help you.
+...
 
-cheers
-
---=20
-Michael Ellerman
-IBM OzLabs
-
-wwweb: http://michael.ellerman.id.au
-phone: +61 2 6212 1183 (tie line 70 21183)
-
-We do not inherit the earth from our ancestors,
-we borrow it from our children. - S.M.A.R.T Person
-
---=-NFcgwjM1giwsjnU4Nx34
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2.2 (GNU/Linux)
-
-iD8DBQBE5q0wdSjSd0sB4dIRAl0lAKCckSJpdvVFn0urhSL2CWjX9M/E6wCfc8V6
-zPTSmq9+N6RQnWIopVsfV4U=
-=5H4K
------END PGP SIGNATURE-----
-
---=-NFcgwjM1giwsjnU4Nx34--
+Script done, file is make.script
+andy@cx02:~/linux/linux-2.6.17.6$ fgrep warning make.script
+arch/i386/kernel/cpu/transmeta.c:12: warning: 'cpu_freq' may be used uninitialized in this function
+fs/bio.c:169: warning: 'idx' may be used uninitialized in this function
+fs/eventpoll.c:500: warning: 'fd' may be used uninitialized in this function
+fs/isofs/namei.c:162: warning: 'offset' may be used uninitialized in this function
+fs/isofs/namei.c:162: warning: 'block' may be used uninitialized in this function
+fs/nfsd/nfsctl.c:292: warning: 'maxsize' may be used uninitialized in this function
+fs/udf/balloc.c:751: warning: 'goal_eloc.logicalBlockNum' may be used uninitialized in this function
+fs/udf/super.c:1358: warning: 'ino.partitionReferenceNum' may be used uninitialized in this function
+fs/xfs/xfs_alloc_btree.c:611: warning: 'nkey.ar_startblock' may be used uninitialized in this function
+fs/xfs/xfs_alloc_btree.c:611: warning: 'nkey.ar_blockcount' may be used uninitialized in this function
+fs/xfs/xfs_bmap.c:2498: warning: 'rtx' is used uninitialized in this function
+fs/xfs/xfs_bmap_btree.c:753: warning: 'nkey.br_startoff' may be used uninitialized in this function
+fs/xfs/xfs_da_btree.c:151: warning: 'action' may be used uninitialized in this function
+fs/xfs/xfs_dir.c:363: warning: 'totallen' may be used uninitialized in this function
+fs/xfs/xfs_dir.c:363: warning: 'count' may be used uninitialized in this function
+fs/xfs/xfs_ialloc_btree.c:545: warning: 'nkey.ir_startino' may be used uninitialized in this function
+fs/xfs/xfs_inode.c:1958: warning: 'last_dip' may be used uninitialized in this function
+fs/xfs/xfs_inode.c:1960: warning: 'last_offset' may be used uninitialized in this function
+fs/xfs/xfs_log.c:1749: warning: 'iclog' may be used uninitialized in this function
+fs/xfs/xfs_log_recover.c:523: warning: 'first_blk' may be used uninitialized in this function
+ipc/msg.c:338: warning: 'setbuf.qbytes' may be used uninitialized in this function
+ipc/msg.c:338: warning: 'setbuf.uid' may be used uninitialized in this function
+ipc/msg.c:338: warning: 'setbuf.gid' may be used uninitialized in this function
+ipc/msg.c:338: warning: 'setbuf.mode' may be used uninitialized in this function
+ipc/sem.c:810: warning: 'setbuf.uid' may be used uninitialized in this function
+ipc/sem.c:810: warning: 'setbuf.gid' may be used uninitialized in this function
+ipc/sem.c:810: warning: 'setbuf.mode' may be used uninitialized in this function
+drivers/md/dm-table.c:431: warning: 'dev' may be used uninitialized in this function
+drivers/md/dm-ioctl.c:1388: warning: 'param' may be used uninitialized in this function
+net/sched/sch_cbq.c:409: warning: 'ret' may be used uninitialized in this function
+lib/zlib_inflate/inftrees.c:121: warning: 'r.base' may be used uninitialized in this function
 
 
---===============1039122238==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Linuxppc-dev mailing list
-Linuxppc-dev@ozlabs.org
-https://ozlabs.org/mailman/listinfo/linuxppc-dev
---===============1039122238==--
