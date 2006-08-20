@@ -1,105 +1,80 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] getsockopt() early argument sanity checking
-Date: Sun, 20 Aug 2006 22:35:59 +0200
-Message-ID: <20060820203559.GT602@1wt.eu>
-References: <20060819234806.GB27115@1wt.eu> <200608200205.20876.mb@bu3sch.de> <20060820004307.GD27115@1wt.eu> <20060820.124427.74745779.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mb@bu3sch.de, solar@openwall.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH] xirc2ps_cs: Cannot reset card in atomic context
+Date: Sun, 20 Aug 2006 21:51:57 +0100 (BST)
+Message-ID: <20060820205157.F0F137B409F@zog.reactivated.net>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:59152 "EHLO 1wt.eu")
-	by vger.kernel.org with ESMTP id S1751227AbWHTUgi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2006 16:36:38 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060820.124427.74745779.davem@davemloft.net>
+Received: from mtaout03-winn.ispmail.ntl.com ([81.103.221.49]:47136 "EHLO
+	mtaout03-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S1751319AbWHTUvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Aug 2006 16:51:16 -0400
+To: jeff@garzik.org
+Cc: joerg@hydrops.han.de
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Joerg Ahrens <joerg@hydrops.han.de>
 
-On Sun, Aug 20, 2006 at 12:44:27PM -0700, David Miller wrote:
-> From: Willy Tarreau <w@1wt.eu>
-> Date: Sun, 20 Aug 2006 02:43:07 +0200
-> 
-> > On Sun, Aug 20, 2006 at 02:05:20AM +0200, Michael Buesch wrote:
-> > > Not to me. It heavily violates codingstyle and screws brains
-> >                 ^^^^^^^
-> > little exageration detected here.
-> > 
-> > > with the non-indented else branches.
-> > 
-> > while they surprized me first, they make the *patch* more readable
-> > by clearly showing what has been inserted and where. However, I have
-> > joined the lines for the merge.
-> 
-> Thanks for consulting the networking maintainer before merging
-> this. :-/
+I am using a Xircom CEM33 pcmcia NIC which has occasional hardware problems.
+If the netdev watchdog detects a transmit timeout, do_reset is called which
+msleeps - this is illegal in atomic context.
 
-I'm sorry, will try to do better next time :-(
-I only queue the patches locally while they're being discussed anyway.
+This patch schedules the timeout handling as a workqueue item.
 
-> What if some sockopt treats a negative length specially?
-> Maybe some setsockopt() doesn't care about the optlen pointer?
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
 
-Which should not be a reason for userspace to respect the calling convention.
->From man 2 getsockopt, it's clear that optlen is the size of the buffer :
-
-       For getsockopt, optlen is a value-result
-       parameter, initially containing the  size  of  the  buffer
-       pointed  to  by optval, and modified on return to indicate
-       the actual size of the value returned.
-
-Where I can agree with you is on this part of the man :
-
-       If no option value is to be supplied or returned, optval may be NULL.
-
-Nothing is said about optlen's validity in such a case.
-
-> This toplevel code has no buisness interpreting the arguments when the
-> downcall and argument interpretation is by definition protocol
-> specific.
-
-Generally, the advantage of doing checks early is that they help enforcing
-conventions and sometimes protect against a stupid bug in one of the multiple
-leaves. It should in no way be an excuse to keep the remaining stupid bugs
-when we spot them.
-
-> It also means we'll touch userspace twice for this value which is really
-> dumb.
-
-If this is that dumb, then why is it done twice in tcp_getsockopt() for
-TCP_INFO ? would you accept a fix which copies it in a local variable
-instead ? 2.6 would also benefit from this for TCP_CONGESTION.
-
-> The only nice part about this change is that it allows us to be lazy
-> about auditing the individual setsockopt() implementations.
-
-This is absolutely not the intent. When we merged Julien Tinnes's fixes
-for NULL pointer checks, it "looked like" the callers already performed
-the tests, but that was not a reason not to complete the test in the leaf
-functions.
-
-> I'd rather fix the broken cases than add a patch which just assumes they
-> are broken and not worth fixing
-
-We're not assuming they're broken. When some code is maintained by many people
-and when conventions differ between similar functions (eg: setsockopt does
-the check at top level and getsockopt in the leaves), it should be expected
-that we populate the CVE lists from time to time when we decide that there
-will always be one single check for every argument. And this is true for all
-system parts.
-
-> and also imposes a convention for the optlen argument.
-
-I would better understand this one considering the fact that the man is
-vague on this matter.
-
-> No thanks.
-
-OK, fine, I drop it. People who seek better security know where to find
-hardening patches anyway.
-
-Willy
-
+--- linux-2.6.17-gentoo-r4_orig/drivers/net/pcmcia/xirc2ps_cs.c	2006-07-28 18:47:14.000000000 +0200
++++ linux-2.6.17-gentoo-r4/drivers/net/pcmcia/xirc2ps_cs.c	2006-08-19 01:00:52.000000000 +0200
+@@ -345,6 +345,7 @@
+     void __iomem *dingo_ccr; /* only used for CEM56 cards */
+     unsigned last_ptr_value; /* last packets transmitted value */
+     const char *manf_str;
++    struct work_struct tx_timeout_task;
+ } local_info_t;
+ 
+ /****************
+@@ -352,6 +353,7 @@
+  */
+ static int do_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ static void do_tx_timeout(struct net_device *dev);
++static void xirc2ps_tx_timeout_task(void *data);
+ static struct net_device_stats *do_get_stats(struct net_device *dev);
+ static void set_addresses(struct net_device *dev);
+ static void set_multicast_list(struct net_device *dev);
+@@ -589,6 +591,7 @@
+ #ifdef HAVE_TX_TIMEOUT
+     dev->tx_timeout = do_tx_timeout;
+     dev->watchdog_timeo = TX_TIMEOUT;
++    INIT_WORK(&local->tx_timeout_task, xirc2ps_tx_timeout_task, dev);
+ #endif
+ 
+     return xirc2ps_config(link);
+@@ -1341,17 +1344,24 @@
+ /*====================================================================*/
+ 
+ static void
+-do_tx_timeout(struct net_device *dev)
++xirc2ps_tx_timeout_task(void *data)
+ {
+-    local_info_t *lp = netdev_priv(dev);
+-    printk(KERN_NOTICE "%s: transmit timed out\n", dev->name);
+-    lp->stats.tx_errors++;
++    struct net_device *dev = data;
+     /* reset the card */
+     do_reset(dev,1);
+     dev->trans_start = jiffies;
+     netif_wake_queue(dev);
+ }
+ 
++static void
++do_tx_timeout(struct net_device *dev)
++{
++    local_info_t *lp = netdev_priv(dev);
++    lp->stats.tx_errors++;
++    printk(KERN_NOTICE "%s: transmit timed out\n", dev->name);
++    schedule_work(&lp->tx_timeout_task);
++}
++
+ static int
+ do_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
