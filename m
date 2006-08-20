@@ -1,33 +1,43 @@
-From: David Miller <davem@davemloft.net>
+From: Solar Designer <solar@openwall.com>
 Subject: Re: [PATCH] getsockopt() early argument sanity checking
-Date: Sun, 20 Aug 2006 12:47:51 -0700 (PDT)
-Message-ID: <20060820.124751.104041574.davem@davemloft.net>
-References: <200608201034.43588.ak@suse.de>
-	<20060820161602.GA20163@openwall.com>
-	<1156091451.23756.51.camel@laptopd505.fenrus.org>
+Date: Sun, 20 Aug 2006 23:45:37 +0400
+Message-ID: <20060820194537.GA20849@openwall.com>
+References: <20060819230532.GA16442@openwall.com> <200608201034.43588.ak@suse.de> <20060820161602.GA20163@openwall.com> <200608202038.34842.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: solar@openwall.com, ak@suse.de, wtarreau@hera.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Willy Tarreau <wtarreau@hera.kernel.org>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:17370
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751183AbWHTTrl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Aug 2006 15:47:41 -0400
-To: arjan@infradead.org
-In-Reply-To: <1156091451.23756.51.camel@laptopd505.fenrus.org>
+Received: from mother.openwall.net ([195.42.179.200]:46279 "HELO
+	mother.openwall.net") by vger.kernel.org with SMTP id S1751194AbWHTUAc
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Aug 2006 16:00:32 -0400
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <200608202038.34842.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arjan van de Ven <arjan@infradead.org>
-Date: Sun, 20 Aug 2006 18:30:51 +0200
+On Sun, Aug 20, 2006 at 08:38:34PM +0200, Andi Kleen wrote:
+> On Sunday 20 August 2006 18:16, Solar Designer wrote:
+> > On Sun, Aug 20, 2006 at 10:34:43AM +0200, Andi Kleen wrote:
+> > > In general I don't think it makes sense to submit stuff for 2.4 
+> > > that isn't in 2.6.
+> > 
+> > In general I agree, however right now I had the choice between
+> > submitting these changes for 2.4 first and not submitting them at all
+> > (at least for some months more).  I chose the former.
+> 
+> If there is really a length checking bug it shouldn't be that hard to fix it 
+> in both.
 
-> this reasoning goes out the window with kernel preemption of course ;)
+There were such length checking bugs being discovered and fixed in the
+past.  In particular, many got fixed between 2.2.18 and 2.2.19; that was
+also when I added this hardening measure to -ow patches (starting with
+2.2.19-ow1 released 5 years ago).
 
-Yes and even though this thing is for 2.4.x, it just shows
-that this is a hack and we shouldn't eat two userspace
-accesses for a hack.
+Of course, any known bugs should be fixed ASAP, but to me that is not a
+sufficient reason to not keep a hardening measure like this.  It's just
+a matter of opinion.
 
-Instead fix the setsockopt() implementations that aren't
-checking the optlen parameter correctly.
+Alexander
