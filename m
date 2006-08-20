@@ -1,83 +1,46 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] getsockopt() early argument sanity checking
-Date: Sun, 20 Aug 2006 02:43:07 +0200
-Message-ID: <20060820004307.GD27115@1wt.eu>
-References: <20060819230532.GA16442@openwall.com> <20060819234806.GB27115@1wt.eu> <200608200205.20876.mb@bu3sch.de>
+From: Andre Tomt <andre@tomt.net>
+Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
+Date: Sun, 20 Aug 2006 03:33:25 +0200
+Message-ID: <44E7BBE5.1040600@tomt.net>
+References: <20060808211731.GR14627@postel.suug.ch>	<44DBED4C.6040604@redhat.com>	<44DFA225.1020508@google.com>	<20060813.165540.56347790.davem@davemloft.net>	<44DFD262.5060106@google.com>	<20060813185309.928472f9.akpm@osdl.org>	<1155530453.5696.98.camel@twins>	<20060813215853.0ed0e973.akpm@osdl.org>	<44E3E964.8010602@google.com>	<20060816225726.3622cab1.akpm@osdl.org>	<44E5015D.80606@google.com>	<20060817230556.7d16498e.akpm@osdl.org>	<44E62F7F.7010901@google.com>	<20060818153455.2a3f2bcb.akpm@osdl.org>	<44E650C1.80608@google.com> <20060818194435.25bacee0.akpm@osdl.org> <44E728E2.4000804@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Solar Designer <solar@openwall.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751618AbWHTAnn@vger.kernel.org>
-To: Michael Buesch <mb@bu3sch.de>
-Content-Disposition: inline
-In-Reply-To: <200608200205.20876.mb@bu3sch.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>,
+	Daniel Phillips <phillips@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	David Miller <davem@davemloft.net>, tgraf@suug.ch,
+	linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.skjellin.no ([80.239.42.67]:47576 "EHLO mx1.skjellin.no")
+	by vger.kernel.org with ESMTP id S1751377AbWHTBdi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Aug 2006 21:33:38 -0400
+To: Rik van Riel <riel@redhat.com>
+In-Reply-To: <44E728E2.4000804@redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 20, 2006 at 02:05:20AM +0200, Michael Buesch wrote:
-> On Sunday 20 August 2006 01:48, Willy Tarreau wrote:
-> > On Sun, Aug 20, 2006 at 03:05:32AM +0400, Solar Designer wrote:
-> > > Willy,
-> > > 
-> > > I propose the attached patch (extracted from 2.4.33-ow1) for inclusion
-> > > into 2.4.34-pre.
-> > > 
-> > > (2.6 kernels could benefit from the same change, too, but at the moment
-> > > I am dealing with proper submission of generic changes like this that
-> > > are a part of 2.4.33-ow1.)
-> > > 
-> > > The patch makes getsockopt(2) sanity-check the value pointed to by
-> > > the optlen argument early on.  This is a security hardening measure
-> > > intended to prevent exploitation of certain potential vulnerabilities in
-> > > socket type specific getsockopt() code on UP systems.
-> > > 
-> > > This change has been a part of -ow patches for some years.
-> > 
-> > looks valid to me, merged.
-> 
-> Not to me. It heavily violates codingstyle and screws brains
-                ^^^^^^^
-little exageration detected here.
+Rik van Riel wrote:
+> Andrew Morton wrote:
+>
+>> - We expect that the lots-of-dirty-anon-memory-over-swap-over-network
+>>   scenario might still cause deadlocks. 
+>>   I assert that this can be solved by putting swap on local disks.  
+>> Peter
+>>   asserts that this isn't acceptable due to disk unreliability.  I point
+>>   out that local disk reliability can be increased via MD, all goes 
+>> quiet.
+>>
+>>   A good exposition which helps us to understand whether and why a
+>>   significant proportion of the target user base still wishes to do
+>>   swap-over-network would be useful.
+>
+> You cannot put disks in many models of blade servers.
+>
+> At all.
 
-> with the non-indented else branches.
-
-while they surprized me first, they make the *patch* more readable
-by clearly showing what has been inserted and where. However, I have
-joined the lines for the merge.
-
-> Learn about goto.
-
-definitely not here. The if() expressions are all one-liners. Adding
-a goto would mean two instructions, to which you add 2 braces. It will
-not make the code more readable. Patch below is OK. If you have a hard
-time understanding it, then it's because it's bedtime for you too :-)
-
-Regards,
-Willy
-
-
-diff --git a/net/socket.c b/net/socket.c
-index ac45b13..910ef88 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1307,11 +1307,17 @@ asmlinkage long sys_setsockopt(int fd, i
- asmlinkage long sys_getsockopt(int fd, int level, int optname, char *optval, int *optlen)
- {
- 	int err;
-+	int len;
- 	struct socket *sock;
- 
- 	if ((sock = sockfd_lookup(fd, &err))!=NULL)
- 	{
--		if (level == SOL_SOCKET)
-+		/* XXX: insufficient for SMP, but should be redundant anyway */
-+		if (get_user(len, optlen))
-+			err = -EFAULT;
-+		else if (len < 0)
-+			err = -EINVAL;
-+		else if (level == SOL_SOCKET)
- 			err=sock_getsockopt(sock,level,optname,optval,optlen);
- 		else
- 			err=sock->ops->getsockopt(sock, level, optname, optval, optlen);
--- 
-1.4.1
+Or many thin clients in general. They are used in quite a few schools 
+over here, running Linux.
+Some of them do in fact have space for disks, but disks adds costs 
+(heat, power, replacing failed drives)
