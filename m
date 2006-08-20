@@ -1,41 +1,98 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/6]: powerpc/cell spidernet low watermark patch.
-Date: Sun, 20 Aug 2006 12:03:14 +0200
-Message-ID: <200608201203.15645.arnd@arndb.de>
-References: <20060818220700.GG26889@austin.ibm.com> <200608190109.15129.arnd@arndb.de> <1156055509.5803.77.camel@localhost.localdomain>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] getsockopt() early argument sanity checking
+Date: Sun, 20 Aug 2006 12:15:28 +0200
+Message-ID: <20060820101528.GE602@1wt.eu>
+References: <20060819230532.GA16442@openwall.com> <200608201034.43588.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, akpm@osdl.org,
-	James K Lewis <jklewis@us.ibm.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>,
-	ens Osterkamp <Jens.Osterkamp@de.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Solar Designer <solar@openwall.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.183]:50420 "EHLO
-	moutng.kundenserver.de") by vger.kernel.org with ESMTP
-	id S1750701AbWHTKEB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Aug 2006 06:04:01 -0400
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-In-Reply-To: <1156055509.5803.77.camel@localhost.localdomain>
+Received: from 1wt.eu ([62.212.114.60]:45584 "EHLO 1wt.eu")
+	by vger.kernel.org with ESMTP id S1750710AbWHTKQD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2006 06:16:03 -0400
+To: Andi Kleen <ak@suse.de>
 Content-Disposition: inline
+In-Reply-To: <200608201034.43588.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 20 August 2006 08:31, Benjamin Herrenschmidt wrote:
-> > card->low_watermark->next->dmac_cmd_status |= SPIDER_NET_DESCR_TXDESFLG;
-> > mb();
-> > card->low_watermark->dmac_cmd_status &= ~SPIDER_NET_DESCR_TXDESFLG;
-> > card->low_watermark = card->low_watermark->next;
+On Sun, Aug 20, 2006 at 10:34:43AM +0200, Andi Kleen wrote:
+> On Sunday 20 August 2006 01:05, Solar Designer wrote:
+> > I propose the attached patch (extracted from 2.4.33-ow1) for inclusion
+> > into 2.4.34-pre.
 > > 
-> > when we queue another frame for TX.
+> > (2.6 kernels could benefit from the same change, too, but at the moment
+> > I am dealing with proper submission of generic changes like this that
+> > are a part of 2.4.33-ow1.)
 > 
-> I would have expected those to be racy vs. the hardware... what if the
-> hardware is updating dmac_cmd_status just as your are trying to and the
-> bit out of it ?
+> In general I don't think it makes sense to submit stuff for 2.4 
+> that isn't in 2.6.
 
-Right, that doesn't work. It is the only bit we use in that byte though,
-so maybe it can be done with a single byte write.
+I generally agree with you on this, but I think that when they are just
+preventive measures, they can be applied in whatever order, provided that
+they don't get lost.
 
-	Arnd <><
+> > The patch makes getsockopt(2) sanity-check the value pointed to by
+> > the optlen argument early on.  This is a security hardening measure
+> > intended to prevent exploitation of certain potential vulnerabilities in
+> > socket type specific getsockopt() code on UP systems.
+> 
+> It's not only insufficient on SMP, but even on UP where a thread
+> can sleep in get_user and another one can run in this time.
+
+Valid point.
+
+> Doing a check that is inherently racy everywhere doesn't seem like
+> a security improvement to me. If there is really a length checking bug somewhere 
+> it needs to be fixed in a race-free way.
+
+The only race-free solution would be to add an argument to all getsockopt()
+functions and pass them the decoded value. There are other places where
+multiple get_user() are performed on optlen, with some useless tests (eg
+in net/ipv4/tcp.c, len is checked for <0 after having been compared to
+sizeof(int) as unsigned int) and all those places would benefit from this.
+
+But I don't want to induce such large changes in this kernel. The goal of
+this test is a preventive measure to catch easily exploitable errors that
+might have remained undetected. For instance, a quick glance shows this
+portion of code in net/ipv4/raw.c (both 2.4 and 2.6) :
+
+static int raw_seticmpfilter(struct sock *sk, char *optval, int optlen)
+{
+        if (optlen > sizeof(struct icmp_filter))
+                optlen = sizeof(struct icmp_filter);
+        if (copy_from_user(&sk->tp_pinfo.tp_raw4.filter, optval, optlen))
+                return -EFAULT;
+        return 0;
+}
+
+It only relies on sock_setsockopt() refusing optlen values < sizeof(int),
+and this is not documented. Having part of this code being copied for use
+in another code path would open a breach for optlen < 0.
+
+> If not then there is no need for a change.
+
+There are two tests in this patch :
+
+  - one on the validity of the optlen address. This one is race-free and
+    should be conserved anyway.
+
+  - one on the optlen range which is valid for most cases but which is
+    subject to a race condition and which might be circumvented by
+    carefully written code and with some luck as in all race conditions
+    issues.
+
+Some will say that this last one offers a first level of protection by
+transforming determinist attacks into racy attacks which make potential
+vulnerabilities much harder to exploit by code injection. I'm one of them.
+
+Others will consider it totally useless because it does not cover all cases,
+but I think it is against the general principle of precaution we try to
+apply in security.
+
+> -Andi
+
+Regards,
+Willy
+
