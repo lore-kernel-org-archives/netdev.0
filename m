@@ -1,70 +1,49 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH,RFC] Re: r8169 driver problem with RTL8110SB chip (on iop3xx ARM board)
-Date: Sun, 20 Aug 2006 23:35:58 +0200
-Message-ID: <20060820213558.GA13188@electric-eye.fr.zoreil.com>
-References: <20060728101109.GA25854@xi.wantstofly.org> <20060818212852.GA5379@xi.wantstofly.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] net/atm/: proper prototypes
+Date: Mon, 21 Aug 2006 01:00:06 +0200
+Message-ID: <20060820230006.GW7813@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, tbm@cyrius.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:56787 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751139AbWHTVjL
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Aug 2006 17:39:11 -0400
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751788AbWHTXAK@vger.kernel.org>
+To: chas@cmf.nrl.navy.mil
 Content-Disposition: inline
-In-Reply-To: <20060818212852.GA5379@xi.wantstofly.org>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek <buytenh@wantstofly.org> :
-[...]
-> The hack patch below makes it work.  There's two issues here:
-> 
-> 1. Writing zero to the upper part of the TxDescStartAddr register (via
->    the MMIO region) somehow also clears the lower part, and writing the
->    upper and lower halves the other way round fixes it.  The RxDescAddr
->    register doesn't seem to suffer from this problem.
-> 
->    The Realtek r1000 driver writes the two halves in the same order as
->    r8169, but it doesn't happen there, which is a bit of a mystery to
->    me.
-> 
-> 2. SYSErr asserts pretty soon after upping eth0, and the PCI status
->    register reports a parity error when this happens.  In this case,
->    the restart logic seems to make things worse, and in fact, when
->    commenting it out, things work a lot better.
-> 
-> Have you ever seen these issues before?  Any suggestions on how to
-> cleanly fix these issues?
+This patch adds proper prototypes in net/atm/mpc.h for two global 
+functions in net/atm/mpoa_proc.c
 
-1 - unknown so far. Realtek's driver actually use IO, not MM. I do not see
-    why it would make a difference as long as posteed writes are correctly
-    taken care of.
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-2 - I have already experienced SYSErr storms on startup. If memory serves me
-    right, they were "cured" simply by disabling a bit in the irq mask
-    (not sure if it was SYSErr, RxOverflow or RxFIFOOver though).
+---
 
-Can you try against -rc4:
-1) the serie at http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.18-rc4/r8169
-   There is a minor difference in the init of Realtek's driver for the 8110sb
-   (patch 011). It could hurt different chipset but it should do no harm to
-   the 8110sb.
-2) same as 1) + your hunk below:
-@@ -484,7 +488,7 @@ static int rtl8169_poll(struct net_devic
- #endif
+ net/atm/mpc.c |    5 -----
+ net/atm/mpc.h |    3 +++
+ 2 files changed, 3 insertions(+), 5 deletions(-)
+
+--- linux-2.6.18-rc4-mm2/net/atm/mpc.h.old	2006-08-20 23:24:37.000000000 +0200
++++ linux-2.6.18-rc4-mm2/net/atm/mpc.h	2006-08-20 23:25:13.000000000 +0200
+@@ -50,4 +50,7 @@
+ struct seq_file;
+ void atm_mpoa_disp_qos(struct seq_file *m);
  
- static const u16 rtl8169_intr_mask =
--	SYSErr | LinkChg | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
-+	LinkChg | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
- static const u16 rtl8169_napi_event =
- 	RxOK | RxOverflow | RxFIFOOver | TxOK | TxErr;
- static const unsigned int rtl8169_rx_config =
-3) same as 2) + your TxDesc change.
-
-If it does not break anything else, I'll push your magic. I'd rather avoid
-completely disabling rtl8169_pcierr_interrupt() though.
-
--- 
-Ueimor
++int mpc_proc_init(void);
++void mpc_proc_clean(void);
++
+ #endif /* _MPC_H_ */
+--- linux-2.6.18-rc4-mm2/net/atm/mpc.c.old	2006-08-20 23:25:26.000000000 +0200
++++ linux-2.6.18-rc4-mm2/net/atm/mpc.c	2006-08-20 23:25:49.000000000 +0200
+@@ -98,11 +98,6 @@
+ 	0
+ };
+ 
+-#ifdef CONFIG_PROC_FS
+-extern int mpc_proc_init(void);
+-extern void mpc_proc_clean(void);
+-#endif
+-
+ struct mpoa_client *mpcs = NULL; /* FIXME */
+ static struct atm_mpoa_qos *qos_head = NULL;
+ static DEFINE_TIMER(mpc_timer, NULL, 0, 0);
