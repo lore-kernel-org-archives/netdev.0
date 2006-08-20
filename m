@@ -1,32 +1,38 @@
-From: Valerie Henson <val_henson@linux.intel.com>
-Subject: Proper pci_enable_device() error handling in resume routine
-Date: Sat, 19 Aug 2006 22:29:22 -0700
-Message-ID: <20060820052922.GH20111@goober>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 2/6]: powerpc/cell spidernet low watermark patch.
+Date: Sun, 20 Aug 2006 16:31:49 +1000
+Message-ID: <1156055509.5803.77.camel@localhost.localdomain>
+References: <20060818220700.GG26889@austin.ibm.com>
+	 <20060818222146.GI26889@austin.ibm.com>  <200608190109.15129.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, akpm@osdl.org,
+	James K Lewis <jklewis@us.ibm.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>,
+	ens Osterkamp <Jens.Osterkamp@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8124 "EHLO
-	orsmga102-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1750759AbWHTF3q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Aug 2006 01:29:46 -0400
-Received: from localhost.localdomain ([134.134.16.96])
-	by orsfmr101.jf.intel.com (8.12.10/8.12.10/d: major-inner.mc,v 1.2 2004/09/17 18:05:01 root Exp $) with ESMTP id k7K5TXSI023498
-	for <netdev@vger.kernel.org>; Sun, 20 Aug 2006 05:29:34 GMT
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from gate.crashing.org ([63.228.1.57]:9352 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S1750759AbWHTGcj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2006 02:32:39 -0400
+To: Arnd Bergmann <arnd@arndb.de>
+In-Reply-To: <200608190109.15129.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
 
-I'm trying to properly handle pci_enable_device() errors in the resume
-routines of a couple of tulip drivers.  I noticed that several drivers
-pay attention to errors from pci_enable_device() in the init routine
-but ignore it on resume; other drivers vary wildly.  What's proper
-behavior when resuming?  Extant examples:
+> card->low_watermark->next->dmac_cmd_status |= SPIDER_NET_DESCR_TXDESFLG;
+> mb();
+> card->low_watermark->dmac_cmd_status &= ~SPIDER_NET_DESCR_TXDESFLG;
+> card->low_watermark = card->low_watermark->next;
+> 
+> when we queue another frame for TX.
 
-0. Don't call pci_enable_device() at all (8139too)
-1. Ignore the return value (eepro100, many others)
-2. Check for failure and bail out, but return success (sungem)
+I would have expected those to be racy vs. the hardware... what if the
+hardware is updating dmac_cmd_status just as your are trying to and the
+bit out of it ?
 
--VAL
+Ben
+
+
