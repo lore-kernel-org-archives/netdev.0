@@ -1,43 +1,105 @@
-From: Solar Designer <solar@openwall.com>
+From: Willy Tarreau <w@1wt.eu>
 Subject: Re: [PATCH] getsockopt() early argument sanity checking
-Date: Sun, 20 Aug 2006 23:45:37 +0400
-Message-ID: <20060820194537.GA20849@openwall.com>
-References: <20060819230532.GA16442@openwall.com> <200608201034.43588.ak@suse.de> <20060820161602.GA20163@openwall.com> <200608202038.34842.ak@suse.de>
+Date: Sun, 20 Aug 2006 22:35:59 +0200
+Message-ID: <20060820203559.GT602@1wt.eu>
+References: <20060819234806.GB27115@1wt.eu> <200608200205.20876.mb@bu3sch.de> <20060820004307.GD27115@1wt.eu> <20060820.124427.74745779.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Willy Tarreau <wtarreau@hera.kernel.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: mb@bu3sch.de, solar@openwall.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mother.openwall.net ([195.42.179.200]:46279 "HELO
-	mother.openwall.net") by vger.kernel.org with SMTP id S1751194AbWHTUAc
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Aug 2006 16:00:32 -0400
-To: Andi Kleen <ak@suse.de>
+Received: from 1wt.eu ([62.212.114.60]:59152 "EHLO 1wt.eu")
+	by vger.kernel.org with ESMTP id S1751227AbWHTUgi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2006 16:36:38 -0400
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <200608202038.34842.ak@suse.de>
+In-Reply-To: <20060820.124427.74745779.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 20, 2006 at 08:38:34PM +0200, Andi Kleen wrote:
-> On Sunday 20 August 2006 18:16, Solar Designer wrote:
-> > On Sun, Aug 20, 2006 at 10:34:43AM +0200, Andi Kleen wrote:
-> > > In general I don't think it makes sense to submit stuff for 2.4 
-> > > that isn't in 2.6.
-> > 
-> > In general I agree, however right now I had the choice between
-> > submitting these changes for 2.4 first and not submitting them at all
-> > (at least for some months more).  I chose the former.
+Hi David,
+
+On Sun, Aug 20, 2006 at 12:44:27PM -0700, David Miller wrote:
+> From: Willy Tarreau <w@1wt.eu>
+> Date: Sun, 20 Aug 2006 02:43:07 +0200
 > 
-> If there is really a length checking bug it shouldn't be that hard to fix it 
-> in both.
+> > On Sun, Aug 20, 2006 at 02:05:20AM +0200, Michael Buesch wrote:
+> > > Not to me. It heavily violates codingstyle and screws brains
+> >                 ^^^^^^^
+> > little exageration detected here.
+> > 
+> > > with the non-indented else branches.
+> > 
+> > while they surprized me first, they make the *patch* more readable
+> > by clearly showing what has been inserted and where. However, I have
+> > joined the lines for the merge.
+> 
+> Thanks for consulting the networking maintainer before merging
+> this. :-/
 
-There were such length checking bugs being discovered and fixed in the
-past.  In particular, many got fixed between 2.2.18 and 2.2.19; that was
-also when I added this hardening measure to -ow patches (starting with
-2.2.19-ow1 released 5 years ago).
+I'm sorry, will try to do better next time :-(
+I only queue the patches locally while they're being discussed anyway.
 
-Of course, any known bugs should be fixed ASAP, but to me that is not a
-sufficient reason to not keep a hardening measure like this.  It's just
-a matter of opinion.
+> What if some sockopt treats a negative length specially?
+> Maybe some setsockopt() doesn't care about the optlen pointer?
 
-Alexander
+Which should not be a reason for userspace to respect the calling convention.
+>From man 2 getsockopt, it's clear that optlen is the size of the buffer :
+
+       For getsockopt, optlen is a value-result
+       parameter, initially containing the  size  of  the  buffer
+       pointed  to  by optval, and modified on return to indicate
+       the actual size of the value returned.
+
+Where I can agree with you is on this part of the man :
+
+       If no option value is to be supplied or returned, optval may be NULL.
+
+Nothing is said about optlen's validity in such a case.
+
+> This toplevel code has no buisness interpreting the arguments when the
+> downcall and argument interpretation is by definition protocol
+> specific.
+
+Generally, the advantage of doing checks early is that they help enforcing
+conventions and sometimes protect against a stupid bug in one of the multiple
+leaves. It should in no way be an excuse to keep the remaining stupid bugs
+when we spot them.
+
+> It also means we'll touch userspace twice for this value which is really
+> dumb.
+
+If this is that dumb, then why is it done twice in tcp_getsockopt() for
+TCP_INFO ? would you accept a fix which copies it in a local variable
+instead ? 2.6 would also benefit from this for TCP_CONGESTION.
+
+> The only nice part about this change is that it allows us to be lazy
+> about auditing the individual setsockopt() implementations.
+
+This is absolutely not the intent. When we merged Julien Tinnes's fixes
+for NULL pointer checks, it "looked like" the callers already performed
+the tests, but that was not a reason not to complete the test in the leaf
+functions.
+
+> I'd rather fix the broken cases than add a patch which just assumes they
+> are broken and not worth fixing
+
+We're not assuming they're broken. When some code is maintained by many people
+and when conventions differ between similar functions (eg: setsockopt does
+the check at top level and getsockopt in the leaves), it should be expected
+that we populate the CVE lists from time to time when we decide that there
+will always be one single check for every argument. And this is true for all
+system parts.
+
+> and also imposes a convention for the optlen argument.
+
+I would better understand this one considering the fact that the man is
+vague on this matter.
+
+> No thanks.
+
+OK, fine, I drop it. People who seek better security know where to find
+hardening patches anyway.
+
+Willy
+
