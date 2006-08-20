@@ -1,87 +1,83 @@
-From: Michael Buesch <mb@bu3sch.de>
+From: Willy Tarreau <w@1wt.eu>
 Subject: Re: [PATCH] getsockopt() early argument sanity checking
-Date: Sun, 20 Aug 2006 02:05:20 +0200
-Message-ID: <200608200205.20876.mb@bu3sch.de>
-References: <20060819230532.GA16442@openwall.com> <20060819234806.GB27115@1wt.eu>
+Date: Sun, 20 Aug 2006 02:43:07 +0200
+Message-ID: <20060820004307.GD27115@1wt.eu>
+References: <20060819230532.GA16442@openwall.com> <20060819234806.GB27115@1wt.eu> <200608200205.20876.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Solar Designer <solar@openwall.com>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:16103
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751072AbWHTAG3
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Aug 2006 20:06:29 -0400
-To: Willy Tarreau <w@1wt.eu>
-In-Reply-To: <20060819234806.GB27115@1wt.eu>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751618AbWHTAnn@vger.kernel.org>
+To: Michael Buesch <mb@bu3sch.de>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <200608200205.20876.mb@bu3sch.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 20 August 2006 01:48, Willy Tarreau wrote:
-> On Sun, Aug 20, 2006 at 03:05:32AM +0400, Solar Designer wrote:
-> > Willy,
+On Sun, Aug 20, 2006 at 02:05:20AM +0200, Michael Buesch wrote:
+> On Sunday 20 August 2006 01:48, Willy Tarreau wrote:
+> > On Sun, Aug 20, 2006 at 03:05:32AM +0400, Solar Designer wrote:
+> > > Willy,
+> > > 
+> > > I propose the attached patch (extracted from 2.4.33-ow1) for inclusion
+> > > into 2.4.34-pre.
+> > > 
+> > > (2.6 kernels could benefit from the same change, too, but at the moment
+> > > I am dealing with proper submission of generic changes like this that
+> > > are a part of 2.4.33-ow1.)
+> > > 
+> > > The patch makes getsockopt(2) sanity-check the value pointed to by
+> > > the optlen argument early on.  This is a security hardening measure
+> > > intended to prevent exploitation of certain potential vulnerabilities in
+> > > socket type specific getsockopt() code on UP systems.
+> > > 
+> > > This change has been a part of -ow patches for some years.
 > > 
-> > I propose the attached patch (extracted from 2.4.33-ow1) for inclusion
-> > into 2.4.34-pre.
-> > 
-> > (2.6 kernels could benefit from the same change, too, but at the moment
-> > I am dealing with proper submission of generic changes like this that
-> > are a part of 2.4.33-ow1.)
-> > 
-> > The patch makes getsockopt(2) sanity-check the value pointed to by
-> > the optlen argument early on.  This is a security hardening measure
-> > intended to prevent exploitation of certain potential vulnerabilities in
-> > socket type specific getsockopt() code on UP systems.
-> > 
-> > This change has been a part of -ow patches for some years.
+> > looks valid to me, merged.
 > 
-> looks valid to me, merged.
+> Not to me. It heavily violates codingstyle and screws brains
+                ^^^^^^^
+little exageration detected here.
 
-Not to me. It heavily violates codingstyle and screws brains
-with the non-indented else branches. Learn about goto.
+> with the non-indented else branches.
 
-> Thanks Alexander !
-> Willy
-> 
-> 
-> > Thanks,
-> > 
-> > -- 
-> > Alexander Peslyak <solar at openwall.com>
-> > GPG key ID: B35D3598  fp: 6429 0D7E F130 C13E C929  6447 73C3 A290 B35D 3598
-> > http://www.openwall.com - bringing security into open computing environments
-> 
-> > diff -urpPX nopatch linux-2.4.33/net/socket.c linux/net/socket.c
-> > --- linux-2.4.33/net/socket.c	Wed Jan 19 17:10:14 2005
-> > +++ linux/net/socket.c	Sat Aug 12 08:51:47 2006
-> > @@ -1307,10 +1307,18 @@ asmlinkage long sys_setsockopt(int fd, i
-> >  asmlinkage long sys_getsockopt(int fd, int level, int optname, char *optval, int *optlen)
-> >  {
-> >  	int err;
-> > +	int len;
-> >  	struct socket *sock;
-> >  
-> >  	if ((sock = sockfd_lookup(fd, &err))!=NULL)
-> >  	{
-> > +		/* XXX: insufficient for SMP, but should be redundant anyway */
-> > +		if (get_user(len, optlen))
-> > +			err = -EFAULT;
-> > +		else
-> > +		if (len < 0)
-> > +			err = -EINVAL;
-> > +		else
-> >  		if (level == SOL_SOCKET)
-> >  			err=sock_getsockopt(sock,level,optname,optval,optlen);
-> >  		else
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+while they surprized me first, they make the *patch* more readable
+by clearly showing what has been inserted and where. However, I have
+joined the lines for the merge.
 
+> Learn about goto.
+
+definitely not here. The if() expressions are all one-liners. Adding
+a goto would mean two instructions, to which you add 2 braces. It will
+not make the code more readable. Patch below is OK. If you have a hard
+time understanding it, then it's because it's bedtime for you too :-)
+
+Regards,
+Willy
+
+
+diff --git a/net/socket.c b/net/socket.c
+index ac45b13..910ef88 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1307,11 +1307,17 @@ asmlinkage long sys_setsockopt(int fd, i
+ asmlinkage long sys_getsockopt(int fd, int level, int optname, char *optval, int *optlen)
+ {
+ 	int err;
++	int len;
+ 	struct socket *sock;
+ 
+ 	if ((sock = sockfd_lookup(fd, &err))!=NULL)
+ 	{
+-		if (level == SOL_SOCKET)
++		/* XXX: insufficient for SMP, but should be redundant anyway */
++		if (get_user(len, optlen))
++			err = -EFAULT;
++		else if (len < 0)
++			err = -EINVAL;
++		else if (level == SOL_SOCKET)
+ 			err=sock_getsockopt(sock,level,optname,optval,optlen);
+ 		else
+ 			err=sock->ops->getsockopt(sock, level, optname, optval, optlen);
 -- 
-Greetings Michael.
+1.4.1
