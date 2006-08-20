@@ -1,49 +1,40 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/atm/: proper prototypes
-Date: Mon, 21 Aug 2006 01:00:06 +0200
-Message-ID: <20060820230006.GW7813@stusta.de>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] Make struct in_addr::s_addr __be32
+Date: Mon, 21 Aug 2006 03:20:51 +0400
+Message-ID: <20060820232051.GB5208@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751788AbWHTXAK@vger.kernel.org>
-To: chas@cmf.nrl.navy.mil
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.191]:7969 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S932070AbWHTXVD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Aug 2006 19:21:03 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so1754758nfa
+        for <netdev@vger.kernel.org>; Sun, 20 Aug 2006 16:21:02 -0700 (PDT)
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds proper prototypes in net/atm/mpc.h for two global 
-functions in net/atm/mpoa_proc.c
+There will be relatively small increase in sparse endian warnings, but
+this (and sin_port) patch is a first step to make networking code endian
+clean.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- net/atm/mpc.c |    5 -----
- net/atm/mpc.h |    3 +++
- 2 files changed, 3 insertions(+), 5 deletions(-)
+ include/linux/in.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
---- linux-2.6.18-rc4-mm2/net/atm/mpc.h.old	2006-08-20 23:24:37.000000000 +0200
-+++ linux-2.6.18-rc4-mm2/net/atm/mpc.h	2006-08-20 23:25:13.000000000 +0200
-@@ -50,4 +50,7 @@
- struct seq_file;
- void atm_mpoa_disp_qos(struct seq_file *m);
+--- a/include/linux/in.h
++++ b/include/linux/in.h
+@@ -52,7 +52,7 @@ enum {
  
-+int mpc_proc_init(void);
-+void mpc_proc_clean(void);
-+
- #endif /* _MPC_H_ */
---- linux-2.6.18-rc4-mm2/net/atm/mpc.c.old	2006-08-20 23:25:26.000000000 +0200
-+++ linux-2.6.18-rc4-mm2/net/atm/mpc.c	2006-08-20 23:25:49.000000000 +0200
-@@ -98,11 +98,6 @@
- 	0
+ /* Internet address. */
+ struct in_addr {
+-	__u32	s_addr;
++	__be32	s_addr;
  };
  
--#ifdef CONFIG_PROC_FS
--extern int mpc_proc_init(void);
--extern void mpc_proc_clean(void);
--#endif
--
- struct mpoa_client *mpcs = NULL; /* FIXME */
- static struct atm_mpoa_qos *qos_head = NULL;
- static DEFINE_TIMER(mpc_timer, NULL, 0, 0);
+ #define IP_TOS		1
+
