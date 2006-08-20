@@ -1,64 +1,62 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
+From: Solar Designer <solar@openwall.com>
 Subject: Re: [PATCH] getsockopt() early argument sanity checking
-Date: Sun, 20 Aug 2006 19:50:44 +0900 (JST)
-Message-ID: <20060820.195044.84187776.yoshfuji@linux-ipv6.org>
-References: <20060819230532.GA16442@openwall.com>
-	<200608201034.43588.ak@suse.de>
-	<20060820101528.GE602@1wt.eu>
+Date: Sun, 20 Aug 2006 20:16:02 +0400
+Message-ID: <20060820161602.GA20163@openwall.com>
+References: <20060819230532.GA16442@openwall.com> <200608201034.43588.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, solar@openwall.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Willy Tarreau <wtarreau@hera.kernel.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:46353 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1750734AbWHTKtA
+Received: from mother.openwall.net ([195.42.179.200]:8385 "HELO
+	mother.openwall.net") by vger.kernel.org with SMTP id S1750863AbWHTQUD
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Aug 2006 06:49:00 -0400
-To: w@1wt.eu
-In-Reply-To: <20060820101528.GE602@1wt.eu>
+	Sun, 20 Aug 2006 12:20:03 -0400
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <200608201034.43588.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Sun, Aug 20, 2006 at 10:34:43AM +0200, Andi Kleen wrote:
+> In general I don't think it makes sense to submit stuff for 2.4 
+> that isn't in 2.6.
 
-In article <20060820101528.GE602@1wt.eu> (at Sun, 20 Aug 2006 12:15:28 +0200), Willy Tarreau <w@1wt.eu> says:
+In general I agree, however right now I had the choice between
+submitting these changes for 2.4 first and not submitting them at all
+(at least for some months more).  I chose the former.
 
-> But I don't want to induce such large changes in this kernel. The goal of
-> this test is a preventive measure to catch easily exploitable errors that
-> might have remained undetected. For instance, a quick glance shows this
-> portion of code in net/ipv4/raw.c (both 2.4 and 2.6) :
+> > The patch makes getsockopt(2) sanity-check the value pointed to by
+> > the optlen argument early on.  This is a security hardening measure
+> > intended to prevent exploitation of certain potential vulnerabilities in
+> > socket type specific getsockopt() code on UP systems.
 > 
-> static int raw_seticmpfilter(struct sock *sk, char *optval, int optlen)
-> {
->         if (optlen > sizeof(struct icmp_filter))
->                 optlen = sizeof(struct icmp_filter);
->         if (copy_from_user(&sk->tp_pinfo.tp_raw4.filter, optval, optlen))
->                 return -EFAULT;
->         return 0;
-> }
-> 
-> It only relies on sock_setsockopt() refusing optlen values < sizeof(int),
-> and this is not documented. Having part of this code being copied for use
-> in another code path would open a breach for optlen < 0.
-:
-> There are two tests in this patch :
-> 
->   - one on the validity of the optlen address. This one is race-free and
->     should be conserved anyway.
-> 
->   - one on the optlen range which is valid for most cases but which is
->     subject to a race condition and which might be circumvented by
->     carefully written code and with some luck as in all race conditions
->     issues.
+> It's not only insufficient on SMP, but even on UP where a thread
+> can sleep in get_user and another one can run in this time.
 
-Don't mix getsockopt() and setsockopt() code paths.
+Good point.  However, what about this special case? -
 
-For setsockopt(), optlen < 0 is checked in net/socket.c:sys_setsockopt().
+We're on UP.  sys_getsockopt() does get_user() (due to the patch) and
+makes sure that the passed *optlen is sane.  Even if this get_user()
+sleeps, the value it returns in "len" is what's currently in memory at
+the time of the get_user() return (correct?)  Then an underlying
+*getsockopt() function does another get_user() on optlen (same address),
+without doing any other user-space data accesses or anything else that
+could sleep first.  Is it possible that this second get_user()
+invocation would sleep?  I think not since it's the same address that
+we've just read a value from, we did not leave kernel space, and we're
+on UP (so no other processor could have changed the mapping).  So the
+patch appears to be sufficient for this special case (which is not
+unlikely).
 
-For getsockopt(), optlen and *optlen < 0 is (and should be) checked
-(or handled) in each getsockopt function; e.g. do_ip_getsockopt(),
-raw_geticmpfilter() etc.
+Of course, it is possible that I am wrong about some of the above;
+please correct me if so.
 
---yoshfuji
+> If there is really a length checking bug somewhere it needs to be
+> fixed in a race-free way.
+
+Indeed, all known bugs need to be fixed properly.
+
+Thanks,
+
+Alexander
