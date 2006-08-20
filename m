@@ -1,47 +1,41 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] getsockopt() early argument sanity checking
-Date: Sun, 20 Aug 2006 10:34:43 +0200
-Message-ID: <200608201034.43588.ak@suse.de>
-References: <20060819230532.GA16442@openwall.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 2/6]: powerpc/cell spidernet low watermark patch.
+Date: Sun, 20 Aug 2006 12:03:14 +0200
+Message-ID: <200608201203.15645.arnd@arndb.de>
+References: <20060818220700.GG26889@austin.ibm.com> <200608190109.15129.arnd@arndb.de> <1156055509.5803.77.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <wtarreau@hera.kernel.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org, akpm@osdl.org,
+	James K Lewis <jklewis@us.ibm.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>,
+	ens Osterkamp <Jens.Osterkamp@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:41945 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1751311AbWHTIet (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2006 04:34:49 -0400
-To: Solar Designer <solar@openwall.com>
-In-Reply-To: <20060819230532.GA16442@openwall.com>
+Received: from moutng.kundenserver.de ([212.227.126.183]:50420 "EHLO
+	moutng.kundenserver.de") by vger.kernel.org with ESMTP
+	id S1750701AbWHTKEB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Aug 2006 06:04:01 -0400
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+In-Reply-To: <1156055509.5803.77.camel@localhost.localdomain>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 20 August 2006 01:05, Solar Designer wrote:
-> I propose the attached patch (extracted from 2.4.33-ow1) for inclusion
-> into 2.4.34-pre.
+On Sunday 20 August 2006 08:31, Benjamin Herrenschmidt wrote:
+> > card->low_watermark->next->dmac_cmd_status |= SPIDER_NET_DESCR_TXDESFLG;
+> > mb();
+> > card->low_watermark->dmac_cmd_status &= ~SPIDER_NET_DESCR_TXDESFLG;
+> > card->low_watermark = card->low_watermark->next;
+> > 
+> > when we queue another frame for TX.
 > 
-> (2.6 kernels could benefit from the same change, too, but at the moment
-> I am dealing with proper submission of generic changes like this that
-> are a part of 2.4.33-ow1.)
+> I would have expected those to be racy vs. the hardware... what if the
+> hardware is updating dmac_cmd_status just as your are trying to and the
+> bit out of it ?
 
-In general I don't think it makes sense to submit stuff for 2.4 
-that isn't in 2.6.
+Right, that doesn't work. It is the only bit we use in that byte though,
+so maybe it can be done with a single byte write.
 
-> 
-> The patch makes getsockopt(2) sanity-check the value pointed to by
-> the optlen argument early on.  This is a security hardening measure
-> intended to prevent exploitation of certain potential vulnerabilities in
-> socket type specific getsockopt() code on UP systems.
-
-It's not only insufficient on SMP, but even on UP where a thread
-can sleep in get_user and another one can run in this time.
-
-Doing a check that is inherently racy everywhere doesn't seem like
-a security improvement to me. If there is really a length checking bug somewhere 
-it needs to be fixed in a race-free way. If not then there is no need
-for a change.
-
--Andi
+	Arnd <><
