@@ -1,186 +1,147 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [RFC] nl80211 + packet injection with it and d80211
-Date: Sun, 20 Aug 2006 20:47:09 +0200
-Message-ID: <20060820204709.2f46d8c8@logostar.upir.cz>
-References: <1155824008.3491.7.camel@ux156>
-	<1155912565.5671.1.camel@ux156>
+From: Christophe Devriese <Christophe.Devriese@eurid.eu>
+Subject: Re: PATCH Fix bonding active-backup behavior for VLAN interfaces
+Date: Sun, 20 Aug 2006 21:41:01 +0200
+Message-ID: <200608202141.01972.Christophe.Devriese@eurid.eu>
+References: <200607311015.40255.Christophe.Devriese@eurid.eu> <200608040101.k7411ZZt013801@death.nxdomain.ibm.com> <20060814.170905.69218340.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from r2u241.net.upc.cz ([62.245.84.241]:12708 "EHLO cela.cz")
-	by vger.kernel.org with ESMTP id S1751144AbWHTSrT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2006 14:47:19 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1155912565.5671.1.camel@ux156>
+Received: from uu212-190-206-99.unknown.uunet.be ([212.190.206.99]:44761 "EHLO
+	smtp.eurid.eu") by vger.kernel.org with ESMTP id S1751101AbWHTTlO
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Aug 2006 15:41:14 -0400
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+In-Reply-To: <20060814.170905.69218340.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Johannes,
+This fixes my issue. Thanks.
 
-thanks a lot for your work on nl80211! New netlink interface is
-one of the most important things regarding 802.11 stack now.
-
-Fri, 18 Aug 2006 16:49:25 +0200, Johannes Berg wrote:
-> [...]
-> +/**
-> + * struct nl80211_driver - backend description for wireless configuration
-> + *
-> + * This struct is registered by fullmac card drivers and/or wireless stacks
-> + * in order to handle configuration requests on their interfaces.
-> + *
-> + * @get_priv_for_ifindex: return the private pointer that is then passed to
-> + *			  the other calls as the first argument.
-> + *			  Note that if this returns %NULL, then it is assumed
-> + *			  that the driver doesn't handle that interface,
-> + *			  hence priv is unused for some reason it still needs
-> + *			  to return a non-%NULL pointer!
-> + *
-> + * @release_priv: release the private pointer if necessary. Note that for
-> + *		  example if you used the ifindex and dev_get_by_index(),
-> + *		  you have to dev_put() here.
-
-Seems ineffective to me. Couldn't you require users of nl80211 to fill
-ieee80211_ptr field in all of their net_devices and use that to find out
-owner of the device? Then you don't need to call into every registered
-nl80211 user for each message.
-
-> + *
-> + * @inject_packet: inject the given frame with the NL80211_FLAG_*
-> + *		   flags onto the given queue.
-> + */
-> +struct nl80211_driver {
-> +	void*	(*get_priv_for_ifindex)(int ifindex);
-> +	void	(*release_priv)(void *priv);
-
-Maybe put_priv would be better name for release_priv?
-
-> [...]
-> +static int nl80211_drvpriv_by_ifidx(int ifindex, void **priv, struct nl80211_driver **drv)
-
-Cut long lines, please.
-
-> [...]
-> +static int nl80211_get_commands(struct sk_buff *skb, struct genl_info *info)
-> [...]
-> +
-> +	/* unconditionally allow NL80211_CMD_GET_COMMANDS */
-> +	skb_put(skb, 1);
-
-Shouldn't this be skb_put(msg, 1)? And in several other cases below too?
-
-> +	*data++ = NL80211_CMD_GET_COMMANDS;
-> +
-> +#define CHECK_CMD(ptr, cmd)			\
-> +	if (drv->ptr) {				\
-> +		skb_put(skb, 1);		\
-> +		*data++ = NL80211_CMD_##cmd;	\
+On Tuesday 15 August 2006 02:09, you wrote:
+> From: Jay Vosburgh <fubar@us.ibm.com>
+> Date: Thu, 03 Aug 2006 18:01:35 -0700
+>
+> > 	In this case (bond0.555 above bond0 above eth0,eth1,etc),
+> > skb_bond doesn't suppress duplicates because skb_bond is called with the
+> > skb->dev set to the bond0.555 dev, not the ethX dev.  Non-accelerated
+> > VLAN devices don't do this; they'll come in with skb->dev set to ethX
+> > and will go through skb_bond as expected.
+>
+> Ok, since __vlan_hwaccel_rx() bypasses the netif_receive_skb()
+> that would normally occur, we have to duplicate the bonding
+> drop checks.
+>
+> The submitted patch put skb_bond() into if_vlan.h which is
+> definitely the wrong thing to do.  This is a generic operation
+> and therefore belongs in linux/netdevice.h at best.
+>
+> Furthermore, we're only interested in the packet drop check,
+> so that's the only part of the logic we need to export,
+> the rest can stay private to skb_bond() in net/core/dev.c
+>
+> Can the folks who can reproduce this try this patch?
+>
+> Thanks.
+>
+> commit 8a9583e08d0524e3bfe43a51af7c66ca21adf9f3
+> Author: David S. Miller <davem@sunset.davemloft.net>
+> Date:   Mon Aug 14 17:08:36 2006 -0700
+>
+>     [VLAN]: Make sure bonding packet drop checks get done in hwaccel RX
+> path.
+>
+>     Since __vlan_hwaccel_rx() is essentially bypassing the
+>     netif_receive_skb() call that would have occurred if we did the VLAN
+>     decapsulation in software, we are missing the skb_bond() call and the
+>     assosciated checks it does.
+>
+>     Export those checks via an inline function, skb_bond_should_drop(),
+>     and use this in __vlan_hwaccel_rx().
+>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+> index 383627a..ab27408 100644
+> --- a/include/linux/if_vlan.h
+> +++ b/include/linux/if_vlan.h
+> @@ -155,6 +155,11 @@ static inline int __vlan_hwaccel_rx(stru
+>  {
+>  	struct net_device_stats *stats;
+>
+> +	if (skb_bond_should_drop(skb)) {
+> +		dev_kfree_skb_any(skb);
+> +		return NET_RX_DROP;
 > +	}
-
-Could you move this define out of the function?
-
 > +
-> +	CHECK_CMD(inject_packet, INJECT);
-> +
-> +	nla_nest_end(msg, start);
-> +
-> +	err = genlmsg_end(msg, hdr);
-> +	if (err)
-> +		goto msg_free;
-> +
-> +	err = genlmsg_unicast(msg, info->snd_pid);
-> +	goto release;
-> +
-> + nla_put_failure:
-> +	err = genlmsg_cancel(skb, hdr);
-> + msg_free:
-> +	nlmsg_free(skb);
-> + release:
-> +	if (drv->release_priv)
-> +		drv->release_priv(priv);
-
-If get_priv_for_ifindex turns out to be really necessary, please rename
-nl80211_drvpriv_from_info to nl80211_get_drvpriv_from_info and introduce
-a new nl80211_put_drvpriv function (so it's immediately clear that returned
-pointers need some releasing):
-
-void nl80211_put_drvpriv(struct nl80211_driver *drv, void *priv)
-{
-        if (drv->release_priv)
-                drv->release_priv(priv);
-}
-
-And rename nl80211_drvpriv_by_ifidx to nl80211_get_drvpriv_by_ifidx, too.
-
-> [...]
-> +void nl80211_register_driver(struct nl80211_driver *drv)
+>  	skb->dev = grp->vlan_devices[vlan_tag & VLAN_VID_MASK];
+>  	if (skb->dev == NULL) {
+>  		dev_kfree_skb_any(skb);
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 75f02d8..c0c2b46 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1012,6 +1012,30 @@ static inline int netif_needs_gso(struct
+>  		unlikely(skb->ip_summed != CHECKSUM_HW));
+>  }
+>
+> +/* On bonding slaves other than the currently active slave, suppress
+> + * duplicates except for 802.3ad ETH_P_SLOW and alb non-mcast/bcast.
+> + */
+> +static inline int skb_bond_should_drop(struct sk_buff *skb)
 > +{
-> +	mutex_lock(&nl80211_drv_mutex);
-> +	list_add(&drv->driver_list, &nl80211_drv_list);
-> +	mutex_unlock(&nl80211_drv_mutex);
-> +}
-
-Don't modify passed nl80211_driver. This way drivers cannot pass a static
-structure. Allocate you own structure and store a pointer to passed
-nl80211_driver there (or copy it into that your structure if you don't like
-dereferencing two pointers when calling callbacks).
-
-> [...]
-> +void *nl80211hdr_put(struct sk_buff *skb, u32 pid, u32 seq, int flags, u8 cmd)
-> +{
-> +	/* since there is no private header just add the generic one */
-> +	return genlmsg_put(skb, pid, seq, nl80211_fam.id, 0,
-> +			   flags, cmd, nl80211_fam.version);
-> +}
-> +EXPORT_SYMBOL_GPL(nl80211hdr_put);
-
-Why is this exported? It should be used by nl80211msg_new only, shouldn't
-it?
-
-> [...]
-> +/* currently supported attributes.
-> + * don't change the order or add anything inbetween, this is ABI! */
-> +enum {
-> +	NL80211_ATTR_UNSPEC,
+> +	struct net_device *dev = skb->dev;
+> +	struct net_device *master = dev->master;
 > +
-> +	/* network device (ifindex) to operate on */
-> +	NL80211_ATTR_IFINDEX,
-
-Currently, master device is represented by a special net_device in d80211.
-It's not nice, "wiphy" device should be represented in some other way.
-Although I don't expect this would change (at least not in a foreseeable
-future) as it would require rewriting of great part of networking core, we
-should be prepared for it, so we would not be forced to change ABI or
-inventing workarounds if that eventually would happen.
-
-Also, d80211 allows some operations even without having any network
-interface present (of course, master interface is still present, but it's
-not nice to use its ifindex, especially in the light of previous paragraph).
-
-I propose this:
-- add NL80211_ATTR_WIPHY_INDEX attributte
-- add wiphy_index field to nl80211_driver and require non-d80211 users to
-  set it to -1
-- allow NL80211_ATTR_IFINDEX to be optional in some calls - the exact list
-  of these calls is independent of any driver and can be hardcoded in
-  nl80211
-- in such calls, specifying either NL80211_ATTR_IFINDEX or
-  NL80211_ATTR_WIPHY_INDEX is enough; of course, when corresponding driver
-  does not support wiphys (i.e. nl80211_driver.wiphy_index is -1), only
-  NL80211_ATTR_IFINDEX can be specified
-- in other calls, NL80211_ATTR_WIPHY_INDEX should not be present
-
-Alternatively, you could introduce a flag to denote if NL80211_ATTR_IFINDEX
-field contains ifindex or wiphy index.
-
-
-Comments to the d80211 part later (probably on Tuesday).
-
-Thanks,
-
- Jiri
-
--- 
-Jiri Benc
-SUSE Labs
+> +	if (master &&
+> +	    (dev->priv_flags & IFF_SLAVE_INACTIVE)) {
+> +		if (master->priv_flags & IFF_MASTER_ALB) {
+> +			if (skb->pkt_type != PACKET_BROADCAST &&
+> +			    skb->pkt_type != PACKET_MULTICAST)
+> +				return 0;
+> +		}
+> +		if (master->priv_flags & IFF_MASTER_8023AD &&
+> +		    skb->protocol == __constant_htons(ETH_P_SLOW))
+> +			return 0;
+> +
+> +		return 1;
+> +	}
+> +	return 0;
+> +}
+> +
+>  #endif /* __KERNEL__ */
+>
+>  #endif	/* _LINUX_DEV_H */
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index d95e262..9fe96cd 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1619,26 +1619,10 @@ static inline struct net_device *skb_bon
+>  	struct net_device *dev = skb->dev;
+>
+>  	if (dev->master) {
+> -		/*
+> -		 * On bonding slaves other than the currently active
+> -		 * slave, suppress duplicates except for 802.3ad
+> -		 * ETH_P_SLOW and alb non-mcast/bcast.
+> -		 */
+> -		if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
+> -			if (dev->master->priv_flags & IFF_MASTER_ALB) {
+> -				if (skb->pkt_type != PACKET_BROADCAST &&
+> -				    skb->pkt_type != PACKET_MULTICAST)
+> -					goto keep;
+> -			}
+> -
+> -			if (dev->master->priv_flags & IFF_MASTER_8023AD &&
+> -			    skb->protocol == __constant_htons(ETH_P_SLOW))
+> -				goto keep;
+> -
+> +		if (skb_bond_should_drop(skb)) {
+>  			kfree_skb(skb);
+>  			return NULL;
+>  		}
+> -keep:
+>  		skb->dev = dev->master;
+>  	}
