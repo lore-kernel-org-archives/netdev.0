@@ -1,61 +1,78 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: sky2 doesn't receive any packages after I ssh in via ipv6 and
- edit a file in vim (reproducable)
-Date: Mon, 21 Aug 2006 15:02:31 -0700
-Message-ID: <20060821150231.31a947d4@localhost.localdomain>
-References: <20060821212243.GA1558@cip.informatik.uni-erlangen.de>
+From: Jon Wikne <wikne@cheetah.uio.no>
+Subject: Re: sky2 driver - large files upload problem
+Date: Tue, 22 Aug 2006 00:04:07 +0200
+Message-ID: <44EA2DD7.9060605@cheetah.uio.no>
+References: <44E9A9E0.20106@cheetah.uio.no>	<44E9B28C.9050207@gentoo.org>	<44E9C153.1010300@cheetah.uio.no> <20060821095116.1b7f725d@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	Daniel Drake <dsd@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:37539 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751238AbWHUWGT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 18:06:19 -0400
-To: Thomas Glanzmann <sithglan@stud.uni-erlangen.de>
-In-Reply-To: <20060821212243.GA1558@cip.informatik.uni-erlangen.de>
+Received: from pat.uio.no ([129.240.10.4]:63624 "EHLO pat.uio.no")
+	by vger.kernel.org with ESMTP id S1751240AbWHUWI0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 18:08:26 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <20060821095116.1b7f725d@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Aug 2006 23:22:43 +0200
-Thomas Glanzmann <sithglan@stud.uni-erlangen.de> wrote:
+Stephen Hemminger wrote:
 
-> Hello,
-> I have the newest sky2 driver (with the newest fix in version 1.5)
-> running on my intel mac mini running under legacy bios modus. However if
-> I ssh in via IPv6 and start vim in the shell to edit a file the sky2
-> network adapter stops to work. This is reproducable. A friend of mine
-> thought that maybe the IPv6 code doesn't request the right checksum. But
-> I have no clue if it is related to this. I can give access to the
-> machine via ssh (including root) if someone is willing to track this
-> down. I have a userland programming running which reboots the machine if
-> the network connectivity is lost. At least this one is reliable. If
-> noone wants a shell account maybe someone can guide me through
-> debugging and tracking this down.
+> On Mon, 21 Aug 2006 16:21:07 +0200
+> Jon Wikne <wikne@cheetah.uio.no> wrote:
 > 
-> (mini) [/var/log] grep sky2 kern.log
-> Aug 20 20:52:10 mini kernel: sky2 v1.5 addr 0x90200000 irq 17 Yukon-EC (0xb6) rev 2
-> Aug 20 20:52:10 mini kernel: sky2 eth0: addr 00:16:cb:a3:91:3c
-> Aug 20 20:52:12 mini kernel: sky2 eth0: enabling interface
-> Aug 20 20:52:12 mini kernel: sky2 eth0: Link is up at 100 Mbps, full duplex, flow control both
-> Aug 20 21:01:34 mini kernel: sky2 eth0: hw error interrupt status 0x30
-> Aug 20 21:01:34 mini kernel: sky2 eth0: ram data read parity error
-> Aug 20 21:01:34 mini kernel: sky2 eth0: ram data write parity error
-> Aug 20 21:01:34 mini kernel: sky2 eth0: hw error interrupt status 0x8
-> Aug 20 21:01:34 mini kernel: sky2 eth0: MAC parity error
+>>Daniel Drake wrote:
+>>
+>>>Jon Wikne wrote:
+>>>
+>>>>What happens is typically this: After transeferring some
+>>>>data, ranging from less than 100kB to 10MB, the upload freezes,
+>>>>i.e. gets no further. Use of ping shows the connection is
+>>>>effectively dead. If I do a sequence /sbin/ifdown eth0
+>>>>/sbin/ifup eth0 the upload might resume, but stops again
+>>>>shortly. The phenomenon seems to occur sooner if the path
+>>>>to the remote system is _fast_ (low ping times).
+>>>
+>>>You can try applying this patch:
+>>>http://developer.osdl.org/shemminger/prototypes/sky2-proc-debug.patch
+>>>
+>>>It will add a /proc/net/sky2/ethX file, which lists the status of the TX 
+>>>and status rings. You should compare the contents of this file during 
+>>>normal operation to when the interface has hung.
+>>
+>>Thanks, Daniel. I applied the patch.
+>>
+>>The output of 'cat /proc/net/sky2/eth0' under normal circumstances
+>>is here:
+>>
+>>http://puma.uio.no/sky2/sky2-status-normal.txt
+>>
+>>After the interface hangs, 'cat /proc/net/sky2/eth0' causes the
+>>whole computer to hang completely. No kernel oops or other
+>>messages in the console window. Power down is the only
+>>solution.... :-[ No log entries after reboot.
+>>
+> It could be the code in the debug patch is walking off into space.
+> The smaller version of the same patch, doesn't walk but just reports
+> the index values.
+[ patch ]
 
-Something is happening long before you start doing ipv6.
-The parity error's mean that the PCI transfers are going south.
-The driver might be better to just shut it self off after that.
+OK, I applied that. Part of it (5 hunks) had to be done manually, since
+it appeared not to be relative to the version in 2.6.18-rc4 which I was
+using.
 
-Perhaps the PCI access isn't working properly. What is the config?
-Also are you running i386 or x86_64 on this.
+The result is:
 
-Is this fix in your version?
-	http://www.mail-archive.com/netdev@vger.kernel.org/msg18603.html
+Normal operation:
+Status ring (empty)
+Tx ring (empty)
+Rx pending hw get=60 put=256 last=511
+
+Error condition:
+Status ring (empty)
+Tx ring 338..378
+Rx pending hw get=316 put=0 last=511
 
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
-
-All non-trivial abstractions, to some degree, are leaky.
+-- Jon
