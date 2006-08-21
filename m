@@ -1,39 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 800+ byte inlines in include/net/pkt_act.h
-Date: Mon, 21 Aug 2006 16:38:01 -0700 (PDT)
-Message-ID: <20060821.163801.15260979.davem@davemloft.net>
-References: <200608201933.10293.vda.linux@googlemail.com>
-	<1156163160.5126.47.camel@jzny2>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [RFC] HOWTO use NAPI to reduce TX interrupts
+Date: Mon, 21 Aug 2006 18:52:44 -0500
+Message-ID: <20060821235244.GJ5427@austin.ibm.com>
+References: <20060818220700.GG26889@austin.ibm.com> <200608190256.26373.arnd@arndb.de> <44E7BB7F.7030204@osdl.org> <200608191325.19557.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vda.linux@googlemail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>, akpm@osdl.org,
+	netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	Jens Osterkamp <Jens.Osterkamp@de.ibm.com>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:1744
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751351AbWHUXhq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 19:37:46 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1156163160.5126.47.camel@jzny2>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:6785 "EHLO e2.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1750749AbWHUXwu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 19:52:50 -0400
+To: Arnd Bergmann <arnd@arndb.de>
+Content-Disposition: inline
+In-Reply-To: <200608191325.19557.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Mon, 21 Aug 2006 08:26:00 -0400
+On Sat, Aug 19, 2006 at 01:25:18PM +0200, Arnd Bergmann wrote:
+> 
+> What is the best way to treat the IRQ mask for TX interrupts?
+> I guess it should be roughly:
+> 
+> - off when we expect ->poll() to be called, i.e. after calling
+>   netif_rx_schedule() or returning after a partial rx from poll().
 
-> As per last discussion, either Patrick McHardy or myself are going
-> to work on it - at some point. Please be patient. The other
-> alternative is: you fix it and send patches.
+Under what circumstance does one turn TX interrupts back on?
+I couldn't quite figure that out.
 
-I'm working on it right now.  This code is really gross and needs
-to be fixed immediately.
-
-What I'll do is define a "struct tcf_common" and have the generic
-interfaces take that as well as a "struct tcf_hashinfo *" parameter to
-deal with the individual hash tables.
-
-We define all of this templated stuff then don't even use it in
-act_police.c, we just duplicate everything!
-
-Absolutely unbelievable.
+--linas
