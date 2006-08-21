@@ -1,28 +1,46 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [RFC] nl80211 + packet injection with it and d80211
-Date: Mon, 21 Aug 2006 08:12:46 -0400
-Message-ID: <20060821121239.GA30051@tuxdriver.com>
-References: <1155824008.3491.7.camel@ux156> <1155912565.5671.1.camel@ux156> <1156142692.3669.11.camel@ux156>
+From: Thomas Klein <osstklei@de.ibm.com>
+Subject: Re: [2.6.19 PATCH 7/7] ehea: Makefile & Kconfig
+Date: Mon, 21 Aug 2006 14:16:47 +0200
+Message-ID: <44E9A42F.3000900@de.ibm.com>
+References: <200608181337.44153.ossthema@de.ibm.com> <20060818141847.GE5201@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jan-Bernd Themann <ossthema@de.ibm.com>, netdev@vger.kernel.org,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:1807 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1030412AbWHUMN4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 08:13:56 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <1156142692.3669.11.camel@ux156>
+Received: from mtagate2.de.ibm.com ([195.212.29.151]:45694 "EHLO
+	mtagate2.de.ibm.com") by vger.kernel.org with ESMTP
+	id S1030406AbWHUMQu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Aug 2006 08:16:50 -0400
+To: Alexey Dobriyan <adobriyan@gmail.com>
+In-Reply-To: <20060818141847.GE5201@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 21, 2006 at 08:44:52AM +0200, Johannes Berg wrote:
-> Another thing that crossed my mind: Should we have a netlink call for
-> adding virtual interfaces as well? Because then, the ipw2x00 drivers can
-> have their monitor interface(s) added the same way.
+Alexey Dobriyan wrote:
+ > On Fri, Aug 18, 2006 at 01:37:44PM +0200, Jan-Bernd Themann wrote:
+ >> --- linux-2.6.18-rc4/drivers/net/Kconfig
+ >> +++ patched_kernel/drivers/net/Kconfig
+ >> @@ -2277,6 +2277,12 @@ config CHELSIO_T1
+ >>            To compile this driver as a module, choose M here: the module
+ >>            will be called cxgb.
+ >>
+ >> +config EHEA
+ >> +        tristate "eHEA Ethernet support"
+ >> +        depends on IBMEBUS
+ >> +        ---help---
+ >> +          This driver supports the IBM pSeries ethernet adapter
+ >                                                                 .
+ >
+ > People usually add the following boilerplate:
+ >
+ >       To compile this driver as a module, choose M here: the module
+ >       will be called $FOO.
 
-Yes.
-
--- 
-John W. Linville
-linville@tuxdriver.com
+Agreed.
