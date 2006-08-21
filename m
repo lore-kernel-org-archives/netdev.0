@@ -1,118 +1,64 @@
-From: Thomas Klein <osstklei@de.ibm.com>
-Subject: Re: [2.6.19 PATCH 1/7] ehea: interface to network stack
-Date: Mon, 21 Aug 2006 16:52:38 +0200
-Message-ID: <44E9C8B6.7030701@de.ibm.com>
-References: <200608181329.02042.ossthema@de.ibm.com> <20060818144429.GF5201@martell.zuzino.mipt.ru>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] bcm43xx-softmac: Init, shutdown and restart fixes
+Date: Mon, 21 Aug 2006 16:52:58 +0200
+Message-ID: <200608211653.01997.mb@bu3sch.de>
+References: <44E9C6A0.3090107@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jan-Bernd Themann <ossthema@de.ibm.com>, netdev@vger.kernel.org,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422660AbWHUOwm@vger.kernel.org>
-To: Alexey Dobriyan <adobriyan@gmail.com>
-In-Reply-To: <20060818144429.GF5201@martell.zuzino.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:25250
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1030513AbWHUOxY convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Aug 2006 10:53:24 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <44E9C6A0.3090107@lwfinger.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexey Dobriyan wrote:
- > On Fri, Aug 18, 2006 at 01:29:01PM +0200, Jan-Bernd Themann wrote:
- >> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea_main.c
- >> +++ kernel/drivers/net/ehea/ehea_main.c
- >
- >> +static inline int ehea_refill_rq3_def(struct ehea_port_res *pr, int nr_of_wqes)
- >
- > This one looks too big to be inlined as well as other similalry named
- > functions.
+On Monday 21 August 2006 16:43, Larry Finger wrote:
+> Hi John,
+>=20
+> Please apply this to wireless-2.6.
+>=20
+> Larry
+>=20
+> --
+>=20
+> This fixes various bugs in the init and shutdown code
+> that would lead to lockups and crashes, and is the softmac
+> equivalent of the patches submitted by Michael Buesch for
+> bcm43xx-d80211.
+> These changes may fix some of the NETDEV WATCHDOG transmit
+> timeouts, but they do not fix all of them, at least not in softmac.
+>=20
+> Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
+>=20
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D
 
-Agreed. Inlining avoided where possible.
+Next time please inline the patch.
 
- >> +static int ehea_clean_port_res(struct ehea_port *port, struct ehea_port_res *pr)
- >
- > Freeing/deallocating/cleaning functions usually return void. The fact
- > that you always return -EINVAL only reaffirmes my belief. ;-)
- >
+> @@ -3537,11 +3536,10 @@ static int bcm43xx_init_board(struct bcm
+> =A0=A0=A0=A0=A0=A0=A0=A0err =3D bcm43xx_select_wireless_core(bcm, -1)=
+;
+> =A0=A0=A0=A0=A0=A0=A0=A0if (err)
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0goto err_crystal_off;
+> -
+> -=A0=A0=A0=A0=A0=A0=A0bcm43xx_periodic_tasks_setup(bcm);
+> =A0=A0=A0=A0=A0=A0=A0=A0err =3D bcm43xx_sysfs_register(bcm);
+> =A0=A0=A0=A0=A0=A0=A0=A0if (err)
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0goto err_wlshutdown;
+> +=A0=A0=A0=A0=A0=A0=A0bcm43xx_periodic_tasks_setup(bcm);
+> =A0=A0=A0=A0=A0=A0=A0=A0err =3D bcm43xx_rng_init(bcm);
+> =A0=A0=A0=A0=A0=A0=A0=A0if (err)
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0goto err_sysfs_unreg;
 
-Fixed.
-
- >> +static inline void write_swqe2_data(struct sk_buff *skb,
- >> +                                struct net_device *dev,
- >> +                                struct ehea_swqe *swqe,
- >> +                                u32 lkey)
- >
- > Way too big.
-
-Function split.
-
- >> +static inline void ehea_xmit2(struct sk_buff *skb,
- >> +                          struct net_device *dev, struct ehea_swqe *swqe,
- >> +                          u32 lkey)
- >> +
- >> +static inline void ehea_xmit3(struct sk_buff *skb,
- >> +                          struct net_device *dev, struct ehea_swqe *swqe)
- >
- > Ditto.
-
-These functions are on a performance-critical path and they are called
-exactly once - so the object's size isn't affected and having them inline
-seems appropriate to me.
-
- >> +    if (grp)
- >> +            memset(cb1->vlan_filter, 0, sizeof(cb1->vlan_filter));
- >> +    else
- >> +            memset(cb1->vlan_filter, 1, sizeof(cb1->vlan_filter));
- >
- > Just to be sure, this should be 1 not 0xff?
- >
-
-Will be checked.
-
- >> +void ehea_clean_all_port_res(struct ehea_port *port)
- >> +{
- >> +    int ret;
- >> +    int i;
- >> +    for(i = 0; i < port->num_def_qps + port->num_tx_qps; i++)
- >> +            ehea_clean_port_res(port, &port->port_res[i]);
- >> +
- >> +    ret = ehea_destroy_eq(port->qp_eq);
- >> +}
- >
- > ret is entirely useless.
-
-Correct. It's gone.
-
- >
- >> +int __init ehea_module_init(void)
- > static
- >
- >> +{
- >> +    int ret = -EINVAL;
- >> +
- >> +    printk("IBM eHEA Ethernet Device Driver (Release %s)\n", DRV_VERSION);
- >> +
- >> +    ret = ibmebus_register_driver(&ehea_driver);
- >> +    if (ret) {
- >> +            ehea_error("failed registering eHEA device driver on ebus");
- >> +            return -EINVAL;
- >> +    }
- >> +
- >> +    return 0;
- >> +}
- >
- > Pass ret to upper layer. Simplest way is:
- >
- >       static int __init ehea_module_init(void)
- >       {
- >               return ibmebus_register_driver(&ehea_driver);
- >       }
-
-Agreed to pass ret to upper layer, but we want to keep the error message.
-Code modified accordingly.
+Either move bcm43xx_periodic_tasks_setup after rng_init, or
+delete the periodic work again, if rng_init fails.
 
 
-Regards
-Thomas
+--=20
+Greetings Michael.
