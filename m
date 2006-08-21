@@ -1,27 +1,34 @@
-From: "Jesse Huang" <jesse@icplus.com.tw>
-Subject: Re: [PATCH 6/6] IP100A Solve host error problem when in low	performance embedded
-Date: Mon, 21 Aug 2006 15:28:34 +0800
-Message-ID: <00d101c6c4f3$6aa0fbf0$4964a8c0@icplus.com.tw>
-References: <1155841780.4532.21.camel@localhost.localdomain> <44E5A1E1.1060500@pobox.com>
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<akpm@osdl.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: proposal for new wireless configuration API
+Date: Mon, 21 Aug 2006 09:31:17 +0200
+Message-ID: <1156145477.3669.26.camel@ux156>
+References: <1155655728.17742.30.camel@ux156>
+	 <1155885125.3425.11.camel@ux156>
+	 <20060818212941.GB28711@p15091797.pureserver.info>
+	 <200608190002.42436.mb@bu3sch.de>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Ulrich Kunitz <kune@deine-taler.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr30.hinet.net ([168.95.4.130]:4570 "EHLO msr30.hinet.net")
-	by vger.kernel.org with ESMTP id S965009AbWHUH2y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 03:28:54 -0400
-To: "Jeff Garzik" <jgarzik@pobox.com>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:14250 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S965065AbWHUHbE
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Aug 2006 03:31:04 -0400
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200608190002.42436.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff:
-> (4) are you certain that DMACtrl should be read as a 32-bit register?
-> In other code, you treat it as a 16-bit register.
+On Sat, 2006-08-19 at 00:02 +0200, Michael Buesch wrote:
 
-DMACtrl can read and write both in 16-bit and 32-bit. I will modify all
-of then as 32-bit.
+> We currently know 6 different radio chips used by bcm43xx:
+> http://bcm-specs.sipsolutions.net/RadioID
+> 
+> AFAIK the chip is from broadcom, too.
 
-Thanks.
+It is, and there is no datasheet.
 
-Jesse
+See http://johannes.sipsolutions.net/files/asus-wl100g.png :)
 
-
+johannes
