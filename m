@@ -1,301 +1,150 @@
-From: Pradeep Dalvi <pradeep@netxen.com>
-Subject: Re: [PATCH 2.6.17 2/9] NetXen: Hardware access routines (name
- prefixed)
-Date: Mon, 21 Aug 2006 02:55:58 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0608210253260.22771@dut39>
-References: <Pine.LNX.4.64.0608180713480.6875@dut39> <Pine.LNX.4.64.0608180739290.6875@dut39>
- <Pine.LNX.4.64.0608180746090.6875@dut39> <20060818081659.7c515bbf@dxpl.pdx.osdl.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [take12 3/3] kevent: Timer notifications.
+Date: Mon, 21 Aug 2006 14:19:49 +0400
+Message-ID: <1156155589287@2ka.mipt.ru>
+References: <11561555893621@2ka.mipt.ru>
+Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Amit S. Kale" <amitkale@netxen.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"sanjeev@netxen.com" <sanjeev@netxen.com>,
-	"unmproj@linsyssoft.com" <unmproj@linsyssoft.com>,
-	"rob@netxen.com" <rob@netxen.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:21880 "EHLO
-	mail.unminc.com") by vger.kernel.org with ESMTP id S1751818AbWHUJz6
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 05:55:58 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060818081659.7c515bbf@dxpl.pdx.osdl.net>
+Received: from dea.vocord.ru ([217.67.177.50]:31965 "EHLO
+	uganda.factory.vocord.ru") by vger.kernel.org with ESMTP
+	id S1751822AbWHUJ4r convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 05:56:47 -0400
+In-Reply-To: <11561555893621@2ka.mipt.ru>
+To: lkml <linux-kernel@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-diff -u linux-2.6.17/drivers/net/netxen/netxen_nic_hw.c linux-2.6.17/drivers/net/netxen/netxen_nic_hw.c
---- linux-2.6.17/drivers/net/netxen/netxen_nic_hw.c	2006-08-17 07:12:34.000000000 -0700
-+++ linux-2.6.17/drivers/net/netxen/netxen_nic_hw.c	2006-08-21 02:20:00.000000000 -0700
-@@ -317,9 +317,9 @@
-  	adapter->stats.xmitcsummed++;
-  }
 
--int is_flash_supported(struct netxen_adapter *adapter)
-+int netxen_is_flash_supported(struct netxen_adapter *adapter)
-  {
--	int locs[] = { 0, 0x4, 0x100, 0x4000, 0x4128 };
-+	const int locs[] = { 0, 0x4, 0x100, 0x4000, 0x4128 };
-  	int addr, val01, val02, i, j;
+Timer notifications.
 
-  	/* if the flash size less than 4Mb, make huge war cry and die */
-@@ -364,7 +364,7 @@
-  	return 0;
-  }
+Timer notifications can be used for fine grained per-process time 
+management, since interval timers are very inconvenient to use, 
+and they are limited.
 
--int get_flash_mac_addr(struct netxen_adapter *adapter, u64 mac[])
-+int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 mac[])
-  {
-  	u32 *pmac = (u32 *) & mac[0];
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mitp.ru>
 
-@@ -430,7 +430,7 @@
-  	adapter->curr_window = wndw;
-  }
+diff --git a/kernel/kevent/kevent_timer.c b/kernel/kevent/kevent_timer.c
+new file mode 100644
+index 0000000..5217cd1
+--- /dev/null
++++ b/kernel/kevent/kevent_timer.c
+@@ -0,0 +1,107 @@
++/*
++ * 	kevent_timer.c
++ * 
++ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * All rights reserved.
++ * 
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/list.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/timer.h>
++#include <linux/jiffies.h>
++#include <linux/kevent.h>
++
++struct kevent_timer
++{
++	struct timer_list	ktimer;
++	struct kevent_storage	ktimer_storage;
++};
++
++static void kevent_timer_func(unsigned long data)
++{
++	struct kevent *k = (struct kevent *)data;
++	struct timer_list *t = k->st->origin;
++
++	kevent_storage_ready(k->st, NULL, KEVENT_MASK_ALL);
++	mod_timer(t, jiffies + msecs_to_jiffies(k->event.id.raw[0]));
++}
++
++static struct lock_class_key kevent_timer_key;
++
++static int kevent_timer_enqueue(struct kevent *k)
++{
++	int err;
++	struct kevent_timer *t;
++
++	t = kmalloc(sizeof(struct kevent_timer), GFP_KERNEL);
++	if (!t)
++		return -ENOMEM;
++
++	setup_timer(&t->ktimer, &kevent_timer_func, (unsigned long)k);
++
++	err = kevent_storage_init(&t->ktimer, &t->ktimer_storage);
++	if (err)
++		goto err_out_free;
++	lockdep_set_class(&t->ktimer_storage.lock, &kevent_timer_key);
++
++	err = kevent_storage_enqueue(&t->ktimer_storage, k);
++	if (err)
++		goto err_out_st_fini;
++	
++	mod_timer(&t->ktimer, jiffies + msecs_to_jiffies(k->event.id.raw[0]));
++
++	return 0;
++
++err_out_st_fini:	
++	kevent_storage_fini(&t->ktimer_storage);
++err_out_free:
++	kfree(t);
++
++	return err;
++}
++
++static int kevent_timer_dequeue(struct kevent *k)
++{
++	struct kevent_storage *st = k->st;
++	struct kevent_timer *t = container_of(st, struct kevent_timer, ktimer_storage);
++
++	del_timer_sync(&t->ktimer);
++	kevent_storage_dequeue(st, k);
++	kfree(t);
++
++	return 0;
++}
++
++static int kevent_timer_callback(struct kevent *k)
++{
++	k->event.ret_data[0] = (__u32)jiffies;
++	return 1;
++}
++
++static int __init kevent_init_timer(void)
++{
++	struct kevent_callbacks tc = {
++		.callback = &kevent_timer_callback, 
++		.enqueue = &kevent_timer_enqueue, 
++		.dequeue = &kevent_timer_dequeue};
++
++	return kevent_add_callbacks(&tc, KEVENT_TIMER);
++}
++module_init(kevent_init_timer);
 
--void load_firmware(struct netxen_adapter *adapter)
-+void netxen_load_firmware(struct netxen_adapter *adapter)
-  {
-  	int i;
-  	long data, size = 0;
-
-
-
-On Fri, 18 Aug 2006, Stephen Hemminger wrote:
-
->
-> Way to many DPRINTK()'s
->
->> +
->> +int is_flash_supported(struct netxen_adapter *adapter)
->
-> needs to be static or prefixed.
->
->> +{
->> +	int locs[] = { 0, 0x4, 0x100, 0x4000, 0x4128 };
->
-> use const
->
->> +	int addr, val01, val02, i, j;
->> +
->> +	/* if the flash size less than 4Mb, make huge war cry and die */
->> +	for (j = 1; j < 4; j++) {
->> +		addr = j * 0x100000;
->> +		for (i = 0; i < (sizeof(locs) / sizeof(locs[0])); i++) {
->> +			if (netxen_rom_fast_read(adapter, locs[i], &val01) == 0
->> +			    && netxen_rom_fast_read(adapter, (addr + locs[i]),
->> +						    &val02) == 0) {
->> +				if (val01 == val02)
->> +					return -1;
->> +			} else
->> +				return -1;
->> +		}
->> +	}
->> +
->> +	return 0;
->> +}
->> +
->> +static int netxen_get_flash_block(struct netxen_adapter *adapter, int base,
->> +				  int size, u32 * buf)
->> +{
->> +	int i, addr;
->> +	u32 *ptr32;
->> +
->> +	addr = base;
->> +	ptr32 = buf;
->> +	for (i = 0; i < size / sizeof(u32); i++) {
->> +		if (netxen_rom_fast_read(adapter, addr, ptr32) == -1)
->> +			return -1;
->> +		ptr32++;
->> +		addr += sizeof(u32);
->> +	}
->> +	if ((char *)buf + size > (char *)ptr32) {
->> +		u32 local;
->> +
->> +		if (netxen_rom_fast_read(adapter, addr, &local) == -1)
->> +			return -1;
->> +		memcpy(ptr32, &local, (char *)buf + size - (char *)ptr32);
->> +	}
->> +
->> +	return 0;
->> +}
->> +
->> +int get_flash_mac_addr(struct netxen_adapter *adapter, u64 mac[])
->
-> static int get_flash_mac_addr()..
-> +
->> +void load_firmware(struct netxen_adapter *adapter)
->
-> also must be static
->
->> +{
->> +	int i;
->> +	long data, size = 0;
->> +	long flashaddr = NETXEN_FLASH_BASE, memaddr = NETXEN_PHANTOM_MEM_BASE;
->> +	u64 off;
->> +	ptrdiff_t addr;
->> +
->> +	size = (16 * 1024) / 4;
->> +	writel(1, NETXEN_CRB_NORMALIZE(adapter, NETXEN_ROMUSB_GLB_CAS_RST));
->> +
->> +	for (i = 0; i < size; i++) {
->> +		if (netxen_rom_fast_read(adapter, flashaddr, (int *)&data) != 0) {
->> +			DPRINTK(ERR,
->> +				"Error in netxen_rom_fast_read(). Will skip"
->> +				"loading flash image\n");
->> +			return;
->> +		}
->> +		off = netxen_nic_pci_set_window(adapter->ahw.pci_base, memaddr);
->> +		addr = (ptrdiff_t) (adapter->ahw.pci_base + off);
->> +		writel(data, (void __iomem *)addr);
->> +		flashaddr += 4;
->> +		memaddr += 4;
->> +	}
->> +	udelay(100);
->> +	/* make sure Casper is powered on */
->> +	writel(0x3fff,
->> +	       NETXEN_CRB_NORMALIZE(adapter, NETXEN_ROMUSB_GLB_CHIP_CLK_CTRL));
->> +	writel(0, NETXEN_CRB_NORMALIZE(adapter, NETXEN_ROMUSB_GLB_CAS_RST));
->> +
->> +	udelay(10000);
->> +}
->> +
->> +int
->> +netxen_nic_hw_write_wx(struct netxen_adapter *adapter, u64 off, void *data,
->> +		       int len)
->> +{
->> +	void __iomem * addr;
->> +
->> +	if (ADDR_IN_WINDOW1(off)) {
->> +		addr = NETXEN_CRB_NORMALIZE(adapter, off);
->> +	} else {		/* Window 0 */
->> +		addr = (void *)(ptrdiff_t) (adapter->ahw.pci_base + off);
->> +		netxen_nic_pci_change_crbwindow(adapter, 0);
->> +	}
->> +
->> +	DPRINTK(INFO, "writing to base %lx offset %llx addr %p"
->> +		" data %llx len %d\n",
->> +		adapter->ahw.pci_base, off, addr,
->> +		*(unsigned long long *)data, len);
->> +	switch (len) {
->> +	case 1:
->> +		writeb(*(u8 *) data, addr);
->> +		break;
->> +	case 2:
->> +		writew(*(u16 *) data, addr);
->> +		break;
->> +	case 4:
->> +		writel(*(u32 *) data, addr);
->> +		break;
->> +	case 8:
->> +		writeq(*(u64 *) data, addr);
->> +		break;
->> +	default:
->> +		DPRINTK(INFO,
->> +			"writing data %lx to offset %llx, num words=%d\n",
->> +			*(unsigned long *)data, off, (len >> 3));
->> +
->> +		NETXEN_NIC_HW_BLOCK_WRITE_64(data, addr, (len >> 3));
->> +		break;
->> +	}
->> +	if (!ADDR_IN_WINDOW1(off))
->> +		netxen_nic_pci_change_crbwindow(adapter, 1);
->> +
->> +	return 0;
->> +}
->> +
->> +int
->> +netxen_nic_hw_read_wx(struct netxen_adapter *adapter, u64 off, void *data,
->> +		      int len)
->
-> If you can make this inline then the switch can be optimized.
->
->> +{
->> +	void __iomem * addr;
->> +
->> +	if (ADDR_IN_WINDOW1(off)) {	/* Window 1 */
->> +		addr = NETXEN_CRB_NORMALIZE(adapter, off);
->> +	} else {		/* Window 0 */
->> +		addr = (void *)(ptrdiff_t) (adapter->ahw.pci_base + off);
->> +		netxen_nic_pci_change_crbwindow(adapter, 0);
->> +	}
->> +
->> +	DPRINTK(INFO, "reading from base %lx offset %llx addr %p\n",
->> +		adapter->ahw.pci_base, off, addr);
->> +	switch (len) {
->> +	case 1:
->> +		*(u8 *) data = readb(addr);
->> +		break;
->> +	case 2:
->> +		*(u16 *) data = readw(addr);
->> +		break;
->> +	case 4:
->> +		*(u32 *) data = readl(addr);
->> +		break;
->> +	case 8:
->> +		*(u64 *) data = readq(addr);
->> +		break;
->> +	default:
->> +		NETXEN_NIC_HW_BLOCK_READ_64(data, addr, (len >> 3));
->> +		break;
->> +	}
->> +	DPRINTK(INFO, "read %lx\n", *(unsigned long *)data);
->> +
->> +	if (!ADDR_IN_WINDOW1(off))
->> +		netxen_nic_pci_change_crbwindow(adapter, 1);
->> +
->> +	return 0;
->> +}
->> +
->> +void netxen_nic_reg_write(struct netxen_adapter *adapter, u64 off, u32 val)
->> +{				/* Only for window 1 */
->> +	void __iomem * addr;
->> +
->> +	addr = NETXEN_CRB_NORMALIZE(adapter, off);
->> +	DPRINTK(INFO, "writing to base %lx offset %llx addr %p data %x\n",
->> +		adapter->ahw.pci_base, off, addr, val);
->> +	writel(val, addr);
->> +
->> +}
->> +
->
-> inline?
->
->> +int netxen_nic_reg_read(struct netxen_adapter *adapter, u64 off)
->> +{				/* Only for window 1 */
->> +	void __iomem * addr;
->> +	int val;
->> +
->> +	addr = NETXEN_CRB_NORMALIZE(adapter, off);
->> +	DPRINTK(INFO, "reading from base %lx offset %llx addr %p\n",
->> +		adapter->ahw.pci_base, off, addr);
->> +	val = readl(addr);
->> +	writel(val, addr);
->> +
->> +	return val;
->> +}
-> inline?
->
->
->> +	if (fw_major != _NETXEN_NIC_LINUX_MAJOR) {
->> +		printk(KERN_ERR "The mismatch in driver version and firmware "
->> +			"version major number\n"
->> +			"Driver version major number = %d \t"
->> +			"Firmware version major number = %d \n",
->> +			_NETXEN_NIC_LINUX_MAJOR, fw_major);
->> +		adapter->driver_mismatch = 1;
->> +	}
->> +	if (fw_minor != _NETXEN_NIC_LINUX_MINOR) {
->> +		printk(KERN_ERR "The mismatch in driver version and firmware "
->> +			"version minor number\n"
->> +			"Driver version minor number = %d \t"
->> +			"Firmware version minor number = %d \n",
->> +			_NETXEN_NIC_LINUX_MINOR, fw_minor);
->> +		adapter->driver_mismatch = 1;
->> +	}
->>
->
-> You might want a table for this?
->
->
->
