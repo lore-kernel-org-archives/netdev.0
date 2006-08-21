@@ -1,35 +1,82 @@
-From: Jens Axboe <axboe@suse.de>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Mon, 21 Aug 2006 15:38:44 +0200
-Message-ID: <20060821133843.GE4290@suse.de>
-References: <20060813185309.928472f9.akpm@osdl.org> <1155530453.5696.98.camel@twins> <20060813215853.0ed0e973.akpm@osdl.org> <44E3E964.8010602@google.com> <20060816225726.3622cab1.akpm@osdl.org> <44E5015D.80606@google.com> <20060817230556.7d16498e.akpm@osdl.org> <44E62F7F.7010901@google.com> <20060818153455.2a3f2bcb.akpm@osdl.org> <44E650C1.80608@google.com>
+From: Bernd Petrovitsch <bernd@firmix.at>
+Subject: Re: [take9 1/2] kevent: Core files.
+Date: Mon, 21 Aug 2006 15:49:50 +0200
+Message-ID: <1156168191.17936.149.camel@tara.firmix.at>
+References: <11555364962921@2ka.mipt.ru> <1155536496588@2ka.mipt.ru>
+	 <20060816134550.GA12345@infradead.org> <20060816135642.GD4314@2ka.mipt.ru>
+	 <20060818104607.GB20816@infradead.org> <20060818112336.GB11034@2ka.mipt.ru>
+	 <20060821105637.GB28759@infradead.org> <20060821111335.GA8608@2ka.mipt.ru>
+	 <1156164805.17936.132.camel@tara.firmix.at>
+	 <20060821130121.GA2602@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	David Miller <davem@davemloft.net>, riel@redhat.com,
-	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Hellwig <hch@infradead.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from brick.kernel.dk ([62.242.22.158]:9058 "EHLO kernel.dk")
-	by vger.kernel.org with ESMTP id S1030404AbWHUNgc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 09:36:32 -0400
-To: Daniel Phillips <phillips@google.com>
-Content-Disposition: inline
-In-Reply-To: <44E650C1.80608@google.com>
+Received: from ns.firmix.at ([62.141.48.66]:7143 "EHLO ns.firmix.at")
+	by vger.kernel.org with ESMTP id S1030476AbWHUNyn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 09:54:43 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060821130121.GA2602@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 18 2006, Daniel Phillips wrote:
-> nearly the same kind of function, and suffering very nearly the same kind
-> of problems we had in the block layer before mingo's mempool machinery
-> arrived?
+On Mon, 2006-08-21 at 17:01 +0400, Evgeniy Polyakov wrote:
+[ #define vs enum { } ]
+> And, ugh:
+> 
+> (gdb) list
+> 1       enum {
+> 2               A = 1,
+> 3               B = 2,
+> 4       };
+> 5
+> 6       int main()
+> 7       {
+> 8               printf("%x\n", A | B);
+> 9       }
+> (gdb) bre 8
+> Breakpoint 1 at 0x4004ac: file ./test.c, line 8.
+> (gdb) r
+> Starting program: /tmp/test 
+> 
+> Breakpoint 1, main () at ./test.c:8
+> 8               printf("%x\n", A | B);
+> (gdb) p A
+> No symbol "A" in current context.
 
-Correction, the block layer wasn't buggy (eg deadlock prone) before
-mempool, mempool was merely an abstraction that allowed to move this
-code out of the bio.c file since it was apparent that it had other
-possible users as well.
+Oops, I stand corrected.
 
+> Actually I completely do not care about define or enums, it is really
+> silly dispute, I just do not want to rewrite bunch of code _again_ and
+> then _again_ when someone decide that defines are better.
+
+ACK. Personally I also do not care that much - as long as it doesn't
+change with the phase of the moon.
+And we probably do not want
+----  snip  ----
+#ifdef CONFIG_I_LOVE_ENUMS
+#define A 1
+#define B 2
+#define C 4
+#else
+enum {
+	A = 1,
+	B = 2,
+	C = 4,
+};
+#endif
+----  snip  ----
+either.
+
+	Bernd, shutting now up on this thread
 -- 
-Jens Axboe
+Firmix Software GmbH                   http://www.firmix.at/
+mobil: +43 664 4416156                 fax: +43 1 7890849-55
+          Embedded Linux Development and Services
 
