@@ -1,31 +1,58 @@
-From: "Jouni Malinen" <jkm@devicescape.com>
-Subject: Re: [PATCH 01/18] d80211:  LED triggers
-Date: Tue, 22 Aug 2006 09:54:02 -0700
-Message-ID: <20060822165402.GI13240@instant802.com>
-References: <20060821074107.648561364@sipsolutions.net> <20060821075158.728615077@sipsolutions.net>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [take12 3/3] kevent: Timer notifications.
+Date: Mon, 21 Aug 2006 16:25:49 +0200
+Message-ID: <1156170349.4725.29.camel@localhost.localdomain>
+References: <11561555893621@2ka.mipt.ru> <1156155589287@2ka.mipt.ru>
+	 <20060821111239.GA30945@infradead.org>  <20060821111848.GB8608@2ka.mipt.ru>
+Reply-To: tglx@linutronix.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Hellwig <hch@infradead.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-69.dex002.intermedia.net ([64.78.20.35]:1203 "EHLO
-	DHOST002-69.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1751413AbWHVQyW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 12:54:22 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <20060821075158.728615077@sipsolutions.net>
+Received: from www.osadl.org ([213.239.205.134]:9112 "EHLO mail.tglx.de")
+	by vger.kernel.org with ESMTP id S932187AbWHVRCZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 13:02:25 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060821111848.GB8608@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 21, 2006 at 09:41:08AM +0200, Johannes Berg wrote:
-> This patch makes d80211 export LED triggers for rx/tx and introduces
-> functions to allow device drivers to query the trigger names for setting
-> default triggers. It also cleans up the Makefile LED related stuff.
+On Mon, 2006-08-21 at 15:18 +0400, Evgeniy Polyakov wrote:
+> On Mon, Aug 21, 2006 at 12:12:39PM +0100, Christoph Hellwig (hch@infradead.org) wrote:
+> > On Mon, Aug 21, 2006 at 02:19:49PM +0400, Evgeniy Polyakov wrote:
+> > > 
+> > > 
+> > > Timer notifications.
+> > > 
+> > > Timer notifications can be used for fine grained per-process time 
+> > > management, since interval timers are very inconvenient to use, 
+> > > and they are limited.
+>
+> > Shouldn't this at leat use a hrtimer?
+> 
+> Not everymachine has them 
 
-Is someone using these or planning on using them? I have been open to
-just removing all code due to lack of active use.
+Every machine has hrtimers - not necessarily with high resolution timer
+support, but the core code is there in any case and it is designed to
+provide fine grained timers. 
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+In case of high resolution time support one would expect that the "fine
+grained" timer event is actually fine grained.
+
+> and getting into account possibility that
+> userspace can be scheduled away, it will be overkill.
+
+If you think out your argument then everything which is fine grained or
+high responsive should be removed from userspace access for the very
+same reason. Please look at the existing users of the hrtimer subsystem
+- all of them are exposed to userspace.
+
+	tglx
+
+
