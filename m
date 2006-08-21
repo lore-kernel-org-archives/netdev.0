@@ -1,61 +1,41 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [take9 1/2] kevent: Core files.
-Date: Mon, 21 Aug 2006 11:56:37 +0100
-Message-ID: <20060821105637.GB28759@infradead.org>
-References: <11555364962921@2ka.mipt.ru> <1155536496588@2ka.mipt.ru> <20060816134550.GA12345@infradead.org> <20060816135642.GD4314@2ka.mipt.ru> <20060818104607.GB20816@infradead.org> <20060818112336.GB11034@2ka.mipt.ru>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] locking bug in fib_semantics.c
+Date: Mon, 21 Aug 2006 13:02:01 +0200
+Message-ID: <20060821110201.GA3674@ff.dom.local>
+References: <20060817093615.GA25553@ms2.inr.ac.ru> <20060821081642.GA2637@ff.dom.local> <20060821.011703.78716718.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:49857 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1751861AbWHUK5A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 06:57:00 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Received: from mx2.go2.pl ([193.17.41.42]:59297 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S1751855AbWHUK7E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 06:59:04 -0400
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20060818112336.GB11034@2ka.mipt.ru>
+In-Reply-To: <20060821.011703.78716718.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 18, 2006 at 03:23:36PM +0400, Evgeniy Polyakov wrote:
-> > defines make some sense for userspace-visible ABIs because then people
-> > can test for features with ifdef.  It doesn't make any sense for constants
-> > that are used purely in-kernel.  For those enums make more sense because
-> > you can for example looks at the symbolic names with a debugger.
+On 21-08-2006 10:17, David Miller wrote:
+> From: Jarek Poplawski <jarkao2@o2.pl>
+> Date: Mon, 21 Aug 2006 10:16:43 +0200
+...
+>> But I hope the real reason for this patch isn't exactly like that.
+>> Could fib_release_info() be interrupted by BH really?
 > 
-> Enums are only usefull when value is increased with each new member by
-> one.
-
-No, they are not.  Please search the lkml archives, this came up multiple
-times.
-
-> There will be either several syscalls or multiplexer...
-> I prefer to have one syscall and a lot of multiplexers inside.
-
-To make life for everyone to detangle the mess hard.  Please at least
-try to follow existing design principles.
-
-> > > I created a char device in first releases and was forced to not use it
-> > > at all.
-> > 
-> > Do you have a reference to it?  In this case a char devices makes a lot of
-> > sense because you get a filedescriptor and have operations only defined on
-> > it.  In fact given that you have a multiplexer anyway there's really no
-> > point in adding a syscall for that aswell, you could rather use the existing
-> > and debugged ioctl() multiplexer.  Sure, it's still not what we consider
-> > nice, but better than adding even more odd multiplexer syscalls.
+> Absolutely, yes it can.  What makes you think it can't?
 > 
-> Somewhere in february.
-> Here is link to initial anounce which used ioctl and raw char device and
-> enums for all constants.
+> All of the call sites I have checked cause it to run with
+> BH's enabled, and that allows ip_fib_check_default() to
+> potentially run.  All we need is one such case to cause
+> the deadlock.
 > 
-> http://marc.theaimsgroup.com/?l=linux-netdev&m=113949344414464&w=2
+> I was skeptical of this case too, until I checked how
+> fib_release_info() was called.
 
-That thread only shows your patch but no comments to it.  Do you have
-an url for the complaint about this design?  And please include the author
-of it in the cc list of your reply so we can settle the arguments.
+I overlooked this - so I've to sharpen my sight and look at it 
+again - now knowing it's there.
+Thanks for your response. I didn't expect it so fast and right 
+from the top!
+
+Jarek P.
