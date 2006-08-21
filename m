@@ -1,82 +1,34 @@
-From: Bernd Petrovitsch <bernd@firmix.at>
-Subject: Re: [take9 1/2] kevent: Core files.
-Date: Mon, 21 Aug 2006 15:49:50 +0200
-Message-ID: <1156168191.17936.149.camel@tara.firmix.at>
-References: <11555364962921@2ka.mipt.ru> <1155536496588@2ka.mipt.ru>
-	 <20060816134550.GA12345@infradead.org> <20060816135642.GD4314@2ka.mipt.ru>
-	 <20060818104607.GB20816@infradead.org> <20060818112336.GB11034@2ka.mipt.ru>
-	 <20060821105637.GB28759@infradead.org> <20060821111335.GA8608@2ka.mipt.ru>
-	 <1156164805.17936.132.camel@tara.firmix.at>
-	 <20060821130121.GA2602@2ka.mipt.ru>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2.6.17 2/9] NetXen: Hardware access routines
+Date: Mon, 21 Aug 2006 07:03:02 -0700
+Message-ID: <20060821070302.5666e1ab@localhost.localdomain>
+References: <Pine.LNX.4.64.0608180713480.6875@dut39>
+	<Pine.LNX.4.64.0608180746090.6875@dut39>
+	<20060818081659.7c515bbf@dxpl.pdx.osdl.net>
+	<200608211357.23600.amitkale@linsyssoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>
+Cc: "Amit S. Kale" <amitkale@netxen.com>, netdev@vger.kernel.org,
+	jeff@garzik.org, sanjeev@netxen.com, unmproj@linsyssoft.com,
+	rob@netxen.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.firmix.at ([62.141.48.66]:7143 "EHLO ns.firmix.at")
-	by vger.kernel.org with ESMTP id S1030476AbWHUNyn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 09:54:43 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060821130121.GA2602@2ka.mipt.ru>
+Received: from smtp.osdl.org ([65.172.181.4]:33425 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030452AbWHUODZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 10:03:25 -0400
+To: "Amit S. Kale" <amitkale@linsyssoft.com>
+In-Reply-To: <200608211357.23600.amitkale@linsyssoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-08-21 at 17:01 +0400, Evgeniy Polyakov wrote:
-[ #define vs enum { } ]
-> And, ugh:
-> 
-> (gdb) list
-> 1       enum {
-> 2               A = 1,
-> 3               B = 2,
-> 4       };
-> 5
-> 6       int main()
-> 7       {
-> 8               printf("%x\n", A | B);
-> 9       }
-> (gdb) bre 8
-> Breakpoint 1 at 0x4004ac: file ./test.c, line 8.
-> (gdb) r
-> Starting program: /tmp/test 
-> 
-> Breakpoint 1, main () at ./test.c:8
-> 8               printf("%x\n", A | B);
-> (gdb) p A
-> No symbol "A" in current context.
+On Mon, 21 Aug 2006 13:57:23 +0530
+"Amit S. Kale" <amitkale@linsyssoft.com> wrote:
 
-Oops, I stand corrected.
+> We can certainly create a table for all error messages. It'll hurt readability 
+> of code in many of the other places where printks are used to indicate some 
+> hardware error.
+> -Amit
 
-> Actually I completely do not care about define or enums, it is really
-> silly dispute, I just do not want to rewrite bunch of code _again_ and
-> then _again_ when someone decide that defines are better.
-
-ACK. Personally I also do not care that much - as long as it doesn't
-change with the phase of the moon.
-And we probably do not want
-----  snip  ----
-#ifdef CONFIG_I_LOVE_ENUMS
-#define A 1
-#define B 2
-#define C 4
-#else
-enum {
-	A = 1,
-	B = 2,
-	C = 4,
-};
-#endif
-----  snip  ----
-either.
-
-	Bernd, shutting now up on this thread
--- 
-Firmix Software GmbH                   http://www.firmix.at/
-mobil: +43 664 4416156                 fax: +43 1 7890849-55
-          Embedded Linux Development and Services
-
+My suggestion was intended as an way to handle multiple driver versions
+all using the same firmware or vice versa. By locking the firmware and
+driver version together you might make maintenance more difficult.
