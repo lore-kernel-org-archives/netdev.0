@@ -1,55 +1,77 @@
-From: "Nadine" <43konrad@lilypie.com>
-Subject: Be leaner and slimmer by next week!
-Date: Mon, 21 Aug 2006 14:27:25 -0700
-Message-ID: <200608212128.k7LLSXee005113@zeus1.kernel.org>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH]: e1000: error out if we cannot enable PCI device on resume
+Date: Mon, 21 Aug 2006 14:33:34 -0700
+Message-ID: <44EA26AE.4020304@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="Windows-1251"
-Content-Transfer-Encoding: 8bit
+Content-Type: multipart/mixed;
+ boundary="------------000402020403090802020907"
+Cc: NetDev <netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>, vvs@sw.ru,
+	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeus1.kernel.org ([204.152.191.4]:52404 "EHLO zeus1.kernel.org")
-	by vger.kernel.org with ESMTP id S1750707AbWHUV2x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 17:28:53 -0400
-To: <netdev@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:4918 "EHLO
+	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1751163AbWHUVfT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Aug 2006 17:35:19 -0400
+To: Andrew Morton <akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Greetings Netdev!!!
+This is a multi-part message in MIME format.
+--------------000402020403090802020907
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
 
+FYI, in light of the recent error handling patches. I'll stack the outstanding 
+list submitted by Vasily Averin to our git repository for submission to #upstream.
 
-Being even a little overweight today can be extremely difficult and is embarassing for so many people. Today's society expects men and women to look lean, toned and hard at all times. Tough standards to live up to! And mostly unrealistic. However, steady weight loss and improved self image are not unrealistic, at all! In fact anyone can do it, quite easily, including you!
+Cheers,
 
+Auke
 
+---
 
-http://www.vestera.net/n/?52&britannicbuzzsaw
-Anatrim is an amazing new product aimed at helping men and women of any age and size lose weight and rapidly tone their bodies. Anatrim has been called a "miracle herb" on such respected media outlets as CNN, OPRAH WINFREY, ABCNEWS, 20/20, and many many others! It has already helped millions of overweight people shed pound after pound of unwanted extra weight, why not add yourself to the growing number of people benefiting from this amazing product! Here are a few of the thousands of email thank you's we have received"
-
-
-
-"This stuff is really great! After losing 32 lbs months earlier I hit a brick wall. I work out three times a week, 30 min of cardio and 30 minutes in the weight room. My two trouble zones (my stomach and legs) just wouldn't budge. I did all the exercises I could think of to target them, but nothing helped! Then I tried Anatrim and everything changed! In just 6 weeks I lost the remaining 18 pounds. I always knew that couldn't be the thinnest I could get. I'm glad I found this product. I finally achieved the body I wanted. My husband says I look like a goddess. Thanks :)
-Jenny
-
-
+  e1000_main.c |    7 +++++--
+  1 file changed, 5 insertions(+), 2 deletions(-)
+---
 
 
-"I love to eat Junk food and I can not stay on those high-protein diets. I tried several other diets over the last five years without being able to shed pounds and burn the food cravings. I started taking two Anatrim capsules before most meals, and lost 30 pounds in three months. Your Anatrim Product is amazing! I have recommended it to all my friends already." 
-Amanda, Tuscon Arizona
+--------------000402020403090802020907
+Content-Type: text/x-patch;
+ name="e1000_trap_error_on_resume.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="e1000_trap_error_on_resume.patch"
 
 
+e1000: error out if we cannot enable PCI device on resume
 
-"I was born overweight and teased because of it most of my younger years. Finally at age 25 I took the initialtive and purchased a 4 month supply of Anatrim. I have since shed 22 pounds of unwanted weight and have a new enthusiasm for life! I go out more, socialize more, and have even met a special lady who I love. I credit much of my new-found happiness to the weight I lost and your product. 
+Do not ignore errors returned by pci_enable_device, instead error out.
 
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 815abe5..7805d7f 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -4695,11 +4695,14 @@ e1000_resume(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+-	uint32_t manc, ret_val;
++	uint32_t manc, err;
+ 
+ 	pci_set_power_state(pdev, PCI_D0);
+ 	e1000_pci_restore_state(adapter);
+-	ret_val = pci_enable_device(pdev);
++	if ((err = pci_enable_device(pdev))) {
++		printk(KERN_ERR "e1000: Cannot enable PCI device from suspend\n");
++		return err;
++	}
+ 	pci_set_master(pdev);
+ 
+ 	pci_enable_wake(pdev, PCI_D3hot, 0);
 
-Thank you so much!"
-Henry N. California
-
-http://www.lionez.net/n/?52&colacremate
-Not only is this product now available and ready to be shipped to your front door, but big discount specials are now in effect! Take advantage before prices go back up to the regular prices.
-
-
-Click here to view price specials and discounts! And congradulations on taking the first step towards the new you!
-
-Mon, 21 Aug 2006 14:27:25 -0700
-
+--------------000402020403090802020907--
