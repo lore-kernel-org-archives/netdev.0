@@ -1,78 +1,66 @@
-From: Thomas Klein <osstklei@de.ibm.com>
-Subject: Re: [2.6.19 PATCH 2/7] ehea: pHYP interface
-Date: Mon, 21 Aug 2006 12:21:03 +0200
-Message-ID: <44E9890F.2080708@de.ibm.com>
-References: <200608181330.21507.ossthema@de.ibm.com>
-	<20060818150600.GG5201@martell.zuzino.mipt.ru>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 5/7] ieee80211: export symbol ieee80211_api_version
+Date: Mon, 21 Aug 2006 06:38:27 -0400
+Message-ID: <1156156707.5729.21.camel@localhost.localdomain>
+References: <20060821033340.GA4802@mail.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Klein <tklein@de.ibm.com>, Jan-Bernd Themann <themann@de.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>, linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-To: Alexey Dobriyan <adobriyan@gmail.com>
-In-Reply-To: <20060818150600.GG5201@martell.zuzino.mipt.ru>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:31714 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751847AbWHUKaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 06:30:21 -0400
+To: yi.zhu@intel.com
+In-Reply-To: <20060821033340.GA4802@mail.intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexey Dobriyan wrote:
-> On Fri, Aug 18, 2006 at 01:30:21PM +0200, Jan-Bernd Themann wrote:
->> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea_phyp.c
->> +++ kernel/drivers/net/ehea/ehea_phyp.c
-> 
->> +	hret = ehea_h_register_rpage(hcp_adapter_handle, pagesize, queue_type,
->> +				     eq_handle, log_pageaddr, count);
->> +	return hret;
-> 
-> Just
-> 	return ehea_h_register_rpage(...);
-> 
->> +	hret = ehea_h_register_rpage(hcp_adapter_handle, pagesize, queue_type,
->> +				     cq_handle, log_pageaddr, count);
->> +	return hret;
-> 
-> Ditto.
-> 
->> +	hret = ehea_h_register_rpage(hcp_adapter_handle, pagesize, queue_type,
->> +				     qp_handle, log_pageaddr, count);
->> +	return hret;
->> +}
-> 
-> Ditto.
+On Mon, 2006-08-21 at 11:33 +0800, Zhu Yi wrote:
+> Export this symbol so that wireless drivers can check the running IEEE80211
+> API version dynamically.
 
-Returncode handling was reworked throughout the whole driver. Those assignments
-were modified according to your suggestion.
+What's that needed for?  Capability checks?  Checking user's version to
+ensure they have a version with security fixes?
 
->> +static inline int hcp_epas_ctor(struct h_epas *epas, u64 paddr_kernel,
->> +				u64 paddr_user)
->> +{
->> +	epas->kernel.fw_handle = (u64) ioremap(paddr_kernel, PAGE_SIZE);
->> +	epas->user.fw_handle = paddr_user;
->> +	return 0;
->> +}
->> +
->> +static inline int hcp_epas_dtor(struct h_epas *epas)
->> +{
->> +
->> +	if (epas->kernel.fw_handle)
->> +		iounmap((void *)epas->kernel.fw_handle);
->> +	epas->user.fw_handle = epas->kernel.fw_handle = 0;
->> +	return 0;
->> +}
+What API bits changed?
+
+Dan
+
+> Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 > 
-> Always returns 0;
+> ---
+> 
+>  include/net/ieee80211.h          |    2 ++
+>  net/ieee80211/ieee80211_module.c |    3 +++
+>  2 files changed, 5 insertions(+), 0 deletions(-)
+> 
+> 81634e488965fae232027e14a54c998ccb5b0c49
+> diff --git a/include/net/ieee80211.h b/include/net/ieee80211.h
+> index 83e06aa..ee66681 100644
+> --- a/include/net/ieee80211.h
+> +++ b/include/net/ieee80211.h
+> @@ -1255,6 +1255,8 @@ static inline int ieee80211_is_cck_rate(
+>  	return 0;
+>  }
+>  
+> +extern const int ieee80211_api_version;
+> +
+>  /* ieee80211.c */
+>  extern void free_ieee80211(struct net_device *dev);
+>  extern struct net_device *alloc_ieee80211(int sizeof_priv);
+> diff --git a/net/ieee80211/ieee80211_module.c b/net/ieee80211/ieee80211_module.c
+> index 13b1e5f..02e730b 100644
+> --- a/net/ieee80211/ieee80211_module.c
+> +++ b/net/ieee80211/ieee80211_module.c
+> @@ -61,6 +61,9 @@ MODULE_DESCRIPTION(DRV_DESCRIPTION);
+>  MODULE_AUTHOR(DRV_COPYRIGHT);
+>  MODULE_LICENSE("GPL");
+>  
+> +const int ieee80211_api_version = IEEE80211_VERSION_API;
+> +EXPORT_SYMBOL(ieee80211_api_version);
+> +
+>  static int ieee80211_networks_allocate(struct ieee80211_device *ieee)
+>  {
+>  	if (ieee->networks)
 
-Correct. They're returning void now.
-
-Thanks
-Thomas
