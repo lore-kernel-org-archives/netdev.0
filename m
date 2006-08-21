@@ -1,63 +1,47 @@
-From: Eugene Teo <eteo@redhat.com>
-Subject: Re: [PATCH] getsockopt() early argument sanity checking
-Date: Mon, 21 Aug 2006 22:09:22 +1000
-Message-ID: <44E9A272.3020202@redhat.com>
-References: <20060819230532.GA16442@openwall.com> <20060819234806.GB27115@1wt.eu> <200608200205.20876.mb@bu3sch.de> <20060820004307.GD27115@1wt.eu>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take12 3/3] kevent: Timer notifications.
+Date: Mon, 21 Aug 2006 16:09:34 +0400
+Message-ID: <20060821120934.GA13399@2ka.mipt.ru>
+References: <11561555893621@2ka.mipt.ru> <1156155589287@2ka.mipt.ru> <20060821111239.GA30945@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Michael Buesch <mb@bu3sch.de>, Solar Designer <solar@openwall.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>, tglx@linutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:35786 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S965074AbWHUMKg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 08:10:36 -0400
-To: Willy Tarreau <w@1wt.eu>
-In-Reply-To: <20060820004307.GD27115@1wt.eu>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:52934 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S965069AbWHUMKM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 08:10:12 -0400
+To: Christoph Hellwig <hch@infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20060821111239.GA30945@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Willy Tarreau wrote:
-> On Sun, Aug 20, 2006 at 02:05:20AM +0200, Michael Buesch wrote:
->> On Sunday 20 August 2006 01:48, Willy Tarreau wrote:
->>> On Sun, Aug 20, 2006 at 03:05:32AM +0400, Solar Designer wrote:
-[snipped]
-> diff --git a/net/socket.c b/net/socket.c
-> index ac45b13..910ef88 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -1307,11 +1307,17 @@ asmlinkage long sys_setsockopt(int fd, i
->  asmlinkage long sys_getsockopt(int fd, int level, int optname, char *optval, int *optlen)
->  {
->  	int err;
-> +	int len;
-        ^^^^^^^^
+On Mon, Aug 21, 2006 at 12:12:39PM +0100, Christoph Hellwig (hch@infradead.org) wrote:
+> > +static int __init kevent_init_timer(void)
+> > +{
+> > +	struct kevent_callbacks tc = {
+> > +		.callback = &kevent_timer_callback, 
+> > +		.enqueue = &kevent_timer_enqueue, 
+> > +		.dequeue = &kevent_timer_dequeue};
+> 
+> I think this should be static, and the normal style to write it would be:
+> 
+> static struct kevent_callbacks tc = {
+> 	.callback	= kevent_timer_callback,
+> 	.enqueue	= kevent_timer_enqueue,
+> 	.dequeue	= kevent_timer_dequeue,
+> };
+> 
+> also please consider makring all the kevent_callbacks structs const
+> to avoid false cacheline sharing and accidental modification, similar
+> to what we did to various other operation vectors.
 
->  	struct socket *sock;
->  
->  	if ((sock = sockfd_lookup(fd, &err))!=NULL)
->  	{
-> -		if (level == SOL_SOCKET)
-> +		/* XXX: insufficient for SMP, but should be redundant anyway */
-> +		if (get_user(len, optlen))
-> +			err = -EFAULT;
-> +		else if (len < 0)
-                ^^^^^^^^^^^^^^^^^
+Actually I do not think it should be static, since it is only used for
+initialization and it's members are copied into main structure.
 
-s/else//
-
-> +			err = -EINVAL;
-> +		else if (level == SOL_SOCKET)
-
-s/else//
-
->  			err=sock_getsockopt(sock,level,optname,optval,optlen);
->  		else
->  			err=sock->ops->getsockopt(sock, level, optname, optval, optlen);
-
-These checks are already in getsockopt(). Duplicated code?
-
-Eugene
 -- 
-eteo redhat.com  ph: +65 6490 4142  http://www.kernel.org/~eugeneteo
-gpg fingerprint:  47B9 90F6 AE4A 9C51 37E0  D6E1 EA84 C6A2 58DF 8823
+	Evgeniy Polyakov
