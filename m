@@ -1,64 +1,108 @@
-From: Valerie Henson <val_henson@linux.intel.com>
-Subject: Re: Proper pci_enable_device() error handling in resume routine
-Date: Mon, 21 Aug 2006 16:10:37 -0700
-Message-ID: <20060821231036.GJ20111@goober>
-References: <20060820052922.GH20111@goober> <44E9F773.1070007@intel.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: sky2 driver - large files upload problem
+Date: Mon, 21 Aug 2006 16:36:45 -0700
+Message-ID: <20060821163645.0e1acfb6@localhost.localdomain>
+References: <44E9A9E0.20106@cheetah.uio.no>
+	<44E9B28C.9050207@gentoo.org>
+	<44E9C153.1010300@cheetah.uio.no>
+	<20060821095116.1b7f725d@localhost.localdomain>
+	<44EA2DD7.9060605@cheetah.uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Daniel Drake <dsd@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:55851 "EHLO
-	orsmga101.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1751295AbWHUXMA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 19:12:00 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
-Content-Disposition: inline
-In-Reply-To: <44E9F773.1070007@intel.com>
+Received: from smtp.osdl.org ([65.172.181.4]:9407 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750718AbWHUXg4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 19:36:56 -0400
+To: Jon Wikne <wikne@cheetah.uio.no>
+In-Reply-To: <44EA2DD7.9060605@cheetah.uio.no>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 21, 2006 at 11:12:03AM -0700, Auke Kok wrote:
-> Valerie Henson wrote:
-> >I'm trying to properly handle pci_enable_device() errors in the resume
-> >routines of a couple of tulip drivers.  I noticed that several drivers
-> >pay attention to errors from pci_enable_device() in the init routine
-> >but ignore it on resume; other drivers vary wildly.  What's proper
-> >behavior when resuming?  Extant examples:
-> >
-> >0. Don't call pci_enable_device() at all (8139too)
-> >1. Ignore the return value (eepro100, many others)
-> >2. Check for failure and bail out, but return success (sungem)
+On Tue, 22 Aug 2006 00:04:07 +0200
+Jon Wikne <wikne@cheetah.uio.no> wrote:
+
+> Stephen Hemminger wrote:
 > 
-> Digging through e1000 I spot that we even pci_enable_device after a PCI 
-> error, so it is good practice I think to make sure the device is up. I 
-> suppose that most people can live without explicit re-enabling the device 
-> (most NICs are on anyway), but if we do enable it explicitly we should 
-> certainly check the result code. Interestingly enough we failed to do this 
-> in e1000, so I'll submit a patch for that later.
+> > On Mon, 21 Aug 2006 16:21:07 +0200
+> > Jon Wikne <wikne@cheetah.uio.no> wrote:
+> > 
+> >>Daniel Drake wrote:
+> >>
+> >>>Jon Wikne wrote:
+> >>>
+> >>>>What happens is typically this: After transeferring some
+> >>>>data, ranging from less than 100kB to 10MB, the upload freezes,
+> >>>>i.e. gets no further. Use of ping shows the connection is
+> >>>>effectively dead. If I do a sequence /sbin/ifdown eth0
+> >>>>/sbin/ifup eth0 the upload might resume, but stops again
+> >>>>shortly. The phenomenon seems to occur sooner if the path
+> >>>>to the remote system is _fast_ (low ping times).
+> >>>
+> >>>You can try applying this patch:
+> >>>http://developer.osdl.org/shemminger/prototypes/sky2-proc-debug.patch
+> >>>
+> >>>It will add a /proc/net/sky2/ethX file, which lists the status of the TX 
+> >>>and status rings. You should compare the contents of this file during 
+> >>>normal operation to when the interface has hung.
+> >>
+> >>Thanks, Daniel. I applied the patch.
+> >>
+> >>The output of 'cat /proc/net/sky2/eth0' under normal circumstances
+> >>is here:
+> >>
+> >>http://puma.uio.no/sky2/sky2-status-normal.txt
+> >>
+> >>After the interface hangs, 'cat /proc/net/sky2/eth0' causes the
+> >>whole computer to hang completely. No kernel oops or other
+> >>messages in the console window. Power down is the only
+> >>solution.... :-[ No log entries after reboot.
+> >>
+> > It could be the code in the debug patch is walking off into space.
+> > The smaller version of the same patch, doesn't walk but just reports
+> > the index values.
+> [ patch ]
+> 
+> OK, I applied that. Part of it (5 hunks) had to be done manually, since
+> it appeared not to be relative to the version in 2.6.18-rc4 which I was
+> using.
+> 
+> The result is:
+> 
+> Normal operation:
+> Status ring (empty)
+> Tx ring (empty)
+> Rx pending hw get=60 put=256 last=511
 
-For people looking for how to implement this in their own driver,
-here's how I solved it in tulip (will submit later):
+The chip has prefetched some of the 254 frames we gave it.
 
----
- drivers/net/tulip/tulip_core.c  |    5 ++++-
- drivers/net/tulip/winbond-840.c |   10 +++++++---
- 2 files changed, 11 insertions(+), 4 deletions(-)
+> Error condition:
+> Status ring (empty)
+> Tx ring 338..378
 
---- a/drivers/net/tulip/tulip_core.c
-+++ b/drivers/net/tulip/tulip_core.c
-@@ -1780,7 +1780,10 @@ static int tulip_resume(struct pci_dev *
- 	pci_set_power_state(pdev, PCI_D0);
- 	pci_restore_state(pdev);
- 
--	pci_enable_device(pdev);
-+	if ((retval = pci_enable_device(pdev))) {
-+		printk (KERN_ERR "tulip: pci_enable_device failed in resume\n");
-+		return retval;
-+	}
- 
- 	if ((retval = request_irq(dev->irq, &tulip_interrupt, IRQF_SHARED, dev->name, dev))) {
- 		printk (KERN_ERR "tulip: request_irq failed in resume\n");
+40 packets waiting to send
+
+> Rx pending hw get=316 put=0 last=511
+
+So there are some frames waiting to be received as well.
+Looks like a missed interrupt.  Is there anything surprising in the
+ethtool stats?  (ethtool -S eth0)
+
+In the past, when there were flow control hardware bugs
+there would be suspicious statistics like "1 mac pause frame received".
 
 
+> 
+> 
+> -- Jon
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
--VAL
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
+
+All non-trivial abstractions, to some degree, are leaky.
