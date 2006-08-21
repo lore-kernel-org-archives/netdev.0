@@ -1,61 +1,71 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [take9 2/2] kevent: poll/select() notifications. Timer notifications.
-Date: Mon, 21 Aug 2006 12:01:04 +0100
-Message-ID: <20060821110104.GC28759@infradead.org>
-References: <1155536496588@2ka.mipt.ru> <11555364962857@2ka.mipt.ru> <20060816133014.GB32499@infradead.org> <20060816134032.GB4314@2ka.mipt.ru> <20060818104120.GA20816@infradead.org> <20060818105934.GA11034@2ka.mipt.ru>
+From: Peter Bieringer <pb@bieringer.de>
+Subject: (usagi-users 03687) Re: Bug in order of multiple IPv6 addresses per interface? Newest
+ added one is preferred in difference to IPv4
+Date: Mon, 21 Aug 2006 12:47:36 +0200
+Message-ID: <44E98F48.70204@bieringer.de>
+References: <44E94653.1040002@bieringer.de> <20060821.194253.07794662.yoshfuji@linux-ipv6.org>
+Reply-To: usagi-users@linux-ipv6.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>, tglx@linutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:52881 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1751865AbWHULBG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 07:01:06 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20060818105934.GA11034@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+ <yoshfuji@linux-ipv6.org>,
+        usagi-users@linux-ipv6.org
+Return-path: <usagi-users-admin@linux-ipv6.org>
+To: netdev@vger.kernel.org
+In-Reply-To: <20060821.194253.07794662.yoshfuji@linux-ipv6.org>
+List-Software: fml [fml 4.0.3 release (20011202/4.0.3)]
+List-Post: <mailto:usagi-users@linux-ipv6.org>
+List-Owner: <mailto:usagi-users-admin@linux-ipv6.org>
+List-Help: <mailto:usagi-users-ctl@linux-ipv6.org?body=help>
+List-Unsubscribe: <mailto:usagi-users-ctl@linux-ipv6.org?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 18, 2006 at 02:59:34PM +0400, Evgeniy Polyakov wrote:
-> > If there's a really good reason we can keep things separate, but
-> > 
-> >   "epoll and kevent_poll differs on some aspects"
-> > 
-> > is not one :)
-> 
-> kevent_poll uses hash table (actually it is kevent that uses table),
-> locking is simpler and part of it is hidden in kevent core.
-> Actually kevent_poll is just a container allocator for poll wait queue.
-> So epoll does not differ (except hash/tree and locking,
-> which is based on locks for pathes which are shared in kevent with those
-> ones which can be called from irq/bh context) from kevent + kevent_poll.
-> And since kevent_poll can be not selected while epoll is always there
-> (until embedded config is turned on), I recommend to have them both.
-> Or always turn kevent on :)
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E schrieb:
+> Hello.
+>=20
+> In article <44E94653.1040002@bieringer.de> (at Mon, 21 Aug 2006 07:36:1=
+9 +0200), Peter Bieringer <pb@bieringer.de> says:
+>=20
+>> In IPv6, the behavior is completly different:
+>>
+>> # ip -6 addr show dev eth0  |grep -w inet6 |grep -w global
+>>     inet6 2001:db8:0:1::11/64 scope global
+>>
+>> # ip -6 addr add 2001:db8:0:1::253/64 dev eth0
+>>
+>> # ip -6 addr show dev eth0  |grep -w inet6 |grep -w global
+>>     inet6 2001:db8:0:1::253/64 scope global   <- #2 !!!!
+>>     inet6 2001:db8:0:1::11/64 scope global    <- #1
+>>
+>> So the last added on is now the first in list. Also, it gets no
+>> "secondary" flag and "ip" doesn't even support this flag.
+>=20
+> IPv6 does not have secondary flag. We even reuse that for
+> IPv6 temporary addresses.
+>=20
+>> And the worse thing is that the first one in list (=3D last added one)=
+ is
+>> now used as default for outgoing connections. Can be easily tested usi=
+ng
+>> "ping6".
+> :
+>> Is this a bug (I hope so) or a (undocumented?) feature?
+>=20
+> An implementation decision.
 
-You mention a lot of implementation details that absoultely shouldn't
-matter to the userspace interface.
+Thank you for this clarification.
 
-I might not have explained enough what the point behind all this is, so
-I'll try to explain it again:
+> I do not favor changing this so far.
 
- - the fate of aio, inotify, epoll, etc shows we badly need a generic
-   event mechnism that unifies event based interfaces of various subsystem.
-   Only having a single mechanisms allows things like unified event loops
-   and gives application progreammers the chance to learn that one interface
-   for real and get it right.
- - kevent looks like the right way to do this.  but to show it can really
-   archive this it needs to show it can do the things the existing event
-   systems can do at least as good.  reimplementing their user interfaces
-   ontop of kevent is the best (or maybe only) way to show that.
-   epoll is probably the easiest of the ones we have, so I'd suggest starting
-   with it.  inotify will be a lot harder, but we'll need that aswell.
-   the kevent inode hooks you had in your earlier patches will never ever
-   get in.
+Hmm, would it be possible to implement a primary flag in the future?
 
-Was this clear enough?
+BTW: Does anyone know about the behavior of *BSD for this issue?
+
+	Peter
+--=20
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D                       mailto:pb@bieringer.de
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+OpenBC                    http://www.openbc.com/hp/Peter_Bieringer/
+Personal invitation to OpenBC  http://www.openbc.com/go/invita/3889
