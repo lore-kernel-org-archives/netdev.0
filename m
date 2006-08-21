@@ -1,52 +1,80 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: Bug in order of multiple IPv6 addresses per interface? Newest
- added one is preferred in difference to IPv4
-Date: Mon, 21 Aug 2006 19:42:53 +0900 (JST)
-Message-ID: <20060821.194253.07794662.yoshfuji@linux-ipv6.org>
-References: <44E94653.1040002@bieringer.de>
+From: Thomas Klein <osstklei@de.ibm.com>
+Subject: Re: [2.6.19 PATCH 4/7] ehea: ethtool interface
+Date: Mon, 21 Aug 2006 12:53:26 +0200
+Message-ID: <44E990A6.90806@de.ibm.com>
+References: <200608181333.23031.ossthema@de.ibm.com> <20060818140506.GC5201@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Cc: Jan-Bernd Themann <ossthema@de.ibm.com>, netdev@vger.kernel.org,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:65298 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751847AbWHUKlI
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 06:41:08 -0400
-To: pb@bieringer.de
-In-Reply-To: <44E94653.1040002@bieringer.de>
+Received: from mtagate3.uk.ibm.com ([195.212.29.136]:32675 "EHLO
+	mtagate3.uk.ibm.com") by vger.kernel.org with ESMTP
+	id S1751856AbWHUKxb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Aug 2006 06:53:31 -0400
+To: Alexey Dobriyan <adobriyan@gmail.com>
+In-Reply-To: <20060818140506.GC5201@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-In article <44E94653.1040002@bieringer.de> (at Mon, 21 Aug 2006 07:36:19 +0200), Peter Bieringer <pb@bieringer.de> says:
+Alexey Dobriyan wrote:
+ > On Fri, Aug 18, 2006 at 01:33:22PM +0200, Jan-Bernd Themann wrote:
+ >> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea_ethtool.c
+ >> +++ kernel/drivers/net/ehea/ehea_ethtool.c
+ >> +{
+ >> +    strncpy(info->driver, DRV_NAME, sizeof(info->driver) - 1);
+ >> +    strncpy(info->version, DRV_VERSION, sizeof(info->version) - 1);
+ >
+ > Use strlcpy() to not forget -1 accidently.
 
-> In IPv6, the behavior is completly different:
-> 
-> # ip -6 addr show dev eth0  |grep -w inet6 |grep -w global
->     inet6 2001:db8:0:1::11/64 scope global
-> 
-> # ip -6 addr add 2001:db8:0:1::253/64 dev eth0
-> 
-> # ip -6 addr show dev eth0  |grep -w inet6 |grep -w global
->     inet6 2001:db8:0:1::253/64 scope global   <- #2 !!!!
->     inet6 2001:db8:0:1::11/64 scope global    <- #1
-> 
-> So the last added on is now the first in list. Also, it gets no
-> "secondary" flag and "ip" doesn't even support this flag.
+Done.
 
-IPv6 does not have secondary flag. We even reuse that for
-IPv6 temporary addresses.
+ >
+ >> +static u32 netdev_get_msglevel(struct net_device *dev)
+ >                        ^^^^^^^^
+ >> +{
+ >> +    struct ehea_port *port = netdev_priv(dev);
+ >> +    return port->msg_enable;
+ >                        ^^^^^^
+ >
+ > Something is mis-named here.
 
-> And the worse thing is that the first one in list (= last added one) is
-> now used as default for outgoing connections. Can be easily tested using
-> "ping6".
-:
-> Is this a bug (I hope so) or a (undocumented?) feature?
+The kernel requires a structure member of that name.
 
-An implementation decision.
-I do not favor changing this so far.
+ >> +struct ethtool_ops ehea_ethtool_ops = {
+ >> +    .get_settings = netdev_get_settings,
+ >> +    .get_drvinfo = netdev_get_drvinfo,
+ >> +    .get_msglevel = netdev_get_msglevel,
+ >> +    .set_msglevel = netdev_set_msglevel,
+ >> +        .get_link = ethtool_op_get_link,
+ >> +        .get_tx_csum = ethtool_op_get_tx_csum,
+ >
+ > Whitespace breakage.
 
---yoshfuji
+Fixed.
+
+ >> +    .set_settings = NULL,
+ >> +    .nway_reset = NULL,
+ >> +    .get_pauseparam = NULL,
+ >> +    .set_pauseparam = NULL,
+ >> +    .get_rx_csum = NULL,
+ >> +    .set_rx_csum = NULL,
+ >> +    .phys_id = NULL,
+ >> +    .self_test = NULL,
+ >> +    .self_test_count = NULL
+ >
+ > If you don't use them, don't mention them at all. Compiler will DTRT.
+
+Agreed. Assignments removed.
+
+Thanks again :-)
+Thomas
+
+
