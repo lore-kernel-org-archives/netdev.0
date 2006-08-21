@@ -1,64 +1,78 @@
-From: Pradeep Dalvi <pradeep@netxen.com>
-Subject: Re: [PATCH 2.6.17 6/9] NetXen: Main header file (Name prefix change)
-Date: Mon, 21 Aug 2006 03:05:41 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0608210304230.22771@dut39>
-References: <Pine.LNX.4.64.0608180713480.6875@dut39> <Pine.LNX.4.64.0608180807300.6875@dut39>
+From: Thomas Klein <osstklei@de.ibm.com>
+Subject: Re: [2.6.19 PATCH 2/7] ehea: pHYP interface
+Date: Mon, 21 Aug 2006 12:21:03 +0200
+Message-ID: <44E9890F.2080708@de.ibm.com>
+References: <200608181330.21507.ossthema@de.ibm.com>
+	<20060818150600.GG5201@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"sanjeev@netxen.com" <sanjeev@netxen.com>,
-	"unmproj@linsyssoft.com" <unmproj@linsyssoft.com>,
-	"rob@netxen.com" <rob@netxen.com>, amitkale@netxen.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:65144 "EHLO
-	mail.unminc.com") by vger.kernel.org with ESMTP id S1751832AbWHUKFn
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 06:05:43 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <Pine.LNX.4.64.0608180807300.6875@dut39>
-Sender: netdev-owner@vger.kernel.org
+Cc: Thomas Klein <tklein@de.ibm.com>, Jan-Bernd Themann <themann@de.ibm.com>,
+	netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>, linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: Alexey Dobriyan <adobriyan@gmail.com>
+In-Reply-To: <20060818150600.GG5201@martell.zuzino.mipt.ru>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-diff -u linux-2.6.17/drivers/net/netxen/netxen_nic.h linux-2.6.17/drivers/net/netxen/netxen_nic.h
---- linux-2.6.17/drivers/net/netxen/netxen_nic.h	2006-08-17 07:12:34.000000000 -0700
-+++ linux-2.6.17/drivers/net/netxen/netxen_nic.h	2006-08-21 02:20:00.000000000 -0700
-@@ -550,8 +550,8 @@
-  #define FLASH_SECONDARY_SIZE 	(USER_START-SECONDARY_START)
-  #define NUM_PRIMARY_SECTORS	(0x20)
-  #define NUM_CONFIG_SECTORS 	(1)
--int is_flash_supported(struct netxen_adapter *adapter);
--int get_flash_mac_addr(struct netxen_adapter *adapter, u64 mac[]);
-+int netxen_is_flash_supported(struct netxen_adapter *adapter);
-+int netxen_get_flash_mac_addr(struct netxen_adapter *adapter, u64 mac[]);
+Alexey Dobriyan wrote:
+> On Fri, Aug 18, 2006 at 01:30:21PM +0200, Jan-Bernd Themann wrote:
+>> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea_phyp.c
+>> +++ kernel/drivers/net/ehea/ehea_phyp.c
+> 
+>> +	hret = ehea_h_register_rpage(hcp_adapter_handle, pagesize, queue_type,
+>> +				     eq_handle, log_pageaddr, count);
+>> +	return hret;
+> 
+> Just
+> 	return ehea_h_register_rpage(...);
+> 
+>> +	hret = ehea_h_register_rpage(hcp_adapter_handle, pagesize, queue_type,
+>> +				     cq_handle, log_pageaddr, count);
+>> +	return hret;
+> 
+> Ditto.
+> 
+>> +	hret = ehea_h_register_rpage(hcp_adapter_handle, pagesize, queue_type,
+>> +				     qp_handle, log_pageaddr, count);
+>> +	return hret;
+>> +}
+> 
+> Ditto.
 
-  extern void netxen_change_ringparam(struct netxen_adapter *adapter);
-  extern int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr,
-@@ -817,9 +817,9 @@
-  				 unsigned long off, int data);
+Returncode handling was reworked throughout the whole driver. Those assignments
+were modified according to your suggestion.
 
-  /* Functions from netxen_nic_init.c */
--void phantom_init(struct netxen_adapter *adapter);
--void load_firmware(struct netxen_adapter *adapter);
--int pinit_from_rom(struct netxen_adapter *adapter, int verbose);
-+void netxen_phantom_init(struct netxen_adapter *adapter);
-+void netxen_load_firmware(struct netxen_adapter *adapter);
-+int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose);
-  int netxen_rom_fast_read(struct netxen_adapter *adapter, int addr, int *valp);
+>> +static inline int hcp_epas_ctor(struct h_epas *epas, u64 paddr_kernel,
+>> +				u64 paddr_user)
+>> +{
+>> +	epas->kernel.fw_handle = (u64) ioremap(paddr_kernel, PAGE_SIZE);
+>> +	epas->user.fw_handle = paddr_user;
+>> +	return 0;
+>> +}
+>> +
+>> +static inline int hcp_epas_dtor(struct h_epas *epas)
+>> +{
+>> +
+>> +	if (epas->kernel.fw_handle)
+>> +		iounmap((void *)epas->kernel.fw_handle);
+>> +	epas->user.fw_handle = epas->kernel.fw_handle = 0;
+>> +	return 0;
+>> +}
+> 
+> Always returns 0;
 
-  /* Functions from netxen_nic_isr.c */
-@@ -842,9 +842,9 @@
-  int netxen_nic_unset_promisc_mode(struct netxen_port *port);
-  void netxen_nic_stop_all_ports(struct netxen_adapter *adapter);
-  void netxen_nic_stop_port(struct netxen_port *port);
--void initialize_adapter_sw(struct netxen_adapter *adapter);
--void initialize_adapter_hw(struct netxen_adapter *adapter);
--int init_firmware(struct netxen_adapter *adapter);
-+void netxen_initialize_adapter_sw(struct netxen_adapter *adapter);
-+void netxen_initialize_adapter_hw(struct netxen_adapter *adapter);
-+int netxen_init_firmware(struct netxen_adapter *adapter);
-  void netxen_free_hw_resources(struct netxen_adapter *adapter);
-  void netxen_tso_check(struct netxen_adapter *adapter,
-  		      struct cmd_desc_type0_t *desc, struct sk_buff *skb);
+Correct. They're returning void now.
 
+Thanks
+Thomas
