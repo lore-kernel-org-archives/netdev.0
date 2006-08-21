@@ -1,40 +1,53 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: Proper pci_enable_device() error handling in resume routine
-Date: Mon, 21 Aug 2006 11:12:03 -0700
-Message-ID: <44E9F773.1070007@intel.com>
-References: <20060820052922.GH20111@goober>
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 08/20] ipx: header length validation needed
+Date: Mon, 21 Aug 2006 11:46:39 -0700
+Message-ID: <20060821184639.GI21938@kroah.com>
+References: <20060821183818.155091391@quad.kroah.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:19337 "EHLO
-	orsmga102-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1750897AbWHUSNl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 14:13:41 -0400
-To: Valerie Henson <val_henson@linux.intel.com>
-In-Reply-To: <20060820052922.GH20111@goober>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>, torvalds@osdl.org,
+	akpm@osdl.org, alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	acme@ghostprotocols.net, Stephen Hemminger <shemminger@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750738AbWHUSsg@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	David Miller <davem@davemloft.net>
+Content-Disposition: inline; filename="ipx-header-length-validation-needed.patch"
+In-Reply-To: <20060821184527.GA21938@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Valerie Henson wrote:
-> I'm trying to properly handle pci_enable_device() errors in the resume
-> routines of a couple of tulip drivers.  I noticed that several drivers
-> pay attention to errors from pci_enable_device() in the init routine
-> but ignore it on resume; other drivers vary wildly.  What's proper
-> behavior when resuming?  Extant examples:
-> 
-> 0. Don't call pci_enable_device() at all (8139too)
-> 1. Ignore the return value (eepro100, many others)
-> 2. Check for failure and bail out, but return success (sungem)
+-stable review patch.  If anyone has any objections, please let us know.
 
-Digging through e1000 I spot that we even pci_enable_device after a PCI error, 
-so it is good practice I think to make sure the device is up. I suppose that 
-most people can live without explicit re-enabling the device (most NICs are on 
-anyway), but if we do enable it explicitly we should certainly check the result 
-code. Interestingly enough we failed to do this in e1000, so I'll submit a 
-patch for that later.
+------------------
+From: Stephen Hemminger <shemminger@osdl.org>
 
-Cheers,
+This patch will linearize and check there is enough data.
+It handles the pprop case as well as avoiding a whole audit of
+the routing code.
 
-Auke
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
+---
+ net/ipx/af_ipx.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+--- linux-2.6.17.8.orig/net/ipx/af_ipx.c
++++ linux-2.6.17.8/net/ipx/af_ipx.c
+@@ -1647,7 +1647,8 @@ static int ipx_rcv(struct sk_buff *skb, 
+ 	ipx_pktsize	= ntohs(ipx->ipx_pktsize);
+ 	
+ 	/* Too small or invalid header? */
+-	if (ipx_pktsize < sizeof(struct ipxhdr) || ipx_pktsize > skb->len)
++	if (ipx_pktsize < sizeof(struct ipxhdr)
++	   || !pskb_may_pull(skb, ipx_pktsize))
+ 		goto drop;
+                         
+ 	if (ipx->ipx_checksum != IPX_NO_CHECKSUM &&
+
+--
