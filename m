@@ -1,40 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: NAPI documentation
-Date: Mon, 21 Aug 2006 15:05:09 -0700 (PDT)
-Message-ID: <20060821.150509.111198790.davem@davemloft.net>
-References: <200608191325.19557.arnd@arndb.de>
-	<200608201948.20596.arnd@arndb.de>
-	<20060821134053.7225987b@dxpl.pdx.osdl.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: sky2 doesn't receive any packages after I ssh in via ipv6 and
+ edit a file in vim (reproducable)
+Date: Mon, 21 Aug 2006 15:02:31 -0700
+Message-ID: <20060821150231.31a947d4@localhost.localdomain>
+References: <20060821212243.GA1558@cip.informatik.uni-erlangen.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, linuxppc-dev@ozlabs.org, akpm@osdl.org,
-	jklewis@us.ibm.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com,
-	Jens.Osterkamp@de.ibm.com, linas@austin.ibm.com, corbet@lwn.net
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:41446
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751231AbWHUWEz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 18:04:55 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060821134053.7225987b@dxpl.pdx.osdl.net>
+Received: from smtp.osdl.org ([65.172.181.4]:37539 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751238AbWHUWGT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 18:06:19 -0400
+To: Thomas Glanzmann <sithglan@stud.uni-erlangen.de>
+In-Reply-To: <20060821212243.GA1558@cip.informatik.uni-erlangen.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Mon, 21 Aug 2006 13:40:53 -0700
+On Mon, 21 Aug 2006 23:22:43 +0200
+Thomas Glanzmann <sithglan@stud.uni-erlangen.de> wrote:
 
-> Please edit and improve
-> 	http://linux-net.osdl.org/index.php/NAPI
+> Hello,
+> I have the newest sky2 driver (with the newest fix in version 1.5)
+> running on my intel mac mini running under legacy bios modus. However if
+> I ssh in via IPv6 and start vim in the shell to edit a file the sky2
+> network adapter stops to work. This is reproducable. A friend of mine
+> thought that maybe the IPv6 code doesn't request the right checksum. But
+> I have no clue if it is related to this. I can give access to the
+> machine via ssh (including root) if someone is willing to track this
+> down. I have a userland programming running which reboots the machine if
+> the network connectivity is lost. At least this one is reliable. If
+> noone wants a shell account maybe someone can guide me through
+> debugging and tracking this down.
 > 
-> When the page is in good shape, I will de-wiki it to place in kernel doc tree.
+> (mini) [/var/log] grep sky2 kern.log
+> Aug 20 20:52:10 mini kernel: sky2 v1.5 addr 0x90200000 irq 17 Yukon-EC (0xb6) rev 2
+> Aug 20 20:52:10 mini kernel: sky2 eth0: addr 00:16:cb:a3:91:3c
+> Aug 20 20:52:12 mini kernel: sky2 eth0: enabling interface
+> Aug 20 20:52:12 mini kernel: sky2 eth0: Link is up at 100 Mbps, full duplex, flow control both
+> Aug 20 21:01:34 mini kernel: sky2 eth0: hw error interrupt status 0x30
+> Aug 20 21:01:34 mini kernel: sky2 eth0: ram data read parity error
+> Aug 20 21:01:34 mini kernel: sky2 eth0: ram data write parity error
+> Aug 20 21:01:34 mini kernel: sky2 eth0: hw error interrupt status 0x8
+> Aug 20 21:01:34 mini kernel: sky2 eth0: MAC parity error
 
-How do I edit the introduction paragraphs at the top?  I want to edit
-this sentence since it sounds awful:
+Something is happening long before you start doing ipv6.
+The parity error's mean that the PCI transfers are going south.
+The driver might be better to just shut it self off after that.
 
-	NAPI ("New API") is a modification to the packet process, ...
+Perhaps the PCI access isn't working properly. What is the config?
+Also are you running i386 or x86_64 on this.
 
-I want to change "packet process" to something more descriptive
-and accurate.
+Is this fix in your version?
+	http://www.mail-archive.com/netdev@vger.kernel.org/msg18603.html
 
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
+
+All non-trivial abstractions, to some degree, are leaky.
