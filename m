@@ -1,653 +1,658 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 4/7] [IPSEC]: Use HMAC template and hash interface
-Date: Tue, 22 Aug 2006 00:27:51 +1000
-Message-ID: <E1GFAkp-00074Q-00@gondolin.me.apana.org.au>
+Subject: [PATCH 3/7] [CRYPTO] tcrypt: Use HMAC template and hash interface
+Date: Tue, 22 Aug 2006 00:27:47 +1000
+Message-ID: <E1GFAkl-00074N-00@gondolin.me.apana.org.au>
 References: <20060821142407.GA26988@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:40454 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751885AbWHUO1z
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 10:27:55 -0400
+Return-path: <linux-crypto-owner@vger.kernel.org>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Use HMAC template and hash interface
+[CRYPTO] tcrypt: Use HMAC template and hash interface
 
-This patch converts IPsec to use the new HMAC template.  The names of
-existing simple digest algorithms may still be used to refer to their
-HMAC composites.
-
-The same structure can be used by other MACs such as AES-XCBC-MAC.
-
-This patch also switches from the digest interface to hash.
+This patch converts tcrypt to use the new HMAC template rather than the
+hard-coded version of HMAC.  It also converts all digest users to use
+the new cipher interface.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
 
- include/net/ah.h     |   29 ++++++++++++++++++-----------
- include/net/esp.h    |   26 +++++++++++++++-----------
- include/net/xfrm.h   |    9 +++++----
- net/ipv4/ah4.c       |   36 ++++++++++++++++++++++++------------
- net/ipv4/esp4.c      |   36 +++++++++++++++++++++---------------
- net/ipv6/ah6.c       |   35 +++++++++++++++++++++++------------
- net/ipv6/esp6.c      |   42 ++++++++++++++++++++++++------------------
- net/xfrm/xfrm_algo.c |   40 +++++++++++++++++++++++++++-------------
- 8 files changed, 157 insertions(+), 96 deletions(-)
+ crypto/tcrypt.c |  355 ++++++++++++++++++++++++++++++++------------------------
+ crypto/tcrypt.h |   23 ---
+ 2 files changed, 213 insertions(+), 165 deletions(-)
 
-diff --git a/include/net/ah.h b/include/net/ah.h
---- a/include/net/ah.h
-+++ b/include/net/ah.h
-@@ -15,22 +15,29 @@ struct ah_data
- 	int			icv_full_len;
- 	int			icv_trunc_len;
- 
--	void			(*icv)(struct ah_data*,
--	                               struct sk_buff *skb, u8 *icv);
--
--	struct crypto_tfm	*tfm;
-+	struct crypto_hash	*tfm;
- };
- 
--static inline void
--ah_hmac_digest(struct ah_data *ahp, struct sk_buff *skb, u8 *auth_data)
-+static inline int ah_mac_digest(struct ah_data *ahp, struct sk_buff *skb,
-+				u8 *auth_data)
- {
--	struct crypto_tfm *tfm = ahp->tfm;
+diff --git a/crypto/tcrypt.c b/crypto/tcrypt.c
+--- a/crypto/tcrypt.c
++++ b/crypto/tcrypt.c
+@@ -88,9 +88,11 @@ static void test_hash(char *algo, struct
+ 	unsigned int i, j, k, temp;
+ 	struct scatterlist sg[8];
+ 	char result[64];
+-	struct crypto_tfm *tfm;
++	struct crypto_hash *tfm;
 +	struct hash_desc desc;
-+	int err;
-+
-+	desc.tfm = ahp->tfm;
-+	desc.flags = 0;
+ 	struct hash_testvec *hash_tv;
+ 	unsigned int tsize;
++	int ret;
  
- 	memset(auth_data, 0, ahp->icv_trunc_len);
--	crypto_hmac_init(tfm, ahp->key, &ahp->key_len);
--	skb_icv_walk(skb, tfm, 0, skb->len, crypto_hmac_update);
--	crypto_hmac_final(tfm, ahp->key, &ahp->key_len, ahp->work_icv);
--	memcpy(auth_data, ahp->work_icv, ahp->icv_trunc_len);
-+	err = crypto_hash_init(&desc);
-+	if (unlikely(err))
-+		goto out;
-+	err = skb_icv_walk(skb, &desc, 0, skb->len, crypto_hash_update);
-+	if (unlikely(err))
-+		goto out;
-+	err = crypto_hash_final(&desc, ahp->work_icv);
+ 	printk("\ntesting %s\n", algo);
+ 
+@@ -104,27 +106,42 @@ static void test_hash(char *algo, struct
+ 
+ 	memcpy(tvmem, template, tsize);
+ 	hash_tv = (void *)tvmem;
+-	tfm = crypto_alloc_tfm(algo, 0);
+-	if (tfm == NULL) {
+-		printk("failed to load transform for %s\n", algo);
++
++	tfm = crypto_alloc_hash(algo, 0, CRYPTO_ALG_ASYNC);
++	if (IS_ERR(tfm)) {
++		printk("failed to load transform for %s: %ld\n", algo,
++		       PTR_ERR(tfm));
+ 		return;
+ 	}
+ 
++	desc.tfm = tfm;
++	desc.flags = 0;
++
+ 	for (i = 0; i < tcount; i++) {
+ 		printk("test %u:\n", i + 1);
+ 		memset(result, 0, 64);
+ 
+ 		sg_set_buf(&sg[0], hash_tv[i].plaintext, hash_tv[i].psize);
+ 
+-		crypto_digest_init(tfm);
+-		crypto_digest_setkey(tfm, hash_tv[i].key, hash_tv[i].ksize);
+-		crypto_digest_update(tfm, sg, 1);
+-		crypto_digest_final(tfm, result);
++		if (hash_tv[i].ksize) {
++			ret = crypto_hash_setkey(tfm, hash_tv[i].key,
++						 hash_tv[i].ksize);
++			if (ret) {
++				printk("setkey() failed ret=%d\n", ret);
++				goto out;
++			}
++		}
++
++		ret = crypto_hash_digest(&desc, sg, hash_tv[i].psize, result);
++		if (ret) {
++			printk("digest () failed ret=%d\n", ret);
++			goto out;
++		}
+ 
+-		hexdump(result, crypto_tfm_alg_digestsize(tfm));
++		hexdump(result, crypto_hash_digestsize(tfm));
+ 		printk("%s\n",
+ 		       memcmp(result, hash_tv[i].digest,
+-			      crypto_tfm_alg_digestsize(tfm)) ?
++			      crypto_hash_digestsize(tfm)) ?
+ 		       "fail" : "pass");
+ 	}
+ 
+@@ -150,105 +167,35 @@ static void test_hash(char *algo, struct
+ 					    hash_tv[i].tap[k]);
+ 			}
+ 
+-			crypto_digest_digest(tfm, sg, hash_tv[i].np, result);
+-
+-			hexdump(result, crypto_tfm_alg_digestsize(tfm));
+-			printk("%s\n",
+-			       memcmp(result, hash_tv[i].digest,
+-				      crypto_tfm_alg_digestsize(tfm)) ?
+-			       "fail" : "pass");
+-		}
+-	}
+-
+-	crypto_free_tfm(tfm);
+-}
+-
+-
+-#ifdef CONFIG_CRYPTO_HMAC
+-
+-static void test_hmac(char *algo, struct hmac_testvec *template,
+-		      unsigned int tcount)
+-{
+-	unsigned int i, j, k, temp;
+-	struct scatterlist sg[8];
+-	char result[64];
+-	struct crypto_tfm *tfm;
+-	struct hmac_testvec *hmac_tv;
+-	unsigned int tsize, klen;
+-
+-	tfm = crypto_alloc_tfm(algo, 0);
+-	if (tfm == NULL) {
+-		printk("failed to load transform for %s\n", algo);
+-		return;
+-	}
+-
+-	printk("\ntesting hmac_%s\n", algo);
+-
+-	tsize = sizeof(struct hmac_testvec);
+-	tsize *= tcount;
+-	if (tsize > TVMEMSIZE) {
+-		printk("template (%u) too big for tvmem (%u)\n", tsize,
+-		       TVMEMSIZE);
+-		goto out;
+-	}
+-
+-	memcpy(tvmem, template, tsize);
+-	hmac_tv = (void *)tvmem;
+-
+-	for (i = 0; i < tcount; i++) {
+-		printk("test %u:\n", i + 1);
+-		memset(result, 0, sizeof (result));
+-
+-		klen = hmac_tv[i].ksize;
+-		sg_set_buf(&sg[0], hmac_tv[i].plaintext, hmac_tv[i].psize);
++			if (hash_tv[i].ksize) {
++				ret = crypto_hash_setkey(tfm, hash_tv[i].key,
++							 hash_tv[i].ksize);
+ 
+-		crypto_hmac(tfm, hmac_tv[i].key, &klen, sg, 1, result);
+-
+-		hexdump(result, crypto_tfm_alg_digestsize(tfm));
+-		printk("%s\n",
+-		       memcmp(result, hmac_tv[i].digest,
+-			      crypto_tfm_alg_digestsize(tfm)) ? "fail" :
+-		       "pass");
+-	}
+-
+-	printk("\ntesting hmac_%s across pages\n", algo);
+-
+-	memset(xbuf, 0, XBUFSIZE);
+-
+-	j = 0;
+-	for (i = 0; i < tcount; i++) {
+-		if (hmac_tv[i].np) {
+-			j++;
+-			printk("test %u:\n",j);
+-			memset(result, 0, 64);
+-
+-			temp = 0;
+-			klen = hmac_tv[i].ksize;
+-			for (k = 0; k < hmac_tv[i].np; k++) {
+-				memcpy(&xbuf[IDX[k]],
+-				       hmac_tv[i].plaintext + temp,
+-				       hmac_tv[i].tap[k]);
+-				temp += hmac_tv[i].tap[k];
+-				sg_set_buf(&sg[k], &xbuf[IDX[k]],
+-					    hmac_tv[i].tap[k]);
++				if (ret) {
++					printk("setkey() failed ret=%d\n", ret);
++					goto out;
++				}
+ 			}
+ 
+-			crypto_hmac(tfm, hmac_tv[i].key, &klen, sg,
+-				    hmac_tv[i].np, result);
+-			hexdump(result, crypto_tfm_alg_digestsize(tfm));
++			ret = crypto_hash_digest(&desc, sg, hash_tv[i].psize,
++						 result);
++			if (ret) {
++				printk("digest () failed ret=%d\n", ret);
++				goto out;
++			}
+ 
++			hexdump(result, crypto_hash_digestsize(tfm));
+ 			printk("%s\n",
+-			       memcmp(result, hmac_tv[i].digest,
+-				      crypto_tfm_alg_digestsize(tfm)) ?
++			       memcmp(result, hash_tv[i].digest,
++				      crypto_hash_digestsize(tfm)) ?
+ 			       "fail" : "pass");
+ 		}
+ 	}
++
+ out:
+-	crypto_free_tfm(tfm);
++	crypto_free_hash(tfm);
+ }
+ 
+-#endif	/* CONFIG_CRYPTO_HMAC */
+-
+ static void test_cipher(char *algo, int enc,
+ 			struct cipher_testvec *template, unsigned int tcount)
+ {
+@@ -570,97 +517,202 @@ out:
+ 	crypto_free_blkcipher(tfm);
+ }
+ 
+-static void test_digest_jiffies(struct crypto_tfm *tfm, char *p, int blen,
+-				int plen, char *out, int sec)
++static int test_hash_jiffies_digest(struct hash_desc *desc, char *p, int blen,
++				    char *out, int sec)
++{
++	struct scatterlist sg[1];
++	unsigned long start, end;
++	int bcount;
++	int ret;
++
++	for (start = jiffies, end = start + sec * HZ, bcount = 0;
++	     time_before(jiffies, end); bcount++) {
++		sg_set_buf(sg, p, blen);
++		ret = crypto_hash_digest(desc, sg, blen, out);
++		if (ret)
++			return ret;
++	}
++
++	printk("%6u opers/sec, %9lu bytes/sec\n",
++	       bcount / sec, ((long)bcount * blen) / sec);
++
++	return 0;
++}
++
++static int test_hash_jiffies(struct hash_desc *desc, char *p, int blen,
++			     int plen, char *out, int sec)
+ {
+ 	struct scatterlist sg[1];
+ 	unsigned long start, end;
+ 	int bcount, pcount;
++	int ret;
++
++	if (plen == blen)
++		return test_hash_jiffies_digest(desc, p, blen, out, sec);
+ 
+ 	for (start = jiffies, end = start + sec * HZ, bcount = 0;
+ 	     time_before(jiffies, end); bcount++) {
+-		crypto_digest_init(tfm);
++		ret = crypto_hash_init(desc);
++		if (ret)
++			return ret;
+ 		for (pcount = 0; pcount < blen; pcount += plen) {
+ 			sg_set_buf(sg, p + pcount, plen);
+-			crypto_digest_update(tfm, sg, 1);
++			ret = crypto_hash_update(desc, sg, plen);
++			if (ret)
++				return ret;
+ 		}
+ 		/* we assume there is enough space in 'out' for the result */
+-		crypto_digest_final(tfm, out);
++		ret = crypto_hash_final(desc, out);
++		if (ret)
++			return ret;
+ 	}
+ 
+ 	printk("%6u opers/sec, %9lu bytes/sec\n",
+ 	       bcount / sec, ((long)bcount * blen) / sec);
+ 
+-	return;
++	return 0;
++}
++
++static int test_hash_cycles_digest(struct hash_desc *desc, char *p, int blen,
++				   char *out)
++{
++	struct scatterlist sg[1];
++	unsigned long cycles = 0;
++	int i;
++	int ret;
++
++	local_bh_disable();
++	local_irq_disable();
++
++	/* Warm-up run. */
++	for (i = 0; i < 4; i++) {
++		sg_set_buf(sg, p, blen);
++		ret = crypto_hash_digest(desc, sg, blen, out);
++		if (ret)
++			goto out;
++	}
++
++	/* The real thing. */
++	for (i = 0; i < 8; i++) {
++		cycles_t start, end;
++
++		start = get_cycles();
++
++		sg_set_buf(sg, p, blen);
++		ret = crypto_hash_digest(desc, sg, blen, out);
++		if (ret)
++			goto out;
++
++		end = get_cycles();
++
++		cycles += end - start;
++	}
 +
 +out:
-+	return err;
- }
- 
- #endif
-diff --git a/include/net/esp.h b/include/net/esp.h
---- a/include/net/esp.h
-+++ b/include/net/esp.h
-@@ -35,7 +35,7 @@ struct esp_data
- 		void			(*icv)(struct esp_data*,
- 		                               struct sk_buff *skb,
- 		                               int offset, int len, u8 *icv);
--		struct crypto_tfm	*tfm;
-+		struct crypto_hash	*tfm;
- 	} auth;
- };
- 
-@@ -43,18 +43,22 @@ extern int skb_to_sgvec(struct sk_buff *
- extern int skb_cow_data(struct sk_buff *skb, int tailbits, struct sk_buff **trailer);
- extern void *pskb_put(struct sk_buff *skb, struct sk_buff *tail, int len);
- 
--static inline void
--esp_hmac_digest(struct esp_data *esp, struct sk_buff *skb, int offset,
--                int len, u8 *auth_data)
-+static inline int esp_mac_digest(struct esp_data *esp, struct sk_buff *skb,
-+				 int offset, int len)
- {
--	struct crypto_tfm *tfm = esp->auth.tfm;
--	char *icv = esp->auth.work_icv;
-+	struct hash_desc desc;
-+	int err;
- 
--	memset(auth_data, 0, esp->auth.icv_trunc_len);
--	crypto_hmac_init(tfm, esp->auth.key, &esp->auth.key_len);
--	skb_icv_walk(skb, tfm, offset, len, crypto_hmac_update);
--	crypto_hmac_final(tfm, esp->auth.key, &esp->auth.key_len, icv);
--	memcpy(auth_data, icv, esp->auth.icv_trunc_len);
-+	desc.tfm = esp->auth.tfm;
-+	desc.flags = 0;
++	local_irq_enable();
++	local_bh_enable();
 +
-+	err = crypto_hash_init(&desc);
-+	if (unlikely(err))
-+		return err;
-+	err = skb_icv_walk(skb, &desc, offset, len, crypto_hash_update);
-+	if (unlikely(err))
-+		return err;
-+	return crypto_hash_final(&desc, esp->auth.work_icv);
++	if (ret)
++		return ret;
++
++	printk("%6lu cycles/operation, %4lu cycles/byte\n",
++	       cycles / 8, cycles / (8 * blen));
++
++	return 0;
  }
  
- #endif
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -984,12 +984,13 @@ extern struct xfrm_algo_desc *xfrm_aalg_
- extern struct xfrm_algo_desc *xfrm_ealg_get_byname(char *name, int probe);
- extern struct xfrm_algo_desc *xfrm_calg_get_byname(char *name, int probe);
- 
--struct crypto_tfm;
-+struct hash_desc;
- struct scatterlist;
--typedef void (icv_update_fn_t)(struct crypto_tfm *, struct scatterlist *, unsigned int);
-+typedef int (icv_update_fn_t)(struct hash_desc *, struct scatterlist *,
-+			      unsigned int);
- 
--extern void skb_icv_walk(const struct sk_buff *skb, struct crypto_tfm *tfm,
--			 int offset, int len, icv_update_fn_t icv_update);
-+extern int skb_icv_walk(const struct sk_buff *skb, struct hash_desc *tfm,
-+			int offset, int len, icv_update_fn_t icv_update);
- 
- static inline int xfrm_addr_cmp(xfrm_address_t *a, xfrm_address_t *b,
- 				int family)
-diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
---- a/net/ipv4/ah4.c
-+++ b/net/ipv4/ah4.c
-@@ -1,3 +1,4 @@
-+#include <linux/err.h>
- #include <linux/module.h>
- #include <net/ip.h>
- #include <net/xfrm.h>
-@@ -97,7 +98,10 @@ static int ah_output(struct xfrm_state *
- 	ah->spi = x->id.spi;
- 	ah->seq_no = htonl(++x->replay.oseq);
- 	xfrm_aevent_doreplay(x);
--	ahp->icv(ahp, skb, ah->auth_data);
-+	err = ah_mac_digest(ahp, skb, ah->auth_data);
-+	if (err)
-+		goto error;
-+	memcpy(ah->auth_data, ahp->work_icv, ahp->icv_trunc_len);
- 
- 	top_iph->tos = iph->tos;
- 	top_iph->ttl = iph->ttl;
-@@ -119,6 +123,7 @@ static int ah_input(struct xfrm_state *x
+-static void test_digest_cycles(struct crypto_tfm *tfm, char *p, int blen,
+-			       int plen, char *out)
++static int test_hash_cycles(struct hash_desc *desc, char *p, int blen,
++			    int plen, char *out)
  {
- 	int ah_hlen;
- 	int ihl;
-+	int err = -EINVAL;
- 	struct iphdr *iph;
- 	struct ip_auth_hdr *ah;
- 	struct ah_data *ahp;
-@@ -166,8 +171,11 @@ static int ah_input(struct xfrm_state *x
- 		
- 		memcpy(auth_data, ah->auth_data, ahp->icv_trunc_len);
- 		skb_push(skb, ihl);
--		ahp->icv(ahp, skb, ah->auth_data);
--		if (memcmp(ah->auth_data, auth_data, ahp->icv_trunc_len)) {
-+		err = ah_mac_digest(ahp, skb, ah->auth_data);
-+		if (err)
+ 	struct scatterlist sg[1];
+ 	unsigned long cycles = 0;
+ 	int i, pcount;
++	int ret;
++
++	if (plen == blen)
++		return test_hash_cycles_digest(desc, p, blen, out);
+ 
+ 	local_bh_disable();
+ 	local_irq_disable();
+ 
+ 	/* Warm-up run. */
+ 	for (i = 0; i < 4; i++) {
+-		crypto_digest_init(tfm);
++		ret = crypto_hash_init(desc);
++		if (ret)
 +			goto out;
-+		err = -EINVAL;
-+		if (memcmp(ahp->work_icv, auth_data, ahp->icv_trunc_len)) {
- 			x->stats.integrity_failed++;
- 			goto out;
+ 		for (pcount = 0; pcount < blen; pcount += plen) {
+ 			sg_set_buf(sg, p + pcount, plen);
+-			crypto_digest_update(tfm, sg, 1);
++			ret = crypto_hash_update(desc, sg, plen);
++			if (ret)
++				goto out;
  		}
-@@ -179,7 +187,7 @@ static int ah_input(struct xfrm_state *x
- 	return 0;
- 
- out:
--	return -EINVAL;
-+	return err;
- }
- 
- static void ah4_err(struct sk_buff *skb, u32 info)
-@@ -204,6 +212,7 @@ static int ah_init_state(struct xfrm_sta
- {
- 	struct ah_data *ahp = NULL;
- 	struct xfrm_algo_desc *aalg_desc;
-+	struct crypto_hash *tfm;
- 
- 	if (!x->aalg)
- 		goto error;
-@@ -223,24 +232,27 @@ static int ah_init_state(struct xfrm_sta
- 
- 	ahp->key = x->aalg->alg_key;
- 	ahp->key_len = (x->aalg->alg_key_len+7)/8;
--	ahp->tfm = crypto_alloc_tfm(x->aalg->alg_name, 0);
--	if (!ahp->tfm)
-+	tfm = crypto_alloc_hash(x->aalg->alg_name, 0, CRYPTO_ALG_ASYNC);
-+	if (IS_ERR(tfm))
-+		goto error;
-+
-+	ahp->tfm = tfm;
-+	if (crypto_hash_setkey(tfm, ahp->key, ahp->key_len))
- 		goto error;
--	ahp->icv = ah_hmac_digest;
- 	
- 	/*
- 	 * Lookup the algorithm description maintained by xfrm_algo,
- 	 * verify crypto transform properties, and store information
- 	 * we need for AH processing.  This lookup cannot fail here
--	 * after a successful crypto_alloc_tfm().
-+	 * after a successful crypto_alloc_hash().
- 	 */
- 	aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
- 	BUG_ON(!aalg_desc);
- 
- 	if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
--	    crypto_tfm_alg_digestsize(ahp->tfm)) {
-+	    crypto_hash_digestsize(tfm)) {
- 		printk(KERN_INFO "AH: %s digestsize %u != %hu\n",
--		       x->aalg->alg_name, crypto_tfm_alg_digestsize(ahp->tfm),
-+		       x->aalg->alg_name, crypto_hash_digestsize(tfm),
- 		       aalg_desc->uinfo.auth.icv_fullbits/8);
- 		goto error;
- 	}
-@@ -264,7 +276,7 @@ static int ah_init_state(struct xfrm_sta
- error:
- 	if (ahp) {
- 		kfree(ahp->work_icv);
--		crypto_free_tfm(ahp->tfm);
-+		crypto_free_hash(ahp->tfm);
- 		kfree(ahp);
- 	}
- 	return -EINVAL;
-@@ -279,7 +291,7 @@ static void ah_destroy(struct xfrm_state
- 
- 	kfree(ahp->work_icv);
- 	ahp->work_icv = NULL;
--	crypto_free_tfm(ahp->tfm);
-+	crypto_free_hash(ahp->tfm);
- 	ahp->tfm = NULL;
- 	kfree(ahp);
- }
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -121,9 +121,9 @@ static int esp_output(struct xfrm_state 
- 	}
- 
- 	if (esp->auth.icv_full_len) {
--		esp->auth.icv(esp, skb, (u8*)esph-skb->data,
--		              sizeof(struct ip_esp_hdr) + esp->conf.ivlen+clen, trailer->tail);
--		pskb_put(skb, trailer, alen);
-+		err = esp_mac_digest(esp, skb, (u8 *)esph - skb->data,
-+				     sizeof(*esph) + esp->conf.ivlen + clen);
-+		memcpy(pskb_put(skb, trailer, alen), esp->auth.work_icv, alen);
- 	}
- 
- 	ip_send_check(top_iph);
-@@ -163,15 +163,16 @@ static int esp_input(struct xfrm_state *
- 
- 	/* If integrity check is required, do this. */
- 	if (esp->auth.icv_full_len) {
--		u8 sum[esp->auth.icv_full_len];
--		u8 sum1[alen];
--		
--		esp->auth.icv(esp, skb, 0, skb->len-alen, sum);
-+		u8 sum[alen];
- 
--		if (skb_copy_bits(skb, skb->len-alen, sum1, alen))
-+		err = esp_mac_digest(esp, skb, 0, skb->len - alen);
-+		if (err)
+-		crypto_digest_final(tfm, out);
++		crypto_hash_final(desc, out);
++		if (ret)
 +			goto out;
-+
-+		if (skb_copy_bits(skb, skb->len - alen, sum, alen))
- 			BUG();
+ 	}
  
--		if (unlikely(memcmp(sum, sum1, alen))) {
-+		if (unlikely(memcmp(esp->auth.work_icv, sum, alen))) {
- 			x->stats.integrity_failed++;
- 			goto out;
+ 	/* The real thing. */
+ 	for (i = 0; i < 8; i++) {
+ 		cycles_t start, end;
+ 
+-		crypto_digest_init(tfm);
+-
+ 		start = get_cycles();
+ 
++		ret = crypto_hash_init(desc);
++		if (ret)
++			goto out;
+ 		for (pcount = 0; pcount < blen; pcount += plen) {
+ 			sg_set_buf(sg, p + pcount, plen);
+-			crypto_digest_update(tfm, sg, 1);
++			ret = crypto_hash_update(desc, sg, plen);
++			if (ret)
++				goto out;
  		}
-@@ -307,7 +308,7 @@ static void esp_destroy(struct xfrm_stat
- 	esp->conf.tfm = NULL;
- 	kfree(esp->conf.ivec);
- 	esp->conf.ivec = NULL;
--	crypto_free_tfm(esp->auth.tfm);
-+	crypto_free_hash(esp->auth.tfm);
- 	esp->auth.tfm = NULL;
- 	kfree(esp->auth.work_icv);
- 	esp->auth.work_icv = NULL;
-@@ -335,22 +336,27 @@ static int esp_init_state(struct xfrm_st
- 
- 	if (x->aalg) {
- 		struct xfrm_algo_desc *aalg_desc;
-+		struct crypto_hash *hash;
- 
- 		esp->auth.key = x->aalg->alg_key;
- 		esp->auth.key_len = (x->aalg->alg_key_len+7)/8;
--		esp->auth.tfm = crypto_alloc_tfm(x->aalg->alg_name, 0);
--		if (esp->auth.tfm == NULL)
-+		hash = crypto_alloc_hash(x->aalg->alg_name, 0,
-+					 CRYPTO_ALG_ASYNC);
-+		if (IS_ERR(hash))
-+			goto error;
-+
-+		esp->auth.tfm = hash;
-+		if (crypto_hash_setkey(hash, esp->auth.key, esp->auth.key_len))
- 			goto error;
--		esp->auth.icv = esp_hmac_digest;
- 
- 		aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
- 		BUG_ON(!aalg_desc);
- 
- 		if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
--		    crypto_tfm_alg_digestsize(esp->auth.tfm)) {
-+		    crypto_hash_digestsize(hash)) {
- 			NETDEBUG(KERN_INFO "ESP: %s digestsize %u != %hu\n",
- 				 x->aalg->alg_name,
--				 crypto_tfm_alg_digestsize(esp->auth.tfm),
-+				 crypto_hash_digestsize(hash),
- 				 aalg_desc->uinfo.auth.icv_fullbits/8);
- 			goto error;
- 		}
-diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
---- a/net/ipv6/ah6.c
-+++ b/net/ipv6/ah6.c
-@@ -213,7 +213,10 @@ static int ah6_output(struct xfrm_state 
- 	ah->spi = x->id.spi;
- 	ah->seq_no = htonl(++x->replay.oseq);
- 	xfrm_aevent_doreplay(x);
--	ahp->icv(ahp, skb, ah->auth_data);
-+	err = ah_mac_digest(ahp, skb, ah->auth_data);
-+	if (err)
-+		goto error_free_iph;
-+	memcpy(ah->auth_data, ahp->work_icv, ahp->icv_trunc_len);
- 
- 	err = 0;
- 
-@@ -251,6 +254,7 @@ static int ah6_input(struct xfrm_state *
- 	u16 hdr_len;
- 	u16 ah_hlen;
- 	int nexthdr;
-+	int err = -EINVAL;
- 
- 	if (!pskb_may_pull(skb, sizeof(struct ip_auth_hdr)))
- 		goto out;
-@@ -292,8 +296,11 @@ static int ah6_input(struct xfrm_state *
- 		memcpy(auth_data, ah->auth_data, ahp->icv_trunc_len);
- 		memset(ah->auth_data, 0, ahp->icv_trunc_len);
- 		skb_push(skb, hdr_len);
--		ahp->icv(ahp, skb, ah->auth_data);
--		if (memcmp(ah->auth_data, auth_data, ahp->icv_trunc_len)) {
-+		err = ah_mac_digest(ahp, skb, ah->auth_data);
-+		if (err)
-+			goto free_out;
-+		err = -EINVAL;
-+		if (memcmp(ahp->work_icv, auth_data, ahp->icv_trunc_len)) {
- 			LIMIT_NETDEBUG(KERN_WARNING "ipsec ah authentication error\n");
- 			x->stats.integrity_failed++;
- 			goto free_out;
-@@ -310,7 +317,7 @@ static int ah6_input(struct xfrm_state *
- free_out:
- 	kfree(tmp_hdr);
- out:
--	return -EINVAL;
-+	return err;
- }
- 
- static void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt, 
-@@ -338,6 +345,7 @@ static int ah6_init_state(struct xfrm_st
- {
- 	struct ah_data *ahp = NULL;
- 	struct xfrm_algo_desc *aalg_desc;
-+	struct crypto_hash *tfm;
- 
- 	if (!x->aalg)
- 		goto error;
-@@ -355,24 +363,27 @@ static int ah6_init_state(struct xfrm_st
- 
- 	ahp->key = x->aalg->alg_key;
- 	ahp->key_len = (x->aalg->alg_key_len+7)/8;
--	ahp->tfm = crypto_alloc_tfm(x->aalg->alg_name, 0);
--	if (!ahp->tfm)
-+	tfm = crypto_alloc_hash(x->aalg->alg_name, 0, CRYPTO_ALG_ASYNC);
-+	if (IS_ERR(tfm))
-+		goto error;
-+
-+	ahp->tfm = tfm;
-+	if (crypto_hash_setkey(tfm, ahp->key, ahp->key_len))
- 		goto error;
--	ahp->icv = ah_hmac_digest;
- 	
- 	/*
- 	 * Lookup the algorithm description maintained by xfrm_algo,
- 	 * verify crypto transform properties, and store information
- 	 * we need for AH processing.  This lookup cannot fail here
--	 * after a successful crypto_alloc_tfm().
-+	 * after a successful crypto_alloc_hash().
- 	 */
- 	aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
- 	BUG_ON(!aalg_desc);
- 
- 	if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
--	    crypto_tfm_alg_digestsize(ahp->tfm)) {
-+	    crypto_hash_digestsize(tfm)) {
- 		printk(KERN_INFO "AH: %s digestsize %u != %hu\n",
--		       x->aalg->alg_name, crypto_tfm_alg_digestsize(ahp->tfm),
-+		       x->aalg->alg_name, crypto_hash_digestsize(tfm),
- 		       aalg_desc->uinfo.auth.icv_fullbits/8);
- 		goto error;
- 	}
-@@ -396,7 +407,7 @@ static int ah6_init_state(struct xfrm_st
- error:
- 	if (ahp) {
- 		kfree(ahp->work_icv);
--		crypto_free_tfm(ahp->tfm);
-+		crypto_free_hash(ahp->tfm);
- 		kfree(ahp);
- 	}
- 	return -EINVAL;
-@@ -411,7 +422,7 @@ static void ah6_destroy(struct xfrm_stat
- 
- 	kfree(ahp->work_icv);
- 	ahp->work_icv = NULL;
--	crypto_free_tfm(ahp->tfm);
-+	crypto_free_hash(ahp->tfm);
- 	ahp->tfm = NULL;
- 	kfree(ahp);
- }
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -125,9 +125,9 @@ static int esp6_output(struct xfrm_state
- 	}
- 
- 	if (esp->auth.icv_full_len) {
--		esp->auth.icv(esp, skb, (u8*)esph-skb->data,
--			sizeof(struct ipv6_esp_hdr) + esp->conf.ivlen+clen, trailer->tail);
--		pskb_put(skb, trailer, alen);
-+		err = esp_mac_digest(esp, skb, (u8 *)esph - skb->data,
-+				     sizeof(*esph) + esp->conf.ivlen + clen);
-+		memcpy(pskb_put(skb, trailer, alen), esp->auth.work_icv, alen);
- 	}
- 
- error:
-@@ -162,15 +162,16 @@ static int esp6_input(struct xfrm_state 
- 
- 	/* If integrity check is required, do this. */
-         if (esp->auth.icv_full_len) {
--		u8 sum[esp->auth.icv_full_len];
--		u8 sum1[alen];
-+		u8 sum[alen];
- 
--		esp->auth.icv(esp, skb, 0, skb->len-alen, sum);
-+		ret = esp_mac_digest(esp, skb, 0, skb->len - alen);
+-		crypto_digest_final(tfm, out);
++		ret = crypto_hash_final(desc, out);
 +		if (ret)
 +			goto out;
  
--		if (skb_copy_bits(skb, skb->len-alen, sum1, alen))
-+		if (skb_copy_bits(skb, skb->len - alen, sum, alen))
- 			BUG();
+ 		end = get_cycles();
  
--		if (unlikely(memcmp(sum, sum1, alen))) {
-+		if (unlikely(memcmp(esp->auth.work_icv, sum, alen))) {
- 			x->stats.integrity_failed++;
- 			ret = -EINVAL;
- 			goto out;
-@@ -279,7 +280,7 @@ static void esp6_destroy(struct xfrm_sta
- 	esp->conf.tfm = NULL;
- 	kfree(esp->conf.ivec);
- 	esp->conf.ivec = NULL;
--	crypto_free_tfm(esp->auth.tfm);
-+	crypto_free_hash(esp->auth.tfm);
- 	esp->auth.tfm = NULL;
- 	kfree(esp->auth.work_icv);
- 	esp->auth.work_icv = NULL;
-@@ -308,24 +309,29 @@ static int esp6_init_state(struct xfrm_s
+ 		cycles += end - start;
+ 	}
  
- 	if (x->aalg) {
- 		struct xfrm_algo_desc *aalg_desc;
-+		struct crypto_hash *hash;
++out:
+ 	local_irq_enable();
+ 	local_bh_enable();
  
- 		esp->auth.key = x->aalg->alg_key;
- 		esp->auth.key_len = (x->aalg->alg_key_len+7)/8;
--		esp->auth.tfm = crypto_alloc_tfm(x->aalg->alg_name, 0);
--		if (esp->auth.tfm == NULL)
-+		hash = crypto_alloc_hash(x->aalg->alg_name, 0,
-+					 CRYPTO_ALG_ASYNC);
-+		if (IS_ERR(hash))
-+			goto error;
++	if (ret)
++		return ret;
 +
-+		esp->auth.tfm = hash;
-+		if (crypto_hash_setkey(hash, esp->auth.key, esp->auth.key_len))
- 			goto error;
--		esp->auth.icv = esp_hmac_digest;
-  
- 		aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
- 		BUG_ON(!aalg_desc);
-  
- 		if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
--			crypto_tfm_alg_digestsize(esp->auth.tfm)) {
--				printk(KERN_INFO "ESP: %s digestsize %u != %hu\n",
--					x->aalg->alg_name,
--					crypto_tfm_alg_digestsize(esp->auth.tfm),
--					aalg_desc->uinfo.auth.icv_fullbits/8);
--				goto error;
-+		    crypto_hash_digestsize(hash)) {
-+			NETDEBUG(KERN_INFO "ESP: %s digestsize %u != %hu\n",
-+				 x->aalg->alg_name,
-+				 crypto_hash_digestsize(hash),
-+				 aalg_desc->uinfo.auth.icv_fullbits/8);
-+			goto error;
- 		}
-  
- 		esp->auth.icv_full_len = aalg_desc->uinfo.auth.icv_fullbits/8;
-diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
---- a/net/xfrm/xfrm_algo.c
-+++ b/net/xfrm/xfrm_algo.c
-@@ -30,7 +30,8 @@
-  */
- static struct xfrm_algo_desc aalg_list[] = {
- {
--	.name = "digest_null",
-+	.name = "hmac(digest_null)",
-+	.compat = "digest_null",
- 	
- 	.uinfo = {
- 		.auth = {
-@@ -47,7 +48,8 @@ static struct xfrm_algo_desc aalg_list[]
- 	}
- },
- {
--	.name = "md5",
-+	.name = "hmac(md5)",
-+	.compat = "md5",
+ 	printk("%6lu cycles/operation, %4lu cycles/byte\n",
+ 	       cycles / 8, cycles / (8 * blen));
  
- 	.uinfo = {
- 		.auth = {
-@@ -64,7 +66,8 @@ static struct xfrm_algo_desc aalg_list[]
- 	}
- },
- {
--	.name = "sha1",
-+	.name = "hmac(sha1)",
-+	.compat = "sha1",
- 
- 	.uinfo = {
- 		.auth = {
-@@ -81,7 +84,8 @@ static struct xfrm_algo_desc aalg_list[]
- 	}
- },
- {
--	.name = "sha256",
-+	.name = "hmac(sha256)",
-+	.compat = "sha256",
- 
- 	.uinfo = {
- 		.auth = {
-@@ -98,7 +102,8 @@ static struct xfrm_algo_desc aalg_list[]
- 	}
- },
- {
--	.name = "ripemd160",
-+	.name = "hmac(ripemd160)",
-+	.compat = "ripemd160",
- 
- 	.uinfo = {
- 		.auth = {
-@@ -480,11 +485,12 @@ EXPORT_SYMBOL_GPL(xfrm_count_enc_support
- 
- /* Move to common area: it is shared with AH. */
- 
--void skb_icv_walk(const struct sk_buff *skb, struct crypto_tfm *tfm,
--		  int offset, int len, icv_update_fn_t icv_update)
-+int skb_icv_walk(const struct sk_buff *skb, struct hash_desc *desc,
-+		 int offset, int len, icv_update_fn_t icv_update)
- {
- 	int start = skb_headlen(skb);
- 	int i, copy = start - offset;
-+	int err;
- 	struct scatterlist sg;
- 
- 	/* Checksum header. */
-@@ -496,10 +502,12 @@ void skb_icv_walk(const struct sk_buff *
- 		sg.offset = (unsigned long)(skb->data + offset) % PAGE_SIZE;
- 		sg.length = copy;
- 		
--		icv_update(tfm, &sg, 1);
-+		err = icv_update(desc, &sg, copy);
-+		if (unlikely(err))
-+			return err;
- 		
- 		if ((len -= copy) == 0)
--			return;
-+			return 0;
- 		offset += copy;
- 	}
- 
-@@ -519,10 +527,12 @@ void skb_icv_walk(const struct sk_buff *
- 			sg.offset = frag->page_offset + offset-start;
- 			sg.length = copy;
- 			
--			icv_update(tfm, &sg, 1);
-+			err = icv_update(desc, &sg, copy);
-+			if (unlikely(err))
-+				return err;
- 
- 			if (!(len -= copy))
--				return;
-+				return 0;
- 			offset += copy;
- 		}
- 		start = end;
-@@ -540,15 +550,19 @@ void skb_icv_walk(const struct sk_buff *
- 			if ((copy = end - offset) > 0) {
- 				if (copy > len)
- 					copy = len;
--				skb_icv_walk(list, tfm, offset-start, copy, icv_update);
-+				err = skb_icv_walk(list, desc, offset-start,
-+						   copy, icv_update);
-+				if (unlikely(err))
-+					return err;
- 				if ((len -= copy) == 0)
--					return;
-+					return 0;
- 				offset += copy;
- 			}
- 			start = end;
- 		}
- 	}
- 	BUG_ON(len);
+-	return;
 +	return 0;
  }
- EXPORT_SYMBOL_GPL(skb_icv_walk);
  
+-static void test_digest_speed(char *algo, unsigned int sec,
+-			      struct digest_speed *speed)
++static void test_hash_speed(char *algo, unsigned int sec,
++			      struct hash_speed *speed)
+ {
+-	struct crypto_tfm *tfm;
++	struct crypto_hash *tfm;
++	struct hash_desc desc;
+ 	char output[1024];
+ 	int i;
++	int ret;
+ 
+ 	printk("\ntesting speed of %s\n", algo);
+ 
+-	tfm = crypto_alloc_tfm(algo, 0);
++	tfm = crypto_alloc_hash(algo, 0, CRYPTO_ALG_ASYNC);
+ 
+-	if (tfm == NULL) {
+-		printk("failed to load transform for %s\n", algo);
++	if (IS_ERR(tfm)) {
++		printk("failed to load transform for %s: %ld\n", algo,
++		       PTR_ERR(tfm));
+ 		return;
+ 	}
+ 
+-	if (crypto_tfm_alg_digestsize(tfm) > sizeof(output)) {
++	desc.tfm = tfm;
++	desc.flags = 0;
++
++	if (crypto_hash_digestsize(tfm) > sizeof(output)) {
+ 		printk("digestsize(%u) > outputbuffer(%zu)\n",
+-		       crypto_tfm_alg_digestsize(tfm), sizeof(output));
++		       crypto_hash_digestsize(tfm), sizeof(output));
+ 		goto out;
+ 	}
+ 
+@@ -677,13 +729,20 @@ static void test_digest_speed(char *algo
+ 		memset(tvmem, 0xff, speed[i].blen);
+ 
+ 		if (sec)
+-			test_digest_jiffies(tfm, tvmem, speed[i].blen, speed[i].plen, output, sec);
++			ret = test_hash_jiffies(&desc, tvmem, speed[i].blen,
++						speed[i].plen, output, sec);
+ 		else
+-			test_digest_cycles(tfm, tvmem, speed[i].blen, speed[i].plen, output);
++			ret = test_hash_cycles(&desc, tvmem, speed[i].blen,
++					       speed[i].plen, output);
++
++		if (ret) {
++			printk("hashing failed ret=%d\n", ret);
++			break;
++		}
+ 	}
+ 
+ out:
+-	crypto_free_tfm(tfm);
++	crypto_free_hash(tfm);
+ }
+ 
+ static void test_deflate(void)
+@@ -911,11 +970,12 @@ static void do_test(void)
+ 		test_hash("tgr128", tgr128_tv_template, TGR128_TEST_VECTORS);
+ 		test_deflate();
+ 		test_hash("crc32c", crc32c_tv_template, CRC32C_TEST_VECTORS);
+-#ifdef CONFIG_CRYPTO_HMAC
+-		test_hmac("md5", hmac_md5_tv_template, HMAC_MD5_TEST_VECTORS);
+-		test_hmac("sha1", hmac_sha1_tv_template, HMAC_SHA1_TEST_VECTORS);
+-		test_hmac("sha256", hmac_sha256_tv_template, HMAC_SHA256_TEST_VECTORS);
+-#endif
++		test_hash("hmac(md5)", hmac_md5_tv_template,
++			  HMAC_MD5_TEST_VECTORS);
++		test_hash("hmac(sha1)", hmac_sha1_tv_template,
++			  HMAC_SHA1_TEST_VECTORS);
++		test_hash("hmac(sha256)", hmac_sha256_tv_template,
++			  HMAC_SHA256_TEST_VECTORS);
+ 
+ 		test_hash("michael_mic", michael_mic_tv_template, MICHAEL_MIC_TEST_VECTORS);
+ 		break;
+@@ -1106,20 +1166,21 @@ static void do_test(void)
+ 			    XETA_DEC_TEST_VECTORS);
+ 		break;
+ 
+-#ifdef CONFIG_CRYPTO_HMAC
+ 	case 100:
+-		test_hmac("md5", hmac_md5_tv_template, HMAC_MD5_TEST_VECTORS);
++		test_hash("hmac(md5)", hmac_md5_tv_template,
++			  HMAC_MD5_TEST_VECTORS);
+ 		break;
+ 
+ 	case 101:
+-		test_hmac("sha1", hmac_sha1_tv_template, HMAC_SHA1_TEST_VECTORS);
++		test_hash("hmac(sha1)", hmac_sha1_tv_template,
++			  HMAC_SHA1_TEST_VECTORS);
+ 		break;
+ 
+ 	case 102:
+-		test_hmac("sha256", hmac_sha256_tv_template, HMAC_SHA256_TEST_VECTORS);
++		test_hash("hmac(sha256)", hmac_sha256_tv_template,
++			  HMAC_SHA256_TEST_VECTORS);
+ 		break;
+ 
+-#endif
+ 
+ 	case 200:
+ 		test_cipher_speed("ecb(aes)", ENCRYPT, sec, NULL, 0,
+@@ -1188,51 +1249,51 @@ static void do_test(void)
+ 		/* fall through */
+ 
+ 	case 301:
+-		test_digest_speed("md4", sec, generic_digest_speed_template);
++		test_hash_speed("md4", sec, generic_hash_speed_template);
+ 		if (mode > 300 && mode < 400) break;
+ 
+ 	case 302:
+-		test_digest_speed("md5", sec, generic_digest_speed_template);
++		test_hash_speed("md5", sec, generic_hash_speed_template);
+ 		if (mode > 300 && mode < 400) break;
+ 
+ 	case 303:
+-		test_digest_speed("sha1", sec, generic_digest_speed_template);
++		test_hash_speed("sha1", sec, generic_hash_speed_template);
+ 		if (mode > 300 && mode < 400) break;
+ 
+ 	case 304:
+-		test_digest_speed("sha256", sec, generic_digest_speed_template);
++		test_hash_speed("sha256", sec, generic_hash_speed_template);
+ 		if (mode > 300 && mode < 400) break;
+ 
+ 	case 305:
+-		test_digest_speed("sha384", sec, generic_digest_speed_template);
++		test_hash_speed("sha384", sec, generic_hash_speed_template);
+ 		if (mode > 300 && mode < 400) break;
+ 
+ 	case 306:
+-		test_digest_speed("sha512", sec, generic_digest_speed_template);
++		test_hash_speed("sha512", sec, generic_hash_speed_template);
+ 		if (mode > 300 && mode < 400) break;
+ 
+ 	case 307:
+-		test_digest_speed("wp256", sec, generic_digest_speed_template);
++		test_hash_speed("wp256", sec, generic_hash_speed_template);
+ 		if (mode > 300 && mode < 400) break;
+ 
+ 	case 308:
+-		test_digest_speed("wp384", sec, generic_digest_speed_template);
++		test_hash_speed("wp384", sec, generic_hash_speed_template);
+ 		if (mode > 300 && mode < 400) break;
+ 
+ 	case 309:
+-		test_digest_speed("wp512", sec, generic_digest_speed_template);
++		test_hash_speed("wp512", sec, generic_hash_speed_template);
+ 		if (mode > 300 && mode < 400) break;
+ 
+ 	case 310:
+-		test_digest_speed("tgr128", sec, generic_digest_speed_template);
++		test_hash_speed("tgr128", sec, generic_hash_speed_template);
+ 		if (mode > 300 && mode < 400) break;
+ 
+ 	case 311:
+-		test_digest_speed("tgr160", sec, generic_digest_speed_template);
++		test_hash_speed("tgr160", sec, generic_hash_speed_template);
+ 		if (mode > 300 && mode < 400) break;
+ 
+ 	case 312:
+-		test_digest_speed("tgr192", sec, generic_digest_speed_template);
++		test_hash_speed("tgr192", sec, generic_hash_speed_template);
+ 		if (mode > 300 && mode < 400) break;
+ 
+ 	case 399:
+diff --git a/crypto/tcrypt.h b/crypto/tcrypt.h
+--- a/crypto/tcrypt.h
++++ b/crypto/tcrypt.h
+@@ -36,16 +36,6 @@ struct hash_testvec {
+ 	unsigned char ksize;
+ };
+ 
+-struct hmac_testvec {
+-	char key[128];
+-	char plaintext[128];
+-	char digest[MAX_DIGEST_SIZE];
+-	unsigned char tap[MAX_TAP];
+-	unsigned char ksize;
+-	unsigned char psize;
+-	unsigned char np;
+-};
+-
+ struct cipher_testvec {
+ 	char key[MAX_KEYLEN] __attribute__ ((__aligned__(4)));
+ 	char iv[MAX_IVLEN];
+@@ -65,7 +55,7 @@ struct cipher_speed {
+ 	unsigned int blen;
+ };
+ 
+-struct digest_speed {
++struct hash_speed {
+ 	unsigned int blen;	/* buffer length */
+ 	unsigned int plen;	/* per-update length */
+ };
+@@ -697,14 +687,13 @@ static struct hash_testvec tgr128_tv_tem
+ 	},
+ };
+ 
+-#ifdef CONFIG_CRYPTO_HMAC
+ /*
+  * HMAC-MD5 test vectors from RFC2202
+  * (These need to be fixed to not use strlen).
+  */
+ #define HMAC_MD5_TEST_VECTORS	7
+ 
+-static struct hmac_testvec hmac_md5_tv_template[] =
++static struct hash_testvec hmac_md5_tv_template[] =
+ {
+ 	{
+ 		.key	= { [0 ... 15] =  0x0b },
+@@ -768,7 +757,7 @@ static struct hmac_testvec hmac_md5_tv_t
+  */
+ #define HMAC_SHA1_TEST_VECTORS	7
+ 
+-static struct hmac_testvec hmac_sha1_tv_template[] = {
++static struct hash_testvec hmac_sha1_tv_template[] = {
+ 	{
+ 		.key	= { [0 ... 19] = 0x0b },
+ 		.ksize	= 20,
+@@ -833,7 +822,7 @@ static struct hmac_testvec hmac_sha1_tv_
+  */
+ #define HMAC_SHA256_TEST_VECTORS	10
+ 
+-static struct hmac_testvec hmac_sha256_tv_template[] = {
++static struct hash_testvec hmac_sha256_tv_template[] = {
+ 	{
+ 		.key	= { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+ 			    0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+@@ -944,8 +933,6 @@ static struct hmac_testvec hmac_sha256_t
+ 	},
+ };
+ 
+-#endif	/* CONFIG_CRYPTO_HMAC */
+-
+ /*
+  * DES test vectors.
+  */
+@@ -3160,7 +3147,7 @@ static struct cipher_speed des_speed_tem
+ /*
+  * Digest speed tests
+  */
+-static struct digest_speed generic_digest_speed_template[] = {
++static struct hash_speed generic_hash_speed_template[] = {
+ 	{ .blen = 16, 	.plen = 16, },
+ 	{ .blen = 64,	.plen = 16, },
+ 	{ .blen = 64,	.plen = 64, },
