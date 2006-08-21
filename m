@@ -1,41 +1,61 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] locking bug in fib_semantics.c
-Date: Mon, 21 Aug 2006 13:02:01 +0200
-Message-ID: <20060821110201.GA3674@ff.dom.local>
-References: <20060817093615.GA25553@ms2.inr.ac.ru> <20060821081642.GA2637@ff.dom.local> <20060821.011703.78716718.davem@davemloft.net>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [take9 2/2] kevent: poll/select() notifications. Timer notifications.
+Date: Mon, 21 Aug 2006 12:01:04 +0100
+Message-ID: <20060821110104.GC28759@infradead.org>
+References: <1155536496588@2ka.mipt.ru> <11555364962857@2ka.mipt.ru> <20060816133014.GB32499@infradead.org> <20060816134032.GB4314@2ka.mipt.ru> <20060818104120.GA20816@infradead.org> <20060818105934.GA11034@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>, tglx@linutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:59297 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S1751855AbWHUK7E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 06:59:04 -0400
-To: David Miller <davem@davemloft.net>
+Received: from pentafluge.infradead.org ([213.146.154.40]:52881 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1751865AbWHULBG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Aug 2006 07:01:06 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <20060821.011703.78716718.davem@davemloft.net>
+In-Reply-To: <20060818105934.GA11034@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 21-08-2006 10:17, David Miller wrote:
-> From: Jarek Poplawski <jarkao2@o2.pl>
-> Date: Mon, 21 Aug 2006 10:16:43 +0200
-...
->> But I hope the real reason for this patch isn't exactly like that.
->> Could fib_release_info() be interrupted by BH really?
+On Fri, Aug 18, 2006 at 02:59:34PM +0400, Evgeniy Polyakov wrote:
+> > If there's a really good reason we can keep things separate, but
+> > 
+> >   "epoll and kevent_poll differs on some aspects"
+> > 
+> > is not one :)
 > 
-> Absolutely, yes it can.  What makes you think it can't?
-> 
-> All of the call sites I have checked cause it to run with
-> BH's enabled, and that allows ip_fib_check_default() to
-> potentially run.  All we need is one such case to cause
-> the deadlock.
-> 
-> I was skeptical of this case too, until I checked how
-> fib_release_info() was called.
+> kevent_poll uses hash table (actually it is kevent that uses table),
+> locking is simpler and part of it is hidden in kevent core.
+> Actually kevent_poll is just a container allocator for poll wait queue.
+> So epoll does not differ (except hash/tree and locking,
+> which is based on locks for pathes which are shared in kevent with those
+> ones which can be called from irq/bh context) from kevent + kevent_poll.
+> And since kevent_poll can be not selected while epoll is always there
+> (until embedded config is turned on), I recommend to have them both.
+> Or always turn kevent on :)
 
-I overlooked this - so I've to sharpen my sight and look at it 
-again - now knowing it's there.
-Thanks for your response. I didn't expect it so fast and right 
-from the top!
+You mention a lot of implementation details that absoultely shouldn't
+matter to the userspace interface.
 
-Jarek P.
+I might not have explained enough what the point behind all this is, so
+I'll try to explain it again:
+
+ - the fate of aio, inotify, epoll, etc shows we badly need a generic
+   event mechnism that unifies event based interfaces of various subsystem.
+   Only having a single mechanisms allows things like unified event loops
+   and gives application progreammers the chance to learn that one interface
+   for real and get it right.
+ - kevent looks like the right way to do this.  but to show it can really
+   archive this it needs to show it can do the things the existing event
+   systems can do at least as good.  reimplementing their user interfaces
+   ontop of kevent is the best (or maybe only) way to show that.
+   epoll is probably the easiest of the ones we have, so I'd suggest starting
+   with it.  inotify will be a lot harder, but we'll need that aswell.
+   the kevent inode hooks you had in your earlier patches will never ever
+   get in.
+
+Was this clear enough?
