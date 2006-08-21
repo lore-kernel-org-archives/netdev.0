@@ -1,34 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: NAPI documentation
-Date: Mon, 21 Aug 2006 15:17:45 -0700 (PDT)
-Message-ID: <20060821.151745.64003001.davem@davemloft.net>
-References: <20060821134053.7225987b@dxpl.pdx.osdl.net>
-	<20060821.150509.111198790.davem@davemloft.net>
-	<20060821150935.0d59791b@localhost.localdomain>
+From: Thomas Glanzmann <sithglan@stud.uni-erlangen.de>
+Subject: Re: sky2 doesn't receive any packages after I ssh in via ipv6 and edit a file in vim (reproducable)
+Date: Tue, 22 Aug 2006 00:26:34 +0200
+Message-ID: <20060821222634.GC21790@cip.informatik.uni-erlangen.de>
+References: <20060821212243.GA1558@cip.informatik.uni-erlangen.de> <20060821150231.31a947d4@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, linuxppc-dev@ozlabs.org, akpm@osdl.org,
-	jklewis@us.ibm.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com,
-	Jens.Osterkamp@de.ibm.com, linas@austin.ibm.com, corbet@lwn.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:21940
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751243AbWHUWRb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 18:17:31 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060821150935.0d59791b@localhost.localdomain>
+Received: from faui03.informatik.uni-erlangen.de ([131.188.30.103]:47015 "EHLO
+	faui03.informatik.uni-erlangen.de") by vger.kernel.org with ESMTP
+	id S1751251AbWHUW0g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Aug 2006 18:26:36 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060821150231.31a947d4@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Mon, 21 Aug 2006 15:09:35 -0700
+Hello,
 
-> Click edit on wiki and it is the first sentence.
+> Is this fix in your version?
+> 	http://www.mail-archive.com/netdev@vger.kernel.org/msg18603.html
 
-Thanks a lot.
+I put this one in and recompiled and I am *still* able to reproduce the
+problem.
 
-> Also, does Jamal have a link to his UKUUG paper?
-
-I don't think there is a copy online right now.
+        Thomas
