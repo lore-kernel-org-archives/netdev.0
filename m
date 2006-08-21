@@ -1,7 +1,7 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 01/18] d80211:  LED triggers
-Date: Mon, 21 Aug 2006 09:41:08 +0200
-Message-ID: <20060821075158.728615077@sipsolutions.net>
+Subject: [PATCH 18/18] d80211:  fix some documentation
+Date: Mon, 21 Aug 2006 09:41:25 +0200
+Message-ID: <20060821075203.135943128@sipsolutions.net>
 References: <20060821074107.648561364@sipsolutions.net>
 Mime-Version: 1.0
 Cc: Jouni Malinen <jkm@devicescape.com>,
@@ -9,370 +9,258 @@ Cc: Jouni Malinen <jkm@devicescape.com>,
 	Jiri Benc <jbenc@suse.cz>,
 	Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:2497 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1030344AbWHUIC2
+Received: from crystal.sipsolutions.net ([195.210.38.204]:4289 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1030312AbWHUICd
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 04:02:28 -0400
+	Mon, 21 Aug 2006 04:02:33 -0400
 To: netdev@vger.kernel.org
-Content-Disposition: inline; filename=d80211-led.patch
+Content-Disposition: inline; filename=d80211-doc-fixes.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes d80211 export LED triggers for rx/tx and introduces
-functions to allow device drivers to query the trigger names for setting
-default triggers. It also cleans up the Makefile LED related stuff.
+This patch fixes some spelling errors, typos etc. in d80211.h
 
 Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
---- wireless-dev.orig/include/net/d80211.h	2006-08-20 14:56:10.708192788 +0200
-+++ wireless-dev/include/net/d80211.h	2006-08-20 16:27:03.988192788 +0200
-@@ -695,6 +695,36 @@ struct net_device *ieee80211_alloc_hw(si
-  * function. */
- int ieee80211_register_hw(struct net_device *dev, struct ieee80211_hw *hw);
+--- wireless-dev.orig/include/net/d80211.h	2006-08-20 20:34:00.682819787 +0200
++++ wireless-dev/include/net/d80211.h	2006-08-20 20:58:32.412819787 +0200
+@@ -17,7 +17,7 @@
+ #include <linux/wireless.h>
+ #include "d80211_shared.h"
  
-+/* driver can use this and ieee80211_get_rx_led_name to get the
-+ * name of the registered LEDs after ieee80211_register_hw
-+ * was called.
-+ * This is useful to set the default trigger on the LED class
-+ * device that your driver should export for each LED the device
-+ * has, that way the default behaviour will be as expected but
-+ * the user can still change it/turn off the LED etc.
-+ */
-+#ifdef CONFIG_D80211_LEDS
-+extern char *__ieee80211_get_tx_led_name(struct net_device *dev);
-+extern char *__ieee80211_get_rx_led_name(struct net_device *dev);
-+#endif
-+static inline char *ieee80211_get_tx_led_name(struct net_device *dev)
-+{
-+#ifdef CONFIG_D80211_LEDS
-+	return __ieee80211_get_tx_led_name(dev);
-+#else
-+	return NULL;
-+#endif
-+}
-+
-+static inline char *ieee80211_get_rx_led_name(struct net_device *dev)
-+{
-+#ifdef CONFIG_D80211_LEDS
-+	return __ieee80211_get_rx_led_name(dev);
-+#else
-+	return NULL;
-+#endif
-+}
-+
- /* This function is allowed to update hardware configuration (e.g., list of
-  * supported operation modes and rates). */
- int ieee80211_update_hw(struct net_device *dev, struct ieee80211_hw *hw);
-@@ -884,16 +914,6 @@ enum {
- 	IEEE80211_TEST_PARAM_TX_ANT_SEL_RAW = 5,
+-/* Note! Only ieee80211_tx_status_irqsafe() and ieee80211_rx_irqsave() can be
++/* Note! Only ieee80211_tx_status_irqsafe() and ieee80211_rx_irqsafe() can be
+  * called in hardware interrupt context. The low-level driver must not call any
+  * other functions in hardware interrupt context. If there is a need for such
+  * call, the low-level driver should first ACK the interrupt and perform the
+@@ -131,8 +131,8 @@ struct ieee80211_low_level_stats {
  };
  
--/* ieee80211_tx_led called with state == 1 when the first frame is queued
-- *   with state == 0 when the last frame is transmitted and tx queue is empty
-- */
--void ieee80211_tx_led(int state, struct net_device *dev);
--/* ieee80211_rx_led is called each time frame is received, state is not used
-- * (== 2)
-- */
--void ieee80211_rx_led(int state, struct net_device *dev);
--
--
- /* IEEE 802.11 defines */
+ /* Transmit control fields. This data structure is passed to low-level driver
+- * with each TX frame. The low-level driver is responsible of configuring
+- * hardware to use given values (depending on what is supported). */
++ * with each TX frame. The low-level driver is responsible for configuring
++ * the hardware to use given values (depending on what is supported). */
+ #define HW_KEY_IDX_INVALID -1
  
- #define FCS_LEN 4
---- wireless-dev.orig/net/d80211/Kconfig	2006-08-20 14:56:10.728192788 +0200
-+++ wireless-dev/net/d80211/Kconfig	2006-08-20 16:27:27.578192788 +0200
-@@ -7,6 +7,14 @@ config D80211
- 	This option enables the hardware independent IEEE 802.11
- 	networking stack.
+ struct ieee80211_tx_control {
+@@ -162,7 +162,7 @@ struct ieee80211_tx_control {
+ 					 * frame */
+ 	 /* following three flags are only used with Atheros Super A/G */
+ 	unsigned int compress:1;
+-	unsigned int turbo_prime_notify:1; /* notify HostaAPd after frame
++	unsigned int turbo_prime_notify:1; /* notify HostAPd after frame
+ 					    * transmission */
+ 	unsigned int fast_frame:1;
  
-+config D80211_LEDS
-+	bool "Enable LED triggers"
-+	depends on D80211
-+	select LEDS_TRIGGERS
-+	---help---
-+	This option enables a few LED triggers for different
-+	packet receive/transmit events.
-+
- config D80211_DEBUG
- 	bool "Enable debugging output"
- 	depends on D80211
---- wireless-dev.orig/net/d80211/ieee80211.c	2006-08-20 14:56:10.768192788 +0200
-+++ wireless-dev/net/d80211/ieee80211.c	2006-08-20 16:27:08.548192788 +0200
-@@ -31,7 +31,7 @@
- #include "tkip.h"
- #include "wme.h"
- #include "aes_ccm.h"
--
-+#include "ieee80211_led.h"
+@@ -230,7 +230,10 @@ struct ieee80211_tx_status {
  
- /* See IEEE 802.1H for LLC/SNAP encapsulation/decapsulation */
- /* Ethernet-II snap header (RFC1042 for most EtherTypes) */
-@@ -1181,11 +1181,7 @@ static int __ieee80211_tx(struct ieee802
- 		ret = local->hw->tx(local->mdev, skb, control);
- 		if (ret)
- 			return IEEE80211_TX_AGAIN;
--#ifdef IEEE80211_LEDS
--		if (local->tx_led_counter++ == 0) {
--			ieee80211_tx_led(1, local->mdev);
--		}
--#endif /* IEEE80211_LEDS */
-+		ieee80211_led_tx(local, 1);
- 	}
- 	if (tx->u.tx.extra_frag) {
- 		control->use_rts_cts = 0;
-@@ -1210,11 +1206,7 @@ static int __ieee80211_tx(struct ieee802
- 					    control);
- 			if (ret)
- 				return IEEE80211_TX_FRAG_AGAIN;
--#ifdef IEEE80211_LEDS
--			if (local->tx_led_counter++ == 0) {
--				ieee80211_tx_led(1, local->mdev);
--			}
--#endif /* IEEE80211_LEDS */
-+			ieee80211_led_tx(local, 1);
- 			tx->u.tx.extra_frag[i] = NULL;
- 		}
- 		kfree(tx->u.tx.extra_frag);
-@@ -2998,10 +2990,8 @@ ieee80211_rx_h_defragment(struct ieee802
- 		rx->sta->rx_packets++;
- 	if (is_multicast_ether_addr(hdr->addr1))
- 		rx->local->dot11MulticastReceivedFrameCount++;
--#ifdef IEEE80211_LEDS
-         else
--		ieee80211_rx_led(2, rx->dev);
--#endif /* IEEE80211_LEDS */
-+		ieee80211_led_rx(rx->local);
- 	return TXRX_CONTINUE;
- }
  
-@@ -4104,11 +4094,8 @@ void ieee80211_tx_status(struct net_devi
- 		rate_control_tx_status(dev, skb, status);
- 	}
- 
--#ifdef IEEE80211_LEDS
--        if (local->tx_led_counter && (local->tx_led_counter-- == 1)) {
--                ieee80211_tx_led(0, dev);
--        }
--#endif /* IEEE80211_LEDS */
-+	ieee80211_led_tx(local, 0);
-+
-         /* SNMP counters
- 	 * Fragments are passed to low-level drivers as separate skbs, so these
- 	 * are actually fragments, not frames. Update frame counters only for
-@@ -4500,6 +4487,8 @@ int ieee80211_register_hw(struct net_dev
- 	local->reg_state = IEEE80211_DEV_REGISTERED;
- 	rtnl_unlock();
- 
-+	ieee80211_led_init(local);
-+
- 	return 0;
- 
- fail_rate_attrs:
-@@ -4603,6 +4592,7 @@ void ieee80211_unregister_hw(struct net_
- 	skb_queue_purge(&local->skb_queue_unreliable);
- 
- 	ieee80211_dev_free_index(local);
-+	ieee80211_led_exit(local);
- }
- 
- void ieee80211_free_hw(struct net_device *dev)
---- wireless-dev.orig/net/d80211/ieee80211_dev.c	2006-08-20 14:56:10.818192788 +0200
-+++ wireless-dev/net/d80211/ieee80211_dev.c	2006-08-20 14:56:15.978192788 +0200
-@@ -13,6 +13,7 @@
- #include <linux/netdevice.h>
- #include <net/d80211.h>
- #include "ieee80211_i.h"
-+#include "ieee80211_led.h"
- 
- struct ieee80211_dev_list {
- 	struct list_head list;
---- wireless-dev.orig/net/d80211/ieee80211_i.h	2006-08-20 14:56:10.838192788 +0200
-+++ wireless-dev/net/d80211/ieee80211_i.h	2006-08-20 16:27:06.458192788 +0200
-@@ -460,7 +460,11 @@ struct ieee80211_local {
-         u32 dot11TransmittedFrameCount;
-         u32 dot11WEPUndecryptableCount;
- 
--        int tx_led_counter;
-+#ifdef CONFIG_D80211_LEDS
-+	int tx_led_counter, rx_led_counter;
-+	struct led_trigger *tx_led, *rx_led;
-+	char tx_led_name[32], rx_led_name[32];
-+#endif
- 
- 	u32 channel_use;
- 	u32 channel_use_raw;
---- wireless-dev.orig/net/d80211/ieee80211_led.c	2006-08-20 14:56:10.878192788 +0200
-+++ wireless-dev/net/d80211/ieee80211_led.c	2006-08-20 14:56:15.978192788 +0200
-@@ -1,32 +1,91 @@
- /*
-- * Copyright 2002-2004, Instant802 Networks, Inc.
-+ * Copyright 2006, Johannes Berg <johannes@sipsolutions.net>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-  * published by the Free Software Foundation.
-  */
- 
--#include <linux/config.h>
--#include <linux/netdevice.h>
--#include <linux/types.h>
--
--#ifdef CONFIG_OAP_LEDS_WLAN
--extern void leds_wlan_set(int unit, int tx, int state);
--#endif
--
--void ieee80211_rx_led(int state, struct net_device *dev) {
--#ifdef CONFIG_OAP_LEDS_WLAN
--	static unsigned int count = 0;
-+/* just for IFNAMSIZ */
-+#include <linux/if.h>
-+#include "ieee80211_led.h"
-+
-+void ieee80211_led_rx(struct ieee80211_local *local)
-+{
-+	if (unlikely(!local->rx_led))
-+		return;
-+	if (local->rx_led_counter++ % 2 == 0)
-+		led_trigger_event(local->rx_led, LED_OFF);
-+	else
-+		led_trigger_event(local->rx_led, LED_FULL);
-+}
-+
-+/* q is 1 if a packet was enqueued, 0 if it has been transmitted */
-+void ieee80211_led_tx(struct ieee80211_local *local, int q)
-+{
-+	if (unlikely(!local->tx_led))
-+		return;
-+	/* not sure how this is supposed to work ... */
-+	local->tx_led_counter += 2*q-1;
-+	if (local->tx_led_counter % 2 == 0)
-+		led_trigger_event(local->tx_led, LED_OFF);
-+	else
-+		led_trigger_event(local->tx_led, LED_FULL);
-+}
-+
-+void ieee80211_led_init(struct ieee80211_local *local)
-+{
-+	local->rx_led = kzalloc(sizeof(struct led_trigger), GFP_KERNEL);
-+	if (!local->rx_led)
-+		return;
-+	snprintf(local->rx_led_name, sizeof(local->rx_led_name),
-+		 "wiphy%drx", local->dev_index);
-+	local->rx_led->name = local->rx_led_name;
-+	if (led_trigger_register(local->rx_led)) {
-+		kfree(local->rx_led);
-+		local->rx_led = NULL;
-+	}
- 
--	if (state == 2) {
--		leds_wlan_set(0, 0, (++count) & 1);
-+	local->tx_led = kzalloc(sizeof(struct led_trigger), GFP_KERNEL);
-+	if (!local->tx_led)
-+		return;
-+	snprintf(local->tx_led_name, sizeof(local->tx_led_name),
-+		 "wiphy%dtx", local->dev_index);
-+	local->tx_led->name = local->tx_led_name;
-+	if (led_trigger_register(local->tx_led)) {
-+		kfree(local->tx_led);
-+		local->tx_led = NULL;
- 	}
--#endif
- }
- 
--void ieee80211_tx_led(int state, struct net_device *dev) {
--#ifdef CONFIG_OAP_LEDS_WLAN
--        leds_wlan_set(0, 1, state);
--#endif
-+void ieee80211_led_exit(struct ieee80211_local *local)
-+{
-+	if (local->tx_led) {
-+		led_trigger_unregister(local->tx_led);
-+		kfree(local->tx_led);
-+	}
-+	if (local->rx_led) {
-+		led_trigger_unregister(local->rx_led);
-+		kfree(local->rx_led);
-+	}
- }
- 
-+char *__ieee80211_get_tx_led_name(struct net_device *dev)
-+{
-+	struct ieee80211_local *local = dev->ieee80211_ptr;
-+
-+	if (local->tx_led)
-+		return local->tx_led_name;
-+	return NULL;
-+}
-+EXPORT_SYMBOL(__ieee80211_get_tx_led_name);
-+
-+char *__ieee80211_get_rx_led_name(struct net_device *dev)
-+{
-+	struct ieee80211_local *local = dev->ieee80211_ptr;
-+
-+	if (local->rx_led)
-+		return local->rx_led_name;
-+	return NULL;
-+}
-+EXPORT_SYMBOL(__ieee80211_get_rx_led_name);
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ wireless-dev/net/d80211/ieee80211_led.h	2006-08-20 14:56:15.978192788 +0200
-@@ -0,0 +1,30 @@
-+/*
-+ * Copyright 2006, Johannes Berg <johannes@sipsolutions.net>
+ /**
+- * struct ieee80211_conf - configuration of a hardware
++ * struct ieee80211_conf - configuration of the device
 + *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <linux/leds.h>
-+#include "ieee80211_i.h"
-+
-+#ifdef CONFIG_D80211_LEDS
-+extern void ieee80211_led_rx(struct ieee80211_local *local);
-+extern void ieee80211_led_tx(struct ieee80211_local *local, int q);
-+extern void ieee80211_led_init(struct ieee80211_local *local);
-+extern void ieee80211_led_exit(struct ieee80211_local *local);
-+#else
-+static inline void ieee80211_led_rx(struct ieee80211_local *local)
-+{
-+}
-+static inline void ieee80211_led_tx(struct ieee80211_local *local, int q)
-+{
-+}
-+static inline void ieee80211_led_init(struct ieee80211_local *local)
-+{
-+}
-+static inline void ieee80211_led_exit(struct ieee80211_local *local)
-+{
-+}
-+#endif
---- wireless-dev.orig/net/d80211/Makefile	2006-08-20 14:56:10.958192788 +0200
-+++ wireless-dev/net/d80211/Makefile	2006-08-20 16:27:06.898192788 +0200
-@@ -1,5 +1,7 @@
- obj-$(CONFIG_D80211) += 80211.o rate_control.o
++ * This struct indicates how the driver shall configure the hardware.
++ *
+  * @radio_enabled: when zero, driver is required to switch off the radio.
+  */
+ struct ieee80211_conf {
+@@ -290,7 +293,8 @@ struct ieee80211_conf {
+ };
  
-+80211-objs-$(CONFIG_D80211_LEDS) += ieee80211_led.o
-+
- 80211-objs := \
- 	ieee80211.o \
- 	ieee80211_ioctl.o \
-@@ -15,13 +17,9 @@ obj-$(CONFIG_D80211) += 80211.o rate_con
- 	michael.o \
- 	tkip.o \
- 	aes_ccm.o \
--	wme.o
-+	wme.o \
-+	$(80211-objs-y)
+ /**
+- * enum ieee80211_if_types - types of 802.11 network interface
++ * enum ieee80211_if_types - types of 802.11 network interfaces
++ *
+  * @IEEE80211_IF_TYPE_AP: interface in AP mode.
+  * @IEEE80211_IF_TYPE_MGMT: special interface for communication with hostap
+  *	daemon. Drivers should never see this type.
+@@ -312,6 +316,7 @@ enum ieee80211_if_types {
  
- ifeq ($(CONFIG_NET_SCHED),)
-   80211-objs += fifo_qdisc.o
- endif
+ /**
+  * struct ieee80211_if_init_conf - initial configuration of an interface
++ *
+  * @if_id: internal interface ID. This number has no particular meaning to
+  *	drivers and the only allowed usage is to pass it to
+  *	ieee80211_beacon_get() and ieee80211_get_buffered_bc() functions.
+@@ -334,26 +339,27 @@ struct ieee80211_if_init_conf {
+ 
+ /**
+  * struct ieee80211_if_conf - configuration of an interface
++ *
+  * @type: type of the interface. This is always the same as was specified in
+- *	&struct ieee80211_if_init_conf. The type of interface never change
+- *	during the live of the interface; this field is present only for
++ *	&struct ieee80211_if_init_conf. The type of an interface never changes
++ *	during the life of the interface; this field is present only for
+  *	convenience.
+  * @bssid: BSSID of the network we are associated to/creating.
+  * @ssid: used (together with @ssid_len) by drivers for hardware that
+- *	generate beacons independently. The pointer is valid only during
+- *	config_interface() callback (so copy the value somewhere if you need
+- *	it).
++ *	generate beacons independently. The pointer is valid only during the
++ *	config_interface() call, so copy the value somewhere if you need
++ *	it.
+  * @ssid_len: length of the @ssid field.
+  * @generic_elem: used (together with @generic_elem_len) by drivers for
+  *	hardware that generate beacons independently. The pointer is valid
+- *	only during config_interface() callback (so copy the value somewhere
+- *	if you need it).
++ *	only during the config_interface() call, so copy the value somewhere
++ *	if you need it.
+  * @generic_elem_len: length of the generic element.
+  * @beacon: beacon template. Valid only if @host_gen_beacon_template in
+  *	&struct ieee80211_hw is set. The driver is responsible of freeing
+  *	the sk_buff.
+  *
+- * This structure is passed to config_interface() callback of
++ * This structure is passed to the config_interface() callback of
+  * &struct ieee80211_hw.
+  */
+ struct ieee80211_if_conf {
+@@ -432,8 +438,8 @@ typedef enum {
+ 	DISABLE_COMPRESSION
+ } set_key_cmd;
+ 
+-/* Configuration block used by the low-level driver to tell 802.11 code about
+- * supported hardware features and to pass function pointers for callback
++/* Configuration block used by the low-level driver to tell the 802.11 code
++ * about supported hardware features and to pass function pointers to callback
+  * functions. */
+ struct ieee80211_hw {
+ 	int version; /* IEEE80211_VERSION */
+@@ -445,9 +451,9 @@ struct ieee80211_hw {
+ 
+ 	/* Some wireless LAN chipsets generate beacons in the hardware/firmware
+ 	 * and others rely on host generated beacons. This option is used to
+-	 * configure upper layer IEEE 802.11 module to generate beacons. The
+-	 * low-level driver can use ieee80211_beacon_get() to fetch next
+-	 * beacon frame. */
++	 * configure the upper layer IEEE 802.11 module to generate beacons.
++	 * The low-level driver can use ieee80211_beacon_get() to fetch the
++	 * next beacon frame. */
+ 	unsigned int host_gen_beacon:1;
+ 
+ 	/* The device needs to be supplied with a beacon template only. */
+@@ -459,14 +465,13 @@ struct ieee80211_hw {
+ 	 * through) */
+ 	unsigned int device_hides_wep:1;
+ 
+-	/* Whether RX frames passed to ieee80211_rx() include FCS in the end
+-	 */
++	/* Whether RX frames passed to ieee80211_rx() include FCS in the end */
+ 	unsigned int rx_includes_fcs:1;
+ 
+ 	/* Some wireless LAN chipsets buffer broadcast/multicast frames for
+ 	 * power saving stations in the hardware/firmware and others rely on
+ 	 * the host system for such buffering. This option is used to
+-	 * configure upper layer IEEE 802.11 to buffer broadcast/multicast
++	 * configure the IEEE 802.11 upper layer to buffer broadcast/multicast
+ 	 * frames when there are power saving stations so that low-level driver
+ 	 * can fetch them with ieee80211_get_buffered_bc(). */
+ 	unsigned int host_broadcast_ps_buffering:1;
+@@ -475,18 +480,18 @@ struct ieee80211_hw {
+ 	unsigned int data_nullfunc_ack:1; /* will data nullfunc frames get proper
+ 					   * TX status callback */
+ 
+-	/* Force sw version of encryption for TKIP packets if WMM is enabled.
+-	 */
++	/* Force software encryption for TKIP packets if WMM is enabled. */
+ 	unsigned int no_tkip_wmm_hwaccel:1;
+ 
+-        /* 1 if the payload needs to be padded at even boundaries after the
++        /* set if the payload needs to be padded at even boundaries after the
+ 	 * header */
+ 	unsigned int extra_hdr_room:1;
+ 
+ 	/* Some devices handle Michael MIC internally and do not include MIC in
+-	 * the received packets given to 80211.o. device_strips_mic must be set
+-	 * for such devices. ISWEP bit is still expected to be set in the IEEE
+-	 * 802.11 header with this option unlike with device_hides_wep option.
++	 * the received packets passed up. device_strips_mic must be set
++	 * for such devices. The 'encryption' frame control bit is expected to
++	 * be still set in the IEEE 802.11 header with this option unlike with
++	 * the device_hides_wep configuration option.
+ 	 */
+ 	unsigned int device_strips_mic:1;
+ 
+@@ -494,9 +499,9 @@ struct ieee80211_hw {
+ 	 * normal operation. */
+ 	unsigned int monitor_during_oper:1;
+ 
+-	/* 1 = low-level driver supports skb fraglist (NETIF_F_FRAGLIST), i.e.,
+-	 * more than one skb per frame */
+-	unsigned int fraglist;
++	/* Set if the low-level driver supports skb fraglist (NETIF_F_FRAGLIST),
++	 * i.e. more than one skb per frame */
++	unsigned int fraglist:1;
+ 
+         /* This is the time in us to change channels
+          */
+@@ -528,17 +533,17 @@ struct ieee80211_hw {
+ 	/* Handler for asking a driver if a new interface can be added (or,
+ 	 * more exactly, set UP). If the handler returns zero, the interface
+ 	 * is added. Driver should perform any initialization it needs prior
+-	 * to returning zero. By returning non-zero, adding of the interface
+-	 * is not permitted. Unless monitor_during_oper is set, it is
+-	 * guaranteed that monitor interfaces and normal interfaces are
+-	 * mutually exclusive. The open() handler is called after
+-	 * add_interface() if this is the first device added. At least one
+-	 * of open() and add_interface() handler has to be non-NULL. If
++	 * to returning zero. By returning non-zero addition of the interface
++	 * is inhibited. Unless monitor_during_oper is set, it is guaranteed
++	 * that monitor interfaces and normal interfaces are mutually
++	 * exclusive. The open() handler is called after add_interface()
++	 * if this is the first device added. At least one of the open()
++	 * open() and add_interface() callbacks has to be assigned. If
+ 	 * add_interface() is NULL, one STA interface is permitted only. */
+ 	int (*add_interface)(struct net_device *dev,
+ 			     struct ieee80211_if_init_conf *conf);
+ 
+-	/* Notify a driver that interface is going down. The stop() handler
++	/* Notify a driver that an interface is going down. The stop() handler
+ 	 * is called prior to this if this is a last interface. */
+ 	void (*remove_interface)(struct net_device *dev,
+ 				 struct ieee80211_if_init_conf *conf);
+@@ -552,9 +557,9 @@ struct ieee80211_hw {
+ 	int (*config_interface)(struct net_device *dev, int if_id,
+ 				struct ieee80211_if_conf *conf);
+ 
+-	/* ieee80211 drivers should use this and not the function in
+-	 * net_device. dev->flags, dev->mc_count and dev->mc_list must not
+-	 * be used; use passed parameters and ieee80211_get_mc_list_item()
++	/* ieee80211 drivers must assign this instead of the callback in
++	 * &struct net_device. dev->flags, dev->mc_count and dev->mc_list must
++	 * not be used; use passed parameters and ieee80211_get_mc_list_item()
+ 	 * instead. */
+ 	void (*set_multicast_list)(struct net_device *dev,
+ 				   unsigned short flags, int mc_count);
+@@ -578,14 +583,14 @@ struct ieee80211_hw {
+ 	/* Set TX key index for default/broadcast keys. This is needed in cases
+ 	 * where wlan card is doing full WEP/TKIP encapsulation (wep_include_iv
+ 	 * is not set), in other cases, this function pointer can be set to
+-	 * NULL since 80211.o takes care of selecting the key index for each
+-	 * TX frame. */
++	 * NULL since the IEEE 802. 11 module takes care of selecting the key
++	 * index for each TX frame. */
+ 	int (*set_key_idx)(struct net_device *dev, int idx);
+ 
+ 	/* Enable/disable IEEE 802.1X. This item requests wlan card to pass
+ 	 * unencrypted EAPOL-Key frames even when encryption is configured.
+ 	 * If the wlan card does not require such a configuration, this
+-	 * function pointer can be set to NULL. 80211.o */
++	 * function pointer can be set to NULL. */
+ 	int (*set_ieee8021x)(struct net_device *dev, int use_ieee8021x);
+ 
+ 	/* Set port authorization state (IEEE 802.1X PAE) to be authorized
+@@ -615,7 +620,6 @@ struct ieee80211_hw {
+         /* For devices that generate their own beacons and probe response
+          * or association responses this updates the state of privacy_invoked
+          * returns 0 for success or an error number */
 -
--ifeq ($(CONFIG_D80211_LEDS),y)
--  80211-objs += ieee80211_led.o
--endif
--
+         int (*set_privacy_invoked)(struct net_device *dev,
+                                    int privacy_invoked);
+ 
 
 --
