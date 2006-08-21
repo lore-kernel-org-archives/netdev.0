@@ -1,8 +1,8 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take12 3/3] kevent: Timer notifications.
-Date: Mon, 21 Aug 2006 15:18:48 +0400
-Message-ID: <20060821111848.GB8608@2ka.mipt.ru>
-References: <11561555893621@2ka.mipt.ru> <1156155589287@2ka.mipt.ru> <20060821111239.GA30945@infradead.org>
+Subject: Re: [take9 2/2] kevent: poll/select() notifications. Timer notifications.
+Date: Mon, 21 Aug 2006 15:26:10 +0400
+Message-ID: <20060821112609.GD8608@2ka.mipt.ru>
+References: <1155536496588@2ka.mipt.ru> <11555364962857@2ka.mipt.ru> <20060816133014.GB32499@infradead.org> <20060816134032.GB4314@2ka.mipt.ru> <20060818104120.GA20816@infradead.org> <20060818105934.GA11034@2ka.mipt.ru> <20060821110104.GC28759@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
 Cc: lkml <linux-kernel@vger.kernel.org>,
@@ -11,100 +11,58 @@ Cc: lkml <linux-kernel@vger.kernel.org>,
 	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
 	Zach Brown <zach.brown@oracle.com>, tglx@linutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:22942 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S964954AbWHULUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 07:20:33 -0400
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:55231 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751873AbWHUL0w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 07:26:52 -0400
 To: Christoph Hellwig <hch@infradead.org>
 Content-Disposition: inline
-In-Reply-To: <20060821111239.GA30945@infradead.org>
+In-Reply-To: <20060821110104.GC28759@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 21, 2006 at 12:12:39PM +0100, Christoph Hellwig (hch@infradead.org) wrote:
-> On Mon, Aug 21, 2006 at 02:19:49PM +0400, Evgeniy Polyakov wrote:
+On Mon, Aug 21, 2006 at 12:01:04PM +0100, Christoph Hellwig (hch@infradead.org) wrote:
+> On Fri, Aug 18, 2006 at 02:59:34PM +0400, Evgeniy Polyakov wrote:
+> > > If there's a really good reason we can keep things separate, but
+> > > 
+> > >   "epoll and kevent_poll differs on some aspects"
+> > > 
+> > > is not one :)
 > > 
-> > 
-> > Timer notifications.
-> > 
-> > Timer notifications can be used for fine grained per-process time 
-> > management, since interval timers are very inconvenient to use, 
-> > and they are limited.
+> > kevent_poll uses hash table (actually it is kevent that uses table),
+> > locking is simpler and part of it is hidden in kevent core.
+> > Actually kevent_poll is just a container allocator for poll wait queue.
+> > So epoll does not differ (except hash/tree and locking,
+> > which is based on locks for pathes which are shared in kevent with those
+> > ones which can be called from irq/bh context) from kevent + kevent_poll.
+> > And since kevent_poll can be not selected while epoll is always there
+> > (until embedded config is turned on), I recommend to have them both.
+> > Or always turn kevent on :)
 > 
-> Shouldn't this at leat use a hrtimer?
-
-Not everymachine has them and getting into account possibility that
-userspace can be scheduled away, it will be overkill.
-
-> > new file mode 100644
-> > index 0000000..5217cd1
-> > --- /dev/null
-> > +++ b/kernel/kevent/kevent_timer.c
-> > @@ -0,0 +1,107 @@
-> > +/*
-> > + * 	kevent_timer.c
+> You mention a lot of implementation details that absoultely shouldn't
+> matter to the userspace interface.
 > 
-> You still include those sill filename ontop of file comments..
-
-Sorry, it looks like I updated not every file.
-
-> > +static struct lock_class_key kevent_timer_key;
-> > +
-> > +static int kevent_timer_enqueue(struct kevent *k)
-> > +{
-> > +	int err;
-> > +	struct kevent_timer *t;
-> > +
-> > +	t = kmalloc(sizeof(struct kevent_timer), GFP_KERNEL);
-> > +	if (!t)
-> > +		return -ENOMEM;
-> > +
-> > +	setup_timer(&t->ktimer, &kevent_timer_func, (unsigned long)k);
-> > +
-> > +	err = kevent_storage_init(&t->ktimer, &t->ktimer_storage);
-> > +	if (err)
-> > +		goto err_out_free;
-> > +	lockdep_set_class(&t->ktimer_storage.lock, &kevent_timer_key);
+> I might not have explained enough what the point behind all this is, so
+> I'll try to explain it again:
 > 
-> When looking at the kevent_storage_init callers most need to do
-> those lockdep_set_class class.  Shouldn't kevent_storage_init just
-> get a "struct lock_class_key *" argument?
-
-It will not work, since inode is used for both socket and inode
-notifications (to save some space in struct sock), lockdep initalization
-is performed on the highest level, so I put it alone.
-
-> > +static int kevent_timer_callback(struct kevent *k)
-> > +{
-> > +	k->event.ret_data[0] = (__u32)jiffies;
+>  - the fate of aio, inotify, epoll, etc shows we badly need a generic
+>    event mechnism that unifies event based interfaces of various subsystem.
+>    Only having a single mechanisms allows things like unified event loops
+>    and gives application progreammers the chance to learn that one interface
+>    for real and get it right.
+>  - kevent looks like the right way to do this.  but to show it can really
+>    archive this it needs to show it can do the things the existing event
+>    systems can do at least as good.  reimplementing their user interfaces
+>    ontop of kevent is the best (or maybe only) way to show that.
+>    epoll is probably the easiest of the ones we have, so I'd suggest starting
+>    with it.  inotify will be a lot harder, but we'll need that aswell.
+>    the kevent inode hooks you had in your earlier patches will never ever
+>    get in.
 > 
-> This is returned to userspace, isn't it?  raw jiffies should never be
-> user-visible.  Please convert this to an unit that actually makes sense
-> for userspace (probably nanoseconds)
+> Was this clear enough?
 
-It is just to show something, my userspace application just prints it to
-stdout to show kernelspace difference between events.
-Andrew pointed to it too, I think it is easier to just remove this string.
-
-> > +static int __init kevent_init_timer(void)
-> > +{
-> > +	struct kevent_callbacks tc = {
-> > +		.callback = &kevent_timer_callback, 
-> > +		.enqueue = &kevent_timer_enqueue, 
-> > +		.dequeue = &kevent_timer_dequeue};
-> 
-> I think this should be static, and the normal style to write it would be:
-> 
-> static struct kevent_callbacks tc = {
-> 	.callback	= kevent_timer_callback,
-> 	.enqueue	= kevent_timer_enqueue,
-> 	.dequeue	= kevent_timer_dequeue,
-> };
-> 
-> also please consider makring all the kevent_callbacks structs const
-> to avoid false cacheline sharing and accidental modification, similar
-> to what we did to various other operation vectors.
-
-Ok.
+Sure, but if I say that it would sound like advertisement :)
+Some inotify notifications (inode create/remove) are implemented already
+in (dropped) FS notification patchset.
 
 -- 
 	Evgeniy Polyakov
