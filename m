@@ -1,8 +1,7 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 07/18] d80211:  get rid of sta_aid in favour of keeping
-	track of TIM
-Date: Mon, 21 Aug 2006 09:41:14 +0200
-Message-ID: <20060821075200.055344487@sipsolutions.net>
+Subject: [PATCH 15/18] d80211:  surface IBSS debug
+Date: Mon, 21 Aug 2006 09:41:22 +0200
+Message-ID: <20060821075202.380638097@sipsolutions.net>
 References: <20060821074107.648561364@sipsolutions.net>
 Mime-Version: 1.0
 Cc: Jouni Malinen <jkm@devicescape.com>,
@@ -10,263 +9,138 @@ Cc: Jouni Malinen <jkm@devicescape.com>,
 	Jiri Benc <jbenc@suse.cz>,
 	Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:56256 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1030328AbWHUICN
+Received: from crystal.sipsolutions.net ([195.210.38.204]:50368 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1030314AbWHUICD
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 04:02:13 -0400
+	Mon, 21 Aug 2006 04:02:03 -0400
 To: netdev@vger.kernel.org
-Content-Disposition: inline; filename=d80211-sta-aid.patch
+Content-Disposition: inline; filename=d80211-ibss-debug.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I think this is not correct if a STA is removed for which packets
-are buffered, but if it is still wrong then that case was never
-correct to start with if the hw has a set_tim callback.
----
-This patch gets rid of the HUGE sta_aid array that was there in the
-access point structure and instead keeps track of the TIM. Also
-reduces stack usage of the ieee80211_beacon_add_tim() function
-considerably.
+This patch surfaces the IBSS debug switch in Kconfig.
 
 Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
---- wireless-dev.orig/net/d80211/ieee80211.c	2006-08-20 14:56:19.768192788 +0200
-+++ wireless-dev/net/d80211/ieee80211.c	2006-08-20 14:56:20.578192788 +0200
-@@ -22,6 +22,7 @@
- #include <linux/mutex.h>
- #include <net/iw_handler.h>
- #include <linux/compiler.h>
-+#include <linux/bitmap.h>
- 
- #include <net/d80211.h>
- #include <net/d80211_common.h>
-@@ -1044,8 +1045,12 @@ ieee80211_tx_h_unicast_ps_buf(struct iee
- 		} else
- 			tx->local->total_ps_buffered++;
- 		/* Queue frame to be sent after STA sends an PS Poll frame */
--		if (skb_queue_empty(&sta->ps_tx_buf) && tx->local->hw->set_tim)
--			tx->local->hw->set_tim(tx->dev, sta->aid, 1);
-+		if (skb_queue_empty(&sta->ps_tx_buf)) {
-+			if (tx->local->hw->set_tim)
-+				tx->local->hw->set_tim(tx->dev, sta->aid, 1);
-+			if (tx->sdata->bss)
-+				bss_tim_set(tx->local, tx->sdata->bss, sta->aid);
-+		}
- 		pkt_data = (struct ieee80211_tx_packet_data *)tx->skb->cb;
- 		pkt_data->jiffies = jiffies;
-                 skb_queue_tail(&sta->ps_tx_buf, tx->skb);
-@@ -1676,25 +1681,16 @@ static void ieee80211_beacon_add_tim(str
- {
- 	u8 *pos, *tim;
- 	int aid0 = 0;
--	int i, num_bits = 0, n1, n2;
--	u8 bitmap[251];
-+	int i, have_bits = 0, n1, n2;
- 
- 	/* Generate bitmap for TIM only if there are any STAs in power save
- 	 * mode. */
--	if (atomic_read(&bss->num_sta_ps) > 0 && bss->max_aid > 0) {
--		memset(bitmap, 0, sizeof(bitmap));
--		spin_lock_bh(&local->sta_lock);
--		for (i = 0; i < bss->max_aid; i++) {
--			if (bss->sta_aid[i] &&
--			    (!skb_queue_empty(&bss->sta_aid[i]->ps_tx_buf) ||
--			     !skb_queue_empty(&bss->sta_aid[i]->tx_filtered)))
--			{
--				bitmap[(i + 1) / 8] |= 1 << (i + 1) % 8;
--				num_bits++;
--			}
--		}
--		spin_unlock_bh(&local->sta_lock);
--	}
-+	spin_lock_bh(&local->sta_lock);
-+	if (atomic_read(&bss->num_sta_ps) > 0)
-+		/* in the hope that this is faster than
-+		 * checking byte-for-byte */
-+		have_bits = !bitmap_empty((unsigned long*)bss->tim,
-+					  MAX_AID_TABLE_SIZE+1);
- 
- 	if (bss->dtim_count == 0)
- 		bss->dtim_count = bss->dtim_period - 1;
-@@ -1707,40 +1703,41 @@ static void ieee80211_beacon_add_tim(str
- 	*pos++ = bss->dtim_count;
- 	*pos++ = bss->dtim_period;
- 
--	if (bss->dtim_count == 0 && !skb_queue_empty(&bss->ps_bc_buf)) {
-+	if (bss->dtim_count == 0 && !skb_queue_empty(&bss->ps_bc_buf))
- 		aid0 = 1;
--	}
- 
--	if (num_bits) {
-+	if (have_bits) {
- 		/* Find largest even number N1 so that bits numbered 1 through
- 		 * (N1 x 8) - 1 in the bitmap are 0 and number N2 so that bits
- 		 * (N2 + 1) x 8 through 2007 are 0. */
- 		n1 = 0;
--		for (i = 0; i < sizeof(bitmap); i++) {
--			if (bitmap[i]) {
-+		/* 251 = max size of tim bitmap in beacon */
-+		for (i = 0; i < 251; i++) {
-+			if (bss->tim[i]) {
- 				n1 = i & 0xfe;
- 				break;
- 			}
- 		}
- 		n2 = n1;
--		for (i = sizeof(bitmap) - 1; i >= n1; i--) {
--			if (bitmap[i]) {
-+		for (i = 251 - 1; i >= n1; i--) {
-+			if (bss->tim[i]) {
- 				n2 = i;
- 				break;
- 			}
- 		}
- 
- 		/* Bitmap control */
--		*pos++ = n1 | (aid0 ? 1 : 0);
-+		*pos++ = n1 | aid0;
- 		/* Part Virt Bitmap */
--		memcpy(pos, bitmap + n1, n2 - n1 + 1);
-+		memcpy(pos, bss->tim + n1, n2 - n1 + 1);
- 
- 		tim[1] = n2 - n1 + 4;
- 		skb_put(skb, n2 - n1);
- 	} else {
--		*pos++ = aid0 ? 1 : 0; /* Bitmap control */
-+		*pos++ = aid0; /* Bitmap control */
- 		*pos++ = 0; /* Part Virt Bitmap */
- 	}
-+	spin_unlock_bh(&local->sta_lock);
- }
- 
- 
-@@ -2702,8 +2699,12 @@ static int ap_sta_ps_end(struct net_devi
- 		atomic_dec(&sdata->bss->num_sta_ps);
- 	sta->flags &= ~(WLAN_STA_PS | WLAN_STA_TIM);
- 	sta->pspoll = 0;
--	if (!skb_queue_empty(&sta->ps_tx_buf) && local->hw->set_tim)
--		local->hw->set_tim(dev, sta->aid, 0);
-+	if (!skb_queue_empty(&sta->ps_tx_buf)) {
-+		if (local->hw->set_tim)
-+			local->hw->set_tim(dev, sta->aid, 0);
-+		if (sdata->bss)
-+			bss_tim_clear(local, sdata->bss, sta->aid);
-+	}
- #ifdef IEEE80211_VERBOSE_DEBUG_PS
- 	printk(KERN_DEBUG "%s: STA " MAC_FMT " aid %d exits power "
- 	       "save mode\n", dev->name, MAC_ARG(sta->addr), sta->aid);
-@@ -2778,8 +2779,12 @@ ieee80211_rx_h_ps_poll(struct ieee80211_
- 
- 		dev_queue_xmit(skb);
- 
--		if (no_pending_pkts && rx->local->hw->set_tim)
--			rx->local->hw->set_tim(rx->dev, rx->sta->aid, 0);
-+		if (no_pending_pkts) {
-+			if (rx->local->hw->set_tim)
-+				rx->local->hw->set_tim(rx->dev, rx->sta->aid, 0);
-+			if (rx->sdata->bss)
-+				bss_tim_clear(rx->local, rx->sdata->bss, rx->sta->aid);
-+		}
- #ifdef IEEE80211_VERBOSE_DEBUG_PS
- 	} else if (!rx->u.rx.sent_ps_buffered) {
- 		printk(KERN_DEBUG "%s: STA " MAC_FMT " sent PS Poll even "
---- wireless-dev.orig/net/d80211/ieee80211_i.h	2006-08-20 14:56:15.978192788 +0200
-+++ wireless-dev/net/d80211/ieee80211_i.h	2006-08-20 14:56:20.578192788 +0200
-@@ -18,6 +18,8 @@
- #include <linux/netdevice.h>
- #include <linux/skbuff.h>
- #include <linux/workqueue.h>
-+#include <linux/types.h>
-+#include <linux/spinlock.h>
- #include "ieee80211_key.h"
- #include "sta_info.h"
- 
-@@ -211,13 +213,10 @@ struct ieee80211_if_ap {
- 	u8 *generic_elem;
- 	size_t generic_elem_len;
- 
--	/* TODO: sta_aid could be replaced by 2008-bit large bitfield of
--	 * that could be used in TIM element generation. This would also
--	 * make TIM element generation a bit faster. */
--	/* AID mapping to station data. NULL, if AID is free. AID is in the
--	 * range 1..2007 and sta_aid[i] corresponds to AID i+1. */
--	struct sta_info *sta_aid[MAX_AID_TABLE_SIZE];
--	int max_aid; /* largest aid currently in use */
-+	/* yes, this looks ugly, but guarantees that we can later use
-+	 * bitmap_empty :)
-+	 * NB: don't ever use set_bit, use bss_tim_set/bss_tim_clear! */
-+	u8 tim[sizeof(unsigned long)*BITS_TO_LONGS(MAX_AID_TABLE_SIZE+1)];
- 	atomic_t num_sta_ps; /* number of stations in PS mode */
- 	struct sk_buff_head ps_bc_buf;
- 	int dtim_period, dtim_count;
-@@ -549,6 +548,21 @@ struct sta_attribute {
- 	ssize_t (*store)(struct sta_info *, const char *buf, size_t count);
- };
- 
-+static inline void bss_tim_set(struct ieee80211_local *local,
-+			       struct ieee80211_if_ap *bss, int aid)
-+{
-+	spin_lock(&local->sta_lock);
-+	bss->tim[(aid)/8] |= 1<<((aid) % 8);
-+	spin_unlock(&local->sta_lock);
-+}
+--- wireless-dev.orig/net/d80211/Kconfig	2006-08-20 17:38:37.978192788 +0200
++++ wireless-dev/net/d80211/Kconfig	2006-08-20 17:39:14.728192788 +0200
+@@ -53,3 +53,9 @@ config D80211_DEBUG_COUNTERS
+ config HOSTAPD_WPA_TESTING
+ 	bool "Support for TKIP countermeasures testing"
+ 	depends on D80211_DEBUG
 +
-+static inline void bss_tim_clear(struct ieee80211_local *local,
-+				 struct ieee80211_if_ap *bss, int aid)
-+{
-+	spin_lock(&local->sta_lock);
-+	bss->tim[(aid)/8] &= !(1<<((aid) % 8));
-+	spin_unlock(&local->sta_lock);
-+}
++config D80211_IBSS_DEBUG
++	bool "Support for IBSS testing"
++	depends on D80211_DEBUG
++	---help---
++	  Say Y here if you intend to debug the IBSS code.
+--- wireless-dev.orig/net/d80211/ieee80211_sta.c	2006-08-20 17:38:01.488192788 +0200
++++ wireless-dev/net/d80211/ieee80211_sta.c	2006-08-20 17:38:27.758192788 +0200
+@@ -31,8 +31,6 @@
+ #include "rate_control.h"
+ #include "hostapd_ioctl.h"
  
- /* ieee80211.c */
- void ieee80211_release_hw(struct ieee80211_local *local);
---- wireless-dev.orig/net/d80211/ieee80211_ioctl.c	2006-08-20 14:56:17.408192788 +0200
-+++ wireless-dev/net/d80211/ieee80211_ioctl.c	2006-08-20 14:56:20.588192788 +0200
-@@ -298,10 +298,6 @@ static int ieee80211_ioctl_add_sta(struc
- 	sta->aid = param->u.add_sta.aid;
- 	if (sta->aid > MAX_AID_TABLE_SIZE)
- 		sta->aid = 0;
--	if (sta->aid > 0 && sdata->bss)
--		sdata->bss->sta_aid[sta->aid - 1] = sta;
--	if (sdata->bss && sta->aid > sdata->bss->max_aid)
--		sdata->bss->max_aid = sta->aid;
- 
- 	rates = 0;
- 	for (i = 0; i < sizeof(param->u.add_sta.supp_rates); i++) {
---- wireless-dev.orig/net/d80211/ieee80211_sysfs.c	2006-08-20 14:56:19.768192788 +0200
-+++ wireless-dev/net/d80211/ieee80211_sysfs.c	2006-08-20 14:56:20.588192788 +0200
-@@ -514,7 +514,6 @@ static ssize_t ieee80211_if_fmt_flags(co
- __IEEE80211_IF_SHOW(flags);
- 
- /* AP attributes */
--IEEE80211_IF_SHOW(max_aid, u.ap.max_aid, DEC);
- IEEE80211_IF_SHOW(num_sta_ps, u.ap.num_sta_ps, ATOMIC);
- IEEE80211_IF_SHOW(dtim_period, u.ap.dtim_period, DEC);
- IEEE80211_IF_SHOW(dtim_count, u.ap.dtim_count, DEC);
-@@ -592,7 +591,6 @@ static struct attribute *ieee80211_ap_at
- 	&class_device_attr_drop_unencrypted.attr,
- 	&class_device_attr_eapol.attr,
- 	&class_device_attr_ieee8021_x.attr,
--	&class_device_attr_max_aid.attr,
- 	&class_device_attr_num_sta_ps.attr,
- 	&class_device_attr_dtim_period.attr,
- 	&class_device_attr_dtim_count.attr,
---- wireless-dev.orig/net/d80211/sta_info.c	2006-08-20 14:56:17.418192788 +0200
-+++ wireless-dev/net/d80211/sta_info.c	2006-08-20 14:56:20.588192788 +0200
-@@ -424,13 +424,6 @@ void sta_info_remove_aid_ptr(struct sta_
- 	sdata = IEEE80211_DEV_TO_SUB_IF(sta->dev);
- 	if (sta->aid <= 0 || !sdata->bss)
- 		return;
+-/* #define IEEE80211_IBSS_DEBUG */
 -
--	sdata->bss->sta_aid[sta->aid - 1] = NULL;
--	if (sta->aid == sdata->bss->max_aid) {
--		while (sdata->bss->max_aid > 0 &&
--		       !sdata->bss->sta_aid[sdata->bss->max_aid - 1])
--			sdata->bss->max_aid--;
--	}
+ #define IEEE80211_AUTH_TIMEOUT (HZ / 5)
+ #define IEEE80211_AUTH_MAX_TRIES 3
+ #define IEEE80211_ASSOC_TIMEOUT (HZ / 5)
+@@ -1353,7 +1351,7 @@ static void ieee80211_rx_bss_info(struct
+ 
+ 	if (sdata->type == IEEE80211_IF_TYPE_IBSS && beacon &&
+ 	    memcmp(mgmt->bssid, sdata->u.sta.bssid, ETH_ALEN) == 0) {
+-#ifdef IEEE80211_IBSS_DEBUG
++#ifdef CONFIG_D80211_IBSS_DEBUG
+ 		static unsigned long last_tsf_debug = 0;
+ 		u64 tsf;
+ 		if (local->hw->get_tsf)
+@@ -1368,7 +1366,7 @@ static void ieee80211_rx_bss_info(struct
+ 			       tsf, timestamp, tsf - timestamp, jiffies);
+ 			last_tsf_debug = jiffies;
+ 		}
+-#endif /* IEEE80211_IBSS_DEBUG */
++#endif /* CONFIG_D80211_IBSS_DEBUG */
+ 	}
+ 
+ 	if (ieee802_11_parse_elems(mgmt->u.beacon.variable, len - baselen,
+@@ -1648,12 +1646,12 @@ static void ieee80211_rx_mgmt_probe_req(
+ 	else
+ 		tx_last_beacon = 1;
+ 
+-#ifdef IEEE80211_IBSS_DEBUG
++#ifdef CONFIG_D80211_IBSS_DEBUG
+ 	printk(KERN_DEBUG "%s: RX ProbeReq SA=" MAC_FMT " DA=" MAC_FMT " BSSID="
+ 	       MAC_FMT " (tx_last_beacon=%d)\n",
+ 	       dev->name, MAC_ARG(mgmt->sa), MAC_ARG(mgmt->da),
+ 	       MAC_ARG(mgmt->bssid), tx_last_beacon);
+-#endif /* IEEE80211_IBSS_DEBUG */
++#endif /* CONFIG_D80211_IBSS_DEBUG */
+ 
+ 	if (!tx_last_beacon)
+ 		return;
+@@ -1687,10 +1685,10 @@ static void ieee80211_rx_mgmt_probe_req(
+ 
+ 	resp = (struct ieee80211_mgmt *) skb->data;
+ 	memcpy(resp->da, mgmt->sa, ETH_ALEN);
+-#ifdef IEEE80211_IBSS_DEBUG
++#ifdef CONFIG_D80211_IBSS_DEBUG
+ 	printk(KERN_DEBUG "%s: Sending ProbeResp to " MAC_FMT "\n",
+ 	       dev->name, MAC_ARG(resp->da));
+-#endif /* IEEE80211_IBSS_DEBUG */
++#endif /* CONFIG_D80211_IBSS_DEBUG */
+ 	ieee80211_sta_tx(dev, skb, 0, 1);
  }
  
+@@ -2187,10 +2185,10 @@ static int ieee80211_sta_find_ibss(struc
+ 		return -EINVAL;
  
+ 	active_ibss = ieee80211_sta_active_ibss(dev);
+-#ifdef IEEE80211_IBSS_DEBUG
++#ifdef CONFIG_D80211_IBSS_DEBUG
+ 	printk(KERN_DEBUG "%s: sta_find_ibss (active_ibss=%d)\n",
+ 	       dev->name, active_ibss);
+-#endif /* IEEE80211_IBSS_DEBUG */
++#endif /* CONFIG_D80211_IBSS_DEBUG */
+ 	spin_lock_bh(&local->sta_bss_lock);
+ 	list_for_each(ptr, &local->sta_bss_list) {
+ 		bss = list_entry(ptr, struct ieee80211_sta_bss, list);
+@@ -2198,10 +2196,10 @@ static int ieee80211_sta_find_ibss(struc
+ 		    memcmp(ifsta->ssid, bss->ssid, bss->ssid_len) != 0
+ 		    || !(bss->capability & WLAN_CAPABILITY_IBSS))
+ 			continue;
+-#ifdef IEEE80211_IBSS_DEBUG
++#ifdef CONFIG_D80211_IBSS_DEBUG
+ 		printk(KERN_DEBUG "   bssid=" MAC_FMT " found\n",
+ 		       MAC_ARG(bss->bssid));
+-#endif /* IEEE80211_IBSS_DEBUG */
++#endif /* CONFIG_D80211_IBSS_DEBUG */
+ 		memcpy(bssid, bss->bssid, ETH_ALEN);
+ 		found = 1;
+ 		if (active_ibss || memcmp(bssid, ifsta->bssid, ETH_ALEN) != 0)
+@@ -2209,10 +2207,10 @@ static int ieee80211_sta_find_ibss(struc
+ 	}
+ 	spin_unlock_bh(&local->sta_bss_lock);
+ 
+-#ifdef IEEE80211_IBSS_DEBUG
++#ifdef CONFIG_D80211_IBSS_DEBUG
+ 	printk(KERN_DEBUG "   sta_find_ibss: selected " MAC_FMT " current "
+ 	       MAC_FMT "\n", MAC_ARG(bssid), MAC_ARG(ifsta->bssid));
+-#endif /* IEEE80211_IBSS_DEBUG */
++#endif /* CONFIG_D80211_IBSS_DEBUG */
+ 	if (found && memcmp(ifsta->bssid, bssid, ETH_ALEN) != 0 &&
+ 	    (bss = ieee80211_rx_bss_get(dev, bssid))) {
+ 		printk(KERN_DEBUG "%s: Selected IBSS BSSID " MAC_FMT
+@@ -2220,9 +2218,9 @@ static int ieee80211_sta_find_ibss(struc
+ 		       dev->name, MAC_ARG(bssid));
+ 		return ieee80211_sta_join_ibss(dev, ifsta, bss);
+ 	}
+-#ifdef IEEE80211_IBSS_DEBUG
++#ifdef CONFIG_D80211_IBSS_DEBUG
+ 	printk(KERN_DEBUG "   did not try to join ibss\n");
+-#endif /* IEEE80211_IBSS_DEBUG */
++#endif /* CONFIG_D80211_IBSS_DEBUG */
+ 
+ 	/* Selected IBSS not found in current scan results - try to scan */
+ 	if (ifsta->state == IEEE80211_IBSS_JOINED &&
 
 --
