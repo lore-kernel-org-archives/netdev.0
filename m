@@ -1,60 +1,52 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 4/7] ieee80211: Add IEEE80211_API_VERSION macro
-Date: Mon, 21 Aug 2006 06:39:59 -0400
-Message-ID: <1156156799.5729.23.camel@localhost.localdomain>
-References: <20060821033322.GA4793@mail.intel.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: Bug in order of multiple IPv6 addresses per interface? Newest
+ added one is preferred in difference to IPv4
+Date: Mon, 21 Aug 2006 19:42:53 +0900 (JST)
+Message-ID: <20060821.194253.07794662.yoshfuji@linux-ipv6.org>
+References: <44E94653.1040002@bieringer.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:26083 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751849AbWHUKbZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 06:31:25 -0400
-To: yi.zhu@intel.com
-In-Reply-To: <20060821033322.GA4793@mail.intel.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:65298 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751847AbWHUKlI
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Aug 2006 06:41:08 -0400
+To: pb@bieringer.de
+In-Reply-To: <44E94653.1040002@bieringer.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-08-21 at 11:33 +0800, Zhu Yi wrote:
-> Add IEEE80211_API_VERSION macro so that drivers are able to check it
-> during compile time. This feature is useful to make backward IEEE80211
-> compatibilities for wireless drivers.
+Hello.
 
-Per my other mail, what exactly has changed and must be checked?  The
-SIOCGIWFREQ stuff?
+In article <44E94653.1040002@bieringer.de> (at Mon, 21 Aug 2006 07:36:19 +0200), Peter Bieringer <pb@bieringer.de> says:
 
-Dan
-
-> Signed-off-by: Zhu Yi <yi.zhu@intel.com>
+> In IPv6, the behavior is completly different:
 > 
-> ---
+> # ip -6 addr show dev eth0  |grep -w inet6 |grep -w global
+>     inet6 2001:db8:0:1::11/64 scope global
 > 
->  include/net/ieee80211.h |   12 +++++++++++-
->  1 files changed, 11 insertions(+), 1 deletions(-)
+> # ip -6 addr add 2001:db8:0:1::253/64 dev eth0
 > 
-> 29be0803256136011dd5c3b62e3eb9f782e57dbd
-> diff --git a/include/net/ieee80211.h b/include/net/ieee80211.h
-> index b174ebb..83e06aa 100644
-> --- a/include/net/ieee80211.h
-> +++ b/include/net/ieee80211.h
-> @@ -29,7 +29,17 @@
->  #include <linux/kernel.h>	/* ARRAY_SIZE */
->  #include <linux/wireless.h>
->  
-> -#define IEEE80211_VERSION "git-1.1.13"
-> +#define IEEE80211_VERSION_MAJOR 1
-> +#define IEEE80211_VERSION_API 2
-> +#define IEEE80211_VERSION_MINOR 15
-> +#define IEEE80211_VERSION_CODE IEEE80211_VERSION_MAJOR * 65536 + \
-> +			       IEEE80211_VERSION_API * 256 + \
-> +			       IEEE80211_VERSION_MINOR
-> +#define _STRX(x) #x
-> +#define _VERSION_STR(a,b,c) _STRX(a) "." _STRX(b) "." _STRX(c)
-> +#define IEEE80211_VERSION _VERSION_STR(IEEE80211_VERSION_MAJOR,\
-> +				       IEEE80211_VERSION_API, \
-> +				       IEEE80211_VERSION_MINOR)
->  
->  #define IEEE80211_DATA_LEN		2304
->  /* Maximum size for the MA-UNITDATA primitive, 802.11 standard section
+> # ip -6 addr show dev eth0  |grep -w inet6 |grep -w global
+>     inet6 2001:db8:0:1::253/64 scope global   <- #2 !!!!
+>     inet6 2001:db8:0:1::11/64 scope global    <- #1
+> 
+> So the last added on is now the first in list. Also, it gets no
+> "secondary" flag and "ip" doesn't even support this flag.
 
+IPv6 does not have secondary flag. We even reuse that for
+IPv6 temporary addresses.
+
+> And the worse thing is that the first one in list (= last added one) is
+> now used as default for outgoing connections. Can be easily tested using
+> "ping6".
+:
+> Is this a bug (I hope so) or a (undocumented?) feature?
+
+An implementation decision.
+I do not favor changing this so far.
+
+--yoshfuji
