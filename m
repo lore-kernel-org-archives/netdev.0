@@ -1,7 +1,7 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 10/18] d80211:  clean up includes
-Date: Mon, 21 Aug 2006 09:41:17 +0200
-Message-ID: <20060821075200.732186689@sipsolutions.net>
+Subject: [PATCH 14/18] d80211:  make lowlevel TX framedump option visible
+Date: Mon, 21 Aug 2006 09:41:21 +0200
+Message-ID: <20060821075201.926978449@sipsolutions.net>
 References: <20060821074107.648561364@sipsolutions.net>
 Mime-Version: 1.0
 Cc: Jouni Malinen <jkm@devicescape.com>,
@@ -9,233 +9,66 @@ Cc: Jouni Malinen <jkm@devicescape.com>,
 	Jiri Benc <jbenc@suse.cz>,
 	Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:65472 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1030320AbWHUICY
+Received: from crystal.sipsolutions.net ([195.210.38.204]:59840 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1030332AbWHUICR
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 04:02:24 -0400
+	Mon, 21 Aug 2006 04:02:17 -0400
 To: netdev@vger.kernel.org
-Content-Disposition: inline; filename=d80211-includes.patch
+Content-Disposition: inline; filename=d80211-make-framedump-selectable.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch cleans up includes all over d80211. It might
-not be complete, but this was the best I could do without
-analysing it completely.
+This patch surfaces the lowlevel TX framedump option in Kconfig.
 
 Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
---- wireless-dev.orig/net/d80211/fifo_qdisc.c	2006-08-20 14:56:19.058192788 +0200
-+++ wireless-dev/net/d80211/fifo_qdisc.c	2006-08-20 14:56:22.698192788 +0200
-@@ -10,9 +10,7 @@
-  * This is a simple replacement for sch_fifo.
-  */
+--- wireless-dev.orig/net/d80211/Kconfig	2006-08-20 17:28:47.578192788 +0200
++++ wireless-dev/net/d80211/Kconfig	2006-08-20 19:30:45.722819787 +0200
+@@ -29,6 +29,19 @@ config D80211_VERBOSE_DEBUG
+ 	bool "Verbose debugging output"
+ 	depends on D80211_DEBUG
  
--#include <linux/config.h>
--#include <linux/version.h>
--#include <linux/netdevice.h>
-+#include <linux/skbuff.h>
- #include <net/pkt_sched.h>
- #include <net/d80211.h>
- #include "ieee80211_i.h"
---- wireless-dev.orig/net/d80211/ieee80211.c	2006-08-20 14:56:22.008192788 +0200
-+++ wireless-dev/net/d80211/ieee80211.c	2006-08-20 14:56:22.708192788 +0200
-@@ -7,8 +7,6 @@
-  * published by the Free Software Foundation.
-  */
- 
--#include <linux/config.h>
--#include <linux/version.h>
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/netdevice.h>
---- wireless-dev.orig/net/d80211/ieee80211_ioctl.c	2006-08-20 14:56:20.588192788 +0200
-+++ wireless-dev/net/d80211/ieee80211_ioctl.c	2006-08-20 14:56:22.708192788 +0200
-@@ -7,8 +7,6 @@
-  * published by the Free Software Foundation.
-  */
- 
--#include <linux/config.h>
--#include <linux/version.h>
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/netdevice.h>
---- wireless-dev.orig/net/d80211/ieee80211_scan.c	2006-08-20 14:56:17.398192788 +0200
-+++ wireless-dev/net/d80211/ieee80211_scan.c	2006-08-20 14:56:22.708192788 +0200
-@@ -6,8 +6,6 @@
-  * published by the Free Software Foundation.
-  */
- 
--#include <linux/config.h>
--#include <linux/version.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
- #include <linux/types.h>
---- wireless-dev.orig/net/d80211/ieee80211_sta.c	2006-08-20 14:56:17.418192788 +0200
-+++ wireless-dev/net/d80211/ieee80211_sta.c	2006-08-20 14:56:22.718192788 +0200
-@@ -15,8 +15,6 @@
-  * scan result table filtering (by capability (privacy, IBSS/BSS, WPA/RSN IE,
-  *    SSID)
-  */
--#include <linux/config.h>
--#include <linux/version.h>
- #include <linux/if_ether.h>
- #include <linux/skbuff.h>
- #include <linux/netdevice.h>
---- wireless-dev.orig/net/d80211/rate_control_simple.c	2006-08-20 14:56:19.768192788 +0200
-+++ wireless-dev/net/d80211/rate_control_simple.c	2006-08-20 14:56:22.718192788 +0200
-@@ -7,8 +7,6 @@
-  * published by the Free Software Foundation.
-  */
- 
--#include <linux/config.h>
--#include <linux/version.h>
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/netdevice.h>
---- wireless-dev.orig/net/d80211/sta_info.c	2006-08-20 14:56:21.318192788 +0200
-+++ wireless-dev/net/d80211/sta_info.c	2006-08-20 14:56:22.718192788 +0200
-@@ -6,8 +6,6 @@
-  * published by the Free Software Foundation.
-  */
- 
--#include <linux/config.h>
--#include <linux/version.h>
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/kobject.h>
-@@ -20,6 +18,7 @@
- #include <net/d80211.h>
- #include "ieee80211_i.h"
- #include "rate_control.h"
-+#include "sta_info.h"
++config D80211_LOWTX_FRAME_DUMP
++	bool "Debug frame dumping"
++	depends on D80211_DEBUG
++	---help---
++	  Selecting this option will cause the stack to
++	  print a message for each frame that is handed
++	  to the lowlevel driver for transmission. This
++	  message includes all MAC addresses and the
++	  frame control field.
++
++	  If unsure, say N and insert the debugging code
++	  you require into the driver you are debugging.
++
+ config TKIP_DEBUG
+ 	bool "TKIP debugging"
+ 	depends on D80211_DEBUG
+--- wireless-dev.orig/net/d80211/ieee80211.c	2006-08-20 17:28:09.988192788 +0200
++++ wireless-dev/net/d80211/ieee80211.c	2006-08-20 19:30:14.732819787 +0200
+@@ -271,7 +271,7 @@ int ieee80211_get_hdrlen_from_skb(struct
+ EXPORT_SYMBOL(ieee80211_get_hdrlen_from_skb);
  
  
- /* Caller must hold local->sta_lock */
---- wireless-dev.orig/net/d80211/tkip.c	2006-08-20 14:56:06.998192788 +0200
-+++ wireless-dev/net/d80211/tkip.c	2006-08-20 14:56:22.718192788 +0200
-@@ -7,28 +7,13 @@
-  * published by the Free Software Foundation.
-  */
- 
--#ifdef CONFIG_TKIP_DEBUG
--#include <linux/config.h>
--#include <linux/version.h>
--#include <linux/module.h>
- #include <linux/kernel.h>
--#include <linux/skbuff.h>
--#endif /* CONFIG_TKIP_DEBUG */
--
- #include <linux/types.h>
- #include <linux/netdevice.h>
- 
- #include <net/d80211.h>
- #include "ieee80211_key.h"
--#ifdef CONFIG_TKIP_DEBUG
--#include "ieee80211_i.h"
--#endif /* CONFIG_TKIP_DEBUG */
- #include "tkip.h"
--
--/* Dummy prototypes for structures used in wep.h, but not really needed for
-- * TKIP. */
--struct ieee80211_local;
--struct sk_buff;
- #include "wep.h"
+-#ifdef IEEE80211_VERBOSE_DEBUG_FRAME_DUMP
++#ifdef CONFIG_D80211_LOWTX_FRAME_DUMP
+ static void ieee80211_dump_frame(const char *ifname, const char *title,
+ 				 struct sk_buff *skb)
+ {
+@@ -302,12 +302,12 @@ static void ieee80211_dump_frame(const c
+ 		printk(" A4=" MAC_FMT, MAC_ARG(hdr->addr4));
+ 	printk("\n");
+ }
+-#else /* IEEE80211_VERBOSE_DEBUG_FRAME_DUMP */
++#else /* CONFIG_D80211_LOWTX_FRAME_DUMP */
+ static inline void ieee80211_dump_frame(const char *ifname, const char *title,
+ 					struct sk_buff *skb)
+ {
+ }
+-#endif /* IEEE80211_VERBOSE_DEBUG_FRAME_DUMP */
++#endif /* CONFIG_D80211_LOWTX_FRAME_DUMP */
  
  
---- wireless-dev.orig/net/d80211/wep.c	2006-08-20 14:56:17.408192788 +0200
-+++ wireless-dev/net/d80211/wep.c	2006-08-20 14:56:22.718192788 +0200
-@@ -8,8 +8,6 @@
-  * published by the Free Software Foundation.
-  */
- 
--#include <linux/config.h>
--#include <linux/version.h>
- #include <linux/netdevice.h>
- #include <linux/types.h>
- #include <linux/random.h>
---- wireless-dev.orig/net/d80211/wme.c	2006-08-20 14:56:19.058192788 +0200
-+++ wireless-dev/net/d80211/wme.c	2006-08-20 14:56:22.718192788 +0200
-@@ -6,8 +6,6 @@
-  * published by the Free Software Foundation.
-  */
- 
--#include <linux/config.h>
--#include <linux/version.h>
- #include <linux/netdevice.h>
- #include <linux/skbuff.h>
- #include <linux/module.h>
---- wireless-dev.orig/net/d80211/wpa.c	2006-08-20 14:56:17.418192788 +0200
-+++ wireless-dev/net/d80211/wpa.c	2006-08-20 14:56:22.718192788 +0200
-@@ -6,15 +6,11 @@
-  * published by the Free Software Foundation.
-  */
- 
--#include <linux/config.h>
--#include <linux/version.h>
--#include <linux/module.h>
- #include <linux/netdevice.h>
- #include <linux/types.h>
- #include <linux/slab.h>
- #include <linux/skbuff.h>
- #include <linux/compiler.h>
--#include <linux/wireless.h>
- #include <net/iw_handler.h>
- 
- #include <net/d80211.h>
---- wireless-dev.orig/net/d80211/aes_ccm.c	2006-08-20 14:56:17.408192788 +0200
-+++ wireless-dev/net/d80211/aes_ccm.c	2006-08-20 14:56:22.728192788 +0200
-@@ -8,7 +8,6 @@
-  */
- 
- #include <linux/types.h>
--#include <linux/netdevice.h>
- #include <linux/crypto.h>
- #include <asm/scatterlist.h>
- 
---- wireless-dev.orig/net/d80211/aes_ccm.h	2006-08-20 14:56:07.198192788 +0200
-+++ wireless-dev/net/d80211/aes_ccm.h	2006-08-20 14:56:22.728192788 +0200
-@@ -10,7 +10,7 @@
- #ifndef AES_CCM_H
- #define AES_CCM_H
- 
--#include <linux/types.h>
-+#include <linux/crypto.h>
- 
- #define AES_BLOCK_LEN 16
- 
---- wireless-dev.orig/net/d80211/ieee80211_key.h	2006-08-20 14:56:07.218192788 +0200
-+++ wireless-dev/net/d80211/ieee80211_key.h	2006-08-20 14:56:22.728192788 +0200
-@@ -11,6 +11,7 @@
- #define IEEE80211_KEY_H
- 
- #include <linux/types.h>
-+#include <linux/kobject.h>
- #include <net/d80211.h>
- 
- /* ALG_TKIP
---- wireless-dev.orig/net/d80211/sta_info.h	2006-08-20 14:56:07.258192788 +0200
-+++ wireless-dev/net/d80211/sta_info.h	2006-08-20 14:56:22.728192788 +0200
-@@ -9,9 +9,9 @@
- #ifndef STA_INFO_H
- #define STA_INFO_H
- 
--#include <linux/if_ether.h>
-+#include <linux/list.h>
- #include <linux/types.h>
--#include "ieee80211_i.h"
-+#include <linux/if_ether.h>
- #include "ieee80211_key.h"
- 
- /* Stations flags (struct sta_info::flags) */
---- wireless-dev.orig/net/d80211/tkip.h	2006-08-20 14:56:07.308192788 +0200
-+++ wireless-dev/net/d80211/tkip.h	2006-08-20 14:56:22.728192788 +0200
-@@ -10,6 +10,7 @@
- #define TKIP_H
- 
- #include <linux/types.h>
-+#include <linux/crypto.h>
- #include "ieee80211_key.h"
- 
- u8 * ieee80211_tkip_add_iv(u8 *pos, struct ieee80211_key *key,
+ static int ieee80211_is_eapol(struct sk_buff *skb)
 
 --
