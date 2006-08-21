@@ -1,69 +1,106 @@
 From: Zhu Yi <yi.zhu@intel.com>
-Subject: [PATCH 02/14] ipw2200: SIOCGIWFREQ ioctl returns frequency rather than channel
-Date: Mon, 21 Aug 2006 11:37:01 +0800
-Message-ID: <20060821033701.GA5335@mail.intel.com>
+Subject: [PATCH 03/14] ipw2200: ipw_wx_set_essid fix
+Date: Mon, 21 Aug 2006 11:37:13 +0800
+Message-ID: <20060821033712.GA5344@mail.intel.com>
 Reply-To: yi.zhu@intel.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:55863 "EHLO
+Received: from mga02.intel.com ([134.134.136.20]:14451 "EHLO
 	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S932578AbWHUDi4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Aug 2006 23:38:56 -0400
+	id S932568AbWHUDjH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Aug 2006 23:39:07 -0400
 To: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The SIOCGIWFREQ ioctl fills the request structure's freq field by setting
-the exponent to 0 and the mantissa to the current channel number. The
-iwconfig tool works around this behaviour by looking up the frequency
-from the channel table if a frequency below 1kHz is returned, other tools
-(e.g. kwlaninfo) don't. According to the comment in the iwconfig source
-the driver is supposed to return the frequency, not the channel number.
+This patch cleanups the ipw_wx_set_essid code and forces a reassociation
+when setting the essid to "any". I have tested this patch with iwconfig. It
+makes ipw2200 compliant with all the cases mentioned in the iwconfig man
+page. The commands
 
-Signed-off-by: Ingo van Lil <inguin@gmx.de>
+iwconfig iface essid any
+iwconfig iface essid -- any
+iwconfig iface essid off
+iwconfig iface essid on
+
+all seemed to work correctly. None of this worked before the patch.
+
+Note, this patch treats
+
+iwconfig iface essid
+iwconfig iface essid ""
+
+The same. It produces an error message: essid: Unknown host.
+Since an essid of "" is not mentioned in the iwconfig man page.
+
+Signed-off-by: Bill Moss <bmoss@clemson.edu>
 Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 
 ---
 
- drivers/net/wireless/ipw2200.c |   23 ++++++++++++++++++++---
- 1 files changed, 20 insertions(+), 3 deletions(-)
+ drivers/net/wireless/ipw2200.c |   39 +++++++++++++++++----------------------
+ 1 files changed, 17 insertions(+), 22 deletions(-)
 
-3ca92c3071e7e849d5d9d01f69c44128428dad30
+f56340f0647db8f3c8fecc290424fdc4b7e8ad00
 diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
-index 89e076f..0b2c774 100644
+index 0b2c774..27e87d1 100644
 --- a/drivers/net/wireless/ipw2200.c
 +++ b/drivers/net/wireless/ipw2200.c
-@@ -8562,9 +8562,26 @@ static int ipw_wx_get_freq(struct net_de
- 	 * configured CHANNEL then return that; otherwise return ANY */
- 	mutex_lock(&priv->mutex);
- 	if (priv->config & CFG_STATIC_CHANNEL ||
--	    priv->status & (STATUS_ASSOCIATING | STATUS_ASSOCIATED))
--		wrqu->freq.m = priv->channel;
--	else
-+	    priv->status & (STATUS_ASSOCIATING | STATUS_ASSOCIATED)) {
-+		int i;
+@@ -8837,28 +8837,23 @@ static int ipw_wx_set_essid(struct net_d
+ 			    union iwreq_data *wrqu, char *extra)
+ {
+ 	struct ipw_priv *priv = ieee80211_priv(dev);
+-	char *essid = "";	/* ANY */
+-	int length = 0;
+-	mutex_lock(&priv->mutex);
+-	if (wrqu->essid.flags && wrqu->essid.length) {
+-		length = wrqu->essid.length - 1;
+-		essid = extra;
+-	}
+-	if (length == 0) {
+-		IPW_DEBUG_WX("Setting ESSID to ANY\n");
+-		if ((priv->config & CFG_STATIC_ESSID) &&
+-		    !(priv->status & (STATUS_ASSOCIATED |
+-				      STATUS_ASSOCIATING))) {
+-			IPW_DEBUG_ASSOC("Attempting to associate with new "
+-					"parameters.\n");
+-			priv->config &= ~CFG_STATIC_ESSID;
+-			ipw_associate(priv);
+-		}
+-		mutex_unlock(&priv->mutex);
+-		return 0;
+-	}
++        char *essid;
++        int length;
 +
-+		i = ieee80211_channel_to_index(priv->ieee, priv->channel);
-+		BUG_ON(i == -1);
-+		wrqu->freq.e = 1;
++        mutex_lock(&priv->mutex);
 +
-+		switch (ieee80211_is_valid_channel(priv->ieee, priv->channel)) {
-+		case IEEE80211_52GHZ_BAND:
-+			wrqu->freq.m = priv->ieee->geo.a[i].freq * 100000;
-+			break;
-+
-+		case IEEE80211_24GHZ_BAND:
-+			wrqu->freq.m = priv->ieee->geo.bg[i].freq * 100000;
-+			break;
-+
-+		default:
-+			BUG();
-+		}
-+	} else
- 		wrqu->freq.m = 0;
++        if (!wrqu->essid.flags)
++        {
++                IPW_DEBUG_WX("Setting ESSID to ANY\n");
++                ipw_disassociate(priv);
++                priv->config &= ~CFG_STATIC_ESSID;
++                ipw_associate(priv);
++                mutex_unlock(&priv->mutex);
++                return 0;
++        }
  
- 	mutex_unlock(&priv->mutex);
+-	length = min(length, IW_ESSID_MAX_SIZE);
++	length = min(wrqu->essid.length, IW_ESSID_MAX_SIZE);
++	essid = extra;
+ 
+ 	priv->config |= CFG_STATIC_ESSID;
+ 
+@@ -8868,7 +8863,7 @@ static int ipw_wx_set_essid(struct net_d
+ 		return 0;
+ 	}
+ 
+-	IPW_DEBUG_WX("Setting ESSID: '%s' (%d)\n", escape_essid(essid, length),
++	IPW_DEBUG_WX("Setting ESSID: '%s' (%d)\n", escape_essid(extra, length),
+ 		     length);
+ 
+ 	priv->essid_len = length;
 -- 
 1.2.6
