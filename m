@@ -1,38 +1,25 @@
 From: Zhu Yi <yi.zhu@intel.com>
-Subject: [PATCH 14/14] Update version ipw2200 stamp to 1.1.4
-Date: Mon, 21 Aug 2006 11:39:13 +0800
-Message-ID: <20060821033913.GA5451@mail.intel.com>
-Reply-To: yi.zhu@intel.com
+Subject: Re: ipw2200 driver updates
+Date: Mon, 21 Aug 2006 11:42:44 +0800
+Message-ID: <1156131764.17642.278.camel@debian.sh.intel.com>
+References: <20060821033203.GA4743@mail.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43695 "EHLO
+Received: from mga09.intel.com ([134.134.136.24]:64840 "EHLO
 	orsmga102-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S932593AbWHUDlI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Aug 2006 23:41:08 -0400
-To: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
-Content-Disposition: inline
+	id S932594AbWHUDoq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Aug 2006 23:44:46 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <20060821033203.GA4743@mail.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
----
+On Mon, 2006-08-21 at 11:32 +0800, Zhu Yi wrote:
 
- drivers/net/wireless/ipw2200.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Mail subject error. Should be ieee80211 updates :(
 
-d93ef0e734bdd43b02b9dbd0f030aa622ed69583
-diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
-index ea14b55..750c25d 100644
---- a/drivers/net/wireless/ipw2200.c
-+++ b/drivers/net/wireless/ipw2200.c
-@@ -70,7 +70,7 @@
- #define VQ
- #endif
- 
--#define IPW2200_VERSION "1.1.2" VK VD VM VP VR VQ
-+#define IPW2200_VERSION "1.1.4" VK VD VM VP VR VQ
- #define DRV_DESCRIPTION	"Intel(R) PRO/Wireless 2200/2915 Network Driver"
- #define DRV_COPYRIGHT	"Copyright(c) 2003-2006 Intel Corporation"
- #define DRV_VERSION     IPW2200_VERSION
--- 
-1.2.6
+Thanks,
+-yi
