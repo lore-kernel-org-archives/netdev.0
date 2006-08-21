@@ -1,309 +1,122 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 2/7] [CRYPTO] hmac: Add crypto template implementation
-Date: Tue, 22 Aug 2006 00:27:44 +1000
-Message-ID: <E1GFAki-00074K-00@gondolin.me.apana.org.au>
+Subject: [PATCH 6/7] [CRYPTO] doc: Update documentation for hash and me
+Date: Tue, 22 Aug 2006 00:27:56 +1000
+Message-ID: <E1GFAku-00074W-00@gondolin.me.apana.org.au>
 References: <20060821142407.GA26988@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:38662 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751883AbWHUO1s
+Received: from rhun.apana.org.au ([64.62.148.172]:42758 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751889AbWHUO17
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 10:27:48 -0400
+	Mon, 21 Aug 2006 10:27:59 -0400
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[CRYPTO] hmac: Add crypto template implementation
+[CRYPTO] doc: Update documentation for hash and me
 
-This patch rewrites HMAC as a crypto template.  This means that HMAC is no
-longer a hard-coded part of the API.  It's now a template that generates
-standard digest algorithms like any other.
-
-The old HMAC is preserved until all current users are converted.
-
-The same structure can be used by other MACs such as AES-XCBC-MAC.
+This patch updates the documentation to reflect the switch from digest
+to hash.  It also replaces notes about emailing James Morris to refer
+to me instead.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
 
- crypto/Kconfig |    1 
- crypto/hmac.c  |  241 +++++++++++++++++++++++++++++++++++++++++++++++++++++++--
- 2 files changed, 236 insertions(+), 6 deletions(-)
+ Documentation/crypto/api-intro.txt |   36 ++++++++++++++++++++++--------------
+ 1 files changed, 22 insertions(+), 14 deletions(-)
 
-diff --git a/crypto/Kconfig b/crypto/Kconfig
---- a/crypto/Kconfig
-+++ b/crypto/Kconfig
-@@ -34,6 +34,7 @@ config CRYPTO_MANAGER
+diff --git a/Documentation/crypto/api-intro.txt b/Documentation/crypto/api-intro.txt
+--- a/Documentation/crypto/api-intro.txt
++++ b/Documentation/crypto/api-intro.txt
+@@ -19,15 +19,14 @@ At the lowest level are algorithms, whic
+ API.
  
- config CRYPTO_HMAC
- 	bool "HMAC support"
-+	select CRYPTO_HASH
- 	help
- 	  HMAC: Keyed-Hashing for Message Authentication (RFC2104).
- 	  This is required for IPSec.
-diff --git a/crypto/hmac.c b/crypto/hmac.c
---- a/crypto/hmac.c
-+++ b/crypto/hmac.c
-@@ -4,22 +4,30 @@
-  * HMAC: Keyed-Hashing for Message Authentication (RFC2104).
-  *
-  * Copyright (c) 2002 James Morris <jmorris@intercode.com.au>
-+ * Copyright (c) 2006 Herbert Xu <herbert@gondor.apana.org.au>
-  *
-  * The HMAC implementation is derived from USAGI.
-  * Copyright (c) 2002 Kazunori Miyazawa <miyazawa@linux-ipv6.org> / USAGI
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms of the GNU General Public License as published by the Free
-- * Software Foundation; either version 2 of the License, or (at your option) 
-+ * Software Foundation; either version 2 of the License, or (at your option)
-  * any later version.
-  *
-  */
--#include <linux/crypto.h>
--#include <linux/mm.h>
--#include <linux/highmem.h>
--#include <linux/slab.h>
-+
-+#include <crypto/algapi.h>
-+#include <linux/err.h>
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
- #include <linux/scatterlist.h>
--#include "internal.h"
-+#include <linux/slab.h>
-+#include <linux/string.h>
-+
-+struct hmac_ctx {
-+	struct crypto_hash *child;
-+};
+ 'Transforms' are user-instantiated objects, which maintain state, handle all
+-of the implementation logic (e.g. manipulating page vectors), provide an 
+-abstraction to the underlying algorithms, and handle common logical 
+-operations (e.g. cipher modes, HMAC for digests).  However, at the user 
++of the implementation logic (e.g. manipulating page vectors) and provide an 
++abstraction to the underlying algorithms.  However, at the user 
+ level they are very simple.
  
- static void hash_key(struct crypto_tfm *tfm, u8 *key, unsigned int keylen)
- {
-@@ -122,3 +130,224 @@ EXPORT_SYMBOL_GPL(crypto_hmac_update);
- EXPORT_SYMBOL_GPL(crypto_hmac_final);
- EXPORT_SYMBOL_GPL(crypto_hmac);
+ Conceptually, the API layering looks like this:
  
-+static inline void *align_ptr(void *p, unsigned int align)
-+{
-+	return (void *)ALIGN((unsigned long)p, align);
-+}
-+
-+static inline struct hmac_ctx *hmac_ctx(struct crypto_hash *tfm)
-+{
-+	return align_ptr(crypto_hash_ctx_aligned(tfm) +
-+			 crypto_hash_blocksize(tfm) * 2 +
-+			 crypto_hash_digestsize(tfm), sizeof(void *));
-+}
-+
-+static int hmac_setkey(struct crypto_hash *parent,
-+		       const u8 *inkey, unsigned int keylen)
-+{
-+	int bs = crypto_hash_blocksize(parent);
-+	int ds = crypto_hash_digestsize(parent);
-+	char *ipad = crypto_hash_ctx_aligned(parent);
-+	char *opad = ipad + bs;
-+	char *digest = opad + bs;
-+	struct hmac_ctx *ctx = align_ptr(digest + ds, sizeof(void *));
-+	struct crypto_hash *tfm = ctx->child;
-+	unsigned int i;
-+
-+	if (keylen > bs) {
-+		struct hash_desc desc;
-+		struct scatterlist tmp;
-+		int err;
-+
-+		desc.tfm = tfm;
-+		desc.flags = crypto_hash_get_flags(parent);
-+		desc.flags &= CRYPTO_TFM_REQ_MAY_SLEEP;
-+		sg_set_buf(&tmp, inkey, keylen);
-+
-+		err = crypto_hash_digest(&desc, &tmp, keylen, digest);
-+		if (err)
-+			return err;
-+
-+		inkey = digest;
-+		keylen = ds;
-+	}
-+
-+	memcpy(ipad, inkey, keylen);
-+	memset(ipad + keylen, 0, bs - keylen);
-+	memcpy(opad, ipad, bs);
-+
-+	for (i = 0; i < bs; i++) {
-+		ipad[i] ^= 0x36;
-+		opad[i] ^= 0x5c;
-+	}
-+
-+	return 0;
-+}
-+
-+static int hmac_init(struct hash_desc *pdesc)
-+{
-+	struct crypto_hash *parent = pdesc->tfm;
-+	int bs = crypto_hash_blocksize(parent);
-+	int ds = crypto_hash_digestsize(parent);
-+	char *ipad = crypto_hash_ctx_aligned(parent);
-+	struct hmac_ctx *ctx = align_ptr(ipad + bs * 2 + ds, sizeof(void *));
+   [transform api]  (user interface)
+-  [transform ops]  (per-type logic glue e.g. cipher.c, digest.c)
++  [transform ops]  (per-type logic glue e.g. cipher.c, compress.c)
+   [algorithm api]  (for registering algorithms)
+   
+ The idea is to make the user interface and algorithm registration API
+@@ -44,22 +43,27 @@ under development.
+ Here's an example of how to use the API:
+ 
+ 	#include <linux/crypto.h>
++	#include <linux/err.h>
++	#include <linux/scatterlist.h>
+ 	
+ 	struct scatterlist sg[2];
+ 	char result[128];
+-	struct crypto_tfm *tfm;
++	struct crypto_hash *tfm;
 +	struct hash_desc desc;
-+	struct scatterlist tmp;
-+
-+	desc.tfm = ctx->child;
-+	desc.flags = pdesc->flags & CRYPTO_TFM_REQ_MAY_SLEEP;
-+	sg_set_buf(&tmp, ipad, bs);
-+
-+	return unlikely(crypto_hash_init(&desc)) ?:
-+	       crypto_hash_update(&desc, &tmp, 1);
-+}
-+
-+static int hmac_update(struct hash_desc *pdesc,
-+		       struct scatterlist *sg, unsigned int nbytes)
-+{
-+	struct hmac_ctx *ctx = hmac_ctx(pdesc->tfm);
-+	struct hash_desc desc;
-+
-+	desc.tfm = ctx->child;
-+	desc.flags = pdesc->flags & CRYPTO_TFM_REQ_MAY_SLEEP;
-+
-+	return crypto_hash_update(&desc, sg, nbytes);
-+}
-+
-+static int hmac_final(struct hash_desc *pdesc, u8 *out)
-+{
-+	struct crypto_hash *parent = pdesc->tfm;
-+	int bs = crypto_hash_blocksize(parent);
-+	int ds = crypto_hash_digestsize(parent);
-+	char *opad = crypto_hash_ctx_aligned(parent) + bs;
-+	char *digest = opad + bs;
-+	struct hmac_ctx *ctx = align_ptr(digest + ds, sizeof(void *));
-+	struct hash_desc desc;
-+	struct scatterlist tmp;
-+
-+	desc.tfm = ctx->child;
-+	desc.flags = pdesc->flags & CRYPTO_TFM_REQ_MAY_SLEEP;
-+	sg_set_buf(&tmp, opad, bs + ds);
-+
-+	return unlikely(crypto_hash_final(&desc, digest)) ?:
-+	       crypto_hash_digest(&desc, &tmp, bs + ds, out);
-+}
-+
-+static int hmac_digest(struct hash_desc *pdesc, struct scatterlist *sg,
-+		       unsigned int nbytes, u8 *out)
-+{
-+	struct crypto_hash *parent = pdesc->tfm;
-+	int bs = crypto_hash_blocksize(parent);
-+	int ds = crypto_hash_digestsize(parent);
-+	char *ipad = crypto_hash_ctx_aligned(parent);
-+	char *opad = ipad + bs;
-+	char *digest = opad + bs;
-+	struct hmac_ctx *ctx = align_ptr(digest + ds, sizeof(void *));
-+	struct hash_desc desc;
-+	struct scatterlist sg1[2];
-+	struct scatterlist sg2[1];
-+
-+	desc.tfm = ctx->child;
-+	desc.flags = pdesc->flags & CRYPTO_TFM_REQ_MAY_SLEEP;
-+
-+	sg_set_buf(sg1, ipad, bs);
-+	sg1[1].page = (void *)sg;
-+	sg1[1].length = 0;
-+	sg_set_buf(sg2, opad, bs + ds);
-+
-+	return unlikely(crypto_hash_digest(&desc, sg1, nbytes + bs, digest)) ?:
-+	       crypto_hash_digest(&desc, sg2, bs + ds, out);
-+}
-+
-+static int hmac_init_tfm(struct crypto_tfm *tfm)
-+{
-+	struct crypto_instance *inst = (void *)tfm->__crt_alg;
-+	struct crypto_spawn *spawn = crypto_instance_ctx(inst);
-+	struct hmac_ctx *ctx = hmac_ctx(__crypto_hash_cast(tfm));
-+
-+	tfm = crypto_spawn_tfm(spawn);
+ 	
+-	tfm = crypto_alloc_tfm("md5", 0);
+-	if (tfm == NULL)
++	tfm = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
 +	if (IS_ERR(tfm))
-+		return PTR_ERR(tfm);
+ 		fail();
+ 		
+ 	/* ... set up the scatterlists ... */
 +
-+	ctx->child = crypto_hash_cast(tfm);
-+	return 0;
-+}
++	desc.tfm = tfm;
++	desc.flags = 0;
+ 	
+-	crypto_digest_init(tfm);
+-	crypto_digest_update(tfm, &sg, 2);
+-	crypto_digest_final(tfm, result);
++	if (crypto_hash_digest(&desc, &sg, 2, result))
++		fail();
+ 	
+-	crypto_free_tfm(tfm);
++	crypto_free_hash(tfm);
+ 
+     
+ Many real examples are available in the regression test module (tcrypt.c).
+@@ -126,7 +130,7 @@ might already be working on.
+ BUGS
+ 
+ Send bug reports to:
+-James Morris <jmorris@redhat.com>
++Herbert Xu <herbert@gondor.apana.org.au>
+ Cc: David S. Miller <davem@redhat.com>
+ 
+ 
+@@ -134,13 +138,14 @@ FURTHER INFORMATION
+ 
+ For further patches and various updates, including the current TODO
+ list, see:
+-http://samba.org/~jamesm/crypto/
++http://gondor.apana.org.au/~herbert/crypto/
+ 
+ 
+ AUTHORS
+ 
+ James Morris
+ David S. Miller
++Herbert Xu
+ 
+ 
+ CREDITS
+@@ -238,8 +243,11 @@ Anubis algorithm contributors:
+ Tiger algorithm contributors:
+   Aaron Grothe
+ 
++VIA PadLock contributors:
++  Michal Ludvig
 +
-+static void hmac_exit_tfm(struct crypto_tfm *tfm)
-+{
-+	struct hmac_ctx *ctx = hmac_ctx(__crypto_hash_cast(tfm));
-+	crypto_free_hash(ctx->child);
-+}
-+
-+static void hmac_free(struct crypto_instance *inst)
-+{
-+	crypto_drop_spawn(crypto_instance_ctx(inst));
-+	kfree(inst);
-+}
-+
-+static struct crypto_instance *hmac_alloc(void *param, unsigned int len)
-+{
-+	struct crypto_instance *inst;
-+	struct crypto_alg *alg;
-+
-+	alg = crypto_get_attr_alg(param, len, CRYPTO_ALG_TYPE_HASH,
-+				  CRYPTO_ALG_TYPE_HASH_MASK | CRYPTO_ALG_ASYNC);
-+	if (IS_ERR(alg))
-+		return ERR_PTR(PTR_ERR(alg));
-+
-+	inst = crypto_alloc_instance("hmac", alg);
-+	if (IS_ERR(inst))
-+		goto out_put_alg;
-+
-+	inst->alg.cra_flags = CRYPTO_ALG_TYPE_HASH;
-+	inst->alg.cra_priority = alg->cra_priority;
-+	inst->alg.cra_blocksize = alg->cra_blocksize;
-+	inst->alg.cra_alignmask = alg->cra_alignmask;
-+	inst->alg.cra_type = &crypto_hash_type;
-+
-+	inst->alg.cra_hash.digestsize =
-+		(alg->cra_flags & CRYPTO_ALG_TYPE_MASK) ==
-+		CRYPTO_ALG_TYPE_HASH ? alg->cra_hash.digestsize :
-+				       alg->cra_digest.dia_digestsize;
-+
-+	inst->alg.cra_ctxsize = sizeof(struct hmac_ctx) +
-+				ALIGN(inst->alg.cra_blocksize * 2 +
-+				      inst->alg.cra_hash.digestsize,
-+				      sizeof(void *));
-+
-+	inst->alg.cra_init = hmac_init_tfm;
-+	inst->alg.cra_exit = hmac_exit_tfm;
-+
-+	inst->alg.cra_hash.init = hmac_init;
-+	inst->alg.cra_hash.update = hmac_update;
-+	inst->alg.cra_hash.final = hmac_final;
-+	inst->alg.cra_hash.digest = hmac_digest;
-+	inst->alg.cra_hash.setkey = hmac_setkey;
-+
-+out_put_alg:
-+	crypto_mod_put(alg);
-+	return inst;
-+}
-+
-+static struct crypto_template hmac_tmpl = {
-+	.name = "hmac",
-+	.alloc = hmac_alloc,
-+	.free = hmac_free,
-+	.module = THIS_MODULE,
-+};
-+
-+static int __init hmac_module_init(void)
-+{
-+	return crypto_register_template(&hmac_tmpl);
-+}
-+
-+static void __exit hmac_module_exit(void)
-+{
-+	crypto_unregister_template(&hmac_tmpl);
-+}
-+
-+module_init(hmac_module_init);
-+module_exit(hmac_module_exit);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("HMAC hash algorithm");
+ Generic scatterwalk code by Adam J. Richter <adam@yggdrasil.com>
+ 
+ Please send any credits updates or corrections to:
+-James Morris <jmorris@redhat.com>
++Herbert Xu <herbert@gondor.apana.org.au>
+ 
