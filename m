@@ -1,38 +1,38 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 13/18] d80211:  clean up some coding style issues
-Date: Mon, 21 Aug 2006 21:35:01 +0200
-Message-ID: <20060821213501.2ed377d8@griffin.suse.cz>
-References: <20060821074107.648561364@sipsolutions.net>
-	<20060821075201.468651135@sipsolutions.net>
+From: Henne <henne@nachtwindheim.de>
+Subject: Linker error on via-velocity driver
+Date: Mon, 21 Aug 2006 22:17:03 +0200
+Message-ID: <44EA14BF.5090102@nachtwindheim.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jouni Malinen <jkm@devicescape.com>,
-	"John W. Linville" <linville@tuxdriver.com>
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:14045 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1750902AbWHUTfC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 15:35:02 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <20060821075201.468651135@sipsolutions.net>
+Received: from server6.greatnet.de ([83.133.96.26]:27111 "EHLO
+	server6.greatnet.de") by vger.kernel.org with ESMTP
+	id S1750780AbWHUURX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Aug 2006 16:17:23 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Aug 2006 09:41:20 +0200, Johannes Berg wrote:
-> Try to reduce the coding style nits people will point out once
-> we post integration patches.
+Hi there!
 
-Please, wait with such patches for some more time. Yes, the coding style
-in some places in d80211 annoys me as well. But there is a bunch of not
-yet applied d80211 patches floating around and this will cause
-unnecessary conflicts.
+I found a bug in the via-velocity driver, but I cant find a maintainer for that, so I write to the lists.
+This driver depends on CONFIG_INET (tcp/ip) if CONFIG_PM is enabled.
+This is tested on i386 and x86_64.
+I'm not familiar with network stuff but I don't believe a device should depend on a protocol.
+If you are interested to fix it:
 
-Submitting this patch two or three weeks later will help me a lot.
+make allnoconfig
+enable CONFIG_PCI
+enable CONFIG_NET
+enable CONFIG_NET_ETHERNET
+enable CONFIG_NET_PCI
+enable CONFIG_VIA_VELOCITY
+make
 
-Thanks,
+That only happens when CONFIG_PM is enabled. If it's switched off it won't happen.
 
- Jiri
+Greets,
+Henne
 
--- 
-Jiri Benc
-SUSE Labs
