@@ -1,60 +1,59 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: [PATCH 7/7] ieee80211: Workaround malformed 802.11 frames from AP
-Date: Mon, 21 Aug 2006 11:34:19 +0800
-Message-ID: <20060821033419.GA4820@mail.intel.com>
-Reply-To: yi.zhu@intel.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: "Jesse Huang" <jesse@icplus.com.tw>
+Subject: Re: [PATCH 5/6] IP100A correct init and close step
+Date: Mon, 21 Aug 2006 11:37:51 +0800
+Message-ID: <006101c6c4d3$2e224820$4964a8c0@icplus.com.tw>
+References: <1155841712.4532.19.camel@localhost.localdomain> <44E48281.1060504@pobox.com> <02ea01c6c28d$20943940$4964a8c0@icplus.com.tw> <44E5A0B9.9090502@pobox.com>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:59479 "EHLO
-	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S932546AbWHUDgO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Aug 2006 23:36:14 -0400
-To: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
-Content-Disposition: inline
+Received: from msr8.hinet.net ([168.95.4.108]:46485 "EHLO msr8.hinet.net")
+	by vger.kernel.org with ESMTP id S932551AbWHUDiJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2006 23:38:09 -0400
+To: "Jeff Garzik" <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stop processing further but return success when we receive a malformed
-packet from the AP. We need this patch to workaround some AP bugs. For
-example, the beacon frames from the Orinoco AP1000 contains an IE (value
-= 128) with length equals to 8 but the actual frame length is only 7.
+Hi Jeff:
 
-Signed-off-by: Zhu Yi <yi.zhu@intel.com>
+(3)Yes, This is a bug, I will correct it. Thanks.
 
----
+(4)This will halt TxDMA and RxDMA, after that will let reseting safely.
+Should I add description in source code or in change log?
 
- net/ieee80211/ieee80211_rx.c |   17 ++++++++++-------
- 1 files changed, 10 insertions(+), 7 deletions(-)
+Thanks!
 
-b3d142a90dbe64140e390af28117983498def99d
-diff --git a/net/ieee80211/ieee80211_rx.c b/net/ieee80211/ieee80211_rx.c
-index d60358d..7707041 100644
---- a/net/ieee80211/ieee80211_rx.c
-+++ b/net/ieee80211/ieee80211_rx.c
-@@ -1078,13 +1078,16 @@ static int ieee80211_parse_info_param(st
- 
- 	while (length >= sizeof(*info_element)) {
- 		if (sizeof(*info_element) + info_element->len > length) {
--			IEEE80211_DEBUG_MGMT("Info elem: parse failed: "
--					     "info_element->len + 2 > left : "
--					     "info_element->len+2=%zd left=%d, id=%d.\n",
--					     info_element->len +
--					     sizeof(*info_element),
--					     length, info_element->id);
--			return 1;
-+			IEEE80211_ERROR("Info elem: parse failed: "
-+					"info_element->len + 2 > left : "
-+					"info_element->len+2=%zd left=%d, id=%d.\n",
-+					info_element->len +
-+					sizeof(*info_element),
-+					length, info_element->id);
-+			/* We stop processing but don't return an error here
-+			 * because some misbehaviour APs break this rule. ie.
-+			 * Orinoco AP1000. */
-+			break;
- 		}
- 
- 		switch (info_element->id) {
--- 
-1.2.6
+Jesse
+
+----- Original Message ----- 
+From: "Jeff Garzik" <jgarzik@pobox.com>
+To: "Jesse Huang" <jesse@icplus.com.tw>
+Cc: <linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
+<akpm@osdl.org>
+Sent: Friday, August 18, 2006 7:12 PM
+Subject: Re: [PATCH 5/6] IP100A correct init and close step
+
+
+Jesse Huang wrote:
+> Hi Jeff:
+> (1)Should I change to :
+> spin_lock_irqsave(&np->lock,flags);
+> reset_tx(dev);
+> spin_lock_irqrestore(&np->lock,flags);
+>
+> (2)I will remove date and author information out of source code comment.
+
+Correct.
+
+Also:
+
+(3) Use iowrite16(), not writew().  I just noticed this bug.
+iowrite16() will work for both MMIO and IO cycles, writew() only works
+for MMIO.
+
+(4) We need a description of why this change is needed.  What does
+writing 0x500 to DMACtrl actually do?  Why do we need to do this?
+
+Jeff
+
+
+
