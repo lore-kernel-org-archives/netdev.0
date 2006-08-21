@@ -1,133 +1,86 @@
-From: "Jesse Huang" <jesse@icplus.com.tw>
-Subject: Re: [PATCH 6/6] IP100A Solve host error problem when in low	performance embedded
-Date: Mon, 21 Aug 2006 13:33:51 +0800
-Message-ID: <008801c6c4e3$62faed30$4964a8c0@icplus.com.tw>
-References: <1155841780.4532.21.camel@localhost.localdomain> <44E5A1E1.1060500@pobox.com>
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<akpm@osdl.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965054AbWHUFeC@vger.kernel.org>
-To: "Jeff Garzik" <jgarzik@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Peter Bieringer <pb@bieringer.de>
+Subject: Bug in order of multiple IPv6 addresses per interface? Newest added
+ one is preferred in difference to IPv4
+Date: Mon, 21 Aug 2006 07:36:19 +0200
+Message-ID: <44E94653.1040002@bieringer.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.aerasec.de ([212.18.21.178]:64470 "EHLO smtp1.aerasec.de")
+	by vger.kernel.org with ESMTP id S932603AbWHUFg1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 01:36:27 -0400
+Received: from [IPv6:2001:a60:f011:f101::11] (unknown [IPv6:2001:a60:f011:f101::11])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by smtp1.aerasec.de (Postfix) with ESMTP id A6DDB27245
+	for <netdev@vger.kernel.org>; Mon, 21 Aug 2006 07:36:25 +0200 (CEST)
+To: Maillist netdev <netdev@vger.kernel.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff:
+Hi,
 
-    I will follow those suggestions. Thanks.
+if I add an additional IPv4 address of the same subnet ("IP aliasing",
+used for virtual hosting), it's added after the first one and also get
+the flag "secondary":
 
-Jesse
------ Original Message ----- 
-From: "Jeff Garzik" <jgarzik@pobox.com>
-To: "Jesse Huang" <jesse@icplus.com.tw>
-Cc: <linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
-<akpm@osdl.org>
-Sent: Friday, August 18, 2006 7:17 PM
-Subject: Re: [PATCH 6/6] IP100A Solve host error problem when in low
-performance embedded
+# ip -4 addr show dev eth0 | grep -w inet
+    inet 192.0.2.11/24 brd 192.0.2.255 scope global eth0
 
+# ip -4 addr add 192.0.2.253/24 dev eth0
 
-Jesse Huang wrote:
-> From: Jesse Huang <jesse@icplus.com.tw>
->
-> Solve host error problem when in low performance embedded
->
-> Change Logs:
->     Solve host error problem when in low performance embedded
->
-> ---
->
->  drivers/net/sundance.c |   26 ++++++++++++++++++++++----
->  1 files changed, 22 insertions(+), 4 deletions(-)
->
-> 78ff57ea887c19b7552342e990375f5e2bb10af9
-> diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
-> index c7c22f0..94ba6ca 100755
-> --- a/drivers/net/sundance.c
-> +++ b/drivers/net/sundance.c
-> @@ -1075,7 +1075,7 @@ reset_tx (struct net_device *dev)
->  struct sk_buff *skb;
->  int i;
->  int irq = in_interrupt();
-> -
-> + tasklet_kill(&np->tx_tasklet);
+# ip -4 addr show dev eth0 | grep -w inet
+    inet 192.0.2.11/24 brd 192.0.2.255 scope global eth0  <-  #1
+    inet 192.0.2.253/24 scope global secondary eth0       <-  #2
 
-NAK, it is a bug to call tasklet_kill() from inside an interrupt.
+The new added address is also *not* used for outgoing connections by
+default.
 
 
-> @@ -1646,6 +1646,13 @@ static int netdev_close(struct net_devic
->  struct sk_buff *skb;
->  int i;
->
-> + /* Wait and kill tasklet */
-> + tasklet_kill(&np->rx_tasklet);
-> + tasklet_kill(&np->tx_tasklet);
-> +   np->cur_tx = np->dirty_tx = 0;
+In IPv6, the behavior is completly different:
 
-fix source code indent
+# ip -6 addr show dev eth0  |grep -w inet6 |grep -w global
+    inet6 2001:db8:0:1::11/64 scope global
 
+# ip -6 addr add 2001:db8:0:1::253/64 dev eth0
 
-> + np->cur_task = 0;
-> + np->last_tx=0;
+# ip -6 addr show dev eth0  |grep -w inet6 |grep -w global
+    inet6 2001:db8:0:1::253/64 scope global   <- #2 !!!!
+    inet6 2001:db8:0:1::11/64 scope global    <- #1
 
-needs whitespace:  s/=/ = /
+So the last added on is now the first in list. Also, it gets no
+"secondary" flag and "ip" doesn't even support this flag.
 
-
->  netif_stop_queue(dev);
->
->  if (netif_msg_ifdown(np)) {
-> @@ -1666,9 +1673,19 @@ static int netdev_close(struct net_devic
->  /* Stop the chip's Tx and Rx processes. */
->  iowrite16(TxDisable | RxDisable | StatsDisable, ioaddr + MACCtrl1);
->
-> - /* Wait and kill tasklet */
-> - tasklet_kill(&np->rx_tasklet);
-> - tasklet_kill(&np->tx_tasklet);
-> +    for(i=2000;i> 0;i--) {
-> + if((readl(ioaddr + DMACtrl)&0xC000) == 0)break;
-> + mdelay(1);
-> +    }
-
-(1) fix indentation
-
-(2) add whitespace to 'for' loop
-
-(3) use ioread32(), not readl()
-
-(4) are you certain that DMACtrl should be read as a 32-bit register?
-In other code, you treat it as a 16-bit register.
+And the worse thing is that the first one in list (= last added one) is
+now used as default for outgoing connections. Can be easily tested using
+"ping6".
 
 
+Is this a bug (I hope so) or a (undocumented?) feature?
 
-> +    writew(GlobalReset | DMAReset | FIFOReset |NetworkReset, ioaddr
-+ASICCtrl + 2);
+How can I add additional IPv6 addresses from the same subnet to an
+interface without changing implicit the default outgoing address.
 
-(5) use iowrite16() not writew()
-
-
-> +    for(i=2000;i >0;i--)
-> +    {
-> + if((readw(ioaddr + ASICCtrl +2)&ResetBusy) == 0)
-> +     break;
-> + mdelay(1);
-> +    }
-
-(6) fix indentation to match the rest of the driver
-
-(7) use ioread16(), not readw()
-
-(8) add whitespace to 'for' loop
+Current workaround: adding new address, remove and readd primary IPv6
+address (which is afterwards the first one in list again).
 
 
->  #ifdef __i386__
->  if (netif_msg_hw(np)) {
-> @@ -1706,6 +1723,7 @@ #endif /* __i386__ debugging only */
->  }
->  }
->  for (i = 0; i < TX_RING_SIZE; i++) {
-> + np->tx_ring[i].next_desc=0;
+BTW: this can break at least initscripts, which support more than one
+address per interface (a primary and some secondary ones), see also:
+https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=199862 (a
+workaround is described here)
 
-(9) add whitespace to assignment:  s/=/ = /
+Used versions:
+
+kernel-2.6.17-1.2174_FC5 (happen also below, e.g. 2.6.9 from RHEL4)
+iproute-2.6.15-1.2
+
+Regards,
+	Peter
+-- 
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D                       mailto:pb@bieringer.de
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
 
 
->  skb = np->tx_skbuff[i];
->  if (skb) {
->  pci_unmap_single(np->pci_dev,
