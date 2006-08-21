@@ -1,29 +1,28 @@
 From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 5/7] ieee80211: export symbol ieee80211_api_version
-Date: Mon, 21 Aug 2006 06:38:27 -0400
-Message-ID: <1156156707.5729.21.camel@localhost.localdomain>
-References: <20060821033340.GA4802@mail.intel.com>
+Subject: Re: [PATCH 4/7] ieee80211: Add IEEE80211_API_VERSION macro
+Date: Mon, 21 Aug 2006 06:39:59 -0400
+Message-ID: <1156156799.5729.23.camel@localhost.localdomain>
+References: <20060821033322.GA4793@mail.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:31714 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S1751847AbWHUKaV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 06:30:21 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:26083 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S1751849AbWHUKbZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 06:31:25 -0400
 To: yi.zhu@intel.com
-In-Reply-To: <20060821033340.GA4802@mail.intel.com>
+In-Reply-To: <20060821033322.GA4793@mail.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Mon, 2006-08-21 at 11:33 +0800, Zhu Yi wrote:
-> Export this symbol so that wireless drivers can check the running IEEE80211
-> API version dynamically.
+> Add IEEE80211_API_VERSION macro so that drivers are able to check it
+> during compile time. This feature is useful to make backward IEEE80211
+> compatibilities for wireless drivers.
 
-What's that needed for?  Capability checks?  Checking user's version to
-ensure they have a version with security fixes?
-
-What API bits changed?
+Per my other mail, what exactly has changed and must be checked?  The
+SIOCGIWFREQ stuff?
 
 Dan
 
@@ -31,36 +30,31 @@ Dan
 > 
 > ---
 > 
->  include/net/ieee80211.h          |    2 ++
->  net/ieee80211/ieee80211_module.c |    3 +++
->  2 files changed, 5 insertions(+), 0 deletions(-)
+>  include/net/ieee80211.h |   12 +++++++++++-
+>  1 files changed, 11 insertions(+), 1 deletions(-)
 > 
-> 81634e488965fae232027e14a54c998ccb5b0c49
+> 29be0803256136011dd5c3b62e3eb9f782e57dbd
 > diff --git a/include/net/ieee80211.h b/include/net/ieee80211.h
-> index 83e06aa..ee66681 100644
+> index b174ebb..83e06aa 100644
 > --- a/include/net/ieee80211.h
 > +++ b/include/net/ieee80211.h
-> @@ -1255,6 +1255,8 @@ static inline int ieee80211_is_cck_rate(
->  	return 0;
->  }
+> @@ -29,7 +29,17 @@
+>  #include <linux/kernel.h>	/* ARRAY_SIZE */
+>  #include <linux/wireless.h>
 >  
-> +extern const int ieee80211_api_version;
-> +
->  /* ieee80211.c */
->  extern void free_ieee80211(struct net_device *dev);
->  extern struct net_device *alloc_ieee80211(int sizeof_priv);
-> diff --git a/net/ieee80211/ieee80211_module.c b/net/ieee80211/ieee80211_module.c
-> index 13b1e5f..02e730b 100644
-> --- a/net/ieee80211/ieee80211_module.c
-> +++ b/net/ieee80211/ieee80211_module.c
-> @@ -61,6 +61,9 @@ MODULE_DESCRIPTION(DRV_DESCRIPTION);
->  MODULE_AUTHOR(DRV_COPYRIGHT);
->  MODULE_LICENSE("GPL");
+> -#define IEEE80211_VERSION "git-1.1.13"
+> +#define IEEE80211_VERSION_MAJOR 1
+> +#define IEEE80211_VERSION_API 2
+> +#define IEEE80211_VERSION_MINOR 15
+> +#define IEEE80211_VERSION_CODE IEEE80211_VERSION_MAJOR * 65536 + \
+> +			       IEEE80211_VERSION_API * 256 + \
+> +			       IEEE80211_VERSION_MINOR
+> +#define _STRX(x) #x
+> +#define _VERSION_STR(a,b,c) _STRX(a) "." _STRX(b) "." _STRX(c)
+> +#define IEEE80211_VERSION _VERSION_STR(IEEE80211_VERSION_MAJOR,\
+> +				       IEEE80211_VERSION_API, \
+> +				       IEEE80211_VERSION_MINOR)
 >  
-> +const int ieee80211_api_version = IEEE80211_VERSION_API;
-> +EXPORT_SYMBOL(ieee80211_api_version);
-> +
->  static int ieee80211_networks_allocate(struct ieee80211_device *ieee)
->  {
->  	if (ieee->networks)
+>  #define IEEE80211_DATA_LEN		2304
+>  /* Maximum size for the MA-UNITDATA primitive, 802.11 standard section
 
