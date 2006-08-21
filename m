@@ -1,60 +1,55 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Patch] Signedness issue in drivers/net/3c515.c
-Date: Mon, 21 Aug 2006 14:05:58 -0700
-Message-ID: <20060821140558.4cfee23c.akpm@osdl.org>
-References: <1156009077.18374.1.camel@alice>
+From: "Nadine" <43konrad@lilypie.com>
+Subject: Be leaner and slimmer by next week!
+Date: Mon, 21 Aug 2006 14:27:25 -0700
+Message-ID: <200608212128.k7LLSXee005113@zeus1.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain;
+        charset="Windows-1251"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:16265 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751104AbWHUVGL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 17:06:11 -0400
-To: Eric Sesterhenn <snakebyte@gmx.de>
-In-Reply-To: <1156009077.18374.1.camel@alice>
+Received: from zeus1.kernel.org ([204.152.191.4]:52404 "EHLO zeus1.kernel.org")
+	by vger.kernel.org with ESMTP id S1750707AbWHUV2x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 17:28:53 -0400
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 19 Aug 2006 19:37:57 +0200
-Eric Sesterhenn <snakebyte@gmx.de> wrote:
+Greetings Netdev!!!
 
-> while playing with gcc 4.1 -Wextra warnings, I came across this one:
-> 
-> drivers/net/3c515.c:1027: warning: comparison of unsigned expression >= 0 is always true
-> 
-> Since i is unsigned the >= 0 check in the for loop is always true,
-> so we might spin there forever unless the if condition triggers.
-> Since i is only used in this loop, this patch changes it to
-> an integer.
-> 
-> Signed-off-by: Eric Sesterhenn <snakebyte@gmx.de>
-> 
-> --- linux-2.6.18-rc4/drivers/net/3c515.c.orig	2006-08-19 19:35:04.000000000 +0200
-> +++ linux-2.6.18-rc4/drivers/net/3c515.c	2006-08-19 19:35:14.000000000 +0200
-> @@ -1003,7 +1003,8 @@ static int corkscrew_start_xmit(struct s
->  		/* Calculate the next Tx descriptor entry. */
->  		int entry = vp->cur_tx % TX_RING_SIZE;
->  		struct boom_tx_desc *prev_entry;
-> -		unsigned long flags, i;
-> +		unsigned long flags;
-> +		int i;
->  
->  		if (vp->tx_full)	/* No room to transmit with */
->  			return 1;
 
-Which affects this loop:
 
-	/* Wait for the stall to complete. */
-	for (i = 20; i >= 0; i--)
-		if ((inw(ioaddr + EL3_STATUS) & CmdInProgress) == 0) 
-			break;
+Being even a little overweight today can be extremely difficult and is embarassing for so many people. Today's society expects men and women to look lean, toned and hard at all times. Tough standards to live up to! And mostly unrealistic. However, steady weight loss and improved self image are not unrealistic, at all! In fact anyone can do it, quite easily, including you!
 
-Your fix will convert this indefinit wait into a bounded one.  It might
-cause the driver to malfunction.
 
-Given that our pool of 3c515 testers is less than enormous, a more prudent
-change might be to remove `i' and simply formalise the existing behaviour
-into a while(1) loop.
+
+http://www.vestera.net/n/?52&britannicbuzzsaw
+Anatrim is an amazing new product aimed at helping men and women of any age and size lose weight and rapidly tone their bodies. Anatrim has been called a "miracle herb" on such respected media outlets as CNN, OPRAH WINFREY, ABCNEWS, 20/20, and many many others! It has already helped millions of overweight people shed pound after pound of unwanted extra weight, why not add yourself to the growing number of people benefiting from this amazing product! Here are a few of the thousands of email thank you's we have received"
+
+
+
+"This stuff is really great! After losing 32 lbs months earlier I hit a brick wall. I work out three times a week, 30 min of cardio and 30 minutes in the weight room. My two trouble zones (my stomach and legs) just wouldn't budge. I did all the exercises I could think of to target them, but nothing helped! Then I tried Anatrim and everything changed! In just 6 weeks I lost the remaining 18 pounds. I always knew that couldn't be the thinnest I could get. I'm glad I found this product. I finally achieved the body I wanted. My husband says I look like a goddess. Thanks :)
+Jenny
+
+
+
+
+"I love to eat Junk food and I can not stay on those high-protein diets. I tried several other diets over the last five years without being able to shed pounds and burn the food cravings. I started taking two Anatrim capsules before most meals, and lost 30 pounds in three months. Your Anatrim Product is amazing! I have recommended it to all my friends already." 
+Amanda, Tuscon Arizona
+
+
+
+"I was born overweight and teased because of it most of my younger years. Finally at age 25 I took the initialtive and purchased a 4 month supply of Anatrim. I have since shed 22 pounds of unwanted weight and have a new enthusiasm for life! I go out more, socialize more, and have even met a special lady who I love. I credit much of my new-found happiness to the weight I lost and your product. 
+
+
+
+Thank you so much!"
+Henry N. California
+
+http://www.lionez.net/n/?52&colacremate
+Not only is this product now available and ready to be shipped to your front door, but big discount specials are now in effect! Take advantage before prices go back up to the regular prices.
+
+
+Click here to view price specials and discounts! And congradulations on taking the first step towards the new you!
+
+Mon, 21 Aug 2006 14:27:25 -0700
 
