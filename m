@@ -1,57 +1,49 @@
 From: "Jesse Huang" <jesse@icplus.com.tw>
-Subject: Re: [PATCH 5/7] ip1000: Modify coding style of ipg_config_autoneg()
-Date: Mon, 21 Aug 2006 11:27:06 +0800
-Message-ID: <005301c6c4d1$ad9e9ce0$4964a8c0@icplus.com.tw>
-References: <1155844061.5006.13.camel@localhost.localdomain> <20060819101717.GA26267@electric-eye.fr.zoreil.com>
-Cc: <penberg@cs.Helsinki.FI>, <akpm@osdl.org>, <dvrabel@cantab.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<david@pleyades.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932096AbWHUD1r@vger.kernel.org>
-To: "Francois Romieu" <romieu@fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Subject: Re: [PATCH 1/6] IP100A, add end of pci id table
+Date: Mon, 21 Aug 2006 11:28:49 +0800
+Message-ID: <005b01c6c4d1$eb2aaf90$4964a8c0@icplus.com.tw>
+References: <1155841247.4532.6.camel@localhost.localdomain> <44E480FA.70806@pobox.com> <02d101c6c28a$7c19d160$4964a8c0@icplus.com.tw> <44E59FF1.6090703@pobox.com>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<akpm@osdl.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from msr51.hinet.net ([168.95.4.151]:45241 "EHLO msr51.hinet.net")
+	by vger.kernel.org with ESMTP id S932098AbWHUD3O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2006 23:29:14 -0400
+To: "Jeff Garzik" <jgarzik@pobox.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi :
+Hi Jeff:
 
-Ok, I will remove the Mixed case variables. Thanks.
+Ok, I see. I will resend all of the patches after I finish modify. Thanks.
 
 Jesse
 ----- Original Message ----- 
-From: "Francois Romieu" <romieu@fr.zoreil.com>
+From: "Jeff Garzik" <jgarzik@pobox.com>
 To: "Jesse Huang" <jesse@icplus.com.tw>
-Cc: <penberg@cs.Helsinki.FI>; <akpm@osdl.org>; <dvrabel@cantab.net>;
-<linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
-<david@pleyades.net>
-Sent: Saturday, August 19, 2006 6:17 PM
-Subject: Re: [PATCH 5/7] ip1000: Modify coding style of ipg_config_autoneg()
+Cc: <linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
+<akpm@osdl.org>
+Sent: Friday, August 18, 2006 7:09 PM
+Subject: Re: [PATCH 1/6] IP100A, add end of pci id table
 
 
-Jesse Huang <jesse@icplus.com.tw> :
-> From: Jesse Huang <jesse@icplus.com.tw>
+Jesse Huang wrote:
+> Hi Jeff:
 >
-> This is only coding style modify for ipg_config_autoneg(). Thanks for the
-> suggestion form Francois.
->
-> Change Logs:
->     Modify coding style of ipg_config_autoneg()
->
-> ---
->
->  drivers/net/ipg.c |   17 ++++++++++-------
->  1 files changed, 10 insertions(+), 7 deletions(-)
->
-> 737498ca620437d8179e21be4d5220333066cbbd
-> diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
-> index f859107..be96f93 100644
-> --- a/drivers/net/ipg.c
-> +++ b/drivers/net/ipg.c
-> @@ -491,11 +491,13 @@ static int ipg_config_autoneg(struct net
->  int fullduplex;
->  int txflowcontrol;
->  int rxflowcontrol;
-> + long MacCtrlValue;
+>     Sorry for that. I will remove those. Am I need to resent all of those
+> patch or send all in one patch?
 
-Mixed case variables are not exactly welcome.
+Normally, when I merged a patch, you will receive a one-word reply
+"applied" or "merged".  Or for a series of patches, "applies patches 1-6".
 
--- 
-Ueimor
+For this series of patches, you will need to resend the entire patchset,
+modified with the comments so far.
+
+It is quite normal for some patchsets to undergo several iterations
+before being merged, when engineering review highlights issues.
+
+Thanks and regards,
+
+Jeff
+
+
