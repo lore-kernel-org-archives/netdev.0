@@ -1,86 +1,79 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: Bug in order of multiple IPv6 addresses per interface? Newest added
- one is preferred in difference to IPv4
-Date: Mon, 21 Aug 2006 07:36:19 +0200
-Message-ID: <44E94653.1040002@bieringer.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+From: "Jesse Huang" <jesse@icplus.com.tw>
+Subject: Re: [PATCH 4/6] IP100A Change search phy addr start form 0
+Date: Mon, 21 Aug 2006 13:40:29 +0800
+Message-ID: <008e01c6c4e4$4fd05a00$4964a8c0@icplus.com.tw>
+References: <1155841636.4532.16.camel@localhost.localdomain> <44E5A276.3050708@pobox.com>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.aerasec.de ([212.18.21.178]:64470 "EHLO smtp1.aerasec.de")
-	by vger.kernel.org with ESMTP id S932603AbWHUFg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 01:36:27 -0400
-Received: from [IPv6:2001:a60:f011:f101::11] (unknown [IPv6:2001:a60:f011:f101::11])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by smtp1.aerasec.de (Postfix) with ESMTP id A6DDB27245
-	for <netdev@vger.kernel.org>; Mon, 21 Aug 2006 07:36:25 +0200 (CEST)
-To: Maillist netdev <netdev@vger.kernel.org>
+Received: from msr3.hinet.net ([168.95.4.103]:18648 "EHLO msr3.hinet.net")
+	by vger.kernel.org with ESMTP id S932604AbWHUFkl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 01:40:41 -0400
+To: "Jeff Garzik" <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Jeff:
 
-if I add an additional IPv4 address of the same subnet ("IP aliasing",
-used for virtual hosting), it's added after the first one and also get
-the flag "secondary":
+In IP100A, phy address is 0. Because IP100A is a single chip, the in
+chip phy address is 0. so, we must search phy address for 0.
 
-# ip -4 addr show dev eth0 | grep -w inet
-    inet 192.0.2.11/24 brd 192.0.2.255 scope global eth0
-
-# ip -4 addr add 192.0.2.253/24 dev eth0
-
-# ip -4 addr show dev eth0 | grep -w inet
-    inet 192.0.2.11/24 brd 192.0.2.255 scope global eth0  <-  #1
-    inet 192.0.2.253/24 scope global secondary eth0       <-  #2
-
-The new added address is also *not* used for outgoing connections by
-default.
+Jesse
+----- Original Message ----- 
+From: "Jeff Garzik" <jgarzik@pobox.com>
+To: "Jesse Huang" <jesse@icplus.com.tw>
+Cc: <linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
+<akpm@osdl.org>
+Sent: Friday, August 18, 2006 7:20 PM
+Subject: Re: [PATCH 4/6] IP100A Change search phy addr start form 0
 
 
-In IPv6, the behavior is completly different:
+Jesse Huang wrote:
+> From: Jesse Huang <jesse@icplus.com.tw>
+>
+> Change search phy addr start form 0
+>
+> Change Logs:
+>     Change search phy addr start form 0
+>
+> ---
+>
+>  drivers/net/sundance.c |    5 +++--
+>  1 files changed, 3 insertions(+), 2 deletions(-)
+>
+> 212cd4ffa21a57300eae4254bf02e5b33b96f544
+> diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
+> index 2bde1b3..f63871a 100755
+> --- a/drivers/net/sundance.c
+> +++ b/drivers/net/sundance.c
+> @@ -21,7 +21,7 @@
+>  */
+>
+>  #define DRV_NAME "sundance"
+> -#define DRV_VERSION "1.01+LK1.13"
+> +#define DRV_VERSION "1.01+LK1.14"
+>  #define DRV_RELDATE "04-Aug-2006"
+>
+>
+> @@ -559,8 +559,9 @@ #endif
+>  /*
+>  * It seems some phys doesn't deal well with address 0 being accessed
+>  * first, so leave address zero to the end of the loop (32 & 31).
+> + * for IP100A the phy should start from 0
+>  */
+> - for (phy = 1; phy <= 32 && phy_idx < MII_CNT; phy++) {
+> + for (phy = 0; phy <= 32 && phy_idx < MII_CNT; phy++) {
+>  int phyx = phy & 0x1f;
+>  int mii_status = mdio_read(dev, phyx, MII_BMSR);
+>  if (mii_status != 0xffff  &&  mii_status != 0x0000) {
 
-# ip -6 addr show dev eth0  |grep -w inet6 |grep -w global
-    inet6 2001:db8:0:1::11/64 scope global
+For IP100A, is the phy built into the chip?
 
-# ip -6 addr add 2001:db8:0:1::253/64 dev eth0
+For a standard DP83840[A] phy, phy #0 is a "ghost" which mirrors another
+phy.  For this reason, we scan phy #0 last.
 
-# ip -6 addr show dev eth0  |grep -w inet6 |grep -w global
-    inet6 2001:db8:0:1::253/64 scope global   <- #2 !!!!
-    inet6 2001:db8:0:1::11/64 scope global    <- #1
+Does the above code not work?
 
-So the last added on is now the first in list. Also, it gets no
-"secondary" flag and "ip" doesn't even support this flag.
-
-And the worse thing is that the first one in list (= last added one) is
-now used as default for outgoing connections. Can be easily tested using
-"ping6".
-
-
-Is this a bug (I hope so) or a (undocumented?) feature?
-
-How can I add additional IPv6 addresses from the same subnet to an
-interface without changing implicit the default outgoing address.
-
-Current workaround: adding new address, remove and readd primary IPv6
-address (which is afterwards the first one in list again).
-
-
-BTW: this can break at least initscripts, which support more than one
-address per interface (a primary and some secondary ones), see also:
-https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=199862 (a
-workaround is described here)
-
-Used versions:
-
-kernel-2.6.17-1.2174_FC5 (happen also below, e.g. 2.6.9 from RHEL4)
-iproute-2.6.15-1.2
-
-Regards,
-	Peter
--- 
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D                       mailto:pb@bieringer.de
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+Jeff
 
 
