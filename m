@@ -1,9 +1,9 @@
 From: Pradeep Dalvi <pradeep@netxen.com>
-Subject: Re: [PATCH 2.6.17 1/9] NetXen: Makefile and driver main file (name
+Subject: Re: [PATCH 2.6.17 3/9] NetXen: hw initialization routines (name
  prefix change)
-Date: Mon, 21 Aug 2006 03:01:57 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0608210259170.22771@dut39>
-References: <Pine.LNX.4.64.0608180713480.6875@dut39> <Pine.LNX.4.64.0608180739290.6875@dut39>
+Date: Mon, 21 Aug 2006 03:04:10 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0608210302120.22771@dut39>
+References: <Pine.LNX.4.64.0608180713480.6875@dut39> <Pine.LNX.4.64.0608180758550.6875@dut39>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -13,77 +13,89 @@ Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"unmproj@linsyssoft.com" <unmproj@linsyssoft.com>,
 	"rob@netxen.com" <rob@netxen.com>, amitkale@netxen.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:37748 "EHLO
-	mail.unminc.com") by vger.kernel.org with ESMTP id S1751068AbWHUKB7
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:3193 "EHLO
+	mail.unminc.com") by vger.kernel.org with ESMTP id S1751834AbWHUKEM
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 06:01:59 -0400
+	Mon, 21 Aug 2006 06:04:12 -0400
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <Pine.LNX.4.64.0608180739290.6875@dut39>
+In-Reply-To: <Pine.LNX.4.64.0608180758550.6875@dut39>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-diff -u linux-2.6.17/drivers/net/netxen/netxen_nic_main.c linux-2.6.17/drivers/net/netxen/netxen_nic_main.c
---- linux-2.6.17/drivers/net/netxen/netxen_nic_main.c	2006-08-17 07:12:34.000000000 -0700
-+++ linux-2.6.17/drivers/net/netxen/netxen_nic_main.c	2006-08-21 02:20:00.000000000 -0700
-@@ -211,8 +211,8 @@
-  	adapter->ahw.pci_base = mem_ptr;
-  	spin_lock_init(&adapter->tx_lock);
-  	spin_lock_init(&adapter->lock);
--
--	initialize_adapter_sw(adapter);	/* initialize the buffers in adapter */
-+	/* initialize the buffers in adapter */
-+	netxen_initialize_adapter_sw(adapter);
-  	/*
-  	 * Set the CRB window to invalid. If any register in window 0 is
-  	 * accessed it should set the window to 0 and then reset it to 1.
-@@ -222,7 +222,7 @@
-  	 *  Adapter in our case is quad port so initialize it before
-  	 *  initializing the ports
-  	 */
--	initialize_adapter_hw(adapter);	/* initialize the adapter */
-+	netxen_initialize_adapter_hw(adapter);	/* initialize the adapter */
+diff -u linux-2.6.17/drivers/net/netxen/netxen_nic_init.c linux-2.6.17/drivers/net/netxen/netxen_nic_init.c
+--- linux-2.6.17/drivers/net/netxen/netxen_nic_init.c	2006-08-17 07:12:34.000000000 -0700
++++ linux-2.6.17/drivers/net/netxen/netxen_nic_init.c	2006-08-21 02:20:00.000000000 -0700
+@@ -103,7 +103,7 @@
+  	crb_addr_transform(C2C0);
+  }
 
-  	init_timer(&adapter->watchdog_timer);
-  	adapter->ahw.xg_linkup = 0;
-@@ -243,8 +243,8 @@
-  		adapter->flags |= NETXEN_NIC_MSI_ENABLED;
-  #endif
+-int init_firmware(struct netxen_adapter *adapter)
++int netxen_init_firmware(struct netxen_adapter *adapter)
+  {
+  	u32 state = 0, loops = 0, err = 0;
 
--	if (is_flash_supported(adapter) == 0 &&
--	    get_flash_mac_addr(adapter, mac_addr) == 0)
-+	if (netxen_is_flash_supported(adapter) == 0 &&
-+	    netxen_get_flash_mac_addr(adapter, mac_addr) == 0)
-  		valid_mac = 1;
-  	else
-  		valid_mac = 0;
-@@ -345,7 +345,7 @@
-  	writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMD_CONSUMER_OFFSET));
-  	writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_HOST_CMD_ADDR_LO));
+@@ -133,7 +133,7 @@
+  	return err;
+  }
 
--	phantom_init(adapter);
-+	netxen_phantom_init(adapter);
-  	/*
-  	 * delay a while to ensure that the Pegs are up & running.
-  	 * Otherwise, we might see some flaky behaviour.
-@@ -423,9 +423,9 @@
+-void initialize_adapter_sw(struct netxen_adapter *adapter)
++void netxen_initialize_adapter_sw(struct netxen_adapter *adapter)
+  {
+  	int ctxid, ring;
+  	u32 i;
+@@ -167,7 +167,7 @@
+  		"adapter->free_cmd_buf_list", "adapter->free_rxbuf");
+  }
 
-  	netxen_nic_stop_all_ports(adapter);
-  	/* leave the hw in the same state as reboot */
--	pinit_from_rom(adapter, 0);
-+	netxen_pinit_from_rom(adapter, 0);
-  	udelay(500);
--	load_firmware(adapter);
-+	netxen_load_firmware(adapter);
+-void initialize_adapter_hw(struct netxen_adapter *adapter)
++void netxen_initialize_adapter_hw(struct netxen_adapter *adapter)
+  {
+  	if (netxen_nic_get_board_info(adapter) != 0)
+  		printk("%s: Error getting board config info.\n",
+@@ -218,7 +218,7 @@
+  static long rom_max_timeout = 10000;
+  static long rom_lock_timeout = 1000000;
 
-  	if ((adapter->flags & NETXEN_NIC_MSI_ENABLED))
-  		netxen_nic_disable_int(adapter);
-@@ -486,7 +486,7 @@
-  	int ctx, ring;
+-int rom_lock(struct netxen_adapter *adapter)
++static inline int rom_lock(struct netxen_adapter *adapter)
+  {
+  	int iter;
+  	u32 done = 0;
+@@ -248,7 +248,7 @@
+  	return 0;
+  }
 
-  	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC) {
--		err = init_firmware(adapter);
-+		err = netxen_init_firmware(adapter);
-  		if (err != 0) {
-  			printk(KERN_ERR "Failed to init firmware\n");
-  			return -EIO;
+-void rom_unlock(struct netxen_adapter *adapter)
++static inline void rom_unlock(struct netxen_adapter *adapter)
+  {
+  	u32 val;
+
+@@ -274,7 +274,8 @@
+  	return 0;
+  }
+
+-int do_rom_fast_read(struct netxen_adapter *adapter, int addr, int *valp)
++static inline int
++do_rom_fast_read(struct netxen_adapter *adapter, int addr, int *valp)
+  {
+  	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ADDRESS, addr);
+  	netxen_nic_reg_write(adapter, NETXEN_ROMUSB_ROM_ABYTE_CNT, 3);
+@@ -314,7 +315,7 @@
+  #define NETXEN_ROM_ROUNDUP		0x80000000ULL
+  #define NETXEN_ROM_FOUND_INIT		0x400
+
+-int pinit_from_rom(struct netxen_adapter *adapter, int verbose)
++int netxen_pinit_from_rom(struct netxen_adapter *adapter, int verbose)
+  {
+  	int addr, val, status;
+  	int n, i;
+@@ -457,7 +458,7 @@
+  	return 0;
+  }
+
+-void phantom_init(struct netxen_adapter *adapter)
++void netxen_phantom_init(struct netxen_adapter *adapter)
+  {
+  	u32 val = 0;
+  	int loops = 0;
 
