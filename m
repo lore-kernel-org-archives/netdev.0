@@ -1,57 +1,65 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: (usagi-users 03690) Re: Bug in order of multiple IPv6 addresses per interface? Newest
- added one is preferred in difference to IPv4
-Date: Mon, 21 Aug 2006 14:36:10 +0200
-Message-ID: <44E9A8BA.8010904@bieringer.de>
-References: <44E94653.1040002@bieringer.de>	 <20060821.194253.07794662.yoshfuji@linux-ipv6.org>	 <44E98F48.70204@bieringer.de> <y7vu046b8we.wl%jinmei@isl.rdc.toshiba.co.jp>
-Reply-To: usagi-users@linux-ipv6.org
+From: "Philip R. Auld" <pauld@egenera.com>
+Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
+Date: Mon, 21 Aug 2006 09:27:17 -0400
+Message-ID: <20060821132717.GD26589@vienna.egenera.com>
+References: <1155530453.5696.98.camel@twins> <20060813215853.0ed0e973.akpm@osdl.org> <44E3E964.8010602@google.com> <20060816225726.3622cab1.akpm@osdl.org> <44E5015D.80606@google.com> <20060817230556.7d16498e.akpm@osdl.org> <44E62F7F.7010901@google.com> <20060818153455.2a3f2bcb.akpm@osdl.org> <44E650C1.80608@google.com> <20060818194435.25bacee0.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: =?UTF-8?B?SklOTUVJIFRhdHV5YSAvIOelnuaYjumBlOWTiQ==?=
- <jinmei@isl.rdc.toshiba.co.jp>,
-        usagi-users@linux-ipv6.org,
-        =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
- <yoshfuji@linux-ipv6.org>
-Return-path: <usagi-users-admin@linux-ipv6.org>
-To: netdev@vger.kernel.org
-In-Reply-To: <y7vu046b8we.wl%jinmei@isl.rdc.toshiba.co.jp>
-List-Software: fml [fml 4.0.3 release (20011202/4.0.3)]
-List-Post: <mailto:usagi-users@linux-ipv6.org>
-List-Owner: <mailto:usagi-users-admin@linux-ipv6.org>
-List-Help: <mailto:usagi-users-ctl@linux-ipv6.org?body=help>
-List-Unsubscribe: <mailto:usagi-users-ctl@linux-ipv6.org?body=unsubscribe>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Phillips <phillips@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	David Miller <davem@davemloft.net>, riel@redhat.com,
+	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from roadrunner-base.egenera.com ([63.160.166.46]:4234 "EHLO
+	roadrunner-base.egenera.com") by vger.kernel.org with ESMTP
+	id S1751875AbWHUN1y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Aug 2006 09:27:54 -0400
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060818194435.25bacee0.akpm@osdl.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-JINMEI Tatuya / =E7=A5=9E=E6=98=8E=E9=81=94=E5=93=89 schrieb:
->>>>>> On Mon, 21 Aug 2006 12:47:36 +0200,=20
->>>>>> Peter Bieringer <pb@bieringer.de> said:
->=20
->>> I do not favor changing this so far.
->=20
->> Hmm, would it be possible to implement a primary flag in the future?
->=20
->> BTW: Does anyone know about the behavior of *BSD for this issue?
->=20
-> As far as I know, BSD variants don't have the notion of *explicit*
-> 'first/primary' or 'secondary' address.  But if your main concern is
-> to prefer particular addresses as the source address of outgoing
-> packets, you'd be able to achieve the goal by configuring appropriate
-> policy table entries (per RFC3484).
+Hi Andrew,
 
-Hmm, can I do this on Linux, too for preferring a source address (out of
-configured addresses from the *same subnet*)?
+Rumor has it that on Fri, Aug 18, 2006 at 07:44:35PM -0700 Andrew Morton said:
+> On Fri, 18 Aug 2006 16:44:01 -0700
+> Daniel Phillips <phillips@google.com> wrote:
+> 
+> - We expect that the lots-of-dirty-anon-memory-over-swap-over-network
+>   scenario might still cause deadlocks.  
+> 
+>   I assert that this can be solved by putting swap on local disks.  Peter
+>   asserts that this isn't acceptable due to disk unreliability.  I point
+>   out that local disk reliability can be increased via MD, all goes quiet.
 
-I only found:
-http://people.redhat.com/drepper/linux-rfc3484.html
-But this is more related to destination addresses.
+Putting swap on local disks really messes up the concept of stateless 
+servers. I suppose you can do some sort of swap encryption, but
+otherwise you need to scrub the swap partition on boot if you
+re-purpose the hardware. You also then need to do hardware
+configuration to make sure the local disks are all setup the 
+same way across all server platforms so the common images can 
+boot. 
 
-Thank you very much.
+Please don't require a hardware solution to a software problem.
 
-	Peter
---=20
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D                       mailto:pb@bieringer.de
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
-OpenBC                    http://www.openbc.com/hp/Peter_Bieringer/
-Personal invitation to OpenBC  http://www.openbc.com/go/invita/3889
+> 
+>   A good exposition which helps us to understand whether and why a
+>   significant proportion of the target user base still wishes to do
+>   swap-over-network would be useful.
+> 
+
+I can't claim to represent a significant proportion of the target 
+user base. However, stateless hardware is a powerful and useful
+model. 
+
+
+Cheers,
+
+Phil
+
+-- 
+Philip R. Auld, Ph.D.  	        	       Egenera, Inc.    
+Software Architect                            165 Forest St.
+(508) 858-2628                            Marlboro, MA 01752
