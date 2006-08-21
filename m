@@ -1,34 +1,51 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2.6.17 2/9] NetXen: Hardware access routines
-Date: Mon, 21 Aug 2006 07:03:02 -0700
-Message-ID: <20060821070302.5666e1ab@localhost.localdomain>
-References: <Pine.LNX.4.64.0608180713480.6875@dut39>
-	<Pine.LNX.4.64.0608180746090.6875@dut39>
-	<20060818081659.7c515bbf@dxpl.pdx.osdl.net>
-	<200608211357.23600.amitkale@linsyssoft.com>
+From: Jon Wikne <wikne@cheetah.uio.no>
+Subject: Re: sky2 driver - large files upload problem
+Date: Mon, 21 Aug 2006 16:21:07 +0200
+Message-ID: <44E9C153.1010300@cheetah.uio.no>
+References: <44E9A9E0.20106@cheetah.uio.no> <44E9B28C.9050207@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Amit S. Kale" <amitkale@netxen.com>, netdev@vger.kernel.org,
-	jeff@garzik.org, sanjeev@netxen.com, unmproj@linsyssoft.com,
-	rob@netxen.com
+Cc: Daniel Drake <dsd@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:33425 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1030452AbWHUODZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 10:03:25 -0400
-To: "Amit S. Kale" <amitkale@linsyssoft.com>
-In-Reply-To: <200608211357.23600.amitkale@linsyssoft.com>
+Received: from pat.uio.no ([129.240.10.4]:54962 "EHLO pat.uio.no")
+	by vger.kernel.org with ESMTP id S1030509AbWHUOVP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 10:21:15 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <44E9B28C.9050207@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Aug 2006 13:57:23 +0530
-"Amit S. Kale" <amitkale@linsyssoft.com> wrote:
+Daniel Drake wrote:
+> 
+> Jon Wikne wrote:
+> 
+>> What happens is typically this: After transeferring some
+>> data, ranging from less than 100kB to 10MB, the upload freezes,
+>> i.e. gets no further. Use of ping shows the connection is
+>> effectively dead. If I do a sequence /sbin/ifdown eth0
+>> /sbin/ifup eth0 the upload might resume, but stops again
+>> shortly. The phenomenon seems to occur sooner if the path
+>> to the remote system is _fast_ (low ping times).
+> 
+> You can try applying this patch:
+> http://developer.osdl.org/shemminger/prototypes/sky2-proc-debug.patch
+> 
+> It will add a /proc/net/sky2/ethX file, which lists the status of the TX 
+> and status rings. You should compare the contents of this file during 
+> normal operation to when the interface has hung.
 
-> We can certainly create a table for all error messages. It'll hurt readability 
-> of code in many of the other places where printks are used to indicate some 
-> hardware error.
-> -Amit
+Thanks, Daniel. I applied the patch.
 
-My suggestion was intended as an way to handle multiple driver versions
-all using the same firmware or vice versa. By locking the firmware and
-driver version together you might make maintenance more difficult.
+The output of 'cat /proc/net/sky2/eth0' under normal circumstances
+is here:
+
+http://puma.uio.no/sky2/sky2-status-normal.txt
+
+After the interface hangs, 'cat /proc/net/sky2/eth0' causes the
+whole computer to hang completely. No kernel oops or other
+messages in the console window. Power down is the only
+solution.... :-[ No log entries after reboot.
+
+
+-- Jon
