@@ -1,293 +1,189 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [PATCH] IP1000A: IC Plus update
-Date: Mon, 21 Aug 2006 09:25:11 -0700
-Message-ID: <20060821092511.32108665.rdunlap@xenotime.net>
-References: <1156192327.5852.3.camel@localhost.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: sky2 driver - large files upload problem
+Date: Mon, 21 Aug 2006 09:51:16 -0700
+Message-ID: <20060821095116.1b7f725d@localhost.localdomain>
+References: <44E9A9E0.20106@cheetah.uio.no>
+	<44E9B28C.9050207@gentoo.org>
+	<44E9C153.1010300@cheetah.uio.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, penberg@cs.Helsinki.FI, akpm@osdl.org,
-	dvrabel@cantab.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751900AbWHUQWK@vger.kernel.org>
-To: Jesse Huang <jesse@icplus.com.tw>
-In-Reply-To: <1156192327.5852.3.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Daniel Drake <dsd@gentoo.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:11398 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1422702AbWHUQv1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 12:51:27 -0400
+To: Jon Wikne <wikne@cheetah.uio.no>
+In-Reply-To: <44E9C153.1010300@cheetah.uio.no>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Aug 2006 16:32:07 -0400 Jesse Huang wrote:
+On Mon, 21 Aug 2006 16:21:07 +0200
+Jon Wikne <wikne@cheetah.uio.no> wrote:
 
-> Dear All:
-> I had regenerate this patch from:
-> git://git.kernel.org/pub/scm/linux/kernel/git/penberg/netdev-ipg-2.6.git
+> Daniel Drake wrote:
+> > 
+> > Jon Wikne wrote:
+> > 
+> >> What happens is typically this: After transeferring some
+> >> data, ranging from less than 100kB to 10MB, the upload freezes,
+> >> i.e. gets no further. Use of ping shows the connection is
+> >> effectively dead. If I do a sequence /sbin/ifdown eth0
+> >> /sbin/ifup eth0 the upload might resume, but stops again
+> >> shortly. The phenomenon seems to occur sooner if the path
+> >> to the remote system is _fast_ (low ping times).
+> > 
+> > You can try applying this patch:
+> > http://developer.osdl.org/shemminger/prototypes/sky2-proc-debug.patch
+> > 
+> > It will add a /proc/net/sky2/ethX file, which lists the status of the TX 
+> > and status rings. You should compare the contents of this file during 
+> > normal operation to when the interface has hung.
 > 
-> And, submit those modifications as one patch.
+> Thanks, Daniel. I applied the patch.
 > 
-> From: Jesse Huang <jesse@icplus.com.tw>
+> The output of 'cat /proc/net/sky2/eth0' under normal circumstances
+> is here:
 > 
-> Change Logs:
->    - update maintainer information
->    - remove some default phy params
->    - remove threshold config from ipg_io_config
->    - ip1000 ipg_config_autoneg rewrite
->    - modify coding style of ipg_config_autoneg
->    - Add IPG_AC_FIFO flag when Tx reset
->    - For compatible at PCI 66MHz issue
+> http://puma.uio.no/sky2/sky2-status-normal.txt
 > 
-> Signed-off-by: Jesse Huang <jesse@icplus.com.tw>
-> ---
+> After the interface hangs, 'cat /proc/net/sky2/eth0' causes the
+> whole computer to hang completely. No kernel oops or other
+> messages in the console window. Power down is the only
+> solution.... :-[ No log entries after reboot.
 > 
->  ipg.c |  394 ++++++++++++++
-> +-------------------------------------------------- ipg.h |   96
-> +--------------- 2 files changed, 92 insertions(+), 398 deletions(-)
 
-Please use "diffstat -p1 -w 70" for diffstat output so that we can
-see the full path/file names that are modified in the patch.
+It could be the code in the debug patch is walking off into space.
+The smaller version of the same patch, doesn't walk but just reports
+the index values.
 
-> 8bd0325e52d2578c37cd251aeac2136f7cca9098
-> diff --git a/ipg.c b/ipg.c
-> index 754ddb5..7c541c2 100644
-> --- a/ipg.c
-> +++ b/ipg.c
-
-Similar to the diffstat comment, the "diff" a & b filenames should
-show the full path to the source file, e.g.:
-
---- a/drivers/net/ipg.c
-+++ b/drivers/net/ipg.c
-
-> @@ -511,14 +513,13 @@ static int ipg_config_autoneg(struct net
->  	 */
->  	sp->tenmbpsmode = 0;
->  
-> -	printk("Link speed = ");
-> +	printk(KERN_INFO "Link speed = ");
->  
->  	/* Determine actual speed of operation. */
->  	switch (phyctrl & IPG_PC_LINK_SPEED) {
->  	case IPG_PC_LINK_SPEED_10MBPS:
->  		printk("10Mbps.\n");
-> -		printk(KERN_INFO "%s: 10Mbps operational mode
-> enabled.\n",
-> -		       dev->name);
-> +		printk("%s: 10Mbps operational mode enabled.
-> \n",dev->name);
-
-Space before "dev->name".
-Why dropping the KERN_INFO here?  The previous printk contains
-a newline character, so KERN_* is still valid.
-
-> 		sp->tenmbpsmode = 1;
->  		break;
->  	case IPG_PC_LINK_SPEED_100MBPS:
-
-> @@ -530,283 +531,50 @@ static int ipg_config_autoneg(struct net
-
-> +	/* Configure full duplex, and flow control. */
-> +	if (fullduplex == 1) {
-> +		/* Configure IPG for full duplex operation. */
-> +		printk(KERN_INFO "setting full duplex, ");
-
-This series of printk calls needs some kind of device or driver
-identification.
-
-> -		if ((advertisement & ADVERTISE_1000XFULL) ==
-> -		    (linkpartner_ability & ADVERTISE_1000XFULL)) {
-> -			fullduplex = 1;
-> +		mac_ctrl_value |= IPG_MC_DUPLEX_SELECT_FD;
->  
-> -			/* In 1000BASE-X using IPG's internal PCS
-> -			 * layer, so write to the GMII duplex bit.
-> -			 */
-> -			bmcr |= ADVERTISE_1000HALF; // Typo ?
-> +		if (txflowcontrol == 1) {
-> +			printk("TX flow control");
-> +			mac_ctrl_value |=
-> IPG_MC_TX_FLOW_CONTROL_ENABLE; } else {
-> -			fullduplex = 0;
-> -
-> -			/* In 1000BASE-X using IPG's internal PCS
-> -			 * layer, so write to the GMII duplex bit.
-> -			 */
-> -			bmcr &= ~ADVERTISE_1000HALF; // Typo ?
-> +			printk("no TX flow control");
-> +			mac_ctrl_value &=
-> ~IPG_MC_TX_FLOW_CONTROL_ENABLE; }
-> -		mdio_write(dev, phyaddr, MII_BMCR, bmcr);
-> -	}
-
-> +	} else {
-> +		/* Configure IPG for half duplex operation. */
-> +	        printk(KERN_INFO "setting half duplex, no TX flow
-> control, no RX flow control.\n"); 
-
-Same here:  needs device (preferably) or driver identification.
-
-> -		default:
-> -			txflowcontrol = 0;
-> -			rxflowcontrol = 0;
-> -		}
-> +		mac_ctrl_value &= ~IPG_MC_DUPLEX_SELECT_FD &
-> ~IPG_MC_TX_FLOW_CONTROL_ENABLE & ~IPG_MC_RX_FLOW_CONTROL_ENABLE; }
-
-> @@ -1158,6 +916,7 @@ static void ipg_nic_txfree(struct net_de
->  	struct ipg_nic_private *sp = netdev_priv(dev);
->  	int NextToFree;
->  	int maxtfdcount;
-> +	long CurrentTxTFDPtr=(ioread32(ipg_ioaddr(dev)
-> +TFD_LIST_PTR_0)-(long)sp->TFDListDMAhandle)/(long)sizeof(struct
-> TFD);
-
-Space before and after '=' sign.
+--- sky2.orig/drivers/net/sky2.c	2006-08-16 15:17:53.000000000 -0700
++++ sky2/drivers/net/sky2.c	2006-08-16 15:19:42.000000000 -0700
+@@ -38,6 +38,7 @@
+ #include <linux/delay.h>
+ #include <linux/workqueue.h>
+ #include <linux/if_vlan.h>
++#include <linux/proc_fs.h>
+ #include <linux/prefetch.h>
+ #include <linux/mii.h>
  
-> @@ -1180,8 +939,10 @@ static void ipg_nic_txfree(struct net_de
->  		 * If the TFDDone bit is set, free the associated
->  		 * buffer.
->  		 */
-> -		if ((le64_to_cpu(sp->TFDList[NextToFree].TFC) &
-> -		     IPG_TFC_TFDDONE) && (NextToFree !=
-> sp->CurrentTFD)) {
-> +		if((NextToFree != sp->CurrentTFD)&&(NextToFree!
-> =CurrentTxTFDPtr))
-
-Spaces before and after "&&" and "!=" etc. (as in the former code).
-
-> +		{
-> +			//JesseAdd: setup TFDDONE for compatible
-> issue.
-> +			sp->TFDList[NextToFree].TFC = cpu_to_le64
-> (sp->TFDList[NextToFree].TFC|IPG_TFC_TFDDONE); /* Free the transmit
-> buffer. */ if (sp->TxBuff[NextToFree] != NULL) {
->  				pci_unmap_single(sp->pdev,
-> @@ -1204,6 +965,15 @@ static void ipg_nic_txfree(struct net_de
->  		maxtfdcount--;
->  
->  	} while (maxtfdcount != 0);
-> +	if(sp->LastTFDHoldCnt>1000) {
-
-Space between "if" and "(".  Space before/after ">".
-and on next line ("=").
-
-> +		sp->LastTFDHoldCnt=0;
-> +		ipg_reset(dev, IPG_AC_TX_RESET | IPG_AC_DMA |
-> IPG_AC_NETWORK | IPG_AC_FIFO);
-> +		// Re-configure after DMA reset. 
-> +		if ((ipg_io_config(dev) < 0) ||(init_tfdlist(dev)
-> < 0)) {
-> +			printk(KERN_INFO"%s: Error during
-> re-configuration.\n",dev->name);
-
-Space before "dev->name".  And after KERN_INFO.
-
-Could you save an error code from ipg_io_config() or init_tfdlist()
-and give the user a bit more meaningful message?
-
-
-> +		}
-
-> @@ -2280,10 +2050,17 @@ static int ipg_nic_hard_start_xmit(struc
->  	 * counter, modulus the length of the TFDList.
->  	 */
->  	NextTFD = (sp->CurrentTFD + 1) % IPG_TFDLIST_LENGTH;
-> +	if(sp->ResetCurrentTFD!=0)
-
-Spaces.  Make it human-readable, not just machine-readable.
-
-> +	{
-> +		sp->ResetCurrentTFD=0;
-> +		NextTFD=0;	
-> +	}
-> +	/* Check for availability of next TFD. Reserve 1 for not
-> become ring*/
-> +	if (NextTFD == sp->LastFreedTxBuff) {
-> +		
-> +		if(sp->LastTFDHoldAddr==sp->CurrentTFD)
-
-Spaces....
-
-
-> diff --git a/ipg.h b/ipg.h
-> index 58b1417..9688483 100644
-> --- a/ipg.h
-> +++ b/ipg.h
-> @@ -919,59 +883,7 @@ unsigned short DefaultPhyParam[] = {
->  	// 01/09/04 IP1000A v1-5 rev=0x41
->  	(0x4100 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
-> 27, 0xeb8e, 31, 0x0000,
-> -	30, 0x005e, 9, 0x0700,
-> -	// 01/09/04 IP1000A v1-5 rev=0x42
-> -	(0x4200 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
-> 27, 0xeb8e, 31,
-> -	    0x0000,
-> -	30, 0x005e, 9, 0x0700,
-> -	// 01/09/04 IP1000A v1-5 rev=0x43
-> -	(0x4300 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
-> 27, 0xeb8e, 31,
-> -	    0x0000,
-> -	30, 0x005e, 9, 0x0700,
-> -	// 01/09/04 IP1000A v1-5 rev=0x44
-> -	(0x4400 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
-> 27, 0xeb8e, 31,
-> -	    0x0000,
-> -	30, 0x005e, 9, 0x0700,
-> -	// 01/09/04 IP1000A v1-5 rev=0x45
-> -	(0x4500 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
-> 27, 0xeb8e, 31,
-> -	    0x0000,
-> -	30, 0x005e, 9, 0x0700,
-> -	// 01/09/04 IP1000A v1-5 rev=0x46
-> -	(0x4600 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
-> 27, 0xeb8e, 31,
-> -	    0x0000,
-> -	30, 0x005e, 9, 0x0700,
-> -	// 01/09/04 IP1000A v1-5 rev=0x47
-> -	(0x4700 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
-> 27, 0xeb8e, 31,
-> -	    0x0000,
-> -	30, 0x005e, 9, 0x0700,
-> -	// 01/09/04 IP1000A v1-5 rev=0x48
-> -	(0x4800 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
-> 27, 0xeb8e, 31,
-> -	    0x0000,
-> -	30, 0x005e, 9, 0x0700,
-> -	// 01/09/04 IP1000A v1-5 rev=0x49
-> -	(0x4900 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
-> 27, 0xeb8e, 31,
-> -	    0x0000,
-> -	30, 0x005e, 9, 0x0700,
-> -	// 01/09/04 IP1000A v1-5 rev=0x4A
-> -	(0x4A00 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
-> 27, 0xeb8e, 31,
-> -	    0x0000,
-> -	30, 0x005e, 9, 0x0700,
-> -	// 01/09/04 IP1000A v1-5 rev=0x4B
-> -	(0x4B00 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
-> 27, 0xeb8e, 31,
-> -	    0x0000,
-> -	30, 0x005e, 9, 0x0700,
-> -	// 01/09/04 IP1000A v1-5 rev=0x4C
-> -	(0x4C00 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
-> 27, 0xeb8e, 31,
-> -	    0x0000,
-> -	30, 0x005e, 9, 0x0700,
-> -	// 01/09/04 IP1000A v1-5 rev=0x4D
-> -	(0x4D00 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
-> 27, 0xeb8e, 31,
-> -	    0x0000,
-> -	30, 0x005e, 9, 0x0700,
-> -	// 01/09/04 IP1000A v1-5 rev=0x4E
-> -	(0x4E00 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
-> 27, 0xeb8e, 31,
-> -	    0x0000,
-> -	30, 0x005e, 9, 0x0700,
-> +	30, 0x005e, 9, 0x0700,	
-
-Eh?  This change just adds whitespace at end of line.
-This happens in other places too.  Please clean up all of those.
-
-Does removing all of those other entries prevent anyone's
-hardware from working correctly?
-
-
----
-~Randy
+@@ -1005,6 +1006,7 @@
+ 
+ 		re->mapaddr = pci_map_single(hw->pdev, re->skb->data,
+ 					     sky2->rx_bufsize, PCI_DMA_FROMDEVICE);
++		re->ridx = sky2->rx_put;
+ 		sky2_rx_add(sky2, re->mapaddr);
+ 	}
+ 
+@@ -1890,6 +1892,7 @@
+ 	skb_put(skb, length);
+ resubmit:
+ 	re->skb->ip_summed = CHECKSUM_NONE;
++	re->ridx = sky2->rx_put;
+ 	sky2_rx_add(sky2, re->mapaddr);
+ 
+ 	return skb;
+@@ -3088,6 +3091,49 @@
+ 	.get_perm_addr	= ethtool_op_get_perm_addr,
+ };
+ 
++
++static struct proc_dir_entry *sky2_proc;
++
++static int sky2_seq_show(struct seq_file *seq, void *v)
++{
++	struct net_device *dev = seq->private;
++	const struct sky2_port *sky2 = netdev_priv(dev);
++	const struct sky2_hw *hw = sky2->hw;
++	unsigned last;
++
++	last = sky2_read16(hw, STAT_PUT_IDX);
++
++	if (hw->st_idx == last)
++		seq_puts(seq, "Status ring (empty)\n");
++	else
++		seq_printf(seq, "Status ring %d...%d\n", last, hw->st_idx);
++
++	if (sky2->tx_cons == sky2->tx_prod)
++		seq_puts(seq, "Tx ring (empty)\n");
++	else
++		seq_printf(seq, "Tx ring %d..%d\n", sky2->tx_cons, sky2->tx_prod);
++
++	seq_printf(seq, "Rx pending hw get=%d put=%d last=%d\n",
++		   sky2_read16(hw, Y2_QADDR(rxqaddr[sky2->port], PREF_UNIT_GET_IDX)),
++		   sky2_read16(hw, Y2_QADDR(rxqaddr[sky2->port], PREF_UNIT_PUT_IDX)),
++		   sky2_read16(hw, Y2_QADDR(rxqaddr[sky2->port], PREF_UNIT_LAST_IDX)));
++
++	return 0;
++}
++
++static int sky2_proc_open(struct inode *inode, struct file  *file)
++{
++	return single_open(file, sky2_seq_show, PDE(inode)->data);
++}
++
++static const struct file_operations sky2_proc_fops = {
++	.owner		= THIS_MODULE,
++	.open		= sky2_proc_open,
++	.read		= seq_read,
++	.llseek		= seq_lseek,
++	.release	= single_release,
++};
++
+ /* Initialize network device */
+ static __devinit struct net_device *sky2_init_netdev(struct sky2_hw *hw,
+ 						     unsigned port, int highmem)
+@@ -3178,6 +3224,15 @@
+ 		       dev->name,
+ 		       dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+ 		       dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
++
++	if (sky2_proc) {
++		struct proc_dir_entry *res;
++		res = create_proc_entry(dev->name, S_IRUGO, sky2_proc);
++		if (res) {
++			res->proc_fops = &sky2_proc_fops;
++			res->data = dev;
++		}
++	}
+ }
+ 
+ /* Handle software interrupt used during MSI test */
+@@ -3417,8 +3472,11 @@
+ 
+ 	dev0 = hw->dev[0];
+ 	dev1 = hw->dev[1];
+-	if (dev1)
++	if (dev1) {
++		remove_proc_entry(dev1->name, sky2_proc);
+ 		unregister_netdev(dev1);
++	}
++	remove_proc_entry(dev0->name, sky2_proc);
+ 	unregister_netdev(dev0);
+ 
+ 	sky2_set_power_state(hw, PCI_D3hot);
+@@ -3519,12 +3577,14 @@
+ 
+ static int __init sky2_init_module(void)
+ {
++	sky2_proc = proc_mkdir("sky2", proc_net);
+ 	return pci_register_driver(&sky2_driver);
+ }
+ 
+ static void __exit sky2_cleanup_module(void)
+ {
+ 	pci_unregister_driver(&sky2_driver);
++	proc_net_remove("sky2");
+ }
+ 
+ module_init(sky2_init_module);
+--- sky2.orig/drivers/net/sky2.h	2006-08-16 15:19:29.000000000 -0700
++++ sky2/drivers/net/sky2.h	2006-08-16 15:19:42.000000000 -0700
+@@ -1827,6 +1827,7 @@
+ struct ring_info {
+ 	struct sk_buff	*skb;
+ 	dma_addr_t	mapaddr;
++	u16		ridx;
+ };
+ 
+ struct sky2_port {
