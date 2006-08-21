@@ -1,80 +1,61 @@
-From: Thomas Klein <osstklei@de.ibm.com>
-Subject: Re: [2.6.19 PATCH 4/7] ehea: ethtool interface
-Date: Mon, 21 Aug 2006 12:53:26 +0200
-Message-ID: <44E990A6.90806@de.ibm.com>
-References: <200608181333.23031.ossthema@de.ibm.com> <20060818140506.GC5201@martell.zuzino.mipt.ru>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [take9 1/2] kevent: Core files.
+Date: Mon, 21 Aug 2006 11:56:37 +0100
+Message-ID: <20060821105637.GB28759@infradead.org>
+References: <11555364962921@2ka.mipt.ru> <1155536496588@2ka.mipt.ru> <20060816134550.GA12345@infradead.org> <20060816135642.GD4314@2ka.mipt.ru> <20060818104607.GB20816@infradead.org> <20060818112336.GB11034@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jan-Bernd Themann <ossthema@de.ibm.com>, netdev@vger.kernel.org,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([195.212.29.136]:32675 "EHLO
-	mtagate3.uk.ibm.com") by vger.kernel.org with ESMTP
-	id S1751856AbWHUKxb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 06:53:31 -0400
-To: Alexey Dobriyan <adobriyan@gmail.com>
-In-Reply-To: <20060818140506.GC5201@martell.zuzino.mipt.ru>
+Received: from pentafluge.infradead.org ([213.146.154.40]:49857 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S1751861AbWHUK5A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Aug 2006 06:57:00 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Disposition: inline
+In-Reply-To: <20060818112336.GB11034@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Aug 18, 2006 at 03:23:36PM +0400, Evgeniy Polyakov wrote:
+> > defines make some sense for userspace-visible ABIs because then people
+> > can test for features with ifdef.  It doesn't make any sense for constants
+> > that are used purely in-kernel.  For those enums make more sense because
+> > you can for example looks at the symbolic names with a debugger.
+> 
+> Enums are only usefull when value is increased with each new member by
+> one.
 
-Alexey Dobriyan wrote:
- > On Fri, Aug 18, 2006 at 01:33:22PM +0200, Jan-Bernd Themann wrote:
- >> --- linux-2.6.18-rc4-orig/drivers/net/ehea/ehea_ethtool.c
- >> +++ kernel/drivers/net/ehea/ehea_ethtool.c
- >> +{
- >> +    strncpy(info->driver, DRV_NAME, sizeof(info->driver) - 1);
- >> +    strncpy(info->version, DRV_VERSION, sizeof(info->version) - 1);
- >
- > Use strlcpy() to not forget -1 accidently.
+No, they are not.  Please search the lkml archives, this came up multiple
+times.
 
-Done.
+> There will be either several syscalls or multiplexer...
+> I prefer to have one syscall and a lot of multiplexers inside.
 
- >
- >> +static u32 netdev_get_msglevel(struct net_device *dev)
- >                        ^^^^^^^^
- >> +{
- >> +    struct ehea_port *port = netdev_priv(dev);
- >> +    return port->msg_enable;
- >                        ^^^^^^
- >
- > Something is mis-named here.
+To make life for everyone to detangle the mess hard.  Please at least
+try to follow existing design principles.
 
-The kernel requires a structure member of that name.
+> > > I created a char device in first releases and was forced to not use it
+> > > at all.
+> > 
+> > Do you have a reference to it?  In this case a char devices makes a lot of
+> > sense because you get a filedescriptor and have operations only defined on
+> > it.  In fact given that you have a multiplexer anyway there's really no
+> > point in adding a syscall for that aswell, you could rather use the existing
+> > and debugged ioctl() multiplexer.  Sure, it's still not what we consider
+> > nice, but better than adding even more odd multiplexer syscalls.
+> 
+> Somewhere in february.
+> Here is link to initial anounce which used ioctl and raw char device and
+> enums for all constants.
+> 
+> http://marc.theaimsgroup.com/?l=linux-netdev&m=113949344414464&w=2
 
- >> +struct ethtool_ops ehea_ethtool_ops = {
- >> +    .get_settings = netdev_get_settings,
- >> +    .get_drvinfo = netdev_get_drvinfo,
- >> +    .get_msglevel = netdev_get_msglevel,
- >> +    .set_msglevel = netdev_set_msglevel,
- >> +        .get_link = ethtool_op_get_link,
- >> +        .get_tx_csum = ethtool_op_get_tx_csum,
- >
- > Whitespace breakage.
-
-Fixed.
-
- >> +    .set_settings = NULL,
- >> +    .nway_reset = NULL,
- >> +    .get_pauseparam = NULL,
- >> +    .set_pauseparam = NULL,
- >> +    .get_rx_csum = NULL,
- >> +    .set_rx_csum = NULL,
- >> +    .phys_id = NULL,
- >> +    .self_test = NULL,
- >> +    .self_test_count = NULL
- >
- > If you don't use them, don't mention them at all. Compiler will DTRT.
-
-Agreed. Assignments removed.
-
-Thanks again :-)
-Thomas
-
-
+That thread only shows your patch but no comments to it.  Do you have
+an url for the complaint about this design?  And please include the author
+of it in the cc list of your reply so we can settle the arguments.
