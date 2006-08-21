@@ -1,46 +1,57 @@
-From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
-Subject: Re: [2.6.19 PATCH 1/7] ehea: interface to network stack
-Date: Mon, 21 Aug 2006 15:18:31 +0200
-Message-ID: <20060821131831.GA31094@wohnheim.fh-wedel.de>
-References: <200608181329.02042.ossthema@de.ibm.com> <20060818144429.GF5201@martell.zuzino.mipt.ru> <200608211423.54250.ossthema@de.ibm.com>
+From: Peter Bieringer <pb@bieringer.de>
+Subject: (usagi-users 03690) Re: Bug in order of multiple IPv6 addresses per interface? Newest
+ added one is preferred in difference to IPv4
+Date: Mon, 21 Aug 2006 14:36:10 +0200
+Message-ID: <44E9A8BA.8010904@bieringer.de>
+References: <44E94653.1040002@bieringer.de>	 <20060821.194253.07794662.yoshfuji@linux-ipv6.org>	 <44E98F48.70204@bieringer.de> <y7vu046b8we.wl%jinmei@isl.rdc.toshiba.co.jp>
+Reply-To: usagi-users@linux-ipv6.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <osstklei@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wohnheim.fh-wedel.de ([213.39.233.138]:24518 "EHLO
-	wohnheim.fh-wedel.de") by vger.kernel.org with ESMTP
-	id S1751409AbWHUNSg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 09:18:36 -0400
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <200608211423.54250.ossthema@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: =?UTF-8?B?SklOTUVJIFRhdHV5YSAvIOelnuaYjumBlOWTiQ==?=
+ <jinmei@isl.rdc.toshiba.co.jp>,
+        usagi-users@linux-ipv6.org,
+        =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+ <yoshfuji@linux-ipv6.org>
+Return-path: <usagi-users-admin@linux-ipv6.org>
+To: netdev@vger.kernel.org
+In-Reply-To: <y7vu046b8we.wl%jinmei@isl.rdc.toshiba.co.jp>
+List-Software: fml [fml 4.0.3 release (20011202/4.0.3)]
+List-Post: <mailto:usagi-users@linux-ipv6.org>
+List-Owner: <mailto:usagi-users-admin@linux-ipv6.org>
+List-Help: <mailto:usagi-users-ctl@linux-ipv6.org?body=help>
+List-Unsubscribe: <mailto:usagi-users-ctl@linux-ipv6.org?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 August 2006 14:23:53 +0200, Jan-Bernd Themann wrote:
+JINMEI Tatuya / =E7=A5=9E=E6=98=8E=E9=81=94=E5=93=89 schrieb:
+>>>>>> On Mon, 21 Aug 2006 12:47:36 +0200,=20
+>>>>>> Peter Bieringer <pb@bieringer.de> said:
 >=20
-> Is it valid (common in the kernel environment) to treat NULL as 0 aft=
-er a memset
-> and thus to forget about initialization?
+>>> I do not favor changing this so far.
+>=20
+>> Hmm, would it be possible to implement a primary flag in the future?
+>=20
+>> BTW: Does anyone know about the behavior of *BSD for this issue?
+>=20
+> As far as I know, BSD variants don't have the notion of *explicit*
+> 'first/primary' or 'secondary' address.  But if your main concern is
+> to prefer particular addresses as the source address of outgoing
+> packets, you'd be able to achieve the goal by configuring appropriate
+> policy table entries (per RFC3484).
 
-Yes.  According to C99, "An implementation might conveivably have
-codes for floating zero and/or null pointer other than all bits zero."
-But as long as you don't use floating point (you shouldn't) and don't
-redefine NULL to something other than (void*)0, this is rather
-"inconceivable" for the kernel.
+Hmm, can I do this on Linux, too for preferring a source address (out of
+configured addresses from the *same subnet*)?
 
-J=F6rn
+I only found:
+http://people.redhat.com/drepper/linux-rfc3484.html
+But this is more related to destination addresses.
 
+Thank you very much.
+
+	Peter
 --=20
-Debugging is twice as hard as writing the code in the first place.
-Therefore, if you write the code as cleverly as possible, you are,
-by definition, not smart enough to debug it.
--- Brian W. Kernighan
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D                       mailto:pb@bieringer.de
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+OpenBC                    http://www.openbc.com/hp/Peter_Bieringer/
+Personal invitation to OpenBC  http://www.openbc.com/go/invita/3889
