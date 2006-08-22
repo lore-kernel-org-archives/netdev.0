@@ -1,57 +1,65 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Tue, 22 Aug 2006 22:01:35 +0400
-Message-ID: <20060822180135.GA30142@2ka.mipt.ru>
-References: <11561555871530@2ka.mipt.ru> <1156230051.8055.27.camel@entropy> <20060822072448.GA5126@2ka.mipt.ru> <1156234672.8055.51.camel@entropy> <b3f268590608220957g43a16d6bmde8a542f8ad8710b@mail.gmail.com>
+Subject: Re: [take12 3/3] kevent: Timer notifications.
+Date: Tue, 22 Aug 2006 22:25:33 +0400
+Message-ID: <20060822182533.GB30142@2ka.mipt.ru>
+References: <11561555893621@2ka.mipt.ru> <1156155589287@2ka.mipt.ru> <20060821111239.GA30945@infradead.org> <20060821111848.GB8608@2ka.mipt.ru> <1156170349.4725.29.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
-Cc: Nicholas Miell <nmiell@comcast.net>,
+Cc: Christoph Hellwig <hch@infradead.org>,
 	lkml <linux-kernel@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
 	Ulrich Drepper <drepper@redhat.com>,
 	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:27317 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932329AbWHVSCj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 14:02:39 -0400
-To: Jari Sundell <sundell.software@gmail.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:31624 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932335AbWHVS0k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 14:26:40 -0400
+To: Thomas Gleixner <tglx@linutronix.de>
 Content-Disposition: inline
-In-Reply-To: <b3f268590608220957g43a16d6bmde8a542f8ad8710b@mail.gmail.com>
+In-Reply-To: <1156170349.4725.29.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 22, 2006 at 06:57:05PM +0200, Jari Sundell (sundell.software@gmail.com) wrote:
-> On 8/22/06, Nicholas Miell <nmiell@comcast.net> wrote:
-> >
-> >
-> >OK, so with literally a dozen different interfaces to queue events to
-> >userspace, all of which are apparently inadequate and in need of
-> >replacement by kevent, don't you want to slow down a bit and make sure
-> >that the kevent API is correct before it becomes permanent and then just
-> >has to be replaced *again* ?
-> >
+On Mon, Aug 21, 2006 at 04:25:49PM +0200, Thomas Gleixner (tglx@linutronix.de) wrote:
+> > Not everymachine has them 
 > 
-> Not to mention the name used causes (at least me) some confusion with BSD's
-> kqueue implementation. Skimming over the patches it actually looks somewhat
-> like kqueue with the more interesting features removed, like the ability to
-> pass the filter changes simultaneously with polling.
+> Every machine has hrtimers - not necessarily with high resolution timer
+> support, but the core code is there in any case and it is designed to
+> provide fine grained timers. 
+> 
+> In case of high resolution time support one would expect that the "fine
+> grained" timer event is actually fine grained.
 
-I do not understand, what do you mean?
-It is obviously allowed to poll and change kevents at the same time.
+Ok, I should reformulate, that currently not every machine has support
+in kernel. Obviously each machine has a clock which runs faster than
+jiffies.
+And as a side note - kevents were created half a year ago - there were
+no hrtimers in kernel in that time, btw, does kernel have high-resolutin
+clock engine already in?
 
-> Maybe this is a topic that will singe my fur, but what is wrong with the
-> kqueue API? Will I really have to implement support for yet another event
-> API in my program.
+> > and getting into account possibility that
+> > userspace can be scheduled away, it will be overkill.
+> 
+> If you think out your argument then everything which is fine grained or
+> high responsive should be removed from userspace access for the very
+> same reason. Please look at the existing users of the hrtimer subsystem
+> - all of them are exposed to userspace.
 
-Why did I not implemented it like Solaris did?
-Or FreeBSD did?
-It was designed with features mention on AIO homepage in mind, but not
-to be compatible with some other implementation.
-And why should it be?
+Getting into account that system call gets more than 100 nsec, and one
+should create kevent and then read it (with at least three rescheduling
+- after two syscalls and wake up), it is not exactly the best way to
+obtain nanoseconds resolution. And even one usec is good one for
+userspace, and I can create an interface through kevents, but let's get
+it real - if we still can not agree on other issues, should we do it
+right now? I would like kevent core's issues are resolved and everyone
+become happy with it before adding new kevent users.
 
-> Rakshasa
+If everyone says "yes, replace usual timers with high-resolution ones",
+then ok, I will schedule it for the next patchset.
+
+> 	tglx
+> 
 
 -- 
 	Evgeniy Polyakov
