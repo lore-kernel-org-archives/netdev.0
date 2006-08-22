@@ -1,28 +1,51 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: Get rid of /proc/sys/net/unix/max_dgram_qlen
-Date: Wed, 23 Aug 2006 03:32:00 +0400
-Message-ID: <20060822233200.GA20104@ms2.inr.ac.ru>
-References: <4550.81.207.0.53.1156275903.squirrel@81.207.0.53> <20060822203914.GA9246@ms2.inr.ac.ru> <3794.81.207.0.53.1156285148.squirrel@81.207.0.53> <20060822223402.GA16459@ms2.inr.ac.ru> <1727.81.207.0.53.1156287240.squirrel@81.207.0.53>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] IP1000A: IC Plus update 2006-08-22
+Date: Wed, 23 Aug 2006 01:27:30 +0200
+Message-ID: <20060822232730.GA30977@electric-eye.fr.zoreil.com>
+References: <1156268234.3622.1.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: penberg@cs.Helsinki.FI, akpm@osdl.org, dvrabel@cantab.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	david@pleyades.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:39582 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S932217AbWHVXcB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 19:32:01 -0400
-To: Indan Zupancic <indan@nul.nu>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:26779 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S932226AbWHVXcM
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Aug 2006 19:32:12 -0400
+To: Jesse Huang <jesse@icplus.com.tw>
 Content-Disposition: inline
-In-Reply-To: <1727.81.207.0.53.1156287240.squirrel@81.207.0.53>
+In-Reply-To: <1156268234.3622.1.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Jesse Huang <jesse@icplus.com.tw> :
+> Dear All:
+> I had regenerate this patch from:
+> git://git.kernel.org/pub/scm/linux/kernel/git/penberg/netdev-ipg-2.6.git
+> 
+> And, submit those modifications as one patch.
 
-> Isn't a socket freed until all skb are handled? In which case the limit on the number of open
-> files limits the total memory usage? (Same as with streaming sockets?)
+The suggestion was probably to submit the whole driver as one patch
+to akpm for wider testing when it is ready (it still is a bit rough
+imho). Unrelated changes make more sense in incremental, isolated
+patches as you used to submit before.
 
-Alas. Number of closed sockets is not limited. Actually, it is limited
-by sk_max_ack_backlog*max_files, which is a lot.
+I have made some surgery to apply your previous patchset with
+former descriptive commit messages, plus your recent codingstyle
+changes and a few more.
 
-The problem is specific for unconnected datagram sockets
-(predicate unix_peer(other) != sk)
+You'll find it either in branch 'netdev-ipg' at:
+git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
+or as a serie of patches at:
+http://www.fr.zoreil.com/linux/2.6.x/2.6.18-rc4/ip1000
+
+The serie of patches comes straight from the (now old) git tree.
+It applies correctly against 2.6.18-git-of-the-day.
+
+The result should not be too far from penberg git + your all-in-one
+patch but I have not checked it yet. I'd appreciate if you could
+review it.
+
+-- 
+Ueimor
