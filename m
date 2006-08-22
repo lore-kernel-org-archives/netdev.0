@@ -1,30 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5][SCTP]: Use the flags value that is passed as an
- arg to sctp_accept.
-Date: Tue, 22 Aug 2006 00:24:20 -0700 (PDT)
-Message-ID: <20060822.002420.80876314.davem@davemloft.net>
-References: <Pine.LNX.4.58.0608181501560.7947@w-sridhar.beaverton.ibm.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
+Date: Tue, 22 Aug 2006 11:24:49 +0400
+Message-ID: <20060822072448.GA5126@2ka.mipt.ru>
+References: <11561555871530@2ka.mipt.ru> <1156230051.8055.27.camel@entropy>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:2480
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750970AbWHVHYQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 03:24:16 -0400
-To: sri@us.ibm.com
-In-Reply-To: <Pine.LNX.4.58.0608181501560.7947@w-sridhar.beaverton.ibm.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:27595 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751314AbWHVHZc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 03:25:32 -0400
+To: Nicholas Miell <nmiell@comcast.net>
+Content-Disposition: inline
+In-Reply-To: <1156230051.8055.27.camel@entropy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Fri, 18 Aug 2006 15:02:57 -0700 (PDT)
-
-> [SCTP]: Use the flags value that is passed as an arg to sctp_accept.
+On Tue, Aug 22, 2006 at 12:00:51AM -0700, Nicholas Miell (nmiell@comcast.net) wrote:
+> On Mon, 2006-08-21 at 14:19 +0400, Evgeniy Polyakov wrote:
+> > Generic event handling mechanism.
 > 
-> No need to do multiple dereferences - sk->sk_socket->file->f_flags
+> Since this is the sixth[1] event notification system that's getting
+> added to the kernel, could somebody please convince me that the
+> userspace API is right this time? (Evidently, the others weren't and are
+> now just backward compatibility bloat.)
 > 
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> Just looking at the proposed kevent API, it appears that the timer event
+> queuing mechanism can't be used for the queuing of POSIX.1b interval
+> timer events (i.e. via a SIGEV_KEVENT notification value in a struct
+> sigevent) because (being a very thin veneer over the internal kernel
+> timer system) you can't specify a clockid, the time value doesn't have
+> the flexibility of a struct itimerspec (no re-arm timeout or absolute
+> times), and there's no way to alter, disable or query a pending timer or
+> query a timer overrun count.
+> 
+> Overall, kevent timers appear to be inconvenient to use and limited
+> compared to POSIX interval timers (excepting the fact you can read their
+> expiray events out of a queue, of course).
+ 
+Kevent timers are just trivial kevent user.
+But even as is it is not that bad solution.
+I, as user, do not want to know which timer is used  - I only need to
+get some signal when interval completed, especially I do not want to
+have some troubles when timer with given clockid has disappeared.
+Kevent timer can be trivially rearmed (acutally it is always rearmed 
+until one-shot flag is set).
+Of course it can be disabled by removing requested kevent.
+I can add possibility to alter timeout without removing kevent if there
+is strong requirement for that.
 
-Applied, thanks a lot.
+Timer notifications were designed not from committee point of view, when
+theoretical discussions end up in multi-megabyte documentation 99.9% of
+which can not be used without major brain surgery.
+
+I just implemented what I use, if you want more - say what you need.
+ 
+> [1] Previously: select, poll, AIO, epoll, and inotify. Did I miss any?
+
+Let me guess - kevent, which can do all above and a lot of other things?
+And you forget netlink-based notificators - netlink, rtnetlink,
+gennetlink, connector and tons of accounting application based on them,
+kobject, kobject_uevent.
+There also filessytem based ones - sysfs, procfs, debugfs, relayfs.
+
+> -- 
+> Nicholas Miell <nmiell@comcast.net>
+
+-- 
+	Evgeniy Polyakov
