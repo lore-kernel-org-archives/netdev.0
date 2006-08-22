@@ -1,51 +1,45 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] IP1000A: IC Plus update 2006-08-22
-Date: Wed, 23 Aug 2006 01:27:30 +0200
-Message-ID: <20060822232730.GA30977@electric-eye.fr.zoreil.com>
-References: <1156268234.3622.1.camel@localhost.localdomain>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
+Date: Tue, 22 Aug 2006 16:35:35 -0700
+Message-ID: <20060822163535.ddea8797.akpm@osdl.org>
+References: <1156281182.2476.63.camel@entropy>
+	<20060822143747.68acaf99.rdunlap@xenotime.net>
+	<20060822150144.058d9052.akpm@osdl.org>
+	<20060822.151747.56047759.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: penberg@cs.Helsinki.FI, akpm@osdl.org, dvrabel@cantab.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	david@pleyades.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: rdunlap@xenotime.net, nmiell@comcast.net, johnpol@2ka.mipt.ru,
+	linux-kernel@vger.kernel.org, drepper@redhat.com,
+	netdev@vger.kernel.org, zach.brown@oracle.com, hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:26779 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S932226AbWHVXcM
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 19:32:12 -0400
-To: Jesse Huang <jesse@icplus.com.tw>
-Content-Disposition: inline
-In-Reply-To: <1156268234.3622.1.camel@localhost.localdomain>
+Received: from smtp.osdl.org ([65.172.181.4]:3539 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932262AbWHVXgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 19:36:11 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060822.151747.56047759.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesse Huang <jesse@icplus.com.tw> :
-> Dear All:
-> I had regenerate this patch from:
-> git://git.kernel.org/pub/scm/linux/kernel/git/penberg/netdev-ipg-2.6.git
+On Tue, 22 Aug 2006 15:17:47 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Andrew Morton <akpm@osdl.org>
+> Date: Tue, 22 Aug 2006 15:01:44 -0700
 > 
-> And, submit those modifications as one patch.
+> > If there _is_ something wrong with kqueue then let us identify those
+> > weaknesses and then diverge.
+> 
+> Evgeniy already enumerated this, both on his web site and in the
+> current thread.
 
-The suggestion was probably to submit the whole driver as one patch
-to akpm for wider testing when it is ready (it still is a bit rough
-imho). Unrelated changes make more sense in incremental, isolated
-patches as you used to submit before.
+<googles, spends a few minutes clicking around on
+http://tservice.net.ru/~s0mbre/, fails.  Looks in changelogs, also fails>
 
-I have made some surgery to apply your previous patchset with
-former descriptive commit messages, plus your recent codingstyle
-changes and a few more.
+Best I can find is
+http://tservice.net.ru/~s0mbre/blog/devel/kevent/index.html, and that's
+doesn't cover these things.
 
-You'll find it either in branch 'netdev-ipg' at:
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git
-or as a serie of patches at:
-http://www.fr.zoreil.com/linux/2.6.x/2.6.18-rc4/ip1000
+At some stage we're going to need to tell Linus (for example) what we've
+done and why we did it.  I don't know how to do that.
 
-The serie of patches comes straight from the (now old) git tree.
-It applies correctly against 2.6.18-git-of-the-day.
-
-The result should not be too far from penberg git + your all-in-one
-patch but I have not checked it yet. I'd appreciate if you could
-review it.
-
--- 
-Ueimor
