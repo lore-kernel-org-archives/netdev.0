@@ -1,29 +1,52 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 06/14] ipw2100: Make ipw2100 depends on known working platforms
-Date: Tue, 22 Aug 2006 10:11:22 +0100
-Message-ID: <20060822091122.GA14142@infradead.org>
-References: <20060821033748.GA5371@mail.intel.com> <20060821095215.GB2770@infradead.org> <1156222231.17642.350.camel@debian.sh.intel.com>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: [PATCH] ipw2200: Fix compile error when CONFIG_IPW2200_DEBUG is not selected
+Date: Tue, 22 Aug 2006 17:11:56 +0800
+Message-ID: <20060822091154.GA14219@mail.intel.com>
+Reply-To: yi.zhu@intel.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:7072 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1750785AbWHVJL1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 05:11:27 -0400
-To: Zhu Yi <yi.zhu@intel.com>
+Received: from mga09.intel.com ([134.134.136.24]:35906 "EHLO
+	orsmga102-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1751370AbWHVJNy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Aug 2006 05:13:54 -0400
+To: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
-In-Reply-To: <1156222231.17642.350.camel@debian.sh.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 22, 2006 at 12:50:30PM +0800, Zhu Yi wrote:
-> I'm not saying I'm not going to support it in the future. But currently
-> ipw2100 doesn't support big endian machines is the truth. One reason is
-> because I don't have such a box with an ipw2100 card. If you or someone
-> has such a platform and is willing to try patches for me, I'm happy to
-> get this done. That's why the ipw2200 driver has the BE supported.
+Signed-off-by: Zhu Yi <yi.zhu@intel.com>
 
-I'm happy to test ipw2100 on big endian systems if you send me a card.
+---
 
+ drivers/net/wireless/ipw2200.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
+
+e2037ce8584be3c909339a6156235628fb82f26a
+diff --git a/drivers/net/wireless/ipw2200.c b/drivers/net/wireless/ipw2200.c
+index 750c25d..fa245f1 100644
+--- a/drivers/net/wireless/ipw2200.c
++++ b/drivers/net/wireless/ipw2200.c
+@@ -83,9 +83,7 @@ MODULE_AUTHOR(DRV_COPYRIGHT);
+ MODULE_LICENSE("GPL");
+ 
+ static int cmdlog = 0;
+-#ifdef CONFIG_IPW2200_DEBUG
+ static int debug = 0;
+-#endif
+ static int channel = 0;
+ static int mode = 0;
+ 
+@@ -11824,10 +11822,8 @@ MODULE_PARM_DESC(auto_create, "auto crea
+ module_param(led, int, 0444);
+ MODULE_PARM_DESC(led, "enable led control on some systems (default 0 off)\n");
+ 
+-#ifdef CONFIG_IPW2200_DEBUG
+ module_param(debug, int, 0444);
+ MODULE_PARM_DESC(debug, "debug output mask");
+-#endif
+ 
+ module_param(channel, int, 0444);
+ MODULE_PARM_DESC(channel, "channel to limit associate to (default 0 [ANY])");
+-- 
+1.2.6
