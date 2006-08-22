@@ -1,88 +1,37 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Subject: Re: [PATCH 4/4] IP100A: Solve host error problem in low performance
- embedded system when continune down and up.
-Date: Tue, 22 Aug 2006 09:05:42 -0700
-Message-ID: <20060822090542.6469977a.rdunlap@xenotime.net>
-References: <1156271492.4662.6.camel@localhost.localdomain>
+From: "Jouni Malinen" <jkm@devicescape.com>
+Subject: Re: [PATCH 08/18] d80211:  clean up exports
+Date: Tue, 22 Aug 2006 09:44:36 -0700
+Message-ID: <20060822164436.GG13240@instant802.com>
+References: <20060821074107.648561364@sipsolutions.net> <20060821075200.277082970@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	akpm@osdl.org, jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:56467 "HELO xenotime.net")
-	by vger.kernel.org with SMTP id S1751407AbWHVQCg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 12:02:36 -0400
-Received: from midway.site ([71.117.233.155]) by xenotime.net for <netdev@vger.kernel.org>; Tue, 22 Aug 2006 09:02:34 -0700
-To: Jesse Huang <jesse@icplus.com.tw>
-In-Reply-To: <1156271492.4662.6.camel@localhost.localdomain>
+Received: from dhost002-38.dex002.intermedia.net ([64.78.21.123]:49975 "EHLO
+	dhost002-38.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1751415AbWHVQos (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Aug 2006 12:44:48 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+Content-Disposition: inline
+In-Reply-To: <20060821075200.277082970@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Aug 2006 14:31:32 -0400 Jesse Huang wrote:
+On Mon, Aug 21, 2006 at 09:41:15AM +0200, Johannes Berg wrote:
+> This puts all EXPORT_SYMBOL() macros along with the function being exported,
+> and changes some exports that are only relevant to rate control modules
+> and to be GPL-only because they rate control modules need to be built against
+> the internal ieee80211_i.h header.
 
-> From: Jesse Huang <jesse@icplus.com.tw>
-> 
-> Change Logs:
->    - Solve host error problem in low performance embedded 
->      system when continune down and up.
-> 
-> Signed-off-by: Jesse Huang <jesse@icplus.com.tw>
-> 
-> ---
-> 
->  sundance.c |   30 +++++++++++++++++++++++++-----
->  1 files changed, 25 insertions(+), 5 deletions(-)
+Moving the EXPORT_SYMBOL definitions sounds good, but I would like to
+keep changes between EXPORT_SYMBOL and EXPORT_SYMBOL_GPL separate from
+this kind of cleanup. In addition, I'm not personally a huge fan of the
+EXPORT_SYMBOL_GPL in the first place since I believe the GPL should
+cover this without additional changes in the source code. In other
+words, I would prefer that the EXPORT_SYMBOL would not be changed to
+EXPORT_SYMBOL_GPL here.
 
-Full path/file names above and below, please.
-
-> a88c635933a981dd4fca87e5b8ca9426c5c98013
-> diff --git a/sundance.c b/sundance.c
-> index 424aebd..de55e0f 100755
-> --- a/sundance.c
-> +++ b/sundance.c
-> @@ -1647,6 +1647,14 @@ static int netdev_close(struct net_devic
->  	struct sk_buff *skb;
->  	int i;
->  
-> +	/* Wait and kill tasklet */
-> +	tasklet_kill(&np->rx_tasklet);
-> +	tasklet_kill(&np->tx_tasklet);
-> +   np->cur_tx = 0;
-> +   np->dirty_tx = 0;
-
-Use same indentation/whitespace as surrounding code.
-(tabs, not spaces)
-
-> +	np->cur_task = 0;
-> +	np->last_tx = 0;
-> +
->  	netif_stop_queue(dev);
->  
->  	if (netif_msg_ifdown(np)) {
-> @@ -1667,9 +1675,20 @@ static int netdev_close(struct net_devic
->  	/* Stop the chip's Tx and Rx processes. */
->  	iowrite16(TxDisable | RxDisable | StatsDisable, ioaddr + MACCtrl1);
->  
-> -	/* Wait and kill tasklet */
-> -	tasklet_kill(&np->rx_tasklet);
-> -	tasklet_kill(&np->tx_tasklet);
-> +    for (i = 2000; i > 0; i--) {
-> +		 if ((ioread32(ioaddr + DMACtrl) &0xC000) == 0)
-> +		    break;
-> +		 mdelay(1);
-> +    }	
-> +
-> +    iowrite16(GlobalReset | DMAReset | FIFOReset |NetworkReset, ioaddr +ASICCtrl + 2);
-> +    
-> +    for (i = 2000; i > 0; i--)
-> +    {
-> +		 if ((ioread16(ioaddr + ASICCtrl +2) &ResetBusy) == 0)
-> +	    	break;
-> +		 mdelay(1);
-> +    }
-
-Same comment about indentation/whitespace.
-
----
-~Randy
+-- 
+Jouni Malinen                                            PGP id EFC895FA
