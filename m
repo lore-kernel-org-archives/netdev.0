@@ -1,153 +1,72 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [RESEND 1/2] [NETLINK]: Improve string attribute validation
-Date: Tue, 22 Aug 2006 15:40:49 +0200
-Message-ID: <20060822134049.GF3470@postel.suug.ch>
-References: <20060822125354.196502354@postel.suug.ch> <20060822125840.307365394@postel.suug.ch>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [Lksctp-developers] [PATCH 3/5][SCTP]: Remove multiple levels of msecs to jiffies conversions.
+Date: Tue, 22 Aug 2006 09:44:37 -0400
+Message-ID: <200608220944.37254.vladislav.yasevich@hp.com>
+References: <1155925357.20802.27.camel@w-sridhar2.beaverton.ibm.com> <20060822.002253.26973121.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, sri@us.ibm.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:49886 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S932240AbWHVNk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 09:40:28 -0400
-To: davem@davemloft.net
+Received: from atlrel9.hp.com ([156.153.255.214]:55494 "EHLO atlrel9.hp.com")
+	by vger.kernel.org with ESMTP id S932239AbWHVNoj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 09:44:39 -0400
+To: lksctp-developers@lists.sourceforge.net
+In-Reply-To: <20060822.002253.26973121.davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20060822125840.307365394@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Searching for '\0' with strnchr() doesn't really work :-)
+On Tue August 22 2006 03:22, David Miller wrote:
+> From: Sridhar Samudrala <sri@us.ibm.com>
+> Date: Fri, 18 Aug 2006 11:22:37 -0700
+>
+> > [SCTP]: Remove multiple levels of msecs to jiffies conversions.
+> >
+> > The SCTP sysctl entries are displayed in milliseconds, but stored
+> > internally in jiffies. This results in multiple levels of msecs to
+> > jiffies conversion and as a result produces a truncation error. This
+> > patch makes things consistent in that we store and display defaults
+> > in milliseconds and only convert once for use by association.
+> > This patch also adds some sane min/max values so that we don't go off
+> > the deep end.
+> >
+> > Signed-off-by: Vladislav Yasevich <vladislav.yasevich@hp.com>
+> > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+>
+> This cannot be done.
+>
+> The syctl values have a fixed format, like any other portion
+> of the API exposed to userspace.
+>
+> So you cannot arbitrarily change the units to/from milliseconds
+> and jiffies.
 
-Introduces a new attribute type NLA_NUL_STRING to support NUL
-terminated strings. Attributes of this kind require to carry
-a terminating NUL within the maximum specified in the policy.
+Dave
 
-The `old' NLA_STRING which is not required to be NUL terminated
-is extended to provide means to specify a maximum length of the
-string.
+We are not changing the units exposed to the user.  We have used and
+are still using  milliseconds to communicate with the user.  What this patch 
+removes is the initial conversion of user milliseconds to kernel internal 
+jiffies that are stored into the SCTP globabl variables.  SCTP uses these 
+globals initialize per socket variables that are in milliseconds, so ended up 
+doing a useless conversion back to ms to initialize these socket variables.  
+During this conversion, we ended up with truncation error that this patch 
+corrects.
 
-Aims at easing the pain with using nla_strlcpy() on temporary
-buffers.
+Again, the variables exposed by the user interface have been and remain in 
+milliseconds.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
-
-Index: net-2.6.19.git/include/net/netlink.h
-===================================================================
---- net-2.6.19.git.orig/include/net/netlink.h
-+++ net-2.6.19.git/include/net/netlink.h
-@@ -167,6 +167,7 @@ enum {
- 	NLA_FLAG,
- 	NLA_MSECS,
- 	NLA_NESTED,
-+	NLA_NUL_STRING,
- 	__NLA_TYPE_MAX,
- };
- 
-@@ -175,21 +176,27 @@ enum {
- /**
-  * struct nla_policy - attribute validation policy
-  * @type: Type of attribute or NLA_UNSPEC
-- * @minlen: Minimal length of payload required to be available
-+ * @len: Type specific length of payload
-  *
-  * Policies are defined as arrays of this struct, the array must be
-  * accessible by attribute type up to the highest identifier to be expected.
-  *
-+ * Meaning of `len' field:
-+ *    NLA_STRING           Maximum length of string
-+ *    NLA_NUL_STRING       Maximum length of string (excluding NUL)
-+ *    NLA_FLAG             Unused
-+ *    All other            Exact length of attribute payload
-+ *
-  * Example:
-  * static struct nla_policy my_policy[ATTR_MAX+1] __read_mostly = {
-  * 	[ATTR_FOO] = { .type = NLA_U16 },
-- *	[ATTR_BAR] = { .type = NLA_STRING },
-- *	[ATTR_BAZ] = { .minlen = sizeof(struct mystruct) },
-+ *	[ATTR_BAR] = { .type = NLA_STRING, len = BARSIZ },
-+ *	[ATTR_BAZ] = { .len = sizeof(struct mystruct) },
-  * };
-  */
- struct nla_policy {
- 	u16		type;
--	u16		minlen;
-+	u16		len;
- };
- 
- /**
-Index: net-2.6.19.git/net/netlink/attr.c
-===================================================================
---- net-2.6.19.git.orig/net/netlink/attr.c
-+++ net-2.6.19.git/net/netlink/attr.c
-@@ -20,7 +20,6 @@ static u16 nla_attr_minlen[NLA_TYPE_MAX+
- 	[NLA_U16]	= sizeof(u16),
- 	[NLA_U32]	= sizeof(u32),
- 	[NLA_U64]	= sizeof(u64),
--	[NLA_STRING]	= 1,
- 	[NLA_NESTED]	= NLA_HDRLEN,
- };
- 
-@@ -28,7 +27,7 @@ static int validate_nla(struct nlattr *n
- 			struct nla_policy *policy)
- {
- 	struct nla_policy *pt;
--	int minlen = 0;
-+	int minlen = 0, attrlen = nla_len(nla);
- 
- 	if (nla->nla_type <= 0 || nla->nla_type > maxtype)
- 		return 0;
-@@ -37,16 +36,46 @@ static int validate_nla(struct nlattr *n
- 
- 	BUG_ON(pt->type > NLA_TYPE_MAX);
- 
--	if (pt->minlen)
--		minlen = pt->minlen;
--	else if (pt->type != NLA_UNSPEC)
--		minlen = nla_attr_minlen[pt->type];
-+	switch (pt->type) {
-+	case NLA_FLAG:
-+		if (attrlen > 0)
-+			return -ERANGE;
-+		break;
-+
-+	case NLA_NUL_STRING:
-+		if (pt->len)
-+			minlen = min_t(int, attrlen, pt->len + 1);
-+		else
-+			minlen = attrlen;
-+
-+		if (!minlen || memchr(nla_data(nla), '\0', minlen) == NULL)
-+			return -EINVAL;
-+		/* fall through */
-+
-+	case NLA_STRING:
-+		if (attrlen < 1)
-+			return -ERANGE;
- 
--	if (pt->type == NLA_FLAG && nla_len(nla) > 0)
--		return -ERANGE;
-+		if (pt->len) {
-+			char *buf = nla_data(nla);
- 
--	if (nla_len(nla) < minlen)
--		return -ERANGE;
-+			if (buf[attrlen - 1] == '\0')
-+				attrlen--;
-+
-+			if (attrlen > pt->len)
-+				return -ERANGE;
-+		}
-+		break;
-+
-+	default:
-+		if (pt->len)
-+			minlen = pt->len;
-+		else if (pt->type != NLA_UNSPEC)
-+			minlen = nla_attr_minlen[pt->type];
-+
-+		if (attrlen < minlen)
-+			return -ERANGE;
-+	}
- 
- 	return 0;
- }
+-vlad
+>
+> -------------------------------------------------------------------------
+> Using Tomcat but need to do more? Need to support web services, security?
+> Get stuff done quickly with pre-integrated technology to make your job
+> easier Download IBM WebSphere Application Server v.1.0.1 based on Apache
+> Geronimo
+> http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+> _______________________________________________
+> Lksctp-developers mailing list
+> Lksctp-developers@lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/lksctp-developers
