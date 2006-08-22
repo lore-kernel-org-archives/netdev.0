@@ -1,72 +1,68 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [Lksctp-developers] [PATCH 3/5][SCTP]: Remove multiple levels of msecs to jiffies conversions.
-Date: Tue, 22 Aug 2006 09:44:37 -0400
-Message-ID: <200608220944.37254.vladislav.yasevich@hp.com>
-References: <1155925357.20802.27.camel@w-sridhar2.beaverton.ibm.com> <20060822.002253.26973121.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: 800+ byte inlines in include/net/pkt_act.h
+Date: Tue, 22 Aug 2006 09:45:05 -0400
+Message-ID: <1156254305.5304.17.camel@jzny2>
+References: <200608201933.10293.vda.linux@googlemail.com>
+	 <1156163160.5126.47.camel@jzny2>
+	 <20060821.163801.15260979.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, sri@us.ibm.com,
+Cc: vda.linux@googlemail.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:55494 "EHLO atlrel9.hp.com")
-	by vger.kernel.org with ESMTP id S932239AbWHVNoj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 09:44:39 -0400
-To: lksctp-developers@lists.sourceforge.net
-In-Reply-To: <20060822.002253.26973121.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mx03.cybersurf.com ([209.197.145.106]:49321 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932250AbWHVNpK
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Aug 2006 09:45:10 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060821.163801.15260979.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue August 22 2006 03:22, David Miller wrote:
-> From: Sridhar Samudrala <sri@us.ibm.com>
-> Date: Fri, 18 Aug 2006 11:22:37 -0700
->
-> > [SCTP]: Remove multiple levels of msecs to jiffies conversions.
-> >
-> > The SCTP sysctl entries are displayed in milliseconds, but stored
-> > internally in jiffies. This results in multiple levels of msecs to
-> > jiffies conversion and as a result produces a truncation error. This
-> > patch makes things consistent in that we store and display defaults
-> > in milliseconds and only convert once for use by association.
-> > This patch also adds some sane min/max values so that we don't go off
-> > the deep end.
-> >
-> > Signed-off-by: Vladislav Yasevich <vladislav.yasevich@hp.com>
-> > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
->
-> This cannot be done.
->
-> The syctl values have a fixed format, like any other portion
-> of the API exposed to userspace.
->
-> So you cannot arbitrarily change the units to/from milliseconds
-> and jiffies.
+On Mon, 2006-21-08 at 16:38 -0700, David Miller wrote:
+> From: jamal <hadi@cyberus.ca>
+> Date: Mon, 21 Aug 2006 08:26:00 -0400
+> 
+> > As per last discussion, either Patrick McHardy or myself are going
+> > to work on it - at some point. Please be patient. The other
+> > alternative is: you fix it and send patches.
+> 
+> I'm working on it right now.  This code is really gross and needs
+> to be fixed immediately.
+> 
+> What I'll do is define a "struct tcf_common" and have the generic
+> interfaces take that as well as a "struct tcf_hashinfo *" parameter to
+> deal with the individual hash tables.
+> 
 
-Dave
+Sounds reasonable. May actually be close to what Patrick and I had in
+discussion (I cant find my notes) i.e hashinfo would contain
+table{size,index,mask,lock, and pointer to table}
+After staring at the code for a minute, I think the challenges you may
+face are in the conversions of: tcf_ {dump_walker(), del_walker() and
+generic_walker()}
 
-We are not changing the units exposed to the user.  We have used and
-are still using  milliseconds to communicate with the user.  What this patch 
-removes is the initial conversion of user milliseconds to kernel internal 
-jiffies that are stored into the SCTP globabl variables.  SCTP uses these 
-globals initialize per socket variables that are in milliseconds, so ended up 
-doing a useless conversion back to ms to initialize these socket variables.  
-During this conversion, we ended up with truncation error that this patch 
-corrects.
+Thanks for taking this up Dave. And if you get it started and get
+distracted somewhere, I could take it over.
 
-Again, the variables exposed by the user interface have been and remain in 
-milliseconds.
+> We define all of this templated stuff then don't even use it in
+> act_police.c, we just duplicate everything!
 
--vlad
->
-> -------------------------------------------------------------------------
-> Using Tomcat but need to do more? Need to support web services, security?
-> Get stuff done quickly with pre-integrated technology to make your job
-> easier Download IBM WebSphere Application Server v.1.0.1 based on Apache
-> Geronimo
-> http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
-> _______________________________________________
-> Lksctp-developers mailing list
-> Lksctp-developers@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/lksctp-developers
+act_police deviates from the generic layout; the intent is to allow for
+that. The desire was/is for usability for whoever uses the generic
+layout (read: joe-netfilter) could write a single page of code quickly
+to do something powerful (like gact for example). It is turning out code
+augmentation is not such a practical idea in the kernel.
+
+cheers,
+jamal
+
+> Absolutely unbelievable.
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
