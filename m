@@ -1,94 +1,56 @@
-From: Rainer Baumann <baumann@tik.ee.ethz.ch>
-Subject: [PATCH 2.6.16.19 0/2] LARTC: trace control for netem
-Date: Tue, 22 Aug 2006 16:32:33 +0200
-Message-ID: <44EB1581.9090304@tik.ee.ethz.ch>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH] wireless-dev: relax sysfs permissions
+Date: Tue, 22 Aug 2006 16:47:40 +0200
+Message-ID: <20060822164740.51861395@griffin.suse.cz>
+References: <1155736186.3600.29.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jouni Malinen <jkm@devicescape.com>,
+	"John W. Linville" <linville@tuxdriver.com>, gregkh@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>, netdev@VGER.KERNEL.ORG,
-	netem@osdl.org
+Received: from styx.suse.cz ([82.119.242.94]:42159 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S932284AbWHVOrn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 10:47:43 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1155736186.3600.29.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is the revised trace extension to the network emulator netem.
-This extension provides emulation control based on pregenerated traces.
+On Wed, 16 Aug 2006 15:49:45 +0200, Johannes Berg wrote:
+> The sysfs attributes add_iface and remove_iface both check for
+> CAP_NET_ADMIN whenever something is written. Hence, permissions for the
+> files should be relaxed so that someone who is not root but happens to
+> have CAP_NET_ADMIN can do things.
 
-We first submitted this patch on 2nd of August, in the mean time 
-we integrated the comments from Stephen and fixed the listed things.
+I'm not sure about this. Greg, what's the policy here?
 
-Cheers,
-Rainer
+Note that there is also another way for adding and removing interfaces -
+via nl80211 netlink interface (not finished yet but will go in shortly).
 
+> 
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> 
+> --- wireless-dev.orig/net/d80211/ieee80211_sysfs.c	2006-08-16 15:45:41.000000000 +0200
+> +++ wireless-dev/net/d80211/ieee80211_sysfs.c	2006-08-16 15:46:05.000000000 +0200
+> @@ -195,8 +195,8 @@
+>  __IEEE80211_LOCAL_SHOW(rate_ctrl_alg);
+>  
+>  static struct class_device_attribute ieee80211_class_dev_attrs[] = {
+> -	__ATTR(add_iface, S_IWUSR, NULL, store_add_iface),
+> -	__ATTR(remove_iface, S_IWUSR, NULL, store_remove_iface),
+> +	__ATTR(add_iface, S_IWUGO, NULL, store_add_iface),
+> +	__ATTR(remove_iface, S_IWUGO, NULL, store_remove_iface),
+>  	__ATTR(channel, S_IRUGO, ieee80211_local_show_channel, NULL),
+>  	__ATTR(frequency, S_IRUGO, ieee80211_local_show_frequency, NULL),
+>  	__ATTR(radar_detect, S_IRUGO, ieee80211_local_show_radar_detect, NULL),
+> 
+> 
 
--------- Original Message --------
-Subject: 	Re: [PATCH 2.6.16.19 0/2] LARTC: trace control for netem
-Date: 	Wed, 2 Aug 2006 11:19:21 -0700
-From: 	Stephen Hemminger <shemminger@osdl.org>
-To: 	Rainer Baumann <baumann@tik.ee.ethz.ch>
-CC: 	netdev@VGER.KERNEL.ORG, netem@osdl.org
-References: 	<44D0DF17.6060809@tik.ee.ethz.ch>
+Thanks,
 
-> On Wed, 02 Aug 2006 19:21:27 +0200
-> > Rainer Baumann <baumann@tik.ee.ethz.ch> wrote:
-> >
-> >   
->> >> Hi,
->> >>
->> >> We developed an extension to the network emulator netem, that provides
->> >> emulation of long term network properties such as long-range dependence
->> >> and self-similarity of cross-traffic. It is not possible to emulate
->> >> these properties with the  statistical tables for the packet delay
->> >> values used by the original netem.
->> >>
->> >> We read the values for the packet delay, drop, loss and corruption from
->> >> a pre-generated trace file. This trace file is obtained by monitoring
->> >> network traffic and writing all actions to a trace file. During the
->> >> emulation the packets get processed according the values in such a trace
->> >> file. Detailed information are available on our
->> >> Webseitehttp://tcn.hypert.net
->> >>
->> >> A new option (trace) has been added to the netem command. If the trace
->> >> option is used, the values for packet delay etc. are read from a trace
->> >> file, afterwards the packets are processed by the normal netem functions.
->> >> The packet action values are readout from the trace file in user space
->> >> and sent to kernel space via procfs.
->> >>
->> >> The evaluation results show similar behavior for our enhancement and the
->> >> original netem with respect to packet delay precision and packet loss at
->> >> high load (e.g. 80'000 packets per second).
->> >> It is possible to add, change or delete multiple netem qdiscs on-the-fly
->> >> (original netem qdiscs and trace qdiscs mixed).
->> >>
->> >> We are looking forward for any comments, feedback and suggestions!
->> >>
->> >> Thanks,
->> >> Rainer
->> >>     
-> >
-> > I like the idea and want to get it incorporated.
-> >
-> > Major things that need fixing:
-> > * Don't extend size of tc_netem_qopt instead use a new netlink
-> >   payload.
-> >     + add type to TCA_NETEM_ enum
-> >     + new structure containing the payload
-> >   This allows for binary compatiablity.
-> >
-> > * Don't use proc for a interface to netem features. Use netlink.
-> >   Either add a new command (or option) to the iproute2 commands
-> >   to handle flow table, or add a new payload.
-> >
-> >
-> > Minor stuff:
-> > * the bzero macro in netem is a BSDism, just use memset
-> > * bad indentation and style issues.
-> > * minor whitespace damage in several places in patch
-> >
-> > -
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >   
+ Jiri
 
-
+-- 
+Jiri Benc
+SUSE Labs
