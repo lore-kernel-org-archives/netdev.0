@@ -1,55 +1,61 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH] kevent_user: remove non-chardev interface
-Date: Tue, 22 Aug 2006 16:39:32 +0400
-Message-ID: <20060822123932.GA27181@2ka.mipt.ru>
-References: <12345678912345.GA1898@2ka.mipt.ru> <11561555871530@2ka.mipt.ru> <20060822115459.GA10839@infradead.org> <20060822121709.GA4815@2ka.mipt.ru> <20060822122731.GA2994@infradead.org>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCH][REPOST] WAN: fix C101 card carrier handling
+Date: Tue, 22 Aug 2006 14:59:17 +0200
+Message-ID: <m3k651udsq.fsf@defiant.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:24760 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932213AbWHVMkU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 08:40:20 -0400
-To: Christoph Hellwig <hch@infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20060822122731.GA2994@infradead.org>
+Received: from khc.piap.pl ([195.187.100.11]:12518 "EHLO khc.piap.pl")
+	by vger.kernel.org with ESMTP id S932071AbWHVM7U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 08:59:20 -0400
+To: Jeff Garzik <jeff@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 22, 2006 at 01:27:31PM +0100, Christoph Hellwig (hch@infradead.org) wrote:
-> On Tue, Aug 22, 2006 at 04:17:10PM +0400, Evgeniy Polyakov wrote:
-> > I personally do not have objections against it, but it introduces
-> > additional complexies - one needs to open /dev/kevent and then perform
-> > syscalls on top of returuned file descriptor.
-> 
-> it disalllows
-> 
-> int fd = sys_kevent_ctl(<random>, KEVENT_CTL_INIT, <random>, <random>);
-> 
-> in favour of only
-> 
-> int fd = open("/dev/kevent", O_SOMETHING);
-> 
-> which doesn't seem like a problem, especially as I really badly hope
-> no one will use the syscalls but some library instead.
+Hi,
 
-Yep, exactly about above open/kevent_ctl I'm talking.
-I still have a system which has ioctl() based kevent setup, and it
-works - I really do not want to rise another flamewar about which
-approach is better. If no one will complain until tomorrow I will commit
-it.
+One of my recent changes broke C101 carrier handling, this patch
+fixes it. Also fixes an old TX underrun checking bug.
 
-> In addition to that I'm researching whether there's a better way to
-> implement the other functionality instead of the two syscalls.  But I'd
-> rather let code speak, so wait for some patches from me on that.
+2.6.18 material. Please apply.
+Thanks.
 
-There were implementation with pure ioctl() and with one syscall for all
-oprations (and control block embedded in it), all were rejected in
-favour of two syscalls, so I'm waiting for your patches.
+Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
 
--- 
-	Evgeniy Polyakov
+diff --git a/drivers/net/wan/c101.c b/drivers/net/wan/c101.c
+index 435e91e..6b63b35 100644
+--- a/drivers/net/wan/c101.c
++++ b/drivers/net/wan/c101.c
+@@ -118,7 +118,7 @@ #include "hd6457x.c"
+ 
+ static inline void set_carrier(port_t *port)
+ {
+-	if (!sca_in(MSCI1_OFFSET + ST3, port) & ST3_DCD)
++	if (!(sca_in(MSCI1_OFFSET + ST3, port) & ST3_DCD))
+ 		netif_carrier_on(port_to_dev(port));
+ 	else
+ 		netif_carrier_off(port_to_dev(port));
+@@ -127,10 +127,10 @@ static inline void set_carrier(port_t *p
+ 
+ static void sca_msci_intr(port_t *port)
+ {
+-	u8 stat = sca_in(MSCI1_OFFSET + ST1, port); /* read MSCI ST1 status */
++	u8 stat = sca_in(MSCI0_OFFSET + ST1, port); /* read MSCI ST1 status */
+ 
+-	/* Reset MSCI TX underrun status bit */
+-	sca_out(stat & ST1_UDRN, MSCI0_OFFSET + ST1, port);
++	/* Reset MSCI TX underrun and CDCD (ignored) status bit */
++	sca_out(stat & (ST1_UDRN | ST1_CDCD), MSCI0_OFFSET + ST1, port);
+ 
+ 	if (stat & ST1_UDRN) {
+ 		struct net_device_stats *stats = hdlc_stats(port_to_dev(port));
+@@ -138,6 +138,7 @@ static void sca_msci_intr(port_t *port)
+ 		stats->tx_fifo_errors++;
+ 	}
+ 
++	stat = sca_in(MSCI1_OFFSET + ST1, port); /* read MSCI1 ST1 status */
+ 	/* Reset MSCI CDCD status bit - uses ch#2 DCD input */
+ 	sca_out(stat & ST1_CDCD, MSCI1_OFFSET + ST1, port);
+ 
