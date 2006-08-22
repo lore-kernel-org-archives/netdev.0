@@ -1,51 +1,40 @@
-From: Mohamed Abbas <mabbas@linux.intel.com>
-Subject: [PATCH 03/3] d80211:  adhoc
-Date: Mon, 21 Aug 2006 17:38:04 -0700
-Message-ID: <44EA51EC.8010705@linux.intel.com>
-References: <20060821074107.648561364@sipsolutions.net> <20060821075158.728615077@sipsolutions.net> <44EA501E.4010605@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020703010508000700070800"
-Cc: "John W. Linville" <linville@tuxdriver.com>
+From: "Jesse Huang" <jesse@icplus.com.tw>
+Subject: Re: [PATCH 2/6] IP100A Fix Tx pause bug
+Date: Tue, 22 Aug 2006 09:17:08 +0800
+Message-ID: <00bd01c6c588$afdedbc0$4964a8c0@icplus.com.tw>
+References: <1155841445.4532.10.camel@localhost.localdomain> <44E5A425.8020200@pobox.com>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:6545 "EHLO
-	orsmga102-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1751340AbWHVAiN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 20:38:13 -0400
-To: netdev@vger.kernel.org
-In-Reply-To: <44EA501E.4010605@linux.intel.com>
+Received: from msr34.hinet.net ([168.95.4.134]:65449 "EHLO msr34.hinet.net")
+	by vger.kernel.org with ESMTP id S932070AbWHVBUN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2006 21:20:13 -0400
+To: "Jeff Garzik" <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020703010508000700070800
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+----- Original Message ----- 
+From: "Jeff Garzik" <jgarzik@pobox.com>
+To: "Jesse Huang" <jesse@icplus.com.tw>
+Cc: <linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
+<akpm@osdl.org>
+Sent: Friday, August 18, 2006 7:27 PM
+Subject: Re: [PATCH 2/6] IP100A Fix Tx pause bug
 
-This a small patch allow IBSS network to recieve management frame.
-Thanks
-Mohamed
+(1)
+>> + iowrite8(127, ioaddr + TxDMAPollPeriod);
+>> +
+>
+> what does the value 127 represent?
 
---------------020703010508000700070800
-Content-Type: text/plain;
- name="d80211-adhoc.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="d80211-adhoc.patch"
+127 is polling period of Tx DMA to watch if there any packet need to send.
+The 127 means 127*320ns.
 
-diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index 8caf352..1153932 100644
---- a/net/d80211/ieee80211_sta.c
-+++ b/net/d80211/ieee80211_sta.c
-@@ -1716,7 +1710,8 @@ void ieee80211_sta_rx_mgmt(struct net_de
- 		goto fail;
- 
- 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
--	if (sdata->type != IEEE80211_IF_TYPE_STA) {
-+	if ((sdata->type != IEEE80211_IF_TYPE_STA) &&
-+            (sdata->type != IEEE80211_IF_TYPE_IBSS)) {
- 		printk(KERN_DEBUG "%s: ieee80211_sta_rx_mgmt: non-STA "
- 		       "interface (type=%d)\n", dev->name, sdata->type);
- 		goto fail;
+(2)
+> DownCounter should not be written unconditionally.  Consider shared
+> interrupts, where sundance performs no work, and handled==0.
 
---------------020703010508000700070800--
+DownCount is a the register that we can use for timer interrupt. When the
+value of  DownCount from 1 count down to 0 , IP100A will issue an interrupt.
+
+
