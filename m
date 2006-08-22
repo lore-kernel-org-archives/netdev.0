@@ -1,124 +1,50 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Tue, 22 Aug 2006 14:03:16 +0400
-Message-ID: <20060822100316.GA31820@2ka.mipt.ru>
-References: <11561555871530@2ka.mipt.ru> <1156230051.8055.27.camel@entropy> <20060822072448.GA5126@2ka.mipt.ru> <1156234672.8055.51.camel@entropy> <20060822083711.GA26183@2ka.mipt.ru> <1156238988.8055.78.camel@entropy>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] locking bug in fib_semantics.c
+Date: Tue, 22 Aug 2006 12:35:56 +0200
+Message-ID: <20060822103556.GA3262@ff.dom.local>
+References: <20060817093615.GA25553@ms2.inr.ac.ru> <20060821081642.GA2637@ff.dom.local> <20060821.011703.78716718.davem@davemloft.net> <20060821110201.GA3674@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:17326 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S932151AbWHVKED (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 06:04:03 -0400
-To: Nicholas Miell <nmiell@comcast.net>
+Received: from mx10.go2.pl ([193.17.41.74]:44928 "EHLO poczta.o2.pl")
+	by vger.kernel.org with ESMTP id S932156AbWHVKc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 06:32:58 -0400
+To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <1156238988.8055.78.camel@entropy>
+In-Reply-To: <20060821110201.GA3674@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 22, 2006 at 02:29:48AM -0700, Nicholas Miell (nmiell@comcast.net) wrote:
-> > > Is any of this documented anywhere? I'd think that any new userspace
-> > > interfaces should have man pages explaining their use and some example
-> > > code before getting merged into the kernel to shake out any interface
-> > > problems.
-> > 
-> > There are two excellent articles on lwn.net
+On Mon, Aug 21, 2006 at 01:02:01PM +0200, Jarek Poplawski wrote:
+> On 21-08-2006 10:17, David Miller wrote:
+> > From: Jarek Poplawski <jarkao2@o2.pl>
+> > Date: Mon, 21 Aug 2006 10:16:43 +0200
+> ...
+> > I was skeptical of this case too, until I checked how
+> > fib_release_info() was called.
 > 
-> Google knows of one and it doesn't actually explain how to use kevents.
+> I overlooked this - so I've to sharpen my sight and look at it 
+> again - now knowing it's there.
+...
 
-http://lwn.net/Articles/192964/
-http://lwn.net/Articles/172844/
+Hello,
+I've found it at last but on that occasion I've got some
+doubt according to rcu_read_lock and rcu_call treatment:
+isn't it "illegal to block while in an RCU read-side
+section"? And I think it takes place in:
 
-In the thread there were enough links to homepage where you can find
-several examples of how to use kevents (and timers among others) with
-old interfaces and new ones.
+fib_lookup(): from tb_insert (fn_hash_insert() or
+  fn_trie_insert()), fib_create_info(), fib_check_nh() 
 
-> > I will ask just one question, do _you_ propose anything here?
-> >  
-> 
-> struct sigevent sigev = {
-> 	.sigev_notify = SIGEV_KEVENT,
-> 	.sigev_kevent_fd = kev_fd,
-> 	.sigev_value.sival_ptr = &MyCookie
-> };
-> 
-> struct itimerspec its = {
-> 	.it_value = { ... },
-> 	.it_interval = { ... }
-> };
-> 
-> struct timespec timeout = { .. };
-> 
-> struct ukevent events[max];
-> 
-> timer_t timer;
-> 
-> timer_create(CLOCK_MONOTONIC, &sigev, &timer);
-> timer_settime(timer, 0, &its, NULL);
-> 
-> /* ... */
-> 
-> kevent_get_events(kev_fd, min, max, &timeout, events, 0);
-> 
-> 
-> 
-> Which isn't all that different from what Ulrich Drepper suggested and
-> Solaris does right now. (timer_create would probably end up calling
-> kevent_ctl itself, but it obviously can't do that unless kevents
-> actually support real interval timers).
+fn_trie_lookup(): like above, inet_addr_type(),
+  tb_lookup()
 
-Ugh, rtsignals... Their's problems forced me to not implement
-"interrupt"-like mechanism for kevents in addition to dequeueing.
+fib_rule_put(): like #1 above or #2 after tb_lookup(),
+  fib_res_put()
 
-Anyway, it seems you did not read the whole thread, homepage, lwn and
-userpsace examples, so you do not understand what kevents are.
+Shouldn't there be _bh also?
 
-They are userspace requests which are returned back when they are ready.
-It means that userspace must provide something to kernel and ask it to
-notify when that "something" is ready. For example it can provide a
-timeout value and ask kernel to fire a timer with it and inform
-userspace when timeout has expired.
-It does not matter what timer is used there - feel free to use
-high-resolution one, usual timer, busyloop or anything else. Main issue 
-that userspace request must be completed.
+Jarek P.
 
-What you are trying to do is to put kevents under POSIX API.
-That means that those kevents can not be read using
-kevent_get_events(), basicaly because there are no user-known kevents,
-i.e. user has not requested timer, so it should not receive it's
-notifications (otherwise it will receive everything requested by other
-threads and other issues, i.e. how to differentiate timer request made
-by timer_create(), which is not supposed to be caught by
-kevent_get_events()).
-
-You could implement POSIX timer _fully_ on top of kevents, i.e. both
-create and read, for example network AIO is implemented in that way -
-there is a system calls aio_send()/aio_recv() and aio_sendfile() which
-create kevent internally and then get it's readiness notifications over
-provided callback, process data and finally remove kevent,
-so POSIX timers could create timer kevent, wait until it is ready, in
-completeness callback it would call signal delivering mechanism...
-
-But there are no reading mechanism in POSIX timers (I mean not reading
-pending timeout values or remaining time), they use signals for 
-completeness delivering... So where do you want to put kevent's
-userspace there?
-
-What you are trying to achive is not POSIX timers in any way, you want
-completely new machanism which has similar to POSIX API, and I give it to
-you (well, with API which can be used not only with timers, but with any 
-other type of notifications you like). 
-You need clockid_t? Put it in raw.id[0] and make kevent_timer_enqueue()
-callback select different type of timers.
-What else?
-
-> -- 
-> Nicholas Miell <nmiell@comcast.net>
-
--- 
-	Evgeniy Polyakov
+PS: linux-2.6.18-rc4
