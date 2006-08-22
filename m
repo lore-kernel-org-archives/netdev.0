@@ -1,44 +1,98 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 16/18] d80211:  get rid of MICHAEL_MIC_HWACCEL define
-Date: Tue, 22 Aug 2006 21:00:38 +0200
-Message-ID: <20060822210038.53ee194c@griffin.suse.cz>
-References: <20060821074107.648561364@sipsolutions.net>
-	<20060821075202.538664376@sipsolutions.net>
+From: "Jari Sundell" <sundell.software@gmail.com>
+Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
+Date: Tue, 22 Aug 2006 21:14:30 +0200
+Message-ID: <b3f268590608221214l45bb6ad6meccfba99b89710a0@mail.gmail.com>
+References: <11561555871530@2ka.mipt.ru> <1156230051.8055.27.camel@entropy>
+	 <20060822072448.GA5126@2ka.mipt.ru> <1156234672.8055.51.camel@entropy>
+	 <b3f268590608220957g43a16d6bmde8a542f8ad8710b@mail.gmail.com>
+	 <20060822180135.GA30142@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jouni Malinen <jkm@devicescape.com>,
-	"John W. Linville" <linville@tuxdriver.com>
+Cc: "Nicholas Miell" <nmiell@comcast.net>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>,
+	"Ulrich Drepper" <drepper@redhat.com>,
+	"Andrew Morton" <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	"Zach Brown" <zach.brown@oracle.com>,
+	"Christoph Hellwig" <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:13502 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1750879AbWHVTAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 15:00:39 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <20060821075202.538664376@sipsolutions.net>
+Received: from nz-out-0102.google.com ([64.233.162.201]:56610 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S1750776AbWHVTOb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Aug 2006 15:14:31 -0400
+Received: by nz-out-0102.google.com with SMTP id 14so573887nzn
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2006 12:14:31 -0700 (PDT)
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060822180135.GA30142@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Aug 2006 09:41:23 +0200, Johannes Berg wrote:
-> The symbol MICHAEL_MIC_HWACCEL is always defined and hence
-> all the ifdefs using it are useless. This patch removes it.
-> 
-> [...]
-> @@ -87,9 +84,7 @@ ieee80211_tx_h_michael_mic_add(struct ie
->  	u16 fc;
->  	struct sk_buff *skb = tx->skb;
->  	int authenticator;
-> -#if defined(CONFIG_HOSTAPD_WPA_TESTING) || defined(MICHAEL_MIC_HWACCEL)
->  	int wpa_test = 0;
-> -#endif
+On 8/22/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> > Not to mention the name used causes (at least me) some confusion with BSD's
+> > kqueue implementation. Skimming over the patches it actually looks somewhat
+> > like kqueue with the more interesting features removed, like the ability to
+> > pass the filter changes simultaneously with polling.
+>
+> I do not understand, what do you mean?
+> It is obviously allowed to poll and change kevents at the same time.
 
-When you're touching this, could you #ifdef out wpa_test when
-CONFIG_HOSTAPD_WPA_TESTING is not defined? This could be a part of this
-patch.
+Changing kevents are done with a separate system call from polling
+afaics, thus every change requires a context switch. This in contrast
+to BSD's kqueue which allows user-space to pass the changes when
+kevent (polling) is called.
 
-Thanks,
+It may also choose to update the filters immediately with the same call.
 
- Jiri
+> > Maybe this is a topic that will singe my fur, but what is wrong with the
+> > kqueue API? Will I really have to implement support for yet another event
+> > API in my program.
+>
+> Why did I not implemented it like Solaris did?
+> Or FreeBSD did?
+> It was designed with features mention on AIO homepage in mind, but not
+> to be compatible with some other implementation.
+> And why should it be?
 
--- 
-Jiri Benc
-SUSE Labs
+If it can be, why should it not be? At least, if you reinvent the
+wheel its advantages should be obvious.
+
+Considering that kqueue is available on more popular OSes like darwin
+it would ease portability greatly if there was a shared event API.
+That is, unless you think there's something fundamentally wrong with
+their design.
+
+Your interface:
+
++asmlinkage long sys_kevent_get_events(int ctl_fd, unsigned int min,
+unsigned int max,
++               unsigned int timeout, void __user *buf, unsigned flags);
++asmlinkage long sys_kevent_ctl(int ctl_fd, unsigned int cmd, unsigned
+int num, void __user *buf);
+
+BSD's kqueue:
+
+struct kevent {
+  uintptr_t ident;        /* identifier for this event */
+  short     filter;       /* filter for event */
+  u_short   flags;        /* action flags for kqueue */
+  u_int     fflags;       /* filter flag value */
+  intptr_t  data;         /* filter data value */
+  void      *udata;       /* opaque user data identifier */
+};
+
+int kevent(int kq, const struct kevent *changelist, int nchanges,
+struct kevent *eventlist, int nevents, const struct timespec
+*timeout);
+
+The only thing missing in BSD's kevent is the min/max parameters, the
+various filters in kevent_get_events either have equivalent filters or
+could be added as extensions. (I didn't look too carefully through
+them)
+
+On the other hand, your API lacks the ability to pass changes when
+polling, as mentioned above. It would be preferable if the timeout
+parameter was either timespec or timeval.
+
+Rakshasa
