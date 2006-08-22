@@ -1,181 +1,108 @@
-From: "Indan Zupancic" <indan@nul.nu>
-Subject: Get rid of /proc/sys/net/unix/max_dgram_qlen
-Date: Tue, 22 Aug 2006 21:45:03 +0200 (CEST)
-Message-ID: <4550.81.207.0.53.1156275903.squirrel@81.207.0.53>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
+Date: Tue, 22 Aug 2006 23:47:06 +0400
+Message-ID: <20060822194706.GA3476@2ka.mipt.ru>
+References: <11561555871530@2ka.mipt.ru> <1156230051.8055.27.camel@entropy> <20060822072448.GA5126@2ka.mipt.ru> <1156234672.8055.51.camel@entropy> <b3f268590608220957g43a16d6bmde8a542f8ad8710b@mail.gmail.com> <20060822180135.GA30142@2ka.mipt.ru> <b3f268590608221214l45bb6ad6meccfba99b89710a0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=koi8-r
+Cc: Nicholas Miell <nmiell@comcast.net>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helium.samage.net ([83.149.67.129]:22203 "EHLO
-	helium.samage.net") by vger.kernel.org with ESMTP id S1750801AbWHVTpJ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 15:45:09 -0400
-Received: from amavis by helium.samage.net with scanned-ok (Exim 3.36 #1 (Debian))
-	id 1GFcBL-0004Cq-00
-	for <netdev@vger.kernel.org>; Tue, 22 Aug 2006 21:45:03 +0200
-Received: from helium.samage.net ([127.0.0.1])
-	by localhost (helium.samage.net [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id 15911-08 for <netdev@vger.kernel.org>;
-	Tue, 22 Aug 2006 21:45:03 +0200 (CEST)
-To: netdev@vger.kernel.org
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:53697 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1750913AbWHVTse (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 15:48:34 -0400
+To: Jari Sundell <sundell.software@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <b3f268590608221214l45bb6ad6meccfba99b89710a0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Tue, Aug 22, 2006 at 09:14:30PM +0200, Jari Sundell (sundell.software@gmail.com) wrote:
+> Changing kevents are done with a separate system call from polling
+> afaics, thus every change requires a context switch. This in contrast
+> to BSD's kqueue which allows user-space to pass the changes when
+> kevent (polling) is called.
+> 
+> It may also choose to update the filters immediately with the same call.
 
-Here's a patch to get rid of max_dgram_qlen proc option. All it does is
-slow down unix datagram packet sending, without giving the program any
-control over it.
+Word "polling" really confuses me here, but now I understand you.
+Such approach actually has unresolved issues - consider for
+example a situation when all provided events are ready immediately - what
+should be returned (as far as I recall they are always added into kqueue in
+BSDs before started to be checked, so old events will be returned
+first)? And currently ready events can be read through mapped buffer
+without any syscall at all.
+And Linux syscall is much cheaper than BSD's one.
+Consider (especially apped buffer)  that issues, it really does not cost
+interface complexity.
 
-Applying it decreases code size, simplifies the code and makes poll
-behaviour more logical for connected datagram sockets in regard to
-POLLOUT. With the current code poll can say the socket is writable,
-because it only checks the buffers, while sendmsg will fail because too
-many packets are queued up already. In practice this means that a slow
-reader will cause a non-blocking sender to hog the CPU.
+> >> Maybe this is a topic that will singe my fur, but what is wrong with the
+> >> kqueue API? Will I really have to implement support for yet another event
+> >> API in my program.
+> >
+> >Why did I not implemented it like Solaris did?
+> >Or FreeBSD did?
+> >It was designed with features mention on AIO homepage in mind, but not
+> >to be compatible with some other implementation.
+> >And why should it be?
+> 
+> If it can be, why should it not be? At least, if you reinvent the
+> wheel its advantages should be obvious.
+> 
+> Considering that kqueue is available on more popular OSes like darwin
+> it would ease portability greatly if there was a shared event API.
+> That is, unless you think there's something fundamentally wrong with
+> their design.
 
-Either this, or it should be implemented correctly, which means poll needs
-to be fixed to also check for max_dgram_qlen, and maybe an ioctl should be
-added to change the variable per socket.
+First of all, there are completely different types.
+Design of the in-kernel part is very different too.
 
-Greetings,
-
-Indan
-
-
-diff --git a/net/unix/Makefile b/net/unix/Makefile
---- a/net/unix/Makefile	Sun Aug 06 19:00:05 2006 +0000
-+++ b/net/unix/Makefile	Tue Aug 22 21:06:09 2006 +0200
-@@ -5,4 +5,3 @@ obj-$(CONFIG_UNIX)	+= unix.o
- obj-$(CONFIG_UNIX)	+= unix.o
-
- unix-y			:= af_unix.o garbage.o
--unix-$(CONFIG_SYSCTL)	+= sysctl_net_unix.o
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
---- a/net/unix/af_unix.c	Sun Aug 06 19:00:05 2006 +0000
-+++ b/net/unix/af_unix.c	Tue Aug 22 21:05:39 2006 +0200
-@@ -117,8 +117,6 @@
- #include <net/checksum.h>
- #include <linux/security.h>
-
--int sysctl_unix_max_dgram_qlen = 10;
--
- struct hlist_head unix_socket_table[UNIX_HASH_SIZE + 1];
- DEFINE_SPINLOCK(unix_table_lock);
- static atomic_t unix_nr_socks = ATOMIC_INIT(0);
-@@ -586,7 +584,6 @@ static struct sock * unix_create1(struct
- 				&af_unix_sk_receive_queue_lock_key);
-
- 	sk->sk_write_space	= unix_write_space;
--	sk->sk_max_ack_backlog	= sysctl_unix_max_dgram_qlen;
- 	sk->sk_destruct		= unix_sock_destructor;
- 	u	  = unix_sk(sk);
- 	u->dentry = NULL;
-@@ -1379,23 +1376,6 @@ restart:
- 			goto out_unlock;
- 	}
-
--	if (unix_peer(other) != sk &&
--	    (skb_queue_len(&other->sk_receive_queue) >
--	     other->sk_max_ack_backlog)) {
--		if (!timeo) {
--			err = -EAGAIN;
--			goto out_unlock;
--		}
--
--		timeo = unix_wait_for_peer(other, timeo);
--
--		err = sock_intr_errno(timeo);
--		if (signal_pending(current))
--			goto out_free;
--
--		goto restart;
--	}
--
- 	skb_queue_tail(&other->sk_receive_queue, skb);
- 	unix_state_runlock(other);
- 	other->sk_data_ready(other, len);
-@@ -2076,7 +2056,6 @@ static int __init af_unix_init(void)
- #ifdef CONFIG_PROC_FS
- 	proc_net_fops_create("unix", 0, &unix_seq_fops);
- #endif
--	unix_sysctl_register();
- out:
- 	return rc;
- }
-@@ -2084,7 +2063,6 @@ static void __exit af_unix_exit(void)
- static void __exit af_unix_exit(void)
- {
- 	sock_unregister(PF_UNIX);
--	unix_sysctl_unregister();
- 	proc_net_remove("unix");
- 	proto_unregister(&unix_proto);
- }
-diff --git a/net/unix/sysctl_net_unix.c b/net/unix/sysctl_net_unix.c deleted file mode 100644
---- a/net/unix/sysctl_net_unix.c	Sun Aug 06 19:00:05 2006 +0000
-+++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
-@@ -1,60 +0,0 @@
--/*
-- * NET4:	Sysctl interface to net af_unix subsystem.
-- *
-- * Authors:	Mike Shaver.
-- *
-- *		This program is free software; you can redistribute it and/or - *		modify it under the terms
-of the GNU General Public License
-- *		as published by the Free Software Foundation; either version
-- *		2 of the License, or (at your option) any later version.
-- */
--
--#include <linux/mm.h>
--#include <linux/sysctl.h>
--
--#include <net/af_unix.h>
--
--static ctl_table unix_table[] = {
--	{
--		.ctl_name	= NET_UNIX_MAX_DGRAM_QLEN,
--		.procname	= "max_dgram_qlen",
--		.data		= &sysctl_unix_max_dgram_qlen,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
--	},
--	{ .ctl_name = 0 }
--};
--
--static ctl_table unix_net_table[] = {
--	{
--		.ctl_name	= NET_UNIX,
--		.procname	= "unix",
--		.mode		= 0555,
--		.child		= unix_table
--	},
--	{ .ctl_name = 0 }
--};
--
--static ctl_table unix_root_table[] = {
--	{
--		.ctl_name	= CTL_NET,
--		.procname	= "net",
--		.mode		= 0555,
--		.child		= unix_net_table
--	},
--	{ .ctl_name = 0 }
--};
--
--static struct ctl_table_header * unix_sysctl_header;
--
--void unix_sysctl_register(void)
--{
--	unix_sysctl_header = register_sysctl_table(unix_root_table, 0);
--}
--
--void unix_sysctl_unregister(void)
--{
--	unregister_sysctl_table(unix_sysctl_header);
--}
--
+> Your interface:
+> 
+> +asmlinkage long sys_kevent_get_events(int ctl_fd, unsigned int min,
+> unsigned int max,
+> +               unsigned int timeout, void __user *buf, unsigned flags);
+> +asmlinkage long sys_kevent_ctl(int ctl_fd, unsigned int cmd, unsigned
+> int num, void __user *buf);
+> 
+> BSD's kqueue:
+> 
+> struct kevent {
+>  uintptr_t ident;        /* identifier for this event */
+>  short     filter;       /* filter for event */
+>  u_short   flags;        /* action flags for kqueue */
+>  u_int     fflags;       /* filter flag value */
+>  intptr_t  data;         /* filter data value */
+>  void      *udata;       /* opaque user data identifier */
+> };
 
 
+>From your description there is a serious problem with arches which
+supports different width of the pointer. I do not have sources of ny BSD
+right now, but if it is really like you've described, it can not be used
+in Linux at all.
 
+> int kevent(int kq, const struct kevent *changelist, int nchanges,
+> struct kevent *eventlist, int nevents, const struct timespec
+> *timeout);
+> 
+> The only thing missing in BSD's kevent is the min/max parameters, the
+> various filters in kevent_get_events either have equivalent filters or
+> could be added as extensions. (I didn't look too carefully through
+> them)
+> 
+> On the other hand, your API lacks the ability to pass changes when
+> polling, as mentioned above. It would be preferable if the timeout
+> parameter was either timespec or timeval.
 
+No way - timespec uses long.
+
+> Rakshasa
+
+-- 
+	Evgeniy Polyakov
