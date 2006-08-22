@@ -1,118 +1,124 @@
-From: Jon Wikne <wikne@cheetah.uio.no>
-Subject: Re: sky2 driver - large files upload problem
-Date: Tue, 22 Aug 2006 11:43:28 +0200
-Message-ID: <44EAD1C0.6080701@cheetah.uio.no>
-References: <44E9A9E0.20106@cheetah.uio.no>	<44E9B28C.9050207@gentoo.org>	<44E9C153.1010300@cheetah.uio.no>	<20060821095116.1b7f725d@localhost.localdomain>	<44EA2DD7.9060605@cheetah.uio.no> <20060821163645.0e1acfb6@localhost.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
+Date: Tue, 22 Aug 2006 14:03:16 +0400
+Message-ID: <20060822100316.GA31820@2ka.mipt.ru>
+References: <11561555871530@2ka.mipt.ru> <1156230051.8055.27.camel@entropy> <20060822072448.GA5126@2ka.mipt.ru> <1156234672.8055.51.camel@entropy> <20060822083711.GA26183@2ka.mipt.ru> <1156238988.8055.78.camel@entropy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Daniel Drake <dsd@gentoo.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pat.uio.no ([129.240.10.4]:22435 "EHLO pat.uio.no")
-	by vger.kernel.org with ESMTP id S1751386AbWHVJni (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 05:43:38 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060821163645.0e1acfb6@localhost.localdomain>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:17326 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932151AbWHVKED (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 06:04:03 -0400
+To: Nicholas Miell <nmiell@comcast.net>
+Content-Disposition: inline
+In-Reply-To: <1156238988.8055.78.camel@entropy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Tue, 22 Aug 2006 00:04:07 +0200
-> Jon Wikne <wikne@cheetah.uio.no> wrote:
+On Tue, Aug 22, 2006 at 02:29:48AM -0700, Nicholas Miell (nmiell@comcast.net) wrote:
+> > > Is any of this documented anywhere? I'd think that any new userspace
+> > > interfaces should have man pages explaining their use and some example
+> > > code before getting merged into the kernel to shake out any interface
+> > > problems.
+> > 
+> > There are two excellent articles on lwn.net
 > 
-> 
->>Stephen Hemminger wrote:
->>
->>
->>>On Mon, 21 Aug 2006 16:21:07 +0200
->>>Jon Wikne <wikne@cheetah.uio.no> wrote:
->>>
->>>
->>>>Daniel Drake wrote:
->>>>
->>>>
->>>>>Jon Wikne wrote:
->>>>>
->>>>>
->>>>>>What happens is typically this: After transeferring some
->>>>>>data, ranging from less than 100kB to 10MB, the upload freezes,
->>>>>>i.e. gets no further. Use of ping shows the connection is
->>>>>>effectively dead. If I do a sequence /sbin/ifdown eth0
->>>>>>/sbin/ifup eth0 the upload might resume, but stops again
->>>>>>shortly. The phenomenon seems to occur sooner if the path
->>>>>>to the remote system is _fast_ (low ping times).
->>>>>
->>>>>You can try applying this patch:
->>>>>http://developer.osdl.org/shemminger/prototypes/sky2-proc-debug.patch
->>>>>
->>>>>It will add a /proc/net/sky2/ethX file, which lists the status of the TX 
->>>>>and status rings. You should compare the contents of this file during 
->>>>>normal operation to when the interface has hung.
->>>>
->>>>Thanks, Daniel. I applied the patch.
->>>>
->>>>The output of 'cat /proc/net/sky2/eth0' under normal circumstances
->>>>is here:
->>>>
->>>>http://puma.uio.no/sky2/sky2-status-normal.txt
->>>>
->>>>After the interface hangs, 'cat /proc/net/sky2/eth0' causes the
->>>>whole computer to hang completely. No kernel oops or other
->>>>messages in the console window. Power down is the only
->>>>solution.... :-[ No log entries after reboot.
->>>>
->>>
->>>It could be the code in the debug patch is walking off into space.
->>>The smaller version of the same patch, doesn't walk but just reports
->>>the index values.
->>
->>[ patch ]
->>
->>OK, I applied that. Part of it (5 hunks) had to be done manually, since
->>it appeared not to be relative to the version in 2.6.18-rc4 which I was
->>using.
->>
->>The result is:
->>
->>Normal operation:
->>Status ring (empty)
->>Tx ring (empty)
->>Rx pending hw get=60 put=256 last=511
-> 
-> 
-> The chip has prefetched some of the 254 frames we gave it.
-> 
-> 
->>Error condition:
->>Status ring (empty)
->>Tx ring 338..378
-> 
-> 
-> 40 packets waiting to send
-> 
-> 
->>Rx pending hw get=316 put=0 last=511
-> 
-> 
-> So there are some frames waiting to be received as well.
-> Looks like a missed interrupt.  Is there anything surprising in the
-> ethtool stats?  (ethtool -S eth0)
+> Google knows of one and it doesn't actually explain how to use kevents.
 
-Nothing that surprises me, anyway. The following log contains two
-subsequent ethtool outputs: The first before the upload was started,
-the second after the freeze occurred:
+http://lwn.net/Articles/192964/
+http://lwn.net/Articles/172844/
 
-http://puma.uio.no/sky2/sky2-ethtool.txt
+In the thread there were enough links to homepage where you can find
+several examples of how to use kevents (and timers among others) with
+old interfaces and new ones.
 
-> In the past, when there were flow control hardware bugs
-> there would be suspicious statistics like "1 mac pause frame received".
+> > I will ask just one question, do _you_ propose anything here?
+> >  
+> 
+> struct sigevent sigev = {
+> 	.sigev_notify = SIGEV_KEVENT,
+> 	.sigev_kevent_fd = kev_fd,
+> 	.sigev_value.sival_ptr = &MyCookie
+> };
+> 
+> struct itimerspec its = {
+> 	.it_value = { ... },
+> 	.it_interval = { ... }
+> };
+> 
+> struct timespec timeout = { .. };
+> 
+> struct ukevent events[max];
+> 
+> timer_t timer;
+> 
+> timer_create(CLOCK_MONOTONIC, &sigev, &timer);
+> timer_settime(timer, 0, &its, NULL);
+> 
+> /* ... */
+> 
+> kevent_get_events(kev_fd, min, max, &timeout, events, 0);
+> 
+> 
+> 
+> Which isn't all that different from what Ulrich Drepper suggested and
+> Solaris does right now. (timer_create would probably end up calling
+> kevent_ctl itself, but it obviously can't do that unless kevents
+> actually support real interval timers).
 
-The only entries that refer to mac_pause are 0 both before and after
-the freeze.
+Ugh, rtsignals... Their's problems forced me to not implement
+"interrupt"-like mechanism for kevents in addition to dequeueing.
 
-The system in question is a laptop, Toshiba Tecra A3, PTA30E-03502XNE
-with serial number Z5310230K. I find no codes that are obvious to
-state a date of manufacture, but it was bought in May 2006.
+Anyway, it seems you did not read the whole thread, homepage, lwn and
+userpsace examples, so you do not understand what kevents are.
 
+They are userspace requests which are returned back when they are ready.
+It means that userspace must provide something to kernel and ask it to
+notify when that "something" is ready. For example it can provide a
+timeout value and ask kernel to fire a timer with it and inform
+userspace when timeout has expired.
+It does not matter what timer is used there - feel free to use
+high-resolution one, usual timer, busyloop or anything else. Main issue 
+that userspace request must be completed.
 
--- Jon
+What you are trying to do is to put kevents under POSIX API.
+That means that those kevents can not be read using
+kevent_get_events(), basicaly because there are no user-known kevents,
+i.e. user has not requested timer, so it should not receive it's
+notifications (otherwise it will receive everything requested by other
+threads and other issues, i.e. how to differentiate timer request made
+by timer_create(), which is not supposed to be caught by
+kevent_get_events()).
+
+You could implement POSIX timer _fully_ on top of kevents, i.e. both
+create and read, for example network AIO is implemented in that way -
+there is a system calls aio_send()/aio_recv() and aio_sendfile() which
+create kevent internally and then get it's readiness notifications over
+provided callback, process data and finally remove kevent,
+so POSIX timers could create timer kevent, wait until it is ready, in
+completeness callback it would call signal delivering mechanism...
+
+But there are no reading mechanism in POSIX timers (I mean not reading
+pending timeout values or remaining time), they use signals for 
+completeness delivering... So where do you want to put kevent's
+userspace there?
+
+What you are trying to achive is not POSIX timers in any way, you want
+completely new machanism which has similar to POSIX API, and I give it to
+you (well, with API which can be used not only with timers, but with any 
+other type of notifications you like). 
+You need clockid_t? Put it in raw.id[0] and make kevent_timer_enqueue()
+callback select different type of timers.
+What else?
+
+> -- 
+> Nicholas Miell <nmiell@comcast.net>
+
+-- 
+	Evgeniy Polyakov
