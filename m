@@ -1,51 +1,69 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH 03/18] d80211:  pointers as extended booleans
-Date: Tue, 22 Aug 2006 02:43:01 -0400
-Message-ID: <20060822024301.611aa4de.billfink@mindspring.com>
-References: <20060821074107.648561364@sipsolutions.net>
-	<20060821075159.171461075@sipsolutions.net>
+From: Jesse Huang <jesse@icplus.com.tw>
+Subject: [PATCH 3/4] IP100A: Correct initial and close hardware step.
+Date: Tue, 22 Aug 2006 14:30:26 -0400
+Message-ID: <1156271426.4662.4.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jkm@devicescape.com,
-	linville@tuxdriver.com, jbenc@suse.cz, johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:5846 "EHLO
-	elasmtp-scoter.atl.sa.earthlink.net") by vger.kernel.org with ESMTP
-	id S1751131AbWHVGnJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 02:43:09 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <20060821075159.171461075@sipsolutions.net>
+Received: from msr53.hinet.net ([168.95.4.153]:52125 "EHLO msr53.hinet.net")
+	by vger.kernel.org with ESMTP id S1751287AbWHVGnL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 02:43:11 -0400
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@osdl.org, jgarzik@pobox.com, jesse@icplus.com.tw
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Aug 2006, Johannes Berg wrote:
+From: Jesse Huang <jesse@icplus.com.tw>
 
-> Please review carefully, the task was so boring that I might have made
-> stupid mistakes.
-> ---
-> This huge patch changes d80211 to treat pointers as "extended booleans",
-> using "if (!ptr)" and "if (ptr)" instead of comparisons with NULL.
-> 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-> 
-> --- wireless-dev.orig/net/d80211/ieee80211_scan.c	2006-08-20 14:56:09.738192788 +0200
-> +++ wireless-dev/net/d80211/ieee80211_scan.c	2006-08-20 14:56:17.398192788 +0200
-[...]
-> @@ -1105,8 +1105,8 @@ __ieee80211_tx_prepare(struct ieee80211_
->  	tx->fragmented = local->fragmentation_threshold <
->  		IEEE80211_MAX_FRAG_THRESHOLD && tx->u.tx.unicast &&
->  		skb->len + 4 /* FCS */ > local->fragmentation_threshold &&
-> -		(local->hw->set_frag_threshold == NULL);
-> -	if (tx->sta == NULL)
-> +		(!local->hw->set_frag_threshold);
-> +	if (!tx->sta)
->  		control->clear_dst_mask = 1;
->  	else if (tx->sta->clear_dst_mask) {
->  		control->clear_dst_mask = 1;
-[...]
+Change Logs:
+   - Correct initial and close hardware step.
 
-Just a minor nit.  I don't believe the "()" on the first new line
-are needed.
+Signed-off-by: Jesse Huang <jesse@icplus.com.tw>
 
-						-Bill
+---
+
+ sundance.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
+
+ddfaae9a0f4bd37c155f21fb4779093eef059bf6
+diff --git a/sundance.c b/sundance.c
+index 259c42f..424aebd 100755
+--- a/sundance.c
++++ b/sundance.c
+@@ -787,6 +787,7 @@ static int netdev_open(struct net_device
+ {
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem *ioaddr = np->base;
++	unsigned long flags;
+ 	int i;
+ 
+ 	/* Do we need to reset the chip??? */
+@@ -830,6 +831,10 @@ #endif
+ 	if (np->pci_rev_id >= 0x14)
+ 		iowrite8(0x01, ioaddr + DebugCtrl1);
+ 	netif_start_queue(dev);
++	
++	spin_lock_irqsave(&np->lock,flags);
++	reset_tx(dev);
++	spin_unlock_irqrestore(&np->lock,flags);
+ 
+ 	iowrite16 (StatsEnable | RxEnable | TxEnable, ioaddr + MACCtrl1);
+ 
+@@ -1655,7 +1660,10 @@ static int netdev_close(struct net_devic
+ 
+ 	/* Disable interrupts by clearing the interrupt mask. */
+ 	iowrite16(0x0000, ioaddr + IntrEnable);
+-
++	
++	/* Disable Rx and Tx DMA for safely release resource */
++	iowrite32(0x500, ioaddr + DMACtrl);
++	
+ 	/* Stop the chip's Tx and Rx processes. */
+ 	iowrite16(TxDisable | RxDisable | StatsDisable, ioaddr + MACCtrl1);
+ 
+-- 
+1.3.GIT
+
+
+
