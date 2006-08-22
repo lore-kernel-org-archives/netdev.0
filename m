@@ -1,33 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Tue, 22 Aug 2006 13:36:06 -0700 (PDT)
-Message-ID: <20060822.133606.48392664.davem@davemloft.net>
-References: <1156237191.8055.59.camel@entropy>
-	<Pine.LNX.4.64.0608221059030.26026@d.namei>
-	<1156276823.2476.22.camel@entropy>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: Get rid of /proc/sys/net/unix/max_dgram_qlen
+Date: Wed, 23 Aug 2006 00:39:14 +0400
+Message-ID: <20060822203914.GA9246@ms2.inr.ac.ru>
+References: <4550.81.207.0.53.1156275903.squirrel@81.207.0.53>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, johnpol@2ka.mipt.ru,
-	linux-kernel@vger.kernel.org, drepper@redhat.com, akpm@osdl.org,
-	netdev@vger.kernel.org, zach.brown@oracle.com, hch@infradead.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:34764
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932095AbWHVUfw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 16:35:52 -0400
-To: nmiell@comcast.net
-In-Reply-To: <1156276823.2476.22.camel@entropy>
+Received: from minus.inr.ac.ru ([194.67.69.97]:1674 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S932133AbWHVUjT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 16:39:19 -0400
+To: Indan Zupancic <indan@nul.nu>
+Content-Disposition: inline
+In-Reply-To: <4550.81.207.0.53.1156275903.squirrel@81.207.0.53>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nicholas Miell <nmiell@comcast.net>
-Date: Tue, 22 Aug 2006 13:00:23 -0700
+Hello!
 
-> I'm not the one proposing the new (potentially wrong) interface. The
-> onus isn't on me.
+> Either this, or it should be implemented correctly, which means poll needs
+> to be fixed to also check for max_dgram_qlen,
 
-You can't demand a volunteer to do work, period.
+Feel free to do this correctly. :-)
+Deleting "wrong" code rarely helps.
 
-If it matters to you, you have the option of doing the work.
-Otherwise you can't complain.
+It is the only protection of commiting infinite amount of memory to a socket.
+
+Alexey
