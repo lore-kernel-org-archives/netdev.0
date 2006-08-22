@@ -1,77 +1,79 @@
-From: Daikichi Osuga <osugad@s1.nttdocomo.co.jp>
-Subject: [PATCH] tcp: RFC3465 Appropriate Byte Count fix
-Date: Tue, 22 Aug 2006 14:52:43 +0900
-Message-ID: <0J4D00BIVXNW7H40@NTTDoCoMo.co.jp>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: Re: [PATCH] IP1000A: IC Plus update 2006-08-22
+Date: Mon, 21 Aug 2006 23:14:55 -0700
+Message-ID: <20060821231455.1ce9474d.rdunlap@xenotime.net>
+References: <1156268234.3622.1.camel@localhost.localdomain>
 Mime-Version: 1.0
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dish-sg.nttdocomo.co.jp ([202.19.227.74]:9170 "EHLO
-	zcsg-mailro12.is.nttdocomo.co.jp") by vger.kernel.org with ESMTP
-	id S1750787AbWHVFwq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 01:52:46 -0400
-Received: from zcsg-mailmt12.is.nttdocomo.co.jp (unknown [10.160.86.41])
-	by zcsg-mailro12.is.nttdocomo.co.jp (Postfix) with ESMTP id 849F33402D
-	for <netdev@vger.kernel.org>; Tue, 22 Aug 2006 14:52:44 +0900 (JST)
-Received: from smtp_saver-daemon.zcsg-mailmt12.is.nttdocomo.co.jp by
- zcsg-mailmt12.is.nttdocomo.co.jp (NTT DoCoMo Mail System)
- id <0J4D00961XNWU900@NTTDoCoMo.co.jp> for netdev@vger.kernel.org; Tue,
- 22 Aug 2006 14:52:44 +0900 (JST)
-Received: from zcsg-mailmi11.is.nttdocomo.co.jp ([10.160.86.49])
- by zcsg-mailmt12.is.nttdocomo.co.jp (NTT DoCoMo Mail System)
- with SMTP id <0J4D00AK6XNWAPD0@NTTDoCoMo.co.jp> for netdev@vger.kernel.org;
- Tue, 22 Aug 2006 14:52:44 +0900 (JST)
-Received: from zcsg-mailvs14.is.nttdocomo.co.jp (localhost [127.0.0.1])
-	by localhost.nttdocomo.co.jp (Postfix) with ESMTP id 5DDD738004	for
- <netdev@vger.kernel.org>; Tue, 22 Aug 2006 14:52:44 +0900 (JST)
-Received: from zcsg-mailsa13.is.nttdocomo.co.jp (unknown [10.160.86.46])
-	by zcsg-mailvs14.is.nttdocomo.co.jp (Postfix) with ESMTP id 50B3238002	for
- <netdev@vger.kernel.org>; Tue, 22 Aug 2006 14:52:44 +0900 (JST)
-Received: from gc_check-daemon.zcsg-mailsa13.is.nttdocomo.co.jp by
- zcsg-mailsa13.is.nttdocomo.co.jp (NTT DoCoMo Mail System)
- id <0J4D00A23XNWZP00@NTTDoCoMo.co.jp> for netdev@vger.kernel.org; Tue,
- 22 Aug 2006 14:52:44 +0900 (JST)
-Received: from akosugad222.docomo.docomogr.net
- (akosugad222.docomo.docomogr.net [10.19.102.139])
- by zcsg-mailsa13.is.nttdocomo.co.jp (NTT DoCoMo Mail System)
- with ESMTPA id <0J4D00BIUXNV7H40@NTTDoCoMo.co.jp> for netdev@vger.kernel.org;
- Tue, 22 Aug 2006 14:52:44 +0900 (JST)
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: romieu@fr.zoreil.com, penberg@cs.Helsinki.FI, akpm@osdl.org,
+	dvrabel@cantab.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, david@pleyades.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750852AbWHVGLv@vger.kernel.org>
+To: Jesse Huang <jesse@icplus.com.tw>
+In-Reply-To: <1156268234.3622.1.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Daikichi Osuga <osugad@s1.nttdocomo.co.jp>
+On Tue, 22 Aug 2006 13:37:14 -0400 Jesse Huang wrote:
 
-RFC3465 Appropriate Byte Count fix
-slow start after retransmit timeout does not work is fixed.
-case of L=2*SMSS acked bytes comparison is fixed.
+> Dear All:
+> I had regenerate this patch from:
+> git://git.kernel.org/pub/scm/linux/kernel/git/penberg/netdev-ipg-2.6.git
+> 
+> And, submit those modifications as one patch.
+> 
+> Add: "Remove and add some whitespace"
+> 
+> From: Jesse Huang <jesse@icplus.com.tw>
+> 
+> Change Logs:
+>    - update maintainer information
+>    - remove some default phy params
+>    - remove threshold config from ipg_io_config
+>    - ip1000 ipg_config_autoneg rewrite
+>    - modify coding style of ipg_config_autoneg
+>    - Add IPG_AC_FIFO flag when Tx reset
+>    - For compatible at PCI 66MHz issue
+>    - Remove and add some whitespace
+> 
+> Signed-off-by: Jesse Huang <jesse@icplus.com.tw>
 
-Signed-off-by: Daikichi Osuga <osugad@s1.nttdocomo.co.jp>
 
---- linux-2.6.15.i686.org/net/ipv4/tcp_input.c	2006-08-21 17:58:18.000000000 +0900
-+++ linux-2.6.15.i686/net/ipv4/tcp_input.c	2006-08-22 09:59:46.000000000 +0900
-@@ -2450,8 +2450,13 @@ static int tcp_ack(struct sock *sk, stru
- 	if (before(ack, prior_snd_una))
- 		goto old_ack;
- 
--	if (sysctl_tcp_abc && icsk->icsk_ca_state < TCP_CA_CWR)
--		tp->bytes_acked += ack - prior_snd_una;
-+	if (sysctl_tcp_abc) {
-+		if (icsk->icsk_ca_state < TCP_CA_CWR)
-+			tp->bytes_acked += ack - prior_snd_una;
-+		else if (icsk->icsk_ca_state == TCP_CA_Loss)
-+			/* we assume just one segment left network */
-+			tp->bytes_acked += min(ack - prior_snd_una, tp->mss_cache);
-+	}
- 
- 	if (!(flag&FLAG_SLOWPATH) && after(ack, prior_snd_una)) {
- 		/* Window is constant, pure forward advance.
---- linux-2.6.15.i686.org/net/ipv4/tcp_cong.c	2006-08-21 17:58:18.000000000 +0900
-+++ linux-2.6.15.i686/net/ipv4/tcp_cong.c	2006-08-22 09:59:53.000000000 +0900
-@@ -190,7 +190,7 @@ void tcp_slow_start(struct tcp_sock *tp)
- 			return;
- 
- 		/* We MAY increase by 2 if discovered delayed ack */
--		if (sysctl_tcp_abc > 1 && tp->bytes_acked > 2*tp->mss_cache) {
-+		if (sysctl_tcp_abc > 1 && tp->bytes_acked >= 2*tp->mss_cache) {
- 			if (tp->snd_cwnd < tp->snd_cwnd_clamp)
- 				tp->snd_cwnd++;
- 		}
+-	u8 phyctrl;
++	long mac_ctrl_value;
+
+Should mac_ctrl_value be unsigned long or u32 instead of signed long?
+
+We try to keep source lines limited to < 80 columns when feasible
+so that they fit nicely into an xterm.  There are a few lines here
+that are > 80 columns.
+
++		if((NextToFree != sp->CurrentTFD) && (NextToFree != CurrentTxTFDPtr))
++		{
+
+Style:  need space after if; opening brace not on line by itself.
+
++		// Re-configure after DMA reset. 
+
+Line ends with a space. :(
+
++	if (sp->ResetCurrentTFD != 0)
++	{
+
+Opening brace not on line by itself -- put it on the previous line,
+with a space between ) and {.
+
++		if (sp->LastTFDHoldAddr == sp->CurrentTFD) sp->LastTFDHoldCnt++;
++		else {sp->LastTFDHoldAddr = sp->CurrentTFD; sp->LastTFDHoldCnt=0; }
+
+Split lines as:
+		if (condition)
+			action;
+		else {
+			action2;
+		}
+
+
+---
+~Randy
