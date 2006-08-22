@@ -1,60 +1,46 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Tue, 22 Aug 2006 16:46:19 -0700
-Message-ID: <44EB974B.3030200@redhat.com>
-References: <1156276823.2476.22.camel@entropy>	 <20060822.133606.48392664.davem@davemloft.net>	 <1156281220.2476.65.camel@entropy>	 <20060822.142500.11271092.davem@davemloft.net> <1156287511.2476.137.camel@entropy>
+From: "Indan Zupancic" <indan@nul.nu>
+Subject: Re: Get rid of /proc/sys/net/unix/max_dgram_qlen
+Date: Wed, 23 Aug 2006 01:53:12 +0200 (CEST)
+Message-ID: <3667.81.207.0.53.1156290792.squirrel@81.207.0.53>
+References: <4550.81.207.0.53.1156275903.squirrel@81.207.0.53>
+    <20060822203914.GA9246@ms2.inr.ac.ru>
+    <3794.81.207.0.53.1156285148.squirrel@81.207.0.53>
+    <20060822223402.GA16459@ms2.inr.ac.ru>
+    <1727.81.207.0.53.1156287240.squirrel@81.207.0.53>
+    <20060822233200.GA20104@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigB6CCF8FAA9C5BFB78AA61CCC"
-Cc: David Miller <davem@davemloft.net>, jmorris@namei.org,
-	johnpol@2ka.mipt.ru, linux-kernel@vger.kernel.org, akpm@osdl.org,
-	netdev@vger.kernel.org, zach.brown@oracle.com, hch@infradead.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:61854 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S932218AbWHVXrG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 19:47:06 -0400
-To: Nicholas Miell <nmiell@comcast.net>
-In-Reply-To: <1156287511.2476.137.camel@entropy>
+Received: from helium.samage.net ([83.149.67.129]:15497 "EHLO
+	helium.samage.net") by vger.kernel.org with ESMTP id S1750713AbWHVXxn
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Aug 2006 19:53:43 -0400
+In-Reply-To: <20060822233200.GA20104@ms2.inr.ac.ru>
+To: "Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigB6CCF8FAA9C5BFB78AA61CCC
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Wed, August 23, 2006 1:32, Alexey Kuznetsov said:
 
-I so far also haven't taken the time to look exactly at the interface.
-I plan to do it asap since this is IMO our big chance to get it right.
-I want to have a unifying interface which can handle all the different
-events we need and which come up today and tomorrow.  We have to be able
-to handle not only file descriptors and AIO but also timers, signals,
-message queues (OK, they are file descriptors but let's make it
-official), futexes.  I'm probably missing the one or the other thing now.=
+>> Isn't a socket freed until all skb are handled? In which case the limit on the number of open
+>> files limits the total memory usage? (Same as with streaming sockets?)
+>
+> Alas. Number of closed sockets is not limited. Actually, it is limited
+> by sk_max_ack_backlog*max_files, which is a lot.
 
+Hmm... So setting sk_max_ack_backlog to 1 makes it limited by max_files,
+which should make the worst case the same as for streaming sockets, right?
 
-DaveM says there are example programs for the current interfaces.  I
-must admit I haven't seen those either.  So if possible, point the world
-to them again.  If you do that now I'll review everything and write up
-my recommendations re the interface before Monday.
+> The problem is specific for unconnected datagram sockets
+> (predicate unix_peer(other) != sk)
 
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
-=E2=9E=A7 Mountain View, CA =E2=9D=96
+Doesn't that mean that both sockets are connected to eachother? I mean,
+if only this socket connects to the other the above check isn't true.
+
+Greetings,
+
+Indan
 
 
---------------enigB6CCF8FAA9C5BFB78AA61CCC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
-
-iD8DBQFE65dL2ijCOnn/RHQRAjIRAKDHerZO0nBJJh3Bsd0ic26r3ciVGwCfWnrG
-jcicCEsTBhBNN7acKknDxqY=
-=IhK5
------END PGP SIGNATURE-----
-
---------------enigB6CCF8FAA9C5BFB78AA61CCC--
