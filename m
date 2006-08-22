@@ -1,52 +1,29 @@
-From: Nicholas Miell <nmiell@comcast.net>
-Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Tue, 22 Aug 2006 00:00:51 -0700
-Message-ID: <1156230051.8055.27.camel@entropy>
-References: <11561555871530@2ka.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHSET] IPv6 FIB configuration conversions
+Date: Tue, 22 Aug 2006 00:02:10 -0700 (PDT)
+Message-ID: <20060822.000210.01044094.davem@davemloft.net>
+References: <20060816234038.106537101@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alnrmhc12.comcast.net ([204.127.225.92]:27105 "EHLO
-	alnrmhc12.comcast.net") by vger.kernel.org with ESMTP
-	id S1751268AbWHVHBd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 03:01:33 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <11561555871530@2ka.mipt.ru>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:35756
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751303AbWHVHBz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Aug 2006 03:01:55 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20060816234038.106537101@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-08-21 at 14:19 +0400, Evgeniy Polyakov wrote:
-> Generic event handling mechanism.
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 17 Aug 2006 01:40:38 +0200
 
-Since this is the sixth[1] event notification system that's getting
-added to the kernel, could somebody please convince me that the
-userspace API is right this time? (Evidently, the others weren't and are
-now just backward compatibility bloat.)
+> Same approach as for IPv4, simplifies the interface
+> and makes it extendable without breaking the ioctl
+> interface.
+> 
+> Same memory corruption fixes in RTM_GETROUTE as for IPv4.
 
-Just looking at the proposed kevent API, it appears that the timer event
-queuing mechanism can't be used for the queuing of POSIX.1b interval
-timer events (i.e. via a SIGEV_KEVENT notification value in a struct
-sigevent) because (being a very thin veneer over the internal kernel
-timer system) you can't specify a clockid, the time value doesn't have
-the flexibility of a struct itimerspec (no re-arm timeout or absolute
-times), and there's no way to alter, disable or query a pending timer or
-query a timer overrun count.
-
-Overall, kevent timers appear to be inconvenient to use and limited
-compared to POSIX interval timers (excepting the fact you can read their
-expiray events out of a queue, of course).
-
-
-
-[1] Previously: select, poll, AIO, epoll, and inotify. Did I miss any?
-
--- 
-Nicholas Miell <nmiell@comcast.net>
-
+Applied, thanks a lot Thomas.
