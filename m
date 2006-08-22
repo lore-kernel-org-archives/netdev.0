@@ -1,102 +1,43 @@
-From: "Jari Sundell" <sundell.software@gmail.com>
-Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 23 Aug 2006 00:51:10 +0200
-Message-ID: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com>
-References: <11561555871530@2ka.mipt.ru> <1156230051.8055.27.camel@entropy>
-	 <20060822072448.GA5126@2ka.mipt.ru> <1156234672.8055.51.camel@entropy>
-	 <b3f268590608220957g43a16d6bmde8a542f8ad8710b@mail.gmail.com>
-	 <20060822180135.GA30142@2ka.mipt.ru>
-	 <b3f268590608221214l45bb6ad6meccfba99b89710a0@mail.gmail.com>
-	 <20060822194706.GA3476@2ka.mipt.ru>
+From: "Indan Zupancic" <indan@nul.nu>
+Subject: Re: Get rid of /proc/sys/net/unix/max_dgram_qlen
+Date: Wed, 23 Aug 2006 00:54:00 +0200 (CEST)
+Message-ID: <1727.81.207.0.53.1156287240.squirrel@81.207.0.53>
+References: <4550.81.207.0.53.1156275903.squirrel@81.207.0.53>
+    <20060822203914.GA9246@ms2.inr.ac.ru>
+    <3794.81.207.0.53.1156285148.squirrel@81.207.0.53>
+    <20060822223402.GA16459@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Nicholas Miell" <nmiell@comcast.net>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"David Miller" <davem@davemloft.net>,
-	"Ulrich Drepper" <drepper@redhat.com>,
-	"Andrew Morton" <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	"Zach Brown" <zach.brown@oracle.com>,
-	"Christoph Hellwig" <hch@infradead.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.195]:53839 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1750832AbWHVWvL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 18:51:11 -0400
-Received: by nz-out-0102.google.com with SMTP id 14so616411nzn
-        for <netdev@vger.kernel.org>; Tue, 22 Aug 2006 15:51:11 -0700 (PDT)
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060822194706.GA3476@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from helium.samage.net ([83.149.67.129]:60304 "EHLO
+	helium.samage.net") by vger.kernel.org with ESMTP id S1750926AbWHVWya
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Aug 2006 18:54:30 -0400
+In-Reply-To: <20060822223402.GA16459@ms2.inr.ac.ru>
+To: "Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/22/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> Word "polling" really confuses me here, but now I understand you.
-> Such approach actually has unresolved issues - consider for
-> example a situation when all provided events are ready immediately - what
-> should be returned (as far as I recall they are always added into kqueue in
-> BSDs before started to be checked, so old events will be returned
-> first)? And currently ready events can be read through mapped buffer
-> without any syscall at all.
-> And Linux syscall is much cheaper than BSD's one.
-> Consider (especially apped buffer)  that issues, it really does not cost
-> interface complexity.
-
-There's no reason I can see that kqueue's kevent should not be able to
-check an mmaped buffer as in your implementation, after having passed
-any filter changes to the kernel.
-
-I'm not sure if I read you correctly, but the situation where all
-events are ready immediately is not a problem. Only the delta is
-passed with the kevent call, so old events will still be first in the
-queue. And as long as the user doesn't randomize the order of the
-changelist and passes the changedlist with each kevent call, the
-resulting order in which changes are received will be no different
-from using individual system calls.
-
-If there's some very specific reason the user needs to retain the
-order in which events happen in the interval between adding it to the
-changelist and calling kevent, he may decide to call kevent
-immediately without asking for any events.
-
-> First of all, there are completely different types.
-> Design of the in-kernel part is very different too.
-
-The question I'm asking is not whet ever kqueue can fit this
-implementation, but rather if it is possible to make the
-implementation fit kqueue. I can't really see any fundemental
-differences, merely implementation details. Maybe I'm just unfamiliar
-with the requirements.
-
-> > BSD's kqueue:
-> >
-> > struct kevent {
-> >  uintptr_t ident;        /* identifier for this event */
-> >  short     filter;       /* filter for event */
-> >  u_short   flags;        /* action flags for kqueue */
-> >  u_int     fflags;       /* filter flag value */
-> >  intptr_t  data;         /* filter data value */
-> >  void      *udata;       /* opaque user data identifier */
-> > };
+On Wed, August 23, 2006 0:34, Alexey Kuznetsov said:
+>> > It is the only protection of commiting infinite amount of memory to a socket.
+>>
+>> Doesn't the "if (atomic_read(&sk->sk_wmem_alloc) < sk->sk_sndbuf)" check in
+>> sock_alloc_send_pskb()
+>> limit things already?
 >
->
-> From your description there is a serious problem with arches which
-> supports different width of the pointer. I do not have sources of ny BSD
-> right now, but if it is really like you've described, it can not be used
-> in Linux at all.
+> Unfortunately, it does not. You can open a socket, send
+> something to a selected victim, close it, and repeat this
+> until receiver accumulates enough of skbs to kill the system.
 
-Are you referring to udata or data? I'll assume the latter as the
-former is more of a restriction on user-space. intptr_t is required to
-be safely convertible to a void*, so I don't see what the problem
-would be.
+Well, it seems the devil is in the details, as usual.
 
-> No way - timespec uses long.
+Isn't a socket freed until all skb are handled? In which case the limit on the number of open
+files limits the total memory usage? (Same as with streaming sockets?)
 
-I must have missed that discussion. Please enlighten me in what regard
-using an opaque type with lower resolution is preferable to a type
-defined in POSIX for this sort of purpose. Considering the extra code
-I need to write to properly handle having just ms resolution, it
-better be something fundamentally broken. ;)
+Greetings,
 
-Rakshasa
+Indan
+
+
