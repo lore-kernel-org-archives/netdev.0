@@ -1,169 +1,313 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: [ETHTOOL] GSO Support for ethtool
-Date: Tue, 22 Aug 2006 11:40:04 +0900 (JST)
-Message-ID: <20060822.114004.123582878.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, yoshfuji@linux-ipv6.org,
-	junji@is.s.u-tokyo.ac.jp, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:6931 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S932079AbWHVCiS
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Aug 2006 22:38:18 -0400
-To: jgarzik@pobox.com
-Sender: netdev-owner@vger.kernel.org
+From: "Jesse Huang" <jesse@icplus.com.tw>
+Subject: Re: [PATCH] IP1000A: IC Plus update
+Date: Tue, 22 Aug 2006 11:11:16 +0800
+Message-ID: <00cb01c6c598$a1f0ede0$4964a8c0@icplus.com.tw>
+References: <1156192327.5852.3.camel@localhost.localdomain> <20060821092511.32108665.rdunlap@xenotime.net>
+Cc: <romieu@fr.zoreil.com>, <penberg@cs.Helsinki.FI>, <akpm@osdl.org>,
+	<dvrabel@cantab.net>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751168AbWHVDLs@vger.kernel.org>
+To: "Randy.Dunlap" <rdunlap@xenotime.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi Randy:
 
-Upcoming 2.6.18 provides Generic Segmentation Offload (GSO).
-This provides its control with -K option.
+Thanks for your review. I will follow your suggestions. I used
+git-format-diff
+to generate this patch, should I use diffstat to instead of it?
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+The old DefaultPhyParam table content a lot of furture hardware parameters.
+We are sure now that is not need for new version of IP1000A, so I remove
+those.
 
-diff --git a/ethtool-copy.h b/ethtool-copy.h
-index d696de3..30f5e05 100644
---- a/ethtool-copy.h
-+++ b/ethtool-copy.h
-@@ -285,6 +285,8 @@ #define ETHTOOL_GTSO		0x0000001e /* Get 
- #define ETHTOOL_STSO		0x0000001f /* Set TSO enable (ethtool_value) */
- #define ETHTOOL_GUFO		0x00000021 /* Get UFO enable (ethtool_value) */
- #define ETHTOOL_SUFO		0x00000022 /* Set UFO enable (ethtool_value) */
-+#define ETHTOOL_GGSO		0x00000023 /* Get GSO enable (ethtool_value) */
-+#define ETHTOOL_SGSO		0x00000024 /* Set GSO enable (ethtool_value) */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/ethtool.8 b/ethtool.8
-index 6cb1477..b735be0 100644
---- a/ethtool.8
-+++ b/ethtool.8
-@@ -154,6 +154,7 @@ ethtool \- Display or change ethernet ca
- .B2 sg on off
- .B2 tso on off
- .B2 ufo on off
-+.B2 gso on off
- 
- .B ethtool \-p|\-\-blink
- .I ethX
-@@ -276,6 +277,9 @@ Specify if tcp segmentation offload is e
- .A2 ufo on off
- Specify if UDP fragmentation offload is enabled 
- .TP
-+.A2 gso on off
-+Specify if generic segmentation offload is enabled 
-+.TP
- .B \-p \-\-identify
- initiates adapter-specific action intended to enable an operator to
- easily identify the adapter by sight.  Typically this involves
-diff --git a/ethtool.c b/ethtool.c
-index 7d408be..fdaae0e 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -145,7 +145,8 @@ static struct option { 
- 		"		[ tx on|off ]\n"
- 		"		[ sg on|off ]\n"
- 	        "		[ tso on|off ]\n"
--	        "		[ ufo on|off ]\n" },
-+	        "		[ ufo on|off ]\n"
-+	        "		[ gso on|off ]\n" },
-     { "-i", "--driver", MODE_GDRV, "Show driver information" }, 
-     { "-d", "--register-dump", MODE_GREGS, "Do a register dump" },
-     { "-e", "--eeprom-dump", MODE_GEEPROM, "Do a EEPROM dump",
-@@ -191,6 +192,7 @@ static int off_csum_tx_wanted = -1;
- static int off_sg_wanted = -1;
- static int off_tso_wanted = -1;
- static int off_ufo_wanted = -1;
-+static int off_gso_wanted = -1;
- 
- static struct ethtool_pauseparam epause;
- static int gpause_changed = 0;
-@@ -295,6 +297,7 @@ static struct cmdline_info cmdline_offlo
- 	{ "sg", CMDL_BOOL, &off_sg_wanted, NULL },
- 	{ "tso", CMDL_BOOL, &off_tso_wanted, NULL },
- 	{ "ufo", CMDL_BOOL, &off_ufo_wanted, NULL },
-+	{ "gso", CMDL_BOOL, &off_gso_wanted, NULL },
- };
- 
- static struct cmdline_info cmdline_pause[] = {
-@@ -1115,19 +1118,21 @@ static int dump_coalesce(void)
- 	return 0;
- }
- 
--static int dump_offload (int rx, int tx, int sg, int tso, int ufo)
-+static int dump_offload (int rx, int tx, int sg, int tso, int ufo, int gso)
- {
- 	fprintf(stdout,
- 		"rx-checksumming: %s\n"
- 		"tx-checksumming: %s\n"
- 		"scatter-gather: %s\n"
- 		"tcp segmentation offload: %s\n"
--		"udp fragmentation offload: %s\n",
-+		"udp fragmentation offload: %s\n"
-+		"generic segmentation offload: %s\n",
- 		rx ? "on" : "off",
- 		tx ? "on" : "off",
- 		sg ? "on" : "off",
- 		tso ? "on" : "off",
--		ufo ? "on" : "off");
-+		ufo ? "on" : "off",
-+		gso ? "on" : "off");
- 
- 	return 0;
- }
-@@ -1391,7 +1396,7 @@ static int do_scoalesce(int fd, struct i
- static int do_goffload(int fd, struct ifreq *ifr)
- {
- 	struct ethtool_value eval;
--	int err, allfail = 1, rx = 0, tx = 0, sg = 0, tso = 0, ufo = 0;
-+	int err, allfail = 1, rx = 0, tx = 0, sg = 0, tso = 0, ufo = 0, gso = 0;
- 
- 	fprintf(stdout, "Offload parameters for %s:\n", devname);
- 
-@@ -1445,12 +1450,22 @@ static int do_goffload(int fd, struct if
- 		allfail = 0;
- 	}
- 
-+	eval.cmd = ETHTOOL_GGSO;
-+	ifr->ifr_data = (caddr_t)&eval;
-+	err = ioctl(fd, SIOCETHTOOL, ifr);
-+	if (err)
-+		perror("Cannot get device generic segmentation offload settings");
-+	else {
-+		gso = eval.data;
-+		allfail = 0;
-+	}
-+
- 	if (allfail) {
- 		fprintf(stdout, "no offload info available\n");
- 		return 83;
- 	}
- 
--	return dump_offload(rx, tx, sg, tso, ufo);
-+	return dump_offload(rx, tx, sg, tso, ufo, gso);
- }
- 
- static int do_soffload(int fd, struct ifreq *ifr)
-@@ -1516,6 +1531,17 @@ static int do_soffload(int fd, struct if
- 			return 89;
- 		}
- 	}
-+	if (off_gso_wanted >= 0) {
-+		changed = 1;
-+		eval.cmd = ETHTOOL_SGSO;
-+		eval.data = (off_gso_wanted == 1);
-+		ifr->ifr_data = (caddr_t)&eval;
-+		err = ioctl(fd, SIOCETHTOOL, ifr);
-+		if (err) {
-+			perror("Cannot set device generic segmentation offload settings");
-+			return 90;
-+		}
-+	}
- 	if (!changed) {
- 		fprintf(stdout, "no offload settings changed\n");
- 	}
+Thanks for help.
 
---yoshfuji
+Jesse
+
+----- Original Message ----- 
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+To: "Jesse Huang" <jesse@icplus.com.tw>
+Cc: <romieu@fr.zoreil.com>; <penberg@cs.Helsinki.FI>; <akpm@osdl.org>;
+<dvrabel@cantab.net>; <linux-kernel@vger.kernel.org>;
+<netdev@vger.kernel.org>
+Sent: Tuesday, August 22, 2006 12:25 AM
+Subject: Re: [PATCH] IP1000A: IC Plus update
+
+
+On Mon, 21 Aug 2006 16:32:07 -0400 Jesse Huang wrote:
+
+> Dear All:
+> I had regenerate this patch from:
+> git://git.kernel.org/pub/scm/linux/kernel/git/penberg/netdev-ipg-2.6.git
+>
+> And, submit those modifications as one patch.
+>
+> From: Jesse Huang <jesse@icplus.com.tw>
+>
+> Change Logs:
+>    - update maintainer information
+>    - remove some default phy params
+>    - remove threshold config from ipg_io_config
+>    - ip1000 ipg_config_autoneg rewrite
+>    - modify coding style of ipg_config_autoneg
+>    - Add IPG_AC_FIFO flag when Tx reset
+>    - For compatible at PCI 66MHz issue
+>
+> Signed-off-by: Jesse Huang <jesse@icplus.com.tw>
+> ---
+>
+>  ipg.c |  394 ++++++++++++++
+> +-------------------------------------------------- ipg.h |   96
+> +--------------- 2 files changed, 92 insertions(+), 398 deletions(-)
+
+Please use "diffstat -p1 -w 70" for diffstat output so that we can
+see the full path/file names that are modified in the patch.
+
+> 8bd0325e52d2578c37cd251aeac2136f7cca9098
+> diff --git a/ipg.c b/ipg.c
+> index 754ddb5..7c541c2 100644
+> --- a/ipg.c
+> +++ b/ipg.c
+
+Similar to the diffstat comment, the "diff" a & b filenames should
+show the full path to the source file, e.g.:
+
+--- a/drivers/net/ipg.c
++++ b/drivers/net/ipg.c
+
+> @@ -511,14 +513,13 @@ static int ipg_config_autoneg(struct net
+>  */
+>  sp->tenmbpsmode = 0;
+>
+> - printk("Link speed = ");
+> + printk(KERN_INFO "Link speed = ");
+>
+>  /* Determine actual speed of operation. */
+>  switch (phyctrl & IPG_PC_LINK_SPEED) {
+>  case IPG_PC_LINK_SPEED_10MBPS:
+>  printk("10Mbps.\n");
+> - printk(KERN_INFO "%s: 10Mbps operational mode
+> enabled.\n",
+> -        dev->name);
+> + printk("%s: 10Mbps operational mode enabled.
+> \n",dev->name);
+
+Space before "dev->name".
+Why dropping the KERN_INFO here?  The previous printk contains
+a newline character, so KERN_* is still valid.
+
+> sp->tenmbpsmode = 1;
+>  break;
+>  case IPG_PC_LINK_SPEED_100MBPS:
+
+> @@ -530,283 +531,50 @@ static int ipg_config_autoneg(struct net
+
+> + /* Configure full duplex, and flow control. */
+> + if (fullduplex == 1) {
+> + /* Configure IPG for full duplex operation. */
+> + printk(KERN_INFO "setting full duplex, ");
+
+This series of printk calls needs some kind of device or driver
+identification.
+
+> - if ((advertisement & ADVERTISE_1000XFULL) ==
+> -     (linkpartner_ability & ADVERTISE_1000XFULL)) {
+> - fullduplex = 1;
+> + mac_ctrl_value |= IPG_MC_DUPLEX_SELECT_FD;
+>
+> - /* In 1000BASE-X using IPG's internal PCS
+> - * layer, so write to the GMII duplex bit.
+> - */
+> - bmcr |= ADVERTISE_1000HALF; // Typo ?
+> + if (txflowcontrol == 1) {
+> + printk("TX flow control");
+> + mac_ctrl_value |=
+> IPG_MC_TX_FLOW_CONTROL_ENABLE; } else {
+> - fullduplex = 0;
+> -
+> - /* In 1000BASE-X using IPG's internal PCS
+> - * layer, so write to the GMII duplex bit.
+> - */
+> - bmcr &= ~ADVERTISE_1000HALF; // Typo ?
+> + printk("no TX flow control");
+> + mac_ctrl_value &=
+> ~IPG_MC_TX_FLOW_CONTROL_ENABLE; }
+> - mdio_write(dev, phyaddr, MII_BMCR, bmcr);
+> - }
+
+> + } else {
+> + /* Configure IPG for half duplex operation. */
+> +         printk(KERN_INFO "setting half duplex, no TX flow
+> control, no RX flow control.\n");
+
+Same here:  needs device (preferably) or driver identification.
+
+> - default:
+> - txflowcontrol = 0;
+> - rxflowcontrol = 0;
+> - }
+> + mac_ctrl_value &= ~IPG_MC_DUPLEX_SELECT_FD &
+> ~IPG_MC_TX_FLOW_CONTROL_ENABLE & ~IPG_MC_RX_FLOW_CONTROL_ENABLE; }
+
+> @@ -1158,6 +916,7 @@ static void ipg_nic_txfree(struct net_de
+>  struct ipg_nic_private *sp = netdev_priv(dev);
+>  int NextToFree;
+>  int maxtfdcount;
+> + long CurrentTxTFDPtr=(ioread32(ipg_ioaddr(dev)
+> +TFD_LIST_PTR_0)-(long)sp->TFDListDMAhandle)/(long)sizeof(struct
+> TFD);
+
+Space before and after '=' sign.
+
+> @@ -1180,8 +939,10 @@ static void ipg_nic_txfree(struct net_de
+>  * If the TFDDone bit is set, free the associated
+>  * buffer.
+>  */
+> - if ((le64_to_cpu(sp->TFDList[NextToFree].TFC) &
+> -      IPG_TFC_TFDDONE) && (NextToFree !=
+> sp->CurrentTFD)) {
+> + if((NextToFree != sp->CurrentTFD)&&(NextToFree!
+> =CurrentTxTFDPtr))
+
+Spaces before and after "&&" and "!=" etc. (as in the former code).
+
+> + {
+> + //JesseAdd: setup TFDDONE for compatible
+> issue.
+> + sp->TFDList[NextToFree].TFC = cpu_to_le64
+> (sp->TFDList[NextToFree].TFC|IPG_TFC_TFDDONE); /* Free the transmit
+> buffer. */ if (sp->TxBuff[NextToFree] != NULL) {
+>  pci_unmap_single(sp->pdev,
+> @@ -1204,6 +965,15 @@ static void ipg_nic_txfree(struct net_de
+>  maxtfdcount--;
+>
+>  } while (maxtfdcount != 0);
+> + if(sp->LastTFDHoldCnt>1000) {
+
+Space between "if" and "(".  Space before/after ">".
+and on next line ("=").
+
+> + sp->LastTFDHoldCnt=0;
+> + ipg_reset(dev, IPG_AC_TX_RESET | IPG_AC_DMA |
+> IPG_AC_NETWORK | IPG_AC_FIFO);
+> + // Re-configure after DMA reset.
+> + if ((ipg_io_config(dev) < 0) ||(init_tfdlist(dev)
+> < 0)) {
+> + printk(KERN_INFO"%s: Error during
+> re-configuration.\n",dev->name);
+
+Space before "dev->name".  And after KERN_INFO.
+
+Could you save an error code from ipg_io_config() or init_tfdlist()
+and give the user a bit more meaningful message?
+
+
+> + }
+
+> @@ -2280,10 +2050,17 @@ static int ipg_nic_hard_start_xmit(struc
+>  * counter, modulus the length of the TFDList.
+>  */
+>  NextTFD = (sp->CurrentTFD + 1) % IPG_TFDLIST_LENGTH;
+> + if(sp->ResetCurrentTFD!=0)
+
+Spaces.  Make it human-readable, not just machine-readable.
+
+> + {
+> + sp->ResetCurrentTFD=0;
+> + NextTFD=0;
+> + }
+> + /* Check for availability of next TFD. Reserve 1 for not
+> become ring*/
+> + if (NextTFD == sp->LastFreedTxBuff) {
+> +
+> + if(sp->LastTFDHoldAddr==sp->CurrentTFD)
+
+Spaces....
+
+
+> diff --git a/ipg.h b/ipg.h
+> index 58b1417..9688483 100644
+> --- a/ipg.h
+> +++ b/ipg.h
+> @@ -919,59 +883,7 @@ unsigned short DefaultPhyParam[] = {
+>  // 01/09/04 IP1000A v1-5 rev=0x41
+>  (0x4100 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
+> 27, 0xeb8e, 31, 0x0000,
+> - 30, 0x005e, 9, 0x0700,
+> - // 01/09/04 IP1000A v1-5 rev=0x42
+> - (0x4200 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
+> 27, 0xeb8e, 31,
+> -     0x0000,
+> - 30, 0x005e, 9, 0x0700,
+> - // 01/09/04 IP1000A v1-5 rev=0x43
+> - (0x4300 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
+> 27, 0xeb8e, 31,
+> -     0x0000,
+> - 30, 0x005e, 9, 0x0700,
+> - // 01/09/04 IP1000A v1-5 rev=0x44
+> - (0x4400 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
+> 27, 0xeb8e, 31,
+> -     0x0000,
+> - 30, 0x005e, 9, 0x0700,
+> - // 01/09/04 IP1000A v1-5 rev=0x45
+> - (0x4500 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
+> 27, 0xeb8e, 31,
+> -     0x0000,
+> - 30, 0x005e, 9, 0x0700,
+> - // 01/09/04 IP1000A v1-5 rev=0x46
+> - (0x4600 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
+> 27, 0xeb8e, 31,
+> -     0x0000,
+> - 30, 0x005e, 9, 0x0700,
+> - // 01/09/04 IP1000A v1-5 rev=0x47
+> - (0x4700 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
+> 27, 0xeb8e, 31,
+> -     0x0000,
+> - 30, 0x005e, 9, 0x0700,
+> - // 01/09/04 IP1000A v1-5 rev=0x48
+> - (0x4800 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
+> 27, 0xeb8e, 31,
+> -     0x0000,
+> - 30, 0x005e, 9, 0x0700,
+> - // 01/09/04 IP1000A v1-5 rev=0x49
+> - (0x4900 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
+> 27, 0xeb8e, 31,
+> -     0x0000,
+> - 30, 0x005e, 9, 0x0700,
+> - // 01/09/04 IP1000A v1-5 rev=0x4A
+> - (0x4A00 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
+> 27, 0xeb8e, 31,
+> -     0x0000,
+> - 30, 0x005e, 9, 0x0700,
+> - // 01/09/04 IP1000A v1-5 rev=0x4B
+> - (0x4B00 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
+> 27, 0xeb8e, 31,
+> -     0x0000,
+> - 30, 0x005e, 9, 0x0700,
+> - // 01/09/04 IP1000A v1-5 rev=0x4C
+> - (0x4C00 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
+> 27, 0xeb8e, 31,
+> -     0x0000,
+> - 30, 0x005e, 9, 0x0700,
+> - // 01/09/04 IP1000A v1-5 rev=0x4D
+> - (0x4D00 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
+> 27, 0xeb8e, 31,
+> -     0x0000,
+> - 30, 0x005e, 9, 0x0700,
+> - // 01/09/04 IP1000A v1-5 rev=0x4E
+> - (0x4E00 | (07 * 4)), 31, 0x0001, 27, 0x01e0, 31, 0x0002,
+> 27, 0xeb8e, 31,
+> -     0x0000,
+> - 30, 0x005e, 9, 0x0700,
+> + 30, 0x005e, 9, 0x0700,
+
+Eh?  This change just adds whitespace at end of line.
+This happens in other places too.  Please clean up all of those.
+
+Does removing all of those other entries prevent anyone's
+hardware from working correctly?
+
+
+---
+~Randy
