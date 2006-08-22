@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Lksctp-developers] [PATCH 3/5][SCTP]: Remove multiple levels
- of msecs to jiffies conversions.
-Date: Tue, 22 Aug 2006 13:28:47 -0700 (PDT)
-Message-ID: <20060822.132847.129770563.davem@davemloft.net>
-References: <1155925357.20802.27.camel@w-sridhar2.beaverton.ibm.com>
-	<20060822.002253.26973121.davem@davemloft.net>
-	<200608220944.37254.vladislav.yasevich@hp.com>
+Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
+Date: Tue, 22 Aug 2006 13:36:06 -0700 (PDT)
+Message-ID: <20060822.133606.48392664.davem@davemloft.net>
+References: <1156237191.8055.59.camel@entropy>
+	<Pine.LNX.4.64.0608221059030.26026@d.namei>
+	<1156276823.2476.22.camel@entropy>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net, sri@us.ibm.com,
-	netdev@vger.kernel.org
+Cc: jmorris@namei.org, johnpol@2ka.mipt.ru,
+	linux-kernel@vger.kernel.org, drepper@redhat.com, akpm@osdl.org,
+	netdev@vger.kernel.org, zach.brown@oracle.com, hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:37840
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:34764
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932083AbWHVU23 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 16:28:29 -0400
-To: vladislav.yasevich@hp.com
-In-Reply-To: <200608220944.37254.vladislav.yasevich@hp.com>
+	id S932095AbWHVUfw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Aug 2006 16:35:52 -0400
+To: nmiell@comcast.net
+In-Reply-To: <1156276823.2476.22.camel@entropy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Tue, 22 Aug 2006 09:44:37 -0400
+From: Nicholas Miell <nmiell@comcast.net>
+Date: Tue, 22 Aug 2006 13:00:23 -0700
 
-> Again, the variables exposed by the user interface have been and remain in 
-> milliseconds.
+> I'm not the one proposing the new (potentially wrong) interface. The
+> onus isn't on me.
 
-I misread the patch, sorry :)
+You can't demand a volunteer to do work, period.
 
-Thanks for clearing this up, I'll apply the patch.
+If it matters to you, you have the option of doing the work.
+Otherwise you can't complain.
