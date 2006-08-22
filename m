@@ -1,57 +1,39 @@
-From: Nicholas Miell <nmiell@comcast.net>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Tue, 22 Aug 2006 15:58:31 -0700
-Message-ID: <1156287511.2476.137.camel@entropy>
-References: <1156276823.2476.22.camel@entropy>
-	 <20060822.133606.48392664.davem@davemloft.net>
-	 <1156281220.2476.65.camel@entropy>
-	 <20060822.142500.11271092.davem@davemloft.net>
+Date: Tue, 22 Aug 2006 16:06:18 -0700 (PDT)
+Message-ID: <20060822.160618.130612620.davem@davemloft.net>
+References: <1156281182.2476.63.camel@entropy>
+	<20060822143747.68acaf99.rdunlap@xenotime.net>
+	<1156287492.2476.134.camel@entropy>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, johnpol@2ka.mipt.ru,
+Cc: rdunlap@xenotime.net, johnpol@2ka.mipt.ru,
 	linux-kernel@vger.kernel.org, drepper@redhat.com, akpm@osdl.org,
 	netdev@vger.kernel.org, zach.brown@oracle.com, hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alnrmhc14.comcast.net ([204.127.225.94]:36772 "EHLO
-	alnrmhc11.comcast.net") by vger.kernel.org with ESMTP
-	id S1751181AbWHVW7V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 18:59:21 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060822.142500.11271092.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:50123
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750943AbWHVXGF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Aug 2006 19:06:05 -0400
+To: nmiell@comcast.net
+In-Reply-To: <1156287492.2476.134.camel@entropy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-08-22 at 14:25 -0700, David Miller wrote:
-> From: Nicholas Miell <nmiell@comcast.net>
-> Date: Tue, 22 Aug 2006 14:13:40 -0700
-> 
-> > And how is the quality of the work to be judged if the work isn't
-> > commented, documented and explained, especially the userland-visible
-> > parts that *cannot* *ever* *be* *changed* *or* *removed* once they're in
-> > a stable kernel release?
-> 
-> Are you even willing to look at the collection of example applications
-> Evgeniy wrote against this API?
-> 
-> That is the true test of a set of interfaces, what happens when you
-> try to actually use them in real programs.
-> 
-> Everything else is fluff, including standards and "documentation".
-> 
-> He even bothered to benchmark things, and post assosciated graphs and
-> performance analysis during the course of development.
+From: Nicholas Miell <nmiell@comcast.net>
+Date: Tue, 22 Aug 2006 15:58:12 -0700
 
-I wasn't aware that any of these existed, he didn't mention them in this
-patch series. Having now looked, all I've managed to find are a series
-of simple example apps that no longer work because of API changes.
+> Honestly, somebody with enough clout to make it stick needs to write out
+> a spec describing what new kernel interfaces should look like and how
+> they should fit in with existing interfaces.
 
-Also, if you've been paying attention, you'll note that I've never
-criticized the performance or quality of the underlying kevent
-implementation -- as best I can tell, aside from some lockdep complaints
-(which, afaik, are the result of lockdep's limitations rather than
-problems with kevent), the internals of kevent are excellent.
+With the time you spent writing this long email alone you could have
+worked on either documenting Evgeniy's interfaces or trying to write
+test applications against kevent to validate how useful the interfaces
+are and if there are any problems with them.
 
--- 
-Nicholas Miell <nmiell@comcast.net>
+You choose to rant and complain instead of participate.
+
+Therefore, many of us cannot take you seriously.
 
