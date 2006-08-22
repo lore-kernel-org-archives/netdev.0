@@ -1,52 +1,55 @@
-From: Michael Buesch <mb@bu3sch.de>
+From: Frank van Maarseveen <frankvm@frankvm.com>
 Subject: Re: b44 (Broadcom BCM4401 100Base-T) + NETCONSOLE + link up == lockup
-Date: Tue, 22 Aug 2006 11:36:57 +0200
-Message-ID: <200608221136.58034.mb@bu3sch.de>
-References: <20060822092024.GA1089@janus>
+Date: Tue, 22 Aug 2006 11:42:14 +0200
+Message-ID: <20060822094214.GA1287@janus>
+References: <20060822092024.GA1089@janus> <200608221136.58034.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:62388
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1751302AbWHVJhf
+Received: from frankvm.xs4all.nl ([80.126.170.174]:9110 "EHLO
+	janus.localdomain") by vger.kernel.org with ESMTP id S1751384AbWHVJmP
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 05:37:35 -0400
-To: Frank van Maarseveen <frankvm@frankvm.com>
-In-Reply-To: <20060822092024.GA1089@janus>
+	Tue, 22 Aug 2006 05:42:15 -0400
+To: Michael Buesch <mb@bu3sch.de>
 Content-Disposition: inline
+In-Reply-To: <200608221136.58034.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 22 August 2006 11:20, Frank van Maarseveen wrote:
-> Noticed this on 2.6.17.8 and it is easily reproduced. When disconnecting
-> and connecting the network cable from a BCM4401 100Base-T NIC the usual
-> "link is down" and "link is up" messages show up unless netconsole
-> logging is enabled upon boot using (e.g.):
+On Tue, Aug 22, 2006 at 11:36:57AM +0200, Michael Buesch wrote:
+> On Tuesday 22 August 2006 11:20, Frank van Maarseveen wrote:
+> > Noticed this on 2.6.17.8 and it is easily reproduced. When disconnecting
+> > and connecting the network cable from a BCM4401 100Base-T NIC the usual
+> > "link is down" and "link is up" messages show up unless netconsole
+> > logging is enabled upon boot using (e.g.):
+> > 
+> > 	netconsole=@172.17.1.65/,514@172.17.1.64/00:12:3f:85:17:52
+> > 
+> > In that case the "link is up" message no longer makes it to the virtual
+> > console/remote machine and the machine seems to lock up. alt-sysrq-p
+> > doesn't show anything on the VC (caps- and numlock are dead too) but
+> > alt-sysrq-b works provided it is not preceded by too many unprinted kernel
+> > messages (so it seems). The link does go up according to the link state
+> > LED and there is some activity (incoming packets only I suppose).
+> > 
+> > unplugging and plugging again doesn't help.
+> > 
+> > During boot the kernel says:
+> > 
+> > 	kernel: netconsole: device eth0 not up yet, forcing it
+> > 	kernel: b44: eth0: Link is up at 100 Mbps, full duplex.
+> > 	kernel: b44: eth0: Flow control is off for TX and off for RX.
+> > 	kernel: netconsole: network logging started
 > 
-> 	netconsole=@172.17.1.65/,514@172.17.1.64/00:12:3f:85:17:52
-> 
-> In that case the "link is up" message no longer makes it to the virtual
-> console/remote machine and the machine seems to lock up. alt-sysrq-p
-> doesn't show anything on the VC (caps- and numlock are dead too) but
-> alt-sysrq-b works provided it is not preceded by too many unprinted kernel
-> messages (so it seems). The link does go up according to the link state
-> LED and there is some activity (incoming packets only I suppose).
-> 
-> unplugging and plugging again doesn't help.
-> 
-> During boot the kernel says:
-> 
-> 	kernel: netconsole: device eth0 not up yet, forcing it
-> 	kernel: b44: eth0: Link is up at 100 Mbps, full duplex.
-> 	kernel: b44: eth0: Flow control is off for TX and off for RX.
-> 	kernel: netconsole: network logging started
+> I think this is not a b44 but a netconsole problem.
+> I saw this behaviour with netconsole and sungem in the past, too.
+> I simply decided to not remove the cable while using netconsole :P
+> But that's not really a solution, hehe.
 
-I think this is not a b44 but a netconsole problem.
-I saw this behaviour with netconsole and sungem in the past, too.
-I simply decided to not remove the cable while using netconsole :P
-But that's not really a solution, hehe.
+I use many other network drivers which do not show this problem. Tested
+by repowering a large switch :-). I guess it is a bug (race?) copied
+from one driver to another.
 
 -- 
-Greetings Michael.
+Frank
