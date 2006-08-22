@@ -1,39 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: limit window scaling if window is clamped
-Date: Tue, 22 Aug 2006 00:07:20 -0700 (PDT)
-Message-ID: <20060822.000720.27786753.davem@davemloft.net>
-References: <20060818102938.5abc1bcf@dxpl.pdx.osdl.net>
+Subject: Re: [PATCH 1/5][SCTP]: Extend /proc/net/sctp/snmp to provide more
+ statistics.
+Date: Tue, 22 Aug 2006 00:21:23 -0700 (PDT)
+Message-ID: <20060822.002123.107686338.davem@davemloft.net>
+References: <1155925347.20802.25.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:3972
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:45282
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751051AbWHVHHK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 03:07:10 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060818102938.5abc1bcf@dxpl.pdx.osdl.net>
+	id S1750895AbWHVHVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Aug 2006 03:21:09 -0400
+To: sri@us.ibm.com
+In-Reply-To: <1155925347.20802.25.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Fri, 18 Aug 2006 10:29:38 -0700
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Fri, 18 Aug 2006 11:22:27 -0700
 
-> This small change allows for easy per-route workarounds for broken hosts or
-> middleboxes that are not compliant with TCP standards for window scaling.
-> Rather than having to turn off window scaling globally. This patch allows
-> reducing or disabling window scaling if window clamp is present.
+> [SCTP]: Extend /proc/net/sctp/snmp to provide more statistics.
 > 
-> Example: Mark Lord reported a problem with 2.6.17 kernel being unable to
-> access http://www.everymac.com
+> This patch adds more statistics info under /proc/net/sctp/snmp
+> that should be useful for debugging. The additional events that
+> are counted now include timer expirations, retransmits, packet
+> and data chunk discards.
 > 
-> # ip route add 216.145.246.23/32 via 10.8.0.1 window 65535
+> The Data chunk discards include all the cases where a data chunk
+> is discarded including high tsn, bad stream, dup tsn and the most
+> useful one(out of receive buffer/rwnd).
 > 
-> I would argue this ought to go in stable kernel as well.
+> Also moved the SCTP MIB data structures from the generic include
+> directories to include/sctp/sctp.h.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-Ok applied.  And I'll push this to -stable.
-
-Thanks a lot Stephen.
+Applied, thanks.
