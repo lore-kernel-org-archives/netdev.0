@@ -1,102 +1,57 @@
-From: David Kimdon <david.kimdon@devicescape.com>
-Subject: [patch 5/5] d80211: add ioctl to stop data frame tx
-Date: Tue, 22 Aug 2006 10:34:19 -0700
-Message-ID: <20060822173419.GF12500@devicescape.com>
-References: <20060822173241.313859000@devicescape.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
+Date: Tue, 22 Aug 2006 22:01:35 +0400
+Message-ID: <20060822180135.GA30142@2ka.mipt.ru>
+References: <11561555871530@2ka.mipt.ru> <1156230051.8055.27.camel@entropy> <20060822072448.GA5126@2ka.mipt.ru> <1156234672.8055.51.camel@entropy> <b3f268590608220957g43a16d6bmde8a542f8ad8710b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>,
-	David Kimdon <david.kimdon@devicescape.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: Nicholas Miell <nmiell@comcast.net>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-64.dex002.intermedia.net ([64.78.20.13]:61248 "EHLO
-	dhost002-64.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1751401AbWHVRe1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 13:34:27 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline; filename="stop_data_frame_tx.patch"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:27317 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932329AbWHVSCj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2006 14:02:39 -0400
+To: Jari Sundell <sundell.software@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <b3f268590608220957g43a16d6bmde8a542f8ad8710b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This ioctl is used when radar is delected on a channel.  Data frames must stop
-but management frames must be allowed to continue for some time to communicate
-the channel switch to stations.
+On Tue, Aug 22, 2006 at 06:57:05PM +0200, Jari Sundell (sundell.software@gmail.com) wrote:
+> On 8/22/06, Nicholas Miell <nmiell@comcast.net> wrote:
+> >
+> >
+> >OK, so with literally a dozen different interfaces to queue events to
+> >userspace, all of which are apparently inadequate and in need of
+> >replacement by kevent, don't you want to slow down a bit and make sure
+> >that the kevent API is correct before it becomes permanent and then just
+> >has to be replaced *again* ?
+> >
+> 
+> Not to mention the name used causes (at least me) some confusion with BSD's
+> kqueue implementation. Skimming over the patches it actually looks somewhat
+> like kqueue with the more interesting features removed, like the ability to
+> pass the filter changes simultaneously with polling.
 
-Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
+I do not understand, what do you mean?
+It is obviously allowed to poll and change kevents at the same time.
 
-Index: linux-2.6.16/net/d80211/hostapd_ioctl.h
-===================================================================
---- linux-2.6.16.orig/net/d80211/hostapd_ioctl.h
-+++ linux-2.6.16/net/d80211/hostapd_ioctl.h
-@@ -93,6 +93,7 @@ enum {
- 	PRISM2_PARAM_SPECTRUM_MGMT = 1044,
- 	PRISM2_PARAM_USER_SPACE_MLME = 1045,
- 	PRISM2_PARAM_MGMT_IF = 1046,
-+	PRISM2_PARAM_STOP_DATA_FRAME_TX = 1047,
- 	/* NOTE: Please try to coordinate with other active development
- 	 * branches before allocating new param numbers so that each new param
- 	 * will be unique within all branches and the allocated number will not
-Index: linux-2.6.16/net/d80211/ieee80211.c
-===================================================================
---- linux-2.6.16.orig/net/d80211/ieee80211.c
-+++ linux-2.6.16/net/d80211/ieee80211.c
-@@ -1240,6 +1240,15 @@ static int ieee80211_tx(struct net_devic
- 		return 0;
- 	}
- 
-+	if (unlikely(local->stop_data_frame_tx)) {
-+		struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
-+		u16 fc = le16_to_cpu(hdr->frame_control);
-+		if ((fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_DATA) {
-+			dev_kfree_skb(skb);
-+			return 0;
-+		}
-+	}
-+
- 	__ieee80211_tx_prepare(&tx, skb, dev, control);
- 	sta = tx.sta;
- 	tx.u.tx.mgmt_interface = mgmt;
-Index: linux-2.6.16/net/d80211/ieee80211_i.h
-===================================================================
---- linux-2.6.16.orig/net/d80211/ieee80211_i.h
-+++ linux-2.6.16/net/d80211/ieee80211_i.h
-@@ -532,6 +532,8 @@ struct ieee80211_local {
- 				* (1 << MODE_*) */
- 
- 	int user_space_mlme;
-+	int stop_data_frame_tx; /* Set to 1 to stop transmission
-+				 * of data frames. */
- };
- 
- enum ieee80211_link_state_t {
-Index: linux-2.6.16/net/d80211/ieee80211_ioctl.c
-===================================================================
---- linux-2.6.16.orig/net/d80211/ieee80211_ioctl.c
-+++ linux-2.6.16/net/d80211/ieee80211_ioctl.c
-@@ -1300,6 +1300,14 @@ static int ieee80211_ioctl_set_radio_ena
-         return ieee80211_hw_config(dev);
- }
- 
-+static int ieee80211_ioctl_set_stop_data_frame_tx(struct net_device *dev,
-+					  	  int val)
-+{
-+	struct ieee80211_local *local = dev->ieee80211_ptr;
-+        local->stop_data_frame_tx = val;
-+        return 0;
-+}
-+
- static int
- ieee80211_ioctl_set_tx_queue_params(struct net_device *dev,
- 				    struct prism2_hostapd_param *param)
-@@ -2612,6 +2620,9 @@ static int ieee80211_ioctl_prism2_param(
- 	case PRISM2_PARAM_USER_SPACE_MLME:
- 		local->user_space_mlme = value;
- 		break;
-+	case PRISM2_PARAM_STOP_DATA_FRAME_TX:
-+                ret = ieee80211_ioctl_set_stop_data_frame_tx(dev, value);
-+		break;
- 	default:
- 		ret = -EOPNOTSUPP;
- 		break;
+> Maybe this is a topic that will singe my fur, but what is wrong with the
+> kqueue API? Will I really have to implement support for yet another event
+> API in my program.
 
---
+Why did I not implemented it like Solaris did?
+Or FreeBSD did?
+It was designed with features mention on AIO homepage in mind, but not
+to be compatible with some other implementation.
+And why should it be?
+
+> Rakshasa
+
+-- 
+	Evgeniy Polyakov
