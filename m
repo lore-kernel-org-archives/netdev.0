@@ -1,81 +1,255 @@
-From: =?iso-8859-2?B?TWljaGFsIFL5vmnoa2E=?= <michal.ruzicka@comstar.cz>
-Subject: Re: multicast group memberships purge on interface delete
-Date: Wed, 23 Aug 2006 15:29:45 +0200
-Message-ID: <039601c6c6b8$47b0f7a0$2303a8c0@mruzicka>
-References: <20060809.195627.59155708.yoshfuji@linux-ipv6.org> <44D9D431.10101@tcs.hut.fi>	<44DA558A.1080706@tcs.hut.fi> <20060810.174635.42119608.yoshfuji@linux-ipv6.org> <44DB0870.6000902@tcs.hut.fi> <019901c6bc75$872ee1f0$2303a8c0@mruzicka> <021e01c6c6a4$6e7845f0$2303a8c0@mruzicka> <1156336331.5035.79.camel@jzny2>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take13 1/3] kevent: Core files.
+Date: Wed, 23 Aug 2006 17:44:36 +0400
+Message-ID: <20060823134435.GD29056@2ka.mipt.ru>
+References: <11563322971212@2ka.mipt.ru> <200608231451.07499.dada1@cosmosbay.com> <20060823132753.GB29056@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-2";
-	reply-type=original
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
+Content-Type: multipart/mixed; boundary="J2SCkAp4GZ/dPZZf"
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateplz-adsl.comstar.cz ([193.179.24.196]:62393 "EHLO
-	gateplz.comstar.cz") by vger.kernel.org with ESMTP id S932150AbWHWNbE
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 09:31:04 -0400
-To: <hadi@cyberus.ca>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:35265 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S932218AbWHWNrU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 09:47:20 -0400
+To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Disposition: inline
+In-Reply-To: <20060823132753.GB29056@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
->
-> You should be able to "fix it" in the kernel by listening to events of
-> the interface/device disappearing.
+--J2SCkAp4GZ/dPZZf
+Content-Type: text/plain; charset=koi8-r
+Content-Disposition: inline
 
-Interesting, I've thought that it would have to be done explicitly by the 
-interface
-cleanup code, this approach looks promising to me.
+On Wed, Aug 23, 2006 at 05:27:53PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> One can find it in archive on homepage
+> http://tservice.net.ru/~s0mbre/old/?section=projects&item=kevent 
+> or attached.
 
-> By "disappearing" i think you meant
-> the netdevice was totally rmmod-ed?
+Now it is really attached.
 
-No need to rmmod anything, just think of ppp or gre interfaces which come 
-and go
-without any modules loading/unloading. But yes, the rmmod would probably be
-needed in case of, for example, an ethernet device.
+-- 
+	Evgeniy Polyakov
 
-> The challenge is to make the app
-> also aware of you taking away the group from underneath them (thats why
-> i said "fix it")
->
+--J2SCkAp4GZ/dPZZf
+Content-Type: text/plain; charset=koi8-r
+Content-Disposition: attachment; filename="evtest.c"
 
-I dont's see this as any challange as the applications could just assume 
-that any
-memberships on deleted interfaces have been just droped implicitly by the 
-kernel.
-(This should be no problem for them provided that they keep track of
-the interfaces present on the system, which they should anyway or otherwise
-they could end up listening to just a part of the multicast traffic they are
-interested in.)
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <sys/time.h>
+#include <sys/mman.h>
 
->
-> These events are also available in user space via netlink. so an alter
-> your app could listen to them and make the group leaves instead of the
-> kernel.
->
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#include <unistd.h>
 
-In fact I've had proposed that on the application mailing list (the 
-appliaction is
-quagga formerly zebra routing suite to be specific) but the people there 
-disliked
-it because of the fact that for example the NetBSD (as I noted in my 
-previous
-post) does the group leaves implicitly on the interface delete and the 
-explicit
-group leaves fail there (and reportedly on other OSes too).
-Sure this can solved by some conditional compilation.
-This is why my post was more a theoretical design question/suggestion than
-a feature request (or a bug report).
+#include <linux/unistd.h>
+#include <linux/types.h>
 
-In this sense what do you think about the possible benefit of the proposed
-approach for maintaning the per-interface multicast reception state?
+#define PAGE_SIZE	4096
+#include <linux/ukevent.h>
 
-> cheers,
-> jamal
->
+#define _syscall4(type,name,type1,arg1,type2,arg2,type3,arg3,type4,arg4) \
+type name (type1 arg1, type2 arg2, type3 arg3, type4 arg4) \
+{\
+	return syscall(__NR_##name, arg1, arg2, arg3, arg4);\
+}
 
-Thanks
-Michal 
+#define _syscall5(type,name,type1,arg1,type2,arg2,type3,arg3,type4,arg4, \
+	  type5,arg5) \
+type name (type1 arg1,type2 arg2,type3 arg3,type4 arg4,type5 arg5) \
+{\
+	return syscall(__NR_##name, arg1, arg2, arg3, arg4, arg5);\
+}
 
+#define _syscall6(type,name,type1,arg1,type2,arg2,type3,arg3,type4,arg4, \
+	  type5,arg5,type6,arg6) \
+type name (type1 arg1,type2 arg2,type3 arg3,type4 arg4,type5 arg5, type6 arg6) \
+{\
+	return syscall(__NR_##name, arg1, arg2, arg3, arg4, arg5, arg6);\
+}
+
+_syscall4(int, kevent_ctl, int, arg1, unsigned int, argv2, unsigned int, argv3, void *, argv4);
+_syscall6(int, kevent_get_events, int, arg1, unsigned int, argv2, unsigned int, argv3, __u64, argv4, void *, argv5, unsigned, arg6);
+
+#define ulog(f, a...) fprintf(stderr, f, ##a)
+#define ulog_err(f, a...) ulog(f ": %s [%d].\n", ##a, strerror(errno), errno)
+
+static void usage(char *p)
+{
+	ulog("Usage: %s -t type -e event -o oneshot -p path -n wait_num -f kevent_file -h\n", p);
+}
+
+static int get_id(int type, char *path)
+{
+	int ret = -1;
+
+	switch (type) {
+		case KEVENT_TIMER:
+			ret = 3000;
+			break;
+		case KEVENT_INODE:
+			ret = open(path, O_RDONLY);
+			break;
+	}
+
+	return ret;
+}
+
+static void *evtest_mmap(int fd, off_t *offset, unsigned int number)
+{
+	void *start, *ptr;
+	off_t o = *offset;
+
+	start = NULL;
+
+	ptr = mmap(start, PAGE_SIZE*number, PROT_READ, MAP_SHARED, fd, o*PAGE_SIZE);
+	if (ptr == MAP_FAILED) {
+		ulog_err("Failed to mmap: start: %p, number: %u, offset: %lu", start, number, o);
+		return NULL;
+	}
+
+	printf("mmap: ptr: %p, start: %p, number: %u, offset: %lu.\n", ptr, start, number, o);
+	*offset =  o + number;
+	return ptr;
+}
+
+int main(int argc, char *argv[])
+{
+	int ch, fd, err, type, event, oneshot, wait_num, number;
+	unsigned int i, num, old_idx;
+	char *path, *file;
+	char buf[4096];
+	struct ukevent *uk;
+	struct kevent_mring *ring;
+	off_t offset;
+
+	path = NULL;
+	type = event = -1;
+	oneshot = 0;
+	wait_num = 10;
+	offset = 0;
+	number = 1;
+	old_idx = 0;
+	file = "/dev/kevent";
+
+	while ((ch = getopt(argc, argv, "f:p:t:e:o:n:h")) > 0) {
+		switch (ch) {
+			case 'f':
+				file = optarg;
+				break;
+			case 'n':
+				wait_num = atoi(optarg);
+				break;
+			case 'p':
+				path = optarg;
+				break;
+			case 't':
+				type = atoi(optarg);
+				break;
+			case 'e':
+				event = atoi(optarg);
+				break;
+			case 'o':
+				oneshot = atoi(optarg);
+				break;
+			default:
+				usage(argv[0]);
+				return -1;
+		}
+	}
+
+	if (event == -1 || type == -1 || (type == KEVENT_INODE && !path)) {
+		ulog("You need at least -t -e parameters and -p for inode notifications.\n");
+		usage(argv[0]);
+		return -1;
+	}
+	
+	fd = open(file, O_RDWR);
+	if (fd == -1) {
+		ulog_err("Failed create kevent control block using file %s", file);
+		return -1;
+	}
+
+	ring = evtest_mmap(fd, &offset, number);
+	if (!ring)
+		return -1;
+
+	memset(buf, 0, sizeof(buf));
+	
+	num = 1;
+	for (i=0; i<num; ++i) {
+		uk = (struct ukevent *)buf;
+		uk->event = event;
+		uk->type = type;
+		if (oneshot)
+			uk->req_flags |= KEVENT_REQ_ONESHOT;
+		uk->user[0] = i;
+		uk->id.raw[0] = get_id(uk->type, path);
+
+		err = kevent_ctl(fd, KEVENT_CTL_ADD, 1, uk);
+		if (err < 0) {
+			ulog_err("Failed to perform control operation: type=%d, event=%d, oneshot=%d", type, event, oneshot);
+			close(fd);
+			return err;
+		}
+		if (err) {
+			ulog("%d: ret_flags: 0x%x, ret_data: %u %d.\n", i, uk->ret_flags, uk->ret_data[0], (int)uk->ret_data[1]);
+		}
+	}
+	
+	while (1) {
+		err = kevent_get_events(fd, 1, wait_num, 10000000000, buf, 0);
+		if (err < 0) {
+			ulog_err("Failed to perform control operation: type=%d, event=%d, oneshot=%d", type, event, oneshot);
+			close(fd);
+			return err;
+		}
+
+		num = ring->index;
+		if (num != old_idx) {
+			ulog("mmap: idx: %u, returned: %d.\n", num, err);
+			while (old_idx != num) {
+				if (old_idx < KEVENTS_ON_PAGE) {
+					struct mukevent *m = &ring->event[old_idx];
+					ulog("%08x: %08x.%08x - %08x\n", 
+						i, m->id.raw[0], m->id.raw[1], m->ret_flags);
+				} else {
+					/*
+					 * Mmap next page.
+					 */
+				}
+				if (++old_idx >= KEVENT_MAX_EVENTS)
+					old_idx = 0;
+			}
+			old_idx = num;
+		}
+
+		num = (unsigned)err;
+		if (num) {
+			ulog("syscall dump: %u events.\n", num);
+			uk = (struct ukevent *)buf;
+			for (i=0; i<num; ++i) {
+				ulog("%08x: %08x.%08x - %08x.%08x\n", 
+						uk[i].user[0],
+						uk[i].id.raw[0], uk[i].id.raw[1],
+						uk[i].ret_data[0], uk[i].ret_data[1]);
+			}
+		}
+	}
+
+	close(fd);
+	return 0;
+}
+
+--J2SCkAp4GZ/dPZZf--
