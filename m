@@ -1,38 +1,43 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH wireless-dev 4/6] d80211: Send Layer 2 Update frames in
- kernel
-Date: Wed, 23 Aug 2006 19:22:56 +0200
-Message-ID: <20060823192256.3e8df7f9@griffin.suse.cz>
-References: <20060807231608.888744720@localhost>
-	<20060807231938.455373487@localhost>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH 22/44] [IPV6]: Find option offset by type.
+Date: Wed, 23 Aug 2006 13:22:06 -0400
+Message-ID: <44EC8EBE.9080701@hp.com>
+References: <11563453651167-git-send-email-yoshfuji@linux-ipv6.org> <1156345365264-git-send-email-yoshfuji@linux-ipv6.org> <1156345365312-git-send-email-yoshfuji@linux-ipv6.org> <11563453652646-git-send-email-yoshfuji@linux-ipv6.org> <1156345365315-git-send-email-yoshfuji@linux-ipv6.org> <11563453651452-git-send-email-yoshfuji@linux-ipv6.org> <1156345366288-git-send-email-yoshfuji@linux-ipv6.org> <1156345366857-git-send-email-yoshfuji@linux-ipv6.org> <11563453663761-git-send-email-yoshfuji@linux-ipv6.org> <11563453662321-git-send-email-yoshfuji@linux-ipv6.org> <11563453661892-git-send-email-yoshfuji@linux-ipv6.org> <11563453661207-git-send-email-yo shfuji@linux-ipv6.org> <11563453663743-git-send-email-yoshfuji@linux-ipv6.org> <1156345366676-git-send-email-yoshfuji@linux-ipv6.org> <11563453662840-git-send-email-yoshfuji@linux-ipv6.org> <11563453662913-git-send-email-yoshfuji@linux-ipv6.or
+ g> <11563453663400-git-send-email-yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, jkmaline@cc.hut.fi
+Cc: davem@davemloft.net, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
+	Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:49303 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S932288AbWHWRW6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 13:22:58 -0400
-To: Jouni Malinen <jkm@devicescape.com>
-In-Reply-To: <20060807231938.455373487@localhost>
+Received: from atlrel9.hp.com ([156.153.255.214]:30350 "EHLO atlrel9.hp.com")
+	by vger.kernel.org with ESMTP id S932262AbWHWR1O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 13:27:14 -0400
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+In-Reply-To: <11563453663400-git-send-email-yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 07 Aug 2006 16:16:12 -0700, Jouni Malinen wrote:
-> Send Layer 2 Update frame from the 802.11 code in kernel to the netdev
-> that the STA is bound to. If the STA is bound to another VLAN netdev,
-> send another update frame. This fixes an issue in which a local bridge
-> table was not updated when hostapd sent this frame.
+YOSHIFUJI Hideaki wrote:
+> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> 
+> This is a helper to search option offset from extension header which
+> can carry TLV option like destination options header.
+> Mobile IPv6 home address option will use it.
+> Based on MIPL2 kernel patch.
 
-I hope someone is going to describe why is this necessary and why it
-cannot be done in a less hackish way. Otherwise, I'd probably tend to
-ask for reverting this patch.
+> +	/* not_found */
+> +	return -1;
+> + bad:
+> +	return -1;
+> +}
 
-Thanks,
+You could change this to:
 
- Jiri
+	/* not_found */
+    bad:
+	return -1;
+    }
 
--- 
-Jiri Benc
-SUSE Labs
+-Brian
