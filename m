@@ -1,149 +1,92 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH 14/44] [XFRM] STATE: Introduce care-of address.
-Date: Thu, 24 Aug 2006 00:02:15 +0900
-Message-ID: <11563453663761-git-send-email-yoshfuji@linux-ipv6.org>
-References: <11563453651167-git-send-email-yoshfuji@linux-ipv6.org> <11563453651533-git-send-email-yoshfuji@linux-ipv6.org> <11563453653169-git-send-email-yoshfuji@linux-ipv6.org> <1156345365325-git-send-email-yoshfuji@linux-ipv6.org> <11563453653851-git-send-email-yoshfuji@linux-ipv6.org> <11563453653575-git-send-email-yoshfuji@linux-ipv6.org> <1156345365651-git-send-email-yoshfuji@linux-ipv6.org> <1156345365264-git-send-email-yoshfuji@linux-ipv6.org> <1156345365312-git-send-email-yoshfuji@linux-ipv6.org> <11563453652646-git-send-email-yoshfuji@linux-ipv6.org> <1156345365315-git-send-email-yoshfuji@linux-ipv6.org> <11563453651452-git-send-email-yoshfuji@linux-ipv6.org> <1156345366288-git-send-email-yoshfuji@linux-ipv6.org> <1156345366857-git-send-email-yoshfuji@linux-ipv6.org>
+Subject: [PATCH 15/44] [XFRM] IPV6: Update outbound state timestamp for each sending.
+Date: Thu, 24 Aug 2006 00:02:16 +0900
+Message-ID: <11563453662321-git-send-email-yoshfuji@linux-ipv6.org>
+References: <11563453651167-git-send-email-yoshfuji@linux-ipv6.org> <11563453651533-git-send-email-yoshfuji@linux-ipv6.org> <11563453653169-git-send-email-yoshfuji@linux-ipv6.org> <1156345365325-git-send-email-yoshfuji@linux-ipv6.org> <11563453653851-git-send-email-yoshfuji@linux-ipv6.org> <11563453653575-git-send-email-yoshfuji@linux-ipv6.org> <1156345365651-git-send-email-yoshfuji@linux-ipv6.org> <1156345365264-git-send-email-yoshfuji@linux-ipv6.org> <1156345365312-git-send-email-yoshfuji@linux-ipv6.org> <11563453652646-git-send-email-yoshfuji@linux-ipv6.org> <1156345365315-git-send-email-yoshfuji@linux-ipv6.org> <11563453651452-git-send-email-yoshfuji@linux-ipv6.org> <1156345366288-git-send-email-yoshfuji@linux-ipv6.org> <1156345366857-git-send-email-yoshfuji@linux-ipv6.org> <11563453663761-git-send-email-yoshfuji@linux-ipv6.org>
 Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
 	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
-	Masahide NAKAMURA <nakam@linux-ipv6.org>,
-	Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
+	Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:65160 "EHLO
+Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:393 "EHLO
 	jupiter.linux-ipv6.org") by vger.kernel.org with ESMTP
-	id S964926AbWHWPCu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 11:02:50 -0400
+	id S964912AbWHWPCv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 11:02:51 -0400
 To: davem@davemloft.net
-In-Reply-To: <1156345366857-git-send-email-yoshfuji@linux-ipv6.org>
+In-Reply-To: <11563453663761-git-send-email-yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Masahide NAKAMURA <nakam@linux-ipv6.org>
 
-Care-of address is carried by state as a transformation option like IPsec
-encryption/authentication algorithm.
+With this patch transformation state is updated last used time
+for each sending. Xtime is used for it like other state lifetime
+expiration.
+Mobile IPv6 enabled nodes will want to know traffic status of each
+binding (e.g. judgement to request binding refresh by correspondent node,
+or to keep home/care-of nonce alive by mobile node).
+The last used timestamp is an important hint about it.
 Based on MIPL2 kernel patch.
 
-Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
+This patch was also written by: Henrik Petander <petander@tcs.hut.fi>
+
 Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- include/linux/xfrm.h  |    1 +
- include/net/xfrm.h    |    3 +++
- net/xfrm/xfrm_state.c |    6 ++++++
- net/xfrm/xfrm_user.c  |   28 +++++++++++++++++++++++++++-
- 4 files changed, 37 insertions(+), 1 deletions(-)
+ include/linux/xfrm.h    |    1 +
+ include/net/xfrm.h      |    3 +++
+ net/ipv6/xfrm6_output.c |    2 ++
+ net/xfrm/xfrm_user.c    |    3 +++
+ 4 files changed, 9 insertions(+), 0 deletions(-)
 
 diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index a7c9e4c..b53f799 100644
+index b53f799..1d8c1f2 100644
 --- a/include/linux/xfrm.h
 +++ b/include/linux/xfrm.h
-@@ -235,6 +235,7 @@ enum xfrm_attr_type_t {
- 	XFRMA_REPLAY_THRESH,
+@@ -236,6 +236,7 @@ enum xfrm_attr_type_t {
  	XFRMA_ETIMER_THRESH,
  	XFRMA_SRCADDR,		/* xfrm_address_t */
-+	XFRMA_COADDR,		/* xfrm_address_t */
+ 	XFRMA_COADDR,		/* xfrm_address_t */
++	XFRMA_LASTUSED,
  	__XFRMA_MAX
  
  #define XFRMA_MAX (__XFRMA_MAX - 1)
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index e451fed..aeee0e2 100644
+index aeee0e2..86c1188 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -135,6 +135,9 @@ struct xfrm_state
- 	/* Data for encapsulator */
- 	struct xfrm_encap_tmpl	*encap;
+@@ -168,6 +168,9 @@ struct xfrm_state
+ 	struct xfrm_lifetime_cur curlft;
+ 	struct timer_list	timer;
  
-+	/* Data for care-of address */
-+	xfrm_address_t	*coaddr;
++	/* Last used time */
++	u64			lastused;
 +
- 	/* IPComp needs an IPIP tunnel for handling uncompressed packets */
- 	struct xfrm_state	*tunnel;
+ 	/* Reference to data common to all the instances of this
+ 	 * transformer. */
+ 	struct xfrm_type	*type;
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index b4628fb..db58104 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -75,6 +75,8 @@ static int xfrm6_output_one(struct sk_bu
  
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index f053715..3da89c0 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -78,6 +78,7 @@ static void xfrm_state_gc_destroy(struct
- 	kfree(x->ealg);
- 	kfree(x->calg);
- 	kfree(x->encap);
-+	kfree(x->coaddr);
- 	if (x->mode)
- 		xfrm_put_mode(x->mode);
- 	if (x->type) {
-@@ -603,6 +604,11 @@ out:
- 	if (likely(x1->km.state == XFRM_STATE_VALID)) {
- 		if (x->encap && x1->encap)
- 			memcpy(x1->encap, x->encap, sizeof(*x1->encap));
-+		if (x->coaddr && x1->coaddr) {
-+			memcpy(x1->coaddr, x->coaddr, sizeof(*x1->coaddr));
-+		}
-+		if (!use_spi && memcmp(&x1->sel, &x->sel, sizeof(x1->sel)))
-+			memcpy(&x1->sel, &x->sel, sizeof(x1->sel));
- 		memcpy(&x1->lft, &x->lft, sizeof(x1->lft));
- 		x1->km.dying = 0;
+ 		x->curlft.bytes += skb->len;
+ 		x->curlft.packets++;
++		if (x->props.mode == XFRM_MODE_ROUTEOPTIMIZATION)
++			x->lastused = (u64)xtime.tv_sec;
+ 
+ 		spin_unlock_bh(&x->lock);
  
 diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 9eaea73..41a02d6 100644
+index 41a02d6..6511085 100644
 --- a/net/xfrm/xfrm_user.c
 +++ b/net/xfrm/xfrm_user.c
-@@ -186,11 +186,14 @@ #endif
- 		goto out;
- 	if ((err = verify_sec_ctx_len(xfrma)))
- 		goto out;
-+	if ((err = verify_one_addr(xfrma, XFRMA_COADDR, NULL)))
-+		goto out;
+@@ -593,6 +593,9 @@ static int dump_one_state(struct xfrm_st
+ 	if (x->coaddr)
+ 		RTA_PUT(skb, XFRMA_COADDR, sizeof(*x->coaddr), x->coaddr);
  
- 	err = -EINVAL;
- 	switch (p->mode) {
- 	case XFRM_MODE_TRANSPORT:
- 	case XFRM_MODE_TUNNEL:
-+	case XFRM_MODE_ROUTEOPTIMIZATION:
- 		break;
- 
- 	default:
-@@ -274,6 +277,24 @@ static int attach_sec_ctx(struct xfrm_st
- 	return security_xfrm_state_alloc(x, uctx);
- }
- 
-+static int attach_one_addr(xfrm_address_t **addrpp, struct rtattr *u_arg)
-+{
-+	struct rtattr *rta = u_arg;
-+	xfrm_address_t *p, *uaddrp;
-+
-+	if (!rta)
-+		return 0;
-+
-+	uaddrp = RTA_DATA(rta);
-+	p = kmalloc(sizeof(*p), GFP_KERNEL);
-+	if (!p)
-+		return -ENOMEM;
-+
-+	memcpy(p, uaddrp, sizeof(*p));
-+	*addrpp = p;
-+	return 0;
-+}
-+
- static void copy_from_user_state(struct xfrm_state *x, struct xfrm_usersa_info *p)
- {
- 	memcpy(&x->id, &p->id, sizeof(x->id));
-@@ -363,7 +384,8 @@ static struct xfrm_state *xfrm_state_con
- 		goto error;
- 	if ((err = attach_encap_tmpl(&x->encap, xfrma[XFRMA_ENCAP-1])))
- 		goto error;
--
-+	if ((err = attach_one_addr(&x->coaddr, xfrma[XFRMA_COADDR-1])))
-+		goto error;
- 	err = xfrm_init_state(x);
- 	if (err)
- 		goto error;
-@@ -567,6 +589,10 @@ static int dump_one_state(struct xfrm_st
- 		uctx->ctx_len = x->security->ctx_len;
- 		memcpy(uctx + 1, x->security->ctx_str, x->security->ctx_len);
- 	}
-+
-+	if (x->coaddr)
-+		RTA_PUT(skb, XFRMA_COADDR, sizeof(*x->coaddr), x->coaddr);
++	if (x->lastused)
++		RTA_PUT(skb, XFRMA_LASTUSED, sizeof(x->lastused), &x->lastused);
 +
  	nlh->nlmsg_len = skb->tail - b;
  out:
