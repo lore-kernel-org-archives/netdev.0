@@ -1,71 +1,62 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] locking bug in fib_semantics.c
-Date: Wed, 23 Aug 2006 11:31:19 -0700
-Message-ID: <20060823113119.03f47a6a@dxpl.pdx.osdl.net>
-References: <20060817093615.GA25553@ms2.inr.ac.ru>
-	<20060821081642.GA2637@ff.dom.local>
-	<20060821.011703.78716718.davem@davemloft.net>
-	<20060821110201.GA3674@ff.dom.local>
-	<20060822103556.GA3262@ff.dom.local>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Please pull 'upstream-fixes' branch of wireless-2.6
+Date: Wed, 23 Aug 2006 14:46:38 -0400
+Message-ID: <20060823184632.GA21141@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:36327 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965099AbWHWSbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 14:31:19 -0400
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <20060822103556.GA3262@ff.dom.local>
+Received: from ra.tuxdriver.com ([70.61.120.52]:43792 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S964964AbWHWSr2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 14:47:28 -0400
+To: jeff@garzik.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Aug 2006 12:35:56 +0200
-Jarek Poplawski <jarkao2@o2.pl> wrote:
+The following changes since commit ef7d1b244fa6c94fb76d5f787b8629df64ea4046:
+  Greg Kroah-Hartman:
+        Merge gregkh@master.kernel.org:/.../davem/net-2.6
 
-> On Mon, Aug 21, 2006 at 01:02:01PM +0200, Jarek Poplawski wrote:
-> > On 21-08-2006 10:17, David Miller wrote:
-> > > From: Jarek Poplawski <jarkao2@o2.pl>
-> > > Date: Mon, 21 Aug 2006 10:16:43 +0200
-> > ...
-> > > I was skeptical of this case too, until I checked how
-> > > fib_release_info() was called.
-> > 
-> > I overlooked this - so I've to sharpen my sight and look at it 
-> > again - now knowing it's there.
-> ...
-> 
-> Hello,
-> I've found it at last but on that occasion I've got some
-> doubt according to rcu_read_lock and rcu_call treatment:
-> isn't it "illegal to block while in an RCU read-side
-> section"? And I think it takes place in:
-> 
+are found in the git repository at:
 
-No, it is perfectly okay for a cpu to acquire a lock
-while in an RCU section, it just can't acquire a mutex/semaphore that
-will put it to sleep. That is caught by the might_sleep() check.
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-fixes
 
+Pavel Roskin:
+      spectrum_cs: Fix incorrect use of pcmcia_dev_present()
+      hostap: Restore antenna selection settings after port reset
 
-> fib_lookup(): from tb_insert (fn_hash_insert() or
->   fn_trie_insert()), fib_create_info(), fib_check_nh() 
-> 
-> fn_trie_lookup(): like above, inet_addr_type(),
->   tb_lookup()
-> 
-> fib_rule_put(): like #1 above or #2 after tb_lookup(),
->   fib_res_put()
-> 
-> Shouldn't there be _bh also?
+ drivers/net/wireless/hostap/hostap_hw.c |    3 +++
+ drivers/net/wireless/spectrum_cs.c      |    2 +-
+ 2 files changed, 4 insertions(+), 1 deletions(-)
 
-fib_rule_put only does something if refcount == 1 in which
-case it is safe.
-
-> 
-> Jarek P.
-> 
-> PS: linux-2.6.18-rc4
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/wireless/hostap/hostap_hw.c b/drivers/net/wireless/hostap/hostap_hw.c
+index dafaa5f..d500012 100644
+--- a/drivers/net/wireless/hostap/hostap_hw.c
++++ b/drivers/net/wireless/hostap/hostap_hw.c
+@@ -1042,6 +1042,9 @@ static int prism2_reset_port(struct net_
+ 		       dev->name, local->fragm_threshold);
+ 	}
+ 
++	/* Some firmwares lose antenna selection settings on reset */
++	(void) hostap_set_antsel(local);
++
+ 	return res;
+ }
+ 
+diff --git a/drivers/net/wireless/spectrum_cs.c b/drivers/net/wireless/spectrum_cs.c
+index 7f78b78..bcc7038 100644
+--- a/drivers/net/wireless/spectrum_cs.c
++++ b/drivers/net/wireless/spectrum_cs.c
+@@ -242,7 +242,7 @@ spectrum_reset(struct pcmcia_device *lin
+ 	u_int save_cor;
+ 
+ 	/* Doing it if hardware is gone is guaranteed crash */
+-	if (pcmcia_dev_present(link))
++	if (!pcmcia_dev_present(link))
+ 		return -ENODEV;
+ 
+ 	/* Save original COR value */
+-- 
+John W. Linville
+linville@tuxdriver.com
