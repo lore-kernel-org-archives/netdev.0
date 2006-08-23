@@ -1,45 +1,109 @@
-From: "Jari Sundell" <sundell.software@gmail.com>
-Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 23 Aug 2006 02:43:50 +0200
-Message-ID: <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com>
-References: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com>
-	 <20060822231129.GA18296@ms2.inr.ac.ru>
-	 <b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com>
-	 <20060822.173200.126578369.davem@davemloft.net>
+From: Shirley Ma <xma@us.ibm.com>
+Subject: Re: [RFC] HOWTO use NAPI to reduce TX interrupts
+Date: Tue, 22 Aug 2006 18:29:37 -0700
+Message-ID: <OFF5798F90.C3D3FCBB-ON872571D3.0007EC7F-882571D2.0072BA84@us.ibm.com>
+References: <20060821.173225.68047257.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, johnpol@2ka.mipt.ru, nmiell@comcast.net,
-	linux-kernel@vger.kernel.org, drepper@redhat.com, akpm@osdl.org,
-	netdev@vger.kernel.org, zach.brown@oracle.com, hch@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.193]:50805 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S932099AbWHWAnv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 20:43:51 -0400
-Received: by nz-out-0102.google.com with SMTP id 14so630404nzn
-        for <netdev@vger.kernel.org>; Tue, 22 Aug 2006 17:43:51 -0700 (PDT)
-To: "David Miller" <davem@davemloft.net>
-In-Reply-To: <20060822.173200.126578369.davem@davemloft.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============0769088726=="
+Cc: akpm@osdl.org, arnd@arndb.de, Jens.Osterkamp@de.ibm.com,
+	James K Lewis <jklewis@us.ibm.com>, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	linuxppc-dev-bounces+xma=us.ibm.com@ozlabs.org,
+	jgarzik@pobox.com, rdreier@cisco.com, shemminger@osdl.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20060821.173225.68047257.davem@davemloft.net>
+To: David Miller <davem@davemloft.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Mime-version: 1.0
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On 8/23/06, David Miller <davem@davemloft.net> wrote:
-> > There are system calls that take timespec, so I assume the magic is
-> > already available for handling the timeout argument of kevent.
->
-> System calls are one thing, they can be translated for these
-> kinds of situations.  But this doesn't help, and nothing at
-> all can be done, for datastructures exposed to userspace via
-> mmap()'d buffers, which is what kevent will be doing.
->
-> This is what Alexey is trying to explain to you.
+--===============0769088726==
+Content-type: multipart/alternative;
+	Boundary="0__=08BBFB40DF946AEF8f9e8a93df938690918c08BBFB40DF946AEF"
+Content-Disposition: inline
 
-Actually, I didn't miss that, it is an orthogonal issue. A timespec
-timeout parameter for the syscall does not imply the use of timespec
-in any timer event, etc. Nor is there any timespec timer in kqueue's
-struct kevent, which is the only (interface related) thing that will
-be exposed.
+--0__=08BBFB40DF946AEF8f9e8a93df938690918c08BBFB40DF946AEF
+Content-type: text/plain; charset=US-ASCII
 
-Rakshasa
+
+
+
+
+> > This is a digression from spidernet, but what if a device is able to
+> > generate separate MSIs for TX and RX?  Some people from IBM have
+> > suggested that it is beneficial for throughput to handle TX work and
+> > RX work for IP-over-InfiniBand in parallel on separate CPUs, and
+> > handling everything through the ->poll() method would defeat this.
+>
+> The TX work is so incredibly cheap, relatively speaking, compared
+> to the full input packet processing path that the RX side runs
+> that I see no real benefit.
+>
+> In fact, you might even get better locality due to the way the
+> locking can be performed if TX reclaim runs inside of ->poll()
+
+We are still comparing these two approaches IPoIB performance under
+different configurations. Hopefully the performance work can be done soon.
+So we can have some data to share.
+
+Thanks
+Shirley Ma
+IBM Linux Technology Center
+15300 SW Koll Parkway
+Beaverton, OR 97006-6063
+Phone(Fax): (503) 578-7638
+
+
+
+--0__=08BBFB40DF946AEF8f9e8a93df938690918c08BBFB40DF946AEF
+Content-type: text/html; charset=US-ASCII
+Content-Disposition: inline
+
+<html><body>
+<p><tt>&gt; &gt; This is a digression from spidernet, but what if a device is able to<br>
+&gt; &gt; generate separate MSIs for TX and RX? &nbsp;Some people from IBM have<br>
+&gt; &gt; suggested that it is beneficial for throughput to handle TX work and<br>
+&gt; &gt; RX work for IP-over-InfiniBand in parallel on separate CPUs, and<br>
+&gt; &gt; handling everything through the -&gt;poll() method would defeat this.<br>
+&gt; <br>
+&gt; The TX work is so incredibly cheap, relatively speaking, compared<br>
+&gt; to the full input packet processing path that the RX side runs<br>
+&gt; that I see no real benefit.<br>
+&gt; <br>
+&gt; In fact, you might even get better locality due to the way the<br>
+&gt; locking can be performed if TX reclaim runs inside of -&gt;poll()<br>
+</tt><br>
+<tt>We are still comparing these two approaches IPoIB performance under different configurations. Hopefully the performance work can be done soon. So we can have some data to share.</tt><br>
+<br>
+Thanks<br>
+Shirley Ma<br>
+IBM Linux Technology Center<br>
+15300 SW Koll Parkway<br>
+Beaverton, OR 97006-6063<br>
+Phone(Fax): (503) 578-7638<br>
+<br>
+<br>
+<br>
+</body></html>
+--0__=08BBFB40DF946AEF8f9e8a93df938690918c08BBFB40DF946AEF--
+
+
+--===============0769088726==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Linuxppc-dev mailing list
+Linuxppc-dev@ozlabs.org
+https://ozlabs.org/mailman/listinfo/linuxppc-dev
+--===============0769088726==--
