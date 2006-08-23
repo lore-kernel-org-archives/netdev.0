@@ -1,68 +1,45 @@
-From: "Jari Sundell" <sundell.software@gmail.com>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 23 Aug 2006 11:49:22 +0200
-Message-ID: <b3f268590608230249q653e1dfh1d77c07f6f4e82ce@mail.gmail.com>
+Date: 23 Aug 2006 11:58:20 +0200
+Message-ID: <p73pser7ozn.fsf@verdi.suse.de>
 References: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com>
-	 <20060822231129.GA18296@ms2.inr.ac.ru>
-	 <b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com>
-	 <20060822.173200.126578369.davem@davemloft.net>
-	 <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com>
-	 <20060823065659.GC24787@2ka.mipt.ru>
-	 <b3f268590608230122k60e3c7c7y939d5559d97107f@mail.gmail.com>
-	 <20060823083859.GA8936@2ka.mipt.ru>
+	<20060822231129.GA18296@ms2.inr.ac.ru>
+	<b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com>
+	<20060822.173200.126578369.davem@davemloft.net>
+	<b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com>
+	<20060823065659.GC24787@2ka.mipt.ru>
+	<20060823000758.5ebed7dd.akpm@osdl.org>
+	<20060823071002.GA16400@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+Content-Type: text/plain; charset=us-ascii
+Cc: Jari Sundell <sundell.software@gmail.com>,
+	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
 	nmiell@comcast.net, linux-kernel@vger.kernel.org,
-	drepper@redhat.com, akpm@osdl.org, netdev@vger.kernel.org,
-	zach.brown@oracle.com, hch@infradead.org
+	drepper@redhat.com, netdev@vger.kernel.org, zach.brown@oracle.com,
+	hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.203]:29790 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1751512AbWHWJtX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 05:49:23 -0400
-Received: by nz-out-0102.google.com with SMTP id n1so41428nzf
-        for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 02:49:22 -0700 (PDT)
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060823083859.GA8936@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from cantor2.suse.de ([195.135.220.15]:9942 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1751502AbWHWJ6b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 05:58:31 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060823071002.GA16400@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/23/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> On Wed, Aug 23, 2006 at 10:22:06AM +0200, Jari Sundell (sundell.software@gmail.com) wrote:
-> > On 8/23/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> > >void * in structure exported to userspace is forbidden.
-> >
-> > Only void * I'm seeing belongs to the user, (udata) perhaps you are
-> > talking of something different?
->
-> Yes, exactly about it.
->
-> I put union {
->         u32 a[2];
->         void *b;
-> }
-> epcially to eliminate that problem.
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> writes:
+> 
+> Let's then place there a structure with 64bit seconds and nanoseconds,
+> similar to timspec, but without longs there.
 
-It's just random data of a known maximum size appended to the struct,
-I'm sure you can find a clean way to handle it. If you mangle the
-first variable name in your union, you'll end up with something that
-should be usable instead of udata.
+You need 64bit (or at least more than 32bit) for the seconds,
+otherwise you add a y2038 problem which would be sad in new code.
+Remember you might be still alive then ;-)
 
-> And I'm not that sure aboit stuff like uptr_t or how they call pointers
-> in userspace and kernelspace.
+Ok one could argue that on 32bit architectures 2038 is so deeply
+embedded that it doesn't make much difference, but I still
+think it would be better to not readd it to new interfaces there.
 
-Well, I can't find any use of pointers in your struct ukevent, nor in
-any of the kqueue events in my man page. So if this is a deficit it
-applies to both, I guess?
+64bit longs on 32bit is fine, as long as you use aligned_u64,
+never long long or u64 (which has varying alignment between i386 and x86-64)
 
-> ukevent is aligned to 8 bytes already (it's size selected to be 40 bytes),
-> so it should not be a problem.
->
-> > Eric
-
-Even if it is so, wouldn't it be better to be explicit about it?
-
-Rakshasa
+-Andi
