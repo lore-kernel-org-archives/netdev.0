@@ -1,73 +1,263 @@
-From: "Simon Barber" <simon@devicescape.com>
-Subject: RE: [PATCH] d80211: add ieee80211_stop_queues()
-Date: Wed, 23 Aug 2006 14:12:50 -0700
-Message-ID: <C86180A8C204554D8A3323D8F6B0A29F0165B5F1@dhost002-46.dex002.intermedia.net>
-References: <200608232257.25590.mb@bu3sch.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] ethtool: skge register dump
+Date: Wed, 23 Aug 2006 14:16:09 -0700
+Message-ID: <20060823141609.7ffc5f91@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Jiri Benc" <jbenc@suse.cz>, <linville@tuxdriver.com>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:40390 "EHLO
-	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S965201AbWHWVMh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 17:12:37 -0400
-Content-class: urn:content-classes:message
-in-reply-to: <200608232257.25590.mb@bu3sch.de>
-To: "Michael Buesch" <mb@bu3sch.de>
+Received: from smtp.osdl.org ([65.172.181.4]:6574 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965206AbWHWVQt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 17:16:49 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We already do have intelligent qdiscs - via TC. Anyone using htb for
-rate pacing, will achieve better control (less jitter) if the DMA queue
-latency is kept down.
+Pretty printing of skge registers. This is a redo of earlier
+patch that must have got lost. It earlier patch was before the
+git conversion.
 
-One very important issue for 802.11 is the software rate control. At a
-certain point in time the rate control algorithm may determine it's time
-to start transmitting frames at a much lower rate - now all the frames
-already in the DMA queue will be transmitted at the old higher rate -
-and hence will suffer a lower probability of being received correctly.
-If the number of frames in the DMA queue can be kept down then the rate
-change happens faster. Obviously the limiting factor is keeping the DMA
-queue full enough that the hardware is not starved in the worst case of
-softirq latency. This is a time based limit.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+---
+ Makefile.am    |    2 -
+ ethtool-util.h |    3 +
+ ethtool.c      |    1 
+ skge.c         |  189 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 194 insertions(+), 1 deletions(-)
 
-Simon
+diff --git a/Makefile.am b/Makefile.am
+index 6eb2c08..cf4ebc5 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -7,7 +7,7 @@ sbin_PROGRAMS = ethtool
+ ethtool_SOURCES = ethtool.c ethtool-copy.h ethtool-util.h	\
+ 		  amd8111e.c de2104x.c e100.c e1000.c		\
+ 		  fec_8xx.c ibm_emac.c natsemi.c pcnet32.c	\
+-		  realtek.c tg3.c
++		  realtek.c tg3.c skge.c
+ 
+ dist-hook:
+ 	cp $(top_srcdir)/ethtool.spec $(distdir)
+diff --git a/ethtool-util.h b/ethtool-util.h
+index 7d6638e..52c43bf 100644
+--- a/ethtool-util.h
++++ b/ethtool-util.h
+@@ -45,4 +45,7 @@ int ibm_emac_dump_regs(struct ethtool_dr
+ /* Broadcom Tigon3 Ethernet controller */
+ int tg3_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
+ 
++/* SysKonnect Gigabit (Genesis and Yukon) */
++int skge_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
++
+ #endif
+diff --git a/ethtool.c b/ethtool.c
+index 7d408be..464cac6 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -940,6 +940,7 @@ static struct {
+ 	{ "fec_8xx", fec_8xx_dump_regs },
+ 	{ "ibm_emac", ibm_emac_dump_regs },
+ 	{ "tg3", tg3_dump_regs },
++	{ "skge", skge_dump_regs },
+ };
+ 
+ static int dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+diff --git a/skge.c b/skge.c
+new file mode 100644
+index 0000000..e19553e
+--- /dev/null
++++ b/skge.c
+@@ -0,0 +1,189 @@
++/*
++ * Copyright (C) 2004
++ *  Stephen Hemminger <shemminger@osdl.org>
++ */
++
++#include <stdio.h>
++
++#include "ethtool-util.h"
++
++static void dump_addr(int n, const u8 *a)
++{
++	int i;
++
++	printf("Addr %d            ", n);
++	for (i = 0; i < 6; i++)
++		printf("%02X%c", a[i], i == 5 ? '\n' : ' ');
++}
++
++static void dump_timer(const char *name, const void *p)
++{
++	const u8 *a = p;
++	const u32 *r = p;
++	
++	printf("%s\n", name);
++	printf("\tInit 0x%08X Value 0x%08X\n", r[0], r[1]);
++	printf("\tTest 0x%02X       Control 0x%02X\n", a[8], a[9]);
++}
++
++static void dump_queue(const char *name, const void *a, int rx)
++{
++	struct desc {
++		u_int32_t		ctl;
++		u_int32_t		next;
++		u_int32_t		data_lo;
++		u_int32_t		data_hi;
++		u_int32_t		status;
++		u_int32_t		timestamp;
++		u_int16_t		csum2;
++		u_int16_t		csum1;
++		u_int16_t		csum2_start;
++		u_int16_t		csum1_start;
++		u_int32_t		addr_lo;
++		u_int32_t		addr_hi;
++		u_int32_t		count_lo;
++		u_int32_t		count_hi;
++		u_int32_t               byte_count;
++		u_int32_t               csr;
++		u_int32_t               flag;
++	};
++	const struct desc *d = a;
++
++	printf("\n%s\n", name);
++	printf("---------------\n");
++	printf("Descriptor Address       0x%08X%08X\n", 
++	       d->addr_hi, d->addr_lo);
++	printf("Address Counter          0x%08X%08X\n", 
++	       d->count_hi, d->count_lo);
++	printf("Current Byte Counter             %d\n", d->byte_count);
++	printf("BMU Control/Status               0x%08X\n", d->csr);
++	printf("Flag & FIFO Address              0x%08X\n", d->flag);
++	printf("\n");
++	printf("Control                          0x%08X\n", d->ctl);
++	printf("Next                             0x%08X\n", d->next);
++	printf("Data                     0x%08X%08X\n", 
++	       d->data_hi, d->data_lo);
++	printf("Status                           0x%08X\n", d->status);
++	printf("Timestamp                        0x%08X\n", d->timestamp);
++	if (rx) {
++		printf("Csum1      Offset %4d Positon   %d\n", 
++		       d->csum1, d->csum1_start);
++		printf("Csum2      Offset %4d Positon   %d\n", 
++		       d->csum2, d->csum2_start);
++	} else 
++		printf("Csum Start 0x%04X Pos %4d Write %d\n", 
++		       d->csum1, d->csum2_start, d->csum1_start);
++
++}
++
++static void dump_ram(const char *name, const void *p)
++{
++	const u32 *r = p;
++
++	printf("\n%s\n", name);
++	printf("---------------\n");
++	printf("Start Address                    0x%08X\n", r[0]);
++	printf("End Address                      0x%08X\n", r[1]);
++	printf("Write Pointer                    0x%08X\n", r[2]);
++	printf("Read Pointer                     0x%08X\n", r[3]);
++	printf("Upper Threshold/Pause Packets    0x%08X\n", r[4]);
++	printf("Lower Threshold/Pause Packets    0x%08X\n", r[5]);
++	printf("Upper Threshold/High Priority    0x%08X\n", r[6]);
++	printf("Lower Threshold/High Priority    0x%08X\n", r[7]);
++	printf("Packet Counter                   0x%08X\n", r[8]);
++	printf("Level                            0x%08X\n", r[9]);
++	printf("Test                             0x%08X\n", r[10]);
++}
++
++static void dump_fifo(const char *name, const void *p)
++{
++	const u32 *r = p;
++
++	printf("\n%s\n", name);
++	printf("---------------\n");
++	printf("End Address                      0x%08X\n", r[0]);
++  	printf("Write Pointer                    0x%08X\n", r[1]);
++  	printf("Read Pointer                     0x%08X\n", r[2]);
++  	printf("Packet Counter                   0x%08X\n", r[3]);
++  	printf("Level                            0x%08X\n", r[4]);
++  	printf("Control                          0x%08X\n", r[5]);
++  	printf("Control/Test                     0x%08X\n", r[6]);
++	dump_timer("LED", p + 0x20);
++}
++
++int skge_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
++{
++	const u32 *r = (const u32 *) regs->data;
++	int dual = !(regs->data[0x11a] & 1);
++
++	printf("Control Registers\n");
++	printf("-----------------\n");
++	
++	printf("Register Access Port             0x%08X\n", r[0]);
++	printf("LED Control/Status               0x%08X\n", r[1]);
++	printf("Interrupt Source                 0x%08X\n", r[2]);
++	printf("Interrupt Mask                   0x%08X\n", r[3]);
++	printf("Interrupt Hardware Error Source  0x%08X\n", r[4]);
++	printf("Interrupt Hardware Error Mask    0x%08X\n", r[5]);
++	printf("Special Interrupt Source         0x%08X\n", r[6]);
++
++	printf("\nBus Management Unit\n");
++	printf("-------------------\n");
++	printf("CSR Receive Queue 1              0x%08X\n", r[24]);
++	printf("CSR Sync Queue 1                 0x%08X\n", r[26]);
++	printf("CSR Async Queue 1                0x%08X\n", r[27]);
++	if (dual) {
++		printf("CSR Receive Queue 2              0x%08X\n", r[25]);
++		printf("CSR Async Queue 2                0x%08X\n", r[29]);
++		printf("CSR Sync Queue 2                 0x%08X\n", r[28]);
++	}
++
++	printf("\nMAC Address\n");
++	printf("-------------\n");
++	dump_addr(1, regs->data + 0x100);
++	dump_addr(2, regs->data + 0x108);
++	dump_addr(3, regs->data + 0x110);
++	printf("\n");
++
++	printf("Connector type                         0x%02X\n", 
++	       regs->data[0x118]);
++	printf("PMD type                               0x%02X\n", 
++	       regs->data[0x119]);
++	printf("Configuration                          0x%02X\n", 
++	       regs->data[0x11a]);
++	printf("Chip Revision                          0x%02X\n", 
++	       regs->data[0x11b]);
++
++	dump_timer("Timer", regs->data + 0x130);
++	dump_timer("IRQ Moderation", regs->data +0x140);
++	dump_timer("Blink Source", regs->data +0x170);
++
++	dump_queue("Receive Queue 1", regs->data +0x400, 1);
++	dump_queue("Sync Transmit Queue 1", regs->data +0x600, 0);
++	dump_queue("Async Transmit Queue 1", regs->data +0x680, 0);
++	if (dual) {
++		dump_queue("Receive Queue 2", regs->data +0x480, 1);
++		dump_queue("Async Transmit Queue 2", regs->data +0x780, 0);
++		dump_queue("Sync Transmit Queue 2", regs->data +0x700, 0);
++	}
++
++	dump_ram("Receive RAMbuffer 1", regs->data+0x800);
++	dump_ram("Sync Transmit RAMbuffer 1", regs->data+0xa00);
++	dump_ram("Async Transmit RAMbuffer 1", regs->data+0xa80);
++	if (dual) {
++		dump_ram("Receive RAMbuffer 2", regs->data+0x880);
++		dump_ram("Sync Transmit RAMbuffer 2", regs->data+0xb00);
++		dump_ram("Async Transmit RAMbuffer 21", regs->data+0xb80);
++	}
++
++	dump_fifo("Receive MAC FIFO 1", regs->data+0xc00);
++	dump_fifo("Transmit MAC FIFO 1", regs->data+0xd00);
++	if (dual) {
++		dump_fifo("Receive MAC FIFO 2", regs->data+0xc80);
++		dump_fifo("Transmit MAC FIFO 2", regs->data+0xd80);
++	}
++
++	dump_timer("Descriptor Poll", regs->data+0xe00);
++	return 0;
++
++}
+-- 
+1.4.1
 
-
------Original Message-----
-From: Michael Buesch [mailto:mb@bu3sch.de] 
-Sent: Wednesday, August 23, 2006 1:57 PM
-To: Simon Barber
-Cc: Jiri Benc; linville@tuxdriver.com; netdev@vger.kernel.org
-Subject: Re: [PATCH] d80211: add ieee80211_stop_queues()
-
-On Wednesday 23 August 2006 22:32, Simon Barber wrote:
-> Right - and what I'm proposing is that we don't just count the number 
-> of frames in the ring - but also count the amount of frame time the 
-> ring takes too. This way if there are a number of large, slow frames 
-> we can stop adding more frames into the ring well before we reach the 
-> limit on the number of frames.
-
-Ah, now I understand what you are trying to explain. :) But why do we
-actually _want_ to stop a DMA ring, if it's not full (has free
-descriptors)? I can't see any benefit on it. Adding frames to the ring
-is done on the fly without stopping or otherwise interferring with any
-running transmissions queued earlier.
-I would say we don't care about the time it takes for the ring to go
-into idle on the d80211 level. I think the only thing we care at d80211
-level is: Can we queue another frame?
-We have that logic. If a queue is not stopped, we can queue another
-frame.
-
-Or do you want to make the qdisc intelligent? Say, it drops a few
-beacons, if there are already packets queued for the next 300ms, for
-example. Do you want to optimize latency of payload data by dropping
-low-priority packets while the queue is heavily loaded?
-I can't see another usage for time based DMA ring accounting in d80211,
-yet.
-
---
-Greetings Michael.
