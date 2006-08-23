@@ -1,31 +1,38 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH 5/6]: powerpc/cell spidernet bottom half
-Date: Wed, 23 Aug 2006 16:52:46 -0500
-Message-ID: <20060823215246.GH4401@austin.ibm.com>
-References: <20060818220700.GG26889@austin.ibm.com> <20060818222657.GL26889@austin.ibm.com> <200608190103.05649.arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/6]: powerpc/cell spidernet low watermark patch.
+Date: Wed, 23 Aug 2006 15:03:14 -0700 (PDT)
+Message-ID: <20060823.150314.41637066.davem@davemloft.net>
+References: <1156055509.5803.77.camel@localhost.localdomain>
+	<200608201203.15645.arnd@arndb.de>
+	<20060823213642.GG4401@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linuxppc-dev@ozlabs.org, Jeff Garzik <jgarzik@pobox.com>,
-	akpm@osdl.org, netdev@vger.kernel.org,
-	James K Lewis <jklewis@us.ibm.com>,
-	linux-kernel@vger.kernel.org,
-	ens Osterkamp <Jens.Osterkamp@de.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:13778 "EHLO e4.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S965224AbWHWVwt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 17:52:49 -0400
-To: Arnd Bergmann <arnd@arndb.de>
-Content-Disposition: inline
-In-Reply-To: <200608190103.05649.arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: arnd@arndb.de, jklewis@us.ibm.com, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+To: linas@austin.ibm.com
+In-Reply-To: <20060823213642.GG4401@austin.ibm.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 19, 2006 at 01:03:04AM +0200, Arnd Bergmann wrote:
-> using the NAPI poll function
+From: linas@austin.ibm.com (Linas Vepstas)
+Date: Wed, 23 Aug 2006 16:36:42 -0500
 
-Still fiddling with this. Getting side-tracked after noticing
-that the RX side generates a *huge* numbe of interrupts, despite
-code in the driver which superficially appears to be RX NAPI.  
-One step forward, two steps back, isn't there a dance like that?
+> I could create a searate patch to change struct descr {} to split 
+> the u32 into several u8's; there's a dozen spots that get touched.
+> 
+> Alternatel, I could do a cheesy cast to char[4] and access that way.
+> Opinions?
 
---linas
+The most portable scheme would be a "u32/u8[4]" union with
+appropriate endianness checks when determining which byte
+to access in the u8[] view.
