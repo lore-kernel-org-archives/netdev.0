@@ -1,47 +1,43 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH 2/6]: powerpc/cell spidernet low watermark patch.
-Date: Wed, 23 Aug 2006 16:36:42 -0500
-Message-ID: <20060823213642.GG4401@austin.ibm.com>
-References: <20060818220700.GG26889@austin.ibm.com> <200608190109.15129.arnd@arndb.de> <1156055509.5803.77.camel@localhost.localdomain> <200608201203.15645.arnd@arndb.de>
+From: Stefan Rompf <stefan@loplof.de>
+Subject: Re: [PATCH wireless-dev 4/6] d80211: Send Layer 2 Update frames in kernel
+Date: Wed, 23 Aug 2006 23:50:41 +0200
+Message-ID: <200608232350.41963.stefan@loplof.de>
+References: <20060807231608.888744720@localhost> <20060807231938.455373487@localhost> <20060823192256.3e8df7f9@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	netdev@vger.kernel.org, James K Lewis <jklewis@us.ibm.com>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jouni Malinen <jkm@devicescape.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, jkmaline@cc.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:62609 "EHLO
-	e33.co.us.ibm.com") by vger.kernel.org with ESMTP id S965217AbWHWVgp
+Received: from natblert.rzone.de ([81.169.145.181]:44729 "EHLO
+	natblert.rzone.de") by vger.kernel.org with ESMTP id S965223AbWHWVvs
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 17:36:45 -0400
-To: Arnd Bergmann <arnd@arndb.de>
+	Wed, 23 Aug 2006 17:51:48 -0400
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20060823192256.3e8df7f9@griffin.suse.cz>
 Content-Disposition: inline
-In-Reply-To: <200608201203.15645.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 20, 2006 at 12:03:14PM +0200, Arnd Bergmann wrote:
-> On Sunday 20 August 2006 08:31, Benjamin Herrenschmidt wrote:
-> > > card->low_watermark->next->dmac_cmd_status |= SPIDER_NET_DESCR_TXDESFLG;
-> > > mb();
-> > > card->low_watermark->dmac_cmd_status &= ~SPIDER_NET_DESCR_TXDESFLG;
-> > > card->low_watermark = card->low_watermark->next;
-> > > 
-> > > when we queue another frame for TX.
-> > 
-> > I would have expected those to be racy vs. the hardware... what if the
-> > hardware is updating dmac_cmd_status just as your are trying to and the
-> > bit out of it ?
-> 
-> Right, that doesn't work. It is the only bit we use in that byte though,
-> so maybe it can be done with a single byte write.
+Am Mittwoch, 23. August 2006 19:22 schrieb Jiri Benc:
 
-Thanks, you're right, I missed that.  I'll change this to byte access 
-shortly.  Any recommendations for style/api for byte access? 
+> > Send Layer 2 Update frame from the 802.11 code in kernel to the netdev
+> > that the STA is bound to. If the STA is bound to another VLAN netdev,
+> > send another update frame. This fixes an issue in which a local bridge
+> > table was not updated when hostapd sent this frame.
+>
+> I hope someone is going to describe why is this necessary and why it
+> cannot be done in a less hackish way. Otherwise, I'd probably tend to
+> ask for reverting this patch.
 
-I could create a searate patch to change struct descr {} to split 
-the u32 into several u8's; there's a dozen spots that get touched.
+Imagine an ESS consisting of several APs in a switched wired network. Client 
+roams from one AP to another. In order to update the FDB of the switches, a 
+packet with the client MAC address needs to be originated from the ethernet 
+interface of the AP the client has associated to, even if the client does not 
+create traffic at the moment.
 
-Alternatel, I could do a cheesy cast to char[4] and access that way.
-Opinions?
+It's part of 802.11F.
 
---linas
+Stefan
