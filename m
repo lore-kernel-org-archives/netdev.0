@@ -1,40 +1,51 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 27/44] [IPV6] IPSEC: Support sending with Mobile IPv6
- extension headers.
-Date: Thu, 24 Aug 2006 05:36:46 +0900 (JST)
-Message-ID: <20060824.053646.74121481.yoshfuji@linux-ipv6.org>
-References: <11563453661764-git-send-email-yoshfuji@linux-ipv6.org>
-	<11563453663275-git-send-email-yoshfuji@linux-ipv6.org>
-	<11563453671174-git-send-email-yoshfuji@linux-ipv6.org>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] d80211: add ieee80211_stop_queues()
+Date: Wed, 23 Aug 2006 22:57:25 +0200
+Message-ID: <200608232257.25590.mb@bu3sch.de>
+References: <C86180A8C204554D8A3323D8F6B0A29F0165B5E4@dhost002-46.dex002.intermedia.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Cc: "Jiri Benc" <jbenc@suse.cz>, linville@tuxdriver.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:35080 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S965188AbWHWUe7
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:32485
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965199AbWHWU54
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 16:34:59 -0400
-To: davem@davemloft.net, nakam@linux-ipv6.org
-In-Reply-To: <11563453671174-git-send-email-yoshfuji@linux-ipv6.org>
+	Wed, 23 Aug 2006 16:57:56 -0400
+To: "Simon Barber" <simon@devicescape.com>
+In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F0165B5E4@dhost002-46.dex002.intermedia.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <11563453671174-git-send-email-yoshfuji@linux-ipv6.org> (at Thu, 24 Aug 2006 00:02:28 +0900), YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> says:
+On Wednesday 23 August 2006 22:32, Simon Barber wrote:
+> Right - and what I'm proposing is that we don't just count the number of
+> frames in the ring - but also count the amount of frame time the ring
+> takes too. This way if there are a number of large, slow frames we can
+> stop adding more frames into the ring well before we reach the limit on
+> the number of frames. 
 
-> +#ifdef CONFIG_IPV6_MIP6
-> +	if (ipv6_clear_mutable_options(skb->nh.ipv6h, hdr_len, XFRM_POLICY_IN))
-> +		goto out;
-> +#else
->  	if (ipv6_clear_mutable_options(skb->nh.ipv6h, hdr_len))
->  		goto free_out;
-> +#endif
+Ah, now I understand what you are trying to explain. :)
+But why do we actually _want_ to stop a DMA ring, if it's
+not full (has free descriptors)? I can't see any benefit on
+it. Adding frames to the ring is done on the fly without
+stopping or otherwise interferring with any running transmissions
+queued earlier.
+I would say we don't care about the time it takes for the
+ring to go into idle on the d80211 level. I think the only thing
+we care at d80211 level is: Can we queue another frame?
+We have that logic. If a queue is not stopped, we can queue another
+frame.
 
-Oops, I missed this.
+Or do you want to make the qdisc intelligent? Say, it drops
+a few beacons, if there are already packets queued for the next
+300ms, for example. Do you want to optimize latency of payload
+data by dropping low-priority packets while the queue is
+heavily loaded?
+I can't see another usage for time based DMA ring accounting
+in d80211, yet.
 
-This will result in memory leakage...
-We will fix it with some clean-ups in the next spin.
-
---yoshfuji
+-- 
+Greetings Michael.
