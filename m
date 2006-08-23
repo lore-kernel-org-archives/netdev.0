@@ -1,51 +1,29 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 01/18] d80211:  LED triggers
-Date: Wed, 23 Aug 2006 20:16:16 +0200
-Message-ID: <20060823201616.40214286@griffin.suse.cz>
-References: <20060821074107.648561364@sipsolutions.net>
-	<20060821075158.728615077@sipsolutions.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: The Proposed Linux kevent API
+Date: Wed, 23 Aug 2006 11:24:52 -0700
+Message-ID: <20060823112452.5246bac4@dxpl.pdx.osdl.net>
+References: <1156281182.2476.63.camel@entropy>
+	<20060822143747.68acaf99.rdunlap@xenotime.net>
+	<1156287492.2476.134.camel@entropy>
+	<20060822.160618.130612620.davem@davemloft.net>
+	<1156296967.2476.200.camel@entropy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+Cc: rdunlap@xenotime.net, johnpol@2ka.mipt.ru,
+	linux-kernel@vger.kernel.org, drepper@redhat.com, akpm@osdl.org,
+	netdev@vger.kernel.org, zach.brown@oracle.com, hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:10906 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S965081AbWHWSQS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 14:16:18 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <20060821075158.728615077@sipsolutions.net>
+Received: from smtp.osdl.org ([65.172.181.4]:47077 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965091AbWHWSZc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 14:25:32 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <1156296967.2476.200.camel@entropy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Aug 2006 09:41:08 +0200, Johannes Berg wrote:
-> This patch makes d80211 export LED triggers for rx/tx and introduces
-> functions to allow device drivers to query the trigger names for setting
-> default triggers. It also cleans up the Makefile LED related stuff.
-
-  CC [M]  net/d80211/ieee80211_led.o
-In file included from net/d80211/ieee80211_led.h:9,
-                 from net/d80211/ieee80211_led.c:11:
-include/linux/leds.h:39: error: field 'node' has incomplete type
-include/linux/leds.h:44: error: syntax error before 'rwlock_t'
-include/linux/leds.h:44: warning: no semicolon at end of struct or union
-include/linux/leds.h:50: error: syntax error before '}' token
-include/linux/leds.h:72: error: syntax error before 'rwlock_t'
-include/linux/leds.h:72: warning: no semicolon at end of struct or union
-include/linux/leds.h:77: error: syntax error before '}' token
-net/d80211/ieee80211_led.c: In function 'ieee80211_led_init':
-net/d80211/ieee80211_led.c:38: error: invalid application of 'sizeof' to incomplete type 'struct
-net/d80211/ieee80211_led.c:43: error: dereferencing pointer to incomplete type
-net/d80211/ieee80211_led.c:49: error: invalid application of 'sizeof' to incomplete type 'struct
-net/d80211/ieee80211_led.c:54: error: dereferencing pointer to incomplete type
-make[2]: *** [net/d80211/ieee80211_led.o] Error 1
-make[1]: *** [net/d80211] Error 2
-make: *** [net] Error 2
+Could we try to real documentation rather than pissy little arguing.
+I setup a page to start
+	http://linux-net.osdl.org/index.php/Kevent
 
 
-Omitting the patch for now.
-
- Jiri
-
--- 
-Jiri Benc
-SUSE Labs
