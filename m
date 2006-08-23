@@ -1,41 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: call panic if nl_table allocation fails
-Date: Wed, 23 Aug 2006 16:17:04 +0200
-Message-ID: <44EC6360.9070109@trash.net>
-References: <20060823113740.GA7834@miraclelinux.com> <Pine.LNX.4.64.0608231003340.3198@d.namei>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [RFC][PATCH 1/3] net/ipv4: UDP-Lite extensions
+Date: Wed, 23 Aug 2006 10:22:24 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0608231019010.3198@d.namei>
+References: <200608231150.42039@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Akinobu Mita <mita@miraclelinux.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	akpm@osdl.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, alan@lxorguk.ukuu.org.uk,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, kaber@coreworks.de,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63990 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S964894AbWHWORK
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 10:17:10 -0400
-To: James Morris <jmorris@namei.org>
-In-Reply-To: <Pine.LNX.4.64.0608231003340.3198@d.namei>
+Received: from mail3.sea5.speakeasy.net ([69.17.117.5]:48265 "EHLO
+	mail3.sea5.speakeasy.net") by vger.kernel.org with ESMTP
+	id S964900AbWHWOW0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 10:22:26 -0400
+To: gerrit@erg.abdn.ac.uk
+In-Reply-To: <200608231150.42039@strip-the-willow>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Morris wrote:
-> On Wed, 23 Aug 2006, Akinobu Mita wrote:
-> 
-> 
->>This patch makes crash happen if initialization of nl_table fails
->>in initcalls. It is better than getting use after free crash later.
-> 
-> 
->> 	nl_table = kcalloc(MAX_LINKS, sizeof(*nl_table), GFP_KERNEL);
-> 
-> 
-> Perhaps it'd be better to declare this as an array rather than allocating 
-> it at runtime.
+On Wed, 23 Aug 2006, gerrit@erg.abdn.ac.uk wrote:
 
-That would still leave the MAX_LINKS allocations for the pid hashes
-which need to be allocated because they are dynamically sized. We
-could delay the pid hash allocations until the first bind happens
-of course, but I doubt it would be worth it since they start with
-just a single bucket.
+> +void __init udplite4_register(void)
+> +{
+> +	if (proto_register(&udplite_prot, 1))
+> +		goto out_register_err;
+> +
+> +	if (inet_add_protocol(&udplite_protocol, IPPROTO_UDPLITE) < 0)
+> +		goto out_unregister_proto;
+> +
+> +	inet_register_protosw(&udplite4_protosw);
+> +
+> +	return;
+> +
+> +out_unregister_proto:
+> +	proto_unregister(&udplite_prot);
+> +out_register_err:
+> +	printk(KERN_ERR "udplite4_register: Cannot add UDP-Lite protocol\n");
+> +}
 
+Other protocols & network components call panic() if they fail during boot 
+initialization.  Not sure if this is a great thing, but it raises the 
+issue of whether udp-lite should remain consistent here.
+
+
+
+- James
+-- 
+James Morris
+<jmorris@namei.org>
