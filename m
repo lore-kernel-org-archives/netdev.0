@@ -1,155 +1,153 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH 13/44] [XFRM] STATE: Support non-fragment outbound transformation headers.
-Date: Thu, 24 Aug 2006 00:02:14 +0900
-Message-ID: <1156345366857-git-send-email-yoshfuji@linux-ipv6.org>
-References: <11563453651167-git-send-email-yoshfuji@linux-ipv6.org> <11563453651533-git-send-email-yoshfuji@linux-ipv6.org> <11563453653169-git-send-email-yoshfuji@linux-ipv6.org> <1156345365325-git-send-email-yoshfuji@linux-ipv6.org> <11563453653851-git-send-email-yoshfuji@linux-ipv6.org> <11563453653575-git-send-email-yoshfuji@linux-ipv6.org> <1156345365651-git-send-email-yoshfuji@linux-ipv6.org> <1156345365264-git-send-email-yoshfuji@linux-ipv6.org> <1156345365312-git-send-email-yoshfuji@linux-ipv6.org> <11563453652646-git-send-email-yoshfuji@linux-ipv6.org> <1156345365315-git-send-email-yoshfuji@linux-ipv6.org> <11563453651452-git-send-email-yoshfuji@linux-ipv6.org> <1156345366288-git-send-email-yoshfuji@linux-ipv6.org>
+Subject: [PATCH 37/44] [IPV6] MIP6: Report to user-space when home address option is rejected.
+Date: Thu, 24 Aug 2006 00:02:38 +0900
+Message-ID: <11563453674194-git-send-email-yoshfuji@linux-ipv6.org>
+References: <11563453651167-git-send-email-yoshfuji@linux-ipv6.org> <11563453651533-git-send-email-yoshfuji@linux-ipv6.org> <11563453653169-git-send-email-yoshfuji@linux-ipv6.org> <1156345365325-git-send-email-yoshfuji@linux-ipv6.org> <11563453653851-git-send-email-yoshfuji@linux-ipv6.org> <11563453653575-git-send-email-yoshfuji@linux-ipv6.org> <1156345365651-git-send-email-yoshfuji@linux-ipv6.org> <1156345365264-git-send-email-yoshfuji@linux-ipv6.org> <1156345365312-git-send-email-yoshfuji@linux-ipv6.org> <11563453652646-git-send-email-yoshfuji@linux-ipv6.org> <1156345365315-git-send-email-yoshfuji@linux-ipv6.org> <11563453651452-git-send-email-yoshfuji@linux-ipv6.org> <1156345366288-git-send-email-yoshfuji@linux-ipv6.org> <1156345366857-git-send-email-yoshfuji@linux-ipv6.org> <11563453663761-git-send-email-yoshfuji@linux-ipv6.org> <11563453662321-git-send-email-yoshfuji@linux-ipv6.org>
+  <11563453661892-git-send-email-yoshfuji@linux-ipv6.org> <11563453661207-git-send-email-yoshfuji@linux-ipv6.org> <11563453663743-git-send-email-yoshfuji@linux-ipv6.org> <1156345366676-git-send-email-yoshfuji@linux-ipv6.org> <11563453662840-git-send-email-yoshfuji@linux-ipv6.org> <11563453662913-git-send-email-yoshfuji@linux-ipv6.org> <11563453663400-git-send-email-yoshfuji@linux-ipv6.org> <1156345366549-git-send-email-yoshfuji@linux-ipv6.org> <11563453662956-git-send-email-yoshfuji@linux-ipv6.org> <11563453661764-git-send-email-yoshfuji@linux-ipv6.org> <11563453663275-git-send-email-yoshfuji@linux-ipv6.org> <11563453671174-git-send-email-yoshfuji@linux-ipv6.org> <11563453674049-git-send-email-yoshfuji@linux-ipv6.org> <11563453673517-git-send-email-yoshfuji@linux-ipv6.org> <11563453674137-git-send-email-yoshfuji@linux-ipv6.org> <11563453671944-git-send-email-yoshfuji@linux-ipv6.org> <11
+ 563453671187-git-send-email-yoshfuji@linux-ipv6.org> <11563453672959-git-send-email-yoshfuji@linux-ipv6.org> <1156345367208-git-send-email-yoshfuji@linux-ipv6.org> <11563453673786-git-send-email-yoshfuji@linux-ipv6.org> <11563453672531-git-send-email-yoshfuji@linux-ipv6.org>
 Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
 	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
 	Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:64904 "EHLO
+Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:10633 "EHLO
 	jupiter.linux-ipv6.org") by vger.kernel.org with ESMTP
-	id S964916AbWHWPCu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 11:02:50 -0400
+	id S964952AbWHWPCw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 11:02:52 -0400
 To: davem@davemloft.net
-In-Reply-To: <1156345366288-git-send-email-yoshfuji@linux-ipv6.org>
+In-Reply-To: <11563453672531-git-send-email-yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Masahide NAKAMURA <nakam@linux-ipv6.org>
 
-For originated outbound IPv6 packets which will fragment, ip6_append_data()
-should know length of extension headers before sending them and
-the length is carried by dst_entry.
-IPv6 IPsec headers fragment then transformation was
-designed to place all headers after fragment header.
-OTOH Mobile IPv6 extension headers do not fragment then
-it is a good idea to make dst_entry have non-fragment length to tell it
-to ip6_append_data().
+Report to user-space when home address option is rejected.
+In receiving this message user-space application will send Mobile IPv6 binding
+error. It is rate-limited by kernel.
+Based on MIPL2 kernel patch.
+
+This patch was also written by: Ville Nuorvala <vnuorval@tcs.hut.fi>
 
 Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- include/net/dst.h       |    1 +
- include/net/xfrm.h      |    2 ++
- net/ipv4/xfrm4_policy.c |    1 +
- net/ipv6/ip6_output.c   |    2 +-
- net/ipv6/xfrm6_policy.c |   24 ++++++++++++++++++++++--
- 5 files changed, 27 insertions(+), 3 deletions(-)
+ net/ipv6/mip6.c |   83 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 83 insertions(+), 0 deletions(-)
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 36d54fc..a8d825f 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -54,6 +54,7 @@ #define DST_BALANCED            0x10
- 	unsigned long		expires;
- 
- 	unsigned short		header_len;	/* more space at head required */
-+	unsigned short		nfheader_len;	/* more non-fragment space at head required */
- 	unsigned short		trailer_len;	/* space to reserve at tail */
- 
- 	u32			metrics[RTAX_MAX];
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index cbfacdb..e451fed 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -261,6 +261,8 @@ struct xfrm_type
- 	char			*description;
- 	struct module		*owner;
- 	__u8			proto;
-+	__u8			flags;
-+#define XFRM_TYPE_NON_FRAGMENT	1
- 
- 	int			(*init_state)(struct xfrm_state *x);
- 	void			(*destructor)(struct xfrm_state *);
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index a5bed74..e517981 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -135,6 +135,7 @@ __xfrm4_bundle_create(struct xfrm_policy
- 		dst_prev->flags	       |= DST_HOST;
- 		dst_prev->lastuse	= jiffies;
- 		dst_prev->header_len	= header_len;
-+		dst_prev->nfheader_len	= 0;
- 		dst_prev->trailer_len	= trailer_len;
- 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
- 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 686c07a..ebb23db 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -963,7 +963,7 @@ int ip6_append_data(struct sock *sk, int
- 
- 	hh_len = LL_RESERVED_SPACE(rt->u.dst.dev);
- 
--	fragheaderlen = sizeof(struct ipv6hdr) + (opt ? opt->opt_nflen : 0);
-+	fragheaderlen = sizeof(struct ipv6hdr) + rt->u.dst.nfheader_len + (opt ? opt->opt_nflen : 0);
- 	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen - sizeof(struct frag_hdr);
- 
- 	if (mtu <= sizeof(struct ipv6hdr) + IPV6_MAXPLEN) {
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 9328fc8..a3f68c8 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -75,6 +75,24 @@ __xfrm6_bundle_addr_local(struct xfrm_st
- 		(struct in6_addr*)&x->props.saddr;
+diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
+index 7b5f893..31445d0 100644
+--- a/net/ipv6/mip6.c
++++ b/net/ipv6/mip6.c
+@@ -25,6 +25,7 @@
+ #include <linux/config.h>
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
++#include <linux/time.h>
+ #include <linux/ipv6.h>
+ #include <linux/icmpv6.h>
+ #include <net/sock.h>
+@@ -138,6 +139,18 @@ int mip6_mh_filter(struct sock *sk, stru
+ 	return 0;
  }
  
-+static inline void
-+__xfrm6_bundle_len_inc(int *len, int *nflen, struct xfrm_state *x)
++struct mip6_report_rate_limiter {
++	spinlock_t lock;
++	struct timeval stamp;
++	int iif;
++	struct in6_addr src;
++	struct in6_addr dst;
++};
++
++static struct mip6_report_rate_limiter mip6_report_rl = {
++	.lock = SPIN_LOCK_UNLOCKED
++};
++
+ static int mip6_destopt_input(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	struct ipv6hdr *iph = skb->nh.ipv6h;
+@@ -189,6 +202,75 @@ static int mip6_destopt_output(struct xf
+ 	return 0;
+ }
+ 
++static inline int mip6_report_rl_allow(struct timeval *stamp,
++				       struct in6_addr *dst,
++				       struct in6_addr *src, int iif)
 +{
-+	if (x->type->flags & XFRM_TYPE_NON_FRAGMENT)
-+		*nflen += x->props.header_len;
-+	else
-+		*len += x->props.header_len;
++	int allow = 0;
++
++	spin_lock_bh(&mip6_report_rl.lock);
++	if (mip6_report_rl.stamp.tv_sec != stamp->tv_sec ||
++	    mip6_report_rl.stamp.tv_usec != stamp->tv_usec ||
++	    mip6_report_rl.iif != iif ||
++	    !ipv6_addr_equal(&mip6_report_rl.src, src) ||
++	    !ipv6_addr_equal(&mip6_report_rl.dst, dst)) {
++		mip6_report_rl.stamp.tv_sec = stamp->tv_sec;
++		mip6_report_rl.stamp.tv_usec = stamp->tv_usec;
++		mip6_report_rl.iif = iif;
++		ipv6_addr_copy(&mip6_report_rl.src, src);
++		ipv6_addr_copy(&mip6_report_rl.dst, dst);
++		allow = 1;
++	}
++	spin_unlock_bh(&mip6_report_rl.lock);
++	return allow;
 +}
 +
-+static inline void
-+__xfrm6_bundle_len_dec(int *len, int *nflen, struct xfrm_state *x)
++static int mip6_destopt_reject(struct xfrm_state *x, struct sk_buff *skb, struct flowi *fl)
 +{
-+	if (x->type->flags & XFRM_TYPE_NON_FRAGMENT)
-+		*nflen -= x->props.header_len;
-+	else
-+		*len -= x->props.header_len;
++	struct inet6_skb_parm *opt = (struct inet6_skb_parm *)skb->cb;
++	struct ipv6_destopt_hao *hao = NULL;
++	struct xfrm_selector sel;
++	int offset;
++	struct timeval stamp;
++	int err = 0;
++
++	if (likely(opt->dsthao)) {
++		offset = ipv6_find_tlv(skb, opt->dsthao, IPV6_TLV_HAO);
++		if (likely(offset >= 0))
++			hao = (struct ipv6_destopt_hao *)(skb->nh.raw + offset);
++	}
++
++	skb_get_timestamp(skb, &stamp);
++
++	if (!mip6_report_rl_allow(&stamp, &skb->nh.ipv6h->daddr,
++				  hao ? &hao->addr : &skb->nh.ipv6h->saddr,
++				  opt->iif))
++		goto out;
++
++	memset(&sel, 0, sizeof(sel));
++	memcpy(&sel.daddr, (xfrm_address_t *)&skb->nh.ipv6h->daddr,
++	       sizeof(sel.daddr));
++	sel.prefixlen_d = 128;
++	memcpy(&sel.saddr, (xfrm_address_t *)&skb->nh.ipv6h->saddr,
++	       sizeof(sel.saddr));
++	sel.prefixlen_s = 128;
++	sel.family = AF_INET6;
++	sel.proto = fl->proto;
++	sel.dport = xfrm_flowi_dport(fl);
++	if (sel.dport)
++		sel.dport_mask = ~((__u16)0);
++	sel.sport = xfrm_flowi_sport(fl);
++	if (sel.sport)
++		sel.sport_mask = ~((__u16)0);
++	sel.ifindex = fl->oif;
++
++	err = km_report(IPPROTO_DSTOPTS, &sel,
++			(hao ? (xfrm_address_t *)&hao->addr : NULL));
++
++ out:
++	return err;
 +}
 +
- /* Allocate chain of dst_entry's, attach known xfrm's, calculate
-  * all the metrics... Shortly, bundle a bundle.
-  */
-@@ -99,6 +117,7 @@ __xfrm6_bundle_create(struct xfrm_policy
- 	int i;
- 	int err = 0;
- 	int header_len = 0;
-+	int nfheader_len = 0;
- 	int trailer_len = 0;
- 
- 	dst = dst_prev = NULL;
-@@ -135,7 +154,7 @@ __xfrm6_bundle_create(struct xfrm_policy
- 			local  = __xfrm6_bundle_addr_local(xfrm[i], local);
- 			tunnel = 1;
- 		}
--		header_len += xfrm[i]->props.header_len;
-+		__xfrm6_bundle_len_inc(&header_len, &nfheader_len, xfrm[i]);
- 		trailer_len += xfrm[i]->props.trailer_len;
- 
- 		if (tunnel) {
-@@ -170,6 +189,7 @@ __xfrm6_bundle_create(struct xfrm_policy
- 		dst_prev->flags	       |= DST_HOST;
- 		dst_prev->lastuse	= jiffies;
- 		dst_prev->header_len	= header_len;
-+		dst_prev->nfheader_len	= nfheader_len;
- 		dst_prev->trailer_len	= trailer_len;
- 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
- 
-@@ -188,7 +208,7 @@ __xfrm6_bundle_create(struct xfrm_policy
- 		x->u.rt6.rt6i_src      = rt0->rt6i_src;	
- 		x->u.rt6.rt6i_idev     = rt0->rt6i_idev;
- 		in6_dev_hold(rt0->rt6i_idev);
--		header_len -= x->u.dst.xfrm->props.header_len;
-+		__xfrm6_bundle_len_dec(&header_len, &nfheader_len, x->u.dst.xfrm);
- 		trailer_len -= x->u.dst.xfrm->props.trailer_len;
- 	}
- 
+ static int mip6_destopt_offset(struct xfrm_state *x, struct sk_buff *skb,
+ 			       u8 **nexthdr)
+ {
+@@ -273,6 +355,7 @@ static struct xfrm_type mip6_destopt_typ
+ 	.destructor	= mip6_destopt_destroy,
+ 	.input		= mip6_destopt_input,
+ 	.output		= mip6_destopt_output,
++ 	.reject		= mip6_destopt_reject,
+ 	.hdr_offset	= mip6_destopt_offset,
+ 	.local_addr	= mip6_xfrm_addr,
+ };
 -- 
 1.4.0
 
