@@ -1,33 +1,49 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 16/18] d80211:  get rid of MICHAEL_MIC_HWACCEL define
-Date: Wed, 23 Aug 2006 09:05:30 +0200
-Message-ID: <1156316730.3629.7.camel@ux156>
-References: <20060821074107.648561364@sipsolutions.net>
-	 <20060821075202.538664376@sipsolutions.net>
-	 <20060822210038.53ee194c@griffin.suse.cz>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
+Date: Wed, 23 Aug 2006 00:07:58 -0700
+Message-ID: <20060823000758.5ebed7dd.akpm@osdl.org>
+References: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com>
+	<20060822231129.GA18296@ms2.inr.ac.ru>
+	<b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com>
+	<20060822.173200.126578369.davem@davemloft.net>
+	<b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com>
+	<20060823065659.GC24787@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jouni Malinen <jkm@devicescape.com>,
-	"John W. Linville" <linville@tuxdriver.com>
+Cc: Jari Sundell <sundell.software@gmail.com>,
+	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	nmiell@comcast.net, linux-kernel@vger.kernel.org,
+	drepper@redhat.com, netdev@vger.kernel.org, zach.brown@oracle.com,
+	hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:35038 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751441AbWHWHE4
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 03:04:56 -0400
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20060822210038.53ee194c@griffin.suse.cz>
+Received: from smtp.osdl.org ([65.172.181.4]:16097 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751439AbWHWHJH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 03:09:07 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060823065659.GC24787@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-08-22 at 21:00 +0200, Jiri Benc wrote:
+On Wed, 23 Aug 2006 10:56:59 +0400
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 
-> When you're touching this, could you #ifdef out wpa_test when
-> CONFIG_HOSTAPD_WPA_TESTING is not defined? This could be a part of this
-> patch.
+> On Wed, Aug 23, 2006 at 02:43:50AM +0200, Jari Sundell (sundell.software@gmail.com) wrote:
+> > Actually, I didn't miss that, it is an orthogonal issue. A timespec
+> > timeout parameter for the syscall does not imply the use of timespec
+> > in any timer event, etc. Nor is there any timespec timer in kqueue's
+> > struct kevent, which is the only (interface related) thing that will
+> > be exposed.
+> 
+> void * in structure exported to userspace is forbidden.
+> long in syscall requires wrapper in per-arch code (although that
+> workaround _is_ there, it does not mean that broken interface should 
+> be used).
+> poll uses millisecods - it is perfectly ok.
 
-I thought about it but deemed it too ugly. And wouldn't the compiler
-optimize it away anyway? Thing is, it's used in tests, and having
-#ifdefs within if (...) tests is hugely ugly.
+I wonder whether designing-in a millisecond granularity is the right thing
+to do.  If in a few years the kernel is running tickless with high-res clock
+interrupt sources, that might look a bit lumpy.
 
-johannes
+Switching it to a __u64 nanosecond counter would be basically free on
+64-bit machines, and not very expensive on 32-bit, no?
