@@ -1,43 +1,43 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] d80211: add ieee80211_stop_queues()
-Date: Wed, 23 Aug 2006 22:20:06 +0200
-Message-ID: <200608232220.07093.mb@bu3sch.de>
-References: <C86180A8C204554D8A3323D8F6B0A29F0165B5DC@dhost002-46.dex002.intermedia.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 22/44] [IPV6]: Find option offset by type.
+Date: Thu, 24 Aug 2006 05:26:22 +0900 (JST)
+Message-ID: <20060824.052622.09867712.yoshfuji@linux-ipv6.org>
+References: <11563453662913-git-send-email-yoshfuji@linux-ipv6.org>
+	<11563453663400-git-send-email-yoshfuji@linux-ipv6.org>
+	<44EC8EBE.9080701@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Jiri Benc" <jbenc@suse.cz>, linville@tuxdriver.com,
-	netdev@vger.kernel.org
+Cc: davem@davemloft.net, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
+	nakam@linux-ipv6.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:42710
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965179AbWHWUVG
+Received: from yue.linux-ipv6.org ([203.178.140.15]:33288 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S965153AbWHWUYe
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 16:21:06 -0400
-To: "Simon Barber" <simon@devicescape.com>
-In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F0165B5DC@dhost002-46.dex002.intermedia.net>
-Content-Disposition: inline
+	Wed, 23 Aug 2006 16:24:34 -0400
+To: brian.haley@hp.com
+In-Reply-To: <44EC8EBE.9080701@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 23 August 2006 22:10, Simon Barber wrote:
-> The DMA ring forms a queue of frames. Frames live in that queue for some
-> time before they are transmitted. This is a source of latency between
-> the software process that puts  the frames in the queue and the point in
-> time when they are actually transmitted.
+In article <44EC8EBE.9080701@hp.com> (at Wed, 23 Aug 2006 13:22:06 -0400), Brian Haley <brian.haley@hp.com> says:
 
-Yes, sure. But I don't see how shortening that queue reduces
-the time. Frames are always processed by the device as fast as
-possible to a given "end-pointer". That end-pointer is updated
-on the fly as packets come in. So if enough packets come in
-the device keeps circling the ring. No matter how large it is.
-The issue that we must prevent is a ring overflow by providing
-a sufficiently _large_ (not small) ring. The larger the ring
-the better. Theoretically an infinite ring size would be perfect,
-but we don't want that for obvious memory issues. ;)
-So we try to keep ring size down to a sane amount, where it's
-damn unlikely to ever overflow, to reduce memory usage (and only
-memory usage).
+> > +	/* not_found */
+> > +	return -1;
+> > + bad:
+> > +	return -1;
+> > +}
+> 
+> You could change this to:
+> 
+> 	/* not_found */
+>     bad:
+> 	return -1;
+>     }
 
--- 
-Greetings Michael.
+Right.  I think our compiler is smart enough to eliminate that though.
+(Similar clean-up will be done for ipv6_rearrange_destopt() as well.)
+
+--yoshfuji
