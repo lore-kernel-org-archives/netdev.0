@@ -1,43 +1,54 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH 22/44] [IPV6]: Find option offset by type.
-Date: Wed, 23 Aug 2006 13:22:06 -0400
-Message-ID: <44EC8EBE.9080701@hp.com>
-References: <11563453651167-git-send-email-yoshfuji@linux-ipv6.org> <1156345365264-git-send-email-yoshfuji@linux-ipv6.org> <1156345365312-git-send-email-yoshfuji@linux-ipv6.org> <11563453652646-git-send-email-yoshfuji@linux-ipv6.org> <1156345365315-git-send-email-yoshfuji@linux-ipv6.org> <11563453651452-git-send-email-yoshfuji@linux-ipv6.org> <1156345366288-git-send-email-yoshfuji@linux-ipv6.org> <1156345366857-git-send-email-yoshfuji@linux-ipv6.org> <11563453663761-git-send-email-yoshfuji@linux-ipv6.org> <11563453662321-git-send-email-yoshfuji@linux-ipv6.org> <11563453661892-git-send-email-yoshfuji@linux-ipv6.org> <11563453661207-git-send-email-yo shfuji@linux-ipv6.org> <11563453663743-git-send-email-yoshfuji@linux-ipv6.org> <1156345366676-git-send-email-yoshfuji@linux-ipv6.org> <11563453662840-git-send-email-yoshfuji@linux-ipv6.org> <11563453662913-git-send-email-yoshfuji@linux-ipv6.or
- g> <11563453663400-git-send-email-yoshfuji@linux-ipv6.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: eth interface enumeration order
+Date: Wed, 23 Aug 2006 10:36:51 -0700
+Message-ID: <20060823103651.193311dc@localhost.localdomain>
+References: <44EC79D8.3050402@paradigmgeo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
-	Masahide NAKAMURA <nakam@linux-ipv6.org>
+Cc: akpm@zip.com.au, jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:30350 "EHLO atlrel9.hp.com")
-	by vger.kernel.org with ESMTP id S932262AbWHWR1O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 13:27:14 -0400
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-In-Reply-To: <11563453663400-git-send-email-yoshfuji@linux-ipv6.org>
+Received: from smtp.osdl.org ([65.172.181.4]:61651 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932324AbWHWRhK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 13:37:10 -0400
+To: Victor Secarin <vsecarin@paradigmgeo.com>
+In-Reply-To: <44EC79D8.3050402@paradigmgeo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki wrote:
-> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+On Wed, 23 Aug 2006 09:52:56 -0600
+Victor Secarin <vsecarin@paradigmgeo.com> wrote:
+
+> VERSION
+> With kernel 2.4.33.1:
+> HARDWARE
+>  I have a server with two eepro100 and one e1000 interfaces
+> BEHAVIOR
+> When the kernel boots the drivers report (/var/log/messages) the 
+> interfaces they find and what they are named (eth0, eth1, eth2)
+> 1. With the drivers configured monolithically in the kernel:
+> e1000 reports eth0 and then eepro100 reports eth1 and eth2
+> 2. With the drivers configured as modules:
+> eepro100 reports eth0 and eth1 and then e1000 reports eth2
+> PROBLEM
+> 1. On a red  hat distribution, different interfaces may have different 
+> configuration scripts, which assign IP addresses and more, and the 
+> scripts are identified by the ethx name.
+> 2. It is necessary to control which interface becomes eth0 as various 
+> programs use the MAC address of eth0 to identify the computer. In my 
+> case that is "lmhostid" and all the FLEXlm software,
+> as I run a license server on that machine.
 > 
-> This is a helper to search option offset from extension header which
-> can carry TLV option like destination options header.
-> Mobile IPv6 home address option will use it.
-> Based on MIPL2 kernel patch.
+> Thank you for taking the time to read this.
+> yours truly,
+> Victor Secarin
 
-> +	/* not_found */
-> +	return -1;
-> + bad:
-> +	return -1;
-> +}
+Depending on interface names and ordering is wrong, you will get burned.
+Modern distro's with 2.6 use udev and scripts to control naming.
 
-You could change this to:
+For older systems, see ifrename(8)
 
-	/* not_found */
-    bad:
-	return -1;
-    }
+-- 
+Stephen Hemminger <shemminger@osdl.org>
 
--Brian
+All non-trivial abstractions, to some degree, are leaky.
