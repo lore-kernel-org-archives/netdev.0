@@ -1,71 +1,31 @@
-From: Akinobu Mita <mita@miraclelinux.com>
-Subject: call panic if nl_table allocation fails
-Date: Wed, 23 Aug 2006 20:37:40 +0900
-Message-ID: <20060823113740.GA7834@miraclelinux.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] IP1000A: IC Plus update 2006-08-22
+Date: Wed, 23 Aug 2006 13:38:22 +0200
+Message-ID: <20060823113822.GA17103@electric-eye.fr.zoreil.com>
+References: <1156268234.3622.1.camel@localhost.localdomain> <20060822232730.GA30977@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, akpm@osdl.org
+Cc: penberg@cs.Helsinki.FI, akpm@osdl.org, dvrabel@cantab.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	david@pleyades.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.miraclelinux.com ([219.118.163.66]:20569 "EHLO
-	mail01.miraclelinux.com") by vger.kernel.org with ESMTP
-	id S964880AbWHWLhk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 07:37:40 -0400
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:30910 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S932385AbWHWLjw
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 07:39:52 -0400
+To: Jesse Huang <jesse@icplus.com.tw>
 Content-Disposition: inline
+In-Reply-To: <20060822232730.GA30977@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes crash happen if initialization of nl_table fails
-in initcalls. It is better than getting use after free crash later.
+Francois Romieu <romieu@fr.zoreil.com> :
+[...]
+> or as a serie of patches at:
+> http://www.fr.zoreil.com/linux/2.6.x/2.6.18-rc4/ip1000
 
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
+Typo. It should be:
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.18-rc4/ip1000
 
-Index: work-failmalloc/net/netlink/af_netlink.c
-===================================================================
---- work-failmalloc.orig/net/netlink/af_netlink.c
-+++ work-failmalloc/net/netlink/af_netlink.c
-@@ -1273,8 +1273,7 @@ netlink_kernel_create(int unit, unsigned
- 	struct netlink_sock *nlk;
- 	unsigned long *listeners = NULL;
- 
--	if (!nl_table)
--		return NULL;
-+	BUG_ON(!nl_table);
- 
- 	if (unit<0 || unit>=MAX_LINKS)
- 		return NULL;
-@@ -1745,11 +1744,8 @@ static int __init netlink_proto_init(voi
- 		netlink_skb_parms_too_large();
- 
- 	nl_table = kcalloc(MAX_LINKS, sizeof(*nl_table), GFP_KERNEL);
--	if (!nl_table) {
--enomem:
--		printk(KERN_CRIT "netlink_init: Cannot allocate nl_table\n");
--		return -ENOMEM;
--	}
-+	if (!nl_table)
-+		goto panic;
- 
- 	if (num_physpages >= (128 * 1024))
- 		max = num_physpages >> (21 - PAGE_SHIFT);
-@@ -1769,7 +1765,7 @@ enomem:
- 				nl_pid_hash_free(nl_table[i].hash.table,
- 						 1 * sizeof(*hash->table));
- 			kfree(nl_table);
--			goto enomem;
-+			goto panic;
- 		}
- 		memset(hash->table, 0, 1 * sizeof(*hash->table));
- 		hash->max_shift = order;
-@@ -1786,6 +1782,8 @@ enomem:
- 	rtnetlink_init();
- out:
- 	return err;
-+panic:
-+	panic("netlink_init: Cannot allocate nl_table\n");
- }
- 
- core_initcall(netlink_proto_init);
+-- 
+Ueimor
