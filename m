@@ -1,58 +1,53 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] bcm43xx-softmac - set correct value in mac_suspended for ifdown/ifup sequence
-Date: Wed, 23 Aug 2006 10:03:23 +0200
-Message-ID: <200608231003.24043.mb@bu3sch.de>
-References: <44EB8019.3080006@lwfinger.net>
+From: Nicholas Miell <nmiell@comcast.net>
+Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
+Date: Wed, 23 Aug 2006 01:18:50 -0700
+Message-ID: <1156321130.2476.275.camel@entropy>
+References: <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com>
+	 <20060823065659.GC24787@2ka.mipt.ru>
+	 <20060823000758.5ebed7dd.akpm@osdl.org>
+	 <20060823.003516.30182824.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
+Cc: akpm@osdl.org, johnpol@2ka.mipt.ru, sundell.software@gmail.com,
+	kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org,
+	drepper@redhat.com, netdev@vger.kernel.org, zach.brown@oracle.com,
+	hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:37291
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932379AbWHWIEJ
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 04:04:09 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <44EB8019.3080006@lwfinger.net>
-Content-Disposition: inline
+Received: from rwcrmhc12.comcast.net ([216.148.227.152]:64505 "EHLO
+	rwcrmhc12.comcast.net") by vger.kernel.org with ESMTP
+	id S932418AbWHWITM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 04:19:12 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060823.003516.30182824.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 23 August 2006 00:07, Larry Finger wrote:
-> John,
+On Wed, 2006-08-23 at 00:35 -0700, David Miller wrote:
+> From: Andrew Morton <akpm@osdl.org>
+> Date: Wed, 23 Aug 2006 00:07:58 -0700
 > 
-> Please apply this to wireless-2.6.
+> > I wonder whether designing-in a millisecond granularity is the right thing
+> > to do.  If in a few years the kernel is running tickless with high-res clock
+> > interrupt sources, that might look a bit lumpy.
+> > 
+> > Switching it to a __u64 nanosecond counter would be basically free on
+> > 64-bit machines, and not very expensive on 32-bit, no?
 > 
-> Michael - bcm43xx-d80211 probably needs this as well.
-> 
-> Larry
-> 
-> ---------------------------------------------------
-> 
-> When bcm43xx-softmac is given an ifdown/ifup sequence, the value for bcm->mac_suspended ends up 
-> wrong, which leads to a large number of assert(bcm->mac_suspended>=0) messages. This one-line patch 
-> fixes this problem.
+> If it ends up in a structure we'll need to use the "aligned_u64" type
+> in order to avoid problems with 32-bit x86 binaries running on 64-bit
+> kernels.
 
-I think the following is the correct fix for the issue.
-It is already in the d80211 branch. (Seems like it got lost somehow).
-Can you test this?
+Perhaps
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+struct timespec64
+{
+	uint64_t tv_sec __attribute__((aligned(8)));
+	uint32_t tv_nsec;
+}
 
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-08-23 10:00:27.000000000 +0200
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c	2006-08-23 10:01:45.000000000 +0200
-@@ -3349,6 +3349,8 @@
- 	memset(bcm->dma_reason, 0, sizeof(bcm->dma_reason));
- 	bcm->irq_savedstate = BCM43xx_IRQ_INITIAL;
- 
-+	bcm->mac_suspended = 1;
-+
- 	/* Noise calculation context */
- 	memset(&bcm->noisecalc, 0, sizeof(bcm->noisecalc));
- 
+with a snide remark about gcc in the comments?
 
 -- 
-Greetings Michael.
+Nicholas Miell <nmiell@comcast.net>
+
