@@ -1,36 +1,71 @@
-From: Martin Michlmayr <tbm@cyrius.com>
-Subject: Re: [PATCH 1/2] Add Sonics Silicon Backplane driver
-Date: Wed, 23 Aug 2006 13:26:51 +0200
-Message-ID: <20060823112651.GW5319@deprecation.cyrius.com>
-References: <200608231158.06178.mb@bu3sch.de> <200608231159.59363.mb@bu3sch.de> <20060823105955.GB9627@unjust.cyrius.com> <1156331069.3914.16.camel@ux156>
+From: Akinobu Mita <mita@miraclelinux.com>
+Subject: call panic if nl_table allocation fails
+Date: Wed, 23 Aug 2006 20:37:40 +0900
+Message-ID: <20060823113740.GA7834@miraclelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Michael Buesch <mb@bu3sch.de>, linville@tuxdriver.com,
-	netdev@vger.kernel.org, bcm43xx-dev@lists.berlios.de
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sorrow.cyrius.com ([65.19.161.204]:22801 "EHLO
-	sorrow.cyrius.com") by vger.kernel.org with ESMTP id S932394AbWHWL1D
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 07:27:03 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
+Received: from ns.miraclelinux.com ([219.118.163.66]:20569 "EHLO
+	mail01.miraclelinux.com") by vger.kernel.org with ESMTP
+	id S964880AbWHWLhk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 07:37:40 -0400
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <1156331069.3914.16.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Johannes Berg <johannes@sipsolutions.net> [2006-08-23 13:04]:
-> > > +#define  SSB_SPROM2_OPO_VALUE		0x00FF
-> > > +#define  SSB_SPROM2_OPO_UNUSED		0xFF00
-> > > +#define SSB_SPROM2_CCODE		0x107C	/* Two char Country Code */
-> > 
-> > This is badly formated.  Can you repost, please.
-> 
-> That's just because of the tabs, if the + in front is removed it's
-> formatted fine. And the indentation is supposed to be like that I'd
-> think.
+This patch makes crash happen if initialization of nl_table fails
+in initcalls. It is better than getting use after free crash later.
 
-Yes, sorry, I didn't realize that registers and register values have
-different indentation.
--- 
-Martin Michlmayr
-http://www.cyrius.com/
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
+
+Index: work-failmalloc/net/netlink/af_netlink.c
+===================================================================
+--- work-failmalloc.orig/net/netlink/af_netlink.c
++++ work-failmalloc/net/netlink/af_netlink.c
+@@ -1273,8 +1273,7 @@ netlink_kernel_create(int unit, unsigned
+ 	struct netlink_sock *nlk;
+ 	unsigned long *listeners = NULL;
+ 
+-	if (!nl_table)
+-		return NULL;
++	BUG_ON(!nl_table);
+ 
+ 	if (unit<0 || unit>=MAX_LINKS)
+ 		return NULL;
+@@ -1745,11 +1744,8 @@ static int __init netlink_proto_init(voi
+ 		netlink_skb_parms_too_large();
+ 
+ 	nl_table = kcalloc(MAX_LINKS, sizeof(*nl_table), GFP_KERNEL);
+-	if (!nl_table) {
+-enomem:
+-		printk(KERN_CRIT "netlink_init: Cannot allocate nl_table\n");
+-		return -ENOMEM;
+-	}
++	if (!nl_table)
++		goto panic;
+ 
+ 	if (num_physpages >= (128 * 1024))
+ 		max = num_physpages >> (21 - PAGE_SHIFT);
+@@ -1769,7 +1765,7 @@ enomem:
+ 				nl_pid_hash_free(nl_table[i].hash.table,
+ 						 1 * sizeof(*hash->table));
+ 			kfree(nl_table);
+-			goto enomem;
++			goto panic;
+ 		}
+ 		memset(hash->table, 0, 1 * sizeof(*hash->table));
+ 		hash->max_shift = order;
+@@ -1786,6 +1782,8 @@ enomem:
+ 	rtnetlink_init();
+ out:
+ 	return err;
++panic:
++	panic("netlink_init: Cannot allocate nl_table\n");
+ }
+ 
+ core_initcall(netlink_proto_init);
