@@ -1,266 +1,292 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] d80211:  clean up exports
-Date: Wed, 23 Aug 2006 12:03:27 +0200
-Message-ID: <1156327407.3914.2.camel@ux156>
+Subject: [PATCH] d80211:  get rid of sta_aid in favour of keeping track of
+	TIM
+Date: Wed, 23 Aug 2006 12:04:14 +0200
+Message-ID: <1156327454.3914.4.camel@ux156>
 References: <20060821074107.648561364@sipsolutions.net>
-	 <20060821075200.277082970@sipsolutions.net>
-	 <20060822164436.GG13240@instant802.com>
+	 <20060821075200.055344487@sipsolutions.net>
+	 <20060822203647.5a160a34@griffin.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>
+Cc: netdev@vger.kernel.org, Jouni Malinen <jkm@devicescape.com>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:3554 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S964801AbWHWKDf
+Received: from crystal.sipsolutions.net ([195.210.38.204]:5602 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S964802AbWHWKDl
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 06:03:35 -0400
-To: Jouni Malinen <jkm@devicescape.com>
-In-Reply-To: <20060822164436.GG13240@instant802.com>
+	Wed, 23 Aug 2006 06:03:41 -0400
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20060822203647.5a160a34@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This puts all EXPORT_SYMBOL() macros along with the function being exported.
+This patch gets rid of the HUGE sta_aid array that was there in the
+access point structure and instead keeps track of the TIM. Also
+reduces stack usage of the ieee80211_beacon_add_tim() function
+considerably, and fixes a bug where removing a station that had
+frames buffered wouldn't update the hardware TIM (if necessary).
 
 Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
---- wireless-dev.orig/net/d80211/ieee80211.c	2006-08-23 10:35:03.000000000 +0200
+--- wireless-dev.orig/net/d80211/ieee80211.c	2006-08-23 10:35:02.000000000 +0200
 +++ wireless-dev/net/d80211/ieee80211.c	2006-08-23 10:35:03.000000000 +0200
-@@ -267,6 +267,7 @@ int ieee80211_get_hdrlen(u16 fc)
+@@ -22,6 +22,7 @@
+ #include <linux/mutex.h>
+ #include <net/iw_handler.h>
+ #include <linux/compiler.h>
++#include <linux/bitmap.h>
  
- 	return hdrlen;
- }
-+EXPORT_SYMBOL(ieee80211_get_hdrlen);
- 
- 
- int ieee80211_get_hdrlen_from_skb(struct sk_buff *skb)
-@@ -281,6 +282,7 @@ int ieee80211_get_hdrlen_from_skb(struct
- 		return 0;
- 	return hdrlen;
- }
-+EXPORT_SYMBOL(ieee80211_get_hdrlen_from_skb);
- 
- 
- #ifdef IEEE80211_VERBOSE_DEBUG_FRAME_DUMP
-@@ -1816,6 +1818,7 @@ struct sk_buff * ieee80211_beacon_get(st
- 	ap->num_beacons++;
- 	return skb;
- }
-+EXPORT_SYMBOL(ieee80211_beacon_get);
- 
- 
- struct sk_buff *
-@@ -1882,6 +1885,7 @@ ieee80211_get_buffered_bc(struct net_dev
- 
- 	return skb;
- }
-+EXPORT_SYMBOL(ieee80211_get_buffered_bc);
- 
- static int __ieee80211_if_config(struct net_device *dev,
- 				 struct sk_buff *beacon)
-@@ -1966,6 +1970,7 @@ struct ieee80211_conf *ieee80211_get_hw_
- 	struct ieee80211_local *local = dev->ieee80211_ptr;
-         return &local->conf;
- }
-+EXPORT_SYMBOL(ieee80211_get_hw_conf);
- 
- 
- static int ieee80211_change_mtu(struct net_device *dev, int new_mtu)
-@@ -2097,6 +2102,7 @@ struct dev_mc_list *ieee80211_get_mc_lis
- 	*ptr = sdata;
- 	return mc;
- }
-+EXPORT_SYMBOL(ieee80211_get_mc_list_item);
- 
- static struct net_device_stats *ieee80211_get_stats(struct net_device *dev)
+ #include <net/d80211.h>
+ #include <net/d80211_common.h>
+@@ -1044,8 +1045,12 @@ ieee80211_tx_h_unicast_ps_buf(struct iee
+ 		} else
+ 			tx->local->total_ps_buffered++;
+ 		/* Queue frame to be sent after STA sends an PS Poll frame */
+-		if (skb_queue_empty(&sta->ps_tx_buf) && tx->local->hw->set_tim)
+-			tx->local->hw->set_tim(tx->dev, sta->aid, 1);
++		if (skb_queue_empty(&sta->ps_tx_buf)) {
++			if (tx->local->hw->set_tim)
++				tx->local->hw->set_tim(tx->dev, sta->aid, 1);
++			if (tx->sdata->bss)
++				bss_tim_set(tx->local, tx->sdata->bss, sta->aid);
++		}
+ 		pkt_data = (struct ieee80211_tx_packet_data *)tx->skb->cb;
+ 		pkt_data->jiffies = jiffies;
+                 skb_queue_tail(&sta->ps_tx_buf, tx->skb);
+@@ -1676,25 +1681,16 @@ static void ieee80211_beacon_add_tim(str
  {
-@@ -2644,6 +2650,7 @@ int ieee80211_radar_status(struct net_de
- 	ieee80211_rx_mgmt(dev, skb, 0, ieee80211_msg_radar);
- 	return 0;
- }
-+EXPORT_SYMBOL(ieee80211_radar_status);
+ 	u8 *pos, *tim;
+ 	int aid0 = 0;
+-	int i, num_bits = 0, n1, n2;
+-	u8 bitmap[251];
++	int i, have_bits = 0, n1, n2;
  
+ 	/* Generate bitmap for TIM only if there are any STAs in power save
+ 	 * mode. */
+-	if (atomic_read(&bss->num_sta_ps) > 0 && bss->max_aid > 0) {
+-		memset(bitmap, 0, sizeof(bitmap));
+-		spin_lock_bh(&local->sta_lock);
+-		for (i = 0; i < bss->max_aid; i++) {
+-			if (bss->sta_aid[i] &&
+-			    (!skb_queue_empty(&bss->sta_aid[i]->ps_tx_buf) ||
+-			     !skb_queue_empty(&bss->sta_aid[i]->tx_filtered)))
+-			{
+-				bitmap[(i + 1) / 8] |= 1 << (i + 1) % 8;
+-				num_bits++;
+-			}
+-		}
+-		spin_unlock_bh(&local->sta_lock);
+-	}
++	spin_lock_bh(&local->sta_lock);
++	if (atomic_read(&bss->num_sta_ps) > 0)
++		/* in the hope that this is faster than
++		 * checking byte-for-byte */
++		have_bits = !bitmap_empty((unsigned long*)bss->tim,
++					  MAX_AID_TABLE_SIZE+1);
  
- int ieee80211_set_aid_for_sta(struct net_device *dev, u8 *peer_address,
-@@ -2667,6 +2674,7 @@ int ieee80211_set_aid_for_sta(struct net
-         ieee80211_rx_mgmt(dev, skb, 0, ieee80211_msg_set_aid_for_sta);
-         return 0;
- }
-+EXPORT_SYMBOL(ieee80211_set_aid_for_sta);
+ 	if (bss->dtim_count == 0)
+ 		bss->dtim_count = bss->dtim_period - 1;
+@@ -1707,40 +1703,40 @@ static void ieee80211_beacon_add_tim(str
+ 	*pos++ = bss->dtim_count;
+ 	*pos++ = bss->dtim_period;
  
+-	if (bss->dtim_count == 0 && !skb_queue_empty(&bss->ps_bc_buf)) {
++	if (bss->dtim_count == 0 && !skb_queue_empty(&bss->ps_bc_buf))
+ 		aid0 = 1;
+-	}
  
- static void ap_sta_ps_start(struct net_device *dev, struct sta_info *sta)
-@@ -3692,6 +3700,7 @@ void __ieee80211_rx(struct net_device *d
- 	if (sta)
- 		sta_info_put(sta);
- }
-+EXPORT_SYMBOL(__ieee80211_rx);
+-	if (num_bits) {
++	if (have_bits) {
+ 		/* Find largest even number N1 so that bits numbered 1 through
+ 		 * (N1 x 8) - 1 in the bitmap are 0 and number N2 so that bits
+ 		 * (N2 + 1) x 8 through 2007 are 0. */
+ 		n1 = 0;
+-		for (i = 0; i < sizeof(bitmap); i++) {
+-			if (bitmap[i]) {
++		for (i = 0; i < IEEE80211_MAX_TIM_LEN; i++) {
++			if (bss->tim[i]) {
+ 				n1 = i & 0xfe;
+ 				break;
+ 			}
+ 		}
+ 		n2 = n1;
+-		for (i = sizeof(bitmap) - 1; i >= n1; i--) {
+-			if (bitmap[i]) {
++		for (i = IEEE80211_MAX_TIM_LEN - 1; i >= n1; i--) {
++			if (bss->tim[i]) {
+ 				n2 = i;
+ 				break;
+ 			}
+ 		}
  
+ 		/* Bitmap control */
+-		*pos++ = n1 | (aid0 ? 1 : 0);
++		*pos++ = n1 | aid0;
+ 		/* Part Virt Bitmap */
+-		memcpy(pos, bitmap + n1, n2 - n1 + 1);
++		memcpy(pos, bss->tim + n1, n2 - n1 + 1);
  
- static ieee80211_txrx_result
-@@ -3865,6 +3874,7 @@ void ieee80211_rx_irqsafe(struct net_dev
-         skb_queue_tail(&local->skb_queue, skb);
-         tasklet_schedule(&local->tasklet);
- }
-+EXPORT_SYMBOL(ieee80211_rx_irqsafe);
- 
- 
- void ieee80211_tx_status_irqsafe(struct net_device *dev, struct sk_buff *skb,
-@@ -3894,6 +3904,7 @@ void ieee80211_tx_status_irqsafe(struct 
+ 		tim[1] = n2 - n1 + 4;
+ 		skb_put(skb, n2 - n1);
+ 	} else {
+-		*pos++ = aid0 ? 1 : 0; /* Bitmap control */
++		*pos++ = aid0; /* Bitmap control */
+ 		*pos++ = 0; /* Part Virt Bitmap */
  	}
-         tasklet_schedule(&local->tasklet);
- }
-+EXPORT_SYMBOL(ieee80211_tx_status_irqsafe);
- 
- 
- static void ieee80211_tasklet_handler(unsigned long data)
-@@ -4145,6 +4156,7 @@ void ieee80211_tx_status(struct net_devi
-         /* Send frame to hostapd */
-         ieee80211_rx_mgmt(dev, skb, NULL, msg_type);
- }
-+EXPORT_SYMBOL(ieee80211_tx_status);
- 
- 
- /* TODO: implement register/unregister functions for adding TX/RX handlers
-@@ -4397,6 +4409,7 @@ struct net_device *ieee80211_alloc_hw(si
- 
- 	return mdev;
- }
-+EXPORT_SYMBOL(ieee80211_alloc_hw);
- 
- 
- int ieee80211_register_hw(struct net_device *dev, struct ieee80211_hw *hw)
-@@ -4508,6 +4521,7 @@ fail_sysfs:
- 	ieee80211_dev_free_index(local);
- 	return result;
- }
-+EXPORT_SYMBOL(ieee80211_register_hw);
- 
- int ieee80211_update_hw(struct net_device *dev, struct ieee80211_hw *hw)
- {
-@@ -4539,6 +4553,7 @@ int ieee80211_update_hw(struct net_devic
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(ieee80211_update_hw);
- 
- 
- void ieee80211_unregister_hw(struct net_device *dev)
-@@ -4599,6 +4614,7 @@ void ieee80211_unregister_hw(struct net_
- 	ieee80211_dev_free_index(local);
- 	ieee80211_led_exit(local);
- }
-+EXPORT_SYMBOL(ieee80211_unregister_hw);
- 
- void ieee80211_free_hw(struct net_device *dev)
- {
-@@ -4608,6 +4624,7 @@ void ieee80211_free_hw(struct net_device
- 	ieee80211_wep_free(local);
- 	ieee80211_dev_free(local);
- }
-+EXPORT_SYMBOL(ieee80211_free_hw);
- 
- void ieee80211_release_hw(struct ieee80211_local *local)
- {
-@@ -4654,6 +4671,7 @@ int ieee80211_netif_oper(struct net_devi
- 
-         return 0;
- }
-+EXPORT_SYMBOL(ieee80211_netif_oper);
- 
- void ieee80211_wake_queue(struct net_device *dev, int queue)
- {
-@@ -4668,6 +4686,7 @@ void ieee80211_wake_queue(struct net_dev
- 			__netif_schedule(dev);
- 	}
- }
-+EXPORT_SYMBOL(ieee80211_wake_queue);
- 
- void ieee80211_stop_queue(struct net_device *dev, int queue)
- {
-@@ -4675,6 +4694,7 @@ void ieee80211_stop_queue(struct net_dev
- 
- 	set_bit(IEEE80211_LINK_STATE_XOFF, &local->state[queue]);
- }
-+EXPORT_SYMBOL(ieee80211_stop_queue);
- 
- void ieee80211_start_queues(struct net_device *dev)
- {
-@@ -4684,12 +4704,14 @@ void ieee80211_start_queues(struct net_d
- 	for (i = 0; i < local->hw->queues; i++)
- 		clear_bit(IEEE80211_LINK_STATE_XOFF, &local->state[i]);
- }
-+EXPORT_SYMBOL(ieee80211_start_queues);
- 
- void * ieee80211_dev_hw_data(struct net_device *dev)
- {
- 	struct ieee80211_local *local = dev->ieee80211_ptr;
- 	return local->hw_priv;
- }
-+EXPORT_SYMBOL(ieee80211_dev_hw_data);
- 
- 
- void * ieee80211_dev_stats(struct net_device *dev)
-@@ -4723,6 +4745,7 @@ void ieee80211_rate_control_unregister(s
- 	list_del(&ops->list);
- 	mutex_unlock(&ieee80211_rate_ctrl_mtx);
- }
-+EXPORT_SYMBOL(ieee80211_dev_stats);
- 
- 
- static int rate_control_initialize(struct ieee80211_local *local)
-@@ -4795,34 +4818,6 @@ static void __exit ieee80211_exit(void)
++	spin_unlock_bh(&local->sta_lock);
  }
  
  
--EXPORT_SYMBOL(ieee80211_alloc_hw);
--EXPORT_SYMBOL(ieee80211_register_hw);
--EXPORT_SYMBOL(ieee80211_update_hw);
--EXPORT_SYMBOL(ieee80211_unregister_hw);
--EXPORT_SYMBOL(ieee80211_free_hw);
--EXPORT_SYMBOL(__ieee80211_rx);
--EXPORT_SYMBOL(ieee80211_tx_status);
--EXPORT_SYMBOL(ieee80211_beacon_get);
--EXPORT_SYMBOL(ieee80211_get_buffered_bc);
--EXPORT_SYMBOL(ieee80211_netif_oper);
--EXPORT_SYMBOL(ieee80211_wake_queue);
--EXPORT_SYMBOL(ieee80211_stop_queue);
--EXPORT_SYMBOL(ieee80211_start_queues);
--EXPORT_SYMBOL(ieee80211_dev_hw_data);
--EXPORT_SYMBOL(ieee80211_dev_stats);
--EXPORT_SYMBOL(ieee80211_get_hw_conf);
--EXPORT_SYMBOL(ieee80211_set_aid_for_sta);
--EXPORT_SYMBOL(ieee80211_rx_irqsafe);
--EXPORT_SYMBOL(ieee80211_tx_status_irqsafe);
--EXPORT_SYMBOL(ieee80211_get_hdrlen);
--EXPORT_SYMBOL(ieee80211_get_hdrlen_from_skb);
--EXPORT_SYMBOL(ieee80211_rate_control_register);
--EXPORT_SYMBOL(ieee80211_rate_control_unregister);
--EXPORT_SYMBOL(sta_info_get);
--EXPORT_SYMBOL(sta_info_put);
--EXPORT_SYMBOL(ieee80211_radar_status);
--EXPORT_SYMBOL(ieee80211_get_mc_list_item);
--
- module_init(ieee80211_init);
- module_exit(ieee80211_exit);
+@@ -2702,8 +2698,12 @@ static int ap_sta_ps_end(struct net_devi
+ 		atomic_dec(&sdata->bss->num_sta_ps);
+ 	sta->flags &= ~(WLAN_STA_PS | WLAN_STA_TIM);
+ 	sta->pspoll = 0;
+-	if (!skb_queue_empty(&sta->ps_tx_buf) && local->hw->set_tim)
+-		local->hw->set_tim(dev, sta->aid, 0);
++	if (!skb_queue_empty(&sta->ps_tx_buf)) {
++		if (local->hw->set_tim)
++			local->hw->set_tim(dev, sta->aid, 0);
++		if (sdata->bss)
++			bss_tim_clear(local, sdata->bss, sta->aid);
++	}
+ #ifdef IEEE80211_VERBOSE_DEBUG_PS
+ 	printk(KERN_DEBUG "%s: STA " MAC_FMT " aid %d exits power "
+ 	       "save mode\n", dev->name, MAC_ARG(sta->addr), sta->aid);
+@@ -2778,8 +2778,12 @@ ieee80211_rx_h_ps_poll(struct ieee80211_
  
---- wireless-dev.orig/net/d80211/sta_info.c	2006-08-23 10:35:03.000000000 +0200
+ 		dev_queue_xmit(skb);
+ 
+-		if (no_pending_pkts && rx->local->hw->set_tim)
+-			rx->local->hw->set_tim(rx->dev, rx->sta->aid, 0);
++		if (no_pending_pkts) {
++			if (rx->local->hw->set_tim)
++				rx->local->hw->set_tim(rx->dev, rx->sta->aid, 0);
++			if (rx->sdata->bss)
++				bss_tim_clear(rx->local, rx->sdata->bss, rx->sta->aid);
++		}
+ #ifdef IEEE80211_VERBOSE_DEBUG_PS
+ 	} else if (!rx->u.rx.sent_ps_buffered) {
+ 		printk(KERN_DEBUG "%s: STA " MAC_FMT " sent PS Poll even "
+--- wireless-dev.orig/net/d80211/ieee80211_i.h	2006-08-23 10:35:00.000000000 +0200
++++ wireless-dev/net/d80211/ieee80211_i.h	2006-08-23 10:35:03.000000000 +0200
+@@ -18,6 +18,8 @@
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
+ #include <linux/workqueue.h>
++#include <linux/types.h>
++#include <linux/spinlock.h>
+ #include "ieee80211_key.h"
+ #include "sta_info.h"
+ 
+@@ -211,13 +213,10 @@ struct ieee80211_if_ap {
+ 	u8 *generic_elem;
+ 	size_t generic_elem_len;
+ 
+-	/* TODO: sta_aid could be replaced by 2008-bit large bitfield of
+-	 * that could be used in TIM element generation. This would also
+-	 * make TIM element generation a bit faster. */
+-	/* AID mapping to station data. NULL, if AID is free. AID is in the
+-	 * range 1..2007 and sta_aid[i] corresponds to AID i+1. */
+-	struct sta_info *sta_aid[MAX_AID_TABLE_SIZE];
+-	int max_aid; /* largest aid currently in use */
++	/* yes, this looks ugly, but guarantees that we can later use
++	 * bitmap_empty :)
++	 * NB: don't ever use set_bit, use bss_tim_set/bss_tim_clear! */
++	u8 tim[sizeof(unsigned long) * BITS_TO_LONGS(MAX_AID_TABLE_SIZE + 1)];
+ 	atomic_t num_sta_ps; /* number of stations in PS mode */
+ 	struct sk_buff_head ps_bc_buf;
+ 	int dtim_period, dtim_count;
+@@ -549,6 +548,21 @@ struct sta_attribute {
+ 	ssize_t (*store)(struct sta_info *, const char *buf, size_t count);
+ };
+ 
++static inline void bss_tim_set(struct ieee80211_local *local,
++			       struct ieee80211_if_ap *bss, int aid)
++{
++	spin_lock(&local->sta_lock);
++	bss->tim[(aid)/8] |= 1<<((aid) % 8);
++	spin_unlock(&local->sta_lock);
++}
++
++static inline void bss_tim_clear(struct ieee80211_local *local,
++				 struct ieee80211_if_ap *bss, int aid)
++{
++	spin_lock(&local->sta_lock);
++	bss->tim[(aid)/8] &= !(1<<((aid) % 8));
++	spin_unlock(&local->sta_lock);
++}
+ 
+ /* ieee80211.c */
+ void ieee80211_release_hw(struct ieee80211_local *local);
+--- wireless-dev.orig/net/d80211/ieee80211_ioctl.c	2006-08-23 10:35:01.000000000 +0200
++++ wireless-dev/net/d80211/ieee80211_ioctl.c	2006-08-23 10:35:03.000000000 +0200
+@@ -298,10 +298,6 @@ static int ieee80211_ioctl_add_sta(struc
+ 	sta->aid = param->u.add_sta.aid;
+ 	if (sta->aid > MAX_AID_TABLE_SIZE)
+ 		sta->aid = 0;
+-	if (sta->aid > 0 && sdata->bss)
+-		sdata->bss->sta_aid[sta->aid - 1] = sta;
+-	if (sdata->bss && sta->aid > sdata->bss->max_aid)
+-		sdata->bss->max_aid = sta->aid;
+ 
+ 	rates = 0;
+ 	for (i = 0; i < sizeof(param->u.add_sta.supp_rates); i++) {
+--- wireless-dev.orig/net/d80211/ieee80211_sysfs.c	2006-08-23 10:35:02.000000000 +0200
++++ wireless-dev/net/d80211/ieee80211_sysfs.c	2006-08-23 10:35:03.000000000 +0200
+@@ -514,7 +514,6 @@ static ssize_t ieee80211_if_fmt_flags(co
+ __IEEE80211_IF_SHOW(flags);
+ 
+ /* AP attributes */
+-IEEE80211_IF_SHOW(max_aid, u.ap.max_aid, DEC);
+ IEEE80211_IF_SHOW(num_sta_ps, u.ap.num_sta_ps, ATOMIC);
+ IEEE80211_IF_SHOW(dtim_period, u.ap.dtim_period, DEC);
+ IEEE80211_IF_SHOW(dtim_count, u.ap.dtim_count, DEC);
+@@ -592,7 +591,6 @@ static struct attribute *ieee80211_ap_at
+ 	&class_device_attr_drop_unencrypted.attr,
+ 	&class_device_attr_eapol.attr,
+ 	&class_device_attr_ieee8021_x.attr,
+-	&class_device_attr_max_aid.attr,
+ 	&class_device_attr_num_sta_ps.attr,
+ 	&class_device_attr_dtim_period.attr,
+ 	&class_device_attr_dtim_count.attr,
+--- wireless-dev.orig/net/d80211/sta_info.c	2006-08-23 10:35:01.000000000 +0200
 +++ wireless-dev/net/d80211/sta_info.c	2006-08-23 10:35:03.000000000 +0200
-@@ -76,6 +76,7 @@ struct sta_info * sta_info_get(struct ie
+@@ -421,16 +421,15 @@ void sta_info_remove_aid_ptr(struct sta_
+ {
+ 	struct ieee80211_sub_if_data *sdata;
  
- 	return sta;
+-	sdata = IEEE80211_DEV_TO_SUB_IF(sta->dev);
+-	if (sta->aid <= 0 || !sdata->bss)
++	if (sta->aid <= 0)
+ 		return;
+ 
+-	sdata->bss->sta_aid[sta->aid - 1] = NULL;
+-	if (sta->aid == sdata->bss->max_aid) {
+-		while (sdata->bss->max_aid > 0 &&
+-		       !sdata->bss->sta_aid[sdata->bss->max_aid - 1])
+-			sdata->bss->max_aid--;
+-	}
++	sdata = IEEE80211_DEV_TO_SUB_IF(sta->dev);
++
++	if (sdata->local->hw->set_tim)
++		sdata->local->hw->set_tim(sta->dev, sta->aid, 0);
++	if (sdata->bss)
++		bss_tim_clear(sdata->local, sdata->bss, sta->aid);
  }
-+EXPORT_SYMBOL(sta_info_get);
  
- int sta_info_min_txrate_get(struct ieee80211_local *local)
- {
-@@ -104,6 +105,7 @@ void sta_info_put(struct sta_info *sta)
- {
- 	kobject_put(&sta->kobj);
- }
-+EXPORT_SYMBOL(sta_info_put);
  
- void sta_info_release(struct kobject *kobj)
- {
+--- wireless-dev.orig/include/net/d80211.h	2006-08-23 10:35:00.000000000 +0200
++++ wireless-dev/include/net/d80211.h	2006-08-23 10:35:03.000000000 +0200
+@@ -987,8 +987,10 @@ enum {
+ #define IEEE80211_STYPE_QOS_CFACKPOLL		0x00F0
+ 
+ 
++/* miscellaneous IEEE 802.11 constants */
+ #define IEEE80211_MAX_FRAG_THRESHOLD 2346
+ #define IEEE80211_MAX_RTS_THRESHOLD 2347
++#define IEEE80211_MAX_TIM_LEN 251
+ 
+ struct ieee80211_hdr {
+ 	__le16 frame_control;
 
