@@ -1,49 +1,35 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: ProxyARP and IPSec
-Date: Tue, 22 Aug 2006 17:31:56 -0700
-Message-ID: <44EBA1FC.5000801@zytor.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
+Date: Tue, 22 Aug 2006 17:32:00 -0700 (PDT)
+Message-ID: <20060822.173200.126578369.davem@davemloft.net>
+References: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com>
+	<20060822231129.GA18296@ms2.inr.ac.ru>
+	<b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, johnpol@2ka.mipt.ru, nmiell@comcast.net,
+	linux-kernel@vger.kernel.org, drepper@redhat.com, akpm@osdl.org,
+	netdev@vger.kernel.org, zach.brown@oracle.com, hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([192.83.249.54]:52391 "EHLO
-	terminus.zytor.com") by vger.kernel.org with ESMTP id S1751198AbWHWAcA
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Aug 2006 20:32:00 -0400
-To: netdev@vger.kernel.org
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:41190
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751266AbWHWAcC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Aug 2006 20:32:02 -0400
+To: sundell.software@gmail.com
+In-Reply-To: <b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello all,
+From: "Jari Sundell" <sundell.software@gmail.com>
+Date: Wed, 23 Aug 2006 02:28:32 +0200
 
-I am having a puzzlement combining ProxyARP and IPsec.  Specificially, I 
-want to take a single address from a local LAN and extend it via IPsec 
-to another site.
+> There are system calls that take timespec, so I assume the magic is
+> already available for handling the timeout argument of kevent.
 
-Unfortunately IPsec tunnels, unlike all other tunnels, don't have 
-pseudo-devices associated with them.  I understand this to be from 
-desire of uniformity with the other modes of IPsec, but this is one of 
-many cases where it causes problems.
+System calls are one thing, they can be translated for these
+kinds of situations.  But this doesn't help, and nothing at
+all can be done, for datastructures exposed to userspace via
+mmap()'d buffers, which is what kevent will be doing.
 
-Specifically, Linux will not ProxyARP for an address unless it has a 
-route for it, *and* that route either has a DNAT marking or points to a 
-different interface than the input interface:
-
-net/ipv4/arp.c:
-
-    855                  } else if (IN_DEV_FORWARD(in_dev)) {
-    856                          if ((rt->rt_flags&RTCF_DNAT) ||
-    857                              (addr_type == RTN_UNICAST  && 
-rt->u.dst.dev != dev &&
-^^^^^^^^^^^^^^^^^^^^
-    858                               (arp_fwd_proxy(in_dev, rt) || 
-pneigh_lookup(&arp_tbl, &tip, dev, 0)))) {
-
-However, since IPsec tunnels don't have interfaces associated with it, 
-the route to the other side of the IPsec tunnel with point to the same 
-interface (there is, elsewhere, a security policy associated with the 
-address), and this selection will fail.
-
-Does anyone know of a trick around this issue?
-
-	-hpa
+This is what Alexey is trying to explain to you.
