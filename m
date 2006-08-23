@@ -1,49 +1,78 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 1/21] d80211: relax sysfs permissions
-Date: Wed, 23 Aug 2006 21:24:09 +0200 (CEST)
-Message-ID: <20060823192409.B2E714839B@silver.suse.cz>
-References: <20060823212316.333159079.midnight@suse.cz>
+Subject: [PATCH 0/21] d80211: pull request
+Date: Wed, 23 Aug 2006 21:24:08 +0200 (CEST)
+Message-ID: <20060823212316.333159079.midnight@suse.cz>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:26576 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S965011AbWHWTYJ (ORCPT
+Received: from styx.suse.cz ([82.119.242.94]:26064 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S965111AbWHWTYJ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 15:24:09 -0400
 To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060823212316.333159079.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
+Please pull from
+git://git.kernel.org/pub/scm/linux/kernel/git/jbenc/dscape.git master
+to obtain following patches:
 
-The sysfs attributes add_iface and remove_iface both check for
-CAP_NET_ADMIN whenever something is written. Hence, permissions for the
-files should be relaxed so that someone who is not root but happens to
-have CAP_NET_ADMIN can do things.
+David Kimdon:
+      d80211: allow for large scan results
+      d80211: fix multiple device support
+      d80211: fix interface removal
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-Signed-off-by: Jiri Benc <jbenc@suse.cz>
+Jiri Benc:
+      d80211: remove useless and wrong check for interface type
 
----
+Johannes Berg:
+      d80211: relax sysfs permissions
+      d80211: master link
+      d80211: pointers as extended booleans
+      d80211: use kzalloc()
+      d80211: get rid of WME bitfield
+      d80211: get rid of sta_aid in favour of keeping track of TIM
+      d80211: clean up exports
+      d80211: clean up includes
+      d80211: fix some sparse warnings
+      d80211: make lowlevel TX framedump option visible
+      d80211: surface IBSS debug
+      d80211: get rid of MICHAEL_MIC_HWACCEL define
+      d80211: surface powersave debug switch
+      d80211: fix some documentation
 
- net/d80211/ieee80211_sysfs.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Michael Buesch:
+      d80211: add ieee80211_stop_queues()
 
-b8fa453a5bff1710a6e170e9d50fa337bee5ebdf
-diff --git a/net/d80211/ieee80211_sysfs.c b/net/d80211/ieee80211_sysfs.c
-index 9974668..6725ff7 100644
---- a/net/d80211/ieee80211_sysfs.c
-+++ b/net/d80211/ieee80211_sysfs.c
-@@ -195,8 +195,8 @@ static ssize_t ieee80211_local_fmt_rate_
- __IEEE80211_LOCAL_SHOW(rate_ctrl_alg);
- 
- static struct class_device_attribute ieee80211_class_dev_attrs[] = {
--	__ATTR(add_iface, S_IWUSR, NULL, store_add_iface),
--	__ATTR(remove_iface, S_IWUSR, NULL, store_remove_iface),
-+	__ATTR(add_iface, S_IWUGO, NULL, store_add_iface),
-+	__ATTR(remove_iface, S_IWUGO, NULL, store_remove_iface),
- 	__ATTR(channel, S_IRUGO, ieee80211_local_show_channel, NULL),
- 	__ATTR(frequency, S_IRUGO, ieee80211_local_show_frequency, NULL),
- 	__ATTR(radar_detect, S_IRUGO, ieee80211_local_show_radar_detect, NULL),
+Michael Wu:
+      d80211: switch status codes, reason codes, and EIDs to enums
+      d80211: Group EIDs by standard, add remaining 802.11d EIDs
+
+ include/net/d80211.h         |  144 ++++++++++++----------
+ include/net/d80211_mgmt.h    |  158 ++++++++++++++----------
+ net/d80211/Kconfig           |   26 ++++
+ net/d80211/aes_ccm.c         |    3 
+ net/d80211/aes_ccm.h         |    2 
+ net/d80211/fifo_qdisc.c      |    5 -
+ net/d80211/ieee80211.c       |  276 +++++++++++++++++++++---------------------
+ net/d80211/ieee80211_i.h     |   68 ++++++----
+ net/d80211/ieee80211_iface.c |    8 +
+ net/d80211/ieee80211_ioctl.c |   79 ++++++------
+ net/d80211/ieee80211_key.h   |    7 +
+ net/d80211/ieee80211_scan.c  |   12 +-
+ net/d80211/ieee80211_sta.c   |  113 ++++++++---------
+ net/d80211/ieee80211_sysfs.c |    6 -
+ net/d80211/rate_control.c    |   18 +--
+ net/d80211/rate_control.h    |    2 
+ net/d80211/sta_info.c        |   31 ++---
+ net/d80211/sta_info.h        |   14 +-
+ net/d80211/tkip.c            |   15 --
+ net/d80211/tkip.h            |    1 
+ net/d80211/wep.c             |   14 +-
+ net/d80211/wme.c             |   24 ++--
+ net/d80211/wme.h             |   25 ----
+ net/d80211/wpa.c             |   17 ---
+ 24 files changed, 537 insertions(+), 531 deletions(-)
+
+
 -- 
-1.3.0
-
+Jiri Benc
+SUSE Labs
