@@ -1,102 +1,45 @@
-From: "Simon Barber" <simon@devicescape.com>
-Subject: RE: [PATCH] d80211: add ieee80211_stop_queues()
-Date: Wed, 23 Aug 2006 12:30:52 -0700
-Message-ID: <C86180A8C204554D8A3323D8F6B0A29F0165B5C6@dhost002-46.dex002.intermedia.net>
-References: <200608231344.20438.mb@bu3sch.de>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take13 0/3] kevent: Generic event handling mechanism.
+Date: Wed, 23 Aug 2006 23:42:20 +0400
+Message-ID: <20060823194220.GA27685@2ka.mipt.ru>
+References: <11563322941645@2ka.mipt.ru> <Pine.LNX.4.63.0608231313370.8007@alpha.polcom.net> <20060823122509.GA5744@2ka.mipt.ru> <Pine.LNX.4.63.0608231437170.8007@alpha.polcom.net> <20060823134227.GC29056@2ka.mipt.ru> <20060823185624.GA8438@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <linville@tuxdriver.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=koi8-r
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-46.dex002.intermedia.net ([64.78.21.140]:32408 "EHLO
-	dhost002-46.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S965143AbWHWTai convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 15:30:38 -0400
-Content-class: urn:content-classes:message
-in-reply-to: <200608231344.20438.mb@bu3sch.de>
-To: "Michael Buesch" <mb@bu3sch.de>, "Jiri Benc" <jbenc@suse.cz>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:38357 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S965152AbWHWTn1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 15:43:27 -0400
+To: Grzegorz Kulewski <kangur@polcom.net>
+Content-Disposition: inline
+In-Reply-To: <20060823185624.GA8438@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-One question - in most hardware implementations today the queues are DMA
-rings. In this case the right length of the queue is determined by the
-interrupt/tx_softirq latency required to keep the queue from becoming
-empty. With 802.11 there are large differences in the time it takes to
-transmit different frames - a full size 1Mbit frame vs. a short 54Mbit
-frame. Would it be worth optimizing the DMA queue length to be a
-function of the amount of time rather than number of frames?
+On Wed, Aug 23, 2006 at 10:56:24PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> > It can be done by selecting special event type, which in turn will reuse
+> > special fields as length.
+> > But variable-sized members can not be put into cache and without
+> > knowledge of it's size it is impossible to put htem into mapped buffer.
+> 
+> And thinking more about this issue, I can say that I'm again
+> variable-sized structures - they can not be placed into ring buffer (at
+> least into simple one), they do not allow allocation from cache, it is
+> impossible to get them correctly from userspace if there is now exact
+> knowledge about nature of that events and a lot of other problems.
+> If one strongly feels that it is required, it is possible to provide
+> userspace pointer in the ukevent structure, which then can be read in
+> ->enqueue callback by kernelside (there is similar trick in network
+> AIO).
 
-Simon
+I've reread my text - sorry for tons of errors, I use extremely slow
+GPRS link, so it is almost impossible to return and correct errors using
+it, I think it is simple to understand what I meant :)
 
-
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-On Behalf Of Michael Buesch
-Sent: Wednesday, August 23, 2006 4:44 AM
-To: Jiri Benc
-Cc: linville@tuxdriver.com; netdev@vger.kernel.org
-Subject: [PATCH] d80211: add ieee80211_stop_queues()
-
-Add ieee80211_stop_queues() to stop all queues with a single call.
-I will submit a patch for bcm43xx to use this function as soon as this
-got merged.
-
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
-
-Index: wireless-dev/include/net/d80211.h
-===================================================================
---- wireless-dev.orig/include/net/d80211.h	2006-08-19
-18:26:05.000000000 +0200
-+++ wireless-dev/include/net/d80211.h	2006-08-23 13:38:41.000000000
-+0200
-@@ -826,6 +826,15 @@
- void ieee80211_start_queues(struct net_device *dev);
- 
- /**
-+ * ieee80211_stop_queues - stop all queues
-+ * @dev: pointer to $struct net_device as obtained from
-+ *       ieee80211_alloc_hw().
-+ *
-+ * Drivers should use this function instead of netif_stop_queue.
-+ */
-+void ieee80211_stop_queues(struct net_device *dev);
-+
-+/**
-  * ieee80211_get_mc_list_item - iteration over items in multicast list
-  * @dev: pointer to &struct net_device as obtained from
-  *	ieee80211_alloc_hw().
-Index: wireless-dev/net/d80211/ieee80211.c
-===================================================================
---- wireless-dev.orig/net/d80211/ieee80211.c	2006-08-19
-18:26:05.000000000 +0200
-+++ wireless-dev/net/d80211/ieee80211.c	2006-08-23 13:41:34.000000000
-+0200
-@@ -4690,6 +4690,15 @@
- 		clear_bit(IEEE80211_LINK_STATE_XOFF, &local->state[i]);
-}
- 
-+void ieee80211_stop_queues(struct net_device *dev) {
-+	struct ieee80211_local *local = dev->ieee80211_ptr;
-+	int i;
-+
-+	for (i = 0; i < local->hw->queues; i++)
-+		ieee80211_stop_queue(dev, i);
-+}
-+
- void * ieee80211_dev_hw_data(struct net_device *dev)  {
- 	struct ieee80211_local *local = dev->ieee80211_ptr; @@ -4819,6
-+4828,7 @@  EXPORT_SYMBOL(ieee80211_wake_queue);
- EXPORT_SYMBOL(ieee80211_stop_queue);
- EXPORT_SYMBOL(ieee80211_start_queues);
-+EXPORT_SYMBOL(ieee80211_stop_queues);
- EXPORT_SYMBOL(ieee80211_dev_hw_data);
- EXPORT_SYMBOL(ieee80211_dev_stats);
- EXPORT_SYMBOL(ieee80211_get_hw_conf);
-
---
-Greetings Michael.
--
-To unsubscribe from this list: send the line "unsubscribe netdev" in the
-body of a message to majordomo@vger.kernel.org More majordomo info at
-http://vger.kernel.org/majordomo-info.html
+-- 
+	Evgeniy Polyakov
