@@ -1,34 +1,55 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 23 Aug 2006 20:22:14 +0400
-Message-ID: <20060823162214.GA14623@2ka.mipt.ru>
-References: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com> <20060822231129.GA18296@ms2.inr.ac.ru> <b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com> <20060822.173200.126578369.davem@davemloft.net> <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com> <20060823065659.GC24787@2ka.mipt.ru> <20060823000758.5ebed7dd.akpm@osdl.org> <20060823075056.GA18029@2ka.mipt.ru> <20060823090920.18e4d1da.akpm@osdl.org>
+From: Erik Mouw <erik@harddisk-recovery.com>
+Subject: Re: eth interface enumeration order
+Date: Wed, 23 Aug 2006 18:46:21 +0200
+Message-ID: <20060823164620.GO969@harddisk-recovery.com>
+References: <44EC79D8.3050402@paradigmgeo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Jari Sundell <sundell.software@gmail.com>,
-	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	nmiell@comcast.net, linux-kernel@vger.kernel.org,
-	drepper@redhat.com, netdev@vger.kernel.org, zach.brown@oracle.com,
-	hch@infradead.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965031AbWHWQXW@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@zip.com.au, jgarzik@pobox.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dtp.xs4all.nl ([80.126.206.180]:32255 "HELO abra2.bitwizard.nl")
+	by vger.kernel.org with SMTP id S965059AbWHWQqX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 12:46:23 -0400
+To: Victor Secarin <vsecarin@paradigmgeo.com>
 Content-Disposition: inline
-In-Reply-To: <20060823090920.18e4d1da.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <44EC79D8.3050402@paradigmgeo.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 23, 2006 at 09:09:20AM -0700, Andrew Morton (akpm@osdl.org) wrote:
-> > I can put nanoseconds as timer interval too (with aligned_u64 as David
-> > mentioned), and put it for timeout value too - 64 bit nanosecods ends up
-> > with 58 years, probably enough.
-> > Structures with u64 a really not so good idea.
-> > 
-> 
-> OK.  One could do u32 seconds/u32 nsecs, but a simple aligned_u64 will be
-> better for 64-bit machines, and OK for 32-bit.
+On Wed, Aug 23, 2006 at 09:52:56AM -0600, Victor Secarin wrote:
+> VERSION
+> With kernel 2.4.33.1:
+> HARDWARE
+> I have a server with two eepro100 and one e1000 interfaces
+> BEHAVIOR
+> When the kernel boots the drivers report (/var/log/messages) the 
+> interfaces they find and what they are named (eth0, eth1, eth2)
+> 1. With the drivers configured monolithically in the kernel:
+> e1000 reports eth0 and then eepro100 reports eth1 and eth2
 
-aligned_u64 is not exported to userspace, so in the last patchset I just
-use __u64 as syscall parameter.
+Bus order.
+
+> 2. With the drivers configured as modules:
+> eepro100 reports eth0 and eth1 and then e1000 reports eth2
+
+Module load order.
+
+> PROBLEM
+> 1. On a red  hat distribution, different interfaces may have different 
+> configuration scripts, which assign IP addresses and more, and the 
+> scripts are identified by the ethx name.
+> 2. It is necessary to control which interface becomes eth0 as various 
+> programs use the MAC address of eth0 to identify the computer. In my 
+> case that is "lmhostid" and all the FLEXlm software,
+> as I run a license server on that machine.
+
+Manually load the modules in the correct order, that should solve your
+problems. Or use nameif to rename the network devices (on 2.6 that
+should be done using udev).
+
+
+Erik
 
 -- 
-	Evgeniy Polyakov
++-- Erik Mouw -- www.harddisk-recovery.com -- +31 70 370 12 90 --
+| Lab address: Delftechpark 26, 2628 XH, Delft, The Netherlands
