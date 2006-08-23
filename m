@@ -1,64 +1,52 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 23 Aug 2006 14:20:37 +0400
-Message-ID: <20060823102037.GA23664@2ka.mipt.ru>
-References: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com> <20060822231129.GA18296@ms2.inr.ac.ru> <b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com> <20060822.173200.126578369.davem@davemloft.net> <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com> <20060823065659.GC24787@2ka.mipt.ru> <b3f268590608230122k60e3c7c7y939d5559d97107f@mail.gmail.com> <20060823083859.GA8936@2ka.mipt.ru> <b3f268590608230249q653e1dfh1d77c07f6f4e82ce@mail.gmail.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] b44: fix eeprom endianess issue
+Date: Wed, 23 Aug 2006 12:32:05 +0200
+Message-ID: <200608231232.05750.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	nmiell@comcast.net, linux-kernel@vger.kernel.org,
-	drepper@redhat.com, akpm@osdl.org, netdev@vger.kernel.org,
-	zach.brown@oracle.com, hch@infradead.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: zambrano@broadcom.com, netdev@vger.kernel.org, davem@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:10655 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S964815AbWHWKVs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 06:21:48 -0400
-To: Jari Sundell <sundell.software@gmail.com>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:36497
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S964810AbWHWKdG
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 06:33:06 -0400
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <b3f268590608230249q653e1dfh1d77c07f6f4e82ce@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 23, 2006 at 11:49:22AM +0200, Jari Sundell (sundell.software@gmail.com) wrote:
-> >> Only void * I'm seeing belongs to the user, (udata) perhaps you are
-> >> talking of something different?
-> >
-> >Yes, exactly about it.
-> >
-> >I put union {
-> >        u32 a[2];
-> >        void *b;
-> >}
-> >epcially to eliminate that problem.
-> 
-> It's just random data of a known maximum size appended to the struct,
-> I'm sure you can find a clean way to handle it. If you mangle the
-> first variable name in your union, you'll end up with something that
-> should be usable instead of udata.
+Hi Andrew,
 
-If there will be usual pointer, size of the whole structure will be
-different in kernel and userspace.
+Please apply this patch to -mm for testing.
+I think in the long term we want to convert b44 to use the
+new ssb backend driver, which would also fix the issue, but
+for now I think this small fix is best.
 
-> >And I'm not that sure aboit stuff like uptr_t or how they call pointers
-> >in userspace and kernelspace.
-> 
-> Well, I can't find any use of pointers in your struct ukevent, nor in
-> any of the kqueue events in my man page. So if this is a deficit it
-> applies to both, I guess?
+Please note that this test is only compile tested, as
+I don't have a b44 device.
 
-No, it will change sizes of the structure in kernelspace and userspace,
-so they just can not communicate.
+--
 
-> >ukevent is aligned to 8 bytes already (it's size selected to be 40 bytes),
-> >so it should not be a problem.
-> >
-> >> Eric
-> 
-> Even if it is so, wouldn't it be better to be explicit about it?
+This fixes eeprom read on big-endian architectures.
 
-Ok, I will add a comment about it.
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 
-> Rakshasa
+Index: linux-2.6/drivers/net/b44.c
+===================================================================
+--- linux-2.6.orig/drivers/net/b44.c	2006-08-22 11:27:56.000000000 +0200
++++ linux-2.6/drivers/net/b44.c	2006-08-23 12:26:31.000000000 +0200
+@@ -2055,7 +2055,7 @@
+ 	u16 *ptr = (u16 *) data;
+ 
+ 	for (i = 0; i < 128; i += 2)
+-		ptr[i / 2] = readw(bp->regs + 4096 + i);
++		ptr[i / 2] = cpu_to_le16(readw(bp->regs + 4096 + i));
+ 
+ 	return 0;
+ }
+
 
 -- 
-	Evgeniy Polyakov
+Greetings Michael.
