@@ -1,62 +1,37 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [patch 5/5] d80211: add ioctl to stop data frame tx
-Date: Wed, 23 Aug 2006 09:25:06 +0200
-Message-ID: <1156317906.3629.18.camel@ux156>
-References: <20060822173241.313859000@devicescape.com>
-	 <20060822173419.GF12500@devicescape.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
+Date: Wed, 23 Aug 2006 00:35:16 -0700 (PDT)
+Message-ID: <20060823.003516.30182824.davem@davemloft.net>
+References: <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com>
+	<20060823065659.GC24787@2ka.mipt.ru>
+	<20060823000758.5ebed7dd.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Jiri Benc <jbenc@suse.cz>
+Cc: johnpol@2ka.mipt.ru, sundell.software@gmail.com,
+	kuznet@ms2.inr.ac.ru, nmiell@comcast.net,
+	linux-kernel@vger.kernel.org, drepper@redhat.com,
+	netdev@vger.kernel.org, zach.brown@oracle.com, hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:51411 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751448AbWHWHYn
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 03:24:43 -0400
-To: David Kimdon <david.kimdon@devicescape.com>
-In-Reply-To: <20060822173419.GF12500@devicescape.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:2179
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751444AbWHWHfR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 03:35:17 -0400
+To: akpm@osdl.org
+In-Reply-To: <20060823000758.5ebed7dd.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-08-22 at 10:34 -0700, David Kimdon wrote:
+From: Andrew Morton <akpm@osdl.org>
+Date: Wed, 23 Aug 2006 00:07:58 -0700
 
-> This ioctl is used when radar is delected on a channel.  Data frames must stop
-> but management frames must be allowed to continue for some time to communicate
-> the channel switch to stations.
+> I wonder whether designing-in a millisecond granularity is the right thing
+> to do.  If in a few years the kernel is running tickless with high-res clock
+> interrupt sources, that might look a bit lumpy.
+> 
+> Switching it to a __u64 nanosecond counter would be basically free on
+> 64-bit machines, and not very expensive on 32-bit, no?
 
-Which does lead to the question: How are you detecting radar in
-userspace in the first place??
-
-> +       if (unlikely(local->stop_data_frame_tx)) {
-> +               struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
-> +               u16 fc = le16_to_cpu(hdr->frame_control);
-> +               if ((fc & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_DATA) {
-> +                       dev_kfree_skb(skb);
-> +                       return 0;
-> +               }
-> +       }
-
-Should that really drop dataframes dead on the floor? And wouldn't it
-make sense stop the networking layer from injecting more data into the
-stack when stop_data_frame_tx is enabled?
-
-> +static int ieee80211_ioctl_set_stop_data_frame_tx(struct net_device *dev,
-> +                                                 int val)
-> +{
-> +	struct ieee80211_local *local = dev->ieee80211_ptr;
-> +        local->stop_data_frame_tx = val;
-> +        return 0;
-> +}
-
-Again, whitespace damaged. Yes, I know it's hard to code in there with
-any smart editor that thinks it knows what to do based on the
-surroundings because those may also contain whitespace...
-
-
-> +                ret = ieee80211_ioctl_set_stop_data_frame_tx(dev, value);
-
-Ditto.
-
-johannes
+If it ends up in a structure we'll need to use the "aligned_u64" type
+in order to avoid problems with 32-bit x86 binaries running on 64-bit
+kernels.
