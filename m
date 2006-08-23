@@ -1,62 +1,40 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] d80211: add ieee80211_stop_queues()
-Date: Thu, 24 Aug 2006 00:07:23 +0200
-Message-ID: <200608240007.23798.mb@bu3sch.de>
-References: <C86180A8C204554D8A3323D8F6B0A29F0165B5F1@dhost002-46.dex002.intermedia.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ProxyARP and IPSec
+Date: Wed, 23 Aug 2006 15:14:24 -0700 (PDT)
+Message-ID: <20060823.151424.78711856.davem@davemloft.net>
+References: <44EBA1FC.5000801@zytor.com>
+	<20060823191425.GK3470@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Jiri Benc" <jbenc@suse.cz>, linville@tuxdriver.com,
-	netdev@vger.kernel.org
+Cc: hpa@zytor.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:17550
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965237AbWHWWH5
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 18:07:57 -0400
-To: "Simon Barber" <simon@devicescape.com>
-In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F0165B5F1@dhost002-46.dex002.intermedia.net>
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:10185
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965236AbWHWWOX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 18:14:23 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20060823191425.GK3470@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 23 August 2006 23:12, Simon Barber wrote:
-> We already do have intelligent qdiscs - via TC. Anyone using htb for
-> rate pacing, will achieve better control (less jitter) if the DMA queue
-> latency is kept down.
+From: Thomas Graf <tgraf@suug.ch>
+Date: Wed, 23 Aug 2006 21:14:25 +0200
+
+> * H. Peter Anvin <hpa@zytor.com> 2006-08-22 17:31
+> > Specifically, Linux will not ProxyARP for an address unless it has a 
+> > route for it, *and* that route either has a DNAT marking or points to a 
+> > different interface than the input interface:
 > 
-> One very important issue for 802.11 is the software rate control. At a
-> certain point in time the rate control algorithm may determine it's time
-> to start transmitting frames at a much lower rate - now all the frames
-> already in the DMA queue will be transmitted at the old higher rate -
-> and hence will suffer a lower probability of being received correctly.
-> If the number of frames in the DMA queue can be kept down then the rate
-> change happens faster. Obviously the limiting factor is keeping the DMA
-> queue full enough that the hardware is not starved in the worst case of
-> softirq latency. This is a time based limit.
+> I can think of a very ugly way: Use netfilter to match on the
+> arp packet prerouting, set nfmark to some value, create a routing
+> rule matching the fwmark again, have it look up a separate table
+> with a dummy route pointing to a dummy device. Make sure to have
+> a proxy neighbour entry as using the device proxy_arp sysctl would
+> fail again.
 
-Yes, that makes sense.
-What about the following:
+This shows we have a usability problem if that's the only way
+to do this :-)
 
-We don't remove the ieee80211_stop/wake_queue() mechanism, as it's
-simply used to protect the hard bounds of the ring.
-
-I think determining the ring latency might be possible without changing
-the API or even changing the low level driver.
-
-We have the ieee80211_tx_status() callback. We must simply
-assume any packet that's gone through hw->tx() but not yet
-got back through ieee80211_tx_status() is on the device queue.
-And I think that's a valid assumption.
-
-So accounting can be done before calling hw->tx()
-and in ieee80211_tx_status().
-
-At ieee80211_tx_status() time we have all needed information.
-The frame length (skb), the transmission rate from the tx_control
-array in the status report. We have that information in hw->tx(),
-too, of course. So we can calculate the time (latency) the
-current ring state has in O(1) time.
-
--- 
-Greetings Michael.
+What he's trying to accomplish doesn't sound all that weird,
+does anyone have any other ideas?
