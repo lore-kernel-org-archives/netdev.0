@@ -1,26 +1,33 @@
-From: "Sterling" <bartlettaffluent@royalblanks.com>
-Subject: Delight in If you thought getting more size and girth was impossible, take a look at this.
-Date: Wed, 23 Aug 2006 15:25:06 -0700
-Message-ID: <46306160591531.E7E72E32C8@X5NDSDF>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] IP1000A: IC Plus update 2006-08-22
+Date: Thu, 24 Aug 2006 00:30:32 +0200
+Message-ID: <20060823223032.GA25111@electric-eye.fr.zoreil.com>
+References: <1156268234.3622.1.camel@localhost.localdomain> <20060822232730.GA30977@electric-eye.fr.zoreil.com> <20060823113822.GA17103@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="Windows-1252"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: penberg@cs.Helsinki.FI, akpm@osdl.org, dvrabel@cantab.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	david@pleyades.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 24-50-12-29.atlsfl.adelphia.net ([24.50.12.29]:47111 "EHLO
-	YOUR-US67PI6LUV") by vger.kernel.org with ESMTP id S965252AbWHWWVr
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:7810 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S965258AbWHWWbj
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 18:21:47 -0400
-To: <netdev@vger.kernel.org>
+	Wed, 23 Aug 2006 18:31:39 -0400
+To: Jesse Huang <jesse@icplus.com.tw>
+Content-Disposition: inline
+In-Reply-To: <20060823113822.GA17103@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Never-seen
- Act while others wait! Increase your confidence to enormous levels! You won't be able to get enough of your renowned, increased tool - months or even less of usage, and you're there!
+Francois Romieu <romieu@fr.zoreil.com> :
+[...]
+> Typo. It should be:
+> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.18-rc4/ip1000
 
- Give her an opportunity to spread rumors about your enormous size. Sufficient size, rigidity and staying power will be just among the few things you'll start enjoying. You may find what you need here: http://www.sedeji.com/gal/xl/ 
+Added 0038-ip1000-CodingStyle.txt.
 
-Concerned with your size and hardness? Study this, here's the answer!
+More local variables, more unsigned int, less MixedCase, ipg_nic_rx()
+fits in your favorite 80 cols console.
 
- One volunteer is worth ten pressed men Love is like a fire, it can either warm your heart or burn your house down The first step is the hardest There but for the grace of God go I 
-
+-- 
+Ueimor
