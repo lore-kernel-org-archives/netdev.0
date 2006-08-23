@@ -1,51 +1,40 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 03/3] d80211:  adhoc
-Date: Wed, 23 Aug 2006 17:51:53 +0200
-Message-ID: <20060823175153.3ed77ff8@griffin.suse.cz>
-References: <20060821074107.648561364@sipsolutions.net>
-	<20060821075158.728615077@sipsolutions.net>
-	<44EA501E.4010605@linux.intel.com>
-	<44EA51EC.8010705@linux.intel.com>
+From: Victor Secarin <vsecarin@paradigmgeo.com>
+Subject: eth interface enumeration order
+Date: Wed, 23 Aug 2006 09:52:56 -0600
+Message-ID: <44EC79D8.3050402@paradigmgeo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:40338 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S964994AbWHWPvz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 11:51:55 -0400
-To: Mohamed Abbas <mabbas@linux.intel.com>
-In-Reply-To: <44EA51EC.8010705@linux.intel.com>
+Received: from h-207-148-171-98.gen.cadvision.com ([207.148.171.98]:34606 "EHLO
+	pokey.corelab-rtd.ca") by vger.kernel.org with ESMTP
+	id S964999AbWHWPxJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 11:53:09 -0400
+To: akpm@zip.com.au, jgarzik@pobox.com, netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Aug 2006 17:38:04 -0700, Mohamed Abbas wrote:
-> This a small patch allow IBSS network to recieve management frame.
-> Thanks
-> Mohamed
-> 
-> diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-> index 8caf352..1153932 100644
-> --- a/net/d80211/ieee80211_sta.c
-> +++ b/net/d80211/ieee80211_sta.c
-> @@ -1716,7 +1710,8 @@ void ieee80211_sta_rx_mgmt(struct net_de
->  		goto fail;
->  
->  	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-> -	if (sdata->type != IEEE80211_IF_TYPE_STA) {
-> +	if ((sdata->type != IEEE80211_IF_TYPE_STA) &&
-> +            (sdata->type != IEEE80211_IF_TYPE_IBSS)) {
->  		printk(KERN_DEBUG "%s: ieee80211_sta_rx_mgmt: non-STA "
->  		       "interface (type=%d)\n", dev->name, sdata->type);
->  		goto fail;
+VERSION
+With kernel 2.4.33.1:
+HARDWARE
+ I have a server with two eepro100 and one e1000 interfaces
+BEHAVIOR
+When the kernel boots the drivers report (/var/log/messages) the 
+interfaces they find and what they are named (eth0, eth1, eth2)
+1. With the drivers configured monolithically in the kernel:
+e1000 reports eth0 and then eepro100 reports eth1 and eth2
+2. With the drivers configured as modules:
+eepro100 reports eth0 and eth1 and then e1000 reports eth2
+PROBLEM
+1. On a red  hat distribution, different interfaces may have different 
+configuration scripts, which assign IP addresses and more, and the 
+scripts are identified by the ethx name.
+2. It is necessary to control which interface becomes eth0 as various 
+programs use the MAC address of eth0 to identify the computer. In my 
+case that is "lmhostid" and all the FLEXlm software,
+as I run a license server on that machine.
 
-The check for the interface type can be removed completely here - it is
-already checked by ieee80211_rx_h_mgmt. I'll take care of that.
+Thank you for taking the time to read this.
+yours truly,
+Victor Secarin
 
-Thanks,
-
- Jiri
-
--- 
-Jiri Benc
-SUSE Labs
