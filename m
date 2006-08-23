@@ -1,49 +1,58 @@
-From: "Jari Sundell" <sundell.software@gmail.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 23 Aug 2006 10:22:06 +0200
-Message-ID: <b3f268590608230122k60e3c7c7y939d5559d97107f@mail.gmail.com>
-References: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com>
-	 <20060822231129.GA18296@ms2.inr.ac.ru>
-	 <b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com>
-	 <20060822.173200.126578369.davem@davemloft.net>
-	 <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com>
-	 <20060823065659.GC24787@2ka.mipt.ru>
+Date: Wed, 23 Aug 2006 12:39:00 +0400
+Message-ID: <20060823083859.GA8936@2ka.mipt.ru>
+References: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com> <20060822231129.GA18296@ms2.inr.ac.ru> <b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com> <20060822.173200.126578369.davem@davemloft.net> <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com> <20060823065659.GC24787@2ka.mipt.ru> <b3f268590608230122k60e3c7c7y939d5559d97107f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
 	nmiell@comcast.net, linux-kernel@vger.kernel.org,
 	drepper@redhat.com, akpm@osdl.org, netdev@vger.kernel.org,
 	zach.brown@oracle.com, hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.207]:10686 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S932432AbWHWIWH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 04:22:07 -0400
-Received: by nz-out-0102.google.com with SMTP id n1so29260nzf
-        for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 01:22:06 -0700 (PDT)
-To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060823065659.GC24787@2ka.mipt.ru>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:24284 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S964789AbWHWIpF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 04:45:05 -0400
+To: Jari Sundell <sundell.software@gmail.com>
 Content-Disposition: inline
+In-Reply-To: <b3f268590608230122k60e3c7c7y939d5559d97107f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/23/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> void * in structure exported to userspace is forbidden.
+On Wed, Aug 23, 2006 at 10:22:06AM +0200, Jari Sundell (sundell.software@gmail.com) wrote:
+> On 8/23/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> >void * in structure exported to userspace is forbidden.
+> 
+> Only void * I'm seeing belongs to the user, (udata) perhaps you are
+> talking of something different?
 
-Only void * I'm seeing belongs to the user, (udata) perhaps you are
-talking of something different?
+Yes, exactly about it.
 
-> long in syscall requires wrapper in per-arch code (although that
-> workaround _is_ there, it does not mean that broken interface should
-> be used).
-> poll uses millisecods - it is perfectly ok.
+I put union {
+	u32 a[2];
+	void *b;
+} 
+epcially to eliminate that problem.
 
-The kernel is there to hide those ugly implementation details from the
-user, so I don't care that much about a workaround being required in
-some cases. More important, IMHO is consistency with the POSIX system
-calls.
+And I'm not that sure aboit stuff like uptr_t or how they call pointers
+in userspace and kernelspace.
 
-I guess as long as you use usec, at least it won't be a pain to use.
+> >long in syscall requires wrapper in per-arch code (although that
+> >workaround _is_ there, it does not mean that broken interface should
+> >be used).
+> >poll uses millisecods - it is perfectly ok.
+> 
+> The kernel is there to hide those ugly implementation details from the
+> user, so I don't care that much about a workaround being required in
+> some cases. More important, IMHO is consistency with the POSIX system
+> calls.
+> 
+> I guess as long as you use usec, at least it won't be a pain to use.
 
-Rakshasa
+Andrew suggested to use nanoseconds there in u64 variable.
+I think it is ok.
+
+> Rakshasa
+
+-- 
+	Evgeniy Polyakov
