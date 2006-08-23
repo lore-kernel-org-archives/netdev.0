@@ -1,42 +1,68 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 16/18] d80211:  get rid of MICHAEL_MIC_HWACCEL define
-Date: Wed, 23 Aug 2006 11:46:47 +0200
-Message-ID: <20060823114647.763a8f89@griffin.suse.cz>
-References: <20060821074107.648561364@sipsolutions.net>
-	<20060821075202.538664376@sipsolutions.net>
-	<20060822210038.53ee194c@griffin.suse.cz>
-	<1156316730.3629.7.camel@ux156>
+From: "Jari Sundell" <sundell.software@gmail.com>
+Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
+Date: Wed, 23 Aug 2006 11:49:22 +0200
+Message-ID: <b3f268590608230249q653e1dfh1d77c07f6f4e82ce@mail.gmail.com>
+References: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com>
+	 <20060822231129.GA18296@ms2.inr.ac.ru>
+	 <b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com>
+	 <20060822.173200.126578369.davem@davemloft.net>
+	 <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com>
+	 <20060823065659.GC24787@2ka.mipt.ru>
+	 <b3f268590608230122k60e3c7c7y939d5559d97107f@mail.gmail.com>
+	 <20060823083859.GA8936@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jouni Malinen <jkm@devicescape.com>,
-	"John W. Linville" <linville@tuxdriver.com>
+Cc: "David Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	nmiell@comcast.net, linux-kernel@vger.kernel.org,
+	drepper@redhat.com, akpm@osdl.org, netdev@vger.kernel.org,
+	zach.brown@oracle.com, hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:44006 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751506AbWHWJqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 05:46:49 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1156316730.3629.7.camel@ux156>
+Received: from nz-out-0102.google.com ([64.233.162.203]:29790 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S1751512AbWHWJtX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 05:49:23 -0400
+Received: by nz-out-0102.google.com with SMTP id n1so41428nzf
+        for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 02:49:22 -0700 (PDT)
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060823083859.GA8936@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Aug 2006 09:05:30 +0200, Johannes Berg wrote:
-> On Tue, 2006-08-22 at 21:00 +0200, Jiri Benc wrote:
-> > When you're touching this, could you #ifdef out wpa_test when
-> > CONFIG_HOSTAPD_WPA_TESTING is not defined? This could be a part of this
-> > patch.
-> 
-> I thought about it but deemed it too ugly. And wouldn't the compiler
-> optimize it away anyway? Thing is, it's used in tests, and having
-> #ifdefs within if (...) tests is hugely ugly.
+On 8/23/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> On Wed, Aug 23, 2006 at 10:22:06AM +0200, Jari Sundell (sundell.software@gmail.com) wrote:
+> > On 8/23/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> > >void * in structure exported to userspace is forbidden.
+> >
+> > Only void * I'm seeing belongs to the user, (udata) perhaps you are
+> > talking of something different?
+>
+> Yes, exactly about it.
+>
+> I put union {
+>         u32 a[2];
+>         void *b;
+> }
+> epcially to eliminate that problem.
 
-#ifdefs within if tests are ugly, I agree. I thought about restructuring
-these ifs. Okay, we will go with your patch and address this later.
+It's just random data of a known maximum size appended to the struct,
+I'm sure you can find a clean way to handle it. If you mangle the
+first variable name in your union, you'll end up with something that
+should be usable instead of udata.
 
-Thanks,
+> And I'm not that sure aboit stuff like uptr_t or how they call pointers
+> in userspace and kernelspace.
 
- Jiri
+Well, I can't find any use of pointers in your struct ukevent, nor in
+any of the kqueue events in my man page. So if this is a deficit it
+applies to both, I guess?
 
--- 
-Jiri Benc
-SUSE Labs
+> ukevent is aligned to 8 bytes already (it's size selected to be 40 bytes),
+> so it should not be a problem.
+>
+> > Eric
+
+Even if it is so, wouldn't it be better to be explicit about it?
+
+Rakshasa
