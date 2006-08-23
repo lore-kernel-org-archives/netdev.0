@@ -1,42 +1,128 @@
-From: Martin Michlmayr <tbm@cyrius.com>
-Subject: Re: [PATCH 1/2] Add Sonics Silicon Backplane driver
-Date: Wed, 23 Aug 2006 11:59:55 +0100
-Message-ID: <20060823105955.GB9627@unjust.cyrius.com>
-References: <200608231158.06178.mb@bu3sch.de> <200608231159.59363.mb@bu3sch.de>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [take13 0/3] kevent: Generic event handling mechanism.
+Date: Wed, 23 Aug 2006 15:24:54 +0400
+Message-ID: <11563322941645@2ka.mipt.ru>
+References: <12345678912345.GA1898@2ka.mipt.ru>
+Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sorrow.cyrius.com ([65.19.161.204]:6673 "EHLO sorrow.cyrius.com")
-	by vger.kernel.org with ESMTP id S964880AbWHWK75 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 06:59:57 -0400
-To: Michael Buesch <mb@bu3sch.de>
-Content-Disposition: inline
-In-Reply-To: <200608231159.59363.mb@bu3sch.de>
+Received: from dea.vocord.ru ([217.67.177.50]:58585 "EHLO
+	uganda.factory.vocord.ru") by vger.kernel.org with ESMTP
+	id S964859AbWHWLBa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 07:01:30 -0400
+In-Reply-To: <12345678912345.GA1898@2ka.mipt.ru>
+To: lkml <linux-kernel@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Michael Buesch <mb@bu3sch.de> [2006-08-23 11:59]:
-> +#define SSB_SPROM1_OEM			0x1076	/* 8 bytes OEM string (rev 1 only) */
-> +/* SPROM Revision 2 (inherits from rev 1) */
-> +#define SSB_SPROM2_BFLHI		0x1038	/* Boardflags (high 16 bits) */
-> +#define SSB_SPROM2_MAXP_A		0x103A	/* A-PHY Max Power */
-> +#define  SSB_SPROM2_MAXP_A_HI		0x00FF	/* Max Power High */
-> +#define  SSB_SPROM2_MAXP_A_LO		0x1100	/* Max Power Low */
-> +#define  SSB_SPROM2_MAXP_A_LO_SHIFT	8
-> +#define SSB_SPROM2_PA1LOB0		0x103C	/* A-PHY PowerAmplifier Low Settings */
-> +#define SSB_SPROM2_PA1LOB1		0x103E	/* A-PHY PowerAmplifier Low Settings */
-> +#define SSB_SPROM2_PA1LOB2		0x1040	/* A-PHY PowerAmplifier Low Settings */
-> +#define SSB_SPROM2_PA1HIB0		0x1042	/* A-PHY PowerAmplifier High Settings */
-> +#define SSB_SPROM2_PA1HIB1		0x1044	/* A-PHY PowerAmplifier High Settings */
-> +#define SSB_SPROM2_PA1HIB2		0x1046	/* A-PHY PowerAmplifier High Settings */
-> +#define SSB_SPROM2_OPO			0x1078	/* OFDM Power Offset from CCK Level */
-> +#define  SSB_SPROM2_OPO_VALUE		0x00FF
-> +#define  SSB_SPROM2_OPO_UNUSED		0xFF00
-> +#define SSB_SPROM2_CCODE		0x107C	/* Two char Country Code */
 
-This is badly formated.  Can you repost, please.
--- 
-Martin Michlmayr
-tbm@cyrius.com
+Generic event handling mechanism.
+
+Changes from 'take12' patchset:
+ * remove non-chardev interface for initialization
+ * use pointer to kevent_mring instead of unsigned longs
+ * use aligned 64bit type in raw user data (can be used by high-res timer if needed)
+ * simplified enqueue/dequeue callbacks and kevent initialization
+ * use nanoseconds for timeout
+ * put number of milliseconds into timer's return data
+ * move some definitions into user-visible header
+ * removed filenames from comments
+
+Changes from 'take11' patchset:
+ * include missing headers into patchset
+ * some trivial code cleanups (use goto instead of if/else games and so on)
+ * some whitespace cleanups
+ * check for ready_callback() callback before main loop which should save us some ticks
+
+Changes from 'take10' patchset:
+ * removed non-existent prototypes
+ * added helper function for kevent_registered_callbacks
+ * fixed 80 lines comments issues
+ * added shared between userspace and kernelspace header instead of embedd them in one
+ * core restructuring to remove forward declarations
+ * s o m e w h i t e s p a c e c o d y n g s t y l e c l e a n u p
+ * use vm_insert_page() instead of remap_pfn_range()
+
+Changes from 'take9' patchset:
+ * fixed ->nopage method
+
+Changes from 'take8' patchset:
+ * fixed mmap release bug
+ * use module_init() instead of late_initcall()
+ * use better structures for timer notifications
+
+Changes from 'take7' patchset:
+ * new mmap interface (not tested, waiting for other changes to be acked)
+	- use nopage() method to dynamically substitue pages
+	- allocate new page for events only when new added kevent requres it
+	- do not use ugly index dereferencing, use structure instead
+	- reduced amount of data in the ring (id and flags), 
+		maximum 12 pages on x86 per kevent fd
+
+Changes from 'take6' patchset:
+ * a lot of comments!
+ * do not use list poisoning for detection of the fact, that entry is in the list
+ * return number of ready kevents even if copy*user() fails
+ * strict check for number of kevents in syscall
+ * use ARRAY_SIZE for array size calculation
+ * changed superblock magic number
+ * use SLAB_PANIC instead of direct panic() call
+ * changed -E* return values
+ * a lot of small cleanups and indent fixes
+
+Changes from 'take5' patchset:
+ * removed compilation warnings about unused wariables when lockdep is not turned on
+ * do not use internal socket structures, use appropriate (exported) wrappers instead
+ * removed default 1 second timeout
+ * removed AIO stuff from patchset
+
+Changes from 'take4' patchset:
+ * use miscdevice instead of chardevice
+ * comments fixes
+
+Changes from 'take3' patchset:
+ * removed serializing mutex from kevent_user_wait()
+ * moved storage list processing to RCU
+ * removed lockdep screaming - all storage locks are initialized in the same function, so it was learned 
+	to differentiate between various cases
+ * remove kevent from storage if is marked as broken after callback
+ * fixed a typo in mmaped buffer implementation which would end up in wrong index calcualtion 
+
+Changes from 'take2' patchset:
+ * split kevent_finish_user() to locked and unlocked variants
+ * do not use KEVENT_STAT ifdefs, use inline functions instead
+ * use array of callbacks of each type instead of each kevent callback initialization
+ * changed name of ukevent guarding lock
+ * use only one kevent lock in kevent_user for all hash buckets instead of per-bucket locks
+ * do not use kevent_user_ctl structure instead provide needed arguments as syscall parameters
+ * various indent cleanups
+ * added optimisation, which is aimed to help when a lot of kevents are being copied from userspace
+ * mapped buffer (initial) implementation (no userspace yet)
+
+Changes from 'take1' patchset:
+ - rebased against 2.6.18-git tree
+ - removed ioctl controlling
+ - added new syscall kevent_get_events(int fd, unsigned int min_nr, unsigned int max_nr,
+			unsigned int timeout, void __user *buf, unsigned flags)
+ - use old syscall kevent_ctl for creation/removing, modification and initial kevent 
+	initialization
+ - use mutuxes instead of semaphores
+ - added file descriptor check and return error if provided descriptor does not match
+	kevent file operations
+ - various indent fixes
+ - removed aio_sendfile() declarations.
+
+Thank you.
+
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+
+
