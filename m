@@ -1,297 +1,76 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 9/21] d80211: fix some sparse warnings
-Date: Wed, 23 Aug 2006 21:24:18 +0200 (CEST)
-Message-ID: <20060823192418.26CDB483A9@silver.suse.cz>
+Subject: [PATCH 21/21] d80211: add ieee80211_stop_queues()
+Date: Wed, 23 Aug 2006 21:24:30 +0200 (CEST)
+Message-ID: <20060823192430.8B815483BA@silver.suse.cz>
 References: <20060823212316.333159079.midnight@suse.cz>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:29136 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S965133AbWHWTYS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 15:24:18 -0400
+Received: from styx.suse.cz ([82.119.242.94]:30928 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S965136AbWHWTYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 15:24:30 -0400
 To: "John W. Linville" <linville@tuxdriver.com>
 In-Reply-To: <20060823212316.333159079.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
+From: Michael Buesch <mb@bu3sch.de>
 
-This patch fixes some warnings from sparse in d80211. Also
-fixes indentation in places near where the changes were.
+Add ieee80211_stop_queues() to stop all queues
+with a single call.
+I will submit a patch for bcm43xx to use this function
+as soon as this got merged.
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- include/net/d80211.h       |   38 +++++++++++++++++++-------------------
- net/d80211/ieee80211.c     |   16 ++++++++--------
- net/d80211/ieee80211_i.h   |   40 ++++++++++++++++++++--------------------
- net/d80211/ieee80211_key.h |    6 +++---
- net/d80211/rate_control.c  |    2 +-
- net/d80211/sta_info.h      |    6 +++---
- 6 files changed, 54 insertions(+), 54 deletions(-)
+ include/net/d80211.h   |    9 +++++++++
+ net/d80211/ieee80211.c |   10 ++++++++++
+ 2 files changed, 19 insertions(+), 0 deletions(-)
 
-5b188f3e93922150f3bee76e4980340db099a272
+414f928269a9d41642e85abc8fe47e5bc90eed6b
 diff --git a/include/net/d80211.h b/include/net/d80211.h
-index da1892f..17238bd 100644
+index 23839b4..42fdbf7 100644
 --- a/include/net/d80211.h
 +++ b/include/net/d80211.h
-@@ -246,10 +246,10 @@ struct ieee80211_conf {
+@@ -830,6 +830,15 @@ void ieee80211_stop_queue(struct net_dev
+ void ieee80211_start_queues(struct net_device *dev);
  
- 	/* Bitfields, grouped together */
- 
--	int sw_encrypt:1;
--	int sw_decrypt:1;
--	int short_slot_time:1;		/* use IEEE 802.11g Short Slot Time */
--        int ssid_hidden:1;		/* do not broadcast the ssid */
-+	unsigned int sw_encrypt:1;
-+	unsigned int sw_decrypt:1;
-+	unsigned int short_slot_time:1;	/* use IEEE 802.11g Short Slot Time */
-+	unsigned int ssid_hidden:1;	/* do not broadcast the ssid */
- 
-         u8 power_level;			/* transmit power limit for current
- 					 * regulatory domain; in dBm */
-@@ -376,13 +376,13 @@ struct ieee80211_key_conf {
- 	ieee80211_key_alg alg;
- 	int keylen;
- 
--        int force_sw_encrypt:1;		/* to be cleared by low-level driver */
-+	unsigned int force_sw_encrypt:1;/* to be cleared by low-level driver */
- 	int keyidx:8;			/* WEP key index */
--	int default_tx_key:1;		/* This key is the new default TX key
-+	unsigned int default_tx_key:1;	/* This key is the new default TX key
- 			       		 * (used only for broadcast keys). */
--	int default_wep_only:1; /* static WEP is the only configured security
--				 * policy; this allows some low-level drivers
--				 * to determine when hwaccel can be used */
-+	unsigned int default_wep_only:1;/* static WEP is the only configured security
-+					 * policy; this allows some low-level drivers
-+					 * to determine when hwaccel can be used */
-         u8 key[0];
- };
- 
-@@ -441,20 +441,20 @@ struct ieee80211_hw {
- 	 * configure upper layer IEEE 802.11 module to generate beacons. The
- 	 * low-level driver can use ieee80211_beacon_get() to fetch next
- 	 * beacon frame. */
--	int host_gen_beacon:1;
-+	unsigned int host_gen_beacon:1;
- 
- 	/* The device needs to be supplied with a beacon template only. */
--	int host_gen_beacon_template:1;
-+	unsigned int host_gen_beacon_template:1;
- 
- 	/* Some devices handle decryption internally and do not
- 	 * indicate whether the frame was encrypted (unencrypted frames
- 	 * will be dropped by the hardware, unless specifically allowed
- 	 * through) */
--        int device_hides_wep:1;
-+	unsigned int device_hides_wep:1;
- 
- 	/* Whether RX frames passed to ieee80211_rx() include FCS in the end
- 	 */
--	int rx_includes_fcs:1;
-+	unsigned int rx_includes_fcs:1;
- 
- 	/* Some wireless LAN chipsets buffer broadcast/multicast frames for
- 	 * power saving stations in the hardware/firmware and others rely on
-@@ -462,19 +462,19 @@ struct ieee80211_hw {
- 	 * configure upper layer IEEE 802.11 to buffer broadcast/multicast
- 	 * frames when there are power saving stations so that low-level driver
- 	 * can fetch them with ieee80211_get_buffered_bc(). */
--	int host_broadcast_ps_buffering:1;
-+	unsigned int host_broadcast_ps_buffering:1;
- 
--	int wep_include_iv:1;
--	int data_nullfunc_ack:1; /* will data nullfunc frames get proper
--                                  * TX status callback */
-+	unsigned int wep_include_iv:1;
-+	unsigned int data_nullfunc_ack:1; /* will data nullfunc frames get proper
-+					   * TX status callback */
- 
- 	/* Force sw version of encryption for TKIP packets if WMM is enabled.
- 	 */
--	int no_tkip_wmm_hwaccel:1;
-+	unsigned int no_tkip_wmm_hwaccel:1;
- 
-         /* 1 if the payload needs to be padded at even boundaries after the
- 	 * header */
--        unsigned int extra_hdr_room:1;
-+	unsigned int extra_hdr_room:1;
- 
- 	/* Some devices handle Michael MIC internally and do not include MIC in
- 	 * the received packets given to 80211.o. device_strips_mic must be set
+ /**
++ * ieee80211_stop_queues - stop all queues
++ * @dev: pointer to $struct net_device as obtained from
++ *       ieee80211_alloc_hw().
++ *
++ * Drivers should use this function instead of netif_stop_queue.
++ */
++void ieee80211_stop_queues(struct net_device *dev);
++
++/**
+  * ieee80211_get_mc_list_item - iteration over items in multicast list
+  * @dev: pointer to &struct net_device as obtained from
+  *	ieee80211_alloc_hw().
 diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
-index c136859..b9bea6a 100644
+index ad37015..e72721f 100644
 --- a/net/d80211/ieee80211.c
 +++ b/net/d80211/ieee80211.c
-@@ -237,7 +237,7 @@ static void ieee80211_key_threshold_noti
- 
- 	key->tx_rx_count = 0;
- 
--	ieee80211_rx_mgmt(dev, skb, 0,
-+	ieee80211_rx_mgmt(dev, skb, NULL,
- 			  ieee80211_msg_key_threshold_notification);
+@@ -4705,6 +4705,16 @@ void ieee80211_start_queues(struct net_d
  }
+ EXPORT_SYMBOL(ieee80211_start_queues);
  
-@@ -2652,7 +2652,7 @@ int ieee80211_radar_status(struct net_de
- 	msg->radar = radar;
- 	msg->radar_type = radar_type;
- 
--	ieee80211_rx_mgmt(dev, skb, 0, ieee80211_msg_radar);
-+	ieee80211_rx_mgmt(dev, skb, NULL, ieee80211_msg_radar);
- 	return 0;
- }
- EXPORT_SYMBOL(ieee80211_radar_status);
-@@ -2660,8 +2660,8 @@ EXPORT_SYMBOL(ieee80211_radar_status);
- int ieee80211_set_aid_for_sta(struct net_device *dev, u8 *peer_address,
- 			      u16 aid)
++void ieee80211_stop_queues(struct net_device *dev)
++{
++	struct ieee80211_local *local = dev->ieee80211_ptr;
++	int i;
++
++	for (i = 0; i < local->hw->queues; i++)
++		ieee80211_stop_queue(dev, i);
++}
++EXPORT_SYMBOL(ieee80211_stop_queues);
++
+ void * ieee80211_dev_hw_data(struct net_device *dev)
  {
--        struct sk_buff *skb;
--        struct ieee80211_msg_set_aid_for_sta *msg;
-+	struct sk_buff *skb;
-+	struct ieee80211_msg_set_aid_for_sta *msg;
- 
- 	skb = dev_alloc_skb(sizeof(struct ieee80211_frame_info) +
- 			    sizeof(struct ieee80211_msg_set_aid_for_sta));
-@@ -2670,13 +2670,13 @@ int ieee80211_set_aid_for_sta(struct net
- 		return -ENOMEM;
- 	skb_reserve(skb, sizeof(struct ieee80211_frame_info));
- 
--        msg = (struct ieee80211_msg_set_aid_for_sta *)
-+	msg = (struct ieee80211_msg_set_aid_for_sta *)
- 		skb_put(skb, sizeof(struct ieee80211_msg_set_aid_for_sta));
- 	memcpy(msg->sta_address, peer_address, ETH_ALEN);
--        msg->aid = aid;
-+	msg->aid = aid;
- 
--        ieee80211_rx_mgmt(dev, skb, 0, ieee80211_msg_set_aid_for_sta);
--        return 0;
-+	ieee80211_rx_mgmt(dev, skb, NULL, ieee80211_msg_set_aid_for_sta);
-+	return 0;
- }
- EXPORT_SYMBOL(ieee80211_set_aid_for_sta);
- 
-diff --git a/net/d80211/ieee80211_i.h b/net/d80211/ieee80211_i.h
-index f38eea0..0d2d79d 100644
---- a/net/d80211/ieee80211_i.h
-+++ b/net/d80211/ieee80211_i.h
-@@ -115,10 +115,10 @@ struct ieee80211_txrx_data {
- 	union {
- 		struct {
- 			struct ieee80211_tx_control *control;
--			int unicast:1;
--			int ps_buffered:1;
--			int short_preamble:1;
--			int probe_last_frag:1;
-+			unsigned int unicast:1;
-+			unsigned int ps_buffered:1;
-+			unsigned int short_preamble:1;
-+			unsigned int probe_last_frag:1;
- 			struct ieee80211_rate *rate;
- 			/* use this rate (if set) for last fragment; rate can
- 			 * be set to lower rate for the first fragments, e.g.,
-@@ -138,10 +138,10 @@ struct ieee80211_txrx_data {
- 			int sent_ps_buffered;
- 			int queue;
- 			int load;
--			int in_scan:1;
--			int ra_match:1; /* frame is destined to interface
--					 * currently processed (including
--					 * multicast frames) */
-+			unsigned int in_scan:1;
-+			/* frame is destined to interface currently processed
-+			 * (including multicast frames) */
-+			unsigned int ra_match:1;
- 		} rx;
- 	} u;
- #ifdef CONFIG_HOSTAPD_WPA_TESTING
-@@ -255,16 +255,16 @@ struct ieee80211_if_sta {
- 
- 	int auth_tries, assoc_tries;
- 
--	int ssid_set:1;
--	int bssid_set:1;
--	int prev_bssid_set:1;
--	int authenticated:1;
--	int associated:1;
--	int probereq_poll:1;
--	int use_protection:1;
--	int create_ibss:1;
--	int mixed_cell:1;
--	int wmm_enabled:1;
-+	unsigned int ssid_set:1;
-+	unsigned int bssid_set:1;
-+	unsigned int prev_bssid_set:1;
-+	unsigned int authenticated:1;
-+	unsigned int associated:1;
-+	unsigned int probereq_poll:1;
-+	unsigned int use_protection:1;
-+	unsigned int create_ibss:1;
-+	unsigned int mixed_cell:1;
-+	unsigned int wmm_enabled:1;
- 
- 	int key_mgmt;
- 	unsigned long last_probe;
-@@ -293,8 +293,8 @@ struct ieee80211_sub_if_data {
-         struct ieee80211_local *local;
- 
- 	int mc_count;
--	unsigned allmulti:1;
--	unsigned promisc:1;
-+	unsigned int allmulti:1;
-+	unsigned int promisc:1;
- 
-         struct net_device_stats stats;
- 	int drop_unencrypted;
-diff --git a/net/d80211/ieee80211_key.h b/net/d80211/ieee80211_key.h
-index 1613594..be1a3ce 100644
---- a/net/d80211/ieee80211_key.h
-+++ b/net/d80211/ieee80211_key.h
-@@ -77,10 +77,10 @@ #endif
- 
- 	/* if the low level driver can provide hardware acceleration it should
- 	 * clear this flag */
--	int force_sw_encrypt:1;
-+	unsigned int force_sw_encrypt:1;
- 	int keyidx:8; /* WEP key index */
--	int default_tx_key:1; /* This key is the new default TX key
--			       * (used only for broadcast keys). */
-+	unsigned int default_tx_key:1; /* This key is the new default TX key
-+					* (used only for broadcast keys). */
- 
- 	u8 key[0];
- };
-diff --git a/net/d80211/rate_control.c b/net/d80211/rate_control.c
-index 5f03629..30c31ee 100644
---- a/net/d80211/rate_control.c
-+++ b/net/d80211/rate_control.c
-@@ -375,7 +375,7 @@ static struct rate_control_ops rate_cont
- };
- 
- 
--int __init rate_control_simple_init(void)
-+static int __init rate_control_simple_init(void)
- {
- 	return ieee80211_rate_control_register(&rate_control_simple);
- }
-diff --git a/net/d80211/sta_info.h b/net/d80211/sta_info.h
-index f7a56c0..8d23047 100644
---- a/net/d80211/sta_info.h
-+++ b/net/d80211/sta_info.h
-@@ -94,9 +94,9 @@ struct sta_info {
- 				  * filtering; used only if sta->key is not
- 				  * set */
- 
--	int sysfs_registered:1;
--	int assoc_ap:1; /* whether this is an AP that we are associated with
--			 * as a client */
-+	unsigned int sysfs_registered:1;
-+	unsigned int assoc_ap:1; /* whether this is an AP that we are
-+				  * associated with as a client */
- 
- #ifdef CONFIG_HOSTAPD_WPA_TESTING
- 	u32 wpa_trigger;
+ 	struct ieee80211_local *local = dev->ieee80211_ptr;
 -- 
 1.3.0
 
