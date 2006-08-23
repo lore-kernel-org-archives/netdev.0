@@ -1,41 +1,38 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] b44: fix eeprom endianess issue
-Date: Wed, 23 Aug 2006 12:55:02 -0400
-Message-ID: <44EC8866.9050704@garzik.org>
-References: <200608231232.05750.mb@bu3sch.de> <200608231238.49783.mb@bu3sch.de>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH wireless-dev 4/6] d80211: Send Layer 2 Update frames in
+ kernel
+Date: Wed, 23 Aug 2006 19:22:56 +0200
+Message-ID: <20060823192256.3e8df7f9@griffin.suse.cz>
+References: <20060807231608.888744720@localhost>
+	<20060807231938.455373487@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, zambrano@broadcom.com,
-	netdev@vger.kernel.org, davem@redhat.com
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, jkmaline@cc.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51405 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1750704AbWHWQzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 12:55:08 -0400
-To: Michael Buesch <mb@bu3sch.de>
-In-Reply-To: <200608231238.49783.mb@bu3sch.de>
+Received: from styx.suse.cz ([82.119.242.94]:49303 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S932288AbWHWRW6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 13:22:58 -0400
+To: Jouni Malinen <jkm@devicescape.com>
+In-Reply-To: <20060807231938.455373487@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
->> Please note that this test is only compile tested, as
->> I don't have a b44 device.
+On Mon, 07 Aug 2006 16:16:12 -0700, Jouni Malinen wrote:
+> Send Layer 2 Update frame from the 802.11 code in kernel to the netdev
+> that the STA is bound to. If the STA is bound to another VLAN netdev,
+> send another update frame. This fixes an issue in which a local bridge
+> table was not updated when hostapd sent this frame.
 
->> @@ -2055,7 +2055,7 @@
->>  	u16 *ptr = (u16 *) data;
->>  
->>  	for (i = 0; i < 128; i += 2)
->> -		ptr[i / 2] = readw(bp->regs + 4096 + i);
->> +		ptr[i / 2] = cpu_to_le16(readw(bp->regs + 4096 + i));
->>  
+I hope someone is going to describe why is this necessary and why it
+cannot be done in a less hackish way. Otherwise, I'd probably tend to
+ask for reverting this patch.
 
+Thanks,
 
-This looks a bit weird.  readw() swaps on big-endian already.
+ Jiri
 
-This patch swaps each word -again- on big-endian, even though the only 
-user of the eeprom data is the get-invariants code that reads the MAC 
-address and phy id.
-
-	Jeff
-
-
+-- 
+Jiri Benc
+SUSE Labs
