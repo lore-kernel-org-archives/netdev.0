@@ -1,64 +1,51 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] b44: fix eeprom endianess issue
-Date: Wed, 23 Aug 2006 20:06:55 +0200
-Message-ID: <200608232006.55531.mb@bu3sch.de>
-References: <200608231232.05750.mb@bu3sch.de> <200608231238.49783.mb@bu3sch.de> <44EC8866.9050704@garzik.org>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH 01/18] d80211:  LED triggers
+Date: Wed, 23 Aug 2006 20:16:16 +0200
+Message-ID: <20060823201616.40214286@griffin.suse.cz>
+References: <20060821074107.648561364@sipsolutions.net>
+	<20060821075158.728615077@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, zambrano@broadcom.com,
-	netdev@vger.kernel.org, davem@redhat.com
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:44427
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965089AbWHWSHh
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 14:07:37 -0400
-To: Jeff Garzik <jeff@garzik.org>
-In-Reply-To: <44EC8866.9050704@garzik.org>
-Content-Disposition: inline
+Received: from styx.suse.cz ([82.119.242.94]:10906 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S965081AbWHWSQS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 14:16:18 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <20060821075158.728615077@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 23 August 2006 18:55, Jeff Garzik wrote:
-> Michael Buesch wrote:
-> >> Please note that this test is only compile tested, as
-> >> I don't have a b44 device.
-> 
-> >> @@ -2055,7 +2055,7 @@
-> >>  	u16 *ptr = (u16 *) data;
-> >>  
-> >>  	for (i = 0; i < 128; i += 2)
-> >> -		ptr[i / 2] = readw(bp->regs + 4096 + i);
-> >> +		ptr[i / 2] = cpu_to_le16(readw(bp->regs + 4096 + i));
-> >>  
-> 
-> 
-> This looks a bit weird.  readw() swaps on big-endian already.
-> 
-> This patch swaps each word -again- on big-endian, even though the only 
-> user of the eeprom data is the get-invariants code that reads the MAC 
-> address and phy id.
+On Mon, 21 Aug 2006 09:41:08 +0200, Johannes Berg wrote:
+> This patch makes d80211 export LED triggers for rx/tx and introduces
+> functions to allow device drivers to query the trigger names for setting
+> default triggers. It also cleans up the Makefile LED related stuff.
 
-Yeah. But look at where the data is stored.
-The data ends up in a _byte_ array. A byte array is litte endian
-(little end first). array[0] is low and array[1] is high.
-Look at the pointer cast above:
+  CC [M]  net/d80211/ieee80211_led.o
+In file included from net/d80211/ieee80211_led.h:9,
+                 from net/d80211/ieee80211_led.c:11:
+include/linux/leds.h:39: error: field 'node' has incomplete type
+include/linux/leds.h:44: error: syntax error before 'rwlock_t'
+include/linux/leds.h:44: warning: no semicolon at end of struct or union
+include/linux/leds.h:50: error: syntax error before '}' token
+include/linux/leds.h:72: error: syntax error before 'rwlock_t'
+include/linux/leds.h:72: warning: no semicolon at end of struct or union
+include/linux/leds.h:77: error: syntax error before '}' token
+net/d80211/ieee80211_led.c: In function 'ieee80211_led_init':
+net/d80211/ieee80211_led.c:38: error: invalid application of 'sizeof' to incomplete type 'struct
+net/d80211/ieee80211_led.c:43: error: dereferencing pointer to incomplete type
+net/d80211/ieee80211_led.c:49: error: invalid application of 'sizeof' to incomplete type 'struct
+net/d80211/ieee80211_led.c:54: error: dereferencing pointer to incomplete type
+make[2]: *** [net/d80211/ieee80211_led.o] Error 1
+make[1]: *** [net/d80211] Error 2
+make: *** [net] Error 2
 
-u16 *ptr = (u16 *) data;
 
-We store data in _cpu_ order in this byte array.
-That's wrong.
-If we are on a little endian machine, that's ok. But if
-we are on a big endian machine, this will write bytes swapped.
+Omitting the patch for now.
 
-LE will result in an array:
-ABABABABABABAB
-BE will result in an array:
-BABABABABABABA
-
-But only the first result (LE) is valid, because that's
-expected later when interpreting the data.
+ Jiri
 
 -- 
-Greetings Michael.
+Jiri Benc
+SUSE Labs
