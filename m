@@ -1,53 +1,49 @@
-From: Nicholas Miell <nmiell@comcast.net>
+From: "Jari Sundell" <sundell.software@gmail.com>
 Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 23 Aug 2006 01:18:50 -0700
-Message-ID: <1156321130.2476.275.camel@entropy>
-References: <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com>
+Date: Wed, 23 Aug 2006 10:22:06 +0200
+Message-ID: <b3f268590608230122k60e3c7c7y939d5559d97107f@mail.gmail.com>
+References: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com>
+	 <20060822231129.GA18296@ms2.inr.ac.ru>
+	 <b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com>
+	 <20060822.173200.126578369.davem@davemloft.net>
+	 <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com>
 	 <20060823065659.GC24787@2ka.mipt.ru>
-	 <20060823000758.5ebed7dd.akpm@osdl.org>
-	 <20060823.003516.30182824.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, johnpol@2ka.mipt.ru, sundell.software@gmail.com,
-	kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org,
-	drepper@redhat.com, netdev@vger.kernel.org, zach.brown@oracle.com,
-	hch@infradead.org
+Cc: "David Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	nmiell@comcast.net, linux-kernel@vger.kernel.org,
+	drepper@redhat.com, akpm@osdl.org, netdev@vger.kernel.org,
+	zach.brown@oracle.com, hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rwcrmhc12.comcast.net ([216.148.227.152]:64505 "EHLO
-	rwcrmhc12.comcast.net") by vger.kernel.org with ESMTP
-	id S932418AbWHWITM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 04:19:12 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060823.003516.30182824.davem@davemloft.net>
+Received: from nz-out-0102.google.com ([64.233.162.207]:10686 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S932432AbWHWIWH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 04:22:07 -0400
+Received: by nz-out-0102.google.com with SMTP id n1so29260nzf
+        for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 01:22:06 -0700 (PDT)
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
+In-Reply-To: <20060823065659.GC24787@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-08-23 at 00:35 -0700, David Miller wrote:
-> From: Andrew Morton <akpm@osdl.org>
-> Date: Wed, 23 Aug 2006 00:07:58 -0700
-> 
-> > I wonder whether designing-in a millisecond granularity is the right thing
-> > to do.  If in a few years the kernel is running tickless with high-res clock
-> > interrupt sources, that might look a bit lumpy.
-> > 
-> > Switching it to a __u64 nanosecond counter would be basically free on
-> > 64-bit machines, and not very expensive on 32-bit, no?
-> 
-> If it ends up in a structure we'll need to use the "aligned_u64" type
-> in order to avoid problems with 32-bit x86 binaries running on 64-bit
-> kernels.
+On 8/23/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> void * in structure exported to userspace is forbidden.
 
-Perhaps
+Only void * I'm seeing belongs to the user, (udata) perhaps you are
+talking of something different?
 
-struct timespec64
-{
-	uint64_t tv_sec __attribute__((aligned(8)));
-	uint32_t tv_nsec;
-}
+> long in syscall requires wrapper in per-arch code (although that
+> workaround _is_ there, it does not mean that broken interface should
+> be used).
+> poll uses millisecods - it is perfectly ok.
 
-with a snide remark about gcc in the comments?
+The kernel is there to hide those ugly implementation details from the
+user, so I don't care that much about a workaround being required in
+some cases. More important, IMHO is consistency with the POSIX system
+calls.
 
--- 
-Nicholas Miell <nmiell@comcast.net>
+I guess as long as you use usec, at least it won't be a pain to use.
 
+Rakshasa
