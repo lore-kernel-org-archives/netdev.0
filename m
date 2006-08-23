@@ -1,19 +1,29 @@
-From: "Rachel Boswell" <amma@0733.com>
-Subject: re:Hi
-Date: Wed, 23 Aug 2006 19:10:53 +0000 (UTC)
-Message-ID: <90991522.20060823191122@0733.com>
-Reply-To: "Rachel Boswell" <amma@0733.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: ProxyARP and IPSec
+Date: Wed, 23 Aug 2006 21:14:25 +0200
+Message-ID: <20060823191425.GK3470@postel.suug.ch>
+References: <44EBA1FC.5000801@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pool-71-160-117-232.lsanca.dsl-w.verizon.net ([71.160.117.232]:44040
-	"EHLO pool-71-160-117-232.lsanca.dsl-w.verizon.net")
-	by vger.kernel.org with ESMTP id S965105AbWHWTKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 15:10:30 -0400
-Date: Wed, 23 Aug 2006 19:11:22 +0480
-To: netdev@vger.kernel.org
+Received: from postel.suug.ch ([194.88.212.233]:31383 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S965121AbWHWTOE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 15:14:04 -0400
+To: "H. Peter Anvin" <hpa@zytor.com>
+Content-Disposition: inline
+In-Reply-To: <44EBA1FC.5000801@zytor.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The young and perspective financial company employs young experts. It is your unique chance to start your career in the company with a world name. We have some kinds of vacancies. You can work freelance or work in office. With us you can achieve new horizons in your career. You can earn up to 3000-4000$ per month. The basic requirements to the candidates are: knowledge of PC and bases of accounts department, honesty, clearness and efficiency in work. If you are interested in the given offer, please send your CV to USA@direct-goldusa1.biz
+* H. Peter Anvin <hpa@zytor.com> 2006-08-22 17:31
+> Specifically, Linux will not ProxyARP for an address unless it has a 
+> route for it, *and* that route either has a DNAT marking or points to a 
+> different interface than the input interface:
+
+I can think of a very ugly way: Use netfilter to match on the
+arp packet prerouting, set nfmark to some value, create a routing
+rule matching the fwmark again, have it look up a separate table
+with a dummy route pointing to a dummy device. Make sure to have
+a proxy neighbour entry as using the device proxy_arp sysctl would
+fail again.
