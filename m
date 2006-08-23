@@ -1,202 +1,63 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 15/21] d80211: switch status codes, reason codes, and EIDs to enums
-Date: Wed, 23 Aug 2006 21:24:24 +0200 (CEST)
-Message-ID: <20060823192424.5D772483B3@silver.suse.cz>
+Subject: [PATCH 18/21] d80211: allow for large scan results
+Date: Wed, 23 Aug 2006 21:24:27 +0200 (CEST)
+Message-ID: <20060823192427.74A8B483B6@silver.suse.cz>
 References: <20060823212316.333159079.midnight@suse.cz>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:29904 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S965131AbWHWTYY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 15:24:24 -0400
+Received: from styx.suse.cz ([82.119.242.94]:30672 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S965142AbWHWTY1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 15:24:27 -0400
 To: "John W. Linville" <linville@tuxdriver.com>
 In-Reply-To: <20060823212316.333159079.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michael Wu <flamingice@sourmilk.net>
+From: David Kimdon <david.kimdon@devicescape.com>
 
-This patch converts the status code, reason code, and EID defines in
-d80211_mgmt.h to enums. It also adds some status and reason codes, fixes some
-typos (DENOED, QUITE), and uses the ieee80211.h version of the name where
-reasonable.
+Fix a problem where incomplete scan results could be returned if the
+environment includes a large number of devices.  Do not truncate the
+scan results and allow a result to contain more than IW_SCAN_MAX_DATA
+bytes.
 
-Signed-off-by: Michael Wu <flamingice@sourmilk.net>
+Signed-off-by: David Kimdon <david.kimdon@devicescape.com>
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- include/net/d80211_mgmt.h |  149 ++++++++++++++++++++++++++-------------------
- 1 files changed, 87 insertions(+), 62 deletions(-)
+ net/d80211/ieee80211_ioctl.c |    2 +-
+ net/d80211/ieee80211_sta.c   |    4 ++++
+ 2 files changed, 5 insertions(+), 1 deletions(-)
 
-7bac23cee8567c27c42f460cf7e7d9c340674b31
-diff --git a/include/net/d80211_mgmt.h b/include/net/d80211_mgmt.h
-index f623db3..6981c6f 100644
---- a/include/net/d80211_mgmt.h
-+++ b/include/net/d80211_mgmt.h
-@@ -119,76 +119,101 @@ #define WLAN_CAPABILITY_SHORT_SLOT_TIME 
- #define WLAN_CAPABILITY_DSSS_OFDM BIT(13)
- 
- /* Status codes */
--#define WLAN_STATUS_SUCCESS 0
--#define WLAN_STATUS_UNSPECIFIED_FAILURE 1
--#define WLAN_STATUS_CAPS_UNSUPPORTED 10
--#define WLAN_STATUS_REASSOC_NO_ASSOC 11
--#define WLAN_STATUS_ASSOC_DENIED_UNSPEC 12
--#define WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG 13
--#define WLAN_STATUS_UNKNOWN_AUTH_TRANSACTION 14
--#define WLAN_STATUS_CHALLENGE_FAIL 15
--#define WLAN_STATUS_AUTH_TIMEOUT 16
--#define WLAN_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA 17
--#define WLAN_STATUS_ASSOC_DENIED_RATES 18
--/* 802.11b */
--#define WLAN_STATUS_ASSOC_DENIED_NOSHORT 19
--#define WLAN_STATUS_ASSOC_DENIED_NOPBCC 20
--#define WLAN_STATUS_ASSOC_DENIED_NOAGILITY 21
--/* 802.11h */
--#define WLAN_STATUS_SPEC_MGMT_REQUIRED 22
--#define WLAN_STATUS_PWR_CAPABILITY_NOT_VALID 23
--#define WLAN_STATUS_SUPPORTED_CHANNEL_NOT_VALID 24
--/* 802.11g */
--#define WLAN_STATUS_ASSOC_DENOED_NO_SHORT_SLOT_TIME 25
--#define WLAN_STATUS_ASSOC_DENOED_NO_ER_PBCC 26
--#define WLAN_STATUS_ASSOC_DENOED_NO_DSSS_OFDM 27
-+enum ieee80211_statuscode {
-+	WLAN_STATUS_SUCCESS = 0,
-+	WLAN_STATUS_UNSPECIFIED_FAILURE = 1,
-+	WLAN_STATUS_CAPS_UNSUPPORTED = 10,
-+	WLAN_STATUS_REASSOC_NO_ASSOC = 11,
-+	WLAN_STATUS_ASSOC_DENIED_UNSPEC = 12,
-+	WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG = 13,
-+	WLAN_STATUS_UNKNOWN_AUTH_TRANSACTION = 14,
-+	WLAN_STATUS_CHALLENGE_FAIL = 15,
-+	WLAN_STATUS_AUTH_TIMEOUT = 16,
-+	WLAN_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA = 17,
-+	WLAN_STATUS_ASSOC_DENIED_RATES = 18,
-+	/* 802.11b */
-+	WLAN_STATUS_ASSOC_DENIED_NOSHORTPREAMBLE = 19,
-+	WLAN_STATUS_ASSOC_DENIED_NOPBCC = 20,
-+	WLAN_STATUS_ASSOC_DENIED_NOAGILITY = 21,
-+	/* 802.11h */
-+	WLAN_STATUS_ASSOC_DENIED_NOSPECTRUM = 22,
-+	WLAN_STATUS_ASSOC_REJECTED_BAD_POWER = 23,
-+	WLAN_STATUS_ASSOC_REJECTED_BAD_SUPP_CHAN = 24,
-+	/* 802.11g */
-+	WLAN_STATUS_ASSOC_DENIED_NOSHORTTIME = 25,
-+	WLAN_STATUS_ASSOC_DENIED_NODSSSOFDM = 26,
-+	/* 802.11i */
-+	WLAN_STATUS_INVALID_IE = 40,
-+	WLAN_STATUS_INVALID_GROUP_CIPHER = 41,
-+	WLAN_STATUS_INVALID_PAIRWISE_CIPHER = 42,
-+	WLAN_STATUS_INVALID_AKMP = 43,
-+	WLAN_STATUS_UNSUPP_RSN_VERSION = 44,
-+	WLAN_STATUS_INVALID_RSN_IE_CAP = 45,
-+	WLAN_STATUS_CIPHER_SUITE_REJECTED = 46,
-+};
- 
- 
- /* Reason codes */
--#define WLAN_REASON_UNSPECIFIED 1
--#define WLAN_REASON_PREV_AUTH_NOT_VALID 2
--#define WLAN_REASON_DEAUTH_LEAVING 3
--#define WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY 4
--#define WLAN_REASON_DISASSOC_AP_BUSY 5
--#define WLAN_REASON_CLASS2_FRAME_FROM_NONAUTH_STA 6
--#define WLAN_REASON_CLASS3_FRAME_FROM_NONASSOC_STA 7
--#define WLAN_REASON_DISASSOC_STA_HAS_LEFT 8
--#define WLAN_REASON_STA_REQ_ASSOC_WITHOUT_AUTH 9
--/* 802.11h */
--#define WLAN_REASON_PWR_CAPABILITY_NOT_VALID 10
--#define WLAN_REASON_SUPPORTED_CHANNEL_NOT_VALID 11
--
--#define WLAN_REASON_MIC_FAILURE 14
-+enum ieee80211_reasoncode {
-+	WLAN_REASON_UNSPECIFIED = 1,
-+	WLAN_REASON_PREV_AUTH_NOT_VALID = 2,
-+	WLAN_REASON_DEAUTH_LEAVING = 3,
-+	WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY = 4,
-+	WLAN_REASON_DISASSOC_AP_BUSY = 5,
-+	WLAN_REASON_CLASS2_FRAME_FROM_NONAUTH_STA = 6,
-+	WLAN_REASON_CLASS3_FRAME_FROM_NONASSOC_STA = 7,
-+	WLAN_REASON_DISASSOC_STA_HAS_LEFT = 8,
-+	WLAN_REASON_STA_REQ_ASSOC_WITHOUT_AUTH = 9,
-+	/* 802.11h */
-+	WLAN_REASON_DISASSOC_BAD_POWER = 10,
-+	WLAN_REASON_DISASSOC_BAD_SUPP_CHAN = 11,
-+	/* 802.11i */
-+	WLAN_REASON_INVALID_IE = 13,
-+	WLAN_REASON_MIC_FAILURE = 14,
-+	WLAN_REASON_4WAY_HANDSHAKE_TIMEOUT = 15,
-+	WLAN_REASON_GROUP_KEY_HANDSHAKE_TIMEOUT = 16,
-+	WLAN_REASON_IE_DIFFERENT = 17,
-+	WLAN_REASON_INVALID_GROUP_CIPHER = 18,
-+	WLAN_REASON_INVALID_PAIRWISE_CIPHER = 19,
-+	WLAN_REASON_INVALID_AKMP = 20,
-+	WLAN_REASON_UNSUPP_RSN_VERSION = 21,
-+	WLAN_REASON_INVALID_RSN_IE_CAP = 22,
-+	WLAN_REASON_IEEE8021X_FAILED = 23,
-+	WLAN_REASON_CIPHER_SUITE_REJECTED = 24,
-+};
- 
- 
- /* Information Element IDs */
--#define WLAN_EID_SSID 0
--#define WLAN_EID_SUPP_RATES 1
--#define WLAN_EID_FH_PARAMS 2
--#define WLAN_EID_DS_PARAMS 3
--#define WLAN_EID_CF_PARAMS 4
--#define WLAN_EID_TIM 5
--#define WLAN_EID_IBSS_PARAMS 6
--#define WLAN_EID_COUNTRY 7
--#define WLAN_EID_CHALLENGE 16
-+enum ieee80211_eid {
-+	WLAN_EID_SSID = 0,
-+	WLAN_EID_SUPP_RATES = 1,
-+	WLAN_EID_FH_PARAMS = 2,
-+	WLAN_EID_DS_PARAMS = 3,
-+	WLAN_EID_CF_PARAMS = 4,
-+	WLAN_EID_TIM = 5,
-+	WLAN_EID_IBSS_PARAMS = 6,
-+	WLAN_EID_COUNTRY = 7,
-+	WLAN_EID_CHALLENGE = 16,
- /* EIDs defined as part fo 11h - starts */
--#define WLAN_EID_PWR_CONSTRAINT	32
--#define WLAN_EID_PWR_CAPABILITY	33
--#define WLAN_EID_TPC_REQUEST	34
--#define WLAN_EID_TPC_REPORT	35
--#define WLAN_EID_SUPPORTED_CHANNELS	36
--#define WLAN_EID_CHANNEL_SWITCH	37
--#define WLAN_EID_MEASURE_REQUEST	38
--#define WLAN_EID_MEASURE_REPORT	39
--#define WLAN_EID_QUITE	40
--#define WLAN_EID_IBSS_DFS	41
-+	WLAN_EID_PWR_CONSTRAINT = 32,
-+	WLAN_EID_PWR_CAPABILITY = 33,
-+	WLAN_EID_TPC_REQUEST = 34,
-+	WLAN_EID_TPC_REPORT = 35,
-+	WLAN_EID_SUPPORTED_CHANNELS = 36,
-+	WLAN_EID_CHANNEL_SWITCH = 37,
-+	WLAN_EID_MEASURE_REQUEST = 38,
-+	WLAN_EID_MEASURE_REPORT = 39,
-+	WLAN_EID_QUIET = 40,
-+	WLAN_EID_IBSS_DFS = 41,
- /* EIDs defined as part fo 11h - ends */
--#define WLAN_EID_ERP_INFO 42
--#define WLAN_EID_RSN 48
--#define WLAN_EID_EXT_SUPP_RATES 50
--#define WLAN_EID_WPA 221
--#define WLAN_EID_GENERIC 221
--#define WLAN_EID_VENDOR_SPECIFIC 221
-+	WLAN_EID_ERP_INFO = 42,
-+	WLAN_EID_RSN = 48,
-+	WLAN_EID_EXT_SUPP_RATES = 50,
-+	WLAN_EID_WPA = 221,
-+	WLAN_EID_GENERIC = 221,
-+	WLAN_EID_VENDOR_SPECIFIC = 221,
-+	WLAN_EID_QOS_PARAMETER = 222
-+};
- 
- 
- 
+fb6433e836927581362d71532f010b0d5aa7587b
+diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
+index 35e4711..53b7841 100644
+--- a/net/d80211/ieee80211_ioctl.c
++++ b/net/d80211/ieee80211_ioctl.c
+@@ -1992,7 +1992,7 @@ static int ieee80211_ioctl_giwscan(struc
+ 	struct ieee80211_local *local = dev->ieee80211_ptr;
+ 	if (local->sta_scanning)
+ 		return -EAGAIN;
+-	res = ieee80211_sta_scan_results(dev, extra, IW_SCAN_MAX_DATA);
++	res = ieee80211_sta_scan_results(dev, extra, data->length);
+ 	if (res >= 0) {
+ 		data->length = res;
+ 		return 0;
+diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
+index a3bcc1b..a933d92 100644
+--- a/net/d80211/ieee80211_sta.c
++++ b/net/d80211/ieee80211_sta.c
+@@ -2743,6 +2743,10 @@ int ieee80211_sta_scan_results(struct ne
+ 	spin_lock_bh(&local->sta_bss_lock);
+ 	list_for_each(ptr, &local->sta_bss_list) {
+ 		bss = list_entry(ptr, struct ieee80211_sta_bss, list);
++		if (buf + len - current_ev <= IW_EV_ADDR_LEN) {
++			spin_unlock_bh(&local->sta_bss_lock);
++			return -E2BIG;
++		}
+ 		current_ev = ieee80211_sta_scan_result(dev, bss, current_ev,
+ 						       end_buf);
+ 	}
 -- 
 1.3.0
 
