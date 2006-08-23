@@ -1,77 +1,59 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH] d80211: add ieee80211_stop_queues()
-Date: Wed, 23 Aug 2006 13:44:20 +0200
-Message-ID: <200608231344.20438.mb@bu3sch.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: multicast group memberships purge on interface delete
+Date: Wed, 23 Aug 2006 08:32:11 -0400
+Message-ID: <1156336331.5035.79.camel@jzny2>
+References: <20060809.195627.59155708.yoshfuji@linux-ipv6.org>
+	 <44D9D431.10101@tcs.hut.fi>	<44DA558A.1080706@tcs.hut.fi>
+	 <20060810.174635.42119608.yoshfuji@linux-ipv6.org>
+	 <44DB0870.6000902@tcs.hut.fi> <019901c6bc75$872ee1f0$2303a8c0@mruzicka>
+	 <021e01c6c6a4$6e7845f0$2303a8c0@mruzicka>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:14045
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S932428AbWHWLpo
+Received: from mx03.cybersurf.com ([209.197.145.106]:31617 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932441AbWHWMcX
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 07:45:44 -0400
-To: Jiri Benc <jbenc@suse.cz>
-Content-Disposition: inline
+	Wed, 23 Aug 2006 08:32:23 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1GFru4-000617-RO
+	for netdev@vger.kernel.org; Wed, 23 Aug 2006 08:32:16 -0400
+To: Michal Ruzicka <michal.ruzicka@comstar.cz>
+In-Reply-To: <021e01c6c6a4$6e7845f0$2303a8c0@mruzicka>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add ieee80211_stop_queues() to stop all queues
-with a single call.
-I will submit a patch for bcm43xx to use this function
-as soon as this got merged.
+On Wed, 2006-23-08 at 13:08 +0200, Michal Ruzicka wrote:
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+> My question/suggestion:
+> Would it feasible to drop the relevant entries from sockets' multicast 
+> membership lists on the interface
+> delete? Yes, I do realize it would require to walk through a number of 
+> sockets to see if there is any
+> multicast entry for the interface in question to delete. But this could be 
+> optimized by maintaining a list
+> of sockets that have a multicast group joined on the interface (and keep a 
+> pointer to this list in the
+> device structure). This would ease the job of the function handling leaving 
+> multicast groups, made
+> its beahaviour more "deterministic" and possible errors reported by it more 
+> meaningful/reliable.
+> 
 
-Index: wireless-dev/include/net/d80211.h
-===================================================================
---- wireless-dev.orig/include/net/d80211.h	2006-08-19 18:26:05.000000000 +0200
-+++ wireless-dev/include/net/d80211.h	2006-08-23 13:38:41.000000000 +0200
-@@ -826,6 +826,15 @@
- void ieee80211_start_queues(struct net_device *dev);
- 
- /**
-+ * ieee80211_stop_queues - stop all queues
-+ * @dev: pointer to $struct net_device as obtained from
-+ *       ieee80211_alloc_hw().
-+ *
-+ * Drivers should use this function instead of netif_stop_queue.
-+ */
-+void ieee80211_stop_queues(struct net_device *dev);
-+
-+/**
-  * ieee80211_get_mc_list_item - iteration over items in multicast list
-  * @dev: pointer to &struct net_device as obtained from
-  *	ieee80211_alloc_hw().
-Index: wireless-dev/net/d80211/ieee80211.c
-===================================================================
---- wireless-dev.orig/net/d80211/ieee80211.c	2006-08-19 18:26:05.000000000 +0200
-+++ wireless-dev/net/d80211/ieee80211.c	2006-08-23 13:41:34.000000000 +0200
-@@ -4690,6 +4690,15 @@
- 		clear_bit(IEEE80211_LINK_STATE_XOFF, &local->state[i]);
- }
- 
-+void ieee80211_stop_queues(struct net_device *dev)
-+{
-+	struct ieee80211_local *local = dev->ieee80211_ptr;
-+	int i;
-+
-+	for (i = 0; i < local->hw->queues; i++)
-+		ieee80211_stop_queue(dev, i);
-+}
-+
- void * ieee80211_dev_hw_data(struct net_device *dev)
- {
- 	struct ieee80211_local *local = dev->ieee80211_ptr;
-@@ -4819,6 +4828,7 @@
- EXPORT_SYMBOL(ieee80211_wake_queue);
- EXPORT_SYMBOL(ieee80211_stop_queue);
- EXPORT_SYMBOL(ieee80211_start_queues);
-+EXPORT_SYMBOL(ieee80211_stop_queues);
- EXPORT_SYMBOL(ieee80211_dev_hw_data);
- EXPORT_SYMBOL(ieee80211_dev_stats);
- EXPORT_SYMBOL(ieee80211_get_hw_conf);
+You should be able to "fix it" in the kernel by listening to events of
+the interface/device disappearing. By "disappearing" i think you meant
+the netdevice was totally rmmod-ed? The challenge is to make the app
+also aware of you taking away the group from underneath them (thats why
+i said "fix it")
 
--- 
-Greetings Michael.
+These events are also available in user space via netlink. so an alter
+your app could listen to them and make the group leaves instead of the
+kernel.
+
+cheers,
+jamal
+
+
