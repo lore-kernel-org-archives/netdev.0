@@ -1,148 +1,56 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [take13 3/3] kevent: Timer notifications.
-Date: Wed, 23 Aug 2006 15:24:57 +0400
-Message-ID: <11563322973369@2ka.mipt.ru>
-References: <1156332297408@2ka.mipt.ru>
-Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH 1/2] Add Sonics Silicon Backplane driver
+Date: Wed, 23 Aug 2006 13:01:53 +0200
+Message-ID: <200608231301.53411.mb@bu3sch.de>
+References: <200608231158.06178.mb@bu3sch.de> <200608231159.59363.mb@bu3sch.de>
+	<20060823105955.GB9627@unjust.cyrius.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dea.vocord.ru ([217.67.177.50]:59097 "EHLO
-	uganda.factory.vocord.ru") by vger.kernel.org with ESMTP
-	id S964866AbWHWLBb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 07:01:31 -0400
-In-Reply-To: <1156332297408@2ka.mipt.ru>
-To: lkml <linux-kernel@vger.kernel.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: Martin Michlmayr <tbm-R+vWnYXSFMfQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <20060823105955.GB9627-V8GU40kGihUigzW5ZibpNwC/G2K4zDHf@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Wednesday 23 August 2006 12:59, Martin Michlmayr wrote:
+> * Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> [2006-08-23 11:59]:
+> > +#define SSB_SPROM1_OEM			0x1076	/* 8 bytes OEM string (rev 1 only) */
+> > +/* SPROM Revision 2 (inherits from rev 1) */
+> > +#define SSB_SPROM2_BFLHI		0x1038	/* Boardflags (high 16 bits) */
+> > +#define SSB_SPROM2_MAXP_A		0x103A	/* A-PHY Max Power */
+> > +#define  SSB_SPROM2_MAXP_A_HI		0x00FF	/* Max Power High */
+> > +#define  SSB_SPROM2_MAXP_A_LO		0x1100	/* Max Power Low */
+> > +#define  SSB_SPROM2_MAXP_A_LO_SHIFT	8
+> > +#define SSB_SPROM2_PA1LOB0		0x103C	/* A-PHY PowerAmplifier Low Settings */
+> > +#define SSB_SPROM2_PA1LOB1		0x103E	/* A-PHY PowerAmplifier Low Settings */
+> > +#define SSB_SPROM2_PA1LOB2		0x1040	/* A-PHY PowerAmplifier Low Settings */
+> > +#define SSB_SPROM2_PA1HIB0		0x1042	/* A-PHY PowerAmplifier High Settings */
+> > +#define SSB_SPROM2_PA1HIB1		0x1044	/* A-PHY PowerAmplifier High Settings */
+> > +#define SSB_SPROM2_PA1HIB2		0x1046	/* A-PHY PowerAmplifier High Settings */
+> > +#define SSB_SPROM2_OPO			0x1078	/* OFDM Power Offset from CCK Level */
+> > +#define  SSB_SPROM2_OPO_VALUE		0x00FF
+> > +#define  SSB_SPROM2_OPO_UNUSED		0xFF00
+> > +#define SSB_SPROM2_CCODE		0x107C	/* Two char Country Code */
+> 
+> This is badly formated.  Can you repost, please.
 
+Uhm, no? I don't think the formating is broken.
+Please _apply_ that diff and look again at the resulting file.
 
-Timer notifications.
+(I the issue is the tabs that go crazy, if the additional diff
+plus char at the beginning is inserted)
 
-Timer notifications can be used for fine grained per-process time 
-management, since interval timers are very inconvenient to use, 
-and they are limited.
-
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mitp.ru>
-
-diff --git a/kernel/kevent/kevent_timer.c b/kernel/kevent/kevent_timer.c
-new file mode 100644
-index 0000000..1c8ffb2
---- /dev/null
-+++ b/kernel/kevent/kevent_timer.c
-@@ -0,0 +1,105 @@
-+/*
-+ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-+ * All rights reserved.
-+ * 
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/list.h>
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+#include <linux/timer.h>
-+#include <linux/jiffies.h>
-+#include <linux/kevent.h>
-+
-+struct kevent_timer
-+{
-+	struct timer_list	ktimer;
-+	struct kevent_storage	ktimer_storage;
-+};
-+
-+static void kevent_timer_func(unsigned long data)
-+{
-+	struct kevent *k = (struct kevent *)data;
-+	struct timer_list *t = k->st->origin;
-+
-+	kevent_storage_ready(k->st, NULL, KEVENT_MASK_ALL);
-+	mod_timer(t, jiffies + msecs_to_jiffies(k->event.id.raw[0]));
-+}
-+
-+static struct lock_class_key kevent_timer_key;
-+
-+static int kevent_timer_enqueue(struct kevent *k)
-+{
-+	int err;
-+	struct kevent_timer *t;
-+
-+	t = kmalloc(sizeof(struct kevent_timer), GFP_KERNEL);
-+	if (!t)
-+		return -ENOMEM;
-+
-+	setup_timer(&t->ktimer, &kevent_timer_func, (unsigned long)k);
-+
-+	err = kevent_storage_init(&t->ktimer, &t->ktimer_storage);
-+	if (err)
-+		goto err_out_free;
-+	lockdep_set_class(&t->ktimer_storage.lock, &kevent_timer_key);
-+
-+	err = kevent_storage_enqueue(&t->ktimer_storage, k);
-+	if (err)
-+		goto err_out_st_fini;
-+	
-+	mod_timer(&t->ktimer, jiffies + msecs_to_jiffies(k->event.id.raw[0]));
-+
-+	return 0;
-+
-+err_out_st_fini:	
-+	kevent_storage_fini(&t->ktimer_storage);
-+err_out_free:
-+	kfree(t);
-+
-+	return err;
-+}
-+
-+static int kevent_timer_dequeue(struct kevent *k)
-+{
-+	struct kevent_storage *st = k->st;
-+	struct kevent_timer *t = container_of(st, struct kevent_timer, ktimer_storage);
-+
-+	del_timer_sync(&t->ktimer);
-+	kevent_storage_dequeue(st, k);
-+	kfree(t);
-+
-+	return 0;
-+}
-+
-+static int kevent_timer_callback(struct kevent *k)
-+{
-+	k->event.ret_data[0] = jiffies_to_msecs(jiffies);
-+	return 1;
-+}
-+
-+static int __init kevent_init_timer(void)
-+{
-+	struct kevent_callbacks tc = {
-+		.callback = &kevent_timer_callback, 
-+		.enqueue = &kevent_timer_enqueue, 
-+		.dequeue = &kevent_timer_dequeue};
-+
-+	return kevent_add_callbacks(&tc, KEVENT_TIMER);
-+}
-+module_init(kevent_init_timer);
-
+-- 
+Greetings Michael.
