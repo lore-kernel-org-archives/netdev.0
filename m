@@ -1,70 +1,81 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 23 Aug 2006 17:11:31 +0400
-Message-ID: <20060823131130.GA29056@2ka.mipt.ru>
-References: <20060822.173200.126578369.davem@davemloft.net> <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com> <20060823065659.GC24787@2ka.mipt.ru> <b3f268590608230122k60e3c7c7y939d5559d97107f@mail.gmail.com> <20060823083859.GA8936@2ka.mipt.ru> <b3f268590608230249q653e1dfh1d77c07f6f4e82ce@mail.gmail.com> <20060823102037.GA23664@2ka.mipt.ru> <b3f268590608230334y6814b886tb79da2f59138acd8@mail.gmail.com> <20060823105104.GA11305@2ka.mipt.ru> <b3f268590608230555o3a03d9d6l1d99a32695e8af6a@mail.gmail.com>
+From: =?iso-8859-2?B?TWljaGFsIFL5vmnoa2E=?= <michal.ruzicka@comstar.cz>
+Subject: Re: multicast group memberships purge on interface delete
+Date: Wed, 23 Aug 2006 15:29:45 +0200
+Message-ID: <039601c6c6b8$47b0f7a0$2303a8c0@mruzicka>
+References: <20060809.195627.59155708.yoshfuji@linux-ipv6.org> <44D9D431.10101@tcs.hut.fi>	<44DA558A.1080706@tcs.hut.fi> <20060810.174635.42119608.yoshfuji@linux-ipv6.org> <44DB0870.6000902@tcs.hut.fi> <019901c6bc75$872ee1f0$2303a8c0@mruzicka> <021e01c6c6a4$6e7845f0$2303a8c0@mruzicka> <1156336331.5035.79.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	nmiell@comcast.net, linux-kernel@vger.kernel.org,
-	drepper@redhat.com, akpm@osdl.org, netdev@vger.kernel.org,
-	zach.brown@oracle.com, hch@infradead.org
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-2";
+	reply-type=original
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:20889 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1750770AbWHWNMq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 09:12:46 -0400
-To: Jari Sundell <sundell.software@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <b3f268590608230555o3a03d9d6l1d99a32695e8af6a@mail.gmail.com>
+Received: from gateplz-adsl.comstar.cz ([193.179.24.196]:62393 "EHLO
+	gateplz.comstar.cz") by vger.kernel.org with ESMTP id S932150AbWHWNbE
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 09:31:04 -0400
+To: <hadi@cyberus.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 23, 2006 at 02:55:47PM +0200, Jari Sundell (sundell.software@gmail.com) wrote:
-> On 8/23/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> >We still do not know what uintptr_t is, and it looks like it is a pointer,
-> >which is forbidden. Those numbers are not enough to make network AIO.
-> >And actually is not compatible with kqueue already, so you will need to
-> >write your own parser to convert your parameters into above structure.
-> 
-> 7.18.1.4 Integertypes capable of holding object pointers
-> 
-> "1 The following type designates a signed integer type with the
-> property that any valid
-> pointer to void can be converted to this type, then converted back to
-> pointer to void,
-> and the result will compare equal to the original pointer:"
-> 
-> Dunno if this means that x86-64 needs yet another typedef, or if using
-> long for intptr_t is incorrect. But assuming a different integer type
-> was used instead of intptr_t, that is known to be able to hold a
-> pointer, would there still be any problems?
 
-stdint.h
+>
+> You should be able to "fix it" in the kernel by listening to events of
+> the interface/device disappearing.
 
-/* Types for `void *' pointers.  */
-#if __WORDSIZE == 64
-# ifndef __intptr_t_defined
-typedef long int		intptr_t;
-#  define __intptr_t_defined
-# endif
-typedef unsigned long int	uintptr_t;
-#else
-# ifndef __intptr_t_defined
-typedef int			intptr_t;
-#  define __intptr_t_defined
-# endif
-typedef unsigned int		uintptr_t;
-#endif
+Interesting, I've thought that it would have to be done explicitly by the 
+interface
+cleanup code, this approach looks promising to me.
 
-which means that with 32bit userspace it will be equal to 32bit only.
+> By "disappearing" i think you meant
+> the netdevice was totally rmmod-ed?
 
-> I'm unable to see anything specific about AIO in your kevent patch
-> that these modifications wouldn't support.
+No need to rmmod anything, just think of ppp or gre interfaces which come 
+and go
+without any modules loading/unloading. But yes, the rmmod would probably be
+needed in case of, for example, an ethernet device.
 
-I was asked to postpone AIO stuff for now, you can find it in previous
-patchsets sent about week or two ago.
+> The challenge is to make the app
+> also aware of you taking away the group from underneath them (thats why
+> i said "fix it")
+>
 
-> Rakshasa
+I dont's see this as any challange as the applications could just assume 
+that any
+memberships on deleted interfaces have been just droped implicitly by the 
+kernel.
+(This should be no problem for them provided that they keep track of
+the interfaces present on the system, which they should anyway or otherwise
+they could end up listening to just a part of the multicast traffic they are
+interested in.)
 
--- 
-	Evgeniy Polyakov
+>
+> These events are also available in user space via netlink. so an alter
+> your app could listen to them and make the group leaves instead of the
+> kernel.
+>
+
+In fact I've had proposed that on the application mailing list (the 
+appliaction is
+quagga formerly zebra routing suite to be specific) but the people there 
+disliked
+it because of the fact that for example the NetBSD (as I noted in my 
+previous
+post) does the group leaves implicitly on the interface delete and the 
+explicit
+group leaves fail there (and reportedly on other OSes too).
+Sure this can solved by some conditional compilation.
+This is why my post was more a theoretical design question/suggestion than
+a feature request (or a bug report).
+
+In this sense what do you think about the possible benefit of the proposed
+approach for maintaning the per-interface multicast reception state?
+
+> cheers,
+> jamal
+>
+
+Thanks
+Michal 
+
