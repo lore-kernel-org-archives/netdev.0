@@ -1,64 +1,58 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 23 Aug 2006 09:09:20 -0700
-Message-ID: <20060823090920.18e4d1da.akpm@osdl.org>
-References: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com>
-	<20060822231129.GA18296@ms2.inr.ac.ru>
-	<b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com>
-	<20060822.173200.126578369.davem@davemloft.net>
-	<b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com>
-	<20060823065659.GC24787@2ka.mipt.ru>
-	<20060823000758.5ebed7dd.akpm@osdl.org>
-	<20060823075056.GA18029@2ka.mipt.ru>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: eth interface enumeration order
+Date: Wed, 23 Aug 2006 09:13:07 -0700
+Message-ID: <44EC7E93.2080604@intel.com>
+References: <44EC79D8.3050402@paradigmgeo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jari Sundell <sundell.software@gmail.com>,
-	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	nmiell@comcast.net, linux-kernel@vger.kernel.org,
-	drepper@redhat.com, netdev@vger.kernel.org, zach.brown@oracle.com,
-	hch@infradead.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:56761 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965020AbWHWQKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 12:10:40 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060823075056.GA18029@2ka.mipt.ru>
+Received: from mga09.intel.com ([134.134.136.24]:61556 "EHLO
+	orsmga102-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S965026AbWHWQOx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 12:14:53 -0400
+To: Victor Secarin <vsecarin@paradigmgeo.com>
+In-Reply-To: <44EC79D8.3050402@paradigmgeo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Aug 2006 11:50:56 +0400
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+Victor Secarin wrote:
+> VERSION
+> With kernel 2.4.33.1:
+> HARDWARE
+> I have a server with two eepro100 and one e1000 interfaces
+> BEHAVIOR
+> When the kernel boots the drivers report (/var/log/messages) the 
+> interfaces they find and what they are named (eth0, eth1, eth2)
+> 1. With the drivers configured monolithically in the kernel:
+> e1000 reports eth0 and then eepro100 reports eth1 and eth2
+> 2. With the drivers configured as modules:
+> eepro100 reports eth0 and eth1 and then e1000 reports eth2
+> PROBLEM
+> 1. On a red  hat distribution, different interfaces may have different 
+> configuration scripts, which assign IP addresses and more, and the 
+> scripts are identified by the ethx name.
+> 2. It is necessary to control which interface becomes eth0 as various 
+> programs use the MAC address of eth0 to identify the computer. In my 
+> case that is "lmhostid" and all the FLEXlm software,
+> as I run a license server on that machine.
 
-> On Wed, Aug 23, 2006 at 12:07:58AM -0700, Andrew Morton (akpm@osdl.org) wrote:
-> > On Wed, 23 Aug 2006 10:56:59 +0400
-> > Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> > 
-> > > On Wed, Aug 23, 2006 at 02:43:50AM +0200, Jari Sundell (sundell.software@gmail.com) wrote:
-> > > > Actually, I didn't miss that, it is an orthogonal issue. A timespec
-> > > > timeout parameter for the syscall does not imply the use of timespec
-> > > > in any timer event, etc. Nor is there any timespec timer in kqueue's
-> > > > struct kevent, which is the only (interface related) thing that will
-> > > > be exposed.
-> > > 
-> > > void * in structure exported to userspace is forbidden.
-> > > long in syscall requires wrapper in per-arch code (although that
-> > > workaround _is_ there, it does not mean that broken interface should 
-> > > be used).
-> > > poll uses millisecods - it is perfectly ok.
-> > 
-> > I wonder whether designing-in a millisecond granularity is the right thing
-> > to do.  If in a few years the kernel is running tickless with high-res clock
-> > interrupt sources, that might look a bit lumpy.
-> > 
-> > Switching it to a __u64 nanosecond counter would be basically free on
-> > 64-bit machines, and not very expensive on 32-bit, no?
-> 
-> I can put nanoseconds as timer interval too (with aligned_u64 as David
-> mentioned), and put it for timeout value too - 64 bit nanosecods ends up
-> with 58 years, probably enough.
-> Structures with u64 a really not so good idea.
-> 
+[ Please don't mail tree maintainers with this sort of question. ]
 
-OK.  One could do u32 seconds/u32 nsecs, but a simple aligned_u64 will be
-better for 64-bit machines, and OK for 32-bit.
+[ Try using the e100 driver instead of eepro100 ;) ]
+
+there are several answers to this solution. First of all, you can build the 
+e100 driver into the kernel and use e1000 as a module, at which point the 
+in-kernel driver will always load first.
+
+second of all, you can set `alias eth0 e100` in your /etc/modules.conf and 
+force that nic to be bound to the first interface.
+
+other handwork includes manually installing the modules in the right order at 
+boot time.
+
+Cheers,
+
+Auke
+
