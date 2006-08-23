@@ -1,58 +1,105 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: multicast group memberships purge on interface delete
-Date: Wed, 23 Aug 2006 11:51:48 -0700
-Message-ID: <OF77A66489.EF09BE53-ON882571D3.00666BB7-882571D3.00679F2F@us.ibm.com>
-References: <021e01c6c6a4$6e7845f0$2303a8c0@mruzicka>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [take13 0/3] kevent: Generic event handling mechanism.
+Date: Wed, 23 Aug 2006 22:56:24 +0400
+Message-ID: <20060823185624.GA8438@2ka.mipt.ru>
+References: <11563322941645@2ka.mipt.ru> <Pine.LNX.4.63.0608231313370.8007@alpha.polcom.net> <20060823122509.GA5744@2ka.mipt.ru> <Pine.LNX.4.63.0608231437170.8007@alpha.polcom.net> <20060823134227.GC29056@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:7090 "EHLO e32.co.us.ibm.com")
-	by vger.kernel.org with ESMTP id S964864AbWHWSvy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 14:51:54 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e32.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k7NIprjD012374
-	for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 14:51:53 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7NIpqbv263796
-	for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 12:51:52 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7NIpq2Q031910
-	for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 12:51:52 -0600
-In-Reply-To: <021e01c6c6a4$6e7845f0$2303a8c0@mruzicka>
-To: Michal Ruzicka <michal.ruzicka@comstar.cz>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:27787 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1750749AbWHWS4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 14:56:50 -0400
+To: Grzegorz Kulewski <kangur@polcom.net>
+Content-Disposition: inline
+In-Reply-To: <20060823134227.GC29056@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michal,
+On Wed, Aug 23, 2006 at 05:42:30PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> On Wed, Aug 23, 2006 at 03:05:15PM +0200, Grzegorz Kulewski (kangur@polcom.net) wrote:
+> > >But you've rised an interesting question, I think it is good possibility
+> > >to have such timeout per-event. Let me think a little about it.
+> > >
+> > >It can be done even without changing size of the kevent structure - by
+> > >reusing ret_data (since it is not needed to have timeout when event is
+> > >ready, and if it is not and timeout has expired, we can use a flag in
+> > >ret_flags). That requires per-event timer or tricky state machine
+> > >though. So I would ask core developers if we need such additional
+> > >functionality?
+> > 
+> > Well, I will not comment on implementation because I don't know it too 
+> > much. But what is in my opinion essetial is that:
+> > 
+> > a. Date-time of timeout is not changed or reset if nothing (including 
+> > timeout) happens with this file descriptor. (This is to ensure we are 
+> > tracing time from last event/operation on that fd not from call to wait 
+> > function.)
+> > 
+> > b. Timeout is Date-time not amount of (mili)seconds, so no kernel or 
+> > userspace work (like decrementing) needed if nothing happens with this fd.
+> 
+> Please note that memory is limited in kernelspace, so Date-time should
+> not be that heavy. It is possible to reuse 64bits there without major
+> surgery which should be enough for number of (...)seconds, but is not 
+> enough to store real date. (although we can steal yet another 32 bits
+> from ret_flags and reuse fields in req_flags).
+> 
+> > c. Time exceeded is event so userspace does not have to check all 
+> > registered events/fds for timeout on them (like it has with todays event 
+> > notification mechanisms).
+> 
+> It's not a problem.
+> 
+> > And it should be easy to use too... :)
+> 
+> It can be discussed at the very end :)
 
-> My question/suggestion:
-> Would it feasible to drop the relevant entries from sockets' multicast 
-> membership lists on the interface
-> delete?
+Actually thinking some more about this issues I've come to conclusion,
+that it is not required.
+User can always crate two kevents - one for timer and one for rela data
+processing and put crossed referencies into both, so when one of them is
+ready user could remove another.
 
-        Yes, I think this is needed. The original BSD code didn't have 
-this
-problem because it didn't support removal of a device. I wondered for a
-while whether an app should care whether the device was removed or not on
-a "leave", but I think it probably should get ENODEV in that case, just
-as it would for any invalid interface index, whether or not it used to
-be valid. So, simply removing the memberships and filters on device
-destroy looks right to me.
+> > >>3. I had read this new patchset (especially user interface part) and as I
+> > >>see the user visible part is monolithic. There is only one struct for all
+> > >>types of events. Did you consider making one genral struct (with type
+> > >>field, reference to some event specific struct and possibly some other
+> > >>fileds) and several small event specific struct (that can be added later
+> > >>as needed)? If so why did you choose the monolithic way?
+> > >
+> > >Right now I do not see if it has some benifits to have such extensible
+> > >structures. If other developers think that it worth it, it can be
+> > >implemented.
+> > 
+> > Well, the only benefit I can see is that when somebody will invent some 
+> > completly new event type that requires something more than current struct 
+> > provides it will be easy to add.
+> > 
+> > Also user interface (and probably documentation) could be easier. For 
+> > example one event specific struct for man page and no 
+> > reserved/undocumented/for-extensions-or-futher-usage fields will be 
+> > needed.
+> 
+> It can be done by selecting special event type, which in turn will reuse
+> special fields as length.
+> But variable-sized members can not be put into cache and without
+> knowledge of it's size it is impossible to put htem into mapped buffer.
 
-        I'm not sure that maintaining a per-device socket list is 
-necessary,
-since removal of a device is relatively unusual, and that may make locking
-and reference counting more complicated (maybe not). Probably a simple
-search of all UDP sockets with non-null multicast lists and matching
-interface index is sufficient.
-        IGMPv3 is there fully, and uses a more efficient way of tracking
-interface and socket filter intersections and unions than the "obvious"
-way as suggested by the RFC. I don't think it is affected either way by
-this.
+And thinking more about this issue, I can say that I'm again
+variable-sized structures - they can not be placed into ring buffer (at
+least into simple one), they do not allow allocation from cache, it is
+impossible to get them correctly from userspace if there is now exact
+knowledge about nature of that events and a lot of other problems.
+If one strongly feels that it is required, it is possible to provide
+userspace pointer in the ukevent structure, which then can be read in
+->enqueue callback by kernelside (there is similar trick in network
+AIO).
 
-        I'll either do or review a patch for this, depending on who
-gets to it first. :-)
-
-                                                                +-DLS
-
+-- 
+	Evgeniy Polyakov
