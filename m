@@ -1,184 +1,155 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH 41/44] [XFRM]: Add sorting interface for state and template.
-Date: Thu, 24 Aug 2006 00:02:42 +0900
-Message-ID: <11563453674024-git-send-email-yoshfuji@linux-ipv6.org>
-References: <11563453651167-git-send-email-yoshfuji@linux-ipv6.org> <11563453651533-git-send-email-yoshfuji@linux-ipv6.org> <11563453653169-git-send-email-yoshfuji@linux-ipv6.org> <1156345365325-git-send-email-yoshfuji@linux-ipv6.org> <11563453653851-git-send-email-yoshfuji@linux-ipv6.org> <11563453653575-git-send-email-yoshfuji@linux-ipv6.org> <1156345365651-git-send-email-yoshfuji@linux-ipv6.org> <1156345365264-git-send-email-yoshfuji@linux-ipv6.org> <1156345365312-git-send-email-yoshfuji@linux-ipv6.org> <11563453652646-git-send-email-yoshfuji@linux-ipv6.org> <1156345365315-git-send-email-yoshfuji@linux-ipv6.org> <11563453651452-git-send-email-yoshfuji@linux-ipv6.org> <1156345366288-git-send-email-yoshfuji@linux-ipv6.org> <1156345366857-git-send-email-yoshfuji@linux-ipv6.org> <11563453663761-git-send-email-yoshfuji@linux-ipv6.org> <11563453662321-git-send-email-yoshfuji@linux-ipv6.org>
-  <11563453661892-git-send-email-yoshfuji@linux-ipv6.org> <11563453661207-git-send-email-yoshfuji@linux-ipv6.org> <11563453663743-git-send-email-yoshfuji@linux-ipv6.org> <1156345366676-git-send-email-yoshfuji@linux-ipv6.org> <11563453662840-git-send-email-yoshfuji@linux-ipv6.org> <11563453662913-git-send-email-yoshfuji@linux-ipv6.org> <11563453663400-git-send-email-yoshfuji@linux-ipv6.org> <1156345366549-git-send-email-yoshfuji@linux-ipv6.org> <11563453662956-git-send-email-yoshfuji@linux-ipv6.org> <11563453661764-git-send-email-yoshfuji@linux-ipv6.org> <11563453663275-git-send-email-yoshfuji@linux-ipv6.org> <11563453671174-git-send-email-yoshfuji@linux-ipv6.org> <11563453674049-git-send-email-yoshfuji@linux-ipv6.org> <11563453673517-git-send-email-yoshfuji@linux-ipv6.org> <11563453674137-git-send-email-yoshfuji@linux-ipv6.org> <11563453671944-git-send-email-yoshfuji@linux-ipv6.org> <11
- 563453671187-git-send-email-yoshfuji@linux-ipv6.org> <11563453672959-git-send-email-yoshfuji@linux-ipv6.org> <1156345367208-git-send-email-yoshfuji@linux-ipv6.org> <11563453673786-git-send-email-yoshfuji@linux-ipv6.org> <11563453672531-git-send-email-yoshfuji@linux-ipv6.org> <11563453674194-git-send-email-yoshfuji@linux-ipv6.org> <11563453671463-git-send-email-yoshfuji@linux-ipv6.org> <11563453672872-git-send-email-yoshfuji@linux-ipv6.org> <11563453671273-git-send-email-yoshfuji@linux-ipv6.org>
+Subject: [PATCH 13/44] [XFRM] STATE: Support non-fragment outbound transformation headers.
+Date: Thu, 24 Aug 2006 00:02:14 +0900
+Message-ID: <1156345366857-git-send-email-yoshfuji@linux-ipv6.org>
+References: <11563453651167-git-send-email-yoshfuji@linux-ipv6.org> <11563453651533-git-send-email-yoshfuji@linux-ipv6.org> <11563453653169-git-send-email-yoshfuji@linux-ipv6.org> <1156345365325-git-send-email-yoshfuji@linux-ipv6.org> <11563453653851-git-send-email-yoshfuji@linux-ipv6.org> <11563453653575-git-send-email-yoshfuji@linux-ipv6.org> <1156345365651-git-send-email-yoshfuji@linux-ipv6.org> <1156345365264-git-send-email-yoshfuji@linux-ipv6.org> <1156345365312-git-send-email-yoshfuji@linux-ipv6.org> <11563453652646-git-send-email-yoshfuji@linux-ipv6.org> <1156345365315-git-send-email-yoshfuji@linux-ipv6.org> <11563453651452-git-send-email-yoshfuji@linux-ipv6.org> <1156345366288-git-send-email-yoshfuji@linux-ipv6.org>
 Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
 	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
 	Masahide NAKAMURA <nakam@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:11657 "EHLO
+Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:64904 "EHLO
 	jupiter.linux-ipv6.org") by vger.kernel.org with ESMTP
-	id S964954AbWHWPCw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 11:02:52 -0400
+	id S964916AbWHWPCu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 11:02:50 -0400
 To: davem@davemloft.net
-In-Reply-To: <11563453671273-git-send-email-yoshfuji@linux-ipv6.org>
+In-Reply-To: <1156345366288-git-send-email-yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Masahide NAKAMURA <nakam@linux-ipv6.org>
 
-Under two transformation policies it is required to merge them.
-This is a platform to sort state for outbound and templates
-for inbound respectively.
-It will be used when Mobile IPv6 and IPsec are used at the same time.
+For originated outbound IPv6 packets which will fragment, ip6_append_data()
+should know length of extension headers before sending them and
+the length is carried by dst_entry.
+IPv6 IPsec headers fragment then transformation was
+designed to place all headers after fragment header.
+OTOH Mobile IPv6 extension headers do not fragment then
+it is a good idea to make dst_entry have non-fragment length to tell it
+to ip6_append_data().
 
 Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- include/net/xfrm.h     |   20 ++++++++++++++++++++
- net/xfrm/xfrm_policy.c |   16 ++++++++++++++--
- net/xfrm/xfrm_state.c  |   38 ++++++++++++++++++++++++++++++++++++++
- 3 files changed, 72 insertions(+), 2 deletions(-)
+ include/net/dst.h       |    1 +
+ include/net/xfrm.h      |    2 ++
+ net/ipv4/xfrm4_policy.c |    1 +
+ net/ipv6/ip6_output.c   |    2 +-
+ net/ipv6/xfrm6_policy.c |   24 ++++++++++++++++++++++--
+ 5 files changed, 27 insertions(+), 3 deletions(-)
 
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 36d54fc..a8d825f 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -54,6 +54,7 @@ #define DST_BALANCED            0x10
+ 	unsigned long		expires;
+ 
+ 	unsigned short		header_len;	/* more space at head required */
++	unsigned short		nfheader_len;	/* more non-fragment space at head required */
+ 	unsigned short		trailer_len;	/* space to reserve at tail */
+ 
+ 	u32			metrics[RTAX_MAX];
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 5bd6beb..aab31a2 100644
+index cbfacdb..e451fed 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -255,6 +255,8 @@ struct xfrm_state_afinfo {
- 	struct xfrm_state	*(*find_acq)(u8 mode, u32 reqid, u8 proto, 
- 					     xfrm_address_t *daddr, xfrm_address_t *saddr, 
- 					     int create);
-+	int			(*tmpl_sort)(struct xfrm_tmpl **dst, struct xfrm_tmpl **src, int n);
-+	int			(*state_sort)(struct xfrm_state **dst, struct xfrm_state **src, int n);
- };
+@@ -261,6 +261,8 @@ struct xfrm_type
+ 	char			*description;
+ 	struct module		*owner;
+ 	__u8			proto;
++	__u8			flags;
++#define XFRM_TYPE_NON_FRAGMENT	1
  
- extern int xfrm_state_register_afinfo(struct xfrm_state_afinfo *afinfo);
-@@ -1002,6 +1004,24 @@ extern int xfrm_state_add(struct xfrm_st
- extern int xfrm_state_update(struct xfrm_state *x);
- extern struct xfrm_state *xfrm_state_lookup(xfrm_address_t *daddr, u32 spi, u8 proto, unsigned short family);
- extern struct xfrm_state *xfrm_state_lookup_byaddr(xfrm_address_t *daddr, xfrm_address_t *saddr, u8 proto, unsigned short family);
-+#ifdef CONFIG_XFRM_SUB_POLICY
-+extern int xfrm_tmpl_sort(struct xfrm_tmpl **dst, struct xfrm_tmpl **src,
-+			  int n, unsigned short family);
-+extern int xfrm_state_sort(struct xfrm_state **dst, struct xfrm_state **src,
-+			   int n, unsigned short family);
-+#else
-+static inline int xfrm_tmpl_sort(struct xfrm_tmpl **dst, struct xfrm_tmpl **src,
-+				 int n, unsigned short family)
+ 	int			(*init_state)(struct xfrm_state *x);
+ 	void			(*destructor)(struct xfrm_state *);
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index a5bed74..e517981 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -135,6 +135,7 @@ __xfrm4_bundle_create(struct xfrm_policy
+ 		dst_prev->flags	       |= DST_HOST;
+ 		dst_prev->lastuse	= jiffies;
+ 		dst_prev->header_len	= header_len;
++		dst_prev->nfheader_len	= 0;
+ 		dst_prev->trailer_len	= trailer_len;
+ 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
+ 
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 686c07a..ebb23db 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -963,7 +963,7 @@ int ip6_append_data(struct sock *sk, int
+ 
+ 	hh_len = LL_RESERVED_SPACE(rt->u.dst.dev);
+ 
+-	fragheaderlen = sizeof(struct ipv6hdr) + (opt ? opt->opt_nflen : 0);
++	fragheaderlen = sizeof(struct ipv6hdr) + rt->u.dst.nfheader_len + (opt ? opt->opt_nflen : 0);
+ 	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen - sizeof(struct frag_hdr);
+ 
+ 	if (mtu <= sizeof(struct ipv6hdr) + IPV6_MAXPLEN) {
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index 9328fc8..a3f68c8 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -75,6 +75,24 @@ __xfrm6_bundle_addr_local(struct xfrm_st
+ 		(struct in6_addr*)&x->props.saddr;
+ }
+ 
++static inline void
++__xfrm6_bundle_len_inc(int *len, int *nflen, struct xfrm_state *x)
 +{
-+	return -ENOSYS;
++	if (x->type->flags & XFRM_TYPE_NON_FRAGMENT)
++		*nflen += x->props.header_len;
++	else
++		*len += x->props.header_len;
 +}
 +
-+static inline int xfrm_state_sort(struct xfrm_state **dst, struct xfrm_state **src,
-+				  int n, unsigned short family)
++static inline void
++__xfrm6_bundle_len_dec(int *len, int *nflen, struct xfrm_state *x)
 +{
-+	return -ENOSYS;
++	if (x->type->flags & XFRM_TYPE_NON_FRAGMENT)
++		*nflen -= x->props.header_len;
++	else
++		*len -= x->props.header_len;
 +}
-+#endif
- extern struct xfrm_state *xfrm_find_acq_byseq(u32 seq);
- extern int xfrm_state_delete(struct xfrm_state *x);
- extern void xfrm_state_flush(u8 proto);
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 65e84b1..a1be1b5 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -861,6 +861,8 @@ xfrm_tmpl_resolve(struct xfrm_policy **p
- 		  struct xfrm_state **xfrm,
- 		  unsigned short family)
- {
-+	struct xfrm_state *tp[XFRM_MAX_DEPTH];
-+	struct xfrm_state **tpp = (npols > 1) ? tp : xfrm;
- 	int cnx = 0;
- 	int error;
- 	int ret;
-@@ -871,7 +873,8 @@ xfrm_tmpl_resolve(struct xfrm_policy **p
- 			error = -ENOBUFS;
- 			goto fail;
++
+ /* Allocate chain of dst_entry's, attach known xfrm's, calculate
+  * all the metrics... Shortly, bundle a bundle.
+  */
+@@ -99,6 +117,7 @@ __xfrm6_bundle_create(struct xfrm_policy
+ 	int i;
+ 	int err = 0;
+ 	int header_len = 0;
++	int nfheader_len = 0;
+ 	int trailer_len = 0;
+ 
+ 	dst = dst_prev = NULL;
+@@ -135,7 +154,7 @@ __xfrm6_bundle_create(struct xfrm_policy
+ 			local  = __xfrm6_bundle_addr_local(xfrm[i], local);
+ 			tunnel = 1;
  		}
--		ret = xfrm_tmpl_resolve_one(pols[i], fl, &xfrm[cnx], family);
-+
-+		ret = xfrm_tmpl_resolve_one(pols[i], fl, &tpp[cnx], family);
- 		if (ret < 0) {
- 			error = ret;
- 			goto fail;
-@@ -879,11 +882,15 @@ xfrm_tmpl_resolve(struct xfrm_policy **p
- 			cnx += ret;
+-		header_len += xfrm[i]->props.header_len;
++		__xfrm6_bundle_len_inc(&header_len, &nfheader_len, xfrm[i]);
+ 		trailer_len += xfrm[i]->props.trailer_len;
+ 
+ 		if (tunnel) {
+@@ -170,6 +189,7 @@ __xfrm6_bundle_create(struct xfrm_policy
+ 		dst_prev->flags	       |= DST_HOST;
+ 		dst_prev->lastuse	= jiffies;
+ 		dst_prev->header_len	= header_len;
++		dst_prev->nfheader_len	= nfheader_len;
+ 		dst_prev->trailer_len	= trailer_len;
+ 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
+ 
+@@ -188,7 +208,7 @@ __xfrm6_bundle_create(struct xfrm_policy
+ 		x->u.rt6.rt6i_src      = rt0->rt6i_src;	
+ 		x->u.rt6.rt6i_idev     = rt0->rt6i_idev;
+ 		in6_dev_hold(rt0->rt6i_idev);
+-		header_len -= x->u.dst.xfrm->props.header_len;
++		__xfrm6_bundle_len_dec(&header_len, &nfheader_len, x->u.dst.xfrm);
+ 		trailer_len -= x->u.dst.xfrm->props.trailer_len;
  	}
  
-+	/* found states are sorted for outbound processing */
-+	if (npols > 1)
-+		xfrm_state_sort(xfrm, tpp, cnx, family);
-+
- 	return cnx;
- 
-  fail:
- 	for (cnx--; cnx>=0; cnx--)
--		xfrm_state_put(xfrm[cnx]);
-+		xfrm_state_put(tpp[cnx]);
- 	return error;
- 
- }
-@@ -1280,6 +1287,7 @@ #endif
- 		struct sec_path *sp;
- 		static struct sec_path dummy;
- 		struct xfrm_tmpl *tp[XFRM_MAX_DEPTH];
-+		struct xfrm_tmpl *stp[XFRM_MAX_DEPTH];
- 		struct xfrm_tmpl **tpp = tp;
- 		int ti = 0;
- 		int i, k;
-@@ -1297,6 +1305,10 @@ #endif
- 				tpp[ti++] = &pols[pi]->xfrm_vec[i];
- 		}
- 		xfrm_nr = ti;
-+		if (npols > 1) {
-+			xfrm_tmpl_sort(stp, tpp, xfrm_nr, family);
-+			tpp = stp;
-+		}
- 
- 		/* For each tunnel xfrm, find the first matching tmpl.
- 		 * For each tmpl before that, find corresponding xfrm.
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index a26ef69..622e92a 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -728,6 +728,44 @@ xfrm_find_acq(u8 mode, u32 reqid, u8 pro
- }
- EXPORT_SYMBOL(xfrm_find_acq);
- 
-+#ifdef CONFIG_XFRM_SUB_POLICY
-+int
-+xfrm_tmpl_sort(struct xfrm_tmpl **dst, struct xfrm_tmpl **src, int n,
-+	       unsigned short family)
-+{
-+	int err = 0;
-+	struct xfrm_state_afinfo *afinfo = xfrm_state_get_afinfo(family);
-+	if (!afinfo)
-+		return -EAFNOSUPPORT;
-+
-+	spin_lock_bh(&xfrm_state_lock);
-+	if (afinfo->tmpl_sort)
-+		err = afinfo->tmpl_sort(dst, src, n);
-+	spin_unlock_bh(&xfrm_state_lock);
-+	xfrm_state_put_afinfo(afinfo);
-+	return err;
-+}
-+EXPORT_SYMBOL(xfrm_tmpl_sort);
-+
-+int
-+xfrm_state_sort(struct xfrm_state **dst, struct xfrm_state **src, int n,
-+		unsigned short family)
-+{
-+	int err = 0;
-+	struct xfrm_state_afinfo *afinfo = xfrm_state_get_afinfo(family);
-+	if (!afinfo)
-+		return -EAFNOSUPPORT;
-+
-+	spin_lock_bh(&xfrm_state_lock);
-+	if (afinfo->state_sort)
-+		err = afinfo->state_sort(dst, src, n);
-+	spin_unlock_bh(&xfrm_state_lock);
-+	xfrm_state_put_afinfo(afinfo);
-+	return err;
-+}
-+EXPORT_SYMBOL(xfrm_state_sort);
-+#endif
-+
- /* Silly enough, but I'm lazy to build resolution list */
- 
- static struct xfrm_state *__xfrm_find_acq_byseq(u32 seq)
 -- 
 1.4.0
 
