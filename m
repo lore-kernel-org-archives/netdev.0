@@ -1,97 +1,69 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [PATCH 12/21] d80211: get rid of MICHAEL_MIC_HWACCEL define
-Date: Wed, 23 Aug 2006 21:24:21 +0200 (CEST)
-Message-ID: <20060823192421.3FF8F483AE@silver.suse.cz>
+Subject: [PATCH 16/21] d80211: Group EIDs by standard, add remaining 802.11d EIDs
+Date: Wed, 23 Aug 2006 21:24:25 +0200 (CEST)
+Message-ID: <20060823192425.6542F483B4@silver.suse.cz>
 References: <20060823212316.333159079.midnight@suse.cz>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:29648 "EHLO silver.suse.cz")
-	by vger.kernel.org with ESMTP id S965119AbWHWTYV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 15:24:21 -0400
+Received: from styx.suse.cz ([82.119.242.94]:30160 "EHLO silver.suse.cz")
+	by vger.kernel.org with ESMTP id S965135AbWHWTYY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 15:24:24 -0400
 To: "John W. Linville" <linville@tuxdriver.com>
 In-Reply-To: <20060823212316.333159079.midnight@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
+From: Michael Wu <flamingice@sourmilk.net>
 
-The symbol MICHAEL_MIC_HWACCEL is always defined and hence
-all the ifdefs using it are useless. This patch removes it.
+This patch groups EIDs together by the 802.11 standard they were introduced in
+and adds the remaining 802.11d EIDs. The spec where the QoS EID was
+introduced still needs to be found. (does not appear to be 802.11e..) This
+patch depends on the previous patch that converts the status/reason codes and
+EIDs to enums.
 
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+Signed-off-by: Michael Wu <flamingice@sourmilk.net>
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 
 ---
 
- net/d80211/wpa.c |   11 -----------
- 1 files changed, 0 insertions(+), 11 deletions(-)
+ include/net/d80211_mgmt.h |   13 +++++++++----
+ 1 files changed, 9 insertions(+), 4 deletions(-)
 
-0c2bf906ecdf3c6fda21aa83afb07f015dd7ec20
-diff --git a/net/d80211/wpa.c b/net/d80211/wpa.c
-index 412b4a6..31abf9b 100644
---- a/net/d80211/wpa.c
-+++ b/net/d80211/wpa.c
-@@ -25,9 +25,6 @@ #include "hostapd_ioctl.h"
- #endif /* CONFIG_HOSTAPD_WPA_TESTING */
- 
- 
--#define MICHAEL_MIC_HWACCEL
--
--
- int ieee80211_get_hdr_info(const struct sk_buff *skb, u8 **sa, u8 **da,
- 			   u8 *qos_tid, u8 **data, size_t *data_len)
- {
-@@ -87,9 +84,7 @@ ieee80211_tx_h_michael_mic_add(struct ie
- 	u16 fc;
- 	struct sk_buff *skb = tx->skb;
- 	int authenticator;
--#if defined(CONFIG_HOSTAPD_WPA_TESTING) || defined(MICHAEL_MIC_HWACCEL)
- 	int wpa_test = 0;
--#endif
- 
- 	fc = tx->fc;
- 
-@@ -108,14 +103,12 @@ #ifdef CONFIG_HOSTAPD_WPA_TESTING
- 	}
- #endif /* CONFIG_HOSTAPD_WPA_TESTING */
- 
--#ifdef MICHAEL_MIC_HWACCEL
- 	if (!tx->key->force_sw_encrypt && !tx->local->conf.sw_decrypt &&
- 	    !tx->fragmented && !wpa_test) {
- 		/* hwaccel - with no need for preallocated room for Michael MIC
- 		 */
- 		return TXRX_CONTINUE;
- 	}
--#endif /* MICHAEL_MIC_HWACCEL */
- 
- 	if (skb_tailroom(skb) < MICHAEL_MIC_LEN) {
- 		I802_DEBUG_INC(tx->local->tx_expand_skb_head);
-@@ -189,7 +182,6 @@ #ifdef CONFIG_HOSTAPD_WPA_TESTING
- 	}
- #endif /* CONFIG_HOSTAPD_WPA_TESTING */
- 
--#ifdef MICHAEL_MIC_HWACCEL
- 	if ((rx->u.rx.status->flag & RX_FLAG_DECRYPTED) &&
- 	    !rx->key->force_sw_encrypt && !rx->local->conf.sw_decrypt) {
- 		if (rx->local->hw->wep_include_iv) {
-@@ -202,7 +194,6 @@ #ifdef MICHAEL_MIC_HWACCEL
- 		if (!rx->fragmented && !wpa_test)
- 			goto remove_mic;
- 	}
--#endif /* MICHAEL_MIC_HWACCEL */
- 
- 	if (ieee80211_get_hdr_info(skb, &sa, &da, &qos_tid, &data, &data_len)
- 	    || data_len < MICHAEL_MIC_LEN)
-@@ -278,9 +269,7 @@ #endif /* CONFIG_HOSTAPD_WPA_TESTING */
- 		return TXRX_QUEUED;
- 	}
- 
--#ifdef MICHAEL_MIC_HWACCEL
-  remove_mic:
--#endif /* MICHAEL_MIC_HWACCEL */
- 	/* remove Michael MIC from payload */
- 	skb_trim(skb, skb->len - MICHAEL_MIC_LEN);
- 
+6b31161b5dbf014abc07eadfa473f921d9c313ea
+diff --git a/include/net/d80211_mgmt.h b/include/net/d80211_mgmt.h
+index 6981c6f..eb032de 100644
+--- a/include/net/d80211_mgmt.h
++++ b/include/net/d80211_mgmt.h
+@@ -192,9 +192,13 @@ enum ieee80211_eid {
+ 	WLAN_EID_CF_PARAMS = 4,
+ 	WLAN_EID_TIM = 5,
+ 	WLAN_EID_IBSS_PARAMS = 6,
+-	WLAN_EID_COUNTRY = 7,
+ 	WLAN_EID_CHALLENGE = 16,
+-/* EIDs defined as part fo 11h - starts */
++	/* 802.11d */
++	WLAN_EID_COUNTRY = 7,
++	WLAN_EID_HP_PARAMS = 8,
++	WLAN_EID_HP_TABLE = 9,
++	WLAN_EID_REQUEST = 10,
++	/* 802.11h */
+ 	WLAN_EID_PWR_CONSTRAINT = 32,
+ 	WLAN_EID_PWR_CAPABILITY = 33,
+ 	WLAN_EID_TPC_REQUEST = 34,
+@@ -205,10 +209,11 @@ enum ieee80211_eid {
+ 	WLAN_EID_MEASURE_REPORT = 39,
+ 	WLAN_EID_QUIET = 40,
+ 	WLAN_EID_IBSS_DFS = 41,
+-/* EIDs defined as part fo 11h - ends */
++	/* 802.11g */
+ 	WLAN_EID_ERP_INFO = 42,
+-	WLAN_EID_RSN = 48,
+ 	WLAN_EID_EXT_SUPP_RATES = 50,
++	/* 802.11i */
++	WLAN_EID_RSN = 48,
+ 	WLAN_EID_WPA = 221,
+ 	WLAN_EID_GENERIC = 221,
+ 	WLAN_EID_VENDOR_SPECIFIC = 221,
 -- 
 1.3.0
 
