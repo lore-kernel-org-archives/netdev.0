@@ -1,58 +1,107 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 23 Aug 2006 12:39:00 +0400
-Message-ID: <20060823083859.GA8936@2ka.mipt.ru>
-References: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com> <20060822231129.GA18296@ms2.inr.ac.ru> <b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com> <20060822.173200.126578369.davem@davemloft.net> <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com> <20060823065659.GC24787@2ka.mipt.ru> <b3f268590608230122k60e3c7c7y939d5559d97107f@mail.gmail.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [take12 1/3] kevent: Core files.
+Date: Wed, 23 Aug 2006 10:51:36 +0200
+Message-ID: <200608231051.37089.dada1@cosmosbay.com>
+References: <115615558935@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	nmiell@comcast.net, linux-kernel@vger.kernel.org,
-	drepper@redhat.com, akpm@osdl.org, netdev@vger.kernel.org,
-	zach.brown@oracle.com, hch@infradead.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:24284 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S964789AbWHWIpF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 04:45:05 -0400
-To: Jari Sundell <sundell.software@gmail.com>
+Received: from pfx2.jmh.fr ([194.153.89.55]:54207 "EHLO pfx2.jmh.fr")
+	by vger.kernel.org with ESMTP id S964791AbWHWIvg convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 04:51:36 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <115615558935@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <b3f268590608230122k60e3c7c7y939d5559d97107f@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 23, 2006 at 10:22:06AM +0200, Jari Sundell (sundell.software@gmail.com) wrote:
-> On 8/23/06, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> >void * in structure exported to userspace is forbidden.
-> 
-> Only void * I'm seeing belongs to the user, (udata) perhaps you are
-> talking of something different?
+Hello Evgeniy
 
-Yes, exactly about it.
+I have one comment/suggestion (minor detail, your work is very good)
 
-I put union {
-	u32 a[2];
-	void *b;
-} 
-epcially to eliminate that problem.
+I suggest to add one item in kevent_registered_callbacks[], so that=20
+kevent_registered_callbacks[KEVENT_MAX] is valid and can act as a fallb=
+ack.
 
-And I'm not that sure aboit stuff like uptr_t or how they call pointers
-in userspace and kernelspace.
+In kevent_add_callbacks() you could replace the eventual NULL pointers =
+by=20
+kevent_break() in=20
+kevent_registered_callbacks[pos].{callback, enqueue, dequeue}
+like :
 
-> >long in syscall requires wrapper in per-arch code (although that
-> >workaround _is_ there, it does not mean that broken interface should
-> >be used).
-> >poll uses millisecods - it is perfectly ok.
-> 
-> The kernel is there to hide those ugly implementation details from the
-> user, so I don't care that much about a workaround being required in
-> some cases. More important, IMHO is consistency with the POSIX system
-> calls.
-> 
-> I guess as long as you use usec, at least it won't be a pain to use.
++int kevent_add_callbacks(const struct kevent_callbacks *cb, unsigned i=
+nt pos)
++{
++	struct kevent_callbacks *p =3D &kevent_registered_callbacks[pos];
++       if (pos >=3D KEVENT_MAX)
++               return -EINVAL;
++      p->enqueue =3D (cb->enqueue) ? cb->enqueue : kevent_break;
++      p->dequeue =3D (cb->dequeue) ? cb->dequeue : kevent_break;
++      p->callback =3D (cb->callback) ? cb->callback : kevent_break;
++       printk(KERN_INFO "KEVENT: Added callbacks for type %u.\n", pos)=
+;
++       return 0;
++}
 
-Andrew suggested to use nanoseconds there in u64 variable.
-I think it is ok.
+(I also added a const qualifier in first function argument, and unsigne=
+d int=20
+pos so that the "if (pos >=3D KEVENT_MAX)" test catches 'negative' valu=
+es)
 
-> Rakshasa
+Then you change kevent_break() to return -EINVAL instead of 0.
 
--- 
-	Evgeniy Polyakov
++int kevent_break(struct kevent *k)
++{
++=A0=A0=A0=A0=A0=A0=A0unsigned long flags;
++
++=A0=A0=A0=A0=A0=A0=A0spin_lock_irqsave(&k->ulock, flags);
++=A0=A0=A0=A0=A0=A0=A0k->event.ret_flags |=3D KEVENT_RET_BROKEN;
++=A0=A0=A0=A0=A0=A0=A0spin_unlock_irqrestore(&k->ulock, flags);
++=A0=A0=A0=A0=A0=A0=A0return -EINVAL;
++}
+
+Then avoid the tests in kevent_enqueue()
+
++int kevent_enqueue(struct kevent *k)
++{
++=A0=A0=A0=A0=A0=A0=A0return k->callbacks.enqueue(k);
++}
+
+And avoid the tests in  kevent_dequeue()
+
++int kevent_dequeue(struct kevent *k)
++{
++=A0=A0=A0=A0=A0=A0=A0return k->callbacks.dequeue(k);
++}
+
+And change kevent_init() to
+
++int kevent_init(struct kevent *k)
++{
++=A0=A0=A0=A0=A0=A0=A0spin_lock_init(&k->ulock);
++=A0=A0=A0=A0=A0=A0=A0k->flags =3D 0;
++
++=A0=A0=A0=A0=A0=A0=A0if (unlikely(k->event.type >=3D KEVENT_MAX))
++               k->event.type =3D KEVENT_MAX;
++	=20
++
++=A0=A0=A0=A0=A0=A0=A0k->callbacks =3D kevent_registered_callbacks[k->e=
+vent.type];
++=A0=A0=A0=A0=A0=A0=A0if (unlikely(k->callbacks.callback =3D=3D kevent_=
+break))
++=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0return kevent_break(k);
++
++=A0=A0=A0=A0=A0=A0=A0return 0;
++}
+
+
+
+Eric Dumazet
