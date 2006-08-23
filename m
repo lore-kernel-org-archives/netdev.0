@@ -1,37 +1,52 @@
-From: David Miller <davem@davemloft.net>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
 Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 23 Aug 2006 00:35:16 -0700 (PDT)
-Message-ID: <20060823.003516.30182824.davem@davemloft.net>
-References: <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com>
-	<20060823065659.GC24787@2ka.mipt.ru>
-	<20060823000758.5ebed7dd.akpm@osdl.org>
+Date: Wed, 23 Aug 2006 19:43:50 +1200
+Message-ID: <5640c7e00608230043h17d330c0ka46de63cfb5bf7de@mail.gmail.com>
+References: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com>
+	 <20060822231129.GA18296@ms2.inr.ac.ru>
+	 <b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com>
+	 <20060822.173200.126578369.davem@davemloft.net>
+	 <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com>
+	 <20060823065659.GC24787@2ka.mipt.ru>
+	 <20060823000758.5ebed7dd.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, sundell.software@gmail.com,
-	kuznet@ms2.inr.ac.ru, nmiell@comcast.net,
-	linux-kernel@vger.kernel.org, drepper@redhat.com,
-	netdev@vger.kernel.org, zach.brown@oracle.com, hch@infradead.org
+Cc: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
+	"Jari Sundell" <sundell.software@gmail.com>,
+	"David Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	nmiell@comcast.net, linux-kernel@vger.kernel.org,
+	drepper@redhat.com, netdev@vger.kernel.org, zach.brown@oracle.com,
+	hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:2179
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751444AbWHWHfR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 03:35:17 -0400
-To: akpm@osdl.org
+Received: from nf-out-f131.google.com ([64.233.182.131]:63406 "EHLO
+	nf-out-f131.google.com") by vger.kernel.org with ESMTP
+	id S932377AbWHWHnx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 03:43:53 -0400
+Received: by nf-out-f131.google.com with SMTP id k65so135911nfa
+        for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 00:43:51 -0700 (PDT)
+To: "Andrew Morton" <akpm@osdl.org>
 In-Reply-To: <20060823000758.5ebed7dd.akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
-
-From: Andrew Morton <akpm@osdl.org>
-Date: Wed, 23 Aug 2006 00:07:58 -0700
 
 > I wonder whether designing-in a millisecond granularity is the right thing
 > to do.  If in a few years the kernel is running tickless with high-res clock
 > interrupt sources, that might look a bit lumpy.
-> 
-> Switching it to a __u64 nanosecond counter would be basically free on
-> 64-bit machines, and not very expensive on 32-bit, no?
+>
+I'd second that - when working on DCCP I've done a lot of the work in
+microseconds and it made quite a difference instead of milliseconds
+because of it's design.
 
-If it ends up in a structure we'll need to use the "aligned_u64" type
-in order to avoid problems with 32-bit x86 binaries running on 64-bit
-kernels.
+I haven't followed kevents in great detail but it sounds like
+something that could be useful for me with higher resolution timers
+than milliseconds.
+-- 
+Ian McDonald
+Web: http://wand.net.nz/~iam4
+Blog: http://imcdnzl.blogspot.com
+WAND Network Research Group
+Department of Computer Science
+University of Waikato
+New Zealand
