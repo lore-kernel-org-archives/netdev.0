@@ -1,45 +1,58 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take13 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 23 Aug 2006 23:42:20 +0400
-Message-ID: <20060823194220.GA27685@2ka.mipt.ru>
-References: <11563322941645@2ka.mipt.ru> <Pine.LNX.4.63.0608231313370.8007@alpha.polcom.net> <20060823122509.GA5744@2ka.mipt.ru> <Pine.LNX.4.63.0608231437170.8007@alpha.polcom.net> <20060823134227.GC29056@2ka.mipt.ru> <20060823185624.GA8438@2ka.mipt.ru>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] d80211: add ieee80211_stop_queues()
+Date: Wed, 23 Aug 2006 21:45:05 +0200
+Message-ID: <200608232145.05763.mb@bu3sch.de>
+References: <C86180A8C204554D8A3323D8F6B0A29F0165B5C6@dhost002-46.dex002.intermedia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Jiri Benc" <jbenc@suse.cz>, linville@tuxdriver.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:38357 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S965152AbWHWTn1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 15:43:27 -0400
-To: Grzegorz Kulewski <kangur@polcom.net>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:39365
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965164AbWHWTp0
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 15:45:26 -0400
+To: "Simon Barber" <simon@devicescape.com>
+In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F0165B5C6@dhost002-46.dex002.intermedia.net>
 Content-Disposition: inline
-In-Reply-To: <20060823185624.GA8438@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 23, 2006 at 10:56:24PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > It can be done by selecting special event type, which in turn will reuse
-> > special fields as length.
-> > But variable-sized members can not be put into cache and without
-> > knowledge of it's size it is impossible to put htem into mapped buffer.
-> 
-> And thinking more about this issue, I can say that I'm again
-> variable-sized structures - they can not be placed into ring buffer (at
-> least into simple one), they do not allow allocation from cache, it is
-> impossible to get them correctly from userspace if there is now exact
-> knowledge about nature of that events and a lot of other problems.
-> If one strongly feels that it is required, it is possible to provide
-> userspace pointer in the ukevent structure, which then can be read in
-> ->enqueue callback by kernelside (there is similar trick in network
-> AIO).
+On Wednesday 23 August 2006 21:30, Simon Barber wrote:
+> One question - in most hardware implementations today the queues are DMA
+> rings. In this case the right length of the queue is determined by the
+> interrupt/tx_softirq latency required to keep the queue from becoming
+> empty. With 802.11 there are large differences in the time it takes to
+> transmit different frames - a full size 1Mbit frame vs. a short 54Mbit
+> frame. Would it be worth optimizing the DMA queue length to be a
+> function of the amount of time rather than number of frames?
 
-I've reread my text - sorry for tons of errors, I use extremely slow
-GPRS link, so it is almost impossible to return and correct errors using
-it, I think it is simple to understand what I meant :)
+I doubt that the added complexity would do any good.
+We should look at what a ring actually is.
+A ring is an allocated memory space with dma descriptors in it.
+The ring size if the number of dma descriptors. So theoretically
+the number of descriptors adds up to the size to allocate.
+In practice we have alignment issues (at least for bcm43xx).
+For a ring we always allocate one page of memory. Regardless
+of how much of it is actually used by descriptors.
+One wireless-specific thing remains, though. We store meta
+data for each descriptor (The ieee80211_tx_control at least).
+So basically only the memory consumption of the meta data
+could be optimized.
+
+We used to have 512 TX descriptors for each ring until I recently
+submitted a patch to lower it to 128. I did this because after
+doing stress tests the maximum amount of used descriptors did
+not go over about 80 on my machines.
+
+I think it basically comes down to the question:
+Do we want to save 1 kb of memory[*] but pay the price of
+additional code complexity?
+
+[*] 1kb is a random value invented by me. I did not calculate
+    it, but it should be somewhere around that value.
 
 -- 
-	Evgeniy Polyakov
+Greetings Michael.
