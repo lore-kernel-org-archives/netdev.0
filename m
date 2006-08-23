@@ -1,40 +1,49 @@
-From: Victor Secarin <vsecarin@paradigmgeo.com>
-Subject: eth interface enumeration order
-Date: Wed, 23 Aug 2006 09:52:56 -0600
-Message-ID: <44EC79D8.3050402@paradigmgeo.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [patch 3/5] d80211: fix interface removal
+Date: Wed, 23 Aug 2006 18:05:19 +0200
+Message-ID: <20060823180519.77aacc82@griffin.suse.cz>
+References: <20060822173241.313859000@devicescape.com>
+	<20060822173353.GD12500@devicescape.com>
+	<1156317628.3629.13.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: David Kimdon <david.kimdon@devicescape.com>,
+	netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-207-148-171-98.gen.cadvision.com ([207.148.171.98]:34606 "EHLO
-	pokey.corelab-rtd.ca") by vger.kernel.org with ESMTP
-	id S964999AbWHWPxJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 11:53:09 -0400
-To: akpm@zip.com.au, jgarzik@pobox.com, netdev@vger.kernel.org
+Received: from styx.suse.cz ([82.119.242.94]:17043 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S965000AbWHWQFV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 12:05:21 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1156317628.3629.13.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VERSION
-With kernel 2.4.33.1:
-HARDWARE
- I have a server with two eepro100 and one e1000 interfaces
-BEHAVIOR
-When the kernel boots the drivers report (/var/log/messages) the 
-interfaces they find and what they are named (eth0, eth1, eth2)
-1. With the drivers configured monolithically in the kernel:
-e1000 reports eth0 and then eepro100 reports eth1 and eth2
-2. With the drivers configured as modules:
-eepro100 reports eth0 and eth1 and then e1000 reports eth2
-PROBLEM
-1. On a red  hat distribution, different interfaces may have different 
-configuration scripts, which assign IP addresses and more, and the 
-scripts are identified by the ethx name.
-2. It is necessary to control which interface becomes eth0 as various 
-programs use the MAC address of eth0 to identify the computer. In my 
-case that is "lmhostid" and all the FLEXlm software,
-as I run a license server on that machine.
+On Wed, 23 Aug 2006 09:20:28 +0200, Johannes Berg wrote:
+> On Tue, 2006-08-22 at 10:33 -0700, David Kimdon wrote:
+> > +	if (param->u.if_info.type == HOSTAP_IF_WDS) {
+> > +		type = IEEE80211_IF_TYPE_WDS;
+> > +	} else if (param->u.if_info.type == HOSTAP_IF_VLAN) {
+> > +		type = IEEE80211_IF_TYPE_VLAN;
+> > +	} else if (param->u.if_info.type == HOSTAP_IF_BSS) {
+> > +		type = IEEE80211_IF_TYPE_AP;
+> > +	} else if (param->u.if_info.type == HOSTAP_IF_STA) {
+> > +		type = IEEE80211_IF_TYPE_STA;
+> > +	} else {
+> > +        return -EINVAL;
+> >  	}
+> 
+> IMHO that'd look better as a switch(). Or maybe even a small static
+> array to map them and just some bounds checking code?
 
-Thank you for taking the time to read this.
-yours truly,
-Victor Secarin
+You're right, but I'm taking the patch anyway. It's resembling the code
+of ieee80211_ioctl_add_if. Both of these function can be converted to
+use switches later by one patch.
 
+Thanks,
+
+ Jiri
+
+-- 
+Jiri Benc
+SUSE Labs
