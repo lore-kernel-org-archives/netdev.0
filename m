@@ -1,53 +1,49 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take12 0/3] kevent: Generic event handling mechanism.
-Date: Wed, 23 Aug 2006 11:50:56 +0400
-Message-ID: <20060823075056.GA18029@2ka.mipt.ru>
-References: <b3f268590608221551q5e6a1057hd1474ee8b9811f10@mail.gmail.com> <20060822231129.GA18296@ms2.inr.ac.ru> <b3f268590608221728r6cffd03i2f2dd12421b9f37@mail.gmail.com> <20060822.173200.126578369.davem@davemloft.net> <b3f268590608221743o493080d0t41349bc4336bdd0b@mail.gmail.com> <20060823065659.GC24787@2ka.mipt.ru> <20060823000758.5ebed7dd.akpm@osdl.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] Add wireless statics to bcm43xx-d80211
+Date: Wed, 23 Aug 2006 09:54:04 +0200
+Message-ID: <1156319644.3629.25.camel@ux156>
+References: <44E07AA4.8040309@lwfinger.net>
+	 <20060822160957.61a4e9ba@griffin.suse.cz>  <44EB7403.10705@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Jari Sundell <sundell.software@gmail.com>,
-	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	nmiell@comcast.net, linux-kernel@vger.kernel.org,
-	drepper@redhat.com, netdev@vger.kernel.org, zach.brown@oracle.com,
-	hch@infradead.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>, John Linville <linville@tuxdriver.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:53663 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1751450AbWHWHwL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 03:52:11 -0400
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060823000758.5ebed7dd.akpm@osdl.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:13536 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751451AbWHWHxv
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 03:53:51 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <44EB7403.10705@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 23, 2006 at 12:07:58AM -0700, Andrew Morton (akpm@osdl.org) wrote:
-> On Wed, 23 Aug 2006 10:56:59 +0400
-> Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> 
-> > On Wed, Aug 23, 2006 at 02:43:50AM +0200, Jari Sundell (sundell.software@gmail.com) wrote:
-> > > Actually, I didn't miss that, it is an orthogonal issue. A timespec
-> > > timeout parameter for the syscall does not imply the use of timespec
-> > > in any timer event, etc. Nor is there any timespec timer in kqueue's
-> > > struct kevent, which is the only (interface related) thing that will
-> > > be exposed.
+On Tue, 2006-08-22 at 16:15 -0500, Larry Finger wrote:
+> >> +	int maxssi;
 > > 
-> > void * in structure exported to userspace is forbidden.
-> > long in syscall requires wrapper in per-arch code (although that
-> > workaround _is_ there, it does not mean that broken interface should 
-> > be used).
-> > poll uses millisecods - it is perfectly ok.
+> > Why is maxssi here? Can it really change between received frames?
 > 
-> I wonder whether designing-in a millisecond granularity is the right thing
-> to do.  If in a few years the kernel is running tickless with high-res clock
-> interrupt sources, that might look a bit lumpy.
+> No it cannot change between frames; however, the max value can be very different for different 
+> drivers using d80211. On the bcm43xx, it is 60; whereas 100 seems to be a better value for the 
+> rt2x00 chips. Adding it here seemed like a good way to handle this situation. Do you suggest 
+> something else?
+
+I think the question was intended to be: "why is it in
+ieee80211_rx_status and not in struct ieee80211_hw?"
+
+> Again to pass the differing values for different drivers.
+
+Ditto here. Just stick it into struct ieee80211_hw instead.
+
+> > I would suggest using -110 dBm as a floor (to be compatible with RCPI
+> > definition, see mail from Simon Barber describing it). Or is there any
+> > particular reason for -104 dBm?
 > 
-> Switching it to a __u64 nanosecond counter would be basically free on
-> 64-bit machines, and not very expensive on 32-bit, no?
+> It is the value previously used in the softmac version of bcm43xx. A value of -110 would obviously 
+> be better.
 
-I can put nanoseconds as timer interval too (with aligned_u64 as David
-mentioned), and put it for timeout value too - 64 bit nanosecods ends up
-with 58 years, probably enough.
-Structures with u64 a really not so good idea.
+Who maintains the softmac version now? :P
+I'd suggest to just change it there too for consistency.
 
--- 
-	Evgeniy Polyakov
+johannes
