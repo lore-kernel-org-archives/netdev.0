@@ -1,54 +1,64 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: eth interface enumeration order
-Date: Wed, 23 Aug 2006 10:36:51 -0700
-Message-ID: <20060823103651.193311dc@localhost.localdomain>
-References: <44EC79D8.3050402@paradigmgeo.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] b44: fix eeprom endianess issue
+Date: Wed, 23 Aug 2006 20:06:55 +0200
+Message-ID: <200608232006.55531.mb@bu3sch.de>
+References: <200608231232.05750.mb@bu3sch.de> <200608231238.49783.mb@bu3sch.de> <44EC8866.9050704@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@zip.com.au, jgarzik@pobox.com, netdev@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>, zambrano@broadcom.com,
+	netdev@vger.kernel.org, davem@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:61651 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932324AbWHWRhK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 13:37:10 -0400
-To: Victor Secarin <vsecarin@paradigmgeo.com>
-In-Reply-To: <44EC79D8.3050402@paradigmgeo.com>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:44427
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S965089AbWHWSHh
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 14:07:37 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <44EC8866.9050704@garzik.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Aug 2006 09:52:56 -0600
-Victor Secarin <vsecarin@paradigmgeo.com> wrote:
-
-> VERSION
-> With kernel 2.4.33.1:
-> HARDWARE
->  I have a server with two eepro100 and one e1000 interfaces
-> BEHAVIOR
-> When the kernel boots the drivers report (/var/log/messages) the 
-> interfaces they find and what they are named (eth0, eth1, eth2)
-> 1. With the drivers configured monolithically in the kernel:
-> e1000 reports eth0 and then eepro100 reports eth1 and eth2
-> 2. With the drivers configured as modules:
-> eepro100 reports eth0 and eth1 and then e1000 reports eth2
-> PROBLEM
-> 1. On a red  hat distribution, different interfaces may have different 
-> configuration scripts, which assign IP addresses and more, and the 
-> scripts are identified by the ethx name.
-> 2. It is necessary to control which interface becomes eth0 as various 
-> programs use the MAC address of eth0 to identify the computer. In my 
-> case that is "lmhostid" and all the FLEXlm software,
-> as I run a license server on that machine.
+On Wednesday 23 August 2006 18:55, Jeff Garzik wrote:
+> Michael Buesch wrote:
+> >> Please note that this test is only compile tested, as
+> >> I don't have a b44 device.
 > 
-> Thank you for taking the time to read this.
-> yours truly,
-> Victor Secarin
+> >> @@ -2055,7 +2055,7 @@
+> >>  	u16 *ptr = (u16 *) data;
+> >>  
+> >>  	for (i = 0; i < 128; i += 2)
+> >> -		ptr[i / 2] = readw(bp->regs + 4096 + i);
+> >> +		ptr[i / 2] = cpu_to_le16(readw(bp->regs + 4096 + i));
+> >>  
+> 
+> 
+> This looks a bit weird.  readw() swaps on big-endian already.
+> 
+> This patch swaps each word -again- on big-endian, even though the only 
+> user of the eeprom data is the get-invariants code that reads the MAC 
+> address and phy id.
 
-Depending on interface names and ordering is wrong, you will get burned.
-Modern distro's with 2.6 use udev and scripts to control naming.
+Yeah. But look at where the data is stored.
+The data ends up in a _byte_ array. A byte array is litte endian
+(little end first). array[0] is low and array[1] is high.
+Look at the pointer cast above:
 
-For older systems, see ifrename(8)
+u16 *ptr = (u16 *) data;
+
+We store data in _cpu_ order in this byte array.
+That's wrong.
+If we are on a little endian machine, that's ok. But if
+we are on a big endian machine, this will write bytes swapped.
+
+LE will result in an array:
+ABABABABABABAB
+BE will result in an array:
+BABABABABABABA
+
+But only the first result (LE) is valid, because that's
+expected later when interpreting the data.
 
 -- 
-Stephen Hemminger <shemminger@osdl.org>
-
-All non-trivial abstractions, to some degree, are leaky.
+Greetings Michael.
