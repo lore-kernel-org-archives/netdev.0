@@ -1,211 +1,309 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH 32/44] [IPV6] MIP6: Add receiving mobility header functions through raw socket.
-Date: Thu, 24 Aug 2006 00:02:33 +0900
-Message-ID: <11563453671187-git-send-email-yoshfuji@linux-ipv6.org>
+Subject: [PATCH 28/44] [IPV6] MIP6: Add routing header type 2 transformation.
+Date: Thu, 24 Aug 2006 00:02:29 +0900
+Message-ID: <11563453674049-git-send-email-yoshfuji@linux-ipv6.org>
 References: <11563453651167-git-send-email-yoshfuji@linux-ipv6.org> <11563453651533-git-send-email-yoshfuji@linux-ipv6.org> <11563453653169-git-send-email-yoshfuji@linux-ipv6.org> <1156345365325-git-send-email-yoshfuji@linux-ipv6.org> <11563453653851-git-send-email-yoshfuji@linux-ipv6.org> <11563453653575-git-send-email-yoshfuji@linux-ipv6.org> <1156345365651-git-send-email-yoshfuji@linux-ipv6.org> <1156345365264-git-send-email-yoshfuji@linux-ipv6.org> <1156345365312-git-send-email-yoshfuji@linux-ipv6.org> <11563453652646-git-send-email-yoshfuji@linux-ipv6.org> <1156345365315-git-send-email-yoshfuji@linux-ipv6.org> <11563453651452-git-send-email-yoshfuji@linux-ipv6.org> <1156345366288-git-send-email-yoshfuji@linux-ipv6.org> <1156345366857-git-send-email-yoshfuji@linux-ipv6.org> <11563453663761-git-send-email-yoshfuji@linux-ipv6.org> <11563453662321-git-send-email-yoshfuji@linux-ipv6.org>
-  <11563453661892-git-send-email-yoshfuji@linux-ipv6.org> <11563453661207-git-send-email-yoshfuji@linux-ipv6.org> <11563453663743-git-send-email-yoshfuji@linux-ipv6.org> <1156345366676-git-send-email-yoshfuji@linux-ipv6.org> <11563453662840-git-send-email-yoshfuji@linux-ipv6.org> <11563453662913-git-send-email-yoshfuji@linux-ipv6.org> <11563453663400-git-send-email-yoshfuji@linux-ipv6.org> <1156345366549-git-send-email-yoshfuji@linux-ipv6.org> <11563453662956-git-send-email-yoshfuji@linux-ipv6.org> <11563453661764-git-send-email-yoshfuji@linux-ipv6.org> <11563453663275-git-send-email-yoshfuji@linux-ipv6.org> <11563453671174-git-send-email-yoshfuji@linux-ipv6.org> <11563453674049-git-send-email-yoshfuji@linux-ipv6.org> <11563453673517-git-send-email-yoshfuji@linux-ipv6.org> <11563453674137-git-send-email-yoshfuji@linux-ipv6.org> <11563453671944-git-send-email-yoshfuji@linux-ipv6.org>
+  <11563453661892-git-send-email-yoshfuji@linux-ipv6.org> <11563453661207-git-send-email-yoshfuji@linux-ipv6.org> <11563453663743-git-send-email-yoshfuji@linux-ipv6.org> <1156345366676-git-send-email-yoshfuji@linux-ipv6.org> <11563453662840-git-send-email-yoshfuji@linux-ipv6.org> <11563453662913-git-send-email-yoshfuji@linux-ipv6.org> <11563453663400-git-send-email-yoshfuji@linux-ipv6.org> <1156345366549-git-send-email-yoshfuji@linux-ipv6.org> <11563453662956-git-send-email-yoshfuji@linux-ipv6.org> <11563453661764-git-send-email-yoshfuji@linux-ipv6.org> <11563453663275-git-send-email-yoshfuji@linux-ipv6.org> <11563453671174-git-send-email-yoshfuji@linux-ipv6.org>
 Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
 	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
-	Masahide NAKAMURA <nakam@linux-ipv6.org>
+	Masahide NAKAMURA <nakam@linux-ipv6.org>,
+	Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:8329 "EHLO
+Received: from pc9.nezu.wide.ad.jp ([203.178.142.216]:7049 "EHLO
 	jupiter.linux-ipv6.org") by vger.kernel.org with ESMTP
-	id S964947AbWHWPCv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S964940AbWHWPCv (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 23 Aug 2006 11:02:51 -0400
 To: davem@davemloft.net
-In-Reply-To: <11563453671944-git-send-email-yoshfuji@linux-ipv6.org>
+In-Reply-To: <11563453671174-git-send-email-yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Masahide NAKAMURA <nakam@linux-ipv6.org>
 
-Like ICMPv6, mobility header is handled through raw socket.
-In inbound case, check only whether ICMPv6 error should be sent as a reply
-or not by kernel.
+Add routing header type 2 transformation for Mobile IPv6.
 Based on MIPL2 kernel patch.
 
-This patch was also written by: Ville Nuorvala <vnuorval@tcs.hut.fi>
-This patch was also written by: Antti Tuominen <anttit@tcs.hut.fi>
-
+Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
 Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- include/net/mip6.h |    4 +++
- net/ipv6/mip6.c    |   83 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/ipv6/raw.c     |   29 ++++++++++++++++++
- 3 files changed, 115 insertions(+), 1 deletions(-)
+ include/net/mip6.h  |   31 +++++++++
+ net/ipv6/Makefile   |    2 +
+ net/ipv6/af_inet6.c |    9 +++
+ net/ipv6/mip6.c     |  181 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 223 insertions(+), 0 deletions(-)
 
 diff --git a/include/net/mip6.h b/include/net/mip6.h
-index fd43178..68263c6 100644
---- a/include/net/mip6.h
+new file mode 100644
+index 0000000..644b8b6
+--- /dev/null
 +++ b/include/net/mip6.h
-@@ -25,6 +25,9 @@
- #ifndef _NET_MIP6_H
- #define _NET_MIP6_H
- 
-+#include <linux/skbuff.h>
-+#include <net/sock.h>
+@@ -0,0 +1,31 @@
++/*
++ * Copyright (C)2003-2006 Helsinki University of Technology
++ * Copyright (C)2003-2006 USAGI/WIDE Project
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++/*
++ * Authors:
++ *	Noriaki TAKAMIYA @USAGI
++ *	Masahide NAKAMURA @USAGI
++ *	YOSHIFUJI Hideaki @USAGI
++ */
++#ifndef _NET_MIP6_H
++#define _NET_MIP6_H
 +
- #define MIP6_OPT_PAD_1	0
- #define MIP6_OPT_PAD_N	1
++extern int mip6_init(void);
++extern void mip6_fini(void);
++
++#endif
+diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
+index 87e912e..0213c66 100644
+--- a/net/ipv6/Makefile
++++ b/net/ipv6/Makefile
+@@ -14,6 +14,8 @@ ipv6-$(CONFIG_XFRM) += xfrm6_policy.o xf
+ 	xfrm6_output.o
+ ipv6-$(CONFIG_NETFILTER) += netfilter.o
+ ipv6-$(CONFIG_IPV6_MULTIPLE_TABLES) += fib6_rules.o
++ipv6-$(CONFIG_IPV6_MIP6) += mip6.o
++
+ ipv6-objs += $(ipv6-y)
  
-@@ -53,5 +56,6 @@ #define IP6_MH_TYPE_MAX		IP6_MH_TYPE_BER
- 
- extern int mip6_init(void);
- extern void mip6_fini(void);
-+extern int mip6_mh_filter(struct sock *sk, struct sk_buff *skb);
- 
+ obj-$(CONFIG_INET6_AH) += ah6.o
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 2ff600c..5d57f57 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -59,6 +59,9 @@ #include <net/addrconf.h>
+ #ifdef CONFIG_IPV6_TUNNEL
+ #include <net/ip6_tunnel.h>
  #endif
-diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
-index a8adf89..7b5f893 100644
---- a/net/ipv6/mip6.c
-+++ b/net/ipv6/mip6.c
-@@ -26,7 +26,10 @@ #include <linux/config.h>
- #include <linux/module.h>
- #include <linux/skbuff.h>
- #include <linux/ipv6.h>
-+#include <linux/icmpv6.h>
-+#include <net/sock.h>
- #include <net/ipv6.h>
-+#include <net/ip6_checksum.h>
- #include <net/xfrm.h>
- #include <net/mip6.h>
- 
-@@ -55,6 +58,86 @@ static inline void *mip6_padn(__u8 *data
- 	return data + padlen;
- }
- 
-+static inline void mip6_param_prob(struct sk_buff *skb, int code, int pos)
-+{
-+	icmpv6_send(skb, ICMPV6_PARAMPROB, code, pos, skb->dev);
-+}
-+
-+static int mip6_mh_len(int type)
-+{
-+	int len = 0;
-+
-+	switch (type) {
-+	case IP6_MH_TYPE_BRR:
-+		len = 0;
-+		break;
-+	case IP6_MH_TYPE_HOTI:
-+	case IP6_MH_TYPE_COTI:
-+	case IP6_MH_TYPE_BU:
-+	case IP6_MH_TYPE_BACK:
-+		len = 1;
-+		break;
-+	case IP6_MH_TYPE_HOT:
-+	case IP6_MH_TYPE_COT:
-+	case IP6_MH_TYPE_BERROR:
-+		len = 2;
-+		break;
-+	}
-+	return len;
-+}
-+
-+int mip6_mh_filter(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct ip6_mh *mh;
-+	int mhlen;
-+
-+	if (!pskb_may_pull(skb, (skb->h.raw - skb->data) + 8) ||
-+	    !pskb_may_pull(skb, (skb->h.raw - skb->data) + ((skb->h.raw[1] + 1) << 3)))
-+		return -1;
-+
-+	mh = (struct ip6_mh *)skb->h.raw;
-+
-+	if (mh->ip6mh_hdrlen < mip6_mh_len(mh->ip6mh_type)) {
-+		LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH message too short: %d vs >=%d\n",
-+			       mh->ip6mh_hdrlen, mip6_mh_len(mh->ip6mh_type));
-+		mip6_param_prob(skb, 0, (&mh->ip6mh_hdrlen) - skb->nh.raw);
-+		return -1;
-+	}
-+	mhlen = (mh->ip6mh_hdrlen + 1) << 3;
-+
-+	if (skb->ip_summed == CHECKSUM_COMPLETE) {
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		if (csum_ipv6_magic(&skb->nh.ipv6h->saddr,
-+				    &skb->nh.ipv6h->daddr,
-+				    mhlen, IPPROTO_MH,
-+				    skb->csum)) {
-+			LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH hw checksum failed\n");
-+			skb->ip_summed = CHECKSUM_NONE;
-+		}
-+	}
-+	if (skb->ip_summed == CHECKSUM_NONE) {
-+		if (csum_ipv6_magic(&skb->nh.ipv6h->saddr,
-+				    &skb->nh.ipv6h->daddr,
-+				    mhlen, IPPROTO_MH,
-+				    skb_checksum(skb, 0, mhlen, 0))) {
-+			LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH checksum failed [%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x > %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x]\n",
-+				       NIP6(skb->nh.ipv6h->saddr),
-+				       NIP6(skb->nh.ipv6h->daddr));
-+			return -1;
-+		}
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	}
-+
-+	if (mh->ip6mh_proto != IPPROTO_NONE) {
-+		LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH invalid payload proto = %d\n",
-+			       mh->ip6mh_proto);
-+		mip6_param_prob(skb, 0, (&mh->ip6mh_proto) - skb->nh.raw);
-+		return -1;
-+	}
-+
-+	return 0;
-+}
-+
- static int mip6_destopt_input(struct xfrm_state *x, struct sk_buff *skb)
- {
- 	struct ipv6hdr *iph = skb->nh.ipv6h;
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index bf55b5b..2178a2a 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -50,6 +50,9 @@ #include <net/transp_v6.h>
- #include <net/udp.h>
- #include <net/inet_common.h>
- #include <net/tcp_states.h>
 +#ifdef CONFIG_IPV6_MIP6
 +#include <net/mip6.h>
 +#endif
  
- #include <net/rawv6.h>
- #include <net/xfrm.h>
-@@ -169,8 +172,32 @@ int ipv6_raw_deliver(struct sk_buff *skb
- 	sk = __raw_v6_lookup(sk, nexthdr, daddr, saddr, IP6CB(skb)->iif);
- 
- 	while (sk) {
-+		int filtered;
-+
- 		delivered = 1;
--		if (nexthdr != IPPROTO_ICMPV6 || !icmpv6_filter(sk, skb)) {
-+		switch (nexthdr) {
-+		case IPPROTO_ICMPV6:
-+			filtered = icmpv6_filter(sk, skb);
-+			break;
+ #include <asm/uaccess.h>
+ #include <asm/system.h>
+@@ -857,6 +860,9 @@ #endif
+ 	ipv6_frag_init();
+ 	ipv6_nodata_init();
+ 	ipv6_destopt_init();
 +#ifdef CONFIG_IPV6_MIP6
-+		case IPPROTO_MH:
-+			/* XXX: To validate MH only once for each packet,
-+			 * this is placed here. It should be after checking
-+			 * xfrm policy, however it doesn't. The checking xfrm
-+			 * policy is placed in rawv6_rcv() because it is
-+			 * required for each socket.
-+			 */
-+			filtered = mip6_mh_filter(sk, skb);
-+			break;
++	mip6_init();
 +#endif
-+		default:
-+			filtered = 0;
+ 
+ 	/* Init v6 transport protocols. */
+ 	udpv6_init();
+@@ -920,6 +926,9 @@ #ifdef CONFIG_PROC_FS
+  	tcp6_proc_exit();
+  	raw6_proc_exit();
+ #endif
++#ifdef CONFIG_IPV6_MIP6
++	mip6_fini();
++#endif
+ 	/* Cleanup code parts. */
+ 	sit_cleanup();
+ 	ip6_flowlabel_cleanup();
+diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
+new file mode 100644
+index 0000000..63e548b
+--- /dev/null
++++ b/net/ipv6/mip6.c
+@@ -0,0 +1,181 @@
++/*
++ * Copyright (C)2003-2006 Helsinki University of Technology
++ * Copyright (C)2003-2006 USAGI/WIDE Project
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ */
++/*
++ * Authors:
++ *	Noriaki TAKAMIYA @USAGI
++ *	Masahide NAKAMURA @USAGI
++ */
++
++#include <linux/config.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/ipv6.h>
++#include <net/ipv6.h>
++#include <net/xfrm.h>
++#include <net/mip6.h>
++
++static xfrm_address_t *mip6_xfrm_addr(struct xfrm_state *x, xfrm_address_t *addr)
++{
++	return x->coaddr;
++}
++
++static int mip6_rthdr_input(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct rt2_hdr *rt2 = (struct rt2_hdr *)skb->data;
++
++	if (!ipv6_addr_equal(&rt2->addr, (struct in6_addr *)x->coaddr) &&
++	    !ipv6_addr_any((struct in6_addr *)x->coaddr))
++		return -ENOENT;
++
++	return rt2->rt_hdr.nexthdr;
++}
++
++/* Routing Header type 2 is inserted.
++ * IP Header's dst address is replaced with Routing Header's Home Address.
++ */
++static int mip6_rthdr_output(struct xfrm_state *x, struct sk_buff *skb)
++{
++	struct ipv6hdr *iph;
++	struct rt2_hdr *rt2;
++	u8 nexthdr;
++
++	iph = (struct ipv6hdr *)skb->data;
++	iph->payload_len = htons(skb->len - sizeof(*iph));
++
++	nexthdr = *skb->nh.raw;
++	*skb->nh.raw = IPPROTO_ROUTING;
++
++	rt2 = (struct rt2_hdr *)skb->h.raw;
++	rt2->rt_hdr.nexthdr = nexthdr;
++	rt2->rt_hdr.hdrlen = (x->props.header_len >> 3) - 1;
++	rt2->rt_hdr.type = IPV6_SRCRT_TYPE_2;
++	rt2->rt_hdr.segments_left = 1;
++	memset(&rt2->reserved, 0, sizeof(rt2->reserved));
++
++	BUG_TRAP(rt2->rt_hdr.hdrlen == 2);
++
++	memcpy(&rt2->addr, &iph->daddr, sizeof(rt2->addr));
++	memcpy(&iph->daddr, x->coaddr, sizeof(iph->daddr));
++
++	return 0;
++}
++
++static int mip6_rthdr_offset(struct xfrm_state *x, struct sk_buff *skb,
++			     u8 **nexthdr)
++{
++	u16 offset = sizeof(struct ipv6hdr);
++	struct ipv6_opt_hdr *exthdr = (struct ipv6_opt_hdr*)(skb->nh.ipv6h + 1);
++	unsigned int packet_len = skb->tail - skb->nh.raw;
++	int found_rhdr = 0;
++
++	*nexthdr = &skb->nh.ipv6h->nexthdr;
++
++	while (offset + 1 <= packet_len) {
++
++		switch (**nexthdr) {
++		case NEXTHDR_HOP:
 +			break;
++		case NEXTHDR_ROUTING:
++			if (offset + 3 <= packet_len) {
++				struct ipv6_rt_hdr *rt;
++				rt = (struct ipv6_rt_hdr *)(skb->nh.raw + offset);
++				if (rt->type != 0)
++					return offset;
++			}
++			found_rhdr = 1;
++			break;
++		case NEXTHDR_DEST:
++			if (ipv6_find_tlv(skb, offset, IPV6_TLV_HAO) >= 0)
++				return offset;
++
++			if (found_rhdr)
++				return offset;
++
++			break;
++		default:
++			return offset;
 +		}
 +
-+		if (filtered < 0)
-+			break;
-+		if (filtered == 0) {
- 			struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
- 
- 			/* Not releasing hash table! */
++		offset += ipv6_optlen(exthdr);
++		*nexthdr = &exthdr->nexthdr;
++		exthdr = (struct ipv6_opt_hdr*)(skb->nh.raw + offset);
++	}
++
++	return offset;
++}
++
++static int mip6_rthdr_init_state(struct xfrm_state *x)
++{
++	if (x->id.spi) {
++		printk(KERN_INFO "%s: spi is not 0: %u\n", __FUNCTION__,
++		       x->id.spi);
++		return -EINVAL;
++	}
++	if (x->props.mode != XFRM_MODE_ROUTEOPTIMIZATION) {
++		printk(KERN_INFO "%s: state's mode is not %u: %u\n",
++		       __FUNCTION__, XFRM_MODE_ROUTEOPTIMIZATION, x->props.mode);
++		return -EINVAL;
++	}
++
++	x->props.header_len = sizeof(struct rt2_hdr);
++
++	return 0;
++}
++
++/*
++ * Do nothing about destroying since it has no specific operation for routing
++ * header type 2 unlike IPsec protocols.
++ */
++static void mip6_rthdr_destroy(struct xfrm_state *x)
++{
++}
++
++static struct xfrm_type mip6_rthdr_type =
++{
++	.description	= "MIP6RT",
++	.owner		= THIS_MODULE,
++	.proto	     	= IPPROTO_ROUTING,
++	.flags		= XFRM_TYPE_NON_FRAGMENT,
++	.init_state	= mip6_rthdr_init_state,
++	.destructor	= mip6_rthdr_destroy,
++	.input		= mip6_rthdr_input,
++	.output		= mip6_rthdr_output,
++	.hdr_offset	= mip6_rthdr_offset,
++	.remote_addr	= mip6_xfrm_addr,
++};
++
++int __init mip6_init(void)
++{
++	printk(KERN_INFO "Mobile IPv6\n");
++
++	if (xfrm_register_type(&mip6_rthdr_type, AF_INET6) < 0) {
++		printk(KERN_INFO "%s: can't add xfrm type(rthdr)\n", __FUNCTION__);
++		goto mip6_rthdr_xfrm_fail;
++	}
++	return 0;
++
++ mip6_rthdr_xfrm_fail:
++	return -EAGAIN;
++}
++
++void __exit mip6_fini(void)
++{
++	if (xfrm_unregister_type(&mip6_rthdr_type, AF_INET6) < 0)
++		printk(KERN_INFO "%s: can't remove xfrm type(rthdr)\n", __FUNCTION__);
++}
 -- 
 1.4.0
 
