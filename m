@@ -1,41 +1,49 @@
-From: "Jeff Kirsher" <tarbal@gmail.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
 Subject: Re: [PATCH] ethtool v4: add autoneg advertise feature
-Date: Thu, 24 Aug 2006 08:54:33 -0700
-Message-ID: <9929d2390608240854y65c5f012hc6aa25c0d3507876@mail.gmail.com>
-References: <9929d2390608240822w7a586d7ai679d2af0be7c7213@mail.gmail.com>
-	 <1551EAE59135BE47B544934E30FC4FC093FAA2@NT-IRVA-0751.brcm.ad.broadcom.com>
+Date: Thu, 24 Aug 2006 08:59:30 -0700
+Message-ID: <44EDCCE2.3030408@intel.com>
+References: <1551EAE59135BE47B544934E30FC4FC093FAA2@NT-IRVA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	"David Miller" <davem@davemloft.net>,
-	"John Ronciak" <john.ronciak@intel.com>,
-	"Jesse Brandeburg" <jesse.brandeburg@intel.com>
+Cc: Jeff Kirsher <tarbal@gmail.com>, Jeff Garzik <jgarzik@pobox.com>,
+	Jeff@lime.pobox.com, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:58897 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S965055AbWHXPye (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Aug 2006 11:54:34 -0400
-Received: by ug-out-1314.google.com with SMTP id m3so545479ugc
-        for <netdev@vger.kernel.org>; Thu, 24 Aug 2006 08:54:33 -0700 (PDT)
-To: "Michael Chan" <mchan@broadcom.com>
+Received: from mga01.intel.com ([192.55.52.88]:17476 "EHLO
+	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
+	id S1030213AbWHXQBR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 12:01:17 -0400
+To: Michael Chan <mchan@broadcom.com>
 In-Reply-To: <1551EAE59135BE47B544934E30FC4FC093FAA2@NT-IRVA-0751.brcm.ad.broadcom.com>
-Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/24/06, Michael Chan <mchan@broadcom.com> wrote:
->
+Michael Chan wrote:
+> Jeff Kirsher wrote:
+> 
+>> The old way of setting autonegotiation was using the 
+>> following command:
+>> ethtool -s ethx speed 100 duplex full auto on
+>> now the command would be
+>> ethtool -s ethx auto on advertise 0x08
+>> both commands would result in only advertising 100 FULL.
+>>
+>> There still needs to be a change made to the man file to reflect the
+>> change in the behavior of ethtool, which I have not done.  But this
+>> patch will allow for greater flexibility in setting autonegotiation
+>> speeds.
+> 
 > It is more flexible, but less intuitive.  The user now has to
 > remember hex values instead of the more intuitive speed and
 > duplex.  Perhaps we can keep the old method of using speed and
-> duplex, while adding the new method of specifying hex values?
->
->
+> duplex, while adding the new method of specifying hex values? 
 
-That sounds fine to me.  I can send a modified patch, keeping the old
-method available to users.
+the patch doesn't remove the old method, it merely adds a second path to the 
+speed/duplex setting. Using the "old" syntax will still work.
 
--- 
 Cheers,
-Jeff
+
+Auke
