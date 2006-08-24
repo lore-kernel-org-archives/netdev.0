@@ -1,54 +1,41 @@
-From: "Jouni Malinen" <jkm@devicescape.com>
-Subject: Re: [PATCH wireless-dev 4/6] d80211: Send Layer 2 Update frames in kernel
-Date: Thu, 24 Aug 2006 08:54:05 -0700
-Message-ID: <20060824155405.GC13478@instant802.com>
-References: <20060824053930.GB6104@jm.kir.nu> <20060824134316.5f5a0746@griffin.suse.cz>
+From: "Jeff Kirsher" <tarbal@gmail.com>
+Subject: Re: [PATCH] ethtool v4: add autoneg advertise feature
+Date: Thu, 24 Aug 2006 08:54:33 -0700
+Message-ID: <9929d2390608240854y65c5f012hc6aa25c0d3507876@mail.gmail.com>
+References: <9929d2390608240822w7a586d7ai679d2af0be7c7213@mail.gmail.com>
+	 <1551EAE59135BE47B544934E30FC4FC093FAA2@NT-IRVA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jouni Malinen <jkmaline@cc.hut.fi>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Jeff Garzik" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	"David Miller" <davem@davemloft.net>,
+	"John Ronciak" <john.ronciak@intel.com>,
+	"Jesse Brandeburg" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-55.dex002.intermedia.net ([64.78.21.160]:4275 "EHLO
-	dhost002-55.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1751599AbWHXPyN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Aug 2006 11:54:13 -0400
-To: Jiri Benc <jbenc@suse.cz>
+Received: from ug-out-1314.google.com ([66.249.92.169]:58897 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S965055AbWHXPye (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 11:54:34 -0400
+Received: by ug-out-1314.google.com with SMTP id m3so545479ugc
+        for <netdev@vger.kernel.org>; Thu, 24 Aug 2006 08:54:33 -0700 (PDT)
+To: "Michael Chan" <mchan@broadcom.com>
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC093FAA2@NT-IRVA-0751.brcm.ad.broadcom.com>
 Content-Disposition: inline
-In-Reply-To: <20060824134316.5f5a0746@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 24, 2006 at 01:43:16PM +0200, Jiri Benc wrote:
-> On Wed, 23 Aug 2006 22:39:30 -0700, Jouni Malinen wrote:
-> > Which part do you think is hackish here? Sending the layer 2 update
-> > frame or moving it to kernel?
-> 
-> The latter.
-> 
-> Is it really needed to send it unconditionally for each added STA? And
-> cannot it be generated in userspace?
+On 8/24/06, Michael Chan <mchan@broadcom.com> wrote:
+>
+> It is more flexible, but less intuitive.  The user now has to
+> remember hex values instead of the more intuitive speed and
+> duplex.  Perhaps we can keep the old method of using speed and
+> duplex, while adding the new method of specifying hex values?
+>
+>
 
-Yes, it must be sent out whenever a STA associates with the AP, i.e.,
-for every STA and for every association.. This is needed to update both
-the internal bridge tables in the AP and the external bridge tables in
-switches etc. connected to the same physical net in order to make sure
-that future frames to the STA's MAC address are delivered to the correct
-AP--and within that AP, to the correct port.
-
-This was originally done in hostapd in userspace, but this showed a bug
-in which the local bridge tables did not get updated correctly in some
-specific configurations. In addition, doing this in hostapd would
-require that hostapd knows (or can learn) how the bridge configuration
-is done on the device and this information is not really needed for
-anything else, so there would not really be much point in keeping that
-functionality in hostapd.
-
-The simplest solution for this seems to be to allow the layer 2 update
-frame to be sent through the exact same path as any data frame from the
-STA would be coming. This makes sure that it goes through the local
-bridge in the same way as other frames from the STA would go and it will
-also be sent out to correct external (wired/WDS) ports automatically
-based on bridge configuration.
+That sounds fine to me.  I can send a modified patch, keeping the old
+method available to users.
 
 -- 
-Jouni Malinen                                            PGP id EFC895FA
+Cheers,
+Jeff
