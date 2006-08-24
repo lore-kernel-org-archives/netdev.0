@@ -1,48 +1,45 @@
-From: Steve.Glendinning@smsc.com
-Subject: Re: SMSC LAN911x and LAN921x vendor driver
-Date: Thu, 24 Aug 2006 12:09:42 +0100
-Message-ID: <OFF68801AB.0EDE020C-ON802571D4.00388794-802571D4.003D513A@smsc.com>
-References: <44ED2008.9000109@garzik.org>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH wireless-dev 4/6] d80211: Send Layer 2 Update frames in
+ kernel
+Date: Thu, 24 Aug 2006 13:36:29 +0200
+Message-ID: <20060824133629.7b553d88@griffin.suse.cz>
+References: <20060807231608.888744720@localhost>
+	<20060807231938.455373487@localhost>
+	<20060823192256.3e8df7f9@griffin.suse.cz>
+	<200608232350.41963.stefan@loplof.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Ian.Saturley@smsc.com, shemminger@osdl.org, netdev@vger.kernel.org,
-	Bahadir Balban <Bahadir.Balban@arm.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jouni Malinen <jkm@devicescape.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, jkmaline@cc.hut.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smsc.com ([170.129.50.11]:5138 "EHLO smsc.com")
-	by vger.kernel.org with ESMTP id S1751120AbWHXLKY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 07:10:24 -0400
-In-Reply-To: <44ED2008.9000109@garzik.org>
-To: Jeff Garzik <jeff@garzik.org>
+Received: from styx.suse.cz ([82.119.242.94]:20691 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751155AbWHXLgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 07:36:31 -0400
+To: Stefan Rompf <stefan@loplof.de>
+In-Reply-To: <200608232350.41963.stefan@loplof.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
+On Wed, 23 Aug 2006 23:50:41 +0200, Stefan Rompf wrote:
+> Imagine an ESS consisting of several APs in a switched wired network. Client 
+> roams from one AP to another. In order to update the FDB of the switches, a 
+> packet with the client MAC address needs to be originated from the ethernet 
+> interface of the AP the client has associated to, even if the client does not 
+> create traffic at the moment.
 
-> What are the arguments for adding a duplicate driver, again?
+Thanks for the explanation! I didn't thought about ESS when looking at
+that patch.
 
-The current driver is completely arm specific (does not even compile on 
-!arm). While arm is certainly a  popular arch for us, we also have many 
-customers on sh, x86 and others.  Currently there is no in-kernel support 
-for these people.  Our smsc911x driver is tested and supported on arm, sh, 
-i386.
+If I understand it right, it's not necessary to send the XID Update
+frame for each added STA. Shouldn't there be a flag indicating if the
+frame needs to be send? Userspace knows that information.
 
-smsc911x is a shorter, simpler driver, and I believe the coding style to 
-be cleaner and easier to follow.
+Thanks,
 
-smsc911x contains support for the new LAN921x family, as well as LAN911x.
+ Jiri
 
-smsc911x contains important workarounds for currently known hardware 
-issues.  Anyone using the current in-kernel driver with multicast will 
-have problems.
-
-Many of our customers use our proprietary drivers (GPL, but the coding 
-style would make you scream), and we would like to migrate them over to a 
-standard in-kernel driver - it would make support easier and everyone can 
-benefit from ongoing driver improvements.
-
-Regards,
---
-Steve Glendinning
-SMSC GmbH
-m: +44 777 933 9124
-e: steve.glendinning@smsc.com
+-- 
+Jiri Benc
+SUSE Labs
