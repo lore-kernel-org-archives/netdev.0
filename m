@@ -1,68 +1,747 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [take13 1/3] kevent: Core files.
-Date: Fri, 25 Aug 2006 11:20:08 +0400
-Message-ID: <20060825072007.GE1816@2ka.mipt.ru>
-References: <11563322941645@2ka.mipt.ru> <11563322971212@2ka.mipt.ru> <20060824200322.GA19533@infradead.org> <20060825054815.GC16504@2ka.mipt.ru> <20060824232024.0d230823.akpm@osdl.org> <20060825063238.GD16504@2ka.mipt.ru> <20060824235859.f8840fb2.akpm@osdl.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [GIT PATCH] IPv6 Updates for net-2.6.19
+Date: Fri, 25 Aug 2006 03:00:34 +0900 (JST)
+Message-ID: <20060825.030034.68559899.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Christoph Hellwig <hch@infradead.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751150AbWHYHU5@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060824235859.f8840fb2.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, usagi-core@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:46089 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751158AbWHYHXA
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Aug 2006 03:23:00 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by yue.st-paulia.net (Postfix) with ESMTP id DC1B933CC2
+	for <netdev@vger.kernel.org>; Fri, 25 Aug 2006 16:24:48 +0900 (JST)
+To: davem@davemloft.net
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 24, 2006 at 11:58:59PM -0700, Andrew Morton (akpm@osdl.org) wrote:
-> > > > kmalloc is really slow actually - it always shows somewhere on top 
-> > > > in profiles and brings noticeble overhead
-> > > 
-> > > It shouldn't.  Please describe the workload and send the profiles.
-> > 
-> > epoll based trivial server (accept + sendfile for the same file, about
-> > 4k), httperf with big amount of simulateneous connections. 3c59x NIC 
-> > (with e1000 there were no ioreads and netif_rx).
-> > __alloc_skb calls kmem_cache_alloc() and ___kmalloc().
-> > 
-> > 16158     1.3681  ioread16
-> > 8073      0.6835  ioread32
-> > 3485      0.2951  irq_entries_start
-> > 3018      0.2555  _spin_lock
-> > 2103      0.1781  tcp_v4_rcv
-> > 1503      0.1273  sysenter_past_esp
-> > 1492      0.1263  netif_rx
-> > 1459      0.1235  skb_copy_bits
-> > 1422      0.1204  _spin_lock_irqsave
-> > 1145      0.0969  ip_route_input
-> > 983       0.0832  kmem_cache_free
-> > 964       0.0816  __alloc_skb
-> > 926       0.0784  common_interrupt
-> > 891       0.0754  __do_IRQ
-> > 846       0.0716  _read_lock
-> > 826       0.0699  __netif_rx_schedule
-> > 806       0.0682  __kmalloc
-> > 767       0.0649  do_tcp_sendpages
-> > 747       0.0632  __copy_to_user_ll
-> > 744       0.0630  pskb_expand_head
-> > 
-> 
-> That doesn't look too bad.
-> 
-> What's that as a percentage of total user+system time?
+Hello.
 
-With e1000 allocations take more time than actual TCP processing, so it
-rised some suspicious for me (especially in bulk transfer).
-Total time is about 7 times more than system one, user time is much less
-than system one (about 20 times less, but test duration was not too
-long, so it can vary).
+Please pull
+  git://git.skbuff.net/gitroot/yoshfuji/net-2.6.19-20060825-inet6
+for the following updates on top of the net-2.6.19 tree.
 
-I do not say it is bad, but it is noticeble and should be eliminated
-if there are no requirements to have it.
+Regards,
+
+HEADLINES
+---------
+
+    [IPV6] MIP6: Several obvious clean-ups.
+    [IPV6] ROUTE: Routing by Traffic Class.
+    [IPV6] ROUTE: Routing by FWMARK.
+    [NET]: Add common helper functions to convert IPv6/IPv4 address string to network address structure.
+    [NETFILTER] NF_CONNTRACK_FTP: Use in6_pton() to convert address string.
+
+DIFFSTAT
+--------
+
+ include/linux/fib_rules.h        |    2 
+ include/linux/inet.h             |    2 
+ include/net/flow.h               |    2 
+ net/core/utils.c                 |  215 ++++++++++++++++++++++++++++++++++++++
+ net/ipv6/Kconfig                 |    7 +
+ net/ipv6/ah6.c                   |   45 +-------
+ net/ipv6/exthdrs.c               |    1 
+ net/ipv6/fib6_rules.c            |   26 +++++
+ net/ipv6/mip6.c                  |    6 +
+ net/ipv6/route.c                 |    1 
+ net/netfilter/nf_conntrack_ftp.c |   96 +----------------
+ 11 files changed, 268 insertions(+), 135 deletions(-)
+
+CHANGESETS
+----------
+
+commit 6dabb77fd82cd927727d5fb8136eff2e123910f5
+Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date:   Thu Aug 24 23:18:12 2006 +0900
+
+    [IPV6] MIP6: Several obvious clean-ups.
+    
+    - Remove redundant code.  Pointed out by Brian Haley <brian.haley@hp.com>.
+    - Unify code paths with/without CONFIG_IPV6_MIP.
+    - Use NIP6_FMT for IPv6 address textual presentation.
+    - Fold long line.  Pointed out by David Miller <davem@davemloft.net>.
+    
+    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index 164546b..9b007eb 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -128,9 +128,7 @@ static void ipv6_rearrange_destopt(struc
+ 		off += optlen;
+ 		len -= optlen;
+ 	}
+-	if (len == 0)
+-		return;
+-
++	/* Note: ok if len == 0 */
+ bad:
+ 	return;
+ }
+@@ -175,11 +173,7 @@ static void ipv6_rearrange_rthdr(struct 
+ 	ipv6_addr_copy(&iph->daddr, &final_addr);
+ }
+ 
+-#ifdef CONFIG_IPV6_MIP6
+ static int ipv6_clear_mutable_options(struct ipv6hdr *iph, int len, int dir)
+-#else
+-static int ipv6_clear_mutable_options(struct ipv6hdr *iph, int len)
+-#endif
+ {
+ 	union {
+ 		struct ipv6hdr *iph;
+@@ -194,30 +188,12 @@ #endif
+ 
+ 	while (exthdr.raw < end) {
+ 		switch (nexthdr) {
+-#ifdef CONFIG_IPV6_MIP6
+-		case NEXTHDR_HOP:
+-			if (!zero_out_mutable_opts(exthdr.opth)) {
+-				LIMIT_NETDEBUG(
+-					KERN_WARNING "overrun %sopts\n",
+-					nexthdr == NEXTHDR_HOP ?
+-						"hop" : "dest");
+-				return -EINVAL;
+-			}
+-			break;
+ 		case NEXTHDR_DEST:
++#ifdef CONFIG_IPV6_MIP6
+ 			if (dir == XFRM_POLICY_OUT)
+ 				ipv6_rearrange_destopt(iph, exthdr.opth);
+-			if (!zero_out_mutable_opts(exthdr.opth)) {
+-				LIMIT_NETDEBUG(
+-					KERN_WARNING "overrun %sopts\n",
+-					nexthdr == NEXTHDR_HOP ?
+-						"hop" : "dest");
+-				return -EINVAL;
+-			}
+-			break;
+-#else
++#endif
+ 		case NEXTHDR_HOP:
+-		case NEXTHDR_DEST:
+ 			if (!zero_out_mutable_opts(exthdr.opth)) {
+ 				LIMIT_NETDEBUG(
+ 					KERN_WARNING "overrun %sopts\n",
+@@ -226,7 +202,6 @@ #else
+ 				return -EINVAL;
+ 			}
+ 			break;
+-#endif
+ 
+ 		case NEXTHDR_ROUTING:
+ 			ipv6_rearrange_rthdr(iph, exthdr.rth);
+@@ -282,16 +257,13 @@ #endif
+ 		}
+ #ifdef CONFIG_IPV6_MIP6
+ 		memcpy(tmp_ext, &top_iph->saddr, extlen);
+-		err = ipv6_clear_mutable_options(top_iph,
+-						 extlen - sizeof(*tmp_ext) +
+-						 sizeof(*top_iph),
+-						 XFRM_POLICY_OUT);
+ #else
+ 		memcpy(tmp_ext, &top_iph->daddr, extlen);
++#endif
+ 		err = ipv6_clear_mutable_options(top_iph,
+ 						 extlen - sizeof(*tmp_ext) +
+-						 sizeof(*top_iph));
+-#endif
++						 sizeof(*top_iph),
++						 XFRM_POLICY_OUT);
+ 		if (err)
+ 			goto error_free_iph;
+ 	}
+@@ -382,13 +354,8 @@ static int ah6_input(struct xfrm_state *
+ 	if (!tmp_hdr)
+ 		goto out;
+ 	memcpy(tmp_hdr, skb->nh.raw, hdr_len);
+-#ifdef CONFIG_IPV6_MIP6
+ 	if (ipv6_clear_mutable_options(skb->nh.ipv6h, hdr_len, XFRM_POLICY_IN))
+ 		goto free_out;
+-#else
+-	if (ipv6_clear_mutable_options(skb->nh.ipv6h, hdr_len))
+-		goto free_out;
+-#endif
+ 	skb->nh.ipv6h->priority    = 0;
+ 	skb->nh.ipv6h->flow_lbl[0] = 0;
+ 	skb->nh.ipv6h->flow_lbl[1] = 0;
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 077f626..f4c7629 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -87,7 +87,6 @@ int ipv6_find_tlv(struct sk_buff *skb, i
+ 		len -= optlen;
+ 	}
+ 	/* not_found */
+-	return -1;
+  bad:
+ 	return -1;
+ }
+diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
+index 7085403..99d116c 100644
+--- a/net/ipv6/mip6.c
++++ b/net/ipv6/mip6.c
+@@ -121,7 +121,8 @@ int mip6_mh_filter(struct sock *sk, stru
+ 				    &skb->nh.ipv6h->daddr,
+ 				    mhlen, IPPROTO_MH,
+ 				    skb_checksum(skb, 0, mhlen, 0))) {
+-			LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH checksum failed [%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x > %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x]\n",
++			LIMIT_NETDEBUG(KERN_DEBUG "mip6: MH checksum failed "
++				       "[" NIP6_FMT " > " NIP6_FMT "]\n",
+ 				       NIP6(skb->nh.ipv6h->saddr),
+ 				       NIP6(skb->nh.ipv6h->daddr));
+ 			return -1;
+@@ -234,7 +235,8 @@ static int mip6_destopt_reject(struct xf
+ 	struct timeval stamp;
+ 	int err = 0;
+ 
+-	if (unlikely(fl->proto == IPPROTO_MH && fl->fl_mh_type <= IP6_MH_TYPE_MAX))
++	if (unlikely(fl->proto == IPPROTO_MH &&
++		     fl->fl_mh_type <= IP6_MH_TYPE_MAX))
+ 		goto out;
+ 
+ 	if (likely(opt->dsthao)) {
+
+---
+commit 95dcd7a0c5e55a36d78c4a6bf0a44fc9a6060fdf
+Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date:   Mon Aug 21 19:18:57 2006 +0900
+
+    [IPV6] ROUTE: Routing by Traffic Class.
+    
+    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index 7b4908c..91f6233 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -121,6 +121,9 @@ static int fib6_rule_match(struct fib_ru
+ 	    !ipv6_prefix_equal(&fl->fl6_src, &r->src.addr, r->src.plen))
+ 		return 0;
+ 
++	if (r->tclass && r->tclass != ((ntohl(fl->fl6_flowlabel) >> 20) & 0xff))
++		return 0;
++
+ 	return 1;
+ }
+ 
+
+---
+commit 10204d532f5f8bb379009ba0bee2113bafda72be
+Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date:   Mon Aug 21 19:22:01 2006 +0900
+
+    [IPV6] ROUTE: Routing by FWMARK.
+    
+    Based on patch by Jean Lorchat <lorchat@sfc.wide.ad.jp>.
+    
+    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+diff --git a/include/linux/fib_rules.h b/include/linux/fib_rules.h
+index 19a82b6..2987549 100644
+--- a/include/linux/fib_rules.h
++++ b/include/linux/fib_rules.h
+@@ -34,7 +34,7 @@ enum
+ 	FRA_UNUSED3,
+ 	FRA_UNUSED4,
+ 	FRA_UNUSED5,
+-	FRA_FWMARK,	/* netfilter mark (IPv4) */
++	FRA_FWMARK,	/* netfilter mark (IPv4/IPv6) */
+ 	FRA_FLOW,	/* flow/class id */
+ 	FRA_UNUSED6,
+ 	FRA_UNUSED7,
+diff --git a/include/net/flow.h b/include/net/flow.h
+index e052291..3ca210e 100644
+--- a/include/net/flow.h
++++ b/include/net/flow.h
+@@ -26,6 +26,7 @@ struct flowi {
+ 		struct {
+ 			struct in6_addr		daddr;
+ 			struct in6_addr		saddr;
++			__u32			fwmark;
+ 			__u32			flowlabel;
+ 		} ip6_u;
+ 
+@@ -42,6 +43,7 @@ #define fld_fwmark	nl_u.dn_u.fwmark
+ #define fld_scope	nl_u.dn_u.scope
+ #define fl6_dst		nl_u.ip6_u.daddr
+ #define fl6_src		nl_u.ip6_u.saddr
++#define fl6_fwmark	nl_u.ip6_u.fwmark
+ #define fl6_flowlabel	nl_u.ip6_u.flowlabel
+ #define fl4_dst		nl_u.ip4_u.daddr
+ #define fl4_src		nl_u.ip4_u.saddr
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+index e523d39..54397ee 100644
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -172,3 +172,10 @@ config IPV6_MULTIPLE_TABLES
+ 	---help---
+ 	  Support multiple routing tables.
+ 
++config IPV6_ROUTE_FWMARK
++	bool "IPv6: use netfilter MARK value as routing key"
++	depends on IPV6_MULTIPLE_TABLES && NETFILTER
++	---help---
++	  If you say Y here, you will be able to specify different routes for
++	  packets with different mark values (see iptables(8), MARK target).
++
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index 91f6233..aebd9e2 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -26,6 +26,9 @@ struct fib6_rule
+ 	struct fib_rule		common;
+ 	struct rt6key		src;
+ 	struct rt6key		dst;
++#ifdef CONFIG_IPV6_ROUTE_FWMARK
++	u8			fwmark;
++#endif
+ 	u8			tclass;
+ };
+ 
+@@ -124,6 +127,11 @@ static int fib6_rule_match(struct fib_ru
+ 	if (r->tclass && r->tclass != ((ntohl(fl->fl6_flowlabel) >> 20) & 0xff))
+ 		return 0;
+ 
++#ifdef CONFIG_IPV6_ROUTE_FWMARK
++	if (r->fwmark && (r->fwmark != fl->fl6_fwmark))
++		return 0;
++#endif
++
+ 	return 1;
+ }
+ 
+@@ -164,6 +172,11 @@ static int fib6_rule_configure(struct fi
+ 		nla_memcpy(&rule6->dst.addr, tb[FRA_DST],
+ 			   sizeof(struct in6_addr));
+ 
++#ifdef CONFIG_IPV6_ROUTE_FWMARK
++	if (tb[FRA_FWMARK])
++		rule6->fwmark = nla_get_u32(tb[FRA_FWMARK]);
++#endif
++
+ 	rule6->src.plen = frh->src_len;
+ 	rule6->dst.plen = frh->dst_len;
+ 	rule6->tclass = frh->tos;
+@@ -195,6 +208,11 @@ static int fib6_rule_compare(struct fib_
+ 	    nla_memcmp(tb[FRA_DST], &rule6->dst.addr, sizeof(struct in6_addr)))
+ 		return 0;
+ 
++#ifdef CONFIG_IPV6_ROUTE_FWMARK
++	if (tb[FRA_FWMARK] && (rule6->fwmark != nla_get_u32(tb[FRA_FWMARK])))
++		return 0;
++#endif
++
+ 	return 1;
+ }
+ 
+@@ -216,6 +234,11 @@ static int fib6_rule_fill(struct fib_rul
+ 		NLA_PUT(skb, FRA_SRC, sizeof(struct in6_addr),
+ 			&rule6->src.addr);
+ 
++#ifdef CONFIG_IPV6_ROUTE_FWMARK
++	if (rule6->fwmark)
++		NLA_PUT_U32(skb, FRA_FWMARK, rule6->fwmark);
++#endif
++
+ 	return 0;
+ 
+ nla_put_failure:
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index c9f74c1..9b50e0c 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -703,6 +703,7 @@ void ip6_route_input(struct sk_buff *skb
+ 			.ip6_u = {
+ 				.daddr = iph->daddr,
+ 				.saddr = iph->saddr,
++				.fwmark = skb->nfmark,
+ 				.flowlabel = (* (u32 *) iph)&IPV6_FLOWINFO_MASK,
+ 			},
+ 		},
+
+---
+commit c8cf6b48bd9453d61eddd7b2954b36e9ef96800d
+Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date:   Sun Jun 25 23:54:55 2006 +0900
+
+    [NET]: Add common helper functions to convert IPv6/IPv4 address string to network address structure.
+    
+    These helpers can be used in netfilter, cifs etc.
+    
+    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+diff --git a/include/linux/inet.h b/include/linux/inet.h
+index 6c5587a..b7c6da7 100644
+--- a/include/linux/inet.h
++++ b/include/linux/inet.h
+@@ -46,5 +46,7 @@ #ifdef __KERNEL__
+ #include <linux/types.h>
+ 
+ extern __be32 in_aton(const char *str);
++extern int in4_pton(const char *src, int srclen, u8 *dst, char delim, const char **end);
++extern int in6_pton(const char *src, int srclen, u8 *dst, char delim, const char **end);
+ #endif
+ #endif	/* _LINUX_INET_H */
+diff --git a/net/core/utils.c b/net/core/utils.c
+index 4f96f38..eb49fe4 100644
+--- a/net/core/utils.c
++++ b/net/core/utils.c
+@@ -4,6 +4,7 @@
+  *	Authors:
+  *	net_random Alan Cox
+  *	net_ratelimit Andy Kleen
++ *	in{4,6}_pton YOSHIFUJI Hideaki, Copyright (C)2006 USAGI/WIDE Project
+  *
+  *	Created by Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+  *
+@@ -190,3 +191,217 @@ __be32 in_aton(const char *str)
+ }
+ 
+ EXPORT_SYMBOL(in_aton);
++
++#define IN6PTON_XDIGIT		0x00010000
++#define IN6PTON_DIGIT		0x00020000
++#define IN6PTON_COLON_MASK	0x00700000
++#define IN6PTON_COLON_1		0x00100000	/* single : requested */
++#define IN6PTON_COLON_2		0x00200000	/* second : requested */
++#define IN6PTON_COLON_1_2	0x00400000	/* :: requested */
++#define IN6PTON_DOT		0x00800000	/* . */
++#define IN6PTON_DELIM		0x10000000
++#define IN6PTON_NULL		0x20000000	/* first/tail */
++#define IN6PTON_UNKNOWN		0x40000000
++
++static inline int digit2bin(char c, char delim)
++{
++	if (c == delim || c == '\0')
++		return IN6PTON_DELIM;
++	if (c == '.')
++		return IN6PTON_DOT;
++	if (c >= '0' && c <= '9')
++		return (IN6PTON_DIGIT | (c - '0'));
++	return IN6PTON_UNKNOWN;
++}
++
++static inline int xdigit2bin(char c, char delim)
++{
++	if (c == delim || c == '\0')
++		return IN6PTON_DELIM;
++	if (c == ':')
++		return IN6PTON_COLON_MASK;
++	if (c == '.')
++		return IN6PTON_DOT;
++	if (c >= '0' && c <= '9')
++		return (IN6PTON_XDIGIT | IN6PTON_DIGIT| (c - '0'));
++	if (c >= 'a' && c <= 'f')
++		return (IN6PTON_XDIGIT | (c - 'a' + 10));
++	if (c >= 'A' && c <= 'F')
++		return (IN6PTON_XDIGIT | (c - 'A' + 10));
++	return IN6PTON_UNKNOWN;
++}
++
++int in4_pton(const char *src, int srclen,
++	     u8 *dst,
++	     char delim, const char **end)
++{
++	const char *s;
++	u8 *d;
++	u8 dbuf[4];
++	int ret = 0;
++	int i;
++	int w = 0;
++
++	if (srclen < 0)
++		srclen = strlen(src);
++	s = src;
++	d = dbuf;
++	i = 0;
++	while(1) {
++		int c;
++		c = xdigit2bin(srclen > 0 ? *s : '\0', delim);
++		if (!(c & (IN6PTON_DIGIT | IN6PTON_DOT | IN6PTON_DELIM))) {
++			goto out;
++		}
++		if (c & (IN6PTON_DOT | IN6PTON_DELIM)) {
++			if (w == 0)
++				goto out;
++			*d++ = w & 0xff;
++			w = 0;
++			i++;
++			if (c & IN6PTON_DELIM) {
++				if (i != 4)
++					goto out;
++				break;
++			}
++			goto cont;
++		}
++		w = (w * 10) + c;
++		if ((w & 0xffff) > 255) {
++			goto out;
++		}
++cont:
++		if (i >= 4)
++			goto out;
++		s++;
++		srclen--;
++	}
++	ret = 1;
++	memcpy(dst, dbuf, sizeof(dbuf));
++out:
++	if (end)
++		*end = s;
++	return ret;
++}
++
++EXPORT_SYMBOL(in4_pton);
++
++int in6_pton(const char *src, int srclen,
++	     u8 *dst,
++	     char delim, const char **end)
++{
++	const char *s, *tok = NULL;
++	u8 *d, *dc = NULL;
++	u8 dbuf[16];
++	int ret = 0;
++	int i;
++	int state = IN6PTON_COLON_1_2 | IN6PTON_XDIGIT | IN6PTON_NULL;
++	int w = 0;
++
++	memset(dbuf, 0, sizeof(dbuf));
++
++	s = src;
++	d = dbuf;
++	if (srclen < 0)
++		srclen = strlen(src);
++
++	printf("srclen=%d\n", srclen);
++
++	while (1) {
++		int c;
++
++		c = xdigit2bin(srclen > 0 ? *s : '\0', delim);
++		if (!(c & state))
++			goto out;
++		if (c & (IN6PTON_DELIM | IN6PTON_COLON_MASK)) {
++			/* process one 16-bit word */
++			if (!(state & IN6PTON_NULL)) {
++				*d++ = (w >> 8) & 0xff;
++				*d++ = w & 0xff;
++			}
++			w = 0;
++			if (c & IN6PTON_DELIM) {
++				/* We've processed last word */
++				break;
++			}
++			/*
++			 * COLON_1 => XDIGIT
++			 * COLON_2 => XDIGIT|DELIM
++			 * COLON_1_2 => COLON_2
++			 */
++			switch (state & IN6PTON_COLON_MASK) {
++			case IN6PTON_COLON_2:
++				dc = d;
++				state = IN6PTON_XDIGIT | IN6PTON_DELIM;
++				if (dc - dbuf >= sizeof(dbuf))
++					state |= IN6PTON_NULL;
++				break;
++			case IN6PTON_COLON_1|IN6PTON_COLON_1_2:
++				state = IN6PTON_XDIGIT | IN6PTON_COLON_2;
++				break;
++			case IN6PTON_COLON_1:
++				state = IN6PTON_XDIGIT;
++				break;
++			case IN6PTON_COLON_1_2:
++				state = IN6PTON_COLON_2;
++				break;
++			default:
++				state = 0;
++			}
++			tok = s + 1;
++			goto cont;
++		}
++
++		if (c & IN6PTON_DOT) {
++			ret = in4_pton(tok ? tok : s, srclen + (int)(s - tok), d, delim, &s);
++			if (ret > 0) {
++				d += 4;
++				break;
++			}
++			goto out;
++		}
++
++		w = (w << 4) | (0xff & c);
++		state = IN6PTON_COLON_1 | IN6PTON_DELIM;
++		if (!(w & 0xf000)) {
++			state |= IN6PTON_XDIGIT;
++		}
++		if (!dc && d + 2 < dbuf + sizeof(dbuf)) {
++			state |= IN6PTON_COLON_1_2;
++			state &= ~IN6PTON_DELIM;
++		}
++		if (d + 2 >= dbuf + sizeof(dbuf)) {
++			state &= ~(IN6PTON_COLON_1|IN6PTON_COLON_1_2);
++		}
++cont:
++		if ((dc && d + 4 < dbuf + sizeof(dbuf)) ||
++		    d + 4 == dbuf + sizeof(dbuf)) {
++			state |= IN6PTON_DOT;
++		}
++		if (d >= dbuf + sizeof(dbuf)) {
++			state &= ~(IN6PTON_XDIGIT|IN6PTON_COLON_MASK);
++		}
++		s++;
++		srclen--;
++	}
++
++	i = 15; d--;
++
++	if (dc) {
++		while(d >= dc)
++			dst[i--] = *d--;
++		while(i >= dc - dbuf)
++			dst[i--] = 0;
++		while(i >= 0)
++			dst[i--] = *d--;
++	} else
++		memcpy(dst, dbuf, sizeof(dbuf));
++
++	ret = 1;
++out:
++	if (end)
++		*end = s;
++	return ret;
++}
++
++EXPORT_SYMBOL(in6_pton);
+
+---
+commit 83744e3359ab5b96278dc1332d8e54c4d3507ab5
+Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date:   Mon Jun 19 03:20:32 2006 +0900
+
+    [NETFILTER] NF_CONNTRACK_FTP: Use in6_pton() to convert address string.
+    
+    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
+index 960972d..9dccb40 100644
+--- a/net/netfilter/nf_conntrack_ftp.c
++++ b/net/netfilter/nf_conntrack_ftp.c
+@@ -111,101 +111,13 @@ static struct ftp_search {
+ 	},
+ };
+ 
+-/* This code is based on inet_pton() in glibc-2.2.4 */
+ static int
+ get_ipv6_addr(const char *src, size_t dlen, struct in6_addr *dst, u_int8_t term)
+ {
+-	static const char xdigits[] = "0123456789abcdef";
+-	u_int8_t tmp[16], *tp, *endp, *colonp;
+-	int ch, saw_xdigit;
+-	u_int32_t val;
+-	size_t clen = 0;
+-
+-	tp = memset(tmp, '\0', sizeof(tmp));
+-	endp = tp + sizeof(tmp);
+-	colonp = NULL;
+-
+-	/* Leading :: requires some special handling. */
+-	if (*src == ':'){
+-		if (*++src != ':') {
+-			DEBUGP("invalid \":\" at the head of addr\n");
+-			return 0;
+-		}
+-		clen++;
+-	}
+-
+-	saw_xdigit = 0;
+-	val = 0;
+-	while ((clen < dlen) && (*src != term)) {
+-		const char *pch;
+-
+-		ch = tolower(*src++);
+-		clen++;
+-
+-                pch = strchr(xdigits, ch);
+-                if (pch != NULL) {
+-                        val <<= 4;
+-                        val |= (pch - xdigits);
+-                        if (val > 0xffff)
+-                                return 0;
+-
+-			saw_xdigit = 1;
+-                        continue;
+-                }
+-		if (ch != ':') {
+-			DEBUGP("get_ipv6_addr: invalid char. \'%c\'\n", ch);
+-			return 0;
+-		}
+-
+-		if (!saw_xdigit) {
+-			if (colonp) {
+-				DEBUGP("invalid location of \"::\".\n");
+-				return 0;
+-			}
+-			colonp = tp;
+-			continue;
+-		} else if (*src == term) {
+-			DEBUGP("trancated IPv6 addr\n");
+-			return 0;
+-		}
+-
+-		if (tp + 2 > endp)
+-			return 0;
+-		*tp++ = (u_int8_t) (val >> 8) & 0xff;
+-		*tp++ = (u_int8_t) val & 0xff;
+-
+-		saw_xdigit = 0;
+-		val = 0;
+-		continue;
+-        }
+-        if (saw_xdigit) {
+-                if (tp + 2 > endp)
+-                        return 0;
+-                *tp++ = (u_int8_t) (val >> 8) & 0xff;
+-                *tp++ = (u_int8_t) val & 0xff;
+-        }
+-        if (colonp != NULL) {
+-                /*
+-                 * Since some memmove()'s erroneously fail to handle
+-                 * overlapping regions, we'll do the shift by hand.
+-                 */
+-                const int n = tp - colonp;
+-                int i;
+-
+-                if (tp == endp)
+-                        return 0;
+-
+-                for (i = 1; i <= n; i++) {
+-                        endp[- i] = colonp[n - i];
+-                        colonp[n - i] = 0;
+-                }
+-                tp = endp;
+-        }
+-        if (tp != endp || (*src != term))
+-                return 0;
+-
+-        memcpy(dst->s6_addr, tmp, sizeof(dst->s6_addr));
+-        return clen;
++	int ret = in6_pton(src, min_t(size_t, dlen, 0xffff), dst, term, &end);
++	if (ret > 0)
++		return (int)(end - src);
++	return 0;
+ }
+ 
+ static int try_number(const char *data, size_t dlen, u_int32_t array[],
+
+---
+
 
 -- 
-	Evgeniy Polyakov
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
