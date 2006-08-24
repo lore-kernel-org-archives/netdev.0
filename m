@@ -1,70 +1,42 @@
-From: Venkat Yekkirala <vyekkirala@trustedcs.com>
-Subject: [PATCH 1/3] secid reconciliation-v01
-Date: Thu, 24 Aug 2006 12:50:51 -0500
-Message-ID: <44EDE6FB.2060501@trustedcs.com>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Re: [PATCH 0/7] [DCCP]: Fixes and enhancements
+Date: Fri, 25 Aug 2006 06:09:13 +1200
+Message-ID: <5640c7e00608241109l1a0102c5m77a77b35ef2a12e5@mail.gmail.com>
+References: <200608241516.34448.ian.mcdonald@jandi.co.nz>
+	 <20060824.045927.41635764.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, sds@tycho.nsa.gov, chanson@trustedcs.com
+Cc: a.bittau@cs.ucl.ac.uk, arnaldo.melo@gmail.com,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:40112 "EHLO
-	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S1030442AbWHXRvE
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Aug 2006 13:51:04 -0400
-To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Received: from nf-out-f131.google.com ([64.233.182.131]:16986 "EHLO
+	nf-out-f131.google.com") by vger.kernel.org with ESMTP
+	id S1751664AbWHXSJP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 14:09:15 -0400
+Received: by nf-out-f131.google.com with SMTP id k65so48078nfa
+        for <netdev@vger.kernel.org>; Thu, 24 Aug 2006 11:09:14 -0700 (PDT)
+To: "David Miller" <davem@davemloft.net>
+In-Reply-To: <20060824.045927.41635764.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently a packet accumulates multiple security identifiers, each of a
-different class, as it enters the system. This patch set reconciles these
-identifiers into a single identifier while also allowing LSM (SELinux is
-addressed in this patch set) to impose flow control checks based on the
-identifiers.
+> I spent all of today on USAGI's IPSEC/MIPV6 patches and related
+> issues, so I'll look into this tomorrow.
+>
+> Thanks Ian.
+>
+Yes I saw that. Take your time as this is nowhere near as important!
 
-The reconciliation steps for SELinux are explained in the Labeled Networking
-document at:
-http://marc.theaimsgroup.com/?l=linux-netdev&m=115136637800361&w=2
-with the change that SELinux transition rules are used when available
-to arrive at the new secid.
+Regards,
 
-The following are the identifiers handled here:
-
-1. secmark on the skb
-2. xfrm security identifier associated with the skb if it used any xfrms,
-  a zero secid otherwise.
-
-This patch: Add new flask definitions to SELinux
-
-Adds a new avperm "come_thru" to arbitrate among the identifiers on the
-inbound (input/forward). Also adds a new avperm "go_thru" to enable flow
-control checks on the outbound (output/forward), addressed in a later
-patch.
-
-Signed-off-by: Venkat Yekkirala <vyekkirala@TrustedCS.com>
----
- security/selinux/include/av_perm_to_string.h |    2 ++
- security/selinux/include/av_permissions.h    |    2 ++
- 2 files changed, 4 insertions(+)
-
---- net-2.6.19.orig/security/selinux/include/av_permissions.h	2006-08-24 09:19:13.000000000 -0500
-+++ net-2.6.19.sid1/security/selinux/include/av_permissions.h	2006-08-24 09:43:09.000000000 -0500
-@@ -962,6 +962,8 @@
- #define PACKET__SEND                              0x00000001UL
- #define PACKET__RECV                              0x00000002UL
- #define PACKET__RELABELTO                         0x00000004UL
-+#define PACKET__FLOW_IN                           0x00000008UL
-+#define PACKET__FLOW_OUT                          0x00000010UL
- 
- #define KEY__VIEW                                 0x00000001UL
- #define KEY__READ                                 0x00000002UL
---- net-2.6.19.orig/security/selinux/include/av_perm_to_string.h	2006-08-24 09:19:13.000000000 -0500
-+++ net-2.6.19.sid1/security/selinux/include/av_perm_to_string.h	2006-08-24 09:43:09.000000000 -0500
-@@ -245,6 +245,8 @@
-    S_(SECCLASS_PACKET, PACKET__SEND, "send")
-    S_(SECCLASS_PACKET, PACKET__RECV, "recv")
-    S_(SECCLASS_PACKET, PACKET__RELABELTO, "relabelto")
-+   S_(SECCLASS_PACKET, PACKET__FLOW_IN, "flow_in")
-+   S_(SECCLASS_PACKET, PACKET__FLOW_OUT, "flow_out")
-    S_(SECCLASS_KEY, KEY__VIEW, "view")
-    S_(SECCLASS_KEY, KEY__READ, "read")
-    S_(SECCLASS_KEY, KEY__WRITE, "write")
+Ian
+-- 
+Ian McDonald
+Web: http://wand.net.nz/~iam4
+Blog: http://imcdnzl.blogspot.com
+WAND Network Research Group
+Department of Computer Science
+University of Waikato
+New Zealand
