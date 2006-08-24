@@ -1,39 +1,42 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH wireless-dev 4/6] d80211: Send Layer 2 Update frames in
- kernel
-Date: Thu, 24 Aug 2006 13:43:16 +0200
-Message-ID: <20060824134316.5f5a0746@griffin.suse.cz>
-References: <20060807231608.888744720@localhost>
-	<20060807231938.455373487@localhost>
-	<20060823192256.3e8df7f9@griffin.suse.cz>
-	<20060824053930.GB6104@jm.kir.nu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 44/44] [XFRM] IPV6: Support Mobile IPv6 extension
+ headers sorting.
+Date: Thu, 24 Aug 2006 04:58:50 -0700 (PDT)
+Message-ID: <20060824.045850.74749237.davem@davemloft.net>
+References: <20060824.150442.44820672.yoshfuji@linux-ipv6.org>
+	<20060823.235404.108743952.davem@davemloft.net>
+	<44ED4FC3.9060005@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jouni Malinen <jkm@devicescape.com>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:60627 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751158AbWHXLnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 07:43:17 -0400
-To: Jouni Malinen <jkmaline@cc.hut.fi>
-In-Reply-To: <20060824053930.GB6104@jm.kir.nu>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:17282
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751107AbWHXL6w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 07:58:52 -0400
+To: nakam@linux-ipv6.org
+In-Reply-To: <44ED4FC3.9060005@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Aug 2006 22:39:30 -0700, Jouni Malinen wrote:
-> Which part do you think is hackish here? Sending the layer 2 update
-> frame or moving it to kernel?
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Date: Thu, 24 Aug 2006 16:05:39 +0900
 
-The latter.
+> David Miller wrote:
+> > In the mean time, I will work on porting my XFRM hashing changes
+> > for the current net-2.6.19 tree.
+> 
+> FYI, your work will not have any conflict with the left of MIPv6 patches
+> which I will describe later since they are almost out of XFRM.
 
-Is it really needed to send it unconditionally for each added STA? And
-cannot it be generated in userspace?
+Great.
 
-Thanks,
+I just finished the port and pushed all of that work to net-2.6.19,
+can folks please take a look?
 
- Jiri
+I tested IPSEC as best as I could with XFRM_SUB_POLICY enabled, but I
+have no way currently to test sub-policies or MIPV6 cases.
 
--- 
-Jiri Benc
-SUSE Labs
+Thank you.
