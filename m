@@ -1,44 +1,35 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: ProxyARP and IPSec
-Date: Wed, 23 Aug 2006 18:14:07 -0700
-Message-ID: <44ECFD5F.6060901@zytor.com>
-References: <44EBA1FC.5000801@zytor.com> <20060823191425.GK3470@postel.suug.ch> <20060823.151424.78711856.davem@davemloft.net> <20060823231812.GA32394@ms2.inr.ac.ru> <44ECFCF1.10500@zytor.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 14/44] [XFRM] STATE: Introduce care-of address.
+Date: Wed, 23 Aug 2006 18:19:12 -0700 (PDT)
+Message-ID: <20060823.181912.17865134.davem@davemloft.net>
+References: <1156345366288-git-send-email-yoshfuji@linux-ipv6.org>
+	<1156345366857-git-send-email-yoshfuji@linux-ipv6.org>
+	<11563453663761-git-send-email-yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	David Miller <davem@davemloft.net>, tgraf@suug.ch,
-	netdev@vger.kernel.org
+Cc: anttit@tcs.hut.fi, vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org, nakam@linux-ipv6.org,
+	takamiya@po.ntts.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([192.83.249.54]:12227 "EHLO
-	terminus.zytor.com") by vger.kernel.org with ESMTP id S1030183AbWHXBOo
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 21:14:44 -0400
-To: "H. Peter Anvin" <hpa@zytor.com>
-In-Reply-To: <44ECFCF1.10500@zytor.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:9157
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965321AbWHXBTK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 21:19:10 -0400
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <11563453663761-git-send-email-yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-H. Peter Anvin wrote:
-> Alexey Kuznetsov wrote:
->>
->> The question is where is this host really?
->>
->> If it is far far away and connected only via IPsec tunnel with 
->> destionation
->> of tunnel different of host address
->>
->> ip ro add THEHOST dev dummy0
->>
->> should be enough. It asserts that THEHOST is not on eth0.
->> IPsec policy will figure out correct route, unless something is broken.
->>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Thu, 24 Aug 2006 00:02:15 +0900
+
+> Care-of address is carried by state as a transformation option like IPsec
+> encryption/authentication algorithm.
+> Based on MIPL2 kernel patch.
 > 
-> Just tried it, and it works as advertised.
-> 
+> Signed-off-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
+> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-... except that OpenSwan will rip out the route and install a route 
-pointing to eth0, thus breaking the thing again.
-
-	-hpa
-
+Applied to net-2.6.19, thanks a lot.
