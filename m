@@ -1,48 +1,29 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: ProxyARP and IPSec
-Date: Thu, 24 Aug 2006 16:50:46 +0400
-Message-ID: <20060824125046.GA25439@ms2.inr.ac.ru>
-References: <44EBA1FC.5000801@zytor.com> <20060823191425.GK3470@postel.suug.ch> <20060823.151424.78711856.davem@davemloft.net> <20060823231812.GA32394@ms2.inr.ac.ru> <44ECFCF1.10500@zytor.com> <44ECFD5F.6060901@zytor.com> <1156386043.7302.773.camel@tahini.andynet.net> <44ED2797.4070304@zytor.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH][REPOST] WAN: fix C101 card carrier handling
+Date: Thu, 24 Aug 2006 15:26:19 +0200
+Message-ID: <m3fyfmp8n8.fsf@defiant.localdomain>
+References: <m3k651udsq.fsf@defiant.localdomain> <44ED1F88.20304@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gay <andy@andynet.net>, David Miller <davem@davemloft.net>,
-	tgraf@suug.ch, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:28123 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1751220AbWHXMvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 08:51:48 -0400
-To: "H. Peter Anvin" <hpa@zytor.com>
-Content-Disposition: inline
-In-Reply-To: <44ED2797.4070304@zytor.com>
+Received: from khc.piap.pl ([195.187.100.11]:11973 "EHLO khc.piap.pl")
+	by vger.kernel.org with ESMTP id S1751727AbWHXN0W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 09:26:22 -0400
+To: Jeff Garzik <jeff@garzik.org>
+In-Reply-To: <44ED1F88.20304@garzik.org> (Jeff Garzik's message of "Wed, 23 Aug 2006 23:39:52 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Jeff Garzik <jeff@garzik.org> writes:
 
-> I'm thinking that David definitely has a point about having a usability 
-> problem, though.  All other kind of tunnels have endpoint devices 
-> associated with them, and that would make all these kinds of problems go 
-> away, 
+>> One of my recent changes broke C101 carrier handling, this patch
+>> fixes it. Also fixes an old TX underrun checking bug.
+>> 2.6.18 material. Please apply.
+>
+> it's already in netdev-2.6.git#upstream-fixes, destined for 2.6.18.
 
-Yes, when you deal with sane practical setups, this approach is the only
-reasonable one.
-
-Unfortunately, IPsec is not something totally sane and practical :-),
-"security gateway" case is small part of it and "routing" viewpoint
-clashes fatally with another requirements. Pure result is that we use approach
-where it is possible to do everything with some efforts, rather than approach
-which is simple and intuitive, but does not allow to do many things.
-
-It is possible to simulate simple life, creating "ipsecX" devices
-with disabled xfrm and route all the tunnels there. That would be handy.
-
-I would just advice to rename one of dummy devices to "ipsec0"
-and route all the IPsec tunnels there. It is also simple.
-
-What's about iptables, I am sorry, it is too flexible to control IPsec. :-)
-One day, someone with enough of energy and stamina will make flow cache
-to unify all the kinds of policy rules. Until that day, you have to tune
-all three policy sets (routing, ipsec and iptables) separately and take
-care of the cases, when one set has to cheat another. :-)
-
-Alexey
+Great, I somehow missed it. Thank you.
+-- 
+Krzysztof Halasa
