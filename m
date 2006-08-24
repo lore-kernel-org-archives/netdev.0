@@ -1,55 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 38/44] [IPV6] MIP6: Ignore to report if mobility
- headers is rejected.
-Date: Wed, 23 Aug 2006 20:48:26 -0700 (PDT)
-Message-ID: <20060823.204826.51517066.davem@davemloft.net>
-References: <11563453672531-git-send-email-yoshfuji@linux-ipv6.org>
-	<11563453674194-git-send-email-yoshfuji@linux-ipv6.org>
-	<11563453671463-git-send-email-yoshfuji@linux-ipv6.org>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] Set floor of wireless signal and noise at -110 dBm
+Date: Wed, 23 Aug 2006 23:02:40 -0500
+Message-ID: <44ED24E0.1050208@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: anttit@tcs.hut.fi, vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org, nakam@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28058
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030267AbWHXDsY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 23:48:24 -0400
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <11563453671463-git-send-email-yoshfuji@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Thu, 24 Aug 2006 00:02:39 +0900
+John,
 
-> Ignore to report user-space for known mobility headers rejected by
-> destination options header transformation.
-> Mobile IPv6 specification (RFC3775) says that mobility header
-> is used with destination options header carrying home address option
-> only for binding update message. Other type message cannot be used
-> and node must drop it silently (and must not send binding error) if
-> receving such packet.
-> To achieve it, (1) application should use transformation policy and
-> wild-card states to catch binding update message prior other packets
-> (2) kernel doesn't report the reject to user-space not to send
-> binding error message by application.
-> This patch is for (2).
-> Based on MIPL2 kernel patch.
-> 
-> This patch was also written by: Ville Nuorvala <vnuorval@tcs.hut.fi>
-> 
-> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Please apply to wireless-2.6.
 
-Applied to net-2.6.19.
+Thanks, Larry
 
-> +	if (unlikely(fl->proto == IPPROTO_MH && fl->fl_mh_type <= IP6_MH_TYPE_MAX))
-> +		goto out;
-> +
+===========================================
 
-It is another long line which can be split up for
-readability :-)
+This patch sets the floor of wireless level (signal) and noise at -110 dBm, which makes them be 
+comatible with RCPI, as discussed by Simon Barber. With this change, bcm43xx-softmac and 
+bcm43xx-d80211 behave the same.
 
-Thank you.
+Signed-Off-By: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+index 1d3a3aa..888077f 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+@@ -229,8 +229,8 @@ static int bcm43xx_wx_get_rangeparams(st
+  	range->throughput = 27 * 1000 * 1000;
+
+  	range->max_qual.qual = 100;
+-	range->max_qual.level = 152; /* set floor at -104 dBm (152 - 256) */
+-	range->max_qual.noise = 152;
++	range->max_qual.level = 146; /* set floor at -110 dBm (146 - 256) */
++	range->max_qual.noise = 146;
+  	range->max_qual.updated = IW_QUAL_ALL_UPDATED;
+
+  	range->avg_qual.qual = 50;
