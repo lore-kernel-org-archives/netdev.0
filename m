@@ -1,57 +1,48 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] locking bug in fib_semantics.c
-Date: Thu, 24 Aug 2006 13:04:47 +0200
-Message-ID: <44ED87CF.20702@o2.pl>
-References: <20060817093615.GA25553@ms2.inr.ac.ru>	<20060821081642.GA2637@ff.dom.local>	<20060821.011703.78716718.davem@davemloft.net>	<20060821110201.GA3674@ff.dom.local>	<20060822103556.GA3262@ff.dom.local> <20060823113119.03f47a6a@dxpl.pdx.osdl.net>
+From: Steve.Glendinning@smsc.com
+Subject: Re: SMSC LAN911x and LAN921x vendor driver
+Date: Thu, 24 Aug 2006 12:09:42 +0100
+Message-ID: <OFF68801AB.0EDE020C-ON802571D4.00388794-802571D4.003D513A@smsc.com>
+References: <44ED2008.9000109@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Ian.Saturley@smsc.com, shemminger@osdl.org, netdev@vger.kernel.org,
+	Bahadir Balban <Bahadir.Balban@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:62611 "EHLO poczta.o2.pl")
-	by vger.kernel.org with ESMTP id S1751099AbWHXLEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 07:04:36 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060823113119.03f47a6a@dxpl.pdx.osdl.net>
+Received: from mail.smsc.com ([170.129.50.11]:5138 "EHLO smsc.com")
+	by vger.kernel.org with ESMTP id S1751120AbWHXLKY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 07:10:24 -0400
+In-Reply-To: <44ED2008.9000109@garzik.org>
+To: Jeff Garzik <jeff@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 23-08-2006 20:31, Stephen Hemminger wrote:
-> On Tue, 22 Aug 2006 12:35:56 +0200
-> Jarek Poplawski <jarkao2@o2.pl> wrote:
-...
->> I've found it at last but on that occasion I've got some
->> doubt according to rcu_read_lock and rcu_call treatment:
->> isn't it "illegal to block while in an RCU read-side
->> section"? And I think it takes place in:
->>
-> 
-> No, it is perfectly okay for a cpu to acquire a lock
-> while in an RCU section, it just can't acquire a mutex/semaphore that
-> will put it to sleep. That is caught by the might_sleep() check.
+Hi Jeff,
 
-Then I've wrongly understood it can't sleep while in RCU
-and that enabled bh can make it sleep.
+> What are the arguments for adding a duplicate driver, again?
 
->> fib_lookup(): from tb_insert (fn_hash_insert() or
->>   fn_trie_insert()), fib_create_info(), fib_check_nh() 
->>
->> fn_trie_lookup(): like above, inet_addr_type(),
->>   tb_lookup()
->>
->> fib_rule_put(): like #1 above or #2 after tb_lookup(),
->>   fib_res_put()
->>
->> Shouldn't there be _bh also?
-> 
-> fib_rule_put only does something if refcount == 1 in which
-> case it is safe.
+The current driver is completely arm specific (does not even compile on 
+!arm). While arm is certainly a  popular arch for us, we also have many 
+customers on sh, x86 and others.  Currently there is no in-kernel support 
+for these people.  Our smsc911x driver is tested and supported on arm, sh, 
+i386.
 
-It's like above. I've thought (wrongly): fib_rule_put() calls 
-call_rcu() and is made to sleep.
+smsc911x is a shorter, simpler driver, and I believe the coding style to 
+be cleaner and easier to follow.
 
-Thanks for explaining: now I can peacefully go... to sleep!
+smsc911x contains support for the new LAN921x family, as well as LAN911x.
 
-Jarek P.
+smsc911x contains important workarounds for currently known hardware 
+issues.  Anyone using the current in-kernel driver with multicast will 
+have problems.
 
+Many of our customers use our proprietary drivers (GPL, but the coding 
+style would make you scream), and we would like to migrate them over to a 
+standard in-kernel driver - it would make support easier and everyone can 
+benefit from ongoing driver improvements.
 
+Regards,
+--
+Steve Glendinning
+SMSC GmbH
+m: +44 777 933 9124
+e: steve.glendinning@smsc.com
