@@ -1,37 +1,36 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 1/4] Try 2: Add wireless statistics to d80211
-Date: Thu, 24 Aug 2006 17:03:33 +0200
-Message-ID: <20060824170333.2d26cad7@griffin.suse.cz>
-References: <44ED16AB.2080306@lwfinger.net>
-	<20060824135934.4df0b1ba@griffin.suse.cz>
-	<44EDBA38.4020109@lwfinger.net>
+From: "Majumder, Rajib" <rajib.majumder@credit-suisse.com>
+Subject: TCP ACK
+Date: Thu, 24 Aug 2006 23:03:22 +0800
+Message-ID: <F444CAE5E62A714C9F45AA292785BED30EB97453@esng11p33001.sg.csfb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+ charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:61412 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751583AbWHXPDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 11:03:35 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <44EDBA38.4020109@lwfinger.net>
+Received: from ny-bas08.csfb.com ([198.240.130.81]:25816 "EHLO
+	ny-bas08.csfb.com") by vger.kernel.org with ESMTP id S1751594AbWHXPDi
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 11:03:38 -0400
+Received: from snyc11p30740.csfb.cs-group.com (snyc11p30740.csfb.mail [169.37.102.102])
+	by ny-bas08.csfb.com (Postfix) with ESMTP id 9AB8C179E
+	for <netdev@vger.kernel.org>; Thu, 24 Aug 2006 11:03:27 -0400 (EDT)
+To: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 24 Aug 2006 09:39:52 -0500, Larry Finger wrote:
-> Noted on the first part, but I would like a clarification regarding style. I put the */ on the 
-> second line to match the rest of that section. Should a patch try to keep the local style in that 
-> part of the code, or change it to a some other standard?
+Hi,
 
-Patches should convert the code they are touching to coding style common
-in the kernel. This way we will gradually convert at least part of
-d80211 to the kernel coding style; the rest will be addressed by one big
-patch just before merging into the vanilla (or -mm).
+I had a fundamental question regarding stack. When does TCP ack a segment? Is it immediately receiving a segment or after copying the data from kernel to user i.e after read() system call returns?
 
-Thanks,
+Any input is highly appreciated. 
 
- Jiri
+Thanks
 
--- 
-Jiri Benc
-SUSE Labs
+Rajib
+
+==============================================================================
+Please access the attached hyperlink for an important electronic communications disclaimer: 
+
+http://www.credit-suisse.com/legal/en/disclaimer_email_ib.html
+==============================================================================
+
