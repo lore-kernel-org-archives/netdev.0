@@ -1,36 +1,54 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 0/4] Try 2 - Add wireless statistics to d80211 and its drivers
-Date: Wed, 23 Aug 2006 21:51:12 -0500
-Message-ID: <44ED1420.3090008@lwfinger.net>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [PATCH 16/44] [XFRM] IPV6: Restrict bundle reusing
+Date: Thu, 24 Aug 2006 11:54:45 +0900
+Message-ID: <44ED14F5.3090709@linux-ipv6.org>
+References: <11563453663761-git-send-email-yoshfuji@linux-ipv6.org>	<11563453662321-git-send-email-yoshfuji@linux-ipv6.org>	<11563453661892-git-send-email-yoshfuji@linux-ipv6.org> <20060823.191214.10297360.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:12697 "EHLO
-	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1030191AbWHXCvS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 22:51:18 -0400
-To: Jiri Benc <jbenc@suse.cz>
+Received: from [203.178.140.9] ([203.178.140.9]:212 "EHLO mail.gomagoma.org")
+	by vger.kernel.org with ESMTP id S1030215AbWHXCyZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 22:54:25 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060823.191214.10297360.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri,
+David Miller wrote:
+> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Date: Thu, 24 Aug 2006 00:02:17 +0900
+> 
+>> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+>>
+>> For outbound transformation, bundle is checked whether it is
+>> suitable for current flow to be reused or not. In such IPv6 case
+>> as below, transformation may apply incorrect bundle for the flow instead
+>> of creating another bundle:
+>>
+>> - The policy selector has destination prefix length < 128
+>>   (Two or more addresses can be matched it)
+>> - Its bundle holds dst entry of default route whose prefix length < 128
+>>   (Previous traffic was used such route as next hop)
+>> - The policy and the bundle were used a transport mode state and
+>>   this time flow address is not matched the bundled state.
+>>
+>> This issue is found by Mobile IPv6 usage to protect mobility signaling
+>> by IPsec, but it is not a Mobile IPv6 specific.
+>> This patch adds strict check to xfrm_bundle_ok() for each
+>> state mode and address when prefix length is less than 128.
+>>
+>> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+>> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> 
+> Applied.  Maybe ipv4 side wants to check for prefix length < 32?
+> Or does it not matter for some reason under ipv4?
 
-This series of patches address all of your earlier concerns, namely:
-
-1. The d80211 stuff is in Part 1/4, the patches for bcm43xx-d80211 are in Part 2/4, the patches for
-the adm8211 driver is in Part 3/4, and the patches for the RT2X00 family of drivers are in Part 4/4.
-
-2. The location for maxssi has been moved to struct hw.
-
-3. The unnecessary variables in ieee80211_local have been removed. Unfortunately, wstats has to remain.
-
-4. The floor for signal and noise has been set to -110 dBm.
-
-5. The variables last_signal and last_noise now appear in /sys/class/ieee80211/phy0/sta/[MAC
-Address]/. BTW, is there a good reason why only root can read these variables?
-
-Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
+Logically yes. But I was not clear IPv4 __xfrm4_find_bundle()
+has no prefix check as opposed to IPv6 one then I couldn't include it.
 
 
+-- 
+Masahide NAKAMURA
