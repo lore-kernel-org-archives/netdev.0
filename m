@@ -1,42 +1,29 @@
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Subject: Re: [PATCH 0/7] [DCCP]: Fixes and enhancements
-Date: Fri, 25 Aug 2006 06:09:13 +1200
-Message-ID: <5640c7e00608241109l1a0102c5m77a77b35ef2a12e5@mail.gmail.com>
-References: <200608241516.34448.ian.mcdonald@jandi.co.nz>
-	 <20060824.045927.41635764.davem@davemloft.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 1/4] Try 2: Add wireless statistics to d80211
+Date: Thu, 24 Aug 2006 13:17:42 -0500
+Message-ID: <44EDED46.6090201@lwfinger.net>
+References: <C86180A8C204554D8A3323D8F6B0A29F0165B6E8@dhost002-46.dex002.intermedia.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: a.bittau@cs.ucl.ac.uk, arnaldo.melo@gmail.com,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
+Cc: Jiri Benc <jbenc@suse.cz>, John Linville <linville@tuxdriver.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-f131.google.com ([64.233.182.131]:16986 "EHLO
-	nf-out-f131.google.com") by vger.kernel.org with ESMTP
-	id S1751664AbWHXSJP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Aug 2006 14:09:15 -0400
-Received: by nf-out-f131.google.com with SMTP id k65so48078nfa
-        for <netdev@vger.kernel.org>; Thu, 24 Aug 2006 11:09:14 -0700 (PDT)
-To: "David Miller" <davem@davemloft.net>
-In-Reply-To: <20060824.045927.41635764.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:10955 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1751642AbWHXSRq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 14:17:46 -0400
+To: Simon Barber <simon@devicescape.com>
+In-Reply-To: <C86180A8C204554D8A3323D8F6B0A29F0165B6E8@dhost002-46.dex002.intermedia.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> I spent all of today on USAGI's IPSEC/MIPV6 patches and related
-> issues, so I'll look into this tomorrow.
->
-> Thanks Ian.
->
-Yes I saw that. Take your time as this is nowhere near as important!
+Simon Barber wrote:
+> Why have both signal and rssi measures?
 
-Regards,
+In the bcm43xx driver, the values are different. There is a routine that converts from rssi as a 
+positive number into signal in a negative number that looks like dBm. Because of the reverse 
+engineering, we have no idea what the logic behind this is, but I thought that we should keep it.
 
-Ian
--- 
-Ian McDonald
-Web: http://wand.net.nz/~iam4
-Blog: http://imcdnzl.blogspot.com
-WAND Network Research Group
-Department of Computer Science
-University of Waikato
-New Zealand
+Larry
+
