@@ -1,41 +1,31 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: Re: [PATCH 2.6.17 0/9] NetXen: 1G/10G Ethernet Driver
-Date: Wed, 23 Aug 2006 17:04:11 -0700
-Message-ID: <20060824000411.GA14946@us.ibm.com>
-References: <Pine.LNX.4.64.0608180713480.6875@dut39> <Pine.LNX.4.64.0608220038580.18115@dut46>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/44] Mobile IPv6 Platform, Take 2 (for net-2.6.19)
+Date: Wed, 23 Aug 2006 17:06:44 -0700 (PDT)
+Message-ID: <20060823.170644.39159577.davem@davemloft.net>
+References: <11563453651167-git-send-email-yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "jeff@garzik.org" <jeff@garzik.org>,
-	"sanjeev@netxen.com" <sanjeev@netxen.com>,
-	"unmproj@linsyssoft.com" <unmproj@linsyssoft.com>,
-	Rob Mapes <rob@netxen.com>, amitkale@netxen.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: anttit@tcs.hut.fi, vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:60636 "EHLO
-	e32.co.us.ibm.com") by vger.kernel.org with ESMTP id S965157AbWHXADi
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 20:03:38 -0400
-Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
-	by e32.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k7O03XtR024676
-	for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 20:03:33 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7O03XVR281172
-	for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 18:03:33 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7O03WPs004403
-	for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 18:03:33 -0600
-To: Pradeep Dalvi <pradeep@netxen.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0608220038580.18115@dut46>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:33469
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S965317AbWHXAGm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 20:06:42 -0400
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <11563453651167-git-send-email-yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It looks like you have not run the source throught Lindent as previously
-requested.  Before you submit the code again, please use the Lindent
-script.
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Thu, 24 Aug 2006 00:02:01 +0900
 
-I can get the code to ping between two cards.  Will be doing more
-testing tomorrow.
+> we have another discussion about improvement of XFRM state hash.
+> Our patches (about source address list part) will conflict with that
+> work, but we did not take that into account so far because it was not
+> in the tree.
 
--- 
-Don Fry
-brazilnut@us.ibm.com
+Yes, do not worry about this.  I will add my changes later
+after we integrate the mobile-ipv6 work, and therefore I will
+take care of the conflicts.
