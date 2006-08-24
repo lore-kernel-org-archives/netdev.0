@@ -1,181 +1,92 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 1/4] Try 2: Add wireless statistics to d80211
-Date: Wed, 23 Aug 2006 22:02:03 -0500
-Message-ID: <44ED16AB.2080306@lwfinger.net>
+Subject: [PATCH 2/4] Try 2: Modify bcm43xx-d80211 to use wireless statistics
+Date: Wed, 23 Aug 2006 22:02:12 -0500
+Message-ID: <44ED16B4.6040503@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:32133 "EHLO
-	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S1030226AbWHXDCG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 23:02:06 -0400
+Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:10441 "EHLO
+	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1030218AbWHXDCP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 23:02:15 -0400
 To: Jiri Benc <jbenc@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch modifies d80211 to add wireless statistics.
+These patches modify bcm43xx-d80211 to use the wireless statics added in patch 1.
 
 Signed-Off-By: Larry Finger@lwfinger.net>
 
 ======================================
-diff --git a/include/net/d80211.h b/include/net/d80211.h
-index 42fdbf7..70655dc 100644
---- a/include/net/d80211.h
-+++ b/include/net/d80211.h
-@@ -205,6 +205,8 @@ struct ieee80211_rx_status {
-          int channel;
-          int phymode;
-          int ssi;
-+	int signal;
-+	int noise;
-          int antenna;
-          int rate;
-          int flag;
-@@ -499,6 +501,9 @@ struct ieee80211_hw {
-          /* This is the time in us to change channels
-           */
-          int channel_change_time;
-+	/* This is maximum value of rssi reported by this interface
-+	 */
-+	int maxssi;
 
-  	int num_modes;
-  	struct ieee80211_hw_modes *modes;
-diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
-index e72721f..2549484 100644
---- a/net/d80211/ieee80211.c
-+++ b/net/d80211/ieee80211.c
-@@ -3175,6 +3175,8 @@ ieee80211_rx_h_sta_process(struct ieee80
-  	sta->rx_fragments++;
-  	sta->rx_bytes += rx->skb->len;
-  	sta->last_rssi = rx->u.rx.status->ssi;
-+	sta->last_signal = rx->u.rx.status->signal;
-+	sta->last_noise = rx->u.rx.status->noise;
+diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h 
+b/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h
+index a0faeca..75174f9 100644
+--- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h
++++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx.h
+@@ -27,6 +27,8 @@ #define BCM43xx_IRQWAIT_MAX_RETRIES	50
 
-  	if (!(rx->fc & IEEE80211_FCTL_MOREFRAGS)) {
-  		/* Change STA power saving mode only in the end of a frame
-diff --git a/net/d80211/ieee80211_i.h b/net/d80211/ieee80211_i.h
-index 0d2d79d..1271513 100644
---- a/net/d80211/ieee80211_i.h
-+++ b/net/d80211/ieee80211_i.h
-@@ -336,6 +336,7 @@ struct ieee80211_local {
-  	struct net_device *apdev; /* wlan#ap - management frames (hostapd) */
-  	int open_count;
-  	int monitors;
-+	struct iw_statistics wstats;
-  	struct ieee80211_conf conf;
+  #define BCM43xx_IO_SIZE			8192
 
-  	int dev_index;
-diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
-index 89a58e3..b121302 100644
---- a/net/d80211/ieee80211_ioctl.c
-+++ b/net/d80211/ieee80211_ioctl.c
-@@ -1581,6 +1581,16 @@ static int ieee80211_ioctl_giwrange(stru
-  	range->min_frag = 256;
-  	range->max_frag = 2346;
-
-+	range->max_qual.qual = 100;
-+	range->max_qual.level = 146;  /* set floor at -110 dBm (146 - 256) */
-+	range->max_qual.noise = 146;
-+	range->max_qual.updated = IW_QUAL_ALL_UPDATED;
++#define BCM43xx_RX_MAX_SSI		60
 +
-+	range->avg_qual.qual = 50;
-+	range->avg_qual.level = 0;
-+	range->avg_qual.noise = 0;
-+	range->avg_qual.updated = IW_QUAL_ALL_UPDATED;
-+
-  	return 0;
-  }
-
-@@ -2996,6 +3006,39 @@ static int ieee80211_ioctl_siwauth(struc
-  	return ret;
-  }
-
-+/* Get wireless statistics.  Called by /proc/net/wireless and by SIOCGIWSTATS */
-+static struct iw_statistics *ieee80211_get_wireless_stats(struct net_device *net_dev)
-+{
-+	struct ieee80211_local *local = net_dev->ieee80211_ptr;
-+	struct iw_statistics * wstats = &local->wstats;
-+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(net_dev);
-+	struct sta_info *sta;
-+	static int tmp_level = 0;
-+	static int tmp_qual = 0;
-+
-+	sta = sta_info_get(local, sdata->u.sta.bssid);
-+	if (!sta) {
-+		wstats->discard.fragment = 0;
-+		wstats->discard.misc = 0;
-+		wstats->qual.qual = 0;
-+		wstats->qual.level = 0;
-+		wstats->qual.noise = 0;
-+		wstats->qual.updated = IW_QUAL_ALL_INVALID;
-+	} else {
-+		if (!tmp_level) {       /* get initial values */
-+			tmp_level = sta->last_signal;
-+			tmp_qual = sta->last_rssi;
-+		} else {                        /* smooth results */
-+			tmp_level = (15 * tmp_level + sta->last_signal)/16;
-+			tmp_qual = (15 * tmp_qual + sta->last_rssi)/16;
-+		}
-+		wstats->qual.level = tmp_level;
-+		wstats->qual.qual = 100*tmp_qual/local->hw->maxssi;
-+		wstats->qual.noise = sta->last_noise;
-+		wstats->qual.updated = IW_QUAL_ALL_UPDATED | IW_QUAL_DBM;
-+	}
-+	return wstats;
-+}
-
-  static int ieee80211_ioctl_giwauth(struct net_device *dev,
-  				   struct iw_request_info *info,
-@@ -3019,7 +3062,6 @@ static int ieee80211_ioctl_giwauth(struc
-  	return ret;
-  }
-
--
-  static int ieee80211_ioctl_siwencodeext(struct net_device *dev,
-  					struct iw_request_info *info,
-  					struct iw_point *erq, char *extra)
-@@ -3184,6 +3226,7 @@ const struct iw_handler_def ieee80211_iw
-  	.standard	= (iw_handler *) ieee80211_handler,
-  	.private	= (iw_handler *) ieee80211_private_handler,
-  	.private_args	= (struct iw_priv_args *) ieee80211_ioctl_priv,
-+	.get_wireless_stats = ieee80211_get_wireless_stats,
+  /* Active Core PCI Configuration Register. */
+  #define BCM43xx_PCICFG_ACTIVE_CORE	0x80
+  /* SPROM control register. */
+@@ -623,7 +625,7 @@ struct bcm43xx_noise_calculation {
   };
 
-  /* Wireless handlers for master interface */
-diff --git a/net/d80211/ieee80211_sysfs_sta.c b/net/d80211/ieee80211_sysfs_sta.c
-index 94c6dd8..dd92b02 100644
---- a/net/d80211/ieee80211_sysfs_sta.c
-+++ b/net/d80211/ieee80211_sysfs_sta.c
-@@ -72,6 +72,8 @@ STA_ATTR(last_txrate, last_txrate, RATE)
-  STA_ATTR(tx_retry_failed, tx_retry_failed, LU);
-  STA_ATTR(tx_retry_count, tx_retry_count, LU);
-  STA_ATTR(last_rssi, last_rssi, D);
-+STA_ATTR(last_signal, last_signal, D);
-+STA_ATTR(last_noise, last_noise, D);
-  STA_ATTR(channel_use, channel_use, D);
-  STA_ATTR(wep_weak_iv_count, wep_weak_iv_count, D);
-@@ -175,6 +177,8 @@ static struct attribute *sta_ktype_attrs
-  	&sta_attr_tx_retry_failed.attr,
-  	&sta_attr_tx_retry_count.attr,
-  	&sta_attr_last_rssi.attr,
-+	&sta_attr_last_signal.attr,
-+	&sta_attr_last_noise.attr,
-  	&sta_attr_channel_use.attr,
-  	&sta_attr_wep_weak_iv_count.attr,
+  struct bcm43xx_stats {
+-	u8 link_quality;
++	u8 link_noise;
+  	/* Store the last TX/RX times here for updating the leds. */
+  	unsigned long last_tx;
+  	unsigned long last_rx;
+diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c 
+b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+index 6366020..e1b77ae 100644
+--- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
++++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+@@ -1506,15 +1506,7 @@ static void handle_irq_noise(struct bcm4
+  		else
+  			average -= 48;
 
-diff --git a/net/d80211/sta_info.h b/net/d80211/sta_info.h
-index 8d23047..100d039 100644
---- a/net/d80211/sta_info.h
-+++ b/net/d80211/sta_info.h
-@@ -82,6 +82,8 @@ struct sta_info {
-  	unsigned long rx_dropped; /* number of dropped MPDUs from this STA */
+-		if (average > -65)
+-			bcm->stats.link_quality = 0;
+-		else if (average > -75)
+-			bcm->stats.link_quality = 1;
+-		else if (average > -85)
+-			bcm->stats.link_quality = 2;
+-		else
+-			bcm->stats.link_quality = 3;
+-//		dprintk(KERN_INFO PFX "Link Quality: %u (avg was %d)\n", bcm->stats.link_quality, average);
++		bcm->stats.link_noise = average;
+  drop_calculation:
+  		bcm->noisecalc.calculation_running = 0;
+  		return;
+@@ -4421,6 +4413,7 @@ #endif
+  	ieee->host_gen_beacon_template = 1;
+  	ieee->rx_includes_fcs = 1;
+  	ieee->monitor_during_oper = 1;
++	ieee->maxssi = BCM43xx_RX_MAX_SSI;
+  	ieee->tx = bcm43xx_net_hard_start_xmit;
+  	ieee->open = bcm43xx_net_open;
+  	ieee->stop = bcm43xx_net_stop;
+diff --git a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c 
+b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c
+index 3f86079..d2a2777 100644
+--- a/drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c
++++ b/drivers/net/wireless/d80211/bcm43xx/bcm43xx_xmit.c
+@@ -475,7 +475,9 @@ void bcm43xx_rx(struct bcm43xx_private *
+  	 */
 
-  	int last_rssi; /* RSSI of last received frame from this STA */
-+	int last_signal; /* signal of last received frame from this STA */
-+	int last_noise; /* noise of last received frame from this STA */
-  	int last_ack_rssi[3]; /* RSSI of last received ACKs from this STA */
-  	unsigned long last_ack;
-          int channel_use;
+  	memset(&status, 0, sizeof(status));
+-	status.ssi = bcm43xx_rssi_postprocess(bcm, rxhdr->rssi, is_ofdm,
++	status.noise = bcm->stats.link_noise;
++	status.ssi = rxhdr->rssi;
++	status.signal = bcm43xx_rssi_postprocess(bcm, rxhdr->rssi, is_ofdm,
+  					      !!(rxflags1 & BCM43xx_RXHDR_FLAGS1_2053RSSIADJ),
+  					      !!(rxflags3 & BCM43xx_RXHDR_FLAGS3_2050RSSIADJ));
+  	if (is_ofdm)
