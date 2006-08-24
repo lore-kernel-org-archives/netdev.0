@@ -1,57 +1,182 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] locking bug in fib_semantics.c
-Date: Thu, 24 Aug 2006 07:18:16 -0700
-Message-ID: <44EDB528.9070005@osdl.org>
-References: <20060817093615.GA25553@ms2.inr.ac.ru>	<20060821081642.GA2637@ff.dom.local>	<20060821.011703.78716718.davem@davemloft.net>	<20060821110201.GA3674@ff.dom.local>	<20060822103556.GA3262@ff.dom.local> <20060823113119.03f47a6a@dxpl.pdx.osdl.net> <44ED87CF.20702@o2.pl>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 1/4] Try 2: Add wireless statistics to d80211
+Date: Thu, 24 Aug 2006 09:28:48 -0500
+Message-ID: <44EDB7A0.6090901@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:35226 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751574AbWHXOSY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 10:18:24 -0400
-To: Jarek Poplawski <jarkao2@o2.pl>
-In-Reply-To: <44ED87CF.20702@o2.pl>
+Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:10412 "EHLO
+	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1751565AbWHXO27 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 10:28:59 -0400
+To: Jiri Benc <jbenc@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> On 23-08-2006 20:31, Stephen Hemminger wrote:
->> On Tue, 22 Aug 2006 12:35:56 +0200
->> Jarek Poplawski <jarkao2@o2.pl> wrote:
-> ...
->>> I've found it at last but on that occasion I've got some
->>> doubt according to rcu_read_lock and rcu_call treatment:
->>> isn't it "illegal to block while in an RCU read-side
->>> section"? And I think it takes place in:
->>>
->>
->> No, it is perfectly okay for a cpu to acquire a lock
->> while in an RCU section, it just can't acquire a mutex/semaphore that
->> will put it to sleep. That is caught by the might_sleep() check.
->
-> Then I've wrongly understood it can't sleep while in RCU
-> and that enabled bh can make it sleep.
->
->>> fib_lookup(): from tb_insert (fn_hash_insert() or
->>>   fn_trie_insert()), fib_create_info(), fib_check_nh()
->>> fn_trie_lookup(): like above, inet_addr_type(),
->>>   tb_lookup()
->>>
->>> fib_rule_put(): like #1 above or #2 after tb_lookup(),
->>>   fib_res_put()
->>>
->>> Shouldn't there be _bh also?
->>
->> fib_rule_put only does something if refcount == 1 in which
->> case it is safe.
->
-> It's like above. I've thought (wrongly): fib_rule_put() calls 
-> call_rcu() and is made to sleep.
->
-call_rcu() doesn't sleep, it schedules work in a later context.  In that 
-way call_rcu()
-is like other deferred work mechanism (tasklets, timers, workqueues).
+This patch modifies d80211 to add wireless statistics.
 
+Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
+
+======================================
+diff --git a/include/net/d80211.h b/include/net/d80211.h
+index 42fdbf7..70655dc 100644
+--- a/include/net/d80211.h
++++ b/include/net/d80211.h
+@@ -205,6 +205,8 @@ struct ieee80211_rx_status {
+          int channel;
+          int phymode;
+          int ssi;
++	int signal;
++	int noise;
+          int antenna;
+          int rate;
+          int flag;
+@@ -499,6 +501,9 @@ struct ieee80211_hw {
+          /* This is the time in us to change channels
+           */
+          int channel_change_time;
++	/* This is maximum value of rssi reported by this interface
++	 */
++	int maxssi;
+
+  	int num_modes;
+  	struct ieee80211_hw_modes *modes;
+diff --git a/net/d80211/ieee80211.c b/net/d80211/ieee80211.c
+index e72721f..2549484 100644
+--- a/net/d80211/ieee80211.c
++++ b/net/d80211/ieee80211.c
+@@ -3175,6 +3175,8 @@ ieee80211_rx_h_sta_process(struct ieee80
+  	sta->rx_fragments++;
+  	sta->rx_bytes += rx->skb->len;
+  	sta->last_rssi = rx->u.rx.status->ssi;
++	sta->last_signal = rx->u.rx.status->signal;
++	sta->last_noise = rx->u.rx.status->noise;
+
+  	if (!(rx->fc & IEEE80211_FCTL_MOREFRAGS)) {
+  		/* Change STA power saving mode only in the end of a frame
+diff --git a/net/d80211/ieee80211_i.h b/net/d80211/ieee80211_i.h
+index 0d2d79d..1271513 100644
+--- a/net/d80211/ieee80211_i.h
++++ b/net/d80211/ieee80211_i.h
+@@ -336,6 +336,7 @@ struct ieee80211_local {
+  	struct net_device *apdev; /* wlan#ap - management frames (hostapd) */
+  	int open_count;
+  	int monitors;
++	struct iw_statistics wstats;
+  	struct ieee80211_conf conf;
+
+  	int dev_index;
+diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
+index 89a58e3..b121302 100644
+--- a/net/d80211/ieee80211_ioctl.c
++++ b/net/d80211/ieee80211_ioctl.c
+@@ -1581,6 +1581,16 @@ static int ieee80211_ioctl_giwrange(stru
+  	range->min_frag = 256;
+  	range->max_frag = 2346;
+
++	range->max_qual.qual = 100;
++	range->max_qual.level = 146;  /* set floor at -110 dBm (146 - 256) */
++	range->max_qual.noise = 146;
++	range->max_qual.updated = IW_QUAL_ALL_UPDATED;
++
++	range->avg_qual.qual = 50;
++	range->avg_qual.level = 0;
++	range->avg_qual.noise = 0;
++	range->avg_qual.updated = IW_QUAL_ALL_UPDATED;
++
+  	return 0;
+  }
+
+@@ -2996,6 +3006,39 @@ static int ieee80211_ioctl_siwauth(struc
+  	return ret;
+  }
+
++/* Get wireless statistics.  Called by /proc/net/wireless and by SIOCGIWSTATS */
++static struct iw_statistics *ieee80211_get_wireless_stats(struct net_device *net_dev)
++{
++	struct ieee80211_local *local = net_dev->ieee80211_ptr;
++	struct iw_statistics * wstats = &local->wstats;
++	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(net_dev);
++	struct sta_info *sta;
++	static int tmp_level = 0;
++	static int tmp_qual = 0;
++
++	sta = sta_info_get(local, sdata->u.sta.bssid);
++	if (!sta) {
++		wstats->discard.fragment = 0;
++		wstats->discard.misc = 0;
++		wstats->qual.qual = 0;
++		wstats->qual.level = 0;
++		wstats->qual.noise = 0;
++		wstats->qual.updated = IW_QUAL_ALL_INVALID;
++	} else {
++		if (!tmp_level) {       /* get initial values */
++			tmp_level = sta->last_signal;
++			tmp_qual = sta->last_rssi;
++		} else {                        /* smooth results */
++			tmp_level = (15 * tmp_level + sta->last_signal)/16;
++			tmp_qual = (15 * tmp_qual + sta->last_rssi)/16;
++		}
++		wstats->qual.level = tmp_level;
++		wstats->qual.qual = 100*tmp_qual/local->hw->maxssi;
++		wstats->qual.noise = sta->last_noise;
++		wstats->qual.updated = IW_QUAL_ALL_UPDATED | IW_QUAL_DBM;
++	}
++	return wstats;
++}
+
+  static int ieee80211_ioctl_giwauth(struct net_device *dev,
+  				   struct iw_request_info *info,
+@@ -3019,7 +3062,6 @@ static int ieee80211_ioctl_giwauth(struc
+  	return ret;
+  }
+
+-
+  static int ieee80211_ioctl_siwencodeext(struct net_device *dev,
+  					struct iw_request_info *info,
+  					struct iw_point *erq, char *extra)
+@@ -3184,6 +3226,7 @@ const struct iw_handler_def ieee80211_iw
+  	.standard	= (iw_handler *) ieee80211_handler,
+  	.private	= (iw_handler *) ieee80211_private_handler,
+  	.private_args	= (struct iw_priv_args *) ieee80211_ioctl_priv,
++	.get_wireless_stats = ieee80211_get_wireless_stats,
+  };
+
+  /* Wireless handlers for master interface */
+diff --git a/net/d80211/ieee80211_sysfs_sta.c b/net/d80211/ieee80211_sysfs_sta.c
+index 94c6dd8..dd92b02 100644
+--- a/net/d80211/ieee80211_sysfs_sta.c
++++ b/net/d80211/ieee80211_sysfs_sta.c
+@@ -72,6 +72,8 @@ STA_ATTR(last_txrate, last_txrate, RATE)
+  STA_ATTR(tx_retry_failed, tx_retry_failed, LU);
+  STA_ATTR(tx_retry_count, tx_retry_count, LU);
+  STA_ATTR(last_rssi, last_rssi, D);
++STA_ATTR(last_signal, last_signal, D);
++STA_ATTR(last_noise, last_noise, D);
+  STA_ATTR(channel_use, channel_use, D);
+  STA_ATTR(wep_weak_iv_count, wep_weak_iv_count, D);
+@@ -175,6 +177,8 @@ static struct attribute *sta_ktype_attrs
+  	&sta_attr_tx_retry_failed.attr,
+  	&sta_attr_tx_retry_count.attr,
+  	&sta_attr_last_rssi.attr,
++	&sta_attr_last_signal.attr,
++	&sta_attr_last_noise.attr,
+  	&sta_attr_channel_use.attr,
+  	&sta_attr_wep_weak_iv_count.attr,
+
+diff --git a/net/d80211/sta_info.h b/net/d80211/sta_info.h
+index 8d23047..100d039 100644
+--- a/net/d80211/sta_info.h
++++ b/net/d80211/sta_info.h
+@@ -82,6 +82,8 @@ struct sta_info {
+  	unsigned long rx_dropped; /* number of dropped MPDUs from this STA */
+
+  	int last_rssi; /* RSSI of last received frame from this STA */
++	int last_signal; /* signal of last received frame from this STA */
++	int last_noise; /* noise of last received frame from this STA */
+  	int last_ack_rssi[3]; /* RSSI of last received ACKs from this STA */
+  	unsigned long last_ack;
+          int channel_use;
 
