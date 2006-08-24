@@ -1,48 +1,101 @@
 From: "Jesse Huang" <jesse@icplus.com.tw>
-Subject: Re: [PATCH] IP1000A: IC Plus update 2006-08-22
-Date: Thu, 24 Aug 2006 09:31:45 +0800
-Message-ID: <026c01c6c71d$0fde1730$4964a8c0@icplus.com.tw>
-References: <1156268234.3622.1.camel@localhost.localdomain> <20060822232730.GA30977@electric-eye.fr.zoreil.com> <20060823113822.GA17103@electric-eye.fr.zoreil.com> <20060823223032.GA25111@electric-eye.fr.zoreil.com>
-Cc: <penberg@cs.Helsinki.FI>, <akpm@osdl.org>, <dvrabel@cantab.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<david@pleyades.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr9.hinet.net ([168.95.4.109]:51616 "EHLO msr9.hinet.net")
-	by vger.kernel.org with ESMTP id S965328AbWHXBc0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 21:32:26 -0400
-To: "Francois Romieu" <romieu@fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
+Subject: Re: [PATCH 4/4] IP100A: Solve host error problem in low performance embedded system when continune down and up.
+Date: Thu, 24 Aug 2006 09:55:59 +0800
+Message-ID: <028f01c6c720$722f6f30$4964a8c0@icplus.com.tw>
+References: <1156271492.4662.6.camel@localhost.localdomain> <20060822090542.6469977a.rdunlap@xenotime.net>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<akpm@osdl.org>, <jgarzik@pobox.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965335AbWHXB4M@vger.kernel.org>
+To: "Randy.Dunlap" <rdunlap@xenotime.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Francois:
+Hi Randy:
 
-I am very appreciated what you do for IP1000A.
-I will follow those files. Thanks you very much!
+Sorry for the file path. I will regenerate with path
+a/drivers/net/sundance.c
+and re-submit again.
+
+Thanks for your help!
 
 Best Regards,
 Jesse Huang
 
 ----- Original Message ----- 
-From: "Francois Romieu" <romieu@fr.zoreil.com>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
 To: "Jesse Huang" <jesse@icplus.com.tw>
-Cc: <penberg@cs.Helsinki.FI>; <akpm@osdl.org>; <dvrabel@cantab.net>;
-<linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
-<david@pleyades.net>
-Sent: Thursday, August 24, 2006 6:30 AM
-Subject: Re: [PATCH] IP1000A: IC Plus update 2006-08-22
+Cc: <linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
+<akpm@osdl.org>; <jgarzik@pobox.com>
+Sent: Wednesday, August 23, 2006 12:05 AM
+Subject: Re: [PATCH 4/4] IP100A: Solve host error problem in low performance
+embedded system when continune down and up.
 
 
-Francois Romieu <romieu@fr.zoreil.com> :
-[...]
-> Typo. It should be:
-> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.18-rc4/ip1000
+On Tue, 22 Aug 2006 14:31:32 -0400 Jesse Huang wrote:
 
-Added 0038-ip1000-CodingStyle.txt.
+> From: Jesse Huang <jesse@icplus.com.tw>
+>
+> Change Logs:
+>    - Solve host error problem in low performance embedded
+>      system when continune down and up.
+>
+> Signed-off-by: Jesse Huang <jesse@icplus.com.tw>
+>
+> ---
+>
+>  sundance.c |   30 +++++++++++++++++++++++++-----
+>  1 files changed, 25 insertions(+), 5 deletions(-)
 
-More local variables, more unsigned int, less MixedCase, ipg_nic_rx()
-fits in your favorite 80 cols console.
+Full path/file names above and below, please.
 
--- 
-Ueimor
+> a88c635933a981dd4fca87e5b8ca9426c5c98013
+> diff --git a/sundance.c b/sundance.c
+> index 424aebd..de55e0f 100755
+> --- a/sundance.c
+> +++ b/sundance.c
+> @@ -1647,6 +1647,14 @@ static int netdev_close(struct net_devic
+>  struct sk_buff *skb;
+>  int i;
+>
+> + /* Wait and kill tasklet */
+> + tasklet_kill(&np->rx_tasklet);
+> + tasklet_kill(&np->tx_tasklet);
+> +   np->cur_tx = 0;
+> +   np->dirty_tx = 0;
 
+Use same indentation/whitespace as surrounding code.
+(tabs, not spaces)
 
+> + np->cur_task = 0;
+> + np->last_tx = 0;
+> +
+>  netif_stop_queue(dev);
+>
+>  if (netif_msg_ifdown(np)) {
+> @@ -1667,9 +1675,20 @@ static int netdev_close(struct net_devic
+>  /* Stop the chip's Tx and Rx processes. */
+>  iowrite16(TxDisable | RxDisable | StatsDisable, ioaddr + MACCtrl1);
+>
+> - /* Wait and kill tasklet */
+> - tasklet_kill(&np->rx_tasklet);
+> - tasklet_kill(&np->tx_tasklet);
+> +    for (i = 2000; i > 0; i--) {
+> + if ((ioread32(ioaddr + DMACtrl) &0xC000) == 0)
+> +     break;
+> + mdelay(1);
+> +    }
+> +
+> +    iowrite16(GlobalReset | DMAReset | FIFOReset |NetworkReset, ioaddr
++ASICCtrl + 2);
+> +
+> +    for (i = 2000; i > 0; i--)
+> +    {
+> + if ((ioread16(ioaddr + ASICCtrl +2) &ResetBusy) == 0)
+> +     break;
+> + mdelay(1);
+> +    }
+
+Same comment about indentation/whitespace.
+
+---
+~Randy
