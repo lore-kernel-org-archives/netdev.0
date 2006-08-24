@@ -1,50 +1,47 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: Re: [PATCH 44/44] [XFRM] IPV6: Support Mobile IPv6 extension headers
- sorting.
-Date: Thu, 24 Aug 2006 16:05:39 +0900
-Message-ID: <44ED4FC3.9060005@linux-ipv6.org>
-References: <11563453682841-git-send-email-yoshfuji@linux-ipv6.org>	<20060823.225706.03601250.davem@davemloft.net>	<20060824.150442.44820672.yoshfuji@linux-ipv6.org> <20060823.235404.108743952.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 0/21] d80211: pull request
+Date: Thu, 24 Aug 2006 09:58:09 +0200
+Message-ID: <1156406289.3815.13.camel@ux156>
+References: <20060823212316.333159079.midnight@suse.cz>
+	 <20060823213033.7eff5eef@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Cc: netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Mohamed Abbas <mabbas@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.178.140.9] ([203.178.140.9]:45542 "EHLO mail.gomagoma.org")
-	by vger.kernel.org with ESMTP id S1030374AbWHXHFT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 03:05:19 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060823.235404.108743952.davem@davemloft.net>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:53427 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750815AbWHXH5y
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 03:57:54 -0400
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20060823213033.7eff5eef@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Date: Thu, 24 Aug 2006 15:04:42 +0900 (JST)
-> 
->> In article <20060823.225706.03601250.davem@davemloft.net> (at Wed, 23 Aug 2006 22:57:06 -0700 (PDT)), David Miller <davem@davemloft.net> says:
->>
->>> Are there any other Mobile-IPV6 patches necessary for the
->>> kernel?
->> The patches cover most of MIPv6 and CN should work.
->> However, for HA/MN, there are small number of patches
->> to send.
->>
->> We will send them, of course.
->> Nakamura-san, please describe the details.
+On Wed, 2006-08-23 at 21:30 +0200, Jiri Benc wrote:
 
-I'll send them later, but anyway,
+> Johannes Berg:
+>         d80211:  LED triggers
 
-> 
-> Ok, thank you.
-> 
-> In the mean time, I will work on porting my XFRM hashing changes
-> for the current net-2.6.19 tree.
+Yep, as noted, the fix for this is to include some more things in
+include/linux/leds.h, which is in -mm:
+http://kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.18-rc4/2.6.18-rc4-mm2/broken-out/make-ledsh-include-relevant-headers.patch
 
-FYI, your work will not have any conflict with the left of MIPv6 patches
-which I will describe later since they are almost out of XFRM.
+>         add nl80211
 
-Regards,
+Yeah, I need to repost a fixed version.
 
--- 
-Masahide NAKAMURA
+>         make d80211 use nl80211
+
+Ditto, but would appreciate feedback on both of these.
+
+>         d80211:  rework rate control registration
+>         d80211:  move out rate control registration code
+
+Thought you wanted to drop them?
+
+johannes
