@@ -1,72 +1,70 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [RFC] make d80211 use nl80211
-Date: Thu, 24 Aug 2006 16:05:04 +0200
-Message-ID: <20060824160504.54b81641@griffin.suse.cz>
-References: <1156254813.3825.2.camel@ux156>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC] add nl80211
+Date: Thu, 24 Aug 2006 16:15:10 +0200
+Message-ID: <1156428910.10283.1.camel@ux156>
+References: <1156254768.3825.1.camel@ux156>
+	 <20060824153230.5a54bb6a@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
 	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:736 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751544AbWHXOFG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 10:05:06 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1156254813.3825.2.camel@ux156>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:40347 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751554AbWHXOPF
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 10:15:05 -0400
+To: Jiri Benc <jbenc@suse.cz>
+In-Reply-To: <20060824153230.5a54bb6a@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Aug 2006 15:53:33 +0200, Johannes Berg wrote:
-> This patch makes d80211 partially configurable using the
-> infrastructure that nl80211 provides. So far, it allows
-> packet injection and adding/removing virtual interfaces.
+On Thu, 2006-08-24 at 15:32 +0200, Jiri Benc wrote:
+> > +	int	(*add_virtual_intf)(void *priv, char *name);
+> 
+> What about initial interface type? (Hm, maybe it can be fixed to a STA
+> mode, but it should be documented somewhere at least.)
 
-Just minor things:
+Actually, I already changed that.
 
-> [...]
-> --- wireless-dev.orig/net/d80211/ieee80211.c	2006-08-22 15:47:46.000000000 +0200
-> +++ wireless-dev/net/d80211/ieee80211.c	2006-08-22 15:47:48.000000000 +0200
-> [...]
-> @@ -4323,6 +4363,7 @@ struct net_device *ieee80211_alloc_hw(si
->  	priv_size = ((sizeof(struct ieee80211_sub_if_data) +
->  		      NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST) +
->  		    priv_data_len;
-> +
->  	mdev = alloc_netdev(priv_size, "wmaster%d", ether_setup);
->  	if (!mdev) {
->  		ieee80211_dev_free(local);
+> > +	int	(*del_virtual_intf)(void *priv, int ifindex);
+> > +
+> > +	/* more things to be added...
+> > +	 *
+> > +	 * for a (*configure)(...) call I'd probably guess that the
+> > +	 * best bet would be to have one call that returns all
+> > +	 * possible options, one that sets them based on the
+> > +	 * struct genl_info *info, and one for that optimised
+> > +	 * set-at-once thing.
+> > +	 */
+> > +};
+> > +
+> > +/*
+> > + * register a given method structure with the nl80211 system
+> > + * and associate the 'priv' pointer with it.
+> > + * NOTE: for proper operation, this priv pointer MUST also be
+> > + * assigned to each &struct net_device's @ieee80211_ptr member!
+> > + */
+> > +extern int nl80211_register(struct nl80211_ops *ops, void *priv);
+> 
+> Could this function return the allocated wiphy index?
 
-Remove this hunk, please.
+Ah, yes, I wanted to do that all along. And a negative error code?
 
-> [...]
-> +static int d80211_interfaces(void *priv, void *data,
-> +			     int (*one)(void *data, int ifindex))
+> Hm, most of drivers will need to take rtnl to stay compatible with WE.
+> (Not a reason to take rtnl in nl80211, just a remark.)
 
-Please use ieee80211_ prefix, not d80211_.
+Not for packet injection or such though, dev_get is enough for that, I
+think.
 
-> [...]
-> +static int d80211_inject(void *priv, void *frame, int framelen, u32 flags,
-> +			 int queue)
-> +{
-> +	struct ieee80211_local *local = priv;
-> +	struct ieee80211_tx_packet_data *pkt_data;
-> +	struct sk_buff *pkt;
-> +	void *pktdata;
-> +
-> +	pkt = alloc_skb(framelen, GFP_KERNEL);
-> +	pktdata = skb_put(pkt, framelen);
-> +	memcpy(pktdata, frame, framelen);
-> +
-> +	pkt_data = (struct ieee80211_tx_packet_data *) pkt->cb;
-> +	memset(pkt_data, 0, sizeof(struct ieee80211_tx_packet_data));
+> Please use __ prefix instead of _locked suffix (e.g.
+> __nl80211_drv_by_priv). That's more common convention in the kernel.
 
-This is not necessary, cb is zeroed in alloc_skb.
+I used to have a locking version too, which was without the suffix :)
 
-Thanks,
+> If both ifindex and wiphy index are set and they disagree with each
+> other, this should return an error.
 
- Jiri
+Ok, I can do that.
 
--- 
-Jiri Benc
-SUSE Labs
+johannes
