@@ -1,34 +1,83 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [take13 1/3] kevent: Core files.
-Date: Thu, 24 Aug 2006 21:03:22 +0100
-Message-ID: <20060824200322.GA19533@infradead.org>
-References: <11563322941645@2ka.mipt.ru> <11563322971212@2ka.mipt.ru>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] ssb: minor fixes and cleanups
+Date: Thu, 24 Aug 2006 22:43:24 +0200
+Message-ID: <200608242243.24936.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:48076 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S1751692AbWHXUDk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Aug 2006 16:03:40 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:20652
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1422649AbWHXUnw
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 16:43:52 -0400
+To: linville@tuxdriver.com
 Content-Disposition: inline
-In-Reply-To: <11563322971212@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-One question on the implementation of kevent_user_ctl_modify/
-kevent_user_ctl_remove/kevent_user_ctl_add:  What benchmarks did you
-do to add the separate 'fastpath' with the single onstack ukevent
-structure if there are three or less events?  I can't believe this
-actually helps in practice for various reasons:
+Hi John,
 
- - you add quite a lot of icache footprint by duplicating all this code
- - kmalloc is really fast
- - two or three small copy_from/to_user calls are quite a bit slower
-   than one that covers the size of all of them.
+Please apply this to wireless-dev
+
+--
+
+Minor fixes and cleanups to the ssb driver.
+
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+
+Index: wireless-dev/drivers/misc/ssb.c
+===================================================================
+--- wireless-dev.orig/drivers/misc/ssb.c	2006-08-24 22:18:03.000000000 +0200
++++ wireless-dev/drivers/misc/ssb.c	2006-08-24 22:33:44.000000000 +0200
+@@ -518,7 +518,8 @@
+ {
+ 	int err;
+ 
+-	if (!ssb || !pci_dev || !device_suspend || !device_resume)
++	if (!ssb || !pci_dev || !mmio ||
++	    !device_suspend || !device_resume)
+ 		return -EINVAL;
+ 
+ 	memset(ssb, 0, sizeof(*ssb));
+@@ -551,9 +552,9 @@
+ 	list_del(&ssb->list);
+ 	mutex_unlock(&ssb_list_mutex);
+ 
++	mutex_destroy(&ssb->suspend_mutex);
++	mutex_destroy(&ssb->mutex);
+ 	kfree(ssb->cores);
+-	if (SSB_DEBUG)
+-		memset(ssb, 0x5B, sizeof(*ssb));
+ }
+ EXPORT_SYMBOL_GPL(ssb_exit);
+ 
+@@ -592,8 +593,8 @@
+ 	return -ENODEV;
+ }
+ 
+-int ssb_switch_core_locked(struct ssb *ssb,
+-			   struct ssb_core *new_core)
++static int ssb_switch_core_locked(struct ssb *ssb,
++				  struct ssb_core *new_core)
+ {
+ 	int err = 0;
+ 
+Index: wireless-dev/include/linux/ssb.h
+===================================================================
+--- wireless-dev.orig/include/linux/ssb.h	2006-08-24 22:18:03.000000000 +0200
++++ wireless-dev/include/linux/ssb.h	2006-08-24 22:28:03.000000000 +0200
+@@ -170,7 +170,7 @@
+ #define SSB_SPROM2_BFLHI		0x1038	/* Boardflags (high 16 bits) */
+ #define SSB_SPROM2_MAXP_A		0x103A	/* A-PHY Max Power */
+ #define  SSB_SPROM2_MAXP_A_HI		0x00FF	/* Max Power High */
+-#define  SSB_SPROM2_MAXP_A_LO		0x1100	/* Max Power Low */
++#define  SSB_SPROM2_MAXP_A_LO		0xFF00	/* Max Power Low */
+ #define  SSB_SPROM2_MAXP_A_LO_SHIFT	8
+ #define SSB_SPROM2_PA1LOB0		0x103C	/* A-PHY PowerAmplifier Low Settings */
+ #define SSB_SPROM2_PA1LOB1		0x103E	/* A-PHY PowerAmplifier Low Settings */
+
+
+-- 
+Greetings Michael.
