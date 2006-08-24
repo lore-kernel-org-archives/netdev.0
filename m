@@ -1,77 +1,48 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [PATCH 1/4] Try 2: Add wireless statistics to d80211
-Date: Thu, 24 Aug 2006 13:59:34 +0200
-Message-ID: <20060824135934.4df0b1ba@griffin.suse.cz>
-References: <44ED16AB.2080306@lwfinger.net>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: ProxyARP and IPSec
+Date: Thu, 24 Aug 2006 16:50:46 +0400
+Message-ID: <20060824125046.GA25439@ms2.inr.ac.ru>
+References: <44EBA1FC.5000801@zytor.com> <20060823191425.GK3470@postel.suug.ch> <20060823.151424.78711856.davem@davemloft.net> <20060823231812.GA32394@ms2.inr.ac.ru> <44ECFCF1.10500@zytor.com> <44ECFD5F.6060901@zytor.com> <1156386043.7302.773.camel@tahini.andynet.net> <44ED2797.4070304@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Gay <andy@andynet.net>, David Miller <davem@davemloft.net>,
+	tgraf@suug.ch, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:18389 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1751171AbWHXL7g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 07:59:36 -0400
-To: Larry Finger <Larry.Finger@lwfinger.net>
-In-Reply-To: <44ED16AB.2080306@lwfinger.net>
+Received: from minus.inr.ac.ru ([194.67.69.97]:28123 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S1751220AbWHXMvs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 08:51:48 -0400
+To: "H. Peter Anvin" <hpa@zytor.com>
+Content-Disposition: inline
+In-Reply-To: <44ED2797.4070304@zytor.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Aug 2006 22:02:03 -0500, Larry Finger wrote:
-> This patch modifies d80211 to add wireless statistics.
-> 
-> Signed-Off-By: Larry Finger@lwfinger.net>
+Hello!
 
-Please fix the Signed-off-by line.
+> I'm thinking that David definitely has a point about having a usability 
+> problem, though.  All other kind of tunnels have endpoint devices 
+> associated with them, and that would make all these kinds of problems go 
+> away, 
 
-> 
-> ======================================
-> diff --git a/include/net/d80211.h b/include/net/d80211.h
-> index 42fdbf7..70655dc 100644
-> --- a/include/net/d80211.h
-> +++ b/include/net/d80211.h
-> @@ -205,6 +205,8 @@ struct ieee80211_rx_status {
->           int channel;
->           int phymode;
->           int ssi;
-> +	int signal;
-> +	int noise;
->           int antenna;
->           int rate;
->           int flag;
-> @@ -499,6 +501,9 @@ struct ieee80211_hw {
->           /* This is the time in us to change channels
->            */
->           int channel_change_time;
-> +	/* This is maximum value of rssi reported by this interface
-> +	 */
-> +	int maxssi;
+Yes, when you deal with sane practical setups, this approach is the only
+reasonable one.
 
-Device, not interface. And please do not put */ to a new line.
+Unfortunately, IPsec is not something totally sane and practical :-),
+"security gateway" case is small part of it and "routing" viewpoint
+clashes fatally with another requirements. Pure result is that we use approach
+where it is possible to do everything with some efforts, rather than approach
+which is simple and intuitive, but does not allow to do many things.
 
-> [...]
-> --- a/net/d80211/ieee80211_ioctl.c
-> +++ b/net/d80211/ieee80211_ioctl.c
-> [...]
-> @@ -3019,7 +3062,6 @@ static int ieee80211_ioctl_giwauth(struc
->   	return ret;
->   }
-> 
-> -
->   static int ieee80211_ioctl_siwencodeext(struct net_device *dev,
->   					struct iw_request_info *info,
->   					struct iw_point *erq, char *extra)
+It is possible to simulate simple life, creating "ipsecX" devices
+with disabled xfrm and route all the tunnels there. That would be handy.
 
-Please do not touch parts outside of the code you are
-fixing/improving/etc. We'll need a code style patch later, but not now -
-there are still too many patches floating around and I don't want to
-break them more than is necessary.
+I would just advice to rename one of dummy devices to "ipsec0"
+and route all the IPsec tunnels there. It is also simple.
 
-Other then that, it looks good.
+What's about iptables, I am sorry, it is too flexible to control IPsec. :-)
+One day, someone with enough of energy and stamina will make flow cache
+to unify all the kinds of policy rules. Until that day, you have to tune
+all three policy sets (routing, ipsec and iptables) separately and take
+care of the cases, when one set has to cheat another. :-)
 
-Thanks,
-
- Jiri
-
--- 
-Jiri Benc
-SUSE Labs
+Alexey
