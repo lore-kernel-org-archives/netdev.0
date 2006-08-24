@@ -1,37 +1,38 @@
-From: David Miller <davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Subject: Re: [PATCH 44/44] [XFRM] IPV6: Support Mobile IPv6 extension
  headers sorting.
-Date: Wed, 23 Aug 2006 22:57:06 -0700 (PDT)
-Message-ID: <20060823.225706.03601250.davem@davemloft.net>
-References: <11563453673854-git-send-email-yoshfuji@linux-ipv6.org>
-	<11563453681815-git-send-email-yoshfuji@linux-ipv6.org>
+Date: Thu, 24 Aug 2006 15:04:42 +0900 (JST)
+Message-ID: <20060824.150442.44820672.yoshfuji@linux-ipv6.org>
+References: <11563453681815-git-send-email-yoshfuji@linux-ipv6.org>
 	<11563453682841-git-send-email-yoshfuji@linux-ipv6.org>
+	<20060823.225706.03601250.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: anttit@tcs.hut.fi, vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org, nakam@linux-ipv6.org
+	usagi-core@linux-ipv6.org, nakam@linux-ipv6.org,
+	yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:27103
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030325AbWHXF5E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Aug 2006 01:57:04 -0400
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <11563453682841-git-send-email-yoshfuji@linux-ipv6.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:53256 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1030329AbWHXGCy
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 02:02:54 -0400
+To: davem@davemloft.net
+In-Reply-To: <20060823.225706.03601250.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Thu, 24 Aug 2006 00:02:45 +0900
+In article <20060823.225706.03601250.davem@davemloft.net> (at Wed, 23 Aug 2006 22:57:06 -0700 (PDT)), David Miller <davem@davemloft.net> says:
 
-> Support Mobile IPv6 extension headers sorting for two transformation policies.
-> Mobile IPv6 extension headers should be placed after IPsec
-> transport mode, but before transport AH when outbound.
-> 
-> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Are there any other Mobile-IPV6 patches necessary for the
+> kernel?
 
-Ok, this is applied to net-2.6.19 too.
+The patches cover most of MIPv6 and CN should work.
+However, for HA/MN, there are small number of patches
+to send.
 
-Are there any other Mobile-IPV6 patches necessary for the
-kernel?
+We will send them, of course.
+Nakamura-san, please describe the details.
+
+--yoshfuji
