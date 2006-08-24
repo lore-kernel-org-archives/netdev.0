@@ -1,66 +1,80 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [REVISED] [PATCH] ethtool v4: add autoneg advertise feature
-Date: Thu, 24 Aug 2006 09:17:21 -0700
-Message-ID: <20060824161721.16920.90640.stgit@jtkirshe-sled.jf.intel.com>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
-Cc: John Rociak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [RFC] make d80211 use nl80211
+Date: Thu, 24 Aug 2006 19:09:34 +0200
+Message-ID: <200608241909.35065.mb@bu3sch.de>
+References: <1156254813.3825.2.camel@ux156> <1156435657.10283.10.camel@ux156>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:60238 "EHLO
-	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
-	id S1030344AbWHXQQA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Aug 2006 12:16:00 -0400
-To: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:49066
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1030394AbWHXRKx
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 13:10:53 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1156435657.10283.10.camel@ux156>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thursday 24 August 2006 18:07, Johannes Berg wrote:
+> new version of this one too...
+> --
+> Subject: d80211: use nl80211
+> 
+> This patch makes d80211 partially configurable using the
+> infrastructure that nl80211 provides. So far, it allows
+> packet injection and adding/removing virtual interfaces.
+> 
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> 
 
-adds the ability to change the advertised speed and duplex for a network interface.  Previously, a network interface was only able to advertise all supported speed's and duplex's, or one individual speed and duplex.  The feature allows the user to choose which supported speed's and duplex's to advertise by using the hex value.
 
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> +static int ieee80211_inject(void *priv, void *frame, int framelen, u32 flags,
+> +			    int queue)
+> +{
+> +	struct ieee80211_local *local = priv;
+> +	struct ieee80211_tx_packet_data *pkt_data;
+> +	struct sk_buff *pkt;
+> +	void *pktdata;
+> +
+> +	pkt = alloc_skb(framelen, GFP_KERNEL);
 
----
+if (!pkt)
+	return -ENOMEM;
 
- ethtool.c |   12 +++++++++++-
- 1 files changed, 11 insertions(+), 1 deletions(-)
+> +	pktdata = skb_put(pkt, framelen);
+> +	memcpy(pktdata, frame, framelen);
 
-diff --git a/ethtool.c b/ethtool.c
-index 87e22ab..b7f189a 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -99,6 +99,7 @@ static struct option {
- 		"		[ duplex half|full ]\n"
- 		"		[ port tp|aui|bnc|mii|fibre ]\n"
- 		"		[ autoneg on|off ]\n"
-+		"		[ advertise %%x ]\n"
- 		"		[ phyad %%d ]\n"
- 		"		[ xcvr internal|external ]\n"
- 		"		[ wol p|u|m|b|a|g|s|d... ]\n"
-@@ -549,6 +550,15 @@ static void parse_cmdline(int argc, char
- 					show_usage(1);
- 				}
- 				break;
-+			} else if (!strcmp(argp[i], "advertise")) {
-+				gset_changed = 1;
-+				i += 1;
-+				if (i >= argc)
-+					show_usage(1);
-+				advertising_wanted = strtol(argp[i], NULL, 16);
-+				if (advertising_wanted < 0)
-+					show_usage(1);
-+				break;
- 			} else if (!strcmp(argp[i], "phyad")) {
- 				gset_changed = 1;
- 				i += 1;
-@@ -601,7 +611,7 @@ static void parse_cmdline(int argc, char
- 		}
- 	}
- 
--	if (autoneg_wanted == AUTONEG_ENABLE){
-+	if ((autoneg_wanted == AUTONEG_ENABLE) && (advertising_wanted < 0)) {
- 		if (speed_wanted == SPEED_10 && duplex_wanted == DUPLEX_HALF)
- 			advertising_wanted = ADVERTISED_10baseT_Half;
- 		else if (speed_wanted == SPEED_10 &&
+having two variables with almost the same name seems
+confusing to me. What about removing void *pktdata; and
+doing the following instead of the two lines above?
+
+memcpy(skb_put(pkt, framelen), frame, framelen);
+
+That is also how it's done in lots of other networking code.
+
+> +	pkt_data = (struct ieee80211_tx_packet_data *) pkt->cb;
+> +	pkt_data->ifindex = local->mdev->ifindex;
+> +	pkt_data->internal_flags = TX_FLAG_INJECTED;
+> +	pkt_data->flags = flags;
+> +	/* FIXME: never used, I think? Or could be invalid? */
+> +	pkt_data->queue = queue;
+> +
+> +	/* FIXME */
+> +	pkt->priority = 20; /* use hardcoded priority for mgmt TX queue */
+> +
+> +	pkt->dev = local->mdev;
+> +	dev_queue_xmit(pkt);
+> +
+> +	return 0;
+> +}
+
+The other code looks fine to me (the add nl80211 patch, too).
+
+-- 
+Greetings Michael.
