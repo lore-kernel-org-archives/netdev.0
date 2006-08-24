@@ -1,47 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 27/44] [IPV6] IPSEC: Support sending with Mobile IPv6
- extension headers.
-Date: Wed, 23 Aug 2006 19:31:39 -0700 (PDT)
-Message-ID: <20060823.193139.75761052.davem@davemloft.net>
-References: <11563453661764-git-send-email-yoshfuji@linux-ipv6.org>
-	<11563453663275-git-send-email-yoshfuji@linux-ipv6.org>
-	<11563453671174-git-send-email-yoshfuji@linux-ipv6.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 0/4] Try 2 - Add wireless statistics to d80211 and its drivers
+Date: Wed, 23 Aug 2006 21:51:12 -0500
+Message-ID: <44ED1420.3090008@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: anttit@tcs.hut.fi, vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org, nakam@linux-ipv6.org
+Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:19862
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1030212AbWHXCbh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 22:31:37 -0400
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <11563453671174-git-send-email-yoshfuji@linux-ipv6.org>
+Received: from mtiwmhc11.worldnet.att.net ([204.127.131.115]:12697 "EHLO
+	mtiwmhc11.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S1030191AbWHXCvS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 22:51:18 -0400
+To: Jiri Benc <jbenc@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Thu, 24 Aug 2006 00:02:28 +0900
+Jiri,
 
-> Mobile IPv6 defines home address option as an option of destination
-> options header. It is placed before fragment header then
-> ip6_find_1stfragopt() is fixed to know about it.
-> Home address option also carries final source address of the flow, then
-> outbound AH calculation should take care of it like routing header case.
-> Based on MIPL2 kernel patch.
-> 
-> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+This series of patches address all of your earlier concerns, namely:
 
-Applied to net-2.6.19, and I fixed the leak mentioned here:
+1. The d80211 stuff is in Part 1/4, the patches for bcm43xx-d80211 are in Part 2/4, the patches for
+the adm8211 driver is in Part 3/4, and the patches for the RT2X00 family of drivers are in Part 4/4.
 
-> +#ifdef CONFIG_IPV6_MIP6
-> +	if (ipv6_clear_mutable_options(skb->nh.ipv6h, hdr_len, XFRM_POLICY_IN))
-> +		goto out;
-> +#else
->  	if (ipv6_clear_mutable_options(skb->nh.ipv6h, hdr_len))
->  		goto free_out;
-> +#endif
+2. The location for maxssi has been moved to struct hw.
 
-By making MIP6 case goto free_out; too.
+3. The unnecessary variables in ieee80211_local have been removed. Unfortunately, wstats has to remain.
+
+4. The floor for signal and noise has been set to -110 dBm.
+
+5. The variables last_signal and last_noise now appear in /sys/class/ieee80211/phy0/sta/[MAC
+Address]/. BTW, is there a good reason why only root can read these variables?
+
+Signed-Off-By: Larry Finger <Larry.Finger@lwfinger.net>
+
+
