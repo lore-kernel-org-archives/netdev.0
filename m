@@ -1,45 +1,54 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH] ethtool v4: add autoneg advertise feature
-Date: Thu, 24 Aug 2006 08:41:40 -0700
-Message-ID: <1551EAE59135BE47B544934E30FC4FC093FAA2@NT-IRVA-0751.brcm.ad.broadcom.com>
-References: <9929d2390608240822w7a586d7ai679d2af0be7c7213@mail.gmail.com>
+From: "Jouni Malinen" <jkm@devicescape.com>
+Subject: Re: [PATCH wireless-dev 4/6] d80211: Send Layer 2 Update frames in kernel
+Date: Thu, 24 Aug 2006 08:54:05 -0700
+Message-ID: <20060824155405.GC13478@instant802.com>
+References: <20060824053930.GB6104@jm.kir.nu> <20060824134316.5f5a0746@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Jeff@lime.pobox.com, netdev@vger.kernel.org,
-	"David Miller" <davem@davemloft.net>,
-	"John Ronciak" <john.ronciak@intel.com>,
-	"Jesse Brandeburg" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jouni Malinen <jkmaline@cc.hut.fi>,
+	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:56074 "EHLO
-	mms1.broadcom.com") by vger.kernel.org with ESMTP id S1751334AbWHXPmG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Aug 2006 11:42:06 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <9929d2390608240822w7a586d7ai679d2af0be7c7213@mail.gmail.com>
-To: "Jeff Kirsher" <tarbal@gmail.com>,
-	"Jeff Garzik" <jgarzik@pobox.com>
+Received: from dhost002-55.dex002.intermedia.net ([64.78.21.160]:4275 "EHLO
+	dhost002-55.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S1751599AbWHXPyN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 11:54:13 -0400
+To: Jiri Benc <jbenc@suse.cz>
+Content-Disposition: inline
+In-Reply-To: <20060824134316.5f5a0746@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Kirsher wrote:
-
-> The old way of setting autonegotiation was using the 
-> following command:
-> ethtool -s ethx speed 100 duplex full auto on
-> now the command would be
-> ethtool -s ethx auto on advertise 0x08
-> both commands would result in only advertising 100 FULL.
+On Thu, Aug 24, 2006 at 01:43:16PM +0200, Jiri Benc wrote:
+> On Wed, 23 Aug 2006 22:39:30 -0700, Jouni Malinen wrote:
+> > Which part do you think is hackish here? Sending the layer 2 update
+> > frame or moving it to kernel?
 > 
-> There still needs to be a change made to the man file to reflect the
-> change in the behavior of ethtool, which I have not done.  But this
-> patch will allow for greater flexibility in setting autonegotiation
-> speeds.
+> The latter.
 > 
+> Is it really needed to send it unconditionally for each added STA? And
+> cannot it be generated in userspace?
 
-It is more flexible, but less intuitive.  The user now has to
-remember hex values instead of the more intuitive speed and
-duplex.  Perhaps we can keep the old method of using speed and
-duplex, while adding the new method of specifying hex values? 
+Yes, it must be sent out whenever a STA associates with the AP, i.e.,
+for every STA and for every association.. This is needed to update both
+the internal bridge tables in the AP and the external bridge tables in
+switches etc. connected to the same physical net in order to make sure
+that future frames to the STA's MAC address are delivered to the correct
+AP--and within that AP, to the correct port.
 
+This was originally done in hostapd in userspace, but this showed a bug
+in which the local bridge tables did not get updated correctly in some
+specific configurations. In addition, doing this in hostapd would
+require that hostapd knows (or can learn) how the bridge configuration
+is done on the device and this information is not really needed for
+anything else, so there would not really be much point in keeping that
+functionality in hostapd.
+
+The simplest solution for this seems to be to allow the layer 2 update
+frame to be sent through the exact same path as any data frame from the
+STA would be coming. This makes sure that it goes through the local
+bridge in the same way as other frames from the STA would go and it will
+also be sent out to correct external (wired/WDS) ports automatically
+based on bridge configuration.
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
