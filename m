@@ -1,43 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 15/44] [XFRM] IPV6: Update outbound state timestamp for
- each sending.
-Date: Wed, 23 Aug 2006 18:20:37 -0700 (PDT)
-Message-ID: <20060823.182037.133287479.davem@davemloft.net>
-References: <1156345366857-git-send-email-yoshfuji@linux-ipv6.org>
-	<11563453663761-git-send-email-yoshfuji@linux-ipv6.org>
-	<11563453662321-git-send-email-yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: anttit@tcs.hut.fi, vnuorval@tcs.hut.fi, netdev@vger.kernel.org,
-	usagi-core@linux-ipv6.org, nakam@linux-ipv6.org
+From: "Jesse Huang" <jesse@icplus.com.tw>
+Subject: Re: [PATCH] IP1000A: IC Plus update 2006-08-22
+Date: Thu, 24 Aug 2006 09:31:45 +0800
+Message-ID: <026c01c6c71d$0fde1730$4964a8c0@icplus.com.tw>
+References: <1156268234.3622.1.camel@localhost.localdomain> <20060822232730.GA30977@electric-eye.fr.zoreil.com> <20060823113822.GA17103@electric-eye.fr.zoreil.com> <20060823223032.GA25111@electric-eye.fr.zoreil.com>
+Cc: <penberg@cs.Helsinki.FI>, <akpm@osdl.org>, <dvrabel@cantab.net>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<david@pleyades.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:26024
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S965324AbWHXBUf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 21:20:35 -0400
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <11563453662321-git-send-email-yoshfuji@linux-ipv6.org>
+Received: from msr9.hinet.net ([168.95.4.109]:51616 "EHLO msr9.hinet.net")
+	by vger.kernel.org with ESMTP id S965328AbWHXBc0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 21:32:26 -0400
+To: "Francois Romieu" <romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Thu, 24 Aug 2006 00:02:16 +0900
+Hi Francois:
 
-> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-> 
-> With this patch transformation state is updated last used time
-> for each sending. Xtime is used for it like other state lifetime
-> expiration.
-> Mobile IPv6 enabled nodes will want to know traffic status of each
-> binding (e.g. judgement to request binding refresh by correspondent node,
-> or to keep home/care-of nonce alive by mobile node).
-> The last used timestamp is an important hint about it.
-> Based on MIPL2 kernel patch.
-> 
-> This patch was also written by: Henrik Petander <petander@tcs.hut.fi>
-> 
-> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+I am very appreciated what you do for IP1000A.
+I will follow those files. Thanks you very much!
 
-Patch applied to net-2.6.19
+Best Regards,
+Jesse Huang
+
+----- Original Message ----- 
+From: "Francois Romieu" <romieu@fr.zoreil.com>
+To: "Jesse Huang" <jesse@icplus.com.tw>
+Cc: <penberg@cs.Helsinki.FI>; <akpm@osdl.org>; <dvrabel@cantab.net>;
+<linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
+<david@pleyades.net>
+Sent: Thursday, August 24, 2006 6:30 AM
+Subject: Re: [PATCH] IP1000A: IC Plus update 2006-08-22
+
+
+Francois Romieu <romieu@fr.zoreil.com> :
+[...]
+> Typo. It should be:
+> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.18-rc4/ip1000
+
+Added 0038-ip1000-CodingStyle.txt.
+
+More local variables, more unsigned int, less MixedCase, ipg_nic_rx()
+fits in your favorite 80 cols console.
+
+-- 
+Ueimor
+
+
