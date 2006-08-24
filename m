@@ -1,51 +1,40 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] Set floor of wireless signal and noise at -110 dBm
-Date: Wed, 23 Aug 2006 23:02:40 -0500
-Message-ID: <44ED24E0.1050208@lwfinger.net>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: ProxyARP and IPSec
+Date: Wed, 23 Aug 2006 21:14:15 -0700
+Message-ID: <44ED2797.4070304@zytor.com>
+References: <44EBA1FC.5000801@zytor.com>	<20060823191425.GK3470@postel.suug.ch>	<20060823.151424.78711856.davem@davemloft.net>	<20060823231812.GA32394@ms2.inr.ac.ru> <44ECFCF1.10500@zytor.com>	<44ECFD5F.6060901@zytor.com> <1156386043.7302.773.camel@tahini.andynet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	David Miller <davem@davemloft.net>, tgraf@suug.ch,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from terminus.zytor.com ([192.83.249.54]:16313 "EHLO
+	terminus.zytor.com") by vger.kernel.org with ESMTP id S1030277AbWHXEOz
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 00:14:55 -0400
+To: Andy Gay <andy@andynet.net>
+In-Reply-To: <1156386043.7302.773.camel@tahini.andynet.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John,
+Andy Gay wrote:
+>>>>
+>>> Just tried it, and it works as advertised.
+>>>
+>> ... except that OpenSwan will rip out the route and install a route 
+>> pointing to eth0, thus breaking the thing again.
+> 
+> Use a custom updown script with Openswan to fix that.
+> 
 
-Please apply to wireless-2.6.
+*Nod.*
 
-Thanks, Larry
+I'm thinking that David definitely has a point about having a usability 
+problem, though.  All other kind of tunnels have endpoint devices 
+associated with them, and that would make all these kinds of problems go 
+away, plus would be nicer to deal with in iptables, dealing with routed 
+IPsec connections, etc.
 
-===========================================
-
-This patch sets the floor of wireless level (signal) and noise at -110 dBm, which makes them be 
-comatible with RCPI, as discussed by Simon Barber. With this change, bcm43xx-softmac and 
-bcm43xx-d80211 behave the same.
-
-Signed-Off-By: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-
-diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-index 1d3a3aa..888077f 100644
---- a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-+++ b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-@@ -229,8 +229,8 @@ static int bcm43xx_wx_get_rangeparams(st
-  	range->throughput = 27 * 1000 * 1000;
-
-  	range->max_qual.qual = 100;
--	range->max_qual.level = 152; /* set floor at -104 dBm (152 - 256) */
--	range->max_qual.noise = 152;
-+	range->max_qual.level = 146; /* set floor at -110 dBm (146 - 256) */
-+	range->max_qual.noise = 146;
-  	range->max_qual.updated = IW_QUAL_ALL_UPDATED;
-
-  	range->avg_qual.qual = 50;
+	-hpa
