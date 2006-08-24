@@ -1,70 +1,57 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] add nl80211
-Date: Thu, 24 Aug 2006 16:15:10 +0200
-Message-ID: <1156428910.10283.1.camel@ux156>
-References: <1156254768.3825.1.camel@ux156>
-	 <20060824153230.5a54bb6a@griffin.suse.cz>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] locking bug in fib_semantics.c
+Date: Thu, 24 Aug 2006 07:18:16 -0700
+Message-ID: <44EDB528.9070005@osdl.org>
+References: <20060817093615.GA25553@ms2.inr.ac.ru>	<20060821081642.GA2637@ff.dom.local>	<20060821.011703.78716718.davem@davemloft.net>	<20060821110201.GA3674@ff.dom.local>	<20060822103556.GA3262@ff.dom.local> <20060823113119.03f47a6a@dxpl.pdx.osdl.net> <44ED87CF.20702@o2.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:40347 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751554AbWHXOPF
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Aug 2006 10:15:05 -0400
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20060824153230.5a54bb6a@griffin.suse.cz>
+Received: from smtp.osdl.org ([65.172.181.4]:35226 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751574AbWHXOSY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 10:18:24 -0400
+To: Jarek Poplawski <jarkao2@o2.pl>
+In-Reply-To: <44ED87CF.20702@o2.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-08-24 at 15:32 +0200, Jiri Benc wrote:
-> > +	int	(*add_virtual_intf)(void *priv, char *name);
-> 
-> What about initial interface type? (Hm, maybe it can be fixed to a STA
-> mode, but it should be documented somewhere at least.)
+Jarek Poplawski wrote:
+> On 23-08-2006 20:31, Stephen Hemminger wrote:
+>> On Tue, 22 Aug 2006 12:35:56 +0200
+>> Jarek Poplawski <jarkao2@o2.pl> wrote:
+> ...
+>>> I've found it at last but on that occasion I've got some
+>>> doubt according to rcu_read_lock and rcu_call treatment:
+>>> isn't it "illegal to block while in an RCU read-side
+>>> section"? And I think it takes place in:
+>>>
+>>
+>> No, it is perfectly okay for a cpu to acquire a lock
+>> while in an RCU section, it just can't acquire a mutex/semaphore that
+>> will put it to sleep. That is caught by the might_sleep() check.
+>
+> Then I've wrongly understood it can't sleep while in RCU
+> and that enabled bh can make it sleep.
+>
+>>> fib_lookup(): from tb_insert (fn_hash_insert() or
+>>>   fn_trie_insert()), fib_create_info(), fib_check_nh()
+>>> fn_trie_lookup(): like above, inet_addr_type(),
+>>>   tb_lookup()
+>>>
+>>> fib_rule_put(): like #1 above or #2 after tb_lookup(),
+>>>   fib_res_put()
+>>>
+>>> Shouldn't there be _bh also?
+>>
+>> fib_rule_put only does something if refcount == 1 in which
+>> case it is safe.
+>
+> It's like above. I've thought (wrongly): fib_rule_put() calls 
+> call_rcu() and is made to sleep.
+>
+call_rcu() doesn't sleep, it schedules work in a later context.  In that 
+way call_rcu()
+is like other deferred work mechanism (tasklets, timers, workqueues).
 
-Actually, I already changed that.
 
-> > +	int	(*del_virtual_intf)(void *priv, int ifindex);
-> > +
-> > +	/* more things to be added...
-> > +	 *
-> > +	 * for a (*configure)(...) call I'd probably guess that the
-> > +	 * best bet would be to have one call that returns all
-> > +	 * possible options, one that sets them based on the
-> > +	 * struct genl_info *info, and one for that optimised
-> > +	 * set-at-once thing.
-> > +	 */
-> > +};
-> > +
-> > +/*
-> > + * register a given method structure with the nl80211 system
-> > + * and associate the 'priv' pointer with it.
-> > + * NOTE: for proper operation, this priv pointer MUST also be
-> > + * assigned to each &struct net_device's @ieee80211_ptr member!
-> > + */
-> > +extern int nl80211_register(struct nl80211_ops *ops, void *priv);
-> 
-> Could this function return the allocated wiphy index?
-
-Ah, yes, I wanted to do that all along. And a negative error code?
-
-> Hm, most of drivers will need to take rtnl to stay compatible with WE.
-> (Not a reason to take rtnl in nl80211, just a remark.)
-
-Not for packet injection or such though, dev_get is enough for that, I
-think.
-
-> Please use __ prefix instead of _locked suffix (e.g.
-> __nl80211_drv_by_priv). That's more common convention in the kernel.
-
-I used to have a locking version too, which was without the suffix :)
-
-> If both ifindex and wiphy index are set and they disagree with each
-> other, this should return an error.
-
-Ok, I can do that.
-
-johannes
