@@ -1,80 +1,42 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [RFC] make d80211 use nl80211
-Date: Thu, 24 Aug 2006 19:09:34 +0200
-Message-ID: <200608241909.35065.mb@bu3sch.de>
-References: <1156254813.3825.2.camel@ux156> <1156435657.10283.10.camel@ux156>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: TCP ACK
+Date: Thu, 24 Aug 2006 10:16:42 -0700
+Message-ID: <20060824101642.05f68718@localhost.localdomain>
+References: <F444CAE5E62A714C9F45AA292785BED30EB97453@esng11p33001.sg.csfb.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>
+Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:49066
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1030394AbWHXRKx
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Aug 2006 13:10:53 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1156435657.10283.10.camel@ux156>
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:12508 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1030399AbWHXRQ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 13:16:56 -0400
+To: "Majumder, Rajib" <rajib.majumder@credit-suisse.com>
+In-Reply-To: <F444CAE5E62A714C9F45AA292785BED30EB97453@esng11p33001.sg.csfb.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 24 August 2006 18:07, Johannes Berg wrote:
-> new version of this one too...
-> --
-> Subject: d80211: use nl80211
+On Thu, 24 Aug 2006 23:03:22 +0800
+"Majumder, Rajib" <rajib.majumder@credit-suisse.com> wrote:
+
+> Hi,
 > 
-> This patch makes d80211 partially configurable using the
-> infrastructure that nl80211 provides. So far, it allows
-> packet injection and adding/removing virtual interfaces.
+> I had a fundamental question regarding stack. When does TCP ack a segment? Is it immediately receiving a segment or after copying the data from kernel to user i.e after read() system call returns?
 > 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> Any input is highly appreciated. 
+> 
+> Thanks
+> 
+> Rajib
 > 
 
+TCP ack's when segment is received and placed in the socket buffer.
+For questions like this, you are better off looking at traditional unix
+network programming books
 
-> +static int ieee80211_inject(void *priv, void *frame, int framelen, u32 flags,
-> +			    int queue)
-> +{
-> +	struct ieee80211_local *local = priv;
-> +	struct ieee80211_tx_packet_data *pkt_data;
-> +	struct sk_buff *pkt;
-> +	void *pktdata;
-> +
-> +	pkt = alloc_skb(framelen, GFP_KERNEL);
-
-if (!pkt)
-	return -ENOMEM;
-
-> +	pktdata = skb_put(pkt, framelen);
-> +	memcpy(pktdata, frame, framelen);
-
-having two variables with almost the same name seems
-confusing to me. What about removing void *pktdata; and
-doing the following instead of the two lines above?
-
-memcpy(skb_put(pkt, framelen), frame, framelen);
-
-That is also how it's done in lots of other networking code.
-
-> +	pkt_data = (struct ieee80211_tx_packet_data *) pkt->cb;
-> +	pkt_data->ifindex = local->mdev->ifindex;
-> +	pkt_data->internal_flags = TX_FLAG_INJECTED;
-> +	pkt_data->flags = flags;
-> +	/* FIXME: never used, I think? Or could be invalid? */
-> +	pkt_data->queue = queue;
-> +
-> +	/* FIXME */
-> +	pkt->priority = 20; /* use hardcoded priority for mgmt TX queue */
-> +
-> +	pkt->dev = local->mdev;
-> +	dev_queue_xmit(pkt);
-> +
-> +	return 0;
-> +}
-
-The other code looks fine to me (the add nl80211 patch, too).
+	http://www.thefreecountry.com/documentation/unixbooks.shtml
 
 -- 
-Greetings Michael.
+Stephen Hemminger <shemminger@osdl.org>
+
+All non-trivial abstractions, to some degree, are leaky.
