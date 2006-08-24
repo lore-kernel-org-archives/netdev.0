@@ -1,101 +1,30 @@
-From: "Jesse Huang" <jesse@icplus.com.tw>
-Subject: Re: [PATCH 4/4] IP100A: Solve host error problem in low performance embedded system when continune down and up.
-Date: Thu, 24 Aug 2006 09:55:59 +0800
-Message-ID: <028f01c6c720$722f6f30$4964a8c0@icplus.com.tw>
-References: <1156271492.4662.6.camel@localhost.localdomain> <20060822090542.6469977a.rdunlap@xenotime.net>
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<akpm@osdl.org>, <jgarzik@pobox.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965335AbWHXB4M@vger.kernel.org>
-To: "Randy.Dunlap" <rdunlap@xenotime.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 5/44] [XFRM] STATE: Add source address list.
+Date: Wed, 23 Aug 2006 19:08:59 -0700 (PDT)
+Message-ID: <20060823.190859.89280531.davem@davemloft.net>
+References: <11563453653575-git-send-email-yoshfuji@linux-ipv6.org>
+	<20060823.175436.28791154.davem@davemloft.net>
+	<44ECFEB3.3030201@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:9857
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1030190AbWHXCI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 22:08:57 -0400
+To: nakam@linux-ipv6.org
+In-Reply-To: <44ECFEB3.3030201@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Randy:
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Date: Thu, 24 Aug 2006 10:19:47 +0900
 
-Sorry for the file path. I will regenerate with path
-a/drivers/net/sundance.c
-and re-submit again.
+> As you may already find out the resolution will not be so hard
+> since this it is doing the same thing as destination hash about
+> XFRM list.
 
-Thanks for your help!
-
-Best Regards,
-Jesse Huang
-
------ Original Message ----- 
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-To: "Jesse Huang" <jesse@icplus.com.tw>
-Cc: <linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
-<akpm@osdl.org>; <jgarzik@pobox.com>
-Sent: Wednesday, August 23, 2006 12:05 AM
-Subject: Re: [PATCH 4/4] IP100A: Solve host error problem in low performance
-embedded system when continune down and up.
-
-
-On Tue, 22 Aug 2006 14:31:32 -0400 Jesse Huang wrote:
-
-> From: Jesse Huang <jesse@icplus.com.tw>
->
-> Change Logs:
->    - Solve host error problem in low performance embedded
->      system when continune down and up.
->
-> Signed-off-by: Jesse Huang <jesse@icplus.com.tw>
->
-> ---
->
->  sundance.c |   30 +++++++++++++++++++++++++-----
->  1 files changed, 25 insertions(+), 5 deletions(-)
-
-Full path/file names above and below, please.
-
-> a88c635933a981dd4fca87e5b8ca9426c5c98013
-> diff --git a/sundance.c b/sundance.c
-> index 424aebd..de55e0f 100755
-> --- a/sundance.c
-> +++ b/sundance.c
-> @@ -1647,6 +1647,14 @@ static int netdev_close(struct net_devic
->  struct sk_buff *skb;
->  int i;
->
-> + /* Wait and kill tasklet */
-> + tasklet_kill(&np->rx_tasklet);
-> + tasklet_kill(&np->tx_tasklet);
-> +   np->cur_tx = 0;
-> +   np->dirty_tx = 0;
-
-Use same indentation/whitespace as surrounding code.
-(tabs, not spaces)
-
-> + np->cur_task = 0;
-> + np->last_tx = 0;
-> +
->  netif_stop_queue(dev);
->
->  if (netif_msg_ifdown(np)) {
-> @@ -1667,9 +1675,20 @@ static int netdev_close(struct net_devic
->  /* Stop the chip's Tx and Rx processes. */
->  iowrite16(TxDisable | RxDisable | StatsDisable, ioaddr + MACCtrl1);
->
-> - /* Wait and kill tasklet */
-> - tasklet_kill(&np->rx_tasklet);
-> - tasklet_kill(&np->tx_tasklet);
-> +    for (i = 2000; i > 0; i--) {
-> + if ((ioread32(ioaddr + DMACtrl) &0xC000) == 0)
-> +     break;
-> + mdelay(1);
-> +    }
-> +
-> +    iowrite16(GlobalReset | DMAReset | FIFOReset |NetworkReset, ioaddr
-+ASICCtrl + 2);
-> +
-> +    for (i = 2000; i > 0; i--)
-> +    {
-> + if ((ioread16(ioaddr + ASICCtrl +2) &ResetBusy) == 0)
-> +     break;
-> + mdelay(1);
-> +    }
-
-Same comment about indentation/whitespace.
-
----
-~Randy
+Correct.  I also do not think it will be very difficult.
