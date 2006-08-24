@@ -1,124 +1,67 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [RFC] add nl80211
-Date: Thu, 24 Aug 2006 15:32:30 +0200
-Message-ID: <20060824153230.5a54bb6a@griffin.suse.cz>
-References: <1156254768.3825.1.camel@ux156>
+Subject: Re: [RFC] make d80211 use nl80211
+Date: Thu, 24 Aug 2006 16:05:04 +0200
+Message-ID: <20060824160504.54b81641@griffin.suse.cz>
+References: <1156254813.3825.2.camel@ux156>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
 	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from styx.suse.cz ([82.119.242.94]:21724 "EHLO mail.suse.cz")
-	by vger.kernel.org with ESMTP id S1750752AbWHXNcd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 09:32:33 -0400
+Received: from styx.suse.cz ([82.119.242.94]:736 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751544AbWHXOFG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 10:05:06 -0400
 To: Johannes Berg <johannes@sipsolutions.net>
-In-Reply-To: <1156254768.3825.1.camel@ux156>
+In-Reply-To: <1156254813.3825.2.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Aug 2006 15:52:47 +0200, Johannes Berg wrote:
+On Tue, 22 Aug 2006 15:53:33 +0200, Johannes Berg wrote:
+> This patch makes d80211 partially configurable using the
+> infrastructure that nl80211 provides. So far, it allows
+> packet injection and adding/removing virtual interfaces.
+
+Just minor things:
+
 > [...]
-> +	int	(*add_virtual_intf)(void *priv, char *name);
-
-What about initial interface type? (Hm, maybe it can be fixed to a STA
-mode, but it should be documented somewhere at least.)
-
-> +	int	(*del_virtual_intf)(void *priv, int ifindex);
+> --- wireless-dev.orig/net/d80211/ieee80211.c	2006-08-22 15:47:46.000000000 +0200
+> +++ wireless-dev/net/d80211/ieee80211.c	2006-08-22 15:47:48.000000000 +0200
+> [...]
+> @@ -4323,6 +4363,7 @@ struct net_device *ieee80211_alloc_hw(si
+>  	priv_size = ((sizeof(struct ieee80211_sub_if_data) +
+>  		      NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST) +
+>  		    priv_data_len;
 > +
-> +	/* more things to be added...
-> +	 *
-> +	 * for a (*configure)(...) call I'd probably guess that the
-> +	 * best bet would be to have one call that returns all
-> +	 * possible options, one that sets them based on the
-> +	 * struct genl_info *info, and one for that optimised
-> +	 * set-at-once thing.
-> +	 */
-> +};
-> +
-> +/*
-> + * register a given method structure with the nl80211 system
-> + * and associate the 'priv' pointer with it.
-> + * NOTE: for proper operation, this priv pointer MUST also be
-> + * assigned to each &struct net_device's @ieee80211_ptr member!
-> + */
-> +extern int nl80211_register(struct nl80211_ops *ops, void *priv);
+>  	mdev = alloc_netdev(priv_size, "wmaster%d", ether_setup);
+>  	if (!mdev) {
+>  		ieee80211_dev_free(local);
 
-Could this function return the allocated wiphy index?
+Remove this hunk, please.
 
 > [...]
-> +struct nl80211_registered_driver {
-> +	struct nl80211_ops *ops;
-> +	int wiphy;
-> +	void *priv;
-> +	struct list_head list;
-> +	/* we hold this mutex during any call so that
-> +	 * we cannot do multiple calls at once, and also
-> +	 * to avoid the deregister call to proceed while
-> +	 * any call is in progress */
-> +	struct mutex mtx;
-> +};
+> +static int d80211_interfaces(void *priv, void *data,
+> +			     int (*one)(void *data, int ifindex))
 
-Hm, most of drivers will need to take rtnl to stay compatible with WE.
-(Not a reason to take rtnl in nl80211, just a remark.)
+Please use ieee80211_ prefix, not d80211_.
 
 > [...]
-> +static struct nl80211_registered_driver *nl80211_drv_by_priv_locked(void *priv)
-
-Please use __ prefix instead of _locked suffix (e.g.
-__nl80211_drv_by_priv). That's more common convention in the kernel.
-
-> [...]
-> +/* requires nl80211_drv_mutex to be held! */
-> +static struct nl80211_registered_driver *
-> +nl80211_drv_from_info_locked(struct genl_info *info)
+> +static int d80211_inject(void *priv, void *frame, int framelen, u32 flags,
+> +			 int queue)
 > +{
-> +	int ifindex;
-> +	struct nl80211_registered_driver *result = NULL;
-> +	struct net_device *dev;
-> +	int err = -EINVAL;
+> +	struct ieee80211_local *local = priv;
+> +	struct ieee80211_tx_packet_data *pkt_data;
+> +	struct sk_buff *pkt;
+> +	void *pktdata;
 > +
-> +	if (info->attrs[NL80211_ATTR_WIPHY]) {
-> +		result = nl80211_drv_by_wiphy_locked(
-> +				nla_get_u32(info->attrs[NL80211_ATTR_WIPHY]));
-> +		if (result)
-> +			return result;
-> +		err = -ENODEV;
-> +	}
+> +	pkt = alloc_skb(framelen, GFP_KERNEL);
+> +	pktdata = skb_put(pkt, framelen);
+> +	memcpy(pktdata, frame, framelen);
 > +
-> +	if (info->attrs[NL80211_ATTR_IFINDEX]) {
-> +		ifindex = nla_get_u32(info->attrs[NL80211_ATTR_IFINDEX]);
-> +		dev = dev_get_by_index(ifindex);
-> +		result = nl80211_drv_by_priv_locked(dev->ieee80211_ptr);
-> +		dev_put(dev);
-> +		if (result)
-> +			return result;
-> +		err = -ENODEV;
-> +	}
+> +	pkt_data = (struct ieee80211_tx_packet_data *) pkt->cb;
+> +	memset(pkt_data, 0, sizeof(struct ieee80211_tx_packet_data));
 
-If both ifindex and wiphy index are set and they disagree with each
-other, this should return an error.
-
-> +
-> +	return ERR_PTR(err);
-> +}
-> +
-> [...]
-> +static struct nl80211_registered_driver *
-> +nl80211_drv_from_info_with_locking(struct genl_info *info)
-
-nl80211_get_drv_from_info would be better. Also, introduce
-a nl80211_put_drv function to ease tracking of locks.
-
-> [...]
-> +static int nl80211_dump_wiphys(struct sk_buff *skb, struct netlink_callback *cb)
-> +{
-> +	/* I think need professional netlink help with dumpit calls */
-
-I'm not able to help you here :-(
-
-
-Looks really good now, I think.
+This is not necessary, cb is zeroed in alloc_skb.
 
 Thanks,
 
