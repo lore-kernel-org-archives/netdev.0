@@ -1,34 +1,36 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 1/4] Try 2: Add wireless statistics to d80211
-Date: Thu, 24 Aug 2006 09:39:52 -0500
-Message-ID: <44EDBA38.4020109@lwfinger.net>
-References: <44ED16AB.2080306@lwfinger.net> <20060824135934.4df0b1ba@griffin.suse.cz>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [RFC][PATCH 4/4] deadlock prevention for NBD
+Date: Thu, 24 Aug 2006 14:43:29 +0000
+Message-ID: <20060824144329.GA4092@ucw.cz>
+References: <20060812141415.30842.78695.sendpatchset@lappy> <20060812141455.30842.41506.sendpatchset@lappy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Linville <linville@tuxdriver.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Indan Zupancic <indan@nul.nu>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Daniel Phillips <phillips@google.com>,
+	Rik van Riel <riel@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtiwmhc12.worldnet.att.net ([204.127.131.116]:44542 "EHLO
-	mtiwmhc12.worldnet.att.net") by vger.kernel.org with ESMTP
-	id S932068AbWHXOkL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Aug 2006 10:40:11 -0400
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20060824135934.4df0b1ba@griffin.suse.cz>
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:5137 "EHLO spitz.ucw.cz")
+	by vger.kernel.org with ESMTP id S932121AbWHXOnr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 10:43:47 -0400
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Content-Disposition: inline
+In-Reply-To: <20060812141455.30842.41506.sendpatchset@lappy>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Benc wrote:
-> On Wed, 23 Aug 2006 22:02:03 -0500, Larry Finger wrote:
->> This patch modifies d80211 to add wireless statistics.
->> +	/* This is maximum value of rssi reported by this interface
->> +	 */
->> +	int maxssi;
-> 
-> Device, not interface. And please do not put */ to a new line.
+Hi!
 
-Noted on the first part, but I would like a clarification regarding style. I put the */ on the 
-second line to match the rest of that section. Should a patch try to keep the local style in that 
-part of the code, or change it to a some other standard?
+> Limit each request to 1 page, so that the request throttling also limits the
+> number of in-flight pages and force the IO scheduler to NOOP as anything else
+> doesn't make sense anyway.
 
-Larry
+I'd like to understand why it breaks with other schedulers before
+merging this. Maybe the failure in NOOP is just harder to trigger?
 
+							Pavel
+
+-- 
+Thanks for all the (sleeping) penguins.
