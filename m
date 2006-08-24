@@ -1,18 +1,18 @@
 From: Ian McDonald <ian.mcdonald@jandi.co.nz>
-Subject: [PATCH 3/7] [DCCP]: Introduces follows48 function
-Date: Thu, 24 Aug 2006 15:21:51 +1200
-Message-ID: <200608241521.52012.ian.mcdonald@jandi.co.nz>
+Subject: [PATCH 4/7] [DCCP]: Introduce dccp_rx_hist_find_entry
+Date: Thu, 24 Aug 2006 15:23:17 +1200
+Message-ID: <200608241523.17715.ian.mcdonald@jandi.co.nz>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.180]:11809 "EHLO
+Received: from py-out-1112.google.com ([64.233.166.176]:1574 "EHLO
 	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S1030240AbWHXDWH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Aug 2006 23:22:07 -0400
-Received: by py-out-1112.google.com with SMTP id n25so510095pyg
-        for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 20:22:07 -0700 (PDT)
+	id S1030235AbWHXDXa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 23:23:30 -0400
+Received: by py-out-1112.google.com with SMTP id t32so587590pyc
+        for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 20:23:29 -0700 (PDT)
 To: Andrea Bittau <a.bittau@cs.ucl.ac.uk>,
 	David Miller <davem@davemloft.net>,
 	Arnaldo de Melo <arnaldo.melo@gmail.com>,
@@ -22,26 +22,50 @@ Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This adds a new function to see if two sequence numbers follow each other.
+This adds a new function dccp_rx_hist_find_entry.
 
 Signed off by: Ian McDonald <ian.mcdonald@jandi.co.nz>
 ---
-diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
-index b8931d3..84b477d 100644
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -81,6 +81,14 @@ static inline u64 max48(const u64 seq1, 
- 	return after48(seq1, seq2) ? seq1 : seq2;
- }
+diff --git a/net/dccp/ccids/lib/packet_history.c b/net/dccp/ccids/lib/packet_history.c
+index 7b6b03e..1c68182 100644
+--- a/net/dccp/ccids/lib/packet_history.c
++++ b/net/dccp/ccids/lib/packet_history.c
+@@ -365,6 +365,25 @@ struct dccp_tx_hist_entry *
  
-+/* is seq1 next seqno after seq2 */
-+static inline int follows48(const u64 seq1, const u64 seq2)
+ EXPORT_SYMBOL_GPL(dccp_tx_hist_find_entry);
+ 
++int dccp_rx_hist_find_entry(const struct list_head *list, const u64 seq, 
++   u8 *ccval)
 +{
-+	int diff = (seq1 & 0xFFFF) - (seq2 & 0xFFFF);
-+	
-+	return diff==1;
++	struct dccp_rx_hist_entry *packet = NULL, *entry;
++
++	list_for_each_entry(entry, list, dccphrx_node)
++		if (entry->dccphrx_seqno == seq) {
++			packet = entry;
++			break;
++		}
++
++	if (packet)
++		*ccval = packet->dccphrx_ccval;
++
++	return packet != NULL;
 +}
 +
- enum {
- 	DCCP_MIB_NUM = 0,
- 	DCCP_MIB_ACTIVEOPENS,			/* ActiveOpens */
++EXPORT_SYMBOL_GPL(dccp_rx_hist_find_entry);
++
+ void dccp_tx_hist_purge_older(struct dccp_tx_hist *hist,
+ 			      struct list_head *list,
+ 			      struct dccp_tx_hist_entry *packet)
+diff --git a/net/dccp/ccids/lib/packet_history.h b/net/dccp/ccids/lib/packet_history.h
+index 27c4309..aea9c5d 100644
+--- a/net/dccp/ccids/lib/packet_history.h
++++ b/net/dccp/ccids/lib/packet_history.h
+@@ -106,6 +106,8 @@ static inline void dccp_tx_hist_entry_de
+ extern struct dccp_tx_hist_entry *
+ 			dccp_tx_hist_find_entry(const struct list_head *list,
+ 						const u64 seq);
++extern int dccp_rx_hist_find_entry(const struct list_head *list, const u64 seq,
++   u8 *ccval);
+ 
+ static inline void dccp_tx_hist_add_entry(struct list_head *list,
+ 					  struct dccp_tx_hist_entry *entry)
