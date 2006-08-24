@@ -1,45 +1,41 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: ProxyARP and IPSec
-Date: Thu, 24 Aug 2006 03:18:12 +0400
-Message-ID: <20060823231812.GA32394@ms2.inr.ac.ru>
-References: <44EBA1FC.5000801@zytor.com> <20060823191425.GK3470@postel.suug.ch> <20060823.151424.78711856.davem@davemloft.net>
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: Re: [PATCH 2.6.17 0/9] NetXen: 1G/10G Ethernet Driver
+Date: Wed, 23 Aug 2006 17:04:11 -0700
+Message-ID: <20060824000411.GA14946@us.ibm.com>
+References: <Pine.LNX.4.64.0608180713480.6875@dut39> <Pine.LNX.4.64.0608220038580.18115@dut46>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, hpa@zytor.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "jeff@garzik.org" <jeff@garzik.org>,
+	"sanjeev@netxen.com" <sanjeev@netxen.com>,
+	"unmproj@linsyssoft.com" <unmproj@linsyssoft.com>,
+	Rob Mapes <rob@netxen.com>, amitkale@netxen.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:20203 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S965299AbWHWXSf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2006 19:18:35 -0400
-To: David Miller <davem@davemloft.net>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:60636 "EHLO
+	e32.co.us.ibm.com") by vger.kernel.org with ESMTP id S965157AbWHXADi
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Aug 2006 20:03:38 -0400
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e32.co.us.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id k7O03XtR024676
+	for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 20:03:33 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7O03XVR281172
+	for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 18:03:33 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7O03WPs004403
+	for <netdev@vger.kernel.org>; Wed, 23 Aug 2006 18:03:33 -0600
+To: Pradeep Dalvi <pradeep@netxen.com>
 Content-Disposition: inline
-In-Reply-To: <20060823.151424.78711856.davem@davemloft.net>
+In-Reply-To: <Pine.LNX.4.64.0608220038580.18115@dut46>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+It looks like you have not run the source throught Lindent as previously
+requested.  Before you submit the code again, please use the Lindent
+script.
 
-> What he's trying to accomplish doesn't sound all that weird,
+I can get the code to ping between two cards.  Will be doing more
+testing tomorrow.
 
-Absolutely sane.
-
-
-> does anyone have any other ideas?
-
-The question is where is this host really?
-
-If it is far far away and connected only via IPsec tunnel with destionation
-of tunnel different of host address
-
-ip ro add THEHOST dev dummy0
-
-should be enough. It asserts that THEHOST is not on eth0.
-IPsec policy will figure out correct route, unless something is broken.
-
-If tunnel endpoint is THEHOST, then it is necessary to make a prescription
-how to reach it bypassing IPsec. This can be made with a rule telling
-that THEHOST is reachable from router and only from router:
-
-ip ru add from OUR_TUNNEL_ENDPOINT to THEHOST table XXX
-ip ro add THEHOST via THAT_ROUTE_WHICH_IS_SUPPOSED_TO_KNOW table XXX
-
-Alexey
+-- 
+Don Fry
+brazilnut@us.ibm.com
