@@ -1,41 +1,30 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [2.6.17.8] NFS stall / BUG in UDP fragment processing / SKB trimming
-Date: Fri, 25 Aug 2006 16:03:16 -0700
-Message-ID: <20060825230316.GA3254@kroah.com>
-References: <87zme9fy94.fsf@hades.wkstn.nix> <20060813125910.GA18463@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] [IPV6] ROUTE: Fix FWMARK support.
+Date: Fri, 25 Aug 2006 16:04:43 -0700 (PDT)
+Message-ID: <20060825.160443.107942893.davem@davemloft.net>
+References: <20060826.000854.129978441.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, Nix <nix@esperi.org.uk>,
-	linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
-	netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.suse.de ([195.135.220.2]:41872 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S964789AbWHYXDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 19:03:54 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>, stable@kernel.org
-Content-Disposition: inline
-In-Reply-To: <20060813125910.GA18463@gondor.apana.org.au>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:433
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S964795AbWHYXEi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Aug 2006 19:04:38 -0400
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20060826.000854.129978441.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 13, 2006 at 10:59:11PM +1000, Herbert Xu wrote:
-> On Sat, Aug 12, 2006 at 09:19:19PM +0000, Nix wrote:
-> > 
-> > The kernel log showed a heap of BUGs from somewhere inside the skb
-> > management layer, somewhere in UDP fragment processing while
-> > handling NFS requests. It starts like this:
-> > 
-> > Aug 12 21:31:08 hades warning: kernel: BUG: warning at include/linux/skbuff.h:975/__skb_trim()
-> > Aug 12 21:31:08 hades warning: kernel: <c030ed39> ip_append_data+0x5b3/0x951  <c030fc18> ip_generic_getfrag+0x0/0x96
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Sat, 26 Aug 2006 00:08:54 +0900 (JST)
+
+> [IPV6] ROUTE: Fix FWMARK support.
 > 
-> Oops, I missed this code path when I disallowed skb_trim from operating
-> on a paged skb.  This patch should fix the problem.
+> - Add missing nla_policy entry.
+> - type of fwmark is u32, not u8.
 > 
-> Greg, we need this for 2.6.17 stable as well if Dave is OK with it.
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-This patch doesn't apply at all to the latest 2.6.17-stable kernel tree.
-Care to rediff it?
-
-thanks,
-
-greg k-h
+Applied, thanks.
