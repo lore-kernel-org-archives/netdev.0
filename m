@@ -1,23 +1,40 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] tcp_bic: use BUILD_BUG_ON
-Date: Fri, 25 Aug 2006 16:27:20 -0700
-Message-ID: <20060825162720.3d4257d7@localhost.localdomain>
-References: <20060825010802.GK5204@martell.zuzino.mipt.ru>
+Subject: Re: [PATCH] IPV6 : segmentation offload not set correctly on TCP
+ children
+Date: Fri, 25 Aug 2006 16:29:02 -0700
+Message-ID: <20060825162902.2c57eabf@localhost.localdomain>
+References: <20060821212243.GA1558@cip.informatik.uni-erlangen.de>
+	<20060821150231.31a947d4@localhost.localdomain>
+	<20060821222634.GC21790@cip.informatik.uni-erlangen.de>
+	<20060825154353.3ecaf508@localhost.localdomain>
+	<20060825230626.GC4570@cip.informatik.uni-erlangen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:58066 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1422921AbWHYX1Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 19:27:24 -0400
-To: Alexey Dobriyan <adobriyan@gmail.com>
-In-Reply-To: <20060825010802.GK5204@martell.zuzino.mipt.ru>
+Received: from smtp.osdl.org ([65.172.181.4]:4308 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1422913AbWHYX3T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 19:29:19 -0400
+To: Thomas Glanzmann <sithglan@stud.uni-erlangen.de>
+In-Reply-To: <20060825230626.GC4570@cip.informatik.uni-erlangen.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please fix the other variants as well htcp, cubic, veno, vegas, ...
-Just one patch is necessary with all the files.
+On Sat, 26 Aug 2006 01:06:26 +0200
+Thomas Glanzmann <sithglan@stud.uni-erlangen.de> wrote:
+
+> Hello Stephen,
+> thanks for the fix, it fixes the problem for me. I closed the bug. On
+> which hardware did you reproduce the bug and how did you found it? Did
+> you use git bisect?
+> 
+>         Thomas
+
+Finding the line was luck. I spotted similar (but correct) code in
+DCCP over IPV6.
 
 -- 
 Stephen Hemminger <shemminger@osdl.org>
