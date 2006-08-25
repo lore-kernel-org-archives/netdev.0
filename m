@@ -1,47 +1,37 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
-Date: Fri, 25 Aug 2006 12:47:38 +0200
-Message-ID: <20060825104738.GA8538@elf.ucw.cz>
-References: <20060813215853.0ed0e973.akpm@osdl.org> <44E3E964.8010602@google.com> <20060816225726.3622cab1.akpm@osdl.org> <44E5015D.80606@google.com> <20060817230556.7d16498e.akpm@osdl.org> <44E62F7F.7010901@google.com> <20060818153455.2a3f2bcb.akpm@osdl.org> <44E650C1.80608@google.com> <20060818194435.25bacee0.akpm@osdl.org> <20060821132717.GD26589@vienna.egenera.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [NET_SCHED]: Add mask support to fwmark classifier
+Date: Fri, 25 Aug 2006 12:54:28 +0200
+Message-ID: <20060825105428.GR3470@postel.suug.ch>
+References: <44EED0FC.4050108@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>,
-	Daniel Phillips <phillips@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	David Miller <davem@davemloft.net>, riel@redhat.com,
-	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
+Cc: Linux Netdev List <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:7330 "EHLO amd.ucw.cz")
-	by vger.kernel.org with ESMTP id S1751438AbWHYKr4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 06:47:56 -0400
-To: "Philip R. Auld" <pauld@egenera.com>
+Received: from postel.suug.ch ([194.88.212.233]:54476 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1751436AbWHYKyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 06:54:07 -0400
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20060821132717.GD26589@vienna.egenera.com>
+In-Reply-To: <44EED0FC.4050108@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
-
-> > - We expect that the lots-of-dirty-anon-memory-over-swap-over-network
-> >   scenario might still cause deadlocks.  
-> > 
-> >   I assert that this can be solved by putting swap on local disks.  Peter
-> >   asserts that this isn't acceptable due to disk unreliability.  I point
-> >   out that local disk reliability can be increased via MD, all goes quiet.
+* Patrick McHardy <kaber@trash.net> 2006-08-25 12:29
+> This patch adds support to mask the nfmark value before the lookup
+> the the fw classifier. Unfortunately it has some drawbacks, so I'd
+> be interested if anyone can think of a better way.
 > 
-> Putting swap on local disks really messes up the concept of stateless 
-> servers. I suppose you can do some sort of swap encryption, but
-> otherwise you need to scrub the swap partition on boot if you
-> re-purpose the hardware. You also then need to do hardware
-> configuration to make sure the local disks are all setup the 
-> same way across all server platforms so the common images can 
-> boot. 
+> The problem is that in order to avoid walking through all filters
+> contained in one instance, we need to mask the value before the
+> lookup. This means all filters share the same mask, which is
+> taken from the first filter created and stored in the filter head.
+> The user interface however always refers to a single filter,
+> not the head, so it can't be changed afterwards unless we just
+> overwrite it whenever a new filter is installed. Both is not
+> really perfect. The current patch doesn't allow to change the
+> mark and enforces that all filters use the same one, which I think
+> is better than allowing inconsistent configurations.
 
-We should really encrypt swap with random key generated at boot, for
-all the machine. I believe it is possible (with some non-trivial
-setup) today, but it would be nice to do it automagically.
-								Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+The other option gets down to replacing the hash table with a
+list and that's not an option in my opinion. This looks very
+good to me.
