@@ -1,47 +1,70 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [1/1] connector: add userspace example code into Documentation/connector/
-Date: Fri, 25 Aug 2006 08:57:23 +0200
-Message-ID: <44EE9F53.2090303@trash.net>
-References: <20060825064956.GA20468@2ka.mipt.ru>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [take13 1/3] kevent: Core files.
+Date: Thu, 24 Aug 2006 23:58:59 -0700
+Message-ID: <20060824235859.f8840fb2.akpm@osdl.org>
+References: <11563322941645@2ka.mipt.ru>
+	<11563322971212@2ka.mipt.ru>
+	<20060824200322.GA19533@infradead.org>
+	<20060825054815.GC16504@2ka.mipt.ru>
+	<20060824232024.0d230823.akpm@osdl.org>
+	<20060825063238.GD16504@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Christoph Hellwig <hch@infradead.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53394 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1750721AbWHYG50
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Aug 2006 02:57:26 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:27047 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750771AbWHYG7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 02:59:50 -0400
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20060825064956.GA20468@2ka.mipt.ru>
+In-Reply-To: <20060825063238.GD16504@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> Hello.
+On Fri, 25 Aug 2006 10:32:38 +0400
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+
+> On Thu, Aug 24, 2006 at 11:20:24PM -0700, Andrew Morton (akpm@osdl.org) wrote:
+> > On Fri, 25 Aug 2006 09:48:15 +0400
+> > Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> > 
+> > > kmalloc is really slow actually - it always shows somewhere on top 
+> > > in profiles and brings noticeble overhead
+> > 
+> > It shouldn't.  Please describe the workload and send the profiles.
 > 
-> I was asked several times to include userspace example code into
-> Documentation, so if there is no policy against it, consider attached patch 
-> for 2.6.18. This program works with included Documentation/connector/cn_test.c 
-> connector module.
+> epoll based trivial server (accept + sendfile for the same file, about
+> 4k), httperf with big amount of simulateneous connections. 3c59x NIC 
+> (with e1000 there were no ioreads and netif_rx).
+> __alloc_skb calls kmem_cache_alloc() and ___kmalloc().
+> 
+> 16158     1.3681  ioread16
+> 8073      0.6835  ioread32
+> 3485      0.2951  irq_entries_start
+> 3018      0.2555  _spin_lock
+> 2103      0.1781  tcp_v4_rcv
+> 1503      0.1273  sysenter_past_esp
+> 1492      0.1263  netif_rx
+> 1459      0.1235  skb_copy_bits
+> 1422      0.1204  _spin_lock_irqsave
+> 1145      0.0969  ip_route_input
+> 983       0.0832  kmem_cache_free
+> 964       0.0816  __alloc_skb
+> 926       0.0784  common_interrupt
+> 891       0.0754  __do_IRQ
+> 846       0.0716  _read_lock
+> 826       0.0699  __netif_rx_schedule
+> 806       0.0682  __kmalloc
+> 767       0.0649  do_tcp_sendpages
+> 747       0.0632  __copy_to_user_ll
+> 744       0.0630  pskb_expand_head
+> 
 
-> +	l_local.nl_family = AF_NETLINK;
-> +	l_local.nl_groups = 0x123;
-> +	l_local.nl_pid = 0;
-> +
-> +	if (bind(s, (struct sockaddr *)&l_local, sizeof(struct sockaddr_nl)) == -1) {
-> +		perror("bind");
-> +		close(s);
-> +		return -1;
-> +	}
-> +
-> +	{
-> +		int on = l_local.nl_groups;
-> +		setsockopt(s, 270, 1, &on, sizeof(on));
-> +	}
+That doesn't look too bad.
 
-Example code shouldn't use magic numbers, please use the proper defines.
-And the code is wrong, using the same group number for bind (which takes
-a bitmask) and setsockopt (which takes a group number) doesn't work.
-Its not necessary to use setsockopt if you already used bind anyway.
-
+What's that as a percentage of total user+system time?
