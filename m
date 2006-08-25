@@ -1,47 +1,23 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] IPV6 : segmentation offload not set correctly on TCP
- children
-Date: Fri, 25 Aug 2006 16:24:08 -0700
-Message-ID: <20060825162408.6a9dbdcc@localhost.localdomain>
-References: <20060821212243.GA1558@cip.informatik.uni-erlangen.de>
-	<20060821150231.31a947d4@localhost.localdomain>
-	<20060821222634.GC21790@cip.informatik.uni-erlangen.de>
-	<20060825154353.3ecaf508@localhost.localdomain>
-	<20060825230626.GC4570@cip.informatik.uni-erlangen.de>
+Subject: Re: [PATCH] tcp_bic: use BUILD_BUG_ON
+Date: Fri, 25 Aug 2006 16:27:20 -0700
+Message-ID: <20060825162720.3d4257d7@localhost.localdomain>
+References: <20060825010802.GK5204@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:5074 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932261AbWHYXY3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 19:24:29 -0400
-To: Thomas Glanzmann <sithglan@stud.uni-erlangen.de>
-In-Reply-To: <20060825230626.GC4570@cip.informatik.uni-erlangen.de>
+Received: from smtp.osdl.org ([65.172.181.4]:58066 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1422921AbWHYX1Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 19:27:24 -0400
+To: Alexey Dobriyan <adobriyan@gmail.com>
+In-Reply-To: <20060825010802.GK5204@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 26 Aug 2006 01:06:26 +0200
-Thomas Glanzmann <sithglan@stud.uni-erlangen.de> wrote:
-
-> Hello Stephen,
-> thanks for the fix, it fixes the problem for me. I closed the bug. On
-> which hardware did you reproduce the bug and how did you found it? Did
-> you use git bisect?
-> 
->         Thomas
-
-Using sky2 on Intel motherboard and git bisect. But Jesse found same problem
-on e1000. Bisect was relatively fast since it was either base net code or driver.
-Starting with 2.6.17, everything worked, and latest was busted.
-
-	git bisect start net drivers/net/sky2.c
-	
-Test was ipv6 slogin, then run dmesg. If that worked then run top and cause
-lots of other traffic by just doing a firefox open-tabs to blast lots of connections.
-Wanted to induce tcp-ipv6 to get congested.
+Please fix the other variants as well htcp, cubic, veno, vegas, ...
+Just one patch is necessary with all the files.
 
 -- 
 Stephen Hemminger <shemminger@osdl.org>
