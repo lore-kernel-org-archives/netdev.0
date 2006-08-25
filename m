@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 44/44] [XFRM] IPV6: Support Mobile IPv6 extension
- headers sorting.
-Date: Fri, 25 Aug 2006 15:47:17 -0700 (PDT)
-Message-ID: <20060825.154717.38711346.davem@davemloft.net>
-References: <44EECBB0.7070001@linux-ipv6.org>
-	<20060825.031651.88475974.davem@davemloft.net>
-	<20060825232819.66C6.NAKAM@linux-ipv6.org>
+Subject: Re: [PATCH] IPV6 : segmentation offload not set correctly on TCP
+ children
+Date: Fri, 25 Aug 2006 15:56:02 -0700 (PDT)
+Message-ID: <20060825.155602.132757635.davem@davemloft.net>
+References: <20060821150231.31a947d4@localhost.localdomain>
+	<20060821222634.GC21790@cip.informatik.uni-erlangen.de>
+	<20060825154353.3ecaf508@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Cc: sithglan@stud.uni-erlangen.de, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:30146
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:23723
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751079AbWHYWrM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Aug 2006 18:47:12 -0400
-To: nakam@linux-ipv6.org
-In-Reply-To: <20060825232819.66C6.NAKAM@linux-ipv6.org>
+	id S964771AbWHYWz5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Aug 2006 18:55:57 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060825154353.3ecaf508@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Date: Fri, 25 Aug 2006 23:29:05 +0900
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Fri, 25 Aug 2006 15:43:53 -0700
 
-> Thank you for providing it quickly.
-> It works! 
+> TCP over IPV6 would incorrectly inherit the GSO settings.
+> This would cause kernel to send Tcp Segmentation Offload packets for
+> IPV6 data to devices that can't handle it. It caused the sky2 driver
+> to lock http://bugzilla.kernel.org/show_bug.cgi?id=7050
+> and the e1000 would generate bogus packets. I can't blame the
+> hardware for gagging if the upper layers feed it garbage.
+> 
+> This was a new bug in 2.6.18 introduced with GSO support.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Thank you for testing.  I have pushed this bug fix into the
-net-2.6.19 tree.
+Good catch.  Applied, thanks Stephen.
