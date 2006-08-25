@@ -1,38 +1,68 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: Re: [PATCH 0/7] [DCCP]: Fixes and enhancements
-Date: Fri, 25 Aug 2006 10:19:13 -0300
-Message-ID: <39e6f6c70608250619k35708fafjdf18b939d08f158d@mail.gmail.com>
-References: <200608241516.34448.ian.mcdonald@jandi.co.nz>
-	 <20060824.045927.41635764.davem@davemloft.net>
-	 <5640c7e00608241109l1a0102c5m77a77b35ef2a12e5@mail.gmail.com>
+From: "Amit S. Kale" <amitkale@linsyssoft.com>
+Subject: Re: [PATCH 2.6.17 0/9] NetXen: 1G/10G Ethernet Driver - patch for big-endian systems
+Date: Fri, 25 Aug 2006 18:48:44 +0530
+Message-ID: <200608251848.44800.amitkale@linsyssoft.com>
+References: <Pine.LNX.4.64.0608180713480.6875@dut39> <1156451811.13196.132.camel@wendyx.austin.ibm.com> <20060824214011.GA19643@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, a.bittau@cs.ucl.ac.uk,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
+Cc: Pradeep Dalvi <pradeep@netxen.com>, netdev@vger.kernel.org,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"sanjeev@netxen.com" <sanjeev@netxen.com>,
+	"unmproj@linsyssoft.com" <unmproj@linsyssoft.com>,
+	Rob Mapes <rob@netxen.com>, amitkale@netxen.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.199]:9602 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1751308AbWHYNTO (ORCPT <rfc822;netdev@vger.kernel.org>);
+Received: from svr68.ehostpros.com ([67.15.48.48]:4193 "EHLO
+	svr68.ehostpros.com") by vger.kernel.org with ESMTP
+	id S1751364AbWHYNTO (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 25 Aug 2006 09:19:14 -0400
-Received: by nz-out-0102.google.com with SMTP id n1so588826nzf
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2006 06:19:14 -0700 (PDT)
-To: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-In-Reply-To: <5640c7e00608241109l1a0102c5m77a77b35ef2a12e5@mail.gmail.com>
+To: Francois Romieu <romieu@fr.zoreil.com>,
+	Michael Buesch <mb@bu3sch.de>, wen xiong <wendyx@us.ibm.com>
+In-Reply-To: <20060824214011.GA19643@electric-eye.fr.zoreil.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/24/06, Ian McDonald <ian.mcdonald@jandi.co.nz> wrote:
-> > I spent all of today on USAGI's IPSEC/MIPV6 patches and related
-> > issues, so I'll look into this tomorrow.
-> >
-> > Thanks Ian.
-> >
-> Yes I saw that. Take your time as this is nowhere near as important!
+Wendy, Michael, Ueimor,
 
-Sigh, I'm still busy indeed, gave a quick look at the series and up to
-the 10th patch its OK at first sight, should improve the current
-situation, thanks.
+Thanks for the patch and feedback. We'll integrate these into our driver and 
+post an update asap.
 
-- Arnaldo
+-Amit
+
+On Friday 25 August 2006 03:10, Francois Romieu wrote:
+> wen xiong <wendyx@us.ibm.com> :
+> [...]
+>
+> > diff -Nuar old/drivers/net/netxen/netxen_nic_hw.c
+> > new/drivers/net/netxen/netxen_nic_hw.c ---
+> > old/drivers/net/netxen/netxen_nic_hw.c	2006-08-23 12:58:43.000000000
+> > -0500 +++ new/drivers/net/netxen/netxen_nic_hw.c	2006-08-23
+> > 13:15:19.000000000 -0500 @@ -313,7 +313,8 @@
+> >  		}
+> >  	}
+> >  	CMD_DESC_TCP_HDR_OFFSET_WRT(desc, skb->h.raw - skb->data);
+> > -	desc->ip_hdr_offset = skb->nh.raw - skb->data;
+> > +	desc->length_tcp_hdr=cpu_to_le32(desc->length_tcp_hdr);
+>
+> s/=/ = /
+>
+> (several occurences)
+>
+> [...]
+>
+> > diff -Nuar old/drivers/net/netxen/netxen_nic_init.c
+> > new/drivers/net/netxen/netxen_nic_init.c ---
+> > old/drivers/net/netxen/netxen_nic_init.c	2006-08-23 12:58:43.000000000
+> > -0500 +++ new/drivers/net/netxen/netxen_nic_init.c	2006-08-23
+> > 13:15:19.000000000 -0500 @@ -494,7 +494,7 @@
+> >  		desc_head = recv_ctx->rcv_status_desc_head;
+> >  		desc = &desc_head[consumer];
+> >
+> > -		if ((desc->owner & STATUS_OWNER_HOST))
+> > +		if (((le16_to_cpu(desc->owner)) & STATUS_OWNER_HOST))
+>
+> Would it make a difference to swab the constant part, i.e.:
+>
+> 	if (desc->owner & cpu_to_le16(STATUS_OWNER_HOST))
