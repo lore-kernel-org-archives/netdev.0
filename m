@@ -1,35 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: IPSec kernel oops on ppc64
-Date: Fri, 25 Aug 2006 16:19:42 -0700 (PDT)
-Message-ID: <20060825.161942.27783441.davem@davemloft.net>
-References: <200608252210.k7PMAxpO025638@faith.austin.ibm.com>
-	<Pine.LNX.4.64.0608251915140.27896@d.namei>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [IPV6] Q: corrupt checksums when transferring data
+Date: Fri, 25 Aug 2006 16:23:41 -0700
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5281CFB6@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: latten@austin.ibm.com, netdev@vger.kernel.org, gcwilson@us.ibm.com,
-	jmorris@redhat.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:55479
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1422883AbWHYXTh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Aug 2006 19:19:37 -0400
-To: jmorris@namei.org
-In-Reply-To: <Pine.LNX.4.64.0608251915140.27896@d.namei>
+Received: from mga02.intel.com ([134.134.136.20]:48186 "EHLO
+	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1422920AbWHYXXm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 19:23:42 -0400
+Content-class: urn:content-classes:message
+To: "Stephen Hemminger" <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Morris <jmorris@namei.org>
-Date: Fri, 25 Aug 2006 19:15:57 -0400 (EDT)
-
-> On Fri, 25 Aug 2006, Joy Latten wrote:
+Stephen Hemminger wrote:
+> I think this the problem. Does it fix e1000? I am testing now.
 > 
-> > I installed 2.6.17 + patch-2.6.18-rc4 + 2.6.18-rc4-mm2
-> > onto two pSeries power 5 (ppc64 lpars) machines. I configured
-> > IPSec using the configuration listed below. 
+> TCP over IPV6 would incorrectly inherit the GSO settings on accepted
+> children.
 > 
-> Confirming that this does not crash on i686 or x86_64.
+> --- linux-2.6.orig/net/ipv6/tcp_ipv6.c	2006-08-03
+09:09:16.000000000
+> -0700 +++ linux-2.6/net/ipv6/tcp_ipv6.c	2006-08-25
+15:30:31.000000000
+> -0700 @@ -944,7 +944,7 @@
+>  	 * comment in that function for the gory details. -acme
+>  	 */
+> 
+> -	sk->sk_gso_type = SKB_GSO_TCPV6;
+> +	newsk->sk_gso_type = SKB_GSO_TCPV6;
+>  	__ip6_dst_store(newsk, dst, NULL);
+> 
+>  	newtcp6sk = (struct tcp6_sock *)newsk;
 
-Probably best to start with retesting with 2.6.18-rc4, and
-if that crashes too it is time to think seriously about
-a miscompile on ppc64.
+ah, no more errors, I didn't go through and validate much more past
+that. I'm now able to do hardware offloads with no errors.
+
+I think it's a good patch, at least it makes sense to me and works for
+me.
+
+Thanks!
+ Jesse
