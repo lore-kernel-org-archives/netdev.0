@@ -1,289 +1,95 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [take14 2/3] kevent: poll/select() notifications.
-Date: Fri, 25 Aug 2006 13:54:47 +0400
-Message-ID: <11564996872720@2ka.mipt.ru>
-References: <11564996872809@2ka.mipt.ru>
-Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [PATCH 44/44] [XFRM] IPV6: Support Mobile IPv6 extension headers
+ sorting.
+Date: Fri, 25 Aug 2006 19:06:40 +0900
+Message-ID: <44EECBB0.7070001@linux-ipv6.org>
+References: <20060824.150442.44820672.yoshfuji@linux-ipv6.org>	<20060823.235404.108743952.davem@davemloft.net>	<44ED4FC3.9060005@linux-ipv6.org> <20060824.045850.74749237.davem@davemloft.net> <44EE4ABC.6050604@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>,
-	Ulrich Drepper <drepper@redhat.com>,
-	Andrew Morton <akpm@osdl.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	netdev <netdev@vger.kernel.org>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Chase Venters <chase.venters@clientec.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dea.vocord.ru ([217.67.177.50]:61378 "EHLO
-	uganda.factory.vocord.ru") by vger.kernel.org with ESMTP
-	id S1751392AbWHYJcB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 05:32:01 -0400
-In-Reply-To: <11564996872809@2ka.mipt.ru>
-To: lkml <linux-kernel@vger.kernel.org>
+Received: from [203.178.140.9] ([203.178.140.9]:25820 "EHLO mail.gomagoma.org")
+	by vger.kernel.org with ESMTP id S1751423AbWHYKGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 06:06:20 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <44EE4ABC.6050604@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Masahide NAKAMURA wrote:
+ > David Miller wrote:
+ >> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+ >> Date: Thu, 24 Aug 2006 16:05:39 +0900
+ >>
+ >>> David Miller wrote:
+ >>>> In the mean time, I will work on porting my XFRM hashing changes
+ >>>> for the current net-2.6.19 tree.
+ >>> FYI, your work will not have any conflict with the left of MIPv6 patches
+ >>> which I will describe later since they are almost out of XFRM.
+ >>
+ >> Great.
+ >>
+ >> I just finished the port and pushed all of that work to net-2.6.19,
+ >> can folks please take a look?
+ >>
+ >> I tested IPSEC as best as I could with XFRM_SUB_POLICY enabled, but I
+ >> have no way currently to test sub-policies or MIPV6 cases.
+ >
+ > OK, I will review it and also start my XFRM test with net-2.6.19
+ > as I've done with my tree.
 
-poll/select() notifications.
+I've found a problem about MIPv6 CN with the patch below.
 
-This patch includes generic poll/select and timer notifications.
+commit 02b0fa84daaa70f035767c9a5a0d539667249e60
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Thu Aug 24 04:45:07 2006 -0700
 
-kevent_poll works simialr to epoll and has the same issues (callback
-is invoked not from internal state machine of the caller, but through
-process awake).
+     [XFRM]: Hash policies when non-prefixed.
 
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mitp.ru>
 
-diff --git a/include/linux/fs.h b/include/linux/fs.h
-index 2561020..76b3039 100644
---- a/include/linux/fs.h
-+++ b/include/linux/fs.h
-@@ -236,6 +236,7 @@ #include <linux/prio_tree.h>
- #include <linux/init.h>
- #include <linux/sched.h>
- #include <linux/mutex.h>
-+#include <linux/kevent.h>
- 
- #include <asm/atomic.h>
- #include <asm/semaphore.h>
-@@ -698,6 +699,9 @@ #ifdef CONFIG_EPOLL
- 	struct list_head	f_ep_links;
- 	spinlock_t		f_ep_lock;
- #endif /* #ifdef CONFIG_EPOLL */
-+#ifdef CONFIG_KEVENT_POLL
-+	struct kevent_storage	st;
-+#endif
- 	struct address_space	*f_mapping;
- };
- extern spinlock_t files_lock;
-diff --git a/kernel/kevent/kevent_poll.c b/kernel/kevent/kevent_poll.c
-new file mode 100644
-index 0000000..fb74e0f
---- /dev/null
-+++ b/kernel/kevent/kevent_poll.c
-@@ -0,0 +1,222 @@
-+/*
-+ * 2006 Copyright (c) Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-+ * All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/list.h>
-+#include <linux/slab.h>
-+#include <linux/spinlock.h>
-+#include <linux/timer.h>
-+#include <linux/file.h>
-+#include <linux/kevent.h>
-+#include <linux/poll.h>
-+#include <linux/fs.h>
-+
-+static kmem_cache_t *kevent_poll_container_cache;
-+static kmem_cache_t *kevent_poll_priv_cache;
-+
-+struct kevent_poll_ctl
-+{
-+	struct poll_table_struct 	pt;
-+	struct kevent			*k;
-+};
-+
-+struct kevent_poll_wait_container
-+{
-+	struct list_head		container_entry;
-+	wait_queue_head_t		*whead;
-+	wait_queue_t			wait;
-+	struct kevent			*k;
-+};
-+
-+struct kevent_poll_private
-+{
-+	struct list_head		container_list;
-+	spinlock_t			container_lock;
-+};
-+
-+static int kevent_poll_enqueue(struct kevent *k);
-+static int kevent_poll_dequeue(struct kevent *k);
-+static int kevent_poll_callback(struct kevent *k);
-+
-+static int kevent_poll_wait_callback(wait_queue_t *wait,
-+		unsigned mode, int sync, void *key)
-+{
-+	struct kevent_poll_wait_container *cont =
-+		container_of(wait, struct kevent_poll_wait_container, wait);
-+	struct kevent *k = cont->k;
-+	struct file *file = k->st->origin;
-+	u32 revents;
-+
-+	revents = file->f_op->poll(file, NULL);
-+
-+	kevent_storage_ready(k->st, NULL, revents);
-+
-+	return 0;
-+}
-+
-+static void kevent_poll_qproc(struct file *file, wait_queue_head_t *whead,
-+		struct poll_table_struct *poll_table)
-+{
-+	struct kevent *k =
-+		container_of(poll_table, struct kevent_poll_ctl, pt)->k;
-+	struct kevent_poll_private *priv = k->priv;
-+	struct kevent_poll_wait_container *cont;
-+	unsigned long flags;
-+
-+	cont = kmem_cache_alloc(kevent_poll_container_cache, SLAB_KERNEL);
-+	if (!cont) {
-+		kevent_break(k);
-+		return;
-+	}
-+
-+	cont->k = k;
-+	init_waitqueue_func_entry(&cont->wait, kevent_poll_wait_callback);
-+	cont->whead = whead;
-+
-+	spin_lock_irqsave(&priv->container_lock, flags);
-+	list_add_tail(&cont->container_entry, &priv->container_list);
-+	spin_unlock_irqrestore(&priv->container_lock, flags);
-+
-+	add_wait_queue(whead, &cont->wait);
-+}
-+
-+static int kevent_poll_enqueue(struct kevent *k)
-+{
-+	struct file *file;
-+	int err, ready = 0;
-+	unsigned int revents;
-+	struct kevent_poll_ctl ctl;
-+	struct kevent_poll_private *priv;
-+
-+	file = fget(k->event.id.raw[0]);
-+	if (!file)
-+		return -ENODEV;
-+
-+	err = -EINVAL;
-+	if (!file->f_op || !file->f_op->poll)
-+		goto err_out_fput;
-+
-+	err = -ENOMEM;
-+	priv = kmem_cache_alloc(kevent_poll_priv_cache, SLAB_KERNEL);
-+	if (!priv)
-+		goto err_out_fput;
-+
-+	spin_lock_init(&priv->container_lock);
-+	INIT_LIST_HEAD(&priv->container_list);
-+
-+	k->priv = priv;
-+
-+	ctl.k = k;
-+	init_poll_funcptr(&ctl.pt, &kevent_poll_qproc);
-+
-+	err = kevent_storage_enqueue(&file->st, k);
-+	if (err)
-+		goto err_out_free;
-+
-+	revents = file->f_op->poll(file, &ctl.pt);
-+	if (revents & k->event.event) {
-+		ready = 1;
-+		kevent_poll_dequeue(k);
-+	}
-+
-+	return ready;
-+
-+err_out_free:
-+	kmem_cache_free(kevent_poll_priv_cache, priv);
-+err_out_fput:
-+	fput(file);
-+	return err;
-+}
-+
-+static int kevent_poll_dequeue(struct kevent *k)
-+{
-+	struct file *file = k->st->origin;
-+	struct kevent_poll_private *priv = k->priv;
-+	struct kevent_poll_wait_container *w, *n;
-+	unsigned long flags;
-+
-+	kevent_storage_dequeue(k->st, k);
-+
-+	spin_lock_irqsave(&priv->container_lock, flags);
-+	list_for_each_entry_safe(w, n, &priv->container_list, container_entry) {
-+		list_del(&w->container_entry);
-+		remove_wait_queue(w->whead, &w->wait);
-+		kmem_cache_free(kevent_poll_container_cache, w);
-+	}
-+	spin_unlock_irqrestore(&priv->container_lock, flags);
-+
-+	kmem_cache_free(kevent_poll_priv_cache, priv);
-+	k->priv = NULL;
-+
-+	fput(file);
-+
-+	return 0;
-+}
-+
-+static int kevent_poll_callback(struct kevent *k)
-+{
-+	struct file *file = k->st->origin;
-+	unsigned int revents = file->f_op->poll(file, NULL);
-+
-+	k->event.ret_data[0] = revents & k->event.event;
-+
-+	return (revents & k->event.event);
-+}
-+
-+static int __init kevent_poll_sys_init(void)
-+{
-+	struct kevent_callbacks pc = {
-+		.callback = &kevent_poll_callback,
-+		.enqueue = &kevent_poll_enqueue,
-+		.dequeue = &kevent_poll_dequeue};
-+
-+	kevent_poll_container_cache = kmem_cache_create("kevent_poll_container_cache",
-+			sizeof(struct kevent_poll_wait_container), 0, 0, NULL, NULL);
-+	if (!kevent_poll_container_cache) {
-+		printk(KERN_ERR "Failed to create kevent poll container cache.\n");
-+		return -ENOMEM;
-+	}
-+
-+	kevent_poll_priv_cache = kmem_cache_create("kevent_poll_priv_cache",
-+			sizeof(struct kevent_poll_private), 0, 0, NULL, NULL);
-+	if (!kevent_poll_priv_cache) {
-+		printk(KERN_ERR "Failed to create kevent poll private data cache.\n");
-+		kmem_cache_destroy(kevent_poll_container_cache);
-+		kevent_poll_container_cache = NULL;
-+		return -ENOMEM;
-+	}
-+
-+	kevent_add_callbacks(&pc, KEVENT_POLL);
-+
-+	printk(KERN_INFO "Kevent poll()/select() subsystem has been initialized.\n");
-+	return 0;
-+}
-+
-+static struct lock_class_key kevent_poll_key;
-+
-+void kevent_poll_reinit(struct file *file)
-+{
-+	lockdep_set_class(&file->st.lock, &kevent_poll_key);
-+}
-+
-+static void __exit kevent_poll_sys_fini(void)
-+{
-+	kmem_cache_destroy(kevent_poll_priv_cache);
-+	kmem_cache_destroy(kevent_poll_container_cache);
-+}
-+
-+module_init(kevent_poll_sys_init);
-+module_exit(kevent_poll_sys_fini);
+It seems that the policy hashing is not always used with selector protocol.
+It may conflict with MIPL daemon thought.
 
+Let me explain the detail:
+MIPv6 specification says that all mobility header(MH) must be
+sent without routing header type 2(RT2) / home address option,
+except [*1].
+To satisfy it MIPL daemon uses some bypass policies.
+
+For CN outbound example(ip command output):
+
+(a)MIPL daemon adds MH bypass policy when it starts to run:
+
+src ::/0 dst ::/0 proto 135
+         dir out priority 12 ptype sub
+
+
+(b)After binding is accepted, it also adds route optimization
+policy to send user traffic with RT2:
+
+src 3ffe:501:ffff:100::XXXX/128 dst 3ffe:501:ffff:101::YYYY/128
+         dir out priority 16 ptype sub
+         tmpl src :: dst ::
+                 proto route2 reqid 0 mode ro
+                 level use
+
+When the daemon added both policy we expected that
+all MH was used (a) otherwise (b) because of priority order.
+But the kernel used (b) when the daemon sent MH from
+3ffe:501:ffff:100::XXXX to 3ffe:501:ffff:101::YYYY.
+
+Note: such bypasses are also required for ICMPv6 error and
+neighbor discovery.
+
+(*1:
+  Binding update(BU) can be sent with home address option
+  and binding ack(BA) can be sent with RT2.)
+
+Do you have any ideas?
+
+Thanks,
+
+-- 
+Masahide NAKAMURA
