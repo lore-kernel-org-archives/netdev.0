@@ -1,61 +1,134 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] add nl80211
-Date: Fri, 25 Aug 2006 11:04:30 +0200
-Message-ID: <1156496671.3893.6.camel@ux156>
-References: <1156254768.3825.1.camel@ux156> <1156435624.10283.9.camel@ux156>
-	 <20060824172717.GN3470@postel.suug.ch>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [take14 0/3] kevent: Generic event handling mechanism.
+Date: Fri, 25 Aug 2006 13:54:43 +0400
+Message-ID: <11564996832717@2ka.mipt.ru>
+References: <12345678912345.GA1898@2ka.mipt.ru>
+Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:32435 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751364AbWHYJER
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Aug 2006 05:04:17 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060824172717.GN3470@postel.suug.ch>
+Received: from dea.vocord.ru ([217.67.177.50]:60354 "EHLO
+	uganda.factory.vocord.ru") by vger.kernel.org with ESMTP
+	id S932369AbWHYJbm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 05:31:42 -0400
+In-Reply-To: <12345678912345.GA1898@2ka.mipt.ru>
+To: lkml <linux-kernel@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-08-24 at 19:27 +0200, Thomas Graf wrote:
 
-> I'd use normal u32 attributes here as well and simply
-> enumerate their type 1..n.
-> 
-> 	int idx = 1
-> 	list_for_each_entry(drv, &nl80211_drv_list, list)
-> 		NLA_PUT_U32(msg, idx++, drv->wiphy);
-> 
-> The additional header seems waste but this way you stay flexible
-> and can extend the protocol later on. Attribute lengths are
-> checked with an open end in mind, i.e. you can put more stuff
-> behind that u32 in the future and your old applications will
-> still work.
-> 
-> You also might want to consider returning ifindex and
-> the associated name.
+Generic event handling mechanism.
 
-That'd be a list of ifindexes again...
+Changes from 'take13' patchset:
+ * do not get lock aroung user data check in __kevent_search()
+ * fail early if there were no registered callbacks for given type of kevent
+ * trailing whitespace cleanup
 
-> > +static int nl80211_get_intfs(struct sk_buff *skb, struct genl_info *info)
+Changes from 'take12' patchset:
+ * remove non-chardev interface for initialization
+ * use pointer to kevent_mring instead of unsigned longs
+ * use aligned 64bit type in raw user data (can be used by high-res timer if needed)
+ * simplified enqueue/dequeue callbacks and kevent initialization
+ * use nanoseconds for timeout
+ * put number of milliseconds into timer's return data
+ * move some definitions into user-visible header
+ * removed filenames from comments
 
-> Try not to reuse the same attribute type for different purposes,
-> it will force you to duplicate the validation policy for every
-> single command and things become very error prone.
+Changes from 'take11' patchset:
+ * include missing headers into patchset
+ * some trivial code cleanups (use goto instead of if/else games and so on)
+ * some whitespace cleanups
+ * check for ready_callback() callback before main loop which should save us some ticks
 
-I completely reworked that now so it will:
- * create a nested NL80211_ATTR_INTERFACE_LIST with nested {
-   * 1..N attributes, with nested {
-     * ATTR_IFINDEX and
-     * ATTR_IFNAME
-   }
- }
+Changes from 'take10' patchset:
+ * removed non-existent prototypes
+ * added helper function for kevent_registered_callbacks
+ * fixed 80 lines comments issues
+ * added shared between userspace and kernelspace header instead of embedd them in one
+ * core restructuring to remove forward declarations
+ * s o m e w h i t e s p a c e c o d y n g s t y l e c l e a n u p
+ * use vm_insert_page() instead of remap_pfn_range()
 
-how does that sound? Maybe I should do the same for the WIPHY list? i.e.
-create a new type ATTR_WIPHY_LIST and within that nest numbered
-attributes (array indexes) and in there put ATTR_WIPHY? So possibly I
-could also put ATTR_INTERFACE_LIST in there as well later?
+Changes from 'take9' patchset:
+ * fixed ->nopage method
 
-johannes
+Changes from 'take8' patchset:
+ * fixed mmap release bug
+ * use module_init() instead of late_initcall()
+ * use better structures for timer notifications
+
+Changes from 'take7' patchset:
+ * new mmap interface (not tested, waiting for other changes to be acked)
+	- use nopage() method to dynamically substitue pages
+	- allocate new page for events only when new added kevent requres it
+	- do not use ugly index dereferencing, use structure instead
+	- reduced amount of data in the ring (id and flags), 
+		maximum 12 pages on x86 per kevent fd
+
+Changes from 'take6' patchset:
+ * a lot of comments!
+ * do not use list poisoning for detection of the fact, that entry is in the list
+ * return number of ready kevents even if copy*user() fails
+ * strict check for number of kevents in syscall
+ * use ARRAY_SIZE for array size calculation
+ * changed superblock magic number
+ * use SLAB_PANIC instead of direct panic() call
+ * changed -E* return values
+ * a lot of small cleanups and indent fixes
+
+Changes from 'take5' patchset:
+ * removed compilation warnings about unused wariables when lockdep is not turned on
+ * do not use internal socket structures, use appropriate (exported) wrappers instead
+ * removed default 1 second timeout
+ * removed AIO stuff from patchset
+
+Changes from 'take4' patchset:
+ * use miscdevice instead of chardevice
+ * comments fixes
+
+Changes from 'take3' patchset:
+ * removed serializing mutex from kevent_user_wait()
+ * moved storage list processing to RCU
+ * removed lockdep screaming - all storage locks are initialized in the same function, so it was learned 
+	to differentiate between various cases
+ * remove kevent from storage if is marked as broken after callback
+ * fixed a typo in mmaped buffer implementation which would end up in wrong index calcualtion 
+
+Changes from 'take2' patchset:
+ * split kevent_finish_user() to locked and unlocked variants
+ * do not use KEVENT_STAT ifdefs, use inline functions instead
+ * use array of callbacks of each type instead of each kevent callback initialization
+ * changed name of ukevent guarding lock
+ * use only one kevent lock in kevent_user for all hash buckets instead of per-bucket locks
+ * do not use kevent_user_ctl structure instead provide needed arguments as syscall parameters
+ * various indent cleanups
+ * added optimisation, which is aimed to help when a lot of kevents are being copied from userspace
+ * mapped buffer (initial) implementation (no userspace yet)
+
+Changes from 'take1' patchset:
+ - rebased against 2.6.18-git tree
+ - removed ioctl controlling
+ - added new syscall kevent_get_events(int fd, unsigned int min_nr, unsigned int max_nr,
+			unsigned int timeout, void __user *buf, unsigned flags)
+ - use old syscall kevent_ctl for creation/removing, modification and initial kevent 
+	initialization
+ - use mutuxes instead of semaphores
+ - added file descriptor check and return error if provided descriptor does not match
+	kevent file operations
+ - various indent fixes
+ - removed aio_sendfile() declarations.
+
+Thank you.
+
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+
+
