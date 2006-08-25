@@ -1,29 +1,47 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC] add nl80211
-Date: Fri, 25 Aug 2006 12:38:31 +0200
-Message-ID: <1156502311.4090.0.camel@ux156>
-References: <1156254768.3825.1.camel@ux156> <1156435624.10283.9.camel@ux156>
-	 <20060824172717.GN3470@postel.suug.ch> <1156496671.3893.6.camel@ux156>
-	 <20060825103041.GQ3470@postel.suug.ch>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [RFC][PATCH 2/9] deadlock prevention core
+Date: Fri, 25 Aug 2006 12:47:38 +0200
+Message-ID: <20060825104738.GA8538@elf.ucw.cz>
+References: <20060813215853.0ed0e973.akpm@osdl.org> <44E3E964.8010602@google.com> <20060816225726.3622cab1.akpm@osdl.org> <44E5015D.80606@google.com> <20060817230556.7d16498e.akpm@osdl.org> <44E62F7F.7010901@google.com> <20060818153455.2a3f2bcb.akpm@osdl.org> <44E650C1.80608@google.com> <20060818194435.25bacee0.akpm@osdl.org> <20060821132717.GD26589@vienna.egenera.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@suse.cz>,
-	"John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>,
+	Daniel Phillips <phillips@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	David Miller <davem@davemloft.net>, riel@redhat.com,
+	tgraf@suug.ch, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Mike Christie <michaelc@cs.wisc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:62429 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S932449AbWHYKiF
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Aug 2006 06:38:05 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20060825103041.GQ3470@postel.suug.ch>
+Received: from gprs189-60.eurotel.cz ([160.218.189.60]:7330 "EHLO amd.ucw.cz")
+	by vger.kernel.org with ESMTP id S1751438AbWHYKr4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 06:47:56 -0400
+To: "Philip R. Auld" <pauld@egenera.com>
+Content-Disposition: inline
+In-Reply-To: <20060821132717.GD26589@vienna.egenera.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-08-25 at 12:30 +0200, Thomas Graf wrote:
+Hi!
 
-> That's exactly what I would have done as well.
+> > - We expect that the lots-of-dirty-anon-memory-over-swap-over-network
+> >   scenario might still cause deadlocks.  
+> > 
+> >   I assert that this can be solved by putting swap on local disks.  Peter
+> >   asserts that this isn't acceptable due to disk unreliability.  I point
+> >   out that local disk reliability can be increased via MD, all goes quiet.
+> 
+> Putting swap on local disks really messes up the concept of stateless 
+> servers. I suppose you can do some sort of swap encryption, but
+> otherwise you need to scrub the swap partition on boot if you
+> re-purpose the hardware. You also then need to do hardware
+> configuration to make sure the local disks are all setup the 
+> same way across all server platforms so the common images can 
+> boot. 
 
-Alright. Changing it, then I'll repost. Again :)
-
-johannes
+We should really encrypt swap with random key generated at boot, for
+all the machine. I believe it is possible (with some non-trivial
+setup) today, but it would be nice to do it automagically.
+								Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
