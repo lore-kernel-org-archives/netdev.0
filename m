@@ -1,51 +1,41 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
-Date: Fri, 25 Aug 2006 15:55:33 -0700
-Message-ID: <1156546533.5021.10.camel@rh4>
-References: <20060805202603.GA9740@thunk.org>
- <1551EAE59135BE47B544934E30FC4FC093FA21@NT-IRVA-0751.brcm.ad.broadcom.com>
- <loom.20060825T235849-675@post.gmane.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [2.6.17.8] NFS stall / BUG in UDP fragment processing / SKB trimming
+Date: Fri, 25 Aug 2006 16:03:16 -0700
+Message-ID: <20060825230316.GA3254@kroah.com>
+References: <87zme9fy94.fsf@hades.wkstn.nix> <20060813125910.GA18463@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, Nix <nix@esperi.org.uk>,
+	linux-kernel@vger.kernel.org, Neil Brown <neilb@suse.de>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4366 "EHLO MMS3.broadcom.com")
-	by vger.kernel.org with ESMTP id S964782AbWHYW4W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 18:56:22 -0400
-To: "Marc Bevand" <m.bevand@gmail.com>
-In-Reply-To: <loom.20060825T235849-675@post.gmane.org>
+Received: from ns.suse.de ([195.135.220.2]:41872 "EHLO mx1.suse.de")
+	by vger.kernel.org with ESMTP id S964789AbWHYXDy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 19:03:54 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>, stable@kernel.org
+Content-Disposition: inline
+In-Reply-To: <20060813125910.GA18463@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-08-25 at 22:33 +0000, Marc Bevand wrote:
-
-> Still, it would be great if ASF could be disabled, because I have
-> noticed that when ASF is enabled, the tg3 driver automatically disables
-> TSO (TCP Segmentation Offloading). Here is a dmesg output from a server
-> where I am seeing that behavior:
+On Sun, Aug 13, 2006 at 10:59:11PM +1000, Herbert Xu wrote:
+> On Sat, Aug 12, 2006 at 09:19:19PM +0000, Nix wrote:
+> > 
+> > The kernel log showed a heap of BUGs from somewhere inside the skb
+> > management layer, somewhere in UDP fragment processing while
+> > handling NFS requests. It starts like this:
+> > 
+> > Aug 12 21:31:08 hades warning: kernel: BUG: warning at include/linux/skbuff.h:975/__skb_trim()
+> > Aug 12 21:31:08 hades warning: kernel: <c030ed39> ip_append_data+0x5b3/0x951  <c030fc18> ip_generic_getfrag+0x0/0x96
 > 
->   eth0: Tigon3 [partno(BCM95704A6) rev 2100 PHY(5704)] (PCIX:133MHz:64-bit) \
->     10/100/1000BaseT Ethernet 00:30:48:59:c4:94
->   eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] Split[0] WireSpeed[1] TSOcap[0]
->   [...]
->   eth1: Tigon3 [partno(BCM95704A6) rev 2100 PHY(5704)] (PCIX:133MHz:64-bit) \
->     10/100/1000BaseT Ethernet 00:30:48:59:c4:95
->   eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] Split[0] WireSpeed[1] TSOcap[1]
+> Oops, I missed this code path when I disallowed skb_trim from operating
+> on a paged skb.  This patch should fix the problem.
 > 
-> Both interfaces are fundamentally TSO-capable, but since ASF is enabled
-> on eth0, tg3 disables TSO on this interface. Of course at this point it
-> is not even possible to use ethtool to re-enable it because the driver
-> considers eth0 as not TSO-capable at all.
-> 
+> Greg, we need this for 2.6.17 stable as well if Dave is OK with it.
 
-The reason is that TSO on 5704 and older chips is done by firmware.  ASF
-is also implemented by firmware.  If ASF is enabled, there is no room to
-do TSO and ASF at the same time.
+This patch doesn't apply at all to the latest 2.6.17-stable kernel tree.
+Care to rediff it?
 
-Firmware-based TSO is actually slower than no TSO.  The only benefit is
-a little better CPU utilization.
+thanks,
 
-On the newer chips, TSO is done by hardware which solves both the ASF
-and throughput problems.
-
+greg k-h
