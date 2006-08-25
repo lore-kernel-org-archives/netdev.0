@@ -1,37 +1,28 @@
-From: "Amit S. Kale" <amitkale@linsyssoft.com>
-Subject: Re: [PATCH 2.6.17 0/9] NetXen: 1G/10G Ethernet Driver
-Date: Fri, 25 Aug 2006 18:49:27 +0530
-Message-ID: <200608251849.27931.amitkale@linsyssoft.com>
-References: <Pine.LNX.4.64.0608180713480.6875@dut39> <Pine.LNX.4.64.0608220038580.18115@dut46> <20060824000411.GA14946@us.ibm.com>
+From: Venkat Yekkirala <vyekkirala@TrustedCS.com>
+Subject: RE: [PATCH 0/3] secid reconciliation-v01: Repost patchset with up
+	dates
+Date: Fri, 25 Aug 2006 09:30:04 -0400
+Message-ID: <36282A1733C57546BE392885C0618592014C066C@chaos.tcs.tcs-sec.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Pradeep Dalvi <pradeep@netxen.com>, netdev@vger.kernel.org,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"sanjeev@netxen.com" <sanjeev@netxen.com>,
-	"unmproj@linsyssoft.com" <unmproj@linsyssoft.com>,
-	Rob Mapes <rob@netxen.com>, amitkale@netxen.com
+	charset="iso-8859-1"
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, sds@tycho.nsa.gov,
+	Chad Hanson <chanson@TrustedCS.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svr68.ehostpros.com ([67.15.48.48]:15969 "EHLO
-	svr68.ehostpros.com") by vger.kernel.org with ESMTP
-	id S1751290AbWHYNTj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Aug 2006 09:19:39 -0400
-To: Don Fry <brazilnut@us.ibm.com>
-In-Reply-To: <20060824000411.GA14946@us.ibm.com>
-Content-Disposition: inline
+Received: from tcsfw4.tcs-sec.com ([65.127.223.133]:36147 "EHLO
+	tcsfw4.tcs-sec.com") by vger.kernel.org with ESMTP id S932095AbWHYNab
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Aug 2006 09:30:31 -0400
+To: James Morris <jmorris@namei.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Don,
+> I like these changes, but wondering why you haven't supplied 
+> code for the 
+> outbound case ?
+> 
+> 
+> - James
 
-Thanks. We'll lindent the sources and post an update asap.
--Amit
-
-On Thursday 24 August 2006 05:34, Don Fry wrote:
-> It looks like you have not run the source throught Lindent as previously
-> requested.  Before you submit the code again, please use the Lindent
-> script.
->
-> I can get the code to ping between two cards.  Will be doing more
-> testing tomorrow.
+The code for the outbound is still in the works. I hope to have it
+out in a week or so.
