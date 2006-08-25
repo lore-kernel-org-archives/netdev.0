@@ -1,116 +1,143 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [DECNET]: Add support for fwmark masks in routing rules
-Date: Fri, 25 Aug 2006 14:14:12 +0200
-Message-ID: <44EEE994.90404@trash.net>
+Subject: [IPV4]: Add support for fwmark masks in routing rules
+Date: Fri, 25 Aug 2006 14:14:05 +0200
+Message-ID: <44EEE98D.9040100@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------070901030708000602020604"
-Cc: Linux Netdev List <netdev@vger.kernel.org>, patrick@tykepenguin.com
+ boundary="------------070004090200010306090804"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37801 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1751462AbWHYMOP
+Received: from stinky.trash.net ([213.144.137.162]:37033 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1751462AbWHYMOI
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Aug 2006 08:14:15 -0400
+	Fri, 25 Aug 2006 08:14:08 -0400
 To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------070901030708000602020604
+--------------070004090200010306090804
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
 
+Hi Dave,
 
---------------070901030708000602020604
+these three patches add support for masking the nfmark value
+in a few spots where it would be useful in an attempt to make
+life easier for users using it for multiple unrelated things.
+
+
+--------------070004090200010306090804
 Content-Type: text/plain;
- name="02.diff"
+ name="01.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="02.diff"
+ filename="01.diff"
 
-[DECNET]: Add support for fwmark masks in routing rules
+[IPV4]: Add support for fwmark masks in routing rules
 
-Add support for fwmark masks. For compatibility a mask of 0xFFFFFFFF is used
-when a mark value != 0 is sent without a mask.
+Add a FRA_FWMASK attributes for fwmark masks. For compatibility a mask of
+0xFFFFFFFF is used when a mark value != 0 is sent without a mask.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 ---
-commit bcd4f6996453aaf0a8d5515dcc533115621c961f
-tree 62909d3d2c6edd4f236284b86c4c422cb40bc489
-parent 9037bbabed75d822002be78047f518d42f225a00
-author Patrick McHardy <kaber@trash.net> Fri, 25 Aug 2006 14:00:12 +0200
-committer Patrick McHardy <kaber@trash.net> Fri, 25 Aug 2006 14:00:12 +0200
+commit 9037bbabed75d822002be78047f518d42f225a00
+tree 2ccc07b7c4d7f20b2b8722ed935908595c197803
+parent e6d442e62c126e11b3199ca1bddeb7534a7cb15e
+author Patrick McHardy <kaber@trash.net> Fri, 25 Aug 2006 13:59:10 +0200
+committer Patrick McHardy <kaber@trash.net> Fri, 25 Aug 2006 13:59:10 +0200
 
- net/decnet/dn_rules.c |   20 ++++++++++++++++++--
- 1 files changed, 18 insertions(+), 2 deletions(-)
+ include/linux/fib_rules.h |    3 ++-
+ net/ipv4/fib_rules.c      |   21 +++++++++++++++++++--
+ 2 files changed, 21 insertions(+), 3 deletions(-)
 
-diff --git a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
-index 50e819e..63ad63d 100644
---- a/net/decnet/dn_rules.c
-+++ b/net/decnet/dn_rules.c
-@@ -47,6 +47,7 @@ struct dn_fib_rule
- 	u8			flags;
- #ifdef CONFIG_DECNET_ROUTE_FWMARK
+diff --git a/include/linux/fib_rules.h b/include/linux/fib_rules.h
+index 19a82b6..4418c8d 100644
+--- a/include/linux/fib_rules.h
++++ b/include/linux/fib_rules.h
+@@ -34,12 +34,13 @@ enum
+ 	FRA_UNUSED3,
+ 	FRA_UNUSED4,
+ 	FRA_UNUSED5,
+-	FRA_FWMARK,	/* netfilter mark (IPv4) */
++	FRA_FWMARK,	/* netfilter mark */
+ 	FRA_FLOW,	/* flow/class id */
+ 	FRA_UNUSED6,
+ 	FRA_UNUSED7,
+ 	FRA_UNUSED8,
+ 	FRA_TABLE,	/* Extended table id */
++	FRA_FWMASK,	/* mask for netfilter mark */
+ 	__FRA_MAX
+ };
+ 
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index ce185ac..280f424 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -46,6 +46,7 @@ struct fib4_rule
+ 	u32			dstmask;
+ #ifdef CONFIG_IP_ROUTE_FWMARK
  	u32			fwmark;
 +	u32			fwmask;
  #endif
- };
- 
-@@ -116,6 +117,7 @@ static struct nla_policy dn_fib_rule_pol
- 	[FRA_SRC]	= { .type = NLA_U16 },
- 	[FRA_DST]	= { .type = NLA_U16 },
- 	[FRA_FWMARK]	= { .type = NLA_U32 },
-+	[FRA_FWMASK]	= { .type = NLA_U32 },
- 	[FRA_TABLE]     = { .type = NLA_U32 },
- };
- 
-@@ -130,7 +132,7 @@ static int dn_fib_rule_match(struct fib_
+ #ifdef CONFIG_NET_CLS_ROUTE
+ 	u32			tclassid;
+@@ -160,7 +161,7 @@ static int fib4_rule_match(struct fib_ru
  		return 0;
  
- #ifdef CONFIG_DECNET_ROUTE_FWMARK
--	if (r->fwmark && (r->fwmark != fl->fld_fwmark))
-+	if ((r->fwmark ^ fl->fld_fwmark) & r->fwmask)
+ #ifdef CONFIG_IP_ROUTE_FWMARK
+-	if (r->fwmark && (r->fwmark != fl->fl4_fwmark))
++	if ((r->fwmark ^ fl->fl4_fwmark) & r->fwmask)
  		return 0;
  #endif
  
-@@ -168,8 +170,17 @@ static int dn_fib_rule_configure(struct 
- 		r->dst = nla_get_u16(tb[FRA_DST]);
+@@ -183,6 +184,7 @@ static struct nla_policy fib4_rule_polic
+ 	[FRA_SRC]	= { .type = NLA_U32 },
+ 	[FRA_DST]	= { .type = NLA_U32 },
+ 	[FRA_FWMARK]	= { .type = NLA_U32 },
++	[FRA_FWMASK]	= { .type = NLA_U32 },
+ 	[FRA_FLOW]	= { .type = NLA_U32 },
+ 	[FRA_TABLE]	= { .type = NLA_U32 },
+ };
+@@ -219,8 +221,17 @@ static int fib4_rule_configure(struct fi
+ 		rule4->dst = nla_get_u32(tb[FRA_DST]);
  
- #ifdef CONFIG_DECNET_ROUTE_FWMARK
+ #ifdef CONFIG_IP_ROUTE_FWMARK
 -	if (tb[FRA_FWMARK])
 +	if (tb[FRA_FWMARK]) {
- 		r->fwmark = nla_get_u32(tb[FRA_FWMARK]);
-+		if (r->fwmark)
+ 		rule4->fwmark = nla_get_u32(tb[FRA_FWMARK]);
++		if (rule4->fwmark)
 +			/* compatibility: if the mark value is non-zero all bits
 +			 * are compared unless a mask is explicitly specified.
 +			 */
-+			r->fwmask = 0xFFFFFFFF;
++			rule4->fwmask = 0xFFFFFFFF;
 +	}
 +
 +	if (tb[FRA_FWMASK])
-+		r->fwmask = nla_get_u32(tb[FRA_FWMASK]);
++		rule4->fwmask = nla_get_u32(tb[FRA_FWMASK]);
  #endif
  
- 	r->src_len = frh->src_len;
-@@ -195,6 +206,9 @@ static int dn_fib_rule_compare(struct fi
- #ifdef CONFIG_DECNET_ROUTE_FWMARK
- 	if (tb[FRA_FWMARK] && (r->fwmark != nla_get_u32(tb[FRA_FWMARK])))
+ #ifdef CONFIG_NET_CLS_ROUTE
+@@ -256,6 +267,9 @@ static int fib4_rule_compare(struct fib_
+ #ifdef CONFIG_IP_ROUTE_FWMARK
+ 	if (tb[FRA_FWMARK] && (rule4->fwmark != nla_get_u32(tb[FRA_FWMARK])))
  		return 0;
 +
-+	if (tb[FRA_FWMASK] && (r->fwmask != nla_get_u32(tb[FRA_FWMASK])))
++	if (tb[FRA_FWMASK] && (rule4->fwmask != nla_get_u32(tb[FRA_FWMASK])))
 +		return 0;
  #endif
  
- 	if (tb[FRA_SRC] && (r->src != nla_get_u16(tb[FRA_SRC])))
-@@ -237,6 +251,8 @@ static int dn_fib_rule_fill(struct fib_r
- #ifdef CONFIG_DECNET_ROUTE_FWMARK
- 	if (r->fwmark)
- 		NLA_PUT_U32(skb, FRA_FWMARK, r->fwmark);
-+	if (r->fwmask || r->fwmark)
-+		NLA_PUT_U32(skb, FRA_FWMASK, r->fwmask);
+ #ifdef CONFIG_NET_CLS_ROUTE
+@@ -285,6 +299,9 @@ static int fib4_rule_fill(struct fib_rul
+ #ifdef CONFIG_IP_ROUTE_FWMARK
+ 	if (rule4->fwmark)
+ 		NLA_PUT_U32(skb, FRA_FWMARK, rule4->fwmark);
++
++	if (rule4->fwmask || rule4->fwmark)
++		NLA_PUT_U32(skb, FRA_FWMASK, rule4->fwmask);
  #endif
- 	if (r->dst_len)
- 		NLA_PUT_U16(skb, FRA_DST, r->dst);
+ 
+ 	if (rule4->dst_len)
 
---------------070901030708000602020604--
+--------------070004090200010306090804--
