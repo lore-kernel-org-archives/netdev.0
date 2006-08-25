@@ -1,37 +1,35 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [NET_SCHED]: Add mask support to fwmark classifier
-Date: Fri, 25 Aug 2006 12:54:28 +0200
-Message-ID: <20060825105428.GR3470@postel.suug.ch>
-References: <44EED0FC.4050108@trash.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] remove third bogus argument from NLA_PUT_FLAG
+Date: Fri, 25 Aug 2006 12:55:26 +0200
+Message-ID: <1156503326.4090.10.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>, jamal <hadi@cyberus.ca>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:54476 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S1751436AbWHYKyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 06:54:07 -0400
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <44EED0FC.4050108@trash.net>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:60355 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751436AbWHYKy5
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Aug 2006 06:54:57 -0400
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <kaber@trash.net> 2006-08-25 12:29
-> This patch adds support to mask the nfmark value before the lookup
-> the the fw classifier. Unfortunately it has some drawbacks, so I'd
-> be interested if anyone can think of a better way.
-> 
-> The problem is that in order to avoid walking through all filters
-> contained in one instance, we need to mask the value before the
-> lookup. This means all filters share the same mask, which is
-> taken from the first filter created and stored in the filter head.
-> The user interface however always refers to a single filter,
-> not the head, so it can't be changed afterwards unless we just
-> overwrite it whenever a new filter is installed. Both is not
-> really perfect. The current patch doesn't allow to change the
-> mark and enforces that all filters use the same one, which I think
-> is better than allowing inconsistent configurations.
+This patch removes the 'value' argument from NLA_PUT_FLAG which is
+unused anyway. The documentation comment was already correct so it
+doesn't need an update :)
 
-The other option gets down to replacing the hash table with a
-list and that's not an option in my opinion. This looks very
-good to me.
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+
+--- wireless-dev.orig/include/net/netlink.h	2006-08-25 12:46:30.000000000 +0200
++++ wireless-dev/include/net/netlink.h	2006-08-25 12:46:38.000000000 +0200
+@@ -758,7 +758,7 @@ static inline int nla_put_msecs(struct s
+ #define NLA_PUT_STRING(skb, attrtype, value) \
+ 	NLA_PUT(skb, attrtype, strlen(value) + 1, value)
+ 
+-#define NLA_PUT_FLAG(skb, attrtype, value) \
++#define NLA_PUT_FLAG(skb, attrtype) \
+ 	NLA_PUT(skb, attrtype, 0, NULL)
+ 
+ #define NLA_PUT_MSECS(skb, attrtype, jiffies) \
+
