@@ -1,68 +1,111 @@
-From: "Marc Bevand" <m.bevand@gmail.com>
-Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
-Date: Fri, 25 Aug 2006 16:48:49 -0700
-Message-ID: <aaccfcb60608251648l138ae3bdre9a41aef3d541d7d@mail.gmail.com>
-References: <20060805202603.GA9740@thunk.org>
-	 <1551EAE59135BE47B544934E30FC4FC093FA21@NT-IRVA-0751.brcm.ad.broadcom.com>
-	 <loom.20060825T235849-675@post.gmane.org>
-	 <1156546533.5021.10.camel@rh4>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] Congestion control (modulo lp, bic): use BUILD_BUG_ON
+Date: Sat, 26 Aug 2006 03:57:41 +0400
+Message-ID: <20060825235741.GD2246@martell.zuzino.mipt.ru>
+References: <20060825010802.GK5204@martell.zuzino.mipt.ru> <20060825162720.3d4257d7@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.228]:18596 "EHLO
-	wx-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S932085AbWHYXst (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Aug 2006 19:48:49 -0400
-Received: by wx-out-0506.google.com with SMTP id s14so1027648wxc
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2006 16:48:49 -0700 (PDT)
-To: "Michael Chan" <mchan@broadcom.com>
-In-Reply-To: <1156546533.5021.10.camel@rh4>
+Received: from nf-out-0910.google.com ([64.233.182.191]:4298 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S932102AbWHYX5q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Aug 2006 19:57:46 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so909032nfa
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2006 16:57:45 -0700 (PDT)
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
+In-Reply-To: <20060825162720.3d4257d7@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/25/06, Michael Chan <mchan@broadcom.com> wrote:
->
-> The reason is that TSO on 5704 and older chips is done by firmware.  ASF
-> is also implemented by firmware.  If ASF is enabled, there is no room to
-> do TSO and ASF at the same time.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-Just for test purpose, I have applied the following patch to my tg3.c. I now
-seem to be able to enable/disable TSO, but I admit don't know whether ASF
-is still functional or not.
+ net/ipv4/tcp_cubic.c     |    2 +-
+ net/ipv4/tcp_highspeed.c |    2 +-
+ net/ipv4/tcp_htcp.c      |    2 +-
+ net/ipv4/tcp_hybla.c     |    2 +-
+ net/ipv4/tcp_vegas.c     |    2 +-
+ net/ipv4/tcp_veno.c      |    2 +-
+ net/ipv4/tcp_westwood.c  |    2 +-
+ 7 files changed, 7 insertions(+), 7 deletions(-)
 
-        else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
-            GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701 ||
--           tp->pci_chip_rev_id == CHIPREV_ID_5705_A0 ||
--           (tp->tg3_flags & TG3_FLAG_ENABLE_ASF) != 0) {
-+           tp->pci_chip_rev_id == CHIPREV_ID_5705_A0) {
-                tp->tg3_flags2 &= ~TG3_FLG2_TSO_CAPABLE;
-        } else {
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -358,7 +358,7 @@ static struct tcp_congestion_ops cubictc
+ 
+ static int __init cubictcp_register(void)
+ {
+-	BUG_ON(sizeof(struct bictcp) > ICSK_CA_PRIV_SIZE);
++	BUILD_BUG_ON(sizeof(struct bictcp) > ICSK_CA_PRIV_SIZE);
+ 
+ 	/* Precompute a bunch of the scaling factors that are used per-packet
+ 	 * based on SRTT of 100ms
+--- a/net/ipv4/tcp_highspeed.c
++++ b/net/ipv4/tcp_highspeed.c
+@@ -189,7 +189,7 @@ static struct tcp_congestion_ops tcp_hig
+ 
+ static int __init hstcp_register(void)
+ {
+-	BUG_ON(sizeof(struct hstcp) > ICSK_CA_PRIV_SIZE);
++	BUILD_BUG_ON(sizeof(struct hstcp) > ICSK_CA_PRIV_SIZE);
+ 	return tcp_register_congestion_control(&tcp_highspeed);
+ }
+ 
+--- a/net/ipv4/tcp_htcp.c
++++ b/net/ipv4/tcp_htcp.c
+@@ -286,7 +286,7 @@ static struct tcp_congestion_ops htcp = 
+ 
+ static int __init htcp_register(void)
+ {
+-	BUG_ON(sizeof(struct htcp) > ICSK_CA_PRIV_SIZE);
++	BUILD_BUG_ON(sizeof(struct htcp) > ICSK_CA_PRIV_SIZE);
+ 	BUILD_BUG_ON(BETA_MIN >= BETA_MAX);
+ 	return tcp_register_congestion_control(&htcp);
+ }
+--- a/net/ipv4/tcp_hybla.c
++++ b/net/ipv4/tcp_hybla.c
+@@ -170,7 +170,7 @@ static struct tcp_congestion_ops tcp_hyb
+ 
+ static int __init hybla_register(void)
+ {
+-	BUG_ON(sizeof(struct hybla) > ICSK_CA_PRIV_SIZE);
++	BUILD_BUG_ON(sizeof(struct hybla) > ICSK_CA_PRIV_SIZE);
+ 	return tcp_register_congestion_control(&tcp_hybla);
+ }
+ 
+--- a/net/ipv4/tcp_vegas.c
++++ b/net/ipv4/tcp_vegas.c
+@@ -370,7 +370,7 @@ static struct tcp_congestion_ops tcp_veg
+ 
+ static int __init tcp_vegas_register(void)
+ {
+-	BUG_ON(sizeof(struct vegas) > ICSK_CA_PRIV_SIZE);
++	BUILD_BUG_ON(sizeof(struct vegas) > ICSK_CA_PRIV_SIZE);
+ 	tcp_register_congestion_control(&tcp_vegas);
+ 	return 0;
+ }
+--- a/net/ipv4/tcp_veno.c
++++ b/net/ipv4/tcp_veno.c
+@@ -213,7 +213,7 @@ static struct tcp_congestion_ops tcp_ven
+ 
+ static int __init tcp_veno_register(void)
+ {
+-	BUG_ON(sizeof(struct veno) > ICSK_CA_PRIV_SIZE);
++	BUILD_BUG_ON(sizeof(struct veno) > ICSK_CA_PRIV_SIZE);
+ 	tcp_register_congestion_control(&tcp_veno);
+ 	return 0;
+ }
+--- a/net/ipv4/tcp_westwood.c
++++ b/net/ipv4/tcp_westwood.c
+@@ -289,7 +289,7 @@ static struct tcp_congestion_ops tcp_wes
+ 
+ static int __init tcp_westwood_register(void)
+ {
+-	BUG_ON(sizeof(struct westwood) > ICSK_CA_PRIV_SIZE);
++	BUILD_BUG_ON(sizeof(struct westwood) > ICSK_CA_PRIV_SIZE);
+ 	return tcp_register_congestion_control(&tcp_westwood);
+ }
+ 
 
-Then tg3 considered my interface as TSO-capable ("TSOcap[1]" in dmesg).
-TSO was still disabled by default, which is normal because there is this other
-check a couple of lines below:
-
-        /* TSO is on by default on chips that support hardware TSO.
-         * Firmware TSO on older chips gives lower performance, so it
-         * is off by default, but can be enabled using ethtool.
-         */
-        if (tp->tg3_flags2 & TG3_FLG2_HW_TSO)
-                dev->features |= NETIF_F_TSO;
-
-But I was able to turn TSO on via ethtool -K. This is exactly the behavior I
-would like to see in tg3. So are you saying the patch I applied actually
-breaks ASF ?
-
-> Firmware-based TSO is actually slower than no TSO.  The only benefit is
-> a little better CPU utilization.
-
-I know, in one of my test-cases, firmware TSO reduces the max achievable
-TCP bandwidth from 930 to 840 Mbit/s on a GigE network while reducing
-the CPU utilization from 44% to 22%. I think firmware TSO still makes sense
-in some cases.
-
--- 
-Marc Bevand
