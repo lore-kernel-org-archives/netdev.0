@@ -1,39 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 40/44] [XFRM] POLICY: sub policy support.
-Date: Fri, 25 Aug 2006 11:45:41 +1000
-Message-ID: <E1GGQlR-0007Fm-00@gondolin.me.apana.org.au>
-References: <20060823.224800.124082063.davem@davemloft.net>
-Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org,
-	nakam@linux-ipv6.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] ip6t_REJECT: wire up ip6t_register_target() return value
+Date: Fri, 25 Aug 2006 07:07:03 +0200
+Message-ID: <44EE8577.5030805@trash.net>
+References: <20060825010654.GJ5204@martell.zuzino.mipt.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:11013 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1422818AbWHYBqR
+Received: from stinky.trash.net ([213.144.137.162]:38540 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1422839AbWHYFHG
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Aug 2006 21:46:17 -0400
-To: davem@davemloft.net (David Miller)
-In-Reply-To: <20060823.224800.124082063.davem@davemloft.net>
+	Fri, 25 Aug 2006 01:07:06 -0400
+To: Alexey Dobriyan <adobriyan@gmail.com>
+In-Reply-To: <20060825010654.GJ5204@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
+Alexey Dobriyan wrote:
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> ---
 > 
-> Those socket policies are becomming more and more difficult to
-> deal with.  I like them as a feature, but I wonder who uses
-> them :-)  They do not live in the flow cache so they hurt
-> performance until we find a way to place them there.  Perhaps
-> we can extend the flow keying somehow to account for socket
-> based policies in the flow cache.
+>  net/ipv6/netfilter/ip6t_REJECT.c |    4 +---
+>  1 file changed, 1 insertion(+), 3 deletions(-)
+> 
+> --- a/net/ipv6/netfilter/ip6t_REJECT.c
+> +++ b/net/ipv6/netfilter/ip6t_REJECT.c
+> @@ -256,9 +256,7 @@ static struct ip6t_target ip6t_reject_re
+>  
+>  static int __init ip6t_reject_init(void)
+>  {
+> -	if (ip6t_register_target(&ip6t_reject_reg))
+> -		return -EINVAL;
+> -	return 0;
+> +	return ip6t_register_target(&ip6t_reject_reg);
+>  }
 
-The KM's use it to allow ISAKMP traffic to punch through IPsec.
-
-That should definitely be the exception though.  Most apps should
-have zero socket policies, especially since socket policies need
-root privileges.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+This is already changed in the net-2.6.19 tree.
