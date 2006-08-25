@@ -1,17 +1,16 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] ip6t_REJECT: wire up ip6t_register_target() return value
-Date: Fri, 25 Aug 2006 05:06:54 +0400
-Message-ID: <20060825010654.GJ5204@martell.zuzino.mipt.ru>
+Subject: [PATCH] tcp_bic: use BUILD_BUG_ON
+Date: Fri, 25 Aug 2006 05:08:02 +0400
+Message-ID: <20060825010802.GK5204@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@lists.netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:9066 "EHLO
+Received: from ug-out-1314.google.com ([66.249.92.168]:32876 "EHLO
 	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1422811AbWHYBG6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Aug 2006 21:06:58 -0400
-Received: by ug-out-1314.google.com with SMTP id m3so685590ugc
-        for <netdev@vger.kernel.org>; Thu, 24 Aug 2006 18:06:57 -0700 (PDT)
+	id S1030493AbWHYBIH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Aug 2006 21:08:07 -0400
+Received: by ug-out-1314.google.com with SMTP id m3so685875ugc
+        for <netdev@vger.kernel.org>; Thu, 24 Aug 2006 18:08:06 -0700 (PDT)
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -20,20 +19,18 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- net/ipv6/netfilter/ip6t_REJECT.c |    4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ net/ipv4/tcp_bic.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
---- a/net/ipv6/netfilter/ip6t_REJECT.c
-+++ b/net/ipv6/netfilter/ip6t_REJECT.c
-@@ -256,9 +256,7 @@ static struct ip6t_target ip6t_reject_re
+--- a/net/ipv4/tcp_bic.c
++++ b/net/ipv4/tcp_bic.c
+@@ -231,7 +231,7 @@ static struct tcp_congestion_ops bictcp 
  
- static int __init ip6t_reject_init(void)
+ static int __init bictcp_register(void)
  {
--	if (ip6t_register_target(&ip6t_reject_reg))
--		return -EINVAL;
--	return 0;
-+	return ip6t_register_target(&ip6t_reject_reg);
+-	BUG_ON(sizeof(struct bictcp) > ICSK_CA_PRIV_SIZE);
++	BUILD_BUG_ON(sizeof(struct bictcp) > ICSK_CA_PRIV_SIZE);
+ 	return tcp_register_congestion_control(&bictcp);
  }
  
- static void __exit ip6t_reject_fini(void)
 
