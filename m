@@ -1,46 +1,45 @@
-From: Brice Goglin <brice@myri.com>
-Subject: myri10ge conversion to non-contiguous skb
-Date: Thu, 24 Aug 2006 18:26:25 -0400
-Message-ID: <44EE2791.50101@myri.com>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [PATCH 44/44] [XFRM] IPV6: Support Mobile IPv6 extension headers
+ sorting.
+Date: Fri, 25 Aug 2006 09:56:28 +0900
+Message-ID: <44EE4ABC.6050604@linux-ipv6.org>
+References: <20060824.150442.44820672.yoshfuji@linux-ipv6.org>	<20060823.235404.108743952.davem@davemloft.net>	<44ED4FC3.9060005@linux-ipv6.org> <20060824.045850.74749237.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
+	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:6299 "EHLO
-	myri.com") by vger.kernel.org with ESMTP id S1422768AbWHXW02 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 18:26:28 -0400
-Received: from [172.31.3.180] (dhcp180.myri-dhcp.com [172.31.3.180])
-	by myri.com (8.12.9+Sun/8.12.9) with ESMTP id k7OMQQmc020728
-	for <netdev@vger.kernel.org>; Thu, 24 Aug 2006 15:26:26 -0700 (PDT)
-To: netdev@vger.kernel.org
+Received: from [203.178.140.9] ([203.178.140.9]:28570 "EHLO mail.gomagoma.org")
+	by vger.kernel.org with ESMTP id S932127AbWHYA4H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2006 20:56:07 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060824.045850.74749237.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+David Miller wrote:
+> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> Date: Thu, 24 Aug 2006 16:05:39 +0900
+> 
+>> David Miller wrote:
+>>> In the mean time, I will work on porting my XFRM hashing changes
+>>> for the current net-2.6.19 tree.
+>> FYI, your work will not have any conflict with the left of MIPv6 patches
+>> which I will describe later since they are almost out of XFRM.
+> 
+> Great.
+> 
+> I just finished the port and pushed all of that work to net-2.6.19,
+> can folks please take a look?
+> 
+> I tested IPSEC as best as I could with XFRM_SUB_POLICY enabled, but I
+> have no way currently to test sub-policies or MIPV6 cases.
 
-During the submission of the myri10ge driver, some people raised the
-question of using pages (or any kind of non-contiguous skb) instead of
-our current 16kB contiguous skb. We are looking at this right now and it
-is not clear what solution is the best. From what we understand, Linux
-provides two mostly redundant mechanisms to handle discontinuous skb,
-the skb->frags and the skb->frag_list, s2io using the latter while e1000
-uses the former. Is one or the other recommended? What is the purpose of
-having them both in the net core?
+OK, I will review it and also start my XFRM test with net-2.6.19
+as I've done with my tree.
 
-Thank you
-Brice Goglin
+Regards,
 
->>> Imho you will want to work directly with pages shortly.  
->>>       
->> We had thought about doing this, but were a little nervous since we did
->> not know of any other drivers that worked directly with pages.  If this
->> is an official direction to work directly with pages, we will. 
->>     
-> s2io does. e1000 does it with skb frags.
-> If your hardware allows header split and driver can put headers into
-> skb->data and real data into frag_list, that allows to create various
-> interesting things like receiving zero-copy support and netchannels
-> support. It is work in progress, not official direction currently,
-> but this definitely will help your driver to support future high 
-> performance extensions.
->   
+-- 
+Masahide NAKAMURA
