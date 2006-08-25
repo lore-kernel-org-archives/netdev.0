@@ -1,55 +1,38 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [NET_SCHED]: Add mask support to fwmark classifier
-Date: Fri, 25 Aug 2006 08:52:20 -0400
-Message-ID: <1156510340.5162.145.camel@jzny2>
-References: <44EED0FC.4050108@trash.net>
-	 <20060825105428.GR3470@postel.suug.ch>  <44EEE6DE.4090703@trash.net>
-Reply-To: hadi@cyberus.ca
+From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
+Subject: Re: [PATCH 0/7] [DCCP]: Fixes and enhancements
+Date: Fri, 25 Aug 2006 10:19:13 -0300
+Message-ID: <39e6f6c70608250619k35708fafjdf18b939d08f158d@mail.gmail.com>
+References: <200608241516.34448.ian.mcdonald@jandi.co.nz>
+	 <20060824.045927.41635764.davem@davemloft.net>
+	 <5640c7e00608241109l1a0102c5m77a77b35ef2a12e5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Cc: "David Miller" <davem@davemloft.net>, a.bittau@cs.ucl.ac.uk,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:685 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1750798AbWHYMxc
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Aug 2006 08:53:32 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1GGbBj-0003CY-ON
-	for netdev@vger.kernel.org; Fri, 25 Aug 2006 08:53:31 -0400
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <44EEE6DE.4090703@trash.net>
+Received: from nz-out-0102.google.com ([64.233.162.199]:9602 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S1751308AbWHYNTO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Aug 2006 09:19:14 -0400
+Received: by nz-out-0102.google.com with SMTP id n1so588826nzf
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2006 06:19:14 -0700 (PDT)
+To: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+In-Reply-To: <5640c7e00608241109l1a0102c5m77a77b35ef2a12e5@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-25-08 at 14:02 +0200, Patrick McHardy wrote:
-> Thomas Graf wrote:
-> > * Patrick McHardy <kaber@trash.net> 2006-08-25 12:29
-> > 
-> >>The problem is that in order to avoid walking through all filters
-> >>contained in one instance, we need to mask the value before the
-> >>lookup. This means all filters share the same mask, which is
-> >>taken from the first filter created and stored in the filter head.
-> >>The user interface however always refers to a single filter,
-> >>not the head, so it can't be changed afterwards unless we just
-> >>overwrite it whenever a new filter is installed. Both is not
-> >>really perfect. The current patch doesn't allow to change the
-> >>mark and enforces that all filters use the same one, which I think
-> >>is better than allowing inconsistent configurations.
-> > 
-> > 
-> > The other option gets down to replacing the hash table with a
-> > list and that's not an option in my opinion. This looks very
-> > good to me.
-> 
-> 
-> Great, thanks. I'll send it off to Dave with two similar patches
-> for IPv4 and DecNET routing rules.
+On 8/24/06, Ian McDonald <ian.mcdonald@jandi.co.nz> wrote:
+> > I spent all of today on USAGI's IPSEC/MIPV6 patches and related
+> > issues, so I'll look into this tomorrow.
+> >
+> > Thanks Ian.
+> >
+> Yes I saw that. Take your time as this is nowhere near as important!
 
-ACKed by me as well.
+Sigh, I'm still busy indeed, gave a quick look at the series and up to
+the 10th patch its OK at first sight, should improve the current
+situation, thanks.
 
-cheers,
-jamal
-
+- Arnaldo
