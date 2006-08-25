@@ -1,43 +1,60 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: Re: [PATCH 44/44] [XFRM] IPV6: Support Mobile IPv6 extension headers sorting.
-Date: Fri, 25 Aug 2006 23:29:05 +0900
-Message-ID: <20060825232819.66C6.NAKAM@linux-ipv6.org>
-References: <44EECBB0.7070001@linux-ipv6.org> <20060825.031651.88475974.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [NET_SCHED]: Add mask support to fwmark classifier
+Date: Fri, 25 Aug 2006 10:55:54 -0400
+Message-ID: <1156517754.5162.170.camel@jzny2>
+References: <44EED0FC.4050108@trash.net>
+	 <20060825105428.GR3470@postel.suug.ch>  <44EEE6DE.4090703@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Cc: Thomas Graf <tgraf@suug.ch>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.178.140.9] ([203.178.140.9]:8620 "EHLO mail.gomagoma.org")
-	by vger.kernel.org with ESMTP id S1751452AbWHYO3H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 10:29:07 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060825.031651.88475974.davem@davemloft.net>
+Received: from mx02.cybersurf.com ([209.197.145.105]:59577 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S1030241AbWHYO4p
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Aug 2006 10:56:45 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1GGd70-0002Xy-WD
+	for netdev@vger.kernel.org; Fri, 25 Aug 2006 10:56:46 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <44EEE6DE.4090703@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 25 Aug 2006 03:16:51 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-> Date: Fri, 25 Aug 2006 19:06:40 +0900
+On Fri, 2006-25-08 at 14:02 +0200, Patrick McHardy wrote:
+> Thomas Graf wrote:
+> > * Patrick McHardy <kaber@trash.net> 2006-08-25 12:29
+> > 
+> >>The problem is that in order to avoid walking through all filters
+> >>contained in one instance, we need to mask the value before the
+> >>lookup. This means all filters share the same mask, which is
+> >>taken from the first filter created and stored in the filter head.
+> >>The user interface however always refers to a single filter,
+> >>not the head, so it can't be changed afterwards unless we just
+> >>overwrite it whenever a new filter is installed. Both is not
+> >>really perfect. The current patch doesn't allow to change the
+> >>mark and enforces that all filters use the same one, which I think
+> >>is better than allowing inconsistent configurations.
+> > 
+> > 
+> > The other option gets down to replacing the hash table with a
+> > list and that's not an option in my opinion. This looks very
+> > good to me.
 > 
-> > I've found a problem about MIPv6 CN with the patch below.
-> 
-> We just need to search by priority in the inexact list, even
-> if we get a hit in the hash table.
-> 
-> The fix is trivial, please try this patch:
 
+This doesnt obsolete my previous ack, but:
 
-Thank you for providing it quickly.
-It works! 
+Another approach could have been to add the mask as part of the hashing.
+and you add the new hash field not in the head rather in the filter. At
+runtime, you hash - walk the bucket and compare the mask as well as the
+index.
 
-I continue my test with this patch for now to confirm other features.
+The above could be a future improvement. 
 
-Regards,
+cheers,
+jamal
 
--- 
-Masahide NAKAMURA
 
