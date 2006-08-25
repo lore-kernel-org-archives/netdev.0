@@ -1,56 +1,240 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: [1/1] connector: add userspace example code into Documentation/connector/
-Date: Fri, 25 Aug 2006 11:05:27 +0400
-Message-ID: <20060825070527.GB1816@2ka.mipt.ru>
-References: <20060825064956.GA20468@2ka.mipt.ru> <44EE9F53.2090303@trash.net>
+Date: Fri, 25 Aug 2006 11:11:02 +0400
+Message-ID: <20060825071102.GD1816@2ka.mipt.ru>
+References: <20060825064956.GA20468@2ka.mipt.ru> <44EE9F53.2090303@trash.net> <20060825070527.GB1816@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:33177 "EHLO 2ka.mipt.ru")
-	by vger.kernel.org with ESMTP id S1750929AbWHYHFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 03:05:41 -0400
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:49067 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1750710AbWHYHL1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 03:11:27 -0400
 To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <44EE9F53.2090303@trash.net>
+In-Reply-To: <20060825070527.GB1816@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 25, 2006 at 08:57:23AM +0200, Patrick McHardy (kaber@trash.net) wrote:
-> Evgeniy Polyakov wrote:
-> > Hello.
-> > 
-> > I was asked several times to include userspace example code into
-> > Documentation, so if there is no policy against it, consider attached patch 
-> > for 2.6.18. This program works with included Documentation/connector/cn_test.c 
-> > connector module.
-> 
-> > +	l_local.nl_family = AF_NETLINK;
-> > +	l_local.nl_groups = 0x123;
-> > +	l_local.nl_pid = 0;
-> > +
-> > +	if (bind(s, (struct sockaddr *)&l_local, sizeof(struct sockaddr_nl)) == -1) {
-> > +		perror("bind");
-> > +		close(s);
-> > +		return -1;
-> > +	}
-> > +
-> > +	{
-> > +		int on = l_local.nl_groups;
-> > +		setsockopt(s, 270, 1, &on, sizeof(on));
-> > +	}
-> 
-> Example code shouldn't use magic numbers, please use the proper defines.
-> And the code is wrong, using the same group number for bind (which takes
-> a bitmask) and setsockopt (which takes a group number) doesn't work.
-> Its not necessary to use setsockopt if you already used bind anyway.
+Hello.
 
-I put there explicit socket option to show how it works in case there
-will be several group requests, which will not be placed into initial
-bind call.
-But you are right, that magic numbers are not that good.
-I will update program with appropriate changes.
+I was asked several times to include userspace example code into
+Documentation, so if there is no policy against it, consider attached patch 
+for 2.6.18. This program works with included Documentation/connector/cn_test.c 
+connector module.
 Thank you.
+
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+
+--- /dev/null	2006-08-23 17:09:03.438578500 +0400
++++ ./Documentation/connector/ucon.c	2006-08-25 11:31:48.000000000 +0400
+@@ -0,0 +1,206 @@
++/*
++ * 	ucon.c
++ *
++ * Copyright (c) 2004+ Evgeniy Polyakov <johnpol@2ka.mipt.ru>
++ * 
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
++ */
++
++#include <asm/types.h>
++
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <sys/poll.h>
++
++#include <linux/netlink.h>
++#include <linux/rtnetlink.h>
++
++#include <arpa/inet.h>
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <string.h>
++#include <errno.h>
++#include <time.h>
++
++#include <linux/connector.h>
++
++#define DEBUG
++#define NETLINK_CONNECTOR 	11
++
++#ifdef DEBUG
++#define ulog(f, a...) fprintf(stdout, f, ##a)
++#else
++#define ulog(f, a...) do {} while (0)
++#endif
++
++static int need_exit;
++static __u32 seq;
++
++static int netlink_send(int s, struct cn_msg *msg)
++{
++	struct nlmsghdr *nlh;
++	unsigned int size;
++	int err;
++	char buf[128];
++	struct cn_msg *m;
++	
++	size = NLMSG_SPACE(sizeof(struct cn_msg) + msg->len);
++
++	nlh = (struct nlmsghdr *)buf;
++	nlh->nlmsg_seq = seq++;
++	nlh->nlmsg_pid = getpid();
++	nlh->nlmsg_type = NLMSG_DONE;
++	nlh->nlmsg_len = NLMSG_LENGTH(size - sizeof(*nlh));
++	nlh->nlmsg_flags = 0;
++
++	m = NLMSG_DATA(nlh);
++#if 0
++	ulog("%s: [%08x.%08x] len=%u, seq=%u, ack=%u.\n",
++	       __func__, msg->id.idx, msg->id.val, msg->len, msg->seq, msg->ack);
++#endif
++	memcpy(m, msg, sizeof(*m) + msg->len);
++
++	err = send(s, nlh, size, 0);
++	if (err == -1)
++		ulog("Failed to send: %s [%d].\n",
++			strerror(errno), errno);
++
++	return err;
++}
++
++int main(int argc, char *argv[])
++{
++	int s;
++	char buf[1024];
++	int len;
++	struct nlmsghdr *reply;
++	struct sockaddr_nl l_local;
++	struct cn_msg *data;
++	FILE *out;
++	time_t tm;
++	struct pollfd pfd;
++
++	if (argc < 2)
++		out = stdout;
++	else {
++		out = fopen(argv[1], "a+");
++		if (!out) {
++			ulog("Unable to open %s for writing: %s\n",
++				argv[1], strerror(errno));
++			out = stdout;
++		}
++	}
++
++	memset(buf, 0, sizeof(buf));
++
++	s = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_CONNECTOR);
++	if (s == -1) {
++		perror("socket");
++		return -1;
++	}
++
++	l_local.nl_family = AF_NETLINK;
++	l_local.nl_groups = 0x123; /* bitmask of requested groups */
++	l_local.nl_pid = 0;
++
++	if (bind(s, (struct sockaddr *)&l_local, sizeof(struct sockaddr_nl)) == -1) {
++		perror("bind");
++		close(s);
++		return -1;
++	}
++
++#if 0
++	{
++		int on = 0x57; /* Additional group number */
++		setsockopt(s, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, &on, sizeof(on));
++	}
++#endif	
++	if (0) {
++		int i, j;
++	
++		memset(buf, 0, sizeof(buf));
++		
++		data = (struct cn_msg *)buf;
++
++		data->id.idx = 0x123;
++		data->id.val = 0x456;
++		data->seq = seq++;
++		data->ack = 0;
++		data->len = 0;
++
++		for (j=0; j<10; ++j) {
++			for (i=0; i<1000; ++i) {
++				len = netlink_send(s, data);
++			}
++
++			ulog("%d messages have been sent to %08x.%08x.\n", i, data->id.idx, data->id.val);
++		}
++
++		return 0;
++	}
++		
++
++	pfd.fd = s;
++
++	while (!need_exit) {
++		pfd.events = POLLIN;
++		pfd.revents = 0;
++		switch (poll(&pfd, 1, -1)) {
++			case 0:
++				need_exit = 1;
++				break;
++			case -1:
++				if (errno != EINTR) {
++					need_exit = 1;
++					break;
++				}
++				continue;
++		} 
++		if (need_exit)
++			break;
++
++		memset(buf, 0, sizeof(buf));
++		len = recv(s, buf, sizeof(buf), 0);
++		if (len == -1) {
++			perror("recv buf");
++			close(s);
++			return -1;
++		}
++		reply = (struct nlmsghdr *)buf;
++
++		switch (reply->nlmsg_type) {
++		case NLMSG_ERROR:
++			fprintf(out, "Error message received.\n");
++			fflush(out);
++			break;
++		case NLMSG_DONE:
++			data = (struct cn_msg *)NLMSG_DATA(reply);
++
++			time(&tm);
++			fprintf(out, "%.24s : [%x.%x] [%08u.%08u].\n",
++				ctime(&tm), data->id.idx, data->id.val, data->seq, data->ack);
++			fflush(out);
++			break;
++		default:
++			break;
++		}
++	}
++
++	close(s);
++	return 0;
++}
 
 -- 
 	Evgeniy Polyakov
