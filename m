@@ -1,86 +1,78 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: IPSec kernel oops on ppc64
-Date: Fri, 25 Aug 2006 17:10:59 -0500
-Message-ID: <200608252210.k7PMAxpO025638@faith.austin.ibm.com>
-Cc: gcwilson@us.ibm.com, jmorris@redhat.com
+From: Marc Bevand <m.bevand@gmail.com>
+Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
+Date: Fri, 25 Aug 2006 22:33:09 +0000 (UTC)
+Message-ID: <loom.20060825T235849-675@post.gmane.org>
+References: <20060805202603.GA9740@thunk.org> <1551EAE59135BE47B544934E30FC4FC093FA21@NT-IRVA-0751.brcm.ad.broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:62408 "EHLO e5.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1422916AbWHYWVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 18:21:54 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e5.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id k7PMLrlu024477
-	for <netdev@vger.kernel.org>; Fri, 25 Aug 2006 18:21:53 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7PMLrGX257296
-	for <netdev@vger.kernel.org>; Fri, 25 Aug 2006 18:21:53 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7PMLqaJ007742
-	for <netdev@vger.kernel.org>; Fri, 25 Aug 2006 18:21:52 -0400
+Received: from main.gmane.org ([80.91.229.2]:42151 "EHLO ciao.gmane.org")
+	by vger.kernel.org with ESMTP id S1751544AbWHYWkF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2006 18:40:05 -0400
+Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1GGkLK-00089Z-0r
+	for netdev@vger.kernel.org; Sat, 26 Aug 2006 00:40:04 +0200
+Received: from 216.239.132.34 ([216.239.132.34])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 26 Aug 2006 00:40:02 +0200
+Received: from m.bevand by 216.239.132.34 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 26 Aug 2006 00:40:02 +0200
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I installed 2.6.17 + patch-2.6.18-rc4 + 2.6.18-rc4-mm2
-onto two pSeries power 5 (ppc64 lpars) machines. I configured
-IPSec using the configuration listed below. 
+Michael Chan <mchan <at> broadcom.com> writes:
+>
+> Turning off ASF is just a matter of changing some bits in NVRAM
+> and recalculating the checksum.  If you need the tool to do this,
+> I'll have someone send it to you.
+>
+> Note that on some of the blade servers, I believe ASF is vital
+> and should not be disabled.
 
-A ping from one machine to the other, hangs. 
-No packets leave the machine issuing the ping.
-When I tried sftp, I received following oops.
+Still, it would be great if ASF could be disabled, because I have
+noticed that when ASF is enabled, the tg3 driver automatically disables
+TSO (TCP Segmentation Offloading). Here is a dmesg output from a server
+where I am seeing that behavior:
 
-Has anyone else had problems with IPSec on pSeries?
+  eth0: Tigon3 [partno(BCM95704A6) rev 2100 PHY(5704)] (PCIX:133MHz:64-bit) \
+    10/100/1000BaseT Ethernet 00:30:48:59:c4:94
+  eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] Split[0] WireSpeed[1] TSOcap[0]
+  [...]
+  eth1: Tigon3 [partno(BCM95704A6) rev 2100 PHY(5704)] (PCIX:133MHz:64-bit) \
+    10/100/1000BaseT Ethernet 00:30:48:59:c4:95
+  eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] Split[0] WireSpeed[1] TSOcap[1]
 
-[root@joy-hv4 jml]# sftp hvracer1
-Connecting to hvracer1...
-kernel BUG in skb_to_sgvec at net/xfrm/xfrm_algo.c:620!
-cpu 0x0: Vector: 700 (Program Check) at [c0000000466eb240]
-    pc: c00000000035f2f4: .skb_to_sgvec+0x288/0x2ec
-    lr: d0000000009605e0: .esp_output+0x340/0x494 [esp4]
-    sp: c0000000466eb4c0
-   msr: 8000000000029032
-  current = 0xc000000045a69910
-  paca    = 0xc000000000484400
-    pid   = 2213, comm = ssh
-kernel BUG in skb_to_sgvec at net/xfrm/xfrm_algo.c:620!
-enter ? for help
-0:mon> t
-[c0000000466eb590] d0000000009605e0 .esp_output+0x340/0x494 [esp4]
-[c0000000466eb680] c000000000357bd4 .xfrm4_output_finish2+0x2b8/0x3d0
-[c0000000466eb720] c000000000357ea0 .xfrm4_output+0x74/0x88
-[c0000000466eb7a0] c00000000031b188 .ip_queue_xmit+0x4a8/0x540
-[c0000000466eb8a0] c00000000032e9b8 .tcp_transmit_skb+0x820/0x890
-[c0000000466eb960] c000000000331b74 .tcp_connect+0x308/0x3b0
-[c0000000466eba00] c0000000003361d0 .tcp_v4_connect+0x52c/0x6c0
-[c0000000466ebb80] c000000000344664 .inet_stream_connect+0x10c/0x358
-[c0000000466ebc60] c0000000002dba14 .sys_connect+0xd8/0x120
-[c0000000466ebd90] c0000000002fe420 .compat_sys_socketcall+0xdc/0x214
-[c0000000466ebe30] c00000000000871c syscall_exit+0x0/0x40
---- Exception: c00 (System Call) at 0000000007a9f8fc
-SP (fc63f230) is in userspace
+Both interfaces are fundamentally TSO-capable, but since ASF is enabled
+on eth0, tg3 disables TSO on this interface. Of course at this point it
+is not even possible to use ethtool to re-enable it because the driver
+considers eth0 as not TSO-capable at all.
 
+As far as I know, the tg3 driver has been doing that since one of your
+patches shipped with 2.6.11-rc2-bk3, Michael, see [1]. Here is the relevant
+code snippet (line numbers are for 2.6.16):
 
-------------------------------------------------------------------------
-Configured IPSec as follows:
+  10835   if (tp->tg3_flags2 & TG3_FLG2_HW_TSO) {
+  10836           tp->tg3_flags2 |= TG3_FLG2_TSO_CAPABLE;
+  10837   }
+  10838   else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
+  10839       GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701 ||
+  10840       tp->pci_chip_rev_id == CHIPREV_ID_5705_A0 ||
+  10841       (tp->tg3_flags & TG3_FLAG_ENABLE_ASF) != 0) {
+  10842           tp->tg3_flags2 &= ~TG3_FLG2_TSO_CAPABLE;
+  10843   } else {
+  10844           tp->tg3_flags2 |= TG3_FLG2_TSO_CAPABLE;
+  10845   }
 
-add x.x.x.55 x.x.x.206 esp 35590
--m transport
--E 3des-cbc "06183223c23a21e8b36c566b"
--A hmac-md5 "TAHITEST89ABCDEF";
+The culprit is line 10841. Why is that done ?
 
-add x.x.x.206 x.x.x.55 esp 12360
--m transport
--E 3des-cbc "06183223c23a21e8b36c566b"
--A hmac-md5 "TAHITEST89ABCDEF";
+[1] ftp://ftp.us.kernel.org:/pub/linux/kernel/v2.6/snapshots/old/
+    patch-2.6.11-rc2-bk3.log, patch-2.6.11-rc2-bk3.bz2
 
-spdadd x.x.x.55 x.x.x.206 any -P in ipsec
-        esp/transport//require;
-
-spdadd x.x.x.206 x.x.x.55 any -P out ipsec
-        esp/transport//require;
-
-Same config on both machines, except for  spdadd entry. The "in" and "out"
-are swapped on the other machine.
+--
+Marc Bevand
 
 
-Regards,
-Joy Latten
