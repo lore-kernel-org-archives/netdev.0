@@ -1,86 +1,114 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH] ethtool v4: add autoneg advertise feature
-Date: Fri, 25 Aug 2006 20:58:07 -0400
-Message-ID: <20060825205807.0af2f721.billfink@mindspring.com>
-References: <9929d2390608240822w7a586d7ai679d2af0be7c7213@mail.gmail.com>
-	<1551EAE59135BE47B544934E30FC4FC093FAA2@NT-IRVA-0751.brcm.ad.broadcom.com>
-	<20060825194254.7657318f.billfink@mindspring.com>
-	<9929d2390608251728u3c182abcya76e3139b82101a1@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [2.6.17.8] NFS stall / BUG in UDP fragment processing / SKB trimming
+Date: Sat, 26 Aug 2006 11:18:39 +1000
+Message-ID: <20060826011839.GA14010@gondor.apana.org.au>
+References: <87zme9fy94.fsf@hades.wkstn.nix> <20060813125910.GA18463@gondor.apana.org.au> <20060825230316.GA3254@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, jgarzik@pobox.com, netdev@vger.kernel.org,
-	davem@davemloft.net, john.ronciak@intel.com,
-	jesse.brandeburg@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Nix <nix@esperi.org.uk>, linux-kernel@vger.kernel.org,
+	Neil Brown <neilb@suse.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:14766 "EHLO
-	elasmtp-scoter.atl.sa.earthlink.net") by vger.kernel.org with ESMTP
-	id S1422899AbWHZA6L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Aug 2006 20:58:11 -0400
-To: "Jeff Kirsher" <tarbal@gmail.com>
-In-Reply-To: <9929d2390608251728u3c182abcya76e3139b82101a1@mail.gmail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:14863 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751378AbWHZBTc
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Aug 2006 21:19:32 -0400
+To: Greg KH <greg@kroah.com>
+Content-Disposition: inline
+In-Reply-To: <20060825230316.GA3254@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 25 Aug 2006, Jeff Kirsher wrote:
-
-> On 8/25/06, Bill Fink <billfink@mindspring.com> wrote:
-> >
-> > I agree.  Something like:
-> >
-> >         ethtool -s ethx auto on advertise mode1+mode2+...+moden
-> >
-> > For example:
-> >
-> >         ethtool -s ethx auto on advertise 100-half+100-full
-> >
-> > to set speed 100 either half or full duplex.
-> >
-> > Maybe have some abbreviations such as 100-all (same as above) or
-> > all-half (for all supported half duplex) or just all (for all supported
-> > modes), which I suppose is the default.
-> >
-> > Just an idea.
-> >
-> >                                                 -Bill
-> >
+On Fri, Aug 25, 2006 at 04:03:16PM -0700, Greg KH wrote:
 > 
-> I agree that using a hex value is less intuitive, but with proper
-> documentation in the man file it would be easily understood.  It is
-> also easier to state
-> ethtool -s ethx autoneg on advertise 0x0F
-> than it would be to do:
-> ethtool -s ethx autoneg on advertise 100-half+100-full+10-half+10-full
+> This patch doesn't apply at all to the latest 2.6.17-stable kernel tree.
+> Care to rediff it?
 
-This could be abbreviated to:
+Hmm, I just rebased and it actually applied as is to 2.6.17.11 :)
+Anyway, here is the result:
 
-	ethtool -s ethx autoneg on advertise 100-all+10-all
+[INET]: Use pskb_trim_unique when trimming paged unique skbs
 
-> Not that it is impossible to do, but the code to do the parsing would
-> not be as clean as it is to use a hex value.  Currently ethtool
-> already uses numeric values for messagelevel, phyad and sopass.  So I
-> am not suggesting something completely new.  I have already submitted
-> a patch to keep the old functionality while adding the new.  Only
-> thing left for this is to create the manual documentation so that
-> users can easily understand how to use the functionality.
-> 
-> 10-half     = 0x01
-> 10-full      = 0x02
-> 100-half   = 0x04
-> 100-full    = 0x08
-> 1000-half = 0x10 (actually not supported by IEEE standards)
+The IPv4/IPv6 datagram output path was using skb_trim to trim paged
+packets because they know that the packet has not been cloned yet
+(since the packet hasn't been given to anything else in the system).
 
-I thought the above wasn't a supported option.
+This broke because skb_trim no longer allows paged packets to be
+trimmed.  Paged packets must be given to one of the pskb_trim functions
+instead.
 
-> 1000-full  = 0x20
-> auto        = 0x00 or 0x3F
-> 
-> In addition the code already tests the value that the user enters with
-> what is supported and only displays the supported values.
+This patch adds a new pskb_trim_unique function to cover the IPv4/IPv6
+datagram output path scenario and replaces the corresponding skb_trim
+calls with it.
 
-I agree that with decent documentation, use of the hex values shouldn't
-be that difficult for most users, although using hex arithmetic might
-be Greek to some.  I was just suggesting a possible alternative, but
-I admit it's a fairly minor issue one way or the other.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 
-						-Bill
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 2c31bb0..a1ce843 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1009,6 +1009,21 @@ static inline int pskb_trim(struct sk_bu
+ }
+ 
+ /**
++ *	pskb_trim_unique - remove end from a paged unique (not cloned) buffer
++ *	@skb: buffer to alter
++ *	@len: new length
++ *
++ *	This is identical to pskb_trim except that the caller knows that
++ *	the skb is not cloned so we should never get an error due to out-
++ *	of-memory.
++ */
++static inline void pskb_trim_unique(struct sk_buff *skb, unsigned int len)
++{
++	int err = pskb_trim(skb, len);
++	BUG_ON(err);
++}
++
++/**
+  *	skb_orphan - orphan a buffer
+  *	@skb: buffer to orphan
+  *
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index cff9c3a..d987a27 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -946,7 +946,7 @@ alloc_new_skb:
+ 				skb_prev->csum = csum_sub(skb_prev->csum,
+ 							  skb->csum);
+ 				data += fraggap;
+-				skb_trim(skb_prev, maxfraglen);
++				pskb_trim_unique(skb_prev, maxfraglen);
+ 			}
+ 
+ 			copy = datalen - transhdrlen - fraggap;
+@@ -1139,7 +1139,7 @@ ssize_t	ip_append_page(struct sock *sk, 
+ 					data, fraggap, 0);
+ 				skb_prev->csum = csum_sub(skb_prev->csum,
+ 							  skb->csum);
+-				skb_trim(skb_prev, maxfraglen);
++				pskb_trim_unique(skb_prev, maxfraglen);
+ 			}
+ 
+ 			/*
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index e460489..56eddb3 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1047,7 +1047,7 @@ alloc_new_skb:
+ 				skb_prev->csum = csum_sub(skb_prev->csum,
+ 							  skb->csum);
+ 				data += fraggap;
+-				skb_trim(skb_prev, maxfraglen);
++				pskb_trim_unique(skb_prev, maxfraglen);
+ 			}
+ 			copy = datalen - transhdrlen - fraggap;
+ 			if (copy < 0) {
