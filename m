@@ -1,39 +1,39 @@
 From: Valerie Henson <val_henson@linux.intel.com>
-Subject: [patch 10/10] [TULIP] Update winbond840.c version
-Date: Fri, 25 Aug 2006 17:02:37 -0700
-Message-ID: <20060826000304.734423000@linux.intel.com>
+Subject: [patch 03/10] [TULIP] Make DS21143 printout match lspci output
+Date: Fri, 25 Aug 2006 17:02:30 -0700
+Message-ID: <20060826000302.959538000@linux.intel.com>
 References: <20060826000227.818796000@linux.intel.com>
-Cc: Valerie Henson <val_henson@linux.intel.com>,
+Cc: Thibaut Varene <varenet@parisc-linux.org>,
+	Kyle McMartin <kyle@parisc-linux.org>,
+	Valerie Henson <val_henson@linux.intel.com>,
 	Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:60976 "EHLO
-	azsmga101.ch.intel.com") by vger.kernel.org with ESMTP
-	id S1422940AbWHZADM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Aug 2006 20:03:12 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1422946AbWHZAEO@vger.kernel.org>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Content-Disposition: inline; filename=tulip-rev-winbond-version
-Sender: netdev-owner@vger.kernel.org
+Content-Disposition: inline; filename=tulip-make-ds21143-printout-match-lspci-output
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Thibaut Varene <varenet@parisc-linux.org>
+
+Signed-off-by: Thibaut Varene <varenet@parisc-linux.org>
+Signed-off-by: Kyle McMartin <kyle@parisc-linux.org>
 Signed-off-by: Valerie Henson <val_henson@linux.intel.com>
-Cc: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
 
 ---
- drivers/net/tulip/winbond-840.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/tulip/tulip_core.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
---- linux-2.6.18-rc4-mm1.orig/drivers/net/tulip/winbond-840.c
-+++ linux-2.6.18-rc4-mm1/drivers/net/tulip/winbond-840.c
-@@ -45,8 +45,8 @@
- */
+--- linux-2.6.18-rc4-mm1.orig/drivers/net/tulip/tulip_core.c
++++ linux-2.6.18-rc4-mm1/drivers/net/tulip/tulip_core.c
+@@ -147,7 +147,7 @@ struct tulip_chip_table tulip_tbl[] = {
+ 	HAS_MII | HAS_MEDIA_TABLE | CSR12_IN_SROM | HAS_PCI_MWI, tulip_timer },
  
- #define DRV_NAME	"winbond-840"
--#define DRV_VERSION	"1.01-d"
--#define DRV_RELDATE	"Nov-17-2001"
-+#define DRV_VERSION	"1.01-e"
-+#define DRV_RELDATE	"Aug-23-2006"
+   /* DC21142, DC21143 */
+-  { "Digital DS21143 Tulip", 128, 0x0801fbff,
++  { "Digital DS21142/43 Tulip", 128, 0x0801fbff,
+ 	HAS_MII | HAS_MEDIA_TABLE | ALWAYS_CHECK_MII | HAS_ACPI | HAS_NWAY
+ 	| HAS_INTR_MITIGATION | HAS_PCI_MWI, t21142_timer },
  
- 
- /* Automatically extracted configuration info:
 
 --
