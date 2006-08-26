@@ -1,41 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] IPV6 : segmentation offload not set correctly on TCP children
-Date: Sat, 26 Aug 2006 09:59:41 +1000
-Message-ID: <20060825235940.GA13086@gondor.apana.org.au>
-References: <20060821212243.GA1558@cip.informatik.uni-erlangen.de> <20060821150231.31a947d4@localhost.localdomain> <20060821222634.GC21790@cip.informatik.uni-erlangen.de> <20060825154353.3ecaf508@localhost.localdomain>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH -rt DO NOT APPLY] Fix for tg3 networking lockup
+Date: Fri, 25 Aug 2006 17:01:48 -0700
+Message-ID: <1156550508.5021.16.camel@rh4>
+References: <20060805202603.GA9740@thunk.org>
+ <1551EAE59135BE47B544934E30FC4FC093FA21@NT-IRVA-0751.brcm.ad.broadcom.com>
+ <loom.20060825T235849-675@post.gmane.org>
+ <1156546533.5021.10.camel@rh4>
+ <aaccfcb60608251648l138ae3bdre9a41aef3d541d7d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Glanzmann <sithglan@stud.uni-erlangen.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:12558 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932293AbWHZAAj
+Received: from mms3.broadcom.com ([216.31.210.19]:53519 "EHLO
+	MMS3.broadcom.com") by vger.kernel.org with ESMTP id S932336AbWHZACl
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Aug 2006 20:00:39 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060825154353.3ecaf508@localhost.localdomain>
+	Fri, 25 Aug 2006 20:02:41 -0400
+To: "Marc Bevand" <m.bevand@gmail.com>
+In-Reply-To: <aaccfcb60608251648l138ae3bdre9a41aef3d541d7d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 25, 2006 at 03:43:53PM -0700, Stephen Hemminger wrote:
-> TCP over IPV6 would incorrectly inherit the GSO settings.
-> This would cause kernel to send Tcp Segmentation Offload packets for
-> IPV6 data to devices that can't handle it. It caused the sky2 driver
-> to lock http://bugzilla.kernel.org/show_bug.cgi?id=7050
-> and the e1000 would generate bogus packets. I can't blame the
-> hardware for gagging if the upper layers feed it garbage.
-> 
-> This was a new bug in 2.6.18 introduced with GSO support.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+On Fri, 2006-08-25 at 16:48 -0700, Marc Bevand wrote:
 
-Thanks for catching this Stephen!
+> 
+> But I was able to turn TSO on via ethtool -K. This is exactly the behavior I
+> would like to see in tg3. So are you saying the patch I applied actually
+> breaks ASF ?
+> 
+Yes, the TSO firmware code that tg3 downloads to the chip using your
+patch will overwrite the ASF code.  The ASF code will get reloaded again
+at the next chip reset once your patch is reverted.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
