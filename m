@@ -1,107 +1,162 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@wide.ad.jp>
-Subject: [NET]: Use BUILD_BUG_ON() for checking size of skb->cb.
-Date: Sat, 26 Aug 2006 21:19:26 +0900 (JST)
-Message-ID: <20060826.211926.115316425.yoshfuji@linux-ipv6.org>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: [PATCH] bcm43xx-d80211: 4311 support
+Date: Sat, 26 Aug 2006 15:16:02 +0200
+Message-ID: <200608261516.03170.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:22795 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S964943AbWHZMRg
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Aug 2006 08:17:36 -0400
-To: davem@davemloft.net
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-[NET]: Use BUILD_BUG_ON() for checking size of skb->cb.
+Hi John,
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Please apply this to wireless-dev.
 
----
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index c84a320..8f11a34 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1254,10 +1254,7 @@ static int __init inet_init(void)
- 	struct list_head *r;
- 	int rc = -EINVAL;
+--
+
+This adds support for the 4311 cards.
+
+Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c	2006-08-26 13:34:45.000000000 +0200
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c	2006-08-26 14:06:11.000000000 +0200
+@@ -129,6 +129,8 @@ static struct pci_device_id bcm43xx_pci_
+ 	{ PCI_VENDOR_ID_BROADCOM, 0x4301, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+ 	/* Broadcom 4307 802.11b */
+ 	{ PCI_VENDOR_ID_BROADCOM, 0x4307, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++	/* Broadcom 4311 802.11a/b/g */
++	{ PCI_VENDOR_ID_BROADCOM, 0x4311, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+ 	/* Broadcom 4312 802.11a/b/g */
+ 	{ PCI_VENDOR_ID_BROADCOM, 0x4312, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+ 	/* Broadcom 4318 802.11b/g */
+@@ -2301,7 +2303,9 @@ static int bcm43xx_wireless_core_init(st
+ 	u32 sbimconfiglow;
+ 	u8 limit;
  
--	if (sizeof(struct inet_skb_parm) > sizeof(dummy_skb->cb)) {
--		printk(KERN_CRIT "%s: panic\n", __FUNCTION__);
--		goto out;
--	}
-+	BUILD_BUG_ON(sizeof(struct inet_skb_parm) > sizeof(dummy_skb->cb));
+-	if (bcm->ssb.chip_rev < 5) {
++	assert(bcm->core_pci);
++	if (bcm->core_pci->cc == SSB_CC_PCI &&
++	    bcm->core_pci->rev <= 5) {
+ 		sbimconfiglow = bcm43xx_read32(bcm, SSB_IMCFGLO);
+ 		sbimconfiglow &= ~SSB_IMCFGLO_REQTO;
+ 		sbimconfiglow &= ~SSB_IMCFGLO_SERTO;
+@@ -2712,6 +2716,7 @@ static int bcm43xx_probe_cores(struct bc
  
- 	rc = proto_register(&tcp_prot, 1);
- 	if (rc)
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index ac85e9c..b77726e 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -757,6 +757,8 @@ static int __init inet6_init(void)
-         struct list_head *r;
- 	int err;
+ 		switch (core->cc) {
+ 		case SSB_CC_PCI:
++		case SSB_CC_PCIE:
+ 			if (bcm->core_pci) {
+ 				printk(KERN_WARNING PFX "Multiple PCI cores found.\n");
+ 				break;
+Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_power.c
+===================================================================
+--- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_power.c	2006-08-24 22:18:03.000000000 +0200
++++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_power.c	2006-08-26 15:05:21.000000000 +0200
+@@ -153,8 +153,6 @@ int bcm43xx_pctl_init(struct bcm43xx_pri
+ 	int err, maxfreq;
+ 	struct ssb_core *old_core;
  
-+	BUILD_BUG_ON(sizeof(struct inet6_skb_parm) > sizeof(dummy_skb->cb));
-+
- #ifdef MODULE
- #if 0 /* FIXME --RR */
- 	if (!mod_member_present(&__this_module, can_unload))
-@@ -766,11 +768,6 @@ #if 0 /* FIXME --RR */
- #endif
- #endif
+-	if (!(bcm->ssb.chipcommon_capabilities & SSB_CHIPCOMMON_CAP_PCTL))
+-		return 0;
+ 	if (!bcm->core_chipcommon)
+ 		return 0;
  
--	if (sizeof(struct inet6_skb_parm) > sizeof(dummy_skb->cb)) {
--		printk(KERN_CRIT "inet6_proto_init: size fault\n");
--		return -EINVAL;
--	}
--
- 	err = proto_register(&tcpv6_prot, 1);
+@@ -163,11 +161,26 @@ int bcm43xx_pctl_init(struct bcm43xx_pri
  	if (err)
  		goto out;
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index b85c1f9..f3d63a5 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1728,8 +1728,6 @@ static struct net_proto_family netlink_f
- 	.owner	= THIS_MODULE,	/* for consistency 8) */
- };
  
--extern void netlink_skb_parms_too_large(void);
--
- static int __init netlink_proto_init(void)
- {
- 	struct sk_buff *dummy_skb;
-@@ -1741,8 +1739,7 @@ static int __init netlink_proto_init(voi
- 	if (err != 0)
- 		goto out;
+-	maxfreq = bcm43xx_pctl_clockfreqlimit(bcm, 1);
+-	bcm43xx_write32(bcm, SSB_CHIPCOMMON_PLLONDELAY,
+-			(maxfreq * 150 + 999999) / 1000000);
+-	bcm43xx_write32(bcm, SSB_CHIPCOMMON_FREFSELDELAY,
+-			(maxfreq * 15 + 999999) / 1000000);
++	if (bcm->ssb.chip_id == 0x4321) {
++		if (bcm->ssb.chip_rev == 0)
++			bcm43xx_write32(bcm, SSB_CHIPCOMMON_CHIPCTL, 0x03A4);
++		else if (bcm->ssb.chip_rev == 1)
++			bcm43xx_write32(bcm, SSB_CHIPCOMMON_CHIPCTL, 0x00A4);
++	}
++	if (bcm->ssb.chipcommon_capabilities & SSB_CHIPCOMMON_CAP_PCTL) {
++		if (bcm->core_chipcommon->rev >= 10) {
++			/* Set Idle Power clock rate to 1Mhz */
++			bcm43xx_write32(bcm, SSB_CHIPCOMMON_SYSCLKCTL,
++					(bcm43xx_read32(bcm, SSB_CHIPCOMMON_SYSCLKCTL) &
++					 0x0000FFFF) | 0x00040000);
++		} else {
++			maxfreq = bcm43xx_pctl_clockfreqlimit(bcm, 1);
++			bcm43xx_write32(bcm, SSB_CHIPCOMMON_PLLONDELAY,
++					(maxfreq * 150 + 999999) / 1000000);
++			bcm43xx_write32(bcm, SSB_CHIPCOMMON_FREFSELDELAY,
++					(maxfreq * 15 + 999999) / 1000000);
++		}
++	}
  
--	if (sizeof(struct netlink_skb_parms) > sizeof(dummy_skb->cb))
--		netlink_skb_parms_too_large();
-+	BUILD_BUG_ON(sizeof(struct netlink_skb_parms) > sizeof(dummy_skb->cb));
+ 	err = ssb_switch_core(&bcm->ssb, old_core);
+ 	assert(err == 0);
+Index: wireless-dev/include/linux/ssb.h
+===================================================================
+--- wireless-dev.orig/include/linux/ssb.h	2006-08-26 13:40:11.000000000 +0200
++++ wireless-dev/include/linux/ssb.h	2006-08-26 14:57:44.000000000 +0200
+@@ -279,12 +279,40 @@ enum {
+ #define  SSB_CHIPCOMMON_CAP_64BIT	0x08000000	/* 64-bit Backplane */
+ #define SSB_CHIPCOMMON_CORECTL		0x0008
+ #define SSB_CHIPCOMMON_BIST		0x000C
++#define SSB_CHIPCOMMON_OTPSTAT		0x0010
++#define SSB_CHIPCOMMON_OTPCTL		0x0014
++#define SSB_CHIPCOMMON_OTPPRG		0x0018
++#define SSB_CHIPCOMMON_IRQSTAT		0x0020
++#define SSB_CHIPCOMMON_IRQMASK		0x0024
++#define SSB_CHIPCOMMON_CHIPCTL		0x0028	/* Rev >= 11 only */
++#define SSB_CHIPCOMMON_CHIPSTAT		0x002C	/* Rev >= 11 only */
++#define SSB_CHIPCOMMON_JTAGCMD		0x0030	/* Rev >= 10 only */
++#define SSB_CHIPCOMMON_JTAGIR		0x0034	/* Rev >= 10 only */
++#define SSB_CHIPCOMMON_JTAGDR		0x0038	/* Rev >= 10 only */
++#define SSB_CHIPCOMMON_JTAGCTL		0x003C	/* Rev >= 10 only */
++#define SSB_CHIPCOMMON_FLASHCTL		0x0040
++#define SSB_CHIPCOMMON_FLASHADDR	0x0044
++#define SSB_CHIPCOMMON_FLASHDATA	0x0048
+ #define SSB_CHIPCOMMON_BCAST_ADDR	0x0050
+ #define SSB_CHIPCOMMON_BCAST_DATA	0x0054
+-#define SSB_CHIPCOMMON_PLLONDELAY	0x00B0
+-#define SSB_CHIPCOMMON_FREFSELDELAY	0x00B4
+-#define SSB_CHIPCOMMON_SLOWCLKCTL	0x00B8
+-#define SSB_CHIPCOMMON_SYSCLKCTL	0x00C0
++#define SSB_CHIPCOMMON_GPIOIN		0x0060
++#define SSB_CHIPCOMMON_GPIOOUT		0x0064
++#define SSB_CHIPCOMMON_GPIOOUTEN	0x0068
++#define SSB_CHIPCOMMON_GPIOCTL		0x006C
++#define SSB_CHIPCOMMON_GPIOPOL		0x0070
++#define SSB_CHIPCOMMON_GPIOIRQ		0x0074
++#define SSB_CHIPCOMMON_WATCHDOG		0x0080
++#define SSB_CHIPCOMMON_CLOCK_N		0x0090
++#define SSB_CHIPCOMMON_CLOCK_SB		0x0094
++#define SSB_CHIPCOMMON_CLOCK_PCI	0x0098
++#define SSB_CHIPCOMMON_CLOCK_M2		0x009C
++#define SSB_CHIPCOMMON_CLOCK_MIPS	0x00A0
++#define SSB_CHIPCOMMON_UARTCLKDIV	0x00A4	/* Rev >= 3 only */
++#define SSB_CHIPCOMMON_PLLONDELAY	0x00B0	/* Rev >= 4 only */
++#define SSB_CHIPCOMMON_FREFSELDELAY	0x00B4	/* Rev >= 4 only */
++#define SSB_CHIPCOMMON_SLOWCLKCTL	0x00B8	/* 6 <= Rev <= 9 only */
++#define SSB_CHIPCOMMON_SYSCLKCTL	0x00C0	/* Rev >= 3 only */
++#define SSB_CHIPCOMMON_CLKSTSTR		0x00C4	/* Rev >= 3 only */
  
- 	nl_table = kcalloc(MAX_LINKS, sizeof(*nl_table), GFP_KERNEL);
- 	if (!nl_table) {
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index de6ec51..7c91c20 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2060,10 +2060,7 @@ static int __init af_unix_init(void)
- 	int rc = -1;
- 	struct sk_buff *dummy_skb;
- 
--	if (sizeof(struct unix_skb_parms) > sizeof(dummy_skb->cb)) {
--		printk(KERN_CRIT "%s: panic\n", __FUNCTION__);
--		goto out;
--	}
-+	BUILD_BUG_ON(sizeof(struct unix_skb_parms) > sizeof(dummy_skb->cb));
- 
- 	rc = proto_register(&unix_proto, 1);
-         if (rc != 0) {
+ /* PCI core registers. */
+ #define SSB_PCICORE_CTL		0x0000	/* PCI Control */
+
 
 -- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Greetings Michael.
