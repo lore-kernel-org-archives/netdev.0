@@ -1,88 +1,107 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: [PATCH] ssb: fix core CC and REV reading
-Date: Sat, 26 Aug 2006 13:49:22 +0200
-Message-ID: <200608261349.23217.mb@bu3sch.de>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@wide.ad.jp>
+Subject: [NET]: Use BUILD_BUG_ON() for checking size of skb->cb.
+Date: Sat, 26 Aug 2006 21:19:26 +0900 (JST)
+Message-ID: <20060826.211926.115316425.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:22795 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S964943AbWHZMRg
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Aug 2006 08:17:36 -0400
+To: davem@davemloft.net
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi John,
+[NET]: Use BUILD_BUG_ON() for checking size of skb->cb.
 
-Please apply this to wireless-dev.
-This is the correct fix for the ChipCommon issue.
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
---
-
-Fix CoreCode and CoreRev extraction from coreidhi.
-And yes, it's ugly. But that's how the device works.
-
-Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-
-Index: wireless-dev/drivers/misc/ssb.c
-===================================================================
---- wireless-dev.orig/drivers/misc/ssb.c	2006-08-26 13:34:03.000000000 +0200
-+++ wireless-dev/drivers/misc/ssb.c	2006-08-26 13:43:11.000000000 +0200
-@@ -643,8 +643,9 @@ int ssb_probe_cores(struct ssb *ssb,
- 		goto error;
+---
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index c84a320..8f11a34 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1254,10 +1254,7 @@ static int __init inet_init(void)
+ 	struct list_head *r;
+ 	int rc = -EINVAL;
  
- 	idhi = ssb_read32(ssb, SSB_IDHIGH);
--	cc = (idhi & SSB_IDHIGH_CC_MASK) >> SSB_IDHIGH_CC_SHIFT;
--	rev = (idhi & SSB_IDHIGH_RC_MASK);
-+	cc = (idhi & SSB_IDHIGH_CC) >> SSB_IDHIGH_CC_SHIFT;
-+	rev = (idhi & SSB_IDHIGH_RCLO);
-+	rev |= (idhi & SSB_IDHIGH_RCHI) >> SSB_IDHIGH_RCHI_SHIFT;
+-	if (sizeof(struct inet_skb_parm) > sizeof(dummy_skb->cb)) {
+-		printk(KERN_CRIT "%s: panic\n", __FUNCTION__);
+-		goto out;
+-	}
++	BUILD_BUG_ON(sizeof(struct inet_skb_parm) > sizeof(dummy_skb->cb));
  
- 	ssb->chipcommon_capabilities = 0;
- 	ssb->nr_cores = 0;
-@@ -716,9 +717,10 @@ int ssb_probe_cores(struct ssb *ssb,
- 		core = &(ssb->cores[i]);
+ 	rc = proto_register(&tcp_prot, 1);
+ 	if (rc)
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index ac85e9c..b77726e 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -757,6 +757,8 @@ static int __init inet6_init(void)
+         struct list_head *r;
+ 	int err;
  
- 		idhi = ssb_read32(ssb, SSB_IDHIGH);
--		core->cc = (idhi & SSB_IDHIGH_CC_MASK) >> SSB_IDHIGH_CC_SHIFT;
--		core->rev = (idhi & SSB_IDHIGH_RC_MASK);
--		core->vendor = (idhi & SSB_IDHIGH_VC_MASK) >> SSB_IDHIGH_VC_SHIFT;
-+		core->cc = (idhi & SSB_IDHIGH_CC) >> SSB_IDHIGH_CC_SHIFT;
-+		core->rev = (idhi & SSB_IDHIGH_RCLO);
-+		core->rev |= (idhi & SSB_IDHIGH_RCHI) >> SSB_IDHIGH_RCHI_SHIFT;
-+		core->vendor = (idhi & SSB_IDHIGH_VC) >> SSB_IDHIGH_VC_SHIFT;
- 		core->index = i;
++	BUILD_BUG_ON(sizeof(struct inet6_skb_parm) > sizeof(dummy_skb->cb));
++
+ #ifdef MODULE
+ #if 0 /* FIXME --RR */
+ 	if (!mod_member_present(&__this_module, can_unload))
+@@ -766,11 +768,6 @@ #if 0 /* FIXME --RR */
+ #endif
+ #endif
  
- 		dprintk(KERN_DEBUG PFX "Core %d found: "
-Index: wireless-dev/include/linux/ssb.h
-===================================================================
---- wireless-dev.orig/include/linux/ssb.h	2006-08-26 13:34:03.000000000 +0200
-+++ wireless-dev/include/linux/ssb.h	2006-08-26 13:40:11.000000000 +0200
-@@ -100,10 +100,12 @@
- #define  SSB_IDLOW_SSBREV_22	0x00000000 /* <= 2.2 */
- #define  SSB_IDLOW_SSBREV_23	0x10000000 /* 2.3 */
- #define SSB_IDHIGH		0x0FFC     /* SB Identification High */
--#define  SSB_IDHIGH_RC_MASK	0x0000000f /* Revision Code */
--#define  SSB_IDHIGH_CC_MASK	0x0000fff0 /* Core Code */
-+#define  SSB_IDHIGH_RCLO	0x0000000F /* Revision Code (low part) */
-+#define  SSB_IDHIGH_CC		0x00008FF0 /* Core Code */
- #define  SSB_IDHIGH_CC_SHIFT	4
--#define  SSB_IDHIGH_VC_MASK	0xffff0000 /* Vendor Code */
-+#define  SSB_IDHIGH_RCHI	0x00007000 /* Revision Code (high part) */
-+#define  SSB_IDHIGH_RCHI_SHIFT	8	   /* yes, shift 8 is right */
-+#define  SSB_IDHIGH_VC		0xFFFF0000 /* Vendor Code */
- #define  SSB_IDHIGH_VC_SHIFT	16
+-	if (sizeof(struct inet6_skb_parm) > sizeof(dummy_skb->cb)) {
+-		printk(KERN_CRIT "inet6_proto_init: size fault\n");
+-		return -EINVAL;
+-	}
+-
+ 	err = proto_register(&tcpv6_prot, 1);
+ 	if (err)
+ 		goto out;
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index b85c1f9..f3d63a5 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1728,8 +1728,6 @@ static struct net_proto_family netlink_f
+ 	.owner	= THIS_MODULE,	/* for consistency 8) */
+ };
  
- /* SPROM shadow area. If not otherwise noted, fields are
-
+-extern void netlink_skb_parms_too_large(void);
+-
+ static int __init netlink_proto_init(void)
+ {
+ 	struct sk_buff *dummy_skb;
+@@ -1741,8 +1739,7 @@ static int __init netlink_proto_init(voi
+ 	if (err != 0)
+ 		goto out;
+ 
+-	if (sizeof(struct netlink_skb_parms) > sizeof(dummy_skb->cb))
+-		netlink_skb_parms_too_large();
++	BUILD_BUG_ON(sizeof(struct netlink_skb_parms) > sizeof(dummy_skb->cb));
+ 
+ 	nl_table = kcalloc(MAX_LINKS, sizeof(*nl_table), GFP_KERNEL);
+ 	if (!nl_table) {
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index de6ec51..7c91c20 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2060,10 +2060,7 @@ static int __init af_unix_init(void)
+ 	int rc = -1;
+ 	struct sk_buff *dummy_skb;
+ 
+-	if (sizeof(struct unix_skb_parms) > sizeof(dummy_skb->cb)) {
+-		printk(KERN_CRIT "%s: panic\n", __FUNCTION__);
+-		goto out;
+-	}
++	BUILD_BUG_ON(sizeof(struct unix_skb_parms) > sizeof(dummy_skb->cb));
+ 
+ 	rc = proto_register(&unix_proto, 1);
+         if (rc != 0) {
 
 -- 
-Greetings Michael.
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
