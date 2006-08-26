@@ -1,46 +1,90 @@
-From: Darren Salt <linux@youmustbejoking.demon.co.uk>
-Subject: Re: RTL8136
-Date: Sat, 26 Aug 2006 12:30:14 +0100
-Message-ID: <4E5C6C7764%linux@youmustbejoking.demon.co.uk>
-References: <4E5C083B8E%linux@youmustbejoking.demon.co.uk> <20060825190455.GA14812@electric-eye.fr.zoreil.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [patch 08/10] [TULIP] Handle pci_enable_device() errors in
+	resume
+Date: Sat, 26 Aug 2006 17:41:58 +0100
+Message-ID: <1156610518.3007.287.camel@localhost.localdomain>
+References: <20060826000227.818796000@linux.intel.com>
+	 <20060826000304.251263000@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from anchor-post-35.mail.demon.net ([194.217.242.85]:35850 "EHLO
-	anchor-post-35.mail.demon.net") by vger.kernel.org with ESMTP
-	id S1751584AbWHZNbp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Aug 2006 09:31:45 -0400
-To: netdev@vger.kernel.org, romieu@fr.zoreil.com
-In-Reply-To: <20060825190455.GA14812@electric-eye.fr.zoreil.com>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:4487 "EHLO
+	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP
+	id S1030236AbWHZQXX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Aug 2006 12:23:23 -0400
+To: Valerie Henson <val_henson@linux.intel.com>
+In-Reply-To: <20060826000304.251263000@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I demand that Francois Romieu may or may not have written...
+Ar Gwe, 2006-08-25 am 17:02 -0700, ysgrifennodd Valerie Henson:
+>  	pci_set_power_state(pdev, PCI_D0);
+>  	pci_restore_state(pdev);
+>  
+> -	pci_enable_device(pdev);
+> +	if ((retval = pci_enable_device(pdev))) {
+> +		printk (KERN_ERR "tulip: pci_enable_device failed in resume\n");
+> +		return retval;
+> +	}
+Should you not stick it back in D3 if you are being neat about this ?
 
-> Darren Salt <linux@youmustbejoking.demon.co.uk> :
->> In case you don't yet have an lspci dump for an RTL8136, here's one for a
->> device which is working with the r1000 driver which is supplied with
->> Ubuntu dapper (though the machine in question - a Toshiba Equium A110-233
->> - is actually running Debian testing.)
+ 
+>  	if ((retval = request_irq(dev->irq, &tulip_interrupt, IRQF_SHARED, dev->name, dev))) {
+>  		printk (KERN_ERR "tulip: request_irq failed in resume\n");
+> --- linux-2.6.18-rc4-mm1.orig/drivers/net/tulip/winbond-840.c
+> +++ linux-2.6.18-rc4-mm1/drivers/net/tulip/winbond-840.c
+> @@ -1626,14 +1626,18 @@ static int w840_resume (struct pci_dev *
+>  {
+>  	struct net_device *dev = pci_get_drvdata (pdev);
+>  	struct netdev_private *np = netdev_priv(dev);
+> +	int retval;
+>  
+>  	rtnl_lock();
+>  	if (netif_device_present(dev))
+>  		goto out; /* device not suspended */
+>  	if (netif_running(dev)) {
+> -		pci_enable_device(pdev);
+> -	/*	pci_power_on(pdev); */
+> -
+> +		if ((retval = pci_enable_device(pdev))) {
+> +			printk (KERN_ERR
+> +				"%s: pci_enable_device failed in resume\n",
+> +				dev->name);
+> +			return retval;
 
-> Thanks. The MM region was correctly guessed. If the driver does not work,
+NAK: What about rtnl_lock()
 
-... which it doesn't - the connection is lost, and the hardware continually
-tries and fails to re-establish it. I can at least get a 10baseT/full
-connection with help from ethtool, but trying to send anything over it fails;
-switching back to r1000 (and forcing the connection speed) gets things
-working again, though a reboot seems to be needed to get auto-negotiation of
-higher speeds working again (note that it's limited to 100baseT/full; I
-have nothing else capable of 1000baseT).
+> +		}
+>  		spin_lock_irq(&np->lock);
+>  		iowrite32(1, np->base_addr+PCIBusCfg);
+>  		ioread32(np->base_addr+PCIBusCfg);
+> --- linux-2.6.18-rc4-mm1.orig/drivers/net/tulip/de2104x.c
+> +++ linux-2.6.18-rc4-mm1/drivers/net/tulip/de2104x.c
+> @@ -2138,17 +2138,21 @@ static int de_resume (struct pci_dev *pd
+>  {
+>  	struct net_device *dev = pci_get_drvdata (pdev);
+>  	struct de_private *de = dev->priv;
+> +	int retval;
+>  
+>  	rtnl_lock();
+>  	if (netif_device_present(dev))
+>  		goto out;
+> -	if (netif_running(dev)) {
+> -		pci_enable_device(pdev);
+> -		de_init_hw(de);
+> -		netif_device_attach(dev);
+> -	} else {
+> -		netif_device_attach(dev);
+> +	if (!netif_running(dev))
+> +		goto out_attach;
+> +	if ((retval = pci_enable_device(pdev))) {
+> +		printk (KERN_ERR "%s: pci_enable_device failed in resume\n",
+> +			dev->name);
+> +		return retval;
 
-> you can try to s/RTL_CFG_1/RTL_CFG_2/ for the 0x8136 entry in the
-> rtl8169_pci_tbl array.
+NAK again - rtnl_lock
 
-That appears to make no difference.
 
--- 
-| Darren Salt    | linux or ds at              | nr. Ashington, | Toon
-| RISC OS, Linux | youmustbejoking,demon,co,uk | Northumberland | Army
-|   Kill all extremists!
-
-"The universe is a spheroid region 705m in diameter."
