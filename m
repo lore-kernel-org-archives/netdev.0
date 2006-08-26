@@ -1,35 +1,41 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [patch 05/10] [TULIP] Defer tulip_select_media() to process
-	context
-Date: Sat, 26 Aug 2006 17:44:26 +0100
-Message-ID: <1156610666.3007.290.camel@localhost.localdomain>
-References: <20060826000227.818796000@linux.intel.com>
-	 <20060826000303.523391000@linux.intel.com>
+From: "Randy.Dunlap" <rdunlap@xenotime.net>
+Subject: [PATCH] ATM: he: fix section mismatch
+Date: Sat, 26 Aug 2006 12:42:38 -0700
+Message-ID: <20060826124238.580c21d1.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Kyle McMartin <kyle@parisc-linux.org>,
-	Jeff Garzik <jeff@garzik.org>
+Cc: chas@cmf.nrl.navy.mil, akpm <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:64955 "EHLO
-	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP
-	id S1422777AbWHZQ1y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Aug 2006 12:27:54 -0400
-To: Valerie Henson <val_henson@linux.intel.com>
-In-Reply-To: <20060826000303.523391000@linux.intel.com>
+Received: from xenotime.net ([66.160.160.81]:33745 "HELO xenotime.net")
+	by vger.kernel.org with SMTP id S1750763AbWHZTjZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Aug 2006 15:39:25 -0400
+Received: from midway.site ([71.117.233.155]) by xenotime.net for <netdev@vger.kernel.org>; Sat, 26 Aug 2006 12:39:23 -0700
+To: netdev <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ar Gwe, 2006-08-25 am 17:02 -0700, ysgrifennodd Valerie Henson:
-> +static inline void tulip_tx_timeout_complete(struct tulip_private *tp, void __iomem *ioaddr)
-> +{
-> +	/* Stop and restart the chip's Tx processes. */
-> +	tulip_restart_rxtx(tp);
-> +	/* Trigger an immediate transmit demand. */
-> +	iowrite32(0, ioaddr + CSR1);
+From: Randy Dunlap <rdunlap@xenotime.net>
 
-In mmio mode it will only be "immediate" if the caller is guaranteed to
-read from the device and flush the iowrite ....
+Fix section mismatch:
+WARNING: drivers/atm/he.o - Section mismatch: reference to .init.text: from .text between 'he_start' (at offset 0x218a) and 'he_service_tbrq'
+
+Signed-off-by: Randy Dunlap <rdunlap@xenotime.net>
+---
+ drivers/atm/he.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+--- linux-2618-rc4g1-all.orig/drivers/atm/he.c
++++ linux-2618-rc4g1-all/drivers/atm/he.c
+@@ -785,7 +785,7 @@ he_init_cs_block_rcm(struct he_dev *he_d
+ 	return 0;
+ }
+ 
+-static int __init
++static int __devinit
+ he_init_group(struct he_dev *he_dev, int group)
+ {
+ 	int i;
 
 
+---
