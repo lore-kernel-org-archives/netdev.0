@@ -1,75 +1,72 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: [PATCH] bcm43xx-d80211: add support for 4312
-Date: Sat, 26 Aug 2006 12:44:14 +0200
-Message-ID: <200608261244.14632.mb@bu3sch.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [IPV6]: Fix routing by fwmark
+Date: Sat, 26 Aug 2006 13:11:26 +0200
+Message-ID: <44F02C5E.3070701@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: multipart/mixed;
+ boundary="------------030309070104040107080702"
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:56704 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S964938AbWHZLNt
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Aug 2006 07:13:49 -0400
+To: "David S. Miller" <davem@davemloft.net>,
+	Netdev Mailing List <netdev@vger.kernel.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi John,
+This is a multi-part message in MIME format.
+--------------030309070104040107080702
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Please apply this to wireless-dev.
 
-Larry, theoretically it's possible to backport this
-to wireless-2.6. But it depends on some other changes
-that are (going to be) in the ssb module. That's support
-for PCIE and CHIPCOMMON2, as far as I can see.
-So if you want to backport this, you also have to backport
-the PCIE and CHIPCOMMON2 stuff.
+--------------030309070104040107080702
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
---
+[IPV6]: Fix routing by fwmark
 
-Add support for Broadcom 4312 a/b/g devices.
+Fix mark comparison, also dump the mask to userspace when the mask is zero,
+but the mark is not (in which case the mark is dumped, so the mask is needed
+to make sense of it).
 
-Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Index: wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-dev.orig/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c	2006-08-24 22:49:45.000000000 +0200
-+++ wireless-dev/drivers/net/wireless/d80211/bcm43xx/bcm43xx_main.c	2006-08-26 12:39:24.000000000 +0200
-@@ -129,6 +129,8 @@ static struct pci_device_id bcm43xx_pci_
- 	{ PCI_VENDOR_ID_BROADCOM, 0x4301, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
- 	/* Broadcom 4307 802.11b */
- 	{ PCI_VENDOR_ID_BROADCOM, 0x4307, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	/* Broadcom 4312 802.11a/b/g */
-+	{ PCI_VENDOR_ID_BROADCOM, 0x4312, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
- 	/* Broadcom 4318 802.11b/g */
- 	{ PCI_VENDOR_ID_BROADCOM, 0x4318, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
- 	/* Broadcom 4319 802.11b/g */
-@@ -2742,7 +2744,7 @@ static int bcm43xx_probe_cores(struct bc
+---
+commit 829b107d9e4ef2bbbf2ccf25a748235739e9231e
+tree 4ca98fb79f3e5e9cb0175ad9c074d9e4447735ac
+parent 6963696ada0c98c53c2d59ca66944adb4d13e3a5
+author Patrick McHardy <kaber@trash.net> Sat, 26 Aug 2006 13:12:32 +0200
+committer Patrick McHardy <kaber@trash.net> Sat, 26 Aug 2006 13:12:32 +0200
+
+ net/ipv6/fib6_rules.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index ee4aa43..2fbc71d 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -129,7 +129,7 @@ static int fib6_rule_match(struct fib_ru
+ 		return 0;
  
- 			switch (core->rev) {
- 			case 2: case 4: case 5: case 6:
--			case 7: case 9:
-+			case 7: case 9: case 10:
- 				break;
- 			default:
- 				printk(KERN_ERR PFX "Error: Unsupported 80211 core revision %u\n",
-@@ -3247,7 +3249,7 @@ static int bcm43xx_read_phyinfo(struct b
- 			phy_rev_ok = 0;
- 		break;
- 	case BCM43xx_PHYTYPE_G:
--		if (phy_rev > 7)
-+		if (phy_rev > 8)
- 			phy_rev_ok = 0;
- 		break;
- 	default:
+ #ifdef CONFIG_IPV6_ROUTE_FWMARK
+-	if ((r->fwmark ^ fl->fl6_fwmark) / r->fwmask)
++	if ((r->fwmark ^ fl->fl6_fwmark) & r->fwmask)
+ 		return 0;
+ #endif
+ 
+@@ -256,7 +256,7 @@ #ifdef CONFIG_IPV6_ROUTE_FWMARK
+ 	if (rule6->fwmark)
+ 		NLA_PUT_U32(skb, FRA_FWMARK, rule6->fwmark);
+ 
+-	if (rule6->fwmask)
++	if (rule6->fwmask || rule6->fwmark)
+ 		NLA_PUT_U32(skb, FRA_FWMASK, rule6->fwmask);
+ #endif
+ 
 
-
--- 
-Greetings Michael.
+--------------030309070104040107080702--
