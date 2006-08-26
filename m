@@ -1,79 +1,31 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH] ssb: Add support for new ChipCommon
-Date: Sat, 26 Aug 2006 13:31:00 +0200
-Message-ID: <200608261331.00527.mb@bu3sch.de>
-References: <200608261233.32336.mb@bu3sch.de>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [IPV6]: Fix routing by fwmark
+Date: Sat, 26 Aug 2006 20:39:53 +0900 (JST)
+Message-ID: <20060826.203953.88499916.yoshfuji@linux-ipv6.org>
+References: <44F02C5E.3070701@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-In-Reply-To: <200608261233.32336.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:20747 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S964941AbWHZLiE
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Aug 2006 07:38:04 -0400
+To: kaber@trash.net, davem@davemloft.net
+In-Reply-To: <44F02C5E.3070701@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Oops, sorry. Please drop this.
-This patch is wrong and I will submit a correct one, soon.
-a 0x900 core does not exist. Instead the meaning of the
-revision bits changed slightly.
+In article <44F02C5E.3070701@trash.net> (at Sat, 26 Aug 2006 13:11:26 +0200), Patrick McHardy <kaber@trash.net> says:
 
-On Saturday 26 August 2006 12:33, Michael Buesch wrote:
-> Hi John,
+> Fix mark comparison, also dump the mask to userspace when the mask is zero,
+> but the mark is not (in which case the mark is dumped, so the mask is needed
+> to make sense of it).
 > 
-> Please apply this to wireless-dev.
-> 
-> --
-> 
-> This adds support for the new 0x900 ChipCommon core.
-> 
-> Signed-off-by: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-> 
-> Index: wireless-dev/drivers/misc/ssb.c
-> ===================================================================
-> --- wireless-dev.orig/drivers/misc/ssb.c	2006-08-24 22:33:44.000000000 +0200
-> +++ wireless-dev/drivers/misc/ssb.c	2006-08-26 12:28:31.000000000 +0200
-> @@ -648,7 +648,7 @@
->  
->  	ssb->chipcommon_capabilities = 0;
->  	ssb->nr_cores = 0;
-> -	if (cc == SSB_CC_CHIPCOMMON) {
-> +	if (cc == SSB_CC_CHIPCOMMON || cc == SSB_CC_CHIPCOMMON2) {
->  		tmp = ssb_read32(ssb, SSB_CHIPCOMMON_CHIPID);
->  
->  		ssb->chip_id = (tmp & SSB_CHIPCOMMON_IDMASK);
-> @@ -656,7 +656,7 @@
->  				SSB_CHIPCOMMON_REVSHIFT;
->  		ssb->chip_package = (tmp & SSB_CHIPCOMMON_PACKMASK) >>
->  				    SSB_CHIPCOMMON_PACKSHIFT;
-> -		if (rev >= 4) {
-> +		if (rev >= 4 || cc == SSB_CC_CHIPCOMMON2) {
->  			ssb->nr_cores = (tmp & SSB_CHIPCOMMON_NRCORESMASK) >>
->  					SSB_CHIPCOMMON_NRCORESSHIFT;
->  		}
-> Index: wireless-dev/include/linux/ssb.h
-> ===================================================================
-> --- wireless-dev.orig/include/linux/ssb.h	2006-08-24 22:28:03.000000000 +0200
-> +++ wireless-dev/include/linux/ssb.h	2006-08-26 12:26:11.000000000 +0200
-> @@ -251,6 +251,7 @@
->  #define SSB_CC_MINI_MACPHY	0x823
->  #define SSB_CC_ARM_1176		0x824
->  #define SSB_CC_ARM_7TDMI	0x825
-> +#define SSB_CC_CHIPCOMMON2	0x900
->  
->  
->  /* ChipCommon core registers. */
-> 
-> 
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
--- 
-Greetings Michael.
+What a shame... Thank you for catching this.
+
+--yoshfuji
