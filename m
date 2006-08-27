@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] [NETLINK]: Make use of NLA_STRING/NLA_NUL_STRING
- attribute validation
-Date: Sat, 26 Aug 2006 20:13:29 -0700 (PDT)
-Message-ID: <20060826.201329.26100423.davem@davemloft.net>
-References: <20060822125354.196502354@postel.suug.ch>
-	<20060822125840.588411880@postel.suug.ch>
+Subject: Re: [PATCH 0/4] bridge-netfilter fixes
+Date: Sat, 26 Aug 2006 20:27:54 -0700 (PDT)
+Message-ID: <20060826.202754.115910695.davem@davemloft.net>
+References: <20060823001050.363374000@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:35238
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5785
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751189AbWH0DNl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Aug 2006 23:13:41 -0400
-To: tgraf@suug.ch
-In-Reply-To: <20060822125840.588411880@postel.suug.ch>
+	id S1750872AbWH0D2D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Aug 2006 23:28:03 -0400
+To: shemminger@osdl.org
+In-Reply-To: <20060823001050.363374000@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Tue, 22 Aug 2006 14:53:56 +0200
+From: shemminger@osdl.org
+Date: Tue, 22 Aug 2006 17:10:50 -0700
 
-> Converts existing NLA_STRING attributes to use the new
-> validation features, saving a couple of temporary buffers.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> This set of patches fixes issues with bridge netfilter code.
+> First patch is for 2.6.18 and fixes a crash. Later patches
+> could be deferred, they just cleanup the style, usage, etc.
 
-Applied, thanks Thomas.
+What a nasty bug.
+
+I'll push the bug fix to Linus for 2.6.18 right now, and
+after he eats that I'll rebase net-2.6.19 then put your
+other 3 patches on top.
+
+Thanks.
