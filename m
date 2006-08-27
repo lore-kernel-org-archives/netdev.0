@@ -1,65 +1,74 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: 2.6.18-rc4-mm3: NF_CONNTRACK_FTP=y compile error
-Date: Sun, 27 Aug 2006 04:42:19 +0200
-Message-ID: <20060827024219.GO4765@stusta.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.18-rc4-mm3: NF_CONNTRACK_FTP=y compile error
+Date: Sat, 26 Aug 2006 19:49:12 -0700 (PDT)
+Message-ID: <20060826.194912.45512897.davem@davemloft.net>
 References: <20060826160922.3324a707.akpm@osdl.org>
+	<20060827024219.GO4765@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+Content-Type: Text/Plain; charset=iso-2022-jp-2
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, yoshfuji@linux-ipv6.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	coreteam@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:9482 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1751103AbWH0CmU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Aug 2006 22:42:20 -0400
-To: Andrew Morton <akpm@osdl.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	davem@davemloft.net
-Content-Disposition: inline
-In-Reply-To: <20060826160922.3324a707.akpm@osdl.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:9860
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751127AbWH0CtV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Aug 2006 22:49:21 -0400
+To: bunk@stusta.de
+In-Reply-To: <20060827024219.GO4765@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 26, 2006 at 04:09:22PM -0700, Andrew Morton wrote:
->...
-> Changes since 2.6.18-rc4-mm2:
->...
->  git-net.patch
->...
->  git trees
->...
+From: Adrian Bunk <bunk@stusta.de>
+Date: Sun, 27 Aug 2006 04:42:19 +0200
 
-<--  snip  -->
+>   CC      net/netfilter/nf_conntrack_ftp.o
+> /home/bunk/linux/kernel-2.6/linux-2.6.18-rc4-mm3/net/netfilter/nf_conntrack_ftp.c: In function $,1rx(Bget_ipv6_addr$,1ry(B:
+> /home/bunk/linux/kernel-2.6/linux-2.6.18-rc4-mm3/net/netfilter/nf_conntrack_ftp.c:117: warning: implicit declaration of function $,1rx(Bin6_pton$,1ry(B
+> /home/bunk/linux/kernel-2.6/linux-2.6.18-rc4-mm3/net/netfilter/nf_conntrack_ftp.c:117: error: $,1rx(Bend$,1ry(B undeclared (first use in this function)
+> /home/bunk/linux/kernel-2.6/linux-2.6.18-rc4-mm3/net/netfilter/nf_conntrack_ftp.c:117: error: (Each undeclared identifier is reported only once
+> /home/bunk/linux/kernel-2.6/linux-2.6.18-rc4-mm3/net/netfilter/nf_conntrack_ftp.c:117: error: for each function it appears in.)
+> make[3]: *** [net/netfilter/nf_conntrack_ftp.o] Error 1
 
-=2E..
-  CC      net/netfilter/nf_conntrack_ftp.o
-/home/bunk/linux/kernel-2.6/linux-2.6.18-rc4-mm3/net/netfilter/nf_connt=
-rack_ftp.c: In function =E2=80=98get_ipv6_addr=E2=80=99:
-/home/bunk/linux/kernel-2.6/linux-2.6.18-rc4-mm3/net/netfilter/nf_connt=
-rack_ftp.c:117: warning: implicit declaration of function =E2=80=98in6_=
-pton=E2=80=99
-/home/bunk/linux/kernel-2.6/linux-2.6.18-rc4-mm3/net/netfilter/nf_connt=
-rack_ftp.c:117: error: =E2=80=98end=E2=80=99 undeclared (first use in t=
-his function)
-/home/bunk/linux/kernel-2.6/linux-2.6.18-rc4-mm3/net/netfilter/nf_connt=
-rack_ftp.c:117: error: (Each undeclared identifier is reported only onc=
-e
-/home/bunk/linux/kernel-2.6/linux-2.6.18-rc4-mm3/net/netfilter/nf_connt=
-rack_ftp.c:117: error: for each function it appears in.)
-make[3]: *** [net/netfilter/nf_conntrack_ftp.o] Error 1
+So the one single place where we call this new in6_pton() thing,
+it doesn't even compile.
 
-<--  snip  -->
-=20
-cu
-Adrian
+Yoshifuji, what tree are you testing your builds against?  This
+is the second build failure introduced by this in6_pton()
+changeset.
 
---=20
+I'm going to butcher it like this so at least it builds.
 
-    Gentoo kernels are 42 times more popular than SUSE kernels among
-    KLive users  (a service by SUSE contractor Andrea Arcangeli that
-    gathers data about kernels from many users worldwide).
+commit 32677088bc145cf7d45466e39286f1a8c7bf2d67
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Sat Aug 26 19:48:49 2006 -0700
 
-       There are three kinds of lies: Lies, Damn Lies, and Statistics.
-                                                    Benjamin Disraeli
+    [NETFILTER]: Fix nf_conntrack_ftp.c build.
+    
+    Noticed by Adrian Bunk.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
+diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
+index 9dccb40..0c17a5b 100644
+--- a/net/netfilter/nf_conntrack_ftp.c
++++ b/net/netfilter/nf_conntrack_ftp.c
+@@ -21,6 +21,7 @@ #include <linux/netfilter.h>
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/ctype.h>
++#include <linux/inet.h>
+ #include <net/checksum.h>
+ #include <net/tcp.h>
+ 
+@@ -114,7 +115,8 @@ static struct ftp_search {
+ static int
+ get_ipv6_addr(const char *src, size_t dlen, struct in6_addr *dst, u_int8_t term)
+ {
+-	int ret = in6_pton(src, min_t(size_t, dlen, 0xffff), dst, term, &end);
++	const char *end;
++	int ret = in6_pton(src, min_t(size_t, dlen, 0xffff), (u8 *)dst, term, &end);
+ 	if (ret > 0)
+ 		return (int)(end - src);
+ 	return 0;
