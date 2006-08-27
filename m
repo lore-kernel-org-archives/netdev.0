@@ -1,45 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 2.6.17] net/ipv6/udp.c: remove duplicate udp_get_port
- code
-Date: Sat, 26 Aug 2006 20:07:16 -0700 (PDT)
-Message-ID: <20060826.200716.85410384.davem@davemloft.net>
-References: <200608171325.47349@strip-the-willow>
+Subject: Re: [RESEND 1/2] [NETLINK]: Improve string attribute validation
+Date: Sat, 26 Aug 2006 20:11:57 -0700 (PDT)
+Message-ID: <20060826.201157.106264876.davem@davemloft.net>
+References: <20060822125354.196502354@postel.suug.ch>
+	<20060822125840.307365394@postel.suug.ch>
+	<20060822134049.GF3470@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:24552
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:34470
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751148AbWH0DHU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Aug 2006 23:07:20 -0400
-To: gerrit@erg.abdn.ac.uk
-In-Reply-To: <200608171325.47349@strip-the-willow>
+	id S1751144AbWH0DMG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Aug 2006 23:12:06 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20060822134049.GF3470@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: gerrit@erg.abdn.ac.uk
-Date: Thu, 17 Aug 2006 13:25:46 +0100
+From: Thomas Graf <tgraf@suug.ch>
+Date: Tue, 22 Aug 2006 15:40:49 +0200
 
-> [NET]: UDPv4 and UDPv6 use an almost identical version of the get_port function,
-> which is unnecessary since the (long) code differs in only one if-statement.
+> Searching for '\0' with strnchr() doesn't really work :-)
 > 
-> This patch creates one common function which is called by udp_v4_get_port() and
-> udp_v6_get_port(). As a result,
->   * duplicated code is removed
->   * udp_port_rover and local port lookup can now be removed from udp.h
->   * further savings follow since the same function will be used by UDP-Litev4 
->     and UDP-Litev6
+> Introduces a new attribute type NLA_NUL_STRING to support NUL
+> terminated strings. Attributes of this kind require to carry
+> a terminating NUL within the maximum specified in the policy.
 > 
-> In contrast to the patch sent in response to Yoshifujis comments (fixed by this
-> variant), the code below also removes the EXPORT_SYMBOL(udp_port_rover), since
-> udp_port_rover can now remain local to net/ipv4/udp.c.
+> The `old' NLA_STRING which is not required to be NUL terminated
+> is extended to provide means to specify a maximum length of the
+> string.
 > 
-> Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> Aims at easing the pain with using nla_strlcpy() on temporary
+> buffers.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Applied, and I marked udp_port_rover "static" for
-good measure.
-
-Thanks.
-
+Applied, thanks Thomas.
