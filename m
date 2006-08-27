@@ -1,46 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.18-rc4-mm[1,2,3] -- Network card not getting assigned an
- "eth" device name
-Date: Sun, 27 Aug 2006 00:38:00 -0700 (PDT)
-Message-ID: <20060827.003800.95504796.davem@davemloft.net>
-References: <a44ae5cd0608270007gc6a919fx9e36562d8023635d@mail.gmail.com>
-	<20060827001943.c559d37d.akpm@osdl.org>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: lockdep rt2500usb report
+Date: Sun, 27 Aug 2006 01:10:45 -0700
+Message-ID: <200608270110.51244.flamingice@sourmilk.net>
+References: <44DC4110.6080300@sipsolutions.net> <200608262214.26827.flamingice@sourmilk.net> <200608270917.16363.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart1769877.qrcFQoxrYM";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: miles.lane@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jeremy@goop.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751059AbWH0HiL@vger.kernel.org>
-To: akpm@osdl.org
-In-Reply-To: <20060827001943.c559d37d.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server8.tchmachines.com ([216.180.241.250]:46528 "EHLO
+	server8.tchmachines.com") by vger.kernel.org with ESMTP
+	id S1751680AbWH0IK7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Aug 2006 04:10:59 -0400
+To: Ivo van Doorn <ivdoorn@gmail.com>
+In-Reply-To: <200608270917.16363.IvDoorn@gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@osdl.org>
-Date: Sun, 27 Aug 2006 00:19:43 -0700
+--nextPart1769877.qrcFQoxrYM
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> Jeremy reported that a while back too.  I do not know what is causing it
-> and as far as I know no net developers have yet looked into it.
+On Sunday 27 August 2006 00:17, Ivo van Doorn wrote:
+> But in the end this is something that should be fixed in the stack right?
+> rt2x00 indeed seems to miss the ieee80211_netif_oper() commands,
+> I'll add them immediately.
+>
+I'm pretty sure it's entirely in the stack, and you shouldn't need to do=20
+anything to your driver.
 
-A debugging patch like this one should help figure out the culprit.
+=2DMichael Wu
 
-If we don't see the gibberish netdevice name printed in the kernel
-logs, then likely something is corrupting the netdevice structure or
-the memory holding the name.
+--nextPart1769877.qrcFQoxrYM
+Content-Type: application/pgp-signature
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d4a1ec3..45f9b19 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -738,6 +738,11 @@ int dev_change_name(struct net_device *d
- 
- 	if (!dev_valid_name(newname))
- 		return -EINVAL;
-+#if 1
-+	printk("[%s:%d]: Changing netdevice name from [%s] to [%s]\n",
-+	       current->comm, current->pid,
-+	       dev->name, newname);
-+#endif
- 
- 	if (strchr(newname, '%')) {
- 		err = dev_alloc_name(dev, newname);
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBE8VOKT3Oqt9AH4aERAlMFAKDIR6qgt6J6H8LVkh4vGK05ZRtjwQCffeWC
+3wQsnX2JuE3fqfsvojwhS1Q=
+=QmPI
+-----END PGP SIGNATURE-----
+
+--nextPart1769877.qrcFQoxrYM--
