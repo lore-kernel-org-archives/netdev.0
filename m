@@ -1,52 +1,71 @@
-From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: Re: lockdep rt2500usb report
-Date: Sun, 27 Aug 2006 09:17:15 +0200
-Message-ID: <200608270917.16363.IvDoorn@gmail.com>
-References: <44DC4110.6080300@sipsolutions.net> <200608262214.26827.flamingice@sourmilk.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.18-rc4-mm[1,2,3] -- Network card not getting assigned an
+ "eth" device name
+Date: Sun, 27 Aug 2006 00:19:43 -0700
+Message-ID: <20060827001943.c559d37d.akpm@osdl.org>
+References: <a44ae5cd0608270007gc6a919fx9e36562d8023635d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Jeremy Fitzhardinge <jeremy@goop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:64538 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1751100AbWH0HRX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Aug 2006 03:17:23 -0400
-Received: by nf-out-0910.google.com with SMTP id o25so1052683nfa
-        for <netdev@vger.kernel.org>; Sun, 27 Aug 2006 00:17:22 -0700 (PDT)
-To: Michael Wu <flamingice@sourmilk.net>
-In-Reply-To: <200608262214.26827.flamingice@sourmilk.net>
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:13783 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751315AbWH0HTt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Aug 2006 03:19:49 -0400
+To: "Miles Lane" <miles.lane@gmail.com>
+In-Reply-To: <a44ae5cd0608270007gc6a919fx9e36562d8023635d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 27 August 2006 07:14, Michael Wu wrote:
-> On Friday 11 August 2006 01:34, Johannes Berg wrote:
-> > This is running wireless-dev from yesterday. All I did was plug in a
-> > rt2500usb device into a usb port on a freshly booted system. I have a
-> > feeling that this is could be one of the problems reported earlier with
-> > the d80211 stack, but I haven't mastered the art of picking through
-> > these traces yet... What's swapper doing in there?
-> >
-> Ok, so it looks like dev_activate (called by dev_open) grabs queue_lock, then 
-> calls another function (dev_watchdog_up) which grabs xmit_lock. However, at 
-> that point, the device is up enough that someone who wants to try 
-> transmitting, can transmit (I think). If they're unlucky enough to transmit 
-> after the queue_lock is grabbed but before xmit_lock, we get a deadlock.
->
-> This seems avoidable either by setting carrier_off before calling dev_open, 
-> and turning it back on at a safe point (on association?), or simply refusing 
-> to transmit until it is reasonable to do so. (a similar thing was done in 
-> adm8211: call netif_stop_queue and return 1 if we're not ready to tx yet in 
-> order to hold skbs until association, where netif_wake_queue would be 
-> called.)
- 
-But in the end this is something that should be fixed in the stack right?
-rt2x00 indeed seems to miss the ieee80211_netif_oper() commands,
-I'll add them immediately.
 
-Thanks.
+Please copy relevant mailing lists and maintainers on bug reports.
 
-Ivo
+On Sun, 27 Aug 2006 00:07:50 -0700
+"Miles Lane" <miles.lane@gmail.com> wrote:
+
+> I have a:
+>=20
+> eth0: RealTek RTL8139 at 0xf8fa2800, 00:c0:9f:95:18:1b, IRQ 10
+> eth0:  Identified 8139 chip type 'RTL-8100B/8139D'
+>=20
+> and a:
+>=20
+> ipw2200: Intel(R) PRO/Wireless 2200/2915 Network Driver, 1.1.2kd
+> ipw2200: Copyright(c) 2003-2006 Intel Corporation
+> ipw2200: Detected Intel PRO/Wireless 2200BG Network Connection
+> ipw2200: Detected geography ZZM (11 802.11bg channels, 0 802.11a chan=
+nels)
+>=20
+> My dmesg output includes:
+> w<8E>^U<C1>: link down
+> NET: Registered protocol family 10
+> lo: Disabled Privacy Extensions
+> ADDRCONF(NETDEV_UP): w<8E>^U<C1>: link is not ready
+>=20
+> As you can see, one of my network cards is getting "w<8E>^U<C1>" as a
+> device name.  This isn't the actual string.  Here's what I get by
+> cutting and pasting from iwconfig: "w=EF=BF=BD"
+>=20
+> ifconfig shows:
+> HWaddr 00:C0:9F:95:18:1B
+>           UP BROADCAST MULTICAST  MTU:1500  Metric:1
+>           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000
+>           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+>           Interrupt:10 Base address:0x2800
+>=20
+> In most of my builds it has been the ipw2200 which gets busted by thi=
+s
+> problem.  This time, ifconfig sees eth1 and not eth0.  Oddly, dmesg
+> output includes:
+> eth0: RealTek RTL8139 at 0xf8fa2800, 00:c0:9f:95:18:1b, IRQ 10
+> eth0:  Identified 8139 chip type 'RTL-8100B/8139D'
+> so I am puzzled at the disappearance of eth0 from the ifconfig output=
+=2E
+
+Jeremy reported that a while back too.  I do not know what is causing i=
+t
+and as far as I know no net developers have yet looked into it.
+
