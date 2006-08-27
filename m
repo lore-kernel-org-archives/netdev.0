@@ -1,280 +1,365 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 1/10] rt2x00: Add register revision and firmware version to ethtool
-Date: Sun, 27 Aug 2006 17:39:12 +0200
-Message-ID: <200608271739.12131.IvDoorn@gmail.com>
+Subject: [PATCH 3/10] rt2x00: Mac address reading optimization
+Date: Sun, 27 Aug 2006 17:39:13 +0200
+Message-ID: <200608271739.13230.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:42540 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.186]:49708 "EHLO
 	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S1751106AbWH0PjT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Aug 2006 11:39:19 -0400
-Received: by nf-out-0910.google.com with SMTP id o25so1091663nfa
-        for <netdev@vger.kernel.org>; Sun, 27 Aug 2006 08:39:18 -0700 (PDT)
+	id S932112AbWH0PjW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Aug 2006 11:39:22 -0400
+Received: by nf-out-0910.google.com with SMTP id x37so1242849nfc
+        for <netdev@vger.kernel.org>; Sun, 27 Aug 2006 08:39:20 -0700 (PDT)
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When chipset is detected it is also a good idea to read the
-revision number from the register. This can than also
-be used with "ethtool -d".
-For rt61pci and rt73usb the firmware version should be stored
-so it can be accessed for "ethtool -i"
-For the other device just set firmware version to "N/A"
+We don't need a seperate array when reading the mac address from eeprom.
+Read it directly into the perm_addr array which has been correctly memsetted.
+Also to prevent confusing add eeprom addresses for each eeprom word for the
+mac address.
 
 Signed-off-by Ivo van Doorn <ivdoorn@gmail.com>
 
 ---
 
-diff -rU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-rt2x00-ethtool/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-08-19 17:38:02.000000000 +0200
-+++ wireless-dev-rt2x00-ethtool/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-08-27 15:48:21.000000000 +0200
-@@ -373,6 +373,7 @@
- 
- 	strcpy(drvinfo->driver, DRV_NAME);
- 	strcpy(drvinfo->version, DRV_VERSION);
-+	strcpy(drvinfo->fw_version, "N/A");
- 	strcpy(drvinfo->bus_info, pci_name(rt2x00dev_pci(rt2x00dev)));
- 	drvinfo->eedump_len = EEPROM_SIZE;
- 	drvinfo->regdump_len = CSR_REG_SIZE;
-@@ -389,7 +390,7 @@
- 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
- 
- 	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
--	regs->version = *((u32*)data);
-+	regs->version = rt2x00_rev(&rt2x00dev->chip);
- 	regs->len = CSR_REG_SIZE;
- }
- 
-@@ -2450,7 +2451,8 @@
- 	 * 3 - Identify RF chipset.
- 	 */
- 	value = rt2x00_get_field16(eeprom, EEPROM_ANTENNA_RF_TYPE);
--	rt2x00_set_chip(&rt2x00dev->chip, RT2460, value);
-+	rt2x00_register_read(rt2x00dev, CSR0, &reg);
-+	rt2x00_set_chip(&rt2x00dev->chip, RT2460, value, reg);
- 
- 	if (!rt2x00_rf(&rt2x00dev->chip, RF2420) &&
- 	    !rt2x00_rf(&rt2x00dev->chip, RF2421))
-diff -rU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-rt2x00-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-08-19 17:38:02.000000000 +0200
-+++ wireless-dev-rt2x00-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-08-27 15:48:35.000000000 +0200
-@@ -373,6 +373,7 @@
- 
- 	strcpy(drvinfo->driver, DRV_NAME);
- 	strcpy(drvinfo->version, DRV_VERSION);
-+	strcpy(drvinfo->fw_version, "N/A");
- 	strcpy(drvinfo->bus_info, pci_name(rt2x00dev_pci(rt2x00dev)));
- 	drvinfo->eedump_len = EEPROM_SIZE;
- 	drvinfo->regdump_len = CSR_REG_SIZE;
-@@ -389,7 +390,7 @@
- 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
- 
- 	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
--	regs->version = *((u32*)data);
-+	regs->version = rt2x00_rev(&rt2x00dev->chip);
- 	regs->len = CSR_REG_SIZE;
- }
- 
-@@ -2589,7 +2590,8 @@
- 	 * 3 - Identify RF chipset.
- 	 */
- 	value = rt2x00_get_field16(eeprom, EEPROM_ANTENNA_RF_TYPE);
--	rt2x00_set_chip(&rt2x00dev->chip, RT2560, value);
-+	rt2x00_register_read(rt2x00dev, CSR0, &reg);
-+	rt2x00_set_chip(&rt2x00dev->chip, RT2560, value, reg);
- 
- 	if (!rt2x00_rf(&rt2x00dev->chip, RF2522) &&
- 	    !rt2x00_rf(&rt2x00dev->chip, RF2523) &&
-diff -rU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-rt2x00-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-08-19 17:38:02.000000000 +0200
-+++ wireless-dev-rt2x00-ethtool/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-08-27 15:49:07.000000000 +0200
-@@ -224,6 +224,7 @@
- 
- 	strcpy(drvinfo->driver, DRV_NAME);
- 	strcpy(drvinfo->version, DRV_VERSION);
-+	strcpy(drvinfo->fw_version, "N/A");
- 	strcpy(drvinfo->bus_info, rt2x00dev_usb(rt2x00dev)->dev.bus_id);
- 	drvinfo->eedump_len = EEPROM_SIZE;
- 	drvinfo->regdump_len = CSR_REG_SIZE;
-@@ -240,7 +241,7 @@
- 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
- 
- 	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
--	regs->version = *((u16*)data);
-+	regs->version = rt2x00_rev(&rt2x00dev->chip);
- 	regs->len = CSR_REG_SIZE;
- }
- 
-@@ -2255,6 +2256,8 @@
+diff -rU3 wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
+--- wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-08-27 16:00:34.000000000 +0200
++++ wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-08-27 16:08:49.000000000 +0200
+@@ -2500,29 +2500,36 @@
+ static int rt2400pci_init_mac(struct rt2x00_dev *rt2x00dev)
  {
- 	struct ieee80211_conf *conf = ieee80211_get_hw_conf(
- 		usb_get_intfdata(rt2x00dev_usb(rt2x00dev)));
-+	u16 reg;
-+	u16 value;
- 	u16 eeprom;
+ 	struct net_device *net_dev = pci_get_drvdata(rt2x00dev_pci(rt2x00dev));
+-	u8 reg[8];
  
+ 	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
+ 		return 0;
+ 
++	memset(&net_dev->perm_addr[0], 0, sizeof(net_dev->perm_addr));
++
  	/*
-@@ -2265,8 +2268,9 @@
- 	/*
- 	 * 2 - Identify RF chipset.
+-	 * Read MAC address from MAC register.
++	 * Read MAC address from EEPROM.
  	 */
--	rt2x00_set_chip(&rt2x00dev->chip, RT2570,
--		rt2x00_get_field16(eeprom, EEPROM_ANTENNA_RF_TYPE));
-+	value = rt2x00_get_field16(eeprom, EEPROM_ANTENNA_RF_TYPE);
-+	rt2x00_register_read(rt2x00dev, MAC_CSR0, &reg);
-+	rt2x00_set_chip(&rt2x00dev->chip, RT2570, value, reg);
+-	rt2x00_register_multiread(rt2x00dev, CSR3, (u32*)&reg[0], 6);
++	rt2x00_eeprom_multiread(rt2x00dev, EEPROM_MAC_ADDR_0,
++		(u16*)&net_dev->perm_addr[0], 6);
  
- 	if (!rt2x00_rf(&rt2x00dev->chip, RF2522) &&
- 	    !rt2x00_rf(&rt2x00dev->chip, RF2523) &&
-diff -rU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2x00.h wireless-dev-rt2x00-ethtool/drivers/net/wireless/d80211/rt2x00/rt2x00.h
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-08-19 17:38:02.000000000 +0200
-+++ wireless-dev-rt2x00-ethtool/drivers/net/wireless/d80211/rt2x00/rt2x00.h	2006-08-27 15:45:39.000000000 +0200
-@@ -433,18 +433,32 @@
- struct rt2x00_chip {
- 	u16 rt;
- 	u16 rf;
-+	u16 rev;
-+	u8 fw_h;
-+	u8 fw_l;
- };
+ 	/*
+ 	 * Check if a valid MAC address has been read.
+ 	 */
+-	if (!is_valid_ether_addr(&reg[0]))
++	if (!is_valid_ether_addr(&net_dev->perm_addr[0]))
+ 		return -EINVAL;
  
- /*
-  * Set chipset data.
+ 	/*
+-	 * Copy to netdevice structure.
++	 * Copy to perm_addr to dev_addr structure.
+ 	 */
+-	memcpy(&net_dev->dev_addr[0], &reg[0], 6);
+-	memcpy(&net_dev->perm_addr[0], &reg[0], 6);
++	memcpy(&net_dev->dev_addr[0], &net_dev->perm_addr[0],
++		sizeof(net_dev->perm_addr));
+ 	net_dev->addr_len = 6;
+ 
++	/*
++	 * Write MAC address to register.
++	 */
++	rt2400pci_config_mac_address(rt2x00dev, &net_dev->perm_addr[0]);
++
+ 	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
+ 	return 0;
+ }
+diff -rU3 wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt2400pci.h wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt2400pci.h
+--- wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt2400pci.h	2006-08-19 17:38:02.000000000 +0200
++++ wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt2400pci.h	2006-08-27 16:50:22.000000000 +0200
+@@ -705,6 +705,19 @@
   */
- static inline void rt2x00_set_chip(struct rt2x00_chip *chipset,
--	const u16 rt, const u16 rf)
-+	const u16 rt, const u16 rf, const u16 rev)
- {
--	INFO("Chipset detected - rt: %04x, rf: %04x.\n", rt, rf);
-+	INFO("Chipset detected - rt: %04x, rf: %04x, rev: %04x.\n",
-+		rt, rf, rev);
  
- 	chipset->rt = rt;
- 	chipset->rf = rf;
-+	chipset->rev = rev;
-+}
-+
-+static inline void rt2x00_set_chip_fw(struct rt2x00_chip *chipset,
-+	const u8 fw_h, const u8 fw_l)
-+{
-+	INFO("Firmware detected - version: %d.%d.\n", fw_h, fw_l);
-+
-+	chipset->fw_h = fw_h;
-+	chipset->fw_l = fw_l;
- }
- 
- static inline char rt2x00_rt(const struct rt2x00_chip *chipset, const u16 chip)
-@@ -457,6 +471,16 @@
- 	return (chipset->rf == chip);
- }
- 
-+static inline u16 rt2x00_rev(const struct rt2x00_chip *chipset)
-+{
-+	return chipset->rev;
-+}
-+
-+static inline char* rt2x00_fw(const struct rt2x00_chip *chipset)
-+{
-+	return chipset->fw_h + "." + chipset->fw_l;
-+}
-+
  /*
-  * data_entry
-  * The data ring is a list of data entries.
-diff -rU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-rt2x00-ethtool/drivers/net/wireless/d80211/rt2x00/rt61pci.c
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-08-19 17:38:02.000000000 +0200
-+++ wireless-dev-rt2x00-ethtool/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-08-27 15:49:42.000000000 +0200
-@@ -404,6 +404,7 @@
- 
- 	strcpy(drvinfo->driver, DRV_NAME);
- 	strcpy(drvinfo->version, DRV_VERSION);
-+	strcpy(drvinfo->fw_version, rt2x00_fw(&rt2x00dev->chip));
- 	strcpy(drvinfo->bus_info, pci_name(rt2x00dev_pci(rt2x00dev)));
- 	drvinfo->eedump_len = EEPROM_SIZE;
- 	drvinfo->regdump_len = CSR_REG_SIZE;
-@@ -420,7 +421,7 @@
- 	struct rt2x00_dev	*rt2x00dev = ieee80211_dev_hw_data(net_dev);
- 
- 	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
--	regs->version = *((u32*)data);
-+	regs->version = rt2x00_rev(&rt2x00dev->chip);
- 	regs->len = CSR_REG_SIZE;
- }
- 
-@@ -1359,7 +1360,7 @@
- 		goto exit;
- 	}
- 
--	DEBUG("Loading Firmware version: %d.%d.\n",
-+	rt2x00_set_chip_fw(&rt2x00dev->chip,
- 		fw->data[fw->size - 4], fw->data[fw->size - 3]);
- 
- 	/*
-@@ -3057,11 +3058,11 @@
- 	 * To determine the RT chip we have to read the
- 	 * PCI header of the device.
- 	 */
--	pci_read_config_word(
--		rt2x00dev_pci(rt2x00dev), PCI_CONFIG_HEADER_DEVICE, &device);
--
-+	pci_read_config_word(rt2x00dev_pci(rt2x00dev),
-+		PCI_CONFIG_HEADER_DEVICE, &device);
- 	value = rt2x00_get_field16(eeprom, EEPROM_ANTENNA_RF_TYPE);
--	rt2x00_set_chip(&rt2x00dev->chip, device, value);
-+	rt2x00_register_read(rt2x00dev, MAC_CSR0, &reg);
-+	rt2x00_set_chip(&rt2x00dev->chip, device, value, reg);
- 
- 	if (!rt2x00_rf(&rt2x00dev->chip, RF5225) &&
- 	    !rt2x00_rf(&rt2x00dev->chip, RF5325) &&
-diff -rU3 wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-rt2x00-ethtool/drivers/net/wireless/d80211/rt2x00/rt73usb.c
---- wireless-dev-rt2x00/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-08-19 17:38:02.000000000 +0200
-+++ wireless-dev-rt2x00-ethtool/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-08-27 15:50:11.000000000 +0200
-@@ -225,6 +225,7 @@
- 
- 	strcpy(drvinfo->driver, DRV_NAME);
- 	strcpy(drvinfo->version, DRV_VERSION);
-+	strcpy(drvinfo->fw_version, rt2x00_fw(&rt2x00dev->chip));
- 	strcpy(drvinfo->bus_info, rt2x00dev_usb(rt2x00dev)->dev.bus_id);
- 	drvinfo->eedump_len = EEPROM_SIZE;
- 	drvinfo->regdump_len = CSR_REG_SIZE;
-@@ -241,7 +242,7 @@
- 	struct rt2x00_dev *rt2x00dev = ieee80211_dev_hw_data(net_dev);
- 
- 	rt2x00_register_multiread(rt2x00dev, CSR_REG_BASE, data, CSR_REG_SIZE);
--	regs->version = *((u32*)data);
-+	regs->version = rt2x00_rev(&rt2x00dev->chip);
- 	regs->len = CSR_REG_SIZE;
- }
- 
-@@ -1070,7 +1071,7 @@
- 		goto exit;
- 	}
- 
--	DEBUG("Loading Firmware version: %d.%d.\n",
-+	rt2x00_set_chip_fw(&rt2x00dev->chip,
- 		fw->data[fw->size - 4], fw->data[fw->size - 3]);
- 
- 	/*
-@@ -2577,6 +2578,7 @@
++ * HW MAC address.
++ */
++#define EEPROM_MAC_ADDR_0		0x0002
++#define EEPROM_MAC_ADDR_BYTE0		FIELD16(0x00ff)
++#define EEPROM_MAC_ADDR_BYTE1		FIELD16(0xff00)
++#define EEPROM_MAC_ADDR1		0x0003
++#define EEPROM_MAC_ADDR_BYTE2		FIELD16(0x00ff)
++#define EEPROM_MAC_ADDR_BYTE3		FIELD16(0xff00)
++#define EEPROM_MAC_ADDR_2		0x0004
++#define EEPROM_MAC_ADDR_BYTE4		FIELD16(0x00ff)
++#define EEPROM_MAC_ADDR_BYTE5		FIELD16(0xff00)
++
++/*
+  * EEPROM antenna.
+  * ANTENNA_NUM: Number of antenna's.
+  * TX_DEFAULT: Default antenna 0: diversity, 1: A, 2: B.
+diff -rU3 wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
+--- wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-08-27 16:00:40.000000000 +0200
++++ wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-08-27 16:06:12.000000000 +0200
+@@ -2650,29 +2650,36 @@
+ static int rt2500pci_init_mac(struct rt2x00_dev *rt2x00dev)
  {
- 	struct ieee80211_conf *conf = ieee80211_get_hw_conf(
- 		usb_get_intfdata(rt2x00dev_usb(rt2x00dev)));
-+	u32 reg;
- 	u16 value;
- 	u16 eeprom;
+ 	struct net_device *net_dev = pci_get_drvdata(rt2x00dev_pci(rt2x00dev));
+-	u8 reg[8];
  
-@@ -2589,7 +2591,8 @@
- 	 * 2 - Identify RF chipset.
+ 	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
+ 		return 0;
+ 
++	memset(&net_dev->perm_addr[0], 0, sizeof(net_dev->perm_addr));
++
+ 	/*
+-	 * Read MAC address from MAC register.
++	 * Read MAC address from EEPROM.
  	 */
- 	value = rt2x00_get_field16(eeprom, EEPROM_ANTENNA_RF_TYPE);
--	rt2x00_set_chip(&rt2x00dev->chip, RT73, value);
-+	rt2x00_register_read(rt2x00dev, MAC_CSR0, &reg);
-+	rt2x00_set_chip(&rt2x00dev->chip, RT73, value, reg);
+-	rt2x00_register_multiread(rt2x00dev, CSR3, (u32*)&reg[0], 6);
++	rt2x00_eeprom_multiread(rt2x00dev, EEPROM_MAC_ADDR_0,
++		(u16*)&net_dev->perm_addr[0], 6);
  
- 	if (!rt2x00_rf(&rt2x00dev->chip, RF5226) &&
- 	    !rt2x00_rf(&rt2x00dev->chip, RF2528) &&
+ 	/*
+ 	 * Check if a valid MAC address has been read.
+ 	 */
+-	if (!is_valid_ether_addr(&reg[0]))
++	if (!is_valid_ether_addr(&net_dev->perm_addr[0]))
+ 		return -EINVAL;
+ 
+ 	/*
+-	 * Copy to netdevice structure.
++	 * Copy to perm_addr to dev_addr structure.
+ 	 */
+-	memcpy(&net_dev->dev_addr[0], &reg[0], 6);
+-	memcpy(&net_dev->perm_addr[0], &reg[0], 6);
++	memcpy(&net_dev->dev_addr[0], &net_dev->perm_addr[0],
++		sizeof(net_dev->perm_addr));
+ 	net_dev->addr_len = 6;
+ 
++	/*
++	 * Write MAC address to register.
++	 */
++	rt2500pci_config_mac_address(rt2x00dev, &net_dev->perm_addr[0]);
++
+ 	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
+ 	return 0;
+ }
+diff -rU3 wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt2500pci.h wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt2500pci.h
+--- wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt2500pci.h	2006-08-19 17:38:02.000000000 +0200
++++ wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt2500pci.h	2006-08-27 16:50:34.000000000 +0200
+@@ -935,6 +935,19 @@
+  */
+ 
+ /*
++ * HW MAC address.
++ */
++#define EEPROM_MAC_ADDR_0		0x0002
++#define EEPROM_MAC_ADDR_BYTE0		FIELD16(0x00ff)
++#define EEPROM_MAC_ADDR_BYTE1		FIELD16(0xff00)
++#define EEPROM_MAC_ADDR1		0x0003
++#define EEPROM_MAC_ADDR_BYTE2		FIELD16(0x00ff)
++#define EEPROM_MAC_ADDR_BYTE3		FIELD16(0xff00)
++#define EEPROM_MAC_ADDR_2		0x0004
++#define EEPROM_MAC_ADDR_BYTE4		FIELD16(0x00ff)
++#define EEPROM_MAC_ADDR_BYTE5		FIELD16(0xff00)
++
++/*
+  * EEPROM antenna.
+  * ANTENNA_NUM: Number of antenna's.
+  * TX_DEFAULT: Default antenna 0: diversity, 1: A, 2: B.
+diff -rU3 wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt2500usb.c wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt2500usb.c
+--- wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-08-27 16:00:52.000000000 +0200
++++ wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt2500usb.c	2006-08-27 16:06:31.000000000 +0200
+@@ -2324,30 +2324,36 @@
+ {
+ 	struct net_device *net_dev =
+ 		usb_get_intfdata(rt2x00dev_usb(rt2x00dev));
+-	u8 eeprom[6];
+ 
+ 	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
+ 		return 0;
+ 
++	memset(&net_dev->perm_addr[0], 0, sizeof(net_dev->perm_addr));
++
+ 	/*
+ 	 * Read MAC address from EEPROM.
+ 	 */
+-	rt2x00_eeprom_multiread(rt2x00dev, EEPROM_MAC_ADDR,
+-		(u16*)&eeprom[0], 6);
++	rt2x00_eeprom_multiread(rt2x00dev, EEPROM_MAC_ADDR_0,
++		(u16*)&net_dev->perm_addr[0], 6);
+ 
+ 	/*
+ 	 * Check if a valid MAC address has been read.
+ 	 */
+-	if (!is_valid_ether_addr(&eeprom[0]))
++	if (!is_valid_ether_addr(&net_dev->perm_addr[0]))
+ 		return -EINVAL;
+ 
+ 	/*
+-	 * Copy to netdevice structure.
++	 * Copy to perm_addr to dev_addr structure.
+ 	 */
+-	memcpy(&net_dev->dev_addr[0], &eeprom[0], 6);
+-	memcpy(&net_dev->perm_addr[0], &eeprom[0], 6);
++	memcpy(&net_dev->dev_addr[0], &net_dev->perm_addr[0],
++		sizeof(net_dev->perm_addr));
+ 	net_dev->addr_len = 6;
+ 
++	/*
++	 * Write MAC address to register.
++	 */
++	rt2500usb_config_mac_address(rt2x00dev, &net_dev->perm_addr[0]);
++
+ 	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
+ 	return 0;
+ }
+diff -rU3 wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt2500usb.h wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt2500usb.h
+--- wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt2500usb.h	2006-08-19 17:38:02.000000000 +0200
++++ wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt2500usb.h	2006-08-27 16:51:20.000000000 +0200
+@@ -492,11 +492,13 @@
+ /*
+  * HW MAC address.
+  */
+-#define EEPROM_MAC_ADDR			0x0004
++#define EEPROM_MAC_ADDR_0		0x0004
+ #define EEPROM_MAC_ADDR_BYTE0		FIELD16(0x00ff)
+ #define EEPROM_MAC_ADDR_BYTE1		FIELD16(0xff00)
++#define EEPROM_MAC_ADDR1		0x0006
+ #define EEPROM_MAC_ADDR_BYTE2		FIELD16(0x00ff)
+ #define EEPROM_MAC_ADDR_BYTE3		FIELD16(0xff00)
++#define EEPROM_MAC_ADDR_2		0x0008
+ #define EEPROM_MAC_ADDR_BYTE4		FIELD16(0x00ff)
+ #define EEPROM_MAC_ADDR_BYTE5		FIELD16(0xff00)
+ 
+diff -rU3 wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt61pci.c wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt61pci.c
+--- wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-08-27 16:01:03.000000000 +0200
++++ wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt61pci.c	2006-08-27 16:06:48.000000000 +0200
+@@ -3174,30 +3174,36 @@
+ static int rt61pci_init_mac(struct rt2x00_dev *rt2x00dev)
+ {
+ 	struct net_device *net_dev = pci_get_drvdata(rt2x00dev_pci(rt2x00dev));
+-	u8 eeprom[6];
+ 
+ 	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
+ 		return 0;
+ 
++	memset(&net_dev->perm_addr[0], 0, sizeof(net_dev->perm_addr));
++
+ 	/*
+ 	 * Read MAC address from EEPROM.
+ 	 */
+-	rt2x00_eeprom_multiread(rt2x00dev, EEPROM_MAC_ADDR,
+-		(u16*)&eeprom[0], 6);
++	rt2x00_eeprom_multiread(rt2x00dev, EEPROM_MAC_ADDR_0,
++		(u16*)&net_dev->perm_addr[0], 6);
+ 
+ 	/*
+ 	 * Check if a valid MAC address has been read.
+ 	 */
+-	if (!is_valid_ether_addr(&eeprom[0]))
++	if (!is_valid_ether_addr(&net_dev->perm_addr[0]))
+ 		return -EINVAL;
+ 
+ 	/*
+-	 * Copy to netdevice structure.
++	 * Copy to perm_addr to dev_addr structure.
+ 	 */
+-	memcpy(&net_dev->dev_addr[0], &eeprom[0], 6);
+-	memcpy(&net_dev->perm_addr[0], &eeprom[0], 6);
++	memcpy(&net_dev->dev_addr[0], &net_dev->perm_addr[0],
++		sizeof(net_dev->perm_addr));
+ 	net_dev->addr_len = 6;
+ 
++	/*
++	 * Write MAC address to register.
++	 */
++	rt61pci_config_mac_address(rt2x00dev, &net_dev->perm_addr[0]);
++
+ 	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
+ 	return 0;
+ }
+diff -rU3 wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt61pci.h wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt61pci.h
+--- wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-08-19 17:38:02.000000000 +0200
++++ wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt61pci.h	2006-08-27 16:52:02.000000000 +0200
+@@ -991,11 +991,13 @@
+ /*
+  * HW MAC address.
+  */
+-#define EEPROM_MAC_ADDR			0x0002
++#define EEPROM_MAC_ADDR_0		0x0002
+ #define EEPROM_MAC_ADDR_BYTE0		FIELD16(0x00ff)
+ #define EEPROM_MAC_ADDR_BYTE1		FIELD16(0xff00)
++#define EEPROM_MAC_ADDR1		0x0004
+ #define EEPROM_MAC_ADDR_BYTE2		FIELD16(0x00ff)
+ #define EEPROM_MAC_ADDR_BYTE3		FIELD16(0xff00)
++#define EEPROM_MAC_ADDR_2		0x0006
+ #define EEPROM_MAC_ADDR_BYTE4		FIELD16(0x00ff)
+ #define EEPROM_MAC_ADDR_BYTE5		FIELD16(0xff00)
+ 
+diff -rU3 wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt73usb.c wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt73usb.c
+--- wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-08-27 16:01:09.000000000 +0200
++++ wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt73usb.c	2006-08-27 16:07:02.000000000 +0200
+@@ -2688,30 +2688,36 @@
+ {
+ 	struct net_device *net_dev =
+ 		usb_get_intfdata(rt2x00dev_usb(rt2x00dev));
+-	u8 eeprom[6];
+ 
+ 	if (GET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC))
+ 		return 0;
+ 
++	memset(&net_dev->perm_addr[0], 0, sizeof(net_dev->perm_addr));
++
+ 	/*
+ 	 * Read MAC address from EEPROM.
+ 	 */
+-	rt2x00_eeprom_multiread(rt2x00dev, EEPROM_MAC_ADDR,
+-		(u16*)&eeprom[0], 6);
++	rt2x00_eeprom_multiread(rt2x00dev, EEPROM_MAC_ADDR_0,
++		(u16*)&net_dev->perm_addr[0], 6);
+ 
+ 	/*
+ 	 * Check if a valid MAC address has been read.
+ 	 */
+-	if (!is_valid_ether_addr(&eeprom[0]))
++	if (!is_valid_ether_addr(&net_dev->perm_addr[0]))
+ 		return -EINVAL;
+ 
+ 	/*
+-	 * Copy to netdevice structure.
++	 * Copy to perm_addr to dev_addr structure.
+ 	 */
+-	memcpy(&net_dev->dev_addr[0], &eeprom[0], 6);
+-	memcpy(&net_dev->perm_addr[0], &eeprom[0], 6);
++	memcpy(&net_dev->dev_addr[0], &net_dev->perm_addr[0],
++		sizeof(net_dev->perm_addr));
+ 	net_dev->addr_len = 6;
+ 
++	/*
++	 * Write MAC address to register.
++	 */
++	rt73usb_config_mac_address(rt2x00dev, &net_dev->perm_addr[0]);
++
+ 	SET_FLAG(rt2x00dev, DEVICE_INITIALIZED_MAC);
+ 	return 0;
+ }
+diff -rU3 wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt73usb.h wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt73usb.h
+--- wireless-dev-rt2x00-rate/drivers/net/wireless/d80211/rt2x00/rt73usb.h	2006-08-19 17:38:02.000000000 +0200
++++ wireless-dev-rt2x00-mac/drivers/net/wireless/d80211/rt2x00/rt73usb.h	2006-08-27 16:52:29.000000000 +0200
+@@ -643,11 +643,13 @@
+ /*
+  * HW MAC address.
+  */
+-#define EEPROM_MAC_ADDR			0x0004
++#define EEPROM_MAC_ADDR_0		0x0004
+ #define EEPROM_MAC_ADDR_BYTE0		FIELD16(0x00ff)
+ #define EEPROM_MAC_ADDR_BYTE1		FIELD16(0xff00)
++#define EEPROM_MAC_ADDR1		0x0006
+ #define EEPROM_MAC_ADDR_BYTE2		FIELD16(0x00ff)
+ #define EEPROM_MAC_ADDR_BYTE3		FIELD16(0xff00)
++#define EEPROM_MAC_ADDR_2		0x0008
+ #define EEPROM_MAC_ADDR_BYTE4		FIELD16(0x00ff)
+ #define EEPROM_MAC_ADDR_BYTE5		FIELD16(0xff00)
+ 
