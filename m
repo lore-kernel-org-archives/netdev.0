@@ -1,33 +1,43 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: RTL8136
-Date: Sun, 27 Aug 2006 23:41:35 +0200
-Message-ID: <20060827214135.GA21464@electric-eye.fr.zoreil.com>
-References: <4E5C083B8E%linux@youmustbejoking.demon.co.uk> <20060825190455.GA14812@electric-eye.fr.zoreil.com> <4E5C6C7764%linux@youmustbejoking.demon.co.uk> <4E5CF8AF74%linux@youmustbejoking.demon.co.uk>
+Subject: Re: [PATCH] IP1000A: IC Plus update 2006-08-22
+Date: Mon, 28 Aug 2006 00:08:16 +0200
+Message-ID: <20060827220816.GA21788@electric-eye.fr.zoreil.com>
+References: <1156268234.3622.1.camel@localhost.localdomain> <20060822232730.GA30977@electric-eye.fr.zoreil.com> <20060823113822.GA17103@electric-eye.fr.zoreil.com> <20060823223032.GA25111@electric-eye.fr.zoreil.com> <026c01c6c71d$0fde1730$4964a8c0@icplus.com.tw> <20060824220758.GA19637@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Cc: penberg@cs.Helsinki.FI, akpm@osdl.org, dvrabel@cantab.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	david@pleyades.net, dominik.schulz@gauner.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:2458 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S932267AbWH0Vnf
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:4556 "EHLO
+	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751206AbWH0WMJ
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Aug 2006 17:43:35 -0400
-To: Darren Salt <linux@youmustbejoking.demon.co.uk>
+	Sun, 27 Aug 2006 18:12:09 -0400
+To: Jesse Huang <jesse@icplus.com.tw>
 Content-Disposition: inline
-In-Reply-To: <4E5CF8AF74%linux@youmustbejoking.demon.co.uk>
+In-Reply-To: <20060824220758.GA19637@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Darren Salt <linux@youmustbejoking.demon.co.uk> :
-[...]
-> Whoops. I'd not noticed the -rc4 patches...
+Francois Romieu <romieu@fr.zoreil.com> :
+> Jesse Huang <jesse@icplus.com.tw> :
+> [...]
 > 
-> These seem to help a little: mii-tool can reset it and bring the link up
-> regardless of RTL_CFG_{1,2}. After that, RTL_CFG_1 allows sending to work,
-> and RTL_CFG_2 allows both sending and receiving to work (tested by trying to
-> get an IP address via DHCP).
+> Added:
+> 0039-ip1000-cosmetic-in-ipg_interrupt_handler.txt
+> 0040-ip1000-irq-handler-and-device-close-race.txt
+> 0041-ip1000-schedule-the-host-error-recovery-to-user-context.txt
+> 0042-ip1000-no-need-to-mask-a-constant-field-with-RSVD_MASK.txt
 
-Did you need to play with mii-tool to have DHCP working or did it work
-automagically (assuming the -rc4 patches + the RTL_CFG_2 change of course) ?
+Added:
+0043-ip1000-use-the-new-IRQF_-constants-and-the-dma_-alloc-free-_coherent-API.txt
+0044-ip1000-mixed-case-and-upper-case-removal.txt
+0045-ip1000-add-ipg_-r-w-8-16-32-macros.txt
+
+The patches beyond 0043 are only available through HTTP. Since 0043
+needs a recent enough kernel and the current driver has branched from
+an old release, I plan to rebase my branch. Does it raise any objection
+or remark ?
 
 -- 
 Ueimor
