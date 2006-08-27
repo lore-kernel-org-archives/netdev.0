@@ -1,51 +1,69 @@
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Subject: Re: [PATCH 0/7] [DCCP]: Fixes and enhancements
-Date: Sun, 27 Aug 2006 16:57:17 +1200
-Message-ID: <5640c7e00608262157w33f4f3c8scb24b527d629f169@mail.gmail.com>
-References: <200608241516.34448.ian.mcdonald@jandi.co.nz>
-	 <20060826.190851.74747699.davem@davemloft.net>
-	 <5640c7e00608262046x598d873cr7a4bcd2df971dac0@mail.gmail.com>
-	 <20060826.214524.89039745.davem@davemloft.net>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: lockdep rt2500usb report
+Date: Sat, 26 Aug 2006 22:14:20 -0700
+Message-ID: <200608262214.26827.flamingice@sourmilk.net>
+References: <44DC4110.6080300@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart1842440.laW9JdTzWv";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: a.bittau@cs.ucl.ac.uk, arnaldo.melo@gmail.com,
-	dccp@vger.kernel.org, netdev@vger.kernel.org
+Cc: Ivo van Doorn <ivdoorn@gmail.com>, netdev <netdev@vger.kernel.org>,
+	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-f131.google.com ([64.233.184.131]:43110 "EHLO
-	wr-out-f131.google.com") by vger.kernel.org with ESMTP
-	id S1751257AbWH0E5S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Aug 2006 00:57:18 -0400
-Received: by wr-out-f131.google.com with SMTP id 20so86145wra
-        for <netdev@vger.kernel.org>; Sat, 26 Aug 2006 21:57:17 -0700 (PDT)
-To: "David Miller" <davem@davemloft.net>
-In-Reply-To: <20060826.214524.89039745.davem@davemloft.net>
-Content-Disposition: inline
+Received: from server8.tchmachines.com ([216.180.241.250]:27539 "EHLO
+	server8.tchmachines.com") by vger.kernel.org with ESMTP
+	id S1751252AbWH0FOk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Aug 2006 01:14:40 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <44DC4110.6080300@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > On 8/27/06, David Miller <davem@davemloft.net> wrote:
-> > > >
-> > > > I would love 3, 4, 5 to go into 2.6.18 as these resolve long standing CCID3
-> > > > issues that have been in the DCCP tree since inception and have caught a
-> > > > number of people.
-> > >
-> > > Ok, I'll toss 1-5 into 2.6.18
-> >
-> > Thanks for that. Are 6 and 7 going into 2.6.19 or do you want Arnaldo
-> > to have a bit more of a look? 6 in particular is trivial.
->
-> Those patches are already in net-2.6.19
->
-Yes I see that now. However I can't see #5 in net-2.6.git in your tree
-or Linus' where 1-4 made it in...
+--nextPart1842440.laW9JdTzWv
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Ian
--- 
-Ian McDonald
-Web: http://wand.net.nz/~iam4
-Blog: http://imcdnzl.blogspot.com
-WAND Network Research Group
-Department of Computer Science
-University of Waikato
-New Zealand
+On Friday 11 August 2006 01:34, Johannes Berg wrote:
+> This is running wireless-dev from yesterday. All I did was plug in a
+> rt2500usb device into a usb port on a freshly booted system. I have a
+> feeling that this is could be one of the problems reported earlier with
+> the d80211 stack, but I haven't mastered the art of picking through
+> these traces yet... What's swapper doing in there?
+>
+Ok, so it looks like dev_activate (called by dev_open) grabs queue_lock, th=
+en=20
+calls another function (dev_watchdog_up) which grabs xmit_lock. However, at=
+=20
+that point, the device is up enough that someone who wants to try=20
+transmitting, can transmit (I think). If they're unlucky enough to transmit=
+=20
+after the queue_lock is grabbed but before xmit_lock, we get a deadlock.
+
+This seems avoidable either by setting carrier_off before calling dev_open,=
+=20
+and turning it back on at a safe point (on association?), or simply refusin=
+g=20
+to transmit until it is reasonable to do so. (a similar thing was done in=20
+adm8211: call netif_stop_queue and return 1 if we're not ready to tx yet in=
+=20
+order to hold skbs until association, where netif_wake_queue would be=20
+called.)
+
+=2DMichael Wu
+
+--nextPart1842440.laW9JdTzWv
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+
+iD8DBQBE8SoyT3Oqt9AH4aERAodWAJ934Qunvh048C1eMvopyZ7Ev3lPyQCgzsel
+n529pdOUmAqRZvIFCnmDuHg=
+=EmpT
+-----END PGP SIGNATURE-----
+
+--nextPart1842440.laW9JdTzWv--
