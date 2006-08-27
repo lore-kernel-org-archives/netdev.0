@@ -1,29 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] remove third bogus argument from NLA_PUT_FLAG
-Date: Sat, 26 Aug 2006 19:18:36 -0700 (PDT)
-Message-ID: <20060826.191836.36924440.davem@davemloft.net>
-References: <1156503326.4090.10.camel@ux156>
+Subject: Re: [PATCH] net/*: use SLAB_PANIC
+Date: Sat, 26 Aug 2006 19:26:14 -0700 (PDT)
+Message-ID: <20060826.192614.55509046.davem@davemloft.net>
+References: <20060826230841.GA5204@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:65440
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:64978
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750833AbWH0CSk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Aug 2006 22:18:40 -0400
-To: johannes@sipsolutions.net
-In-Reply-To: <1156503326.4090.10.camel@ux156>
+	id S1750924AbWH0C0S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Aug 2006 22:26:18 -0400
+To: adobriyan@gmail.com
+In-Reply-To: <20060826230841.GA5204@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Fri, 25 Aug 2006 12:55:26 +0200
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Sun, 27 Aug 2006 03:08:41 +0400
 
-> This patch removes the 'value' argument from NLA_PUT_FLAG which is
-> unused anyway. The documentation comment was already correct so it
-> doesn't need an update :)
-> 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Applied, thanks Johannes.
+Applied, thanks.
