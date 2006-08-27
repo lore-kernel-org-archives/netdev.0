@@ -1,132 +1,43 @@
-From: Valerie Henson <val_henson@linux.intel.com>
-Subject: Re: [patch 08/10] [TULIP] Handle pci_enable_device() errors in resume
-Date: Sat, 26 Aug 2006 21:15:04 -0700
-Message-ID: <20060827041504.GE25003@goober>
-References: <20060826000227.818796000@linux.intel.com> <20060826000304.251263000@linux.intel.com> <1156610518.3007.287.camel@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/7] [DCCP]: Fixes and enhancements
+Date: Sat, 26 Aug 2006 21:45:24 -0700 (PDT)
+Message-ID: <20060826.214524.89039745.davem@davemloft.net>
+References: <200608241516.34448.ian.mcdonald@jandi.co.nz>
+	<20060826.190851.74747699.davem@davemloft.net>
+	<5640c7e00608262046x598d873cr7a4bcd2df971dac0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: a.bittau@cs.ucl.ac.uk, arnaldo.melo@gmail.com,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:37507 "EHLO
-	azsmga101.ch.intel.com") by vger.kernel.org with ESMTP
-	id S1751156AbWH0EPR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Aug 2006 00:15:17 -0400
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Content-Disposition: inline
-In-Reply-To: <1156610518.3007.287.camel@localhost.localdomain>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:35994
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751214AbWH0Epl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Aug 2006 00:45:41 -0400
+To: ian.mcdonald@jandi.co.nz
+In-Reply-To: <5640c7e00608262046x598d873cr7a4bcd2df971dac0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 26, 2006 at 05:41:58PM +0100, Alan Cox wrote:
-> Ar Gwe, 2006-08-25 am 17:02 -0700, ysgrifennodd Valerie Henson:
-> >  	pci_set_power_state(pdev, PCI_D0);
-> >  	pci_restore_state(pdev);
-> >  
-> > -	pci_enable_device(pdev);
-> > +	if ((retval = pci_enable_device(pdev))) {
-> > +		printk (KERN_ERR "tulip: pci_enable_device failed in resume\n");
-> > +		return retval;
-> > +	}
-> Should you not stick it back in D3 if you are being neat about this ?
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Date: Sun, 27 Aug 2006 15:46:58 +1200
 
-I don't know.  Any thoughts from the peanut gallery?  I've spent some
-time trolling both docs and other drivers, but I haven't yet found an
-example of a driver that correctly handles all the resume error cases.
-Also, at least one other driver does a pci_disable_device() if the
-request_irq() fails - should tulip do this too?
+> On 8/27/06, David Miller <davem@davemloft.net> wrote:
+> > >
+> > > I would love 3, 4, 5 to go into 2.6.18 as these resolve long standing CCID3
+> > > issues that have been in the DCCP tree since inception and have caught a
+> > > number of people.
+> >
+> > Ok, I'll toss 1-5 into 2.6.18
+> 
+> Thanks for that. Are 6 and 7 going into 2.6.19 or do you want Arnaldo
+> to have a bit more of a look? 6 in particular is trivial.
 
-> NAK: What about rtnl_lock()
+Those patches are already in net-2.6.19
 
-Gah.  Thanks, how about the patch below instead?
+> Basically the implementation in the DCCP code was buggy and was
+> transmitting too fast so I have made it conform to the RFC much
+> closer.
 
--VAL
-
-Subject: [TULIP] Handle pci_enable_device() errors in resume
-
-Signed-off-by: Valerie Henson <val_henson@linux.intel.com>
-Cc: Jeff Garzik <jeff@garzik.org>
-
----
- drivers/net/tulip/de2104x.c     |   16 ++++++++++------
- drivers/net/tulip/tulip_core.c  |    5 ++++-
- drivers/net/tulip/winbond-840.c |   12 ++++++++----
- 3 files changed, 22 insertions(+), 11 deletions(-)
-
---- linux-2.6.18-rc4-mm1-tulip.orig/drivers/net/tulip/tulip_core.c
-+++ linux-2.6.18-rc4-mm1-tulip/drivers/net/tulip/tulip_core.c
-@@ -1780,7 +1780,10 @@ static int tulip_resume(struct pci_dev *
- 	pci_set_power_state(pdev, PCI_D0);
- 	pci_restore_state(pdev);
- 
--	pci_enable_device(pdev);
-+	if ((retval = pci_enable_device(pdev))) {
-+		printk (KERN_ERR "tulip: pci_enable_device failed in resume\n");
-+		return retval;
-+	}
- 
- 	if ((retval = request_irq(dev->irq, &tulip_interrupt, IRQF_SHARED, dev->name, dev))) {
- 		printk (KERN_ERR "tulip: request_irq failed in resume\n");
---- linux-2.6.18-rc4-mm1-tulip.orig/drivers/net/tulip/winbond-840.c
-+++ linux-2.6.18-rc4-mm1-tulip/drivers/net/tulip/winbond-840.c
-@@ -1626,14 +1626,18 @@ static int w840_resume (struct pci_dev *
- {
- 	struct net_device *dev = pci_get_drvdata (pdev);
- 	struct netdev_private *np = netdev_priv(dev);
-+	int retval = 0;
- 
- 	rtnl_lock();
- 	if (netif_device_present(dev))
- 		goto out; /* device not suspended */
- 	if (netif_running(dev)) {
--		pci_enable_device(pdev);
--	/*	pci_power_on(pdev); */
--
-+		if ((retval = pci_enable_device(pdev))) {
-+			printk (KERN_ERR
-+				"%s: pci_enable_device failed in resume\n",
-+				dev->name);
-+			goto out;
-+		}
- 		spin_lock_irq(&np->lock);
- 		iowrite32(1, np->base_addr+PCIBusCfg);
- 		ioread32(np->base_addr+PCIBusCfg);
-@@ -1651,7 +1655,7 @@ static int w840_resume (struct pci_dev *
- 	}
- out:
- 	rtnl_unlock();
--	return 0;
-+	return retval;
- }
- #endif
- 
---- linux-2.6.18-rc4-mm1-tulip.orig/drivers/net/tulip/de2104x.c
-+++ linux-2.6.18-rc4-mm1-tulip/drivers/net/tulip/de2104x.c
-@@ -2138,17 +2138,21 @@ static int de_resume (struct pci_dev *pd
- {
- 	struct net_device *dev = pci_get_drvdata (pdev);
- 	struct de_private *de = dev->priv;
-+	int retval = 0;
- 
- 	rtnl_lock();
- 	if (netif_device_present(dev))
- 		goto out;
--	if (netif_running(dev)) {
--		pci_enable_device(pdev);
--		de_init_hw(de);
--		netif_device_attach(dev);
--	} else {
--		netif_device_attach(dev);
-+	if (!netif_running(dev))
-+		goto out_attach;
-+	if ((retval = pci_enable_device(pdev))) {
-+		printk (KERN_ERR "%s: pci_enable_device failed in resume\n",
-+			dev->name);
-+		goto out;
- 	}
-+	de_init_hw(de);
-+out_attach:
-+	netif_device_attach(dev);
- out:
- 	rtnl_unlock();
- 	return 0;
+Thanks for the explanation.
