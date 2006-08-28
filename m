@@ -1,76 +1,69 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: 2.6.18-rc4-mm[1,2,3] -- Network card not getting assigned an
- "eth" device name
-Date: Mon, 28 Aug 2006 12:03:28 -0700
-Message-ID: <20060828120328.ae734de0.akpm@osdl.org>
-References: <a44ae5cd0608270007gc6a919fx9e36562d8023635d@mail.gmail.com>
-	<20060827001943.c559d37d.akpm@osdl.org>
-	<20060827.003800.95504796.davem@davemloft.net>
-	<a44ae5cd0608280852p50e72241vff8e3ae101e94185@mail.gmail.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH 1/1][SCTP]: Fix sctp_primitive_ABORT() call in sctp_close()
+Date: Mon, 28 Aug 2006 12:11:36 -0700
+Message-ID: <1156792296.11959.20.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"Dan Williams" <dcbw@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jeremy@goop.org,
-	Robert Love <rml@novell.com>
+Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:16790 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751343AbWH1TD5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2006 15:03:57 -0400
-To: "Miles Lane" <miles.lane@gmail.com>
-In-Reply-To: <a44ae5cd0608280852p50e72241vff8e3ae101e94185@mail.gmail.com>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:11917 "EHLO e1.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1751347AbWH1TLj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2006 15:11:39 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e1.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id k7SJBcVI021696
+	for <netdev@vger.kernel.org>; Mon, 28 Aug 2006 15:11:38 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7SJBcHE240238
+	for <netdev@vger.kernel.org>; Mon, 28 Aug 2006 15:11:38 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7SJBbvQ012759
+	for <netdev@vger.kernel.org>; Mon, 28 Aug 2006 15:11:38 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 28 Aug 2006 08:52:02 -0700
-"Miles Lane" <miles.lane@gmail.com> wrote:
+Dave,
 
-> On 8/27/06, David Miller <davem@davemloft.net> wrote:
-> > From: Andrew Morton <akpm@osdl.org>
-> > Date: Sun, 27 Aug 2006 00:19:43 -0700
-> >
-> > > Jeremy reported that a while back too.  I do not know what is causing it
-> > > and as far as I know no net developers have yet looked into it.
-> >
-> > A debugging patch like this one should help figure out the culprit.
-> >
-> > If we don't see the gibberish netdevice name printed in the kernel
-> > logs, then likely something is corrupting the netdevice structure or
-> > the memory holding the name.
-> >
-> > diff --git a/net/core/dev.c b/net/core/dev.c
-> > index d4a1ec3..45f9b19 100644
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -738,6 +738,11 @@ int dev_change_name(struct net_device *d
-> >
-> >         if (!dev_valid_name(newname))
-> >                 return -EINVAL;
-> > +#if 1
-> > +       printk("[%s:%d]: Changing netdevice name from [%s] to [%s]\n",
-> > +              current->comm, current->pid,
-> > +              dev->name, newname);
-> > +#endif
-> >
-> >         if (strchr(newname, '%')) {
-> >                 err = dev_alloc_name(dev, newname);
-> >
-> 
-> Dan, do you have any idea why NetworkManager from Ubuntu 6.06.1
-> would be corrupting network device names on recent MM kernels?
-> I haven't seen this happening with Ubuntu's kernels.  If you like, I can
-> send you my kernel .config file.
-> 
-> Here's what I get:
-> 
+The recent SCTP CVE fix that went into 2.6.18 changed 
+sctp_primitive_ABORT() callers to create an ABORT chunk
+and pass it as an arg instead of struct msghdr.
+While submitting this fix, i missed the other location in
+sctp_close() where this is called.
 
-grepping for `ioctl' gives:
+Please apply this patch to 2.6.18 and it should also go
+into the stable series.
 
-ioctl(9, SIOCGIWNAME, 0xbfe38d8c)                 = -1 EINVAL (Invalid argument)
-ioctl(9, SIOCETHTOOL, 0xbfe38d2c)                 = 0
-ioctl(11, SIOCGIFHWADDR, {ifr_name="eth0", ???})  = -1 ENODEV (No such device)
-ioctl(11, SIOCGIFFLAGS, {ifr_name="eth0", ???})   = -1 ENODEV (No such device)
+Thanks
+Sridhar
 
-Perhaps you could generate the strace output for 2.6.18-rc5, grep that for
-ioctl, look for differences?  That initial SIOCGIWNAME failure is fishy.
+[SCTP]: Fix sctp_primitive_ABORT() call in sctp_close().
+
+With the recent fix, the callers of sctp_primitive_ABORT()
+need to create an ABORT chunk and pass it as an argument rather
+than msghdr that was passed earlier.
+
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index fde3f55..dab1594 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -1289,9 +1289,13 @@ SCTP_STATIC void sctp_close(struct sock 
+ 			}
+ 		}
+ 
+-		if (sock_flag(sk, SOCK_LINGER) && !sk->sk_lingertime)
+-			sctp_primitive_ABORT(asoc, NULL);
+-		else
++		if (sock_flag(sk, SOCK_LINGER) && !sk->sk_lingertime) {
++			struct sctp_chunk *chunk;
++
++			chunk = sctp_make_abort_user(asoc, NULL, 0);
++			if (chunk)
++				sctp_primitive_ABORT(asoc, chunk);
++		} else
+ 			sctp_primitive_SHUTDOWN(asoc, NULL);
+ 	}
+ 
+
