@@ -1,61 +1,57 @@
 From: shemminger@osdl.org
-Subject: [PATCH 6/9] sky2: optimize checksum offload information
-Date: Mon, 28 Aug 2006 10:00:50 -0700
-Message-ID: <20060828170218.769180424@localhost.localdomain>
+Subject: [PATCH 5/9] sky2: TSO mss optimization
+Date: Mon, 28 Aug 2006 10:00:49 -0700
+Message-ID: <20060828170217.969201733@localhost.localdomain>
 References: <20060828170044.136391412@localhost.localdomain>
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:56962 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751295AbWH1SRF (ORCPT
+Received: from smtp.osdl.org ([65.172.181.4]:55682 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751292AbWH1SRF (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2006 14:17:05 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=sky2-csum-off-cache.patch
+Content-Disposition: inline; filename=sky2-only-change.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since many packets have the same checksum starting offset and insertion
-location; the driver can save the last information and only tell hardware
-when it changes.
+The MSS in the transmit engine only has to change if TSO mtu changes. This
+means less commands to the chip when mixing TSO and regular data.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
---- sky2.orig/drivers/net/sky2.c	2006-08-28 10:00:08.000000000 -0700
-+++ sky2/drivers/net/sky2.c	2006-08-28 10:00:13.000000000 -0700
-@@ -1280,12 +1280,17 @@
- 		if (skb->nh.iph->protocol == IPPROTO_UDP)
- 			ctrl |= UDPTCP;
+--- sky2.orig/drivers/net/sky2.c	2006-08-28 10:00:07.000000000 -0700
++++ sky2/drivers/net/sky2.c	2006-08-28 10:00:08.000000000 -0700
+@@ -1244,15 +1244,15 @@
+ 		mss += ((skb->h.th->doff - 5) * 4);	/* TCP options */
+ 		mss += (skb->nh.iph->ihl * 4) + sizeof(struct tcphdr);
+ 		mss += ETH_HLEN;
+-	}
  
+-	if (mss != sky2->tx_last_mss) {
 -		le = get_tx_le(sky2);
--		le->tx.csum.start = cpu_to_le16(hdr);
--		le->tx.csum.offset = cpu_to_le16(offset);
--		le->length = 0;	/* initial checksum value */
--		le->ctrl = 1;	/* one packet */
--		le->opcode = OP_TCPLISW | HW_OWNER;
-+		if (hdr != sky2->tx_csum_start || offset != sky2->tx_csum_offset) {
-+			sky2->tx_csum_start = hdr;
-+			sky2->tx_csum_offset = offset;
-+
+-		le->tx.tso.size = cpu_to_le16(mss);
+-		le->tx.tso.rsvd = 0;
+-		le->opcode = OP_LRGLEN | HW_OWNER;
+-		le->ctrl = 0;
+-		sky2->tx_last_mss = mss;
++		if (mss != sky2->tx_last_mss) {
 +			le = get_tx_le(sky2);
-+			le->tx.csum.start = cpu_to_le16(hdr);
-+			le->tx.csum.offset = cpu_to_le16(offset);
-+			le->length = 0;	/* initial checksum value */
-+			le->ctrl = 1;	/* one packet */
-+			le->opcode = OP_TCPLISW | HW_OWNER;
++			le->tx.tso.size = cpu_to_le16(mss);
++			le->tx.tso.rsvd = 0;
++			le->opcode = OP_LRGLEN | HW_OWNER;
++			le->ctrl = 0;
++			sky2->tx_last_mss = mss;
 +		}
  	}
  
- 	le = get_tx_le(sky2);
---- sky2.orig/drivers/net/sky2.h	2006-08-28 09:59:36.000000000 -0700
-+++ sky2/drivers/net/sky2.h	2006-08-28 10:00:13.000000000 -0700
-@@ -1843,6 +1843,8 @@
- 	u32		     tx_addr64;
- 	u16		     tx_pending;
- 	u16		     tx_last_mss;
-+	u16		     tx_csum_start;
-+	u16		     tx_csum_offset;
+ 	ctrl = 0;
+@@ -1320,7 +1320,7 @@
+ 		le->opcode = OP_BUFFER | HW_OWNER;
  
- 	struct ring_info     *rx_ring ____cacheline_aligned_in_smp;
- 	struct sky2_rx_le    *rx_le;
+ 		fre = sky2->tx_ring
+-		    + RING_NEXT((re - sky2->tx_ring) + i, TX_RING_SIZE);
++			+ RING_NEXT((re - sky2->tx_ring) + i, TX_RING_SIZE);
+ 		pci_unmap_addr_set(fre, mapaddr, mapping);
+ 	}
+ 
 
 --
 Stephen Hemminger <shemminger@osdl.org>
