@@ -1,52 +1,32 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH 5/7] d80211: indicate if unassociate/radio off status
-Date: Mon, 28 Aug 2006 14:17:34 -0700
-Message-ID: <200608281417.39948.flamingice@sourmilk.net>
-References: <44F356DF.9000000@linux.intel.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: divide error: 0000 in fib6_rule_match [Re: 2.6.18-rc4-mm3]
+Date: Mon, 28 Aug 2006 23:22:48 +0200
+Message-ID: <200608282322.48307.ak@suse.de>
+References: <20060826160922.3324a707.akpm@osdl.org> <20060828200716.GA4244@inferi.kami.home> <20060828132820.ae12ce4f.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2054624.IPlkY8fIxb";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jbenc@suse.cz
+Cc: Mattia Dongili <malattia@linux.it>, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:44248 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S1751472AbWH1VRx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 17:17:53 -0400
-To: mabbas <mabbas@linux.intel.com>
-In-Reply-To: <44F356DF.9000000@linux.intel.com>
+Received: from mx2.suse.de ([195.135.220.15]:39847 "EHLO mx2.suse.de")
+	by vger.kernel.org with ESMTP id S1751517AbWH1VXV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2006 17:23:21 -0400
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20060828132820.ae12ce4f.akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2054624.IPlkY8fIxb
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
 
-It would be helpful if you inlined your patches instead of attaching them n=
-ext=20
-time.
+> I cannot work out how the heck you got a divide instruction in
+> fib6_rule_match().
 
-I'm not comfortable with using the name for this purpose. Don't we just rep=
-ort=20
-00:00:00:00:00:00 when not associated? Also, for radio off, wasn't that bei=
-ng=20
-covered by the rfkill patches?
+This might be another symptom of the broken smp-alternatives patch.
+It tended to randomly corrupt some instructions by inserting different
+bytes which then crash in interesting ways.
 
-=2DMichael Wu
+I already sent a fix for that, but it's not in yet.
 
---nextPart2054624.IPlkY8fIxb
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-
-iD4DBQBE811zT3Oqt9AH4aERAvZMAJjCtMkHP5ZDPRet5acA5Q+Izf00AJ9qworg
-+xSKeXDpJT3mwfJZZD6gxQ==
-=cLpb
------END PGP SIGNATURE-----
-
---nextPart2054624.IPlkY8fIxb--
+-Andi
