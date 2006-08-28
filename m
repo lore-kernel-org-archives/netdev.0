@@ -1,57 +1,52 @@
-From: Jim Lewis <jklewis@us.ibm.com>
-Subject: [PATCH]: Add to MAINTAINERS file
-Date: Mon, 28 Aug 2006 13:18:35 -0500
-Message-ID: <1156789115.25559.15.camel@lewis1.austin.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>
+From: shemminger@osdl.org
+Subject: [PATCH 1/9] sky2: remove cloned/pskb_expand_head check
+Date: Mon, 28 Aug 2006 10:00:45 -0700
+Message-ID: <20060828170214.888770919@localhost.localdomain>
+References: <20060828170044.136391412@localhost.localdomain>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:57509 "EHLO
-	e35.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751251AbWH1SSi
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 14:18:38 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k7SIIcaM022804
-	for <netdev@vger.kernel.org>; Mon, 28 Aug 2006 14:18:38 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7SIIbfX222412
-	for <netdev@vger.kernel.org>; Mon, 28 Aug 2006 12:18:37 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7SIIaJm011926
-	for <netdev@vger.kernel.org>; Mon, 28 Aug 2006 12:18:37 -0600
+Received: from smtp.osdl.org ([65.172.181.4]:60292 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1750889AbWH1SUU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2006 14:20:20 -0400
 To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline; filename=sky2-no-overwrite.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The code to handle cloned skb overwriting is unnecessary in the
+sky2 driver and is buggy. The bug is that pskb_expand_head can change the
+skb but the driver has already mapped in the header.
 
-This patch adds Jim Lewis to the MAINTAINERS file for the Spidernet
-network driver.
+Since the sky2 hardware doesn't need to overwrite memory, the buggy
+code can just be removed; it was mistakenly copied from the tg3
+driver.
 
-Signed-off-by: James K Lewis <jklewis@us.ibm.com>
-
-
----
- MAINTAINERS |    6 ++++++
- 1 file changed, 6 insertions(+)
-
-Index: linux-2.6.18-rc2/MAINTAINERS
-===================================================================
---- linux-2.6.18-rc2.orig/MAINTAINERS	2006-08-21 16:59:25.000000000
--0500
-+++ linux-2.6.18-rc2/MAINTAINERS	2006-08-21 17:19:14.000000000 -0500
-@@ -2702,6 +2702,12 @@ M:	R.E.Wolff@BitWizard.nl
- L:	linux-kernel@vger.kernel.org ?
- S:	Supported
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+--- sky2.orig/drivers/net/sky2.c	2006-08-25 16:00:28.000000000 -0700
++++ sky2/drivers/net/sky2.c	2006-08-25 16:01:33.000000000 -0700
+@@ -1239,13 +1239,6 @@
+ 	/* Check for TCP Segmentation Offload */
+ 	mss = skb_shinfo(skb)->gso_size;
+ 	if (mss != 0) {
+-		/* just drop the packet if non-linear expansion fails */
+-		if (skb_header_cloned(skb) &&
+-		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
+-			dev_kfree_skb(skb);
+-			goto out_unlock;
+-		}
+-
+ 		mss += ((skb->h.th->doff - 5) * 4);	/* TCP options */
+ 		mss += (skb->nh.iph->ihl * 4) + sizeof(struct tcphdr);
+ 		mss += ETH_HLEN;
+@@ -1341,7 +1334,6 @@
  
-+SPIDERNET NETWORK DRIVER for CELL
-+P:	Jim Lewis
-+M:	jim@jklewis.com
-+L:	netdev@vger.kernel.org
-+S:	Supported
-+
- SRM (Alpha) environment access
- P:	Jan-Benedict Glaw
- M:	jbglaw@lug-owl.de
+ 	sky2_put_idx(hw, txqaddr[sky2->port], sky2->tx_prod);
+ 
+-out_unlock:
+ 	spin_unlock(&sky2->tx_lock);
+ 
+ 	dev->trans_start = jiffies;
 
+--
+Stephen Hemminger <shemminger@osdl.org>
 
