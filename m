@@ -1,64 +1,91 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: e1000 and 802.1ad/stacked vlan tagging
-Date: Mon, 28 Aug 2006 13:53:36 -0700
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52866B22@orsmsx418.amr.corp.intel.com>
+From: mabbas <mabbas@linux.intel.com>
+Subject: [PATCH 7/7] d80211: getting wrong freq value if we did hardware scan
+Date: Mon, 28 Aug 2006 13:57:28 -0700
+Message-ID: <44F358B8.60700@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sf.net
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-class: urn:content-classes:message
-To: "Stephan von Krawczynski" <skraw@ithnet.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: multipart/mixed;
+ boundary="------------000509030509060109040701"
+Cc: jbenc@suse.cz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga05.intel.com ([192.55.52.89]:51462 "EHLO
+	fmsmga101.fm.intel.com") by vger.kernel.org with ESMTP
+	id S932113AbWH1U5K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Aug 2006 16:57:10 -0400
+To: netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephan von Krawczynski wrote:
-> thank you for answering anyway. Though I think your answer covers
-> only the obvious half of the problem.
-> Indeed one might think that this solves the issue - as long as there
-> are only linux kernels involved. Unfortunately my setup is a bit more
-> complicated in terms of hardware. So I should have probably clarified
-> the question this way: how do you configure the interface in a manner
-> that packets with data length of 1500 get transferred, and not only
-> 1496 ? 
+This is a multi-part message in MIME format.
+--------------000509030509060109040701
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I tried setting mtu 2000 and everything worked with the virtual device
-(both) mtu at 1500.
-If you are getting long_packet errors at the mtu settings you tried (you
-didn't mention which ones) then the hardware is dropping the packets due
-to being over 1522 bytes in length (including CRC).
+In this patch  we search all A-BAND available channels to get the  right 
+frequency value. this might not be the right thing to do in beacon 
+parsing. Another approach is to have a static array of  the maximum 
+A-BAND channel number then we can map from channel to frequency fast. we 
+can set the values of this array at run time.  
 
-> I tried enlarging both real-device and first vlan interface mtu but
-> that does not work out. I really thought that the visible device
-> setting of mtu=1500 should have worked out and that the driver (or
-> some code in between) should have corrected the allowed frame size to
-> reflect the actual setup, not? 
+--------------000509030509060109040701
+Content-Type: text/x-patch;
+ name="d80211-iwlist-fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="d80211-iwlist-fix.patch"
 
-unfortunately I believe that your hardware MTU on the base interface
-MUST be adjusted in order to do stacked vlans because the vlan code
-doesn't fragment packets, it just inserts tags.  The e1000 hardware is
-capable of inserting/stripping 1 level of tags without dropping overlong
-frames, but cannot seamlessly handle 1+n levels of inserted tags.
-Transmit, we don't care how long the frames are that are given to us
-(the driver doesn't enforce MTU on transmit) but on receive we have
-limited space so it is important that each frame fit into the allocated
-buffer (including CRC).
 
-Please try MTU 1508 on eth0 (base interface only), as that configuration
-worked for me.
+This patch modify d80211 to fix getting wrong frequency value 
+for scan implemented in hardware. With harware scan we might get
+beacon of a network that is on different channel that in 
+local->conf.channel causing set freq to wrong value.
+ 
+Signed-off-by: Mohamed Abbas <mabbas@linux.intel.com>
 
-Jesse
+diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
+index a933d92..374193e 100644
+--- a/net/d80211/ieee80211_sta.c
++++ b/net/d80211/ieee80211_sta.c
+@@ -1543,8 +1543,6 @@ #endif
+ 	bss->channel = channel;
+ 	bss->freq = local->conf.freq;
+ 	if (channel != local->conf.channel &&
+-	    (local->conf.phymode == MODE_IEEE80211G ||
+-	     local->conf.phymode == MODE_IEEE80211B) &&
+ 	    channel >= 1 && channel <= 14) {
+ 		static const int freq_list[] = {
+ 			2412, 2417, 2422, 2427, 2432, 2437, 2442,
+@@ -1553,6 +1551,32 @@ #endif
+ 		/* IEEE 802.11g/b mode can receive packets from neighboring
+ 		 * channels, so map the channel into frequency. */
+ 		bss->freq = freq_list[channel - 1];
++
++		if (bss->hw_mode != MODE_IEEE80211G &&
++		    bss->hw_mode != MODE_IEEE80211B) 
++			bss->hw_mode = MODE_IEEE80211G;
++
++	} else if (channel != local->conf.channel ) {
++		int j, i; 
++		int b_found = 0;
++
++		/* not a bg channel search in other mode */
++		for (i = 0; i < local->hw->num_modes; i++) {
++			struct ieee80211_hw_modes *mode = &local->hw->modes[i];
++
++			if ((mode->mode != MODE_IEEE80211G) &&
++			    (mode->mode != MODE_IEEE80211B)){
++				for (j = 0; mode->num_channels; j++)
++				if (mode->channels[j].chan == channel) {
++					bss->freq = mode->channels[j].freq;
++					b_found = 1;
++					bss->hw_mode = mode->mode;
++					break;
++				}
++			}
++			if (b_found)
++				break;
++		}
+ 	}
+ 	bss->timestamp = timestamp;
+ 	bss->last_update = jiffies;
 
--------------------------------------------------------------------------
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+--------------000509030509060109040701--
