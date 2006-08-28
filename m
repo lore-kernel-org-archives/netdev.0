@@ -1,59 +1,57 @@
-From: shemminger@osdl.org
-Subject: [PATCH 3/9] sky2: dont use force status bit
-Date: Mon, 28 Aug 2006 10:00:47 -0700
-Message-ID: <20060828170216.265966554@localhost.localdomain>
-References: <20060828170044.136391412@localhost.localdomain>
-Cc: netdev@vger.kernel.org
+From: Jim Lewis <jklewis@us.ibm.com>
+Subject: [PATCH]: Add to MAINTAINERS file
+Date: Mon, 28 Aug 2006 13:18:35 -0500
+Message-ID: <1156789115.25559.15.camel@lewis1.austin.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:47746 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751273AbWH1SQx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2006 14:16:53 -0400
+Received: from e35.co.us.ibm.com ([32.97.110.153]:57509 "EHLO
+	e35.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751251AbWH1SSi
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Aug 2006 14:18:38 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e35.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k7SIIcaM022804
+	for <netdev@vger.kernel.org>; Mon, 28 Aug 2006 14:18:38 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7SIIbfX222412
+	for <netdev@vger.kernel.org>; Mon, 28 Aug 2006 12:18:37 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7SIIaJm011926
+	for <netdev@vger.kernel.org>; Mon, 28 Aug 2006 12:18:37 -0600
 To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=sky2-ctl-bits.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Don't use force status bit. It was never implemented on all chips, or has
-no impact.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+This patch adds Jim Lewis to the MAINTAINERS file for the Spidernet
+network driver.
 
---- sky2.orig/drivers/net/sky2.c	2006-08-25 16:02:27.000000000 -0700
-+++ sky2/drivers/net/sky2.c	2006-08-25 16:05:10.000000000 -0700
-@@ -1192,7 +1192,6 @@
- 	struct sky2_tx_le *le = NULL;
- 	struct tx_ring_info *re;
- 	unsigned i, len;
--	int avail;
- 	dma_addr_t mapping;
- 	u32 addr64;
- 	u16 mss;
-@@ -1328,12 +1327,8 @@
- 	re->idx = sky2->tx_prod;
- 	le->ctrl |= EOP;
- 
--	avail = tx_avail(sky2);
--	if (mss != 0 || avail < TX_MIN_PENDING) {
-- 		le->ctrl |= FRC_STAT;
--		if (avail <= MAX_SKB_TX_LE)
--			netif_stop_queue(dev);
--	}
-+	if (tx_avail(sky2) <= MAX_SKB_TX_LE)
-+		netif_stop_queue(dev);
- 
- 	sky2_put_idx(hw, txqaddr[sky2->port], sky2->tx_prod);
- 
---- sky2.orig/drivers/net/sky2.h	2006-08-25 16:00:28.000000000 -0700
-+++ sky2/drivers/net/sky2.h	2006-08-25 16:05:10.000000000 -0700
-@@ -1748,7 +1748,6 @@
- 	INIT_SUM= 1<<3,
- 	LOCK_SUM= 1<<4,
- 	INS_VLAN= 1<<5,
--	FRC_STAT= 1<<6,
- 	EOP	= 1<<7,
- };
- 
+Signed-off-by: James K Lewis <jklewis@us.ibm.com>
 
---
-Stephen Hemminger <shemminger@osdl.org>
+
+---
+ MAINTAINERS |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+Index: linux-2.6.18-rc2/MAINTAINERS
+===================================================================
+--- linux-2.6.18-rc2.orig/MAINTAINERS	2006-08-21 16:59:25.000000000
+-0500
++++ linux-2.6.18-rc2/MAINTAINERS	2006-08-21 17:19:14.000000000 -0500
+@@ -2702,6 +2702,12 @@ M:	R.E.Wolff@BitWizard.nl
+ L:	linux-kernel@vger.kernel.org ?
+ S:	Supported
+ 
++SPIDERNET NETWORK DRIVER for CELL
++P:	Jim Lewis
++M:	jim@jklewis.com
++L:	netdev@vger.kernel.org
++S:	Supported
++
+ SRM (Alpha) environment access
+ P:	Jan-Benedict Glaw
+ M:	jbglaw@lug-owl.de
+
 
