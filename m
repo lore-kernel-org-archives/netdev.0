@@ -1,79 +1,72 @@
-From: Ulrich Drepper <drepper@redhat.com>
+From: Nicholas Miell <nmiell@comcast.net>
 Subject: Re: [take14 0/3] kevent: Generic event handling mechanism.
-Date: Sun, 27 Aug 2006 19:11:37 -0700
-Message-ID: <44F250D9.90904@redhat.com>
-References: <11564996832717@2ka.mipt.ru>	<44F208A5.4050308@redhat.com> <20060827.185744.82374086.davem@davemloft.net>
+Date: Sun, 27 Aug 2006 19:40:33 -0700
+Message-ID: <1156732833.2358.13.camel@entropy>
+References: <11564996832717@2ka.mipt.ru> <44F208A5.4050308@redhat.com>
+	 <20060827.185744.82374086.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigD070FAD1FCD3FAED83C8D367"
-Cc: johnpol@2ka.mipt.ru, linux-kernel@vger.kernel.org, akpm@osdl.org,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: drepper@redhat.com, johnpol@2ka.mipt.ru,
+	linux-kernel@vger.kernel.org, akpm@osdl.org,
 	netdev@vger.kernel.org, zach.brown@oracle.com, hch@infradead.org,
 	chase.venters@clientec.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:31922 "EHLO mx1.redhat.com")
-	by vger.kernel.org with ESMTP id S932349AbWH1CMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Aug 2006 22:12:17 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932290AbWH1Ckx@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 In-Reply-To: <20060827.185744.82374086.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigD070FAD1FCD3FAED83C8D367
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-David Miller wrote:
+On Sun, 2006-08-27 at 18:57 -0700, David Miller wrote:
+> From: Ulrich Drepper <drepper@redhat.com>
+> Date: Sun, 27 Aug 2006 14:03:33 -0700
+> 
+> > The biggest problem I see so far is the integration into the existing
+> > interfaces.  kevent notification *really* should be usable as a new
+> > sigevent type.  Whether the POSIX interfaces are liked by kernel folks
+> > or not, they are what the majority of the userlevel programmers use.
+> > The mechanism is easily extensible.  I've described this in my paper.  I
+> > cannot comment on the complexity of the kernel side but I'd imagine it's
+> > not much more difficult, just different from what is implemented now.
+> > Let's learn for a change from the mistakes of the past.  The new and
+> > innovative AIO interfaces never took off because their implementation
+> > differs so much from the POSIX interfaces.  People are interested in
+> > portable code.  So, please, let's introduce SIGEV_KEVENT.  Then we
+> > magically get timer notification etc for free.
+> 
+> I have to disagree with this.
+> 
 > SigEvent, and signals in general, are crap.  They are complex
 > and userland gets it wrong more often than not.  Interfaces
-> for userland should be simple, signals are not simple.
+> for userland should be simple, signals are not simple.  A core
+> loop that says "give me events to process", on the other hand,
+> is.  And this is what is most natural for userspace.
+> 
+> The user can say when he wants the process events.  In fact,
+> ripping out the complex signal handling will be a welcome
+> change for most server applications.
+> 
+> We are going to require the use of a new interface to register
+> the events anyways, why keep holding onto the delivery baggage
+> as well when we can break free of those limitations?
 
-You miss the point.
+struct sigevent is the POSIX method for describing how event
+notifications are delivered.
 
-sigevent has nothing necessarily to do with signals.  I don't want
-signals.  I just want the same interface to specify the action to be used=
-=2E
+Two methods are specified in POSIX -- SIGEV_SIGNAL, which delivers a
+signal to the process and SIGEV_THREAD which creates a new thread in the
+process and calls a user-supplied function. In addition to these two
+methods, Linux also implements SIGEV_THREAD_ID, which sends a signal to
+a specific thread (this is used internally by glibc to implement
+SIGEV_THREAD, but I imagine that would change on the addition of
+SIGEV_KEVENT).
 
-If I'm using
+Ulrich is suggesting the addition of SIGEV_KEVENT, which causes the
+event notification to be delivered to a specific kevent queue. This
+would allow for event delivery to kevent queues from POSIX AIO
+completions, POSIX message queues, POSIX timers, glibc's async name
+resolution interface and anything else that might use a struct sigevent
+in the future.
 
-  struct sigevent sigev;
-  int kfd;
-
-  kfd =3D kevent_create (...);
-
-  sigev.sigev_notify =3D SIGEV_KEVENT;
-  sigev.sigev_kfd =3D kfd;
-  sigev.sigev_valie.sival_ptr =3D &some_data;
-
-
-then I can use this sigev variable in an unmodified timer_create call.
-The kernel would see SIGEV_KEVENT (as opposed to SIGEV_SIGNAL etc) and
-**not** generate a signal but instead create the event in the kevent queu=
-e.
-
-
-The proposal to use sigevent has nothing to do with signals.  It's just
-about the interface and to have smooth integration with existing
-functionality.
-
---=20
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
-=E2=9E=A7 Mountain View, CA =E2=9D=96
-
-
---------------enigD070FAD1FCD3FAED83C8D367
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
-
-iD8DBQFE8lDZ2ijCOnn/RHQRAsTYAJ0bUeSaOflzWljtW+bC6hLDSLAEdgCgpKIn
-bFaoVNSv9J2QdddkB3D7LBI=
-=/h+i
------END PGP SIGNATURE-----
-
---------------enigD070FAD1FCD3FAED83C8D367--
+-- 
+Nicholas Miell <nmiell@comcast.net>
