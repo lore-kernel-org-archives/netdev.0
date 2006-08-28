@@ -1,38 +1,46 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH] net/*: use SLAB_PANIC
-Date: Mon, 28 Aug 2006 10:36:51 +0100
-Message-ID: <20060828093651.GA31341@infradead.org>
-References: <20060826230841.GA5204@martell.zuzino.mipt.ru>
+From: "Amit S. Kale" <amitkale@linsyssoft.com>
+Subject: Re: [PATCH 2.6.17 2/9] NetXen: Hardware access routines
+Date: Mon, 28 Aug 2006 15:22:07 +0530
+Message-ID: <200608281522.07674.amitkale@linsyssoft.com>
+References: <Pine.LNX.4.64.0608180713480.6875@dut39> <200608211357.23600.amitkale@linsyssoft.com> <20060821070302.5666e1ab@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Amit S. Kale" <amitkale@netxen.com>, netdev@vger.kernel.org,
+	jeff@garzik.org, sanjeev@netxen.com, unmproj@linsyssoft.com,
+	rob@netxen.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:65500 "EHLO
-	pentafluge.infradead.org") by vger.kernel.org with ESMTP
-	id S932477AbWH1JhM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 05:37:12 -0400
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Received: from svr68.ehostpros.com ([67.15.48.48]:1190 "EHLO
+	svr68.ehostpros.com") by vger.kernel.org with ESMTP id S932487AbWH1JwW
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Aug 2006 05:52:22 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060821070302.5666e1ab@localhost.localdomain>
 Content-Disposition: inline
-In-Reply-To: <20060826230841.GA5204@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 27, 2006 at 03:08:41AM +0400, Alexey Dobriyan wrote:
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> ---
-> 
->  Forgive me reformatting, in some cases making it fit in 80 columns was hard.
-> 
->  net/core/flow.c        |    6 +-----
->  net/core/neighbour.c   |   12 ++++--------
->  net/core/skbuff.c      |    9 ++-------
->  net/decnet/dn_route.c  |   11 +++--------
->  net/ipv4/inetpeer.c    |    5 +----
->  net/ipv4/ipmr.c        |    5 +----
->  net/ipv4/route.c       |   10 +++-------
->  net/ipv4/tcp.c         |    4 +---
->  net/ipv6/ip6_fib.c     |    4 +---
->  net/ipv6/route.c       |   10 +++-------
+On Monday 21 August 2006 19:33, Stephen Hemminger wrote:
+> On Mon, 21 Aug 2006 13:57:23 +0530
+>
+> "Amit S. Kale" <amitkale@linsyssoft.com> wrote:
+> > We can certainly create a table for all error messages. It'll hurt
+> > readability of code in many of the other places where printks are used to
+> > indicate some hardware error.
+> > -Amit
+>
+> My suggestion was intended as an way to handle multiple driver versions
+> all using the same firmware or vice versa. By locking the firmware and
+> driver version together you might make maintenance more difficult.
 
-ipv6 can be modular, so panicing on a initialization failure is wrong.
+Ah, I had missed that completely in your first email. Thanks for your 
+suggestion.
+
+The NetXen firmware will most probably keep changing. It's hardware is 
+flexible enough, so the firmware changes will possibly be varied in nature. 
+Thinking about this further, it seems we should coalesce firmware dependent 
+code into a few isolated functions. While this may be difficult, we should do 
+it anyway. Hopefully future changes will not cause these efforts to go waste.
+-Amit
 
