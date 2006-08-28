@@ -1,55 +1,53 @@
-From: "Jesse Huang" <jesse@icplus.com.tw>
-Subject: Re: [PATCH] IP1000A: IC Plus update 2006-08-22
-Date: Mon, 28 Aug 2006 09:45:46 +0800
-Message-ID: <002a01c6ca43$ae73ebd0$4964a8c0@icplus.com.tw>
-References: <1156268234.3622.1.camel@localhost.localdomain> <20060822232730.GA30977@electric-eye.fr.zoreil.com> <20060823113822.GA17103@electric-eye.fr.zoreil.com> <20060823223032.GA25111@electric-eye.fr.zoreil.com> <026c01c6c71d$0fde1730$4964a8c0@icplus.com.tw> <20060824220758.GA19637@electric-eye.fr.zoreil.com> <20060827220816.GA21788@electric-eye.fr.zoreil.com>
-Cc: <penberg@cs.Helsinki.FI>, <akpm@osdl.org>, <dvrabel@cantab.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<david@pleyades.net>, <dominik.schulz@gauner.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [take14 0/3] kevent: Generic event handling mechanism.
+Date: Sun, 27 Aug 2006 18:57:44 -0700 (PDT)
+Message-ID: <20060827.185744.82374086.davem@davemloft.net>
+References: <11564996832717@2ka.mipt.ru>
+	<44F208A5.4050308@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johnpol@2ka.mipt.ru, linux-kernel@vger.kernel.org, akpm@osdl.org,
+	netdev@vger.kernel.org, zach.brown@oracle.com, hch@infradead.org,
+	chase.venters@clientec.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from msr3.hinet.net ([168.95.4.103]:34481 "EHLO msr3.hinet.net")
-	by vger.kernel.org with ESMTP id S932159AbWH1BqW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Aug 2006 21:46:22 -0400
-To: "Francois Romieu" <romieu@fr.zoreil.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:54453
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932332AbWH1B5m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Aug 2006 21:57:42 -0400
+To: drepper@redhat.com
+In-Reply-To: <44F208A5.4050308@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Ulrich Drepper <drepper@redhat.com>
+Date: Sun, 27 Aug 2006 14:03:33 -0700
 
-It's Ok. Thanks for that.
+> The biggest problem I see so far is the integration into the existing
+> interfaces.  kevent notification *really* should be usable as a new
+> sigevent type.  Whether the POSIX interfaces are liked by kernel folks
+> or not, they are what the majority of the userlevel programmers use.
+> The mechanism is easily extensible.  I've described this in my paper.  I
+> cannot comment on the complexity of the kernel side but I'd imagine it's
+> not much more difficult, just different from what is implemented now.
+> Let's learn for a change from the mistakes of the past.  The new and
+> innovative AIO interfaces never took off because their implementation
+> differs so much from the POSIX interfaces.  People are interested in
+> portable code.  So, please, let's introduce SIGEV_KEVENT.  Then we
+> magically get timer notification etc for free.
 
-Jesse
------ Original Message ----- 
-From: "Francois Romieu" <romieu@fr.zoreil.com>
-To: "Jesse Huang" <jesse@icplus.com.tw>
-Cc: <penberg@cs.Helsinki.FI>; <akpm@osdl.org>; <dvrabel@cantab.net>;
-<linux-kernel@vger.kernel.org>; <netdev@vger.kernel.org>;
-<david@pleyades.net>; <dominik.schulz@gauner.org>
-Sent: Monday, August 28, 2006 6:08 AM
-Subject: Re: [PATCH] IP1000A: IC Plus update 2006-08-22
+I have to disagree with this.
 
+SigEvent, and signals in general, are crap.  They are complex
+and userland gets it wrong more often than not.  Interfaces
+for userland should be simple, signals are not simple.  A core
+loop that says "give me events to process", on the other hand,
+is.  And this is what is most natural for userspace.
 
-Francois Romieu <romieu@fr.zoreil.com> :
-> Jesse Huang <jesse@icplus.com.tw> :
-> [...]
->
-> Added:
-> 0039-ip1000-cosmetic-in-ipg_interrupt_handler.txt
-> 0040-ip1000-irq-handler-and-device-close-race.txt
-> 0041-ip1000-schedule-the-host-error-recovery-to-user-context.txt
-> 0042-ip1000-no-need-to-mask-a-constant-field-with-RSVD_MASK.txt
+The user can say when he wants the process events.  In fact,
+ripping out the complex signal handling will be a welcome
+change for most server applications.
 
-Added:
-0043-ip1000-use-the-new-IRQF_-constants-and-the-dma_-alloc-free-_coherent-AP
-I.txt
-0044-ip1000-mixed-case-and-upper-case-removal.txt
-0045-ip1000-add-ipg_-r-w-8-16-32-macros.txt
-
-The patches beyond 0043 are only available through HTTP. Since 0043
-needs a recent enough kernel and the current driver has branched from
-an old release, I plan to rebase my branch. Does it raise any objection
-or remark ?
-
--- 
-Ueimor
-
-
+We are going to require the use of a new interface to register
+the events anyways, why keep holding onto the delivery baggage
+as well when we can break free of those limitations?
