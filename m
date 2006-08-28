@@ -1,44 +1,35 @@
-From: "Arnaldo Carvalho de Melo" <acme@ghostprotocols.net>
-Subject: Re: [PATCH 0/1] [DCCP]: Tidy up code slightly
-Date: Mon, 28 Aug 2006 02:13:04 -0300
-Message-ID: <39e6f6c70608272213sa6f679bi2ca3f625935919ea@mail.gmail.com>
-References: <200608281634.51216.ian.mcdonald@jandi.co.nz>
-	 <20060827.214747.116351909.davem@davemloft.net>
-	 <5640c7e00608272158w329f2504x20eda1d3a653e460@mail.gmail.com>
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Subject: Re: myri10ge conversion to non-contiguous skb
+Date: Sun, 27 Aug 2006 23:36:38 -0700
+Message-ID: <4807377b0608272336v1d64bc5bh320dee7f08667f79@mail.gmail.com>
+References: <44EE2791.50101@myri.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.199]:28893 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S932350AbWH1FNH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 01:13:07 -0400
-Received: by nz-out-0102.google.com with SMTP id n1so924426nzf
-        for <netdev@vger.kernel.org>; Sun, 27 Aug 2006 22:13:07 -0700 (PDT)
-To: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-In-Reply-To: <5640c7e00608272158w329f2504x20eda1d3a653e460@mail.gmail.com>
+Received: from ug-out-1314.google.com ([66.249.92.173]:57011 "EHLO
+	ug-out-1314.google.com") by vger.kernel.org with ESMTP
+	id S932396AbWH1Ggj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Aug 2006 02:36:39 -0400
+Received: by ug-out-1314.google.com with SMTP id m3so1505658ugc
+        for <netdev@vger.kernel.org>; Sun, 27 Aug 2006 23:36:38 -0700 (PDT)
+To: "Brice Goglin" <brice@myri.com>
+In-Reply-To: <44EE2791.50101@myri.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/28/06, Ian McDonald <ian.mcdonald@jandi.co.nz> wrote:
-> On 8/28/06, David Miller <davem@davemloft.net> wrote:
-> > From: Ian McDonald <ian.mcdonald@jandi.co.nz>
-> > Date: Mon, 28 Aug 2006 16:34:50 +1200
-> >
-> > > Arnaldo has pointed this one out to me in latest series of
-> > > patches. Can this go into 2.6.18 please?
-> >
-> > It's not a bug fix, so we'll defer it to 2.6.19
+On 8/24/06, Brice Goglin <brice@myri.com> wrote:
+> During the submission of the myri10ge driver, some people raised the
+> question of using pages (or any kind of non-contiguous skb) instead of
+> our current 16kB contiguous skb. We are looking at this right now and it
+> is not clear what solution is the best. From what we understand, Linux
+> provides two mostly redundant mechanisms to handle discontinuous skb,
+> the skb->frags and the skb->frag_list, s2io using the latter while e1000
+> uses the former. Is one or the other recommended? What is the purpose of
+> having them both in the net core?
 
-Agreed
-
-> I guess that's true unless we change the structure which would make it
-> a bug fix but I'm happy for this to be in 2.6.19 since that hasn't
-> happened.
-
-Regards,
-
-- Arnaldo
+you really only have one option, to use PAGE_SIZE pages and frags[]
+w/nr_frags.  e1000 tried the frag_list option but that is used by ip
+reassembly and badly conflicts with driver generated frag_list.
