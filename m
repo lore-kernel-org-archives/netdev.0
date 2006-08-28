@@ -1,77 +1,47 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 5/10] rt2x00: Register initialization fixes
-Date: Mon, 28 Aug 2006 12:08:39 -0400
-Message-ID: <20060828160834.GA14069@tuxdriver.com>
-References: <200608271739.14166.IvDoorn@gmail.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH] [IPV6] ROUTE: Fix dst refcounting.
+Date: Tue, 29 Aug 2006 01:46:49 +0900 (JST)
+Message-ID: <20060829.014649.37985556.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org, CHINEN@jp.ibm.com,
+	usagi-core@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:31506 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1751145AbWH1QJQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2006 12:09:16 -0400
-To: Ivo van Doorn <ivdoorn@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <200608271739.14166.IvDoorn@gmail.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:61708 "EHLO
+	yue.st-paulia.net") by vger.kernel.org with ESMTP id S1751124AbWH1Qo5
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Aug 2006 12:44:57 -0400
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 27, 2006 at 05:39:14PM +0200, Ivo van Doorn wrote:
-> Various register initialization fixes to make the device work properly.
-> This will fix the RX/TX issue for rt61pci.
-> 
-> Signed-off-by Ivo van Doorn <ivdoorn@gmail.com>
-> 
-> ---
-> 
-> diff -rU3 wireless-dev-rt2x00-interface/drivers/net/wireless/d80211/rt2x00/rt2400pci.c wireless-dev-rt2x00-register/drivers/net/wireless/d80211/rt2x00/rt2400pci.c
-> --- wireless-dev-rt2x00-interface/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-08-27 16:11:40.000000000 +0200
-> +++ wireless-dev-rt2x00-register/drivers/net/wireless/d80211/rt2x00/rt2400pci.c	2006-08-27 16:17:02.000000000 +0200
-> @@ -1192,11 +1192,7 @@
->  	rt2x00_register_write(rt2x00dev, RXCSR0, reg);
->  
->  	rt2x00_register_write(rt2x00dev, MACCSR0, cpu_to_le32(0x00217223));
-> -
-> -	rt2x00_register_read(rt2x00dev, MACCSR1, &reg);
-> -	rt2x00_set_field32(&reg, MACCSR1_AUTO_TXBBP, 1);
-> -	rt2x00_set_field32(&reg, MACCSR1_AUTO_RXBBP, 1);
-> -	rt2x00_register_write(rt2x00dev, MACCSR1, reg);
-> +	rt2x00_register_write(rt2x00dev, MACCSR1, cpu_to_le32(0x00235518));
->  
->  	rt2x00_register_read(rt2x00dev, MACCSR2, &reg);
->  	rt2x00_set_field32(&reg, MACCSR2_DELAY, 64);
-> diff -rU3 wireless-dev-rt2x00-interface/drivers/net/wireless/d80211/rt2x00/rt2500pci.c wireless-dev-rt2x00-register/drivers/net/wireless/d80211/rt2x00/rt2500pci.c
-> --- wireless-dev-rt2x00-interface/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-08-27 16:12:03.000000000 +0200
-> +++ wireless-dev-rt2x00-register/drivers/net/wireless/d80211/rt2x00/rt2500pci.c	2006-08-27 16:17:56.000000000 +0200
-> @@ -1249,6 +1249,7 @@
->  		return -EBUSY;
->  
->  	rt2x00_register_write(rt2x00dev, PWRCSR0, cpu_to_le32(0x3f3b3100));
-> +	rt2x00_register_write(rt2x00dev, PCICSR, cpu_to_le32(0x000003b8));
->  
->  	rt2x00_register_write(rt2x00dev, PSCSR0, cpu_to_le32(0x00020002));
->  	rt2x00_register_write(rt2x00dev, PSCSR1, cpu_to_le32(0x00000002));
-> @@ -1272,12 +1273,11 @@
->  	rt2x00_set_field32(&reg, RXCSR0_DISABLE_RX, 0);
->  	rt2x00_register_write(rt2x00dev, RXCSR0, reg);
->  
-> -	rt2x00_register_write(rt2x00dev, MACCSR0, cpu_to_le32(0x00213223));
-> +	rt2x00_register_write(rt2x00dev, GPIOCSR, cpu_to_le32(0x0000ff00));
-> +	rt2x00_register_write(rt2x00dev, TESTCSR, cpu_to_le32(0x000000f0));
->  
-> -	rt2x00_register_read(rt2x00dev, MACCSR1, &reg);
-> -	rt2x00_set_field32(&reg, MACCSR1_AUTO_TXBBP, 1);
-> -	rt2x00_set_field32(&reg, MACCSR1_AUTO_RXBBP, 1);
-> -	rt2x00_register_write(rt2x00dev, MACCSR1, reg);
-> +	rt2x00_register_write(rt2x00dev, MACCSR0, cpu_to_le32(0x00213223));
-> +	rt2x00_register_write(rt2x00dev, MACCSR1, cpu_to_le32(0x00235518));
->  
->  	rt2x00_register_read(rt2x00dev, MACCSR2, &reg);
->  	rt2x00_set_field32(&reg, MACCSR2_DELAY, 64);
+[IPV6] ROUTE: Fix dst reference counting in ip6_pol_route_lookup().
 
-Lots of magic numbers here...can we do something about that?
+In ip6_pol_route_lookup(), when we finish backtracking at the
+top-level root entry, we need to hold it.
 
-John
+Bug noticed by Mitsuru Chinen <CHINEN@jp.ibm.com>.
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+--- 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 626ff7a..9d61ae9 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -510,8 +510,8 @@ restart:
+ 	rt = fn->leaf;
+ 	rt = rt6_device_match(rt, fl->oif, flags);
+ 	BACKTRACK(&fl->fl6_src);
+-	dst_hold(&rt->u.dst);
+ out:
++	dst_hold(&rt->u.dst);
+ 	read_unlock_bh(&table->tb6_lock);
+ 
+ 	rt->u.dst.lastuse = jiffies;
+
 -- 
-John W. Linville
-linville@tuxdriver.com
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
