@@ -1,49 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1][SCTP]: Fix sctp_primitive_ABORT() call in
- sctp_close()
-Date: Mon, 28 Aug 2006 13:50:53 -0700 (PDT)
-Message-ID: <20060828.135053.98859723.davem@davemloft.net>
-References: <1156792296.11959.20.camel@w-sridhar2.beaverton.ibm.com>
+From: mabbas <mabbas@linux.intel.com>
+Subject: [PATCH 6/7] d80211: diplay supported rates in readable format
+Date: Mon, 28 Aug 2006 13:52:06 -0700
+Message-ID: <44F35776.7060800@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+Content-Type: multipart/mixed;
+ boundary="------------080102070808030509030405"
+Cc: jbenc@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:6891
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932103AbWH1Uus (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 16:50:48 -0400
-To: sri@us.ibm.com
-In-Reply-To: <1156792296.11959.20.camel@w-sridhar2.beaverton.ibm.com>
+Received: from mga07.intel.com ([143.182.124.22]:34467 "EHLO
+	azsmga101.ch.intel.com") by vger.kernel.org with ESMTP
+	id S932123AbWH1Uvs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Aug 2006 16:51:48 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Mon, 28 Aug 2006 12:11:36 -0700
+This is a multi-part message in MIME format.
+--------------080102070808030509030405
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> The recent SCTP CVE fix that went into 2.6.18 changed 
-> sctp_primitive_ABORT() callers to create an ABORT chunk
-> and pass it as an arg instead of struct msghdr.
-> While submitting this fix, i missed the other location in
-> sctp_close() where this is called.
-> 
-> Please apply this patch to 2.6.18 and it should also go
-> into the stable series.
 
-This shows why embargoes are detrimental to Linux kernel development.
 
-There might have been a chance of this being caught earlier if the
-original bug fix had been posted for review here on netdev.  Now we
-have the situation where a -stable kernel release went out with the
-bogus version of the fix because it got _ZERO_ public review, and it
-is likely that several distributions have therefore shipped kernels
-with this problem too.
+--------------080102070808030509030405
+Content-Type: text/x-patch;
+ name="d80211-iwlist-display.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="d80211-iwlist-display.patch"
 
-This is unacceptable.
+This patch modify d80211 to report supported rates in readable
+format in iwlist scan command.
 
-Please everyone, learn from this, and understand that I will always
-ignore embargoed bug reports sent to me.  Discuss networking bugs,
-no matter how severe, here on netdev from the beginning so we can
-fix things correctly and not via some private group of individuals.
+Signed-off-by: Mohamed Abbas <mabbas@linux.intel.com>
 
-Thanks.
+diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
+index a933d92..b2e45a4 100644
+--- a/net/d80211/ieee80211_sta.c
++++ b/net/d80211/ieee80211_sta.c
+@@ -2714,15 +2714,21 @@ ieee80211_sta_scan_result(struct net_dev
+ 		current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe,
+ 						  buf);
+ 
+-		p = buf;
+-		p += sprintf(p, "supp_rates=");
+-		for (i = 0; i < bss->supp_rates_len; i++)
+-			p+= sprintf(p, "%02x", bss->supp_rates[i]);
+-		memset(&iwe, 0, sizeof(iwe));
+-		iwe.cmd = IWEVCUSTOM;
+-		iwe.u.data.length = strlen(buf);
+-		current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe,
+-						  buf);
++		/* dispaly all support rates in readable format */
++		p = current_ev + IW_EV_LCP_LEN;
++		iwe.cmd = SIOCGIWRATE;
++		/* Those two flags are ignored... */
++		iwe.u.bitrate.fixed = iwe.u.bitrate.disabled = 0;
++
++		for (i = 0; i < bss->supp_rates_len; i++) {
++			iwe.u.bitrate.value = ((bss->supp_rates[i] & 
++							0x7f) * 500000);
++			p = iwe_stream_add_value(current_ev, p, 
++					end_buf, &iwe, IW_EV_PARAM_LEN);
++		}
++		/* Check if we added any rate */
++		if((p - current_ev) > IW_EV_LCP_LEN)
++			current_ev = p;
+ 
+ 		kfree(buf);
+ 		break;
+
+--------------080102070808030509030405--
