@@ -1,50 +1,76 @@
-From: Elliot Schwartz <elliot@devicescape.com>
-Subject: Re: [patch 5/5] d80211: add ioctl to stop data frame tx
-Date: Mon, 28 Aug 2006 11:34:15 -0700
-Message-ID: <upsekwvyw.fsf@devicescape.com>
-References: <20060822173241.313859000@devicescape.com>
-	<20060822173419.GF12500@devicescape.com>
-	<1156317906.3629.18.camel@ux156>
-	<20060823180912.2f06d469@griffin.suse.cz>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.18-rc4-mm[1,2,3] -- Network card not getting assigned an
+ "eth" device name
+Date: Mon, 28 Aug 2006 12:03:28 -0700
+Message-ID: <20060828120328.ae734de0.akpm@osdl.org>
+References: <a44ae5cd0608270007gc6a919fx9e36562d8023635d@mail.gmail.com>
+	<20060827001943.c559d37d.akpm@osdl.org>
+	<20060827.003800.95504796.davem@davemloft.net>
+	<a44ae5cd0608280852p50e72241vff8e3ae101e94185@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>,
+	"Dan Williams" <dcbw@redhat.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jeremy@goop.org,
+	Robert Love <rml@novell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.devicescape.com ([207.138.119.2]:11500 "EHLO
-	mail.devicescape.com") by vger.kernel.org with ESMTP
-	id S1751317AbWH1SeV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 14:34:21 -0400
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20060823180912.2f06d469@griffin.suse.cz> (Jiri Benc's message
- of "Wed, 23 Aug 2006 18:09:12 +0200")
+Received: from smtp.osdl.org ([65.172.181.4]:16790 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751343AbWH1TD5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2006 15:03:57 -0400
+To: "Miles Lane" <miles.lane@gmail.com>
+In-Reply-To: <a44ae5cd0608280852p50e72241vff8e3ae101e94185@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 28 Aug 2006 08:52:02 -0700
+"Miles Lane" <miles.lane@gmail.com> wrote:
 
-Hi Jiri (and Johannes),
+> On 8/27/06, David Miller <davem@davemloft.net> wrote:
+> > From: Andrew Morton <akpm@osdl.org>
+> > Date: Sun, 27 Aug 2006 00:19:43 -0700
+> >
+> > > Jeremy reported that a while back too.  I do not know what is causing it
+> > > and as far as I know no net developers have yet looked into it.
+> >
+> > A debugging patch like this one should help figure out the culprit.
+> >
+> > If we don't see the gibberish netdevice name printed in the kernel
+> > logs, then likely something is corrupting the netdevice structure or
+> > the memory holding the name.
+> >
+> > diff --git a/net/core/dev.c b/net/core/dev.c
+> > index d4a1ec3..45f9b19 100644
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -738,6 +738,11 @@ int dev_change_name(struct net_device *d
+> >
+> >         if (!dev_valid_name(newname))
+> >                 return -EINVAL;
+> > +#if 1
+> > +       printk("[%s:%d]: Changing netdevice name from [%s] to [%s]\n",
+> > +              current->comm, current->pid,
+> > +              dev->name, newname);
+> > +#endif
+> >
+> >         if (strchr(newname, '%')) {
+> >                 err = dev_alloc_name(dev, newname);
+> >
+> 
+> Dan, do you have any idea why NetworkManager from Ubuntu 6.06.1
+> would be corrupting network device names on recent MM kernels?
+> I haven't seen this happening with Ubuntu's kernels.  If you like, I can
+> send you my kernel .config file.
+> 
+> Here's what I get:
+> 
 
-Jiri Benc <jbenc@suse.cz> writes:
-> On Wed, 23 Aug 2006 09:25:06 +0200, Johannes Berg wrote:
-> > Should that really drop dataframes dead on the floor? And wouldn't it
-> > make sense stop the networking layer from injecting more data into the
-> > stack when stop_data_frame_tx is enabled?
->
-> I agree. That should be solved in an another way (stop dequeuing frames
-> from 802.11 qdisc?).
+grepping for `ioctl' gives:
 
-This is used to be able to send the channel switch announcements that
-are queued from userspace out, yet not send dataframes in this same
-queue out. This is to avoid exceeding regulatory requirements for
-transmission time after radar has been detected.
+ioctl(9, SIOCGIWNAME, 0xbfe38d8c)                 = -1 EINVAL (Invalid argument)
+ioctl(9, SIOCETHTOOL, 0xbfe38d2c)                 = 0
+ioctl(11, SIOCGIFHWADDR, {ifr_name="eth0", ???})  = -1 ENODEV (No such device)
+ioctl(11, SIOCGIFFLAGS, {ifr_name="eth0", ???})   = -1 ENODEV (No such device)
 
-It's not ideal, but possibly neither is hanging on to the frames
-during the interval in which the channel changes hoping to find the
-same station there.
-
-Thanks,
-
-elliot
-
-
+Perhaps you could generate the strace output for 2.6.18-rc5, grep that for
+ioctl, look for differences?  That initial SIOCGIWNAME failure is fishy.
