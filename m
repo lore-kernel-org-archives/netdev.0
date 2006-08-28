@@ -1,35 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: divide error: 0000 in fib6_rule_match
-Date: Mon, 28 Aug 2006 14:51:24 -0700 (PDT)
-Message-ID: <20060828.145124.120445347.davem@davemloft.net>
-References: <20060826160922.3324a707.akpm@osdl.org>
-	<20060828200716.GA4244@inferi.kami.home>
-	<20060828143003.aaae0d7d.akpm@osdl.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: e1000 and 802.1ad/stacked vlan tagging
+Date: Mon, 28 Aug 2006 14:54:28 -0700
+Message-ID: <44F36614.3030609@candelatech.com>
+References: <36D9DB17C6DE9E40B059440DB8D95F5286678F@orsmsx418.amr.corp.intel.com>
+	<20060828193832.359651a1.skraw@ithnet.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: malattia@linux.it, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:43709
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932202AbWH1VvV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 17:51:21 -0400
-To: akpm@osdl.org
-In-Reply-To: <20060828143003.aaae0d7d.akpm@osdl.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	"Brandeburg,  Jesse" <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+To: Stephan von Krawczynski <skraw@ithnet.com>
+In-Reply-To: <20060828193832.359651a1.skraw@ithnet.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@osdl.org>
-Date: Mon, 28 Aug 2006 14:30:03 -0700
-
-> Oh.  It looks like this has already been fixed:
+Stephan von Krawczynski wrote:
+> Hello Jesse,
 > 
-> #ifdef CONFIG_IPV6_ROUTE_FWMARK
->         if ((r->fwmark ^ fl->fl6_fwmark) & r->fwmask)
->                 return 0;
-> #endif
-> 
-> there's no divide in there now.
+> thank you for answering anyway. Though I think your answer covers only the
+> obvious half of the problem.
+> Indeed one might think that this solves the issue - as long as there are only
+> linux kernels involved. Unfortunately my setup is a bit more complicated in
+> terms of hardware. So I should have probably clarified the question this way:
+> how do you configure the interface in a manner that packets with data length
+> of 1500 get transferred, and not only 1496 ?
+> I tried enlarging both real-device and first vlan interface mtu but that does
+> not work out. I really thought that the visible device setting of mtu=1500
+> should have worked out and that the driver (or some code in between) should
+> have corrected the allowed frame size to reflect the actual setup, not?
 
-That's right there used to be a typo there.
+Unless you are patching the VLAN code, stacked VLANs are not going to 
+work anyway.  Search the archives of the VLAN mailing list for reasons 
+why..and at least a few patches that 'fix' the problem for a few types 
+of uses.
+
+Ben
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
