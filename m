@@ -1,41 +1,30 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] pcnet32: fix user visible typo
-Date: Tue, 29 Aug 2006 03:32:49 +0400
-Message-ID: <20060828233248.GA5193@martell.zuzino.mipt.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IPSec kernel oops on ppc64
+Date: Mon, 28 Aug 2006 16:36:17 -0700 (PDT)
+Message-ID: <20060828.163617.91314349.davem@davemloft.net>
+References: <200608282225.k7SMPF80022173@faith.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tsbogend@alpha.franken.de
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, gcwilson@us.ibm.com,
+	jmorris@redhat.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.189]:12840 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S964899AbWH1Xdb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 19:33:31 -0400
-Received: by nf-out-0910.google.com with SMTP id o25so77236nfa
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2006 16:33:27 -0700 (PDT)
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:41378
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S964904AbWH1XgN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Aug 2006 19:36:13 -0400
+To: latten@austin.ibm.com
+In-Reply-To: <200608282225.k7SMPF80022173@faith.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Also, final dot removed and single form fixed. The cause of #6428 is
-still to be found.
+From: Joy Latten <latten@austin.ibm.com>
+Date: Mon, 28 Aug 2006 17:25:15 -0500
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+> I can try patch-2.6.18-rc1, etc... to see which one it stops
+> working on to narrow it down.
 
- drivers/net/pcnet32.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+If you could do this in the meanwhile, it would help us out
+a lot.
 
---- a/drivers/net/pcnet32.c
-+++ b/drivers/net/pcnet32.c
-@@ -2986,7 +2986,8 @@ static int __init pcnet32_init_module(vo
- 		pcnet32_probe_vlbus(pcnet32_portlist);
- 
- 	if (cards_found && (pcnet32_debug & NETIF_MSG_PROBE))
--		printk(KERN_INFO PFX "%d cards_found.\n", cards_found);
-+		printk(KERN_INFO PFX "%d card%s found\n",
-+			cards_found, cards_found > 1 ? "s" : "");
- 
- 	return (pcnet32_have_pci + cards_found) ? 0 : -ENODEV;
- }
-
+Thanks.
