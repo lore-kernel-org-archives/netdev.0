@@ -1,49 +1,104 @@
-From: "assemble" <chivalrousbremen@earthlink.net>
-Subject: bash
-Date: Mon, 28 Aug 2006 00:21:40 -0700
-Message-ID: <11433871426606.C1CBB4CDD5@T5LKU6JU>
+From: Hong Liu <hong.liu@intel.com>
+Subject: [PATCH]d80211: fix "iwconfig key [x]" behavior
+Date: Mon, 28 Aug 2006 16:36:39 +0800
+Message-ID: <1156754199.6061.3.camel@devlinux-hong>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="Windows-1252"
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; boundary="=-9mZho/VNcAIp2Etg2iPO"
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from S010600115b0527bb.vn.shawcable.net ([24.81.89.237]:11023 "EHLO
-	COMPANY-FTXWZ64") by vger.kernel.org with ESMTP id S1750714AbWH1HUb
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 03:20:31 -0400
-To: <newbie-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:13957 "EHLO
+	orsmga102-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1751296AbWH1Ikq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Aug 2006 04:40:46 -0400
+To: jbenc@suse.cz
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-W a t c h   o u t!
 
-ALLAINCE ENTERRPISE (AE TR)
-Curernt Prcie: 0.80
-Add this g e m to your wat ch list, and w atch it tard closely!
+--=-9mZho/VNcAIp2Etg2iPO
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Nwes Relesae!
+"iwconfig key [x]" behavior is not correctly handled in the stack, also
+modify the giwencode method to show the key info.
 
-Taceorp announces breackrough in removing deadly landmi nes.
+Thanks,
+Hong
 
-Mill Valley, California August 25, 2006 - The Alilance Etnerprise Corporaiton announced today a breakthrough in developing an Areial Lanmdine Sytsem aimed at locating, detecting and mapping deadly land mines.
+--=-9mZho/VNcAIp2Etg2iPO
+Content-Disposition: attachment; filename=d80211-fix-iwconfig-key.patch
+Content-Type: text/x-patch; name=d80211-fix-iwconfig-key.patch; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 
-TaeoCrp's mission is to reclaim lands around the globe embedded with lan dmines that victimize countries and their stakeholders.
+[PATCH]d80211: fix "iwconfig key [x]" behavior
 
-More than 100 m i l l i o n landmine s in 83 countries are holding international communities and industries hostage, preventing the inve stment in and development of produ ctive lands and the re-building of infrastructure. A broad variety of landmi nes have been scattered over product ive areas effectively crippling the e conomy and disabling thousands of children and adults.  There are no reliable records that accurately show where these d e v a s t a t i n g landmin es lie in wait for their vic tims.
+Signed-off-by: Hong Liu <hong.liu@intel.com>
+
+diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
+index dd52555..d3dc59c 100644
+--- a/net/d80211/ieee80211_ioctl.c
++++ b/net/d80211/ieee80211_ioctl.c
+@@ -2811,9 +2811,10 @@ static int ieee80211_ioctl_siwencode(str
+ 		if (sdata->default_key == NULL)
+ 			idx = 0;
+ 		else for (i = 0; i < NUM_DEFAULT_KEYS; i++) {
+-			if (sdata->default_key == sdata->keys[i])
++			if (sdata->default_key == sdata->keys[i]) {
+ 				idx = i;
+-			break;
++				break;
++			}
+ 		}
+ 		if (idx < 0)
+ 			return -EINVAL;
+@@ -2824,16 +2825,22 @@ static int ieee80211_ioctl_siwencode(str
+ 		alg = ALG_NONE;
+ 	else if (erq->length == 0) {
+ 		/* No key data - just set the default TX key index */
+-		sdata->default_key = sdata->keys[idx];
++		if (sdata->default_key != sdata->keys[idx]) {
++			if (sdata->default_key)
++				ieee80211_key_sysfs_remove_default(sdata);
++			sdata->default_key = sdata->keys[idx];
++			if (sdata->default_key)
++				ieee80211_key_sysfs_add_default(sdata);
++		}
++		return 0;
+ 	}
  
-With the present day c osts to clear a single land mine ranging between $1,000 to $1,500, solving the problem of de-mining lands will reach billions of do llars.  TaeCorp has developed a technology based, co st effective solution to this problem using its three tiered approach to scanning, mapping and removing landmi nes. TaeCorp's System will provide many social and econo mic benefit s to countries and their industries including oil and gas, mining, agriculture, roads and infrastructure development.
+ 	return ieee80211_set_encryption(
+ 		dev, bcaddr,
+-		idx, erq->length == 0 ? ALG_NONE : ALG_WEP,
++		idx, alg,
+ 		sdata->default_key == NULL,
+ 		NULL, keybuf, erq->length);
+ 
+-	return 0;
+ }
+ 
+ 
+@@ -2852,9 +2859,10 @@ static int ieee80211_ioctl_giwencode(str
+ 		if (sdata->default_key == NULL)
+ 			idx = 0;
+ 		else for (i = 0; i < NUM_DEFAULT_KEYS; i++) {
+-			if (sdata->default_key == sdata->keys[i])
++			if (sdata->default_key == sdata->keys[i]) {
+ 				idx = i;
+-			break;
++				break;
++			}
+ 		}
+ 		if (idx < 0)
+ 			return -EINVAL;
+@@ -2869,7 +2877,8 @@ static int ieee80211_ioctl_giwencode(str
+ 		return 0;
+ 	}
+ 
+-	erq->length = 0;
++	erq->length = sdata->keys[idx]->keylen;
++	memcpy(key, sdata->keys[idx]->key, erq->length);
+ 	erq->flags |= IW_ENCODE_ENABLED;
+ 
+ 	return 0;
 
-About TaeCorp.
-
-TaeCorp's vision is to be the recognized leader in providing Aerail Detectoin Ssytems including global de-mining, clearing a path to a safer planet for all humankind.
-
-Here comes the big one! 
-All signs show that AET R is going to Explode!
-
-Conclu sion:
-The examples above show the awesome, earning potential of little known companies that explode onto ivnestor's radar screens; Many of you are already familiar with this. Is AET R poised and positioned to do that for you? Then you may feel the time has come to act... And please watch this one tarde tomorrow! Go AET R.
-Pen ny stcoks are considered highly speculative and may be unsuitable for all but very aggressive investros.  This pro file is not in any way affilia ted with the featured company.  This report is for entertainment and advertising purposes only and should not be used as invesmtent advice.  If you wish to stop future m a i lings, or if you feel you have been wrongfully placed in our membership, send a blank e m a i l with No Thanks in the subject to 
-
-
-
-
+--=-9mZho/VNcAIp2Etg2iPO--
