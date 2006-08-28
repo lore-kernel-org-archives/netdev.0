@@ -1,52 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC][PATCHv2 2.6.18-rc4-mm3 3/3] net/ipv4:  misc. support files
-Date: Mon, 28 Aug 2006 20:28:46 +0200
-Message-ID: <44F335DE.5030307@trash.net>
-References: <200608231150.37895@strip-the-willow> <39e6f6c70608280548p5ba363d7o18cfd3bdb2f9e894@mail.gmail.com> <200608281513.49959@strip-the-willow> <200608281910.50647@strip-the-willow>
+From: Elliot Schwartz <elliot@devicescape.com>
+Subject: Re: [patch 5/5] d80211: add ioctl to stop data frame tx
+Date: Mon, 28 Aug 2006 11:29:24 -0700
+Message-ID: <uwt8sww6z.fsf@devicescape.com>
+References: <20060822173241.313859000@devicescape.com>
+	<20060822173419.GF12500@devicescape.com>
+	<1156317906.3629.18.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jmorris@namei.org, alan@lxorguk.ukuu.org.uk,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, kaber@coreworks.de,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Kimdon <david.kimdon@devicescape.com>,
+	netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:20945 "EHLO
-	stinky.trash.net") by vger.kernel.org with ESMTP id S1750930AbWH1S2v
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 14:28:51 -0400
-To: gerrit@erg.abdn.ac.uk
-In-Reply-To: <200608281910.50647@strip-the-willow>
+Received: from mail.devicescape.com ([207.138.119.2]:26091 "EHLO
+	mail.devicescape.com") by vger.kernel.org with ESMTP
+	id S1751196AbWH1S3u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Aug 2006 14:29:50 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+In-Reply-To: <1156317906.3629.18.camel@ux156> (Johannes Berg's message of
+ "Wed, 23 Aug 2006 09:25:06 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-gerrit@erg.abdn.ac.uk wrote:
-> [Net/IPv4]: REVISED Miscellaneous changes which complete the 
->             v4 support for UDP-Lite.
-> 
 
-> --- a/include/net/xfrm.h
-> +++ b/include/net/xfrm.h
-> @@ -467,6 +467,7 @@ u16 xfrm_flowi_sport(struct flowi *fl)
->  	switch(fl->proto) {
->  	case IPPROTO_TCP:
->  	case IPPROTO_UDP:
-> +	case IPPROTO_UDPLITE:
->  	case IPPROTO_SCTP:
->  		port = fl->fl_ip_sport;
->  		break;
-> @@ -492,6 +493,7 @@ u16 xfrm_flowi_dport(struct flowi *fl)
->  	switch(fl->proto) {
->  	case IPPROTO_TCP:
->  	case IPPROTO_UDP:
-> +	case IPPROTO_UDPLITE:
->  	case IPPROTO_SCTP:
->  		port = fl->fl_ip_dport;
->  		break;
+Hi Johannes,
 
-You also need to adapt _decode_session[46] in xfrm[46]_policy.c for
-IPsec. While you're at it you might consider adjusting xt_tcpudp,
-xt_multiport, ipt_LOG and ip6t_LOG as well to get some basic
-netfilter support. I'm going to take care of connection tracking
-and NAT once this is in mainline.
+Johannes Berg <johannes@sipsolutions.net> writes:
+> On Tue, 2006-08-22 at 10:34 -0700, David Kimdon wrote:
+> > This ioctl is used when radar is delected on a channel.  Data
+> > frames must stop but management frames must be allowed to continue
+> > for some time to communicate the channel switch to stations.
+>
+> Which does lead to the question: How are you detecting radar in
+> userspace in the first place??
+
+I've been working on merging Devicescape's 802.11h / radar detection
+implementation into the open source hostapd (and the wireless-dev kernel). 
+
+Radar is initially detected by the low-level radio driver.  Userspace
+gets notified of radar via calls to ieee80211_radar_status, which
+generates a "fake" management frame with a struct ieee80211_radar_info
+in it.  Userspace is then responsible for handling the resultant
+activities, such as stopping transmission on that channel, selecting
+another channel, sending out channel switch announcements, changing
+channels, and remembering to block use of the old channel for the
+required time.
+
+I'll reply to your and Jiri's other question separately.
+
+Thanks,
+
+elliot
+
 
