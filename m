@@ -1,31 +1,22 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/*: use SLAB_PANIC
-Date: Mon, 28 Aug 2006 13:36:37 -0700 (PDT)
-Message-ID: <20060828.133637.107685776.davem@davemloft.net>
-References: <20060826230841.GA5204@martell.zuzino.mipt.ru>
-	<20060828093651.GA31341@infradead.org>
+From: mabbas <mabbas@linux.intel.com>
+Subject: [PATCH 0/7] d80211:  support more wireless command
+Date: Mon, 28 Aug 2006 13:37:41 -0700
+Message-ID: <44F35415.5040001@linux.intel.com>
+References: <20060821074107.648561364@sipsolutions.net>	<20060821075158.728615077@sipsolutions.net>	<44EA501E.4010605@linux.intel.com>	<44EA5180.2080701@linux.intel.com> <20060823174631.42c19a2d@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: adobriyan@gmail.com, netdev@vger.kernel.org
+Cc: Jiri Benc <jbenc@suse.cz>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:44472
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751487AbWH1Ugc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 16:36:32 -0400
-To: hch@infradead.org
-In-Reply-To: <20060828093651.GA31341@infradead.org>
+Received: from mga05.intel.com ([192.55.52.89]:51505 "EHLO
+	fmsmga101.fm.intel.com") by vger.kernel.org with ESMTP
+	id S1751490AbWH1UhW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Aug 2006 16:37:22 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <20060823174631.42c19a2d@griffin.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Christoph Hellwig <hch@infradead.org>
-Date: Mon, 28 Aug 2006 10:36:51 +0100
-
-> ipv6 can be modular, so panicing on a initialization failure is wrong.
-
-That may be the case, but he merely translated the code
-as it existed, he didn't change it to start panic()'ing
-it already did.
-
-It would be a seperate change to undo the panic() in
-the ipv6 code.
+the following patches are based on earlier patched. I did separate each 
+set of command into its own patch with enhanced based on you comments.
