@@ -1,73 +1,64 @@
-From: mabbas <mabbas@linux.intel.com>
-Subject: [PATCH 6/7] d80211: diplay supported rates in readable format
-Date: Mon, 28 Aug 2006 13:52:06 -0700
-Message-ID: <44F35776.7060800@linux.intel.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: e1000 and 802.1ad/stacked vlan tagging
+Date: Mon, 28 Aug 2006 13:53:36 -0700
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52866B22@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080102070808030509030405"
-Cc: jbenc@suse.cz
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([143.182.124.22]:34467 "EHLO
-	azsmga101.ch.intel.com") by vger.kernel.org with ESMTP
-	id S932123AbWH1Uvs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 16:51:48 -0400
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sf.net
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-class: urn:content-classes:message
+To: "Stephan von Krawczynski" <skraw@ithnet.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080102070808030509030405
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Stephan von Krawczynski wrote:
+> thank you for answering anyway. Though I think your answer covers
+> only the obvious half of the problem.
+> Indeed one might think that this solves the issue - as long as there
+> are only linux kernels involved. Unfortunately my setup is a bit more
+> complicated in terms of hardware. So I should have probably clarified
+> the question this way: how do you configure the interface in a manner
+> that packets with data length of 1500 get transferred, and not only
+> 1496 ? 
 
+I tried setting mtu 2000 and everything worked with the virtual device
+(both) mtu at 1500.
+If you are getting long_packet errors at the mtu settings you tried (you
+didn't mention which ones) then the hardware is dropping the packets due
+to being over 1522 bytes in length (including CRC).
 
+> I tried enlarging both real-device and first vlan interface mtu but
+> that does not work out. I really thought that the visible device
+> setting of mtu=1500 should have worked out and that the driver (or
+> some code in between) should have corrected the allowed frame size to
+> reflect the actual setup, not? 
 
---------------080102070808030509030405
-Content-Type: text/x-patch;
- name="d80211-iwlist-display.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="d80211-iwlist-display.patch"
+unfortunately I believe that your hardware MTU on the base interface
+MUST be adjusted in order to do stacked vlans because the vlan code
+doesn't fragment packets, it just inserts tags.  The e1000 hardware is
+capable of inserting/stripping 1 level of tags without dropping overlong
+frames, but cannot seamlessly handle 1+n levels of inserted tags.
+Transmit, we don't care how long the frames are that are given to us
+(the driver doesn't enforce MTU on transmit) but on receive we have
+limited space so it is important that each frame fit into the allocated
+buffer (including CRC).
 
-This patch modify d80211 to report supported rates in readable
-format in iwlist scan command.
+Please try MTU 1508 on eth0 (base interface only), as that configuration
+worked for me.
 
-Signed-off-by: Mohamed Abbas <mabbas@linux.intel.com>
+Jesse
 
-diff --git a/net/d80211/ieee80211_sta.c b/net/d80211/ieee80211_sta.c
-index a933d92..b2e45a4 100644
---- a/net/d80211/ieee80211_sta.c
-+++ b/net/d80211/ieee80211_sta.c
-@@ -2714,15 +2714,21 @@ ieee80211_sta_scan_result(struct net_dev
- 		current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe,
- 						  buf);
- 
--		p = buf;
--		p += sprintf(p, "supp_rates=");
--		for (i = 0; i < bss->supp_rates_len; i++)
--			p+= sprintf(p, "%02x", bss->supp_rates[i]);
--		memset(&iwe, 0, sizeof(iwe));
--		iwe.cmd = IWEVCUSTOM;
--		iwe.u.data.length = strlen(buf);
--		current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe,
--						  buf);
-+		/* dispaly all support rates in readable format */
-+		p = current_ev + IW_EV_LCP_LEN;
-+		iwe.cmd = SIOCGIWRATE;
-+		/* Those two flags are ignored... */
-+		iwe.u.bitrate.fixed = iwe.u.bitrate.disabled = 0;
-+
-+		for (i = 0; i < bss->supp_rates_len; i++) {
-+			iwe.u.bitrate.value = ((bss->supp_rates[i] & 
-+							0x7f) * 500000);
-+			p = iwe_stream_add_value(current_ev, p, 
-+					end_buf, &iwe, IW_EV_PARAM_LEN);
-+		}
-+		/* Check if we added any rate */
-+		if((p - current_ev) > IW_EV_LCP_LEN)
-+			current_ev = p;
- 
- 		kfree(buf);
- 		break;
-
---------------080102070808030509030405--
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
