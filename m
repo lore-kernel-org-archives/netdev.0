@@ -1,168 +1,113 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 1/4] net: VM deadlock avoidance framework
-Date: Mon, 28 Aug 2006 19:32:24 +0200
-Message-ID: <1156786344.23000.47.camel@twins>
-References: <20060825153946.24271.42758.sendpatchset@twins>
-	 <20060825153957.24271.6856.sendpatchset@twins>
-	 <1396.81.207.0.53.1156559843.squirrel@81.207.0.53>
-	 <1156760564.23000.31.camel@twins>
-	 <3720.81.207.0.53.1156780999.squirrel@81.207.0.53>
+From: Stephan von Krawczynski <skraw@ithnet.com>
+Subject: Re: e1000 and 802.1ad/stacked vlan tagging
+Date: Mon, 28 Aug 2006 19:38:32 +0200
+Message-ID: <20060828193832.359651a1.skraw@ithnet.com>
+References: <36D9DB17C6DE9E40B059440DB8D95F5286678F@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Daniel Phillips <phillips@google.com>,
-	Rik van Riel <riel@redhat.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:52651 "EHLO
-	amsfep16-int.chello.nl") by vger.kernel.org with ESMTP
-	id S1750859AbWH1RiE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 13:38:04 -0400
-To: Indan Zupancic <indan@nul.nu>
-In-Reply-To: <3720.81.207.0.53.1156780999.squirrel@81.207.0.53>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sf.net
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5286678F@orsmsx418.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-08-28 at 18:03 +0200, Indan Zupancic wrote:
-> On Mon, August 28, 2006 12:22, Peter Zijlstra said:
+Hello Jesse,
 
-> >> > @@ -391,6 +391,7 @@ enum sock_flags {
-> >> >  	SOCK_RCVTSTAMP, /* %SO_TIMESTAMP setting */
-> >> >  	SOCK_LOCALROUTE, /* route locally only, %SO_DONTROUTE setting */
-> >> >  	SOCK_QUEUE_SHRUNK, /* write queue has been shrunk recently */
-> >> > +	SOCK_VMIO, /* promise to never block on receive */
-> >>
-> >> It might be used for IO related to the VM, but that doesn't tell _what_ it does.
-> >> It also does much more than just not blocking on receive, so overal, aren't
-> >> both the vmio name and the comment slightly misleading?
-> >
-> > I'm so having trouble with this name; I had SOCK_NONBLOCKING for a
-> > while, but that is a very bad name because nonblocking has this well
-> > defined meaning when talking about sockets, and this is not that.
-> >
-> > Hence I came up with the VMIO, because that is the only selecting
-> > criteria for being special. - I'll fix up the comment.
+thank you for answering anyway. Though I think your answer covers only the
+obvious half of the problem.
+Indeed one might think that this solves the issue - as long as there are only
+linux kernels involved. Unfortunately my setup is a bit more complicated in
+terms of hardware. So I should have probably clarified the question this way:
+how do you configure the interface in a manner that packets with data length
+of 1500 get transferred, and not only 1496 ?
+I tried enlarging both real-device and first vlan interface mtu but that does
+not work out. I really thought that the visible device setting of mtu=1500
+should have worked out and that the driver (or some code in between) should
+have corrected the allowed frame size to reflect the actual setup, not?
+
+Regards,
+Stephan
+
+PS: crossposted to both lists, list-members keep in mind I am not subscribed
+when answering! Thank you.
+
+
+
+On Mon, 28 Aug 2006 10:23:09 -0700
+"Brandeburg, Jesse" <jesse.brandeburg@intel.com> wrote:
+
+> Stephan von Krawczynski wrote:
+> > Hello Jesse,
+> > 
+> > sorry to bother you directly, but since you did the patch for my e1000
+> > interrupt problem last time (February) I hope you have a short-hand
+> > idea for my current issue, too.
+> > 
+> > I am trying to make stacked vlan tagging work under kernel 2.4 with
+> > e1000. Generally I do this on two boxes connected back-to-back:
+> > 
+> > ifconfig eth0 up
+> > vconfig add eth0 4094
+> > ifconfig eth0.4094 up
+> > vconfig add eth0.4094 1
+> > ifconfig eth0.4094.1 192.168.1.1 netmask 255.255.255.0 broadcast
+> > 192.168.1.255 up
+> > 
+> > (of course the second box gets another ip, lets assume .2).
+> > 
+> > if you do a
+> > 
+> > ping -s 1472 192.168.1.2
+> > 
+> > through the stacked vlan you see the packets vanish.
+> > With
+> > 
+> > ping -s 1468 192.168.1.2
+> > 
+> > everything seems ok.
+> > 
+> > I have the impression that the stacked vlans show some problem with
+> > mtu handling inside the e1000 driver. Mtu is set to 1500 but because
+> > stacking tags uses 4 bytes more the packets cannot use the full mtu.
+> > Any ideas what happens here?
 > 
-> It's nice and short, but it might be weird if someone after a while finds another way
-> of using this stuff. And it's relation to 'emergency' looks unclear. So maybe calling
-> both the same makes most sense, no matter how you name it.
-
-I've tried to come up with another use-case, but failed (of course that
-doesn't mean there is no). Also, I'm really past caring what the thing
-is called ;-) But if ppl object I guess its easy enough to run yet
-another sed command over the patches.
-
-> >> > @@ -82,6 +82,7 @@ EXPORT_SYMBOL(zone_table);
-> >> >
-> >> >  static char *zone_names[MAX_NR_ZONES] = { "DMA", "DMA32", "Normal", "HighMem" };
-> >> >  int min_free_kbytes = 1024;
-> >> > +int var_free_kbytes;
-> >>
-> >> Using var_free_pages makes the code slightly simpler, as all that needless
-> >> convertion isn't needed anymore. Perhaps the same is true for min_free_kbytes...
-> >
-> > 't seems I'm a bit puzzled as to what you mean here.
+> The packet is being dropped because it is longer than the allowed frame
+> size for 1500 MTU.  check ethtool -S eth0
 > 
-> I mean to store the variable reserve in pages instead of kilobytes. Currently you're
-> converting from the one to the other both when setting and when using the value. That
-> doesn't make much sense and can be avoided by storing the value in pages from the start.
-
-right, will have a peek.
-
-> void kfree_skbmem(struct sk_buff *skb)
-> {
-> 	struct sk_buff *other;
-> 	atomic_t *fclone_ref;
-> 	struct kmem_cache *cache = skbuff_head_cache;
-> 	struct sk_buff *free = skb;
+> mine shows 
+> rx_long_length_errors: 169
 > 
-> 	skb_release_data(skb);
-> 	switch (skb->fclone) {
-> 	case SKB_FCLONE_UNAVAILABLE:
-> 		goto free;
+> which indicates that you need to change your mtu on the stacked
+> interface to 1496, at which point after I did:
 > 
-> 	case SKB_FCLONE_ORIG:
-> 		fclone_ref = (atomic_t *) (skb + 2);
-> 		if (atomic_dec_and_test(fclone_ref)){
-> 			cache = skbuff_fclone_cache;
-> 			goto free;
-> 		}
-> 		break;
+> ip l s eth1.4094.1 mtu 1496
 > 
-> 	case SKB_FCLONE_CLONE:
-> 		fclone_ref = (atomic_t *) (skb + 1);
-> 		other = skb - 1;
+> on both sides of my connection, everything was working.  I think in this
+> case it is just a configuration problem.  When you stack vlans you have
+> to account for the extra inserted length someplace and that place is by
+> reducing the MTU.
 > 
-> 		/* The clone portion is available for
-> 		 * fast-cloning again.
-> 		 */
-> 		skb->fclone = SKB_FCLONE_UNAVAILABLE;
+> I'd appreciate it in the future if you could use
+> e1000-devel@lists.sf.net or netdev@vger.kernel.org for support questions
+> like this because I'm not the only one who can answer questions (and I
+> might have been on vacation! :-) )
 > 
-> 		if (atomic_dec_and_test(fclone_ref)){
-> 			cache = skbuff_fclone_cache;
-> 			free = other;
-> 			goto free;
-> 		}
-> 		break;
-> 	};
-> 	return;
-> free:
-> 	if (!skb->emergency)
-> 		kmem_cache_free(cache, free);
-> 	else
-> 		emergency_rx_free(free, kmem_cache_size(cache));
-> }
-
-Ah, like so, sure, that looks good.
-
-> >> You can get rid of the memalloc_reserve and vmio_request_queues variables
-> >> if you want, they aren't really needed for anything. If using them reduces
-> >> the total code size I'd keep them though.
-> >
-> > I find my version easier to read, but that might just be the way my
-> > brain works.
+> Jesse
 > 
-> Maybe true, but I believe my version is more natural in the sense that it makes
-> more clear what the code is doing. Less bookkeeping, more real work, so to speak.
 
-Ok, I'll have another look at it, perhaps my gray matter has shifted ;-)
 
-> But after another look things seem a bit shaky, in the locking corner anyway.
-> 
-> sk_adjust_memalloc() calls adjust_memalloc_reserve(), which changes var_free_kbytes
-> and then calls setup_per_zone_pages_min(), which does the real work. But it reads
-> min_free_kbytes without holding any locks. In mainline that's fine as the function
-> is only called by the proc handler and in obscure memory hotplug stuff. But with
-> your code it can also be called at any moment when a VMIO socket is made, which now
-> races with the proc callback. More a theoretical than a real problem, but still
-> slightly messy.
-
-Knew about that, hadn't made up my mind on a fix yet. Good spot never
-the less. Time to actually fix it I guess.
-
-> adjust_memalloc_reserve() has no locking at all, while it might be called concurrently
-> from different sources. Luckily sk_adjust_memalloc() is the only user, and which uses
-> its own spinlock for synchronization, so things go well by accident now. It seems
-> cleaner to move that spinlock so that it protects var|min_free_kbytes instead.
-
-Ah, no accident there, I'm fully aware that there would need to be a
-spinlock in adjust_memalloc_reserve() if there were another caller.
-(I even had it there for some time) - added comment.
-
-> +int adjust_memalloc_reserve(int pages)
-> +{
-> +	int kbytes;
-> +	int err = 0;
-> +
-> +	kbytes = var_free_kbytes + (pages << (PAGE_SHIFT - 10));
-> +	if (kbytes < 0) {
-> +		err = -EINVAL;
-> +		goto out;
-> +	}
-> 
-> Shouldn't that be a BUG_ON instead?
-
-Yeah, might as well be.
-
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
