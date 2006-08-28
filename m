@@ -1,52 +1,41 @@
-From: Brent Cook <bcook@bpointsys.com>
-Subject: Re: e1000: operation without eeprom?
-Date: Mon, 28 Aug 2006 09:20:08 -0500
-Message-ID: <200608280920.08647.bcook@bpointsys.com>
-References: <20060828005019.GA31786@xi.wantstofly.org>
+From: "Benoit Boissinot" <bboissin@gmail.com>
+Subject: Re: 2.6.18-rc4-mm[1,2,3] -- Network card not getting assigned an "eth" device name
+Date: Mon, 28 Aug 2006 16:32:04 +0200
+Message-ID: <40f323d00608280732y5e8e4dc1ib104564fe04b790a@mail.gmail.com>
+References: <a44ae5cd0608270007gc6a919fx9e36562d8023635d@mail.gmail.com>
+	 <20060827001943.c559d37d.akpm@osdl.org> <44F1C899.4020505@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tbm@cyrius.com, yt_lee@thecus.com
+Cc: "Andrew Morton" <akpm@osdl.org>,
+	"Miles Lane" <miles.lane@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 70-253-197-251.ded.swbell.net ([70.253.197.251]:2838 "EHLO
-	bpointsys.com") by vger.kernel.org with ESMTP id S1750940AbWH1OT5
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 10:19:57 -0400
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20060828005019.GA31786@xi.wantstofly.org>
+Received: from nz-out-0102.google.com ([64.233.162.207]:176 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S1750958AbWH1OcF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Aug 2006 10:32:05 -0400
+Received: by nz-out-0102.google.com with SMTP id n1so1030512nzf
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2006 07:32:04 -0700 (PDT)
+To: "Jeremy Fitzhardinge" <jeremy@goop.org>
+In-Reply-To: <44F1C899.4020505@goop.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 27 August 2006 19:50, Lennert Buytenhek wrote:
-> Hi,
+On 8/27/06, Jeremy Fitzhardinge <jeremy@goop.org> wrote:
+> Andrew Morton wrote:
+> > Jeremy reported that a while back too.  I do not know what is causing it
+> > and as far as I know no net developers have yet looked into it.
+> >
 >
-> There are a couple of ARM boards out there with on-board e1000s but
-> without any kind of eeprom.  The boot loader and kernel board support
-> code have all the info necessary to configure the e1000, but the e1000
-> driver bombs out because there isn't an eeprom connected -- how are
-> we supposed to deal with this situation?
+> It went away with -rc4-mm[23] for me...
 >
+I just reproduced it with rc4-mm3, ipw2200 after coming out of
+suspend. I'll apply the patch from David Miller and see if anything
+shows out in the log.
 
-u-boot, which uses modified versions of the linux e1000 drivers, handles this 
-special cases with a bunch of platform-specific #ifdefs
+regards,
 
-http://www.denx.de/cgi-bin/gitweb.cgi?p=u-boot.git;a=blob;h=927acbb26737a20e02962f67047e192545a870a1;hb=16850919ff8666f20d047cb83b4ee77581336515;f=drivers/e1000.c
-
-I fear that working in general across the e1000 product line without an eeprom 
-might not work so well. We've had 82545's work OK without and eeprom, but the 
-82572 did not work so well. Some chips appear to work OK with pure software 
-config, whereas others might need some special setup parameters that would 
-work best at chip power-up via the eeprom.
-
-As a general solution (with fewer ifdefs than the u-boot solution), it might 
-be nice to have a read_eeprom_virtual(..) method in the driver where one 
-could supply a binary blob to the driver instead of having a real eeprom. All 
-of the driver code that relies on the eeprom could work like normal. I've 
-been toying with this under u-boot for a custom ARM board without an eeprom 
-too, though it does have the side-effect of bloating the u-boot driver a bit 
-with the fake eeprom data that's really useless after boot (it's mostly 
-0xFFFFFFFF's though, so you could totally optimize it.)
-
- - Brent
+Benoit
