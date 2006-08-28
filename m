@@ -1,41 +1,41 @@
-From: "Benoit Boissinot" <bboissin@gmail.com>
-Subject: Re: 2.6.18-rc4-mm[1,2,3] -- Network card not getting assigned an "eth" device name
-Date: Mon, 28 Aug 2006 16:32:04 +0200
-Message-ID: <40f323d00608280732y5e8e4dc1ib104564fe04b790a@mail.gmail.com>
-References: <a44ae5cd0608270007gc6a919fx9e36562d8023635d@mail.gmail.com>
-	 <20060827001943.c559d37d.akpm@osdl.org> <44F1C899.4020505@goop.org>
+From: "dampen" <dampen.canto@rottenfusser.info>
+Subject: Ask us for credit you
+Date: Mon, 28 Aug 2006 11:37:07 -0400
+Message-ID: <18641484188208.1F74D85D77@9GNR3X>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+        charset="Windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@osdl.org>,
-	"Miles Lane" <miles.lane@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.207]:176 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1750958AbWH1OcF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 10:32:05 -0400
-Received: by nz-out-0102.google.com with SMTP id n1so1030512nzf
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2006 07:32:04 -0700 (PDT)
-To: "Jeremy Fitzhardinge" <jeremy@goop.org>
-In-Reply-To: <44F1C899.4020505@goop.org>
-Content-Disposition: inline
+Received: from 70-90-12-177-BusName-hershey.pa.panjde.hfc.comcastbusiness.net ([70.90.12.177]:47377 "EHLO YOUR-PG3RJG1ZIQ.h1fr.net")
+	by vger.kernel.org with ESMTP id S1750782AbWH1PhZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2006 11:37:25 -0400
+To: <newbie@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/27/06, Jeremy Fitzhardinge <jeremy@goop.org> wrote:
-> Andrew Morton wrote:
-> > Jeremy reported that a while back too.  I do not know what is causing it
-> > and as far as I know no net developers have yet looked into it.
-> >
->
-> It went away with -rc4-mm[23] for me...
->
-I just reproduced it with rc4-mm3, ipw2200 after coming out of
-suspend. I'll apply the patch from David Miller and see if anything
-shows out in the log.
+Dear user. 
 
-regards,
+Your credit doesn't matter to us!
+If you OWN real estate and want IMMEDIATE cash to spend ANY way you 
+like, or simply wish to LOWER your monthly payments by a third or more, here are the deals we have TODAY:
 
-Benoit
+$488,000.00 at a 3.67% fixed-rate
+$372,000.00 at a 3.90% variable-rate
+$492,000.00 at a 3.21% interest-only
+$248,000.00 at a 3.36% fixed-rate
+$198,000.00 at a 3.55% variable-rate
+
+Hurry, we have requests limits, so when these deals are gone, they are 
+gone!
+
+We have one-mimute form to apply the request,
+please CLICK HERE
+
+http://A2WLL.yourcreditpartner.biz/?ncache=103733
+
+Don't worry about approval, your credit will not disqualify you!
+
+Approval Manager.
+
+
