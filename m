@@ -1,113 +1,322 @@
-From: Stephan von Krawczynski <skraw@ithnet.com>
-Subject: Re: e1000 and 802.1ad/stacked vlan tagging
-Date: Mon, 28 Aug 2006 19:38:32 +0200
-Message-ID: <20060828193832.359651a1.skraw@ithnet.com>
-References: <36D9DB17C6DE9E40B059440DB8D95F5286678F@orsmsx418.amr.corp.intel.com>
+From: gerrit@erg.abdn.ac.uk
+Subject: [RFC][PATCHv2 2.6.18-rc4-mm3 1/3] net/ipv4:  UDP-Lite extensions
+Date: Mon, 28 Aug 2006 19:10:07 +0100
+Message-ID: <200608281910.08101@strip-the-willow>
+References: <200608231150.37895@strip-the-willow> <39e6f6c70608280548p5ba363d7o18cfd3bdb2f9e894@mail.gmail.com> <200608281513.49959@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sf.net
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5286678F@orsmsx418.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: jmorris@namei.org, alan@lxorguk.ukuu.org.uk, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, kaber@coreworks.de, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:18841 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S1750836AbWH1SLM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2006 14:11:12 -0400
+To: davem@davemloft.net
+In-Reply-To: <200608281513.49959@strip-the-willow>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Jesse,
+[Net/IPv4]: REVISED UDP-Lite standalone support and shared UDP/-Lite socket structure.
 
-thank you for answering anyway. Though I think your answer covers only the
-obvious half of the problem.
-Indeed one might think that this solves the issue - as long as there are only
-linux kernels involved. Unfortunately my setup is a bit more complicated in
-terms of hardware. So I should have probably clarified the question this way:
-how do you configure the interface in a manner that packets with data length
-of 1500 get transferred, and not only 1496 ?
-I tried enlarging both real-device and first vlan interface mtu but that does
-not work out. I really thought that the visible device setting of mtu=1500
-should have worked out and that the driver (or some code in between) should
-have corrected the allowed frame size to reflect the actual setup, not?
-
-Regards,
-Stephan
-
-PS: crossposted to both lists, list-members keep in mind I am not subscribed
-when answering! Thank you.
+This is in principle the same patch as posted earlier, with the difference that
+all whitespace changes have been removed; in addition, statements have been re-ordered
+so as to give a better-readable patch.
 
 
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
 
-On Mon, 28 Aug 2006 10:23:09 -0700
-"Brandeburg, Jesse" <jesse.brandeburg@intel.com> wrote:
-
-> Stephan von Krawczynski wrote:
-> > Hello Jesse,
-> > 
-> > sorry to bother you directly, but since you did the patch for my e1000
-> > interrupt problem last time (February) I hope you have a short-hand
-> > idea for my current issue, too.
-> > 
-> > I am trying to make stacked vlan tagging work under kernel 2.4 with
-> > e1000. Generally I do this on two boxes connected back-to-back:
-> > 
-> > ifconfig eth0 up
-> > vconfig add eth0 4094
-> > ifconfig eth0.4094 up
-> > vconfig add eth0.4094 1
-> > ifconfig eth0.4094.1 192.168.1.1 netmask 255.255.255.0 broadcast
-> > 192.168.1.255 up
-> > 
-> > (of course the second box gets another ip, lets assume .2).
-> > 
-> > if you do a
-> > 
-> > ping -s 1472 192.168.1.2
-> > 
-> > through the stacked vlan you see the packets vanish.
-> > With
-> > 
-> > ping -s 1468 192.168.1.2
-> > 
-> > everything seems ok.
-> > 
-> > I have the impression that the stacked vlans show some problem with
-> > mtu handling inside the e1000 driver. Mtu is set to 1500 but because
-> > stacking tags uses 4 bytes more the packets cannot use the full mtu.
-> > Any ideas what happens here?
-> 
-> The packet is being dropped because it is longer than the allowed frame
-> size for 1500 MTU.  check ethtool -S eth0
-> 
-> mine shows 
-> rx_long_length_errors: 169
-> 
-> which indicates that you need to change your mtu on the stacked
-> interface to 1496, at which point after I did:
-> 
-> ip l s eth1.4094.1 mtu 1496
-> 
-> on both sides of my connection, everything was working.  I think in this
-> case it is just a configuration problem.  When you stack vlans you have
-> to account for the extra inserted length someplace and that place is by
-> reducing the MTU.
-> 
-> I'd appreciate it in the future if you could use
-> e1000-devel@lists.sf.net or netdev@vger.kernel.org for support questions
-> like this because I'm not the only one who can answer questions (and I
-> might have been on vacation! :-) )
-> 
-> Jesse
-> 
+ include/linux/udp.h   |   11 ++
+ include/net/udplite.h |   35 ++++++++
+ net/ipv4/udplite.c    |  209 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 255 insertions(+)
 
 
--------------------------------------------------------------------------
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+diff --git a/include/linux/udp.h b/include/linux/udp.h
+index 90223f0..1b7cf10 100644
+--- a/include/linux/udp.h
++++ b/include/linux/udp.h
+@@ -50,12 +50,23 @@ struct udp_sock {
+ 	 * when the socket is uncorked.
+ 	 */
+ 	__u16		 len;		/* total length of pending frames */
++	/*
++	 * Fields specific to UDP-Lite.
++	 */
++	__u16		 pcslen;
++	__u16		 pcrlen;
++/* indicator bits used by pcflag: */
++#define UDPLITE_BIT      0x1  		/* set by udplite proto init function */
++#define UDPLITE_SEND_CC  0x2  		/* set via udplite setsockopt         */
++#define UDPLITE_RECV_CC  0x4		/* set via udplite setsocktopt        */
++	__u8		 pcflag;        /* marks socket as UDP-Lite if > 0    */
+ };
+ 
+ static inline struct udp_sock *udp_sk(const struct sock *sk)
+ {
+ 	return (struct udp_sock *)sk;
+ }
++#define IS_UDPLITE(__sk) (udp_sk(__sk)->pcflag)
+ 
+ #endif
+ 
+diff --git a/net/ipv4/udplite.c b/net/ipv4/udplite.c
+new file mode 100644
+index 0000000..3911403
+--- /dev/null
++++ b/net/ipv4/udplite.c
+@@ -0,0 +1,209 @@
++/*
++ *  UDPLITE     An implementation of the UDP-Lite protocol (RFC 3828).
++ *
++ *  Version:    $Id: udplite.c,v 1.22 2006/08/22 13:01:52 gerrit Exp gerrit $
++ *
++ *  Authors:    Gerrit Renker       <gerrit@erg.abdn.ac.uk>
++ *
++ *  Changes:
++ *  Fixes:
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ */
++
++struct hlist_head 	udplite_hash[UDP_HTABLE_SIZE];
++int    			udplite_port_rover;
++DEFINE_SNMP_STAT(struct udp_mib, udplite_statistics)	__read_mostly;
++
++/* these functions are called by UDP-Lite with protocol-specific parameters */
++static int	    __udp_get_port(struct sock *, unsigned short,
++				   struct hlist_head *, int *    );
++static struct sock *__udp_lookup(u32 , u16, u32, u16, int, struct hlist_head *);
++static int	    __udp_mcast_deliver(struct sk_buff *, struct udphdr *,
++					u32, u32, struct hlist_head *     );
++static int	    __udp_common_rcv(struct sk_buff *, int is_udplite);
++static void	    __udp_err(struct sk_buff *, u32, struct hlist_head *);
++#ifdef CONFIG_PROC_FS
++static int	    udp4_seq_show(struct seq_file *, void *);
++#endif
++
++/*
++ * 	Designate sk as UDP-Lite socket
++ */
++static	inline int udplite_sk_init(struct sock *sk)
++{
++	udp_sk(sk)->pcflag = UDPLITE_BIT;
++	return 0;
++}
++
++static __inline__ int udplite_v4_get_port(struct sock *sk, unsigned short snum)
++{
++	return	__udp_get_port(sk, snum, udplite_hash, &udplite_port_rover);
++}
++
++static __inline__ struct sock *udplite_v4_lookup(u32 saddr, u16 sport,
++						 u32 daddr, u16 dport, int dif)
++{
++	return __udp_lookup(saddr, sport, daddr, dport, dif, udplite_hash);
++}
++
++static __inline__ int udplite_v4_mcast_deliver(struct sk_buff *skb,
++					struct udphdr *uh, u32 saddr, u32 daddr)
++{
++	return __udp_mcast_deliver(skb, uh, saddr, daddr, udplite_hash);
++}
++
++__inline__ int udplite_rcv(struct sk_buff *skb)
++{
++	return __udp_common_rcv(skb, 1);
++}
++
++__inline__ void udplite_err(struct sk_buff *skb, u32 info)
++{
++	return __udp_err(skb, info, udplite_hash);
++}
++
++static int udplite_checksum_init(struct sk_buff *skb, struct udphdr *uh,
++				 unsigned short len, u32 saddr, u32 daddr)
++{
++	u16 cscov;
++
++        /* In UDPv4 a zero checksum means that the transmitter generated no
++         * checksum. UDP-Lite (like IPv6) mandates checksums, hence packets
++         * with a zero checksum field are illegal.                            */
++	if (uh->check == 0) {
++		LIMIT_NETDEBUG(KERN_DEBUG "UDPLITE: zeroed csum field"
++	                "(%d.%d.%d.%d:%d -> %d.%d.%d.%d:%d)\n", NIPQUAD(saddr),
++			ntohs(uh->source), NIPQUAD(daddr), ntohs(uh->dest)    );
++		return 0;
++	}
++
++        UDP_SKB_CB(skb)->partial_cov = 0;
++        cscov = ntohs(uh->len);
++
++	if (cscov == 0)		 /* Indicates that full coverage is required. */
++		cscov = len;
++	else if (cscov < 8  || cscov > len) {
++		/*
++		 * Coverage length violates RFC 3828: log and discard silently.
++		 */
++		LIMIT_NETDEBUG(KERN_DEBUG "UDPLITE: bad csum coverage %d/%d "
++			"(%d.%d.%d.%d:%d -> %d.%d.%d.%d:%d)\n", cscov, len,
++			NIPQUAD(saddr), ntohs(uh->source),
++			NIPQUAD(daddr), ntohs(uh->dest)                       );
++		return 0;
++
++	} else if (cscov < len)
++        	UDP_SKB_CB(skb)->partial_cov = 1;
++
++        UDP_SKB_CB(skb)->cscov = cscov;
++
++	/*
++	 * Initialise pseudo-header for checksum computation.
++	 *
++	 * There is no known NIC manufacturer supporting UDP-Lite yet,
++	 * hence ip_summed is always (re-)set to CHECKSUM_NONE.
++	 */
++	skb->csum = csum_tcpudp_nofold(saddr, daddr, len, IPPROTO_UDPLITE, 0);
++	skb->ip_summed = CHECKSUM_NONE;
++
++	return 1;
++}
++
++static void udplite_csum_outgoing(struct sock *sk, struct sk_buff *skb,
++				  int totlen, int cscov, u32 src, u32 dst)
++{
++	unsigned int csum = 0, len;
++	struct udphdr *uh = skb->h.uh;
++
++	uh->check = 0;
++
++	skb->ip_summed = CHECKSUM_NONE;    /* no HW support for checksumming */
++
++	if (skb_queue_len(&sk->sk_write_queue) == 1) {
++		/*
++		 * Only one fragment on the socket.
++		 */
++		csum = skb_checksum(skb, skb->h.raw - skb->data, cscov, 0);
++
++	} else {
++		skb_queue_walk(&sk->sk_write_queue, skb) {
++			len = skb->tail - skb->h.raw;
++
++			skb->csum = skb_checksum(skb, skb->h.raw - skb->data,
++						 (cscov > len)? len : cscov, 0);
++			csum = csum_add(csum, skb->csum);
++
++			if (cscov < len)      /* Enough seen. */
++				break;
++			cscov -= len;
++		}
++	}
++
++	uh->check = csum_tcpudp_magic(src, dst, totlen, IPPROTO_UDPLITE, csum);
++	if (uh->check == 0)
++		uh->check = -1;
++}
++
++
++static	struct net_protocol udplite_protocol = {
++	.handler	= udplite_rcv,
++	.err_handler	= udplite_err,
++	.no_policy	= 1,
++};
++
++static struct inet_protosw udplite4_protosw = {
++	.type		=  SOCK_DGRAM,
++	.protocol	=  IPPROTO_UDPLITE,
++	.prot		=  &udplite_prot,
++	.ops		=  &inet_dgram_ops,
++	.capability	= -1,
++	.no_check	=  0,		/* must checksum (RFC 3828) */
++	.flags		=  INET_PROTOSW_PERMANENT,
++};
++
++void __init udplite4_register(void)
++{
++	if (proto_register(&udplite_prot, 1))
++		goto out_register_err;
++
++	if (inet_add_protocol(&udplite_protocol, IPPROTO_UDPLITE) < 0)
++		goto out_unregister_proto;
++
++	inet_register_protosw(&udplite4_protosw);
++
++	return;
++
++out_unregister_proto:
++	proto_unregister(&udplite_prot);
++out_register_err:
++	printk(KERN_CRIT "udplite4_register: Cannot add UDP-Lite protocol\n");
++}
++
++#ifdef CONFIG_PROC_FS
++static struct file_operations udplite4_seq_fops;
++static struct udp_seq_afinfo udplite4_seq_afinfo = {
++	.owner		= THIS_MODULE,
++	.name		= "udplite",
++	.family		= AF_INET,
++	.hashtable	= udplite_hash,
++	.seq_show	= udp4_seq_show,
++	.seq_fops	= &udplite4_seq_fops,
++};
++
++__inline__ int __init udplite4_proc_init(void)
++{
++	return udp_proc_register(&udplite4_seq_afinfo);
++}
++
++__inline__ void udplite4_proc_exit(void)
++{
++	udp_proc_unregister(&udplite4_seq_afinfo);
++}
++#endif /* CONFIG_PROC_FS */
++
++EXPORT_SYMBOL(udplite_hash);
++EXPORT_SYMBOL(udplite_prot);
+diff --git a/include/net/udplite.h b/include/net/udplite.h
+new file mode 100644
+index 0000000..1a32c42
+--- /dev/null
++++ b/include/net/udplite.h
+@@ -0,0 +1,35 @@
++/*
++ *	Definitions for the UDP-Lite (RFC 3828) code.
++ */
++#ifndef _UDPLITE_H
++#define _UDPLITE_H
++
++/* UDP-Lite socket options */
++#define UDPLITE_SEND_CSCOV   10 /* sender partial coverage (as sent)      */
++#define UDPLITE_RECV_CSCOV   11 /* receiver partial coverage (threshold ) */
++
++extern struct proto 		udplite_prot;
++extern struct hlist_head 	udplite_hash[UDP_HTABLE_SIZE];
++
++/* UDP-Lite does not have a standardized MIB yet, so we inherit from UDP */
++DECLARE_SNMP_STAT(struct udp_mib, udplite_statistics);
++
++/*
++ *	Checksum computation is all in software, hence simpler getfrag.
++ */
++static __inline__ int udplite_getfrag(void *from, char *to, int  offset,
++				      int len, int odd, struct sk_buff *skb)
++{
++	return memcpy_fromiovecend(to, (struct iovec *) from, offset, len);
++}
++
++/*
++ *  	net/ipv4/udplite.c
++ */
++extern void	udplite4_register(void);
++#ifdef CONFIG_PROC_FS
++extern int	udplite4_proc_init(void);
++extern void	udplite4_proc_exit(void);
++#endif
++
++#endif	/* _UDPLITE_H */
