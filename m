@@ -1,53 +1,79 @@
-From: David Miller <davem@davemloft.net>
+From: Ulrich Drepper <drepper@redhat.com>
 Subject: Re: [take14 0/3] kevent: Generic event handling mechanism.
-Date: Sun, 27 Aug 2006 18:57:44 -0700 (PDT)
-Message-ID: <20060827.185744.82374086.davem@davemloft.net>
-References: <11564996832717@2ka.mipt.ru>
-	<44F208A5.4050308@redhat.com>
+Date: Sun, 27 Aug 2006 19:11:37 -0700
+Message-ID: <44F250D9.90904@redhat.com>
+References: <11564996832717@2ka.mipt.ru>	<44F208A5.4050308@redhat.com> <20060827.185744.82374086.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigD070FAD1FCD3FAED83C8D367"
 Cc: johnpol@2ka.mipt.ru, linux-kernel@vger.kernel.org, akpm@osdl.org,
 	netdev@vger.kernel.org, zach.brown@oracle.com, hch@infradead.org,
 	chase.venters@clientec.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:54453
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932332AbWH1B5m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Aug 2006 21:57:42 -0400
-To: drepper@redhat.com
-In-Reply-To: <44F208A5.4050308@redhat.com>
+Received: from mx1.redhat.com ([66.187.233.31]:31922 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S932349AbWH1CMR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Aug 2006 22:12:17 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060827.185744.82374086.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ulrich Drepper <drepper@redhat.com>
-Date: Sun, 27 Aug 2006 14:03:33 -0700
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigD070FAD1FCD3FAED83C8D367
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-> The biggest problem I see so far is the integration into the existing
-> interfaces.  kevent notification *really* should be usable as a new
-> sigevent type.  Whether the POSIX interfaces are liked by kernel folks
-> or not, they are what the majority of the userlevel programmers use.
-> The mechanism is easily extensible.  I've described this in my paper.  I
-> cannot comment on the complexity of the kernel side but I'd imagine it's
-> not much more difficult, just different from what is implemented now.
-> Let's learn for a change from the mistakes of the past.  The new and
-> innovative AIO interfaces never took off because their implementation
-> differs so much from the POSIX interfaces.  People are interested in
-> portable code.  So, please, let's introduce SIGEV_KEVENT.  Then we
-> magically get timer notification etc for free.
+David Miller wrote:
+> SigEvent, and signals in general, are crap.  They are complex
+> and userland gets it wrong more often than not.  Interfaces
+> for userland should be simple, signals are not simple.
 
-I have to disagree with this.
+You miss the point.
 
-SigEvent, and signals in general, are crap.  They are complex
-and userland gets it wrong more often than not.  Interfaces
-for userland should be simple, signals are not simple.  A core
-loop that says "give me events to process", on the other hand,
-is.  And this is what is most natural for userspace.
+sigevent has nothing necessarily to do with signals.  I don't want
+signals.  I just want the same interface to specify the action to be used=
+=2E
 
-The user can say when he wants the process events.  In fact,
-ripping out the complex signal handling will be a welcome
-change for most server applications.
+If I'm using
 
-We are going to require the use of a new interface to register
-the events anyways, why keep holding onto the delivery baggage
-as well when we can break free of those limitations?
+  struct sigevent sigev;
+  int kfd;
+
+  kfd =3D kevent_create (...);
+
+  sigev.sigev_notify =3D SIGEV_KEVENT;
+  sigev.sigev_kfd =3D kfd;
+  sigev.sigev_valie.sival_ptr =3D &some_data;
+
+
+then I can use this sigev variable in an unmodified timer_create call.
+The kernel would see SIGEV_KEVENT (as opposed to SIGEV_SIGNAL etc) and
+**not** generate a signal but instead create the event in the kevent queu=
+e.
+
+
+The proposal to use sigevent has nothing to do with signals.  It's just
+about the interface and to have smooth integration with existing
+functionality.
+
+--=20
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
+=E2=9E=A7 Mountain View, CA =E2=9D=96
+
+
+--------------enigD070FAD1FCD3FAED83C8D367
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org
+
+iD8DBQFE8lDZ2ijCOnn/RHQRAsTYAJ0bUeSaOflzWljtW+bC6hLDSLAEdgCgpKIn
+bFaoVNSv9J2QdddkB3D7LBI=
+=/h+i
+-----END PGP SIGNATURE-----
+
+--------------enigD070FAD1FCD3FAED83C8D367--
