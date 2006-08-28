@@ -1,104 +1,38 @@
-From: Hong Liu <hong.liu@intel.com>
-Subject: [PATCH]d80211: fix "iwconfig key [x]" behavior
-Date: Mon, 28 Aug 2006 16:36:39 +0800
-Message-ID: <1156754199.6061.3.camel@devlinux-hong>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH] net/*: use SLAB_PANIC
+Date: Mon, 28 Aug 2006 10:36:51 +0100
+Message-ID: <20060828093651.GA31341@infradead.org>
+References: <20060826230841.GA5204@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-9mZho/VNcAIp2Etg2iPO"
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:13957 "EHLO
-	orsmga102-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S1751296AbWH1Ikq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 04:40:46 -0400
-To: jbenc@suse.cz
+Received: from pentafluge.infradead.org ([213.146.154.40]:65500 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S932477AbWH1JhM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Aug 2006 05:37:12 -0400
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <20060826230841.GA5204@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, Aug 27, 2006 at 03:08:41AM +0400, Alexey Dobriyan wrote:
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> ---
+> 
+>  Forgive me reformatting, in some cases making it fit in 80 columns was hard.
+> 
+>  net/core/flow.c        |    6 +-----
+>  net/core/neighbour.c   |   12 ++++--------
+>  net/core/skbuff.c      |    9 ++-------
+>  net/decnet/dn_route.c  |   11 +++--------
+>  net/ipv4/inetpeer.c    |    5 +----
+>  net/ipv4/ipmr.c        |    5 +----
+>  net/ipv4/route.c       |   10 +++-------
+>  net/ipv4/tcp.c         |    4 +---
+>  net/ipv6/ip6_fib.c     |    4 +---
+>  net/ipv6/route.c       |   10 +++-------
 
---=-9mZho/VNcAIp2Etg2iPO
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+ipv6 can be modular, so panicing on a initialization failure is wrong.
 
-"iwconfig key [x]" behavior is not correctly handled in the stack, also
-modify the giwencode method to show the key info.
-
-Thanks,
-Hong
-
---=-9mZho/VNcAIp2Etg2iPO
-Content-Disposition: attachment; filename=d80211-fix-iwconfig-key.patch
-Content-Type: text/x-patch; name=d80211-fix-iwconfig-key.patch; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-
-[PATCH]d80211: fix "iwconfig key [x]" behavior
-
-Signed-off-by: Hong Liu <hong.liu@intel.com>
-
-diff --git a/net/d80211/ieee80211_ioctl.c b/net/d80211/ieee80211_ioctl.c
-index dd52555..d3dc59c 100644
---- a/net/d80211/ieee80211_ioctl.c
-+++ b/net/d80211/ieee80211_ioctl.c
-@@ -2811,9 +2811,10 @@ static int ieee80211_ioctl_siwencode(str
- 		if (sdata->default_key == NULL)
- 			idx = 0;
- 		else for (i = 0; i < NUM_DEFAULT_KEYS; i++) {
--			if (sdata->default_key == sdata->keys[i])
-+			if (sdata->default_key == sdata->keys[i]) {
- 				idx = i;
--			break;
-+				break;
-+			}
- 		}
- 		if (idx < 0)
- 			return -EINVAL;
-@@ -2824,16 +2825,22 @@ static int ieee80211_ioctl_siwencode(str
- 		alg = ALG_NONE;
- 	else if (erq->length == 0) {
- 		/* No key data - just set the default TX key index */
--		sdata->default_key = sdata->keys[idx];
-+		if (sdata->default_key != sdata->keys[idx]) {
-+			if (sdata->default_key)
-+				ieee80211_key_sysfs_remove_default(sdata);
-+			sdata->default_key = sdata->keys[idx];
-+			if (sdata->default_key)
-+				ieee80211_key_sysfs_add_default(sdata);
-+		}
-+		return 0;
- 	}
- 
- 	return ieee80211_set_encryption(
- 		dev, bcaddr,
--		idx, erq->length == 0 ? ALG_NONE : ALG_WEP,
-+		idx, alg,
- 		sdata->default_key == NULL,
- 		NULL, keybuf, erq->length);
- 
--	return 0;
- }
- 
- 
-@@ -2852,9 +2859,10 @@ static int ieee80211_ioctl_giwencode(str
- 		if (sdata->default_key == NULL)
- 			idx = 0;
- 		else for (i = 0; i < NUM_DEFAULT_KEYS; i++) {
--			if (sdata->default_key == sdata->keys[i])
-+			if (sdata->default_key == sdata->keys[i]) {
- 				idx = i;
--			break;
-+				break;
-+			}
- 		}
- 		if (idx < 0)
- 			return -EINVAL;
-@@ -2869,7 +2877,8 @@ static int ieee80211_ioctl_giwencode(str
- 		return 0;
- 	}
- 
--	erq->length = 0;
-+	erq->length = sdata->keys[idx]->keylen;
-+	memcpy(key, sdata->keys[idx]->key, erq->length);
- 	erq->flags |= IW_ENCODE_ENABLED;
- 
- 	return 0;
-
---=-9mZho/VNcAIp2Etg2iPO--
