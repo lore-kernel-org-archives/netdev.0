@@ -1,72 +1,81 @@
 From: Nicholas Miell <nmiell@comcast.net>
 Subject: Re: [take14 0/3] kevent: Generic event handling mechanism.
-Date: Sun, 27 Aug 2006 19:40:33 -0700
-Message-ID: <1156732833.2358.13.camel@entropy>
-References: <11564996832717@2ka.mipt.ru> <44F208A5.4050308@redhat.com>
-	 <20060827.185744.82374086.davem@davemloft.net>
+Date: Sun, 27 Aug 2006 19:59:37 -0700
+Message-ID: <1156733977.2358.31.camel@entropy>
+References: <11564996832717@2ka.mipt.ru>  <44F208A5.4050308@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: drepper@redhat.com, johnpol@2ka.mipt.ru,
-	linux-kernel@vger.kernel.org, akpm@osdl.org,
-	netdev@vger.kernel.org, zach.brown@oracle.com, hch@infradead.org,
-	chase.venters@clientec.com
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932290AbWH1Ckx@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060827.185744.82374086.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	lkml <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rwcrmhc12.comcast.net ([216.148.227.152]:12736 "EHLO
+	rwcrmhc12.comcast.net") by vger.kernel.org with ESMTP
+	id S932372AbWH1C74 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Aug 2006 22:59:56 -0400
+To: Ulrich Drepper <drepper@redhat.com>
+In-Reply-To: <44F208A5.4050308@redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2006-08-27 at 18:57 -0700, David Miller wrote:
-> From: Ulrich Drepper <drepper@redhat.com>
-> Date: Sun, 27 Aug 2006 14:03:33 -0700
-> 
-> > The biggest problem I see so far is the integration into the existing
-> > interfaces.  kevent notification *really* should be usable as a new
-> > sigevent type.  Whether the POSIX interfaces are liked by kernel folks
-> > or not, they are what the majority of the userlevel programmers use.
-> > The mechanism is easily extensible.  I've described this in my paper.  I
-> > cannot comment on the complexity of the kernel side but I'd imagine it's
-> > not much more difficult, just different from what is implemented now.
-> > Let's learn for a change from the mistakes of the past.  The new and
-> > innovative AIO interfaces never took off because their implementation
-> > differs so much from the POSIX interfaces.  People are interested in
-> > portable code.  So, please, let's introduce SIGEV_KEVENT.  Then we
-> > magically get timer notification etc for free.
-> 
-> I have to disagree with this.
-> 
-> SigEvent, and signals in general, are crap.  They are complex
-> and userland gets it wrong more often than not.  Interfaces
-> for userland should be simple, signals are not simple.  A core
-> loop that says "give me events to process", on the other hand,
-> is.  And this is what is most natural for userspace.
-> 
-> The user can say when he wants the process events.  In fact,
-> ripping out the complex signal handling will be a welcome
-> change for most server applications.
-> 
-> We are going to require the use of a new interface to register
-> the events anyways, why keep holding onto the delivery baggage
-> as well when we can break free of those limitations?
+On Sun, 2006-08-27 at 14:03 -0700, Ulrich Drepper wrote:
 
-struct sigevent is the POSIX method for describing how event
-notifications are delivered.
+[ note: there was lots of good stuff that I cut out because it was a
+long email and I'm only replying to some of its points ]
 
-Two methods are specified in POSIX -- SIGEV_SIGNAL, which delivers a
-signal to the process and SIGEV_THREAD which creates a new thread in the
-process and calls a user-supplied function. In addition to these two
-methods, Linux also implements SIGEV_THREAD_ID, which sends a signal to
-a specific thread (this is used internally by glibc to implement
-SIGEV_THREAD, but I imagine that would change on the addition of
-SIGEV_KEVENT).
+> Events to wait for are basically all those with syscalls which can
+> potentially block indefinitely:
+> 
+> - file descriptor
+> - POSIX message queues (these are in fact file descriptors but
+>   let's make it legitimate)
+> - timer expiration
+> - signals (just as sigwait, not normal delivery instead of a handler)
 
-Ulrich is suggesting the addition of SIGEV_KEVENT, which causes the
-event notification to be delivered to a specific kevent queue. This
-would allow for event delivery to kevent queues from POSIX AIO
-completions, POSIX message queues, POSIX timers, glibc's async name
-resolution interface and anything else that might use a struct sigevent
-in the future.
+For some of them (like SIGTERM), delivery to a kevent queue would
+actually make sense.
+
+> The ring buffer interface is not described in Nicholas' description.
+
+I wasn't even aware there was a ring-buffer interface in the proposed
+patches. Another reason why the onus of documenting a patch is on the
+originator: the random nobody who ends up doing the documenting may
+screw it up.
+
+> Which brings me to the second point about the current kevent_get_events
+> syscall.  I don't think the min_nr parameter is useful.  Probably we
+> should not even allow the kevent queue to be used with different max_nr
+> parameters in different thread.  If you'd allow this, how would the
+> event notification be handled?  A waiter with a smaller required number
+> of events would always be woken first.  I think the number of required
+> events should be a property of the kevent object.  Then the code would
+> create different kevent object if the requirement is different.  At the
+> very least I'd declare it an error if at any time there are two or more
+> threads delayed which have different requirements on the number of
+> events.  This could provide all the flexibility needed while preventing
+> some of the mistakes one can make.
+
+I was thinking about this, and it's even worse in the case where a
+kevent fd is shared by different processes (either by forking or by
+passing it via PF_UNIX sockets).
+
+What happens when you queue an AIO completion to a shared kevent queue?
+(The AIO read only happened in one address space, or did it? What if the
+read was to a shared memory region? What if the memory region is shared,
+but mapped at different addresses? What if not all of the processes
+involved have that AIO fd open?)
+
+Also complicated is the case where waiting threads have different
+priorities, different timeouts, and different minimum event counts --
+how do you decide which thread gets events first? What if the decisions
+are different depending on whether you want to maximize throughput or
+interactivity?
 
 -- 
 Nicholas Miell <nmiell@comcast.net>
+
