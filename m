@@ -1,52 +1,52 @@
-From: shemminger@osdl.org
-Subject: [PATCH 1/9] sky2: remove cloned/pskb_expand_head check
-Date: Mon, 28 Aug 2006 10:00:45 -0700
-Message-ID: <20060828170214.888770919@localhost.localdomain>
-References: <20060828170044.136391412@localhost.localdomain>
-Cc: netdev@vger.kernel.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC][PATCHv2 2.6.18-rc4-mm3 3/3] net/ipv4:  misc. support files
+Date: Mon, 28 Aug 2006 20:28:46 +0200
+Message-ID: <44F335DE.5030307@trash.net>
+References: <200608231150.37895@strip-the-willow> <39e6f6c70608280548p5ba363d7o18cfd3bdb2f9e894@mail.gmail.com> <200608281513.49959@strip-the-willow> <200608281910.50647@strip-the-willow>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jmorris@namei.org, alan@lxorguk.ukuu.org.uk,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, kaber@coreworks.de,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:60292 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750889AbWH1SUU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2006 14:20:20 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=sky2-no-overwrite.patch
+Received: from stinky.trash.net ([213.144.137.162]:20945 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1750930AbWH1S2v
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Aug 2006 14:28:51 -0400
+To: gerrit@erg.abdn.ac.uk
+In-Reply-To: <200608281910.50647@strip-the-willow>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The code to handle cloned skb overwriting is unnecessary in the
-sky2 driver and is buggy. The bug is that pskb_expand_head can change the
-skb but the driver has already mapped in the header.
+gerrit@erg.abdn.ac.uk wrote:
+> [Net/IPv4]: REVISED Miscellaneous changes which complete the 
+>             v4 support for UDP-Lite.
+> 
 
-Since the sky2 hardware doesn't need to overwrite memory, the buggy
-code can just be removed; it was mistakenly copied from the tg3
-driver.
+> --- a/include/net/xfrm.h
+> +++ b/include/net/xfrm.h
+> @@ -467,6 +467,7 @@ u16 xfrm_flowi_sport(struct flowi *fl)
+>  	switch(fl->proto) {
+>  	case IPPROTO_TCP:
+>  	case IPPROTO_UDP:
+> +	case IPPROTO_UDPLITE:
+>  	case IPPROTO_SCTP:
+>  		port = fl->fl_ip_sport;
+>  		break;
+> @@ -492,6 +493,7 @@ u16 xfrm_flowi_dport(struct flowi *fl)
+>  	switch(fl->proto) {
+>  	case IPPROTO_TCP:
+>  	case IPPROTO_UDP:
+> +	case IPPROTO_UDPLITE:
+>  	case IPPROTO_SCTP:
+>  		port = fl->fl_ip_dport;
+>  		break;
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
---- sky2.orig/drivers/net/sky2.c	2006-08-25 16:00:28.000000000 -0700
-+++ sky2/drivers/net/sky2.c	2006-08-25 16:01:33.000000000 -0700
-@@ -1239,13 +1239,6 @@
- 	/* Check for TCP Segmentation Offload */
- 	mss = skb_shinfo(skb)->gso_size;
- 	if (mss != 0) {
--		/* just drop the packet if non-linear expansion fails */
--		if (skb_header_cloned(skb) &&
--		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
--			dev_kfree_skb(skb);
--			goto out_unlock;
--		}
--
- 		mss += ((skb->h.th->doff - 5) * 4);	/* TCP options */
- 		mss += (skb->nh.iph->ihl * 4) + sizeof(struct tcphdr);
- 		mss += ETH_HLEN;
-@@ -1341,7 +1334,6 @@
- 
- 	sky2_put_idx(hw, txqaddr[sky2->port], sky2->tx_prod);
- 
--out_unlock:
- 	spin_unlock(&sky2->tx_lock);
- 
- 	dev->trans_start = jiffies;
-
---
-Stephen Hemminger <shemminger@osdl.org>
+You also need to adapt _decode_session[46] in xfrm[46]_policy.c for
+IPsec. While you're at it you might consider adjusting xt_tcpudp,
+xt_multiport, ipt_LOG and ip6t_LOG as well to get some basic
+netfilter support. I'm going to take care of connection tracking
+and NAT once this is in mainline.
 
