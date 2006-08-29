@@ -1,38 +1,43 @@
-From: Ulrich Kunitz <kune@deine-taler.de>
-Subject: Re: [PATCH 4/7] d80211: add support for SIOCSIWNICKN SIOCGIWNICKN
-Date: Wed, 30 Aug 2006 00:15:53 +0200
-Message-ID: <20060829221553.GA31563@p15091797.pureserver.info>
-References: <44F3572E.8020506@linux.intel.com> <1156837757.3788.10.camel@ux156> <20060829114915.GB29669@tuxdriver.com> <20060829174531.GH1701@instant802.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH 4/6] net neighbour: convert to RCU
+Date: Wed, 30 Aug 2006 02:16:06 +0400
+Message-ID: <20060829221606.GA10285@ms2.inr.ac.ru>
+References: <20060828230748.827712918@localhost.localdomain> <20060828230915.587544687@localhost.localdomain> <20060829152816.GA24283@ms2.inr.ac.ru> <20060829112204.0cf5e866@localhost.localdomain> <20060829211722.GA27855@ms2.inr.ac.ru> <20060829144608.012f0d60@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	mabbas <mabbas@linux.intel.com>, netdev@vger.kernel.org,
-	jbenc@suse.cz
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from deine-taler.de ([217.160.107.63]:47869 "EHLO
-	p15091797.pureserver.info") by vger.kernel.org with ESMTP
-	id S965423AbWH2WPy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 18:15:54 -0400
-To: Jouni Malinen <jkm@devicescape.com>
+Received: from minus.inr.ac.ru ([194.67.69.97]:35007 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S965435AbWH2WQT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 18:16:19 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20060829174531.GH1701@instant802.com>
+In-Reply-To: <20060829144608.012f0d60@dxpl.pdx.osdl.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06-08-29 10:45 Jouni Malinen wrote:
+Hello!
 
-> The only reason for adding nick command would be to maintain backwards
-> compatibility with some scripts. I do not use any distro configuration
-> mechanisms for setting up wireless, so I do not know what is currently
-> being used. I would not add these ioctls into d80211 unless someone can
-> point out an existing (and widely used) mechanism that depends on these
-> ioctls being available.
+> > Also, probably, it makes sense to add neigh_lookup_light(), which does
+> > not take refcnt, but required to call
+> > neigh_release_light() (which is just rcu_read_unlock_bh()).
+> 
+> Which code paths would that make sense on?
+> 	fib_detect_death (ok)
+> 	infiniband (ok)
+> 	wireless/strip (ok) -- hey, this code is crap it has
+> 		a refcount leak already!
+> 	arp_req_get (ok)
+> 	ndisc (ok)
+> 
+> Perhaps killing the refcount all together, and just changing
+> everybody to neigh_lookup_rcu(). Nobody holds a long term reference
+> to the entries.
 
-The softmac-broadcom and the zd1211 driver are using it to give some
-information about the driver bound to the interface. I found it
-quite useful to know which driver is bound to which WLAN
-interface. A readonly driver text info field would get my support.
+The only real user of refcnt is destination cache.
 
--- 
-Uli Kunitz
+It uses __neigh_lookup/__neigh_lookup_errno, which could also
+use neigh_lookup_rcu(), then do atomic_inc_not_zero() and, if it fails
+fall to neigh_create().
+
+Alexey
