@@ -1,170 +1,57 @@
-From: "Indan Zupancic" <indan@nul.nu>
-Subject: Re: [PATCH 1/4] net: VM deadlock avoidance framework
-Date: Tue, 29 Aug 2006 02:01:31 +0200 (CEST)
-Message-ID: <3994.81.207.0.53.1156809691.squirrel@81.207.0.53>
-References: <20060825153946.24271.42758.sendpatchset@twins>
-    <20060825153957.24271.6856.sendpatchset@twins>
-    <1396.81.207.0.53.1156559843.squirrel@81.207.0.53>
-    <1156760564.23000.31.camel@twins>
-    <3720.81.207.0.53.1156780999.squirrel@81.207.0.53>
-    <1156786344.23000.47.camel@twins>
+From: "Steve Wise" <swise@opengridcomputing.com>
+Subject: Re: [PATCH v4 7/7] AMSO1100 Makefiles and Kconfig changes.
+Date: Mon, 28 Aug 2006 19:25:36 -0500
+Message-ID: <007301c6cb01$aacc2830$020010ac@haggard>
+References: <20060803210723.16572.34829.stgit@dell3.ogc.int><20060803210738.16572.74032.stgit@dell3.ogc.int> <adazmdoo3x8.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>,
-	"Daniel Phillips" <phillips@google.com>,
-	"Rik van Riel" <riel@redhat.com>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
+Content-Transfer-Encoding: 7bit
+Cc: <openib-general@openib.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helium.samage.net ([83.149.67.129]:58339 "EHLO
-	helium.samage.net") by vger.kernel.org with ESMTP id S964905AbWH2ABm
+Received: from rrcs-24-153-218-104.sw.biz.rr.com ([24.153.218.104]:38101 "EHLO
+	dell3.ogc.int") by vger.kernel.org with ESMTP id S964946AbWH2AZr
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Aug 2006 20:01:42 -0400
-In-Reply-To: <1156786344.23000.47.camel@twins>
-To: "Peter Zijlstra" <a.p.zijlstra@chello.nl>
+	Mon, 28 Aug 2006 20:25:47 -0400
+To: "Roland Dreier" <rdreier@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, August 28, 2006 19:32, Peter Zijlstra said:
-> Also, I'm really past caring what the thing
-> is called ;-) But if ppl object I guess its easy enough to run yet
-> another sed command over the patches.
+Sounds good to me.
 
-True, same here.
 
->> >> You can get rid of the memalloc_reserve and vmio_request_queues variables
->> >> if you want, they aren't really needed for anything. If using them reduces
->> >> the total code size I'd keep them though.
->> >
->> > I find my version easier to read, but that might just be the way my
->> > brain works.
->>
->> Maybe true, but I believe my version is more natural in the sense that it makes
->> more clear what the code is doing. Less bookkeeping, more real work, so to speak.
+----- Original Message ----- 
+From: "Roland Dreier" <rdreier@cisco.com>
+To: "Steve Wise" <swise@opengridcomputing.com>
+Cc: <openib-general@openib.org>; <netdev@vger.kernel.org>
+Sent: Monday, August 28, 2006 6:07 PM
+Subject: Re: [PATCH v4 7/7] AMSO1100 Makefiles and Kconfig changes.
+
+
+> I'm finally getting around to merging this up, and:
+> 
+> > --- /dev/null
+> > +++ b/drivers/infiniband/hw/amso1100/README
+> > @@ -0,0 +1,11 @@
+> > +This is the OpenFabrics provider driver for the 
+> > +AMSO1100 1Gb RNIC adapter. 
+> > +
+> > +This adapter is available in limited quantities 
+> > +for development purposes from Open Grid Computing.
+> > +
+> > +This driver requires the IWCM and CMA mods necessary
+> > +to support iWARP.
+> > +
+> > +Contact tom@opengridcomputing.com for more information.
+> > +
+> 
+> I don't think this belongs in the drivers directory.  In fact, is it
+> worth having this in the kernel at all?
+> 
+> How about if I just add a MAINTAINERS entry for amso1100 pointing at
+> tom@opengridcomputing.com ?
+> 
+> - R.
 >
-> Ok, I'll have another look at it, perhaps my gray matter has shifted ;-)
-
-I don't care either way, just providing an alternative. I'd compile both and see
-which one is smaller.
-
-
-> Ah, no accident there, I'm fully aware that there would need to be a
-> spinlock in adjust_memalloc_reserve() if there were another caller.
-> (I even had it there for some time) - added comment.
-
-Good that you're aware of it. Thing is, how much sense does the split-up into
-adjust_memalloc_reserve() and sk_adjust_memalloc() make at this point? Why not
-merge the code of adjust_memalloc_reserve() with sk_adjust_memalloc() and only
-add adjust_memalloc_reserve() when it's really needed? It saves an export.
-
-Feedback on the 28-Aug-2006 19:24 version from
-programming.kicks-ass.net/kernel-patches/vm_deadlock/current/
-
-
-> +void setup_per_zone_pages_min(void)
-> +{
-> +	static DEFINE_SPINLOCK(lock);
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&lock, flags);
-> +	__setup_per_zone_pages_min();
-> +	spin_unlock_irqrestore(&lock, flags);
-> +}
-
-Better to put the lock next to min_free_kbytes, both for readability and
-cache behaviour. And it satisfies the "lock data, not code" mantra.
-
-
-> +static inline void * emergency_rx_alloc(size_t size, gfp_t gfp_mask)
-> +{
-> +	void * page = NULL;
-> +
-> +	if (size > PAGE_SIZE)
-> +		return page;
-> +
-> +	if (atomic_add_unless(&emergency_rx_pages_used, 1, RX_RESERVE_PAGES)) {
-> +		page = (void *)__get_free_page(gfp_mask);
-> +		if (!page) {
-> +			WARN_ON(1);
-> +			atomic_dec(&emergency_rx_pages_used);
-> +		}
-> +	}
-> +
-> +	return page;
-> +}
-
-If you prefer to avoid cmpxchg (which is often used in atomic_add_unless
-and can be expensive) then you can use something like:
-
-static inline void * emergency_rx_alloc(size_t size, gfp_t gfp_mask)
-{
-	void * page;
-
-	if (size > PAGE_SIZE)
-		return NULL;
-
-	if (atomic_inc_return(&emergency_rx_pages_used) == RX_RESERVE_PAGES)
-		goto out;
-	page = (void *)__get_free_page(gfp_mask);
-	if (page)
-		return page;
-	WARN_ON(1);
-out:
-	atomic_dec(&emergency_rx_pages_used);
-	return NULL;
-}
-
-The tiny race should be totally harmless. Both versions are a bit big
-to inline though.
-
-
-> @@ -195,6 +196,86 @@ __u32 sysctl_rmem_default = SK_RMEM_MAX;
->  /* Maximal space eaten by iovec or ancilliary data plus some space */
->  int sysctl_optmem_max = sizeof(unsigned long)*(2*UIO_MAXIOV + 512);
->
-> +static DEFINE_SPINLOCK(memalloc_lock);
-> +static int memalloc_reserve;
-> +static unsigned int vmio_request_queues;
-> +
-> +atomic_t vmio_socks;
-> +atomic_t emergency_rx_pages_used;
-> +EXPORT_SYMBOL_GPL(vmio_socks);
-
-Is this export needed? It's only used in net/core/skbuff.c and net/core/sock.c,
-which are compiled into one module.
-
-> +EXPORT_SYMBOL_GPL(emergency_rx_pages_used);
-
-Same here. It's only used by code in sock.c and skbuff.c, and no external
-code calls emergency_rx_alloc(), nor emergency_rx_free().
-
---
-
-I think I depleted my usefulness, there isn't much left to say for me.
-It's up to the big guys to decide about the merrit of this patch.
-If Evgeniy's network allocator fixes all deadlocks and also has other
-advantages, then great.
-
-IMHO:
-
-- This patch isn't really a framework, more a minimal fix for one specific,
-though important problem. But it's small and doesn't have much impact
-(numbers would be nice, e.g. vmlinux/modules size before and after, and
-some network benchmark results).
-
-- If Evgeniy's network allocator is as good as it looks, then why can't it
-replace the existing one? Just adding private subsystem specific memory
-allocators seems wrong. I might be missing the big picture, but it looks
-like memory allocator things should be at least synchronized and discussed
-with Christoph Lameter and his "modular slab allocator" patch.
-
-All in all it seems it will take a while until Evgeniy's code will be merged,
-so I think applying Peter's patch soonish and removing it again the moment it
-becomes unnecessary is reasonable.
-
-Greetings,
-
-Indan
-
-
