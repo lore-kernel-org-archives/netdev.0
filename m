@@ -1,40 +1,45 @@
-From: Brice Goglin <brice@myri.com>
-Subject: Re: myri10ge conversion to non-contiguous skb
-Date: Tue, 29 Aug 2006 00:41:39 -0400
-Message-ID: <44F3C583.2030900@myri.com>
-References: <44EE2791.50101@myri.com> <4807377b0608272336v1d64bc5bh320dee7f08667f79@mail.gmail.com>
+From: "Mattia Dongili" <malattia@linux.it>
+Subject: Re: divide error: 0000 in fib6_rule_match [Re: 2.6.18-rc4-mm3]
+Date: Tue, 29 Aug 2006 08:33:18 +0200 (CEST)
+Message-ID: <55584.85.47.20.193.1156833198.squirrel@picard.linux.it>
+References: <20060826160922.3324a707.akpm@osdl.org>
+    <20060828200716.GA4244@inferi.kami.home>
+    <20060828143003.aaae0d7d.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Mattia Dongili" <malattia@linux.it>, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:51910 "EHLO
-	myri.com") by vger.kernel.org with ESMTP id S1750846AbWH2Eln (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 00:41:43 -0400
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-In-Reply-To: <4807377b0608272336v1d64bc5bh320dee7f08667f79@mail.gmail.com>
+Received: from picard.linux.it ([213.254.12.146]:52438 "EHLO picard.linux.it")
+	by vger.kernel.org with ESMTP id S1751114AbWH2GdT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 02:33:19 -0400
+In-Reply-To: <20060828143003.aaae0d7d.akpm@osdl.org>
+To: "Andrew Morton" <akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesse Brandeburg wrote:
-> On 8/24/06, Brice Goglin <brice@myri.com> wrote:
->> During the submission of the myri10ge driver, some people raised the
->> question of using pages (or any kind of non-contiguous skb) instead of
->> our current 16kB contiguous skb. We are looking at this right now and it
->> is not clear what solution is the best. From what we understand, Linux
->> provides two mostly redundant mechanisms to handle discontinuous skb,
->> the skb->frags and the skb->frag_list, s2io using the latter while e1000
->> uses the former. Is one or the other recommended? What is the purpose of
->> having them both in the net core?
+On Mon, August 28, 2006 11:30 pm, Andrew Morton said:
+> On Mon, 28 Aug 2006 22:07:16 +0200
+> Mattia Dongili <malattia@linux.it> wrote:
+[...]
+>> it's at fib6_rules.c:132 but since I can't tell why r->fwmask is 0 I'll
+>> avoid proposing a wrong patch :)
 >
-> you really only have one option, to use PAGE_SIZE pages and frags[]
-> w/nr_frags.  e1000 tried the frag_list option but that is used by ip
-> reassembly and badly conflicts with driver generated frag_list.
+> Oh.  It looks like this has already been fixed:
+>
+> #ifdef CONFIG_IPV6_ROUTE_FWMARK
+>         if ((r->fwmark ^ fl->fl6_fwmark) & r->fwmask)
+>                 return 0;
+> #endif
+>
+> there's no divide in there now.
 
-Ok, thanks for the clarification, we'll use frags then.
+Ok, great, I have a division instead of the bitwise and there in fact.
 
-Is s2io going to be converted from frag_list to frags then?
-
-Brice
+thanks
+-- 
+mattia
+:wq!
 
 
