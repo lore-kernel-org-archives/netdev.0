@@ -1,39 +1,37 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH 1/6] NetLabel: correctly initialize the NetLabel fields
-Date: Tue, 29 Aug 2006 13:01:20 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0608291259490.29142@d.namei>
-References: <20060829144251.452774000@hp.com> <20060829144444.202106000@hp.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 01/26] e1000: Whitespace cleanup, cosmetic changes
+Date: Tue, 29 Aug 2006 09:52:10 -0700
+Message-ID: <44F470BA.70203@intel.com>
+References: <20060829164153.6872.1713.stgit@gitlost.site> <20060829164415.6872.84250.stgit@gitlost.site>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov,
-	Stephen Smalley <sds@tycho.nsa.gov>,
-	Andrew Morton <akpm@osdl.org>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	akpm@osdl.org, "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.sea5.speakeasy.net ([69.17.117.3]:14520 "EHLO
-	mail1.sea5.speakeasy.net") by vger.kernel.org with ESMTP
-	id S965141AbWH2RBW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 13:01:22 -0400
-To: Paul Moore <paul.moore@hp.com>
-In-Reply-To: <20060829144444.202106000@hp.com>
+Received: from mga03.intel.com ([143.182.124.21]:52055 "EHLO
+	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
+	id S965166AbWH2RMi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 13:12:38 -0400
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+In-Reply-To: <20060829164415.6872.84250.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Aug 2006, paul.moore@hp.com wrote:
 
-> Fix a problem where the NetLabel specific fields of the sk_security_struct
-> structure were not being initialized early enough in some cases.
-> 
-> Signed-off-by: Paul Moore <paul.moore@hp.com>
+Patch 1/26 was truncated by vger, so I've posted them here in 4 separate parts:
 
-Regardless of the mapped ipv6 socket issue, I think these should be 
-applied as fixes in their own right.  The mapped ipv6 socket stuff can be 
-done separately if required.
+http://foo-projects.org/~sofar/e1000_00_whitespace.patch
+http://foo-projects.org/~sofar/e1000_01_whitespace.patch
+http://foo-projects.org/~sofar/e1000_02_whitespace.patch
+http://foo-projects.org/~sofar/e1000_03_whitespace.patch
 
+and all together:
 
-Acked-by: James Morris <jmorris@namei.org>
+http://foo-projects.org/~sofar/8fc897b00a7d81ffaa24e18881c2d6b10698ab0b.patch
 
+Cheers,
 
--- 
-James Morris
-<jmorris@namei.org>
+Auke
