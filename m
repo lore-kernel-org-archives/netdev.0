@@ -1,28 +1,34 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 2/2]d80211: add hardware scan callback
-Date: Tue, 29 Aug 2006 14:08:37 +0200
-Message-ID: <1156853317.3788.26.camel@ux156>
-References: <1156494733.21483.14.camel@devlinux-hong>
+From: "Michael Ellerman" <michael@ellerman.id.au>
+Subject: Re: [PATCH] powerpc: ibmveth: Harden driver initilisation for kexec
+Date: Tue, 29 Aug 2006 22:58:02 +1000
+Message-ID: <dc1166600608290558o4c25651cud82d2217a6a0fb61@mail.gmail.com>
+References: <20060131041055.5623C68A46@ozlabs.org>
+	 <20060131042903.GF28896@krispykreme> <44074A22.8060705@us.ibm.com>
+	 <1143421876.7795.2.camel@localhost.localdomain>
+	 <1146047837.10735.29.camel@localhost.localdomain>
+	 <4452724D.7050800@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jbenc@suse.cz, netdev@vger.kernel.org
+Cc: linuxppc64-dev@ozlabs.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org, anton@samba.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:22182 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S964968AbWH2MII
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 08:08:08 -0400
-To: Hong Liu <hong.liu@intel.com>
-In-Reply-To: <1156494733.21483.14.camel@devlinux-hong>
+Received: from nz-out-0102.google.com ([64.233.162.207]:1246 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S964795AbWH2M6E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 08:58:04 -0400
+Received: by nz-out-0102.google.com with SMTP id n1so1275743nzf
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2006 05:58:04 -0700 (PDT)
+To: "Santiago Leon" <santil@us.ibm.com>
+In-Reply-To: <4452724D.7050800@us.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-08-25 at 16:32 +0800, Hong Liu wrote:
-> 
-> +       local->sta_scanning = 1;
-> +       if (local->hw->hw_scan)
-> +               return local->hw->hw_scan(dev, ssid, ssid_len); 
+On 4/29/06, Santiago Leon <santil@us.ibm.com> wrote:
+> Michael Ellerman wrote:
+> > Any chance of getting it into to 2.6.17 ...
 
-You set sta_scanning even if that returns an error, is that correct?
+2.6.19 perhaps?
 
-johannes
+cheers
