@@ -1,25 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] net/atm/: proper prototypes
-Date: Mon, 28 Aug 2006 23:57:11 -0700 (PDT)
-Message-ID: <20060828.235711.130237501.davem@davemloft.net>
-References: <20060820230006.GW7813@stusta.de>
+Subject: Re: [PATCH] Make struct sockaddr_in::sin_port __be16
+Date: Mon, 28 Aug 2006 23:58:45 -0700 (PDT)
+Message-ID: <20060828.235845.11599554.davem@davemloft.net>
+References: <20060820232124.GC5208@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932106AbWH2G5O@vger.kernel.org>
-To: bunk@stusta.de
-In-Reply-To: <20060820230006.GW7813@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:53733
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932109AbWH2G6r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 02:58:47 -0400
+To: adobriyan@gmail.com
+In-Reply-To: <20060820232124.GC5208@martell.zuzino.mipt.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
-Date: Mon, 21 Aug 2006 01:00:06 +0200
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Mon, 21 Aug 2006 03:21:24 +0400
 
-> This patch adds proper prototypes in net/atm/mpc.h for two global 
-> functions in net/atm/mpoa_proc.c
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Applied to net-2.6.19, thanks Adrian.
+Also applied, thanks.
