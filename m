@@ -1,58 +1,61 @@
-From: Mohamed Abbas <mabbas@linux.intel.com>
-Subject: Re: [PATCH 5/7] d80211: indicate if unassociate/radio off status
-Date: Tue, 29 Aug 2006 15:28:46 -0700
-Message-ID: <44F4BF9E.4040309@linux.intel.com>
-References: <44F356DF.9000000@linux.intel.com> <200608281417.39948.flamingice@sourmilk.net> <20060829175544.GI1701@instant802.com>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 15/26] e100: reduce time under spinlock
+Date: Tue, 29 Aug 2006 15:10:47 -0700
+Message-ID: <44F4BB67.4000604@intel.com>
+References: <20060829164153.6872.1713.stgit@gitlost.site> <20060829164448.6872.18583.stgit@gitlost.site> <44F4A9B8.9050407@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Michael Wu <flamingice@sourmilk.net>, netdev@vger.kernel.org,
-	jbenc@suse.cz
+Cc: netdev@vger.kernel.org, akpm@osdl.org,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke" <auke@foo-projects.org>,
+	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:43186 "EHLO
-	fmsmga101.fm.intel.com") by vger.kernel.org with ESMTP
-	id S965043AbWH2W2s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 18:28:48 -0400
-To: Jouni Malinen <jkm@devicescape.com>
-In-Reply-To: <20060829175544.GI1701@instant802.com>
+Received: from mga03.intel.com ([143.182.124.21]:46923 "EHLO
+	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
+	id S965258AbWH2Wa5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 18:30:57 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <44F4A9B8.9050407@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jouni Malinen wrote:
+Jeff Garzik wrote:
+> Kok, Auke wrote:
+>> We're waiting for a write flush to finish before unlocking, which
+>> is not needed. Release the spinlock after the write command.
+>>
+>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> 
+> This undoes the following change:
 
->On Mon, Aug 28, 2006 at 02:17:34PM -0700, Michael Wu wrote:
->
->  
->
->>It would be helpful if you inlined your patches instead of attaching them next 
->>time.
->>    
->>
->
->Agreed.
->
->  
->
->>I'm not comfortable with using the name for this purpose.
->>    
->>
->
->And agreed. wireless.h has this to say about SIOCGIWNAME:
->
->#define SIOCGIWNAME     0x8B01          /* get name == wireless protocol */
->/* SIOCGIWNAME is used to verify the presence of Wireless Extensions.
-> * Common values : "IEEE 802.11-DS", "IEEE 802.11-FH", "IEEE 802.11b"...
-> * Don't put the name of your driver there, it's useless. */
->
->
->The proposed use here is against this and should not be applied.
->SIOCGIWAP can be used to indicate association status and SIOCGIWTXPOW
->can be used to indicate whether TX is powered which is quite close to
->radio off indication.
->
->  
->
-to associated to a network i do the following
-#iwconfig wlan0 essid {some name} channel X ap {bssid of the AP}
-after I issues this command  SIOCGIWAP will always report the bssid no 
-matter what the status of our link.
+ack, not good. Dropped it from the tree.
+
+Auke
+
+
+> 
+> 
+> commit ad8c48ad3bbef078616ed4d2652d362dfd962f09
+> Author: Catalin(ux aka Dino) BOIE <util@deuroconsult.ro>
+> Date:   Sat Mar 4 12:18:59 2006 -0500
+> 
+>     Fix io ordering problems in e100
+> 
+>     Checking e100.c code against Documentation/io_ordering.txt I found the
+>     following problem:
+> 
+>     spin_lock_irq...
+>     write
+>     spin-unlock
+>     e100_write_flush
+> 
+>     The attached patch fix the code like this:
+> 
+>     spin_lock_irq...
+>     write
+>     e100_write_flush
+>     spin-unlock
+> 
+>     Signed-off-by: Catalin BOIE <catab@umbrella.ro>
+>     Signed-off-by: Jeff Garzik <jeff@garzik.org>
