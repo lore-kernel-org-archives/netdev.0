@@ -1,44 +1,45 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 7/9] sky2: power down PHY when not up
-Date: Tue, 29 Aug 2006 14:11:07 -0700
-Message-ID: <20060829141107.6d443804@localhost.localdomain>
-References: <20060828170044.136391412@localhost.localdomain>
-	<20060828170219.598956798@localhost.localdomain>
-	<44F4ABFB.1020105@pobox.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH 4/6] net neighbour: convert to RCU
+Date: Wed, 30 Aug 2006 01:17:22 +0400
+Message-ID: <20060829211722.GA27855@ms2.inr.ac.ru>
+References: <20060828230748.827712918@localhost.localdomain> <20060828230915.587544687@localhost.localdomain> <20060829152816.GA24283@ms2.inr.ac.ru> <20060829112204.0cf5e866@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:63708 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965391AbWH2VML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 17:12:11 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <44F4ABFB.1020105@pobox.com>
+Received: from minus.inr.ac.ru ([194.67.69.97]:37303 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S965413AbWH2VRl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 17:17:41 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060829112204.0cf5e866@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Aug 2006 17:04:59 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+Hello!
 
-> shemminger@osdl.org wrote:
-> > To save power, don't enable power to the PHY until device is brought up.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> 
-> Strongly agree, and ACK, but note that users have complained in the past 
-> when they could not configure their MAC when the interface was down. 
-> Users want to eliminate the
-> 
-> 	ifconfig ethX up
-> 	ethtool ...
-> 
-> race window.
-> 
-> 	Jeff
+> atomic_inc_and_test is true iff result is zero, so that won't work.
 
-This driver should already handle this because the settings are stored
-in the device structure and applied when device is brought up.
+I meant atomic_inc_not_zero(), as Martin noticed.
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+
+> But the following should work:
+> 
+> 	hlist_for_each_entry_rcu(n, tmp, &tbl->hash_buckets[hash_val], hlist) {
+> 		if (dev == n->dev && !memcmp(n->primary_key, pkey, key_len)) {
+> 			if (unlikely(&atomic_inc_return(&n->refcnt) == 1)) {
+> 				neigh_release(n);
+
+I do not think it will work. It has exactly the same race condition.
+
+Yes, atomic_inc_not_zero() is expensive. But it looks like it is the cheapest
+variant, which works correctly without more work.
+
+Another variant would be rework use of refcnt. It can be done like rt cache:
+when release of the last reference does not mean anything.
+
+Also, probably, it makes sense to add neigh_lookup_light(), which does
+not take refcnt, but required to call
+neigh_release_light() (which is just rcu_read_unlock_bh()).
+
+Alexey
