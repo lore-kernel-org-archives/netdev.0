@@ -1,55 +1,44 @@
-From: Martin Josefsson <gandalf@wlug.westbo.se>
-Subject: Re: [PATCH 4/6] net neighbour: convert to RCU
-Date: Tue, 29 Aug 2006 20:34:01 +0200
-Message-ID: <1156876442.25085.2.camel@localhost.localdomain>
-References: <20060828230748.827712918@localhost.localdomain>
-	 <20060828230915.587544687@localhost.localdomain>
-	 <20060829152816.GA24283@ms2.inr.ac.ru>
-	 <20060829112204.0cf5e866@localhost.localdomain>
+From: "Jouni Malinen" <jkm@devicescape.com>
+Subject: Re: [patch 5/5] d80211: add ioctl to stop data frame tx
+Date: Tue, 29 Aug 2006 11:39:47 -0700
+Message-ID: <20060829183947.GJ1701@instant802.com>
+References: <20060822173241.313859000@devicescape.com> <20060822173419.GF12500@devicescape.com> <1156317906.3629.18.camel@ux156> <uwt8sww6z.fsf@devicescape.com> <1156836657.3788.5.camel@ux156> <20060829114515.GA29669@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-EJk6O4TiZFO1Ob2d1v12"
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Elliot Schwartz <elliot@devicescape.com>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailfront1.citynet.nu ([217.10.96.36]:37533 "EHLO
-	mailfront1.citynet.nu") by vger.kernel.org with ESMTP
-	id S965254AbWH2SeJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 14:34:09 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060829112204.0cf5e866@localhost.localdomain>
+Received: from dhost002-4.dex002.intermedia.net ([64.78.21.18]:11364 "EHLO
+	dhost002-4.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S965254AbWH2Sjy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 14:39:54 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
+Content-Disposition: inline
+In-Reply-To: <20060829114515.GA29669@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Aug 29, 2006 at 07:45:23AM -0400, John W. Linville wrote:
+> On Tue, Aug 29, 2006 at 09:30:57AM +0200, Johannes Berg wrote:
 
---=-EJk6O4TiZFO1Ob2d1v12
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> > I think that would warrant a new netlink multicast group and doing over
+> > nl80211 to start with ;) Inserting fake management frames into the mgt
+> > interface sounds pretty weird to me.
+> 
+> I concur -- inserting frames is a neat hack, but not the preferred
+> way for the long haul.
 
-On Tue, 2006-08-29 at 11:22 -0700, Stephen Hemminger wrote:
+What would be the preferred way of doing the conversion here? I think I
+would prefer to get the radar detection code in as-is and then move all
+the messages to use a new mechanism as one change once that mechanism
+becomes available.
 
-> > Probably, you should do atomic_inc_and_test() here and restart lookup,
-> > if it fails.
-> >=20
-> > Alexey
->=20
-> atomic_inc_and_test is true iff result is zero, so that won't work.
+hostapd connection uses number of these frames which are actually not
+fake management frames, but just frames with different "pseudo header"
+on the management interface. You can search for ieee80211_msg_ types to
+see the different types of status messages that are used.
 
-Wouldn't atomic_inc_not_zero() do what you want?
-
---=20
-/Martin
-
---=-EJk6O4TiZFO1Ob2d1v12
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.3 (GNU/Linux)
-
-iD8DBQBE9IiZWm2vlfa207ERAux+AJ4hCN/ae3hNy8ow/6CluZEYSLlTigCgrx+s
-4Lh87hYe8HwhzKKuC6VRIII=
-=qYeJ
------END PGP SIGNATURE-----
-
---=-EJk6O4TiZFO1Ob2d1v12--
-
+-- 
+Jouni Malinen                                            PGP id EFC895FA
