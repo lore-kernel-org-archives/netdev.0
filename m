@@ -1,57 +1,95 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: Fw: 2.6.18-rc4-mm3: BUG: warning at include/net/dst.h:154/dst_release()
-Date: Tue, 29 Aug 2006 17:43:05 -0400
-Message-ID: <200608292143.k7TLh51P003039@turing-police.cc.vt.edu>
-References: <20060829091656.d4158404.akpm@osdl.org>
-            <20060829182433.GB3470@postel.suug.ch>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 4/6] net neighbour: convert to RCU
+Date: Tue, 29 Aug 2006 14:46:08 -0700
+Message-ID: <20060829144608.012f0d60@dxpl.pdx.osdl.net>
+References: <20060828230748.827712918@localhost.localdomain>
+	<20060828230915.587544687@localhost.localdomain>
+	<20060829152816.GA24283@ms2.inr.ac.ru>
+	<20060829112204.0cf5e866@localhost.localdomain>
+	<20060829211722.GA27855@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1156887785_2978P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from turing-police.cc.vt.edu ([128.173.14.107]:60831 "EHLO
-	turing-police.cc.vt.edu") by vger.kernel.org with ESMTP
-	id S965426AbWH2VnP (ORCPT <RFC822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 17:43:15 -0400
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: Your message of "Tue, 29 Aug 2006 20:24:33 +0200."
-             <20060829182433.GB3470@postel.suug.ch>
+Received: from smtp.osdl.org ([65.172.181.4]:63975 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965429AbWH2Vqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 17:46:39 -0400
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <20060829211722.GA27855@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1156887785_2978P
-Content-Type: text/plain; charset=us-ascii
+On Wed, 30 Aug 2006 01:17:22 +0400
+Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
 
-On Tue, 29 Aug 2006 20:24:33 +0200, Thomas Graf said:
-
-> > Seeing this a lot on 2.6.18-rc4-mm3 with 2 different stack tracebacks
-> > (one for received packets, other for sending).  I already picked up the
-> > fix for the ^ / confusion in fib_rules.c and that didn't help matters.
+> Hello!
 > 
-> Should be fixed by this patch:
+> > atomic_inc_and_test is true iff result is zero, so that won't work.
 > 
-> commit 4305fabb7e4c63ddc3a4fd38aab9ec3f6575b111
-> Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Date:   Mon Aug 28 13:19:30 2006 -0700
+> I meant atomic_inc_not_zero(), as Martin noticed.
 > 
->     [IPV6] ROUTE: Fix dst reference counting in ip6_pol_route_lookup().
 > 
->     In ip6_pol_route_lookup(), when we finish backtracking at the
->     top-level root entry, we need to hold it.
+> > But the following should work:
+> > 
+> > 	hlist_for_each_entry_rcu(n, tmp, &tbl->hash_buckets[hash_val], hlist) {
+> > 		if (dev == n->dev && !memcmp(n->primary_key, pkey, key_len)) {
+> > 			if (unlikely(&atomic_inc_return(&n->refcnt) == 1)) {
+> > 				neigh_release(n);
+> 
+> I do not think it will work. It has exactly the same race condition.
+> 
+> Yes, atomic_inc_not_zero() is expensive. But it looks like it is the cheapest
+> variant, which works correctly without more work.
+> 
+> Another variant would be rework use of refcnt. It can be done like rt cache:
+> when release of the last reference does not mean anything.
+> 
+> Also, probably, it makes sense to add neigh_lookup_light(), which does
+> not take refcnt, but required to call
+> neigh_release_light() (which is just rcu_read_unlock_bh()).
 
-Confirming patch fixes the problem I'm seeing, thanks...
+Which code paths would that make sense on?
+	fib_detect_death (ok)
+	infiniband (ok)
+	wireless/strip (ok) -- hey, this code is crap it has
+		a refcount leak already!
+	arp_req_get (ok)
+	ndisc (ok)
 
---==_Exmh_1156887785_2978P
-Content-Type: application/pgp-signature
+Perhaps killing the refcount all together, and just changing
+everybody to neigh_lookup_rcu(). Nobody holds a long term reference
+to the entries.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
+> 
+> Alexey
 
-iD8DBQFE9LTpcC3lWbTT17ARAo+SAKDJAMyRPQoZM4V7cGL9KXq/9ucr4QCfSMAu
-bF415yFjDa16jl9sA4QSOmk=
-=dhOO
------END PGP SIGNATURE-----
+Or using the existing dead flag?
 
---==_Exmh_1156887785_2978P--
+@@ -346,17 +359,24 @@ struct neighbour *neigh_lookup(struct ne
+ 	
+ 	NEIGH_CACHE_STAT_INC(tbl, lookups);
+ 
+-	read_lock_bh(&tbl->lock);
+-	hlist_for_each_entry(n, tmp, &tbl->hash_buckets[hash_val], hlist) {
++	rcu_read_lock();
++	hlist_for_each_entry_rcu(n, tmp, &tbl->hash_buckets[hash_val], hlist) {
+ 		if (dev == n->dev && !memcmp(n->primary_key, pkey, key_len)) {
+ 			neigh_hold(n);
++			/* Don't rescuitate dead entries */
++			if (unlikely(n->dead)) {
++				neigh_release(n);
++				continue;
++			}
++
+ 			NEIGH_CACHE_STAT_INC(tbl, hits);
+ 			goto found;
+ 		}
+ 	}
+ 	n = NULL;
+ found:
+-	read_unlock_bh(&tbl->lock);
++	rcu_read_unlock();
+ 	return n;
+ }
+ 
