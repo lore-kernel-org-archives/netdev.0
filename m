@@ -1,34 +1,34 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH IPv6] Fix race condition in ipv6_add_addr
-Date: Tue, 29 Aug 2006 18:21:28 +0900 (JST)
-Message-ID: <20060829.182128.23425629.yoshfuji@linux-ipv6.org>
-References: <20060829083536.GA10403@suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.18-rc4-mm[1,2,3] -- Network card not getting assigned an
+ "eth" device name
+Date: Tue, 29 Aug 2006 02:26:35 -0700 (PDT)
+Message-ID: <20060829.022635.08324656.davem@davemloft.net>
+References: <20060828120328.ae734de0.akpm@osdl.org>
+	<20060828.132717.57158097.davem@davemloft.net>
+	<a44ae5cd0608290143m3ad300eej5b325270c9d57b66@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp-2
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, keir.fraser@cl.cam.ac.uk,
-	yoshfuji@linux-ipv6.org
+Cc: akpm@osdl.org, dcbw@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jeremy@goop.org, rml@novell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:64269 "EHLO
-	yue.st-paulia.net") by vger.kernel.org with ESMTP id S932252AbWH2JTh
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 05:19:37 -0400
-To: okir@suse.de, davem@davemloft.net
-In-Reply-To: <20060829083536.GA10403@suse.de>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:59589
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932228AbWH2J1H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 05:27:07 -0400
+To: miles.lane@gmail.com
+In-Reply-To: <a44ae5cd0608290143m3ad300eej5b325270c9d57b66@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20060829083536.GA10403@suse.de> (at Tue, 29 Aug 2006 10:35:36 +0200), Olaf Kirch <okir@suse.de> says:
+From: "Miles Lane" <miles.lane@gmail.com>
+Date: Tue, 29 Aug 2006 01:43:48 -0700
 
-> During stress testing, machines were frequently crashing in
-> __ipv6_ifa_notify on dst_hold(&ifp->rt.u_dst), with ifp->rt being a
-> NULL pointer.
+> Then, when I testing running NetworkManager.bak, I got:
 > 
-> The attached patch fixes the problem.
+> [NetworkManager.:6078]: Changing netdevice name from [eth1] to [`$,3u=(B$,3u=(B]
+> [NetworkManager.:6078]: Changing netdevice name from [eth0] to [`$,3u=(B$,3u=(B]
 
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Someone who can debug NetworkManager with gdb or similar needs
+to step through it and figure out why it wants to use this
+crazy garbage string as the name.
