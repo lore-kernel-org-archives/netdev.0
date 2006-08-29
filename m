@@ -1,39 +1,79 @@
-From: Olaf Kirch <okir@suse.de>
+From: Peter Bieringer <pb@bieringer.de>
 Subject: Re: [RFC IPv6] Disabling IPv6 autoconf
-Date: Tue, 29 Aug 2006 13:10:54 +0200
-Message-ID: <20060829111053.GL1201@suse.de>
+Date: Tue, 29 Aug 2006 13:13:58 +0200
+Message-ID: <44F42176.1000701@bieringer.de>
 References: <20060829082435.GA2676@suse.de> <20060829.183426.52410264.yoshfuji@linux-ipv6.org> <20060829.025400.37356422.davem@davemloft.net> <Pine.LNX.4.64.0608291348520.25442@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, jbeulich@suse.de
+	okir@suse.de, netdev@vger.kernel.org, jbeulich@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:23694 "EHLO mx2.suse.de")
-	by vger.kernel.org with ESMTP id S932304AbWH2LLE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 07:11:04 -0400
+Received: from smtp4.aerasec.de ([212.18.21.179]:6858 "EHLO smtp4.aerasec.de")
+	by vger.kernel.org with ESMTP id S932306AbWH2LOK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 07:14:10 -0400
 To: Pekka Savola <pekkas@netcore.fi>
-Content-Disposition: inline
 In-Reply-To: <Pine.LNX.4.64.0608291348520.25442@netcore.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 29, 2006 at 01:55:28PM +0300, Pekka Savola wrote:
-> It's not obvious that IFF_MULTICAST is good enough.  IMHO, you should 
-> be able to run addrconf on non-multicast interfaces as well (e.g., 
+Pekka Savola schrieb:
+> On Tue, 29 Aug 2006, David Miller wrote:
+>> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>> Date: Tue, 29 Aug 2006 18:34:26 +0900 (JST)
+>>
+>>> Further analysis is needed, but one idea is to skip
+>>> addrconf_dev_config() if !(dev->flags & IFF_MULTICAST).
+>>
+>> Yes, it is logical because without multicast IPV6 cannot
+>> work correctly.
+>>
+>> But from another perspective (I assume these bridged Xen devices use
+>> ARPHRD_ETHER, do they?) a device with ARPHRD_ETHER and cleared
+>> IFF_MULTICAST flag seems potentially problematic.  How many other
+>> things break over such a device?
+> 
+> It's not obvious that IFF_MULTICAST is good enough.  IMHO, you should be
+> able to run addrconf on non-multicast interfaces as well (e.g.,
 > point-to-point interfaces, tunnels in particular).
 
-So would it work to use this?
-	(flags & (IFF_MULTICAST|IFF_POINTOPOINT)) == 0
+Hmm, at least on RHEL4 (2.6.9):
 
-> It seems that current code already excludes IFF_NOARP interfaces 
-> though.
+1: lo: <LOOPBACK,UP> mtu 16436 qdisc noqueue
+2: eth0: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast qlen 1000
+3: eth1: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast qlen 1000
+4: sit0: <NOARP> mtu 1480 qdisc noop
+5: sit1@NONE: <POINTOPOINT,NOARP,UP> mtu 1480 qdisc noqueue
+6: ppp0: <POINTOPOINT,MULTICAST,NOARP,UP> mtu 1492 qdisc pfifo_fast qlen 3
+8: tun6to4@NONE: <NOARP,UP> mtu 1480 qdisc noqueue
 
-I looked at that - it doesn't help because it just disables DAD, but
-still does router solicitation, and I think it also sends a MLD listener
-report with the bogus link-layer address. I tend to agree that it's
-incorrect to assign an address at all in this case.
 
-Olaf
+And contributed from FC5:
+
+5: vmnet8: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen
+1000
+7: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,10000> mtu 1500 qdisc
+pfifo_fast qlen 100
+
+
+ppp0, tun0 has IFF_MULTICAST set, so not an issue.
+
+> It seems that current code already excludes IFF_NOARP interfaces though.
+
+So 6-in-4 tunnels are already except.
+
+
+Don't wonder about Flag "10000", missing support in "ip", already
+reported https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=202199 and
+fixed in rawhide.
+
+
+Just my 2 cents,
+
+	Peter
 -- 
-Olaf Kirch   |  --- o --- Nous sommes du soleil we love when we play
-okir@suse.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D                       mailto:pb@bieringer.de
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+OpenBC                    http://www.openbc.com/hp/Peter_Bieringer/
+Personal invitation to OpenBC  http://www.openbc.com/go/invita/3889
