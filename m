@@ -1,39 +1,52 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 22/26] ixgb: Cache-align all TX components of the adapter struct.
-Date: Tue, 29 Aug 2006 19:33:55 +0200
-Message-ID: <200608291933.56002.dada1@cosmosbay.com>
-References: <20060829164153.6872.1713.stgit@gitlost.site> <20060829164503.6872.93015.stgit@gitlost.site>
+From: "Jouni Malinen" <jkm@devicescape.com>
+Subject: Re: [PATCH 4/7] d80211: add support for SIOCSIWNICKN SIOCGIWNICKN
+Date: Tue, 29 Aug 2006 10:45:31 -0700
+Message-ID: <20060829174531.GH1701@instant802.com>
+References: <44F3572E.8020506@linux.intel.com> <1156837757.3788.10.camel@ux156> <20060829114915.GB29669@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Garzik, Jeff" <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	akpm@osdl.org, "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	mabbas <mabbas@linux.intel.com>, netdev@vger.kernel.org,
+	jbenc@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:40587 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S965173AbWH2Rdw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 13:33:52 -0400
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-In-Reply-To: <20060829164503.6872.93015.stgit@gitlost.site>
+Received: from dhost002-12.dex002.intermedia.net ([64.78.21.79]:29991 "EHLO
+	dhost002-12.dex002.intermedia.net") by vger.kernel.org with ESMTP
+	id S965184AbWH2Rpm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 13:45:42 -0400
+To: "John W. Linville" <linville@tuxdriver.com>
 Content-Disposition: inline
+In-Reply-To: <20060829114915.GB29669@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 29 August 2006 18:45, Kok, Auke wrote:
->
->  	/* TX */
-> -	struct ixgb_desc_ring tx_ring;
-> +	struct ixgb_desc_ring tx_ring ____cacheline_aligned;
->  	unsigned long timeo_start;
+On Tue, Aug 29, 2006 at 07:49:22AM -0400, John W. Linville wrote:
+> On Tue, Aug 29, 2006 at 09:49:17AM +0200, Johannes Berg wrote:
+> > I intend to kill the nick command with nl80211 since it seems to be
+> > useless. Any objections?
+> 
+> I can't defend it myself, but I have heard of people using it.
+> I think some of the distro's init scripts might set it as well?
+> 
+> Can anyone defend the practice of setting a nickname for a wireless
+> device?
 
-On UP, this would only enlarge the size of structure and might consume more 
-cache lines...
+I think that this was added either based on a non-802.11 protocol or
+based on a specific hardware/firmware design that had possibility of
+configuring a name for the client (to be exchanged with some proprietary
+network management protocol as the device name).
 
- I guess ____cacheline_aligned_in_smp is preferred here.
+After that, this ioctl seems to be just used for binding some arbitrary
+data to an interface to help scripts etc. In other words, I don't see
+any real use for this from the view point of IEEE 802.11 networks and it
+is confusing at best. This may be useful for some setup scripts, but I
+would rather hope they would use something else instead.
 
-(see include/linux/netdevice.h)
+The only reason for adding nick command would be to maintain backwards
+compatibility with some scripts. I do not use any distro configuration
+mechanisms for setting up wireless, so I do not know what is currently
+being used. I would not add these ioctls into d80211 unless someone can
+point out an existing (and widely used) mechanism that depends on these
+ioctls being available.
 
-Eric
-
+-- 
+Jouni Malinen                                            PGP id EFC895FA
