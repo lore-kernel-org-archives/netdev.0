@@ -1,55 +1,42 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: Re: [RFC IPv6] Disabling IPv6 autoconf
-Date: Tue, 29 Aug 2006 13:31:27 +0200
-Message-ID: <44F4258F.5070406@bieringer.de>
-References: <20060829082435.GA2676@suse.de> <200608291421.18069.hasso@estpak.ee>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [patch 5/5] d80211: add ioctl to stop data frame tx
+Date: Tue, 29 Aug 2006 07:45:23 -0400
+Message-ID: <20060829114515.GA29669@tuxdriver.com>
+References: <20060822173241.313859000@devicescape.com> <20060822173419.GF12500@devicescape.com> <1156317906.3629.18.camel@ux156> <uwt8sww6z.fsf@devicescape.com> <1156836657.3788.5.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Elliot Schwartz <elliot@devicescape.com>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-relay.aerasec.de ([212.18.21.178]:20421 "EHLO
-	smtp1.aerasec.de") by vger.kernel.org with ESMTP id S964898AbWH2Lbc
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 07:31:32 -0400
-To: Hasso Tepper <hasso@estpak.ee>
-In-Reply-To: <200608291421.18069.hasso@estpak.ee>
+Received: from ra.tuxdriver.com ([70.61.120.52]:49668 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S964954AbWH2Lq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 07:46:29 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+Content-Disposition: inline
+In-Reply-To: <1156836657.3788.5.camel@ux156>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hasso Tepper schrieb:
-> Olaf Kirch wrote:
->> When the Xen people looked for a way to disable IPv6 autoconf of the
->> bridge, they didn't find any way to do it without bringing up the
->> device first (and thereby triggering DAD).
-> 
-> Because no /proc/sys/net/ipv6/conf/<interface> exist (yes, I know it's 
-> user visible effect)? This is just odd IMHO. I asked why it was changed 
-> and how userspace should behave now regarding this, but got no answer.
-> 
-> Simple scenario with GNU/Debian:
-> 
-> Computer is booted with no ethernet link. Ethernet interface should get 
-> address via autoconf. No link => no IPv6 addresses on interface => 
-> no /proc/sys/net/ipv6/conf/<interface>. Bootup scripts (procps.sh reading 
-> sysctl.conf existing in most of distributions AFAIK) can't set/get 
-> anything in /proc/sys/net/ipv6/conf/<interface> because it doesn't exist.
-> 
-> How userspace should behave now? Mandating daemon which listens interface 
-> events via netlink?
+On Tue, Aug 29, 2006 at 09:30:57AM +0200, Johannes Berg wrote:
 
-BTW: this is also the reason why autoconf or accept_ra cannot be
-disabled by e.g. initscripts *per* interface before bringing one up.
+> > Radar is initially detected by the low-level radio driver.  Userspace
+> > gets notified of radar via calls to ieee80211_radar_status, which
+> > generates a "fake" management frame with a struct ieee80211_radar_info
+> > in it.  Userspace is then responsible for handling the resultant
+> > activities, such as stopping transmission on that channel, selecting
+> > another channel, sending out channel switch announcements, changing
+> > channels, and remembering to block use of the old channel for the
+> > required time.
+> 
+> I think that would warrant a new netlink multicast group and doing over
+> nl80211 to start with ;) Inserting fake management frames into the mgt
+> interface sounds pretty weird to me.
 
-This issue was discussed some time ago with Pekka and reported in
-https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=169809
+I concur -- inserting frames is a neat hack, but not the preferred
+way for the long haul.
 
-There is still no solution for that afaik.
-
-	Peter
+John
 -- 
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D                       mailto:pb@bieringer.de
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
-OpenBC                    http://www.openbc.com/hp/Peter_Bieringer/
-Personal invitation to OpenBC  http://www.openbc.com/go/invita/3889
+John W. Linville
+linville@tuxdriver.com
