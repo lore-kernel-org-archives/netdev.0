@@ -1,69 +1,41 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: Re: [PATCH] pcnet32: fix user visible typo
-Date: Tue, 29 Aug 2006 08:37:44 -0700
-Message-ID: <20060829153744.GA9881@us.ibm.com>
-References: <20060828233248.GA5193@martell.zuzino.mipt.ru> <20060828235142.GA6633@us.ibm.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [RFC IPv6] Disabling IPv6 autoconf
+Date: Tue, 29 Aug 2006 08:51:50 -0700
+Message-ID: <20060829085150.03fc9bb3@localhost.localdomain>
+References: <20060829082435.GA2676@suse.de>
+	<20060829.183426.52410264.yoshfuji@linux-ipv6.org>
+	<20060829104418.GI1201@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, tsbogend@alpha.franken.de
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org, jbeulich@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:4061 "EHLO e33.co.us.ibm.com")
-	by vger.kernel.org with ESMTP id S965030AbWH2PhI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 11:37:08 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e33.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k7TFb81Z024331
-	for <netdev@vger.kernel.org>; Tue, 29 Aug 2006 11:37:08 -0400
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay04.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7TFb3oC161368
-	for <netdev@vger.kernel.org>; Tue, 29 Aug 2006 09:37:04 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7TFb3SU029337
-	for <netdev@vger.kernel.org>; Tue, 29 Aug 2006 09:37:03 -0600
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <20060828235142.GA6633@us.ibm.com>
+Received: from smtp.osdl.org ([65.172.181.4]:17366 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965037AbWH2Pv7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 11:51:59 -0400
+To: Olaf Kirch <okir@suse.de>
+In-Reply-To: <20060829104418.GI1201@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexey,
+On Tue, 29 Aug 2006 12:44:18 +0200
+Olaf Kirch <okir@suse.de> wrote:
 
-Your patch is fine.  I had not looked at the if which would prevent zero
-cards from even printing.
+> On Tue, Aug 29, 2006 at 06:34:26PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+> > > The attached tentative patch makes IPv6 autoconf depend on the
+> > > availability of IFF_MULTICAST. This is admittedly a bit of a hack, but
+> > > it makes sense, since DAD and router solicitation do rely on multicast.
+> > 
+> > I disagree.  The node MUST NOT assign live address on
+> > that interface.
+> 
+> I'm not sure I understand. The Xen bridge devices get fe:ff:ff:ff:ff:ff
+> as MAC address.  Which is a bit hackish, but that seems to be the way
+> the Xen folks want to do it.
 
-On Mon, Aug 28, 2006 at 04:51:42PM -0700, Don Fry wrote:
-> The cause of #6428 has already been fixed in v1.32 of the pcnet32
-> driver.  To be correct, the printk should be:
-> 
-> 		printk(KERN_INFO PFX "%d card%s found\n",
-> 			cards_found, cards_found != 1 ? "s" : "");
-> 
-> So that zero cards also says 'pcnet32: 0 cards found.'
-> Why delete the period from the end of the sentence?
-> 
-> On Tue, Aug 29, 2006 at 03:32:49AM +0400, Alexey Dobriyan wrote:
-> > Also, final dot removed and single form fixed. The cause of #6428 is
-> > still to be found.
-> > 
-> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> > ---
-> > 
-> >  drivers/net/pcnet32.c |    3 ++-
-> >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > 
-> > --- a/drivers/net/pcnet32.c
-> > +++ b/drivers/net/pcnet32.c
-> > @@ -2986,7 +2986,8 @@ static int __init pcnet32_init_module(vo
-> >  		pcnet32_probe_vlbus(pcnet32_portlist);
-> >  
-> >  	if (cards_found && (pcnet32_debug & NETIF_MSG_PROBE))
-> > -		printk(KERN_INFO PFX "%d cards_found.\n", cards_found);
-> > +		printk(KERN_INFO PFX "%d card%s found\n",
-> > +			cards_found, cards_found > 1 ? "s" : "");
-> >  
-> >  	return (pcnet32_have_pci + cards_found) ? 0 : -ENODEV;
-> >  }
-> > 
-> > -
+They should be using random_ether_addr() or putting some per instance
+specific info into the address.
+
 -- 
-Don Fry
-brazilnut@us.ibm.com
+Stephen Hemminger <shemminger@osdl.org>
