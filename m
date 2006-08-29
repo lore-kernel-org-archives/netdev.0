@@ -1,57 +1,61 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: Re: [PATCH] Fix verify_iovec() to not allow overflow of iov_len values
-Date: Tue, 29 Aug 2006 11:20:39 -0700
-Message-ID: <20060829182039.GW10348@sequoia.sous-sol.org>
-References: <1156874129.3147.2.camel@w-sridhar2.beaverton.ibm.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 4/6] net neighbour: convert to RCU
+Date: Tue, 29 Aug 2006 11:22:04 -0700
+Message-ID: <20060829112204.0cf5e866@localhost.localdomain>
+References: <20060828230748.827712918@localhost.localdomain>
+	<20060828230915.587544687@localhost.localdomain>
+	<20060829152816.GA24283@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, chrisw@sous-sol.org, akpm@osdl.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:4225 "EHLO
-	sous-sol.org") by vger.kernel.org with ESMTP id S1751133AbWH2SRt
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 14:17:49 -0400
-To: Sridhar Samudrala <sri@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <1156874129.3147.2.camel@w-sridhar2.beaverton.ibm.com>
+Received: from smtp.osdl.org ([65.172.181.4]:58795 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965020AbWH2SXQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 14:23:16 -0400
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <20060829152816.GA24283@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Sridhar Samudrala (sri@us.ibm.com) wrote:
-> -int verify_iovec(struct msghdr *m, struct iovec *iov, char *address, int mode)
-> +ssize_t verify_iovec(struct msghdr *m, struct iovec *iov, char *address, int mode)
->  {
->  	int size, err, ct;
-> +	ssize_t tot_len = 0;
->  	
->  	if (m->msg_namelen) {
->  		if (mode == VERIFY_READ) {
-> @@ -61,17 +62,22 @@ int verify_iovec(struct msghdr *m, struc
->  	err = 0;
->  
->  	for (ct = 0; ct < m->msg_iovlen; ct++) {
-> -		err += iov[ct].iov_len;
-> +		ssize_t len;
-> +
->  		/*
-> -		 * Goal is not to verify user data, but to prevent returning
-> -		 * negative value, which is interpreted as errno.
-> -		 * Overflow is still possible, but it is harmless.
-> +		 * Goal is not to verify user data, but to prevent the cases 
-> +		 * where an iov_len value or the sum of all iov_len values
-> +		 * overflows ssize_t.
->  		 */
-> -		if (err < 0)
-> -			return -EMSGSIZE;
-> +		len = (ssize_t)iov[ct].iov_len;
-> +		if (len < 0)
-> +			return -EINVAL;
-> +		tot_len += len;
-> +		if (tot_len < 0)
+On Tue, 29 Aug 2006 19:28:16 +0400
+Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
 
-I specifically used size_t here, because signed integer overflow is not
-defined in C.
+> Hello!
+> 
+> > @@ -346,8 +354,8 @@ struct neighbour *neigh_lookup(struct ne
+> >  	
+> >  	NEIGH_CACHE_STAT_INC(tbl, lookups);
+> >  
+> > -	read_lock_bh(&tbl->lock);
+> > -	hlist_for_each_entry(n, tmp, &tbl->hash_buckets[hash_val], hlist) {
+> > +	rcu_read_lock();
+> > +	hlist_for_each_entry_rcu(n, tmp, &tbl->hash_buckets[hash_val], hlist) {
+> >  		if (dev == n->dev && !memcmp(n->primary_key, pkey, key_len)) {
+> >  			neigh_hold(n);
+> >  			NEIGH_CACHE_STAT_INC(tbl, hits);
+> 
+> Sure? Seems, you cannot grab refcnt here, the entry can be already
+> released.
+> 
+> Probably, you should do atomic_inc_and_test() here and restart lookup,
+> if it fails.
+> 
+> Alexey
 
-thanks,
--chris
+atomic_inc_and_test is true iff result is zero, so that won't work.
+But the following should work:
+
+	hlist_for_each_entry_rcu(n, tmp, &tbl->hash_buckets[hash_val], hlist) {
+		if (dev == n->dev && !memcmp(n->primary_key, pkey, key_len)) {
+			if (unlikely(&atomic_inc_return(&n->refcnt) == 1)) {
+				neigh_release(n);
+				continue;
+			}
+ 			NEIGH_CACHE_STAT_INC(tbl, hits);
+
+I'll wrap the atomic_inc_return inside neigh_hold_return()
+
+
+-- 
+Stephen Hemminger <shemminger@osdl.org>
