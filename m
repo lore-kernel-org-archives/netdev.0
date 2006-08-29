@@ -1,59 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: SNMPv2 "ipv6IfStatsInAddrErrors" counter error
-Date: Tue, 29 Aug 2006 00:01:29 -0700 (PDT)
-Message-ID: <20060829.000129.112621264.davem@davemloft.net>
-References: <1119213904.2569.23.camel@LINE>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [patch 5/5] d80211: add ioctl to stop data frame tx
+Date: Tue, 29 Aug 2006 09:30:57 +0200
+Message-ID: <1156836657.3788.5.camel@ux156>
+References: <20060822173241.313859000@devicescape.com>
+	 <20060822173419.GF12500@devicescape.com> <1156317906.3629.18.camel@ux156>
+	 <uwt8sww6z.fsf@devicescape.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: David Kimdon <david.kimdon@devicescape.com>,
+	netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:54757
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932140AbWH2HBc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 03:01:32 -0400
-To: lvly@nanjing-fnst.com
-In-Reply-To: <1119213904.2569.23.camel@LINE>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:46527 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S932174AbWH2HbK
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 03:31:10 -0400
+To: Elliot Schwartz <elliot@devicescape.com>
+In-Reply-To: <uwt8sww6z.fsf@devicescape.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Lv Liangying <lvly@nanjing-fnst.com>
-Date: Sun, 19 Jun 2005 16:45:04 -0400
+Hi Elliot,
 
-> Hi, All
-> 
->    When I tested Linux kernel 2.6.17.7 about statistics
-> "ipv6IfStatsInAddrErrors", found that this counter couldn't increase
-> correctly. The criteria is RFC2465:
->  ipv6IfStatsInAddrErrors OBJECT-TYPE
->       SYNTAX      Counter32
->       MAX-ACCESS  read-only
->       STATUS      current
->       DESCRIPTION
->          "The number of input datagrams discarded because
->          the IPv6 address in their IPv6 header's destination
->          field was not a valid address to be received at
->          this entity.  This count includes invalid
->          addresses (e.g., ::0) and unsupported addresses
->          (e.g., addresses with unallocated prefixes).  For
->          entities which are not IPv6 routers and therefore
->          do not forward datagrams, this counter includes
->          datagrams discarded because the destination address
->          was not a local address."
->       ::= { ipv6IfStatsEntry 5 }
-> 
-> When I send packet to host with destination that is ether invalid
-> address(::0) or unsupported addresses(1::1), the Linux kernel just
-> discard the packet, and the counter doesn't increase(in the function
-> ip6_pkt_discard).
-> 
-> signed-off by Lv Liangying <lvly@nanjing-fnst.com>
+Thanks for the explanation.
 
-Looks good, patch applied.  Thanks a lot.
 
-BTW, the correct form of a sign off is:
+> Radar is initially detected by the low-level radio driver.  Userspace
+> gets notified of radar via calls to ieee80211_radar_status, which
+> generates a "fake" management frame with a struct ieee80211_radar_info
+> in it.  Userspace is then responsible for handling the resultant
+> activities, such as stopping transmission on that channel, selecting
+> another channel, sending out channel switch announcements, changing
+> channels, and remembering to block use of the old channel for the
+> required time.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+I think that would warrant a new netlink multicast group and doing over
+nl80211 to start with ;) Inserting fake management frames into the mgt
+interface sounds pretty weird to me.
 
-Please keep the capitalization, colon character, etc.
-consistent with that.  Thanks again.
+johannes
