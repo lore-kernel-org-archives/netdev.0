@@ -1,105 +1,49 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: [RFC IPv6] Disabling IPv6 autoconf
-Date: Tue, 29 Aug 2006 10:24:35 +0200
-Message-ID: <20060829082435.GA2676@suse.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: PROBLEM: kernel BUG at net/ipv6/ip6_output.c:718
+Date: Tue, 29 Aug 2006 18:28:28 +1000
+Message-ID: <20060829082828.GA8625@gondor.apana.org.au>
+References: <20060827142347.GA20092@ripe.net> <E1GHUoC-0007Tn-00@gondolin.me.apana.org.au> <20060828004906.GC20092@ripe.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="FCuugMFkClbJLl1L"
-Cc: Jan Beulich <jbeulich@suse.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, pekkas@netcore.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suse.de ([195.135.220.2]:56499 "EHLO mx1.suse.de")
-	by vger.kernel.org with ESMTP id S1750869AbWH2IYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 04:24:36 -0400
-Received: from Relay2.suse.de (mail2.suse.de [195.135.221.8])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mx1.suse.de (Postfix) with ESMTP id 31689FB2D
-	for <netdev@vger.kernel.org>; Tue, 29 Aug 2006 10:24:35 +0200 (CEST)
-To: netdev@vger.kernel.org
+Received: from rhun.apana.org.au ([64.62.148.172]:21771 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750834AbWH2I2j
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 04:28:39 -0400
+To: cagri coltekin <cagri@ripe.net>
 Content-Disposition: inline
+In-Reply-To: <20060828004906.GC20092@ripe.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Aug 28, 2006 at 02:49:07AM +0200, cagri coltekin wrote:
+> 
+> Ooops, sorry for the confusion. It happens with 2.6.17 too (see
+> below), cut&paste from wrong log. The rest of the data provided
+> in the previous message is actually fresh.
 
---FCuugMFkClbJLl1L
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Thanks.  Please try this patch and tell me if it prints anything out.
 
-Hi,
-
-we had bug reports from people seeing lots of spurious messages
-like the following:
-
-kernel: peth0: received packet with own address as source address.
-
-and
-
-xenbr0: duplicate address detected!
-
-This is on a Xen enabled machine, with lots of Xen machines on the
-same network.
-
-When the Xen code configures the bridge device, this will do IPv6
-autoconfiguration for the interface, and since they use synthetic MAC
-addresses, there will be DAD collisions.
-
-When the Xen people looked for a way to disable IPv6 autoconf of the
-bridge, they didn't find any way to do it without bringing up the
-device first (and thereby triggering DAD).
-
-The attached tentative patch makes IPv6 autoconf depend on the
-availability of IFF_MULTICAST. This is admittedly a bit of a hack, but
-it makes sense, since DAD and router solicitation do rely on multicast.
-
-Any comments?
-
-Thanks,
-Olaf
+Cheers,
 -- 
-Olaf Kirch   |  --- o --- Nous sommes du soleil we love when we play
-okir@suse.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
-
---FCuugMFkClbJLl1L
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=ipv6-no-autoconf
-
-Summary: Allow to bring up network interface w/o ipv6 autoconf
-
-When bringing up a xen bridge device, it will always be configured to
-use a MAC address of ff:ff:ff:ff:ff:fe.  This greatly confuses IPv6 DAD,
-which starts logging lots and lots of useless messages to syslog.
-
-We really want to disable IPv6 on these interfaces, and there doesn't
-seem to be a reliable way to do this without bringing the interface
-up first (and triggering IPv6 autoconf). 
-
-This patch makes autoconf (DAD and router discovery) depend on the
-interface's ability to do multicast. Turning off multicast for an
-interface before bringing it up will suppress autoconfiguration.
-
-Signed-off-by: Olaf Kirch <okir@suse.de>
-
- net/ipv6/addrconf.c |    2 ++
- 1 files changed, 2 insertions(+)
-
-Index: build/net/ipv6/addrconf.c
-===================================================================
---- build.orig/net/ipv6/addrconf.c
-+++ build/net/ipv6/addrconf.c
-@@ -2462,6 +2462,7 @@ static void addrconf_dad_start(struct in
- 	spin_lock_bh(&ifp->lock);
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 4fb47a2..5e2e4ea 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -508,6 +508,10 @@ static int ip6_fragment(struct sk_buff *
+ 	dev = rt->u.dst.dev;
+ 	hlen = ip6_find_1stfragopt(skb, &prevhdr);
+ 	nexthdr = *prevhdr;
++	if (unlikely(hlen > skb->len)) {
++		printk(KERN_CRIT "ip6_fragment: hlen = 0x%x, len = 0x%x, nexthdr=%d\n", hlen, skb->len, nexthdr);
++		BUG();
++	}
  
- 	if (dev->flags&(IFF_NOARP|IFF_LOOPBACK) ||
-+	    !(dev->flags&IFF_MULTICAST) ||
- 	    !(ifp->flags&IFA_F_TENTATIVE)) {
- 		ifp->flags &= ~IFA_F_TENTATIVE;
- 		spin_unlock_bh(&ifp->lock);
-@@ -2546,6 +2547,7 @@ static void addrconf_dad_completed(struc
- 	if (ifp->idev->cnf.forwarding == 0 &&
- 	    ifp->idev->cnf.rtr_solicits > 0 &&
- 	    (dev->flags&IFF_LOOPBACK) == 0 &&
-+	    (dev->flags & IFF_MULTICAST) &&
- 	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
- 		struct in6_addr all_routers;
- 
-
---FCuugMFkClbJLl1L--
+ 	mtu = dst_mtu(&rt->u.dst);
+ 	if (np && np->frag_size < mtu) {
