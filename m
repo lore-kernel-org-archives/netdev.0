@@ -1,53 +1,53 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 09/26] e1000: unify WoL capability detection code
-Date: Tue, 29 Aug 2006 14:54:51 -0700
-Message-ID: <44F4B7AB.9060306@intel.com>
-References: <20060829164153.6872.1713.stgit@gitlost.site> <20060829164434.6872.82138.stgit@gitlost.site> <44F4A8C1.9020301@pobox.com>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [PATCH 4/7] d80211: add support for SIOCSIWNICKN SIOCGIWNICKN
+Date: Tue, 29 Aug 2006 15:26:36 -0700
+Message-ID: <200608291526.40874.flamingice@sourmilk.net>
+References: <44F3572E.8020506@linux.intel.com> <20060829174531.GH1701@instant802.com> <20060829221553.GA31563@p15091797.pureserver.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart165273667.a9TedLazYZ";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
-	akpm@osdl.org, "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Cc: Jouni Malinen <jkm@devicescape.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	mabbas <mabbas@linux.intel.com>, netdev@vger.kernel.org,
+	jbenc@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:8347 "EHLO
-	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S965439AbWH2WTL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 18:19:11 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <44F4A8C1.9020301@pobox.com>
+Received: from server8.tchmachines.com ([216.180.241.250]:5784 "EHLO
+	server8.tchmachines.com") by vger.kernel.org with ESMTP
+	id S1751144AbWH2W1l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 18:27:41 -0400
+To: Ulrich Kunitz <kune@deine-taler.de>
+In-Reply-To: <20060829221553.GA31563@p15091797.pureserver.info>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Kok, Auke wrote:
->> WoL is constantly giving problems and needed a rewrite. Consolidates
->> all WoL capabilities into a single function, and disables WoL for all
->> other ports on the device except for port A.
-> 
-> Is this a behavior change that affects users in the field?
-> 
-> i.e. if they are using WoL via port B, and upgrade to this driver, their 
-> setup suddenly breaks, right?
+--nextPart165273667.a9TedLazYZ
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-it's rather the other way around:
+On Tuesday 29 August 2006 15:15, Ulrich Kunitz wrote:
+> The softmac-broadcom and the zd1211 driver are using it to give some
+> information about the driver bound to the interface. I found it
+> quite useful to know which driver is bound to which WLAN
+> interface. A readonly driver text info field would get my support.
+Sounds like a job for sysfs.
 
-The problem is that the adapters involved (dual- and quad- port NIC adapters, 
-not the dual port onboard adapters) have known issues (as in: wol does not 
-work) with WoL on port b, c, d. Formerly the code was trying to enable WoL on 
-ports that were not capable of doing so (82546, 82571). This fix explicitly 
-still allows the properly working (as in: wol works correctly on port b) 
-dual-port adapters that have WoL enabled for port b in the EEPROM enabled to 
-function with WoL on those ports (i.e. most adapters).
+-Michael Wu
 
-The users who have those boards should have noticed that their adapter didn't 
-function with WoL on those ports. This all comes back to a hardware errata that 
-has been out here for a while. This patch brings the code up to spec with that. 
-Now users will see that WoL will not work on those ports if they attempt to 
-enable it, where previously it was enabled in software but didn't do anything.
-We make sure to return -EOPNOTSUPP through ethtool as well for all cases.
+--nextPart165273667.a9TedLazYZ
+Content-Type: application/pgp-signature
 
-Cheers
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
-Auke
+iD8DBQBE9L8gT3Oqt9AH4aERAlJDAKCQaIomh59sW3m3s8zpoEwstOu+mgCglC7K
+666XzhzdpW89kECfCSTp8Yw=
+=p9Gn
+-----END PGP SIGNATURE-----
+
+--nextPart165273667.a9TedLazYZ--
