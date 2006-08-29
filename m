@@ -1,65 +1,55 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Fw: 2.6.18-rc4-mm3: BUG: warning at include/net/dst.h:154/dst_release()
-Date: Tue, 29 Aug 2006 20:24:33 +0200
-Message-ID: <20060829182433.GB3470@postel.suug.ch>
-References: <20060829091656.d4158404.akpm@osdl.org>
+From: Martin Josefsson <gandalf@wlug.westbo.se>
+Subject: Re: [PATCH 4/6] net neighbour: convert to RCU
+Date: Tue, 29 Aug 2006 20:34:01 +0200
+Message-ID: <1156876442.25085.2.camel@localhost.localdomain>
+References: <20060828230748.827712918@localhost.localdomain>
+	 <20060828230915.587544687@localhost.localdomain>
+	 <20060829152816.GA24283@ms2.inr.ac.ru>
+	 <20060829112204.0cf5e866@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Valdis.Kletnieks@vt.edu
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-EJk6O4TiZFO1Ob2d1v12"
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:61648 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S965244AbWH2SYM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 14:24:12 -0400
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060829091656.d4158404.akpm@osdl.org>
+Received: from mailfront1.citynet.nu ([217.10.96.36]:37533 "EHLO
+	mailfront1.citynet.nu") by vger.kernel.org with ESMTP
+	id S965254AbWH2SeJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 14:34:09 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060829112204.0cf5e866@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Andrew Morton <akpm@osdl.org> 2006-08-29 09:16
-> 
-> 
-> Begin forwarded message:
-> 
-> Date: Tue, 29 Aug 2006 10:25:07 -0400
-> From: Valdis.Kletnieks@vt.edu
-> To: Andrew Morton <akpm@osdl.org>
-> Cc: linux-kernel@vger.kernel.org
-> Subject: 2.6.18-rc4-mm3: BUG: warning at include/net/dst.h:154/dst_release()
-> 
-> 
-> Seeing this a lot on 2.6.18-rc4-mm3 with 2 different stack tracebacks
-> (one for received packets, other for sending).  I already picked up the
-> fix for the ^ / confusion in fib_rules.c and that didn't help matters.
 
-Should be fixed by this patch:
+--=-EJk6O4TiZFO1Ob2d1v12
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-commit 4305fabb7e4c63ddc3a4fd38aab9ec3f6575b111
-Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date:   Mon Aug 28 13:19:30 2006 -0700
+On Tue, 2006-08-29 at 11:22 -0700, Stephen Hemminger wrote:
 
-    [IPV6] ROUTE: Fix dst reference counting in ip6_pol_route_lookup().
+> > Probably, you should do atomic_inc_and_test() here and restart lookup,
+> > if it fails.
+> >=20
+> > Alexey
+>=20
+> atomic_inc_and_test is true iff result is zero, so that won't work.
 
-    In ip6_pol_route_lookup(), when we finish backtracking at the
-    top-level root entry, we need to hold it.
+Wouldn't atomic_inc_not_zero() do what you want?
 
-    Bug noticed by Mitsuru Chinen <CHINEN@jp.ibm.com>.
+--=20
+/Martin
 
-    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+--=-EJk6O4TiZFO1Ob2d1v12
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index ad3e3fb..4a46a85 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -510,8 +510,8 @@ restart:
-        rt = fn->leaf;
-        rt = rt6_device_match(rt, fl->oif, flags);
-        BACKTRACK(&fl->fl6_src);
--       dst_hold(&rt->u.dst);
- out:
-+       dst_hold(&rt->u.dst);
-        read_unlock_bh(&table->tb6_lock);
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.3 (GNU/Linux)
 
-        rt->u.dst.lastuse = jiffies;
+iD8DBQBE9IiZWm2vlfa207ERAux+AJ4hCN/ae3hNy8ow/6CluZEYSLlTigCgrx+s
+4Lh87hYe8HwhzKKuC6VRIII=
+=qYeJ
+-----END PGP SIGNATURE-----
+
+--=-EJk6O4TiZFO1Ob2d1v12--
 
