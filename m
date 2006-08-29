@@ -1,44 +1,57 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC IPv6] Disabling IPv6 autoconf
-Date: Tue, 29 Aug 2006 20:10:21 +0200
-Message-ID: <20060829181021.GA3470@postel.suug.ch>
-References: <20060829082435.GA2676@suse.de>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: Re: [PATCH] Fix verify_iovec() to not allow overflow of iov_len values
+Date: Tue, 29 Aug 2006 11:20:39 -0700
+Message-ID: <20060829182039.GW10348@sequoia.sous-sol.org>
+References: <1156874129.3147.2.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jan Beulich <jbeulich@suse.de>
+Cc: davem@davemloft.net, chrisw@sous-sol.org, akpm@osdl.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:49360 "EHLO postel.suug.ch")
-	by vger.kernel.org with ESMTP id S965228AbWH2SKA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 14:10:00 -0400
-To: Olaf Kirch <okir@suse.de>
+Received: from 216-99-217-87.dsl.aracnet.com ([216.99.217.87]:4225 "EHLO
+	sous-sol.org") by vger.kernel.org with ESMTP id S1751133AbWH2SRt
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 14:17:49 -0400
+To: Sridhar Samudrala <sri@us.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <20060829082435.GA2676@suse.de>
+In-Reply-To: <1156874129.3147.2.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Olaf Kirch <okir@suse.de> 2006-08-29 10:24
-> we had bug reports from people seeing lots of spurious messages
-> like the following:
-> 
-> kernel: peth0: received packet with own address as source address.
-> 
-> and
-> 
-> xenbr0: duplicate address detected!
-> 
-> This is on a Xen enabled machine, with lots of Xen machines on the
-> same network.
-> 
-> When the Xen code configures the bridge device, this will do IPv6
-> autoconfiguration for the interface, and since they use synthetic MAC
-> addresses, there will be DAD collisions.
-> 
-> When the Xen people looked for a way to disable IPv6 autoconf of the
-> bridge, they didn't find any way to do it without bringing up the
-> device first (and thereby triggering DAD).
+* Sridhar Samudrala (sri@us.ibm.com) wrote:
+> -int verify_iovec(struct msghdr *m, struct iovec *iov, char *address, int mode)
+> +ssize_t verify_iovec(struct msghdr *m, struct iovec *iov, char *address, int mode)
+>  {
+>  	int size, err, ct;
+> +	ssize_t tot_len = 0;
+>  	
+>  	if (m->msg_namelen) {
+>  		if (mode == VERIFY_READ) {
+> @@ -61,17 +62,22 @@ int verify_iovec(struct msghdr *m, struc
+>  	err = 0;
+>  
+>  	for (ct = 0; ct < m->msg_iovlen; ct++) {
+> -		err += iov[ct].iov_len;
+> +		ssize_t len;
+> +
+>  		/*
+> -		 * Goal is not to verify user data, but to prevent returning
+> -		 * negative value, which is interpreted as errno.
+> -		 * Overflow is still possible, but it is harmless.
+> +		 * Goal is not to verify user data, but to prevent the cases 
+> +		 * where an iov_len value or the sum of all iov_len values
+> +		 * overflows ssize_t.
+>  		 */
+> -		if (err < 0)
+> -			return -EMSGSIZE;
+> +		len = (ssize_t)iov[ct].iov_len;
+> +		if (len < 0)
+> +			return -EINVAL;
+> +		tot_len += len;
+> +		if (tot_len < 0)
 
-They didn't find any because there is no need to disable it. I
-hardly think that the network stack should fix things that Xen
-got wrong. Setting dev_addr to -1 is just plain wrong, other
-virtual ethernet devices call random_ether_addr(), it's not a
-new problem at all.
+I specifically used size_t here, because signed integer overflow is not
+defined in C.
+
+thanks,
+-chris
