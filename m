@@ -1,46 +1,49 @@
-From: "Frank Schneider" <twodipu@hotmail.com>
-Subject: dealing with "hard_start_xmit " of net_device
-Date: Tue, 29 Aug 2006 18:29:45 +0200
-Message-ID: <BAY101-F40009ADA5F216D0E5B791BAB390@phx.gbl>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [RFC IPv6] Disabling IPv6 autoconf
+Date: Tue, 29 Aug 2006 20:30:03 +0400
+Message-ID: <20060829163003.GA30408@ms2.inr.ac.ru>
+References: <20060829082435.GA2676@suse.de> <20060829.183426.52410264.yoshfuji@linux-ipv6.org> <20060829.025400.37356422.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed
+Content-Type: text/plain; charset=us-ascii
+Cc: yoshfuji@linux-ipv6.org, okir@suse.de, netdev@vger.kernel.org,
+	jbeulich@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc1-s11.bay0.hotmail.com ([65.54.246.83]:15196 "EHLO
-	bay0-omc1-s11.bay0.hotmail.com") by vger.kernel.org with ESMTP
-	id S964974AbWH2Q3u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 12:29:50 -0400
-To: netdev@vger.kernel.org
+Received: from minus.inr.ac.ru ([194.67.69.97]:24472 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S965066AbWH2Qas (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 12:30:48 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060829.025400.37356422.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
-hi all,
+> Yes, it is logical because without multicast IPV6 cannot
+> work correctly.
 
-I am customizing a linux driver code of WLAN card as Access Point on Linux 
-kernel 2.6.12 to work with.
+This is not quite true. IFF_BROADCAST is enough, it will work just
+like IPv4.
 
-We know struct net_device has a member pointer to a method called
-hard_start_xmit that initiates the transmission through the device. Data 
-should contain sk_buff structure.
-
-For that particular device, the whole driver code is consists of some 
-modules. Among those one module already assigned a function to this pointer 
-"hard_start_xmit". I already tested its working well to transmit outgoing 
-data frame from AP.
-My question is, how can I assign another function in different module. I 
-need to call this function when transmit data frame, but in practice, this 
-function will not send any data frame, e.g. won’t use dev_queue_xmit.
-You can assume, when something to  transmit it will call two functions in 
-two modules of same driver
-
-Any suggestions to do that please ?
+Real troubles start only when interface is not IFF_BROADCAST and not
+IFF_POINTOPOINT.
 
 
+> IFF_MULTICAST flag seems potentially problematic.  How many other
+> things break over such a device?
 
-regards,
-/ Frank
+Nothing should break. IFF_MULTICAST is an advisory flag, saying
+mostly "You do not want to stream high bandwidth multicast video here".
+So that, it can be used to block autoconfiguration.
 
-_________________________________________________________________
-Express yourself instantly with MSN Messenger! Download today it's FREE! 
-http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
+It does not change the fact that Xen device makes something profoundly
+wrong. IPv6 autoconfiguration is _auto_configuration. It is triggered
+only for a few of media types, for which autoconfiguration is prescribed
+by corresponding RFCs. Ethernet is one of them.
 
+If Xen does not support the things, which are required for each
+ethernet device, it should not be ARPHRD_ETHER. If it wants to pretend
+to be ARPHRD_ETHER, it must support basic ethernet functions, which IMHO
+is so _easy_, that the question does not even makes sense.
+
+Alexey
