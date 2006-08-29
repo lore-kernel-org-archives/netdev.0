@@ -1,60 +1,27 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH 5/10]: [XFRM]: Dynamic xfrm_state hash table sizing.
-Date: Tue, 29 Aug 2006 11:15:56 +0200
-Message-ID: <200608291115.56865.dada1@cosmosbay.com>
-References: <20060815.043905.79069789.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: call panic if nl_table allocation fails
+Date: Tue, 29 Aug 2006 02:15:46 -0700 (PDT)
+Message-ID: <20060829.021546.85419569.davem@davemloft.net>
+References: <20060823113740.GA7834@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:35050 "EHLO pfx2.jmh.fr")
-	by vger.kernel.org with ESMTP id S932217AbWH2JPx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 05:15:53 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060815.043905.79069789.davem@davemloft.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kaber@trash.net, akpm@osdl.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932244AbWH2JQP@vger.kernel.org>
+To: mita@miraclelinux.com
+In-Reply-To: <20060823113740.GA7834@miraclelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 15 August 2006 13:39, David Miller wrote:
-> [XFRM]: Dynamic xfrm_state hash table sizing.
+From: Akinobu Mita <mita@miraclelinux.com>
+Date: Wed, 23 Aug 2006 20:37:40 +0900
 
-> +static struct hlist_head *xfrm_state_hash_alloc(unsigned int sz)
-> +{
-> +	struct hlist_head *n;
-> +
-> +	if (sz <= PAGE_SIZE)
-> +		n = kmalloc(sz, GFP_KERNEL);
-> +	else if (hashdist)
-> +		n = __vmalloc(sz, GFP_KERNEL, PAGE_KERNEL);
-> +	else
-> +		n = (struct hlist_head *)
-> +			__get_free_pages(GFP_KERNEL, get_order(sz));
-> +
-> +	if (n)
-> +		memset(n, 0, sz);
-> +
-> +	return n;
-> +}
+> This patch makes crash happen if initialization of nl_table fails
+> in initcalls. It is better than getting use after free crash later.
+> 
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: David Miller <davem@davemloft.net>
+> Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
 
-This kind of functions are becoming very common and duplicated... maybe we can 
-factorize it ?
-
-Also, it would be cool to be able to vmalloc()/free_pages hugetlb pages for 
-very large hash tables...
-
-> +
-> +static void xfrm_state_hash_free(struct hlist_head *n, unsigned int sz)
-> +{
-> +	if (sz <= PAGE_SIZE)
-> +		kfree(n);
-> +	else if (hashdist)
-> +		vfree(n);
-> +	else
-> +		free_pages((unsigned long)n, get_order(sz));
-> +}
-> +
-
-Eric
+Patch applied, thank you.
