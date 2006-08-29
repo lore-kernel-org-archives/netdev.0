@@ -1,92 +1,163 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 00/26] e100, e1000, ixgb updates
-Date: Tue, 29 Aug 2006 09:41:53 -0700
-Message-ID: <20060829164153.6872.1713.stgit@gitlost.site>
+Subject: [PATCH 03/26] e1000: e1000_probe resources cleanup
+Date: Tue, 29 Aug 2006 09:44:20 -0700
+Message-ID: <20060829164420.6872.43348.stgit@gitlost.site>
+References: <20060829164153.6872.1713.stgit@gitlost.site>
 Cc: netdev@vger.kernel.org, akpm@osdl.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
 	"Kok, Auke" <auke-jan.h.kok@intel.com>,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:22794 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S965072AbWH2QgA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 12:36:00 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:27658 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S965075AbWH2QgH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 12:36:07 -0400
 To: "Garzik, Jeff" <jgarzik@pobox.com>
+In-Reply-To: <20060829164153.6872.1713.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Hi,
+Fix resources cleanup in e1000_probe()
 
-Here are updates targeted to branch #upstream from netdev-2.6,
-including updates to e100, e1000 and ixgb.
-
-These changes are available through git.
-
-git pull git://lost.foo-projects.org/~ahkok/git/netdev-2.6 upstream
-
-and against
- netdev-2.6#upstream 699a71238856b19091503c671bac8abb1e3f9a3a
-
-
-Summary:
-
-Vasily Averin <vvs@sw.ru>
-     e1000: IRQ resources cleanup
-     e1000: e1000_probe resources cleanup
-     e1000: ring buffers resources cleanup
-
-Jesse Brandeburg <jesse.brandeburg@intel.com>
-     e1000: unify WoL capability detection code
-     e1000: Add PCI ID 0x10a4 for our new 4-port PCI-Express device
-     ixgb: Set a constant blink rate for ixgb adapter identify (1sec on, 1sec off)
-     ixgb: Cache-align all TX components of the adapter struct.
-     ixgb: Add buffer_info and test like e1000 has.
-
-Christoph Hellwig <hch@lst.de>
-     e1000: clean up skb allocation code, patch submitted by Christoph
-
-Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-     e1000: Deprecate mii-tool SIOCMIIREG ioctl
-
-Auke Kok <auke-jan.h.kok@intel.com>
-     e1000: Whitespace cleanup, cosmetic changes
-     e1000: error out if we cannot enable PCI device on resume
-     e1000: remove unused part_num reading code
-     e1000: Use module param array code
-     e1000: Increment driver version to 7.2.7-k2
-     e100: Convert e100 to use netdev_alloc_skb().
-     e100: reduce time under spinlock
-     e100: remove skb->dev assignment
-     e100: increment version to 3.5.16-k2
-     ixgb: Convert dev_alloc_skb to netdev_alloc_skb.
-     ixgb: convert dev->priv to netdev_priv(dev).
-     ixgb: recalculate after how many descriptors to wake the queue
-     ixgb: remove skb->dev assignment
-     ixgb: Increment version to 1.0.112-k2
-
-Linas Vepstas <linas@austin.ibm.com>
-     e100: fix error recovery
-     ixgb: Add PCI Error recovery callbacks
-
-
-Cheers,
-
-Auke
-
+Signed-off-by: Vasily Averin <vvs@sw.ru>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e100.c                |   12
- drivers/net/e1000/e1000.h         |    6
- drivers/net/e1000/e1000_ethtool.c |  219 ++++---
- drivers/net/e1000/e1000_hw.c      | 1059 ++++++++++++++++++--------------------
- drivers/net/e1000/e1000_hw.h      |   26
- drivers/net/e1000/e1000_main.c    |  214 +++----
- drivers/net/e1000/e1000_param.c   |  161 +++--
- drivers/net/ixgb/ixgb.h           |    5
- drivers/net/ixgb/ixgb_ethtool.c   |    6
- drivers/net/ixgb/ixgb_main.c      |  140 ++++-
- 10 files changed, 981 insertions(+), 867 deletions(-)
+ drivers/net/e1000/e1000_main.c |   44 +++++++++++++++++++++++++---------------
+ 1 files changed, 28 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 354d778..c273b45 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -695,21 +695,20 @@ e1000_probe(struct pci_dev *pdev,
+ 		if ((err = pci_set_dma_mask(pdev, DMA_32BIT_MASK)) &&
+ 		    (err = pci_set_consistent_dma_mask(pdev, DMA_32BIT_MASK))) {
+ 			E1000_ERR("No usable DMA configuration, aborting\n");
+-			return err;
++			goto err_dma;
+ 		}
+ 		pci_using_dac = 0;
+ 	}
+ 
+ 	if ((err = pci_request_regions(pdev, e1000_driver_name)))
+-		return err;
++		goto err_pci_reg;
+ 
+ 	pci_set_master(pdev);
+ 
++	err = -ENOMEM;
+ 	netdev = alloc_etherdev(sizeof(struct e1000_adapter));
+-	if (!netdev) {
+-		err = -ENOMEM;
++	if (!netdev)
+ 		goto err_alloc_etherdev;
+-	}
+ 
+ 	SET_MODULE_OWNER(netdev);
+ 	SET_NETDEV_DEV(netdev, &pdev->dev);
+@@ -724,11 +723,10 @@ e1000_probe(struct pci_dev *pdev,
+ 	mmio_start = pci_resource_start(pdev, BAR_0);
+ 	mmio_len = pci_resource_len(pdev, BAR_0);
+ 
++	err = -EIO;
+ 	adapter->hw.hw_addr = ioremap(mmio_start, mmio_len);
+-	if (!adapter->hw.hw_addr) {
+-		err = -EIO;
++	if (!adapter->hw.hw_addr)
+ 		goto err_ioremap;
+-	}
+ 
+ 	for (i = BAR_1; i <= BAR_5; i++) {
+ 		if (pci_resource_len(pdev, i) == 0)
+@@ -773,6 +771,7 @@ e1000_probe(struct pci_dev *pdev,
+ 	if ((err = e1000_sw_init(adapter)))
+ 		goto err_sw_init;
+ 
++	err = -EIO;
+ 	/* Flash BAR mapping must happen after e1000_sw_init
+ 	 * because it depends on mac_type */
+ 	if ((adapter->hw.mac_type == e1000_ich8lan) &&
+@@ -780,13 +779,11 @@ e1000_probe(struct pci_dev *pdev,
+ 		flash_start = pci_resource_start(pdev, 1);
+ 		flash_len = pci_resource_len(pdev, 1);
+ 		adapter->hw.flash_address = ioremap(flash_start, flash_len);
+-		if (!adapter->hw.flash_address) {
+-			err = -EIO;
++		if (!adapter->hw.flash_address)
+ 			goto err_flashmap;
+-		}
+ 	}
+ 
+-	if ((err = e1000_check_phy_reset_block(&adapter->hw)))
++	if (e1000_check_phy_reset_block(&adapter->hw))
+ 		DPRINTK(PROBE, INFO, "PHY reset is blocked due to SOL/IDER session.\n");
+ 
+ 	/* if ksp3, indicate if it's port a being setup */
+@@ -829,7 +826,7 @@ e1000_probe(struct pci_dev *pdev,
+ 
+ 	if (e1000_init_eeprom_params(&adapter->hw)) {
+ 		E1000_ERR("EEPROM initialization failed\n");
+-		return -EIO;
++		goto err_eeprom;
+ 	}
+ 
+ 	/* before reading the EEPROM, reset the controller to
+@@ -841,7 +838,6 @@ e1000_probe(struct pci_dev *pdev,
+ 
+ 	if (e1000_validate_eeprom_checksum(&adapter->hw) < 0) {
+ 		DPRINTK(PROBE, ERR, "The EEPROM Checksum Is Not Valid\n");
+-		err = -EIO;
+ 		goto err_eeprom;
+ 	}
+ 
+@@ -854,7 +850,6 @@ e1000_probe(struct pci_dev *pdev,
+ 
+ 	if (!is_valid_ether_addr(netdev->perm_addr)) {
+ 		DPRINTK(PROBE, ERR, "Invalid MAC Address\n");
+-		err = -EIO;
+ 		goto err_eeprom;
+ 	}
+ 
+@@ -963,16 +958,33 @@ e1000_probe(struct pci_dev *pdev,
+ 	return 0;
+ 
+ err_register:
++	e1000_release_hw_control(adapter);
++err_eeprom:
++	if (!e1000_check_phy_reset_block(&adapter->hw))
++		e1000_phy_hw_reset(&adapter->hw);
++
+ 	if (adapter->hw.flash_address)
+ 		iounmap(adapter->hw.flash_address);
+ err_flashmap:
++#ifdef CONFIG_E1000_NAPI
++	for (i = 0; i < adapter->num_rx_queues; i++)
++		dev_put(&adapter->polling_netdev[i]);
++#endif
++
++	kfree(adapter->tx_ring);
++	kfree(adapter->rx_ring);
++#ifdef CONFIG_E1000_NAPI
++	kfree(adapter->polling_netdev);
++#endif
+ err_sw_init:
+-err_eeprom:
+ 	iounmap(adapter->hw.hw_addr);
+ err_ioremap:
+ 	free_netdev(netdev);
+ err_alloc_etherdev:
+ 	pci_release_regions(pdev);
++err_pci_reg:
++err_dma:
++	pci_disable_device(pdev);
+ 	return err;
+ }
+ 
+
+
 
 ---
 Auke Kok <auke-jan.h.kok@intel.com>
