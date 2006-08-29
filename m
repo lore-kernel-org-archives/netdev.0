@@ -1,47 +1,37 @@
-From: Hasso Tepper <hasso@estpak.ee>
-Subject: Re: [RFC IPv6] Disabling IPv6 autoconf
-Date: Tue, 29 Aug 2006 14:21:17 +0300
-Message-ID: <200608291421.18069.hasso@estpak.ee>
-References: <20060829082435.GA2676@suse.de>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 3/5] skge: use dev_alloc_skb
+Date: Tue, 29 Aug 2006 12:23:36 +0100
+Message-ID: <20060829112336.GA23975@infradead.org>
+References: <20060828231934.477469235@localhost.localdomain> <20060828232038.303254635@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from test.estpak.ee ([194.126.115.47]:43204 "EHLO devy.estpak.ee")
-	by vger.kernel.org with ESMTP id S964897AbWH2LVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 07:21:36 -0400
-Received: from localhost.localdomain (localhost.localdomain [127.0.0.1])
-	by devy.estpak.ee (Postfix) with ESMTP id 9936E35E8E
-	for <netdev@vger.kernel.org>; Tue, 29 Aug 2006 14:21:19 +0300 (EEST)
-To: netdev@vger.kernel.org
-In-Reply-To: <20060829082435.GA2676@suse.de>
+Received: from pentafluge.infradead.org ([213.146.154.40]:7381 "EHLO
+	pentafluge.infradead.org") by vger.kernel.org with ESMTP
+	id S964928AbWH2LYG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 07:24:06 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
+In-Reply-To: <20060828232038.303254635@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Olaf Kirch wrote:
-> When the Xen people looked for a way to disable IPv6 autoconf of the
-> bridge, they didn't find any way to do it without bringing up the
-> device first (and thereby triggering DAD).
+On Mon, Aug 28, 2006 at 04:19:37PM -0700, Stephen Hemminger wrote:
+> To avoid problems with buggy protocols that assume extra header space,
+> use dev_alloc_skb() when allocating receive buffers.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> 
+> --- skge-2.6.orig/drivers/net/skge.c
+> +++ skge-2.6/drivers/net/skge.c
+> @@ -827,7 +827,8 @@ static int skge_rx_fill(struct skge_port
+>  	do {
+>  		struct sk_buff *skb;
+>  
+> -		skb = alloc_skb(skge->rx_buf_size + NET_IP_ALIGN, GFP_KERNEL);
+> +		skb = __dev_alloc_skb(skge->rx_buf_size + NET_IP_ALIGN,
+> +				      GFP_KERNEL);
 
-Because no /proc/sys/net/ipv6/conf/<interface> exist (yes, I know it's 
-user visible effect)? This is just odd IMHO. I asked why it was changed 
-and how userspace should behave now regarding this, but got no answer.
+While you're at it please use netdev_alloc_skb.
 
-Simple scenario with GNU/Debian:
-
-Computer is booted with no ethernet link. Ethernet interface should get 
-address via autoconf. No link => no IPv6 addresses on interface => 
-no /proc/sys/net/ipv6/conf/<interface>. Bootup scripts (procps.sh reading 
-sysctl.conf existing in most of distributions AFAIK) can't set/get 
-anything in /proc/sys/net/ipv6/conf/<interface> because it doesn't exist.
-
-How userspace should behave now? Mandating daemon which listens interface 
-events via netlink?
-
-
-regards,
-
--- 
-Hasso Tepper
