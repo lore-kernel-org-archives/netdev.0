@@ -1,16 +1,16 @@
 From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: 2.6.18-rc4-mm3: BUG: warning at
- include/net/dst.h:154/dst_release()
-Date: Tue, 29 Aug 2006 09:16:56 -0700
-Message-ID: <20060829091656.d4158404.akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 7071] New: Can't bring Sun Quad GigaSwift
+ Ethernet interfaces up (Cassini driver)
+Date: Tue, 29 Aug 2006 09:29:58 -0700
+Message-ID: <20060829092958.0de9c6af.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Valdis.Kletnieks@vt.edu
+Cc: ludallinux@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:27105 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S965053AbWH2QQ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 12:16:58 -0400
+Received: from smtp.osdl.org ([65.172.181.4]:56038 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965065AbWH2QaF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 12:30:05 -0400
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -19,57 +19,123 @@ List-Id: netdev.vger.kernel.org
 
 Begin forwarded message:
 
-Date: Tue, 29 Aug 2006 10:25:07 -0400
-From: Valdis.Kletnieks@vt.edu
-To: Andrew Morton <akpm@osdl.org>
-Cc: linux-kernel@vger.kernel.org
-Subject: 2.6.18-rc4-mm3: BUG: warning at include/net/dst.h:154/dst_release()
+Date: Tue, 29 Aug 2006 09:15:29 -0700
+From: bugme-daemon@bugzilla.kernel.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 7071] New: Can't bring Sun Quad GigaSwift Ethernet interfaces up (Cassini driver)
 
 
-Seeing this a lot on 2.6.18-rc4-mm3 with 2 different stack tracebacks
-(one for received packets, other for sending).  I already picked up the
-fix for the ^ / confusion in fib_rules.c and that didn't help matters.
+http://bugzilla.kernel.org/show_bug.cgi?id=7071
 
-[  731.252000] BUG: warning at include/net/dst.h:154/dst_release()
-[  731.252000]  [<c01036d4>] dump_trace+0x64/0x1b2
-[  731.252000]  [<c0103834>] show_trace_log_lvl+0x12/0x25
-[  731.252000]  [<c0103d62>] show_trace+0xd/0x10
-[  731.252000]  [<c0103dff>] dump_stack+0x19/0x1b
-[  731.252000]  [<c0347fe8>] fib6_rule_action+0x79/0xad
-[  731.253000]  [<c02dfe62>] fib_rules_lookup+0x4e/0x93
-[  731.255000]  [<c0348065>] fib6_rule_lookup+0x2d/0x7d
-[  731.256000]  [<c032fe6d>] rt6_lookup+0x45/0x83
-[  731.257000]  [<c032d9cd>] addrconf_prefix_rcv+0xf4/0x743
-[  731.258000]  [<c0335410>] ndisc_rcv+0x7d5/0xaf3
-[  731.259000]  [<c033ad0e>] icmpv6_rcv+0x767/0x7e9
-[  731.260000]  [<c03286d4>] ip6_input+0x1e0/0x2a2
-[  731.262000]  [<c03287c8>] ip6_mc_input+0x32/0x40
-[  731.263000]  [<c0328bf6>] ipv6_rcv+0x19f/0x1cd
-[  731.264000]  [<c02d480b>] netif_receive_skb+0x143/0x1b6
-[  731.265000]  [<c02d5bb0>] process_backlog+0x71/0xf3
-[  731.266000]  [<c02d5a92>] net_rx_action+0x56/0xcf
-[  731.267000]  [<c0116d3c>] __do_softirq+0x38/0x7a
-[  731.267000]  [<c010460c>] do_softirq+0x3e/0x87
-[  731.267000]  [<c0116cf8>] irq_exit+0x28/0x34
-[  731.267000]  [<c01045c1>] do_IRQ+0xab/0xb8
-[  731.267000]  [<c010323a>] common_interrupt+0x1a/0x20
-
-[ 1498.555000] BUG: warning at include/net/dst.h:154/dst_release()
-[ 1498.555000]  [<c01036d4>] dump_trace+0x64/0x1b2
-[ 1498.555000]  [<c0103834>] show_trace_log_lvl+0x12/0x25
-[ 1498.555000]  [<c0103d62>] show_trace+0xd/0x10
-[ 1498.555000]  [<c0103dff>] dump_stack+0x19/0x1b
-[ 1498.555000]  [<c0347db8>] fib6_rule_action+0x79/0xad
-[ 1498.557000]  [<c02dfc32>] fib_rules_lookup+0x4e/0x93
-[ 1498.558000]  [<c0347e35>] fib6_rule_lookup+0x2d/0x7d
-[ 1498.560000]  [<c032fc9c>] ip6_route_output+0x21/0x24
-[ 1498.561000]  [<c032647c>] ip6_dst_lookup_tail+0x19/0x92
-[ 1498.562000]  [<c0326503>] ip6_dst_lookup+0xe/0x10
-[ 1498.563000]  [<c0344727>] ip6_datagram_connect+0x322/0x50a
-[ 1498.565000]  [<c0309850>] inet_dgram_connect+0x4b/0x55
-[ 1498.566000]  [<c02cc970>] sys_connect+0x67/0x84
-[ 1498.567000]  [<c02ccfeb>] sys_socketcall+0x8c/0x186
-[ 1498.568000]  [<c01028cf>] syscall_call+0x7/0xb
-[ 1498.568000] DWARF2 unwinder stuck at syscall_call+0x7/0xb
+           Summary: Can't bring Sun Quad GigaSwift Ethernet interfaces up
+                    (Cassini driver)
+    Kernel Version: 2.6.17.11 #2 SMP PREEMPT
+            Status: NEW
+          Severity: blocking
+             Owner: jgarzik@pobox.com
+         Submitter: ludallinux@free.fr
 
 
+Most recent kernel where this bug did not occur:
+Distribution: Debian for Sparc
+Hardware Environment: Sun Netra T1125
+Software Environment: sparc64 GNU/Linux
+Problem Description: can't bring Sun Quad GigaSwift Ethernet interfaces up
+
+Steps to reproduce: compile Cassini driver as module, boot and load the cassini 
+driver : new interfaces are recognized correctly, and ethtool can see them. 
+Then, try to bring up the ethernet interfaces using the "ifconfig" command --> 
+ifconfig crashes :
+
+toundra:~# lsmod         
+Module                  Size  Used by
+toundra:~# modinfo cassini
+filename:       /lib/modules/2.6.17.11/kernel/drivers/net/cassini.ko
+author:         Adrian Sun (asun@darksunrising.com)
+description:    Sun Cassini(+) ethernet driver
+license:        GPL
+vermagic:       2.6.17.11 SMP preempt mod_unload gcc-4.1
+depends:        
+alias:          pci:v0000108Ed0000ABBAsv*sd*bc*sc*i*
+alias:          pci:v0000100Bd00000035sv*sd*bc*sc*i*
+parm:           linkdown_timeout:min reset interval in sec. for PCS linkdown 
+issue; disabled if not positive (int)
+parm:           link_mode:default link mode (int)
+parm:           cassini_debug:Cassini bitmapped debugging message enable value 
+(int)
+toundra:~# 
+toundra:~# modprobe cassini
+cassini.c:v1.4 (1 July 2004)
+eth0: Sun Cassini+ (64bit/66MHz PCI/Cu) Ethernet[0] 00:14:4f:24:47:a4 
+eth1: Sun Cassini+ (64bit/66MHz PCI/Cu) Ethernet[0] 00:14:4f:24:47:a5 
+eth2: Sun Cassini+ (64bit/66MHz PCI/Cu) Ethernet[0] 00:14:4f:24:47:a6 
+eth3: Sun Cassini+ (64bit/66MHz PCI/Cu) Ethernet[0] 00:14:4f:24:47:a7 
+
+toundra:~# ethtool eth0
+Settings for eth0:
+        Supported ports: [ TP MII ]
+        Supported link modes:   10baseT/Half 10baseT/Full 
+                                100baseT/Half 100baseT/Full 
+                                1000baseT/Full 
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full 
+                                100baseT/Half 100baseT/Full 
+                                1000baseT/Full 
+        Advertised auto-negotiation: Yes
+        Speed: 1000Mb/s
+        Duplex: Full
+        Port: MII
+        PHYAD: 1
+        Transceiver: internal
+        Auto-negotiation: on
+        Current message level: 0x000000ff (255)
+        Link detected: yes
+toundra:~# ifconfig eth1 up
+Unable to handle kernel NULL pointer dereference
+tsk->{mm,active_mm}->context = 000000000000048e
+tsk->{mm,active_mm}->pgd = fffff80080736000
+              \|/ ____ \|/
+              "@'/ .. \`@"
+              /_| \__/ |_\
+                 \__U_/
+ifconfig(1501): Oops [#1]
+TSTATE: 0000000080009605 TPC: 000000000041cf74 TNPC: 000000000041cf78 Y: 
+00000000    Not tainted
+TPC: <request_irq+0x14/0x500>
+g0: 00000000f0000018 g1: 000000000000ae78 g2: fffff800afe0d800 g3: 
+fffff800aec56da0
+g4: fffff800805d1260 g5: fffff8007fbf2000 g6: fffff800aec2c000 g7: 
+fffff800ae5983a0
+o0: 0000000000000000 o1: 0000000000000000 o2: 0000000000000001 o3: 
+0000000000000002
+o4: 0000000000000010 o5: fffff800ae779d20 sp: fffff800aec2eda1 ret_pc: 
+0000000010002190
+RPC: <cas_spare_recover+0x210/0x2a0 [cassini]>
+l0: 0000000000000000 l1: 0000000000000100 l2: fffff800aec504d8 l3: 
+fffff800aec2f650
+l4: fffff800aec56db0 l5: 00000000f7ea330c l6: fffff800aec504d0 l7: 
+00000000f8002000
+i0: ffffffffffffffea i1: 0000000010003640 i2: 0000000004000000 i3: 
+fffff800aec50000
+i4: fffff800aec50000 i5: 104307a000000000 i6: fffff800aec2ee71 i7: 
+0000000010007cf4
+I7: <cas_open+0x214/0x300 [cassini]>
+Caller[0000000010007cf4]: cas_open+0x214/0x300 [cassini]
+Caller[0000000000625ff0]: dev_open+0x50/0xc0
+Caller[00000000006249c8]: dev_change_flags+0x128/0x180
+Caller[0000000000675984]: devinet_ioctl+0x704/0x820
+Caller[0000000000618ed8]: sock_ioctl+0x1b8/0x280
+Caller[00000000004b18a4]: do_ioctl+0x24/0xa0
+Caller[00000000004b198c]: vfs_ioctl+0x6c/0x360
+Caller[00000000004b1ca8]: sys_ioctl+0x28/0x60
+Caller[00000000004d2e94]: dev_ifsioc+0x54/0x320
+Caller[00000000004ce0fc]: compat_sys_ioctl+0xdc/0x3a0
+Caller[0000000000406c14]: linux_sparc_syscall32+0x34/0x40
+Caller[0000000000011330]: 0x11330
+Instruction DUMP: 02c64022  b0103fea  a1322000 <c25c2008> 02c0401e  b0103fed  
+27001c30  8214e140  80a40001 
+Killed
+toundra:~#
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
