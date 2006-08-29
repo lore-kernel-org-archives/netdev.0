@@ -1,42 +1,44 @@
-From: "absentia" <absentia.complex@rowlinson.co.uk>
-Subject: Express cash credit
-Date: Tue, 29 Aug 2006 23:09:53 +0200
-Message-ID: <67141063821419.FDEBAD2839@AOR4M>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 7/9] sky2: power down PHY when not up
+Date: Tue, 29 Aug 2006 14:11:07 -0700
+Message-ID: <20060829141107.6d443804@localhost.localdomain>
+References: <20060828170044.136391412@localhost.localdomain>
+	<20060828170219.598956798@localhost.localdomain>
+	<44F4ABFB.1020105@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="Windows-1252"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 196.Red-81-34-48.dynamicIP.rima-tde.net ([81.34.48.196]:6929
-	"EHLO m05rojb.se0e7jv.verizon.net") by vger.kernel.org with ESMTP
-	id S965363AbWH2VIv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 17:08:51 -0400
-To: <netdev@vger.kernel.org>
+Received: from smtp.osdl.org ([65.172.181.4]:63708 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965391AbWH2VML (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 17:12:11 -0400
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <44F4ABFB.1020105@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Good Day to you! 
+On Tue, 29 Aug 2006 17:04:59 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
-Your credit doesn't matter to us!
-If you OWN real estate and want IMMEDIATE cash to spend ANY way you 
-like, or simply wish to LOWER your monthly payments by a third or more, here are the deals we have TODAY:
+> shemminger@osdl.org wrote:
+> > To save power, don't enable power to the PHY until device is brought up.
+> > 
+> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> 
+> Strongly agree, and ACK, but note that users have complained in the past 
+> when they could not configure their MAC when the interface was down. 
+> Users want to eliminate the
+> 
+> 	ifconfig ethX up
+> 	ethtool ...
+> 
+> race window.
+> 
+> 	Jeff
 
-$488,000.00 at a 3.67% fixed-rate
-$372,000.00 at a 3.90% variable-rate
-$492,000.00 at a 3.21% interest-only
-$248,000.00 at a 3.36% fixed-rate
-$198,000.00 at a 3.55% variable-rate
+This driver should already handle this because the settings are stored
+in the device structure and applied when device is brought up.
 
-Hurry, we have requests limits, so when these deals are gone, they are 
-gone!
-
-We have one-mimute form to apply the request,
-please CLICK HERE
-
-http://CHG.your0request.us/?ncache=10527885
-
-Don't worry about approval, your credit will not disqualify you!
-
-Approval Manager.
-
-
+-- 
+Stephen Hemminger <shemminger@osdl.org>
