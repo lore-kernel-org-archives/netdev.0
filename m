@@ -1,79 +1,47 @@
-From: Peter Bieringer <pb@bieringer.de>
+From: Hasso Tepper <hasso@estpak.ee>
 Subject: Re: [RFC IPv6] Disabling IPv6 autoconf
-Date: Tue, 29 Aug 2006 13:13:58 +0200
-Message-ID: <44F42176.1000701@bieringer.de>
-References: <20060829082435.GA2676@suse.de> <20060829.183426.52410264.yoshfuji@linux-ipv6.org> <20060829.025400.37356422.davem@davemloft.net> <Pine.LNX.4.64.0608291348520.25442@netcore.fi>
+Date: Tue, 29 Aug 2006 14:21:17 +0300
+Message-ID: <200608291421.18069.hasso@estpak.ee>
+References: <20060829082435.GA2676@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
-	okir@suse.de, netdev@vger.kernel.org, jbeulich@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.aerasec.de ([212.18.21.179]:6858 "EHLO smtp4.aerasec.de")
-	by vger.kernel.org with ESMTP id S932306AbWH2LOK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 07:14:10 -0400
-To: Pekka Savola <pekkas@netcore.fi>
-In-Reply-To: <Pine.LNX.4.64.0608291348520.25442@netcore.fi>
+Received: from test.estpak.ee ([194.126.115.47]:43204 "EHLO devy.estpak.ee")
+	by vger.kernel.org with ESMTP id S964897AbWH2LVg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 07:21:36 -0400
+Received: from localhost.localdomain (localhost.localdomain [127.0.0.1])
+	by devy.estpak.ee (Postfix) with ESMTP id 9936E35E8E
+	for <netdev@vger.kernel.org>; Tue, 29 Aug 2006 14:21:19 +0300 (EEST)
+To: netdev@vger.kernel.org
+In-Reply-To: <20060829082435.GA2676@suse.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pekka Savola schrieb:
-> On Tue, 29 Aug 2006, David Miller wrote:
->> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
->> Date: Tue, 29 Aug 2006 18:34:26 +0900 (JST)
->>
->>> Further analysis is needed, but one idea is to skip
->>> addrconf_dev_config() if !(dev->flags & IFF_MULTICAST).
->>
->> Yes, it is logical because without multicast IPV6 cannot
->> work correctly.
->>
->> But from another perspective (I assume these bridged Xen devices use
->> ARPHRD_ETHER, do they?) a device with ARPHRD_ETHER and cleared
->> IFF_MULTICAST flag seems potentially problematic.  How many other
->> things break over such a device?
-> 
-> It's not obvious that IFF_MULTICAST is good enough.  IMHO, you should be
-> able to run addrconf on non-multicast interfaces as well (e.g.,
-> point-to-point interfaces, tunnels in particular).
+Olaf Kirch wrote:
+> When the Xen people looked for a way to disable IPv6 autoconf of the
+> bridge, they didn't find any way to do it without bringing up the
+> device first (and thereby triggering DAD).
 
-Hmm, at least on RHEL4 (2.6.9):
+Because no /proc/sys/net/ipv6/conf/<interface> exist (yes, I know it's 
+user visible effect)? This is just odd IMHO. I asked why it was changed 
+and how userspace should behave now regarding this, but got no answer.
 
-1: lo: <LOOPBACK,UP> mtu 16436 qdisc noqueue
-2: eth0: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast qlen 1000
-3: eth1: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast qlen 1000
-4: sit0: <NOARP> mtu 1480 qdisc noop
-5: sit1@NONE: <POINTOPOINT,NOARP,UP> mtu 1480 qdisc noqueue
-6: ppp0: <POINTOPOINT,MULTICAST,NOARP,UP> mtu 1492 qdisc pfifo_fast qlen 3
-8: tun6to4@NONE: <NOARP,UP> mtu 1480 qdisc noqueue
+Simple scenario with GNU/Debian:
+
+Computer is booted with no ethernet link. Ethernet interface should get 
+address via autoconf. No link => no IPv6 addresses on interface => 
+no /proc/sys/net/ipv6/conf/<interface>. Bootup scripts (procps.sh reading 
+sysctl.conf existing in most of distributions AFAIK) can't set/get 
+anything in /proc/sys/net/ipv6/conf/<interface> because it doesn't exist.
+
+How userspace should behave now? Mandating daemon which listens interface 
+events via netlink?
 
 
-And contributed from FC5:
+regards,
 
-5: vmnet8: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen
-1000
-7: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,10000> mtu 1500 qdisc
-pfifo_fast qlen 100
-
-
-ppp0, tun0 has IFF_MULTICAST set, so not an issue.
-
-> It seems that current code already excludes IFF_NOARP interfaces though.
-
-So 6-in-4 tunnels are already except.
-
-
-Don't wonder about Flag "10000", missing support in "ip", already
-reported https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=202199 and
-fixed in rawhide.
-
-
-Just my 2 cents,
-
-	Peter
 -- 
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D                       mailto:pb@bieringer.de
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
-OpenBC                    http://www.openbc.com/hp/Peter_Bieringer/
-Personal invitation to OpenBC  http://www.openbc.com/go/invita/3889
+Hasso Tepper
