@@ -1,7 +1,7 @@
 From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [PATCH 14/26] e100: fix error recovery
-Date: Tue, 29 Aug 2006 09:44:46 -0700
-Message-ID: <20060829164445.6872.50329.stgit@gitlost.site>
+Subject: [PATCH 17/26] e100: increment version to 3.5.16-k2
+Date: Tue, 29 Aug 2006 09:44:52 -0700
+Message-ID: <20060829164452.6872.61350.stgit@gitlost.site>
 References: <20060829164153.6872.1713.stgit@gitlost.site>
 Cc: netdev@vger.kernel.org, akpm@osdl.org,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
@@ -9,42 +9,36 @@ Cc: netdev@vger.kernel.org, akpm@osdl.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [63.64.152.142] ([63.64.152.142]:44298 "EHLO gitlost.site")
-	by vger.kernel.org with ESMTP id S965088AbWH2Qgc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 12:36:32 -0400
+Received: from [63.64.152.142] ([63.64.152.142]:48906 "EHLO gitlost.site")
+	by vger.kernel.org with ESMTP id S965092AbWH2Qgj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 12:36:39 -0400
 To: "Garzik, Jeff" <jgarzik@pobox.com>
 In-Reply-To: <20060829164153.6872.1713.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-A recent patch in -mm3 titled
-"gregkh-pci-pci-don-t-enable-device-if-already-enabled.patch" causes
-pci_enable_device() to be a no-op if the kernel thinks that the device is
-already enabled.  This change breaks the PCI error recovery mechanism in
-the e100 device driver, since, after PCI slot reset, the card is no longer
-enabled.  This is a trivial fix for this problem.  Tested.
+Increment the version of e100 to 3.5.16-k2, increment dates.
 
-Signed-off-by: Linas Vepstas <linas@austin.ibm.com>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e100.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/e100.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index 458af6a..e12cc68 100644
+index a98e23a..23afdff 100644
 --- a/drivers/net/e100.c
 +++ b/drivers/net/e100.c
-@@ -2791,6 +2791,7 @@ static pci_ers_result_t e100_io_error_de
- 	/* Detach; put netif into state similar to hotplug unplug. */
- 	netif_poll_enable(netdev);
- 	netif_device_detach(netdev);
-+	pci_disable_device(pdev);
+@@ -159,7 +159,7 @@
  
- 	/* Request a slot reset. */
- 	return PCI_ERS_RESULT_NEED_RESET;
+ #define DRV_NAME		"e100"
+ #define DRV_EXT			"-NAPI"
+-#define DRV_VERSION		"3.5.10-k4"DRV_EXT
++#define DRV_VERSION		"3.5.16-k2"DRV_EXT
+ #define DRV_DESCRIPTION		"Intel(R) PRO/100 Network Driver"
+ #define DRV_COPYRIGHT		"Copyright(c) 1999-2006 Intel Corporation"
+ #define PFX			DRV_NAME ": "
 
 
 
