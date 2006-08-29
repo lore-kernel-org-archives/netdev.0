@@ -1,45 +1,25 @@
-From: "Mattia Dongili" <malattia@linux.it>
-Subject: Re: divide error: 0000 in fib6_rule_match [Re: 2.6.18-rc4-mm3]
-Date: Tue, 29 Aug 2006 08:33:18 +0200 (CEST)
-Message-ID: <55584.85.47.20.193.1156833198.squirrel@picard.linux.it>
-References: <20060826160922.3324a707.akpm@osdl.org>
-    <20060828200716.GA4244@inferi.kami.home>
-    <20060828143003.aaae0d7d.akpm@osdl.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [2.6 patch] net/atm/: proper prototypes
+Date: Mon, 28 Aug 2006 23:57:11 -0700 (PDT)
+Message-ID: <20060828.235711.130237501.davem@davemloft.net>
+References: <20060820230006.GW7813@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Mattia Dongili" <malattia@linux.it>, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from picard.linux.it ([213.254.12.146]:52438 "EHLO picard.linux.it")
-	by vger.kernel.org with ESMTP id S1751114AbWH2GdT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 02:33:19 -0400
-In-Reply-To: <20060828143003.aaae0d7d.akpm@osdl.org>
-To: "Andrew Morton" <akpm@osdl.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932106AbWH2G5O@vger.kernel.org>
+To: bunk@stusta.de
+In-Reply-To: <20060820230006.GW7813@stusta.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, August 28, 2006 11:30 pm, Andrew Morton said:
-> On Mon, 28 Aug 2006 22:07:16 +0200
-> Mattia Dongili <malattia@linux.it> wrote:
-[...]
->> it's at fib6_rules.c:132 but since I can't tell why r->fwmask is 0 I'll
->> avoid proposing a wrong patch :)
->
-> Oh.  It looks like this has already been fixed:
->
-> #ifdef CONFIG_IPV6_ROUTE_FWMARK
->         if ((r->fwmark ^ fl->fl6_fwmark) & r->fwmask)
->                 return 0;
-> #endif
->
-> there's no divide in there now.
+From: Adrian Bunk <bunk@stusta.de>
+Date: Mon, 21 Aug 2006 01:00:06 +0200
 
-Ok, great, I have a division instead of the bitwise and there in fact.
+> This patch adds proper prototypes in net/atm/mpc.h for two global 
+> functions in net/atm/mpoa_proc.c
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-thanks
--- 
-mattia
-:wq!
-
-
+Applied to net-2.6.19, thanks Adrian.
