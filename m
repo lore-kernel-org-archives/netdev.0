@@ -1,134 +1,53 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Subject: Re: [PATCH 1/4] net: VM deadlock avoidance framework
-Date: Tue, 29 Aug 2006 11:49:41 +0200
-Message-ID: <1156844981.23000.75.camel@twins>
-References: <20060825153946.24271.42758.sendpatchset@twins>
-	 <20060825153957.24271.6856.sendpatchset@twins>
-	 <1396.81.207.0.53.1156559843.squirrel@81.207.0.53>
-	 <1156760564.23000.31.camel@twins>
-	 <3720.81.207.0.53.1156780999.squirrel@81.207.0.53>
-	 <1156786344.23000.47.camel@twins>
-	 <3994.81.207.0.53.1156809691.squirrel@81.207.0.53>
+From: gerrit@erg.abdn.ac.uk
+Subject: Re: [RFC][PATCHv2 2.6.18-rc4-mm3 3/3] net/ipv4:  misc. support files
+Date: Tue, 29 Aug 2006 11:18:00 +0100
+Message-ID: <200608291118.00972@strip-the-willow>
+References: <200608231150.37895@strip-the-willow> <200608281910.50647@strip-the-willow> <44F335DE.5030307@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Daniel Phillips <phillips@google.com>,
-	Rik van Riel <riel@redhat.com>,
-	David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, jmorris@namei.org, alan@lxorguk.ukuu.org.uk,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, kaber@coreworks.de,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from amsfep17-int.chello.nl ([213.46.243.15]:51611 "EHLO
-	amsfep16-int.chello.nl") by vger.kernel.org with ESMTP
-	id S964853AbWH2Jze (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 05:55:34 -0400
-To: Indan Zupancic <indan@nul.nu>
-In-Reply-To: <3994.81.207.0.53.1156809691.squirrel@81.207.0.53>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:18049 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S1750839AbWH2KT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 06:19:26 -0400
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <44F335DE.5030307@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-08-29 at 02:01 +0200, Indan Zupancic wrote:
-> On Mon, August 28, 2006 19:32, Peter Zijlstra said:
+Quoting Patrick McHardy:
+|  gerrit@erg.abdn.ac.uk wrote:
+|  > [Net/IPv4]: REVISED Miscellaneous changes which complete the 
+|  >             v4 support for UDP-Lite.
+|  > 
+|  
+|  > --- a/include/net/xfrm.h
+|  > +++ b/include/net/xfrm.h
+|  > @@ -467,6 +467,7 @@ u16 xfrm_flowi_sport(struct flowi *fl)
+|  >  	switch(fl->proto) {
+|  >  	case IPPROTO_TCP:
+|  >  	case IPPROTO_UDP:
+|  > +	case IPPROTO_UDPLITE:
+|  >  	case IPPROTO_SCTP:
+|  >  		port = fl->fl_ip_sport;
+|  >  		break;
+|  > @@ -492,6 +493,7 @@ u16 xfrm_flowi_dport(struct flowi *fl)
+|  >  	switch(fl->proto) {
+|  >  	case IPPROTO_TCP:
+|  >  	case IPPROTO_UDP:
+|  > +	case IPPROTO_UDPLITE:
+|  >  	case IPPROTO_SCTP:
+|  >  		port = fl->fl_ip_dport;
+|  >  		break;
 
-> > Ah, no accident there, I'm fully aware that there would need to be a
-> > spinlock in adjust_memalloc_reserve() if there were another caller.
-> > (I even had it there for some time) - added comment.
-> 
-> Good that you're aware of it. Thing is, how much sense does the split-up into
-> adjust_memalloc_reserve() and sk_adjust_memalloc() make at this point? Why not
-> merge the code of adjust_memalloc_reserve() with sk_adjust_memalloc() and only
-> add adjust_memalloc_reserve() when it's really needed? It saves an export.
+Many thanks for the helpful pointers - I will make sure that the changes
+are in the next version. I will be waiting a little while for further comments
+before the update.
 
-mm/ vs net/core/
-
-> Better to put the lock next to min_free_kbytes, both for readability and
-> cache behaviour. And it satisfies the "lock data, not code" mantra.
-
-True enough.
-
-> If you prefer to avoid cmpxchg (which is often used in atomic_add_unless
-> and can be expensive) then you can use something like:
-
-Yes, way too large, out of lined it already. Don't care about the
-cmpxchg, its not a fast path anyway.
-
-> > @@ -195,6 +196,86 @@ __u32 sysctl_rmem_default = SK_RMEM_MAX;
-> >  /* Maximal space eaten by iovec or ancilliary data plus some space */
-> >  int sysctl_optmem_max = sizeof(unsigned long)*(2*UIO_MAXIOV + 512);
-> >
-> > +static DEFINE_SPINLOCK(memalloc_lock);
-> > +static int memalloc_reserve;
-> > +static unsigned int vmio_request_queues;
-> > +
-> > +atomic_t vmio_socks;
-> > +atomic_t emergency_rx_pages_used;
-> > +EXPORT_SYMBOL_GPL(vmio_socks);
-> 
-> Is this export needed? It's only used in net/core/skbuff.c and net/core/sock.c,
-> which are compiled into one module.
-> 
-> > +EXPORT_SYMBOL_GPL(emergency_rx_pages_used);
-> 
-> Same here. It's only used by code in sock.c and skbuff.c, and no external
-> code calls emergency_rx_alloc(), nor emergency_rx_free().
-
-Good point, I've gone over the link relations of these things and was
-indeed capable of removing several EXPORTs. Thanks.
-
-> I think I depleted my usefulness, there isn't much left to say for me.
-> It's up to the big guys to decide about the merrit of this patch.
-
-Thanks for all your feedback.
-
-> IMHO:
-> 
-> - This patch isn't really a framework, more a minimal fix for one specific,
-> though important problem. But it's small and doesn't have much impact
-
-Well, perhaps, its merit is that is allows for full service for a few
-sockets even under severe memory pressure. And it provides the
-primitives to solve this problem for all instances, (NBD, iSCSI, NFS,
-AoE, ...) hence framework.
-
-Evgeniy's allocator does not cater for this, so even if it were to
-replace all the allocation stuff, we would still need the SOCK_VMIO and
-all protocol hooks this patch introduces.
-
-> - If Evgeniy's network allocator is as good as it looks, then why can't it
-> replace the existing one? Just adding private subsystem specific memory
-> allocators seems wrong. I might be missing the big picture, but it looks
-> like memory allocator things should be at least synchronized and discussed
-> with Christoph Lameter and his "modular slab allocator" patch.
-
-SLAB is very very good in that is will not suffer from external
-fragmentation (one could suffer from external fragmentation when viewing
-the slab allocator from the page allocation layer - but most of that is
-avoidable by allocation strategies in the slab layer), it does however
-suffer from internal fragmentation - by design.
-
-For variable size allocators it has been proven that for each allocator
-there is an allocation pattern that will defeat it. And figuring the
-pattern out and proving it will not happen in a long-running system is
-hard hard work.
-
-(free block coalescence is not a guarantee against fragmentation; there
-is even evidence that delayed coalescence will reduce fragmentation - it
-introduces history and this extra information can help predict the
-future.)
-
-This is exactly why long running systems (like our kernel) love slabs.
-
-For those interested in memory allocators, this paper is a good (albeit
-a bit dated) introduction:
-	http://citeseer.ist.psu.edu/wilson95dynamic.html
-
-That said, it might be that Evgeniy's allocator works out for our
-network load - only time will tell, the math is not tractable afaik.
-
-> All in all it seems it will take a while until Evgeniy's code will be merged,
-> so I think applying Peter's patch soonish and removing it again the moment it
-> becomes unnecessary is reasonable.
-
-Thanks and like said, I think even then most of this patch will need to
-survive.
-
+- Gerrit
