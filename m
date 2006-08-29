@@ -1,8 +1,9 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 09/26] e1000: unify WoL capability detection code
-Date: Tue, 29 Aug 2006 16:51:13 -0400
-Message-ID: <44F4A8C1.9020301@pobox.com>
-References: <20060829164153.6872.1713.stgit@gitlost.site> <20060829164434.6872.82138.stgit@gitlost.site>
+Subject: Re: [PATCH 11/26] e1000: clean up skb allocation code, patch submitted
+ by Christoph
+Date: Tue, 29 Aug 2006 16:52:58 -0400
+Message-ID: <44F4A92A.6060909@pobox.com>
+References: <20060829164153.6872.1713.stgit@gitlost.site> <20060829164439.6872.18771.stgit@gitlost.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -11,25 +12,26 @@ Cc: netdev@vger.kernel.org, akpm@osdl.org,
 	"Kok, Auke" <auke@foo-projects.org>,
 	"Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:48524 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S965339AbWH2UvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 16:51:16 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:55436 "EHLO mail.dvmed.net")
+	by vger.kernel.org with ESMTP id S965314AbWH2UxA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2006 16:53:00 -0400
 To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-In-Reply-To: <20060829164434.6872.82138.stgit@gitlost.site>
+In-Reply-To: <20060829164439.6872.18771.stgit@gitlost.site>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Kok, Auke wrote:
-> WoL is constantly giving problems and needed a rewrite. Consolidates
-> all WoL capabilities into a single function, and disables WoL for all
-> other ports on the device except for port A.
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 
-Is this a behavior change that affects users in the field?
+ACK, but please don't include attribution in the subject line.
 
-i.e. if they are using WoL via port B, and upgrade to this driver, their 
-setup suddenly breaks, right?
+Add a "From: ...author..." as the first line of your patch description 
+instead.
+
+See #12 of Documentation/SubmittingPatches for more info.
 
 	Jeff
-
 
 
