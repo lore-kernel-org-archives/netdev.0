@@ -1,43 +1,36 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 22/26] ixgb: Cache-align all TX components of the adapter
- struct.
-Date: Tue, 29 Aug 2006 15:20:44 -0700
-Message-ID: <44F4BDBC.6090203@intel.com>
-References: <20060829164153.6872.1713.stgit@gitlost.site> <20060829164503.6872.93015.stgit@gitlost.site> <200608291933.56002.dada1@cosmosbay.com> <44F4AAC5.5030909@pobox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>, netdev@vger.kernel.org,
-	akpm@osdl.org, "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH] zd1211rw: Add ID for Siemens Gigaset USB Stick 54
+Date: Tue, 29 Aug 2006 23:49:32 +0100 (BST)
+Message-ID: <20060829224932.90A1C7B40A0@zog.reactivated.net>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:24177 "EHLO
-	fmsmga101-1.fm.intel.com") by vger.kernel.org with ESMTP
-	id S965122AbWH2Wk4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 18:40:56 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <44F4AAC5.5030909@pobox.com>
+Received: from mtaout03-winn.ispmail.ntl.com ([81.103.221.49]:21057 "EHLO
+	mtaout03-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S965029AbWH2WrT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 18:47:19 -0400
+To: linville@tuxdriver.com
+Cc: kune@deine-taler.de
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Eric Dumazet wrote:
->> On Tuesday 29 August 2006 18:45, Kok, Auke wrote:
->>>      /* TX */
->>> -    struct ixgb_desc_ring tx_ring;
->>> +    struct ixgb_desc_ring tx_ring ____cacheline_aligned;
->>>      unsigned long timeo_start;
->>
->> On UP, this would only enlarge the size of structure and might consume 
->> more cache lines...
->>
->>  I guess ____cacheline_aligned_in_smp is preferred here.
->>
->> (see include/linux/netdevice.h)
+Tested by Martin Dummer.
 
-changed in our tree to ____cacheline_aligned_in_smp.
+zd1211 chip 0b3b:5630 v4330 high 00-01-e3 RF2959_RF pa0 ---
 
-Thanks,
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
+---
+ zd_usb.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Auke
+Index: linux-2.6/drivers/net/wireless/zd1211rw/zd_usb.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/zd1211rw/zd_usb.c
++++ linux-2.6/drivers/net/wireless/zd1211rw/zd_usb.c
+@@ -44,6 +44,7 @@ static struct usb_device_id usb_ids[] = 
+ 	{ USB_DEVICE(0x1740, 0x2000), .driver_info = DEVICE_ZD1211 },
+ 	{ USB_DEVICE(0x157e, 0x3204), .driver_info = DEVICE_ZD1211 },
+ 	{ USB_DEVICE(0x0586, 0x3402), .driver_info = DEVICE_ZD1211 },
++	{ USB_DEVICE(0x0b3b, 0x5630), .driver_info = DEVICE_ZD1211 },
+ 	/* ZD1211B */
+ 	{ USB_DEVICE(0x0ace, 0x1215), .driver_info = DEVICE_ZD1211B },
+ 	{ USB_DEVICE(0x157e, 0x300d), .driver_info = DEVICE_ZD1211B },
