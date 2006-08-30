@@ -1,57 +1,47 @@
-From: "Dirk Opfer" <Dirk@Opfer-Online.de>
-Subject: [PATCH] Fix dm9000 release_resource
-Date: Wed, 30 Aug 2006 09:04:45 +0200 (CEST)
-Message-ID: <0ML25U-1GIK892FsT-0007pS@mrelayeu.kundenserver.de>
-Reply-To: Dirk@Opfer-Online.de
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [patch 5/5] d80211: add ioctl to stop data frame tx
+Date: Wed, 30 Aug 2006 09:26:21 +0200
+Message-ID: <1156922781.4013.13.camel@ux156>
+References: <20060822173241.313859000@devicescape.com>
+	 <20060822173419.GF12500@devicescape.com> <1156317906.3629.18.camel@ux156>
+	 <uwt8sww6z.fsf@devicescape.com> <1156836657.3788.5.camel@ux156>
+	 <20060829114515.GA29669@tuxdriver.com>
+	 <20060829183947.GJ1701@instant802.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;boundary="----=_20060830090445_20254"
-Cc: "Ben Dooks" <ben@simtec.co.uk>,
-	"Sascha Hauer" <s.hauer@pengutronix.de>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Elliot Schwartz <elliot@devicescape.com>,
+	David Kimdon <david.kimdon@devicescape.com>,
+	netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:61912 "EHLO
-	moutng.kundenserver.de") by vger.kernel.org with ESMTP
-	id S1750767AbWH3HFB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Aug 2006 03:05:01 -0400
-To: netdev@vger.kernel.org
+Received: from crystal.sipsolutions.net ([195.210.38.204]:57498 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1750864AbWH3H0a
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Aug 2006 03:26:30 -0400
+To: Jouni Malinen <jkm@devicescape.com>
+In-Reply-To: <20060829183947.GJ1701@instant802.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_20060830090445_20254
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+On Tue, 2006-08-29 at 11:39 -0700, Jouni Malinen wrote:
 
-dm9000_release_board calls release_resource with the platform resource
-instead of the requested resource:
+> What would be the preferred way of doing the conversion here? I think I
+> would prefer to get the radar detection code in as-is and then move all
+> the messages to use a new mechanism as one change once that mechanism
+> becomes available.
 
-db->addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-db->addr_req = request_mem_region(db->addr_res->start, i, pdev->name);
+I suppose that depends on how quickly you want these things :) nl80211
+is there for review and I suppose if a bunch of people actually build
+things on top of it we can merge it. As it stands, we could merge it and
+then start building too, if a few more people review it maybe.
 
-dm9000_release_board:
+> hostapd connection uses number of these frames which are actually not
+> fake management frames, but just frames with different "pseudo header"
+> on the management interface. You can search for ieee80211_msg_ types to
+> see the different types of status messages that are used.
 
-    if (db->addr_res != NULL) {
-        release_resource(db->addr_res);
-        kfree(db->addr_req);
+Yeah, I know. Does anyone else use these or can we simply drop this
+after conversion?
 
-With this behavior the kernel will crash on the second removal. The
-attached patch fix this problem.
-
-
-Signed-off-by: Dirk Opfer <Dirk@Opfer-Online.de>
-
-------=_20060830090445_20254
-Content-Type: application/octet-stream;
-      name="dm9000-fix-release-ressource.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-      filename="dm9000-fix-release-ressource.patch"
-
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2RtOTAwMC5jIGIvZHJpdmVycy9uZXQvZG05MDAwLmMK
-aW5kZXggM2Q3NmZhMS4uYTg2MGViYiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvZG05MDAwLmMK
-KysrIGIvZHJpdmVycy9uZXQvZG05MDAwLmMKQEAgLTM3Nyw4ICszNzcsOCBAQCBkbTkwMDBfcmVs
-ZWFzZV9ib2FyZChzdHJ1Y3QgcGxhdGZvcm1fZGV2CiAJCWtmcmVlKGRiLT5kYXRhX3JlcSk7CiAJ
-fQogCi0JaWYgKGRiLT5hZGRyX3JlcyAhPSBOVUxMKSB7Ci0JCXJlbGVhc2VfcmVzb3VyY2UoZGIt
-PmFkZHJfcmVzKTsKKwlpZiAoZGItPmFkZHJfcmVxICE9IE5VTEwpIHsKKwkJcmVsZWFzZV9yZXNv
-dXJjZShkYi0+YWRkcl9yZXEpOwogCQlrZnJlZShkYi0+YWRkcl9yZXEpOwogCX0KIH0K
-------=_20060830090445_20254--
-
-
+johannes
