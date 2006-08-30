@@ -1,82 +1,37 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: [PATCH 2.6.18] Prism54 : add bitrates to scan result
-Date: Tue, 29 Aug 2006 18:19:23 -0700
-Message-ID: <20060830011923.GQ8405@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: Daniel Drake <dsd@gentoo.org>
+Subject: [PATCH] WE-21 for zd1211rw
+Date: Wed, 30 Aug 2006 03:46:27 +0100 (BST)
+Message-ID: <20060830024627.0DC5E7B40A0@zog.reactivated.net>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gundega.hpl.hp.com ([192.6.19.190]:31942 "EHLO
-	gundega.hpl.hp.com") by vger.kernel.org with ESMTP id S932309AbWH3BT5
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 21:19:57 -0400
-To: "John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org,
-	"Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
-Content-Disposition: inline
+Received: from mtaout03-winn.ispmail.ntl.com ([81.103.221.49]:20495 "EHLO
+	mtaout03-winn.ispmail.ntl.com") by vger.kernel.org with ESMTP
+	id S1751460AbWH3CoH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 22:44:07 -0400
+To: linville@tuxdriver.com
+Cc: kune@deine-taler.de
+Cc: jt@hpl.hp.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-        Hi John,
+Looks like zd1211rw was forgotten from the WE-21 migration. This patch
+should do it...
 
-	This is unrelated to WE-21. It just adds bitrate information
-to the scan result in the Prism54 driver, like some/most other driver
-do.
-	Rediffed and retested with 2.6.18-rc, apply with fuzz to
-wireless-2.6 (ask me for a clean wireless-2.6 patch).
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
+---
+ zd_netdev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-        Have fun...
-
-        Jean
-
-Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
-
------------------------------------------------------------
-
-diff -u -p linux/drivers/net/wireless/prism54/isl_ioctl.r1.c linux/drivers/net/wireless/prism54/isl_ioctl.c
---- linux/drivers/net/wireless/prism54/isl_ioctl.r1.c	2006-04-03 17:12:45.000000000 -0700
-+++ linux/drivers/net/wireless/prism54/isl_ioctl.c	2006-04-03 17:15:35.000000000 -0700
-@@ -42,6 +42,10 @@ static size_t prism54_wpa_ie_get(islpci_
- static int prism54_set_wpa(struct net_device *, struct iw_request_info *,
- 				__u32 *, char *);
- 
-+/* In 500 kbps */
-+static const unsigned char scan_rate_list[] = { 2, 4, 11, 22,
-+						12, 18, 24, 36,
-+						48, 72, 96, 108 };
- 
- /**
-  * prism54_mib_mode_helper - MIB change mode helper function
-@@ -649,6 +653,32 @@ prism54_translate_bss(struct net_device 
- 			kfree(buf);
- 		}
- 	}
-+	/* Do the bitrates */
-+	{
-+		char *	current_val = current_ev + IW_EV_LCP_LEN;
-+		int i;
-+		int mask;
-+
-+		iwe.cmd = SIOCGIWRATE;
-+		/* Those two flags are ignored... */
-+		iwe.u.bitrate.fixed = iwe.u.bitrate.disabled = 0;
-+
-+		/* Parse the bitmask */
-+		mask = 0x1;
-+		for(i = 0; i < sizeof(scan_rate_list); i++) {
-+			if(bss->rates & mask) {
-+				iwe.u.bitrate.value = (scan_rate_list[i] * 500000);
-+				current_val = iwe_stream_add_value(current_ev, current_val,
-+								   end_buf, &iwe,
-+								   IW_EV_PARAM_LEN);
-+			}
-+			mask <<= 1;
-+		}
-+		/* Check if we added any event */
-+		if ((current_val - current_ev) > IW_EV_LCP_LEN)
-+			current_ev = current_val;
-+	}
-+
- 	return current_ev;
+Index: linux-2.6/drivers/net/wireless/zd1211rw/zd_netdev.c
+===================================================================
+--- linux-2.6.orig/drivers/net/wireless/zd1211rw/zd_netdev.c
++++ linux-2.6/drivers/net/wireless/zd1211rw/zd_netdev.c
+@@ -82,7 +82,7 @@ static int iw_get_nick(struct net_device
+ 		       union iwreq_data *req, char *extra)
+ {
+ 	strcpy(extra, "zd1211");
+-	req->data.length = strlen(extra) + 1;
++	req->data.length = strlen(extra);
+ 	req->data.flags = 1;
+ 	return 0;
  }
- 
