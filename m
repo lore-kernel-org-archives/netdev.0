@@ -1,67 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix verify_iovec() to not allow overflow of iov_len
- values
-Date: Tue, 29 Aug 2006 21:44:53 -0700 (PDT)
-Message-ID: <20060829.214453.112264010.davem@davemloft.net>
-References: <1156874129.3147.2.camel@w-sridhar2.beaverton.ibm.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: e1000 and 802.1ad/stacked vlan tagging
+Date: Tue, 29 Aug 2006 22:06:06 -0700
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F528A67FB@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp-2
-Content-Transfer-Encoding: 7bit
-Cc: chrisw@sous-sol.org, akpm@osdl.org, netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <e1000-devel@lists.sf.net>, <netdev@vger.kernel.org>, <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:57064
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1751429AbWH3Eoy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Aug 2006 00:44:54 -0400
-To: sri@us.ibm.com
-In-Reply-To: <1156874129.3147.2.camel@w-sridhar2.beaverton.ibm.com>
+Received: from mga02.intel.com ([134.134.136.20]:2074 "EHLO
+	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
+	id S965012AbWH3FGQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 01:06:16 -0400
+Content-class: urn:content-classes:message
+To: "Stephan von Krawczynski" <skraw@ithnet.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Tue, 29 Aug 2006 10:55:29 -0700
+Stephan von Krawczynski wrote:
+> I can confirm that the setup seems to work if enlarging the hw if mtu
+> to 1508. This is good.
 
-> verify_iovec() has the following piece of code that allows overflow
-> of iov_len values in an iovec.
-> 
->         for (ct = 0; ct < m->msg_iovlen; ct++) {
->                 err += iov[ct].iov_len;
->                 /*
->                  * Goal is not to verify user data, but to prevent returning
->                  * negative value, which is interpreted as errno.
->                  * Overflow is still possible, but it is harmless.
->                  */
->                 if (err < 0)
->                         return -EMSGSIZE;
->         }
-> 
-> The comment specifically says that overflow is harmless, but I don't see any
-> valid reason to allow overflow.
-> 
-> Also, iov_len is of type size_t which is a 64-bit value on 64-bit systems,
-> but we store and return the overall iovec length in an int.
+Okay, good to hear.
 
-Just some notes so that it is understood the context in which
-such changes are being proposed.
+> Nevertheless I think that the receive buffer size of a
+> physical device should always be MAX(all virtual device mtu +
+> tags and the like), you know what I mean.
 
-First of all, several memcpy() and copy_{to,from}_user()
-implementations BUG trap on lengths which have bit 31 or higher set.
-It always indicates a bug of some sort in the call chain, so behaving
-as if we support larger than positive signed 32-bit lengths here is
-probably asking for trouble.
+Unfortunately that would require us to currently allocate 16kB for every
+receive descriptor, which would slow down the general case
+significantly, not to mention bring up all sorts of errors as the system
+memory fragmentation increases.
 
-Also, the protocol downcalls all return "int", not "long" so it's even
-impossible to report successful sending of larger than positive signed
-32-bit lengths.  Even kernel_sendmsg() and friends return "int".
+> If I enlarge the basic mtu this may or may not have drawbacks
+> concerning the traffic routed directly via this interface.
 
-We can pretend that larger than positive signed 32-bit lengths in an
-iovec will work, but they surely won't.
+I think that routed traffic won't care at all unless something checks
+the path MTU, and even then it should take the lowest MTU.
 
-And since the sendmsg() man page was quoted:
+> Obviously the setup is somehow not consistent, as everything
+> works well without tuning mtus as long as you use only 1 tag.
+1 tag is the way that things are supposed to work.  In fact, the
+hardware takes care of all insertion and stripping of a single tag, so
+that the data actually handed to the stack never even has the tag in the
+packet data.
 
-       If the message is too long to pass atomically  through  the  underlying
-       protocol, the error EMSGSIZE is returned, and the message is not trans$,1rp(B
-       mitted.
+> I always thought that the driver uses at least
+> hard_header_len + mtu as buffer size which should be correct
+> even in stacked setup. Only this information doesn't make it
+> to the driver level, right?
 
-which matches perfectly with the fact that the protocol downcalls
-return "int"  not "size_t" nor  "ssize_t".
+Actually I think that first statement isn't correct.  With the stacked
+setup your maximum frame length is 1500 (MTU) + 14 enet + 4 (tag1) + 4
+(tag2) + CRC = 1526.  The vlan code with stacked vlans is broken (from
+the maintainer who mentioned it in this thread) probably because in
+order to do stacked vlans correctly the vlan layer must support IP
+fragmentation of some kind.
+
+Seems like stacked vlans wouldn't work anyway, at least not very well.
+The only way I see to get even close is the MTU increase on the base
+interface.
+
+Sorry to not offer much,
+  Jesse
