@@ -1,55 +1,66 @@
-From: "Jouni Malinen" <jkm@devicescape.com>
-Subject: Re: [patch 5/5] d80211: add ioctl to stop data frame tx
-Date: Wed, 30 Aug 2006 09:01:15 -0700
-Message-ID: <20060830160115.GB18041@instant802.com>
-References: <20060822173241.313859000@devicescape.com> <20060822173419.GF12500@devicescape.com> <1156317906.3629.18.camel@ux156> <uwt8sww6z.fsf@devicescape.com> <1156836657.3788.5.camel@ux156> <20060829114515.GA29669@tuxdriver.com> <20060829183947.GJ1701@instant802.com> <1156922781.4013.13.camel@ux156>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [BUG] in skge.c on 2.6.18-rc5
+Date: Wed, 30 Aug 2006 09:17:14 -0700
+Message-ID: <20060830091714.6fa70274@localhost.localdomain>
+References: <7d01f9f00608300830j74871672o31b9ce126ee8c07d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Elliot Schwartz <elliot@devicescape.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dhost002-83.dex002.intermedia.net ([64.78.20.216]:59099 "EHLO
-	dhost002-83.dex002.intermedia.net") by vger.kernel.org with ESMTP
-	id S1751102AbWH3QBX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Aug 2006 12:01:23 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <1156922781.4013.13.camel@ux156>
+Received: from smtp.osdl.org ([65.172.181.4]:49613 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S1751106AbWH3QS1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 12:18:27 -0400
+To: "Thibaut VARENE" <T-Bone@parisc-linux.org>
+In-Reply-To: <7d01f9f00608300830j74871672o31b9ce126ee8c07d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 30, 2006 at 09:26:21AM +0200, Johannes Berg wrote:
-> On Tue, 2006-08-29 at 11:39 -0700, Jouni Malinen wrote:
-> 
-> > What would be the preferred way of doing the conversion here? I think I
-> > would prefer to get the radar detection code in as-is and then move all
-> > the messages to use a new mechanism as one change once that mechanism
-> > becomes available.
-> 
-> I suppose that depends on how quickly you want these things :) nl80211
-> is there for review and I suppose if a bunch of people actually build
-> things on top of it we can merge it. As it stands, we could merge it and
-> then start building too, if a few more people review it maybe.
+On Wed, 30 Aug 2006 17:30:46 +0200
+"Thibaut VARENE" <T-Bone@parisc-linux.org> wrote:
 
-Well, it would be nice to get these in quite soon. I know that the
-current mechanism works since it has been used for years, but if the
-netlink-based solution is considered stable and working and unlikely to
-require major changes soon, I don't have anything against using it here.
-
-> > hostapd connection uses number of these frames which are actually not
-> > fake management frames, but just frames with different "pseudo header"
-> > on the management interface. You can search for ieee80211_msg_ types to
-> > see the different types of status messages that are used.
+> Hi,
 > 
-> Yeah, I know. Does anyone else use these or can we simply drop this
-> after conversion?
+> The following commit:
+> 
+> commit 239e44e1f05e2163ee066c07a753f9fb445979b2
+> Author: Edgar E. Iglesias <edgar.iglesias@axis.com>
+> Date:   Mon Aug 14 23:00:24 2006 -0700
+> 
+>     [PATCH] skge: remember to run netif_poll_disable()
+> 
+>     Signed-off-by: Edgar E. Iglesias <edgar.iglesias@axis.com>
+>     Cc: Stephen Hemminger <shemminger@osdl.org>
+>     Cc: Jeff Garzik <jeff@garzik.org>
+>     Signed-off-by: Andrew Morton <akpm@osdl.org>
+>     Signed-off-by: Jeff Garzik <jeff@garzik.org>
+> 
+> diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+> index 7de9a07..ad878df 100644
+> --- a/drivers/net/skge.c
+> +++ b/drivers/net/skge.c
+> @@ -2211,6 +2211,7 @@ static int skge_up(struct net_device *de
+>         skge_write8(hw, Q_ADDR(rxqaddr[port], Q_CSR), CSR_START |
+> CSR_IRQ_CL_F);        skge_led(skge, LED_MODE_ON);
+> 
+> +       netif_poll_enable(dev);
+>         return 0;
+> 
+>   free_rx_ring:
+> @@ -2279,6 +2280,7 @@ static int skge_down(struct net_device *
+> 
+>         skge_led(skge, LED_MODE_OFF);
+> 
+> +       netif_poll_disable(dev);
+>         skge_tx_clean(skge);
+>         skge_rx_clean(skge);
+> 
+> 
+> panics my 2.6.18-rc5 kernel on my em64t box apparently on first
+> network activity (eg 'ping'). Reverting it gets me back to a
+> functional kernel
 
-Once there is mechanism to replace all the current functionality, I
-would just drop it. There is some meta information, like signal
-strength, in the header, so this does not only include event
-notifications, but also additional data for frames.
+How are you bringing the network up, are you using autonegotiation?
 
 -- 
-Jouni Malinen                                            PGP id EFC895FA
+Stephen Hemminger <shemminger@osdl.org>
