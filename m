@@ -1,33 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC IPv6] Disabling IPv6 autoconf
-Date: Wed, 30 Aug 2006 10:12:10 +1000
-Message-ID: <E1GIDgg-00043h-00@gondolin.me.apana.org.au>
-References: <200608291659.49876.hasso@estpak.ee>
-Cc: herbert@gondor.apana.org.au, pb@bieringer.de,
-	netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -net-2.6.19] net/*: don't panic
+Date: Tue, 29 Aug 2006 17:52:49 -0700 (PDT)
+Message-ID: <20060829.175249.15691677.davem@davemloft.net>
+References: <20060828093651.GA31341@infradead.org>
+	<20060828.133637.107685776.davem@davemloft.net>
+	<20060829034443.GB5192@martell.zuzino.mipt.ru>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hch@infradead.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:51974 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S965180AbWH3AMi
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 20:12:38 -0400
-To: hasso@estpak.ee (Hasso Tepper)
-In-Reply-To: <200608291659.49876.hasso@estpak.ee>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:14809
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1750831AbWH3Awr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Aug 2006 20:52:47 -0400
+To: adobriyan@gmail.com
+In-Reply-To: <20060829034443.GB5192@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hasso Tepper <hasso@estpak.ee> wrote:
->
->> You can disable it in /proc/sys/net/ipv6/conf/default/... and then
->> reenable it on the interfaces that you actually want.
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Tue, 29 Aug 2006 07:50:43 +0400
+
+> IPv6 can be modular and panicking on module loading is the last thing
+> you want.
 > 
-> You can't do that either (ie. reenable) in initscripts before link is up.
+> Two SLAB_PANIC cases converted to error propagating as well as one
+> panic() call.
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-As soon as you do ifconfig ethX up it'll appear in /proc/sys and
-you can reenable it.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+This adds a call to addrconf_cleanup() from __init code, but that
+function is marked __exit.  This will cause link errors in some
+configurations.
