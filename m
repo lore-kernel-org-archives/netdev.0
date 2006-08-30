@@ -1,47 +1,89 @@
-From: "Frank Schneider" <twodipu@hotmail.com>
-Subject: Loop detected  - calling function from different modules
-Date: Wed, 30 Aug 2006 22:58:17 +0200
-Message-ID: <BAY101-F5AD1ED322334DFDAC9F22AB3E0@phx.gbl>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: PATCH: br_stp.c:271: ignoring BPDUs if cost goes up
+Date: Wed, 30 Aug 2006 14:24:39 -0700
+Message-ID: <20060830142439.5144d495@localhost.localdomain>
+References: <44F5D334.7050205@bristyle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rajesh_mish@yahoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc1-s25.bay0.hotmail.com ([65.54.246.97]:6814 "EHLO
-	bay0-omc1-s25.bay0.hotmail.com") by vger.kernel.org with ESMTP
-	id S1751575AbWH3U6S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Aug 2006 16:58:18 -0400
-To: netdev@vger.kernel.org
+Received: from smtp.osdl.org ([65.172.181.4]:11209 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932078AbWH3VYm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 17:24:42 -0400
+To: Brian Braunstein <brian@bristyle.com>
+In-Reply-To: <44F5D334.7050205@bristyle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Here is a comparison of the existing implementation against 802.1d standard
+pseudo-code.
 
-hi all,
+/* Spec */
+Boolean supersedes_port_info(port_no, config)	/* (8.6.2.2) */
+Int port_no;
+Config_bpdu *config;
+{
+	return config->root_id < port_info[port_no].designated_root	/* (8.6.2.2 a) */
+		|| (config->root_id == port_info[port_no].designated_root
+		    && (config->root_path_cost < port_info[port_no].designated_cost	/* (8.6.2.2 b) */
+			(config->root_path_cost == port_info[port_no].designated_cost
+			 && (config->bridge_id < port_info[port_no].designated_bridge	/* (8.6.2.2 c) */
+			     || (config->bridge_id == port_info[port_no].designated_bridge	/* (8.6.2.2 d) */
+				&& (config->bridge_id != bridge_info.bridge_id	/* (8.6.2.2 d1) */
+				   || config->port_id <= port_info[port_no].designated_port	/* (8.6.2.2 d2) */
+					))))));
+}
 
-I am writing/customizing a network(wlan pc card) device driver for Linux 
-kernel 2.6.12
-Think about I have two modules e.g. ath_pci and wlan module.
-I can call a function from a   .c file which is implemented in a  .c file in 
-wlan module by using EXPORT_SYMBOL macro..
+/* Implementation */
+static int br_supersedes_port_info(struct net_bridge_port *p, struct br_config_bpdu *bpdu)
+{
+	int t;
 
-and i need to do same in reverse way, i.e. call a function from wlan module 
-that is implemented in ath_pci module.
+	t = memcmp(&bpdu->root, &p->designated_root, 8);
+	if (t < 0)
+		return 1;	/* 8.6.2.2 a */
+	else if (t > 0)
+		return 0;
 
-I did the same way and its making but when I do  make install its showing 
-following error:
+	if (bpdu->root_path_cost < p->designated_cost) /* 8.6.2.2 b */
+		return 1;
+	else if (bpdu->root_path_cost > p->designated_cost)
+		return 0;
 
-WARNING: Loop detected: /lib/modules/2.6.12/net/ath_pci.ko needs wlan.ko 
-which needs ath_pci.ko again!
+	t = memcmp(&bpdu->bridge_id, &p->designated_bridge, 8); /* 8.6.2.2 c */
+	if (t < 0)
+		return 1;
+	else if (t > 0)
+		return 0;
 
-Please anybody tell how can I do this, any clue , please ?
+	if (memcmp(&bpdu->bridge_id, &p->br->bridge_id, 8)) /* 8.6.2.2 d */
+		return 1;
 
-thanx in advance
+	if (bpdu->port_id <= p->designated_port)
+		return 1;
 
-n.b. this question may consider as very naive since I am not good yet in 
-kernel hacking.. !!!!
+	return 0;
+}
 
-regards,
-/Frank
+You are questioning the part related to 8.6.2.2 of the spec:
 
-_________________________________________________________________
-Express yourself instantly with MSN Messenger! Download today it's FREE! 
-http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
+8.6.2.2 Use
+Following the receipt of a Configuration BPDU conveying protocol information that 
+supersedes that already held, i.e., if
+  a) Case 1. The Root Identifier denotes a Bridge of higher priority than that
+	recorded as the Designated Root, or
+  b) Case 2. The Root Identifier is the same as the Designated Root, and the Root
+	Path Cost is lower than that recorded as the Designated Cost for the Port, or
+  c) Case 3. The Root Identifier and Root Path Cost are as recorded for the Port, and 
+	the Bridge Identifier denotes a Bridge of higher priority than that recorded
+	as the Designated Bridge for the Port, or
+  d) Case 4. The Root Identifier and Root Path Cost are as recorded for the Port,
+	and the Bridge Identifier is the same as that recorded as the Designated Bridge
+	for the Port, and either
+	  1) The Bridge receiving the BPDU is not the Designated Bridge for the Port, or
+	  2) The Port Identifier denotes a Port of priority not less than that recorded
+	     as the Designated Port.
+
+Linux follows the specification; there is no reason to deviate for this.
 
