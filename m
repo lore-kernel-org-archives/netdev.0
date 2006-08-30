@@ -1,43 +1,53 @@
-From: "Thibaut VARENE" <T-Bone@parisc-linux.org>
-Subject: Re: [BUG] in skge.c on 2.6.18-rc5
-Date: Wed, 30 Aug 2006 19:21:20 +0200
-Message-ID: <7d01f9f00608301021v5d02b18dg8b0d993ee3dd1977@mail.gmail.com>
-References: <7d01f9f00608300830j74871672o31b9ce126ee8c07d@mail.gmail.com>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [PATCH 5/7] d80211: indicate if unassociate/radio off status
+Date: Wed, 30 Aug 2006 10:22:43 -0700
+Message-ID: <200608301022.48549.flamingice@sourmilk.net>
+References: <44F356DF.9000000@linux.intel.com> <200608291601.56901.flamingice@sourmilk.net> <1156945303.2725.7.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart5906429.AOqZueGMrk";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Jeff Garzik" <jeff@garzik.org>
+Cc: Mohamed Abbas <mabbas@linux.intel.com>,
+	Jouni Malinen <jkm@devicescape.com>, netdev@vger.kernel.org,
+	jbenc@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0102.google.com ([64.233.162.204]:36108 "EHLO
-	nz-out-0102.google.com") by vger.kernel.org with ESMTP
-	id S1751140AbWH3RVU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Aug 2006 13:21:20 -0400
-Received: by nz-out-0102.google.com with SMTP id n1so163873nzf
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2006 10:21:20 -0700 (PDT)
-To: shemminger@osdl.org
-In-Reply-To: <7d01f9f00608300830j74871672o31b9ce126ee8c07d@mail.gmail.com>
-Content-Disposition: inline
+Received: from server8.tchmachines.com ([216.180.241.250]:60590 "EHLO
+	server8.tchmachines.com") by vger.kernel.org with ESMTP
+	id S1751183AbWH3RXM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Aug 2006 13:23:12 -0400
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1156945303.2725.7.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replying to myself as I've been pointed at Stephen's reply (please CC
-me, i'm not subscribed):
+--nextPart5906429.AOqZueGMrk
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-I'm bringing the interface up with 'dhclient eth0', and yes it's using autoneg.
+On Wednesday 30 August 2006 06:41, Dan Williams wrote:
+> Um, that's how it's supposed to work, and that's how it's always worked.
+> If you're associated with an access point, its BSSID is returned from
+> SIOCGIWAP.  If you are not associated, 00:00:00:00:00:00 is returned.
+> Please don't break that.
+It's already broken in d80211, AFAICT. That's why I replied to myself, afte=
+r=20
+checking how the implementation actually works.
 
-HTH
+=2DMichael Wu
 
-T_Bone
+--nextPart5906429.AOqZueGMrk
+Content-Type: application/pgp-signature
 
-On 8/30/06, Thibaut VARENE <T-Bone@parisc-linux.org> wrote:
-> Hi,
->
-> The following commit:
->
-> commit 239e44e1f05e2163ee066c07a753f9fb445979b2
-> Author: Edgar E. Iglesias <edgar.iglesias@axis.com>
-> Date:   Mon Aug 14 23:00:24 2006 -0700
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
--- 
-Thibaut VARENE
-http://www.parisc-linux.org/~varenet/
+iD8DBQBE9cloT3Oqt9AH4aERAmcEAJ42fshOuLTMlfyUhNWWwyXlgLvKHgCgip57
+hohx8Hw6SlrvAM5OWd7haKQ=
+=KqgV
+-----END PGP SIGNATURE-----
+
+--nextPart5906429.AOqZueGMrk--
