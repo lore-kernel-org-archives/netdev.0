@@ -1,57 +1,66 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: high latency with TCP connections
-Date: Wed, 30 Aug 2006 15:04:27 -0700
-Message-ID: <20060830150427.716a347c@localhost.localdomain>
-References: <20060830100734.GA22235@isil.ipib.msu.ru>
-	<20060830102727.11e11453@localhost.localdomain>
-	<20060830.143955.55510936.davem@davemloft.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: NAPI: netif_rx_reschedule() ??
+Date: Wed, 30 Aug 2006 15:07:31 -0700
+Message-ID: <adau03tlvx8.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: alex@sectorb.msk.ru, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:45545 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932164AbWH3WEf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 18:04:35 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060830.143955.55510936.davem@davemloft.net>
+Received: from sj-iport-1-in.cisco.com ([171.71.176.70]:13117 "EHLO
+	sj-iport-1.cisco.com") by vger.kernel.org with ESMTP
+	id S932162AbWH3WHd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Aug 2006 18:07:33 -0400
+Received: from sj-core-1.cisco.com (sj-core-1.cisco.com [171.71.177.237])
+	by sj-dkim-2.cisco.com (8.12.11.20060308/8.12.11) with ESMTP id k7UM7W6V009886
+	for <netdev@vger.kernel.org>; Wed, 30 Aug 2006 15:07:32 -0700
+Received: from xbh-sjc-211.amer.cisco.com (xbh-sjc-211.cisco.com [171.70.151.144])
+	by sj-core-1.cisco.com (8.12.10/8.12.6) with ESMTP id k7UM7WQX002557
+	for <netdev@vger.kernel.org>; Wed, 30 Aug 2006 15:07:32 -0700 (PDT)
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 30 Aug 2006 14:39:55 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+I'm looking at updating IP-over-InfiniBand to use NAPI, and due to the
+way IB works, the driver is going to be susceptible to the rotting
+packet problem.  It seems I'm going to have to call netif_rx_reschedule().
 
-> From: Stephen Hemminger <shemminger@osdl.org>
-> Date: Wed, 30 Aug 2006 10:27:27 -0700
-> 
-> > Linux TCP implements "Appropriate Byte Count" (ABC) and this penalizes
-> > applications that do small sends. The problem is that the other side
-> > may be delaying acknowledgments.  If receiver doesn't acknowledge the
-> > sender will limit itself to the congestion window. If the flow is light,
-> > then you will be limited to 4 packets.
-> 
-> Right.
-> 
-> However it occured to me the other day that ABC could be made smarter.
-> If we sent small frames, ABC should account for that.
-> 
-> The problem with ABC is that it prevents CWND growth not just during
-> ACK division, but also when we truly are sending smaller sized frames.
-> 
-> In fact, for "chatty" protocols, the real load on a router for the
-> small packets is much less than that for full sized frames.  So it is
-> in fact these small frame sending cases for which we can be less
-> conservative, whatever that means here.
-> 
-> So my suggestion is that ABC should go look in the retransmit queue
-> and see how many "real packets" are being fully ACK'd, rather than
-> assuming the send queue is composed of MSS sized frames.
-> 
-> I also think we should seriously consider changing the ABC default to
-> "2" rather than "1".
+However I'm confused about a couple of things, and there are only two
+uses of netif_rx_reschedule() in the kernel, so I'm a little stuck.
 
-That would be a good simple first step. I can't hurt and seems
-reasonable.
+1. What is the intent of the second, 'undo' parameter?  For example,
+   ibmveth.c does
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+	if(ibmveth_rxq_pending_buffer(adapter) && netif_rx_reschedule(netdev, frames_processed))
+	{
+		lpar_rc = h_vio_signal(adapter->vdev->unit_address, VIO_IRQ_DISABLE);
+		ibmveth_assert(lpar_rc == H_SUCCESS);
+		more_work = 1;
+		goto restart_poll;
+	}
+
+   but it only does
+
+	netdev->quota -= frames_processed;
+
+   _after_ that block (and the jump back to restart_poll).  So the
+   whole things seems fishy: netdev->quota goes up by the number of
+   frames processed??
+
+2. What is the return value supposed to be used for?  ibmveth.c
+   returns from the poll method if netif_rx_reschedule() returns 0 (ie
+   the poll was already scheduled); ibm_emac_mal.c jumps back to
+   repoll regardless of the return value, and NAPI_HOWTO.txt has
+
+	if (ring_has_new_packet() && netif_rx_reschedule(dev, received)) {
+		disable_rx_and_rxnobufs()
+		goto restart_poll
+	} while (rx_status_is_set);
+
+   which is not particularly enlightening to say the least...
+   if (...) {...} while (...) ?!
+
+   It's not clear to me why the driver would want to do something
+   different depending on whether the NAPI poll was already scheduled
+   or not.
+
+Thanks,
+  Roland
