@@ -1,53 +1,38 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Loop detected  - calling function from different modules
-Date: Wed, 30 Aug 2006 14:26:07 -0700
-Message-ID: <20060830142607.31c858cd@localhost.localdomain>
-References: <BAY101-F5AD1ED322334DFDAC9F22AB3E0@phx.gbl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] fix sk->sk_filter field access
+Date: Wed, 30 Aug 2006 14:30:15 -0700 (PDT)
+Message-ID: <20060830.143015.104035096.davem@davemloft.net>
+References: <200608301707.14250.dim@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, dev@sw.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:32201 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S932085AbWH3V0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 17:26:09 -0400
-To: "Frank Schneider" <twodipu@hotmail.com>
-In-Reply-To: <BAY101-F5AD1ED322334DFDAC9F22AB3E0@phx.gbl>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:11999
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932082AbWH3VaO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Aug 2006 17:30:14 -0400
+To: dim@openvz.org
+In-Reply-To: <200608301707.14250.dim@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 30 Aug 2006 22:58:17 +0200
-"Frank Schneider" <twodipu@hotmail.com> wrote:
+From: Dmitry Mishin <dim@openvz.org>
+Date: Wed, 30 Aug 2006 17:07:14 +0400
 
+> Function sk_filter() is called from tcp_v{4,6}_rcv() functions with argue 
+> needlock = 0, while socket is not locked at that moment. In order to avoid 
+> this and similar issues in the future, use rcu for sk->sk_filter field read 
+> protection.
 > 
-> hi all,
-> 
-> I am writing/customizing a network(wlan pc card) device driver for Linux 
-> kernel 2.6.12
-> Think about I have two modules e.g. ath_pci and wlan module.
-> I can call a function from a   .c file which is implemented in a  .c file in 
-> wlan module by using EXPORT_SYMBOL macro..
-> 
-> and i need to do same in reverse way, i.e. call a function from wlan module 
-> that is implemented in ath_pci module.
-> 
-> I did the same way and its making but when I do  make install its showing 
-> following error:
-> 
-> WARNING: Loop detected: /lib/modules/2.6.12/net/ath_pci.ko needs wlan.ko 
-> which needs ath_pci.ko again!
-> 
-> Please anybody tell how can I do this, any clue , please ?
-> 
-> thanx in advance
-> 
-> n.b. this question may consider as very naive since I am not good yet in 
-> kernel hacking.. !!!!
-> 
-> regards,
-> /Frank
+> Patch is for net-2.6.19
 
-Where are these open source drivers so the wireless developers can help?
+What bug are you fixing?  The current code looks correct to me.
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+Why is it important to avoid the needlock stuff in the future?
+
+This patch description is very incomplete, you should list the
+precise reason why you are doing something instead of using
+vague language.
+
+Thanks.
