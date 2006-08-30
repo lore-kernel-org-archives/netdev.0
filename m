@@ -1,40 +1,48 @@
-From: "Andrew Hall" <andrew.hall@bluereefnetworks.com>
-Subject: re: [RFT] sky2: transmit complete alternative
-Date: Thu, 31 Aug 2006 09:22:05 +1000
-Message-ID: <050601c6cc8b$1cb4a8c0$5001010a@bluereef.local>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: NAPI: netif_rx_reschedule() ??
+Date: Wed, 30 Aug 2006 16:31:12 -0700
+Message-ID: <adapsehls1r.fsf@cisco.com>
+References: <adau03tlvx8.fsf@cisco.com>
+	<20060830161219.7878bada@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=original
-Content-Transfer-Encoding: 7bit
-Cc: <shemminger@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.biz.mail.mud.yahoo.com ([68.142.200.253]:49853 "HELO
-	smtp105.biz.mail.mud.yahoo.com") by vger.kernel.org with SMTP
-	id S1751629AbWH3XWJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Aug 2006 19:22:09 -0400
-To: <netdev@vger.kernel.org>
+Received: from sj-iport-5.cisco.com ([171.68.10.87]:48976 "EHLO
+	sj-iport-5.cisco.com") by vger.kernel.org with ESMTP
+	id S1751027AbWH3XbR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Aug 2006 19:31:17 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060830161219.7878bada@localhost.localdomain> (Stephen Hemminger's message of "Wed, 30 Aug 2006 16:12:19 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Has there been any updates on a fix for the sky2 tx timeout issues?
+    Stephen> The undo should really be handled by the caller, not in
+    Stephen> netif_rx_reschedule.  The existing interface assumes you
+    Stephen> have already deducted N from your quota and so it needs
+    Stephen> to be put back.
 
-I have been tracking this problem for a while and consistently see this
-issue when the interface is under heavy load. I'm using 2.6.17.11 but have
-tried .15, .16, .17 and .18rcX all with the same issue - a large amount of
-(HTTP generated test workload) traffic will cause the driver to stop 
-responding, report an error (as below)
-and the machine to "hang" for about 20 seconds. As others have mentioned, a
-down/up of the interface will recover until it locks up again. The dmesg
-output for me is usually something like:
+makes sense -- especially since the caller probably also deducted N
+from *budget, and netif_rx_reschedule() doesn't touch that.
 
-sky2 eth1: tx timeout
-sky2 eth1: transmit ring 397 .. 356 report=399 done 399
-sky2 status report lost?
+    Stephen> If poll is already scheduled, then after leaving this
+    Stephen> poll call, another will occur.  If the poll routine just
+    Stephen> went ahead and rescanned that would work as well. The
+    Stephen> important part is not to leave the poll routine without
+    Stephen> being in one of these states: * all work is done, and
+    Stephen> hardware is empty and/or will interrupt for more.  * some
+    Stephen> work was done, and device left on poll_list with softirq
+    Stephen> raised
 
-I have also tried the new transmit code that was supplied earlier in this
-thread without improvement of this situation.
+But how does the return value of netif_rx_reschedule() help anything?
+It either tells you that a poll was already scheduled, or that it
+succeeded in scheduling a poll.  In either case another poll will
+happen.  So why should the caller care?
 
-Any help appreciated.,
+Or is it possible that netif_rx_reschedule() returning 0 might mean
+that it failed to reschedule the poll routine?  But even if that's
+true, how can the caller use that -- 0 might mean the poll was already
+rescheduled, and it might mean that the poll couldn't be resheduled,
+but there's no way for the caller to know which.
 
+ - R.
