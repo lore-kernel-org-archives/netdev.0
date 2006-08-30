@@ -1,53 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix sk->sk_filter field access
-Date: Wed, 30 Aug 2006 15:32:59 -0700 (PDT)
-Message-ID: <20060830.153259.59653494.davem@davemloft.net>
-References: <200608301707.14250.dim@openvz.org>
-	<20060830.143015.104035096.davem@davemloft.net>
-	<20060830222042.GA21714@ms2.inr.ac.ru>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Dlink PCI/PCMCIA  id conflicts
+Date: Wed, 30 Aug 2006 15:37:38 -0700
+Message-ID: <20060830153738.0bc23c98@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dim@openvz.org, netdev@vger.kernel.org, dev@sw.ru
+Cc: netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:5858
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932211AbWH3Wc7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Aug 2006 18:32:59 -0400
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <20060830222042.GA21714@ms2.inr.ac.ru>
+Received: from smtp.osdl.org ([65.172.181.4]:32142 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S932217AbWH3WlC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 18:41:02 -0400
+To: Thomas =?UTF-8?B?Qm9nZW5kw7ZyZmVy?= <tsbogend@alpha.franken.de>,
+	Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Date: Thu, 31 Aug 2006 02:20:42 +0400
+It appears that the Dlink DGE-550SX card has this pci_id:
+	vendor = 0x1186, device = 0x4001
+(decoded from SysKonnect version of sk98lin driver).
 
-> Current code in tcp_v4_rcv() calls sk_filter() _before_ it takes socket lock.
-> This happened when LSM patches were applied. Apparently, LSM does not
-> want to see socket locked in security_sock_rcv_skb().
+According to a couple of places Dlink also uses the same id for the DFE-650TX
+card.  Before I add this to the sky2 driver, I want to make sure not to break
+existing users of the other card. 
 
-Ok.
+Does the pcmcia code end up overlapping the pci on this?
 
-> Obvious solution is to change the third argument of sk_filter
-> "needlock" to 1.  Then we see that sk_filter() is not used with
-> needlock=0 anymore, therefore it can be completely eliminated. It
-> was original fix.
+Alternatively, we need to use the version id to disambiguate which was
+done already for another Dlink card.  That would mean finding people with
+all the versions of the cards to decode what to put in the table (yuck).
 
-Really?
 
-It is used with needlock=0 by DCCP ipv6, for example.  This case seems
-correct too.  What about sk_receive_skb()?  dn_queue_skb()?  In fact,
-there seems to be numerous uses still with needlock=0, all legitimate.
-
-> I suggested to remove ugly misuse of bh_lock_sock() (introduced by
-> me, just because there was no better lock to use) and replace it
-> with RCU, which is logical and clean.
->
-> The patch looks decent. I had one doubt about misuse of
-> rcu_read_lock_bh() in sk_attach_filter(). Probably, it should be
-> plain local_bh_disable(), I do not know. But because
-> rcu_read_lock_bh() actually is local_bh_disable(), it seems to be
-> not a serious issue.
-
-Let us to fix bugs first, and then consider rewriting the locking.
-:-)
+-- 
+Stephen Hemminger <shemminger@osdl.org>
