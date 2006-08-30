@@ -1,53 +1,41 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH 5/7] d80211: indicate if unassociate/radio off status
-Date: Wed, 30 Aug 2006 10:22:43 -0700
-Message-ID: <200608301022.48549.flamingice@sourmilk.net>
-References: <44F356DF.9000000@linux.intel.com> <200608291601.56901.flamingice@sourmilk.net> <1156945303.2725.7.camel@localhost.localdomain>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH]d80211: fix "iwconfig key [x]" behavior
+Date: Wed, 30 Aug 2006 19:24:52 +0200
+Message-ID: <20060830192452.6ae099d5@griffin.suse.cz>
+References: <1156754199.6061.3.camel@devlinux-hong>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart5906429.AOqZueGMrk";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Mohamed Abbas <mabbas@linux.intel.com>,
-	Jouni Malinen <jkm@devicescape.com>, netdev@vger.kernel.org,
-	jbenc@suse.cz
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server8.tchmachines.com ([216.180.241.250]:60590 "EHLO
-	server8.tchmachines.com") by vger.kernel.org with ESMTP
-	id S1751183AbWH3RXM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Aug 2006 13:23:12 -0400
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <1156945303.2725.7.camel@localhost.localdomain>
+Received: from styx.suse.cz ([82.119.242.94]:62437 "EHLO mail.suse.cz")
+	by vger.kernel.org with ESMTP id S1751200AbWH3RYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 13:24:54 -0400
+To: Hong Liu <hong.liu@intel.com>
+In-Reply-To: <1156754199.6061.3.camel@devlinux-hong>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart5906429.AOqZueGMrk
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Mon, 28 Aug 2006 16:36:39 +0800, Hong Liu wrote:
+> "iwconfig key [x]" behavior is not correctly handled in the stack, also
+> modify the giwencode method to show the key info.
 
-On Wednesday 30 August 2006 06:41, Dan Williams wrote:
-> Um, that's how it's supposed to work, and that's how it's always worked.
-> If you're associated with an access point, its BSSID is returned from
-> SIOCGIWAP.  If you are not associated, 00:00:00:00:00:00 is returned.
-> Please don't break that.
-It's already broken in d80211, AFAICT. That's why I replied to myself, afte=
-r=20
-checking how the implementation actually works.
+Thanks for spotting and fixing these bugs!
 
-=2DMichael Wu
+> @@ -2869,7 +2877,8 @@ static int ieee80211_ioctl_giwencode(str
+>  		return 0;
+>  	}
+>  
+> -	erq->length = 0;
+> +	erq->length = sdata->keys[idx]->keylen;
+> +	memcpy(key, sdata->keys[idx]->key, erq->length);
 
---nextPart5906429.AOqZueGMrk
-Content-Type: application/pgp-signature
+Shouldn't there be a check for buffer size here?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
+Thanks,
 
-iD8DBQBE9cloT3Oqt9AH4aERAmcEAJ42fshOuLTMlfyUhNWWwyXlgLvKHgCgip57
-hohx8Hw6SlrvAM5OWd7haKQ=
-=KqgV
------END PGP SIGNATURE-----
+ Jiri
 
---nextPart5906429.AOqZueGMrk--
+-- 
+Jiri Benc
+SUSE Labs
