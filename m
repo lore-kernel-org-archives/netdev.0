@@ -1,52 +1,55 @@
-From: "Thibaut VARENE" <T-Bone@parisc-linux.org>
-Subject: Re: [BUG] in skge.c on 2.6.18-rc5
-Date: Wed, 30 Aug 2006 19:36:56 +0200
-Message-ID: <7d01f9f00608301036m621149bt82b4c007a6432a6@mail.gmail.com>
-References: <7d01f9f00608300830j74871672o31b9ce126ee8c07d@mail.gmail.com>
-	 <7d01f9f00608301021v5d02b18dg8b0d993ee3dd1977@mail.gmail.com>
-	 <20060830102916.0e64e3b5@localhost.localdomain>
+From: Mark Ferguson <mark.ferguson1@virgilio.it>
+Subject: I AWAIT YOUR RESPONSE
+Date: Wed, 30 Aug 2006 18:37:31 +0100 (GMT+01:00)
+Message-ID: <10d6028386d.mark.ferguson1@virgilio.it>
+Reply-To: mark.ferguson1@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.180]:45437 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S1751201AbWH3Rg5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Aug 2006 13:36:57 -0400
-Received: by py-out-1112.google.com with SMTP id n25so371999pyg
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2006 10:36:56 -0700 (PDT)
-To: "Stephen Hemminger" <shemminger@osdl.org>
-In-Reply-To: <20060830102916.0e64e3b5@localhost.localdomain>
-Content-Disposition: inline
+Received: from vsmtp2.tin.it ([212.216.176.222]:31678 "EHLO vsmtp2.tin.it")
+	by vger.kernel.org with ESMTP id S1751244AbWH3Rpp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 13:45:45 -0400
+To: unlisted-recipients:; (no To-header on input)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/30/06, Stephen Hemminger <shemminger@osdl.org> wrote:
-> On Wed, 30 Aug 2006 19:21:20 +0200
-> "Thibaut VARENE" <T-Bone@parisc-linux.org> wrote:
->
-> > Replying to myself as I've been pointed at Stephen's reply (please CC
-> > me, i'm not subscribed):
-> >
-> > I'm bringing the interface up with 'dhclient eth0', and yes it's using autoneg.
-> >
->
-> Any chance of getting a backtrace; serial port, digital camera, handwritten note?
+Dear Friend, 
+I write to you based on a request by an investor and his 
+need for investment/funding in your country. My name is Mark Ferguson, 
+a financial consultant and I work with a reputable financial services 
+firm.
 
-If you can deal with this extremely blurry shot:
-http://www.pateam.org/archive/tmp/IMGP0825.JPG
+My company most times represents the interests of very wealthy 
+investors. Due to the sensitivity of the position they hold in thier 
+society and the unstable investment environment of their country, they 
+evacuate majority of their funds into more stable economies and 
+developed nations where they can get good yield for their money. 
 
-begins with "mod_timer" / "neigh_update" / "read_lock" and so on.
+I 
+was recently approached by a Reserved Client, whom I had personally 
+worked with a few years ago with a proposal.What he request is an 
+individual such as yourself, who will be willing to receive money on 
+his behalf abroad, and put it to good use for a period not exceeding 6 
+years for a start.
 
-Worst case I'll reproduce the bug again and dump a better bt, but I'd
-rather avoid as much as possible as I use that machine a lot right now
-;P
+The client has offered these terms:
 
-HTH
+1. 30% 
+commission paid to me and my foreign partner of the total funds 
+successfully evacuated. The funds in question are over 13.2Million 
+USDollars.
+2. The funds will be used by the foreign partner for six 
+years as a loan without any interest. That is, you do not pay any 
+interest on the money but you give the client 50% of all profits after 
+tax that accrued from the use of the funds.
 
-T-Bone
+If these terms are 
+agreeable to you, kindly let me know and I will provide you with all 
+necessary information and procedures involved. 
+Looking forward for 
+your prompt response. 
+Sincerely yours, 
+Mark Ferguson. 
 
--- 
-Thibaut VARENE
-http://www.parisc-linux.org/~varenet/
+
