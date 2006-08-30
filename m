@@ -1,45 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] IP1000A: IC Plus update 2006-08-22
-Date: Thu, 31 Aug 2006 00:43:40 +0200
-Message-ID: <20060830224340.GA6248@electric-eye.fr.zoreil.com>
-References: <1156268234.3622.1.camel@localhost.localdomain> <20060822232730.GA30977@electric-eye.fr.zoreil.com> <20060823113822.GA17103@electric-eye.fr.zoreil.com> <20060823223032.GA25111@electric-eye.fr.zoreil.com> <026c01c6c71d$0fde1730$4964a8c0@icplus.com.tw> <20060824220758.GA19637@electric-eye.fr.zoreil.com> <20060827220816.GA21788@electric-eye.fr.zoreil.com> <002a01c6ca43$ae73ebd0$4964a8c0@icplus.com.tw>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: high latency with TCP connections
+Date: Wed, 30 Aug 2006 16:00:42 -0700
+Message-ID: <44F6189A.7000703@hp.com>
+References: <20060830100734.GA22235@isil.ipib.msu.ru>	<20060830102727.11e11453@localhost.localdomain> <20060830.143955.55510936.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: penberg@cs.Helsinki.FI, akpm@osdl.org, dvrabel@cantab.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	david@pleyades.net, dominik.schulz@gauner.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, alex@sectorb.msk.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:23432 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1751166AbWH3WoV
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Aug 2006 18:44:21 -0400
-To: Jesse Huang <jesse@icplus.com.tw>
-Content-Disposition: inline
-In-Reply-To: <002a01c6ca43$ae73ebd0$4964a8c0@icplus.com.tw>
+Received: from palrel10.hp.com ([156.153.255.245]:38040 "EHLO palrel10.hp.com")
+	by vger.kernel.org with ESMTP id S1751603AbWH3XAp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 19:00:45 -0400
+To: David Miller <davem@davemloft.net>
+In-Reply-To: <20060830.143955.55510936.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu <romieu@fr.zoreil.com> :
-[...]
-> Added:
-> 0043-ip1000-use-the-new-IRQF_-constants-and-the-dma_-alloc-free-_coherent-AP
-> I.txt
-> 0044-ip1000-mixed-case-and-upper-case-removal.txt
-> 0045-ip1000-add-ipg_-r-w-8-16-32-macros.txt
+David Miller wrote:
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Wed, 30 Aug 2006 10:27:27 -0700
+> 
+> 
+>>Linux TCP implements "Appropriate Byte Count" (ABC) and this penalizes
+>>applications that do small sends. The problem is that the other side
+>>may be delaying acknowledgments.  If receiver doesn't acknowledge the
+>>sender will limit itself to the congestion window. If the flow is light,
+>>then you will be limited to 4 packets.
+> 
+> 
+> Right.
+> 
+> However it occured to me the other day that ABC could be made smarter.
+> If we sent small frames, ABC should account for that.
 
-Added:
-0046-ip1000-kiss-TxBuffDMAhandle-goodbye.txt
-0047-ip1000-kiss-RxBuffDMAhandle-goodbye.txt
-0048-ip1000-turn-StationAddr-0-1-2-into-an-array.txt
-0049-ip1000-switch-to-classical-tx_current-tx_dirty-ring-management.txt
+Is that part of the application of a byte-based RFC to packet-counting cwnd?
 
-The previous branch for the driver at
-git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git has been stored
-as 'netdev-ipg-20060831.old'. The current one is based on dc709bd and
-named 'ipg'.
-
-Nothing will be pushed tomorrow as I have some bugs to review in different
-drivers.
-
--- 
-Ueimor
+rick jones
