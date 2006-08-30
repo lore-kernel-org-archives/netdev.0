@@ -1,126 +1,224 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH] Fix verify_iovec() to not allow overflow of iov_len
-	values
-Date: Wed, 30 Aug 2006 10:57:16 -0700
-Message-ID: <1156960637.3354.26.camel@w-sridhar2.beaverton.ibm.com>
-References: <1156874129.3147.2.camel@w-sridhar2.beaverton.ibm.com>
-	 <20060829.214453.112264010.davem@davemloft.net>
+From: Mohamed Abbas <mabbas@linux.intel.com>
+Subject: Re: [PATCH 2/7] d80211: add support for SIOCSIWRATE and SIOCGIWRATE
+Date: Wed, 30 Aug 2006 11:23:49 -0700
+Message-ID: <44F5D7B5.6070808@linux.intel.com>
+References: <44F355EE.3090607@linux.intel.com> <20060830171919.GC18041@instant802.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: chrisw@sous-sol.org, akpm@osdl.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, jbenc@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:63115 "EHLO e2.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1751271AbWH3R6H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 13:58:07 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e2.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id k7UHw4pR009647
-	for <netdev@vger.kernel.org>; Wed, 30 Aug 2006 13:58:04 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k7UHvJwM150182
-	for <netdev@vger.kernel.org>; Wed, 30 Aug 2006 13:57:19 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k7UHvIut024779
-	for <netdev@vger.kernel.org>; Wed, 30 Aug 2006 13:57:18 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060829.214453.112264010.davem@davemloft.net>
+Received: from mga06.intel.com ([134.134.136.21]:41081 "EHLO
+	orsmga101.jf.intel.com") by vger.kernel.org with ESMTP
+	id S1751288AbWH3SdA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Aug 2006 14:33:00 -0400
+To: Jouni Malinen <jkm@devicescape.com>
+In-Reply-To: <20060830171919.GC18041@instant802.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2006-08-29 at 21:44 -0700, David Miller wrote:
-> From: Sridhar Samudrala <sri@us.ibm.com>
-> Date: Tue, 29 Aug 2006 10:55:29 -0700
-> 
-> > verify_iovec() has the following piece of code that allows overflow
-> > of iov_len values in an iovec.
-> > 
-> >         for (ct = 0; ct < m->msg_iovlen; ct++) {
-> >                 err += iov[ct].iov_len;
-> >                 /*
-> >                  * Goal is not to verify user data, but to prevent returning
-> >                  * negative value, which is interpreted as errno.
-> >                  * Overflow is still possible, but it is harmless.
-> >                  */
-> >                 if (err < 0)
-> >                         return -EMSGSIZE;
-> >         }
-> > 
-> > The comment specifically says that overflow is harmless, but I don't see any
-> > valid reason to allow overflow.
-> > 
-> > Also, iov_len is of type size_t which is a 64-bit value on 64-bit systems,
-> > but we store and return the overall iovec length in an int.
-> 
-> Just some notes so that it is understood the context in which
-> such changes are being proposed.
-> 
-> First of all, several memcpy() and copy_{to,from}_user()
-> implementations BUG trap on lengths which have bit 31 or higher set.
-> It always indicates a bug of some sort in the call chain, so behaving
-> as if we support larger than positive signed 32-bit lengths here is
-> probably asking for trouble.
-> 
-> Also, the protocol downcalls all return "int", not "long" so it's even
-> impossible to report successful sending of larger than positive signed
-> 32-bit lengths.  Even kernel_sendmsg() and friends return "int".
-> 
-> We can pretend that larger than positive signed 32-bit lengths in an
-> iovec will work, but they surely won't.
-> 
-> And since the sendmsg() man page was quoted:
-> 
->        If the message is too long to pass atomically  through  the  underlying
->        protocol, the error EMSGSIZE is returned, and the message is not trans$,1rp
->        mitted.
-> 
-> which matches perfectly with the fact that the protocol downcalls
-> return "int"  not "size_t" nor  "ssize_t".
+Jouni Malinen wrote:
 
-OK. So the maximum message size that can be supported via sendmsg/recvmsg
-is limited to INT_MAX. Then i think we should limit each iov_len value
-and the sum of all iov_len values to INT_MAX.
-It looks like copy_{to,from}_user() support upto LONG_MAX but most of the
-networking routines return only an int.
+>On Mon, Aug 28, 2006 at 01:45:34PM -0700, mabbas wrote:
+>
+> =20
+>
+>>This patch modify d80211 to add SIOCSIWRATE and SIOCGIWRATE
+>>commands. this patch almost does the same thing as in=20
+>>PRISM2_HOSTAPD_SET_RATE_SETS.
+>>   =20
+>>
+>
+>I don't think I would like to get this applied since this seems to be
+>changing the design on how the per-STA TX rate limiting is done in a
+>way that does not match the original design and no justification has
+>been given for that change so far. Some comments below.
+> =20
+>
+per-STA rate limiting is enforced by what the AP beacon supported rates=
+=20
+values . this code is to enforce rate limiting for this interface=20
+regarding to any AP we join. looking at the code the overall rate=20
+restriction will be a combination of these two restrictions. this code=20
+is to implement for the below description in iwconfig man page.
 
-Currently if we pass an iovec with 2 iov_len values 0x7fffffff and 
-0x80000002, verify_iovec returns a total length as 1 and we proceed
-without any error with a truncated user message.
+rate/bit[rate]
+=46or cards supporting multiple bit rates, set the bit-rate in b/s. The=
+=20
+bit-rate is the speed at
+which bits are transmitted over the medium, the user speed of the link=20
+is lower due to medium
+sharing and various overhead.
+You may append the suffix k, M or G to the value (decimal multiplier :=20
+10^3, 10^6 and 10^9 b/s),
+or add enough =D9=820=D9=82. Values below 1000 are card specific, usual=
+ly an index=20
+in the bit-rate list. Use
+auto to select automatic bit-rate mode (fallback to lower rate on noisy=
+=20
+channels), which is the
+default for most cards, and fixed to revert back to fixed setting. If=20
+you specify a bit-rate value
+and append auto, the driver will use all bit-rates lower and equal than=
+=20
+this value.
+Examples :
+iwconfig eth0 rate 11M
+iwconfig eth0 rate auto
+iwconfig eth0 rate 5.5M auto
 
-The following patch avoids overflow of iov_len values beyond INT_MAX.
+>
+> =20
+>
+>>--- a/net/d80211/ieee80211_i.h
+>>@@ -280,6 +280,9 @@ #define IEEE80211_AUTH_ALG_LEAP BIT(2)
+>>    struct sk_buff *probe_resp; /* ProbeResp template for IBSS */
+>>    u32 supp_rates_bits;
+>>=20
+>>+	u32 last_rate; /* last tx data rate value. management and multi cas=
+t frame
+>>+			* wont be used. */
+>>   =20
+>>
+>
+>Is this information valuable enough to collect with all the extra code
+>in ieee80211_tx_h_rate_ctrl()? The last rate can be fetched from the S=
+TA
+>entry. It won't be the exact same value as this one here, but then
+>again, I don't really see much point in reporting the last used TX rat=
+e
+>since it can be changing a lot. Some sort of average over the last N
+>frames could be more useful information to collect, if that level of
+>detail is needed.
+> =20
+>
+The idea here is to report the last rate performed with this link once=20
+requested by iwconfig so the user
+can know the performance of the link. I can add some averaging but=20
+really the user want to see last value. I thought of using STA entry
+but in case IBSS mode there maybe many of them which once to report=20
+adding this entry will report last rate used by all of the station.
 
-diff --git a/net/compat.c b/net/compat.c
-index d5d69fa..e8f5345 100644
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -44,7 +44,11 @@ static inline int iov_from_user_compat_t
- 			tot_len = -EFAULT;
- 			break;
- 		}
-+		if (unlikely(len > INT_MAX))
-+			return -EMSGSIZE;
- 		tot_len += len;
-+		if (unlikely(tot_len < 0))
-+			return -EMSGSIZE;
- 		kiov->iov_base = compat_ptr(buf);
- 		kiov->iov_len = (__kernel_size_t) len;
- 		uiov32++;
-diff --git a/net/core/iovec.c b/net/core/iovec.c
-index 65e4b56..ee5a265 100644
---- a/net/core/iovec.c
-+++ b/net/core/iovec.c
-@@ -61,11 +61,12 @@ int verify_iovec(struct msghdr *m, struc
- 	err = 0;
- 
- 	for (ct = 0; ct < m->msg_iovlen; ct++) {
-+		if (unlikely(iov[ct].iov_len > INT_MAX))
-+			return -EMSGSIZE;
- 		err += iov[ct].iov_len;
- 		/*
- 		 * Goal is not to verify user data, but to prevent returning
- 		 * negative value, which is interpreted as errno.
--		 * Overflow is still possible, but it is harmless.
- 		 */
- 		if (err < 0)
- 			return -EMSGSIZE;
+>
+> =20
+>
+>>--- a/net/d80211/ieee80211_ioctl.c
+>>+++ b/net/d80211/ieee80211_ioctl.c
+>>@@ -2138,6 +2138,103 @@ static int ieee80211_ioctl_giwretry(stru
+>> 	return 0;
+>> }
+>>=20
+>>+static int ieee80211_ioctl_siwrate(struct net_device *dev,
+>>+                                struct iw_request_info *info,
+>>+                                union iwreq_data *wrqu, char *extra)
+>>+{
+>>+	struct ieee80211_local *local =3D dev->ieee80211_ptr;
+>>+	int i, j;
+>>+	u32 target_rate =3D wrqu->bitrate.value /100000;
+>>+	u32 fixed;
+>>+	int *old_supp =3D local->supp_rates[local->conf.phymode];
+>>+	int *supp =3D NULL;
+>>+
+>>+	/* value =3D -1, fixed =3D 0 means auto only, so we should use
+>>+	 * all rates offered by AP
+>>+	 * value =3D X, fixed =3D 1 means only rate X
+>>+	* value =3D X, fixed =3D 0 means all rates lower equal X */
+>>   =20
+>>
+>
+>Please keep in mind that this function can also be called in AP mode.
+> =20
+>
+I can check for STA and IBSS only
 
+> =20
+>
+>>+	fixed =3D wrqu->bitrate.fixed;
+>>+	supp =3D (int *) kmalloc((local->num_curr_rates + 1) *
+>>+					sizeof(int), GFP_KERNEL);
+>>+	if (!supp)
+>>+		return 0;
+>>   =20
+>>
+>
+>return -ENOMEM
+> =20
+>
+I will change it to return -ENOMEM
 
+> =20
+>
+>>+	j =3D 0;
+>>+	for (i=3D0; i< local->num_curr_rates; i++) {
+>>+		struct ieee80211_rate *rate =3D &local->curr_rates[i];
+>>+
+>>+		if (target_rate =3D=3D rate->rate) {
+>>+			supp[j++] =3D rate->rate;
+>>+			break;
+>>+		} else if (!fixed)
+>>+			supp[j++] =3D rate->rate;
+>>+	}
+>>   =20
+>>
+>
+>This can allow number of invalid configurations; especially so, since
+>there is no synchronization with basic reate sets here. In addition, I
+>would not really want to change the supported/basic rate sets this way=
+=2E
+>If there is desire to limit what rates the TX rate control algorithm i=
+s
+>using, this should be done by modifying per-STA entry data
+>(sta->supp_rates), not the per-radio rate table.
+> =20
+>
+I am calling ieee80211_prepare_rates which will sync basic rate for us.=
+=20
+again per-STA will be a problem for IBSS since I need to go to each=20
+station and apply this, and what about new added station I need to=20
+remember to apply this again, I think here is where it belong.
+
+> =20
+>
+>>+	/* number of supported rate equal to all current supported rate
+>>+	 * this equal like supp_rates =3D NULL so save process time and set
+>>+	* supp to NULL
+>>+	*/
+>>+	if ((j >=3D local->num_curr_rates) || (j =3D=3D 0)) {
+>>+		kfree(supp);
+>>+		supp =3D NULL;
+>>   =20
+>>
+>
+>Shouldn't these return an error and not replace the current rate
+>configuration?
+> =20
+>
+if we reach here then we support all rates available at this point it i=
+s=20
+the same as setting supp_rates =3D null, this will be faster so we
+dont need to search supp _rates. if supp_rates is null then all rate=20
+supported. as this code in ieee80211_prepare_rates show
+
+if (local->supp_rates[local->conf.phymode]) {
+if (!rate_list_match(local->supp_rates
+[local->conf.phymode],
+rate->rate))
+continue;
+}
+
+> =20
+>
+>>+	if (old_supp)
+>>+		kfree(old_supp);
+>>   =20
+>>
+>
+> =20
+>
+this pointer could be NULL
+
+>No need for 'if (old_supp)' before calling kfree(old_supp).
+>
+> =20
+>
