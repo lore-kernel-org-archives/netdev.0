@@ -1,67 +1,52 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH v5 1/2] iWARP Connection Manager.
-Date: Wed, 30 Aug 2006 10:35:30 -0700
-Message-ID: <adafyfem8il.fsf@cisco.com>
-References: <20060803210238.16228.47335.stgit@dell3.ogc.int>
-	<20060803210240.16228.18429.stgit@dell3.ogc.int>
+From: "Thibaut VARENE" <T-Bone@parisc-linux.org>
+Subject: Re: [BUG] in skge.c on 2.6.18-rc5
+Date: Wed, 30 Aug 2006 19:36:56 +0200
+Message-ID: <7d01f9f00608301036m621149bt82b4c007a6432a6@mail.gmail.com>
+References: <7d01f9f00608300830j74871672o31b9ce126ee8c07d@mail.gmail.com>
+	 <7d01f9f00608301021v5d02b18dg8b0d993ee3dd1977@mail.gmail.com>
+	 <20060830102916.0e64e3b5@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: openib-general@openib.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Jeff Garzik" <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:34596 "EHLO
-	sj-iport-6.cisco.com") by vger.kernel.org with ESMTP
-	id S1751170AbWH3Rfd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Aug 2006 13:35:33 -0400
-To: Steve Wise <swise@opengridcomputing.com>, tom@opengridcomputing.com
-In-Reply-To: <20060803210240.16228.18429.stgit@dell3.ogc.int> (Steve Wise's message of "Thu, 03 Aug 2006 16:02:40 -0500")
+Received: from py-out-1112.google.com ([64.233.166.180]:45437 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S1751201AbWH3Rg5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Aug 2006 13:36:57 -0400
+Received: by py-out-1112.google.com with SMTP id n25so371999pyg
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2006 10:36:56 -0700 (PDT)
+To: "Stephen Hemminger" <shemminger@osdl.org>
+In-Reply-To: <20060830102916.0e64e3b5@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-OK, getting closer to finishing the merge...
+On 8/30/06, Stephen Hemminger <shemminger@osdl.org> wrote:
+> On Wed, 30 Aug 2006 19:21:20 +0200
+> "Thibaut VARENE" <T-Bone@parisc-linux.org> wrote:
+>
+> > Replying to myself as I've been pointed at Stephen's reply (please CC
+> > me, i'm not subscribed):
+> >
+> > I'm bringing the interface up with 'dhclient eth0', and yes it's using autoneg.
+> >
+>
+> Any chance of getting a backtrace; serial port, digital camera, handwritten note?
 
-anyway, why is iw_cm_private.h in include/rdma where it is visible
-everywhere?  As far as I can tell drivers/infiniband/core/iwcm.c is
-the only place it's included.  So why not just put this stuff in
-drivers/infiniband/core/iwcm.h and do
+If you can deal with this extremely blurry shot:
+http://www.pateam.org/archive/tmp/IMGP0825.JPG
 
-	#include "iwcm.h"
+begins with "mod_timer" / "neigh_update" / "read_lock" and so on.
 
-Or the file is small enough that maybe it's simpler just to stuff this
-at the top of iwcm.c and kill the include entirely?
+Worst case I'll reproduce the bug again and dump a better bt, but I'd
+rather avoid as much as possible as I use that machine a lot right now
+;P
 
- - R.
+HTH
 
- > --- /dev/null
- > +++ b/include/rdma/iw_cm_private.h
- > @@ -0,0 +1,63 @@
- > +#ifndef IW_CM_PRIVATE_H
- > +#define IW_CM_PRIVATE_H
- > +
- > +#include <rdma/iw_cm.h>
- > +
- > +enum iw_cm_state {
- > +	IW_CM_STATE_IDLE,             /* unbound, inactive */
- > +	IW_CM_STATE_LISTEN,           /* listen waiting for connect */
- > +	IW_CM_STATE_CONN_RECV,        /* inbound waiting for user accept */
- > +	IW_CM_STATE_CONN_SENT,        /* outbound waiting for peer accept */
- > +	IW_CM_STATE_ESTABLISHED,      /* established */
- > +	IW_CM_STATE_CLOSING,	      /* disconnect */
- > +	IW_CM_STATE_DESTROYING        /* object being deleted */
- > +};
- > +
- > +struct iwcm_id_private {
- > +	struct iw_cm_id	id;
- > +	enum iw_cm_state state;
- > +	unsigned long flags;
- > +	struct ib_qp *qp;
- > +	struct completion destroy_comp;
- > +	wait_queue_head_t connect_wait;
- > +	struct list_head work_list;
- > +	spinlock_t lock;
- > +	atomic_t refcount;
- > +	struct list_head work_free_list;
- > +};
- > +#define IWCM_F_CALLBACK_DESTROY   1
- > +#define IWCM_F_CONNECT_WAIT       2
- > +
- > +#endif /* IW_CM_PRIVATE_H */
+T-Bone
+
+-- 
+Thibaut VARENE
+http://www.parisc-linux.org/~varenet/
