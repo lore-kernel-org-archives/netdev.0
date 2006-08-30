@@ -1,82 +1,68 @@
 From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 2.6.18] WE-21 for bcm43xx (wireless-2.6 git)
-Date: Wed, 30 Aug 2006 14:51:05 +0200
-Message-ID: <200608301451.05697.mb@bu3sch.de>
-References: <20060830011211.GO8405@bougret.hpl.hp.com>
+Subject: Re: [PATCH] zd1211rw: Removed unneeded packed attributes
+Date: Wed, 30 Aug 2006 15:06:03 +0200
+Message-ID: <200608301506.03296.mb@bu3sch.de>
+References: <20060829225143.AD4637B40A0@zog.reactivated.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	"John W. Linville" <linville@tuxdriver.com>, netdev@vger.kernel.org
+Cc: linville@tuxdriver.com, netdev@vger.kernel.org, kune@deine-taler.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:47289
-	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750918AbWH3Mvz
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:7618
+	"EHLO bu3sch.de") by vger.kernel.org with ESMTP id S1750988AbWH3NHQ
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Aug 2006 08:51:55 -0400
-To: jt@hpl.hp.com
-In-Reply-To: <20060830011211.GO8405@bougret.hpl.hp.com>
+	Wed, 30 Aug 2006 09:07:16 -0400
+To: Daniel Drake <dsd@gentoo.org>
+In-Reply-To: <20060829225143.AD4637B40A0@zog.reactivated.net>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 30 August 2006 03:12, Jean Tourrilhes wrote:
->         Hi,
+On Wednesday 30 August 2006 00:51, Daniel Drake wrote:
+> From: Ulrich Kunitz <kune@deine-taler.de>
 > 
->         WE-21 for Broadcom driver and SoftMAC...
-> 	This version is for wireless-2.6 git.
+> Inspired by an e-mail by Stephen Hemminger I decided to remove all
+> unneeded packed attributes from the code where the member variables are
+> already aligned. This avoids horrible code being generated on some
+> architectures.
 > 
->         Jean
+> Signed-off-by: Ulrich Kunitz <kune@deine-taler.de>
+> Signed-off-by: Daniel Drake <dsd@gentoo.org>
+> ---
+>  zd_ieee80211.h |    2 +-
+>  zd_mac.c       |    2 +-
+>  zd_mac.h       |    4 ++--
+>  zd_usb.h       |   14 +++++++-------
+>  4 files changed, 11 insertions(+), 11 deletions(-)
 > 
-> Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
+> Index: linux-2.6/drivers/net/wireless/zd1211rw/zd_ieee80211.h
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/wireless/zd1211rw/zd_ieee80211.h
+> +++ linux-2.6/drivers/net/wireless/zd1211rw/zd_ieee80211.h
+> @@ -64,7 +64,7 @@ struct cck_plcp_header {
+>  	u8 service;
+>  	__le16 length;
+>  	__le16 crc16;
+> -} __attribute__((packed));
+> +};
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+Because this clearly is a workaround for broken compilers to me,
+I would rather do the following:
 
-Next time CC Larry Finger <Larry.Finger@lwfinger.net>,
-as he is the bcm43xx-softmac maintainer, please.
+--- linux-2.6.orig/drivers/net/wireless/zd1211rw/zd_ieee80211.h
++++ linux-2.6/drivers/net/wireless/zd1211rw/zd_ieee80211.h
+@@ -64,7 +64,7 @@ struct cck_plcp_header {
+ 	u8 service;
+ 	__le16 length;
+ 	__le16 crc16;
+-} __attribute__((packed));
++} /* __attribute__((packed)) */;
 
-> -----------------------------------------------------------
-> 
-> diff -u -p linux/net/ieee80211/softmac/ieee80211softmac_wx.20.c linux/net/ieee80211/softmac/ieee80211softmac_wx.c
-> --- linux/net/ieee80211/softmac/ieee80211softmac_wx.20.c	2006-08-29 14:45:56.000000000 -0700
-> +++ linux/net/ieee80211/softmac/ieee80211softmac_wx.c	2006-08-29 14:46:24.000000000 -0700
-> @@ -80,10 +80,10 @@ ieee80211softmac_wx_set_essid(struct net
->  	 * If it's our network, ignore the change, we're already doing it!
->  	 */
->  	if((sm->associnfo.associating || sm->associated) &&
-> -	   (data->essid.flags && data->essid.length && extra)) {
-> +	   (data->essid.flags && data->essid.length)) {
->  		/* Get the associating network */
->  		n = ieee80211softmac_get_network_by_bssid(sm, sm->associnfo.bssid);
-> -		if(n && n->essid.len == (data->essid.length - 1) &&
-> +		if(n && (n->essid.len == data->essid.length) &&
->  		   !memcmp(n->essid.data, extra, n->essid.len)) {
->  			dprintk(KERN_INFO PFX "Already associating or associated to "MAC_FMT"\n",
->  				MAC_ARG(sm->associnfo.bssid));
-> @@ -109,8 +109,8 @@ ieee80211softmac_wx_set_essid(struct net
->  	sm->associnfo.static_essid = 0;
->  	sm->associnfo.assoc_wait = 0;
->  
-> -	if (data->essid.flags && data->essid.length && extra /*required?*/) {
-> -		length = min(data->essid.length - 1, IW_ESSID_MAX_SIZE);
-> +	if (data->essid.flags && data->essid.length) {
-> +		length = min((int) data->essid.length, IW_ESSID_MAX_SIZE);
->  		if (length) {
->  			memcpy(sm->associnfo.req_essid.data, extra, length);
->  			sm->associnfo.static_essid = 1;
-> diff -u -p linux/drivers/net/wireless/bcm43xx/bcm43xx_wx.20.c linux/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-> --- linux/drivers/net/wireless/bcm43xx/bcm43xx_wx.20.c	2006-08-29 14:46:08.000000000 -0700
-> +++ linux/drivers/net/wireless/bcm43xx/bcm43xx_wx.c	2006-08-29 14:47:47.000000000 -0700
-> @@ -334,7 +334,7 @@ static int bcm43xx_wx_get_nick(struct ne
->  	size_t len;
->  
->  	mutex_lock(&bcm->mutex);
-> -	len = strlen(bcm->nick) + 1;
-> +	len = strlen(bcm->nick);
->  	memcpy(extra, bcm->nick, len);
->  	data->data.length = (__u16)len;
->  	data->data.flags = 1;
-> 
+
+This way it's still clear to the reader, that these structs
+must be packed and are most likely for communication with
+the hardware.
 
 -- 
 Greetings Michael.
