@@ -1,46 +1,40 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: PATCH: br_stp.c:271: ignoring BPDUs if cost goes up
-Date: Wed, 30 Aug 2006 12:11:36 -0700
-Message-ID: <20060830121136.0e96246e@localhost.localdomain>
-References: <44F5D334.7050205@bristyle.com>
+From: "franco.daje@virgilio.it" <franco.daje@virgilio.it>
+Subject: i not find in the kernel code the code of this command
+Date: Wed, 30 Aug 2006 19:46:14 +0100 (GMT+01:00)
+Message-ID: <10d6067232b.franco.daje@virgilio.it>
+Reply-To: "franco.daje@virgilio.it" <franco.daje@virgilio.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rajesh_mish@yahoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:29850 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751337AbWH3TLl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 15:11:41 -0400
-To: Brian Braunstein <brian@bristyle.com>
-In-Reply-To: <44F5D334.7050205@bristyle.com>
+Received: from vsmtp3alice.tin.it ([212.216.176.143]:49394 "EHLO vsmtp3.tin.it")
+	by vger.kernel.org with ESMTP id S1751355AbWH3TSv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 15:18:51 -0400
+Received: from pswm18.cp.tin.it (192.168.70.68) by vsmtp3.tin.it (7.2.072.1)
+        id 44C91C8801494D9D for netdev@vger.kernel.org; Wed, 30 Aug 2006 20:46:14 +0200
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 30 Aug 2006 11:04:36 -0700
-Brian Braunstein <brian@bristyle.com> wrote:
-
-> PATCH
-> problem at: br_stp.c:271
-> problem: ignoring BPDUs if cost goes up
-> 
-> i was refered to email these addresses by the bridging code author.
-> 
-> please see the full problem description and patch at:
-> http://mesh.calit2.net/calmesh/one/linux_kernel_modifications/bridge_ignoring_bpdus/
-> 
-> if you would like to have it attached or inline with the email instead 
-> let me know.
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-That code has been around a long time and probably came from pseudo-code in earlier
-version of the 802.1d standard. The current version of the standard has
-switched to RSTP and now has unreadable railroad track state machine
-diagrams, rather than pseudo-code. So it is hard to check if your fix
-is correct or not.
-
--- 
-Stephen Hemminger <shemminger@osdl.org>
+Hi!,
+I'm not able to subscrive at this list. My server mail don't send 
+the mail and consider it a spam mail...
+For this, please send eventual 
+response to this mail address (franco.daje@virgilio.it)
+ 
+The problem 
+is this:
+I'm searching, in kernel code, the code that implement thi 
+command:
+ 
+tc filter add dev eth2 parent ffff: protocol ip prio 1 u32 
+match ip src 0.0.0.0/0 police rate $1 burst $2 drop flowid :1
+ 
+I 
+thought that this code was police.c but seem that it isn't
+i must 
+implement a proc file in the code and recompiling the kernel.
+ 
+Thanks
+ 
+Franco
