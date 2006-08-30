@@ -1,65 +1,67 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [PATCH 08/26] e1000: Deprecate mii-tool SIOCMIIREG ioctl
-Date: Tue, 29 Aug 2006 21:21:57 -0700
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F528A67D0@orsmsx418.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fix verify_iovec() to not allow overflow of iov_len
+ values
+Date: Tue, 29 Aug 2006 21:44:53 -0700 (PDT)
+Message-ID: <20060829.214453.112264010.davem@davemloft.net>
+References: <1156874129.3147.2.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <akpm@osdl.org>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Content-Type: Text/Plain; charset=iso-2022-jp-2
+Content-Transfer-Encoding: 7bit
+Cc: chrisw@sous-sol.org, akpm@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:5184 "EHLO
-	azsmga101-1.ch.intel.com") by vger.kernel.org with ESMTP
-	id S964898AbWH3EWD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 00:22:03 -0400
-Content-class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:57064
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751429AbWH3Eoy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Aug 2006 00:44:54 -0400
+To: sri@us.ibm.com
+In-Reply-To: <1156874129.3147.2.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Kok, Auke wrote:
->> Deprecate mii-tool SIOCMIIREG ioctl. This ioctl is broken in e1000
->> and ethtool has this functionality in working order.
->> 
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Date: Tue, 29 Aug 2006 10:55:29 -0700
+
+> verify_iovec() has the following piece of code that allows overflow
+> of iov_len values in an iovec.
 > 
-> This doesn't "deprecated" anything, it changes the ABI on a
-> user's machine by _removing_ ioctl handling code that used to be
-> there. 
+>         for (ct = 0; ct < m->msg_iovlen; ct++) {
+>                 err += iov[ct].iov_len;
+>                 /*
+>                  * Goal is not to verify user data, but to prevent returning
+>                  * negative value, which is interpreted as errno.
+>                  * Overflow is still possible, but it is harmless.
+>                  */
+>                 if (err < 0)
+>                         return -EMSGSIZE;
+>         }
 > 
-> What's broken, and what is needed to fix?  Perhaps e1000
-> should instead be limited to 10/100 networks/speeds?
+> The comment specifically says that overflow is harmless, but I don't see any
+> valid reason to allow overflow.
+> 
+> Also, iov_len is of type size_t which is a 64-bit value on 64-bit systems,
+> but we store and return the overall iovec length in an int.
 
-mii-tool is broken because it doesn't understand GMII phys.  We ended up
-having a mess of code trying to implement the shim layer to support the
-PHY write ioctls, among others.
-mii-tool always reports 100 Mbps link when you actually have 1Gbps link.
-Using mii-tool to set options didn't work very well to begin with, so
-rather than continue to dump time into a dead end, just remove the
-incomplete/non-working code and force the user to use ethtool if they
-want to do set operations. 
+Just some notes so that it is understood the context in which
+such changes are being proposed.
 
-Mii-tool is already marked in its man page to be obsolete
+First of all, several memcpy() and copy_{to,from}_user()
+implementations BUG trap on lengths which have bit 31 or higher set.
+It always indicates a bug of some sort in the call chain, so behaving
+as if we support larger than positive signed 32-bit lengths here is
+probably asking for trouble.
 
-<quote from RHEL4>
-NOTE
-       This program is obsolete. Valid  media  are  only  100baseT4,
-100baseTx-FD,100baseTx-HD,  10baseT-FD  and
-       10baseT-HD ethernet cards. For replacement check eth-tool.
-</quote>
+Also, the protocol downcalls all return "int", not "long" so it's even
+impossible to report successful sending of larger than positive signed
+32-bit lengths.  Even kernel_sendmsg() and friends return "int".
 
-We intentionally left the read code in to not break any user space
-programs that are using that IOCTL to read link status etc.  With some
-recent improvements to ethtool, it has the exact same functionality as
-mii-tool.
+We can pretend that larger than positive signed 32-bit lengths in an
+iovec will work, but they surely won't.
 
-While I appreciate the "don't break user space" position, in this case
-it never really worked right, and when it did work the user was just
-lucky because they probably weren't getting what they wanted.
+And since the sendmsg() man page was quoted:
 
-Jesse
+       If the message is too long to pass atomically  through  the  underlying
+       protocol, the error EMSGSIZE is returned, and the message is not trans$,1rp(B
+       mitted.
+
+which matches perfectly with the fact that the protocol downcalls
+return "int"  not "size_t" nor  "ssize_t".
