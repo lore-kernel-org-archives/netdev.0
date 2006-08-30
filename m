@@ -1,65 +1,44 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: e1000 and 802.1ad/stacked vlan tagging
-Date: Tue, 29 Aug 2006 22:06:06 -0700
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F528A67FB@orsmsx418.amr.corp.intel.com>
+From: Hasso Tepper <hasso@estpak.ee>
+Subject: Re: [RFC IPv6] Disabling IPv6 autoconf
+Date: Wed, 30 Aug 2006 08:41:26 +0300
+Message-ID: <200608300841.27202.hasso@estpak.ee>
+References: <E1GIDgg-00043h-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <e1000-devel@lists.sf.net>, <netdev@vger.kernel.org>, <w@1wt.eu>
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: pb@bieringer.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:2074 "EHLO
-	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S965012AbWH3FGQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 01:06:16 -0400
-Content-class: urn:content-classes:message
-To: "Stephan von Krawczynski" <skraw@ithnet.com>
+Received: from test.estpak.ee ([194.126.115.47]:1754 "EHLO devy.estpak.ee")
+	by vger.kernel.org with ESMTP id S1751199AbWH3GsH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 02:48:07 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1GIDgg-00043h-00@gondolin.me.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephan von Krawczynski wrote:
-> I can confirm that the setup seems to work if enlarging the hw if mtu
-> to 1508. This is good.
+Herbert Xu wrote:
+> Hasso Tepper <hasso@estpak.ee> wrote:
+> >> You can disable it in /proc/sys/net/ipv6/conf/default/... and then
+> >> reenable it on the interfaces that you actually want.
+> >
+> > You can't do that either (ie. reenable) in initscripts before link is
+> > up.
+>
+> As soon as you do ifconfig ethX up it'll appear in /proc/sys and
+> you can reenable it.
 
-Okay, good to hear.
+Only if you have addresses on it. Point is that you haven't any if 
+autoconf is used (no manually configured addresses) and carrier is down 
+(no cable or smth). Even link-local address is created after first 
+carrier up event.
 
-> Nevertheless I think that the receive buffer size of a
-> physical device should always be MAX(all virtual device mtu +
-> tags and the like), you know what I mean.
+And problem isn't specific to IPv6, there is same problem with IPv4. For 
+example if carrier aware network configuration method is used (as 
+nowadays common Networkmanager is).
 
-Unfortunately that would require us to currently allocate 16kB for every
-receive descriptor, which would slow down the general case
-significantly, not to mention bring up all sorts of errors as the system
-memory fragmentation increases.
+regards,
 
-> If I enlarge the basic mtu this may or may not have drawbacks
-> concerning the traffic routed directly via this interface.
-
-I think that routed traffic won't care at all unless something checks
-the path MTU, and even then it should take the lowest MTU.
-
-> Obviously the setup is somehow not consistent, as everything
-> works well without tuning mtus as long as you use only 1 tag.
-1 tag is the way that things are supposed to work.  In fact, the
-hardware takes care of all insertion and stripping of a single tag, so
-that the data actually handed to the stack never even has the tag in the
-packet data.
-
-> I always thought that the driver uses at least
-> hard_header_len + mtu as buffer size which should be correct
-> even in stacked setup. Only this information doesn't make it
-> to the driver level, right?
-
-Actually I think that first statement isn't correct.  With the stacked
-setup your maximum frame length is 1500 (MTU) + 14 enet + 4 (tag1) + 4
-(tag2) + CRC = 1526.  The vlan code with stacked vlans is broken (from
-the maintainer who mentioned it in this thread) probably because in
-order to do stacked vlans correctly the vlan layer must support IP
-fragmentation of some kind.
-
-Seems like stacked vlans wouldn't work anyway, at least not very well.
-The only way I see to get even close is the MTU increase on the base
-interface.
-
-Sorry to not offer much,
-  Jesse
+-- 
+Hasso Tepper
