@@ -1,44 +1,34 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] fix sk->sk_filter field access
-Date: Thu, 31 Aug 2006 03:14:06 +0400
-Message-ID: <20060830231406.GA25736@ms2.inr.ac.ru>
-References: <200608301707.14250.dim@openvz.org> <20060830.143015.104035096.davem@davemloft.net> <20060830222042.GA21714@ms2.inr.ac.ru> <20060830.153259.59653494.davem@davemloft.net>
+Date: Wed, 30 Aug 2006 16:16:17 -0700 (PDT)
+Message-ID: <20060830.161617.85689252.davem@davemloft.net>
+References: <20060830222042.GA21714@ms2.inr.ac.ru>
+	<20060830.153259.59653494.davem@davemloft.net>
+	<20060830231406.GA25736@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: dim@openvz.org, netdev@vger.kernel.org, dev@sw.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:15323 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1751618AbWH3XOX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 19:14:23 -0400
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20060830.153259.59653494.davem@davemloft.net>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:36066
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S1751636AbWH3XQQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Aug 2006 19:16:16 -0400
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <20060830231406.GA25736@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Date: Thu, 31 Aug 2006 03:14:06 +0400
 
-> Really?
->
-> It is used with needlock=0 by DCCP ipv6, for example.  This case seems
-> correct too.  What about sk_receive_skb()?  dn_queue_skb()?  In fact,
-> there seems to be numerous uses still with needlock=0, all legitimate.
+> > Let us to fix bugs first, and then consider rewriting the locking.
+> 
+> To be honest, I think switching to RCU is the simplest bug fix.
+> At least, it does not require to search where bh_lock_sock() is taken
+> dn_queue_skb(), if it is not forgotten at all. :-)
 
-Well, not quite legitime.
+Ok :-)
 
-sk_receive_skb() has the same bug as tcp_v4_rcv().
-
-Call in backlog processing of ipv6/dccp is occasionally forgotten
-duplicate of one done in sk_receive_skb().
-
-Yes, those places really added a bit to desire to get rid of
-this misuse of bh_lock_sock(). :-)
-
-
-> Let us to fix bugs first, and then consider rewriting the locking.
-
-To be honest, I think switching to RCU is the simplest bug fix.
-At least, it does not require to search where bh_lock_sock() is taken
-dn_queue_skb(), if it is not forgotten at all. :-)
-
-Alexey
+It is just that, I will have a hard time convincing people that this
+is legitimate for 2.6.18, and we would like the bug to be fixed there.
