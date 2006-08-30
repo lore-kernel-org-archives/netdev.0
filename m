@@ -1,57 +1,99 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: high latency with TCP connections
-Date: Wed, 30 Aug 2006 14:39:55 -0700 (PDT)
-Message-ID: <20060830.143955.55510936.davem@davemloft.net>
-References: <20060830100734.GA22235@isil.ipib.msu.ru>
-	<20060830102727.11e11453@localhost.localdomain>
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: Re: [PATCH 2.6.18] WE-21 for bcm43xx (wireless-2.6 git)
+Date: Wed, 30 Aug 2006 15:01:22 -0700
+Message-ID: <20060830220122.GA10367@bougret.hpl.hp.com>
+References: <20060830011211.GO8405@bougret.hpl.hp.com> <200608301451.05697.mb@bu3sch.de>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alex@sectorb.msk.ru, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Larry Finger <Larry.Finger@lwfinger.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:2444
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S932107AbWH3Vjz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Aug 2006 17:39:55 -0400
-To: shemminger@osdl.org
-In-Reply-To: <20060830102727.11e11453@localhost.localdomain>
+Received: from madara.hpl.hp.com ([192.6.19.124]:48106 "EHLO madara.hpl.hp.com")
+	by vger.kernel.org with ESMTP id S932150AbWH3WBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 18:01:36 -0400
+To: Michael Buesch <mb@bu3sch.de>
+Content-Disposition: inline
+In-Reply-To: <200608301451.05697.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Wed, 30 Aug 2006 10:27:27 -0700
+On Wed, Aug 30, 2006 at 02:51:05PM +0200, Michael Buesch wrote:
+> On Wednesday 30 August 2006 03:12, Jean Tourrilhes wrote:
+> >         Hi,
+> > 
+> >         WE-21 for Broadcom driver and SoftMAC...
+> > 	This version is for wireless-2.6 git.
+> > 
+> >         Jean
+> > 
+> > Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
+> 
+> Signed-off-by: Michael Buesch <mb@bu3sch.de>
+> 
+> Next time CC Larry Finger <Larry.Finger@lwfinger.net>,
+> as he is the bcm43xx-softmac maintainer, please.
 
-> Linux TCP implements "Appropriate Byte Count" (ABC) and this penalizes
-> applications that do small sends. The problem is that the other side
-> may be delaying acknowledgments.  If receiver doesn't acknowledge the
-> sender will limit itself to the congestion window. If the flow is light,
-> then you will be limited to 4 packets.
+	This is the version of the patch for out-of-tree, I guess you
+will need it. Not tested.
 
-Right.
+	Regards,
 
-However it occured to me the other day that ABC could be made smarter.
-If we sent small frames, ABC should account for that.
+	Jean
 
-The problem with ABC is that it prevents CWND growth not just during
-ACK division, but also when we truly are sending smaller sized frames.
+-------------------------------------------------------------
 
-In fact, for "chatty" protocols, the real load on a router for the
-small packets is much less than that for full sized frames.  So it is
-in fact these small frame sending cases for which we can be less
-conservative, whatever that means here.
-
-So my suggestion is that ABC should go look in the retransmit queue
-and see how many "real packets" are being fully ACK'd, rather than
-assuming the send queue is composed of MSS sized frames.
-
-I also think we should seriously consider changing the ABC default to
-"2" rather than "1".
-
-> Expecting any performance with one byte write's is silly.
-
-This is absolutely true.  TCP_NODELAY can only save you when you are
-sending a small amount of data "in aggregate", such as in an SSH or
-telnet session, whereas in the case being shown here a large amount of
-data is being sent in small chunks which will always get bad
-performance.
-
+diff -u -p linux/net/ieee80211/softmac/ieee80211softmac_wx.20.c linux/net/ieee80211/softmac/ieee80211softmac_wx.c
+--- linux/net/ieee80211/softmac/ieee80211softmac_wx.20.c	2006-08-29 14:45:56.000000000 -0700
++++ linux/net/ieee80211/softmac/ieee80211softmac_wx.c	2006-08-30 14:56:35.000000000 -0700
+@@ -63,6 +63,12 @@ ieee80211softmac_wx_get_scan_results(str
+ }
+ EXPORT_SYMBOL_GPL(ieee80211softmac_wx_get_scan_results);
+ 
++#if WIRELESS_EXT > 20
++#define IW_ESSID_FIX	0
++#else
++#define IW_ESSID_FIX	1
++#endif
++
+ int
+ ieee80211softmac_wx_set_essid(struct net_device *net_dev,
+ 			      struct iw_request_info *info,
+@@ -80,10 +86,10 @@ ieee80211softmac_wx_set_essid(struct net
+ 	 * If it's our network, ignore the change, we're already doing it!
+ 	 */
+ 	if((sm->associnfo.associating || sm->associated) &&
+-	   (data->essid.flags && data->essid.length && extra)) {
++	   (data->essid.flags && data->essid.length)) {
+ 		/* Get the associating network */
+ 		n = ieee80211softmac_get_network_by_bssid(sm, sm->associnfo.bssid);
+-		if(n && n->essid.len == (data->essid.length - 1) &&
++		if(n && n->essid.len == (data->essid.length - IW_ESSID_FIX) &&
+ 		   !memcmp(n->essid.data, extra, n->essid.len)) {
+ 			dprintk(KERN_INFO PFX "Already associating or associated to "MAC_FMT"\n",
+ 				MAC_ARG(sm->associnfo.bssid));
+@@ -109,8 +115,8 @@ ieee80211softmac_wx_set_essid(struct net
+ 	sm->associnfo.static_essid = 0;
+ 	sm->associnfo.assoc_wait = 0;
+ 
+-	if (data->essid.flags && data->essid.length && extra /*required?*/) {
+-		length = min(data->essid.length - 1, IW_ESSID_MAX_SIZE);
++	if (data->essid.flags && data->essid.length) {
++		length = min((int) data->essid.length - IW_ESSID_FIX, IW_ESSID_MAX_SIZE);
+ 		if (length) {
+ 			memcpy(sm->associnfo.req_essid.data, extra, length);
+ 			sm->associnfo.static_essid = 1;
+diff -u -p linux/drivers/net/wireless/bcm43xx/bcm43xx_wx.20.c linux/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+--- linux/drivers/net/wireless/bcm43xx/bcm43xx_wx.20.c	2006-08-29 14:46:08.000000000 -0700
++++ linux/drivers/net/wireless/bcm43xx/bcm43xx_wx.c	2006-08-30 14:57:31.000000000 -0700
+@@ -334,7 +334,11 @@ static int bcm43xx_wx_get_nick(struct ne
+ 	size_t len;
+ 
+ 	mutex_lock(&bcm->mutex);
++#if WIRELESS_EXT > 20
++	len = strlen(bcm->nick);
++#else
+ 	len = strlen(bcm->nick) + 1;
++#endif
+ 	memcpy(extra, bcm->nick, len);
+ 	data->data.length = (__u16)len;
+ 	data->data.flags = 1;
