@@ -1,26 +1,25 @@
 From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: [PATCH 2.6.18] WE-21 for tiacx
-Date: Tue, 29 Aug 2006 18:09:39 -0700
-Message-ID: <20060830010939.GM8405@bougret.hpl.hp.com>
+Subject: [PATCH 2.6.18] WE-21 for bcm43xx (2.6.18-rc5)
+Date: Tue, 29 Aug 2006 18:10:57 -0700
+Message-ID: <20060830011057.GN8405@bougret.hpl.hp.com>
 Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gundega.hpl.hp.com ([192.6.19.190]:13506 "EHLO
-	gundega.hpl.hp.com") by vger.kernel.org with ESMTP id S932198AbWH3BKt
+Received: from gundega.hpl.hp.com ([192.6.19.190]:30402 "EHLO
+	gundega.hpl.hp.com") by vger.kernel.org with ESMTP id S932202AbWH3BLc
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Aug 2006 21:10:49 -0400
+	Tue, 29 Aug 2006 21:11:32 -0400
 To: "John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org,
-	Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+	netdev@vger.kernel.org, Michael Buesch <mbuesch@freenet.de>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
         Hi,
 
-        WE-21 for TI ACX driver...
-	Patch for wireless-2.6 git.
+        WE-21 for Broadcom driver and SoftMac...
+	This version is for 2.6.18-rc5.
 
         Jean
 
@@ -28,108 +27,42 @@ Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
 
 -----------------------------------------------------------
 
---- linux/drivers/net/wireless/tiacx/ioctl.20.c	2006-08-29 15:38:59.000000000 -0700
-+++ linux/drivers/net/wireless/tiacx/ioctl.c	2006-08-29 15:54:05.000000000 -0700
-@@ -686,15 +686,15 @@ acx_ioctl_set_essid(
- 		adev->essid_active = 0;
+diff -u -p linux/net/ieee80211/softmac/ieee80211softmac_wx.20.c linux/net/ieee80211/softmac/ieee80211softmac_wx.c
+--- linux/net/ieee80211/softmac/ieee80211softmac_wx.20.c	2006-08-28 17:52:58.000000000 -0700
++++ linux/net/ieee80211/softmac/ieee80211softmac_wx.c	2006-08-28 17:56:58.000000000 -0700
+@@ -80,10 +80,10 @@ ieee80211softmac_wx_set_essid(struct net
+ 	 * If it's our network, ignore the change, we're already doing it!
+ 	 */
+ 	if((sm->associnfo.associating || sm->associated) &&
+-	   (data->essid.flags && data->essid.length && extra)) {
++	   (data->essid.flags && data->essid.length)) {
+ 		/* Get the associating network */
+ 		n = ieee80211softmac_get_network_by_bssid(sm, sm->associnfo.bssid);
+-		if(n && n->essid.len == (data->essid.length - 1) &&
++		if(n && (n->essid.len == data->essid.length) &&
+ 		   !memcmp(n->essid.data, extra, n->essid.len)) {
+ 			dprintk(KERN_INFO PFX "Already associating or associated to "MAC_FMT"\n",
+ 				MAC_ARG(sm->associnfo.bssid));
+@@ -109,8 +109,8 @@ ieee80211softmac_wx_set_essid(struct net
+ 	sm->associnfo.static_essid = 0;
+ 	sm->associnfo.assoc_wait = 0;
  
- 	} else {
--		if (dwrq->length > IW_ESSID_MAX_SIZE+1)	{
-+		if (dwrq->length > IW_ESSID_MAX_SIZE)	{
- 			result = -E2BIG;
- 			goto end_unlock;
- 		}
+-	if (data->essid.flags && data->essid.length && extra /*required?*/) {
+-		length = min(data->essid.length - 1, IW_ESSID_MAX_SIZE);
++	if (data->essid.flags && data->essid.length) {
++		length = min((int) data->essid.length, IW_ESSID_MAX_SIZE);
+ 		if (length) {
+ 			memcpy(sm->associnfo.req_essid.data, extra, length);
+ 			sm->associnfo.static_essid = 1;
+diff -u -p linux/drivers/net/wireless/bcm43xx/bcm43xx_wx.20.c linux/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+--- linux/drivers/net/wireless/bcm43xx/bcm43xx_wx.20.c	2006-08-28 17:53:07.000000000 -0700
++++ linux/drivers/net/wireless/bcm43xx/bcm43xx_wx.c	2006-08-28 17:57:33.000000000 -0700
+@@ -332,7 +332,7 @@ static int bcm43xx_wx_get_nick(struct ne
+ 	size_t len;
  
--		if (len > sizeof(adev->essid))
--			len = sizeof(adev->essid);
--		memcpy(adev->essid, extra, len-1);
--		adev->essid[len-1] = '\0';
-+		if (len >= sizeof(adev->essid))
-+			len = sizeof(adev->essid) - 1;
-+		memcpy(adev->essid, extra, len);
-+		adev->essid[len] = '\0';
- 		/* Paranoia: just in case there is a '\0'... */
- 		adev->essid_len = strlen(adev->essid);
- 		adev->essid_active = 1;
-@@ -730,7 +730,7 @@ acx_ioctl_get_essid(
- 	if (adev->essid_active)	{
- 		memcpy(extra, adev->essid, adev->essid_len);
- 		extra[adev->essid_len] = '\0';
--		dwrq->length = adev->essid_len + 1;
-+		dwrq->length = adev->essid_len;
- 		dwrq->flags = 1;
- 	}
- 	return OK;
-@@ -1097,7 +1097,7 @@ acx_ioctl_set_power(
- 				"due to %dus\n", ps_timeout, vwrq->value);
- 		adev->ps_hangover_period = ps_timeout;
- 	} else if ((vwrq->flags & IW_POWER_TYPE) == IW_POWER_PERIOD) {
--		u16 ps_periods = vwrq->value / 1000000;
-+		u16 ps_periods = vwrq->value;
- 
- 		if (ps_periods > 255)
- 			ps_periods = 255;
-@@ -1160,7 +1160,7 @@ acx_ioctl_get_power(
- 		vwrq->value = adev->ps_hangover_period * 1000 / 1024;
- 		vwrq->flags = IW_POWER_TIMEOUT;
- 	} else {
--		vwrq->value = adev->ps_listen_interval * 1000000;
-+		vwrq->value = adev->ps_listen_interval;
- 		vwrq->flags = IW_POWER_PERIOD|IW_POWER_RELATIVE;
- 	}
- 	if (adev->ps_options & PS_OPT_STILL_RCV_BCASTS)
-@@ -1381,7 +1381,7 @@ acx_ioctl_get_nick(
- 	acx_device_t *adev = ndev2adev(ndev);
- 
- 	strcpy(extra, adev->nick);
--	dwrq->length = strlen(extra) + 1;
-+	dwrq->length = strlen(extra);
- 
- 	return OK;
- }
-@@ -1405,13 +1405,14 @@ acx_ioctl_set_nick(
- 
- 	acx_sem_lock(adev);
- 
--	if (dwrq->length > IW_ESSID_MAX_SIZE + 1) {
-+	if (dwrq->length > IW_ESSID_MAX_SIZE) {
- 		result = -E2BIG;
- 		goto end_unlock;
- 	}
- 
--	/* extra includes trailing \0, so it's ok */
-+	/* extra does not include trailing \0 in WE 21 and later */
- 	strcpy(adev->nick, extra);
-+	adev->nick[dwrq->length] = '\0';
- 	result = OK;
- 
- end_unlock:
-@@ -1446,13 +1447,13 @@ acx_ioctl_get_retry(
- 	if (type == IW_RETRY_LIFETIME) {
- 		vwrq->flags = IW_RETRY_LIFETIME;
- 		vwrq->value = adev->msdu_lifetime;
--	} else if (modifier == IW_RETRY_MAX) {
--		vwrq->flags = IW_RETRY_LIMIT | IW_RETRY_MAX;
-+	} else if (modifier == IW_RETRY_LONG) {
-+		vwrq->flags = IW_RETRY_LIMIT | IW_RETRY_LONG;
- 		vwrq->value = adev->long_retry;
- 	} else {
- 		vwrq->flags = IW_RETRY_LIMIT;
- 		if (adev->long_retry != adev->short_retry)
--			SET_BIT(vwrq->flags, IW_RETRY_MIN);
-+			SET_BIT(vwrq->flags, IW_RETRY_SHORT);
- 		vwrq->value = adev->short_retry;
- 	}
- 
-@@ -1498,9 +1499,9 @@ acx_ioctl_set_retry(
- 	if (IW_RETRY_LIMIT == (vwrq->flags & IW_RETRY_TYPE)) {
- 		printk("old retry limits: short %d long %d\n",
- 				adev->short_retry, adev->long_retry);
--		if (vwrq->flags & IW_RETRY_MAX) {
-+		if (vwrq->flags & IW_RETRY_LONG) {
- 			adev->long_retry = vwrq->value;
--		} else if (vwrq->flags & IW_RETRY_MIN) {
-+		} else if (vwrq->flags & IW_RETRY_SHORT) {
- 			adev->short_retry = vwrq->value;
- 		} else {
- 			/* no modifier: set both */
+ 	bcm43xx_lock_noirq(bcm);
+-	len = strlen(bcm->nick) + 1;
++	len = strlen(bcm->nick);
+ 	memcpy(extra, bcm->nick, len);
+ 	data->data.length = (__u16)len;
+ 	data->data.flags = 1;
