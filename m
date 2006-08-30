@@ -1,84 +1,44 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: NAPI: netif_rx_reschedule() ??
-Date: Wed, 30 Aug 2006 16:12:19 -0700
-Message-ID: <20060830161219.7878bada@localhost.localdomain>
-References: <adau03tlvx8.fsf@cisco.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH] fix sk->sk_filter field access
+Date: Thu, 31 Aug 2006 03:14:06 +0400
+Message-ID: <20060830231406.GA25736@ms2.inr.ac.ru>
+References: <200608301707.14250.dim@openvz.org> <20060830.143015.104035096.davem@davemloft.net> <20060830222042.GA21714@ms2.inr.ac.ru> <20060830.153259.59653494.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dim@openvz.org, netdev@vger.kernel.org, dev@sw.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:27546 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751610AbWH3XM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 19:12:28 -0400
-To: Roland Dreier <rdreier@cisco.com>
-In-Reply-To: <adau03tlvx8.fsf@cisco.com>
+Received: from minus.inr.ac.ru ([194.67.69.97]:15323 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S1751618AbWH3XOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2006 19:14:23 -0400
+To: David Miller <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20060830.153259.59653494.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 30 Aug 2006 15:07:31 -0700
-Roland Dreier <rdreier@cisco.com> wrote:
+Hello!
 
-> I'm looking at updating IP-over-InfiniBand to use NAPI, and due to the
-> way IB works, the driver is going to be susceptible to the rotting
-> packet problem.  It seems I'm going to have to call netif_rx_reschedule().
+> Really?
+>
+> It is used with needlock=0 by DCCP ipv6, for example.  This case seems
+> correct too.  What about sk_receive_skb()?  dn_queue_skb()?  In fact,
+> there seems to be numerous uses still with needlock=0, all legitimate.
 
-Looking at it, I'm not sure netif_rx_reschedule was well thought out.
-It shouldn't be inlined if many places start using it.
+Well, not quite legitime.
 
-> However I'm confused about a couple of things, and there are only two
-> uses of netif_rx_reschedule() in the kernel, so I'm a little stuck.
-> 
-> 1. What is the intent of the second, 'undo' parameter?  For example,
->    ibmveth.c does
-> 
-> 	if(ibmveth_rxq_pending_buffer(adapter) && netif_rx_reschedule(netdev, frames_processed))
-> 	{
-> 		lpar_rc = h_vio_signal(adapter->vdev->unit_address, VIO_IRQ_DISABLE);
-> 		ibmveth_assert(lpar_rc == H_SUCCESS);
-> 		more_work = 1;
-> 		goto restart_poll;
-> 	}
-> 
->    but it only does
-> 
-> 	netdev->quota -= frames_processed;
-> 
->    _after_ that block (and the jump back to restart_poll).  So the
->    whole things seems fishy: netdev->quota goes up by the number of
->    frames processed??
+sk_receive_skb() has the same bug as tcp_v4_rcv().
 
-The undo should really be handled by the caller, not in netif_rx_reschedule.
-The existing interface assumes you have already deducted N from your quota
-and so it needs to be put back.
+Call in backlog processing of ipv6/dccp is occasionally forgotten
+duplicate of one done in sk_receive_skb().
 
-> 
-> 2. What is the return value supposed to be used for?  ibmveth.c
->    returns from the poll method if netif_rx_reschedule() returns 0 (ie
->    the poll was already scheduled); ibm_emac_mal.c jumps back to
->    repoll regardless of the return value, and NAPI_HOWTO.txt has
-> 
-> 	if (ring_has_new_packet() && netif_rx_reschedule(dev, received)) {
-> 		disable_rx_and_rxnobufs()
-> 		goto restart_poll
-> 	} while (rx_status_is_set);
-> 
->    which is not particularly enlightening to say the least...
->    if (...) {...} while (...) ?!
-> 
->    It's not clear to me why the driver would want to do something
->    different depending on whether the NAPI poll was already scheduled
->    or not.
-
-If poll is already scheduled, then after leaving this poll call,
-another will occur.  If the poll routine just went ahead and rescanned
-that would work as well. The important part is not to leave the
-poll routine without being in one of these states:
-	* all work is done, and hardware is empty and/or will interrupt for more.
-	* some work was done, and device left on poll_list with softirq raised
+Yes, those places really added a bit to desire to get rid of
+this misuse of bh_lock_sock(). :-)
 
 
+> Let us to fix bugs first, and then consider rewriting the locking.
 
+To be honest, I think switching to RCU is the simplest bug fix.
+At least, it does not require to search where bh_lock_sock() is taken
+dn_queue_skb(), if it is not forgotten at all. :-)
 
--- 
-Stephen Hemminger <shemminger@osdl.org>
+Alexey
