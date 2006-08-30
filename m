@@ -1,76 +1,125 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPSec kernel oops on ppc64
-Date: Wed, 30 Aug 2006 21:09:20 +1000
-Message-ID: <20060830110920.GA19926@gondor.apana.org.au>
-References: <200608282225.k7SMPF80022173@faith.austin.ibm.com> <20060829013023.GA5865@gondor.apana.org.au>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Fw: [Bugme-new] [Bug 7074] New: Kernel Panic on kernel 2.6.16.1
+Date: Wed, 30 Aug 2006 13:24:34 +0200
+Message-ID: <44F57572.5070703@trash.net>
+References: <20060829203019.c642cb7b.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, gcwilson@us.ibm.com, jmorris@redhat.com,
-	netdev@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------000302080400000507070807"
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	"bugme-daemon@kernel-bugs.osdl.org"
+	<bugme-daemon@bugzilla.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:23059 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750707AbWH3LJs
+Received: from stinky.trash.net ([213.144.137.162]:37363 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1750716AbWH3LYh
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Aug 2006 07:09:48 -0400
-To: Joy Latten <latten@austin.ibm.com>, paulus@au.ibm.com,
-	anton@au.ibm.com, linuxppc-dev@ozlabs.org
-Content-Disposition: inline
-In-Reply-To: <20060829013023.GA5865@gondor.apana.org.au>
+	Wed, 30 Aug 2006 07:24:37 -0400
+To: eshi@anchiva.com.cn
+In-Reply-To: <20060829203019.c642cb7b.akpm@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi:
+This is a multi-part message in MIME format.
+--------------000302080400000507070807
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-Thanks to some excellent info from Joy, I've trakced the problem down to
-a broken implementation of memmove on ppc64, which in turn is due to a
-broken memcpy.
+Andrew Morton wrote:
+> Obvious question: does it happen with 2.6.17.x or 2.6.18-rc5?
+> 
+> 
+> Begin forwarded message:
+> 
+> Date: Tue, 29 Aug 2006 19:49:11 -0700
+> From: bugme-daemon@bugzilla.kernel.org
+> To: bugme-new@lists.osdl.org
+> Subject: [Bugme-new] [Bug 7074] New: Kernel Panic on kernel 2.6.16.1
+> 
+> 
+> http://bugzilla.kernel.org/show_bug.cgi?id=7074
+> 
+>            Summary: Kernel Panic on kernel 2.6.16.1
+>     Kernel Version: 2.6.16.1
+>             Status: NEW
+>           Severity: high
+>              Owner: laforge@gnumonks.org
+>          Submitter: eshi@anchiva.com.cn
+> 
+> 
+> Most recent kernel where this bug did not occur:
+> Distribution:
+> Hardware Environment: P4 3.4G   1G Mem
+> Software Environment: FC3 Kernel 2.6.16.1
+> Problem Description: 
+> 
+> kernel BUG at net/ipv4/netfilter/ip_conntrack_proto_tcp.c:911!
 
-Both memmove and memcpy need to return the destination pointer as per
-the C standard.  The ppc64 version of memcpy returns a pointer to the
-last byte copied instead.  Since memmove degenerates into memcpy in
-some cases, this makes it broken as well.
 
-Something like the following patch should fix the problem.  Be warned
-that I know absolutely nothing about ppc assembly so don't come back
-to me if this patch eats your disk :)
+This can only happen if something corrupts the packet, probably
+within the bridge netfilter code. This patch from Stephen (rediffed
+against 2.6.16) fixes such a corruption, please try if it helps.
 
-BTW, I spotted a couple of typos in memcpy_64.S/copyuser_64.S where
-"cmpldi cr1,..." became "cmpldi r1,...".  So please fix that up while
-you ppc64 guys are at it.
+--------------000302080400000507070807
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/arch/powerpc/lib/memcpy_64.S b/arch/powerpc/lib/memcpy_64.S
-index fd66acf..9e8d9e7 100644
---- a/arch/powerpc/lib/memcpy_64.S
-+++ b/arch/powerpc/lib/memcpy_64.S
-@@ -11,6 +11,7 @@ #include <asm/ppc_asm.h>
+diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
+index de4d397..56ef3cb 100644
+--- a/include/linux/netfilter_bridge.h
++++ b/include/linux/netfilter_bridge.h
+@@ -66,15 +66,25 @@ #endif
  
- 	.align	7
- _GLOBAL(memcpy)
-+	std	r3,-8(r1)
- 	mtcrf	0x01,r5
- 	cmpldi	cr1,r5,16
- 	neg	r6,r3		# LS 3 bits = # bytes to 8-byte dest bdry
-@@ -53,7 +54,8 @@ _GLOBAL(memcpy)
- 2:	bf	cr7*4+3,3f
- 	rotldi	r9,r9,8
- 	stb	r9,0(r3)
--3:	blr
-+3:	ld	r3,-8(r1)
-+	blr
+ /* Only used in br_forward.c */
+ static inline
+-void nf_bridge_maybe_copy_header(struct sk_buff *skb)
++int nf_bridge_maybe_copy_header(struct sk_buff *skb)
+ {
++	int err;
++
+ 	if (skb->nf_bridge) {
+ 		if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
++			err = skb_cow(skb, 18);
++			if (err)
++				return err;
+ 			memcpy(skb->data - 18, skb->nf_bridge->data, 18);
+ 			skb_push(skb, 4);
+-		} else
++		} else {
++			err = skb_cow(skb, 16);
++			if (err)
++				return err;
+ 			memcpy(skb->data - 16, skb->nf_bridge->data, 16);
++		}
+ 	}
++	return 0;
+ }
  
- .Lsrc_unaligned:
- 	srdi	r6,r5,3
-@@ -167,4 +169,5 @@ _GLOBAL(memcpy)
- 3:	bf	cr7*4+3,4f
- 	lbz	r0,0(r4)
- 	stb	r0,0(r3)
--4:	blr
-+4:	ld	r3,-8(r1)
-+	blr
+ static inline
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 2d24fb4..dac7f06 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -37,11 +37,15 @@ int br_dev_queue_push_xmit(struct sk_buf
+ 	else {
+ #ifdef CONFIG_BRIDGE_NETFILTER
+ 		/* ip_refrag calls ip_fragment, doesn't copy the MAC header. */
+-		nf_bridge_maybe_copy_header(skb);
++		if (nf_bridge_maybe_copy_header(skb))
++			kfree_skb(skb);
++		else
+ #endif
+-		skb_push(skb, ETH_HLEN);
++		{
++			skb_push(skb, ETH_HLEN);
+ 
+-		dev_queue_xmit(skb);
++			dev_queue_xmit(skb);
++		}
+ 	}
+ 
+ 	return 0;
+
+--------------000302080400000507070807--
