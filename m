@@ -1,65 +1,98 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Probably e1000 related Oops in 2.6.18-rc5
-Date: Thu, 31 Aug 2006 18:45:47 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0608311803220.28922@bizon.gios.gov.pl>
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: Re: [PATCH 2.6.18] WE-21 support (core API)
+Date: Thu, 31 Aug 2006 10:12:58 -0700
+Message-ID: <20060831171258.GD11836@bougret.hpl.hp.com>
+References: <20060830005655.GA8405@bougret.hpl.hp.com> <1157031138.16040.17.camel@ux156>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED;
-	BOUNDARY="-187430788-204049394-1157042747=:28922"
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, Javier Achirica <achirica@gmail.com>,
+	Simon Kelley <simon@thekelleys.org.uk>,
+	Jouni Malinen <jkmaline@cc.hut.fi>,
+	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
+	Zhu Yi <yi.zhu@intel.com>, Pavel Roskin <proski@gnu.org>,
+	"Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
+	Jeroen Vreeken <pe1rxq@amsat.org>,
+	Michael Wu <flamingice@sourmilk.net>,
+	Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
+	Michael Buesch <mbuesch@freenet.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gundega.hpl.hp.com ([192.6.19.190]:58350 "EHLO
+	gundega.hpl.hp.com") by vger.kernel.org with ESMTP id S1750715AbWHaRUJ
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 13:20:09 -0400
+To: Johannes Berg <johannes@sipsolutions.net>
+Content-Disposition: inline
+In-Reply-To: <1157031138.16040.17.camel@ux156>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Thu, Aug 31, 2006 at 03:32:18PM +0200, Johannes Berg wrote:
+> On Tue, 2006-08-29 at 17:56 -0700, Jean Tourrilhes wrote:
+> > 		o modulation
+> > 		o long/short retry
+> > 		o relative power saving.
+> 
+> I strongly disagree to these.
 
----187430788-204049394-1157042747=:28922
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+	And I strongly disagree with your disagrement ;-)
 
-Hello,
+> What's the point of adding more ioctls that we'll be implementing them
+> as wrappers around nl80211? Right now, those new ioctls/options aren't
+> implemented in *any* driver at all so they're completely useless, and
+> just add more to the pile of historic baggage we end up carrying around.
+> If we add these to mainline now, it's another thing we'll have to carry
+> for a long time even though it currently has no users...
 
-My testing workstation running 2.6.18-rc5 Oopsed. It has a dualport e1000=
-=20
-card with bonding and vlans.
+	I'm sorry to say it like this, but I hope my work will not be
+impacted by vaporware. How many drivers are currently converted to
+nl80211 ?
+	I hope you realised that we are all trying to make 802.11
+support progress, each through our own ways. And that all those
+efforts are not conflicting with each other.
+	The reason why those new features are good for you :
+		o They give you a template on how you could implement
+those features in nl80211, saving you design time.
+		o The goal is to replace private ioctls (driver
+specific) with standard ioctls. So, in other words, they actually
+*reduce* the historic baggage and make it easier to wrap around those
+functions if you want (I won't expect you to wrap around *every* WE).
 
-All I have is three fotos made by a digital camera:=20
-http://www.ans.pl/Oops/1/
+	Personally, I still have not seen the point of nl80211, as the
+full Wireless Extension is already available over NetLink (have you
+tried it ?). But, I shut up my big mouth, and let you work freely on
+it, as a mark of respect for your work and intentions, and also
+because something good may come out of it.
 
-Hope it is enough.
+> I'd much prefer merging nl80211 and putting any really *new* stuff into
+> it directly. Of course this fragments the user space API for a while
+> since you need to use two APIs then for the time being to configure all
+> things, but we can move over all the rest of the configuration gradually
+> and before we end up in mainline with the new API we can have that
+> finished.
 
-Best regards,
+	Good luck with that plan, user-space is notorious to not like
+entropy...
+	Personally, I though that the plan that was more or less the
+consensus that the "new API" would be targeted mostly at the
+DeviceScape stack, as it seems difficult to offer the full feature set
+of that stack through WE. So, I would have expected the development of
+the "new API" to be somewhat in sync with the integration of the
+DeviceScape stack.
 
- =09=09=09=09Krzysztof Ol=EAdzki
+> Or putting it the other way round, I'm ok with
+>  * cleaning up the ssid mess
+>  * adding RCPI (we'll probably be using it in nl80211 anyway, so it's
+>    easier if we add it now and declare no support for other things)
+>  * getting rid of get_wireless_stats (good one!)
+>    [actually, I plan to get rid of wireless_handlers too]
 
----187430788-204049394-1157042747=:28922
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+	And if you look closely, you will realise the other features
+are also good for you ;-)
 
--------------------------------------------------------------------------
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
----187430788-204049394-1157042747=:28922
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+> johannes
 
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
+	Have fun...
 
----187430788-204049394-1157042747=:28922--
+	Jean
