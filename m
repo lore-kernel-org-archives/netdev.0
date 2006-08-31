@@ -1,43 +1,51 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 2.6.18] WE-21 support (core API)
-Date: Thu, 31 Aug 2006 16:00:05 +0200
-Message-ID: <1157032805.16040.21.camel@ux156>
-References: <20060830005655.GA8405@bougret.hpl.hp.com>
-	 <1157031138.16040.17.camel@ux156>  <20060831135112.GA6097@jm.kir.nu>
+From: "Amit S. Kale" <amitkale@netxen.com>
+Subject: [PATCH 2.6.17 0/9] NetXen: 1G/10G Ethernet Driver
+Date: Thu, 31 Aug 2006 07:02:32 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0608310543370.23783@dut39>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jt@hpl.hp.com, "John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, Javier Achirica <achirica@gmail.com>,
-	Simon Kelley <simon@thekelleys.org.uk>,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
-	Zhu Yi <yi.zhu@intel.com>, Pavel Roskin <proski@gnu.org>,
-	"Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
-	Jeroen Vreeken <pe1rxq@amsat.org>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Denis Vlasenko <vda@ilport.com.ua>,
-	Michael Buesch <mbuesch@freenet.de>
+Cc: sanjeev@netxen.com, rob@netxen.com, unmproj@linsyssoft.com,
+	shemminger@osdl.org, brazilnut@us.ibm.com, wendyx@us.ibm.com,
+	jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:19844 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1750788AbWHaN7s
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:16739 "EHLO
+	mail.unminc.com") by vger.kernel.org with ESMTP id S1751637AbWHaOCc
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Aug 2006 09:59:48 -0400
-To: Jouni Malinen <jkmaline@cc.hut.fi>
-In-Reply-To: <20060831135112.GA6097@jm.kir.nu>
+	Thu, 31 Aug 2006 10:02:32 -0400
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2006-08-31 at 06:51 -0700, Jouni Malinen wrote:
+Hi All,
 
-> I don't know about the others, but long/short retry limits have users
-> (e.g., Host AP driver) and these drivers are currently forced to use a
-> hack to do this without this cleanup. Furthermore, this part does not
-> add a new ioctl.
+Thank you Stephen, Don and Wendy.
+We have incorporated feedbacks which have received since after last post. 
+I'll be resending updated patchset in subsequent emails.
 
-It does, however, add new parameters and things that'd need to be
-translated in the compat layer later. Hence, even there, I'd prefer to
-add them directly into nl80211. However, the compat code for that
-shouldn't be that bad, so I can see that as a softer target :) But I
-don't want to see new ioctls for sure.
+We are working on finding out good way of using tables to manage 
+compatibility between firmware version number and driver version number.
 
-johannes
+Kindly review it and feel free to send feedback.
+
+Thanks,
+-Amit
+
+Signed-off-by: Amit S. Kale <amitkale@netxen.com>
+
+  MAINTAINERS                              |    7
+  drivers/net/Kconfig                      |    5
+  drivers/net/Makefile                     |    1
+  drivers/net/netxen/Makefile              |   35
+  drivers/net/netxen/netxen_nic.h          |  901 +++++++++++++++++++++++++
+  drivers/net/netxen/netxen_nic_ethtool.c  |  696 +++++++++++++++++++
+  drivers/net/netxen/netxen_nic_hdr.h      |  611 +++++++++++++++++
+  drivers/net/netxen/netxen_nic_hw.c       | 1102 ++++++++++++++++++++++++++++++
+  drivers/net/netxen/netxen_nic_hw.h       |  499 +++++++++++++
+  drivers/net/netxen/netxen_nic_init.c     | 1089 ++++++++++++++++++++++++++++++
+  drivers/net/netxen/netxen_nic_ioctl.h    |   75 ++
+  drivers/net/netxen/netxen_nic_isr.c      |  301 ++++++++
+  drivers/net/netxen/netxen_nic_main.c     | 1107 +++++++++++++++++++++++++++++++
+  drivers/net/netxen/netxen_nic_niu.c      |  779 +++++++++++++++++++++
+  drivers/net/netxen/netxen_nic_phan_reg.h |  195 +++++
+  15 files changed, 7403 insertions(+)
