@@ -1,29 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Fix typo causing wrong skb to be freed
-Date: Thu, 31 Aug 2006 15:05:00 -0700 (PDT)
-Message-ID: <20060831.150500.25213839.davem@davemloft.net>
-References: <20060831212650.GG3470@postel.suug.ch>
+Subject: Re: [TCP]: Fix rcv mss estimate for LRO
+Date: Thu, 31 Aug 2006 15:10:37 -0700 (PDT)
+Message-ID: <20060831.151037.21907191.davem@davemloft.net>
+References: <20060831131833.GA1903@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28345
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:20669
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964790AbWHaWEz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Aug 2006 18:04:55 -0400
-To: tgraf@suug.ch
-In-Reply-To: <20060831212650.GG3470@postel.suug.ch>
+	id S964789AbWHaWKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 18:10:32 -0400
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20060831131833.GA1903@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 31 Aug 2006 23:26:51 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 31 Aug 2006 23:18:33 +1000
 
-> A typo introduced by myself which leads to freeing the skb
-> containing the netlink message when it should free the newly
-> allocated skb for the reply.
+> The Xen performance problem turned out to be something else altogether.
+> It was an incorrect rcv mss estimate which leads to delayed acks.  So
+> it's not a bug in Linux yet :) However, since we need this for LRO as
+> well, here's a patch for net-2.6.19.
+
+Good spotting.
+
+> [TCP]: Fix rcv mss estimate for LRO
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> By passing a Linux-generated TSO packet straight back into Linux, Xen
+> becomes our first LRO user :) Unfortunately, there is at least one spot
+> in our stack that needs to be changed to cope with this.
+> 
+> The receive MSS estimate is computed from the raw packet size.  This is
+> broken if the packet is GSO/LRO.  Fortunately the real MSS can be found
+> in gso_size so we simply need to use that if it is non-zero.
+> 
+> Real LRO NICs should of course set the gso_size field in future.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks Thomas.
+Ok, I'll put this into net-2.6.19, but I think it deserves
+serious consideration for 2.6.18 because the S2IO driver
+does implement HW LRO and it is almost certainly getting
+bitten by this issue since I do not see that driver setting
+gso_size, and perhaps the current S2io firmware implementing
+this cannot provide the MSS value needed.
