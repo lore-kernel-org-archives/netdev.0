@@ -1,53 +1,51 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [patch 5/5] d80211: add ioctl to stop data frame tx
-Date: Thu, 31 Aug 2006 09:23:37 +0200
-Message-ID: <1157009017.3065.14.camel@ux156>
-References: <20060822173241.313859000@devicescape.com>
-	 <20060822173419.GF12500@devicescape.com> <1156317906.3629.18.camel@ux156>
-	 <uwt8sww6z.fsf@devicescape.com> <1156836657.3788.5.camel@ux156>
-	 <20060829114515.GA29669@tuxdriver.com>
-	 <20060829183947.GJ1701@instant802.com> <1156922781.4013.13.camel@ux156>
-	 <20060830160115.GB18041@instant802.com>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH] Fix dm9000 release_resource
+Date: Thu, 31 Aug 2006 09:32:12 +0200
+Message-ID: <20060831073212.GB13103@localhost.localdomain>
+References: <0ML25U-1GIK8C13Mq-0007lB@mrelayeu.kundenserver.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Elliot Schwartz <elliot@devicescape.com>,
-	David Kimdon <david.kimdon@devicescape.com>,
-	netdev@vger.kernel.org, Jiri Benc <jbenc@suse.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Ben Dooks <ben@simtec.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:39620 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751032AbWHaHXF
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Aug 2006 03:23:05 -0400
-To: Jouni Malinen <jkm@devicescape.com>
-In-Reply-To: <20060830160115.GB18041@instant802.com>
+Received: from metis.extern.pengutronix.de ([83.236.181.26]:24763 "EHLO
+	metis.extern.pengutronix.de") by vger.kernel.org with ESMTP
+	id S1751137AbWHaHcZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 03:32:25 -0400
+To: Dirk Opfer <Dirk@Opfer-Online.de>
+Content-Disposition: inline
+In-Reply-To: <0ML25U-1GIK8C13Mq-0007lB@mrelayeu.kundenserver.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2006-08-30 at 09:01 -0700, Jouni Malinen wrote:
+On Wed, Aug 30, 2006 at 09:04:45AM +0200, Dirk Opfer wrote:
+> dm9000_release_board calls release_resource with the platform resource
+> instead of the requested resource:
+> 
+> db->addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> db->addr_req = request_mem_region(db->addr_res->start, i, pdev->name);
+> 
+> dm9000_release_board:
+> 
+>     if (db->addr_res != NULL) {
+>         release_resource(db->addr_res);
+>         kfree(db->addr_req);
+> 
+> With this behavior the kernel will crash on the second removal. The
+> attached patch fix this problem.
+> 
+> 
+> Signed-off-by: Dirk Opfer <Dirk@Opfer-Online.de>
 
-> Well, it would be nice to get these in quite soon. I know that the
-> current mechanism works since it has been used for years, but if the
-> netlink-based solution is considered stable and working and unlikely to
-> require major changes soon, I don't have anything against using it here.
+I thought this was fixed long ago, it must have been lost somewhere.
+Anyway:
 
-:)
-May I ask you to take a look at nl80211 to see if it matches your
-expectations/needs? It obviously needs to be expanded and we may want to
-add some multicast groups that applications can subscribe to for scan
-results/radar detection/management frames/...
-What really should be done soon is implementing transmit status
-notification for injected packets since injection is already working. I
-just happen to not need it at the moment and have a bunch of other
-things to do.
+Acked-by: Sascha Hauer <s.hauer@pengutronix.de>
 
-> Once there is mechanism to replace all the current functionality, I
-> would just drop it. There is some meta information, like signal
-> strength, in the header, so this does not only include event
-> notifications, but also additional data for frames.
 
-That meta information can be transmitted through other channels too
-though :)
 
-johannes
+-- 
+ Dipl.-Ing. Sascha Hauer | http://www.pengutronix.de
+  Pengutronix - Linux Solutions for Science and Industry
+    Handelsregister: Amtsgericht Hildesheim, HRA 2686
+      Hannoversche Str. 2, 31134 Hildesheim, Germany
+    Phone: +49-5121-206917-0 |  Fax: +49-5121-206917-9
