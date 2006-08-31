@@ -1,37 +1,41 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: RTL8136
-Date: Thu, 31 Aug 2006 23:05:06 +0200
-Message-ID: <20060831210506.GA9463@electric-eye.fr.zoreil.com>
-References: <4E5C083B8E%linux@youmustbejoking.demon.co.uk> <20060825190455.GA14812@electric-eye.fr.zoreil.com> <4E5C6C7764%linux@youmustbejoking.demon.co.uk> <4E5CF8AF74%linux@youmustbejoking.demon.co.uk> <20060827214135.GA21464@electric-eye.fr.zoreil.com> <4E5D2F7732%linux@youmustbejoking.demon.co.uk>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Re: high latency with TCP connections
+Date: Fri, 1 Sep 2006 09:08:34 +1200
+Message-ID: <5640c7e00608311408l1418321tadd69726d252ca5a@mail.gmail.com>
+References: <20060830100734.GA22235@isil.ipib.msu.ru>
+	 <20060830102727.11e11453@localhost.localdomain>
+	 <20060830.143955.55510936.davem@davemloft.net>
+	 <fa1e4ce70608311122n6555b7c3n1ecec9ed3adc46c2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>, shemminger@osdl.org,
+	alex@sectorb.msk.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:22702 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1750816AbWHaVHy
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Aug 2006 17:07:54 -0400
-To: Darren Salt <linux@youmustbejoking.demon.co.uk>
+Received: from nf-out-f131.google.com ([64.233.182.131]:27024 "EHLO
+	nf-out-f131.google.com") by vger.kernel.org with ESMTP
+	id S1751249AbWHaVIg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 17:08:36 -0400
+Received: by nf-out-f131.google.com with SMTP id k65so31814nfa
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2006 14:08:34 -0700 (PDT)
+To: "Kelly Burkhart" <kelly.burkhart@gmail.com>
+In-Reply-To: <fa1e4ce70608311122n6555b7c3n1ecec9ed3adc46c2@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <4E5D2F7732%linux@youmustbejoking.demon.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Darren Salt <linux@youmustbejoking.demon.co.uk> :
-[...]
-> The former. Without that, the connection is persistently re-negotiated
-> (though, according to the switch's LEDs, it's fine before the module is
-> loaded).
-
-The state of the LEDs at startup is not necessarily significant (it can
-come from the eeprom).
-
-I have regenerated a serie which includes a fix with the correct RTL_CFG_2
-at http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.18-rc5/r8169 (the git
-branch has been updated as well).
-
-Could you use it with mii-tool to collect the state of the mii registers
-in the broken state and in the working state ?
+> The word performance in this list seems to always mean 'throughput'.
+> It seems though that there could be some knob to tweak for those of us
+> who don't care so much about throughput but care a great deal about
+> latency.
+>
+SCTP has been mentioned. There is also DCCP - http://www.read.cs.ucla.edu/dccp/
 
 -- 
-Ueimor
+Ian McDonald
+Web: http://wand.net.nz/~iam4
+Blog: http://imcdnzl.blogspot.com
+WAND Network Research Group
+Department of Computer Science
+University of Waikato
+New Zealand
