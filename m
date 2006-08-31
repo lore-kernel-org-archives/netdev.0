@@ -1,58 +1,42 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC] Enable/Disable VLAN HW filters
-Date: Thu, 31 Aug 2006 16:40:52 -0700
-Message-ID: <44F77384.4030707@candelatech.com>
-References: <1157064667.4416.14.camel@strongmad>
+From: David Miller <davem@davemloft.net>
+Subject: LRO fix needed
+Date: Thu, 31 Aug 2006 16:42:27 -0700 (PDT)
+Message-ID: <20060831.164227.71090271.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:49381 "EHLO ns2.lanforge.com")
-	by vger.kernel.org with ESMTP id S932300AbWHaXj6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2006 19:39:58 -0400
-To: Mitch Williams <mitch.a.williams@intel.com>
-In-Reply-To: <1157064667.4416.14.camel@strongmad>
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:18610
+	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
+	id S932422AbWHaXm2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 19:42:28 -0400
+To: Ananda.Raju@neterion.com
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mitch Williams wrote:
-> We've had a few internal requests for a way to enable and disable the
-> hardware VLAN filter at runtime.  I'm posting it here for discussion and
-> to see if anybody else is interested in this feature.
-> 
-> Originally I had planned to do this as an Ethtool ioctl, but decided
-> instead to handle it through the VLAN module.  Ethtool doesn't know
-> anything about VLANs at all.
-> 
-> There are no userspace changes required to support this functionality.
-> 
-> To disable HW VLAN filtering:
-> # vconfig set_flag <VLAN interface> 2 1
-> 
-> To enable HW VLAN filtering:
-> # vconfig set_flag <VLAN interface> 2 0
-> 
-> At this point (somewhat obviously), it's only implemented on e1000, but
-> this ioctl could be easily implemented by other drivers.
 
-Sounds like a good idea to me.
+Ananda, Herbert Xu recently found a problem in the TCP stack
+input path for LRO capable receive paths.
 
-> +	switch (flag) {
-> +	case VLAN_FLAG_REORDER:
-> +		if (flag_val)
-> +			VLAN_DEV_INFO(dev)->flags |= 1;
-> +		else
-> +			VLAN_DEV_INFO(dev)->flags &= ~1;
-> +		break;
+The issue is that the receive MSS estimator in
+tcp_measure_rcv_mss() uses skb->len for the MSS
+estimation.  This is wrong for LRO frames.
 
-If we're defining constants for the flags, might as well use them here 
-instead of using the bare '1'.
+Herbert noticed this using Xen which pused TSO frames
+on output back into the destination TCP stack on input
+so it looks exactly like LRO.
 
-Ben
+His fix to tcp_measure_rcv_mss() is to use
+skb_shared_info(skb)->gso_size if it is non-zero,
+else skb->len, in the assignment to "len".
 
+So could you please make the S2io driver LRO path
+set skb_shared_info(skb)->gso_size appropriately?
+Probably the easiest is to use the length of the
+first frag of a multiple frag LRO sequence.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Also, could we have a linux/MAINTAINERS entry added
+for the S2io driver?
 
+Thanks.
