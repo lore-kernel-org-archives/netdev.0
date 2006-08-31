@@ -1,73 +1,77 @@
-From: Paul Moore <paul.moore@hp.com>
-Subject: Re: [PATCH 0/3] secid reconciliation-v01: Repost patchset with up
-  dates
-Date: Thu, 31 Aug 2006 10:45:09 -0400
-Message-ID: <44F6F5F5.5000408@hp.com>
-References: <36282A1733C57546BE392885C061859201512B64@chaos.tcs.tcs-sec.com>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] Wireless-2.6 changes for bcm43xx and SoftMAC for WE-21
+Date: Thu, 31 Aug 2006 10:01:39 -0500
+Message-ID: <44F6F9D3.1090605@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: James Morris <jmorris@namei.org>, netdev@vger.kernel.org,
-	selinux@tycho.nsa.gov, Stephen Smalley <sds@tycho.nsa.gov>,
-	Chad Hanson <chanson@TrustedCS.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel7.hp.com ([156.153.255.213]:47280 "EHLO atlrel7.hp.com")
-	by vger.kernel.org with ESMTP id S1751244AbWHaOpL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2006 10:45:11 -0400
-To: Venkat Yekkirala <vyekkirala@TrustedCS.com>
-In-Reply-To: <36282A1733C57546BE392885C061859201512B64@chaos.tcs.tcs-sec.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Venkat Yekkirala wrote:
->>My main concern with these patches is that moving the 
->>NetLabel check out
->>of selinux_socket_sock_rcv_skb() and into 
->>selinux_skb_policy_check() (as
->>it is currently written) would force us to compare a packet's NetLabel
->>with either the IPsec label or the secmark label
-> 
-> Yes you would do these checks (while using a netlabel based off of the
-> secmark at that point) to enforce flow control and when they succeed,
-> you will copy netlabel into secmark.
-> 
->>and not the socket's
->>label.
-> 
-> The socket Vs. secmark check that happens later in rcv_skb will in fact be
-> looking at the cipso label that is by then a part of the secmark context.
+John,
 
-So what you envison is that when an MLS label is found on a packet using
-NetLabel the MLS label from the packet is attached to the secmark
-context (replacing the existing MLS label, if any) and the resulting
-context would be checked for a "flow_in" permission, yes?
+As discussed earlier, here is the wireless-2.6 patch for WE-21 in bcm43xx-softmac. The core patch 
+for the SSID length, which I believe is non-controversial, must be applied first.
 
-Assuming the permission is granted the packet's secmark is replaced with
-the updated context.  This updated secmark context would then be used in
-sock_rcv_skb() to make an access decision, yes?
+Larry
 
->> The ability to make access decisions based on the process
->>consuming the data and the data itself it one of the nicer 
->>qualities of
->>NetLabel in my opinion.
-> 
-> This nicer quality ends up being preserved as explained above :)
+------------------------------------------------------
 
-It wasn't clear to me from your patch or the "master plan" what you
-intended to do with the NetLabel context.  I thought the "/* See if
-CIPSO can flow in thru the current secmark here */" comment in your
-patch was rather cryptic.
+Patch to make bcm43xx-softmac be compatible with the revised SSID length of WE-21.
 
-> We just need to get out of the mindset of viewing netlabel separately
-> once we are past the reconciliation point.
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 
-Agreed.  Although to be honest, I think the NetLabel context can be
-reconciled with the secmark and XFRM contexts just as easily using the
-existing sock_rcv_skb() hook.  I guess I need to see where the
-xfrm[4|6]_policy_check() hooks are called from in the stack to better
-understand ...
 
--- 
-paul moore
-linux security @ hp
+Index: wireless-2.6/net/ieee80211/softmac/ieee80211softmac_wx.c
+===================================================================
+--- wireless-2.6.orig/net/ieee80211/softmac/ieee80211softmac_wx.c
++++ wireless-2.6/net/ieee80211/softmac/ieee80211softmac_wx.c
+@@ -80,10 +80,10 @@ ieee80211softmac_wx_set_essid(struct net
+  	 * If it's our network, ignore the change, we're already doing it!
+  	 */
+  	if((sm->associnfo.associating || sm->associated) &&
+-	   (data->essid.flags && data->essid.length && extra)) {
++	   (data->essid.flags && data->essid.length)) {
+  		/* Get the associating network */
+  		n = ieee80211softmac_get_network_by_bssid(sm, sm->associnfo.bssid);
+-		if(n && n->essid.len == (data->essid.length - 1) &&
++		if(n && n->essid.len == data->essid.length &&
+  		   !memcmp(n->essid.data, extra, n->essid.len)) {
+  			dprintk(KERN_INFO PFX "Already associating or associated to "MAC_FMT"\n",
+  				MAC_ARG(sm->associnfo.bssid));
+@@ -109,8 +109,8 @@ ieee80211softmac_wx_set_essid(struct net
+  	sm->associnfo.static_essid = 0;
+  	sm->associnfo.assoc_wait = 0;
+
+-	if (data->essid.flags && data->essid.length && extra /*required?*/) {
+-		length = min(data->essid.length - 1, IW_ESSID_MAX_SIZE);
++	if (data->essid.flags && data->essid.length) {
++		length = min((int) data->essid.length, IW_ESSID_MAX_SIZE);
+  		if (length) {
+  			memcpy(sm->associnfo.req_essid.data, extra, length);
+  			sm->associnfo.static_essid = 1;
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+===================================================================
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+@@ -334,7 +334,7 @@ static int bcm43xx_wx_get_nick(struct ne
+  	size_t len;
+
+  	mutex_lock(&bcm->mutex);
+-	len = strlen(bcm->nick) + 1;
++	len = strlen(bcm->nick);
+  	memcpy(extra, bcm->nick, len);
+  	data->data.length = (__u16)len;
+  	data->data.flags = 1;
