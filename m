@@ -1,221 +1,194 @@
-From: "Amit S. Kale" <amitkale@netxen.com>
-Subject: [PATCH 2.6.17 9/9] NetXen: CRB reg definitions
-Date: Thu, 31 Aug 2006 07:36:33 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0608310732350.23783@dut39>
-References: <Pine.LNX.4.64.0608310543370.23783@dut39>
+From: Jesper Juhl <jesper.juhl@gmail.com>
+Subject: [RFC][PATCH] Add netpoll/netconsole support to vlan devices
+Date: Thu, 31 Aug 2006 16:41:44 +0200
+Message-ID: <200608311641.44824.jesper.juhl@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: sanjeev@netxen.com, rob@netxen.com, unmproj@linsyssoft.com,
-	shemminger@osdl.org, brazilnut@us.ibm.com, wendyx@us.ibm.com,
-	jeff@garzik.org
+Cc: netdev@vger.kernel.org, Ingo Molnar <mingo@redhat.com>,
+	Matt Mackall <mpm@selenic.com>,
+	Ben Greear <greearb@candelatech.com>,
+	"David S. Miller" <davem@redhat.com>, jesper.juhl@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:54892 "EHLO
-	mail.unminc.com") by vger.kernel.org with ESMTP id S932337AbWHaOgf
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Aug 2006 10:36:35 -0400
-To: netdev@vger.kernel.org
-In-Reply-To: <Pine.LNX.4.64.0608310543370.23783@dut39>
+Received: from nz-out-0102.google.com ([64.233.162.192]:33742 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S932163AbWHaOmQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 10:42:16 -0400
+Received: by nz-out-0102.google.com with SMTP id 4so364411nzn
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2006 07:42:16 -0700 (PDT)
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-diff -Narup -X linux-2.6.17.orig/Documentation/dontdiff linux-2.6.17.orig/drivers/net/netxen/netxen_nic_phan_reg.h linux-2.6.17/drivers/net/netxen/netxen_nic_phan_reg.h
---- linux-2.6.17.orig/drivers/net/netxen/netxen_nic_phan_reg.h	1969-12-31 16:00:00.000000000 -0800
-+++ linux-2.6.17/drivers/net/netxen/netxen_nic_phan_reg.h	2006-08-31 06:17:22.000000000 -0700
-@@ -0,0 +1,195 @@
-+/*
-+ * Copyright (C) 2003 - 2006 NetXen, Inc.
-+ * All rights reserved.
-+ * 
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version 2
-+ * of the License, or (at your option) any later version.
-+ * 
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ * 
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston,
-+ * MA  02111-1307, USA.
-+ * 
-+ * The full GNU General Public License is included in this distribution
-+ * in the file called LICENSE.
-+ * 
-+ * Contact Information:
-+ *    info@netxen.com
-+ * NetXen,
-+ * 3965 Freedom Circle, Fourth floor,
-+ * Santa Clara, CA 95054
-+ */
+
+Greetings,
+
+I recently tried running netconsole via a vlan interface without luck,
+and decided to do something about it (see patch below).
+
+
+My interfaces look like this:
+
+eth0      Link encap:Ethernet  HWaddr 00:14:5E:28:3C:2E
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:11763760878 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:13800040335 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:3453951528686 (3.1 TiB)  TX bytes:7086425530052 (6.4 TiB)
+          Interrupt:169
+
+eth0.20   Link encap:Ethernet  HWaddr 00:14:5E:28:3C:2E
+          inet addr:vvv.xxx.yyy.zzz  Bcast:ggg.hhh.iii.jjj  Mask:255.255.252.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:11759883828 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:13800040452 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:3194985806767 (2.9 TiB)  TX bytes:6975984645540 (6.3 TiB)
+
+
+Trying to load netconsole fails miserably : 
+
+[root@server root]# modprobe netconsole 
+netconsole=@/eth0,10514@aaa.bbb.ccc.ddd/00:04:23:BF:D9:62
+FATAL: Error inserting netconsole 
+(/lib/modules/2.6.17.8/kernel/drivers/net/netconsole.ko): Invalid argument
+[root@server root]# modprobe netconsole 
+netconsole=@/eth0.20,10514@aaa.bbb.ccc.ddd/00:04:23:BF:D9:62
+FATAL: Error inserting netconsole 
+(/lib/modules/2.6.17.8/kernel/drivers/net/netconsole.ko): Invalid argument
+
+
+And results in this in dmesg :
+
+netconsole: interface eth0
+netconsole: remote port 10514
+netconsole: remote IP aaa.bbb.ccc.ddd
+netconsole: remote ethernet address 00:04:23:bf:d9:62
+netconsole: no IP address for eth0, aborting
+netconsole: local port 6665
+netconsole: interface eth0.20
+netconsole: remote port 10514
+netconsole: remote IP aaa.bbb.ccc.ddd
+netconsole: remote ethernet address 00:04:23:bf:d9:62
+netconsole: eth0.20 doesn't support polling, aborting.
+
+
+The actual interface is a e1000 and supports polling just fine. 
+The problem is simply that netpoll won't play with eth0 since it has
+no IP and it won't play with eth0.20 either since it's a vlan 
+interface and doesn't support polling even if the underlying device 
+does.
+
+This is a problem for me since it means that several of my servers 
+that are configured like this won't be able to use netconsole.
+So I set out to try and fix the problem by making the vlan device 
+support polling if the underlying device supports polling.
+
+I have met with a resonable success in that the patch below seems to 
+work. With this patch I can now load netconsole for eth0.20 and log 
+messages are send just fine and can be recieved on the remote host.
+
+ netconsole: local port 6665
+ netconsole: interface eth0.20
+ netconsole: remote port 10514
+ netconsole: remote IP aaa.bbb.ccc.ddd
+ netconsole: remote ethernet address 00:04:23:bf:d9:62
+ netconsole: local IP vvv.xxx.yyy.zzz
+ netconsole: network logging started
+
+Now, I would very much like to get this merged, but first I would 
+appreciate some review of the patch. This part of the kernel is not 
+one I know all too well, so I may have made a number of silly mistakes.
+If people would kindly take a look at the patch and point out any 
+problems with it so I can fix it up and arrive at a version that's 
+mergable, I'd greatly appreciate it.
+
+
+PS. If you reply to this on the netdev list, please keep me on Cc: 
+since I'm only subscribed to linux-kernel.
+
+
+Kind regards,
+Jesper Juhl <jesper.juhl@gmail.com>
+
+
+
+Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+---
+
+ net/8021q/vlan.c     |    5 +++++
+ net/8021q/vlan_dev.c |   15 ++++++++++++++-
+ 2 files changed, 19 insertions(+), 1 deletion(-)
+
+diff -upr linux-2.6.18-rc5-git2-orig/net/8021q/vlan.c 
+linux-2.6.18-rc5-git2/net/8021q/vlan.c
+--- linux-2.6.18-rc5-git2-orig/net/8021q/vlan.c	2006-08-31 10:07:08.000000000 
++0200
++++ linux-2.6.18-rc5-git2/net/8021q/vlan.c	2006-08-31 16:34:33.000000000 +0200
+@@ -11,6 +11,7 @@
+  *		Add HW acceleration hooks - David S. Miller <davem@redhat.com>;
+  *		Correct all the locking - David S. Miller <davem@redhat.com>;
+  *		Use hash table for VLAN groups - David S. Miller <davem@redhat.com>
++ *		Add NETPOLL support - Jesper Juhl
+  *
+  *		This program is free software; you can redistribute it and/or
+  *		modify it under the terms of the GNU General Public License
+@@ -512,6 +513,10 @@ static struct net_device *register_vlan_
+ 	}
+ 	new_dev->hard_header_parse = real_dev->hard_header_parse;
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	new_dev->poll_controller = real_dev->poll_controller;
++#endif
 +
-+#ifndef __NIC_PHAN_REG_H_
-+#define __NIC_PHAN_REG_H_
-+
-+/** 
-+ * CRB Registers or queue message done only at initialization time....
-+ **/
-+
-+/**
-+ * The following 2 are the base adresses for the CRB registers and their
-+ * offsets will be added to get addresses for the index addresses.......
-+ **/
-+#define NIC_CRB_BASE_PORT1	NETXEN_CAM_RAM(0x200)
-+#define NIC_CRB_BASE_PORT2	NETXEN_CAM_RAM(0x250)
-+
-+#define NETXEN_NIC_REG(X)	(NIC_CRB_BASE_PORT1+(X))
-+
-+/**
-+ * CrbPortPhanCntrHi/Lo is used to pass the address of HostPhantomIndex address
-+ * which can be read by the Phantom host to get producer/consumer indexes from
-+ * Phantom/Casper. If it is not HOST_SHARED_MEMORY, then the following
-+ * registers will be used for the addresses of the ring's shared memory
-+ * on the Phantom.
-+ **/
-+
-+#define CRB_PHAN_CNTRL_LO_OFFSET	NETXEN_NIC_REG(0x00)
-+#define CRB_PHAN_CNTRL_HI_OFFSET	NETXEN_NIC_REG(0x04)
-+
-+/* point to the indexes */
-+#define CRB_CMD_PRODUCER_OFFSET		NETXEN_NIC_REG(0x08)
-+#define CRB_CMD_CONSUMER_OFFSET		NETXEN_NIC_REG(0x0c)
-+
-+/* address of command descriptors in the host memory */
-+#define CRB_HOST_CMD_ADDR_HI		NETXEN_NIC_REG(0x30)
-+#define CRB_HOST_CMD_ADDR_LO		NETXEN_NIC_REG(0x34)
-+
-+/* The following 4 CRB registers are for doing performance coal */
-+#define CRB_CMD_INTR_LOOP		NETXEN_NIC_REG(0x38)
-+#define CRB_CMD_DMA_LOOP		NETXEN_NIC_REG(0x3c)
-+#define CRB_RCV_INTR_LOOP		NETXEN_NIC_REG(0x40)
-+#define CRB_RCV_DMA_LOOP		NETXEN_NIC_REG(0x44)
-+
-+/* Needed by the host to find out the state of Phantom's initialization */
-+#define CRB_ENABLE_TX_INTR		NETXEN_NIC_REG(0x4c)
-+#define CRB_CMDPEG_STATE		NETXEN_NIC_REG(0x50)
-+#define CRB_CMDPEG_CMDRING		NETXEN_NIC_REG(0x54)
-+
-+/* Interrupt coalescing parameters */
-+#define CRB_GLOBAL_INT_COAL		NETXEN_NIC_REG(0x80)
-+#define CRB_INT_COAL_MODE		NETXEN_NIC_REG(0x84)
-+#define CRB_MAX_RCV_BUFS		NETXEN_NIC_REG(0x88)
-+#define CRB_TX_INT_THRESHOLD		NETXEN_NIC_REG(0x8c)
-+#define CRB_RX_PKT_TIMER		NETXEN_NIC_REG(0x90)
-+#define CRB_TX_PKT_TIMER		NETXEN_NIC_REG(0x94)
-+#define CRB_RX_PKT_CNT			NETXEN_NIC_REG(0x98)
-+#define CRB_RX_TMR_CNT			NETXEN_NIC_REG(0x9c)
-+
-+/* Register for communicating XG link status */
-+#define CRB_XG_STATE			NETXEN_NIC_REG(0xa0)
-+
-+/* Debug registers for controlling NIC pkt gen agent */
-+#define CRB_AGENT_GO			NETXEN_NIC_REG(0xb0)
-+#define CRB_AGENT_TX_SIZE		NETXEN_NIC_REG(0xb4)
-+#define CRB_AGENT_TX_TYPE		NETXEN_NIC_REG(0xb8)
-+#define CRB_AGENT_TX_ADDR		NETXEN_NIC_REG(0xbc)
-+#define CRB_AGENT_TX_MSS		NETXEN_NIC_REG(0xc0)
-+
-+/* Debug registers for observing NIC performance */
-+#define CRB_TX_STATE			NETXEN_NIC_REG(0xd0)
-+#define CRB_TX_COUNT			NETXEN_NIC_REG(0xd4)
-+#define CRB_RX_STATE			NETXEN_NIC_REG(0xd8)
-+
-+/* CRB registers per Rcv Descriptor ring */
-+struct netxen_rcv_desc_crb {
-+	u32 crb_rcv_producer_offset __attribute__ ((aligned(512)));
-+	u32 crb_rcv_consumer_offset;
-+	u32 crb_globalrcv_ring;
-+};
-+
-+/*
-+ * CRB registers used by the receive peg logic. One instance of these
-+ * needs to be instantiated per instance of the receive peg.
-+ */
-+
-+struct netxen_recv_crb {
-+	struct netxen_rcv_desc_crb rcv_desc_crb[NUM_RCV_DESC_RINGS];
-+	u32 crb_rcvstatus_ring;
-+	u32 crb_rcv_status_producer;
-+	u32 crb_rcv_status_consumer;
-+	u32 crb_rcvpeg_state;
-+};
-+
-+#if defined(DEFINE_GLOBAL_RECV_CRB)
-+struct netxen_recv_crb recv_crb_registers[] = {
-+	/*
-+	 * Instance 0.
-+	 */
-+	{
-+	 /* rcv_desc_crb: */
-+	 {
-+	  {
-+	   /* crb_rcv_producer_offset: */
-+	   NETXEN_NIC_REG(0x18),
-+	   /* crb_rcv_consumer_offset: */
-+	   NETXEN_NIC_REG(0x1c),
-+	   /* crb_gloablrcv_ring: */
-+	   NETXEN_NIC_REG(0x20),
-+	   },
-+	  /* Jumbo frames */
-+	  {
-+	   /* crb_rcv_producer_offset: */
-+	   NETXEN_NIC_REG(0x100),
-+	   /* crb_rcv_consumer_offset: */
-+	   NETXEN_NIC_REG(0x104),
-+	   /* crb_gloablrcv_ring: */
-+	   NETXEN_NIC_REG(0x108),
-+	   }
-+	  },
-+	 /* crb_rcvstatus_ring: */
-+	 NETXEN_NIC_REG(0x24),
-+	 /* crb_rcv_status_producer: */
-+	 NETXEN_NIC_REG(0x28),
-+	 /* crb_rcv_status_consumer: */
-+	 NETXEN_NIC_REG(0x2c),
-+	 /* crb_rcvpeg_state: */
-+	 NETXEN_NIC_REG(0x48),
-+
-+	 },
-+	/*
-+	 * Instance 1,
-+	 */
-+	{
-+	 /* rcv_desc_crb: */
-+	 {
-+	  {
-+	   /* crb_rcv_producer_offset: */
-+	   NETXEN_NIC_REG(0x80),
-+	   /* crb_rcv_consumer_offset: */
-+	   NETXEN_NIC_REG(0x84),
-+	   /* crb_globalrcv_ring: */
-+	   NETXEN_NIC_REG(0x88),
-+	   },
-+	  /* Jumbo frames */
-+	  {
-+	   /* crb_rcv_producer_offset: */
-+	   NETXEN_NIC_REG(0x10C),
-+	   /* crb_rcv_consumer_offset: */
-+	   NETXEN_NIC_REG(0x110),
-+	   /* crb_globalrcv_ring: */
-+	   NETXEN_NIC_REG(0x114),
-+	   }
-+	  },
-+	 /* crb_rcvstatus_ring: */
-+	 NETXEN_NIC_REG(0x8c),
-+	 /* crb_rcv_status_producer: */
-+	 NETXEN_NIC_REG(0x90),
-+	 /* crb_rcv_status_consumer: */
-+	 NETXEN_NIC_REG(0x94),
-+	 /* crb_rcvpeg_state: */
-+	 NETXEN_NIC_REG(0x98),
-+	 },
-+};
-+#else
-+extern struct netxen_recv_crb recv_crb_registers[];
-+#endif				/* DEFINE_GLOBAL_RECEIVE_CRB */
-+
-+#endif				/* __NIC_PHAN_REG_H_ */
+ 	VLAN_DEV_INFO(new_dev)->vlan_id = VLAN_ID; /* 1 through VLAN_VID_MASK */
+ 	VLAN_DEV_INFO(new_dev)->real_dev = real_dev;
+ 	VLAN_DEV_INFO(new_dev)->dent = NULL;
+diff -upr linux-2.6.18-rc5-git2-orig/net/8021q/vlan_dev.c 
+linux-2.6.18-rc5-git2/net/8021q/vlan_dev.c
+--- linux-2.6.18-rc5-git2-orig/net/8021q/vlan_dev.c	2006-06-18 
+03:49:35.000000000 +0200
++++ linux-2.6.18-rc5-git2/net/8021q/vlan_dev.c	2006-08-31 16:35:35.000000000 
++0200
+@@ -12,7 +12,8 @@
+  *              Oct 20, 2001:  Ard van Breeman:
+  *                - Fix MC-list, finally.
+  *                - Flush MC-list on VLAN destroy.
+- *                
++ *		Aug 31, 2006: Jesper Juhl
++ *		  - Add NETPOLL support.
+  *
+  *		This program is free software; you can redistribute it and/or
+  *		modify it under the terms of the GNU General Public License
+@@ -489,6 +490,12 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ 	stats->tx_bytes += skb->len;
+ 
+ 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	if (irqs_disabled()) {
++		skb->dev->hard_start_xmit(skb, skb->dev);
++		return 0;
++	}
++#endif
+ 	dev_queue_xmit(skb);
+ 
+ 	return 0;
+@@ -513,6 +520,12 @@ int vlan_dev_hwaccel_hard_start_xmit(str
+ 	stats->tx_bytes += skb->len;
+ 
+ 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	if (irqs_disabled()) {
++		skb->dev->hard_start_xmit(skb, skb->dev);
++		return 0;
++	}
++#endif
+ 	dev_queue_xmit(skb);
+ 
+ 	return 0;
+
+
+
 
