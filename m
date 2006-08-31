@@ -1,110 +1,47 @@
-From: Brice Goglin <brice@myri.com>
-Subject: [PATCH] myri10ge: improve firmware selection
-Date: Thu, 31 Aug 2006 01:32:59 -0400
-Message-ID: <44F6748B.4020001@myri.com>
+From: "Gary Chan" <hpchan5@ie.cuhk.edu.hk>
+Subject: Linux UDP Implementation
+Date: Thu, 31 Aug 2006 13:56:50 +0800
+Message-ID: <00f401c6ccc2$40ad2a90$193aa8c0@mclabhpchan5>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+	format=flowed;
+	charset="ISO-8859-1";
+	reply-type=original
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h-66-166-126-70.lsanca54.covad.net ([66.166.126.70]:22776 "EHLO
-	myri.com") by vger.kernel.org with ESMTP id S1751238AbWHaFd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2006 01:33:27 -0400
-To: Jeff Garzik <jeff@garzik.org>
+Received: from eng.ie.cuhk.edu.hk ([137.189.96.20]:57030 "EHLO
+	eng.ie.cuhk.edu.hk") by vger.kernel.org with ESMTP id S1750733AbWHaF4w
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 01:56:52 -0400
+Received: from viruswall2.ie.cuhk.edu.hk (IDENT:U2FsdGVkX1/DKcu35zfNFXSHN5zbjh3NlKx6RMIPDgU@viruswall2 [137.189.96.53])
+	by eng.ie.cuhk.edu.hk (8.13.6/8.13.6) with ESMTP id k7V5uoAN003714
+	for <netdev@vger.kernel.org>; Thu, 31 Aug 2006 13:56:50 +0800
+Received: from mclabhpchan5 (iegatea1 [137.189.98.1])
+	by viruswall2.ie.cuhk.edu.hk (8.13.6/8.13.6) with SMTP id k7V5uoYh030084
+	for <netdev@vger.kernel.org>; Thu, 31 Aug 2006 13:56:50 +0800
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff,
+According to the function call udp_sendmsg() in the source file 
+net/ipv4/udp.c (Linux Kernel 2.6.17.11), when an error value is returned 
+from the function ip_append_data() due to local device congestion, say 
+interface queue overflow,  pending packets in the queue sk->sk_write_queue 
+are simply flushed (udp_flush_pending_frames() is invoked) without caching 
+for future retransmission.
 
-Here's a patch to improve the selection on the myri10ge firmware.
-Please apply to #upstream for 2.6.19.
+I called a network API function sendto() to transmit UDP packets in a 
+blocking I/O mode at a rate of 100Mbps over the 802.11b wireless ad hoc 
+network, the network was overloaded as the maximum transfer rate for 802.11b 
+was just 11Mbps. Therefore, the outgoing interface queue must be full and 
+UDP packets will be dropped eventually. However, I checked that there was no 
+packet loss at the receiver side, i.e. the number of packets sent from the 
+sender is equal to that received.
 
-The patch actually raises two concerns:
-* We might want to add a generic PCI function to get the PCIe link width since
-  some other drivers (at least ipath) do the same. But we probably do not want
-  to add a new function for every PCIe capability. I will probably look at it
-  and discuss it on linux-pci in the future.
-* As requested during the submission, the PCI ids of chipsets that are known to
-  provided aligned completion are defined in the myri10ge code. If we keep adding
-  new ones, it might become better to move them to pciids.h.
-  But, this sort of quirk to detect these chipsets are very specific to our NIC,
-  I don't think it is worth moving it to the PCI core until somebody else really
-  needs it.
+It seems that the implementation (at code level) does not match with the 
+actual behaviour. I would like to seek expertise on clarifying my 
+understanding in UDP implementation so that this phenomenon can be 
+explained.
 
-Thanks,
-Brice
-
-
-
-From: Brice Goglin <brice@myri.com>
-
-[PATCH] myri10ge: improve firmware selection
-
-Improve the firmware selection by adding 2 cases where we should use the
-optimized firmware:
-* when the actual PCIe link width is lower than 8x.
-* when the board is plugged to one of the new Intel PCIe chipsets that
-  are known to provide aligned PCIe completions.
-
-Signed-off-by: Brice Goglin <brice@myri.com>
----
- drivers/net/myri10ge/myri10ge.c |   35 ++++++++++++++++++++++++++++-------
- 1 file changed, 28 insertions(+), 7 deletions(-)
-
-Index: linux-mm/drivers/net/myri10ge/myri10ge.c
-===================================================================
---- linux-mm.orig/drivers/net/myri10ge/myri10ge.c	2006-08-26 23:34:49.000000000 -0400
-+++ linux-mm/drivers/net/myri10ge/myri10ge.c	2006-08-31 00:49:35.000000000 -0400
-@@ -2410,6 +2410,8 @@
-  */
- 
- #define PCI_DEVICE_ID_SERVERWORKS_HT2000_PCIE	0x0132
-+#define PCI_DEVICE_ID_INTEL_E5000_PCIE23 0x25f7
-+#define PCI_DEVICE_ID_INTEL_E5000_PCIE47 0x25fa
- 
- static void myri10ge_select_firmware(struct myri10ge_priv *mgp)
- {
-@@ -2419,15 +2421,34 @@
- 	mgp->fw_name = myri10ge_fw_unaligned;
- 
- 	if (myri10ge_force_firmware == 0) {
-+		int link_width, exp_cap;
-+		u16 lnk;
-+
-+		exp_cap = pci_find_capability(mgp->pdev, PCI_CAP_ID_EXP);
-+		pci_read_config_word(mgp->pdev, exp_cap + PCI_EXP_LNKSTA, &lnk);
-+		link_width = (lnk >> 4) & 0x3f;
-+
- 		myri10ge_enable_ecrc(mgp);
- 
--		/* Check to see if the upstream bridge is known to
--		 * provide aligned completions */
--		if (bridge
--		    /* ServerWorks HT2000/HT1000 */
--		    && bridge->vendor == PCI_VENDOR_ID_SERVERWORKS
--		    && bridge->device ==
--		    PCI_DEVICE_ID_SERVERWORKS_HT2000_PCIE) {
-+		/* Check to see if Link is less than 8 or if the
-+		 * upstream bridge is known to provide aligned
-+		 * completions */
-+		if (link_width < 8) {
-+			dev_info(&mgp->pdev->dev, "PCIE x%d Link\n",
-+				 link_width);
-+			mgp->tx.boundary = 4096;
-+			mgp->fw_name = myri10ge_fw_aligned;
-+		} else if (bridge &&
-+			   /* ServerWorks HT2000/HT1000 */
-+			   ((bridge->vendor == PCI_VENDOR_ID_SERVERWORKS
-+			     && bridge->device ==
-+			     PCI_DEVICE_ID_SERVERWORKS_HT2000_PCIE)
-+			    /* All Intel E5000 PCIE ports */
-+			    || (bridge->vendor == PCI_VENDOR_ID_INTEL
-+				&& bridge->device >=
-+				PCI_DEVICE_ID_INTEL_E5000_PCIE23
-+				&& bridge->device <=
-+				PCI_DEVICE_ID_INTEL_E5000_PCIE47))) {
- 			dev_info(&mgp->pdev->dev,
- 				 "Assuming aligned completions (0x%x:0x%x)\n",
- 				 bridge->vendor, bridge->device);
-
+Thank you. 
 
