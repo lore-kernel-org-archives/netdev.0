@@ -1,61 +1,74 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: high latency with TCP connections
-Date: Fri, 1 Sep 2006 01:46:35 +0400
-Message-ID: <20060831214635.GA2680@ms2.inr.ac.ru>
-References: <20060830100734.GA22235@isil.ipib.msu.ru> <20060830102727.11e11453@localhost.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [GENL]: Provide more information to userspace about registered
+	genl families
+Date: Thu, 31 Aug 2006 17:46:52 -0400
+Message-ID: <1157060812.5297.51.camel@jzny2>
+References: <20060831212129.GF3470@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Vodomerov <alex@sectorb.msk.ru>, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:64401 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S932452AbWHaVra (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2006 17:47:30 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20060830102727.11e11453@localhost.localdomain>
+Received: from mx02.cybersurf.com ([209.197.145.105]:43229 "EHLO
+	mx02.cybersurf.com") by vger.kernel.org with ESMTP id S932374AbWHaVqz
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 17:46:55 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx02.cybersurf.com with esmtp (Exim 4.30)
+	id 1GIuNH-0003PB-IR
+	for netdev@vger.kernel.org; Thu, 31 Aug 2006 17:46:59 -0400
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20060831212129.GF3470@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
 
-> Expecting any performance with one byte write's is silly.
+Useful stuff. There are things along these lines that i have been
+contemplating myself.
 
-I am not sure why you are so confident about status of ABC.
-I missed the discussions, when it was implemented. Apparently,
-it was noticed that ABC in its pure form does not make sense
-with snd_cwnd counted in packets and there were some reasons,
-why it still was not adapted.
+I think it would be valuable to specify a set of flags for filtering
+what gets sent to user space instead of unconditionally.
 
-That's what I am sure: if congestion control causes delack syndrome,
-it is difficult to advocate this congestion control scheme.
-It must be repaired, if there is even the smallest possibility
-to do this.
+Example, 
+filter level 0:
+  - what we have before your patch
+filter level 1:
+  - protocol version
+  - header size
+  - maximum number of attributes
+filter level 2:
+  - the rest of the stuff you have
+ 
+What netlink does today to filter at user space is something that can be
+avoided with the above (an improvement in my opinion if you have a lot
+of genl items in the kernel).
 
+cheers,
+jamal
 
-The first idea:
-
-Behaviour is broken, when we have < 2*MSS in flight. In that
-case receiver falls to delack timeout and breaks ACK clock.
-
-	thresh = tp->mss_cache;
-
-	if (tp->snd_nxt - tp->snd_una <= tp->mss_cache) {
-		thresh = 1;
-		if (tp->send_head)
-			thresh = tp->send_head->len;
-		/* If send_head is empty, it disables ABC.
-		 * If send_head is good mss sized segment, ABC is in work.
-		 * If send_head is a small segment, it is half-way.
-		 */
-	}
-
-	if (tp->bytes_acked < thresh)
-	       return;
-
-Probably, do this only when TCP_NODELAY is set, but actually it does not
-matter. If it is nagled/corked, cwnd will not be used/increased in any case.
-
-
-
+On Thu, 2006-31-08 at 23:21 +0200, Thomas Graf wrote:
+> Additionaly exports the following information when providing
+> the list of registered generic netlink families:
+>   - protocol version
+>   - header size
+>   - maximum number of attributes
+>
+>   - list of available operations including
+>       - id
+>       - flags
+>       - avaiability of policy and doit/dumpit function
+> 
+> libnl HEAD provides a utility to read this new information:
+> 
+> 	0x0010 nlctrl version 1
+> 	    hdrsize 0 maxattr 6
+> 	      op GETFAMILY (0x03) [POLICY,DOIT,DUMPIT]
+> 	0x0011 NLBL_MGMT version 1
+> 	    hdrsize 0 maxattr 0
+> 	      op unknown (0x02) [DOIT]
+> 	      op unknown (0x03) [DOIT]
+> 	      ....
+> 
 
 
