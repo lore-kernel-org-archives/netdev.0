@@ -1,27 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] change max_dgram_qlen sysctl to __read_mostly
-Date: Thu, 31 Aug 2006 15:03:51 -0700 (PDT)
-Message-ID: <20060831.150351.85705924.davem@davemloft.net>
-References: <44F74819.4070902@hp.com>
+Subject: Re: [NET]: Fix typo causing wrong skb to be freed
+Date: Thu, 31 Aug 2006 15:05:00 -0700 (PDT)
+Message-ID: <20060831.150500.25213839.davem@davemloft.net>
+References: <20060831212650.GG3470@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:27577
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:28345
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964788AbWHaWDq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Aug 2006 18:03:46 -0400
-To: brian.haley@hp.com
-In-Reply-To: <44F74819.4070902@hp.com>
+	id S964790AbWHaWEz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 18:04:55 -0400
+To: tgraf@suug.ch
+In-Reply-To: <20060831212650.GG3470@postel.suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Brian Haley <brian.haley@hp.com>
-Date: Thu, 31 Aug 2006 16:35:37 -0400
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 31 Aug 2006 23:26:51 +0200
 
-> Change AF_UNIX sysctl_unix_max_dgram_qlen to __read_mostly.
+> A typo introduced by myself which leads to freeing the skb
+> containing the netlink message when it should free the newly
+> allocated skb for the reply.
 > 
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Applied.
+Applied, thanks Thomas.
