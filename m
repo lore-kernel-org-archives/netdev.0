@@ -1,43 +1,65 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: [PATCH] WE-21 for bcm43xx (wireless-2.6 git)
-Date: Thu, 31 Aug 2006 09:44:21 -0700
-Message-ID: <20060831164421.GC11836@bougret.hpl.hp.com>
-References: <44F633F0.7090605@lwfinger.net> <200608311452.46166.mb@bu3sch.de> <44F6E28E.2080807@lwfinger.net> <20060831135739.GA14486@tuxdriver.com>
-Reply-To: jt@hpl.hp.com
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Probably e1000 related Oops in 2.6.18-rc5
+Date: Thu, 31 Aug 2006 18:45:47 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0608311803220.28922@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
-	Bcm43xx-dev@lists.berlios.de, Stefano Brivio <st3@riseup.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from madara.hpl.hp.com ([192.6.19.124]:32462 "EHLO madara.hpl.hp.com")
-	by vger.kernel.org with ESMTP id S932375AbWHaQpJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2006 12:45:09 -0400
-To: "John W. Linville" <linville@tuxdriver.com>
-Content-Disposition: inline
-In-Reply-To: <20060831135739.GA14486@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: MULTIPART/MIXED;
+	BOUNDARY="-187430788-204049394-1157042747=:28922"
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 31, 2006 at 09:57:45AM -0400, John W. Linville wrote:
-> On Thu, Aug 31, 2006 at 08:22:22AM -0500, Larry Finger wrote:
-> 
-> > John, have you merged, or do you plan to merge, "[PATCH 2.6.18] WE-21 support (core API)" into
-> > wireless-2.6?
-> 
-> I guess that is still up for discussion.  It looks like at least part
-> of it is desirable, but maybe not other parts.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-	More details ?
+---187430788-204049394-1157042747=:28922
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-> Perhaps you should post the patch w/o WE-20 support.  I'll make sure
-> they all get in at the same time (if at all).
+Hello,
 
-	It does not really make sense has this patch only adds WE-21
-support to the driver.
+My testing workstation running 2.6.18-rc5 Oopsed. It has a dualport e1000=
+=20
+card with bonding and vlans.
 
-> John
+All I have is three fotos made by a digital camera:=20
+http://www.ans.pl/Oops/1/
 
-	Have fun...
+Hope it is enough.
 
-	Jean
+Best regards,
+
+ =09=09=09=09Krzysztof Ol=EAdzki
+
+---187430788-204049394-1157042747=:28922
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+---187430788-204049394-1157042747=:28922
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+
+---187430788-204049394-1157042747=:28922--
