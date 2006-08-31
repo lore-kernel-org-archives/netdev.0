@@ -1,48 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV6] MIP6: Fix to update IP6CB when cloned skbuff is
- received at HAO.
-Date: Thu, 31 Aug 2006 15:20:47 -0700 (PDT)
-Message-ID: <20060831.152047.35450868.davem@davemloft.net>
-References: <1156345366549-git-send-email-yoshfuji@linux-ipv6.org>
-	<20060823.192009.35356948.davem@davemloft.net>
-	<200608312105.41650.nakam@linux-ipv6.org>
+Subject: Re: [PATCH] rate limiting for socket allocation failure messages
+Date: Thu, 31 Aug 2006 15:22:02 -0700 (PDT)
+Message-ID: <20060831.152202.112833372.davem@davemloft.net>
+References: <20060831095921.GA13845@miraclelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, anttit@tcs.hut.fi, vnuorval@tcs.hut.fi,
-	netdev@vger.kernel.org, usagi-core@linux-ipv6.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:6376
+Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:7400
 	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964802AbWHaWUm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Aug 2006 18:20:42 -0400
-To: nakam@linux-ipv6.org
-In-Reply-To: <200608312105.41650.nakam@linux-ipv6.org>
+	id S932459AbWHaWV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 18:21:56 -0400
+To: mita@miraclelinux.com
+In-Reply-To: <20060831095921.GA13845@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Date: Thu, 31 Aug 2006 21:05:41 +0900
+From: Akinobu Mita <mita@miraclelinux.com>
+Date: Thu, 31 Aug 2006 18:59:21 +0900
 
-> > From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> > Date: Thu, 24 Aug 2006 00:02:24 +0900
-> > 
-> > > In receiving Mobile IPv6 home address option which is a TLV carried
-> > > by destination options header, kernel will try to mangle source adderss
-> > > of packet. Think of cloned skbuff it is required to replace it by
-> > > the parser just like routing header case.
-> > > This is a framework to achieve that to allow TLV parser to replace
-> > > inbound skbuff pointer.
-> > > 
-> > > Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
-> > > Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> > 
-> > Applied to net-2.6.19, thanks a lot.
-> > 
+> (Resending due to local mail server trouble)
 > 
-> I've found issue about the patch above.
-> This is a fix for it, to update IP6CB when cloned skbuff is received at HAO.
+> This patch limits the warning messages when socket allocation
+> failures happen. It happens under memory pressure.
 > 
-> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> Cc: David Miller <davem@davemloft.net>
+> Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
 
-Patch applied, thank you very much.
+Patch applied, thanks a lot.
