@@ -1,23 +1,51 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 00/26] e100, e1000, ixgb updates
-Date: Thu, 31 Aug 2006 17:48:10 -0400
-Message-ID: <44F7591A.3030607@pobox.com>
-References: <20060829164153.6872.1713.stgit@gitlost.site> <44F75406.2020509@intel.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: NAPI: netif_rx_reschedule() ??
+Date: Thu, 31 Aug 2006 17:50:55 -0400
+Message-ID: <1157061055.5297.56.camel@jzny2>
+References: <adau03tlvx8.fsf@cisco.com>
+	 <20060830161219.7878bada@localhost.localdomain> <adapsehls1r.fsf@cisco.com>
+	 <adalkp5lrod.fsf@cisco.com> <20060831142910.427f64fa@localhost.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51687 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S932454AbWHaVsN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2006 17:48:13 -0400
-To: Auke Kok <auke-jan.h.kok@intel.com>
-In-Reply-To: <44F75406.2020509@intel.com>
+Received: from mx03.cybersurf.com ([209.197.145.106]:37042 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932456AbWHaVvL
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 17:51:11 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1GIuRD-0003kW-A7
+	for netdev@vger.kernel.org; Thu, 31 Aug 2006 17:51:03 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060831142910.427f64fa@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-pulled into #upstream, thanks
+On Thu, 2006-31-08 at 14:29 -0700, Stephen Hemminger wrote:
+> On Wed, 30 Aug 2006 16:39:14 -0700
+> Roland Dreier <rdreier@cisco.com> wrote:
+> 
+> >     Roland> makes sense -- especially since the caller probably also
+> >     Roland> deducted N from *budget, and netif_rx_reschedule() doesn't
+> >     Roland> touch that.
+> > 
+> > Actually, why does undoing the change to quota make sense?  Presumably
+> > I passed N packets to netif_receive_skb() -- why shouldn't I deduct N
+> > from quota and *budget?
+> > 
+> >  - R.
+> 
+> This was probably a preventive thing to avoid scheduling when quota remaining was zero?
+
+I am reading backwards, so i may be incoherent ;-> 
+I suppose if you dont trust the driver to tell you the truth it could be
+done in the core code such as netif_receive_skb(). Should be noted
+however, your quota does get refilled by the NAPI core governed by DRR
+scheduling rules.
+
+cheers,
+jamal
 
