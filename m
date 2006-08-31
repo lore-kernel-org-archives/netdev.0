@@ -1,42 +1,62 @@
-From: Akinobu Mita <mita@miraclelinux.com>
-Subject: [PATCH] rate limiting for socket allocation failure messages
-Date: Thu, 31 Aug 2006 18:59:21 +0900
-Message-ID: <20060831095921.GA13845@miraclelinux.com>
+From: "Frank Schneider" <twodipu@hotmail.com>
+Subject: Re: Loop detected - calling function from different modules
+Date: Thu, 31 Aug 2006 13:10:41 +0200
+Message-ID: <BAY101-F33F0ABEDED7557244B41D0AB3F0@phx.gbl>
+References: <1157018266.3065.17.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>
+Content-Type: text/plain; format=flowed
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.miraclelinux.com ([219.118.163.66]:25363 "EHLO
-	mail01.miraclelinux.com") by vger.kernel.org with ESMTP
-	id S1750788AbWHaKER (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Aug 2006 06:04:17 -0400
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from bay0-omc3-s21.bay0.hotmail.com ([65.54.246.221]:50285 "EHLO
+	bay0-omc3-s21.bay0.hotmail.com") by vger.kernel.org with ESMTP
+	id S1751271AbWHaLLC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 07:11:02 -0400
+In-Reply-To: <1157018266.3065.17.camel@ux156>
+To: johannes@sipsolutions.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(Resending due to local mail server trouble)
 
-This patch limits the warning messages when socket allocation
-failures happen. It happens under memory pressure.
+Dear Johannes,
 
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
+I just got an idea, may be not usefull,  but I am gonna try:
 
- net/socket.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+If I assign a function which is implemented in ath_pci module to
+hard_start_xmit
+and do  my little work and call  the actual function to xmit data frame in 
+wlan module.
+that I can do..
+accordingly I will pass the concern structure sk_buff that contain data 
+frame..
+that will serve my purpose as well as normal data frame is suppose to send 
+out from the device, AP.
 
-Index: work-shouldfail/net/socket.c
-===================================================================
---- work-shouldfail.orig/net/socket.c
-+++ work-shouldfail/net/socket.c
-@@ -1178,7 +1178,8 @@ static int __sock_create(int family, int
-  */
- 
- 	if (!(sock = sock_alloc())) {
--		printk(KERN_WARNING "socket: no more sockets\n");
-+		if (net_ratelimit())
-+			printk(KERN_WARNING "socket: no more sockets\n");
- 		err = -ENFILE;		/* Not exactly a match, but its the
- 					   closest posix thing */
- 		goto out;
+can I do it ?
+I will let you know, if I success...
+
+/Frank
+
+
+
+>From: Johannes Berg <johannes@sipsolutions.net>
+>
+> > Any suggestions to do that please ?
+>
+>d80211 has a hardware definition struct that is registered by the driver
+>and contains a callback that is called for each frame. This is the
+>direction you should take as well:
+>
+>    hard_start_xmit (generic code)
+>calls
+>    hardware_xmit (your module code, e.g. in a struct wlan_device)
+>
+>johannes
+>-
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+_________________________________________________________________
+Express yourself instantly with MSN Messenger! Download today it's FREE! 
+http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
+
