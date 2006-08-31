@@ -1,75 +1,164 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH 08/26] e1000: Deprecate mii-tool SIOCMIIREG ioctl
-Date: Thu, 31 Aug 2006 14:17:10 -0700
-Message-ID: <44F751D6.6040101@intel.com>
-References: <36D9DB17C6DE9E40B059440DB8D95F528A67D0@orsmsx418.amr.corp.intel.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [GENL]: Provide more information to userspace about registered genl families
+Date: Thu, 31 Aug 2006 23:21:29 +0200
+Message-ID: <20060831212129.GF3470@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	netdev@vger.kernel.org, akpm@osdl.org,
-	"Kok, Auke" <auke@foo-projects.org>,
-	"Ronciak, John" <john.ronciak@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:59003 "EHLO
-	orsmga101-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S932451AbWHaVSb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Aug 2006 17:18:31 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F528A67D0@orsmsx418.amr.corp.intel.com>
+Received: from postel.suug.ch ([194.88.212.233]:50306 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S932451AbWHaVVJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2006 17:21:09 -0400
+To: davem@davemloft.net
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brandeburg, Jesse wrote:
-> Jeff Garzik wrote:
->> Kok, Auke wrote:
->>> Deprecate mii-tool SIOCMIIREG ioctl. This ioctl is broken in e1000
->>> and ethtool has this functionality in working order.
->>>
->>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->> This doesn't "deprecated" anything, it changes the ABI on a
->> user's machine by _removing_ ioctl handling code that used to be
->> there. 
->>
->> What's broken, and what is needed to fix?  Perhaps e1000
->> should instead be limited to 10/100 networks/speeds?
-> 
-> mii-tool is broken because it doesn't understand GMII phys.  We ended up
-> having a mess of code trying to implement the shim layer to support the
-> PHY write ioctls, among others.
-> mii-tool always reports 100 Mbps link when you actually have 1Gbps link.
-> Using mii-tool to set options didn't work very well to begin with, so
-> rather than continue to dump time into a dead end, just remove the
-> incomplete/non-working code and force the user to use ethtool if they
-> want to do set operations. 
-> 
-> Mii-tool is already marked in its man page to be obsolete
-> 
-> <quote from RHEL4>
-> NOTE
->        This program is obsolete. Valid  media  are  only  100baseT4,
-> 100baseTx-FD,100baseTx-HD,  10baseT-FD  and
->        10baseT-HD ethernet cards. For replacement check eth-tool.
-> </quote>
-> 
-> We intentionally left the read code in to not break any user space
-> programs that are using that IOCTL to read link status etc.  With some
-> recent improvements to ethtool, it has the exact same functionality as
-> mii-tool.
-> 
-> While I appreciate the "don't break user space" position, in this case
-> it never really worked right, and when it did work the user was just
-> lucky because they probably weren't getting what they wanted.
+Additionaly exports the following information when providing
+the list of registered generic netlink families:
+  - protocol version
+  - header size
+  - maximum number of attributes
+  - list of available operations including
+      - id
+      - flags
+      - avaiability of policy and doit/dumpit function
 
-I'm dropping this patch from our stack, it seems (irony) that we might have 
-some use for this ioctl after all and we need to re-evaluate what to do with 
-it. It doesn't hurt (much) to leave it in there for now.
+libnl HEAD provides a utility to read this new information:
 
-Jeff, I'll repost a summary of the changes I made to the queue on our gitserver 
-in a second.
+	0x0010 nlctrl version 1
+	    hdrsize 0 maxattr 6
+	      op GETFAMILY (0x03) [POLICY,DOIT,DUMPIT]
+	0x0011 NLBL_MGMT version 1
+	    hdrsize 0 maxattr 0
+	      op unknown (0x02) [DOIT]
+	      op unknown (0x03) [DOIT]
+	      ....
 
-Cheers,
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Auke
+Index: net-2.6.19/include/linux/genetlink.h
+===================================================================
+--- net-2.6.19.orig/include/linux/genetlink.h	2006-08-31 16:01:16.000000000 +0200
++++ net-2.6.19/include/linux/genetlink.h	2006-08-31 19:24:43.000000000 +0200
+@@ -16,6 +16,8 @@
+ 
+ #define GENL_HDRLEN	NLMSG_ALIGN(sizeof(struct genlmsghdr))
+ 
++#define GENL_ADMIN_PERM		0x01
++
+ /*
+  * List of reserved static generic netlink identifiers:
+  */
+@@ -43,9 +45,25 @@
+ 	CTRL_ATTR_UNSPEC,
+ 	CTRL_ATTR_FAMILY_ID,
+ 	CTRL_ATTR_FAMILY_NAME,
++	CTRL_ATTR_VERSION,
++	CTRL_ATTR_HDRSIZE,
++	CTRL_ATTR_MAXATTR,
++	CTRL_ATTR_OPS,
+ 	__CTRL_ATTR_MAX,
+ };
+ 
+ #define CTRL_ATTR_MAX (__CTRL_ATTR_MAX - 1)
+ 
++enum {
++	CTRL_ATTR_OP_UNSPEC,
++	CTRL_ATTR_OP_ID,
++	CTRL_ATTR_OP_FLAGS,
++	CTRL_ATTR_OP_POLICY,
++	CTRL_ATTR_OP_DOIT,
++	CTRL_ATTR_OP_DUMPIT,
++	__CTRL_ATTR_OP_MAX,
++};
++
++#define CTRL_ATTR_OP_MAX (__CTRL_ATTR_OP_MAX - 1)
++
+ #endif	/* __LINUX_GENERIC_NETLINK_H */
+Index: net-2.6.19/net/netlink/genetlink.c
+===================================================================
+--- net-2.6.19.orig/net/netlink/genetlink.c	2006-08-31 16:21:39.000000000 +0200
++++ net-2.6.19/net/netlink/genetlink.c	2006-08-31 19:10:38.000000000 +0200
+@@ -387,7 +387,10 @@
+ static int ctrl_fill_info(struct genl_family *family, u32 pid, u32 seq,
+ 			  u32 flags, struct sk_buff *skb, u8 cmd)
+ {
++	struct nlattr *nla_ops;
++	struct genl_ops *ops;
+ 	void *hdr;
++	int idx = 1;
+ 
+ 	hdr = genlmsg_put(skb, pid, seq, GENL_ID_CTRL, 0, flags, cmd,
+ 			  family->version);
+@@ -396,6 +399,37 @@
+ 
+ 	NLA_PUT_STRING(skb, CTRL_ATTR_FAMILY_NAME, family->name);
+ 	NLA_PUT_U16(skb, CTRL_ATTR_FAMILY_ID, family->id);
++	NLA_PUT_U32(skb, CTRL_ATTR_VERSION, family->version);
++	NLA_PUT_U32(skb, CTRL_ATTR_HDRSIZE, family->hdrsize);
++	NLA_PUT_U32(skb, CTRL_ATTR_MAXATTR, family->maxattr);
++
++	nla_ops = nla_nest_start(skb, CTRL_ATTR_OPS);
++	if (nla_ops == NULL)
++		goto nla_put_failure;
++
++	list_for_each_entry(ops, &family->ops_list, ops_list) {
++		struct nlattr *nest;
++
++		nest = nla_nest_start(skb, idx++);
++		if (nest == NULL)
++			goto nla_put_failure;
++
++		NLA_PUT_U32(skb, CTRL_ATTR_OP_ID, ops->cmd);
++		NLA_PUT_U32(skb, CTRL_ATTR_OP_FLAGS, ops->flags);
++
++		if (ops->policy)
++			NLA_PUT_FLAG(skb, CTRL_ATTR_OP_POLICY);
++
++		if (ops->doit)
++			NLA_PUT_FLAG(skb, CTRL_ATTR_OP_DOIT);
++
++		if (ops->dumpit)
++			NLA_PUT_FLAG(skb, CTRL_ATTR_OP_DUMPIT);
++
++		nla_nest_end(skb, nest);
++	}
++
++	nla_nest_end(skb, nla_ops);
+ 
+ 	return genlmsg_end(skb, hdr);
+ 
+@@ -411,6 +445,9 @@
+ 	int chains_to_skip = cb->args[0];
+ 	int fams_to_skip = cb->args[1];
+ 
++	if (chains_to_skip != 0)
++		genl_lock();
++
+ 	for (i = 0; i < GENL_FAM_TAB_SIZE; i++) {
+ 		if (i < chains_to_skip)
+ 			continue;
+@@ -428,6 +465,9 @@
+ 	}
+ 
+ errout:
++	if (chains_to_skip != 0)
++		genl_unlock();
++
+ 	cb->args[0] = i;
+ 	cb->args[1] = n;
+ 
+Index: net-2.6.19/include/net/genetlink.h
+===================================================================
+--- net-2.6.19.orig/include/net/genetlink.h	2006-08-31 19:24:15.000000000 +0200
++++ net-2.6.19/include/net/genetlink.h	2006-08-31 19:24:20.000000000 +0200
+@@ -27,8 +27,6 @@
+ 	struct list_head	family_list;	/* private */
+ };
+ 
+-#define GENL_ADMIN_PERM		0x01
+-
+ /**
+  * struct genl_info - receiving information
+  * @snd_seq: sending sequence number
