@@ -1,98 +1,57 @@
-From: shaulka@012.net.il
-Subject: [PATCH] drivers/net/{ne,smc-ultra}.c: Avoid compilation warnings by
- registering init and exit functions
-Date: Thu, 31 Aug 2006 15:21:03 +0200
-Message-ID: <11cf840538e0.44f6fe5f@default.domain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [TCP]: Fix rcv mss estimate for LRO
+Date: Thu, 31 Aug 2006 23:18:33 +1000
+Message-ID: <20060831131833.GA1903@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtaout1.012.net.il ([84.95.2.1]:29503 "EHLO mtaout1.012.net.il")
-	by vger.kernel.org with ESMTP id S932199AbWHaNPr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2006 09:15:47 -0400
-To: p_gortmaker@yahoo.com
-Content-language: en
-Content-disposition: inline
+Received: from rhun.apana.org.au ([64.62.148.172]:39442 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932204AbWHaNSc
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 09:18:32 -0400
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This patch is against 2.6.17-11.
-1) Meant to get rid of the following compilation warnings
-         WARNING: drivers/net/ne.o - Section mismatch: reference to .init.text: from .text between 'init_module' (at offset 0xeb) and 'ne_close'
-         WARNING: drivers/net/smc-ultra.o - Section mismatch: reference to .init.data:ultra_portlist from .text between 'init_module' (at offset 0xa4) and 'ultra_close_card'
+Hi Dave:
 
-2) Isn't the registration of a module's __init and __exit functions while making them
-    static much encouraged in 2.6? I followed the Linux Device Drivers book.
+The Xen performance problem turned out to be something else altogether.
+It was an incorrect rcv mss estimate which leads to delayed acks.  So
+it's not a bug in Linux yet :) However, since we need this for LRO as
+well, here's a patch for net-2.6.19.
 
-Signed-off-by: Shaul Karl <shaulka@012.net.il>
+[TCP]: Fix rcv mss estimate for LRO
 
----
+By passing a Linux-generated TSO packet straight back into Linux, Xen
+becomes our first LRO user :) Unfortunately, there is at least one spot
+in our stack that needs to be changed to cope with this.
 
-drivers/net/ne.c        |    8 ++++++--
-drivers/net/smc-ultra.c |   10 ++++++----
-2 files changed, 12 insertions(+), 6 deletions(-)
+The receive MSS estimate is computed from the raw packet size.  This is
+broken if the packet is GSO/LRO.  Fortunately the real MSS can be found
+in gso_size so we simply need to use that if it is non-zero.
 
---- linux-source-2.6.17/drivers/net/ne.c.orig   2006-08-29 14:55:59.000000000 +0300
-+++ linux-source-2.6.17/drivers/net/ne.c        2006-08-29 18:27:13.000000000 +0300
-@@ -829,7 +829,7 @@ that the ne2k probe is the last 8390 bas
- is at boot) and so the probe will get confused by any other 8390 cards.
- ISA device autoprobes on a running machine are not recommended anyway. */
+Real LRO NICs should of course set the gso_size field in future.
 
--int init_module(void)
-+static int __init init_ne_module(void)
- {
-        int this_dev, found = 0;
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-@@ -867,7 +867,7 @@ static void cleanup_card(struct net_devi
-        release_region(dev->base_addr, NE_IO_EXTENT);
- }
-
--void cleanup_module(void)
-+static void __exit cleanup_ne_module(void)
- {
-        int this_dev;
-
-@@ -880,4 +880,8 @@ void cleanup_module(void)
-                }
-        }
- }
-+
-+module_init(init_ne_module);
-+module_exit(cleanup_ne_module);
-+
- #endif /* MODULE */
-
---- linux-source-2.6.17/drivers/net/smc-ultra.c.orig    2006-08-29 15:03:33.000000000 +0300
-+++ linux-source-2.6.17/drivers/net/smc-ultra.c 2006-08-29 18:29:53.000000000 +0300
-@@ -553,8 +553,7 @@ MODULE_LICENSE("GPL");
-
- /* This is set up so that only a single autoprobe takes place per call.
- ISA device autoprobes on a running machine are not recommended. */
--int
--init_module(void)
-+static int __init init_smcUltra_module(void)
- {
-        struct net_device *dev;
-        int this_dev, found = 0;
-@@ -594,8 +593,7 @@ static void cleanup_card(struct net_devi
-        iounmap(ei_status.mem);
- }
-
--void
--cleanup_module(void)
-+static void __exit cleanup_smcUltra_module(void)
- {
-        int this_dev;
-
-@@ -608,4 +606,8 @@ cleanup_module(void)
-                }
-        }
- }
-+
-+module_init(init_smcUltra_module);
-+module_exit(cleanup_smcUltra_module);
-+
- #endif /* MODULE */
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 104af5d..1fa1536 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -127,7 +127,7 @@ static void tcp_measure_rcv_mss(struct s
+ 	/* skb->len may jitter because of SACKs, even if peer
+ 	 * sends good full-sized frames.
+ 	 */
+-	len = skb->len;
++	len = skb_shinfo(skb)->gso_size ?: skb->len;
+ 	if (len >= icsk->icsk_ack.rcv_mss) {
+ 		icsk->icsk_ack.rcv_mss = len;
+ 	} else {
