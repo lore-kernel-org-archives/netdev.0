@@ -1,82 +1,57 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] tcp: turn ABC off
-Date: Fri, 1 Sep 2006 13:55:15 -0700
-Message-ID: <20060901135515.3f900340@localhost.localdomain>
-References: <20060831151456.12a4e080@dxpl.pdx.osdl.net>
-	<20060831.154428.35684218.davem@davemloft.net>
-	<20060831232923.GA10036@ms2.inr.ac.ru>
-	<20060831.165701.104033558.davem@davemloft.net>
-	<20060901094715.GB13855@ms2.inr.ac.ru>
-	<20060901110038.GA3651@2ka.mipt.ru>
-	<20060901090046.69b3d583@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, alex@sectorb.msk.ru,
-	netdev@vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 2/8] address: Convert address deletion to new netlink api
+Date: Fri, 01 Sep 2006 23:39:59 +0200
+Message-ID: <20060901214014.355008764@lsx.localdomain>
+References: <20060901213957.138695086@lsx.localdomain>
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:53463 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750804AbWIAUzx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2006 16:55:53 -0400
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20060901090046.69b3d583@localhost.localdomain>
+Received: from postel.suug.ch ([194.88.212.233]:1169 "EHLO postel.suug.ch")
+	by vger.kernel.org with ESMTP id S1750975AbWIAVlS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2006 17:41:18 -0400
+To: davem@davemloft.net
+Content-Disposition: inline; filename=nl_ipv6_deladdr
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Turn Appropriate Byte Count off by default because it unfairly penalizes
-applications that do small writes.
-Add better documentation to describe what it is so users will understand
-why they might want to turn it on.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
----
-
- Documentation/networking/ip-sysctl.txt |   12 +++++++++---
- net/ipv4/tcp_input.c                   |    2 +-
- 2 files changed, 10 insertions(+), 4 deletions(-)
-
-3988eb0b87288c0d30c165742af7fc7a733100ab
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 3e0c017..90ed781 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -102,9 +102,15 @@ inet_peer_gc_maxtime - INTEGER
- TCP variables: 
+Index: net-2.6.19/net/ipv6/addrconf.c
+===================================================================
+--- net-2.6.19.orig/net/ipv6/addrconf.c	2006-09-01 23:15:14.000000000 +0200
++++ net-2.6.19/net/ipv6/addrconf.c	2006-09-01 23:15:18.000000000 +0200
+@@ -2894,22 +2894,17 @@
+ static int
+ inet6_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
+-	struct rtattr **rta = arg;
+-	struct ifaddrmsg *ifm = NLMSG_DATA(nlh);
++	struct ifaddrmsg *ifm;
++	struct nlattr *tb[IFA_MAX+1];
+ 	struct in6_addr *pfx;
++	int err;
  
- tcp_abc - INTEGER
--	Controls Appropriate Byte Count defined in RFC3465. If set to
--	0 then does congestion avoid once per ack. 1 is conservative
--	value, and 2 is more agressive.
-+	Controls Appropriate Byte Count (ABC) defined in RFC3465.
-+	ABC is a way of increasing congestion window (cwnd) more slowly
-+	in response to partial acknowledgments.
-+	Possible values are:
-+		0 increase cwnd once per acknowledgment (no ABC)
-+		1 increase cwnd once per acknowledgment of full sized segment
-+		2 allow increase cwnd by two if acknowledgment is
-+		  of two segments to compensate for delayed acknowledgments.
-+	Default: 0 (off)
+-	pfx = NULL;
+-	if (rta[IFA_ADDRESS-1]) {
+-		if (RTA_PAYLOAD(rta[IFA_ADDRESS-1]) < sizeof(*pfx))
+-			return -EINVAL;
+-		pfx = RTA_DATA(rta[IFA_ADDRESS-1]);
+-	}
+-	if (rta[IFA_LOCAL-1]) {
+-		if (RTA_PAYLOAD(rta[IFA_LOCAL-1]) < sizeof(*pfx) ||
+-		    (pfx && memcmp(pfx, RTA_DATA(rta[IFA_LOCAL-1]), sizeof(*pfx))))
+-			return -EINVAL;
+-		pfx = RTA_DATA(rta[IFA_LOCAL-1]);
+-	}
++	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
++	if (err < 0)
++		return err;
++
++	ifm = nlmsg_data(nlh);
++	pfx = extract_addr(tb[IFA_ADDRESS], tb[IFA_LOCAL]);
+ 	if (pfx == NULL)
+ 		return -EINVAL;
  
- tcp_syn_retries - INTEGER
- 	Number of times initial SYNs for an active TCP connection attempt
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 111ff39..159fa3f 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -89,7 +89,7 @@ int sysctl_tcp_frto;
- int sysctl_tcp_nometrics_save;
- 
- int sysctl_tcp_moderate_rcvbuf = 1;
--int sysctl_tcp_abc = 1;
-+int sysctl_tcp_abc;
- 
- #define FLAG_DATA		0x01 /* Incoming frame contained data.		*/
- #define FLAG_WIN_UPDATE		0x02 /* Incoming ACK was a window update.	*/
--- 
-1.2.4
 
 
 -- 
-VGER BF report: U 0.5
+VGER BF report: H 0.0599509
