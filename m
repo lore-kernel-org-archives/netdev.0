@@ -1,44 +1,39 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC][IPSEC]: tunnel mode processing
-Date: Fri, 01 Sep 2006 09:12:25 -0400
-Message-ID: <1157116345.5057.92.camel@jzny2>
-References: <1157072127.5057.39.camel@jzny2>
-	 <20060901040713.GA9840@gondor.apana.org.au>
-	 <1157113034.5057.62.camel@jzny2>
-	 <20060901122255.GA18143@gondor.apana.org.au>
-	 <1157115379.5057.84.camel@jzny2>
-	 <20060901130438.GA18536@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: "Franco" <franco.daje@virgilio.it>
+Subject: i not find in the kernel code the code of this command
+Date: Fri, 1 Sep 2006 16:18:05 +0200
+Message-ID: <003a01c6cdd1$7151c100$0201a8c0@PCFranco>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx03.cybersurf.com ([209.197.145.106]:55962 "EHLO
-	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S1750940AbWIANMa
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Sep 2006 09:12:30 -0400
-Received: from mail.cyberus.ca ([209.197.145.21])
-	by mx03.cybersurf.com with esmtp (Exim 4.30)
-	id 1GJ8ov-0006oo-Vs
-	for netdev@vger.kernel.org; Fri, 01 Sep 2006 09:12:29 -0400
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20060901130438.GA18536@gondor.apana.org.au>
+Received: from vsmtp2.tin.it ([212.216.176.222]:27857 "EHLO vsmtp2.tin.it")
+	by vger.kernel.org with ESMTP id S932067AbWIAOSH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2006 10:18:07 -0400
+Received: from PCFranco (87.1.227.172) by vsmtp2.tin.it (7.2.072.1)
+        id 44F6D8F8000B2744 for netdev@vger.kernel.org; Fri, 1 Sep 2006 16:18:06 +0200
+To: <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2006-01-09 at 23:04 +1000, Herbert Xu wrote:
+Hi!,
+I'm not able to subscrive at this list. My server mail don't send the mail 
+and consider it a spam mail...
+For this, please send eventual response to this mail address 
+(franco.daje@virgilio.it)
 
-> Yes, I suppose you could even replace x->mode directly.
->
-> > I am probably better off going back to creating a dummy dst with just
-> > those two fields when in  tunnel mode;->
-> 
-> Probably.  Although if you write your own output function you could
-> make it go faster by adapting it to the specifics of pktgen.
+The problem is this:
+I'm searching, in kernel code, the code that implement thi command:
 
-gah. Ok, probably better solution to go this path then ;->
+tc filter add dev eth2 parent ffff: protocol ip prio 1 u32 match ip src 
+0.0.0.0/0 police rate $1 burst $2 drop flowid :1
 
-cheers,
-jamal
+I thought that this code was police.c but seem that it isn't
+i must implement a proc file in the code and recompiling the kernel.
+
+Thanks
+
+Franco 
 
