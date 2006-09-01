@@ -1,34 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [IPSEC]: output mode to take an xfrm state as input param
-Date: Thu, 31 Aug 2006 17:53:39 -0700 (PDT)
-Message-ID: <20060831.175339.88703591.davem@davemloft.net>
-References: <1157068872.5057.17.camel@jzny2>
-	<20060831.172431.112264382.davem@davemloft.net>
-	<1157070576.5057.22.camel@jzny2>
+From: jamal <hadi@cyberus.ca>
+Subject: [RFC][IPSEC]: tunnel mode processing
+Date: Thu, 31 Aug 2006 20:55:27 -0400
+Message-ID: <1157072127.5057.39.camel@jzny2>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:38550
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S964842AbWIAAxk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Aug 2006 20:53:40 -0400
-To: hadi@cyberus.ca
-In-Reply-To: <1157070576.5057.22.camel@jzny2>
+Received: from mx03.cybersurf.com ([209.197.145.106]:28652 "EHLO
+	mx03.cybersurf.com") by vger.kernel.org with ESMTP id S932322AbWIAAza
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 20:55:30 -0400
+Received: from mail.cyberus.ca ([209.197.145.21])
+	by mx03.cybersurf.com with esmtp (Exim 4.30)
+	id 1GIxJo-0002wk-1q
+	for netdev@vger.kernel.org; Thu, 31 Aug 2006 20:55:36 -0400
+To: David Miller <davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 31 Aug 2006 20:29:36 -0400
 
-> On Thu, 2006-31-08 at 17:24 -0700, David Miller wrote:
-> > Are you too cool to give "Signed-off-by:" lines?
-> > :-)
-> > 
-> 
-> Dang. Just too brain congested to give you one ;->
-> 
-> signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+At the moment transport mode processing is not dependent on skb->dst
+being passed. Tunnel mode derives the ip->id and ttl from it. More like
+computes ip->id.
 
-Applied thanks :)
+I am trying to generate traffic via pktgen and it would be nice if i
+could get the same behavior on tunnel mode as in transport mode. I dont
+think it matters what the values of those two fields are.
+
+Would it be reasonable to do a check so that incase a skb->dst doesnt
+exist, the inner headers values can be used i.e something along 
+xfrm4_tunnel_output()::
+
+----
+        top_iph->frag_off = (flags & XFRM_STATE_NOPMTUDISC) ?
+                0 : (iph->frag_off & htons(IP_DF));
+	if (dst) {
+		if (!top_iph->frag_off) 
+			__ip_select_ident(top_iph, dst->child, 0);
+		top_iph->ttl = dst_metric(dst->child, RTAX_HOPLIMIT);
+	} else {
+		top_iph->id = iph->id;
+		top_iph->ttl = iph->ttl;
+	}
+----
+
+cheers,
+jamal
+
