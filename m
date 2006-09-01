@@ -1,85 +1,73 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 6/7] bonding: Add priv_flag to avoid event mishandling
-Date: Fri, 01 Sep 2006 15:13:19 -0700
-Message-ID: <200609012213.k81MDJZt008128@death.nxdomain.ibm.com>
+Subject: [PATCH 7/7] bonding: Don't release slaves when master is admin down
+Date: Fri, 01 Sep 2006 15:14:46 -0700
+Message-ID: <200609012214.k81MEkZt008939@death.nxdomain.ibm.com>
 Cc: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:6322 "EHLO e6.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1751084AbWIAWNV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2006 18:13:21 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e6.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id k81MDL5U020014
-	for <netdev@vger.kernel.org>; Fri, 1 Sep 2006 18:13:21 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k81MDLYP296902
-	for <netdev@vger.kernel.org>; Fri, 1 Sep 2006 18:13:21 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k81MDKSA005139
-	for <netdev@vger.kernel.org>; Fri, 1 Sep 2006 18:13:20 -0400
+Received: from e32.co.us.ibm.com ([32.97.110.150]:57578 "EHLO
+	e32.co.us.ibm.com") by vger.kernel.org with ESMTP id S1751089AbWIAWOs
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Sep 2006 18:14:48 -0400
+Received: from westrelay02.boulder.ibm.com (westrelay02.boulder.ibm.com [9.17.195.11])
+	by e32.co.us.ibm.com (8.13.8/8.12.11) with ESMTP id k81MElIP015387
+	for <netdev@vger.kernel.org>; Fri, 1 Sep 2006 18:14:47 -0400
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by westrelay02.boulder.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k81MElrv221788
+	for <netdev@vger.kernel.org>; Fri, 1 Sep 2006 16:14:47 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k81MElYn018281
+	for <netdev@vger.kernel.org>; Fri, 1 Sep 2006 16:14:47 -0600
 To: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Add priv_flag to specifically identify bonding-involved devices.  Needed
-because IFF_MASTER is an unreliable identifier (vlan interfaces above bonding
-will inherit IFF_MASTER).  Misidentification of devices would cause
-notifier events for other devices to be erroneously processed by bonding,
-causing various havoc.
+From: jamal <hadi@cyberus.ca>
 
-Bug discovered by Martin Papik <martin.papik@ipsec.info>; this patch is
-modified from his original.
+When a bonding netdevice is admin-ed down it loses the slaves
+attributes (set via ifenslave). This is not consistent with other
+behavior of netdevices (example a qdisc attached to a netdevice doesnt
+disappear or an attached IP address etc).
+The included patch fixes this. Ive tested by ifenslaving, downing the
+bond, checking /proc and making sure it still has the slaves, up-ing the
+bond and making sure things continue to work.
 
-Signed-off-by: Martin Papik <martin.papik@ipsec.info>
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+Jay/Bonding folks if you are ok with it, just ACK it or include it in
+your tree etc. Otherwise we can discuss.
 
---- netdev-2.6.git-upstream/include/linux/if.h	2006/08/26 17:23:42	1.1
-+++ netdev-2.6.git-upstream/include/linux/if.h	2006/08/26 17:24:23	1.2
-@@ -59,6 +59,7 @@
- #define IFF_SLAVE_INACTIVE	0x4	/* bonding slave not the curr. active */
- #define IFF_MASTER_8023AD	0x8	/* bonding master, 802.3ad. 	*/
- #define IFF_MASTER_ALB	0x10		/* bonding master, balance-alb.	*/
-+#define IFF_BONDING	0x20		/* bonding master or slave	*/
+
+Acked-by: Jay Vosburgh <fubar@us.ibm.com>
+
+
+--- netdev-2.6.git-upstream/drivers/net/bonding/bond_main.c	2006/08/26 17:24:41	1.5
++++ netdev-2.6.git-upstream/drivers/net/bonding/bond_main.c	2006/08/26 18:21:39	1.6
+@@ -3430,7 +3430,6 @@ static int bond_close(struct net_device 
  
- #define IF_GET_IFACE	0x0001		/* for querying only */
- #define IF_GET_PROTO	0x0002
---- netdev-2.6.git-upstream/drivers/net/bonding/bond_main.c	2006/08/19 15:47:27	1.4
-+++ netdev-2.6.git-upstream/drivers/net/bonding/bond_main.c	2006/08/26 17:24:41	1.5
-@@ -1371,6 +1371,7 @@ int bond_enslave(struct net_device *bond
+ 	write_lock_bh(&bond->lock);
+ 
+-	bond_mc_list_destroy(bond);
+ 
+ 	/* signal timers not to re-arm */
+ 	bond->kill_timers = 1;
+@@ -3461,8 +3460,6 @@ static int bond_close(struct net_device 
+ 		break;
  	}
  
- 	new_slave->dev = slave_dev;
-+	slave_dev->priv_flags |= IFF_BONDING;
+-	/* Release the bonded slaves */
+-	bond_release_all(bond_dev);
  
  	if ((bond->params.mode == BOND_MODE_TLB) ||
  	    (bond->params.mode == BOND_MODE_ALB)) {
-@@ -1784,7 +1785,7 @@ int bond_release(struct net_device *bond
- 	dev_set_mac_address(slave_dev, &addr);
+@@ -4248,6 +4245,9 @@ static void bond_free_all(void)
+ 	list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list) {
+ 		struct net_device *bond_dev = bond->dev;
  
- 	slave_dev->priv_flags &= ~(IFF_MASTER_8023AD | IFF_MASTER_ALB |
--				   IFF_SLAVE_INACTIVE);
-+				   IFF_SLAVE_INACTIVE | IFF_BONDING);
- 
- 	kfree(slave);
- 
-@@ -3216,6 +3217,9 @@ static int bond_netdev_event(struct noti
- 		(event_dev ? event_dev->name : "None"),
- 		event);
- 
-+	if (!(event_dev->priv_flags & IFF_BONDING))
-+		return NOTIFY_DONE;
-+
- 	if (event_dev->flags & IFF_MASTER) {
- 		dprintk("IFF_MASTER\n");
- 		return bond_master_netdev_event(event, event_dev);
-@@ -4185,6 +4189,7 @@ static int bond_init(struct net_device *
- 	/* Initialize the device options */
- 	bond_dev->tx_queue_len = 0;
- 	bond_dev->flags |= IFF_MASTER|IFF_MULTICAST;
-+	bond_dev->priv_flags |= IFF_BONDING;
- 
- 	/* At first, we block adding VLANs. That's the only way to
- 	 * prevent problems that occur when adding VLANs over an
++		bond_mc_list_destroy(bond);
++		/* Release the bonded slaves */
++		bond_release_all(bond_dev);
+ 		unregister_netdevice(bond_dev);
+ 		bond_deinit(bond_dev);
+ 	}
 
 -- 
-VGER BF report: U 0.499999
+VGER BF report: U 0.499787
