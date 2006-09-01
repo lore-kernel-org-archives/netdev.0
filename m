@@ -1,36 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: high latency with TCP connections
-Date: Thu, 31 Aug 2006 23:23:24 -0700 (PDT)
-Message-ID: <20060831.232324.18304115.davem@davemloft.net>
-References: <20060831.165701.104033558.davem@davemloft.net>
-	<20060831202309.5caefbff@localhost.localdomain>
-	<5640c7e00608312039m752be44ek85f0caa6764df853@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 2/2]d80211: add hardware scan callback
+Date: Fri, 01 Sep 2006 08:41:03 +0200
+Message-ID: <1157092863.2878.13.camel@ux156>
+References: <1156494733.21483.14.camel@devlinux-hong>
+	 <20060830191058.14275f74@griffin.suse.cz>
+	 <1157081867.11040.41.camel@devlinux-hong>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, kuznet@ms2.inr.ac.ru, alex@sectorb.msk.ru,
-	netdev@vger.kernel.org
+Cc: Jiri Benc <jbenc@suse.cz>, netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl027-180-168.sfo1.dsl.speakeasy.net ([216.27.180.168]:18314
-	"EHLO sunset.davemloft.net") by vger.kernel.org with ESMTP
-	id S1750823AbWIAGXY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Sep 2006 02:23:24 -0400
-To: ian.mcdonald@jandi.co.nz
-In-Reply-To: <5640c7e00608312039m752be44ek85f0caa6764df853@mail.gmail.com>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:45448 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S1751213AbWIAGkf
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Sep 2006 02:40:35 -0400
+To: Hong Liu <hong.liu@intel.com>
+In-Reply-To: <1157081867.11040.41.camel@devlinux-hong>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Date: Fri, 1 Sep 2006 15:39:37 +1200
+On Fri, 2006-09-01 at 11:37 +0800, Hong Liu wrote:
+>  
+> +	local->sta_scanning = 1;
+> +	if (local->hw->hw_scan)
+> +		return local->hw->hw_scan(dev, ssid, ssid_len);
+> +
 
-> > > I'm ready to rip out ABC entirely, to be honest.  Or at least
-> > > turn it off by default.
-> >
-> > Turn it off for 2.6.18, by default then evaluate more for 2.6.19
-> >
-> If it goes out in 2.6.18 there could probably be a good argument for
-> going into the stable tree as well... to stop the likes of the JVM
-> type issues that users keep hitting (which is fixed or going to be
-> fixed by Sun).
+My question still stands, is it proper to assign sta_scanning to 1 even
+if the function returns an error?
 
-I completely agree.
+johannes
