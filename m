@@ -1,34 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: "Jesper Juhl" <jesper.juhl@gmail.com>
 Subject: Re: Unable to halt or reboot due to - unregister_netdevice: waiting for eth0.20 to become free. Usage count = 1
-Date: Fri, 01 Sep 2006 20:41:35 +1000
-Message-ID: <E1GJ6St-0004Te-00@gondolin.me.apana.org.au>
+Date: Fri, 1 Sep 2006 12:51:39 +0200
+Message-ID: <9a8748490609010351kd8f0d40ud3509e2f3eaa89ac@mail.gmail.com>
 References: <9a8748490609010259l7c42ca88tbcc87410a770b48c@mail.gmail.com>
+	 <E1GJ6St-0004Te-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: greearb@candelatech.com, linux-kernel@vger.kernel.org,
 	waltje@uwalt.nl.mugnet.org, ross.biro@gmail.com,
 	davem@davemloft.net, yoshfuji@linux-ipv6.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:32015 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751438AbWIAKmN
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Sep 2006 06:42:13 -0400
-To: jesper.juhl@gmail.com (Jesper Juhl)
-In-Reply-To: <9a8748490609010259l7c42ca88tbcc87410a770b48c@mail.gmail.com>
+Received: from wx-out-0506.google.com ([66.249.82.231]:39122 "EHLO
+	wx-out-0506.google.com") by vger.kernel.org with ESMTP
+	id S1750718AbWIAKvj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Sep 2006 06:51:39 -0400
+Received: by wx-out-0506.google.com with SMTP id s14so957565wxc
+        for <netdev@vger.kernel.org>; Fri, 01 Sep 2006 03:51:39 -0700 (PDT)
+To: "Herbert Xu" <herbert@gondor.apana.org.au>
+In-Reply-To: <E1GJ6St-0004Te-00@gondolin.me.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesper Juhl <jesper.juhl@gmail.com> wrote:
+On 01/09/06, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> Jesper Juhl <jesper.juhl@gmail.com> wrote:
+> >
+> > I've just encountered the problem on a different server with an
+> > identical vlan setup. That server is running 2.6.13.4
 >
-> I've just encountered the problem on a different server with an
-> identical vlan setup. That server is running 2.6.13.4
+> Do you have a simple recipe to reproduce this? Ideally it'd be a
+> script that anyone can execute in a freshly booted system that
+> exhibits the problem.
+>
+Well, the first server I saw this on only had a base install of debian
+stable on it, then I replaced the kernel, configured the vlan
+interface in /etc/network/interfaces typed 'reboot' and it failed -
+and it seems to fail reliably on reboot every time.
 
-Do you have a simple recipe to reproduce this? Ideally it'd be a
-script that anyone can execute in a freshly booted system that
-exhibits the problem.
-
-Thanks,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Jesper Juhl <jesper.juhl@gmail.com>
+Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please      http://www.expita.com/nomime.html
