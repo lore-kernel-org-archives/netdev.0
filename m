@@ -1,45 +1,71 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH] change netfilter tunables to __read_mostly
-Date: Fri, 01 Sep 2006 13:39:31 -0400
-Message-ID: <44F87053.2040607@hp.com>
-References: <44F85276.1020804@hp.com> <44F861D4.9050208@trash.net> <44F8633F.3000302@trash.net>
+From: Pradeep Dalvi <pradeep@netxen.com>
+Subject: Re: [PATCH 2.6.17 0/9] NetXen: 1G/10G Ethernet Driver
+Date: Fri, 1 Sep 2006 11:44:05 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0609011140050.13052@dut39>
+References: <Pine.LNX.4.64.0608310543370.23783@dut39>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Sanjeev Jorapur <sanjeev@netxen.com>,
+	Wen Xiong <wendyx@us.ibm.com>, Jeff Garzik <jeff@garzik.org>,
+	Don Fry <brazilnut@us.ibm.com>, Rob Mapes <rob@netxen.com>,
+	Amit Kale <amitkale@netxen.com>,
+	Stephen Hemminger <shemminger@osdl.org>, unmproj@linsyssoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:13223 "EHLO atlrel9.hp.com")
-	by vger.kernel.org with ESMTP id S1751277AbWIARje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2006 13:39:34 -0400
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <44F8633F.3000302@trash.net>
+Received: from 66-126-254-34.unm.net ([66.126.254.34]:53612 "EHLO
+	mail.unminc.com") by vger.kernel.org with ESMTP id S1750755AbWIASoV
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Sep 2006 14:44:21 -0400
+To: netdev@vger.kernel.org
+In-Reply-To: <Pine.LNX.4.64.0608310543370.23783@dut39>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Patrick McHardy wrote:
->> Brian Haley wrote:
->>
->>> Change some netfilter tunables to __read_mostly.  Also fixed some
->>> incorrect file reference comments while I was in there.
->>
->> Please send these kind of patches for netfilter to me so I can
->> make sure they don't clash with other pending patches.
->>
->>
->>> (this will be my last __read_mostly patch unless someone points out
->>> something else that needs it)
->>
->> This seems to be a bit random, there are quite a few more candidates for
->> __read_mostly right next to the ones you marked.
-> 
-> 
-> Ah sorry, I didn't really get why you chose these :)
-> 
-> The patch doesn't clash with anything in my queue, so ACK from me.
+Hi,
 
-Sorry, next time I'll send them to you, or 
-netfilter-devel@lists.netfilter.org?  I'll cook-up another patch for the 
-others you mentioned and send it out.
+This entire patch is available at,
+http://www.netxen.com/products/downloads/netxen-2.6.17.patch.zip
 
--Brian
+Thanks,
+pradeep
+
+On Thu, 31 Aug 2006, Amit S. Kale wrote:
+
+> Hi All,
+>
+> Thank you Stephen, Don and Wendy.
+> We have incorporated feedbacks which have received since after last post. 
+> I'll be resending updated patchset in subsequent emails.
+>
+> We are working on finding out good way of using tables to manage 
+> compatibility between firmware version number and driver version number.
+>
+> Kindly review it and feel free to send feedback.
+>
+> Thanks,
+> -Amit
+>
+> Signed-off-by: Amit S. Kale <amitkale@netxen.com>
+>
+> MAINTAINERS                              |    7
+> drivers/net/Kconfig                      |    5
+> drivers/net/Makefile                     |    1
+> drivers/net/netxen/Makefile              |   35
+> drivers/net/netxen/netxen_nic.h          |  901 +++++++++++++++++++++++++
+> drivers/net/netxen/netxen_nic_ethtool.c  |  696 +++++++++++++++++++
+> drivers/net/netxen/netxen_nic_hdr.h      |  611 +++++++++++++++++
+> drivers/net/netxen/netxen_nic_hw.c       | 1102 
+> ++++++++++++++++++++++++++++++
+> drivers/net/netxen/netxen_nic_hw.h       |  499 +++++++++++++
+> drivers/net/netxen/netxen_nic_init.c     | 1089 
+> ++++++++++++++++++++++++++++++
+> drivers/net/netxen/netxen_nic_ioctl.h    |   75 ++
+> drivers/net/netxen/netxen_nic_isr.c      |  301 ++++++++
+> drivers/net/netxen/netxen_nic_main.c     | 1107 
+> +++++++++++++++++++++++++++++++
+> drivers/net/netxen/netxen_nic_niu.c      |  779 +++++++++++++++++++++
+> drivers/net/netxen/netxen_nic_phan_reg.h |  195 +++++
+> 15 files changed, 7403 insertions(+)
+>
+>
+>
