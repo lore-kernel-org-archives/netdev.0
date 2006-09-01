@@ -1,45 +1,38 @@
-From: "Jesper Juhl" <jesper.juhl@gmail.com>
-Subject: Re: Unable to halt or reboot due to - unregister_netdevice: waiting for eth0.20 to become free. Usage count = 1
-Date: Fri, 1 Sep 2006 12:51:39 +0200
-Message-ID: <9a8748490609010351kd8f0d40ud3509e2f3eaa89ac@mail.gmail.com>
-References: <9a8748490609010259l7c42ca88tbcc87410a770b48c@mail.gmail.com>
-	 <E1GJ6St-0004Te-00@gondolin.me.apana.org.au>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: high latency with TCP connections
+Date: Fri, 1 Sep 2006 15:00:38 +0400
+Message-ID: <20060901110038.GA3651@2ka.mipt.ru>
+References: <20060831151456.12a4e080@dxpl.pdx.osdl.net> <20060831.154428.35684218.davem@davemloft.net> <20060831232923.GA10036@ms2.inr.ac.ru> <20060831.165701.104033558.davem@davemloft.net> <20060901094715.GB13855@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, linux-kernel@vger.kernel.org,
-	waltje@uwalt.nl.mugnet.org, ross.biro@gmail.com,
-	davem@davemloft.net, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: David Miller <davem@davemloft.net>, shemminger@osdl.org,
+	alex@sectorb.msk.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.231]:39122 "EHLO
-	wx-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S1750718AbWIAKvj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Sep 2006 06:51:39 -0400
-Received: by wx-out-0506.google.com with SMTP id s14so957565wxc
-        for <netdev@vger.kernel.org>; Fri, 01 Sep 2006 03:51:39 -0700 (PDT)
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
-In-Reply-To: <E1GJ6St-0004Te-00@gondolin.me.apana.org.au>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:44777 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1751094AbWIALBe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2006 07:01:34 -0400
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Content-Disposition: inline
+In-Reply-To: <20060901094715.GB13855@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/09/06, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> Jesper Juhl <jesper.juhl@gmail.com> wrote:
-> >
-> > I've just encountered the problem on a different server with an
-> > identical vlan setup. That server is running 2.6.13.4
->
-> Do you have a simple recipe to reproduce this? Ideally it'd be a
-> script that anyone can execute in a freshly booted system that
-> exhibits the problem.
->
-Well, the first server I saw this on only had a base install of debian
-stable on it, then I replaced the kernel, configured the vlan
-interface in /etc/network/interfaces typed 'reboot' and it failed -
-and it seems to fail reliably on reboot every time.
+On Fri, Sep 01, 2006 at 01:47:15PM +0400, Alexey Kuznetsov (kuznet@ms2.inr.ac.ru) wrote:
+> Hello!
+> 
+> > problem.  The problem is really at the receiver because we only
+> > ACK every other full sized frame.  I had the idea to ACK every 2
+> > frames, regardless of size,
+> 
+> This would solve lots of problems.
+
+At least for slow start it is safe, but experiments with atcp for
+netchannels showed that it is better not to send excessive number of
+acks when slow start is over, instead we can introduce some tricky
+ack avoidance scheme and ack at least 2-3-4 packets or full MSS instead
+of two mss-sized frames.
+
+> Alexey
 
 -- 
-Jesper Juhl <jesper.juhl@gmail.com>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+	Evgeniy Polyakov
