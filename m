@@ -1,89 +1,44 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
 Subject: Re: high latency with TCP connections
-Date: Thu, 31 Aug 2006 20:23:09 -0700
-Message-ID: <20060831202309.5caefbff@localhost.localdomain>
+Date: Fri, 1 Sep 2006 15:39:37 +1200
+Message-ID: <5640c7e00608312039m752be44ek85f0caa6764df853@mail.gmail.com>
 References: <20060831151456.12a4e080@dxpl.pdx.osdl.net>
-	<20060831.154428.35684218.davem@davemloft.net>
-	<20060831232923.GA10036@ms2.inr.ac.ru>
-	<20060831.165701.104033558.davem@davemloft.net>
+	 <20060831.154428.35684218.davem@davemloft.net>
+	 <20060831232923.GA10036@ms2.inr.ac.ru>
+	 <20060831.165701.104033558.davem@davemloft.net>
+	 <20060831202309.5caefbff@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, alex@sectorb.msk.ru, netdev@vger.kernel.org
+Cc: "David Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	alex@sectorb.msk.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:10176 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750930AbWIADYv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2006 23:24:51 -0400
-To: David Miller <davem@davemloft.net>
-In-Reply-To: <20060831.165701.104033558.davem@davemloft.net>
+Received: from nf-out-f131.google.com ([64.233.182.131]:24825 "EHLO
+	nf-out-f131.google.com") by vger.kernel.org with ESMTP
+	id S1751011AbWIADjk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Aug 2006 23:39:40 -0400
+Received: by nf-out-f131.google.com with SMTP id k65so39731nfa
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2006 20:39:38 -0700 (PDT)
+To: "Stephen Hemminger" <shemminger@osdl.org>
+In-Reply-To: <20060831202309.5caefbff@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 31 Aug 2006 16:57:01 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Date: Fri, 1 Sep 2006 03:29:23 +0400
-> 
-> > > 2) a way to take delayed ACKs into account for cwnd growth
-> > 
-> > This part is OK now, right?
-> 
-> This part of ABC is not on by default, and was broken until last week
-> :-)
-> 
-> Test in tcp_slow_start() used to be:
-> 
-> 	tp->bytes_acked > 2*tp->mss_cache
-> 
-> but now it is the correct:
-> 
-> 	tp->bytes_acked >= 2*tp->mss_cache
-> 
-> It allows to make two congestion window increases from one ACK, when
-> noticing delayed ACK.
-> 
-> Non-ABC code did not do this, but could figure this kind of thing
-> out while scanning retransmit queue.
-> 
-> > > 1) protection against ACK division
-> > 
-> > But Linux never had this problem... Congestion window was increased
-> > only when a whole skb is ACKed, flag FLAG_DATA_ACKED. (TSO could
-> > break this, but should not). Otherwise, this ACK just advanced snd_una
-> > and nothing more.
-> 
-> Ugh, I missed this. :-/
-> 
-> The TSO code is carefuly to only trim TSO skbs on proper boundaries,
-> and this ensures proper setting of FLAG_DATA_ACKED too.  So no
-> problems here.
-> 
-> > The only problem of kind "too-aggressive" with Linux was that we could
-> > develop large cwnd sending small segments, and then switch to sending
-> > mss-sized segments. It does not look scary, to be honest. :-)
-> 
-> Agreed.
-> 
-> > Linux had troubles with slow start even before ABC. Actually,
-> > some of applications can suffer of the same syndrome even if ABC disabled.
-> > With ABC it becomes TROUBLE, cwnd has no chances to develop at all.
-> 
-> I've discussed that very issue here before, some time ago, with
-> John Heffner.  It was in response to a user reporting a similar
-> problem.  The problem is really at the receiver because we only
-> ACK every other full sized frame.  I had the idea to ACK every 2
-> frames, regardless of size, but that might have other problems.
-> 
-> There is an assymetry between how we do congestion control on
-> sending (packet counting) and our ACK policy on receive (packet
-> sized based).
-> 
-> > Probably, aspect 1 of ABC just should be disabled. And the first my
-> > suggestion looks working too.
-> 
-> I'm ready to rip out ABC entirely, to be honest.  Or at least
-> turn it off by default.
-
-Turn it off for 2.6.18, by default then evaluate more for 2.6.19
-
+> > I'm ready to rip out ABC entirely, to be honest.  Or at least
+> > turn it off by default.
+>
+> Turn it off for 2.6.18, by default then evaluate more for 2.6.19
+>
+If it goes out in 2.6.18 there could probably be a good argument for
+going into the stable tree as well... to stop the likes of the JVM
+type issues that users keep hitting (which is fixed or going to be
+fixed by Sun).
+-- 
+Ian McDonald
+Web: http://wand.net.nz/~iam4
+Blog: http://imcdnzl.blogspot.com
+WAND Network Research Group
+Department of Computer Science
+University of Waikato
+New Zealand
