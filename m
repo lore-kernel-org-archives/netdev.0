@@ -1,99 +1,89 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: [PATCH 2.6.18] WE-21 support (core API)
-Date: Fri, 1 Sep 2006 09:35:58 -0700
-Message-ID: <20060901163558.GB13815@bougret.hpl.hp.com>
-References: <20060830005655.GA8405@bougret.hpl.hp.com> <1157031138.16040.17.camel@ux156> <20060831171258.GD11836@bougret.hpl.hp.com> <1157093640.2878.26.camel@ux156>
-Reply-To: jt@hpl.hp.com
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] change netfilter tunables to __read_mostly
+Date: Fri, 01 Sep 2006 18:37:40 +0200
+Message-ID: <44F861D4.9050208@trash.net>
+References: <44F85276.1020804@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev@vger.kernel.org, Javier Achirica <achirica@gmail.com>,
-	Simon Kelley <simon@thekelleys.org.uk>,
-	Jouni Malinen <jkmaline@cc.hut.fi>,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
-	Zhu Yi <yi.zhu@intel.com>, Pavel Roskin <proski@gnu.org>,
-	"Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
-	Jeroen Vreeken <pe1rxq@amsat.org>,
-	Michael Wu <flamingice@sourmilk.net>,
-	Denis Vlasenko <vda@ilport.com.ua>,
-	Michael Buesch <mbuesch@freenet.de>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from madara.hpl.hp.com ([192.6.19.124]:62969 "EHLO madara.hpl.hp.com")
-	by vger.kernel.org with ESMTP id S1750724AbWIAQjN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2006 12:39:13 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <1157093640.2878.26.camel@ux156>
+Received: from stinky.trash.net ([213.144.137.162]:34762 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S1750823AbWIAQkN
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Sep 2006 12:40:13 -0400
+To: Brian Haley <brian.haley@hp.com>
+In-Reply-To: <44F85276.1020804@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 01, 2006 at 08:54:00AM +0200, Johannes Berg wrote:
-> On Thu, 2006-08-31 at 10:12 -0700, Jean Tourrilhes wrote:
-> 
-> > 	And I strongly disagree with your disagrement ;-)
-> 
-> You're of course free to do that :) But let me explain.
+Brian Haley wrote:
+> Change some netfilter tunables to __read_mostly.  Also fixed some
+> incorrect file reference comments while I was in there.
 
-	And my explanation is even more simple : let's not throw the
-baby with the bathwater. If things are broken in WE, let's just fix
-it. I've always worked with people working with me.
-	Note that one thing that worry me with your approach is
-footprint. I've used various embedded devices over the years, such as
-the Gumstix (4MB Flash), and this is why WE was optimised for
-footprint.
+Please send these kind of patches for netfilter to me so I can
+make sure they don't clash with other pending patches.
 
-> > 	I'm sorry to say it like this, but I hope my work will not be
-> > impacted by vaporware. How many drivers are currently converted to
-> > nl80211 ?
-> 
-> None, I have to admit, of course. But I hope you realise that I can
-> impossibly convert all drivers at once and all by myself. I merely set
-> out a framework in which it is easy to add new features, new calls and
-> make things behave.
+> (this will be my last __read_mostly patch unless someone points out
+> something else that needs it)
 
-	I hope you realised that you can't expect driver authors to
-convert their driver, it won't happen. I've implemented WE in half the
-driver in the kernel myself, and I convert WE in those drivers myself.
+This seems to be a bit random, there are quite a few more candidates for
+__read_mostly right next to the ones you marked.
 
-> > 	The reason why those new features are good for you :
-> > 		o They give you a template on how you could implement
-> > those features in nl80211, saving you design time.
-> 
-> Gack. I'm inclined to not even respond to this, but I am convinced that
-> having all the unions and ill-defined semantics with one field having
-> multiple meanings is in no way saving me design time because it's part
-> of the problem I intend to completely avoid.
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index 8f22619..3b64dbe 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -77,12 +77,12 @@ LIST_HEAD(nf_conntrack_expect_list);
+>  struct nf_conntrack_protocol **nf_ct_protos[PF_MAX];
 
-	Can we have specifics, instead of generalities ? Every time
-somebody pointed out a specific thing that was broken in WE, I've
-fixed it (with a few exceptions).
-	Case in point : the ESSID change (which was a pain to
-coordinate in user space).
+Like this one
 
-> Actually, no. But that's beside the point anyway. Actually, I think that
-> publishing WE over netlink was a mistake.
+>  struct nf_conntrack_l3proto *nf_ct_l3protos[PF_MAX];
 
-	I don't understand, in the last few years everybody was
-clamoring for a Netlink interface, and now that it is done, people say
-it is a stupid thing. Any specifics ?
+and this one
 
-> The real
-> problem with WE is, as I previously said, the ill-defined semantics of
-> both the user-space API and the in-kernel API.
+>  static LIST_HEAD(helpers);
 
-	I don't understand why you say it's ill defined, it 100%
-documented in the iwconfig man page.
+and this one
 
-> Setting an ESSID to all-zeroes to disable something (or
-> was it all-ones to disable??)
+> -unsigned int nf_conntrack_htable_size = 0;
+> -int nf_conntrack_max;
+> +unsigned int nf_conntrack_htable_size __read_mostly = 0;
+> +int nf_conntrack_max __read_mostly;
+>  struct list_head *nf_conntrack_hash;
 
-	This has *never* existed, there has always been a separate
-flag to indicate that since the beggining. I don't know where you got
-that.
-	Any other misconception I need to straighten ?
+and this one
 
-> johannes
+>  static kmem_cache_t *nf_conntrack_expect_cachep;
 
-	Regards,
+and this one
 
-	Jean
+>  struct nf_conn nf_conntrack_untracked;
+> -unsigned int nf_ct_log_invalid;
+> +unsigned int nf_ct_log_invalid __read_mostly;
+>  static LIST_HEAD(unconfirmed);
+>
+>  static int nf_conntrack_vmalloc;
+
+and this one
+
+Same ones in ip_conntrack.
+
+>  /* Log invalid packets of a given protocol */
+> diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+> index 276a964..80060cb 100644
+> --- a/net/ipv4/netfilter/ip_queue.c
+> +++ b/net/ipv4/netfilter/ip_queue.c
+> @@ -53,7 +53,7 @@ struct ipq_queue_entry {
+>  typedef int (*ipq_cmpfn)(struct ipq_queue_entry *, unsigned long);
+>  
+>  static unsigned char copy_mode = IPQ_COPY_NONE;
+> -static unsigned int queue_maxlen = IPQ_QMAX_DEFAULT;
+> +static unsigned int queue_maxlen __read_mostly = IPQ_QMAX_DEFAULT;
+>  static DEFINE_RWLOCK(queue_lock);
+>  static int peer_pid;
+>  static unsigned int copy_range;
+
+Basically all these variables besides the lock are candidates.
+
