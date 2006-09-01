@@ -1,34 +1,43 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC][IPSEC]: tunnel mode processing
-Date: Fri, 1 Sep 2006 14:07:13 +1000
-Message-ID: <20060901040713.GA9840@gondor.apana.org.au>
-References: <1157072127.5057.39.camel@jzny2>
+Subject: Re: LRO fix needed
+Date: Fri, 1 Sep 2006 14:28:25 +1000
+Message-ID: <20060901042825.GA10193@gondor.apana.org.au>
+References: <20060831.164227.71090271.davem@davemloft.net> <20060831234347.GA7843@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Ananda.Raju@neterion.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:61190 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750907AbWIAEHW
+Received: from rhun.apana.org.au ([64.62.148.172]:20999 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S932094AbWIAE2p
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Sep 2006 00:07:22 -0400
-To: jamal <hadi@cyberus.ca>
+	Fri, 1 Sep 2006 00:28:45 -0400
+To: David Miller <davem@davemloft.net>, Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <1157072127.5057.39.camel@jzny2>
+In-Reply-To: <20060831234347.GA7843@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 31, 2006 at 08:55:27PM -0400, jamal wrote:
+On Fri, Sep 01, 2006 at 09:43:47AM +1000, herbert wrote:
 > 
-> Would it be reasonable to do a check so that incase a skb->dst doesnt
-> exist, the inner headers values can be used i.e something along 
-> xfrm4_tunnel_output()::
+> It might be better to set it to the biggest frag you see rather
+> than the first.
 
-If you didn't care what values they were, couldn't you just stuff some
-bogus dst into the skb? If this packet is going somewhere you're going
-to have a dst one way or another :)
+I've coded it up.
 
-Also, the IPID is only generated if DF is not set on the packet.
-Otherwise this path is already as fast as it can be.
+BTW Ananda, what hardware assistance do your chips currently provide
+for LRO? What are the timeouts used before it gives up on aggregating
+a session?
+
+[NETDRV] s2io: Set gso_size for LRO to TCP stack
+
+Now that the TCP stack uses gso_size to estimate the receive MSS,
+it helps to actually set it :)
+
+Unlike the sending side, there is no single MSS that naturally
+pops up for LRO.  However, for our purposes the maximal TCP payload
+size is the most appropriate for estimating MSS.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 Cheers,
 -- 
@@ -36,3 +45,26 @@ Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index e72e0e0..3ebc789 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -6522,6 +6522,8 @@ static int rx_osm_handler(ring_info_t *r
+ 						&tcp_len, &lro, rxdp, sp);
+ 				switch (ret) {
+ 					case 3: /* Begin anew */
++						skb_shinfo(skb)->gso_size =
++							tcp_len;
+ 						lro->parent = skb;
+ 						goto aggregate;
+ 					case 1: /* Aggregate */
+@@ -7556,6 +7558,8 @@ static void lro_append_pkt(nic_t *sp, lr
+ {
+ 	struct sk_buff *first = lro->parent;
+ 
++	if (tcp_len > skb_shinfo(first)->gso_size)
++		skb_shinfo(first)->gso_size = tcp_len;
+ 	first->len += tcp_len;
+ 	first->data_len = lro->frags_len;
+ 	skb_pull(skb, (skb->len - tcp_len));
