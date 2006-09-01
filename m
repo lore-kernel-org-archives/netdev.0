@@ -1,21 +1,21 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 2/7] bonding: Convert delay value from s16 to int
-Date: Fri, 01 Sep 2006 15:08:24 -0700
-Message-ID: <200609012208.k81M8OZt005444@death.nxdomain.ibm.com>
+Subject: [PATCH 3/7] bonding: Format fix in seq_printf call
+Date: Fri, 01 Sep 2006 15:09:35 -0700
+Message-ID: <200609012209.k81M9ZZt006089@death.nxdomain.ibm.com>
 Cc: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:4810 "EHLO e4.ny.us.ibm.com")
-	by vger.kernel.org with ESMTP id S1751059AbWIAWI0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2006 18:08:26 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e4.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id k81M8PEn003230
-	for <netdev@vger.kernel.org>; Fri, 1 Sep 2006 18:08:25 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay02.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k81M8PCP267252
-	for <netdev@vger.kernel.org>; Fri, 1 Sep 2006 18:08:25 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k81M8PFp017069
-	for <netdev@vger.kernel.org>; Fri, 1 Sep 2006 18:08:25 -0400
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:18072 "EHLO e5.ny.us.ibm.com")
+	by vger.kernel.org with ESMTP id S1751058AbWIAWJh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2006 18:09:37 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e5.ny.us.ibm.com (8.13.8/8.12.11) with ESMTP id k81M9bOn004171
+	for <netdev@vger.kernel.org>; Fri, 1 Sep 2006 18:09:37 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay04.pok.ibm.com (8.13.6/8.13.6/NCO v8.1.1) with ESMTP id k81M9bvi282164
+	for <netdev@vger.kernel.org>; Fri, 1 Sep 2006 18:09:37 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id k81M9ajo030408
+	for <netdev@vger.kernel.org>; Fri, 1 Sep 2006 18:09:36 -0400
 To: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -23,30 +23,27 @@ List-Id: netdev.vger.kernel.org
 
 From: Kenzo Iwami <k-iwami@cj.jp.nec.com>
 
-The value of "downdelay/miimon" and "updelay/miimon" are stored in
-slave->delay. The type of downdelay, updelay, and miimon are all int.
-However, slave->delay is type short, and it is not possible to store the
-value of "downdelay/miimon" or "updelay/miimon" in some cases. (For example,
-miimon=1 downdelay=32768)
+Though link_failure_count is type unsigned int, this value is outputted to
+/proc/net/bonding/bondX file using "%d" instead of "%u".
+
+The attached patch fixes this problem.
 
 Signed-off-by: Kenzo Iwami <k-iwami@cj.jp.nec.com>
 Acked-by: Jay Vosburgh <fubar@us.ibm.com>
 
 
-diff -urpN linux-2.6.17/drivers/net/bonding/bonding.h
-linux-2.6.17_fix/drivers/net/bonding/bonding.h
---- linux-2.6.17/drivers/net/bonding/bonding.h	2006-06-18 10:49:35.000000000 +0900
-+++ linux-2.6.17_fix/drivers/net/bonding/bonding.h	2006-06-19 16:52:43.000000000
-+0900
-@@ -149,7 +149,7 @@ struct slave {
- 	struct net_device *dev; /* first - useful for panic debug */
- 	struct slave *next;
- 	struct slave *prev;
--	s16    delay;
-+	int    delay;
- 	u32    jiffies;
- 	s8     link;    /* one of BOND_LINK_XXXX */
- 	s8     state;   /* one of BOND_STATE_XXXX */
+
+--- netdev-2.6.git-upstream/drivers/net/bonding/bond_main.c	2006/08/19 10:39:34	1.2
++++ netdev-2.6.git-upstream/drivers/net/bonding/bond_main.c	2006/08/19 14:46:07	1.3
+@@ -2951,7 +2951,7 @@
+ 	seq_printf(seq, "\nSlave Interface: %s\n", slave->dev->name);
+ 	seq_printf(seq, "MII Status: %s\n",
+ 		   (slave->link == BOND_LINK_UP) ?  "up" : "down");
+-	seq_printf(seq, "Link Failure Count: %d\n",
++	seq_printf(seq, "Link Failure Count: %u\n",
+ 		   slave->link_failure_count);
+ 
+ 	seq_printf(seq,
 
 -- 
-VGER BF report: H 0.391544
+VGER BF report: U 0.498925
