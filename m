@@ -1,173 +1,117 @@
 From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: 2.6.18-rc5 + pata-drivers on MSI K9N Ultra report, AMD64
-Date: Sat, 02 Sep 2006 22:14:51 +0200
-Message-ID: <m3psee58lg.fsf@defiant.localdomain>
+Subject: 2.6.18-rc5 with GRE, iptables and Speedtouch ADSL, PPP over ATM
+Date: Sat, 02 Sep 2006 22:39:28 +0200
+Message-ID: <m3odty57gf.fsf@defiant.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:40153 "EHLO khc.piap.pl")
-	by vger.kernel.org with ESMTP id S1751511AbWIBUOz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2006 16:14:55 -0400
+Cc: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1751546AbWIBUjb@vger.kernel.org>
 To: <linux-kernel@vger.kernel.org>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi,
 
-Keywords: nForce PCIe, forcedeth, nForce PATA, Radeon DRM, ALC883 HDA sound
+FYI: Just enabled kernel lock testers on my old laptop machine
+doing "internet services". 2.6.18-rc5, i686. All details available
+on request, of course.
 
-FYI: running 2.6.18-rc5 + pata-drivers on MSI mb K9N Ultra (NVidia
-MCP55, PCIe, Athlon64, x86_64, no SMP, no preempt) gives the following
-(all details available on request, of course):
+There is IP GRE tunnel here running over ADSL connection (USB
+Thomson/Alcatel Speedtouch 330, PPP over ATM, in-kernel drivers).
+Ethernet is DLink Tulip-based (PC Card 32-bit), probably not
+relevant here. Iptables doing mostly ACCEPTs, REJECT and DROPs in
+INPUT and FORWARD, there is also MASQUERADE but it probably doesn't
+matter. Few ip rules directing some traffic to the GRE tunnel as well.
 
-"Nvidia board detected. Ignoring ACPI timer override."
-I don't know if it should be ignored or not, anymore. It's probably ok.
+=======================================================
+[ INFO: possible circular locking dependency detected ]
+-------------------------------------------------------
+swapper/0 is trying to acquire lock:
+ (&dev->queue_lock){-+..}, at: [<c02c8c46>] dev_queue_xmit+0x56/0x290
 
+but task is already holding lock:
+ (&dev->_xmit_lock){-+..}, at: [<c02c8e14>] dev_queue_xmit+0x224/0x290
 
-PCI: Setting latency timer of device 0000:00:0b.0 to 64
-pcie_portdrv_probe->Dev[0374:10de] has invalid IRQ. Check vendor BIOS
-assign_interrupt_mode Found MSI capability
-Allocate Port Service[0000:00:0b.0:pcie00]
-PCI: Setting latency timer of device 0000:00:0c.0 to 64
-pcie_portdrv_probe->Dev[0374:10de] has invalid IRQ. Check vendor BIOS
-assign_interrupt_mode Found MSI capability
-Allocate Port Service[0000:00:0c.0:pcie00]
-PCI: Setting latency timer of device 0000:00:0d.0 to 64
-pcie_portdrv_probe->Dev[0378:10de] has invalid IRQ. Check vendor BIOS
-assign_interrupt_mode Found MSI capability
-Allocate Port Service[0000:00:0d.0:pcie00]
-PCI: Setting latency timer of device 0000:00:0e.0 to 64
-pcie_portdrv_probe->Dev[0375:10de] has invalid IRQ. Check vendor BIOS
-assign_interrupt_mode Found MSI capability
-Allocate Port Service[0000:00:0e.0:pcie00]
-PCI: Setting latency timer of device 0000:00:0f.0 to 64
-pcie_portdrv_probe->Dev[0377:10de] has invalid IRQ. Check vendor BIOS
-assign_interrupt_mode Found MSI capability
-Allocate Port Service[0000:00:0f.0:pcie00]
-
-The above seem to be some PCIe bridges.
-
-ata1 and ata2 are SATA.
-
-ata3: PATA max UDMA/133 cmd 0x1F0 ctl 0x3F6 bmdma 0xFFA0 irq 14
-ata4: PATA max UDMA/133 cmd 0x170 ctl 0x376 bmdma 0xFFA8 irq 15
-
-There is no secondary IDE connector on this motherboard, I think
-it's just disabled by BIOS.
-
-scsi3 : pata_amd
-ata4: port is slow to respond, please be patient
-ata4: port failed to respond (30 secs)
-ata4: SRST failed (status 0xFF)
-ata4: SRST failed (err_mask=0x100)
-ata4: softreset failed, retrying in 5 secs
-ata4: SRST failed (status 0xFF)
-ata4: SRST failed (err_mask=0x100)
-ata4: softreset failed, retrying in 5 secs
-ata4: SRST failed (status 0xFF)
-ata4: SRST failed (err_mask=0x100)
-ata4: reset failed, giving up
-
-While not a big problem, the above sequence takes 40 seconds while
-booting.
+which lock already depends on the new lock.
 
 
-hda_codec: Unknown model for ALC883, trying auto-probe from BIOS...
-ALSA device list:
-  #0: HDA NVidia at 0xfeaf4000 irq 233
+the existing dependency chain (in reverse order) is:
 
+-> #1 (&dev->_xmit_lock){-+..}:
+       [<c012e7b6>] lock_acquire+0x76/0xa0
+       [<c0336241>] _spin_lock_bh+0x31/0x40
+       [<c02d25a9>] dev_activate+0x69/0x120
+       [<c02c8149>] dev_open+0x59/0x70
+       [<c02c6921>] dev_change_flags+0x51/0x110
+       [<c0302464>] devinet_ioctl+0x484/0x670
+       [<c030295b>] inet_ioctl+0x6b/0x80
+       [<c02bc6e8>] sock_ioctl+0x118/0x200
+       [<c01698b0>] do_ioctl+0x20/0x70
+       [<c0169957>] vfs_ioctl+0x57/0x290
+       [<c0169bc9>] sys_ioctl+0x39/0x60
+       [<c0102c8d>] sysenter_past_esp+0x56/0x8d
 
-eth0: forcedeth.c: subsystem: 01462:7250 bound to 0000:00:08.0
-eth1: forcedeth.c: subsystem: 01462:7250 bound to 0000:00:09.0
+-> #0 (&dev->queue_lock){-+..}:
+       [<c012e7b6>] lock_acquire+0x76/0xa0
+       [<c03361fc>] _spin_lock+0x2c/0x40
+       [<c02c8c46>] dev_queue_xmit+0x56/0x290
+       [<c02e2cfd>] ip_output+0x1ad/0x250
+       [<c883dea2>] ipgre_tunnel_xmit+0x412/0x740 [ip_gre]
+       [<c02c73db>] dev_hard_start_xmit+0x1bb/0x220
+       [<c02c8e2b>] dev_queue_xmit+0x23b/0x290
+       [<c02e2cfd>] ip_output+0x1ad/0x250
+       [<c03142bc>] reject+0x37c/0x6d0
+       [<c0313688>] ipt_do_table+0x2b8/0x330
+       [<c03137b7>] ipt_hook+0x27/0x30
+       [<c02d6529>] nf_iterate+0x59/0x80
+       [<c02d667a>] nf_hook_slow+0x4a/0xc0
+       [<c02ddb55>] ip_local_deliver+0x175/0x1c0
+       [<c02dd7bc>] ip_rcv+0x25c/0x480
+       [<c02c705e>] netif_receive_skb+0x15e/0x1e0
+       [<c02c8922>] process_backlog+0x82/0x110
+       [<c02c8a22>] net_rx_action+0x72/0x120
+       [<c01194b5>] __do_softirq+0x55/0xc0
+       [<c0104b13>] do_softirq+0x63/0xd0
 
-BUG: warning at /usr/src/linux-2.6/kernel/lockdep.c:1803/trace_hardirqs_on()
+other info that might help us debug this:
 
-Call Trace:
- <IRQ> [<ffffffff80298395>] trace_hardirqs_on+0xc5/0x150
- [<ffffffff8026522b>] _spin_unlock_irq+0x2b/0x40
- [<ffffffff8800186e>] :forcedeth:nv_nic_irq_tx+0x7e/0x130
- [<ffffffff8020fb6c>] handle_IRQ_event+0x2c/0x70
- [<ffffffff802a4154>] __do_IRQ+0xc4/0x140
- [<ffffffff8026aedd>] do_IRQ+0xfd/0x110
- [<ffffffff8025fdba>] ret_from_intr+0x0/0xf
- <EOI> [<ffffffff8026522b>] _spin_unlock_irq+0x2b/0x40
- [<ffffffff80265230>] _spin_unlock_irq+0x30/0x40
- [<ffffffff80234fc9>] do_setitimer+0x159/0x480
- [<ffffffff8026489f>] trace_hardirqs_on_thunk+0x35/0x37
- [<ffffffff80284955>] alarm_setitimer+0x35/0x60
- [<ffffffff802896c9>] sys_alarm+0x9/0x10
- [<ffffffff80261100>] cstar_do_call+0x1b/0x6f
+2 locks held by swapper/0:
+ #0:  (&table->lock){-.-+}, at: [<c0313421>] ipt_do_table+0x51/0x330
+ #1:  (&dev->_xmit_lock){-+..}, at: [<c02c8e14>] dev_queue_xmit+0x224/0x290
 
-[drm] Initialized radeon 1.25.0 20060524 on minor 0
-[drm:radeon_do_init_cp] *ERROR* Cannot initialise DRM on this card
-This card requires a new X.org DDX
-
-Apparently IA32 emulation doesn't work for
-radeon_cp_setparam(DRM_IOCTL_ARGS) -> RADEON_SETPARAM_NEW_MEMMAP
-(32-bit kernel doesn't have this problem).
-
-
-$ /sbin/lspci 
-00:00.0 RAM memory: nVidia Corporation MCP55 Memory Controller (rev a1)
-00:01.0 ISA bridge: nVidia Corporation MCP55 LPC Bridge (rev a2)
-00:01.1 SMBus: nVidia Corporation MCP55 SMBus (rev a2)
-00:01.2 RAM memory: nVidia Corporation MCP55 Memory Controller (rev a2)
-00:04.0 IDE interface: nVidia Corporation MCP55 IDE (rev a1)
-00:05.0 IDE interface: nVidia Corporation MCP55 SATA Controller (rev a2)
-00:06.0 PCI bridge: nVidia Corporation Unknown device 0370 (rev a2)
-00:06.1 Audio device: nVidia Corporation MCP55 High Definition Audio (rev a2)
-00:08.0 Bridge: nVidia Corporation MCP55 Ethernet (rev a2)
-00:09.0 Bridge: nVidia Corporation MCP55 Ethernet (rev a2)
-00:0b.0 PCI bridge: nVidia Corporation Unknown device 0374 (rev a2)
-00:0c.0 PCI bridge: nVidia Corporation Unknown device 0374 (rev a2)
-00:0d.0 PCI bridge: nVidia Corporation Unknown device 0378 (rev a2)
-00:0e.0 PCI bridge: nVidia Corporation Unknown device 0375 (rev a2)
-00:0f.0 PCI bridge: nVidia Corporation Unknown device 0377 (rev a2)
-00:18.0 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] HyperTransport Technology Configuration
-00:18.1 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] Address Map
-00:18.2 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] DRAM Controller
-00:18.3 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] Miscellaneous Control
-01:02.0 Multimedia audio controller: Creative Labs SB Live! EMU10k1 (rev 08)
-01:02.1 Input device controller: Creative Labs SB Live! MIDI/Game Port (rev 08)
-06:00.0 VGA compatible controller: ATI Technologies Inc R430 [Radeon X800 XL] (PCIe)
-06:00.1 Display controller: ATI Technologies Inc R430 [Radeon X800 XL] (PCIe) Secondary
-
-
-
-00:0b.0 PCI bridge: nVidia Corporation Unknown device 0374 (rev a2) (prog-if 00 [Normal decode])
-        Control: I/O- Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- Fast
-B2B-
-        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- 
-<PERR-
-        Latency: 0, Cache Line Size 10
-        Bus: primary=00, secondary=02, subordinate=02, sec-latency=0
-        Secondary status: 66MHz- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- <SERR- 
-<PERR-
-        BridgeCtl: Parity- SERR+ NoISA- VGA- MAbort- >Reset- FastB2B-
-        Capabilities: [40] #0d [0000]
-        Capabilities: [48] Power Management version 2
-                Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-                Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-        Capabilities: [50] Message Signalled Interrupts: 64bit+ Queue=0/1 Enable+
-                Address: 00000000fee00000  Data: 40b9
-        Capabilities: [60] HyperTransport: MSI Mapping
-        Capabilities: [80] Express Root Port (Slot+) IRQ 0
-                Device: Supported: MaxPayload 256 bytes, PhantFunc 0, ExtTag-
-                Device: Latency L0s <512ns, L1 <4us
-                Device: Errors: Correctable- Non-Fatal- Fatal- Unsupported-
-                Device: RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
-                Device: MaxPayload 128 bytes, MaxReadReq 512 bytes
-                Link: Supported Speed 2.5Gb/s, Width x1, ASPM L0s L1, Port 4
-                Link: Latency L0s <512ns, L1 <4us
-                Link: ASPM Disabled RCB 64 bytes CommClk- ExtSynch-
-                Link: Speed 2.5Gb/s, Width x1
-                Slot: AtnBtn- PwrCtrl- MRL- AtnInd- PwrInd- HotPlug- Surpise-
-                Slot: Number 0, PowerLimit 0.000000
-                Slot: Enabled AtnBtn- PwrFlt- MRL- PresDet- CmdCplt- HPIrq-
-                Slot: AttnInd Off, PwrInd On, Power-
-                Root: Correctable- Non-Fatal- Fatal- PME-
+stack backtrace:
+ [<c0103522>] show_trace+0x12/0x20
+ [<c0103b79>] dump_stack+0x19/0x20
+ [<c012d6c1>] print_circular_bug_tail+0x61/0x70
+ [<c012e196>] __lock_acquire+0xac6/0xd70
+ [<c012e7b6>] lock_acquire+0x76/0xa0
+ [<c03361fc>] _spin_lock+0x2c/0x40
+ [<c02c8c46>] dev_queue_xmit+0x56/0x290
+ [<c02e2cfd>] ip_output+0x1ad/0x250
+ [<c883dea2>] ipgre_tunnel_xmit+0x412/0x740 [ip_gre]
+ [<c02c73db>] dev_hard_start_xmit+0x1bb/0x220
+ [<c02c8e2b>] dev_queue_xmit+0x23b/0x290
+ [<c02e2cfd>] ip_output+0x1ad/0x250
+ [<c03142bc>] reject+0x37c/0x6d0
+ [<c0313688>] ipt_do_table+0x2b8/0x330
+ [<c03137b7>] ipt_hook+0x27/0x30
+ [<c02d6529>] nf_iterate+0x59/0x80
+ [<c02d667a>] nf_hook_slow+0x4a/0xc0
+ [<c02ddb55>] ip_local_deliver+0x175/0x1c0
+ [<c02dd7bc>] ip_rcv+0x25c/0x480
+ [<c02c705e>] netif_receive_skb+0x15e/0x1e0
+ [<c02c8922>] process_backlog+0x82/0x110
+ [<c02c8a22>] net_rx_action+0x72/0x120
+ [<c01194b5>] __do_softirq+0x55/0xc0
+ [<c0104b13>] do_softirq+0x63/0xd0
+ =======================
+ [<c0119395>] irq_exit+0x35/0x40
+ [<c0104c0f>] do_IRQ+0x8f/0xf0
+ [<c0102ef9>] common_interrupt+0x25/0x2c
+ [<c01018e9>] cpu_idle+0x39/0x50
+ [<c010052e>] rest_init+0x1e/0x30
+ [<c041f76e>] start_kernel+0x25e/0x2c0
+ [<c0100199>] 0xc0100199
 
 -- 
 Krzysztof Halasa
