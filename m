@@ -1,68 +1,40 @@
-From: stephen@dino.dnsalias.com (Stephen J. Bevan)
-Subject: Re: ProxyARP and IPSec
-Date: Sat, 2 Sep 2006 13:54:51 -0700
-Message-ID: <17657.61339.125326.706889@localhost.localdomain>
-References: <44EBA1FC.5000801@zytor.com>
-	<20060823191425.GK3470@postel.suug.ch>
-	<20060823.151424.78711856.davem@davemloft.net>
-	<20060823231812.GA32394@ms2.inr.ac.ru>
-	<44ECFCF1.10500@zytor.com>
-	<44ECFD5F.6060901@zytor.com>
-	<1156386043.7302.773.camel@tahini.andynet.net>
-	<44ED2797.4070304@zytor.com>
-	<20060824125046.GA25439@ms2.inr.ac.ru>
-	<44EFCB0F.5080506@zytor.com>
-	<17657.42254.455342.157858@localhost.localdomain>
-	<44F9BFC2.4050001@zytor.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: 2.6.18-rc5 + pata-drivers on MSI K9N Ultra report, AMD64
+Date: Sat, 02 Sep 2006 23:09:03 +0100
+Message-ID: <1157234944.6271.400.camel@localhost.localdomain>
+References: <m3psee58lg.fsf@defiant.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Stephen J. Bevan" <stephen@dino.dnsalias.com>,
-	netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from S010600014e000000.vc.shawcable.net ([70.79.40.36]:61694 "EHLO
-	dino.dnsalias.com") by vger.kernel.org with ESMTP id S1751577AbWIBUza
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Sep 2006 16:55:30 -0400
-To: "H. Peter Anvin" <hpa@zytor.com>
-In-Reply-To: <44F9BFC2.4050001@zytor.com>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:62650 "EHLO
+	lxorguk.ukuu.org.uk") by vger.kernel.org with ESMTP
+	id S1751627AbWIBVr1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Sep 2006 17:47:27 -0400
+To: Krzysztof Halasa <khc@pm.waw.pl>
+In-Reply-To: <m3psee58lg.fsf@defiant.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > <sarcasm>
- > 
- > What I great idea.  Now I just have to get every host I want to 
- > interoperate with to support a nonstandard configuration.  The scary 
- > part is that if I motivate it with "Linux is too stupid to handle 
- > standard tunnel-mode IPsec" I might actually get away with it.
- > 
- > </sarcasm>
+Ar Sad, 2006-09-02 am 22:14 +0200, ysgrifennodd Krzysztof Halasa:
+> ata3: PATA max UDMA/133 cmd 0x1F0 ctl 0x3F6 bmdma 0xFFA0 irq 14
+> ata4: PATA max UDMA/133 cmd 0x170 ctl 0x376 bmdma 0xFFA8 irq 15
+> 
+> There is no secondary IDE connector on this motherboard, I think
+> it's just disabled by BIOS.
 
-Linux handles tunnel-mode IPsec in the same way that most IPsec
-vendors did and many still do.  For example, Cisco IOS has pages and
-pages of documentation about how to combine IPsec with GRE in order to
-support securely running OSPF between sites, precisely because its
-IPsec didn't offer a virtual interface.  However, Cisco (along with
-Netscreen/Juniper and Fortinet) now additionally support IPsec that
-uses a virtual interface and so you have a choice of using an
-interface or not as you see fit.  I would be useful if Linux offered
-the option but code talks and I'm not offering a patch so I'm not in a
-position to complain about what Linux currently supports.
+Its there if it got that far. May not be wired.
+
+> scsi3 : pata_amd
+> ata4: port is slow to respond, please be patient
+> ata4: port failed to respond (30 secs)
+
+Please send me an lspci -vxxx. This might be BIOS or might be us
+misparsing disable/enable bits.
 
 
- > Really... if saying our configuration is so screwed up that we have to 
- > run a different over-wire protocol isn't an admission of failure I don't 
-
-If you use ipip the over-wire protocol is identical, see RFC 3884
-section 3.1 or you can test it right now using manual keying (remote
-side uses tunnel mode, your side uses transport + ipip).  To use IKE
-pluto would need to be hacked a bit, though most of the changes could
-be handled via a updown script.
-
-
- > know what is.  I suspect this contributes to the growth in OpenVPN as well.
-
-Haven't you heard, SSL based VPNs are the future :-)
 
 -- 
-VGER BF report: U 0.947229
+VGER BF report: U 0.5
