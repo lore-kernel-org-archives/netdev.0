@@ -1,84 +1,36 @@
-From: "Franco" <franco.daje@virgilio.it>
-Subject: Re: i not find in the kernel code the code of this command
-Date: Sat, 2 Sep 2006 03:22:17 +0200
-Message-ID: <000401c6ce2e$3b7998c0$0201a8c0@PCFranco>
-References: <003a01c6cdd1$7151c100$0201a8c0@PCFranco> <5640c7e00609011704v2a1e7c38x1ede5f7b3dc4539f@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1;
-	format=flowed	reply-type=response
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: icmp echo reply and DF
+Date: Sat, 02 Sep 2006 12:41:12 +1000
+Message-ID: <E1GJLRY-0006OB-00@gondolin.me.apana.org.au>
+References: <BAY103-F80FA7B64C2360B1CFF28BB23C0@phx.gbl>
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vsmtp2.tin.it ([212.216.176.222]:34497 "EHLO vsmtp2.tin.it")
-	by vger.kernel.org with ESMTP id S1750718AbWIBBWV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2006 21:22:21 -0400
-To: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Received: from rhun.apana.org.au ([64.62.148.172]:39943 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1750699AbWIBClK
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Sep 2006 22:41:10 -0400
+To: pupilla@hotmail.com (Marco Berizzi)
+In-Reply-To: <BAY103-F80FA7B64C2360B1CFF28BB23C0@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-thanks for your response!
-Yes, The code is under net/sched in the source tree.
-The file act_police.c in the directoy net/sched don't exist. there is=20
-police.c that have a very similar code act_police.c (that i have found =
-on=20
-internet)
+Marco Berizzi <pupilla@hotmail.com> wrote:
+> I kindly would like to know why linux reply to ICMP
+> echo request packets with the DF bit set always to 0.
 
-however i have doon 'make menuconfig', i have gone to traffic policing =
-and=20
-it is selectionated but there is only the "*". there isn't "M" that mea=
-ns=20
-"modularized featured" and i can't insert M in traffic policing
-you have help me very much with this last information. But, at this poi=
-nt,=20
-if i want create a proc file in police.c, therefore modificate the kern=
-el, i=20
-must install on my pc another version on linux. It is exact?
-Thanks
-bye
+We do that because that's the only sensible thing to do if you
+actually want ICMP messages to reach the destination host.  PMTU
+on ICMP does not make sense.
 
-=46ranco
+Furthermore, ICMP echo means echoing at the ICMP level, it does
+not mean that we have to echo things inside the IP header.
 
------ Original Message -----=20
-=46rom: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-To: "Franco" <franco.daje@virgilio.it>
-Cc: <netdev@vger.kernel.org>
-Sent: Saturday, September 02, 2006 2:04 AM
-Subject: Re: i not find in the kernel code the code of this command
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-
-> On 9/2/06, Franco <franco.daje@virgilio.it> wrote:
->> I thought that this code was police.c but seem that it isn't
->> i must implement a proc file in the code and recompiling the kernel.
->>
-> I'm not sure I understand your question. Please tell me if I answer w=
-rong!
->
-> The code is under net/sched in the source tree. The main file is
-> act_police.c but it is in use elsewhere as well. grep for POLICE.
->
-> To build the code you need to alter your kernel options under 'make
-> menuconfig' Networking, Networking Options, Qos and/or fair queueing,
-> Actions must be selected and then Traffic Police.
->
-> I hope this helps.
->
-> Ian
-> --=20
-> Ian McDonald
-> Web: http://wand.net.nz/~iam4
-> Blog: http://imcdnzl.blogspot.com
-> WAND Network Research Group
-> Department of Computer Science
-> University of Waikato
-> New Zealand
->
-> __________ Informazione NOD32 1.1607 (20060619) __________
->
-> Questo messaggio  =E8 stato controllato dal Sistema Antivirus NOD32
-> http://www.nod32.it
->
->=20
-
-
---=20
-VGER BF report: U 0.502266
+-- 
+VGER BF report: U 0.5
