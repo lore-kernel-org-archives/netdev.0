@@ -1,81 +1,39 @@
-From: "Gary Chan" <hpchan5@ie.cuhk.edu.hk>
-Subject: Re: Linux UDP Implementation
-Date: Sat, 2 Sep 2006 14:27:20 +0800
-Message-ID: <04d201c6ce58$d8744420$193aa8c0@mclabhpchan5>
-References: <00f401c6ccc2$40ad2a90$193aa8c0@mclabhpchan5> <44F715B5.5070905@hp.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH] tcp: turn ABC off
+Date: Sat, 2 Sep 2006 11:22:48 +0400
+Message-ID: <20060902072248.GA27419@2ka.mipt.ru>
+References: <20060831151456.12a4e080@dxpl.pdx.osdl.net> <20060831.154428.35684218.davem@davemloft.net> <20060831232923.GA10036@ms2.inr.ac.ru> <20060831.165701.104033558.davem@davemloft.net> <20060901094715.GB13855@ms2.inr.ac.ru> <20060901110038.GA3651@2ka.mipt.ru> <20060901090046.69b3d583@localhost.localdomain> <20060901135515.3f900340@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="big5";
-	reply-type=response
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=koi8-r
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, alex@sectorb.msk.ru,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eng.ie.cuhk.edu.hk ([137.189.96.20]:39653 "EHLO
-	eng.ie.cuhk.edu.hk") by vger.kernel.org with ESMTP id S1750809AbWIBG1Y
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Sep 2006 02:27:24 -0400
-Received: from viruswall2.ie.cuhk.edu.hk (IDENT:U2FsdGVkX18LCJxAPyWJw/64A9w58LIafS3J7Cz+GqU@viruswall2 [137.189.96.53])
-	by eng.ie.cuhk.edu.hk (8.13.6/8.13.6) with ESMTP id k826RKUe032133
-	for <netdev@vger.kernel.org>; Sat, 2 Sep 2006 14:27:21 +0800
-To: "Rick Jones" <rick.jones2@hp.com>, <netdev@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:65255 "EHLO 2ka.mipt.ru")
+	by vger.kernel.org with ESMTP id S1750836AbWIBHXi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2006 03:23:38 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20060901135515.3f900340@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear Rick,
+On Fri, Sep 01, 2006 at 01:55:15PM -0700, Stephen Hemminger (shemminger@osdl.org) wrote:
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 111ff39..159fa3f 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -89,7 +89,7 @@ int sysctl_tcp_frto;
+>  int sysctl_tcp_nometrics_save;
+>  
+>  int sysctl_tcp_moderate_rcvbuf = 1;
+> -int sysctl_tcp_abc = 1;
+> +int sysctl_tcp_abc;
 
-Thank you for your reply.
-
-I am sorry that I don't quite understand your point. As far as I know, the 
-function call udp_flush_pending_frames() in net/ipv4/udp.c is invoked 
-regardless of whether the socket is set to either a blocking mode or a 
-non-blocking mode. Do you mean that the implementation in the function 
-sendto() handles the packet drop at the interface queue by caching data at 
-the socket level ? If so, could you please advise me the Linux Kernel source 
-file which contains the exact implementation of sendto() API function call 
-in Linux ? I tried to locate this souce file using a bottom-up approach 
-starting at the function call udp_sendmsg(), -> inet_sendmsg()  in 
-net/ipv4/af_inet.c -> sock_sendmsg() in net/socket.c-> sys_sendto() in 
-net/socket.c ... but I finally got lost in sys_sendto().
-
-Thank you for your help.
-
-Regards,
-
-Gary
-
------ Original Message ----- 
-From: "Rick Jones" <rick.jones2@hp.com>
-To: "Gary Chan" <hpchan5@ie.cuhk.edu.hk>
-Sent: Friday, September 01, 2006 1:00 AM
-Subject: Re: Linux UDP Implementation
-
-
-> Gary Chan wrote:
->> According to the function call udp_sendmsg() in the source file 
->> net/ipv4/udp.c (Linux Kernel 2.6.17.11), when an error value is returned 
->> from the function ip_append_data() due to local device congestion, say 
->> interface queue overflow,  pending packets in the queue 
->> sk->sk_write_queue are simply flushed (udp_flush_pending_frames() is 
->> invoked) without caching for future retransmission.
->>
->> I called a network API function sendto() to transmit UDP packets in a 
->> blocking I/O mode at a rate of 100Mbps over the 802.11b wireless ad hoc 
->> network, the network was overloaded as the maximum transfer rate for 
->> 802.11b was just 11Mbps. Therefore, the outgoing interface queue must be 
->> full and UDP packets will be dropped eventually. However, I checked that 
->> there was no packet loss at the receiver side, i.e. the number of packets 
->> sent from the sender is equal to that received.
->>
->> It seems that the implementation (at code level) does not match with the 
->> actual behaviour. I would like to seek expertise on clarifying my 
->> understanding in UDP implementation so that this phenomenon can be 
->> explained.
->
-> Perhaps you are seeing a difference in the behaviour of blocking vs 
-> non-blocking sockets?
->
-> rick jones 
-
+Since it is not static are you sure it will be zero?
 
 -- 
-VGER BF report: U 0.5
+	Evgeniy Polyakov
+
+-- 
+VGER BF report: H 8.21099e-10
