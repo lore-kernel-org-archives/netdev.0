@@ -1,37 +1,49 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 4/5] skge: version 1.8
-Date: Fri, 01 Sep 2006 15:53:50 -0700
-Message-ID: <20060901225449.647481282@zqx3.pdx.osdl.net>
-References: <20060901225346.750571061@zqx3.pdx.osdl.net>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Re: i not find in the kernel code the code of this command
+Date: Sat, 2 Sep 2006 12:04:31 +1200
+Message-ID: <5640c7e00609011704v2a1e7c38x1ede5f7b3dc4539f@mail.gmail.com>
+References: <003a01c6cdd1$7151c100$0201a8c0@PCFranco>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:13967 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1751181AbWIAW6Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2006 18:58:16 -0400
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline; filename=skge-1.8.patch
+Received: from nf-out-f131.google.com ([64.233.182.131]:62364 "EHLO
+	nf-out-f131.google.com") by vger.kernel.org with ESMTP
+	id S1751217AbWIBAEd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Sep 2006 20:04:33 -0400
+Received: by nf-out-f131.google.com with SMTP id k65so71339nfa
+        for <netdev@vger.kernel.org>; Fri, 01 Sep 2006 17:04:32 -0700 (PDT)
+To: Franco <franco.daje@virgilio.it>
+In-Reply-To: <003a01c6cdd1$7151c100$0201a8c0@PCFranco>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Because of the NAPI and other SMP fixes, let's call
-this a version.
+On 9/2/06, Franco <franco.daje@virgilio.it> wrote:
+> I thought that this code was police.c but seem that it isn't
+> i must implement a proc file in the code and recompiling the kernel.
+>
+I'm not sure I understand your question. Please tell me if I answer wrong!
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+The code is under net/sched in the source tree. The main file is
+act_police.c but it is in use elsewhere as well. grep for POLICE.
 
---- skge-2.6.orig/drivers/net/skge.c
-+++ skge-2.6/drivers/net/skge.c
-@@ -43,7 +43,7 @@
- #include "skge.h"
- 
- #define DRV_NAME		"skge"
--#define DRV_VERSION		"1.7"
-+#define DRV_VERSION		"1.8"
- #define PFX			DRV_NAME " "
- 
- #define DEFAULT_TX_RING_SIZE	128
+To build the code you need to alter your kernel options under 'make
+menuconfig' Networking, Networking Options, Qos and/or fair queueing,
+Actions must be selected and then Traffic Police.
 
---
+I hope this helps.
 
+Ian
+-- 
+Ian McDonald
+Web: http://wand.net.nz/~iam4
+Blog: http://imcdnzl.blogspot.com
+WAND Network Research Group
+Department of Computer Science
+University of Waikato
+New Zealand
 
 -- 
-VGER BF report: H 0.0441835
+VGER BF report: U 0.5
