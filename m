@@ -1,64 +1,81 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: TCP send/ack lockstep problem
-Date: Fri, 01 Sep 2006 23:15:25 -0700
-Message-ID: <44F9217D.8030305@osdl.org>
-References: <eda9s9$bgq$1@sea.gmane.org> <E1GJLWk-0006P6-00@gondolin.me.apana.org.au> <20060902055317.GA5567@kiste.smurf.noris.de>
+From: "Gary Chan" <hpchan5@ie.cuhk.edu.hk>
+Subject: Re: Linux UDP Implementation
+Date: Sat, 2 Sep 2006 14:27:20 +0800
+Message-ID: <04d201c6ce58$d8744420$193aa8c0@mclabhpchan5>
+References: <00f401c6ccc2$40ad2a90$193aa8c0@mclabhpchan5> <44F715B5.5070905@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+	format=flowed;
+	charset="big5";
+	reply-type=response
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.osdl.org ([65.172.181.4]:63723 "EHLO smtp.osdl.org")
-	by vger.kernel.org with ESMTP id S1750810AbWIBGPs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2006 02:15:48 -0400
-To: Matthias Urlichs <smurf@smurf.noris.de>
-In-Reply-To: <20060902055317.GA5567@kiste.smurf.noris.de>
+Received: from eng.ie.cuhk.edu.hk ([137.189.96.20]:39653 "EHLO
+	eng.ie.cuhk.edu.hk") by vger.kernel.org with ESMTP id S1750809AbWIBG1Y
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Sep 2006 02:27:24 -0400
+Received: from viruswall2.ie.cuhk.edu.hk (IDENT:U2FsdGVkX18LCJxAPyWJw/64A9w58LIafS3J7Cz+GqU@viruswall2 [137.189.96.53])
+	by eng.ie.cuhk.edu.hk (8.13.6/8.13.6) with ESMTP id k826RKUe032133
+	for <netdev@vger.kernel.org>; Sat, 2 Sep 2006 14:27:21 +0800
+To: "Rick Jones" <rick.jones2@hp.com>, <netdev@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matthias Urlichs wrote:
-> Hi,
->
-> Herbert Xu:
->   
->> Matthias Urlichs <matthias@urlichs.de> wrote:
->>     
->>> Any ideas? Is the sending program doing something stupid? If so, what?
->>>       
->> Probably.  Since you're on the sender's side (192.109.x.x I presume) why
->> don't you do a strace on the sending process and tell us?
+Dear Rick,
+
+Thank you for your reply.
+
+I am sorry that I don't quite understand your point. As far as I know, the 
+function call udp_flush_pending_frames() in net/ipv4/udp.c is invoked 
+regardless of whether the socket is set to either a blocking mode or a 
+non-blocking mode. Do you mean that the implementation in the function 
+sendto() handles the packet drop at the interface queue by caching data at 
+the socket level ? If so, could you please advise me the Linux Kernel source 
+file which contains the exact implementation of sendto() API function call 
+in Linux ? I tried to locate this souce file using a bottom-up approach 
+starting at the function call udp_sendmsg(), -> inet_sendmsg()  in 
+net/ipv4/af_inet.c -> sock_sendmsg() in net/socket.c-> sys_sendto() in 
+net/socket.c ... but I finally got lost in sys_sendto().
+
+Thank you for your help.
+
+Regards,
+
+Gary
+
+----- Original Message ----- 
+From: "Rick Jones" <rick.jones2@hp.com>
+To: "Gary Chan" <hpchan5@ie.cuhk.edu.hk>
+Sent: Friday, September 01, 2006 1:00 AM
+Subject: Re: Linux UDP Implementation
+
+
+> Gary Chan wrote:
+>> According to the function call udp_sendmsg() in the source file 
+>> net/ipv4/udp.c (Linux Kernel 2.6.17.11), when an error value is returned 
+>> from the function ip_append_data() due to local device congestion, say 
+>> interface queue overflow,  pending packets in the queue 
+>> sk->sk_write_queue are simply flushed (udp_flush_pending_frames() is 
+>> invoked) without caching for future retransmission.
 >>
->>     
-> The stuff I see in there doesn't look stupid to me.
+>> I called a network API function sendto() to transmit UDP packets in a 
+>> blocking I/O mode at a rate of 100Mbps over the 802.11b wireless ad hoc 
+>> network, the network was overloaded as the maximum transfer rate for 
+>> 802.11b was just 11Mbps. Therefore, the outgoing interface queue must be 
+>> full and UDP packets will be dropped eventually. However, I checked that 
+>> there was no packet loss at the receiver side, i.e. the number of packets 
+>> sent from the sender is equal to that received.
+>>
+>> It seems that the implementation (at code level) does not match with the 
+>> actual behaviour. I would like to seek expertise on clarifying my 
+>> understanding in UDP implementation so that this phenomenon can be 
+>> explained.
 >
-> accept(...) = 216
-> setsockopt(216, SOL_IP, IP_TOS, [8], 4) = 0
-> setsockopt(216, SOL_TCP, TCP_NODELAY, [1], 4) = 0
-> setsockopt(216, SOL_SOCKET, SO_KEEPALIVE, [1], 4) = 0
-> followed by a bunch of "interactive" read() and write() calls, and then
-> a rather long sequence of 16384-byte writes (all of which end up being
-> partial because the send buffer size is 12k).
+> Perhaps you are seeing a difference in the behaviour of blocking vs 
+> non-blocking sockets?
 >
-> so if one of these is the cause for the observed lockstep behavior when
-> the send buffer is *full*, I'd consider that to be a bug.
->
-> Interestingly, the *sender* advertizes window that's (a bit more than) one MTU:
->
-> 07:47:03.204939 IP (tos 0x38, ttl  64, id 41217, offset 0, flags [DF], proto: TCP (6), length: 1468) 192.109.102.42.3306 > 62.193.238.120.53138: . 167089:168505 (1416) ack 0 win 1424 <nop,nop,timestamp 218027038 834794727>
->
-> but that's the other direction -- is something in the kernel confused about
-> which window variable to use ??
->
->   
-You could try turning off window scaling:
-    sysctl -w net.ipv4.tcp_window_scaling=0
-If that fixes it, you have a corrupting middlebox in the path or bad 
-implementation on the other end.
-
-Also try turning off tcp_abc (on the sender).
-    sysctl -w net.ipv4.tcp_abc=0
-
+> rick jones 
 
 
 -- 
-VGER BF report: H 0.050318
+VGER BF report: U 0.5
