@@ -1,95 +1,87 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.18-rc5 with GRE, iptables and Speedtouch ADSL, PPP over ATM
-Date: Sun, 3 Sep 2006 21:15:07 +1000
-Message-ID: <20060903111507.GA12580@gondor.apana.org.au>
-References: <m3odty57gf.fsf@defiant.localdomain>
+From: "Frank Schneider" <twodipu@hotmail.com>
+Subject: Re: Loop detected - calling function from different
+	modules
+Date: Sun, 03 Sep 2006 13:20:40 +0200
+Message-ID: <BAY101-F393A459AE607C79C6EE299AB320@phx.gbl>
+References: <1157018266.3065.17.camel@ux156>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:12550 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751264AbWICLQK
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Sep 2006 07:16:10 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	Krzysztof Halasa <khc@pm.waw.pl>
-Content-Disposition: inline
-In-Reply-To: <m3odty57gf.fsf@defiant.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net
+Return-path: <madwifi-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1157018266.3065.17.camel@ux156>
+To: johannes@sipsolutions.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
+	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=madwifi-devel>
+List-Post: <mailto:madwifi-devel@lists.sourceforge.net>
+List-Help: <mailto:madwifi-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
+	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: madwifi-devel-bounces@lists.sourceforge.net
+Errors-To: madwifi-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-[NET]: Drop tx lock in dev_watchdog_up
 
-On Sat, Sep 02, 2006 at 08:39:28PM +0000, Krzysztof Halasa wrote:
-> 
-> =======================================================
-> [ INFO: possible circular locking dependency detected ]
-> -------------------------------------------------------
-> swapper/0 is trying to acquire lock:
->  (&dev->queue_lock){-+..}, at: [<c02c8c46>] dev_queue_xmit+0x56/0x290
-> 
-> but task is already holding lock:
->  (&dev->_xmit_lock){-+..}, at: [<c02c8e14>] dev_queue_xmit+0x224/0x290
-> 
-> which lock already depends on the new lock.
+hi Johannes,
 
-This turns out to be a genuine bug.  The queue lock and xmit lock are
-intentionally taken out of order.  Two things are supposed to prevent
-dead-locks from occuring:
+as I told you I have done...
+actually it was certainly nothing to do, I just assigned a my_function to 
+the pointer of
+hard_start_xmit  and i implemented my_function in ath_pci module  done my 
+work
+and then call the actuall function, which is exported btw, in wlan module 
+which is sending data frame using  dev_queue_xmit(). and its working 
+perfect..
+but I just wonder one thing: in ath_pci module  net_device  *dev  is ath0 
+interface
+on the other hand wlan module  *dev is wifi0  interface (e.g.)
+still is working well.
 
-1) When we hold the queue_lock we're supposed to only do try_lock on the
-tx_lock.
+could anyone please give me a hints how  dev_queue_xmit() is using tx data 
+queue (HAL_TX_QUEUE_DATA) to transmit data queue.
+actually I want to use data queue for sending beacon frame, ofcourse not 
+real implementation
+but for an experiment, a research purpose..
 
-2) We always drop the queue_lock after taking the tx_lock and before doing
-anything else.
+R
+/Frank
 
-> 
-> the existing dependency chain (in reverse order) is:
-> 
-> -> #1 (&dev->_xmit_lock){-+..}:
->        [<c012e7b6>] lock_acquire+0x76/0xa0
->        [<c0336241>] _spin_lock_bh+0x31/0x40
->        [<c02d25a9>] dev_activate+0x69/0x120
 
-This path obviously breaks assumption 1) and therefore can lead to ABBA
-dead-locks.
 
-I've looked at the history and there seems to be no reason for the lock
-to be held at all in dev_watchdog_up.  The lock appeared in day one and
-even there it was unnecessary.  In fact, people added __dev_watchdog_up
-precisely in order to get around the tx lock there.
 
-The function dev_watchdog_up is already serialised by rtnl_lock since
-its only caller dev_activate is always called under it.
+>From: Johannes Berg <johannes@sipsolutions.net>
+>To: Frank Schneider <twodipu@hotmail.com>
+>CC: netdev@vger.kernel.org
+>Subject: Re: Loop detected - calling function from different modules
+>Date: Thu, 31 Aug 2006 11:57:46 +0200
+>
+>Frank,
+>
+>
+> > Any suggestions to do that please ?
+>
+>d80211 has a hardware definition struct that is registered by the driver
+>and contains a callback that is called for each frame. This is the
+>direction you should take as well:
+>
+>    hard_start_xmit (generic code)
+>calls
+>    hardware_xmit (your module code, e.g. in a struct wlan_device)
+>
+>johannes
+>-
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-So here is a simple patch to remove the tx lock from dev_watchdog_up.
-In 2.6.19 we can eliminate the unnecessary __dev_watchdog_up and
-replace it with dev_watchdog_up.
+_________________________________________________________________
+Express yourself instantly with MSN Messenger! Download today it's FREE! 
+http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 0834c2e..6f91518 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -238,9 +238,7 @@ void __netdev_watchdog_up(struct net_dev
- 
- static void dev_watchdog_up(struct net_device *dev)
- {
--	netif_tx_lock_bh(dev);
- 	__netdev_watchdog_up(dev);
--	netif_tx_unlock_bh(dev);
- }
- 
- static void dev_watchdog_down(struct net_device *dev)
-
--- 
-VGER BF report: U 0.5
+-------------------------------------------------------------------------
+Using Tomcat but need to do more? Need to support web services, security?
+Get stuff done quickly with pre-integrated technology to make your job easier
+Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
+http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
