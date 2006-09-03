@@ -1,41 +1,42 @@
-From: "Johannes Berg" <johannes@sipsolutions.net>
-Subject: Re: [GENL]: Provide more information to userspace about registered
-     genl families
-Date: Sun, 3 Sep 2006 14:04:36 +0200 (CEST)
-Message-ID: <63206.84.147.135.91.1157285076.squirrel@secure.sipsolutions.net>
-References: <20060831212129.GF3470@postel.suug.ch>
-    <1157060812.5297.51.camel@jzny2> <1157093281.2878.19.camel@ux156>
-    <1157113331.5057.67.camel@jzny2> <1157113517.2878.55.camel@ux156>
-    <1157115624.5057.89.camel@jzny2>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: 2.6.18-rc5 with GRE, iptables and Speedtouch ADSL, PPP over ATM
+Date: Sun, 03 Sep 2006 14:43:20 +0200
+Message-ID: <m3k64lm87r.fsf@defiant.localdomain>
+References: <m3odty57gf.fsf@defiant.localdomain>
+	<20060903111507.GA12580@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Thomas Graf" <tgraf@suug.ch>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:2447 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S1751305AbWICMEs
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Sep 2006 08:04:48 -0400
-In-Reply-To: <1157115624.5057.89.camel@jzny2>
-To: hadi@cyberus.ca
+Received: from khc.piap.pl ([195.187.100.11]:35744 "EHLO khc.piap.pl")
+	by vger.kernel.org with ESMTP id S1750980AbWICMnY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2006 08:43:24 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060903111507.GA12580@gondor.apana.org.au> (Herbert Xu's message of "Sun, 3 Sep 2006 21:15:07 +1000")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
+Herbert Xu <herbert@gondor.apana.org.au> writes:
 
-> Could you point me to it? I can look at it over the weekend.
+> [NET]: Drop tx lock in dev_watchdog_up
+> --- a/net/sched/sch_generic.c
+> +++ b/net/sched/sch_generic.c
+> @@ -238,9 +238,7 @@ void __netdev_watchdog_up(struct net_dev
+>  
+>  static void dev_watchdog_up(struct net_device *dev)
+>  {
+> -	netif_tx_lock_bh(dev);
+>  	__netdev_watchdog_up(dev);
+> -	netif_tx_unlock_bh(dev);
+>  }
+>  
+>  static void dev_watchdog_down(struct net_device *dev)
 
-I posted it here on netdev, look for nl80211.
-
-> It may be we need to add another feature to genl to accomodate this.
-> Example by setting a flag to indicate supportability. However, it does
-> sound like this is something your code needs to own in a capability set
-> structure somewhere. I cant tell without looking at the code.
-
-Yes, I'm currently exporting it myself.
-
-johannes
+Many thanks for looking into this. The lockdep warning is gone now.
+-- 
+Krzysztof Halasa
 
 -- 
-VGER BF report: U 0.534475
+VGER BF report: H 3.43998e-11
