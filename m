@@ -1,82 +1,95 @@
-From: "Frank Schneider" <twodipu@hotmail.com>
-Subject: Re: Loop detected - calling function from different modules
-Date: Sun, 03 Sep 2006 11:02:54 +0200
-Message-ID: <BAY101-F34850DC65BCF9FA7ECEAF3AB320@phx.gbl>
-References: <20060830142607.31c858cd@localhost.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.18-rc5 with GRE, iptables and Speedtouch ADSL, PPP over ATM
+Date: Sun, 3 Sep 2006 21:15:07 +1000
+Message-ID: <20060903111507.GA12580@gondor.apana.org.au>
+References: <m3odty57gf.fsf@defiant.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc3-s30.bay0.hotmail.com ([65.54.246.230]:15468 "EHLO
-	bay0-omc3-s30.bay0.hotmail.com") by vger.kernel.org with ESMTP
-	id S1750946AbWICJC6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Sep 2006 05:02:58 -0400
-In-Reply-To: <20060830142607.31c858cd@localhost.localdomain>
-To: shemminger@osdl.org
+Received: from rhun.apana.org.au ([64.62.148.172]:12550 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751264AbWICLQK
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Sep 2006 07:16:10 -0400
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	Krzysztof Halasa <khc@pm.waw.pl>
+Content-Disposition: inline
+In-Reply-To: <m3odty57gf.fsf@defiant.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+[NET]: Drop tx lock in dev_watchdog_up
 
-hi Stephen,
+On Sat, Sep 02, 2006 at 08:39:28PM +0000, Krzysztof Halasa wrote:
+> 
+> =======================================================
+> [ INFO: possible circular locking dependency detected ]
+> -------------------------------------------------------
+> swapper/0 is trying to acquire lock:
+>  (&dev->queue_lock){-+..}, at: [<c02c8c46>] dev_queue_xmit+0x56/0x290
+> 
+> but task is already holding lock:
+>  (&dev->_xmit_lock){-+..}, at: [<c02c8e14>] dev_queue_xmit+0x224/0x290
+> 
+> which lock already depends on the new lock.
 
-you can check these:
+This turns out to be a genuine bug.  The queue lock and xmit lock are
+intentionally taken out of order.  Two things are supposed to prevent
+dead-locks from occuring:
 
-  http://bcm43xx.berlios.de/
-http://madwifi.org/
+1) When we hold the queue_lock we're supposed to only do try_lock on the
+tx_lock.
 
-R
-/frank
+2) We always drop the queue_lock after taking the tx_lock and before doing
+anything else.
 
+> 
+> the existing dependency chain (in reverse order) is:
+> 
+> -> #1 (&dev->_xmit_lock){-+..}:
+>        [<c012e7b6>] lock_acquire+0x76/0xa0
+>        [<c0336241>] _spin_lock_bh+0x31/0x40
+>        [<c02d25a9>] dev_activate+0x69/0x120
 
->From: Stephen Hemminger <shemminger@osdl.org>
->To: "Frank Schneider" <twodipu@hotmail.com>
->CC: netdev@vger.kernel.org
->Subject: Re: Loop detected  - calling function from different modules
->Date: Wed, 30 Aug 2006 14:26:07 -0700
->
->On Wed, 30 Aug 2006 22:58:17 +0200
->"Frank Schneider" <twodipu@hotmail.com> wrote:
->
-> >
-> > hi all,
-> >
-> > I am writing/customizing a network(wlan pc card) device driver for Linux
-> > kernel 2.6.12
-> > Think about I have two modules e.g. ath_pci and wlan module.
-> > I can call a function from a   .c file which is implemented in a  .c 
->file in
-> > wlan module by using EXPORT_SYMBOL macro..
-> >
-> > and i need to do same in reverse way, i.e. call a function from wlan 
->module
-> > that is implemented in ath_pci module.
-> >
-> > I did the same way and its making but when I do  make install its 
->showing
-> > following error:
-> >
-> > WARNING: Loop detected: /lib/modules/2.6.12/net/ath_pci.ko needs wlan.ko
-> > which needs ath_pci.ko again!
-> >
-> > Please anybody tell how can I do this, any clue , please ?
-> >
-> > thanx in advance
-> >
-> > n.b. this question may consider as very naive since I am not good yet in
-> > kernel hacking.. !!!!
-> >
-> > regards,
-> > /Frank
->
->Where are these open source drivers so the wireless developers can help?
->
->--
->Stephen Hemminger <shemminger@osdl.org>
+This path obviously breaks assumption 1) and therefore can lead to ABBA
+dead-locks.
 
-_________________________________________________________________
-FREE pop-up blocking with the new MSN Toolbar - get it now! 
-http://toolbar.msn.click-url.com/go/onm00200415ave/direct/01/
+I've looked at the history and there seems to be no reason for the lock
+to be held at all in dev_watchdog_up.  The lock appeared in day one and
+even there it was unnecessary.  In fact, people added __dev_watchdog_up
+precisely in order to get around the tx lock there.
 
+The function dev_watchdog_up is already serialised by rtnl_lock since
+its only caller dev_activate is always called under it.
+
+So here is a simple patch to remove the tx lock from dev_watchdog_up.
+In 2.6.19 we can eliminate the unnecessary __dev_watchdog_up and
+replace it with dev_watchdog_up.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 0834c2e..6f91518 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -238,9 +238,7 @@ void __netdev_watchdog_up(struct net_dev
+ 
+ static void dev_watchdog_up(struct net_device *dev)
+ {
+-	netif_tx_lock_bh(dev);
+ 	__netdev_watchdog_up(dev);
+-	netif_tx_unlock_bh(dev);
+ }
+ 
+ static void dev_watchdog_down(struct net_device *dev)
 
 -- 
-VGER BF report: U 0.864812
+VGER BF report: U 0.5
