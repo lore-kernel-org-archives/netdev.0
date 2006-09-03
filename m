@@ -1,155 +1,52 @@
-From: Philip Molter <philip@datafoundry.com>
-Subject: Re: tg3: tg3_stop_block timed out
-Date: Sun, 03 Sep 2006 17:35:47 -0500
-Message-ID: <44FB58C3.2060209@datafoundry.com>
-References: <eb8fmt$6lf$1@sea.gmane.org> <1154992063.5328.3.camel@rh4> <200608080124.38823.bernd-schubert@gmx.de> <1154994410.5328.10.camel@rh4> <44D9F4EB.8050809@datafoundry.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch 3/4] Make sure ip_vs_ftp ports are valid
+Date: Mon, 04 Sep 2006 01:09:59 +0200
+Message-ID: <44FB60C7.30300@trash.net>
+References: <20060901101036.181146000@tabatha.lab.ultramonkey.org> <20060901101756.637601000@tabatha.lab.ultramonkey.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>,
-	Bernd Schubert <bernd-schubert@gmx.de>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	David Miller <davem@davemloft.net>,
+	Joseph Mack NA3T <jmack@wm7d.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailstar.maildev2.aus.datafoundry.com ([209.99.125.26]:40361
-	"EHLO mailstar.maildev2.aus.datafoundry.com") by vger.kernel.org
-	with ESMTP id S1751275AbWICWfs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2006 18:35:48 -0400
-To: Philip Molter <philip@datafoundry.com>
-In-Reply-To: <44D9F4EB.8050809@datafoundry.com>
+Received: from stinky.trash.net ([213.144.137.162]:44970 "EHLO
+	stinky.trash.net") by vger.kernel.org with ESMTP id S932116AbWICXMp
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Sep 2006 19:12:45 -0400
+To: Horms <horms@verge.net.au>
+In-Reply-To: <20060901101756.637601000@tabatha.lab.ultramonkey.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Philip Molter wrote:
-> Michael Chan wrote:
->> On Tue, 2006-08-08 at 01:24 +0200, Bernd Schubert wrote:
->>
->>> tg3.c:v3.49 (Feb 2, 2006)
->>> acpi_bus-0201 [01] bus_set_power         : Device is not power 
->>> manageable
->>> eth1: Tigon3 [partno(BCM95704A6) rev 2003 PHY(5704)] 
->>> (PCIX:100MHz:64-bit) 10/100/1000BaseT Ethernet 00:e0:81:2b:aa:28
->>> eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[1] Split[0] WireSpeed[1] 
->>> TSOcap[0]
->>> eth1: dma_rwctrl[769f4000] dma_mask[64-bit]
->>> eth2: Tigon3 [partno(BCM95704A6) rev 2003 PHY(5704)] 
->>> (PCIX:100MHz:64-bit) 10/100/1000BaseT Ethernet 00:e0:81:2b:aa:29
->>> eth2: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] Split[0] WireSpeed[1] 
->>> TSOcap[1]
->>> eth2: dma_rwctrl[769f4000] dma_mask[64-bit]
->>>
->>
->> You have ASF enabled on eth1 but not on eth2 so I wonder if ASF is
->> causing the problem.  Can you run the same traffic on eth2 and see if
->> you get the same timeout problem?  Thanks.
+Horms wrote:
+> I'm not entirely sure what happens in the case of a valid port,
+> at best it'll be silently ignored. This patch ignores them a little
+> more verbosely.
 > 
-> I'm also having this same problem:
+> Signed-Off-By: Simon Horman <horms@verge.net.au>
+> Index: linux-2.6/net/ipv4/ipvs/ip_vs_ftp.c
+> ===================================================================
+> --- linux-2.6.orig/net/ipv4/ipvs/ip_vs_ftp.c	2006-09-01 19:06:42.000000000 +0900
+> +++ linux-2.6/net/ipv4/ipvs/ip_vs_ftp.c	2006-09-01 19:08:19.000000000 +0900
+> @@ -373,6 +373,12 @@
+>  	for (i=0; i<IP_VS_APP_MAX_PORTS; i++) {
+>  		if (!ports[i])
+>  			continue;
+> +		if (ports[i] < 0 || ports[i] > 0xffff) {
+> +			IP_VS_WARNING("ip_vs_ftp: Ignoring invalid "
+> +				      "configuration port[%d] = %d\n",
+> +				      i, ports[i]);
+> +			continue;
+> +		}
 
-Is there any additional information that I can give to help get some 
-more work targeted at this bug?  I've been getting this lockup three or 
-four times a week per server (I have four of them exhibiting this behavior).
+How about just changing the module parameter type to ushort, similar to
+what ip_conntrack_ftp does?
 
-The network setup is fairly complicated, but unfortunately, these are 
-production machines pushing multi-gigabit traffic loads.  We're using 
-vlans on top of bonding on top of anywhere from 2-to-6 broadcomm NICs, 
-but it appears that the problem is unrelated to the bonding and vlans, 
-as others are reporting similar problems without those enabled.
-
-Any assistance would be appreciated.  I've left the original information 
-below for reference.
-
-If anyone could even explain what this error means, that would be 
-helpful.  Maybe we can change something to work around it.
-
-Philip
-
-> divert: allocating divert_blk for bond0
-> tg3.c:v3.14 (November 15, 2004)
-> divert: allocating divert_blk for eth0
-> eth0: Tigon3 [partno(BCM95704A7) rev 2003 PHY(5704)] 
-> (PCIX:100MHz:64-bit) 10/100/1000BaseT Ethernet 00:e0:81:2e:82:1a
-> eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] Split[0] WireSpeed[1] 
-> TSOcap[1]
-> divert: allocating divert_blk for eth1
-> eth1: Tigon3 [partno(BCM95704A7) rev 2003 PHY(5704)] 
-> (PCIX:100MHz:64-bit) 10/100/1000BaseT Ethernet 00:e0:81:2e:82:1b
-> eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] Split[0] WireSpeed[1] 
-> TSOcap[1]
-> divert: freeing divert_blk for bond0
-> divert: freeing divert_blk for eth0
-> divert: freeing divert_blk for eth1
-> 
-> 02:09.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5704 
-> Gigabit Ethernet (rev 03)
->         Subsystem: Broadcom Corporation: Unknown device 1644
->         Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 161
->         Memory at fc8c0000 (64-bit, non-prefetchable) [size=fc8a0000]
->         Memory at fc8b0000 (64-bit, non-prefetchable) [size=64K]
->         Expansion ROM at 00010000 [disabled]
->         Capabilities: [40] PCI-X non-bridge device.
->         Capabilities: [48] Power Management version 2
->         Capabilities: [50] Vital Product Data
->         Capabilities: [58] Message Signalled Interrupts: 64bit+ 
-> Queue=0/3 Enable-
-> 
-> 02:09.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5704 
-> Gigabit Ethernet (rev 03)
->         Subsystem: Broadcom Corporation: Unknown device 1644
->         Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 169
->         Memory at fc8f0000 (64-bit, non-prefetchable) [size=fc8d0000]
->         Memory at fc8e0000 (64-bit, non-prefetchable) [size=64K]
->         Expansion ROM at 00010000 [disabled]
->         Capabilities: [40] PCI-X non-bridge device.
->         Capabilities: [48] Power Management version 2
->         Capabilities: [50] Vital Product Data
->         Capabilities: [58] Message Signalled Interrupts: 64bit+ 
-> Queue=0/3 Enable-
-> 
-> I run these things with jumbo frames and bonding.  In the case last 
-> night, our machine completely locked up because both interfaces stopped 
-> working and the channel bond between them went down.  These guys are 
-> pushing a little over 1Gb/s total traffic between them (500Mb/s each) 
-> and one of them will take in about 300Mb/s.  Outgoing packets average 
-> 20kpkts/s and incoming packets on the one interface average about 
-> 45kpkts/s (most incoming traffic is not jumbo).
-> 
-> This was on console:
-> 
-> tg3: tg3_stop_block timed out, ofs=4800 enable_bit=2
-> tg3: eth1: transmit timed out, resetting
-> tg3: tg3_stop_block timed out, ofs=3400 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=2400 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=1800 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=4800 enable_bit=2
-> tg3: eth0: transmit timed out, resetting
-> tg3: tg3_stop_block timed out, ofs=3400 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=2400 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=1800 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=4800 enable_bit=2
-> tg3: eth1: transmit timed out, resetting
-> tg3: tg3_stop_block timed out, ofs=3400 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=2400 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=1800 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=4800 enable_bit=2
-> tg3: eth0: transmit timed out, resetting
-> tg3: tg3_stop_block timed out, ofs=3400 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=2400 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=1800 enable_bit=2
-> tg3: tg3_stop_block timed out, ofs=4800 enable_bit=2
-> 
-> We tried restarting networking.  We tried unloading all network-related 
-> modules and reloading them.  We eventually had to reboot the box to get 
-> networking started again.  The kernel is 2.6.10, via FC2 
-> (2.6.10-2.3.legacy).  We've also had the problem with the latest FC4 
-> kernel.
-> 
-> Any information would be greatly appreciated.
-> 
-> Philip
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+# modprobe ip_conntrack_ftp ports=999392
+ip_conntrack_ftp: `999392' invalid for parameter `ports'
 
 
 -- 
-VGER BF report: U 0.965869
+VGER BF report: H 0.41558
