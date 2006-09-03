@@ -1,75 +1,81 @@
-From: Joerg Roedel <joro-lkml@zlug.org>
-Subject: Re: [RFC PATCH] EtherIP tunnel driver (RFC 3387)
-Date: Sun, 3 Sep 2006 21:10:42 +0200
-Message-ID: <20060903191042.GA6928@zlug.org>
-References: <20060901151300.GA15422@zlug.org> <44F85ED8.2000907@trash.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: 2.6.18-rc5 with GRE, iptables and Speedtouch ADSL, PPP over ATM
+Date: Sun, 03 Sep 2006 14:26:50 -0500
+Message-ID: <44FB2C7A.3040609@lwfinger.net>
+References: <m3odty57gf.fsf@defiant.localdomain> <20060903111507.GA12580@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	Krzysztof Halasa <khc@pm.waw.pl>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ironport-c10.fh-zwickau.de ([141.32.72.200]:65051 "EHLO
-	ironport-c10.fh-zwickau.de") by vger.kernel.org with ESMTP
-	id S932131AbWICTKp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Sep 2006 15:10:45 -0400
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <44F85ED8.2000907@trash.net>
+Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:4749 "EHLO
+	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S932137AbWICT1H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Sep 2006 15:27:07 -0400
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20060903111507.GA12580@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 01, 2006 at 06:24:56PM +0200, Patrick McHardy wrote:
-
-Hello Patrick,
-
-Thank you very much for reviewing my driver. I will fix the issues you
-mentioned. But I have some explanations and questions left.
-
-> Joerg Roedel wrote:
-> > +	fl.oif = 0;
-> > +	fl.nl_u.ip4_u.daddr = tunnel->parms.iph.daddr;
-> > +	fl.nl_u.ip4_u.saddr = tunnel->parms.iph.saddr;
-> > +	fl.nl_u.ip4_u.saddr = 0;
-> > +	fl.proto = IPPROTO_ETHERIP;
+Herbert Xu wrote:
+> [NET]: Drop tx lock in dev_watchdog_up
 > 
-> This leaves fields like nfmark or iif uninitialized.
-
-I changed the code to initialize iif to 0, but I am not sure how to
-initialize the fwmark field. Neigther the ipip driver nor the sit driver
-initialize this field. Is it right to initialize it to 0?
-
-> > +		goto accept;
-> > +	
-> > +	if ((skb->pkt_type == PACKET_OTHERHOST) && (dev->flags & IFF_PROMISC))
-> > +		goto accept;
+> On Sat, Sep 02, 2006 at 08:39:28PM +0000, Krzysztof Halasa wrote:
+>> =======================================================
+>> [ INFO: possible circular locking dependency detected ]
+>> -------------------------------------------------------
+>> swapper/0 is trying to acquire lock:
+>>  (&dev->queue_lock){-+..}, at: [<c02c8c46>] dev_queue_xmit+0x56/0x290
+>>
+>> but task is already holding lock:
+>>  (&dev->_xmit_lock){-+..}, at: [<c02c8e14>] dev_queue_xmit+0x224/0x290
+>>
+>> which lock already depends on the new lock.
 > 
+> This turns out to be a genuine bug.  The queue lock and xmit lock are
+> intentionally taken out of order.  Two things are supposed to prevent
+> dead-locks from occuring:
 > 
-> Why would you want to receive packets for other hosts picked up in
-> promiscous mode?
-
-This is because the device should be usable in a bridge to build a
-distributed layer 2 network. Furthermore, this could be usefull when I
-extend the driver to support multicast destinations.
-
-> > +static void etherip_err(struct sk_buff *skb, u32 info)
-> > +{
+> 1) When we hold the queue_lock we're supposed to only do try_lock on the
+> tx_lock.
 > 
+> 2) We always drop the queue_lock after taking the tx_lock and before doing
+> anything else.
 > 
-> You could propagte errors from destination unreachable messages
-> similar to what the IPIP driver does.
+>> the existing dependency chain (in reverse order) is:
+>>
+>> -> #1 (&dev->_xmit_lock){-+..}:
+>>        [<c012e7b6>] lock_acquire+0x76/0xa0
+>>        [<c0336241>] _spin_lock_bh+0x31/0x40
+>>        [<c02d25a9>] dev_activate+0x69/0x120
+> 
+> This path obviously breaks assumption 1) and therefore can lead to ABBA
+> dead-locks.
+> 
+> I've looked at the history and there seems to be no reason for the lock
+> to be held at all in dev_watchdog_up.  The lock appeared in day one and
+> even there it was unnecessary.  In fact, people added __dev_watchdog_up
+> precisely in order to get around the tx lock there.
+> 
+> The function dev_watchdog_up is already serialised by rtnl_lock since
+> its only caller dev_activate is always called under it.
+> 
+> So here is a simple patch to remove the tx lock from dev_watchdog_up.
+> In 2.6.19 we can eliminate the unnecessary __dev_watchdog_up and
+> replace it with dev_watchdog_up.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I am not sure that this makes sense here. The IPIP driver handles
-ICMP_FRAG_NEEDED messages. But I think those messages will never be
-received by the EtherIP driver because it never sets the DF flag in the
-outgoing packets (to ensure the Ethernet MTU for protocols besides IP
-and IPv6). I added a comment about this issue to the etherip_tunnel_xmit
-function.
+This patch also fixes a circular locking problem that I found on Linville's wireless-dev tree
+involving ieee80211 and wpa_supplicant.
 
-This were my questions and explanations. Thanks again for reviewing, I
-will submit a new patch as soon as the questions have been discussed and
-the changes are tested.
+Larry Finger
 
-Greets,
-	Joerg Roedel
+
+
 
 -- 
-VGER BF report: U 0.5001
+VGER BF report: H 1.06514e-06
