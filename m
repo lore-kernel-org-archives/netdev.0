@@ -1,87 +1,85 @@
-From: "Frank Schneider" <twodipu@hotmail.com>
-Subject: Re: Loop detected - calling function from different
-	modules
-Date: Sun, 03 Sep 2006 13:20:40 +0200
-Message-ID: <BAY101-F393A459AE607C79C6EE299AB320@phx.gbl>
-References: <1157018266.3065.17.camel@ux156>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: neigh_lookup lockdep warning
+Date: Sun, 3 Sep 2006 21:32:50 +1000
+Message-ID: <20060903113250.GB12580@gondor.apana.org.au>
+References: <20060903012659.GA28183@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net
-Return-path: <madwifi-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1157018266.3065.17.camel@ux156>
-To: johannes@sipsolutions.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
-	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=madwifi-devel>
-List-Post: <mailto:madwifi-devel@lists.sourceforge.net>
-List-Help: <mailto:madwifi-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/madwifi-devel>,
-	<mailto:madwifi-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: madwifi-devel-bounces@lists.sourceforge.net
-Errors-To: madwifi-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:38150 "EHLO
+	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751290AbWICLdT
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Sep 2006 07:33:19 -0400
+To: Dave Jones <davej@redhat.com>, Ingo Molnar <mingo@elte.hu>,
+	Arjan van de Ven <arjan@infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20060903012659.GA28183@redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, Sep 03, 2006 at 01:26:59AM +0000, Dave Jones wrote:
+> Seen during boot of a 2.6.18rc5-git1 based kernel.
+> 
+> =======================================================
+> [ INFO: possible circular locking dependency detected ]
+> 2.6.17-1.2608.fc6 #1
+> -------------------------------------------------------
+> swapper/0 is trying to acquire lock:
+>  (&tbl->lock){-+-+}, at: [<c05bdf97>] neigh_lookup+0x50/0xaf
+> 
+> but task is already holding lock:
+>  (&list->lock#3){-+..}, at: [<c05bf677>] neigh_proxy_process+0x20/0xc2
 
-hi Johannes,
+Looks like a validator bug.  Arjan, it seems that the removal of the
+lockdep_set_class from skb_queue_head_init doesn't completely cure
+the problem.
 
-as I told you I have done...
-actually it was certainly nothing to do, I just assigned a my_function to 
-the pointer of
-hard_start_xmit  and i implemented my_function in ath_pci module  done my 
-work
-and then call the actuall function, which is exported btw, in wlan module 
-which is sending data frame using  dev_queue_xmit(). and its working 
-perfect..
-but I just wonder one thing: in ath_pci module  net_device  *dev  is ath0 
-interface
-on the other hand wlan module  *dev is wifi0  interface (e.g.)
-still is working well.
+> the existing dependency chain (in reverse order) is:
+> 
+> -> #2 (&list->lock#3){-+..}:
+>        [<c043c09a>] lock_acquire+0x4b/0x6d
+>        [<c061411f>] _spin_lock_irqsave+0x22/0x32
+>        [<c05b451f>] skb_dequeue+0x12/0x43
+>        [<c05b523a>] skb_queue_purge+0x14/0x1b
+>        [<c05be990>] neigh_update+0x34a/0x3a6
 
-could anyone please give me a hints how  dev_queue_xmit() is using tx data 
-queue (HAL_TX_QUEUE_DATA) to transmit data queue.
-actually I want to use data queue for sending beacon frame, ofcourse not 
-real implementation
-but for an experiment, a research purpose..
+This list->lock is n->arp_queue.
 
-R
-/Frank
+>        [<c05f0f6e>] arp_process+0x4ad/0x4e7
+>        [<c05f107c>] arp_rcv+0xd4/0xf1
+>        [<c05b942c>] netif_receive_skb+0x205/0x274
+>        [<c7bb0566>] rhine_napipoll+0x28d/0x449 [via_rhine]
+>        [<c05baf73>] net_rx_action+0x9d/0x196
+>        [<c04293a7>] __do_softirq+0x78/0xf2
+>        [<c0406673>] do_softirq+0x5a/0xbe
 
+...
+ 
+> -> #0 (&tbl->lock){-+-+}:
+>        [<c043c09a>] lock_acquire+0x4b/0x6d
+>        [<c0613f02>] _read_lock_bh+0x1e/0x2d
+>        [<c05bdf97>] neigh_lookup+0x50/0xaf
+>        [<c05bf0b9>] neigh_event_ns+0x2c/0x77
+>        [<c05f0e2a>] arp_process+0x369/0x4e7
+>        [<c05f10a1>] parp_redo+0x8/0xa
+>        [<c05bf6bd>] neigh_proxy_process+0x66/0xc2
 
+This list->lock is tbl->proxy_queue.
 
+>        [<c042dc58>] run_timer_softirq+0x108/0x167
+>        [<c04293a7>] __do_softirq+0x78/0xf2
+>        [<c0406673>] do_softirq+0x5a/0xbe
 
->From: Johannes Berg <johannes@sipsolutions.net>
->To: Frank Schneider <twodipu@hotmail.com>
->CC: netdev@vger.kernel.org
->Subject: Re: Loop detected - calling function from different modules
->Date: Thu, 31 Aug 2006 11:57:46 +0200
->
->Frank,
->
->
-> > Any suggestions to do that please ?
->
->d80211 has a hardware definition struct that is registered by the driver
->and contains a callback that is called for each frame. This is the
->direction you should take as well:
->
->    hard_start_xmit (generic code)
->calls
->    hardware_xmit (your module code, e.g. in a struct wlan_device)
->
->johannes
->-
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+BTW, out of the last four validator reports I've read three have turned
+out to be genuine bugs.  So you guys have done a fantastic job!
 
-_________________________________________________________________
-Express yourself instantly with MSN Messenger! Download today it's FREE! 
-http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-
--------------------------------------------------------------------------
-Using Tomcat but need to do more? Need to support web services, security?
-Get stuff done quickly with pre-integrated technology to make your job easier
-Download IBM WebSphere Application Server v.1.0.1 based on Apache Geronimo
-http://sel.as-us.falkag.net/sel?cmd=lnk&kid=120709&bid=263057&dat=121642
+-- 
+VGER BF report: U 0.5
