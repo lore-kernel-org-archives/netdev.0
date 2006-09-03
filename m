@@ -1,49 +1,75 @@
-From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
-Subject: Re: e1000 Detected Tx Unit Hang
-Date: Sun, 3 Sep 2006 10:45:49 -0700
-Message-ID: <4807377b0609031045w67f70a3ese6bea93c15f75ba2@mail.gmail.com>
-References: <002c01c6ce9d$a1cf9100$3224050a@avilespaxp>
+From: Joerg Roedel <joro-lkml@zlug.org>
+Subject: Re: [RFC PATCH] EtherIP tunnel driver (RFC 3387)
+Date: Sun, 3 Sep 2006 21:10:42 +0200
+Message-ID: <20060903191042.GA6928@zlug.org>
+References: <20060901151300.GA15422@zlug.org> <44F85ED8.2000907@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:44048 "EHLO
-	ug-out-1314.google.com") by vger.kernel.org with ESMTP
-	id S1751560AbWICRpv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Sep 2006 13:45:51 -0400
-Received: by ug-out-1314.google.com with SMTP id m3so1384730ugc
-        for <netdev@vger.kernel.org>; Sun, 03 Sep 2006 10:45:49 -0700 (PDT)
-To: "Paul Aviles" <paul.aviles@palei.com>
-In-Reply-To: <002c01c6ce9d$a1cf9100$3224050a@avilespaxp>
+Received: from ironport-c10.fh-zwickau.de ([141.32.72.200]:65051 "EHLO
+	ironport-c10.fh-zwickau.de") by vger.kernel.org with ESMTP
+	id S932131AbWICTKp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Sep 2006 15:10:45 -0400
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
+In-Reply-To: <44F85ED8.2000907@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/2/06, Paul Aviles <paul.aviles@palei.com> wrote:
-> I am getting "e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang"  using
-> stock 2.6.17.11, 2.6.17.5 or 2.6.17.4 kernels on centos 4.3.
->
->  The server is a Tyan GS12 ( 82541GI/PI and 82547GI) and is connected to a
-> Netgear GS724T Gig  switch. I can easily reproduce the problem by trying to
-> do a large ftp transfer to the server. It does not happen if the server is
-> connected to a dummy 100 Mb switch, only when is connected to the Gig
-> switch.
-> I have also tried the options line below disabling tso, tx and rx in the
-> modprobe.conf without any luck.
+On Fri, Sep 01, 2006 at 06:24:56PM +0200, Patrick McHardy wrote:
 
-Hi Paul, sorry to hear about your problem.  You're getting hangs on
-the 82547 right?  can you send the output of cat /proc/interrupts.
-I'm curious if you are sharing interrupts while running NAPI.
+Hello Patrick,
 
-Also, please try the driver without CONFIG_E1000_NAPI enabled in your
-kernel .config, and let us know the results.
+Thank you very much for reviewing my driver. I will fix the issues you
+mentioned. But I have some explanations and questions left.
 
-Someone has posted (what they think is) a theoretical problem with
-irq_sem on the 82547 at e1000.sf.net and I haven't had a chance to
-figure it out yet.
+> Joerg Roedel wrote:
+> > +	fl.oif = 0;
+> > +	fl.nl_u.ip4_u.daddr = tunnel->parms.iph.daddr;
+> > +	fl.nl_u.ip4_u.saddr = tunnel->parms.iph.saddr;
+> > +	fl.nl_u.ip4_u.saddr = 0;
+> > +	fl.proto = IPPROTO_ETHERIP;
+> 
+> This leaves fields like nfmark or iif uninitialized.
 
-Jesse
+I changed the code to initialize iif to 0, but I am not sure how to
+initialize the fwmark field. Neigther the ipip driver nor the sit driver
+initialize this field. Is it right to initialize it to 0?
+
+> > +		goto accept;
+> > +	
+> > +	if ((skb->pkt_type == PACKET_OTHERHOST) && (dev->flags & IFF_PROMISC))
+> > +		goto accept;
+> 
+> 
+> Why would you want to receive packets for other hosts picked up in
+> promiscous mode?
+
+This is because the device should be usable in a bridge to build a
+distributed layer 2 network. Furthermore, this could be usefull when I
+extend the driver to support multicast destinations.
+
+> > +static void etherip_err(struct sk_buff *skb, u32 info)
+> > +{
+> 
+> 
+> You could propagte errors from destination unreachable messages
+> similar to what the IPIP driver does.
+
+I am not sure that this makes sense here. The IPIP driver handles
+ICMP_FRAG_NEEDED messages. But I think those messages will never be
+received by the EtherIP driver because it never sets the DF flag in the
+outgoing packets (to ensure the Ethernet MTU for protocols besides IP
+and IPv6). I added a comment about this issue to the etherip_tunnel_xmit
+function.
+
+This were my questions and explanations. Thanks again for reviewing, I
+will submit a new patch as soon as the questions have been discussed and
+the changes are tested.
+
+Greets,
+	Joerg Roedel
 
 -- 
-VGER BF report: U 0.495355
+VGER BF report: U 0.5001
