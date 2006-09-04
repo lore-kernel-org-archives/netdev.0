@@ -1,37 +1,33 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Loop detected - calling function from different modules
-Date: Mon, 04 Sep 2006 09:07:39 +0200
-Message-ID: <1157353660.3324.4.camel@ux156>
-References: <BAY101-F393A459AE607C79C6EE299AB320@phx.gbl>
+Subject: Re: BUG in bcm32xx-d80211: sleeping function called with irq's
+	disabled
+Date: Mon, 04 Sep 2006 09:10:54 +0200
+Message-ID: <1157353854.3324.9.camel@ux156>
+References: <44FA4F42.1020302@lwfinger.net>
+	 <200609031449.16702.mb@bu3sch.de>  <44FAF50C.9050905@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net
+Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
+	linville@tuxdriver.com, bcm43xx-dev@lists.berlios.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:33730 "EHLO
-	sipsolutions.net") by vger.kernel.org with ESMTP id S932400AbWIDHHD
+Received: from crystal.sipsolutions.net ([195.210.38.204]:62658 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S932408AbWIDHKT
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Sep 2006 03:07:03 -0400
-To: Frank Schneider <twodipu@hotmail.com>
-In-Reply-To: <BAY101-F393A459AE607C79C6EE299AB320@phx.gbl>
+	Mon, 4 Sep 2006 03:10:19 -0400
+To: Larry Finger <Larry.Finger@lwfinger.net>
+In-Reply-To: <44FAF50C.9050905@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Frank,
+On Sun, 2006-09-03 at 10:30 -0500, Larry Finger wrote:
 
-> could anyone please give me a hints how  dev_queue_xmit() is using tx data 
-> queue (HAL_TX_QUEUE_DATA) to transmit data queue.
-> actually I want to use data queue for sending beacon frame, ofcourse not 
-> real implementation
-> but for an experiment, a research purpose..
+> The patch fixes the problem on my machine. Should I add my name to the signed-off-by list?
 
-It's probably *far* easier for you to buy a Broadcom wireless card and
-use it with bcm43xx-d80211.
-
-I can't help you more with ath stuff, nor with your programming model
-which is fundamentally broken.
+put Acked-by, you didn't write any of the code and are not passing it on
+in this case so you don't need to sign it off I guess :)
 
 johannes
 
 -- 
-VGER BF report: U 0.83072
+VGER BF report: U 0.644788
