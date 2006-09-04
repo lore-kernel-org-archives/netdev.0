@@ -1,80 +1,82 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: high latency with TCP connections
-Date: Mon, 4 Sep 2006 13:10:28 +0400
-Message-ID: <20060904091028.GB19793@ms2.inr.ac.ru>
-References: <20060831151456.12a4e080@dxpl.pdx.osdl.net> <20060831.154428.35684218.davem@davemloft.net> <20060831232923.GA10036@ms2.inr.ac.ru> <20060831.165701.104033558.davem@davemloft.net> <20060901094715.GB13855@ms2.inr.ac.ru> <20060901110038.GA3651@2ka.mipt.ru>
+From: "Wong Edison" <hswong3i@gmail.com>
+Subject: [PATCH 1/2] tcp-lp 2.6.18-rc6: update document
+Date: Mon, 4 Sep 2006 17:45:05 +0800
+Message-ID: <3feffd230609040245jd20b3dfj495bb5279528e7e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, shemminger@osdl.org,
-	alex@sectorb.msk.ru, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:45031 "HELO ms2.inr.ac.ru")
-	by vger.kernel.org with SMTP id S1751222AbWIDJLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 05:11:37 -0400
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Received: from py-out-1112.google.com ([64.233.166.183]:51595 "EHLO
+	py-out-1112.google.com") by vger.kernel.org with ESMTP
+	id S1751281AbWIDJpF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Sep 2006 05:45:05 -0400
+Received: by py-out-1112.google.com with SMTP id n25so2554679pyg
+        for <netdev@vger.kernel.org>; Mon, 04 Sep 2006 02:45:05 -0700 (PDT)
+To: netdev <netdev@vger.kernel.org>,
+	"Stephen Hemminger" <shemminger@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20060901110038.GA3651@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+As we have setup the project page within SourceForge, here is some
+update to the document.
 
-> At least for slow start it is safe, but experiments with atcp for
-> netchannels showed that it is better not to send excessive number of
-> acks when slow start is over,
+Signed-off-by: Wong Hoi Sing Edison <hswong3i@gmail.com>
 
-If this thing is done from tcp_cleanup_rbuf(), it should not affect
-performance too much.
+---
 
-Note, that with ABC and another pathological cases, which do not allow
-to send more than a fixed amount of segments [ we have lots of them,
-f.e. sending tiny segments, we can hit sndbuf limit ], we deal with case,
-when slow start is _never_ over.
+diff -urpN 2.6.18-rc6/tcp_lp.c tcp-lp/tcp_lp.c
+--- 2.6.18-rc6/tcp_lp.c    2006-09-04 16:21:00.000000000 +0800
++++ tcp-lp/tcp_lp.c    2006-09-04 17:22:19.000000000 +0800
+@@ -3,13 +3,8 @@
+  *
+  * TCP Low Priority is a distributed algorithm whose goal is to utilize only
+  *   the excess network bandwidth as compared to the ``fair share`` of
+- *   bandwidth as targeted by TCP. Available from:
+- *     http://www.ece.rice.edu/~akuzma/Doc/akuzma/TCP-LP.pdf
++ *   bandwidth as targeted by TCP.
+  *
+- * Original Author:
+- *   Aleksandar Kuzmanovic <akuzma@northwestern.edu>
+- *
+- * See http://www-ece.rice.edu/networks/TCP-LP/ for their implementation.
+  * As of 2.6.13, Linux supports pluggable congestion control algorithms.
+  * Due to the limitation of the API, we take the following changes from
+  * the original TCP-LP implementation:
+@@ -24,11 +19,20 @@
+  *   o OWD is handled in relative format, where local time stamp will in
+  *     tcp_time_stamp format.
+  *
+- * Port from 2.4.19 to 2.6.16 as module by:
+- *   Wong Hoi Sing Edison <hswong3i@gmail.com>
+- *   Hung Hing Lun <hlhung3i@gmail.com>
++ * Original Author:
++ *   Aleksandar Kuzmanovic <akuzma@northwestern.edu>
++ * Available from:
++ *   http://www.ece.rice.edu/~akuzma/Doc/akuzma/TCP-LP.pdf
++ * Original implementation for 2.4.19:
++ *   http://www-ece.rice.edu/networks/TCP-LP/
++ *
++ * 2.6.x module Authors:
++ *   Wong Hoi Sing, Edison <hswong3i@gmail.com>
++ *   Hung Hing Lun, Mike <hlhung3i@gmail.com>
++ * SourceForge project page:
++ *   http://tcp-lp-mod.sourceforge.net/
+  *
+- * Version: $Id: tcp_lp.c,v 1.22 2006-05-02 18:18:19 hswong3i Exp $
++ * Version: $Id: tcp_lp.c,v 1.23 2006/09/04 09:13:22 hswong3i Exp $
+  */
 
+ #include <linux/config.h>
+@@ -333,6 +340,6 @@ static void __exit tcp_lp_unregister(voi
+ module_init(tcp_lp_register);
+ module_exit(tcp_lp_unregister);
 
->				 instead we can introduce some tricky
-> ack avoidance scheme and ack at least 2-3-4 packets or full MSS instead
-> of two mss-sized frames.
-
-One smart scheme was used at some stage (2000, probably never merged
-in this form to mainstream): tcp counted amount of unacked small segments
-in ack.rcv_small and kept threshold in ack.rcv_thresh.
-
-+
-+       /* If we ever saw N>1 small segments from peer, it has
-+        * enough of send buffer to send N packets and does not nagle.
-+        * Hence, we may delay acks more aggresively.
-+        */
-+       if (tp->ack.rcv_small > tp->ack.rcv_thresh+1)
-+               tp->ack.rcv_thresh = tp->ack.rcv_small-1;
-+       tp->ack.rcv_small = 0;
-
-
-That was too much of trouble for such simple thing. So, eventually
-it was replaced with much dumber scheme. Look at current tcp_cleanup_rbuf().
-It forces ACK, each time when it sees, that some small segment was received.
-It survived for 6 years, so that I guess it did not hurt anybody. :-)
-
-What I would suggest to do now, is to replace:
-
-	(copied > 0 &&
-	(icsk->icsk_ack.pending & ICSK_ACK_PUSHED) &&
-	!icsk->icsk_ack.pingpong &&
-	!atomic_read(&sk->sk_rmem_alloc)))
-		time_to_ack = 1;
-
-with:
-
-	(copied > 0 &&
-	(icsk->icsk_ack.unacked > 1 ||
-	(icsk->icsk_ack.pending & ICSK_ACK_PUSHED) && !icsk->icsk_ack.pingpong) &&
-	!atomic_read(&sk->sk_rmem_alloc)))
-		time_to_ack = 1;
-
-I would not hesitate even a minute, if variable "unacked" could be caluclated
-using some existing state variables.
-
-Alexey
+-MODULE_AUTHOR("Wong Hoi Sing Edison, Hung Hing Lun");
++MODULE_AUTHOR("Wong Hoi Sing Edison, Hung Hing Lun Mike");
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("TCP Low Priority");
 
 -- 
-VGER BF report: U 0.500017
+VGER BF report: U 0.528777
