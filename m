@@ -1,45 +1,80 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.18-rc5 with GRE, iptables and Speedtouch ADSL, PPP over ATM
-Date: Mon, 4 Sep 2006 18:48:19 +1000
-Message-ID: <20060904084819.GA27121@gondor.apana.org.au>
-References: <m3odty57gf.fsf@defiant.localdomain> <20060903111507.GA12580@gondor.apana.org.au> <20060904084414.GA19793@ms2.inr.ac.ru>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: high latency with TCP connections
+Date: Mon, 4 Sep 2006 13:10:28 +0400
+Message-ID: <20060904091028.GB19793@ms2.inr.ac.ru>
+References: <20060831151456.12a4e080@dxpl.pdx.osdl.net> <20060831.154428.35684218.davem@davemloft.net> <20060831232923.GA10036@ms2.inr.ac.ru> <20060831.165701.104033558.davem@davemloft.net> <20060901094715.GB13855@ms2.inr.ac.ru> <20060901110038.GA3651@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Krzysztof Halasa <khc@pm.waw.pl>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, shemminger@osdl.org,
+	alex@sectorb.msk.ru, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:58375 "EHLO
-	arnor.apana.org.au") by vger.kernel.org with ESMTP id S1751200AbWIDIsg
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Sep 2006 04:48:36 -0400
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Received: from minus.inr.ac.ru ([194.67.69.97]:45031 "HELO ms2.inr.ac.ru")
+	by vger.kernel.org with SMTP id S1751222AbWIDJLh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 05:11:37 -0400
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <20060904084414.GA19793@ms2.inr.ac.ru>
+In-Reply-To: <20060901110038.GA3651@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 04, 2006 at 12:44:14PM +0400, Alexey Kuznetsov wrote:
-> 
-> Seems, it serializes mod_timer and timer handler to keep timer
-> in predictable state. Maybe, this is not necessary. A priori, it is required.
-> 
-> Note that in dev_watchdog_down() queue_lock is released before
-> taking xmit_lock. Probably, this is the thing which was supposed
-> to be done in dev_watchdog_up() too.
+Hello!
 
-Right, in that case this should definitely be unncessary because both
-dev_watchdog_up and dev_watchdog_up are called under RTNL.
+> At least for slow start it is safe, but experiments with atcp for
+> netchannels showed that it is better not to send excessive number of
+> acks when slow start is over,
 
-The function __dev_watchdog_up could possibly be dodgy though but that's
-a different story.
+If this thing is done from tcp_cleanup_rbuf(), it should not affect
+performance too much.
 
-Cheers,
+Note, that with ABC and another pathological cases, which do not allow
+to send more than a fixed amount of segments [ we have lots of them,
+f.e. sending tiny segments, we can hit sndbuf limit ], we deal with case,
+when slow start is _never_ over.
+
+
+>				 instead we can introduce some tricky
+> ack avoidance scheme and ack at least 2-3-4 packets or full MSS instead
+> of two mss-sized frames.
+
+One smart scheme was used at some stage (2000, probably never merged
+in this form to mainstream): tcp counted amount of unacked small segments
+in ack.rcv_small and kept threshold in ack.rcv_thresh.
+
++
++       /* If we ever saw N>1 small segments from peer, it has
++        * enough of send buffer to send N packets and does not nagle.
++        * Hence, we may delay acks more aggresively.
++        */
++       if (tp->ack.rcv_small > tp->ack.rcv_thresh+1)
++               tp->ack.rcv_thresh = tp->ack.rcv_small-1;
++       tp->ack.rcv_small = 0;
+
+
+That was too much of trouble for such simple thing. So, eventually
+it was replaced with much dumber scheme. Look at current tcp_cleanup_rbuf().
+It forces ACK, each time when it sees, that some small segment was received.
+It survived for 6 years, so that I guess it did not hurt anybody. :-)
+
+What I would suggest to do now, is to replace:
+
+	(copied > 0 &&
+	(icsk->icsk_ack.pending & ICSK_ACK_PUSHED) &&
+	!icsk->icsk_ack.pingpong &&
+	!atomic_read(&sk->sk_rmem_alloc)))
+		time_to_ack = 1;
+
+with:
+
+	(copied > 0 &&
+	(icsk->icsk_ack.unacked > 1 ||
+	(icsk->icsk_ack.pending & ICSK_ACK_PUSHED) && !icsk->icsk_ack.pingpong) &&
+	!atomic_read(&sk->sk_rmem_alloc)))
+		time_to_ack = 1;
+
+I would not hesitate even a minute, if variable "unacked" could be caluclated
+using some existing state variables.
+
+Alexey
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
--- 
-VGER BF report: H 3.52484e-12
+VGER BF report: U 0.500017
