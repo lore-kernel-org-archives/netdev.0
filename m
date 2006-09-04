@@ -1,76 +1,68 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [RFT] e100 driver on ARM
-Date: Mon, 04 Sep 2006 06:39:29 -0400
-Message-ID: <44FC0261.6010807@garzik.org>
+From: Russell Stuart <russell-tcatm@stuart.id.au>
+Subject: Re: [PATCH 0/2] NET: Accurate packet scheduling for ATM/ADSL
+Date: Mon, 04 Sep 2006 20:37:34 +1000
+Message-ID: <1157366254.12387.16.camel@ras.pc.brisbane.lube>
+References: <1150278004.26181.35.camel@localhost.localdomain>
+	 <1150286766.5233.15.camel@jzny2>
+	 <1150287983.3246.27.camel@ras.pc.brisbane.lube>
+	 <1150292693.5197.1.camel@jzny2>
+	 <1150843471.17455.2.camel@ras.pc.brisbane.lube>
+	 <15653CE98281AD4FBD7F70BCEE3666E53CD54A@comxexch01.comx.local>
+	 <1151000966.5392.34.camel@jzny2>
+	 <1151066247.4217.254.camel@ras.pc.brisbane.lube>
+	 <1151158431.6716.95.camel@jzny2>
+	 <1153188409.13145.5.camel@ras.pc.brisbane.lube>
+	 <44BD56A4.9090002@andyfurniss.entadsl.com>
+	 <1153270932.4242.60.camel@ras.pc.brisbane.lube>
+	 <44BE46A6.8000207@trash.net>
+	 <1153371364.4231.61.camel@ras.pc.brisbane.lube>
+	 <1154300766.4236.5.camel@ras.pc.brisbane.lube>
+	 <1155074476.4270.16.camel@ras.pc.brisbane.lube>
+	 <1155123221.5130.23.camel@jzny2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Russell King <rmk+lkml@arm.linux.org.uk>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: lists@andyfurniss.entadsl.com,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	netdev@vger.kernel.org, Stephen Hemminger <shemminger@osdl.org>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:44269 "EHLO mail.dvmed.net")
-	by vger.kernel.org with ESMTP id S1751383AbWIDKjd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 06:39:33 -0400
-To: Netdev List <netdev@vger.kernel.org>
+Received: from 58.105.229.78.optusnet.com.au ([58.105.229.78]:64461 "EHLO
+	adsl-kenny.stuart.id.au") by vger.kernel.org with ESMTP
+	id S1751381AbWIDKjL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Sep 2006 06:39:11 -0400
+To: hadi@cyberus.ca
+In-Reply-To: <1155123221.5130.23.camel@jzny2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-One of the last steps necessary to deprecate the eepro100 driver is to 
-ensure that e100 works everywhere that eepro100 does.
-
-The eepro100 removal has been blocked for almost a year by a vague 
-suggestion from Russell that e100 doesn't work on ARM.  But he doesn't 
-have that machine anymore.  So, we're stuck in limbo.
-
-This is a call to anyone who can test an Intel 10/100 chip on the ARM 
-platform, in an effort to see where we are.  I'm looking for answers to 
-the following two questions:
-
-1) Does e100 driver work on ARM?
-
-2) If not, does the "e100-sbit" branch of 
-git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git 
-work on ARM?
-
-FWIW, the e100-sbit branch has been in Andrew Morton's -mm tree since 
-Nov 2005.
-
-Below is the commit message for the e100-sbit change, in case anyone is 
-interested.  I'm also hoping that Intel will help solve this problem, 
-but poking Intel hasn't produced very much :(
-
-	Jeff
-
-
-> commit 32c1459bb3814274b3c5e0c5ed4efc6c0aa89eb4
-> Author: Scott Feldman <sfeldma@pobox.com>
-> Date:   Wed Nov 9 02:18:52 2005 -0500
+On Wed, 2006-08-09 at 07:33 -0400, jamal wrote:
+> > Jamal - unless there are other outstanding issues I have 
+> > missed or someone has had second thoughts this means you
+> > should be OK with the patch going in.  Can we get it into
+> > Dave M's tree now?
 > 
->     [netdrvr e100] experiment with doing RX in a similar manner to eepro100
+> Hi Russell,
 > 
->     I was going to say that eepro100's speedo_rx_link() does the same DMA
->     abuse as e100, but then I noticed one little detail: eepro100 sets  both
->     EL (end of list) and S (suspend) bits in the RFD as it chains it  to the
->     RFD list.  e100 was only setting the EL bit.  Hmmm, that's  interesting.
->     That means that if HW reads a RFD with the S-bit set,  it'll process
->     that RFD and then suspend the receive unit.  The  receive unit will
->     resume when SW clears the S-bit.  There is no need  for SW to restart
->     the receive unit.  Which means a lot of the receive  unit state tracking
->     code in the driver goes away.
+> My apologies; at some point i lost track of the discussion because
+> things seemed under control. 
+> Lets hear from Patrick - I have a lot of faith in him; i just happen to
+> know he is occupied elsewhere as we speak (which may explain his
+> silence). So please be a little patient with him. In the meantime please
+> dont be discouraged in continuing to contribute - sometimes this is how
+> things go.
 > 
->     So here's a patch against 2.6.14.  (Sorry for inlining it; the mailer
->     I'm using now will mess with the word wrap).  I can't test this on
->     XScale (unless someone has an e100 module for Gumstix :) .  It should
->     be doing exactly what eepro100 does with RFDs.  I don't believe this
->     change will introduce a performance hit because the S-bit and EL-bit  go
->     hand-in-hand meaning if we're going to suspend because of the S- bit,
->     we're on the last resource anyway, so we'll have to wait for SW  to
->     replenish.
+> You are right that if there is no generic solution from Patrick we
+> should not hold your patch. My understanding of Patrick's patch is it
+> covers for your case; i may have misread that given you and him are
+> still discussing the differences. 
+> 
+> Perhaps one approach is to push your patch in first and then when
+> Patrick is ready he can operate on that. Patrick, thoughts?
 
-
+Jamal, I think its time to assume Patrick has lost interest.
+Is it possible to get this in now?
 
 
 -- 
-VGER BF report: U 0.499999
+VGER BF report: U 0.542723
