@@ -1,23 +1,23 @@
 From: "John W. Linville" <linville@tuxdriver.com>
 Subject: What's new in wireless-dev?
-Date: Mon, 4 Sep 2006 20:02:12 -0400
-Message-ID: <20060905000212.GB8927@tuxdriver.com>
+Date: Mon, 4 Sep 2006 19:53:40 -0400
+Message-ID: <20060904235335.GA8927@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:1811 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S965080AbWIEACx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 20:02:53 -0400
+Received: from ra.tuxdriver.com ([70.61.120.52]:18957 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S965064AbWIDXyY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 19:54:24 -0400
 Received: from bilbo.hq.tuxdriver.com ([70.61.120.53])
-	by ra.tuxdriver.com (8.13.7/8.13.7) with ESMTP id k8502CTY003018
+	by ra.tuxdriver.com (8.13.7/8.13.7) with ESMTP id k84Nrfd5002804
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 4 Sep 2006 20:02:18 -0400
+	for <netdev@vger.kernel.org>; Mon, 4 Sep 2006 19:53:47 -0400
 Received: from bilbo.hq.tuxdriver.com (localhost.localdomain [127.0.0.1])
-	by bilbo.hq.tuxdriver.com (8.13.1/8.13.1) with ESMTP id k8502Cr7009272
-	for <netdev@vger.kernel.org>; Mon, 4 Sep 2006 20:02:12 -0400
+	by bilbo.hq.tuxdriver.com (8.13.1/8.13.1) with ESMTP id k84Nrec5008971
+	for <netdev@vger.kernel.org>; Mon, 4 Sep 2006 19:53:40 -0400
 Received: (from linville@localhost)
-	by bilbo.hq.tuxdriver.com (8.13.1/8.13.1/Submit) id k8502CQR009271
-	for netdev@vger.kernel.org; Mon, 4 Sep 2006 20:02:12 -0400
+	by bilbo.hq.tuxdriver.com (8.13.1/8.13.1/Submit) id k84Nre8f008970
+	for netdev@vger.kernel.org; Mon, 4 Sep 2006 19:53:40 -0400
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -26,8 +26,6 @@ List-Id: netdev.vger.kernel.org
 I apologize for the announcement delay -- I had a hiccup w/ my mail
 server this weekend...
 
-(Sorry if you get this twice, vger's new bogofilter doesn't seem to
-be playing nice...)
 ---
 
 The following changes since commit a7bcae7c095077d89899b2bf0b8d81b8997f340f:
