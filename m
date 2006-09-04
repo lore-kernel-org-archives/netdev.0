@@ -1,84 +1,62 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: [patch 3/4] Make sure ip_vs_ftp ports are valid
-Date: Mon, 4 Sep 2006 11:02:54 +0900
-Message-ID: <20060904020253.GA8761@verge.net.au>
-References: <20060901101036.181146000@tabatha.lab.ultramonkey.org> <20060901101756.637601000@tabatha.lab.ultramonkey.org> <44FB60C7.30300@trash.net> <20060904004401.GD30287@verge.net.au>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] remove dead code from bcm43xx-softmac
+Date: Sun, 03 Sep 2006 23:38:56 -0500
+Message-ID: <44FBADE0.3010905@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	David Miller <davem@davemloft.net>,
-	Joseph Mack NA3T <jmack@wm7d.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:36559 "EHLO koto.vergenet.net")
-	by vger.kernel.org with ESMTP id S1751301AbWIDCLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2006 22:11:50 -0400
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <20060904004401.GD30287@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
+	Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
+List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
+	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 04, 2006 at 09:44:02AM +0900, Horms wrote:
-> On Mon, Sep 04, 2006 at 01:09:59AM +0200, Patrick McHardy wrote:
-> > Horms wrote:
-> > > I'm not entirely sure what happens in the case of a valid port,
-> > > at best it'll be silently ignored. This patch ignores them a little
-> > > more verbosely.
-> > > 
-> > > Signed-Off-By: Simon Horman <horms@verge.net.au>
-> > > Index: linux-2.6/net/ipv4/ipvs/ip_vs_ftp.c
-> > > ===================================================================
-> > > --- linux-2.6.orig/net/ipv4/ipvs/ip_vs_ftp.c	2006-09-01 19:06:42.000000000 +0900
-> > > +++ linux-2.6/net/ipv4/ipvs/ip_vs_ftp.c	2006-09-01 19:08:19.000000000 +0900
-> > > @@ -373,6 +373,12 @@
-> > >  	for (i=0; i<IP_VS_APP_MAX_PORTS; i++) {
-> > >  		if (!ports[i])
-> > >  			continue;
-> > > +		if (ports[i] < 0 || ports[i] > 0xffff) {
-> > > +			IP_VS_WARNING("ip_vs_ftp: Ignoring invalid "
-> > > +				      "configuration port[%d] = %d\n",
-> > > +				      i, ports[i]);
-> > > +			continue;
-> > > +		}
-> > 
-> > How about just changing the module parameter type to ushort, similar to
-> > what ip_conntrack_ftp does?
-> 
-> Sure. I wasn't sure if that was possible or not.
-> But as it is, I will make it so.
+John,
 
-Here is the revised patch.
+Please queue the following patch for wireless-2.6. It removes some code that was made obsolete by 
+the wireless statistics changes of several weeks ago, but was not noticed them.
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+Thanks,
 
-[IPVS] Make sure ip_vs_ftp ports are valid
+Larry
 
-I'm not entirely sure what happens in the case of a valid port,
-at best it'll be silently ignored. This patch ensures that
-the port values are unsigned short values, and thus always valid.
+=================
 
-Cc: Patrick McHardy <kaber@trash.net>
-Signed-Off-By: Simon Horman <horms@verge.net.au>
+This patch removes code that was make obsolete when the wireless statistics in bcm43xx-softmac were 
+changed, but was overlooked at that time. The value of bcm->stats.link_quality computed here is 
+never used.
 
-Index: linux-2.6/net/ipv4/ipvs/ip_vs_ftp.c
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+
+Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
 ===================================================================
---- linux-2.6.orig/net/ipv4/ipvs/ip_vs_ftp.c	2006-09-04 10:47:09.000000000 +0900
-+++ linux-2.6/net/ipv4/ipvs/ip_vs_ftp.c	2006-09-04 10:59:30.000000000 +0900
-@@ -44,8 +44,8 @@
-  * List of ports (up to IP_VS_APP_MAX_PORTS) to be handled by helper
-  * First port is set to the default port.
-  */
--static int ports[IP_VS_APP_MAX_PORTS] = {21, 0};
--module_param_array(ports, int, NULL, 0);
-+static unsigned short ports[IP_VS_APP_MAX_PORTS] = {21, 0};
-+module_param_array(ports, ushort, NULL, 0);
- MODULE_PARM_DESC(ports, "Ports to monitor for FTP control commands");
- 
- /*
+--- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
++++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
+@@ -1549,17 +1549,7 @@ static void handle_irq_noise(struct bcm4
+  		else
+  			average -= 48;
 
--- 
-VGER BF report: U 0.832414
+-/* FIXME: This is wrong, but people want fancy stats. well... */
+-bcm->stats.noise = average;
+-		if (average > -65)
+-			bcm->stats.link_quality = 0;
+-		else if (average > -75)
+-			bcm->stats.link_quality = 1;
+-		else if (average > -85)
+-			bcm->stats.link_quality = 2;
+-		else
+-			bcm->stats.link_quality = 3;
+-//		dprintk(KERN_INFO PFX "Link Quality: %u (avg was %d)\n", bcm->stats.link_quality, average);
++		bcm->stats.noise = average;
+  drop_calculation:
+  		bcm->noisecalc.calculation_running = 0;
+  		return;
