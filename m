@@ -1,76 +1,46 @@
-From: Philip Molter <philip@datafoundry.com>
-Subject: Re: tg3: tg3_stop_block timed out
-Date: Mon, 04 Sep 2006 16:27:01 -0500
-Message-ID: <44FC9A25.9030608@datafoundry.com>
-References: <1551EAE59135BE47B544934E30FC4FC093FAF4@NT-IRVA-0751.brcm.ad.broadcom.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH,RFC] Re: r8169 driver problem with RTL8110SB chip (on iop3xx ARM board)
+Date: Tue, 5 Sep 2006 00:07:41 +0200
+Message-ID: <20060904220741.GE3782@xi.wantstofly.org>
+References: <20060728101109.GA25854@xi.wantstofly.org> <20060818212852.GA5379@xi.wantstofly.org> <20060820213558.GA13188@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Bernd Schubert <bernd-schubert@gmx.de>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, tbm@cyrius.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailstar.maildev2.aus.datafoundry.com ([209.99.125.26]:31931
-	"EHLO mailstar.maildev2.aus.datafoundry.com") by vger.kernel.org
-	with ESMTP id S964987AbWIDV1B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 17:27:01 -0400
-To: Michael Chan <mchan@broadcom.com>
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC093FAF4@NT-IRVA-0751.brcm.ad.broadcom.com>
+Received: from alephnull.demon.nl ([83.160.184.112]:53897 "EHLO
+	xi.wantstofly.org") by vger.kernel.org with ESMTP id S1751489AbWIDWHn
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Sep 2006 18:07:43 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Disposition: inline
+In-Reply-To: <20060820213558.GA13188@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Chan wrote:
-> Philip Molter wrote:
+On Sun, Aug 20, 2006 at 11:35:58PM +0200, Francois Romieu wrote:
+
+> > 1. Writing zero to the upper part of the TxDescStartAddr register (via
+> >    the MMIO region) somehow also clears the lower part, and writing the
+> >    upper and lower halves the other way round fixes it.  The RxDescAddr
+> >    register doesn't seem to suffer from this problem.
+> > 
+> >    The Realtek r1000 driver writes the two halves in the same order as
+> >    r8169, but it doesn't happen there, which is a bit of a mystery to
+> >    me.
+> > 
+> > [snip]
 > 
->> Is there any additional information that I can give to help get some 
->> more work targeted at this bug?  I've been getting this 
->> lockup three or 
->> four times a week per server (I have four of them exhibiting 
->> this behavior).
->>
->> The network setup is fairly complicated, but unfortunately, these are 
->> production machines pushing multi-gigabit traffic loads.  We're using 
->> vlans on top of bonding on top of anywhere from 2-to-6 
->> broadcomm NICs, 
->> but it appears that the problem is unrelated to the bonding 
->> and vlans, 
->> as others are reporting similar problems without those enabled.
->>
->> Any assistance would be appreciated.  I've left the original 
->> information 
->> below for reference.
-> 
-> Since you're using a rather old version of tg3, I suggest that you
-> upgrade to a newer version first.  Your problem is probably
-> different from Bernd Schubert's since he has ASF enabled and you
-> don't.
-> 
->> If anyone could even explain what this error means, that would be 
->> helpful.  Maybe we can change something to work around it.
->>
-> 
-> The stop_block error messages are not too important.  The important
-> thing is that you're getting a transmit timeout.  It means that
-> the tx queue is getting full because the NIC is no longer getting
-> interrupts.  When this condition is detected, the NIC will get reset
-> which should normally bring the NIC back to life.  It seems that
-> in your case, it doesn't come back.  Do you get these timeouts on
-> both ports at the same time?
+> 1 - unknown so far. Realtek's driver actually use IO, not MM. I do not see
+>     why it would make a difference as long as posteed writes are correctly
+>     taken care of.
 
-It's hard to tell.  When the error gets logged, it doesn't say which 
-interface it's happening on.  The box is locked up by the time we get to 
-it, but I think it's happening on both.
+I suspect it's a chip bug.  I rechecked with I/O space, and that works
+okay, so this artifact (bug) only manifests itself when you do the upper
+write in MMIO space.
 
-I've had NICs lock up with queue issues before, but I've never had it 
-lock up a box completely, unresponsive on console even.  Normally, 
-network just breaks, and sure, it requires a reboot, but at least we can 
-do a controlled reboot.
+Are there any plans to switch r8169 to the iomap API?  Would you take
+a patch if I'd write one?
 
-This only started happening when we moved these NICs to jumbo frames. 
-We've used the exact same hardware in less demanding applications (up to 
-  500Mbits vs. 750+Mbits) with jumbo without issue, but these particular 
-machines, these pushers, only started locking up when we switched to jumbo.
 
-> Please try the latest driver.  If you still get the timeouts, I'll
-> need to send you some debug patches to dump the state when these
-> timeouts occur.
-
-Will do.
+cheers,
+Lennert
