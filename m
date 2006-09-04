@@ -1,67 +1,46 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: sky2 problem on powerpc
-Date: Mon, 04 Sep 2006 17:21:09 +1000
-Message-ID: <1157354470.22705.26.camel@localhost.localdomain>
-References: <1157347462.22705.16.camel@localhost.localdomain>
+From: Pawel Foremski <pjf@asn.pl>
+Subject: Re: [PATCH 6/7] bonding: Add priv_flag to avoid event mishandling
+Date: Mon, 04 Sep 2006 10:12:24 +0200
+Message-ID: <edgn1t$nrh$1@sea.gmane.org>
+References: <200609012213.k81MDJZt008128@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7Bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:37027 "EHLO gate.crashing.org")
-	by vger.kernel.org with ESMTP id S932433AbWIDHVU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 03:21:20 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <1157347462.22705.16.camel@localhost.localdomain>
+Received: from main.gmane.org ([80.91.229.2]:45458 "EHLO ciao.gmane.org")
+	by vger.kernel.org with ESMTP id S932494AbWIDIPE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 04:15:04 -0400
+Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1GK9bh-0006WU-Q0
+	for netdev@vger.kernel.org; Mon, 04 Sep 2006 10:15:01 +0200
+Received: from demiurg.asn.pl ([85.14.84.18])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 04 Sep 2006 10:15:01 +0200
+Received: from pjf by demiurg.asn.pl with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 04 Sep 2006 10:15:01 +0200
+To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Jay Vosburgh wrote:
+> Add priv_flag to specifically identify bonding-involved devices.  Needed
+> because IFF_MASTER is an unreliable identifier (vlan interfaces above
+> bonding will inherit IFF_MASTER).  Misidentification of devices would 
+> cause notifier events for other devices to be erroneously processed by 
+> bonding, causing various havoc.
 
-> Because if you look at the definition for:
-> 
-> struct sky2_rx_le {
-> 	__le32	addr;
-> 	__le16	length;
-> 	u8	ctrl;
-> 	u8	opcode;
-> } __attribute((packed));
-> 
-> (As an example)
-> 
-> If the chips does LE accesses, then marking "lenght" as being an LE
-> value isn't enough. It also needs to be swapped with ctrl and opcode.
-> The layout then becomes:
-> 
-> struct sky2_rx_le {
-> 	__le32	addr;
-> 	u8	opcode;
-> 	u8	ctrl;
-> 	__le16	length;
-> } __attribute((packed));
+Just wanted to report that this patch solves a kernel oops on 2.6.17.11
+while trying to change name of a VLAN device created on top of a bonding
+one.
 
-And of course, I'm stupid... the structure layout in memory is well
-defined and the chip is accessing it just fine... The problem are
-actually related to
+Thanks,
 
- - That special "reverse" descriptor bit one can set in the chip....
-That will indeed cause my scenario above to happen by causing the chip
-to do a 32 bits byteswap it seems. But if we set this bit, we must also
-remove all of the cpu_to_le/le_to_cpu conversions used to access
-descriptors.
-
- - I've decided not to set that bit for now, thus disabled the code
-doing so (and thus requiring be/le conversions). We have cases where
-they are missing, and thus it's not working.
-
-I'm trying to get it right now, will send a patch if I can get something
-working. At one point, I suppose I'll have the choice of either letting
-the HW do the 32 bits flip, which involves playing #ifdef __BIG_ENDIAN
-with the structures in sky2.h or just ignore that bit and do cpu_to_le*
-when needed. I'm tempted to do the later...
-
-Ben
-
+-- 
+Pawel Foremski  
+pjf@asn.pl
 
 
 -- 
-VGER BF report: U 0.526041
+VGER BF report: U 0.687767
