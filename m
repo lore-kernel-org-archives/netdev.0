@@ -1,54 +1,44 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: Paper on lookup in Linux.
-Date: Mon, 4 Sep 2006 14:53:12 +0200
-Message-ID: <17660.8632.602340.514616@robur.slu.se>
-References: <17660.4445.36266.884445@robur.slu.se>
-	<200609041424.26564.ak@suse.de>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] remove dead code from bcm43xx-softmac
+Date: Mon, 04 Sep 2006 08:16:19 -0500
+Message-ID: <44FC2723.2090406@lwfinger.net>
+References: <44FBADE0.3010905@lwfinger.net> <200609040851.01338.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@vger.kernel.org,
-	snilsson@nada.kth.se
+Cc: Stefano Brivio <st3@riseup.net>, netdev@vger.kernel.org,
+	Bcm43xx-dev@lists.berlios.de,
+	John Linville <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:2504 "EHLO mx1.slu.se")
-	by vger.kernel.org with ESMTP id S964859AbWIDMxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 08:53:15 -0400
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <200609041424.26564.ak@suse.de>
+Received: from mtiwmhc13.worldnet.att.net ([204.127.131.117]:26279 "EHLO
+	mtiwmhc13.worldnet.att.net") by vger.kernel.org with ESMTP
+	id S964908AbWIDNQ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Sep 2006 09:16:27 -0400
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200609040851.01338.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Michael Buesch wrote:
+> On Monday 04 September 2006 06:38, Larry Finger wrote:
+>> John,
+>>
+>> Please queue the following patch for wireless-2.6. It removes some code that was made obsolete by 
+>> the wireless statistics changes of several weeks ago, but was not noticed them.
+>>
+>> Thanks,
+>>
+>> Larry
+>>
+>> =================
+>>
+>> This patch removes code that was make obsolete when the wireless statistics in bcm43xx-softmac were 
+>> changed, but was overlooked at that time. The value of bcm->stats.link_quality computed here is 
+>> never used.
+> 
+> So you can also remove the actual variable, no?
 
-Andi Kleen writes:
- > On Monday 04 September 2006 13:43, Robert Olsson wrote:
- > > 
- > > Hello.
- > > 
- > > People on this list might find this paper interesting:
- > > http://www.csc.kth.se/~snilsson/public/papers/trash/
- > 
- > Looks nice. Have you looked at using it for local TCP/UDP socket
- > lookups too or would that be part of the "unified flow cache"? 
+Yes.
 
+Larry
 
- No we haven't put struct socket in the leafs (result node) yet we just kept 
- dst entries and some stateful flow variables that we used for active GC 
- and flow logging so far. So 128 bit flow version of the dst hash. It would 
- have taken a lot a of more work and we wanted to get this paper out. Also 
- ip_route_input is not the place have the lookup if we with unified include 
- ip6. So we focused on designing and building the lookup core.
-
-
- Cheers.
-					--ro
-
- struct leaf {
-        __u32 key[LPK];
-        unsigned long parent;
-        void *obj;  /* Generic leaf object */
-        __u32 state;
-        unsigned int len;
-        int iif;
-        struct timeval start;
-        struct rcu_head rcu;
-};
