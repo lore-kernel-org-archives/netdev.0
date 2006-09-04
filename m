@@ -1,44 +1,54 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [RFT] e100 driver on ARM
-Date: Mon, 4 Sep 2006 14:31:23 +0200
-Message-ID: <20060904123123.GB1285@xi.wantstofly.org>
-References: <44FC0261.6010807@garzik.org>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: Paper on lookup in Linux.
+Date: Mon, 4 Sep 2006 14:53:12 +0200
+Message-ID: <17660.8632.602340.514616@robur.slu.se>
+References: <17660.4445.36266.884445@robur.slu.se>
+	<200609041424.26564.ak@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>,
-	Russell King <rmk+lkml@arm.linux.org.uk>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@vger.kernel.org,
+	snilsson@nada.kth.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:19846 "EHLO
-	xi.wantstofly.org") by vger.kernel.org with ESMTP id S964837AbWIDMb0
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Sep 2006 08:31:26 -0400
-To: Jeff Garzik <jeff@garzik.org>
-Content-Disposition: inline
-In-Reply-To: <44FC0261.6010807@garzik.org>
+Received: from mx1.slu.se ([130.238.96.70]:2504 "EHLO mx1.slu.se")
+	by vger.kernel.org with ESMTP id S964859AbWIDMxP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 08:53:15 -0400
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <200609041424.26564.ak@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 04, 2006 at 06:39:29AM -0400, Jeff Garzik wrote:
 
-> 1) Does e100 driver work on ARM?
-
-FWIW, e100 seems to work okay for me on an intel ixp2400 (xscale based)
-board, an ixp2850 (xscale based) board and an ixp2350 (xscale3 based)
-board.  ixp2350 works both with hardware coherency turned on (cpu
-snoops bus) and turned off (manual dma cache clean/invalidate as usual.)
-
-As for the other ARM platforms that I'm interested in / have hardware
-for / maintain, the at91/ep93xx/pxa270 don't have PCI, and the other
-two (iop32x/iop33x) I can't test because I don't have such systems with
-e100 NICs, but I expect those would work, since they're both xscale
-based like the ixp2400, and the ixp2400 works.
+Andi Kleen writes:
+ > On Monday 04 September 2006 13:43, Robert Olsson wrote:
+ > > 
+ > > Hello.
+ > > 
+ > > People on this list might find this paper interesting:
+ > > http://www.csc.kth.se/~snilsson/public/papers/trash/
+ > 
+ > Looks nice. Have you looked at using it for local TCP/UDP socket
+ > lookups too or would that be part of the "unified flow cache"? 
 
 
-cheers,
-Lennert
+ No we haven't put struct socket in the leafs (result node) yet we just kept 
+ dst entries and some stateful flow variables that we used for active GC 
+ and flow logging so far. So 128 bit flow version of the dst hash. It would 
+ have taken a lot a of more work and we wanted to get this paper out. Also 
+ ip_route_input is not the place have the lookup if we with unified include 
+ ip6. So we focused on designing and building the lookup core.
 
--- 
-VGER BF report: H 6.97804e-11
+
+ Cheers.
+					--ro
+
+ struct leaf {
+        __u32 key[LPK];
+        unsigned long parent;
+        void *obj;  /* Generic leaf object */
+        __u32 state;
+        unsigned int len;
+        int iif;
+        struct timeval start;
+        struct rcu_head rcu;
+};
