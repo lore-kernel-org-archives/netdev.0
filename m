@@ -1,94 +1,62 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] Add firmware version printout to wireless-2.6
-	(bcm43xx-softmac)
-Date: Mon, 04 Sep 2006 17:13:57 -0500
-Message-ID: <44FCA525.3040503@lwfinger.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH,RFC] Re: r8169 driver problem with RTL8110SB chip (on iop3xx ARM board)
+Date: Tue, 5 Sep 2006 00:27:15 +0200
+Message-ID: <20060904222715.GF3782@xi.wantstofly.org>
+References: <20060728101109.GA25854@xi.wantstofly.org> <20060818212852.GA5379@xi.wantstofly.org> <20060820213558.GA13188@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Martin Langer <martin-langer-Mmb7MZpHnFY@public.gmane.org>,
-	Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, tbm@cyrius.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alephnull.demon.nl ([83.160.184.112]:59529 "EHLO
+	xi.wantstofly.org") by vger.kernel.org with ESMTP id S965019AbWIDW1T
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Sep 2006 18:27:19 -0400
+To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Disposition: inline
+In-Reply-To: <20060820213558.GA13188@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John,
+On Sun, Aug 20, 2006 at 11:35:58PM +0200, Francois Romieu wrote:
 
-Please add this patch by Martin Langer to wireless-2.6.
+> > 2. SYSErr asserts pretty soon after upping eth0, and the PCI status
+> >    register reports a parity error when this happens.  In this case,
+> >    the restart logic seems to make things worse, and in fact, when
+> >    commenting it out, things work a lot better.
+> 
+> [snip]
+> 
+> 2 - I have already experienced SYSErr storms on startup. If memory serves me
+>     right, they were "cured" simply by disabling a bit in the irq mask
+>     (not sure if it was SYSErr, RxOverflow or RxFIFOOver though).
+> 
+> Can you try against -rc4:
+> 1) the serie at http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.18-rc4/r8169
+>    There is a minor difference in the init of Realtek's driver for the 8110sb
+>    (patch 011). It could hurt different chipset but it should do no harm to
+>    the 8110sb.
+> 2) same as 1) + your hunk below:
+> @@ -484,7 +488,7 @@ static int rtl8169_poll(struct net_devic
+>  #endif
+>  
+>  static const u16 rtl8169_intr_mask =
+> -	SYSErr | LinkChg | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
+> +	LinkChg | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
+>  static const u16 rtl8169_napi_event =
+>  	RxOK | RxOverflow | RxFIFOOver | TxOK | TxErr;
+>  static const unsigned int rtl8169_rx_config =
+> 3) same as 2) + your TxDesc change.
 
-Larry
+I tried your series from step (1) plus my TxDesc change (so I didn't
+include the hunk from (2)), and that seems to work fine.  I.e. I don't
+need to disable error interrupts anymore to keep it working.
 
-==============================
+So really the only thing that would need addressing would be the TXDesc
+MMIO bug (either by using I/O accesses, or doing the top/bottom writes
+the other way round) and we can dump the vendor driver.
 
-This patch prints microcode revision, patchlevel, date and time to
-KERN_INFO. Also, version 4.xx microcodes (rev>0x128) will be rejected
-by the driver, because they still do not work.
-
-Signed-off-by: Martin Langer <martin-langer-Mmb7MZpHnFY@public.gmane.org>
-Acked by Michael Buesch
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Thanks a lot!
 
 
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -2393,6 +2393,33 @@ static int bcm43xx_chip_init(struct bcm4
-  	}
-  	bcm43xx_read32(bcm, BCM43xx_MMIO_GEN_IRQ_REASON); /* dummy read */
-
-+	value16 = bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
-+				     BCM43xx_UCODE_REVISION);
-+
-+	dprintk(KERN_INFO PFX "Microcode rev 0x%x, pl 0x%x "
-+		"(20%.2i-%.2i-%.2i  %.2i:%.2i:%.2i)\n", value16,
-+		bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
-+				   BCM43xx_UCODE_PATCHLEVEL),
-+		(bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
-+				    BCM43xx_UCODE_DATE) >> 12) & 0xf,
-+		(bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
-+				    BCM43xx_UCODE_DATE) >> 8) & 0xf,
-+		bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
-+				   BCM43xx_UCODE_DATE) & 0xff,
-+		(bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
-+				   BCM43xx_UCODE_TIME) >> 11) & 0x1f,
-+		(bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
-+				   BCM43xx_UCODE_TIME) >> 5) & 0x3f,
-+		bcm43xx_shm_read16(bcm, BCM43xx_SHM_SHARED,
-+				   BCM43xx_UCODE_TIME) & 0x1f);
-+
-+	if ( value16 > 0x128 ) {
-+		dprintk(KERN_ERR PFX
-+			"Firmware: no support for microcode rev > 0x128\n");
-+		err = -1;
-+		goto err_release_fw;
-+	}
-+
-  	err = bcm43xx_gpio_init(bcm);
-  	if (err)
-  		goto err_release_fw;
-Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
-===================================================================
---- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx.h
-+++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx.h
-@@ -306,6 +306,12 @@
-  #define BCM43xx_SBF_TIME_UPDATE		0x10000000
-  #define BCM43xx_SBF_80000000		0x80000000 /*FIXME: fix name*/
-
-+/* Microcode */
-+#define BCM43xx_UCODE_REVISION          0x0000
-+#define BCM43xx_UCODE_PATCHLEVEL        0x0002
-+#define BCM43xx_UCODE_DATE              0x0004
-+#define BCM43xx_UCODE_TIME              0x0006
-+
-  /* MicrocodeFlagsBitfield (addr + lo-word values?)*/
-  #define BCM43xx_UCODEFLAGS_OFFSET	0x005E
+cheers,
+Lennert
