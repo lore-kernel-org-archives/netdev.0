@@ -1,72 +1,37 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH] remove dead code from bcm43xx-softmac
-Date: Mon, 4 Sep 2006 08:51:01 +0200
-Message-ID: <200609040851.01338.mb@bu3sch.de>
-References: <44FBADE0.3010905@lwfinger.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Loop detected - calling function from different modules
+Date: Mon, 04 Sep 2006 09:07:39 +0200
+Message-ID: <1157353660.3324.4.camel@ux156>
+References: <BAY101-F393A459AE607C79C6EE299AB320@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stefano Brivio <st3-sGOZH3hwPm2sTnJN9+BGXg@public.gmane.org>,
-	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, Bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-In-Reply-To: <44FBADE0.3010905-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: netdev@vger.kernel.org, madwifi-devel@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:33730 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S932400AbWIDHHD
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Sep 2006 03:07:03 -0400
+To: Frank Schneider <twodipu@hotmail.com>
+In-Reply-To: <BAY101-F393A459AE607C79C6EE299AB320@phx.gbl>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 04 September 2006 06:38, Larry Finger wrote:
-> John,
-> 
-> Please queue the following patch for wireless-2.6. It removes some code that was made obsolete by 
-> the wireless statistics changes of several weeks ago, but was not noticed them.
-> 
-> Thanks,
-> 
-> Larry
-> 
-> =================
-> 
-> This patch removes code that was make obsolete when the wireless statistics in bcm43xx-softmac were 
-> changed, but was overlooked at that time. The value of bcm->stats.link_quality computed here is 
-> never used.
+Frank,
 
-So you can also remove the actual variable, no?
+> could anyone please give me a hints how  dev_queue_xmit() is using tx data 
+> queue (HAL_TX_QUEUE_DATA) to transmit data queue.
+> actually I want to use data queue for sending beacon frame, ofcourse not 
+> real implementation
+> but for an experiment, a research purpose..
 
-> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-> 
-> Index: wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> ===================================================================
-> --- wireless-2.6.orig/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> +++ wireless-2.6/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-> @@ -1549,17 +1549,7 @@ static void handle_irq_noise(struct bcm4
->   		else
->   			average -= 48;
-> 
-> -/* FIXME: This is wrong, but people want fancy stats. well... */
-> -bcm->stats.noise = average;
-> -		if (average > -65)
-> -			bcm->stats.link_quality = 0;
-> -		else if (average > -75)
-> -			bcm->stats.link_quality = 1;
-> -		else if (average > -85)
-> -			bcm->stats.link_quality = 2;
-> -		else
-> -			bcm->stats.link_quality = 3;
-> -//		dprintk(KERN_INFO PFX "Link Quality: %u (avg was %d)\n", bcm->stats.link_quality, average);
-> +		bcm->stats.noise = average;
->   drop_calculation:
->   		bcm->noisecalc.calculation_running = 0;
->   		return;
-> 
+It's probably *far* easier for you to buy a Broadcom wireless card and
+use it with bcm43xx-d80211.
+
+I can't help you more with ath stuff, nor with your programming model
+which is fundamentally broken.
+
+johannes
 
 -- 
-Greetings Michael.
+VGER BF report: U 0.83072
