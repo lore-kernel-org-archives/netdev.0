@@ -1,46 +1,35 @@
-From: Pawel Foremski <pjf@asn.pl>
-Subject: Re: [PATCH 6/7] bonding: Add priv_flag to avoid event mishandling
-Date: Mon, 04 Sep 2006 10:12:24 +0200
-Message-ID: <edgn1t$nrh$1@sea.gmane.org>
-References: <200609012213.k81MDJZt008128@death.nxdomain.ibm.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 2.6.18] WE-21 support (core API)
+Date: Mon, 04 Sep 2006 10:17:16 +0200
+Message-ID: <1157357836.3324.28.camel@ux156>
+References: <20060830005655.GA8405@bougret.hpl.hp.com>
+	 <200609012055.48799.mb@bu3sch.de>
+	 <20060901221045.GB13975@bougret.hpl.hp.com>
+	 <200609020247.14755.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jt@hpl.hp.com, netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from main.gmane.org ([80.91.229.2]:45458 "EHLO ciao.gmane.org")
-	by vger.kernel.org with ESMTP id S932494AbWIDIPE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 04:15:04 -0400
-Received: from root by ciao.gmane.org with local (Exim 4.43)
-	id 1GK9bh-0006WU-Q0
-	for netdev@vger.kernel.org; Mon, 04 Sep 2006 10:15:01 +0200
-Received: from demiurg.asn.pl ([85.14.84.18])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 04 Sep 2006 10:15:01 +0200
-Received: from pjf by demiurg.asn.pl with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 04 Sep 2006 10:15:01 +0200
-To: netdev@vger.kernel.org
+Received: from crystal.sipsolutions.net ([195.210.38.204]:13540 "EHLO
+	sipsolutions.net") by vger.kernel.org with ESMTP id S932497AbWIDIQl
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Sep 2006 04:16:41 -0400
+To: Michael Buesch <mb@bu3sch.de>
+In-Reply-To: <200609020247.14755.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> Add priv_flag to specifically identify bonding-involved devices.  Needed
-> because IFF_MASTER is an unreliable identifier (vlan interfaces above
-> bonding will inherit IFF_MASTER).  Misidentification of devices would 
-> cause notifier events for other devices to be erroneously processed by 
-> bonding, causing various havoc.
+On Sat, 2006-09-02 at 02:47 +0200, Michael Buesch wrote:
 
-Just wanted to report that this patch solves a kernel oops on 2.6.17.11
-while trying to change name of a VLAN device created on top of a bonding
-one.
+> And we don't need all this stuff on these devices? OK, nl80211
+> can easily be made optional, too.
 
-Thanks,
+Not the whole of nl80211, but I guess some parts for event reporting
+etc. could be made optional and the functions tiny do-nothing inlines.
+
+johannes
 
 -- 
-Pawel Foremski  
-pjf@asn.pl
-
-
--- 
-VGER BF report: U 0.687767
+VGER BF report: U 0.510304
