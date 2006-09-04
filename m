@@ -1,67 +1,76 @@
-From: =?iso-8859-1?q?J=FCrgen_Schindele?= <linux@schindele.name>
-Subject: [PATCH] DM9000 interrupt is hardware dependant
-Date: Mon, 4 Sep 2006 23:07:13 +0200
-Message-ID: <200609042307.14306.linux@schindele.name>
-Reply-To: =?iso-8859-1?q?J=FCrgen_Schindele?= <linux@schindele.name>
+From: Philip Molter <philip@datafoundry.com>
+Subject: Re: tg3: tg3_stop_block timed out
+Date: Mon, 04 Sep 2006 16:27:01 -0500
+Message-ID: <44FC9A25.9030608@datafoundry.com>
+References: <1551EAE59135BE47B544934E30FC4FC093FAF4@NT-IRVA-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Bernd Schubert <bernd-schubert@gmx.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:59383 "EHLO
-	moutng.kundenserver.de") by vger.kernel.org with ESMTP
-	id S1751449AbWIDVHT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 17:07:19 -0400
-To: netdev@vger.kernel.org
-Content-Disposition: inline
+Received: from mailstar.maildev2.aus.datafoundry.com ([209.99.125.26]:31931
+	"EHLO mailstar.maildev2.aus.datafoundry.com") by vger.kernel.org
+	with ESMTP id S964987AbWIDV1B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 17:27:01 -0400
+To: Michael Chan <mchan@broadcom.com>
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC093FAF4@NT-IRVA-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi developers,
-i made a patch for an PXA270-evalboard with DM9000
-ethernet contoller. The Interrupt can be high- or low-
-active dependant of the wiring of the MDC-(57)pin.
+Michael Chan wrote:
+> Philip Molter wrote:
+> 
+>> Is there any additional information that I can give to help get some 
+>> more work targeted at this bug?  I've been getting this 
+>> lockup three or 
+>> four times a week per server (I have four of them exhibiting 
+>> this behavior).
+>>
+>> The network setup is fairly complicated, but unfortunately, these are 
+>> production machines pushing multi-gigabit traffic loads.  We're using 
+>> vlans on top of bonding on top of anywhere from 2-to-6 
+>> broadcomm NICs, 
+>> but it appears that the problem is unrelated to the bonding 
+>> and vlans, 
+>> as others are reporting similar problems without those enabled.
+>>
+>> Any assistance would be appreciated.  I've left the original 
+>> information 
+>> below for reference.
+> 
+> Since you're using a rather old version of tg3, I suggest that you
+> upgrade to a newer version first.  Your problem is probably
+> different from Bernd Schubert's since he has ASF enabled and you
+> don't.
+> 
+>> If anyone could even explain what this error means, that would be 
+>> helpful.  Maybe we can change something to work around it.
+>>
+> 
+> The stop_block error messages are not too important.  The important
+> thing is that you're getting a transmit timeout.  It means that
+> the tx queue is getting full because the NIC is no longer getting
+> interrupts.  When this condition is detected, the NIC will get reset
+> which should normally bring the NIC back to life.  It seems that
+> in your case, it doesn't come back.  Do you get these timeouts on
+> both ports at the same time?
 
-Because of this hardware dependency you shoud be able
-to configure this behaviour in "struct resource dm9000_resources[]"
+It's hard to tell.  When the error gets logged, it doesn't say which 
+interface it's happening on.  The box is locked up by the time we get to 
+it, but I think it's happening on both.
 
-Please comment an review my patch which is attached here
+I've had NICs lock up with queue issues before, but I've never had it 
+lock up a box completely, unresponsive on console even.  Normally, 
+network just breaks, and sure, it requires a reboot, but at least we can 
+do a controlled reboot.
 
-Thanksalot
-J=FCrgen Schindele
+This only started happening when we moved these NICs to jumbo frames. 
+We've used the exact same hardware in less demanding applications (up to 
+  500Mbits vs. 750+Mbits) with jumbo without issue, but these particular 
+machines, these pushers, only started locking up when we switched to jumbo.
 
-diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-index 24996da..0a71f7b 100644
---- a/drivers/net/dm9000.c
-+++ b/drivers/net/dm9000.c
-@@ -598,10 +598,11 @@ static int
- dm9000_open(struct net_device *dev)
- {
-        board_info_t *db =3D (board_info_t *) dev->priv;
-+       unsigned long sa_flags =3D resource_sa_flags(db->irq_res);
+> Please try the latest driver.  If you still get the timeouts, I'll
+> need to send you some debug patches to dump the state when these
+> timeouts occur.
 
-        PRINTK2("entering dm9000_open\n");
-
--       if (request_irq(dev->irq, &dm9000_interrupt, SA_SHIRQ, dev->nam=
-e, dev))
-+       if (request_irq(dev->irq, &dm9000_interrupt, SA_SHIRQ | sa_flag=
-s, dev->name, dev))
-                return -EAGAIN;
-
-        /* Initialize DM9000 board */
-diff --git a/include/linux/ioport.h b/include/linux/ioport.h
-index cd6bd00..2eebd91 100644
---- a/include/linux/ioport.h
-+++ b/include/linux/ioport.h
-@@ -54,6 +54,12 @@ #define IORESOURCE_IRQ_LOWEDGE               (1<<1)
- #define IORESOURCE_IRQ_HIGHLEVEL       (1<<2)
- #define IORESOURCE_IRQ_LOWLEVEL                (1<<3)
-
-+/* this macro gets back SA_TRIGGER_* bits
-+ * defined in include/linux/signal.h from
-+ * resource->flags which are the same as
-+ * IORESOURCE_IRQ_* bits */
-+#define resource_sa_flags(res)         ((res)->flags & 0xf)
-+
- /* ISA PnP DMA specific bits (IORESOURCE_BITS) */
- #define IORESOURCE_DMA_TYPE_MASK       (3<<0)
- #define IORESOURCE_DMA_8BIT            (0<<0)
+Will do.
