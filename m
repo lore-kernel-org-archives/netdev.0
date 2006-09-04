@@ -1,75 +1,49 @@
-From: =?ISO-8859-1?Q?S=E9bastien_Dugu=E9?= <sebastien.dugue@bull.net>
-Subject: Re: Kernel patches enabling better POSIX AIO (Was Re: [3/4]
-	kevent: AIO, aio_sendfile)
-Date: Mon, 04 Sep 2006 16:37:54 +0200
-Message-ID: <1157380674.3895.55.camel@frecb000686>
-References: <1153982954.3887.9.camel@frecb000686>
-	 <44C8DB80.6030007@us.ibm.com> <44C9029A.4090705@oracle.com>
-	 <1154024943.29920.3.camel@dyn9047017100.beaverton.ibm.com>
-	 <44C90987.1040200@redhat.com>
-	 <1154034164.29920.22.camel@dyn9047017100.beaverton.ibm.com>
-	 <1154091500.13577.14.camel@frecb000686> <44DCDE73.9030901@redhat.com>
-	 <20060812182928.GA1989@in.ibm.com> <44DE27AB.7040507@redhat.com>
-	 <20060812192802.GO32572@devserv.devel.redhat.com>
+From: gerrit@erg.abdn.ac.uk
+Subject: [PATCH 2.6.17] net/ipv6/udp.c: Enforce mandatory checksums as per RFC 2460
+Date: Mon, 4 Sep 2006 16:49:01 +0100
+Message-ID: <200609041649.01763@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ulrich Drepper <drepper@redhat.com>, suparna@in.ibm.com,
-	Badari Pulavarty <pbadari@us.ibm.com>,
-	Zach Brown <zach.brown@oracle.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	lkml <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linux-aio@kvack.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:58348 "EHLO
-	ecfrec.frec.bull.fr") by vger.kernel.org with ESMTP
-	id S1751406AbWIDOiD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 10:38:03 -0400
-To: Jakub Jelinek <jakub@redhat.com>
-In-Reply-To: <20060812192802.GO32572@devserv.devel.redhat.com>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:17091 "EHLO erg.abdn.ac.uk")
+	by vger.kernel.org with ESMTP id S964880AbWIDPtQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 11:49:16 -0400
+To: davem@davemloft.net
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2006-08-12 at 15:28 -0400, Jakub Jelinek wrote:
-> On Sat, Aug 12, 2006 at 12:10:35PM -0700, Ulrich Drepper wrote:
-> > > I am wondering about that too. IIRC, the IO_NOTIFY_* constants ar=
-e not
-> > > part of the ABI, but only internal to the kernel implementation. =
-I think
-> > > Zach had suggested inferring THREAD_ID notification if the pid sp=
-ecified
-> > > is not zero. But, I don't see why ->sigev_notify couldn't used di=
-rectly
-> > > (just like the POSIX timers code does) thus doing away with the=20
-> > > new constants altogether. Sebestian/Laurent, do you recall?
-> >=20
-> > I suggest to model the implementation after the timer code which do=
-es
-> > exactly what we need.
->=20
-> Yeah, and if at all possible we want to use just one helper thread fo=
-r
-> SIGEV_THREAD notification of timers/aio/etc., so it really should beh=
-ave the
-> same as timer thread notification.
->=20
+[UDPv6]: Enforce mandatory checksums as per RFC 2460
 
-  That's exactly what is done in libposix-aio.
+The current behaviour of computing outgoing checksums is not
+compliant with RFC 2460, as per section 8.1:
 
-  S=E9bastien.
+ "Unlike IPv4, when UDP packets are originated by an IPv6 node,
+  the UDP checksum is not optional.  That is, whenever
+  originating a UDP packet, an IPv6 node must compute a UDP
+  checksum over the packet and the pseudo-header, [...]"
 
---=20
------------------------------------------------------
+This modification hence enforces to ignore sk_no_check on UDPv6.
 
-  S=E9bastien Dugu=E9                BULL/FREC:B1-247
-  phone: (+33) 476 29 77 70      Bullcom: 229-7770
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+--
 
-  mailto:sebastien.dugue@bull.net
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 8d3432a..5122c4d 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -567,11 +567,6 @@ static int udp_v6_push_pending_frames(st
+        uh->len = htons(up->len);
+        uh->check = 0;
 
-  Linux POSIX AIO: http://www.bullopensource.org/posix
-                   http://sourceforge.net/projects/paiol
-
------------------------------------------------------
-
+-       if (sk->sk_no_check == UDP_CSUM_NOXMIT) {
+-               skb->ip_summed = CHECKSUM_NONE;
+-               goto send;
+-       }
+-
+        if (skb_queue_len(&sk->sk_write_queue) == 1) {
+                skb->csum = csum_partial((char *)uh,
+                                sizeof(struct udphdr), skb->csum);
