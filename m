@@ -1,57 +1,146 @@
-From: "Wong Edison" <hswong3i@gmail.com>
-Subject: [PATCH 1/2] tcp-lp 2.6.18-rc6: fix tcp_lp_remote_hz_estimator() about rhz
-Date: Mon, 4 Sep 2006 17:44:58 +0800
-Message-ID: <3feffd230609040244o497070f2j7909c6268f4eb588@mail.gmail.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [take15 0/4] kevent: Generic event handling mechanism.
+Date: Mon, 4 Sep 2006 14:14:20 +0400
+Message-ID: <11573648604058@2ka.mipt.ru>
+References: <12345678912345.GA1898@2ka.mipt.ru>
+Reply-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	Ulrich Drepper <drepper@redhat.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>,
+	Zach Brown <zach.brown@oracle.com>,
+	Christoph Hellwig <hch@infradead.org>,
+	Chase Venters <chase.venters@clientec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.183]:51595 "EHLO
-	py-out-1112.google.com") by vger.kernel.org with ESMTP
-	id S1751280AbWIDJo7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Sep 2006 05:44:59 -0400
-Received: by py-out-1112.google.com with SMTP id n25so2554679pyg
-        for <netdev@vger.kernel.org>; Mon, 04 Sep 2006 02:44:59 -0700 (PDT)
-To: netdev <netdev@vger.kernel.org>,
-	"Stephen Hemminger" <shemminger@osdl.org>,
-	"David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
+Received: from dea.vocord.ru ([217.67.177.50]:49103 "EHLO
+	uganda.factory.vocord.ru") by vger.kernel.org with ESMTP
+	id S1751295AbWIDJug convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 05:50:36 -0400
+In-Reply-To: <12345678912345.GA1898@2ka.mipt.ru>
+To: lkml <linux-kernel@vger.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-pageexec report an oops for tcp_lp_owd_calculator(). This is due to
-tcp_lp_remote_hz_estimator can return 0.
 
-This patch fix the handling of lp->flag, so will set lp->flag as FALSE
-if rhz <= 0
+Generic event handling mechanism.
 
-Signed-off-by: Wong Hoi Sing Edison <hswong3i@gmail.com>
+Changes from 'take14' patchset:
+ * added kevent_wait()
+    This syscall waits until either timeout expires or at least one event
+    becomes ready. It also commits that @num events from @start are processed
+    by userspace and thus can be be removed or rearmed (depending on it's flags).
+    It can be used for commit events read by userspace through mmap interface.
+    Example userspace code (evtest.c) can be found on project's homepage.
+ * added socket notifications (send/recv/accept)
 
----
+Changes from 'take13' patchset:
+ * do not get lock aroung user data check in __kevent_search()
+ * fail early if there were no registered callbacks for given type of kevent
+ * trailing whitespace cleanup
 
-diff -urpN 2.6.18-rc6/tcp_lp.c tcp-lp/tcp_lp.c
---- 2.6.18-rc6/tcp_lp.c	2006-09-04 16:21:00.000000000 +0800
-+++ tcp-lp/tcp_lp.c	2006-09-04 17:22:19.000000000 +0800
-@@ -153,14 +157,17 @@ static u32 tcp_lp_remote_hz_estimator(st
- 	if (m < 0)
- 		m = -m;
+Changes from 'take12' patchset:
+ * remove non-chardev interface for initialization
+ * use pointer to kevent_mring instead of unsigned longs
+ * use aligned 64bit type in raw user data (can be used by high-res timer if needed)
+ * simplified enqueue/dequeue callbacks and kevent initialization
+ * use nanoseconds for timeout
+ * put number of milliseconds into timer's return data
+ * move some definitions into user-visible header
+ * removed filenames from comments
 
--	if (rhz != 0) {
-+	if (rhz > 0) {
- 		m -= rhz >> 6;	/* m is now error in remote HZ est */
- 		rhz += m;	/* 63/64 old + 1/64 new */
- 	} else
- 		rhz = m << 6;
+Changes from 'take11' patchset:
+ * include missing headers into patchset
+ * some trivial code cleanups (use goto instead of if/else games and so on)
+ * some whitespace cleanups
+ * check for ready_callback() callback before main loop which should save us some ticks
 
- 	/* record time for successful remote HZ calc */
--	lp->flag |= LP_VALID_RHZ;
-+	if (rhz > 0)
-+		lp->flag |= LP_VALID_RHZ;
-+	else
-+		lp->flag &= ~LP_VALID_RHZ;
+Changes from 'take10' patchset:
+ * removed non-existent prototypes
+ * added helper function for kevent_registered_callbacks
+ * fixed 80 lines comments issues
+ * added shared between userspace and kernelspace header instead of embedd them in one
+ * core restructuring to remove forward declarations
+ * s o m e w h i t e s p a c e c o d y n g s t y l e c l e a n u p
+ * use vm_insert_page() instead of remap_pfn_range()
 
-  out:
- 	/* record reference time stamp */
+Changes from 'take9' patchset:
+ * fixed ->nopage method
+
+Changes from 'take8' patchset:
+ * fixed mmap release bug
+ * use module_init() instead of late_initcall()
+ * use better structures for timer notifications
+
+Changes from 'take7' patchset:
+ * new mmap interface (not tested, waiting for other changes to be acked)
+	- use nopage() method to dynamically substitue pages
+	- allocate new page for events only when new added kevent requres it
+	- do not use ugly index dereferencing, use structure instead
+	- reduced amount of data in the ring (id and flags), 
+		maximum 12 pages on x86 per kevent fd
+
+Changes from 'take6' patchset:
+ * a lot of comments!
+ * do not use list poisoning for detection of the fact, that entry is in the list
+ * return number of ready kevents even if copy*user() fails
+ * strict check for number of kevents in syscall
+ * use ARRAY_SIZE for array size calculation
+ * changed superblock magic number
+ * use SLAB_PANIC instead of direct panic() call
+ * changed -E* return values
+ * a lot of small cleanups and indent fixes
+
+Changes from 'take5' patchset:
+ * removed compilation warnings about unused wariables when lockdep is not turned on
+ * do not use internal socket structures, use appropriate (exported) wrappers instead
+ * removed default 1 second timeout
+ * removed AIO stuff from patchset
+
+Changes from 'take4' patchset:
+ * use miscdevice instead of chardevice
+ * comments fixes
+
+Changes from 'take3' patchset:
+ * removed serializing mutex from kevent_user_wait()
+ * moved storage list processing to RCU
+ * removed lockdep screaming - all storage locks are initialized in the same function, so it was learned 
+	to differentiate between various cases
+ * remove kevent from storage if is marked as broken after callback
+ * fixed a typo in mmaped buffer implementation which would end up in wrong index calcualtion 
+
+Changes from 'take2' patchset:
+ * split kevent_finish_user() to locked and unlocked variants
+ * do not use KEVENT_STAT ifdefs, use inline functions instead
+ * use array of callbacks of each type instead of each kevent callback initialization
+ * changed name of ukevent guarding lock
+ * use only one kevent lock in kevent_user for all hash buckets instead of per-bucket locks
+ * do not use kevent_user_ctl structure instead provide needed arguments as syscall parameters
+ * various indent cleanups
+ * added optimisation, which is aimed to help when a lot of kevents are being copied from userspace
+ * mapped buffer (initial) implementation (no userspace yet)
+
+Changes from 'take1' patchset:
+ - rebased against 2.6.18-git tree
+ - removed ioctl controlling
+ - added new syscall kevent_get_events(int fd, unsigned int min_nr, unsigned int max_nr,
+			unsigned int timeout, void __user *buf, unsigned flags)
+ - use old syscall kevent_ctl for creation/removing, modification and initial kevent 
+	initialization
+ - use mutuxes instead of semaphores
+ - added file descriptor check and return error if provided descriptor does not match
+	kevent file operations
+ - various indent fixes
+ - removed aio_sendfile() declarations.
+
+Thank you.
+
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+
+
 
 -- 
-VGER BF report: U 0.500057
+VGER BF report: U 0.501426
