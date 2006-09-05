@@ -1,105 +1,103 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [2.6.19 PATCH 1/7] ehea: interface to network stack
-Date: Tue, 5 Sep 2006 20:58:32 +0200
-Message-ID: <20060905185832.GA15311@electric-eye.fr.zoreil.com>
-References: <200609041237.46528.ossthema@de.ibm.com> <20060904201606.GA24386@electric-eye.fr.zoreil.com> <44FD931A.3080107@de.ibm.com>
+From: "Wong Edison" <hswong3i@gmail.com>
+Subject: [PATCH 1/2] tcp-lp: bug fix for oops in 2.6.18-rc6
+Date: Wed, 6 Sep 2006 04:31:39 +0800
+Message-ID: <3feffd230609051331v65455146gf86aa62bb1947d42@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jan-Bernd Themann <ossthema@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:4263 "EHLO
-	fr.zoreil.com") by vger.kernel.org with ESMTP id S1030227AbWIETAV
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Sep 2006 15:00:21 -0400
-To: Thomas Klein <osstklei@de.ibm.com>
+Received: from nz-out-0102.google.com ([64.233.162.206]:6877 "EHLO
+	nz-out-0102.google.com") by vger.kernel.org with ESMTP
+	id S1161047AbWIEUbo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Sep 2006 16:31:44 -0400
+Received: by nz-out-0102.google.com with SMTP id n1so1146768nzf
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2006 13:31:39 -0700 (PDT)
+To: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Stephen Hemminger" <shemminger@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <44FD931A.3080107@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Klein <osstklei@de.ibm.com> :
-[...]
-> Somehow I don't get your point concerning the usage of 'k'. We need another
-> iterator as the for loops using 'k' use 'i' as their terminating condition.
+Sorry that the patch submited yesterday still contain a small bug.
+This version have already been test for hours with BT connections. The
+oops is now difficult to reproduce.
 
-Something like the code below perhaps (with more local variables maybe):
+Signed-off-by: Wong Hoi Sing Edison <hswong3i@gmail.com>
 
-static int ehea_reg_interrupts(struct net_device *dev)
-{
-	struct ehea_port *port = netdev_priv(dev);
-	struct ehea_port_res *pr;
-	int i, ret;
+---
 
-	for (i = 0; i < port->num_def_qps; i++) {
-		pr = &port->port_res[i];
-		snprintf(pr->int_recv_name, EHEA_IRQ_NAME_SIZE - 1
-			 , "%s-recv%d", dev->name, i);
-		ret = ibmebus_request_irq(NULL, pr->recv_eq->attr.ist1,
-					  ehea_recv_irq_handler, SA_INTERRUPT,
-					  pr->int_recv_name, pr);
-		if (ret) {
-			ehea_error("failed registering irq for ehea_recv_int:"
-				   "port_res_nr:%d, ist=%X", i,
-				   pr->recv_eq->attr.ist1);
-			goto err_free_irq_recv_eq_0;
-		}
-		if (netif_msg_ifup(port))
-			ehea_info("irq_handle 0x%X for funct ehea_recv_int %d "
-				  "registered", pr->recv_eq->attr.ist1, i);
-	}
+diff -urpN linux-2.6.18-rc6/net/ipv4/tcp_lp.c linux/net/ipv4/tcp_lp.c
+--- linux-2.6.18-rc6/net/ipv4/tcp_lp.c	2006-09-06 04:12:00.000000000 +0800
++++ linux/net/ipv4/tcp_lp.c	2006-09-06 04:24:07.000000000 +0800
+@@ -3,13 +3,8 @@
+  *
+  * TCP Low Priority is a distributed algorithm whose goal is to utilize only
+  *   the excess network bandwidth as compared to the ``fair share`` of
+- *   bandwidth as targeted by TCP. Available from:
+- *     http://www.ece.rice.edu/~akuzma/Doc/akuzma/TCP-LP.pdf
++ *   bandwidth as targeted by TCP.
+  *
+- * Original Author:
+- *   Aleksandar Kuzmanovic <akuzma@northwestern.edu>
+- *
+- * See http://www-ece.rice.edu/networks/TCP-LP/ for their implementation.
+  * As of 2.6.13, Linux supports pluggable congestion control algorithms.
+  * Due to the limitation of the API, we take the following changes from
+  * the original TCP-LP implementation:
+@@ -24,11 +19,20 @@
+  *   o OWD is handled in relative format, where local time stamp will in
+  *     tcp_time_stamp format.
+  *
+- * Port from 2.4.19 to 2.6.16 as module by:
+- *   Wong Hoi Sing Edison <hswong3i@gmail.com>
+- *   Hung Hing Lun <hlhung3i@gmail.com>
++ * Original Author:
++ *   Aleksandar Kuzmanovic <akuzma@northwestern.edu>
++ * Available from:
++ *   http://www.ece.rice.edu/~akuzma/Doc/akuzma/TCP-LP.pdf
++ * Original implementation for 2.4.19:
++ *   http://www-ece.rice.edu/networks/TCP-LP/
++ *
++ * 2.6.x module Authors:
++ *   Wong Hoi Sing, Edison <hswong3i@gmail.com>
++ *   Hung Hing Lun, Mike <hlhung3i@gmail.com>
++ * SourceForge project page:
++ *   http://tcp-lp-mod.sourceforge.net/
+  *
+- * Version: $Id: tcp_lp.c,v 1.22 2006-05-02 18:18:19 hswong3i Exp $
++ * Version: $Id: tcp_lp.c,v 1.24 2006/09/05 20:22:53 hswong3i Exp $
+  */
 
-	snprintf(port->int_aff_name, EHEA_IRQ_NAME_SIZE - 1,
-		 "%s-aff", dev->name);
-	ret = ibmebus_request_irq(NULL, port->qp_eq->attr.ist1,
-				  ehea_qp_aff_irq_handler,
-				  SA_INTERRUPT, port->int_aff_name, port);
-	if (ret) {
-		ehea_error("failed registering irq for qp_aff_irq_handler:"
-			   " ist=%X", port->qp_eq->attr.ist1);
-		goto err_free_irq_recv_eq_0;
-	}
-	if (netif_msg_ifup(port))
-		ehea_info("irq_handle 0x%X for function qp_aff_irq_handler "
-			  "registered", port->qp_eq->attr.ist1);
+ #include <linux/config.h>
+@@ -153,16 +157,19 @@ static u32 tcp_lp_remote_hz_estimator(st
+ 	if (m < 0)
+ 		m = -m;
 
-	for (i = 0; i < port->num_def_qps + port->num_add_tx_qps; i++) {
-		pr = &port->port_res[i];
-		snprintf(pr->int_send_name, EHEA_IRQ_NAME_SIZE - 1,
-			 "%s-send%d", dev->name, i);
-		ret = ibmebus_request_irq(NULL, pr->send_eq->attr.ist1,
-					  ehea_send_irq_handler, SA_INTERRUPT,
-					  pr->int_send_name, pr);
-		if (ret) {
-			ehea_error("failed registering irq for ehea_send"
-				   " port_res_nr:%d, ist=%X", i,
-				   pr->send_eq->attr.ist1);
-			goto err_free_irq_send_eq_1;
-		}
-		if (netif_msg_ifup(port))
-			ehea_info("irq_handle 0x%X for function ehea_send_int "
-				  "%d registered", pr->send_eq->attr.ist1, i);
-	}
-out:
-	return ret;
+-	if (rhz != 0) {
++	if (rhz > 0) {
+ 		m -= rhz >> 6;	/* m is now error in remote HZ est */
+ 		rhz += m;	/* 63/64 old + 1/64 new */
+ 	} else
+ 		rhz = m << 6;
 
-err_free_irq_send_eq_1:
-	// Post-dec works with unsigned int too.
-	while (i-- > 0) {
-		u32 ist = port->port_res[i].send_eq->attr.ist1;
-		ibmebus_free_irq(NULL, ist, &port->port_res[i]);
-	}
-	ibmebus_free_irq(NULL, port->qp_eq->attr.ist1, port);
-	i = port->num_def_qps;
-err_free_irq_recv_eq_0:
-	while (i-- > 0) {
-		u32 ist = port->port_res[i].recv_eq->attr.ist1;
-		ibmebus_free_irq(NULL, ist, &port->port_res[k]);
-	}
-	goto out;
-}
++ out:
+ 	/* record time for successful remote HZ calc */
+-	lp->flag |= LP_VALID_RHZ;
++	if (rhz > 0)
++		lp->flag |= LP_VALID_RHZ;
++	else
++		lp->flag &= ~LP_VALID_RHZ;
+
+- out:
+ 	/* record reference time stamp */
+ 	lp->remote_ref_time = tp->rx_opt.rcv_tsval;
+ 	lp->local_ref_time = tp->rx_opt.rcv_tsecr;
+@@ -333,6 +340,6 @@ static void __exit tcp_lp_unregister(voi
+ module_init(tcp_lp_register);
+ module_exit(tcp_lp_unregister);
+
+-MODULE_AUTHOR("Wong Hoi Sing Edison, Hung Hing Lun");
++MODULE_AUTHOR("Wong Hoi Sing Edison, Hung Hing Lun Mike");
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("TCP Low Priority");
