@@ -1,109 +1,97 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [REVISED] [PATCH] ethtool v4: add autoneg advertise feature
-Date: Tue, 05 Sep 2006 08:10:16 -0700
-Message-ID: <20060905151016.8244.16888.stgit@jtkirshe-sled.jf.intel.com>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
-Cc: John Rociak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH] FRV: Fix {dis,en}able_irq_lockdep_irqrestore compile error
+Date: Tue, 05 Sep 2006 16:21:03 +0100
+Message-ID: <5905.1157469663@warthog.cambridge.redhat.com>
+References: <20060905132530.GD9173@stusta.de>  <20060901015818.42767813.akpm@osdl.org>
+Cc: Andrew Morton <akpm@osdl.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	linux-kernel@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:33980 "EHLO
-	orsmga102-1.jf.intel.com") by vger.kernel.org with ESMTP
-	id S965082AbWIEPK0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Sep 2006 11:10:26 -0400
-To: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
+Received: from mx1.redhat.com ([66.187.233.31]:1502 "EHLO mx1.redhat.com")
+	by vger.kernel.org with ESMTP id S965158AbWIEPWy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 11:22:54 -0400
+In-Reply-To: <20060905132530.GD9173@stusta.de> 
+To: Adrian Bunk <bunk@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-adds the ability to change the advertised speed and duplex for a network interface.  Previously, a network interface was only able to advertise all supported speed's and duplex's, or one individual speed and duplex.  The feature allows the user to choose which supported speed's and duplex's to advertise by using the hex value.
+Fix the lack of certain non-LOCKDEP stub functions in linux/interrupt.h and
+also provide FRV with LOCKDEP variants.
 
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+This is to be applied to -mm kernel since not all of the functions added exist
+in the main kernel.
 
+Signed-Off-By: David Howells <dhowells@redhat.com>
 ---
+warthog>diffstat -p1 frv-irq-lockdep-2618rc5mm1.diff 
+ include/asm-frv/irq.h     |   43 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/interrupt.h |    2 ++
+ 2 files changed, 45 insertions(+)
 
- ethtool.8 |   24 ++++++++++++++++++++++++
- ethtool.c |   12 +++++++++++-
- 2 files changed, 35 insertions(+), 1 deletions(-)
-
-diff --git a/ethtool.8 b/ethtool.8
-index 888a7d8..679f6bc 100644
---- a/ethtool.8
-+++ b/ethtool.8
-@@ -176,6 +176,8 @@ ethtool \- Display or change ethernet ca
- .B2 duplex half full
- .B4 port tp aui bnc mii fibre
- .B2 autoneg on off
-+.RB [ advertise
-+.IR N ]
- .RB [ phyad
- .IR N ]
- .B2 xcvr internal external
-@@ -327,6 +329,28 @@ Select device port.
- Specify if autonegotiation is enabled. In the usual case it is, but might
- cause some problems with some network devices, so you can turn it off.
- .TP
-+.BI advertise \ N
-+Set the speed and duplex advertised by autonegotiation.  The argument is
-+a hexidecimal value using one or a combination of the following values:
-+.RS
-+.PD 0
-+.TP 3
-+.BR "0x01" "    10 Half"
-+.TP 3
-+.BR "0x02" "    10 Full"
-+.TP 3
-+.BR "0x04" "    100 Half"
-+.TP 3
-+.BR "0x08" "    100 Full"
-+.TP 3
-+.BR "0x10" "    1000 Half" "(not supported by IEEE standards)"
-+.TP 3
-+.BR "0x20" "    1000 Full"
-+.TP 3
-+.BR "0x3F" "    Auto"
-+.PD
-+.RE
-+.TP
- .BI phyad \ N
- PHY address.
- .TP
-diff --git a/ethtool.c b/ethtool.c
-index 87e22ab..b7f189a 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -99,6 +99,7 @@ static struct option {
- 		"		[ duplex half|full ]\n"
- 		"		[ port tp|aui|bnc|mii|fibre ]\n"
- 		"		[ autoneg on|off ]\n"
-+		"		[ advertise %%x ]\n"
- 		"		[ phyad %%d ]\n"
- 		"		[ xcvr internal|external ]\n"
- 		"		[ wol p|u|m|b|a|g|s|d... ]\n"
-@@ -549,6 +550,15 @@ static void parse_cmdline(int argc, char
- 					show_usage(1);
- 				}
- 				break;
-+			} else if (!strcmp(argp[i], "advertise")) {
-+				gset_changed = 1;
-+				i += 1;
-+				if (i >= argc)
-+					show_usage(1);
-+				advertising_wanted = strtol(argp[i], NULL, 16);
-+				if (advertising_wanted < 0)
-+					show_usage(1);
-+				break;
- 			} else if (!strcmp(argp[i], "phyad")) {
- 				gset_changed = 1;
- 				i += 1;
-@@ -601,7 +611,7 @@ static void parse_cmdline(int argc, char
- 		}
- 	}
+diff -urp ../kernels/linux-2.6.18-rc5-mm1/include/asm-frv/irq.h linux-2.6.18-rc5-mm1-frv/include/asm-frv/irq.h
+--- ../kernels/linux-2.6.18-rc5-mm1/include/asm-frv/irq.h	2006-09-04 18:02:48.000000000 +0100
++++ linux-2.6.18-rc5-mm1-frv/include/asm-frv/irq.h	2006-09-05 15:59:08.000000000 +0100
+@@ -39,5 +39,48 @@ extern void disable_irq_nosync(unsigned 
+ extern void disable_irq(unsigned int irq);
+ extern void enable_irq(unsigned int irq);
  
--	if (autoneg_wanted == AUTONEG_ENABLE){
-+	if ((autoneg_wanted == AUTONEG_ENABLE) && (advertising_wanted < 0)) {
- 		if (speed_wanted == SPEED_10 && duplex_wanted == DUPLEX_HALF)
- 			advertising_wanted = ADVERTISED_10baseT_Half;
- 		else if (speed_wanted == SPEED_10 &&
++#ifdef CONFIG_LOCKDEP
++/*
++ * Special lockdep variants of irq disabling/enabling.
++ * These should be used for locking constructs that
++ * know that a particular irq context which is disabled,
++ * and which is the only irq-context user of a lock,
++ * that it's safe to take the lock in the irq-disabled
++ * section without disabling hardirqs.
++ *
++ * On !CONFIG_LOCKDEP they are equivalent to the normal
++ * irq disable/enable methods.
++ */
++static inline void disable_irq_nosync_lockdep(unsigned int irq)
++{
++	disable_irq_nosync(irq);
++	local_irq_disable();
++}
++
++static inline void disable_irq_nosync_lockdep_irqsave(unsigned int irq, unsigned long *flags)
++{
++	disable_irq_nosync(irq);
++	local_irq_save(*flags);
++}
++
++static inline void disable_irq_lockdep(unsigned int irq)
++{
++	disable_irq(irq);
++	local_irq_disable();
++}
++
++static inline void enable_irq_lockdep(unsigned int irq)
++{
++	local_irq_enable();
++	enable_irq(irq);
++}
++
++static inline void enable_irq_lockdep_irqrestore(unsigned int irq, unsigned long *flags)
++{
++	local_irq_restore(*flags);
++	enable_irq(irq);
++}
++#endif /* CONFIG_LOCKDEP */
++
+ 
+ #endif /* _ASM_IRQ_H_ */
+diff -urp ../kernels/linux-2.6.18-rc5-mm1/include/linux/interrupt.h linux-2.6.18-rc5-mm1-frv/include/linux/interrupt.h
+--- ../kernels/linux-2.6.18-rc5-mm1/include/linux/interrupt.h	2006-09-04 18:03:31.000000000 +0100
++++ linux-2.6.18-rc5-mm1-frv/include/linux/interrupt.h	2006-09-05 15:58:53.000000000 +0100
+@@ -178,6 +178,8 @@ static inline int disable_irq_wake(unsig
+ #  define disable_irq_nosync_lockdep(irq)	disable_irq_nosync(irq)
+ #  define disable_irq_lockdep(irq)		disable_irq(irq)
+ #  define enable_irq_lockdep(irq)		enable_irq(irq)
++#  define disable_irq_nosync_lockdep_irqsave(irq, flags) disable_irq_nosync(irq)
++#  define enable_irq_lockdep_irqrestore(irq, flags) enable_irq(irq)
+ # endif
+ 
+ #endif /* CONFIG_GENERIC_HARDIRQS */
