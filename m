@@ -1,121 +1,36 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/sctp/: cleanups
-Date: Tue, 5 Sep 2006 23:57:21 +0200
-Message-ID: <20060905215721.GM9173@stusta.de>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: sky2: hw checksum failures
+Date: Wed, 06 Sep 2006 07:56:54 +1000
+Message-ID: <1157493415.22705.145.camel@localhost.localdomain>
+References: <1157416603.22705.62.camel@localhost.localdomain>
+	 <20060904203442.1c9ed2eb@localhost.localdomain>
+	 <1157427758.22705.65.camel@localhost.localdomain>
+	 <20060904205645.6c80f30c@localhost.localdomain>
+	 <1157431548.22705.78.camel@localhost.localdomain>
+	 <44FD90FC.4090409@osdl.org>
+	 <1157490763.22705.130.camel@localhost.localdomain>
+	 <20060905143103.15842e07@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Woodhouse <dwmw2@infradead.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:22025 "HELO
-	mailout.stusta.mhn.de") by vger.kernel.org with SMTP
-	id S1751526AbWIEV5a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Sep 2006 17:57:30 -0400
-To: sri@us.ibm.com
-Content-Disposition: inline
+Received: from gate.crashing.org ([63.228.1.57]:49087 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S1751517AbWIEV5O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 17:57:14 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20060905143103.15842e07@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch contains the following cleanups:
-- make the following needlessly global function static:
-  - socket.c: sctp_apply_peer_addr_params()
-- add proper prototypes for the several global functions in
-  include/net/sctp/sctp.h
 
-Note that this fixes wrong prototypes for the following functions:
-- sctp_snmp_proc_exit()
-- sctp_eps_proc_exit()
-- sctp_assocs_proc_exit()
+> Agreed. Actually the checksum value is same hi/lo because there are
+> two checksum units and we ask for the same offset on both.
 
-The latter was spotted by the GNU C compiler and reported
-by David Woodhouse.
+Ok, that explains the (HLEN << 16) | HLEN thing when configuring it...
+At this point, best is I dig into the actual values and see what's up.
+I'll let you know (I don't have the HW at hand right now)
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Ben.
 
----
-
- include/net/sctp/sctp.h |   13 +++++++++++++
- net/sctp/ipv6.c         |    1 -
- net/sctp/protocol.c     |    7 -------
- net/sctp/socket.c       |   14 +++++++-------
- 4 files changed, 20 insertions(+), 15 deletions(-)
-
---- linux-2.6.18-rc5-mm1/include/net/sctp/sctp.h.old	2006-09-05 16:50:33.000000000 +0200
-+++ linux-2.6.18-rc5-mm1/include/net/sctp/sctp.h	2006-09-05 16:54:18.000000000 +0200
-@@ -128,6 +128,8 @@
- 				     int flags);
- extern struct sctp_pf *sctp_get_pf_specific(sa_family_t family);
- extern int sctp_register_pf(struct sctp_pf *, sa_family_t);
-+int sctp_inetaddr_event(struct notifier_block *this, unsigned long ev,
-+                        void *ptr);
- 
- /*
-  * sctp/socket.c
-@@ -178,6 +180,17 @@
- 			  struct sock *oldsk, struct sock *newsk);
- 
- /*
-+ * sctp/proc.c
-+ */
-+int sctp_snmp_proc_init(void);
-+void sctp_snmp_proc_exit(void);
-+int sctp_eps_proc_init(void);
-+void sctp_eps_proc_exit(void);
-+int sctp_assocs_proc_init(void);
-+void sctp_assocs_proc_exit(void);
-+
-+
-+/*
-  *  Section:  Macros, externs, and inlines
-  */
- 
---- linux-2.6.18-rc5-mm1/net/sctp/socket.c.old	2006-09-05 16:49:15.000000000 +0200
-+++ linux-2.6.18-rc5-mm1/net/sctp/socket.c	2006-09-05 16:49:27.000000000 +0200
-@@ -2081,13 +2081,13 @@
-  *                     SPP_SACKDELAY_ENABLE, setting both will have undefined
-  *                     results.
-  */
--int sctp_apply_peer_addr_params(struct sctp_paddrparams *params,
--				struct sctp_transport   *trans,
--				struct sctp_association *asoc,
--				struct sctp_sock        *sp,
--				int                      hb_change,
--				int                      pmtud_change,
--				int                      sackdelay_change)
-+static int sctp_apply_peer_addr_params(struct sctp_paddrparams *params,
-+				       struct sctp_transport   *trans,
-+				       struct sctp_association *asoc,
-+				       struct sctp_sock        *sp,
-+				       int                      hb_change,
-+				       int                      pmtud_change,
-+				       int                      sackdelay_change)
- {
- 	int error;
- 
---- linux-2.6.18-rc5-mm1/net/sctp/ipv6.c.old	2006-09-05 16:50:51.000000000 +0200
-+++ linux-2.6.18-rc5-mm1/net/sctp/ipv6.c	2006-09-05 16:50:58.000000000 +0200
-@@ -78,7 +78,6 @@
- 
- #include <asm/uaccess.h>
- 
--extern int sctp_inetaddr_event(struct notifier_block *, unsigned long, void *);
- static struct notifier_block sctp_inet6addr_notifier = {
- 	.notifier_call = sctp_inetaddr_event,
- };
---- linux-2.6.18-rc5-mm1/net/sctp/protocol.c.old	2006-09-05 16:53:10.000000000 +0200
-+++ linux-2.6.18-rc5-mm1/net/sctp/protocol.c	2006-09-05 16:53:20.000000000 +0200
-@@ -82,13 +82,6 @@
- kmem_cache_t *sctp_chunk_cachep __read_mostly;
- kmem_cache_t *sctp_bucket_cachep __read_mostly;
- 
--extern int sctp_snmp_proc_init(void);
--extern int sctp_snmp_proc_exit(void);
--extern int sctp_eps_proc_init(void);
--extern int sctp_eps_proc_exit(void);
--extern int sctp_assocs_proc_init(void);
--extern int sctp_assocs_proc_exit(void);
--
- /* Return the address of the control sock. */
- struct sock *sctp_get_ctl_sock(void)
- {
 
