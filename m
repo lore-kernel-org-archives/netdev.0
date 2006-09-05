@@ -1,66 +1,69 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: sky2: hw checksum failures
-Date: Tue, 05 Sep 2006 14:45:47 +1000
-Message-ID: <1157431548.22705.78.camel@localhost.localdomain>
-References: <1157416603.22705.62.camel@localhost.localdomain>
-	 <20060904203442.1c9ed2eb@localhost.localdomain>
-	 <1157427758.22705.65.camel@localhost.localdomain>
-	 <20060904205645.6c80f30c@localhost.localdomain>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: ProxyARP and IPSec
+Date: Mon, 04 Sep 2006 22:12:57 -0700
+Message-ID: <44FD0759.8070307@zytor.com>
+References: <20060823.151424.78711856.davem@davemloft.net> <20060823231812.GA32394@ms2.inr.ac.ru> <44ECFCF1.10500@zytor.com> <44ECFD5F.6060901@zytor.com> <1156386043.7302.773.camel@tahini.andynet.net> <44ED2797.4070304@zytor.com> <20060824125046.GA25439@ms2.inr.ac.ru> <44EFCB0F.5080506@zytor.com> <17657.42254.455342.157858@localhost.localdomain> <44F9BFC2.4050001@zytor.com> <20060904222722.GA24078@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Cc: "Stephen J. Bevan" <stephen@dino.dnsalias.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:57777 "EHLO gate.crashing.org")
-	by vger.kernel.org with ESMTP id S965122AbWIEEqE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 00:46:04 -0400
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060904205645.6c80f30c@localhost.localdomain>
+Received: from terminus.zytor.com ([192.83.249.54]:12953 "EHLO
+	terminus.zytor.com") by vger.kernel.org with ESMTP id S965154AbWIEFNt
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Sep 2006 01:13:49 -0400
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <20060904222722.GA24078@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-09-04 at 20:56 -0700, Stephen Hemminger wrote:
-> On Tue, 05 Sep 2006 13:42:38 +1000
-> Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
+Alexey Kuznetsov wrote:
 > 
-> > On Mon, 2006-09-04 at 20:34 -0700, Stephen Hemminger wrote:
-> > > Unneeded byte swap was occurring.
-> > > 
-> > > --- linux-2.6.orig/drivers/net/sky2.c
-> > > +++ linux-2.6/drivers/net/sky2.c
-> > > @@ -2001,7 +2001,7 @@ static int sky2_status_intr(struct sky2_
-> > >  		case OP_RXCHKS:
-> > >  			skb = sky2->rx_ring[sky2->rx_next].skb;
-> > >  			skb->ip_summed = CHECKSUM_HW;
-> > > -			skb->csum = le16_to_cpu(status);
-> > > +			skb->csum = status;
-> > >  			break;
-> > >  
-> > >  		case OP_TXINDEXLE:
-> > 
-> > I've removed it in my paches (have you seen the other patches I sent for
-> > this driver ?), though I'm pre-swapping status and lenght now before the
-> > switch/case so there might still be an issue there. I'll have a look.
+> sarcasm mode is not accepted. Linux does exactly "standard tunnel-mode IPsec".
+> It does not give you device to make you totally happy.
 > 
-> The other tack would be to leave the "reverse in hw" flag on and take out all the existing
-> swap calls but then you have to add an ifdef to re-order all the structures for tx_le, rx_le, status_le.
-> That is what the vendor (GPL) version of sk98lin does.
 
-I prefer keeping the HW swap out of the way for now... that way, I know
-the card will react exactly like in an x86, and I avoid those ugly
-ifdef's. At least on powerpc, there is no cost in doing swap in software
-(well, pretty much no cost).
+The sarcasm was a commentary to the "just switch protocols then" comment.
 
-Which means that if it worked on x86 with le16_to_cpu, it should work on
-powerpc... The main difference here however is that you called
-le16_to_cpu (which is basically a nop) on a 32 bits field, while I
-called le32_to_cpu() on it. But both should lead to the same ... (x86
-will do a swapped 16 bits load of the 2 first bytes, while ppc will do a
-load of 4 bytes and swap that, thus ending up with the first 2 bytes
-swapped in the low order of the result). I'll dump the values and have a
-look to be sure. Another possibility would be a problem with the bits
-telling the chip where to calculate the checksum.
+> Probably, you are not aware that "standard IPsec tunnel device",
+> if it is created:
+> 
+> 1. Probably, will not accept fragmented frames, because IPsec cannot
+>    handle them
 
-Ben.
+Now that's interesting.  If this is true, and I have every reason to 
+believe you know what you're talking about, then that would seem to be a 
+problem which is hard to overcome for any security gateway, regardless 
+of how it's implemented in the kernel -- the data originator might be on 
+a totally different host!
 
+Furthermore, it seems to directly contradict the following statement 
+from RFC 4303 section 3.3.4:
 
+"In tunnel mode, ESP is applied to an IP packet, which may be a fragment 
+of an IP datagram."
+
+That reading seems to imply that it should handle fragments just fine. 
+Similarly, RFC 4301 section 13 ("differences from RFC 2401") states:
+
+"For tunnel mode SAs, an SG, BITS, or BITW implementation is now allowed 
+to fragment packets before applying IPsec.  This applies only to IPv4. 
+For IPv6 packets, only the originator is allowed to fragment them."
+
+(consistently with the overall IPv6 architecture.)
+
+Transport mode is different, of course.
+
+> 2. Probably, will have undefined MTU (65536), because of 1
+> 3. Probably, will screw up TCP because of 2
+>    etc.
+> 
+> Actually, this is the reason why it is not implemented.
+> It is dirty business. :-) And the person, who implements this,
+> has to be really... unscrupulous. :-)
+
+I'm clearly failing to understand where, exactly, the problems lie.  I 
+would appreciate any pointers and/or clue transfusion...
+
+	-hpa
