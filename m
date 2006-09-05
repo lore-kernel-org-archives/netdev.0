@@ -1,44 +1,77 @@
-From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
-Subject: Re: New stuff in wireless-dev
-Date: Tue, 5 Sep 2006 02:21:21 +0200
-Message-ID: <6bffcb0e0609041721g5548601cqdc5dcafbecc1f813@mail.gmail.com>
-References: <20060905001225.GF8927@tuxdriver.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: sky2: hw checksum failures
+Date: Tue, 05 Sep 2006 10:36:43 +1000
+Message-ID: <1157416603.22705.62.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.237]:10667 "EHLO
-	wx-out-0506.google.com") by vger.kernel.org with ESMTP
-	id S1751489AbWIEAVW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Sep 2006 20:21:22 -0400
-Received: by wx-out-0506.google.com with SMTP id s14so2046053wxc
-        for <netdev@vger.kernel.org>; Mon, 04 Sep 2006 17:21:21 -0700 (PDT)
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20060905001225.GF8927@tuxdriver.com>
-Content-Disposition: inline
+Received: from gate.crashing.org ([63.228.1.57]:54191 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S1751492AbWIEAg6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 20:36:58 -0400
+To: Stephen Hemminger <shemminger@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Stephen !
 
-On 05/09/06, John W. Linville <linville@tuxdriver.com> wrote:
-> New stuff in wireless-dev -- I'd say more, but everytime I try to
-> say more, vger's new bogofilter rejects my email as spam...WTF???
+So I now have the driver working with the patches I gave you. However,
+when I set it up with a 100bT link and transfer a huge file from another
+machine (about 10MB/sec throughput), I get a few of these in dmesg
 
-Please read
-http://lkml.org/lkml/2006/9/2/44
+eth2: hw csum failure.
+Call Trace:
+[C00000000FFEF8D0] [C00000000000F460] .show_stack+0x6c/0x1a0
+(unreliable)
+[C00000000FFEF970] [C000000000365E48] .netdev_rx_csum_fault+0x4c/0x68
+[C00000000FFEFA00] [C000000000362DB8] .__skb_checksum_complete+0x60/0x90
+[C00000000FFEFA90] [C0000000003A8A48] .tcp_v4_rcv+0x1a0/0xc18
+[C00000000FFEFB60] [C000000000386A54] .ip_local_deliver+0x20c/0x33c
+[C00000000FFEFBF0] [C0000000003870D0] .ip_rcv+0x54c/0x5c0
+[C00000000FFEFC90] [C000000000369E8C] .netif_receive_skb+0x2a8/0x2e8
+[C00000000FFEFD30] [D00000000010E99C] .sky2_poll+0x6e8/0x9dc [sky2]
+[C00000000FFEFE40] [C00000000036696C] .net_rx_action+0xb4/0x1b8
+[C00000000FFEFEF0] [C000000000048404] .__do_softirq+0xa8/0x168
+[C00000000FFEFF90] [C00000000001E3F8] .call_do_softirq+0x14/0x24
+[C00000000FFAB9F0] [C00000000000C1F0] .do_softirq+0x78/0xa0
+[C00000000FFABA80] [C000000000047F9C] .irq_exit+0x5c/0x74
+[C00000000FFABB00] [C00000000000C154] .do_IRQ+0x160/0x184
+[C00000000FFABB90] [C0000000000041EC] hardware_interrupt_entry+0xc/0x10
+--- Exception: 501 at .cpu_idle+0xd4/0x12c
 
->
-> John
-> --
-> John W. Linville
-> linville@tuxdriver.com
+In fact, the dmesg trace is interesting:
 
-Regards,
-Michal
+benh@grosgo:~/kernels/linux-work$ dmesg | grep failure
+eth2: hw csum failure.
+eth2: hw csum failure.
+eth2: hw csum failure.
+eth2: hw csum failure.
+<unknown>: hw csum failure.
+<unknown>: hw csum failure.
+<unknown>: hw csum failure.
+eth2: hw csum failure.
+eth2: hw csum failure.
+<unknown>: hw csum failure.
+<unknown>: hw csum failure.
+<unknown>: hw csum failure.
+<unknown>: hw csum failure.
+<unknown>: hw csum failure.
+<unknown>: hw csum failure.
+<unknown>: hw csum failure.
+<unknown>: hw csum failure.
+<unknown>: hw csum failure.
+<unknown>: hw csum failure.
 
--- 
-Michal K. K. Piotrowski
-LTG - Linux Testers Group
-(http://www.stardust.webpages.pl/ltg/)
+(That's what I get for about 600MB transfered).
+
+The other side is a sungem, I haven't yet had a chance to test with
+something else, in case it's actually a problem there, though.
+
+Any idea ? I'll do some tests with some other chips at the other end
+(will try 1000bT too) later.
+
+Cheers,
+Ben.
+
+
