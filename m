@@ -1,67 +1,42 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: sky2 problem on powerpc
-Date: Wed, 06 Sep 2006 07:11:05 +1000
-Message-ID: <1157490665.22705.128.camel@localhost.localdomain>
-References: <1157347462.22705.16.camel@localhost.localdomain>
-	 <1157354470.22705.26.camel@localhost.localdomain>
-	 <1157355748.22705.32.camel@localhost.localdomain>
-	 <20060904204148.6f9749b3@localhost.localdomain>
-	 <1157428072.22705.70.camel@localhost.localdomain>
-	 <20060904211531.307bbd7f@localhost.localdomain>
+Subject: Re: sky2: hw checksum failures
+Date: Wed, 06 Sep 2006 07:12:43 +1000
+Message-ID: <1157490763.22705.130.camel@localhost.localdomain>
+References: <1157416603.22705.62.camel@localhost.localdomain>
+	 <20060904203442.1c9ed2eb@localhost.localdomain>
+	 <1157427758.22705.65.camel@localhost.localdomain>
+	 <20060904205645.6c80f30c@localhost.localdomain>
+	 <1157431548.22705.78.camel@localhost.localdomain>
+	 <44FD90FC.4090409@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:60350 "EHLO gate.crashing.org")
-	by vger.kernel.org with ESMTP id S1422654AbWIEVLQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 17:11:16 -0400
+Received: from gate.crashing.org ([63.228.1.57]:64190 "EHLO gate.crashing.org")
+	by vger.kernel.org with ESMTP id S932179AbWIEVM6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 17:12:58 -0400
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20060904211531.307bbd7f@localhost.localdomain>
+In-Reply-To: <44FD90FC.4090409@osdl.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2006-09-04 at 21:15 -0700, Stephen Hemminger wrote:
-> On Tue, 05 Sep 2006 13:47:52 +1000
-> Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
-> 
-> > 
-> > > It may not need any swapping, it is hard to tell what the hardware
-> > > will do without experimentation.
-> > 
-> > Yes... did you have a chance to test the vlan stuff on LE machines
-> > (x86) ? did it work with the BE swapping you were doing ? I've
-> > purposedly removed in my patches the hardware side swapping of the
-> > descriptors, as I explained, thus making the hardware react the same on
-> > ppc and x86. Thus we need the exact same swapping macros on both
-> > platforms).
-> 
-> 
-> Last time I checked it worked.  Private cable simulating VLAN
-> from other Linux card.
 
-Ok, so we should probably switch back the vlan bits to BE swapping
-macros... 
+> > Which means that if it worked on x86 with le16_to_cpu, it should work on
+> > powerpc... The main difference here however is that you called
+> > le16_to_cpu (which is basically a nop) on a 32 bits field, while I
+> > called le32_to_cpu() on it. But both should lead to the same ... (x86
+> > will do a swapped 16 bits load of the 2 first bytes, while ppc will do a
+> > load of 4 bytes and swap that, thus ending up with the first 2 bytes
+> > swapped in the low order of the result). I'll dump the values and have a
+> > look to be sure. Another possibility would be a problem with the bits
+> > telling the chip where to calculate the checksum.
+> >   
+> Hardware only computes 16 bit checksum.
 
-However, we then have an inconsistency with that bit:
-
-#ifdef SKY2_VLAN_TAG_USED
-                case OP_RXVLAN:
-                        sky2->rx_tag = length;
-                        break;
-
-                case OP_RXCHKSVLAN:
-                        sky2->rx_tag = length;
-                        /* fall through */
-#endif
-
-in sky2_status_intr()
-
-Where we read the lenght field directly without swapping (on the non
-patched driver, on the patched driver, lenght will have gone through an
-LE swap). That is, if you take the standpoint of a LE machine, you will
-read that value as a little endian value while elsewhere, we manipulate
-sky2->rx_tag as a BE value... (this is even without my patch)
+Oh I know that, but calling 16 bits swapping macros on a 32 bits field
+is a bit dodgy... might work in this case, I'll verify, but you may end
+up with the wrong half of the 32 bits word being used :)
 
 Ben.
 
