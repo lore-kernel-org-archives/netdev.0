@@ -1,59 +1,62 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: [PATCH 2.6.18] WE-21 support (core API)
-Date: Tue, 5 Sep 2006 10:06:41 -0700
-Message-ID: <20060905170641.GA18704@bougret.hpl.hp.com>
-References: <20060830005655.GA8405@bougret.hpl.hp.com> <1157093640.2878.26.camel@ux156> <20060901163558.GB13815@bougret.hpl.hp.com> <200609012055.48799.mb@bu3sch.de> <20060901221045.GB13975@bougret.hpl.hp.com> <1157358909.3324.42.camel@ux156>
-Reply-To: jt@hpl.hp.com
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC] network namespaces
+Date: Tue, 05 Sep 2006 11:09:21 -0600
+Message-ID: <m1k64i1br2.fsf@ebiederm.dsl.xmission.com>
+References: <20060815182029.A1685@castle.nmd.msu.ru>
+	<20060816115313.GC31810@sergelap.austin.ibm.com>
+	<44FD7CF0.4030009@fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Michael Buesch <mb@bu3sch.de>, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>
+Cc: netdev@vger.kernel.org, "Serge E. Hallyn" <serue@us.ibm.com>,
+	Andrey Savochkin <saw@sw.ru>, haveblue@us.ibm.com,
+	clg@fr.ibm.com, herbert@13thfloor.at, sam@vilain.net,
+	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
+	alexey@sw.ru, Linux Containers <containers@lists.osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from madara.hpl.hp.com ([192.6.19.124]:17378 "EHLO madara.hpl.hp.com")
-	by vger.kernel.org with ESMTP id S932150AbWIERIX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 13:08:23 -0400
-To: Johannes Berg <johannes@sipsolutions.net>
-Content-Disposition: inline
-In-Reply-To: <1157358909.3324.42.camel@ux156>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:15342 "EHLO
+	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
+	id S965210AbWIERKj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Sep 2006 13:10:39 -0400
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
+In-Reply-To: <44FD7CF0.4030009@fr.ibm.com> (Daniel Lezcano's message of "Tue,
+	05 Sep 2006 15:34:40 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 04, 2006 at 10:35:09AM +0200, Johannes Berg wrote:
-> Uh, please don't strip me from the CC list :)
-> 
-> > 	WE-netlink is optional. And WE-ioctl could be made optional
-> > (still on the todo list). You can also disable WE-event and WE-iwspy
-> > for further footprint reduction.
-> 
-> The real question is: Why does removing WE-event reduce footprint? I
-> guess the answer is that there's a lot of non-generic code needed to
-> pack/unpack all the data. Which is not really something you want.
 
-	Wrong answer.
+> This family of containers are used too for HPC (high performance computing) and
+> for distributed checkpoint/restart. The cluster runs hundred of jobs, spawning
+> them on different hosts inside an application container. Usually the jobs
+> communicates with broadcast and multicast.
+> Application containers does not care of having different MAC address and rely on
+> a layer 3 approach.
 
-> wireless.c has about 2.3k lines of code. But, for example airo.c
-> contains another 15 lines of code just for the trivial *parameter
-> checking* in airo_set_essid. This is duplicated all over. Did it never
-> occur to you that things like
->                 /* Check the size of the string */
->                 if(dwrq->length > IW_ESSID_MAX_SIZE+1) {
->                         return -E2BIG ;
->                 }
-> can be checked generically? Maybe you're actually checking this
-> generically. But if I did it your way, I'd copy and paste this all
-> over...
+Ok I think to understand this we need some precise definitions.
+In the normal case it is an error for a job to communication with a different
+job.  
 
-	It is actually checked generically, that's the whole point of
-the code in wireless.c. But, driver authors don't trust generic
-checks.
+The basic advantage with a different MAC is that you can found out who the
+intended recipient is sooner in the networking stack and you have truly
+separate network devices.  Allowing for a cleaner implementation.
 
-> > 	It was designed this way on purpose, because you get low
-> > footprint and very good scalability.
-> 
-> Wtf does scalability have to do with it?
+Changing the MAC after migration is likely to be fine.
 
-	Footprint scalability.
+> Are application containers comfortable with a layer 2 virtualization ? I don't
+> think so, because several jobs running inside the same host communicate via
+> broadcast/multicast between them and between other jobs running on different
+> hosts. The IP consumption is a problem too: 1 container == 2 IP (one for the
+> root namespace/ one for the container), multiplicated with the number of
+> jobs. Furthermore, lot of jobs == lot of virtual devices.
 
-> johannes
+First if you hook you network namespaces with ethernet bridging
+you don't need any extra IPs.
 
-	Jean
+Second don't see the conflict you perceive between application containers
+and layer 2 containment.
+
+The bottom line is that you need at least one loopback interface per non-trivial
+network namespace.  One you get that having a virtual is no big deal.  In
+addition network devices don't consume less memory than a process.  So lots
+of network devices should not be a problem. 
+
+Eric
