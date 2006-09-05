@@ -1,46 +1,50 @@
-From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
-Subject: Re: e1000 Detected Tx Unit Hang
-Date: Tue, 5 Sep 2006 09:09:43 -0700
-Message-ID: <4807377b0609050909v59c1ad87jc4ef08ba1f4453d2@mail.gmail.com>
-References: <002c01c6ce9d$a1cf9100$3224050a@avilespaxp>
-	 <4807377b0609031045w67f70a3ese6bea93c15f75ba2@mail.gmail.com>
-	 <000d01c6cfb1$f0d26880$3224050a@avilespaxp>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: sky2 problem on powerpc
+Date: Mon, 4 Sep 2006 21:15:31 -0700
+Message-ID: <20060904211531.307bbd7f@localhost.localdomain>
+References: <1157347462.22705.16.camel@localhost.localdomain>
+	<1157354470.22705.26.camel@localhost.localdomain>
+	<1157355748.22705.32.camel@localhost.localdomain>
+	<20060904204148.6f9749b3@localhost.localdomain>
+	<1157428072.22705.70.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.189]:63836 "EHLO
-	nf-out-0910.google.com") by vger.kernel.org with ESMTP
-	id S965141AbWIEQJp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Sep 2006 12:09:45 -0400
-Received: by nf-out-0910.google.com with SMTP id o25so1261762nfa
-        for <netdev@vger.kernel.org>; Tue, 05 Sep 2006 09:09:43 -0700 (PDT)
-To: "Paul Aviles" <paul.aviles@palei.com>
-In-Reply-To: <000d01c6cfb1$f0d26880$3224050a@avilespaxp>
-Content-Disposition: inline
+Received: from smtp.osdl.org ([65.172.181.4]:17030 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965201AbWIEQb0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 12:31:26 -0400
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+In-Reply-To: <1157428072.22705.70.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/3/06, Paul Aviles <paul.aviles@palei.com> wrote:
-> Hey Jesse, thanks for your reply. Here is the stuff on /procs. The weird
-no problem,
+On Tue, 05 Sep 2006 13:47:52 +1000
+Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
 
-> part is that I have several other identical systems and only one is
-> affected. Today I moved the hard drive to another similar system and I am
-> not seeing the problem so I am wondering if is something maybe wrong with
-> the card eeprom? Is there a way to check that?
+> 
+> > It may not need any swapping, it is hard to tell what the hardware
+> > will do without experimentation.
+> 
+> Yes... did you have a chance to test the vlan stuff on LE machines
+> (x86) ? did it work with the BE swapping you were doing ? I've
+> purposedly removed in my patches the hardware side swapping of the
+> descriptors, as I explained, thus making the hardware react the same on
+> ppc and x86. Thus we need the exact same swapping macros on both
+> platforms).
 
-I doubt it is an eeprom problem.  you can dump the eeproms with
-ethtool -e eth0 from both machines and compare them .  Odd that only
-one system is having the problem.  Could it be that the hardware on
-that box is having issues?  Are you sure the machines are running the
-same bios version with the same settings?  Any overclocking?
 
->  cat /proc/interrupts
->            CPU0       CPU1
->  16:      70540          0   IO-APIC-level  uhci_hcd:usb4, eth0
+Last time I checked it worked.  Private cable simulating VLAN
+from other Linux card.
 
-this could contribute to your problem, were you able to test without NAPI?
-
-Jesse
+> I know pretty much nothing about vlan so I'm not too much about trying
+> to check that right now :)
+> 
+> Also, there is still the hw checksum issue .... I need to verify what's
+> up there, it might be a swapping problem as well... or not. Can you send
+> me your latest patch set so I can work from there ?
+> 
+> Cheers,
+> Ben
+> 
