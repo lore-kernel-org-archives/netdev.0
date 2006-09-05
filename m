@@ -1,64 +1,46 @@
-From: Kirill Korotaev <dev@sw.ru>
-Subject: Re: [RFC] network namespaces
-Date: Tue, 05 Sep 2006 19:47:13 +0400
-Message-ID: <44FD9C01.40506@sw.ru>
-References: <20060815182029.A1685@castle.nmd.msu.ru> <20060816115313.GC31810@sergelap.austin.ibm.com> <44FD7CF0.4030009@fr.ibm.com>
+From: "Jesse Brandeburg" <jesse.brandeburg@gmail.com>
+Subject: Re: e1000 Detected Tx Unit Hang
+Date: Tue, 5 Sep 2006 09:09:43 -0700
+Message-ID: <4807377b0609050909v59c1ad87jc4ef08ba1f4453d2@mail.gmail.com>
+References: <002c01c6ce9d$a1cf9100$3224050a@avilespaxp>
+	 <4807377b0609031045w67f70a3ese6bea93c15f75ba2@mail.gmail.com>
+	 <000d01c6cfb1$f0d26880$3224050a@avilespaxp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Serge E. Hallyn" <serue@us.ibm.com>,
-	Andrey Savochkin <saw@sw.ru>, haveblue@us.ibm.com,
-	clg@fr.ibm.com, herbert@13thfloor.at, sam@vilain.net,
-	ebiederm@xmission.com, Andrew Morton <akpm@osdl.org>,
-	devel@openvz.org, alexey@sw.ru
+Cc: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:31532 "EHLO relay.sw.ru")
-	by vger.kernel.org with ESMTP id S965148AbWIEPof (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 11:44:35 -0400
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-In-Reply-To: <44FD7CF0.4030009@fr.ibm.com>
+Received: from nf-out-0910.google.com ([64.233.182.189]:63836 "EHLO
+	nf-out-0910.google.com") by vger.kernel.org with ESMTP
+	id S965141AbWIEQJp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Sep 2006 12:09:45 -0400
+Received: by nf-out-0910.google.com with SMTP id o25so1261762nfa
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2006 09:09:43 -0700 (PDT)
+To: "Paul Aviles" <paul.aviles@palei.com>
+In-Reply-To: <000d01c6cfb1$f0d26880$3224050a@avilespaxp>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Yes, performance is probably one issue.
-> 
-> My concerns was for layer 2 / layer 3 virtualization. I agree a layer 2 
-> isolation/virtualization is the best for the "system container".
-> But there is another family of container called "application container", 
-> it is not a system which is run inside a container but only the 
-> application. If you want to run a oracle database inside a container, 
-> you can run it inside an application container without launching <init> 
-> and all the services.
-> 
-> This family of containers are used too for HPC (high performance 
-> computing) and for distributed checkpoint/restart. The cluster runs 
-> hundred of jobs, spawning them on different hosts inside an application 
-> container. Usually the jobs communicates with broadcast and multicast.
-> Application containers does not care of having different MAC address and 
-> rely on a layer 3 approach.
-> 
-> Are application containers comfortable with a layer 2 virtualization ? I 
->  don't think so, because several jobs running inside the same host 
-> communicate via broadcast/multicast between them and between other jobs 
-> running on different hosts. The IP consumption is a problem too: 1 
-> container == 2 IP (one for the root namespace/ one for the container), 
-> multiplicated with the number of jobs. Furthermore, lot of jobs == lot 
-> of virtual devices.
-> 
-> However, after a discussion with Kirill at the OLS, it appears we can 
-> merge the layer 2 and 3 approaches if the level of network 
-> virtualization is tunable and we can choose layer 2 or layer 3 when 
-> doing the "unshare". The determination of the namespace for the incoming 
-> traffic can be done with an specific iptable module as a first step. 
-> While looking at the network namespace patches, it appears that the 
-> TCP/UDP part is **very** similar at what is needed for a layer 3 approach.
-> 
-> Any thoughts ?
-My humble opinion is that your approach doesn't intersect with this one.
-So we can freely go with both *if needed*.
-And hear the comments from network guru guys and what and how to improve.
+On 9/3/06, Paul Aviles <paul.aviles@palei.com> wrote:
+> Hey Jesse, thanks for your reply. Here is the stuff on /procs. The weird
+no problem,
 
-So I suggest you at least to send the patches, so we could discuss it.
+> part is that I have several other identical systems and only one is
+> affected. Today I moved the hard drive to another similar system and I am
+> not seeing the problem so I am wondering if is something maybe wrong with
+> the card eeprom? Is there a way to check that?
 
-Thanks,
-Kirill
+I doubt it is an eeprom problem.  you can dump the eeproms with
+ethtool -e eth0 from both machines and compare them .  Odd that only
+one system is having the problem.  Could it be that the hardware on
+that box is having issues?  Are you sure the machines are running the
+same bios version with the same settings?  Any overclocking?
+
+>  cat /proc/interrupts
+>            CPU0       CPU1
+>  16:      70540          0   IO-APIC-level  uhci_hcd:usb4, eth0
+
+this could contribute to your problem, were you able to test without NAPI?
+
+Jesse
