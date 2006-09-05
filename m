@@ -1,76 +1,64 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH] FRV: do_gettimeofday() should no longer use tickadj
-Date: Tue, 05 Sep 2006 16:35:57 +0100
-Message-ID: <6260.1157470557@warthog.cambridge.redhat.com>
-References: <20060905132530.GD9173@stusta.de>  <20060901015818.42767813.akpm@osdl.org>
-Cc: Andrew Morton <akpm@osdl.org>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	linux-kernel@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	David Howells <dhowells@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965138AbWIEPia@vger.kernel.org>
-In-Reply-To: <20060905132530.GD9173@stusta.de> 
-To: Adrian Bunk <bunk@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Kirill Korotaev <dev@sw.ru>
+Subject: Re: [RFC] network namespaces
+Date: Tue, 05 Sep 2006 19:47:13 +0400
+Message-ID: <44FD9C01.40506@sw.ru>
+References: <20060815182029.A1685@castle.nmd.msu.ru> <20060816115313.GC31810@sergelap.austin.ibm.com> <44FD7CF0.4030009@fr.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Serge E. Hallyn" <serue@us.ibm.com>,
+	Andrey Savochkin <saw@sw.ru>, haveblue@us.ibm.com,
+	clg@fr.ibm.com, herbert@13thfloor.at, sam@vilain.net,
+	ebiederm@xmission.com, Andrew Morton <akpm@osdl.org>,
+	devel@openvz.org, alexey@sw.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.233.200]:31532 "EHLO relay.sw.ru")
+	by vger.kernel.org with ESMTP id S965148AbWIEPof (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 11:44:35 -0400
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
+In-Reply-To: <44FD7CF0.4030009@fr.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> Yes, performance is probably one issue.
+> 
+> My concerns was for layer 2 / layer 3 virtualization. I agree a layer 2 
+> isolation/virtualization is the best for the "system container".
+> But there is another family of container called "application container", 
+> it is not a system which is run inside a container but only the 
+> application. If you want to run a oracle database inside a container, 
+> you can run it inside an application container without launching <init> 
+> and all the services.
+> 
+> This family of containers are used too for HPC (high performance 
+> computing) and for distributed checkpoint/restart. The cluster runs 
+> hundred of jobs, spawning them on different hosts inside an application 
+> container. Usually the jobs communicates with broadcast and multicast.
+> Application containers does not care of having different MAC address and 
+> rely on a layer 3 approach.
+> 
+> Are application containers comfortable with a layer 2 virtualization ? I 
+>  don't think so, because several jobs running inside the same host 
+> communicate via broadcast/multicast between them and between other jobs 
+> running on different hosts. The IP consumption is a problem too: 1 
+> container == 2 IP (one for the root namespace/ one for the container), 
+> multiplicated with the number of jobs. Furthermore, lot of jobs == lot 
+> of virtual devices.
+> 
+> However, after a discussion with Kirill at the OLS, it appears we can 
+> merge the layer 2 and 3 approaches if the level of network 
+> virtualization is tunable and we can choose layer 2 or layer 3 when 
+> doing the "unshare". The determination of the namespace for the incoming 
+> traffic can be done with an specific iptable module as a first step. 
+> While looking at the network namespace patches, it appears that the 
+> TCP/UDP part is **very** similar at what is needed for a layer 3 approach.
+> 
+> Any thoughts ?
+My humble opinion is that your approach doesn't intersect with this one.
+So we can freely go with both *if needed*.
+And hear the comments from network guru guys and what and how to improve.
 
-Stop do_gettimeofday() on FRV from using tickadj, and model it after ARM
-instead.
+So I suggest you at least to send the patches, so we could discuss it.
 
-This patch also provides a placeholder macro for getting hardware timer data to
-be filled in when such is available.
-
-Signed-Off-By: David Howells <dhowells@redhat.com>
----
-warthog>diffstat -p1 frv-tickadj-2618rc5mm1.diff 
- arch/frv/kernel/time.c |   20 +++++---------------
- 1 file changed, 5 insertions(+), 15 deletions(-)
-
-diff -urp ../kernels/linux-2.6.18-rc5-mm1/arch/frv/kernel/time.c linux-2.6.18-rc5-mm1-frv/arch/frv/kernel/time.c
---- ../kernels/linux-2.6.18-rc5-mm1/arch/frv/kernel/time.c	2006-09-04 18:03:14.000000000 +0100
-+++ linux-2.6.18-rc5-mm1-frv/arch/frv/kernel/time.c	2006-09-05 15:44:42.000000000 +0100
-@@ -31,6 +31,9 @@
- 
- #define TICK_SIZE (tick_nsec / 1000)
- 
-+/* H/W clock data if we can get it (in microseconds) */
-+#define FRV_HW_CLOCK_DATA (0)
-+
- unsigned long __nongprelbss __clkin_clock_speed_HZ;
- unsigned long __nongprelbss __ext_bus_clock_speed_HZ;
- unsigned long __nongprelbss __res_bus_clock_speed_HZ;
-@@ -148,23 +151,10 @@ void do_gettimeofday(struct timeval *tv)
- {
- 	unsigned long seq;
- 	unsigned long usec, sec;
--	unsigned long max_ntp_tick;
- 
- 	do {
- 		seq = read_seqbegin(&xtime_lock);
--
--		usec = 0;
--
--		/*
--		 * If time_adjust is negative then NTP is slowing the clock
--		 * so make sure not to go into next possible interval.
--		 * Better to lose some accuracy than have time go backwards..
--		 */
--		if (unlikely(time_adjust < 0)) {
--			max_ntp_tick = (USEC_PER_SEC / HZ) - tickadj;
--			usec = min(usec, max_ntp_tick);
--		}
--
-+		usec = FRV_HW_CLOCK_DATA;
- 		sec = xtime.tv_sec;
- 		usec += (xtime.tv_nsec / 1000);
- 	} while (read_seqretry(&xtime_lock, seq));
-@@ -195,7 +185,7 @@ int do_settimeofday(struct timespec *tv)
- 	 * wall time.  Discover what correction gettimeofday() would have
- 	 * made, and then undo it!
- 	 */
--	nsec -= 0 * NSEC_PER_USEC;
-+	nsec -= FRV_HW_CLOCK_DATA * NSEC_PER_USEC;
- 
- 	wtm_sec  = wall_to_monotonic.tv_sec + (xtime.tv_sec - sec);
- 	wtm_nsec = wall_to_monotonic.tv_nsec + (xtime.tv_nsec - nsec);
+Thanks,
+Kirill
