@@ -1,86 +1,66 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC] network namespaces
-Date: Tue, 05 Sep 2006 08:45:39 -0600
-Message-ID: <m1ejuq2wz0.fsf@ebiederm.dsl.xmission.com>
-References: <20060815182029.A1685@castle.nmd.msu.ru>
-	<20060816115313.GC31810@sergelap.austin.ibm.com>
-	<44FD7CF0.4030009@fr.ibm.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: sky2: hw checksum failures
+Date: Tue, 05 Sep 2006 08:00:12 -0700
+Message-ID: <44FD90FC.4090409@osdl.org>
+References: <1157416603.22705.62.camel@localhost.localdomain>	 <20060904203442.1c9ed2eb@localhost.localdomain>	 <1157427758.22705.65.camel@localhost.localdomain>	 <20060904205645.6c80f30c@localhost.localdomain> <1157431548.22705.78.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "Serge E. Hallyn" <serue@us.ibm.com>,
-	Andrey Savochkin <saw@sw.ru>, haveblue@us.ibm.com,
-	clg@fr.ibm.com, herbert@13thfloor.at, sam@vilain.net,
-	Andrew Morton <akpm@osdl.org>, dev@sw.ru, devel@openvz.org,
-	alexey@sw.ru, Linux Containers <containers@lists.osdl.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:23448 "EHLO
-	ebiederm.dsl.xmission.com") by vger.kernel.org with ESMTP
-	id S965067AbWIEOtx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Sep 2006 10:49:53 -0400
-To: Daniel Lezcano <dlezcano@fr.ibm.com>
-In-Reply-To: <44FD7CF0.4030009@fr.ibm.com> (Daniel Lezcano's message of "Tue,
-	05 Sep 2006 15:34:40 +0200")
+Received: from smtp.osdl.org ([65.172.181.4]:15827 "EHLO smtp.osdl.org")
+	by vger.kernel.org with ESMTP id S965073AbWIEPA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 11:00:29 -0400
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+In-Reply-To: <1157431548.22705.78.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Daniel Lezcano <dlezcano@fr.ibm.com> writes:
-
->>>2. People expressed concerns that complete separation of namespaces
->>>   may introduce an undesired overhead in certain usage scenarios.
->>>   The overhead comes from packets traversing input path, then output path,
->>>   then input path again in the destination namespace if root namespace
->>>   acts as a router.
+Benjamin Herrenschmidt wrote:
+> On Mon, 2006-09-04 at 20:56 -0700, Stephen Hemminger wrote:
+>   
+>> On Tue, 05 Sep 2006 13:42:38 +1000
+>> Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
+>>
+>>     
+>>> On Mon, 2006-09-04 at 20:34 -0700, Stephen Hemminger wrote:
+>>>       
+>>>> Unneeded byte swap was occurring.
+>>>>
+>>>> --- linux-2.6.orig/drivers/net/sky2.c
+>>>> +++ linux-2.6/drivers/net/sky2.c
+>>>> @@ -2001,7 +2001,7 @@ static int sky2_status_intr(struct sky2_
+>>>>  		case OP_RXCHKS:
+>>>>  			skb = sky2->rx_ring[sky2->rx_next].skb;
+>>>>  			skb->ip_summed = CHECKSUM_HW;
+>>>> -			skb->csum = le16_to_cpu(status);
+>>>> +			skb->csum = status;
+>>>>  			break;
+>>>>  
+>>>>  		case OP_TXINDEXLE:
+>>>>         
+>>> I've removed it in my paches (have you seen the other patches I sent for
+>>> this driver ?), though I'm pre-swapping status and lenght now before the
+>>> switch/case so there might still be an issue there. I'll have a look.
+>>>       
+>> The other tack would be to leave the "reverse in hw" flag on and take out all the existing
+>> swap calls but then you have to add an ifdef to re-order all the structures for tx_le, rx_le, status_le.
+>> That is what the vendor (GPL) version of sk98lin does.
+>>     
 >
-> Yes, performance is probably one issue.
+> I prefer keeping the HW swap out of the way for now... that way, I know
+> the card will react exactly like in an x86, and I avoid those ugly
+> ifdef's. At least on powerpc, there is no cost in doing swap in software
+> (well, pretty much no cost).
 >
-> My concerns was for layer 2 / layer 3 virtualization. I agree a layer 2
-> isolation/virtualization is the best for the "system container".
-> But there is another family of container called "application container", it is
-> not a system which is run inside a container but only the application. If you
-> want to run a oracle database inside a container, you can run it inside an
-> application container without launching <init> and all the services.
->
-> This family of containers are used too for HPC (high performance computing) and
-> for distributed checkpoint/restart. The cluster runs hundred of jobs, spawning
-> them on different hosts inside an application container. Usually the jobs
-> communicates with broadcast and multicast.
-> Application containers does not care of having different MAC address and rely on
-> a layer 3 approach.
->
-> Are application containers comfortable with a layer 2 virtualization ? I don't
-> think so, because several jobs running inside the same host communicate via
-> broadcast/multicast between them and between other jobs running on different
-> hosts. The IP consumption is a problem too: 1 container == 2 IP (one for the
-> root namespace/ one for the container), multiplicated with the number of
-> jobs. Furthermore, lot of jobs == lot of virtual devices.
->
-> However, after a discussion with Kirill at the OLS, it appears we can merge the
-> layer 2 and 3 approaches if the level of network virtualization is tunable and
-> we can choose layer 2 or layer 3 when doing the "unshare". The determination of
-> the namespace for the incoming traffic can be done with an specific iptable
-> module as a first step. While looking at the network namespace patches, it
-> appears that the TCP/UDP part is **very** similar at what is needed for a layer
-> 3 approach.
->
-> Any thoughts ?
-
-For HPC if you are interested in migration you need a separate IP per
-container.  If you can take you IP address with you migration of
-networking state is simple.  If you can't take your IP address with
-you a network container is nearly pointless from a migration
-perspective.
-
-Beyond that from everything I have seen layer 2 is just much cleaner
-than any layer 3 approach short of Serge's bind filtering.
-
-Beyond that I have yet to see a clean semantics for anything
-resembling your layer 2 layer 3 hybrid approach.  If we can't have
-clear semantics it is by definition impossible to implement correctly
-because no one understands what it is supposed to do.
-
-Note.  A true layer 3 approach has no impact on TCP/UDP filtering
-because it filters at bind time not at packet reception time.  Once
-you start inspecting packets I don't see what the gain is from not
-going all of the way to layer 2.
-
-Eric
+> Which means that if it worked on x86 with le16_to_cpu, it should work on
+> powerpc... The main difference here however is that you called
+> le16_to_cpu (which is basically a nop) on a 32 bits field, while I
+> called le32_to_cpu() on it. But both should lead to the same ... (x86
+> will do a swapped 16 bits load of the 2 first bytes, while ppc will do a
+> load of 4 bytes and swap that, thus ending up with the first 2 bytes
+> swapped in the low order of the result). I'll dump the values and have a
+> look to be sure. Another possibility would be a problem with the bits
+> telling the chip where to calculate the checksum.
+>   
+Hardware only computes 16 bit checksum.
