@@ -1,49 +1,34 @@
 From: "John W. Linville" <linville@tuxdriver.com>
 Subject: What's new in wireless-dev?
-Date: Mon, 4 Sep 2006 20:10:00 -0400
-Message-ID: <20060905000955.GD8927@tuxdriver.com>
+Date: Mon, 4 Sep 2006 20:02:12 -0400
+Message-ID: <20060905000212.GB8927@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="FL5UXtIhxfXey3p5"
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:40201 "EHLO ra.tuxdriver.com")
-	by vger.kernel.org with ESMTP id S1798732AbWIEHWM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2006 03:22:12 -0400
+Received: from ra.tuxdriver.com ([70.61.120.52]:1811 "EHLO ra.tuxdriver.com")
+	by vger.kernel.org with ESMTP id S965080AbWIEACx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2006 20:02:53 -0400
 Received: from bilbo.hq.tuxdriver.com ([70.61.120.53])
-	by ra.tuxdriver.com (8.13.7/8.13.7) with ESMTP id k850A1it003107
+	by ra.tuxdriver.com (8.13.7/8.13.7) with ESMTP id k8502CTY003018
 	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 4 Sep 2006 20:10:07 -0400
+	for <netdev@vger.kernel.org>; Mon, 4 Sep 2006 20:02:18 -0400
 Received: from bilbo.hq.tuxdriver.com (localhost.localdomain [127.0.0.1])
-	by bilbo.hq.tuxdriver.com (8.13.1/8.13.1) with ESMTP id k850A0Lg009312
-	for <netdev@vger.kernel.org>; Mon, 4 Sep 2006 20:10:00 -0400
+	by bilbo.hq.tuxdriver.com (8.13.1/8.13.1) with ESMTP id k8502Cr7009272
+	for <netdev@vger.kernel.org>; Mon, 4 Sep 2006 20:02:12 -0400
 Received: (from linville@localhost)
-	by bilbo.hq.tuxdriver.com (8.13.1/8.13.1/Submit) id k850A0C4009311
-	for netdev@vger.kernel.org; Mon, 4 Sep 2006 20:10:00 -0400
+	by bilbo.hq.tuxdriver.com (8.13.1/8.13.1/Submit) id k8502CQR009271
+	for netdev@vger.kernel.org; Mon, 4 Sep 2006 20:02:12 -0400
 To: netdev@vger.kernel.org
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+I apologize for the announcement delay -- I had a hiccup w/ my mail
+server this weekend...
 
---FL5UXtIhxfXey3p5
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-(Third attempt -- vger's new bogofilter seems a bit over-zealous...)
-
-New stuff in wireless-dev since Saturday or so.  I apologize for the delayed announcement, but I was having some local IT problems...
-
-I'm going to try attaching the rest -- bogofilter seems to think I'm sending spam...wtf???
-
-I hope this works!
-
-John
--- 
-John W. Linville
-linville@tuxdriver.com
-
---FL5UXtIhxfXey3p5
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="wireless-dev.txt"
+(Sorry if you get this twice, vger's new bogofilter doesn't seem to
+be playing nice...)
+---
 
 The following changes since commit a7bcae7c095077d89899b2bf0b8d81b8997f340f:
   John W. Linville:
@@ -2365,5 +2350,6 @@ index e72721f..320272c 100644
  		rx.u.rx.ra_match = 1;
  		ieee80211_invoke_rx_handlers(local, local->rx_handlers, &rx,
  					     sta);
-
---FL5UXtIhxfXey3p5--
+-- 
+John W. Linville
+linville@tuxdriver.com
